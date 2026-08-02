@@ -9,7 +9,7 @@
 - [Basic usage](#basic-usage)
   - [Parsing data](#parsing-data)
   - [Inferred types](#inferred-types)
-  - [Serializing data](#serializing-data)
+  - [Encoding data](#encoding-data)
   - [JSON Schema](#json-schema)
   - [Standard Schema](#standard-schema)
 - [Defining schemas](#defining-schemas)
@@ -97,7 +97,7 @@ S.parser(playerSchema)({ username: "billie", xp: "not a number" });
 
 Use `S.safe` / `S.safeAsync` if you'd rather have a result than an exception — see [Error handling](#error-handling).
 
-> 🧠 Besides `parser` there are operations to transform without validation, assert without allocating an output, and serialize back to the input format. See [Functions on schema](#functions-on-schema).
+> 🧠 Besides `parser` there are operations to transform without validation, assert without allocating an output, and encode back to the input format. See [Functions on schema](#functions-on-schema).
 
 ### Inferred types
 
@@ -113,9 +113,9 @@ const playerSchema = S.schema({
 type Player = S.Infer<typeof playerSchema>;
 ```
 
-### Serializing data
+### Encoding data
 
-Every schema has an `Input` type as well as an `Output` type, so the same definition serializes back to the input format:
+Every schema has an `Input` type as well as an `Output` type, so the same definition encodes back to the input format:
 
 ```ts
 S.encoder(playerSchema)({ username: "billie", xp: 100 });
@@ -293,7 +293,7 @@ S.jsonStringWithSpace(2);
 // Parses JSON string and validates that it's a number
 // JSON string -> number
 S.jsonString.with(S.to, S.number);
-// Serializes number to JSON string
+// Encodes number to JSON string
 S.number.with(S.to, S.jsonString);
 
 // Asserts that the input is a Date instance and not Invalid Date
@@ -1062,7 +1062,7 @@ const evenPositiveSchema = S.number
   .with(S.refine, (val) => val % 2 === 0, { error: "Must be even" });
 ```
 
-The refine function is applied for both parsing and serializing.
+The refine function is applied for both parsing and encoding.
 
 Also, you can have an asynchronous assertion (for decoder only):
 
@@ -1170,7 +1170,7 @@ Note, that in this case only type validations are skipped. If your schema has re
 
 Also, you can use `S.noValidation(schema, true)` helper to turn off type validations for the schema even when it's used with a parse operation.
 
-More often than converting input to output, you'll need to perform the reversed operation. It's usually called "serializing" or "decoding". The ReScript Schema has a unique mental model and provides an ability to reverse any schema with `S.reverse` which you can later use with all possible kinds of operations. But for convinence, there's a few helper functions that can be used to convert output values to the initial format:
+More often than converting input to output, you'll need to perform the reversed operation — encoding. **Sury** has a unique mental model and provides an ability to reverse any schema with `S.reverse` which you can later use with all possible kinds of operations. But for convenience, there's a few helper functions that can be used to convert output values to the initial format:
 
 | Operation       | Interface                                              | Description                                                           |
 | --------------- | ------------------------------------------------------ | --------------------------------------------------------------------- |

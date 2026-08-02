@@ -8,7 +8,7 @@ honest against a refactor, and a stale architecture note is worse than none.
 
 1. **DX** — intuitive public API and error messages.
 2. **Performance** — generated code is the hot path; avoid extra vars, allocations, double validation; inline over indirect.
-3. **Bundle size** — `S.mjs` (bundled from `src/entry.ts`) ships to browsers.
+3. **Bundle size** — `index.mjs` (bundled from `src/entry.ts`) ships to browsers.
 
 Tiebreaker: shortest *generated* code wins over shortest *library* code (runtime
 ships per-schema, library ships once).
@@ -76,7 +76,7 @@ consumer's *own* schema code depends on these:
 - **Never publish a factory through an alias** (`export const object = schemaObject`)
   — the annotation counts only on the declaration that *is* the function.
   Re-export instead: `export { schemaObject as object } from "./factory"`.
-- `tests/treeShaking_test.ts` asserts both against the emitted `S.mjs`.
+- `tests/treeShaking_test.ts` asserts both against the emitted `index.mjs`.
   `bundleSize.yaml` cannot: esbuild honors the annotation only within one file,
   where Rollup ≥ 4 and Rolldown honor it across the package boundary — which is
   where the win lands.

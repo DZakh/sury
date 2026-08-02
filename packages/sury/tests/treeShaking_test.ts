@@ -8,12 +8,12 @@
 // bundleSize.yaml can't catch a lost annotation: it measures with esbuild,
 // which honors `@__NO_SIDE_EFFECTS__` only within a single file and so is blind
 // to it across the package boundary (Rollup >= 4 and Rolldown are not). Hence a
-// direct assertion on the emitted src/S.mjs.
+// direct assertion on the emitted index.mjs.
 import { readFileSync } from "node:fs";
 import { test, expect } from "vitest";
-import * as S from "../src/S.mjs";
+import * as S from "../index.mjs";
 
-const source = readFileSync(new URL("../src/S.mjs", import.meta.url), "utf8");
+const source = readFileSync(new URL("../index.mjs", import.meta.url), "utf8");
 
 // Exports whose whole point is the effect, so a bundler must never drop a call
 // to them even when the result is unused.
@@ -35,7 +35,7 @@ const EFFECTFUL: Record<string, string> = {
 // otherwise go unchecked.
 const exportedLocals = (): Map<string, string> => {
   const block = /\nexport \{([^}]*)\};?\s*$/.exec(source);
-  expect(block, "src/S.mjs should end with an export block").not.toBe(null);
+  expect(block, "index.mjs should end with an export block").not.toBe(null);
   const locals = new Map<string, string>();
   for (const entry of block![1]!.split(",")) {
     const parts = entry.trim().split(/\s+as\s+/);
@@ -52,7 +52,7 @@ const isAnnotated = (local: string): boolean => {
     `^(?:// @__NO_SIDE_EFFECTS__\\n)?(?:var ${name} = |function ${name}\\().*$`,
     "m",
   ).exec(source);
-  expect(decl, `no top-level declaration of ${local} in src/S.mjs`).not.toBe(null);
+  expect(decl, `no top-level declaration of ${local} in index.mjs`).not.toBe(null);
   return decl![0].includes("NO_SIDE_EFFECTS");
 };
 

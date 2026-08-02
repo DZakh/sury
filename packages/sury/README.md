@@ -7,7 +7,7 @@
 
 **The fastest schema with next-gen DX.**
 
-Describe your data once, then parse it, validate it, transform it, serialize it back, and turn it into JSON Schema — all from the same definition, all compiled into a single optimized function.
+Describe your data once, then parse it, validate it, transform it, encode it back, and turn it into JSON Schema — all from the same definition, all compiled into a single optimized function.
 
 > Formerly known as **ReScript Schema**. It's plain JavaScript — you don't need the ReScript compiler to use it. ReScript users, see the [ReScript docs](https://github.com/DZakh/sury/blob/main/docs/rescript-usage.md).
 
@@ -43,7 +43,7 @@ The API mirrors TypeScript types, so there's not much new syntax to learn.
 
 ### Discriminated unions, decoded straight from a JSON string
 
-Declare the union, and get parsing, narrowing, and serialization from one definition:
+Declare the union, and get parsing, narrowing, and encoding from one definition:
 
 ```ts
 const eventSchema = S.union([
@@ -64,7 +64,7 @@ switch (event.type) {
     break;
 }
 
-// The same schema serializes back out, no second definition needed
+// The same schema encodes back out, no second definition needed
 S.encoder(eventSchema, S.jsonString)(event);
 // => '{"type":"user.renamed","id":"42","name":"Dmitry"}'
 ```
@@ -136,7 +136,7 @@ S.encoder(userSchema)({ id: 0n, name: "Dmitry" });
 // => { USER_ID: "0", USER_NAME: "Dmitry" }
 ```
 
-Every schema is reversible, so `S.reverse` hands you a full-featured schema with `Input` and `Output` swapped — usable with every operation, not just a serialize shortcut.
+Every schema is reversible, so `S.reverse` hands you a full-featured schema with `Input` and `Output` swapped — usable with every operation, not just an encode shortcut.
 
 ### Every schema is a pipeline stage
 

@@ -123,6 +123,13 @@ describeArtifact("artifact", () => {
     expect([...unknown]).toEqual([]);
   });
 
+  // The repo root README is the one GitHub renders and the one contributors
+  // edit; the packed copy is the one npm renders. Nothing syncs them.
+  test("the shipped README matches the repo root one", () => {
+    const root = readFileSync(path.join(artifactsPath, "../../../README.md"), "utf8");
+    expect(read("README.md")).toBe(root);
+  });
+
   test("every exports target resolves to a shipped file", () => {
     const pkg = readJson("package.json");
     const targets = [...Object.values<string>(pkg.exports["."]), pkg.exports["./S.gen.js"].types];

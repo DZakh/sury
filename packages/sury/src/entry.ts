@@ -5,7 +5,7 @@
 //    `@module("sury") external` declarations, so both languages share one
 //    runtime instance (one Exn identity, one schema cache, one seq counter).
 //
-// Built by scripts/pack.ts into src/S.mjs (the publish step additionally
+// Built by scripts/pack.ts into index.mjs (the publish step additionally
 // emits a CJS S.js into the artifact for the require condition). Every eager
 // schema constant is PURE-annotated so unused ones tree-shake out of consumer
 // bundles; the extra ReScript-binding exports ($res_*-named) are invisible

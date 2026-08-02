@@ -249,7 +249,7 @@ S.email->S.meta({errorMessage: {catchAll: "Invalid input"}})
 schema->S.meta({errorMessage: {}})
 ```
 
-Available fields: `format`, `type_`, `minimum`, `maximum`, `minLength`, `maxLength`, `minItems`, `maxItems`, `pattern`, `catchAll` (serialized as `_`).
+Available fields: `format`, `type_`, `minimum`, `maximum`, `minLength`, `maxLength`, `minItems`, `maxItems`, `pattern`, `catchAll` (encoded as `_`).
 
 #### ISO datetimes
 
@@ -399,7 +399,7 @@ The `S.nullable` schema represents a data of `Nullable.t` that might be null or 
 
 `S.t<'value> => S.t<option<'value>>`
 
-The same as `S.nullable`, but returns `option` type instead of `Nullable.t`. When serializing, it will return `undefined` for `None` values.
+The same as `S.nullable`, but returns `option` type instead of `Nullable.t`. When encoding, it will return `undefined` for `None` values.
 
 ### **`literal`**
 
@@ -434,7 +434,7 @@ let weakMap = WeakMap.make()
 let weakMapSchema = S.literal(weakMap)
 ```
 
-The `S.literal` schema enforces that a data matches an exact value during parsing and serializing.
+The `S.literal` schema enforces that a data matches an exact value during parsing and encoding.
 
 ### **`object`**
 
@@ -452,7 +452,7 @@ let pointSchema = S.object(s => {
   y: s.field("y", S.int),
 })
 
-// It can be used both for parsing and serializing
+// It can be used both for parsing and encoding
 {"x": 1, "y": -4}->S.parseOrThrow(~to=pointSchema)
 {x: 1, y: -4}->S.decodeOrThrow(~from=pointSchema, ~to=S.unknown)
 ```
@@ -501,7 +501,7 @@ let schema = S.object(s => (s.field("USER_ID", S.int), s.field("USER_NAME", S.st
 // (1, "John")
 ```
 
-The same schema also works for serializing:
+The same schema also works for encoding:
 
 ```rescript
 (1, "John")->S.decodeOrThrow(~from=schema, ~to=S.unknown)
@@ -542,7 +542,7 @@ let schema = S.schema(s => Circle({
 }))
 ```
 
-You can use the schema for parsing as well as serializing:
+You can use the schema for parsing as well as encoding:
 
 ```rescript
 Circle({radius: 1})->S.decodeOrThrow(~from=schema, ~to=S.unknown)
@@ -727,7 +727,7 @@ let schema = S.float->S.shape(radius => Circle({radius: radius}))
 // Circle({radius: 1.})
 ```
 
-The same schema also works for serializing:
+The same schema also works for encoding:
 
 ```rescript
 Circle({radius: 1})->S.decodeOrThrow(~from=schema, ~to=S.unknown)
@@ -1013,7 +1013,7 @@ let pointSchema = S.tuple(s => {
   }
 })
 
-// It can be used both for parsing and serializing
+// It can be used both for parsing and encoding
 ["point", 1, -4]->S.parseOrThrow(~to=pointSchema)
 { x: 1, y: -4 }->S.decodeOrThrow(~from=pointSchema, ~to=S.unknown)
 ```
@@ -1125,7 +1125,7 @@ let schema = S.jsonString->S.to(S.int)
 
 The `S.jsonString` schema represents JSON string.
 
-There's also `S.jsonStringWithSpace` to configure space in the JSON string during serialization.
+There's also `S.jsonStringWithSpace` to configure space in the JSON string during encoding.
 
 ### **`meta`**
 
@@ -1184,7 +1184,7 @@ let nodeSchema = S.recursive("Node", nodeSchema => {
 // }
 ```
 
-The same schema works for serializing:
+The same schema works for encoding:
 
 ```rescript
 {
@@ -1299,11 +1299,11 @@ let evenPositiveSchema = S.int
   ->S.refine(value => mod(value, 2) === 0, ~error="Must be even")
 ```
 
-The refine function is applied for both parsing and serializing.
+The refine function is applied for both parsing and encoding.
 
 ## Transforms
 
-**Sury** allows to augment schema with transformation logic, letting you transform value during parsing and serializing. This is most commonly used for mapping value to more convenient data-structures.
+**Sury** allows to augment schema with transformation logic, letting you transform value during parsing and encoding. This is most commonly used for mapping value to more convenient data-structures.
 
 ### **`transform`**
 
@@ -1418,16 +1418,16 @@ data->S.decodeOrThrow(~from=S.json, ~to=schema)
 // Parse JSON string
 data->S.decodeOrThrow(~from=S.jsonString, ~to=schema)
 
-// Serialize to unknown
+// Encode to unknown
 data->S.decodeOrThrow(~from=schema, ~to=S.unknown)
 
-// Serialize to JSON
+// Encode to JSON
 data->S.decodeOrThrow(~from=schema, ~to=S.json)
 
-// Serialize to JSON string
+// Encode to JSON string
 data->S.decodeOrThrow(~from=schema, ~to=S.jsonString)
 
-// Serialize to JSON string with space
+// Encode to JSON string with space
 data->S.decodeOrThrow(~from=schema, ~to=S.jsonStringWithSpace(2))
 ```
 
@@ -1477,13 +1477,13 @@ S.asyncDecoder: (~from: S.t<'from>, ~through: array<S.t<unknown>>=?, ~to: S.t<'t
 Returns a compiled decode function that transforms values from one schema to another. Use `~through` to chain intermediate schemas.
 
 ```rescript
-// Compile a serializer
-let serialize = S.decoder(~from=schema, ~to=S.unknown)
+// Compile an encoder
+let encode = S.decoder(~from=schema, ~to=S.unknown)
 
 // Compile a JSON decoder
 let decodeJson = S.decoder(~from=S.json, ~to=schema)
 
-// Compile a JSON string serializer
+// Compile a JSON string encoder
 let toJsonString = S.decoder(~from=schema, ~to=S.jsonString)
 
 // Compile an async decoder

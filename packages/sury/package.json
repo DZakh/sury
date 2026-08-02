@@ -34,13 +34,13 @@
     "./src/S.res.mjs",
     "./src/S.res.js"
   ],
-  "main": "./src/S.mjs",
-  "module": "./src/S.mjs",
+  "main": "./index.mjs",
+  "module": "./index.mjs",
   "types": "./src/S.d.ts",
   "exports": {
     ".": {
       "types": "./src/S.d.ts",
-      "import": "./src/S.mjs"
+      "import": "./index.mjs"
     },
     "./src/*": "./src/*",
     "./S.gen.js": {

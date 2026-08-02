@@ -4,13 +4,13 @@
 //   pnpm build        -> tsx scripts/pack.ts for-publish
 //
 // Stage 1 (always): bundle src/entry.ts (the single public entry re-exporting
-// src/*.ts) into the gitignored src/S.mjs; this stage keeps it fresh (it runs
-// before rescript/vitest via pnpm scripts). Types for S.mjs importers resolve
-// through the checked-in src/S.d.mts -> S.d.ts. The ReScript bindings (S.res)
-// reference the same entry as `@module("sury")`, resolved through the
-// package's "." conditional export — which is why the published package (see
-// stage 2) also ships a CJS src/S.js for the require condition and for
-// consumers compiling ReScript to commonjs.
+// src/*.ts) into the gitignored index.mjs; this stage keeps it fresh (it runs
+// before rescript/vitest via pnpm scripts). Types for index.mjs importers
+// resolve through the checked-in index.d.mts -> src/S.d.ts. The ReScript
+// bindings (S.res) reference the same entry as `@module("sury")`, resolved
+// through the package's "." conditional export — which is why the published
+// package (see stage 2) also ships a CJS index.js for the require condition
+// and for consumers compiling ReScript to commonjs.
 //
 // Stage 2 (full pack only): assemble the publishable package in ./artifacts —
 // copy sources, compile ReScript there, emit the two entries consumers load
@@ -18,9 +18,9 @@
 // don't run the compiler (with "sury" kept external so the implementation ships
 // exactly once), strip everything dev-only, and flip package.json to commonjs.
 //
-// The entries are named index.* rather than S.* because `src/S.res` compiles to
-// a JS file named after itself: any S.mjs / S.js the packer put beside it would
-// be one rescript.json "suffix" change away from a collision.
+// Everything esbuild emits is named index.*, never S.*, because `src/S.res`
+// compiles to a JS file named after itself: an S.mjs / S.js sitting beside it
+// would be one rescript.json "suffix" change away from being overwritten.
 
 import { build } from "esbuild";
 import { rollup, type ModuleFormat } from "rollup";
@@ -39,7 +39,7 @@ const sourcePaths = ["package.json", "src", "rescript.json", "README.md", "jsr.j
 // from; LICENSE has to sit in the packed root for npm to pick it up.
 const repoRootPaths = ["LICENSE", "docs"];
 
-// ── Stage 1: entry.ts -> S.mjs (ESM) ─────────────────────────────────────────
+// ── Stage 1: entry.ts -> index.mjs (ESM) ─────────────────────────────────────
 
 async function buildEntry(
   format: "esm" | "cjs",
@@ -65,19 +65,25 @@ async function buildEntry(
 }
 
 const buildDevEntries = (): Promise<void> =>
-  buildEntry("esm", path.join(projectPath, "src/S.mjs"), "./S.d.ts");
+  buildEntry("esm", path.join(projectPath, "index.mjs"), "./src/S.d.ts");
 
 // ── Stage 2: the publishable artifact ────────────────────────────────────────
 
-// The artifact is consumed, never built from, so the TypeScript the entries were
-// bundled out of is dead weight there — and src/advanced/ vanishes with it.
+// The artifact is consumed, never built from, so src/ keeps only what a
+// consumer loads or type-checks against: ReScript sources, what the compiler
+// emitted from them, and the declarations. The TypeScript the entries were
+// bundled out of goes (and src/advanced/ with it), as does anything a dirty
+// working tree left behind — src/ is copied wholesale and is gitignore'd in
+// places, so an allowlist is the only way to know what ends up here.
+const KEEP = /\.res$|\.res\.m?js$|\.d\.ts$/;
+
 function stripSources(dir: string): void {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const entryPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       stripSources(entryPath);
       if (fs.readdirSync(entryPath).length === 0) fs.rmdirSync(entryPath);
-    } else if (entry.name.endsWith(".ts") && !entry.name.endsWith(".d.ts")) {
+    } else if (!KEEP.test(entry.name)) {
       fs.rmSync(entryPath);
     }
   }
@@ -93,8 +99,8 @@ function writeArtifactJson(file: string, update: (json: any) => void): void {
 // Inline the "rescript" runtime dependency into the compiled S.res output, so
 // ReScript consumers that don't run the compiler don't need it installed. The
 // `sury` self-import stays external — the implementation must ship exactly
-// once (S.mjs / CJS S.js), or mixed usage would load two instances (two Exn
-// identities, two schema caches).
+// once (index.mjs / CJS index.js), or mixed usage would load two instances
+// (two Exn identities, two schema caches).
 async function resolveRescriptRuntime(
   format: ModuleFormat,
   input: string,
@@ -143,14 +149,10 @@ async function pack(): Promise<void> {
   await resolveRescriptRuntime("cjs", "src/S.res.mjs", "src/S.res.js");
 
   stripSources(path.join(artifactsPath, "src"));
-  // Both only exist to serve the dev entry src/S.mjs, which index.mjs replaces:
-  // the copied-in build output, and the shim typing a direct .mjs import of it.
-  fs.rmSync(path.join(artifactsPath, "src/S.mjs"));
-  fs.rmSync(path.join(artifactsPath, "src/S.d.mts"));
 
   // Every field below is rewritten rather than inherited, because the dev
   // package and the artifact are genuinely different packages: the dev tree is
-  // ESM-only and its entry is the gitignored src/S.mjs that the spec harness,
+  // ESM-only and its entry is the gitignored index.mjs that the spec harness,
   // the fuzzer and the TS tests all import by name. Don't try to make the two
   // package.json files agree — make this function the single source of truth.
   writeArtifactJson("package.json", (pkg) => {

@@ -25,7 +25,7 @@ const SURY_DIR = fileURLToPath(new URL("../sury/", import.meta.url));
 // Kept at the package root (not under tests/generated/) so it doesn't depend
 // on that directory existing yet on a fresh checkout.
 const PROBE_FILE = SURY_DIR + ".type-probe.ts";
-const IMPORT_LINE = `import * as S from "./src/S.mjs";\n`;
+const IMPORT_LINE = `import * as S from "./index.mjs";\n`;
 
 // `env`/`baselineCount`/PROBE_FILE are process-wide mutable state shared
 // across concurrent deriveTypeInfo calls (cli.ts runs specs through
