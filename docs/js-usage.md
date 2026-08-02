@@ -113,11 +113,7 @@ const playerSchema = S.schema({
 type Player = S.Infer<typeof playerSchema>;
 ```
 
-The two type parameters are `S.Schema<Input, Output>` — the encoded type the schema accepts first, the decoded type it produces second, matching the direction data flows through the schema. `Output` defaults to `Input`, so a schema that doesn't transform can be annotated with one parameter:
-
-```ts
-const schema: S.Schema<string> = S.string; // same as S.Schema<string, string>
-```
+The type parameters read in the direction data flows: `S.Schema<TInput, TOutput>` — the encoded type the schema accepts, then the decoded type it produces. `TOutput` defaults to `TInput`, so an identity schema is just `S.Schema<string>`.
 
 To annotate "any schema producing `T`, whatever it accepts", leave the input as `unknown`:
 
@@ -391,10 +387,10 @@ S.parser(schema)("2020-01-01T00:00:00.123456Z"); // pass (arbitrary precision)
 S.parser(schema)("2020-01-01T00:00:00+02:00"); // fail (no offsets allowed)
 ```
 
-To decode an ISO datetime string into a `Date`, combine it with `S.to(S.date)`:
+To decode an ISO datetime string into a `Date`, chain it with `.with(S.to, S.date)`:
 
 ```ts
-const schema = S.to(S.string, S.date);
+const schema = S.string.with(S.to, S.date);
 // schema has the type S.Schema<string, Date>
 ```
 
@@ -876,7 +872,7 @@ S.parser(S.date)(new Date("invalid")); // throws
 S.parser(S.date)("2024-01-01"); // throws - not a Date instance
 ```
 
-> Unlike `S.isoDateTime` (which validates ISO datetime strings) and `S.to(S.string, S.date)` (which decodes ISO strings into Date objects), `S.date` validates existing Date instances directly.
+> Unlike `S.isoDateTime` (which validates ISO datetime strings) and `S.string.with(S.to, S.date)` (which decodes ISO strings into Date objects), `S.date` validates existing Date instances directly.
 
 You can use `S.decoder` with multiple arguments to decode between strings and dates:
 
@@ -1011,6 +1007,15 @@ S.parser(numberSetSchema)(new Set([1, 2, "3"])); // throws S.Error: At item 3 - 
 S.parser(numberSetSchema)([1, 2, 3]); // throws S.Error: Expected Set<number>, received [1, 2, 3]
 ```
 
+`S.to` is what makes the items *decode*, so an item codec keeps working: `mySet(S.string.with(S.to, S.date))` yields a `Set<Date>`. When you only need to validate — the items never change type — reach for [`S.refine`](#refinements) instead, which checks in place instead of rebuilding the collection:
+
+```ts
+const numberSet = S.instance(Set<number>).with(S.refine, (set) => {
+  for (const item of set) S.assert(S.number, item);
+  return true;
+});
+```
+
 ## Recursive schemas
 
 You can define a recursive schema in **Sury**. Unfortunately, TypeScript derives the Schema type as `unknown` so you need to explicitly specify the type and it'll start correctly typechecking.
@@ -1029,7 +1034,7 @@ const nodeSchema = S.recursive<Node>("Node", (nodeSchema) =>
 );
 ```
 
-One type parameter is enough when the schema doesn't transform — `S.recursive<Node>` is `S.Schema<Node, Node>`. When the recursive schema transforms its input, pass both sides in `S.Schema<Input, Output>` order:
+One type parameter is enough when the schema doesn't transform — `S.recursive<Node>` is `S.Schema<Node, Node>`. When the recursive schema transforms its input, pass both sides in `S.Schema<TInput, TOutput>` order:
 
 ```ts
 type Row = { title: string; children: Row[] };
