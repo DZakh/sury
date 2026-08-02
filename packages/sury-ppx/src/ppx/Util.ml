@@ -11,6 +11,32 @@ let mknoloc txt = mkloc txt Location.none
 let lid ?(loc = Location.none) s = mkloc (Longident.parse s) loc
 let makeIdentExpr ?attrs s = Exp.ident ?attrs (mknoloc (longident_parse s))
 
+let isSchemaAttributeName txt =
+  String.length txt >= 2 && String.sub txt 0 2 = "s."
+
+(* Drops ppx input from a type before it gets embedded into generated code.
+   Filters rather than clears `ptyp_attributes`, because everything that isn't
+   `@s.*` (`@res.arity` on arrows, say) is the compiler's and changes what the
+   annotation means. Nested arguments carry `@s.*` too, as in
+   `array<@s.default("x") string>`. *)
+let stripSchemaAttributes =
+  let stripper =
+    object
+      inherit Ast_traverse.map as super
+
+      method! core_type core_type =
+        super#core_type
+          {
+            core_type with
+            ptyp_attributes =
+              core_type.ptyp_attributes
+              |> List.filter (fun {attr_name = {Location.txt}} ->
+                     not (isSchemaAttributeName txt));
+          }
+    end
+  in
+  stripper#core_type
+
 let getAttributeByName attributes name =
   let filtered =
     attributes |> List.filter (fun {attr_name = {Location.txt}} -> txt = name)

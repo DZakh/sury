@@ -55,3 +55,86 @@ type ignoredNullWithMatches = @s.null @s.matches(S.option(S.string)) option<stri
 test("@s.null doesn't override @s.matches(S.option(_))", t => {
   t->assertEqualSchemas(ignoredNullWithMatchesSchema, S.option(S.string))
 })
+
+@schema
+type stringWithWith = @s.with(S.trim) string
+test("Creates schema with @s.with transform", t => {
+  t->assertEqualSchemas(stringWithWithSchema, S.string->S.trim)
+})
+
+@schema
+type stringWithMultipleWith = @s.with(S.trim) @s.with(s => s->S.min(1)) @s.with(s => s->S.max(5)) string
+test("Applies multiple @s.with transforms in order of appearance", t => {
+  t->assertEqualSchemas(stringWithMultipleWithSchema, S.string->S.trim->S.min(1)->S.max(5))
+})
+
+@schema @s.with(s => s->S.meta({description: "A user"}))
+type userWithWith = {
+  name: @s.with(s => s->S.length(2)) string,
+  age: @s.with(s => s->S.min(18)) int,
+}
+test("Applies @s.with on type declaration and on fields of different types", t => {
+  t->assertEqualSchemas(
+    userWithWithSchema,
+    S.schema(s => {
+      name: s.matches(S.string->S.length(2)),
+      age: s.matches(S.int->S.min(18)),
+    })->S.meta({description: "A user"}),
+  )
+})
+
+@schema
+type stringWithDefaultAndWith = @s.default("Foo") @s.with(S.trim) string
+test("Combines @s.with with @s.default", t => {
+  t->assertEqualSchemas(
+    stringWithDefaultAndWithSchema,
+    S.option(S.string)->S.Option.getOr("Foo")->S.trim,
+  )
+})
+
+@schema
+type stringWithWithAndDefault = @s.with(S.trim) @s.default("Foo") string
+test("Combines @s.with written before @s.default", t => {
+  t->assertEqualSchemas(
+    stringWithWithAndDefaultSchema,
+    S.option(S.string->S.trim)->S.Option.getOr("Foo"),
+  )
+})
+
+@schema
+type intWithWithPlaceholder = @s.with(S.min(_, 1)) @s.with(S.max(_, 5)) int
+test("Applies @s.with with partial application placeholder", t => {
+  t->assertEqualSchemas(intWithWithPlaceholderSchema, S.int->S.min(1)->S.max(5))
+})
+
+@schema
+type recordWithOptionalWithField = {maybe?: @s.with(S.trim) string}
+test("Applies @s.with on an optional field", t => {
+  t->assertEqualSchemas(
+    recordWithOptionalWithFieldSchema,
+    S.schema(s => {
+      maybe: ?s.matches(S.option(S.string->S.trim)),
+    }),
+  )
+})
+
+// Regression: the pin must not capture user type variables of any name
+@schema
+type paramWithWith<'sWith1> = @s.with(s => s->S.meta({description: "wrapped"})) array<'sWith1>
+test("Applies @s.with on a parametrized type", t => {
+  t->assertEqualSchemas(
+    paramWithWithSchema(S.string),
+    S.array(S.string)->S.meta({description: "wrapped"}),
+  )
+})
+
+// Regression: the pinned type must shed @s.* attributes at every depth
+@schema
+type withOverNestedAttributes = @s.with(s => s->S.meta({description: "items"}))
+array<@s.default("x") string>
+test("Applies @s.with over a nested @s.default", t => {
+  t->assertEqualSchemas(
+    withOverNestedAttributesSchema,
+    S.array(S.option(S.string)->S.Option.getOr("x"))->S.meta({description: "items"}),
+  )
+})
