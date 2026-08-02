@@ -1985,7 +1985,9 @@ test("Successfully parses recursive object", (t) => {
     children: Node[];
   };
 
-  let nodeSchema = S.recursive<Node, Node>("Node", (nodeSchema) =>
+  // The one-arg form relies on `TOutput = TInput` — keep it compiling for
+  // identity recursion even if the signature changes.
+  let nodeSchema = S.recursive<Node>("Node", (nodeSchema) =>
     S.schema({
       id: S.string,
       children: S.array(nodeSchema),

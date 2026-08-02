@@ -1021,11 +1021,27 @@ type Node = {
   children: Node[];
 };
 
-const nodeSchema = S.recursive<Node, Node>("Node", (nodeSchema) =>
+const nodeSchema = S.recursive<Node>("Node", (nodeSchema) =>
   S.schema({
     id: S.string,
     children: S.array(nodeSchema),
   })
+);
+```
+
+One type parameter is enough when the schema doesn't transform — `S.recursive<Node>` is `S.Schema<Node, Node>`. When the recursive schema transforms its input, pass both sides in `S.Schema<Input, Output>` order:
+
+```ts
+type Row = { title: string; children: Row[] };
+
+const rowSchema = S.recursive<unknown, Row>("Row", (rowSchema) =>
+  S.schema({
+    TITLE: S.string,
+    CHILDREN: S.array(rowSchema),
+  }).with(S.shape, (input) => ({
+    title: input.TITLE,
+    children: input.CHILDREN,
+  }))
 );
 ```
 
