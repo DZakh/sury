@@ -1,12 +1,12 @@
 /** The Standard Schema interface. */
-export interface StandardSchemaV1<Input = unknown, Output = Input> {
+export interface StandardSchemaV1<TInput = unknown, TOutput = TInput> {
   /** The Standard Schema properties. */
-  readonly "~standard": StandardSchemaV1.Props<Input, Output>;
+  readonly "~standard": StandardSchemaV1.Props<TInput, TOutput>;
 }
 
 export declare namespace StandardSchemaV1 {
   /** The Standard Schema properties interface. */
-  export interface Props<Input = unknown, Output = Input> {
+  export interface Props<TInput = unknown, TOutput = TInput> {
     /** The version number of the standard. */
     readonly version: 1;
     /** The vendor name of the schema library. */
@@ -14,18 +14,18 @@ export declare namespace StandardSchemaV1 {
     /** Validates unknown input values. */
     readonly validate: (
       value: unknown
-    ) => Result<Output> | Promise<Result<Output>>;
+    ) => Result<TOutput> | Promise<Result<TOutput>>;
     /** Inferred types associated with the schema. */
-    readonly types?: Types<Input, Output> | undefined;
+    readonly types?: Types<TInput, TOutput> | undefined;
   }
 
   /** The result interface of the validate function. */
-  export type Result<Output> = SuccessResult<Output> | FailureResult;
+  export type Result<TOutput> = SuccessResult<TOutput> | FailureResult;
 
   /** The result interface if validation succeeds. */
-  export interface SuccessResult<Output> {
+  export interface SuccessResult<TOutput> {
     /** The typed output value. */
-    readonly value: Output;
+    readonly value: TOutput;
     /** The non-existent issues. */
     readonly issues?: undefined;
   }
@@ -51,21 +51,21 @@ export declare namespace StandardSchemaV1 {
   }
 
   /** The Standard Schema types interface. */
-  export interface Types<Input = unknown, Output = Input> {
+  export interface Types<TInput = unknown, TOutput = TInput> {
     /** The input type of the schema. */
-    readonly input: Input;
+    readonly input: TInput;
     /** The output type of the schema. */
-    readonly output: Output;
+    readonly output: TOutput;
   }
 
   /** Infers the input type of a Standard Schema. */
-  export type InferInput<Schema extends StandardSchemaV1> = NonNullable<
-    Schema["~standard"]["types"]
+  export type InferInput<TSchema extends StandardSchemaV1> = NonNullable<
+    TSchema["~standard"]["types"]
   >["input"];
 
   /** Infers the output type of a Standard Schema. */
-  export type InferOutput<Schema extends StandardSchemaV1> = NonNullable<
-    Schema["~standard"]["types"]
+  export type InferOutput<TSchema extends StandardSchemaV1> = NonNullable<
+    TSchema["~standard"]["types"]
   >["output"];
 }
 
@@ -73,36 +73,36 @@ export declare namespace StandardSchemaV1 {
  * The Standard Typed interface.
  * This is a base type extended by other specs.
  */
-export interface StandardTypedV1<Input = unknown, Output = Input> {
-  readonly "~standard": StandardTypedV1.Props<Input, Output>;
+export interface StandardTypedV1<TInput = unknown, TOutput = TInput> {
+  readonly "~standard": StandardTypedV1.Props<TInput, TOutput>;
 }
 
 export declare namespace StandardTypedV1 {
-  export interface Props<Input = unknown, Output = Input> {
+  export interface Props<TInput = unknown, TOutput = TInput> {
     readonly version: 1;
     readonly vendor: string;
-    readonly types?: Types<Input, Output> | undefined;
+    readonly types?: Types<TInput, TOutput> | undefined;
   }
-  export interface Types<Input = unknown, Output = Input> {
-    readonly input: Input;
-    readonly output: Output;
+  export interface Types<TInput = unknown, TOutput = TInput> {
+    readonly input: TInput;
+    readonly output: TOutput;
   }
-  export type InferInput<Schema extends StandardTypedV1> = NonNullable<
-    Schema["~standard"]["types"]
+  export type InferInput<TSchema extends StandardTypedV1> = NonNullable<
+    TSchema["~standard"]["types"]
   >["input"];
-  export type InferOutput<Schema extends StandardTypedV1> = NonNullable<
-    Schema["~standard"]["types"]
+  export type InferOutput<TSchema extends StandardTypedV1> = NonNullable<
+    TSchema["~standard"]["types"]
   >["output"];
 }
 
 /** The Standard JSON Schema interface. https://standardschema.dev/json-schema */
-export interface StandardJSONSchemaV1<Input = unknown, Output = Input> {
-  readonly "~standard": StandardJSONSchemaV1.Props<Input, Output>;
+export interface StandardJSONSchemaV1<TInput = unknown, TOutput = TInput> {
+  readonly "~standard": StandardJSONSchemaV1.Props<TInput, TOutput>;
 }
 
 export declare namespace StandardJSONSchemaV1 {
-  export interface Props<Input = unknown, Output = Input>
-    extends StandardTypedV1.Props<Input, Output> {
+  export interface Props<TInput = unknown, TOutput = TInput>
+    extends StandardTypedV1.Props<TInput, TOutput> {
     readonly jsonSchema: StandardJSONSchemaV1.Converter;
   }
   export interface Converter {
@@ -118,18 +118,18 @@ export declare namespace StandardJSONSchemaV1 {
     readonly target: Target;
     readonly libraryOptions?: Record<string, unknown> | undefined;
   }
-  export interface Types<Input = unknown, Output = Input>
-    extends StandardTypedV1.Types<Input, Output> {}
-  export type InferInput<Schema extends StandardTypedV1> =
-    StandardTypedV1.InferInput<Schema>;
-  export type InferOutput<Schema extends StandardTypedV1> =
-    StandardTypedV1.InferOutput<Schema>;
+  export interface Types<TInput = unknown, TOutput = TInput>
+    extends StandardTypedV1.Types<TInput, TOutput> {}
+  export type InferInput<TSchema extends StandardTypedV1> =
+    StandardTypedV1.InferInput<TSchema>;
+  export type InferOutput<TSchema extends StandardTypedV1> =
+    StandardTypedV1.InferOutput<TSchema>;
 }
 
 
-export type SuccessResult<Value> = {
+export type SuccessResult<TValue> = {
   readonly success: true;
-  readonly value: Value;
+  readonly value: TValue;
   readonly error?: undefined;
 };
 
@@ -138,7 +138,7 @@ export type FailureResult = {
   readonly error: Error;
 };
 
-export type Result<Value> = SuccessResult<Value> | FailureResult;
+export type Result<TValue> = SuccessResult<TValue> | FailureResult;
 
 export type JSON =
   | string
@@ -153,84 +153,100 @@ export type StringFormat = "json" | "date-time" | "email" | "uuid" | "cuid" | "u
 export type ArrayFormat = "compactColumns";
 export type Format = NumberFormat | StringFormat | ArrayFormat;
 
-export type Schema<Output, Input = unknown> = {
-  with<TargetOutput = unknown, TargetInput = unknown>(
+// `TOutput = TInput` so an identity schema is spelled `Schema<string>`. The
+// default is dependent, so TS instantiates it at every one-arg reference —
+// internal references write `Schema<unknown, unknown>` in full to keep that
+// off the per-schema type-cost the specs measure.
+export type Schema<TInput = unknown, TOutput = TInput> = {
+  with<TTargetInput = unknown, TTargetOutput = unknown>(
     to: (
       schema: Schema<unknown, unknown>,
       target: Schema<unknown, unknown>,
       decode?: ((value: unknown) => unknown) | undefined,
-      encode?: (value: unknown) => Output
+      encode?: (value: unknown) => TOutput
     ) => Schema<unknown, unknown>,
-    target: SchemaLike<TargetOutput, TargetInput>,
-    decode?: ((value: Output) => TargetInput) | undefined,
-    encode?: (value: TargetOutput) => Output
-  ): Schema<TargetOutput, Input>;
+    target: SchemaLike<TTargetInput, TTargetOutput>,
+    decode?: ((value: TOutput) => TTargetInput) | undefined,
+    encode?: (value: TTargetOutput) => TOutput
+  ): Schema<TInput, TTargetOutput>;
   with(
     refine: (
       schema: Schema<unknown, unknown>,
       refineCheck: (value: unknown) => boolean,
       refineOptions?: { error?: string; path?: string[] }
     ) => Schema<unknown, unknown>,
-    refineCheck: (value: Output) => boolean,
+    refineCheck: (value: TOutput) => boolean,
     refineOptions?: { error?: string; path?: string[] }
-  ): Schema<Output, Input>;
+  ): Schema<TInput, TOutput>;
   // This overload is what both S.refine and S.shape resolve to under
   // overload matching — the exact mechanism that routes S.refine calls here
   // instead of the more specific `refine` overload above hasn't been pinned
   // down. Treat it as load-bearing for both call sites and verify against
   // S_refine_test.res / S_shape_test.res before changing its shape.
-  with<Shape>(
+  with<TShape>(
     fn: (
       schema: Schema<unknown, unknown>,
       callback: ((value: unknown) => unknown) | undefined
     ) => Schema<unknown, unknown>,
-    callback: ((value: Output) => Shape) | undefined
-  ): Schema<Shape, Input>;
-  with<O, I>(fn: (schema: Schema<Output, Input>) => SchemaLike<O, I>): Schema<O, I>;
-  // Constraining A1 to string makes a string-literal arg1 (e.g.
+    callback: ((value: TOutput) => TShape) | undefined
+  ): Schema<TInput, TShape>;
+  with<TNextInput, TNextOutput>(
+    fn: (schema: Schema<TInput, TOutput>) => SchemaLike<TNextInput, TNextOutput>
+  ): Schema<TNextInput, TNextOutput>;
+  // Constraining TArg1 to string makes a string-literal arg1 (e.g.
   // `.with(S.brand, "myId")`) infer its literal type instead of widening to
   // `string` — needed for brand-based nominal typing. The next overload
   // covers the general (non-string) arg1 case.
-  with<O, I, A1 extends string>(
-    fn: (schema: Schema<Output, Input>, arg1: A1) => SchemaLike<O, I>,
-    arg1: A1
-  ): Schema<O, I>;
-  with<O, I, A1>(
-    fn: (schema: Schema<Output, Input>, arg1: A1) => SchemaLike<O, I>,
-    arg1: A1
-  ): Schema<O, I>;
-  with<O, I, A1, A2>(
-    fn: (schema: Schema<Output, Input>, arg1: A1, arg2: A2) => SchemaLike<O, I>,
-    arg1: A1,
-    arg2: A2
-  ): Schema<O, I>;
+  with<TNextInput, TNextOutput, TArg1 extends string>(
+    fn: (
+      schema: Schema<TInput, TOutput>,
+      arg1: TArg1
+    ) => SchemaLike<TNextInput, TNextOutput>,
+    arg1: TArg1
+  ): Schema<TNextInput, TNextOutput>;
+  with<TNextInput, TNextOutput, TArg1>(
+    fn: (
+      schema: Schema<TInput, TOutput>,
+      arg1: TArg1
+    ) => SchemaLike<TNextInput, TNextOutput>,
+    arg1: TArg1
+  ): Schema<TNextInput, TNextOutput>;
+  with<TNextInput, TNextOutput, TArg1, TArg2>(
+    fn: (
+      schema: Schema<TInput, TOutput>,
+      arg1: TArg1,
+      arg2: TArg2
+    ) => SchemaLike<TNextInput, TNextOutput>,
+    arg1: TArg1,
+    arg2: TArg2
+  ): Schema<TNextInput, TNextOutput>;
 
   /**
-   * The schema as `Schema<output, input>`, collapsed to `Schema<output>` when
+   * The schema as `Schema<input, output>`, collapsed to `Schema<input>` when
    * the two sides match. Used by `console.log` and string interpolation.
    *
    * ```ts
    * `${S.string}`                    // "Schema<string>"
-   * `${S.to(S.string, S.number)}`    // "Schema<number, string>"
+   * `${S.to(S.string, S.number)}`    // "Schema<string, number>"
    * ```
    */
   toString(): string;
 
-  readonly $defs?: Record<string, Schema<unknown>>;
+  readonly $defs?: Record<string, Schema<unknown, unknown>>;
 
   readonly name?: string;
   readonly title?: string;
   readonly description?: string;
   readonly deprecated?: boolean;
-  readonly examples?: Input[];
+  readonly examples?: TInput[];
   readonly noValidation?: boolean;
-  readonly default?: Input;
-  readonly to?: Schema<unknown>;
+  readonly default?: TInput;
+  readonly to?: Schema<unknown, unknown>;
   readonly errorMessage?: SchemaErrorMessage;
 
   // jsonSchema.input/.output throw until enableStandardJSONSchema() is called.
-  readonly ["~standard"]: StandardSchemaV1.Props<Input, Output> &
-    StandardJSONSchemaV1.Props<Input, Output>;
+  readonly ["~standard"]: StandardSchemaV1.Props<TInput, TOutput> &
+    StandardJSONSchemaV1.Props<TInput, TOutput>;
 } & (
   | {
       readonly type: "never";
@@ -279,17 +295,17 @@ export type Schema<Output, Input = unknown> = {
     }
   | {
       readonly type: "function";
-      readonly const?: Input;
+      readonly const?: TInput;
     }
   | {
       readonly type: "instance";
-      readonly class: Class<Input>;
-      readonly const?: Input;
+      readonly class: Class<TInput>;
+      readonly const?: TInput;
     }
   | {
       readonly type: "array";
-      readonly items: Schema<unknown>;
-      readonly additionalItems: AdditionalItemsMode | Schema<unknown>;
+      readonly items: Schema<unknown, unknown>;
+      readonly additionalItems: AdditionalItemsMode | Schema<unknown, unknown>;
       readonly format?: ArrayFormat;
       readonly minItems?: number;
       readonly maxItems?: number;
@@ -297,14 +313,14 @@ export type Schema<Output, Input = unknown> = {
   | {
       readonly type: "object";
       readonly properties: {
-        [key: string]: Schema<unknown>;
+        [key: string]: Schema<unknown, unknown>;
       };
-      readonly additionalItems: AdditionalItemsMode | Schema<unknown>;
+      readonly additionalItems: AdditionalItemsMode | Schema<unknown, unknown>;
       readonly required?: string[];
     }
   | {
       readonly type: "anyOf";
-      readonly anyOf: Schema<unknown>[];
+      readonly anyOf: Schema<unknown, unknown>[];
       readonly has: Record<
         | "string"
         | "number"
@@ -342,8 +358,8 @@ type BaseError = {
 export type Error =
   | (BaseError & {
       readonly code: "invalid_input";
-      readonly expected: Schema<unknown>;
-      readonly received: Schema<unknown>;
+      readonly expected: Schema<unknown, unknown>;
+      readonly received: Schema<unknown, unknown>;
       readonly input?: unknown;
       readonly unionErrors?: readonly Error[];
     })
@@ -352,13 +368,13 @@ export type Error =
     })
   | (BaseError & {
       readonly code: "unsupported_decode";
-      readonly from: Schema<unknown>;
-      readonly to: Schema<unknown>;
+      readonly from: Schema<unknown, unknown>;
+      readonly to: Schema<unknown, unknown>;
     })
   | (BaseError & {
       readonly code: "invalid_conversion";
-      readonly from: Schema<unknown>;
-      readonly to: Schema<unknown>;
+      readonly from: Schema<unknown, unknown>;
+      readonly to: Schema<unknown, unknown>;
       readonly cause?: unknown;
     })
   | (BaseError & {
@@ -375,41 +391,41 @@ export const Error: {
 // full `Schema<…>` shape (whose 14-member union + `with` overloads are costly to
 // instantiate per match). `types` is optional, so the pattern keeps it optional.
 export type Output<T> = T extends {
-  readonly ["~standard"]: { readonly types?: { readonly output: infer Output } };
+  readonly ["~standard"]: { readonly types?: { readonly output: infer TOutput } };
 }
-  ? Output
+  ? TOutput
   : never;
 export type Infer<T> = Output<T>;
 export type Input<T> = T extends {
-  readonly ["~standard"]: { readonly types?: { readonly input: infer Input } };
+  readonly ["~standard"]: { readonly types?: { readonly input: infer TInput } };
 }
-  ? Input
+  ? TInput
   : never;
 
 // Utility types for decoder function with multiple schemas
-type ExtractFirstInput<T extends readonly SchemaLike<any, any>[]> =
-  T extends readonly [SchemaLike<any, infer FirstInput>, ...any[]]
-    ? FirstInput
+type ExtractFirstInput<TSchemas extends readonly SchemaLike<any, any>[]> =
+  TSchemas extends readonly [SchemaLike<infer TFirstInput, any>, ...any[]]
+    ? TFirstInput
     : never;
 
 // Utility types for encoder function with multiple schemas
-type ExtractFirstOutput<T extends readonly SchemaLike<any, any>[]> =
-  T extends readonly [SchemaLike<infer FirstOutput, any>, ...any[]]
-    ? FirstOutput
+type ExtractFirstOutput<TSchemas extends readonly SchemaLike<any, any>[]> =
+  TSchemas extends readonly [SchemaLike<any, infer TFirstOutput>, ...any[]]
+    ? TFirstOutput
     : never;
 
-type ExtractLastOutput<T extends readonly SchemaLike<any, any>[]> =
-  T extends readonly [...any[], SchemaLike<infer LastOutput, any>]
-    ? LastOutput
-    : T extends readonly [SchemaLike<infer SingleOutput, any>]
-    ? SingleOutput
+type ExtractLastOutput<TSchemas extends readonly SchemaLike<any, any>[]> =
+  TSchemas extends readonly [...any[], SchemaLike<any, infer TLastOutput>]
+    ? TLastOutput
+    : TSchemas extends readonly [SchemaLike<any, infer TSingleOutput>]
+    ? TSingleOutput
     : never;
 
-type ExtractLastInput<T extends readonly SchemaLike<any, any>[]> =
-  T extends readonly [...any[], SchemaLike<any, infer LastInput>]
-    ? LastInput
-    : T extends readonly [SchemaLike<any, infer SingleInput>]
-    ? SingleInput
+type ExtractLastInput<TSchemas extends readonly SchemaLike<any, any>[]> =
+  TSchemas extends readonly [...any[], SchemaLike<infer TLastInput, any>]
+    ? TLastInput
+    : TSchemas extends readonly [SchemaLike<infer TSingleInput, any>]
+    ? TSingleInput
     : never;
 
 // Match the `~standard` marker instead of the full `Schema<…>` shape for the
@@ -418,9 +434,9 @@ type ExtractLastInput<T extends readonly SchemaLike<any, any>[]> =
 // stamps onto every nested property — that marker only exists to keep literal
 // types from widening and shouldn't leak into the inferred Output/Input.
 export type UnknownToOutput<T> = T extends {
-  readonly ["~standard"]: { readonly types?: { readonly output: infer Output } };
+  readonly ["~standard"]: { readonly types?: { readonly output: infer TOutput } };
 }
-  ? Output
+  ? TOutput
   : T extends (...args: any[]) => any
   ? T
   : T extends unknown[]
@@ -430,9 +446,9 @@ export type UnknownToOutput<T> = T extends {
   : T;
 
 export type UnknownToInput<T> = T extends {
-  readonly ["~standard"]: { readonly types?: { readonly input: infer Input } };
+  readonly ["~standard"]: { readonly types?: { readonly input: infer TInput } };
 }
-  ? Input
+  ? TInput
   : T extends (...args: any[]) => any
   ? T
   : T extends unknown[]
@@ -444,39 +460,41 @@ export type UnknownToInput<T> = T extends {
 // Lightweight parameter type for inferring a schema's Output/Input: matching
 // the `~standard` marker instead of the full `Schema<…>` shape (14-member
 // union + `with` overloads) keeps per-call instantiation cost low.
-type SchemaLike<Output, Input> = {
+type SchemaLike<TInput, TOutput> = {
   readonly ["~standard"]: {
-    readonly types?: { readonly output: Output; readonly input: Input } | undefined;
+    readonly types?:
+      | { readonly output: TOutput; readonly input: TInput }
+      | undefined;
   };
 };
 
-export type Brand<T, ID extends string> = T & {
+export type Brand<T, TId extends string> = T & {
   /**
    *  TypeScript won't suggest strings beginning with a space as properties.
    *  Useful for symbol-like string properties.
    */
-  readonly [" brand"]: [T, ID];
+  readonly [" brand"]: [T, TId];
 };
 
-export function brand<ID extends string, Output = unknown, Input = unknown>(
-  schema: SchemaLike<Output, Input>,
-  brandId: ID
-): Schema<Brand<Output, ID>, Input>;
+export function brand<TId extends string, TInput = unknown, TOutput = unknown>(
+  schema: SchemaLike<TInput, TOutput>,
+  brandId: TId
+): Schema<TInput, Brand<TOutput, TId>>;
 
-// `R` already holds each field's resolved type. A field is optional iff its type
-// admits `undefined`, so an `S.never` field stays required. The split is skipped
-// when no field is optional. Required keys come first, optional last — matching
-// the ordering Zod (and the wider Standard Schema ecosystem) infers, so a Sury
-// type reads the same as its cross-library equivalent.
-type ResolveObject<R> = undefined extends R[keyof R]
+// `TFields` already holds each field's resolved type. A field is optional iff
+// its type admits `undefined`, so an `S.never` field stays required. The split
+// is skipped when no field is optional. Required keys come first, optional last
+// — matching the ordering Zod (and the wider Standard Schema ecosystem) infers,
+// so a Sury type reads the same as its cross-library equivalent.
+type ResolveObject<TFields> = undefined extends TFields[keyof TFields]
   ? Flatten<
       {
-        [K in keyof R as undefined extends R[K] ? never : K]: R[K];
+        [K in keyof TFields as undefined extends TFields[K] ? never : K]: TFields[K];
       } & {
-        [K in keyof R as undefined extends R[K] ? K : never]?: R[K];
+        [K in keyof TFields as undefined extends TFields[K] ? K : never]?: TFields[K];
       }
     >
-  : Flatten<R>;
+  : Flatten<TFields>;
 
 // Flatten an intersection into one object, keeping values verbatim (incl. `never`).
 type Flatten<T> = T extends object ? { [K in keyof T]: T[K] } : T;
@@ -493,24 +511,24 @@ type UnknownArrayToInput<T extends unknown[]> = number extends T["length"]
 
 export function schema<const T extends unknown[]>(
   schemas: [...T]
-): Schema<[...UnknownArrayToOutput<T>], [...UnknownArrayToInput<T>]>;
+): Schema<[...UnknownArrayToInput<T>], [...UnknownArrayToOutput<T>]>;
 export function schema<const T>(
   value: T
-): Schema<UnknownToOutput<T>, UnknownToInput<T>>;
+): Schema<UnknownToInput<T>, UnknownToOutput<T>>;
 
 export function literal<const T>(
   value: T
-): Schema<UnknownToOutput<T>, UnknownToInput<T>>;
+): Schema<UnknownToInput<T>, UnknownToOutput<T>>;
 
-export function union<const A, const B extends unknown[]>(
-  schemas: [A, ...B]
+export function union<const TFirst, const TRest extends unknown[]>(
+  schemas: [TFirst, ...TRest]
 ): Schema<
-  UnknownToOutput<A> | UnknownArrayToOutput<B>[number],
-  UnknownToInput<A> | UnknownArrayToInput<B>[number]
+  UnknownToInput<TFirst> | UnknownArrayToInput<TRest>[number],
+  UnknownToOutput<TFirst> | UnknownArrayToOutput<TRest>[number]
 >;
 export function union<const T>(
   schemas: readonly T[]
-): Schema<UnknownToOutput<T>, UnknownToInput<T>>;
+): Schema<UnknownToInput<T>, UnknownToOutput<T>>;
 
 export const string: Schema<string, string>;
 export const boolean: Schema<boolean, boolean>;
@@ -545,223 +563,221 @@ export const url: Schema<string, string>;
 
 export const date: Schema<Date, Date>;
 
-export function safe<Value>(scope: () => Value): Result<Value>;
-export function safeAsync<Value>(
-  scope: () => Promise<Value>
-): Promise<Result<Value>>;
+export function safe<TValue>(scope: () => TValue): Result<TValue>;
+export function safeAsync<TValue>(
+  scope: () => Promise<TValue>
+): Promise<Result<TValue>>;
 
-export function reverse<Output, Input>(
-  schema: SchemaLike<Output, Input>
-): Schema<Input, Output>;
+export function reverse<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>
+): Schema<TOutput, TInput>;
 
-export function parser<Output>(
-  schema: SchemaLike<Output, unknown>
-): (data: unknown) => Output;
-export function parser<Output>(
+export function parser<TOutput>(
+  schema: SchemaLike<unknown, TOutput>
+): (data: unknown) => TOutput;
+export function parser<TOutput>(
   from: SchemaLike<unknown, unknown>,
-  target: SchemaLike<Output, unknown>
-): (data: unknown) => Output;
+  target: SchemaLike<unknown, TOutput>
+): (data: unknown) => TOutput;
 export function parser<
-  Schemas extends readonly [SchemaLike<any, any>, ...SchemaLike<any, any>[]]
->(...schemas: Schemas): (data: unknown) => ExtractLastOutput<Schemas>;
+  TSchemas extends readonly [SchemaLike<any, any>, ...SchemaLike<any, any>[]]
+>(...schemas: TSchemas): (data: unknown) => ExtractLastOutput<TSchemas>;
 
-export function asyncParser<Output>(
-  schema: SchemaLike<Output, unknown>
-): (data: unknown) => Promise<Output>;
-export function asyncParser<Output>(
+export function asyncParser<TOutput>(
+  schema: SchemaLike<unknown, TOutput>
+): (data: unknown) => Promise<TOutput>;
+export function asyncParser<TOutput>(
   from: SchemaLike<unknown, unknown>,
-  target: SchemaLike<Output, unknown>
-): (data: unknown) => Promise<Output>;
+  target: SchemaLike<unknown, TOutput>
+): (data: unknown) => Promise<TOutput>;
 export function asyncParser<
-  Schemas extends readonly [SchemaLike<any, any>, ...SchemaLike<any, any>[]]
->(...schemas: Schemas): (data: unknown) => Promise<ExtractLastOutput<Schemas>>;
+  TSchemas extends readonly [SchemaLike<any, any>, ...SchemaLike<any, any>[]]
+>(...schemas: TSchemas): (data: unknown) => Promise<ExtractLastOutput<TSchemas>>;
 
-export function decoder<Output, Input>(
-  schema: SchemaLike<Output, Input>
-): (data: Input) => Output;
-export function decoder<Output, Input>(
-  from: SchemaLike<unknown, Input>,
-  target: SchemaLike<Output, unknown>
-): (data: Input) => Output;
+export function decoder<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>
+): (data: TInput) => TOutput;
+export function decoder<TInput, TOutput>(
+  from: SchemaLike<TInput, unknown>,
+  target: SchemaLike<unknown, TOutput>
+): (data: TInput) => TOutput;
 export function decoder<
-  Schemas extends readonly [SchemaLike<any, any>, ...SchemaLike<any, any>[]]
+  TSchemas extends readonly [SchemaLike<any, any>, ...SchemaLike<any, any>[]]
 >(
-  ...schemas: Schemas
-): (data: ExtractFirstInput<Schemas>) => ExtractLastOutput<Schemas>;
+  ...schemas: TSchemas
+): (data: ExtractFirstInput<TSchemas>) => ExtractLastOutput<TSchemas>;
 
-export function asyncDecoder<Output, Input>(
-  schema: SchemaLike<Output, Input>
-): (data: Input) => Promise<Output>;
-export function asyncDecoder<Output, Input>(
-  from: SchemaLike<unknown, Input>,
-  target: SchemaLike<Output, unknown>
-): (data: Input) => Promise<Output>;
+export function asyncDecoder<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>
+): (data: TInput) => Promise<TOutput>;
+export function asyncDecoder<TInput, TOutput>(
+  from: SchemaLike<TInput, unknown>,
+  target: SchemaLike<unknown, TOutput>
+): (data: TInput) => Promise<TOutput>;
 export function asyncDecoder<
-  Schemas extends readonly [SchemaLike<any, any>, ...SchemaLike<any, any>[]]
+  TSchemas extends readonly [SchemaLike<any, any>, ...SchemaLike<any, any>[]]
 >(
-  ...schemas: Schemas
-): (data: ExtractFirstInput<Schemas>) => Promise<ExtractLastOutput<Schemas>>;
+  ...schemas: TSchemas
+): (data: ExtractFirstInput<TSchemas>) => Promise<ExtractLastOutput<TSchemas>>;
 
-export function encoder<Output, Input>(
-  schema: SchemaLike<Output, Input>
-): (data: Output) => Input;
-export function encoder<Output, Input>(
-  from: SchemaLike<Output, unknown>,
-  target: SchemaLike<unknown, Input>
-): (data: Output) => Input;
+export function encoder<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>
+): (data: TOutput) => TInput;
+export function encoder<TInput, TOutput>(
+  from: SchemaLike<unknown, TOutput>,
+  target: SchemaLike<TInput, unknown>
+): (data: TOutput) => TInput;
 export function encoder<
-  Schemas extends readonly [SchemaLike<any, any>, ...SchemaLike<any, any>[]]
+  TSchemas extends readonly [SchemaLike<any, any>, ...SchemaLike<any, any>[]]
 >(
-  ...schemas: Schemas
-): (data: ExtractFirstOutput<Schemas>) => ExtractLastInput<Schemas>;
+  ...schemas: TSchemas
+): (data: ExtractFirstOutput<TSchemas>) => ExtractLastInput<TSchemas>;
 
-export function asyncEncoder<Output, Input>(
-  schema: SchemaLike<Output, Input>
-): (data: Output) => Promise<Input>;
-export function asyncEncoder<Output, Input>(
-  from: SchemaLike<Output, unknown>,
-  target: SchemaLike<unknown, Input>
-): (data: Output) => Promise<Input>;
+export function asyncEncoder<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>
+): (data: TOutput) => Promise<TInput>;
+export function asyncEncoder<TInput, TOutput>(
+  from: SchemaLike<unknown, TOutput>,
+  target: SchemaLike<TInput, unknown>
+): (data: TOutput) => Promise<TInput>;
 export function asyncEncoder<
-  Schemas extends readonly [SchemaLike<any, any>, ...SchemaLike<any, any>[]]
+  TSchemas extends readonly [SchemaLike<any, any>, ...SchemaLike<any, any>[]]
 >(
-  ...schemas: Schemas
-): (data: ExtractFirstOutput<Schemas>) => Promise<ExtractLastInput<Schemas>>;
+  ...schemas: TSchemas
+): (data: ExtractFirstOutput<TSchemas>) => Promise<ExtractLastInput<TSchemas>>;
 
-export function assert<Output, Input>(
-  schema: SchemaLike<Output, Input>,
+export function assert<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>,
   data: unknown
-): asserts data is Input;
-export function assert<Output, Input>(
+): asserts data is TInput;
+export function assert<TInput, TOutput>(
   data: unknown,
-  schema: SchemaLike<Output, Input>
-): asserts data is Input;
+  schema: SchemaLike<TInput, TOutput>
+): asserts data is TInput;
 
-export function is<Output, Input>(
-  schema: SchemaLike<Output, Input>,
+export function is<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>,
   data: unknown
-): data is Input;
-export function is<Output, Input>(
+): data is TInput;
+export function is<TInput, TOutput>(
   data: unknown,
-  schema: SchemaLike<Output, Input>
-): data is Input;
+  schema: SchemaLike<TInput, TOutput>
+): data is TInput;
 
-export function tuple<Output, Input extends unknown[]>(
+export function tuple<TInput extends unknown[], TOutput>(
   definer: (s: {
-    item: <ItemOutput>(
+    item: <TItemOutput>(
       inputIndex: number,
-      schema: SchemaLike<ItemOutput, unknown>
-    ) => ItemOutput;
+      schema: SchemaLike<unknown, TItemOutput>
+    ) => TItemOutput;
     tag: (inputIndex: number, value: unknown) => void;
-  }) => Output
-): Schema<Output, Input>;
+  }) => TOutput
+): Schema<TInput, TOutput>;
 export function tuple<const T extends unknown[]>(
   schemas: [...T]
-): Schema<[...UnknownArrayToOutput<T>], [...UnknownArrayToInput<T>]>;
+): Schema<[...UnknownArrayToInput<T>], [...UnknownArrayToOutput<T>]>;
 
 export function optional<
-  Output,
-  Input,
-  Or extends Output | undefined = undefined
+  TInput,
+  TOutput,
+  TOr extends TOutput | undefined = undefined
 >(
-  schema: SchemaLike<Output, Input>,
-  or?: (() => Or) | Or,
+  schema: SchemaLike<TInput, TOutput>,
+  or?: (() => TOr) | TOr,
   // To make .with work
   _?: never
 ): Schema<
-  Or extends undefined ? Output | undefined : Output,
-  Input | undefined
+  TInput | undefined,
+  TOr extends undefined ? TOutput | undefined : TOutput
 >;
 
-export function nullable<
-  Output,
-  Input,
-  Or extends Output | null = null
->(
-  schema: SchemaLike<Output, Input>,
-  or?: (() => Or) | Or,
+export function nullable<TInput, TOutput, TOr extends TOutput | null = null>(
+  schema: SchemaLike<TInput, TOutput>,
+  or?: (() => TOr) | TOr,
   // To make .with work
   _?: never
-): Schema<Or extends null ? Output | null : Output, Input | null>;
+): Schema<TInput | null, TOr extends null ? TOutput | null : TOutput>;
 
-export const nullish: <Output, Input>(
-  schema: SchemaLike<Output, Input>
-) => Schema<Output | undefined | null, Input | undefined | null>;
+export const nullish: <TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>
+) => Schema<TInput | undefined | null, TOutput | undefined | null>;
 
 export type Class<T> = new (...args: readonly any[]) => T;
 export const instance: <T>(class_: Class<T>) => Schema<T, T>;
 
-export const array: <Output, Input>(
-  schema: SchemaLike<Output, Input>
-) => Schema<Output[], Input[]>;
+export const array: <TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>
+) => Schema<TInput[], TOutput[]>;
 
-export const compactColumns: <Output, Input>(
-  schema: SchemaLike<Output, Input>
-) => Schema<Output[][], Input[][]>;
+export const compactColumns: <TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>
+) => Schema<TInput[][], TOutput[][]>;
 
-export const record: <Output, Input>(
-  schema: SchemaLike<Output, Input>
-) => Schema<Record<string, Output>, Record<string, Input>>;
+export const record: <TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>
+) => Schema<Record<string, TInput>, Record<string, TOutput>>;
 
-type ObjectCtx<Input extends Record<string, unknown>> = {
-  field: <FieldOutput>(
+type ObjectCtx<TInput extends Record<string, unknown>> = {
+  field: <TFieldOutput>(
     name: string,
-    schema: SchemaLike<FieldOutput, unknown>
-  ) => FieldOutput;
-  fieldOr: <FieldOutput>(
+    schema: SchemaLike<unknown, TFieldOutput>
+  ) => TFieldOutput;
+  fieldOr: <TFieldOutput>(
     name: string,
-    schema: SchemaLike<FieldOutput, unknown>,
-    or: FieldOutput
-  ) => FieldOutput;
-  tag: <TagName extends keyof Input>(
-    name: TagName,
-    value: Input[TagName]
+    schema: SchemaLike<unknown, TFieldOutput>,
+    or: TFieldOutput
+  ) => TFieldOutput;
+  tag: <TTagName extends keyof TInput>(
+    name: TTagName,
+    value: TInput[TTagName]
   ) => void;
-  flatten: <FieldOutput>(schema: SchemaLike<FieldOutput, unknown>) => FieldOutput;
+  flatten: <TFieldOutput>(
+    schema: SchemaLike<unknown, TFieldOutput>
+  ) => TFieldOutput;
   nested: (name: string) => ObjectCtx<Record<string, unknown>>;
 };
 
-export function object<Output, Input extends Record<string, unknown>>(
-  definer: (ctx: ObjectCtx<Input>) => Output
-): Schema<Output, Input>;
+export function object<TInput extends Record<string, unknown>, TOutput>(
+  definer: (ctx: ObjectCtx<TInput>) => TOutput
+): Schema<TInput, TOutput>;
 export function object<T extends Record<string, unknown>>(
   definition: T
-): Schema<UnknownToOutput<T>, UnknownToInput<T>>;
+): Schema<UnknownToInput<T>, UnknownToOutput<T>>;
 
-export function strip<Output, Input extends Record<string, unknown>>(
-  schema: SchemaLike<Output, Input>
-): Schema<Output, Input>;
-export function deepStrip<Output, Input extends Record<string, unknown>>(
-  schema: SchemaLike<Output, Input>
-): Schema<Output, Input>;
-export function strict<Output, Input extends Record<string, unknown>>(
-  schema: SchemaLike<Output, Input>
-): Schema<Output, Input>;
-export function deepStrict<Output, Input extends Record<string, unknown>>(
-  schema: SchemaLike<Output, Input>
-): Schema<Output, Input>;
+export function strip<TInput extends Record<string, unknown>, TOutput>(
+  schema: SchemaLike<TInput, TOutput>
+): Schema<TInput, TOutput>;
+export function deepStrip<TInput extends Record<string, unknown>, TOutput>(
+  schema: SchemaLike<TInput, TOutput>
+): Schema<TInput, TOutput>;
+export function strict<TInput extends Record<string, unknown>, TOutput>(
+  schema: SchemaLike<TInput, TOutput>
+): Schema<TInput, TOutput>;
+export function deepStrict<TInput extends Record<string, unknown>, TOutput>(
+  schema: SchemaLike<TInput, TOutput>
+): Schema<TInput, TOutput>;
 
 // Bare Flatten, not ResolveObject: re-splitting the merged intersection to
 // hoist optionals last nearly doubled this type's instantiation cost, so Merge
 // keeps insertion order.
-type Merge<A, B> = Flatten<
-  { [K in keyof A as K extends keyof B ? never : K]: A[K] } & B
+type Merge<TLeft, TRight> = Flatten<
+  { [K in keyof TLeft as K extends keyof TRight ? never : K]: TLeft[K] } & TRight
 >;
 
 export function merge<
-  O1 extends Record<string, unknown>,
-  I1,
-  O2 extends Record<string, unknown>,
-  I2
->(schema1: SchemaLike<O1, I1>, schema2: SchemaLike<O2, I2>): Schema<
-  Merge<O1, O2>,
-  Merge<I1, I2>
->;
+  TInput1,
+  TOutput1 extends Record<string, unknown>,
+  TInput2,
+  TOutput2 extends Record<string, unknown>
+>(
+  schema1: SchemaLike<TInput1, TOutput1>,
+  schema2: SchemaLike<TInput2, TOutput2>
+): Schema<Merge<TInput1, TInput2>, Merge<TOutput1, TOutput2>>;
 
-export function recursive<Output, Input = unknown>(
+export function recursive<TInput = unknown, TOutput = TInput>(
   identifier: string,
-  definer: (schema: Schema<Output, Input>) => Schema<Output, Input>
-): Schema<Output, Input>;
+  definer: (schema: Schema<TInput, TOutput>) => Schema<TInput, TOutput>
+): Schema<TInput, TOutput>;
 
 export type SchemaErrorMessage = {
   /** Catch-all override, used when no more specific key below matches the failing check. */
@@ -777,65 +793,65 @@ export type SchemaErrorMessage = {
   pattern?: string;
 };
 
-export type Meta<Output> = {
+export type Meta<TOutput> = {
   name?: string;
   title?: string;
   description?: string;
   deprecated?: boolean;
-  examples?: Output[];
+  examples?: TOutput[];
   errorMessage?: SchemaErrorMessage;
 };
 
-export function meta<Output, Input>(
-  schema: SchemaLike<Output, Input>,
-  meta: Meta<Output>
-): Schema<Output, Input>;
+export function meta<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>,
+  meta: Meta<TOutput>
+): Schema<TInput, TOutput>;
 
 export function inputExpression(schema: SchemaLike<unknown, unknown>): string;
 export function outputExpression(schema: SchemaLike<unknown, unknown>): string;
-export function noValidation<Output, Input>(
-  schema: SchemaLike<Output, Input>,
+export function noValidation<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>,
   value: boolean
-): Schema<Output, Input>;
+): Schema<TInput, TOutput>;
 
-export function asyncDecoderAssert<Output, Input>(
-  schema: SchemaLike<Output, Input>,
-  assertFn: (value: Output) => Promise<void>
-): Schema<Output, Input>;
+export function asyncDecoderAssert<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>,
+  assertFn: (value: TOutput) => Promise<void>
+): Schema<TInput, TOutput>;
 
-export function refine<Output, Input>(
-  schema: SchemaLike<Output, Input>,
-  refineCheck: (value: Output) => boolean,
+export function refine<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>,
+  refineCheck: (value: TOutput) => boolean,
   refineOptions?: {
     error?: string;
     path?: string[];
   }
-): Schema<Output, Input>;
+): Schema<TInput, TOutput>;
 
-export const min: <Output extends string | number | unknown[], Input>(
-  schema: SchemaLike<Output, Input>,
+export const min: <TInput, TOutput extends string | number | unknown[]>(
+  schema: SchemaLike<TInput, TOutput>,
   length: number,
   message?: string
-) => Schema<Output, Input>;
-export const max: <Output extends string | number | unknown[], Input>(
-  schema: SchemaLike<Output, Input>,
+) => Schema<TInput, TOutput>;
+export const max: <TInput, TOutput extends string | number | unknown[]>(
+  schema: SchemaLike<TInput, TOutput>,
   length: number,
   message?: string
-) => Schema<Output, Input>;
-export const length: <Output extends string | unknown[], Input>(
-  schema: SchemaLike<Output, Input>,
+) => Schema<TInput, TOutput>;
+export const length: <TInput, TOutput extends string | unknown[]>(
+  schema: SchemaLike<TInput, TOutput>,
   length: number,
   message?: string
-) => Schema<Output, Input>;
+) => Schema<TInput, TOutput>;
 
-export const pattern: <Input>(
-  schema: SchemaLike<string, Input>,
+export const pattern: <TInput>(
+  schema: SchemaLike<TInput, string>,
   re: RegExp,
   message?: string
-) => Schema<string, Input>;
-export const trim: <Input>(
-  schema: SchemaLike<string, Input>
-) => Schema<string, Input>;
+) => Schema<TInput, string>;
+export const trim: <TInput>(
+  schema: SchemaLike<TInput, string>
+) => Schema<TInput, string>;
 
 export type AdditionalItemsMode = "strip" | "strict";
 
@@ -846,36 +862,36 @@ export type GlobalConfigOverride = {
 
 export function global(globalConfigOverride: GlobalConfigOverride): void;
 
-export function shape<Shape = unknown, Output = unknown, Input = unknown>(
-  schema: SchemaLike<Output, Input>,
-  shaper: (value: Output) => Shape
-): Schema<Shape, Input>;
+export function shape<TShape = unknown, TInput = unknown, TOutput = unknown>(
+  schema: SchemaLike<TInput, TOutput>,
+  shaper: (value: TOutput) => TShape
+): Schema<TInput, TShape>;
 
 export function to<
-  Output = unknown,
-  Input = unknown,
-  TargetInput = unknown,
-  TargetOutput = unknown
+  TInput = unknown,
+  TOutput = unknown,
+  TTargetInput = unknown,
+  TTargetOutput = unknown
 >(
-  schema: SchemaLike<Output, Input>,
-  target: SchemaLike<TargetOutput, TargetInput>,
-  decode?: ((value: Output) => TargetInput) | undefined,
-  encode?: (value: TargetOutput) => Output
-): Schema<TargetOutput, Input>;
+  schema: SchemaLike<TInput, TOutput>,
+  target: SchemaLike<TTargetInput, TTargetOutput>,
+  decode?: ((value: TOutput) => TTargetInput) | undefined,
+  encode?: (value: TTargetOutput) => TOutput
+): Schema<TInput, TTargetOutput>;
 
-export function toJSONSchema<Output, Input>(
-  schema: SchemaLike<Output, Input>,
+export function toJSONSchema<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>,
   options?: {
     target?: "draft-07" | "draft-2020-12" | "openapi-3.0";
   }
 ): JSONSchema7;
-export function fromJSONSchema<Output extends JSON>(
+export function fromJSONSchema<TOutput extends JSON>(
   jsonSchema: JSONSchema7
-): Schema<Output, JSON>;
-export function extendJSONSchema<Output, Input>(
-  schema: SchemaLike<Output, Input>,
+): Schema<JSON, TOutput>;
+export function extendJSONSchema<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>,
   jsonSchema: JSONSchema7
-): Schema<Output, Input>;
+): Schema<TInput, TOutput>;
 /** Enables `~standard.jsonSchema`; its input/output throw before this is called. */
 export function enableStandardJSONSchema(): void;
 

@@ -3,7 +3,7 @@ ts:
   schema: S.json.with(S.to, S.union([S.bigint, S.string]))
   input: JSON
   output: string | bigint
-  instantiations: 6090
+  instantiations: 6069
 vs:
   zod:
     _skip: not-applicable

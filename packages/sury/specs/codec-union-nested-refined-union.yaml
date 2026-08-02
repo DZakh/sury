@@ -3,7 +3,7 @@ ts:
   schema: 'S.union([S.union([S.string, S.number]).with(S.refine, (value) => value !== "", { error: "Expected a non-empty value" }), S.boolean])'
   input: string | number | boolean
   output: string | number | boolean
-  instantiations: 6525
+  instantiations: 6504
 vs:
   zod: z.union([z.union([z.string(), z.number()]).refine((value) => value !== ""), z.boolean()])
 jsonSchema:

@@ -1,7 +1,6 @@
 import {
   baseSchema,
   type Builder,
-  cached,
   copySchema,
   type Encoder,
   type Flag,
@@ -10,6 +9,7 @@ import {
   flagUnsafeHas,
   getOrRethrow,
   globalConfig,
+  initSchema,
   inputExpression,
   instanceTag,
   type Internal,
@@ -388,15 +388,13 @@ const neverBuilderFn = (input: Val): Val => {
   // Carry `never` as the val's own schema, not the input's: nothing gets past
   // this branch, so a union built from its cases' output schemas must not list
   // the input type as something the union can produce.
-  const output = B_refine(input, never_(), U, never_());
+  const output = B_refine(input, never_, U, never_);
   output.cp = B_embedInvalidInput(input) + ";";
   return output;
 }
-export const never_ = (): Internal => {
-  return cached(neverTag, neverTag, (s) => {
-    s.decoder = neverBuilderFn;
-  });
-}
+export const never_: Internal = /* @__PURE__ */ initSchema(neverTag, (s) => {
+  s.decoder = neverBuilderFn;
+});
 
 export const nestedOptionParser: Builder = (input: Val) => {
   const nextSchema = input.e.to!;

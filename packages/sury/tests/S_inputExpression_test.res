@@ -276,7 +276,7 @@ test("Output expression of a schema without a transform matches the input", t =>
 
 test("toString prints both sides of a transformed schema", t => {
   let schema = S.string->S.to(S.int)
-  t->Assert.deepEqual((schema->S.untag).toString(), "Schema<int32, string>")
+  t->Assert.deepEqual((schema->S.untag).toString(), "Schema<string, int32>")
 })
 
 test("toString collapses to one parameter when the sides match", t => {
@@ -284,5 +284,5 @@ test("toString collapses to one parameter when the sides match", t => {
 })
 
 test("toString reverses nested schemas for the output side", t => {
-  t->Assert.deepEqual((S.array(S.string->S.to(S.int))->S.untag).toString(), "Schema<int32[], string[]>")
+  t->Assert.deepEqual((S.array(S.string->S.to(S.int))->S.untag).toString(), "Schema<string[], int32[]>")
 })

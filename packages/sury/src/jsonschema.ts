@@ -100,7 +100,7 @@ export type JSONSchemaTypeName =
 // `Arrayable.single`/`Arrayable.array` are %identity and are dropped at call
 // sites, `Arrayable.isArray` is Array.isArray, and `Arrayable.classify` is an
 // inline Array.isArray test.
-export type JSONSchemaArrayable<Item> = Item | Item[];
+export type JSONSchemaArrayable<TItem> = TItem | TItem[];
 
 // PORT-NOTE: JSONSchema's `definition` is `@unboxed
 // Schema(t) | @as(false) Never | @as(true) Any` — at runtime a definition is
@@ -709,7 +709,7 @@ const primitiveToSchema = (primitive: unknown): Internal => {
 }
 
 const toIntSchema = (jsonSchema: JSONSchemaT): Internal => {
-  let schema = int();
+  let schema = int;
   // TODO: Support jsonSchema.multipleOf
   if (jsonSchema.minimum !== U) {
     schema = intMin(schema, jsonSchema.minimum | 0);
@@ -788,7 +788,7 @@ const definitionToDefaultValue = (definition: JSONSchemaDefinition): unknown => 
 
 // @__NO_SIDE_EFFECTS__
 export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
-  const anySchema = json();
+  const anySchema = json;
 
   for (let i = 0; i < unsupportedKeywords.length; i++) {
     const keyword = unsupportedKeywords[i]!;
@@ -807,7 +807,7 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
     } else if (definition === true) {
       return anySchema;
     } else {
-      return never_();
+      return never_;
     }
   };
 
@@ -906,15 +906,15 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
     schema = union(types.map((type) => fromJSONSchema(jsonSchemaMerge(jsonSchema, { type }))));
   } else if (jsonSchema.type === "string") {
     if (jsonSchema.format === "email") {
-      schema = email();
+      schema = email;
     } else if (jsonSchema.format === "uri") {
-      schema = url();
+      schema = url;
     } else if (jsonSchema.format === "uuid") {
-      schema = uuid();
+      schema = uuid;
     } else if (jsonSchema.format === "date-time") {
-      schema = isoDateTime();
+      schema = isoDateTime;
     } else {
-      schema = string();
+      schema = string;
     }
     if (jsonSchema.pattern !== U) {
       schema = pattern(schema, new RegExp(jsonSchema.pattern));
@@ -932,7 +932,7 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
   } else if (jsonSchema.type === "number" && jsonSchema.multipleOf === 1) {
     schema = toIntSchema(jsonSchema);
   } else if (jsonSchema.type === "number") {
-    schema = float();
+    schema = float;
     if (jsonSchema.minimum !== U) {
       schema = floatMin(schema, jsonSchema.minimum);
     } else if (jsonSchema.exclusiveMinimum !== U) {
@@ -944,7 +944,7 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
       schema = floatMax(schema, jsonSchema.exclusiveMaximum - 1);
     }
   } else if (jsonSchema.type === "boolean") {
-    schema = bool();
+    schema = bool;
   } else if (jsonSchema.type === "null") {
     schema = schemaFactory(null);
   } else if (jsonSchema.type !== U) {

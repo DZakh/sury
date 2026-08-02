@@ -2,7 +2,7 @@
 // formats, which are the same idea with a canned predicate.
 
 import {
-  cached,
+  initSchema,
   type Internal,
   numberTag,
   pathEmpty,
@@ -27,11 +27,11 @@ export { dictFactory as dict } from "./composites";
 export { unionFactory as union } from "./union";
 // @__NO_SIDE_EFFECTS__
 export const nullAsOption = (item: Internal): Internal =>
-  optionFactory(item, nullAsUnit());
+  optionFactory(item, nullAsUnit);
 // `null` is a reserved word in JS/TS binding position, so this is exported
 // as `null_`.
 export const null_ = (item: Internal): Internal =>
-  unionFactory([item, nullLiteral()]);
+  unionFactory([item, nullLiteral]);
 
 // =============
 // Built-in refinements
@@ -254,115 +254,103 @@ export const trim = (schema: Internal): Internal => {
 
 // @__NO_SIDE_EFFECTS__
 export const nullable = (schema: Internal): Internal => {
-  return unionFactory([schema, unit(), nullLiteral()]);
+  return unionFactory([schema, unit, nullLiteral]);
 }
 
 // @__NO_SIDE_EFFECTS__
 export const nullableAsOption = (schema: Internal): Internal => {
-  return unionFactory([schema, unit(), nullAsUnit()]);
+  return unionFactory([schema, unit, nullAsUnit]);
 }
 
-export const isoDateTime = (): Internal => {
-  return cached("date-time", stringTag, (s) => {
-    const datetimeRe = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
-    s.decoder = stringDecoderFn;
-    s.format = "date-time";
-    s.refiner = (input) => {
-      return [
-        {
-          c: (inputVar) => `${B_embed(input, datetimeRe)}.test(${inputVar})`,
-          f: B_failWithErrorMessage(
-            "format",
-            "Invalid datetime string! Expected UTC",
-          ),
-        },
-      ];
-    };
-  });
-}
+export const isoDateTime: Internal = /* @__PURE__ */ initSchema(stringTag, (s) => {
+  const datetimeRe = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
+  s.decoder = stringDecoderFn;
+  s.format = "date-time";
+  s.refiner = (input) => {
+    return [
+      {
+        c: (inputVar) => `${B_embed(input, datetimeRe)}.test(${inputVar})`,
+        f: B_failWithErrorMessage(
+          "format",
+          "Invalid datetime string! Expected UTC",
+        ),
+      },
+    ];
+  };
+});
 
-export const port = (): Internal => {
-  return cached("port", numberTag, (s) => {
-    s.decoder = numberDecoder;
-    s.format = "port";
-    s.refiner = (_input) => {
-      return [
-        {
-          c: (inputVar) => `${inputVar}>0&&${inputVar}<65536&&${inputVar}%1===0`,
-          f: B_failWithErrorMessage("format"),
-        },
-      ];
-    };
-  });
-}
+export const port: Internal = /* @__PURE__ */ initSchema(numberTag, (s) => {
+  s.decoder = numberDecoder;
+  s.format = "port";
+  s.refiner = (_input) => {
+    return [
+      {
+        c: (inputVar) => `${inputVar}>0&&${inputVar}<65536&&${inputVar}%1===0`,
+        f: B_failWithErrorMessage("format"),
+      },
+    ];
+  };
+});
 
-export const email = (): Internal => {
-  return cached("email", stringTag, (s) => {
-    const emailRegex = /^(?!\.)(?!.*\.\.)([A-Z0-9_'+\-\.]*)[A-Z0-9_+-]@([A-Z0-9][A-Z0-9\-]*\.)+[A-Z]{2,}$/i;
-    s.decoder = stringDecoderFn;
-    s.format = "email";
-    s.refiner = (input) => {
-      return [
-        {
-          c: (inputVar) => `${B_embed(input, emailRegex)}.test(${inputVar})`,
-          f: B_failWithErrorMessage("format"),
-        },
-      ];
-    };
-  });
-}
+export const email: Internal = /* @__PURE__ */ initSchema(stringTag, (s) => {
+  const emailRegex = /^(?!\.)(?!.*\.\.)([A-Z0-9_'+\-\.]*)[A-Z0-9_+-]@([A-Z0-9][A-Z0-9\-]*\.)+[A-Z]{2,}$/i;
+  s.decoder = stringDecoderFn;
+  s.format = "email";
+  s.refiner = (input) => {
+    return [
+      {
+        c: (inputVar) => `${B_embed(input, emailRegex)}.test(${inputVar})`,
+        f: B_failWithErrorMessage("format"),
+      },
+    ];
+  };
+});
 
-export const uuid = (): Internal => {
-  return cached("uuid", stringTag, (s) => {
-    const uuidRegex = /^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/i;
-    s.decoder = stringDecoderFn;
-    s.format = "uuid";
-    s.refiner = (input) => {
-      return [
-        {
-          c: (inputVar) => `${B_embed(input, uuidRegex)}.test(${inputVar})`,
-          f: B_failWithErrorMessage("format"),
-        },
-      ];
-    };
-  });
-}
+export const uuid: Internal = /* @__PURE__ */ initSchema(stringTag, (s) => {
+  const uuidRegex = /^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/i;
+  s.decoder = stringDecoderFn;
+  s.format = "uuid";
+  s.refiner = (input) => {
+    return [
+      {
+        c: (inputVar) => `${B_embed(input, uuidRegex)}.test(${inputVar})`,
+        f: B_failWithErrorMessage("format"),
+      },
+    ];
+  };
+});
 
-export const cuid = (): Internal => {
-  return cached("cuid", stringTag, (s) => {
-    const cuidRegex = /^c[^\s-]{8,}$/i;
-    s.decoder = stringDecoderFn;
-    s.format = "cuid";
-    s.refiner = (input) => {
-      return [
-        {
-          c: (inputVar) => `${B_embed(input, cuidRegex)}.test(${inputVar})`,
-          f: B_failWithErrorMessage("format"),
-        },
-      ];
-    };
-  });
-}
+export const cuid: Internal = /* @__PURE__ */ initSchema(stringTag, (s) => {
+  const cuidRegex = /^c[^\s-]{8,}$/i;
+  s.decoder = stringDecoderFn;
+  s.format = "cuid";
+  s.refiner = (input) => {
+    return [
+      {
+        c: (inputVar) => `${B_embed(input, cuidRegex)}.test(${inputVar})`,
+        f: B_failWithErrorMessage("format"),
+      },
+    ];
+  };
+});
 
-export const url = (): Internal => {
-  return cached("url", stringTag, (s) => {
-    const urlValidator = (s: string) => {
-      try {
-        new URL(s);
-        return true;
-      } catch {
-        return false;
-      }
-    };
-    s.decoder = stringDecoderFn;
-    s.format = "url";
-    s.refiner = (input) => {
-      return [
-        {
-          c: (inputVar) => `${B_embed(input, urlValidator)}(${inputVar})`,
-          f: B_failWithErrorMessage("format"),
-        },
-      ];
-    };
-  });
-}
+export const url: Internal = /* @__PURE__ */ initSchema(stringTag, (s) => {
+  const urlValidator = (s: string) => {
+    try {
+      new URL(s);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  s.decoder = stringDecoderFn;
+  s.format = "url";
+  s.refiner = (input) => {
+    return [
+      {
+        c: (inputVar) => `${B_embed(input, urlValidator)}(${inputVar})`,
+        f: B_failWithErrorMessage("format"),
+      },
+    ];
+  };
+});

@@ -265,8 +265,8 @@ export const B_unsupportedDecode = (b: Val, from: Internal, target: Internal): n
   });
 }
 
-export const B_failWithArg = <Arg>(b: Val, fn: (arg: Arg) => ErrorDetails, arg: string): string => {
-  return `${B_embed(b, (arg: Arg) => {
+export const B_failWithArg = <TArg>(b: Val, fn: (arg: TArg) => ErrorDetails, arg: string): string => {
+  return `${B_embed(b, (arg: TArg) => {
     B_throw(fn(arg));
   })}(${arg})`;
 }

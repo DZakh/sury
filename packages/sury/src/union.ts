@@ -1229,7 +1229,7 @@ const unionEmit = (
     out = output;
   }
   const outputAnyOf = outputBySource.filter(Boolean) as Internal[];
-  out.s = outputAnyOf.length ? unionFactory(outputAnyOf) : never_();
+  out.s = outputAnyOf.length ? unionFactory(outputAnyOf) : never_;
   if (toPerCase !== U) {
     out.io = true;
     out.e = unionOutput(toPerCase);

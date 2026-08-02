@@ -3,7 +3,7 @@ ts:
   schema: S.schema([1, 2]).with(S.to, S.schema("done"))
   input: "[1, 2]"
   output: '"done"'
-  instantiations: 5712
+  instantiations: 5691
 vs:
   zod:
     _skip: not-applicable

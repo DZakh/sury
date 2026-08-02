@@ -7,11 +7,11 @@ import {
   arrayTag,
   baseSchema,
   type Builder,
-  cached,
   copySchema,
   defsPath,
   type Encoder,
   flagUnsafeHas,
+  initSchema,
   inlinedValueFromString,
   type Internal,
   isLiteral,
@@ -81,7 +81,7 @@ export const jsonEncoderFn = (input: Val, target: Internal): Val => {
   ) {
     return parse(B_refine(input, unknown, U, target));
   } else if (flagUnsafeHas(toTagFlag, (tagFlagUndefined | tagFlagNaN))) {
-    const jsonExpected = copySchema(nullLiteral());
+    const jsonExpected = copySchema(nullLiteral);
     jsonExpected.to = target;
     return parse(B_refine(input, unknown, U, jsonExpected));
   } else if (flagUnsafeHas(toTagFlag, tagFlagArray)) {
@@ -89,7 +89,7 @@ export const jsonEncoderFn = (input: Val, target: Internal): Val => {
     // and then update the schema to be an array of json instead of array of unknown
     const jsonExpected = array(unknown);
     const output = parse(B_refine(input, unknown, U, jsonExpected));
-    output.s.additionalItems = json();
+    output.s.additionalItems = json;
     output.e = target;
     output.io = false;
     return output;
@@ -98,7 +98,7 @@ export const jsonEncoderFn = (input: Val, target: Internal): Val => {
     // and then update the schema to be an object of json instead of object of unknown
     const jsonExpected = dictFactory(unknown);
     const output = parse(B_refine(input, unknown, U, jsonExpected));
-    output.s.additionalItems = json();
+    output.s.additionalItems = json;
     output.e = target;
     output.io = false;
     return output;
@@ -106,7 +106,7 @@ export const jsonEncoderFn = (input: Val, target: Internal): Val => {
     return input;
   } else {
     // For non-JSON types (bigint, instance, etc.), decode through string
-    const jsonExpected = copySchema(string());
+    const jsonExpected = copySchema(string);
     jsonExpected.to = target;
     return parse(B_refine(input, unknown, U, jsonExpected));
   }
@@ -119,7 +119,7 @@ export const isJsonable = (schema: Internal): boolean => {
       tagFlag,
       tagFlagString | tagFlagNumber | tagFlagBoolean | tagFlagNull,
     ) ||
-    schema["$ref"] === json()["$ref"] ||
+    schema["$ref"] === json["$ref"] ||
     (flagUnsafeHas(tagFlag, tagFlagUnion) && schema.anyOf!.every(isJsonable)) ||
     (flagUnsafeHas(tagFlag, tagFlagArray) &&
       (typeof schema.additionalItems === "object" ? isJsonable(schema.additionalItems) : true) &&
@@ -136,25 +136,25 @@ export const jsonDecoderFn = (input: Val): Val => {
   if (isJsonable(input.s)) {
     return input;
   } else if (flagUnsafeHas(inputTagFlag, (tagFlagUndefined | tagFlagNaN))) {
-    return B_nextConst(input, nullLiteral());
+    return B_nextConst(input, nullLiteral);
   } else if (flagUnsafeHas(inputTagFlag, tagFlagArray)) {
     const expected = baseSchema(arrayTag, false);
-    expected.items = input.s.items!.map((_) => json());
+    expected.items = input.s.items!.map((_) => json);
     expected.decoder = arrayDecoder;
     expected.additionalItems =
       typeof input.s.additionalItems === "object"
-        ? json()
+        ? json
         : input.s.additionalItems;
     expected.to = input.e.to;
     return parse(B_refine(input, U, U, expected));
   } else if (flagUnsafeHas(inputTagFlag, tagFlagObject)) {
     if (typeof input.s.additionalItems === "object") {
-      const expected = dictFactory(json());
+      const expected = dictFactory(json);
       expected.to = input.e.to;
       return parse(B_refine(input, U, U, expected));
     } else {
       const jsonVal = makeObjectVal(input, input.s);
-      jsonVal.e = json();
+      jsonVal.e = json;
       if (input.e.to) {
         jsonVal.e = copySchema(jsonVal.e);
         jsonVal.e.to = input.e.to;
@@ -177,7 +177,7 @@ export const jsonDecoderFn = (input: Val): Val => {
               return variantOutput.type === undefinedTag || isJsonable(variantOutput)
                 ? variant
                 : updateOutput<Internal>(variant, (mut) => {
-                    mut.to = json();
+                    mut.to = json;
                   });
             })
           );
@@ -189,7 +189,7 @@ export const jsonDecoderFn = (input: Val): Val => {
           itemOutput.o = true;
           B_addObjectField(jsonVal, key, itemOutput);
         } else {
-          itemVal.e = json();
+          itemVal.e = json;
           B_addObjectField(jsonVal, key, parse(itemVal));
         }
       }
@@ -215,66 +215,63 @@ export const jsonDecoderFn = (input: Val): Val => {
     // FIXME: should this also check !input.e.refiner, like jsonStringDecoder's preEncode does?
     const preEncode: boolean = !!to && !input.e.parser;
     if (preEncode) {
-      input.s = json();
+      input.s = json;
       return jsonEncoderFn(input, input.e);
     } else if (input.e.noValidation!) {
-      input.s = json();
+      input.s = json;
       return input;
     } else {
       return recursiveDecoder(input);
     }
   } else {
     try {
-      const expected = copySchema(string());
+      const expected = copySchema(string);
       expected.to = input.e;
       input.e = expected;
       return parse(input);
     } catch {
-      return B_unsupportedDecode(input, input.s, json());
+      return B_unsupportedDecode(input, input.s, json);
     }
   }
 }
 
-export const json = (): Internal => {
-  return cached(jsonName, refTag, (s) => {
-    const jsonRef = baseSchema(refTag, true);
-    jsonRef["$ref"] = `${defsPath}${jsonName}`;
-    jsonRef.name = jsonName;
+export const json: Internal = /* @__PURE__ */ initSchema(refTag, (s) => {
+  const jsonRef = baseSchema(refTag, true);
+  jsonRef["$ref"] = `${defsPath}${jsonName}`;
+  jsonRef.name = jsonName;
 
-    jsonRef.decoder = jsonDecoderFn;
-    const jsonEncoder = jsonEncoderFn;
-    jsonRef.encoder = jsonEncoder;
+  jsonRef.decoder = jsonDecoderFn;
+  jsonRef.encoder = jsonEncoderFn;
 
-    s["$ref"] = jsonRef["$ref"];
-    s.name = jsonName;
-    s.decoder = jsonDecoderFn;
-    s.encoder = jsonEncoder;
+  s["$ref"] = jsonRef["$ref"];
+  s.name = jsonName;
+  s.decoder = jsonDecoderFn;
+  s.encoder = jsonEncoderFn;
 
-    const anyOf = [
-      string(),
-      bool(),
-      float(),
-      nullLiteral(),
-      dictFactory(jsonRef),
-      array(jsonRef),
-    ];
-    const has: Partial<Record<Tag, boolean>> = {};
-    anyOf.forEach((schema) => {
-      has[schema.type] = true;
-    });
-
-    const jsonDef = baseSchema(anyOfTag, true);
-    jsonDef.anyOf = anyOf;
-    jsonDef.has = has;
-    jsonDef.decoder = unionDecoder;
-    jsonDef.name = jsonName;
-    jsonDef.type = anyOfTag;
-
-    const defs: Record<string, Internal> = {};
-    defs[jsonName] = jsonDef;
-    s["$defs"] = defs;
+  const anyOf = [
+    string,
+    bool,
+    float,
+    nullLiteral,
+    dictFactory(jsonRef),
+    array(jsonRef),
+  ];
+  const has: Partial<Record<Tag, boolean>> = {};
+  anyOf.forEach((schema) => {
+    has[schema.type] = true;
   });
-}
+
+  const jsonDef = baseSchema(anyOfTag, true);
+  jsonDef.anyOf = anyOf;
+  jsonDef.has = has;
+  jsonDef.decoder = unionDecoder;
+  jsonDef.name = jsonName;
+  jsonDef.type = anyOfTag;
+
+  const defs: Record<string, Internal> = {};
+  defs[jsonName] = jsonDef;
+  s["$defs"] = defs;
+});
 
 export const jsonString = /* @__PURE__ */ (() => {
   const inlineJsonString = (input: Val, schema: Internal): string => {
@@ -320,7 +317,7 @@ export const jsonString = /* @__PURE__ */ (() => {
       } else {
         const outputVar = B_varWithoutAllocation(input.g);
 
-        const nextSchema = copySchema(json());
+        const nextSchema = copySchema(json);
         nextSchema.to = target;
 
         const output = B_next(input, outputVar, nextSchema, nextSchema);
@@ -377,7 +374,7 @@ export const jsonString = /* @__PURE__ */ (() => {
     } else if (flagUnsafeHas(inputTagFlag, tagFlagBigint)) {
       return B_next(input, `"\\""+${input.i}+"\\""`, expectedSchema);
     } else if (flagUnsafeHas(inputTagFlag, (tagFlagObject | tagFlagArray))) {
-      const jsonVal = parse(B_refine(input, U, U, json()));
+      const jsonVal = parse(B_refine(input, U, U, json));
       return B_next(
         jsonVal,
         `JSON.stringify(${jsonVal.i}${
@@ -393,18 +390,17 @@ export const jsonString = /* @__PURE__ */ (() => {
     }
   };
 
-  return (): Internal =>
-    cached("json", stringTag, (s) => {
-      s.format = "json";
-      s.name = `${jsonName} string`;
-      s.encoder = jsonStringEncoder;
-      s.decoder = jsonStringDecoder;
-    });
+  return initSchema(stringTag, (s) => {
+    s.format = "json";
+    s.name = `${jsonName} string`;
+    s.encoder = jsonStringEncoder;
+    s.decoder = jsonStringDecoder;
+  });
 })();
 
 // @__NO_SIDE_EFFECTS__
 export const jsonStringWithSpace = (space: number): Internal => {
-  const mut = copySchema(jsonString());
+  const mut = copySchema(jsonString);
   mut.space = space;
   return mut;
 }
