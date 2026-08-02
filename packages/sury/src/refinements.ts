@@ -60,7 +60,7 @@ const expects = (fnName: string, expected: string, got: string): string =>
 // A misused schema panics where a bad value raises a SuryError: fromJSONSchema
 // reads the panic as `never` (a document may legally describe an empty range)
 // and lets the SuryError through (a document with `minimum: "5"` is malformed).
-const assertBound = (fnName: string, schema: Internal, value: unknown): void => {
+const assertNumericBound = (fnName: string, schema: Internal, value: unknown): void => {
   const tag = schema.type;
   if (tag !== numberTag && tag !== bigintTag) {
     panic(expects(fnName, "number | bigint schema", toExpression(schema)));
@@ -77,7 +77,7 @@ const assertBound = (fnName: string, schema: Internal, value: unknown): void => 
 // A length is a count, so a negative, fractional or infinite one describes a
 // schema nothing can satisfy — caught here rather than compiling to a check
 // like `i.length>Infinity` that silently rejects everything.
-const assertSized = (fnName: string, schema: Internal, value: unknown): void => {
+const assertLengthBound = (fnName: string, schema: Internal, value: unknown): void => {
   if (schema.type !== stringTag && schema.type !== arrayTag) {
     panic(expects(fnName, "string | array schema", toExpression(schema)));
   }
@@ -93,7 +93,7 @@ const assertSized = (fnName: string, schema: Internal, value: unknown): void => 
 // A bigint prints as bare digits, so the suffix goes back on to keep it a
 // bigint literal — without it the comparison silently becomes a mixed
 // bigint/number one.
-const lit = (value: any): string => (typeof value === bigintTag ? `${value}n` : `${value}`);
+const lit = (value: number | bigint): string => (typeof value === bigintTag ? `${value}n` : `${value}`);
 
 // A string bounds minLength/maxLength where an array bounds minItems/maxItems.
 // Same generated check either way, so the tag picks the keyword rather than
@@ -106,21 +106,27 @@ const sizeKey = (schema: Internal, upper: boolean): "minLength" | "maxLength" | 
 // advertise a bound weaker than the checks it runs — and at most one of
 // minimum/exclusiveMinimum survives per side, which the JSON Schema emit
 // relies on when deciding whether a format's own range still says anything.
-const narrowsLower = (schema: Internal, value: any, exclusive: boolean): boolean => {
-  const inclusive = schema.minimum;
-  const strict = schema.exclusiveMinimum;
+const narrowsLower = (schema: Internal, value: number | bigint, exclusive: boolean): boolean => {
+  // JS compares a number against a bigint without complaint; TS refuses.
+  // assertNumericBound has already established that the bound matches the
+  // schema's numeric type, so the cast is safe and stays at the comparison
+  // rather than widening a signature to `any`.
+  const bound = value as number;
+  const inclusive = schema.minimum as number | undefined;
+  const strict = schema.exclusiveMinimum as number | undefined;
   return (
-    (inclusive === U || (exclusive ? value >= inclusive : value > inclusive)) &&
-    (strict === U || value > strict)
+    (inclusive === U || (exclusive ? bound >= inclusive : bound > inclusive)) &&
+    (strict === U || bound > strict)
   );
 };
 
-const narrowsUpper = (schema: Internal, value: any, exclusive: boolean): boolean => {
-  const inclusive = schema.maximum;
-  const strict = schema.exclusiveMaximum;
+const narrowsUpper = (schema: Internal, value: number | bigint, exclusive: boolean): boolean => {
+  const bound = value as number;
+  const inclusive = schema.maximum as number | undefined;
+  const strict = schema.exclusiveMaximum as number | undefined;
   return (
-    (inclusive === U || (exclusive ? value <= inclusive : value < inclusive)) &&
-    (strict === U || value < strict)
+    (inclusive === U || (exclusive ? bound <= inclusive : bound < inclusive)) &&
+    (strict === U || bound < strict)
   );
 };
 
@@ -151,28 +157,34 @@ const asBound = (schema: Internal, key: string, bit: number, value: unknown): In
   return mut as unknown as Internal;
 };
 
-const assertLower = (schema: Internal, value: any, exclusive: boolean): void => {
+const assertLower = (schema: Internal, value: number | bigint, exclusive: boolean): void => {
   const key = exclusive ? "exclusiveMinimum" : "minimum";
   const bit = exclusive ? 4 : 1;
-  const inclusive = schema.maximum;
-  const strict = schema.exclusiveMaximum;
-  if (inclusive !== U && (exclusive ? value >= inclusive : value > inclusive)) {
+  const bound = value as number;
+  const inclusive = schema.maximum as number | undefined;
+  const strict = schema.exclusiveMaximum as number | undefined;
+  if (inclusive !== U && (exclusive ? bound >= inclusive : bound > inclusive)) {
     conflict(asBound(schema, key, bit, value), asBound(schema, "maximum", 2, inclusive));
   }
-  if (strict !== U && value >= strict) {
+  if (strict !== U && bound >= strict) {
     conflict(asBound(schema, key, bit, value), asBound(schema, "exclusiveMaximum", 8, strict));
   }
 };
 
-const assertUpper = (schema: Internal, value: any, exclusive: boolean): void => {
+const assertUpper = (schema: Internal, value: number | bigint, exclusive: boolean): void => {
   const key = exclusive ? "exclusiveMaximum" : "maximum";
   const bit = exclusive ? 8 : 2;
-  const inclusive = schema.minimum;
-  const strict = schema.exclusiveMinimum;
-  if (inclusive !== U && (exclusive ? value <= inclusive : value < inclusive)) {
+  // JS compares a number against a bigint without complaint; TS refuses.
+  // assertNumericBound has already established that the bound matches the
+  // schema's numeric type, so the cast is safe and stays at the comparison
+  // rather than widening a signature to `any`.
+  const bound = value as number;
+  const inclusive = schema.minimum as number | undefined;
+  const strict = schema.exclusiveMinimum as number | undefined;
+  if (inclusive !== U && (exclusive ? bound <= inclusive : bound < inclusive)) {
     conflict(asBound(schema, key, bit, value), asBound(schema, "minimum", 1, inclusive));
   }
-  if (strict !== U && value <= strict) {
+  if (strict !== U && bound <= strict) {
     conflict(asBound(schema, key, bit, value), asBound(schema, "exclusiveMinimum", 4, strict));
   }
 };
@@ -189,8 +201,8 @@ const assertSize = (schema: Internal, value: number, upper: boolean): void => {
 };
 
 // @__NO_SIDE_EFFECTS__
-export const gte = (schema: Internal, minValue: any, maybeMessage?: string): Internal => {
-  assertBound("gte", schema, minValue);
+export const gte = (schema: Internal, minValue: number | bigint, maybeMessage?: string): Internal => {
+  assertNumericBound("gte", schema, minValue);
   assertLower(schema, minValue, false);
   if (!narrowsLower(schema, minValue, false)) return schema;
   return internalRefine(schema, (mut: Internal) => {
@@ -210,8 +222,8 @@ export const gte = (schema: Internal, minValue: any, maybeMessage?: string): Int
 }
 
 // @__NO_SIDE_EFFECTS__
-export const lte = (schema: Internal, maxValue: any, maybeMessage?: string): Internal => {
-  assertBound("lte", schema, maxValue);
+export const lte = (schema: Internal, maxValue: number | bigint, maybeMessage?: string): Internal => {
+  assertNumericBound("lte", schema, maxValue);
   assertUpper(schema, maxValue, false);
   if (!narrowsUpper(schema, maxValue, false)) return schema;
   return internalRefine(schema, (mut: Internal) => {
@@ -231,8 +243,8 @@ export const lte = (schema: Internal, maxValue: any, maybeMessage?: string): Int
 }
 
 // @__NO_SIDE_EFFECTS__
-export const gt = (schema: Internal, minValue: any, maybeMessage?: string): Internal => {
-  assertBound("gt", schema, minValue);
+export const gt = (schema: Internal, minValue: number | bigint, maybeMessage?: string): Internal => {
+  assertNumericBound("gt", schema, minValue);
   assertLower(schema, minValue, true);
   if (!narrowsLower(schema, minValue, true)) return schema;
   return internalRefine(schema, (mut: Internal) => {
@@ -252,8 +264,8 @@ export const gt = (schema: Internal, minValue: any, maybeMessage?: string): Inte
 }
 
 // @__NO_SIDE_EFFECTS__
-export const lt = (schema: Internal, maxValue: any, maybeMessage?: string): Internal => {
-  assertBound("lt", schema, maxValue);
+export const lt = (schema: Internal, maxValue: number | bigint, maybeMessage?: string): Internal => {
+  assertNumericBound("lt", schema, maxValue);
   assertUpper(schema, maxValue, true);
   if (!narrowsUpper(schema, maxValue, true)) return schema;
   return internalRefine(schema, (mut: Internal) => {
@@ -274,7 +286,7 @@ export const lt = (schema: Internal, maxValue: any, maybeMessage?: string): Inte
 
 // @__NO_SIDE_EFFECTS__
 export const minLength = (schema: Internal, length: number, maybeMessage?: string): Internal => {
-  assertSized("minLength", schema, length);
+  assertLengthBound("minLength", schema, length);
   assertSize(schema, length, false);
   const key = sizeKey(schema, false);
   if (!narrowsSize(schema[key], length, false)) return schema;
@@ -295,7 +307,7 @@ export const minLength = (schema: Internal, length: number, maybeMessage?: strin
 
 // @__NO_SIDE_EFFECTS__
 export const maxLength = (schema: Internal, length: number, maybeMessage?: string): Internal => {
-  assertSized("maxLength", schema, length);
+  assertLengthBound("maxLength", schema, length);
   assertSize(schema, length, true);
   const key = sizeKey(schema, true);
   if (!narrowsSize(schema[key], length, true)) return schema;
@@ -316,7 +328,7 @@ export const maxLength = (schema: Internal, length: number, maybeMessage?: strin
 
 // @__NO_SIDE_EFFECTS__
 export const length = (schema: Internal, length: number, maybeMessage?: string): Internal => {
-  assertSized("length", schema, length);
+  assertLengthBound("length", schema, length);
   assertSize(schema, length, false);
   assertSize(schema, length, true);
   const minKey = sizeKey(schema, false);

@@ -844,9 +844,13 @@ const definitionToDefaultValue = (definition: JSONSchemaDefinition): unknown => 
 // (a malformed bound value, say).
 const applyBound = (
   schema: Internal,
-  bound: (schema: Internal, value: any) => Internal,
-  value: unknown
+  bound: (schema: Internal, value: number) => Internal,
+  value: number
 ): Internal => {
+  // Already empty — a further bound can only panic on it and land back here.
+  if (schema.type === neverTag) {
+    return schema;
+  }
   try {
     return bound(schema, value);
   } catch (exn) {
