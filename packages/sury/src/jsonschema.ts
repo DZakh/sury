@@ -817,7 +817,10 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
   } else if (jsonSchema.type === "object") {
     if (jsonSchema.properties !== U) {
       const properties = jsonSchema.properties;
-      const obj: Record<string, Internal> = {};
+      // Null prototype: a JSON Schema may declare a property named `__proto__`,
+      // and on a plain `{}` that assignment replaces the object's prototype
+      // instead of adding a key.
+      const obj: Record<string, Internal> = Object.create(null);
       Object.keys(properties).forEach((key) => {
         const property = properties[key]!;
         let propertySchema = jsonDefinitionToSchema(property);

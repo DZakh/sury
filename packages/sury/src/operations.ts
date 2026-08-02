@@ -90,7 +90,11 @@ export const getStandardJSONSchema = (
 // `console.log(schema)` keeps showing the internal shape, which is what someone
 // logging a schema is usually trying to see. Ask for the expression explicitly
 // with `${schema}` or `String(schema)`.
+// `writable` because defineProperty defaults it to false, which makes any
+// `obj.toString = …` on something inheriting this throw in strict mode — as
+// fromJSONSchema did for a JSON Schema with a "toString" property.
 Object.defineProperty(schemaPrototype, "toString", {
+  writable: true,
   value: function (this: Internal): string {
     const input = inputExpression(this);
     const output = inputExpression(reverse(this));
