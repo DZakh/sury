@@ -93,6 +93,15 @@ test("Combines @s.with with @s.default", t => {
 })
 
 @schema
+type stringWithWithAndDefault = @s.with(S.trim) @s.default("Foo") string
+test("Combines @s.with written before @s.default", t => {
+  t->assertEqualSchemas(
+    stringWithWithAndDefaultSchema,
+    S.option(S.string->S.trim)->S.Option.getOr("Foo"),
+  )
+})
+
+@schema
 type intWithWithPlaceholder = @s.with(S.min(_, 1)) @s.with(S.max(_, 5)) int
 test("Applies @s.with with partial application placeholder", t => {
   t->assertEqualSchemas(intWithWithPlaceholderSchema, S.int->S.min(1)->S.max(5))

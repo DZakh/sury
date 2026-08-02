@@ -68,6 +68,10 @@ let stringWithDefaultAndWithSchema = Sury.trim(Sury.$res_Option_getOr(Sury.$res_
 
 Vitest.test("Combines @s.with with @s.default", t => U.assertEqualSchemas(t, stringWithDefaultAndWithSchema, Sury.trim(Sury.$res_Option_getOr(Sury.$res_option(Sury.string), "Foo")), undefined));
 
+let stringWithWithAndDefaultSchema = Sury.$res_Option_getOr(Sury.$res_option(Sury.trim(Sury.string)), "Foo");
+
+Vitest.test("Combines @s.with written before @s.default", t => U.assertEqualSchemas(t, stringWithWithAndDefaultSchema, Sury.$res_Option_getOr(Sury.$res_option(Sury.trim(Sury.string)), "Foo"), undefined));
+
 let intWithWithPlaceholderSchema = Sury.max(Sury.min(Sury.int, 1), 5);
 
 Vitest.test("Applies @s.with with partial application placeholder", t => U.assertEqualSchemas(t, intWithWithPlaceholderSchema, Sury.max(Sury.min(Sury.int, 1), 5), undefined));
