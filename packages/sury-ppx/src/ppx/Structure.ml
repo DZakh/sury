@@ -3,10 +3,9 @@ open Parsetree
 open Ast_helper
 open Util
 
-(* value_type is the ReScript value type the schema is generated for (the
-   annotated core type, or the declared type on a type declaration). Every
-   attribute transformer maps S.t<value_type> to S.t<value_type>, which
-   @s.with relies on for its pin. *)
+(* Every branch here must keep the schema's value type equal to ~value_type —
+   @s.with pins against it, so a branch that widened or narrowed the value would
+   make that pin reject valid code. *)
 let applySchemaAttribute ~loc ~value_type schema_expr
     ({attr_name = {Location.txt}} as attribute) =
   match txt with
@@ -20,20 +19,17 @@ let applySchemaAttribute ~loc ~value_type schema_expr
     [%expr S.meta [%e schema_expr] [%e meta_value]]
   | "s.with" ->
     let fn_expr = getExpressionFromPayload attribute in
-    (* Pin both the argument and the result to the annotated type, so the
-       payload function is forced to `S.t<value> => S.t<value>` — a transform
-       that changes the value type is a compile error instead of a schema that
-       silently disagrees with the type it was generated for. The pin also
-       holds on optional fields, where the surrounding expression is
-       Obj.magic'ed. Transforms taking extra arguments work through the
-       placeholder: `@s.with(S.min(_, 1))`. *)
+    (* Constrain both the argument and the result, forcing the payload to
+       `S.t<value> => S.t<value>` so a transform that changes the value type
+       (S.to) is a compile error rather than a schema that silently disagrees
+       with the type it was generated for. *)
     let loc = fn_expr.pexp_loc in
     let schema_type = [%type: [%t value_type] S.t] in
     Exp.constraint_ ~loc
       (Exp.apply ~loc fn_expr
          [(Nolabel, Exp.constraint_ ~loc schema_expr schema_type)])
       schema_type
-  | txt when txt <> "" && String.length txt >= 2 && String.sub txt 0 2 = "s." ->
+  | txt when isSchemaAttributeName txt ->
     fail loc ("Unsupported schema attribute: \"@" ^ txt ^ "\"")
   | _ -> schema_expr
 
@@ -428,10 +424,8 @@ and generateCoreTypeSchemaExpression core_type =
           ([%e option_factory_expression] [%e schema_expr])
           [%e default_fn]]
     | _ ->
-      (* Strip attributes from the type before embedding it in a generated
-         annotation, so `@s.*` attributes aren't re-emitted into code. *)
       applySchemaAttribute ~loc:ptyp_loc
-        ~value_type:{core_type with ptyp_attributes = []}
+        ~value_type:(stripSchemaAttributes core_type)
         schema_expr attribute
   in
   List.fold_left handle_attribute schema_expression ptyp_attributes

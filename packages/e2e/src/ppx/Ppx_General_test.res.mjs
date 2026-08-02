@@ -90,6 +90,14 @@ Vitest.test("Applies @s.with on a parametrized type", t => U.assertEqualSchemas(
   description: "wrapped"
 }), undefined));
 
+let withOverNestedAttributesSchema = Sury.meta(Sury.array(Sury.$res_Option_getOr(Sury.$res_option(Sury.string), "x")), {
+  description: "items"
+});
+
+Vitest.test("Applies @s.with over a nested @s.default", t => U.assertEqualSchemas(t, withOverNestedAttributesSchema, Sury.meta(Sury.array(Sury.$res_Option_getOr(Sury.$res_option(Sury.string), "x")), {
+  description: "items"
+}), undefined));
+
 export {
   schema,
   fooSchema,

@@ -118,3 +118,14 @@ test("Applies @s.with on a parametrized type", t => {
     S.array(S.string)->S.meta({description: "wrapped"}),
   )
 })
+
+// Regression: the pinned type must shed @s.* attributes at every depth
+@schema
+type withOverNestedAttributes = @s.with(s => s->S.meta({description: "items"}))
+array<@s.default("x") string>
+test("Applies @s.with over a nested @s.default", t => {
+  t->assertEqualSchemas(
+    withOverNestedAttributesSchema,
+    S.array(S.option(S.string)->S.Option.getOr("x"))->S.meta({description: "items"}),
+  )
+})
