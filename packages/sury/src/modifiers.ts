@@ -148,13 +148,13 @@ export const getMutErrorMessage = (mut: Internal): SchemaErrorMessage => {
   return em;
 }
 
-export type TransformDefinition<Input = unknown, Output = unknown> = {
+export type TransformDefinition<TInput = unknown, TOutput = unknown> = {
   // @as("p") — parser
-  p?: (input: Input) => Output;
+  p?: (input: TInput) => TOutput;
   // @as("a") — asyncParser
-  a?: (input: Input) => Promise<Output>;
+  a?: (input: TInput) => Promise<TOutput>;
   // @as("s") — serializer
-  s?: (output: Output) => Input;
+  s?: (output: TOutput) => TInput;
 };
 
 // PORT-NOTE: `s<'output>` (the effect ctx passed to the transformer) is what
@@ -383,18 +383,18 @@ export type TupleCtx = {
   tag: (idx: number, value: unknown) => void;
 };
 
-export type Meta<Value> = {
+export type Meta<TValue> = {
   name?: string;
   title?: string;
   description?: string;
   deprecated?: boolean;
-  examples?: Value[];
+  examples?: TValue[];
   errorMessage?: SchemaErrorMessage;
 };
 
 // TODO: Better test reverse
 // @__NO_SIDE_EFFECTS__
-export const meta = <Value>(schema: Internal, data: Meta<Value>): Internal => {
+export const meta = <TValue>(schema: Internal, data: Meta<TValue>): Internal => {
   const mut = copySchema(schema);
   if (data.name !== U) {
     if (data.name === "") {

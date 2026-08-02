@@ -642,7 +642,7 @@ export const copySchema = (schema: Internal): Internal => {
   return c;
 }
 
-export const updateOutput = <Value>(schema: Internal, fn: (schema: Internal) => void): Value => {
+export const updateOutput = <TValue>(schema: Internal, fn: (schema: Internal) => void): TValue => {
   const root = copySchema(schema);
   let mut = root;
   while (mut.to !== U) {
@@ -652,7 +652,7 @@ export const updateOutput = <Value>(schema: Internal, fn: (schema: Internal) => 
   }
   // This should be the Output schema
   fn(mut);
-  return root as unknown as Value;
+  return root as unknown as TValue;
 }
 
 export const setHas = (has: Partial<Record<Tag, boolean>>, tag: Tag): void => {

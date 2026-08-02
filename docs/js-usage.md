@@ -113,6 +113,15 @@ const playerSchema = S.schema({
 type Player = S.Infer<typeof playerSchema>;
 ```
 
+The type parameters read in the direction data flows: `S.Schema<TInput, TOutput>` — the encoded type the schema accepts, then the decoded type it produces. `TOutput` defaults to `TInput`, so an identity schema is just `S.Schema<string>`.
+
+To annotate "any schema producing `T`, whatever it accepts", leave the input as `unknown`:
+
+```ts
+const parseT = <T>(schema: S.Schema<unknown, T>, data: unknown): T =>
+  S.parser(schema)(data);
+```
+
 ### Serializing data
 
 Every schema has an `Input` type as well as an `Output` type, so the same definition serializes back to the input format:
@@ -132,7 +141,7 @@ const userSchema = S.schema({
   id: input.USER_ID,
   name: input.USER_NAME,
 }));
-//? S.Schema<{ id: bigint; name: string }, { USER_ID: string; USER_NAME: string }>
+//? S.Schema<{ USER_ID: string; USER_NAME: string }, { id: bigint; name: string }>
 
 S.parser(userSchema)({ USER_ID: "0", USER_NAME: "Dmitry" });
 // { id: 0n, name: "Dmitry" }
@@ -378,11 +387,11 @@ S.parser(schema)("2020-01-01T00:00:00.123456Z"); // pass (arbitrary precision)
 S.parser(schema)("2020-01-01T00:00:00+02:00"); // fail (no offsets allowed)
 ```
 
-To decode an ISO datetime string into a `Date`, combine it with `S.to(S.date)`:
+To decode an ISO datetime string into a `Date`, chain it with `.with(S.to, S.date)`:
 
 ```ts
-const schema = S.to(S.string, S.date);
-// schema has the type S.Schema<Date, string>
+const schema = S.string.with(S.to, S.date);
+// schema has the type S.Schema<string, Date>
 ```
 
 ## Numbers
@@ -863,7 +872,7 @@ S.parser(S.date)(new Date("invalid")); // throws
 S.parser(S.date)("2024-01-01"); // throws - not a Date instance
 ```
 
-> Unlike `S.isoDateTime` (which validates ISO datetime strings) and `S.to(S.string, S.date)` (which decodes ISO strings into Date objects), `S.date` validates existing Date instances directly.
+> Unlike `S.isoDateTime` (which validates ISO datetime strings) and `S.string.with(S.to, S.date)` (which decodes ISO strings into Date objects), `S.date` validates existing Date instances directly.
 
 You can use `S.decoder` with multiple arguments to decode between strings and dates:
 
@@ -970,7 +979,7 @@ For more information on branding in general, check out [this excellent article](
 3. Optionally, use `S.meta` to add customize the name of the schema and additional metadata.
 
 ```ts
-const mySet = <T>(itemSchema: S.Schema<T>): S.Schema<Set<T>> =>
+const mySet = <T>(itemSchema: S.Schema<unknown, T>): S.Schema<unknown, Set<T>> =>
   S.instance(Set<unknown>)
     .with(S.to, S.instance(Set<T>), (input) => {
       const output = new Set<T>();
@@ -1008,11 +1017,27 @@ type Node = {
   children: Node[];
 };
 
-const nodeSchema = S.recursive<Node, Node>("Node", (nodeSchema) =>
+const nodeSchema = S.recursive<Node>("Node", (nodeSchema) =>
   S.schema({
     id: S.string,
     children: S.array(nodeSchema),
   })
+);
+```
+
+One type parameter is enough when the schema doesn't transform — `S.recursive<Node>` is `S.Schema<Node, Node>`. When the recursive schema transforms its input, pass both sides in `S.Schema<TInput, TOutput>` order:
+
+```ts
+type Row = { title: string; children: Row[] };
+
+const rowSchema = S.recursive<unknown, Row>("Row", (rowSchema) =>
+  S.schema({
+    TITLE: S.string,
+    CHILDREN: S.array(rowSchema),
+  }).with(S.shape, (input) => ({
+    title: input.TITLE,
+    children: input.CHILDREN,
+  }))
 );
 ```
 
@@ -1156,15 +1181,15 @@ Parsing means that the input value is validated against the schema and transform
 
 | Operation      | Interface                                                       | Description                                                   |
 | -------------- | --------------------------------------------------------------- | ------------------------------------------------------------- |
-| S.parser       | `(Schema<Output, Input>) => (data: unknown) => Output`          | Parses any value with the schema                              |
-| S.asyncParser  | `(Schema<Output, Input>) => (data: unknown) => Promise<Output>` | Parses any value with the schema having async transformations |
+| S.parser       | `(Schema<TInput, TOutput>) => (data: unknown) => TOutput`          | Parses any value with the schema                              |
+| S.asyncParser  | `(Schema<TInput, TOutput>) => (data: unknown) => Promise<TOutput>` | Parses any value with the schema having async transformations |
 
 For advanced users you can only transform to the output type without type validations. But be careful, since the input type is not checked:
 
 | Operation       | Interface                                                | Description                                                      |
 | --------------- | -------------------------------------------------------- | ---------------------------------------------------------------- |
-| S.decoder       | `(Schema<Output, Input>) => (Input) => Output`           | Converts input value to the output type                          |
-| S.asyncDecoder  | `(Schema<Output, Input>) => (Input) => Promise<Output>`  | Converts input value to the output type with async transforms    |
+| S.decoder       | `(Schema<TInput, TOutput>) => (TInput) => TOutput`           | Converts input value to the output type                          |
+| S.asyncDecoder  | `(Schema<TInput, TOutput>) => (TInput) => Promise<TOutput>`  | Converts input value to the output type with async transforms    |
 
 Note, that in this case only type validations are skipped. If your schema has refinements or transforms, they will be applied.
 
@@ -1174,8 +1199,8 @@ More often than converting input to output, you'll need to perform the reversed 
 
 | Operation       | Interface                                              | Description                                                           |
 | --------------- | ------------------------------------------------------ | --------------------------------------------------------------------- |
-| S.encoder       | `(Schema<Output, Input>) => (Output) => Input`         | Converts schema value to the input type                               |
-| S.asyncEncoder  | `(Schema<Output, Input>) => (Output) => Promise<Input>`| Converts schema value to the input type with async transformations    |
+| S.encoder       | `(Schema<TInput, TOutput>) => (TOutput) => TInput`         | Converts schema value to the input type                               |
+| S.asyncEncoder  | `(Schema<TInput, TOutput>) => (TOutput) => Promise<TInput>`| Converts schema value to the input type with async transformations    |
 
 This is literally the same as convert operations applied to the reversed schema.
 
@@ -1183,8 +1208,8 @@ For some cases you might want to simply check whether the input value is valid, 
 
 | Operation | Interface                                                      | Description                                                                                                                                    |
 | --------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| S.assert  | `(Schema<Output, Input>, data: unknown) asserts data is Input` or `(data: unknown, Schema<Output, Input>) asserts data is Input` | Asserts that the input value is valid. Since the operation doesn't return a value, it's 2-3 times faster than `parser` depending on the schema |
-| S.is      | `(Schema<Output, Input>, data: unknown) => data is Input` or `(data: unknown, Schema<Output, Input>) => data is Input`      | Returns `true`/`false` whether the input value is valid. Acts as a TypeScript type guard and shares the fast validate-only path with `assert`  |
+| S.assert  | `(Schema<TInput, TOutput>, data: unknown) asserts data is TInput` or `(data: unknown, Schema<TInput, TOutput>) asserts data is TInput` | Asserts that the input value is valid. Since the operation doesn't return a value, it's 2-3 times faster than `parser` depending on the schema |
+| S.is      | `(Schema<TInput, TOutput>, data: unknown) => data is TInput` or `(data: unknown, Schema<TInput, TOutput>) => data is TInput`      | Returns `true`/`false` whether the input value is valid. Acts as a TypeScript type guard and shares the fast validate-only path with `assert`  |
 
 Both `S.assert` and `S.is` accept their arguments in either order, so `(schema, data)` and `(data, schema)` are equivalent and both narrow the type. There's no "correct" order to memorize — pass the schema and the data in whatever order feels natural, and it just works. This is especially handy for AI assistants, which no longer have to guess the right argument position:
 

@@ -159,7 +159,7 @@ export const js_refine = (
   });
 };
 
-const noop = <A>(a: A): A => a;
+const noop = <T>(a: T): T => a;
 // @__NO_SIDE_EFFECTS__
 export const js_asyncDecoderAssert = (
   schema: Internal,

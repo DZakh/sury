@@ -100,7 +100,7 @@ export type JSONSchemaTypeName =
 // `Arrayable.single`/`Arrayable.array` are %identity and are dropped at call
 // sites, `Arrayable.isArray` is Array.isArray, and `Arrayable.classify` is an
 // inline Array.isArray test.
-export type JSONSchemaArrayable<Item> = Item | Item[];
+export type JSONSchemaArrayable<TItem> = TItem | TItem[];
 
 // PORT-NOTE: JSONSchema's `definition` is `@unboxed
 // Schema(t) | @as(false) Never | @as(true) Any` — at runtime a definition is
