@@ -40,8 +40,7 @@
   "exports": {
     ".": {
       "types": "./src/S.d.ts",
-      "import": "./src/S.mjs",
-      "require": "./src/S.js"
+      "import": "./src/S.mjs"
     },
     "./src/*": "./src/*",
     "./S.gen.js": {

@@ -1412,19 +1412,19 @@ The library provides a bunch of built-in operations that can be used to parse, d
 Common decode patterns:
 
 ```rescript
-// Parse JSON value (replaces S.parseJsonOrThrow)
+// Parse JSON value
 data->S.decodeOrThrow(~from=S.json, ~to=schema)
 
-// Parse JSON string (replaces S.parseJsonStringOrThrow)
+// Parse JSON string
 data->S.decodeOrThrow(~from=S.jsonString, ~to=schema)
 
-// Serialize to unknown (replaces S.reverseConvertOrThrow)
+// Serialize to unknown
 data->S.decodeOrThrow(~from=schema, ~to=S.unknown)
 
-// Serialize to JSON (replaces S.reverseConvertToJsonOrThrow)
+// Serialize to JSON
 data->S.decodeOrThrow(~from=schema, ~to=S.json)
 
-// Serialize to JSON string (replaces S.reverseConvertToJsonStringOrThrow)
+// Serialize to JSON string
 data->S.decodeOrThrow(~from=schema, ~to=S.jsonString)
 
 // Serialize to JSON string with space

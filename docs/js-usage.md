@@ -1228,8 +1228,6 @@ const stringifyUser = S.encoder(userSchema, S.jsonString);
 stringifyUser({ id: "1", name: "John" });
 ```
 
-This covers the use cases that previously needed `S.compile`.
-
 ### **`reverse`**
 
 ```ts
@@ -1249,7 +1247,7 @@ S.parser(reversed)("bar");
 // {"foo": "bar"}
 
 S.parser(reversed)(123);
-// throws S.error with the message: `Expected string, received 123`
+// throws S.Error with the message: `Expected string, received 123`
 ```
 
 Reverses the schema. This gets especially magical for schemas with transformations 🪄
@@ -1314,7 +1312,7 @@ Used internally for readable error messages.
 S.toExpression(S.schema({ abc: 123 }));
 // "{ abc: 123; }"
 
-S.toExpression(S.name(S.string, "Address"));
+S.toExpression(S.string.with(S.meta, { name: "Address" }));
 // "Address"
 ```
 

@@ -57,7 +57,7 @@ async function buildEntry(
     banner: {
       js: [
         `/* @ts-self-types="${selfTypes}" */`,
-        "// Generated from entry.ts by scripts/pack.ts, PLEASE EDIT WITH CARE",
+        "// Generated from src/entry.ts by scripts/pack.ts — do not edit.",
       ].join("\n"),
     },
     logLevel: "silent",
@@ -148,6 +148,11 @@ async function pack(): Promise<void> {
   fs.rmSync(path.join(artifactsPath, "src/S.mjs"));
   fs.rmSync(path.join(artifactsPath, "src/S.d.mts"));
 
+  // Every field below is rewritten rather than inherited, because the dev
+  // package and the artifact are genuinely different packages: the dev tree is
+  // ESM-only and its entry is the gitignored src/S.mjs that the spec harness,
+  // the fuzzer and the TS tests all import by name. Don't try to make the two
+  // package.json files agree — make this function the single source of truth.
   writeArtifactJson("package.json", (pkg) => {
     pkg.private = false;
     // ReScript applications don't work with type: module set on packages

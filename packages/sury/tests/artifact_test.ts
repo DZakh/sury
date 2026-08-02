@@ -53,6 +53,10 @@ const readJson = (file: string): any => JSON.parse(read(file));
 // `pnpm build` — which CI always does first.
 const describeArtifact = existsSync(artifactsPath) ? describe : describe.skip;
 
+const cjsEntry: any = existsSync(artifactsPath)
+  ? createRequire(import.meta.url)(path.join(artifactsPath, "index.js"))
+  : {};
+
 describeArtifact("artifact", () => {
   test("contains exactly the files it ships", () => {
     expect(walk(artifactsPath).sort()).toEqual(FILES);
@@ -101,6 +105,24 @@ describeArtifact("artifact", () => {
     }
   });
 
+  // Removed API lives on in prose long after the code is gone. The ReScript
+  // reference is checked by eye — its `S.` names are a different module.
+  test("the JS docs name only API that exists", () => {
+    const api = new Set(Object.keys(cjsEntry));
+    for (const [, name] of read("src/S.d.ts").matchAll(
+      /^export\s+(?:declare\s+)?(?:abstract\s+)?(?:type|interface|class|const|let|var|function|namespace|enum)\s+([A-Za-z_$][\w$]*)/gm
+    )) {
+      api.add(name!);
+    }
+    const unknown = new Set<string>();
+    for (const file of ["README.md", "docs/js-usage.md"]) {
+      for (const [, name] of read(file).matchAll(/\bS\.([A-Za-z_][A-Za-z0-9_]*)/g)) {
+        if (!api.has(name!)) unknown.add(`${file} -> S.${name}`);
+      }
+    }
+    expect([...unknown]).toEqual([]);
+  });
+
   test("every exports target resolves to a shipped file", () => {
     const pkg = readJson("package.json");
     const targets = [...Object.values<string>(pkg.exports["."]), pkg.exports["./S.gen.js"].types];
@@ -130,13 +152,12 @@ describeArtifact("artifact", () => {
   test("ReScript output imports the runtime instead of inlining it", () => {
     expect(read("src/S.res.mjs")).toMatch(/from\s*["']sury["']/);
     expect(read("src/S.res.js")).toMatch(/require\(["']sury["']\)/);
-    expect(read("src/S.res.mjs")).not.toContain("Generated from entry.ts");
+    expect(read("src/S.res.mjs")).not.toContain("Generated from src/entry.ts");
   });
 
   test("both entries expose the public API", async () => {
-    const cjs = createRequire(import.meta.url)(path.join(artifactsPath, "index.js"));
     const esm = await import(pathToFileURL(path.join(artifactsPath, "index.mjs")).href);
-    for (const entry of [cjs, esm]) {
+    for (const entry of [cjsEntry, esm]) {
       expect(entry.parser(entry.schema({ xp: entry.number }))({ xp: 1 })).toEqual({ xp: 1 });
       expect(typeof entry.object).toBe("function");
     }
