@@ -1,6 +1,6 @@
 // The file is hand written
 
-import { Error, Path, Schema } from "./S";
+import { Error, Path, Schema } from "../index.js";
 
 /* eslint-disable */
 /* tslint:disable */

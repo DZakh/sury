@@ -36,10 +36,10 @@
   ],
   "main": "./index.mjs",
   "module": "./index.mjs",
-  "types": "./src/S.d.ts",
+  "types": "./index.d.ts",
   "exports": {
     ".": {
-      "types": "./src/S.d.ts",
+      "types": "./index.d.ts",
       "import": "./index.mjs"
     },
     "./src/*": "./src/*",

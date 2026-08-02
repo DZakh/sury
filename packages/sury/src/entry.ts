@@ -1,6 +1,6 @@
 // The single public entry for both surfaces:
 //  - JS/TS consumers import the package root and get the public API under its
-//    documented names (typed by the hand-written S.d.ts).
+//    documented names (typed by the hand-written index.d.ts).
 //  - The ReScript bindings module (S.res) binds to this same module with
 //    `@module("sury") external` declarations, so both languages share one
 //    runtime instance (one Exn identity, one schema cache, one seq counter).
@@ -9,7 +9,7 @@
 // emits a CJS S.js into the artifact for the require condition). Every eager
 // schema constant is PURE-annotated so unused ones tree-shake out of consumer
 // bundles; the extra ReScript-binding exports ($res_*-named) are invisible
-// to TS users (S.d.ts is the curated surface) and tree-shake when unused like
+// to TS users (index.d.ts is the curated surface) and tree-shake when unused like
 // any other export.
 
 import {
@@ -78,7 +78,7 @@ export {
   __setExnId as $res_setExnId,
 } from "./base";
 
-// ── Public JS/TS API (names match S.d.ts) ────────────────────────────────────
+// ── Public JS/TS API (names match index.d.ts) ────────────────────────────────
 
 export {
   js_optional as optional,
@@ -147,7 +147,7 @@ export {
 } from "./jsonschema";
 export { toExpression } from "./base";
 
-// ── ReScript binding surface (extra names, not part of S.d.ts) ───────────────
+// ── ReScript binding surface (extra names, not part of index.d.ts) ───────────
 //
 // Only APIs with no public-JS equivalent live here; everything else in S.res
 // binds the public names directly (or wraps them in ReScript). `$res_` marks

@@ -6,7 +6,7 @@
 // Stage 1 (always): bundle src/entry.ts (the single public entry re-exporting
 // src/*.ts) into the gitignored index.mjs; this stage keeps it fresh (it runs
 // before rescript/vitest via pnpm scripts). Types for index.mjs importers
-// resolve through the checked-in index.d.mts -> src/S.d.ts. The ReScript
+// resolve through the checked-in index.d.mts -> index.d.ts. The ReScript
 // bindings (S.res) reference the same entry as `@module("sury")`, resolved
 // through the package's "." conditional export — which is why the published
 // package (see stage 2) also ships a CJS index.js for the require condition
@@ -34,7 +34,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectPath = path.join(__dirname, "..");
 const repoRootPath = path.join(projectPath, "../..");
 const artifactsPath = path.join(projectPath, "artifacts");
-const sourcePaths = ["package.json", "src", "rescript.json", "README.md", "jsr.json"];
+const sourcePaths = ["package.json", "src", "index.d.ts", "rescript.json", "README.md", "jsr.json"];
 // Sury's user-facing docs live at the repo root, next to the README they link
 // from; LICENSE has to sit in the packed root for npm to pick it up.
 const repoRootPaths = ["LICENSE", "docs"];
@@ -65,7 +65,7 @@ async function buildEntry(
 }
 
 const buildDevEntries = (): Promise<void> =>
-  buildEntry("esm", path.join(projectPath, "index.mjs"), "./src/S.d.ts");
+  buildEntry("esm", path.join(projectPath, "index.mjs"), "./index.d.ts");
 
 // ── Stage 2: the publishable artifact ────────────────────────────────────────
 
@@ -140,8 +140,8 @@ async function pack(): Promise<void> {
 
   // The artifact package is commonjs (see below), so index.js must be the CJS
   // build — the "." require condition points at it.
-  await buildEntry("cjs", path.join(artifactsPath, "index.js"), "./src/S.d.ts");
-  await buildEntry("esm", path.join(artifactsPath, "index.mjs"), "./src/S.d.ts");
+  await buildEntry("cjs", path.join(artifactsPath, "index.js"), "./index.d.ts");
+  await buildEntry("esm", path.join(artifactsPath, "index.mjs"), "./index.d.ts");
 
   // CJS build of the ReScript-facing module, in case some ReScript libraries
   // will use sury without running a compiler (rescript-stdlib-vendorer)
@@ -161,11 +161,11 @@ async function pack(): Promise<void> {
     pkg.type = "commonjs";
     pkg.main = "./index.js";
     pkg.module = "./index.mjs";
-    pkg.types = "./src/S.d.ts";
+    pkg.types = "./index.d.ts";
     // TypeScript only honors "types" when it precedes the runtime conditions.
     pkg.exports = {
       ".": {
-        types: "./src/S.d.ts",
+        types: "./index.d.ts",
         import: "./index.mjs",
         require: "./index.js",
       },
@@ -173,7 +173,7 @@ async function pack(): Promise<void> {
       "./S.gen.js": { types: "./src/S.gen.d.ts" },
       "./package.json": "./package.json",
     };
-    pkg.files = ["index.mjs", "index.js", "src", "rescript.json", "docs"];
+    pkg.files = ["index.mjs", "index.js", "index.d.ts", "src", "rescript.json", "docs"];
     // Nothing here builds the artifact, and dropping the scripts also drops the
     // prepublishOnly guard that makes publishing the dev package fail.
     delete pkg.devDependencies;
@@ -183,6 +183,7 @@ async function pack(): Promise<void> {
     jsr.exports = "./index.mjs";
     jsr.exclude = [
       "!index.mjs",
+      "!index.d.ts",
       "!src",
       "!rescript.json",
       "!README.md",

@@ -17,6 +17,7 @@ const FILES = [
   "README.md",
   "docs/js-usage.md",
   "docs/rescript-usage.md",
+  "index.d.ts",
   "index.js",
   "index.mjs",
   "jsr.json",
@@ -26,7 +27,6 @@ const FILES = [
   "src/JSONSchema.res.mjs",
   "src/OpenAPI.res",
   "src/OpenAPI.res.mjs",
-  "src/S.d.ts",
   "src/S.gen.d.ts",
   "src/S.res",
   "src/S.res.js",
@@ -109,7 +109,7 @@ describeArtifact("artifact", () => {
   // reference is checked by eye — its `S.` names are a different module.
   test("the JS docs name only API that exists", () => {
     const api = new Set(Object.keys(cjsEntry));
-    for (const [, name] of read("src/S.d.ts").matchAll(
+    for (const [, name] of read("index.d.ts").matchAll(
       /^export\s+(?:declare\s+)?(?:abstract\s+)?(?:type|interface|class|const|let|var|function|namespace|enum)\s+([A-Za-z_$][\w$]*)/gm
     )) {
       api.add(name!);

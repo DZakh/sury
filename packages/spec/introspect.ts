@@ -14,7 +14,7 @@
 // instantiation-delta + typeToString logic.
 //
 // Measured: ~1s cold (first schema in a process — dominated by loading
-// lib.d.ts + S.d.ts), ~50-200ms warm (every subsequent schema in the same
+// lib.d.ts + index.d.ts), ~50-200ms warm (every subsequent schema in the same
 // process, since the environment is memoized) — versus attest's ~15s (which
 // is dominated by its whole-project assertion scan, unrelated to this cost).
 import { fileURLToPath } from "node:url";
