@@ -82,7 +82,6 @@ const unionBoundaryTags = tagFlagUnion | tagFlagRef | tagFlagFunction;
 const unionOpaqueTags =
   tagFlagUnknown | unionBoundaryTags | tagFlagNever;
 
-
 // ── Type identity ────────────────────────────────────────────────────────────
 
 // The spec's "same type": tags match, including the class for instances and the
@@ -1240,7 +1239,7 @@ const unionEmit = (
 };
 
 
-export const unionDecoder: Builder = ((input: Val) => {
+export const unionDecoder: Builder = (input: Val) => {
   const self = input.e;
   // The union's own `.to` chain, applied per case during decoding. None when a
   // custom parser owns the conversion, or when the target is the `noValidation`
@@ -1324,7 +1323,7 @@ export const unionDecoder: Builder = ((input: Val) => {
   const analyzed = unionAnalyze(normalized, variants, source, nan);
   const plan = unionPlan(analyzed);
   return unionEmit(input, self, plan, toPerCase);
-});
+};
 
 // Calls each source refiner at most once so its predicate is embedded once and
 // every case references the same `e[N]` — `B_embed` is append-only, so a

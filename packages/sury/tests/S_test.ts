@@ -2719,7 +2719,7 @@ test("Uint8Array", (t) => {
   );
 });
 
-test("Schema toString prints Schema<output, input>", (t) => {
+test("Schema toString prints Schema<input, output>", (t) => {
   t.expect(S.string.toString()).toBe("Schema<string>");
   t.expect(S.to(S.string, S.number).toString()).toBe("Schema<string, number>");
   t.expect(`${S.schema({ a: S.string })}`).toBe("Schema<{ a: string; }>");

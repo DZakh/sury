@@ -58,7 +58,7 @@ const compactColumnsExpression = (schema: Internal): string => {
     : "unknown[][]";
 }
 
-export const compactColumnsDecoder: Builder = ((input: Val) => {
+export const compactColumnsDecoder: Builder = (input: Val) => {
   const selfSchema = input.e;
   const isUnknownInput = flagUnsafeHas(tagFlags[input.s.type]!, tagFlagUnknown);
 
@@ -315,8 +315,7 @@ export const compactColumnsDecoder: Builder = ((input: Val) => {
       return B_markOutput(output, input);
     }
   }
-});
-
+}
 
 // @__NO_SIDE_EFFECTS__
 export const compactColumns = (inputSchema: Internal): Internal => {

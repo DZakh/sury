@@ -70,7 +70,6 @@ import { unionFactory } from "./union";
 const isItemSchema = (x: AdditionalItems | undefined): x is Internal =>
   x !== U && typeof x !== "string";
 
-
 export const makeObjectVal = (prev: Val, schema: Internal): Val => {
   // Canonical Val field order (see B_operationArg in builder.ts).
   return {
@@ -182,7 +181,7 @@ export const array = (item: Internal): Internal => {
   mut.decoder = arrayDecoder;
   return mut;
 }
-export const arrayDecoder: Builder = ((unknownInput: Val): Val => {
+export const arrayDecoder: Builder = (unknownInput: Val): Val => {
   const isUnion = unknownInput.u!;
   const expectedSchema = unknownInput.e;
   const unknownInputTagFlag = tagFlags[unknownInput.s.type]!;
@@ -325,9 +324,9 @@ export const arrayDecoder: Builder = ((unknownInput: Val): Val => {
     }
   }
   return B_markOutput(output, input);
-});
+}
 
-export const objectDecoder: Builder = ((unknownInput: Val): Val => {
+export const objectDecoder: Builder = (unknownInput: Val): Val => {
   const isUnion = unknownInput.u!;
   const expectedSchema = unknownInput.e;
 
@@ -342,8 +341,10 @@ export const objectDecoder: Builder = ((unknownInput: Val): Val => {
       const mut = baseSchema(objectTag, false);
       mut.properties = immutableEmptyObject as Record<string, Internal>;
       mut.additionalItems = unknown;
-      // Only ever a refine target, so this decoder is never run — it is what
-      // carries the expression, and `Internal.decoder` is not optional.
+      // `baseSchema` leaves `decoder` unset even though `Internal` declares it
+      // required, so every construction site has to fill it in — this one is
+      // only reached as a refine target, where nothing calls it, but a schema
+      // that escapes with `decoder === undefined` throws on the next getDecoder.
       mut.decoder = objectDecoder;
       schema = mut;
     } else {
@@ -554,7 +555,7 @@ export const objectDecoder: Builder = ((unknownInput: Val): Val => {
     }
   }
   return B_markOutput(output, input);
-});
+}
 
 // @__NO_SIDE_EFFECTS__
 export const dictFactory = (item: Internal): Internal => {

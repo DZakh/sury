@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.date
+  input: Date
+  output: Date
+  instantiations: 254
+vs:
+  zod: z.date()
+jsonSchema:
+  input: Expected JSON, received Date
+  output: Expected JSON, received Date
+operations:
+  parse:
+    expression: i=>{i instanceof e[1]||e[2](i);!Number.isNaN(i.getTime())||e[0](i);return i}
+    examples:
+      valid:
+        input: new Date("1970-01-01T00:00:00.000Z")
+        output: new Date("1970-01-01T00:00:00.000Z")
+      max-representable:
+        input: new Date("+275760-09-13T00:00:00.000Z")
+        output: new Date("+275760-09-13T00:00:00.000Z")
+      wrong-type:
+        input: '"1970-01-01"'
+        error: Expected Date, received "1970-01-01"
+      number-is-not-a-date:
+        input: "0"
+        error: Expected Date, received 0
+      null-is-not-a-date:
+        input: "null"
+        error: Expected Date, received null
+      # FIXME: an invalid Date is rejected by the second check, but `received`
+      # names the value's constructor and stops there, so the message reads
+      # `Expected Date, received Date` — the one input where naming the type
+      # says nothing, because the type is right and the *value* is not. It also
+      # reads identically to a genuine tag mismatch (another realm's Date).
+      # `stringifyLeaf` in base.ts could render `Invalid Date` here, which is
+      # what the value's own toString already returns; left unfixed because that
+      # is a Date-shaped branch in the floor every consumer would pay for.
+      invalid-date:
+        input: new Date("invalid")
+        error: Expected Date, received Date
+  decode: identity
+  encode: identity
