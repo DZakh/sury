@@ -222,7 +222,7 @@ S.schema({ foo: S.string });
 //? S.Schema<{ foo: string }, { foo: string }>
 ```
 
-Compare that with `v.ObjectSchema<{readonly foo: v.StringSchema<undefined>}, undefined>`. Both sides are right there, and they read in the direction the data flows — `S.Schema<Input, Output>` — which is what makes a transformation's two sides obvious at a glance rather than something you reconstruct in your head.
+Compare that with `v.ObjectSchema<{readonly foo: v.StringSchema<undefined>}, undefined>`. Both sides are right there, and they read in the direction the data flows — `S.Schema<TInput, TOutput>` — which is what makes a transformation's two sides obvious at a glance rather than something you reconstruct in your head.
 
 ### Errors that tell you where to look
 

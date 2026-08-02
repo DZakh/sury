@@ -1007,15 +1007,6 @@ S.parser(numberSetSchema)(new Set([1, 2, "3"])); // throws S.Error: At item 3 - 
 S.parser(numberSetSchema)([1, 2, 3]); // throws S.Error: Expected Set<number>, received [1, 2, 3]
 ```
 
-`S.to` is what makes the items *decode*, so an item codec keeps working: `mySet(S.string.with(S.to, S.date))` yields a `Set<Date>`. When you only need to validate — the items never change type — reach for [`S.refine`](#refinements) instead, which checks in place instead of rebuilding the collection:
-
-```ts
-const numberSet = S.instance(Set<number>).with(S.refine, (set) => {
-  for (const item of set) S.assert(S.number, item);
-  return true;
-});
-```
-
 ## Recursive schemas
 
 You can define a recursive schema in **Sury**. Unfortunately, TypeScript derives the Schema type as `unknown` so you need to explicitly specify the type and it'll start correctly typechecking.
@@ -1190,15 +1181,15 @@ Parsing means that the input value is validated against the schema and transform
 
 | Operation      | Interface                                                       | Description                                                   |
 | -------------- | --------------------------------------------------------------- | ------------------------------------------------------------- |
-| S.parser       | `(Schema<Input, Output>) => (data: unknown) => Output`          | Parses any value with the schema                              |
-| S.asyncParser  | `(Schema<Input, Output>) => (data: unknown) => Promise<Output>` | Parses any value with the schema having async transformations |
+| S.parser       | `(Schema<TInput, TOutput>) => (data: unknown) => TOutput`          | Parses any value with the schema                              |
+| S.asyncParser  | `(Schema<TInput, TOutput>) => (data: unknown) => Promise<TOutput>` | Parses any value with the schema having async transformations |
 
 For advanced users you can only transform to the output type without type validations. But be careful, since the input type is not checked:
 
 | Operation       | Interface                                                | Description                                                      |
 | --------------- | -------------------------------------------------------- | ---------------------------------------------------------------- |
-| S.decoder       | `(Schema<Input, Output>) => (Input) => Output`           | Converts input value to the output type                          |
-| S.asyncDecoder  | `(Schema<Input, Output>) => (Input) => Promise<Output>`  | Converts input value to the output type with async transforms    |
+| S.decoder       | `(Schema<TInput, TOutput>) => (TInput) => TOutput`           | Converts input value to the output type                          |
+| S.asyncDecoder  | `(Schema<TInput, TOutput>) => (TInput) => Promise<TOutput>`  | Converts input value to the output type with async transforms    |
 
 Note, that in this case only type validations are skipped. If your schema has refinements or transforms, they will be applied.
 
@@ -1208,8 +1199,8 @@ More often than converting input to output, you'll need to perform the reversed 
 
 | Operation       | Interface                                              | Description                                                           |
 | --------------- | ------------------------------------------------------ | --------------------------------------------------------------------- |
-| S.encoder       | `(Schema<Input, Output>) => (Output) => Input`         | Converts schema value to the input type                               |
-| S.asyncEncoder  | `(Schema<Input, Output>) => (Output) => Promise<Input>`| Converts schema value to the input type with async transformations    |
+| S.encoder       | `(Schema<TInput, TOutput>) => (TOutput) => TInput`         | Converts schema value to the input type                               |
+| S.asyncEncoder  | `(Schema<TInput, TOutput>) => (TOutput) => Promise<TInput>`| Converts schema value to the input type with async transformations    |
 
 This is literally the same as convert operations applied to the reversed schema.
 
@@ -1217,8 +1208,8 @@ For some cases you might want to simply check whether the input value is valid, 
 
 | Operation | Interface                                                      | Description                                                                                                                                    |
 | --------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| S.assert  | `(Schema<Input, Output>, data: unknown) asserts data is Input` or `(data: unknown, Schema<Input, Output>) asserts data is Input` | Asserts that the input value is valid. Since the operation doesn't return a value, it's 2-3 times faster than `parser` depending on the schema |
-| S.is      | `(Schema<Input, Output>, data: unknown) => data is Input` or `(data: unknown, Schema<Input, Output>) => data is Input`      | Returns `true`/`false` whether the input value is valid. Acts as a TypeScript type guard and shares the fast validate-only path with `assert`  |
+| S.assert  | `(Schema<TInput, TOutput>, data: unknown) asserts data is TInput` or `(data: unknown, Schema<TInput, TOutput>) asserts data is TInput` | Asserts that the input value is valid. Since the operation doesn't return a value, it's 2-3 times faster than `parser` depending on the schema |
+| S.is      | `(Schema<TInput, TOutput>, data: unknown) => data is TInput` or `(data: unknown, Schema<TInput, TOutput>) => data is TInput`      | Returns `true`/`false` whether the input value is valid. Acts as a TypeScript type guard and shares the fast validate-only path with `assert`  |
 
 Both `S.assert` and `S.is` accept their arguments in either order, so `(schema, data)` and `(data, schema)` are equivalent and both narrow the type. There's no "correct" order to memorize — pass the schema and the data in whatever order feels natural, and it just works. This is especially handy for AI assistants, which no longer have to guess the right argument position:
 
