@@ -3,10 +3,10 @@ import {
   bigintTag,
   booleanTag,
   type Builder,
-  cached,
   type Check,
   flagDisableNanNumberValidation,
   flagUnsafeHas,
+  initSchema,
   instanceTag,
   type Internal,
   isLiteral,
@@ -136,22 +136,20 @@ export const numberDecoder: Builder = (input: Val) => {
   }
 };
 
-export const float = () =>
-  cached(numberTag, numberTag, (s) => {
-    s.decoder = numberDecoder;
-  });
+export const float: Internal = /* @__PURE__ */ initSchema(numberTag, (s) => {
+  s.decoder = numberDecoder;
+});
 
-export const int = () =>
-  cached("i", numberTag, (s) => {
-    s.format = "int32";
-    s.decoder = numberDecoder;
-  });
+export const int: Internal = /* @__PURE__ */ initSchema(numberTag, (s) => {
+  s.format = "int32";
+  s.decoder = numberDecoder;
+});
 
 // inputToString/stringDecoderFn/string are mutually recursive (stringDecoderFn
-// falls back to inputToString, which builds its output schema via string())
+// falls back to inputToString, which builds its output schema via `string`)
 // and so are kept together.
 export const inputToString = (input: Val): Val => {
-  return B_next(input, `""+${input.i}`, string());
+  return B_next(input, `""+${input.i}`, string);
 }
 export const stringDecoderFn = (input: Val): Val => {
   const inputTagFlag = tagFlags[input.s.type]!;
@@ -175,11 +173,9 @@ export const stringDecoderFn = (input: Val): Val => {
     return input;
   }
 }
-export const string = (): Internal => {
-  return cached(stringTag, stringTag, (s) => {
-    s.decoder = stringDecoderFn;
-  });
-}
+export const string: Internal = /* @__PURE__ */ initSchema(stringTag, (s) => {
+  s.decoder = stringDecoderFn;
+});
 
 export const booleanDecoder: Builder = (input: Val) => {
   const inputTagFlag = tagFlags[input.s.type]!;
@@ -199,10 +195,9 @@ export const booleanDecoder: Builder = (input: Val) => {
   }
 };
 
-export const bool = () =>
-  cached(booleanTag, booleanTag, (s) => {
-    s.decoder = booleanDecoder;
-  });
+export const bool: Internal = /* @__PURE__ */ initSchema(booleanTag, (s) => {
+  s.decoder = booleanDecoder;
+});
 
 export const bigintDecoder: Builder = (input: Val) => {
   const inputTagFlag = tagFlags[input.s.type]!;
@@ -225,10 +220,9 @@ export const bigintDecoder: Builder = (input: Val) => {
   }
 };
 
-export const bigint = () =>
-  cached(bigintTag, bigintTag, (s) => {
-    s.decoder = bigintDecoder;
-  });
+export const bigint: Internal = /* @__PURE__ */ initSchema(bigintTag, (s) => {
+  s.decoder = bigintDecoder;
+});
 
 export const symbolDecoder: Builder = (input: Val) => {
   const inputTagFlag = tagFlags[input.s.type]!;
@@ -241,10 +235,9 @@ export const symbolDecoder: Builder = (input: Val) => {
   }
 };
 
-export const symbol = () =>
-  cached(symbolTag, symbolTag, (s) => {
-    s.decoder = symbolDecoder;
-  });
+export const symbol: Internal = /* @__PURE__ */ initSchema(symbolTag, (s) => {
+  s.decoder = symbolDecoder;
+});
 
 export const literalDecoder: Builder = (input: Val) => {
   const expectedSchema = input.e;
@@ -292,40 +285,36 @@ export const literalDecoder: Builder = (input: Val) => {
   }
 };
 
-export const unit = () =>
-  cached(undefinedTag, undefinedTag, (s) => {
-    s.const = U;
-    s.decoder = literalDecoder;
-  });
+export const unit: Internal = /* @__PURE__ */ initSchema(undefinedTag, (s) => {
+  s.const = U;
+  s.decoder = literalDecoder;
+});
 
-export const void_ = () =>
-  cached("void", undefinedTag, (s) => {
-    s.const = U;
-    s.name = "void";
-    s.decoder = literalDecoder;
-  });
+export const void_: Internal = /* @__PURE__ */ initSchema(undefinedTag, (s) => {
+  s.const = U;
+  s.name = "void";
+  s.decoder = literalDecoder;
+});
 
-export const nullLiteral = () =>
-  cached(nullTag, nullTag, (s) => {
-    s.const = null;
-    s.decoder = literalDecoder;
-  });
+export const nullLiteral: Internal = /* @__PURE__ */ initSchema(nullTag, (s) => {
+  s.const = null;
+  s.decoder = literalDecoder;
+});
 
-export const nan = () =>
-  cached(nanTag, nanTag, (s) => {
-    s.const = NaN;
-    s.decoder = literalDecoder;
-  });
+export const nan: Internal = /* @__PURE__ */ initSchema(nanTag, (s) => {
+  s.const = NaN;
+  s.decoder = literalDecoder;
+});
 
 export const Literal_parse = (value: unknown): Internal => {
   if (value === null) {
-    return nullLiteral();
+    return nullLiteral;
   } else {
     const tag = typeof value;
     if (tag === undefinedTag) {
-      return unit();
+      return unit;
     } else if (tag === numberTag && Number.isNaN(value as number)) {
-      return nan();
+      return nan;
     } else if (tag === objectTag) {
       const s = baseSchema(instanceTag, true);
       s.class = (value as Record<string, unknown>)["constructor"];

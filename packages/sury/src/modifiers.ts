@@ -207,14 +207,16 @@ export const transform = (
   });
 }
 
-// @__NO_SIDE_EFFECTS__
-export const nullAsUnit = (): Internal => {
+// Not initSchema: that would stamp the self-reverse marker, and this codec's
+// reverse (unit -> null) must stay lazily derived — copySchema drops
+// nullLiteral's non-enumerable `r` on purpose.
+export const nullAsUnit: Internal = /* @__PURE__ */ (() => {
   // PORT-NOTE: local `s` renamed to `schema` — `s` is the module-level error
   // identity symbol in this file.
-  const schema = copySchema(nullLiteral());
-  schema.to = unit();
+  const schema = copySchema(nullLiteral);
+  schema.to = unit;
   return schema;
-}
+})();
 
 // A default is either an eager value or a lazily-called callback — used only
 // within this module, never exposed to callers.

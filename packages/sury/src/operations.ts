@@ -2,9 +2,9 @@
 // interop surface built on top of them.
 
 import {
-  cached,
   flagAsync,
   getOrRethrow,
+  initSchema,
   type Internal,
   pathEmpty,
   pathToArray,
@@ -130,21 +130,19 @@ Object.defineProperty(schemaPrototype, "~standard", {
 // Operations
 // =============
 
-export const getAssertResult = (): Internal => {
-  return cached("a", undefinedTag, (s) => {
-    s.const = U;
-    s.decoder = literalDecoder;
-    s.noValidation = true;
-  });
-}
+export const assertResult: Internal = /* @__PURE__ */ initSchema(undefinedTag, (s) => {
+  s.const = U;
+  s.decoder = literalDecoder;
+  s.noValidation = true;
+});
 
 export const assertOrThrow = (any: unknown, schema: Internal): void => {
-  (getDecoder(unknown, schema, getAssertResult()) as (input: unknown) => unknown)(any);
+  (getDecoder(unknown, schema, assertResult) as (input: unknown) => unknown)(any);
 }
 
 export const assertAsyncOrThrow = (any: unknown, schema: Internal): Promise<void> => {
   return (
-    getDecoder(unknown, schema, getAssertResult(), flagAsync) as (
+    getDecoder(unknown, schema, assertResult, flagAsync) as (
       input: unknown
     ) => Promise<void>
   )(any);
