@@ -91,8 +91,9 @@ const assertLengthBound = (fnName: string, schema: Internal, value: unknown): vo
 };
 
 // A bigint prints as bare digits, so the suffix goes back on to keep it a
-// bigint literal — without it the comparison silently becomes a mixed
-// bigint/number one.
+// bigint literal — without it the generated comparison silently becomes a mixed
+// bigint/number one, and a rendered bound reads as the number it isn't while
+// `received` next to it prints `4n`.
 const lit = (value: number | bigint): string => (typeof value === bigintTag ? `${value}n` : `${value}`);
 
 // A string bounds minLength/maxLength where an array bounds minItems/maxItems.
@@ -124,14 +125,14 @@ const withBounds = (schema: Internal, base: string): string => {
   const high = exMax !== U ? exMax : written & 2 ? schema[maxKey] : U;
   const subject = sized ? `${base}.length` : base;
   if (low === U) {
-    return `${subject} ${exMax !== U ? "<" : "<="} ${high}`;
+    return `${subject} ${exMax !== U ? "<" : "<="} ${lit(high!)}`;
   }
   if (high === U) {
-    return `${subject} ${exMin !== U ? ">" : ">="} ${low}`;
+    return `${subject} ${exMin !== U ? ">" : ">="} ${lit(low)}`;
   }
   return exMin === U && exMax === U && low === high
-    ? `${subject} == ${low}`
-    : `${low} ${exMin !== U ? "<" : "<="} ${subject} ${exMax !== U ? "<" : "<="} ${high}`;
+    ? `${subject} == ${lit(low)}`
+    : `${lit(low)} ${exMin !== U ? "<" : "<="} ${subject} ${exMax !== U ? "<" : "<="} ${lit(high)}`;
 };
 
 // Only the first bound on a schema captures the rendering it wraps — a later

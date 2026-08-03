@@ -7,8 +7,8 @@ ts:
 vs:
   zod: z.bigint().gt(5n)
 jsonSchema:
-  input: Expected JSON, received bigint > 5
-  output: Expected JSON, received bigint > 5
+  input: Expected JSON, received bigint > 5n
+  output: Expected JSON, received bigint > 5n
 operations:
   parse:
     expression: i=>{typeof i==="bigint"||e[1](i);i>5n||e[0](i);return i}
@@ -18,13 +18,13 @@ operations:
         output: 6n
       at-the-bound:
         input: 5n
-        error: Expected bigint > 5, received 5n
+        error: Expected bigint > 5n, received 5n
       below:
         input: 4n
-        error: Expected bigint > 5, received 4n
+        error: Expected bigint > 5n, received 4n
       wrong-type:
         input: '"5"'
-        error: Expected bigint > 5, received "5"
+        error: Expected bigint > 5n, received "5"
   decode:
     expression: i=>{i>5n||e[0](i);return i}
     examples:
@@ -33,10 +33,10 @@ operations:
         output: 6n
       at-the-bound:
         input: 5n
-        error: Expected bigint > 5, received 5n
+        error: Expected bigint > 5n, received 5n
       below:
         input: 4n
-        error: Expected bigint > 5, received 4n
+        error: Expected bigint > 5n, received 4n
   encode:
     expression: i=>{i>5n||e[0](i);return i}
     examples:
@@ -45,7 +45,7 @@ operations:
         output: 6n
       at-the-bound:
         input: 5n
-        error: Expected bigint > 5, received 5n
+        error: Expected bigint > 5n, received 5n
       below:
         input: 4n
-        error: Expected bigint > 5, received 4n
+        error: Expected bigint > 5n, received 4n

@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=./spec.schema.json
+# FIXME: the document's `maximum` is wider than int32, so it doesn't narrow
+# what int32 already accepts and is dropped whole — the same rule that makes
+# `gte(5).gte(1)` keep only the 5. Dropping it is right when the bound is
+# redundant against another bound the caller wrote, and wrong here: the
+# document is not redundant, it is unrepresentable, and the schema that loads
+# rejects values the document accepts while re-emitting a `maximum` the
+# document never stated. The sibling case (`minimum` above int32) doesn't drop
+# quietly but collapses to `never` — see jsonschema-int-minimum-above-int32.
+# One unrepresentable range, two different silent outcomes; neither is the
+# creation error the file gives every other keyword it cannot model.
+ts:
+  schema: 'S.fromJSONSchema({ type: "integer", maximum: 3000000000 })'
+  input: JSON
+  output: JSON
+  instantiations: 274
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  # FIXME: `maximum` comes back as int32's edge, not the 3000000000 that was
+  # loaded, so the document does not survive a round-trip.
+  input: '{ type: "integer", minimum: -2147483648, maximum: 2147483647 }'
+  output: '{ type: "integer", minimum: -2147483648, maximum: 2147483647 }'
+operations:
+  parse:
+    expression: i=>{typeof i==="number"&&i<=2147483647&&i>=-2147483648&&i%1===0||e[0](i);return i}
+    examples:
+      well-inside:
+        input: "5"
+        output: "5"
+      # FIXME: the document states no lower bound at all, so this is rejected
+      # by int32's edge — a bound the document never wrote.
+      below-int32:
+        input: "-3000000000"
+        error: Expected int32, received -3000000000
+      # FIXME: satisfies the document's `maximum: 3000000000` and is rejected.
+      between-int32-and-the-documented-maximum:
+        input: "2500000000"
+        error: Expected int32, received 2500000000
+      at-the-documented-maximum:
+        input: "3000000000"
+        error: Expected int32, received 3000000000
+      above-the-documented-maximum:
+        input: "4000000000"
+        error: Expected int32, received 4000000000
+      non-integer:
+        input: "5.5"
+        error: Expected int32, received 5.5
+  decode: identity
+  encode: identity

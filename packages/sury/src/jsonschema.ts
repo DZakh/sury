@@ -10,7 +10,6 @@
 import {
   anyOfTag,
   arrayTag,
-  bigintTag,
   booleanTag,
   defsPath,
   flagNone,
@@ -26,7 +25,6 @@ import {
   nullTag,
   numberTag,
   objectTag,
-  panic,
   type Path,
   pathConcat,
   pathDynamic,
