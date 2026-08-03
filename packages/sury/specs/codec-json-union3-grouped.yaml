@@ -3,7 +3,7 @@ ts:
   schema: S.json.with(S.to, S.union([S.literal("a"), S.number, S.literal("b")]))
   input: JSON
   output: number | "a" | "b"
-  instantiations: 6578
+  instantiations: 6564
 vs:
   zod:
     _skip: not-applicable

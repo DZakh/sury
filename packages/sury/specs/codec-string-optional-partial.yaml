@@ -3,7 +3,7 @@ ts:
   schema: S.string.with(S.to, S.optional(S.string))
   input: string
   output: string | undefined
-  instantiations: 5243
+  instantiations: 5229
 vs:
   zod:
     _skip: not-applicable

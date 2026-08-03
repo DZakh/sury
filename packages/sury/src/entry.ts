@@ -3,74 +3,46 @@
 //    documented names (typed by the hand-written S.d.ts).
 //  - The ReScript bindings module (S.res) binds to this same module with
 //    `@module("sury") external` declarations, so both languages share one
-//    runtime instance (one Exn identity, one schema cache, one seq counter).
+//    runtime instance (one Exn identity, one set of schema singletons, one
+//    seq counter).
 //
 // Built by scripts/pack.ts into src/S.mjs (the publish step additionally
-// emits a CJS S.js into the artifact for the require condition). Every eager
-// schema constant is PURE-annotated so unused ones tree-shake out of consumer
-// bundles; the extra ReScript-binding exports ($res_*-named) are invisible
-// to TS users (S.d.ts is the curated surface) and tree-shake when unused like
-// any other export.
+// emits a CJS S.js into the artifact for the require condition). The extra
+// ReScript-binding exports ($res_*-named) are invisible to TS users (S.d.ts
+// is the curated surface) and tree-shake when unused like any other export.
 
-import {
-  string as stringFactory,
-  bool as boolFactory,
-  int as intFactory,
-  float as floatFactory,
-  bigint as bigintFactory,
-  symbol as symbolFactory,
-  nan as nanFactory,
-  unit as unitFactory,
-  void_ as voidFactory,
+// ── Schema singletons (shared by both surfaces) ──────────────────────────────
+//
+// Re-exports of module-level consts, each PURE-initialized at its declaration,
+// so unused ones tree-shake out of consumer bundles.
+
+export {
+  string,
+  bool as boolean,
+  bool,
+  int as int32,
+  int,
+  float as number,
+  float,
+  bigint,
+  symbol,
+  nan,
+  void_ as void,
+  unit as $res_unit,
 } from "./primitives";
-import { never_ } from "./parse";
-import { nullAsUnit as nullAsUnitFactory } from "./modifiers";
-import {
-  json as jsonFactory,
-  jsonString as jsonStringFactory,
-} from "./advanced/json";
-import {
-  uint8Array as uint8ArrayFactory,
-} from "./advanced/uint8Array";
-import {
-  date as dateFactory,
-} from "./advanced/date";
-import {
-  isoDateTime as isoDateTimeFactory,
-  port as portFactory,
-  email as emailFactory,
-  uuid as uuidFactory,
-  cuid as cuidFactory,
-  url as urlFactory,
+export { never_ as never } from "./parse";
+export { json, jsonString } from "./advanced/json";
+export { uint8Array } from "./advanced/uint8Array";
+export { date } from "./advanced/date";
+export {
+  isoDateTime,
+  port,
+  email,
+  uuid,
+  cuid,
+  url,
 } from "./refinements";
-
-// ── Eager schema constants (shared by both surfaces) ─────────────────────────
-
-export const string = /* @__PURE__ */ stringFactory();
-const _boolean = /* @__PURE__ */ boolFactory();
-export { _boolean as boolean, _boolean as bool };
-const _int32 = /* @__PURE__ */ intFactory();
-export { _int32 as int32, _int32 as int };
-const _number = /* @__PURE__ */ floatFactory();
-export { _number as number, _number as float };
-export const bigint = /* @__PURE__ */ bigintFactory();
-export const symbol = /* @__PURE__ */ symbolFactory();
-export const never = /* @__PURE__ */ never_();
-export const nan = /* @__PURE__ */ nanFactory();
-const _void = /* @__PURE__ */ voidFactory();
-export { _void as void };
-export const $res_unit = /* @__PURE__ */ unitFactory();
-export const $res_nullAsUnit = /* @__PURE__ */ nullAsUnitFactory();
-export const json = /* @__PURE__ */ jsonFactory();
-export const jsonString = /* @__PURE__ */ jsonStringFactory();
-export const uint8Array = /* @__PURE__ */ uint8ArrayFactory();
-export const date = /* @__PURE__ */ dateFactory();
-export const isoDateTime = /* @__PURE__ */ isoDateTimeFactory();
-export const port = /* @__PURE__ */ portFactory();
-export const email = /* @__PURE__ */ emailFactory();
-export const uuid = /* @__PURE__ */ uuidFactory();
-export const cuid = /* @__PURE__ */ cuidFactory();
-export const url = /* @__PURE__ */ urlFactory();
+export { nullAsUnit as $res_nullAsUnit } from "./modifiers";
 export {
   unknown,
   unknown as any,
@@ -151,7 +123,8 @@ export {
   extendJSONSchema,
   enableStandardJSONSchema,
 } from "./jsonschema";
-export { toExpression } from "./base";
+export { inputExpression } from "./base";
+export { outputExpression } from "./parse";
 
 // ── ReScript binding surface (extra names, not part of S.d.ts) ───────────────
 //

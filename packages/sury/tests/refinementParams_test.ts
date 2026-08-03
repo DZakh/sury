@@ -69,7 +69,7 @@ test("a length rejects values that are not counts", () => {
       /expects integer >= 0/,
     );
   }
-  expect(S.toExpression(S.string.with(S.minLength, 0))).toBe("string.length >= 0");
+  expect(S.inputExpression(S.string.with(S.minLength, 0))).toBe("string.length >= 0");
 });
 
 test("values that are safe to inline still round-trip through codegen", () => {

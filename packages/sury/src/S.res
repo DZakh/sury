@@ -282,6 +282,9 @@ and untagged = private {
   to?: t<unknown>,
   @as("~standard")
   standard: StandardSchema.props<unknown, unknown>,
+  // Inherited from the schema prototype rather than an own property, so it is
+  // always present even though nothing in the record literal sets it.
+  toString: unit => string,
 }
 and has = {
   string?: bool,
@@ -482,7 +485,9 @@ let decodeAsyncOrThrow = (any, ~from, ~to) => asyncDecoder(~from, ~to)(any)
 
 @module("sury") external noValidation: (t<'value>, bool) => t<'value> = "noValidation"
 
-@module("sury") external toExpression: t<'value> => string = "toExpression"
+@module("sury") external inputExpression: t<'value> => string = "inputExpression"
+
+@module("sury") external outputExpression: t<'value> => string = "outputExpression"
 
 module Schema = {
   type s = {@as("m") matches: 'value. t<'value> => 'value}

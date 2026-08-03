@@ -6,6 +6,7 @@ import {
   copySchema,
   flagUnsafeHas,
   inlinedValueFromString,
+  inputExpression,
   type Internal,
   panic,
   pathFromInlinedLocation,
@@ -31,6 +32,28 @@ import {
 } from "../builder";
 import { array } from "../composites";
 import { parse } from "../parse";
+
+// The column types only exist once `.to` has been applied, so this must stay
+// lazy — until then there are no column names and the schema describes its own
+// `array(array(item))` shape as `item[][]`.
+//
+// Columns are read where compactColumnsDecoder's forward direction reads them:
+// on the `.to` array's item schema. Reading `to.properties` instead described
+// `.to(objectSchema)` — a shape the decoder rejects outright — while the
+// supported `.to(S.array(objectSchema))` fell through to a bare `unknown[][]`.
+const compactColumnsExpression = (schema: Internal): string => {
+  const to = schema.to;
+  const item = to !== U ? to.additionalItems : U;
+  const props = typeof item === "object" ? (item as Internal).properties : U;
+  if (props === U) {
+    return `${inputExpression(schema.additionalItems as Internal)}[]`;
+  }
+  let body = "";
+  for (const key in props) {
+    body = body + (body ? ", " : "") + inputExpression(props[key]!) + "[]";
+  }
+  return `[${body}]`;
+}
 
 export const compactColumnsDecoder: Builder = (input: Val) => {
   const selfSchema = input.e;
@@ -297,5 +320,6 @@ export const compactColumns = (inputSchema: Internal): Internal => {
   const mut = array(innerArray);
   mut.format = "compactColumns";
   mut.decoder = compactColumnsDecoder;
+  mut.expression = compactColumnsExpression;
   return mut;
 }

@@ -7,6 +7,7 @@ import {
   type Check,
   copySchema,
   getOrRethrow,
+  inputExpression,
   type Internal,
   noopDecoder,
   objectTag,
@@ -14,7 +15,6 @@ import {
   pathEmpty,
   pathFromArray,
   type SchemaErrorMessage,
-  toExpression,
   U,
   undefinedTag,
   unknown,
@@ -148,13 +148,13 @@ export const getMutErrorMessage = (mut: Internal): SchemaErrorMessage => {
   return em;
 }
 
-export type TransformDefinition<Input = unknown, Output = unknown> = {
+export type TransformDefinition<TInput = unknown, TOutput = unknown> = {
   // @as("p") — parser
-  p?: (input: Input) => Output;
+  p?: (input: TInput) => TOutput;
   // @as("a") — asyncParser
-  a?: (input: Input) => Promise<Output>;
+  a?: (input: TInput) => Promise<TOutput>;
   // @as("s") — serializer
-  s?: (output: Output) => Input;
+  s?: (output: TOutput) => TInput;
 };
 
 // PORT-NOTE: `s<'output>` (the effect ctx passed to the transformer) is what
@@ -207,14 +207,16 @@ export const transform = (
   });
 }
 
-// @__NO_SIDE_EFFECTS__
-export const nullAsUnit = (): Internal => {
+// Not initSchema: that would stamp the self-reverse marker, and this codec's
+// reverse (unit -> null) must stay lazily derived — copySchema drops
+// nullLiteral's non-enumerable `r` on purpose.
+export const nullAsUnit: Internal = /* @__PURE__ */ (() => {
   // PORT-NOTE: local `s` renamed to `schema` — `s` is the module-level error
   // identity symbol in this file.
-  const schema = copySchema(nullLiteral());
-  schema.to = unit();
+  const schema = copySchema(nullLiteral);
+  schema.to = unit;
   return schema;
-}
+})();
 
 // A default is either an eager value or a lazily-called callback — used only
 // within this module, never exposed to callers.
@@ -243,7 +245,7 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
 
       const item: Internal =
         outputItems.length === 0
-          ? panic(`Can't set default for ${toExpression(mut)}`)
+          ? panic(`Can't set default for ${inputExpression(mut)}`)
           : outputItems.length === 1
             ? outputItems[0]!
             : unionFactory(outputItems);
@@ -258,7 +260,7 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
         } catch (exn) {
           const error = getOrRethrow(exn);
           panic(
-            `Invalid default for ${toExpression(mut)}: ${
+            `Invalid default for ${inputExpression(mut)}: ${
               (error as unknown as { message: string })["message"]
             }`
           );
@@ -300,7 +302,7 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
 
       mut.to = to;
     } else {
-      panic(`Can't set default for ${toExpression(mut)}`);
+      panic(`Can't set default for ${inputExpression(mut)}`);
     }
   });
 };
@@ -383,18 +385,18 @@ export type TupleCtx = {
   tag: (idx: number, value: unknown) => void;
 };
 
-export type Meta<Value> = {
+export type Meta<TValue> = {
   name?: string;
   title?: string;
   description?: string;
   deprecated?: boolean;
-  examples?: Value[];
+  examples?: TValue[];
   errorMessage?: SchemaErrorMessage;
 };
 
 // TODO: Better test reverse
 // @__NO_SIDE_EFFECTS__
-export const meta = <Value>(schema: Internal, data: Meta<Value>): Internal => {
+export const meta = <TValue>(schema: Internal, data: Meta<TValue>): Internal => {
   const mut = copySchema(schema);
   if (data.name !== U) {
     if (data.name === "") {

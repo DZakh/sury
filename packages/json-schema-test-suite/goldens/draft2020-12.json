@@ -4,14 +4,14 @@
   "dialect": "draft2020-12",
   "summary": {
     "assertions": 1299,
-    "passed": 660,
-    "failed": 147,
+    "passed": 661,
+    "failed": 146,
     "falseAccept": 109,
-    "falseReject": 38,
+    "falseReject": 37,
     "errored": 492,
-    "rate": "50.8%",
-    "assertOpPassed": 660,
-    "assertOpRate": "50.8%",
+    "rate": "50.9%",
+    "assertOpPassed": 661,
+    "assertOpRate": "50.9%",
     "divergent": 0
   },
   "erroredCases": [
@@ -349,7 +349,6 @@
     "prefixItems.json :: additional items are allowed by default :: only the first item is validated",
     "properties.json :: properties with escaped characters :: object with all numbers is valid",
     "properties.json :: properties whose names are Javascript object property names :: none of the properties mentioned",
-    "properties.json :: properties whose names are Javascript object property names :: all present and valid",
     "ref.json :: root pointer ref :: recursive mismatch",
     "ref.json :: relative pointer ref to object :: mismatch",
     "ref.json :: relative pointer ref to array :: mismatch array",

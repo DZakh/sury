@@ -8,8 +8,8 @@ let assertInvalidInput = (t, error: S.error, ~reason, ~expected, ~received) => {
   switch error->S.Error.classify {
   | InvalidInput({reason: r, expected: e, received: rcv}) =>
     t->Assert.is(r, reason, ~message="reason")
-    t->Assert.is(e->S.toExpression, expected, ~message="expected")
-    t->Assert.is(rcv->S.toExpression, received, ~message="received")
+    t->Assert.is(e->S.inputExpression, expected, ~message="expected")
+    t->Assert.is(rcv->S.inputExpression, received, ~message="received")
   | _ => t->Assert.fail("Expected InvalidInput error, got something else")
   }
 }

@@ -12,6 +12,7 @@ import {
   globalConfig,
   immutableEmptyArray,
   inlinedValueFromString,
+  inputExpression,
   instanceTag,
   type Internal,
   isLiteral,
@@ -23,7 +24,6 @@ import {
   pathConcat,
   pathEmpty,
   pathFromInlinedLocation,
-  toExpression,
   U,
   updateOutput,
   type Val,
@@ -108,7 +108,7 @@ const proxifyShapedSchema = (schema: Internal, from: string[], fromFlattened?: n
           maybeField = U;
         }
         if (!maybeField) {
-          panic(`Cannot read property "${location}" of ${toExpression(target)}`);
+          panic(`Cannot read property "${location}" of ${inputExpression(target)}`);
         }
 
         return proxifyShapedSchema(
@@ -122,8 +122,8 @@ const proxifyShapedSchema = (schema: Internal, from: string[], fromFlattened?: n
 }
 
 // @__NO_SIDE_EFFECTS__
-export const schemaShape = <Value>(schema: Internal, definer: (value: unknown) => unknown): Value => {
-  return updateOutput<Value>(schema, (mut) => {
+export const schemaShape = <TValue>(schema: Internal, definer: (value: unknown) => unknown): TValue => {
+  return updateOutput<TValue>(schema, (mut) => {
     const fromProxy = proxifyShapedSchema(mut, inputFrom);
     const definition: unknown = definer(fromProxy);
     if (definition === fromProxy) {
@@ -183,7 +183,7 @@ function schemaNested(this: AdvancedObjectCtx & Record<string, unknown>, fieldNa
         const to = schema.to;
         if (to) {
           panic(
-            `Unsupported nested flatten for transformed object schema ${toExpression(schema)}`
+            `Unsupported nested flatten for transformed object schema ${inputExpression(schema)}`
           );
         }
         const flattenedKeys = Object.keys(flattenedProperties!);
@@ -194,7 +194,7 @@ function schemaNested(this: AdvancedObjectCtx & Record<string, unknown>, fieldNa
         }
         return result;
       } else {
-        return panic(`Can't flatten ${toExpression(schema)} schema`);
+        return panic(`Can't flatten ${inputExpression(schema)} schema`);
       }
     };
 
@@ -244,7 +244,7 @@ export const schemaObject = (
       const f = flattened || (flattened = []);
       return proxifyShapedSchema(schema, inputFrom, f.push(schema) - 1);
     } else {
-      return panic(`The '${toExpression(schema)}' schema can't be flattened`);
+      return panic(`The '${inputExpression(schema)}' schema can't be flattened`);
     }
   };
 
@@ -317,7 +317,7 @@ export const schemaTuple = (
 
   for (let idx = 0; idx < items.length; idx++) {
     if (!items[idx]) {
-      items[idx] = unit();
+      items[idx] = unit;
     }
   }
 
@@ -378,7 +378,7 @@ const assembleShapedObject = (
     onMissing();
   } else {
     panic(
-      `Don't know where the value is coming from: ${toExpression(schema)}` +
+      `Don't know where the value is coming from: ${inputExpression(schema)}` +
         (input.path === "" ? "" : ` at ${input.path}`)
     );
   }
@@ -538,7 +538,7 @@ const getShapedSerializerOutput = (
           : path;
       return B_invalidOperation(
         input,
-        `Missing input for ${toExpression(targetSchema)}` + (path2 === "" ? "" : ` at ${path2}`)
+        `Missing input for ${inputExpression(targetSchema)}` + (path2 === "" ? "" : ` at ${path2}`)
       );
     };
 

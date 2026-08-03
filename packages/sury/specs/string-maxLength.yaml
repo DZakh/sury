@@ -3,7 +3,7 @@ ts:
   schema: S.string.with(S.maxLength, 2)
   input: string
   output: string
-  instantiations: 5181
+  instantiations: 5167
 vs:
   zod: z.string().max(2)
 jsonSchema:

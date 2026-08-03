@@ -1,7 +1,6 @@
 import {
   baseSchema,
   type Builder,
-  cached,
   copySchema,
   type Encoder,
   type Flag,
@@ -10,6 +9,8 @@ import {
   flagUnsafeHas,
   getOrRethrow,
   globalConfig,
+  initSchema,
+  inputExpression,
   instanceTag,
   type Internal,
   isLiteral,
@@ -228,6 +229,35 @@ export const getOutputSchema = (schema: Internal): Internal => {
     return schema;
   }
 }
+// The two sides of a schema trade places: what parsed now serializes, what
+// refined the input now refines the output. `delete` rather than `= U` because
+// `"fromDefault" in self` (union.ts) tells absent apart from undefined.
+const reverseSwap = (mut: Record<string, unknown>, a: string, b: string): void => {
+  const previous = mut[a];
+  if (mut[b] !== U) {
+    mut[a] = mut[b];
+  } else {
+    delete mut[a];
+  }
+  if (previous !== U) {
+    mut[b] = previous;
+  } else {
+    delete mut[b];
+  }
+}
+
+// Null prototype: the keys are user-controlled property names, and assigning
+// `__proto__` on a plain `{}` reparents the object instead of adding a key —
+// which reparented the reversed property dict onto the property's own schema and
+// dropped the key, so `outputExpression` rendered schema internals.
+const reverseDict = (dict: Record<string, Internal>): Record<string, Internal> => {
+  const reversed: Record<string, Internal> = Object.create(null);
+  for (const key in dict) {
+    reversed[key] = reverse(dict[key]!);
+  }
+  return reversed;
+}
+
 // @__NO_SIDE_EFFECTS__
 export const reverse = (schema: Internal): Internal => {
   const schemaRecord = schema as unknown as Record<string, Internal>;
@@ -245,52 +275,15 @@ export const reverse = (schema: Internal): Internal => {
       } else {
         mut.to = reversedHead;
       }
-      const parser = mut.parser;
-      if (mut.serializer !== U) {
-        mut.parser = mut.serializer;
-      } else {
-        delete mut.parser;
-      }
-      if (parser !== U) {
-        mut.serializer = parser;
-      } else {
-        delete mut.serializer;
-      }
-      // Swap inputRefiner and refiner
-      const refiner = mut.refiner;
-      if (mut.inputRefiner !== U) {
-        mut.refiner = mut.inputRefiner;
-      } else {
-        delete mut.refiner;
-      }
-      if (refiner !== U) {
-        mut.inputRefiner = refiner;
-      } else {
-        delete mut.inputRefiner;
-      }
-      const fromDefault = mut.fromDefault;
-      if (mut.default !== U) {
-        mut.fromDefault = mut.default;
-      } else {
-        delete mut.fromDefault;
-      }
-      if (fromDefault !== U) {
-        mut.default = fromDefault;
-      } else {
-        delete mut.default;
-      }
+      const record = mut as unknown as Record<string, unknown>;
+      reverseSwap(record, "parser", "serializer");
+      reverseSwap(record, "refiner", "inputRefiner");
+      reverseSwap(record, "fromDefault", "default");
       if (mut.items !== U) {
         mut.items = mut.items.map(reverse);
       }
       if (mut.properties !== U) {
-        const properties = mut.properties;
-        const newProperties: Record<string, Internal> = {};
-        const keys = Object.keys(properties);
-        for (let idx = 0; idx <= keys.length - 1; idx++) {
-          const key = keys[idx]!;
-          newProperties[key] = reverse(properties[key]!);
-        }
-        mut.properties = newProperties;
+        mut.properties = reverseDict(mut.properties);
       }
       // Skip tuple
       if (typeof mut.additionalItems === objectTag) {
@@ -310,14 +303,7 @@ export const reverse = (schema: Internal): Internal => {
         mut.anyOf = newAnyOf;
       }
       if (mut["$defs"] !== U) {
-        const defs = mut["$defs"];
-        const reversedDefs: Record<string, Internal> = {};
-        const defsKeys = Object.keys(defs);
-        for (let idx = 0; idx <= defsKeys.length - 1; idx++) {
-          const key = defsKeys[idx]!;
-          reversedDefs[key] = reverse(defs[key]!);
-        }
-        mut["$defs"] = reversedDefs;
+        mut["$defs"] = reverseDict(mut["$defs"]);
       }
       reversedHead = mut;
       current = next;
@@ -333,6 +319,12 @@ export const reverse = (schema: Internal): Internal => {
     return r;
   }
 }
+
+// Lives here rather than beside `inputExpression` in base.ts so that only the
+// consumers who ask for the output side carry `reverse`.
+// @__NO_SIDE_EFFECTS__
+export const outputExpression = (schema: Internal): string =>
+  inputExpression(reverse(schema));
 
 // A plain (non-arrow, to keep `arguments`) function so call sites can pass
 // getDecoder(s1, s2[, s3][, flag]) with any number of schemas plus an
@@ -400,15 +392,13 @@ const neverBuilderFn = (input: Val): Val => {
   // Carry `never` as the val's own schema, not the input's: nothing gets past
   // this branch, so a union built from its cases' output schemas must not list
   // the input type as something the union can produce.
-  const output = B_refine(input, never_(), U, never_());
+  const output = B_refine(input, never_, U, never_);
   output.cp = B_embedInvalidInput(input) + ";";
   return output;
 }
-export const never_ = (): Internal => {
-  return cached(neverTag, neverTag, (s) => {
-    s.decoder = neverBuilderFn;
-  });
-}
+export const never_: Internal = /* @__PURE__ */ initSchema(neverTag, (s) => {
+  s.decoder = neverBuilderFn;
+});
 
 export const nestedOptionParser: Builder = (input: Val) => {
   const nextSchema = input.e.to!;

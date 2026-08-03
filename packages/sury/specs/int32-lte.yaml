@@ -3,7 +3,7 @@ ts:
   schema: S.int32.with(S.lte, 5)
   input: number
   output: number
-  instantiations: 5179
+  instantiations: 5165
 vs:
   zod: z.int32().lte(5)
 jsonSchema:

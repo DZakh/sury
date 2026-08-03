@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.date
+  input: Date
+  output: Date
+  instantiations: 254
+vs:
+  zod: z.date()
+jsonSchema:
+  input: Expected JSON, received Date
+  output: Expected JSON, received Date
+operations:
+  parse:
+    expression: i=>{i instanceof e[1]||e[2](i);!Number.isNaN(i.getTime())||e[0](i);return i}
+    examples:
+      valid:
+        input: new Date("1970-01-01T00:00:00.000Z")
+        output: new Date("1970-01-01T00:00:00.000Z")
+      max-representable:
+        input: new Date("+275760-09-13T00:00:00.000Z")
+        output: new Date("+275760-09-13T00:00:00.000Z")
+      wrong-type:
+        input: '"1970-01-01"'
+        error: Expected Date, received "1970-01-01"
+      number-is-not-a-date:
+        input: "0"
+        error: Expected Date, received 0
+      null-is-not-a-date:
+        input: "null"
+        error: Expected Date, received null
+      invalid-date:
+        input: new Date("invalid")
+        error: Expected Date, received invalid Date
+  decode: identity
+  encode: identity

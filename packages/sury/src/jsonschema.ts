@@ -17,6 +17,7 @@ import {
   flagNone,
   flagUnsafeHas,
   getOrRethrow,
+  inputExpression,
   type Internal,
   isLiteral,
   isOptional,
@@ -39,7 +40,6 @@ import {
   tagFlagObject,
   tagFlags,
   tagFlagUnion,
-  toExpression,
   U,
   undefinedTag,
   unknown,
@@ -98,7 +98,7 @@ export type JSONSchemaTypeName =
 // `Arrayable.single`/`Arrayable.array` are %identity and are dropped at call
 // sites, `Arrayable.isArray` is Array.isArray, and `Arrayable.classify` is an
 // inline Array.isArray test.
-export type JSONSchemaArrayable<Item> = Item | Item[];
+export type JSONSchemaArrayable<TItem> = TItem | TItem[];
 
 // PORT-NOTE: JSONSchema's `definition` is `@unboxed
 // Schema(t) | @as(false) Never | @as(true) Any` — at runtime a definition is
@@ -608,7 +608,7 @@ const internalToJSONSchemaBase = (
         path,
         U,
         U,
-        `Expected ${jsonName}, received ${toExpression(offender)}`
+        `Expected ${jsonName}, received ${inputExpression(offender)}`
       )
     );
   }
@@ -751,13 +751,14 @@ const inclusiveBound = (
   exclusive: number | boolean | undefined
 ): number | undefined => (exclusive === true ? U : inclusive);
 
-const toIntSchema = (jsonSchema: JSONSchemaT): Internal => {
+// The integer and number branches read the same four keywords the same way,
+// so they share one pass rather than each spelling it out.
+const withNumericBounds = (schema: Internal, jsonSchema: JSONSchemaT): Internal => {
   // TODO: Support jsonSchema.multipleOf
   const min = inclusiveBound(jsonSchema.minimum, jsonSchema.exclusiveMinimum);
   const exMin = exclusiveBound(jsonSchema.minimum, jsonSchema.exclusiveMinimum);
   const max = inclusiveBound(jsonSchema.maximum, jsonSchema.exclusiveMaximum);
   const exMax = exclusiveBound(jsonSchema.maximum, jsonSchema.exclusiveMaximum);
-  let schema = int();
   if (min !== U) {
     schema = applyBound(schema, gte, min);
   }
@@ -772,6 +773,8 @@ const toIntSchema = (jsonSchema: JSONSchemaT): Internal => {
   }
   return schema;
 }
+
+const toIntSchema = (jsonSchema: JSONSchemaT): Internal => withNumericBounds(int, jsonSchema);
 
 // Assertion keywords Sury doesn't model. Silently ignoring one widens the
 // schema — the validator then accepts data the author wrote the keyword to
@@ -857,13 +860,13 @@ const applyBound = (
     if (exn && (exn as { s?: symbol }).s === errorSymbol) {
       throw exn;
     }
-    return never_();
+    return never_;
   }
 }
 
 // @__NO_SIDE_EFFECTS__
 export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
-  const anySchema = json();
+  const anySchema = json;
 
   for (let i = 0; i < unsupportedKeywords.length; i++) {
     const keyword = unsupportedKeywords[i]!;
@@ -882,7 +885,7 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
     } else if (definition === true) {
       return anySchema;
     } else {
-      return never_();
+      return never_;
     }
   };
 
@@ -892,7 +895,10 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
   } else if (jsonSchema.type === "object") {
     if (jsonSchema.properties !== U) {
       const properties = jsonSchema.properties;
-      const obj: Record<string, Internal> = {};
+      // Null prototype: a JSON Schema may declare a property named `__proto__`,
+      // and on a plain `{}` that assignment replaces the object's prototype
+      // instead of adding a key.
+      const obj: Record<string, Internal> = Object.create(null);
       Object.keys(properties).forEach((key) => {
         const property = properties[key]!;
         let propertySchema = jsonDefinitionToSchema(property);
@@ -978,15 +984,15 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
     schema = union(types.map((type) => fromJSONSchema(jsonSchemaMerge(jsonSchema, { type }))));
   } else if (jsonSchema.type === "string") {
     if (jsonSchema.format === "email") {
-      schema = email();
+      schema = email;
     } else if (jsonSchema.format === "uri") {
-      schema = url();
+      schema = url;
     } else if (jsonSchema.format === "uuid") {
-      schema = uuid();
+      schema = uuid;
     } else if (jsonSchema.format === "date-time") {
-      schema = isoDateTime();
+      schema = isoDateTime;
     } else {
-      schema = string();
+      schema = string;
     }
     if (jsonSchema.pattern !== U) {
       schema = pattern(schema, new RegExp(jsonSchema.pattern));
@@ -1004,25 +1010,9 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
   } else if (jsonSchema.type === "number" && jsonSchema.multipleOf === 1) {
     schema = toIntSchema(jsonSchema);
   } else if (jsonSchema.type === "number") {
-    schema = float();
-    const min = inclusiveBound(jsonSchema.minimum, jsonSchema.exclusiveMinimum);
-    const exMin = exclusiveBound(jsonSchema.minimum, jsonSchema.exclusiveMinimum);
-    const max = inclusiveBound(jsonSchema.maximum, jsonSchema.exclusiveMaximum);
-    const exMax = exclusiveBound(jsonSchema.maximum, jsonSchema.exclusiveMaximum);
-    if (min !== U) {
-      schema = applyBound(schema, gte, min);
-    }
-    if (exMin !== U) {
-      schema = applyBound(schema, gt, exMin);
-    }
-    if (max !== U) {
-      schema = applyBound(schema, lte, max);
-    }
-    if (exMax !== U) {
-      schema = applyBound(schema, lt, exMax);
-    }
+    schema = withNumericBounds(float, jsonSchema);
   } else if (jsonSchema.type === "boolean") {
-    schema = bool();
+    schema = bool;
   } else if (jsonSchema.type === "null") {
     schema = schemaFactory(null);
   } else if (jsonSchema.type !== U) {
