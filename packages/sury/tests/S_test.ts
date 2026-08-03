@@ -2740,6 +2740,18 @@ test("Throwing one retained error instance twice doesn't accumulate the path", (
   }
   // The instance user code holds is left as it was caught.
   t.expect(retained.path).toBe("");
+
+  // Top level: nothing to prepend, so the error is passed through rather than
+  // copied. Still must not pick up a path or mutate what was thrown.
+  const flat = S.parser(
+    S.string.with(S.to, S.number, () => {
+      throw retained;
+    }),
+  );
+  for (const _ of [1, 2, 3]) {
+    t.expect(S.safe(() => flat("x")).error?.path).toBe("");
+  }
+  t.expect(retained.path).toBe("");
 });
 
 test("A contradictory bound pair is rejected where it's written", (t) => {

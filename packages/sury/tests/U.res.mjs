@@ -15,13 +15,13 @@ function throwError(error) {
 
 function fail(message, pathOpt) {
   let path = pathOpt !== undefined ? Primitive_option.valFromOption(pathOpt) : S.Path.empty;
-  return S.$$Error.$$throw(new Sury.Error({
+  throw new Sury.Error({
     code: "invalid_input",
     path: path,
     reason: message,
     expected: Sury.unknown,
     received: Sury.unknown
-  }));
+  });
 }
 
 function unsafeGetVariantPayload(variant) {

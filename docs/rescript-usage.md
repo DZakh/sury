@@ -298,7 +298,7 @@ a schema nothing satisfies:
 
 ```rescript
 S.int->S.gte(3000000000)
-// [Sury] int32 >= 3000000000 contradicts int32 <= 2147483647
+// int32 >= 3000000000 contradicts int32 <= 2147483647
 ```
 
 ### **`float`**
@@ -1324,9 +1324,8 @@ The refine function is applied for both parsing and serializing.
 
 `(S.t<'input>, unit => S.transformDefinition<'input, 'output>) => S.t<'output>`
 
-A transform fails by throwing. `S.Error.throw` takes an error built with
-`S.Error.make`, and the path it is reached through is prepended to the one the
-error names:
+A transform fails by throwing, and the path it is reached through is prepended
+to whatever it throws. Usually that's just a JS error with a message:
 
 ```rescript
 let intToString = schema =>
@@ -1335,23 +1334,34 @@ let intToString = schema =>
     serializer: string =>
       switch string->Int.fromString {
       | Some(int) => int
-      | None =>
-        S.Error.throw(
-          S.Error.make(
-            InvalidInput({
-              reason: "Can't convert string to int",
-              path: S.Path.empty,
-              expected: S.unknown,
-              received: S.unknown,
-            }),
-          ),
-        )
+      | None => JsError.make("Can't convert string to int")->JsError.throw
       },
   })
 ```
 
-Throwing anything else works too — it is reported as an `InvalidConversion`
-carrying the original exception as `cause`.
+It surfaces as an `InvalidConversion` carrying the original as `cause`, with the
+path it was reached through prepended to the message:
+
+```rescript
+"abc"->S.decodeOrThrow(~from=S.int->intToString, ~to=S.unknown)
+// Can't convert string to int
+```
+
+Any exception works — a ReScript one (`throw(Failure("…"))`) included — but only
+a JS error carries a message, so anything else is reported by its structure.
+When you need to name a path or the schemas involved, build the error instead
+and throw that:
+
+```rescript
+S.Error.make(
+  InvalidInput({
+    reason: "Can't convert string to int",
+    path: S.Path.empty,
+    expected: S.unknown,
+    received: S.unknown,
+  }),
+)->S.Error.throw
+```
 
 Also, you can have an asynchronous transform:
 

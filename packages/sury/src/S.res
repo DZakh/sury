@@ -113,8 +113,6 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<bigint>,
       default?: bigint,
-      // A bigint bound lands in the same fields a number's does, carrying a
-      // bigint — so classify has to spell them at this type to see them.
       minimum?: bigint,
       maximum?: bigint,
       exclusiveMinimum?: bigint,
@@ -249,9 +247,6 @@ and schemaErrorMessage = {
   type_?: string,
   minimum?: string,
   maximum?: string,
-  // S.gt/S.lt store their override here rather than on minimum/maximum, so
-  // without these a ReScript caller can set a message for every bound except
-  // the two exclusive ones.
   exclusiveMinimum?: string,
   exclusiveMaximum?: string,
   minLength?: string,
@@ -398,13 +393,7 @@ module Error = {
 
   external classify: error => errorDetails = "%identity"
 
-  // How a transform fails, now that the effect ctx it used to be handed is
-  // gone. An `error` is a JS Error at runtime but not a ReScript `exn` in the
-  // type system — the `exn` constructor that would make it one is private, so
-  // the cast is the binding rather than something a caller should write.
-  // Thrown from a parser it surfaces as-is; thrown while the transform is
-  // being built it reports at the path it was reached through.
-  let throw = (error: error): 'a => throw(error->Obj.magic)
+  external throw: error => 'a = "%raise"
 }
 
 // Primitive schema values — the same eager, PURE-annotated instances the JS

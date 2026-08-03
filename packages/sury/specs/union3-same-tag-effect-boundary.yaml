@@ -1,4 +1,13 @@
 # yaml-language-server: $schema=./spec.schema.json
+# FIXME: the union header enumerates every member's bounded expression now
+# that a bound rewrites the type expression, so three string members that
+# used to dedupe to `string` render as
+# `string.length >= 5 | string | string.length <= 1`. It reads worst on
+# `wrong-tag` below, where the value isn't a string at all and the header
+# answers with three length bounds. Same root cause as the type-expression
+# item in IDEAS.md, and systemic — union2-refined-literal-fallback,
+# union3-same-tag-validation-group and union-large-planner all moved the
+# same way. Options recorded under "Union headers enumerate bounds" there.
 ts:
   schema: S.union([S.string.with(S.minLength, 5), S.string.with(S.to, S.number), S.string.with(S.maxLength, 1)])
   input: string

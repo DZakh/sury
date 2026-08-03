@@ -126,6 +126,34 @@ S.reverse(S.schema({
   the bounded one — which costs the `skipOverride` path a second caller.
   Pinned in `specs/string-minLength.yaml`.
 
+- **Union headers enumerate bounds.** The same rewrite reaches the union
+  header, which is built from member expressions and deduped on rendered text.
+  Bounded members no longer render alike, so three string members that used to
+  collapse to `string` now spell
+  `string.length >= 5 | string | string.length <= 1`, and a non-string input
+  gets all three back as the answer to what was wrong with it. Visible in
+  `specs/union3-same-tag-effect-boundary.yaml`,
+  `union3-same-tag-validation-group`, `union2-refined-literal-fallback` and
+  `union-large-planner`. Three options, cheapest first: build the header from
+  `inputExpression(member, true)` so it names the shapes and leaves the bounds
+  to the per-member lines, which already carry them; or dedupe on the base
+  rendering and re-add a bound only where it's what distinguishes two members;
+  or keep the header and drop the `, received X` each sub-line repeats from it.
+  The first restores every golden above to its pre-bounds text without losing
+  detail, since the sub-lines are per-member already.
+
+- **A hard-coded array length should build a tuple.** `S.array(S.string)`
+  with `S.length(2)` describes exactly `[string, string]`, and with `S.empty`
+  exactly `[]` — but both infer `string[]` and run a length check beside the
+  array's own loop, where a tuple would carry the arity in its type and check
+  it once. `S.tuple` already exists and already emits `i.length===n`, so this
+  is `length`/`empty` on an array tag rewriting to it rather than refining,
+  and the win is a truer inferred type more than codegen. Two things to settle:
+  the bound is reversible today and a tuple rewrite has to stay so, and
+  `length` applied to an already-bounded array (`minLength(1).length(2)`) has
+  to pick one representation. Pinned in `specs/array-length.yaml` and
+  `specs/array-empty.yaml`.
+
 - **A bound that doesn't narrow takes its custom message down with it.**
   `gte(5).gte(1, "MY MESSAGE")` drops the second bound — correctly, there is no
   failure left for it to guard — but the message is the caller's own text and

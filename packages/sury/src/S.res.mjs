@@ -25,13 +25,7 @@ let Flag = {
   async: async
 };
 
-function $$throw(error) {
-  throw error;
-}
-
-let $$Error = {
-  $$throw: $$throw
-};
+let $$Error = {};
 
 function refine(schema, refiner, error, path) {
   return Sury.refine(schema, refiner, {

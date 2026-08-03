@@ -323,14 +323,14 @@ S.string.with(S.to, S.uint8Array);
 **Sury** includes a handful of string-specific refinements and transforms:
 
 ```ts
-S.maxLength(S.string, 5); // Expected string.length <= 5
-S.minLength(S.string, 5); // Expected string.length >= 5
-S.length(S.string, 5); // Expected string.length == 5
-S.nonEmpty(S.string); // Expected string.length >= 1
-S.empty(S.string); // Expected string.length == 0
+S.string.with(S.maxLength, 5); // Expected string.length <= 5
+S.string.with(S.minLength, 5); // Expected string.length >= 5
+S.string.with(S.length, 5); // Expected string.length == 5
+S.string.with(S.nonEmpty); // Expected string.length >= 1
+S.string.with(S.empty); // Expected string.length == 0
 S.string.with(S.pattern, /[0-9]/); // Invalid pattern
 
-S.trim(S.string); // trim whitespaces
+S.string.with(S.trim); // trim whitespaces
 ```
 
 For format-specific string validation, use the standalone schemas:
@@ -403,10 +403,10 @@ const schema = S.string.with(S.to, S.date);
 **Sury** includes some of number-specific refinements:
 
 ```ts
-S.lte(S.number, 5); // Expected number <= 5
-S.gte(S.number, 5); // Expected number >= 5
-S.lt(S.number, 5); // Expected number < 5
-S.gt(S.number, 5); // Expected number > 5
+S.number.with(S.lte, 5); // Expected number <= 5
+S.number.with(S.gte, 5); // Expected number >= 5
+S.number.with(S.lt, 5); // Expected number < 5
+S.number.with(S.gt, 5); // Expected number > 5
 ```
 
 The comparison refinements work on `S.bigint` too, and on the numeric formats
@@ -414,16 +414,16 @@ The comparison refinements work on `S.bigint` too, and on the numeric formats
 outside it describes a schema nothing satisfies, and fails where it's written:
 
 ```ts
-S.gte(S.int32, 3000000000);
-// [Sury] int32 >= 3000000000 contradicts int32 <= 2147483647
+S.int32.with(S.gte, 3000000000);
+// int32 >= 3000000000 contradicts int32 <= 2147483647
 S.number.with(S.gte, 5).with(S.lte, 1);
-// [Sury] number <= 1 contradicts number >= 5
+// number <= 1 contradicts number >= 5
 ```
 
 Optionally, you can pass in a third argument to provide a custom error message.
 
 ```ts
-S.lte(S.number, 5, "this👏is👏too👏big");
+S.number.with(S.lte, 5, "this👏is👏too👏big");
 ```
 
 ## Optionals
@@ -624,11 +624,11 @@ const stringArraySchema = S.array(S.string);
 **Sury** includes some of array-specific refinements:
 
 ```ts
-S.maxLength(S.array(S.string), 5); // Expected string[].length <= 5
-S.minLength(S.array(S.string), 5); // Expected string[].length >= 5
-S.length(S.array(S.string), 5); // Expected string[].length == 5
-S.nonEmpty(S.array(S.string)); // Expected string[].length >= 1
-S.empty(S.array(S.string)); // Expected string[].length == 0
+S.array(S.string).with(S.maxLength, 5); // Expected string[].length <= 5
+S.array(S.string).with(S.minLength, 5); // Expected string[].length >= 5
+S.array(S.string).with(S.length, 5); // Expected string[].length == 5
+S.array(S.string).with(S.nonEmpty); // Expected string[].length >= 1
+S.array(S.string).with(S.empty); // Expected string[].length == 0
 ```
 
 ### Compact Columns

@@ -510,6 +510,12 @@ export const stringify = (unknown: unknown): string => {
 // `expression` sits after `const` and before the structural tags, so an override
 // beats the shape it overrides while a literal still outranks both. It also has
 // to beat the `format` fallback below: compactColumns is the sole array format.
+//
+// `skipOverride` renders the shape an override would have replaced. It exists
+// for an override that wraps its own schema's rendering rather than replacing
+// it — a bound, the only one today (`setBoundExpression` in refinements.ts) —
+// which has to ask for the base rendering of the very schema whose `expression`
+// is mid-call, and would recurse forever without this.
 // @__NO_SIDE_EFFECTS__
 export const inputExpression = (schema: Internal, skipOverride?: boolean): string => {
   if (schema.name) {
