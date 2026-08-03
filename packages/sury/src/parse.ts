@@ -246,8 +246,12 @@ const reverseSwap = (mut: Record<string, unknown>, a: string, b: string): void =
   }
 }
 
+// Null prototype: the keys are user-controlled property names, and assigning
+// `__proto__` on a plain `{}` reparents the object instead of adding a key —
+// which reparented the reversed property dict onto the property's own schema and
+// dropped the key, so `outputExpression` rendered schema internals.
 const reverseDict = (dict: Record<string, Internal>): Record<string, Internal> => {
-  const reversed: Record<string, Internal> = {};
+  const reversed: Record<string, Internal> = Object.create(null);
   for (const key in dict) {
     reversed[key] = reverse(dict[key]!);
   }

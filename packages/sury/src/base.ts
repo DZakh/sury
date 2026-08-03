@@ -474,10 +474,10 @@ export const stringify = (unknown: unknown): string => {
       let body = "";
       for (let idx = 0; idx < items.length; idx++) {
         if (idx === 5) {
-          body = body + ", …";
+          body = body + ", ...";
           break;
         }
-        body = body + (idx === 0 ? "" : ", ") + stringifyLeaf(items[idx]);
+        body = body + (idx ? ", " : "") + stringifyLeaf(items[idx]);
       }
       return `[${body}]`;
     }
@@ -487,68 +487,15 @@ export const stringify = (unknown: unknown): string => {
       let count = 0;
       for (const key in dict) {
         if (count++ === 5) {
-          body = body + "… ";
+          body = body + "... ";
           break;
         }
         body = body + key + ": " + stringifyLeaf(dict[key]) + "; ";
       }
-      return body === "" ? "{}" : `{ ${body}}`;
+      return body ? `{ ${body}}` : "{}";
     }
   }
   return stringifyLeaf(unknown);
-}
-
-// Properties and an index signature come from one accumulator rather than
-// exclusive branches: no factory produces both at once today, but the shape is
-// representable, and the branchy version silently dropped the index signature.
-const objectExpression = (schema: Internal): string => {
-  const properties = schema.properties!;
-  const additionalItems = schema.additionalItems;
-  let body = "";
-  for (const location in properties) {
-    body = body + location + ": " + inputExpression(properties[location]!) + "; ";
-  }
-  if (typeof additionalItems === objectTag) {
-    body = body + "[key: string]: " + inputExpression(additionalItems as Internal) + "; ";
-  }
-  return body === "" ? `{}` : `{ ${body}}`;
-}
-
-// Exported for compactColumns, whose expression falls back to the plain array
-// rendering of its own columnar shape when no `.to` target names the columns.
-export const arrayExpression = (schema: Internal): string => {
-  const additionalItems = schema.additionalItems;
-  if (typeof additionalItems === objectTag) {
-    const item = additionalItems as Internal;
-    const itemName = inputExpression(item);
-    return (item.type === anyOfTag ? `(${itemName})` : itemName) + "[]";
-  }
-  const items = schema.items!;
-  let body = "";
-  for (let idx = 0; idx < items.length; idx++) {
-    body = body + (idx === 0 ? "" : ", ") + inputExpression(items[idx]!);
-  }
-  return `[${body}]`;
-}
-
-// Repeated members remain significant to decoding (the same effectful schema may
-// intentionally run more than once), but not to the expression describing the
-// union. Deduplication is on the rendered text, not schema identity: two members
-// a reader cannot tell apart add nothing by appearing twice. The cost is that
-// members which genuinely differ but render alike — two distinct classes both
-// named Foo — collapse, so this is not a member count.
-const unionExpression = (schema: Internal): string => {
-  const anyOf = schema.anyOf!;
-  const seen = new Set<string>();
-  let out = "";
-  for (let idx = 0; idx < anyOf.length; idx++) {
-    const expression = inputExpression(anyOf[idx]!);
-    if (!seen.has(expression)) {
-      seen.add(expression);
-      out = out === "" ? expression : out + " | " + expression;
-    }
-  }
-  return out;
 }
 
 // `expression` sits after `const` and before the structural tags, so an override
@@ -556,23 +503,58 @@ const unionExpression = (schema: Internal): string => {
 // to beat the `format` fallback below: compactColumns is the sole array format.
 // @__NO_SIDE_EFFECTS__
 export const inputExpression = (schema: Internal): string => {
-  if (schema.name !== U) {
+  if (schema.name) {
     return schema.name;
   } else if (schema.const !== U) {
     return stringify(schema.const);
-  } else if (schema.expression !== U) {
+  } else if (schema.expression) {
     return schema.expression(schema);
   } else if (schema.anyOf !== U) {
-    return unionExpression(schema);
+    // Repeated members remain significant to decoding (the same effectful schema
+    // may intentionally run more than once), but not to the expression. Deduping
+    // on rendered text rather than identity means members which genuinely differ
+    // but render alike — two distinct classes both named Foo — collapse, so this
+    // is not a member count.
+    const anyOf = schema.anyOf;
+    const seen = new Set<string>();
+    let body = "";
+    for (let idx = 0; idx < anyOf.length; idx++) {
+      const expression = inputExpression(anyOf[idx]!);
+      if (!seen.has(expression)) {
+        seen.add(expression);
+        body = body + (body ? " | " : "") + expression;
+      }
+    }
+    return body;
   } else if (schema.type === objectTag) {
-    return objectExpression(schema);
+    // Properties and an index signature share one accumulator: no factory
+    // produces both at once today, but the shape is representable, and the
+    // branchy version silently dropped the index signature.
+    const properties = schema.properties!;
+    const additionalItems = schema.additionalItems;
+    let body = "";
+    for (const location in properties) {
+      body = body + location + ": " + inputExpression(properties[location]!) + "; ";
+    }
+    if (typeof additionalItems === objectTag) {
+      body = body + "[key: string]: " + inputExpression(additionalItems as Internal) + "; ";
+    }
+    return body ? `{ ${body}}` : "{}";
   } else if (schema.type === arrayTag) {
-    return arrayExpression(schema);
-  } else if (schema.format !== U) {
+    const additionalItems = schema.additionalItems;
+    if (typeof additionalItems === objectTag) {
+      const item = additionalItems as Internal;
+      const itemName = inputExpression(item);
+      return (item.type === anyOfTag ? `(${itemName})` : itemName) + "[]";
+    }
+    const items = schema.items!;
+    let body = "";
+    for (let idx = 0; idx < items.length; idx++) {
+      body = body + (idx ? ", " : "") + inputExpression(items[idx]!);
+    }
+    return `[${body}]`;
+  } else if (schema.format) {
     return schema.format;
-    // No `nan` case: the sole nan schema (primitives.ts, via `cached`) always
-    // carries `const: NaN`, so the `const` branch above renders it — as the
-    // same "NaN" string, via stringify.
   } else if (schema.type === instanceTag) {
     return (schema.class as { name: string }).name;
   } else {

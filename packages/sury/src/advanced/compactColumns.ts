@@ -2,7 +2,6 @@
 // is why it owns a decoder of its own rather than composing existing ones.
 
 import {
-  arrayExpression,
   type Builder,
   copySchema,
   flagUnsafeHas,
@@ -35,7 +34,8 @@ import { array } from "../composites";
 import { parse } from "../parse";
 
 // The column types only exist once `.to` has been applied, so this must stay
-// lazy — until then the schema is just `array(array(item))` and renders itself.
+// lazy — until then there are no column names and the schema describes its own
+// `array(array(item))` shape as `item[][]`.
 //
 // Columns are read where compactColumnsDecoder's forward direction reads them:
 // on the `.to` array's item schema. Reading `to.properties` instead described
@@ -46,11 +46,11 @@ const compactColumnsExpression = (schema: Internal): string => {
   const item = to !== U ? to.additionalItems : U;
   const props = typeof item === "object" ? (item as Internal).properties : U;
   if (props === U) {
-    return arrayExpression(schema);
+    return `${inputExpression(schema.additionalItems as Internal)}[]`;
   }
   let body = "";
   for (const key in props) {
-    body = body + (body === "" ? "" : ", ") + inputExpression(props[key]!) + "[]";
+    body = body + (body ? ", " : "") + inputExpression(props[key]!) + "[]";
   }
   return `[${body}]`;
 }

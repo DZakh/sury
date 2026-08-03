@@ -2851,9 +2851,9 @@ test("A received value is expanded one level", (t) => {
 
   // Width is capped too, or one wide input still produces a huge message.
   t.expect(received(Object.fromEntries(Array.from({ length: 40 }, (_, i) => [i, i])))).toBe(
-    "{ 0: 0; 1: 1; 2: 2; 3: 3; 4: 4; … }",
+    "{ 0: 0; 1: 1; 2: 2; 3: 3; 4: 4; ... }",
   );
-  t.expect(received([1, 2, 3, 4, 5, 6, 7, 8])).toBe("[1, 2, 3, 4, 5, …]");
+  t.expect(received([1, 2, 3, 4, 5, 6, 7, 8])).toBe("[1, 2, 3, 4, 5, ...]");
 });
 
 // There is no `nan` case in inputExpression: the sole nan schema always carries

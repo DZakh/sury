@@ -1347,7 +1347,7 @@ S.inputExpression(S.name(S.string, "Address"));
 
 Used internally for readable error messages.
 
-> 🧠 The format subject to change
+> 🧠 The format is subject to change
 
 ### **`outputExpression`**
 
@@ -1363,7 +1363,7 @@ S.outputExpression(schema);
 
 The same expression for the schema's output type.
 
-> 🧠 The format subject to change
+> 🧠 The format is subject to change
 
 ### **`toString`**
 
@@ -1389,7 +1389,7 @@ The output side is derived through [`reverse`](#reverse), so nested transforms a
 // "Schema<{ a: string; }, { a: number; }>"
 ```
 
-> 🧠 The format subject to change
+> 🧠 The format is subject to change
 
 ## Error handling
 

@@ -6,7 +6,6 @@ import {
   type AdditionalItems,
   arrayTag,
   baseSchema,
-  type Builder,
   type Check,
   type ErrorDetails,
   flagUnsafeHas,
@@ -181,7 +180,7 @@ export const array = (item: Internal): Internal => {
   mut.decoder = arrayDecoder;
   return mut;
 }
-export const arrayDecoder: Builder = (unknownInput: Val): Val => {
+export const arrayDecoder = (unknownInput: Val): Val => {
   const isUnion = unknownInput.u!;
   const expectedSchema = unknownInput.e;
   const unknownInputTagFlag = tagFlags[unknownInput.s.type]!;
@@ -325,8 +324,7 @@ export const arrayDecoder: Builder = (unknownInput: Val): Val => {
   }
   return B_markOutput(output, input);
 }
-
-export const objectDecoder: Builder = (unknownInput: Val): Val => {
+export const objectDecoder = (unknownInput: Val): Val => {
   const isUnion = unknownInput.u!;
   const expectedSchema = unknownInput.e;
 
@@ -341,11 +339,6 @@ export const objectDecoder: Builder = (unknownInput: Val): Val => {
       const mut = baseSchema(objectTag, false);
       mut.properties = immutableEmptyObject as Record<string, Internal>;
       mut.additionalItems = unknown;
-      // `baseSchema` leaves `decoder` unset even though `Internal` declares it
-      // required, so every construction site has to fill it in — this one is
-      // only reached as a refine target, where nothing calls it, but a schema
-      // that escapes with `decoder === undefined` throws on the next getDecoder.
-      mut.decoder = objectDecoder;
       schema = mut;
     } else {
       schema = unknownInput.s;

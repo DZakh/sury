@@ -28,16 +28,8 @@ operations:
       null-is-not-a-date:
         input: "null"
         error: Expected Date, received null
-      # FIXME: an invalid Date is rejected by the second check, but `received`
-      # names the value's constructor and stops there, so the message reads
-      # `Expected Date, received Date` — the one input where naming the type
-      # says nothing, because the type is right and the *value* is not. It also
-      # reads identically to a genuine tag mismatch (another realm's Date).
-      # `stringifyLeaf` in base.ts could render `Invalid Date` here, which is
-      # what the value's own toString already returns; left unfixed because that
-      # is a Date-shaped branch in the floor every consumer would pay for.
       invalid-date:
         input: new Date("invalid")
-        error: Expected Date, received Date
+        error: Expected Date, received invalid Date
   decode: identity
   encode: identity

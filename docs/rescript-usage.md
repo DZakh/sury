@@ -1590,7 +1590,7 @@ S.string->S.meta({name: "Address"})->S.inputExpression
 
 Used internally for readable error messages.
 
-> 🧠 The format subject to change
+> 🧠 The format is subject to change
 
 ### **`outputExpression`**
 
@@ -1608,7 +1608,7 @@ schema->S.outputExpression
 
 The same expression for the schema's output type.
 
-> 🧠 The format subject to change
+> 🧠 The format is subject to change
 
 ### **`toString`**
 
@@ -1633,7 +1633,7 @@ The output side is derived through [`reverse`](#reverse), so nested transforms a
 // "Schema<string[], int32[]>"
 ```
 
-> 🧠 The format subject to change
+> 🧠 The format is subject to change
 
 ### **`noValidation`**
 
