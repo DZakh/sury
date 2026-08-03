@@ -44,14 +44,6 @@ S.reverse(S.schema({
 
 ### Numeric bounds follow-ups
 
-- **A format's range should participate in the contradiction check.**
-  `S.gte(S.int32, 3000000000)` is unsatisfiable — the bound sits above int32's
-  ceiling — but int32 and port carry their range in the JSON Schema emit
-  rather than as `minimum`/`maximum` on the schema, so `conflictLower` has
-  nothing to compare against and it builds. Storing the format range as real
-  bound fields would make this fall out of the existing check, and would also
-  give the redundancy elimination in the entry below something to work with.
-
 - **Move bound checks off `refiner` into the decoder.** `S.gt`/`S.lt` build a
   refinement whose check duplicates what the decoder could emit from the
   bound fields directly, so `S.int32.with(S.gte, 5)` range-checks twice.
@@ -89,24 +81,13 @@ S.reverse(S.schema({
 - **Narrow a numeric format's range check against the schema's own bounds.**
   `S.int32.with(S.gt, 5)` emits `i<=2147483647&&i>=-2147483648&&i%1===0` and
   then `i>5`, but `i>5` already implies the lower half; `S.lt` makes the upper
-  half dead the same way, and `S.port` (`i>0&&i<65536&&i%1===0`) has the
+  half dead the same way, and `S.port` (`i>=0&&i<65536&&i%1===0`) has the
   identical redundancy. `numberDecoder` has `input.e` in hand and the bounds
   are native fields on it, so `int32FormatValidation` can drop whichever half
   the bound subsumes. Two costs: a value outside the format range but also
   outside the bound would report the bound's error rather than
   `Expected int32`, and `int32Check` would stop being a module-level const —
   the one place `primitives.ts` deliberately avoids a per-compile closure.
-
-- **Bound errors should read `Expected int32 > 5, received 5.5`.** Today they
-  say `Number must be greater than 5`, which omits the received value and says
-  "Number" for what is really an int32, a port or a bigint. `Expected X,
-  received Y` is the house idiom everywhere else, and routing through
-  `toExpression` names the actual schema. Failure-path only, but it moves
-  bound failures off `B_failWithErrorMessage`'s static string onto
-  `B_makeInvalidInputDetails`. Settle the length family in the same pass so
-  the two don't drift again — `Expected string > 5` is wrong, since the
-  comparison is on `.length`; something like `Expected string.length >= 1,
-  received 0` keeps the received value a number.
 
 ### Known bugs left over from the validation refactor (`val.validation: array<validationCheck>`)
 

@@ -101,16 +101,63 @@ const lit = (value: number | bigint): string => (typeof value === bigintTag ? `$
 const sizeKey = (schema: Internal, upper: boolean): "minLength" | "maxLength" | "minItems" | "maxItems" =>
   schema.type === arrayTag ? (upper ? "maxItems" : "minItems") : upper ? "maxLength" : "minLength";
 
+// Bounds wrap the expression they constrain, in ArkType's double-bounded
+// spelling — `0 < number < 10` rather than a clause per side. A string or
+// array bounds its `.length`, which is named so the comparison can't be read
+// against the value: `string.length >= 3` against a received `"hi"`.
+//
+// This lives here rather than in inputExpression so that a consumer who never
+// writes a bound doesn't carry it: reaching it costs ~400 bytes that base.ts
+// could never shake, where `expression` is the hook base.ts offers for a
+// rendering another module owns.
+const withBounds = (schema: Internal, base: string): string => {
+  const written = schema.bounds!;
+  const isArray = schema.type === arrayTag;
+  const sized = isArray || schema.type === stringTag;
+  const minKey = isArray ? "minItems" : sized ? "minLength" : "minimum";
+  const maxKey = isArray ? "maxItems" : sized ? "maxLength" : "maximum";
+  // No JSON Schema keyword bounds a length exclusively, so only a value bound
+  // can be strict.
+  const exMin = written & 4 ? schema.exclusiveMinimum : U;
+  const exMax = written & 8 ? schema.exclusiveMaximum : U;
+  const low = exMin !== U ? exMin : written & 1 ? schema[minKey] : U;
+  const high = exMax !== U ? exMax : written & 2 ? schema[maxKey] : U;
+  const subject = sized ? `${base}.length` : base;
+  if (low === U) {
+    return `${subject} ${exMax !== U ? "<" : "<="} ${high}`;
+  }
+  if (high === U) {
+    return `${subject} ${exMin !== U ? ">" : ">="} ${low}`;
+  }
+  return exMin === U && exMax === U && low === high
+    ? `${subject} == ${low}`
+    : `${low} ${exMin !== U ? "<" : "<="} ${subject} ${exMax !== U ? "<" : "<="} ${high}`;
+};
+
+// Only the first bound on a schema captures the rendering it wraps — a later
+// one inherits this override through the copy and must reuse the same base, or
+// the wrapping nests into `1 <= (1 <= number <= 9) <= 9`. `skipOverride` is
+// what stops the base rendering from re-entering this.
+const setBoundExpression = (mut: Internal, schema: Internal): void => {
+  if (schema.bounds === U) {
+    const base = schema.expression;
+    mut.expression = (s: Internal) =>
+      withBounds(s, base !== U ? base(s) : inputExpression(s, true));
+  }
+};
+
+// Every comparison below casts the bound to `number`: JS compares a number
+// against a bigint without complaint where TS refuses, and assertNumericBound
+// has already established that the bound matches the schema's numeric type —
+// so the cast is safe and stays at the comparison rather than widening four
+// signatures to `any`.
+//
 // A bound only sticks if it actually narrows what the schema already accepts.
 // The looser one is dropped rather than kept alongside, so a schema can never
 // advertise a bound weaker than the checks it runs — and at most one of
 // minimum/exclusiveMinimum survives per side, which the JSON Schema emit
 // relies on when deciding whether a format's own range still says anything.
 const narrowsLower = (schema: Internal, value: number | bigint, exclusive: boolean): boolean => {
-  // JS compares a number against a bigint without complaint; TS refuses.
-  // assertNumericBound has already established that the bound matches the
-  // schema's numeric type, so the cast is safe and stays at the comparison
-  // rather than widening a signature to `any`.
   const bound = value as number;
   const inclusive = schema.minimum as number | undefined;
   const strict = schema.exclusiveMinimum as number | undefined;
@@ -154,6 +201,9 @@ const conflict = (incoming: Internal, existing: Internal): void => {
 const asBound = (schema: Internal, key: string, bit: number, value: unknown): Internal => {
   const mut = { ...schema, bounds: bit } as unknown as Record<string, unknown>;
   mut[key] = value;
+  // The first bound on a schema is reported before one was ever applied, so
+  // the copy has no override to inherit and renders bare without this.
+  setBoundExpression(mut as unknown as Internal, schema);
   return mut as unknown as Internal;
 };
 
@@ -174,10 +224,6 @@ const assertLower = (schema: Internal, value: number | bigint, exclusive: boolea
 const assertUpper = (schema: Internal, value: number | bigint, exclusive: boolean): void => {
   const key = exclusive ? "exclusiveMaximum" : "maximum";
   const bit = exclusive ? 8 : 2;
-  // JS compares a number against a bigint without complaint; TS refuses.
-  // assertNumericBound has already established that the bound matches the
-  // schema's numeric type, so the cast is safe and stays at the comparison
-  // rather than widening a signature to `any`.
   const bound = value as number;
   const inclusive = schema.minimum as number | undefined;
   const strict = schema.exclusiveMinimum as number | undefined;
@@ -206,6 +252,7 @@ export const gte = (schema: Internal, minValue: number | bigint, maybeMessage?: 
   assertLower(schema, minValue, false);
   if (!narrowsLower(schema, minValue, false)) return schema;
   return internalRefine(schema, (mut: Internal) => {
+    setBoundExpression(mut, schema);
     mut.bounds = ((schema.bounds ?? 0) & ~4) | 1;
     mut.minimum = minValue;
     mut.exclusiveMinimum = U;
@@ -227,6 +274,7 @@ export const lte = (schema: Internal, maxValue: number | bigint, maybeMessage?: 
   assertUpper(schema, maxValue, false);
   if (!narrowsUpper(schema, maxValue, false)) return schema;
   return internalRefine(schema, (mut: Internal) => {
+    setBoundExpression(mut, schema);
     mut.bounds = ((schema.bounds ?? 0) & ~8) | 2;
     mut.maximum = maxValue;
     mut.exclusiveMaximum = U;
@@ -248,6 +296,7 @@ export const gt = (schema: Internal, minValue: number | bigint, maybeMessage?: s
   assertLower(schema, minValue, true);
   if (!narrowsLower(schema, minValue, true)) return schema;
   return internalRefine(schema, (mut: Internal) => {
+    setBoundExpression(mut, schema);
     mut.bounds = ((schema.bounds ?? 0) & ~1) | 4;
     mut.exclusiveMinimum = minValue;
     mut.minimum = U;
@@ -269,6 +318,7 @@ export const lt = (schema: Internal, maxValue: number | bigint, maybeMessage?: s
   assertUpper(schema, maxValue, true);
   if (!narrowsUpper(schema, maxValue, true)) return schema;
   return internalRefine(schema, (mut: Internal) => {
+    setBoundExpression(mut, schema);
     mut.bounds = ((schema.bounds ?? 0) & ~2) | 8;
     mut.exclusiveMaximum = maxValue;
     mut.maximum = U;
@@ -291,6 +341,7 @@ export const minLength = (schema: Internal, length: number, maybeMessage?: strin
   const key = sizeKey(schema, false);
   if (!narrowsSize(schema[key], length, false)) return schema;
   return internalRefine(schema, (mut: Internal) => {
+    setBoundExpression(mut, schema);
     mut.bounds = (schema.bounds ?? 0) | 1;
     mut[key] = length;
     if (maybeMessage !== U) getMutErrorMessage(mut)[key] = maybeMessage;
@@ -312,6 +363,7 @@ export const maxLength = (schema: Internal, length: number, maybeMessage?: strin
   const key = sizeKey(schema, true);
   if (!narrowsSize(schema[key], length, true)) return schema;
   return internalRefine(schema, (mut: Internal) => {
+    setBoundExpression(mut, schema);
     mut.bounds = (schema.bounds ?? 0) | 2;
     mut[key] = length;
     if (maybeMessage !== U) getMutErrorMessage(mut)[key] = maybeMessage;
@@ -333,7 +385,12 @@ export const length = (schema: Internal, length: number, maybeMessage?: string):
   assertSize(schema, length, true);
   const minKey = sizeKey(schema, false);
   const maxKey = sizeKey(schema, true);
+  // Both sides already pinned here: `=== length` is exactly what runs, so a
+  // second copy of it is the one case this adds nothing, the same way a
+  // non-narrowing bound is for the others.
+  if (schema[minKey] === length && schema[maxKey] === length) return schema;
   return internalRefine(schema, (mut: Internal) => {
+    setBoundExpression(mut, schema);
     mut.bounds = (schema.bounds ?? 0) | 3;
     mut[minKey] = length;
     mut[maxKey] = length;

@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.number.with(S.gte, 5).with(S.gte, 1, "MY MESSAGE")
+  input: number
+  output: number
+  instantiations: 5359
+vs:
+  zod: z.number().gte(5).gte(1, "MY MESSAGE")
+jsonSchema:
+  input: '{ type: "number", minimum: 5 }'
+  output: '{ type: "number", minimum: 5 }'
+operations:
+  parse:
+    expression: i=>{typeof i==="number"&&!Number.isNaN(i)||e[1](i);i>=5||e[0](i);return i}
+    examples:
+      at-the-surviving-bound:
+        input: "5"
+        output: "5"
+      between-the-two-bounds:
+        input: "3"
+        error: Expected number >= 5, received 3
+      at-the-dropped-bound:
+        input: "1"
+        error: Expected number >= 5, received 1
+      below-both:
+        input: "0"
+        error: Expected number >= 5, received 0
+  decode:
+    expression: i=>{i>=5||e[0](i);return i}
+    examples:
+      at-the-surviving-bound:
+        input: "5"
+        output: "5"
+      between-the-two-bounds:
+        input: "3"
+        error: Expected number >= 5, received 3
+  encode:
+    expression: i=>{i>=5||e[0](i);return i}
+    examples:
+      at-the-surviving-bound:
+        input: "5"
+        output: "5"
+      between-the-two-bounds:
+        input: "3"
+        error: Expected number >= 5, received 3

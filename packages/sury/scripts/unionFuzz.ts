@@ -103,8 +103,12 @@ const members: MemberSpec[] = [
   // Refined members reject values of their own type, which is the only way a
   // same-tag fallback edge gets exercised.
   {
+    // Both spellings, because the baseline is built from a git ref and the
+    // rename of `S.min` landed partway through this file's history — pinning
+    // either name alone makes the harness unable to build one side, which is
+    // the same as having no gate.
     id: "string-min3",
-    of: (S) => S.string.with(S.minLength, 3),
+    of: (S) => S.string.with(S.minLength ?? (S as any).min, 3),
   },
   {
     id: "string-refine-fail",

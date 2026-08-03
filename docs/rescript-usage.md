@@ -207,9 +207,11 @@ The `S.string` schema represents a data that is a string. It can be further cons
 **Sury** includes a handful of string-specific refinements and transforms:
 
 ```rescript
-S.string->S.max(5) // String must be 5 or fewer characters long
-S.string->S.min(5) // String must be 5 or more characters long
-S.string->S.length(5) // String must be exactly 5 characters long
+S.string->S.maxLength(5) // Expected string.length <= 5
+S.string->S.minLength(5) // Expected string.length >= 5
+S.string->S.length(5) // Expected string.length == 5
+S.string->S.nonEmpty // Expected string.length >= 1
+S.string->S.empty // Expected string.length == 0
 S.string->S.pattern(%re(`/[0-9]/`)) // Invalid pattern
 
 S.string->S.trim // trim whitespaces
@@ -233,7 +235,7 @@ S.cuid // Standalone CUID schema
 Built-in refinements accept an optional `~message` argument for a custom error message:
 
 ```rescript
-S.string->S.min(1, ~message="String can't be empty")
+S.string->S.nonEmpty(~message="String can't be empty")
 S.string->S.length(5, ~message="SMS code should be 5 digits long")
 S.string->S.pattern(%re(`/^\d+$/`), ~message="Must be numeric")
 ```
@@ -283,9 +285,20 @@ The `S.int` schema represents a data that is an integer.
 **Sury** includes some of int-specific refinements:
 
 ```rescript
-S.int->S.max(5) // Number must be lower than or equal to 5
-S.int->S.min(5) // Number must be greater than or equal to 5
+S.int->S.lte(5) // Expected int32 <= 5
+S.int->S.gte(5) // Expected int32 >= 5
+S.int->S.lt(5) // Expected int32 < 5
+S.int->S.gt(5) // Expected int32 > 5
 S.port // Standalone port schema
+```
+
+The same four work on `S.float` and `S.bigint`. A numeric format carries its
+own range, so a bound outside it fails where it's written rather than building
+a schema nothing satisfies:
+
+```rescript
+S.int->S.gte(3000000000)
+// [Sury] int32 >= 3000000000 contradicts int32 <= 2147483647
 ```
 
 ### **`float`**

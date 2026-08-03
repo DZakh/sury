@@ -512,52 +512,16 @@ export const stringify = (unknown: unknown): string => {
   return stringifyLeaf(unknown);
 }
 
-// Bounds wrap the expression they constrain, in ArkType's double-bounded
-// spelling — `0 < number < 10` rather than a clause per side. A string or
-// array bounds its `.length`, which is named so the comparison can't be read
-// against the value: `string.length >= 3` against a received `"hi"`.
-//
-// `bounds` is set only by the bound constructors and only together with the
-// field it names, so a schema carrying it always renders at least one side —
-// which is what lets callers test that field alone to know whether this
-// leaves an infix operator behind.
-const withBounds = (schema: Internal, base: string): string => {
-  const written = schema.bounds;
-  if (written === U) {
-    return base;
-  }
-  const isArray = schema.type === arrayTag;
-  const sized = isArray || schema.type === stringTag;
-  const minKey = isArray ? "minItems" : sized ? "minLength" : "minimum";
-  const maxKey = isArray ? "maxItems" : sized ? "maxLength" : "maximum";
-  // No JSON Schema keyword bounds a length exclusively, so only a value bound
-  // can be strict.
-  const exMin = written & 4 ? schema.exclusiveMinimum : U;
-  const exMax = written & 8 ? schema.exclusiveMaximum : U;
-  const low = exMin !== U ? exMin : written & 1 ? schema[minKey] : U;
-  const high = exMax !== U ? exMax : written & 2 ? schema[maxKey] : U;
-  const subject = sized ? `${base}.length` : base;
-  if (low === U) {
-    return `${subject} ${exMax !== U ? "<" : "<="} ${high}`;
-  }
-  if (high === U) {
-    return `${subject} ${exMin !== U ? ">" : ">="} ${low}`;
-  }
-  return exMin === U && exMax === U && low === high
-    ? `${subject} == ${low}`
-    : `${low} ${exMin !== U ? "<" : "<="} ${subject} ${exMax !== U ? "<" : "<="} ${high}`;
-};
-
 // `expression` sits after `const` and before the structural tags, so an override
 // beats the shape it overrides while a literal still outranks both. It also has
 // to beat the `format` fallback below: compactColumns is the sole array format.
 // @__NO_SIDE_EFFECTS__
-export const inputExpression = (schema: Internal): string => {
+export const inputExpression = (schema: Internal, skipOverride?: boolean): string => {
   if (schema.name) {
     return schema.name;
   } else if (schema.const !== U) {
     return stringify(schema.const);
-  } else if (schema.expression) {
+  } else if (schema.expression && !skipOverride) {
     return schema.expression(schema);
   } else if (schema.anyOf !== U) {
     // Repeated members remain significant to decoding (the same effectful schema
@@ -597,10 +561,7 @@ export const inputExpression = (schema: Internal): string => {
       const itemName = inputExpression(item);
       // A bound reads as part of the item, not the array: `int32 > 5[]` parses
       // as an array-typed bound, the same ambiguity a union has.
-      return withBounds(
-        schema,
-        (item.type === anyOfTag || item.bounds !== U ? `(${itemName})` : itemName) + "[]"
-      );
+      return (item.type === anyOfTag || item.bounds !== U ? `(${itemName})` : itemName) + "[]";
     }
     const items = schema.items!;
     let body = "";
@@ -609,11 +570,11 @@ export const inputExpression = (schema: Internal): string => {
     }
     return `[${body}]`;
   } else if (schema.format) {
-    return withBounds(schema, schema.format);
+    return schema.format;
   } else if (schema.type === instanceTag) {
     return (schema.class as { name: string }).name;
   } else {
-    return withBounds(schema, schema.type);
+    return schema.type;
   }
 }
 
