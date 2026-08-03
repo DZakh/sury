@@ -10,7 +10,6 @@
 import {
   anyOfTag,
   arrayTag,
-  baseSchema,
   bigintTag,
   booleanTag,
   defsPath,
@@ -43,10 +42,9 @@ import {
   U,
   undefinedTag,
   unknown,
-  unknownTag,
 } from "./base";
 import { json } from "./advanced/json";
-import { B_makeInvalidInputDetails, B_operationArg } from "./builder";
+import { B_operationArg } from "./builder";
 import { array, option } from "./composites";
 import { definitionToSchema, schemaFactory } from "./factory";
 import {
@@ -592,25 +590,17 @@ const internalToJSONSchemaBase = (
   } else if (tag === neverTag) {
     jsonSchema.not = {};
   } else {
-    // No value was parsed here — the schema itself is what isn't JSON — so the
-    // reason names the offending schema rather than a received value.
+    // Not `invalid_input`: nothing was parsed, so there is no input to report
+    // and no schema a value failed against. What failed is the conversion
+    // itself, on a schema that has no JSON Schema equivalent — which is what
+    // `invalid_operation` describes. The offending schema is named in the
+    // reason and located by `path`.
     const offender = flagUnsafeHas(tagFlags[parent.type]!, tagFlagUnion) ? parent : schema;
-    throw new SuryError(
-      B_makeInvalidInputDetails(
-        // Just needs `.name` for the structured `expected` — avoid json()'s
-        // recursive union.
-        (() => {
-          const s = baseSchema(unknownTag, false);
-          s.name = jsonName;
-          return s;
-        })(),
-        offender,
-        path,
-        U,
-        U,
-        `Expected ${jsonName}, received ${inputExpression(offender)}`
-      )
-    );
+    throw new SuryError({
+      code: "invalid_operation",
+      path,
+      reason: `Expected ${jsonName}, received ${inputExpression(offender)}`,
+    });
   }
 
   applyMetadataOverlay(jsonSchema, schema, defs);

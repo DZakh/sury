@@ -229,6 +229,38 @@ test("JSONSchema of NaN", t => {
   )
 })
 
+// A schema with no JSON Schema equivalent fails the conversion itself — nothing
+// was parsed, so there is no input to report and no schema a value failed
+// against. That is `InvalidOperation`, where the same message from `S.json`
+// rejecting a *value* stays `InvalidInput`.
+test("JSONSchema of a non-JSON schema is an InvalidOperation, not an InvalidInput", t => {
+  t->Assert.deepEqual(
+    switch S.object(s => s.field("a", S.bigint))->S.toJSONSchema {
+    | _ => None
+    | exception S.Exn(error) =>
+      switch error->S.Error.classify {
+      | InvalidOperation({path, reason}) => Some((path, reason))
+      | _ => None
+      }
+    },
+    Some((S.Path.fromArray(["a"]), `Expected JSON, received bigint`)),
+  )
+
+  // The same sentence from `S.json` rejecting a value keeps `InvalidInput` —
+  // there a value really did fail a schema.
+  t->Assert.deepEqual(
+    switch %raw(`1n`)->S.parseOrThrow(~to=S.json) {
+    | _ => false
+    | exception S.Exn(error) =>
+      switch error->S.Error.classify {
+      | InvalidInput(_) => true
+      | _ => false
+      }
+    },
+    true,
+  )
+})
+
 test("JSONSchema of tuple", t => {
   t->Assert.deepEqual(
     S.tuple2(S.string, S.bool)->S.toJSONSchema,
@@ -526,7 +558,7 @@ test(
         "field",
         S.option(
           S.bool->S.transform(
-            _ => {
+            () => {
               parser: bool => {
                 switch bool {
                 | true => "true"
@@ -555,7 +587,7 @@ test("Transformed schema schema uses default with correct type", t => {
       "field",
       S.option(
         S.bool->S.transform(
-          _ => {
+          () => {
             parser: bool => {
               switch bool {
               | true => "true"

@@ -376,8 +376,6 @@ module Flag = {
 }
 type flag = Flag.t
 
-type s<'value> = {fail: 'a. (string, ~path: Path.t=?) => 'a}
-
 module Error = {
   type class
 
@@ -386,6 +384,14 @@ module Error = {
   @module("sury") @new external make: errorDetails => error = "Error"
 
   external classify: error => errorDetails = "%identity"
+
+  // How a transform fails, now that the effect ctx it used to be handed is
+  // gone. An `error` is a JS Error at runtime but not a ReScript `exn` in the
+  // type system — the `exn` constructor that would make it one is private, so
+  // the cast is the binding rather than something a caller should write.
+  // Thrown from a parser it surfaces as-is; thrown while the transform is
+  // being built it reports at the path it was reached through.
+  let throw = (error: error): 'a => throw(error->Obj.magic)
 }
 
 // Primitive schema values — the same eager, PURE-annotated instances the JS
@@ -441,7 +447,7 @@ type transformDefinition<'input, 'output> = {
   serializer?: 'output => 'input,
 }
 @module("sury")
-external transform: (t<'input>, s<'output> => transformDefinition<'input, 'output>) => t<'output> =
+external transform: (t<'input>, unit => transformDefinition<'input, 'output>) => t<'output> =
   "$res_transform"
 
 // The public JS `refine` takes an options object; build it here from the

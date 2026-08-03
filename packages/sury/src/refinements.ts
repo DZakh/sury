@@ -441,7 +441,7 @@ export const pattern = (schema: Internal, re: RegExp, message: string = `Invalid
 // @__NO_SIDE_EFFECTS__
 export const trim = (schema: Internal): Internal => {
   const transformer = (string: unknown) => (string as string).trim();
-  return transform(schema, (_: unknown) => ({
+  return transform(schema, () => ({
     p: transformer,
     s: transformer,
   }));

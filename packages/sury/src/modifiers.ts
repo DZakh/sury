@@ -22,7 +22,6 @@ import {
   type Val,
 } from "./base";
 import {
-  B_effectCtx,
   B_embed,
   B_embedTransformation,
   B_inlineConst,
@@ -30,7 +29,6 @@ import {
   B_invalidOperation,
   B_next,
   B_refine,
-  type EffectCtx,
 } from "./builder";
 import { getDecoder, getOutputSchema, reverse } from "./parse";
 import { Literal_parse, nullLiteral, unit } from "./primitives";
@@ -157,17 +155,20 @@ export type TransformDefinition<TInput = unknown, TOutput = unknown> = {
   s?: (output: TOutput) => TInput;
 };
 
-// PORT-NOTE: `s<'output>` (the effect ctx passed to the transformer) is what
-// `B_effectCtx` returns: `{ fail(message, path?): never }`.
+// The transformer takes no argument. It used to receive an effect ctx whose
+// only member was `fail`; a transform now fails by throwing, which every
+// caller of a transform already handles — B_makeInvalidConversionDetails
+// adopts a thrown SuryError as-is and wraps anything else as
+// `invalid_conversion`.
 
 // @__NO_SIDE_EFFECTS__
 export const transform = (
   schema: Internal,
-  transformer: (ctx: EffectCtx) => TransformDefinition
+  transformer: () => TransformDefinition
 ): Internal => {
   return updateOutput(schema, (mut) => {
     mut.parser = (input) => {
-      const definition = transformer(B_effectCtx(input));
+      const definition = transformer();
       if (definition.p !== U && definition.a === U) {
         return B_embedTransformation(input, definition.p, false);
       } else if (definition.p === U && definition.a !== U) {
@@ -189,7 +190,7 @@ export const transform = (
     };
     const to = copySchema(unknown);
     to.serializer = (input) => {
-      const definition = transformer(B_effectCtx(input));
+      const definition = transformer();
       if (definition.s !== U) {
         return B_embedTransformation(input, definition.s, false);
       } else if (

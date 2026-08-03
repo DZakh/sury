@@ -6,7 +6,7 @@
 // })
 
 // test("Doesn't support transforms and refinements", t => {
-//   let schema = S.string->S.transform(_ => {parser: ignore})->S.refine(_ => ignore)
+//   let schema = S.string->S.transform(() => {parser: ignore})->S.refine(_ => ignore)
 //   t->Assert.deepEqual(schema->S.inline, `S.string`)
 // })
 
@@ -217,11 +217,6 @@
 
 // test("Supports Unknown", t => {
 //   let schema = S.unknown
-//   t->Assert.deepEqual(schema->S.inline, `S.unknown`)
-// })
-
-// test("Treats custom schema factory as Unknown", t => {
-//   let schema = S.custom("Test", s => s.fail("User error"))
 //   t->Assert.deepEqual(schema->S.inline, `S.unknown`)
 // })
 

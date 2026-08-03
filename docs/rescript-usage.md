@@ -1220,7 +1220,7 @@ You can also use asynchronous parser:
 ```rescript
 let nodeSchema = S.recursive("Node", nodeSchema => {
   S.object(s => {
-    params: s.field("Id", S.string)->S.transform(_ => {asyncParser: id => loadParams(~id)}),
+    params: s.field("Id", S.string)->S.transform(() => {asyncParser: id => loadParams(~id)}),
     children: s.field("Children", S.array(nodeSchema)),
   })
 })
@@ -1241,7 +1241,7 @@ One great aspect of the example above is that it uses parallelism to make four r
 ```rescript
 let mySet = itemSchema => {
   S.instance(%raw(`Set`))
-  ->S.transform(_ => {
+  ->S.transform(() => {
     parser: input => {
       let output = Set.make()
       input
@@ -1322,19 +1322,36 @@ The refine function is applied for both parsing and serializing.
 
 ### **`transform`**
 
-`(S.t<'input>, S.s<'output> => S.transformDefinition<'input, 'output>) => S.t<'output>`
+`(S.t<'input>, unit => S.transformDefinition<'input, 'output>) => S.t<'output>`
+
+A transform fails by throwing. `S.Error.throw` takes an error built with
+`S.Error.make`, and the path it is reached through is prepended to the one the
+error names:
 
 ```rescript
 let intToString = schema =>
-  schema->S.transform(s => {
+  schema->S.transform(() => {
     parser: int => int->Int.toString,
     serializer: string =>
       switch string->Int.fromString {
       | Some(int) => int
-      | None => s.fail("Can't convert string to int")
+      | None =>
+        S.Error.throw(
+          S.Error.make(
+            InvalidInput({
+              reason: "Can't convert string to int",
+              path: S.Path.empty,
+              expected: S.unknown,
+              received: S.unknown,
+            }),
+          ),
+        )
       },
   })
 ```
+
+Throwing anything else works too — it is reported as an `InvalidConversion`
+carrying the original exception as `cause`.
 
 Also, you can have an asynchronous transform:
 
@@ -1346,7 +1363,7 @@ type user = {
 
 let userSchema =
   S.uuid
-  ->S.transform(s => {
+  ->S.transform(() => {
     asyncParser: userId => loadUser(~userId),
     serializer: user => user.id,
   })
@@ -1573,7 +1590,7 @@ let schema = S.string->S.to(S.float)
 ```rescript
 S.string->S.isAsync
 // false
-S.string->S.transform(_ => {asyncParser: i => Promise.resolve(i)})->S.isAsync
+S.string->S.transform(() => {asyncParser: i => Promise.resolve(i)})->S.isAsync
 // true
 ```
 

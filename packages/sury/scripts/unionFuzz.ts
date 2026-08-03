@@ -111,8 +111,11 @@ const members: MemberSpec[] = [
     of: (S) => S.string.with(S.minLength ?? (S as any).min, 3),
   },
   {
+    // `refine` takes a predicate, not an effect ctx — returning false is how a
+    // check rejects. This used to call `fail` on a second argument that was
+    // never passed, so the member rejected by throwing a TypeError instead.
     id: "string-refine-fail",
-    of: (S) => S.string.with(S.refine, (_v: unknown, s: any) => s.fail("nope")),
+    of: (S) => S.string.with(S.refine, () => false),
   },
   {
     id: "number-int32",

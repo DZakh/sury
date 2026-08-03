@@ -18,7 +18,6 @@ import {
   pathEmpty,
   pathFromInlinedLocation,
   s,
-  shouldPrependPathKey,
   stringify,
   SuryError,
   type SuryErrorRecord,
@@ -38,10 +37,6 @@ import {
 
 export type Builder = (input: Val) => Val;
 export type Encoder = (input: Val, target: Internal) => Val;
-
-export type EffectCtx = {
-  fail: (message: string, path?: Path) => never;
-};
 
 // `_var`/`_bondVar`/`_prevVar`/`_notVarBeforeValidation`/`_notVarAtParent`/
 // `_notVar` and `failInvalidType` are top-level consts (not object methods)
@@ -297,10 +292,10 @@ export const B_makeInvalidConversionDetails = (input: Val, to: Internal, cause: 
   if (cause && (cause as { s?: symbol }).s === s) {
     const error = cause as unknown as SuryErrorRecord;
 
-    // Read about this in shouldPrependPathKey comment.
-    if (!error[shouldPrependPathKey]) {
-      error["path"] = pathConcat(input.path, error.path);
-    }
+    // A SuryError thrown by user code carries only the path it named, so the
+    // path it was reached through is prepended here. Nothing arrives
+    // pre-prepended any more — that was effectCtx, which is gone.
+    error["path"] = pathConcat(input.path, error.path);
     return error as unknown as ErrorDetails;
   } else {
     let reason: string;
@@ -840,18 +835,6 @@ export const B_embedTransformation = (input: Val, fn: (input: unknown) => unknow
   return output;
 }
 
-export const B_effectCtx = (input: Val): EffectCtx => {
-  return {
-    fail: (message: string, path: Path = pathEmpty): never => {
-      const error = new SuryError(
-        B_invalidInputBuilder(U, path, message)(input)(U)
-      );
-      // Read about this in shouldPrependPathKey comment.
-      (error as unknown as Record<string, unknown>)[shouldPrependPathKey] = 1;
-      throw error;
-    },
-  };
-}
 
 export const B_invalidOperation = (val: Val, description: string): never => {
   return B_throw({ code: "invalid_operation", reason: description, path: val.path });

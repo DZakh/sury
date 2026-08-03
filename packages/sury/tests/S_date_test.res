@@ -288,7 +288,7 @@ test("Encodes a nullable optional Timestamp whose input is string | number (issu
     S.union([
       S.string->S.castToUnknown,
       S.float
-      ->S.transform(_ => {
+      ->S.transform(() => {
         parser: ms => Date.fromTime(ms)->Obj.magic,
         serializer: d => (d->Obj.magic: Date.t)->Date.getTime->Obj.magic,
       })

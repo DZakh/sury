@@ -154,11 +154,6 @@ export const s = /* @__PURE__ */ Symbol(vendor);
 // Internal symbol to identify the item proxy (see the makeObjectVal Proxy use).
 export const itemSymbol = /* @__PURE__ */ Symbol(vendor + ":item");
 
-// A hacky way to prevent prepending path when error is caught.
-// Can be removed after we remove effectCtx
-// and there's not way to throw outside of the operation context.
-export const shouldPrependPathKey = "p";
-
 export type NumberFormat = "int32" | "port";
 export type StringFormat = "json" | "date-time" | "email" | "uuid" | "cuid" | "url";
 export type ArrayFormat = "compactColumns";

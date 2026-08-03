@@ -31,7 +31,6 @@ import {
   B_makeInvalidConversionDetails,
   B_next,
   B_varWithoutAllocation,
-  type EffectCtx,
 } from "./builder";
 import { objectDecoder } from "./composites";
 import { definitionToSchema } from "./factory";
@@ -165,7 +164,7 @@ export const js_asyncDecoderAssert = (
   schema: Internal,
   assertFn: (value: unknown) => Promise<unknown>,
 ) => {
-  return transform(schema, (_: EffectCtx) => {
+  return transform(schema, () => {
     return {
       a: (v: unknown) => assertFn(v).then(() => v),
       s: noop,

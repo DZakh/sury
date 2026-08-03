@@ -285,7 +285,7 @@ test(
           children: s.field("Children", S.array(nodeSchema)),
         },
       )->S.transform(
-        _ => {
+        () => {
           parser: node => {...node, id: `node_${node.id}`},
           serializer: node => {...node, id: node.id->String.slice(~start=5)},
         },
@@ -350,7 +350,7 @@ test("Recursively transforms nested objects when added transform to the placehol
           "Children",
           S.array(
             nodeSchema->S.transform(
-              _ => {
+              () => {
                 parser: node => {...node, id: `child_${node.id}`},
                 serializer: node => {...node, id: node.id->String.slice(~start=6)},
               },
@@ -403,7 +403,7 @@ test("Shallowly transforms object when added transform to the S.recursive result
         children: s.field("Children", S.array(nodeSchema)),
       },
     )
-  })->S.transform(_ => {
+  })->S.transform(() => {
     parser: node => {...node, id: `parent_${node.id}`},
     serializer: node => {...node, id: node.id->String.slice(~start=7)},
   })
@@ -458,7 +458,7 @@ asyncTest("Successfully parses recursive object with async parse function", t =>
   let nodeSchema = S.recursive("Node", nodeSchema => {
     S.object(
       s => {
-        id: s.field("Id", S.string->S.transform(_ => {asyncParser: i => Promise.resolve(i)})),
+        id: s.field("Id", S.string->S.transform(() => {asyncParser: i => Promise.resolve(i)})),
         children: s.field("Children", S.array(nodeSchema)),
       },
     )
@@ -500,7 +500,7 @@ test("Parses recursive object with async fields in parallel", t => {
         id: s.field(
           "Id",
           S.string->S.transform(
-            _ => {
+            () => {
               asyncParser: _ => {
                 actionCounter.contents = actionCounter.contents + 1
                 unresolvedPromise
