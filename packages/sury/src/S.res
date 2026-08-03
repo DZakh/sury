@@ -100,6 +100,8 @@ type rec t<'value> =
       default?: float,
       minimum?: float,
       maximum?: float,
+      exclusiveMinimum?: float,
+      exclusiveMaximum?: float,
       errorMessage?: schemaErrorMessage,
     })
   | @as("bigint")
@@ -111,6 +113,12 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<bigint>,
       default?: bigint,
+      // A bigint bound lands in the same fields a number's does, carrying a
+      // bigint — so classify has to spell them at this type to see them.
+      minimum?: bigint,
+      maximum?: bigint,
+      exclusiveMinimum?: bigint,
+      exclusiveMaximum?: bigint,
       errorMessage?: schemaErrorMessage,
     })
   | @as("boolean")
@@ -241,6 +249,11 @@ and schemaErrorMessage = {
   type_?: string,
   minimum?: string,
   maximum?: string,
+  // S.gt/S.lt store their override here rather than on minimum/maximum, so
+  // without these a ReScript caller can set a message for every bound except
+  // the two exclusive ones.
+  exclusiveMinimum?: string,
+  exclusiveMaximum?: string,
   minLength?: string,
   maxLength?: string,
   minItems?: string,

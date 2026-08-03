@@ -295,8 +295,15 @@ export const B_makeInvalidConversionDetails = (input: Val, to: Internal, cause: 
     // A SuryError thrown by user code carries only the path it named, so the
     // path it was reached through is prepended here. Nothing arrives
     // pre-prepended any more — that was effectCtx, which is gone.
-    error["path"] = pathConcat(input.path, error.path);
-    return error as unknown as ErrorDetails;
+    //
+    // Copied rather than mutated: user code may throw one retained instance
+    // more than once, and prepending onto the instance makes the second parse
+    // report `["a"]["a"]`. `B_throw` rebuilds a SuryError from these details,
+    // so dropping the prototype here costs nothing.
+    return {
+      ...error,
+      path: pathConcat(input.path, error.path),
+    } as unknown as ErrorDetails;
   } else {
     let reason: string;
     if (cause instanceof Error) {

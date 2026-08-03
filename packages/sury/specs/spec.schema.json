@@ -6,7 +6,7 @@
       "properties": {
         "schema": {
           "type": "string",
-          "description": "The schema under test, as JS `.with`-chain source (e.g. `S.string.with(S.min, 3)`). You write this by hand; `spec check --write` never touches it."
+          "description": "The schema under test, as JS `.with`-chain source (e.g. `S.string.with(S.minLength, 3)`). You write this by hand; `spec check --write` never touches it."
         },
         "aliases": {
           "items": {

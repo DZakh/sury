@@ -628,6 +628,7 @@ S.maxLength(S.array(S.string), 5); // Expected string[].length <= 5
 S.minLength(S.array(S.string), 5); // Expected string[].length >= 5
 S.length(S.array(S.string), 5); // Expected string[].length == 5
 S.nonEmpty(S.array(S.string)); // Expected string[].length >= 1
+S.empty(S.array(S.string)); // Expected string[].length == 0
 ```
 
 ### Compact Columns

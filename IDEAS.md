@@ -69,7 +69,18 @@ S.reverse(S.schema({
   bound that doesn't narrow is skipped outright, but in the other order the
   earlier check is already in the refiner chain and can't be pulled back, so
   `gte(1).gte(5)` runs `i>=1` and `i>=5` where only the second matters. The
-  advertised JSON Schema is right either way — this is codegen only. ArkType
+  advertised JSON Schema is right either way — but this is *not* codegen only,
+  which is the part worth fixing first: a superseded check keeps its own
+  message, so which one a caller sees depends on which check fires.
+  `S.string.with(S.maxLength, 5, "MAX").with(S.length, 3)` advertises
+  `string.length == 3` and reports "MAX" for a 6-character string and the
+  generic message for a 4-character one, both being equally "too long"
+  (`specs/string-length-supersedes-maxLength-message.yaml`). Compounding it,
+  `length()` writes its message under both `minLength` and `maxLength` while
+  the check it attaches reads only `minLength` — dead in that order, and in the
+  reverse order (`maxLength(5, "MAX").length(3, "EXACT")`) it overwrites the
+  caller's "MAX" so the surviving `i.length<6` check reports "EXACT". Retracting
+  the check retires both. ArkType
   reduces both orders to a single `number >= 5` node because its refinements
   intersect rather than append (`min: (l, r) => l.isStricterThan(r) ? l : r`),
   so it's reachable, but it needs `internalRefine` to be able to replace a

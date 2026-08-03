@@ -3,7 +3,7 @@ import { format, inspect } from "node:util";
 
 import * as S from "../src/S.mjs";
 
-// FIXME: S.max should be applied to output
+// FIXME: S.lte should be applied to output
 // From https://x.com/dzakh_dev/status/1963982551208309222
 // const PixelSchema = S.pattern(/^\d{1,3}px$/)
 //   .with(S.to, S.number, parseInt)
@@ -2717,6 +2717,29 @@ test("Uint8Array", (t) => {
   t.expect(S.decoder(S.unknown, S.uint8Array, S.jsonString).toString()).toEqual(
     `i=>{i instanceof e[1]||e[2](i);return JSON.stringify(e[0].decode(i))}`,
   );
+});
+
+test("Throwing one retained error instance twice doesn't accumulate the path", (t) => {
+  // The path a throw is reached through is prepended to the error, so doing it
+  // on the caught instance leaves the second parse reporting `["a"]["a"]`.
+  // Nothing stops user code from holding one error and throwing it again.
+  const retained = S.safe(() => S.parser(S.string)(1)).error!;
+  const schema = S.schema({
+    a: S.string.with(S.to, S.number, () => {
+      throw retained;
+    }),
+  });
+  const parse = S.parser(schema);
+
+  for (const _ of [1, 2, 3]) {
+    const result = S.safe(() => parse({ a: "x" }));
+    t.expect(result.error?.message).toBe(
+      `Failed at ["a"]: Expected string, received 1`,
+    );
+    t.expect(result.error?.path).toBe(`["a"]`);
+  }
+  // The instance user code holds is left as it was caught.
+  t.expect(retained.path).toBe("");
 });
 
 test("A contradictory bound pair is rejected where it's written", (t) => {
