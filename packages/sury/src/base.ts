@@ -619,20 +619,23 @@ export const noopDecoder: Builder = (input: Val) => {
   return input;
 }
 
-const factoryCache: Record<string, Internal> = {};
-
-export const cached = (key: string, tag: Tag, init: (schema: Internal) => void): Internal => {
-  const existing = factoryCache[key];
-  if (existing !== U) {
-    return existing;
-  } else {
-    const schema = baseSchema(tag, true);
-    init(schema);
-    factoryCache[key] = schema;
-    return schema;
-  }
+// Every built-in singleton schema must be a module-level const initialized by
+// a single `/* @__PURE__ */ initSchema(...)` expression: the module system is
+// what guarantees one instance per schema (the compiled-decoder cache in
+// getDecoder is keyed by `seq` and stored on the instance, so a fresh copy
+// per use would recompile every time), and the single pure expression is what
+// lets a consumer's bundler drop the unused ones.
+// @__NO_SIDE_EFFECTS__
+export const initSchema = (tag: Tag, init: (schema: Internal) => void): Internal => {
+  const schema = baseSchema(tag, true);
+  init(schema);
+  return schema;
 }
 
+// Deliberately NOT the single-pure-expression form the other singletons use:
+// `unknown` is reachable from nearly every export, so it never tree-shakes
+// anyway, and the bare statement pair minifies smaller than any wrapper that
+// would make it droppable.
 export const unknown: Internal = baseSchema(unknownTag, true);
 unknown.decoder = noopDecoder;
 
@@ -642,7 +645,7 @@ export const copySchema = (schema: Internal): Internal => {
   return c;
 }
 
-export const updateOutput = <Value>(schema: Internal, fn: (schema: Internal) => void): Value => {
+export const updateOutput = <TValue>(schema: Internal, fn: (schema: Internal) => void): TValue => {
   const root = copySchema(schema);
   let mut = root;
   while (mut.to !== U) {
@@ -652,7 +655,7 @@ export const updateOutput = <Value>(schema: Internal, fn: (schema: Internal) => 
   }
   // This should be the Output schema
   fn(mut);
-  return root as unknown as Value;
+  return root as unknown as TValue;
 }
 
 export const setHas = (has: Partial<Record<Tag, boolean>>, tag: Tag): void => {

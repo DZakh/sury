@@ -122,8 +122,8 @@ const proxifyShapedSchema = (schema: Internal, from: string[], fromFlattened?: n
 }
 
 // @__NO_SIDE_EFFECTS__
-export const schemaShape = <Value>(schema: Internal, definer: (value: unknown) => unknown): Value => {
-  return updateOutput<Value>(schema, (mut) => {
+export const schemaShape = <TValue>(schema: Internal, definer: (value: unknown) => unknown): TValue => {
+  return updateOutput<TValue>(schema, (mut) => {
     const fromProxy = proxifyShapedSchema(mut, inputFrom);
     const definition: unknown = definer(fromProxy);
     if (definition === fromProxy) {
@@ -317,7 +317,7 @@ export const schemaTuple = (
 
   for (let idx = 0; idx < items.length; idx++) {
     if (!items[idx]) {
-      items[idx] = unit();
+      items[idx] = unit;
     }
   }
 
