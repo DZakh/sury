@@ -41,16 +41,16 @@ const build = (cwd: string): void => {
   });
 };
 
-// A worktree has no node_modules of its own; the bundler and its deps are
-// identical for both sides, so borrowing the main install is both correct and
-// much faster than a second install.
-// The ref tree builds with its own scripts/pack.ts, and revisions before the
-// entry was renamed emit src/S.mjs instead.
+// The ref tree builds with its own scripts/pack.ts, and revisions from before
+// the entry was renamed emit src/S.mjs instead.
 const entryPath = (tree: string): string => {
   const current = join(tree, "packages/sury/index.mjs");
   return existsSync(current) ? current : join(tree, "packages/sury/src/S.mjs");
 };
 
+// A worktree has no node_modules of its own; the bundler and its deps are
+// identical for both sides, so borrowing the main install is both correct and
+// much faster than a second install.
 const checkout = (ref: string): string => {
   const dir = mkdtempSync(join(tmpdir(), "sury-fuzz-"));
   const tree = join(dir, "tree");

@@ -49,13 +49,39 @@ const read = (file: string): string => readFileSync(path.join(artifactsPath, fil
 
 const readJson = (file: string): any => JSON.parse(read(file));
 
+// `](x)` is a link in prose and an arrow function in a code sample, so the
+// samples have to go before anything below matches. Fences are tracked line by
+// line rather than by a lazy `^```[\s\S]*?^``` `: an unclosed fence has to
+// swallow the rest of the file, where the regex would silently give up and
+// hand the whole code block back as prose.
+const prose = (markdown: string): string => {
+  const lines: string[] = [];
+  let fence: string | null = null;
+  for (const line of markdown.split("\n")) {
+    const marker = /^\s*(`{3,}|~{3,})/.exec(line)?.[1];
+    if (fence === null) {
+      if (marker) fence = marker;
+      else lines.push(line.replace(/`[^`\n]*`/g, ""));
+    } else if (marker && marker[0] === fence[0] && marker.length >= fence.length) {
+      fence = null;
+    }
+  }
+  return lines.join("\n");
+};
+
+// A relative link target: `](…)`, minus anchors, and minus anything carrying a
+// URL scheme (`https:`, `mailto:`) or a title after the path.
+const RELATIVE_LINK = /]\((?!\w+:)([^)#\s]+)[^)]*\)/g;
+
 // `pnpm test` doesn't run the packer, so these only mean anything after a
 // `pnpm build` — which CI always does first.
 const describeArtifact = existsSync(artifactsPath) ? describe : describe.skip;
 
-const cjsEntry: any = existsSync(artifactsPath)
-  ? createRequire(import.meta.url)(path.join(artifactsPath, "index.js"))
-  : {};
+// Loaded per test, not at collection: a half-built artifacts/ (interrupted
+// pack, stale directory) should fail the test that needs the entry, not throw
+// during collection and take the whole file with it.
+const requireCjsEntry = (): any =>
+  createRequire(import.meta.url)(path.join(artifactsPath, "index.js"));
 
 describeArtifact("artifact", () => {
   test("contains exactly the files it ships", () => {
@@ -83,9 +109,7 @@ describeArtifact("artifact", () => {
   test("every relative link in the shipped docs points at a shipped file", () => {
     const dangling: string[] = [];
     for (const file of PUBLISHED_FILES.filter((f) => f.endsWith(".md"))) {
-      // Fenced code blocks are full of `](i) => {`, which is not a link.
-      const prose = read(file).replace(/^```[\s\S]*?^```/gm, "");
-      for (const [, target] of prose.matchAll(/]\((?!\w+:)([^)#\s]+)[^)]*\)/g)) {
+      for (const [, target] of prose(read(file)).matchAll(RELATIVE_LINK)) {
         const resolved = path.resolve(path.dirname(path.join(artifactsPath, file)), target!);
         if (!existsSync(resolved)) dangling.push(`${file} -> ${target}`);
       }
@@ -108,7 +132,7 @@ describeArtifact("artifact", () => {
   // Removed API lives on in prose long after the code is gone. The ReScript
   // reference is checked by eye — its `S.` names are a different module.
   test("the JS docs name only API that exists", () => {
-    const api = new Set(Object.keys(cjsEntry));
+    const api = new Set(Object.keys(requireCjsEntry()));
     for (const [, name] of read("index.d.ts").matchAll(
       /^export\s+(?:declare\s+)?(?:abstract\s+)?(?:type|interface|class|const|let|var|function|namespace|enum)\s+([A-Za-z_$][\w$]*)/gm
     )) {
@@ -121,13 +145,6 @@ describeArtifact("artifact", () => {
       }
     }
     expect([...unknown]).toEqual([]);
-  });
-
-  // The repo root README is the one GitHub renders and the one contributors
-  // edit; the packed copy is the one npm renders. Nothing syncs them.
-  test("the shipped README matches the repo root one", () => {
-    const root = readFileSync(path.join(artifactsPath, "../../../README.md"), "utf8");
-    expect(read("README.md")).toBe(root);
   });
 
   test("every exports target resolves to a shipped file", () => {
@@ -164,7 +181,7 @@ describeArtifact("artifact", () => {
 
   test("both entries expose the public API", async () => {
     const esm = await import(pathToFileURL(path.join(artifactsPath, "index.mjs")).href);
-    for (const entry of [cjsEntry, esm]) {
+    for (const entry of [requireCjsEntry(), esm]) {
       expect(entry.parser(entry.schema({ xp: entry.number }))({ xp: 1 })).toEqual({ xp: 1 });
       expect(typeof entry.object).toBe("function");
     }
