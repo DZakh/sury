@@ -3,7 +3,7 @@ ts:
   schema: S.union([S.schema("apple"), S.string.with(S.to, S.number, Number, String), S.string])
   input: string
   output: string | number
-  instantiations: 6471
+  instantiations: 6477
 vs:
   zod:
     _skip: not-applicable
@@ -25,7 +25,7 @@ operations:
         output: NaN
       wrong-tag:
         input: "42"
-        error: Expected "apple" | string | string, received 42
+        error: Expected "apple" | string, received 42
   decode: eq-to-parse
   encode:
     expression: i=>{for(;;){if(typeof i==="number"&&!Number.isNaN(i)){let v0;try{v0=e[0](i)}catch(x){e[1](x);e[2](x)}i=v0;break}if(typeof i==="string")break;e[3](i)}return i}

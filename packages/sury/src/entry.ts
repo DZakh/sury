@@ -117,7 +117,8 @@ export {
   max,
   length,
 } from "./jsonschema";
-export { toExpression } from "./base";
+export { inputExpression } from "./base";
+export { outputExpression } from "./parse";
 
 // ── ReScript binding surface (extra names, not part of S.d.ts) ───────────────
 //

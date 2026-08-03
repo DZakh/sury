@@ -10,6 +10,7 @@ import {
   flagUnsafeHas,
   immutableEmptyArray,
   inlinedValueFromString,
+  inputExpression,
   type Internal,
   type InvalidInputDetails,
   type Path,
@@ -28,7 +29,6 @@ import {
   tagFlagString,
   tagFlagSymbol,
   tagFlagUndefined,
-  toExpression,
   U,
   unknown,
   type Val,
@@ -258,7 +258,7 @@ export const B_unsupportedDecode = (b: Val, from: Internal, target: Internal): n
     code: "unsupported_decode",
     from: from,
     to: target,
-    reason: `Can't decode ${toExpression(from)} to ${toExpression(
+    reason: `Can't decode ${inputExpression(from)} to ${inputExpression(
       target
     )}. Use S.to to define a custom decoder`,
     path: b.path,
@@ -328,12 +328,20 @@ export const B_makeInvalidInputDetails = (
   unionErrors?: SuryErrorRecord[],
   reasonOverride?: string
 ): ErrorDetails => {
-  let reasonRef =
-    reasonOverride !== U
-      ? reasonOverride
-      : `Expected ${toExpression(expected)}, received ${
-          includeInput ? stringify(input) : toExpression(received)
-        }`;
+  let reasonRef: string;
+  if (reasonOverride !== U) {
+    reasonRef = reasonOverride;
+  } else {
+    const expectedExpression = inputExpression(expected);
+    const receivedExpression = includeInput ? stringify(input) : inputExpression(received);
+    // `Expected Date, received Date` names the type twice and says nothing: the
+    // type is right and the value is not (an Invalid Date, an Error carrying the
+    // wrong payload). Saying `received invalid Date` is the only part of the
+    // message that carries information in that case.
+    reasonRef = `Expected ${expectedExpression}, received ${
+      expectedExpression === receivedExpression ? "invalid " : ""
+    }${receivedExpression}`;
+  }
   if (unionErrors !== U) {
     const caseErrors = unionErrors;
     const seenReasons = new Set<string>();

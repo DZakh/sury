@@ -25,6 +25,7 @@ import {
   getOrRethrow,
   immutableEmptyArray,
   immutableEmptyObject,
+  inputExpression,
   type Internal,
   isLiteral,
   neverTag,
@@ -48,7 +49,6 @@ import {
   tagFlagUndefined,
   tagFlagUnion,
   tagFlagUnknown,
-  toExpression,
   U,
   undefinedTag,
   unknown,
@@ -622,7 +622,7 @@ const unionCheckPartial = (
       input,
       source,
       target,
-      `${toExpression(matched!)} has the same type as the ${outputSide ? "target" : "source"} and the others don't`
+      `${inputExpression(matched!)} has the same type as the ${outputSide ? "target" : "source"} and the others don't`
     );
   }
 };
@@ -637,13 +637,13 @@ const unionUncovered = (
     input,
     source,
     target,
-    `${toExpression(variant)} has no same-type variant on the other side`
+    `${inputExpression(variant)} has no same-type variant on the other side`
   );
 
 const unionInvalid = (input: Val, from: Internal, to: Internal, why: string): never =>
   B_invalidOperation(
     input,
-    `Invalid operation: can't convert ${toExpression(from)} to ${toExpression(
+    `Invalid operation: can't convert ${inputExpression(from)} to ${inputExpression(
       to
     )} — ${why}. Use S.to to say what you mean, or S.never to mark a variant unreachable`
   );

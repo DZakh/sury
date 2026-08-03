@@ -27,7 +27,7 @@ test("Fails to parse number", t => {
 test("Fails to parse Invalid Date", t => {
   t->U.assertThrowsMessage(
     () => %raw(`new Date("invalid")`)->S.parseOrThrow(~to=S.date),
-    `Expected Date, received [object Date]`,
+    `Expected Date, received invalid Date`,
   )
 })
 
@@ -65,7 +65,7 @@ test("Fails to parse invalid string to Date with S.to", t => {
   let schema = S.string->S.to(S.date)
   t->U.assertThrowsMessage(
     () => "invalid"->S.parseOrThrow(~to=schema),
-    `Expected Date, received [object Date]`,
+    `Expected Date, received invalid Date`,
   )
 })
 
@@ -134,7 +134,7 @@ test("Fails to decode invalid date string from JSON", t => {
   let decoder = S.decoder(~from=S.json, ~to=S.date)
   t->U.assertThrowsMessage(
     () => decoder(JSON.Encode.string("invalid")),
-    `Expected Date, received [object Date]`,
+    `Expected Date, received invalid Date`,
   )
 })
 
@@ -178,7 +178,7 @@ test("Successfully round-trips date through JSON", t => {
 })
 
 // Regression guard: encoding a `@s.nullable option<Timestamp.t>` field (ppx-expanded
-// to `S.nullableAsOption(Timestamp.schema)`) used to throw `received [object Date]`
+// to `S.nullableAsOption(Timestamp.schema)`) used to throw `received invalid Date`
 // instead of serializing the Date back to a string. Parsing was never affected — only
 // the reverse, where the union variant's type-check narrow dropped the member's encoder.
 
@@ -272,7 +272,7 @@ test("Encodes a nullable optional Timestamp whose input is string | number (issu
   //   S.union([S.string, S.float])->S.to(S.date)
   // so `@s.nullable option<Timestamp.t>` reverses to a Date variant whose `.to`
   // target is `string | number`. Encoding used to throw exactly
-  // `Expected string | number, received [object Date]`.
+  // `Expected string | number, received Date`.
   //
   // There is no built-in number -> Date decoder, so the numeric member has to
   // say how it converts (or that it can't) — the conversion is rejected where

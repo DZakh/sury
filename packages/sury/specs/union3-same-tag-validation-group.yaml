@@ -3,7 +3,7 @@ ts:
   schema: S.union([S.string.with(S.min, 4), S.string.with(S.max, 1), S.string.with(S.length, 2)])
   input: string
   output: string
-  instantiations: 5980
+  instantiations: 5989
 vs:
   zod: z.union([z.string().min(4), z.string().max(1), z.string().length(2)])
 jsonSchema:
@@ -25,12 +25,12 @@ operations:
       rejected-by-all:
         input: '"bad"'
         error: |-
-          Expected string | string | string, received "bad"
+          Expected string, received "bad"
           - String must be 4 or more characters long
           - String must be 1 or fewer characters long
           - String must be exactly 2 characters long
       wrong-tag:
         input: "42"
-        error: Expected string | string | string, received 42
+        error: Expected string, received 42
   decode: identity
   encode: identity

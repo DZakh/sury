@@ -118,7 +118,7 @@ test("factory normalization preserves duplicate effects and nested metadata", (t
       errorMessage: { _: "named inner rejected" },
     },
   );
-  t.expect(S.toExpression(S.union([inner, S.boolean]))).toBe(
+  t.expect(S.inputExpression(S.union([inner, S.boolean]))).toBe(
     "named-inner | boolean",
   );
 });

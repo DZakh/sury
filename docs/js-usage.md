@@ -52,7 +52,9 @@
   - [`reverse`](#reverse)
   - [`to`](#to)
   - [`name`](#name)
-  - [`toExpression`](#toexpression)
+  - [`inputExpression`](#inputexpression)
+  - [`outputExpression`](#outputexpression)
+  - [`toString`](#tostring)
 - [Error handling](#error-handling)
 - [Global config](#global-config)
   - [`defaultAdditionalItems`](#defaultadditionalitems)
@@ -996,7 +998,7 @@ const mySet = <T>(itemSchema: S.Schema<unknown, T>): S.Schema<unknown, Set<T>> =
       return output;
     })
     .with(S.meta, {
-      name: `Set<${S.toExpression(itemSchema)}>`,
+      name: `Set<${S.inputExpression(itemSchema)}>`,
     });
 
 const numberSetSchema = mySet(S.number);
@@ -1333,19 +1335,61 @@ schema.name; // "Abc"
 
 Used internally for readable error messages.
 
-### **`toExpression`**
+### **`inputExpression`**
 
 ```ts
-S.toExpression(S.schema({ abc: 123 }));
+S.inputExpression(S.schema({ abc: 123 }));
 // "{ abc: 123; }"
 
-S.toExpression(S.name(S.string, "Address"));
+S.inputExpression(S.name(S.string, "Address"));
 // "Address"
 ```
 
 Used internally for readable error messages.
 
-> 🧠 The format subject to change
+> 🧠 The format is subject to change
+
+### **`outputExpression`**
+
+```ts
+const schema = S.to(S.string, S.number);
+
+S.inputExpression(schema);
+// "string"
+
+S.outputExpression(schema);
+// "number"
+```
+
+The same expression for the schema's output type.
+
+> 🧠 The format is subject to change
+
+### **`toString`**
+
+```ts
+`${S.string}`;
+// "Schema<string>"
+
+`${S.to(S.string, S.number)}`;
+// "Schema<string, number>"
+
+String(S.schema({ id: S.string, age: S.number }));
+// "Schema<{ id: string; age: number; }>"
+```
+
+Both sides at once, in the order the type declares them — `Schema<TInput, TOutput>` — with the second parameter dropped when the two sides match.
+
+`console.log(schema)` deliberately still shows the internal schema shape, which is usually what you want when you're inspecting one. Ask for the expression explicitly when you want it — `` console.log(`${schema}`) `` or `console.log("%s", schema)`.
+
+The output side is derived through [`reverse`](#reverse), so nested transforms are reported correctly:
+
+```ts
+`${S.schema({ a: S.to(S.string, S.number) })}`;
+// "Schema<{ a: string; }, { a: number; }>"
+```
+
+> 🧠 The format is subject to change
 
 ## Error handling
 

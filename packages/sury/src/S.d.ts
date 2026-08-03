@@ -221,6 +221,18 @@ export type Schema<TInput = unknown, TOutput = TInput> = {
     arg2: TArg2
   ): Schema<TNextInput, TNextOutput>;
 
+  /**
+   * The schema as `Schema<input, output>`, collapsed to `Schema<input>` when
+   * the two sides match. Used by string coercion — interpolation, `String()`,
+   * `"%s"`. `console.log(schema)` still shows the internal schema shape.
+   *
+   * ```ts
+   * `${S.string}`                    // "Schema<string>"
+   * `${S.to(S.string, S.number)}`    // "Schema<string, number>"
+   * ```
+   */
+  toString(): string;
+
   readonly $defs?: Record<string, Schema<unknown, unknown>>;
 
   readonly name?: string;
@@ -796,7 +808,8 @@ export function meta<TInput, TOutput>(
   meta: Meta<TOutput>
 ): Schema<TInput, TOutput>;
 
-export function toExpression(schema: SchemaLike<unknown, unknown>): string;
+export function inputExpression(schema: SchemaLike<unknown, unknown>): string;
+export function outputExpression(schema: SchemaLike<unknown, unknown>): string;
 export function noValidation<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,
   value: boolean

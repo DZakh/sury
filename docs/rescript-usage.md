@@ -68,7 +68,9 @@
   - [`to`](#to)
   - [`isAsync`](#isasync)
   - [`name`](#name)
-  - [`toExpression`](#toexpression)
+  - [`inputExpression`](#inputexpression)
+  - [`outputExpression`](#outputexpression)
+  - [`toString`](#tostring)
   - [`noValidation`](#novalidation)
 - [Standard Schema](#standard-schema)
 - [Error handling](#error-handling)
@@ -161,7 +163,7 @@ let filmSchema = S.object(s => {
 let filmJSONSchema = filmSchema->S.toJSONSchema
 ```
 
-> 🧠 Schemas compile to JavaScript via `eval`. Print the generated code with [`toExpression`](#toexpression).
+> 🧠 Schemas compile to JavaScript via `eval`. Print the type they describe with [`inputExpression`](#inputexpression).
 
 ## Real-world examples
 
@@ -1239,7 +1241,7 @@ let mySet = itemSchema => {
       output
     },
   })
-  ->S.meta({name: `Set.t<${S.toExpression(itemSchema)}>`})
+  ->S.meta({name: `Set.t<${S.inputExpression(itemSchema)}>`})
 }
 
 let intSetSchema = mySet(S.int)
@@ -1574,21 +1576,64 @@ let schema = S.literal({"abc": 123})->S.meta({name: "Abc"})
 
 Used internally for readable error messages.
 
-### **`toExpression`**
+### **`inputExpression`**
 
 `(S.t<'value>) => string`
 
 ```rescript
-S.literal({"abc": 123})->S.toExpression
+S.literal({"abc": 123})->S.inputExpression
 // "{ "abc": 123 }"
 
-S.string->S.meta({name: "Address"})->S.toExpression
+S.string->S.meta({name: "Address"})->S.inputExpression
 // "Address"
 ```
 
 Used internally for readable error messages.
 
-> 🧠 The format subject to change
+> 🧠 The format is subject to change
+
+### **`outputExpression`**
+
+`(S.t<'value>) => string`
+
+```rescript
+let schema = S.string->S.to(S.int)
+
+schema->S.inputExpression
+// "string"
+
+schema->S.outputExpression
+// "int32"
+```
+
+The same expression for the schema's output type.
+
+> 🧠 The format is subject to change
+
+### **`toString`**
+
+`(unit) => string` on the untagged schema
+
+```rescript
+(S.string->S.untag).toString()
+// "Schema<string>"
+
+(S.string->S.to(S.int)->S.untag).toString()
+// "Schema<string, int32>"
+```
+
+Both sides at once, in the order the type declares them — `Schema<TInput, TOutput>` — with the second parameter dropped when the two sides match.
+
+`Console.log(schema)` deliberately still shows the internal schema shape, which is usually what you want when you're inspecting one. Call `toString` when you want the expression.
+
+The output side is derived through [`reverse`](#reverse), so nested transforms are reported correctly:
+
+```rescript
+(S.array(S.string->S.to(S.int))->S.untag).toString()
+// "Schema<string[], int32[]>"
+```
+
+> 🧠 The format is subject to change
 
 ### **`noValidation`**
 

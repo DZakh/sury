@@ -4,14 +4,14 @@
   "dialect": "draft7",
   "summary": {
     "assertions": 927,
-    "passed": 563,
-    "failed": 97,
+    "passed": 564,
+    "failed": 96,
     "falseAccept": 66,
-    "falseReject": 31,
+    "falseReject": 30,
     "errored": 267,
-    "rate": "60.7%",
-    "assertOpPassed": 563,
-    "assertOpRate": "60.7%",
+    "rate": "60.8%",
+    "assertOpPassed": 564,
+    "assertOpRate": "60.8%",
     "divergent": 0
   },
   "erroredCases": [
@@ -188,7 +188,6 @@
     "oneOf.json :: oneOf with required :: second valid - valid",
     "properties.json :: properties with escaped characters :: object with all numbers is valid",
     "properties.json :: properties whose names are Javascript object property names :: none of the properties mentioned",
-    "properties.json :: properties whose names are Javascript object property names :: all present and valid",
     "ref.json :: root pointer ref :: recursive mismatch",
     "ref.json :: relative pointer ref to object :: mismatch",
     "ref.json :: relative pointer ref to array :: mismatch array",

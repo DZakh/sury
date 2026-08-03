@@ -173,7 +173,7 @@ test("Can flatten renamed object schema", t => {
     ~op=#Parse,
     `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["bar"],v1=i["foo"];typeof v0==="string"||e[0](v0);typeof v1==="string"||e[1](v1);return {"bar":v0,"foo":v1,}}`,
   )
-  t->Assert.is(schema->S.toExpression, `{ bar: string; foo: string; }`)
+  t->Assert.is(schema->S.inputExpression, `{ bar: string; foo: string; }`)
 })
 
 test("Can flatten transformed object schema", t => {
