@@ -41,6 +41,18 @@ operations:
       an-invalid-iri-though-valid-iri-reference:
         input: '"âππ"'
         error: Expected iri, received "âππ"
+      emoji-non-bmp-in-path:
+        input: '"http://example.com/😀"'
+        output: '"http://example.com/😀"'
+      math-bold-digit-non-bmp:
+        input: '"http://example.com/𝟘"'
+        output: '"http://example.com/𝟘"'
+      cjk-ext-b-non-bmp:
+        input: '"http://example.com/𠀀"'
+        output: '"http://example.com/𠀀"'
+      lone-surrogate-is-not-an-iri:
+        input: '"http://example.com/\ud800"'
+        error: "Expected iri, received \"http://example.com/\ud800\""
   decode:
     expression: i=>{e[0](i)||e[1](i);return i}
     examples:

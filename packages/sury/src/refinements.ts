@@ -9,6 +9,7 @@ import {
   stringify,
   stringTag,
   SuryError,
+  U,
   type Val,
 } from "./base";
 import { B_embed, B_failWithErrorMessage } from "./builder";
@@ -360,8 +361,18 @@ export const cuid: Internal = /* @__PURE__ */ initSchema(stringTag, (s) => {
 const uriPattern = (optional: string): string =>
   "^(?:[a-z][a-z0-9+\\-.]*:)" + optional + "(?:\\/\\/(?:(?:[a-z0-9\\-._~!$&'()*+,;=:]|%[0-9a-f]{2})*@)?(?:\\[(?:(?:(?:(?:[0-9a-f]{1,4}:){6}|::(?:[0-9a-f]{1,4}:){5}|(?:[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){4}|(?:(?:[0-9a-f]{1,4}:){0,1}[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){3}|(?:(?:[0-9a-f]{1,4}:){0,2}[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){2}|(?:(?:[0-9a-f]{1,4}:){0,3}[0-9a-f]{1,4})?::[0-9a-f]{1,4}:|(?:(?:[0-9a-f]{1,4}:){0,4}[0-9a-f]{1,4})?::)(?:[0-9a-f]{1,4}:[0-9a-f]{1,4}|(?:(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?))|(?:(?:[0-9a-f]{1,4}:){0,5}[0-9a-f]{1,4})?::[0-9a-f]{1,4}|(?:(?:[0-9a-f]{1,4}:){0,6}[0-9a-f]{1,4})?::)|[Vv][0-9a-f]+\\.[a-z0-9\\-._~!$&'()*+,;=:]+)\\]|(?:(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)|(?:[a-z0-9\\-._~!$&'()*+,;=]|%[0-9a-f]{2})*)(?::\\d*)?(?:\\/(?:[a-z0-9\\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*|\\/(?:(?:[a-z0-9\\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})+(?:\\/(?:[a-z0-9\\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*)?|(?:[a-z0-9\\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})+(?:\\/(?:[a-z0-9\\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*)" + optional + "(?:\\?(?:[a-z0-9\\-._~!$&'()*+,;=:@/?]|%[0-9a-f]{2})*)?(?:#(?:[a-z0-9\\-._~!$&'()*+,;=:@/?]|%[0-9a-f]{2})*)?$";
 
-const uriEscapeNonAscii = (value: string): string =>
-  value.replace(/[^\x00-\x7F]/g, encodeURIComponent);
+// The `u` flag is load-bearing: without it the class matches a surrogate pair
+// one half at a time and `encodeURIComponent` throws URIError on the lone half,
+// so every emoji or other non-BMP character would crash instead of validating.
+// A genuinely unpaired surrogate still throws and is reported as "not an IRI",
+// because that is what it is — it cannot appear in one.
+const uriEscapeNonAscii = (value: string): string | undefined => {
+  try {
+    return value.replace(/[^\x00-\x7F]/gu, encodeURIComponent);
+  } catch {
+    return U;
+  }
+};
 
 export const isoDate: Internal = /* @__PURE__ */ initSchema(stringTag, (s) => {
   // The leap-year rule (including the ÷100/÷400 century exception) and the
@@ -545,7 +556,10 @@ export const uriTemplate: Internal = /* @__PURE__ */ initSchema(stringTag, (s) =
 
 export const iri: Internal = /* @__PURE__ */ initSchema(stringTag, (s) => {
   const uriRe = new RegExp(uriPattern(""), "i");
-  const iriValidator = (value: string) => uriRe.test(uriEscapeNonAscii(value));
+  const iriValidator = (value: string) => {
+    const escaped = uriEscapeNonAscii(value);
+    return escaped !== U && uriRe.test(escaped);
+  };
   s.decoder = stringDecoderFn;
   s.format = "iri";
   s.refiner = (input) => {
@@ -560,8 +574,10 @@ export const iri: Internal = /* @__PURE__ */ initSchema(stringTag, (s) => {
 
 export const iriReference: Internal = /* @__PURE__ */ initSchema(stringTag, (s) => {
   const uriReferenceRe = new RegExp(uriPattern("?"), "i");
-  const iriReferenceValidator = (value: string) =>
-    uriReferenceRe.test(uriEscapeNonAscii(value));
+  const iriReferenceValidator = (value: string) => {
+    const escaped = uriEscapeNonAscii(value);
+    return escaped !== U && uriReferenceRe.test(escaped);
+  };
   s.decoder = stringDecoderFn;
   s.format = "iri-reference";
   s.refiner = (input) => {
