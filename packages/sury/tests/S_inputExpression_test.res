@@ -59,7 +59,7 @@ test("Expression of compactColumns schema", t => {
 test("Expression of compactColumns schema with an unsupported target", t => {
   // `.to(objectSchema)` is rejected by the decoder (it panics with "supports
   // only object schemas. Use ...->S.to(S.array(objectSchema))"), so there are no
-  // columns to describe — it stays the raw columnar shape rather than
+  // columns to describe — it falls back to its own columnar shape rather than
   // advertising a conversion that cannot run.
   t->Assert.deepEqual(
     S.compactColumns(S.unknown)
@@ -73,6 +73,21 @@ test("Expression of compactColumns schema with an unsupported target", t => {
     )
     ->S.inputExpression,
     "unknown[][]",
+  )
+  // The fallback is the schema's own shape, not a fixed `unknown[][]`: an
+  // unsupported target says nothing about the columns, but the item schema
+  // still does.
+  t->Assert.deepEqual(
+    S.compactColumns(S.string)
+    ->S.to(
+      S.schema(s =>
+        {
+          "foo": s.matches(S.string),
+        }
+      ),
+    )
+    ->S.inputExpression,
+    "string[][]",
   )
 })
 

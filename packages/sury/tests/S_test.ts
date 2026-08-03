@@ -2805,7 +2805,7 @@ test("A cyclic input is reported, not a stack overflow", (t) => {
   t.expect(() => S.parser(S.string)(cyclic)).toThrow(
     t.expect.objectContaining({
       name: "SuryError",
-      message: "Expected string, received { a: 1; self: Object; }",
+      message: "Expected string, received { a: 1; self: object; }",
     }),
   );
 });
@@ -2839,9 +2839,15 @@ test("A received value is expanded one level", (t) => {
 
   // One level only: a nested value names its type instead of recursing, and an
   // array keeps its length because against a tuple that is the diagnostic.
-  t.expect(received({ a: 1, meta: { z: 9 } })).toBe("{ a: 1; meta: Object; }");
+  t.expect(received({ a: 1, meta: { z: 9 } })).toBe("{ a: 1; meta: object; }");
   t.expect(received({ a: 1, tags: [1, 2, 3] })).toBe("{ a: 1; tags: Array(3); }");
-  t.expect(received([[1, 2], { a: 1 }])).toBe("[Array(2), Object]");
+  t.expect(received([[1, 2], { a: 1 }])).toBe("[Array(2), object]");
+
+  // Anything without a useful constructor name is lowercase `object`, the same
+  // way a primitive is named by its type — a plain object, a null prototype and
+  // an anonymous class all read alike, and none of them read as `Object`.
+  t.expect(received({ a: Object.create(null) })).toBe("{ a: object; }");
+  t.expect(received({ a: new (class {})() })).toBe("{ a: object; }");
 
   // Width is capped too, or one wide input still produces a huge message.
   t.expect(received(Object.fromEntries(Array.from({ length: 40 }, (_, i) => [i, i])))).toBe(

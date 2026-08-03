@@ -223,7 +223,8 @@ export type Schema<TInput = unknown, TOutput = TInput> = {
 
   /**
    * The schema as `Schema<input, output>`, collapsed to `Schema<input>` when
-   * the two sides match. Used by `console.log` and string interpolation.
+   * the two sides match. Used by string coercion — interpolation, `String()`,
+   * `"%s"`. `console.log(schema)` still shows the internal schema shape.
    *
    * ```ts
    * `${S.string}`                    // "Schema<string>"

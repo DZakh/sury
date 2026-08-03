@@ -163,7 +163,7 @@ let filmSchema = S.object(s => {
 let filmJSONSchema = filmSchema->S.toJSONSchema
 ```
 
-> 🧠 Schemas compile to JavaScript via `eval`. Print the generated code with [`inputExpression`](#inputexpression).
+> 🧠 Schemas compile to JavaScript via `eval`. Print the type they describe with [`inputExpression`](#inputexpression).
 
 ## Real-world examples
 

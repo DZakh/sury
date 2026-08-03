@@ -415,6 +415,18 @@ export const isOptional = (schema: Internal): boolean => {
   );
 }
 
+// The constructor name worth printing, or a falsy value for anything a reader
+// would learn nothing from: a plain object, a null prototype, an anonymous
+// class (whose `name` is the empty string). Both callers below key off exactly
+// this distinction — one to name the value, the other to decide whether to look
+// inside it — so the `Object` comparison is written once.
+// Throws on null; both callers exclude it first.
+const namedConstructor = (unknown: unknown): string | undefined | false => {
+  const ctor = (Object.getPrototypeOf(unknown) as { constructor?: { name?: string } } | null)
+    ?.constructor;
+  return ctor !== Object && ctor?.name;
+}
+
 // Names a value without looking inside it: the rendering every value gets when
 // it is not the top level of a message. Zod, Valibot and ArkType print this at
 // every level; `stringify` below adds one level of detail on top.
@@ -424,15 +436,15 @@ const stringifyLeaf = (unknown: unknown): string => {
   if (flagUnsafeHas(tagFlag, tagFlagUndefined)) {
     return undefinedTag;
   } else if (flagUnsafeHas(tagFlag, (tagFlagObject | tagFlagFunction))) {
-    // `|| objectTag` covers both a null prototype (Object.create(null)) and an
-    // anonymous constructor, whose `name` is the empty string. Arrays carry
-    // their length: against a tuple, the length is the whole diagnostic.
+    // A named constructor is the whole diagnostic (Date, Map, Foo); anything
+    // else is lowercase `object`, naming the value by type the way `string` and
+    // `number` do rather than by its `Object` constructor.
+    // Arrays carry their length: against a tuple, the length is the diagnostic.
     return unknown === null
       ? nullTag
       : Array.isArray(unknown)
         ? `Array(${unknown.length})`
-        : (Object.getPrototypeOf(unknown) as { constructor?: { name?: string } } | null)
-            ?.constructor?.name || objectTag;
+        : namedConstructor(unknown) || objectTag;
   } else if (flagUnsafeHas(tagFlag, tagFlagString)) {
     return `"${unknown as string}"`;
   } else if (flagUnsafeHas(tagFlag, tagFlagBigint)) {
@@ -469,8 +481,7 @@ export const stringify = (unknown: unknown): string => {
       }
       return `[${body}]`;
     }
-    const proto = Object.getPrototypeOf(unknown) as { constructor?: unknown } | null;
-    if (proto === null || proto.constructor === Object) {
+    if (!namedConstructor(unknown)) {
       const dict = unknown as Record<string, unknown>;
       let body = "";
       let count = 0;
@@ -503,7 +514,9 @@ const objectExpression = (schema: Internal): string => {
   return body === "" ? `{}` : `{ ${body}}`;
 }
 
-const arrayExpression = (schema: Internal): string => {
+// Exported for compactColumns, whose expression falls back to the plain array
+// rendering of its own columnar shape when no `.to` target names the columns.
+export const arrayExpression = (schema: Internal): string => {
   const additionalItems = schema.additionalItems;
   if (typeof additionalItems === objectTag) {
     const item = additionalItems as Internal;
