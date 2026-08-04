@@ -4,7 +4,6 @@
 import {
   baseSchema,
   type Builder,
-  configurableValueOptions,
   defsPath,
   globalConfig,
   type Internal,
@@ -12,8 +11,6 @@ import {
   U,
   type Val,
   valFlagAsync,
-  valKey,
-  valueOptions,
 } from "../base";
 import {
   _var,
@@ -23,7 +20,7 @@ import {
   B_refine,
   B_varWithoutAllocation,
 } from "../builder";
-import { compileDecoder } from "../parse";
+import { addOpNode, compileDecoder, findOpNode } from "../parse";
 
 export const recursiveDecoder: Builder = (input) => {
   const expectedSchema = input.e;
@@ -37,19 +34,24 @@ export const recursiveDecoder: Builder = (input) => {
 
   const inputSchema = input.s.seq === expectedSchema.seq ? def : input.s;
 
-  const key = `${inputSchema.seq}-${def.seq}--${flag}`;
   let recOperation = "";
 
-  const fn = (def as unknown as Record<string, unknown>)[key];
-  if (fn !== U) {
-    // Circular reference (fn === 0) or already compiled
-    recOperation = fn === 0 ? B_embed(input, def) + `["${key}"]` : B_embed(input, fn);
+  // The def's operations live in the same node cache getDecoder uses (see
+  // OpNode in parse.ts), so an operation compiled by either side is found by
+  // the other. `v === 0` means this def is mid-compilation — a circular
+  // reference — and the NODE is what gets embedded: it exists before the
+  // function it will hold, so generated code calls `.v` at runtime and every
+  // recompile lands there for free.
+  const existing = findOpNode(def, inputSchema, def, flag);
+  if (existing !== U) {
+    recOperation =
+      existing.v === 0 ? B_embed(input, existing) + ".v" : B_embed(input, existing.v);
   } else {
     // Optimistic compilation with recompile if assumptions were wrong
     let assumedHasTransform = def.hasTransform !== U ? def.hasTransform : false;
     let assumedIsAsync = def.isAsync !== U ? def.isAsync : false;
     let compileNeeded = true;
-    let finalFn: unknown = 0;
+    const node = addOpNode(def, [inputSchema, def], flag, 0);
 
     while (compileNeeded) {
       compileNeeded = false;
@@ -63,18 +65,11 @@ export const recursiveDecoder: Builder = (input) => {
         def.isAsync = assumedIsAsync;
       }
 
-      // Mark as in-progress
-      (configurableValueOptions as unknown as Record<string, unknown>)[valKey] = 0;
-      Object.defineProperty(def, key, configurableValueOptions as PropertyDescriptor);
+      // Back to in-progress: a recompile's inner circular references must
+      // route through the node, not a stale function from the failed attempt.
+      node.v = 0;
 
-      // Compile
-      const fn = compileDecoder(inputSchema, def, flag, defs);
-
-      // Cache result
-      valueOptions[valKey] = fn;
-      Object.defineProperty(def, key, valueOptions as PropertyDescriptor);
-
-      finalFn = fn;
+      node.v = compileDecoder(inputSchema, def, flag, defs);
 
       // Check if actual values differ from assumed
       const actualHasTransform = def.hasTransform!;
@@ -87,14 +82,12 @@ export const recursiveDecoder: Builder = (input) => {
         // Wrong assumption - update and recompile
         assumedHasTransform = actualHasTransform;
         assumedIsAsync = actualIsAsync;
-        // Delete cached function to force recompilation
-        delete (def as unknown as Record<string, unknown>)[key];
         compileNeeded = true;
       }
     }
 
     // Embed only the final compiled function to avoid wasting embed slots on recompiles
-    recOperation = B_embed(input, finalFn);
+    recOperation = B_embed(input, node.v);
   }
 
   const hasTransform = def.hasTransform === true;
