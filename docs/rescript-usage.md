@@ -181,7 +181,7 @@ The obvious ones, at a glance:
 | `S.bool` | `S.t<bool>` | |
 | `S.int` | `S.t<int>` | [refinements ↓](#int) |
 | `S.float` | `S.t<float>` | [refinements ↓](#float) |
-| `S.integer` | `S.t<float>` | unbounded integer — exceeds `int`'s int32 range |
+| `S.integer` | `S.t<float>` | unbounded integer |
 | `S.bigint` | `S.t<bigint>` | |
 | `S.symbol` | `S.t<Symbol.t>` | |
 | `S.unit` | `S.t<unit>` | shorthand for `S.literal()` |
@@ -302,18 +302,16 @@ S.int->S.gte(3000000000)
 // int32 >= 3000000000 contradicts int32 <= 2147483647
 ```
 
-For integers beyond int32 use `S.integer` — JSON Schema's unbounded `integer`,
-typed as `S.t<float>` since a JS integer can exceed ReScript's `int` range:
+For integers beyond int32 use `S.integer`, typed as `S.t<float>`:
 
 ```rescript
 S.integer->S.gte(5.) // Expected integer >= 5
 ```
 
-`S.multipleOf` constrains a number or bigint to multiples of a divisor and
-emits JSON Schema's `multipleOf`:
+`S.multipleOf` constrains a number or bigint to multiples of a divisor:
 
 ```rescript
-S.integer->S.multipleOf(2.) // Expected multiple of 2
+S.float->S.multipleOf(2.) // Expected multiple of 2
 S.bigint->S.multipleOf(2n) // Expected multiple of 2n
 ```
 
