@@ -149,9 +149,22 @@ test("Expression of Union schema with duplicated items", t => {
 test("Expression of Union schema collapses members that render alike", t => {
   // The trade: these are three different schemas, and the expression no longer
   // says so. What distinguishes them surfaces in a union error's reason list.
+  // An arbitrary refinement is invisible to the expression; a bound is not,
+  // which is what the next case pins.
   t->Assert.deepEqual(
-    S.union([S.string->S.min(4), S.string->S.max(1), S.string])->S.inputExpression,
+    S.union([
+      S.string->S.refine(_ => true, ~error="a"),
+      S.string->S.refine(_ => true, ~error="b"),
+      S.string,
+    ])->S.inputExpression,
     "string",
+  )
+})
+
+test("Expression of Union schema keeps members distinguished by a bound", t => {
+  t->Assert.deepEqual(
+    S.union([S.string->S.minLength(4), S.string->S.maxLength(1), S.string])->S.inputExpression,
+    "string.length >= 4 | string.length <= 1 | string",
   )
 })
 
@@ -300,4 +313,34 @@ test("toString collapses to one parameter when the sides match", t => {
 
 test("toString reverses nested schemas for the output side", t => {
   t->Assert.deepEqual((S.array(S.string->S.to(S.int))->S.untag).toString(), "Schema<string[], int32[]>")
+})
+
+test("Bounds render on the schema they constrain", t => {
+  t->Assert.deepEqual(S.int->S.gt(5)->S.inputExpression, `int32 > 5`)
+  t->Assert.deepEqual(S.int->S.gte(5)->S.inputExpression, `int32 >= 5`)
+  t->Assert.deepEqual(S.float->S.lt(5.)->S.inputExpression, `number < 5`)
+  t->Assert.deepEqual(S.float->S.gte(1.)->S.lte(9.)->S.inputExpression, `1 <= number <= 9`)
+  // A format's own range is not a bound the caller wrote, so it stays implicit.
+  t->Assert.deepEqual(S.int->S.inputExpression, `int32`)
+  t->Assert.deepEqual(S.port->S.inputExpression, `port`)
+})
+
+test("An array of bounded items parenthesises the item expression", t => {
+  let schema = S.array(S.int->S.gt(5))->S.maxLength(3)
+
+  // Without the parens this reads as `int32 > (5[])`.
+  t->Assert.deepEqual(schema->S.inputExpression, `(int32 > 5)[].length <= 3`)
+  t->U.assertThrowsMessage(
+    () => %raw(`"x"`)->S.parseOrThrow(~to=schema),
+    `Expected (int32 > 5)[].length <= 3, received "x"`,
+  )
+  // The item bound and the array bound report separately, each at its own path.
+  t->U.assertThrowsMessage(
+    () => %raw(`[1]`)->S.parseOrThrow(~to=schema),
+    `Failed at ["0"]: Expected int32 > 5, received 1`,
+  )
+  t->U.assertThrowsMessage(
+    () => %raw(`[6, 7, 8, 9]`)->S.parseOrThrow(~to=schema),
+    `Expected (int32 > 5)[].length <= 3, received [6, 7, 8, 9]`,
+  )
 })

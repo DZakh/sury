@@ -154,11 +154,6 @@ export const s = /* @__PURE__ */ Symbol(vendor);
 // Internal symbol to identify the item proxy (see the makeObjectVal Proxy use).
 export const itemSymbol = /* @__PURE__ */ Symbol(vendor + ":item");
 
-// A hacky way to prevent prepending path when error is caught.
-// Can be removed after we remove effectCtx
-// and there's not way to throw outside of the operation context.
-export const shouldPrependPathKey = "p";
-
 export type NumberFormat = "int32" | "port";
 export type StringFormat = "json" | "date-time" | "email" | "uuid" | "cuid" | "url";
 export type ArrayFormat = "compactColumns";
@@ -223,6 +218,8 @@ export type SchemaErrorMessage = {
   type?: string;
   minimum?: string;
   maximum?: string;
+  exclusiveMinimum?: string;
+  exclusiveMaximum?: string;
   minLength?: string;
   maxLength?: string;
   minItems?: string;
@@ -278,8 +275,20 @@ export type Internal = {
   // each variant converts to whatever the target is, and a variant with no
   // decoder to that target drops out with its error reported per value.
   perVariant?: boolean;
-  minimum?: number;
-  maximum?: number;
+  // Which bounds the caller actually wrote. int32 and port put their own
+  // range in the fields below, so the values can't tell a caller's bound from
+  // a format's — this can, and only the bound constructors ever set it.
+  // 1 lower inclusive · 2 upper inclusive · 4 lower exclusive · 8 upper
+  // exclusive. A schema bounds either its value or its length, never both, so
+  // one pair of bits covers minimum/minLength/minItems alike.
+  bounds?: number;
+  minimum?: number | bigint;
+  maximum?: number | bigint;
+  // S.gt/S.lt always land here and S.gte/S.lte always land on
+  // minimum/maximum, whatever the numeric type — the bound a schema reports
+  // is the one its author wrote, not an equivalent rewritten form.
+  exclusiveMinimum?: number | bigint;
+  exclusiveMaximum?: number | bigint;
   minLength?: number;
   maxLength?: number;
   minItems?: number;
@@ -501,13 +510,19 @@ export const stringify = (unknown: unknown): string => {
 // `expression` sits after `const` and before the structural tags, so an override
 // beats the shape it overrides while a literal still outranks both. It also has
 // to beat the `format` fallback below: compactColumns is the sole array format.
+//
+// `skipOverride` renders the shape an override would have replaced. It exists
+// for an override that wraps its own schema's rendering rather than replacing
+// it — a bound, the only one today (`setBoundExpression` in refinements.ts) —
+// which has to ask for the base rendering of the very schema whose `expression`
+// is mid-call, and would recurse forever without this.
 // @__NO_SIDE_EFFECTS__
-export const inputExpression = (schema: Internal): string => {
+export const inputExpression = (schema: Internal, skipOverride?: boolean): string => {
   if (schema.name) {
     return schema.name;
   } else if (schema.const !== U) {
     return stringify(schema.const);
-  } else if (schema.expression) {
+  } else if (schema.expression && !skipOverride) {
     return schema.expression(schema);
   } else if (schema.anyOf !== U) {
     // Repeated members remain significant to decoding (the same effectful schema
@@ -545,7 +560,9 @@ export const inputExpression = (schema: Internal): string => {
     if (typeof additionalItems === objectTag) {
       const item = additionalItems as Internal;
       const itemName = inputExpression(item);
-      return (item.type === anyOfTag ? `(${itemName})` : itemName) + "[]";
+      // A bound reads as part of the item, not the array: `int32 > 5[]` parses
+      // as an array-typed bound, the same ambiguity a union has.
+      return (item.type === anyOfTag || item.bounds !== U ? `(${itemName})` : itemName) + "[]";
     }
     const items = schema.items!;
     let body = "";

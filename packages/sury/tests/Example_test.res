@@ -89,7 +89,7 @@ test("Compiled serialize code snapshot", t => {
 test("Custom schema", t => {
   let mySet = itemSchema => {
     S.instance(%raw(`Set`))
-    ->S.transform(_ => {
+    ->S.transform(() => {
       parser: input => {
         let output = Set.make()
         input

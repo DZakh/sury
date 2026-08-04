@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.string.with(S.nonEmpty)
+  input: string
+  output: string
+  instantiations: 534
+vs:
+  zod: z.string().min(1)
+jsonSchema:
+  input: '{ type: "string", minLength: 1 }'
+  output: '{ type: "string", minLength: 1 }'
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[1](i);i.length>0||e[0](i);return i}
+    examples:
+      at-the-length:
+        input: '"ab"'
+        output: '"ab"'
+      longer:
+        input: '"abc"'
+        output: '"abc"'
+      shorter:
+        input: '"a"'
+        output: '"a"'
+      empty:
+        input: '""'
+        error: Expected string.length >= 1, received ""
+      single-space:
+        input: '" "'
+        output: '" "'
+      wrong-type:
+        input: "1"
+        error: Expected string.length >= 1, received 1
+  decode:
+    expression: i=>{i.length>0||e[0](i);return i}
+    examples:
+      at-the-length:
+        input: '"ab"'
+        output: '"ab"'
+      shorter:
+        input: '"a"'
+        output: '"a"'
+      empty:
+        input: '""'
+        error: Expected string.length >= 1, received ""
+  encode:
+    expression: i=>{i.length>0||e[0](i);return i}
+    examples:
+      at-the-length:
+        input: '"ab"'
+        output: '"ab"'
+      shorter:
+        input: '"a"'
+        output: '"a"'
+      empty:
+        input: '""'
+        error: Expected string.length >= 1, received ""

@@ -197,7 +197,7 @@ test("Encode list(nullAsOption) to JSON", t => {
 })
 
 test("Encode refined array(nullAsOption) to JSON", t => {
-  let schema = S.array(S.string->S.nullAsOption)->S.max(3)
+  let schema = S.array(S.string->S.nullAsOption)->S.maxLength(3)
   t->Assert.deepEqual(
     [None, Some("x")]->S.decodeOrThrow(~from=schema, ~to=S.json),
     %raw(`[null, "x"]`),

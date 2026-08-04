@@ -100,6 +100,8 @@ type rec t<'value> =
       default?: float,
       minimum?: float,
       maximum?: float,
+      exclusiveMinimum?: float,
+      exclusiveMaximum?: float,
       errorMessage?: schemaErrorMessage,
     })
   | @as("bigint")
@@ -111,6 +113,10 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<bigint>,
       default?: bigint,
+      minimum?: bigint,
+      maximum?: bigint,
+      exclusiveMinimum?: bigint,
+      exclusiveMaximum?: bigint,
       errorMessage?: schemaErrorMessage,
     })
   | @as("boolean")
@@ -241,6 +247,8 @@ and schemaErrorMessage = {
   type_?: string,
   minimum?: string,
   maximum?: string,
+  exclusiveMinimum?: string,
+  exclusiveMaximum?: string,
   minLength?: string,
   maxLength?: string,
   minItems?: string,
@@ -376,8 +384,6 @@ module Flag = {
 }
 type flag = Flag.t
 
-type s<'value> = {fail: 'a. (string, ~path: Path.t=?) => 'a}
-
 module Error = {
   type class
 
@@ -386,6 +392,8 @@ module Error = {
   @module("sury") @new external make: errorDetails => error = "Error"
 
   external classify: error => errorDetails = "%identity"
+
+  external throw: error => 'a = "%raise"
 }
 
 // Primitive schema values — the same eager, PURE-annotated instances the JS
@@ -441,7 +449,7 @@ type transformDefinition<'input, 'output> = {
   serializer?: 'output => 'input,
 }
 @module("sury")
-external transform: (t<'input>, s<'output> => transformDefinition<'input, 'output>) => t<'output> =
+external transform: (t<'input>, unit => transformDefinition<'input, 'output>) => t<'output> =
   "$res_transform"
 
 // The public JS `refine` takes an options object; build it here from the
@@ -550,15 +558,20 @@ module Metadata = {
 // Built-in refinements
 // =============
 
-@module("sury") external min: (t<'value>, int, ~message: string=?) => t<'value> = "min"
-// The public JS `min`/`max` dispatch on the schema type — for a plain float
-// schema they land on the float refinement directly.
-@module("sury") external floatMin: (t<float>, float, ~message: string=?) => t<float> = "min"
+// The bound is typed as the schema's own value, so one external serves int,
+// float and bigint. It admits nonsense the JS side has to catch — a bound on a
+// `t<string>`, say — which is why gt/gte/lt/lte validate both the schema tag
+// and the bound's runtime type before building anything.
+@module("sury") external gt: (t<'value>, 'value, ~message: string=?) => t<'value> = "gt"
+@module("sury") external gte: (t<'value>, 'value, ~message: string=?) => t<'value> = "gte"
+@module("sury") external lt: (t<'value>, 'value, ~message: string=?) => t<'value> = "lt"
+@module("sury") external lte: (t<'value>, 'value, ~message: string=?) => t<'value> = "lte"
 
-@module("sury") external max: (t<'value>, int, ~message: string=?) => t<'value> = "max"
-@module("sury") external floatMax: (t<float>, float, ~message: string=?) => t<float> = "max"
-
+@module("sury") external minLength: (t<'value>, int, ~message: string=?) => t<'value> = "minLength"
+@module("sury") external maxLength: (t<'value>, int, ~message: string=?) => t<'value> = "maxLength"
 @module("sury") external length: (t<'value>, int, ~message: string=?) => t<'value> = "length"
+@module("sury") external empty: (t<'value>, ~message: string=?) => t<'value> = "empty"
+@module("sury") external nonEmpty: (t<'value>, ~message: string=?) => t<'value> = "nonEmpty"
 
 @module("sury")
 external pattern: (t<string>, RegExp.t, ~message: string=?) => t<string> = "pattern"

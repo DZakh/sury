@@ -101,6 +101,15 @@ export {
   tuple,
   pattern,
   trim,
+  gt,
+  gte,
+  lt,
+  lte,
+  minLength,
+  maxLength,
+  length,
+  empty,
+  nonEmpty,
 } from "./refinements";
 export {
   meta,
@@ -113,9 +122,6 @@ export {
   fromJSONSchema,
   extendJSONSchema,
   enableStandardJSONSchema,
-  min,
-  max,
-  length,
 } from "./jsonschema";
 export { inputExpression } from "./base";
 export { outputExpression } from "./parse";

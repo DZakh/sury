@@ -323,12 +323,14 @@ S.string.with(S.to, S.uint8Array);
 **Sury** includes a handful of string-specific refinements and transforms:
 
 ```ts
-S.max(S.string, 5); // String must be 5 or fewer characters long
-S.min(S.string, 5); // String must be 5 or more characters long
-S.length(S.string, 5); // String must be exactly 5 characters long
+S.string.with(S.maxLength, 5); // Expected string.length <= 5
+S.string.with(S.minLength, 5); // Expected string.length >= 5
+S.string.with(S.length, 5); // Expected string.length == 5
+S.string.with(S.nonEmpty); // Expected string.length >= 1
+S.string.with(S.empty); // Expected string.length == 0
 S.string.with(S.pattern, /[0-9]/); // Invalid pattern
 
-S.trim(S.string); // trim whitespaces
+S.string.with(S.trim); // trim whitespaces
 ```
 
 For format-specific string validation, use the standalone schemas:
@@ -347,7 +349,7 @@ S.cuid; // Standalone CUID schema
 When using built-in refinements, you can provide a custom error message.
 
 ```ts
-S.min(S.string, 1, "String can't be empty");
+S.nonEmpty(S.string, "String can't be empty");
 S.length(S.string, 5, "SMS code should be 5 digits long");
 ```
 
@@ -356,7 +358,7 @@ S.length(S.string, 5, "SMS code should be 5 digits long");
 Built-in refinements accept an optional last argument for a custom error message:
 
 ```ts
-S.min(S.string, 5, "Too short");
+S.minLength(S.string, 5, "Too short");
 S.pattern(S.string, /^\d+$/, "Must be numeric");
 ```
 
@@ -401,14 +403,27 @@ const schema = S.string.with(S.to, S.date);
 **Sury** includes some of number-specific refinements:
 
 ```ts
-S.max(S.number, 5); // Number must be lower than or equal to 5
-S.min(S.number, 5); // Number must be greater than or equal to 5
+S.number.with(S.lte, 5); // Expected number <= 5
+S.number.with(S.gte, 5); // Expected number >= 5
+S.number.with(S.lt, 5); // Expected number < 5
+S.number.with(S.gt, 5); // Expected number > 5
 ```
 
-Optionally, you can pass in a second argument to provide a custom error message.
+The comparison refinements work on `S.bigint` too, and on the numeric formats
+(`S.int32`, `S.port`), whose own range takes part in the check — a bound
+outside it describes a schema nothing satisfies, and fails where it's written:
 
 ```ts
-S.max(S.number, 5, "this👏is👏too👏big");
+S.int32.with(S.gte, 3000000000);
+// int32 >= 3000000000 contradicts int32 <= 2147483647
+S.number.with(S.gte, 5).with(S.lte, 1);
+// number <= 1 contradicts number >= 5
+```
+
+Optionally, you can pass in a third argument to provide a custom error message.
+
+```ts
+S.number.with(S.lte, 5, "this👏is👏too👏big");
 ```
 
 ## Optionals
@@ -609,9 +624,11 @@ const stringArraySchema = S.array(S.string);
 **Sury** includes some of array-specific refinements:
 
 ```ts
-S.max(S.array(S.string), 5); // Array must be 5 or fewer items long
-S.min(S.array(S.string), 5); // Array must be 5 or more items long
-S.length(S.array(S.string), 5); // Array must be exactly 5 items long
+S.array(S.string).with(S.maxLength, 5); // Expected string[].length <= 5
+S.array(S.string).with(S.minLength, 5); // Expected string[].length >= 5
+S.array(S.string).with(S.length, 5); // Expected string[].length == 5
+S.array(S.string).with(S.nonEmpty); // Expected string[].length >= 1
+S.array(S.string).with(S.empty); // Expected string[].length == 0
 ```
 
 ### Compact Columns

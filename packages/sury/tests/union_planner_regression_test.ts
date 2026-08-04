@@ -112,7 +112,7 @@ test("factory normalization preserves duplicate effects and nested metadata", (t
   t.expect(calls).toBe(2);
 
   const inner = S.meta(
-    S.union([S.string.with(S.min, 3), S.number]),
+    S.union([S.string.with(S.minLength, 3), S.number]),
     {
       name: "named-inner",
       errorMessage: { _: "named inner rejected" },

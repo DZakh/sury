@@ -207,9 +207,11 @@ The `S.string` schema represents a data that is a string. It can be further cons
 **Sury** includes a handful of string-specific refinements and transforms:
 
 ```rescript
-S.string->S.max(5) // String must be 5 or fewer characters long
-S.string->S.min(5) // String must be 5 or more characters long
-S.string->S.length(5) // String must be exactly 5 characters long
+S.string->S.maxLength(5) // Expected string.length <= 5
+S.string->S.minLength(5) // Expected string.length >= 5
+S.string->S.length(5) // Expected string.length == 5
+S.string->S.nonEmpty // Expected string.length >= 1
+S.string->S.empty // Expected string.length == 0
 S.string->S.pattern(%re(`/[0-9]/`)) // Invalid pattern
 
 S.string->S.trim // trim whitespaces
@@ -233,7 +235,7 @@ S.cuid // Standalone CUID schema
 Built-in refinements accept an optional `~message` argument for a custom error message:
 
 ```rescript
-S.string->S.min(1, ~message="String can't be empty")
+S.string->S.nonEmpty(~message="String can't be empty")
 S.string->S.length(5, ~message="SMS code should be 5 digits long")
 S.string->S.pattern(%re(`/^\d+$/`), ~message="Must be numeric")
 ```
@@ -283,9 +285,20 @@ The `S.int` schema represents a data that is an integer.
 **Sury** includes some of int-specific refinements:
 
 ```rescript
-S.int->S.max(5) // Number must be lower than or equal to 5
-S.int->S.min(5) // Number must be greater than or equal to 5
+S.int->S.lte(5) // Expected int32 <= 5
+S.int->S.gte(5) // Expected int32 >= 5
+S.int->S.lt(5) // Expected int32 < 5
+S.int->S.gt(5) // Expected int32 > 5
 S.port // Standalone port schema
+```
+
+The same four work on `S.float` and `S.bigint`. A numeric format carries its
+own range, so a bound outside it fails where it's written rather than building
+a schema nothing satisfies:
+
+```rescript
+S.int->S.gte(3000000000)
+// int32 >= 3000000000 contradicts int32 <= 2147483647
 ```
 
 ### **`float`**
@@ -1207,7 +1220,7 @@ You can also use asynchronous parser:
 ```rescript
 let nodeSchema = S.recursive("Node", nodeSchema => {
   S.object(s => {
-    params: s.field("Id", S.string)->S.transform(_ => {asyncParser: id => loadParams(~id)}),
+    params: s.field("Id", S.string)->S.transform(() => {asyncParser: id => loadParams(~id)}),
     children: s.field("Children", S.array(nodeSchema)),
   })
 })
@@ -1228,7 +1241,7 @@ One great aspect of the example above is that it uses parallelism to make four r
 ```rescript
 let mySet = itemSchema => {
   S.instance(%raw(`Set`))
-  ->S.transform(_ => {
+  ->S.transform(() => {
     parser: input => {
       let output = Set.make()
       input
@@ -1309,18 +1322,45 @@ The refine function is applied for both parsing and serializing.
 
 ### **`transform`**
 
-`(S.t<'input>, S.s<'output> => S.transformDefinition<'input, 'output>) => S.t<'output>`
+`(S.t<'input>, unit => S.transformDefinition<'input, 'output>) => S.t<'output>`
+
+A transform fails by throwing, and the path it is reached through is prepended
+to whatever it throws. Usually that's just a JS error with a message:
 
 ```rescript
 let intToString = schema =>
-  schema->S.transform(s => {
+  schema->S.transform(() => {
     parser: int => int->Int.toString,
     serializer: string =>
       switch string->Int.fromString {
       | Some(int) => int
-      | None => s.fail("Can't convert string to int")
+      | None => JsError.make("Can't convert string to int")->JsError.throw
       },
   })
+```
+
+It surfaces as an `InvalidConversion` carrying the original as `cause`, with the
+path it was reached through prepended to the message:
+
+```rescript
+"abc"->S.decodeOrThrow(~from=S.int->intToString, ~to=S.unknown)
+// Can't convert string to int
+```
+
+Any exception works — a ReScript one (`throw(Failure("…"))`) included — but only
+a JS error carries a message, so anything else is reported by its structure.
+When you need to name a path or the schemas involved, build the error instead
+and throw that:
+
+```rescript
+S.Error.make(
+  InvalidInput({
+    reason: "Can't convert string to int",
+    path: S.Path.empty,
+    expected: S.unknown,
+    received: S.unknown,
+  }),
+)->S.Error.throw
 ```
 
 Also, you can have an asynchronous transform:
@@ -1333,7 +1373,7 @@ type user = {
 
 let userSchema =
   S.uuid
-  ->S.transform(s => {
+  ->S.transform(() => {
     asyncParser: userId => loadUser(~userId),
     serializer: user => user.id,
   })
@@ -1560,7 +1600,7 @@ let schema = S.string->S.to(S.float)
 ```rescript
 S.string->S.isAsync
 // false
-S.string->S.transform(_ => {asyncParser: i => Promise.resolve(i)})->S.isAsync
+S.string->S.transform(() => {asyncParser: i => Promise.resolve(i)})->S.isAsync
 // true
 ```
 

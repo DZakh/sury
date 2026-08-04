@@ -43,15 +43,17 @@ test("errorMessage catch-all fallback override produces InvalidInput with custom
 })
 
 test("errorMessage.minLength override produces InvalidInput with custom reason", t => {
-  let schema = S.string->S.min(3)->S.meta({errorMessage: {minLength: "too short"}})
+  let schema = S.string->S.minLength(3)->S.meta({errorMessage: {minLength: "too short"}})
   switch "hi"->S.parseOrThrow(~to=schema) {
   | _ => t->Assert.fail("Should have thrown")
   | exception S.Exn(error) =>
     t->assertInvalidInput(
       error,
       ~reason="too short",
-      ~expected="string",
-      ~received="string",
+      // Both sides of a bound failure carry the same schema, so the bound
+      // renders on each — the user-facing message here is the custom reason.
+      ~expected="string.length >= 3",
+      ~received="string.length >= 3",
     )
   }
 })
@@ -80,8 +82,8 @@ test("S.refine with ~error and ~path applies path correctly", t => {
 })
 
 test("S.transform parser ctx.fail produces InvalidInput with custom reason", t => {
-  let schema = S.string->S.transform(s => {
-    parser: str => str === "" ? s.fail("empty not allowed") : str,
+  let schema = S.string->S.transform(() => {
+    parser: str => str === "" ? U.fail("empty not allowed") : str,
   })
   switch ""->S.parseOrThrow(~to=schema) {
   | _ => t->Assert.fail("Should have thrown")
@@ -94,9 +96,9 @@ test("S.transform parser ctx.fail produces InvalidInput with custom reason", t =
 })
 
 test("S.transform serializer ctx.fail produces InvalidInput with custom reason", t => {
-  let schema = S.string->S.transform(s => {
+  let schema = S.string->S.transform(() => {
     parser: str => str,
-    serializer: str => str === "" ? s.fail("empty not allowed") : str,
+    serializer: str => str === "" ? U.fail("empty not allowed") : str,
   })
   switch ""->S.decodeOrThrow(~from=schema, ~to=S.unknown) {
   | _ => t->Assert.fail("Should have thrown")
@@ -113,8 +115,8 @@ test("ctx.fail with ~path is concatenated to current location", t => {
     s.field(
       "field",
       S.string->S.transform(
-        s => {
-          parser: _ => s.fail("oops", ~path=S.Path.fromArray(["nested"])),
+        () => {
+          parser: _ => U.fail("oops", ~path=S.Path.fromArray(["nested"])),
         },
       ),
     )
@@ -140,10 +142,10 @@ test("error.code is invalid_input for every consolidated path", t => {
     }
 
   assertCode(S.string->S.meta({errorMessage: {type_: "x"}}), 1->Obj.magic)
-  assertCode(S.string->S.min(2)->S.meta({errorMessage: {minLength: "x"}}), "a"->Obj.magic)
+  assertCode(S.string->S.minLength(2)->S.meta({errorMessage: {minLength: "x"}}), "a"->Obj.magic)
   assertCode(S.int->S.refine(_ => false, ~error="x"), 1->Obj.magic)
   assertCode(
-    S.string->S.transform(s => {parser: _ => s.fail("x")}),
+    S.string->S.transform(() => {parser: _ => U.fail("x")}),
     "anything"->Obj.magic,
   )
 })
