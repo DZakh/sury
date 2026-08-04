@@ -34,7 +34,6 @@
   - [Advanced tuple schema](#advanced-tuple-schema)
 - [Unions](#unions)
   - [Discriminated unions](#discriminated-unions)
-  - [Enums](#enums)
   - [Converting to / from a union](#converting-to-from-a-union)
 - [Records](#records)
 - [Date](#date)
@@ -53,7 +52,9 @@
   - [`reverse`](#reverse)
   - [`to`](#to)
   - [`name`](#name)
-  - [`toExpression`](#toexpression)
+  - [`inputExpression`](#inputexpression)
+  - [`outputExpression`](#outputexpression)
+  - [`toString`](#tostring)
 - [Error handling](#error-handling)
 - [Global config](#global-config)
   - [`defaultAdditionalItems`](#defaultadditionalitems)
@@ -114,6 +115,15 @@ const playerSchema = S.schema({
 type Player = S.Infer<typeof playerSchema>;
 ```
 
+The type parameters read in the direction data flows: `S.Schema<TInput, TOutput>` — the encoded type the schema accepts, then the decoded type it produces. `TOutput` defaults to `TInput`, so an identity schema is just `S.Schema<string>`.
+
+To annotate "any schema producing `T`, whatever it accepts", leave the input as `unknown`:
+
+```ts
+const parseT = <T>(schema: S.Schema<unknown, T>, data: unknown): T =>
+  S.parser(schema)(data);
+```
+
 ### Serializing data
 
 Every schema has an `Input` type as well as an `Output` type, so the same definition serializes back to the input format:
@@ -133,7 +143,7 @@ const userSchema = S.schema({
   id: input.USER_ID,
   name: input.USER_NAME,
 }));
-//? S.Schema<{ id: bigint; name: string }, { USER_ID: string; USER_NAME: string }>
+//? S.Schema<{ USER_ID: string; USER_NAME: string }, { id: bigint; name: string }>
 
 S.parser(userSchema)({ USER_ID: "0", USER_NAME: "Dmitry" });
 // { id: 0n, name: "Dmitry" }
@@ -238,20 +248,45 @@ S.schema(true);
 S.schema(undefined);
 S.schema(null);
 S.schema(Symbol("terrific"));
+S.literal("tuna"); // alias for S.schema
 
 // NaN literals
 // Validated using Number.isNaN
 S.schema(NaN);
 
+// Simple Objects
+S.schema({ name: S.string, age: S.number });
+S.object({ name: S.string, age: S.number }); // alias for S.schema
+
+// Arrays and records
+S.array(S.string);
+S.record(S.number); // { [k: string]: number }
+
+// Simple Tuples
+S.schema([S.string, S.number]);
+S.tuple([S.string, S.number]); // alias for S.schema
+
+// Unions
+S.union([S.string, S.number]);
+// Enum-like union of literals
+S.union(["Win", "Draw", "Loss"]);
+// Discriminated unions
+S.union([
+  { kind: "circle", radius: S.number },
+  { kind: "square", x: S.number },
+]);
+
 // Catch-all type
 // Allows any value
 S.unknown;
-S.any;
+S.any; // alias for S.unknown, typed as S.Schema<any, any>
 
 // Never type
 // Allows no values
 S.never;
 ```
+
+> 🧠 `S.schema` turns any definition into a schema — `S.literal`, `S.object` and `S.tuple` are aliases for it. Only `S.object` and `S.tuple` also take a definer function, for [advanced object](#advanced-object-schema) and [advanced tuple](#advanced-tuple-schema) schemas.
 
 ### Advanced schemas
 
@@ -288,12 +323,14 @@ S.string.with(S.to, S.uint8Array);
 **Sury** includes a handful of string-specific refinements and transforms:
 
 ```ts
-S.max(S.string, 5); // String must be 5 or fewer characters long
-S.min(S.string, 5); // String must be 5 or more characters long
-S.length(S.string, 5); // String must be exactly 5 characters long
+S.string.with(S.maxLength, 5); // Expected string.length <= 5
+S.string.with(S.minLength, 5); // Expected string.length >= 5
+S.string.with(S.length, 5); // Expected string.length == 5
+S.string.with(S.nonEmpty); // Expected string.length >= 1
+S.string.with(S.empty); // Expected string.length == 0
 S.string.with(S.pattern, /[0-9]/); // Invalid pattern
 
-S.trim(S.string); // trim whitespaces
+S.string.with(S.trim); // trim whitespaces
 ```
 
 For format-specific string validation, use the standalone schemas:
@@ -312,7 +349,7 @@ S.cuid; // Standalone CUID schema
 When using built-in refinements, you can provide a custom error message.
 
 ```ts
-S.min(S.string, 1, "String can't be empty");
+S.nonEmpty(S.string, "String can't be empty");
 S.length(S.string, 5, "SMS code should be 5 digits long");
 ```
 
@@ -321,7 +358,7 @@ S.length(S.string, 5, "SMS code should be 5 digits long");
 Built-in refinements accept an optional last argument for a custom error message:
 
 ```ts
-S.min(S.string, 5, "Too short");
+S.minLength(S.string, 5, "Too short");
 S.pattern(S.string, /^\d+$/, "Must be numeric");
 ```
 
@@ -354,11 +391,11 @@ S.parser(schema)("2020-01-01T00:00:00.123456Z"); // pass (arbitrary precision)
 S.parser(schema)("2020-01-01T00:00:00+02:00"); // fail (no offsets allowed)
 ```
 
-To decode an ISO datetime string into a `Date`, combine it with `S.to(S.date)`:
+To decode an ISO datetime string into a `Date`, chain it with `.with(S.to, S.date)`:
 
 ```ts
-const schema = S.to(S.string, S.date);
-// schema has the type S.Schema<Date, string>
+const schema = S.string.with(S.to, S.date);
+// schema has the type S.Schema<string, Date>
 ```
 
 ## Numbers
@@ -366,14 +403,27 @@ const schema = S.to(S.string, S.date);
 **Sury** includes some of number-specific refinements:
 
 ```ts
-S.max(S.number, 5); // Number must be lower than or equal to 5
-S.min(S.number, 5); // Number must be greater than or equal to 5
+S.number.with(S.lte, 5); // Expected number <= 5
+S.number.with(S.gte, 5); // Expected number >= 5
+S.number.with(S.lt, 5); // Expected number < 5
+S.number.with(S.gt, 5); // Expected number > 5
 ```
 
-Optionally, you can pass in a second argument to provide a custom error message.
+The comparison refinements work on `S.bigint` too, and on the numeric formats
+(`S.int32`, `S.port`), whose own range takes part in the check — a bound
+outside it describes a schema nothing satisfies, and fails where it's written:
 
 ```ts
-S.max(S.number, 5, "this👏is👏too👏big");
+S.int32.with(S.gte, 3000000000);
+// int32 >= 3000000000 contradicts int32 <= 2147483647
+S.number.with(S.gte, 5).with(S.lte, 1);
+// number <= 1 contradicts number >= 5
+```
+
+Optionally, you can pass in a third argument to provide a custom error message.
+
+```ts
+S.number.with(S.lte, 5, "this👏is👏too👏big");
 ```
 
 ## Optionals
@@ -474,17 +524,7 @@ const meSchema = S.schema({
 });
 ```
 
-You can add `as const` or wrap the value with `S.schema` to adjust the schema type. The example below turns the `kind` field to be a `"human"` type instead of `string`:
-
-```ts
-S.schema({
-  kind: "human" as const,
-  // Or
-  kind: S.schema("human"),
-});
-```
-
-This is useful for discriminated unions.
+Literal fields keep their narrow type — `kind` above is `"human"`, not `string` — which is what makes discriminated unions work.
 
 ### Advanced object schema
 
@@ -584,9 +624,11 @@ const stringArraySchema = S.array(S.string);
 **Sury** includes some of array-specific refinements:
 
 ```ts
-S.max(S.array(S.string), 5); // Array must be 5 or fewer items long
-S.min(S.array(S.string), 5); // Array must be 5 or more items long
-S.length(S.array(S.string), 5); // Array must be exactly 5 items long
+S.array(S.string).with(S.maxLength, 5); // Expected string[].length <= 5
+S.array(S.string).with(S.minLength, 5); // Expected string[].length >= 5
+S.array(S.string).with(S.length, 5); // Expected string[].length == 5
+S.array(S.string).with(S.nonEmpty); // Expected string[].length >= 1
+S.array(S.string).with(S.empty); // Expected string[].length == 0
 ```
 
 ### Compact Columns
@@ -708,29 +750,19 @@ S.parser(stringOrNumberSchema)(14); // passes
 
 const shapeSchema = S.union([
   {
-    kind: "circle" as const,
+    kind: "circle",
     radius: S.number,
   },
   {
-    kind: "square" as const,
+    kind: "square",
     x: S.number,
   },
   {
-    kind: "triangle" as const,
+    kind: "triangle",
     x: S.number,
     y: S.number,
   },
 ]);
-```
-
-### Enums
-
-Creating a schema for a enum-like union was never so easy:
-
-```ts
-const schema = S.union(["Win", "Draw", "Loss"]);
-
-type Schema = S.Infer<typeof schema>; // "Win" | "Draw" | "Loss"
 ```
 
 ### Converting to / from a union
@@ -859,7 +891,7 @@ S.parser(S.date)(new Date("invalid")); // throws
 S.parser(S.date)("2024-01-01"); // throws - not a Date instance
 ```
 
-> Unlike `S.isoDateTime` (which validates ISO datetime strings) and `S.to(S.string, S.date)` (which decodes ISO strings into Date objects), `S.date` validates existing Date instances directly.
+> Unlike `S.isoDateTime` (which validates ISO datetime strings) and `S.string.with(S.to, S.date)` (which decodes ISO strings into Date objects), `S.date` validates existing Date instances directly.
 
 You can use `S.decoder` with multiple arguments to decode between strings and dates:
 
@@ -966,7 +998,7 @@ For more information on branding in general, check out [this excellent article](
 3. Optionally, use `S.meta` to add customize the name of the schema and additional metadata.
 
 ```ts
-const mySet = <T>(itemSchema: S.Schema<T>): S.Schema<Set<T>> =>
+const mySet = <T>(itemSchema: S.Schema<unknown, T>): S.Schema<unknown, Set<T>> =>
   S.instance(Set<unknown>)
     .with(S.to, S.instance(Set<T>), (input) => {
       const output = new Set<T>();
@@ -983,7 +1015,7 @@ const mySet = <T>(itemSchema: S.Schema<T>): S.Schema<Set<T>> =>
       return output;
     })
     .with(S.meta, {
-      name: `Set<${S.toExpression(itemSchema)}>`,
+      name: `Set<${S.inputExpression(itemSchema)}>`,
     });
 
 const numberSetSchema = mySet(S.number);
@@ -1004,11 +1036,27 @@ type Node = {
   children: Node[];
 };
 
-const nodeSchema = S.recursive<Node, Node>("Node", (nodeSchema) =>
+const nodeSchema = S.recursive<Node>("Node", (nodeSchema) =>
   S.schema({
     id: S.string,
     children: S.array(nodeSchema),
   })
+);
+```
+
+One type parameter is enough when the schema doesn't transform — `S.recursive<Node>` is `S.Schema<Node, Node>`. When the recursive schema transforms its input, pass both sides in `S.Schema<TInput, TOutput>` order:
+
+```ts
+type Row = { title: string; children: Row[] };
+
+const rowSchema = S.recursive<unknown, Row>("Row", (rowSchema) =>
+  S.schema({
+    TITLE: S.string,
+    CHILDREN: S.array(rowSchema),
+  }).with(S.shape, (input) => ({
+    title: input.TITLE,
+    children: input.CHILDREN,
+  }))
 );
 ```
 
@@ -1152,15 +1200,15 @@ Parsing means that the input value is validated against the schema and transform
 
 | Operation      | Interface                                                       | Description                                                   |
 | -------------- | --------------------------------------------------------------- | ------------------------------------------------------------- |
-| S.parser       | `(Schema<Output, Input>) => (data: unknown) => Output`          | Parses any value with the schema                              |
-| S.asyncParser  | `(Schema<Output, Input>) => (data: unknown) => Promise<Output>` | Parses any value with the schema having async transformations |
+| S.parser       | `(Schema<TInput, TOutput>) => (data: unknown) => TOutput`          | Parses any value with the schema                              |
+| S.asyncParser  | `(Schema<TInput, TOutput>) => (data: unknown) => Promise<TOutput>` | Parses any value with the schema having async transformations |
 
 For advanced users you can only transform to the output type without type validations. But be careful, since the input type is not checked:
 
 | Operation       | Interface                                                | Description                                                      |
 | --------------- | -------------------------------------------------------- | ---------------------------------------------------------------- |
-| S.decoder       | `(Schema<Output, Input>) => (Input) => Output`           | Converts input value to the output type                          |
-| S.asyncDecoder  | `(Schema<Output, Input>) => (Input) => Promise<Output>`  | Converts input value to the output type with async transforms    |
+| S.decoder       | `(Schema<TInput, TOutput>) => (TInput) => TOutput`           | Converts input value to the output type                          |
+| S.asyncDecoder  | `(Schema<TInput, TOutput>) => (TInput) => Promise<TOutput>`  | Converts input value to the output type with async transforms    |
 
 Note, that in this case only type validations are skipped. If your schema has refinements or transforms, they will be applied.
 
@@ -1170,8 +1218,8 @@ More often than converting input to output, you'll need to perform the reversed 
 
 | Operation       | Interface                                              | Description                                                           |
 | --------------- | ------------------------------------------------------ | --------------------------------------------------------------------- |
-| S.encoder       | `(Schema<Output, Input>) => (Output) => Input`         | Converts schema value to the input type                               |
-| S.asyncEncoder  | `(Schema<Output, Input>) => (Output) => Promise<Input>`| Converts schema value to the input type with async transformations    |
+| S.encoder       | `(Schema<TInput, TOutput>) => (TOutput) => TInput`         | Converts schema value to the input type                               |
+| S.asyncEncoder  | `(Schema<TInput, TOutput>) => (TOutput) => Promise<TInput>`| Converts schema value to the input type with async transformations    |
 
 This is literally the same as convert operations applied to the reversed schema.
 
@@ -1179,8 +1227,8 @@ For some cases you might want to simply check whether the input value is valid, 
 
 | Operation | Interface                                                      | Description                                                                                                                                    |
 | --------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| S.assert  | `(Schema<Output, Input>, data: unknown) asserts data is Input` or `(data: unknown, Schema<Output, Input>) asserts data is Input` | Asserts that the input value is valid. Since the operation doesn't return a value, it's 2-3 times faster than `parser` depending on the schema |
-| S.is      | `(Schema<Output, Input>, data: unknown) => data is Input` or `(data: unknown, Schema<Output, Input>) => data is Input`      | Returns `true`/`false` whether the input value is valid. Acts as a TypeScript type guard and shares the fast validate-only path with `assert`  |
+| S.assert  | `(Schema<TInput, TOutput>, data: unknown) asserts data is TInput` or `(data: unknown, Schema<TInput, TOutput>) asserts data is TInput` | Asserts that the input value is valid. Since the operation doesn't return a value, it's 2-3 times faster than `parser` depending on the schema |
+| S.is      | `(Schema<TInput, TOutput>, data: unknown) => data is TInput` or `(data: unknown, Schema<TInput, TOutput>) => data is TInput`      | Returns `true`/`false` whether the input value is valid. Acts as a TypeScript type guard and shares the fast validate-only path with `assert`  |
 
 Both `S.assert` and `S.is` accept their arguments in either order, so `(schema, data)` and `(data, schema)` are equivalent and both narrow the type. There's no "correct" order to memorize — pass the schema and the data in whatever order feels natural, and it just works. This is especially handy for AI assistants, which no longer have to guess the right argument position:
 
@@ -1304,19 +1352,61 @@ schema.name; // "Abc"
 
 Used internally for readable error messages.
 
-### **`toExpression`**
+### **`inputExpression`**
 
 ```ts
-S.toExpression(S.schema({ abc: 123 }));
+S.inputExpression(S.schema({ abc: 123 }));
 // "{ abc: 123; }"
 
-S.toExpression(S.name(S.string, "Address"));
+S.inputExpression(S.name(S.string, "Address"));
 // "Address"
 ```
 
 Used internally for readable error messages.
 
-> 🧠 The format subject to change
+> 🧠 The format is subject to change
+
+### **`outputExpression`**
+
+```ts
+const schema = S.to(S.string, S.number);
+
+S.inputExpression(schema);
+// "string"
+
+S.outputExpression(schema);
+// "number"
+```
+
+The same expression for the schema's output type.
+
+> 🧠 The format is subject to change
+
+### **`toString`**
+
+```ts
+`${S.string}`;
+// "Schema<string>"
+
+`${S.to(S.string, S.number)}`;
+// "Schema<string, number>"
+
+String(S.schema({ id: S.string, age: S.number }));
+// "Schema<{ id: string; age: number; }>"
+```
+
+Both sides at once, in the order the type declares them — `Schema<TInput, TOutput>` — with the second parameter dropped when the two sides match.
+
+`console.log(schema)` deliberately still shows the internal schema shape, which is usually what you want when you're inspecting one. Ask for the expression explicitly when you want it — `` console.log(`${schema}`) `` or `console.log("%s", schema)`.
+
+The output side is derived through [`reverse`](#reverse), so nested transforms are reported correctly:
+
+```ts
+`${S.schema({ a: S.to(S.string, S.number) })}`;
+// "Schema<{ a: string; }, { a: number; }>"
+```
+
+> 🧠 The format is subject to change
 
 ## Error handling
 

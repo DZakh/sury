@@ -88,7 +88,7 @@ Commands:
   new --id <id> --ts <schema>
       Scaffold specs/<id>.yaml from --ts (derives every dimension). Add
       example inputs, then run \`check --write\`.
-      e.g. spec new --id string-min --ts "S.string.with(S.min, 3)"
+      e.g. spec new --id string-min --ts "S.string.with(S.minLength, 3)"
 
   check [id…] [--write] [--perf=skip|only] [--against <ref>]
       Gate: format-valid, canonical, skips valid, goldens fresh. Read-only

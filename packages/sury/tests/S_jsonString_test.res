@@ -425,7 +425,7 @@ test("Converts JSON string to object with unknown field", t => {
 })
 
 test("Compiled async parse code snapshot", t => {
-  let schema = S.jsonString->S.to(S.bool->S.transform(_ => {asyncParser: i => Promise.resolve(i)}))
+  let schema = S.jsonString->S.to(S.bool->S.transform(() => {asyncParser: i => Promise.resolve(i)}))
 
   t->U.assertCompiledCode(
     ~schema,

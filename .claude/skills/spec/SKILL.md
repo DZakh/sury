@@ -8,7 +8,7 @@ description: Develop Sury with the spec CLI. Use whenever changing Sury core log
 One `specs/<id>.yaml` = one schema's contract: type, JSON Schema, per-operation codegen + examples. You author the schema, `ts.aliases`, `vs.zod`, and example *inputs*. **Never hand-write a golden** — `pnpm spec` derives every one.
 
 ```bash
-pnpm spec new --id <id> --ts "S.string.with(S.min, 3)"  # scaffold
+pnpm spec new --id <id> --ts "S.string.with(S.minLength, 3)"  # scaffold
 pnpm spec check --write [id]   # (re)derive goldens
 pnpm spec check [id]           # gate
 ```

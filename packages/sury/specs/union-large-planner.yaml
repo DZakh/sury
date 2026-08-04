@@ -1,9 +1,9 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: 'S.union(["literal-0", "literal-1", "literal-2", "literal-3", "literal-4", "literal-5", "literal-6", "literal-7", { kind: "number", value: S.number }, { kind: "string", value: S.string }, { kind: "boolean", value: S.boolean }, { kind: "bigint", value: S.bigint }, S.instance(Date).with(S.to, S.string, () => "date"), S.instance(Error).with(S.to, S.string, () => "error"), S.instance(TypeError).with(S.to, S.string, () => "type-error"), S.union([S.string.with(S.min, 12), S.number]).with(S.refine, () => false, { error: "opaque member rejected" }), S.string, S.number, S.boolean, S.bigint, S.symbol, null, undefined])'
+  schema: 'S.union(["literal-0", "literal-1", "literal-2", "literal-3", "literal-4", "literal-5", "literal-6", "literal-7", { kind: "number", value: S.number }, { kind: "string", value: S.string }, { kind: "boolean", value: S.boolean }, { kind: "bigint", value: S.bigint }, S.instance(Date).with(S.to, S.string, () => "date"), S.instance(Error).with(S.to, S.string, () => "error"), S.instance(TypeError).with(S.to, S.string, () => "type-error"), S.union([S.string.with(S.minLength, 12), S.number]).with(S.refine, () => false, { error: "opaque member rejected" }), S.string, S.number, S.boolean, S.bigint, S.symbol, null, undefined])'
   input: 'string | number | bigint | boolean | symbol | Date | Error | { kind: "number"; value: number; } | { kind: "string"; value: string; } | { kind: "boolean"; value: boolean; } | { kind: "bigint"; value: bigint; } | null | undefined'
   output: 'string | number | bigint | boolean | symbol | { kind: "number"; value: number; } | { kind: "string"; value: string; } | { kind: "boolean"; value: boolean; } | { kind: "bigint"; value: bigint; } | null | undefined'
-  instantiations: 12413
+  instantiations: 12399
 vs:
   zod:
     _skip: not-applicable
@@ -35,7 +35,7 @@ operations:
       rejected-by-all:
         input: '{ kind: "number", value: "wrong" }'
         error: |-
-          Expected "literal-0" | "literal-1" | "literal-2" | "literal-3" | "literal-4" | "literal-5" | "literal-6" | "literal-7" | { kind: "number"; value: number; } | { kind: "string"; value: string; } | { kind: "boolean"; value: boolean; } | { kind: "bigint"; value: bigint; } | Date | Error | TypeError | string | number | string | number | boolean | bigint | symbol | null | undefined, received { kind: "number"; value: "wrong"; }
+          Expected "literal-0" | "literal-1" | "literal-2" | "literal-3" | "literal-4" | "literal-5" | "literal-6" | "literal-7" | { kind: "number"; value: number; } | { kind: "string"; value: string; } | { kind: "boolean"; value: boolean; } | { kind: "bigint"; value: bigint; } | Date | Error | TypeError | string.length >= 12 | number | string | number | boolean | bigint | symbol | null | undefined, received { kind: "number"; value: "wrong"; }
           - At ["value"]: Expected number, received "wrong"
   decode: eq-to-parse
   encode:

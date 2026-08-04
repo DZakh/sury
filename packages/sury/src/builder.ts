@@ -10,6 +10,7 @@ import {
   flagUnsafeHas,
   immutableEmptyArray,
   inlinedValueFromString,
+  inputExpression,
   type Internal,
   type InvalidInputDetails,
   type Path,
@@ -17,7 +18,6 @@ import {
   pathEmpty,
   pathFromInlinedLocation,
   s,
-  shouldPrependPathKey,
   stringify,
   SuryError,
   type SuryErrorRecord,
@@ -28,7 +28,6 @@ import {
   tagFlagString,
   tagFlagSymbol,
   tagFlagUndefined,
-  toExpression,
   U,
   unknown,
   type Val,
@@ -38,10 +37,6 @@ import {
 
 export type Builder = (input: Val) => Val;
 export type Encoder = (input: Val, target: Internal) => Val;
-
-export type EffectCtx = {
-  fail: (message: string, path?: Path) => never;
-};
 
 // `_var`/`_bondVar`/`_prevVar`/`_notVarBeforeValidation`/`_notVarAtParent`/
 // `_notVar` and `failInvalidType` are top-level consts (not object methods)
@@ -150,9 +145,21 @@ export const operationArgVar = "i";
 
 // Pass this as `fail` on every check that wants "expected X, received Y"
 // error semantics. Stable reference → adjacent checks fuse.
+// A format's range check is a type check for that format, so it answers to
+// `errorMessage.format` rather than `errorMessage.type` — keeping it the same
+// Check the plain type-narrow uses is what lets the two fuse into one
+// condition instead of two throws.
 export const failInvalidType = (input: Val): (value: unknown) => ErrorDetails => {
-  const em = input.e.errorMessage;
-  const override = em !== U ? (em.type !== U ? em.type : em._) : U;
+  const expected = input.e;
+  const em = expected.errorMessage;
+  const override =
+    em !== U
+      ? expected.format !== U && em.format !== U
+        ? em.format
+        : em.type !== U
+          ? em.type
+          : em._
+      : U;
   return B_invalidInputBuilder(U, U, override)(input);
 }
 
@@ -258,15 +265,15 @@ export const B_unsupportedDecode = (b: Val, from: Internal, target: Internal): n
     code: "unsupported_decode",
     from: from,
     to: target,
-    reason: `Can't decode ${toExpression(from)} to ${toExpression(
+    reason: `Can't decode ${inputExpression(from)} to ${inputExpression(
       target
     )}. Use S.to to define a custom decoder`,
     path: b.path,
   });
 }
 
-export const B_failWithArg = <Arg>(b: Val, fn: (arg: Arg) => ErrorDetails, arg: string): string => {
-  return `${B_embed(b, (arg: Arg) => {
+export const B_failWithArg = <TArg>(b: Val, fn: (arg: TArg) => ErrorDetails, arg: string): string => {
+  return `${B_embed(b, (arg: TArg) => {
     B_throw(fn(arg));
   })}(${arg})`;
 }
@@ -285,11 +292,19 @@ export const B_makeInvalidConversionDetails = (input: Val, to: Internal, cause: 
   if (cause && (cause as { s?: symbol }).s === s) {
     const error = cause as unknown as SuryErrorRecord;
 
-    // Read about this in shouldPrependPathKey comment.
-    if (!error[shouldPrependPathKey]) {
-      error["path"] = pathConcat(input.path, error.path);
-    }
-    return error as unknown as ErrorDetails;
+    // A SuryError thrown by user code carries only the path it named, so the
+    // path it was reached through is prepended here. Nothing arrives
+    // pre-prepended any more — that was effectCtx, which is gone.
+    //
+    // Copied rather than mutated: user code may throw one retained instance
+    // more than once, and prepending onto the instance makes the second parse
+    // report `["a"]["a"]`. Nothing to prepend means nothing to copy — `B_throw`
+    // rebuilds a SuryError from whichever of the two it gets.
+    return (
+      input.path === pathEmpty
+        ? error
+        : { ...error, path: pathConcat(input.path, error.path) }
+    ) as unknown as ErrorDetails;
   } else {
     let reason: string;
     if (cause instanceof Error) {
@@ -324,16 +339,23 @@ export const B_makeInvalidInputDetails = (
   received: Internal,
   path: Path,
   input: unknown,
-  includeInput: boolean,
   unionErrors?: SuryErrorRecord[],
   reasonOverride?: string
 ): ErrorDetails => {
-  let reasonRef =
-    reasonOverride !== U
-      ? reasonOverride
-      : `Expected ${toExpression(expected)}, received ${
-          includeInput ? stringify(input) : toExpression(received)
-        }`;
+  let reasonRef: string;
+  if (reasonOverride !== U) {
+    reasonRef = reasonOverride;
+  } else {
+    const expectedExpression = inputExpression(expected);
+    const receivedExpression = stringify(input);
+    // `Expected Date, received Date` names the type twice and says nothing: the
+    // type is right and the value is not (an Invalid Date, an Error carrying the
+    // wrong payload). Saying `received invalid Date` is the only part of the
+    // message that carries information in that case.
+    reasonRef = `Expected ${expectedExpression}, received ${
+      expectedExpression === receivedExpression ? "invalid " : ""
+    }${receivedExpression}`;
+  }
   if (unionErrors !== U) {
     const caseErrors = unionErrors;
     const seenReasons = new Set<string>();
@@ -356,10 +378,8 @@ export const B_makeInvalidInputDetails = (
     path,
     reason: reasonRef,
     unionErrors,
+    input,
   };
-  if (includeInput) {
-    details.input = input;
-  }
   return details;
 }
 
@@ -370,23 +390,14 @@ export const B_makeInvalidInputDetails = (
 export const B_invalidInputBuilder = (
   expected?: Internal,
   extraPath: Path = pathEmpty,
-  reasonOverride?: string,
-  includeInput: boolean = true
+  reasonOverride?: string
 ): (input: Val) => (value: unknown) => ErrorDetails => {
   return (input: Val) => {
     const expected_ = expected !== U ? expected : input.e;
     const received = B_receivedSchema(input);
     const path = extraPath === pathEmpty ? input.path : pathConcat(input.path, extraPath);
     return (value: unknown) =>
-      B_makeInvalidInputDetails(
-        expected_,
-        received,
-        path,
-        value,
-        includeInput,
-        U,
-        reasonOverride
-      );
+      B_makeInvalidInputDetails(expected_, received, path, value, U, reasonOverride);
   };
 }
 
@@ -832,18 +843,6 @@ export const B_embedTransformation = (input: Val, fn: (input: unknown) => unknow
   return output;
 }
 
-export const B_effectCtx = (input: Val): EffectCtx => {
-  return {
-    fail: (message: string, path: Path = pathEmpty): never => {
-      const error = new SuryError(
-        B_invalidInputBuilder(U, path, message, false)(input)(U)
-      );
-      // Read about this in shouldPrependPathKey comment.
-      (error as unknown as Record<string, unknown>)[shouldPrependPathKey] = 1;
-      throw error;
-    },
-  };
-}
 
 export const B_invalidOperation = (val: Val, description: string): never => {
   return B_throw({ code: "invalid_operation", reason: description, path: val.path });

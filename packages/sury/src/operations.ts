@@ -2,11 +2,12 @@
 // interop surface built on top of them.
 
 import {
-  cached,
   type Flag,
   flagAsync,
   getOrRethrow,
   globalConfig,
+  initSchema,
+  inputExpression,
   type Internal,
   pathEmpty,
   pathToArray,
@@ -22,7 +23,7 @@ import {
   vendor,
 } from "./base";
 import type { JSONSchemaT, StandardJsonSchemaOptions } from "./jsonschema";
-import { getDecoder, isAsyncInternal } from "./parse";
+import { getDecoder, isAsyncInternal, reverse } from "./parse";
 import { literalDecoder } from "./primitives";
 
 // PORT-NOTE: StandardSchema/JSONSchema types are ported as loose, type-only
@@ -77,6 +78,28 @@ export const getStandardJSONSchema = (
     });
   }
 }
+
+// Mirrors the declared `Schema<TInput, TOutput>`, so a logged schema reads the
+// way its type does — input first, as the type parameters are ordered.
+// Collapsed to one parameter when the sides match, because the point is a
+// readable log line, not a literal type.
+//
+// A prototype method can never be tree-shaken, so this puts `reverse` in every
+// consumer's bundle whether or not they ever print a schema — an accepted cost,
+// recorded across bundleSize.yaml. Walking the `.to` chain instead would be
+// cheaper and wrong: the output of `{ a: string -> int32 }` is `{ a: int32; }`,
+// which only a recursive reversal produces.
+// Deliberately not also registered as Node's `nodejs.util.inspect.custom`:
+// `console.log(schema)` keeps showing the internal shape, which is what someone
+// logging a schema is usually trying to see. Ask for the expression explicitly
+// with `${schema}` or `String(schema)`.
+Object.defineProperty(schemaPrototype, "toString", {
+  value: function (this: Internal): string {
+    const input = inputExpression(this);
+    const output = inputExpression(reverse(this));
+    return `Schema<${input === output ? input : `${input}, ${output}`}>`;
+  },
+});
 
 // A lazy prototype getter (not an eager per-schema property — that would put
 // 2 allocations + 4 closures on the baseSchema hot path for a feature most
@@ -152,21 +175,19 @@ Object.defineProperty(schemaPrototype, "~standard", {
 // Operations
 // =============
 
-export const getAssertResult = (): Internal => {
-  return cached("a", undefinedTag, (s) => {
-    s.const = U;
-    s.decoder = literalDecoder;
-    s.noValidation = true;
-  });
-}
+export const assertResult: Internal = /* @__PURE__ */ initSchema(undefinedTag, (s) => {
+  s.const = U;
+  s.decoder = literalDecoder;
+  s.noValidation = true;
+});
 
 export const assertOrThrow = (any: unknown, schema: Internal): void => {
-  (getDecoder(unknown, schema, getAssertResult()) as (input: unknown) => unknown)(any);
+  (getDecoder(unknown, schema, assertResult) as (input: unknown) => unknown)(any);
 }
 
 export const assertAsyncOrThrow = (any: unknown, schema: Internal): Promise<void> => {
   return (
-    getDecoder(unknown, schema, getAssertResult(), flagAsync) as (
+    getDecoder(unknown, schema, assertResult, flagAsync) as (
       input: unknown
     ) => Promise<void>
   )(any);
@@ -181,8 +202,8 @@ export const isAsync = (schema: Internal): boolean => {
   }
 }
 
-export type JsResult<V> =
-  | { success: true; value: V }
+export type JsResult<TValue> =
+  | { success: true; value: TValue }
   | { success: false; error: SuryErrorRecord };
 
 export const wrapExnToFailure = (exn: unknown): JsResult<never> => {
@@ -193,7 +214,7 @@ export const wrapExnToFailure = (exn: unknown): JsResult<never> => {
   }
 }
 
-export const js_safe = <V>(fn: () => V): JsResult<V> => {
+export const js_safe = <TValue>(fn: () => TValue): JsResult<TValue> => {
   try {
     return {
       success: true,
@@ -204,10 +225,10 @@ export const js_safe = <V>(fn: () => V): JsResult<V> => {
   }
 }
 
-export const js_safeAsync = <V>(fn: () => Promise<V>): Promise<JsResult<V>> => {
+export const js_safeAsync = <TValue>(fn: () => Promise<TValue>): Promise<JsResult<TValue>> => {
   try {
     return fn().then(
-      (value): JsResult<V> => ({ success: true, value }),
+      (value): JsResult<TValue> => ({ success: true, value }),
       wrapExnToFailure
     );
   } catch (exn) {

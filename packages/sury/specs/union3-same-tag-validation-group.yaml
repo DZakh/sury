@@ -1,9 +1,9 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: S.union([S.string.with(S.min, 4), S.string.with(S.max, 1), S.string.with(S.length, 2)])
+  schema: S.union([S.string.with(S.minLength, 4), S.string.with(S.maxLength, 1), S.string.with(S.length, 2)])
   input: string
   output: string
-  instantiations: 6001
+  instantiations: 5985
 vs:
   zod: z.union([z.string().min(4), z.string().max(1), z.string().length(2)])
 jsonSchema:
@@ -25,12 +25,12 @@ operations:
       rejected-by-all:
         input: '"bad"'
         error: |-
-          Expected string | string | string, received "bad"
-          - String must be 4 or more characters long
-          - String must be 1 or fewer characters long
-          - String must be exactly 2 characters long
+          Expected string.length >= 4 | string.length <= 1 | string.length == 2, received "bad"
+          - Expected string.length >= 4, received "bad"
+          - Expected string.length <= 1, received "bad"
+          - Expected string.length == 2, received "bad"
       wrong-tag:
         input: "42"
-        error: Expected string | string | string, received 42
+        error: Expected string.length >= 4 | string.length <= 1 | string.length == 2, received 42
   decode: identity
   encode: identity

@@ -39,7 +39,7 @@ module Common = {
 
   // Undefined check should be first ?
   test("Compiled async parse code snapshot", t => {
-    let schema = S.option(S.unknown->S.transform(_ => {asyncParser: i => Promise.resolve(i)}))
+    let schema = S.option(S.unknown->S.transform(() => {asyncParser: i => Promise.resolve(i)}))
 
     t->U.assertCompiledCode(
       ~schema,

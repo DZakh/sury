@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.array(S.string).with(S.nonEmpty)
+  input: string[]
+  output: string[]
+  instantiations: 660
+vs:
+  zod: z.array(z.string()).min(1)
+jsonSchema:
+  input: '{ items: { type: "string" }, type: "array", minItems: 1 }'
+  output: '{ items: { type: "string" }, type: "array", minItems: 1 }'
+operations:
+  parse:
+    expression: i=>{Array.isArray(i)||e[2](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}i.length>0||e[1](i);return i}
+    examples:
+      at-the-length:
+        input: '["a", "b"]'
+        output: '["a", "b"]'
+      longer:
+        input: '["a", "b", "c"]'
+        output: '["a", "b", "c"]'
+      shorter:
+        input: '["a"]'
+        output: '["a"]'
+      empty:
+        input: "[]"
+        error: Expected string[].length >= 1, received []
+      wrong-type:
+        input: '"ab"'
+        error: Expected string[].length >= 1, received "ab"
+  decode:
+    expression: i=>{i.length>0||e[0](i);return i}
+    examples:
+      at-the-length:
+        input: '["a", "b"]'
+        output: '["a", "b"]'
+      shorter:
+        input: '["a"]'
+        output: '["a"]'
+      empty:
+        input: "[]"
+        error: Expected string[].length >= 1, received []
+  encode:
+    expression: i=>{i.length>0||e[0](i);return i}
+    examples:
+      at-the-length:
+        input: '["a", "b"]'
+        output: '["a", "b"]'
+      shorter:
+        input: '["a"]'
+        output: '["a"]'
+      empty:
+        input: "[]"
+        error: Expected string[].length >= 1, received []

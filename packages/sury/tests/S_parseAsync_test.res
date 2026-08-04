@@ -1,14 +1,14 @@
 open Vitest
 
-let validAsyncRefine = S.transform(_, _ => {
+let validAsyncRefine = S.transform(_, () => {
   asyncParser: value => value->Promise.resolve,
 })
 let invalidSyncRefine = S.refine(_, _ => false, ~error="Sync user error")
 let unresolvedPromise = Promise.make((_, _) => ())
-let makeInvalidPromise = (s: S.s<'a>) =>
-  Promise.resolve()->Promise.then(() => s.fail("Async user error"))
-let invalidAsyncRefine = S.transform(_, s => {
-  asyncParser: _ => makeInvalidPromise(s),
+let makeInvalidPromise = () =>
+  Promise.resolve()->Promise.then(() => U.fail("Async user error"))
+let invalidAsyncRefine = S.transform(_, () => {
+  asyncParser: _ => makeInvalidPromise(),
 })
 
 // asyncTest("Successfully parses without asyncRefine", t => {
@@ -419,13 +419,13 @@ let invalidAsyncRefine = S.transform(_, s => {
 //     let actionCounter = ref(0)
 
 //     let schema = S.tuple2(
-//       S.int->S.transform(_ => {
+//       S.int->S.transform(() => {
 //         asyncParser: _ => () => {
 //           actionCounter.contents = actionCounter.contents + 1
 //           unresolvedPromise
 //         },
 //       }),
-//       S.int->S.transform(_ => {
+//       S.int->S.transform(() => {
 //         asyncParser: _ => () => {
 //           actionCounter.contents = actionCounter.contents + 1
 //           unresolvedPromise
@@ -440,7 +440,7 @@ let invalidAsyncRefine = S.transform(_, s => {
 
 //   asyncTest("[Tuple] Doesn't wait for pending async items when fails to parse", t => {
 //     let schema = S.tuple2(
-//       S.int->S.transform(_ => {asyncParser: _ => () => unresolvedPromise}),
+//       S.int->S.transform(() => {asyncParser: _ => () => unresolvedPromise}),
 //       S.int->invalidAsyncRefine,
 //     )
 
@@ -527,13 +527,13 @@ module Union = {
     let actionCounter = ref(0)
 
     let schema = S.union([
-      S.literal(2)->S.transform(_ => {
+      S.literal(2)->S.transform(() => {
         asyncParser: _ => {
           actionCounter.contents = actionCounter.contents + 1
           unresolvedPromise
         },
       }),
-      S.literal(2)->S.transform(_ => {
+      S.literal(2)->S.transform(() => {
         asyncParser: _ => {
           actionCounter.contents = actionCounter.contents + 1
           unresolvedPromise
@@ -579,7 +579,7 @@ module Union = {
 //     let actionCounter = ref(0)
 
 //     let schema = S.array(
-//       S.int->S.transform(_ => {
+//       S.int->S.transform(() => {
 //         asyncParser: _ => () => {
 //           actionCounter.contents = actionCounter.contents + 1
 //           unresolvedPromise
@@ -596,7 +596,7 @@ module Union = {
 //     let actionCounter = ref(0)
 
 //     let schema = S.array(
-//       S.int->S.transform(s => {
+//       S.int->S.transform(() => {
 //         asyncParser: _ => () => {
 //           actionCounter.contents = actionCounter.contents + 1
 //           if actionCounter.contents <= 2 {
@@ -658,7 +658,7 @@ module Union = {
 //     let actionCounter = ref(0)
 
 //     let schema = S.dict(
-//       S.int->S.transform(_ => {
+//       S.int->S.transform(() => {
 //         asyncParser: _ => () => {
 //           actionCounter.contents = actionCounter.contents + 1
 //           unresolvedPromise
@@ -675,7 +675,7 @@ module Union = {
 //     let actionCounter = ref(0)
 
 //     let schema = S.dict(
-//       S.int->S.transform(s => {
+//       S.int->S.transform(() => {
 //         asyncParser: _ => () => {
 //           actionCounter.contents = actionCounter.contents + 1
 //           if actionCounter.contents <= 2 {

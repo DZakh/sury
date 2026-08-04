@@ -27,8 +27,8 @@ test("Successfully parses polymorphic variants", t => {
 // branch to drop: it's raised once, where the operation is created.
 test("Rejects at creation when both schemas miss the parser", t => {
   let schema = S.union([
-    S.string->S.transform(_ => {serializer: _ => "apple"}),
-    S.string->S.transform(_ => {serializer: _ => "apple"}),
+    S.string->S.transform(() => {serializer: _ => "apple"}),
+    S.string->S.transform(() => {serializer: _ => "apple"}),
   ])
 
   t->U.assertThrowsMessage(
@@ -39,8 +39,8 @@ test("Rejects at creation when both schemas miss the parser", t => {
 
 test("Rejects at creation when both schemas miss the parser and have different types", t => {
   let schema = S.union([
-    S.literal(#apple)->S.transform(_ => {serializer: _ => #apple}),
-    S.string->S.transform(_ => {serializer: _ => "apple"}),
+    S.literal(#apple)->S.transform(() => {serializer: _ => #apple}),
+    S.string->S.transform(() => {serializer: _ => "apple"}),
   ])
 
   t->U.assertThrowsMessage(
@@ -51,8 +51,8 @@ test("Rejects at creation when both schemas miss the parser and have different t
 
 test("Rejects at creation when both schemas miss the serializer", t => {
   let schema = S.union([
-    S.literal(#apple)->S.transform(_ => {parser: _ => #apple}),
-    S.string->S.transform(_ => {parser: _ => #apple}),
+    S.literal(#apple)->S.transform(() => {parser: _ => #apple}),
+    S.string->S.transform(() => {parser: _ => #apple}),
   ])
 
   t->U.assertThrowsMessage(
@@ -82,7 +82,7 @@ test("Ensures parsing order with unknown schema", t => {
   let schema = S.union([
     S.string->S.length(2),
     S.bool->Obj.magic, // Should be checked before unknown
-    S.unknown->S.transform(_ => {parser: _ => "pass"}),
+    S.unknown->S.transform(() => {parser: _ => "pass"}),
     S.float->Obj.magic,
     S.bigint->Obj.magic,
   ])
@@ -99,7 +99,7 @@ test("Ensures parsing order with unknown schema", t => {
 })
 
 test("Rejects at creation when the second schema misses the parser", t => {
-  let schema = S.union([S.literal(#apple), S.string->S.transform(_ => {serializer: _ => "apple"})])
+  let schema = S.union([S.literal(#apple), S.string->S.transform(() => {serializer: _ => "apple"})])
 
   t->U.assertThrowsMessage(
     () => "apple"->S.parseOrThrow(~to=schema),
@@ -137,7 +137,7 @@ test("Reports the named union schema when a string-shape fallback rejects a non-
 })
 
 test("Rejects at creation when the second struct misses the serializer", t => {
-  let schema = S.union([S.literal(#apple), S.string->S.transform(_ => {parser: _ => #apple})])
+  let schema = S.union([S.literal(#apple), S.string->S.transform(() => {parser: _ => #apple})])
 
   t->U.assertThrowsMessage(
     () => #apple->S.decodeOrThrow(~from=schema, ~to=S.unknown),
@@ -331,7 +331,7 @@ test("NaN should be checked before number even if it's later item in the union",
   S.global({disableNanNumberValidation: true})
 
   let schema = S.union([
-    S.float->S.min(0)->S.shape(v => Some(v)),
+    S.float->S.gte(0.)->S.shape(v => Some(v)),
     S.literal(%raw(`NaN`))->S.shape(_ => None),
   ])
 
@@ -346,17 +346,17 @@ test("NaN should be checked before number even if it's later item in the union",
   // routing predicate stays green while breaking error specificity.
   t->U.assertThrowsMessage(
     () => %raw(`-1`)->S.parseOrThrow(~to=schema),
-    `Number must be greater than or equal to 0`,
+    `Expected number >= 0, received -1`,
   )
   t->U.assertThrowsMessage(
     () => %raw(`"abc"`)->S.parseOrThrow(~to=schema),
-    `Expected number | NaN, received "abc"`,
+    `Expected number >= 0 | NaN, received "abc"`,
   )
 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){if(Number.isNaN(i)){i=void 0;break}if(typeof i==="number"){i>=e[0]||e[1](i);break}e[2](i)}return i}`,
+    `i=>{for(;;){if(Number.isNaN(i)){i=void 0;break}if(typeof i==="number"){i>=0||e[0](i);break}e[1](i)}return i}`,
   )
 
   S.global({})
@@ -412,11 +412,11 @@ type uboxedVariant = String(string) | Int(int)
 test("Successfully serializes unboxed variant", t => {
   let toInt =
     S.string
-    ->S.transform(s => {
+    ->S.transform(() => {
       parser: string =>
         switch string->Int.fromString {
         | Some(value) => value
-        | None => s.fail("Invalid int")
+        | None => U.fail("Invalid int")
         },
       serializer: Int.toString(_),
     })
@@ -488,7 +488,7 @@ test("Compiled parse code snapshot", t => {
 
 asyncTest("Compiled async parse code snapshot", async t => {
   let schema = S.union([
-    S.literal(0)->S.transform(_ => {asyncParser: i => Promise.resolve(i)}),
+    S.literal(0)->S.transform(() => {asyncParser: i => Promise.resolve(i)}),
     S.literal(1),
   ])
 

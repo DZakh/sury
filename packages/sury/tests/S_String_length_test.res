@@ -11,11 +11,11 @@ test("Fails to parse invalid data", t => {
 
   t->U.assertThrowsMessage(
     () => ""->S.parseOrThrow(~to=schema),
-    `String must be exactly 1 characters long`,
+    `Expected string.length == 1, received ""`,
   )
   t->U.assertThrowsMessage(
     () => "1234"->S.parseOrThrow(~to=schema),
-    `String must be exactly 1 characters long`,
+    `Expected string.length == 1, received "1234"`,
   )
 })
 
@@ -30,11 +30,11 @@ test("Fails to serialize invalid value", t => {
 
   t->U.assertThrowsMessage(
     () => ""->S.decodeOrThrow(~from=schema, ~to=S.unknown),
-    `String must be exactly 1 characters long`,
+    `Expected string.length == 1, received ""`,
   )
   t->U.assertThrowsMessage(
     () => "1234"->S.decodeOrThrow(~from=schema, ~to=S.unknown),
-    `String must be exactly 1 characters long`,
+    `Expected string.length == 1, received "1234"`,
   )
 })
 
@@ -48,16 +48,10 @@ test("Returns refinement", t => {
   let schema = S.string->S.length(4)
 
   switch schema {
-  | String({minLength, maxLength, errorMessage}) => {
+  | String({minLength, maxLength, ?errorMessage}) => {
       t->Assert.deepEqual(minLength, 4)
       t->Assert.deepEqual(maxLength, 4)
-      t->Assert.deepEqual(
-        errorMessage,
-        {
-          minLength: "String must be exactly 4 characters long",
-          maxLength: "String must be exactly 4 characters long",
-        },
-      )
+      t->Assert.deepEqual(errorMessage, None)
     }
   | _ => t->Assert.fail("Expected String schema with minLength and maxLength")
   }

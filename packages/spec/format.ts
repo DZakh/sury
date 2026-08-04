@@ -142,7 +142,7 @@ const operations = S.schema({
 const ts = S.schema({
   schema: S.string.with(S.meta, {
     description:
-      "The schema under test, as JS `.with`-chain source (e.g. `S.string.with(S.min, 3)`). " +
+      "The schema under test, as JS `.with`-chain source (e.g. `S.string.with(S.minLength, 3)`). " +
       "You write this by hand; `spec check --write` never touches it.",
   }),
   aliases: S.optional(S.array(S.string)).with(S.meta, {

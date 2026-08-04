@@ -3,7 +3,7 @@ ts:
   schema: S.union([S.string.with(S.refine, (v) => { throw new TypeError("predicate blew up") }), S.string])
   input: string
   output: string
-  instantiations: 5518
+  instantiations: 5503
 vs:
   zod: z.union([z.string().refine((v) => { throw new TypeError("predicate blew up") }), z.string()])
 jsonSchema:
@@ -18,6 +18,6 @@ operations:
         error: predicate blew up
       wrong-type-still-reports-the-union:
         input: "1"
-        error: Expected string | string, received 1
+        error: Expected string, received 1
   decode: identity
   encode: identity

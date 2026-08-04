@@ -10,7 +10,7 @@ test("Returns the first default value, but can get the last one as well", t => {
   let schema =
     S.option(S.float)
     ->S.Option.getOr(123.)
-    ->S.transform(_ => {
+    ->S.transform(() => {
       parser: number =>
         if number > 0. {
           Some("positive")
