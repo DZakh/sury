@@ -233,6 +233,7 @@ import * as S from "sury";
 S.string;
 S.number;
 S.int32;
+S.integer;
 S.boolean;
 S.bigint;
 S.symbol;
@@ -425,6 +426,27 @@ Optionally, you can pass in a third argument to provide a custom error message.
 ```ts
 S.number.with(S.lte, 5, "this👏is👏too👏big");
 ```
+
+For integers with no range cap, use `S.integer` — JSON Schema's unbounded
+`integer`, unlike `S.int32` whose ±2³¹ edge is part of the check:
+
+```ts
+S.integer.with(S.gte, 5); // Expected integer >= 5
+S.parse(3000000000, S.integer); // ✅ passes — no int32 edge
+```
+
+`S.multipleOf` constrains a number or bigint to multiples of a divisor and
+emits JSON Schema's `multipleOf`:
+
+```ts
+S.number.with(S.multipleOf, 2); // Expected multiple of 2
+S.bigint.with(S.multipleOf, 2n); // Expected multiple of 2n
+S.integer.with(S.multipleOf, 2).with(S.multipleOf, 3); // multipleOf: 6 — the LCM, not "last one wins"
+```
+
+A fractional divisor keeps IEEE-754 `%` semantics — the same verdicts Ajv
+gives the emitted document — so `0.3` fails `S.multipleOf(S.number, 0.1)`
+because `0.3 % 0.1` isn't exactly `0`.
 
 ## Optionals
 

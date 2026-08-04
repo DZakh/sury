@@ -336,6 +336,65 @@ export const lt = (schema: Internal, maxValue: number | bigint, maybeMessage?: s
 }
 
 // @__NO_SIDE_EFFECTS__
+export const multipleOf = (schema: Internal, value: number | bigint, maybeMessage?: string): Internal => {
+  assertNumericBound("multipleOf", schema, value);
+  // JSON Schema requires a strictly positive divisor, and `x % Infinity`
+  // (=== x) would compile to a check that rejects everything but 0.
+  if ((value as number) <= 0 || (value as number) === Infinity) {
+    throw new SuryError({
+      code: "invalid_operation",
+      path: pathEmpty,
+      reason: expects("multipleOf", "a positive finite divisor", stringify(value)),
+    });
+  }
+  const bound = value as number;
+  // assertNumericBound pinned `value` to the schema's own numeric type, and a
+  // stored divisor went through the same gate, so the arithmetic below never
+  // mixes number with bigint despite the casts saying `number`.
+  // A remainder is checked by truthiness, not `=== 0`: a bigint remainder is
+  // `0n`, which `=== 0` never matches.
+  const existing = schema.multipleOf as number | undefined;
+  if (existing !== U && !(existing % bound)) return schema;
+  let divisor: number | bigint = bound;
+  if (existing !== U && bound % existing) {
+    // Neither divisor implies the other: together they admit exactly the
+    // multiples of the LCM, which is what gets stored and checked so the
+    // schema never advertises a divisor weaker than what it validates. No
+    // finite float LCM exists for fractional divisors, so those panic.
+    if (typeof value === numberTag && !(Number.isInteger(bound) && Number.isInteger(existing))) {
+      panic(`multipleOf ${stringify(bound)} cannot be combined with multipleOf ${stringify(existing)}`);
+    }
+    let a = bound;
+    let b = existing;
+    while (b) {
+      const r = a % b;
+      a = b;
+      b = r;
+    }
+    divisor = (bound / a) * existing;
+  }
+  return internalRefine(schema, (mut: Internal) => {
+    mut.multipleOf = divisor;
+    if (maybeMessage !== U) getMutErrorMessage(mut)["multipleOf"] = maybeMessage;
+    return (_input: Val) => {
+      return [
+        {
+          // A bigint remainder is `0n`, which `===0` never matches — the zero
+          // literal has to be the schema's own numeric type.
+          c: (inputVar: string) =>
+            `${inputVar}%${lit(divisor)}===${typeof divisor === bigintTag ? "0n" : "0"}`,
+          // A divisor isn't part of inputExpression (unlike a bound), so the
+          // type-based default would blame the type — "Expected number,
+          // received 3" for a failed %2. The canned message says why instead,
+          // like `pattern` does.
+          f: B_failWithErrorMessage("multipleOf", `Expected multiple of ${lit(divisor)}`),
+        },
+      ];
+    };
+  });
+}
+
+// @__NO_SIDE_EFFECTS__
 export const minLength = (schema: Internal, length: number, maybeMessage?: string): Internal => {
   assertLengthBound("minLength", schema, length);
   assertSize(schema, length, false);

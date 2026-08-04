@@ -2489,8 +2489,10 @@ test("fromJSONSchema: oneOf counts matches, `not` and if/then/else layer on", (t
 test("fromJSONSchema: an unmodelled assertion keyword fails at creation", (t) => {
   // Ignoring it would widen the schema — the validator would accept data the
   // author wrote the keyword to reject — so this must not silently succeed.
-  const result = S.safe(() => S.fromJSONSchema({ type: "number", multipleOf: 2 } as never));
-  t.expect(result.error?.message).toContain("Unsupported JSON Schema keyword: multipleOf");
+  const result = S.safe(() =>
+    S.fromJSONSchema({ type: "object", patternProperties: {} } as never)
+  );
+  t.expect(result.error?.message).toContain("Unsupported JSON Schema keyword: patternProperties");
 
   t.expect(
     S.safe(() => S.fromJSONSchema({ type: "array", uniqueItems: true } as never)).error?.message,

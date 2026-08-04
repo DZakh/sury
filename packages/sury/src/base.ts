@@ -154,7 +154,9 @@ export const s = /* @__PURE__ */ Symbol(vendor);
 // Internal symbol to identify the item proxy (see the makeObjectVal Proxy use).
 export const itemSymbol = /* @__PURE__ */ Symbol(vendor + ":item");
 
-export type NumberFormat = "int32" | "port";
+// Every number format describes integer-valued numbers — numberDecoder skips
+// the "integer" check for any formatted source on that invariant.
+export type NumberFormat = "int32" | "port" | "integer";
 export type StringFormat = "json" | "date-time" | "email" | "uuid" | "cuid" | "url";
 export type ArrayFormat = "compactColumns";
 export type Format = NumberFormat | StringFormat | ArrayFormat;
@@ -220,6 +222,7 @@ export type SchemaErrorMessage = {
   maximum?: string;
   exclusiveMinimum?: string;
   exclusiveMaximum?: string;
+  multipleOf?: string;
   minLength?: string;
   maxLength?: string;
   minItems?: string;
@@ -289,6 +292,7 @@ export type Internal = {
   // is the one its author wrote, not an equivalent rewritten form.
   exclusiveMinimum?: number | bigint;
   exclusiveMaximum?: number | bigint;
+  multipleOf?: number | bigint;
   minLength?: number;
   maxLength?: number;
   minItems?: number;

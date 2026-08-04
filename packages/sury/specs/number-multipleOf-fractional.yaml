@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.number.with(S.multipleOf, 0.1)
+  input: number
+  output: number
+  instantiations: 5165
+vs:
+  zod: z.number().multipleOf(0.1)
+jsonSchema:
+  input: '{ type: "number", multipleOf: 0.1 }'
+  output: '{ type: "number", multipleOf: 0.1 }'
+operations:
+  parse:
+    expression: i=>{typeof i==="number"&&!Number.isNaN(i)||e[1](i);i%0.1===0||e[0](i);return i}
+    examples:
+      valid:
+        input: "0.2"
+        output: "0.2"
+      integer-rejected-by-float-remainder:
+        input: "1"
+        error: Expected multiple of 0.1
+      invalid-float-remainder:
+        input: "0.3"
+        error: Expected multiple of 0.1
+      invalid-not-a-multiple:
+        input: "0.25"
+        error: Expected multiple of 0.1
+  decode:
+    expression: i=>{i%0.1===0||e[0](i);return i}
+    examples:
+      valid:
+        input: "0.2"
+        output: "0.2"
+      invalid-float-remainder:
+        input: "0.3"
+        error: Expected multiple of 0.1
+  encode:
+    expression: i=>{i%0.1===0||e[0](i);return i}
+    examples:
+      valid:
+        input: "0.2"
+        output: "0.2"
+      invalid-float-remainder:
+        input: "0.3"
+        error: Expected multiple of 0.1

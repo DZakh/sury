@@ -148,7 +148,7 @@ export type JSON =
   | { [key: string]: JSON }
   | JSON[];
 
-export type NumberFormat = "int32" | "port";
+export type NumberFormat = "int32" | "port" | "integer";
 export type StringFormat = "json" | "date-time" | "email" | "uuid" | "cuid" | "url";
 export type ArrayFormat = "compactColumns";
 export type Format = NumberFormat | StringFormat | ArrayFormat;
@@ -269,6 +269,7 @@ export type Schema<TInput = unknown, TOutput = TInput> = {
       readonly const?: number;
       readonly minimum?: number;
       readonly maximum?: number;
+      readonly multipleOf?: number;
     }
   | {
       readonly type: "bigint";
@@ -534,6 +535,7 @@ export function union<const T>(
 export const string: Schema<string, string>;
 export const boolean: Schema<boolean, boolean>;
 export const int32: Schema<number, number>;
+export const integer: Schema<number, number>;
 export const number: Schema<number, number>;
 export const bigint: Schema<bigint, bigint>;
 export const symbol: Schema<symbol, symbol>;
@@ -789,6 +791,7 @@ export type SchemaErrorMessage = {
   maximum?: string;
   exclusiveMinimum?: string;
   exclusiveMaximum?: string;
+  multipleOf?: string;
   minLength?: string;
   maxLength?: string;
   minItems?: string;
@@ -847,6 +850,11 @@ export const lt: <TInput, TOutput extends number | bigint>(
   message?: string
 ) => Schema<TInput, TOutput>;
 export const lte: <TInput, TOutput extends number | bigint>(
+  schema: SchemaLike<TInput, TOutput>,
+  value: TOutput,
+  message?: string
+) => Schema<TInput, TOutput>;
+export const multipleOf: <TInput, TOutput extends number | bigint>(
   schema: SchemaLike<TInput, TOutput>,
   value: TOutput,
   message?: string
