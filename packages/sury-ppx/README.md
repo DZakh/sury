@@ -157,6 +157,20 @@ type rec expr = Num(int) | Block(array<stmt>)
 and stmt = {label: string, body: expr}
 ```
 
+A few things to know about mutually recursive groups:
+
+- Every schema of the group is a separate entry point, so each generated
+  binding carries its own copy of the group inside its `S.recursive` callback
+  (the runtime resolves them through shared `$defs`). Generated code grows with
+  the group size, and the schemas don't share compiled instances — groups of
+  more than 4 types are rejected; write those by hand with `S.recursive`.
+- Every member referenced from another `@schema` member needs `@schema` too —
+  otherwise the generated code refers to a `<name>Schema` binding that only
+  exists if you've defined it by hand earlier in scope.
+- Inside the group, an identifier like `nodeSchema` (for example in an
+  `@s.matches` payload) resolves to the schema being defined, shadowing any
+  earlier binding with the same name.
+
 Recursive types with type parameters are not supported yet — write those by hand
 with `S.recursive`.
 

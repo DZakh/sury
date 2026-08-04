@@ -265,6 +265,76 @@ Vitest$1.test("Three-way mutual cycle works from every entry point", t => {
   });
 });
 
+let rootSchema = Sury.recursive("root", rootSchema => {
+  let lastSchema = Sury.recursive("last", lastSchema => Sury.$res_schema(s => ({
+    back: s.m(Sury.$res_option(rootSchema))
+  })));
+  let midSchema = Sury.recursive("mid", midSchema => Sury.$res_schema(s => ({
+    tail: s.m(Sury.$res_option(lastSchema))
+  })));
+  return Sury.$res_schema(s => ({
+    mid: s.m(Sury.$res_option(midSchema)),
+    last: s.m(Sury.$res_option(lastSchema))
+  }));
+});
+
+let midSchema = Sury.recursive("mid", midSchema => {
+  let lastSchema = Sury.recursive("last", lastSchema => {
+    let rootSchema = Sury.recursive("root", rootSchema => Sury.$res_schema(s => ({
+      mid: s.m(Sury.$res_option(midSchema)),
+      last: s.m(Sury.$res_option(lastSchema))
+    })));
+    return Sury.$res_schema(s => ({
+      back: s.m(Sury.$res_option(rootSchema))
+    }));
+  });
+  return Sury.$res_schema(s => ({
+    tail: s.m(Sury.$res_option(lastSchema))
+  }));
+});
+
+let lastSchema = Sury.recursive("last", lastSchema => {
+  let rootSchema = Sury.recursive("root", rootSchema => {
+    let midSchema = Sury.recursive("mid", midSchema => Sury.$res_schema(s => ({
+      tail: s.m(Sury.$res_option(lastSchema))
+    })));
+    return Sury.$res_schema(s => ({
+      mid: s.m(Sury.$res_option(midSchema)),
+      last: s.m(Sury.$res_option(lastSchema))
+    }));
+  });
+  return Sury.$res_schema(s => ({
+    back: s.m(Sury.$res_option(rootSchema))
+  }));
+});
+
+Vitest$1.test("A sibling needed by several members is bound once and reused", t => {
+  U.assertReverseParsesBack(t, rootSchema, {
+    mid: {
+      tail: {
+        back: undefined
+      }
+    },
+    last: undefined
+  });
+  U.assertReverseParsesBack(t, midSchema, {
+    tail: {
+      back: {
+        mid: undefined,
+        last: undefined
+      }
+    }
+  });
+  U.assertReverseParsesBack(t, lastSchema, {
+    back: {
+      mid: undefined,
+      last: {
+        back: undefined
+      }
+    }
+  });
+});
+
 let leafSchema = Sury.$res_schema(s => ({
   name: s.m(Sury.string)
 }));
@@ -359,6 +429,9 @@ export {
   aSchema,
   bSchema,
   cSchema,
+  rootSchema,
+  midSchema,
+  lastSchema,
   leafSchema,
   holderSchema,
   strictNodeSchema,

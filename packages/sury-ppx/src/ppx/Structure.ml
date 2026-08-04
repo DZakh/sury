@@ -560,8 +560,11 @@ let referencedMembers members expr =
 (* Each member of a mutually recursive group re-expands the others inside its own
    S.recursive callback. A nested S.recursive registers into the enclosing call's
    shared $defs, so the copies resolve each other's $refs — but only the
-   outermost call carries $defs, so a binding cannot borrow a sibling's and each
-   needs its own expansion. Duplicated bodies are the cost; the group size cap
+   outermost call carries $defs, so a top-level binding cannot borrow another
+   top-level binding's copy and each entry point needs its own expansion.
+   Within one callback, sibling bindings are ordered so an expansion reuses an
+   already-bound sibling instead of expanding its own copy; the duplication that
+   remains is one expansion of the group per entry point, and the group size cap
    below keeps it bounded. *)
 let maxMutualGroupSize = 4
 
@@ -579,16 +582,27 @@ let mapRecursiveTypeDeclarations decls =
     in
     let declOf name = fst (List.assoc name generated) in
     let bodyOf name = snd (List.assoc name generated) in
-    let directDeps name = referencedMembers members (bodyOf name) in
-    let reachable name =
+    let directDepsByName =
+      members
+      |> List.map (fun name -> (name, referencedMembers members (bodyOf name)))
+    in
+    let directDeps name = List.assoc name directDepsByName in
+    (* Members whose expansion `name` still needs, given that `blocked` ones are
+       already bound in scope: a path through a bound member forces nothing,
+       because the reference resolves to the existing binding. *)
+    let reachableAvoiding blocked name =
       let rec collect visited = function
         | [] -> visited
         | n :: rest ->
-          if List.mem n visited then collect visited rest
+          if List.mem n visited || List.mem n blocked then collect visited rest
           else collect (n :: visited) (directDeps n @ rest)
       in
       collect [] (directDeps name)
     in
+    let reachableByName =
+      members |> List.map (fun name -> (name, reachableAvoiding [] name))
+    in
+    let reachable name = List.assoc name reachableByName in
     let sameGroup a b =
       a = b || (List.mem b (reachable a) && List.mem a (reachable b))
     in
@@ -616,9 +630,35 @@ let mapRecursiveTypeDeclarations decls =
         in
         match ready with
         (* Unreachable: groups are cycles collapsed to a point, so what is left
-           is a DAG and something is always ready. Emit rather than loop. *)
-        | [] -> remaining
+           is a DAG and something is always ready. If this ever fires, emitting
+           anyway would miscompile into "unbound value" errors in generated
+           code, so fail loudly instead. *)
+        | [] ->
+          fail (declOf (List.hd (List.hd remaining))).ptype_loc
+            "sury-ppx internal error: failed to order recursive type groups. \
+             Please report the issue to https://github.com/DZakh/sury/issues"
         | _ -> ready @ topological (emitted @ List.concat ready) blocked)
+    in
+    (* Order sibling bindings innermost-first: a dep that other pending deps
+       still need goes later, and later deps end up as *outer* `let`s, in scope
+       for the earlier ones — so an expansion reuses the sibling binding instead
+       of expanding its own copy (which would also re-register the same $defs
+       entry). Cyclic siblings stay put; nested expansion resolves them. *)
+    let rec orderDeps ~blocked deps =
+      match deps with
+      | [] -> []
+      | _ -> (
+        let inner, rest =
+          deps
+          |> List.partition (fun d ->
+                 deps
+                 |> List.for_all (fun other ->
+                        other = d
+                        || not (List.mem d (reachableAvoiding blocked other))))
+        in
+        match inner with
+        | [] -> deps
+        | _ -> inner @ orderDeps ~blocked rest)
     in
     let rec expand ~group ~in_scope name =
       let in_scope = name :: in_scope in
@@ -630,16 +670,20 @@ let mapRecursiveTypeDeclarations decls =
         directDeps name
         |> List.filter (fun dep ->
                List.mem dep group && not (List.mem dep in_scope))
+        |> orderDeps ~blocked:in_scope
       in
-      wrapRecursive (declOf name)
-        (List.fold_left
-           (fun acc dep ->
-             Exp.let_ Nonrecursive
+      let rec bind body = function
+        | [] -> body
+        | dep :: outer ->
+          bind
+            (Exp.let_ Nonrecursive
                [ Vb.mk
                    (Pat.var (mknoloc (generateSchemaName dep)))
-                   (expand ~group ~in_scope dep) ]
-               acc)
-           (bodyOf name) deps)
+                   (expand ~group ~in_scope:(outer @ in_scope) dep) ]
+               body)
+            outer
+      in
+      wrapRecursive (declOf name) (bind (bodyOf name) deps)
     in
     topological [] groups
     |> List.map (fun group ->
