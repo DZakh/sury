@@ -2963,3 +2963,24 @@ test("A nan schema renders as NaN without a dedicated branch", (t) => {
   t.expect(S.inputExpression(S.schema(NaN))).toBe("NaN");
   t.expect(`${S.schema(NaN)}`).toBe("Schema<NaN>");
 });
+
+// A literal length on an array pins arity in the type (specs/array-length,
+// specs/array-empty, specs/string-empty pin the direct cases). Pinned here are
+// the fallbacks a spec can't express: a non-literal bound narrows nothing, and
+// past 64 the tuple spelling bails to the unbounded type instead of hitting
+// TS's recursion ceiling — both must stay `string[]`, not become errors.
+test("Array length type pinning falls back to the unbounded type", () => {
+  expectSchemaType(S.array(S.string).with(S.length, 2)).toBe<[string, string]>();
+  expectSchemaType(S.length(S.array(S.boolean), 3)).toBe<[boolean, boolean, boolean]>();
+  expectSchemaType(S.array(S.number).with(S.empty)).toBe<[]>();
+  expectSchemaType(S.string.with(S.empty)).toBe<"">();
+  // length picks up an earlier bound's subsumption unchanged
+  expectSchemaType(S.array(S.string).with(S.minLength, 1).with(S.length, 2)).toBe<
+    [string, string]
+  >();
+
+  const n: number = 2;
+  expectSchemaType(S.array(S.string).with(S.length, n)).toBe<string[]>();
+  expectSchemaType(S.array(S.string).with(S.length, 100)).toBe<string[]>();
+  expectSchemaType(S.length(S.array(S.string), 1e6)).toBe<string[]>();
+});

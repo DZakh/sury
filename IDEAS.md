@@ -142,17 +142,25 @@ S.reverse(S.schema({
   The first restores every golden above to its pre-bounds text without losing
   detail, since the sub-lines are per-member already.
 
-- **A hard-coded array length should build a tuple.** `S.array(S.string)`
-  with `S.length(2)` describes exactly `[string, string]`, and with `S.empty`
-  exactly `[]` — but both infer `string[]` and run a length check beside the
-  array's own loop, where a tuple would carry the arity in its type and check
-  it once. `S.tuple` already exists and already emits `i.length===n`, so this
-  is `length`/`empty` on an array tag rewriting to it rather than refining,
-  and the win is a truer inferred type more than codegen. Two things to settle:
-  the bound is reversible today and a tuple rewrite has to stay so, and
-  `length` applied to an already-bounded array (`minLength(1).length(2)`) has
-  to pick one representation. Pinned in `specs/array-length.yaml` and
-  `specs/array-empty.yaml`.
+- **Rewrite `S.empty` on an array to a real empty tuple at runtime.** The
+  type-level half of "a hard-coded length is arity" is done: a literal
+  `S.length(N)` on an array infers `[string, string]`, `S.empty` infers `[]`
+  for arrays and `""` for strings (`Sized`/`Repeat` in `S.d.ts`, pinned in
+  `specs/array-length.yaml`, `specs/array-empty.yaml`, `specs/string-empty.yaml`).
+  The runtime deliberately still refines: a general tuple rewrite unrolls
+  generated code O(N) where the loop is O(1), emits N copies of the item
+  schema in JSON Schema, bypasses the `maybeMessage` machinery (tuple arity
+  fails as `invalid_type`), and compiles decode/encode to `identity` where the
+  refinement re-checks the length — each a behavior change to pin
+  deliberately, not inherit. The N=0 case has none of the scaling problems
+  and a strict win: `empty` on an array rewriting to `items: []` +
+  `additionalItems: "strict"` drops the dead element loop from parse
+  (`Array.isArray(i)&&i.length===0||e(i)`), turns decode/encode into
+  identity, and makes the schema union-dispatchable by arity. Settle there
+  whether JSON Schema keeps emitting the now-unreachable `items` schema, and
+  what `minLength`/`maxLength` applied *after* the rewrite should do
+  (compare against `items.length` and no-op/conflict, not add a redundant
+  bound).
 
 - **A bound that doesn't narrow takes its custom message down with it.**
   `gte(5).gte(1, "MY MESSAGE")` drops the second bound — correctly, there is no

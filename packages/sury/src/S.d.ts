@@ -193,11 +193,14 @@ export type Schema<TInput = unknown, TOutput = TInput> = {
   with<TNextInput, TNextOutput>(
     fn: (schema: Schema<TInput, TOutput>) => SchemaLike<TNextInput, TNextOutput>
   ): Schema<TNextInput, TNextOutput>;
-  // Constraining TArg1 to string makes a string-literal arg1 (e.g.
-  // `.with(S.brand, "myId")`) infer its literal type instead of widening to
-  // `string` — needed for brand-based nominal typing. The next overload
-  // covers the general (non-string) arg1 case.
-  with<TNextInput, TNextOutput, TArg1 extends string>(
+  // Constraining TArg1 to string | number makes a literal arg1 infer its
+  // literal type instead of widening — `.with(S.brand, "myId")` needs the
+  // string literal for nominal typing, `.with(S.length, 2)` the number
+  // literal for its tuple-typed result. One overload for both: a second
+  // overload would be attempted (and instantiated) by every `.with` call
+  // that falls through to the general case, taxing schemas that never pass
+  // a literal. The next overload covers the general arg1 case.
+  with<TNextInput, TNextOutput, TArg1 extends string | number>(
     fn: (
       schema: Schema<TInput, TOutput>,
       arg1: TArg1
@@ -852,6 +855,31 @@ export const lte: <TInput, TOutput extends number | bigint>(
   message?: string
 ) => Schema<TInput, TOutput>;
 
+// A pinned length is arity: `S.array(S.string).with(S.length, 2)` admits
+// exactly `[string, string]`, and `S.empty` exactly `[]` / `""`, so the
+// refined type says so instead of keeping the unbounded one. Only a literal
+// `N` pins — a `number`-typed bound narrows nothing (`number extends N`
+// guard). The 64-step cap bails to the unbounded type: past it a spelled-out
+// tuple hurts hover DX more than it helps, and an unguarded recursion turns
+// `S.length(schema, 1e6)` (or a fractional bound, which never hits `N`) into
+// a compile error instead of the runtime one it already raises.
+type Repeat<E, N extends number, Acc extends E[]> = Acc["length"] extends N
+  ? Acc
+  : Acc extends { length: 64 }
+  ? E[]
+  : Repeat<E, N, [...Acc, E]>;
+type Sized<T, N extends number> = number extends N
+  ? T
+  : 0 extends N
+  ? T extends string
+    ? ""
+    : T extends unknown[]
+    ? []
+    : T
+  : T extends (infer E)[]
+  ? Repeat<E, N, []>
+  : T;
+
 export const minLength: <TInput, TOutput extends string | unknown[]>(
   schema: SchemaLike<TInput, TOutput>,
   length: number,
@@ -862,15 +890,15 @@ export const maxLength: <TInput, TOutput extends string | unknown[]>(
   length: number,
   message?: string
 ) => Schema<TInput, TOutput>;
-export const length: <TInput, TOutput extends string | unknown[]>(
+export const length: <TInput, TOutput extends string | unknown[], N extends number>(
   schema: SchemaLike<TInput, TOutput>,
-  length: number,
+  length: N,
   message?: string
-) => Schema<TInput, TOutput>;
+) => Schema<Sized<TInput, N>, Sized<TOutput, N>>;
 export const empty: <TInput, TOutput extends string | unknown[]>(
   schema: SchemaLike<TInput, TOutput>,
   message?: string
-) => Schema<TInput, TOutput>;
+) => Schema<Sized<TInput, 0>, Sized<TOutput, 0>>;
 export const nonEmpty: <TInput, TOutput extends string | unknown[]>(
   schema: SchemaLike<TInput, TOutput>,
   message?: string

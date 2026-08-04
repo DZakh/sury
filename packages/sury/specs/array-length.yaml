@@ -1,15 +1,15 @@
 # yaml-language-server: $schema=./spec.schema.json
-# FIXME: a hard-coded length should produce a tuple, not a bounded array —
-# `S.array(S.string).with(S.length, 2)` describes exactly `[string, string]`,
-# which is what `ts.output` should say. See the "hard-coded array length
-# should build a tuple" item in IDEAS.md.
 ts:
   schema: S.array(S.string).with(S.length, 2)
-  input: string[]
-  output: string[]
-  instantiations: 5290
+  input: "[string, string]"
+  output: "[string, string]"
+  instantiations: 5491
 vs:
-  zod: z.array(z.string()).length(2)
+  zod:
+    schema: z.array(z.string()).length(2)
+    divergence: A literal length pins arity in the Sury type — `S.length(2)` on an array admits exactly `[string, string]` — where Zod keeps the unbounded `string[]`.
+    input: string[]
+    output: string[]
 jsonSchema:
   input: '{ items: { type: "string" }, type: "array", minItems: 2, maxItems: 2 }'
   output: '{ items: { type: "string" }, type: "array", minItems: 2, maxItems: 2 }'
