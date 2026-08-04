@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.file
+  input: File
+  output: File
+  instantiations: 254
+vs:
+  zod: z.file()
+jsonSchema:
+  input: Expected JSON, received File
+  output: Expected JSON, received File
+operations:
+  parse:
+    expression: i=>{i instanceof e[0]||e[1](i);return i}
+    examples:
+      blob-is-not-a-file:
+        input: new Blob(["abc"])
+        error: Expected File, received Blob
+      string-is-not-a-file:
+        input: '"abc"'
+        error: Expected File, received "abc"
+      null-is-not-a-file:
+        input: "null"
+        error: Expected File, received null
+      object-is-not-a-file:
+        input: "{}"
+        error: Expected File, received {}
+  decode: identity
+  encode: identity

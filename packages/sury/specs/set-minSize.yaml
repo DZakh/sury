@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.instance(Set).with(S.minSize, 2)
+  input: Set<unknown>
+  output: Set<unknown>
+  instantiations: 7161
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: Expected JSON, received Set.size >= 2
+  output: Expected JSON, received Set.size >= 2
+operations:
+  parse:
+    expression: i=>{i instanceof e[1]||e[2](i);i.size>1||e[0](i);return i}
+    examples:
+      at-the-size:
+        input: new Set([1, 2])
+        output: new Set([1, 2])
+      larger:
+        input: new Set([1, 2, 3])
+        output: new Set([1, 2, 3])
+      smaller:
+        input: new Set([1])
+        error: Expected Set.size >= 2, received Set
+      empty:
+        input: new Set([])
+        error: Expected Set.size >= 2, received Set
+      array-is-not-a-set:
+        input: "[1, 2]"
+        error: Expected Set.size >= 2, received [1, 2]
+      map-is-not-a-set:
+        input: new Map([[1, 2]])
+        error: Expected Set.size >= 2, received Map
+      wrong-type:
+        input: "null"
+        error: Expected Set.size >= 2, received null
+  decode:
+    expression: i=>{i.size>1||e[0](i);return i}
+    examples:
+      at-the-size:
+        input: new Set([1, 2])
+        output: new Set([1, 2])
+      smaller:
+        input: new Set([1])
+        error: Expected Set.size >= 2, received Set
+  encode:
+    expression: i=>{i.size>1||e[0](i);return i}
+    examples:
+      at-the-size:
+        input: new Set([1, 2])
+        output: new Set([1, 2])
+      smaller:
+        input: new Set([1])
+        error: Expected Set.size >= 2, received Set

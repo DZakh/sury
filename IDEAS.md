@@ -75,7 +75,10 @@ S.reverse(S.schema({
   `S.string.with(S.maxLength, 5, "MAX").with(S.length, 3)` advertises
   `string.length == 3` and reports "MAX" for a 6-character string and the
   generic message for a 4-character one, both being equally "too long"
-  (`specs/string-length-supersedes-maxLength-message.yaml`). Compounding it,
+  (`specs/string-length-supersedes-maxLength-message.yaml`). The size family
+  inherits both halves of this whole — same shape, same fix
+  (`specs/set-size-supersedes-maxSize-message.yaml`,
+  `specs/set-minSize-redundant.yaml`). Compounding it,
   `length()` writes its message under both `minLength` and `maxLength` while
   the check it attaches reads only `minLength` — dead in that order, and in the
   reverse order (`maxLength(5, "MAX").length(3, "EXACT")`) it overwrites the
@@ -163,6 +166,52 @@ S.reverse(S.schema({
   doesn't narrow at construction, the way a contradictory pair already is.
   Same on the length side. Pinned in `specs/number-gte-redundant.yaml` and
   `specs/string-length-redundant.yaml`.
+
+### Size bounds and the form-data family
+
+`S.blob`/`S.file` and `S.minSize`/`S.maxSize`/`S.size` landed as the first step
+of a form-data story. What they were built to make cheap, roughly in order:
+
+- **Widen `S.minSize` to the other containers.** The runtime already accepts any
+  instance whose prototype carries a `.size`, so `S.instance(Set)` and
+  `S.instance(Map)` work today (`specs/set-minSize.yaml` is the coverage that
+  proves it, and exists because a `Set` is the only `.size` carrier the spec
+  harness can serialize). What's missing is schemas of their own: `S.set(item)`
+  and `S.map(key, value)` would make the bounds discoverable rather than
+  reachable only through `S.instance`.
+- **Objects, under `minProperties`/`maxProperties`.** The one container whose
+  size is neither `.length` nor `.size`: the check would be
+  `Object.keys(i).length`, which allocates — worth a spec snapshot so the cost
+  is visible before it ships. Unlike `minSize`, both keywords are native JSON
+  Schema, so `jsonschema.ts` gains a real emit rather than the nothing that
+  `minSize` maps to today.
+- **File/Blob content codecs.** `S.file.with(S.to, S.string)` (via `.text()`)
+  and `S.to(S.uint8Array)` (via `.arrayBuffer()`) are async in the decode
+  direction and sync in the encode one (`new File([i], name)`), so they need
+  `B_asyncVal` and the `flagAsync` guard that already makes a sync `S.decode`
+  fail with `invalid_operation`. `advanced/uint8Array.ts` is the shape to copy.
+  The payoff is `S.file.with(S.to, S.jsonString.with(S.to, configSchema))` —
+  parse an upload into a typed value, and reverse it to *build* the upload.
+- **`S.formData` as a codec, not a preprocessor.** A `FormData` field is
+  `string | File`, so the per-field work is the existing string coercions plus
+  `.get`/`.getAll` extraction; the object rebuild in `advanced/json.ts`
+  (`jsonDecoderFn`, via `makeObjectVal`/`B_addObjectField`) is the pattern.
+  Reversing it emits `new FormData()` + `append` per field, which is what makes
+  this different from VineJS and every other form validator: one schema serves
+  the request handler *and* the `fetch` body. `S.urlSearchParams` is the same
+  code minus files, and `S.queryString` is to it what `S.jsonString` is to
+  `S.json`.
+- **The three HTML-form quirks**, once `S.formData` exists: a checkbox is absent
+  when unchecked and `"on"` when checked (VineJS spells this `vine.accepted()`),
+  an empty text input submits `""` rather than nothing, and repeated keys are
+  how arrays arrive. The first wants a named `S.accepted`; the second belongs to
+  the codec rather than a global flag, since it's a wire quirk; the third is
+  `.getAll`. Bracket notation (`user[name]`) is deliberately out — VineJS leans
+  on `qs` for it too.
+- **`S.mime`** for uploads, next to the size bounds. Wants a JSON Schema emit
+  (`contentMediaType`, and `format: "binary"` for the instances) — which is the
+  point at which `minSize`/`maxSize` should be revisited, since neither has a
+  keyword today and both are dropped from the emitted document.
 
 ### Known bugs left over from the validation refactor (`val.validation: array<validationCheck>`)
 

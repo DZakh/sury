@@ -27,6 +27,7 @@ const HOSTILE: [string, unknown][] = [
 
 const NUMERIC = ["gt", "gte", "lt", "lte"] as const;
 const SIZED = ["minLength", "maxLength", "length"] as const;
+const SIZED_INSTANCE = ["minSize", "maxSize", "size"] as const;
 
 test("a bound rejects any value it could not safely inline", () => {
   (globalThis as Record<string, unknown>).__SURY_PWNED = false;
@@ -41,6 +42,12 @@ test("a bound rejects any value it could not safely inline", () => {
     for (const fn of SIZED) {
       expect(
         () => (S as never as Record<string, (...a: unknown[]) => unknown>)[fn]!(S.string, value),
+        `S.${fn} accepted ${label}`,
+      ).toThrow(/expects integer >= 0/);
+    }
+    for (const fn of SIZED_INSTANCE) {
+      expect(
+        () => (S as never as Record<string, (...a: unknown[]) => unknown>)[fn]!(S.file, value),
         `S.${fn} accepted ${label}`,
       ).toThrow(/expects integer >= 0/);
     }
@@ -68,8 +75,25 @@ test("a length rejects values that are not counts", () => {
     expect(() => S.maxLength(S.array(S.string), value), `maxLength(${value})`).toThrow(
       /expects integer >= 0/,
     );
+    expect(() => S.minSize(S.file, value), `minSize(${value})`).toThrow(/expects integer >= 0/);
   }
   expect(S.inputExpression(S.string.with(S.minLength, 0))).toBe("string.length >= 0");
+  expect(S.inputExpression(S.file.with(S.minSize, 0))).toBe("File.size >= 0");
+});
+
+test("a size is only applied to a schema that has one", () => {
+  // The check reads `.size`, so a class without one would compile to a
+  // comparison against `undefined` that rejects every value.
+  expect(() => S.minSize(S.string as never, 1)).toThrow(
+    "S.minSize expects instance schema with a size, got string",
+  );
+  expect(() => S.maxSize(S.date as never, 1)).toThrow(
+    "S.maxSize expects instance schema with a size, got Date",
+  );
+  // Every `.size` carrier works, not just the two binary ones — which is what
+  // keeps a future S.set/S.map from needing another pair of constructors.
+  expect(S.parser(S.instance(Set).with(S.minSize, 1)).toString()).toContain("i.size>0");
+  expect(S.inputExpression(S.blob.with(S.size, 2))).toBe("Blob.size == 2");
 });
 
 test("values that are safe to inline still round-trip through codegen", () => {

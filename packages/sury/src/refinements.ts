@@ -6,6 +6,7 @@ import {
   bigintTag,
   initSchema,
   inputExpression,
+  instanceTag,
   type Internal,
   numberTag,
   panic,
@@ -90,6 +91,29 @@ const assertLengthBound = (fnName: string, schema: Internal, value: unknown): vo
   }
 };
 
+// The size counterpart, carrying its own copy of the count check rather than
+// sharing one: factoring the two halves out put the extra call on every length
+// bound, which is by far the commoner schema.
+//
+// `.size` is what the emitted check reads, so the class has to have one — Blob,
+// File, Set and Map do, Date and RegExp don't. Tested against the prototype
+// rather than a list of classes: `advanced/file.ts` sits above this module in
+// the layering and can't be reached from here, and naming the DOM globals
+// directly would tie every consumer of a bound to their presence.
+const assertSizeBound = (fnName: string, schema: Internal, value: unknown): void => {
+  const proto = (schema.class as { prototype?: object } | undefined)?.prototype;
+  if (schema.type !== instanceTag || !proto || !("size" in proto)) {
+    panic(expects(fnName, "instance schema with a size", inputExpression(schema)));
+  }
+  if (typeof value !== numberTag || !Number.isSafeInteger(value) || (value as number) < 0) {
+    throw new SuryError({
+      code: "invalid_operation",
+      path: pathEmpty,
+      reason: expects(fnName, "integer >= 0", stringify(value)),
+    });
+  }
+};
+
 // A bigint prints as bare digits, so the suffix goes back on to keep it a
 // bigint literal — without it the generated comparison silently becomes a mixed
 // bigint/number one, and a rendered bound reads as the number it isn't while
@@ -98,9 +122,29 @@ const lit = (value: number | bigint): string => (typeof value === bigintTag ? `$
 
 // A string bounds minLength/maxLength where an array bounds minItems/maxItems.
 // Same generated check either way, so the tag picks the keyword rather than
-// there being two of each function.
+// there being two of each function. A size never arrives here — its keyword
+// pair is fixed, so the constructors below name it directly.
 const sizeKey = (schema: Internal, upper: boolean): "minLength" | "maxLength" | "minItems" | "maxItems" =>
   schema.type === arrayTag ? (upper ? "maxItems" : "minItems") : upper ? "maxLength" : "minLength";
+
+type BoundRenderer = (schema: Internal, base: string) => string;
+
+// The same double-bounded spelling withBounds produces, for the one subject it
+// deliberately doesn't reach. Kept apart rather than folded in as a third tag
+// branch because every numeric and length bound carries withBounds, and none
+// of them can ever be a size: sharing it put ~35 bytes on each of nine exports
+// that would never execute the branch. A size is also always a plain integer
+// and never exclusive, so none of `lit`, exclusiveMinimum or exclusiveMaximum
+// applies here.
+const withSizeBounds = (schema: Internal, base: string): string => {
+  const written = schema.bounds!;
+  const low = written & 1 ? schema.minSize : U;
+  const high = written & 2 ? schema.maxSize : U;
+  const subject = `${base}.size`;
+  if (low === U) return `${subject} <= ${high}`;
+  if (high === U) return `${subject} >= ${low}`;
+  return low === high ? `${subject} == ${low}` : `${low} <= ${subject} <= ${high}`;
+};
 
 // Bounds wrap the expression they constrain, in ArkType's double-bounded
 // spelling — `0 < number < 10` rather than a clause per side. A string or
@@ -139,11 +183,14 @@ const withBounds = (schema: Internal, base: string): string => {
 // one inherits this override through the copy and must reuse the same base, or
 // the wrapping nests into `1 <= (1 <= number <= 9) <= 9`. `skipOverride` is
 // what stops the base rendering from re-entering this.
-const setBoundExpression = (mut: Internal, schema: Internal): void => {
+//
+// `render` is passed in rather than picked from the tag so that a caller only
+// carries the renderer it uses — see the note on withSizeBounds.
+const setBoundExpression = (mut: Internal, schema: Internal, render: BoundRenderer): void => {
   if (schema.bounds === U) {
     const base = schema.expression;
     mut.expression = (s: Internal) =>
-      withBounds(s, base !== U ? base(s) : inputExpression(s, true));
+      render(s, base !== U ? base(s) : inputExpression(s, true));
   }
 };
 
@@ -199,12 +246,12 @@ const conflict = (incoming: Internal, existing: Internal): void => {
 // type and items, with `bounds` set to just this bit so every other bound
 // stays invisible. Only ever called from a failing branch — building a message
 // must not cost an allocation on every bound that turns out to be fine.
-const asBound = (schema: Internal, key: string, bit: number, value: unknown): Internal => {
+const asBound = (schema: Internal, key: string, bit: number, value: unknown, render: BoundRenderer): Internal => {
   const mut = { ...schema, bounds: bit } as unknown as Record<string, unknown>;
   mut[key] = value;
   // The first bound on a schema is reported before one was ever applied, so
   // the copy has no override to inherit and renders bare without this.
-  setBoundExpression(mut as unknown as Internal, schema);
+  setBoundExpression(mut as unknown as Internal, schema, render);
   return mut as unknown as Internal;
 };
 
@@ -215,10 +262,10 @@ const assertLower = (schema: Internal, value: number | bigint, exclusive: boolea
   const inclusive = schema.maximum as number | undefined;
   const strict = schema.exclusiveMaximum as number | undefined;
   if (inclusive !== U && (exclusive ? bound >= inclusive : bound > inclusive)) {
-    conflict(asBound(schema, key, bit, value), asBound(schema, "maximum", 2, inclusive));
+    conflict(asBound(schema, key, bit, value, withBounds), asBound(schema, "maximum", 2, inclusive, withBounds));
   }
   if (strict !== U && bound >= strict) {
-    conflict(asBound(schema, key, bit, value), asBound(schema, "exclusiveMaximum", 8, strict));
+    conflict(asBound(schema, key, bit, value, withBounds), asBound(schema, "exclusiveMaximum", 8, strict, withBounds));
   }
 };
 
@@ -229,20 +276,20 @@ const assertUpper = (schema: Internal, value: number | bigint, exclusive: boolea
   const inclusive = schema.minimum as number | undefined;
   const strict = schema.exclusiveMinimum as number | undefined;
   if (inclusive !== U && (exclusive ? bound <= inclusive : bound < inclusive)) {
-    conflict(asBound(schema, key, bit, value), asBound(schema, "minimum", 1, inclusive));
+    conflict(asBound(schema, key, bit, value, withBounds), asBound(schema, "minimum", 1, inclusive, withBounds));
   }
   if (strict !== U && bound <= strict) {
-    conflict(asBound(schema, key, bit, value), asBound(schema, "exclusiveMinimum", 4, strict));
+    conflict(asBound(schema, key, bit, value, withBounds), asBound(schema, "exclusiveMinimum", 4, strict, withBounds));
   }
 };
 
-const assertSize = (schema: Internal, value: number, upper: boolean): void => {
+const assertSize = (schema: Internal, value: number, upper: boolean, render: BoundRenderer): void => {
   const otherKey = sizeKey(schema, !upper);
   const other = schema[otherKey];
   if (other !== U && (upper ? value < other : value > other)) {
     conflict(
-      asBound(schema, sizeKey(schema, upper), upper ? 2 : 1, value),
-      asBound(schema, otherKey, upper ? 1 : 2, other)
+      asBound(schema, sizeKey(schema, upper), upper ? 2 : 1, value, render),
+      asBound(schema, otherKey, upper ? 1 : 2, other, render)
     );
   }
 };
@@ -253,7 +300,7 @@ export const gte = (schema: Internal, minValue: number | bigint, maybeMessage?: 
   assertLower(schema, minValue, false);
   if (!narrowsLower(schema, minValue, false)) return schema;
   return internalRefine(schema, (mut: Internal) => {
-    setBoundExpression(mut, schema);
+    setBoundExpression(mut, schema, withBounds);
     mut.bounds = ((schema.bounds ?? 0) & ~4) | 1;
     mut.minimum = minValue;
     mut.exclusiveMinimum = U;
@@ -275,7 +322,7 @@ export const lte = (schema: Internal, maxValue: number | bigint, maybeMessage?: 
   assertUpper(schema, maxValue, false);
   if (!narrowsUpper(schema, maxValue, false)) return schema;
   return internalRefine(schema, (mut: Internal) => {
-    setBoundExpression(mut, schema);
+    setBoundExpression(mut, schema, withBounds);
     mut.bounds = ((schema.bounds ?? 0) & ~8) | 2;
     mut.maximum = maxValue;
     mut.exclusiveMaximum = U;
@@ -297,7 +344,7 @@ export const gt = (schema: Internal, minValue: number | bigint, maybeMessage?: s
   assertLower(schema, minValue, true);
   if (!narrowsLower(schema, minValue, true)) return schema;
   return internalRefine(schema, (mut: Internal) => {
-    setBoundExpression(mut, schema);
+    setBoundExpression(mut, schema, withBounds);
     mut.bounds = ((schema.bounds ?? 0) & ~1) | 4;
     mut.exclusiveMinimum = minValue;
     mut.minimum = U;
@@ -319,7 +366,7 @@ export const lt = (schema: Internal, maxValue: number | bigint, maybeMessage?: s
   assertUpper(schema, maxValue, true);
   if (!narrowsUpper(schema, maxValue, true)) return schema;
   return internalRefine(schema, (mut: Internal) => {
-    setBoundExpression(mut, schema);
+    setBoundExpression(mut, schema, withBounds);
     mut.bounds = ((schema.bounds ?? 0) & ~2) | 8;
     mut.exclusiveMaximum = maxValue;
     mut.maximum = U;
@@ -338,11 +385,11 @@ export const lt = (schema: Internal, maxValue: number | bigint, maybeMessage?: s
 // @__NO_SIDE_EFFECTS__
 export const minLength = (schema: Internal, length: number, maybeMessage?: string): Internal => {
   assertLengthBound("minLength", schema, length);
-  assertSize(schema, length, false);
+  assertSize(schema, length, false, withBounds);
   const key = sizeKey(schema, false);
   if (!narrowsSize(schema[key], length, false)) return schema;
   return internalRefine(schema, (mut: Internal) => {
-    setBoundExpression(mut, schema);
+    setBoundExpression(mut, schema, withBounds);
     mut.bounds = (schema.bounds ?? 0) | 1;
     mut[key] = length;
     if (maybeMessage !== U) getMutErrorMessage(mut)[key] = maybeMessage;
@@ -360,11 +407,11 @@ export const minLength = (schema: Internal, length: number, maybeMessage?: strin
 // @__NO_SIDE_EFFECTS__
 export const maxLength = (schema: Internal, length: number, maybeMessage?: string): Internal => {
   assertLengthBound("maxLength", schema, length);
-  assertSize(schema, length, true);
+  assertSize(schema, length, true, withBounds);
   const key = sizeKey(schema, true);
   if (!narrowsSize(schema[key], length, true)) return schema;
   return internalRefine(schema, (mut: Internal) => {
-    setBoundExpression(mut, schema);
+    setBoundExpression(mut, schema, withBounds);
     mut.bounds = (schema.bounds ?? 0) | 2;
     mut[key] = length;
     if (maybeMessage !== U) getMutErrorMessage(mut)[key] = maybeMessage;
@@ -382,8 +429,8 @@ export const maxLength = (schema: Internal, length: number, maybeMessage?: strin
 // @__NO_SIDE_EFFECTS__
 export const length = (schema: Internal, length: number, maybeMessage?: string): Internal => {
   assertLengthBound("length", schema, length);
-  assertSize(schema, length, false);
-  assertSize(schema, length, true);
+  assertSize(schema, length, false, withBounds);
+  assertSize(schema, length, true, withBounds);
   const minKey = sizeKey(schema, false);
   const maxKey = sizeKey(schema, true);
   // Both sides already pinned here: `=== length` is exactly what runs, so a
@@ -391,7 +438,7 @@ export const length = (schema: Internal, length: number, maybeMessage?: string):
   // non-narrowing bound is for the others.
   if (schema[minKey] === length && schema[maxKey] === length) return schema;
   return internalRefine(schema, (mut: Internal) => {
-    setBoundExpression(mut, schema);
+    setBoundExpression(mut, schema, withBounds);
     mut.bounds = (schema.bounds ?? 0) | 3;
     mut[minKey] = length;
     mut[maxKey] = length;
@@ -405,6 +452,96 @@ export const length = (schema: Internal, length: number, maybeMessage?: string):
         {
           c: (inputVar: string) => `${inputVar}.length===${length}`,
           f: B_failWithErrorMessage(minKey),
+        },
+      ];
+    };
+  });
+}
+
+// A size's own contradiction guard. The length family's assertSize resolves
+// its keyword through sizeKey, which a size never reaches — here the pair is
+// fixed, so it reads the two fields directly.
+const assertSizeRange = (schema: Internal, value: number, upper: boolean): void => {
+  const otherKey = upper ? "minSize" : "maxSize";
+  const other = schema[otherKey];
+  if (other !== U && (upper ? value < other : value > other)) {
+    conflict(
+      asBound(schema, upper ? "maxSize" : "minSize", upper ? 2 : 1, value, withSizeBounds),
+      asBound(schema, otherKey, upper ? 1 : 2, other, withSizeBounds)
+    );
+  }
+};
+
+// Bytes for a blob, entries for a set or a map — the same three constructors
+// the length family has, against `.size` instead of `.length`. The two never
+// overlap: a string and an array are bounded by `S.minLength`, and nothing is
+// bounded by both.
+// @__NO_SIDE_EFFECTS__
+export const minSize = (schema: Internal, size: number, maybeMessage?: string): Internal => {
+  assertSizeBound("minSize", schema, size);
+  assertSizeRange(schema, size, false);
+  if (!narrowsSize(schema.minSize, size, false)) return schema;
+  return internalRefine(schema, (mut: Internal) => {
+    setBoundExpression(mut, schema, withSizeBounds);
+    mut.bounds = (schema.bounds ?? 0) | 1;
+    mut.minSize = size;
+    if (maybeMessage !== U) getMutErrorMessage(mut)["minSize"] = maybeMessage;
+    return (_input: Val) => {
+      return [
+        {
+          c: (inputVar: string) => `${inputVar}.size>${size - 1}`,
+          f: B_failWithErrorMessage("minSize"),
+        },
+      ];
+    };
+  });
+}
+
+// @__NO_SIDE_EFFECTS__
+export const maxSize = (schema: Internal, size: number, maybeMessage?: string): Internal => {
+  assertSizeBound("maxSize", schema, size);
+  assertSizeRange(schema, size, true);
+  if (!narrowsSize(schema.maxSize, size, true)) return schema;
+  return internalRefine(schema, (mut: Internal) => {
+    setBoundExpression(mut, schema, withSizeBounds);
+    mut.bounds = (schema.bounds ?? 0) | 2;
+    mut.maxSize = size;
+    if (maybeMessage !== U) getMutErrorMessage(mut)["maxSize"] = maybeMessage;
+    return (_input: Val) => {
+      return [
+        {
+          c: (inputVar: string) => `${inputVar}.size<${size + 1}`,
+          f: B_failWithErrorMessage("maxSize"),
+        },
+      ];
+    };
+  });
+}
+
+// @__NO_SIDE_EFFECTS__
+export const size = (schema: Internal, size: number, maybeMessage?: string): Internal => {
+  assertSizeBound("size", schema, size);
+  assertSizeRange(schema, size, false);
+  assertSizeRange(schema, size, true);
+  // Both sides already pinned here: `=== size` is exactly what runs, so a
+  // second copy of it is the one case this adds nothing, the same way a
+  // non-narrowing bound is for the others.
+  if (schema.minSize === size && schema.maxSize === size) return schema;
+  return internalRefine(schema, (mut: Internal) => {
+    setBoundExpression(mut, schema, withSizeBounds);
+    mut.bounds = (schema.bounds ?? 0) | 3;
+    mut.minSize = size;
+    mut.maxSize = size;
+    if (maybeMessage !== U) {
+      const em = getMutErrorMessage(mut);
+      em["minSize"] = maybeMessage;
+      em["maxSize"] = maybeMessage;
+    }
+    return (_input: Val) => {
+      return [
+        {
+          c: (inputVar: string) => `${inputVar}.size===${size}`,
+          f: B_failWithErrorMessage("minSize"),
         },
       ];
     };

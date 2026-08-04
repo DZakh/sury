@@ -45,6 +45,7 @@
   - [`dict`](#dict)
   - [`date`](#date)
   - [`isoDateTime`](#isodatetime)
+  - [`blob` & `file`](#blob--file)
   - [`instance`](#instance)
   - [`json`](#json)
   - [`jsonString`](#jsonstring)
@@ -253,7 +254,7 @@ S.email->S.meta({errorMessage: {catchAll: "Invalid input"}})
 schema->S.meta({errorMessage: {}})
 ```
 
-Available fields: `format`, `type_`, `minimum`, `maximum`, `minLength`, `maxLength`, `minItems`, `maxItems`, `pattern`, `catchAll` (serialized as `_`).
+Available fields: `format`, `type_`, `minimum`, `maximum`, `minLength`, `maxLength`, `minItems`, `maxItems`, `minSize`, `maxSize`, `pattern`, `catchAll` (serialized as `_`).
 
 #### ISO datetimes
 
@@ -1103,6 +1104,35 @@ let schema = S.isoDateTime
 ```
 
 Standalone string schema that validates ISO 8601 UTC datetime strings. See also [ISO datetimes](#iso-datetimes) under Strings for more details and examples.
+
+### **`blob` & `file`**
+
+`S.t<Js.Blob.t>` & `S.t<Js.File.t>`
+
+```rescript
+let schema = S.file->S.maxSize(1_000_000)
+
+%raw(`new File(["hi"], "a.txt")`)->S.parseOrThrow(~to=schema) // passes
+%raw(`new Blob(["hi"])`)->S.parseOrThrow(~to=schema) // throws - Expected File, received Blob
+```
+
+The two binary containers a form submission or a `fetch` body carries. A `File`
+is a `Blob`, so it satisfies both.
+
+`S.minSize`, `S.maxSize` and `S.size` bound the byte count, and take the same
+optional `~message` every other built-in refinement does:
+
+```rescript
+S.file->S.minSize(1) // Expected File.size >= 1
+S.file->S.minSize(2)->S.maxSize(10) // Expected 2 <= File.size <= 10
+S.blob->S.size(2) // Expected Blob.size == 2
+S.file->S.maxSize(1_000_000, ~message="File is too large")
+```
+
+They bound whatever a schema measures with `.size`, so a `Set` or a `Map`
+reached through `S.instance` takes them too, counting entries instead of bytes.
+Strings and arrays are bounded by `S.minLength`/`S.maxLength`/`S.length`
+instead — nothing is bounded by both.
 
 ### **`instance`**
 

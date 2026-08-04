@@ -38,6 +38,7 @@
 - [Records](#records)
 - [Date](#date)
 - [ISO DateTime](#iso-datetime)
+- [Files](#files)
 - [Instance](#instance)
 - [Meta](#meta)
 - [Brand](#brand)
@@ -375,7 +376,7 @@ S.email.with(S.meta, { errorMessage: { _: "Invalid input" } });
 schema.with(S.meta, { errorMessage: {} });
 ```
 
-Available keys: `format`, `type`, `minimum`, `maximum`, `minLength`, `maxLength`, `minItems`, `maxItems`, `pattern`, `_` (catch-all).
+Available keys: `format`, `type`, `minimum`, `maximum`, `minLength`, `maxLength`, `minItems`, `maxItems`, `minSize`, `maxSize`, `pattern`, `_` (catch-all).
 
 ### ISO datetimes
 
@@ -915,6 +916,38 @@ S.parser(schema)("not-a-date"); // throws
 ```
 
 Standalone string schema that validates ISO 8601 UTC datetime strings. See also [ISO datetimes](#iso-datetimes) under Strings for more details and examples.
+
+## Files
+
+`S.file` and `S.blob` validate the two binary containers a form submission or a
+`fetch` body carries. A `File` is a `Blob`, so it satisfies both.
+
+```ts
+S.parser(S.file)(new File(["hi"], "a.txt")); // passes
+S.parser(S.file)(new Blob(["hi"])); // throws - Expected File, received Blob
+S.parser(S.blob)(new File(["hi"], "a.txt")); // passes
+```
+
+Their size is bounded with `S.minSize`, `S.maxSize` and `S.size`, in bytes:
+
+```ts
+S.file.with(S.maxSize, 1_000_000); // Expected File.size <= 1000000
+S.file.with(S.minSize, 1); // Expected File.size >= 1
+S.file.with(S.minSize, 2).with(S.maxSize, 10); // Expected 2 <= File.size <= 10
+S.blob.with(S.size, 2); // Expected Blob.size == 2
+S.file.with(S.maxSize, 1_000_000, "File is too large"); // custom message
+```
+
+These bound whatever a schema measures with `.size`, not just the binary
+containers — so a `Set` or a `Map` reached through `S.instance` takes them too,
+counting entries instead of bytes:
+
+```ts
+S.instance(Set).with(S.minSize, 1); // Expected Set.size >= 1
+```
+
+> Use `S.minLength`/`S.maxLength`/`S.length` for strings and arrays. The two
+> families never overlap: nothing is bounded by both.
 
 ## Instance
 

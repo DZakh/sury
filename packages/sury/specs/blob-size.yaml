@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.blob.with(S.size, 2)
+  input: Blob
+  output: Blob
+  instantiations: 5170
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: Expected JSON, received Blob.size == 2
+  output: Expected JSON, received Blob.size == 2
+operations:
+  parse:
+    expression: i=>{i instanceof e[1]||e[2](i);i.size===2||e[0](i);return i}
+    examples:
+      wrong-type:
+        input: '"ab"'
+        error: Expected Blob.size == 2, received "ab"
+      wrong-type-null:
+        input: "null"
+        error: Expected Blob.size == 2, received null
+  decode:
+    expression: i=>{i.size===2||e[0](i);return i}
+    examples:
+      off-the-size:
+        input: new Blob(["abc"])
+        error: Expected Blob.size == 2, received Blob
+  encode:
+    expression: i=>{i.size===2||e[0](i);return i}
+    examples:
+      off-the-size:
+        input: new Blob(["abc"])
+        error: Expected Blob.size == 2, received Blob

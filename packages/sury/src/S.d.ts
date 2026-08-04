@@ -302,6 +302,8 @@ export type Schema<TInput = unknown, TOutput = TInput> = {
       readonly type: "instance";
       readonly class: Class<TInput>;
       readonly const?: TInput;
+      readonly minSize?: number;
+      readonly maxSize?: number;
     }
   | {
       readonly type: "array";
@@ -550,6 +552,10 @@ export const jsonStringWithSpace: (space: number) => Schema<string, string>;
 
 export const uint8Array: Schema<Uint8Array, Uint8Array>;
 
+export const blob: Schema<Blob, Blob>;
+
+export const file: Schema<File, File>;
+
 export const isoDateTime: Schema<string, string>;
 
 export const port: Schema<number, number>;
@@ -793,6 +799,8 @@ export type SchemaErrorMessage = {
   maxLength?: string;
   minItems?: string;
   maxItems?: string;
+  minSize?: string;
+  maxSize?: string;
   pattern?: string;
 };
 
@@ -873,6 +881,25 @@ export const empty: <TInput, TOutput extends string | unknown[]>(
 ) => Schema<TInput, TOutput>;
 export const nonEmpty: <TInput, TOutput extends string | unknown[]>(
   schema: SchemaLike<TInput, TOutput>,
+  message?: string
+) => Schema<TInput, TOutput>;
+
+// Structural, to say exactly what the runtime tests for — a class carrying a
+// `.size`. Blob, File, Set and Map all satisfy it, so naming them instead
+// would have to grow every time one more does.
+export const minSize: <TInput, TOutput extends { size: number }>(
+  schema: SchemaLike<TInput, TOutput>,
+  size: number,
+  message?: string
+) => Schema<TInput, TOutput>;
+export const maxSize: <TInput, TOutput extends { size: number }>(
+  schema: SchemaLike<TInput, TOutput>,
+  size: number,
+  message?: string
+) => Schema<TInput, TOutput>;
+export const size: <TInput, TOutput extends { size: number }>(
+  schema: SchemaLike<TInput, TOutput>,
+  size: number,
   message?: string
 ) => Schema<TInput, TOutput>;
 
