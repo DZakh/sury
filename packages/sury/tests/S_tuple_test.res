@@ -244,7 +244,7 @@ module Compiled = {
 
   test("Compiled parse code snapshot for simple tuple with async", t => {
     let schema = S.tuple(s => (
-      s.item(0, S.unknown->S.transform(_ => {asyncParser: i => Promise.resolve(i)})),
+      s.item(0, S.unknown->S.transform(() => {asyncParser: i => Promise.resolve(i)})),
       s.item(1, S.bool),
     ))
 

@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union([S.schema("a"), S.schema("a"), S.string])
+  input: string
+  output: string
+  instantiations: 1144
+vs:
+  zod: z.union([z.literal("a"), z.literal("a"), z.string()])
+jsonSchema:
+  input: '{ anyOf: [{ type: "string", const: "a" }, { type: "string" }] }'
+  output: '{ anyOf: [{ type: "string", const: "a" }, { type: "string" }] }'
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[0](i);return i}
+    examples:
+      literal-member:
+        input: '"a"'
+        output: '"a"'
+      broader-member:
+        input: '"zzz"'
+        output: '"zzz"'
+      three-members-render-as-two:
+        input: "1"
+        error: Expected "a" | string, received 1
+  decode: identity
+  encode: identity

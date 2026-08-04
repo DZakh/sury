@@ -89,7 +89,7 @@ test("Compiled serialize code snapshot", t => {
 test("Custom schema", t => {
   let mySet = itemSchema => {
     S.instance(%raw(`Set`))
-    ->S.transform(_ => {
+    ->S.transform(() => {
       parser: input => {
         let output = Set.make()
         input
@@ -102,7 +102,7 @@ test("Custom schema", t => {
         output
       },
     })
-    ->S.meta({name: `Set.t<${S.toExpression(itemSchema)}>`})
+    ->S.meta({name: `Set.t<${S.inputExpression(itemSchema)}>`})
   }
 
   let intSetSchema = mySet(S.int)

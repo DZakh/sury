@@ -4,12 +4,24 @@ import * as S from "../src/S.res.mjs";
 import * as Sury from "sury";
 import * as Vitest from "./Vitest.res.mjs";
 import * as Stdlib_Dict from "@rescript/runtime/lib/es6/Stdlib_Dict.js";
+import * as Primitive_option from "@rescript/runtime/lib/es6/Primitive_option.js";
 import * as Primitive_exceptions from "@rescript/runtime/lib/es6/Primitive_exceptions.js";
 
 let noopOpCode = S.decoder(Sury.unknown, Sury.unknown).toString();
 
 function throwError(error) {
   throw error;
+}
+
+function fail(message, pathOpt) {
+  let path = pathOpt !== undefined ? Primitive_option.valFromOption(pathOpt) : S.Path.empty;
+  throw new Sury.Error({
+    code: "invalid_input",
+    path: path,
+    reason: message,
+    expected: Sury.unknown,
+    received: Sury.unknown
+  });
 }
 
 function unsafeGetVariantPayload(variant) {
@@ -185,6 +197,7 @@ let assertEqualSchemas = unsafeAssertEqualSchemas;
 export {
   noopOpCode,
   throwError,
+  fail,
   unsafeGetVariantPayload,
   Test,
   throwTestException,

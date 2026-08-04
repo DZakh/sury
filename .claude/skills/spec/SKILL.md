@@ -10,7 +10,7 @@ One `specs/<id>.yaml` = one schema's contract: type, JSON Schema, per-operation 
 ## Workflow
 
 ```bash
-pnpm spec new --id <id> --ts "S.string.with(S.min, 3)"  # scaffold
+pnpm spec new --id <id> --ts "S.string.with(S.minLength, 3)"  # scaffold
 # edit specs/<id>.yaml: add example inputs under each op's `examples`
 pnpm spec check --write [id]   # (re)derive goldens
 pnpm spec check [id]           # gate

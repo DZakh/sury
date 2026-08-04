@@ -1,9 +1,9 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: S.union([S.string.with(S.min, 3), S.string])
+  schema: S.union([S.string.with(S.minLength, 3), S.string])
   input: string
   output: string
-  instantiations: 5681
+  instantiations: 5688
 vs:
   zod: z.union([z.string().min(3), z.string()])
 jsonSchema:
@@ -21,6 +21,6 @@ operations:
         output: '"no"'
       wrong-tag:
         input: "42"
-        error: Expected string | string, received 42
+        error: Expected string.length >= 3 | string, received 42
   decode: identity
   encode: identity
