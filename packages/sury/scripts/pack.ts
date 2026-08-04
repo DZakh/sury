@@ -196,8 +196,11 @@ async function pack(): Promise<void> {
         version: pkg.version,
         license: pkg.license,
         exports: pkg.module,
+        // The shipped package.json rides along, so everything its fields point
+        // at must too — including the CJS index.js its require condition names.
         exclude: [
           "!index.mjs",
+          "!index.js",
           "!index.d.ts",
           "!src",
           "!rescript.json",

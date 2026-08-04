@@ -4,7 +4,7 @@
 // a consumer would download by accident.
 
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -74,7 +74,12 @@ const prose = (markdown: string): string => {
 const RELATIVE_LINK = /]\((?!\w+:)([^)#\s]+)[^)]*\)/g;
 
 // `pnpm test` doesn't run the packer, so these only mean anything after a
-// `pnpm build` — which CI always does first.
+// `pnpm build`. Skipping is fine locally, but in CI a missing artifacts/ means
+// the build step was dropped or reordered — and a silent skip here would
+// retire this whole guard without anyone noticing.
+if (process.env.CI && !existsSync(artifactsPath)) {
+  throw new Error("artifacts/ is missing in CI — run `pnpm build` before the tests");
+}
 const describeArtifact = existsSync(artifactsPath) ? describe : describe.skip;
 
 // Loaded per test, not at collection: a half-built artifacts/ (interrupted
@@ -85,6 +90,9 @@ const requireCjsEntry = (): any =>
 
 describeArtifact("artifact", () => {
   test("contains exactly the files it ships", () => {
+    // The walk is compared sorted, so a FILES entry out of order would read as
+    // a phantom diff.
+    expect(FILES).toEqual([...FILES].sort());
     expect(walk(artifactsPath).sort()).toEqual(FILES);
   });
 
@@ -99,7 +107,7 @@ describeArtifact("artifact", () => {
   });
 
   test("ships no TypeScript beyond the declarations", () => {
-    const sources = FILES.filter((f) => f.endsWith(".ts") && !f.endsWith(".d.ts"));
+    const sources = walk(artifactsPath).filter((f) => f.endsWith(".ts") && !f.endsWith(".d.ts"));
     expect(sources).toEqual([]);
   });
 
@@ -111,7 +119,11 @@ describeArtifact("artifact", () => {
     for (const file of PUBLISHED_FILES.filter((f) => f.endsWith(".md"))) {
       for (const [, target] of prose(read(file)).matchAll(RELATIVE_LINK)) {
         const resolved = path.resolve(path.dirname(path.join(artifactsPath, file)), target!);
-        if (!existsSync(resolved)) dangling.push(`${file} -> ${target}`);
+        // A directory "resolves" too, but no doc means to link one — npm and
+        // GitHub render nothing useful for it.
+        if (!existsSync(resolved) || !statSync(resolved).isFile()) {
+          dangling.push(`${file} -> ${target}`);
+        }
       }
     }
     expect(dangling).toEqual([]);
@@ -131,6 +143,8 @@ describeArtifact("artifact", () => {
 
   // Removed API lives on in prose long after the code is gone. The ReScript
   // reference is checked by eye — its `S.` names are a different module.
+  // Unlike the link checks this scans the raw markdown, code fences included:
+  // the samples are exactly where stale API names live.
   test("the JS docs name only API that exists", () => {
     const api = new Set(Object.keys(requireCjsEntry()));
     for (const [, name] of read("index.d.ts").matchAll(
@@ -168,6 +182,31 @@ describeArtifact("artifact", () => {
 
   test("JSR publishes the same entry as npm", () => {
     expect(readJson("jsr.json").exports).toBe(readJson("package.json").module);
+  });
+
+  // artifacts/ is gitignored, so JSR's default is to publish nothing and the
+  // exclude list is all `!` re-includes. package.json rides along (`!package.json`),
+  // so every file its fields point at has to ride along too — npm's file list
+  // (pinned above) says nothing about JSR's.
+  test("JSR includes every file package.json points at", () => {
+    const included = readJson("jsr.json")
+      .exclude.filter((e: string) => e.startsWith("!"))
+      .map((e: string) => e.slice(1));
+    const pkg = readJson("package.json");
+    const targets = [
+      ...Object.values<string>(pkg.exports["."]),
+      pkg.exports["./S.gen.js"].types,
+      pkg.main,
+      pkg.module,
+      pkg.types,
+    ];
+    for (const target of targets) {
+      const normalized = target.replace(/^\.\//, "");
+      const covered = included.some(
+        (inc: string) => normalized === inc || normalized.startsWith(`${inc}/`)
+      );
+      expect(covered, `${target} is not in jsr.json's include set`).toBe(true);
+    }
   });
 
   // Two entry builds, but the schema cache and the Exn identity must not be

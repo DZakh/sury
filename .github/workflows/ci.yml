@@ -32,7 +32,7 @@ jobs:
 
       # artifact_test.ts checks jsr.json against package.json; only JSR itself
       # checks the parts npm has no opinion on (slow types, the exclude list).
-      - run: npx --yes jsr publish --dry-run --allow-dirty
+      - run: npx --yes jsr@0.14.3 publish --dry-run --allow-dirty
         working-directory: packages/sury/artifacts
 
       - uses: codecov/codecov-action@v7
