@@ -341,28 +341,27 @@ export const outputExpression = (schema: Internal): string =>
   inputExpression(reverse(schema));
 
 // Memo of getDecoder calls answered by this schema, on the cache target under
-// `memoKey`. The keyed cache below assembles its key per call, and a string
-// built at runtime is not internalized — each lookup with one re-hashes it,
-// an order of magnitude more than the read. Callers that can't hoist the
-// compiled function (`~standard.validate`, `S.is` per value) repeat identical
-// arguments, so identity-comparing answers before any key exists.
-// Non-enumerable so copySchema's Object.assign can't carry it onto a derived
-// schema. Two slots: with one, alternating two operations on a schema misses
-// and rewrites every call — slower than no memo; the first slot keeps the
-// first operation ever memoized, later misses land in the second, so a pair
-// reaches a steady state with no writes.
+// Memo of getDecoder calls answered by this schema: a linked list of nodes on
+// the cache target under `memoKey`, matched by identity-comparing the schema
+// arguments and the resolved flag. The keyed cache below stays as the storage
+// (its seq-keyed namespace is a deliberate interop with recursiveDecoder,
+// whose generated code reads `def["<key>"]` at runtime), but its key is
+// assembled per call and a runtime-built string is never internalized — each
+// lookup with one re-hashes it, an order of magnitude more than the pointer
+// compares here. Every operation gets its own node on its first repeat, so
+// any number of alternating operations reaches a steady state with no writes
+// and no string ever built. Non-enumerable so copySchema's Object.assign
+// can't carry it onto a derived schema.
 //
-// Only a key already in the cache is memoized — which also keeps this correct
-// against recursiveDecoder (advanced/recursive.ts): it `delete`s keys from
-// this same namespace, but only ones absent before its compile pass, so
-// nothing it deletes can have been memoized here.
-type OpMemo = {
+// Only a key already in the keyed cache is memoized — which keeps this
+// correct against recursiveDecoder's write/`delete` cycle: it only deletes
+// keys that were absent before its compile pass, and a key that was absent
+// can never have been memoized here.
+type OpNode = {
   a: unknown[]; // the schema arguments, in order
   f: Flag;
   v: (from: unknown) => unknown;
-  a2?: unknown[];
-  f2?: Flag;
-  v2?: (from: unknown) => unknown;
+  n: OpNode | undefined; // next (older) node
 };
 const memoKey = "c";
 
@@ -398,26 +397,18 @@ export function getDecoder(..._args: unknown[]): (from: unknown) => unknown {
   if (cacheTarget === U) {
     return panic("No schema provided for decoder.");
   } else {
-    const memo = (cacheTarget as unknown as Record<string, OpMemo | undefined>)[memoKey];
-    if (memo !== U) {
-      // Spelled out per slot: passing `args` (an `arguments` alias) to a
-      // shared helper would force its allocation on every call.
-      let a = memo.a;
-      if (memo.f === flag && a.length === idx) {
+    const head = (cacheTarget as unknown as Record<string, OpNode | undefined>)[memoKey];
+    let node = head;
+    while (node !== U) {
+      const a = node.a;
+      if (node.f === flag && a.length === idx) {
         let i = idx;
         while (i-- !== 0 && a[i] === args[i]) {}
         if (i < 0) {
-          return memo.v;
+          return node.v;
         }
       }
-      a = memo.a2!;
-      if (a !== U && memo.f2 === flag && a.length === idx) {
-        let i = idx;
-        while (i-- !== 0 && a[i] === args[i]) {}
-        if (i < 0) {
-          return memo.v2!;
-        }
-      }
+      node = node.n;
     }
 
     let keyRef = "";
@@ -427,19 +418,18 @@ export function getDecoder(..._args: unknown[]): (from: unknown) => unknown {
     const key = keyRef + "-" + flag;
     const cacheTargetRecord = cacheTarget as unknown as Record<string, (from: unknown) => unknown>;
     if (key in cacheTargetRecord) {
-      // Only a repeat of an already-compiled operation is worth memoizing.
+      // A repeat of an already-compiled operation: prepend its node, so every
+      // later call is answered by the walk above without building a key. The
+      // defineProperty runs once per operation, not per call.
       const operation = cacheTargetRecord[key]!;
-      const memoArgs = immutableEmptyArray.slice.call(args, 0, idx) as unknown[];
-      if (memo === U) {
-        // Slot 2 pre-seeded so a later a2 write can't fork the hidden class.
-        const created: OpMemo = { a: memoArgs, f: flag!, v: operation, a2: U, f2: U, v2: U };
-        (configurableValueOptions as Record<string, unknown>)[valKey] = created;
-        Object.defineProperty(cacheTarget, memoKey, configurableValueOptions as PropertyDescriptor);
-      } else {
-        memo.a2 = memoArgs;
-        memo.f2 = flag!;
-        memo.v2 = operation;
-      }
+      const created: OpNode = {
+        a: immutableEmptyArray.slice.call(args, 0, idx) as unknown[],
+        f: flag!,
+        v: operation,
+        n: head,
+      };
+      (configurableValueOptions as Record<string, unknown>)[valKey] = created;
+      Object.defineProperty(cacheTarget, memoKey, configurableValueOptions as PropertyDescriptor);
       return operation;
     } else {
       let schema: Internal = args[idx - 1] as Internal;
@@ -452,7 +442,7 @@ export function getDecoder(..._args: unknown[]): (from: unknown) => unknown {
       const f = compileDecoder(schema, schema, flag!, U);
       // Reusing the same object makes it a little bit faster
       valueOptions[valKey] = f;
-      // Use defineProperty, so the cache keys are not enumerable
+      // The seq-keyed entry recursiveDecoder interops with; non-enumerable.
       Object.defineProperty(cacheTarget, key, valueOptions as PropertyDescriptor);
       return f as (from: unknown) => unknown;
     }
