@@ -62,13 +62,10 @@ export const js_encoder = (...args: unknown[]) => getDecoder(...(args as Interna
 export const js_asyncEncoder = (...args: unknown[]) =>
   getDecoder(...(args as Internal[]).map(reverse), 1);
 
-// `assert` and `is` both accept `(schema, data)` and `(data, schema)`. We tell
-// them apart by the Standard Schema marker on a schema object; the truthiness
-// guard keeps `null`/`undefined` data from throwing on the marker access,
-// routing it to the data slot so validation fails with a proper Sury error.
-// Shared because that guard is the subtle part — the two ternaries it feeds
-// are spelled out at each call site so neither has to allocate a pair to
-// carry them.
+// `assert` and `is` accept both `(schema, data)` and `(data, schema)`, told
+// apart by the Standard Schema marker. The truthiness guard keeps falsy data
+// from throwing on the marker access, routing it to the data slot so
+// validation fails with a proper Sury error.
 const isSchemaFirst = (a: unknown): boolean => !!a && isSchemaObject(a);
 
 export const js_assert = (a: unknown, b: unknown): unknown => {
@@ -80,10 +77,9 @@ export const js_assert = (a: unknown, b: unknown): unknown => {
 
 export const js_is = (a: unknown, b: unknown): boolean => {
   const aIsSchema = isSchemaFirst(a);
-  // Compiled outside the try, so a conversion rejected at operation creation
-  // is thrown rather than answered. `false` would say the value doesn't match
-  // the schema, when what happened is that the schema can't check any value at
-  // all — the same split `~standard.validate` makes between issues and throws.
+  // Compiled outside the try: a conversion rejected at operation creation
+  // means the schema can't check any value, so it throws rather than reading
+  // as `false` — the same split `~standard.validate` makes.
   const operation = getDecoder(unknown, (aIsSchema ? a : b) as Internal, assertResult);
   try {
     operation(aIsSchema ? b : a);

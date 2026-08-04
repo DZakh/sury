@@ -306,9 +306,8 @@ export type Internal = {
   // the `.to` target. Everything structural is rendered by inputExpression
   // itself, so setting this is the exception, not the pattern.
   expression?: (schema: Internal) => string;
-  // The reversed (Input ↔ Output swapped) schema: `this` from the self-reverse
-  // prototype above, otherwise cached lazily as a hidden non-enumerable
-  // property via Object.defineProperty (parse.ts).
+  // The reversed (Input ↔ Output swapped) schema: `this` via the self-reverse
+  // prototype getter, otherwise cached lazily by defineProperty (parse.ts).
   r?: Internal;
 }
 
@@ -596,21 +595,13 @@ Object.defineProperty(schemaPrototype, "with", {
 // Also has ~standard below
 Schema.prototype = schemaPrototype;
 
-// A schema that reverses to itself answers `r` from its prototype instead of
-// caching itself under an own one: installing that own property cost a
-// defineProperty — an order of magnitude more than everything else baseSchema
-// does — on the path every literal, instance and primitive factory runs. The
-// prototype is what `new` picks and what Object.assign never copies, so a
-// derived schema falls back to computing its reverse, which is the right
-// answer: what was copied to be modified no longer reverses to itself.
-//
-// Getter only, deliberately: `schema.r = …` on one of these throws (strict
-// mode, no setter), which is the point — the reverse cache is written with
-// defineProperty everywhere it's written at all (parse.ts), and a plain
-// assignment would be shadowing a schema's own identity. Anything copying INTO
-// a self-reversing schema — `Object.assign(schema, …)` with an `r` in the
-// source — would throw for the same reason; copySchema assigns into a fresh
-// plain-prototype instance, which is why it doesn't.
+// A self-reversing schema answers `r` from this prototype getter instead of
+// an own property: the per-instance defineProperty cost an order of magnitude
+// more than everything else baseSchema does. Object.assign never copies the
+// getter, so a derived schema (copySchema) recomputes its reverse — correct,
+// since a copy made to be modified no longer reverses to itself. No setter,
+// so a plain `schema.r = …` throws: the reverse cache is only ever written
+// with defineProperty (parse.ts).
 function SelfReverseSchema(this: Internal): void {}
 const selfReversePrototype: Record<string, unknown> = Object.create(schemaPrototype);
 Object.defineProperty(selfReversePrototype, "r", {
@@ -692,11 +683,13 @@ export const configurableValueOptions = { configurable: true };
 export const valKey = "value";
 export const reversedKey = "r";
 
-const SchemaCtor = Schema as unknown as { new (): Internal };
-const SelfReverseCtor = SelfReverseSchema as unknown as { new (): Internal };
+// `function` declarations have no construct signature in TS, so `new` needs a
+// cast. A type is erased where a `const SchemaCtor = Schema as …` alias would
+// survive minification as a real assignment.
+type SchemaClass = new () => Internal;
 
 export const baseSchema = (tag: Tag, selfReverse: boolean): Internal => {
-  const schema = selfReverse ? new SelfReverseCtor() : new SchemaCtor();
+  const schema = new ((selfReverse ? SelfReverseSchema : Schema) as unknown as SchemaClass)();
   schema.type = tag;
   schema.seq = seq++;
   return schema;
@@ -727,7 +720,7 @@ export const unknown: Internal = baseSchema(unknownTag, true);
 unknown.decoder = noopDecoder;
 
 export const copySchema = (schema: Internal): Internal => {
-  const c: Internal = Object.assign(new SchemaCtor(), schema);
+  const c: Internal = Object.assign(new (Schema as unknown as SchemaClass)(), schema);
   c.seq = seq++;
   return c;
 }

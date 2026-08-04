@@ -903,15 +903,11 @@ export const readScenarios = (raw: string = readScenariosRaw()): Scenarios =>
 const readScenariosRaw = (): string =>
   existsSync(SCENARIOS_PATH) ? readFileSync(SCENARIOS_PATH, "utf8") : "";
 
-// Scenarios have no goldens to go stale, so this checks the two things that
-// can still be wrong: the file's shape, and whether each scenario actually
-// runs. The second is the one that matters — a scenario that throws is
-// reported by the perf pass as "new" (indistinguishable from one the baseline
-// predates), which would leave a typo quietly unmeasured forever.
-//
-// `raw` and `specIds` are injectable (defaulting to the real file and
-// directory) so tests can exercise the reporting without touching the
-// filesystem, same as lintSpecsDir's `names`.
+// Scenarios have no goldens, so this checks the file's shape and that each
+// scenario runs. The second matters most: the perf pass reports a throwing
+// scenario as "new" (indistinguishable from one the baseline predates), which
+// would leave a typo quietly unmeasured forever. `raw`/`specIds` are
+// injectable for tests, same as lintSpecsDir's `names`.
 export const checkScenarios = (
   raw: string = readScenariosRaw(),
   specIds: string[] = listSpecFiles().map(specId),

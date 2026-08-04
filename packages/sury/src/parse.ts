@@ -328,32 +328,22 @@ export const reverse = (schema: Internal): Internal => {
 export const outputExpression = (schema: Internal): string =>
   inputExpression(reverse(schema));
 
-// One-entry memo of the last getDecoder call answered by this schema, held on
-// the cache target under `memoKey`. The keyed cache below is fast to write and
-// impossible to beat on generality, but its key is assembled per call, and a
-// string built at runtime is not internalized: every property lookup with one
-// re-hashes it into the string table, which costs an order of magnitude more
-// than the read it performs. Callers that can't hoist the compiled function —
-// `schema["~standard"].validate` per request, `S.is`/`S.assert` per value —
-// pass the very same arguments every time, so identity-comparing them answers
-// the call before any key exists. Non-enumerable because copySchema's
-// Object.assign must not carry a memo onto a derived schema, where it would
-// hand back the original's compiled function.
+// Memo of getDecoder calls answered by this schema, on the cache target under
+// `memoKey`. The keyed cache below assembles its key per call, and a string
+// built at runtime is not internalized — each lookup with one re-hashes it,
+// an order of magnitude more than the read. Callers that can't hoist the
+// compiled function (`~standard.validate`, `S.is` per value) repeat identical
+// arguments, so identity-comparing answers before any key exists.
+// Non-enumerable so copySchema's Object.assign can't carry it onto a derived
+// schema. Two slots: with one, alternating two operations on a schema misses
+// and rewrites every call — slower than no memo; the first slot keeps the
+// first operation ever memoized, later misses land in the second, so a pair
+// reaches a steady state with no writes.
 //
-// Two slots, not one: a caller alternating two operations on one schema —
-// `S.is(schema, x) || S.parser(schema)(x)` — would make a single entry miss
-// and rewrite on every call, slower than no memo at all. The first slot keeps
-// the first operation ever memoized; every later miss lands in the second, so
-// an alternating pair reaches a steady state with no writes. The memo object
-// itself is defined once per schema (a defineProperty per rewrite would cost
-// more than the string key it replaces) and its slots mutated after.
-//
-// Only a key that is already in the cache is memoized, which is also what
-// keeps this correct against recursiveDecoder (advanced/recursive.ts): it
-// writes and `delete`s the SAME key namespace on a `$defs` entry while
-// recompiling under a corrected assumption, but only while that key is
-// absent — so nothing it deletes can have been memoized here (a memo would
-// survive the delete and keep handing back the discarded function).
+// Only a key already in the cache is memoized — which also keeps this correct
+// against recursiveDecoder (advanced/recursive.ts): it `delete`s keys from
+// this same namespace, but only ones absent before its compile pass, so
+// nothing it deletes can have been memoized here.
 type OpMemo = {
   a: unknown[]; // the schema arguments, in order
   f: Flag;
@@ -398,9 +388,8 @@ export function getDecoder(..._args: unknown[]): (from: unknown) => unknown {
   } else {
     const memo = (cacheTarget as unknown as Record<string, OpMemo | undefined>)[memoKey];
     if (memo !== U) {
-      // The compare loop is spelled out per slot rather than shared through a
-      // helper: passing `args` (an `arguments` alias) out of this function
-      // would force its allocation on every call, hit or miss.
+      // Spelled out per slot: passing `args` (an `arguments` alias) to a
+      // shared helper would force its allocation on every call.
       let a = memo.a;
       if (memo.f === flag && a.length === idx) {
         let i = idx;
@@ -426,13 +415,11 @@ export function getDecoder(..._args: unknown[]): (from: unknown) => unknown {
     const key = keyRef + "-" + flag;
     const cacheTargetRecord = cacheTarget as unknown as Record<string, (from: unknown) => unknown>;
     if (key in cacheTargetRecord) {
-      // Only a repeat of an already-compiled operation is worth memoizing: the
-      // first call has a compile to pay for and would just add the write to it.
+      // Only a repeat of an already-compiled operation is worth memoizing.
       const operation = cacheTargetRecord[key]!;
       const memoArgs = immutableEmptyArray.slice.call(args, 0, idx) as unknown[];
       if (memo === U) {
-        // Slot 2 pre-seeded so every memo keeps one shape: a later a2 write
-        // must not fork the hidden class the hit path's reads are keyed on.
+        // Slot 2 pre-seeded so a later a2 write can't fork the hidden class.
         const created: OpMemo = { a: memoArgs, f: flag!, v: operation, a2: U, f2: U, v2: U };
         (configurableValueOptions as Record<string, unknown>)[valKey] = created;
         Object.defineProperty(cacheTarget, memoKey, configurableValueOptions as PropertyDescriptor);

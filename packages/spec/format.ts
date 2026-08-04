@@ -302,17 +302,11 @@ export const validateBundleSize = (
 
 // ---- scenarios.yaml --------------------------------------------------------
 
-// Perf-only measurements that aren't a schema's contract, so they can't be a
-// spec dimension: a spec times its schema's creation, compilation and compiled
-// operation, which is the library's inner surface. A scenario times a whole
-// call the way a consumer writes it — `schema["~standard"].validate(input)`,
-// `S.is(schema, value)` — where the dispatch around the compiled operation is
-// the thing being measured and is invisible to every per-spec phase.
-//
-// Nothing is snapshotted (perf never stores a number), so a scenario has no
-// goldens and no `--write` step. It is still schema-validated, and `spec check`
-// executes each one against the dev source, so a typo fails the gate instead of
-// silently reporting itself as "new" for the rest of time.
+// A spec times the library's inner surface (create, compile, compiled
+// operation); a scenario times a whole call the way a consumer writes it, so
+// the dispatch around the compiled operation — invisible to every per-spec
+// phase — is inside the measurement. Perf never stores a number, so scenarios
+// have no goldens and no `--write`; `spec check` executes each one instead.
 export const scenarioSchema = S.schema({
   prepare: S.optional(S.string).with(S.meta, {
     description:

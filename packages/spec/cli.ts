@@ -45,10 +45,9 @@ const args = process.argv.slice(2);
 const cmd = args[0];
 const rest = args.slice(1);
 
-// An id names a spec file or a scenario. Scenarios aren't files (they all live
-// in scenarios.yaml), so they come back by name for the perf pass instead —
-// which also means naming only spec ids selects no scenarios, and vice versa.
-// `scenarios` is undefined for an unnarrowed run, meaning "all of them".
+// An id names a spec file or a scenario (not a file — they live in
+// scenarios.yaml), so naming only spec ids selects no scenarios and vice
+// versa. `scenarios` undefined = unnarrowed run = all of them.
 const resolveIds = (ids: string[]): { files: string[]; scenarios?: string[] } => {
   if (!ids.length) return { files: listSpecFiles() };
   const known = new Set(Object.keys(readScenarios()));
@@ -73,9 +72,8 @@ const resolveIds = (ids: string[]): { files: string[]; scenarios?: string[] } =>
   return { files, scenarios };
 };
 
-// `format` rewrites spec files; a scenario has no file of its own and nothing
-// canonical to rewrite, so naming one here is a mistake — failing beats the
-// silent no-op resolveIds would otherwise produce.
+// A scenario has no file to format, so naming one here fails instead of
+// silently no-oping.
 const targets = (ids: string[] = rest): string[] => {
   const { files, scenarios } = resolveIds(ids);
   if (scenarios?.length)
@@ -276,13 +274,9 @@ const cmdCheck = async (): Promise<void> => {
   const { write, perf, against, ids } = parseCheckArgs(rest);
   let failed = 0;
 
-  // Ahead of the --perf=only split because both halves need it. Nothing here
-  // is snapshotted, so there is no --write step: a scenario is either
-  // well-formed and runnable or it's a failure to fix by hand. And a malformed
-  // one is not a stale golden the perf half can shrug off — it's a target that
-  // half cannot build, which deriveTargets would otherwise surface as an
-  // unattributed TypeError out of the TypeScript scanner. A failure to measure
-  // is a real error, so it exits non-zero on either path.
+  // Ahead of the --perf=only split: a malformed scenario is a target the perf
+  // half cannot build — deriveTargets would surface it as an unattributed
+  // TypeError out of the TypeScript scanner — so it fails both paths here.
   const scenarioErrs = checkScenarios();
   if (scenarioErrs.length) {
     failed++;

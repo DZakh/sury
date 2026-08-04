@@ -114,26 +114,21 @@ Object.defineProperty(schemaPrototype, "toString", {
 Object.defineProperty(schemaPrototype, "~standard", {
   get: function (this: Internal) {
     const schema = this;
-    // Hold the compiled decoder in the closure: this is the one Sury entry
-    // point a consumer cannot hoist — the Standard Schema contract is a
-    // per-call `schema["~standard"].validate(input)` — so the getDecoder
-    // lookup would otherwise outweigh the decode itself. `globalConfig.f` is
-    // what getDecoder resolves the flag from, so re-reading it is the whole
-    // invalidation condition.
+    // The decoder lives in the closure: the Standard Schema contract is a
+    // per-call `schema["~standard"].validate(input)`, so the getDecoder
+    // lookup can't be hoisted by the consumer and would outweigh the decode.
+    // `globalConfig.f` is getDecoder's flag source, so re-reading it is the
+    // whole invalidation condition.
     let decoderFlag: Flag | undefined = U;
     let decoder: (input: unknown) => unknown;
     const standard: StandardProps = {
       version: 1,
       vendor,
       validate: (input: unknown): StandardResult => {
-        // Outside the try on purpose. A conversion rejected at operation
-        // creation is a bug in the schema, not a fact about this input: it
-        // fails for every value, and an `issues` entry is what a consumer
-        // renders to the person filling in the form — so reporting it there
-        // puts "Use S.to to define a custom decoder" in front of the wrong
-        // audience, and hides it from the developer whose schema it is.
-        // Thrown instead, and thrown again on every call, since `decoderFlag`
-        // is only committed once there is a decoder to commit it for.
+        // Outside the try: a conversion rejected at operation creation fails
+        // for every input — a schema bug for the developer, not an `issues`
+        // entry for whoever is filling in the form. It throws on every call,
+        // since `decoderFlag` commits only once there is a decoder.
         if (decoderFlag !== globalConfig.f) {
           decoder = getDecoder(unknown, schema) as (input: unknown) => unknown;
           decoderFlag = globalConfig.f;

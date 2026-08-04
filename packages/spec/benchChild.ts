@@ -37,11 +37,9 @@ const buildRunner = (
   const box: { v: unknown } = { v: undefined };
   boxes.push(box);
 
-  // No schema of its own: a scenario is whatever a consumer writes, so it
-  // brings its own setup and its own expression. No `threw` either — the
-  // builder runs the expression once, so a side that can't execute it fails
-  // here (as "new" for the baseline, an error for the current) instead of
-  // reaching a comparison.
+  // A scenario brings its own setup and expression instead of a schema. No
+  // `threw` either — the builder runs the expression once, so a side that
+  // can't execute it fails here instead of reaching a comparison.
   if (target.phase === "scenario")
     return {
       run: buildScenarioRunner(S, { prepareSrc: target.prepareSrc, runSrc: target.runSrc! }, box),
