@@ -26,19 +26,19 @@ operations:
         output: "-4"
       invalid-odd:
         input: "3"
-        error: Expected multiple of 2
+        error: Expected number % 2, received 3
       invalid-fraction:
         input: "2.5"
-        error: Expected multiple of 2
+        error: Expected number % 2, received 2.5
       invalid-infinity:
         input: Infinity
-        error: Expected multiple of 2
+        error: Expected number % 2, received Infinity
       invalid-nan:
         input: NaN
-        error: Expected number, received NaN
+        error: Expected number % 2, received NaN
       invalid-string:
         input: '"4"'
-        error: Expected number, received "4"
+        error: Expected number % 2, received "4"
   decode:
     expression: i=>{i%2===0||e[0](i);return i}
     examples:
@@ -47,7 +47,7 @@ operations:
         output: "4"
       invalid-odd:
         input: "3"
-        error: Expected multiple of 2
+        error: Expected number % 2, received 3
   encode:
     expression: i=>{i%2===0||e[0](i);return i}
     examples:
@@ -56,4 +56,4 @@ operations:
         output: "4"
       invalid-odd:
         input: "3"
-        error: Expected multiple of 2
+        error: Expected number % 2, received 3

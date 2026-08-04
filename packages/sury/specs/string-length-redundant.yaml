@@ -20,13 +20,13 @@ operations:
         output: '"ab"'
       too-short:
         input: '"a"'
-        error: Expected string.length == 2, received "a"
+        error: MY MESSAGE
       too-long:
         input: '"abc"'
-        error: Expected string.length == 2, received "abc"
+        error: MY MESSAGE
       empty:
         input: '""'
-        error: Expected string.length == 2, received ""
+        error: MY MESSAGE
   decode:
     expression: i=>{i.length===2||e[0](i);return i}
     examples:
@@ -35,7 +35,7 @@ operations:
         output: '"ab"'
       too-long:
         input: '"abc"'
-        error: Expected string.length == 2, received "abc"
+        error: MY MESSAGE
   encode:
     expression: i=>{i.length===2||e[0](i);return i}
     examples:
@@ -44,4 +44,4 @@ operations:
         output: '"ab"'
       too-long:
         input: '"abc"'
-        error: Expected string.length == 2, received "abc"
+        error: MY MESSAGE

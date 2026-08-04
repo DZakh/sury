@@ -7,8 +7,8 @@ ts:
 vs:
   zod: z.bigint().multipleOf(2n)
 jsonSchema:
-  input: Expected JSON, received bigint
-  output: Expected JSON, received bigint
+  input: Expected JSON, received bigint % 2n
+  output: Expected JSON, received bigint % 2n
 operations:
   parse:
     expression: i=>{typeof i==="bigint"||e[1](i);i%2n===0n||e[0](i);return i}
@@ -24,10 +24,10 @@ operations:
         output: -4n
       invalid-odd:
         input: 3n
-        error: Expected multiple of 2n
+        error: Expected bigint % 2n, received 3n
       invalid-number:
         input: "4"
-        error: Expected bigint, received 4
+        error: Expected bigint % 2n, received 4
   decode:
     expression: i=>{i%2n===0n||e[0](i);return i}
     examples:
@@ -36,7 +36,7 @@ operations:
         output: 4n
       invalid-odd:
         input: 3n
-        error: Expected multiple of 2n
+        error: Expected bigint % 2n, received 3n
   encode:
     expression: i=>{i%2n===0n||e[0](i);return i}
     examples:
@@ -45,4 +45,4 @@ operations:
         output: 4n
       invalid-odd:
         input: 3n
-        error: Expected multiple of 2n
+        error: Expected bigint % 2n, received 3n

@@ -65,30 +65,6 @@ S.reverse(S.schema({
   `errorMessage[key]` — without that it reports `Expected int32` where the
   refinement reports the bound.
 
-- **A narrowing bound should retract the check it supersedes.** Applying a
-  bound that doesn't narrow is skipped outright, but in the other order the
-  earlier check is already in the refiner chain and can't be pulled back, so
-  `gte(1).gte(5)` runs `i>=1` and `i>=5` where only the second matters. The
-  advertised JSON Schema is right either way — but this is *not* codegen only,
-  which is the part worth fixing first: a superseded check keeps its own
-  message, so which one a caller sees depends on which check fires.
-  `S.string.with(S.maxLength, 5, "MAX").with(S.length, 3)` advertises
-  `string.length == 3` and reports "MAX" for a 6-character string and the
-  generic message for a 4-character one, both being equally "too long"
-  (`specs/string-length-supersedes-maxLength-message.yaml`). Compounding it,
-  `length()` writes its message under both `minLength` and `maxLength` while
-  the check it attaches reads only `minLength` — dead in that order, and in the
-  reverse order (`maxLength(5, "MAX").length(3, "EXACT")`) it overwrites the
-  caller's "MAX" so the surviving `i.length<6` check reports "EXACT". Retracting
-  the check retires both. ArkType
-  reduces both orders to a single `number >= 5` node because its refinements
-  intersect rather than append (`min: (l, r) => l.isStricterThan(r) ? l : r`),
-  so it's reachable, but it needs `internalRefine` to be able to replace a
-  check rather than only push one. Of the rest: Zod narrows the field but runs
-  both checks (same as here), Valibot keeps both in the pipe with no
-  narrowing, and TypeBox lets the later option win outright — so
-  `Type.Number({minimum:5})` overridden by `{minimum:1}` accepts 3.
-
 - **Narrow a numeric format's range check against the schema's own bounds.**
   `S.int32.with(S.gt, 5)` emits `i<=2147483647&&i>=-2147483648&&i%1===0` and
   then `i>5`, but `i>5` already implies the lower half; `S.lt` makes the upper

@@ -11,7 +11,7 @@ jsonSchema:
   output: '{ type: "integer", multipleOf: 6 }'
 operations:
   parse:
-    expression: i=>{typeof i==="number"&&i%1===0||e[2](i);i%2===0||e[0](i);i%6===0||e[1](i);return i}
+    expression: i=>{typeof i==="number"&&i%1===0||e[1](i);i%6===0||e[0](i);return i}
     examples:
       valid:
         input: "12"
@@ -21,28 +21,28 @@ operations:
         output: "0"
       invalid-even-only:
         input: "4"
-        error: Expected multiple of 6
+        error: Expected integer % 6, received 4
       invalid-odd-multiple-of-3:
         input: "9"
-        error: Expected multiple of 2
+        error: Expected integer % 6, received 9
       invalid-neither:
         input: "5"
-        error: Expected multiple of 2
+        error: Expected integer % 6, received 5
   decode:
-    expression: i=>{i%2===0||e[0](i);i%6===0||e[1](i);return i}
+    expression: i=>{i%6===0||e[0](i);return i}
     examples:
       valid:
         input: "12"
         output: "12"
       invalid-even-only:
         input: "4"
-        error: Expected multiple of 6
+        error: Expected integer % 6, received 4
   encode:
-    expression: i=>{i%2===0||e[0](i);i%6===0||e[1](i);return i}
+    expression: i=>{i%6===0||e[0](i);return i}
     examples:
       valid:
         input: "12"
         output: "12"
       invalid-even-only:
         input: "4"
-        error: Expected multiple of 6
+        error: Expected integer % 6, received 4

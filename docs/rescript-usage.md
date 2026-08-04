@@ -311,8 +311,8 @@ S.integer->S.gte(5.) // Expected integer >= 5
 `S.multipleOf` constrains a number or bigint to multiples of a divisor:
 
 ```rescript
-S.float->S.multipleOf(2.) // Expected multiple of 2
-S.bigint->S.multipleOf(2n) // Expected multiple of 2n
+S.float->S.multipleOf(2.) // Expected number % 2
+S.bigint->S.multipleOf(2n) // Expected bigint % 2n
 ```
 
 ### **`float`**

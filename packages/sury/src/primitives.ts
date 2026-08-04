@@ -83,6 +83,12 @@ const typeofCheck = (tag: Tag): Check =>
 const notNanCheck: Check = { c: (inputVar) => `!${nanCond(inputVar)}`, f: failInvalidType };
 const int32Check: Check = { c: int32FormatValidation, f: failInvalidType };
 const integerCheck: Check = { c: integerFormatValidation, f: failInvalidType };
+// For a source that already carries a number format — integer-valued by the
+// NumberFormat invariant — only int32's range is left to check.
+const int32RangeCheck: Check = {
+  c: (inputVar) => `${inputVar}<=2147483647&&${inputVar}>=-2147483648`,
+  f: failInvalidType,
+};
 const nanCheck: Check = { c: nanCond, f: failInvalidType };
 
 // Reject anything but `tag` when the input is still `unknown` — shared by
@@ -143,7 +149,7 @@ export const numberDecoder: Builder = (input: Val) => {
   } else if (!flagUnsafeHas(inputTagFlag, tagFlagNumber)) {
     return B_unsupportedDecode(input, input.s, input.e);
   } else if (input.s.format !== expectedFormat && expectedFormat === "int32") {
-    return B_refine(input, input.e, [int32Check]);
+    return B_refine(input, input.e, [input.s.format === U ? int32Check : int32RangeCheck]);
   } else if (expectedFormat === "integer" && input.s.format === U) {
     // Any formatted number source is already integer-valued (the NumberFormat
     // invariant), so only a bare number still needs the check.

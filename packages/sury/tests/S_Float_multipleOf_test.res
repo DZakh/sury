@@ -11,14 +11,14 @@ test("Successfully parses valid data", t => {
 test("Fails to parse invalid data", t => {
   let schema = S.float->S.multipleOf(2.)
 
-  t->U.assertThrowsMessage(() => 3->S.parseOrThrow(~to=schema), `Expected multiple of 2`)
+  t->U.assertThrowsMessage(() => 3->S.parseOrThrow(~to=schema), `Expected number % 2, received 3`)
 })
 
 test("Works on bigint", t => {
   let schema = S.bigint->S.multipleOf(2n)
 
   t->Assert.deepEqual(4n->S.parseOrThrow(~to=schema), 4n)
-  t->U.assertThrowsMessage(() => 3n->S.parseOrThrow(~to=schema), `Expected multiple of 2n`)
+  t->U.assertThrowsMessage(() => 3n->S.parseOrThrow(~to=schema), `Expected bigint % 2n, received 3n`)
 })
 
 test("Works on integer, which accepts values beyond int32", t => {
@@ -27,7 +27,7 @@ test("Works on integer, which accepts values beyond int32", t => {
   t->Assert.deepEqual(3000000000.->S.parseOrThrow(~to=schema), 3000000000.)
   t->U.assertThrowsMessage(
     () => 2.5->S.parseOrThrow(~to=schema),
-    `Expected integer, received 2.5`,
+    `Expected integer % 2, received 2.5`,
   )
 })
 

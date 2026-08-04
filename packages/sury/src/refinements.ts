@@ -14,6 +14,7 @@ import {
   stringTag,
   SuryError,
   U,
+  updateOutput,
   type Val,
 } from "./base";
 import { B_embed, B_failWithErrorMessage } from "./builder";
@@ -112,7 +113,7 @@ const sizeKey = (schema: Internal, upper: boolean): "minLength" | "maxLength" | 
 // could never shake, where `expression` is the hook base.ts offers for a
 // rendering another module owns.
 const withBounds = (schema: Internal, base: string): string => {
-  const written = schema.bounds!;
+  const written = schema.bounds ?? 0;
   const isArray = schema.type === arrayTag;
   const sized = isArray || schema.type === stringTag;
   const minKey = isArray ? "minItems" : sized ? "minLength" : "minimum";
@@ -123,7 +124,17 @@ const withBounds = (schema: Internal, base: string): string => {
   const exMax = written & 8 ? schema.exclusiveMaximum : U;
   const low = exMin !== U ? exMin : written & 1 ? schema[minKey] : U;
   const high = exMax !== U ? exMax : written & 2 ? schema[maxKey] : U;
-  const subject = sized ? `${base}.length` : base;
+  // A divisor narrows the subject the bounds range over rather than adding a
+  // bound of its own: `-50 < (number % 2) < 50`. Only a sized schema can't
+  // carry one (multipleOf rejects string | array), so `.length` never mixes
+  // with `%`.
+  const mo = schema.multipleOf;
+  const subject0 = sized ? `${base}.length` : base;
+  if (low === U && high === U) {
+    // Only reachable with a bare divisor — nothing wraps it, so no parens.
+    return `${subject0} % ${lit(mo!)}`;
+  }
+  const subject = mo !== U ? `(${subject0} % ${lit(mo)})` : subject0;
   if (low === U) {
     return `${subject} ${exMax !== U ? "<" : "<="} ${lit(high!)}`;
   }
@@ -135,15 +146,128 @@ const withBounds = (schema: Internal, base: string): string => {
     : `${lit(low)} ${exMin !== U ? "<" : "<="} ${subject} ${exMax !== U ? "<" : "<="} ${lit(high)}`;
 };
 
-// Only the first bound on a schema captures the rendering it wraps — a later
-// one inherits this override through the copy and must reuse the same base, or
-// the wrapping nests into `1 <= (1 <= number <= 9) <= 9`. `skipOverride` is
-// what stops the base rendering from re-entering this.
+// Only the first bound or divisor on a schema captures the rendering it
+// wraps — a later one inherits this override through the copy and must reuse
+// the same base, or the wrapping nests into `1 <= (1 <= number <= 9) <= 9`.
+// `skipOverride` is what stops the base rendering from re-entering this.
 const setBoundExpression = (mut: Internal, schema: Internal): void => {
-  if (schema.bounds === U) {
+  if (schema.bounds === U && schema.multipleOf === U) {
     const base = schema.expression;
     mut.expression = (s: Internal) =>
       withBounds(s, base !== U ? base(s) : inputExpression(s, true));
+  }
+};
+
+// One refiner serves every bound and divisor on a schema, reading the fields
+// at codegen time instead of closing over the value each call captured. That
+// is what lets a narrowing call *replace* a check rather than stack a second
+// one after it: `gte(5).gte(10)` compiles to the single `>=10`, and `length(3)`
+// after `maxLength(5)` retracts the `<6` — refinements intersect, ArkType
+// style, rather than append. Reading `input.e` is sound because a refiner is
+// only ever invoked through the schema that owns it (`val.e.refiner(val)`,
+// and the reversed copy carries the same fields), and a bound can never land
+// on a union (assertNumericBound rejects the anyOf tag), so the one context
+// that re-attaches refiners to other schemas — the union compiler — can't
+// receive this one.
+const boundsRefiner = (input: Val): Check[] => {
+  const s = input.e;
+  const written = s.bounds ?? 0;
+  const checks: Check[] = [];
+  if (s.type === stringTag || s.type === arrayTag) {
+    const minKey = sizeKey(s, false);
+    const maxKey = sizeKey(s, true);
+    const min = written & 1 ? (s[minKey] as number) : U;
+    const max = written & 2 ? (s[maxKey] as number) : U;
+    if (min !== U && min === max) {
+      checks.push({
+        c: (inputVar) => `${inputVar}.length===${min}`,
+        f: B_failWithErrorMessage(minKey),
+      });
+    } else {
+      if (min !== U) {
+        checks.push({
+          c: (inputVar) => `${inputVar}.length>${min - 1}`,
+          f: B_failWithErrorMessage(minKey),
+        });
+      }
+      if (max !== U) {
+        checks.push({
+          c: (inputVar) => `${inputVar}.length<${max + 1}`,
+          f: B_failWithErrorMessage(maxKey),
+        });
+      }
+    }
+  } else {
+    const exMin = written & 4 ? s.exclusiveMinimum : U;
+    const min = exMin !== U ? exMin : written & 1 ? s.minimum : U;
+    if (min !== U) {
+      checks.push({
+        c: (inputVar) => `${inputVar}${exMin !== U ? ">" : ">="}${lit(min)}`,
+        f: B_failWithErrorMessage(exMin !== U ? "exclusiveMinimum" : "minimum"),
+      });
+    }
+    const exMax = written & 8 ? s.exclusiveMaximum : U;
+    const max = exMax !== U ? exMax : written & 2 ? s.maximum : U;
+    if (max !== U) {
+      checks.push({
+        c: (inputVar) => `${inputVar}${exMax !== U ? "<" : "<="}${lit(max)}`,
+        f: B_failWithErrorMessage(exMax !== U ? "exclusiveMaximum" : "maximum"),
+      });
+    }
+    const mo = s.multipleOf;
+    if (mo !== U) {
+      checks.push({
+        // A bigint remainder is `0n`, which `===0` never matches — the zero
+        // literal has to be the schema's own numeric type.
+        c: (inputVar) => `${inputVar}%${lit(mo)}===${typeof mo === bigintTag ? "0n" : "0"}`,
+        f: B_failWithErrorMessage("multipleOf"),
+      });
+    }
+  }
+  return checks;
+};
+
+// The refiner is installed once, by whichever bound or divisor lands first;
+// every later one only mutates the fields it reads.
+const updateBounds = (schema: Internal, update: (mut: Internal) => void): Internal =>
+  schema.bounds !== U || schema.multipleOf !== U
+    ? updateOutput(schema, update)
+    : internalRefine(schema, (mut: Internal) => {
+        update(mut);
+        return boundsRefiner;
+      });
+
+// A message on a call that doesn't narrow used to vanish silently; it now
+// carries onto the check that survived — the one that actually fires for the
+// violations the caller described. `key` is U when nothing survives to carry
+// it (a format's own range is enforced by the decoder, not a keyed check).
+const carryMessage = (
+  schema: Internal,
+  key: string | undefined,
+  maybeMessage: string | undefined
+): Internal =>
+  maybeMessage === U || key === U
+    ? schema
+    : updateOutput(schema, (mut: Internal) => {
+        (getMutErrorMessage(mut) as Record<string, string>)[key] = maybeMessage;
+      });
+
+// A message tracks the bound value it was written with: a narrowing
+// replacement without its own message clears the stale text, or the surviving
+// check would report a bound the caller never described.
+const setBoundMessage = (
+  mut: Internal,
+  schema: Internal,
+  key: string,
+  maybeMessage: string | undefined
+): void => {
+  if (maybeMessage !== U) {
+    (getMutErrorMessage(mut) as Record<string, string>)[key] = maybeMessage;
+  } else if (
+    schema.errorMessage !== U &&
+    (schema.errorMessage as Record<string, string | undefined>)[key] !== U
+  ) {
+    (getMutErrorMessage(mut) as Record<string, string | undefined>)[key] = U;
   }
 };
 
@@ -251,21 +375,16 @@ const assertSize = (schema: Internal, value: number, upper: boolean): void => {
 export const gte = (schema: Internal, minValue: number | bigint, maybeMessage?: string): Internal => {
   assertNumericBound("gte", schema, minValue);
   assertLower(schema, minValue, false);
-  if (!narrowsLower(schema, minValue, false)) return schema;
-  return internalRefine(schema, (mut: Internal) => {
+  if (!narrowsLower(schema, minValue, false)) {
+    const written = schema.bounds ?? 0;
+    return carryMessage(schema, written & 4 ? "exclusiveMinimum" : written & 1 ? "minimum" : U, maybeMessage);
+  }
+  return updateBounds(schema, (mut: Internal) => {
     setBoundExpression(mut, schema);
     mut.bounds = ((schema.bounds ?? 0) & ~4) | 1;
     mut.minimum = minValue;
     mut.exclusiveMinimum = U;
-    if (maybeMessage !== U) getMutErrorMessage(mut)["minimum"] = maybeMessage;
-    return (_input: Val) => {
-      return [
-        {
-          c: (inputVar: string) => `${inputVar}>=${lit(minValue)}`,
-          f: B_failWithErrorMessage("minimum"),
-        },
-      ];
-    };
+    setBoundMessage(mut, schema, "minimum", maybeMessage);
   });
 }
 
@@ -273,21 +392,16 @@ export const gte = (schema: Internal, minValue: number | bigint, maybeMessage?: 
 export const lte = (schema: Internal, maxValue: number | bigint, maybeMessage?: string): Internal => {
   assertNumericBound("lte", schema, maxValue);
   assertUpper(schema, maxValue, false);
-  if (!narrowsUpper(schema, maxValue, false)) return schema;
-  return internalRefine(schema, (mut: Internal) => {
+  if (!narrowsUpper(schema, maxValue, false)) {
+    const written = schema.bounds ?? 0;
+    return carryMessage(schema, written & 8 ? "exclusiveMaximum" : written & 2 ? "maximum" : U, maybeMessage);
+  }
+  return updateBounds(schema, (mut: Internal) => {
     setBoundExpression(mut, schema);
     mut.bounds = ((schema.bounds ?? 0) & ~8) | 2;
     mut.maximum = maxValue;
     mut.exclusiveMaximum = U;
-    if (maybeMessage !== U) getMutErrorMessage(mut)["maximum"] = maybeMessage;
-    return (_input: Val) => {
-      return [
-        {
-          c: (inputVar: string) => `${inputVar}<=${lit(maxValue)}`,
-          f: B_failWithErrorMessage("maximum"),
-        },
-      ];
-    };
+    setBoundMessage(mut, schema, "maximum", maybeMessage);
   });
 }
 
@@ -295,21 +409,16 @@ export const lte = (schema: Internal, maxValue: number | bigint, maybeMessage?: 
 export const gt = (schema: Internal, minValue: number | bigint, maybeMessage?: string): Internal => {
   assertNumericBound("gt", schema, minValue);
   assertLower(schema, minValue, true);
-  if (!narrowsLower(schema, minValue, true)) return schema;
-  return internalRefine(schema, (mut: Internal) => {
+  if (!narrowsLower(schema, minValue, true)) {
+    const written = schema.bounds ?? 0;
+    return carryMessage(schema, written & 4 ? "exclusiveMinimum" : written & 1 ? "minimum" : U, maybeMessage);
+  }
+  return updateBounds(schema, (mut: Internal) => {
     setBoundExpression(mut, schema);
     mut.bounds = ((schema.bounds ?? 0) & ~1) | 4;
     mut.exclusiveMinimum = minValue;
     mut.minimum = U;
-    if (maybeMessage !== U) getMutErrorMessage(mut)["exclusiveMinimum"] = maybeMessage;
-    return (_input: Val) => {
-      return [
-        {
-          c: (inputVar: string) => `${inputVar}>${lit(minValue)}`,
-          f: B_failWithErrorMessage("exclusiveMinimum"),
-        },
-      ];
-    };
+    setBoundMessage(mut, schema, "exclusiveMinimum", maybeMessage);
   });
 }
 
@@ -317,21 +426,16 @@ export const gt = (schema: Internal, minValue: number | bigint, maybeMessage?: s
 export const lt = (schema: Internal, maxValue: number | bigint, maybeMessage?: string): Internal => {
   assertNumericBound("lt", schema, maxValue);
   assertUpper(schema, maxValue, true);
-  if (!narrowsUpper(schema, maxValue, true)) return schema;
-  return internalRefine(schema, (mut: Internal) => {
+  if (!narrowsUpper(schema, maxValue, true)) {
+    const written = schema.bounds ?? 0;
+    return carryMessage(schema, written & 8 ? "exclusiveMaximum" : written & 2 ? "maximum" : U, maybeMessage);
+  }
+  return updateBounds(schema, (mut: Internal) => {
     setBoundExpression(mut, schema);
     mut.bounds = ((schema.bounds ?? 0) & ~2) | 8;
     mut.exclusiveMaximum = maxValue;
     mut.maximum = U;
-    if (maybeMessage !== U) getMutErrorMessage(mut)["exclusiveMaximum"] = maybeMessage;
-    return (_input: Val) => {
-      return [
-        {
-          c: (inputVar: string) => `${inputVar}<${lit(maxValue)}`,
-          f: B_failWithErrorMessage("exclusiveMaximum"),
-        },
-      ];
-    };
+    setBoundMessage(mut, schema, "exclusiveMaximum", maybeMessage);
   });
 }
 
@@ -354,7 +458,7 @@ export const multipleOf = (schema: Internal, value: number | bigint, maybeMessag
   // A remainder is checked by truthiness, not `=== 0`: a bigint remainder is
   // `0n`, which `=== 0` never matches.
   const existing = schema.multipleOf as number | undefined;
-  if (existing !== U && !(existing % bound)) return schema;
+  if (existing !== U && !(existing % bound)) return carryMessage(schema, "multipleOf", maybeMessage);
   let divisor: number | bigint = bound;
   if (existing !== U && bound % existing) {
     // Neither divisor implies the other: together they admit exactly the
@@ -373,24 +477,10 @@ export const multipleOf = (schema: Internal, value: number | bigint, maybeMessag
     }
     divisor = (bound / a) * existing;
   }
-  return internalRefine(schema, (mut: Internal) => {
+  return updateBounds(schema, (mut: Internal) => {
+    setBoundExpression(mut, schema);
     mut.multipleOf = divisor;
-    if (maybeMessage !== U) getMutErrorMessage(mut)["multipleOf"] = maybeMessage;
-    return (_input: Val) => {
-      return [
-        {
-          // A bigint remainder is `0n`, which `===0` never matches — the zero
-          // literal has to be the schema's own numeric type.
-          c: (inputVar: string) =>
-            `${inputVar}%${lit(divisor)}===${typeof divisor === bigintTag ? "0n" : "0"}`,
-          // A divisor isn't part of inputExpression (unlike a bound), so the
-          // type-based default would blame the type — "Expected number,
-          // received 3" for a failed %2. The canned message says why instead,
-          // like `pattern` does.
-          f: B_failWithErrorMessage("multipleOf", `Expected multiple of ${lit(divisor)}`),
-        },
-      ];
-    };
+    setBoundMessage(mut, schema, "multipleOf", maybeMessage);
   });
 }
 
@@ -399,20 +489,14 @@ export const minLength = (schema: Internal, length: number, maybeMessage?: strin
   assertLengthBound("minLength", schema, length);
   assertSize(schema, length, false);
   const key = sizeKey(schema, false);
-  if (!narrowsSize(schema[key], length, false)) return schema;
-  return internalRefine(schema, (mut: Internal) => {
+  if (!narrowsSize(schema[key], length, false)) {
+    return carryMessage(schema, (schema.bounds ?? 0) & 1 ? key : U, maybeMessage);
+  }
+  return updateBounds(schema, (mut: Internal) => {
     setBoundExpression(mut, schema);
     mut.bounds = (schema.bounds ?? 0) | 1;
     mut[key] = length;
-    if (maybeMessage !== U) getMutErrorMessage(mut)[key] = maybeMessage;
-    return (_input: Val) => {
-      return [
-        {
-          c: (inputVar: string) => `${inputVar}.length>${length - 1}`,
-          f: B_failWithErrorMessage(key),
-        },
-      ];
-    };
+    setBoundMessage(mut, schema, key, maybeMessage);
   });
 }
 
@@ -421,20 +505,14 @@ export const maxLength = (schema: Internal, length: number, maybeMessage?: strin
   assertLengthBound("maxLength", schema, length);
   assertSize(schema, length, true);
   const key = sizeKey(schema, true);
-  if (!narrowsSize(schema[key], length, true)) return schema;
-  return internalRefine(schema, (mut: Internal) => {
+  if (!narrowsSize(schema[key], length, true)) {
+    return carryMessage(schema, (schema.bounds ?? 0) & 2 ? key : U, maybeMessage);
+  }
+  return updateBounds(schema, (mut: Internal) => {
     setBoundExpression(mut, schema);
     mut.bounds = (schema.bounds ?? 0) | 2;
     mut[key] = length;
-    if (maybeMessage !== U) getMutErrorMessage(mut)[key] = maybeMessage;
-    return (_input: Val) => {
-      return [
-        {
-          c: (inputVar: string) => `${inputVar}.length<${length + 1}`,
-          f: B_failWithErrorMessage(key),
-        },
-      ];
-    };
+    setBoundMessage(mut, schema, key, maybeMessage);
   });
 }
 
@@ -447,26 +525,18 @@ export const length = (schema: Internal, length: number, maybeMessage?: string):
   const maxKey = sizeKey(schema, true);
   // Both sides already pinned here: `=== length` is exactly what runs, so a
   // second copy of it is the one case this adds nothing, the same way a
-  // non-narrowing bound is for the others.
-  if (schema[minKey] === length && schema[maxKey] === length) return schema;
-  return internalRefine(schema, (mut: Internal) => {
+  // non-narrowing bound is for the others. The `===` check reports under
+  // minKey, so that's where a message carries.
+  if (schema[minKey] === length && schema[maxKey] === length) {
+    return carryMessage(schema, minKey, maybeMessage);
+  }
+  return updateBounds(schema, (mut: Internal) => {
     setBoundExpression(mut, schema);
     mut.bounds = (schema.bounds ?? 0) | 3;
     mut[minKey] = length;
     mut[maxKey] = length;
-    if (maybeMessage !== U) {
-      const em = getMutErrorMessage(mut);
-      em[minKey] = maybeMessage;
-      em[maxKey] = maybeMessage;
-    }
-    return (_input: Val) => {
-      return [
-        {
-          c: (inputVar: string) => `${inputVar}.length===${length}`,
-          f: B_failWithErrorMessage(minKey),
-        },
-      ];
-    };
+    setBoundMessage(mut, schema, minKey, maybeMessage);
+    setBoundMessage(mut, schema, maxKey, maybeMessage);
   });
 }
 

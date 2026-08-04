@@ -18,13 +18,13 @@ operations:
         output: "0.2"
       integer-rejected-by-float-remainder:
         input: "1"
-        error: Expected multiple of 0.1
+        error: Expected number % 0.1, received 1
       invalid-float-remainder:
         input: "0.3"
-        error: Expected multiple of 0.1
+        error: Expected number % 0.1, received 0.3
       invalid-not-a-multiple:
         input: "0.25"
-        error: Expected multiple of 0.1
+        error: Expected number % 0.1, received 0.25
   decode:
     expression: i=>{i%0.1===0||e[0](i);return i}
     examples:
@@ -33,7 +33,7 @@ operations:
         output: "0.2"
       invalid-float-remainder:
         input: "0.3"
-        error: Expected multiple of 0.1
+        error: Expected number % 0.1, received 0.3
   encode:
     expression: i=>{i%0.1===0||e[0](i);return i}
     examples:
@@ -42,4 +42,4 @@ operations:
         output: "0.2"
       invalid-float-remainder:
         input: "0.3"
-        error: Expected multiple of 0.1
+        error: Expected number % 0.1, received 0.3
