@@ -47,6 +47,14 @@ parser-lookup:
   # operation, which is what a caller that doesn't hoist `S.parser` repeats.
   run: S.parser(schema)
 
+alternating-lookup:
+  prepare: |
+    const schema = S.schema({ id: S.string, age: S.number });
+  # Two different operations on the same schema per call. The one-entry memo
+  # misses on every lookup here, so this times the miss path — the pattern a
+  # single-slot cache is most at risk of making slower than no cache at all.
+  run: (S.parser(schema), S.decoder(schema))
+
 encoder-lookup:
   prepare: |
     const schema = S.schema({ id: S.string, age: S.number.with(S.to, S.string) });

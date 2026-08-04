@@ -338,19 +338,29 @@ export const outputExpression = (schema: Internal): string =>
 // pass the very same arguments every time, so identity-comparing them answers
 // the call before any key exists. Non-enumerable because copySchema's
 // Object.assign must not carry a memo onto a derived schema, where it would
-// hand back the original's compiled function; configurable because a schema
-// asked for a second operation redefines it.
+// hand back the original's compiled function.
+//
+// Two slots, not one: a caller alternating two operations on one schema —
+// `S.is(schema, x) || S.parser(schema)(x)` — would make a single entry miss
+// and rewrite on every call, slower than no memo at all. The first slot keeps
+// the first operation ever memoized; every later miss lands in the second, so
+// an alternating pair reaches a steady state with no writes. The memo object
+// itself is defined once per schema (a defineProperty per rewrite would cost
+// more than the string key it replaces) and its slots mutated after.
 //
 // Only a key that is already in the cache is memoized, which is also what
 // keeps this correct against recursiveDecoder (advanced/recursive.ts): it
 // writes and `delete`s the SAME key namespace on a `$defs` entry while
-// recompiling under a corrected assumption, but only while that key is absent
-// — so nothing it deletes can have been memoized here. A memo would survive such a delete and
-// keep handing back the discarded function.
+// recompiling under a corrected assumption, but only while that key is
+// absent — so nothing it deletes can have been memoized here (a memo would
+// survive the delete and keep handing back the discarded function).
 type OpMemo = {
   a: unknown[]; // the schema arguments, in order
   f: Flag;
   v: (from: unknown) => unknown;
+  a2?: unknown[];
+  f2?: Flag;
+  v2?: (from: unknown) => unknown;
 };
 const memoKey = "c";
 
@@ -387,11 +397,25 @@ export function getDecoder(..._args: unknown[]): (from: unknown) => unknown {
     return panic("No schema provided for decoder.");
   } else {
     const memo = (cacheTarget as unknown as Record<string, OpMemo | undefined>)[memoKey];
-    if (memo !== U && memo.f === flag && memo.a.length === idx) {
-      let i = idx;
-      while (i-- !== 0 && memo.a[i] === args[i]) {}
-      if (i < 0) {
-        return memo.v;
+    if (memo !== U) {
+      // The compare loop is spelled out per slot rather than shared through a
+      // helper: passing `args` (an `arguments` alias) out of this function
+      // would force its allocation on every call, hit or miss.
+      let a = memo.a;
+      if (memo.f === flag && a.length === idx) {
+        let i = idx;
+        while (i-- !== 0 && a[i] === args[i]) {}
+        if (i < 0) {
+          return memo.v;
+        }
+      }
+      a = memo.a2!;
+      if (a !== U && memo.f2 === flag && a.length === idx) {
+        let i = idx;
+        while (i-- !== 0 && a[i] === args[i]) {}
+        if (i < 0) {
+          return memo.v2!;
+        }
       }
     }
 
@@ -405,13 +429,18 @@ export function getDecoder(..._args: unknown[]): (from: unknown) => unknown {
       // Only a repeat of an already-compiled operation is worth memoizing: the
       // first call has a compile to pay for and would just add the write to it.
       const operation = cacheTargetRecord[key]!;
-      const created: OpMemo = {
-        a: immutableEmptyArray.slice.call(args, 0, idx) as unknown[],
-        f: flag!,
-        v: operation,
-      };
-      (configurableValueOptions as Record<string, unknown>)[valKey] = created;
-      Object.defineProperty(cacheTarget, memoKey, configurableValueOptions as PropertyDescriptor);
+      const memoArgs = immutableEmptyArray.slice.call(args, 0, idx) as unknown[];
+      if (memo === U) {
+        // Slot 2 pre-seeded so every memo keeps one shape: a later a2 write
+        // must not fork the hidden class the hit path's reads are keyed on.
+        const created: OpMemo = { a: memoArgs, f: flag!, v: operation, a2: U, f2: U, v2: U };
+        (configurableValueOptions as Record<string, unknown>)[valKey] = created;
+        Object.defineProperty(cacheTarget, memoKey, configurableValueOptions as PropertyDescriptor);
+      } else {
+        memo.a2 = memoArgs;
+        memo.f2 = flag!;
+        memo.v2 = operation;
+      }
       return operation;
     } else {
       let schema: Internal = args[idx - 1] as Internal;

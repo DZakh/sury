@@ -73,7 +73,15 @@ const resolveIds = (ids: string[]): { files: string[]; scenarios?: string[] } =>
   return { files, scenarios };
 };
 
-const targets = (ids: string[] = rest): string[] => resolveIds(ids).files;
+// `format` rewrites spec files; a scenario has no file of its own and nothing
+// canonical to rewrite, so naming one here is a mistake — failing beats the
+// silent no-op resolveIds would otherwise produce.
+const targets = (ids: string[] = rest): string[] => {
+  const { files, scenarios } = resolveIds(ids);
+  if (scenarios?.length)
+    fail(`${scenarios.join(", ")}: a scenario, not a spec — only \`spec check\` runs scenarios`);
+  return files;
+};
 
 function fail(msg: string): never {
   console.error(red(msg));

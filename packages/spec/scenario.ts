@@ -21,6 +21,13 @@ export type ScenarioSource = {
 // once before being handed back — so a version that can't execute the scenario
 // at all (a baseline predating the API it calls) fails here, where the caller
 // can report it as "new", rather than mid-measurement.
+//
+// The harness's own identifiers are `__`-prefixed because `prepare` shares
+// their scope: a scenario binding a plain `box` or `run` would otherwise
+// shadow them — silently, for the `var`/`function` forms the gate's
+// SyntaxError can't catch — and disconnect the sink that keeps the JIT from
+// dead-code-eliminating the measured expression. `S` stays unprefixed: it IS
+// the scenario's contract.
 export const buildScenarioRunner = (
   S: unknown,
   source: ScenarioSource,
@@ -28,9 +35,9 @@ export const buildScenarioRunner = (
 ): ((n: number) => void) =>
   new Function(
     "S",
-    "box",
+    "__box",
     `${source.prepareSrc ?? ""}
-const run = (n) => { for (let i = 0; i < n; i++) box.v = (${source.runSrc}); };
-run(1);
-return run;`,
+const __run = (__n) => { for (let __i = 0; __i < __n; __i++) __box.v = (${source.runSrc}); };
+__run(1);
+return __run;`,
   )(S, box) as (n: number) => void;
