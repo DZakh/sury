@@ -25,6 +25,7 @@ import {
   pathEmpty,
   reversedKey,
   s,
+  schemaPrototype,
   setHas,
   tagFlagArray,
   tagFlagBigint,
@@ -260,67 +261,78 @@ const reverseDict = (dict: Record<string, Internal>): Record<string, Internal> =
   return reversed;
 }
 
-// @__NO_SIDE_EFFECTS__
-export const reverse = (schema: Internal): Internal => {
-  const schemaRecord = schema as unknown as Record<string, Internal>;
-  if (reversedKey in schemaRecord) {
-    return schemaRecord[reversedKey]!;
-  } else {
+// The general `reversed` getter: every schema can answer its reverse — the
+// self-reverse prototype shadows this with `this`, and a first read here
+// computes, then caches both directions as own non-enumerable properties
+// (own beats the getter on every later read). Free bundle-wise: `toString`
+// above already makes `reverse` unshakeable. `schema.reverse` overrides the
+// walk, same pattern as `expression` (base.ts).
+Object.defineProperty(schemaPrototype, reversedKey, {
+  get: function (this: Internal): Internal {
+    const schema = this;
     let reversedHead: Internal | undefined = U;
-    let current: Internal | undefined = schema;
-
-    while (current) {
-      const mut = copySchema(current!);
-      const next = mut.to;
-      if (reversedHead === U) {
-        delete mut.to;
-      } else {
-        mut.to = reversedHead;
-      }
-      const record = mut as unknown as Record<string, unknown>;
-      reverseSwap(record, "parser", "serializer");
-      reverseSwap(record, "refiner", "inputRefiner");
-      reverseSwap(record, "fromDefault", "default");
-      if (mut.items !== U) {
-        mut.items = mut.items.map(reverse);
-      }
-      if (mut.properties !== U) {
-        mut.properties = reverseDict(mut.properties);
-      }
-      // Skip tuple
-      if (typeof mut.additionalItems === objectTag) {
-        mut.additionalItems = reverse(mut.additionalItems as Internal);
-      }
-      if (mut.anyOf !== U) {
-        const anyOf = mut.anyOf;
-        const has: Record<string, boolean> = {};
-        const newAnyOf: Internal[] = [];
-        for (let idx = 0; idx <= anyOf.length - 1; idx++) {
-          const s = anyOf[idx]!;
-          const reversed = reverse(s);
-          newAnyOf.push(reversed);
-          setHas(has, reversed.type);
+    if (schema.reverse !== U) {
+      reversedHead = schema.reverse(schema);
+    } else {
+      let current: Internal | undefined = schema;
+      while (current) {
+        const mut = copySchema(current!);
+        const next = mut.to;
+        if (reversedHead === U) {
+          delete mut.to;
+        } else {
+          mut.to = reversedHead;
         }
-        mut.has = has;
-        mut.anyOf = newAnyOf;
+        const record = mut as unknown as Record<string, unknown>;
+        reverseSwap(record, "parser", "serializer");
+        reverseSwap(record, "refiner", "inputRefiner");
+        reverseSwap(record, "fromDefault", "default");
+        if (mut.items !== U) {
+          mut.items = mut.items.map(reverse);
+        }
+        if (mut.properties !== U) {
+          mut.properties = reverseDict(mut.properties);
+        }
+        // Skip tuple
+        if (typeof mut.additionalItems === objectTag) {
+          mut.additionalItems = reverse(mut.additionalItems as Internal);
+        }
+        if (mut.anyOf !== U) {
+          const anyOf = mut.anyOf;
+          const has: Record<string, boolean> = {};
+          const newAnyOf: Internal[] = [];
+          for (let idx = 0; idx <= anyOf.length - 1; idx++) {
+            const s = anyOf[idx]!;
+            const reversed = reverse(s);
+            newAnyOf.push(reversed);
+            setHas(has, reversed.type);
+          }
+          mut.has = has;
+          mut.anyOf = newAnyOf;
+        }
+        if (mut["$defs"] !== U) {
+          mut["$defs"] = reverseDict(mut["$defs"]);
+        }
+        reversedHead = mut;
+        current = next;
       }
-      if (mut["$defs"] !== U) {
-        mut["$defs"] = reverseDict(mut["$defs"]);
-      }
-      reversedHead = mut;
-      current = next;
     }
 
-    // Use defineProperty even though it's slower
-    // but it improves logging experience a lot
+    // defineProperty (slower, once per schema) keeps the cache non-enumerable:
+    // enumerability is load-bearing, not cosmetic — copySchema's Object.assign,
+    // optionFactory-style spreads, and unionIsTransparent's field count all walk
+    // enumerable fields and must not see it.
     const r = reversedHead!;
     valueOptions[valKey] = r;
     Object.defineProperty(schema, reversedKey, valueOptions as PropertyDescriptor);
     valueOptions[valKey] = schema;
     Object.defineProperty(r, reversedKey, valueOptions as PropertyDescriptor);
     return r;
-  }
-}
+  },
+});
+
+// @__NO_SIDE_EFFECTS__
+export const reverse = (schema: Internal): Internal => schema.r!;
 
 // Lives here rather than beside `inputExpression` in base.ts so that only the
 // consumers who ask for the output side carry `reverse`.

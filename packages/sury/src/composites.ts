@@ -175,7 +175,7 @@ export const completeObjectVal = (objectVal: Val): Val => {
 // @__NO_SIDE_EFFECTS__
 export const array = (item: Internal): Internal => {
   const itemInternal = item;
-  const mut = baseSchema(arrayTag, itemInternal.r === itemInternal);
+  const mut = baseSchema(arrayTag, !!itemInternal.sr);
   mut.additionalItems = itemInternal;
   mut.items = immutableEmptyArray as Internal[];
   mut.decoder = arrayDecoder;
@@ -553,7 +553,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
 
 // @__NO_SIDE_EFFECTS__
 export const dictFactory = (item: Internal): Internal => {
-  const mut = baseSchema(objectTag, item.r === item);
+  const mut = baseSchema(objectTag, !!item.sr);
   mut.properties = immutableEmptyObject as Record<string, Internal>;
   mut.additionalItems = item;
   mut.decoder = objectDecoder;
