@@ -6,6 +6,7 @@ import {
   type AdditionalItems,
   arrayTag,
   baseSchema,
+  copySchema,
   type Check,
   type ErrorDetails,
   flagUnsafeHas,
@@ -613,12 +614,14 @@ export const optionFactory = (item: Internal, unitSchema: Internal = unit): Inte
           const nestedSchema = properties[nestedLoc];
           if (nestedSchema !== U) {
             toPush = updateOutput<Internal>(schema, (mut) => {
+              // copySchema, not a spread: a spread keeps the original's seq,
+              // and two schemas sharing a seq can collide in the seq-keyed
+              // operation caches.
+              const bumped = copySchema(nestedSchema);
+              bumped.const = (nestedSchema.const as number) + 1;
               // FIXME: dict{}
               const properties: Record<string, Internal> = {};
-              properties[nestedLoc] = {
-                ...nestedSchema,
-                const: (nestedSchema.const as number) + 1,
-              } as Internal;
+              properties[nestedLoc] = bumped;
               mut.properties = properties;
             });
           } else {
