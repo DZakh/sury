@@ -6,13 +6,13 @@ import * as Sury from "sury";
 import * as Vitest from "../utils/Vitest.res.mjs";
 import * as Vitest$1 from "vitest";
 
-let simpleObjectSchema = Sury.$res_schema(s => ({
+let simpleObjectSchema = Sury.$schema(s => ({
   label: s.m(Sury.string),
   value: s.m(Sury.int)
 }));
 
 Vitest$1.test("Simple object schema", t => {
-  U.assertEqualSchemas(t, simpleObjectSchema, Sury.$res_schema(s => ({
+  U.assertEqualSchemas(t, simpleObjectSchema, Sury.$schema(s => ({
     label: s.m(Sury.string),
     value: s.m(Sury.int)
   })), undefined);

@@ -34,14 +34,13 @@
     "./src/S.res.mjs",
     "./src/S.res.js"
   ],
-  "main": "./src/S.mjs",
-  "module": "./src/S.mjs",
-  "types": "./src/S.d.ts",
+  "main": "./index.mjs",
+  "module": "./index.mjs",
+  "types": "./index.d.ts",
   "exports": {
     ".": {
-      "import": "./src/S.mjs",
-      "require": "./src/S.js",
-      "types": "./src/S.d.ts"
+      "types": "./index.d.ts",
+      "import": "./index.mjs"
     },
     "./src/*": "./src/*",
     "./S.gen.js": {
@@ -49,11 +48,6 @@
     },
     "./package.json": "./package.json"
   },
-  "files": [
-    "src",
-    "rescript.json",
-    "specs/*.yaml"
-  ],
   "scripts": {
     "coverage": "pnpm build:entry && vitest run --coverage",
     "spec": "pnpm build:entry && tsx ../spec/cli.ts",

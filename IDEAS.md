@@ -214,7 +214,7 @@ S.reverse(S.schema({
   (`packages/sury/src/jsonschema.ts`, the two max dispatch sites), so
   exclusive upper bounds round-trip incorrectly.
 - **`S.merge` forces all keys of both objects into `required`.**
-  `js_merge` (`packages/sury/src/jsapi.ts`) rebuilds the merged object with
+  `merge` (`packages/sury/src/entry.ts`) rebuilds the merged object with
   every property required, dropping optionality that either side declared.
 - **`inlinedValueFromString` escapes only `"` and `\n`.**
   (`packages/sury/src/types.ts`) — other control characters (`\r`, `\t`,
@@ -242,7 +242,7 @@ S.reverse(S.schema({
   ReScript `Object.setAdditionalItems` (`Sury.res`), carried through the TS
   migration unchanged.
 - **Homomorphic tuple-mapped types don't map variadic tuple elements.**
-  `UnknownArrayToOutput`/`UnknownArrayToInput` (`packages/sury/src/S.d.ts`)
+  `UnknownArrayToOutput`/`UnknownArrayToInput` (`packages/sury/index.d.ts`)
   guard on `number extends T["length"]` to distinguish tuples from plain
   arrays, but a variadic tuple like `[string, ...number[]]` also has
   `T["length"]` widened to `number`, so it falls into the "return as-is"

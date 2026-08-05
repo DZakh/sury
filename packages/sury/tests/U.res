@@ -143,15 +143,7 @@ let getCompiledCodeString = (
       defs->Dict.forEachWithKey((schema, key) =>
         try {
           let defFn = schema->toFn
-          let defCode =
-            defFn["toString"]()->String.replaceAll(
-              `${(S.unknown->S.untag).seq->Float.toString}-${(
-                  schema->S.untag
-                ).seq->Float.toString}`,
-              `unknown->${key}`,
-            )
-
-          code := code.contents ++ "\n" ++ `${key}: ${defCode}`
+          code := code.contents ++ "\n" ++ `${key}: ${defFn["toString"]()}`
         } catch {
         | _exn => ()
         }

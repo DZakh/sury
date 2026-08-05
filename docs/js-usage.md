@@ -1,4 +1,4 @@
-[⬅ Back to highlights](/README.md)
+[⬅ Back to highlights](../README.md)
 
 # JavaScript API reference
 
@@ -9,7 +9,7 @@
 - [Basic usage](#basic-usage)
   - [Parsing data](#parsing-data)
   - [Inferred types](#inferred-types)
-  - [Serializing data](#serializing-data)
+  - [Encoding data](#encoding-data)
   - [JSON Schema](#json-schema)
   - [Standard Schema](#standard-schema)
 - [Defining schemas](#defining-schemas)
@@ -99,7 +99,7 @@ S.parser(playerSchema)({ username: "billie", xp: "not a number" });
 
 Use `S.safe` / `S.safeAsync` if you'd rather have a result than an exception — see [Error handling](#error-handling).
 
-> 🧠 Besides `parser` there are operations to transform without validation, assert without allocating an output, and serialize back to the input format. See [Functions on schema](#functions-on-schema).
+> 🧠 Besides `parser` there are operations to transform without validation, assert without allocating an output, and encode back to the input format. See [Functions on schema](#functions-on-schema).
 
 ### Inferred types
 
@@ -124,9 +124,9 @@ const parseT = <T>(schema: S.Schema<unknown, T>, data: unknown): T =>
   S.parser(schema)(data);
 ```
 
-### Serializing data
+### Encoding data
 
-Every schema has an `Input` type as well as an `Output` type, so the same definition serializes back to the input format:
+Every schema has an `Input` type as well as an `Output` type, so the same definition encodes back to the input format:
 
 ```ts
 S.encoder(playerSchema)({ username: "billie", xp: 100 });
@@ -268,6 +268,7 @@ S.tuple([S.string, S.number]); // alias for S.schema
 
 // Unions
 S.union([S.string, S.number]);
+S.anyOf([S.string, S.number]); // alias for S.union
 // Enum-like union of literals
 S.union(["Win", "Draw", "Loss"]);
 // Discriminated unions
@@ -304,7 +305,7 @@ S.jsonStringWithSpace(2);
 // Parses JSON string and validates that it's a number
 // JSON string -> number
 S.jsonString.with(S.to, S.number);
-// Serializes number to JSON string
+// Encodes number to JSON string
 S.number.with(S.to, S.jsonString);
 
 // Asserts that the input is a Date instance and not Invalid Date
@@ -729,6 +730,8 @@ The schema function `union` creates an OR relationship between any number of sch
 
 > 🧠 Members are matched in the order they are passed to `S.union` — the first one that fits the value wins.
 
+It's also available as `S.anyOf`, matching the JSON Schema keyword it maps to.
+
 ```ts
 // TypeScript type for reference:
 // type Union = string | number;
@@ -1106,7 +1109,7 @@ const evenPositiveSchema = S.number
   .with(S.refine, (val) => val % 2 === 0, { error: "Must be even" });
 ```
 
-The refine function is applied for both parsing and serializing.
+The refine function is applied for both parsing and encoding.
 
 Also, you can have an asynchronous assertion (for decoder only):
 
@@ -1214,7 +1217,7 @@ Note, that in this case only type validations are skipped. If your schema has re
 
 Also, you can use `S.noValidation(schema, true)` helper to turn off type validations for the schema even when it's used with a parse operation.
 
-More often than converting input to output, you'll need to perform the reversed operation. It's usually called "serializing" or "decoding". The ReScript Schema has a unique mental model and provides an ability to reverse any schema with `S.reverse` which you can later use with all possible kinds of operations. But for convinence, there's a few helper functions that can be used to convert output values to the initial format:
+More often than converting input to output, you'll need to perform the reversed operation — encoding. **Sury** has a unique mental model and provides an ability to reverse any schema with `S.reverse` which you can later use with all possible kinds of operations. But for convenience, there's a few helper functions that can be used to convert output values to the initial format:
 
 | Operation       | Interface                                              | Description                                                           |
 | --------------- | ------------------------------------------------------ | --------------------------------------------------------------------- |
@@ -1272,8 +1275,6 @@ const stringifyUser = S.encoder(userSchema, S.jsonString);
 stringifyUser({ id: "1", name: "John" });
 ```
 
-This covers the use cases that previously needed `S.compile` — see the [migration cheat sheet](/IDEAS.md#typescript--javascript) for the full mapping.
-
 ### **`reverse`**
 
 ```ts
@@ -1293,7 +1294,7 @@ S.parser(reversed)("bar");
 // {"foo": "bar"}
 
 S.parser(reversed)(123);
-// throws S.error with the message: `Expected string, received 123`
+// throws S.Error with the message: `Expected string, received 123`
 ```
 
 Reverses the schema. This gets especially magical for schemas with transformations 🪄
@@ -1358,7 +1359,7 @@ Used internally for readable error messages.
 S.inputExpression(S.schema({ abc: 123 }));
 // "{ abc: 123; }"
 
-S.inputExpression(S.name(S.string, "Address"));
+S.inputExpression(S.string.with(S.meta, { name: "Address" }));
 // "Address"
 ```
 

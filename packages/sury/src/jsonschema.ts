@@ -1116,5 +1116,5 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
 //   json, jsonString, jsonStringWithSpace, uint8Array, isoDateTime, port,
 //   email, uuid, cuid, url
 //
-// The bindings layer (Sury.res / S.d.ts) should re-export the already-defined
+// The bindings layer (Sury.res / index.d.ts) should re-export the already-defined
 // functions of the same names under their public types.
