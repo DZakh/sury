@@ -1,7 +1,7 @@
 import { test, expectTypeOf, assertType } from "vitest";
 import { format, inspect } from "node:util";
 
-import * as S from "../src/S.mjs";
+import * as S from "../index.mjs";
 
 // FIXME: S.lte should be applied to output
 // From https://x.com/dzakh_dev/status/1963982551208309222
