@@ -6,7 +6,7 @@ import * as Sury from "sury";
 import * as Vitest from "../utils/Vitest.res.mjs";
 import * as Vitest$1 from "vitest";
 
-let nodeSchema = Sury.recursive("node", nodeSchema => Sury.$res_schema(s => ({
+let nodeSchema = Sury.recursive("node", nodeSchema => Sury.$schema(s => ({
   id: s.m(Sury.string),
   children: s.m(Sury.array(nodeSchema))
 })));
@@ -35,11 +35,11 @@ Vitest$1.test("Self-recursive record", t => {
 });
 
 let treeSchema = Sury.recursive("tree", treeSchema => Sury.union([
-  Sury.$res_schema(s => ({
+  Sury.$schema(s => ({
     TAG: "Leaf",
     _0: s.m(Sury.int)
   })),
-  Sury.$res_schema(s => ({
+  Sury.$schema(s => ({
     TAG: "Branch",
     _0: s.m(Sury.array(treeSchema))
   }))
@@ -63,11 +63,11 @@ Vitest$1.test("Self-recursive variant", t => U.assertReverseParsesBack(t, treeSc
 }));
 
 let polyTreeSchema = Sury.recursive("polyTree", polyTreeSchema => Sury.union([
-  Sury.$res_schema(s => ({
+  Sury.$schema(s => ({
     NAME: "leaf",
     VAL: s.m(Sury.int)
   })),
-  Sury.$res_schema(s => ({
+  Sury.$schema(s => ({
     NAME: "branch",
     VAL: s.m(Sury.array(polyTreeSchema))
   }))
@@ -90,8 +90,8 @@ Vitest$1.test("Self-recursive polyvariant", t => U.assertReverseParsesBack(t, po
   ]
 }));
 
-let chainSchema = Sury.recursive("chain", chainSchema => Sury.$res_schema(s => ({
-  next: s.m(Sury.$res_option(chainSchema))
+let chainSchema = Sury.recursive("chain", chainSchema => Sury.$schema(s => ({
+  next: s.m(Sury.$option(chainSchema))
 })));
 
 Vitest$1.test("Self-recursive through option", t => U.assertReverseParsesBack(t, chainSchema, {
@@ -102,8 +102,8 @@ Vitest$1.test("Self-recursive through option", t => U.assertReverseParsesBack(t,
   }
 }));
 
-let pairSchema = Sury.recursive("pair", pairSchema => Sury.$res_schema(s => ({
-  both: s.m(Sury.$res_option(Sury.$res_schema(s => [
+let pairSchema = Sury.recursive("pair", pairSchema => Sury.$schema(s => ({
+  both: s.m(Sury.$option(Sury.$schema(s => [
     s.m(pairSchema),
     s.m(pairSchema)
   ])))
@@ -125,16 +125,16 @@ let notActuallyRecSchema = Sury.int;
 Vitest$1.test("A rec type that never references itself stays a plain schema", t => U.assertEqualSchemas(t, notActuallyRecSchema, Sury.int, undefined));
 
 let exprSchema = Sury.recursive("expr", exprSchema => {
-  let stmtSchema = Sury.recursive("stmt", stmtSchema => Sury.$res_schema(s => ({
+  let stmtSchema = Sury.recursive("stmt", stmtSchema => Sury.$schema(s => ({
     label: s.m(Sury.string),
     body: s.m(exprSchema)
   })));
   return Sury.union([
-    Sury.$res_schema(s => ({
+    Sury.$schema(s => ({
       TAG: "Num",
       _0: s.m(Sury.int)
     })),
-    Sury.$res_schema(s => ({
+    Sury.$schema(s => ({
       TAG: "Block",
       _0: s.m(Sury.array(stmtSchema))
     }))
@@ -143,16 +143,16 @@ let exprSchema = Sury.recursive("expr", exprSchema => {
 
 let stmtSchema = Sury.recursive("stmt", stmtSchema => {
   let exprSchema = Sury.recursive("expr", exprSchema => Sury.union([
-    Sury.$res_schema(s => ({
+    Sury.$schema(s => ({
       TAG: "Num",
       _0: s.m(Sury.int)
     })),
-    Sury.$res_schema(s => ({
+    Sury.$schema(s => ({
       TAG: "Block",
       _0: s.m(Sury.array(stmtSchema))
     }))
   ]));
-  return Sury.$res_schema(s => ({
+  return Sury.$schema(s => ({
     label: s.m(Sury.string),
     body: s.m(exprSchema)
   }));
@@ -195,43 +195,43 @@ Vitest$1.test("Mutually recursive types work from either entry point", t => {
 
 let aSchema = Sury.recursive("a", aSchema => {
   let bSchema = Sury.recursive("b", bSchema => {
-    let cSchema = Sury.recursive("c", cSchema => Sury.$res_schema(s => ({
-      a: s.m(Sury.$res_option(aSchema))
+    let cSchema = Sury.recursive("c", cSchema => Sury.$schema(s => ({
+      a: s.m(Sury.$option(aSchema))
     })));
-    return Sury.$res_schema(s => ({
-      c: s.m(Sury.$res_option(cSchema))
+    return Sury.$schema(s => ({
+      c: s.m(Sury.$option(cSchema))
     }));
   });
-  return Sury.$res_schema(s => ({
-    b: s.m(Sury.$res_option(bSchema))
+  return Sury.$schema(s => ({
+    b: s.m(Sury.$option(bSchema))
   }));
 });
 
 let bSchema = Sury.recursive("b", bSchema => {
   let cSchema = Sury.recursive("c", cSchema => {
-    let aSchema = Sury.recursive("a", aSchema => Sury.$res_schema(s => ({
-      b: s.m(Sury.$res_option(bSchema))
+    let aSchema = Sury.recursive("a", aSchema => Sury.$schema(s => ({
+      b: s.m(Sury.$option(bSchema))
     })));
-    return Sury.$res_schema(s => ({
-      a: s.m(Sury.$res_option(aSchema))
+    return Sury.$schema(s => ({
+      a: s.m(Sury.$option(aSchema))
     }));
   });
-  return Sury.$res_schema(s => ({
-    c: s.m(Sury.$res_option(cSchema))
+  return Sury.$schema(s => ({
+    c: s.m(Sury.$option(cSchema))
   }));
 });
 
 let cSchema = Sury.recursive("c", cSchema => {
   let aSchema = Sury.recursive("a", aSchema => {
-    let bSchema = Sury.recursive("b", bSchema => Sury.$res_schema(s => ({
-      c: s.m(Sury.$res_option(cSchema))
+    let bSchema = Sury.recursive("b", bSchema => Sury.$schema(s => ({
+      c: s.m(Sury.$option(cSchema))
     })));
-    return Sury.$res_schema(s => ({
-      b: s.m(Sury.$res_option(bSchema))
+    return Sury.$schema(s => ({
+      b: s.m(Sury.$option(bSchema))
     }));
   });
-  return Sury.$res_schema(s => ({
-    a: s.m(Sury.$res_option(aSchema))
+  return Sury.$schema(s => ({
+    a: s.m(Sury.$option(aSchema))
   }));
 });
 
@@ -266,45 +266,45 @@ Vitest$1.test("Three-way mutual cycle works from every entry point", t => {
 });
 
 let rootSchema = Sury.recursive("root", rootSchema => {
-  let lastSchema = Sury.recursive("last", lastSchema => Sury.$res_schema(s => ({
-    back: s.m(Sury.$res_option(rootSchema))
+  let lastSchema = Sury.recursive("last", lastSchema => Sury.$schema(s => ({
+    back: s.m(Sury.$option(rootSchema))
   })));
-  let midSchema = Sury.recursive("mid", midSchema => Sury.$res_schema(s => ({
-    tail: s.m(Sury.$res_option(lastSchema))
+  let midSchema = Sury.recursive("mid", midSchema => Sury.$schema(s => ({
+    tail: s.m(Sury.$option(lastSchema))
   })));
-  return Sury.$res_schema(s => ({
-    mid: s.m(Sury.$res_option(midSchema)),
-    last: s.m(Sury.$res_option(lastSchema))
+  return Sury.$schema(s => ({
+    mid: s.m(Sury.$option(midSchema)),
+    last: s.m(Sury.$option(lastSchema))
   }));
 });
 
 let midSchema = Sury.recursive("mid", midSchema => {
   let lastSchema = Sury.recursive("last", lastSchema => {
-    let rootSchema = Sury.recursive("root", rootSchema => Sury.$res_schema(s => ({
-      mid: s.m(Sury.$res_option(midSchema)),
-      last: s.m(Sury.$res_option(lastSchema))
+    let rootSchema = Sury.recursive("root", rootSchema => Sury.$schema(s => ({
+      mid: s.m(Sury.$option(midSchema)),
+      last: s.m(Sury.$option(lastSchema))
     })));
-    return Sury.$res_schema(s => ({
-      back: s.m(Sury.$res_option(rootSchema))
+    return Sury.$schema(s => ({
+      back: s.m(Sury.$option(rootSchema))
     }));
   });
-  return Sury.$res_schema(s => ({
-    tail: s.m(Sury.$res_option(lastSchema))
+  return Sury.$schema(s => ({
+    tail: s.m(Sury.$option(lastSchema))
   }));
 });
 
 let lastSchema = Sury.recursive("last", lastSchema => {
   let rootSchema = Sury.recursive("root", rootSchema => {
-    let midSchema = Sury.recursive("mid", midSchema => Sury.$res_schema(s => ({
-      tail: s.m(Sury.$res_option(lastSchema))
+    let midSchema = Sury.recursive("mid", midSchema => Sury.$schema(s => ({
+      tail: s.m(Sury.$option(lastSchema))
     })));
-    return Sury.$res_schema(s => ({
-      mid: s.m(Sury.$res_option(midSchema)),
-      last: s.m(Sury.$res_option(lastSchema))
+    return Sury.$schema(s => ({
+      mid: s.m(Sury.$option(midSchema)),
+      last: s.m(Sury.$option(lastSchema))
     }));
   });
-  return Sury.$res_schema(s => ({
-    back: s.m(Sury.$res_option(rootSchema))
+  return Sury.$schema(s => ({
+    back: s.m(Sury.$option(rootSchema))
   }));
 });
 
@@ -339,23 +339,23 @@ let g1Schema = Sury.recursive("g1", g1Schema => {
   let g2Schema = Sury.recursive("g2", g2Schema => {
     let g3Schema = Sury.recursive("g3", g3Schema => {
       let g4Schema = Sury.recursive("g4", g4Schema => {
-        let g5Schema = Sury.recursive("g5", g5Schema => Sury.$res_schema(s => ({
-          toG1: s.m(Sury.$res_option(g1Schema))
+        let g5Schema = Sury.recursive("g5", g5Schema => Sury.$schema(s => ({
+          toG1: s.m(Sury.$option(g1Schema))
         })));
-        return Sury.$res_schema(s => ({
-          toG5: s.m(Sury.$res_option(g5Schema))
+        return Sury.$schema(s => ({
+          toG5: s.m(Sury.$option(g5Schema))
         }));
       });
-      return Sury.$res_schema(s => ({
-        toG4: s.m(Sury.$res_option(g4Schema))
+      return Sury.$schema(s => ({
+        toG4: s.m(Sury.$option(g4Schema))
       }));
     });
-    return Sury.$res_schema(s => ({
-      toG3: s.m(Sury.$res_option(g3Schema))
+    return Sury.$schema(s => ({
+      toG3: s.m(Sury.$option(g3Schema))
     }));
   });
-  return Sury.$res_schema(s => ({
-    toG2: s.m(Sury.$res_option(g2Schema))
+  return Sury.$schema(s => ({
+    toG2: s.m(Sury.$option(g2Schema))
   }));
 });
 
@@ -363,23 +363,23 @@ let g2Schema = Sury.recursive("g2", g2Schema => {
   let g3Schema = Sury.recursive("g3", g3Schema => {
     let g4Schema = Sury.recursive("g4", g4Schema => {
       let g5Schema = Sury.recursive("g5", g5Schema => {
-        let g1Schema = Sury.recursive("g1", g1Schema => Sury.$res_schema(s => ({
-          toG2: s.m(Sury.$res_option(g2Schema))
+        let g1Schema = Sury.recursive("g1", g1Schema => Sury.$schema(s => ({
+          toG2: s.m(Sury.$option(g2Schema))
         })));
-        return Sury.$res_schema(s => ({
-          toG1: s.m(Sury.$res_option(g1Schema))
+        return Sury.$schema(s => ({
+          toG1: s.m(Sury.$option(g1Schema))
         }));
       });
-      return Sury.$res_schema(s => ({
-        toG5: s.m(Sury.$res_option(g5Schema))
+      return Sury.$schema(s => ({
+        toG5: s.m(Sury.$option(g5Schema))
       }));
     });
-    return Sury.$res_schema(s => ({
-      toG4: s.m(Sury.$res_option(g4Schema))
+    return Sury.$schema(s => ({
+      toG4: s.m(Sury.$option(g4Schema))
     }));
   });
-  return Sury.$res_schema(s => ({
-    toG3: s.m(Sury.$res_option(g3Schema))
+  return Sury.$schema(s => ({
+    toG3: s.m(Sury.$option(g3Schema))
   }));
 });
 
@@ -387,23 +387,23 @@ let g3Schema = Sury.recursive("g3", g3Schema => {
   let g4Schema = Sury.recursive("g4", g4Schema => {
     let g5Schema = Sury.recursive("g5", g5Schema => {
       let g1Schema = Sury.recursive("g1", g1Schema => {
-        let g2Schema = Sury.recursive("g2", g2Schema => Sury.$res_schema(s => ({
-          toG3: s.m(Sury.$res_option(g3Schema))
+        let g2Schema = Sury.recursive("g2", g2Schema => Sury.$schema(s => ({
+          toG3: s.m(Sury.$option(g3Schema))
         })));
-        return Sury.$res_schema(s => ({
-          toG2: s.m(Sury.$res_option(g2Schema))
+        return Sury.$schema(s => ({
+          toG2: s.m(Sury.$option(g2Schema))
         }));
       });
-      return Sury.$res_schema(s => ({
-        toG1: s.m(Sury.$res_option(g1Schema))
+      return Sury.$schema(s => ({
+        toG1: s.m(Sury.$option(g1Schema))
       }));
     });
-    return Sury.$res_schema(s => ({
-      toG5: s.m(Sury.$res_option(g5Schema))
+    return Sury.$schema(s => ({
+      toG5: s.m(Sury.$option(g5Schema))
     }));
   });
-  return Sury.$res_schema(s => ({
-    toG4: s.m(Sury.$res_option(g4Schema))
+  return Sury.$schema(s => ({
+    toG4: s.m(Sury.$option(g4Schema))
   }));
 });
 
@@ -411,23 +411,23 @@ let g4Schema = Sury.recursive("g4", g4Schema => {
   let g5Schema = Sury.recursive("g5", g5Schema => {
     let g1Schema = Sury.recursive("g1", g1Schema => {
       let g2Schema = Sury.recursive("g2", g2Schema => {
-        let g3Schema = Sury.recursive("g3", g3Schema => Sury.$res_schema(s => ({
-          toG4: s.m(Sury.$res_option(g4Schema))
+        let g3Schema = Sury.recursive("g3", g3Schema => Sury.$schema(s => ({
+          toG4: s.m(Sury.$option(g4Schema))
         })));
-        return Sury.$res_schema(s => ({
-          toG3: s.m(Sury.$res_option(g3Schema))
+        return Sury.$schema(s => ({
+          toG3: s.m(Sury.$option(g3Schema))
         }));
       });
-      return Sury.$res_schema(s => ({
-        toG2: s.m(Sury.$res_option(g2Schema))
+      return Sury.$schema(s => ({
+        toG2: s.m(Sury.$option(g2Schema))
       }));
     });
-    return Sury.$res_schema(s => ({
-      toG1: s.m(Sury.$res_option(g1Schema))
+    return Sury.$schema(s => ({
+      toG1: s.m(Sury.$option(g1Schema))
     }));
   });
-  return Sury.$res_schema(s => ({
-    toG5: s.m(Sury.$res_option(g5Schema))
+  return Sury.$schema(s => ({
+    toG5: s.m(Sury.$option(g5Schema))
   }));
 });
 
@@ -435,23 +435,23 @@ let g5Schema = Sury.recursive("g5", g5Schema => {
   let g1Schema = Sury.recursive("g1", g1Schema => {
     let g2Schema = Sury.recursive("g2", g2Schema => {
       let g3Schema = Sury.recursive("g3", g3Schema => {
-        let g4Schema = Sury.recursive("g4", g4Schema => Sury.$res_schema(s => ({
-          toG5: s.m(Sury.$res_option(g5Schema))
+        let g4Schema = Sury.recursive("g4", g4Schema => Sury.$schema(s => ({
+          toG5: s.m(Sury.$option(g5Schema))
         })));
-        return Sury.$res_schema(s => ({
-          toG4: s.m(Sury.$res_option(g4Schema))
+        return Sury.$schema(s => ({
+          toG4: s.m(Sury.$option(g4Schema))
         }));
       });
-      return Sury.$res_schema(s => ({
-        toG3: s.m(Sury.$res_option(g3Schema))
+      return Sury.$schema(s => ({
+        toG3: s.m(Sury.$option(g3Schema))
       }));
     });
-    return Sury.$res_schema(s => ({
-      toG2: s.m(Sury.$res_option(g2Schema))
+    return Sury.$schema(s => ({
+      toG2: s.m(Sury.$option(g2Schema))
     }));
   });
-  return Sury.$res_schema(s => ({
-    toG1: s.m(Sury.$res_option(g1Schema))
+  return Sury.$schema(s => ({
+    toG1: s.m(Sury.$option(g1Schema))
   }));
 });
 
@@ -478,17 +478,17 @@ Vitest$1.test("Mutual groups are not capped in size", t => {
   });
 });
 
-let leafSchema = Sury.$res_schema(s => ({
+let leafSchema = Sury.$schema(s => ({
   name: s.m(Sury.string)
 }));
 
-let holderSchema = Sury.recursive("holder", holderSchema => Sury.$res_schema(s => ({
+let holderSchema = Sury.recursive("holder", holderSchema => Sury.$schema(s => ({
   leaf: s.m(leafSchema),
-  next: s.m(Sury.$res_option(holderSchema))
+  next: s.m(Sury.$option(holderSchema))
 })));
 
 Vitest$1.test("A rec group member that isn't recursive is left unwrapped and bound first", t => {
-  U.assertEqualSchemas(t, leafSchema, Sury.$res_schema(s => ({
+  U.assertEqualSchemas(t, leafSchema, Sury.$schema(s => ({
     name: s.m(Sury.string)
   })), undefined);
   U.assertReverseParsesBack(t, holderSchema, {
@@ -504,7 +504,7 @@ Vitest$1.test("A rec group member that isn't recursive is left unwrapped and bou
   });
 });
 
-let strictNodeSchema = Sury.recursive("strictNode", strictNodeSchema => Sury.strict(Sury.$res_schema(s => ({
+let strictNodeSchema = Sury.recursive("strictNode", strictNodeSchema => Sury.strict(Sury.$schema(s => ({
   id: s.m(Sury.string),
   kids: s.m(Sury.array(strictNodeSchema))
 }))));
@@ -520,7 +520,7 @@ Vitest$1.test("Type-level attributes apply to self-references too", t => U.asser
   }, strictNodeSchema);
 }, `Failed at ["kids"]["0"]: Unrecognized key "extra"`, undefined));
 
-let matchesSelfSchema = Sury.recursive("matchesSelf", matchesSelfSchema => Sury.$res_schema(s => ({
+let matchesSelfSchema = Sury.recursive("matchesSelf", matchesSelfSchema => Sury.$schema(s => ({
   id: s.m(Sury.string),
   children: s.m(Sury.array(matchesSelfSchema))
 })));
@@ -533,15 +533,15 @@ Vitest$1.test("@s.matches payload can reference the schema being defined", t => 
     }]
 }));
 
-let cutSchema = Sury.$res_schema(s => ({
+let cutSchema = Sury.$schema(s => ({
   self: s.m(Sury.unknown)
 }));
 
-Vitest$1.test("A self-reference fully replaced by @s.matches leaves a plain schema", t => U.assertEqualSchemas(t, cutSchema, Sury.$res_schema(s => ({
+Vitest$1.test("A self-reference fully replaced by @s.matches leaves a plain schema", t => U.assertEqualSchemas(t, cutSchema, Sury.$schema(s => ({
   self: s.m(Sury.unknown)
 })), undefined));
 
-let aliasedSchema = Sury.recursive("aliased", aliasedSchema => Sury.$res_schema(s => ({
+let aliasedSchema = Sury.recursive("aliased", aliasedSchema => Sury.$schema(s => ({
   Id: s.m(Sury.string),
   Kids: s.m(Sury.array(aliasedSchema))
 })));

@@ -25,7 +25,7 @@ test file or a commit message.
 
 ```
 base → builder → primitives → parse → union → composites → factory
-     → modifiers → refinements → operations → advanced/* → jsapi → jsonschema
+     → modifiers → refinements → operations → advanced/* → jsonschema → entry
 ```
 
 - Only type-only imports may point "up"; `operations → jsonschema` is the one
@@ -34,9 +34,13 @@ base → builder → primitives → parse → union → composites → factory
   name lives there rather than with its schema.
 - `src/advanced/` is one file per schema nothing else builds on; a schema other
   modules build on stays in the core.
-- `src/entry.ts` is the single public entry. Add a `$res_*` export *only* for an
-  API with no public-JS equivalent; where ReScript differs only in argument
-  shape, bind the public export in `S.res` and adapt there.
+- `src/entry.ts` is the single public entry, and the only module allowed to both
+  re-export and declare: a public name that exists purely to adapt a core
+  primitive to its documented argument shape is declared there, since nothing
+  else may import it. Anything a second module needs belongs in the core.
+- Add a `$`-prefixed export *only* for an API with no public-JS equivalent;
+  where ReScript differs only in argument shape, bind the public export in
+  `S.res` and adapt there.
 - `S.res` is the only ReScript module, and reaches the runtime through the
   package's own `"."` export so both languages share one instance.
 
@@ -69,7 +73,7 @@ base → builder → primitives → parse → union → composites → factory
 - Every public pure factory carries `// @__NO_SIDE_EFFECTS__` on the line above
   its declaration — except exports whose point *is* the effect (`assert`, `is`,
   `safe`, `safeAsync`, `global`, `enableStandardJSONSchema`,
-  `$res_assertAsyncOrThrow`, `$res_setExnId`).
+  `$assertAsyncOrThrow`, `$setExnId`).
 - **Never publish a factory through an alias** (`export const object = schemaObject`):
   the annotation counts only on the declaration that *is* the function. Re-export
   instead — `export { schemaObject as object } from "./factory"`.

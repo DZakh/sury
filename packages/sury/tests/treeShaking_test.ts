@@ -24,8 +24,8 @@ const EFFECTFUL: Record<string, string> = {
   safeAsync: "runs the callback it's given",
   global: "mutates the global config",
   enableStandardJSONSchema: "registers the converter singleton",
-  $res_assertAsyncOrThrow: "throws on invalid input",
-  $res_setExnId: "mutates the ReScript exception identity",
+  $assertAsyncOrThrow: "throws on invalid input",
+  $setExnId: "mutates the ReScript exception identity",
   Error: "a class, not a factory",
 };
 
