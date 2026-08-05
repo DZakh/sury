@@ -3092,4 +3092,32 @@ test("Array length type pinning falls back to the unbounded type", () => {
   expectSchemaType(S.array(S.string).with(S.length, n)).toBe<string[]>();
   expectSchemaType(S.array(S.string).with(S.length, 100)).toBe<string[]>();
   expectSchemaType(S.length(S.array(S.string), 1e6)).toBe<string[]>();
+
+  // Never called, and the bound has to arrive as a parameter: `S.length` raises
+  // on a bound no value can satisfy, and a `const` initialized to a literal is
+  // narrowed to it, so a local would test the literal case over again.
+  const _typeOnly = (union: 0 | 2) => {
+    // A bound that isn't one literal resolves per member rather than letting
+    // the smallest match stand for all of them.
+    expectSchemaType(S.array(S.string).with(S.length, union)).toBe<[string, string] | []>();
+    // A tuple built by recursing until it matched would report an unsatisfiable
+    // bound as a compile error on the recursion limit, not as the runtime error
+    // it already is.
+    expectSchemaType(S.length(S.array(S.string), -1)).toBe<string[]>();
+    expectSchemaType(S.length(S.array(S.string), 2.5)).toBe<string[]>();
+  };
+});
+
+// The bound binds the array, and a codec's input is a different value reachable
+// from it — pinning the array's arity says nothing about the string it decodes
+// from, which is why the input side is rewritten only when it is the same type.
+test("A length bound leaves the other side of a codec alone", () => {
+  const csv = S.string.with(
+    S.to,
+    S.array(S.string),
+    (s) => s.split(","),
+    (a) => a.join(","),
+  );
+  expectSchemaType(csv.with(S.empty)).toBe<string, []>();
+  expectSchemaType(csv.with(S.length, 2)).toBe<string, [string, string]>();
 });

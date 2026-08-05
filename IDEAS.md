@@ -145,7 +145,7 @@ S.reverse(S.schema({
 - **Rewrite `S.empty` on an array to a real empty tuple at runtime.** The
   type-level half of "a hard-coded length is arity" is done: a literal
   `S.length(N)` on an array infers `[string, string]`, `S.empty` infers `[]`
-  for arrays and `""` for strings (`Sized`/`Repeat` in `S.d.ts`, pinned in
+  for arrays and `""` for strings (`Sized`/`Repeat` in `index.d.ts`, pinned in
   `specs/array-length.yaml`, `specs/array-empty.yaml`, `specs/string-empty.yaml`).
   The runtime deliberately still refines: a general tuple rewrite unrolls
   generated code O(N) where the loop is O(1), emits N copies of the item
@@ -161,6 +161,20 @@ S.reverse(S.schema({
   what `minLength`/`maxLength` applied *after* the rewrite should do
   (compare against `items.length` and no-op/conflict, not add a redundant
   bound).
+
+- **A lower bound is arity too, and carries further than the exact one.**
+  `S.length` now pins an array's arity in the type, but `S.nonEmpty` and
+  `S.minLength` still infer `string[]` where `[string, ...string[]]` and
+  `[string, string, ...string[]]` are what they describe — and that type is
+  the one people actually reach for, since a non-empty array makes `[0]`,
+  `.at(0)` and a destructured head non-optional without a cast. `Repeat`
+  already builds the fixed part; the rest is spreading the element type after
+  it, and `maxLength` has no tuple spelling at all so it stays as it is. Worth
+  doing only with the same care the exact bound needed: the input side may be
+  rewritten only when it is the same type as the output (a codec's other side
+  is a different value), and a bound that isn't one literal has to resolve per
+  member rather than letting the smallest match stand for all of them — both
+  are live bugs the `S.length` version shipped with and had to fix.
 
 - **A bound that doesn't narrow takes its custom message down with it.**
   `gte(5).gte(1, "MY MESSAGE")` drops the second bound — correctly, there is no

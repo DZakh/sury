@@ -328,7 +328,7 @@ S.string.with(S.maxLength, 5); // Expected string.length <= 5
 S.string.with(S.minLength, 5); // Expected string.length >= 5
 S.string.with(S.length, 5); // Expected string.length == 5
 S.string.with(S.nonEmpty); // Expected string.length >= 1
-S.string.with(S.empty); // Expected string.length == 0
+S.string.with(S.empty); // Expected string.length == 0, and infers `""`
 S.string.with(S.pattern, /[0-9]/); // Invalid pattern
 
 S.string.with(S.trim); // trim whitespaces
@@ -631,6 +631,19 @@ S.array(S.string).with(S.length, 5); // Expected string[].length == 5
 S.array(S.string).with(S.nonEmpty); // Expected string[].length >= 1
 S.array(S.string).with(S.empty); // Expected string[].length == 0
 ```
+
+A hard-coded length is arity, so `S.length` and `S.empty` infer a tuple —
+`S.array(S.string).with(S.length, 2)` is `[string, string]` and
+`.with(S.empty)` is `[]`, which type destructuring and `.length` the way the
+unbounded `string[]` can't:
+
+```ts
+const [lat, lng] = S.parser(S.array(S.number).with(S.length, 2))(input);
+```
+
+A bound that isn't a literal (`S.length(schema, n)` for some `n: number`)
+leaves the type alone, and so does one above 64 — a tuple that long reads
+worse than the array it came from.
 
 ### Compact Columns
 

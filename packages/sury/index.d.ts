@@ -868,22 +868,35 @@ export const lte: <TInput, TOutput extends number | bigint>(
 // tuple hurts hover DX more than it helps, and an unguarded recursion turns
 // `S.length(schema, 1e6)` (or a fractional bound, which never hits `N`) into
 // a compile error instead of the runtime one it already raises.
-type Repeat<E, N extends number, Acc extends E[]> = Acc["length"] extends N
+//
+// A bound binds one value, so it may only rewrite the input side when that is
+// the same value as the output — `TInput extends TOutput` is what guards it.
+// A codec's input is a different value that happens to be reachable from the
+// bounded one, and its length says nothing: `S.string.with(S.to, S.array(...))`
+// under `S.empty` bounds the array, never the string it decodes from.
+type Repeat<E, N extends number, Acc extends unknown[]> = Acc["length"] extends N
   ? Acc
-  : Acc extends { length: 64 }
+  : Acc["length"] extends 64
   ? E[]
   : Repeat<E, N, [...Acc, E]>;
+// `N extends N` distributes, so a bound that isn't one literal resolves per
+// member. Without it `0 | 2` matches the empty branch alone and silently pins
+// the type to `[]`.
 type Sized<T, N extends number> = number extends N
   ? T
-  : 0 extends N
-  ? T extends string
-    ? ""
-    : T extends unknown[]
-    ? []
+  : N extends N
+  ? T extends (infer E)[]
+    ? Repeat<E, N, []>
+    : T extends string
+    ? N extends 0
+      ? ""
+      : T
     : T
-  : T extends (infer E)[]
-  ? Repeat<E, N, []>
-  : T;
+  : never;
+// `Sized<T, 0>` reaches the same two answers, through a guard on a bound that
+// can't vary and a `Repeat` that stops on its first step. Spelling the one case
+// `empty` has costs less than either.
+type Emptied<T> = T extends unknown[] ? [] : T extends string ? "" : T;
 
 export const minLength: <TInput, TOutput extends string | unknown[]>(
   schema: SchemaLike<TInput, TOutput>,
@@ -899,11 +912,11 @@ export const length: <TInput, TOutput extends string | unknown[], N extends numb
   schema: SchemaLike<TInput, TOutput>,
   length: N,
   message?: string
-) => Schema<Sized<TInput, N>, Sized<TOutput, N>>;
+) => Schema<TInput extends TOutput ? Sized<TInput, N> : TInput, Sized<TOutput, N>>;
 export const empty: <TInput, TOutput extends string | unknown[]>(
   schema: SchemaLike<TInput, TOutput>,
   message?: string
-) => Schema<Sized<TInput, 0>, Sized<TOutput, 0>>;
+) => Schema<TInput extends TOutput ? Emptied<TInput> : TInput, Emptied<TOutput>>;
 export const nonEmpty: <TInput, TOutput extends string | unknown[]>(
   schema: SchemaLike<TInput, TOutput>,
   message?: string
