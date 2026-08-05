@@ -3,8 +3,8 @@
 //   pnpm build:entry  -> tsx scripts/pack.ts entry-only
 //   pnpm build        -> tsx scripts/pack.ts for-publish
 //
-// Stage 1 (always): bundle src/entry.ts (the single public entry re-exporting
-// src/*.ts) into the gitignored index.mjs; this stage keeps it fresh (it runs
+// Stage 1 (always): bundle src/entry.ts (the single public entry over src/*.ts)
+// into the gitignored index.mjs; this stage keeps it fresh (it runs
 // before rescript/vitest via pnpm scripts). Types for index.mjs importers
 // resolve through the checked-in index.d.mts -> index.d.ts. The ReScript
 // bindings (S.res) reference the same entry as `@module("sury")`, resolved

@@ -46,20 +46,20 @@ let stringWithWithSchema = Sury.trim(Sury.string);
 
 Vitest.test("Creates schema with @s.with transform", t => U.assertEqualSchemas(t, stringWithWithSchema, Sury.trim(Sury.string), undefined));
 
-let stringWithMultipleWithSchema = Sury.max(Sury.min(Sury.trim(Sury.string), 1), 5);
+let stringWithMultipleWithSchema = Sury.maxLength(Sury.minLength(Sury.trim(Sury.string), 1), 5);
 
-Vitest.test("Applies multiple @s.with transforms in order of appearance", t => U.assertEqualSchemas(t, stringWithMultipleWithSchema, Sury.max(Sury.min(Sury.trim(Sury.string), 1), 5), undefined));
+Vitest.test("Applies multiple @s.with transforms in order of appearance", t => U.assertEqualSchemas(t, stringWithMultipleWithSchema, Sury.maxLength(Sury.minLength(Sury.trim(Sury.string), 1), 5), undefined));
 
 let userWithWithSchema = Sury.meta(Sury.$schema(s => ({
   name: s.m(Sury.length(Sury.string, 2)),
-  age: s.m(Sury.min(Sury.int, 18))
+  age: s.m(Sury.gte(Sury.int, 18))
 })), {
   description: "A user"
 });
 
 Vitest.test("Applies @s.with on type declaration and on fields of different types", t => U.assertEqualSchemas(t, userWithWithSchema, Sury.meta(Sury.$schema(s => ({
   name: s.m(Sury.length(Sury.string, 2)),
-  age: s.m(Sury.min(Sury.int, 18))
+  age: s.m(Sury.gte(Sury.int, 18))
 })), {
   description: "A user"
 }), undefined));
@@ -72,9 +72,9 @@ let stringWithWithAndDefaultSchema = Sury.$Option_getOr(Sury.$option(Sury.trim(S
 
 Vitest.test("Combines @s.with written before @s.default", t => U.assertEqualSchemas(t, stringWithWithAndDefaultSchema, Sury.$Option_getOr(Sury.$option(Sury.trim(Sury.string)), "Foo"), undefined));
 
-let intWithWithPlaceholderSchema = Sury.max(Sury.min(Sury.int, 1), 5);
+let intWithWithPlaceholderSchema = Sury.lte(Sury.gte(Sury.int, 1), 5);
 
-Vitest.test("Applies @s.with with partial application placeholder", t => U.assertEqualSchemas(t, intWithWithPlaceholderSchema, Sury.max(Sury.min(Sury.int, 1), 5), undefined));
+Vitest.test("Applies @s.with with partial application placeholder", t => U.assertEqualSchemas(t, intWithWithPlaceholderSchema, Sury.lte(Sury.gte(Sury.int, 1), 5), undefined));
 
 let recordWithOptionalWithFieldSchema = Sury.$schema(s => ({
   maybe: s.m(Sury.$option(Sury.trim(Sury.string)))
