@@ -147,8 +147,7 @@ let nodeSchema = S.recursive("node", nodeSchema =>
 )
 ```
 
-Mutually recursive types work too, and a `type rec` that never actually
-references itself is left as a plain schema:
+Mutually recursive types work too:
 
 ```rescript
 @schema
@@ -159,8 +158,6 @@ and stmt = {label: string, body: expr}
 
 A few things to know about mutually recursive groups:
 
-- Generated code grows with the group size, so groups of more than 4 types are
-  rejected — write those by hand with `S.recursive`.
 - Every member referenced from another `@schema` member needs `@schema` too —
   or a hand-written `<name>Schema` binding earlier in scope.
 - Inside the group, an identifier like `nodeSchema` (for example in an

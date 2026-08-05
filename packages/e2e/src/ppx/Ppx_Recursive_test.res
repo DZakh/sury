@@ -81,6 +81,24 @@ test("A sibling needed by several members is bound once and reused", t => {
 })
 
 @schema
+type rec g1 = {toG2: option<g2>}
+@schema
+and g2 = {toG3: option<g3>}
+@schema
+and g3 = {toG4: option<g4>}
+@schema
+and g4 = {toG5: option<g5>}
+@schema
+and g5 = {toG1: option<g1>}
+test("Mutual groups are not capped in size", t => {
+  t->assertReverseParsesBack(
+    g1Schema,
+    {toG2: Some({toG3: Some({toG4: Some({toG5: Some({toG1: None})})})})},
+  )
+  t->assertReverseParsesBack(g3Schema, {toG4: Some({toG5: Some({toG1: Some({toG2: None})})})})
+})
+
+@schema
 type rec leaf = {name: string}
 @schema
 and holder = {leaf: leaf, next: option<holder>}

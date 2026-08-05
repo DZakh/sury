@@ -554,9 +554,7 @@ let referencedMembers members expr =
 (* Only the outermost S.recursive call carries $defs, so each entry point of a
    mutual group re-expands the whole group inside its own callback — nested
    calls register into the shared $defs. One expansion per entry point is the
-   cost; the cap keeps it bounded. *)
-let maxMutualGroupSize = 4
-
+   cost. *)
 let mapRecursiveTypeDeclarations decls =
   match decls |> List.filter hasSchemaAttribute with
   | [] -> []
@@ -682,12 +680,6 @@ let mapRecursiveTypeDeclarations decls =
                     else if ptype_params <> [] then
                       fail ptype_loc
                         "Recursive parametrized types are not supported yet"
-                    else if List.length group > maxMutualGroupSize then
-                      fail ptype_loc
-                        ("Mutually recursive groups of more than "
-                       ^ string_of_int maxMutualGroupSize
-                       ^ " types are not supported yet. Define the schemas by \
-                          hand with S.recursive")
                     else expand ~group ~in_scope:[] name
                   in
                   Str.value Nonrecursive

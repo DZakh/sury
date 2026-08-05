@@ -335,6 +335,149 @@ Vitest$1.test("A sibling needed by several members is bound once and reused", t 
   });
 });
 
+let g1Schema = Sury.recursive("g1", g1Schema => {
+  let g2Schema = Sury.recursive("g2", g2Schema => {
+    let g3Schema = Sury.recursive("g3", g3Schema => {
+      let g4Schema = Sury.recursive("g4", g4Schema => {
+        let g5Schema = Sury.recursive("g5", g5Schema => Sury.$res_schema(s => ({
+          toG1: s.m(Sury.$res_option(g1Schema))
+        })));
+        return Sury.$res_schema(s => ({
+          toG5: s.m(Sury.$res_option(g5Schema))
+        }));
+      });
+      return Sury.$res_schema(s => ({
+        toG4: s.m(Sury.$res_option(g4Schema))
+      }));
+    });
+    return Sury.$res_schema(s => ({
+      toG3: s.m(Sury.$res_option(g3Schema))
+    }));
+  });
+  return Sury.$res_schema(s => ({
+    toG2: s.m(Sury.$res_option(g2Schema))
+  }));
+});
+
+let g2Schema = Sury.recursive("g2", g2Schema => {
+  let g3Schema = Sury.recursive("g3", g3Schema => {
+    let g4Schema = Sury.recursive("g4", g4Schema => {
+      let g5Schema = Sury.recursive("g5", g5Schema => {
+        let g1Schema = Sury.recursive("g1", g1Schema => Sury.$res_schema(s => ({
+          toG2: s.m(Sury.$res_option(g2Schema))
+        })));
+        return Sury.$res_schema(s => ({
+          toG1: s.m(Sury.$res_option(g1Schema))
+        }));
+      });
+      return Sury.$res_schema(s => ({
+        toG5: s.m(Sury.$res_option(g5Schema))
+      }));
+    });
+    return Sury.$res_schema(s => ({
+      toG4: s.m(Sury.$res_option(g4Schema))
+    }));
+  });
+  return Sury.$res_schema(s => ({
+    toG3: s.m(Sury.$res_option(g3Schema))
+  }));
+});
+
+let g3Schema = Sury.recursive("g3", g3Schema => {
+  let g4Schema = Sury.recursive("g4", g4Schema => {
+    let g5Schema = Sury.recursive("g5", g5Schema => {
+      let g1Schema = Sury.recursive("g1", g1Schema => {
+        let g2Schema = Sury.recursive("g2", g2Schema => Sury.$res_schema(s => ({
+          toG3: s.m(Sury.$res_option(g3Schema))
+        })));
+        return Sury.$res_schema(s => ({
+          toG2: s.m(Sury.$res_option(g2Schema))
+        }));
+      });
+      return Sury.$res_schema(s => ({
+        toG1: s.m(Sury.$res_option(g1Schema))
+      }));
+    });
+    return Sury.$res_schema(s => ({
+      toG5: s.m(Sury.$res_option(g5Schema))
+    }));
+  });
+  return Sury.$res_schema(s => ({
+    toG4: s.m(Sury.$res_option(g4Schema))
+  }));
+});
+
+let g4Schema = Sury.recursive("g4", g4Schema => {
+  let g5Schema = Sury.recursive("g5", g5Schema => {
+    let g1Schema = Sury.recursive("g1", g1Schema => {
+      let g2Schema = Sury.recursive("g2", g2Schema => {
+        let g3Schema = Sury.recursive("g3", g3Schema => Sury.$res_schema(s => ({
+          toG4: s.m(Sury.$res_option(g4Schema))
+        })));
+        return Sury.$res_schema(s => ({
+          toG3: s.m(Sury.$res_option(g3Schema))
+        }));
+      });
+      return Sury.$res_schema(s => ({
+        toG2: s.m(Sury.$res_option(g2Schema))
+      }));
+    });
+    return Sury.$res_schema(s => ({
+      toG1: s.m(Sury.$res_option(g1Schema))
+    }));
+  });
+  return Sury.$res_schema(s => ({
+    toG5: s.m(Sury.$res_option(g5Schema))
+  }));
+});
+
+let g5Schema = Sury.recursive("g5", g5Schema => {
+  let g1Schema = Sury.recursive("g1", g1Schema => {
+    let g2Schema = Sury.recursive("g2", g2Schema => {
+      let g3Schema = Sury.recursive("g3", g3Schema => {
+        let g4Schema = Sury.recursive("g4", g4Schema => Sury.$res_schema(s => ({
+          toG5: s.m(Sury.$res_option(g5Schema))
+        })));
+        return Sury.$res_schema(s => ({
+          toG4: s.m(Sury.$res_option(g4Schema))
+        }));
+      });
+      return Sury.$res_schema(s => ({
+        toG3: s.m(Sury.$res_option(g3Schema))
+      }));
+    });
+    return Sury.$res_schema(s => ({
+      toG2: s.m(Sury.$res_option(g2Schema))
+    }));
+  });
+  return Sury.$res_schema(s => ({
+    toG1: s.m(Sury.$res_option(g1Schema))
+  }));
+});
+
+Vitest$1.test("Mutual groups are not capped in size", t => {
+  U.assertReverseParsesBack(t, g1Schema, {
+    toG2: {
+      toG3: {
+        toG4: {
+          toG5: {
+            toG1: undefined
+          }
+        }
+      }
+    }
+  });
+  U.assertReverseParsesBack(t, g3Schema, {
+    toG4: {
+      toG5: {
+        toG1: {
+          toG2: undefined
+        }
+      }
+    }
+  });
+});
+
 let leafSchema = Sury.$res_schema(s => ({
   name: s.m(Sury.string)
 }));
@@ -432,6 +575,11 @@ export {
   rootSchema,
   midSchema,
   lastSchema,
+  g1Schema,
+  g2Schema,
+  g3Schema,
+  g4Schema,
+  g5Schema,
   leafSchema,
   holderSchema,
   strictNodeSchema,
