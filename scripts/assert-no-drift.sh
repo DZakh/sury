@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Fail if the given paths differ from the commit, after the caller has already
+# Fail if the matched files differ from the commit, after the caller has already
 # rebuilt whatever generates them.
 #
 # Used to gate checked-in compiled ReScript (*.res.mjs). Those files are only
@@ -26,7 +26,7 @@ if [ -z "$drift" ]; then
   exit 0
 fi
 
-echo "Compiled output under '$*' does not match its source."
+echo "Generated files matching '$*' do not match their source."
 echo "The build regenerated these; commit the result."
 echo
 echo "$drift"
