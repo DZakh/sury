@@ -64,7 +64,7 @@ test("Compiled parse code snapshot", t => {
 test("Compiled async parse code snapshot", t => {
   let schema =
     S.bool
-    ->S.transform(() => {asyncParser: i => Promise.resolve(i)})
+    ->S.to(S.any, ~custom={decode: Async(i => Promise.resolve(i)), encode: Never})
     ->S.option
     ->S.Option.getOrWith(() => false)
 

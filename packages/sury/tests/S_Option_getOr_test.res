@@ -64,14 +64,12 @@ test("Successfully parses schema with transformation", t => {
   let schema =
     S.option(S.float)
     ->S.Option.getOr(-123.)
-    ->S.transform(() => {
-      parser: number =>
+    ->S.to(S.any, ~custom={decode: Sync(number =>
         if number > 0. {
           Some("positive")
         } else {
           None
-        },
-    })
+        }), encode: Never})
     ->S.to(S.option(S.string))
     ->S.Option.getOr("not positive")
 
@@ -101,7 +99,7 @@ test("Compiled parse code snapshot", t => {
 
 asyncTest("Compiled async parse code snapshot", async t => {
   let schema =
-    S.option(S.bool->S.transform(() => {asyncParser: i => Promise.resolve(i)}))->S.Option.getOr(
+    S.option(S.bool->S.to(S.any, ~custom={decode: Async(i => Promise.resolve(i)), encode: Never}))->S.Option.getOr(
       false,
     )
 
@@ -116,7 +114,7 @@ asyncTest("Compiled async parse code snapshot", async t => {
   let schema =
     S.option(S.bool)
     ->S.Option.getOr(false)
-    ->S.transform(() => {asyncParser: i => Promise.resolve(i)})
+    ->S.to(S.any, ~custom={decode: Async(i => Promise.resolve(i)), encode: Never})
 
   t->Assert.deepEqual(await None->S.parseAsyncOrThrow(~to=schema), false)
   t->U.assertCompiledCode(

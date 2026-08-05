@@ -557,14 +557,18 @@ test(
       s.field(
         "field",
         S.option(
-          S.bool->S.transform(
-            () => {
-              parser: bool => {
-                switch bool {
-                | true => "true"
-                | false => ""
-                }
-              },
+          S.bool->S.to(
+            S.any,
+            ~custom={
+              decode: Sync(
+                bool => {
+                  switch bool {
+                  | true => "true"
+                  | false => ""
+                  }
+                },
+              ),
+              encode: Never,
             },
           ),
         )->S.Option.getOr("true"),
@@ -586,20 +590,25 @@ test("Transformed schema schema uses default with correct type", t => {
     s.field(
       "field",
       S.option(
-        S.bool->S.transform(
-          () => {
-            parser: bool => {
-              switch bool {
-              | true => "true"
-              | false => ""
-              }
-            },
-            serializer: string => {
-              switch string {
-              | "true" => true
-              | _ => false
-              }
-            },
+        S.bool->S.to(
+          S.any,
+          ~custom={
+            decode: Sync(
+              bool => {
+                switch bool {
+                | true => "true"
+                | false => ""
+                }
+              },
+            ),
+            encode: Sync(
+              string => {
+                switch string {
+                | "true" => true
+                | _ => false
+                }
+              },
+            ),
           },
         ),
       )->S.Option.getOr("true"),

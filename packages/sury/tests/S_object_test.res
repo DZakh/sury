@@ -255,7 +255,7 @@ test("Successfully parses object with transformed field", t => {
     {
       "string": s.field(
         "string",
-        S.string->S.transform(() => {parser: string => string ++ "field"}),
+        S.string->S.to(S.any, ~custom={decode: Sync(string => string ++ "field"), encode: Never}),
       ),
     }
   )
@@ -266,7 +266,7 @@ test("Successfully parses object with transformed field", t => {
 test("Fails to parse object when transformed field has throws error", t => {
   let schema = S.object(s =>
     {
-      "field": s.field("field", S.string->S.transform(() => {parser: _ => U.fail("User error")})),
+      "field": s.field("field", S.string->S.to(S.any, ~custom={decode: Sync(_ => U.fail("User error")), encode: Never})),
     }
   )
 
@@ -281,7 +281,7 @@ test("Shows transformed object field name in error path when fails to parse", t 
     {
       "transformedFieldName": s.field(
         "originalFieldName",
-        S.string->S.transform(() => {parser: _ => U.fail("User error")}),
+        S.string->S.to(S.any, ~custom={decode: Sync(_ => U.fail("User error")), encode: Never}),
       ),
     }
   )
@@ -297,7 +297,7 @@ test("Successfully serializes object with transformed field", t => {
     {
       "string": s.field(
         "string",
-        S.string->S.transform(() => {serializer: string => string ++ "field"}),
+        S.string->S.to(S.any, ~custom={decode: Never, encode: Sync(string => string ++ "field")}),
       ),
     }
   )
@@ -313,7 +313,7 @@ test("Fails to serializes object when transformed field has throws error", t => 
     {
       "field": s.field(
         "field",
-        S.string->S.transform(() => {serializer: _ => U.fail("User error")}),
+        S.string->S.to(S.any, ~custom={decode: Never, encode: Sync(_ => U.fail("User error"))}),
       ),
     }
   )
@@ -329,7 +329,7 @@ test("Shows transformed object field name in error path when fails to serializes
     {
       "transformedFieldName": s.field(
         "originalFieldName",
-        S.string->S.transform(() => {serializer: _ => U.fail("User error")}),
+        S.string->S.to(S.any, ~custom={decode: Never, encode: Sync(_ => U.fail("User error"))}),
       ),
     }
   )
@@ -346,7 +346,7 @@ test("Shows transformed to nested object field name in error path when fails to 
       "v1": {
         "transformedFieldName": s.field(
           "originalFieldName",
-          S.string->S.transform(() => {serializer: _ => U.fail("User error")}),
+          S.string->S.to(S.any, ~custom={decode: Never, encode: Sync(_ => U.fail("User error"))}),
         ),
       },
     }
@@ -1090,7 +1090,7 @@ module Compiled = {
   test("Compiled parse code snapshot for simple object with async", t => {
     let schema = S.object(s =>
       {
-        "foo": s.field("foo", S.unknown->S.transform(() => {asyncParser: i => Promise.resolve(i)})),
+        "foo": s.field("foo", S.unknown->S.to(S.any, ~custom={decode: Async(i => Promise.resolve(i)), encode: Never})),
         "bar": s.field("bar", S.bool),
       }
     )
@@ -1104,7 +1104,7 @@ module Compiled = {
 
   test("Compiled parse code snapshot with async field registered as return", t => {
     let schema = S.object(s =>
-      s.field("foo", S.unknown->S.transform(() => {asyncParser: i => Promise.resolve(i)}))
+      s.field("foo", S.unknown->S.to(S.any, ~custom={decode: Async(i => Promise.resolve(i)), encode: Never}))
     )
 
     t->U.assertCompiledCode(

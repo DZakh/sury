@@ -179,7 +179,7 @@ test("Can flatten renamed object schema", t => {
 test("Can flatten transformed object schema", t => {
   let schema = S.object(s =>
     {
-      "bar": s.flatten(S.object(s => s.field("bar", S.string))->S.transform(() => {parser: i => i})),
+      "bar": s.flatten(S.object(s => s.field("bar", S.string))->S.to(S.any, ~custom={decode: Sync(i => i), encode: Never})),
       "foo": s.field("foo", S.string),
     }
   )
@@ -193,10 +193,7 @@ test("Can flatten transformed object schema", t => {
 
 // https://github.com/DZakh/sury/issues/271
 test("Flattened object with a transformed field decodes the field once", t => {
-  let fieldSchema = S.string->S.transform(() => {
-    parser: s => s ++ "!",
-    serializer: s => s->String.replaceAll("!", ""),
-  })
+  let fieldSchema = S.string->S.to(S.any, ~custom={decode: Sync(s => s ++ "!"), encode: Sync(s => s->String.replaceAll("!", ""))})
   let inner = S.object(s => {"createdAt": s.field("createdAt", fieldSchema)})
   let schema = S.object(s => {"properties": s.flatten(inner)})
 
@@ -219,10 +216,7 @@ test("Flattened object with a transformed field decodes the field once", t => {
 // A flattened S.schema with an identity definition has no `.to`, but a
 // transformed field still must not be decoded twice.
 test("Flattened schema without a reshape decodes a transformed field once", t => {
-  let fieldSchema = S.string->S.transform(() => {
-    parser: s => s ++ "!",
-    serializer: s => s->String.replaceAll("!", ""),
-  })
+  let fieldSchema = S.string->S.to(S.any, ~custom={decode: Sync(s => s ++ "!"), encode: Sync(s => s->String.replaceAll("!", ""))})
   let schema = S.object(s => {"wrap": s.flatten(S.schema(s => {"name": s.matches(fieldSchema)}))})
 
   t->Assert.deepEqual(

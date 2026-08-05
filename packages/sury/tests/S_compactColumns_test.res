@@ -207,7 +207,7 @@ asyncTest("Async field schema", async t => {
       S.array(
         S.schema(s =>
           {
-            "foo": s.matches(S.string->S.transform(() => {asyncParser: async i => i})),
+            "foo": s.matches(S.string->S.to(S.any, ~custom={decode: Async(async i => i), encode: Never})),
             "bar": s.matches(S.int),
           }
         ),
@@ -226,7 +226,7 @@ test("Field schema with S.transform", t => {
       S.array(
         S.schema(s =>
           {
-            "foo": s.matches(S.string->S.transform(() => {parser: v => v->String.toUpperCase})),
+            "foo": s.matches(S.string->S.to(S.any, ~custom={decode: Sync(v => v->String.toUpperCase), encode: Never})),
             "bar": s.matches(S.int),
           }
         ),

@@ -10,7 +10,7 @@ test("Coerce a one-directional transform to itself relies on the same-instance s
   // Without that shortcut this would chain the transform's int output back into
   // the target's string decoder, which the missing serializer can't bridge — as
   // the two-instances case below shows.
-  let makeSchema = () => S.string->S.transform(() => {parser: String.length})
+  let makeSchema = () => S.string->S.to(S.any, ~custom={decode: Sync(String.length), encode: Never})
 
   let schema = makeSchema()
   t->Assert.is(schema->S.to(schema), schema)
@@ -387,7 +387,7 @@ test("Coerce from string to bigint", t => {
 })
 
 test("Coerce string after a transform", t => {
-  let schema = S.string->S.transform(() => {parser: v => v, serializer: v => v})->S.to(S.bool)
+  let schema = S.string->S.to(S.any, ~custom={decode: Sync(v => v), encode: Sync(v => v)})->S.to(S.bool)
 
   t->U.assertThrowsMessage(
     () => "true"->S.parseOrThrow(~to=schema),
@@ -399,14 +399,13 @@ test("Coerce string after a transform", t => {
     `i=>{typeof i==="string"||e[3](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="boolean"||e[2](v0);return v0}`,
   )
 
-  t->U.assertThrowsMessage(
-    () => true->S.parseOrThrow(~to=S.reverse(schema)),
-    `Expected string, received true`,
-  )
+  // The custom encode's result lands on the S.any seam and is trusted — the
+  // reversed parse validates the incoming boolean, not what the coder returns.
+  t->Assert.deepEqual(true->S.parseOrThrow(~to=S.reverse(schema)), %raw(`true`))
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseParse,
-    `i=>{typeof i==="boolean"||e[3](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);return v0}`,
+    `i=>{typeof i==="boolean"||e[2](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}`,
   )
 })
 
@@ -1080,10 +1079,7 @@ test("Tier 3 fallback for unknown source — transform on unknown variant still 
     S.union([
       S.string->S.castToUnknown,
       S.unknown
-      ->S.transform(() => {
-        parser: v => Some(v),
-        serializer: v => v->Obj.magic,
-      })
+      ->S.to(S.any, ~custom={decode: Sync(v => Some(v)), encode: Sync(v => v->Obj.magic)})
       ->S.castToUnknown,
     ]),
   )
@@ -1099,7 +1095,7 @@ test("Tier 3 fallback for unknown source — transform on unknown variant still 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){if(typeof i==="string")break;let v0=e[0](i);i=v0;break;}return i}`,
+    `i=>{for(;;){if(typeof i==="string")break;let v0;try{v0=e[0](i)}catch(x){e[1](x);e[2](x)}i=v0;break;}return i}`,
   )
 })
 
@@ -1350,7 +1346,7 @@ asyncTest("Converts union nested in object into an async target (per member)", a
     )->S.to(
       S.schema(s =>
         {
-          "f": s.matches(S.string->S.transform(() => {asyncParser: v => Promise.resolve(v)})),
+          "f": s.matches(S.string->S.to(S.any, ~custom={decode: Async(v => Promise.resolve(v)), encode: Never})),
         }
       ),
     )

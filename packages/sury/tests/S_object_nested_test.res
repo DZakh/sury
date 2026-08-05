@@ -38,20 +38,23 @@ test("Object with a single nested field with S.transform", t => {
   let schema = S.object(s =>
     s.nested("nested").field(
       "foo",
-      S.float->S.transform(
-        () => {
-          parser: f => f->Float.toString,
-          serializer: string => {
-            // There used to be a case of double application of the serializer.
-            // Check that it doesn't happen again.
-            if string->typeof !== #string {
-              U.fail("Unexpected type")
-            }
-            switch string->Float.fromString {
-            | Some(float) => float
-            | None => U.fail("Invalid float")
-            }
-          },
+      S.float->S.to(
+        S.any,
+        ~custom={
+          decode: Sync(f => f->Float.toString),
+          encode: Sync(
+            string => {
+              // There used to be a case of double application of the serializer.
+              // Check that it doesn't happen again.
+              if string->typeof !== #string {
+                U.fail("Unexpected type")
+              }
+              switch string->Float.fromString {
+              | Some(float) => float
+              | None => U.fail("Invalid float")
+              }
+            },
+          ),
         },
       ),
     )
@@ -65,7 +68,7 @@ test("Object with a single nested field with S.transform", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="number"&&!Number.isNaN(v0)||e[2](v0);return {"nested":{"foo":v0,},}}`,
+    `i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return {"nested":{"foo":v0,},}}`,
   )
   t->Assert.deepEqual("123.4"->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`{"nested":{"foo":123.4}}`))
 })
@@ -229,16 +232,13 @@ test("Nested tags on reverse convert", t => {
 test("Nested preprocessed tags on reverse convert", t => {
   let prefixedWithUnderscore =
     S.string
-    ->S.transform(() => {
-      parser: v => {
+    ->S.to(S.any, ~custom={decode: Sync(v => {
         if v->String.startsWith("_") {
           v->String.slice(~start=1)
         } else {
           U.fail("String should start with an underscore")
         }
-      },
-      serializer: v => "_" ++ v,
-    })
+      }), encode: Sync(v => "_" ++ v)})
     ->S.to(S.string)
 
   let schema = S.object(s => {
@@ -249,7 +249,7 @@ test("Nested preprocessed tags on reverse convert", t => {
   t->U.assertCompiledCode(
     ~op=#Encode,
     ~schema,
-    `i=>{i===void 0||e[6](i);let v0;try{v0=e[0]("value")}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);let v1;try{v1=e[3]("1")}catch(x){e[4](x)}typeof v1==="string"||e[5](v1);return {"nested":{"tag":v0,"intTag":v1,},}}`,
+    `i=>{i===void 0||e[4](i);let v0;try{v0=e[0]("value")}catch(x){e[1](x)}let v1;try{v1=e[2]("1")}catch(x){e[3](x)}return {"nested":{"tag":v0,"intTag":v1,},}}`,
   )
 
   t->U.assertCompiledCode(
@@ -410,7 +410,7 @@ test("s.nested.flattened doesn't work with transformed S.schema", t => {
                 {
                   "foo": s.matches(S.string),
                 },
-            )->S.transform(() => {parser: i => i}),
+            )->S.to(S.any, ~custom={decode: Sync(i => i), encode: Never}),
           )
         },
       )

@@ -89,8 +89,7 @@ test("Compiled serialize code snapshot", t => {
 test("Custom schema", t => {
   let mySet = itemSchema => {
     S.instance(%raw(`Set`))
-    ->S.transform(() => {
-      parser: input => {
+    ->S.to(S.any, ~custom={decode: Sync(input => {
         let output = Set.make()
         input
         ->Obj.magic
@@ -100,8 +99,7 @@ test("Custom schema", t => {
           },
         )
         output
-      },
-    })
+      }), encode: Never})
     ->S.meta({name: `Set.t<${S.inputExpression(itemSchema)}>`})
   }
 

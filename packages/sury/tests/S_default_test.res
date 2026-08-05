@@ -10,14 +10,12 @@ test("Returns the first default value, but can get the last one as well", t => {
   let schema =
     S.option(S.float)
     ->S.Option.getOr(123.)
-    ->S.transform(() => {
-      parser: number =>
+    ->S.to(S.any, ~custom={decode: Sync(number =>
         if number > 0. {
           Some("positive")
         } else {
           None
-        },
-    })
+        }), encode: Never})
     ->S.to(S.option(S.string))
     ->S.Option.getOr("not positive")
 
