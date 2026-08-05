@@ -12,7 +12,7 @@ jsonSchema:
   output: '{ type: "string", const: "done" }'
 operations:
   parse:
-    expression: i=>{Array.isArray(i)&&i.length===2||e[3](i);let v0=i["0"],v1=i["1"];v0===1||e[0](v0);v1===2||e[1](v1);i==="done"||e[2](i);return i}
+    expression: i=>{try{Array.isArray(i)&&i.length===2||e[3](i);let v0=i["0"],v1=i["1"];v0===1||e[0](v0);v1===2||e[1](v1);i==="done"||e[2](i);return i}catch(x){throw e[4](x,i)}}
     examples:
       const:
         input: "[1, 2]"
@@ -24,7 +24,7 @@ operations:
         input: '"done"'
         error: Expected [1, 2], received "done"
   decode:
-    expression: i=>{i==="done"||e[0](i);return i}
+    expression: i=>{try{i==="done"||e[0](i);return i}catch(x){throw e[1](x,i)}}
     examples:
       const:
         input: "[1, 2]"

@@ -11,7 +11,7 @@ jsonSchema:
   output: Expected JSON, received string | number | boolean | bigint | symbol
 operations:
   parse:
-    expression: i=>{(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i)||typeof i==="boolean"||typeof i==="bigint"||typeof i==="symbol")||e[0](i);return i}
+    expression: i=>{try{(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i)||typeof i==="boolean"||typeof i==="bigint"||typeof i==="symbol")||e[0](i);return i}catch(x){throw e[1](x,i)}}
     examples:
       valid-bigint:
         input: 5n

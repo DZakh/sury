@@ -139,14 +139,16 @@ Object.defineProperty(schemaPrototype, "~standard", {
           };
         } catch (exn) {
           const error = getOrRethrow(exn);
+          // `issues` (parse.ts) re-runs the operation in aggregate mode, so a
+          // Standard Schema consumer (form libraries) sees every issue the
+          // input has, not just the first — at diagnostic-path cost only.
           return {
-            issues: [
-              {
-                message: error.reason,
-                path:
-                  error.path === pathEmpty ? U : pathToArray(error.path),
-              },
-            ],
+            issues: (
+              error as unknown as { issues: SuryErrorRecord[] }
+            ).issues.map((issue) => ({
+              message: issue.reason,
+              path: issue.path === pathEmpty ? U : pathToArray(issue.path),
+            })),
           };
         }
       },

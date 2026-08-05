@@ -150,8 +150,8 @@ test("summarize renders ranked metric moves and behavior changes", () => {
       never   254 → 100  -60.6%
     operations.expression:
       string.parse:
-        chars  42 → 4  -90.5%
-        before  i=>{typeof i==="string"||e[0](i);return i}
+        chars  72 → 4  -94.4%
+        before  i=>{try{typeof i==="string"||e[0](i);return i}catch(x){throw e[1](x,i)}}
         after   i=>i
     bundleSize:
       total  20000 → 20690  +3.5%

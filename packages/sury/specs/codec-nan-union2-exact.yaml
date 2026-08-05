@@ -12,7 +12,7 @@ jsonSchema:
   output: Expected JSON, received NaN | string
 operations:
   parse:
-    expression: i=>{Number.isNaN(i)||e[0](i);i=NaN;return i}
+    expression: i=>{try{Number.isNaN(i)||e[0](i);i=NaN;return i}catch(x){throw e[1](x,i)}}
     examples:
       nan:
         input: NaN

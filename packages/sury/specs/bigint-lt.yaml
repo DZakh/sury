@@ -11,7 +11,7 @@ jsonSchema:
   output: Expected JSON, received bigint < 5n
 operations:
   parse:
-    expression: i=>{typeof i==="bigint"||e[1](i);i<5n||e[0](i);return i}
+    expression: i=>{try{typeof i==="bigint"||e[1](i);i<5n||e[0](i);return i}catch(x){throw e[2](x,i)}}
     examples:
       above:
         input: 6n
@@ -26,7 +26,7 @@ operations:
         input: '"5"'
         error: Expected bigint < 5n, received "5"
   decode:
-    expression: i=>{i<5n||e[0](i);return i}
+    expression: i=>{try{i<5n||e[0](i);return i}catch(x){throw e[1](x,i)}}
     examples:
       above:
         input: 6n
@@ -38,7 +38,7 @@ operations:
         input: 4n
         output: 4n
   encode:
-    expression: i=>{i<5n||e[0](i);return i}
+    expression: i=>{try{i<5n||e[0](i);return i}catch(x){throw e[1](x,i)}}
     examples:
       above:
         input: 6n

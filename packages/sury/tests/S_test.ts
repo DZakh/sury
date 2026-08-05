@@ -1,6 +1,14 @@
 import { test, expectTypeOf, assertType } from "vitest";
 import { format, inspect } from "node:util";
 
+// compileDecoder wraps every throwing sync operation in the `error.issues`
+// context epilogue; strip it so these assertions stay about the core codegen.
+const compiledCode = (fn: unknown): string => {
+  const m = String(fn).match(/^i=>\{try\{([\s\S]*)\}catch\(x\)\{throw e\[\d+\]\(x,i\)\}\}$/);
+  return m ? `i=>{${m[1]}}` : String(fn);
+};
+
+
 import * as S from "../index.mjs";
 
 // FIXME: S.lte should be applied to output
@@ -259,7 +267,7 @@ test("Successfully parses array", (t) => {
 test("Transforms array of bigint to array of string", (t) => {
   const fn = S.decoder(S.array(S.bigint), S.array(S.string));
 
-  t.expect(fn.toString()).toEqual(
+  t.expect(compiledCode(fn)).toEqual(
     `i=>{let v2=new Array(i.length);for(let v1=0;v1<i.length;++v1){v2[v1]=""+i[v1]}return v2}`,
   );
   t.expect(fn([123n])).toEqual(["123"]);
@@ -1794,7 +1802,7 @@ test("Env schema: Reggression version", (t) => {
     }
   };
 
-  t.expect(S.parser(env(S.boolean)).toString()).toEqual(
+  t.expect(compiledCode(S.parser(env(S.boolean)))).toEqual(
     `i=>{for(;;){if(typeof i==="string"&&i==="t"){i=true;break}if(typeof i==="string"&&i==="1"){i=true;break}if(typeof i==="string"&&i==="f"){i=false;break}if(typeof i==="string"&&i==="0"){i=false;break}if(typeof i==="string"){let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0;break}e[1](i)}return i}`,
   );
 
@@ -1885,7 +1893,7 @@ test("Set schema", (t) => {
   const parser = S.parser(schema);
   expectTypeOf(parser).toEqualTypeOf<(input: unknown) => Set<unknown>>();
 
-  t.expect(parser.toString()).toBe("i=>{i instanceof e[0]||e[1](i);return i}");
+  t.expect(compiledCode(parser)).toBe("i=>{i instanceof e[0]||e[1](i);return i}");
 
   const data = new Set(["foo", "bar"]);
   t.expect(parser(data)).toBe(data);
@@ -2343,7 +2351,7 @@ test("Decode from json", async (t) => {
       field: "2024-01-01T00:00:00.000Z",
     },
   );
-  t.expect(dateToJson.toString()).toEqual(
+  t.expect(compiledCode(dateToJson)).toEqual(
     `i=>{return {"field":i["field"].toISOString(),}}`,
   );
 
@@ -2358,7 +2366,7 @@ test("Decode from json", async (t) => {
   t.expect(jsonToDate({ field: "2024-01-01T00:00:00.000Z" })).toEqual({
     field: new Date("2024-01-01T00:00:00.000Z"),
   });
-  t.expect(jsonToDate.toString()).toEqual(
+  t.expect(compiledCode(jsonToDate)).toEqual(
     `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v1=i["field"];typeof v1==="string"||e[1](v1);let v0=new Date(i["field"]);!Number.isNaN(v0.getTime())||e[0](v0);return {"field":v0,}}`,
   );
 
@@ -2400,7 +2408,7 @@ test("Parse to literal with no validation to emulate assert", async (t) => {
 
   expectTypeOf(fn).toEqualTypeOf<(data: unknown) => true>();
   t.expect(fn({ foo: "bar" })).toEqual(true);
-  t.expect(fn.toString()).toEqual(
+  t.expect(compiledCode(fn)).toEqual(
     `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i["foo"];typeof v0==="string"||e[0](v0);return true}`,
   );
 });
@@ -2699,7 +2707,7 @@ test("Preprocess nested fields", (t) => {
 
   const fn = S.encoder(schema);
 
-  t.expect(fn.toString()).toEqual(
+  t.expect(compiledCode(fn)).toEqual(
     `i=>{i===void 0||e[4](i);let v0;try{v0=e[0]("foo")}catch(x){e[1](x)}let v1;try{v1=e[2]("1")}catch(x){e[3](x)}return {"nested":{"tag":v0,"numberTag":v1,},}}`,
   );
 
@@ -2813,17 +2821,17 @@ test("Uint8Array", (t) => {
   let data = new Uint8Array([1, 2, 3]);
 
   t.expect(S.parser(S.uint8Array)(data)).toEqual(data);
-  t.expect(S.parser(S.uint8Array).toString()).toEqual(
+  t.expect(compiledCode(S.parser(S.uint8Array))).toEqual(
     `i=>{i instanceof e[0]||e[1](i);return i}`,
   );
 
   t.expect(S.decoder(S.string, S.uint8Array, S.jsonString)("data")).toEqual(
     `"data"`,
   );
-  t.expect(S.decoder(S.string, S.uint8Array, S.jsonString).toString()).toEqual(
+  t.expect(compiledCode(S.decoder(S.string, S.uint8Array, S.jsonString))).toEqual(
     `i=>{return JSON.stringify(e[1].decode(e[0].encode(i)))}`,
   );
-  t.expect(S.decoder(S.unknown, S.uint8Array, S.jsonString).toString()).toEqual(
+  t.expect(compiledCode(S.decoder(S.unknown, S.uint8Array, S.jsonString))).toEqual(
     `i=>{i instanceof e[1]||e[2](i);return JSON.stringify(e[0].decode(i))}`,
   );
 });

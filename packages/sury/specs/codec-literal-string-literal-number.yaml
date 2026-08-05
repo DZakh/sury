@@ -14,7 +14,7 @@ jsonSchema:
   output: '{ type: "number", const: 42 }'
 operations:
   parse:
-    expression: i=>{i==="a"||e[0](i);return 42}
+    expression: i=>{try{i==="a"||e[0](i);return 42}catch(x){throw e[1](x,i)}}
     examples:
       const:
         input: '"a"'
@@ -30,7 +30,7 @@ operations:
         error: Expected "a", received "42"
   decode: eq-to-parse
   encode:
-    expression: i=>{i===42||e[0](i);return "a"}
+    expression: i=>{try{i===42||e[0](i);return "a"}catch(x){throw e[1](x,i)}}
     examples:
       const:
         input: "42"

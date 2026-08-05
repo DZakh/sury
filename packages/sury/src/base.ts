@@ -21,6 +21,14 @@ export const flagDisableNanNumberValidation: Flag = 2;
 // preserve the original exception so union dispatch can distinguish Sury
 // failures (fall through) from foreign exceptions (escape).
 export const flagUnionTransformContext: Flag = 4;
+// Compile-time: the diagnostic re-run behind `error.issues`. Constraint checks
+// push a made error into the per-call `q` array and keep going; object-field
+// and dynamic-item boundaries catch a subtree's throw, record it and move on
+// to the sibling. The compiled operation returns `q` instead of the value.
+// Suspended inside union member emission — dispatch relies on members
+// throwing to fall through — and inside recursive defs, whose compiled fns
+// return values, not issue arrays.
+export const flagAggregate: Flag = 8;
 // flatten: 64
 
 export const flagUnsafeHas = (acc: Flag, flag: Flag): boolean => {

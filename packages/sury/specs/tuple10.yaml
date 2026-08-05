@@ -11,7 +11,7 @@ jsonSchema:
   output: 'Failed at ["3"]: Expected JSON, received bigint'
 operations:
   parse:
-    expression: i=>{Array.isArray(i)&&i.length===10||e[10](i);let v0=i["0"],v1=i["1"],v2=i["2"],v3=i["3"],v4=i["4"],v5=i["5"],v6=i["6"],v7=i["7"],v8=i["8"],v9=i["9"];typeof v0==="string"||e[0](v0);typeof v1==="number"&&!Number.isNaN(v1)||e[1](v1);typeof v2==="boolean"||e[2](v2);typeof v3==="bigint"||e[3](v3);typeof v4==="symbol"||e[4](v4);typeof v5==="string"||e[5](v5);typeof v6==="number"&&!Number.isNaN(v6)||e[6](v6);typeof v7==="boolean"||e[7](v7);typeof v8==="bigint"||e[8](v8);typeof v9==="symbol"||e[9](v9);return i}
+    expression: i=>{try{Array.isArray(i)&&i.length===10||e[10](i);let v0=i["0"],v1=i["1"],v2=i["2"],v3=i["3"],v4=i["4"],v5=i["5"],v6=i["6"],v7=i["7"],v8=i["8"],v9=i["9"];typeof v0==="string"||e[0](v0);typeof v1==="number"&&!Number.isNaN(v1)||e[1](v1);typeof v2==="boolean"||e[2](v2);typeof v3==="bigint"||e[3](v3);typeof v4==="symbol"||e[4](v4);typeof v5==="string"||e[5](v5);typeof v6==="number"&&!Number.isNaN(v6)||e[6](v6);typeof v7==="boolean"||e[7](v7);typeof v8==="bigint"||e[8](v8);typeof v9==="symbol"||e[9](v9);return i}catch(x){throw e[11](x,i)}}
     examples:
       valid:
         input: '["x", 1, true, 5n, Symbol.for("e"), "y", 2, false, 6n, Symbol.for("j")]'

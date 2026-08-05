@@ -11,7 +11,7 @@ jsonSchema:
   output: Expected JSON, received NaN
 operations:
   parse:
-    expression: i=>{Number.isNaN(i)||e[0](i);return i}
+    expression: i=>{try{Number.isNaN(i)||e[0](i);return i}catch(x){throw e[1](x,i)}}
     examples:
       valid:
         input: NaN

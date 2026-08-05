@@ -11,7 +11,7 @@ jsonSchema:
   output: Expected JSON, received Date
 operations:
   parse:
-    expression: i=>{i instanceof e[1]||e[2](i);!Number.isNaN(i.getTime())||e[0](i);return i}
+    expression: i=>{try{i instanceof e[1]||e[2](i);!Number.isNaN(i.getTime())||e[0](i);return i}catch(x){throw e[3](x,i)}}
     examples:
       valid:
         input: new Date("1970-01-01T00:00:00.000Z")

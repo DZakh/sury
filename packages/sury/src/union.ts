@@ -19,6 +19,7 @@ import {
   type Builder,
   type Check,
   type Encoder,
+  flagAggregate,
   flagDisableNanNumberValidation,
   flagUnionTransformContext,
   flagUnsafeHas,
@@ -1043,6 +1044,14 @@ const unionEmit = (
   plan: UnionGroup[],
   toPerCase: Internal | undefined
 ): Val => {
+  // Aggregation is suspended for the whole emission: dispatch tells "member
+  // didn't match" from a *thrown* Sury error, so a member body that recorded
+  // into `q` and carried on would read as an acceptance. The union reports
+  // as one issue — its aggregated per-member failure — at whatever boundary
+  // encloses it. Restored before the returns below so the union's own
+  // refinements (B_markOutput) still record-and-continue in the parent.
+  const savedFlag = input.g.o;
+  input.g.o = savedFlag & ~flagAggregate;
   const initialInline = input.i;
   let output = B_refine(input);
   // An async case only has to be awaited so that its rejection can be caught and
@@ -1226,6 +1235,7 @@ const unionEmit = (
   } else {
     out = output;
   }
+  input.g.o = savedFlag;
   const outputAnyOf = outputBySource.filter(Boolean) as Internal[];
   out.s = outputAnyOf.length ? unionFactory(outputAnyOf) : never_;
   if (toPerCase !== U) {

@@ -12,7 +12,7 @@ jsonSchema:
   output: '{ anyOf: [{ type: "string", const: "a" }, { type: "string", const: "b" }] }'
 operations:
   parse:
-    expression: i=>{(typeof i==="string"&&i==="a"||typeof i==="string"&&i==="b")||e[0](i);return i}
+    expression: i=>{try{(typeof i==="string"&&i==="a"||typeof i==="string"&&i==="b")||e[0](i);return i}catch(x){throw e[1](x,i)}}
     examples:
       validating-literal:
         input: '"a"'
@@ -25,7 +25,7 @@ operations:
         error: Expected "a" | "b", received "c"
   decode: eq-to-parse
   encode:
-    expression: i=>{(typeof i==="string"&&i==="a"||i==="b")||e[0](i);return i}
+    expression: i=>{try{(typeof i==="string"&&i==="a"||i==="b")||e[0](i);return i}catch(x){throw e[1](x,i)}}
     examples:
       validating-literal:
         input: '"a"'

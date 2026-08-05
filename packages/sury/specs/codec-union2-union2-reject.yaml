@@ -12,7 +12,7 @@ jsonSchema:
   output: '{ type: "string" }'
 operations:
   parse:
-    expression: i=>{for(;;){if(typeof i==="number"&&!Number.isNaN(i)){e[0](i);break}if(typeof i==="string")break;e[1](i)}return i}
+    expression: i=>{try{for(;;){if(typeof i==="number"&&!Number.isNaN(i)){e[0](i);break}if(typeof i==="string")break;e[1](i)}return i}catch(x){throw e[2](x,i)}}
     examples:
       rejected-number:
         input: "42"

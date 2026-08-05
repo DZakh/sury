@@ -13,7 +13,7 @@ jsonSchema:
   output: '{ type: "number", const: 123 }'
 operations:
   parse:
-    expression: i=>{i===123||e[0](i);return i}
+    expression: i=>{try{i===123||e[0](i);return i}catch(x){throw e[1](x,i)}}
     examples:
       valid:
         input: "123"

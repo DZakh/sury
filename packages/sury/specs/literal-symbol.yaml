@@ -14,7 +14,7 @@ jsonSchema:
   output: Expected JSON, received Symbol(tuna)
 operations:
   parse:
-    expression: i=>{i===e[0]||e[1](i);return i}
+    expression: i=>{try{i===e[0]||e[1](i);return i}catch(x){throw e[2](x,i)}}
     examples:
       valid:
         input: Symbol.for("tuna")

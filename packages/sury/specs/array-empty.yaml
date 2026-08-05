@@ -16,7 +16,7 @@ jsonSchema:
   output: '{ items: { type: "string" }, type: "array", minItems: 0, maxItems: 0 }'
 operations:
   parse:
-    expression: i=>{Array.isArray(i)||e[2](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}i.length===0||e[1](i);return i}
+    expression: i=>{try{Array.isArray(i)||e[2](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}i.length===0||e[1](i);return i}catch(x){throw e[3](x,i)}}
     examples:
       at-the-length:
         input: '["a", "b"]'
@@ -34,7 +34,7 @@ operations:
         input: '"ab"'
         error: Expected string[].length == 0, received "ab"
   decode:
-    expression: i=>{i.length===0||e[0](i);return i}
+    expression: i=>{try{i.length===0||e[0](i);return i}catch(x){throw e[1](x,i)}}
     examples:
       at-the-length:
         input: '["a", "b"]'
@@ -46,7 +46,7 @@ operations:
         input: "[]"
         output: "[]"
   encode:
-    expression: i=>{i.length===0||e[0](i);return i}
+    expression: i=>{try{i.length===0||e[0](i);return i}catch(x){throw e[1](x,i)}}
     examples:
       at-the-length:
         input: '["a", "b"]'

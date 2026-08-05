@@ -13,7 +13,7 @@ jsonSchema:
   output: '{ type: "boolean", const: true }'
 operations:
   parse:
-    expression: i=>{i===true||e[0](i);return i}
+    expression: i=>{try{i===true||e[0](i);return i}catch(x){throw e[1](x,i)}}
     examples:
       valid:
         input: "true"

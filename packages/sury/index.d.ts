@@ -357,6 +357,12 @@ type BaseError = {
   readonly path: Path;
   readonly message: string;
   readonly reason: string;
+  // Every issue the failed operation can report, not only the one it threw
+  // first. Lazily computed on first access by re-running the operation in
+  // aggregate mode on the original input; falls back to `[this]` when the
+  // error carries no operation context (async operations, manually
+  // constructed errors).
+  readonly issues: readonly Error[];
 };
 
 export type Error =

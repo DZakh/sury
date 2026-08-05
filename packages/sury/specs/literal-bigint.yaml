@@ -13,7 +13,7 @@ jsonSchema:
   output: Expected JSON, received 123n
 operations:
   parse:
-    expression: i=>{i===123n||e[0](i);return i}
+    expression: i=>{try{i===123n||e[0](i);return i}catch(x){throw e[1](x,i)}}
     examples:
       valid:
         input: 123n

@@ -27,7 +27,7 @@ jsonSchema:
   output: '{ type: "string", minLength: 3, maxLength: 3 }'
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[2](i);i.length<6||e[0](i);i.length===3||e[1](i);return i}
+    expression: i=>{try{typeof i==="string"||e[2](i);i.length<6||e[0](i);i.length===3||e[1](i);return i}catch(x){throw e[3](x,i)}}
     examples:
       at-the-length:
         input: '"abc"'
@@ -48,7 +48,7 @@ operations:
         input: "1"
         error: Expected string.length == 3, received 1
   decode:
-    expression: i=>{i.length<6||e[0](i);i.length===3||e[1](i);return i}
+    expression: i=>{try{i.length<6||e[0](i);i.length===3||e[1](i);return i}catch(x){throw e[2](x,i)}}
     examples:
       at-the-length:
         input: '"abc"'
@@ -60,7 +60,7 @@ operations:
         input: '"abcdef"'
         error: MAX
   encode:
-    expression: i=>{i.length<6||e[0](i);i.length===3||e[1](i);return i}
+    expression: i=>{try{i.length<6||e[0](i);i.length===3||e[1](i);return i}catch(x){throw e[2](x,i)}}
     examples:
       at-the-length:
         input: '"abc"'

@@ -93,6 +93,12 @@ async function asyncAssertThrowsMessage(t, cb, errorMessage, message) {
   return Vitest.Assert.fail(t, `Asserted result is not S.Exn "` + errorMessage + `". Instead got: ` + JSON.stringify(any));
 }
 
+let stripIssuesEpilogue = ((code) => {
+  code = "" + code;
+  const m = code.match(/^i=>\{try\{([\s\S]*)\}catch\(x\)\{throw e\[\d+\]\(x,i\)\}\}$/);
+  return m ? "i=>{" + m[1] + "}" : code;
+});
+
 function getCompiledCodeString(schema, op, embedded) {
   let toFn = schema => {
     if (op === "Parse") {
@@ -117,11 +123,11 @@ function getCompiledCodeString(schema, op, embedded) {
   };
   let fn = toFn(schema);
   let code = {
-    contents: fn.toString()
+    contents: stripIssuesEpilogue(fn.toString())
   };
   if (embedded !== undefined) {
     embedded.forEach(param => {
-      code.contents = code.contents + "\n" + (param[0] + `: ` + fn.embedded[param[1]]);
+      code.contents = code.contents + "\n" + (param[0] + `: ` + stripIssuesEpilogue(fn.embedded[param[1]]));
     });
   } else {
     let defs = schema.$defs;
@@ -129,7 +135,7 @@ function getCompiledCodeString(schema, op, embedded) {
       Stdlib_Dict.forEachWithKey(defs, (schema, key) => {
         try {
           let defFn = toFn(schema);
-          code.contents = code.contents + "\n" + (key + `: ` + defFn.toString());
+          code.contents = code.contents + "\n" + (key + `: ` + stripIssuesEpilogue(defFn.toString()));
           return;
         } catch (_exn) {
           return;
@@ -204,6 +210,7 @@ export {
   assertThrows,
   assertThrowsMessage,
   asyncAssertThrowsMessage,
+  stripIssuesEpilogue,
   getCompiledCodeString,
   cleanUpSchema,
   unsafeAssertEqualSchemas,

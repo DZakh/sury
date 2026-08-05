@@ -1,7 +1,7 @@
 open Vitest
 
 let assertCode = (t, fn: 'a => 'b, code) => {
-  t->Assert.is((fn->Obj.magic)["toString"](), code)
+  t->Assert.is((fn->Obj.magic)["toString"]()->U.stripIssuesEpilogue, code)
 }
 
 test("Schema with empty code optimised to use precompiled noop function", t => {

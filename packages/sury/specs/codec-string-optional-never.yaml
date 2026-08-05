@@ -12,7 +12,7 @@ jsonSchema:
   output: '{ type: "string" }'
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[0](i);return i}
+    expression: i=>{try{typeof i==="string"||e[0](i);return i}catch(x){throw e[1](x,i)}}
     examples:
       string:
         input: '"abc"'
@@ -22,7 +22,7 @@ operations:
         output: '"undefined"'
   decode: identity
   encode:
-    expression: i=>{for(;;){if(typeof i==="string")break;if(i===void 0){e[0](i);break}e[1](i)}return i}
+    expression: i=>{try{for(;;){if(typeof i==="string")break;if(i===void 0){e[0](i);break}e[1](i)}return i}catch(x){throw e[2](x,i)}}
     examples:
       string:
         input: '"abc"'

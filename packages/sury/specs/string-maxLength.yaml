@@ -11,7 +11,7 @@ jsonSchema:
   output: '{ type: "string", maxLength: 2 }'
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[1](i);i.length<3||e[0](i);return i}
+    expression: i=>{try{typeof i==="string"||e[1](i);i.length<3||e[0](i);return i}catch(x){throw e[2](x,i)}}
     examples:
       at-the-length:
         input: '"ab"'
@@ -32,7 +32,7 @@ operations:
         input: "1"
         error: Expected string.length <= 2, received 1
   decode:
-    expression: i=>{i.length<3||e[0](i);return i}
+    expression: i=>{try{i.length<3||e[0](i);return i}catch(x){throw e[1](x,i)}}
     examples:
       at-the-length:
         input: '"ab"'
@@ -44,7 +44,7 @@ operations:
         input: '""'
         output: '""'
   encode:
-    expression: i=>{i.length<3||e[0](i);return i}
+    expression: i=>{try{i.length<3||e[0](i);return i}catch(x){throw e[1](x,i)}}
     examples:
       at-the-length:
         input: '"ab"'

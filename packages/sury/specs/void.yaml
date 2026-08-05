@@ -11,7 +11,7 @@ jsonSchema:
   output: Expected JSON, received void
 operations:
   parse:
-    expression: i=>{i===void 0||e[0](i);return i}
+    expression: i=>{try{i===void 0||e[0](i);return i}catch(x){throw e[1](x,i)}}
     examples:
       valid:
         input: undefined

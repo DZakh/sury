@@ -11,7 +11,7 @@ jsonSchema:
   output: "Expected JSON, received { a: string | undefined; } | undefined"
 operations:
   parse:
-    expression: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i["a"];(typeof v0==="string"||v0===void 0)||e[0](v0);i={"a":v0,};break}if(i===void 0)break;e[1](i)}return i}
+    expression: i=>{try{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i["a"];(typeof v0==="string"||v0===void 0)||e[0](v0);i={"a":v0,};break}if(i===void 0)break;e[1](i)}return i}catch(x){throw e[2](x,i)}}
     examples:
       object:
         input: '{ a: "x" }'

@@ -5,6 +5,7 @@ import {
   baseSchema,
   type Builder,
   defsPath,
+  flagAggregate,
   globalConfig,
   type Internal,
   refTag,
@@ -30,7 +31,10 @@ export const recursiveDecoder: Builder = (input) => {
   // Ignore #/$defs/
   const identifier = schemaRef.slice(8);
   const def = defs[identifier]!;
-  const flag = input.g.o;
+  // A def's compiled fn returns the parsed value and is shared through the op
+  // cache with fail-fast callers, so an aggregate re-run recurses fail-fast:
+  // the first inner failure throws to the nearest enclosing boundary.
+  const flag = input.g.o & ~flagAggregate;
 
   const inputSchema = input.s.seq === expectedSchema.seq ? def : input.s;
 

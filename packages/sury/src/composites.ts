@@ -41,7 +41,7 @@ import {
   B_addObjectField,
   B_asyncVal,
   B_dynamicScope,
-  B_failWithArg,
+  B_failOrPushWithArg,
   B_hoistChildChecks,
   B_hoistDecl,
   B_inlineConst,
@@ -519,7 +519,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
       }
       objectVal.cp =
         objectVal.cp +
-        `){${B_failWithArg(
+        `){${B_failOrPushWithArg(
           input,
           (excessFieldName: string) =>
             ({

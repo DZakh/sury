@@ -11,7 +11,7 @@ jsonSchema:
   output: '{ type: "null" }'
 operations:
   parse:
-    expression: i=>{i===null||e[0](i);return i}
+    expression: i=>{try{i===null||e[0](i);return i}catch(x){throw e[1](x,i)}}
     examples:
       valid:
         input: "null"

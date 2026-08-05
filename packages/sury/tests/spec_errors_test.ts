@@ -60,7 +60,7 @@ test("stale golden (expression drifted from what the schema actually compiles to
       operations:
         parse:
     -     expression: i=>i /* stale */
-    +     expression: i=>{typeof i==="string"||e[0](i);return i}
+    +     expression: i=>{try{typeof i==="string"||e[0](i);return i}catch(x){throw e[1](x,i)}}
           examples:
             valid:
               input: '"hello"'",
@@ -269,8 +269,8 @@ test("identity claimed but the operation doesn't actually compile to identity", 
     +   output: '{ type: "string", minLength: 3 }'
       operations:
         parse:
-    -     expression: i=>{typeof i==="string"||e[0](i);return i}
-    +     expression: i=>{typeof i==="string"||e[1](i);i.length>2||e[0](i);return i}
+    -     expression: i=>{try{typeof i==="string"||e[0](i);return i}catch(x){throw e[1](x,i)}}
+    +     expression: i=>{try{typeof i==="string"||e[1](i);i.length>2||e[0](i);return i}catch(x){throw e[2](x,i)}}
           examples:
             valid:
               input: '"hello"'
@@ -350,8 +350,8 @@ test("eq-to-parse claimed but the operation doesn't actually compile to the same
     +   output: '{ type: "string", minLength: 3 }'
       operations:
         parse:
-    -     expression: i=>{e[0](i);return i}
-    +     expression: i=>{typeof i==="string"||e[1](i);i.length>2||e[0](i);return i}
+    -     expression: i=>{try{e[0](i);return i}catch(x){throw e[1](x,i)}}
+    +     expression: i=>{try{typeof i==="string"||e[1](i);i.length>2||e[0](i);return i}catch(x){throw e[2](x,i)}}
           examples:
             invalid-string:
               input: '"anything"'
@@ -384,7 +384,7 @@ test("full op block claimed but the operation actually compiles to the same code
               error: Expected never, received undefined
         decode:
     -     expression: ""
-    +     expression: i=>{e[0](i);return i}
+    +     expression: i=>{try{e[0](i);return i}catch(x){throw e[1](x,i)}}
           examples: {}
         encode: eq-to-parse
     ",
@@ -462,7 +462,7 @@ test("multiple simultaneous problems all get their own guiding message", async (
       operations:
         parse:
     -     expression: i=>i /* stale */
-    +     expression: i=>{typeof i==="string"||e[0](i);return i}
+    +     expression: i=>{try{typeof i==="string"||e[0](i);return i}catch(x){throw e[1](x,i)}}
           examples:
             valid:
               input: '"hello"'",

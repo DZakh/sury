@@ -4,6 +4,7 @@ import {
   type Check,
   type ErrorDetails,
   type Flag,
+  flagAggregate,
   flagAsync,
   flagNone,
   flagUnionTransformContext,
@@ -278,6 +279,30 @@ export const B_failWithArg = <TArg>(b: Val, fn: (arg: TArg) => ErrorDetails, arg
   })}(${arg})`;
 }
 
+// Aggregate-mode counterpart of B_failWithArg: record the error into the
+// per-call `q` array and keep executing. Only correct where the code after
+// the failure stays type-safe (constraint refines, unrecognized keys) —
+// type narrows must keep throwing so the subtree aborts.
+export const B_pushWithArg = <TArg>(b: Val, fn: (arg: TArg) => ErrorDetails, arg: string): string => {
+  return `q.push(${B_embed(b, (arg: TArg) => new SuryError(fn(arg)))}(${arg}))`;
+}
+
+// Route between the two by the compile flag: throw (fail-fast) or record and
+// continue (the `error.issues` diagnostic re-run).
+export const B_failOrPushWithArg = <TArg>(b: Val, fn: (arg: TArg) => ErrorDetails, arg: string): string => {
+  return flagUnsafeHas(b.g.o, flagAggregate)
+    ? B_pushWithArg(b, fn, arg)
+    : B_failWithArg(b, fn, arg);
+}
+
+// The catch body every aggregate boundary shares: a Sury failure inside the
+// subtree is recorded and the siblings keep running; anything foreign escapes.
+const B_aggCatch = `catch(x){if(x&&x.s===s)q.push(x);else throw x}`;
+
+export const B_aggWrap = (code: string): string => {
+  return `try{${code}}${B_aggCatch}`;
+}
+
 // Record a raise that reaches generated code without an embed behind it — the
 // bare `throw` a loop wrapper re-raises a nested error with. Union codegen
 // decides whether a case needs a `try` by bracketing an emission and reading
@@ -431,9 +456,17 @@ export const B_embedInvalidInput = (input: Val, expected: Internal = input.e): s
 const B_emitChecks = (val: Val, inputVar: string): string => {
   const checks = val.vc!;
   const len = checks.length;
+  // In the aggregate re-run a failed constraint records and continues — the
+  // value keeps its type, so later checks stay sound. A failed type narrow
+  // (failInvalidType) still throws: the code after it reads the value as the
+  // narrowed type, and the nearest boundary records the abort instead.
+  const emitFail = (fail: (input: Val) => (value: unknown) => ErrorDetails): string =>
+    fail === failInvalidType
+      ? B_failWithArg(val, fail(val), inputVar)
+      : B_failOrPushWithArg(val, fail(val), inputVar);
   if (len === 1) {
     const check = checks[0]!;
-    return `${check.c(inputVar)}||${B_failWithArg(val, check.f(val), inputVar)};`;
+    return `${check.c(inputVar)}||${emitFail(check.f)};`;
   } else {
     let out = "";
     let i = 0;
@@ -447,7 +480,7 @@ const B_emitChecks = (val: Val, inputVar: string): string => {
         cond = cond + "&&" + checks[i]!.c(inputVar);
         i = i + 1;
       }
-      out = out + `${cond}||${B_failWithArg(val, fail(val), inputVar)};`;
+      out = out + `${cond}||${emitFail(fail)};`;
     }
     return out;
   }
@@ -759,7 +792,22 @@ export const B_addObjectField = (objectVal: Val, location: string, val: Val): vo
   if (flagUnsafeHas(val.f, valFlagAsync)) {
     val.v();
   }
-  objectVal.cp = objectVal.cp + B_merge(val);
+  const mark = val.g.t;
+  const code = B_merge(val);
+  // Aggregate re-run: a field whose subtree can throw becomes its own
+  // recovery unit, so its siblings still report. Field paths are absolute
+  // within the compiled fn (static), so no path fix-up is needed here — the
+  // dynamic boundaries in B_mergeWithPathPrepend own that. Declarations
+  // trapped inside the try stay reachable because the aggregate compile
+  // rewrites `let` to `var` (compileDecoder).
+  objectVal.cp =
+    objectVal.cp +
+    (code !== "" &&
+    val.g.t !== mark &&
+    flagUnsafeHas(val.g.o, flagAggregate) &&
+    !flagUnsafeHas(val.f, valFlagAsync)
+      ? B_aggWrap(code)
+      : code);
   objectVal.d![location] = val;
 }
 
@@ -883,16 +931,37 @@ export const B_mergeWithPathPrepend = (
 ): string => {
   if (val.path === pathEmpty && locationVar === U) {
     return B_merge(val);
-  } else {
-    return B_mergeWithCatch(
-      val,
-      (errorVar) =>
-        `${errorVar}.path=${
-          parent.path === "" ? "" : `${inlinedValueFromString(parent.path)}+`
-        }${locationVar !== U ? `'["'+${locationVar}+'"]'+` : ""}${errorVar}.path`,
-      appendSafe
-    );
   }
+  // The path prefix this boundary owes every error born inside it. Ends with
+  // `+` so both emitters below append the error's own path directly.
+  const prefix = `${
+    parent.path === "" ? "" : `${inlinedValueFromString(parent.path)}+`
+  }${locationVar !== U ? `'["'+${locationVar}+'"]'+` : ""}`;
+  if (
+    flagUnsafeHas(val.g.o, flagAggregate) &&
+    !flagUnsafeHas(val.f, valFlagAsync)
+  ) {
+    const valCode = B_merge(val);
+    if (valCode === "") {
+      return appendSafe !== U ? appendSafe() : "";
+    }
+    // Record-and-continue boundary. Fail-fast prepends the prefix while the
+    // error unwinds through each enclosing catch; here nothing unwinds (the
+    // catch swallows), so the prefix is applied by index instead: everything
+    // `q` gained inside the try — pushed by this catch or by any nested
+    // boundary/check — gets this level's segment. Nested boundaries run
+    // first, so segments still accumulate innermost-out.
+    const idxVar = B_varWithoutAllocation(val.g);
+    B_markThrow(val);
+    return `let ${idxVar}=q.length;${B_aggWrap(
+      valCode + (appendSafe !== U ? appendSafe() : "")
+    )}for(;${idxVar}<q.length;${idxVar}++)q[${idxVar}].path=${prefix}q[${idxVar}].path;`;
+  }
+  return B_mergeWithCatch(
+    val,
+    (errorVar) => `${errorVar}.path=${prefix}${errorVar}.path`,
+    appendSafe
+  );
 }
 
 export function noopOperation(i: unknown): unknown {

@@ -11,7 +11,7 @@ jsonSchema:
   output: '{ type: "number", exclusiveMaximum: 5 }'
 operations:
   parse:
-    expression: i=>{typeof i==="number"&&!Number.isNaN(i)||e[1](i);i<5||e[0](i);return i}
+    expression: i=>{try{typeof i==="number"&&!Number.isNaN(i)||e[1](i);i<5||e[0](i);return i}catch(x){throw e[2](x,i)}}
     examples:
       just-above:
         input: "5.5"
@@ -35,7 +35,7 @@ operations:
         input: '"6"'
         error: Expected number < 5, received "6"
   decode:
-    expression: i=>{i<5||e[0](i);return i}
+    expression: i=>{try{i<5||e[0](i);return i}catch(x){throw e[1](x,i)}}
     examples:
       just-above:
         input: "5.5"
@@ -47,7 +47,7 @@ operations:
         input: "4"
         output: "4"
   encode:
-    expression: i=>{i<5||e[0](i);return i}
+    expression: i=>{try{i<5||e[0](i);return i}catch(x){throw e[1](x,i)}}
     examples:
       just-above:
         input: "5.5"

@@ -78,6 +78,15 @@ let asyncAssertThrowsMessage = async (t, cb, errorMessage, ~message=?) => {
   }
 }
 
+// The `error.issues` context epilogue (parse.ts compileDecoder) wraps every
+// sync throwing operation. Snapshots assert the core codegen, so peel it off
+// here instead of updating every inline string in the test suite.
+let stripIssuesEpilogue: string => string = %raw(`(code) => {
+  code = "" + code;
+  const m = code.match(/^i=>\{try\{([\s\S]*)\}catch\(x\)\{throw e\[\d+\]\(x,i\)\}\}$/);
+  return m ? "i=>{" + m[1] + "}" : code;
+}`)
+
 let getCompiledCodeString = (
   schema,
   ~op: [
@@ -130,12 +139,15 @@ let getCompiledCodeString = (
     }
 
   let fn = schema->toFn
-  let code = ref(fn["toString"]())
+  let code = ref(fn["toString"]()->stripIssuesEpilogue)
 
   switch embedded {
   | Some(embedded) =>
     embedded->Array.forEach(((name, index)) => {
-      code := code.contents ++ "\n" ++ `${name}: ${fn["embedded"]->Array.getUnsafe(index)}`
+      code :=
+        code.contents ++
+        "\n" ++
+        `${name}: ${stripIssuesEpilogue(fn["embedded"]->Array.getUnsafe(index)->Obj.magic)}`
     })
   | None =>
     switch (schema->S.untag).defs {
@@ -143,7 +155,7 @@ let getCompiledCodeString = (
       defs->Dict.forEachWithKey((schema, key) =>
         try {
           let defFn = schema->toFn
-          code := code.contents ++ "\n" ++ `${key}: ${defFn["toString"]()}`
+          code := code.contents ++ "\n" ++ `${key}: ${defFn["toString"]()->stripIssuesEpilogue}`
         } catch {
         | _exn => ()
         }

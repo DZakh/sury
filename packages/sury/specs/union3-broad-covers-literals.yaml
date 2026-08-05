@@ -11,7 +11,7 @@ jsonSchema:
   output: '{ anyOf: [{ type: "string", const: "apple" }, { type: "string" }, { type: "string", const: "banana" }] }'
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[0](i);return i}
+    expression: i=>{try{typeof i==="string"||e[0](i);return i}catch(x){throw e[1](x,i)}}
     examples:
       covered-literal:
         input: '"apple"'

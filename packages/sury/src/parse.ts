@@ -5,10 +5,13 @@ import {
   copySchema,
   type Encoder,
   type Flag,
+  flagAggregate,
   flagAsync,
   flagDisableNanNumberValidation,
   flagUnsafeHas,
   getOrRethrow,
+  SuryError,
+  type SuryErrorRecord,
   globalConfig,
   immutableEmptyArray,
   initSchema,
@@ -50,6 +53,7 @@ import {
   valueOptions,
 } from "./base";
 import {
+  B_embed,
   B_embedInvalidInput,
   B_inlineConst,
   B_markOutput,
@@ -190,6 +194,11 @@ export const isAsyncInternal = (
     return false;
   }
 }
+// The key `issues` finds its diagnostic re-run under. Attached to a thrown
+// error by the fail-fast epilogue below; non-enumerable so a logged or
+// serialized error doesn't leak it.
+const issuesRunnerKey = "ic";
+
 export const compileDecoder = (
   schema: Internal,
   expected: Internal,
@@ -206,6 +215,22 @@ export const compileDecoder = (
   const hasTransform = output.t === true;
   expected.hasTransform = hasTransform;
 
+  if (flagUnsafeHas(flag, flagAggregate)) {
+    // The diagnostic variant: returns the collected issues instead of the
+    // parsed value. `q` is the shared per-call sink every boundary and check
+    // pushes into; anything not caught by a boundary lands in the epilogue.
+    // `let`→`var` makes declarations survive the try blocks the boundaries
+    // wrap around them, so code after a recorded failure still resolves its
+    // vars (to the raw value or undefined — the output is discarded anyway).
+    // Known POC hole: a property name containing "let " gets rewritten too.
+    const aggFunction = `${operationArgVar}=>{var q=[];try{${code
+      .split("let ")
+      .join("var ")}}catch(x){if(x&&x.s===s)q.push(x);else throw x}return q}`;
+    const fn = new Function("e", "s", `return ${aggFunction}`)(input.g.e, s);
+    fn.embedded = input.g.e;
+    return fn;
+  }
+
   if (
     code === "" &&
     (output === input || output.i === input.i) &&
@@ -218,13 +243,75 @@ export const compileDecoder = (
       inlinedOutput = `Promise.resolve(${inlinedOutput})`;
     }
 
-    const inlinedFunction = `${operationArgVar}=>{${code}return ${inlinedOutput}}`;
+    let inlinedFunction = `${operationArgVar}=>{${code}return ${inlinedOutput}}`;
+
+    // Fail-fast epilogue: hand every escaping Sury error the context the
+    // `issues` getter needs — the operation input and a lazily compiled
+    // aggregate re-run of this exact operation. Only for sync operations
+    // that can actually raise (`g.t`, see B_markThrow).
+    if (input.g.t !== 0 && !isAsync && !flagUnsafeHas(flag, flagAsync)) {
+      let agg: ((from: unknown) => unknown) | 0 = 0;
+      const attach = (error: unknown, arg: unknown): unknown => {
+        if (error && (error as { s?: symbol }).s === s) {
+          (configurableValueOptions as Record<string, unknown>)[valKey] = () => {
+            if (agg === 0) {
+              agg = compileDecoder(schema, expected, flag | flagAggregate, defs);
+            }
+            return agg(arg);
+          };
+          Object.defineProperty(
+            error,
+            issuesRunnerKey,
+            configurableValueOptions as PropertyDescriptor
+          );
+        }
+        return error;
+      };
+      inlinedFunction = `${operationArgVar}=>{try{${code}return ${inlinedOutput}}catch(x){throw ${B_embed(
+        input,
+        attach
+      )}(x,${operationArgVar})}}`;
+    }
 
     const fn = new Function("e", "s", `return ${inlinedFunction}`)(input.g.e, s);
     fn.embedded = input.g.e;
     return fn;
   }
 }
+
+// `error.issues` — every issue the failed operation can report, not just the
+// one it threw first. The fail-fast hot path stays untouched: the full list
+// is produced only on access, by re-running the operation compiled with
+// flagAggregate on the input stashed by the epilogue above (the TypeBox
+// `Value.Errors` model). Falls back to `[error]` when there's no context
+// (async ops, compile-time errors, user-constructed errors) or the re-run
+// itself misbehaves.
+Object.defineProperty(SuryError.prototype, "issues", {
+  get: function (this: SuryErrorRecord): SuryErrorRecord[] {
+    let issues: SuryErrorRecord[] | undefined;
+    const runner = (this as unknown as Record<string, (() => SuryErrorRecord[]) | undefined>)[
+      issuesRunnerKey
+    ];
+    if (runner !== U) {
+      try {
+        const collected = runner();
+        if (collected.length !== 0) {
+          issues = collected;
+        }
+      } catch (_) {
+        // The aggregate variant failed to compile or run (async transform,
+        // nondeterministic input) — the thrown error is still the truth.
+      }
+    }
+    if (issues === U) {
+      issues = [this];
+    }
+    (configurableValueOptions as Record<string, unknown>)[valKey] = issues;
+    Object.defineProperty(this, "issues", configurableValueOptions as PropertyDescriptor);
+    return issues;
+  },
+  configurable: true,
+});
 export const getOutputSchema = (schema: Internal): Internal => {
   if (schema.to !== U) {
     return getOutputSchema(schema.to);
