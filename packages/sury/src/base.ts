@@ -306,9 +306,14 @@ export type Internal = {
   // the `.to` target. Everything structural is rendered by inputExpression
   // itself, so setting this is the exception, not the pattern.
   expression?: (schema: Internal) => string;
-  // The reversed (Input ↔ Output swapped) schema, cached lazily as a hidden
-  // non-enumerable property via Object.defineProperty (see schema.ts/parse.ts).
+  // The reversed (Input ↔ Output swapped) schema. Always readable: `this` via
+  // the self-reverse prototype getter, otherwise computed and cached by the
+  // general prototype getter (parse.ts). Reading it on a plain schema COMPUTES
+  // the reverse — probe `sr` instead when only self-reverseness is asked.
   r?: Internal;
+  // Set on the self-reverse prototype only — the cheap "reverses to itself"
+  // probe (see selfReversePrototype below).
+  sr?: boolean;
 }
 
 export type BGlobal = {
@@ -595,6 +600,30 @@ Object.defineProperty(schemaPrototype, "with", {
 // Also has ~standard below
 Schema.prototype = schemaPrototype;
 
+// A self-reversing schema answers `reversed` from this prototype getter
+// instead of an own property: the per-instance defineProperty cost an order
+// of magnitude more than everything else baseSchema does. Object.assign never
+// copies the getter, so a derived schema (copySchema) recomputes its reverse —
+// correct, since a copy made to be modified no longer reverses to itself.
+// No setter, so a plain `schema.reversed = …` throws: the cache is only ever
+// written with defineProperty (parse.ts).
+//
+// `sr` is the cheap self-reverse probe: reading `.reversed` off a plain schema
+// would *compute* the reverse (the general getter in parse.ts), so callers
+// that only ask "does it reverse to itself?" (composites) read the marker.
+// "r", not "reversed": internal-only (S.reverse is the public API), and short
+// field names on hot objects survive minification (CLAUDE.md).
+export const reversedKey = "r";
+function SelfReverseSchema(this: Internal): void {}
+const selfReversePrototype: Record<string, unknown> = Object.create(schemaPrototype);
+Object.defineProperty(selfReversePrototype, reversedKey, {
+  get: function (this: Internal) {
+    return this;
+  },
+});
+Object.defineProperty(selfReversePrototype, "sr", { value: true });
+SelfReverseSchema.prototype = selfReversePrototype;
+
 let seq = 1;
 
 let exnId: unknown = {};
@@ -665,18 +694,16 @@ export const globalConfig: GlobalConfig = {
 export const valueOptions: Record<string, unknown> = {};
 export const configurableValueOptions = { configurable: true };
 export const valKey = "value";
-export const reversedKey = "r";
 
-const SchemaCtor = Schema as unknown as { new (): Internal };
+// `function` declarations have no construct signature in TS, so `new` needs a
+// cast. A type is erased where a `const SchemaCtor = Schema as …` alias would
+// survive minification as a real assignment.
+type SchemaClass = new () => Internal;
 
 export const baseSchema = (tag: Tag, selfReverse: boolean): Internal => {
-  const schema = new SchemaCtor();
+  const schema = new ((selfReverse ? SelfReverseSchema : Schema) as unknown as SchemaClass)();
   schema.type = tag;
   schema.seq = seq++;
-  if (selfReverse) {
-    valueOptions[valKey] = schema;
-    Object.defineProperty(schema, reversedKey, valueOptions as PropertyDescriptor);
-  }
   return schema;
 }
 
@@ -705,7 +732,7 @@ export const unknown: Internal = baseSchema(unknownTag, true);
 unknown.decoder = noopDecoder;
 
 export const copySchema = (schema: Internal): Internal => {
-  const c: Internal = Object.assign(new SchemaCtor(), schema);
+  const c: Internal = Object.assign(new (Schema as unknown as SchemaClass)(), schema);
   c.seq = seq++;
   return c;
 }

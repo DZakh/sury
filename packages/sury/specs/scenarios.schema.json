@@ -1,0 +1,22 @@
+{
+  "type": "object",
+  "additionalProperties": {
+    "type": "object",
+    "properties": {
+      "prepare": {
+        "type": "string",
+        "description": "Statements run once per library version before measuring, with `S` in scope; their bindings are in scope for `run`. Build the schema and the input here — only `run` is timed."
+      },
+      "run": {
+        "type": "string",
+        "description": "The expression to measure, evaluated in `prepare`'s scope. Must not throw: timing a throw measures error construction."
+      }
+    },
+    "additionalProperties": false,
+    "required": [
+      "run"
+    ],
+    "description": "One measured consumer-level call."
+  },
+  "description": "Consumer-level performance scenarios, keyed by id, measured by `spec check --perf` alongside the specs."
+}

@@ -1621,6 +1621,115 @@ test("Standard schema", (t) => {
   >();
 });
 
+// getDecoder answers a repeated call from a per-operation node cache on the
+// schema (see OpNode in parse.ts), and
+// `~standard.validate` holds its compiled decoder in a closure. Both are keyed
+// on the arguments and the global flag, so anything that picks a different
+// compiled operation must still get it.
+test("Compiled operations stay per-operation and per-global-config", (t) => {
+  const schema = S.schema({ a: S.string.with(S.to, S.number, Number, String) });
+
+  // Alternating operations on one schema must not answer each other.
+  for (let i = 0; i < 3; i++) {
+    t.expect(S.parser(schema)({ a: "1" })).toEqual({ a: 1 });
+    t.expect(S.encoder(schema)({ a: 1 })).toEqual({ a: "1" });
+    t.expect(S.decoder(schema)({ a: "3" })).toEqual({ a: 3 });
+    t.expect(S.is(schema, { a: "1" })).toBe(true);
+    t.expect(S.is(schema, { a: 1 })).toBe(false);
+    t.expect(schema["~standard"].validate({ a: "2" })).toEqual({
+      value: { a: 2 },
+    });
+  }
+
+  // A derived schema must compile its own operation, not inherit the original's.
+  t.expect(S.is(S.number, NaN)).toBe(false);
+  const derived = S.number.with(S.meta, { title: "t" });
+  t.expect(S.parser(derived)(1)).toBe(1);
+  t.expect(S.is(derived, NaN)).toBe(false);
+
+  const standard = S.number["~standard"];
+  const nanRejected = {
+    issues: [{ message: "Expected number, received NaN", path: undefined }],
+  };
+  t.expect(standard.validate(NaN)).toEqual(nanRejected);
+  try {
+    S.global({ disableNanNumberValidation: true });
+    t.expect(S.is(S.number, NaN)).toBe(true);
+    t.expect(standard.validate(NaN)).toEqual({ value: NaN });
+  } finally {
+    S.global({});
+  }
+  t.expect(S.is(S.number, NaN)).toBe(false);
+  t.expect(standard.validate(NaN)).toEqual(nanRejected);
+});
+
+// A conversion rejected at operation creation fails for every input, so it
+// isn't a fact about the value being validated — it's a bug in the schema, and
+// `issues` is the channel a consumer renders to the person filling in the
+// form. It throws to the developer instead, and keeps throwing: `validate`
+// holds its decoder across calls, and a compile that never produced one must
+// not leave the cache claiming to be current.
+test("A conversion rejected at operation creation throws from validate, on every call", (t) => {
+  const standard = S.boolean.with(S.to, S.number)["~standard"];
+  const message = "Can't decode boolean to number. Use S.to to define a custom decoder";
+  for (let i = 0; i < 3; i++) {
+    t.expect(() => standard.validate(true)).toThrow(message);
+  }
+
+  // Only the compile is promoted: an input that fails validation is still a
+  // result, not an exception.
+  const schema = S.schema({ id: S.string });
+  t.expect(schema["~standard"].validate({ id: "a" })).toEqual({ value: { id: "a" } });
+  t.expect(schema["~standard"].validate({ id: 1 })).toEqual({
+    issues: [{ message: "Expected string, received 1", path: ["id"] }],
+  });
+});
+
+// `S.is` makes the same split, for the same reason: `false` is an answer about
+// the value, and a schema with no compilable operation has no answer to give.
+test("A conversion rejected at operation creation throws from S.is, rather than reading as false", (t) => {
+  const rejected = S.boolean.with(S.to, S.number);
+  const message = "Can't decode boolean to number. Use S.to to define a custom decoder";
+  t.expect(() => S.is(rejected, true)).toThrow(message);
+  t.expect(() => S.is(rejected, true)).toThrow(message);
+  t.expect(() => S.is(true, rejected)).toThrow(message);
+
+  const schema = S.schema({ id: S.string });
+  t.expect(S.is(schema, { id: "a" })).toBe(true);
+  t.expect(S.is(schema, { id: 1 })).toBe(false);
+  // Both arg orders, and the falsy-data guard that keeps `null`/`undefined`
+  // out of the schema slot.
+  t.expect(S.is({ id: "a" }, schema)).toBe(true);
+  t.expect(S.is(schema, null)).toBe(false);
+  t.expect(S.is(null, schema)).toBe(false);
+  t.expect(S.is(schema, undefined)).toBe(false);
+
+  // Only a Sury validation failure becomes `false` — a user refinement that
+  // throws something else still propagates.
+  const boom = S.string.with(S.refine, () => {
+    throw new RangeError("boom");
+  });
+  t.expect(() => S.is(boom, "x")).toThrow("boom");
+});
+
+// A recursive def marks itself in-progress in the operation cache before
+// compiling (OpNode `v === 0`, parse.ts). A compile that throws must unlink
+// that node: left behind, a retry reads it as a live circular reference and
+// builds an operation that calls 0 at runtime.
+test("A failed recursive compile reports the same error on retry, not a poisoned cache node", (t) => {
+  // Nested rather than top-level: a top-level call derives a fresh input
+  // schema per compile, so only the nested shape keeps the def-to-def cache
+  // triple stable enough for a retry to find the leftover node.
+  const schema = S.schema({
+    node: S.recursive<{ bad: boolean }, { bad: number }>("BrokenRec", (_) =>
+      S.schema({ bad: S.boolean.with(S.to, S.number) }),
+    ),
+  });
+  const message = "Can't decode boolean to number. Use S.to to define a custom decoder";
+  t.expect(() => S.parser(schema)).toThrow(message);
+  t.expect(() => S.parser(schema)({ node: { bad: true } })).toThrow(message);
+});
+
 test("Standard JSON Schema interface support", (t) => {
   const schema = S.schema({ foo: S.to(S.string, S.number) });
   const standard = schema["~standard"];

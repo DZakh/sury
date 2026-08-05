@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=./scenarios.schema.json
+#
+# Consumer-level performance scenarios, measured by `spec check --perf`
+# alongside the specs. A spec times a schema's creation, compilation and
+# compiled operation; a scenario times a whole call the way a consumer writes
+# it, so the dispatch around the compiled operation is inside the measurement.
+# Nothing is snapshotted — only the delta against the baseline is reported.
+#
+# Put the schema and the input in `prepare`; only `run` is timed.
+
+standard-schema-validate:
+  prepare: |
+    const schema = S.schema({
+      id: S.string,
+      age: S.number,
+      tags: S.array(S.string),
+    });
+    const data = { id: "u1", age: 30, tags: ["a", "b"] };
+  # What every Standard Schema consumer calls, per request. The contract is a
+  # per-call property read plus a call, so neither half can be hoisted away.
+  run: schema["~standard"].validate(data)
+
+standard-schema-validate-invalid:
+  prepare: |
+    const schema = S.schema({ id: S.string, age: S.number });
+    const data = { id: "u1", age: "30" };
+  # The failure path returns issues rather than throwing, so the error
+  # construction it does is part of what a consumer pays on bad input.
+  run: schema["~standard"].validate(data)
+
+is:
+  prepare: |
+    const schema = S.schema({ id: S.string, age: S.number });
+    const data = { id: "u1", age: 30 };
+  run: S.is(schema, data)
+
+assert:
+  prepare: |
+    const schema = S.schema({ id: S.string, age: S.number });
+    const data = { id: "u1", age: 30 };
+  run: S.assert(schema, data)
+
+parser-lookup:
+  prepare: |
+    const schema = S.schema({ id: S.string, age: S.number });
+  # No parsing at all: the cost of asking an already-compiled schema for its
+  # operation, which is what a caller that doesn't hoist `S.parser` repeats.
+  run: S.parser(schema)
+
+alternating-lookup:
+  prepare: |
+    const schema = S.schema({ id: S.string, age: S.number });
+  # Two different operations on the same schema per call. The one-entry memo
+  # misses on every lookup here, so this times the miss path — the pattern a
+  # single-slot cache is most at risk of making slower than no cache at all.
+  run: (S.parser(schema), S.decoder(schema))
+
+encoder-lookup:
+  prepare: |
+    const schema = S.schema({ id: S.string, age: S.number.with(S.to, S.string) });
+  # Same, through `reverse` — a second cache on a second schema.
+  run: S.encoder(schema)
