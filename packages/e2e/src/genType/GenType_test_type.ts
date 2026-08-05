@@ -1,8 +1,9 @@
-import { expectType, TypeEqual } from "ts-expect";
+import { expectTypeOf, test } from "vitest";
 
-import * as S from "../../../../src/S.js";
+import * as S from "sury";
 import * as GenType from "./GenType.gen";
 
-expectType<TypeEqual<typeof GenType.stringSchema, S.Schema<unknown, string>>>(
-  true
-);
+test("genType emits sury's own schema and error types", () => {
+  expectTypeOf(GenType.stringSchema).toEqualTypeOf<S.Schema<unknown, string>>();
+  expectTypeOf(GenType.error).toEqualTypeOf<S.Error>();
+});
