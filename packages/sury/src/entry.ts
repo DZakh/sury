@@ -223,6 +223,9 @@ export const is = (a: unknown, b: unknown): boolean => {
 
 // @__NO_SIDE_EFFECTS__
 export const union = (values: unknown[]) => unionFactory(values.map(definitionToSchema));
+// The JSON Schema spelling of the same thing. A re-export rather than
+// `const anyOf = union`, which would shed the purity annotation above.
+export { union as anyOf };
 
 // FIXME: Test how it'll work if we have async var as input
 // FIXME: Might not work well with object targets
