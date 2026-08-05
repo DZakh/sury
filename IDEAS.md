@@ -122,6 +122,34 @@ S.reverse(S.schema({
   from the homomorphic-type rewrite — just an existing gap now easier to spot
   in the simpler form.
 
+### String formats (follow-ups to the JSON Schema format vocabulary)
+
+Scores below are against the JSON-Schema-Test-Suite `optional/format` corpus,
+which is what `packages/sury/specs/<format>.yaml` examples are drawn from.
+
+- `S.email` scores 13/21 — now the weakest format, and untouched pre-existing
+  code. The suite wants RFC 5321 behavior where the current regex is the
+  practical one Zod ships. Cheapest correctness win left in the vocabulary.
+- Emit `pattern` for formats with no JSON Schema name. `cuid` currently vanishes
+  in `toJSONSchema` — the denylist in the string branch drops it. Zod emits a
+  regex `pattern` in that situation, which would let it survive a round trip
+  through a JSON Schema consumer.
+- Decide whether `S.isoDateTime` should accept RFC 3339 offsets. It is UTC-only
+  by choice, and that is the only thing between it and 23/23 — the three
+  remaining suite failures are all offset forms. `S.isoTime` already has the
+  offset and leap-second machinery to compose with, so it is a small change,
+  but it is breaking and belongs to a major version. Alternative: keep
+  `isoDateTime` strict and add a separate lenient export, at the cost of two
+  schemas emitting `format: "date-time"` (only one can be the `fromJSONSchema`
+  target).
+- IDNA validation for `S.hostname` / `S.idnHostname` (32/55 and 51/84). Both
+  accept an `xn--` label on shape alone; rejecting one whose Punycode decodes to
+  a character IDNA2008 disallows needs Punycode plus the Unicode
+  derived-property tables (see TypeBox's `src/format/_idna.ts` / `_puny.ts` for
+  the shape of it). This is a bundle-size decision rather than a code one, and
+  the gap only ever over-accepts — no valid hostname is turned away. The cases
+  are published as `known-gap-*` spec examples so they stay visible.
+
 ## v11 initial
 
 - Add `s.parseChild` to EffectContext ???
