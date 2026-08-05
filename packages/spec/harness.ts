@@ -586,7 +586,7 @@ export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
 // `ts.schema` can evaluate without throwing to a value that still isn't a
 // usable Sury schema (e.g. `ts.schema: "42"` evaluates to the number 42).
 // Every Sury schema carries a Standard Schema `~standard` prop whose `vendor`
-// is `"sury"` (Sury's own internals use this exact check — see `js_assert` in
+// is `"sury"` (Sury's own internals use this exact check — see `assert` in
 // the sury entry) — a reliable, non-throwing alternative to probing with a builder.
 const isUsableSchema = (schema: unknown): boolean =>
   (schema as { ["~standard"]?: { vendor?: string } } | null | undefined)?.["~standard"]?.vendor === "sury";
