@@ -157,7 +157,7 @@ export type JSONSchemaT = {
   maxItems?: number;
   minItems?: number;
   uniqueItems?: boolean;
-  contains?: JSONSchemaT;
+  contains?: JSONSchemaDefinition;
   minContains?: number;
   maxContains?: number;
   /**

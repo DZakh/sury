@@ -2595,6 +2595,15 @@ test("toJSONSchema: the target picks the dialect of the result", (t) => {
   // Every dialect's result feeds back in without a cast.
   t.expect(S.parser(S.fromJSONSchema(draft2020))(["a", 1])).toEqual(["a", 1]);
   t.expect(S.parser(S.fromJSONSchema(openapi))(null)).toBe(null);
+
+  // Every dialect stays assignable to the wide type — the invariant that keeps
+  // `extendJSONSchema(schema, toJSONSchema(other, { target }))` compiling. This
+  // breaks when a shared keyword is typed incompatibly across the two (extra
+  // dialect-only keywords slip through structurally — parity there is on the
+  // comment in src/types/jsonschema.d.ts).
+  expectTypeOf<S.JSONSchema7>().toExtend<S.JSONSchema>();
+  expectTypeOf<S.JSONSchema2020>().toExtend<S.JSONSchema>();
+  expectTypeOf<S.OpenAPISchema30>().toExtend<S.JSONSchema>();
 });
 
 test("fromJSONSchema: assertion keywords bind without an explicit `type`", (t) => {

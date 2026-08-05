@@ -102,6 +102,8 @@ export interface JSONSchema {
   $ref?: string | undefined;
   $schema?: string | undefined;
   $anchor?: string | undefined;
+  $dynamicRef?: string | undefined;
+  $dynamicAnchor?: string | undefined;
   $comment?: string | undefined;
   $defs?: { [key: string]: JSONSchemaDefinition } | undefined;
   definitions?: { [key: string]: JSONSchemaDefinition } | undefined;

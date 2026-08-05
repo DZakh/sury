@@ -103,7 +103,7 @@ type rec t = {
   maxItems?: int,
   minItems?: int,
   uniqueItems?: bool,
-  contains?: t,
+  contains?: definition,
   minContains?: int,
   maxContains?: int,
   /**
@@ -209,7 +209,7 @@ module Mutable = {
     mutable maxItems?: int,
     mutable minItems?: int,
     mutable uniqueItems?: bool,
-    mutable contains?: t,
+    mutable contains?: definition,
     mutable minContains?: int,
     mutable maxContains?: int,
     /**
