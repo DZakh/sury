@@ -246,6 +246,9 @@ export type Schema<TInput = unknown, TOutput = TInput> = {
   readonly errorMessage?: SchemaErrorMessage;
 
   // jsonSchema.input/.output throw until enableStandardJSONSchema() is called.
+  // validate reports a failed input as `issues`, but throws when the schema
+  // has no compilable parse operation at all (a rejected `.to` conversion) —
+  // that's a bug in the schema, not a verdict on the value.
   readonly ["~standard"]: StandardSchemaV1.Props<TInput, TOutput> &
     StandardJSONSchemaV1.Props<TInput, TOutput>;
 } & (
@@ -787,6 +790,8 @@ export type SchemaErrorMessage = {
   type?: string;
   minimum?: string;
   maximum?: string;
+  exclusiveMinimum?: string;
+  exclusiveMaximum?: string;
   minLength?: string;
   maxLength?: string;
   minItems?: string;
@@ -829,12 +834,33 @@ export function refine<TInput, TOutput>(
   }
 ): Schema<TInput, TOutput>;
 
-export const min: <TInput, TOutput extends string | number | unknown[]>(
+export const gt: <TInput, TOutput extends number | bigint>(
+  schema: SchemaLike<TInput, TOutput>,
+  value: TOutput,
+  message?: string
+) => Schema<TInput, TOutput>;
+export const gte: <TInput, TOutput extends number | bigint>(
+  schema: SchemaLike<TInput, TOutput>,
+  value: TOutput,
+  message?: string
+) => Schema<TInput, TOutput>;
+export const lt: <TInput, TOutput extends number | bigint>(
+  schema: SchemaLike<TInput, TOutput>,
+  value: TOutput,
+  message?: string
+) => Schema<TInput, TOutput>;
+export const lte: <TInput, TOutput extends number | bigint>(
+  schema: SchemaLike<TInput, TOutput>,
+  value: TOutput,
+  message?: string
+) => Schema<TInput, TOutput>;
+
+export const minLength: <TInput, TOutput extends string | unknown[]>(
   schema: SchemaLike<TInput, TOutput>,
   length: number,
   message?: string
 ) => Schema<TInput, TOutput>;
-export const max: <TInput, TOutput extends string | number | unknown[]>(
+export const maxLength: <TInput, TOutput extends string | unknown[]>(
   schema: SchemaLike<TInput, TOutput>,
   length: number,
   message?: string
@@ -842,6 +868,14 @@ export const max: <TInput, TOutput extends string | number | unknown[]>(
 export const length: <TInput, TOutput extends string | unknown[]>(
   schema: SchemaLike<TInput, TOutput>,
   length: number,
+  message?: string
+) => Schema<TInput, TOutput>;
+export const empty: <TInput, TOutput extends string | unknown[]>(
+  schema: SchemaLike<TInput, TOutput>,
+  message?: string
+) => Schema<TInput, TOutput>;
+export const nonEmpty: <TInput, TOutput extends string | unknown[]>(
+  schema: SchemaLike<TInput, TOutput>,
   message?: string
 ) => Schema<TInput, TOutput>;
 

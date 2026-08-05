@@ -9,10 +9,10 @@ test("Successfully parses valid data", t => {
 test("Fails to parse invalid data", t => {
   let schema = S.array(S.int)->S.length(1)
 
-  t->U.assertThrowsMessage(() => []->S.parseOrThrow(~to=schema), `Array must be exactly 1 items long`)
+  t->U.assertThrowsMessage(() => []->S.parseOrThrow(~to=schema), `Expected int32[].length == 1, received []`)
   t->U.assertThrowsMessage(
     () => [1, 2, 3, 4]->S.parseOrThrow(~to=schema),
-    `Array must be exactly 1 items long`,
+    `Expected int32[].length == 1, received [1, 2, 3, 4]`,
   )
 })
 
@@ -27,11 +27,11 @@ test("Fails to serialize invalid value", t => {
 
   t->U.assertThrowsMessage(
     () => []->S.decodeOrThrow(~from=schema, ~to=S.unknown),
-    `Array must be exactly 1 items long`,
+    `Expected int32[].length == 1, received []`,
   )
   t->U.assertThrowsMessage(
     () => [1, 2, 3, 4]->S.decodeOrThrow(~from=schema, ~to=S.unknown),
-    `Array must be exactly 1 items long`,
+    `Expected int32[].length == 1, received [1, 2, 3, 4]`,
   )
 })
 
@@ -45,16 +45,10 @@ test("Returns refinement", t => {
   let schema = S.array(S.int)->S.length(1)
 
   switch schema {
-  | Array({minItems, maxItems, errorMessage}) => {
+  | Array({minItems, maxItems, ?errorMessage}) => {
       t->Assert.deepEqual(minItems, 1)
       t->Assert.deepEqual(maxItems, 1)
-      t->Assert.deepEqual(
-        errorMessage,
-        {
-          minItems: "Array must be exactly 1 items long",
-          maxItems: "Array must be exactly 1 items long",
-        },
-      )
+      t->Assert.deepEqual(errorMessage, None)
     }
   | _ => t->Assert.fail("Expected Array schema with minItems and maxItems")
   }

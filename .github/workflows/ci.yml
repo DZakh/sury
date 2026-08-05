@@ -30,6 +30,11 @@ jobs:
       - run: pnpm coverage
         working-directory: packages/sury
 
+      # artifact_test.ts checks jsr.json against package.json; only JSR itself
+      # checks the parts npm has no opinion on (slow types, the exclude list).
+      - run: npx --yes jsr@0.14.3 publish --dry-run --allow-dirty
+        working-directory: packages/sury/artifacts
+
       - uses: codecov/codecov-action@v7
         with:
           files: packages/sury/coverage/lcov.info
@@ -111,29 +116,29 @@ jobs:
         run: npx tsx packages/spec/perfComment.ts spec-perf.txt spec-perf-comment.md
         env:
           ARTIFACT_URL: ${{ steps.spec-perf-artifact.outputs.artifact-url }}
+          # The PR's head, not GITHUB_SHA — on a pull_request event that's the
+          # ephemeral merge commit, which names nothing a reader can go look at.
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
 
-      - name: Post/update spec performance comment
+      # A new comment per push, not one edited in place. Editing keeps the PR
+      # tidy at the cost of the history: the numbers a reviewer read are gone
+      # the moment the next push lands, and nothing says whether a delta was
+      # already there two commits ago or arrived with the one under review.
+      # Each comment names the head it measured, so the thread reads in order.
+      - name: Post spec performance comment
         if: github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/github-script@v7
         env:
           BODY_FILE: spec-perf-comment.md
-          MARKER: "<!-- spec-perf -->"
         with:
           script: |
             const fs = require("fs");
-            const body = fs.readFileSync(process.env.BODY_FILE, "utf8");
-            const marker = process.env.MARKER;
-            const comments = await github.paginate(github.rest.issues.listComments, {
+            await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
+              body: fs.readFileSync(process.env.BODY_FILE, "utf8"),
             });
-            const existing = comments.find(
-              (c) => c.user?.login === "github-actions[bot]" && c.body?.includes(marker)
-            );
-            const args = { owner: context.repo.owner, repo: context.repo.repo, body };
-            if (existing) await github.rest.issues.updateComment({ ...args, comment_id: existing.id });
-            else await github.rest.issues.createComment({ ...args, issue_number: context.issue.number });
 
   # The `performance` job above only ever compares a PR against its own base, so
   # a change small enough to sit under the noise floor leaves no trace anywhere

@@ -6,6 +6,7 @@ import {
   type AdditionalItems,
   arrayTag,
   baseSchema,
+  copySchema,
   type Check,
   type ErrorDetails,
   flagUnsafeHas,
@@ -174,7 +175,7 @@ export const completeObjectVal = (objectVal: Val): Val => {
 // @__NO_SIDE_EFFECTS__
 export const array = (item: Internal): Internal => {
   const itemInternal = item;
-  const mut = baseSchema(arrayTag, itemInternal.r === itemInternal);
+  const mut = baseSchema(arrayTag, !!itemInternal.sr);
   mut.additionalItems = itemInternal;
   mut.items = immutableEmptyArray as Internal[];
   mut.decoder = arrayDecoder;
@@ -552,7 +553,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
 
 // @__NO_SIDE_EFFECTS__
 export const dictFactory = (item: Internal): Internal => {
-  const mut = baseSchema(objectTag, item.r === item);
+  const mut = baseSchema(objectTag, !!item.sr);
   mut.properties = immutableEmptyObject as Record<string, Internal>;
   mut.additionalItems = item;
   mut.decoder = objectDecoder;
@@ -613,12 +614,14 @@ export const optionFactory = (item: Internal, unitSchema: Internal = unit): Inte
           const nestedSchema = properties[nestedLoc];
           if (nestedSchema !== U) {
             toPush = updateOutput<Internal>(schema, (mut) => {
+              // copySchema, not a spread: a spread keeps the original's seq,
+              // and two schemas sharing a seq can collide in the seq-keyed
+              // operation caches.
+              const bumped = copySchema(nestedSchema);
+              bumped.const = (nestedSchema.const as number) + 1;
               // FIXME: dict{}
               const properties: Record<string, Internal> = {};
-              properties[nestedLoc] = {
-                ...nestedSchema,
-                const: (nestedSchema.const as number) + 1,
-              } as Internal;
+              properties[nestedLoc] = bumped;
               mut.properties = properties;
             });
           } else {

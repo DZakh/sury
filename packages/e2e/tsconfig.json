@@ -1,0 +1,17 @@
+// Only used by vitest's typecheck run (see vitest.config.mjs) over the
+// *_test_type.ts files, which assert that what genType emits lines up with
+// sury's hand-written declarations.
+{
+  "compilerOptions": {
+    "moduleResolution": "node",
+    "target": "esnext",
+    "module": "ES2020",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    // genType's output imports the compiled .res.mjs beside it, which ships no
+    // declarations of its own; the assertions are about the .gen.ts types.
+    "allowJs": true
+  },
+  "exclude": ["node_modules", "lib"]
+}

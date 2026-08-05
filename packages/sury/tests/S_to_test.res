@@ -10,7 +10,7 @@ test("Coerce a one-directional transform to itself relies on the same-instance s
   // Without that shortcut this would chain the transform's int output back into
   // the target's string decoder, which the missing serializer can't bridge — as
   // the two-instances case below shows.
-  let makeSchema = () => S.string->S.transform(_ => {parser: String.length})
+  let makeSchema = () => S.string->S.transform(() => {parser: String.length})
 
   let schema = makeSchema()
   t->Assert.is(schema->S.to(schema), schema)
@@ -326,17 +326,17 @@ test("Coerce from string to port", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="string"||e[2](i);let v0=+i;!Number.isNaN(v0)||e[1](i);v0>0&&v0<65536&&v0%1===0||e[0](v0);return v0}`,
+    `i=>{typeof i==="string"||e[2](i);let v0=+i;!Number.isNaN(v0)||e[1](i);v0>=0&&v0<65536&&v0%1===0||e[0](v0);return v0}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Convert,
-    `i=>{let v0=+i;!Number.isNaN(v0)||e[1](i);v0>0&&v0<65536&&v0%1===0||e[0](v0);return v0}`,
+    `i=>{let v0=+i;!Number.isNaN(v0)||e[1](i);v0>=0&&v0<65536&&v0%1===0||e[0](v0);return v0}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{i>0&&i<65536&&i%1===0||e[0](i);return ""+i}`,
+    `i=>{i>=0&&i<65536&&i%1===0||e[0](i);return ""+i}`,
   )
 })
 
@@ -387,7 +387,7 @@ test("Coerce from string to bigint", t => {
 })
 
 test("Coerce string after a transform", t => {
-  let schema = S.string->S.transform(_ => {parser: v => v, serializer: v => v})->S.to(S.bool)
+  let schema = S.string->S.transform(() => {parser: v => v, serializer: v => v})->S.to(S.bool)
 
   t->U.assertThrowsMessage(
     () => "true"->S.parseOrThrow(~to=schema),
@@ -1080,7 +1080,7 @@ test("Tier 3 fallback for unknown source — transform on unknown variant still 
     S.union([
       S.string->S.castToUnknown,
       S.unknown
-      ->S.transform(_ => {
+      ->S.transform(() => {
         parser: v => Some(v),
         serializer: v => v->Obj.magic,
       })
@@ -1350,7 +1350,7 @@ asyncTest("Converts union nested in object into an async target (per member)", a
     )->S.to(
       S.schema(s =>
         {
-          "f": s.matches(S.string->S.transform(_ => {asyncParser: v => Promise.resolve(v)})),
+          "f": s.matches(S.string->S.transform(() => {asyncParser: v => Promise.resolve(v)})),
         }
       ),
     )

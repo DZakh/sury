@@ -154,11 +154,6 @@ export const s = /* @__PURE__ */ Symbol(vendor);
 // Internal symbol to identify the item proxy (see the makeObjectVal Proxy use).
 export const itemSymbol = /* @__PURE__ */ Symbol(vendor + ":item");
 
-// A hacky way to prevent prepending path when error is caught.
-// Can be removed after we remove effectCtx
-// and there's not way to throw outside of the operation context.
-export const shouldPrependPathKey = "p";
-
 export type NumberFormat = "int32" | "port";
 export type StringFormat = "json" | "date-time" | "email" | "uuid" | "cuid" | "url";
 export type ArrayFormat = "compactColumns";
@@ -223,6 +218,8 @@ export type SchemaErrorMessage = {
   type?: string;
   minimum?: string;
   maximum?: string;
+  exclusiveMinimum?: string;
+  exclusiveMaximum?: string;
   minLength?: string;
   maxLength?: string;
   minItems?: string;
@@ -278,8 +275,20 @@ export type Internal = {
   // each variant converts to whatever the target is, and a variant with no
   // decoder to that target drops out with its error reported per value.
   perVariant?: boolean;
-  minimum?: number;
-  maximum?: number;
+  // Which bounds the caller actually wrote. int32 and port put their own
+  // range in the fields below, so the values can't tell a caller's bound from
+  // a format's — this can, and only the bound constructors ever set it.
+  // 1 lower inclusive · 2 upper inclusive · 4 lower exclusive · 8 upper
+  // exclusive. A schema bounds either its value or its length, never both, so
+  // one pair of bits covers minimum/minLength/minItems alike.
+  bounds?: number;
+  minimum?: number | bigint;
+  maximum?: number | bigint;
+  // S.gt/S.lt always land here and S.gte/S.lte always land on
+  // minimum/maximum, whatever the numeric type — the bound a schema reports
+  // is the one its author wrote, not an equivalent rewritten form.
+  exclusiveMinimum?: number | bigint;
+  exclusiveMaximum?: number | bigint;
   minLength?: number;
   maxLength?: number;
   minItems?: number;
@@ -297,9 +306,14 @@ export type Internal = {
   // the `.to` target. Everything structural is rendered by inputExpression
   // itself, so setting this is the exception, not the pattern.
   expression?: (schema: Internal) => string;
-  // The reversed (Input ↔ Output swapped) schema, cached lazily as a hidden
-  // non-enumerable property via Object.defineProperty (see schema.ts/parse.ts).
+  // The reversed (Input ↔ Output swapped) schema. Always readable: `this` via
+  // the self-reverse prototype getter, otherwise computed and cached by the
+  // general prototype getter (parse.ts). Reading it on a plain schema COMPUTES
+  // the reverse — probe `sr` instead when only self-reverseness is asked.
   r?: Internal;
+  // Set on the self-reverse prototype only — the cheap "reverses to itself"
+  // probe (see selfReversePrototype below).
+  sr?: boolean;
 }
 
 export type BGlobal = {
@@ -501,13 +515,19 @@ export const stringify = (unknown: unknown): string => {
 // `expression` sits after `const` and before the structural tags, so an override
 // beats the shape it overrides while a literal still outranks both. It also has
 // to beat the `format` fallback below: compactColumns is the sole array format.
+//
+// `skipOverride` renders the shape an override would have replaced. It exists
+// for an override that wraps its own schema's rendering rather than replacing
+// it — a bound, the only one today (`setBoundExpression` in refinements.ts) —
+// which has to ask for the base rendering of the very schema whose `expression`
+// is mid-call, and would recurse forever without this.
 // @__NO_SIDE_EFFECTS__
-export const inputExpression = (schema: Internal): string => {
+export const inputExpression = (schema: Internal, skipOverride?: boolean): string => {
   if (schema.name) {
     return schema.name;
   } else if (schema.const !== U) {
     return stringify(schema.const);
-  } else if (schema.expression) {
+  } else if (schema.expression && !skipOverride) {
     return schema.expression(schema);
   } else if (schema.anyOf !== U) {
     // Repeated members remain significant to decoding (the same effectful schema
@@ -545,7 +565,9 @@ export const inputExpression = (schema: Internal): string => {
     if (typeof additionalItems === objectTag) {
       const item = additionalItems as Internal;
       const itemName = inputExpression(item);
-      return (item.type === anyOfTag ? `(${itemName})` : itemName) + "[]";
+      // A bound reads as part of the item, not the array: `int32 > 5[]` parses
+      // as an array-typed bound, the same ambiguity a union has.
+      return (item.type === anyOfTag || item.bounds !== U ? `(${itemName})` : itemName) + "[]";
     }
     const items = schema.items!;
     let body = "";
@@ -577,6 +599,30 @@ Object.defineProperty(schemaPrototype, "with", {
 });
 // Also has ~standard below
 Schema.prototype = schemaPrototype;
+
+// A self-reversing schema answers `reversed` from this prototype getter
+// instead of an own property: the per-instance defineProperty cost an order
+// of magnitude more than everything else baseSchema does. Object.assign never
+// copies the getter, so a derived schema (copySchema) recomputes its reverse —
+// correct, since a copy made to be modified no longer reverses to itself.
+// No setter, so a plain `schema.reversed = …` throws: the cache is only ever
+// written with defineProperty (parse.ts).
+//
+// `sr` is the cheap self-reverse probe: reading `.reversed` off a plain schema
+// would *compute* the reverse (the general getter in parse.ts), so callers
+// that only ask "does it reverse to itself?" (composites) read the marker.
+// "r", not "reversed": internal-only (S.reverse is the public API), and short
+// field names on hot objects survive minification (CLAUDE.md).
+export const reversedKey = "r";
+function SelfReverseSchema(this: Internal): void {}
+const selfReversePrototype: Record<string, unknown> = Object.create(schemaPrototype);
+Object.defineProperty(selfReversePrototype, reversedKey, {
+  get: function (this: Internal) {
+    return this;
+  },
+});
+Object.defineProperty(selfReversePrototype, "sr", { value: true });
+SelfReverseSchema.prototype = selfReversePrototype;
 
 let seq = 1;
 
@@ -648,18 +694,16 @@ export const globalConfig: GlobalConfig = {
 export const valueOptions: Record<string, unknown> = {};
 export const configurableValueOptions = { configurable: true };
 export const valKey = "value";
-export const reversedKey = "r";
 
-const SchemaCtor = Schema as unknown as { new (): Internal };
+// `function` declarations have no construct signature in TS, so `new` needs a
+// cast. A type is erased where a `const SchemaCtor = Schema as …` alias would
+// survive minification as a real assignment.
+type SchemaClass = new () => Internal;
 
 export const baseSchema = (tag: Tag, selfReverse: boolean): Internal => {
-  const schema = new SchemaCtor();
+  const schema = new ((selfReverse ? SelfReverseSchema : Schema) as unknown as SchemaClass)();
   schema.type = tag;
   schema.seq = seq++;
-  if (selfReverse) {
-    valueOptions[valKey] = schema;
-    Object.defineProperty(schema, reversedKey, valueOptions as PropertyDescriptor);
-  }
   return schema;
 }
 
@@ -688,7 +732,7 @@ export const unknown: Internal = baseSchema(unknownTag, true);
 unknown.decoder = noopDecoder;
 
 export const copySchema = (schema: Internal): Internal => {
-  const c: Internal = Object.assign(new SchemaCtor(), schema);
+  const c: Internal = Object.assign(new (Schema as unknown as SchemaClass)(), schema);
   c.seq = seq++;
   return c;
 }

@@ -6,7 +6,7 @@
 // })
 
 // test("Doesn't support transforms and refinements", t => {
-//   let schema = S.string->S.transform(_ => {parser: ignore})->S.refine(_ => ignore)
+//   let schema = S.string->S.transform(() => {parser: ignore})->S.refine(_ => ignore)
 //   t->Assert.deepEqual(schema->S.inline, `S.string`)
 // })
 
@@ -144,53 +144,53 @@
 // })
 
 // test("Supports built-in Float.max refinement", t => {
-//   let schema = S.float->S.floatMax(4.)
+//   let schema = S.float->S.lte(4.)
 //   let schemaInlineResult =
-//     S.float->S.floatMax(~message="Number must be lower than or equal to 4", 4.)
+//     S.float->S.lte(~message="Number must be lower than or equal to 4", 4.)
 
 //   t->U.assertEqualSchemas(schema, schemaInlineResult)
 //   t->Assert.deepEqual(
 //     schema->S.inline,
-//     `S.float->S.floatMax(4., ~message="Number must be lower than or equal to 4")`,
+//     `S.float->S.lte(4., ~message="Number must be lower than or equal to 4")`,
 //     (),
 //   )
 // })
 
 // test("Supports built-in Float.max refinement with digits after decimal point", t => {
-//   let schema = S.float->S.floatMax(4.4)
+//   let schema = S.float->S.lte(4.4)
 //   let schemaInlineResult =
-//     S.float->S.floatMax(~message="Number must be lower than or equal to 4.4", 4.4)
+//     S.float->S.lte(~message="Number must be lower than or equal to 4.4", 4.4)
 
 //   t->U.assertEqualSchemas(schema, schemaInlineResult)
 //   t->Assert.deepEqual(
 //     schema->S.inline,
-//     `S.float->S.floatMax(4.4, ~message="Number must be lower than or equal to 4.4")`,
+//     `S.float->S.lte(4.4, ~message="Number must be lower than or equal to 4.4")`,
 //     (),
 //   )
 // })
 
 // test("Supports built-in Float.min refinement", t => {
-//   let schema = S.float->S.floatMin(4.)
+//   let schema = S.float->S.gte(4.)
 //   let schemaInlineResult =
-//     S.float->S.floatMin(~message="Number must be greater than or equal to 4", 4.)
+//     S.float->S.gte(~message="Number must be greater than or equal to 4", 4.)
 
 //   t->U.assertEqualSchemas(schema, schemaInlineResult)
 //   t->Assert.deepEqual(
 //     schema->S.inline,
-//     `S.float->S.floatMin(4., ~message="Number must be greater than or equal to 4")`,
+//     `S.float->S.gte(4., ~message="Number must be greater than or equal to 4")`,
 //     (),
 //   )
 // })
 
 // test("Supports built-in Float.min refinement with digits after decimal point", t => {
-//   let schema = S.float->S.floatMin(4.4)
+//   let schema = S.float->S.gte(4.4)
 //   let schemaInlineResult =
-//     S.float->S.floatMin(~message="Number must be greater than or equal to 4.4", 4.4)
+//     S.float->S.gte(~message="Number must be greater than or equal to 4.4", 4.4)
 
 //   t->U.assertEqualSchemas(schema, schemaInlineResult)
 //   t->Assert.deepEqual(
 //     schema->S.inline,
-//     `S.float->S.floatMin(4.4, ~message="Number must be greater than or equal to 4.4")`,
+//     `S.float->S.gte(4.4, ~message="Number must be greater than or equal to 4.4")`,
 //     (),
 //   )
 // })
@@ -217,11 +217,6 @@
 
 // test("Supports Unknown", t => {
 //   let schema = S.unknown
-//   t->Assert.deepEqual(schema->S.inline, `S.unknown`)
-// })
-
-// test("Treats custom schema factory as Unknown", t => {
-//   let schema = S.custom("Test", s => s.fail("User error"))
 //   t->Assert.deepEqual(schema->S.inline, `S.unknown`)
 // })
 

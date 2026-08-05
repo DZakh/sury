@@ -66,7 +66,7 @@ asyncTest("Successfully parses recursive object using S.parseAsyncOrThrow", t =>
     ~schema=nodeSchema,
     ~op=#ParseAsync,
     `i=>{let v0;v0=e[0](i);return Promise.resolve(v0)}
-Node: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["Id"],v1=i["Children"];typeof v0==="string"||e[0](v0);Array.isArray(v1)||e[2](v1);let v5=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){try{let v3;v3=e[1]["unknown->Node--1"](v1[v2]);v5[v2]=v3}catch(v4){v4.path="[\\"Children\\"]"+'["'+v2+'"]'+v4.path;throw v4}}return {"id":v0,"children":v5,}}`,
+Node: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["Id"],v1=i["Children"];typeof v0==="string"||e[0](v0);Array.isArray(v1)||e[2](v1);let v5=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){try{let v3;v3=e[1].v(v1[v2]);v5[v2]=v3}catch(v4){v4.path="[\\"Children\\"]"+'["'+v2+'"]'+v4.path;throw v4}}return {"id":v0,"children":v5,}}`,
   )
 
   %raw(`{
@@ -98,15 +98,12 @@ test("Successfully serializes recursive object", t => {
     )
   })
 
-  let reversedDefs = (nodeSchema->S.reverse->S.untag).defs->Option.getUnsafe
-  let nodeSeq = (reversedDefs->Dict.getUnsafe("Node")->S.untag).seq->Float.toString
-  let recKey = `${nodeSeq}-${nodeSeq}--0`
   t->U.assertCompiledCode(
     ~schema=nodeSchema->S.reverse,
     ~op=#Convert,
     ~embedded=[("Node", 0)],
     `i=>{let v0;v0=e[0](i);return v0}
-Node: i=>{let v0=i["children"];let v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){try{let v2;v2=e[0]["${recKey}"](v0[v1]);v4[v1]=v2}catch(v3){v3.path="[\\"children\\"]"+'["'+v1+'"]'+v3.path;throw v3}}return {"Id":i["id"],"Children":v4,}}`,
+Node: i=>{let v0=i["children"];let v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){try{let v2;v2=e[0].v(v0[v1]);v4[v1]=v2}catch(v3){v3.path="[\\"children\\"]"+'["'+v1+'"]'+v3.path;throw v3}}return {"Id":i["id"],"Children":v4,}}`,
   )
 
   t->Assert.deepEqual(
@@ -285,7 +282,7 @@ test(
           children: s.field("Children", S.array(nodeSchema)),
         },
       )->S.transform(
-        _ => {
+        () => {
           parser: node => {...node, id: `node_${node.id}`},
           serializer: node => {...node, id: node.id->String.slice(~start=5)},
         },
@@ -296,7 +293,7 @@ test(
       ~schema=nodeSchema,
       ~op=#Parse,
       `i=>{let v0;v0=e[0](i);return v0}
-Node: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=i["Id"],v1=i["Children"];typeof v0==="string"||e[0](v0);Array.isArray(v1)||e[2](v1);let v5=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){try{let v3;v3=e[1]["unknown->Node--0"](v1[v2]);v5[v2]=v3}catch(v4){v4.path="[\\"Children\\"]"+'["'+v2+'"]'+v4.path;throw v4}}let v6;try{v6=e[3]({"id":v0,"children":v5,})}catch(x){e[4](x)}return v6}`,
+Node: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=i["Id"],v1=i["Children"];typeof v0==="string"||e[0](v0);Array.isArray(v1)||e[2](v1);let v5=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){try{let v3;v3=e[1].v(v1[v2]);v5[v2]=v3}catch(v4){v4.path="[\\"Children\\"]"+'["'+v2+'"]'+v4.path;throw v4}}let v6;try{v6=e[3]({"id":v0,"children":v5,})}catch(x){e[4](x)}return v6}`,
     )
     t->Assert.deepEqual(
       {
@@ -350,7 +347,7 @@ test("Recursively transforms nested objects when added transform to the placehol
           "Children",
           S.array(
             nodeSchema->S.transform(
-              _ => {
+              () => {
                 parser: node => {...node, id: `child_${node.id}`},
                 serializer: node => {...node, id: node.id->String.slice(~start=6)},
               },
@@ -403,7 +400,7 @@ test("Shallowly transforms object when added transform to the S.recursive result
         children: s.field("Children", S.array(nodeSchema)),
       },
     )
-  })->S.transform(_ => {
+  })->S.transform(() => {
     parser: node => {...node, id: `parent_${node.id}`},
     serializer: node => {...node, id: node.id->String.slice(~start=7)},
   })
@@ -440,17 +437,14 @@ test("Shallowly transforms object when added transform to the S.recursive result
     ~schema=nodeSchema,
     ~op=#Parse,
     `i=>{let v0;v0=e[0](i);let v1;try{v1=e[1](v0)}catch(x){e[2](x)}return v1}
-Node: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["Id"],v1=i["Children"];typeof v0==="string"||e[0](v0);Array.isArray(v1)||e[2](v1);let v5=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){try{let v3;v3=e[1]["unknown->Node--0"](v1[v2]);v5[v2]=v3}catch(v4){v4.path="[\\"Children\\"]"+'["'+v2+'"]'+v4.path;throw v4}}return {"id":v0,"children":v5,}}`,
+Node: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["Id"],v1=i["Children"];typeof v0==="string"||e[0](v0);Array.isArray(v1)||e[2](v1);let v5=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){try{let v3;v3=e[1].v(v1[v2]);v5[v2]=v3}catch(v4){v4.path="[\\"Children\\"]"+'["'+v2+'"]'+v4.path;throw v4}}return {"id":v0,"children":v5,}}`,
   )
-  let reversedDefs =
-    ((nodeSchema->S.reverse->S.untag).to->Option.getUnsafe->S.untag).defs->Option.getUnsafe
-  let recKey = `${(S.unknown->S.untag).seq->Float.toString}-${(reversedDefs->Dict.getUnsafe("Node")->S.untag).seq->Float.toString}--0`
   t->U.assertCompiledCode(
     ~schema=nodeSchema,
     ~op=#Encode,
     ~embedded=[("Node", 2)],
     `i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}let v1;v1=e[2](v0);return v1}
-Node: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["id"],v1=i["children"];typeof v0==="string"||e[0](v0);Array.isArray(v1)||e[2](v1);let v5=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){try{let v3;v3=e[1]["${recKey}"](v1[v2]);v5[v2]=v3}catch(v4){v4.path="[\\"children\\"]"+'["'+v2+'"]'+v4.path;throw v4}}return {"Id":v0,"Children":v5,}}`,
+Node: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["id"],v1=i["children"];typeof v0==="string"||e[0](v0);Array.isArray(v1)||e[2](v1);let v5=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){try{let v3;v3=e[1].v(v1[v2]);v5[v2]=v3}catch(v4){v4.path="[\\"children\\"]"+'["'+v2+'"]'+v4.path;throw v4}}return {"Id":v0,"Children":v5,}}`,
   )
 })
 
@@ -458,7 +452,7 @@ asyncTest("Successfully parses recursive object with async parse function", t =>
   let nodeSchema = S.recursive("Node", nodeSchema => {
     S.object(
       s => {
-        id: s.field("Id", S.string->S.transform(_ => {asyncParser: i => Promise.resolve(i)})),
+        id: s.field("Id", S.string->S.transform(() => {asyncParser: i => Promise.resolve(i)})),
         children: s.field("Children", S.array(nodeSchema)),
       },
     )
@@ -468,7 +462,7 @@ asyncTest("Successfully parses recursive object with async parse function", t =>
     ~schema=nodeSchema,
     ~op=#ParseAsync,
     `i=>{let v0;v0=e[0](i);return v0}
-Node: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v1=i["Id"],v2=i["Children"];typeof v1==="string"||e[2](v1);let v0;try{v0=e[0](v1).catch(x=>e[1](x))}catch(x){e[1](x)}Array.isArray(v2)||e[4](v2);let v6=new Array(v2.length);for(let v3=0;v3<v2.length;++v3){try{let v4;v4=e[3]["unknown->Node--1"](v2[v3]);v6[v3]=v4.catch(v5=>{v5.path="[\\"Children\\"]"+'["'+v3+'"]'+v5.path;throw v5})}catch(v5){v5.path="[\\"Children\\"]"+'["'+v3+'"]'+v5.path;throw v5}}let v7=Promise.all(v6);return Promise.all([v0,v7,]).then(([v0,v7,])=>{return {"id":v0,"children":v7,}})}`,
+Node: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v1=i["Id"],v2=i["Children"];typeof v1==="string"||e[2](v1);let v0;try{v0=e[0](v1).catch(x=>e[1](x))}catch(x){e[1](x)}Array.isArray(v2)||e[4](v2);let v6=new Array(v2.length);for(let v3=0;v3<v2.length;++v3){try{let v4;v4=e[3].v(v2[v3]);v6[v3]=v4.catch(v5=>{v5.path="[\\"Children\\"]"+'["'+v3+'"]'+v5.path;throw v5})}catch(v5){v5.path="[\\"Children\\"]"+'["'+v3+'"]'+v5.path;throw v5}}let v7=Promise.all(v6);return Promise.all([v0,v7,]).then(([v0,v7,])=>{return {"id":v0,"children":v7,}})}`,
   )
 
   %raw(`{
@@ -500,7 +494,7 @@ test("Parses recursive object with async fields in parallel", t => {
         id: s.field(
           "Id",
           S.string->S.transform(
-            _ => {
+            () => {
               asyncParser: _ => {
                 actionCounter.contents = actionCounter.contents + 1
                 unresolvedPromise
@@ -529,7 +523,7 @@ test("Parses recursive object with async fields in parallel", t => {
     ~schema=nodeSchema,
     ~op=#ParseAsync,
     `i=>{let v0;v0=e[0](i);return v0}
-Node: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v1=i["Id"],v2=i["Children"];typeof v1==="string"||e[2](v1);let v0;try{v0=e[0](v1).catch(x=>e[1](x))}catch(x){e[1](x)}Array.isArray(v2)||e[4](v2);let v6=new Array(v2.length);for(let v3=0;v3<v2.length;++v3){try{let v4;v4=e[3]["unknown->Node--1"](v2[v3]);v6[v3]=v4.catch(v5=>{v5.path="[\\"Children\\"]"+'["'+v3+'"]'+v5.path;throw v5})}catch(v5){v5.path="[\\"Children\\"]"+'["'+v3+'"]'+v5.path;throw v5}}let v7=Promise.all(v6);return Promise.all([v0,v7,]).then(([v0,v7,])=>{return {"id":v0,"children":v7,}})}`,
+Node: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v1=i["Id"],v2=i["Children"];typeof v1==="string"||e[2](v1);let v0;try{v0=e[0](v1).catch(x=>e[1](x))}catch(x){e[1](x)}Array.isArray(v2)||e[4](v2);let v6=new Array(v2.length);for(let v3=0;v3<v2.length;++v3){try{let v4;v4=e[3].v(v2[v3]);v6[v3]=v4.catch(v5=>{v5.path="[\\"Children\\"]"+'["'+v3+'"]'+v5.path;throw v5})}catch(v5){v5.path="[\\"Children\\"]"+'["'+v3+'"]'+v5.path;throw v5}}let v7=Promise.all(v6);return Promise.all([v0,v7,]).then(([v0,v7,])=>{return {"id":v0,"children":v7,}})}`,
   )
 })
 
@@ -547,7 +541,7 @@ test("Compiled parse code snapshot", t => {
     ~schema,
     ~op=#Parse,
     `i=>{let v0;v0=e[0](i);return v0}
-Node: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["Id"],v1=i["Children"];typeof v0==="string"||e[0](v0);Array.isArray(v1)||e[2](v1);let v5=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){try{let v3;v3=e[1]["unknown->Node--0"](v1[v2]);v5[v2]=v3}catch(v4){v4.path="[\\"Children\\"]"+'["'+v2+'"]'+v4.path;throw v4}}return {"id":v0,"children":v5,}}`,
+Node: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["Id"],v1=i["Children"];typeof v0==="string"||e[0](v0);Array.isArray(v1)||e[2](v1);let v5=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){try{let v3;v3=e[1].v(v1[v2]);v5[v2]=v3}catch(v4){v4.path="[\\"Children\\"]"+'["'+v2+'"]'+v4.path;throw v4}}return {"id":v0,"children":v5,}}`,
   )
 })
 

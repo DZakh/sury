@@ -63,22 +63,22 @@ test("Creates schema with @s.with transform", t => {
 })
 
 @schema
-type stringWithMultipleWith = @s.with(S.trim) @s.with(s => s->S.min(1)) @s.with(s => s->S.max(5)) string
+type stringWithMultipleWith = @s.with(S.trim) @s.with(s => s->S.minLength(1)) @s.with(s => s->S.maxLength(5)) string
 test("Applies multiple @s.with transforms in order of appearance", t => {
-  t->assertEqualSchemas(stringWithMultipleWithSchema, S.string->S.trim->S.min(1)->S.max(5))
+  t->assertEqualSchemas(stringWithMultipleWithSchema, S.string->S.trim->S.minLength(1)->S.maxLength(5))
 })
 
 @schema @s.with(s => s->S.meta({description: "A user"}))
 type userWithWith = {
   name: @s.with(s => s->S.length(2)) string,
-  age: @s.with(s => s->S.min(18)) int,
+  age: @s.with(s => s->S.gte(18)) int,
 }
 test("Applies @s.with on type declaration and on fields of different types", t => {
   t->assertEqualSchemas(
     userWithWithSchema,
     S.schema(s => {
       name: s.matches(S.string->S.length(2)),
-      age: s.matches(S.int->S.min(18)),
+      age: s.matches(S.int->S.gte(18)),
     })->S.meta({description: "A user"}),
   )
 })
@@ -102,9 +102,9 @@ test("Combines @s.with written before @s.default", t => {
 })
 
 @schema
-type intWithWithPlaceholder = @s.with(S.min(_, 1)) @s.with(S.max(_, 5)) int
+type intWithWithPlaceholder = @s.with(S.gte(_, 1)) @s.with(S.lte(_, 5)) int
 test("Applies @s.with with partial application placeholder", t => {
-  t->assertEqualSchemas(intWithWithPlaceholderSchema, S.int->S.min(1)->S.max(5))
+  t->assertEqualSchemas(intWithWithPlaceholderSchema, S.int->S.gte(1)->S.lte(5))
 })
 
 @schema

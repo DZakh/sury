@@ -10,7 +10,6 @@
 import {
   anyOfTag,
   arrayTag,
-  baseSchema,
   booleanTag,
   defsPath,
   flagNone,
@@ -21,11 +20,11 @@ import {
   isLiteral,
   isOptional,
   jsonName,
+  s as errorSymbol,
   neverTag,
   nullTag,
   numberTag,
   objectTag,
-  panic,
   type Path,
   pathConcat,
   pathDynamic,
@@ -41,10 +40,9 @@ import {
   U,
   undefinedTag,
   unknown,
-  unknownTag,
 } from "./base";
 import { json } from "./advanced/json";
-import { B_makeInvalidInputDetails, B_operationArg } from "./builder";
+import { B_operationArg } from "./builder";
 import { array, option } from "./composites";
 import { definitionToSchema, schemaFactory } from "./factory";
 import {
@@ -61,22 +59,18 @@ import { __setStandardJSONSchemaConverter, assertOrThrow } from "./operations";
 import { never_, parse, reverse } from "./parse";
 import { bool, float, int, Literal_parse, string } from "./primitives";
 import {
-  arrayLength,
-  arrayMaxLength,
-  arrayMinLength,
   dict,
   email,
-  floatMax,
-  floatMin,
-  intMax,
-  intMin,
+  gt,
+  gte,
   isoDateTime,
+  lt,
+  lte,
+  maxLength,
+  minLength,
   null_,
   object,
   pattern,
-  stringLength,
-  stringMaxLength,
-  stringMinLength,
   tuple,
   union,
   url,
@@ -137,9 +131,11 @@ export type JSONSchemaT = {
    */
   multipleOf?: number;
   maximum?: number;
-  exclusiveMaximum?: number;
+  // draft-04/OpenAPI 3.0 spell exclusivity as a boolean modifier on
+  // minimum/maximum; draft-06+ as an independent numeric bound.
+  exclusiveMaximum?: number | boolean;
   minimum?: number;
-  exclusiveMinimum?: number;
+  exclusiveMinimum?: number | boolean;
   /**
    * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-6.3
    */
@@ -213,6 +209,10 @@ export type JSONSchemaT = {
 // TODO(integration): if section 06 already declares these two aliases for
 // standardJSONSchemaRef's signature, keep a single declaration.
 export type JsonSchemaTarget = "draft-07" | "draft-2020-12" | "openapi-3.0" | (string & {});
+
+// Compared on every emit branch that differs by dialect; naming it once keeps
+// the literal out of the bundle at each of those sites.
+const openApi30 = "openapi-3.0";
 
 export type StandardJsonSchemaOptions = {
   target: JsonSchemaTarget;
@@ -324,7 +324,7 @@ const internalToJSONSchemaBase = (
   const jsonSchema: JSONSchemaT = {};
   // OpenAPI 3.0 has no `const`; describe a single allowed value with `enum`.
   const setConstOrEnum = (value: unknown) => {
-    if (target === "openapi-3.0") {
+    if (target === openApi30) {
       jsonSchema.enum = [value];
     } else {
       jsonSchema.const = value;
@@ -366,22 +366,41 @@ const internalToJSONSchemaBase = (
   } else if (tag === numberTag) {
     const format = schema.format;
     const const_ = schema.const as number | undefined;
-    if (format === "int32") {
-      jsonSchema.type = "integer";
-      jsonSchema.minimum = -2147483648;
-      jsonSchema.maximum = 2147483647;
-    } else if (format === "port") {
-      jsonSchema.type = "integer";
-      jsonSchema.minimum = 0;
-      jsonSchema.maximum = 65535;
-    } else {
-      jsonSchema.type = "number";
+    // A bigint schema never reaches here (it fails as non-JSON first), so the
+    // `number | bigint` bound fields are always numbers by this point. The
+    // refinements keep at most one per side, so these are mutually exclusive.
+    const minimum = schema.minimum as number | undefined;
+    const maximum = schema.maximum as number | undefined;
+    const exclusiveMinimum = schema.exclusiveMinimum as number | undefined;
+    const exclusiveMaximum = schema.exclusiveMaximum as number | undefined;
+    // int32 and port carry their range as bound fields, so nothing
+    // format-specific is left to emit here — and a user bound that superseded
+    // one of them has already cleared it.
+    jsonSchema.type = format === "int32" || format === "port" ? "integer" : "number";
+    if (minimum !== U) {
+      jsonSchema.minimum = minimum;
     }
-    if (schema.minimum !== U) {
-      jsonSchema.minimum = schema.minimum;
+    if (maximum !== U) {
+      jsonSchema.maximum = maximum;
     }
-    if (schema.maximum !== U) {
-      jsonSchema.maximum = schema.maximum;
+    // draft-06 made exclusive bounds independent numeric keywords; draft-04 —
+    // which OpenAPI 3.0 follows — spells them as booleans modifying
+    // minimum/maximum.
+    if (exclusiveMinimum !== U) {
+      if (target === openApi30) {
+        jsonSchema.minimum = exclusiveMinimum;
+        jsonSchema.exclusiveMinimum = true;
+      } else {
+        jsonSchema.exclusiveMinimum = exclusiveMinimum;
+      }
+    }
+    if (exclusiveMaximum !== U) {
+      if (target === openApi30) {
+        jsonSchema.maximum = exclusiveMaximum;
+        jsonSchema.exclusiveMaximum = true;
+      } else {
+        jsonSchema.exclusiveMaximum = exclusiveMaximum;
+      }
     }
     if (const_ !== U) {
       setConstOrEnum(const_);
@@ -425,7 +444,7 @@ const internalToJSONSchemaBase = (
       jsonSchema.type = "array";
       jsonSchema.minItems = itemsNumber;
       jsonSchema.maxItems = itemsNumber;
-      if (target === "openapi-3.0") {
+      if (target === openApi30) {
         // OpenAPI 3.0 has no tuple support. Describe a fixed-length array
         // whose every item matches any of the positional item schemas.
         jsonSchema.items = { anyOf: itemDefinitions };
@@ -495,7 +514,7 @@ const internalToJSONSchemaBase = (
       jsonSchema.enum = literals;
     } else if (
       // OpenAPI 3.0 collapse of `X | null` into `{...X, nullable: true}`.
-      target === "openapi-3.0" &&
+      target === openApi30 &&
       itemsNumber === 2 &&
       (isNullDefinition(items[0]!) || isNullDefinition(items[1]!))
     ) {
@@ -560,7 +579,7 @@ const internalToJSONSchemaBase = (
   } else if (tag === refTag) {
     jsonSchema.$ref = schema["$ref"];
   } else if (tag === nullTag) {
-    if (target === "openapi-3.0") {
+    if (target === openApi30) {
       // OpenAPI 3.0 has no `null` type. Use an enum as a workaround.
       jsonSchema.enum = [null];
     } else {
@@ -569,20 +588,17 @@ const internalToJSONSchemaBase = (
   } else if (tag === neverTag) {
     jsonSchema.not = {};
   } else {
-    throw new SuryError(
-      B_makeInvalidInputDetails(
-        // Just needs `.name` for the message - avoid json()'s recursive union.
-        (() => {
-          const s = baseSchema(unknownTag, false);
-          s.name = jsonName;
-          return s;
-        })(),
-        flagUnsafeHas(tagFlags[parent.type]!, tagFlagUnion) ? parent : schema,
-        path,
-        U,
-        false
-      )
-    );
+    // Not `invalid_input`: nothing was parsed, so there is no input to report
+    // and no schema a value failed against. What failed is the conversion
+    // itself, on a schema that has no JSON Schema equivalent — which is what
+    // `invalid_operation` describes. The offending schema is named in the
+    // reason and located by `path`.
+    const offender = flagUnsafeHas(tagFlags[parent.type]!, tagFlagUnion) ? parent : schema;
+    throw new SuryError({
+      code: "invalid_operation",
+      path,
+      reason: `Expected ${jsonName}, received ${inputExpression(offender)}`,
+    });
   }
 
   applyMetadataOverlay(jsonSchema, schema, defs);
@@ -604,7 +620,7 @@ const targetSchemaUri = (target: JsonSchemaTarget): string | undefined => {
     case "draft-2020-12":
       return "https://json-schema.org/draft/2020-12/schema";
     // OpenAPI 3.0 has no `$schema` property.
-    case "openapi-3.0":
+    case openApi30:
       return U;
     default: {
       const unsupported = target;
@@ -708,21 +724,45 @@ const primitiveToSchema = (primitive: unknown): Internal => {
   return Literal_parse(primitive);
 }
 
-const toIntSchema = (jsonSchema: JSONSchemaT): Internal => {
-  let schema = int;
+// draft-04 (and OpenAPI 3.0) make `exclusiveMinimum` a boolean that flips the
+// meaning of `minimum`; draft-06+ make it an independent numeric bound. `true`
+// therefore consumes `minimum` rather than adding a second bound, and the two
+// spellings never both apply.
+const exclusiveBound = (
+  inclusive: number | undefined,
+  exclusive: number | boolean | undefined
+): number | undefined =>
+  exclusive === true ? inclusive : typeof exclusive === "number" ? exclusive : U;
+
+const inclusiveBound = (
+  inclusive: number | undefined,
+  exclusive: number | boolean | undefined
+): number | undefined => (exclusive === true ? U : inclusive);
+
+// The integer and number branches read the same four keywords the same way,
+// so they share one pass rather than each spelling it out.
+const withNumericBounds = (schema: Internal, jsonSchema: JSONSchemaT): Internal => {
   // TODO: Support jsonSchema.multipleOf
-  if (jsonSchema.minimum !== U) {
-    schema = intMin(schema, jsonSchema.minimum | 0);
-  } else if (jsonSchema.exclusiveMinimum !== U) {
-    schema = intMin(schema, (jsonSchema.exclusiveMinimum + 1) | 0);
+  const min = inclusiveBound(jsonSchema.minimum, jsonSchema.exclusiveMinimum);
+  const exMin = exclusiveBound(jsonSchema.minimum, jsonSchema.exclusiveMinimum);
+  const max = inclusiveBound(jsonSchema.maximum, jsonSchema.exclusiveMaximum);
+  const exMax = exclusiveBound(jsonSchema.maximum, jsonSchema.exclusiveMaximum);
+  if (min !== U) {
+    schema = applyBound(schema, gte, min);
   }
-  if (jsonSchema.maximum !== U) {
-    schema = intMax(schema, jsonSchema.maximum | 0);
-  } else if (jsonSchema.exclusiveMaximum !== U) {
-    schema = intMax(schema, (jsonSchema.exclusiveMaximum - 1) | 0);
+  if (exMin !== U) {
+    schema = applyBound(schema, gt, exMin);
+  }
+  if (max !== U) {
+    schema = applyBound(schema, lte, max);
+  }
+  if (exMax !== U) {
+    schema = applyBound(schema, lt, exMax);
   }
   return schema;
 }
+
+const toIntSchema = (jsonSchema: JSONSchemaT): Internal => withNumericBounds(int, jsonSchema);
 
 // Assertion keywords Sury doesn't model. Silently ignoring one widens the
 // schema — the validator then accepts data the author wrote the keyword to
@@ -783,6 +823,32 @@ const definitionToDefaultValue = (definition: JSONSchemaDefinition): unknown => 
     return definition.default;
   } else {
     return U;
+  }
+}
+
+// A document may describe an empty range — `{minimum: 5, maximum: 1}`, or a
+// bound past int32's edge. That is legal JSON Schema with no inhabitants, so
+// it has to load, where the same bounds written by hand are a caller bug that
+// the public bound panics on. Reading that panic as `never` is what lets this
+// file use the real bounds instead of restating when they conflict. Scoped to
+// one application so an unrelated panic still escapes, as does a SuryError
+// (a malformed bound value, say).
+const applyBound = (
+  schema: Internal,
+  bound: (schema: Internal, value: number) => Internal,
+  value: number
+): Internal => {
+  // Already empty — a further bound can only panic on it and land back here.
+  if (schema.type === neverTag) {
+    return schema;
+  }
+  try {
+    return bound(schema, value);
+  } catch (exn) {
+    if (exn && (exn as { s?: symbol }).s === errorSymbol) {
+      throw exn;
+    }
+    return never_;
   }
 }
 
@@ -875,10 +941,10 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
       schema = array(anySchema);
     }
     if (jsonSchema.minItems !== U) {
-      schema = arrayMinLength(schema, jsonSchema.minItems);
+      schema = applyBound(schema, minLength, jsonSchema.minItems);
     }
     if (jsonSchema.maxItems !== U) {
-      schema = arrayMaxLength(schema, jsonSchema.maxItems);
+      schema = applyBound(schema, maxLength, jsonSchema.maxItems);
     }
   } else if (jsonSchema.anyOf !== U) {
     const definitions = jsonSchema.anyOf;
@@ -920,10 +986,10 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
       schema = pattern(schema, new RegExp(jsonSchema.pattern));
     }
     if (jsonSchema.minLength !== U) {
-      schema = stringMinLength(schema, jsonSchema.minLength);
+      schema = applyBound(schema, minLength, jsonSchema.minLength);
     }
     if (jsonSchema.maxLength !== U) {
-      schema = stringMaxLength(schema, jsonSchema.maxLength);
+      schema = applyBound(schema, maxLength, jsonSchema.maxLength);
     }
   } else if (jsonSchema.type === "integer") {
     schema = toIntSchema(jsonSchema);
@@ -932,17 +998,7 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
   } else if (jsonSchema.type === "number" && jsonSchema.multipleOf === 1) {
     schema = toIntSchema(jsonSchema);
   } else if (jsonSchema.type === "number") {
-    schema = float;
-    if (jsonSchema.minimum !== U) {
-      schema = floatMin(schema, jsonSchema.minimum);
-    } else if (jsonSchema.exclusiveMinimum !== U) {
-      schema = floatMin(schema, jsonSchema.exclusiveMinimum + 1);
-    }
-    if (jsonSchema.maximum !== U) {
-      schema = floatMax(schema, jsonSchema.maximum);
-    } else if (jsonSchema.exclusiveMaximum !== U) {
-      schema = floatMax(schema, jsonSchema.exclusiveMaximum - 1);
-    }
+    schema = withNumericBounds(float, jsonSchema);
   } else if (jsonSchema.type === "boolean") {
     schema = bool;
   } else if (jsonSchema.type === "null") {
@@ -1048,56 +1104,6 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
   return schema;
 }
 
-// @__NO_SIDE_EFFECTS__
-export const min = (schema: Internal, minValue: number, maybeMessage?: string): Internal => {
-  switch (schema.type) {
-    case stringTag:
-      return stringMinLength(schema, minValue, maybeMessage);
-    case arrayTag:
-      return arrayMinLength(schema, minValue, maybeMessage);
-    case numberTag:
-      return schema.format === "int32" || schema.format === "port"
-        ? intMin(schema, minValue, maybeMessage)
-        : floatMin(schema, minValue, maybeMessage);
-    default:
-      return panic(
-        `S.min is not supported for ${inputExpression(schema)} schema. Coerce the schema to string, number or array using S.to first.`
-      );
-  }
-}
-
-// @__NO_SIDE_EFFECTS__
-export const max = (schema: Internal, maxValue: number, maybeMessage?: string): Internal => {
-  switch (schema.type) {
-    case stringTag:
-      return stringMaxLength(schema, maxValue, maybeMessage);
-    case arrayTag:
-      return arrayMaxLength(schema, maxValue, maybeMessage);
-    case numberTag:
-      return schema.format === "int32" || schema.format === "port"
-        ? intMax(schema, maxValue, maybeMessage)
-        : floatMax(schema, maxValue, maybeMessage);
-    default:
-      return panic(
-        `S.max is not supported for ${inputExpression(schema)} schema. Coerce the schema to string, number or array using S.to first.`
-      );
-  }
-}
-
-// @__NO_SIDE_EFFECTS__
-export const length = (schema: Internal, length: number, maybeMessage?: string): Internal => {
-  switch (schema.type) {
-    case stringTag:
-      return stringLength(schema, length, maybeMessage);
-    case arrayTag:
-      return arrayLength(schema, length, maybeMessage);
-    default:
-      return panic(
-        `S.length is not supported for ${inputExpression(schema)} schema. Coerce the schema to string or array using S.to first.`
-      );
-  }
-}
-
 // PORT-NOTE: every one of these is a PURE NO-OP — a bare `Obj.magic` (or
 // `castToPublic` for `unknown`) that re-types an existing function/value from
 // its `internal`-returning form to the public `t<'x>`-returning form without
@@ -1110,5 +1116,5 @@ export const length = (schema: Internal, length: number, maybeMessage?: string):
 //   json, jsonString, jsonStringWithSpace, uint8Array, isoDateTime, port,
 //   email, uuid, cuid, url
 //
-// The bindings layer (Sury.res / S.d.ts) should re-export the already-defined
+// The bindings layer (Sury.res / index.d.ts) should re-export the already-defined
 // functions of the same names under their public types.

@@ -262,7 +262,6 @@ const unionFail = (
       unknown,
       path,
       input,
-      true,
       unionErrors.length ? unionErrors : U
     )
   );
