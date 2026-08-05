@@ -175,6 +175,12 @@ export const completeObjectVal = (objectVal: Val): Val => {
     }
   }
 }
+// Takes an already-built schema. Callers that construct a schema *during
+// module initialization* — the `S.json` singleton's own members — must use
+// this and not `array`: `~standard` is installed on the prototype by
+// operations.ts, so a schema built before that lands has no marker for
+// definitionToSchema to recognise and gets misread as an instance literal.
+// Decoders use it too, to skip a conversion that codegen would only redo.
 export const arrayFactory = (item: Internal): Internal => {
   const mut = baseSchema(arrayTag, !!item.sr);
   mut.additionalItems = item;
@@ -182,11 +188,6 @@ export const arrayFactory = (item: Internal): Internal => {
   mut.decoder = arrayDecoder;
   return mut;
 }
-// The public flavor accepts a raw definition. Internal callers use
-// arrayFactory directly: it skips the conversion on codegen-hot paths, and —
-// load-bearing for the S.json singleton — a schema built while modules are
-// still initializing predates the `~standard` prototype marker, so
-// definitionToSchema would misread it as an instance literal.
 // @__NO_SIDE_EFFECTS__
 export const array = (item: unknown): Internal => arrayFactory(definitionToSchema(item));
 export const arrayDecoder = (unknownInput: Val): Val => {
@@ -559,6 +560,8 @@ export const objectDecoder = (unknownInput: Val): Val => {
   return B_markOutput(output, input);
 }
 
+// Schema-taking flavor, subject to the same init-order constraint as
+// arrayFactory above.
 export const dictFactory = (item: Internal): Internal => {
   const mut = baseSchema(objectTag, !!item.sr);
   mut.properties = immutableEmptyObject as Record<string, Internal>;
@@ -566,7 +569,6 @@ export const dictFactory = (item: Internal): Internal => {
   mut.decoder = objectDecoder;
   return mut;
 }
-// Public/internal split for the same reasons as `array` above.
 // @__NO_SIDE_EFFECTS__
 export const dict = (item: unknown): Internal => dictFactory(definitionToSchema(item));
 

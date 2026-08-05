@@ -262,6 +262,13 @@ S.object({ name: S.string, age: S.number }); // alias for S.schema
 S.array(S.string);
 S.record(S.number); // { [k: string]: number }
 
+// Anywhere a schema is accepted, a raw definition works too — it's
+// passed through S.schema for you
+S.array({ id: S.string }); // { id: string }[]
+S.record({ n: S.number }); // { [k: string]: { n: number } }
+S.optional({ a: S.boolean }); // { a: boolean } | undefined
+S.nullable("foo"); // "foo" | null
+
 // Simple Tuples
 S.schema([S.string, S.number]);
 S.tuple([S.string, S.number]); // alias for S.schema
