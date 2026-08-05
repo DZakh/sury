@@ -3,7 +3,7 @@ ts:
   schema: S.string.with(S.to, S.union([S.string, S.never.with(S.to, S.schema(undefined))]))
   input: string
   output: string | undefined
-  instantiations: 6683
+  instantiations: 6692
 vs:
   zod:
     _skip: not-applicable

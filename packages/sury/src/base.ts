@@ -154,11 +154,6 @@ export const s = /* @__PURE__ */ Symbol(vendor);
 // Internal symbol to identify the item proxy (see the makeObjectVal Proxy use).
 export const itemSymbol = /* @__PURE__ */ Symbol(vendor + ":item");
 
-// A hacky way to prevent prepending path when error is caught.
-// Can be removed after we remove effectCtx
-// and there's not way to throw outside of the operation context.
-export const shouldPrependPathKey = "p";
-
 export type NumberFormat = "int32" | "port";
 export type StringFormat = "json" | "date-time" | "email" | "uuid" | "cuid" | "url";
 export type ArrayFormat = "compactColumns";
@@ -223,6 +218,8 @@ export type SchemaErrorMessage = {
   type?: string;
   minimum?: string;
   maximum?: string;
+  exclusiveMinimum?: string;
+  exclusiveMaximum?: string;
   minLength?: string;
   maxLength?: string;
   minItems?: string;
@@ -278,8 +275,20 @@ export type Internal = {
   // each variant converts to whatever the target is, and a variant with no
   // decoder to that target drops out with its error reported per value.
   perVariant?: boolean;
-  minimum?: number;
-  maximum?: number;
+  // Which bounds the caller actually wrote. int32 and port put their own
+  // range in the fields below, so the values can't tell a caller's bound from
+  // a format's — this can, and only the bound constructors ever set it.
+  // 1 lower inclusive · 2 upper inclusive · 4 lower exclusive · 8 upper
+  // exclusive. A schema bounds either its value or its length, never both, so
+  // one pair of bits covers minimum/minLength/minItems alike.
+  bounds?: number;
+  minimum?: number | bigint;
+  maximum?: number | bigint;
+  // S.gt/S.lt always land here and S.gte/S.lte always land on
+  // minimum/maximum, whatever the numeric type — the bound a schema reports
+  // is the one its author wrote, not an equivalent rewritten form.
+  exclusiveMinimum?: number | bigint;
+  exclusiveMaximum?: number | bigint;
   minLength?: number;
   maxLength?: number;
   minItems?: number;
@@ -292,9 +301,19 @@ export type Internal = {
   isAsync?: boolean; // Optional value means that it's not lazily computed yet.
   hasTransform?: boolean; // Optional value means that it's not lazily computed yet.
   "~standard"?: unknown;
-  // The reversed (Input ↔ Output swapped) schema, cached lazily as a hidden
-  // non-enumerable property via Object.defineProperty (see schema.ts/parse.ts).
+  // Overrides how inputExpression renders this schema. Only for a schema whose
+  // expression its tag can't produce — compactColumns, whose columns live on
+  // the `.to` target. Everything structural is rendered by inputExpression
+  // itself, so setting this is the exception, not the pattern.
+  expression?: (schema: Internal) => string;
+  // The reversed (Input ↔ Output swapped) schema. Always readable: `this` via
+  // the self-reverse prototype getter, otherwise computed and cached by the
+  // general prototype getter (parse.ts). Reading it on a plain schema COMPUTES
+  // the reverse — probe `sr` instead when only self-reverseness is asked.
   r?: Internal;
+  // Set on the self-reverse prototype only — the cheap "reverses to itself"
+  // probe (see selfReversePrototype below).
+  sr?: boolean;
 }
 
 export type BGlobal = {
@@ -410,103 +429,154 @@ export const isOptional = (schema: Internal): boolean => {
   );
 }
 
-export const stringify = (unknown: unknown): string => {
+// The constructor name worth printing, or a falsy value for anything a reader
+// would learn nothing from: a plain object, a null prototype, an anonymous
+// class (whose `name` is the empty string). Both callers below key off exactly
+// this distinction — one to name the value, the other to decide whether to look
+// inside it — so the `Object` comparison is written once.
+// Throws on null; both callers exclude it first.
+const namedConstructor = (unknown: unknown): string | undefined | false => {
+  const ctor = (Object.getPrototypeOf(unknown) as { constructor?: { name?: string } } | null)
+    ?.constructor;
+  return ctor !== Object && ctor?.name;
+}
+
+// Names a value without looking inside it: the rendering every value gets when
+// it is not the top level of a message. Zod, Valibot and ArkType print this at
+// every level; `stringify` below adds one level of detail on top.
+const stringifyLeaf = (unknown: unknown): string => {
   const tagFlag = tagFlags[typeof unknown as Tag]!;
 
   if (flagUnsafeHas(tagFlag, tagFlagUndefined)) {
     return undefinedTag;
-  } else if (flagUnsafeHas(tagFlag, tagFlagObject)) {
-    if (unknown === null) {
-      return nullTag;
-    } else if (Array.isArray(unknown)) {
-      return `[${unknown.map(stringify).join(", ")}]`;
-    } else if ((unknown as { constructor: unknown }).constructor === Object) {
-      const dict = unknown as Record<string, unknown>;
-      return `{ ${Object.keys(dict)
-        .map((key) => `${key}: ${stringify(dict[key])}; `)
-        .join("")}}`;
-    } else {
-      return Object.prototype.toString.call(unknown);
-    }
+  } else if (flagUnsafeHas(tagFlag, (tagFlagObject | tagFlagFunction))) {
+    // A named constructor is the whole diagnostic (Date, Map, Foo); anything
+    // else is lowercase `object`, naming the value by type the way `string` and
+    // `number` do rather than by its `Object` constructor.
+    // Arrays carry their length: against a tuple, the length is the diagnostic.
+    return unknown === null
+      ? nullTag
+      : Array.isArray(unknown)
+        ? `Array(${unknown.length})`
+        : namedConstructor(unknown) || objectTag;
   } else if (flagUnsafeHas(tagFlag, tagFlagString)) {
     return `"${unknown as string}"`;
   } else if (flagUnsafeHas(tagFlag, tagFlagBigint)) {
     return `${unknown as bigint}n`;
-  } else if (flagUnsafeHas(tagFlag, tagFlagFunction)) {
-    return `Function`;
   } else {
     return (unknown as { toString: () => string }).toString();
   }
 }
 
+// Renders a runtime value for the `received` half of an error message: a plain
+// object or array expanded exactly one level, anything else named.
+//
+// Recursing without a limit is what let a cyclic value overflow the stack
+// *inside the error formatter*; stopping at depth 1 keeps that fixed while
+// still showing the shape that actually failed. One level is enough because a
+// nested failure already reports its path (`Failed at ["user"]["id"]`) — the
+// expansion is for "wrong shape entirely", which is visible at the top.
+//
+// Entries are capped for the same reason depth is: a 40-key input would
+// otherwise produce a several-hundred-character message. The literal 5 is
+// written out at both uses because esbuild does not inline a module-level
+// const number.
+export const stringify = (unknown: unknown): string => {
+  if (unknown !== null && typeof unknown === objectTag) {
+    if (Array.isArray(unknown)) {
+      const items = unknown as unknown[];
+      let body = "";
+      for (let idx = 0; idx < items.length; idx++) {
+        if (idx === 5) {
+          body = body + ", ...";
+          break;
+        }
+        body = body + (idx ? ", " : "") + stringifyLeaf(items[idx]);
+      }
+      return `[${body}]`;
+    }
+    if (!namedConstructor(unknown)) {
+      const dict = unknown as Record<string, unknown>;
+      let body = "";
+      let count = 0;
+      for (const key in dict) {
+        if (count++ === 5) {
+          body = body + "... ";
+          break;
+        }
+        body = body + key + ": " + stringifyLeaf(dict[key]) + "; ";
+      }
+      return body ? `{ ${body}}` : "{}";
+    }
+  }
+  return stringifyLeaf(unknown);
+}
+
+// `expression` sits after `const` and before the structural tags, so an override
+// beats the shape it overrides while a literal still outranks both. It also has
+// to beat the `format` fallback below: compactColumns is the sole array format.
+//
+// `skipOverride` renders the shape an override would have replaced. It exists
+// for an override that wraps its own schema's rendering rather than replacing
+// it — a bound, the only one today (`setBoundExpression` in refinements.ts) —
+// which has to ask for the base rendering of the very schema whose `expression`
+// is mid-call, and would recurse forever without this.
 // @__NO_SIDE_EFFECTS__
-export const toExpression = (schema: Internal): string => {
-  if (schema.name !== U) {
+export const inputExpression = (schema: Internal, skipOverride?: boolean): string => {
+  if (schema.name) {
     return schema.name;
   } else if (schema.const !== U) {
     return stringify(schema.const);
+  } else if (schema.expression && !skipOverride) {
+    return schema.expression(schema);
   } else if (schema.anyOf !== U) {
-    // Repeated members remain significant to decoding (the same effectful
-    // schema may intentionally run more than once), but not to the human
-    // expression describing the union. Identity-only deduplication avoids
-    // conflating distinct symbols/classes that merely render alike.
-    return [...new Set(schema.anyOf)].map(toExpression).join(" | ");
-  } else if (schema.format === "compactColumns") {
-    // For compactColumns, show the column types if we have properties from .to
-    const to = schema.to;
-    if (to !== U) {
-      const props = to.properties;
-      if (props !== U) {
-        const keys = Object.keys(props);
-        return `[${keys
-          .map((key) => {
-            const propSchema = props[key]!;
-            return `${toExpression(propSchema)}[]`;
-          })
-          .join(", ")}]`;
-      } else {
-        return "unknown[][]";
-      }
-    } else {
-      // No S.to applied, reuse the array expression logic
-      const additionalItems = schema.additionalItems;
-      if (additionalItems !== U && typeof additionalItems === "object") {
-        const innerArraySchema = additionalItems;
-        return `${toExpression(innerArraySchema)}[]`;
-      } else {
-        return "unknown[][]";
+    // Repeated members remain significant to decoding (the same effectful schema
+    // may intentionally run more than once), but not to the expression. Deduping
+    // on rendered text rather than identity means members which genuinely differ
+    // but render alike — two distinct classes both named Foo — collapse, so this
+    // is not a member count.
+    const anyOf = schema.anyOf;
+    const seen = new Set<string>();
+    let body = "";
+    for (let idx = 0; idx < anyOf.length; idx++) {
+      const expression = inputExpression(anyOf[idx]!);
+      if (!seen.has(expression)) {
+        seen.add(expression);
+        body = body + (body ? " | " : "") + expression;
       }
     }
-  } else if (schema.format !== U) {
-    return schema.format;
+    return body;
   } else if (schema.type === objectTag) {
+    // Properties and an index signature share one accumulator: no factory
+    // produces both at once today, but the shape is representable, and the
+    // branchy version silently dropped the index signature.
     const properties = schema.properties!;
-    const locations = Object.keys(properties);
-    if (locations.length === 0) {
-      if (typeof schema.additionalItems === objectTag) {
-        const additionalItems = schema.additionalItems as Internal;
-        return `{ [key: string]: ${toExpression(additionalItems)}; }`;
-      } else {
-        return `{}`;
-      }
-    } else {
-      return `{ ${locations
-        .map((location) => {
-          return `${location}: ${toExpression(properties[location]!)};`;
-        })
-        .join(" ")} }`;
+    const additionalItems = schema.additionalItems;
+    let body = "";
+    for (const location in properties) {
+      body = body + location + ": " + inputExpression(properties[location]!) + "; ";
     }
-  } else if (schema.type === nanTag) {
-    return "NaN";
+    if (typeof additionalItems === objectTag) {
+      body = body + "[key: string]: " + inputExpression(additionalItems as Internal) + "; ";
+    }
+    return body ? `{ ${body}}` : "{}";
   } else if (schema.type === arrayTag) {
-    const items = schema.items!;
-    if (typeof schema.additionalItems === objectTag) {
-      const additionalItems = schema.additionalItems as Internal;
-      const itemName = toExpression(additionalItems);
-      return (additionalItems.type === anyOfTag ? `(${itemName})` : itemName) + "[]";
-    } else {
-      return `[${items.map((schema) => toExpression(schema)).join(", ")}]`;
+    const additionalItems = schema.additionalItems;
+    if (typeof additionalItems === objectTag) {
+      const item = additionalItems as Internal;
+      const itemName = inputExpression(item);
+      // A bound reads as part of the item, not the array: `int32 > 5[]` parses
+      // as an array-typed bound, the same ambiguity a union has.
+      return (item.type === anyOfTag || item.bounds !== U ? `(${itemName})` : itemName) + "[]";
     }
+    const items = schema.items!;
+    let body = "";
+    for (let idx = 0; idx < items.length; idx++) {
+      body = body + (idx ? ", " : "") + inputExpression(items[idx]!);
+    }
+    return `[${body}]`;
+  } else if (schema.format) {
+    return schema.format;
   } else if (schema.type === instanceTag) {
     return (schema.class as { name: string }).name;
   } else {
@@ -529,6 +599,30 @@ Object.defineProperty(schemaPrototype, "with", {
 });
 // Also has ~standard below
 Schema.prototype = schemaPrototype;
+
+// A self-reversing schema answers `reversed` from this prototype getter
+// instead of an own property: the per-instance defineProperty cost an order
+// of magnitude more than everything else baseSchema does. Object.assign never
+// copies the getter, so a derived schema (copySchema) recomputes its reverse —
+// correct, since a copy made to be modified no longer reverses to itself.
+// No setter, so a plain `schema.reversed = …` throws: the cache is only ever
+// written with defineProperty (parse.ts).
+//
+// `sr` is the cheap self-reverse probe: reading `.reversed` off a plain schema
+// would *compute* the reverse (the general getter in parse.ts), so callers
+// that only ask "does it reverse to itself?" (composites) read the marker.
+// "r", not "reversed": internal-only (S.reverse is the public API), and short
+// field names on hot objects survive minification (CLAUDE.md).
+export const reversedKey = "r";
+function SelfReverseSchema(this: Internal): void {}
+const selfReversePrototype: Record<string, unknown> = Object.create(schemaPrototype);
+Object.defineProperty(selfReversePrototype, reversedKey, {
+  get: function (this: Internal) {
+    return this;
+  },
+});
+Object.defineProperty(selfReversePrototype, "sr", { value: true });
+SelfReverseSchema.prototype = selfReversePrototype;
 
 let seq = 1;
 
@@ -600,18 +694,16 @@ export const globalConfig: GlobalConfig = {
 export const valueOptions: Record<string, unknown> = {};
 export const configurableValueOptions = { configurable: true };
 export const valKey = "value";
-export const reversedKey = "r";
 
-const SchemaCtor = Schema as unknown as { new (): Internal };
+// `function` declarations have no construct signature in TS, so `new` needs a
+// cast. A type is erased where a `const SchemaCtor = Schema as …` alias would
+// survive minification as a real assignment.
+type SchemaClass = new () => Internal;
 
 export const baseSchema = (tag: Tag, selfReverse: boolean): Internal => {
-  const schema = new SchemaCtor();
+  const schema = new ((selfReverse ? SelfReverseSchema : Schema) as unknown as SchemaClass)();
   schema.type = tag;
   schema.seq = seq++;
-  if (selfReverse) {
-    valueOptions[valKey] = schema;
-    Object.defineProperty(schema, reversedKey, valueOptions as PropertyDescriptor);
-  }
   return schema;
 }
 
@@ -640,7 +732,7 @@ export const unknown: Internal = baseSchema(unknownTag, true);
 unknown.decoder = noopDecoder;
 
 export const copySchema = (schema: Internal): Internal => {
-  const c: Internal = Object.assign(new SchemaCtor(), schema);
+  const c: Internal = Object.assign(new (Schema as unknown as SchemaClass)(), schema);
   c.seq = seq++;
   return c;
 }

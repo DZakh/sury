@@ -31,7 +31,6 @@ import {
   B_makeInvalidConversionDetails,
   B_next,
   B_varWithoutAllocation,
-  type EffectCtx,
 } from "./builder";
 import { objectDecoder } from "./composites";
 import { definitionToSchema } from "./factory";
@@ -47,6 +46,9 @@ import { getDecoder, reverse } from "./parse";
 import { nullLiteral, unit } from "./primitives";
 import { unionFactory } from "./union";
 
+// Spreading the own rest param straight through (`getDecoder(unknown,
+// ...args)`) is a shape engines already optimize — an arity fast path here
+// measured nothing, so these stay generic.
 // @__NO_SIDE_EFFECTS__
 export const js_parser = (...args: unknown[]) => getDecoder(unknown, ...args);
 
@@ -56,17 +58,25 @@ export const js_asyncParser = (...args: unknown[]) => getDecoder(unknown, ...arg
 // @__NO_SIDE_EFFECTS__
 export const js_asyncDecoder = (...args: unknown[]) => getDecoder(...args, 1);
 
+// The 1-schema branch dodges a per-call allocation: `.map` builds a fresh
+// array every call, which spreading a rest param does not. Chained (2+)
+// schemas keep the generic map.
 // @__NO_SIDE_EFFECTS__
-export const js_encoder = (...args: unknown[]) => getDecoder(...(args as Internal[]).map(reverse));
+export const js_encoder = (a: unknown, ...rest: unknown[]) =>
+  rest.length
+    ? getDecoder(...([a, ...rest] as Internal[]).map(reverse))
+    : getDecoder(reverse(a as Internal));
 
 // @__NO_SIDE_EFFECTS__
-export const js_asyncEncoder = (...args: unknown[]) =>
-  getDecoder(...(args as Internal[]).map(reverse), 1);
+export const js_asyncEncoder = (a: unknown, ...rest: unknown[]) =>
+  rest.length
+    ? getDecoder(...([a, ...rest] as Internal[]).map(reverse), 1)
+    : getDecoder(reverse(a as Internal), 1);
 
-// Accepts both `(schema, data)` and `(data, schema)` arg orders. We tell them
-// apart by the Standard Schema marker on a schema object. The truthiness guard
-// keeps `null`/`undefined` data from throwing on the marker access, routing it
-// to the data slot so validation fails with a proper Sury error.
+// `assert` and `is` accept both `(schema, data)` and `(data, schema)`, told
+// apart by the Standard Schema marker. The truthiness guard keeps falsy data
+// from throwing on the marker access, routing it to the data slot so
+// validation fails with a proper Sury error.
 export const js_assert = (a: unknown, b: unknown): unknown => {
   const aIsSchema = !!a && isSchemaObject(a);
   const schema = (aIsSchema ? a : b) as Internal;
@@ -75,8 +85,13 @@ export const js_assert = (a: unknown, b: unknown): unknown => {
 };
 
 export const js_is = (a: unknown, b: unknown): boolean => {
+  const aIsSchema = !!a && isSchemaObject(a);
+  // Compiled outside the try: a conversion rejected at operation creation
+  // means the schema can't check any value, so it throws rather than reading
+  // as `false` — the same split `~standard.validate` makes.
+  const operation = getDecoder(unknown, (aIsSchema ? a : b) as Internal, assertResult);
   try {
-    js_assert(a, b);
+    operation(aIsSchema ? b : a);
     return true;
   } catch (exn) {
     // Rethrow anything that isn't a Sury validation failure.
@@ -165,7 +180,7 @@ export const js_asyncDecoderAssert = (
   schema: Internal,
   assertFn: (value: unknown) => Promise<unknown>,
 ) => {
-  return transform(schema, (_: EffectCtx) => {
+  return transform(schema, () => {
     return {
       a: (v: unknown) => assertFn(v).then(() => v),
       s: noop,

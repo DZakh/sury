@@ -73,26 +73,50 @@ const outcome = (ex: Example): string => ("output" in ex ? `output ${ex.output}`
 const opKind = (op: Operation): string =>
   typeof op === "string" ? op : isCreationError(op) ? `creationError ${op.creationError}` : "compiled";
 
-const changed = (label: string, before: string, after: string, out: string[]): void => {
-  if (before !== after) out.push(`${label}  ${clip(before)} → ${clip(after)}`);
+// `before` is the spec as it was on disk, so a hand-authored one is missing
+// every derived field. Absent is not a value that changed into another one —
+// there is nothing to diff, and formatting `undefined` is what used to crash
+// the whole summary.
+const changed = (
+  label: string,
+  before: string | undefined,
+  after: string | undefined,
+  out: string[],
+): void => {
+  if (before === undefined || after === undefined || before === after) return;
+  out.push(`${label}  ${clip(before)} → ${clip(after)}`);
 };
+
+// A spec written from scratch has no goldens on its `before` side, so every
+// field would report as a change. That's noise — the `wrote <id>` line already
+// named it. Listed as new instead, mirroring bundleSize's "first recorded".
+const isNewSpec = (before: Spec): boolean =>
+  (before as Partial<Spec>).jsonSchema === undefined;
 
 const specDeltas = (
   changes: SpecChange[],
-): { instantiations: Delta[]; expression: ExpressionDelta[]; behavior: string[] } => {
+): { instantiations: Delta[]; expression: ExpressionDelta[]; behavior: string[]; added: string[] } => {
   const instantiations: Delta[] = [];
   const expression: ExpressionDelta[] = [];
   const behavior: string[] = [];
+  const added: string[] = [];
 
   for (const { id, before, after } of changes) {
-    if (!isSkip(before.ts.instantiations) && !isSkip(after.ts.instantiations))
+    if (isNewSpec(before)) {
+      added.push(id);
+      continue;
+    }
+    if (
+      typeof before.ts.instantiations === "number" &&
+      typeof after.ts.instantiations === "number"
+    )
       instantiations.push({ label: id, before: before.ts.instantiations, after: after.ts.instantiations });
 
     for (const side of ["input", "output"] as const) {
       const b = before.ts[side];
       const a = after.ts[side];
       if (!isSkip(b) && !isSkip(a)) changed(`${id}.ts.${side}`, b, a, behavior);
-      changed(`${id}.jsonSchema.${side}`, before.jsonSchema[side], after.jsonSchema[side], behavior);
+      changed(`${id}.jsonSchema.${side}`, before.jsonSchema?.[side], after.jsonSchema?.[side], behavior);
     }
 
     for (const op of OP_ORDER) {
@@ -116,7 +140,12 @@ const specDeltas = (
       // An op's shorthand can't change under --write (a shorthand mismatch
       // blocks the write), so a differing kind here means a hand edit.
       if (typeof b === "string" || typeof a === "string") continue;
-      if (!isSkip(b.expression) && !isSkip(a.expression))
+      if (
+        !isSkip(b.expression) &&
+        !isSkip(a.expression) &&
+        typeof b.expression === "string" &&
+        typeof a.expression === "string"
+      )
         expression.push({
           label: `${id}.${op}`,
           before: b.expression.length,
@@ -130,7 +159,7 @@ const specDeltas = (
       }
     }
   }
-  return { instantiations, expression, behavior };
+  return { instantiations, expression, behavior, added };
 };
 
 const bundleSizeSection = (change: BundleSizeChange): string[] => {
@@ -190,8 +219,9 @@ export const renderPerformance = (perf: Perf): string => {
 // Empty when nothing tracked moved — a formatting-only rewrite has no summary
 // to give, and the `wrote <id>` lines already said what was touched.
 export const summarize = (changes: SpecChange[], bundleSize?: BundleSizeChange): string => {
-  const { instantiations, expression, behavior } = specDeltas(changes);
+  const { instantiations, expression, behavior, added } = specDeltas(changes);
   const lines = [
+    ...(added.length ? [`new: ${added.join(", ")}`] : []),
     ...section("ts.instantiations", instantiations),
     ...expressionSection(expression),
     ...(bundleSize ? bundleSizeSection(bundleSize) : []),

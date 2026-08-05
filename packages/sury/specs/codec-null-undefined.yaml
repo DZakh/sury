@@ -3,7 +3,7 @@ ts:
   schema: S.schema(null).with(S.to, S.schema(undefined))
   input: "null"
   output: undefined
-  instantiations: 5501
+  instantiations: 5509
 vs:
   zod:
     _skip: not-applicable

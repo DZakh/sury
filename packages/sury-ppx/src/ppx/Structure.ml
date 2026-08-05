@@ -3,7 +3,10 @@ open Parsetree
 open Ast_helper
 open Util
 
-let applySchemaAttribute ~loc schema_expr
+(* Every branch here must keep the schema's value type equal to ~value_type —
+   @s.with pins against it, so a branch that widened or narrowed the value would
+   make that pin reject valid code. *)
+let applySchemaAttribute ~loc ~value_type schema_expr
     ({attr_name = {Location.txt}} as attribute) =
   match txt with
   | "s.strict" -> [%expr S.strict [%e schema_expr]]
@@ -14,7 +17,19 @@ let applySchemaAttribute ~loc schema_expr
   | "s.meta" ->
     let meta_value = getExpressionFromPayload attribute in
     [%expr S.meta [%e schema_expr] [%e meta_value]]
-  | txt when txt <> "" && String.length txt >= 2 && String.sub txt 0 2 = "s." ->
+  | "s.with" ->
+    let fn_expr = getExpressionFromPayload attribute in
+    (* Constrain both the argument and the result, forcing the payload to
+       `S.t<value> => S.t<value>` so a transform that changes the value type
+       (S.to) is a compile error rather than a schema that silently disagrees
+       with the type it was generated for. *)
+    let loc = fn_expr.pexp_loc in
+    let schema_type = [%type: [%t value_type] S.t] in
+    Exp.constraint_ ~loc
+      (Exp.apply ~loc fn_expr
+         [(Nolabel, Exp.constraint_ ~loc schema_expr schema_type)])
+      schema_type
+  | txt when isSchemaAttributeName txt ->
     fail loc ("Unsupported schema attribute: \"@" ^ txt ^ "\"")
   | _ -> schema_expr
 
@@ -408,7 +423,10 @@ and generateCoreTypeSchemaExpression core_type =
         S.Option.getOrWith
           ([%e option_factory_expression] [%e schema_expr])
           [%e default_fn]]
-    | _ -> applySchemaAttribute ~loc:ptyp_loc schema_expr attribute
+    | _ ->
+      applySchemaAttribute ~loc:ptyp_loc
+        ~value_type:(stripSchemaAttributes core_type)
+        schema_expr attribute
   in
   List.fold_left handle_attribute schema_expression ptyp_attributes
 
@@ -481,7 +499,9 @@ let mapTypeDeclaration type_declaration =
     in
     let schema_expr =
       List.fold_left
-        (applySchemaAttribute ~loc:ptype_loc)
+        (applySchemaAttribute ~loc:ptype_loc
+           ~value_type:
+             (Typ.constr (lid type_name) (List.map fst ptype_params)))
         schema_expr ptype_attributes
     in
     [generateSchemaValueBinding type_name ptype_params schema_expr]

@@ -1,12 +1,13 @@
 import { test, expectTypeOf, assertType } from "vitest";
+import { format, inspect } from "node:util";
 
 import * as S from "../index.mjs";
 
-// FIXME: S.max should be applied to output
+// FIXME: S.lte should be applied to output
 // From https://x.com/dzakh_dev/status/1963982551208309222
 // const PixelSchema = S.pattern(/^\d{1,3}px$/)
 //   .with(S.to, S.number, parseInt)
-//   .with(S.max, 100)
+//   .with(S.lte, 100)
 //   .with(S.meta, {
 //     description: "A pixel value between 0 and 100",
 //   });
@@ -70,7 +71,7 @@ test("Successfully parses string with built-in refinement", (t) => {
     return;
   }
   t.expect(result.error.message).toBe(
-    "String must be exactly 5 characters long",
+    'Expected string.length == 5, received "123"',
   );
 
   expectSchemaType(schema).toBe<string, string>();
@@ -265,12 +266,12 @@ test("Transforms array of bigint to array of string", (t) => {
 });
 
 test("Successfully parses array with min and max refinements", (t) => {
-  const schema = S.array(S.string).with(S.min, 1).with(S.max, 2);
+  const schema = S.array(S.string).with(S.minLength, 1).with(S.maxLength, 2);
   const value = S.parser(schema)(["foo"]);
   t.expect(value).toEqual(["foo"]);
 
   const result = S.safe(() => S.parser(schema)([]));
-  t.expect(result.error?.message).toEqual("Array must be 1 or more items long");
+  t.expect(result.error?.message).toEqual("Expected 1 <= string[].length <= 2, received []");
 
   expectSchemaType(schema).toBe<string[], string[]>();
   expectTypeOf(value).toEqualTypeOf<string[]>();
@@ -1199,7 +1200,7 @@ test("Name of merge schema", (t) => {
     }),
   );
 
-  t.expect(S.toExpression(schema)).toBe(
+  t.expect(S.inputExpression(schema)).toBe(
     `{ foo: string; bar: boolean; baz: string; }`,
   );
 });
@@ -1330,7 +1331,7 @@ test("S.schema example", (t) => {
 });
 
 test("S.name", (t) => {
-  t.expect(S.toExpression(S.unknown.with(S.meta, { name: "BlaBla" }))).toBe(
+  t.expect(S.inputExpression(S.unknown.with(S.meta, { name: "BlaBla" }))).toBe(
     `BlaBla`,
   );
 });
@@ -1620,6 +1621,115 @@ test("Standard schema", (t) => {
   >();
 });
 
+// getDecoder answers a repeated call from a per-operation node cache on the
+// schema (see OpNode in parse.ts), and
+// `~standard.validate` holds its compiled decoder in a closure. Both are keyed
+// on the arguments and the global flag, so anything that picks a different
+// compiled operation must still get it.
+test("Compiled operations stay per-operation and per-global-config", (t) => {
+  const schema = S.schema({ a: S.string.with(S.to, S.number, Number, String) });
+
+  // Alternating operations on one schema must not answer each other.
+  for (let i = 0; i < 3; i++) {
+    t.expect(S.parser(schema)({ a: "1" })).toEqual({ a: 1 });
+    t.expect(S.encoder(schema)({ a: 1 })).toEqual({ a: "1" });
+    t.expect(S.decoder(schema)({ a: "3" })).toEqual({ a: 3 });
+    t.expect(S.is(schema, { a: "1" })).toBe(true);
+    t.expect(S.is(schema, { a: 1 })).toBe(false);
+    t.expect(schema["~standard"].validate({ a: "2" })).toEqual({
+      value: { a: 2 },
+    });
+  }
+
+  // A derived schema must compile its own operation, not inherit the original's.
+  t.expect(S.is(S.number, NaN)).toBe(false);
+  const derived = S.number.with(S.meta, { title: "t" });
+  t.expect(S.parser(derived)(1)).toBe(1);
+  t.expect(S.is(derived, NaN)).toBe(false);
+
+  const standard = S.number["~standard"];
+  const nanRejected = {
+    issues: [{ message: "Expected number, received NaN", path: undefined }],
+  };
+  t.expect(standard.validate(NaN)).toEqual(nanRejected);
+  try {
+    S.global({ disableNanNumberValidation: true });
+    t.expect(S.is(S.number, NaN)).toBe(true);
+    t.expect(standard.validate(NaN)).toEqual({ value: NaN });
+  } finally {
+    S.global({});
+  }
+  t.expect(S.is(S.number, NaN)).toBe(false);
+  t.expect(standard.validate(NaN)).toEqual(nanRejected);
+});
+
+// A conversion rejected at operation creation fails for every input, so it
+// isn't a fact about the value being validated — it's a bug in the schema, and
+// `issues` is the channel a consumer renders to the person filling in the
+// form. It throws to the developer instead, and keeps throwing: `validate`
+// holds its decoder across calls, and a compile that never produced one must
+// not leave the cache claiming to be current.
+test("A conversion rejected at operation creation throws from validate, on every call", (t) => {
+  const standard = S.boolean.with(S.to, S.number)["~standard"];
+  const message = "Can't decode boolean to number. Use S.to to define a custom decoder";
+  for (let i = 0; i < 3; i++) {
+    t.expect(() => standard.validate(true)).toThrow(message);
+  }
+
+  // Only the compile is promoted: an input that fails validation is still a
+  // result, not an exception.
+  const schema = S.schema({ id: S.string });
+  t.expect(schema["~standard"].validate({ id: "a" })).toEqual({ value: { id: "a" } });
+  t.expect(schema["~standard"].validate({ id: 1 })).toEqual({
+    issues: [{ message: "Expected string, received 1", path: ["id"] }],
+  });
+});
+
+// `S.is` makes the same split, for the same reason: `false` is an answer about
+// the value, and a schema with no compilable operation has no answer to give.
+test("A conversion rejected at operation creation throws from S.is, rather than reading as false", (t) => {
+  const rejected = S.boolean.with(S.to, S.number);
+  const message = "Can't decode boolean to number. Use S.to to define a custom decoder";
+  t.expect(() => S.is(rejected, true)).toThrow(message);
+  t.expect(() => S.is(rejected, true)).toThrow(message);
+  t.expect(() => S.is(true, rejected)).toThrow(message);
+
+  const schema = S.schema({ id: S.string });
+  t.expect(S.is(schema, { id: "a" })).toBe(true);
+  t.expect(S.is(schema, { id: 1 })).toBe(false);
+  // Both arg orders, and the falsy-data guard that keeps `null`/`undefined`
+  // out of the schema slot.
+  t.expect(S.is({ id: "a" }, schema)).toBe(true);
+  t.expect(S.is(schema, null)).toBe(false);
+  t.expect(S.is(null, schema)).toBe(false);
+  t.expect(S.is(schema, undefined)).toBe(false);
+
+  // Only a Sury validation failure becomes `false` — a user refinement that
+  // throws something else still propagates.
+  const boom = S.string.with(S.refine, () => {
+    throw new RangeError("boom");
+  });
+  t.expect(() => S.is(boom, "x")).toThrow("boom");
+});
+
+// A recursive def marks itself in-progress in the operation cache before
+// compiling (OpNode `v === 0`, parse.ts). A compile that throws must unlink
+// that node: left behind, a retry reads it as a live circular reference and
+// builds an operation that calls 0 at runtime.
+test("A failed recursive compile reports the same error on retry, not a poisoned cache node", (t) => {
+  // Nested rather than top-level: a top-level call derives a fresh input
+  // schema per compile, so only the nested shape keeps the def-to-def cache
+  // triple stable enough for a retry to find the leftover node.
+  const schema = S.schema({
+    node: S.recursive<{ bad: boolean }, { bad: number }>("BrokenRec", (_) =>
+      S.schema({ bad: S.boolean.with(S.to, S.number) }),
+    ),
+  });
+  const message = "Can't decode boolean to number. Use S.to to define a custom decoder";
+  t.expect(() => S.parser(schema)).toThrow(message);
+  t.expect(() => S.parser(schema)({ node: { bad: true } })).toThrow(message);
+});
+
 test("Standard JSON Schema interface support", (t) => {
   const schema = S.schema({ foo: S.to(S.string, S.number) });
   const standard = schema["~standard"];
@@ -1806,7 +1916,7 @@ test("Full Set schema", (t) => {
         return output;
       })
       .with(S.meta, {
-        name: `Set<${S.toExpression(itemSchema)}>`,
+        name: `Set<${S.inputExpression(itemSchema)}>`,
       });
 
   const numberSetSchema = mySet(S.number);
@@ -2180,7 +2290,7 @@ test("Example", (t) => {
   // Create login schema with email and password
   const loginSchema = S.schema({
     email: S.email,
-    password: S.string.with(S.min, 8),
+    password: S.string.with(S.minLength, 8),
   });
 
   // Infer output TypeScript type of login schema
@@ -2669,7 +2779,7 @@ test("Union of dynamic enum as const", (t) => {
 });
 
 test("Overwrite error message", (t) => {
-  const schema = S.string.with(S.min, 3, "Invalid string");
+  const schema = S.string.with(S.minLength, 3, "Invalid string");
 
   const fieldSchema = <TInput, TOutput>(
     schema: S.Schema<TInput, TOutput>,
@@ -2716,4 +2826,249 @@ test("Uint8Array", (t) => {
   t.expect(S.decoder(S.unknown, S.uint8Array, S.jsonString).toString()).toEqual(
     `i=>{i instanceof e[1]||e[2](i);return JSON.stringify(e[0].decode(i))}`,
   );
+});
+
+test("Throwing one retained error instance twice doesn't accumulate the path", (t) => {
+  // The path a throw is reached through is prepended to the error, so doing it
+  // on the caught instance leaves the second parse reporting `["a"]["a"]`.
+  // Nothing stops user code from holding one error and throwing it again.
+  const retained = S.safe(() => S.parser(S.string)(1)).error!;
+  const schema = S.schema({
+    a: S.string.with(S.to, S.number, () => {
+      throw retained;
+    }),
+  });
+  const parse = S.parser(schema);
+
+  for (const _ of [1, 2, 3]) {
+    const result = S.safe(() => parse({ a: "x" }));
+    t.expect(result.error?.message).toBe(
+      `Failed at ["a"]: Expected string, received 1`,
+    );
+    t.expect(result.error?.path).toBe(`["a"]`);
+  }
+  // The instance user code holds is left as it was caught.
+  t.expect(retained.path).toBe("");
+
+  // Top level: nothing to prepend, so the error is passed through rather than
+  // copied. Still must not pick up a path or mutate what was thrown.
+  const flat = S.parser(
+    S.string.with(S.to, S.number, () => {
+      throw retained;
+    }),
+  );
+  for (const _ of [1, 2, 3]) {
+    t.expect(S.safe(() => flat("x")).error?.path).toBe("");
+  }
+  t.expect(retained.path).toBe("");
+});
+
+test("A contradictory bound pair is rejected where it's written", (t) => {
+  // The schema would compile and then reject every possible value, which only
+  // surfaces in production — so it fails at construction instead. Both sides
+  // render through inputExpression, so the message is in the same syntax the
+  // schema is, not the constructor names the caller happened to use.
+  t.expect(() => S.number.with(S.gte, 5).with(S.lte, 1)).toThrow(
+    `[Sury] number <= 1 contradicts number >= 5`,
+  );
+  t.expect(() => S.number.with(S.lte, 1).with(S.gte, 5)).toThrow(
+    `[Sury] number >= 5 contradicts number <= 1`,
+  );
+  // Exclusive bounds make the touching cases empty too.
+  t.expect(() => S.number.with(S.gt, 5).with(S.lte, 5)).toThrow(
+    `[Sury] number <= 5 contradicts number > 5`,
+  );
+  t.expect(() => S.number.with(S.gte, 5).with(S.lt, 5)).toThrow(
+    `[Sury] number < 5 contradicts number >= 5`,
+  );
+  t.expect(() => S.string.with(S.minLength, 5).with(S.maxLength, 1)).toThrow(
+    `[Sury] string.length <= 1 contradicts string.length >= 5`,
+  );
+  t.expect(() => S.array(S.string).with(S.minLength, 5).with(S.maxLength, 1)).toThrow(
+    `[Sury] string[].length <= 1 contradicts string[].length >= 5`,
+  );
+  // `empty`/`nonEmpty` desugar to length bounds, and report as those rather
+  // than naming a constructor the caller didn't write.
+  t.expect(() => S.string.with(S.minLength, 2).with(S.empty)).toThrow(
+    `[Sury] string.length <= 0 contradicts string.length >= 2`,
+  );
+  // A format's range is a bound like any other, so a value outside it conflicts.
+  t.expect(() => S.int32.with(S.gte, 3000000000)).toThrow(
+    `[Sury] int32 >= 3000000000 contradicts int32 <= 2147483647`,
+  );
+  t.expect(() => S.port.with(S.lte, -1)).toThrow(
+    `[Sury] port <= -1 contradicts port >= 0`,
+  );
+
+  // A single point is satisfiable, so these stay legal.
+  t.expect(S.toJSONSchema(S.number.with(S.gte, 5).with(S.lte, 5))).toEqual({
+    type: "number",
+    minimum: 5,
+    maximum: 5,
+  });
+  t.expect(S.toJSONSchema(S.number.with(S.gt, 5).with(S.lt, 6))).toEqual({
+    type: "number",
+    exclusiveMinimum: 5,
+    exclusiveMaximum: 6,
+  });
+});
+
+test("An unsatisfiable JSON Schema document loads as never", (t) => {
+  // Legal JSON Schema — it just describes a type nothing inhabits — so it has
+  // to load rather than fail the way the hand-written equivalent does.
+  for (const definition of [
+    { type: "number", minimum: 5, maximum: 1 },
+    { type: "integer", minimum: 5, maximum: 1 },
+    { type: "number", exclusiveMinimum: 5, maximum: 5 },
+    { type: "string", minLength: 5, maxLength: 1 },
+    { type: "array", minItems: 5, maxItems: 1 },
+  ] as const) {
+    const schema = S.fromJSONSchema(definition);
+    t.expect(S.inputExpression(schema)).toEqual("never");
+  }
+});
+
+test("Schema toString prints Schema<input, output>", (t) => {
+  t.expect(S.string.toString()).toBe("Schema<string>");
+  t.expect(S.to(S.string, S.number).toString()).toBe("Schema<string, number>");
+  t.expect(`${S.schema({ a: S.string })}`).toBe("Schema<{ a: string; }>");
+  t.expect(`${S.union([S.string, S.number])}`).toBe("Schema<string | number>");
+
+  // Nested transforms only reverse correctly through S.reverse, not a .to walk.
+  t.expect(`${S.schema({ a: S.to(S.string, S.number) })}`).toBe(
+    "Schema<{ a: string; }, { a: number; }>",
+  );
+
+  // The apparent type supplies toString without S.d.ts declaring it.
+  expectTypeOf(S.string.toString()).toEqualTypeOf<string>();
+});
+
+// The schema prototype is Object.create(null), so before there was a toString
+// there was nothing to coerce through and every one of these threw
+// "Cannot convert object to primitive value" rather than merely reading badly.
+test("Schema survives string coercion", (t) => {
+  t.expect(String(S.string)).toBe("Schema<string>");
+  t.expect(S.string + "").toBe("Schema<string>");
+  t.expect([S.string, S.number].join(", ")).toBe("Schema<string>, Schema<number>");
+});
+
+// util.inspect ignores toString, and no inspect hook is registered on purpose,
+// so console.log still reveals the internal shape for debugging. Asserted so
+// that adding a hook is a deliberate change rather than a silent one.
+test("console.log shows the internal schema shape, not the expression", (t) => {
+  const dump = inspect(S.string);
+  t.expect(dump).not.toBe("Schema<string>");
+  t.expect(dump).toContain("type: 'string'");
+
+  // %s formats via toString, which is the opt-in path.
+  t.expect(format("%s", S.to(S.string, S.number))).toBe("Schema<string, number>");
+});
+
+test("Error messages render through inputExpression, not toString", (t) => {
+  const schema = S.schema({ id: S.string });
+  let error: { message: string; reason: string; expected: unknown } | undefined;
+  try {
+    S.parser(schema)({ id: 1 });
+  } catch (exn) {
+    error = exn as typeof error;
+  }
+
+  // No "Schema<…>" wrapper: the message names the type, it does not print the
+  // schema object.
+  t.expect(error!.message).toBe('Failed at ["id"]: Expected string, received 1');
+  t.expect(error!.reason).toBe("Expected string, received 1");
+  t.expect(`${error}`).toBe(
+    'SuryError: Failed at ["id"]: Expected string, received 1',
+  );
+
+  // The schema hanging off the error is where toString does help.
+  t.expect(`${error!.expected}`).toBe("Schema<string>");
+});
+
+// FIXME: S.record takes no key schema, so keys are never validated. The
+// generated loop is `for (let v0 in i)`, which skips symbol keys entirely — a
+// value under one is never reached, whatever the value schema says. Lives here
+// rather than in specs/record.yaml because the spec harness cannot serialize an
+// object with symbol keys back to source (see CONTRIBUTING.md).
+test("S.record does not validate values under symbol keys", (t) => {
+  const key = Symbol.for("sury-test-symbol-key");
+  const input: Record<symbol, unknown> = { [key]: 123 };
+
+  const result = S.parser(S.record(S.string))(
+    input as unknown as Record<string, string>,
+  );
+
+  // 123 is not a string, yet this neither throws nor strips the property.
+  t.expect(result).toBe(input);
+  t.expect((result as unknown as Record<symbol, unknown>)[key]).toBe(123);
+});
+
+// Rendering the received value used to walk objects and arrays without a
+// limit, so a cyclic input overflowed the stack inside the error formatter — a
+// validation failure surfaced as a RangeError instead of a SuryError. One level
+// of expansion keeps that fixed: the cycle is reached at depth 1 and named.
+test("A cyclic input is reported, not a stack overflow", (t) => {
+  const cyclic: Record<string, unknown> = { a: 1 };
+  cyclic["self"] = cyclic;
+
+  t.expect(() => S.parser(S.string)(cyclic)).toThrow(
+    t.expect.objectContaining({
+      name: "SuryError",
+      message: "Expected string, received { a: 1; self: object; }",
+    }),
+  );
+});
+
+test("A received value is expanded one level", (t) => {
+  const reasonFor = (value: unknown): string => {
+    try {
+      S.parser(S.string)(value);
+      return "(accepted)";
+    } catch (exn) {
+      return (exn as { reason: string }).reason;
+    }
+  };
+  const received = (value: unknown) => reasonFor(value).replace("Expected string, received ", "");
+
+  // Primitives keep their value — `received 42` beats `received number` — and
+  // bigint keeps its suffix so it stays distinguishable from a number.
+  t.expect(received(42)).toBe("42");
+  t.expect(received(10n)).toBe("10n");
+  t.expect(received(NaN)).toBe("NaN");
+
+  // Plain objects and arrays expand; anything else names its constructor.
+  t.expect(received({ a: 1, b: "x" })).toBe('{ a: 1; b: "x"; }');
+  t.expect(received([1, "a"])).toBe('[1, "a"]');
+  t.expect(received({})).toBe("{}");
+  t.expect(received([])).toBe("[]");
+  t.expect(received(Object.create(null))).toBe("{}");
+  t.expect(received(new Date(0))).toBe("Date");
+  t.expect(received(new Map())).toBe("Map");
+  t.expect(received(new (class Foo {})())).toBe("Foo");
+
+  // One level only: a nested value names its type instead of recursing, and an
+  // array keeps its length because against a tuple that is the diagnostic.
+  t.expect(received({ a: 1, meta: { z: 9 } })).toBe("{ a: 1; meta: object; }");
+  t.expect(received({ a: 1, tags: [1, 2, 3] })).toBe("{ a: 1; tags: Array(3); }");
+  t.expect(received([[1, 2], { a: 1 }])).toBe("[Array(2), object]");
+
+  // Anything without a useful constructor name is lowercase `object`, the same
+  // way a primitive is named by its type — a plain object, a null prototype and
+  // an anonymous class all read alike, and none of them read as `Object`.
+  t.expect(received({ a: Object.create(null) })).toBe("{ a: object; }");
+  t.expect(received({ a: new (class {})() })).toBe("{ a: object; }");
+
+  // Width is capped too, or one wide input still produces a huge message.
+  t.expect(received(Object.fromEntries(Array.from({ length: 40 }, (_, i) => [i, i])))).toBe(
+    "{ 0: 0; 1: 1; 2: 2; 3: 3; 4: 4; ... }",
+  );
+  t.expect(received([1, 2, 3, 4, 5, 6, 7, 8])).toBe("[1, 2, 3, 4, 5, ...]");
+});
+
+// There is no `nan` case in inputExpression: the sole nan schema always carries
+// `const: NaN`, so the `const` branch renders it — via stringify, to the same
+// string. Pinned here because removing that branch is only safe while this holds.
+test("A nan schema renders as NaN without a dedicated branch", (t) => {
+  t.expect(S.inputExpression(S.schema(NaN))).toBe("NaN");
+  t.expect(`${S.schema(NaN)}`).toBe("Schema<NaN>");
 });

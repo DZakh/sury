@@ -64,7 +64,7 @@ test("Successfully parses schema with transformation", t => {
   let schema =
     S.option(S.float)
     ->S.Option.getOr(-123.)
-    ->S.transform(_ => {
+    ->S.transform(() => {
       parser: number =>
         if number > 0. {
           Some("positive")
@@ -101,7 +101,7 @@ test("Compiled parse code snapshot", t => {
 
 asyncTest("Compiled async parse code snapshot", async t => {
   let schema =
-    S.option(S.bool->S.transform(_ => {asyncParser: i => Promise.resolve(i)}))->S.Option.getOr(
+    S.option(S.bool->S.transform(() => {asyncParser: i => Promise.resolve(i)}))->S.Option.getOr(
       false,
     )
 
@@ -116,7 +116,7 @@ asyncTest("Compiled async parse code snapshot", async t => {
   let schema =
     S.option(S.bool)
     ->S.Option.getOr(false)
-    ->S.transform(_ => {asyncParser: i => Promise.resolve(i)})
+    ->S.transform(() => {asyncParser: i => Promise.resolve(i)})
 
   t->Assert.deepEqual(await None->S.parseAsyncOrThrow(~to=schema), false)
   t->U.assertCompiledCode(

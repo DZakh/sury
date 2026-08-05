@@ -102,6 +102,15 @@ export {
   tuple,
   pattern,
   trim,
+  gt,
+  gte,
+  lt,
+  lte,
+  minLength,
+  maxLength,
+  length,
+  empty,
+  nonEmpty,
 } from "./refinements";
 export {
   meta,
@@ -114,11 +123,9 @@ export {
   fromJSONSchema,
   extendJSONSchema,
   enableStandardJSONSchema,
-  min,
-  max,
-  length,
 } from "./jsonschema";
-export { toExpression } from "./base";
+export { inputExpression } from "./base";
+export { outputExpression } from "./parse";
 
 // ── ReScript binding surface (extra names, not part of index.d.ts) ───────────
 //
