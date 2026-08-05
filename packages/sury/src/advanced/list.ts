@@ -1,8 +1,9 @@
 // `S.list` — the ReScript linked-list representation.
 
-import type { Internal } from "../base";
+import { type Internal, unknown } from "../base";
+import { B_conversion } from "../builder";
 import { array } from "../composites";
-import { transform } from "../modifiers";
+import { codecTo } from "../modifiers";
 
 // PORT-NOTE: ReScript list runtime (v12): empty list = `0`, cons cell =
 // `{hd, tl}`. These two helpers replicate Stdlib List.fromArray / List.toArray
@@ -29,8 +30,11 @@ const listToArray = (list: RescriptList): unknown[] => {
 
 // @__NO_SIDE_EFFECTS__
 export const list = (schema: Internal): Internal => {
-  return transform(array(schema), () => ({
-    p: (array: unknown) => listFromArray(array as unknown[]),
-    s: (list: unknown) => listToArray(list as RescriptList),
-  }));
+  // `unknown` target: a ReScript list has no schema of its own to land on.
+  return codecTo(
+    array(schema),
+    unknown,
+    B_conversion((array: unknown) => listFromArray(array as unknown[])),
+    B_conversion((list: unknown) => listToArray(list as RescriptList)),
+  );
 }

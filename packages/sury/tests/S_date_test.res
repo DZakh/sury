@@ -288,10 +288,7 @@ test("Encodes a nullable optional Timestamp whose input is string | number (issu
     S.union([
       S.string->S.castToUnknown,
       S.float
-      ->S.transform(() => {
-        parser: ms => Date.fromTime(ms)->Obj.magic,
-        serializer: d => (d->Obj.magic: Date.t)->Date.getTime->Obj.magic,
-      })
+      ->S.to(S.any, ~custom={decode: Sync(ms => Date.fromTime(ms)->Obj.magic), encode: Sync(d => (d->Obj.magic: Date.t)->Date.getTime->Obj.magic)})
       ->S.castToUnknown,
     ])->S.to(S.date)
   let schema = S.nullableAsOption(timestamp)
@@ -305,5 +302,5 @@ test("Encodes a nullable optional Timestamp whose input is string | number (issu
     Some(date)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     "2024-01-01T00:00:00.000Z"->Obj.magic,
   )
-  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{for(;;){if(i instanceof e[2]){for(;;){i=i.toISOString();break;};break}if(i===void 0)break;e[3](i)}return i}`)
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{for(;;){if(i instanceof e[3]){for(;;){i=i.toISOString();break;};break}if(i===void 0)break;e[4](i)}return i}`)
 })

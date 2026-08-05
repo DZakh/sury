@@ -145,7 +145,6 @@ export {
   assertAsyncOrThrow as $res_assertAsyncOrThrow,
 } from "./operations";
 export {
-  transform as $res_transform,
   Option_getOr as $res_Option_getOr,
   Option_getOrWith as $res_Option_getOrWith,
   Metadata_Id_make as $res_Metadata_Id_make,

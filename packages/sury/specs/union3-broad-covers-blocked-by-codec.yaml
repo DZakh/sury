@@ -3,7 +3,7 @@ ts:
   schema: S.union([S.schema("apple"), S.string.with(S.to, S.number, Number, String), S.string])
   input: string
   output: string | number
-  instantiations: 6477
+  instantiations: 1894
 vs:
   zod:
     _skip: not-applicable
@@ -28,11 +28,4 @@ operations:
         error: Expected "apple" | string, received 42
   decode: eq-to-parse
   encode:
-    expression: i=>{for(;;){if(typeof i==="number"&&!Number.isNaN(i)){let v0;try{v0=e[0](i)}catch(x){e[1](x);e[2](x)}i=v0;break}if(typeof i==="string")break;e[3](i)}return i}
-    examples:
-      number-back-to-string:
-        input: "42"
-        output: '"42"'
-      string-passes-through:
-        input: '"apple"'
-        output: '"apple"'
+    creationError: "SuryError: Encoding is ambiguous when only a decode function is provided. Use S.to(target, {decode, encode})"

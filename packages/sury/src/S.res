@@ -401,6 +401,7 @@ module Error = {
 // primitive. Some (string, bool, ...) shadow stdlib names on purpose.
 @module("sury") external never: t<never> = "never"
 @module("sury") external unknown: t<unknown> = "unknown"
+@module("sury") external any: t<'any> = "any"
 @module("sury") external unit: t<unit> = "$res_unit"
 @module("sury") external nullAsUnit: t<unit> = "$res_nullAsUnit"
 @module("sury") external string: t<string> = "string"
@@ -440,18 +441,6 @@ module Error = {
 
 @module("sury") external meta: (t<'value>, meta<'value>) => t<'value> = "meta"
 
-type transformDefinition<'input, 'output> = {
-  @as("p")
-  parser?: 'input => 'output,
-  @as("a")
-  asyncParser?: 'input => promise<'output>,
-  @as("s")
-  serializer?: 'output => 'input,
-}
-@module("sury")
-external transform: (t<'input>, unit => transformDefinition<'input, 'output>) => t<'output> =
-  "$res_transform"
-
 // The public JS `refine` takes an options object; build it here from the
 // ReScript labeled args.
 type refineOptions = {error?: string, path?: array<string>}
@@ -461,7 +450,43 @@ let refine = (schema, refiner, ~error=?, ~path=?) => refine(schema, refiner, {?e
 
 @module("sury") external shape: (t<'value>, 'value => 'shape) => t<'shape> = "shape"
 
+type conversion<'i, 'o> =
+  | @as("auto") Auto
+  | @as("never") Never
+  | Sync('i => 'o)
+  | Async('i => promise<'o>)
+
+type codecs<'from, 'to> = {
+  decode: conversion<'from, 'to>,
+  encode: conversion<'to, 'from>,
+}
+
 @module("sury") external to: (t<'from>, t<'to>) => t<'to> = "to"
+%%private(
+  @module("sury")
+  external toCustom: (t<'from>, t<'to>, codecs<'from, 'to>) => t<'to> = "to"
+)
+// Auto/Never already erase to the exact "auto"/"never" strings via @as;
+// Sync/Async keep the default variant representation the public JS `to`
+// doesn't understand, so each slot unwraps to the JS `f` / `{async: f}` forms.
+%%private(
+  let unwrapConversion = (conversion: conversion<'i, 'o>): conversion<'i, 'o> =>
+    switch conversion {
+    | Sync(fn) => fn->Obj.magic
+    | Async(fn) => {"async": fn}->Obj.magic
+    | erased => erased
+    }
+)
+let to = (from, target, ~custom=?) =>
+  switch custom {
+  | None => to(from, target)
+  | Some({decode, encode}) =>
+    toCustom(
+      from,
+      target,
+      {decode: unwrapConversion(decode), encode: unwrapConversion(encode)},
+    )
+  }
 
 @module("sury") external reverse: t<'value> => t<unknown> = "reverse"
 

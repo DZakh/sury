@@ -142,7 +142,7 @@ Say what you mean with an explicit variant:
 S.string.with(S.to, S.union([S.string.with(S.to, S.number), S.string]));
 
 // Pass strings through, never producing a number:
-S.string.with(S.to, S.union([S.never.with(S.to, S.number), S.string]));
+S.string.with(S.to, S.union([S.number.with(S.to, S.number, { decode: "never", encode: "auto" }), S.string]));
 ```
 
 The same applies to widening into optional or nullable targets:
@@ -152,7 +152,7 @@ S.string.with(S.to, S.optional(S.string));
 // Invalid operation: for "undefined" — keep the string or decode to undefined?
 
 // Widen without decoding — the undefined variant is unreachable:
-S.string.with(S.to, S.union([S.string, S.never.with(S.to, S.schema(undefined))]));
+S.string.with(S.to, S.union([S.string, S.string.with(S.to, S.schema(undefined), { decode: "never", encode: "auto" })]));
 ```
 
 The `Invalid operation` error suggests these rewrites.

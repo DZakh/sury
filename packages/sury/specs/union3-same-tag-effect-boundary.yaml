@@ -12,7 +12,7 @@ ts:
   schema: S.union([S.string.with(S.minLength, 5), S.string.with(S.to, S.number), S.string.with(S.maxLength, 1)])
   input: string
   output: string | number
-  instantiations: 6397
+  instantiations: 6539
 vs:
   zod: z.union([z.string().min(5), z.string().pipe(z.coerce.number()), z.string().max(1)])
 jsonSchema:

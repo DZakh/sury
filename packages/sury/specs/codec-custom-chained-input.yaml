@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.string.with(S.to, S.json, { decode: (value) => JSON.parse(value), encode: (value) => JSON.stringify(value) }).with(S.to, S.schema({ id: S.number }))"
+  input: string
+  output: "{ id: number; }"
+  instantiations: 6595
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "string" }'
+  output: '{ type: "object", properties: { id: { type: "number" } }, required: ["id"] }'
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[4](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[3](v0);let v1=v0["id"];typeof v1==="number"&&!Number.isNaN(v1)||e[2](v1);return {"id":v1,}}
+    examples:
+      valid:
+        input: '"{\"id\":1}"'
+        output: "{ id: 1 }"
+      invalid-json:
+        input: '"boom"'
+        error: "SyntaxError: Unexpected token 'b', \"boom\" is not valid JSON"
+      wrong-shape:
+        input: '"[]"'
+        error: "Expected { id: number; }, received []"
+  decode:
+    expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[3](v0);let v1=v0["id"];typeof v1==="number"&&!Number.isNaN(v1)||e[2](v1);return {"id":v1,}}
+    examples:
+      valid:
+        input: '"{\"id\":1}"'
+        output: "{ id: 1 }"
+  encode:
+    expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}
+    examples:
+      round-trip:
+        input: "{ id: 1 }"
+        output: '"{\"id\":1}"'

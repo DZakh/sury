@@ -57,7 +57,7 @@
     - [Custom error path](#custom-error-path)
     - [Chaining refinements](#chaining-refinements)
 - [Transforms](#transforms)
-  - [`transform`](#transform)
+  - [`to` with `~custom`](#to-with-custom)
 - [Functions on schema](#functions-on-schema)
   - [Pipelines](#pipelines)
   - [Built-in operations](#built-in-operations)
@@ -730,7 +730,7 @@ let tupleExampleSchema = S.schema(s => (#id, s.matches(S.string)))
 
 The `S.shape` schema is a helper function that allows you to transform the value to a desired shape. It'll statically derive required data transformations to perform the change in the most optimal way.
 
-> ⚠️ Even though it looks like you operate with a real value, it's actually a dummy proxy object. So conditions or any other runtime logic won't work. Please use `S.transform` for such cases.
+> ⚠️ Even though it looks like you operate with a real value, it's actually a dummy proxy object. So conditions or any other runtime logic won't work. Please use `S.to` with `~custom` codecs for such cases.
 
 ```rescript
 type shape = Circle({radius: float}) | Square({x: float}) | Triangle({x: float, y: float})
@@ -1220,7 +1220,10 @@ You can also use asynchronous parser:
 ```rescript
 let nodeSchema = S.recursive("Node", nodeSchema => {
   S.object(s => {
-    params: s.field("Id", S.string)->S.transform(() => {asyncParser: id => loadParams(~id)}),
+    params: s.field(
+      "Id",
+      S.string->S.to(S.any, ~custom={decode: Async(id => loadParams(~id)), encode: Never}),
+    ),
     children: s.field("Children", S.array(nodeSchema)),
   })
 })
@@ -1235,25 +1238,31 @@ One great aspect of the example above is that it uses parallelism to make four r
 **Sury** might not have many built-in schemas for your use case. In this case you can create a custom schema for any TypeScript type.
 
 1. Choose a base schema which is the closest to your type. Most likely it'll be `S.instance`.
-2. Use `S.transform` to add a custom parser and serializer.
+2. Use `S.to` with `~custom` codecs to add a custom decoder and encoder.
 3. Optionally, use `S.meta` to add customize the name of the schema and additional metadata.
 
 ```rescript
 let mySet = itemSchema => {
   S.instance(%raw(`Set`))
-  ->S.transform(() => {
-    parser: input => {
-      let output = Set.make()
-      input
-      ->Obj.magic
-      ->Set.forEach(
-        item => {
-          output->Set.add(S.parseOrThrow(item, ~to=itemSchema))
+  ->S.to(
+    S.any,
+    ~custom={
+      decode: Sync(
+        input => {
+          let output = Set.make()
+          input
+          ->Obj.magic
+          ->Set.forEach(
+            item => {
+              output->Set.add(S.parseOrThrow(item, ~to=itemSchema))
+            },
+          )
+          output
         },
-      )
-      output
+      ),
+      encode: Never,
     },
-  })
+  )
   ->S.meta({name: `Set.t<${S.inputExpression(itemSchema)}>`})
 }
 
@@ -1318,29 +1327,49 @@ The refine function is applied for both parsing and serializing.
 
 ## Transforms
 
-**Sury** allows to augment schema with transformation logic, letting you transform value during parsing and serializing. This is most commonly used for mapping value to more convenient data-structures.
+**Sury** allows to augment a conversion with custom logic, letting you transform the value during parsing and serializing. This is most commonly used for mapping the value to more convenient data-structures.
 
-### **`transform`**
+### **`to` with `~custom`**
 
-`(S.t<'input>, unit => S.transformDefinition<'input, 'output>) => S.t<'output>`
+`(S.t<'from>, S.t<'to>, ~custom: S.codecs<'from, 'to>=?) => S.t<'to>`
 
-A transform fails by throwing, and the path it is reached through is prepended
-to whatever it throws. Usually that's just a JS error with a message:
+Custom codecs ride the same `S.to` used for built-in conversions: pass the
+target schema and one conversion per direction. Each slot is one of:
+
+- `Sync(fn)` — a synchronous coder
+- `Async(fn)` — an asynchronous coder (`fn` returns a `promise`)
+- `Auto` — the built-in conversion for the pair, exactly as if no codec was given
+- `Never` — the direction is unreachable: compiling an operation that needs it
+  fails where the operation is created, and inside a union the variant simply
+  yields to its siblings
+
+Both coders land on the target's *output* side: `decode` maps the schema's
+output to the target's output, `encode` the reverse. The target contributes its
+output-side refinements (they run on decode's result), validation of incoming
+values in the reverse direction, and the output type for `reverse`,
+`outputExpression` and `toJSONSchema`. With no natural target schema, use
+`S.any`:
 
 ```rescript
 let intToString = schema =>
-  schema->S.transform(() => {
-    parser: int => int->Int.toString,
-    serializer: string =>
-      switch string->Int.fromString {
-      | Some(int) => int
-      | None => JsError.make("Can't convert string to int")->JsError.throw
-      },
-  })
+  schema->S.to(
+    S.string,
+    ~custom={
+      decode: Sync(int => int->Int.toString),
+      encode: Sync(
+        string =>
+          switch string->Int.fromString {
+          | Some(int) => int
+          | None => JsError.make("Can't convert string to int")->JsError.throw
+          },
+      ),
+    },
+  )
 ```
 
-It surfaces as an `InvalidConversion` carrying the original as `cause`, with the
-path it was reached through prepended to the message:
+A coder fails by throwing, and the path it is reached through is prepended to
+whatever it throws. It surfaces as an `InvalidConversion` carrying the original
+as `cause`:
 
 ```rescript
 "abc"->S.decodeOrThrow(~from=S.int->intToString, ~to=S.unknown)
@@ -1363,7 +1392,9 @@ S.Error.make(
 )->S.Error.throw
 ```
 
-Also, you can have an asynchronous transform:
+Sync/async is part of the definition — Sury compiles operations ahead of time,
+so an async coder is declared with `Async` and rides `parseAsyncOrThrow` (or
+`decodeAsyncOrThrow` when it sits on the encode side):
 
 ```rescript
 type user = {
@@ -1372,11 +1403,13 @@ type user = {
 }
 
 let userSchema =
-  S.uuid
-  ->S.transform(() => {
-    asyncParser: userId => loadUser(~userId),
-    serializer: user => user.id,
-  })
+  S.uuid->S.to(
+    S.any,
+    ~custom={
+      decode: Async(userId => loadUser(~userId)),
+      encode: Sync(user => user.id),
+    },
+  )
 
 await "1"->S.parseAsyncOrThrow(~to=userSchema)
 // {
@@ -1389,6 +1422,14 @@ await "1"->S.parseAsyncOrThrow(~to=userSchema)
   name: "John",
 }->S.decodeOrThrow(~from=userSchema, ~to=S.unknown)
 // "1"
+```
+
+Mixing a custom coder with the built-in conversion is legal — `Auto` keeps the
+built-in path for its direction, so one-way normalization is a one-liner:
+
+```rescript
+// Trim on decode, validating pass-through on encode
+S.string->S.to(S.string, ~custom={decode: Sync(String.trim), encode: Auto})
 ```
 
 ## Functions on schema

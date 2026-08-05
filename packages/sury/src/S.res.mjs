@@ -34,6 +34,29 @@ function refine(schema, refiner, error, path) {
   });
 }
 
+function unwrapConversion(conversion) {
+  if (typeof conversion !== "object") {
+    return conversion;
+  } else if (conversion.TAG === "Sync") {
+    return conversion._0;
+  } else {
+    return {
+      async: conversion._0
+    };
+  }
+}
+
+function to(from, target, custom) {
+  if (custom !== undefined) {
+    return Sury.to(from, target, {
+      decode: unwrapConversion(custom.decode),
+      encode: unwrapConversion(custom.encode)
+    });
+  } else {
+    return Sury.to(from, target);
+  }
+}
+
 function decoder(from, to) {
   return Sury.decoder(Sury.reverse(from), to);
 }
@@ -97,6 +120,7 @@ export {
   Flag,
   $$Error,
   refine,
+  to,
   decoder,
   asyncDecoder,
   parseOrThrow,

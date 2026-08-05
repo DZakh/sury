@@ -137,10 +137,11 @@ test("S.to returns the schema itself when the target is the same instance", (t) 
   // decoder runs twice over its own output — silently wrong, not an error.
   t.expect(S.parser(S.to(schema, make()))("hello")).toBe(1);
 
-  // Custom coders still mean a real conversion step, same instance or not.
-  const doubled = S.to(schema, schema, (n) => String(n * 2));
-  t.expect(doubled).not.toBe(schema);
-  t.expect(S.parser(doubled)("hello")).toBe(2);
+  // A custom coder means a real conversion step, so a target carrying its own
+  // `.to` chain is ambiguous (rule 4's guard) — same instance or not.
+  t.expect(() => S.to(schema, schema, (n) => n * 2)).toThrow(
+    "[Sury] The target carries its own conversion — chain S.to explicitly",
+  );
 
   expectSchemaType(schema).toBe<string, number>();
   expectSchemaType(S.to(schema, schema)).toBe<string, number>();
@@ -672,11 +673,14 @@ test("Successfully parses with transform to another type", (t) => {
 });
 
 test("Handles errors during custom encoding", (t) => {
-  const schema = S.string.with(S.to, S.number, undefined, (number) => {
-    if (number < 100) {
-      throw new Error("Number is too small");
-    }
-    return number.toString();
+  const schema = S.string.with(S.to, S.number, {
+    decode: "auto",
+    encode: (number) => {
+      if (number < 100) {
+        throw new Error("Number is too small");
+      }
+      return number.toString();
+    },
   });
 
   const output = S.parser(schema)("80");
@@ -715,9 +719,12 @@ test("Fails to parse with transform with user error", (t) => {
 });
 
 test("Successfully converts reversed schema with transform to another type", (t) => {
-  const schema = S.string.with(S.to, S.number, undefined, (number) => {
-    expectTypeOf(number).toEqualTypeOf<number>();
-    return number.toString();
+  const schema = S.string.with(S.to, S.number, {
+    decode: "auto",
+    encode: (number) => {
+      expectTypeOf(number).toEqualTypeOf<number>();
+      return number.toString();
+    },
   });
   const result = S.encoder(schema)(123);
 
@@ -2568,18 +2575,16 @@ test("Preprocess nested fields", (t) => {
     schema: S.Schema<TInput, string>,
     prefix: string,
   ): S.Schema<TInput, string> =>
-    S.to(
-      schema,
-      S.string,
-      (v) => {
+    S.to(schema, S.string, {
+      decode: (v) => {
         if (v.startsWith(prefix)) {
           return v.slice(1);
         } else {
           throw new Error(`String must start with ${prefix}`);
         }
       },
-      (v) => prefix + v,
-    );
+      encode: (v) => prefix + v,
+    });
 
   const schema = S.schema({
     nested: {
@@ -2677,8 +2682,7 @@ test("Overwrite error message", (t) => {
   ): S.Schema<TInput, TOutput> => {
     return S.any.with(S.to, schema, (v) => {
       try {
-        S.assert(schema, v);
-        return v;
+        return S.parser(schema)(v);
       } catch (e) {
         if (e instanceof S.Error) {
           throw new Error(e.reason);

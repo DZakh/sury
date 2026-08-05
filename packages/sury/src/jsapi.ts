@@ -2,9 +2,7 @@ import {
   baseSchema,
   type Builder,
   type Check,
-  copySchema,
   flagDisableNanNumberValidation,
-  flagUnionTransformContext,
   functionTag,
   getOrRethrow,
   globalConfig,
@@ -17,29 +15,27 @@ import {
   panic,
   pathEmpty,
   pathFromArray,
+  stringify,
   stringTag,
   U,
   unknown,
-  updateOutput,
   type Val,
 } from "./base";
 import {
-  _var,
+  B_conversion,
   B_embed,
-  B_failWithArg,
   B_invalidInputBuilder,
-  B_makeInvalidConversionDetails,
-  B_next,
-  B_varWithoutAllocation,
+  B_invalidOperation,
+  B_neverSlot,
 } from "./builder";
 import { objectDecoder } from "./composites";
 import { definitionToSchema } from "./factory";
 import {
+  codecTo,
   internalRefine,
   nullAsUnit,
   Option_getOr,
   Option_getOrWith,
-  transform,
 } from "./modifiers";
 import { assertResult } from "./operations";
 import { getDecoder, reverse } from "./parse";
@@ -87,55 +83,71 @@ export const js_is = (a: unknown, b: unknown): boolean => {
 // @__NO_SIDE_EFFECTS__
 export const js_union = (values: unknown[]) => unionFactory(values.map(definitionToSchema));
 
-// FIXME: Test how it'll work if we have async var as input
-// FIXME: Might not work well with object targets
-const customBuilder = (fn: (value: unknown) => unknown): Builder => {
-  return (input: Val): Val => {
-    const target = input.e.to!;
-    const outputVar = B_varWithoutAllocation(input.g);
-    const output = B_next(input, outputVar, target, target);
-    output.v = _var;
-    output.cp = `let ${outputVar};try{${output.i}=${B_embed(
-      input,
-      fn,
-    )}(${input.i})}catch(x){${
-      input.g.o & flagUnionTransformContext
-        ? `${B_embed(input, getOrRethrow)}(x);`
-        : ""
-    }${B_failWithArg(
-      output,
-      (e: unknown) => B_makeInvalidConversionDetails(input, target, e),
-      `x`,
-    )}}`;
-    return output;
-  };
+// Rule 3: the decode shorthand's encode direction is a hard error at
+// operation creation, even inside a union — silently skipping would commit to
+// a semantics the user never chose.
+const ambiguousEncode: Builder = (input: Val) =>
+  B_invalidOperation(
+    input,
+    "Encoding is ambiguous when only a decode function is provided. Use S.to(target, {decode, encode})",
+  );
+
+// One public codec slot resolved to its Builder: `"auto"` (and an omitted
+// argument) is the built-in conversion, `"never"` the unreachable direction,
+// a function a sync coder, `{async}` an async one.
+const conversionBuilder = (slot: unknown): Builder | undefined => {
+  if (slot === "auto") {
+    return U;
+  } else if (slot === "never") {
+    return B_neverSlot;
+  } else if (typeof slot === functionTag) {
+    return B_conversion(slot as (value: unknown) => unknown);
+  } else if (
+    slot &&
+    typeof (slot as { async?: unknown }).async === functionTag
+  ) {
+    return B_conversion((slot as { async: (value: unknown) => Promise<unknown> }).async, true);
+  } else {
+    return panic(
+      `Unknown conversion ${stringify(slot)} — expected a function, "auto", "never" or {async}`,
+    );
+  }
 };
 
 // @__NO_SIDE_EFFECTS__
-export const js_to = (
-  schema: Internal,
-  target: Internal,
-  maybeDecoder?: (value: unknown) => unknown,
-  maybeEncoder?: (target: unknown) => unknown,
-) => {
+export const js_to = (schema: Internal, target: Internal, custom?: unknown) => {
   // Chaining a schema to itself would append a second copy of its own chain,
   // re-decoding the value it just produced. Custom coders still get a real
   // conversion step — only the coder-less spelling is a no-op.
-  if (schema === target && !maybeDecoder && !maybeEncoder) {
-    return schema;
+  if (custom === U) {
+    return schema === target ? schema : codecTo(schema, target);
   }
-  return updateOutput(schema, (mut) => {
-    if (maybeEncoder) {
-      const targetMut = copySchema(target);
-      targetMut.serializer = customBuilder(maybeEncoder);
-      mut.to = targetMut;
-    } else {
-      mut.to = target;
+  let decode: Builder | undefined;
+  let encode: Builder | undefined;
+  if (typeof custom === functionTag) {
+    decode = B_conversion(custom as (value: unknown) => unknown);
+    encode = ambiguousEncode;
+  } else {
+    const codecs = custom as { decode?: unknown; encode?: unknown };
+    if (codecs.decode === U || codecs.encode === U) {
+      return panic(
+        `Both decode and encode are required for custom codecs — use "auto" for the built-in conversion`,
+      );
     }
-    if (maybeDecoder) {
-      mut.parser = customBuilder(maybeDecoder);
-    }
-  });
+    decode = conversionBuilder(codecs.decode);
+    encode = conversionBuilder(codecs.encode);
+  }
+  // Rule 4's guard: on a target with its own `.to` chain the output seam and
+  // the junction seam diverge, so a sync/async coder there is ambiguous.
+  // `"never"`/`"auto"` slots don't place a coder, so they stay legal.
+  if (
+    target.to !== U &&
+    ((decode !== U && decode !== B_neverSlot) ||
+      (encode !== U && encode !== B_neverSlot && encode !== ambiguousEncode))
+  ) {
+    return panic(`The target carries its own conversion — chain S.to explicitly`);
+  }
+  return codecTo(schema, target, decode, encode);
 };
 
 // @__NO_SIDE_EFFECTS__
@@ -164,12 +176,12 @@ export const js_asyncDecoderAssert = (
   schema: Internal,
   assertFn: (value: unknown) => Promise<unknown>,
 ) => {
-  return transform(schema, () => {
-    return {
-      a: (v: unknown) => assertFn(v).then(() => v),
-      s: noop,
-    };
-  });
+  return codecTo(
+    schema,
+    unknown,
+    B_conversion((v: unknown) => assertFn(v).then(() => v), true),
+    B_conversion(noop),
+  );
 };
 
 // @__NO_SIDE_EFFECTS__

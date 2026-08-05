@@ -66,7 +66,7 @@ test("Example", t => {
   t->U.assertCompiledCode(
     ~schema=filmSchema,
     ~op=#EncodeToJson,
-    `i=>{let v0=i["tags"],v4=i["deprecatedAgeRestriction"];let v3={"Id":i["id"],"Title":i["title"],"Tags":v0,"Rating":i["rating"],};if(v4!==void 0){v3["Age"]=v4}return v3}`,
+    `i=>{let v0=i["tags"],v5=i["deprecatedAgeRestriction"];if(Array.isArray(v0)){for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"||e[0](v2);}catch(v3){v3.path="[\\"tags\\"]"+'["'+v1+'"]'+v3.path;throw v3}}}else{e[1](v0)}let v4={"Id":i["id"],"Title":i["title"],"Tags":v0,"Rating":i["rating"],};if(v5!==void 0){v4["Age"]=v5}return v4}`,
   )
 })
 
@@ -74,7 +74,7 @@ test("Compiled parse code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema=filmSchema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[7](i);let v0=i["Id"],v1=i["Title"],v2=i["Tags"],v6=i["Rating"],v7=i["Age"];typeof v0==="number"&&!Number.isNaN(v0)||e[0](v0);typeof v1==="string"||e[1](v1);for(;;){if(Array.isArray(v2)){for(let v3=0;v3<v2.length;++v3){try{let v4=v2[v3];typeof v4==="string"||e[2](v4);}catch(v5){v5.path="[\\"Tags\\"]"+\'["\'+v3+\'"]\'+v5.path;throw v5}};break}if(v2===void 0)break;e[3](v2)}typeof v6==="string"&&(v6==="G"||v6==="PG"||v6==="PG13"||v6==="R")||e[5](v6);(typeof v7==="number"&&!Number.isNaN(v7)&&v7<=2147483647&&v7>=-2147483648&&v7%1===0||v7===void 0)||e[6](v7);return {"id":v0,"title":v1,"tags":v2===void 0?e[4]:v2,"rating":v6,"deprecatedAgeRestriction":v7,}}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[7](i);let v0=i["Id"],v1=i["Title"],v2=i["Tags"],v7=i["Rating"],v8=i["Age"];typeof v0==="number"&&!Number.isNaN(v0)||e[0](v0);typeof v1==="string"||e[1](v1);for(;;){if(Array.isArray(v2)){for(let v3=0;v3<v2.length;++v3){try{let v4=v2[v3];typeof v4==="string"||e[2](v4);}catch(v5){v5.path="[\\"Tags\\"]"+\'["\'+v3+\'"]\'+v5.path;throw v5}};break}if(v2===void 0){v2=e[3];break}e[4](v2)}typeof v7==="string"&&(v7==="G"||v7==="PG"||v7==="PG13"||v7==="R")||e[5](v7);(typeof v8==="number"&&!Number.isNaN(v8)&&v8<=2147483647&&v8>=-2147483648&&v8%1===0||v8===void 0)||e[6](v8);return {"id":v0,"title":v1,"tags":v2,"rating":v7,"deprecatedAgeRestriction":v8,}}`,
   )
 })
 
@@ -82,15 +82,14 @@ test("Compiled serialize code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema=filmSchema,
     ~op=#Encode,
-    `i=>{let v0=i["tags"];return {"Id":i["id"],"Title":i["title"],"Tags":v0,"Rating":i["rating"],"Age":i["deprecatedAgeRestriction"],}}`,
+    `i=>{let v0=i["tags"];if(Array.isArray(v0)){for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"||e[0](v2);}catch(v3){v3.path="[\\"tags\\"]"+'["'+v1+'"]'+v3.path;throw v3}}}else{e[1](v0)}return {"Id":i["id"],"Title":i["title"],"Tags":v0,"Rating":i["rating"],"Age":i["deprecatedAgeRestriction"],}}`,
   )
 })
 
 test("Custom schema", t => {
   let mySet = itemSchema => {
     S.instance(%raw(`Set`))
-    ->S.transform(() => {
-      parser: input => {
+    ->S.to(S.any, ~custom={decode: Sync(input => {
         let output = Set.make()
         input
         ->Obj.magic
@@ -100,8 +99,7 @@ test("Custom schema", t => {
           },
         )
         output
-      },
-    })
+      }), encode: Never})
     ->S.meta({name: `Set.t<${S.inputExpression(itemSchema)}>`})
   }
 

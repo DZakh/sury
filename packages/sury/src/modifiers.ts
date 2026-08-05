@@ -4,12 +4,12 @@
 
 import {
   type AdditionalItems,
+  type Builder,
   type Check,
   copySchema,
   getOrRethrow,
   inputExpression,
   type Internal,
-  noopDecoder,
   objectTag,
   panic,
   pathEmpty,
@@ -22,13 +22,12 @@ import {
   type Val,
 } from "./base";
 import {
+  _var,
   B_embed,
-  B_embedTransformation,
   B_inlineConst,
   B_invalidInputBuilder,
-  B_invalidOperation,
+  B_neverSlot,
   B_next,
-  B_refine,
 } from "./builder";
 import { getDecoder, getOutputSchema, reverse } from "./parse";
 import { Literal_parse, nullLiteral, unit } from "./primitives";
@@ -146,67 +145,38 @@ export const getMutErrorMessage = (mut: Internal): SchemaErrorMessage => {
   return em;
 }
 
-export type TransformDefinition<TInput = unknown, TOutput = unknown> = {
-  // @as("p") — parser
-  p?: (input: TInput) => TOutput;
-  // @as("a") — asyncParser
-  a?: (input: TInput) => Promise<TOutput>;
-  // @as("s") — serializer
-  s?: (output: TOutput) => TInput;
-};
-
-// The transformer takes no argument. It used to receive an effect ctx whose
-// only member was `fail`; a transform now fails by throwing, which every
-// caller of a transform already handles — B_makeInvalidConversionDetails
-// adopts a thrown SuryError as-is and wraps anything else as
-// `invalid_conversion`.
-
-// @__NO_SIDE_EFFECTS__
-export const transform = (
+// The `S.to` codec wiring: the decode slot rides the source's output node as
+// its `parser`, the encode slot a copy of the target as its `serializer` —
+// `reverseSwap` trades their places, which is what makes double reversal
+// restore every slot. Slot semantics (auto/never/async/the JS shorthand) are
+// resolved by the caller into Builders; `U` means the built-in conversion.
+export const codecTo = (
   schema: Internal,
-  transformer: () => TransformDefinition
+  target: Internal,
+  parserB?: Builder,
+  serializerB?: Builder
 ): Internal => {
-  return updateOutput(schema, (mut) => {
-    mut.parser = (input) => {
-      const definition = transformer();
-      if (definition.p !== U && definition.a === U) {
-        return B_embedTransformation(input, definition.p, false);
-      } else if (definition.p === U && definition.a !== U) {
-        return B_embedTransformation(input, definition.a, true);
-      } else if (
-        definition.p === U &&
-        definition.a === U &&
-        definition.s === U
-      ) {
-        return B_refine(input, U, U, input.e.to!);
-      } else if (definition.p === U && definition.a === U) {
-        return B_invalidOperation(input, `The S.transform parser is missing`);
-      } else {
-        return B_invalidOperation(
-          input,
-          `The S.transform doesn't allow parser and asyncParser at the same time. Remove parser in favor of asyncParser`
-        );
-      }
-    };
-    const to = copySchema(unknown);
-    to.serializer = (input) => {
-      const definition = transformer();
-      if (definition.s !== U) {
-        return B_embedTransformation(input, definition.s, false);
-      } else if (
-        definition.p === U &&
-        definition.a === U &&
-        definition.s === U
-      ) {
-        return B_refine(input, U, U, input.e.to!);
-      } else {
-        return B_invalidOperation(input, `The S.transform serializer is missing`);
-      }
-    };
-    mut.to = to;
-    delete mut.isAsync;
+  const root: Internal = updateOutput(schema, (mut) => {
+    if (serializerB !== U) {
+      const targetMut = copySchema(target);
+      targetMut.serializer = serializerB;
+      mut.to = targetMut;
+    } else {
+      mut.to = target;
+    }
+    if (parserB !== U) {
+      mut.parser = parserB;
+    }
   });
-}
+  // copySchema carries a cached isAsync/hasTransform from the source, and a
+  // custom slot can change both — let the next compile re-derive them. Slotless
+  // links keep the fast path: the built-in conversion never turns async.
+  if (parserB !== U || serializerB !== U) {
+    delete root.isAsync;
+    delete root.hasTransform;
+  }
+  return root;
+};
 
 // Not initSchema: that would stamp the self-reverse marker, and this codec's
 // reverse (unit -> null) must stay lazily derived — copySchema drops
@@ -225,86 +195,85 @@ export type OptionDefault =
   | { type: "value"; value: unknown }
   | { type: "callback"; callback: () => unknown };
 
+// Rule 2's union spelling of CUSTOM_CODEC_SPEC.md: every undefined-producing
+// variant converts to the item union with the default on decode, and yields to
+// its siblings on encode via the never slot.
 export const Option_getWithDefault = (schema: Internal, default_: OptionDefault): Internal => {
   return updateOutput(schema, (mut) => {
     const anyOf = mut.anyOf;
-    if (anyOf !== U) {
-      const outputItems: Internal[] = [];
-      // FIXME: drop `originalItems` once the union decoder can reverse member
-      // `.to` chains — then mut.default + the serializer can both run
-      // through `schema->reverse` directly.
-      const originalItems: Internal[] = [];
+    if (anyOf === U) {
+      return panic(`Can't set default for ${inputExpression(mut)}`);
+    }
+    const outputItems: Internal[] = [];
+    const originalItems: Internal[] = [];
 
-      for (let idx = 0; idx < anyOf.length; idx++) {
-        const schema = anyOf[idx]!;
-        const outputSchema = getOutputSchema(schema);
-        if (outputSchema.type !== undefinedTag) {
+    for (let idx = 0; idx < anyOf.length; idx++) {
+      const variant = anyOf[idx]!;
+      const outputSchema = getOutputSchema(variant);
+      if (outputSchema.type !== undefinedTag) {
+        // Dedupe by identity: two arms sharing one output instance (the bool
+        // singleton) would otherwise make every rule-4 match ambiguous.
+        if (!outputItems.includes(outputSchema)) {
           outputItems.push(outputSchema);
-          originalItems.push(schema);
         }
+        originalItems.push(variant);
       }
+    }
 
-      const item: Internal =
-        outputItems.length === 0
-          ? panic(`Can't set default for ${inputExpression(mut)}`)
-          : outputItems.length === 1
-            ? outputItems[0]!
-            : unionFactory(outputItems);
+    const item: Internal =
+      outputItems.length === 0
+        ? panic(`Can't set default for ${inputExpression(mut)}`)
+        : outputItems.length === 1
+          ? outputItems[0]!
+          : unionFactory(outputItems);
+
+    if (default_.type === "value") {
+      const v = default_.value;
+      // Full unknown -> item decode so primitive item types still get type-checked.
+      try {
+        (getDecoder(unknown, item) as (input: unknown) => unknown)(v);
+      } catch (exn) {
+        const error = getOrRethrow(exn);
+        panic(
+          `Invalid default for ${inputExpression(mut)}: ${
+            (error as unknown as { message: string })["message"]
+          }`
+        );
+      }
       const originalItem: Internal =
         originalItems.length === 1 ? originalItems[0]! : unionFactory(originalItems);
-
-      if (default_.type === "value") {
-        const v = default_.value;
-        // Full unknown -> item decode so primitive item types still get type-checked.
-        try {
-          (getDecoder(unknown, item) as (input: unknown) => unknown)(v);
-        } catch (exn) {
-          const error = getOrRethrow(exn);
-          panic(
-            `Invalid default for ${inputExpression(mut)}: ${
-              (error as unknown as { message: string })["message"]
-            }`
-          );
-        }
-        // Best-effort input form for JSON Schema metadata.
-        // FIXME: running a decoder at schema-creation time isn't a goal —
-        // it compiles + executes a fresh decode pipeline per default. Replace
-        // with something cheaper (or move to lazy/JSON-Schema-export time)
-        // before the official v11 release.
-        try {
-          mut.default = (getDecoder(reverse(originalItem)) as (input: unknown) => unknown)(v);
-        } catch (_exn) {}
-      }
-
-      mut.parser = (input) => {
-        const nextSchema = input.e.to!;
-        const inputVar = input.v();
-        return B_next(
-          input,
-          `${inputVar}===void 0?${
-            default_.type === "value"
-              ? B_inlineConst(input, Literal_parse(default_.value))
-              : `${B_embed(input, default_.callback)}()`
-          }:${inputVar}`,
-          nextSchema,
-          nextSchema
-        );
-      };
-      const to = copySchema(item);
-
-      const originalDecoder = to.decoder;
-      to.serializer = (input) => {
-        const nextSchema = reverse(originalItem);
-        return B_refine(originalDecoder(input), nextSchema, U, nextSchema);
-      };
-
-      // FIXME: This looks wrong, but this is how it was with prev architecture
-      to.decoder = noopDecoder;
-
-      mut.to = to;
-    } else {
-      panic(`Can't set default for ${inputExpression(mut)}`);
+      // Best-effort input form for JSON Schema metadata — a never or async
+      // encode makes it uncomputable, so skip rather than throw (rule 6).
+      try {
+        mut.default = (getDecoder(reverse(originalItem)) as (input: unknown) => unknown)(v);
+      } catch (_exn) {}
     }
+
+    // Not B_conversion: an eager default inlines as a constant instead of
+    // costing an embed slot and a call, and a callback's throw keeps escaping
+    // raw the way it always did.
+    const decodeB: Builder = (input) => {
+      const target = input.e.to!;
+      const output = B_next(
+        input,
+        default_.type === "value"
+          ? B_inlineConst(input, Literal_parse(default_.value))
+          : `${B_embed(input, default_.callback)}()`,
+        target,
+        target
+      );
+      if (default_.type === "value") {
+        // A constant inline is idempotent, so re-reads don't need a var. The
+        // callback form stays materializable — re-reading would call it twice.
+        output.v = _var;
+      }
+      return output;
+    };
+    mut.anyOf = anyOf.map((variant) =>
+      getOutputSchema(variant).type === undefinedTag
+        ? codecTo(variant, item, decodeB, B_neverSlot)
+        : variant
+    );
   });
 };
 
@@ -427,7 +396,18 @@ export const meta = <TValue>(schema: Internal, data: Meta<TValue>): Internal => 
     if (data.examples.length === 0) {
       delete mut.examples;
     } else {
-      mut.examples = data.examples.map(getDecoder(reverse(schema)));
+      // Rule 6 of CUSTOM_CODEC_SPEC.md: a `never` or async encode makes the
+      // input-form examples uncomputable — skip them rather than throw. Only
+      // the operation-level rejection is absorbed; a per-value failure still
+      // names the author's bad example.
+      try {
+        mut.examples = data.examples.map(getDecoder(reverse(schema)));
+      } catch (exn) {
+        if ((getOrRethrow(exn) as unknown as { code: string }).code !== "invalid_operation") {
+          throw exn;
+        }
+        delete mut.examples;
+      }
     }
   }
   if (data.errorMessage !== U) {

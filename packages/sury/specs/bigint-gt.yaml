@@ -3,7 +3,7 @@ ts:
   schema: S.bigint.with(S.gt, 5n)
   input: bigint
   output: bigint
-  instantiations: 5165
+  instantiations: 601
 vs:
   zod: z.bigint().gt(5n)
 jsonSchema:

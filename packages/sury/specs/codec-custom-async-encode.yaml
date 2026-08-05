@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.string.with(S.to, S.number, { decode: (value) => value.length, encode: { async: (value) => Promise.resolve("x".repeat(value)) } })'
+  input: string
+  output: number
+  instantiations: 5365
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "string" }'
+  output: '{ type: "number" }'
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}
+    examples:
+      forward-stays-sync:
+        input: '"abc"'
+        output: "3"
+  decode:
+    expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}
+    examples:
+      forward-stays-sync:
+        input: '"abc"'
+        output: "3"
+  encode:
+    creationError: "SuryError: Encountered unexpected async transform or refine. Use parseAsyncOrThrow operation instead"
