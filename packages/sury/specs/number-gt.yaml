@@ -3,7 +3,7 @@ ts:
   schema: S.number.with(S.gt, 5)
   input: number
   output: number
-  instantiations: 5165
+  instantiations: 601
 vs:
   zod: z.number().gt(5)
 jsonSchema:

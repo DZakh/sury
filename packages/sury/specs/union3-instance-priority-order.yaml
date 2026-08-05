@@ -3,7 +3,7 @@ ts:
   schema: 'S.union([S.instance(Error).with(S.to, S.string, () => "error"), S.schema({ x: S.string }), S.instance(TypeError).with(S.to, S.string, () => "type-error")])'
   input: "Error | { x: string; }"
   output: "string | { x: string; }"
-  instantiations: 7684
+  instantiations: 7901
 vs:
   zod:
     _skip: not-applicable
@@ -25,4 +25,4 @@ operations:
         output: '"error"'
   decode: eq-to-parse
   encode:
-    creationError: "SuryError: Can't decode string to Error. Use S.to to define a custom decoder"
+    creationError: "SuryError: Encoding is ambiguous when only a decode function is provided. Use S.to(target, {decode, encode})"

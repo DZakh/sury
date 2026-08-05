@@ -127,14 +127,12 @@ test("custom decoder foreign errors escape while Sury errors fall through", (t) 
   const foreign = new RangeError("custom decoder failed");
   let foreignFallbackCalls = 0;
   const foreignSchema = S.union([
-    S.to(
-      S.string,
-      S.string,
-      () => {
+    S.to(S.string, S.string, {
+      decode: () => {
         throw foreign;
       },
-      (value) => value,
-    ),
+      encode: (value) => value,
+    }),
     S.string.with(S.refine, () => {
       foreignFallbackCalls++;
       return true;
@@ -170,15 +168,13 @@ test("custom decoder foreign errors escape while Sury errors fall through", (t) 
 
   let suryFallbackCalls = 0;
   const surySchema = S.union([
-    S.to(
-      S.string,
-      S.string,
-      () => {
+    S.to(S.string, S.string, {
+      decode: () => {
         S.parser(S.number)("not a number");
         return "";
       },
-      (value) => value,
-    ),
+      encode: (value) => value,
+    }),
     S.string.with(S.refine, () => {
       suryFallbackCalls++;
       return true;

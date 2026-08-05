@@ -4,6 +4,7 @@
 
 import {
   type AdditionalItems,
+  type Builder,
   type Check,
   copySchema,
   getOrRethrow,
@@ -145,6 +146,39 @@ export const getMutErrorMessage = (mut: Internal): SchemaErrorMessage => {
   mut.errorMessage = em;
   return em;
 }
+
+// The `S.to` codec wiring: the decode slot rides the source's output node as
+// its `parser`, the encode slot a copy of the target as its `serializer` —
+// `reverseSwap` trades their places, which is what makes double reversal
+// restore every slot. Slot semantics (auto/never/async/the JS shorthand) are
+// resolved by the caller into Builders; `U` means the built-in conversion.
+export const codecTo = (
+  schema: Internal,
+  target: Internal,
+  parserB?: Builder,
+  serializerB?: Builder
+): Internal => {
+  const root: Internal = updateOutput(schema, (mut) => {
+    if (serializerB !== U) {
+      const targetMut = copySchema(target);
+      targetMut.serializer = serializerB;
+      mut.to = targetMut;
+    } else {
+      mut.to = target;
+    }
+    if (parserB !== U) {
+      mut.parser = parserB;
+    }
+  });
+  // copySchema carries a cached isAsync/hasTransform from the source, and a
+  // custom slot can change both — let the next compile re-derive them. Slotless
+  // links keep the fast path: the built-in conversion never turns async.
+  if (parserB !== U || serializerB !== U) {
+    delete root.isAsync;
+    delete root.hasTransform;
+  }
+  return root;
+};
 
 export type TransformDefinition<TInput = unknown, TOutput = unknown> = {
   // @as("p") — parser
@@ -427,7 +461,18 @@ export const meta = <TValue>(schema: Internal, data: Meta<TValue>): Internal => 
     if (data.examples.length === 0) {
       delete mut.examples;
     } else {
-      mut.examples = data.examples.map(getDecoder(reverse(schema)));
+      // Rule 6 of CUSTOM_CODEC_SPEC.md: a `never` or async encode makes the
+      // input-form examples uncomputable — skip them rather than throw. Only
+      // the operation-level rejection is absorbed; a per-value failure still
+      // names the author's bad example.
+      try {
+        mut.examples = data.examples.map(getDecoder(reverse(schema)));
+      } catch (exn) {
+        if ((getOrRethrow(exn) as unknown as { code: string }).code !== "invalid_operation") {
+          throw exn;
+        }
+        delete mut.examples;
+      }
     }
   }
   if (data.errorMessage !== U) {

@@ -11,7 +11,7 @@ ts:
   schema: S.number.with(S.gte, 5).with(S.gte, 1, "MY MESSAGE")
   input: number
   output: number
-  instantiations: 5359
+  instantiations: 831
 vs:
   zod: z.number().gte(5).gte(1, "MY MESSAGE")
 jsonSchema:

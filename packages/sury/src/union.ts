@@ -61,6 +61,7 @@ import {
   _var,
   B_embed,
   B_invalidOperation,
+  B_neverSlot,
   B_makeInvalidInputDetails,
   B_markOutput,
   B_merge,
@@ -100,15 +101,29 @@ const unionLiteralEqual = (a: unknown, b: unknown): boolean =>
   a === b || (a !== a && b !== b);
 
 // Union reachability stops at the first `never`: a later `.to(...)` is not
-// executable because the `never` decoder rejects first. The general output
-// helper intentionally follows the whole chain for type introspection, so the
-// planner needs this terminal-aware view for production and coverage.
+// executable because the `never` decoder rejects first — and a link whose
+// codec slot is the "never" sentinel produces nothing the same way. The
+// general output helper intentionally follows the whole chain for type
+// introspection, so the planner needs this terminal-aware view for production
+// and coverage.
 const unionOutput = (schema: Internal): Internal => {
   let output = schema;
   while (output.type !== neverTag && output.to !== U) {
+    if (output.parser === B_neverSlot) return never_;
     output = output.to;
   }
   return output;
+};
+
+// Whether the variant's compiled direction crosses a "never" codec slot. A
+// chain-terminal `S.never` still *dispatches* and rejects per value (effect
+// 3); a never slot instead removes the variant from the direction entirely —
+// it accepts nothing, counts toward no coverage, and yields to its siblings.
+const unionNeverLink = (schema: Internal): boolean => {
+  for (let node: Internal | undefined = schema; node !== U && node.type !== neverTag; node = node.to) {
+    if (node.parser === B_neverSlot) return true;
+  }
+  return false;
 };
 
 // A nested union spreads into its parent only when it carries nothing of its
@@ -606,7 +621,8 @@ const unionCheckPartial = (
     const match = outputSide ? unionOutput(variant) : variant;
     if (
       variant.type === neverTag ||
-      (outputSide && match.type === neverTag)
+      (outputSide && match.type === neverTag) ||
+      unionNeverLink(variant)
     ) {
       continue;
     }
@@ -711,6 +727,7 @@ const unionAnalyze = (
       !unionLiteralEqual(sourceDiscriminator[1], d[1]);
     const accepts =
       !(tag & tagFlagNever) &&
+      !unionNeverLink(s) &&
       !(
         (normalizedFlags & tagFlagUndefined) &&
         (tag & tagFlagUndefined)
@@ -1268,6 +1285,16 @@ export const unionDecoder: Builder = (input: Val) => {
     input.s = unknown;
   }
 
+  // Rule 2: a variant whose direction is a "never" slot yields to its
+  // siblings — but with nothing left to yield to, the operation itself is the
+  // mistake.
+  if (variants.every(unionNeverLink)) {
+    B_invalidOperation(
+      input,
+      `Every variant of ${inputExpression(self)} is marked as never`
+    );
+  }
+
   const source = input.s;
   const nan = flagUnsafeHas(input.g.o, flagDisableNanNumberValidation)
     ? tagFlagNaN
@@ -1485,6 +1512,7 @@ const unionResolveToUnion = (
     const sameTyped = targets.filter(
       (targetVariant, t) =>
         targetVariant.type !== neverTag &&
+        !unionNeverLink(targetVariant) &&
         unionSameType(sourceOut, targetVariant) &&
         (covered[t] = true)
     );
@@ -1514,6 +1542,7 @@ const unionResolveToUnion = (
       matches[s] = targets.find(
         (candidate) =>
           candidate.type === opposite &&
+          !unionNeverLink(candidate) &&
           unionOutput(candidate).type !== neverTag
       );
     }
@@ -1528,6 +1557,7 @@ const unionResolveToUnion = (
     // bridge, even without a same-type match of its own.
     if (
       targetVariant.type !== neverTag &&
+      !unionNeverLink(targetVariant) &&
       !covered[t] &&
       (opposite === U ||
         unionOutput(targetVariant).type === neverTag ||
