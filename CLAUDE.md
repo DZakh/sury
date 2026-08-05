@@ -101,4 +101,6 @@ It builds both revisions, drives seeded random unions through each, and sorts
 differences into `acceptance` / `exception-kind` (a behavior change — exits
 non-zero) and `reasons` / `message` (error detail, for you to accept or reject).
 
-`CODEC_SPEC.md` is the normative statement of what conversions are legal.
+`CODEC_SPEC.md` is the normative statement of what built-in conversions are
+legal; `CUSTOM_CODEC_SPEC.md` governs the custom codecs layered on the same
+`S.to`.

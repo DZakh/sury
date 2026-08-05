@@ -838,8 +838,11 @@ const asNumber = S.string.with(S.to, S.union([S.string.with(S.to, S.number), S.s
 S.parser(asNumber)("123"); // 123
 S.parser(asNumber)("abc"); // "abc"
 
-// Or pass strings through, never producing a number:
-const asString = S.string.with(S.to, S.union([S.never.with(S.to, S.number), S.string]));
+// Or pass strings through, marking the number path unreachable:
+const asString = S.string.with(
+  S.to,
+  S.union([S.number.with(S.to, S.number, { decode: "never", encode: "auto" }), S.string]),
+);
 S.parser(asString)("123"); // "123"
 S.parser(asString)("abc"); // "abc"
 ```
@@ -994,25 +997,29 @@ For more information on branding in general, check out [this excellent article](
 **Sury** might not have many built-in schemas for your use case. In this case you can create a custom schema for any TypeScript type.
 
 1. Choose a base schema which is the closest to your type. Most likely it'll be `S.instance`.
-2. Use `S.to` to add a custom decode and encode logic.
+2. Use `S.to` with `{decode, encode}` codecs to add the custom conversion logic.
 3. Optionally, use `S.meta` to add customize the name of the schema and additional metadata.
 
 ```ts
 const mySet = <T>(itemSchema: S.Schema<unknown, T>): S.Schema<unknown, Set<T>> =>
   S.instance(Set<unknown>)
-    .with(S.to, S.instance(Set<T>), (input) => {
-      const output = new Set<T>();
-      input.forEach((item, index) => {
-        try {
-          output.add(S.parser(itemSchema)(item));
-        } catch (e) {
-          if (e instanceof S.Error) {
-            throw new Error(`At item ${index} - ${e.reason}`);
+    .with(S.to, S.instance(Set<T>), {
+      decode: (input) => {
+        const output = new Set<T>();
+        input.forEach((item, index) => {
+          try {
+            output.add(S.parser(itemSchema)(item));
+          } catch (e) {
+            if (e instanceof S.Error) {
+              throw new Error(`At item ${index} - ${e.reason}`);
+            }
+            throw e;
           }
-          throw e;
-        }
-      });
-      return output;
+        });
+        return output;
+      },
+      encode: (output) =>
+        new Set([...output].map((item) => S.encoder(itemSchema)(item))),
     })
     .with(S.meta, {
       name: `Set<${S.inputExpression(itemSchema)}>`,
@@ -1314,25 +1321,19 @@ S.encoder(schema)(123); //? "123"
 
 #### Custom transformations
 
-You can also provide a custom transformation function to the `S.to` operation. This is useful when you need to perform a more complex transformation than the built-in ones.
+You can also provide custom codecs to the `S.to` operation — one conversion per direction. This is useful when you need to perform a more complex transformation than the built-in ones.
 
 ```ts
-const schema = S.string.with(
-  S.to,
-  S.number,
-  // Custom decode function
-  (string) => {
+const schema = S.string.with(S.to, S.number, {
+  decode: (string) => {
     const number = parseInt(string, 10);
     if (Number.isNaN(number)) {
       throw new Error("Invalid number");
     }
     return number;
   },
-  // Custom encode function
-  (number) => {
-    return number.toString();
-  }
-);
+  encode: (number) => number.toString(),
+});
 
 S.parser(schema)("123"); //? 123
 S.parser(schema)("abc"); //? throws: Invalid number
@@ -1340,7 +1341,24 @@ S.parser(schema)("abc"); //? throws: Invalid number
 S.encoder(schema)(123); //? "123"
 ```
 
-> 🧠 Prefer to use built-in `S.string.with(S.to, S.number)` instead of custom transformation functions when possible.
+Each slot accepts a function, `"auto"` for the built-in conversion of the pair, `"never"` to mark the direction unreachable, or `{async: fn}` for an asynchronous coder — sync/async is part of the definition because Sury compiles operations ahead of time:
+
+```ts
+// One-way normalization: custom decode, built-in validating encode
+S.string.with(S.to, S.string, { decode: (s) => s.trim(), encode: "auto" });
+
+// Async decode; the forward direction requires S.asyncParser
+S.string.with(S.to, S.any, {
+  decode: { async: (userId) => loadUser(userId) },
+  encode: (user) => user.id,
+});
+```
+
+Both coders land on the target's *output* side: `decode` maps the schema's output to the target's output, `encode` the reverse. The target contributes its output-side refinements (they run on decode's result), validation of incoming values in the reverse direction, and the output type for `S.reverse` and `S.toJSONSchema`. With no natural target schema, use `S.any`.
+
+Passing a bare function is a decode-only shorthand: parsing works, but compiling any operation that needs the encode direction fails where the operation is created — spell out `{decode, encode}` to say what encoding means.
+
+> 🧠 Prefer to use built-in `S.string.with(S.to, S.number)` instead of custom codecs when possible.
 
 ### **`name`**
 

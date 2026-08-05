@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.union([S.string.with(S.to, S.any, { decode: (value) => value.length, encode: (value) => String(value) }), S.boolean])"
+  input: string | boolean
+  output: any
+  instantiations: 6177
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ anyOf: [{ type: "string" }, { type: "boolean" }] }'
+  output: Expected JSON, received unknown | boolean
+operations:
+  parse:
+    expression: i=>{for(;;){if(typeof i==="string"){let v0;try{v0=e[0](i)}catch(x){e[1](x);e[2](x)}i=v0;break}if(typeof i==="boolean")break;e[3](i)}return i}
+    examples:
+      custom-arm:
+        input: '"abc"'
+        output: "3"
+      sibling-arm:
+        input: "true"
+        output: "true"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{for(;;){let r;try{let v0;try{v0=e[0](i)}catch(x){e[1](x);e[2](x)}i=v0;break}catch(x){(r||(r=[])).push(e[3](x))}if(typeof i==="boolean")break;e[4](i,...(r||[]))}return i}
+    examples:
+      custom-arm:
+        input: "3"
+        output: '"3"'
+      sibling-arm:
+        input: "false"
+        output: '"false"'

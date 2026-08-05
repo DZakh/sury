@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.union([S.string, S.schema(undefined).with(S.to, S.string, { decode: () => "anonymous", encode: "never" })])'
+  input: string | undefined
+  output: string
+  instantiations: 6228
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: Expected JSON, received string | undefined
+  output: '{ type: "string" }'
+operations:
+  parse:
+    expression: i=>{for(;;){if(typeof i==="string")break;if(i===void 0){let v0;try{v0=e[0](i)}catch(x){e[1](x);e[2](x)}i=v0;break}e[3](i)}return i}
+    examples:
+      sibling-arm:
+        input: '"abc"'
+        output: '"abc"'
+      default-arm:
+        input: undefined
+        output: '"anonymous"'
+      rejected:
+        input: "1"
+        error: Expected string | undefined, received 1
+  decode: eq-to-parse
+  encode:
+    expression: i=>{typeof i==="string"||e[0](i);return i}
+    examples:
+      never-arm-yields:
+        input: '"abc"'
+        output: '"abc"'

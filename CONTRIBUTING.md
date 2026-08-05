@@ -337,6 +337,8 @@ instead of silently working around it.
 
 - <placeholder>
 - No operation dimension for JSON-target conversions (`.to(S.json)` / `.to(S.jsonString)`), so bugs like #311 (nested optional fields failing to encode) can't be captured as spec examples — their repros live in `tests/` instead.
+- A schema-creation error (a `panic` thrown while `ts.schema` evaluates) can't be a golden — `checkSpec` reports "ts.schema did not evaluate" instead of recording the message. CUSTOM_CODEC_SPEC.md's rule 4 guard ("target carries its own conversion") is pinned in `tests/S_test.ts` for this reason, not in a `codec-custom-transforming-target` spec.
+- Async operations have no spec dimension (ops are parse/decode/encode, all sync), so an `{async}` codec slot's success path — `S.asyncParser` resolving, `isAsync` reporting per side — is only visible as the sync ops' `creationError` goldens; the resolved values live in `tests/`.
 - Example results are serialized back to spec source, so a value with symbol keys can't be recorded ("cannot represent an object with symbol keys as spec source code"). `S.record`'s unvalidated symbol-keyed values are pinned in `tests/` instead of `specs/record.yaml`, where the rest of that gap lives.
 - The same serializer emits an own `__proto__` key as `{ __proto__: … }`, which is prototype syntax and reads back as a *different* value, so `check --write` rewrites such an example into one that no longer reproduces and the goldens oscillate between runs. `specs/object-proto-key.yaml` works around it by covering only inputs without that key; a computed-key form (`{ ["__proto__"]: … }`) would let the example be recorded directly.
 

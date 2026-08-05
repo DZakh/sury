@@ -1,6 +1,6 @@
 # Custom codec spec
 
-**Settled, not implemented.** Replaces `S.transform` (and the `$res_transform`
+**Implemented.** Replaces `S.transform` (and the `$res_transform`
 entry export) with an explicit per-direction codec argument on `S.to`, and makes
 async conversions — decode *and* encode — first-class on both surfaces.
 `CODEC_SPEC.md` governs the *built-in* conversions; this file governs the

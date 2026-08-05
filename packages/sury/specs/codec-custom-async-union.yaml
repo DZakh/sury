@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.union([S.string.with(S.to, S.number, { decode: { async: (value) => Promise.resolve(value.length) }, encode: (value) => "x".repeat(value) }), S.number])'
+  input: string | number
+  output: number
+  instantiations: 6173
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ anyOf: [{ type: "string" }, { type: "number" }] }'
+  output: '{ type: "number" }'
+operations:
+  parse:
+    creationError: "SuryError: Encountered unexpected async transform or refine. Use parseAsyncOrThrow operation instead"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{for(;;){let r;if(typeof i==="number"&&!Number.isNaN(i)){try{let v0;try{v0=e[0](i)}catch(x){e[1](x);e[2](x)}i=v0;break}catch(x){(r||(r=[])).push(e[3](x))}break}e[4](i,...(r||[]))}return i}
+    examples:
+      custom-arm:
+        input: "3"
+        output: '"xxx"'

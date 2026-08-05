@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.string.with(S.to, S.number, { decode: "never", encode: (value) => String(value) })'
+  input: string
+  output: number
+  instantiations: 5304
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "string" }'
+  output: '{ type: "number" }'
+operations:
+  parse:
+    creationError: "SuryError: The conversion from string to number is marked as never"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}
+    examples:
+      valid:
+        input: "123"
+        output: '"123"'
