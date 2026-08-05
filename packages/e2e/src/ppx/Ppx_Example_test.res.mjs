@@ -11,28 +11,28 @@ let ratingSchema = Sury.union([
   Sury.literal("R")
 ]);
 
-let filmSchema = Sury.$res_schema(s => ({
+let filmSchema = Sury.$schema(s => ({
   Id: s.m(Sury.float),
   Title: s.m(Sury.string),
-  Tags: s.m(Sury.$res_Option_getOr(Sury.$res_option(Sury.array(Sury.string)), [])),
+  Tags: s.m(Sury.$Option_getOr(Sury.$option(Sury.array(Sury.string)), [])),
   Rating: s.m(ratingSchema),
-  Age: s.m(Sury.meta(Sury.$res_option(Sury.int), {
+  Age: s.m(Sury.meta(Sury.$option(Sury.int), {
     description: "Use rating instead",
     deprecated: true
   }))
 }));
 
-Vitest.test("Main example", t => U.assertEqualSchemas(t, filmSchema, Sury.$res_schema(s => ({
+Vitest.test("Main example", t => U.assertEqualSchemas(t, filmSchema, Sury.$schema(s => ({
   Id: s.m(Sury.float),
   Title: s.m(Sury.string),
-  Tags: s.m(Sury.$res_Option_getOr(Sury.$res_option(Sury.array(Sury.string)), [])),
+  Tags: s.m(Sury.$Option_getOr(Sury.$option(Sury.array(Sury.string)), [])),
   Rating: s.m(Sury.union([
     Sury.literal("G"),
     Sury.literal("PG"),
     Sury.literal("PG13"),
     Sury.literal("R")
   ])),
-  Age: s.m(Sury.meta(Sury.$res_option(Sury.int), {
+  Age: s.m(Sury.meta(Sury.$option(Sury.int), {
     description: "Use rating instead",
     deprecated: true
   }))
@@ -42,29 +42,29 @@ let matchesSchema = Sury.url;
 
 Vitest.test("@s.matches", t => U.assertEqualSchemas(t, matchesSchema, Sury.url, undefined));
 
-let defaultSchema = Sury.$res_Option_getOr(Sury.$res_option(Sury.string), "Unknown");
+let defaultSchema = Sury.$Option_getOr(Sury.$option(Sury.string), "Unknown");
 
-Vitest.test("@s.default", t => U.assertEqualSchemas(t, defaultSchema, Sury.$res_Option_getOr(Sury.$res_option(Sury.string), "Unknown"), undefined));
+Vitest.test("@s.default", t => U.assertEqualSchemas(t, defaultSchema, Sury.$Option_getOr(Sury.$option(Sury.string), "Unknown"), undefined));
 
-let defaultWithSchema = Sury.$res_Option_getOrWith(Sury.$res_option(Sury.array(Sury.string)), () => []);
+let defaultWithSchema = Sury.$Option_getOrWith(Sury.$option(Sury.array(Sury.string)), () => []);
 
-Vitest.test("@s.defaultWith", t => U.assertEqualSchemas(t, defaultWithSchema, Sury.$res_Option_getOrWith(Sury.$res_option(Sury.array(Sury.string)), () => []), undefined));
+Vitest.test("@s.defaultWith", t => U.assertEqualSchemas(t, defaultWithSchema, Sury.$Option_getOrWith(Sury.$option(Sury.array(Sury.string)), () => []), undefined));
 
-let nullSchema = Sury.$res_nullAsOption(Sury.string);
+let nullSchema = Sury.$nullAsOption(Sury.string);
 
-Vitest.test("@s.null", t => U.assertEqualSchemas(t, nullSchema, Sury.$res_nullAsOption(Sury.string), undefined));
+Vitest.test("@s.null", t => U.assertEqualSchemas(t, nullSchema, Sury.$nullAsOption(Sury.string), undefined));
 
-let nullWithDefaultSchema = Sury.$res_Option_getOr(Sury.$res_nullAsOption(Sury.string), "Unknown");
+let nullWithDefaultSchema = Sury.$Option_getOr(Sury.$nullAsOption(Sury.string), "Unknown");
 
-Vitest.test("@s.null with @s.default", t => U.assertEqualSchemas(t, nullWithDefaultSchema, Sury.$res_Option_getOr(Sury.$res_nullAsOption(Sury.string), "Unknown"), undefined));
+Vitest.test("@s.null with @s.default", t => U.assertEqualSchemas(t, nullWithDefaultSchema, Sury.$Option_getOr(Sury.$nullAsOption(Sury.string), "Unknown"), undefined));
 
-let nullableSchema = Sury.$res_nullableAsOption(Sury.string);
+let nullableSchema = Sury.$nullableAsOption(Sury.string);
 
-Vitest.test("@s.nullable", t => U.assertEqualSchemas(t, nullableSchema, Sury.$res_nullableAsOption(Sury.string), undefined));
+Vitest.test("@s.nullable", t => U.assertEqualSchemas(t, nullableSchema, Sury.$nullableAsOption(Sury.string), undefined));
 
-let nullableWithDefaultSchema = Sury.$res_Option_getOr(Sury.$res_nullableAsOption(Sury.string), "Unknown");
+let nullableWithDefaultSchema = Sury.$Option_getOr(Sury.$nullableAsOption(Sury.string), "Unknown");
 
-Vitest.test("@s.nullable with @s.default", t => U.assertEqualSchemas(t, nullableWithDefaultSchema, Sury.$res_Option_getOr(Sury.$res_nullableAsOption(Sury.string), "Unknown"), undefined));
+Vitest.test("@s.nullable with @s.default", t => U.assertEqualSchemas(t, nullableWithDefaultSchema, Sury.$Option_getOr(Sury.$nullableAsOption(Sury.string), "Unknown"), undefined));
 
 let deprecatedSchema = Sury.meta(Sury.string, {
   description: "Will be removed in APIv2",

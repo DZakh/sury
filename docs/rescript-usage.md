@@ -761,6 +761,8 @@ On validation, the `S.union` schema returns the result of the first item that wa
 
 > 🧠 Members are matched in the order they are passed to `S.union` — the first one that fits the value wins.
 
+It's also available as `S.anyOf`, matching the JSON Schema keyword it maps to.
+
 ```rescript
 // TypeScript type for reference:
 // type Shape =

@@ -411,7 +411,7 @@ export const immutableEmptyObject: Record<string, unknown> = Object.create(null)
 // (+4 closures) on every access, and this runs per-node while building every
 // `S.schema({...})`. `in` walks the prototype chain without invoking the
 // getter. The `typeof === object` guard keeps primitives (passed by
-// `js_assert`) from throwing on `in` and reproduces the old falsy-on-primitive
+// `assert`) from throwing on `in` and reproduces the old falsy-on-primitive
 // result.
 export const isSchemaObject = (obj: unknown): boolean => {
   return typeof obj === objectTag && obj !== null && "~standard" in (obj as object);
