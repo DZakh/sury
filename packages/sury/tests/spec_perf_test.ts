@@ -217,13 +217,15 @@ test("renderPerformance surfaces a measurement failure without pretending it was
 // comment still rendered a bare, ambiguous percentage.
 const report = (rows: Perf["changed"]) => renderPerformance(perf(rows));
 
-test("renderComment builds a table, links the full report, and carries the sticky marker", () => {
+test("renderComment builds a table, links the full report, and names the head it measured", () => {
   const out = renderComment(
     report([
       row("object10 · create", "create", 12.4),
       row("union2 · parse · nested", "run", -6.1),
     ]),
     "https://x/artifact",
+    undefined,
+    "83f943bdeadbeef",
   );
   // A signed percentage alone doesn't say which way is bad, in the terminal or
   // in a PR comment, so the direction rides along with every row.
@@ -231,9 +233,18 @@ test("renderComment builds a table, links the full report, and carries the stick
   expect(out).toContain("| `union2 · parse · nested` | -6.1% faster |");
   expect(out).toContain("+% slower than baseline, -% faster");
   expect(out).toContain("[Full report ↗](https://x/artifact)");
-  // Without the marker the posting step can't find its own comment and would
-  // open a new one on every push.
-  expect(out).toContain("<!-- spec-perf -->");
+  // One comment per push, so a reader scrolling a long PR needs each to say
+  // which head produced it — the other sha in the header is the baseline.
+  expect(out).toContain("`83f943b` vs `93999e3`");
+});
+
+// The drift job renders the same report into a run summary, where there is no
+// head to name and nothing to link.
+test("renderComment omits the head when it wasn't given one", () => {
+  const out = renderComment(report([]), undefined, "Performance drift since last release");
+  expect(out).toContain("### Performance drift since last release");
+  expect(out).toContain("`93999e3` (merge-base with main)");
+  expect(out).not.toContain(" vs `93999e3`");
 });
 
 test("renderComment carries every footer line the CLI emits", () => {
@@ -271,7 +282,10 @@ test("renderComment truncates to the worst rows and says how many it dropped", (
 test("renderComment still posts when nothing changed, so a missing comment means a broken job", () => {
   const out = renderComment(report([]));
   expect(out).toContain("No significant changes.");
-  expect(out).toContain("<!-- spec-perf -->");
+  // Still a whole comment, header and footer included — a clean run is a
+  // result, not an empty one.
+  expect(out).toContain("`93999e3` (merge-base with main)");
+  expect(out).toContain("137 unchanged");
 });
 
 test("renderComment degrades to a pointer at the artifact rather than inventing a summary", () => {
