@@ -10,7 +10,6 @@ import {
   getOrRethrow,
   inputExpression,
   type Internal,
-  noopDecoder,
   objectTag,
   panic,
   pathEmpty,
@@ -25,13 +24,10 @@ import {
 import {
   _var,
   B_embed,
-  B_embedTransformation,
   B_inlineConst,
   B_invalidInputBuilder,
-  B_invalidOperation,
   B_neverSlot,
   B_next,
-  B_refine,
 } from "./builder";
 import { getDecoder, getOutputSchema, reverse } from "./parse";
 import { Literal_parse, nullLiteral, unit } from "./primitives";
@@ -181,68 +177,6 @@ export const codecTo = (
   }
   return root;
 };
-
-export type TransformDefinition<TInput = unknown, TOutput = unknown> = {
-  // @as("p") — parser
-  p?: (input: TInput) => TOutput;
-  // @as("a") — asyncParser
-  a?: (input: TInput) => Promise<TOutput>;
-  // @as("s") — serializer
-  s?: (output: TOutput) => TInput;
-};
-
-// The transformer takes no argument. It used to receive an effect ctx whose
-// only member was `fail`; a transform now fails by throwing, which every
-// caller of a transform already handles — B_makeInvalidConversionDetails
-// adopts a thrown SuryError as-is and wraps anything else as
-// `invalid_conversion`.
-
-// @__NO_SIDE_EFFECTS__
-export const transform = (
-  schema: Internal,
-  transformer: () => TransformDefinition
-): Internal => {
-  return updateOutput(schema, (mut) => {
-    mut.parser = (input) => {
-      const definition = transformer();
-      if (definition.p !== U && definition.a === U) {
-        return B_embedTransformation(input, definition.p, false);
-      } else if (definition.p === U && definition.a !== U) {
-        return B_embedTransformation(input, definition.a, true);
-      } else if (
-        definition.p === U &&
-        definition.a === U &&
-        definition.s === U
-      ) {
-        return B_refine(input, U, U, input.e.to!);
-      } else if (definition.p === U && definition.a === U) {
-        return B_invalidOperation(input, `The S.transform parser is missing`);
-      } else {
-        return B_invalidOperation(
-          input,
-          `The S.transform doesn't allow parser and asyncParser at the same time. Remove parser in favor of asyncParser`
-        );
-      }
-    };
-    const to = copySchema(unknown);
-    to.serializer = (input) => {
-      const definition = transformer();
-      if (definition.s !== U) {
-        return B_embedTransformation(input, definition.s, false);
-      } else if (
-        definition.p === U &&
-        definition.a === U &&
-        definition.s === U
-      ) {
-        return B_refine(input, U, U, input.e.to!);
-      } else {
-        return B_invalidOperation(input, `The S.transform serializer is missing`);
-      }
-    };
-    mut.to = to;
-    delete mut.isAsync;
-  });
-}
 
 // Not initSchema: that would stamp the self-reverse marker, and this codec's
 // reverse (unit -> null) must stay lazily derived — copySchema drops

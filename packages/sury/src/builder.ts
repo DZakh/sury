@@ -864,44 +864,6 @@ export const B_neverSlot: Builder = (input: Val) =>
     )} is marked as never`,
   );
 
-export const B_embedTransformation = (input: Val, fn: (input: unknown) => unknown, isAsync: boolean): Val => {
-  const outputVar = B_varWithoutAllocation(input.g);
-  const output = B_next(input, outputVar, unknown, input.e.to!);
-  output.v = _var;
-  if (isAsync) {
-    if (!flagUnsafeHas(input.g.o, flagAsync)) {
-      B_throw({
-        code: "invalid_operation",
-        path: pathEmpty,
-        reason:
-          "Encountered unexpected async transform or refine. Use parseAsyncOrThrow operation instead",
-      });
-    }
-    output.f |= valFlagAsync;
-  }
-  const embeddedFn = B_embed(input, fn);
-  const inputValue = input.vc ? input.v() : input.i;
-  if (input.g.o & flagUnionTransformContext) {
-    // The enclosing union owns exception classification. Wrapping a foreign
-    // exception here would make it look like a Sury mismatch.
-    output.cp = `let ${outputVar}=${embeddedFn}(${inputValue});`;
-    return output;
-  }
-  const failure = `${B_failWithArg(
-    output,
-    (e: unknown) => B_makeInvalidConversionDetails(input, unknown, e),
-    `x`
-  )}`;
-  // Feed the transform the input's var when it already carries checks — it's
-  // materialized into a var anyway (the check references it), so reuse it
-  // instead of re-inlining the source expression (e.g. `i["x"]`) twice.
-  output.cp = `let ${outputVar};try{${outputVar}=${embeddedFn}(${inputValue})${
-    isAsync ? `.catch(x=>${failure})` : ""
-  }}catch(x){${failure}}`;
-  return output;
-}
-
-
 export const B_invalidOperation = (val: Val, description: string): never => {
   return B_throw({ code: "invalid_operation", reason: description, path: val.path });
 }
