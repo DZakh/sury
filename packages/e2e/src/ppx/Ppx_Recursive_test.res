@@ -144,4 +144,5 @@ test("Field aliases survive the recursive wrapper", t => {
     {"Id": "1", "Kids": [{"Id": "2", "Kids": []}]}->S.parseOrThrow(~to=aliasedSchema),
     {id: "1", kids: [{id: "2", kids: []}]},
   )
+  t->assertReverseParsesBack(aliasedSchema, {id: "1", kids: [{id: "2", kids: []}]})
 })

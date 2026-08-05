@@ -546,19 +546,28 @@ let aliasedSchema = Sury.recursive("aliased", aliasedSchema => Sury.$res_schema(
   Kids: s.m(Sury.array(aliasedSchema))
 })));
 
-Vitest$1.test("Field aliases survive the recursive wrapper", t => Vitest.Assert.deepEqual(t, S.parseOrThrow({
-  Id: "1",
-  Kids: [{
-      Id: "2",
-      Kids: []
-    }]
-}, aliasedSchema), {
-  Id: "1",
-  Kids: [{
-      Id: "2",
-      Kids: []
-    }]
-}, undefined));
+Vitest$1.test("Field aliases survive the recursive wrapper", t => {
+  Vitest.Assert.deepEqual(t, S.parseOrThrow({
+    Id: "1",
+    Kids: [{
+        Id: "2",
+        Kids: []
+      }]
+  }, aliasedSchema), {
+    Id: "1",
+    Kids: [{
+        Id: "2",
+        Kids: []
+      }]
+  }, undefined);
+  U.assertReverseParsesBack(t, aliasedSchema, {
+    Id: "1",
+    Kids: [{
+        Id: "2",
+        Kids: []
+      }]
+  });
+});
 
 export {
   nodeSchema,
