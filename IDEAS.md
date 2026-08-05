@@ -76,18 +76,6 @@ S.reverse(S.schema({
   `Expected int32`, and `int32Check` would stop being a module-level const —
   the one place `primitives.ts` deliberately avoids a per-compile closure.
 
-- **A range `fromJSONSchema` can't represent resolves two different silent
-  ways.** `integer` maps onto int32, so a document whose bound falls outside
-  that range has no faithful schema — and the two sides disagree about what to
-  do. `{minimum: 3000000000}` collapses to `never` (`applyBound` reads the
-  panic and gives up), rejecting the very values the document describes;
-  `{maximum: 3000000000}` is dropped as non-narrowing, leaving a schema that
-  rejects 2.5e9 and re-emits int32's edge as if the document had said it.
-  Neither round-trips. The file already fails creation for keywords it cannot
-  model rather than widening silently — an unrepresentable range wants the same
-  answer, or a wider integer schema to land in. Pinned in
-  `specs/jsonschema-int-{minimum,maximum}-above-int32.yaml`.
-
 - **A bound is the only refinement that rewrites the schema's type
   expression.** So it's the only one that shows up when the *type* check is
   what failed: `S.string.with(S.minLength, 2)` reports
@@ -129,16 +117,6 @@ S.reverse(S.schema({
   `length` applied to an already-bounded array (`minLength(1).length(2)`) has
   to pick one representation. Pinned in `specs/array-length.yaml` and
   `specs/array-empty.yaml`.
-
-- **A bound that doesn't narrow takes its custom message down with it.**
-  `gte(5).gte(1, "MY MESSAGE")` drops the second bound — correctly, there is no
-  failure left for it to guard — but the message is the caller's own text and
-  it vanishes with no log, no error, and a schema that builds. A caller who
-  writes a message and never sees it has no way to learn why. Either carry it
-  onto the bound that survived, or reject a message supplied to a bound that
-  doesn't narrow at construction, the way a contradictory pair already is.
-  Same on the length side. Pinned in `specs/number-gte-redundant.yaml` and
-  `specs/string-length-redundant.yaml`.
 
 ### Known bugs left over from the validation refactor (`val.validation: array<validationCheck>`)
 

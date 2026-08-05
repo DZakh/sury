@@ -2901,6 +2901,15 @@ test("A contradictory bound pair is rejected where it's written", (t) => {
   t.expect(() => S.port.with(S.lte, -1)).toThrow(
     `[Sury] port <= -1 contradicts port >= 0`,
   );
+  // Combining divisors stores their LCM; an LCM past 2^53 rounds and would
+  // validate the wrong set, and fractional divisors have no float LCM — both
+  // refuse rather than silently drift.
+  t.expect(() =>
+    S.integer.with(S.multipleOf, 67108859).with(S.multipleOf, 134217689).with(S.multipleOf, 2097143)
+  ).toThrow(`[Sury] multipleOf 2097143 cannot be combined with multipleOf 9007195966406851`);
+  t.expect(() => S.number.with(S.multipleOf, 0.3).with(S.multipleOf, 0.2)).toThrow(
+    `[Sury] multipleOf 0.2 cannot be combined with multipleOf 0.3`,
+  );
 
   // A single point is satisfiable, so these stay legal.
   t.expect(S.toJSONSchema(S.number.with(S.gte, 5).with(S.lte, 5))).toEqual({

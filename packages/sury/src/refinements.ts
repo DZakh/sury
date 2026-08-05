@@ -464,10 +464,12 @@ export const multipleOf = (schema: Internal, value: number | bigint, maybeMessag
   if (existing !== U && bound % existing) {
     // Neither divisor implies the other: together they admit exactly the
     // multiples of the LCM, which is what gets stored and checked so the
-    // schema never advertises a divisor weaker than what it validates. No
-    // finite float LCM exists for fractional divisors, so those panic.
-    if (typeof value === numberTag && !(Number.isInteger(bound) && Number.isInteger(existing))) {
+    // schema never advertises a divisor weaker than what it validates.
+    const refuse = (): never =>
       panic(`multipleOf ${stringify(bound)} cannot be combined with multipleOf ${stringify(existing)}`);
+    // No finite float LCM exists for fractional divisors.
+    if (typeof value === numberTag && !(Number.isInteger(bound) && Number.isInteger(existing))) {
+      refuse();
     }
     let a = bound;
     let b = existing;
@@ -477,6 +479,11 @@ export const multipleOf = (schema: Internal, value: number | bigint, maybeMessag
       b = r;
     }
     divisor = (bound / a) * existing;
+    // An LCM past 2^53 rounds, and an inexact divisor validates the wrong
+    // set — refuse rather than silently drift.
+    if (typeof divisor === numberTag && !Number.isSafeInteger(divisor)) {
+      refuse();
+    }
   }
   return updateBounds(schema, (mut: Internal) => {
     setBoundExpression(mut, schema);
