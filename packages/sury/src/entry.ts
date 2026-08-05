@@ -75,6 +75,7 @@ export { schemaFactory as schema, schemaFactory as literal, enum } from "./facto
 export {
   recursive,
 } from "./advanced/recursive";
+export { allOf } from "./advanced/allOf";
 export {
   strict,
   deepStrict,

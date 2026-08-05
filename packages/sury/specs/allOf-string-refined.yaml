@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.allOf([S.string.with(S.minLength, 3), S.string.with(S.maxLength, 5)])
+  input: string
+  output: string
+  instantiations: 5986
+vs:
+  zod: z.intersection(z.string().min(3), z.string().max(5))
+jsonSchema:
+  input: Maximum call stack size exceeded
+  output: Maximum call stack size exceeded
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);i.length>2||e[1](i);i.length<6||e[0](i);return i}
+    examples:
+      in-range:
+        input: '"abcd"'
+        output: '"abcd"'
+      at-lower-bound:
+        input: '"abc"'
+        output: '"abc"'
+      at-upper-bound:
+        input: '"abcde"'
+        output: '"abcde"'
+      below-first-member-bound:
+        input: '"ab"'
+        error: Expected string.length >= 3, received "ab"
+      above-second-member-bound:
+        input: '"abcdef"'
+        error: Expected string.length <= 5, received "abcdef"
+      not-a-string:
+        input: "3"
+        error: Expected string.length >= 3, received 3
+  decode:
+    expression: i=>{i.length>2||e[1](i);i.length<6||e[0](i);return i}
+    examples:
+      in-range:
+        input: '"abcd"'
+        output: '"abcd"'
+      below-first-member-bound:
+        input: '"ab"'
+        error: Expected string.length >= 3, received "ab"
+  encode:
+    expression: i=>{i.length<6||e[1](i);i.length>2||e[0](i);return i}
+    examples:
+      in-range:
+        input: '"abcd"'
+        output: '"abcd"'
+      above-second-member-bound:
+        input: '"abcdef"'
+        error: Expected string.length <= 5, received "abcdef"

@@ -534,6 +534,28 @@ export function union<const T>(
   schemas: readonly T[]
 ): Schema<UnknownToInput<T>, UnknownToOutput<T>>;
 
+// Fold the tuple left-to-right into one intersection — no UnionToIntersection
+// distribution, so each member instantiates once.
+type IntersectArrayInput<T extends unknown[], TAcc> = T extends [
+  infer THead,
+  ...infer TTail
+]
+  ? IntersectArrayInput<TTail, TAcc & UnknownToInput<THead>>
+  : TAcc;
+type IntersectArrayOutput<T extends unknown[], TAcc> = T extends [
+  infer THead,
+  ...infer TTail
+]
+  ? IntersectArrayOutput<TTail, TAcc & UnknownToOutput<THead>>
+  : TAcc;
+
+export function allOf<const TFirst, const TRest extends unknown[]>(
+  schemas: [TFirst, ...TRest]
+): Schema<
+  Flatten<IntersectArrayInput<TRest, UnknownToInput<TFirst>>>,
+  Flatten<IntersectArrayOutput<TRest, UnknownToOutput<TFirst>>>
+>;
+
 export const string: Schema<string, string>;
 export const boolean: Schema<boolean, boolean>;
 export const int32: Schema<number, number>;

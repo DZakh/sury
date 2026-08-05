@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.allOf([S.union([{ kind: "circle", radius: S.number }, { kind: "square", size: S.number }]), { id: S.string }])'
+  input: '{ kind: "circle"; radius: number; id: string; } | { kind: "square"; size: number; id: string; }'
+  output: '{ kind: "circle"; radius: number; id: string; } | { kind: "square"; size: number; id: string; }'
+  instantiations: 5729
+vs:
+  zod:
+    schema: 'z.intersection(z.union([z.object({ kind: z.literal("circle"), radius: z.number() }), z.object({ kind: z.literal("square"), size: z.number() })]), z.object({ id: z.string() }))'
+    divergence: Zod keeps the intersection unresolved, so it infers `(A | B) & { id }`; S.allOf distributes the intersection over the union at construction time, so each variant carries the merged fields.
+    input: '({ kind: "circle"; radius: number; } | { kind: "square"; size: number; }) & { id: string; }'
+    output: '({ kind: "circle"; radius: number; } | { kind: "square"; size: number; }) & { id: string; }'
+jsonSchema:
+  input: '{ anyOf: [{ type: "object", properties: { kind: { type: "string", const: "circle" }, radius: { type: "number" }, id: { type: "string" } }, required: ["kind", "radius", "id"] }, { type: "object", properties: { kind: { type: "string", const: "square" }, size: { type: "number" }, id: { type: "string" } }, required: ["kind", "size", "id"] }] }'
+  output: '{ anyOf: [{ type: "object", properties: { kind: { type: "string", const: "circle" }, radius: { type: "number" }, id: { type: "string" } }, required: ["kind", "radius", "id"] }, { type: "object", properties: { kind: { type: "string", const: "square" }, size: { type: "number" }, id: { type: "string" } }, required: ["kind", "size", "id"] }] }'
+operations:
+  parse:
+    expression: i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i["kind"]==="circle"){let v0=i["radius"],v1=i["id"];typeof v0==="number"&&!Number.isNaN(v0)||e[0](v0);typeof v1==="string"||e[1](v1);i={"kind":i["kind"],"radius":v0,"id":v1,};break}if(i["kind"]==="square"){let v2=i["size"],v3=i["id"];typeof v2==="number"&&!Number.isNaN(v2)||e[2](v2);typeof v3==="string"||e[3](v3);i={"kind":i["kind"],"size":v2,"id":v3,};break}e[4](i)}}else{e[5](i)}return i}
+    examples:
+      circle-with-id:
+        input: '{ kind: "circle", radius: 1, id: "a" }'
+        output: '{ kind: "circle", radius: 1, id: "a" }'
+      square-with-id:
+        input: '{ kind: "square", size: 2, id: "b" }'
+        output: '{ kind: "square", size: 2, id: "b" }'
+      circle-missing-shared-field:
+        input: '{ kind: "circle", radius: 1 }'
+        error: 'Failed at ["id"]: Expected string, received undefined'
+      unknown-discriminant:
+        input: '{ kind: "triangle", id: "c" }'
+        error: 'Expected { kind: "circle"; radius: number; id: string; } | { kind: "square"; size: number; id: string; }, received { kind: "triangle"; id: "c"; }'
+      not-an-object:
+        input: "1"
+        error: 'Expected { kind: "circle"; radius: number; id: string; } | { kind: "square"; size: number; id: string; }, received 1'
+  decode: identity
+  encode: identity

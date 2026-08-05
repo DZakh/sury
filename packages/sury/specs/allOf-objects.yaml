@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.allOf([{ a: S.string }, { b: S.number }])"
+  input: "{ a: string; b: number; }"
+  output: "{ a: string; b: number; }"
+  instantiations: 2552
+vs:
+  zod:
+    schema: "z.intersection(z.object({ a: z.string() }), z.object({ b: z.number() }))"
+    divergence: Zod keeps the intersection unresolved (`{ a } & { b }`); S.allOf merges the members into one object schema at construction time.
+    input: "{ a: string; } & { b: number; }"
+    output: "{ a: string; } & { b: number; }"
+jsonSchema:
+  input: '{ type: "object", properties: { a: { type: "string" }, b: { type: "number" } }, required: ["a", "b"] }'
+  output: '{ type: "object", properties: { a: { type: "string" }, b: { type: "number" } }, required: ["a", "b"] }'
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["a"],v1=i["b"];typeof v0==="string"||e[0](v0);typeof v1==="number"&&!Number.isNaN(v1)||e[1](v1);return {"a":v0,"b":v1,}}
+    examples:
+      both-fields:
+        input: '{ a: "x", b: 1 }'
+        output: '{ a: "x", b: 1 }'
+      missing-second-member-field:
+        input: '{ a: "x" }'
+        error: 'Failed at ["b"]: Expected number, received undefined'
+      missing-first-member-field:
+        input: "{ b: 1 }"
+        error: 'Failed at ["a"]: Expected string, received undefined'
+      not-an-object:
+        input: '"x"'
+        error: 'Expected { a: string; b: number; }, received "x"'
+      array-is-not-an-object:
+        input: "[]"
+        error: "Expected { a: string; b: number; }, received []"
+  decode: identity
+  encode: identity

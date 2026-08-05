@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.allOf([S.string, S.number])
+  input: never
+  output: never
+  instantiations: 1149
+vs:
+  zod: z.intersection(z.string(), z.number())
+jsonSchema:
+  input: "{ not: {} }"
+  output: "{ not: {} }"
+operations:
+  parse:
+    expression: i=>{e[0](i);return i}
+    examples:
+      string-satisfies-only-one-member:
+        input: '"x"'
+        error: Expected never, received "x"
+      number-satisfies-only-one-member:
+        input: "1"
+        error: Expected never, received 1
+  decode: eq-to-parse
+  encode: eq-to-parse
