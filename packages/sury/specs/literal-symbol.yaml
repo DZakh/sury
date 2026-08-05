@@ -5,7 +5,7 @@ ts:
     - S.literal(Symbol.for("tuna"))
   input: symbol
   output: symbol
-  instantiations: 389
+  instantiations: 351
 vs:
   zod:
     _skip: not-applicable

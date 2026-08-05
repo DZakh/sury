@@ -3,7 +3,7 @@ ts:
   schema: S.union([S.tuple(["t", S.number]), S.tuple(["t", S.string])])
   input: '["t", number] | ["t", string]'
   output: '["t", number] | ["t", string]'
-  instantiations: 2914
+  instantiations: 2838
 vs:
   zod: z.union([z.tuple([z.literal("t"), z.number()]), z.tuple([z.literal("t"), z.string()])])
 jsonSchema:

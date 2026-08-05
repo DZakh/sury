@@ -5,7 +5,7 @@ ts:
     - S.literal("tuna")
   input: '"tuna"'
   output: '"tuna"'
-  instantiations: 429
+  instantiations: 353
 vs:
   zod: z.literal("tuna")
 jsonSchema:

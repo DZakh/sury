@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({ a: S.exactOptional(S.string), b: S.number })"
+  input: "{ b: number; a?: string | undefined; }"
+  output: "{ b: number; a?: string | undefined; }"
+  instantiations: 2872
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "object", properties: { a: { type: "string" }, b: { type: "number" } }, required: ["b"] }'
+  output: '{ type: "object", properties: { a: { type: "string" }, b: { type: "number" } }, required: ["b"] }'
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["a"],v1=i["b"];!(v0===void 0&&"a" in i)||e[1](v0);(typeof v0==="string"||v0===void 0)||e[0](v0);typeof v1==="number"&&!Number.isNaN(v1)||e[2](v1);let v2={"b":v1,};if(v0!==void 0){v2["a"]=v0}return v2}
+    examples:
+      key-absent:
+        input: "{ b: 1 }"
+        output: "{ b: 1 }"
+      all-present:
+        input: '{ a: "x", b: 1 }'
+        output: '{ b: 1, a: "x" }'
+      explicit-undefined-rejected:
+        input: "{ a: undefined, b: 1 }"
+        error: 'Failed at ["a"]: Expected string, received undefined'
+      wrong-member-type:
+        input: "{ a: 5, b: 1 }"
+        error: 'Failed at ["a"]: Expected string, received 5'
+      array-is-not-an-object:
+        input: "[]"
+        error: "Expected { a: string; b: number; }, received []"
+  decode: identity
+  encode: identity

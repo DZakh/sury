@@ -5,7 +5,7 @@ ts:
     - "S.schema({constructor: S.string, hasOwnProperty: S.number})"
   input: "{ constructor: string; hasOwnProperty: number; }"
   output: "{ constructor: string; hasOwnProperty: number; }"
-  instantiations: 1468
+  instantiations: 1587
 vs:
   zod: "z.object({ constructor: z.string(), hasOwnProperty: z.number() })"
 jsonSchema:

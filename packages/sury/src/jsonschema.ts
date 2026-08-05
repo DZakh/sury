@@ -18,7 +18,7 @@ import {
   inputExpression,
   type Internal,
   isLiteral,
-  isOptional,
+  isOptionalField,
   jsonName,
   s as errorSymbol,
   neverTag,
@@ -43,7 +43,7 @@ import {
 } from "./base";
 import { json } from "./advanced/json";
 import { B_operationArg } from "./builder";
-import { array, option } from "./composites";
+import { array, exactOptionalFactory } from "./composites";
 import { definitionToSchema, schemaFactory } from "./factory";
 import {
   meta,
@@ -559,7 +559,7 @@ const internalToJSONSchemaBase = (
           schema,
           target
         );
-        if (!isOptional(itemSchema)) {
+        if (!isOptionalField(itemSchema)) {
           required.push(key);
         }
         jsonProperties[key] = fieldSchema;
@@ -892,10 +892,13 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
         let propertySchema = jsonDefinitionToSchema(property);
         if (!jsonSchema.required?.includes(key)) {
           const defaultValue = definitionToDefaultValue(property);
+          // JSON Schema optionality is exact: the key may be absent, but a
+          // present value must match the property schema — `undefined` was
+          // never a legal instance.
           if (defaultValue !== U) {
-            propertySchema = Option_getOr(option(propertySchema), defaultValue);
+            propertySchema = Option_getOr(exactOptionalFactory(propertySchema), defaultValue);
           } else {
-            propertySchema = option(propertySchema);
+            propertySchema = exactOptionalFactory(propertySchema);
           }
         }
         obj[key] = propertySchema;

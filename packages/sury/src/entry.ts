@@ -53,7 +53,7 @@ import {
   B_next,
   B_varWithoutAllocation,
 } from "./builder";
-import { objectDecoder } from "./composites";
+import { exactOptionalFactory, objectDecoder, undefinableFactory } from "./composites";
 import { definitionToSchema } from "./factory";
 import {
   internalRefine,
@@ -312,10 +312,8 @@ export const asyncDecoderAssert = (
   });
 };
 
-// @__NO_SIDE_EFFECTS__
-export const optional = (schema: Internal, maybeOr: unknown): Internal => {
-  // TODO: maybeOr should be part of the unit schema
-  schema = unionFactory([schema, unit]);
+// TODO: maybeOr should be part of the unit schema
+const withOr = (schema: Internal, maybeOr: unknown): Internal => {
   if (maybeOr !== U && typeof maybeOr === functionTag) {
     return Option_getOrWith(schema, maybeOr as () => unknown);
   } else if (maybeOr !== U) {
@@ -323,6 +321,21 @@ export const optional = (schema: Internal, maybeOr: unknown): Internal => {
   } else {
     return schema;
   }
+};
+
+// @__NO_SIDE_EFFECTS__
+export const optional = (schema: Internal, maybeOr: unknown): Internal => {
+  return withOr(unionFactory([schema, unit]), maybeOr);
+};
+
+// @__NO_SIDE_EFFECTS__
+export const exactOptional = (schema: Internal, maybeOr: unknown): Internal => {
+  return withOr(exactOptionalFactory(schema), maybeOr);
+};
+
+// @__NO_SIDE_EFFECTS__
+export const undefinable = (schema: Internal, maybeOr: unknown): Internal => {
+  return withOr(undefinableFactory(schema), maybeOr);
 };
 
 // @__NO_SIDE_EFFECTS__

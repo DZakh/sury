@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ a: S.exactOptional(S.string, "dflt") })'
+  input: "{ a?: string | undefined; }"
+  output: "{ a: string; }"
+  instantiations: 2047
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "object", properties: { a: { default: "dflt", type: "string" } } }'
+  output: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["a"];!(v0===void 0&&"a" in i)||e[1](v0);(typeof v0==="string"||v0===void 0)||e[0](v0);return {"a":v0===void 0?"dflt":v0,}}
+    examples:
+      key-absent-gets-default:
+        input: "{}"
+        output: '{ a: "dflt" }'
+      value-present:
+        input: '{ a: "x" }'
+        output: '{ a: "x" }'
+      explicit-undefined-rejected:
+        input: "{ a: undefined }"
+        error: 'Failed at ["a"]: Expected string, received undefined'
+  decode:
+    expression: i=>{let v0=i["a"];return {"a":v0===void 0?"dflt":v0,}}
+    examples:
+      key-absent-gets-default:
+        input: "{}"
+        output: '{ a: "dflt" }'
+      value-present:
+        input: '{ a: "x" }'
+        output: '{ a: "x" }'
+      explicit-undefined-rejected:
+        input: "{ a: undefined }"
+        output: '{ a: "dflt" }'
+  encode: identity

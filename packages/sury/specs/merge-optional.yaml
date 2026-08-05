@@ -3,7 +3,7 @@ ts:
   schema: "S.merge(S.schema({_id: S.optional(S.string), _rev: S.optional(S.string), name: S.string}), S.schema({code: S.string, _deleted: S.optional(S.boolean)}))"
   input: "{ name: string; _id?: string | undefined; _rev?: string | undefined; code: string; _deleted?: boolean | undefined; }"
   output: "{ name: string; _id?: string | undefined; _rev?: string | undefined; code: string; _deleted?: boolean | undefined; }"
-  instantiations: 7628
+  instantiations: 7459
 vs:
   zod:
     schema: "z.object({ _id: z.string().optional(), _rev: z.string().optional(), name: z.string(), code: z.string(), _deleted: z.boolean().optional() })"

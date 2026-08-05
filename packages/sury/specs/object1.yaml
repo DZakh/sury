@@ -5,7 +5,7 @@ ts:
     - "S.object({a: S.string})"
   input: "{ a: string; }"
   output: "{ a: string; }"
-  instantiations: 1205
+  instantiations: 1262
 vs:
   zod: "z.object({ a: z.string() })"
 jsonSchema:

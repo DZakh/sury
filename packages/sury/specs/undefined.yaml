@@ -3,7 +3,7 @@ ts:
   schema: S.schema(undefined)
   input: undefined
   output: undefined
-  instantiations: 369
+  instantiations: 345
 vs:
   zod: z.undefined()
 jsonSchema:

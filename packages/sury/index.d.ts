@@ -325,6 +325,12 @@ export type Schema<TInput = unknown, TOutput = TInput> = {
   | {
       readonly type: "anyOf";
       readonly anyOf: Schema<unknown, unknown>[];
+      /** Key-presence semantics when used as an object property: `true` — key
+       * optional (S.optional), `false` — key required though the value may be
+       * undefined (S.undefinable), `"exact"` — key optional but a present value
+       * must not be undefined (S.exactOptional). Absent — inferred from whether
+       * the schema matches undefined. */
+      readonly optional?: boolean | "exact";
       readonly has: Record<
         | "string"
         | "number"
@@ -446,7 +452,7 @@ export type UnknownToOutput<T> = T extends {
   : T extends unknown[]
   ? { -readonly [K in keyof T]: UnknownToOutput<T[K]> }
   : T extends { [k in keyof T]: unknown }
-  ? ResolveObject<{ -readonly [K in keyof T]: UnknownToOutput<T[K]> }>
+  ? ResolveObjectOut<T>
   : T;
 
 export type UnknownToInput<T> = T extends {
@@ -458,7 +464,7 @@ export type UnknownToInput<T> = T extends {
   : T extends unknown[]
   ? { -readonly [K in keyof T]: UnknownToInput<T[K]> }
   : T extends { [k in keyof T]: unknown }
-  ? ResolveObject<{ -readonly [K in keyof T]: UnknownToInput<T[K]> }>
+  ? ResolveObjectIn<T>
   : T;
 
 // Lightweight parameter type for inferring a schema's Output/Input: matching
@@ -499,6 +505,55 @@ type ResolveObject<TFields> = undefined extends TFields[keyof TFields]
       }
     >
   : Flatten<TFields>;
+
+// Whether the key holding a field is optional, per side. The `" opt"` phantom
+// (S.exactOptional pins `[1, …]`, S.undefinable pins `[0, 0]`) wins; without it
+// a field whose type admits `undefined` gets an optional key — the legacy
+// inference, which is also why `S.optional` needs no marker and an `S.never`
+// field stays required. `1`/`0` rather than booleans keep the marker a single
+// comparable literal per side.
+type OptKeyOut<F> = F extends { readonly " opt": [any, infer O] }
+  ? O
+  : undefined extends UnknownToOutput<F>
+  ? 1
+  : 0;
+type OptKeyIn<F> = F extends { readonly " opt": [infer I, any] }
+  ? I
+  : undefined extends UnknownToInput<F>
+  ? 1
+  : 0;
+
+// The marker split reads the raw field schemas (only the schema type still
+// carries the `" opt"` phantom), so it costs more instantiations per key than
+// the value-space ResolveObject — the Extract gate confines that cost to
+// definitions that actually use a marked field.
+//
+// The `T extends object` gate is load-bearing: a primitive literal passes the
+// `{ [k in keyof T]: unknown }` branch test too, and indexing it (`T[keyof T]`)
+// walks its prototype methods through lib types until the instantiation-depth
+// error — where the homomorphic map collapses a primitive to itself.
+type ResolveObjectOut<T> = T extends object
+  ? Extract<T[keyof T], { readonly " opt": [any, any] }> extends never
+    ? ResolveObject<{ -readonly [K in keyof T]: UnknownToOutput<T[K]> }>
+    : Flatten<
+        {
+          -readonly [K in keyof T as OptKeyOut<T[K]> extends 1 ? never : K]: UnknownToOutput<T[K]>;
+        } & {
+          -readonly [K in keyof T as OptKeyOut<T[K]> extends 1 ? K : never]?: UnknownToOutput<T[K]>;
+        }
+      >
+  : T;
+type ResolveObjectIn<T> = T extends object
+  ? Extract<T[keyof T], { readonly " opt": [any, any] }> extends never
+    ? ResolveObject<{ -readonly [K in keyof T]: UnknownToInput<T[K]> }>
+    : Flatten<
+        {
+          -readonly [K in keyof T as OptKeyIn<T[K]> extends 1 ? never : K]: UnknownToInput<T[K]>;
+        } & {
+          -readonly [K in keyof T as OptKeyIn<T[K]> extends 1 ? K : never]?: UnknownToInput<T[K]>;
+        }
+      >
+  : T;
 
 // Flatten an intersection into one object, keeping values verbatim (incl. `never`).
 type Flatten<T> = T extends object ? { [K in keyof T]: T[K] } : T;
@@ -696,6 +751,33 @@ export function optional<
   TInput | undefined,
   TOr extends undefined ? TOutput | undefined : TOutput
 >;
+
+export function exactOptional<
+  TInput,
+  TOutput,
+  TOr extends TOutput | undefined = undefined
+>(
+  schema: SchemaLike<TInput, TOutput>,
+  or?: (() => TOr) | TOr,
+  // To make .with work
+  _?: never
+): Schema<TInput, TOutput> & {
+  readonly " opt": [1, TOr extends undefined ? 1 : 0];
+};
+
+export function undefinable<
+  TInput,
+  TOutput,
+  TOr extends TOutput | undefined = undefined
+>(
+  schema: SchemaLike<TInput, TOutput>,
+  or?: (() => TOr) | TOr,
+  // To make .with work
+  _?: never
+): Schema<
+  TInput | undefined,
+  TOr extends undefined ? TOutput | undefined : TOutput
+> & { readonly " opt": [0, 0] };
 
 export function nullable<TInput, TOutput, TOr extends TOutput | null = null>(
   schema: SchemaLike<TInput, TOutput>,

@@ -5,7 +5,7 @@ ts:
     - S.literal(["bar", true])
   input: '["bar", true]'
   output: '["bar", true]'
-  instantiations: 532
+  instantiations: 447
 vs:
   zod: z.tuple([z.literal("bar"), z.literal(true)])
 jsonSchema:

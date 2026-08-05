@@ -5,7 +5,7 @@ ts:
     - S.literal(123)
   input: "123"
   output: "123"
-  instantiations: 382
+  instantiations: 351
 vs:
   zod: z.literal(123)
 jsonSchema:

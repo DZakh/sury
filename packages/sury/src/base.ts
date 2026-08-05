@@ -268,6 +268,12 @@ export type Internal = {
   items?: Internal[];
   required?: string[];
   properties?: Record<string, Internal>;
+  // Key-presence semantics when the schema is an object property. Absent means
+  // legacy inference: a schema matching undefined implies an optional key.
+  // `true` pins the key optional (S.optional), `false` pins it required even
+  // though the value may be undefined (S.undefinable), `"exact"` means the key
+  // may be absent but a present value must not be undefined (S.exactOptional).
+  optional?: boolean | "exact";
   noValidation?: boolean;
   // Sury's own "this read may be absent" union — a dict value read by a fixed
   // key, modelled as `V | undefined`. The conversion rules (2-4) don't apply to
@@ -427,6 +433,13 @@ export const isOptional = (schema: Internal): boolean => {
     schema.type === undefinedTag ||
     (schema.type === anyOfTag && undefinedTag in schema.has!)
   );
+}
+
+// Whether the key may be absent when the schema is an object property. An
+// explicit `optional` wins; otherwise fall back to the legacy inference from
+// the value type.
+export const isOptionalField = (schema: Internal): boolean => {
+  return schema.optional !== U ? schema.optional !== false : isOptional(schema);
 }
 
 // The constructor name worth printing, or a falsy value for anything a reader

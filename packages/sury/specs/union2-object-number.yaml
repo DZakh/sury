@@ -5,7 +5,7 @@ ts:
     - "S.union([S.schema({ a: S.string }), S.number])"
   input: "number | { a: string; }"
   output: "number | { a: string; }"
-  instantiations: 1727
+  instantiations: 1784
 vs:
   zod: "z.union([z.object({ a: z.string() }), z.number()])"
 jsonSchema:

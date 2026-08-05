@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({ a: S.undefinable(S.string), b: S.number })"
+  input: "{ a: string | undefined; b: number; }"
+  output: "{ a: string | undefined; b: number; }"
+  instantiations: 2913
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "object", properties: { a: { type: "string" }, b: { type: "number" } }, required: ["a", "b"] }'
+  output: '{ type: "object", properties: { a: { type: "string" }, b: { type: "number" } }, required: ["a", "b"] }'
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["a"],v1=i["b"];v0!==void 0||"a" in i||e[1](v0);(typeof v0==="string"||v0===void 0)||e[0](v0);typeof v1==="number"&&!Number.isNaN(v1)||e[2](v1);return {"a":v0,"b":v1,}}
+    examples:
+      explicit-undefined:
+        input: "{ a: undefined, b: 1 }"
+        output: "{ a: undefined, b: 1 }"
+      value-present:
+        input: '{ a: "x", b: 1 }'
+        output: '{ a: "x", b: 1 }'
+      missing-key-rejected:
+        input: "{ b: 1 }"
+        error: 'Failed at ["a"]: Missing required key'
+      wrong-member-type:
+        input: "{ a: 5, b: 1 }"
+        error: 'Failed at ["a"]: Expected string | undefined, received 5'
+  decode: identity
+  encode: identity

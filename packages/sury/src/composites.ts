@@ -13,12 +13,15 @@ import {
   immutableEmptyArray,
   immutableEmptyObject,
   inlinedValueFromString,
+  inputExpression,
   type Internal,
   isLiteral,
   isOptional,
   jsonName,
   objectTag,
+  panic,
   pathConcat,
+  pathEmpty,
   pathFromInlinedLocation,
   tagFlagArray,
   tagFlagObject,
@@ -45,6 +48,7 @@ import {
   B_hoistChildChecks,
   B_hoistDecl,
   B_inlineConst,
+  B_invalidInputBuilder,
   B_markOutput,
   B_merge,
   B_mergeWithPathPrepend,
@@ -482,15 +486,50 @@ export const objectDecoder = (unknownInput: Val): Val => {
       const key = keys[idx]!;
       const schema = properties[key]!;
 
-      const itemInput = valGet(input, key);
+      let itemInput = valGet(input, key);
+      if (isJsonParent && schema.type === anyOfTag && schema.has![undefinedTag]) {
+        itemInput.i = `(${itemInput.i}??null)`;
+      } else {
+        const opt = schema.optional;
+        // Both pinned modes need to tell a missing key from an explicit
+        // undefined, which the field read alone can't — hence the `in` probe,
+        // reached only when the read is undefined. A typed source can make the
+        // probe dead code: a same-marked property already guarantees the
+        // semantics, and one that can't hold undefined never reaches it.
+        const sourceProperty = input.s.properties !== U ? input.s.properties[key] : U;
+        if (
+          (opt === "exact" || opt === false) &&
+          (sourceProperty === U ||
+            (sourceProperty.optional !== opt && isOptional(sourceProperty)))
+        ) {
+          const inlinedLocation = inlinedValueFromString(key);
+          const inputVar = input.v();
+          itemInput = B_refine(itemInput, U, [
+            opt === "exact"
+              ? // The undefined member of the union stands for the absent key
+                // only, so a present undefined is a type error.
+                {
+                  c: (itemVar) => `!(${itemVar}===void 0&&${inlinedLocation} in ${inputVar})`,
+                  f: failInvalidType,
+                }
+              : {
+                  c: (itemVar) => `${itemVar}!==void 0||${inlinedLocation} in ${inputVar}`,
+                  f: B_invalidInputBuilder(U, pathEmpty, "Missing required key"),
+                },
+          ]);
+        }
+      }
       itemInput.e = schema;
       itemInput.io = false;
       itemInput.u = isUnion; // We want to control validation on the decoder side
-      if (isJsonParent && schema.type === anyOfTag && schema.has![undefinedTag]) {
-        itemInput.i = `(${itemInput.i}??null)`;
-      }
 
       const itemOutput = parse(itemInput);
+      // Post-validation an undefined value can only mean "the key was absent",
+      // so the assembled output skips it (completeObjectVal). A default fills
+      // the undefined before assembly — then the key is always set.
+      if (schema.optional === "exact" && isOptional(getOutputSchema(schema))) {
+        itemOutput.o = true;
+      }
 
       if (isUnion && isLiteral(schema)) {
         B_hoistChildChecks(input, itemOutput, key);
@@ -649,6 +688,34 @@ export const optionFactory = (item: Internal, unitSchema: Internal = unit): Inte
 // @__NO_SIDE_EFFECTS__
 export const option = (item: Internal): Internal => {
   return optionFactory(item, unit);
+}
+
+// @__NO_SIDE_EFFECTS__
+export const exactOptionalFactory = (item: Internal): Internal => {
+  if (isOptional(item)) {
+    panic(
+      `S.exactOptional doesn't support a schema matching undefined itself. Use S.optional instead`
+    );
+  }
+  // unionFactory never returns a passed schema for 2+ members, so the result
+  // is safe to mutate in place.
+  const mut = unionFactory([item, unit]);
+  mut.optional = "exact";
+  // The undefined member models only the absent key, so render the value type
+  // a present key actually admits — also what failInvalidType reports for an
+  // explicit undefined.
+  mut.expression = (schema) =>
+    inputExpression({
+      anyOf: schema.anyOf!.filter((member) => member.type !== undefinedTag),
+    } as Internal);
+  return mut;
+}
+
+// @__NO_SIDE_EFFECTS__
+export const undefinableFactory = (item: Internal): Internal => {
+  const mut = unionFactory([item, unit]);
+  mut.optional = false;
+  return mut;
 }
 
 export const valGet = (parent: Val, location: string): Val => {

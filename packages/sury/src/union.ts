@@ -119,13 +119,23 @@ const unionOutput = (schema: Internal): Internal => {
 // conservative direction. The 6 are exactly what `unionFactory` sets: `type` and
 // `seq` from `baseSchema`, then `anyOf`, `decoder`, `encoder`, `has`. `isAsync`
 // and `hasTransform` are excluded because the parse loop writes them onto a live
-// schema in place. Changing `unionFactory`'s field set without changing this
-// count stops every union from flattening, which the nested-union goldens catch.
+// schema in place; `optional` and `expression` because they only describe the
+// union's role as an object property (S.exactOptional/S.undefinable) — decoding
+// and conversion treat such a union exactly like its bare member list, and a
+// member position has no key for the marker to govern. Changing `unionFactory`'s
+// field set without changing this count stops every union from flattening, which
+// the nested-union goldens catch.
 const unionIsTransparent = (schema: Internal): boolean => {
   if (schema.type !== anyOfTag) return false;
   let fields = 0;
   for (const key in schema) {
-    if (key !== "isAsync" && key !== "hasTransform") fields++;
+    if (
+      key !== "isAsync" &&
+      key !== "hasTransform" &&
+      key !== "optional" &&
+      key !== "expression"
+    )
+      fields++;
   }
   return fields === 6;
 };
@@ -1227,7 +1237,15 @@ const unionEmit = (
     out = output;
   }
   const outputAnyOf = outputBySource.filter(Boolean) as Internal[];
-  out.s = outputAnyOf.length ? unionFactory(outputAnyOf) : never_;
+  const outputSchema = outputAnyOf.length ? unionFactory(outputAnyOf) : never_;
+  // Carry the key-presence marker onto the produced union (fresh when 2+
+  // members, so safe to mutate) — a later chained decode reads it off the
+  // output property schema to skip a dead re-probe, and the output side's
+  // JSON Schema keeps the key optional/required as declared.
+  if (self.optional !== U && outputSchema.type === anyOfTag) {
+    outputSchema.optional = self.optional;
+  }
+  out.s = outputSchema;
   if (toPerCase !== U) {
     out.io = true;
     out.e = unionOutput(toPerCase);

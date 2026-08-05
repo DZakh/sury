@@ -5,7 +5,7 @@ ts:
     - S.tuple(["bar", S.number])
   input: '["bar", number]'
   output: '["bar", number]'
-  instantiations: 967
+  instantiations: 891
 vs:
   zod: z.tuple([z.literal("bar"), z.number()])
 jsonSchema:

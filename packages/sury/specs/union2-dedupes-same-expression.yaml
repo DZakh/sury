@@ -3,7 +3,7 @@ ts:
   schema: S.union([S.schema("a"), S.schema("a"), S.string])
   input: string
   output: string
-  instantiations: 1144
+  instantiations: 1068
 vs:
   zod: z.union([z.literal("a"), z.literal("a"), z.string()])
 jsonSchema:

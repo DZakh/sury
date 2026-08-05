@@ -3,7 +3,7 @@ ts:
   schema: 'S.object({["__proto__"]: S.string})'
   input: "{ __proto__: string; }"
   output: "{ __proto__: string; }"
-  instantiations: 1204
+  instantiations: 1261
 vs:
   zod:
     _skip: not-applicable

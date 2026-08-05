@@ -462,6 +462,29 @@ Conceptually, this is how **Sury** processes default values:
 1. If the input is `undefined`, the default value is returned
 2. Otherwise, the data is parsed using the base schema
 
+### Three flavors of "optional"
+
+As an object property, `S.optional` conflates two things: the key may be
+absent, and a present value may be `undefined`. When you need only one of the
+two, use `S.exactOptional` or `S.undefinable`:
+
+```ts
+const schema = S.schema({
+  a: S.optional(S.string), //      { a?: string | undefined } — key may be absent, undefined accepted
+  b: S.exactOptional(S.string), // { b?: string }             — key may be absent, but a present value must be a string
+  c: S.undefinable(S.string), //   { c: string | undefined }  — key required, value may be undefined
+});
+
+S.parser(schema)({ c: undefined }); // => {} — b's key is also omitted from the output when absent
+S.parser(schema)({ b: undefined, c: undefined }); // throws: Failed at ["b"]: Expected string, received undefined
+S.parser(schema)({}); // throws: Failed at ["c"]: Missing required key
+```
+
+`S.exactOptional` matches how JSON Schema treats a property that is not listed
+in `required` — `S.toJSONSchema` keeps `b` out of `required` while `c` stays
+required, and `S.fromJSONSchema` produces exact-optional properties. Both
+accept a default as the second argument, like `S.optional`.
+
 ## Nullables
 
 Similarly, you can create nullable types with `S.nullable`.
