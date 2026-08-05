@@ -40,12 +40,11 @@ type Codecs<TOutput, TTargetOutput> = {
 ```
 
 ```rescript
-@tag("kind")
 type conversion<'i, 'o> =
   | @as("auto") Auto
   | @as("never") Never
-  | @as("sync") Sync('i => 'o)
-  | @as("async") Async('i => promise<'o>)
+  | Sync('i => 'o)
+  | Async('i => promise<'o>)
 
 type codecs<'from, 'to> = {
   decode: conversion<'from, 'to>,
@@ -53,23 +52,23 @@ type codecs<'from, 'to> = {
 }
 
 // Adapter in S.res, not a direct external
-let to: (t<'from>, t<'to>, ~codecs: codecs<'from, 'to>=?) => t<'to>
+let to: (t<'from>, t<'to>, ~custom: codecs<'from, 'to>=?) => t<'to>
 ```
 
 ```rescript
 s1->S.to(s2)
-s1->S.to(S.any, ~codecs={
+s1->S.to(S.any, ~custom={
   decode: Async(userId => loadUser(~userId)),
   encode: Sync(user => user.id),
 })
 ```
 
 - Both `codecs` fields are required. Omitting the argument is `Auto`/`Auto`.
-- `@as` erases `Auto`/`Never` to the exact JS strings; `@tag`/`@as` make the
-  payload cases `{kind: "sync", _0: f}` / `{kind: "async", _0: f}`, which a
-  per-slot adapter in `S.res` unwraps to `f` / `{async: f}` before calling the
-  public JS `to`. That switch is the proposal's only `S.res.mjs` cost. ReScript
-  has no shorthand form — the record is always full.
+- `@as` erases `Auto`/`Never` to the exact JS strings; `Sync`/`Async` keep the
+  default variant representation, which a per-slot adapter in `S.res` unwraps
+  to `f` / `{async: f}` before calling the public JS `to`. That switch is the
+  proposal's only `S.res.mjs` cost. ReScript has no shorthand form — the
+  record is always full.
 - The TS `Conversion` union's `instantiations` cost lands on every `S.to` call
   site — priced by the spec run, plus an inference fixture (does `decode`'s
   parameter type resolve on a generic target?).
@@ -85,7 +84,7 @@ objects — custom one way, built-in the other — are legal for the first time:
 
 ```rescript
 // One-way normalization: validating pass-through on encode
-S.string->S.to(S.string, ~codecs={decode: Sync(String.trim), encode: Auto})
+S.string->S.to(S.string, ~custom={decode: Sync(String.trim), encode: Auto})
 ```
 
 ## Rule 2: `Never` is an unreachable path
@@ -108,7 +107,7 @@ failure (that's a throwing function) and no message form:
   ```rescript
   S.union([
     S.string,
-    S.unit->S.to(S.string, ~codecs={decode: Sync(_ => "anonymous"), encode: Never}),
+    S.unit->S.to(S.string, ~custom={decode: Sync(_ => "anonymous"), encode: Never}),
   ])
   ```
 
@@ -138,7 +137,7 @@ matches the schema-as-type model. The junction stays one chain link away,
 folded into the same compiled function:
 
 ```rescript
-s1->S.to(S.json, ~codecs={decode: Sync(parse), encode: Sync(print)})->S.to(userSchema)
+s1->S.to(S.json, ~custom={decode: Sync(parse), encode: Sync(print)})->S.to(userSchema)
 ```
 
 **Guard:** a custom `Sync`/`Async` coder on a target that carries its own `.to`
@@ -173,7 +172,7 @@ best-effort JSON Schema) rather than throw. Only real value operations raise.
 
 ## Reversal
 
-`S.reverse` of `s1->S.to(s2, ~codecs)` is a schema from `'to` to `s1.Input`:
+`S.reverse` of `s1->S.to(s2, ~custom)` is a schema from `'to` to `s1.Input`:
 validate against `s2`'s output side, run the encode slot, continue through `s1`
 reversed. Decode and encode slots trade places the way `parser`/`serializer`
 do — `Auto`, `Never` and the shorthand's ambiguous encode included — and
@@ -183,7 +182,7 @@ double reversal restores every slot exactly.
 
 | Surface  | Removed                                                    | Changed                                                        | Added                                            |
 | -------- | ---------------------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------ |
-| ReScript | `S.transform`, `S.transformDefinition`                     | `S.to` gains `~codecs=?` (adapter in `S.res`)                   | `S.conversion`, `S.codecs` types, `S.any`        |
+| ReScript | `S.transform`, `S.transformDefinition`                     | `S.to` gains `~custom=?` (adapter in `S.res`)                   | `S.conversion`, `S.codecs` types, `S.any`        |
 | JS       | 4-arg positional `S.to`; 3-arg changes meaning (rule 3)    | third arg becomes `fn \| Codecs`; coders move to the output seam | `Conversion`/`Codecs` types, async + never slots |
 | entry.ts | `transform as $res_transform` (~4.5k in `bundleSize.yaml`) | —                                                               | —                                                |
 
@@ -191,9 +190,9 @@ double reversal restores every slot exactly.
 
 | Before                                            | After                                                                             |
 | ------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `s->S.transform(() => {parser, serializer})`      | `s->S.to(target, ~codecs={decode: Sync(parser), encode: Sync(serializer)})`         |
+| `s->S.transform(() => {parser, serializer})`      | `s->S.to(target, ~custom={decode: Sync(parser), encode: Sync(serializer)})`         |
 | `s->S.transform(() => {parser})`                  | `…, encode: Never})` keeps the old fail-on-encode; `Auto` is legal but validates    |
-| `s->S.transform(() => {asyncParser, serializer})` | `s->S.to(target, ~codecs={decode: Async(asyncParser), encode: Sync(serializer)})`   |
+| `s->S.transform(() => {asyncParser, serializer})` | `s->S.to(target, ~custom={decode: Async(asyncParser), encode: Sync(serializer)})`   |
 | `s->S.transform(() => {asyncParser})`             | `…{decode: Async(asyncParser), encode: Never})`                                     |
 | no natural target schema                          | `target = S.any` (byte-for-byte the old transform behavior)                         |
 | JS `S.to(s1, s2, decode, encode)`                 | `S.to(s1, s2, {decode, encode})`                                                    |
@@ -206,7 +205,7 @@ Each phase goes through the spec skill; the printed metric summary is the
 deliverable per phase.
 
 1. **Runtime core** (`jsapi.ts`, touching `union.ts`, `parse.ts`): rework
-   `js_to(schema, target, codecs?)` — creation-time shape validation (both
+   `js_to(schema, target, custom?)` — creation-time shape validation (both
    keys, known slot values, rule 4's guard), slot wiring: `Sync` builders on
    the output seam, `Async` through `B_embedTransformation(_, _, true)` on
    each side, `Never` marking the direction as `never_` so `unionFactory`'s
