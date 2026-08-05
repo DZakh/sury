@@ -182,7 +182,7 @@ S.reverse(S.schema({
   (`packages/sury/src/jsonschema.ts`, the two max dispatch sites), so
   exclusive upper bounds round-trip incorrectly.
 - **`S.merge` forces all keys of both objects into `required`.**
-  `js_merge` (`packages/sury/src/jsapi.ts`) rebuilds the merged object with
+  `merge` (`packages/sury/src/entry.ts`) rebuilds the merged object with
   every property required, dropping optionality that either side declared.
 - **`inlinedValueFromString` escapes only `"` and `\n`.**
   (`packages/sury/src/types.ts`) — other control characters (`\r`, `\t`,

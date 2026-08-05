@@ -535,6 +535,8 @@ export function union<const T>(
   schemas: readonly T[]
 ): Schema<UnknownToInput<T>, UnknownToOutput<T>>;
 
+export { union as anyOf };
+
 export const string: Schema<string, string>;
 export const boolean: Schema<boolean, boolean>;
 export const int32: Schema<number, number>;
