@@ -6,16 +6,16 @@
 // names locally, and `skipLibCheck` hides the resulting "cannot find name" from
 // every build, leaving `Schema["~standard"]` an error type that silently
 // degrades every inferred Input/Output. Hence the explicit `import type` too.
-import type { StandardJSONSchemaV1, StandardSchemaV1 } from "./types/standard.js";
+import type { StandardJSONSchemaV1, StandardSchemaV1 } from "./src/types/standard.js";
 import type {
   JSONSchema,
   JSONSchema2020,
   JSONSchema7,
   OpenAPISchema30,
-} from "./types/jsonschema.js";
+} from "./src/types/jsonschema.js";
 
-export * from "./types/standard.js";
-export * from "./types/jsonschema.js";
+export * from "./src/types/standard.js";
+export * from "./src/types/jsonschema.js";
 
 
 

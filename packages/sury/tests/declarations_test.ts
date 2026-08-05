@@ -2,7 +2,7 @@
 //
 // Every other typecheck in the repo runs with `skipLibCheck: true` (tsconfig.json,
 // and most consumers do the same), which does not check .d.ts files at all. A
-// broken reference inside S.d.ts therefore raises nothing — it resolves to an
+// broken reference inside index.d.ts therefore raises nothing — it resolves to an
 // error type, and everything built on it degrades quietly: a dangling
 // `StandardSchemaV1.Props` in `Schema["~standard"]` costs every schema its
 // inferred Input and Output while the suite stays green.
@@ -14,7 +14,7 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { test, expect } from "vitest";
 
-const entry = fileURLToPath(new URL("../src/S.d.ts", import.meta.url));
+const entry = fileURLToPath(new URL("../index.d.ts", import.meta.url));
 
 test("the public declarations typecheck without skipLibCheck", () => {
   let output = "";
