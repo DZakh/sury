@@ -3,6 +3,7 @@ ts:
   schema: "S.schema({a: S.string})"
   aliases:
     - "S.object({a: S.string})"
+    - "S.strip(S.strict(S.schema({a: S.string})))"
   input: "{ a: string; }"
   output: "{ a: string; }"
   instantiations: 1205
