@@ -95,15 +95,18 @@ const assertLengthBound = (fnName: string, schema: Internal, value: unknown): vo
 // sharing one: factoring the two halves out put the extra call on every length
 // bound, which is by far the commoner schema.
 //
-// `.size` is what the emitted check reads, so the class has to have one — Blob,
-// File, Set and Map do, Date and RegExp don't. Tested against the prototype
-// rather than a list of classes: `advanced/file.ts` sits above this module in
-// the layering and can't be reached from here, and naming the DOM globals
-// directly would tie every consumer of a bound to their presence.
+// The tag is all this can check. Whether the class actually carries a numeric
+// `.size` is not knowable here — a prototype probe gets it wrong both ways,
+// accepting a class whose `size` is a *method* (the emitted `i.size>n` then
+// compares a function and rejects everything) and rejecting one that assigns
+// `this.size` in its constructor (which works). `S.instance` already takes the
+// caller's word for what the class is; this does the same, and still catches
+// the mistake that actually happens — reaching for a size where a length was
+// meant. A class with no size at all is the case left over, and the
+// `TOutput extends { size: number }` on the three signatures rejects that.
 const assertSizeBound = (fnName: string, schema: Internal, value: unknown): void => {
-  const proto = (schema.class as { prototype?: object } | undefined)?.prototype;
-  if (schema.type !== instanceTag || !proto || !("size" in proto)) {
-    panic(expects(fnName, "instance schema with a size", inputExpression(schema)));
+  if (schema.type !== instanceTag) {
+    panic(expects(fnName, "instance schema", inputExpression(schema)));
   }
   if (typeof value !== numberTag || !Number.isSafeInteger(value) || (value as number) < 0) {
     throw new SuryError({

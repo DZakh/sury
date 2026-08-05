@@ -557,9 +557,22 @@ export const jsonStringWithSpace: (space: number) => Schema<string, string>;
 
 export const uint8Array: Schema<Uint8Array, Uint8Array>;
 
-export const blob: Schema<Blob, Blob>;
+// `Blob` and `File` are ambient globals, from lib.dom or @types/node, and a
+// consumer can legitimately have neither. Naming them bare made the whole
+// package fail to typecheck for those users — including ones who never touch
+// these two — so they're resolved through `globalThis`: the real type wherever
+// it exists, a structural stand-in where it doesn't.
+type BlobLike = typeof globalThis extends { Blob: abstract new (...args: never) => infer T }
+  ? T
+  : { readonly size: number; readonly type: string };
 
-export const file: Schema<File, File>;
+type FileLike = typeof globalThis extends { File: abstract new (...args: never) => infer T }
+  ? T
+  : BlobLike & { readonly name: string };
+
+export const blob: Schema<BlobLike, BlobLike>;
+
+export const file: Schema<FileLike, FileLike>;
 
 export const isoDateTime: Schema<string, string>;
 

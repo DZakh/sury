@@ -3,7 +3,7 @@ ts:
   schema: S.file.with(S.minSize, 2).with(S.maxSize, 10)
   input: File
   output: File
-  instantiations: 5292
+  instantiations: 5304
 vs:
   zod: z.file().min(2).max(10)
 jsonSchema:

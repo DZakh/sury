@@ -81,18 +81,22 @@ test("a length rejects values that are not counts", () => {
   expect(S.inputExpression(S.file.with(S.minSize, 0))).toBe("File.size >= 0");
 });
 
-test("a size is only applied to a schema that has one", () => {
-  // The check reads `.size`, so a class without one would compile to a
-  // comparison against `undefined` that rejects every value.
+test("a size is only applied to an instance", () => {
+  // The mistake this catches is reaching for a size where a length was meant.
   expect(() => S.minSize(S.string as never, 1)).toThrow(
-    "S.minSize expects instance schema with a size, got string",
+    "S.minSize expects instance schema, got string",
   );
-  expect(() => S.maxSize(S.date as never, 1)).toThrow(
-    "S.maxSize expects instance schema with a size, got Date",
+  expect(() => S.maxSize(S.array(S.string) as never, 1)).toThrow(
+    "S.maxSize expects instance schema, got string[]",
   );
   // Every `.size` carrier works, not just the two binary ones — which is what
-  // keeps a future S.set/S.map from needing another pair of constructors.
+  // keeps a future S.set/S.map from needing another pair of constructors, and
+  // covers a class that assigns `this.size` rather than inheriting a getter.
   expect(S.parser(S.instance(Set).with(S.minSize, 1)).toString()).toContain("i.size>0");
+  class Chunk {
+    size = 4;
+  }
+  expect(S.parser(S.instance(Chunk).with(S.minSize, 4))(new Chunk())).toBeInstanceOf(Chunk);
   expect(S.inputExpression(S.blob.with(S.size, 2))).toBe("Blob.size == 2");
 });
 

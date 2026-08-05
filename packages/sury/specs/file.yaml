@@ -3,7 +3,7 @@ ts:
   schema: S.file
   input: File
   output: File
-  instantiations: 254
+  instantiations: 266
 vs:
   zod: z.file()
 jsonSchema:
