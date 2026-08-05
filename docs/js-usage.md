@@ -94,7 +94,7 @@ Invalid data throws `S.Error`:
 
 ```ts
 S.parser(playerSchema)({ username: "billie", xp: "not a number" });
-// => throws S.Error: Failed at ["xp"]: Expected number, received "not a number"
+// => throws S.Error: Failed at xp: Expected number, received "not a number"
 ```
 
 Use `S.safe` / `S.safeAsync` if you'd rather have a result than an exception — see [Error handling](#error-handling).

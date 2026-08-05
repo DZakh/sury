@@ -39,6 +39,6 @@ operations:
       # `constructor` and `hasOwnProperty`.
       missing-field:
         input: "{}"
-        error: 'Failed at ["__proto__"]: Expected string, received {}'
+        error: "Failed at __proto__: Expected string, received {}"
   decode: identity
   encode: identity

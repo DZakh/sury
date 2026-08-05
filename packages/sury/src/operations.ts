@@ -10,7 +10,6 @@ import {
   inputExpression,
   type Internal,
   pathEmpty,
-  pathToArray,
   s,
   schemaPrototype,
   SuryError,
@@ -143,8 +142,9 @@ Object.defineProperty(schemaPrototype, "~standard", {
             issues: [
               {
                 message: error.reason,
-                path:
-                  error.path === pathEmpty ? U : pathToArray(error.path),
+                // Already the PropertyKey[] shape the spec wants — shared, not
+                // copied; issue consumers must not mutate it (see Path).
+                path: error.path.length ? (error.path as unknown[]) : U,
               },
             ],
           };

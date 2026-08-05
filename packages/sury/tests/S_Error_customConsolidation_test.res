@@ -75,7 +75,7 @@ test("S.refine with ~error and ~path applies path correctly", t => {
     switch error->S.Error.classify {
     | InvalidInput({reason, path}) =>
       t->Assert.is(reason, "bad", ~message="reason")
-      t->Assert.is(path->S.Path.toString, `["a"]["b"]`, ~message="path")
+      t->Assert.is(path->S.Path.toText, "a.b", ~message="path")
     | _ => t->Assert.fail("Expected InvalidInput error")
     }
   }
@@ -127,7 +127,7 @@ test("ctx.fail with ~path is concatenated to current location", t => {
     switch error->S.Error.classify {
     | InvalidInput({reason, path}) =>
       t->Assert.is(reason, "oops", ~message="reason")
-      t->Assert.is(path->S.Path.toString, `["field"]["nested"]`, ~message="path")
+      t->Assert.is(path->S.Path.toText, "field.nested", ~message="path")
     | _ => t->Assert.fail("Expected InvalidInput error")
     }
   }

@@ -25,6 +25,6 @@ operations:
         output: '{ _id: undefined, _rev: undefined, name: "y", code: "x", _deleted: undefined }'
       invalid-required:
         input: '{ code: "x" }'
-        error: 'Failed at ["name"]: Expected string, received undefined'
+        error: "Failed at name: Expected string, received undefined"
   decode: identity
   encode: identity

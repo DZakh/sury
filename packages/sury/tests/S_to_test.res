@@ -250,7 +250,7 @@ test("Coerce to literal can be used as tag and automatically embeded on reverse 
   t->Assert.deepEqual({"tag": "true"}->S.parseOrThrow(~to=schema), ())
   t->U.assertThrowsMessage(
     () => {"tag": "false"}->S.parseOrThrow(~to=schema),
-    `Failed at ["tag"]: Expected "true", received "false"`,
+    `Failed at tag: Expected "true", received "false"`,
   )
   t->U.assertCompiledCode(
     ~schema,
@@ -664,14 +664,14 @@ test("Coerce from JSON to array of bigint", t => {
   t->Assert.deepEqual(%raw(`["123"]`)->S.parseOrThrow(~to=schema), [123n])
   t->U.assertThrowsMessage(() => {
     %raw(`[123]`)->S.parseOrThrow(~to=schema)
-  }, `Failed at ["0"]: Expected string, received 123`)
+  }, `Failed at [0]: Expected string, received 123`)
   t->Assert.deepEqual([123n]->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`["123"]`))
 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
     ~embedded=[],
-    `i=>{Array.isArray(i)||e[2](i);let v4=new Array(i.length);for(let v0=0;v0<i.length;++v0){try{let v2=i[v0];typeof v2==="string"||e[1](v2);let v1;try{v1=BigInt(v2)}catch(_){e[0](v2)}v4[v0]=v1}catch(v3){v3.path=\'["\'+v0+\'"]\'+v3.path;throw v3}}return v4}`,
+    `i=>{Array.isArray(i)||e[2](i);let v4=new Array(i.length);for(let v0=0;v0<i.length;++v0){try{let v2=i[v0];typeof v2==="string"||e[1](v2);let v1;try{v1=BigInt(v2)}catch(_){e[0](v2)}v4[v0]=v1}catch(v3){v3.path=[v0,...v3.path];throw v3}}return v4}`,
   )
   t->U.assertCompiledCode(
     ~schema,
@@ -1201,7 +1201,7 @@ test("Rejects a nested union whose member has no same-type target member", t => 
 
   t->U.assertThrowsMessage(
     () => {"f": %raw(`123n`)}->S.parseOrThrow(~to=schema),
-    `Failed at ["f"]: Invalid operation: can't convert bigint | null to string | undefined — bigint has no same-type variant on the other side. Use S.to to say what you mean, or S.never to mark a variant unreachable`,
+    `Failed at f: Invalid operation: can't convert bigint | null to string | undefined — bigint has no same-type variant on the other side. Use S.to to say what you mean, or S.never to mark a variant unreachable`,
   )
 })
 
@@ -1229,7 +1229,7 @@ test("Rejects a nested union where only some members match the single target", t
 
   t->U.assertThrowsMessage(
     () => {"f": %raw(`123`)}->S.parseOrThrow(~to=schema),
-    `Failed at ["f"]: Invalid operation: can't convert string | number to string — string has the same type as the target and the others don't. Use S.to to say what you mean, or S.never to mark a variant unreachable`,
+    `Failed at f: Invalid operation: can't convert string | number to string — string has the same type as the target and the others don't. Use S.to to say what you mean, or S.never to mark a variant unreachable`,
   )
 })
 
@@ -1243,7 +1243,7 @@ test("Union member with no decoder to the target rejects the operation", t => {
 
   t->U.assertThrowsMessage(
     () => {"f": %raw(`"12"`)}->S.parseOrThrow(~to=schema),
-    `Failed at ["f"]: Can't decode boolean to bigint. Use S.to to define a custom decoder`,
+    `Failed at f: Can't decode boolean to bigint. Use S.to to define a custom decoder`,
   )
 
   let explicit =
@@ -1257,7 +1257,7 @@ test("Union member with no decoder to the target rejects the operation", t => {
   t->Assert.deepEqual({"f": %raw(`"12"`)}->S.parseOrThrow(~to=explicit), {"f": %raw(`12n`)})
   t->U.assertThrowsMessage(
     () => {"f": %raw(`true`)}->S.parseOrThrow(~to=explicit),
-    `Failed at ["f"]: Expected never, received true`,
+    `Failed at f: Expected never, received true`,
   )
 })
 
@@ -1324,7 +1324,7 @@ test("Converts union nested in array into another union (per member)", t => {
   )
   t->U.assertThrowsMessage(
     () => %raw(`[true]`)->S.parseOrThrow(~to=schema),
-    `Failed at ["0"]: Expected bigint | null, received true`,
+    `Failed at [0]: Expected bigint | null, received true`,
   )
 })
 

@@ -14,8 +14,3 @@ test("Works with nested location", t => {
     S.Path.fromLocation(`1`)->S.Path.concat(S.Path.fromLocation("2")),
   )
 })
-
-test("Works with path like location", t => {
-  let pathLikeLocation = S.Path.fromArray(["1", "2"])->S.Path.toString
-  t->Assert.deepEqual(S.Path.fromArray([pathLikeLocation]), S.Path.fromLocation(pathLikeLocation))
-})

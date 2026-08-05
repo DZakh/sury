@@ -1002,7 +1002,7 @@ Checkout the compiled code yourself:
       v1[2][v0] = v3["deleted"];
     } catch (v2) {
       if (v2 && v2.s === s) {
-        v2.path = "" + "[\"'+v0+'\"]" + v2.path;
+        v2.path = [v0, ...v2.path];
       }
       throw v2;
     }

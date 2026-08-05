@@ -7,8 +7,8 @@ ts:
 vs:
   zod: "z.object({ a: z.string(), b: z.number(), c: z.boolean() }).extend({ d: z.bigint(), e: z.symbol() })"
 jsonSchema:
-  input: 'Failed at ["d"]: Expected JSON, received bigint'
-  output: 'Failed at ["d"]: Expected JSON, received bigint'
+  input: "Failed at d: Expected JSON, received bigint"
+  output: "Failed at d: Expected JSON, received bigint"
 operations:
   parse:
     expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=i["a"],v1=i["b"],v2=i["c"],v3=i["d"],v4=i["e"];typeof v0==="string"||e[0](v0);typeof v1==="number"&&!Number.isNaN(v1)||e[1](v1);typeof v2==="boolean"||e[2](v2);typeof v3==="bigint"||e[3](v3);typeof v4==="symbol"||e[4](v4);return {"a":v0,"b":v1,"c":v2,"d":v3,"e":v4,}}
@@ -18,7 +18,7 @@ operations:
         output: '{ a: "x", b: 1, c: true, d: 5n, e: Symbol.for("e") }'
       invalid-merged-field:
         input: '{ a: "x", b: 1, c: true, d: "not bigint", e: Symbol.for("e") }'
-        error: 'Failed at ["d"]: Expected bigint, received "not bigint"'
+        error: 'Failed at d: Expected bigint, received "not bigint"'
       not-an-object:
         input: '"nope"'
         error: 'Expected { a: string; b: number; c: boolean; d: bigint; e: symbol; }, received "nope"'

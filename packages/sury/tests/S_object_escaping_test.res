@@ -297,7 +297,7 @@ test(
 
     t->U.assertThrowsMessage(
       () => %raw(`{"constructor": 1}`)->S.parseOrThrow(~to=schema),
-      `Failed at ["constructor"]: Expected string, received 1`,
+      `Failed at constructor: Expected string, received 1`,
     )
   },
 )

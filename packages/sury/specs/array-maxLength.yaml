@@ -11,7 +11,7 @@ jsonSchema:
   output: '{ items: { type: "string" }, type: "array", maxItems: 2 }'
 operations:
   parse:
-    expression: i=>{Array.isArray(i)||e[2](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}i.length<3||e[1](i);return i}
+    expression: i=>{Array.isArray(i)||e[2](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path=[v0,...v2.path];throw v2}}i.length<3||e[1](i);return i}
     examples:
       at-the-length:
         input: '["a", "b"]'

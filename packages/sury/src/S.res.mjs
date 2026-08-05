@@ -3,13 +3,18 @@
 import * as Sury from "sury";
 import * as Primitive_exceptions from "@rescript/runtime/lib/es6/Primitive_exceptions.js";
 
-let empty = "";
+let empty = [];
 
-let dynamic = "[]";
+let dynamic = ["[]"];
+
+function fromLocation(location) {
+  return [location];
+}
 
 let Path = {
   empty: empty,
-  dynamic: dynamic
+  dynamic: dynamic,
+  fromLocation: fromLocation
 };
 
 let Exn = /* @__PURE__ */Primitive_exceptions.create("S.Exn");

@@ -19,7 +19,6 @@ import {
   jsonName,
   objectTag,
   pathConcat,
-  pathFromInlinedLocation,
   tagFlagArray,
   tagFlagObject,
   tagFlagRef,
@@ -700,14 +699,14 @@ export const valGet = (parent: Val, location: string): Val => {
       }
     }
 
-    const pathAppend = pathFromInlinedLocation(inlinedValueFromString(location));
+    const accessor = `[${inlinedValueFromString(location)}]`;
 
     // Canonical Val field order (see B_operationArg in builder.ts).
     const item: Val = {
       b: U,
       p: parent,
       v: _notVarAtParent,
-      i: isLiteral(schema) ? B_inlineConst(parent, schema) : `${parent.v()}${pathAppend}`,
+      i: isLiteral(schema) ? B_inlineConst(parent, schema) : `${parent.v()}${accessor}`,
       s: schema,
       io: U,
       e: schema,
@@ -721,7 +720,7 @@ export const valGet = (parent: Val, location: string): Val => {
       vc: U,
       u: U,
       t: U,
-      path: pathConcat(parent.path, pathAppend),
+      path: pathConcat(parent.path, [location]),
       g: parent.g,
       o: U,
     };

@@ -97,7 +97,7 @@ test("Encodes object with a union of objects field to JSON string", t => {
 // original report builds each variant with `s.tag` + `s.flatten` (the
 // pattern sury-ppx generates for `A(s.flatten(aSchema))`). That construction
 // used to fail to encode to JSON once nested inside another object with:
-// `Failed at ["x"]["s"]: Expected JSON, received undefined`.
+// `Failed at x.s: Expected JSON, received undefined`.
 //
 // Root cause: nested, the field converts in two steps — a JSON-unaware plain
 // encode of the union (which keeps the undefined "s" key), then a per-variant

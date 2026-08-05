@@ -38,6 +38,6 @@ operations:
         error: "Expected { a: string; } | number, received null"
       wrong-member-type:
         input: "{ a: 1 }"
-        error: 'Failed at ["a"]: Expected string, received 1'
+        error: "Failed at a: Expected string, received 1"
   decode: identity
   encode: identity

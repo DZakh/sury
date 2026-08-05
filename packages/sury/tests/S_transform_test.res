@@ -57,7 +57,7 @@ test("Uses the path from S.Error.throw called in the transform parser", t => {
 
   t->U.assertThrowsMessage(
     () => ["Hello world!"]->S.parseOrThrow(~to=schema),
-    `Failed at ["0"]["a"]["b"]: User error`,
+    `Failed at [0].a.b: User error`,
   )
 })
 
@@ -80,7 +80,7 @@ test("Uses the path from S.Error.throw called in the transform serializer", t =>
 
   t->U.assertThrowsMessage(
     () => ["Hello world!"]->S.decodeOrThrow(~from=schema, ~to=S.json),
-    `Failed at ["0"]["a"]["b"]: User error`,
+    `Failed at [0].a.b: User error`,
   )
 })
 
@@ -90,7 +90,7 @@ test("All errors thrown in operation context are caught and wrapped in SuryError
 
   t->U.assertThrowsMessage(
     () => {["Hello world!"]->S.parseOrThrow(~to=schema)},
-    `Failed at ["0"]: Application crashed`,
+    `Failed at [0]: Application crashed`,
   )
   switch ["Hello world!"]->S.parseOrThrow(~to=schema) {
   | _ => t->Assert.fail("Didn't throw")
@@ -107,7 +107,7 @@ test("Operation context catches ReScript exceptions as they are", t => {
 
   t->U.assertThrowsMessage(
     () => {["Hello world!"]->S.parseOrThrow(~to=schema)},
-    `Failed at ["0"]: { RE_EXN_ID: "U.Test"; Error: Error; }`,
+    `Failed at [0]: { RE_EXN_ID: "U.Test"; Error: Error; }`,
   )
 })
 
@@ -132,7 +132,7 @@ test("Rescript exceptions caught in transform", t => {
   let schema = S.array(S.string->S.transform(() => {parser: _ => U.throwTestException()}))
   t->U.assertThrowsMessage(
     () => ["Hello world!"]->S.parseOrThrow(~to=schema),
-    `Failed at ["0"]: { RE_EXN_ID: "U.Test"; Error: Error; }`,
+    `Failed at [0]: { RE_EXN_ID: "U.Test"; Error: Error; }`,
   )
 })
 

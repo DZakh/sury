@@ -49,7 +49,7 @@ module ObjectField = {
 
     t->U.assertThrowsMessage(
       () => %raw(`{"key":"value"}`)->S.parseOrThrow(~to=schema),
-      `Failed at ["oldKey"]: Expected never, received undefined`,
+      `Failed at oldKey: Expected never, received undefined`,
     )
   })
 

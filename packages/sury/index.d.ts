@@ -349,9 +349,13 @@ export type Schema<TInput = unknown, TOutput = TInput> = {
     }
 );
 
-export abstract class Path {
-  protected opaque: unknown;
-} /* simulate opaque types */
+/**
+ * Root-first path segments. Static segments (object keys, tuple indices) are
+ * strings; a segment captured from a runtime variable in generated code keeps
+ * that variable's type, so array indices arrive as numbers. `"[]"` marks a
+ * dynamic "some element" segment.
+ */
+export type Path = ReadonlyArray<string | number>;
 
 type BaseError = {
   readonly path: Path;

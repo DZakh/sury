@@ -260,7 +260,7 @@ test("Expression of recursive schema", t => {
       Id: "0",
       Children: [null]
     }`)->S.parseOrThrow(~to=renamedRoot),
-    `Failed at ["Children"]["0"]: Expected { Id: string; Children: Node[]; }, received null`,
+    `Failed at Children[0]: Expected { Id: string; Children: Node[]; }, received null`,
   )
 })
 
@@ -282,7 +282,7 @@ test("Expression of deeply renamed recursive schema", t => {
   )
   t->U.assertThrowsMessage(
     () => %raw(`{Id: "0"}`)->S.parseOrThrow(~to=nodeSchema),
-    `Failed at ["Children"]: Expected MyNode[], received undefined`,
+    `Failed at Children: Expected MyNode[], received undefined`,
   )
 })
 
@@ -337,7 +337,7 @@ test("An array of bounded items parenthesises the item expression", t => {
   // The item bound and the array bound report separately, each at its own path.
   t->U.assertThrowsMessage(
     () => %raw(`[1]`)->S.parseOrThrow(~to=schema),
-    `Failed at ["0"]: Expected int32 > 5, received 1`,
+    `Failed at [0]: Expected int32 > 5, received 1`,
   )
   t->U.assertThrowsMessage(
     () => %raw(`[6, 7, 8, 9]`)->S.parseOrThrow(~to=schema),

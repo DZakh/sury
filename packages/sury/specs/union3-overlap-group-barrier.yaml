@@ -26,7 +26,7 @@ operations:
         input: '{ kind: "right", value: "bad" }'
         error: |-
           Expected { kind: "left"; value: string; } | { kind: string; value: string; } | { kind: "right"; value: string; }, received { kind: "right"; value: "bad"; }
-          - At ["value"]: broad member rejected
-          - At ["value"]: right member rejected
+          - At value: broad member rejected
+          - At value: right member rejected
   decode: identity
   encode: identity

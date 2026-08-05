@@ -240,7 +240,7 @@ module Advanced = {
 
     t->U.assertThrowsMessage(
       () => data->S.parseOrThrow(~to=schema),
-      `Failed at ["field"]: Expected { kind: "circle"; radius: number; } | { kind: "square"; x: number; } | { kind: "triangle"; x: number; y: number; }, received { kind: "oval"; x: 2; y: 3; }`,
+      `Failed at field: Expected { kind: "circle"; radius: number; } | { kind: "square"; x: number; } | { kind: "triangle"; x: number; y: number; }, received { kind: "oval"; x: 2; y: 3; }`,
     )
   })
 
@@ -374,7 +374,7 @@ test("Array stays disjoint from object even if it's later in the union", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i["foo"];typeof v0==="string"||e[0](v0);i=[v0,];break}if(Array.isArray(i)){for(let v1=0;v1<i.length;++v1){try{let v2=i[v1];typeof v2==="string"||e[1](v2);}catch(v3){v3.path='["'+v1+'"]'+v3.path;throw v3}};break}e[2](i)}return i}`,
+    `i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i["foo"];typeof v0==="string"||e[0](v0);i=[v0,];break}if(Array.isArray(i)){for(let v1=0;v1<i.length;++v1){try{let v2=i[v1];typeof v2==="string"||e[1](v2);}catch(v3){v3.path=[v1,...v3.path];throw v3}};break}e[2](i)}return i}`,
   )
 })
 
@@ -684,7 +684,7 @@ module CrazyUnion = {
       ~op=#Parse,
       ~embedded=[("Crazy", 0)],
       `i=>{let v0;v0=e[0](i);return v0}
-Crazy: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)&&i["type"]==="A"){let v0=i["nested"];Array.isArray(v0)||e[1](v0);let v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){try{let v2;v2=e[0](v0[v1]);v4[v1]=v2}catch(v3){v3.path="[\\"nested\\"]"+'["'+v1+'"]'+v3.path;throw v3}}i={"TAG":"A","_0":v4,};break}if(typeof i==="string"&&(i==="B"||i==="C"||i==="D"||i==="E"||i==="F"||i==="G"||i==="H"||i==="I"||i==="J"||i==="K"||i==="L"||i==="M"||i==="N"||i==="O"||i==="P"||i==="Q"||i==="R"||i==="S"||i==="T"||i==="U"||i==="V"||i==="W"||i==="X"||i==="Y"))break;if(typeof i==="object"&&i&&!Array.isArray(i)&&i["type"]==="Z"){let v5=i["nested"];Array.isArray(v5)||e[3](v5);let v9=new Array(v5.length);for(let v6=0;v6<v5.length;++v6){try{let v7;v7=e[2](v5[v6]);v9[v6]=v7}catch(v8){v8.path="[\\"nested\\"]"+'["'+v6+'"]'+v8.path;throw v8}}i={"TAG":"Z","_0":v9,};break}e[4](i)}return i}`,
+Crazy: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)&&i["type"]==="A"){let v0=i["nested"];Array.isArray(v0)||e[1](v0);let v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){try{let v2;v2=e[0](v0[v1]);v4[v1]=v2}catch(v3){v3.path=["nested",v1,...v3.path];throw v3}}i={"TAG":"A","_0":v4,};break}if(typeof i==="string"&&(i==="B"||i==="C"||i==="D"||i==="E"||i==="F"||i==="G"||i==="H"||i==="I"||i==="J"||i==="K"||i==="L"||i==="M"||i==="N"||i==="O"||i==="P"||i==="Q"||i==="R"||i==="S"||i==="T"||i==="U"||i==="V"||i==="W"||i==="X"||i==="Y"))break;if(typeof i==="object"&&i&&!Array.isArray(i)&&i["type"]==="Z"){let v5=i["nested"];Array.isArray(v5)||e[3](v5);let v9=new Array(v5.length);for(let v6=0;v6<v5.length;++v6){try{let v7;v7=e[2](v5[v6]);v9[v6]=v7}catch(v8){v8.path=["nested",v6,...v8.path];throw v8}}i={"TAG":"Z","_0":v9,};break}e[4](i)}return i}`,
     )
   })
 
@@ -692,7 +692,7 @@ Crazy: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)&&i["type"]==="A"
     S.global({})
     let reversed = schema->S.reverse
     let code = `i=>{let v0;v0=e[0](i);return v0}
-Crazy: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)&&i["TAG"]==="A"){let v0=i["_0"];Array.isArray(v0)||e[1](v0);let v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){try{let v2;v2=e[0](v0[v1]);v4[v1]=v2}catch(v3){v3.path="[\\"_0\\"]"+'["'+v1+'"]'+v3.path;throw v3}}i={"type":"A","nested":v4,};break}if(typeof i==="string"&&(i==="B"||i==="C"||i==="D"||i==="E"||i==="F"||i==="G"||i==="H"||i==="I"||i==="J"||i==="K"||i==="L"||i==="M"||i==="N"||i==="O"||i==="P"||i==="Q"||i==="R"||i==="S"||i==="T"||i==="U"||i==="V"||i==="W"||i==="X"||i==="Y"))break;if(typeof i==="object"&&i&&!Array.isArray(i)&&i["TAG"]==="Z"){let v5=i["_0"];Array.isArray(v5)||e[3](v5);let v9=new Array(v5.length);for(let v6=0;v6<v5.length;++v6){try{let v7;v7=e[2](v5[v6]);v9[v6]=v7}catch(v8){v8.path="[\\"_0\\"]"+'["'+v6+'"]'+v8.path;throw v8}}i={"type":"Z","nested":v9,};break}e[4](i)}return i}`
+Crazy: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)&&i["TAG"]==="A"){let v0=i["_0"];Array.isArray(v0)||e[1](v0);let v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){try{let v2;v2=e[0](v0[v1]);v4[v1]=v2}catch(v3){v3.path=["_0",v1,...v3.path];throw v3}}i={"type":"A","nested":v4,};break}if(typeof i==="string"&&(i==="B"||i==="C"||i==="D"||i==="E"||i==="F"||i==="G"||i==="H"||i==="I"||i==="J"||i==="K"||i==="L"||i==="M"||i==="N"||i==="O"||i==="P"||i==="Q"||i==="R"||i==="S"||i==="T"||i==="U"||i==="V"||i==="W"||i==="X"||i==="Y"))break;if(typeof i==="object"&&i&&!Array.isArray(i)&&i["TAG"]==="Z"){let v5=i["_0"];Array.isArray(v5)||e[3](v5);let v9=new Array(v5.length);for(let v6=0;v6<v5.length;++v6){try{let v7;v7=e[2](v5[v6]);v9[v6]=v7}catch(v8){v8.path=["_0",v6,...v8.path];throw v8}}i={"type":"Z","nested":v9,};break}e[4](i)}return i}`
     t->U.assertCompiledCode(~schema=reversed, ~op=#Convert, code, ~embedded=[("Crazy", 0)])
     // There was an issue with reverse when it doesn't return the same code on second run
     t->U.assertCompiledCode(~schema=reversed, ~op=#Convert, code, ~embedded=[("Crazy", 0)])
@@ -755,12 +755,12 @@ test("json-rpc response", t => {
   t->U.assertCompiledCode(
     ~schema=getLogsResponseSchema,
     ~op=#Parse,
-    `i=>{for(;;){let r;if(typeof i==="object"&&i&&!Array.isArray(i)){try{let v0=i["result"];Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"||e[0](v2);}catch(v3){v3.path="[\\"result\\"]"+'["'+v1+'"]'+v3.path;throw v3}}i={"TAG":"Ok","_0":v0,};break}catch(x){(r||(r=[])).push(e[4](x))}try{let v4=i["error"];for(;;){if(typeof v4==="object"&&v4&&!Array.isArray(v4)&&v4["message"]==="NotFound"){v4="LogsNotFound";break}if(typeof v4==="object"&&v4&&!Array.isArray(v4)&&v4["message"]==="Invalid"){let v5=v4["data"];typeof v5==="string"||e[2](v5);v4={"NAME":"InvalidData","VAL":v5,};break}e[3](v4)}i={"TAG":"Error","_0":v4,};break}catch(x){(r||(r=[])).push(e[4](x))}}e[5](i,...(r||[]))}return i}`,
+    `i=>{for(;;){let r;if(typeof i==="object"&&i&&!Array.isArray(i)){try{let v0=i["result"];Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"||e[0](v2);}catch(v3){v3.path=["result",v1,...v3.path];throw v3}}i={"TAG":"Ok","_0":v0,};break}catch(x){(r||(r=[])).push(e[4](x))}try{let v4=i["error"];for(;;){if(typeof v4==="object"&&v4&&!Array.isArray(v4)&&v4["message"]==="NotFound"){v4="LogsNotFound";break}if(typeof v4==="object"&&v4&&!Array.isArray(v4)&&v4["message"]==="Invalid"){let v5=v4["data"];typeof v5==="string"||e[2](v5);v4={"NAME":"InvalidData","VAL":v5,};break}e[3](v4)}i={"TAG":"Error","_0":v4,};break}catch(x){(r||(r=[])).push(e[4](x))}}e[5](i,...(r||[]))}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema=getLogsResponseSchema,
     ~op=#Encode,
-    `i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)&&i["TAG"]==="Ok"){let v0=i["_0"];Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"||e[0](v2);}catch(v3){v3.path="[\\"_0\\"]"+'["'+v1+'"]'+v3.path;throw v3}}i={"result":v0,};break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i["TAG"]==="Error"){let v4=i["_0"];for(;;){if(typeof v4==="string"&&v4==="LogsNotFound"){v4={"message":"NotFound",};break}if(typeof v4==="object"&&v4&&!Array.isArray(v4)&&v4["NAME"]==="InvalidData"){let v5=v4["VAL"];typeof v5==="string"||e[2](v5);v4={"message":"Invalid","data":v5,};break}e[3](v4)}i={"error":v4,};break}e[4](i)}return i}`,
+    `i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)&&i["TAG"]==="Ok"){let v0=i["_0"];Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"||e[0](v2);}catch(v3){v3.path=["_0",v1,...v3.path];throw v3}}i={"result":v0,};break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i["TAG"]==="Error"){let v4=i["_0"];for(;;){if(typeof v4==="string"&&v4==="LogsNotFound"){v4={"message":"NotFound",};break}if(typeof v4==="object"&&v4&&!Array.isArray(v4)&&v4["NAME"]==="InvalidData"){let v5=v4["VAL"];typeof v5==="string"||e[2](v5);v4={"message":"Invalid","data":v5,};break}e[3](v4)}i={"error":v4,};break}e[4](i)}return i}`,
   )
 
   // A value of the right outer type but a bogus inner variant is rejected now
@@ -771,7 +771,7 @@ test("json-rpc response", t => {
         ~from=getLogsResponseSchema,
         ~to=S.unknown,
       ),
-    `Failed at ["_0"]: Expected "LogsNotFound" | { NAME: "InvalidData"; VAL: string; }, received "BogusVariant"`,
+    `Failed at _0: Expected "LogsNotFound" | { NAME: "InvalidData"; VAL: string; }, received "BogusVariant"`,
   )
   t->U.assertThrowsMessage(
     () =>
@@ -779,7 +779,7 @@ test("json-rpc response", t => {
         ~from=getLogsResponseSchema,
         ~to=S.unknown,
       ),
-    `Failed at ["_0"]: Expected "LogsNotFound" | { NAME: "InvalidData"; VAL: string; }, received { NAME: "BogusObj"; }`,
+    `Failed at _0: Expected "LogsNotFound" | { NAME: "InvalidData"; VAL: string; }, received { NAME: "BogusObj"; }`,
   )
 })
 
@@ -866,8 +866,8 @@ test("Objects with the same discriminant", t => {
   t->U.assertThrowsMessage(
     () => %raw(`{"type":"A","value":1}`)->S.parseOrThrow(~to=schema),
     `Expected { type: "A"; value: "foo" | "bar"; } | { type: "A"; value: string; }, received { type: "A"; value: 1; }
-- At ["value"]: Expected "foo" | "bar", received 1
-- At ["value"]: Expected string, received 1`,
+- At value: Expected "foo" | "bar", received 1
+- At value: Expected string, received 1`,
   )
 
   t->U.assertCompiledCode(

@@ -271,7 +271,7 @@ test("Parses JSON string to dict", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="string"||e[3](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);for(let v1 in v0){try{let v2=v0[v1];typeof v2==="boolean"||e[1](v2);}catch(v3){v3.path=\'["\'+v1+\'"]\'+v3.path;throw v3}}return v0}`,
+    `i=>{typeof i==="string"||e[3](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);for(let v1 in v0){try{let v2=v0[v1];typeof v2==="boolean"||e[1](v2);}catch(v3){v3.path=[v1,...v3.path];throw v3}}return v0}`,
   )
 
   t->Assert.deepEqual(value->S.decodeOrThrow(~from=schema, ~to=S.unknown), `{"foo":true}`->Obj.magic)
@@ -288,7 +288,7 @@ test("Parses JSON string to array", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="string"||e[3](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}Array.isArray(v0)||e[2](v0);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="boolean"||e[1](v2);}catch(v3){v3.path=\'["\'+v1+\'"]\'+v3.path;throw v3}}return v0}`,
+    `i=>{typeof i==="string"||e[3](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}Array.isArray(v0)||e[2](v0);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="boolean"||e[1](v2);}catch(v3){v3.path=[v1,...v3.path];throw v3}}return v0}`,
   )
 
   t->Assert.deepEqual(value->S.decodeOrThrow(~from=schema, ~to=S.unknown), `[true,false]`->Obj.magic)

@@ -26,6 +26,6 @@ operations:
         error: Expected ["bar", true], received ["bar", true, false]
       invalid-item:
         input: '["bar", false]'
-        error: 'Failed at ["1"]: Expected true, received false'
+        error: "Failed at [1]: Expected true, received false"
   decode: identity
   encode: identity

@@ -4,17 +4,25 @@
 type never
 
 module Path = {
-  type t
+  // Static segments (object keys, tuple indices) are strings; a segment
+  // captured from a runtime variable in generated code keeps that variable's
+  // type, so array indices arrive as numbers.
+  @unboxed
+  type segment = String(string) | Number(float)
+  // Root-first segments. Never mutate a path array — see the invariant on
+  // `Path` in base.ts.
+  type t = array<segment>
 
-  external toString: t => string = "%identity"
+  let empty: t = []
+  // The "some element" marker segment, for locations not tied to a concrete
+  // value.
+  let dynamic: t = [String("[]")]
 
-  let empty: t = %raw(`""`)
-  let dynamic: t = %raw(`"[]"`)
-
-  @module("sury") external toArray: t => array<string> = "$pathToArray"
-  @module("sury") external fromArray: array<string> => t = "$pathFromArray"
-  @module("sury") external fromLocation: string => t = "$pathFromLocation"
-  @module("sury") external concat: (t, t) => t = "$pathConcat"
+  external fromArray: array<string> => t = "%identity"
+  let fromLocation = (location: string): t => [String(location)]
+  @send external concat: (t, t) => t = "concat"
+  // Dot-path display: `user.tags[2]`
+  @module("sury") external toText: t => string = "$pathToText"
 }
 
 

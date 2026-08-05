@@ -16,7 +16,7 @@ import {
   type Path,
   pathConcat,
   pathEmpty,
-  pathFromInlinedLocation,
+  pathToText,
   s,
   stringify,
   SuryError,
@@ -298,12 +298,12 @@ export const B_makeInvalidConversionDetails = (input: Val, to: Internal, cause: 
     //
     // Copied rather than mutated: user code may throw one retained instance
     // more than once, and prepending onto the instance makes the second parse
-    // report `["a"]["a"]`. Nothing to prepend means nothing to copy — `B_throw`
+    // report `a.a`. Nothing to prepend means nothing to copy — `B_throw`
     // rebuilds a SuryError from whichever of the two it gets.
     return (
-      input.path === pathEmpty
-        ? error
-        : { ...error, path: pathConcat(input.path, error.path) }
+      input.path.length
+        ? { ...error, path: pathConcat(input.path, error.path) }
+        : error
     ) as unknown as ErrorDetails;
   } else {
     let reason: string;
@@ -362,7 +362,7 @@ export const B_makeInvalidInputDetails = (
     for (let idx = 0; idx < caseErrors.length; idx++) {
       const caseError = caseErrors[idx]!;
       const caseReason = caseError.reason.split("\n").join("\n  ");
-      const location = caseError.path === "" ? "" : `At ${caseError.path}: `;
+      const location = caseError.path.length ? `At ${pathToText(caseError.path)}: ` : "";
       const line = `\n- ${location}${caseReason}`;
       if (!seenReasons.has(line)) {
         seenReasons.add(line);
@@ -395,7 +395,7 @@ export const B_invalidInputBuilder = (
   return (input: Val) => {
     const expected_ = expected !== U ? expected : input.e;
     const received = B_receivedSchema(input);
-    const path = extraPath === pathEmpty ? input.path : pathConcat(input.path, extraPath);
+    const path = pathConcat(input.path, extraPath);
     return (value: unknown) =>
       B_makeInvalidInputDetails(expected_, received, path, value, U, reasonOverride);
   };
@@ -680,10 +680,10 @@ export const B_markOutput = (val: Val, valInput: Val): Val => {
 // parent's own type guard. No-op if the child has no checks.
 export const B_hoistChildChecks = (parent: Val, child: Val, key: string): void => {
   if (child.vc) {
-    const pathAppend = pathFromInlinedLocation(inlinedValueFromString(key));
+    const accessor = `[${inlinedValueFromString(key)}]`;
     child.vc!.forEach((check) => {
       B_pushCheck(parent, {
-        c: (inputVar) => check.c(inputVar + pathAppend),
+        c: (inputVar) => check.c(inputVar + accessor),
         f: check.f,
       });
     });
@@ -875,21 +875,30 @@ const B_mergeWithCatch = (
   }
 }
 
+// Emitted prepend allocates a fresh array (`e.path=[seg,...e.path]`) — see
+// the no-mutation invariant on Path in base.ts.
 export const B_mergeWithPathPrepend = (
   val: Val,
   parent: Val,
   locationVar?: string,
   appendSafe?: () => string
 ): string => {
-  if (val.path === pathEmpty && locationVar === U) {
+  if (!val.path.length && locationVar === U) {
     return B_merge(val);
   } else {
     return B_mergeWithCatch(
       val,
-      (errorVar) =>
-        `${errorVar}.path=${
-          parent.path === "" ? "" : `${inlinedValueFromString(parent.path)}+`
-        }${locationVar !== U ? `'["'+${locationVar}+'"]'+` : ""}${errorVar}.path`,
+      (errorVar) => {
+        let segments = "";
+        for (let idx = 0; idx < parent.path.length; idx++) {
+          const segment = parent.path[idx]!;
+          segments += `${typeof segment === "string" ? inlinedValueFromString(segment) : segment},`;
+        }
+        if (locationVar !== U) {
+          segments += `${locationVar},`;
+        }
+        return `${errorVar}.path=[${segments}...${errorVar}.path]`;
+      },
       appendSafe
     );
   }

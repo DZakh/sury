@@ -29,7 +29,7 @@ S.parser(playerSchema)({ username: "billie", xp: 100 });
 // => { username: "billie", xp: 100 }
 
 S.parser(playerSchema)({ username: "billie", xp: "not a number" });
-// => throws S.Error: Failed at ["xp"]: Expected number, received "not a number"
+// => throws S.Error: Failed at xp: Expected number, received "not a number"
 
 type Player = S.Infer<typeof playerSchema>;
 //   ^? { username: string; xp: number }
@@ -75,7 +75,7 @@ Errors point at the field inside the matched variant, not at the union as a whol
 
 ```ts
 parseEvent('{"type":"user.renamed","id":"42"}');
-// => throws S.Error: Failed at ["name"]: Expected string, received undefined
+// => throws S.Error: Failed at name: Expected string, received undefined
 ```
 
 ### See the code it compiles
@@ -230,7 +230,7 @@ Compare that with `v.ObjectSchema<{readonly foo: v.StringSchema<undefined>}, und
 S.parser(S.schema({ a: S.array(S.schema({ b: S.string })) }))({
   a: [{ b: "x" }, { b: 1 }],
 });
-// => throws S.Error: Failed at ["a"]["1"]["b"]: Expected string, received 1
+// => throws S.Error: Failed at a[1].b: Expected string, received 1
 ```
 
 Every error is an `S.Error` (`err instanceof S.Error`), and `S.safe` / `S.safeAsync` wrap any block into a typed result if you'd rather not catch:

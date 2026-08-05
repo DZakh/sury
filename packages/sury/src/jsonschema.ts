@@ -29,7 +29,6 @@ import {
   pathConcat,
   pathDynamic,
   pathEmpty,
-  pathFromLocation,
   refTag,
   stringTag,
   SuryError,
@@ -433,7 +432,7 @@ const internalToJSONSchemaBase = (
       const itemDefinitions: JSONSchemaT[] = items.map((itemSchema, idx) => {
         return internalToJSONSchema(
           itemSchema,
-          pathConcat(path, pathFromLocation(idx.toString())),
+          pathConcat(path, [idx]),
           defs,
           schema,
           target
@@ -554,7 +553,7 @@ const internalToJSONSchemaBase = (
         const itemSchema = properties[key]!;
         const fieldSchema = internalToJSONSchema(
           itemSchema,
-          pathConcat(path, pathFromLocation(key)),
+          pathConcat(path, [key]),
           defs,
           schema,
           target

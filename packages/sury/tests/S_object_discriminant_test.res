@@ -250,7 +250,7 @@ module Negative = {
 
         t->U.assertThrowsMessage(
           () => {"field": "bar"}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
-          `Missing input for ${testData.missingInputExpression} at ["discriminant"]${testData.path->S.Path.toString}`,
+          `Missing input for ${testData.missingInputExpression} at ${S.Path.fromLocation("discriminant")->S.Path.concat(testData.path)->S.Path.toText}`,
         )
       },
     )
@@ -290,7 +290,7 @@ module NestedNegative = {
 
       t->U.assertThrowsMessage(
         () => {"field": "bar"}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
-        `Missing input for boolean at ["discriminant"]["nestedField"]`,
+        `Missing input for boolean at discriminant.nestedField`,
       )
     },
   )
@@ -309,7 +309,7 @@ test(`Fails to parse object with invalid data passed to discriminant field`, t =
       "discriminant": false,
       "field": "bar",
     }->S.parseOrThrow(~to=schema)
-  , `Failed at ["discriminant"]: Expected string, received false`)
+  , `Failed at discriminant: Expected string, received false`)
 })
 
 test(`Parses discriminant fields before registered fields`, t => {
@@ -325,7 +325,7 @@ test(`Parses discriminant fields before registered fields`, t => {
       "discriminant": false,
       "field": false,
     }->S.parseOrThrow(~to=schema)
-  , `Failed at ["discriminant"]: Expected string, received false`)
+  , `Failed at discriminant: Expected string, received false`)
 })
 
 test(`Fails to serialize object with discriminant "Never"`, t => {
@@ -338,7 +338,7 @@ test(`Fails to serialize object with discriminant "Never"`, t => {
 
   t->U.assertThrowsMessage(
     () => {"field": "bar"}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
-    `Missing input for never at ["discriminant"]`,
+    `Missing input for never at discriminant`,
   )
 })
 
@@ -352,6 +352,6 @@ test(`Reverse parse doesn't validates literal fields before coming to other obje
 
   t->U.assertThrowsMessage(
     () => {"constant": false, "normal": false}->S.parseOrThrow(~to=schema->S.reverse),
-    `Failed at ["normal"]: Expected string, received false`,
+    `Failed at normal: Expected string, received false`,
   )
 })

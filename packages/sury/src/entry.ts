@@ -37,7 +37,6 @@ import {
   objectTag,
   panic,
   pathEmpty,
-  pathFromArray,
   stringTag,
   U,
   unknown,
@@ -285,8 +284,7 @@ export const refine = (
   refineOptions?: { error?: string; path?: string[] },
 ) => {
   const message = refineOptions?.error ?? "Refinement failed";
-  const extraPath =
-    refineOptions?.path !== U ? pathFromArray(refineOptions.path) : pathEmpty;
+  const extraPath = refineOptions?.path !== U ? refineOptions.path : pathEmpty;
   return internalRefine(schema, (_: Internal) => (input: Val): Check[] => {
     const embeddedCheck = B_embed(input, refineCheck);
     return [
@@ -395,12 +393,7 @@ export const global = (override: GlobalConfigOverride): void => {
 // marks the exports as ReScript-binding internals while staying a valid JS
 // identifier, which is all ReScript externals accept as names.
 
-export {
-  pathToArray as $pathToArray,
-  pathFromArray as $pathFromArray,
-  pathFromLocation as $pathFromLocation,
-  pathConcat as $pathConcat,
-} from "./base";
+export { pathToText as $pathToText } from "./base";
 export {
   // Async flavor of the public `assert` — no public JS equivalent
   // (`asyncDecoderAssert` is a different, callback-taking API).

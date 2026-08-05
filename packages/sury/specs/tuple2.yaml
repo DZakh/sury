@@ -23,9 +23,9 @@ operations:
         error: Expected ["bar", number], received ["bar"]
       invalid-literal:
         input: '["baz", 42]'
-        error: 'Failed at ["0"]: Expected "bar", received "baz"'
+        error: 'Failed at [0]: Expected "bar", received "baz"'
       invalid-item:
         input: '["bar", "not a number"]'
-        error: 'Failed at ["1"]: Expected number, received "not a number"'
+        error: 'Failed at [1]: Expected number, received "not a number"'
   decode: identity
   encode: identity
