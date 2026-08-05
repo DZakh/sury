@@ -276,9 +276,9 @@ When you want a security decision rather than a syntax check, compose one. The
 extra constraint rides along in the JSON Schema, so it stays honest:
 
 ```ts
-const httpsOnly = S.uri.with(S.pattern, /^https?:\/\//);
-// { type: "string", format: "uri", pattern: "^https?:\\/\\/" }
-// rejects javascript:alert(1) and file:///etc/passwd
+const httpsOnly = S.uri.with(S.pattern, /^https:\/\//);
+// { type: "string", format: "uri", pattern: "^https:\\/\\/" }
+// rejects javascript:alert(1), file:///etc/passwd and http://example.com
 
 const publicHost = S.hostname.with(S.refine, (h) => !isPrivateAddress(h));
 ```

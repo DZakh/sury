@@ -1,14 +1,14 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: S.uri.with(S.pattern, /^https?:\/\//)
+  schema: S.uri.with(S.pattern, /^https:\/\//)
   input: string
   output: string
   instantiations: 5158
 vs:
-  zod: z.url().regex(/^https?:\/\//)
+  zod: z.url().regex(/^https:\/\//)
 jsonSchema:
-  input: '{ type: "string", format: "uri", pattern: "^https?:\\/\\/" }'
-  output: '{ type: "string", format: "uri", pattern: "^https?:\\/\\/" }'
+  input: '{ type: "string", format: "uri", pattern: "^https:\\/\\/" }'
+  output: '{ type: "string", format: "uri", pattern: "^https:\\/\\/" }'
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[4](i);e[1].test(i)||e[2](i);e[0].test(i)||e[3](i);return i}
@@ -16,9 +16,12 @@ operations:
       https:
         input: '"https://example.com/a"'
         output: '"https://example.com/a"'
-      http:
+      rejects-http:
         input: '"http://example.com/a"'
-        output: '"http://example.com/a"'
+        error: Invalid pattern
+      rejects-uppercase-scheme:
+        input: '"HTTPS://example.com/a"'
+        error: Invalid pattern
       rejects-javascript-scheme:
         input: '"javascript:alert(1)"'
         error: Invalid pattern

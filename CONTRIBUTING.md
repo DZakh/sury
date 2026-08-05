@@ -336,6 +336,11 @@ error message, a strictness gap that let a bad spec through — add a bullet her
 instead of silently working around it.
 
 - <placeholder>
+- A golden containing a control character is written as a plain scalar, so
+  `specs/ipv4.yaml` carries a literal tab that the `yaml` package round-trips
+  but PyYAML and yamllint reject outright. Newlines are handled (they become a
+  block scalar); tabs are not. Since the specs are published as documentation,
+  the writer should quote any scalar holding a control character.
 - `--perf` measures every example in both builds, so a spec's example count sets
   its share of the performance job's runtime. That suits codec specs, where each
   example exercises a different path, but not format specs: the string-format

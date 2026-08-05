@@ -728,7 +728,8 @@ export const iriReference: Schema<string, string>;
 
 /**
  * Internationalized email address, RFC 6531 — a Unicode local part and domain
- * are both allowed, including the quoted form.
+ * are both allowed, including a quoted local part, though only one without
+ * whitespace: `"john doe"@example.com` is rejected.
  *
  * Shape only, and much looser than {@link email}: RFC 6531 constrains little
  * beyond the length limits, so `a@b` and `a@localhost` are valid.

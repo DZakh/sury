@@ -264,6 +264,13 @@ which is what `packages/sury/specs/<format>.yaml` examples are drawn from.
   `isoDateTime` strict and add a separate lenient export, at the cost of two
   schemas emitting `format: "date-time"` (only one can be the `fromJSONSchema`
   target).
+- `S.pattern` drops the regex flags when emitting JSON Schema, so
+  `S.string.with(S.pattern, /^https:\/\//i)` accepts `HTTPS://` while emitting
+  `pattern: "^https:\\/\\/"`, which a downstream validator reads
+  case-sensitively and rejects. The emitted schema is stricter than the schema
+  it describes. JSON Schema `pattern` has no flag syntax, so the fix is either
+  to desugar `i` into the pattern source or to reject flagged regexes that
+  cannot be represented.
 - `fromJSONSchema` only reaches the format schemas through the
   `type === "string"` branch, so a bare `{"format": "date"}` — which is exactly
   how the JSON-Schema-Test-Suite and most real documents write it — converts to
