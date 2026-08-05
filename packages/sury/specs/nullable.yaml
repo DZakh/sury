@@ -3,7 +3,7 @@ ts:
   schema: S.nullable(S.string)
   input: string | null
   output: string | null
-  instantiations: 380
+  instantiations: 422
 vs:
   zod: z.string().nullable()
 jsonSchema:

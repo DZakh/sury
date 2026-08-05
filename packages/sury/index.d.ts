@@ -681,12 +681,21 @@ export function tuple<const T extends unknown[]>(
   schemas: [...T]
 ): Schema<[...UnknownArrayToInput<T>], [...UnknownArrayToOutput<T>]>;
 
+// Every factory below takes `SchemaLike<TInput, TOutput> | TDef` in a SINGLE
+// signature. A schema argument matches the structural SchemaLike constituent
+// (naked-type-param inference is lower priority), so TInput/TOutput resolve
+// without ever instantiating the recursive UnknownTo* machinery — only a raw
+// definition falls into TDef and pays for the defaults. One signature is
+// load-bearing: `schema.with(S.optional, …)` only infers through a function
+// with exactly one call signature, so an overload pair would collapse the
+// result to Schema<unknown, unknown>.
 export function optional<
-  TInput,
-  TOutput,
+  const TDef = never,
+  TInput = UnknownToInput<TDef>,
+  TOutput = UnknownToOutput<TDef>,
   TOr extends TOutput | undefined = undefined
 >(
-  schema: SchemaLike<TInput, TOutput>,
+  schema: SchemaLike<TInput, TOutput> | TDef,
   or?: (() => TOr) | TOr,
   // To make .with work
   _?: never
@@ -695,30 +704,51 @@ export function optional<
   TOr extends undefined ? TOutput | undefined : TOutput
 >;
 
-export function nullable<TInput, TOutput, TOr extends TOutput | null = null>(
-  schema: SchemaLike<TInput, TOutput>,
+export function nullable<
+  const TDef = never,
+  TInput = UnknownToInput<TDef>,
+  TOutput = UnknownToOutput<TDef>,
+  TOr extends TOutput | null = null
+>(
+  schema: SchemaLike<TInput, TOutput> | TDef,
   or?: (() => TOr) | TOr,
   // To make .with work
   _?: never
 ): Schema<TInput | null, TOr extends null ? TOutput | null : TOutput>;
 
-export const nullish: <TInput, TOutput>(
-  schema: SchemaLike<TInput, TOutput>
+export const nullish: <
+  const TDef = never,
+  TInput = UnknownToInput<TDef>,
+  TOutput = UnknownToOutput<TDef>
+>(
+  schema: SchemaLike<TInput, TOutput> | TDef
 ) => Schema<TInput | undefined | null, TOutput | undefined | null>;
 
 export type Class<T> = new (...args: readonly any[]) => T;
 export const instance: <T>(class_: Class<T>) => Schema<T, T>;
 
-export const array: <TInput, TOutput>(
-  schema: SchemaLike<TInput, TOutput>
+export const array: <
+  const TDef = never,
+  TInput = UnknownToInput<TDef>,
+  TOutput = UnknownToOutput<TDef>
+>(
+  schema: SchemaLike<TInput, TOutput> | TDef
 ) => Schema<TInput[], TOutput[]>;
 
-export const compactColumns: <TInput, TOutput>(
-  schema: SchemaLike<TInput, TOutput>
+export const compactColumns: <
+  const TDef = never,
+  TInput = UnknownToInput<TDef>,
+  TOutput = UnknownToOutput<TDef>
+>(
+  schema: SchemaLike<TInput, TOutput> | TDef
 ) => Schema<TInput[][], TOutput[][]>;
 
-export const record: <TInput, TOutput>(
-  schema: SchemaLike<TInput, TOutput>
+export const record: <
+  const TDef = never,
+  TInput = UnknownToInput<TDef>,
+  TOutput = UnknownToOutput<TDef>
+>(
+  schema: SchemaLike<TInput, TOutput> | TDef
 ) => Schema<Record<string, TInput>, Record<string, TOutput>>;
 
 type ObjectCtx<TInput extends Record<string, unknown>> = {

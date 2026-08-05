@@ -8,7 +8,7 @@ ts:
   schema: S.array(S.string).with(S.empty)
   input: string[]
   output: string[]
-  instantiations: 660
+  instantiations: 702
 vs:
   zod: z.array(z.string()).length(0)
 jsonSchema:

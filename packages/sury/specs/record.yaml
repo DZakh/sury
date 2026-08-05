@@ -3,7 +3,7 @@ ts:
   schema: S.record(S.string)
   input: "{ [x: string]: string; }"
   output: "{ [x: string]: string; }"
-  instantiations: 392
+  instantiations: 434
 vs:
   zod: z.record(z.string(), z.string())
 jsonSchema:

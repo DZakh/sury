@@ -32,8 +32,7 @@ import {
   B_next,
   B_varWithoutAllocation,
 } from "./builder";
-import { objectDecoder } from "./composites";
-import { definitionToSchema } from "./factory";
+import { definitionToSchema, objectDecoder } from "./composites";
 import {
   internalRefine,
   nullAsUnit,
@@ -189,9 +188,9 @@ export const js_asyncDecoderAssert = (
 };
 
 // @__NO_SIDE_EFFECTS__
-export const js_optional = (schema: Internal, maybeOr: unknown): Internal => {
+export const js_optional = (definition: unknown, maybeOr: unknown): Internal => {
   // TODO: maybeOr should be part of the unit schema
-  schema = unionFactory([schema, unit]);
+  const schema = unionFactory([definitionToSchema(definition), unit]);
   if (maybeOr !== U && typeof maybeOr === functionTag) {
     return Option_getOrWith(schema, maybeOr as () => unknown);
   } else if (maybeOr !== U) {
@@ -202,7 +201,8 @@ export const js_optional = (schema: Internal, maybeOr: unknown): Internal => {
 };
 
 // @__NO_SIDE_EFFECTS__
-export const js_nullable = (schema: Internal, maybeOr: unknown): Internal => {
+export const js_nullable = (definition: unknown, maybeOr: unknown): Internal => {
+  const schema = definitionToSchema(definition);
   // TODO: maybeOr should be part of the unit schema
   if (maybeOr !== U) {
     const schema2 = unionFactory([schema, nullAsUnit]);

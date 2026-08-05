@@ -3,7 +3,7 @@ ts:
   schema: S.array(S.string).with(S.maxLength, 2)
   input: string[]
   output: string[]
-  instantiations: 5290
+  instantiations: 5332
 vs:
   zod: z.array(z.string()).max(2)
 jsonSchema:

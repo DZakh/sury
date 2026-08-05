@@ -10,12 +10,15 @@ import {
   type Check,
   type ErrorDetails,
   flagUnsafeHas,
+  globalConfig,
   immutableEmptyArray,
   immutableEmptyObject,
   inlinedValueFromString,
+  instanceTag,
   type Internal,
   isLiteral,
   isOptional,
+  isSchemaObject,
   jsonName,
   objectTag,
   pathConcat,
@@ -63,7 +66,7 @@ import {
   parse,
   parseDynamic,
 } from "./parse";
-import { isArrayCond, Literal_parse, objectTagCond, unit } from "./primitives";
+import { isArrayCond, Literal_parse, literalDecoder, objectTagCond, unit } from "./primitives";
 import { unionFactory } from "./union";
 
 // Narrows the dict-value-schema-or-mode union down to the schema case.
@@ -172,15 +175,20 @@ export const completeObjectVal = (objectVal: Val): Val => {
     }
   }
 }
-// @__NO_SIDE_EFFECTS__
-export const array = (item: Internal): Internal => {
-  const itemInternal = item;
-  const mut = baseSchema(arrayTag, !!itemInternal.sr);
-  mut.additionalItems = itemInternal;
+export const arrayFactory = (item: Internal): Internal => {
+  const mut = baseSchema(arrayTag, !!item.sr);
+  mut.additionalItems = item;
   mut.items = immutableEmptyArray as Internal[];
   mut.decoder = arrayDecoder;
   return mut;
 }
+// The public flavor accepts a raw definition. Internal callers use
+// arrayFactory directly: it skips the conversion on codegen-hot paths, and —
+// load-bearing for the S.json singleton — a schema built while modules are
+// still initializing predates the `~standard` prototype marker, so
+// definitionToSchema would misread it as an instance literal.
+// @__NO_SIDE_EFFECTS__
+export const array = (item: unknown): Internal => arrayFactory(definitionToSchema(item));
 export const arrayDecoder = (unknownInput: Val): Val => {
   const isUnion = unknownInput.u!;
   const expectedSchema = unknownInput.e;
@@ -193,7 +201,7 @@ export const arrayDecoder = (unknownInput: Val): Val => {
     const isArrayInput = flagUnsafeHas(unknownInputTagFlag, tagFlagArray);
     let schema: Internal;
     if (!isArrayInput) {
-      schema = array(unknown);
+      schema = arrayFactory(unknown);
     } else {
       schema = unknownInput.s;
     }
@@ -252,7 +260,7 @@ export const arrayDecoder = (unknownInput: Val): Val => {
       const hasTransform = itemOutput.t!;
       const output2 = hasTransform
         ? // The next `.to` segment decodes from this schema — item-output, not expectedSchema (#284)
-          B_next(input, `new Array(${inputVar}.length)`, array(itemOutput.s))
+          B_next(input, `new Array(${inputVar}.length)`, arrayFactory(itemOutput.s))
         : B_refine(input, expectedSchema);
 
       const itemCode = B_mergeWithPathPrepend(
@@ -551,13 +559,81 @@ export const objectDecoder = (unknownInput: Val): Val => {
   return B_markOutput(output, input);
 }
 
-// @__NO_SIDE_EFFECTS__
 export const dictFactory = (item: Internal): Internal => {
   const mut = baseSchema(objectTag, !!item.sr);
   mut.properties = immutableEmptyObject as Record<string, Internal>;
   mut.additionalItems = item;
   mut.decoder = objectDecoder;
   return mut;
+}
+// Public/internal split for the same reasons as `array` above.
+// @__NO_SIDE_EFFECTS__
+export const dict = (item: unknown): Internal => dictFactory(definitionToSchema(item));
+
+export const definitionToSchema = (definition: unknown): Internal => {
+  return traverseDefinition(definition, (node) => {
+    if (isSchemaObject(node)) {
+      return node as Internal;
+    } else {
+      return U;
+    }
+  });
+}
+
+export const traverseDefinition = (
+  definition: unknown,
+  onNode: (node: unknown) => Internal | undefined
+): Internal => {
+  if (typeof definition === objectTag && definition !== null) {
+    const s = onNode(definition);
+    if (s !== U) {
+      return s;
+    } else {
+      if (Array.isArray(definition)) {
+        const node = definition as unknown[];
+        for (let idx = 0; idx < node.length; idx++) {
+          node[idx] = traverseDefinition(node[idx], onNode);
+        }
+        const items = node as Internal[];
+
+        const mut = baseSchema(arrayTag, false);
+        mut.items = items;
+        mut.additionalItems = "strict";
+        mut.decoder = arrayDecoder;
+        return mut;
+      } else {
+        // A prototype other than Object.prototype (or null, e.g. Object.create(null))
+        // means `definition` is a genuine class instance (Date, RegExp, a user
+        // class, ...) to match as a literal — not a plain-record description.
+        // Checking definition["constructor"] instead would misclassify any plain
+        // record that happens to declare an own field named "constructor".
+        const proto = Object.getPrototypeOf(definition);
+        if (proto !== null && proto !== Object.prototype) {
+          const mut = baseSchema(instanceTag, true);
+          mut.class = (definition as Record<string, unknown>)["constructor"];
+          mut.const = definition;
+          mut.decoder = literalDecoder;
+          return mut;
+        } else {
+          const node = definition as Record<string, unknown>;
+          const fieldNames = Object.keys(node);
+          const length = fieldNames.length;
+          for (let idx = 0; idx < length; idx++) {
+            const location = fieldNames[idx]!;
+            node[location] = traverseDefinition(node[location], onNode);
+          }
+          const mut = baseSchema(objectTag, false);
+          mut.required = fieldNames;
+          mut.properties = node as Record<string, Internal>;
+          mut.additionalItems = globalConfig.a;
+          mut.decoder = objectDecoder;
+          return mut;
+        }
+      }
+    }
+  } else {
+    return Literal_parse(definition);
+  }
 }
 
 export const nestedNone = (): Internal => {
