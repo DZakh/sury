@@ -50,25 +50,25 @@ import { unionFactory } from "./union";
 // ...args)`) is a shape engines already optimize — an arity fast path here
 // measured nothing, so these stay generic.
 // @__NO_SIDE_EFFECTS__
-export const js_parser = (...args: unknown[]) => getDecoder(unknown, ...args);
+export const parser = (...args: unknown[]) => getDecoder(unknown, ...args);
 
 // @__NO_SIDE_EFFECTS__
-export const js_asyncParser = (...args: unknown[]) => getDecoder(unknown, ...args, 1);
+export const asyncParser = (...args: unknown[]) => getDecoder(unknown, ...args, 1);
 
 // @__NO_SIDE_EFFECTS__
-export const js_asyncDecoder = (...args: unknown[]) => getDecoder(...args, 1);
+export const asyncDecoder = (...args: unknown[]) => getDecoder(...args, 1);
 
 // The 1-schema branch dodges a per-call allocation: `.map` builds a fresh
 // array every call, which spreading a rest param does not. Chained (2+)
 // schemas keep the generic map.
 // @__NO_SIDE_EFFECTS__
-export const js_encoder = (a: unknown, ...rest: unknown[]) =>
+export const encoder = (a: unknown, ...rest: unknown[]) =>
   rest.length
     ? getDecoder(...([a, ...rest] as Internal[]).map(reverse))
     : getDecoder(reverse(a as Internal));
 
 // @__NO_SIDE_EFFECTS__
-export const js_asyncEncoder = (a: unknown, ...rest: unknown[]) =>
+export const asyncEncoder = (a: unknown, ...rest: unknown[]) =>
   rest.length
     ? getDecoder(...([a, ...rest] as Internal[]).map(reverse), 1)
     : getDecoder(reverse(a as Internal), 1);
@@ -77,14 +77,14 @@ export const js_asyncEncoder = (a: unknown, ...rest: unknown[]) =>
 // apart by the Standard Schema marker. The truthiness guard keeps falsy data
 // from throwing on the marker access, routing it to the data slot so
 // validation fails with a proper Sury error.
-export const js_assert = (a: unknown, b: unknown): unknown => {
+export const assert = (a: unknown, b: unknown): unknown => {
   const aIsSchema = !!a && isSchemaObject(a);
   const schema = (aIsSchema ? a : b) as Internal;
   const data = aIsSchema ? b : a;
   return getDecoder(unknown, schema, assertResult)(data);
 };
 
-export const js_is = (a: unknown, b: unknown): boolean => {
+export const is = (a: unknown, b: unknown): boolean => {
   const aIsSchema = !!a && isSchemaObject(a);
   // Compiled outside the try: a conversion rejected at operation creation
   // means the schema can't check any value, so it throws rather than reading
@@ -101,7 +101,7 @@ export const js_is = (a: unknown, b: unknown): boolean => {
 };
 
 // @__NO_SIDE_EFFECTS__
-export const js_union = (values: unknown[]) => unionFactory(values.map(definitionToSchema));
+export const union = (values: unknown[]) => unionFactory(values.map(definitionToSchema));
 
 // FIXME: Test how it'll work if we have async var as input
 // FIXME: Might not work well with object targets
@@ -128,7 +128,7 @@ const customBuilder = (fn: (value: unknown) => unknown): Builder => {
 };
 
 // @__NO_SIDE_EFFECTS__
-export const js_to = (
+export const to = (
   schema: Internal,
   target: Internal,
   maybeDecoder?: (value: unknown) => unknown,
@@ -155,7 +155,7 @@ export const js_to = (
 };
 
 // @__NO_SIDE_EFFECTS__
-export const js_refine = (
+export const refine = (
   schema: Internal,
   refineCheck: (value: unknown) => boolean,
   refineOptions?: { error?: string; path?: string[] },
@@ -176,7 +176,7 @@ export const js_refine = (
 
 const noop = <T>(a: T): T => a;
 // @__NO_SIDE_EFFECTS__
-export const js_asyncDecoderAssert = (
+export const asyncDecoderAssert = (
   schema: Internal,
   assertFn: (value: unknown) => Promise<unknown>,
 ) => {
@@ -189,7 +189,7 @@ export const js_asyncDecoderAssert = (
 };
 
 // @__NO_SIDE_EFFECTS__
-export const js_optional = (schema: Internal, maybeOr: unknown): Internal => {
+export const optional = (schema: Internal, maybeOr: unknown): Internal => {
   // TODO: maybeOr should be part of the unit schema
   schema = unionFactory([schema, unit]);
   if (maybeOr !== U && typeof maybeOr === functionTag) {
@@ -202,7 +202,7 @@ export const js_optional = (schema: Internal, maybeOr: unknown): Internal => {
 };
 
 // @__NO_SIDE_EFFECTS__
-export const js_nullable = (schema: Internal, maybeOr: unknown): Internal => {
+export const nullable = (schema: Internal, maybeOr: unknown): Internal => {
   // TODO: maybeOr should be part of the unit schema
   if (maybeOr !== U) {
     const schema2 = unionFactory([schema, nullAsUnit]);
@@ -217,7 +217,7 @@ export const js_nullable = (schema: Internal, maybeOr: unknown): Internal => {
 };
 
 // @__NO_SIDE_EFFECTS__
-export const js_merge = (s1: Internal, s2: Internal): Internal => {
+export const merge = (s1: Internal, s2: Internal): Internal => {
   // PORT-NOTE: the source matches on the public `Object({...})` variants —
   // at runtime that's a `type === "object"` check plus field reads, ported
   // as explicit conditions below.

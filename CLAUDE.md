@@ -34,7 +34,7 @@ base → builder → primitives → parse → union → composites → factory
   name lives there rather than with its schema.
 - `src/advanced/` is one file per schema nothing else builds on; a schema other
   modules build on stays in the core.
-- `src/entry.ts` is the single public entry. Add a `$res_*` export *only* for an
+- `src/entry.ts` is the single public entry. Add a `$`-prefixed export *only* for an
   API with no public-JS equivalent; where ReScript differs only in argument
   shape, bind the public export in `S.res` and adapt there.
 - `S.res` is the only ReScript module, and reaches the runtime through the
@@ -69,7 +69,7 @@ base → builder → primitives → parse → union → composites → factory
 - Every public pure factory carries `// @__NO_SIDE_EFFECTS__` on the line above
   its declaration — except exports whose point *is* the effect (`assert`, `is`,
   `safe`, `safeAsync`, `global`, `enableStandardJSONSchema`,
-  `$res_assertAsyncOrThrow`, `$res_setExnId`).
+  `$assertAsyncOrThrow`, `$setExnId`).
 - **Never publish a factory through an alias** (`export const object = schemaObject`):
   the annotation counts only on the declaration that *is* the function. Re-export
   instead — `export { schemaObject as object } from "./factory"`.

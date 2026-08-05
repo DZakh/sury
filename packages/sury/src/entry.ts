@@ -8,7 +8,7 @@
 //
 // Built by scripts/pack.ts into index.mjs (the publish step additionally
 // emits a CJS index.js into the artifact for the require condition). The extra
-// ReScript-binding exports ($res_*-named) are invisible to TS users
+// ReScript-binding exports ($-prefixed) are invisible to TS users
 // (index.d.ts is the curated surface) and tree-shake when unused like any
 // other export.
 
@@ -29,7 +29,7 @@ export {
   symbol,
   nan,
   void_ as void,
-  unit as $res_unit,
+  unit as $unit,
 } from "./primitives";
 export { never_ as never } from "./parse";
 export { json, jsonString } from "./advanced/json";
@@ -43,31 +43,31 @@ export {
   cuid,
   url,
 } from "./refinements";
-export { nullAsUnit as $res_nullAsUnit } from "./modifiers";
+export { nullAsUnit as $nullAsUnit } from "./modifiers";
 export {
   unknown,
   unknown as any,
   errorClass as Error,
-  __setExnId as $res_setExnId,
+  __setExnId as $setExnId,
 } from "./base";
 
 // ── Public JS/TS API (names match index.d.ts) ────────────────────────────────
 
 export {
-  js_optional as optional,
-  js_nullable as nullable,
-  js_union as union,
-  js_parser as parser,
-  js_asyncParser as asyncParser,
-  js_asyncDecoder as asyncDecoder,
-  js_encoder as encoder,
-  js_asyncEncoder as asyncEncoder,
-  js_assert as assert,
-  js_is as is,
-  js_merge as merge,
-  js_to as to,
-  js_asyncDecoderAssert as asyncDecoderAssert,
-  js_refine as refine,
+  optional,
+  nullable,
+  union,
+  parser,
+  asyncParser,
+  asyncDecoder,
+  encoder,
+  asyncEncoder,
+  assert,
+  is,
+  merge,
+  to,
+  asyncDecoderAssert,
+  refine,
   global,
 } from "./jsapi";
 export { getDecoder as decoder, reverse, instance } from "./parse";
@@ -84,12 +84,12 @@ export {
 } from "./modifiers";
 export {
   isAsync,
-  js_safe as safe,
-  js_safeAsync as safeAsync,
+  safe,
+  safeAsync,
 } from "./operations";
 export { array } from "./composites";
 // `nullish` accepts null | undefined (the 3-member union) — distinct from
-// `nullable` (js_nullable) above, which handles null only.
+// `nullable` above, which handles null only.
 export { nullable as nullish } from "./refinements";
 export {
   compactColumns,
@@ -130,34 +130,34 @@ export { outputExpression } from "./parse";
 // ── ReScript binding surface (extra names, not part of index.d.ts) ───────────
 //
 // Only APIs with no public-JS equivalent live here; everything else in S.res
-// binds the public names directly (or wraps them in ReScript). `$res_` marks
-// the exports as ReScript-binding internals — `~res_` would be clearer, but
-// ReScript externals only accept valid JS identifiers as names.
+// binds the public names directly (or wraps them in ReScript). The `$` prefix
+// marks the exports as ReScript-binding internals while staying a valid JS
+// identifier, which is all ReScript externals accept as names.
 
 export {
-  pathToArray as $res_pathToArray,
-  pathFromArray as $res_pathFromArray,
-  pathFromLocation as $res_pathFromLocation,
-  pathConcat as $res_pathConcat,
+  pathToArray as $pathToArray,
+  pathFromArray as $pathFromArray,
+  pathFromLocation as $pathFromLocation,
+  pathConcat as $pathConcat,
 } from "./base";
 export {
   // Async flavor of the public `assert` — no public JS equivalent
   // (`asyncDecoderAssert` is a different, callback-taking API).
-  assertAsyncOrThrow as $res_assertAsyncOrThrow,
+  assertAsyncOrThrow as $assertAsyncOrThrow,
 } from "./operations";
 export {
-  transform as $res_transform,
-  Option_getOr as $res_Option_getOr,
-  Option_getOrWith as $res_Option_getOrWith,
-  Metadata_Id_make as $res_Metadata_Id_make,
-  Metadata_get as $res_Metadata_get,
-  Metadata_set as $res_Metadata_set,
+  transform as $transform,
+  Option_getOr as $Option_getOr,
+  Option_getOrWith as $Option_getOrWith,
+  Metadata_Id_make as $Metadata_Id_make,
+  Metadata_get as $Metadata_get,
+  Metadata_set as $Metadata_set,
 } from "./modifiers";
-export { option as $res_option } from "./composites";
+export { option as $option } from "./composites";
 export {
-  nullAsOption as $res_nullAsOption,
-  nullableAsOption as $res_nullableAsOption,
+  nullAsOption as $nullAsOption,
+  nullableAsOption as $nullableAsOption,
 } from "./refinements";
 // The ReScript-flavored schema factory (definer-callback ctx); the public JS
 // `schema` takes a raw definition instead.
-export { schemaDefiner as $res_schema } from "./factory";
+export { schemaDefiner as $schema } from "./factory";

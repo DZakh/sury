@@ -11,10 +11,10 @@ module Path = {
   let empty: t = %raw(`""`)
   let dynamic: t = %raw(`"[]"`)
 
-  @module("sury") external toArray: t => array<string> = "$res_pathToArray"
-  @module("sury") external fromArray: array<string> => t = "$res_pathFromArray"
-  @module("sury") external fromLocation: string => t = "$res_pathFromLocation"
-  @module("sury") external concat: (t, t) => t = "$res_pathConcat"
+  @module("sury") external toArray: t => array<string> = "$pathToArray"
+  @module("sury") external fromArray: array<string> => t = "$pathFromArray"
+  @module("sury") external fromLocation: string => t = "$pathFromLocation"
+  @module("sury") external concat: (t, t) => t = "$pathConcat"
 }
 
 
@@ -373,7 +373,7 @@ external untag: t<'any> => untagged = "%identity"
 // hand it that identity once at module load — SuryError's RE_EXN_ID getter
 // returns it. `%raw` because a private exn constructor can't be referenced
 // as a value from ReScript code, only from spliced JS.
-%%private(@module("sury") external __setExnId: unknown => unit = "$res_setExnId")
+%%private(@module("sury") external __setExnId: unknown => unit = "$setExnId")
 let () = __setExnId(%raw(`Exn`))
 
 module Flag = {
@@ -401,8 +401,8 @@ module Error = {
 // primitive. Some (string, bool, ...) shadow stdlib names on purpose.
 @module("sury") external never: t<never> = "never"
 @module("sury") external unknown: t<unknown> = "unknown"
-@module("sury") external unit: t<unit> = "$res_unit"
-@module("sury") external nullAsUnit: t<unit> = "$res_nullAsUnit"
+@module("sury") external unit: t<unit> = "$unit"
+@module("sury") external nullAsUnit: t<unit> = "$nullAsUnit"
 @module("sury") external string: t<string> = "string"
 @module("sury") external bool: t<bool> = "bool"
 @module("sury") external int: t<int> = "int"
@@ -428,13 +428,13 @@ module Error = {
 @module("sury") external list: t<'value> => t<list<'value>> = "list"
 @module("sury") external instance: unknown => t<unknown> = "instance"
 @module("sury") external dict: t<'value> => t<dict<'value>> = "dict"
-@module("sury") external option: t<'value> => t<option<'value>> = "$res_option"
+@module("sury") external option: t<'value> => t<option<'value>> = "$option"
 // The public JS `nullable` called without a default is exactly
 // `union([item, literal(null)])` — what ReScript calls `S.null`.
 @module("sury") external null: t<'value> => t<null<'value>> = "nullable"
-@module("sury") external nullAsOption: t<'value> => t<option<'value>> = "$res_nullAsOption"
+@module("sury") external nullAsOption: t<'value> => t<option<'value>> = "$nullAsOption"
 @module("sury") external nullable: t<'value> => t<nullable<'value>> = "nullish"
-@module("sury") external nullableAsOption: t<'value> => t<option<'value>> = "$res_nullableAsOption"
+@module("sury") external nullableAsOption: t<'value> => t<option<'value>> = "$nullableAsOption"
 @module("sury") external union: array<t<'value>> => t<'value> = "union"
 @module("sury") external enum: array<'value> => t<'value> = "enum"
 
@@ -450,7 +450,7 @@ type transformDefinition<'input, 'output> = {
 }
 @module("sury")
 external transform: (t<'input>, unit => transformDefinition<'input, 'output>) => t<'output> =
-  "$res_transform"
+  "$transform"
 
 // The public JS `refine` takes an options object; build it here from the
 // ReScript labeled args.
@@ -483,7 +483,7 @@ let parseOrThrow = (any, ~to) => parser(~to)(any)
 let parseAsyncOrThrow = (any, ~to) => asyncParser(~to)(any)
 @module("sury") external assertOrThrow: ('any, ~to: t<'value>) => unit = "assert"
 @module("sury")
-external assertAsyncOrThrow: ('any, ~to: t<'value>) => promise<unit> = "$res_assertAsyncOrThrow"
+external assertAsyncOrThrow: ('any, ~to: t<'value>) => promise<unit> = "$assertAsyncOrThrow"
 let decodeOrThrow = (any, ~from, ~to) => decoder(~from, ~to)(any)
 let decodeAsyncOrThrow = (any, ~from, ~to) => asyncDecoder(~from, ~to)(any)
 
@@ -500,7 +500,7 @@ let decodeAsyncOrThrow = (any, ~from, ~to) => asyncDecoder(~from, ~to)(any)
 module Schema = {
   type s = {@as("m") matches: 'value. t<'value> => 'value}
 }
-@module("sury") external schema: (Schema.s => 'value) => t<'value> = "$res_schema"
+@module("sury") external schema: (Schema.s => 'value) => t<'value> = "$schema"
 
 module Object = {
   type rec s = {
@@ -535,23 +535,23 @@ let tuple3 = (v1, v2, v3) => tuple3([castToUnknown(v1), castToUnknown(v2), castT
 
 module Option = {
   @module("sury")
-  external getOr: (t<option<'value>>, 'value) => t<'value> = "$res_Option_getOr"
+  external getOr: (t<option<'value>>, 'value) => t<'value> = "$Option_getOr"
   @module("sury")
-  external getOrWith: (t<option<'value>>, unit => 'value) => t<'value> = "$res_Option_getOrWith"
+  external getOrWith: (t<option<'value>>, unit => 'value) => t<'value> = "$Option_getOrWith"
 }
 
 module Metadata = {
   module Id = {
     type t<'metadata>
     @module("sury")
-    external make: (~namespace: string, ~name: string) => t<'metadata> = "$res_Metadata_Id_make"
+    external make: (~namespace: string, ~name: string) => t<'metadata> = "$Metadata_Id_make"
   }
 
   @module("sury")
-  external get: (t<'value>, ~id: Id.t<'metadata>) => option<'metadata> = "$res_Metadata_get"
+  external get: (t<'value>, ~id: Id.t<'metadata>) => option<'metadata> = "$Metadata_get"
 
   @module("sury")
-  external set: (t<'value>, ~id: Id.t<'metadata>, 'metadata) => t<'value> = "$res_Metadata_set"
+  external set: (t<'value>, ~id: Id.t<'metadata>, 'metadata) => t<'value> = "$Metadata_set"
 }
 
 // =============
