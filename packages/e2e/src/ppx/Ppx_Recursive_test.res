@@ -69,6 +69,18 @@ test("Three-way mutual cycle works from every entry point", t => {
 })
 
 @schema
+type rec root = {mid: option<mid>, last: option<last>}
+@schema
+and mid = {tail: option<last>}
+@schema
+and last = {back: option<root>}
+test("A sibling needed by several members is bound once and reused", t => {
+  t->assertReverseParsesBack(rootSchema, {mid: Some({tail: Some({back: None})}), last: None})
+  t->assertReverseParsesBack(midSchema, {tail: Some({back: Some({mid: None, last: None})})})
+  t->assertReverseParsesBack(lastSchema, {back: Some({mid: None, last: Some({back: None})})})
+})
+
+@schema
 type rec leaf = {name: string}
 @schema
 and holder = {leaf: leaf, next: option<holder>}

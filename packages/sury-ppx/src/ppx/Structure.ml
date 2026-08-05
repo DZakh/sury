@@ -485,11 +485,9 @@ let generateSchemaValueBinding type_name ptype_params schema_expr =
     fail (fst (List.hd ptype_params)).ptyp_loc
       "Parametrized types with more than one type parameter are not supported yet"
 
-(* The schema expression for one declaration, without its value binding: the
-   recursive wrapper has to apply the type-level @s.* attributes *inside* its
-   callback, so that the definition registered under $defs — the one every
-   self-reference resolves to — is the transformed schema rather than the bare
-   one. *)
+(* Applies type-level @s.* attributes inside the body, so a recursive wrapper
+   registers the transformed schema — the one self-references resolve to —
+   rather than the bare one. *)
 let generateDeclarationSchemaExpression type_declaration =
   let {ptype_attributes; ptype_name = {txt = type_name}; ptype_loc; ptype_params}
       =
@@ -514,11 +512,9 @@ let mapTypeDeclaration type_declaration =
         (generateDeclarationSchemaExpression type_declaration) ]
   else []
 
-(* Bind the S.recursive placeholder under exactly the name a self-reference
-   already compiles to, so recursion resolves by ordinary shadowing and nothing
-   has to rewrite the body. That is also why a `nodeSchema` written by hand
-   inside an @s.matches payload picks up the placeholder like a generated
-   reference does. *)
+(* The placeholder is bound under the exact name a self-reference compiles to,
+   so recursion resolves by shadowing — including hand-written references in
+   @s.matches payloads. *)
 let wrapRecursive {ptype_name = {txt = type_name}; ptype_loc} body =
   let param_pat =
     Pat.constraint_
@@ -532,11 +528,9 @@ let wrapRecursive {ptype_name = {txt = type_name}; ptype_loc} body =
         uncurriedFun ~loc:ptype_loc ~arity:1
           (Exp.fun_ Nolabel None param_pat body)]]
 
-(* Which of `members` the generated expression mentions. Reading the emitted
-   code rather than the source type is what lets @s.matches payloads count: a
-   hand-written reference has to end up in scope just like a generated one, and
-   conversely a field whose schema comes entirely from @s.matches contributes no
-   dependency even though its type names a group member. *)
+(* Which of `members` the generated expression mentions. Scans the emitted code
+   rather than the source type, so hand-written @s.matches references count as
+   dependencies and a field fully replaced by @s.matches contributes none. *)
 let referencedMembers members expr =
   let found = ref [] in
   let scanner =
@@ -557,12 +551,10 @@ let referencedMembers members expr =
   scanner#expression expr;
   !found
 
-(* Each member of a mutually recursive group re-expands the others inside its own
-   S.recursive callback. A nested S.recursive registers into the enclosing call's
-   shared $defs, so the copies resolve each other's $refs — but only the
-   outermost call carries $defs, so a binding cannot borrow a sibling's and each
-   needs its own expansion. Duplicated bodies are the cost; the group size cap
-   below keeps it bounded. *)
+(* Only the outermost S.recursive call carries $defs, so each entry point of a
+   mutual group re-expands the whole group inside its own callback — nested
+   calls register into the shared $defs. One expansion per entry point is the
+   cost; the cap keeps it bounded. *)
 let maxMutualGroupSize = 4
 
 let mapRecursiveTypeDeclarations decls =
@@ -570,8 +562,7 @@ let mapRecursiveTypeDeclarations decls =
   | [] -> []
   | annotated ->
     let members = annotated |> List.map (fun d -> d.ptype_name.txt) in
-    (* Bodies are generated once and shared: they are immutable and generating
-       them twice would repeat the work for every copy in a mutual expansion. *)
+    (* Bodies are generated once and reused by every copy in a mutual expansion. *)
     let generated =
       annotated
       |> List.map (fun d ->
@@ -579,16 +570,26 @@ let mapRecursiveTypeDeclarations decls =
     in
     let declOf name = fst (List.assoc name generated) in
     let bodyOf name = snd (List.assoc name generated) in
-    let directDeps name = referencedMembers members (bodyOf name) in
-    let reachable name =
+    let directDepsByName =
+      members
+      |> List.map (fun name -> (name, referencedMembers members (bodyOf name)))
+    in
+    let directDeps name = List.assoc name directDepsByName in
+    (* Transitive deps of `name`, not crossing `blocked` members — a reference
+       to a member already bound in scope forces no expansion behind it. *)
+    let reachableAvoiding blocked name =
       let rec collect visited = function
         | [] -> visited
         | n :: rest ->
-          if List.mem n visited then collect visited rest
+          if List.mem n visited || List.mem n blocked then collect visited rest
           else collect (n :: visited) (directDeps n @ rest)
       in
       collect [] (directDeps name)
     in
+    let reachableByName =
+      members |> List.map (fun name -> (name, reachableAvoiding [] name))
+    in
+    let reachable name = List.assoc name reachableByName in
     let sameGroup a b =
       a = b || (List.mem b (reachable a) && List.mem a (reachable b))
     in
@@ -600,7 +601,7 @@ let mapRecursiveTypeDeclarations decls =
         [] members
     in
     (* Emit groups dependencies-first: a member that merely *uses* another one
-       binds against its top-level schema, so that binding has to come first. *)
+       binds against its already-emitted top-level schema. *)
     let rec topological emitted remaining =
       match remaining with
       | [] -> []
@@ -615,31 +616,56 @@ let mapRecursiveTypeDeclarations decls =
                                List.mem dep group || List.mem dep emitted)))
         in
         match ready with
-        (* Unreachable: groups are cycles collapsed to a point, so what is left
-           is a DAG and something is always ready. Emit rather than loop. *)
-        | [] -> remaining
+        (* Unreachable — groups are collapsed cycles, so the rest is a DAG.
+           Fail loudly rather than emit unresolvable bindings. *)
+        | [] ->
+          fail (declOf (List.hd (List.hd remaining))).ptype_loc
+            "sury-ppx internal error: failed to order recursive type groups. \
+             Please report the issue to https://github.com/DZakh/sury/issues"
         | _ -> ready @ topological (emitted @ List.concat ready) blocked)
+    in
+    (* A dep that other pending deps need goes later: later deps become *outer*
+       `let`s, in scope for earlier ones, so an expansion reuses the sibling
+       binding instead of duplicating it (and its $defs entry). Cyclic siblings
+       stay put; nested expansion resolves them. *)
+    let rec orderDeps ~blocked deps =
+      match deps with
+      | [] -> []
+      | _ -> (
+        let inner, rest =
+          deps
+          |> List.partition (fun d ->
+                 deps
+                 |> List.for_all (fun other ->
+                        other = d
+                        || not (List.mem d (reachableAvoiding blocked other))))
+        in
+        match inner with
+        | [] -> deps
+        | _ -> inner @ orderDeps ~blocked rest)
     in
     let rec expand ~group ~in_scope name =
       let in_scope = name :: in_scope in
-      (* Only direct dependencies get a binding: an indirect one is bound by
-         whichever expansion actually references it, and binding it here too
-         would emit an unused `let` — which projects that build warnings as
-         errors reject. *)
+      (* Only direct deps get a binding — an indirect one is bound by the
+         expansion that references it; here it would be an unused `let`. *)
       let deps =
         directDeps name
         |> List.filter (fun dep ->
                List.mem dep group && not (List.mem dep in_scope))
+        |> orderDeps ~blocked:in_scope
       in
-      wrapRecursive (declOf name)
-        (List.fold_left
-           (fun acc dep ->
-             Exp.let_ Nonrecursive
+      let rec bind body = function
+        | [] -> body
+        | dep :: outer ->
+          bind
+            (Exp.let_ Nonrecursive
                [ Vb.mk
                    (Pat.var (mknoloc (generateSchemaName dep)))
-                   (expand ~group ~in_scope dep) ]
-               acc)
-           (bodyOf name) deps)
+                   (expand ~group ~in_scope:(outer @ in_scope) dep) ]
+               body)
+            outer
+      in
+      wrapRecursive (declOf name) (bind (bodyOf name) deps)
     in
     topological [] groups
     |> List.map (fun group ->
