@@ -301,6 +301,12 @@ const strEscapeRe = /[\u0000-\u001f"\\\ud800-\udfff]/;
 const asJsonString = (value: string): string =>
   value.length < 5000 && !strEscapeRe.test(value) ? `"${value}"` : JSON.stringify(value);
 
+// An operation embeds the helper once, however many string pieces it has.
+const B_embedJsonStr = (b: Val): string => {
+  const idx = b.g.e.indexOf(asJsonString);
+  return idx === -1 ? B_embedPure(b, asJsonString) : `e[${idx}]`;
+};
+
 // The raw JSON text of a literal schema's value, or undefined for a const with
 // no JSON representation. JSON.stringify (not inlinedValueFromString) so string
 // escapes and non-finite numbers (-> null) are correct JSON.
@@ -490,77 +496,74 @@ export const jsonString = /* @__PURE__ */ (() => {
     };
     const keyText = (idx: number): string =>
       isArr ? "" : JSON.stringify(keys![idx]) + ":";
+    const emitEntry = (idx: number, comma: string): void => {
+      chunk = chunk + comma + keyText(idx);
+      const text = entryTexts[idx];
+      if (text !== U) {
+        chunk = chunk + text;
+      } else {
+        push(entryVals[idx]!.i);
+      }
+    };
 
-    if (dynamicItem !== U) {
-      const inputVar = input.v();
-      const iterVar = B_varWithoutAllocation(input.g);
-      const accVar = B_varWithoutAllocation(input.g);
-      const keyEmbed = isArr ? "" : B_embedPure(input, asJsonString);
-      const raiseCountBefore = input.g.t;
-      const itemInput = B_dynamicScope(input, iterVar);
-      itemInput.e = itemInput.s;
-      const resolved = parseDynamic(itemInput);
-      const { p, g } = isArr ? { p: toPiece(resolved), g: U } : fieldPiece(resolved);
-      const appendCode = isArr
-        ? `${accVar}+=${
-            fixedLen ? `","` : `(${iterVar}?",":"")`
-          }+${foldStringCoercion(p.i)}`
-        : `${accVar}+=(${accVar}?",":"")+${keyEmbed}(${iterVar})+":"+${foldStringCoercion(p.i)}`;
-      const itemCode = B_mergeWithPathPrepend(
-        p,
-        input,
-        iterVar,
-        () => (g !== U ? `if(${g}!==void 0){${appendCode}}` : appendCode),
-        raiseCountBefore,
-      );
-      const loopCode = isArr
-        ? `let ${accVar}="";for(let ${iterVar}=${fixedLen};${iterVar}<${inputVar}.length;++${iterVar}){${itemCode}}`
-        : `let ${accVar}="";for(let ${iterVar} in ${inputVar}){${itemCode}}`;
+    if (dynamicItem !== U || !hasOpt) {
+      let loopCode = "";
+      let dynAcc = "";
+      if (dynamicItem !== U) {
+        const inputVar = input.v();
+        const iterVar = B_varWithoutAllocation(input.g);
+        dynAcc = B_varWithoutAllocation(input.g);
+        const keyEmbed = isArr ? "" : B_embedJsonStr(input);
+        const raiseCountBefore = input.g.t;
+        const itemInput = B_dynamicScope(input, iterVar);
+        itemInput.e = itemInput.s;
+        const resolved = parseDynamic(itemInput);
+        const { p, g } = isArr ? { p: toPiece(resolved), g: U } : fieldPiece(resolved);
+        const appendCode = isArr
+          ? `${dynAcc}+=${
+              fixedLen ? `","` : `(${iterVar}?",":"")`
+            }+${foldStringCoercion(p.i)}`
+          : `${dynAcc}+=(${dynAcc}?",":"")+${keyEmbed}(${iterVar})+":"+${foldStringCoercion(p.i)}`;
+        const itemCode = B_mergeWithPathPrepend(
+          p,
+          input,
+          iterVar,
+          () => (g !== U ? `if(${g}!==void 0){${appendCode}}` : appendCode),
+          raiseCountBefore,
+        );
+        loopCode = `let ${dynAcc}="";for(let ${iterVar}${
+          isArr ? `=${fixedLen};${iterVar}<${inputVar}.length;++${iterVar}` : ` in ${inputVar}`
+        }){${itemCode}}`;
+      }
 
       chunk = isArr ? "[" : "{";
       for (let idx = 0; idx < fixedLen; idx++) {
-        chunk = chunk + (idx === 0 ? "" : ",");
-        const text = entryTexts[idx];
-        if (text !== U) {
-          chunk = chunk + text;
-        } else {
-          push(entryVals[idx]!.i);
-        }
+        emitEntry(idx, idx === 0 ? "" : ",");
       }
-      push(accVar);
-      chunk = isArr ? "]" : "}";
+      if (dynamicItem !== U) {
+        push(dynAcc);
+      }
+      chunk = chunk + (isArr ? "]" : "}");
       flush();
       const output = B_next(input, expr, expectedSchema, expectedSchema);
       output.cp = code + loopCode;
       return output;
     }
 
-    if (!hasOpt) {
-      chunk = isArr ? "[" : "{";
-      for (let idx = 0; idx < fixedLen; idx++) {
-        chunk = chunk + (idx === 0 ? "" : ",") + keyText(idx);
-        const text = entryTexts[idx];
-        if (text !== U) {
-          chunk = chunk + text;
-        } else {
-          push(entryVals[idx]!.i);
-        }
-      }
-      chunk = chunk + (isArr ? "]" : "}");
-      flush();
-      const output = B_next(input, expr, expectedSchema, expectedSchema);
-      output.cp = code;
-      return output;
-    }
-
     // Optional fields present: build into an accumulator var. Static comma for
     // a field that follows an always-present one, a runtime probe otherwise.
+    // The first unconditional run seeds the accumulator's declaration.
     const accVar = B_varWithoutAllocation(input.g);
     let stmts = "";
+    let accInit: string | undefined = U;
     const flushRun = (): void => {
       flush();
       if (expr !== "") {
-        stmts = stmts + `${accVar}+=${expr};`;
+        if (stmts === "" && accInit === U) {
+          accInit = expr;
+        } else {
+          stmts = stmts + `${accVar}+=${expr};`;
+        }
         expr = "";
       }
     };
@@ -571,15 +574,9 @@ export const jsonString = /* @__PURE__ */ (() => {
         if (idx !== 0 && !hasDefiniteBefore) {
           flushRun();
           push(`(${accVar}?",":"")`);
-        } else if (idx !== 0) {
-          chunk = chunk + ",";
-        }
-        chunk = chunk + keyText(idx);
-        const text = entryTexts[idx];
-        if (text !== U) {
-          chunk = chunk + text;
+          emitEntry(idx, "");
         } else {
-          push(entryVals[idx]!.i);
+          emitEntry(idx, idx === 0 ? "" : ",");
         }
         hasDefiniteBefore = true;
       } else {
@@ -595,7 +592,7 @@ export const jsonString = /* @__PURE__ */ (() => {
     }
     flushRun();
     const output = B_next(input, `"{"+${accVar}+"}"`, expectedSchema, expectedSchema);
-    output.cp = code + `let ${accVar}="";` + stmts;
+    output.cp = code + `let ${accVar}=${accInit !== U ? accInit : `""`};` + stmts;
     return output;
   };
 
@@ -630,7 +627,7 @@ export const jsonString = /* @__PURE__ */ (() => {
     } else if (flagUnsafeHas(inputTagFlag, tagFlagString)) {
       return B_next(
         input,
-        `${B_embedPure(input, asJsonString)}(${input.i})`,
+        `${B_embedJsonStr(input)}(${input.i})`,
         expectedSchema,
       );
     } else if (flagUnsafeHas(inputTagFlag, (tagFlagNumber | tagFlagBoolean))) {
