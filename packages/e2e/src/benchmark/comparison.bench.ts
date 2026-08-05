@@ -13,7 +13,7 @@
 import { bench, describe } from "vitest";
 import { z } from "zod";
 import * as v from "valibot";
-import * as S from "sury/src/S.mjs";
+import * as S from "sury";
 import { type } from "arktype";
 import { Type } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";

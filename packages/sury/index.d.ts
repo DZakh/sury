@@ -246,6 +246,9 @@ export type Schema<TInput = unknown, TOutput = TInput> = {
   readonly errorMessage?: SchemaErrorMessage;
 
   // jsonSchema.input/.output throw until enableStandardJSONSchema() is called.
+  // validate reports a failed input as `issues`, but throws when the schema
+  // has no compilable parse operation at all (a rejected `.to` conversion) —
+  // that's a bug in the schema, not a verdict on the value.
   readonly ["~standard"]: StandardSchemaV1.Props<TInput, TOutput> &
     StandardJSONSchemaV1.Props<TInput, TOutput>;
 } & (

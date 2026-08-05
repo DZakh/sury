@@ -1,4 +1,4 @@
-// Bundle+minify+gzip every public export of the dev entry (src/S.mjs) in
+// Bundle+minify+gzip every public export of the dev entry (index.mjs) in
 // isolation, for `bundleSize.yaml` — the whole-package size ratchet.
 //
 // One row per export, rather than per schema: a schema's bundle cost is the
@@ -18,7 +18,7 @@ import { build, type Plugin } from "esbuild";
 import type { BundleSize } from "./format";
 
 const SURY_ROOT = fileURLToPath(new URL("../sury/", import.meta.url));
-const SURY_ENTRY = path.join(SURY_ROOT, "src/S.mjs");
+const SURY_ENTRY = path.join(SURY_ROOT, "index.mjs");
 
 const NAMESPACE = "bundle-size-entry";
 

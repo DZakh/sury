@@ -4,6 +4,7 @@
 import {
   arrayTag,
   bigintTag,
+  type Check,
   initSchema,
   inputExpression,
   type Internal,
