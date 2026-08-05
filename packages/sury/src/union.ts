@@ -668,10 +668,9 @@ const unionInvalid = (input: Val, from: Internal, to: Internal, why: string): ne
 const unionNormalize = (
   variants: Internal[],
   source: Internal,
-  skipUndefined: boolean,
   nan: number
 ): UnionNormalized => {
-  let flags = skipUndefined ? tagFlagUndefined : 0;
+  let flags = 0;
   const sourceLiteral = isLiteral(source);
   for (let i = 0; i < variants.length; i++) {
     const member = variants[i]!;
@@ -728,10 +727,6 @@ const unionAnalyze = (
     const accepts =
       !(tag & tagFlagNever) &&
       !unionNeverLink(s) &&
-      !(
-        (normalizedFlags & tagFlagUndefined) &&
-        (tag & tagFlagUndefined)
-      ) &&
       !discriminatorDisjoint &&
       (!exact ||
         (isLiteral(s)
@@ -1299,12 +1294,7 @@ export const unionDecoder: Builder = (input: Val) => {
   const nan = flagUnsafeHas(input.g.o, flagDisableNanNumberValidation)
     ? tagFlagNaN
     : 0;
-  const normalized = unionNormalize(
-    variants,
-    source,
-    "fromDefault" in self,
-    nan
-  );
+  const normalized = unionNormalize(variants, source, nan);
   // A source that can hold anything constrains nothing, so it can't prove two
   // cases disjoint.
   // Rule 2 — matching some but not all target variants is ambiguous: pass the
@@ -1507,6 +1497,16 @@ const unionResolveToUnion = (
     const produces =
       sourceVariant.type !== neverTag && sourceOut.type !== neverTag;
     if (!produces) {
+      continue;
+    }
+    // An arm that produces the whole target union — its codec link target is
+    // the union itself or a copy sharing its `anyOf` (Option.getOr's default
+    // arm) — has nothing left to append and stands in for every target
+    // variant's coverage.
+    if (sourceOut === target || (target.anyOf !== U && sourceOut.anyOf === target.anyOf)) {
+      for (let t = 0; t < targets.length; t++) {
+        covered[t] = true;
+      }
       continue;
     }
     const sameTyped = targets.filter(

@@ -57,7 +57,7 @@ test("Compiled parse code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{(typeof i==="boolean"||i===void 0)||e[1](i);return i===void 0?e[0]():i}`,
+    `i=>{for(;;){if(typeof i==="boolean")break;if(i===void 0){i=e[0]();break}e[1](i)}return i}`,
   )
 })
 
@@ -71,14 +71,16 @@ test("Compiled async parse code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ParseAsync,
-    `i=>{for(;;){if(typeof i==="boolean"){let v0=e[0](i);i=v0;break}if(i===void 0)break;e[1](i)}let v1=Promise.resolve(i);return v1.then(v1=>{return v1===void 0?e[2]():v1})}`,
+    `i=>{for(;;){if(typeof i==="boolean"){let v0=e[0](i);i=v0;break}if(i===void 0){i=e[1]();break}e[2](i)}return Promise.resolve(i)}`,
   )
 })
 
 test("Compiled serialize code snapshot", t => {
   let schema = S.bool->S.option->S.Option.getOrWith(() => false)
 
-  t->U.assertCompiledCodeIsNoop(~schema, ~op=#Encode)
+  // The reversed union validates the value like any other typed decode — the
+  // old noop relied on Option_getWithDefault's noopDecoder hack.
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{typeof i==="boolean"||e[0](i);return i}`)
 })
 
 // FIXME: callback return values aren't validated, so a bad default silently

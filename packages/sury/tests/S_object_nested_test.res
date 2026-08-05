@@ -87,12 +87,12 @@ test("Object with a nested tag and optional field", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i["nested"],v3=i["bar"];typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0["tag"],v2=v0["foo"];v1==="value"||e[0](v1);(typeof v2==="string"||v2===void 0)||e[1](v2);typeof v3==="string"||e[3](v3);return {"foo":v2===void 0?"":v2,"bar":v3,}}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i["nested"],v3=i["bar"];typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0["tag"],v2=v0["foo"];v1==="value"||e[0](v1);for(;;){if(typeof v2==="string")break;if(v2===void 0){v2="";break}e[1](v2)}typeof v3==="string"||e[3](v3);return {"foo":v2,"bar":v3,}}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{return {"nested":{"tag":"value","foo":i["foo"],},"bar":i["bar"],}}`,
+    `i=>{let v0=i["foo"];typeof v0==="string"||e[0](v0);return {"nested":{"tag":"value","foo":v0,},"bar":i["bar"],}}`,
   )
 })
 

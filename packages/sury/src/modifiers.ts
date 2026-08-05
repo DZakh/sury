@@ -23,11 +23,13 @@ import {
   type Val,
 } from "./base";
 import {
+  _var,
   B_embed,
   B_embedTransformation,
   B_inlineConst,
   B_invalidInputBuilder,
   B_invalidOperation,
+  B_neverSlot,
   B_next,
   B_refine,
 } from "./builder";
@@ -259,86 +261,85 @@ export type OptionDefault =
   | { type: "value"; value: unknown }
   | { type: "callback"; callback: () => unknown };
 
+// Rule 2's union spelling of CUSTOM_CODEC_SPEC.md: every undefined-producing
+// variant converts to the item union with the default on decode, and yields to
+// its siblings on encode via the never slot.
 export const Option_getWithDefault = (schema: Internal, default_: OptionDefault): Internal => {
   return updateOutput(schema, (mut) => {
     const anyOf = mut.anyOf;
-    if (anyOf !== U) {
-      const outputItems: Internal[] = [];
-      // FIXME: drop `originalItems` once the union decoder can reverse member
-      // `.to` chains — then mut.default + the serializer can both run
-      // through `schema->reverse` directly.
-      const originalItems: Internal[] = [];
+    if (anyOf === U) {
+      return panic(`Can't set default for ${inputExpression(mut)}`);
+    }
+    const outputItems: Internal[] = [];
+    const originalItems: Internal[] = [];
 
-      for (let idx = 0; idx < anyOf.length; idx++) {
-        const schema = anyOf[idx]!;
-        const outputSchema = getOutputSchema(schema);
-        if (outputSchema.type !== undefinedTag) {
+    for (let idx = 0; idx < anyOf.length; idx++) {
+      const variant = anyOf[idx]!;
+      const outputSchema = getOutputSchema(variant);
+      if (outputSchema.type !== undefinedTag) {
+        // Dedupe by identity: two arms sharing one output instance (the bool
+        // singleton) would otherwise make every rule-4 match ambiguous.
+        if (!outputItems.includes(outputSchema)) {
           outputItems.push(outputSchema);
-          originalItems.push(schema);
         }
+        originalItems.push(variant);
       }
+    }
 
-      const item: Internal =
-        outputItems.length === 0
-          ? panic(`Can't set default for ${inputExpression(mut)}`)
-          : outputItems.length === 1
-            ? outputItems[0]!
-            : unionFactory(outputItems);
+    const item: Internal =
+      outputItems.length === 0
+        ? panic(`Can't set default for ${inputExpression(mut)}`)
+        : outputItems.length === 1
+          ? outputItems[0]!
+          : unionFactory(outputItems);
+
+    if (default_.type === "value") {
+      const v = default_.value;
+      // Full unknown -> item decode so primitive item types still get type-checked.
+      try {
+        (getDecoder(unknown, item) as (input: unknown) => unknown)(v);
+      } catch (exn) {
+        const error = getOrRethrow(exn);
+        panic(
+          `Invalid default for ${inputExpression(mut)}: ${
+            (error as unknown as { message: string })["message"]
+          }`
+        );
+      }
       const originalItem: Internal =
         originalItems.length === 1 ? originalItems[0]! : unionFactory(originalItems);
-
-      if (default_.type === "value") {
-        const v = default_.value;
-        // Full unknown -> item decode so primitive item types still get type-checked.
-        try {
-          (getDecoder(unknown, item) as (input: unknown) => unknown)(v);
-        } catch (exn) {
-          const error = getOrRethrow(exn);
-          panic(
-            `Invalid default for ${inputExpression(mut)}: ${
-              (error as unknown as { message: string })["message"]
-            }`
-          );
-        }
-        // Best-effort input form for JSON Schema metadata.
-        // FIXME: running a decoder at schema-creation time isn't a goal —
-        // it compiles + executes a fresh decode pipeline per default. Replace
-        // with something cheaper (or move to lazy/JSON-Schema-export time)
-        // before the official v11 release.
-        try {
-          mut.default = (getDecoder(reverse(originalItem)) as (input: unknown) => unknown)(v);
-        } catch (_exn) {}
-      }
-
-      mut.parser = (input) => {
-        const nextSchema = input.e.to!;
-        const inputVar = input.v();
-        return B_next(
-          input,
-          `${inputVar}===void 0?${
-            default_.type === "value"
-              ? B_inlineConst(input, Literal_parse(default_.value))
-              : `${B_embed(input, default_.callback)}()`
-          }:${inputVar}`,
-          nextSchema,
-          nextSchema
-        );
-      };
-      const to = copySchema(item);
-
-      const originalDecoder = to.decoder;
-      to.serializer = (input) => {
-        const nextSchema = reverse(originalItem);
-        return B_refine(originalDecoder(input), nextSchema, U, nextSchema);
-      };
-
-      // FIXME: This looks wrong, but this is how it was with prev architecture
-      to.decoder = noopDecoder;
-
-      mut.to = to;
-    } else {
-      panic(`Can't set default for ${inputExpression(mut)}`);
+      // Best-effort input form for JSON Schema metadata — a never or async
+      // encode makes it uncomputable, so skip rather than throw (rule 6).
+      try {
+        mut.default = (getDecoder(reverse(originalItem)) as (input: unknown) => unknown)(v);
+      } catch (_exn) {}
     }
+
+    // Not B_conversion: an eager default inlines as a constant instead of
+    // costing an embed slot and a call, and a callback's throw keeps escaping
+    // raw the way it always did.
+    const decodeB: Builder = (input) => {
+      const target = input.e.to!;
+      const output = B_next(
+        input,
+        default_.type === "value"
+          ? B_inlineConst(input, Literal_parse(default_.value))
+          : `${B_embed(input, default_.callback)}()`,
+        target,
+        target
+      );
+      if (default_.type === "value") {
+        // A constant inline is idempotent, so re-reads don't need a var. The
+        // callback form stays materializable — re-reading would call it twice.
+        output.v = _var;
+      }
+      return output;
+    };
+    mut.anyOf = anyOf.map((variant) =>
+      getOutputSchema(variant).type === undefinedTag
+        ? codecTo(variant, item, decodeB, B_neverSlot)
+        : variant
+    );
   });
 };
 
