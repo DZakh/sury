@@ -268,6 +268,7 @@ S.tuple([S.string, S.number]); // alias for S.schema
 
 // Unions
 S.union([S.string, S.number]);
+S.anyOf([S.string, S.number]); // alias for S.union
 // Enum-like union of literals
 S.union(["Win", "Draw", "Loss"]);
 // Discriminated unions
@@ -728,6 +729,8 @@ An union represents a logical OR relationship. You can apply this concept to you
 The schema function `union` creates an OR relationship between any number of schemas that you pass as the first argument in the form of an array. On validation, the schema returns the result of the first schema that was successfully validated.
 
 > 🧠 Members are matched in the order they are passed to `S.union` — the first one that fits the value wins.
+
+It's also available as `S.anyOf`, matching the JSON Schema keyword it maps to.
 
 ```ts
 // TypeScript type for reference:

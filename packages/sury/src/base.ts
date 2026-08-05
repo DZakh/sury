@@ -155,10 +155,10 @@ export const s = /* @__PURE__ */ Symbol(vendor);
 export const itemSymbol = /* @__PURE__ */ Symbol(vendor + ":item");
 
 export type NumberFormat = "int32" | "port";
-// Mirrored by `StringFormat` in S.d.ts, which is the surface TS users see —
+// Mirrored by `StringFormat` in index.d.ts, which is the surface TS users see —
 // a name added here without being added there is invisible to them. Every
-// member but `json`, `cuid` and `url` is a JSON Schema format name verbatim,
-// which is what lets jsonschema.ts pass it through in both directions.
+// member but `json` and `cuid` is a JSON Schema format name verbatim, which is
+// what lets jsonschema.ts pass it through in both directions.
 export type StringFormat =
   | "json"
   | "date-time"
@@ -435,7 +435,7 @@ export const immutableEmptyObject: Record<string, unknown> = Object.create(null)
 // (+4 closures) on every access, and this runs per-node while building every
 // `S.schema({...})`. `in` walks the prototype chain without invoking the
 // getter. The `typeof === object` guard keeps primitives (passed by
-// `js_assert`) from throwing on `in` and reproduces the old falsy-on-primitive
+// `assert`) from throwing on `in` and reproduces the old falsy-on-primitive
 // result.
 export const isSchemaObject = (obj: unknown): boolean => {
   return typeof obj === objectTag && obj !== null && "~standard" in (obj as object);

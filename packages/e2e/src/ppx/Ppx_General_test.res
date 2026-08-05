@@ -24,7 +24,7 @@ test("Can reuse schemas from other types", t => {
   )
 })
 
-// TODO: Support recursive schemas
+// Recursive types are covered in Ppx_Recursive_test.res
 
 @schema
 type stringWithDefault = @s.default("Foo") string
