@@ -264,6 +264,17 @@ which is what `packages/sury/specs/<format>.yaml` examples are drawn from.
   `isoDateTime` strict and add a separate lenient export, at the cost of two
   schemas emitting `format: "date-time"` (only one can be the `fromJSONSchema`
   target).
+- `fromJSONSchema` only reaches the format schemas through the
+  `type === "string"` branch, so a bare `{"format": "date"}` — which is exactly
+  how the JSON-Schema-Test-Suite and most real documents write it — converts to
+  an unconstrained schema and validates nothing. Pre-existing (the same gate
+  held for `email`/`uri`/`uuid`/`date-time` before the vocabulary landed), but
+  it is now the main thing between the format work and real `fromJSONSchema`
+  coverage: `packages/json-schema-test-suite` scores `optional/format/date.json`
+  at 22/75 where the schemas themselves are 69/69 on the same strings. Faithful
+  handling means a string-or-anything-else schema, since `format` is
+  type-conditional — the same structural question the suite README raises for
+  `maxLength` and `properties`.
 - IDNA validation for `S.hostname` / `S.idnHostname` (32/55 and 51/84). Both
   accept an `xn--` label on shape alone; rejecting one whose Punycode decodes to
   a character IDNA2008 disallows needs Punycode plus the Unicode
