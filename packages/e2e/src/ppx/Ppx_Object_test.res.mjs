@@ -2,18 +2,19 @@
 
 import * as S from "sury/src/S.res.mjs";
 import * as U from "../utils/U.res.mjs";
+import * as Sury from "sury";
 import * as Vitest from "../utils/Vitest.res.mjs";
 import * as Vitest$1 from "vitest";
 
-let simpleObjectSchema = S.schema(s => ({
-  label: s.m(S.string),
-  value: s.m(S.int)
+let simpleObjectSchema = Sury.$schema(s => ({
+  label: s.m(Sury.string),
+  value: s.m(Sury.int)
 }));
 
 Vitest$1.test("Simple object schema", t => {
-  U.assertEqualSchemas(t, simpleObjectSchema, S.schema(s => ({
-    label: s.m(S.string),
-    value: s.m(S.int)
+  U.assertEqualSchemas(t, simpleObjectSchema, Sury.$schema(s => ({
+    label: s.m(Sury.string),
+    value: s.m(Sury.int)
   })), undefined);
   Vitest.Assert.deepEqual(t, S.parseOrThrow({label:"foo",value:1}, simpleObjectSchema), {
     label: "foo",

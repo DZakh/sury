@@ -144,12 +144,12 @@ test("Fails to encode Error literal to JSON", t => {
 
   t->U.assertThrowsMessage(
     () => error->S.decodeOrThrow(~from=schema, ~to=S.json),
-    `Can't decode [object Error] to JSON. Use S.to to define a custom decoder`,
+    `Can't decode Error to JSON. Use S.to to define a custom decoder`,
   )
   t->Assert.is(error->S.decodeOrThrow(~from=schema, ~to=S.unknown), error)
   t->U.assertThrowsMessage(
     () => %raw(`new Error("foo")`)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
-    `Expected [object Error], received [object Error]`,
+    `Expected Error, received invalid Error`,
   )
 })
 

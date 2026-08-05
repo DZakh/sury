@@ -2,124 +2,125 @@
 
 import * as S from "sury/src/S.res.mjs";
 import * as U from "../utils/U.res.mjs";
+import * as Sury from "sury";
 import * as Vitest from "vitest";
 
-Vitest.test("String schema", t => U.assertEqualSchemas(t, S.string, S.string, undefined));
+let myStringSchema = Sury.string;
 
-Vitest.test("Int schema", t => U.assertEqualSchemas(t, S.int, S.int, undefined));
+Vitest.test("String schema", t => U.assertEqualSchemas(t, myStringSchema, Sury.string, undefined));
 
-Vitest.test("Float schema", t => U.assertEqualSchemas(t, S.float, S.float, undefined));
+let myIntSchema = Sury.int;
 
-Vitest.test("Bool schema", t => U.assertEqualSchemas(t, S.bool, S.bool, undefined));
+Vitest.test("Int schema", t => U.assertEqualSchemas(t, myIntSchema, Sury.int, undefined));
 
-Vitest.test("Unit schema", t => U.assertEqualSchemas(t, S.unit, S.unit, undefined));
+let myFloatSchema = Sury.float;
 
-Vitest.test("Unknown schema", t => U.assertEqualSchemas(t, S.unknown, S.unknown, undefined));
+Vitest.test("Float schema", t => U.assertEqualSchemas(t, myFloatSchema, Sury.float, undefined));
 
-Vitest.test("Never schema", t => U.assertEqualSchemas(t, S.never, S.never, undefined));
+let myBoolSchema = Sury.bool;
 
-let myOptionOfStringSchema = S.option(S.string);
+Vitest.test("Bool schema", t => U.assertEqualSchemas(t, myBoolSchema, Sury.bool, undefined));
 
-Vitest.test("Option of string schema", t => U.assertEqualSchemas(t, myOptionOfStringSchema, S.option(S.string), undefined));
+let myUnitSchema = Sury.$unit;
 
-let myNullableOfStringSchema = S.nullable(S.string);
+Vitest.test("Unit schema", t => U.assertEqualSchemas(t, myUnitSchema, Sury.$unit, undefined));
 
-Vitest.test("Nullable of string schema", t => U.assertEqualSchemas(t, myNullableOfStringSchema, S.nullable(S.string), undefined));
+let myUnknownSchema = Sury.unknown;
 
-let myArrayOfStringSchema = S.array(S.string);
+Vitest.test("Unknown schema", t => U.assertEqualSchemas(t, myUnknownSchema, Sury.unknown, undefined));
 
-Vitest.test("Array of string schema", t => U.assertEqualSchemas(t, myArrayOfStringSchema, S.array(S.string), undefined));
+let myNeverSchema = Sury.never;
 
-let myListOfStringSchema = S.list(S.string);
+Vitest.test("Never schema", t => U.assertEqualSchemas(t, myNeverSchema, Sury.never, undefined));
 
-Vitest.test("List of string schema", t => U.assertEqualSchemas(t, myListOfStringSchema, S.list(S.string), undefined));
+let myOptionOfStringSchema = Sury.$option(Sury.string);
 
-let myDictOfStringSchema = S.dict(S.string);
+Vitest.test("Option of string schema", t => U.assertEqualSchemas(t, myOptionOfStringSchema, Sury.$option(Sury.string), undefined));
 
-Vitest.test("Dict of string schema", t => U.assertEqualSchemas(t, myDictOfStringSchema, S.dict(S.string), undefined));
+let myNullableOfStringSchema = Sury.nullish(Sury.string);
 
-let myDictOfStringFromJsSchema = S.dict(S.string);
+Vitest.test("Nullable of string schema", t => U.assertEqualSchemas(t, myNullableOfStringSchema, Sury.nullish(Sury.string), undefined));
 
-Vitest.test("Dict of string schema from Js", t => U.assertEqualSchemas(t, myDictOfStringSchema, S.dict(S.string), undefined));
+let myArrayOfStringSchema = Sury.array(Sury.string);
 
-let myDictOfStringFromCoreSchema = S.dict(S.string);
+Vitest.test("Array of string schema", t => U.assertEqualSchemas(t, myArrayOfStringSchema, Sury.array(Sury.string), undefined));
 
-Vitest.test("Dict of string schema from Core", t => U.assertEqualSchemas(t, myDictOfStringFromCoreSchema, S.dict(S.string), undefined));
+let myListOfStringSchema = Sury.list(Sury.string);
 
-Vitest.test("Json schema", t => U.assertEqualSchemas(t, S.json, S.json, undefined));
+Vitest.test("List of string schema", t => U.assertEqualSchemas(t, myListOfStringSchema, Sury.list(Sury.string), undefined));
 
-Vitest.test("Json schema from Core", t => U.assertEqualSchemas(t, S.json, S.json, undefined));
+let myDictOfStringSchema = Sury.dict(Sury.string);
 
-let myTupleSchema = S.schema(s => [
-  s.m(S.string),
-  s.m(S.int)
+Vitest.test("Dict of string schema", t => U.assertEqualSchemas(t, myDictOfStringSchema, Sury.dict(Sury.string), undefined));
+
+let myDictOfStringFromJsSchema = Sury.dict(Sury.string);
+
+Vitest.test("Dict of string schema from Js", t => U.assertEqualSchemas(t, myDictOfStringSchema, Sury.dict(Sury.string), undefined));
+
+let myDictOfStringFromCoreSchema = Sury.dict(Sury.string);
+
+Vitest.test("Dict of string schema from Core", t => U.assertEqualSchemas(t, myDictOfStringFromCoreSchema, Sury.dict(Sury.string), undefined));
+
+let myJsonSchema = Sury.json;
+
+Vitest.test("Json schema", t => U.assertEqualSchemas(t, myJsonSchema, Sury.json, undefined));
+
+let myJsonFromCoreSchema = Sury.json;
+
+Vitest.test("Json schema from Core", t => U.assertEqualSchemas(t, myJsonFromCoreSchema, Sury.json, undefined));
+
+let myTupleSchema = Sury.$schema(s => [
+  s.m(Sury.string),
+  s.m(Sury.int)
 ]);
 
-Vitest.test("Tuple schema", t => U.assertEqualSchemas(t, myTupleSchema, S.tuple2(S.string, S.int), undefined));
+Vitest.test("Tuple schema", t => U.assertEqualSchemas(t, myTupleSchema, S.tuple2(Sury.string, Sury.int), undefined));
 
-let myBigTupleSchema = S.schema(s => [
-  s.m(S.string),
-  s.m(S.string),
-  s.m(S.string),
-  s.m(S.int),
-  s.m(S.int),
-  s.m(S.int),
-  s.m(S.float),
-  s.m(S.float),
-  s.m(S.float),
-  s.m(S.bool),
-  s.m(S.bool),
-  s.m(S.bool)
+let myBigTupleSchema = Sury.$schema(s => [
+  s.m(Sury.string),
+  s.m(Sury.string),
+  s.m(Sury.string),
+  s.m(Sury.int),
+  s.m(Sury.int),
+  s.m(Sury.int),
+  s.m(Sury.float),
+  s.m(Sury.float),
+  s.m(Sury.float),
+  s.m(Sury.bool),
+  s.m(Sury.bool),
+  s.m(Sury.bool)
 ]);
 
-Vitest.test("Big tuple schema", t => U.assertEqualSchemas(t, myBigTupleSchema, S.schema(s => [
-  s.m(S.string),
-  s.m(S.string),
-  s.m(S.string),
-  s.m(S.int),
-  s.m(S.int),
-  s.m(S.int),
-  s.m(S.float),
-  s.m(S.float),
-  s.m(S.float),
-  s.m(S.bool),
-  s.m(S.bool),
-  s.m(S.bool)
+Vitest.test("Big tuple schema", t => U.assertEqualSchemas(t, myBigTupleSchema, Sury.$schema(s => [
+  s.m(Sury.string),
+  s.m(Sury.string),
+  s.m(Sury.string),
+  s.m(Sury.int),
+  s.m(Sury.int),
+  s.m(Sury.int),
+  s.m(Sury.float),
+  s.m(Sury.float),
+  s.m(Sury.float),
+  s.m(Sury.bool),
+  s.m(Sury.bool),
+  s.m(Sury.bool)
 ]), undefined));
 
-Vitest.test("Custom string schema", t => U.assertEqualSchemas(t, S.email, S.email, undefined));
+let myCustomStringSchema = Sury.email;
 
-let myCustomLiteralStringSchema = S.literal("123");
+Vitest.test("Custom string schema", t => U.assertEqualSchemas(t, myCustomStringSchema, Sury.email, undefined));
 
-Vitest.test("Custom litaral string schema", t => U.assertEqualSchemas(t, myCustomLiteralStringSchema, S.literal("123"), undefined));
+let myCustomLiteralStringSchema = Sury.literal("123");
 
-let myCustomOptionalStringSchema = S.option(S.email);
+Vitest.test("Custom litaral string schema", t => U.assertEqualSchemas(t, myCustomLiteralStringSchema, Sury.literal("123"), undefined));
 
-Vitest.test("Custom optional string schema", t => U.assertEqualSchemas(t, myCustomOptionalStringSchema, S.option(S.email), undefined));
+let myCustomOptionalStringSchema = Sury.$option(Sury.email);
 
-let myNullOfStringSchema = S.nullAsOption(S.string);
+Vitest.test("Custom optional string schema", t => U.assertEqualSchemas(t, myCustomOptionalStringSchema, Sury.$option(Sury.email), undefined));
 
-Vitest.test("Null of string schema", t => U.assertEqualSchemas(t, myNullOfStringSchema, S.nullAsOption(S.string), undefined));
+let myNullOfStringSchema = Sury.$nullAsOption(Sury.string);
 
-let myStringSchema = S.string;
-
-let myIntSchema = S.int;
-
-let myFloatSchema = S.float;
-
-let myBoolSchema = S.bool;
-
-let myUnitSchema = S.unit;
-
-let myUnknownSchema = S.unknown;
-
-let myNeverSchema = S.never;
-
-let myJsonSchema = S.json;
-
-let myJsonFromCoreSchema = S.json;
-
-let myCustomStringSchema = S.email;
+Vitest.test("Null of string schema", t => U.assertEqualSchemas(t, myNullOfStringSchema, Sury.$nullAsOption(Sury.string), undefined));
 
 export {
   myStringSchema,
@@ -145,4 +146,4 @@ export {
   myCustomOptionalStringSchema,
   myNullOfStringSchema,
 }
-/*  Not a pure module */
+/* myStringSchema Not a pure module */

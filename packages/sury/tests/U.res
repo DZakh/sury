@@ -11,6 +11,22 @@ external castUnknownToAny: unknown => 'any = "%identity"
 
 let throwError = (error: S.error) => throw(error->Obj.magic)
 
+// Stands in for the removed transform effect ctx's `fail`. A transform now
+// fails by throwing, and this is that throw with the boilerplate named once —
+// the same shape a caller writes, kept here so the tests read as assertions
+// rather than as error construction.
+let fail = (message, ~path=S.Path.empty) =>
+  S.Error.throw(
+    S.Error.make(
+      InvalidInput({
+        reason: message,
+        path,
+        expected: S.unknown,
+        received: S.unknown,
+      }),
+    ),
+  )
+
 %%private(
   @val @scope("JSON")
   external unsafeStringify: 'a => string = "stringify"
@@ -127,15 +143,7 @@ let getCompiledCodeString = (
       defs->Dict.forEachWithKey((schema, key) =>
         try {
           let defFn = schema->toFn
-          let defCode =
-            defFn["toString"]()->String.replaceAll(
-              `${(S.unknown->S.untag).seq->Float.toString}-${(
-                  schema->S.untag
-                ).seq->Float.toString}`,
-              `unknown->${key}`,
-            )
-
-          code := code.contents ++ "\n" ++ `${key}: ${defCode}`
+          code := code.contents ++ "\n" ++ `${key}: ${defFn["toString"]()}`
         } catch {
         | _exn => ()
         }

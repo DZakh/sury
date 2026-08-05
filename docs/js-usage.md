@@ -1,4 +1,4 @@
-[⬅ Back to highlights](/README.md)
+[⬅ Back to highlights](../README.md)
 
 # JavaScript API reference
 
@@ -9,7 +9,7 @@
 - [Basic usage](#basic-usage)
   - [Parsing data](#parsing-data)
   - [Inferred types](#inferred-types)
-  - [Serializing data](#serializing-data)
+  - [Encoding data](#encoding-data)
   - [JSON Schema](#json-schema)
   - [Standard Schema](#standard-schema)
 - [Defining schemas](#defining-schemas)
@@ -52,7 +52,9 @@
   - [`reverse`](#reverse)
   - [`to`](#to)
   - [`name`](#name)
-  - [`toExpression`](#toexpression)
+  - [`inputExpression`](#inputexpression)
+  - [`outputExpression`](#outputexpression)
+  - [`toString`](#tostring)
 - [Error handling](#error-handling)
 - [Global config](#global-config)
   - [`defaultAdditionalItems`](#defaultadditionalitems)
@@ -97,7 +99,7 @@ S.parser(playerSchema)({ username: "billie", xp: "not a number" });
 
 Use `S.safe` / `S.safeAsync` if you'd rather have a result than an exception — see [Error handling](#error-handling).
 
-> 🧠 Besides `parser` there are operations to transform without validation, assert without allocating an output, and serialize back to the input format. See [Functions on schema](#functions-on-schema).
+> 🧠 Besides `parser` there are operations to transform without validation, assert without allocating an output, and encode back to the input format. See [Functions on schema](#functions-on-schema).
 
 ### Inferred types
 
@@ -122,9 +124,9 @@ const parseT = <T>(schema: S.Schema<unknown, T>, data: unknown): T =>
   S.parser(schema)(data);
 ```
 
-### Serializing data
+### Encoding data
 
-Every schema has an `Input` type as well as an `Output` type, so the same definition serializes back to the input format:
+Every schema has an `Input` type as well as an `Output` type, so the same definition encodes back to the input format:
 
 ```ts
 S.encoder(playerSchema)({ username: "billie", xp: 100 });
@@ -282,6 +284,7 @@ S.tuple([S.string, S.number]); // alias for S.schema
 
 // Unions
 S.union([S.string, S.number]);
+S.anyOf([S.string, S.number]); // alias for S.union
 // Enum-like union of literals
 S.union(["Win", "Draw", "Loss"]);
 // Discriminated unions
@@ -318,7 +321,7 @@ S.jsonStringWithSpace(2);
 // Parses JSON string and validates that it's a number
 // JSON string -> number
 S.jsonString.with(S.to, S.number);
-// Serializes number to JSON string
+// Encodes number to JSON string
 S.number.with(S.to, S.jsonString);
 
 // Asserts that the input is a Date instance and not Invalid Date
@@ -337,12 +340,14 @@ S.string.with(S.to, S.uint8Array);
 **Sury** includes a handful of string-specific refinements and transforms:
 
 ```ts
-S.max(S.string, 5); // String must be 5 or fewer characters long
-S.min(S.string, 5); // String must be 5 or more characters long
-S.length(S.string, 5); // String must be exactly 5 characters long
+S.string.with(S.maxLength, 5); // Expected string.length <= 5
+S.string.with(S.minLength, 5); // Expected string.length >= 5
+S.string.with(S.length, 5); // Expected string.length == 5
+S.string.with(S.nonEmpty); // Expected string.length >= 1
+S.string.with(S.empty); // Expected string.length == 0
 S.string.with(S.pattern, /[0-9]/); // Invalid pattern
 
-S.trim(S.string); // trim whitespaces
+S.string.with(S.trim); // trim whitespaces
 ```
 
 For format-specific string validation, use the standalone schemas:
@@ -361,7 +366,7 @@ S.cuid; // Standalone CUID schema
 When using built-in refinements, you can provide a custom error message.
 
 ```ts
-S.min(S.string, 1, "String can't be empty");
+S.nonEmpty(S.string, "String can't be empty");
 S.length(S.string, 5, "SMS code should be 5 digits long");
 ```
 
@@ -370,7 +375,7 @@ S.length(S.string, 5, "SMS code should be 5 digits long");
 Built-in refinements accept an optional last argument for a custom error message:
 
 ```ts
-S.min(S.string, 5, "Too short");
+S.minLength(S.string, 5, "Too short");
 S.pattern(S.string, /^\d+$/, "Must be numeric");
 ```
 
@@ -415,14 +420,27 @@ const schema = S.string.with(S.to, S.date);
 **Sury** includes some of number-specific refinements:
 
 ```ts
-S.max(S.number, 5); // Number must be lower than or equal to 5
-S.min(S.number, 5); // Number must be greater than or equal to 5
+S.number.with(S.lte, 5); // Expected number <= 5
+S.number.with(S.gte, 5); // Expected number >= 5
+S.number.with(S.lt, 5); // Expected number < 5
+S.number.with(S.gt, 5); // Expected number > 5
 ```
 
-Optionally, you can pass in a second argument to provide a custom error message.
+The comparison refinements work on `S.bigint` too, and on the numeric formats
+(`S.int32`, `S.port`), whose own range takes part in the check — a bound
+outside it describes a schema nothing satisfies, and fails where it's written:
 
 ```ts
-S.max(S.number, 5, "this👏is👏too👏big");
+S.int32.with(S.gte, 3000000000);
+// int32 >= 3000000000 contradicts int32 <= 2147483647
+S.number.with(S.gte, 5).with(S.lte, 1);
+// number <= 1 contradicts number >= 5
+```
+
+Optionally, you can pass in a third argument to provide a custom error message.
+
+```ts
+S.number.with(S.lte, 5, "this👏is👏too👏big");
 ```
 
 ## Optionals
@@ -623,9 +641,11 @@ const stringArraySchema = S.array(S.string);
 **Sury** includes some of array-specific refinements:
 
 ```ts
-S.max(S.array(S.string), 5); // Array must be 5 or fewer items long
-S.min(S.array(S.string), 5); // Array must be 5 or more items long
-S.length(S.array(S.string), 5); // Array must be exactly 5 items long
+S.array(S.string).with(S.maxLength, 5); // Expected string[].length <= 5
+S.array(S.string).with(S.minLength, 5); // Expected string[].length >= 5
+S.array(S.string).with(S.length, 5); // Expected string[].length == 5
+S.array(S.string).with(S.nonEmpty); // Expected string[].length >= 1
+S.array(S.string).with(S.empty); // Expected string[].length == 0
 ```
 
 ### Compact Columns
@@ -725,6 +745,8 @@ An union represents a logical OR relationship. You can apply this concept to you
 The schema function `union` creates an OR relationship between any number of schemas that you pass as the first argument in the form of an array. On validation, the schema returns the result of the first schema that was successfully validated.
 
 > 🧠 Members are matched in the order they are passed to `S.union` — the first one that fits the value wins.
+
+It's also available as `S.anyOf`, matching the JSON Schema keyword it maps to.
 
 ```ts
 // TypeScript type for reference:
@@ -1012,7 +1034,7 @@ const mySet = <T>(itemSchema: S.Schema<unknown, T>): S.Schema<unknown, Set<T>> =
       return output;
     })
     .with(S.meta, {
-      name: `Set<${S.toExpression(itemSchema)}>`,
+      name: `Set<${S.inputExpression(itemSchema)}>`,
     });
 
 const numberSetSchema = mySet(S.number);
@@ -1103,7 +1125,7 @@ const evenPositiveSchema = S.number
   .with(S.refine, (val) => val % 2 === 0, { error: "Must be even" });
 ```
 
-The refine function is applied for both parsing and serializing.
+The refine function is applied for both parsing and encoding.
 
 Also, you can have an asynchronous assertion (for decoder only):
 
@@ -1211,7 +1233,7 @@ Note, that in this case only type validations are skipped. If your schema has re
 
 Also, you can use `S.noValidation(schema, true)` helper to turn off type validations for the schema even when it's used with a parse operation.
 
-More often than converting input to output, you'll need to perform the reversed operation. It's usually called "serializing" or "decoding". The ReScript Schema has a unique mental model and provides an ability to reverse any schema with `S.reverse` which you can later use with all possible kinds of operations. But for convinence, there's a few helper functions that can be used to convert output values to the initial format:
+More often than converting input to output, you'll need to perform the reversed operation — encoding. **Sury** has a unique mental model and provides an ability to reverse any schema with `S.reverse` which you can later use with all possible kinds of operations. But for convenience, there's a few helper functions that can be used to convert output values to the initial format:
 
 | Operation       | Interface                                              | Description                                                           |
 | --------------- | ------------------------------------------------------ | --------------------------------------------------------------------- |
@@ -1269,8 +1291,6 @@ const stringifyUser = S.encoder(userSchema, S.jsonString);
 stringifyUser({ id: "1", name: "John" });
 ```
 
-This covers the use cases that previously needed `S.compile` — see the [migration cheat sheet](/IDEAS.md#typescript--javascript) for the full mapping.
-
 ### **`reverse`**
 
 ```ts
@@ -1290,7 +1310,7 @@ S.parser(reversed)("bar");
 // {"foo": "bar"}
 
 S.parser(reversed)(123);
-// throws S.error with the message: `Expected string, received 123`
+// throws S.Error with the message: `Expected string, received 123`
 ```
 
 Reverses the schema. This gets especially magical for schemas with transformations 🪄
@@ -1349,19 +1369,61 @@ schema.name; // "Abc"
 
 Used internally for readable error messages.
 
-### **`toExpression`**
+### **`inputExpression`**
 
 ```ts
-S.toExpression(S.schema({ abc: 123 }));
+S.inputExpression(S.schema({ abc: 123 }));
 // "{ abc: 123; }"
 
-S.toExpression(S.name(S.string, "Address"));
+S.inputExpression(S.string.with(S.meta, { name: "Address" }));
 // "Address"
 ```
 
 Used internally for readable error messages.
 
-> 🧠 The format subject to change
+> 🧠 The format is subject to change
+
+### **`outputExpression`**
+
+```ts
+const schema = S.to(S.string, S.number);
+
+S.inputExpression(schema);
+// "string"
+
+S.outputExpression(schema);
+// "number"
+```
+
+The same expression for the schema's output type.
+
+> 🧠 The format is subject to change
+
+### **`toString`**
+
+```ts
+`${S.string}`;
+// "Schema<string>"
+
+`${S.to(S.string, S.number)}`;
+// "Schema<string, number>"
+
+String(S.schema({ id: S.string, age: S.number }));
+// "Schema<{ id: string; age: number; }>"
+```
+
+Both sides at once, in the order the type declares them — `Schema<TInput, TOutput>` — with the second parameter dropped when the two sides match.
+
+`console.log(schema)` deliberately still shows the internal schema shape, which is usually what you want when you're inspecting one. Ask for the expression explicitly when you want it — `` console.log(`${schema}`) `` or `console.log("%s", schema)`.
+
+The output side is derived through [`reverse`](#reverse), so nested transforms are reported correctly:
+
+```ts
+`${S.schema({ a: S.to(S.string, S.number) })}`;
+// "Schema<{ a: string; }, { a: number; }>"
+```
+
+> 🧠 The format is subject to change
 
 ## Error handling
 

@@ -2,14 +2,15 @@
 
 import * as S from "sury/src/S.res.mjs";
 import * as U from "../utils/U.res.mjs";
+import * as Sury from "sury";
 import * as Vitest from "../utils/Vitest.res.mjs";
 import * as Vitest$1 from "vitest";
 
-let payloadSchema = S.schema(s => ({
-  a: s.m(S.option(S.string))
+let payloadSchema = Sury.$schema(s => ({
+  a: s.m(Sury.$option(Sury.string))
 }));
 
-let schema = S.schema(s => ({
+let schema = Sury.$schema(s => ({
   payload: s.m(payloadSchema)
 }));
 
@@ -18,11 +19,11 @@ let A = {
   schema: schema
 };
 
-let payloadSchema$1 = S.schema(s => ({
-  b: s.m(S.option(S.int))
+let payloadSchema$1 = Sury.$schema(s => ({
+  b: s.m(Sury.$option(Sury.int))
 }));
 
-let schema$1 = S.schema(s => ({
+let schema$1 = Sury.$schema(s => ({
   payload: s.m(payloadSchema$1)
 }));
 
@@ -32,12 +33,12 @@ let B = {
 };
 
 Vitest$1.test("Union serializing of objects with optional fields", t => {
-  let schema$2 = S.union([
-    S.shape(schema, m => ({
+  let schema$2 = Sury.union([
+    Sury.shape(schema, m => ({
       TAG: "A",
       _0: m
     })),
-    S.shape(schema$1, m => ({
+    Sury.shape(schema$1, m => ({
       TAG: "B",
       _0: m
     }))
@@ -50,7 +51,7 @@ Vitest$1.test("Union serializing of objects with optional fields", t => {
         b: 42
       }
     }
-  }, schema$2, S.unknown), {"payload":{"b":42}}, undefined);
+  }, schema$2, Sury.unknown), {"payload":{"b":42}}, undefined);
   Vitest.Assert.deepEqual(t, S.decodeOrThrow({
     TAG: "A",
     _0: {
@@ -58,7 +59,7 @@ Vitest$1.test("Union serializing of objects with optional fields", t => {
         a: "foo"
       }
     }
-  }, schema$2, S.unknown), {"payload":{"a":"foo"}}, undefined);
+  }, schema$2, Sury.unknown), {"payload":{"a":"foo"}}, undefined);
 });
 
 let CknittelBugReport = {
@@ -66,23 +67,23 @@ let CknittelBugReport = {
   B: B
 };
 
-let aSchema = S.schema(s => ({
-  x: s.m(S.int)
+let aSchema = Sury.$schema(s => ({
+  x: s.m(Sury.int)
 }));
 
-let bSchema = S.schema(s => ({
-  y: s.m(S.string)
+let bSchema = Sury.$schema(s => ({
+  y: s.m(Sury.string)
 }));
 
-let testSchema = S.union([
-  S.object(s => {
+let testSchema = Sury.union([
+  Sury.object(s => {
     s.tag("type", "a");
     return {
       TAG: "A",
       _0: s.flatten(aSchema)
     };
   }),
-  S.object(s => {
+  Sury.object(s => {
     s.tag("type", "b");
     return {
       TAG: "B",
@@ -91,39 +92,39 @@ let testSchema = S.union([
   })
 ]);
 
-let schema$2 = S.schema(s => ({
-  test: s.m(S.option(testSchema))
+let schema$2 = Sury.$schema(s => ({
+  test: s.m(Sury.$option(testSchema))
 }));
 
 Vitest$1.test("Successfully parses nested optional union", t => {
   U.assertCompiledCode(t, schema$2, "Parse", `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["test"];for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)&&v0["type"]==="a"){let v1=v0["x"];typeof v1==="number"&&v1<=2147483647&&v1>=-2147483648&&v1%1===0||e[0](v1);v0={"TAG":"A","_0":{"x":v1,},};break}if(typeof v0==="object"&&v0&&!Array.isArray(v0)&&v0["type"]==="b"){let v2=v0["y"];typeof v2==="string"||e[1](v2);v0={"TAG":"B","_0":{"y":v2,},};break}if(v0===void 0)break;e[2](v0)}return {"test":v0,}}`, undefined);
-  Vitest.Assert.deepEqual(t, S.decodeOrThrow("{}", S.jsonString, schema$2), {
+  Vitest.Assert.deepEqual(t, S.decodeOrThrow("{}", Sury.jsonString, schema$2), {
     test: undefined
   }, undefined);
 });
 
 Vitest$1.test("Nested literal field with catch", t => {
-  let schema = S.union([
-    S.object(s => {
-      s.nested("statusCode").f("kind", S.literal("ok"));
+  let schema = Sury.union([
+    Sury.object(s => {
+      s.nested("statusCode").f("kind", Sury.literal("ok"));
       return {
         TAG: "Ok",
         _0: undefined
       };
     }),
-    S.object(s => {
-      s.nested("statusCode").f("kind", S.literal("serviceError"));
+    Sury.object(s => {
+      s.nested("statusCode").f("kind", Sury.literal("serviceError"));
       return {
         TAG: "Error",
         _0: {
-          serviceCode: s.nested("statusCode").f("serviceCode", S.string),
-          text: s.nested("statusCode").f("text", S.string)
+          serviceCode: s.nested("statusCode").f("serviceCode", Sury.string),
+          text: s.nested("statusCode").f("text", Sury.string)
         }
       };
     })
   ]);
   U.assertCompiledCode(t, schema, "Parse", `i=>{for(;;){let r;if(typeof i==="object"&&i&&!Array.isArray(i)){try{let v0=i["statusCode"];typeof v0==="object"&&v0&&!Array.isArray(v0)&&v0["kind"]==="ok"||e[0](v0);i={"TAG":"Ok","_0":void 0,};break}catch(x){(r||(r=[])).push(e[4](x))}try{let v1=i["statusCode"];typeof v1==="object"&&v1&&!Array.isArray(v1)&&v1["kind"]==="serviceError"||e[3](v1);let v2=v1["serviceCode"],v3=v1["text"];typeof v2==="string"||e[1](v2);typeof v3==="string"||e[2](v3);i={"TAG":"Error","_0":{"serviceCode":v2,"text":v3,},};break}catch(x){(r||(r=[])).push(e[4](x))}}e[5](i,...(r||[]))}return i}`, undefined);
-  Vitest.Assert.deepEqual(t, S.decodeOrThrow(`{"statusCode": {"kind": "ok"}}`, S.jsonString, schema), {
+  Vitest.Assert.deepEqual(t, S.decodeOrThrow(`{"statusCode": {"kind": "ok"}}`, Sury.jsonString, schema), {
     TAG: "Ok",
     _0: undefined
   }, undefined);

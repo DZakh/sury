@@ -17,7 +17,7 @@
 // Generation is seeded, so a reported diff reproduces from its seed alone.
 
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, symlinkSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -39,6 +39,13 @@ const build = (cwd: string): void => {
     cwd: join(cwd, "packages/sury"),
     stdio: "inherit",
   });
+};
+
+// The ref tree builds with its own scripts/pack.ts, and revisions from before
+// the entry was renamed emit src/S.mjs instead.
+const entryPath = (tree: string): string => {
+  const current = join(tree, "packages/sury/index.mjs");
+  return existsSync(current) ? current : join(tree, "packages/sury/src/S.mjs");
 };
 
 // A worktree has no node_modules of its own; the bundler and its deps are
@@ -103,12 +110,19 @@ const members: MemberSpec[] = [
   // Refined members reject values of their own type, which is the only way a
   // same-tag fallback edge gets exercised.
   {
+    // Both spellings, because the baseline is built from a git ref and the
+    // rename of `S.min` landed partway through this file's history — pinning
+    // either name alone makes the harness unable to build one side, which is
+    // the same as having no gate.
     id: "string-min3",
-    of: (S) => S.string.with(S.min, 3),
+    of: (S) => S.string.with(S.minLength ?? (S as any).min, 3),
   },
   {
+    // `refine` takes a predicate, not an effect ctx — returning false is how a
+    // check rejects. This used to call `fail` on a second argument that was
+    // never passed, so the member rejected by throwing a TypeError instead.
     id: "string-refine-fail",
-    of: (S) => S.string.with(S.refine, (_v: unknown, s: any) => s.fail("nope")),
+    of: (S) => S.string.with(S.refine, () => false),
   },
   {
     id: "number-int32",
@@ -262,8 +276,8 @@ const main = async (): Promise<void> => {
   let currentModule: Sury;
   try {
     build(repoRoot);
-    refModule = await import(join(refTree, "packages/sury/src/S.mjs"));
-    currentModule = await import(join(repoRoot, "packages/sury/src/S.mjs"));
+    refModule = await import(entryPath(refTree));
+    currentModule = await import(entryPath(repoRoot));
 
     const next = rng(seed);
     const pick = <T,>(list: readonly T[]): T =>

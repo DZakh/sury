@@ -39,17 +39,17 @@ test("Object with a single nested field with S.transform", t => {
     s.nested("nested").field(
       "foo",
       S.float->S.transform(
-        s => {
+        () => {
           parser: f => f->Float.toString,
           serializer: string => {
             // There used to be a case of double application of the serializer.
             // Check that it doesn't happen again.
             if string->typeof !== #string {
-              s.fail("Unexpected type")
+              U.fail("Unexpected type")
             }
             switch string->Float.fromString {
             | Some(float) => float
-            | None => s.fail("Invalid float")
+            | None => U.fail("Invalid float")
             }
           },
         },
@@ -229,12 +229,12 @@ test("Nested tags on reverse convert", t => {
 test("Nested preprocessed tags on reverse convert", t => {
   let prefixedWithUnderscore =
     S.string
-    ->S.transform(s => {
+    ->S.transform(() => {
       parser: v => {
         if v->String.startsWith("_") {
           v->String.slice(~start=1)
         } else {
-          s.fail("String should start with an underscore")
+          U.fail("String should start with an underscore")
         }
       },
       serializer: v => "_" ++ v,
@@ -410,7 +410,7 @@ test("s.nested.flattened doesn't work with transformed S.schema", t => {
                 {
                   "foo": s.matches(S.string),
                 },
-            )->S.transform(_ => {parser: i => i}),
+            )->S.transform(() => {parser: i => i}),
           )
         },
       )

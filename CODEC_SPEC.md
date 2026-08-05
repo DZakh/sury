@@ -120,7 +120,7 @@ There is no partial-match ambiguity to reject.
 S.schema(undefined).with(S.to, S.union([S.schema(null), S.schema(undefined)]));
 // undefined -> undefined; the null variant is unreachable, so no nullish bridge
 
-S.schema("x").with(S.to, S.union([S.string.with(S.min, 3), S.schema("x")]));
+S.schema("x").with(S.to, S.union([S.string.with(S.minLength, 3), S.schema("x")]));
 // the refinement rejects, then the literal fallback accepts "x"
 ```
 
@@ -267,7 +267,7 @@ Two consequences:
 - A variant's selection condition can absorb its cond-expressible checks, since
   failing them means "try the next variant" anyway. Same-type variants with
   different refinements therefore keep their dispatch:
-  `S.union([S.string.with(S.min, 3), S.number, S.string])` accepts `"ab"` through
+  `S.union([S.string.with(S.minLength, 3), S.number, S.string])` accepts `"ab"` through
   the catch-all.
 - Where no later variant could accept a value that entered this one (disjoint
   types, disjoint literal discriminants — the discriminated-union shape), the

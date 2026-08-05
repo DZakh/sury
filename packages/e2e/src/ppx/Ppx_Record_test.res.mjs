@@ -2,58 +2,59 @@
 
 import * as S from "sury/src/S.res.mjs";
 import * as U from "../utils/U.res.mjs";
+import * as Sury from "sury";
 import * as Vitest from "../utils/Vitest.res.mjs";
 import * as Vitest$1 from "vitest";
 import * as Primitive_option from "@rescript/runtime/lib/es6/Primitive_option.js";
 
-let strictRecordSchema = S.strict(S.schema(s => ({
-  strictEmail: s.m(S.string),
-  strictName: s.m(S.string)
+let strictRecordSchema = Sury.strict(Sury.$schema(s => ({
+  strictEmail: s.m(Sury.string),
+  strictName: s.m(Sury.string)
 })));
 
-let stripRecordSchema = S.strip(S.schema(s => ({
-  stripEmail: s.m(S.string),
-  stripName: s.m(S.string)
+let stripRecordSchema = Sury.strip(Sury.$schema(s => ({
+  stripEmail: s.m(Sury.string),
+  stripName: s.m(Sury.string)
 })));
 
-let deepStrictRecordSchema = S.deepStrict(S.schema(s => ({
-  deepStrictEmail: s.m(S.string),
-  deepStrictName: s.m(S.string)
+let deepStrictRecordSchema = Sury.deepStrict(Sury.$schema(s => ({
+  deepStrictEmail: s.m(Sury.string),
+  deepStrictName: s.m(Sury.string)
 })));
 
-let deepStripRecordSchema = S.deepStrip(S.schema(s => ({
-  deepStripEmail: s.m(S.string),
-  deepStripName: s.m(S.string)
+let deepStripRecordSchema = Sury.deepStrip(Sury.$schema(s => ({
+  deepStripEmail: s.m(Sury.string),
+  deepStripName: s.m(Sury.string)
 })));
 
-let noValidationRecordSchema = S.noValidation(S.schema(s => ({
-  noValEmail: s.m(S.string),
-  noValName: s.m(S.string)
+let noValidationRecordSchema = Sury.noValidation(Sury.$schema(s => ({
+  noValEmail: s.m(Sury.string),
+  noValName: s.m(Sury.string)
 })), true);
 
-let metaRecordSchema = S.meta(S.schema(s => ({
-  metaEmail: s.m(S.string),
-  metaName: s.m(S.string)
+let metaRecordSchema = Sury.meta(Sury.$schema(s => ({
+  metaEmail: s.m(Sury.string),
+  metaName: s.m(Sury.string)
 })), {
   description: "A user record"
 });
 
-let combinedRecordSchema = S.meta(S.strict(S.schema(s => ({
-  combinedEmail: s.m(S.string),
-  combinedName: s.m(S.string)
+let combinedRecordSchema = Sury.meta(Sury.strict(Sury.$schema(s => ({
+  combinedEmail: s.m(Sury.string),
+  combinedName: s.m(Sury.string)
 }))), {
   description: "Combined attributes"
 });
 
-let simpleRecordSchema = S.schema(s => ({
-  label: s.m(S.string),
-  value: s.m(S.int)
+let simpleRecordSchema = Sury.$schema(s => ({
+  label: s.m(Sury.string),
+  value: s.m(Sury.int)
 }));
 
 Vitest$1.test("Simple record schema", t => {
-  U.assertEqualSchemas(t, simpleRecordSchema, S.schema(s => ({
-    label: s.m(S.string),
-    value: s.m(S.int)
+  U.assertEqualSchemas(t, simpleRecordSchema, Sury.$schema(s => ({
+    label: s.m(Sury.string),
+    value: s.m(Sury.int)
   })), undefined);
   Vitest.Assert.deepEqual(t, S.parseOrThrow({label:"foo",value:1}, simpleRecordSchema), {
     label: "foo",
@@ -61,15 +62,15 @@ Vitest$1.test("Simple record schema", t => {
   }, undefined);
 });
 
-let recordWithAliasSchema = S.schema(s => ({
-  "aliased-label": s.m(S.string),
-  value: s.m(S.int)
+let recordWithAliasSchema = Sury.$schema(s => ({
+  "aliased-label": s.m(Sury.string),
+  value: s.m(Sury.int)
 }));
 
 Vitest$1.test("Record schema with alias for field name", t => {
-  U.assertEqualSchemas(t, recordWithAliasSchema, S.schema(s => ({
-    "aliased-label": s.m(S.string),
-    value: s.m(S.int)
+  U.assertEqualSchemas(t, recordWithAliasSchema, Sury.$schema(s => ({
+    "aliased-label": s.m(Sury.string),
+    value: s.m(Sury.int)
   })), undefined);
   Vitest.Assert.deepEqual(t, S.parseOrThrow({"aliased-label":"foo",value:1}, recordWithAliasSchema), {
     "aliased-label": "foo",
@@ -77,15 +78,15 @@ Vitest$1.test("Record schema with alias for field name", t => {
   }, undefined);
 });
 
-let recordWithOptionalSchema = S.schema(s => ({
-  label: s.m(S.option(S.string)),
-  value: s.m(S.option(S.int))
+let recordWithOptionalSchema = Sury.$schema(s => ({
+  label: s.m(Sury.$option(Sury.string)),
+  value: s.m(Sury.$option(Sury.int))
 }));
 
 Vitest$1.test("Record schema with optional fields", t => {
-  U.assertEqualSchemas(t, recordWithOptionalSchema, S.schema(s => ({
-    label: s.m(S.option(S.string)),
-    value: s.m(S.option(S.int))
+  U.assertEqualSchemas(t, recordWithOptionalSchema, Sury.$schema(s => ({
+    label: s.m(Sury.$option(Sury.string)),
+    value: s.m(Sury.$option(Sury.int))
   })), undefined);
   Vitest.Assert.deepEqual(t, S.parseOrThrow({"label":"foo",value:1}, recordWithOptionalSchema), {
     label: "foo",
@@ -97,17 +98,17 @@ Vitest$1.test("Record schema with optional fields", t => {
   }, undefined);
 });
 
-let emptyRecordSchema = S.schema(s => ({}));
+let emptyRecordSchema = Sury.$schema(s => ({}));
 
 Vitest$1.test("Empty record schema", t => Vitest.Assert.deepEqual(t, S.parseOrThrow({}, emptyRecordSchema), {}, undefined));
 
-let recordWithNullableFieldSchema = S.schema(s => ({
-  subscription: s.m(S.option(S.nullAsOption(S.string)))
+let recordWithNullableFieldSchema = Sury.$schema(s => ({
+  subscription: s.m(Sury.$option(Sury.$nullAsOption(Sury.string)))
 }));
 
 Vitest$1.test("Record schema with nullable field", t => {
-  U.assertEqualSchemas(t, recordWithNullableFieldSchema, S.schema(s => ({
-    subscription: s.m(S.option(S.nullAsOption(S.string)))
+  U.assertEqualSchemas(t, recordWithNullableFieldSchema, Sury.$schema(s => ({
+    subscription: s.m(Sury.$option(Sury.$nullAsOption(Sury.string)))
   })), undefined);
   Vitest.Assert.deepEqual(t, S.parseOrThrow({}, recordWithNullableFieldSchema), {
     subscription: undefined
@@ -117,56 +118,87 @@ Vitest$1.test("Record schema with nullable field", t => {
   }, undefined);
 });
 
-Vitest$1.test("@s.strict on root record type", t => U.assertEqualSchemas(t, strictRecordSchema, S.strict(S.schema(s => ({
-  strictEmail: s.m(S.string),
-  strictName: s.m(S.string)
+let recordWithOptionalNullableFieldSchema = Sury.$schema(s => ({
+  foo: s.m(Sury.$nullableAsOption(Sury.string))
+}));
+
+Vitest$1.test("Record schema with @s.nullable on optional field", t => {
+  U.assertEqualSchemas(t, recordWithOptionalNullableFieldSchema, Sury.$schema(s => ({
+    foo: s.m(Sury.$nullableAsOption(Sury.string))
+  })), undefined);
+  Vitest.Assert.deepEqual(t, S.parseOrThrow({}, recordWithOptionalNullableFieldSchema), {}, undefined);
+  Vitest.Assert.deepEqual(t, S.parseOrThrow({"foo":null}, recordWithOptionalNullableFieldSchema), {}, undefined);
+  Vitest.Assert.deepEqual(t, S.parseOrThrow({"foo":"bar"}, recordWithOptionalNullableFieldSchema), {
+    foo: "bar"
+  }, undefined);
+});
+
+let recordWithOptionalNullFieldSchema = Sury.$schema(s => ({
+  foo: s.m(Sury.$nullAsOption(Sury.string))
+}));
+
+Vitest$1.test("Record schema with @s.null on optional field", t => {
+  U.assertEqualSchemas(t, recordWithOptionalNullFieldSchema, Sury.$schema(s => ({
+    foo: s.m(Sury.$nullAsOption(Sury.string))
+  })), undefined);
+  Vitest.Assert.deepEqual(t, S.parseOrThrow({"foo":null}, recordWithOptionalNullFieldSchema), {}, undefined);
+  Vitest.Assert.deepEqual(t, S.parseOrThrow({"foo":"bar"}, recordWithOptionalNullFieldSchema), {
+    foo: "bar"
+  }, undefined);
+  U.assertThrowsMessage(t, () => S.parseOrThrow({}, recordWithOptionalNullFieldSchema), `Failed at ["foo"]: Expected string | null, received undefined`, undefined);
+  Vitest.Assert.deepEqual(t, S.decodeOrThrow({}, recordWithOptionalNullFieldSchema, Sury.unknown), {"foo":null}, undefined);
+});
+
+Vitest$1.test("@s.strict on root record type", t => U.assertEqualSchemas(t, strictRecordSchema, Sury.strict(Sury.$schema(s => ({
+  strictEmail: s.m(Sury.string),
+  strictName: s.m(Sury.string)
 }))), undefined));
 
-Vitest$1.test("@s.strip on root record type", t => U.assertEqualSchemas(t, stripRecordSchema, S.strip(S.schema(s => ({
-  stripEmail: s.m(S.string),
-  stripName: s.m(S.string)
+Vitest$1.test("@s.strip on root record type", t => U.assertEqualSchemas(t, stripRecordSchema, Sury.strip(Sury.$schema(s => ({
+  stripEmail: s.m(Sury.string),
+  stripName: s.m(Sury.string)
 }))), undefined));
 
-Vitest$1.test("@s.deepStrict on root record type", t => U.assertEqualSchemas(t, deepStrictRecordSchema, S.deepStrict(S.schema(s => ({
-  deepStrictEmail: s.m(S.string),
-  deepStrictName: s.m(S.string)
+Vitest$1.test("@s.deepStrict on root record type", t => U.assertEqualSchemas(t, deepStrictRecordSchema, Sury.deepStrict(Sury.$schema(s => ({
+  deepStrictEmail: s.m(Sury.string),
+  deepStrictName: s.m(Sury.string)
 }))), undefined));
 
-Vitest$1.test("@s.deepStrip on root record type", t => U.assertEqualSchemas(t, deepStripRecordSchema, S.deepStrip(S.schema(s => ({
-  deepStripEmail: s.m(S.string),
-  deepStripName: s.m(S.string)
+Vitest$1.test("@s.deepStrip on root record type", t => U.assertEqualSchemas(t, deepStripRecordSchema, Sury.deepStrip(Sury.$schema(s => ({
+  deepStripEmail: s.m(Sury.string),
+  deepStripName: s.m(Sury.string)
 }))), undefined));
 
-Vitest$1.test("@s.noValidation on root record type", t => U.assertEqualSchemas(t, noValidationRecordSchema, S.noValidation(S.schema(s => ({
-  noValEmail: s.m(S.string),
-  noValName: s.m(S.string)
+Vitest$1.test("@s.noValidation on root record type", t => U.assertEqualSchemas(t, noValidationRecordSchema, Sury.noValidation(Sury.$schema(s => ({
+  noValEmail: s.m(Sury.string),
+  noValName: s.m(Sury.string)
 })), true), undefined));
 
-Vitest$1.test("@s.meta on root record type", t => U.assertEqualSchemas(t, metaRecordSchema, S.meta(S.schema(s => ({
-  metaEmail: s.m(S.string),
-  metaName: s.m(S.string)
+Vitest$1.test("@s.meta on root record type", t => U.assertEqualSchemas(t, metaRecordSchema, Sury.meta(Sury.$schema(s => ({
+  metaEmail: s.m(Sury.string),
+  metaName: s.m(Sury.string)
 })), {
   description: "A user record"
 }), undefined));
 
-Vitest$1.test("Multiple @s.* attributes on root record type", t => U.assertEqualSchemas(t, combinedRecordSchema, S.meta(S.strict(S.schema(s => ({
-  combinedEmail: s.m(S.string),
-  combinedName: s.m(S.string)
+Vitest$1.test("Multiple @s.* attributes on root record type", t => U.assertEqualSchemas(t, combinedRecordSchema, Sury.meta(Sury.strict(Sury.$schema(s => ({
+  combinedEmail: s.m(Sury.string),
+  combinedName: s.m(Sury.string)
 }))), {
   description: "Combined attributes"
 }), undefined));
 
-let schema = S.schema(s => ({
-  id: s.m(S.string),
-  summary: s.m(S.option(S.string))
+let schema = Sury.$schema(s => ({
+  id: s.m(Sury.string),
+  summary: s.m(Sury.$option(Sury.string))
 }));
 
 let Meta = {
   schema: schema
 };
 
-let recordWithSpreadSchema = S.schema(s => Object.assign({
-  messages: s.m(S.array(S.string))
+let recordWithSpreadSchema = Sury.$schema(s => Object.assign({
+  messages: s.m(Sury.array(Sury.string))
 }, schema.properties));
 
 Vitest$1.test("Record schema with type spread", t => {
@@ -186,16 +218,16 @@ Vitest$1.test("Record schema with type spread", t => {
   U.assertReverseReversesBack(t, recordWithSpreadSchema);
 });
 
-let schema$1 = S.schema(s => ({
-  score: s.m(S.float)
+let schema$1 = Sury.$schema(s => ({
+  score: s.m(Sury.float)
 }));
 
 let Extra = {
   schema: schema$1
 };
 
-let recordWithMultipleSpreadsSchema = S.schema(s => Object.assign({
-  active: s.m(S.bool)
+let recordWithMultipleSpreadsSchema = Sury.$schema(s => Object.assign({
+  active: s.m(Sury.bool)
 }, schema.properties, schema$1.properties));
 
 Vitest$1.test("Record schema with multiple type spreads", t => {
@@ -208,7 +240,7 @@ Vitest$1.test("Record schema with multiple type spreads", t => {
   U.assertReverseReversesBack(t, recordWithMultipleSpreadsSchema);
 });
 
-let recordWithOnlySpreadSchema = S.schema(_s => Object.assign({}, schema.properties));
+let recordWithOnlySpreadSchema = Sury.$schema(_s => Object.assign({}, schema.properties));
 
 Vitest$1.test("Record schema with only a spread (no own fields)", t => {
   Vitest.Assert.deepEqual(t, S.parseOrThrow({id:"abc",summary:"hi"}, recordWithOnlySpreadSchema), {
@@ -222,7 +254,7 @@ Vitest$1.test("Record schema with only a spread (no own fields)", t => {
   U.assertReverseReversesBack(t, recordWithOnlySpreadSchema);
 });
 
-let recordWithMultipleSpreadsNoFieldsSchema = S.schema(_s => Object.assign({}, schema.properties, schema$1.properties));
+let recordWithMultipleSpreadsNoFieldsSchema = Sury.$schema(_s => Object.assign({}, schema.properties, schema$1.properties));
 
 Vitest$1.test("Record schema with multiple spreads and no own fields", t => {
   Vitest.Assert.deepEqual(t, S.parseOrThrow({id:"abc",summary:"hi",score:5.0}, recordWithMultipleSpreadsNoFieldsSchema), {
@@ -233,8 +265,8 @@ Vitest$1.test("Record schema with multiple spreads and no own fields", t => {
   U.assertReverseReversesBack(t, recordWithMultipleSpreadsNoFieldsSchema);
 });
 
-let recordWithSpreadAndAliasedFieldSchema = S.schema(s => Object.assign({
-  ms: s.m(S.array(S.string))
+let recordWithSpreadAndAliasedFieldSchema = Sury.$schema(s => Object.assign({
+  ms: s.m(Sury.array(Sury.string))
 }, schema.properties));
 
 Vitest$1.test("Record schema with spread and @as-aliased own field", t => {
@@ -246,8 +278,8 @@ Vitest$1.test("Record schema with spread and @as-aliased own field", t => {
   U.assertReverseReversesBack(t, recordWithSpreadAndAliasedFieldSchema);
 });
 
-let recordWithSpreadAndOptionalFieldSchema = S.schema(s => Object.assign({
-  extra: s.m(S.option(S.int))
+let recordWithSpreadAndOptionalFieldSchema = Sury.$schema(s => Object.assign({
+  extra: s.m(Sury.$option(Sury.int))
 }, schema.properties));
 
 Vitest$1.test("Record schema with spread and optional own field", t => {
@@ -277,6 +309,8 @@ export {
   recordWithOptionalSchema,
   emptyRecordSchema,
   recordWithNullableFieldSchema,
+  recordWithOptionalNullableFieldSchema,
+  recordWithOptionalNullFieldSchema,
   Meta,
   recordWithSpreadSchema,
   Extra,

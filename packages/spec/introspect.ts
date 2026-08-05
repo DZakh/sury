@@ -14,7 +14,7 @@
 // instantiation-delta + typeToString logic.
 //
 // Measured: ~1s cold (first schema in a process — dominated by loading
-// lib.d.ts + S.d.ts), ~50-200ms warm (every subsequent schema in the same
+// lib.d.ts + index.d.ts), ~50-200ms warm (every subsequent schema in the same
 // process, since the environment is memoized) — versus attest's ~15s (which
 // is dominated by its whole-project assertion scan, unrelated to this cost).
 import { fileURLToPath } from "node:url";
@@ -25,7 +25,7 @@ const SURY_DIR = fileURLToPath(new URL("../sury/", import.meta.url));
 // Kept at the package root (not under tests/generated/) so it doesn't depend
 // on that directory existing yet on a fresh checkout.
 const PROBE_FILE = SURY_DIR + ".type-probe.ts";
-const IMPORT_LINE = `import * as S from "./src/S.mjs";\n`;
+const IMPORT_LINE = `import * as S from "./index.mjs";\n`;
 
 // `env`/`baselineCount`/PROBE_FILE are process-wide mutable state shared
 // across concurrent deriveTypeInfo calls (cli.ts runs specs through

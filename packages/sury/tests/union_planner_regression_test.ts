@@ -1,6 +1,6 @@
 import { test } from "vitest";
 
-import * as S from "../src/S.mjs";
+import * as S from "../index.mjs";
 
 test("union semantic discriminators use identity and SameValueZero", (t) => {
   const firstSymbol = Symbol("same-description");
@@ -112,13 +112,13 @@ test("factory normalization preserves duplicate effects and nested metadata", (t
   t.expect(calls).toBe(2);
 
   const inner = S.meta(
-    S.union([S.string.with(S.min, 3), S.number]),
+    S.union([S.string.with(S.minLength, 3), S.number]),
     {
       name: "named-inner",
       errorMessage: { _: "named inner rejected" },
     },
   );
-  t.expect(S.toExpression(S.union([inner, S.boolean]))).toBe(
+  t.expect(S.inputExpression(S.union([inner, S.boolean]))).toBe(
     "named-inner | boolean",
   );
 });

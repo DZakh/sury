@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.record(S.string)
+  input: "{ [x: string]: string; }"
+  output: "{ [x: string]: string; }"
+  instantiations: 392
+vs:
+  zod: z.record(z.string(), z.string())
+jsonSchema:
+  input: '{ type: "object", additionalProperties: { type: "string" } }'
+  output: '{ type: "object", additionalProperties: { type: "string" } }'
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);for(let v0 in i){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}return i}
+    examples:
+      valid:
+        input: '{ a: "x", b: "y" }'
+        output: '{ a: "x", b: "y" }'
+      # FIXME: S.record takes no key schema, so keys are never validated — the
+      # key type is assumed to be string. Zod's equivalent takes one
+      # (z.record(z.string(), z.string())), which is why `vs.zod` above has to
+      # spell the key side out.
+      numeric-key-is-not-rejected:
+        input: '{ "1": "x" }'
+        output: '{ "1": "x" }'
+      empty:
+        input: "{}"
+        output: "{}"
+      invalid-value:
+        input: "{ a: 1 }"
+        error: 'Failed at ["a"]: Expected string, received 1'
+      not-an-object:
+        input: '"nope"'
+        error: 'Expected { [key: string]: string; }, received "nope"'
+      array-is-not-a-record:
+        input: '["x"]'
+        error: 'Expected { [key: string]: string; }, received ["x"]'
+      null-is-not-a-record:
+        input: "null"
+        error: "Expected { [key: string]: string; }, received null"
+  decode: identity
+  encode: identity

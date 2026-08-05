@@ -7,7 +7,7 @@ test("Parses with wrapping the value in variant", t => {
 })
 
 asyncTest("Parses with wrapping async schema in variant", async t => {
-  let schema = S.string->S.transform(_ => {asyncParser: async i => i})->S.shape(s => Ok(s))
+  let schema = S.string->S.transform(() => {asyncParser: async i => i})->S.shape(s => Ok(s))
 
   t->Assert.deepEqual(await "Hello world!"->S.parseAsyncOrThrow(~to=schema), Ok("Hello world!"))
   t->U.assertCompiledCode(
@@ -136,7 +136,7 @@ test(
             },
         )
         ->S.transform(
-          _ => {
+          () => {
             parser: obj =>
               {
                 "faz": obj["foo"],
@@ -157,7 +157,7 @@ test(
           "foo": s.matches(S.string),
         }
       )
-      ->S.transform(_ => {
+      ->S.transform(() => {
         parser: obj =>
           {
             "faz": obj["foo"],
