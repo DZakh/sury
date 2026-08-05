@@ -1,6 +1,8 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
   schema: S.union([S.string, S.number])
+  aliases:
+    - S.anyOf([S.string, S.number])
   input: string | number
   output: string | number
   instantiations: 972

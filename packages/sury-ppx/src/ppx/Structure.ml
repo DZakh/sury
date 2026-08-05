@@ -485,34 +485,216 @@ let generateSchemaValueBinding type_name ptype_params schema_expr =
     fail (fst (List.hd ptype_params)).ptyp_loc
       "Parametrized types with more than one type parameter are not supported yet"
 
-let mapTypeDeclaration type_declaration =
+(* Applies type-level @s.* attributes inside the body, so a recursive wrapper
+   registers the transformed schema — the one self-references resolve to —
+   rather than the bare one. *)
+let generateDeclarationSchemaExpression type_declaration =
   let {ptype_attributes; ptype_name = {txt = type_name}; ptype_loc; ptype_params}
       =
     type_declaration
   in
+  List.fold_left
+    (applySchemaAttribute ~loc:ptype_loc
+       ~value_type:(Typ.constr (lid type_name) (List.map fst ptype_params)))
+    (generateTypeDeclarationSchemaExpression type_declaration)
+    ptype_attributes
+
+let hasSchemaAttribute {ptype_attributes; ptype_loc} =
   match getAttributeByName ptype_attributes "schema" with
-  | Ok None -> []
+  | Ok None -> false
+  | Ok (Some _) -> true
   | Error err -> fail ptype_loc err
-  | Ok _ ->
-    let schema_expr =
-      generateTypeDeclarationSchemaExpression type_declaration
+
+let mapTypeDeclaration type_declaration =
+  if hasSchemaAttribute type_declaration then
+    let {ptype_name = {txt = type_name}; ptype_params} = type_declaration in
+    [ generateSchemaValueBinding type_name ptype_params
+        (generateDeclarationSchemaExpression type_declaration) ]
+  else []
+
+(* The placeholder is bound under the exact name a self-reference compiles to,
+   so recursion resolves by shadowing — including hand-written references in
+   @s.matches payloads. *)
+let wrapRecursive {ptype_name = {txt = type_name}; ptype_loc} body =
+  let param_pat =
+    Pat.constraint_
+      (Pat.var (mknoloc (generateSchemaName type_name)))
+      [%type: [%t Typ.constr (lid type_name) []] S.t]
+  in
+  [%expr
+    S.recursive
+      [%e Exp.constant (Pconst_string (type_name, Location.none, None))]
+      [%e
+        uncurriedFun ~loc:ptype_loc ~arity:1
+          (Exp.fun_ Nolabel None param_pat body)]]
+
+(* Which of `members` the generated expression mentions. Scans the emitted code
+   rather than the source type, so hand-written @s.matches references count as
+   dependencies and a field fully replaced by @s.matches contributes none. *)
+let referencedMembers members expr =
+  let found = ref [] in
+  let scanner =
+    object
+      inherit Ast_traverse.iter as super
+
+      method! expression e =
+        (match e.pexp_desc with
+        | Pexp_ident {txt = Longident.Lident ident} ->
+          members
+          |> List.iter (fun member ->
+                 if generateSchemaName member = ident && not (List.mem member !found)
+                 then found := member :: !found)
+        | _ -> ());
+        super#expression e
+    end
+  in
+  scanner#expression expr;
+  !found
+
+(* Only the outermost S.recursive call carries $defs, so each entry point of a
+   mutual group re-expands the whole group inside its own callback — nested
+   calls register into the shared $defs. One expansion per entry point is the
+   cost. *)
+let mapRecursiveTypeDeclarations decls =
+  match decls |> List.filter hasSchemaAttribute with
+  | [] -> []
+  | annotated ->
+    let members = annotated |> List.map (fun d -> d.ptype_name.txt) in
+    (* Bodies are generated once and reused by every copy in a mutual expansion. *)
+    let generated =
+      annotated
+      |> List.map (fun d ->
+             (d.ptype_name.txt, (d, generateDeclarationSchemaExpression d)))
     in
-    let schema_expr =
+    let declOf name = fst (List.assoc name generated) in
+    let bodyOf name = snd (List.assoc name generated) in
+    let directDepsByName =
+      members
+      |> List.map (fun name -> (name, referencedMembers members (bodyOf name)))
+    in
+    let directDeps name = List.assoc name directDepsByName in
+    (* Transitive deps of `name`, not crossing `blocked` members — a reference
+       to a member already bound in scope forces no expansion behind it. *)
+    let reachableAvoiding blocked name =
+      let rec collect visited = function
+        | [] -> visited
+        | n :: rest ->
+          if List.mem n visited || List.mem n blocked then collect visited rest
+          else collect (n :: visited) (directDeps n @ rest)
+      in
+      collect [] (directDeps name)
+    in
+    let reachableByName =
+      members |> List.map (fun name -> (name, reachableAvoiding [] name))
+    in
+    let reachable name = List.assoc name reachableByName in
+    let sameGroup a b =
+      a = b || (List.mem b (reachable a) && List.mem a (reachable b))
+    in
+    let groups =
       List.fold_left
-        (applySchemaAttribute ~loc:ptype_loc
-           ~value_type:
-             (Typ.constr (lid type_name) (List.map fst ptype_params)))
-        schema_expr ptype_attributes
+        (fun acc name ->
+          if acc |> List.exists (List.mem name) then acc
+          else acc @ [members |> List.filter (sameGroup name)])
+        [] members
     in
-    [generateSchemaValueBinding type_name ptype_params schema_expr]
+    (* Emit groups dependencies-first: a member that merely *uses* another one
+       binds against its already-emitted top-level schema. *)
+    let rec topological emitted remaining =
+      match remaining with
+      | [] -> []
+      | _ -> (
+        let ready, blocked =
+          remaining
+          |> List.partition (fun group ->
+                 group
+                 |> List.for_all (fun name ->
+                        reachable name
+                        |> List.for_all (fun dep ->
+                               List.mem dep group || List.mem dep emitted)))
+        in
+        match ready with
+        (* Unreachable — groups are collapsed cycles, so the rest is a DAG.
+           Fail loudly rather than emit unresolvable bindings. *)
+        | [] ->
+          fail (declOf (List.hd (List.hd remaining))).ptype_loc
+            "sury-ppx internal error: failed to order recursive type groups. \
+             Please report the issue to https://github.com/DZakh/sury/issues"
+        | _ -> ready @ topological (emitted @ List.concat ready) blocked)
+    in
+    (* A dep that other pending deps need goes later: later deps become *outer*
+       `let`s, in scope for earlier ones, so an expansion reuses the sibling
+       binding instead of duplicating it (and its $defs entry). Cyclic siblings
+       stay put; nested expansion resolves them. *)
+    let rec orderDeps ~blocked deps =
+      match deps with
+      | [] -> []
+      | _ -> (
+        let inner, rest =
+          deps
+          |> List.partition (fun d ->
+                 deps
+                 |> List.for_all (fun other ->
+                        other = d
+                        || not (List.mem d (reachableAvoiding blocked other))))
+        in
+        match inner with
+        | [] -> deps
+        | _ -> inner @ orderDeps ~blocked rest)
+    in
+    let rec expand ~group ~in_scope name =
+      let in_scope = name :: in_scope in
+      (* Only direct deps get a binding — an indirect one is bound by the
+         expansion that references it; here it would be an unused `let`. *)
+      let deps =
+        directDeps name
+        |> List.filter (fun dep ->
+               List.mem dep group && not (List.mem dep in_scope))
+        |> orderDeps ~blocked:in_scope
+      in
+      let rec bind body = function
+        | [] -> body
+        | dep :: outer ->
+          bind
+            (Exp.let_ Nonrecursive
+               [ Vb.mk
+                   (Pat.var (mknoloc (generateSchemaName dep)))
+                   (expand ~group ~in_scope:(outer @ in_scope) dep) ]
+               body)
+            outer
+      in
+      wrapRecursive (declOf name) (bind (bodyOf name) deps)
+    in
+    topological [] groups
+    |> List.map (fun group ->
+           let is_recursive =
+             match group with
+             | [name] -> List.mem name (reachable name)
+             | _ -> true
+           in
+           group
+           |> List.map (fun name ->
+                  let {ptype_loc; ptype_params} = declOf name in
+                  let schema_expr =
+                    if not is_recursive then bodyOf name
+                    else if ptype_params <> [] then
+                      fail ptype_loc
+                        "Recursive parametrized types are not supported yet"
+                    else expand ~group ~in_scope:[] name
+                  in
+                  Str.value Nonrecursive
+                    [generateSchemaValueBinding name ptype_params schema_expr]))
+    |> List.concat
 
 let mapStructureItem mapper ({pstr_desc} as structure_item) =
   match pstr_desc with
-  | Pstr_type (rec_flag, decls) -> (
+  | Pstr_type (Recursive, decls) ->
+    mapper#structure_item structure_item :: mapRecursiveTypeDeclarations decls
+  | Pstr_type (Nonrecursive, decls) -> (
     let value_bindings = decls |> List.map mapTypeDeclaration |> List.concat in
     [mapper#structure_item structure_item]
     @
-    match List.length value_bindings > 0 with
-    | true -> [Str.value rec_flag value_bindings]
-    | false -> [])
+    match value_bindings with
+    | [] -> []
+    | _ -> [Str.value Nonrecursive value_bindings])
   | _ -> [mapper#structure_item structure_item]

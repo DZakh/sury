@@ -32,16 +32,16 @@ Vitest$1.test("Variant with partial @as usage", t => U.assertEqualSchemas(t, var
 
 let variantWithPayloadsSchema = Sury.union([
   Sury.literal("Constant"),
-  Sury.$res_schema(s => ({
+  Sury.$schema(s => ({
     TAG: "SinglePayload",
     _0: s.m(Sury.int)
   })),
-  Sury.$res_schema(s => ({
+  Sury.$schema(s => ({
     TAG: "TuplePayload",
     _0: s.m(Sury.int),
     _1: s.m(Sury.string)
   })),
-  Sury.$res_schema(s => ({
+  Sury.$schema(s => ({
     TAG: "RecordPayload",
     foo: s.m(Sury.float)
   }))
@@ -49,16 +49,16 @@ let variantWithPayloadsSchema = Sury.union([
 
 Vitest$1.test("Variant with payloads", t => U.assertEqualSchemas(t, variantWithPayloadsSchema, Sury.union([
   Sury.literal("Constant"),
-  Sury.$res_schema(s => ({
+  Sury.$schema(s => ({
     TAG: "SinglePayload",
     _0: s.m(Sury.int)
   })),
-  Sury.$res_schema(s => ({
+  Sury.$schema(s => ({
     TAG: "TuplePayload",
     _0: s.m(Sury.int),
     _1: s.m(Sury.string)
   })),
-  Sury.$res_schema(s => ({
+  Sury.$schema(s => ({
     TAG: "RecordPayload",
     foo: s.m(Sury.float)
   }))
@@ -66,26 +66,26 @@ Vitest$1.test("Variant with payloads", t => U.assertEqualSchemas(t, variantWithP
 
 let unboxedVariantSchema = Sury.union([
   Sury.literal("Constant"),
-  Sury.$res_schema(s => (s.m(Sury.int))),
-  Sury.$res_schema(s => (s.m(Sury.string)))
+  Sury.$schema(s => (s.m(Sury.int))),
+  Sury.$schema(s => (s.m(Sury.string)))
 ]);
 
 Vitest$1.test("Unboxed variant", t => U.assertEqualSchemas(t, unboxedVariantSchema, Sury.union([
   Sury.literal("Constant"),
-  Sury.$res_schema(s => (s.m(Sury.int))),
-  Sury.$res_schema(s => (s.m(Sury.string)))
+  Sury.$schema(s => (s.m(Sury.int))),
+  Sury.$schema(s => (s.m(Sury.string)))
 ]), undefined));
 
 let taggedVariantSchema = Sury.union([
-  Sury.$res_schema(s => ({
+  Sury.$schema(s => ({
     kind: "circle",
     radius: s.m(Sury.float)
   })),
-  Sury.$res_schema(s => ({
+  Sury.$schema(s => ({
     kind: "square",
     x: s.m(Sury.float)
   })),
-  Sury.$res_schema(s => ({
+  Sury.$schema(s => ({
     kind: "triangle",
     x: s.m(Sury.float),
     y: s.m(Sury.float)
@@ -93,15 +93,15 @@ let taggedVariantSchema = Sury.union([
 ]);
 
 Vitest$1.test("Tagged variant", t => U.assertEqualSchemas(t, taggedVariantSchema, Sury.union([
-  Sury.$res_schema(s => ({
+  Sury.$schema(s => ({
     kind: "circle",
     radius: s.m(Sury.float)
   })),
-  Sury.$res_schema(s => ({
+  Sury.$schema(s => ({
     kind: "square",
     x: s.m(Sury.float)
   })),
-  Sury.$res_schema(s => ({
+  Sury.$schema(s => ({
     kind: "triangle",
     x: s.m(Sury.float),
     y: s.m(Sury.float)
@@ -110,18 +110,18 @@ Vitest$1.test("Tagged variant", t => U.assertEqualSchemas(t, taggedVariantSchema
 
 let strictVariantSchema = Sury.strict(Sury.union([
   Sury.literal("StrictA"),
-  Sury.$res_schema(s => ({
+  Sury.$schema(s => ({
     TAG: "StrictB",
     _0: s.m(Sury.int)
   }))
 ]));
 
 let taggedInlinedAliasSchema = Sury.union([
-  Sury.$res_schema(s => ({
+  Sury.$schema(s => ({
     type: "Foo",
     Foo: s.m(Sury.string)
   })),
-  Sury.$res_schema(s => ({
+  Sury.$schema(s => ({
     type: "Bar",
     Bar: s.m(Sury.string)
   }))
@@ -129,18 +129,18 @@ let taggedInlinedAliasSchema = Sury.union([
 
 Vitest$1.test("@s.strict on root variant type", t => U.assertEqualSchemas(t, strictVariantSchema, Sury.strict(Sury.union([
   Sury.literal("StrictA"),
-  Sury.$res_schema(s => ({
+  Sury.$schema(s => ({
     TAG: "StrictB",
     _0: s.m(Sury.int)
   }))
 ])), undefined));
 
 Vitest$1.test("Tagged variant with inlined alias", t => U.assertEqualSchemas(t, taggedInlinedAliasSchema, Sury.union([
-  Sury.$res_schema(s => ({
+  Sury.$schema(s => ({
     type: "Foo",
     Foo: s.m(Sury.string)
   })),
-  Sury.$res_schema(s => ({
+  Sury.$schema(s => ({
     type: "Bar",
     Bar: s.m(Sury.string)
   }))

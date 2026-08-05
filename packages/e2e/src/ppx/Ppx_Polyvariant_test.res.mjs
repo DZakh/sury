@@ -28,38 +28,38 @@ let dictFieldSchema = Sury.dict(Sury.literal("one"));
 
 Vitest$1.test("Supported as a dict field", t => U.assertEqualSchemas(t, dictFieldSchema, Sury.dict(Sury.literal("one")), undefined));
 
-let recordFieldSchema = Sury.$res_schema(s => ({
+let recordFieldSchema = Sury.$schema(s => ({
   poly: s.m(Sury.literal("one"))
 }));
 
-Vitest$1.test("Supported as a record field", t => U.assertEqualSchemas(t, recordFieldSchema, Sury.$res_schema(s => ({
+Vitest$1.test("Supported as a record field", t => U.assertEqualSchemas(t, recordFieldSchema, Sury.$schema(s => ({
   poly: s.m(Sury.literal("one"))
 })), undefined));
 
-let objectFieldSchema = Sury.$res_schema(s => ({
+let objectFieldSchema = Sury.$schema(s => ({
   poly: s.m(Sury.literal("one"))
 }));
 
-Vitest$1.test("Supported as an object field", t => U.assertEqualSchemas(t, objectFieldSchema, Sury.$res_schema(s => ({
+Vitest$1.test("Supported as an object field", t => U.assertEqualSchemas(t, objectFieldSchema, Sury.$schema(s => ({
   poly: s.m(Sury.literal("one"))
 })), undefined));
 
 let polyWithPayloadsSchema = Sury.union([
   Sury.literal("one"),
-  Sury.$res_schema(s => ({
+  Sury.$schema(s => ({
     NAME: "two",
     VAL: s.m(Sury.int)
   })),
-  Sury.$res_schema(s => ({
+  Sury.$schema(s => ({
     NAME: "three",
     VAL: [
       s.m(Sury.string),
       s.m(Sury.float)
     ]
   })),
-  Sury.$res_schema(s => ({
+  Sury.$schema(s => ({
     NAME: "four",
-    VAL: s.m(Sury.$res_schema(s => ({
+    VAL: s.m(Sury.$schema(s => ({
       foo: s.m(Sury.string)
     })))
   }))
@@ -68,20 +68,20 @@ let polyWithPayloadsSchema = Sury.union([
 Vitest$1.test("Polymorphic variant with payloads (issue #160)", t => {
   U.assertEqualSchemas(t, polyWithPayloadsSchema, Sury.union([
     Sury.literal("one"),
-    Sury.$res_schema(s => ({
+    Sury.$schema(s => ({
       NAME: "two",
       VAL: s.m(Sury.int)
     })),
-    Sury.$res_schema(s => ({
+    Sury.$schema(s => ({
       NAME: "three",
       VAL: [
         s.m(Sury.string),
         s.m(Sury.float)
       ]
     })),
-    Sury.$res_schema(s => ({
+    Sury.$schema(s => ({
       NAME: "four",
-      VAL: s.m(Sury.$res_schema(s => ({
+      VAL: s.m(Sury.$schema(s => ({
         foo: s.m(Sury.string)
       })))
     }))
@@ -106,13 +106,13 @@ Vitest$1.test("Polymorphic variant with payloads (issue #160)", t => {
   }, undefined);
 });
 
-let polyWithSinglePayloadSchema = Sury.$res_schema(s => ({
+let polyWithSinglePayloadSchema = Sury.$schema(s => ({
   NAME: "value",
   VAL: s.m(Sury.string)
 }));
 
 Vitest$1.test("Polymorphic variant with single payload (issue #160)", t => {
-  U.assertEqualSchemas(t, polyWithSinglePayloadSchema, Sury.$res_schema(s => ({
+  U.assertEqualSchemas(t, polyWithSinglePayloadSchema, Sury.$schema(s => ({
     NAME: "value",
     VAL: s.m(Sury.string)
   })), undefined);
@@ -140,7 +140,7 @@ Vitest$1.test("Polymorphic variant with inheritance/spread of a named type", t =
 
 let polyWithPayloadInheritanceSchema = Sury.union([
   polyWithPayloadsSchema,
-  Sury.$res_schema(s => ({
+  Sury.$schema(s => ({
     NAME: "five",
     VAL: s.m(Sury.bool)
   }))
@@ -149,7 +149,7 @@ let polyWithPayloadInheritanceSchema = Sury.union([
 Vitest$1.test("Polymorphic variant inheriting a type that has payloads", t => {
   U.assertEqualSchemas(t, polyWithPayloadInheritanceSchema, Sury.union([
     polyWithPayloadsSchema,
-    Sury.$res_schema(s => ({
+    Sury.$schema(s => ({
       NAME: "five",
       VAL: s.m(Sury.bool)
     }))
@@ -173,7 +173,7 @@ Vitest$1.test("Polymorphic variant inheriting a type that has payloads", t => {
   });
 });
 
-let polyInheritanceFieldSchema = Sury.$res_schema(s => ({
+let polyInheritanceFieldSchema = Sury.$schema(s => ({
   variants: s.m(Sury.union([
     polySchema,
     Sury.literal("three")
@@ -181,7 +181,7 @@ let polyInheritanceFieldSchema = Sury.$res_schema(s => ({
 }));
 
 Vitest$1.test("Polymorphic variant inheritance nested as a record field", t => {
-  U.assertEqualSchemas(t, polyInheritanceFieldSchema, Sury.$res_schema(s => ({
+  U.assertEqualSchemas(t, polyInheritanceFieldSchema, Sury.$schema(s => ({
     variants: s.m(Sury.union([
       polySchema,
       Sury.literal("three")
@@ -200,7 +200,7 @@ Vitest$1.test("Polymorphic variant inheritance nested as a record field", t => {
 
 let polyInlineInheritanceSchema = Sury.union([
   Sury.literal("a"),
-  Sury.$res_schema(s => ({
+  Sury.$schema(s => ({
     NAME: "b",
     VAL: s.m(Sury.int)
   })),
@@ -210,7 +210,7 @@ let polyInlineInheritanceSchema = Sury.union([
 Vitest$1.test("Polymorphic variant with an inline spread is flattened into one union", t => {
   U.assertEqualSchemas(t, polyInlineInheritanceSchema, Sury.union([
     Sury.literal("a"),
-    Sury.$res_schema(s => ({
+    Sury.$schema(s => ({
       NAME: "b",
       VAL: s.m(Sury.int)
     })),

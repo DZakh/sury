@@ -11,7 +11,7 @@ coverage
 tsconfig.tsbuildinfo
 _opam/
 .attest
-packages/sury/src/S.mjs
+packages/sury/index.mjs
 packages/json-schema-test-suite/.suite
 packages/spec/.bench-cache
 spec-perf.txt

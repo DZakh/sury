@@ -1,6 +1,6 @@
 import { test } from "vitest";
 
-import * as S from "../src/S.mjs";
+import * as S from "../index.mjs";
 
 const rejectingAsyncMember = (message: string) =>
   S.string

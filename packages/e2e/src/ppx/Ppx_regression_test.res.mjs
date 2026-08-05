@@ -6,11 +6,11 @@ import * as Sury from "sury";
 import * as Vitest from "../utils/Vitest.res.mjs";
 import * as Vitest$1 from "vitest";
 
-let payloadSchema = Sury.$res_schema(s => ({
-  a: s.m(Sury.$res_option(Sury.string))
+let payloadSchema = Sury.$schema(s => ({
+  a: s.m(Sury.$option(Sury.string))
 }));
 
-let schema = Sury.$res_schema(s => ({
+let schema = Sury.$schema(s => ({
   payload: s.m(payloadSchema)
 }));
 
@@ -19,11 +19,11 @@ let A = {
   schema: schema
 };
 
-let payloadSchema$1 = Sury.$res_schema(s => ({
-  b: s.m(Sury.$res_option(Sury.int))
+let payloadSchema$1 = Sury.$schema(s => ({
+  b: s.m(Sury.$option(Sury.int))
 }));
 
-let schema$1 = Sury.$res_schema(s => ({
+let schema$1 = Sury.$schema(s => ({
   payload: s.m(payloadSchema$1)
 }));
 
@@ -67,11 +67,11 @@ let CknittelBugReport = {
   B: B
 };
 
-let aSchema = Sury.$res_schema(s => ({
+let aSchema = Sury.$schema(s => ({
   x: s.m(Sury.int)
 }));
 
-let bSchema = Sury.$res_schema(s => ({
+let bSchema = Sury.$schema(s => ({
   y: s.m(Sury.string)
 }));
 
@@ -92,8 +92,8 @@ let testSchema = Sury.union([
   })
 ]);
 
-let schema$2 = Sury.$res_schema(s => ({
-  test: s.m(Sury.$res_option(testSchema))
+let schema$2 = Sury.$schema(s => ({
+  test: s.m(Sury.$option(testSchema))
 }));
 
 Vitest$1.test("Successfully parses nested optional union", t => {

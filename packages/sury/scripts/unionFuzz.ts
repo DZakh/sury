@@ -17,7 +17,7 @@
 // Generation is seeded, so a reported diff reproduces from its seed alone.
 
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, symlinkSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -39,6 +39,13 @@ const build = (cwd: string): void => {
     cwd: join(cwd, "packages/sury"),
     stdio: "inherit",
   });
+};
+
+// The ref tree builds with its own scripts/pack.ts, and revisions from before
+// the entry was renamed emit src/S.mjs instead.
+const entryPath = (tree: string): string => {
+  const current = join(tree, "packages/sury/index.mjs");
+  return existsSync(current) ? current : join(tree, "packages/sury/src/S.mjs");
 };
 
 // A worktree has no node_modules of its own; the bundler and its deps are
@@ -269,8 +276,8 @@ const main = async (): Promise<void> => {
   let currentModule: Sury;
   try {
     build(repoRoot);
-    refModule = await import(join(refTree, "packages/sury/src/S.mjs"));
-    currentModule = await import(join(repoRoot, "packages/sury/src/S.mjs"));
+    refModule = await import(entryPath(refTree));
+    currentModule = await import(entryPath(repoRoot));
 
     const next = rng(seed);
     const pick = <T,>(list: readonly T[]): T =>
