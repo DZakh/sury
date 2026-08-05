@@ -436,6 +436,7 @@ module Error = {
 @module("sury") external nullable: t<'value> => t<nullable<'value>> = "nullish"
 @module("sury") external nullableAsOption: t<'value> => t<option<'value>> = "$res_nullableAsOption"
 @module("sury") external union: array<t<'value>> => t<'value> = "union"
+@module("sury") external anyOf: array<t<'value>> => t<'value> = "anyOf"
 @module("sury") external enum: array<'value> => t<'value> = "enum"
 
 @module("sury") external meta: (t<'value>, meta<'value>) => t<'value> = "meta"

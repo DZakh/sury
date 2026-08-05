@@ -57,6 +57,7 @@ export {
   js_optional as optional,
   js_nullable as nullable,
   js_union as union,
+  js_union as anyOf,
   js_parser as parser,
   js_asyncParser as asyncParser,
   js_asyncDecoder as asyncDecoder,
