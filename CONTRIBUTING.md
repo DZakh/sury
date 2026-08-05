@@ -336,6 +336,14 @@ error message, a strictness gap that let a bad spec through — add a bullet her
 instead of silently working around it.
 
 - <placeholder>
+- `--perf` measures every example in both builds, so a spec's example count sets
+  its share of the performance job's runtime. That suits codec specs, where each
+  example exercises a different path, but not format specs: the string-format
+  vocabulary contributes 510 of the suite's 1228 examples (the nine largest
+  specs are all formats) while every one of them runs the same single
+  `re.test(i)`, so the job got roughly 70% more expensive for no extra signal.
+  A per-spec opt-out, or benchmarking one representative example per outcome
+  rather than all of them, would decouple example coverage from perf runtime.
 - Example values are recorded as source text, so an operation returning a class instance can't be snapshotted (`specs/url-codec.yaml` records only the rejecting parse cases; `S.date` has no spec at all for the same reason). A constructor-expression form for expected values — the way `input` already accepts `new URL("…")` — would close it.
 - No operation dimension for JSON-target conversions (`.to(S.json)` / `.to(S.jsonString)`), so bugs like #311 (nested optional fields failing to encode) can't be captured as spec examples — their repros live in `tests/` instead.
 - Example results are serialized back to spec source, so a value with symbol keys can't be recorded ("cannot represent an object with symbol keys as spec source code"). `S.record`'s unvalidated symbol-keyed values are pinned in `tests/` instead of `specs/record.yaml`, where the rest of that gap lives.
