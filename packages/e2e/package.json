@@ -19,5 +19,8 @@
     "valibot": "1.4.2",
     "zod": "4.4.3",
     "@sinclair/typebox": "0.34.52"
+  },
+  "devDependencies": {
+    "typescript": "5.8.3"
   }
 }

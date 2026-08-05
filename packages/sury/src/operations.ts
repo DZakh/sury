@@ -2,9 +2,12 @@
 // interop surface built on top of them.
 
 import {
+  type Flag,
   flagAsync,
   getOrRethrow,
+  globalConfig,
   initSchema,
+  inputExpression,
   type Internal,
   pathEmpty,
   pathToArray,
@@ -20,7 +23,7 @@ import {
   vendor,
 } from "./base";
 import type { JSONSchemaT, StandardJsonSchemaOptions } from "./jsonschema";
-import { getDecoder, isAsyncInternal } from "./parse";
+import { getDecoder, isAsyncInternal, reverse } from "./parse";
 import { literalDecoder } from "./primitives";
 
 // PORT-NOTE: StandardSchema/JSONSchema types are ported as loose, type-only
@@ -76,6 +79,28 @@ export const getStandardJSONSchema = (
   }
 }
 
+// Mirrors the declared `Schema<TInput, TOutput>`, so a logged schema reads the
+// way its type does — input first, as the type parameters are ordered.
+// Collapsed to one parameter when the sides match, because the point is a
+// readable log line, not a literal type.
+//
+// A prototype method can never be tree-shaken, so this puts `reverse` in every
+// consumer's bundle whether or not they ever print a schema — an accepted cost,
+// recorded across bundleSize.yaml. Walking the `.to` chain instead would be
+// cheaper and wrong: the output of `{ a: string -> int32 }` is `{ a: int32; }`,
+// which only a recursive reversal produces.
+// Deliberately not also registered as Node's `nodejs.util.inspect.custom`:
+// `console.log(schema)` keeps showing the internal shape, which is what someone
+// logging a schema is usually trying to see. Ask for the expression explicitly
+// with `${schema}` or `String(schema)`.
+Object.defineProperty(schemaPrototype, "toString", {
+  value: function (this: Internal): string {
+    const input = inputExpression(this);
+    const output = inputExpression(reverse(this));
+    return `Schema<${input === output ? input : `${input}, ${output}`}>`;
+  },
+});
+
 // A lazy prototype getter (not an eager per-schema property — that would put
 // 2 allocations + 4 closures on the baseSchema hot path for a feature most
 // schemas never use), cached on first access: Standard Schema consumers read
@@ -89,13 +114,28 @@ export const getStandardJSONSchema = (
 Object.defineProperty(schemaPrototype, "~standard", {
   get: function (this: Internal) {
     const schema = this;
+    // The decoder lives in the closure: the Standard Schema contract is a
+    // per-call `schema["~standard"].validate(input)`, so the getDecoder
+    // lookup can't be hoisted by the consumer and would outweigh the decode.
+    // `globalConfig.f` is getDecoder's flag source, so re-reading it is the
+    // whole invalidation condition.
+    let decoderFlag: Flag | undefined = U;
+    let decoder: (input: unknown) => unknown;
     const standard: StandardProps = {
       version: 1,
       vendor,
       validate: (input: unknown): StandardResult => {
+        // Outside the try: a conversion rejected at operation creation fails
+        // for every input — a schema bug for the developer, not an `issues`
+        // entry for whoever is filling in the form. It throws on every call,
+        // since `decoderFlag` commits only once there is a decoder.
+        if (decoderFlag !== globalConfig.f) {
+          decoder = getDecoder(unknown, schema) as (input: unknown) => unknown;
+          decoderFlag = globalConfig.f;
+        }
         try {
           return {
-            value: (getDecoder(unknown, schema) as (input: unknown) => unknown)(input),
+            value: decoder(input),
           };
         } catch (exn) {
           const error = getOrRethrow(exn);

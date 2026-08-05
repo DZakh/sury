@@ -142,7 +142,7 @@ const operations = S.schema({
 const ts = S.schema({
   schema: S.string.with(S.meta, {
     description:
-      "The schema under test, as JS `.with`-chain source (e.g. `S.string.with(S.min, 3)`). " +
+      "The schema under test, as JS `.with`-chain source (e.g. `S.string.with(S.minLength, 3)`). " +
       "You write this by hand; `spec check --write` never touches it.",
   }),
   aliases: S.optional(S.array(S.string)).with(S.meta, {
@@ -299,3 +299,43 @@ export const validateBundleSize = (
     return { ok: false, error: (e as Error).message };
   }
 };
+
+// ---- scenarios.yaml --------------------------------------------------------
+
+// A spec times the library's inner surface (create, compile, compiled
+// operation); a scenario times a whole call the way a consumer writes it, so
+// the dispatch around the compiled operation — invisible to every per-spec
+// phase — is inside the measurement. Perf never stores a number, so scenarios
+// have no goldens and no `--write`; `spec check` executes each one instead.
+export const scenarioSchema = S.schema({
+  prepare: S.optional(S.string).with(S.meta, {
+    description:
+      "Statements run once per library version before measuring, with `S` in scope; their bindings are in scope for `run`. Build the schema and the input here — only `run` is timed.",
+  }),
+  run: S.string.with(S.meta, {
+    description:
+      "The expression to measure, evaluated in `prepare`'s scope. Must not throw: timing a throw measures error construction.",
+  }),
+})
+  .with(S.strict)
+  .with(S.meta, { description: "One measured consumer-level call." });
+export type Scenario = S.Output<typeof scenarioSchema>;
+
+export const scenariosSchema = S.record(scenarioSchema).with(S.meta, {
+  description:
+    "Consumer-level performance scenarios, keyed by id, measured by `spec check --perf` alongside the specs.",
+});
+export type Scenarios = S.Output<typeof scenariosSchema>;
+
+export const validateScenarios = (
+  obj: unknown,
+): { ok: true; value: Scenarios } | { ok: false; error: string } => {
+  try {
+    return { ok: true, value: S.parser(scenariosSchema)(obj) };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+};
+
+export const scenariosSchemaJson = (): string =>
+  JSON.stringify(S.toJSONSchema(scenariosSchema), null, 2) + "\n";

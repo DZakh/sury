@@ -21,7 +21,7 @@ test("JSONSchema of S.json transformed to object with bigint and array of option
     {
       "id": s.matches(S.bigint),
       "data": s.matches(S.unknown),
-      "items": s.matches(S.array(S.option(S.float->S.floatMax(1.)))),
+      "items": s.matches(S.array(S.option(S.float->S.lte(1.)))),
     }
   )
   // TODO: Should coerce nonJsonableSchema to jsonable JSON Schema
@@ -114,14 +114,14 @@ test("JSONSchema of pattern schema", t => {
 
 test("JSONSchema of string with min", t => {
   t->Assert.deepEqual(
-    S.string->S.min(1)->S.toJSONSchema,
+    S.string->S.minLength(1)->S.toJSONSchema,
     %raw(`{"type": "string", "minLength": 1}`),
   )
 })
 
 test("JSONSchema of string with max", t => {
   t->Assert.deepEqual(
-    S.string->S.max(1)->S.toJSONSchema,
+    S.string->S.maxLength(1)->S.toJSONSchema,
     %raw(`{"type": "string", "maxLength": 1}`),
   )
 })
@@ -135,17 +135,17 @@ test("JSONSchema of string with length", t => {
 
 test("JSONSchema of string with both min and max", t => {
   t->Assert.deepEqual(
-    S.string->S.min(1)->S.max(4)->S.toJSONSchema,
+    S.string->S.minLength(1)->S.maxLength(4)->S.toJSONSchema,
     %raw(`{"type": "string", "minLength": 1, "maxLength": 4}`),
   )
 })
 
 test("JSONSchema of int with min", t => {
-  t->Assert.deepEqual(S.int->S.min(1)->S.toJSONSchema, %raw(`{"type": "integer", "minimum": 1, "maximum": 2147483647}`))
+  t->Assert.deepEqual(S.int->S.gte(1)->S.toJSONSchema, %raw(`{"type": "integer", "minimum": 1, "maximum": 2147483647}`))
 })
 
 test("JSONSchema of int with max", t => {
-  t->Assert.deepEqual(S.int->S.max(1)->S.toJSONSchema, %raw(`{"type": "integer", "minimum": -2147483648, "maximum": 1}`))
+  t->Assert.deepEqual(S.int->S.lte(1)->S.toJSONSchema, %raw(`{"type": "integer", "minimum": -2147483648, "maximum": 1}`))
 })
 
 test("JSONSchema of port", t => {
@@ -161,14 +161,14 @@ test("JSONSchema of port", t => {
 
 test("JSONSchema of float with min", t => {
   t->Assert.deepEqual(
-    S.float->S.floatMin(1.)->S.toJSONSchema,
+    S.float->S.gte(1.)->S.toJSONSchema,
     %raw(`{"type": "number", "minimum": 1}`),
   )
 })
 
 test("JSONSchema of float with max", t => {
   t->Assert.deepEqual(
-    S.float->S.floatMax(1.)->S.toJSONSchema,
+    S.float->S.lte(1.)->S.toJSONSchema,
     %raw(`{"type": "number", "maximum": 1}`),
   )
 })
@@ -234,6 +234,38 @@ test("JSONSchema of NaN", t => {
   t->U.assertThrowsMessage(
     () => S.literal(%raw(`NaN`))->S.toJSONSchema,
     `Expected JSON, received NaN`,
+  )
+})
+
+// A schema with no JSON Schema equivalent fails the conversion itself — nothing
+// was parsed, so there is no input to report and no schema a value failed
+// against. That is `InvalidOperation`, where the same message from `S.json`
+// rejecting a *value* stays `InvalidInput`.
+test("JSONSchema of a non-JSON schema is an InvalidOperation, not an InvalidInput", t => {
+  t->Assert.deepEqual(
+    switch S.object(s => s.field("a", S.bigint))->S.toJSONSchema {
+    | _ => None
+    | exception S.Exn(error) =>
+      switch error->S.Error.classify {
+      | InvalidOperation({path, reason}) => Some((path, reason))
+      | _ => None
+      }
+    },
+    Some((S.Path.fromArray(["a"]), `Expected JSON, received bigint`)),
+  )
+
+  // The same sentence from `S.json` rejecting a value keeps `InvalidInput` —
+  // there a value really did fail a schema.
+  t->Assert.deepEqual(
+    switch %raw(`1n`)->S.parseOrThrow(~to=S.json) {
+    | _ => false
+    | exception S.Exn(error) =>
+      switch error->S.Error.classify {
+      | InvalidInput(_) => true
+      | _ => false
+      }
+    },
+    true,
   )
 })
 
@@ -330,7 +362,7 @@ test("JSONSchema of string array", t => {
 
 test("JSONSchema of array with min length", t => {
   t->Assert.deepEqual(
-    S.array(S.string)->S.min(1)->S.toJSONSchema,
+    S.array(S.string)->S.minLength(1)->S.toJSONSchema,
     %raw(`{
       "type": "array",
       "items": {"type": "string"},
@@ -341,7 +373,7 @@ test("JSONSchema of array with min length", t => {
 
 test("JSONSchema of array with max length", t => {
   t->Assert.deepEqual(
-    S.array(S.string)->S.max(1)->S.toJSONSchema,
+    S.array(S.string)->S.maxLength(1)->S.toJSONSchema,
     %raw(`{
       "type": "array",
       "items": {"type": "string"},
@@ -534,7 +566,7 @@ test(
         "field",
         S.option(
           S.bool->S.transform(
-            _ => {
+            () => {
               parser: bool => {
                 switch bool {
                 | true => "true"
@@ -563,7 +595,7 @@ test("Transformed schema schema uses default with correct type", t => {
       "field",
       S.option(
         S.bool->S.transform(
-          _ => {
+          () => {
             parser: bool => {
               switch bool {
               | true => "true"

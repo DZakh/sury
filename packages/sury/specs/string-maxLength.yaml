@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.string.with(S.maxLength, 2)
+  input: string
+  output: string
+  instantiations: 5167
+vs:
+  zod: z.string().max(2)
+jsonSchema:
+  input: '{ type: "string", maxLength: 2 }'
+  output: '{ type: "string", maxLength: 2 }'
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[1](i);i.length<3||e[0](i);return i}
+    examples:
+      at-the-length:
+        input: '"ab"'
+        output: '"ab"'
+      longer:
+        input: '"abc"'
+        error: Expected string.length <= 2, received "abc"
+      shorter:
+        input: '"a"'
+        output: '"a"'
+      empty:
+        input: '""'
+        output: '""'
+      single-space:
+        input: '" "'
+        output: '" "'
+      wrong-type:
+        input: "1"
+        error: Expected string.length <= 2, received 1
+  decode:
+    expression: i=>{i.length<3||e[0](i);return i}
+    examples:
+      at-the-length:
+        input: '"ab"'
+        output: '"ab"'
+      shorter:
+        input: '"a"'
+        output: '"a"'
+      empty:
+        input: '""'
+        output: '""'
+  encode:
+    expression: i=>{i.length<3||e[0](i);return i}
+    examples:
+      at-the-length:
+        input: '"ab"'
+        output: '"ab"'
+      shorter:
+        input: '"a"'
+        output: '"a"'
+      empty:
+        input: '""'
+        output: '""'

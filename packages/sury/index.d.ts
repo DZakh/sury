@@ -241,6 +241,18 @@ export type Schema<TInput = unknown, TOutput = TInput> = {
     arg2: TArg2
   ): Schema<TNextInput, TNextOutput>;
 
+  /**
+   * The schema as `Schema<input, output>`, collapsed to `Schema<input>` when
+   * the two sides match. Used by string coercion — interpolation, `String()`,
+   * `"%s"`. `console.log(schema)` still shows the internal schema shape.
+   *
+   * ```ts
+   * `${S.string}`                    // "Schema<string>"
+   * `${S.to(S.string, S.number)}`    // "Schema<string, number>"
+   * ```
+   */
+  toString(): string;
+
   readonly $defs?: Record<string, Schema<unknown, unknown>>;
 
   readonly name?: string;
@@ -254,6 +266,9 @@ export type Schema<TInput = unknown, TOutput = TInput> = {
   readonly errorMessage?: SchemaErrorMessage;
 
   // jsonSchema.input/.output throw until enableStandardJSONSchema() is called.
+  // validate reports a failed input as `issues`, but throws when the schema
+  // has no compilable parse operation at all (a rejected `.to` conversion) —
+  // that's a bug in the schema, not a verdict on the value.
   readonly ["~standard"]: StandardSchemaV1.Props<TInput, TOutput> &
     StandardJSONSchemaV1.Props<TInput, TOutput>;
 } & (
@@ -964,6 +979,8 @@ export type SchemaErrorMessage = {
   type?: string;
   minimum?: string;
   maximum?: string;
+  exclusiveMinimum?: string;
+  exclusiveMaximum?: string;
   minLength?: string;
   maxLength?: string;
   minItems?: string;
@@ -985,7 +1002,8 @@ export function meta<TInput, TOutput>(
   meta: Meta<TOutput>
 ): Schema<TInput, TOutput>;
 
-export function toExpression(schema: SchemaLike<unknown, unknown>): string;
+export function inputExpression(schema: SchemaLike<unknown, unknown>): string;
+export function outputExpression(schema: SchemaLike<unknown, unknown>): string;
 export function noValidation<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,
   value: boolean
@@ -1005,12 +1023,33 @@ export function refine<TInput, TOutput>(
   }
 ): Schema<TInput, TOutput>;
 
-export const min: <TInput, TOutput extends string | number | unknown[]>(
+export const gt: <TInput, TOutput extends number | bigint>(
+  schema: SchemaLike<TInput, TOutput>,
+  value: TOutput,
+  message?: string
+) => Schema<TInput, TOutput>;
+export const gte: <TInput, TOutput extends number | bigint>(
+  schema: SchemaLike<TInput, TOutput>,
+  value: TOutput,
+  message?: string
+) => Schema<TInput, TOutput>;
+export const lt: <TInput, TOutput extends number | bigint>(
+  schema: SchemaLike<TInput, TOutput>,
+  value: TOutput,
+  message?: string
+) => Schema<TInput, TOutput>;
+export const lte: <TInput, TOutput extends number | bigint>(
+  schema: SchemaLike<TInput, TOutput>,
+  value: TOutput,
+  message?: string
+) => Schema<TInput, TOutput>;
+
+export const minLength: <TInput, TOutput extends string | unknown[]>(
   schema: SchemaLike<TInput, TOutput>,
   length: number,
   message?: string
 ) => Schema<TInput, TOutput>;
-export const max: <TInput, TOutput extends string | number | unknown[]>(
+export const maxLength: <TInput, TOutput extends string | unknown[]>(
   schema: SchemaLike<TInput, TOutput>,
   length: number,
   message?: string
@@ -1018,6 +1057,14 @@ export const max: <TInput, TOutput extends string | number | unknown[]>(
 export const length: <TInput, TOutput extends string | unknown[]>(
   schema: SchemaLike<TInput, TOutput>,
   length: number,
+  message?: string
+) => Schema<TInput, TOutput>;
+export const empty: <TInput, TOutput extends string | unknown[]>(
+  schema: SchemaLike<TInput, TOutput>,
+  message?: string
+) => Schema<TInput, TOutput>;
+export const nonEmpty: <TInput, TOutput extends string | unknown[]>(
+  schema: SchemaLike<TInput, TOutput>,
   message?: string
 ) => Schema<TInput, TOutput>;
 

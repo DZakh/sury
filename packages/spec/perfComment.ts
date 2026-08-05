@@ -8,7 +8,6 @@
 // derived from the other.
 import { readFileSync, writeFileSync } from "node:fs";
 
-const MARKER = "<!-- spec-perf -->";
 const MAX_ROWS = 10;
 
 // The direction word the CLI appends is captured rather than dropped: a bare
@@ -18,7 +17,16 @@ const MAX_ROWS = 10;
 const ROW = /^ {2}(\S.*?) {2,}([+-]?\d+(?:\.\d+)?)% (slower|faster)$/;
 const HEADER = /^performance vs (\S+) \((.+?)\) · (.+)$/;
 
-export const renderComment = (report: string, artifactUrl?: string, heading = "Spec performance"): string => {
+// `commit` names the head the numbers were taken from. A run posts a NEW
+// comment rather than editing one in place, so a PR accumulates one per push
+// and the reader needs each to say which head it measured — the header's other
+// sha is the baseline, which doesn't move.
+export const renderComment = (
+  report: string,
+  artifactUrl?: string,
+  heading = "Spec performance",
+  commit?: string,
+): string => {
   const lines = report.split("\n");
   const header = lines.map((l) => l.match(HEADER)).find(Boolean);
   const rows = lines.flatMap((l) => {
@@ -35,7 +43,7 @@ export const renderComment = (report: string, artifactUrl?: string, heading = "S
   const out = [`### ${heading}`, ""];
   out.push(
     header
-      ? `\`${header[1]}\` (${header[2]}) · ${header[3]}`
+      ? `${commit ? `\`${commit.slice(0, 7)}\` vs ` : ""}\`${header[1]}\` (${header[2]}) · ${header[3]}`
       : "_report could not be parsed — see the full report below._",
     "",
   );
@@ -53,10 +61,13 @@ export const renderComment = (report: string, artifactUrl?: string, heading = "S
   }
 
   if (artifactUrl) out.push(`[Full report ↗](${artifactUrl})`, "");
-  out.push(...footer.map((l) => `<sub>${l.trim()}</sub>`), "", MARKER);
+  out.push(...footer.map((l) => `<sub>${l.trim()}</sub>`));
   return out.join("\n");
 };
 
 const [, , input, output, heading] = process.argv;
 if (input && output)
-  writeFileSync(output, renderComment(readFileSync(input, "utf8"), process.env.ARTIFACT_URL, heading));
+  writeFileSync(
+    output,
+    renderComment(readFileSync(input, "utf8"), process.env.ARTIFACT_URL, heading, process.env.HEAD_SHA),
+  );

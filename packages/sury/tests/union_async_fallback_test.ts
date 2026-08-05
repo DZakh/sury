@@ -1,6 +1,6 @@
 import { test } from "vitest";
 
-import * as S from "../src/S.mjs";
+import * as S from "../index.mjs";
 
 const rejectingAsyncMember = (message: string) =>
   S.string
@@ -221,7 +221,9 @@ test("async all-reject errors remain flat and source ordered", async (t) => {
   } catch (error) {
     t.expect(error).toBeInstanceOf(S.Error);
     t.expect((error as Error).message).toBe(
-      'Expected string | string | string, received "value"\n' +
+      // The three members all render as `string`, so the expression states it
+      // once; what actually separates them shows up in the reasons below it.
+      'Expected string, received "value"\n' +
         "- first async rejection\n" +
         "- second async rejection\n" +
         "- third async rejection",

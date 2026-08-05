@@ -1,6 +1,7 @@
 import {
   baseSchema,
   type Builder,
+  configurableValueOptions,
   copySchema,
   type Encoder,
   type Flag,
@@ -9,7 +10,9 @@ import {
   flagUnsafeHas,
   getOrRethrow,
   globalConfig,
+  immutableEmptyArray,
   initSchema,
+  inputExpression,
   instanceTag,
   type Internal,
   isLiteral,
@@ -22,6 +25,7 @@ import {
   pathEmpty,
   reversedKey,
   s,
+  schemaPrototype,
   setHas,
   tagFlagArray,
   tagFlagBigint,
@@ -228,15 +232,47 @@ export const getOutputSchema = (schema: Internal): Internal => {
     return schema;
   }
 }
-// @__NO_SIDE_EFFECTS__
-export const reverse = (schema: Internal): Internal => {
-  const schemaRecord = schema as unknown as Record<string, Internal>;
-  if (reversedKey in schemaRecord) {
-    return schemaRecord[reversedKey]!;
+// The two sides of a schema trade places: what parsed now serializes, what
+// refined the input now refines the output. `delete` rather than `= U` because
+// `"fromDefault" in self` (union.ts) tells absent apart from undefined.
+const reverseSwap = (mut: Record<string, unknown>, a: string, b: string): void => {
+  const previous = mut[a];
+  if (mut[b] !== U) {
+    mut[a] = mut[b];
   } else {
+    delete mut[a];
+  }
+  if (previous !== U) {
+    mut[b] = previous;
+  } else {
+    delete mut[b];
+  }
+}
+
+// Null prototype: the keys are user-controlled property names, and assigning
+// `__proto__` on a plain `{}` reparents the object instead of adding a key —
+// which reparented the reversed property dict onto the property's own schema and
+// dropped the key, so `outputExpression` rendered schema internals.
+const reverseDict = (dict: Record<string, Internal>): Record<string, Internal> => {
+  const reversed: Record<string, Internal> = Object.create(null);
+  for (const key in dict) {
+    reversed[key] = reverse(dict[key]!);
+  }
+  return reversed;
+}
+
+// The general `reversed` getter: every schema can answer its reverse — the
+// self-reverse prototype shadows this with `this`, and a first read here
+// computes, then caches both directions as own non-enumerable properties
+// (own beats the getter on every later read). Free bundle-wise: `toString`
+// above already makes `reverse` unshakeable. Reading `r` therefore has side
+// effects — a debugger that expands prototype getters computes the reverse
+// and writes the cache; harmless, but not inert.
+Object.defineProperty(schemaPrototype, reversedKey, {
+  get: function (this: Internal): Internal {
+    const schema = this;
     let reversedHead: Internal | undefined = U;
     let current: Internal | undefined = schema;
-
     while (current) {
       const mut = copySchema(current!);
       const next = mut.to;
@@ -245,52 +281,15 @@ export const reverse = (schema: Internal): Internal => {
       } else {
         mut.to = reversedHead;
       }
-      const parser = mut.parser;
-      if (mut.serializer !== U) {
-        mut.parser = mut.serializer;
-      } else {
-        delete mut.parser;
-      }
-      if (parser !== U) {
-        mut.serializer = parser;
-      } else {
-        delete mut.serializer;
-      }
-      // Swap inputRefiner and refiner
-      const refiner = mut.refiner;
-      if (mut.inputRefiner !== U) {
-        mut.refiner = mut.inputRefiner;
-      } else {
-        delete mut.refiner;
-      }
-      if (refiner !== U) {
-        mut.inputRefiner = refiner;
-      } else {
-        delete mut.inputRefiner;
-      }
-      const fromDefault = mut.fromDefault;
-      if (mut.default !== U) {
-        mut.fromDefault = mut.default;
-      } else {
-        delete mut.fromDefault;
-      }
-      if (fromDefault !== U) {
-        mut.default = fromDefault;
-      } else {
-        delete mut.default;
-      }
+      const record = mut as unknown as Record<string, unknown>;
+      reverseSwap(record, "parser", "serializer");
+      reverseSwap(record, "refiner", "inputRefiner");
+      reverseSwap(record, "fromDefault", "default");
       if (mut.items !== U) {
         mut.items = mut.items.map(reverse);
       }
       if (mut.properties !== U) {
-        const properties = mut.properties;
-        const newProperties: Record<string, Internal> = {};
-        const keys = Object.keys(properties);
-        for (let idx = 0; idx <= keys.length - 1; idx++) {
-          const key = keys[idx]!;
-          newProperties[key] = reverse(properties[key]!);
-        }
-        mut.properties = newProperties;
+        mut.properties = reverseDict(mut.properties);
       }
       // Skip tuple
       if (typeof mut.additionalItems === objectTag) {
@@ -310,29 +309,113 @@ export const reverse = (schema: Internal): Internal => {
         mut.anyOf = newAnyOf;
       }
       if (mut["$defs"] !== U) {
-        const defs = mut["$defs"];
-        const reversedDefs: Record<string, Internal> = {};
-        const defsKeys = Object.keys(defs);
-        for (let idx = 0; idx <= defsKeys.length - 1; idx++) {
-          const key = defsKeys[idx]!;
-          reversedDefs[key] = reverse(defs[key]!);
-        }
-        mut["$defs"] = reversedDefs;
+        mut["$defs"] = reverseDict(mut["$defs"]);
       }
       reversedHead = mut;
       current = next;
     }
 
-    // Use defineProperty even though it's slower
-    // but it improves logging experience a lot
+    // defineProperty (slower, once per schema) keeps the cache non-enumerable:
+    // enumerability is load-bearing, not cosmetic — copySchema's Object.assign,
+    // optionFactory-style spreads, and unionIsTransparent's field count all walk
+    // enumerable fields and must not see it.
     const r = reversedHead!;
     valueOptions[valKey] = r;
     Object.defineProperty(schema, reversedKey, valueOptions as PropertyDescriptor);
     valueOptions[valKey] = schema;
     Object.defineProperty(r, reversedKey, valueOptions as PropertyDescriptor);
     return r;
+  },
+});
+
+// @__NO_SIDE_EFFECTS__
+export const reverse = (schema: Internal): Internal => schema.r!;
+
+// Lives here rather than beside `inputExpression` in base.ts so that only the
+// consumers who ask for the output side carry `reverse`.
+// @__NO_SIDE_EFFECTS__
+export const outputExpression = (schema: Internal): string =>
+  inputExpression(reverse(schema));
+
+// THE compiled-operation cache: a linked list of nodes on the cache target
+// (the newest-seq schema argument) under `memoKey`, newest node first, matched
+// by identity-comparing the schema arguments and the resolved flag — no string
+// keys, since a key assembled per call is never interned and re-hashes on
+// every lookup. Non-enumerable so copySchema's Object.assign can't carry it
+// onto a derived schema. Nothing evicts: a `S.global` flag change strands the
+// old flag's nodes, and each node pins its argument schemas for the target's
+// lifetime — both bounded by the number of distinct (args, flag) operations
+// ever asked of the schema.
+//
+// recursiveDecoder (advanced/recursive.ts) shares this storage; its lookup
+// triple (inputSchema, def, flag) is a two-schema node stored on `def`. That
+// is why `v` admits 0: a def mid-compilation holds the sentinel so inner
+// circular references embed the NODE and call `.v` at runtime — the node
+// exists before the function it will hold, and a recompile under corrected
+// assumptions overwrites `v` in place. getDecoder never observes the sentinel:
+// a def is only mid-compilation inside a synchronous recursiveDecoder pass,
+// and a pass that throws unlinks its node (removeOpNode) on the way out.
+export type OpNode = {
+  a: Internal[]; // the schema arguments, in order
+  f: Flag;
+  v: ((from: unknown) => unknown) | 0;
+  n: OpNode | undefined; // next (older) node
+};
+const memoKey = "c";
+
+// Prepend-only write, shared with recursiveDecoder. A defineProperty per NEW
+// operation (not per call), next to a compile that dwarfs it.
+export const addOpNode = (
+  schema: Internal,
+  a: Internal[],
+  f: Flag,
+  v: ((from: unknown) => unknown) | 0
+): OpNode => {
+  const created: OpNode = {
+    a,
+    f,
+    v,
+    n: (schema as unknown as Record<string, OpNode | undefined>)[memoKey],
+  };
+  (configurableValueOptions as Record<string, unknown>)[valKey] = created;
+  Object.defineProperty(schema, memoKey, configurableValueOptions as PropertyDescriptor);
+  return created;
+};
+
+// recursiveDecoder's failed-compile cleanup: a node left with `v === 0` would
+// read as a live circular reference on the next attempt, which would then
+// call 0 at runtime. Only that error path needs this, so it shakes away with
+// `recursive`.
+export const removeOpNode = (schema: Internal, node: OpNode): void => {
+  let cur = (schema as unknown as Record<string, OpNode | undefined>)[memoKey]!;
+  if (cur === node) {
+    (configurableValueOptions as Record<string, unknown>)[valKey] = node.n;
+    Object.defineProperty(schema, memoKey, configurableValueOptions as PropertyDescriptor);
+  } else {
+    while (cur.n !== node) cur = cur.n!;
+    cur.n = node.n;
   }
-}
+};
+
+// recursiveDecoder's lookup — always exactly two schemas. getDecoder keeps
+// its own inline walk: passing its `arguments` alias out would force the
+// allocation this cache exists to avoid.
+export const findOpNode = (
+  schema: Internal,
+  s0: Internal,
+  s1: Internal,
+  f: Flag
+): OpNode | undefined => {
+  let node = (schema as unknown as Record<string, OpNode | undefined>)[memoKey];
+  while (node !== U) {
+    const a = node.a;
+    if (node.f === f && a.length === 2 && a[0] === s0 && a[1] === s1) {
+      return node;
+    }
+    node = node.n;
+  }
+  return U;
+};
 
 // A plain (non-arrow, to keep `arguments`) function so call sites can pass
 // getDecoder(s1, s2[, s3][, flag]) with any number of schemas plus an
@@ -343,20 +426,15 @@ export function getDecoder(..._args: unknown[]): (from: unknown) => unknown {
   const args = arguments as unknown as unknown[];
   let idx = 0;
   let flag: Flag | undefined = U;
-  let keyRef = "";
   let maxSeq = 0;
   let cacheTarget: Internal | undefined = U;
 
   while (flag === U) {
     const arg = args[idx];
     if (!arg) {
-      const f = globalConfig.f;
-      flag = f;
-      keyRef = keyRef + "-" + f;
+      flag = globalConfig.f;
     } else if (typeof arg === numberTag) {
-      const f = (arg as Flag) | globalConfig.f;
-      flag = f;
-      keyRef = keyRef + "-" + f;
+      flag = (arg as Flag) | globalConfig.f;
     } else {
       const schema: Internal = arg as Internal;
       const seq = schema.seq!;
@@ -364,7 +442,6 @@ export function getDecoder(..._args: unknown[]): (from: unknown) => unknown {
         maxSeq = seq;
         cacheTarget = schema;
       }
-      keyRef = keyRef + seq + "-";
       idx = idx + 1;
     }
   }
@@ -372,25 +449,34 @@ export function getDecoder(..._args: unknown[]): (from: unknown) => unknown {
   if (cacheTarget === U) {
     return panic("No schema provided for decoder.");
   } else {
-    const key = keyRef;
-    const cacheTargetRecord = cacheTarget as unknown as Record<string, (from: unknown) => unknown>;
-    if (key in cacheTargetRecord) {
-      return cacheTargetRecord[key]!;
-    } else {
-      let schema: Internal = args[idx - 1] as Internal;
-      for (let i = idx - 2; i >= 0; i--) {
-        const to = schema;
-        schema = updateOutput(args[i] as Internal, (mut) => {
-          mut.to = to;
-        });
+    let node = (cacheTarget as unknown as Record<string, OpNode | undefined>)[memoKey];
+    while (node !== U) {
+      const a = node.a;
+      if (node.f === flag && a.length === idx) {
+        let i = idx;
+        while (i-- !== 0 && a[i] === args[i]) {}
+        if (i < 0) {
+          return node.v as (from: unknown) => unknown;
+        }
       }
-      const f = compileDecoder(schema, schema, flag!, U);
-      // Reusing the same object makes it a little bit faster
-      valueOptions[valKey] = f;
-      // Use defineProperty, so the cache keys are not enumerable
-      Object.defineProperty(cacheTarget, key, valueOptions as PropertyDescriptor);
-      return f as (from: unknown) => unknown;
+      node = node.n;
     }
+
+    let schema: Internal = args[idx - 1] as Internal;
+    for (let i = idx - 2; i >= 0; i--) {
+      const to = schema;
+      schema = updateOutput(args[i] as Internal, (mut) => {
+        mut.to = to;
+      });
+    }
+    const f = compileDecoder(schema, schema, flag!, U) as (from: unknown) => unknown;
+    addOpNode(
+      cacheTarget,
+      immutableEmptyArray.slice.call(args, 0, idx) as Internal[],
+      flag!,
+      f
+    );
+    return f;
   }
 }
 
