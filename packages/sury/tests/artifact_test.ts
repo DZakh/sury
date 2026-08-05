@@ -17,6 +17,7 @@ const FILES = [
   "README.md",
   "docs/js-usage.md",
   "docs/rescript-usage.md",
+  "index.d.mts",
   "index.d.ts",
   "index.js",
   "index.mjs",
@@ -87,6 +88,11 @@ const describeArtifact = existsSync(artifactsPath) ? describe : describe.skip;
 // during collection and take the whole file with it.
 const requireCjsEntry = (): any =>
   createRequire(import.meta.url)(path.join(artifactsPath, "index.js"));
+
+// The "." export nests a types/default pair per condition; every string leaf
+// is a file the tarball must carry.
+const exportTargets = (entry: unknown): string[] =>
+  typeof entry === "string" ? [entry] : Object.values(entry as object).flatMap(exportTargets);
 
 describeArtifact("artifact", () => {
   test("contains exactly the files it ships", () => {
@@ -163,7 +169,7 @@ describeArtifact("artifact", () => {
 
   test("every exports target resolves to a shipped file", () => {
     const pkg = readJson("package.json");
-    const targets = [...Object.values<string>(pkg.exports["."]), pkg.exports["./S.gen.js"].types];
+    const targets = [...exportTargets(pkg.exports["."]), pkg.exports["./S.gen.js"].types];
     for (const target of [...targets, pkg.main, pkg.module, pkg.types]) {
       expect(existsSync(path.join(artifactsPath, target)), target).toBe(true);
     }
@@ -176,8 +182,13 @@ describeArtifact("artifact", () => {
     expect(pkg.type).toBe("commonjs");
     expect(pkg.scripts).toBeUndefined();
     expect(pkg.devDependencies).toBeUndefined();
-    // TypeScript only honors "types" when it precedes the runtime conditions.
-    expect(Object.keys(pkg.exports["."])[0]).toBe("types");
+    // TypeScript only honors "types" when it comes first in its condition, and
+    // each entry format needs declarations of its own flavor — the package is
+    // commonjs, so index.d.ts typing the ESM entry would misreport its format.
+    expect(pkg.exports["."]).toEqual({
+      import: { types: "./index.d.mts", default: "./index.mjs" },
+      require: { types: "./index.d.ts", default: "./index.js" },
+    });
   });
 
   test("JSR publishes the same entry as npm", () => {
@@ -194,7 +205,7 @@ describeArtifact("artifact", () => {
       .map((e: string) => e.slice(1));
     const pkg = readJson("package.json");
     const targets = [
-      ...Object.values<string>(pkg.exports["."]),
+      ...exportTargets(pkg.exports["."]),
       pkg.exports["./S.gen.js"].types,
       pkg.main,
       pkg.module,

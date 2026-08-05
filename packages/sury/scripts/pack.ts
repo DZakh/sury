@@ -34,7 +34,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectPath = path.join(__dirname, "..");
 const repoRootPath = path.join(projectPath, "../..");
 const artifactsPath = path.join(projectPath, "artifacts");
-const sourcePaths = ["package.json", "src", "index.d.ts", "rescript.json", "README.md"];
+const sourcePaths = ["package.json", "src", "index.d.ts", "index.d.mts", "rescript.json", "README.md"];
 // Sury's user-facing docs live at the repo root, next to the README they link
 // from; LICENSE has to sit in the packed root for npm to pick it up.
 const repoRootPaths = ["LICENSE", "docs"];
@@ -166,18 +166,19 @@ async function pack(): Promise<void> {
     pkg.main = "./index.js";
     pkg.module = "./index.mjs";
     pkg.types = "./index.d.ts";
-    // TypeScript only honors "types" when it precedes the runtime conditions.
+    // Per-format declarations: the package is commonjs, so a lone index.d.ts
+    // would type the ESM entry as CJS under node16 resolution. TypeScript only
+    // honors "types" when it comes first within its condition.
     pkg.exports = {
       ".": {
-        types: "./index.d.ts",
-        import: "./index.mjs",
-        require: "./index.js",
+        import: { types: "./index.d.mts", default: "./index.mjs" },
+        require: { types: "./index.d.ts", default: "./index.js" },
       },
       "./src/*": "./src/*",
       "./S.gen.js": { types: "./src/S.gen.d.ts" },
       "./package.json": "./package.json",
     };
-    pkg.files = ["index.mjs", "index.js", "index.d.ts", "src", "rescript.json", "docs"];
+    pkg.files = ["index.mjs", "index.js", "index.d.ts", "index.d.mts", "src", "rescript.json", "docs"];
     // Nothing here builds the artifact, and dropping the scripts also drops the
     // prepublishOnly guard that makes publishing the dev package fail.
     delete pkg.devDependencies;
@@ -202,6 +203,7 @@ async function pack(): Promise<void> {
           "!index.mjs",
           "!index.js",
           "!index.d.ts",
+          "!index.d.mts",
           "!src",
           "!rescript.json",
           "!README.md",

@@ -1,5 +1,5 @@
 // Types for the generated index.mjs (TS resolves .mjs imports to .d.mts).
-// Dev tree only: in-repo importers reach index.mjs by path, while consumers of
-// the artifact resolve through the "." export's `types` condition — so this
-// file is deliberately absent from scripts/pack.ts's sourcePaths.
+// Shipped in the artifact too: that package is `type: "commonjs"`, so typing
+// its ESM entry with the lone index.d.ts would hand node16 resolution a CJS
+// declaration for an ESM file — hence the import condition's own `types`.
 export * from "./index.js";
