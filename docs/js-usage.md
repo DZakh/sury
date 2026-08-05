@@ -202,6 +202,8 @@ S.assert(
 **Sury** implements the [Standard Schema](https://standardschema.dev/) specification:
 
 ```ts
+const schema = S.schema({ name: S.string });
+
 schema["~standard"].validate({ name: "Dmitry" });
 // { value: { name: "Dmitry" } }
 
@@ -502,10 +504,10 @@ const dogSchema = S.schema({
 type Dog = S.Infer<typeof dogSchema>;
 
 // equivalent to:
-type Dog = {
-  name: string;
-  age: number;
-};
+// type Dog = {
+//   name: string;
+//   age: number;
+// };
 ```
 
 ### Literal fields
@@ -925,7 +927,7 @@ You can use `S.instance` to check that the input is an instance of a class. This
 
 ```ts
 class Test {
-  name: string;
+  name = "test";
 }
 
 const testSchema = S.instance(Test);
@@ -1114,6 +1116,8 @@ The refine function is applied for both parsing and encoding.
 Also, you can have an asynchronous assertion (for decoder only):
 
 ```ts
+declare const checkIsActiveUser: (id: string) => Promise<boolean>;
+
 const userSchema = S.schema({
   id: S.uuid.with(S.asyncDecoderAssert, async (id) => {
     const isActiveUser = await checkIsActiveUser(id);
@@ -1163,6 +1167,11 @@ Conversion targets are schemas, not dedicated functions: `S.json`, `S.jsonString
 Each call fuses the whole chain into a single function generated via `new Function`.
 
 ```ts
+declare const data: unknown;
+declare const rawString: string;
+declare const bytes: Uint8Array;
+declare const user: S.Infer<typeof userSchema>;
+
 // Validate unknown input.
 S.parser(userSchema)(data);
 
@@ -1179,6 +1188,8 @@ S.decoder(S.uint8Array, S.string)(bytes);
 The same applies inside schemas via [`S.to`](#to). A field, an array element, or a tuple slot can be its own multi-stage chain:
 
 ```ts
+const addressSchema = S.schema({ street: S.string, city: S.string });
+
 const apiUser = S.schema({
   // Arrives as a JSON string, which is parsed and validated as an array of addresses.
   addresses: S.jsonString.with(S.to, S.array(addressSchema)),
@@ -1449,18 +1460,18 @@ As you can notice, you can have more logic inside of the safe function callback 
 
 `defaultAdditionalItems` is an option that controls how unknown keys are handled when parsing objects. The default value is `strip`, but you can globally change it to `strict` to enforce strict object parsing.
 
-```rescript
+```ts
 S.global({
   defaultAdditionalItems: "strict",
-})
+});
 ```
 
 ### `disableNanNumberValidation`
 
 `disableNanNumberValidation` is an option that controls whether the library should check for NaN values when parsing numbers. The default value is `false`, but you can globally change it to `true` to allow NaN values. If you parse many numbers which are guaranteed to be non-NaN, you can set it to `true` to improve performance ~10%, depending on the case.
 
-```rescript
+```ts
 S.global({
   disableNanNumberValidation: true,
-})
+});
 ```

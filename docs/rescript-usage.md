@@ -427,7 +427,7 @@ let tunaSchema = S.literal("Tuna")
 let twelveSchema = S.literal(12)
 let importantTimestampSchema = S.literal(1652628345865.)
 let truSchema = S.literal(true)
-let nullSchema = S.literal(Null.null) // Or use S.nullAsUnit
+let nullSchema: S.t<Null.t<unit>> = S.literal(Null.null) // Or use S.nullAsUnit
 let undefinedSchema = S.literal() // Or use S.unit
 
 // Uses Number.isNaN to match NaN literals
@@ -438,8 +438,8 @@ let symbolSchema = S.literal(Symbol.asyncIterator)
 let twobigSchema = S.literal(BigInt.fromInt(2))
 
 // Supports variants and polymorphic variants
-let appleSchema = S.literal(#apple)
-let noneSchema = S.literal(None)
+let appleSchema: S.t<[#apple]> = S.literal(#apple)
+let noneSchema: S.t<option<string>> = S.literal(None)
 
 // Does a deep check for plain objects and arrays
 let cliArgsSchema = S.literal(("help", "lint"))
@@ -447,7 +447,7 @@ let cliArgsSchema = S.literal(("help", "lint"))
 // Supports functions and literally any Js values matching them with the === operator
 let fn = () => "foo"
 let fnSchema = S.literal(fn)
-let weakMap = WeakMap.make()
+let weakMap: WeakMap.t<string, int> = WeakMap.make()
 let weakMapSchema = S.literal(weakMap)
 ```
 
@@ -562,7 +562,7 @@ let schema = S.schema(s => Circle({
 You can use the schema for parsing as well as encoding:
 
 ```rescript
-Circle({radius: 1})->S.decodeOrThrow(~from=schema, ~to=S.unknown)
+Circle({radius: 1.})->S.decodeOrThrow(~from=schema, ~to=S.unknown)
 // {
 //   "kind": "circle",
 //   "radius": 1,
@@ -575,7 +575,7 @@ It's possible to spread/flatten an object schema in another object schema, allow
 
 ```rescript
 type entityData = {
-  name: option<string>,
+  name: string,
   age: int,
 }
 type entity = {
@@ -605,7 +605,7 @@ A nice way to parse nested fields:
 let schema = S.object(s => {
   {
     id: s.field("id", S.string),
-    name: s.nested("data").fieldOr("name", S.string, "Unknown")
+    name: s.nested("data").fieldOr("name", S.string, "Unknown"),
     age: s.nested("data").field("age", S.int),
   }
 })
@@ -628,7 +628,7 @@ let entitySchema = S.object(s => {
 })
 ```
 
-> 🧠 While the example with `s.flatten` expect an object with the type `{id: string, name: option<string>, age: int}`, the example above as well as for `s.nested` will expect an object with the type `{id: string, data: {name: option<string>, age: int}}`.
+> 🧠 While the example with `s.flatten` expect an object with the type `{id: string, name: option<string>, age: int}`, the example above as well as for `s.nested` will expect an object with the type `{id: string, data: {name: option<string>, age: int}}` (`name` stays optional in the input — `fieldOr` fills it in on the output side).
 
 ### **`strict`**
 
@@ -719,7 +719,7 @@ let otherSchema = S.schema(s => Other({
 // }))
 //       Notice how the field name /|\ is taken from the type's @as attribute
 
-let tupleExampleSchema = S.schema(s => (#id, s.matches(S.string)))
+let tupleExampleSchema: S.t<([#id], string)> = S.schema(s => (#id, s.matches(S.string)))
 // The same as:
 // S.tuple(s => (s.item(0, S.literal(#id)), s.item(1, S.string)))
 ```
@@ -747,7 +747,7 @@ let schema = S.float->S.shape(radius => Circle({radius: radius}))
 The same schema also works for encoding:
 
 ```rescript
-Circle({radius: 1})->S.decodeOrThrow(~from=schema, ~to=S.unknown)
+Circle({radius: 1.})->S.decodeOrThrow(~from=schema, ~to=S.unknown)
 // 1
 ```
 
@@ -969,6 +969,12 @@ The `S.list` schema represents an array of data of a specific type which is tran
 `S.t<'value> => S.t<array<array<'value>>>`
 
 ```rescript
+type row = {
+  id: string,
+  name: option<string>,
+  deleted: bool,
+}
+
 let schema = S.compactColumns(S.schema(s => {
   id: s.matches(S.string),
   name: s.matches(S.nullAsOption(S.string)),
@@ -1033,8 +1039,8 @@ let pointSchema = S.tuple(s => {
 })
 
 // It can be used both for parsing and encoding
-["point", 1, -4]->S.parseOrThrow(~to=pointSchema)
-{ x: 1, y: -4 }->S.decodeOrThrow(~from=pointSchema, ~to=S.unknown)
+%raw(`["point", 1, -4]`)->S.parseOrThrow(~to=pointSchema)
+{x: 1, y: -4}->S.decodeOrThrow(~from=pointSchema, ~to=S.unknown)
 ```
 
 The `S.tuple` schema represents that a data is an array of a specific length with values each of a specific type.
@@ -1046,7 +1052,7 @@ For short tuples without the need for transformation, there are wrappers over `S
 `(S.t<'v0>, S.t<'v1>, S.t<'v2>) => S.t<('v0, 'v1, 'v2)>`
 
 ```rescript
-let schema = S.tuple3(S.string, S.int, S.bool)
+let schema: S.t<(string, int, bool)> = S.tuple3(S.string, S.int, S.bool)
 
 %raw(`["a", 1, true]`)->S.parseOrThrow(~to=schema)
 // ("a", 1, true)
@@ -1222,9 +1228,16 @@ The same schema works for encoding:
 You can also use asynchronous parser:
 
 ```rescript
+type rec node = {
+  params: string,
+  children: array<node>,
+}
+
+let loadParams = (~id) => Promise.resolve(id)
+
 let nodeSchema = S.recursive("Node", nodeSchema => {
   S.object(s => {
-    params: s.field("Id", S.string)->S.transform(() => {asyncParser: id => loadParams(~id)}),
+    params: s.field("Id", S.string->S.transform(() => {asyncParser: id => loadParams(~id)})),
     children: s.field("Children", S.array(nodeSchema)),
   })
 })
@@ -1375,6 +1388,8 @@ type user = {
   name: string,
 }
 
+let loadUser = (~userId) => Promise.resolve({id: userId, name: "John"})
+
 let userSchema =
   S.uuid
   ->S.transform(() => {
@@ -1402,6 +1417,10 @@ await "1"->S.parseAsyncOrThrow(~to=userSchema)
 Conversion targets are schemas, not dedicated functions: `S.json`, `S.jsonString`, `S.unknown`, `S.date`, and `S.uint8Array` are ordinary schemas usable at any position in a chain. Describe the shape of the data at each stage with `~from` and `~to`, and Sury compiles the whole pipeline into a single function via `new Function`.
 
 ```rescript
+let data: unknown = %raw(`{"id": "1", "name": "John"}`)
+let rawString = `{"id": "1", "name": "John"}`
+let user = {id: "1", name: "John"}
+
 // Validate any input value.
 data->S.parseOrThrow(~to=userSchema)
 
@@ -1414,21 +1433,33 @@ user->S.decodeOrThrow(~from=userSchema, ~to=S.jsonString)
 // Pre-compile pipelines once, call them many times.
 let parseJsonUser = S.decoder(~from=S.jsonString, ~to=userSchema)
 let stringifyUser = S.decoder(~from=userSchema, ~to=S.jsonString)
+
+parseJsonUser(rawString)
+// {id: "1", name: "John"}
+stringifyUser(user)
+// `{"id":"1","name":"John"}`
 ```
 
 The **same pipeline idea works inside schemas** via [`S.to`](#to). A field, an array element, a tuple slot — any nested schema can be its own multi-stage chain:
 
 ```rescript
+let addressSchema = S.schema(s =>
+  {
+    "street": s.matches(S.string),
+    "city": s.matches(S.string),
+  }
+)
+
 let apiUserSchema = S.schema(s =>
   {
     // Arrives as a JSON string, which is parsed and validated as an array of addresses.
-    "addresses": s.field("addresses", S.jsonString->S.to(S.array(addressSchema))),
+    "addresses": s.matches(S.jsonString->S.to(S.array(addressSchema))),
 
     // Arrives as bytes, decoded as UTF-8, mapped to a Date.
-    "createdAt": s.field("createdAt", S.uint8Array->S.to(S.string)->S.to(S.date)),
+    "createdAt": s.matches(S.uint8Array->S.to(S.string)->S.to(S.date)),
 
     // Element-level transforms work the same way.
-    "ids": s.field("ids", S.array(S.string->S.to(S.bigint))),
+    "ids": s.matches(S.array(S.string->S.to(S.bigint))),
   }
 )
 ```
@@ -1489,19 +1520,19 @@ Also, you can use `S.noValidation` helper to turn off type validations for the s
 All operations either return the output value or throw an exception which you can catch with `try/catch` block:
 
 ```rescript
-try true->S.parseOrThrow(~to=schema) catch {
-| S.Error(error) => Console.log(error.message)
+try true->S.parseOrThrow(~to=schema)->ignore catch {
+| S.Exn(error) => Console.log(error.message)
 }
 ```
 
 ### **`parser`** / **`asyncParser`**
 
 ```
-S.parser: (~through: array<S.t<unknown>>=?, ~to: S.t<'value>) => 'any => 'value
-S.asyncParser: (~through: array<S.t<unknown>>=?, ~to: S.t<'value>) => 'any => promise<'value>
+S.parser: (~to: S.t<'value>) => 'any => 'value
+S.asyncParser: (~to: S.t<'value>) => 'any => promise<'value>
 ```
 
-Returns a compiled parse function that validates input and transforms it to the schema's output type. This is the most performant way to parse values repeatedly. Use `~through` to chain intermediate schemas.
+Returns a compiled parse function that validates input and transforms it to the schema's output type. This is the most performant way to parse values repeatedly.
 
 ```rescript
 let parse = S.parser(~to=S.string)
@@ -1510,30 +1541,41 @@ parse("Hello world!")
 // "Hello world!"
 
 // Async version for schemas with async transformations
+let schemaWithAsyncTransform =
+  S.string->S.transform(() => {asyncParser: value => Promise.resolve(value)})
 let parseAsync = S.asyncParser(~to=schemaWithAsyncTransform)
+
+parseAsync("Hello world!")
+// promise<string>
 ```
 
 ### **`decoder`** / **`asyncDecoder`**
 
 ```
-S.decoder: (~from: S.t<'from>, ~through: array<S.t<unknown>>=?, ~to: S.t<'to>) => 'from => 'to
-S.asyncDecoder: (~from: S.t<'from>, ~through: array<S.t<unknown>>=?, ~to: S.t<'to>) => 'from => promise<'to>
+S.decoder: (~from: S.t<'from>, ~to: S.t<'to>) => 'from => 'to
+S.asyncDecoder: (~from: S.t<'from>, ~to: S.t<'to>) => 'from => promise<'to>
 ```
 
-Returns a compiled decode function that transforms values from one schema to another. Use `~through` to chain intermediate schemas.
+Returns a compiled decode function that transforms values from one schema to another.
 
 ```rescript
+let schema = S.int
+
 // Compile an encoder
 let encode = S.decoder(~from=schema, ~to=S.unknown)
+encode(1)
 
 // Compile a JSON decoder
 let decodeJson = S.decoder(~from=S.json, ~to=schema)
+decodeJson(JSON.Encode.int(1))
 
 // Compile a JSON string encoder
 let toJsonString = S.decoder(~from=schema, ~to=S.jsonString)
+toJsonString(1)
 
 // Compile an async decoder
 let decodeAsync = S.asyncDecoder(~from=S.json, ~to=schema)
+decodeAsync(JSON.Encode.int(1))
 ```
 
 ### **`decoder1`** / **`asyncDecoder1`**
@@ -1724,7 +1766,7 @@ true->S.parseOrThrow(~to=schema)
 If you want to handle the error, the best way to use `try/catch` block:
 
 ```rescript
-try true->S.parseOrThrow(~to=schema) catch {
+try true->S.parseOrThrow(~to=schema)->ignore catch {
 | S.Exn(error) => Console.log(error.message)
 }
 ```

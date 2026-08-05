@@ -145,6 +145,8 @@ Every schema is reversible, so `S.reverse` hands you a full-featured schema with
 Stages nest, so any field can be its own pipeline:
 
 ```ts
+const addressSchema = S.schema({ street: S.string, city: S.string });
+
 const apiUser = S.schema({
   // Arrives as JSON text, parsed and validated as an array of addresses
   addresses: S.jsonString.with(S.to, S.array(addressSchema)),
@@ -236,6 +238,8 @@ S.parser(S.schema({ a: S.array(S.schema({ b: S.string })) }))({
 Every error is an `S.Error` (`err instanceof S.Error`), and `S.safe` / `S.safeAsync` wrap any block into a typed result if you'd rather not catch:
 
 ```ts
+declare const data: unknown;
+
 const result = S.safe(() => S.parser(playerSchema)(data));
 if (result.success) result.value;
 else result.error;
