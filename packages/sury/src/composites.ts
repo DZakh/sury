@@ -247,6 +247,7 @@ export const arrayDecoder = (unknownInput: Val): Val => {
       const inputVar = input.v();
       const iteratorVar = B_varWithoutAllocation(input.g);
 
+      const raiseCountBefore = input.g.t;
       const itemInput = B_dynamicScope(input, iteratorVar);
       const itemOutput = parseDynamic(itemInput);
       const hasTransform = itemOutput.t!;
@@ -260,6 +261,7 @@ export const arrayDecoder = (unknownInput: Val): Val => {
         input,
         iteratorVar,
         hasTransform ? () => B_addKey(output2, iteratorVar, itemOutput) : U,
+        hasTransform ? U : raiseCountBefore,
       );
 
       if (hasTransform || itemCode !== "") {
@@ -391,6 +393,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
   } else if (dictItem !== U && sourceIsDict) {
     const inputVar = input.v();
     const keyVar = B_varWithoutAllocation(input.g);
+    const raiseCountBefore = input.g.t;
     const itemInput = B_dynamicScope(input, keyVar);
     const itemOutput = parseDynamic(itemInput);
 
@@ -405,6 +408,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
       input,
       keyVar,
       hasTransform ? () => B_addKey(output2, keyVar, itemOutput) : U,
+      hasTransform ? U : raiseCountBefore,
     );
 
     if (hasTransform || itemCode !== "") {

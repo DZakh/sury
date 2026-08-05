@@ -2821,10 +2821,10 @@ test("Uint8Array", (t) => {
     `"data"`,
   );
   t.expect(S.decoder(S.string, S.uint8Array, S.jsonString).toString()).toEqual(
-    `i=>{return JSON.stringify(e[1].decode(e[0].encode(i)))}`,
+    `i=>{return e[2](e[1].decode(e[0].encode(i)))}`,
   );
   t.expect(S.decoder(S.unknown, S.uint8Array, S.jsonString).toString()).toEqual(
-    `i=>{i instanceof e[1]||e[2](i);return JSON.stringify(e[0].decode(i))}`,
+    `i=>{i instanceof e[2]||e[3](i);return e[1](e[0].decode(i))}`,
   );
 });
 

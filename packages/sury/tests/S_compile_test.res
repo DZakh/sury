@@ -21,7 +21,7 @@ test("Doesn't compile to noop when primitive converted to json string", t => {
 
 test("JsonString output with Async mode", t => {
   let fn = S.asyncDecoder(~from=S.string, ~to=S.jsonString)
-  t->assertCode(fn, `i=>{return Promise.resolve(JSON.stringify(i))}`)
+  t->assertCode(fn, `i=>{return Promise.resolve(e[0](i))}`)
 })
 
 test("TypeValidation=false works with assert output", t => {

@@ -170,10 +170,18 @@ export const failInvalidType = (input: Val): (value: unknown) => ErrorDetails =>
 // direction: union codegen wraps a case in a `try` it turns out not to need,
 // rather than dropping the fallback a raise needed.
 export const B_embed = (b: Val, value: unknown): string => {
+  b.g.t++;
+  return B_embedPure(b, value);
+}
+
+// B_embed for a value generated code can't raise through — a helper that
+// never throws. Skipping the raise counter keeps union codegen from wrapping
+// the case in a `try` it doesn't need, and keeps loop bodies recognizable as
+// throw-free (see B_mergeWithCatch's `pureSince`).
+export const B_embedPure = (b: Val, value: unknown): string => {
   const e = b.g.e;
   const l = e.length;
   e[l] = value;
-  b.g.t++;
   return `e[${l}]`;
 }
 
@@ -851,15 +859,21 @@ export const B_invalidOperation = (val: Val, description: string): never => {
 const B_mergeWithCatch = (
   val: Val,
   catchFn: (errorVar: string) => string,
-  appendSafe?: () => string
+  appendSafe?: () => string,
+  pureSince?: number
 ): string => {
   const valCode = B_merge(val);
+  // `pureSince` is the raise counter before the val was built: unchanged means
+  // nothing merged can throw, so the catch wrapper is dead. Without an append
+  // the code itself is dead too — an untransformed, unfailable body is only
+  // orphaned `let`s — and dropping it lets the caller skip its loop entirely.
+  const pure = pureSince !== U && val.g.t === pureSince;
   if (
-    valCode === "" &&
+    (valCode === "" || pure) &&
     // FIXME: Instead of this wrap all S.transform in a try/catch
     !flagUnsafeHas(val.f, valFlagAsync)
   ) {
-    return valCode + (appendSafe !== U ? appendSafe() : "");
+    return appendSafe !== U ? valCode + appendSafe() : pure ? "" : valCode;
   } else {
     const errorVar = B_varWithoutAllocation(val.g);
 
@@ -879,7 +893,8 @@ export const B_mergeWithPathPrepend = (
   val: Val,
   parent: Val,
   locationVar?: string,
-  appendSafe?: () => string
+  appendSafe?: () => string,
+  pureSince?: number
 ): string => {
   if (val.path === pathEmpty && locationVar === U) {
     return B_merge(val);
@@ -890,7 +905,8 @@ export const B_mergeWithPathPrepend = (
         `${errorVar}.path=${
           parent.path === "" ? "" : `${inlinedValueFromString(parent.path)}+`
         }${locationVar !== U ? `'["'+${locationVar}+'"]'+` : ""}${errorVar}.path`,
-      appendSafe
+      appendSafe,
+      pureSince
     );
   }
 }

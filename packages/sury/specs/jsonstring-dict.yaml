@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.record(S.optional(S.string)).with(S.to, S.jsonString)
+  input: "{ [x: string]: string | undefined; }"
+  output: string
+  instantiations: 5327
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "object", additionalProperties: { type: "string" } }'
+  output: '{ type: "string" }'
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);for(let v0 in i){try{let v1=i[v0];(typeof v1==="string"||v1===void 0)||e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}let v4="";for(let v3 in i){let v5=i[v3];if(v5!==void 0){v4+=(v4?",":"")+e[1](v3)+":"+e[2](v5)}}return "{"+v4+"}"}
+    examples:
+      empty:
+        input: "{}"
+        output: '"{}"'
+      values:
+        input: '{ a: "1", b: "2" }'
+        output: '"{\"a\":\"1\",\"b\":\"2\"}"'
+      undefined-value-omitted:
+        input: '{ a: "1", b: undefined }'
+        output: '"{\"a\":\"1\"}"'
+      escaped-key:
+        input: '{ "quote\"key": "v" }'
+        output: '"{\"quote\\\"key\":\"v\"}"'
+  decode:
+    expression: i=>{let v2="";for(let v1 in i){let v3=i[v1];if(v3!==void 0){v2+=(v2?",":"")+e[0](v1)+":"+e[1](v3)}}return "{"+v2+"}"}
+    examples:
+      values:
+        input: '{ a: "1" }'
+        output: '"{\"a\":\"1\"}"'
+  encode:
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v4={};for(let v1 in v0){try{let v2=v0[v1];for(;;){if(typeof v2==="string")break;if(v2===null){v2=void 0;break}e[1](v2)}v4[v1]=v2}catch(v3){v3.path='["'+v1+'"]'+v3.path;throw v3}}return v4}
+    examples:
+      values:
+        input: '"{\"a\":\"1\"}"'
+        output: '{ a: "1" }'
+      undefined-not-in-json:
+        input: '"{\"a\":null}"'
+        output: "{ a: undefined }"
