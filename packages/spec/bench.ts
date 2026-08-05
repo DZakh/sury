@@ -44,6 +44,14 @@ const WARMUP_BATCHES = 20;
 // of magnitude stricter.
 const BLOCKS = 8;
 const ROUNDS_PER_BLOCK = 2;
+// A whole child process can land in one JIT state and stay there — IC and
+// feedback shapes settle early, after which every block in that process agrees
+// with itself. The identical build has measured "unchanged" and "−44%" against
+// the same baseline in back-to-back runs, each individually "confirmed", so
+// within-process repetition (blocks) cannot see this failure mode at all. A
+// candidate is therefore confirmed by fresh PROCESSES, and kept only when the
+// screening process and every confirm process agree on direction.
+const CONFIRM_PROCESSES = 2;
 // Controls are sampled PER PHASE, and the floor is computed per phase too,
 // because the phases are not equally measurable: `create` allocates millions of
 // schemas and so runs against the garbage collector, which is a real cost but a
@@ -418,7 +426,15 @@ export const runPerf = async (
   // set are established under the same quiet serial conditions as the values
   // those floors gate. Screened under contention they would read as noisier
   // than the run they describe, and suppress real regressions to match.
-  const confirmed = collect(await measureAll([...candidates, ...controls], "confirm", 1));
+  // Each confirm pass spawns a fresh child process per target (see measureAll),
+  // so the CONFIRM_PROCESSES passes are independent JIT states, not repeats of
+  // one.
+  const confirmRuns: Map<string, { pct: number; median: number; batch: number }>[] = [];
+  for (let i = 0; i < CONFIRM_PROCESSES; i++)
+    confirmRuns.push(
+      collect(await measureAll(i === 0 ? [...candidates, ...controls] : candidates, `confirm ${i + 1}/${CONFIRM_PROCESSES}`, 1)),
+    );
+  const confirmed = confirmRuns[0]!;
 
   const floors = PHASES.map((phase) => {
     const measured = controls
@@ -441,18 +457,23 @@ export const runPerf = async (
   });
   const floorFor = (phase: Phase) => floors.find((f) => f.phase === phase)!.pct;
 
-  // Kept only if the serial re-measurement agrees on direction, reporting the
-  // smaller magnitude. Deliberately not an average of the two: re-measuring
-  // only the large values and pooling them pulls a real regression toward the
-  // mean exactly as hard as a false one, so this confirms rather than estimates.
+  // Kept only if every serial re-measurement agrees on direction, reporting the
+  // smallest magnitude. Deliberately not an average: re-measuring only the
+  // large values and pooling them pulls a real regression toward the mean
+  // exactly as hard as a false one, so this confirms rather than estimates.
   const changed = candidates
     .flatMap((t) => {
       const first = screened.get(t.name)!;
-      const again = confirmed.get(t.name);
-      if (!again || Math.sign(again.pct) !== Math.sign(first.pct)) return [];
-      const pct = Math.sign(first.pct) * Math.min(Math.abs(first.pct), Math.abs(again.pct));
+      const samples = [first];
+      for (const run of confirmRuns) {
+        const again = run.get(t.name);
+        if (!again || Math.sign(again.pct) !== Math.sign(first.pct)) return [];
+        samples.push(again);
+      }
+      const pct = Math.sign(first.pct) * Math.min(...samples.map((s) => Math.abs(s.pct)));
       if (Math.abs(pct) < floorFor(t.phase)) return [];
-      return [{ name: t.name, phase: t.phase, pct, median: again.median, batch: again.batch }];
+      const last = samples[samples.length - 1]!;
+      return [{ name: t.name, phase: t.phase, pct, median: last.median, batch: last.batch }];
     })
     .sort((a, b) => b.pct - a.pct);
 
@@ -469,6 +490,6 @@ export const runPerf = async (
     outcomeChanged: [...new Map(outcomeChanged.map((o) => [o.name, o])).values()],
     meta:
       `node ${process.versions.node} · ${process.platform} ${process.arch} · ${cpu.length} cores · ` +
-      `${BLOCKS}×${ROUNDS_PER_BLOCK} rounds · ${SCREEN_JOBS} screening jobs · confirmed`,
+      `${BLOCKS}×${ROUNDS_PER_BLOCK} rounds · ${SCREEN_JOBS} screening jobs · confirmed by ${CONFIRM_PROCESSES} fresh processes`,
   };
 };

@@ -336,10 +336,6 @@ error message, a strictness gap that let a bad spec through — add a bullet her
 instead of silently working around it.
 
 - <placeholder>
-- No operation dimension for JSON-target conversions (`.to(S.json)` / `.to(S.jsonString)`), so bugs like #311 (nested optional fields failing to encode) can't be captured as spec examples — their repros live in `tests/` instead.
-- Example results are serialized back to spec source, so a value with symbol keys can't be recorded ("cannot represent an object with symbol keys as spec source code"). `S.record`'s unvalidated symbol-keyed values are pinned in `tests/` instead of `specs/record.yaml`, where the rest of that gap lives.
-- The same serializer emits an own `__proto__` key as `{ __proto__: … }`, which is prototype syntax and reads back as a *different* value, so `check --write` rewrites such an example into one that no longer reproduces and the goldens oscillate between runs. `specs/object-proto-key.yaml` works around it by covering only inputs without that key; a computed-key form (`{ ["__proto__"]: … }`) would let the example be recorded directly.
-- Scenario measurements can be bimodal across child processes: the identical `encoder-lookup` build measured "unchanged" and "−44%" against the same baseline in back-to-back runs, each individually printed as `confirmed`. The screening/rounds design averages within a process but can't see a whole process landing in a different JIT state (IC/feedback shapes settle per child, then every block agrees with itself). Until runs repeat the *process* (not just the rounds) and require agreement across them, treat any single scenario delta on a shared-arity path as one sample, not a verdict.
 
 ## License
 
