@@ -20,7 +20,7 @@ import {
   B_refine,
   B_varWithoutAllocation,
 } from "../builder";
-import { addOpNode, compileDecoder, findOpNode } from "../parse";
+import { addOpNode, compileDecoder, findOpNode, removeOpNode } from "../parse";
 
 export const recursiveDecoder: Builder = (input) => {
   const expectedSchema = input.e;
@@ -37,11 +37,13 @@ export const recursiveDecoder: Builder = (input) => {
   let recOperation = "";
 
   // The def's operations live in the same node cache getDecoder uses (see
-  // OpNode in parse.ts), so an operation compiled by either side is found by
-  // the other. `v === 0` means this def is mid-compilation — a circular
-  // reference — and the NODE is what gets embedded: it exists before the
-  // function it will hold, so generated code calls `.v` at runtime and every
-  // recompile lands there for free.
+  // OpNode in parse.ts), stored on `def`; getDecoder stores on its newest-seq
+  // argument, so the two sides find each other's work whenever `def` is the
+  // newer of the pair — otherwise the pair just compiles twice. `v === 0`
+  // means this def is mid-compilation — a circular reference — and the NODE
+  // is what gets embedded: it exists before the function it will hold, so
+  // generated code calls `.v` at runtime and every recompile lands there for
+  // free.
   const existing = findOpNode(def, inputSchema, def, flag);
   if (existing !== U) {
     recOperation =
@@ -53,37 +55,44 @@ export const recursiveDecoder: Builder = (input) => {
     let compileNeeded = true;
     const node = addOpNode(def, [inputSchema, def], flag, 0);
 
-    while (compileNeeded) {
-      compileNeeded = false;
+    try {
+      while (compileNeeded) {
+        compileNeeded = false;
 
-      // Set optimistic values on def before compiling (if not already set)
-      // Inner circular references will read these values
-      if (def.hasTransform === U) {
-        def.hasTransform = assumedHasTransform;
+        // Set optimistic values on def before compiling (if not already set)
+        // Inner circular references will read these values
+        if (def.hasTransform === U) {
+          def.hasTransform = assumedHasTransform;
+        }
+        if (def.isAsync === U) {
+          def.isAsync = assumedIsAsync;
+        }
+
+        // Back to in-progress: a recompile's inner circular references must
+        // route through the node, not a stale function from the failed attempt.
+        node.v = 0;
+
+        node.v = compileDecoder(inputSchema, def, flag, defs);
+
+        // Check if actual values differ from assumed
+        const actualHasTransform = def.hasTransform!;
+        const actualIsAsync = def.isAsync!;
+
+        if (
+          actualHasTransform !== assumedHasTransform ||
+          actualIsAsync !== assumedIsAsync
+        ) {
+          // Wrong assumption - update and recompile
+          assumedHasTransform = actualHasTransform;
+          assumedIsAsync = actualIsAsync;
+          compileNeeded = true;
+        }
       }
-      if (def.isAsync === U) {
-        def.isAsync = assumedIsAsync;
-      }
-
-      // Back to in-progress: a recompile's inner circular references must
-      // route through the node, not a stale function from the failed attempt.
-      node.v = 0;
-
-      node.v = compileDecoder(inputSchema, def, flag, defs);
-
-      // Check if actual values differ from assumed
-      const actualHasTransform = def.hasTransform!;
-      const actualIsAsync = def.isAsync!;
-
-      if (
-        actualHasTransform !== assumedHasTransform ||
-        actualIsAsync !== assumedIsAsync
-      ) {
-        // Wrong assumption - update and recompile
-        assumedHasTransform = actualHasTransform;
-        assumedIsAsync = actualIsAsync;
-        compileNeeded = true;
-      }
+    } catch (exn) {
+      // A throw leaves `v === 0` behind; unlinked, so a retry recompiles and
+      // reports the schema bug instead of embedding a dead sentinel.
+      removeOpNode(def, node);
+      throw exn;
     }
 
     // Embed only the final compiled function to avoid wasting embed slots on recompiles

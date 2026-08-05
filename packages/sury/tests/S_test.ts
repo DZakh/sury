@@ -1621,7 +1621,8 @@ test("Standard schema", (t) => {
   >();
 });
 
-// getDecoder answers a repeated call from a one-entry memo on the schema, and
+// getDecoder answers a repeated call from a per-operation node cache on the
+// schema (see OpNode in parse.ts), and
 // `~standard.validate` holds its compiled decoder in a closure. Both are keyed
 // on the arguments and the global flag, so anything that picks a different
 // compiled operation must still get it.
@@ -1709,6 +1710,24 @@ test("A conversion rejected at operation creation throws from S.is, rather than 
     throw new RangeError("boom");
   });
   t.expect(() => S.is(boom, "x")).toThrow("boom");
+});
+
+// A recursive def marks itself in-progress in the operation cache before
+// compiling (OpNode `v === 0`, parse.ts). A compile that throws must unlink
+// that node: left behind, a retry reads it as a live circular reference and
+// builds an operation that calls 0 at runtime.
+test("A failed recursive compile reports the same error on retry, not a poisoned cache node", (t) => {
+  // Nested rather than top-level: a top-level call derives a fresh input
+  // schema per compile, so only the nested shape keeps the def-to-def cache
+  // triple stable enough for a retry to find the leftover node.
+  const schema = S.schema({
+    node: S.recursive<{ bad: boolean }, { bad: number }>("BrokenRec", (_) =>
+      S.schema({ bad: S.boolean.with(S.to, S.number) }),
+    ),
+  });
+  const message = "Can't decode boolean to number. Use S.to to define a custom decoder";
+  t.expect(() => S.parser(schema)).toThrow(message);
+  t.expect(() => S.parser(schema)({ node: { bad: true } })).toThrow(message);
 });
 
 test("Standard JSON Schema interface support", (t) => {

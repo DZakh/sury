@@ -66,17 +66,15 @@ export const js_asyncEncoder = (...args: unknown[]) =>
 // apart by the Standard Schema marker. The truthiness guard keeps falsy data
 // from throwing on the marker access, routing it to the data slot so
 // validation fails with a proper Sury error.
-const isSchemaFirst = (a: unknown): boolean => !!a && isSchemaObject(a);
-
 export const js_assert = (a: unknown, b: unknown): unknown => {
-  const aIsSchema = isSchemaFirst(a);
+  const aIsSchema = !!a && isSchemaObject(a);
   const schema = (aIsSchema ? a : b) as Internal;
   const data = aIsSchema ? b : a;
   return getDecoder(unknown, schema, assertResult)(data);
 };
 
 export const js_is = (a: unknown, b: unknown): boolean => {
-  const aIsSchema = isSchemaFirst(a);
+  const aIsSchema = !!a && isSchemaObject(a);
   // Compiled outside the try: a conversion rejected at operation creation
   // means the schema can't check any value, so it throws rather than reading
   // as `false` — the same split `~standard.validate` makes.

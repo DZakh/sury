@@ -265,57 +265,54 @@ const reverseDict = (dict: Record<string, Internal>): Record<string, Internal> =
 // self-reverse prototype shadows this with `this`, and a first read here
 // computes, then caches both directions as own non-enumerable properties
 // (own beats the getter on every later read). Free bundle-wise: `toString`
-// above already makes `reverse` unshakeable. `schema.reverse` overrides the
-// walk, same pattern as `expression` (base.ts).
+// above already makes `reverse` unshakeable. Reading `r` therefore has side
+// effects — a debugger that expands prototype getters computes the reverse
+// and writes the cache; harmless, but not inert.
 Object.defineProperty(schemaPrototype, reversedKey, {
   get: function (this: Internal): Internal {
     const schema = this;
     let reversedHead: Internal | undefined = U;
-    if (schema.reverse !== U) {
-      reversedHead = schema.reverse(schema);
-    } else {
-      let current: Internal | undefined = schema;
-      while (current) {
-        const mut = copySchema(current!);
-        const next = mut.to;
-        if (reversedHead === U) {
-          delete mut.to;
-        } else {
-          mut.to = reversedHead;
-        }
-        const record = mut as unknown as Record<string, unknown>;
-        reverseSwap(record, "parser", "serializer");
-        reverseSwap(record, "refiner", "inputRefiner");
-        reverseSwap(record, "fromDefault", "default");
-        if (mut.items !== U) {
-          mut.items = mut.items.map(reverse);
-        }
-        if (mut.properties !== U) {
-          mut.properties = reverseDict(mut.properties);
-        }
-        // Skip tuple
-        if (typeof mut.additionalItems === objectTag) {
-          mut.additionalItems = reverse(mut.additionalItems as Internal);
-        }
-        if (mut.anyOf !== U) {
-          const anyOf = mut.anyOf;
-          const has: Record<string, boolean> = {};
-          const newAnyOf: Internal[] = [];
-          for (let idx = 0; idx <= anyOf.length - 1; idx++) {
-            const s = anyOf[idx]!;
-            const reversed = reverse(s);
-            newAnyOf.push(reversed);
-            setHas(has, reversed.type);
-          }
-          mut.has = has;
-          mut.anyOf = newAnyOf;
-        }
-        if (mut["$defs"] !== U) {
-          mut["$defs"] = reverseDict(mut["$defs"]);
-        }
-        reversedHead = mut;
-        current = next;
+    let current: Internal | undefined = schema;
+    while (current) {
+      const mut = copySchema(current!);
+      const next = mut.to;
+      if (reversedHead === U) {
+        delete mut.to;
+      } else {
+        mut.to = reversedHead;
       }
+      const record = mut as unknown as Record<string, unknown>;
+      reverseSwap(record, "parser", "serializer");
+      reverseSwap(record, "refiner", "inputRefiner");
+      reverseSwap(record, "fromDefault", "default");
+      if (mut.items !== U) {
+        mut.items = mut.items.map(reverse);
+      }
+      if (mut.properties !== U) {
+        mut.properties = reverseDict(mut.properties);
+      }
+      // Skip tuple
+      if (typeof mut.additionalItems === objectTag) {
+        mut.additionalItems = reverse(mut.additionalItems as Internal);
+      }
+      if (mut.anyOf !== U) {
+        const anyOf = mut.anyOf;
+        const has: Record<string, boolean> = {};
+        const newAnyOf: Internal[] = [];
+        for (let idx = 0; idx <= anyOf.length - 1; idx++) {
+          const s = anyOf[idx]!;
+          const reversed = reverse(s);
+          newAnyOf.push(reversed);
+          setHas(has, reversed.type);
+        }
+        mut.has = has;
+        mut.anyOf = newAnyOf;
+      }
+      if (mut["$defs"] !== U) {
+        mut["$defs"] = reverseDict(mut["$defs"]);
+      }
+      reversedHead = mut;
+      current = next;
     }
 
     // defineProperty (slower, once per schema) keeps the cache non-enumerable:
@@ -340,25 +337,24 @@ export const reverse = (schema: Internal): Internal => schema.r!;
 export const outputExpression = (schema: Internal): string =>
   inputExpression(reverse(schema));
 
-// Memo of getDecoder calls answered by this schema, on the cache target under
 // THE compiled-operation cache: a linked list of nodes on the cache target
-// under `memoKey`, newest first, matched by identity-comparing the schema
-// arguments and the resolved flag. There are no string keys: a key assembled
-// per call is never internalized, so each lookup with one re-hashes it — an
-// order of magnitude more than the pointer compares that answer the same
-// question. Any number of operations is one node each; an alternating pair
-// sits as two nodes and reaches a steady state with no writes. Non-enumerable
-// so copySchema's Object.assign can't carry it onto a derived schema.
+// (the newest-seq schema argument) under `memoKey`, newest node first, matched
+// by identity-comparing the schema arguments and the resolved flag — no string
+// keys, since a key assembled per call is never interned and re-hashes on
+// every lookup. Non-enumerable so copySchema's Object.assign can't carry it
+// onto a derived schema. Nothing evicts: a `S.global` flag change strands the
+// old flag's nodes, and each node pins its argument schemas for the target's
+// lifetime — both bounded by the number of distinct (args, flag) operations
+// ever asked of the schema.
 //
-// recursiveDecoder (advanced/recursive.ts) shares this storage — its lookup
-// triple (inputSchema, def, flag) is exactly a two-schema node here, which is
-// how an operation compiled by one side is found by the other. It is also why
-// `v` admits 0: a def mid-compilation holds the sentinel so inner circular
-// references embed the NODE and call `.v` at runtime — the node exists before
-// the function it will hold, and a recompile under corrected assumptions just
-// overwrites `v` in place. getDecoder never observes the sentinel: a def is
-// only ever mid-compilation inside a synchronous recursiveDecoder pass, which
-// no user call can interleave.
+// recursiveDecoder (advanced/recursive.ts) shares this storage; its lookup
+// triple (inputSchema, def, flag) is a two-schema node stored on `def`. That
+// is why `v` admits 0: a def mid-compilation holds the sentinel so inner
+// circular references embed the NODE and call `.v` at runtime — the node
+// exists before the function it will hold, and a recompile under corrected
+// assumptions overwrites `v` in place. getDecoder never observes the sentinel:
+// a def is only mid-compilation inside a synchronous recursiveDecoder pass,
+// and a pass that throws unlinks its node (removeOpNode) on the way out.
 export type OpNode = {
   a: Internal[]; // the schema arguments, in order
   f: Flag;
@@ -384,6 +380,21 @@ export const addOpNode = (
   (configurableValueOptions as Record<string, unknown>)[valKey] = created;
   Object.defineProperty(schema, memoKey, configurableValueOptions as PropertyDescriptor);
   return created;
+};
+
+// recursiveDecoder's failed-compile cleanup: a node left with `v === 0` would
+// read as a live circular reference on the next attempt, which would then
+// call 0 at runtime. Only that error path needs this, so it shakes away with
+// `recursive`.
+export const removeOpNode = (schema: Internal, node: OpNode): void => {
+  let cur = (schema as unknown as Record<string, OpNode | undefined>)[memoKey]!;
+  if (cur === node) {
+    (configurableValueOptions as Record<string, unknown>)[valKey] = node.n;
+    Object.defineProperty(schema, memoKey, configurableValueOptions as PropertyDescriptor);
+  } else {
+    while (cur.n !== node) cur = cur.n!;
+    cur.n = node.n;
+  }
 };
 
 // recursiveDecoder's lookup — always exactly two schemas. getDecoder keeps

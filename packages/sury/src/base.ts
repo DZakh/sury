@@ -314,9 +314,6 @@ export type Internal = {
   // Set on the self-reverse prototype only — the cheap "reverses to itself"
   // probe (see selfReversePrototype below).
   sr?: boolean;
-  // Overrides the general reverse walk for this schema, same pattern as
-  // `expression` above: the getter caches whatever this returns.
-  reverse?: (schema: Internal) => Internal;
 }
 
 export type BGlobal = {

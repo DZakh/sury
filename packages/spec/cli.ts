@@ -277,7 +277,11 @@ const cmdCheck = async (): Promise<void> => {
   // Ahead of the --perf=only split: a malformed scenario is a target the perf
   // half cannot build — deriveTargets would surface it as an unattributed
   // TypeError out of the TypeScript scanner — so it fails both paths here.
-  const scenarioErrs = checkScenarios();
+  // Only on an unnarrowed run, like bundleSize.yaml below: scenarios are
+  // whole-file state a narrowed run has nothing to say about, and executing
+  // every one would tax the tight `spec check <id>` loop. CI and spec_test.ts
+  // run unnarrowed, so that gate still holds.
+  const scenarioErrs = ids.length ? [] : checkScenarios();
   if (scenarioErrs.length) {
     failed++;
     console.error(formatFailure("scenarios.yaml", scenarioErrs));
