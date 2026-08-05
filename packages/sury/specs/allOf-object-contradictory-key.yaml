@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.allOf([{ a: S.string }, { a: S.number }])"
+  input: "{ a: never; }"
+  output: "{ a: never; }"
+  instantiations: 2620
+vs:
+  zod:
+    schema: "z.intersection(z.object({ a: z.string() }), z.object({ a: z.number() }))"
+    divergence: Both reject every value; only the spelling differs. Zod leaves the intersection unresolved; S.allOf folds the contradictory key to `never` in place, which is what lets the error name the key rather than the whole object.
+    input: "{ a: string; } & { a: number; }"
+    output: "{ a: string; } & { a: number; }"
+jsonSchema:
+  input: '{ type: "object", properties: { a: { not: {} } }, required: ["a"] }'
+  output: '{ type: "object", properties: { a: { not: {} } }, required: ["a"] }'
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i["a"];e[0](v0);return {"a":v0,}}
+    examples:
+      value-matching-the-first-member:
+        input: '{ a: "x" }'
+        error: 'Failed at ["a"]: Expected never, received "x"'
+      value-matching-the-second-member:
+        input: "{ a: 1 }"
+        error: 'Failed at ["a"]: Expected never, received 1'
+      not-an-object:
+        input: "1"
+        error: "Expected { a: never; }, received 1"
+  decode:
+    expression: i=>{let v0=i["a"];e[0](v0);return i}
+    examples:
+      value-matching-the-first-member:
+        input: '{ a: "x" }'
+        error: 'Failed at ["a"]: Expected never, received "x"'
+  encode:
+    expression: i=>{let v0=i["a"];e[0](v0);return i}
+    examples:
+      value-matching-the-first-member:
+        input: '{ a: "x" }'
+        error: 'Failed at ["a"]: Expected never, received "x"'

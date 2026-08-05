@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.allOf([S.instance(Error), S.instance(TypeError)])
+  input: "{ name: string; message: string; stack?: string | undefined; cause?: unknown; }"
+  output: "{ name: string; message: string; stack?: string | undefined; cause?: unknown; }"
+  instantiations: 943
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: Expected JSON, received TypeError
+  output: Expected JSON, received TypeError
+operations:
+  parse:
+    expression: i=>{i instanceof e[0]||e[1](i);return i}
+    examples:
+      derived-instance-satisfies-both:
+        input: new TypeError("boom")
+        error: cannot represent a TypeError instance as spec source code
+      base-instance-does-not-satisfy-the-derived-member:
+        input: new Error("boom")
+        error: Expected TypeError, received Error
+      plain-object-is-not-an-instance:
+        input: "{}"
+        error: Expected TypeError, received {}
+  decode: identity
+  encode: identity

@@ -208,6 +208,14 @@ S.reverse(S.schema({
 - **`S.merge` forces all keys of both objects into `required`.**
   `merge` (`packages/sury/src/entry.ts`) rebuilds the merged object with
   every property required, dropping optionality that either side declared.
+- **`toJSONSchema` overflows the stack on a same-type `.to` chain.** Chaining a
+  schema onto another of its own type (`S.to(S.string.with(S.minLength, 3),
+  S.string.with(S.maxLength, 5))`) makes `toJSONSchema` recurse until the stack
+  runs out, so the schema compiles and parses correctly but can't be exported.
+  Reached through `S.allOf` too, since that is how it folds two members that
+  only constrain the same runtime type — pinned in
+  `specs/allOf-string-refined.yaml`, whose `jsonSchema` golden records the
+  overflow message.
 - **`inlinedValueFromString` escapes only `"` and `\n`.**
   (`packages/sury/src/types.ts`) — other control characters (`\r`, `\t`,
   backslash itself) survive unescaped into generated code and error text.

@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.allOf([S.array(S.string), S.array(S.string.with(S.minLength, 2))])
+  input: string[]
+  output: string[]
+  instantiations: 6129
+vs:
+  zod: z.intersection(z.array(z.string()), z.array(z.string().min(2)))
+jsonSchema:
+  input: Maximum call stack size exceeded
+  output: Maximum call stack size exceeded
+operations:
+  parse:
+    expression: i=>{Array.isArray(i)||e[2](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];typeof v1==="string"||e[1](v1);v1.length>1||e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}return i}
+    examples:
+      every-element-satisfies-both:
+        input: '["ab", "cde"]'
+        output: '["ab", "cde"]'
+      empty-array-vacuously-satisfies-both:
+        input: "[]"
+        output: "[]"
+      element-fails-the-second-member:
+        input: '["ab", "c"]'
+        error: 'Failed at ["1"]: Expected string.length >= 2, received "c"'
+      element-fails-the-first-member:
+        input: "[1]"
+        error: 'Failed at ["0"]: Expected string, received 1'
+      not-an-array:
+        input: '"ab"'
+        error: Expected string[], received "ab"
+  decode:
+    expression: i=>{for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];v1.length>1||e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}return i}
+    examples:
+      every-element-satisfies-both:
+        input: '["ab", "cde"]'
+        output: '["ab", "cde"]'
+      element-fails-the-second-member:
+        input: '["ab", "c"]'
+        error: 'Failed at ["1"]: Expected string.length >= 2, received "c"'
+  encode:
+    expression: i=>{for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];v1.length>1||e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}return i}
+    examples:
+      every-element-satisfies-both:
+        input: '["ab", "cde"]'
+        output: '["ab", "cde"]'
+      element-fails-the-second-member:
+        input: '["ab", "c"]'
+        error: 'Failed at ["1"]: Expected string.length >= 2, received "c"'
