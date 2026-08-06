@@ -1,23 +1,10 @@
-// JSON Schema dialects, as Sury reads and writes them.
+// The JSON Schema dialects Sury reads and writes: a wide `JSONSchema` that any
+// of them satisfies, and one type per target `toJSONSchema` can emit.
 //
-// Four interfaces: a wide `JSONSchema` for input, and one per dialect
-// `toJSONSchema` can emit. Two rules hold them together:
-//
-//  1. Every dialect interface must stay assignable to `JSONSchema`. That is what
-//     lets `fromJSONSchema(toJSONSchema(schema, options))` and
-//     `extendJSONSchema(schema, toJSONSchema(other))` compose without a cast.
-//     A keyword added to a dialect must also exist on `JSONSchema`.
-//  2. Each interface is written out in full, on purpose. They mirror frozen
-//     external specs, so there is no shared base to keep in sync — and a flat
-//     interface is what makes hovers, autocomplete and error messages name the
-//     dialect instead of expanding an intersection. Do not refactor these into
-//     `extends`, `Omit` or mapped types.
-//
-// These describe what `toJSONSchema` actually emits, which is not always what
-// the dialect's spec would say (`$defs` on every target, `examples` on OpenAPI).
-// Where the two differ, the emitter wins and the deviation is commented — a type
-// that describes an idealized dialect would be lying about the return value.
-// The emitting branches live in src/jsonschema.ts (`target === ...`).
+// A per-target type describes what Sury emits for that target, which is not
+// always what the dialect's spec alone would suggest — `$defs` comes out on
+// every target, and `examples` on OpenAPI 3.0. Such deviations are noted on the
+// fields themselves.
 
 /**
  * Primitive type
@@ -88,10 +75,9 @@ export type JSONSchemaDefinition = JSONSchema | boolean;
  * plus the OpenAPI 3.0 `nullable` extension.
  *
  * This is the type to author against (`{ ... } satisfies S.JSONSchema`) and what
- * `extendJSONSchema` accepts. Every keyword of every supported dialect is here,
- * including ones `fromJSONSchema` rejects at runtime: being able to write a
- * keyword down and get a targeted error beats an "unknown property" error that
- * doesn't say why.
+ * `extendJSONSchema` accepts. It carries every keyword of every supported
+ * dialect, including a few `fromJSONSchema` cannot model and rejects when it
+ * builds the schema.
  *
  * Draft-04 is not supported: it spells `$id` as `id`, and its boolean
  * `exclusiveMinimum`/`exclusiveMaximum` pair with `minimum`/`maximum` rather than
@@ -247,7 +233,7 @@ export interface JSONSchema7 {
   title?: string | undefined;
   description?: string | undefined;
   default?: JSONSchemaValue | undefined;
-  // draft-2019-09 keyword. Sury emits it on every target from schema metadata.
+  // draft-2019-09 keyword, emitted on every target.
   deprecated?: boolean | undefined;
   readOnly?: boolean | undefined;
   writeOnly?: boolean | undefined;
@@ -398,8 +384,8 @@ export interface OpenAPISchema30 {
   readOnly?: boolean | undefined;
   writeOnly?: boolean | undefined;
   example?: JSONSchemaValue | undefined;
-  // OpenAPI 3.0 defines the singular `example`; Sury emits `examples` from
-  // schema metadata regardless of target.
+  // OpenAPI 3.0 defines the singular `example`, but `examples` is emitted on
+  // every target.
   examples?: JSONSchemaValue[] | undefined;
 
   [vendorExtension: `x-${string}`]: unknown;

@@ -52,11 +52,6 @@ type version = string
  * draft-2020-12, plus the OpenAPI 3.0 `nullable` extension (OpenAPI.res aliases
  * this as its schema object).
  *
- * The same keyword set is spelled out twice more: `JSONSchemaT` in
- * src/jsonschema.ts, which the converters read, and `JSONSchema` in
- * src/types/jsonschema.d.ts, which JS consumers author against. A keyword
- * added to one belongs in all three.
- *
  * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01
  */
 type rec t = {

@@ -1,11 +1,5 @@
-// The Standard Schema and JSON Schema types mirror external specs rather than
-// Sury's own API, so they live in ./types. Re-exported here because S.d.ts is the
-// single public entry — `import * as S from "sury"` must still reach them.
-//
-// `export *` alone would not do: it re-exports to consumers without binding the
-// names locally, and `skipLibCheck` hides the resulting "cannot find name" from
-// every build, leaving `Schema["~standard"]` an error type that silently
-// degrades every inferred Input/Output. Hence the explicit `import type` too.
+// The Standard Schema and JSON Schema specs are mirrored under ./src/types.
+// Imported as well as re-exported, since the declarations below refer to them.
 import type { StandardJSONSchemaV1, StandardSchemaV1 } from "./src/types/standard.js";
 import type {
   JSONSchema,

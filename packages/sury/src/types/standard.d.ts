@@ -1,7 +1,5 @@
-// Mirrors of the Standard Schema specs (https://standardschema.dev). These are
-// external contracts, not Sury's own API — they change only when the spec does,
-// which is why they live apart from S.d.ts. Re-exported from S.d.ts, so every
-// name here is public.
+// The Standard Schema specs (https://standardschema.dev), which Sury schemas
+// implement. Every name here is part of the public API.
 
 /** The Standard Schema interface. */
 export interface StandardSchemaV1<TInput = unknown, TOutput = TInput> {
