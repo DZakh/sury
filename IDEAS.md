@@ -48,14 +48,15 @@ S.reverse(S.schema({
   refinement whose check duplicates what the decoder could emit from the
   bound fields directly, so `S.int32.with(S.gte, 5)` range-checks twice.
   Deriving them in `numberDecoder` fuses the two and drops a check per bound.
-  Do it in its own PR, in this order — the risk and the safety net are the
-  same piece:
-    1. Merge the branch that renamed `S.min`/`S.max`. `pnpm fuzz:union` builds
-       its baseline from a git ref, and every ref before that rename lacks
-       `S.gte`/`S.minLength`, so the harness cannot build one today.
-    2. First commit of the follow-up: run `fuzz:union --ref=<merge-base>` on an
-       unchanged tree, to confirm the harness works against the new API.
-    3. Then make the change and diff, so the gate actually gates.
+  Half the groundwork is already done: `boundsRefiner` derives every check
+  from the schema's own fields at codegen time rather than from a value each
+  call closed over, so moving them is now relocating a field read rather than
+  inventing one. The other half is the payoff — that refiner currently ships
+  with every bound export, and folding it into the decoder every number
+  consumer already carries is what wins those bytes back.
+  Run `fuzz:union --ref=<merge-base>` before *and* after; the harness builds
+  its baseline from a git ref, so confirm it works on an unchanged tree first
+  and the gate actually gates.
   Three knock-ons to expect: `union.ts` decides a schema has refinements with
   `schema.refiner !== U`, which bounded schemas would stop setting;
   `parse.ts`'s reverse swaps `refiner`/`inputRefiner`, and a field carries no
@@ -71,40 +72,13 @@ S.reverse(S.schema({
   half dead the same way, and `S.port` (`i>=0&&i<65536&&i%1===0`) has the
   identical redundancy. `numberDecoder` has `input.e` in hand and the bounds
   are native fields on it, so `int32FormatValidation` can drop whichever half
-  the bound subsumes. Two costs: a value outside the format range but also
-  outside the bound would report the bound's error rather than
+  the bound subsumes. The same read gives `S.integer`'s `i%1===0` away for
+  free wherever a divisor is an integer multiple of 1 — `multipleOf(2)` on an
+  integer schema already implies it. Two costs: a value outside the format
+  range but also outside the bound would report the bound's error rather than
   `Expected int32`, and `int32Check` would stop being a module-level const —
   the one place `primitives.ts` deliberately avoids a per-compile closure.
-
-- **A bound is the only refinement that rewrites the schema's type
-  expression.** So it's the only one that shows up when the *type* check is
-  what failed: `S.string.with(S.minLength, 2)` reports
-  `Expected string.length >= 2, received null`, where the same string carrying
-  `S.pattern` or `S.refine` still reports `Expected string, received null`.
-  The statement is true — `null` is not a string of length >= 2 — but it points
-  at a length nothing got far enough to have, and which refinement was applied
-  shouldn't decide how a wrong-type failure reads. The two checks are already
-  separate throws with separate builders (`e[1]` vs `e[0]`), so a custom bound
-  message correctly does *not* leak here; only the rendering does. Fixing it
-  means `failInvalidType` rendering the bare type where the bound check renders
-  the bounded one — which costs the `skipOverride` path a second caller.
-  Pinned in `specs/string-minLength.yaml`.
-
-- **Union headers enumerate bounds.** The same rewrite reaches the union
-  header, which is built from member expressions and deduped on rendered text.
-  Bounded members no longer render alike, so three string members that used to
-  collapse to `string` now spell
-  `string.length >= 5 | string | string.length <= 1`, and a non-string input
-  gets all three back as the answer to what was wrong with it. Visible in
-  `specs/union3-same-tag-effect-boundary.yaml`,
-  `union3-same-tag-validation-group`, `union2-refined-literal-fallback` and
-  `union-large-planner`. Three options, cheapest first: build the header from
-  `inputExpression(member, true)` so it names the shapes and leaves the bounds
-  to the per-member lines, which already carry them; or dedupe on the base
-  rendering and re-add a bound only where it's what distinguishes two members;
-  or keep the header and drop the `, received X` each sub-line repeats from it.
-  The first restores every golden above to its pre-bounds text without losing
-  detail, since the sub-lines are per-member already.
+  Do it with the item above, not before it: both rewrite the same emit.
 
 - **A hard-coded array length should build a tuple.** `S.array(S.string)`
   with `S.length(2)` describes exactly `[string, string]`, and with `S.empty`

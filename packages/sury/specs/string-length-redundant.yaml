@@ -1,6 +1,4 @@
 # yaml-language-server: $schema=./spec.schema.json
-# FIXME: the length side drops a re-applied bound's message the same way
-# number-gte-redundant does, and just as silently — see the FIXME there.
 ts:
   schema: S.string.with(S.length, 2).with(S.length, 2, "MY MESSAGE")
   input: string

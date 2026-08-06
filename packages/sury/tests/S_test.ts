@@ -2910,6 +2910,21 @@ test("A contradictory bound pair is rejected where it's written", (t) => {
   t.expect(() => S.number.with(S.multipleOf, 0.3).with(S.multipleOf, 0.2)).toThrow(
     `[Sury] multipleOf 0.2 cannot be combined with multipleOf 0.3`,
   );
+  // A divisor and a range can exclude each other while neither is empty
+  // alone — no multiple of 10 lies in `0 < number < 5` — in either order, and
+  // whether the divisor was written or raised to an LCM.
+  t.expect(() => S.number.with(S.gt, 0).with(S.lt, 5).with(S.multipleOf, 10)).toThrow(
+    `[Sury] number % 10 contradicts 0 < number < 5`,
+  );
+  t.expect(() => S.number.with(S.multipleOf, 10).with(S.gt, 0).with(S.lt, 5)).toThrow(
+    `[Sury] number % 10 contradicts 0 < number < 5`,
+  );
+  t.expect(() =>
+    S.number.with(S.gte, 1).with(S.lte, 5).with(S.multipleOf, 2).with(S.multipleOf, 3)
+  ).toThrow(`[Sury] number % 6 contradicts 1 <= number <= 5`);
+  t.expect(() => S.bigint.with(S.gte, 1n).with(S.lte, 100n).with(S.multipleOf, 1000n)).toThrow(
+    `[Sury] bigint % 1000n contradicts 1n <= bigint <= 100n`,
+  );
 
   // A single point is satisfiable, so these stay legal.
   t.expect(S.toJSONSchema(S.number.with(S.gte, 5).with(S.lte, 5))).toEqual({
@@ -2922,6 +2937,34 @@ test("A contradictory bound pair is rejected where it's written", (t) => {
     exclusiveMinimum: 5,
     exclusiveMaximum: 6,
   });
+  // A divisor larger than the range still admits 0, and a single point is a
+  // point like any other.
+  t.expect(S.toJSONSchema(S.int32.with(S.multipleOf, 3000000000))).toEqual({
+    type: "integer",
+    minimum: -2147483648,
+    maximum: 2147483647,
+    multipleOf: 3000000000,
+  });
+});
+
+test("A superseded bound takes its message with it", (t) => {
+  // The surviving check is the one the caller's message has to reach, so a
+  // message written on a bound that doesn't narrow carries onto it...
+  t.expect(
+    S.safe(() => S.assert(S.number.with(S.gte, 5).with(S.gte, 1, "MY MESSAGE"), 3)).error?.message
+  ).toBe("MY MESSAGE");
+  // ...and a narrowing replacement without one clears the stale text rather
+  // than reporting a bound the schema no longer advertises.
+  t.expect(
+    S.safe(() => S.assert(S.number.with(S.gte, 5, "A").with(S.gte, 10), 7)).error?.message
+  ).toBe("Expected number >= 10, received 7");
+  // Switching form replaces the field, so the message keyed to the old form
+  // goes with it instead of lingering where nothing reads it.
+  const flipped = S.number.with(S.gte, 5, "A").with(S.gt, 10);
+  t.expect(flipped.errorMessage?.minimum).toBe(undefined);
+  t.expect(
+    S.safe(() => S.assert(flipped, 7)).error?.message
+  ).toBe("Expected number > 10, received 7");
 });
 
 test("An unsatisfiable JSON Schema document loads as never", (t) => {

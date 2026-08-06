@@ -228,15 +228,63 @@ const boundsRefiner = (input: Val): Check[] => {
   return checks;
 };
 
+// A divisor and a range can exclude each other while neither is empty alone:
+// no multiple of 10 lies in `0 < number < 5`. The smallest multiple at or
+// above the low bound decides it — past the high bound and the schema has no
+// inhabitants, which is the caller bug `conflict` already reports for a pair
+// of bounds. `%` is the only arithmetic here so number and bigint share it;
+// `Math.trunc` would not.
+//
+// An open side is never empty: the multiples run to ±Infinity, so one always
+// falls past whichever single bound was written.
+const rangeExcludes = (schema: Internal, d: number | bigint): boolean => {
+  const written = schema.bounds ?? 0;
+  const exMin = written & 4 ? (schema.exclusiveMinimum as number) : U;
+  const low = exMin !== U ? exMin : written & 1 ? (schema.minimum as number) : U;
+  const exMax = written & 8 ? (schema.exclusiveMaximum as number) : U;
+  const high = exMax !== U ? exMax : written & 2 ? (schema.maximum as number) : U;
+  if (low === U || high === U) return false;
+  const divisor = d as number;
+  // `low - (low % divisor)` is the multiple at or beyond `low` toward zero, so
+  // it lands below `low` only on the positive side — one bump either way.
+  let first = ((low - (low % divisor)) as number);
+  if (first < low || (exMin !== U && first === low)) first = (first + divisor) as number;
+  return exMax !== U ? first >= high : first > high;
+};
+
+// One bound or divisor rendered without the other half, for the two sides of
+// the message. Both inherit `expression` through the spread, and it renders
+// whatever fields the copy carries.
+const asDivisorOnly = (schema: Internal, divisor: number | bigint): Internal => {
+  const mut = { ...schema, bounds: U, multipleOf: divisor } as unknown as Internal;
+  setBoundExpression(mut, schema);
+  return mut;
+};
+
+const asRangeOnly = (schema: Internal): Internal => {
+  const mut = { ...schema, multipleOf: U } as unknown as Internal;
+  setBoundExpression(mut, schema);
+  return mut;
+};
+
 // The refiner is installed once, by whichever bound or divisor lands first;
-// every later one only mutates the fields it reads.
-const updateBounds = (schema: Internal, update: (mut: Internal) => void): Internal =>
-  schema.bounds !== U || schema.multipleOf !== U
-    ? updateOutput(schema, update)
-    : internalRefine(schema, (mut: Internal) => {
-        update(mut);
-        return boundsRefiner;
-      });
+// every later one only mutates the fields it reads. The emptiness check runs
+// on the assembled result, so it covers a divisor landing on a range and a
+// range landing on a divisor with one call site rather than five.
+const updateBounds = (schema: Internal, update: (mut: Internal) => void): Internal => {
+  const next: Internal =
+    schema.bounds !== U || schema.multipleOf !== U
+      ? updateOutput(schema, update)
+      : internalRefine(schema, (mut: Internal) => {
+          update(mut);
+          return boundsRefiner;
+        });
+  const divisor = next.multipleOf;
+  if (divisor !== U && rangeExcludes(next, divisor)) {
+    conflict(asDivisorOnly(next, divisor), asRangeOnly(next));
+  }
+  return next;
+};
 
 // A message on a call that doesn't narrow used to vanish silently; it now
 // carries onto the check that survived — the one that actually fires for the
@@ -255,20 +303,25 @@ const carryMessage = (
 
 // A message tracks the bound value it was written with: a narrowing
 // replacement without its own message clears the stale text, or the surviving
-// check would report a bound the caller never described.
+// check would report a bound the caller never described. `replaced` is the
+// opposite form's key — `S.gte` clears `exclusiveMinimum` and vice versa —
+// since the field it cleared can no longer produce the check that message
+// belongs to, leaving it behind as a key nothing reads.
 const setBoundMessage = (
   mut: Internal,
   schema: Internal,
   key: string,
-  maybeMessage: string | undefined
+  maybeMessage: string | undefined,
+  replaced?: string
 ): void => {
+  const existing = schema.errorMessage as Record<string, string | undefined> | undefined;
   if (maybeMessage !== U) {
     (getMutErrorMessage(mut) as Record<string, string>)[key] = maybeMessage;
-  } else if (
-    schema.errorMessage !== U &&
-    (schema.errorMessage as Record<string, string | undefined>)[key] !== U
-  ) {
+  } else if (existing !== U && existing[key] !== U) {
     (getMutErrorMessage(mut) as Record<string, string | undefined>)[key] = U;
+  }
+  if (replaced !== U && existing !== U && existing[replaced] !== U) {
+    (getMutErrorMessage(mut) as Record<string, string | undefined>)[replaced] = U;
   }
 };
 
@@ -385,7 +438,7 @@ export const gte = (schema: Internal, minValue: number | bigint, maybeMessage?: 
     mut.bounds = ((schema.bounds ?? 0) & ~4) | 1;
     mut.minimum = minValue;
     mut.exclusiveMinimum = U;
-    setBoundMessage(mut, schema, "minimum", maybeMessage);
+    setBoundMessage(mut, schema, "minimum", maybeMessage, "exclusiveMinimum");
   });
 }
 
@@ -402,7 +455,7 @@ export const lte = (schema: Internal, maxValue: number | bigint, maybeMessage?: 
     mut.bounds = ((schema.bounds ?? 0) & ~8) | 2;
     mut.maximum = maxValue;
     mut.exclusiveMaximum = U;
-    setBoundMessage(mut, schema, "maximum", maybeMessage);
+    setBoundMessage(mut, schema, "maximum", maybeMessage, "exclusiveMaximum");
   });
 }
 
@@ -419,7 +472,7 @@ export const gt = (schema: Internal, minValue: number | bigint, maybeMessage?: s
     mut.bounds = ((schema.bounds ?? 0) & ~1) | 4;
     mut.exclusiveMinimum = minValue;
     mut.minimum = U;
-    setBoundMessage(mut, schema, "exclusiveMinimum", maybeMessage);
+    setBoundMessage(mut, schema, "exclusiveMinimum", maybeMessage, "minimum");
   });
 }
 
@@ -436,7 +489,7 @@ export const lt = (schema: Internal, maxValue: number | bigint, maybeMessage?: s
     mut.bounds = ((schema.bounds ?? 0) & ~2) | 8;
     mut.exclusiveMaximum = maxValue;
     mut.maximum = U;
-    setBoundMessage(mut, schema, "exclusiveMaximum", maybeMessage);
+    setBoundMessage(mut, schema, "exclusiveMaximum", maybeMessage, "maximum");
   });
 }
 
