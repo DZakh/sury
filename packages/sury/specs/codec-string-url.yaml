@@ -14,6 +14,12 @@ operations:
   parse:
     expression: i=>{typeof i==="string"||e[2](i);let v0=e[0](i);typeof v0!=="string"||e[1](v0);return v0}
     examples:
+      valid:
+        input: '"http://dzakh.dev/"'
+        output: new URL("http://dzakh.dev/")
+      valid-normalizes:
+        input: '"HTTP://Example.ORG:80/a/../b"'
+        output: new URL("http://example.org/b")
       invalid-no-scheme:
         input: '"cifjhdsfhsd"'
         error: Expected URL, received "cifjhdsfhsd"
@@ -26,6 +32,9 @@ operations:
   decode:
     expression: i=>{let v0=e[0](i);typeof v0!=="string"||e[1](v0);return v0}
     examples:
+      valid:
+        input: '"http://dzakh.dev/"'
+        output: new URL("http://dzakh.dev/")
       invalid-no-scheme:
         input: '"cifjhdsfhsd"'
         error: Expected URL, received "cifjhdsfhsd"
@@ -42,7 +51,7 @@ operations:
         input: new URL("http://dzakh.dev/")
         output: '"http://dzakh.dev/"'
       normalizes-on-the-way-out:
-        input: new URL("HTTP://Example.ORG:80/a/../b")
+        input: new URL("http://example.org/b")
         output: '"http://example.org/b"'
       escapes-pipe-in-path:
         input: new URL("http://ex.com/a|b")
@@ -114,10 +123,10 @@ operations:
         input: new URL("http://xn--nw2a.xn--j6w193g/")
         output: '"http://xn--nw2a.xn--j6w193g/"'
       keeps-idn-host-as-punycode:
-        input: new URL("http://ƒøø.example/")
+        input: new URL("http://xn--pdaa47b.example/")
         output: '"http://xn--pdaa47b.example/"'
       keeps-encoded-non-bmp-path:
-        input: new URL("http://ex.com/🎉")
+        input: new URL("http://ex.com/%F0%9F%8E%89")
         output: '"http://ex.com/%F0%9F%8E%89"'
       keeps-userinfo-and-port:
         input: new URL("https://u:pw@ex.com:8443/a/b?q=1#f")

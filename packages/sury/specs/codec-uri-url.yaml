@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.uri.with(S.to, S.url)
+  input: string
+  output: URL
+  instantiations: 5091
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "string", format: "uri" }'
+  output: Expected JSON, received URL
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[4](i);e[2].test(i)||e[3](i);let v0=e[0](i);typeof v0!=="string"||e[1](v0);return v0}
+    examples:
+      valid:
+        input: '"http://dzakh.dev/"'
+        output: new URL("http://dzakh.dev/")
+      uri-rejects-before-url-is-built:
+        input: '"http://ex.com/a|b"'
+        error: Expected uri, received "http://ex.com/a|b"
+      invalid-no-scheme:
+        input: '"cifjhdsfhsd"'
+        error: Expected uri, received "cifjhdsfhsd"
+  decode:
+    expression: i=>{e[2].test(i)||e[3](i);let v0=e[0](i);typeof v0!=="string"||e[1](v0);return v0}
+    examples:
+      valid:
+        input: '"http://dzakh.dev/"'
+        output: new URL("http://dzakh.dev/")
+      invalid-no-scheme:
+        input: '"cifjhdsfhsd"'
+        error: Expected uri, received "cifjhdsfhsd"
+  encode:
+    expression: i=>{e[1].test(i)||e[2](i);return e[0](i)}
+    examples:
+      valid:
+        input: new URL("http://dzakh.dev/")
+        output: '"http://dzakh.dev/"'
+      href-that-is-not-yet-a-uri:
+        input: new URL("http://ex.com/a|b")
+        error: Expected uri, received URL

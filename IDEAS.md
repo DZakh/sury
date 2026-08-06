@@ -282,17 +282,14 @@ which is what `packages/sury/specs/<format>.yaml` examples are drawn from.
   handling means a string-or-anything-else schema, since `format` is
   type-conditional — the same structural question the suite README raises for
   `maxLength` and `properties`.
-- `S.url` encodes through `.href` and labels the result `format: "uri"`, but the
-  WHATWG serializer leaves `|` and `^` unescaped — exactly the two characters
-  RFC 3986 forbids that survive `new URL`. So `S.encoder(S.string.with(S.to,
-  S.url))(new URL("http://x/a|b"))` yields a string the emitted schema says is a
-  URI and `S.uri` itself rejects. The three ways out all cost more than the gap:
-  validating on encode drags the whole `uri` regex into every `url` bundle and
-  throws on a URL the caller legitimately built, percent-encoding the two
-  characters breaks parse/encode round-trip identity, and dropping the
-  annotation loses the round trip through `fromJSONSchema`. Left as-is because
-  `format` is an annotation vocabulary in 2020-12, but it is a real two-character
-  lie and should be revisited if `format` ever becomes assertive here.
+- `S.uri.with(S.to, S.url)` cannot encode a `URL` whose href is not already a
+  URI: the `uri` refinement runs against the instance before the encoder gets to
+  escape it, so `new URL("http://ex.com/a|b")` fails with `Expected uri, received
+  URL` where the same value through `S.string.with(S.to, S.url)` encodes to
+  `http://ex.com/a%7Cb`. Pinned in `specs/codec-uri-url.yaml`. Running the
+  refinement on the encoder's output rather than its input would fix it, and is
+  the same ordering question any `refined.with(S.to, codec)` pair raises — worth
+  settling generally rather than for `url` alone.
 - IDNA validation for `S.hostname` / `S.idnHostname` (32/55 and 51/84). Both
   accept an `xn--` label on shape alone; rejecting one whose Punycode decodes to
   a character IDNA2008 disallows needs Punycode plus the Unicode
