@@ -52,6 +52,12 @@ operations:
       a-valid-urn:
         input: '"urn:oasis:names:specification:docbook:dtd:xml:4.1.2"'
         output: '"urn:oasis:names:specification:docbook:dtd:xml:4.1.2"'
+      a-valid-path-empty-uri:
+        input: '"mailto:"'
+        output: '"mailto:"'
+      a-valid-path-empty-uri-with-query-and-fragment:
+        input: '"about:?x=1#f"'
+        output: '"about:?x=1#f"'
       an-invalid-protocol-relative-uri-reference:
         input: '"//foo.bar/?baz=qux#quux"'
         error: Expected uri, received "//foo.bar/?baz=qux#quux"

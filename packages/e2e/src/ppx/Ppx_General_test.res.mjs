@@ -30,13 +30,13 @@ let stringWithDefaultSchema = Sury.$res_Option_getOr(Sury.$res_option(Sury.strin
 
 Vitest.test("Creates schema with default", t => U.assertEqualSchemas(t, stringWithDefaultSchema, Sury.$res_Option_getOr(Sury.$res_option(Sury.string), "Foo"), undefined));
 
-let stringWithDefaultAndMatchesSchema = Sury.$res_Option_getOr(Sury.$res_option(Sury.url), "https://example.com");
+let stringWithDefaultAndMatchesSchema = Sury.$res_Option_getOr(Sury.$res_option(Sury.uri), "https://example.com");
 
-Vitest.test("Creates schema with default using @s.matches", t => U.assertEqualSchemas(t, stringWithDefaultAndMatchesSchema, Sury.$res_Option_getOr(Sury.$res_option(Sury.url), "https://example.com"), undefined));
+Vitest.test("Creates schema with default using @s.matches", t => U.assertEqualSchemas(t, stringWithDefaultAndMatchesSchema, Sury.$res_Option_getOr(Sury.$res_option(Sury.uri), "https://example.com"), undefined));
 
-let stringWithDefaultNullAndMatchesSchema = Sury.$res_Option_getOr(Sury.$res_nullAsOption(Sury.url), "https://example.com");
+let stringWithDefaultNullAndMatchesSchema = Sury.$res_Option_getOr(Sury.$res_nullAsOption(Sury.uri), "https://example.com");
 
-Vitest.test("Creates schema with default null using @s.matches", t => U.assertEqualSchemas(t, stringWithDefaultNullAndMatchesSchema, Sury.$res_Option_getOr(Sury.$res_nullAsOption(Sury.url), "https://example.com"), undefined));
+Vitest.test("Creates schema with default null using @s.matches", t => U.assertEqualSchemas(t, stringWithDefaultNullAndMatchesSchema, Sury.$res_Option_getOr(Sury.$res_nullAsOption(Sury.uri), "https://example.com"), undefined));
 
 let ignoredNullWithMatchesSchema = Sury.$res_option(Sury.string);
 

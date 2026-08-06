@@ -58,6 +58,11 @@ export const url: Internal = /* @__PURE__ */ initSchema(instanceTag, (s) => {
   s.encoder = (input, target) => {
     const toTagFlag = tagFlags[target.type]!;
     if (flagUnsafeHas(toTagFlag, tagFlagString)) {
+      // Annotation, not a check: `.href` leaves `|` and `^` unescaped, the two
+      // characters RFC 3986 forbids that survive `new URL`, so a href can be
+      // one `S.uri` would reject. Validating here would drag the whole uri
+      // regex into every `url` bundle to catch two characters, and would throw
+      // on a URL the caller legitimately built.
       const uriString = baseSchema(stringTag, false);
       uriString.format = "uri";
       return parse(B_next(input, `${input.i}.href`, uriString, target));

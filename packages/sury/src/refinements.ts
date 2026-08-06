@@ -458,6 +458,14 @@ export const nullableAsOption = (schema: Internal): Internal => {
   return unionFactory([schema, unit, nullAsUnit]);
 }
 
+// Every format below repeats the same body rather than sharing a builder, and
+// the repetition is load-bearing: a regex built in a helper's argument position
+// is evaluated at module scope, which pins it — and `uriPattern`'s ~1.7KB string
+// — into the bundle of every export. Passing a thunk instead keeps it droppable
+// but still costs ~30 bytes per format export, because the inline closure is
+// what lets the minifier specialize each one. Measured both ways; don't "clean
+// this up" without re-running `pnpm spec check --write`.
+//
 // The RFC 3339 full-date production, unanchored. `isoDate` and `isoDateTime`
 // both build on it so the leap-year rule cannot drift between the two.
 const datePattern =
@@ -549,17 +557,19 @@ export const cuid: Internal = /* @__PURE__ */ initSchema(stringTag, (s) => {
 });
 
 
-// The formats below store the JSON Schema name verbatim in `format`, which is
-// what lets jsonschema.ts pass it through in both directions instead of
-// carrying a branch per format. `url` and `cuid` predate that convention.
+// Every `format` here is the JSON Schema name verbatim, which is what lets
+// jsonschema.ts pass it through in both directions instead of carrying a branch
+// per format. `cuid` and `json` are the two with no JSON Schema equivalent, and
+// are the denylist that switch checks.
 
-// RFC 3986 Appendix A. `uri` and `uri-reference` differ in exactly two places —
-// whether the scheme and the path are required — so one source builds both, and
-// the two `iri*` schemas reuse it: RFC 3987 §3.1 defines an IRI as the URI you
-// get by percent-encoding every non-ASCII character, which is all
-// `uriEscapeNonAscii` does before the test.
-const uriPattern = (optional: string): string =>
-  "^(?:[a-z][a-z0-9+\\-.]*:)" + optional + "(?:\\/\\/(?:(?:[a-z0-9\\-._~!$&'()*+,;=:]|%[0-9a-f]{2})*@)?(?:\\[(?:(?:(?:(?:[0-9a-f]{1,4}:){6}|::(?:[0-9a-f]{1,4}:){5}|(?:[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){4}|(?:(?:[0-9a-f]{1,4}:){0,1}[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){3}|(?:(?:[0-9a-f]{1,4}:){0,2}[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){2}|(?:(?:[0-9a-f]{1,4}:){0,3}[0-9a-f]{1,4})?::[0-9a-f]{1,4}:|(?:(?:[0-9a-f]{1,4}:){0,4}[0-9a-f]{1,4})?::)(?:[0-9a-f]{1,4}:[0-9a-f]{1,4}|(?:(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?))|(?:(?:[0-9a-f]{1,4}:){0,5}[0-9a-f]{1,4})?::[0-9a-f]{1,4}|(?:(?:[0-9a-f]{1,4}:){0,6}[0-9a-f]{1,4})?::)|[Vv][0-9a-f]+\\.[a-z0-9\\-._~!$&'()*+,;=:]+)\\]|(?:(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)|(?:[a-z0-9\\-._~!$&'()*+,;=]|%[0-9a-f]{2})*)(?::\\d*)?(?:\\/(?:[a-z0-9\\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*|\\/(?:(?:[a-z0-9\\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})+(?:\\/(?:[a-z0-9\\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*)?|(?:[a-z0-9\\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})+(?:\\/(?:[a-z0-9\\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*)" + optional + "(?:\\?(?:[a-z0-9\\-._~!$&'()*+,;=:@/?]|%[0-9a-f]{2})*)?(?:#(?:[a-z0-9\\-._~!$&'()*+,;=:@/?]|%[0-9a-f]{2})*)?$";
+// RFC 3986 Appendix A. `uri` and `uri-reference` differ in exactly one place —
+// whether the scheme is required — so one source builds both, and the two `iri*`
+// schemas reuse it: RFC 3987 §3.1 defines an IRI as the URI you get by
+// percent-encoding every non-ASCII character, which is all `uriEscapeNonAscii`
+// does before the test. The hier-part is optional on both sides because
+// RFC 3986 admits path-empty, which is what makes `mailto:` and `about:` URIs.
+const uriPattern = (schemeOptional: string): string =>
+  "^(?:[a-z][a-z0-9+\\-.]*:)" + schemeOptional + "(?:\\/\\/(?:(?:[a-z0-9\\-._~!$&'()*+,;=:]|%[0-9a-f]{2})*@)?(?:\\[(?:(?:(?:(?:[0-9a-f]{1,4}:){6}|::(?:[0-9a-f]{1,4}:){5}|(?:[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){4}|(?:(?:[0-9a-f]{1,4}:){0,1}[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){3}|(?:(?:[0-9a-f]{1,4}:){0,2}[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){2}|(?:(?:[0-9a-f]{1,4}:){0,3}[0-9a-f]{1,4})?::[0-9a-f]{1,4}:|(?:(?:[0-9a-f]{1,4}:){0,4}[0-9a-f]{1,4})?::)(?:[0-9a-f]{1,4}:[0-9a-f]{1,4}|(?:(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?))|(?:(?:[0-9a-f]{1,4}:){0,5}[0-9a-f]{1,4})?::[0-9a-f]{1,4}|(?:(?:[0-9a-f]{1,4}:){0,6}[0-9a-f]{1,4})?::)|[Vv][0-9a-f]+\\.[a-z0-9\\-._~!$&'()*+,;=:]+)\\]|(?:(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)|(?:[a-z0-9\\-._~!$&'()*+,;=]|%[0-9a-f]{2})*)(?::\\d*)?(?:\\/(?:[a-z0-9\\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*|\\/(?:(?:[a-z0-9\\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})+(?:\\/(?:[a-z0-9\\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*)?|(?:[a-z0-9\\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})+(?:\\/(?:[a-z0-9\\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*)?(?:\\?(?:[a-z0-9\\-._~!$&'()*+,;=:@/?]|%[0-9a-f]{2})*)?(?:#(?:[a-z0-9\\-._~!$&'()*+,;=:@/?]|%[0-9a-f]{2})*)?$";
 
 // The `u` flag is load-bearing: without it the class matches a surrogate pair
 // one half at a time and `encodeURIComponent` throws URIError on the lone half,

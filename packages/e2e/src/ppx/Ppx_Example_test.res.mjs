@@ -38,9 +38,9 @@ Vitest.test("Main example", t => U.assertEqualSchemas(t, filmSchema, Sury.$res_s
   }))
 })), undefined));
 
-let matchesSchema = Sury.url;
+let matchesSchema = Sury.uri;
 
-Vitest.test("@s.matches", t => U.assertEqualSchemas(t, matchesSchema, Sury.url, undefined));
+Vitest.test("@s.matches", t => U.assertEqualSchemas(t, matchesSchema, Sury.uri, undefined));
 
 let defaultSchema = Sury.$res_Option_getOr(Sury.$res_option(Sury.string), "Unknown");
 

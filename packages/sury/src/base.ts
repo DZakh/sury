@@ -155,10 +155,11 @@ export const s = /* @__PURE__ */ Symbol(vendor);
 export const itemSymbol = /* @__PURE__ */ Symbol(vendor + ":item");
 
 export type NumberFormat = "int32" | "port";
-// Mirrored by `StringFormat` in S.d.ts, which is the surface TS users see —
-// a name added here without being added there is invisible to them. Every
-// member but `json`, `cuid` and `url` is a JSON Schema format name verbatim,
-// which is what lets jsonschema.ts pass it through in both directions.
+// Mirrored by `StringFormat` in index.d.ts, which is the surface TS users see —
+// a name added here without being added there is invisible to them, and a third
+// copy lives in `S.res`. Every member but `json` and `cuid` is a JSON Schema
+// format name verbatim, which is what lets jsonschema.ts pass it through in
+// both directions.
 export type StringFormat =
   | "json"
   | "date-time"
