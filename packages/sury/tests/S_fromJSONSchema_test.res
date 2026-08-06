@@ -343,7 +343,104 @@ test("fromJSONSchema: unknown type throws", t => {
   t->Assert.throws(() => S.fromJSONSchema(js), ~expectations={message: "Unsupported JSON Schema type: unknownType"})
 })
 
-// 10. Round-trip S -> toJSONSchema -> fromJSONSchema -> S
+// 10. $ref
+
+test("fromJSONSchema: $ref to a finite def is inlined", t => {
+  let js = {
+    ref: "#/$defs/Name",
+    defs: Dict.fromArray([("Name", Schema({type_: Arrayable.single(#string)}))]),
+  }
+  let schema = S.fromJSONSchema(js)
+  t->Assert.deepEqual(parse(schema, "foo"), "foo")
+  t->Assert.throws(() => parse(schema, 1))
+  // Nothing refers to the def anymore, so it doesn't come back out.
+  t->Assert.deepEqual(jsonRoundTrip(js), {type_: Arrayable.single(#string)})
+})
+
+test("fromJSONSchema: draft-07 spells the same defs `definitions`", t => {
+  let js = {
+    type_: Arrayable.single(#array),
+    items: Arrayable.single(Schema({ref: "#/definitions/Item"})),
+    definitions: Dict.fromArray([("Item", Schema({type_: Arrayable.single(#boolean)}))]),
+  }
+  let schema = S.fromJSONSchema(js)
+  t->Assert.deepEqual(parse(schema, [true, false]), [true, false])
+  t->Assert.throws(() => parse(schema, [1]))
+})
+
+test("fromJSONSchema: a pointer resolves through any path, not just a defs dict", t => {
+  // OpenAPI keeps its definitions under `components/schemas`, which is a plain
+  // JSON Pointer like any other.
+  let js: JSONSchema.t = %raw(`{
+    "$ref": "#/components/schemas/Pet",
+    "components": {"schemas": {"Pet": {"type": "string"}}}
+  }`)
+  t->Assert.deepEqual(parse(S.fromJSONSchema(js), "cat"), "cat")
+})
+
+test("fromJSONSchema: pointer segments are unescaped per RFC 6901", t => {
+  let js: JSONSchema.t = %raw(`{
+    "$defs": {"a/b": {"type": "string"}, "c~d": {"type": "boolean"}},
+    "type": "object",
+    "properties": {"slash": {"$ref": "#/$defs/a~1b"}, "tilde": {"$ref": "#/$defs/c~0d"}},
+    "required": ["slash", "tilde"]
+  }`)
+  let schema = S.fromJSONSchema(js)
+  t->Assert.deepEqual(parse(schema, {"slash": "s", "tilde": true}), {"slash": "s", "tilde": true})
+  t->Assert.throws(() => parse(schema, {"slash": true, "tilde": true}))
+})
+
+test("fromJSONSchema: a recursive $ref round-trips as a $ref plus its $defs", t => {
+  let js: JSONSchema.t = %raw(`{
+    "$ref": "#/$defs/Node",
+    "$defs": {
+      "Node": {
+        "type": "object",
+        "properties": {"next": {"$ref": "#/$defs/Node"}}
+      }
+    }
+  }`)
+  let schema = S.fromJSONSchema(js)
+  t->Assert.deepEqual(parse(schema, {"next": {"next": Dict.make()}}), {"next": {"next": Dict.make()}})
+  t->Assert.deepEqual(jsonRoundTrip(js), js)
+})
+
+test("fromJSONSchema: `#` points at the document itself", t => {
+  let js: JSONSchema.t = %raw(`{
+    "type": "object",
+    "properties": {"self": {"$ref": "#"}}
+  }`)
+  let schema = S.fromJSONSchema(js)
+  t->Assert.deepEqual(parse(schema, {"self": Dict.make()}), {"self": Dict.make()})
+})
+
+test("fromJSONSchema: a $ref resolves inside allOf, which compiles on its own", t => {
+  let js: JSONSchema.t = %raw(`{
+    "$defs": {"Node": {"type": "object", "properties": {"next": {"$ref": "#/$defs/Node"}}}},
+    "allOf": [{"$ref": "#/$defs/Node"}]
+  }`)
+  let schema = S.fromJSONSchema(js)
+  t->Assert.deepEqual(parse(schema, {"next": Dict.make()}), {"next": Dict.make()})
+  t->Assert.throws(() => parse(schema, {"next": 1}))
+})
+
+test("fromJSONSchema: an unresolvable $ref throws", t => {
+  t->Assert.throws(
+    () => S.fromJSONSchema({ref: "#/$defs/Missing"}),
+    ~expectations={message: "Failed to resolve JSON Schema $ref: #/$defs/Missing"},
+  )
+})
+
+test("fromJSONSchema: a $ref out of the document throws", t => {
+  t->Assert.throws(
+    () => S.fromJSONSchema({ref: "https://example.com/Pet.json"}),
+    ~expectations={
+      message: "Unsupported JSON Schema $ref: https://example.com/Pet.json. Only JSON Pointers into the same document (#/…) resolve — $id, $anchor and remote refs don't",
+    },
+  )
+})
+
+// 11. Round-trip S -> toJSONSchema -> fromJSONSchema -> S
 
 test("fromJSONSchema: round-trip for string schema", t => {
   let orig = S.string
