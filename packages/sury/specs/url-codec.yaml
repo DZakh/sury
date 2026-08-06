@@ -36,7 +36,7 @@ operations:
         input: '"http://"'
         error: Expected URL, received "http://"
   encode:
-    expression: i=>{return i.href}
+    expression: i=>{return e[0](i)}
     examples:
       valid:
         input: new URL("http://dzakh.dev/")
@@ -44,3 +44,87 @@ operations:
       normalizes-on-the-way-out:
         input: new URL("HTTP://Example.ORG:80/a/../b")
         output: '"http://example.org/b"'
+      escapes-pipe-in-path:
+        input: new URL("http://ex.com/a|b")
+        output: '"http://ex.com/a%7Cb"'
+      escapes-caret-in-path:
+        input: new URL("http://ex.com/a^b")
+        output: '"http://ex.com/a%5Eb"'
+      escapes-brackets-in-path:
+        input: new URL("http://ex.com/a[0]")
+        output: '"http://ex.com/a%5B0%5D"'
+      escapes-backslash-in-query:
+        input: new URL("http://ex.com/?a\\b")
+        output: '"http://ex.com/?a%5Cb"'
+      escapes-backtick-in-query:
+        input: new URL("http://ex.com/?a`b")
+        output: '"http://ex.com/?a%60b"'
+      escapes-braces-in-query:
+        input: new URL("http://ex.com/?a{b}c")
+        output: '"http://ex.com/?a%7Bb%7Dc"'
+      escapes-pipe-in-fragment:
+        input: new URL("http://ex.com/#a|b")
+        output: '"http://ex.com/#a%7Cb"'
+      escapes-bare-percent:
+        input: new URL("http://ex.com/a%b")
+        output: '"http://ex.com/a%25b"'
+      escapes-truncated-percent:
+        input: new URL("http://ex.com/a%A")
+        output: '"http://ex.com/a%25A"'
+      escapes-non-hex-percent:
+        input: new URL("http://ex.com/a%6G")
+        output: '"http://ex.com/a%256G"'
+      escapes-percent-in-userinfo:
+        input: new URL("http://u%x:p%y@ex.com/")
+        output: '"http://u%25x:p%25y@ex.com/"'
+      keeps-valid-percent-triplet:
+        input: new URL("http://ex.com/p%20q")
+        output: '"http://ex.com/p%20q"'
+      keeps-valid-triplet-beside-an-escape:
+        input: new URL("http://ex.com/p%20q|r")
+        output: '"http://ex.com/p%20q%7Cr"'
+      escapes-second-hash:
+        input: new URL("http://ex.com/#a#b")
+        output: '"http://ex.com/#a%23b"'
+      keeps-ipv6-host-brackets:
+        input: new URL("http://[::1]:8080/p")
+        output: '"http://[::1]:8080/p"'
+      keeps-ipv6-host-long-form:
+        input: new URL("http://[2001:db8::7]/c=GB")
+        output: '"http://[2001:db8::7]/c=GB"'
+      escapes-backtick-in-host:
+        input: new URL("http://a`b/p")
+        output: '"http://a%60b/p"'
+      escapes-brace-in-opaque-host:
+        input: new URL("foo://a{b/p")
+        output: '"foo://a%7Bb/p"'
+      escapes-space-in-opaque-path:
+        input: new URL("mailto:a b")
+        output: '"mailto:a%20b"'
+      escapes-pipe-in-opaque-path:
+        input: new URL("mailto:a|b")
+        output: '"mailto:a%7Cb"'
+      keeps-empty-query:
+        input: new URL("http://ex.com/a?")
+        output: '"http://ex.com/a?"'
+      keeps-empty-fragment:
+        input: new URL("http://ex.com/a#")
+        output: '"http://ex.com/a#"'
+      keeps-punycode-host:
+        input: new URL("http://xn--nw2a.xn--j6w193g/")
+        output: '"http://xn--nw2a.xn--j6w193g/"'
+      keeps-idn-host-as-punycode:
+        input: new URL("http://ƒøø.example/")
+        output: '"http://xn--pdaa47b.example/"'
+      keeps-encoded-non-bmp-path:
+        input: new URL("http://ex.com/🎉")
+        output: '"http://ex.com/%F0%9F%8E%89"'
+      keeps-userinfo-and-port:
+        input: new URL("https://u:pw@ex.com:8443/a/b?q=1#f")
+        output: '"https://u:pw@ex.com:8443/a/b?q=1#f"'
+      keeps-opaque-scheme:
+        input: new URL("urn:oasis:names:specification:docbook:dtd:xml:4.1.2")
+        output: '"urn:oasis:names:specification:docbook:dtd:xml:4.1.2"'
+      keeps-data-uri:
+        input: new URL("data:text/plain;base64,SGk=")
+        output: '"data:text/plain;base64,SGk="'
