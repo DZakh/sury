@@ -458,14 +458,6 @@ export const nullableAsOption = (schema: Internal): Internal => {
   return unionFactory([schema, unit, nullAsUnit]);
 }
 
-// Every format below repeats the same body rather than sharing a builder, and
-// the repetition is load-bearing: a regex built in a helper's argument position
-// is evaluated at module scope, which pins it — and `uriPattern`'s ~1.7KB string
-// — into the bundle of every export. Passing a thunk instead keeps it droppable
-// but still costs ~30 bytes per format export, because the inline closure is
-// what lets the minifier specialize each one. Measured both ways; don't "clean
-// this up" without re-running `pnpm spec check --write`.
-//
 // The RFC 3339 full-date production, unanchored. `isoDate` and `isoDateTime`
 // both build on it so the leap-year rule cannot drift between the two.
 const datePattern =
