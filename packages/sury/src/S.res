@@ -354,13 +354,11 @@ type exn += private Exn(error)
 // Bindings to the TypeScript core
 // =============================================================================
 //
-// Sury's implementation lives in src/*.ts, bundled into the package
-// entry by scripts/pack.ts (see src/entry.ts). This module is the ReScript
-// face of it: the public types above, plus `@module("sury") external`
-// bindings below, resolved through the package root "." conditional export
-// (import -> the ESM S.mjs, require -> the published CJS S.js). That's what
-// makes the bindings work for consumers compiling to either module format —
-// a plain relative `@module("./S.mjs")` would break under a "commonjs"
+// This module is the ReScript face of Sury: the public types above, plus the
+// `@module("sury") external` bindings below, resolved through the package root
+// "." conditional export (import -> the ESM entry, require -> the CJS one).
+// That's what makes them work whichever module format you compile to — a plain
+// relative `@module("./index.mjs")` would break under a "commonjs"
 // package-spec (require()-ing an ESM file throws).
 
 external castToUnknown: t<'any> => t<unknown> = "%identity"
@@ -369,8 +367,8 @@ external untag: t<'any> => untagged = "%identity"
 
 // ReScript's `catch { | Exn(e) => }` compiles to a `RE_EXN_ID === Exn`
 // identity test against the constructor id synthesized right here by the
-// `type exn +=` declaration above. The throwing side lives in core.ts, so
-// hand it that identity once at module load — SuryError's RE_EXN_ID getter
+// `type exn +=` declaration above. The runtime that throws needs the same
+// identity, so hand it over once at module load — SuryError's RE_EXN_ID getter
 // returns it. `%raw` because a private exn constructor can't be referenced
 // as a value from ReScript code, only from spliced JS.
 %%private(@module("sury") external __setExnId: unknown => unit = "$setExnId")
@@ -396,9 +394,9 @@ module Error = {
   external throw: error => 'a = "%raise"
 }
 
-// Primitive schema values — the same eager, PURE-annotated instances the JS
-// entry exports (see src/entry.ts), so both surfaces share one object per
-// primitive. Some (string, bool, ...) shadow stdlib names on purpose.
+// Primitive schema values — the very instances the JS entry exports, so both
+// surfaces share one object per primitive. Some (string, bool, ...) shadow
+// stdlib names on purpose.
 @module("sury") external never: t<never> = "never"
 @module("sury") external unknown: t<unknown> = "unknown"
 @module("sury") external unit: t<unit> = "$unit"
