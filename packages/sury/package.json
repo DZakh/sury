@@ -55,7 +55,7 @@
     "fuzz:union": "tsx ./scripts/unionFuzz.ts",
     "build": "pnpm rescript && tsx ./scripts/pack.ts for-publish",
     "res": "pnpm build:entry && rescript watch",
-    "test": "pnpm build:entry && rescript build && vitest run",
+    "test": "pnpm build && vitest run",
     "typecheck": "vitest run --typecheck.only",
     "lint:stdlib": "rescript-stdlib-vendorer lint --ignore-path=src",
     "prepublishOnly": "node -e \"console.error('Publish from ./artifacts (pnpm build), not the dev package.'); process.exit(1)\""

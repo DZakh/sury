@@ -76,10 +76,10 @@ const prose = (markdown: string): string => {
 // URL scheme (`https:`, `mailto:`) or a title after the path.
 const RELATIVE_LINK = /]\((?!\w+:)([^)#\s]+)[^)]*\)/g;
 
-// `pnpm test` doesn't run the packer, so these only mean anything after a
-// `pnpm build`. Skipping is fine locally, but in CI a missing artifacts/ means
-// the build step was dropped or reordered — and a silent skip here would
-// retire this whole guard without anyone noticing.
+// `pnpm test` packs first, so artifacts/ is there for the normal run. The skip
+// covers a bare `vitest run` — but in CI a missing artifacts/ means the build
+// step was dropped or reordered, and a silent skip there would retire this
+// whole guard without anyone noticing.
 if (process.env.CI && !existsSync(artifactsPath)) {
   throw new Error("artifacts/ is missing in CI — run `pnpm build` before the tests");
 }
