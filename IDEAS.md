@@ -332,6 +332,46 @@ differentiator. Findings from the investigation, so it doesn't have to be redone
 The dialect split landed here (wide `JSONSchema` in, per-target types out) is the
 shape that work plugs into.
 
+### Phase 0 result (2026-08-06): GO
+
+Measured `json-schema-to-ts@3.1.1` + `ts-algebra@2.0.0` unmodified on TS 5.8.3
+(`strict`, `skipLibCheck` off), with the exact `packages/spec/introspect.ts`
+methodology (`@typescript/vfs`, `getInstantiationCount()` delta vs bare-import
+baseline). Corpus context: existing specs' `ts.instantiations` are median ~5.2k,
+max 12.4k; today's `fromJSONSchema` specs pin 254.
+
+- Small object schema (5 props, formats, enum): **2,984** inst — same band as
+  hand-written object specs (`object5-optional` is 3,610).
+- Realistic API schema (~30 props, 3-level nesting, discriminated `anyOf`,
+  tuples, dicts): **17,895** inst, 376ms warm check.
+- Stress (10-branch union + `allOf` merge + `not` + `oneOf` + `if/then/else`
+  with `parseNotKeyword`/`parseIfThenElseKeywords` on + 8-level nesting):
+  **86,455** inst, 694ms, no errors.
+- Wrapping the result in `Schema<T, T>` and reading `S.Output`/`S.Input` back
+  (the phase-2 signature simulated) adds a flat **~3k** on any tier.
+- **The only breaking dimension is nesting depth**: pure object nesting dies at
+  ~14–20 levels ("Type instantiation is excessively deep") because the
+  `Omit`-per-keyword recursion burns ~3 of TS's 100-depth budget per schema
+  level. Width is fine: 100 union branches = 268k inst / 1.0s / ok, 100
+  properties = 15k / ok. Realistic schemas express depth via `$ref` (out of
+  scope anyway), so document the limit; the depth-only failure mode also means
+  a depth-capped bailout to `S.JSON` is possible if ever needed.
+- The shipped `.d.ts` passes `tsc --noEmit --strict --skipLibCheck false`
+  (the `declarations_test.ts` gate) in 2.7s including the probe project.
+- Correctness caveat found while measuring: `not` as an `allOf` *sibling* does
+  not exclude even with `parseNotKeyword` (`allOf: [{enum: [a..e]}, {not:
+  {enum: [b, d]}}]` infers all five) — exclusion only applies same-level.
+  Pin whatever behavior the adaptation keeps in a spec.
+
+ArkType postmortem (checked 2026-08): `@ark/json-schema` built full literal
+inference as direct recursive conditional types (accumulator + one
+`Omit<schema, kw>` per keyword, piggybacking their constraint brands), then
+deleted it before merge (PR #1159, commit 07a5215) over type-perf concerns —
+shipped 0.0.x is runtime-only, returns `Type.Any`, no `$ref` even at runtime.
+Confirms: don't hand-roll the direct-recursion style; the ts-algebra IR is the
+only approach that has shipped. Also confirms upstream is still frozen: PRs
+#224 (`$defs`) and #231 (tuples) remain unreviewed.
+
 ## Articles
 
 - Write an article about creating an AI-friendly JS library (how the API design, type overloads like `S.is`/`S.assert` accepting both arg orders, and error messages make Sury easy for both humans and LLMs to use)
