@@ -11,18 +11,25 @@
 // `export * from "./other.js"` re-exports names to consumers without binding
 // them locally — the file still needs its own `import type`.
 import { execFileSync } from "node:child_process";
+import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { test, expect } from "vitest";
 
 const entry = fileURLToPath(new URL("../index.d.ts", import.meta.url));
+// Resolved rather than run through `npx`, whose own resolution step is slower
+// than the compile and can outlast a test timeout when the suite is running it
+// alongside everything else.
+const tsc = createRequire(import.meta.url).resolve("typescript/bin/tsc");
 
-test("the public declarations typecheck without skipLibCheck", () => {
+// Generous: a cold tsc on a loaded machine is well past vitest's 5s default,
+// and this failing on timing would say "the declarations are broken".
+test("the public declarations typecheck without skipLibCheck", { timeout: 120_000 }, () => {
   let output = "";
   try {
     execFileSync(
-      "npx",
+      process.execPath,
       [
-        "tsc",
+        tsc,
         "--noEmit",
         "--strict",
         "--target",
