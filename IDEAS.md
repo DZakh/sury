@@ -303,9 +303,8 @@ in `ata-validator`'s deferral style — written against Sury's actual runtime
 dispatch order, with the recursion-safe key-remap object split — measured
 368/1,076/676 on the same tiers, handles 30-level nesting at 396, and keeps
 recursive/mutual `$ref` under 1.1k. `FromJSONSchema<T>` +
-`JSONSchemaResolve` live in `src/types/json.d.ts`; the dispatch-order
-invariant is commented on both sides (`src/types/json.d.ts`,
-`src/jsonschema.ts`). Specs:
+`JSONSchemaResolve` live in `src/types/json.d.ts`; the dispatch-order invariant
+is commented on both sides (`src/types/json.d.ts`, `src/jsonschema.ts`). Specs:
 `fromjsonschema-object`, `fromjsonschema-recursive-ref`, plus the three
 `jsonschema-*` ts goldens moving JSON→precise. Not modeled (deliberately, v1):
 `not`, `if/then/else`, `default`-fold's input/output split, `oneOf`

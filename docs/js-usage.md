@@ -197,7 +197,7 @@ S.assert(
 // Throws S.Error: Expected email, received "example.com"
 ```
 
-A schema written inline is inferred — the result is typed with the data type the document describes, including local `$ref` pointers (`#/$defs/…`, `#/definitions/…`), even recursive ones. Note that the runtime does not yet validate a `$ref`, so treat data in a `$ref` position as unchecked:
+A schema written inline is inferred — the result is typed with the data type the document describes, including local `$ref` pointers (`#/$defs/…`, `#/definitions/…`), even recursive ones. `$ref` is resolved by the inference only: the runtime does not yet follow a pointer, so a `$ref` validates as any JSON while the static type names the shape it points at.
 
 ```ts
 const schema = S.fromJSONSchema({
