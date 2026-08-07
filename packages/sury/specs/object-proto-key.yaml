@@ -17,10 +17,9 @@ vs:
 # the reversed dict onto the property's own schema and made `outputExpression`
 # render schema internals; that one is fixed (Object.create(null) in reverseDict,
 # the guard fromJSONSchema already uses for this key).
-# The examples cover only inputs the harness can serialize back to source; an
-# object with a `__proto__` own property is not one (see CONTRIBUTING.md), which
-# is also why both `jsonSchema` sides below are harness markers rather than
-# schemas — the output side reaching the same marker is what the fix restored.
+# Both `jsonSchema` sides below are harness markers rather than schemas because
+# S.toJSONSchema builds `properties` by plain assignment, so the emitted
+# document's own prototype is polluted the same way.
 jsonSchema:
   input: cannot represent a Object instance as spec source code
   output: cannot represent a Object instance as spec source code
@@ -40,5 +39,12 @@ operations:
       missing-field:
         input: "{}"
         error: 'Failed at ["__proto__"]: Expected string, received {}'
+      # FIXME: the one valid input. The result literal `{"__proto__":v0,}` runs
+      # the prototype setter (a string is ignored), so the key is dropped and a
+      # valid input parses to `{}` — the bug the comment above describes,
+      # pinned end to end.
+      present-key-is-dropped:
+        input: '{ ["__proto__"]: "x" }'
+        output: "{}"
   decode: identity
   encode: identity
