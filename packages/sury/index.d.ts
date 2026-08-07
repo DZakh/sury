@@ -824,8 +824,11 @@ export function toJSONSchema<TInput, TOutput>(
  *
  * A schema written inline is inferred: the result is typed with the data type
  * it describes, including local `$ref` pointers (`#/$defs/…`,
- * `#/definitions/…`), even recursive ones. To also have TypeScript check the
- * schema itself, annotate it: `{ ... } satisfies S.JSONSchema`.
+ * `#/definitions/…`), even recursive ones — but the runtime does not yet
+ * validate a `$ref`, so treat data in a `$ref` position as unchecked. To also
+ * have TypeScript check the schema itself, annotate it:
+ * `{ ... } satisfies S.JSONSchema` — the annotation widens literals (e.g.
+ * `required`, `enum`), so the inferred type gets wider too.
  *
  * A schema read from a file or an API needs no cast — a non-literal argument
  * (`unknown`, `S.JSON`, a dialect type) falls back to `Schema<JSON, JSON>`.

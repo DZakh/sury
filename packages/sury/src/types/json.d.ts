@@ -47,8 +47,14 @@ type JSONSchemaRef<R, D> = [JSONSchemaRefName<R>] extends [never]
   ? JSONSchemaResolve<D[JSONSchemaRefName<R>], D>
   : JSON;
 
+// The `string extends K` guard catches a `required` widened to `string[]` —
+// e.g. by a `satisfies S.JSONSchema` annotation on the argument — where
+// treating every key as required would type the result narrower than the
+// runtime. Widened means unknowable, so no key is marked required.
 type JSONSchemaRequiredKeys<S> = S extends { required: ReadonlyArray<infer K extends string> }
-  ? K
+  ? string extends K
+    ? never
+    : K
   : never;
 
 // Required/optional split by key remapping, not index.d.ts's `ResolveObject`:
@@ -71,9 +77,9 @@ type JSONSchemaObject<S, D> = S extends { properties: infer P }
   ? A extends true
     ? { [key: string]: JSON }
     : A extends false
-    ? {}
+    ? Record<string, never>
     : { [key: string]: JSONSchemaResolve<A, D> }
-  : {};
+  : { [key: string]: JSON };
 
 type JSONSchemaArray<S, D> = S extends { prefixItems: infer P extends readonly unknown[] }
   ? { -readonly [K in keyof P]: JSONSchemaResolve<P[K], D> }
@@ -85,9 +91,9 @@ type JSONSchemaArray<S, D> = S extends { prefixItems: infer P extends readonly u
 
 // Undoes the `readonly` a `const T` call site stamps onto `enum`/`const`
 // values, the same way index.d.ts's `UnknownToOutput` does for `S.schema`.
-type JSONSchemaLiteral<C> = C extends readonly unknown[]
-  ? { -readonly [K in keyof C]: JSONSchemaLiteral<C[K]> }
-  : C extends object
+// One branch covers arrays too: the homomorphic mapped type keeps a tuple a
+// tuple.
+type JSONSchemaLiteral<C> = C extends object
   ? { -readonly [K in keyof C]: JSONSchemaLiteral<C[K]> }
   : C;
 
@@ -109,24 +115,37 @@ type JSONSchemaTypeNameToType<N, S, D> = N extends "object"
   ? null
   : JSON;
 
+// Member-by-member fold: intersecting `UnionToIntersection` of the flattened
+// member union would collapse any union-producing member (`enum`, `anyOf`,
+// `nullable`) to `never` instead of intersecting it with its siblings.
+type JSONSchemaIntersection<A, D> = A extends readonly [infer H, ...infer T]
+  ? JSONSchemaResolve<H, D> & JSONSchemaIntersection<T, D>
+  : unknown;
+
 // First-match dispatch in the same order as the runtime chain in
 // src/jsonschema.ts (nullable → type:"object" → type:"array" → anyOf → enum →
 // const → type[] → scalar type → JSON fallback), so a keyword the runtime
-// ignores in a given position is ignored here too. `$ref` resolves ahead of it
-// — the one place the static type leads the runtime, which still parses a
-// `$ref` as plain JSON. The `string extends keyof S` guard sends
-// index-signature values (e.g. the object arm of `JSON` itself) to the
-// fallback before any keyword can match structurally.
+// ignores in a given position is ignored here too. `$ref` resolves right
+// after nullable — the one place the static type leads the runtime, which
+// still parses a `$ref` as plain JSON. A boolean document also goes to the
+// runtime's no-type branch, so `false` stays as wide as `true` here. The
+// `string extends keyof S` guard sends index-signature values (e.g. the
+// object arm of `JSON` itself) to the fallback before any keyword can match
+// structurally.
 type JSONSchemaResolve<S, D> = S extends boolean
-  ? S extends true
-    ? JSON
-    : never
+  ? JSON
   : string extends keyof S
   ? JSON
-  : S extends { $ref: infer R }
-  ? JSONSchemaRef<R, D>
   : S extends { nullable: true }
-  ? null | JSONSchemaResolve<Omit<S, "nullable">, D>
+  ? null | JSONSchemaResolveNonNullable<S, D>
+  : JSONSchemaResolveNonNullable<S, D>;
+
+// The continuation after the `nullable` branch. First-match dispatch means
+// the `nullable` key can simply be skipped here — recursing through
+// `Omit<S, "nullable">` instead would re-map every key of `S` and burn
+// recursion-depth budget per nullable level.
+type JSONSchemaResolveNonNullable<S, D> = S extends { $ref: infer R }
+  ? JSONSchemaRef<R, D>
   : S extends { type: "object" }
   ? JSONSchemaObject<S, D>
   : S extends { type: "array" }
@@ -134,7 +153,9 @@ type JSONSchemaResolve<S, D> = S extends boolean
   : S extends { anyOf: infer A extends readonly unknown[] }
   ? JSONSchemaUnion<A, D>
   : S extends { enum: infer E extends readonly unknown[] }
-  ? JSONSchemaLiteral<E[number]>
+  ? E extends readonly []
+    ? JSON
+    : JSONSchemaLiteral<E[number]>
   : S extends { const: infer C }
   ? JSONSchemaLiteral<C>
   : S extends { type: infer N }
@@ -144,15 +165,19 @@ type JSONSchemaResolve<S, D> = S extends boolean
   : S extends { oneOf: infer A extends readonly unknown[] }
   ? JSONSchemaUnion<A, D>
   : S extends { allOf: infer A extends readonly unknown[] }
-  ? Flatten<UnionToIntersection<JSONSchemaUnion<A, D>>>
+  ? A extends readonly [unknown, ...unknown[]]
+    ? Flatten<JSONSchemaIntersection<A, D>>
+    : JSON
   : JSON;
 
 /**
  * The type a JSON Schema literal describes, as inferred by
  * `S.fromJSONSchema`. Resolves local `$ref` pointers (`#/$defs/…`,
  * `#/definitions/…`) against the root schema, including recursive and
- * mutually recursive ones. A non-literal schema — `unknown`, `S.JSON`, a
- * dialect interface — resolves to `S.JSON`.
+ * mutually recursive ones — but note the runtime does not yet validate a
+ * `$ref`, so a `$ref` position is typed narrower than what the parser checks.
+ * A non-literal schema — `unknown`, `S.JSON`, a dialect interface — resolves
+ * to `S.JSON`.
  */
 export type FromJSONSchema<T> = unknown extends T
   ? JSON
