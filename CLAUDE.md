@@ -67,6 +67,23 @@ base → builder → primitives → parse → union → composites → factory
 - An invariant that binds *another* module goes on the definition both sides
   reach, so the person about to break it is looking at it.
 - Repo-wide, not just `packages/spec`.
+- The files in `artifact_test.ts`'s `FILES` ship — `index.d.ts`, `src/types/*.d.ts`
+  and every `*.res` land in a consumer's `node_modules` and their editor's hover.
+  Comments there answer what the API does; a rule for whoever maintains it goes
+  somewhere only we read — this file, or the test that enforces it.
+
+## JSON Schema types
+
+The dialect interfaces in `src/types/jsonschema.d.ts` are duplicated on purpose:
+they mirror frozen specs, so there is no shared base worth keeping in sync, and a
+flat interface is what makes a hover, a completion and an error name the dialect
+instead of expanding an intersection. Don't collapse them into `extends`, `Omit`
+or mapped types.
+
+Each must stay assignable to the wide `JSONSchema` — that is what lets a
+`toJSONSchema` result feed `fromJSONSchema` or `extendJSONSchema` uncast — so a
+keyword added to one belongs on `JSONSchema` too, and in the other two spellings
+of the keyword set (`JSONSchemaT` in `src/jsonschema.ts`, `JSONSchema.res`).
 
 ## Tree-shaking
 
