@@ -80,6 +80,21 @@ S.reverse(S.schema({
   the one place `primitives.ts` deliberately avoids a per-compile closure.
   Do it with the item above, not before it: both rewrite the same emit.
 
+- **A bound applied after a transform emits no check.**
+  `S.string.with(S.trim).with(S.minLength, 5)` accepts `""`: `transform` sets
+  the output tail to a copy of `unknown`, `updateBounds` writes
+  `bounds`/`minLength` onto that tail, and `boundsRefiner` dispatches on the
+  tail's `type` — `unknown` matches neither the length branch nor the numeric
+  one, so it returns no checks at all. Before `boundsRefiner` the per-call
+  closure emitted `i.length>4` regardless of type, so the check ran (though
+  its expression rendered as the garbled `unknown <= undefined` — the write
+  site targeting the tail while the bound helpers read the root predates this
+  refactor, and the JSON Schema output loses the bound the same way). Fix
+  candidates: have `boundsRefiner` pick the branch from which bound fields
+  are set instead of from `type`, or make `updateBounds` refuse/forward when
+  the tail carries no type to range over. Needs a spec for
+  transform-then-bound in both directions; none exists today.
+
 - **A hard-coded array length should build a tuple.** `S.array(S.string)`
   with `S.length(2)` describes exactly `[string, string]`, and with `S.empty`
   exactly `[]` — but both infer `string[]` and run a length check beside the
