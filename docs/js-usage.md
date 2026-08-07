@@ -451,13 +451,16 @@ S.number.with(S.lte, 5); // Expected number <= 5
 S.number.with(S.gte, 5); // Expected number >= 5
 S.number.with(S.lt, 5); // Expected number < 5
 S.number.with(S.gt, 5); // Expected number > 5
+S.number.with(S.multipleOf, 2); // Expected number % 2
 ```
 
-The comparison refinements work on `S.bigint` too, and on the numeric formats
-(`S.int32`, `S.port`), whose own range takes part in the check — a bound
-outside it describes a schema nothing satisfies, and fails where it's written:
+They work on `S.bigint` too (`S.bigint.with(S.multipleOf, 2n)`), and on the
+integer schemas: `S.integer`, plus the range-capped `S.int32` and `S.port`. A
+cap takes part in the comparison, so a bound outside it describes a schema
+nothing satisfies and fails where it's written:
 
 ```ts
+S.integer.with(S.gte, 5); // Expected integer >= 5
 S.int32.with(S.gte, 3000000000);
 // int32 >= 3000000000 contradicts int32 <= 2147483647
 S.number.with(S.gte, 5).with(S.lte, 1);
@@ -468,19 +471,6 @@ Optionally, you can pass in a third argument to provide a custom error message.
 
 ```ts
 S.number.with(S.lte, 5, "this👏is👏too👏big");
-```
-
-For integers without `S.int32`'s range cap, use `S.integer`:
-
-```ts
-S.integer.with(S.gte, 5); // Expected integer >= 5
-```
-
-`S.multipleOf` constrains a number or bigint to multiples of a divisor:
-
-```ts
-S.number.with(S.multipleOf, 2); // Expected number % 2
-S.bigint.with(S.multipleOf, 2n); // Expected bigint % 2n
 ```
 
 ## Optionals

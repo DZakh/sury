@@ -180,8 +180,8 @@ The obvious ones, at a glance:
 | `S.string` | `S.t<string>` | [refinements ↓](#string) |
 | `S.bool` | `S.t<bool>` | |
 | `S.int` | `S.t<int>` | [refinements ↓](#int) |
+| `S.integer` | `S.t<float>` | integer without `int`'s range [↓](#int) |
 | `S.float` | `S.t<float>` | [refinements ↓](#float) |
-| `S.integer` | `S.t<float>` | unbounded integer |
 | `S.bigint` | `S.t<bigint>` | |
 | `S.symbol` | `S.t<Symbol.t>` | |
 | `S.unit` | `S.t<unit>` | shorthand for `S.literal()` |
@@ -289,10 +289,11 @@ S.int->S.lte(5) // Expected int32 <= 5
 S.int->S.gte(5) // Expected int32 >= 5
 S.int->S.lt(5) // Expected int32 < 5
 S.int->S.gt(5) // Expected int32 > 5
+S.int->S.multipleOf(2) // Expected int32 % 2
 S.port // Standalone port schema
 ```
 
-The same four work on `S.float` and `S.bigint`. A numeric format carries its
+They all work on `S.float` and `S.bigint` too. A numeric format carries its
 own range, so a bound outside it fails where it's written rather than building
 a schema nothing satisfies:
 
@@ -301,17 +302,11 @@ S.int->S.gte(3000000000)
 // int32 >= 3000000000 contradicts int32 <= 2147483647
 ```
 
-For integers beyond int32 use `S.integer`, typed as `S.t<float>`:
+`S.integer` is an integer without that range, typed `S.t<float>` since one can
+exceed ReScript's `int`:
 
 ```rescript
 S.integer->S.gte(5.) // Expected integer >= 5
-```
-
-`S.multipleOf` constrains a number or bigint to multiples of a divisor:
-
-```rescript
-S.float->S.multipleOf(2.) // Expected number % 2
-S.bigint->S.multipleOf(2n) // Expected bigint % 2n
 ```
 
 ### **`float`**
