@@ -70,6 +70,22 @@ import { unionFactory } from "./union";
 const isItemSchema = (x: AdditionalItems | undefined): x is Internal =>
   x !== U && typeof x !== "string";
 
+// The wire form of a nested bare json-format string is an escaped string
+// value, not raw JSON text (see fieldPiece in advanced/json.ts). So a
+// JSON-sourced item (a JSON.parse result typed `json`) converting to one must
+// validate the string and pass it through — narrowing the source to `unknown`
+// routes it to jsonString's own decoder instead of json's serialize encoder,
+// which would re-stringify and double-wrap on encode.
+const B_narrowJsonSourcedJsonString = (itemInput: Val): void => {
+  if (
+    itemInput.s.name === jsonName &&
+    itemInput.e.format === "json" &&
+    itemInput.e.to === U
+  ) {
+    itemInput.s = unknown;
+  }
+};
+
 export const makeObjectVal = (prev: Val, schema: Internal): Val => {
   // Canonical Val field order (see B_operationArg in builder.ts).
   return {
@@ -299,6 +315,7 @@ export const arrayDecoder = (unknownInput: Val): Val => {
       itemInput.e = schema;
       itemInput.io = false;
       itemInput.u = isUnion; // We want to control validation on the decoder side
+      B_narrowJsonSourcedJsonString(itemInput);
       const itemOutput = parse(itemInput);
 
       if (isUnion && isLiteral(schema)) {
@@ -395,6 +412,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
     const keyVar = B_varWithoutAllocation(input.g);
     const raiseCountBefore = input.g.t;
     const itemInput = B_dynamicScope(input, keyVar);
+    B_narrowJsonSourcedJsonString(itemInput);
     const itemOutput = parseDynamic(itemInput);
 
     const hasTransform = itemOutput.t!;
@@ -442,6 +460,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
       itemInput.e = itemSchema;
       itemInput.io = false;
       itemInput.u = isUnion;
+      B_narrowJsonSourcedJsonString(itemInput);
       B_addObjectField(objectVal, key, parse(itemInput));
     }
     output = completeObjectVal(objectVal);
@@ -493,6 +512,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
       if (isJsonParent && schema.type === anyOfTag && schema.has![undefinedTag]) {
         itemInput.i = `(${itemInput.i}??null)`;
       }
+      B_narrowJsonSourcedJsonString(itemInput);
 
       const itemOutput = parse(itemInput);
 

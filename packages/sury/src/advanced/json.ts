@@ -433,6 +433,25 @@ export const jsonString = /* @__PURE__ */ (() => {
   // never guard.
   const fieldPiece = (itemVal: Val, isArr: boolean): { p: Val; g: string | undefined } => {
     const cur = itemVal.s;
+    // A nested json-format string stays an escaped string value inside the
+    // outer document — matching JSON.stringify of the same object. Only the
+    // top-level jsonString -> jsonString conversion is the identity
+    // (jsonStringDecoder's format branch), so bypass it here: raw-splicing
+    // the field's text would emit it as a JSON value, and the encode
+    // direction would hand back a parsed object where a string went in.
+    if (
+      flagUnsafeHas(tagFlags[cur.type]!, tagFlagString) &&
+      cur.format === "json" &&
+      cur.to === U
+    ) {
+      const p = B_next(
+        itemVal,
+        `${B_embedJsonStr(itemVal)}(${itemVal.i})`,
+        jsonString,
+        jsonString,
+      );
+      return { p, g: U };
+    }
     // Values jsonString itself can't decode piecewise (unknown, refs) validate
     // through `json` and stringify at runtime — the coverage the old
     // whole-value `json` + JSON.stringify path had, scoped to the one subtree
@@ -697,18 +716,16 @@ export const jsonString = /* @__PURE__ */ (() => {
       // Pretty-printing and async fields keep the whole-value JSON.stringify
       // path — inlined aggregation supports neither indentation nor promises.
       // So does a dict whose values JSON.stringify already serializes
-      // byte-identically (plain strings, booleans, null): a dynamic-key loop
-      // built from JS string concat can't beat the native call. Number values
-      // stay compiled — the aggregate raises on non-finite where
-      // JSON.stringify demotes to null — and json-format strings stay
-      // compiled because they embed as raw JSON text, not quoted strings.
+      // byte-identically (strings — nested json-format ones escape as strings
+      // too — booleans, null): a dynamic-key loop built from JS string concat
+      // can't beat the native call. Number values stay compiled — the
+      // aggregate raises on non-finite where JSON.stringify demotes to null.
       if (
         (expectedSchema.space !== U && expectedSchema.space !== 0) ||
         flagUnsafeHas(input.g.o, flagAsync) ||
         (input.s.type !== arrayTag &&
           typeof additionalItems === "object" &&
           additionalItems.to === U &&
-          additionalItems.format !== "json" &&
           flagUnsafeHas(
             tagFlags[additionalItems.type]!,
             (tagFlagString | tagFlagBoolean) | tagFlagNull,
