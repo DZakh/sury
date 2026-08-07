@@ -577,7 +577,6 @@ external multipleOf: (t<'value>, 'value, ~message: string=?) => t<'value> = "mul
 @module("sury") external minLength: (t<'value>, int, ~message: string=?) => t<'value> = "minLength"
 @module("sury") external maxLength: (t<'value>, int, ~message: string=?) => t<'value> = "maxLength"
 @module("sury") external length: (t<'value>, int, ~message: string=?) => t<'value> = "length"
-@module("sury") external empty: (t<'value>, ~message: string=?) => t<'value> = "empty"
 @module("sury") external nonEmpty: (t<'value>, ~message: string=?) => t<'value> = "nonEmpty"
 
 @module("sury")

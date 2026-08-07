@@ -3,7 +3,7 @@ ts:
   schema: S.string.with(S.minLength, 2)
   input: string
   output: string
-  instantiations: 5167
+  instantiations: 5357
 vs:
   zod: z.string().min(2)
 jsonSchema:

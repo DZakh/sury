@@ -212,7 +212,6 @@ S.string->S.maxLength(5) // Expected string.length <= 5
 S.string->S.minLength(5) // Expected string.length >= 5
 S.string->S.length(5) // Expected string.length == 5
 S.string->S.nonEmpty // Expected string.length >= 1
-S.string->S.empty // Expected string.length == 0
 S.string->S.pattern(%re(`/[0-9]/`)) // Invalid pattern
 
 S.string->S.trim // trim whitespaces

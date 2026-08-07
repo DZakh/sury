@@ -5,7 +5,7 @@ ts:
     - S.number.with(S.multipleOf, 2).with(S.multipleOf, 2)
   input: number
   output: number
-  instantiations: 5165
+  instantiations: 5146
 vs:
   zod: z.number().multipleOf(2)
 jsonSchema:
