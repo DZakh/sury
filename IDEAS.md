@@ -310,6 +310,34 @@ commented on both sides (`index.d.ts`, `src/jsonschema.ts`). Specs:
 `not`, `if/then/else`, `default`-fold's input/output split, `oneOf`
 exclusivity; all degrade to the runtime's wider static shape, never narrower.
 
+### Follow-ups
+
+- **Runtime `$defs`/`$ref` resolution** — the static type already resolves
+  local pointers while the runtime parses a `$ref` as plain JSON; the FIXME in
+  `specs/fromjsonschema-recursive-ref.yaml` pins the divergence. Recursive
+  documents need the runtime's recursive-schema machinery (`S_recursive`), so
+  size that first. Closing this deletes the one "type leads runtime" caveat.
+- **Corpus-wide round-trip dimension (phase 3)** — derive a `fromJSONSchema`
+  check in the spec harness from each spec's existing `jsonSchema.input`
+  golden (~126 cases): pin the inferred type + instantiations next to the
+  emitter's output so a runtime branch gaining support without a matching
+  type branch shows up as a spec diff. Harness change → log under Spec
+  Harness Suggestions in CONTRIBUTING.md per the spec skill's rule.
+- **`default`-fold input/output split** — a non-required property with
+  `default` is folded via `Option_getOr`, so it's optional on the input side
+  but always present on the output side; the inferred type currently keeps it
+  optional on both (sound, just wider). Needs `FromJSONSchema` split into
+  per-side resolvers; measure the cost of doubling before committing.
+- **Same-level `not` exclusion** — `{ enum: [...], not: { enum: [...] } }`
+  could infer `Exclude<...>` cheaply. Only worth doing together with runtime
+  structure (today `not` is an opaque refinement), and note upstream
+  `json-schema-to-ts` gets the `allOf`-sibling variant wrong — pin whatever
+  behavior lands in a spec.
+- **`anyOf`/`oneOf` inside `type: "object"`** — the runtime drops them (TODO
+  at the object branch in `src/jsonschema.ts`); the type chain mirrors that.
+  When the runtime TODO lands, add the matching branch to `JSONSchemaResolve`
+  in the same change — the dispatch-order comment binds the two.
+
 ## `fromJSONSchema` type inference (researched, parked — original notes)
 
 `S.fromJSONSchema` returns `Schema<JSON, JSON>` — the described type isn't
