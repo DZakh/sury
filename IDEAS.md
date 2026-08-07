@@ -164,6 +164,20 @@ S.reverse(S.schema({
   (compare against `items.length` and no-op/conflict, not add a redundant
   bound).
 
+  Two type-cost reductions were measured on the arity helpers and rejected;
+  the numbers are recorded so neither gets re-tried on a hunch. Collapsing
+  `Sized`/`AtLeast` into one `Bounded<T, N, Exact>` regressed every spec that
+  touches a bound (+0.3–0.6%) and improved none — the `Exact` discrimination
+  is instantiated at every use, so the duplication is load-bearing. Dropping
+  the `TInput extends TOutput ? … : TInput` input-side rewrite from the lower
+  bounds won everywhere it touched (nonEmpty specs −15/−16%, minLength −2%,
+  union specs with a bounded member −1–2%) and was still rejected on the DX
+  ordering: it splits the family (`length(2)` input `[string, string]` but
+  `minLength(2)` input `string[]`), makes an identity refinement read as a
+  codec, and `S.parser(S.reverse(schema))` returns `TInput`, so reverse
+  pipelines lose the narrowed head — the feature being paid for. If the
+  input-side conditional ever goes, it goes for the whole family at once.
+
 - **A bound that doesn't narrow takes its custom message down with it.**
   `gte(5).gte(1, "MY MESSAGE")` drops the second bound — correctly, there is no
   failure left for it to guard — but the message is the caller's own text and
