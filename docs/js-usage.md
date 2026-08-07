@@ -351,10 +351,6 @@ S.string.with(S.pattern, /[0-9]/); // Invalid pattern
 S.string.with(S.trim); // trim whitespaces
 ```
 
-> 🧠 Unlike on [arrays](#arrays), these keep the inferred type as `string` —
-> TypeScript has no type for "a string of length 5". The exception is `S.empty`,
-> which infers `""`.
-
 For format-specific string validation, use the standalone schemas:
 
 ```ts
@@ -666,9 +662,6 @@ a `string`, not `string | undefined`:
 ```ts
 const [lat, lng] = S.parser(S.array(S.number).with(S.length, 2))(input);
 ```
-
-> 🧠 `S.maxLength`, and any size that isn't a literal number, leave the type as a
-> plain array.
 
 ### Compact Columns
 
