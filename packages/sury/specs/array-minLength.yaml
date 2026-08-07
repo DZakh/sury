@@ -1,11 +1,15 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
   schema: S.array(S.string).with(S.minLength, 2)
-  input: string[]
-  output: string[]
-  instantiations: 5271
+  input: "[string, string, ...string[]]"
+  output: "[string, string, ...string[]]"
+  instantiations: 5680
 vs:
-  zod: z.array(z.string()).min(2)
+  zod:
+    schema: z.array(z.string()).min(2)
+    divergence: A literal lower bound fixes a head in the Sury type and leaves the tail open, so `S.minLength(2)` on an array admits `[string, string, ...string[]]` where Zod keeps the unbounded `string[]`.
+    input: string[]
+    output: string[]
 jsonSchema:
   input: '{ items: { type: "string" }, type: "array", minItems: 2 }'
   output: '{ items: { type: "string" }, type: "array", minItems: 2 }'

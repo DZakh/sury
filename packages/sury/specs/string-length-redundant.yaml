@@ -5,7 +5,7 @@ ts:
   schema: S.string.with(S.length, 2).with(S.length, 2, "MY MESSAGE")
   input: string
   output: string
-  instantiations: 5559
+  instantiations: 5565
 vs:
   zod: z.string().length(2).length(2, "MY MESSAGE")
 jsonSchema:

@@ -328,11 +328,17 @@ S.string.with(S.maxLength, 5); // Expected string.length <= 5
 S.string.with(S.minLength, 5); // Expected string.length >= 5
 S.string.with(S.length, 5); // Expected string.length == 5
 S.string.with(S.nonEmpty); // Expected string.length >= 1
-S.string.with(S.empty); // Expected string.length == 0, and infers `""`
+S.string.with(S.empty); // Expected string.length == 0
 S.string.with(S.pattern, /[0-9]/); // Invalid pattern
 
 S.string.with(S.trim); // trim whitespaces
 ```
+
+A length bound leaves the inferred type as `string`, unlike on an array. A tuple
+carries its arity, but TypeScript has no type for a string of a given length —
+`` `${string}${string}` `` is just `string`, since each segment matches the empty
+string. `S.empty` is the one exception, inferring `""`, because that single
+length has a literal to name it.
 
 For format-specific string validation, use the standalone schemas:
 
@@ -632,18 +638,27 @@ S.array(S.string).with(S.nonEmpty); // Expected string[].length >= 1
 S.array(S.string).with(S.empty); // Expected string[].length == 0
 ```
 
-A hard-coded length is arity, so `S.length` and `S.empty` infer a tuple —
-`S.array(S.string).with(S.length, 2)` is `[string, string]` and
-`.with(S.empty)` is `[]`, which type destructuring and `.length` the way the
-unbounded `string[]` can't:
+A hard-coded length is arity, so these infer a tuple rather than `string[]`:
+
+```ts
+S.array(S.number).with(S.length, 2); // [number, number]
+S.array(S.string).with(S.empty); // []
+S.array(S.string).with(S.nonEmpty); // [string, ...string[]]
+S.array(S.string).with(S.minLength, 2); // [string, string, ...string[]]
+```
+
+Which types destructuring, indexing and `.length` the way the unbounded
+`string[]` can't — the head of a `nonEmpty` array is not `string | undefined`:
 
 ```ts
 const [lat, lng] = S.parser(S.array(S.number).with(S.length, 2))(input);
+const first = S.parser(S.array(S.string).with(S.nonEmpty))(input)[0];
 ```
 
-A bound that isn't a literal (`S.length(schema, n)` for some `n: number`)
-leaves the type alone, and so does one above 64 — a tuple that long reads
-worse than the array it came from.
+`S.maxLength` leaves the type alone: every arity below the bound is a separate
+tuple, and the union of them says less than the array did. So does a bound that
+isn't a literal (`S.length(schema, n)` for some `n: number`), and so does one
+above 64 — a tuple that long reads worse than the array it came from.
 
 ### Compact Columns
 

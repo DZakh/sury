@@ -1,11 +1,15 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
   schema: S.array(S.string).with(S.nonEmpty)
-  input: string[]
-  output: string[]
-  instantiations: 660
+  input: "[string, ...string[]]"
+  output: "[string, ...string[]]"
+  instantiations: 910
 vs:
-  zod: z.array(z.string()).min(1)
+  zod:
+    schema: z.array(z.string()).min(1)
+    divergence: "`S.nonEmpty` on an array admits `[string, ...string[]]` in the Sury type — indexing `[0]` needs no cast — where Zod keeps the unbounded `string[]`."
+    input: string[]
+    output: string[]
 jsonSchema:
   input: '{ items: { type: "string" }, type: "array", minItems: 1 }'
   output: '{ items: { type: "string" }, type: "array", minItems: 1 }'

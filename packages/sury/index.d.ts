@@ -874,11 +874,14 @@ export const lte: <TInput, TOutput extends number | bigint>(
 // A codec's input is a different value that happens to be reachable from the
 // bounded one, and its length says nothing: `S.string.with(S.to, S.array(...))`
 // under `S.empty` bounds the array, never the string it decodes from.
-type Repeat<E, N extends number, Acc extends unknown[]> = Acc["length"] extends N
-  ? Acc
-  : Acc["length"] extends 64
-  ? E[]
-  : Repeat<E, N, [...Acc, E]>;
+// `Tail` is what follows the `N` fixed elements: nothing for an exact bound,
+// `E[]` for a lower one, which is the only difference between the two.
+type Repeat<E, N extends number, Acc extends unknown[], Tail extends unknown[]> =
+  Acc["length"] extends N
+    ? [...Acc, ...Tail]
+    : Acc["length"] extends 64
+    ? E[]
+    : Repeat<E, N, [...Acc, E], Tail>;
 // `N extends N` distributes, so a bound that isn't one literal resolves per
 // member. Without it `0 | 2` matches the empty branch alone and silently pins
 // the type to `[]`.
@@ -886,10 +889,29 @@ type Sized<T, N extends number> = number extends N
   ? T
   : N extends N
   ? T extends (infer E)[]
-    ? Repeat<E, N, []>
+    ? Repeat<E, N, [], []>
     : T extends string
     ? N extends 0
       ? ""
+      : T
+    : T
+  : never;
+// A lower bound fixes a head and leaves the tail open, so it only has something
+// to say while the tail is still open: applied to an array already pinned to an
+// arity it is the no-op the runtime makes it, not a widening back to
+// `[string, ...string[]]`.
+//
+// No string case. A tuple carries its arity, but TypeScript has no type for a
+// string of at least N characters — `${string}${string}` is `string`, since each
+// segment matches the empty string — so every lower bound leaves a string as it
+// found it. The exact bound reaches `""` only because that one length has a
+// literal to name it.
+type AtLeast<T, N extends number> = number extends N
+  ? T
+  : N extends N
+  ? T extends (infer E)[]
+    ? number extends T["length"]
+      ? Repeat<E, N, [], E[]>
       : T
     : T
   : never;
@@ -897,12 +919,18 @@ type Sized<T, N extends number> = number extends N
 // can't vary and a `Repeat` that stops on its first step. Spelling the one case
 // `empty` has costs less than either.
 type Emptied<T> = T extends unknown[] ? [] : T extends string ? "" : T;
+// `AtLeast<T, 1>`, minus the guard on a bound that can't vary.
+type NonEmptied<T> = T extends (infer E)[]
+  ? number extends T["length"]
+    ? [E, ...E[]]
+    : T
+  : T;
 
-export const minLength: <TInput, TOutput extends string | unknown[]>(
+export const minLength: <TInput, TOutput extends string | unknown[], N extends number>(
   schema: SchemaLike<TInput, TOutput>,
-  length: number,
+  length: N,
   message?: string
-) => Schema<TInput, TOutput>;
+) => Schema<TInput extends TOutput ? AtLeast<TInput, N> : TInput, AtLeast<TOutput, N>>;
 export const maxLength: <TInput, TOutput extends string | unknown[]>(
   schema: SchemaLike<TInput, TOutput>,
   length: number,
@@ -920,7 +948,7 @@ export const empty: <TInput, TOutput extends string | unknown[]>(
 export const nonEmpty: <TInput, TOutput extends string | unknown[]>(
   schema: SchemaLike<TInput, TOutput>,
   message?: string
-) => Schema<TInput, TOutput>;
+) => Schema<TInput extends TOutput ? NonEmptied<TInput> : TInput, NonEmptied<TOutput>>;
 
 export const pattern: <TInput>(
   schema: SchemaLike<TInput, string>,
