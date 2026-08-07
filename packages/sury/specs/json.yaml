@@ -14,22 +14,31 @@ operations:
   parse:
     expression: i=>{e[0](i);return i}
     examples:
-      object:
-        input: '{ a: [1, "x", null] }'
-        output: '{ a: [1, "x", null] }'
-      number:
+      valid-object:
+        input: '{ a: [1, "x", true, null] }'
+        output: '{ a: [1, "x", true, null] }'
+      valid-null:
+        input: "null"
+        output: "null"
+      valid-number:
         input: "1.5"
         output: "1.5"
-      non-finite:
-        input: Infinity
-        error: Expected JSON, received Infinity
-      nested-non-finite:
-        input: "{ a: Infinity }"
-        error: 'Failed at ["a"]: Expected JSON, received Infinity'
-      nan:
+      invalid-undefined:
+        input: undefined
+        error: Expected JSON, received undefined
+      invalid-bigint:
+        input: 5n
+        error: Expected JSON, received 5n
+      invalid-nan:
         input: NaN
         error: Expected JSON, received NaN
-      not-json:
+      invalid-non-finite:
+        input: Infinity
+        error: Expected JSON, received Infinity
+      invalid-nested-non-finite:
+        input: "{ a: Infinity }"
+        error: 'Failed at ["a"]: Expected JSON, received Infinity'
+      invalid-function:
         input: () => {}
         error: Expected JSON, received Function
   decode: identity

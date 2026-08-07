@@ -10,9 +10,9 @@
 # the same treatment instead of a third, silent outcome.
 ts:
   schema: 'S.fromJSONSchema({ type: "integer", minimum: 3000000000 })'
-  input: JSON
-  output: JSON
-  instantiations: 274
+  input: number
+  output: number
+  instantiations: 387
 vs:
   zod:
     _skip: not-applicable

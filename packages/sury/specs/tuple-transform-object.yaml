@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.tuple((s) => { s.tag(0, "point"); return { x: s.item(1, S.int32), y: s.item(2, S.int32) } })'
+  input: unknown[]
+  output: "{ x: number; y: number; }"
+  instantiations: 505
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "array", minItems: 3, maxItems: 3, items: [{ type: "string", const: "point" }, { type: "integer", minimum: -2147483648, maximum: 2147483647 }, { type: "integer", minimum: -2147483648, maximum: 2147483647 }] }'
+  output: '{ type: "object", properties: { x: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, y: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["x", "y"] }'
+operations:
+  parse:
+    expression: i=>{Array.isArray(i)&&i.length===3||e[3](i);let v0=i["0"],v1=i["1"],v2=i["2"];v0==="point"||e[0](v0);typeof v1==="number"&&v1<=2147483647&&v1>=-2147483648&&v1%1===0||e[1](v1);typeof v2==="number"&&v2<=2147483647&&v2>=-2147483648&&v2%1===0||e[2](v2);return {"x":v1,"y":v2,}}
+    examples:
+      valid:
+        input: '["point", 1, -4]'
+        output: "{ x: 1, y: -4 }"
+      wrong-tag:
+        input: '["dot", 1, -4]'
+        error: 'Failed at ["0"]: Expected "point", received "dot"'
+      not-an-int32:
+        input: '["point", 1.5, -4]'
+        error: 'Failed at ["1"]: Expected int32, received 1.5'
+  decode:
+    expression: i=>{return {"x":i["1"],"y":i["2"],}}
+    examples:
+      valid:
+        input: '["point", 1, -4]'
+        output: "{ x: 1, y: -4 }"
+  encode:
+    expression: i=>{return ["point",i["x"],i["y"],]}
+    examples:
+      round-trip:
+        input: "{ x: 1, y: -4 }"
+        output: '["point", 1, -4]'

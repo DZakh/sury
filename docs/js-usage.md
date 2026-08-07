@@ -182,6 +182,8 @@ S.toJSONSchema(documented);
 // }
 ```
 
+The `target` decides the type of the result — `S.JSONSchema7`, `S.JSONSchema2020`, or `S.OpenAPISchema30` — so `prefixItems` is there to reach for on a draft-2020-12 result and `nullable` on an OpenAPI one, and neither is on a draft-07 one.
+
 `S.fromJSONSchema` converts in the other direction:
 
 ```ts
@@ -194,6 +196,21 @@ S.assert(
 );
 // Throws S.Error: Expected email, received "example.com"
 ```
+
+A schema written inline is inferred — the result is typed with the data type the document describes, including local `$ref` pointers (`#/$defs/…`, `#/definitions/…`), even recursive ones. `$ref` is resolved by the inference only: the runtime does not yet follow a pointer, so a `$ref` validates as any JSON while the static type names the shape it points at.
+
+```ts
+const schema = S.fromJSONSchema({
+  type: "object",
+  properties: { id: { type: "string" }, role: { enum: ["admin", "user"] } },
+  required: ["id"],
+});
+// S.Schema<{ id: string; role?: "admin" | "user" | undefined }>
+```
+
+To also have TypeScript check the schema document itself, annotate it with `satisfies S.JSONSchema` — that catches a misspelled keyword while leaving `x-` vendor extensions open. The annotation widens literals (e.g. `required`, `enum`), so the inferred type gets wider too — every property becomes optional.
+
+A schema read from a file or an API needs no cast: a non-literal argument — `unknown`, `S.JSON`, or one of the dialect types — falls back to `S.Schema<S.JSON, S.JSON>`, so pair it with `S.to` when you need a narrower type.
 
 > 🧠 **Sury**'s internal representation is itself JSON Schema-shaped, so a schema is readable as-is: `S.schema("Hello world!")` logs `{ type: "string", const: "Hello world!", … }`.
 

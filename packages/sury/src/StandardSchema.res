@@ -1,7 +1,7 @@
 // ReScript port of the Standard Schema spec (https://standardschema.dev) and its
 // Standard JSON Schema extension (https://standardschema.dev/json-schema). The
-// structure mirrors the `StandardSchemaV1` / `StandardTypedV1` /
-// `StandardJSONSchemaV1` TypeScript namespaces in `S.d.ts`.
+// structure mirrors the spec's `StandardSchemaV1` / `StandardTypedV1` /
+// `StandardJSONSchemaV1`, which Sury also exposes to TypeScript under those names.
 
 module Issue = {
   // `StandardSchemaV1.PathSegment`.
