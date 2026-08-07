@@ -126,8 +126,7 @@ type JSONSchemaIntersection<A, D> = A extends readonly [infer H, ...infer T]
 // src/jsonschema.ts (nullable → type:"object" → type:"array" → anyOf → enum →
 // const → type[] → scalar type → JSON fallback), so a keyword the runtime
 // ignores in a given position is ignored here too. `$ref` resolves right
-// after nullable — the one place the static type leads the runtime, which
-// still parses a `$ref` as plain JSON. A boolean document also goes to the
+// after nullable, same as the runtime. A boolean document also goes to the
 // runtime's no-type branch, so `false` stays as wide as `true` here. The
 // `string extends keyof S` guard sends index-signature values (e.g. the
 // object arm of `JSON` itself) to the fallback before any keyword can match
@@ -174,10 +173,9 @@ type JSONSchemaResolveNonNullable<S, D> = S extends { $ref: infer R }
  * The type a JSON Schema literal describes, as inferred by
  * `S.fromJSONSchema`. Resolves local `$ref` pointers (`#/$defs/…`,
  * `#/definitions/…`) against the root schema, including recursive and
- * mutually recursive ones — but note the runtime does not yet validate a
- * `$ref`, so a `$ref` position is typed narrower than what the parser checks.
- * A non-literal schema — `unknown`, `S.JSON`, a dialect interface — resolves
- * to `S.JSON`.
+ * mutually recursive ones. A `$ref` on any other path (`#/components/schemas/…`)
+ * is validated the same, but resolves to `S.JSON` here — as does a non-literal
+ * schema (`unknown`, `S.JSON`, a dialect interface).
  */
 export type FromJSONSchema<T> = unknown extends T
   ? JSON
