@@ -48,7 +48,10 @@ type typeName = [
 type version = string
 
 /**
- * JSON Schema v7
+ * A JSON Schema of any dialect Sury understands — draft-06 through
+ * draft-2020-12, plus the OpenAPI 3.0 `nullable` extension (OpenAPI.res aliases
+ * this as its schema object).
+ *
  * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01
  */
 type rec t = {
@@ -91,10 +94,13 @@ type rec t = {
   items?: Arrayable.t<definition>,
   prefixItems?: array<definition>,
   additionalItems?: definition,
+  unevaluatedItems?: definition,
   maxItems?: int,
   minItems?: int,
   uniqueItems?: bool,
-  contains?: t,
+  contains?: definition,
+  minContains?: int,
+  maxContains?: int,
   /**
    * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-6.5
    */
@@ -104,7 +110,10 @@ type rec t = {
   properties?: dict<definition>,
   patternProperties?: dict<definition>,
   additionalProperties?: definition,
+  unevaluatedProperties?: definition,
   dependencies?: dict<dependency>,
+  dependentSchemas?: dict<definition>,
+  dependentRequired?: dict<array<string>>,
   propertyNames?: definition,
   /**
    * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-6.6
@@ -191,10 +200,13 @@ module Mutable = {
     mutable items?: Arrayable.t<definition>,
     mutable prefixItems?: array<definition>,
     mutable additionalItems?: definition,
+    mutable unevaluatedItems?: definition,
     mutable maxItems?: int,
     mutable minItems?: int,
     mutable uniqueItems?: bool,
-    mutable contains?: t,
+    mutable contains?: definition,
+    mutable minContains?: int,
+    mutable maxContains?: int,
     /**
    * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-6.5
    */
@@ -204,7 +216,10 @@ module Mutable = {
     mutable properties?: dict<definition>,
     mutable patternProperties?: dict<definition>,
     mutable additionalProperties?: definition,
+    mutable unevaluatedProperties?: definition,
     mutable dependencies?: dict<dependency>,
+    mutable dependentSchemas?: dict<definition>,
+    mutable dependentRequired?: dict<array<string>>,
     mutable propertyNames?: definition,
     /**
    * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-6.6

@@ -182,6 +182,8 @@ S.toJSONSchema(documented);
 // }
 ```
 
+The `target` decides the type of the result — `S.JSONSchema7`, `S.JSONSchema2020`, or `S.OpenAPISchema30` — so `prefixItems` is there to reach for on a draft-2020-12 result and `nullable` on an OpenAPI one, and neither is on a draft-07 one.
+
 `S.fromJSONSchema` converts in the other direction:
 
 ```ts
@@ -194,6 +196,20 @@ S.assert(
 );
 // Throws S.Error: Expected email, received "example.com"
 ```
+
+It takes `unknown`, so a schema read from a file or an API needs no cast. To have TypeScript check one written inline, annotate it with `satisfies S.JSONSchema` — that catches a misspelled keyword while leaving `x-` vendor extensions open:
+
+```ts
+const jsonSchema = {
+  type: "object",
+  properties: { id: { type: "string" } },
+  required: ["id"],
+} satisfies S.JSONSchema;
+
+const schema = S.fromJSONSchema(jsonSchema);
+```
+
+The result is a `S.Schema<S.JSON, S.JSON>`: the described type isn't known statically, so pair it with `S.to` when you need a narrower one.
 
 > 🧠 **Sury**'s internal representation is itself JSON Schema-shaped, so a schema is readable as-is: `S.schema("Hello world!")` logs `{ type: "string", const: "Hello world!", … }`.
 

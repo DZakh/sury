@@ -2523,11 +2523,11 @@ test("Brand", (t) => {
 });
 
 test("fromJSONSchema", (t) => {
-  const emailSchema = S.fromJSONSchema<string>({
+  const emailSchema = S.fromJSONSchema({
     type: "string",
     format: "email",
   });
-  expectSchemaType(emailSchema).toBe<S.JSON, string>();
+  expectSchemaType(emailSchema).toBe<S.JSON, S.JSON>();
   const result = S.safe(() => S.assert(emailSchema, "example.com"));
 
   t.expect(result.error?.message).toBe(
@@ -2535,8 +2535,79 @@ test("fromJSONSchema", (t) => {
   );
 });
 
+test("fromJSONSchema: takes untyped input, `satisfies` checks an inline one", (t) => {
+  // A schema loaded from a file or an API is untyped, and must not need a cast.
+  const loaded: unknown = JSON.parse(`{"type":"string"}`);
+  t.expect(S.parser(S.fromJSONSchema(loaded))("hello")).toBe("hello");
+
+  const asJson: S.JSON = { type: "boolean" };
+  t.expect(S.parser(S.fromJSONSchema(asJson))(true)).toBe(true);
+
+  const authored = {
+    type: "object",
+    properties: { id: { type: "string" } },
+    required: ["id"],
+    "x-internal": true,
+  } satisfies S.JSONSchema;
+  t.expect(S.parser(S.fromJSONSchema(authored))({ id: "1" })).toEqual({
+    id: "1",
+  });
+
+  const typo = {
+    type: "object",
+    // @ts-expect-error - an unknown keyword is still caught; only `x-` is open
+    requird: ["id"],
+  } satisfies S.JSONSchema;
+  t.expect(typo.type).toBe("object");
+});
+
+test("toJSONSchema: the target picks the dialect of the result", (t) => {
+  const tupleSchema = S.schema([S.string, S.number]);
+
+  const draft07 = S.toJSONSchema(tupleSchema);
+  expectTypeOf(draft07).toEqualTypeOf<S.JSONSchema7>();
+  t.expect(draft07.items).toEqual([{ type: "string" }, { type: "number" }]);
+
+  const draft2020 = S.toJSONSchema(tupleSchema, { target: "draft-2020-12" });
+  expectTypeOf(draft2020).toEqualTypeOf<S.JSONSchema2020>();
+  t.expect(draft2020.prefixItems).toEqual([
+    { type: "string" },
+    { type: "number" },
+  ]);
+
+  const openapi = S.toJSONSchema(S.nullable(S.string), {
+    target: "openapi-3.0",
+  });
+  expectTypeOf(openapi).toEqualTypeOf<S.OpenAPISchema30>();
+  t.expect(openapi.nullable).toBe(true);
+
+  // A target held in a variable can't select a dialect, so the result widens.
+  const target: S.StandardJSONSchemaV1.Target = "draft-07";
+  expectTypeOf(S.toJSONSchema(tupleSchema, { target })).toEqualTypeOf<
+    S.JSONSchema
+  >();
+
+  // @ts-expect-error - draft-07 spells tuples with `items`, not `prefixItems`
+  draft07.prefixItems;
+  // @ts-expect-error - OpenAPI 3.0 has no `const`; it uses a one-value `enum`
+  openapi.const;
+
+  // Every dialect's result feeds back in without a cast.
+  t.expect(S.parser(S.fromJSONSchema(draft2020))(["a", 1])).toEqual(["a", 1]);
+  t.expect(S.parser(S.fromJSONSchema(openapi))(null)).toBe(null);
+
+  // Every dialect stays assignable to the wide type — the invariant that keeps
+  // `extendJSONSchema(schema, toJSONSchema(other, { target }))` compiling. This
+  // breaks when a shared keyword is typed incompatibly across the two (extra
+  // dialect-only keywords slip through structurally — parity there is on the
+  // comment in src/types/jsonschema.d.ts).
+  expectTypeOf<S.JSONSchema7>().toExtend<S.JSONSchema>();
+  expectTypeOf<S.JSONSchema2020>().toExtend<S.JSONSchema>();
+  expectTypeOf<S.OpenAPISchema30>().toExtend<S.JSONSchema>();
+});
+
 test("fromJSONSchema: assertion keywords bind without an explicit `type`", (t) => {
-  const parse = (js: object) => S.parser(S.fromJSONSchema(js as never)) as (d: unknown) => unknown;
+  const parse = (js: object) => S.parser(S.fromJSONSchema(js)) as (d: unknown) => unknown;
 
   const obj = parse({ properties: { bar: { type: "integer" } }, required: ["bar"] });
   t.expect(obj({ bar: 2 })).toEqual({ bar: 2 });
@@ -2561,7 +2632,7 @@ test("fromJSONSchema: composition keywords constrain in addition to the base sha
     properties: { bar: { type: "integer" } },
     required: ["bar"],
     allOf: [{ properties: { foo: { type: "string" } }, required: ["foo"] }],
-  } as never);
+  });
   const parse = S.parser(schema) as (d: unknown) => unknown;
 
   // The allOf branch sees the whole document, while the base object schema
@@ -2575,12 +2646,12 @@ test("fromJSONSchema: composition keywords constrain in addition to the base sha
 
 test("fromJSONSchema: oneOf counts matches, `not` and if/then/else layer on", (t) => {
   const one = S.parser(
-    S.fromJSONSchema({ oneOf: [{ type: "number" }, { type: "string" }] } as never),
+    S.fromJSONSchema({ oneOf: [{ type: "number" }, { type: "string" }] }),
   ) as (d: unknown) => unknown;
   t.expect(one(1)).toBe(1);
   t.expect(S.safe(() => one(true)).error).toBeDefined();
 
-  const not = S.parser(S.fromJSONSchema({ not: { type: "string" } } as never)) as (
+  const not = S.parser(S.fromJSONSchema({ not: { type: "string" } })) as (
     d: unknown,
   ) => unknown;
   t.expect(not(1)).toBe(1);
@@ -2588,7 +2659,7 @@ test("fromJSONSchema: oneOf counts matches, `not` and if/then/else layer on", (t
 
   // `then`/`else` are each optional and default to "always passes".
   const ite = S.parser(
-    S.fromJSONSchema({ if: { type: "number" }, then: { minimum: 5 } } as never),
+    S.fromJSONSchema({ if: { type: "number" }, then: { minimum: 5 } }),
   ) as (d: unknown) => unknown;
   t.expect(ite(7)).toBe(7);
   t.expect(ite("anything")).toBe("anything");
@@ -2598,19 +2669,17 @@ test("fromJSONSchema: oneOf counts matches, `not` and if/then/else layer on", (t
 test("fromJSONSchema: an unmodelled assertion keyword fails at creation", (t) => {
   // Ignoring it would widen the schema — the validator would accept data the
   // author wrote the keyword to reject — so this must not silently succeed.
-  const result = S.safe(() =>
-    S.fromJSONSchema({ type: "object", patternProperties: {} } as never)
-  );
+  const result = S.safe(() => S.fromJSONSchema({ type: "object", patternProperties: {} }));
   t.expect(result.error?.message).toContain("Unsupported JSON Schema keyword: patternProperties");
 
   t.expect(
-    S.safe(() => S.fromJSONSchema({ type: "array", uniqueItems: true } as never)).error?.message,
+    S.safe(() => S.fromJSONSchema({ type: "array", uniqueItems: true })).error?.message,
   ).toContain("uniqueItems");
 });
 
 test("fromJSONSchema: exclusiveMaximum bounds the maximum, not the minimum", (t) => {
   const parse = S.parser(
-    S.fromJSONSchema({ type: "integer", exclusiveMaximum: 5 } as never),
+    S.fromJSONSchema({ type: "integer", exclusiveMaximum: 5 }),
   ) as (d: unknown) => unknown;
   t.expect(parse(4)).toBe(4);
   t.expect(S.safe(() => parse(5)).error).toBeDefined();

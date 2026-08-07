@@ -3,7 +3,7 @@ ts:
   schema: 'S.fromJSONSchema({ type: "number", multipleOf: 2.5 })'
   input: JSON
   output: JSON
-  instantiations: 274
+  instantiations: 254
 vs:
   zod:
     _skip: not-applicable
