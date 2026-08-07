@@ -2979,30 +2979,15 @@ test("A contradictory bound pair is rejected where it's written", (t) => {
   t.expect(() => S.number.with(S.multipleOf, 0.3).with(S.multipleOf, 0.2)).toThrow(
     `[Sury] multipleOf 0.2 cannot be combined with multipleOf 0.3`,
   );
-  // A divisor and a range can exclude each other while neither is empty
-  // alone — no multiple of 10 lies in `0 < number < 5` — in either order, and
-  // whether the divisor was written or raised to an LCM.
-  t.expect(() => S.number.with(S.gt, 0).with(S.lt, 5).with(S.multipleOf, 10)).toThrow(
-    `[Sury] number % 10 contradicts 0 < number < 5`,
-  );
-  t.expect(() => S.number.with(S.multipleOf, 10).with(S.gt, 0).with(S.lt, 5)).toThrow(
-    `[Sury] number % 10 contradicts 0 < number < 5`,
-  );
-  t.expect(() =>
-    S.number.with(S.gte, 1).with(S.lte, 5).with(S.multipleOf, 2).with(S.multipleOf, 3)
-  ).toThrow(`[Sury] number % 6 contradicts 1 <= number <= 5`);
-  t.expect(() => S.bigint.with(S.gte, 1n).with(S.lte, 100n).with(S.multipleOf, 1000n)).toThrow(
-    `[Sury] bigint % 1000n contradicts 1n <= bigint <= 100n`,
-  );
-  // A format's range counts toward emptiness like a written bound does, and
-  // the conflict renders it — 0 is the only int32 multiple of 3e9, and >= 1
-  // excludes it.
-  t.expect(() => S.int32.with(S.gte, 1).with(S.multipleOf, 3000000000)).toThrow(
-    `[Sury] int32 % 3000000000 contradicts 1 <= int32 <= 2147483647`,
-  );
-  t.expect(() => S.port.with(S.gte, 1).with(S.multipleOf, 100000)).toThrow(
-    `[Sury] port % 100000 contradicts 1 <= port <= 65535`,
-  );
+  // A divisor excluded by the range is NOT a construction error, unlike a
+  // pair of bounds: detecting it needs multiples-in-range arithmetic (see the
+  // updateBounds comment). The schema builds and rejects everything, with the
+  // divisor and the range both in the message.
+  t.expect(
+    S.safe(() =>
+      S.assert(S.number.with(S.gt, 0).with(S.lt, 5).with(S.multipleOf, 10), 3)
+    ).error?.message
+  ).toBe("Expected 0 < (number % 10) < 5, received 3");
 
   // A single point is satisfiable, so these stay legal.
   t.expect(S.toJSONSchema(S.number.with(S.gte, 5).with(S.lte, 5))).toEqual({

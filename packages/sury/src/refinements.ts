@@ -268,76 +268,27 @@ const boundsRefiner = (input: Val): Check[] => {
   return checks;
 };
 
-// A divisor and a range can exclude each other while neither is empty alone:
-// no multiple of 10 lies in `0 < number < 5`. The smallest multiple at or
-// above the low bound decides it — past the high bound and the schema has no
-// inhabitants, which is the caller bug `conflict` already reports for a pair
-// of bounds. `%` is the only arithmetic here so number and bigint share it;
-// `Math.trunc` would not.
-//
-// An open side is never empty: the multiples run to ±Infinity, so one always
-// falls past whichever single bound was written.
-//
-// The inclusive sides read the raw fields, not the bits: a format's range
-// (int32, port) has no bit but is enforced all the same, and the emptiness
-// it causes is just as real — the same fields assertLower measures a written
-// bound against. Only the exclusive sides are bit-gated, since no format
-// carries one.
-const rangeExcludes = (schema: Internal, d: number | bigint): boolean => {
-  const written = schema.bounds ?? 0;
-  const exMin = written & 4 ? (schema.exclusiveMinimum as number) : U;
-  const low = exMin !== U ? exMin : (schema.minimum as number | undefined);
-  const exMax = written & 8 ? (schema.exclusiveMaximum as number) : U;
-  const high = exMax !== U ? exMax : (schema.maximum as number | undefined);
-  if (low === U || high === U) return false;
-  const divisor = d as number;
-  // `low - (low % divisor)` is the multiple at or beyond `low` toward zero, so
-  // it lands below `low` only on the positive side — one bump either way.
-  let first = ((low - (low % divisor)) as number);
-  if (first < low || (exMin !== U && first === low)) first = (first + divisor) as number;
-  return exMax !== U ? first >= high : first > high;
-};
-
-// One bound or divisor rendered without the other half, for the two sides of
-// the message. Both inherit `expression` through the spread, and it renders
-// whatever fields the copy carries.
-const asDivisorOnly = (schema: Internal, divisor: number | bigint): Internal => {
-  const mut = { ...schema, bounds: U, multipleOf: divisor } as unknown as Internal;
-  setBoundExpression(mut, schema);
-  return mut;
-};
-
-const asRangeOnly = (schema: Internal): Internal => {
-  // A format-carried bound has no bit; grant the copy bits for whichever raw
-  // fields exist so the conflict renders the range the check actually used —
-  // `1 <= int32 <= 2147483647`, not a bare `int32` hiding half the story.
-  const bits =
-    ((schema.bounds ?? 0) & 12) |
-    (schema.minimum !== U ? 1 : 0) |
-    (schema.maximum !== U ? 2 : 0);
-  const mut = { ...schema, multipleOf: U, bounds: bits } as unknown as Internal;
-  setBoundExpression(mut, schema);
-  return mut;
-};
-
 // The refiner is installed once, by whichever bound or divisor lands first;
-// every later one only mutates the fields it reads. The emptiness check runs
-// on the assembled result, so it covers a divisor landing on a range and a
-// range landing on a divisor with one call site rather than five.
-const updateBounds = (schema: Internal, update: (mut: Internal) => void): Internal => {
-  const next: Internal =
-    schema.bounds !== U || schema.multipleOf !== U
-      ? updateOutput(schema, update)
-      : internalRefine(schema, (mut: Internal) => {
-          update(mut);
-          return boundsRefiner;
-        });
-  const divisor = next.multipleOf;
-  if (divisor !== U && exactDivisor(divisor) && rangeExcludes(next, divisor)) {
-    conflict(asDivisorOnly(next, divisor), asRangeOnly(next));
-  }
-  return next;
-};
+// every later one only mutates the fields it reads.
+//
+// A divisor and a range can exclude each other while neither is empty alone —
+// no multiple of 10 lies in `0 < number < 5` — and unlike a pair of bounds,
+// that emptiness is NOT reported at construction. Detecting it means
+// multiples-in-range arithmetic that was tried and backed out: partial (an
+// inexact divisor can't be reasoned about, so fractional divisors got no
+// protection), subtle (two bugs in two rounds — format ranges carry no bits,
+// and the arithmetic false-panicked on inexact divisors), and ~150 gz carried
+// by every bound consumer for a caller bug two comparisons don't catch. The
+// schema still rejects everything with an accurate message, and a JSON
+// Schema document describing the same empty range loads and round-trips
+// verbatim — which `never` wouldn't.
+const updateBounds = (schema: Internal, update: (mut: Internal) => void): Internal =>
+  schema.bounds !== U || schema.multipleOf !== U
+    ? updateOutput(schema, update)
+    : internalRefine(schema, (mut: Internal) => {
+        update(mut);
+        return boundsRefiner;
+      });
 
 // A message on a call that doesn't narrow used to vanish silently; it now
 // carries onto the check that survived — the one that actually fires for the
