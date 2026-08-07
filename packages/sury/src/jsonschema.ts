@@ -902,7 +902,8 @@ const unescapePointer = (segment: string): string => {
   // documents; take the segment literally rather than letting a URIError
   // escape past the SuryError contract. Literally, not replacement-char
   // substituted the way a non-throwing decoder would: raw text can still match
-  // the key the document wrote, `U+FFFD` never can (see IDEAS.md on `deuri`).
+  // the key the document wrote, `U+FFFD` never can. That rules out swapping in
+  // a table-driven decoder here, whatever it saves on the throwing path.
   try {
     segment = decodeURIComponent(segment);
   } catch {}

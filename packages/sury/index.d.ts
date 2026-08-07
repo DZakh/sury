@@ -73,11 +73,14 @@ export type Schema<TInput = unknown, TOutput = TInput> = {
   with<TNextInput, TNextOutput>(
     fn: (schema: Schema<TInput, TOutput>) => SchemaLike<TNextInput, TNextOutput>
   ): Schema<TNextInput, TNextOutput>;
-  // Constraining TArg1 to string makes a string-literal arg1 (e.g.
-  // `.with(S.brand, "myId")`) infer its literal type instead of widening to
-  // `string` — needed for brand-based nominal typing. The next overload
-  // covers the general (non-string) arg1 case.
-  with<TNextInput, TNextOutput, TArg1 extends string>(
+  // Constraining TArg1 to string | number makes a literal arg1 infer its
+  // literal type instead of widening — `.with(S.brand, "myId")` needs the
+  // string literal for nominal typing, `.with(S.length, 2)` the number
+  // literal for its tuple-typed result. One overload for both: a second
+  // overload would be attempted (and instantiated) by every `.with` call
+  // that falls through to the general case, taxing schemas that never pass
+  // a literal. The next overload covers the general arg1 case.
+  with<TNextInput, TNextOutput, TArg1 extends string | number>(
     fn: (
       schema: Schema<TInput, TOutput>,
       arg1: TArg1
@@ -737,29 +740,85 @@ export const lte: <TInput, TOutput extends number | bigint>(
   message?: string
 ) => Schema<TInput, TOutput>;
 
-export const minLength: <TInput, TOutput extends string | unknown[]>(
+// A literal bound is arity, so the refined type says so; a `number`-typed
+// bound narrows nothing. A bound may retype the input side only when the input
+// is the same value as the bounded output — a codec's input is a different
+// value and its length says nothing about it.
+//
+// `Tail` follows the N fixed elements: empty for an exact bound, `E[]` for a
+// lower one. The 64 cap bails to `E[]` — past it TypeScript's recursion limit
+// is nearer than the worth of a spelled-out tuple, and a fractional or huge
+// bound would compile-error instead of failing at runtime as it already does.
+type Repeat<E, N extends number, Acc extends unknown[], Tail extends unknown[]> =
+  Acc["length"] extends N
+    ? [...Acc, ...Tail]
+    : Acc["length"] extends 64
+    ? E[]
+    : Repeat<E, N, [...Acc, E], Tail>;
+// `N extends N` distributes; without it a union bound like `0 | 2` matches one
+// branch and pins the type to it. The `number extends T["length"]` guard keeps
+// a bound off an existing tuple, where `Repeat` would rebuild `["bar", number]`
+// as `[number | "bar", number | "bar"]`.
+type Sized<T, N extends number> = number extends N
+  ? T
+  : N extends N
+  ? T extends (infer E)[]
+    ? number extends T["length"]
+      ? Repeat<E, N, [], []>
+      : T
+    : T extends string
+    ? N extends 0
+      ? ""
+      : T
+    : T
+  : never;
+// Kept separate from `Sized` deliberately: collapsing both into one
+// `Bounded<T, N, Exact>` instantiates the discrimination at every use and
+// regressed every spec that touches a bound.
+//
+// No string case: TypeScript can't say "at least N characters" — each segment
+// of `${string}${string}` matches `""`, so it collapses to `string`. Only the
+// exact bound reaches a string type, at `""`.
+type AtLeast<T, N extends number> = number extends N
+  ? T
+  : N extends N
+  ? T extends (infer E)[]
+    ? number extends T["length"]
+      ? Repeat<E, N, [], E[]>
+      : T
+    : T
+  : never;
+// `AtLeast<T, 1>` minus the guard on a bound that can't vary.
+type NonEmptied<T> = T extends (infer E)[]
+  ? number extends T["length"]
+    ? [E, ...E[]]
+    : T
+  : T;
+// Mutual assignability, not one-way: an input that is a strict subtype of the
+// output keeps its own type, or `S.to(S.literal("x"), S.string)` under a bound
+// would retype its input to a value that schema rejects. The brackets stop a
+// union input from distributing and passing on one member.
+type Same<T, U> = [T] extends [U] ? ([U] extends [T] ? true : false) : false;
+
+export const minLength: <TInput, TOutput extends string | unknown[], N extends number>(
   schema: SchemaLike<TInput, TOutput>,
-  length: number,
+  length: N,
   message?: string
-) => Schema<TInput, TOutput>;
+) => Schema<Same<TInput, TOutput> extends true ? AtLeast<TInput, N> : TInput, AtLeast<TOutput, N>>;
 export const maxLength: <TInput, TOutput extends string | unknown[]>(
   schema: SchemaLike<TInput, TOutput>,
   length: number,
   message?: string
 ) => Schema<TInput, TOutput>;
-export const length: <TInput, TOutput extends string | unknown[]>(
+export const length: <TInput, TOutput extends string | unknown[], N extends number>(
   schema: SchemaLike<TInput, TOutput>,
-  length: number,
+  length: N,
   message?: string
-) => Schema<TInput, TOutput>;
-export const empty: <TInput, TOutput extends string | unknown[]>(
-  schema: SchemaLike<TInput, TOutput>,
-  message?: string
-) => Schema<TInput, TOutput>;
+) => Schema<Same<TInput, TOutput> extends true ? Sized<TInput, N> : TInput, Sized<TOutput, N>>;
 export const nonEmpty: <TInput, TOutput extends string | unknown[]>(
   schema: SchemaLike<TInput, TOutput>,
   message?: string
-) => Schema<TInput, TOutput>;
+) => Schema<Same<TInput, TOutput> extends true ? NonEmptied<TInput> : TInput, NonEmptied<TOutput>>;
 
 export const pattern: <TInput>(
   schema: SchemaLike<TInput, string>,

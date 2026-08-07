@@ -1706,9 +1706,9 @@ test("A contradictory bound pair is rejected where it's written", (t) => {
   t.expect(() => S.array(S.string).with(S.minLength, 5).with(S.maxLength, 1)).toThrow(
     `[Sury] string[].length <= 1 contradicts string[].length >= 5`,
   );
-  // `empty`/`nonEmpty` desugar to length bounds, and report as those rather
-  // than naming a constructor the caller didn't write.
-  t.expect(() => S.string.with(S.minLength, 2).with(S.empty)).toThrow(
+  // `nonEmpty` desugars to a length bound, and reports as one rather than
+  // naming a constructor the caller didn't write.
+  t.expect(() => S.string.with(S.minLength, 2).with(S.length, 0)).toThrow(
     `[Sury] string.length <= 0 contradicts string.length >= 2`,
   );
   // A format's range is a bound like any other, so a value outside it conflicts.
@@ -1872,6 +1872,92 @@ test("A received value is expanded one level", (t) => {
 test("A nan schema renders as NaN without a dedicated branch", (t) => {
   t.expect(S.inputExpression(S.schema(NaN))).toBe("NaN");
   t.expect(`${S.schema(NaN)}`).toBe("Schema<NaN>");
+});
+
+// A literal length on an array pins arity in the type (specs/array-length,
+// specs/array-empty, specs/string-empty pin the direct cases). Pinned here are
+// the fallbacks a spec can't express: a non-literal bound narrows nothing, and
+// past 64 the tuple spelling bails to the unbounded type instead of hitting
+// TS's recursion ceiling — both must stay `string[]`, not become errors.
+test("Array length type pinning falls back to the unbounded type", () => {
+  expectSchemaType(S.array(S.string).with(S.length, 2)).toBe<[string, string]>();
+  expectSchemaType(S.length(S.array(S.boolean), 3)).toBe<[boolean, boolean, boolean]>();
+  expectSchemaType(S.array(S.number).with(S.length, 0)).toBe<[]>();
+  expectSchemaType(S.string.with(S.length, 0)).toBe<"">();
+  // length picks up an earlier bound's subsumption unchanged
+  expectSchemaType(S.array(S.string).with(S.minLength, 1).with(S.length, 2)).toBe<
+    [string, string]
+  >();
+  // On an already-pinned arity the bound is redundant and must change nothing:
+  // rebuilding a tuple from the union of its elements would widen
+  // `["bar", number]` into `[number | "bar", number | "bar"]`.
+  expectSchemaType(S.tuple(["bar", S.number]).with(S.length, 2)).toBe<["bar", number]>();
+  expectSchemaType(S.array(S.string).with(S.length, 2).with(S.length, 2)).toBe<
+    [string, string]
+  >();
+
+  const n: number = 2;
+  expectSchemaType(S.array(S.string).with(S.length, n)).toBe<string[]>();
+  expectSchemaType(S.array(S.string).with(S.length, 100)).toBe<string[]>();
+  expectSchemaType(S.length(S.array(S.string), 1e6)).toBe<string[]>();
+
+  // Never called, and the bound has to arrive as a parameter: `S.length` raises
+  // on a bound no value can satisfy, and a `const` initialized to a literal is
+  // narrowed to it, so a local would test the literal case over again.
+  const _typeOnly = (union: 0 | 2) => {
+    // A bound that isn't one literal resolves per member rather than letting
+    // the smallest match stand for all of them.
+    expectSchemaType(S.array(S.string).with(S.length, union)).toBe<[string, string] | []>();
+    // A tuple built by recursing until it matched would report an unsatisfiable
+    // bound as a compile error on the recursion limit, not as the runtime error
+    // it already is.
+    expectSchemaType(S.length(S.array(S.string), -1)).toBe<string[]>();
+    expectSchemaType(S.length(S.array(S.string), 2.5)).toBe<string[]>();
+  };
+});
+
+// A lower bound fixes a head and leaves the tail open. specs/array-nonEmpty and
+// specs/array-minLength pin the direct cases; what needs pinning here is that it
+// only has something to say while the tail *is* open — every no-op the runtime
+// makes of a redundant bound the type has to make too, or the two disagree about
+// a schema that compiled fine.
+test("A lower bound only widens an array whose length is still open", () => {
+  expectSchemaType(S.array(S.string).with(S.nonEmpty)).toBe<[string, ...string[]]>();
+  expectSchemaType(S.minLength(S.array(S.number), 2)).toBe<[number, number, ...number[]]>();
+  // Stacking lower bounds keeps the strictest, as the runtime does.
+  expectSchemaType(S.array(S.string).with(S.minLength, 1).with(S.minLength, 3)).toBe<
+    [string, string, string, ...string[]]
+  >();
+  // Already pinned to an arity: `narrowsSize` drops the bound outright, so the
+  // type must not widen back to `[string, ...string[]]` either.
+  expectSchemaType(S.array(S.string).with(S.length, 2).with(S.minLength, 1)).toBe<
+    [string, string]
+  >();
+  // A zero lower bound is no bound at all.
+  expectSchemaType(S.array(S.string).with(S.minLength, 0)).toBe<string[]>();
+  expectSchemaType(S.array(S.string).with(S.minLength, 100)).toBe<string[]>();
+
+  // TypeScript counts tuple elements, not characters, so a string keeps its type
+  // under every lower bound — only the exact bound reaches `""`, the one
+  // length with a literal to name it.
+  expectSchemaType(S.string.with(S.nonEmpty)).toBe<string>();
+  expectSchemaType(S.string.with(S.minLength, 3)).toBe<string>();
+});
+
+// The bound binds the array, and a codec's input is a different value reachable
+// from it — pinning the array's arity says nothing about the string it decodes
+// from, which is why the input side is rewritten only when it is the same type.
+test("A length bound leaves the other side of a codec alone", () => {
+  const csv = S.string.with(
+    S.to,
+    S.array(S.string),
+    (s) => s.split(","),
+    (a) => a.join(","),
+  );
+  expectSchemaType(csv.with(S.length, 0)).toBe<string, []>();
+  expectSchemaType(csv.with(S.length, 2)).toBe<string, [string, string]>();
+  expectSchemaType(csv.with(S.nonEmpty)).toBe<string, [string, ...string[]]>();
+  expectSchemaType(csv.with(S.minLength, 2)).toBe<string, [string, string, ...string[]]>();
 });
 
 // The runtime tags a spec cannot record: specs snapshot codegen and types,
