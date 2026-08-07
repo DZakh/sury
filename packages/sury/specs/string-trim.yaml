@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.trim(S.string)
+  aliases:
+    - S.string.with(S.trim)
+  input: string
+  output: string
+  instantiations: 330
+vs:
+  zod: z.string().trim()
+jsonSchema:
+  input: '{ type: "string" }'
+  output: Expected JSON, received unknown
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}
+    examples:
+      leading-whitespace:
+        input: '"  123"'
+        output: '"123"'
+      already-trimmed:
+        input: '"123"'
+        output: '"123"'
+      not-a-string:
+        input: "1"
+        error: Expected string, received 1
+  decode:
+    expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}
+    examples:
+      leading-whitespace:
+        input: '"  123"'
+        output: '"123"'
+  encode:
+    expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);return v0}
+    examples:
+      valid:
+        input: '"123"'
+        output: '"123"'

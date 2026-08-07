@@ -34,6 +34,7 @@ const FILES = [
   "src/S.res.mjs",
   "src/StandardSchema.res",
   "src/StandardSchema.res.mjs",
+  "src/types/json.d.ts",
   "src/types/jsonschema.d.ts",
   "src/types/standard.d.ts",
 ];

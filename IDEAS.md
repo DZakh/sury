@@ -92,6 +92,39 @@ S.reverse(S.schema({
   to pick one representation. Pinned in `specs/array-length.yaml` and
   `specs/array-empty.yaml`.
 
+### Vendor `deuri` for percent-decoding (researched, parked — don't do it for `$ref`)
+
+`unescapePointer` in `src/jsonschema.ts` wraps `decodeURIComponent` in a
+try/catch because a JSON Pointer segment may carry a bare `%` (`#/$defs/50%`),
+which the native decoder throws a `URIError` on — and a raw `URIError` escaping
+`fromJSONSchema` breaks the SuryError contract. `deuri`
+(github.com/re-utils/deuri, MIT © 2026 aquapi, v3.0.0, no deps, one file) is the
+obvious replacement: a table-driven UTF-8 DFA tuned from
+`fast-decode-uri-component` that never throws, substituting `U+FFFD` for an
+invalid sequence the way `node:querystring`'s `unescape` does. Findings, so this
+doesn't get re-measured:
+
+- **It is a behavioral regression at this call site, not just a wash.** The
+  fallback here keeps the segment *raw*, so a document with a literal `%C3%28`
+  key resolves today; `deuri` decodes it to `�(` and the lookup misses.
+  There is no input where `U+FFFD` matches a `$defs` key that the raw text
+  doesn't, so for pointer resolution the lossless fallback dominates — the two
+  agree everywhere else, including the bare-`%` case that motivated the catch.
+- **Cost measured the way `bundleSize.yaml` measures**: 1600 B minified,
+  **541 B gzipped**, almost all of it the three transition tables. That is
+  +2.8% on the `fromJSONSchema` export (19366 B) for an edge case, where the
+  whole `$ref`-hardening commit cost 70 B.
+- **It is a faithful decoder otherwise**: 240k random valid inputs over a
+  percent-heavy alphabet, zero divergences from native `decodeURIComponent`.
+- **When this flips**: the moment percent-decoding lands on a *per-value* path
+  rather than the per-conversion one — a URL or query-string codec, `S.url`
+  learning to parse rather than validate — the table cost amortizes and the
+  perf case is real (~1.5x native on valid input, ~70x on invalid, since native
+  throws and throwing is the slow path). Vendor rather than depend, for the same
+  reason as `json-schema-to-ts` below: one file, no deps, and the MIT notice has
+  to travel with it. The tables are module-level `const`s, so they shake as a
+  unit with the decoder and want to live in a module nothing else reaches.
+
 ### Known bugs left over from the validation refactor (`val.validation: array<validationCheck>`)
 
 - **Union discriminant hoists refinement checks with `&&` instead of `;`.**
@@ -221,7 +254,52 @@ s.fn(s.arg(0, S.string))
 - S.mutator
 - Check only number of fields for strict object schema when fields are not optional (bad idea since it's not possible to create a good error message, so we still need to have the loop)
 
-## `fromJSONSchema` type inference (researched, parked)
+## `fromJSONSchema` type inference (landed — history below)
+
+**Landed 2026-08-07 with a Sury-owned engine instead of the vendored one** the
+research below recommends. The phase-0 measurements changed the calculus:
+vendored `json-schema-to-ts` costs 3k–86k instantiations across the tiers and
+dies at ~14 levels of literal nesting, while a ~130-line first-match resolver
+in `ata-validator`'s deferral style — written against Sury's actual runtime
+dispatch order, with the recursion-safe key-remap object split — measured
+368/1,076/676 on the same tiers, handles 30-level nesting at 396, and keeps
+recursive/mutual `$ref` under 1.1k. `FromJSONSchema<T>` +
+`JSONSchemaResolve` live in `src/types/json.d.ts`; the dispatch-order invariant
+is commented on both sides (`src/types/json.d.ts`, `src/jsonschema.ts`). Specs:
+`fromjsonschema-object`, `fromjsonschema-recursive-ref`, plus the three
+`jsonschema-*` ts goldens moving JSON→precise. Not modeled (deliberately, v1):
+`not`, `if/then/else`, `default`-fold's input/output split, `oneOf`
+exclusivity; all degrade to the runtime's wider static shape, never narrower.
+
+### Follow-ups
+
+- **Runtime `$defs`/`$ref` resolution** — the static type already resolves
+  local pointers while the runtime parses a `$ref` as plain JSON; the FIXME in
+  `specs/fromjsonschema-recursive-ref.yaml` pins the divergence. Recursive
+  documents need the runtime's recursive-schema machinery (`S_recursive`), so
+  size that first. Closing this deletes the one "type leads runtime" caveat.
+- **Corpus-wide round-trip dimension (phase 3)** — derive a `fromJSONSchema`
+  check in the spec harness from each spec's existing `jsonSchema.input`
+  golden (~126 cases): pin the inferred type + instantiations next to the
+  emitter's output so a runtime branch gaining support without a matching
+  type branch shows up as a spec diff. Harness change → log under Spec
+  Harness Suggestions in CONTRIBUTING.md per the spec skill's rule.
+- **`default`-fold input/output split** — a non-required property with
+  `default` is folded via `Option_getOr`, so it's optional on the input side
+  but always present on the output side; the inferred type currently keeps it
+  optional on both (sound, just wider). Needs `FromJSONSchema` split into
+  per-side resolvers; measure the cost of doubling before committing.
+- **Same-level `not` exclusion** — `{ enum: [...], not: { enum: [...] } }`
+  could infer `Exclude<...>` cheaply. Only worth doing together with runtime
+  structure (today `not` is an opaque refinement), and note upstream
+  `json-schema-to-ts` gets the `allOf`-sibling variant wrong — pin whatever
+  behavior lands in a spec.
+- **`anyOf`/`oneOf` inside `type: "object"`** — the runtime drops them (TODO
+  at the object branch in `src/jsonschema.ts`); the type chain mirrors that.
+  When the runtime TODO lands, add the matching branch to `JSONSchemaResolve`
+  in the same change — the dispatch-order comment binds the two.
+
+## `fromJSONSchema` type inference (researched, parked — original notes)
 
 `S.fromJSONSchema` returns `Schema<JSON, JSON>` — the described type isn't
 inferred from the schema literal. Nothing in the Standard Schema ecosystem does
@@ -259,6 +337,66 @@ differentiator. Findings from the investigation, so it doesn't have to be redone
 
 The dialect split landed here (wide `JSONSchema` in, per-target types out) is the
 shape that work plugs into.
+
+### Phase 0 result (2026-08-06): GO
+
+Measured `json-schema-to-ts@3.1.1` + `ts-algebra@2.0.0` unmodified on TS 5.8.3
+(`strict`, `skipLibCheck` off), with the exact `packages/spec/introspect.ts`
+methodology (`@typescript/vfs`, `getInstantiationCount()` delta vs bare-import
+baseline). Corpus context: existing specs' `ts.instantiations` are median ~5.2k,
+max 12.4k; today's `fromJSONSchema` specs pin 254.
+
+- Small object schema (5 props, formats, enum): **2,984** inst — same band as
+  hand-written object specs (`object5-optional` is 3,610).
+- Realistic API schema (~30 props, 3-level nesting, discriminated `anyOf`,
+  tuples, dicts): **17,895** inst, 376ms warm check.
+- Stress (10-branch union + `allOf` merge + `not` + `oneOf` + `if/then/else`
+  with `parseNotKeyword`/`parseIfThenElseKeywords` on + 8-level nesting):
+  **86,455** inst, 694ms, no errors.
+- Wrapping the result in `Schema<T, T>` and reading `S.Output`/`S.Input` back
+  (the phase-2 signature simulated) adds a flat **~3k** on any tier.
+- **The only breaking dimension is nesting depth**: pure object nesting dies at
+  ~14–20 levels ("Type instantiation is excessively deep") because the
+  `Omit`-per-keyword recursion burns ~3 of TS's 100-depth budget per schema
+  level. Width is fine: 100 union branches = 268k inst / 1.0s / ok, 100
+  properties = 15k / ok. Realistic schemas express depth via `$ref` (out of
+  scope anyway), so document the limit; the depth-only failure mode also means
+  a depth-capped bailout to `S.JSON` is possible if ever needed.
+- The shipped `.d.ts` passes `tsc --noEmit --strict --skipLibCheck false`
+  (the `declarations_test.ts` gate) in 2.7s including the probe project.
+- Correctness caveat found while measuring: `not` as an `allOf` *sibling* does
+  not exclude even with `parseNotKeyword` (`allOf: [{enum: [a..e]}, {not:
+  {enum: [b, d]}}]` infers all five) — exclusion only applies same-level.
+  Pin whatever behavior the adaptation keeps in a spec.
+
+**`$ref` is in scope for the types** (decided after the measurements below;
+the runtime keeps producing `json` for `$ref` until it learns resolution —
+the type side leads):
+
+- Upstream v3.1.1 already resolves **non-recursive** `$ref` — `#/definitions/`,
+  `#/$defs/` and the `references` option all infer correctly at ~6k inst.
+  The earlier "PR #224 means no `$defs`" read was too pessimistic; only verify
+  nested/edge placements after vendoring.
+- **Recursive** `$ref` is where upstream hard-fails: "Type of property
+  'children' circularly references itself in mapped type", property degrades
+  to `any`, both via `references` and internal `definitions`.
+- The `ata-validator` `RootDefs`/`RefName`/`ResolveRef` graft closes exactly
+  that gap, measured on its shipped `index.d.ts` (546 lines, MIT): direct
+  recursion (tree) **616 inst**, mutual recursion (expr/binop) **974 inst**,
+  and the inferred types are usable — deep `next?.next?....` chains and
+  discriminant narrowing typecheck clean, TS displays the cycle lazily.
+  Its `InferObject` mapped-type deferral is the pattern the vendored engine's
+  `$ref` branch must adopt; note it leaks `readonly` from `as const` (strip
+  with `-readonly` during adaptation).
+
+ArkType postmortem (checked 2026-08): `@ark/json-schema` built full literal
+inference as direct recursive conditional types (accumulator + one
+`Omit<schema, kw>` per keyword, piggybacking their constraint brands), then
+deleted it before merge (PR #1159, commit 07a5215) over type-perf concerns —
+shipped 0.0.x is runtime-only, returns `Type.Any`, no `$ref` even at runtime.
+Confirms: don't hand-roll the direct-recursion style; the ts-algebra IR is the
+only approach that has shipped. Also confirms upstream is still frozen: PRs
+#224 (`$defs`) and #231 (tuples) remain unreviewed.
 
 ## Articles
 

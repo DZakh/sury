@@ -197,19 +197,46 @@ S.assert(
 // Throws S.Error: Expected email, received "example.com"
 ```
 
-It takes `unknown`, so a schema read from a file or an API needs no cast. To have TypeScript check one written inline, annotate it with `satisfies S.JSONSchema` — that catches a misspelled keyword while leaving `x-` vendor extensions open:
+A document written inline is validated and typed:
 
 ```ts
-const jsonSchema = {
+const schema = S.fromJSONSchema({
   type: "object",
-  properties: { id: { type: "string" } },
+  properties: { id: { type: "string" }, role: { enum: ["admin", "user"] } },
   required: ["id"],
-} satisfies S.JSONSchema;
-
-const schema = S.fromJSONSchema(jsonSchema);
+});
+// S.Schema<{ id: string; role?: "admin" | "user" | undefined }>
 ```
 
-The result is a `S.Schema<S.JSON, S.JSON>`: the described type isn't known statically, so pair it with `S.to` when you need a narrower one.
+A `$ref` pointing into the same document is followed, recursive ones included:
+
+```ts
+const comment = S.fromJSONSchema({
+  $ref: "#/$defs/comment",
+  $defs: {
+    comment: {
+      type: "object",
+      properties: {
+        text: { type: "string" },
+        replies: { type: "array", items: { $ref: "#/$defs/comment" } },
+      },
+      required: ["text"],
+    },
+  },
+});
+// S.Schema<{ text: string; replies?: ...[] | undefined }>
+
+S.assert(comment, { text: "hi", replies: [{ text: 1 }] });
+// Throws S.Error: Failed at ["replies"]["0"]["text"]: Expected string, received 1
+```
+
+`$defs` and `definitions` pointers are named in the type; one on any other path (`#/components/schemas/Pet`) is validated the same, but typed as `S.JSON`.
+
+A `$ref` leading outside the document — a URL, a `urn:`, an `$anchor`, a `$id` base — throws instead of silently accepting anything, so bundle first.
+
+To also have TypeScript check the schema document itself, annotate it with `satisfies S.JSONSchema` — that catches a misspelled keyword while leaving `x-` vendor extensions open. The annotation widens literals (e.g. `required`, `enum`), so the inferred type gets wider too — every property becomes optional.
+
+A schema read from a file or an API needs no cast: a non-literal argument — `unknown`, `S.JSON`, or one of the dialect types — falls back to `S.Schema<S.JSON, S.JSON>`, so pair it with `S.to` when you need a narrower type.
 
 > 🧠 **Sury**'s internal representation is itself JSON Schema-shaped, so a schema is readable as-is: `S.schema("Hello world!")` logs `{ type: "string", const: "Hello world!", … }`.
 

@@ -7,9 +7,11 @@ import type {
   JSONSchema7,
   OpenAPISchema30,
 } from "./src/types/jsonschema.js";
+import type { FromJSONSchema, JSON } from "./src/types/json.js";
 
 export * from "./src/types/standard.js";
 export * from "./src/types/jsonschema.js";
+export * from "./src/types/json.js";
 
 
 
@@ -25,14 +27,6 @@ export type FailureResult = {
 };
 
 export type Result<TValue> = SuccessResult<TValue> | FailureResult;
-
-export type JSON =
-  | string
-  | boolean
-  | number
-  | null
-  | { [key: string]: JSON }
-  | JSON[];
 
 export type NumberFormat = "int32" | "port" | "integer";
 export type StringFormat = "json" | "date-time" | "email" | "uuid" | "cuid" | "url";
@@ -836,13 +830,20 @@ export function toJSONSchema<TInput, TOutput>(
 /**
  * Builds a schema from a JSON Schema at runtime.
  *
- * Takes `unknown` so a schema read from a file or an API needs no cast. To have
- * TypeScript check one written inline, annotate it: `{ ... } satisfies S.JSONSchema`.
+ * A document written inline is validated and typed, following a `$ref` into the
+ * same document — recursive ones included. A `$ref` leading outside it (a URL,
+ * a `urn:`, an `$anchor`, a `$id` base) throws, so bundle first. To also have
+ * TypeScript check the document itself, annotate it:
+ * `{ ... } satisfies S.JSONSchema` — the annotation widens literals (e.g.
+ * `required`, `enum`), so the inferred type gets wider too.
  *
- * The result parses JSON into JSON — the described type is not known statically.
+ * A schema read from a file or an API needs no cast — a non-literal argument
+ * (`unknown`, `S.JSON`, a dialect type) falls back to `Schema<JSON, JSON>`.
  * Use `S.to` to refine it further.
  */
-export function fromJSONSchema(jsonSchema: unknown): Schema<JSON, JSON>;
+export function fromJSONSchema<const T = unknown>(
+  jsonSchema: T
+): Schema<FromJSONSchema<T>, FromJSONSchema<T>>;
 export function extendJSONSchema<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,
   jsonSchema: JSONSchema
