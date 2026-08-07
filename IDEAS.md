@@ -188,6 +188,39 @@ S.reverse(S.schema({
   Same on the length side. Pinned in `specs/number-gte-redundant.yaml` and
   `specs/string-length-redundant.yaml`.
 
+### Vendor `deuri` for percent-decoding (researched, parked — don't do it for `$ref`)
+
+`unescapePointer` in `src/jsonschema.ts` wraps `decodeURIComponent` in a
+try/catch because a JSON Pointer segment may carry a bare `%` (`#/$defs/50%`),
+which the native decoder throws a `URIError` on — and a raw `URIError` escaping
+`fromJSONSchema` breaks the SuryError contract. `deuri`
+(github.com/re-utils/deuri, MIT © 2026 aquapi, v3.0.0, no deps, one file) is the
+obvious replacement: a table-driven UTF-8 DFA tuned from
+`fast-decode-uri-component` that never throws, substituting `U+FFFD` for an
+invalid sequence the way `node:querystring`'s `unescape` does. Findings, so this
+doesn't get re-measured:
+
+- **It is a behavioral regression at this call site, not just a wash.** The
+  fallback here keeps the segment *raw*, so a document with a literal `%C3%28`
+  key resolves today; `deuri` decodes it to `�(` and the lookup misses.
+  There is no input where `U+FFFD` matches a `$defs` key that the raw text
+  doesn't, so for pointer resolution the lossless fallback dominates — the two
+  agree everywhere else, including the bare-`%` case that motivated the catch.
+- **Cost measured the way `bundleSize.yaml` measures**: 1600 B minified,
+  **541 B gzipped**, almost all of it the three transition tables. That is
+  +2.8% on the `fromJSONSchema` export (19366 B) for an edge case, where the
+  whole `$ref`-hardening commit cost 70 B.
+- **It is a faithful decoder otherwise**: 240k random valid inputs over a
+  percent-heavy alphabet, zero divergences from native `decodeURIComponent`.
+- **When this flips**: the moment percent-decoding lands on a *per-value* path
+  rather than the per-conversion one — a URL or query-string codec, `S.url`
+  learning to parse rather than validate — the table cost amortizes and the
+  perf case is real (~1.5x native on valid input, ~70x on invalid, since native
+  throws and throwing is the slow path). Vendor rather than depend, for the same
+  reason as `json-schema-to-ts` below: one file, no deps, and the MIT notice has
+  to travel with it. The tables are module-level `const`s, so they shake as a
+  unit with the decoder and want to live in a module nothing else reaches.
+
 ### Known bugs left over from the validation refactor (`val.validation: array<validationCheck>`)
 
 - **Union discriminant hoists refinement checks with `&&` instead of `;`.**
