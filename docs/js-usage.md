@@ -664,21 +664,14 @@ type Teacher = S.Infer<typeof teacherSchema>; // => { students: string[], id: st
 const stringArraySchema = S.array(S.string);
 ```
 
-**Sury** includes some of array-specific refinements:
+**Sury** includes some of array-specific refinements. A bound on the size shows
+up in the inferred type, so destructuring and indexing just work:
 
 ```ts
-S.array(S.string).with(S.maxLength, 5); // Expected string[].length <= 5
-S.array(S.string).with(S.minLength, 5); // Expected string[].length >= 5
-S.array(S.string).with(S.length, 5); // Expected string[].length == 5
-S.array(S.string).with(S.nonEmpty); // Expected string[].length >= 1
-```
-
-A bound on the size shows up in the inferred type, so destructuring and indexing
-just work:
-
-```ts
-S.array(S.number).with(S.length, 2); //? S.Schema<[number, number]>
+S.array(S.string).with(S.length, 2); //? S.Schema<[string, string]>
+S.array(S.string).with(S.minLength, 2); //? S.Schema<[string, string, ...string[]]>
 S.array(S.string).with(S.nonEmpty); //? S.Schema<[string, ...string[]]>
+S.array(S.string).with(S.maxLength, 5); //? S.Schema<string[]>
 
 const [lat, lng] = S.parser(S.array(S.number).with(S.length, 2))(input); // both number
 ```

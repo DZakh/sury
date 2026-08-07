@@ -772,6 +772,10 @@ type Sized<T, N extends number> = number extends N
       : T
     : T
   : never;
+// Kept separate from `Sized` deliberately: collapsing both into one
+// `Bounded<T, N, Exact>` instantiates the discrimination at every use and
+// regressed every spec that touches a bound.
+//
 // No string case: TypeScript can't say "at least N characters" — each segment
 // of `${string}${string}` matches `""`, so it collapses to `string`. Only the
 // exact bound reaches a string type, at `""`.
