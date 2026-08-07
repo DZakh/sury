@@ -95,6 +95,17 @@ S.reverse(S.schema({
   the tail carries no type to range over. Needs a spec for
   transform-then-bound in both directions; none exists today.
 
+- **Type-less JSON Schema assertion keywords vanish on re-emit.**
+  `fromJSONSchema({multipleOf: 2})` builds (the keyword joined the type-less
+  `keywordTypes` "number" group) and validates correctly through the opaque
+  `refine()` that group compiles to, but `toJSONSchema` of the result returns
+  `{}` — the document silently widens on a round-trip, where the keyword used
+  to be rejected loudly as unsupported. First settle what a type-less schema
+  should even mean here: per spec `{multipleOf: 2}` constrains only numeric
+  instances and accepts everything else, which is what the refine does — so
+  the fix is on the emit side, carrying the original keywords through the
+  opaque refinement onto the output document rather than changing validation.
+
 - **A hard-coded array length should build a tuple.** `S.array(S.string)`
   with `S.length(2)` describes exactly `[string, string]`, and with `S.empty`
   exactly `[]` — but both infer `string[]` and run a length check beside the

@@ -569,9 +569,12 @@ export const inputExpression = (schema: Internal, skipOverride?: boolean): strin
     if (typeof additionalItems === objectTag) {
       const item = additionalItems as Internal;
       const itemName = inputExpression(item);
-      // A bound reads as part of the item, not the array: `int32 > 5[]` parses
-      // as an array-typed bound, the same ambiguity a union has.
-      return (item.type === anyOfTag || item.bounds !== U ? `(${itemName})` : itemName) + "[]";
+      // A bound or divisor reads as part of the item, not the array:
+      // `int32 > 5[]` parses as an array-typed bound and `number % 2[]` as an
+      // array-typed divisor, the same ambiguity a union has.
+      return (item.type === anyOfTag || item.bounds !== U || item.multipleOf !== U
+        ? `(${itemName})`
+        : itemName) + "[]";
     }
     const items = schema.items!;
     let body = "";
