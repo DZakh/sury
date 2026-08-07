@@ -53,7 +53,9 @@ import {
   B_refine,
   B_unsupportedDecode,
   B_varWithoutAllocation,
+  failInvalidType,
 } from "../builder";
+import { internalRefine } from "../modifiers";
 import {
   array,
   arrayDecoder,
@@ -279,7 +281,13 @@ export const json: Internal = /* @__PURE__ */ initSchema(refTag, (s) => {
   const anyOf = [
     string,
     bool,
-    float,
+    // JSON has no non-finite numbers: bare `float` admits Infinity, which
+    // JSON.stringify silently demotes to null and the jsonString aggregator
+    // would splice as invalid text — raise at validation instead, matching
+    // the number -> jsonString piece.
+    internalRefine(float, () => () => [
+      { c: (inputVar) => `Number.isFinite(${inputVar})`, f: failInvalidType },
+    ]),
     nullLiteral,
     dictFactory(jsonRef),
     array(jsonRef),

@@ -117,18 +117,16 @@ This is why **Sury** will most likely outperform not only other libraries, but a
 
 ### JSON serialization faster than `JSON.stringify`
 
-The same compiler works in the encode direction: `S.encoder(schema, S.jsonString)` doesn't build an object and hand it to `JSON.stringify` — it compiles your schema into inlined JSON text aggregation, the technique pioneered by [fast-json-stringify](https://github.com/fastify/fast-json-stringify). Literal fields become raw text chunks at compile time, and any mapping in the schema (renames, `bigint`, `Uint8Array`, `Date` coercions) is fused into the same pass, so there is no intermediate object and no separate mapping step to pay for:
+The same compiler works in the encode direction: `S.encoder(schema, S.jsonString)` builds an optimized JSON string encoder for your schema — the technique pioneered by [fast-json-stringify](https://github.com/fastify/fast-json-stringify) — so the serialization your service does on every request (API responses, event payloads, queue messages) goes straight from domain objects to JSON text:
 
-| Encode to JSON string                               | `JSON.stringify` | fast-json-stringify | **Sury** `S.encoder(schema, S.jsonString)` |
-| --------------------------------------------------- | ---------------- | ------------------- | ------------------------------------------ |
-| Flat object (7 fields)                              | 566 ns           | 383 ns              | **300 ns**                                 |
-| Nested: 100-item array of objects                   | 25.4 µs          | 27.4 µs             | **23.6 µs**                                |
-| Dict (50 dynamic keys)                              | **7.5 µs**       | 18.2 µs             | 11.8 µs                                    |
-| `bigint` + `Uint8Array` + `Date` (mapping included) | 1.84 µs          | 1.56 µs             | **1.31 µs**                                |
+| Encode to JSON string                                 | `JSON.stringify` | fast-json-stringify | **Sury** `S.encoder(schema, S.jsonString)` |
+| ----------------------------------------------------- | ---------------- | ------------------- | ------------------------------------------ |
+| API response (user profile, 7 fields)                 | 488 ns           | 292 ns              | **245 ns**                                 |
+| List endpoint (100 rows)                              | 11.3 µs          | 10.9 µs             | **10.7 µs**                                |
+| Metrics dict (50 dynamic keys)                        | **5.5 µs**       | 9.1 µs              | 9.7 µs                                     |
+| Event: `bigint` id + binary payload + `Date`          | 1.34 µs          | 1.29 µs             | **1.04 µs**                                |
 
-<sup>avg time per op, lower is better — Node.js 22, `fast-json-stringify@6`, equivalent schemas on both sides.</sup>
-
-The last row is the important one: `JSON.stringify` throws on `bigint` and mangles `Uint8Array`, and fast-json-stringify expects pre-mapped strings — so both need a hand-written mapping pass (`id.toString()`, base64, `toISOString()`) that the benchmark includes. **Sury** describes those fields once (`S.string.with(S.to, S.bigint)`) and compiles the mapping into the encoder itself — while also giving you the decoder, validation, and JSON Schema from the same definition. Pretty-printed output (`S.jsonStringWithSpace`) and async schemas fall back to the whole-value `JSON.stringify` path.
+The last row is the important one: `JSON.stringify` throws on `bigint` and mangles `Uint8Array`, and fast-json-stringify expects pre-mapped strings — so for both, the benchmark includes the hand-written mapping pass a real consumer has to run. **Sury** describes those fields once (`S.string.with(S.to, S.bigint)`) and the mapping becomes part of the encoder itself — while the same definition also gives you the decoder, validation, and JSON Schema. Reproduce with `pnpm --filter=sury bench:jsonstring`.
 
 ### Transformations that reverse themselves
 
@@ -260,7 +258,7 @@ else result.error;
 
 - Works with plain JavaScript, TypeScript, and ReScript — no compiler required
 - The **fastest** parsing and validation library in the JavaScript ecosystem ([benchmarks](#comparison))
-- JSON serialization compiled to inlined string aggregation — [faster than `JSON.stringify` and fast-json-stringify](#json-serialization-faster-than-jsonstringify), with `bigint`, `Uint8Array`, and `Date` mapping fused in
+- Compiled JSON string encoding — [faster than `JSON.stringify` and fast-json-stringify](#json-serialization-faster-than-jsonstringify), with `bigint`, `Uint8Array`, and `Date` mapping built in
 - Small JS footprint & tree-shakable API
 - Async transformations, recursive schemas, and custom schemas
 

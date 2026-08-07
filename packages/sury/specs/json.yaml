@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.json
+  input: JSON
+  output: JSON
+  instantiations: 254
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: "{}"
+  output: "{}"
+operations:
+  parse:
+    expression: i=>{e[0](i);return i}
+    examples:
+      object:
+        input: '{ a: [1, "x", null] }'
+        output: '{ a: [1, "x", null] }'
+      number:
+        input: "1.5"
+        output: "1.5"
+      non-finite:
+        input: Infinity
+        error: Expected JSON, received Infinity
+      nested-non-finite:
+        input: "{ a: Infinity }"
+        error: 'Failed at ["a"]: Expected JSON, received Infinity'
+      nan:
+        input: NaN
+        error: Expected JSON, received NaN
+      not-json:
+        input: () => {}
+        error: Expected JSON, received Function
+  decode: identity
+  encode: identity
