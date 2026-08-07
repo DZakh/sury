@@ -208,7 +208,13 @@ const boundsRefiner = (input: Val): Check[] => {
     const maxKey = sizeKey(s, true);
     const min = written & 1 ? (s[minKey] as number) : U;
     const max = written & 2 ? (s[maxKey] as number) : U;
-    if (min !== U && min === max) {
+    const em = s.errorMessage as Record<string, string | undefined> | undefined;
+    // Collapsing to `===` folds both directions into one check with one
+    // message — sound only when both directions would say the same thing.
+    // Independent minLength(5)/maxLength(5, "custom") calls converge without
+    // either superseding the other, and a too-short value must not report
+    // "custom": those keep a check per direction, each with its own key.
+    if (min !== U && min === max && (em !== U ? em[minKey] : U) === (em !== U ? em[maxKey] : U)) {
       checks.push({
         c: (inputVar) => `${inputVar}.length===${min}`,
         f: B_failWithErrorMessage(minKey),
@@ -271,12 +277,18 @@ const boundsRefiner = (input: Val): Check[] => {
 //
 // An open side is never empty: the multiples run to ±Infinity, so one always
 // falls past whichever single bound was written.
+//
+// The inclusive sides read the raw fields, not the bits: a format's range
+// (int32, port) has no bit but is enforced all the same, and the emptiness
+// it causes is just as real — the same fields assertLower measures a written
+// bound against. Only the exclusive sides are bit-gated, since no format
+// carries one.
 const rangeExcludes = (schema: Internal, d: number | bigint): boolean => {
   const written = schema.bounds ?? 0;
   const exMin = written & 4 ? (schema.exclusiveMinimum as number) : U;
-  const low = exMin !== U ? exMin : written & 1 ? (schema.minimum as number) : U;
+  const low = exMin !== U ? exMin : (schema.minimum as number | undefined);
   const exMax = written & 8 ? (schema.exclusiveMaximum as number) : U;
-  const high = exMax !== U ? exMax : written & 2 ? (schema.maximum as number) : U;
+  const high = exMax !== U ? exMax : (schema.maximum as number | undefined);
   if (low === U || high === U) return false;
   const divisor = d as number;
   // `low - (low % divisor)` is the multiple at or beyond `low` toward zero, so
@@ -296,7 +308,14 @@ const asDivisorOnly = (schema: Internal, divisor: number | bigint): Internal => 
 };
 
 const asRangeOnly = (schema: Internal): Internal => {
-  const mut = { ...schema, multipleOf: U } as unknown as Internal;
+  // A format-carried bound has no bit; grant the copy bits for whichever raw
+  // fields exist so the conflict renders the range the check actually used —
+  // `1 <= int32 <= 2147483647`, not a bare `int32` hiding half the story.
+  const bits =
+    ((schema.bounds ?? 0) & 12) |
+    (schema.minimum !== U ? 1 : 0) |
+    (schema.maximum !== U ? 2 : 0);
+  const mut = { ...schema, multipleOf: U, bounds: bits } as unknown as Internal;
   setBoundExpression(mut, schema);
   return mut;
 };

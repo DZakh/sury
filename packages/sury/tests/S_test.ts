@@ -2994,6 +2994,15 @@ test("A contradictory bound pair is rejected where it's written", (t) => {
   t.expect(() => S.bigint.with(S.gte, 1n).with(S.lte, 100n).with(S.multipleOf, 1000n)).toThrow(
     `[Sury] bigint % 1000n contradicts 1n <= bigint <= 100n`,
   );
+  // A format's range counts toward emptiness like a written bound does, and
+  // the conflict renders it — 0 is the only int32 multiple of 3e9, and >= 1
+  // excludes it.
+  t.expect(() => S.int32.with(S.gte, 1).with(S.multipleOf, 3000000000)).toThrow(
+    `[Sury] int32 % 3000000000 contradicts 1 <= int32 <= 2147483647`,
+  );
+  t.expect(() => S.port.with(S.gte, 1).with(S.multipleOf, 100000)).toThrow(
+    `[Sury] port % 100000 contradicts 1 <= port <= 65535`,
+  );
 
   // A single point is satisfiable, so these stay legal.
   t.expect(S.toJSONSchema(S.number.with(S.gte, 5).with(S.lte, 5))).toEqual({
