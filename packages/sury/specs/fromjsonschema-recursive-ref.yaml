@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=./spec.schema.json
+# FIXME: the runtime doesn't model $ref yet — it parses this document as
+# plain JSON while the static type resolves the recursion, so values outside
+# the inferred type still pass at runtime.
+ts:
+  schema: 'S.fromJSONSchema({ $ref: "#/$defs/node", $defs: { node: { type: "object", properties: { value: { type: "string" }, children: { type: "array", items: { $ref: "#/$defs/node" } } }, required: ["value"] } } })'
+  input: "{ value: string; children?: ...[] | undefined; }"
+  output: "{ value: string; children?: ...[] | undefined; }"
+  instantiations: 2075
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: "{}"
+  output: "{}"
+operations:
+  parse:
+    expression: i=>{e[0](i);return i}
+    examples:
+      tree:
+        input: '{ value: "root", children: [{ value: "leaf" }] }'
+        output: '{ value: "root", children: [{ value: "leaf" }] }'
+      not-matching-the-ref-still-passes:
+        input: '"any json"'
+        output: '"any json"'
+  decode: identity
+  encode: identity

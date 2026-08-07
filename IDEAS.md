@@ -293,7 +293,24 @@ s.fn(s.arg(0, S.string))
 - S.mutator
 - Check only number of fields for strict object schema when fields are not optional (bad idea since it's not possible to create a good error message, so we still need to have the loop)
 
-## `fromJSONSchema` type inference (researched, parked)
+## `fromJSONSchema` type inference (landed — history below)
+
+**Landed 2026-08-07 with a Sury-owned engine instead of the vendored one** the
+research below recommends. The phase-0 measurements changed the calculus:
+vendored `json-schema-to-ts` costs 3k–86k instantiations across the tiers and
+dies at ~14 levels of literal nesting, while a ~130-line first-match resolver
+in `ata-validator`'s deferral style — written against Sury's actual runtime
+dispatch order, with the recursion-safe key-remap object split — measured
+368/1,076/676 on the same tiers, handles 30-level nesting at 396, and keeps
+recursive/mutual `$ref` under 1.1k. `FromJSONSchema<T>` +
+`JSONSchemaResolve` live in `index.d.ts`; the dispatch-order invariant is
+commented on both sides (`index.d.ts`, `src/jsonschema.ts`). Specs:
+`fromjsonschema-object`, `fromjsonschema-recursive-ref`, plus the three
+`jsonschema-*` ts goldens moving JSON→precise. Not modeled (deliberately, v1):
+`not`, `if/then/else`, `default`-fold's input/output split, `oneOf`
+exclusivity; all degrade to the runtime's wider static shape, never narrower.
+
+## `fromJSONSchema` type inference (researched, parked — original notes)
 
 `S.fromJSONSchema` returns `Schema<JSON, JSON>` — the described type isn't
 inferred from the schema literal. Nothing in the Standard Schema ecosystem does
