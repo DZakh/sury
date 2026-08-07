@@ -296,6 +296,13 @@ export type Internal = {
   pattern?: RegExp;
   errorMessage?: SchemaErrorMessage;
   space?: number;
+  // Compile-time only, set on a per-operation schema copy by the container
+  // decoders' jsonString fusion (B_fuseIntoJsonString in composites.ts): the
+  // container's dynamic items are typed but UNVALIDATED — the validation loop
+  // was skipped because jsonStringAggregate re-parses each item from unknown
+  // inside its own serialize loop. Carried on the schema (not the val) so it
+  // survives the parse loop's per-segment B_refine.
+  uv?: boolean;
   "$ref"?: string;
   "$defs"?: Record<string, Internal>;
   isAsync?: boolean; // Optional value means that it's not lazily computed yet.
@@ -329,6 +336,9 @@ export type BGlobal = {
   // generated code, so a builder can bracket a stretch of emission and learn
   // whether what it produced can throw. Read the difference, never the value.
   t: number;
+  // @as("js") — the operation's asJsonString embed accessor, cached by
+  // B_embedJsonStr (advanced/json.ts) on first use.
+  js?: string;
 }
 
 // Adjacent checks sharing `fail` by reference equality are fused with `&&`

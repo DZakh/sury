@@ -55,7 +55,6 @@ import {
   B_varWithoutAllocation,
   failInvalidType,
 } from "../builder";
-import { internalRefine } from "../modifiers";
 import {
   array,
   arrayDecoder,
@@ -74,6 +73,7 @@ import {
   string,
   stringDecoderFn,
 } from "../primitives";
+import { internalRefine } from "../modifiers";
 import { unionDecoder, unionFactory, unionRewriteTo } from "../union";
 import { recursiveDecoder } from "./recursive";
 
@@ -284,7 +284,10 @@ export const json: Internal = /* @__PURE__ */ initSchema(refTag, (s) => {
     // JSON has no non-finite numbers: bare `float` admits Infinity, which
     // JSON.stringify silently demotes to null and the jsonString aggregator
     // would splice as invalid text — raise at validation instead, matching
-    // the number -> jsonString piece.
+    // the number -> jsonString piece. A refiner, not a custom decoder: union
+    // dispatch derives each variant's type narrow itself (unionNarrowSchema)
+    // and only appends refiner checks, so a decoder-emitted check would be
+    // silently dropped from the compiled union.
     internalRefine(float, () => () => [
       { c: (inputVar) => `Number.isFinite(${inputVar})`, f: failInvalidType },
     ]),
@@ -319,10 +322,8 @@ const asJsonString = (value: string): string =>
   value.length < 5000 && !strEscapeRe.test(value) ? `"${value}"` : JSON.stringify(value);
 
 // An operation embeds the helper once, however many string pieces it has.
-const B_embedJsonStr = (b: Val): string => {
-  const idx = b.g.e.indexOf(asJsonString);
-  return idx === -1 ? B_embedPure(b, asJsonString) : `e[${idx}]`;
-};
+const B_embedJsonStr = (b: Val): string =>
+  b.g.js || (b.g.js = B_embedPure(b, asJsonString));
 
 // The raw JSON text of a literal schema's value, or undefined for a const with
 // no JSON representation. JSON.stringify (not inlinedValueFromString) so string
@@ -579,6 +580,12 @@ export const jsonString = /* @__PURE__ */ (() => {
         const raiseCountBefore = input.g.t;
         const itemInput = B_dynamicScope(input, iterVar);
         itemInput.e = itemInput.s;
+        // A fused container (see B_fuseIntoJsonString in composites.ts)
+        // skipped its validation loop — re-parse each item from unknown so
+        // the checks land inside this loop instead of a second walk.
+        if (schema.uv) {
+          itemInput.s = unknown;
+        }
         const resolved = parseDynamic(itemInput);
         const { p, g } = fieldPiece(resolved, isArr);
         const appendCode = isArr
@@ -723,7 +730,10 @@ export const jsonString = /* @__PURE__ */ (() => {
       if (
         (expectedSchema.space !== U && expectedSchema.space !== 0) ||
         flagUnsafeHas(input.g.o, flagAsync) ||
-        (input.s.type !== arrayTag &&
+        // `!uv`: a fused container skipped upstream validation, and the
+        // whole-value paths don't validate — only the aggregate loop does.
+        (!input.s.uv &&
+          input.s.type !== arrayTag &&
           typeof additionalItems === "object" &&
           additionalItems.to === U &&
           flagUnsafeHas(
