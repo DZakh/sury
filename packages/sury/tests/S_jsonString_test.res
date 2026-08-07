@@ -279,7 +279,7 @@ test("Parses JSON string to dict", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{let v2="";for(let v1 in i){v2+=(v2?",":"")+e[0](v1)+":"+i[v1]}return "{"+v2+"}"}`,
+    `i=>{return JSON.stringify(i)}`,
   )
 })
 

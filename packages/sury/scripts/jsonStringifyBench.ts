@@ -122,7 +122,24 @@ const cases: Case[] = [];
   });
   const sury = S.encoder(S.record(S.number), S.jsonString);
   cases.push({
-    name: "Metrics dict (50 dynamic keys)",
+    name: "Metrics dict (50 number values)",
+    stringify: () => JSON.stringify(data),
+    fastJson: () => fj(data),
+    sury: () => sury(data),
+  });
+}
+
+// ── Dict with 50 string values (falls back to native JSON.stringify) ─────────
+{
+  const data: Record<string, string> = {};
+  for (let i = 0; i < 50; i++) data[`svc-${i}`] = `value-${i}`;
+  const fj = fastJson({
+    type: "object",
+    additionalProperties: { type: "string" },
+  });
+  const sury = S.encoder(S.record(S.string), S.jsonString);
+  cases.push({
+    name: "Labels dict (50 string values)",
     stringify: () => JSON.stringify(data),
     fastJson: () => fj(data),
     sury: () => sury(data),

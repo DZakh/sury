@@ -4,6 +4,17 @@
 
 ### ideas
 
+- Follow a field's own forward chain before targeting `S.json`/`S.jsonString`.
+  An object field declared `S.uint8Array.with(S.to, S.string)` fails to encode
+  to `S.json` and `S.jsonString` with "Can't decode Uint8Array to JSON": the
+  field piece retargets the field's *input* schema at json instead of first
+  resolving the field's `.to` chain (Uint8Array -> string) and serializing its
+  output. The same chain works top-level (`S.decoder(S.uint8Array, S.string)`)
+  and wire-side-declared (`S.string.with(S.to, S.uint8Array)` + `S.encoder`).
+  Fix idea: in `jsonDecoderFn`'s object-field mapping and `fieldPiece`, when
+  `itemVal.s.to !== U`, parse the field's own chain first and retarget the
+  resolved output at json/jsonString — mirroring what `updateOutput`/
+  `perVariantTo` already does for union variants.
 - Add `promise` type and `S.promise` (instead of async flag internally)
 - Async output refiner runs on the Promise wrapper, not the resolved value.
   When a decoder result is async (e.g. a union with an async member) and the

@@ -693,11 +693,26 @@ export const jsonString = /* @__PURE__ */ (() => {
     } else if (flagUnsafeHas(inputTagFlag, tagFlagBigint)) {
       return B_next(input, `"\\""+${input.i}+"\\""`, expectedSchema);
     } else if (flagUnsafeHas(inputTagFlag, (tagFlagObject | tagFlagArray))) {
+      const additionalItems = input.s.additionalItems;
       // Pretty-printing and async fields keep the whole-value JSON.stringify
       // path — inlined aggregation supports neither indentation nor promises.
+      // So does a dict whose values JSON.stringify already serializes
+      // byte-identically (plain strings, booleans, null): a dynamic-key loop
+      // built from JS string concat can't beat the native call. Number values
+      // stay compiled — the aggregate raises on non-finite where
+      // JSON.stringify demotes to null — and json-format strings stay
+      // compiled because they embed as raw JSON text, not quoted strings.
       if (
         (expectedSchema.space !== U && expectedSchema.space !== 0) ||
-        flagUnsafeHas(input.g.o, flagAsync)
+        flagUnsafeHas(input.g.o, flagAsync) ||
+        (input.s.type !== arrayTag &&
+          typeof additionalItems === "object" &&
+          additionalItems.to === U &&
+          additionalItems.format !== "json" &&
+          flagUnsafeHas(
+            tagFlags[additionalItems.type]!,
+            (tagFlagString | tagFlagBoolean) | tagFlagNull,
+          ))
       ) {
         const jsonVal = parse(B_refine(input, U, U, json));
         return B_next(
