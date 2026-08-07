@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.json.with(S.noValidation, true)
+  input: JSON
+  output: JSON
+  instantiations: 5163
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: "{}"
+  output: "{}"
+operations:
+  parse: identity
+  decode: identity
+  encode: identity
