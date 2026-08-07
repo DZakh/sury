@@ -900,10 +900,12 @@ const refError = (reason: string): SuryError =>
 const unescapePointer = (segment: string): string => {
   // A raw `%` that isn't valid percent-encoding ("50%") is common in real
   // documents; take the segment literally rather than letting a URIError
-  // escape past the SuryError contract.
+  // escape past the SuryError contract. Literally, not replacement-char
+  // substituted the way a non-throwing decoder would: raw text can still match
+  // the key the document wrote, `U+FFFD` never can (see IDEAS.md on `deuri`).
   try {
     segment = decodeURIComponent(segment);
-  } catch (_) {}
+  } catch {}
   return segment.replace(/~1/g, "/").replace(/~0/g, "~");
 };
 
