@@ -740,44 +740,25 @@ export const lte: <TInput, TOutput extends number | bigint>(
   message?: string
 ) => Schema<TInput, TOutput>;
 
-// A pinned length is arity: `S.array(S.string).with(S.length, 2)` admits
-// exactly `[string, string]`, and `S.empty` exactly `[]` / `""`, so the
-// refined type says so instead of keeping the unbounded one. Only a literal
-// `N` pins — a `number`-typed bound narrows nothing (`number extends N`
-// guard). The 64-step cap bails to the unbounded type: past it a spelled-out
-// tuple hurts hover DX more than it helps, and an unguarded recursion turns
-// `S.length(schema, 1e6)` (or a fractional bound, which never hits `N`) into
-// a compile error instead of the runtime one it already raises.
+// A literal bound is arity, so the refined type says so; a `number`-typed
+// bound narrows nothing. A bound may retype the input side only when the input
+// is the same value as the bounded output — a codec's input is a different
+// value and its length says nothing about it.
 //
-// A bound binds one value, so it may only rewrite the input side when that is
-// the same value as the output — `Same` is what guards it. A codec's input is
-// a different value that happens to be reachable from the bounded one, and its
-// length says nothing: `S.string.with(S.to, S.array(...))` under `S.empty`
-// bounds the array, never the string it decodes from.
-// `Tail` is what follows the `N` fixed elements: nothing for an exact bound,
-// `E[]` for a lower one, which is the only difference between the two.
+// `Tail` follows the N fixed elements: empty for an exact bound, `E[]` for a
+// lower one. The 64 cap bails to `E[]` — past it TypeScript's recursion limit
+// is nearer than the worth of a spelled-out tuple, and a fractional or huge
+// bound would compile-error instead of failing at runtime as it already does.
 type Repeat<E, N extends number, Acc extends unknown[], Tail extends unknown[]> =
   Acc["length"] extends N
     ? [...Acc, ...Tail]
     : Acc["length"] extends 64
     ? E[]
     : Repeat<E, N, [...Acc, E], Tail>;
-// `N extends N` distributes, so a bound that isn't one literal resolves per
-// member. Without it `0 | 2` matches the empty branch alone and silently pins
-// the type to `[]`.
-//
-// Every bound speaks only while the arity is still open (`number extends
-// T["length"]`) — on a tuple it is either the no-op the runtime makes of a
-// redundant bound or a contradiction, and `Repeat` rebuilding a tuple from the
-// union of its elements would turn `["bar", number]` under a redundant
-// `length(2)` into `[number | "bar", number | "bar"]`.
-// Assignability would let a codec whose input is a strict *subtype* of its
-// output rewrite the input too: `S.to(S.literal("x"), S.string)` satisfies
-// `"x" extends string`, and `S.empty` would then retype the input to `""` —
-// a value that schema rejects. Mutual assignability admits only the identity
-// case the rewrite is for. The `[T]`/`[U]` brackets stop a union input from
-// distributing, which would compare member-by-member and pass on the first hit.
-type Same<T, U> = [T] extends [U] ? ([U] extends [T] ? true : false) : false;
+// `N extends N` distributes; without it a union bound like `0 | 2` matches one
+// branch and pins the type to it. The `number extends T["length"]` guard keeps
+// a bound off an existing tuple, where `Repeat` would rebuild `["bar", number]`
+// as `[number | "bar", number | "bar"]`.
 type Sized<T, N extends number> = number extends N
   ? T
   : N extends N
@@ -791,15 +772,9 @@ type Sized<T, N extends number> = number extends N
       : T
     : T
   : never;
-// A lower bound fixes a head and leaves the tail open, so unlike the exact one
-// it still has something new to say when stacked on its own kind — the head
-// just grows.
-//
-// No string case. A tuple carries its arity, but TypeScript has no type for a
-// string of at least N characters — `${string}${string}` is `string`, since each
-// segment matches the empty string — so every lower bound leaves a string as it
-// found it. The exact bound reaches `""` only because that one length has a
-// literal to name it.
+// No string case: TypeScript can't say "at least N characters" — each segment
+// of `${string}${string}` matches `""`, so it collapses to `string`. Only the
+// exact bound reaches a string type, at `""`.
 type AtLeast<T, N extends number> = number extends N
   ? T
   : N extends N
@@ -809,22 +784,17 @@ type AtLeast<T, N extends number> = number extends N
       : T
     : T
   : never;
-// `Sized<T, 0>` reaches the same answers, through a guard on a bound that
-// can't vary and a `Repeat` that stops on its first step. Spelling the two
-// cases `empty` has costs less than either.
-type Emptied<T> = T extends unknown[]
-  ? number extends T["length"]
-    ? []
-    : T
-  : T extends string
-  ? ""
-  : T;
-// `AtLeast<T, 1>`, minus the guard on a bound that can't vary.
+// `AtLeast<T, 1>` minus the guard on a bound that can't vary.
 type NonEmptied<T> = T extends (infer E)[]
   ? number extends T["length"]
     ? [E, ...E[]]
     : T
   : T;
+// Mutual assignability, not one-way: an input that is a strict subtype of the
+// output keeps its own type, or `S.to(S.literal("x"), S.string)` under a bound
+// would retype its input to a value that schema rejects. The brackets stop a
+// union input from distributing and passing on one member.
+type Same<T, U> = [T] extends [U] ? ([U] extends [T] ? true : false) : false;
 
 export const minLength: <TInput, TOutput extends string | unknown[], N extends number>(
   schema: SchemaLike<TInput, TOutput>,
@@ -841,10 +811,6 @@ export const length: <TInput, TOutput extends string | unknown[], N extends numb
   length: N,
   message?: string
 ) => Schema<Same<TInput, TOutput> extends true ? Sized<TInput, N> : TInput, Sized<TOutput, N>>;
-export const empty: <TInput, TOutput extends string | unknown[]>(
-  schema: SchemaLike<TInput, TOutput>,
-  message?: string
-) => Schema<Same<TInput, TOutput> extends true ? Emptied<TInput> : TInput, Emptied<TOutput>>;
 export const nonEmpty: <TInput, TOutput extends string | unknown[]>(
   schema: SchemaLike<TInput, TOutput>,
   message?: string

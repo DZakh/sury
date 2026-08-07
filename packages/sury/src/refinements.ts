@@ -412,10 +412,6 @@ export const length = (schema: Internal, length: number, maybeMessage?: string):
 }
 
 // @__NO_SIDE_EFFECTS__
-export const empty = (schema: Internal, maybeMessage?: string): Internal =>
-  length(schema, 0, maybeMessage);
-
-// @__NO_SIDE_EFFECTS__
 export const nonEmpty = (schema: Internal, maybeMessage?: string): Internal =>
   minLength(schema, 1, maybeMessage);
 

@@ -142,11 +142,11 @@ S.reverse(S.schema({
   The first restores every golden above to its pre-bounds text without losing
   detail, since the sub-lines are per-member already.
 
-- **Rewrite `S.empty` on an array to a real empty tuple at runtime.** The
+- **Rewrite a zero length bound on an array to a real empty tuple at runtime.** The
   type-level half of "a hard-coded length is arity" is done, for the exact
   bound and the lower one alike: on an array `S.length(N)` infers the N-tuple,
   `S.minLength(N)` the N-tuple with an open tail, `S.nonEmpty`
-  `[T, ...T[]]` and `S.empty` `[]`; on a string only `S.empty` reaches a type
+  `[T, ...T[]]` and `S.length(0)` `[]`; on a string only `S.length(0)` reaches a type
   (`""`), since TypeScript can't count characters (`Sized`/`AtLeast`/`Repeat`
   in `index.d.ts`, pinned in the `array-`/`string-` length specs).
   The runtime deliberately still refines: a general tuple rewrite unrolls
@@ -155,7 +155,7 @@ S.reverse(S.schema({
   fails as `invalid_type`), and compiles decode/encode to `identity` where the
   refinement re-checks the length — each a behavior change to pin
   deliberately, not inherit. The N=0 case has none of the scaling problems
-  and a strict win: `empty` on an array rewriting to `items: []` +
+  and a strict win: `S.length(0)` on an array rewriting to `items: []` +
   `additionalItems: "strict"` drops the dead element loop from parse
   (`Array.isArray(i)&&i.length===0||e(i)`), turns decode/encode into
   identity, and makes the schema union-dispatchable by arity. Settle there
@@ -169,7 +169,7 @@ S.reverse(S.schema({
   `Sized`/`AtLeast` into one `Bounded<T, N, Exact>` regressed every spec that
   touches a bound (+0.3–0.6%) and improved none — the `Exact` discrimination
   is instantiated at every use, so the duplication is load-bearing. Dropping
-  the `TInput extends TOutput ? … : TInput` input-side rewrite from the lower
+  the `Same<TInput, TOutput> extends true ? … : TInput` input-side rewrite from the lower
   bounds won everywhere it touched (nonEmpty specs −15/−16%, minLength −2%,
   union specs with a bounded member −1–2%) and was still rejected on the DX
   ordering: it splits the family (`length(2)` input `[string, string]` but
@@ -177,6 +177,8 @@ S.reverse(S.schema({
   codec, and `S.parser(S.reverse(schema))` returns `TInput`, so reverse
   pipelines lose the narrowed head — the feature being paid for. If the
   input-side conditional ever goes, it goes for the whole family at once.
+  Both percentages predate the guard becoming `Same`, which moved every one of
+  these specs on its own — re-measure before citing them.
 
 - **A bound that doesn't narrow takes its custom message down with it.**
   `gte(5).gte(1, "MY MESSAGE")` drops the second bound — correctly, there is no

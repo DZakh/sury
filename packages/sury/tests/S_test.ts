@@ -1706,9 +1706,9 @@ test("A contradictory bound pair is rejected where it's written", (t) => {
   t.expect(() => S.array(S.string).with(S.minLength, 5).with(S.maxLength, 1)).toThrow(
     `[Sury] string[].length <= 1 contradicts string[].length >= 5`,
   );
-  // `empty`/`nonEmpty` desugar to length bounds, and report as those rather
-  // than naming a constructor the caller didn't write.
-  t.expect(() => S.string.with(S.minLength, 2).with(S.empty)).toThrow(
+  // `nonEmpty` desugars to a length bound, and reports as one rather than
+  // naming a constructor the caller didn't write.
+  t.expect(() => S.string.with(S.minLength, 2).with(S.length, 0)).toThrow(
     `[Sury] string.length <= 0 contradicts string.length >= 2`,
   );
   // A format's range is a bound like any other, so a value outside it conflicts.
@@ -1882,8 +1882,8 @@ test("A nan schema renders as NaN without a dedicated branch", (t) => {
 test("Array length type pinning falls back to the unbounded type", () => {
   expectSchemaType(S.array(S.string).with(S.length, 2)).toBe<[string, string]>();
   expectSchemaType(S.length(S.array(S.boolean), 3)).toBe<[boolean, boolean, boolean]>();
-  expectSchemaType(S.array(S.number).with(S.empty)).toBe<[]>();
-  expectSchemaType(S.string.with(S.empty)).toBe<"">();
+  expectSchemaType(S.array(S.number).with(S.length, 0)).toBe<[]>();
+  expectSchemaType(S.string.with(S.length, 0)).toBe<"">();
   // length picks up an earlier bound's subsumption unchanged
   expectSchemaType(S.array(S.string).with(S.minLength, 1).with(S.length, 2)).toBe<
     [string, string]
@@ -1938,8 +1938,8 @@ test("A lower bound only widens an array whose length is still open", () => {
   expectSchemaType(S.array(S.string).with(S.minLength, 100)).toBe<string[]>();
 
   // TypeScript counts tuple elements, not characters, so a string keeps its type
-  // under every lower bound — `S.empty` reaches `""` only because that one
-  // length has a literal to name it.
+  // under every lower bound — only the exact bound reaches `""`, the one
+  // length with a literal to name it.
   expectSchemaType(S.string.with(S.nonEmpty)).toBe<string>();
   expectSchemaType(S.string.with(S.minLength, 3)).toBe<string>();
 });
@@ -1954,7 +1954,7 @@ test("A length bound leaves the other side of a codec alone", () => {
     (s) => s.split(","),
     (a) => a.join(","),
   );
-  expectSchemaType(csv.with(S.empty)).toBe<string, []>();
+  expectSchemaType(csv.with(S.length, 0)).toBe<string, []>();
   expectSchemaType(csv.with(S.length, 2)).toBe<string, [string, string]>();
   expectSchemaType(csv.with(S.nonEmpty)).toBe<string, [string, ...string[]]>();
   expectSchemaType(csv.with(S.minLength, 2)).toBe<string, [string, string, ...string[]]>();

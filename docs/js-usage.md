@@ -371,7 +371,6 @@ S.string.with(S.maxLength, 5); // Expected string.length <= 5
 S.string.with(S.minLength, 5); // Expected string.length >= 5
 S.string.with(S.length, 5); // Expected string.length == 5
 S.string.with(S.nonEmpty); // Expected string.length >= 1
-S.string.with(S.empty); // Expected string.length == 0
 S.string.with(S.pattern, /[0-9]/); // Invalid pattern
 
 S.string.with(S.trim); // trim whitespaces
@@ -672,21 +671,16 @@ S.array(S.string).with(S.maxLength, 5); // Expected string[].length <= 5
 S.array(S.string).with(S.minLength, 5); // Expected string[].length >= 5
 S.array(S.string).with(S.length, 5); // Expected string[].length == 5
 S.array(S.string).with(S.nonEmpty); // Expected string[].length >= 1
-S.array(S.string).with(S.empty); // Expected string[].length == 0
 ```
 
-A refinement that fixes the size shows up in the inferred type as a tuple:
+A bound on the size shows up in the inferred type, so destructuring and indexing
+just work:
 
 ```ts
 S.array(S.number).with(S.length, 2); //? S.Schema<[number, number]>
 S.array(S.string).with(S.nonEmpty); //? S.Schema<[string, ...string[]]>
-```
 
-So destructuring and indexing just work — `lat` and `lng` are `number`, not
-`number | undefined`:
-
-```ts
-const [lat, lng] = S.parser(S.array(S.number).with(S.length, 2))(input);
+const [lat, lng] = S.parser(S.array(S.number).with(S.length, 2))(input); // both number
 ```
 
 ### Compact Columns

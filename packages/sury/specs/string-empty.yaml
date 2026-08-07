@@ -1,9 +1,9 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: S.string.with(S.empty)
+  schema: S.string.with(S.length, 0)
   input: '""'
   output: '""'
-  instantiations: 646
+  instantiations: 5413
 vs:
   zod:
     schema: z.string().length(0)
