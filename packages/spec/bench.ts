@@ -428,21 +428,19 @@ export const runPerf = async (
   // than the run they describe, and suppress real regressions to match.
   // Each confirm pass spawns a fresh child process per target (see measureAll),
   // so the CONFIRM_PROCESSES passes are independent JIT states, not repeats of
-  // one.
+  // one. Controls ride along in EVERY pass, not just the first: the floor they
+  // set gates the candidates, so a floor read from a single process would keep
+  // the one-sample failure mode this loop exists to remove.
   const confirmRuns: Map<string, { pct: number; median: number; batch: number }>[] = [];
   for (let i = 0; i < CONFIRM_PROCESSES; i++)
     confirmRuns.push(
-      collect(await measureAll(i === 0 ? [...candidates, ...controls] : candidates, `confirm ${i + 1}/${CONFIRM_PROCESSES}`, 1)),
+      collect(await measureAll([...candidates, ...controls], `confirm ${i + 1}/${CONFIRM_PROCESSES}`, 1)),
     );
-  const confirmed = confirmRuns[0]!;
 
   const floors = PHASES.map((phase) => {
     const measured = controls
       .filter((c) => c.phase === phase)
-      .flatMap((c) => {
-        const m = confirmed.get(c.name);
-        return m ? [m] : [];
-      });
+      .flatMap((c) => confirmRuns.flatMap((run) => run.get(c.name) ?? []));
     // Both statistics: the conservative bound catches a control that produced
     // an outright false positive, the median the subtler case of a phase that
     // is visibly biased without any single control clearing the bar.
@@ -486,7 +484,9 @@ export const runPerf = async (
     unchanged: real.length - changed.length,
     added: [...new Set(added)],
     skippedConstants,
-    errors,
+    // Deduped by name like outcomeChanged: collect runs over the screening pass
+    // plus every confirm pass, so one target can report the same failure twice.
+    errors: [...new Map(errors.map((e) => [e.name, e])).values()],
     outcomeChanged: [...new Map(outcomeChanged.map((o) => [o.name, o])).values()],
     meta:
       `node ${process.versions.node} · ${process.platform} ${process.arch} · ${cpu.length} cores · ` +
