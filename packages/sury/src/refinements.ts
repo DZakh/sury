@@ -159,6 +159,35 @@ const setBoundExpression = (mut: Internal, schema: Internal): void => {
   }
 };
 
+// Whether the stored double is certainly the divisor the caller wrote. Every
+// integer is; `0.0001` is not — it stores as 0.000100000000000000004792…, so
+// `x % 0.0001 === 0` asks whether x is a multiple of *that* and answers no
+// for 0.0075. This is the whole reason the two checks below differ: `%` is
+// exact in IEEE-754, which makes it the right answer to the wrong question
+// whenever the divisor itself is inexact.
+//
+// A binary fraction (0.5, 1.5) is exact too and would be safe with `%`, but
+// it takes the tolerant path here — same verdicts either way, and one
+// predicate beats a second one that has to be right about representability.
+//
+// It also gates the build-time emptiness check: reasoning about which
+// multiples fall in a range means doing the same arithmetic, and on an
+// inexact divisor that reports `0.3 <= number <= 0.3, multipleOf 0.1` as
+// empty when 0.3 is a multiple by every reading the caller has.
+const exactDivisor = (d: number | bigint): boolean =>
+  typeof d === bigintTag || Number.isInteger(d);
+
+// An inexact divisor is compared on the ratio instead, which collapses the
+// representation error into a rounding rather than leaving it as a remainder
+// the size of the divisor. The tolerance is relative because the error in
+// `ratio` grows with its magnitude. Overflow answers itself: 1e308 / 1e-308
+// is Infinity, so the difference is NaN and every comparison against it is
+// false — the rejection the JSON Schema suite asks for.
+const multipleOfValidator = (d: number) => (value: number): boolean => {
+  const ratio = value / d;
+  return Math.abs(ratio - Math.round(ratio)) < Number.EPSILON * Math.max(Math.abs(ratio), 1);
+};
+
 // One refiner serves every bound and divisor on a schema, reading the fields
 // at codegen time instead of closing over the value each call captured. That
 // is what lets a narrowing call *replace* a check rather than stack a second
@@ -217,12 +246,17 @@ const boundsRefiner = (input: Val): Check[] => {
     }
     const mo = s.multipleOf;
     if (mo !== U) {
-      checks.push({
+      let cond: (inputVar: string) => string;
+      if (exactDivisor(mo)) {
         // A bigint remainder is `0n`, which `===0` never matches — the zero
         // literal has to be the schema's own numeric type.
-        c: (inputVar) => `${inputVar}%${lit(mo)}===${typeof mo === bigintTag ? "0n" : "0"}`,
-        f: B_failWithErrorMessage("multipleOf"),
-      });
+        const zero = typeof mo === bigintTag ? "0n" : "0";
+        cond = (inputVar) => `${inputVar}%${lit(mo)}===${zero}`;
+      } else {
+        const embedded = B_embed(input, multipleOfValidator(mo as number));
+        cond = (inputVar) => `${embedded}(${inputVar})`;
+      }
+      checks.push({ c: cond, f: B_failWithErrorMessage("multipleOf") });
     }
   }
   return checks;
@@ -280,7 +314,7 @@ const updateBounds = (schema: Internal, update: (mut: Internal) => void): Intern
           return boundsRefiner;
         });
   const divisor = next.multipleOf;
-  if (divisor !== U && rangeExcludes(next, divisor)) {
+  if (divisor !== U && exactDivisor(divisor) && rangeExcludes(next, divisor)) {
     conflict(asDivisorOnly(next, divisor), asRangeOnly(next));
   }
   return next;
