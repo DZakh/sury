@@ -822,10 +822,9 @@ export function toJSONSchema<TInput, TOutput>(
 /**
  * Builds a schema from a JSON Schema at runtime.
  *
- * A document written inline is validated and typed all the way through,
- * following a `$ref` into the same document — recursive ones included. A `$ref`
- * leading outside it (a URL, a `urn:`, an `$anchor`, anything resolved against
- * a `$id` base) throws instead, so bundle the document first. To also have
+ * A document written inline is validated and typed, following a `$ref` into the
+ * same document — recursive ones included. A `$ref` leading outside it (a URL,
+ * a `urn:`, an `$anchor`, a `$id` base) throws, so bundle first. To also have
  * TypeScript check the document itself, annotate it:
  * `{ ... } satisfies S.JSONSchema` — the annotation widens literals (e.g.
  * `required`, `enum`), so the inferred type gets wider too.

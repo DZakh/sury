@@ -172,7 +172,7 @@ S.encoder(rows)([{ id: 1n, city: "Tbilisi" }, { id: 2n, city: "Batumi" }]);
 
 ### JSON Schema, through the standard interface
 
-**Sury**'s internal representation is JSON Schema-shaped, so conversion is native rather than bolted on — and it's exposed through the [Standard JSON Schema](https://standardschema.dev/json-schema) extension of the [Standard Schema](https://standardschema.dev/) spec, so tools consume it without special-casing **Sury**.
+**Sury** speaks JSON Schema natively — no converter bolted on top — through the [Standard JSON Schema](https://standardschema.dev/json-schema) extension of the [Standard Schema](https://standardschema.dev/) spec, so tools consume it without special-casing **Sury**.
 
 Because **Sury** tracks Input and Output separately, it describes both sides of a transformation:
 
@@ -202,18 +202,11 @@ productSchema["~standard"].jsonSchema.output({ target: "draft-2020-12" });
 //                                                   ↑ what your code receives
 ```
 
-`S.meta` attaches `description`, `title`, `examples`, and `deprecated`. You write examples in the Output format you actually work with (`price: 9.99`), and they're emitted in the Input format the wire uses (`price: "9.99"`) — so a generated OpenAPI document describes the payload a client really sends.
+`S.meta` attaches `description`, `title`, `examples`, and `deprecated`. Write examples in the Output format you work with (`price: 9.99`); they're emitted in the Input format the wire uses (`price: "9.99"`), so a generated OpenAPI document describes what a client really sends.
 
-`"draft-07"`, `"draft-2020-12"`, and `"openapi-3.0"` are all supported targets, and `S.toJSONSchema(schema, options)` is available directly if you'd rather not go through `~standard`.
+`"draft-07"`, `"draft-2020-12"`, and `"openapi-3.0"` are all supported targets, and `S.toJSONSchema(schema, options)` skips `~standard` if you'd rather.
 
-It reads JSON Schema back in, too:
-
-```ts
-S.assert(S.fromJSONSchema({ type: "string", format: "email" }), "example.com");
-// => throws S.Error: Expected email, received "example.com"
-```
-
-A document written inline is typed as well as validated, and a `$ref` into the same document is followed — recursive ones included:
+And it reads JSON Schema back in — the whole document, `$ref` and recursion included, typed as it goes:
 
 ```ts
 const comment = S.fromJSONSchema({
@@ -229,33 +222,13 @@ const comment = S.fromJSONSchema({
     },
   },
 });
-//? S.Schema<{ text: string; replies?: ...[] | undefined }, { text: string; replies?: ...[] | undefined }>
+//? S.Schema<{ text: string; replies?: ...[] | undefined }>
 
 S.assert(comment, { text: "hi", replies: [{ text: 1 }] });
 // => throws S.Error: Failed at ["replies"]["0"]["text"]: Expected string, received 1
 ```
 
-A document written inline is typed as well as validated, and a `$ref` into the same document is followed — recursive ones included:
-
-```ts
-const comment = S.fromJSONSchema({
-  $ref: "#/$defs/comment",
-  $defs: {
-    comment: {
-      type: "object",
-      properties: {
-        text: { type: "string" },
-        replies: { type: "array", items: { $ref: "#/$defs/comment" } },
-      },
-      required: ["text"],
-    },
-  },
-});
-//? S.Schema<{ text: string; replies?: ...[] | undefined }, { text: string; replies?: ...[] | undefined }>
-
-S.assert(comment, { text: "hi", replies: [{ text: 1 }] });
-// => throws S.Error: Failed at ["replies"]["0"]["text"]: Expected string, received 1
-```
+No codegen step, no `any`: paste a document in and it's a schema your editor understands.
 
 ### Types you can actually read
 

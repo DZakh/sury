@@ -173,10 +173,9 @@ type JSONSchemaResolveNonNullable<S, D> = S extends { $ref: infer R }
  * The type a JSON Schema literal describes, as inferred by
  * `S.fromJSONSchema`. Resolves local `$ref` pointers (`#/$defs/…`,
  * `#/definitions/…`) against the root schema, including recursive and
- * mutually recursive ones. A `$ref` taking any other path into the document
- * (`#/components/schemas/…`) is validated just the same, but resolves to
- * `S.JSON` here. A non-literal schema — `unknown`, `S.JSON`, a dialect
- * interface — resolves to `S.JSON`.
+ * mutually recursive ones. A `$ref` on any other path (`#/components/schemas/…`)
+ * is validated the same, but resolves to `S.JSON` here — as does a non-literal
+ * schema (`unknown`, `S.JSON`, a dialect interface).
  */
 export type FromJSONSchema<T> = unknown extends T
   ? JSON

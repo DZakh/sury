@@ -197,7 +197,7 @@ S.assert(
 // Throws S.Error: Expected email, received "example.com"
 ```
 
-A document written inline is read all the way through — the schema validates what the document describes, and is typed with it:
+A document written inline is validated and typed:
 
 ```ts
 const schema = S.fromJSONSchema({
@@ -230,9 +230,9 @@ S.assert(comment, { text: "hi", replies: [{ text: 1 }] });
 // Throws S.Error: Failed at ["replies"]["0"]["text"]: Expected string, received 1
 ```
 
-Pointers under `$defs` and `definitions` are also named in the type; one taking any other path — `#/components/schemas/Pet`, say — is validated just the same, but typed as `S.JSON`.
+`$defs` and `definitions` pointers are named in the type; one on any other path (`#/components/schemas/Pet`) is validated the same, but typed as `S.JSON`.
 
-A `$ref` that leads outside the document — a URL, a `urn:`, an `$anchor`, anything resolved against a `$id` base — throws rather than quietly accepting whatever arrives, so bundle the document before converting it.
+A `$ref` leading outside the document — a URL, a `urn:`, an `$anchor`, a `$id` base — throws instead of silently accepting anything, so bundle first.
 
 To also have TypeScript check the schema document itself, annotate it with `satisfies S.JSONSchema` — that catches a misspelled keyword while leaving `x-` vendor extensions open. The annotation widens literals (e.g. `required`, `enum`), so the inferred type gets wider too — every property becomes optional.
 
