@@ -454,10 +454,9 @@ S.number.with(S.gt, 5); // Expected number > 5
 S.number.with(S.multipleOf, 2); // Expected number % 2
 ```
 
-They work on `S.bigint` too (`S.bigint.with(S.multipleOf, 2n)`), and on the
-integer schemas: `S.integer`, plus the range-capped `S.int32` and `S.port`. A
-cap takes part in the comparison, so a bound outside it describes a schema
-nothing satisfies and fails where it's written:
+They work on `S.bigint`, `S.integer`, `S.int32` and `S.port` too. `S.int32`
+and `S.port` have a range of their own, so a bound outside it describes a
+schema nothing satisfies and fails where it's written:
 
 ```ts
 S.integer.with(S.gte, 5); // Expected integer >= 5
