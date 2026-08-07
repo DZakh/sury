@@ -104,7 +104,12 @@ export type JSONSchemaArrayable<TItem> = TItem | TItem[];
 export type JSONSchemaDefinition = JSONSchemaT | boolean;
 
 /**
- * JSON Schema v7
+ * Every JSON Schema keyword the converters read or write, across all supported
+ * dialects. The same set is spelled out in JSONSchema.res (the ReScript-facing
+ * type) and in src/types/jsonschema.d.ts (the JS-facing `JSONSchema`, which also
+ * splits per dialect for `toJSONSchema`'s result). A keyword added to one
+ * belongs in all three.
+ *
  * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01
  */
 // PORT-NOTE: JSONSchema.t and JSONSchema.Mutable.t are the same runtime
@@ -148,10 +153,13 @@ export type JSONSchemaT = {
   items?: JSONSchemaArrayable<JSONSchemaDefinition>;
   prefixItems?: JSONSchemaDefinition[];
   additionalItems?: JSONSchemaDefinition;
+  unevaluatedItems?: JSONSchemaDefinition;
   maxItems?: number;
   minItems?: number;
   uniqueItems?: boolean;
-  contains?: JSONSchemaT;
+  contains?: JSONSchemaDefinition;
+  minContains?: number;
+  maxContains?: number;
   /**
    * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-6.5
    */
@@ -161,7 +169,10 @@ export type JSONSchemaT = {
   properties?: Record<string, JSONSchemaDefinition>;
   patternProperties?: Record<string, JSONSchemaDefinition>;
   additionalProperties?: JSONSchemaDefinition;
+  unevaluatedProperties?: JSONSchemaDefinition;
   dependencies?: Record<string, unknown>;
+  dependentSchemas?: Record<string, JSONSchemaDefinition>;
+  dependentRequired?: Record<string, string[]>;
   propertyNames?: JSONSchemaDefinition;
   /**
    * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-6.6
@@ -877,6 +888,9 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
     }
   };
 
+  // The dispatch order of this chain is mirrored by `JSONSchemaResolve` in
+  // src/types/json.d.ts — reordering branches here changes which keyword wins a
+  // conflict, so the type-level chain must move with it.
   let schema: Internal;
   if (jsonSchema.nullable) {
     schema = null_(fromJSONSchema(jsonSchemaMerge(jsonSchema, { nullable: false })));

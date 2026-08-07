@@ -1,130 +1,18 @@
-/** The Standard Schema interface. */
-export interface StandardSchemaV1<TInput = unknown, TOutput = TInput> {
-  /** The Standard Schema properties. */
-  readonly "~standard": StandardSchemaV1.Props<TInput, TOutput>;
-}
+// The Standard Schema and JSON Schema specs are mirrored under ./src/types.
+// Imported as well as re-exported, since the declarations below refer to them.
+import type { StandardJSONSchemaV1, StandardSchemaV1 } from "./src/types/standard.js";
+import type {
+  JSONSchema,
+  JSONSchema2020,
+  JSONSchema7,
+  OpenAPISchema30,
+} from "./src/types/jsonschema.js";
+import type { FromJSONSchema, JSON } from "./src/types/json.js";
 
-export declare namespace StandardSchemaV1 {
-  /** The Standard Schema properties interface. */
-  export interface Props<TInput = unknown, TOutput = TInput> {
-    /** The version number of the standard. */
-    readonly version: 1;
-    /** The vendor name of the schema library. */
-    readonly vendor: string;
-    /** Validates unknown input values. */
-    readonly validate: (
-      value: unknown
-    ) => Result<TOutput> | Promise<Result<TOutput>>;
-    /** Inferred types associated with the schema. */
-    readonly types?: Types<TInput, TOutput> | undefined;
-  }
+export * from "./src/types/standard.js";
+export * from "./src/types/jsonschema.js";
+export * from "./src/types/json.js";
 
-  /** The result interface of the validate function. */
-  export type Result<TOutput> = SuccessResult<TOutput> | FailureResult;
-
-  /** The result interface if validation succeeds. */
-  export interface SuccessResult<TOutput> {
-    /** The typed output value. */
-    readonly value: TOutput;
-    /** The non-existent issues. */
-    readonly issues?: undefined;
-  }
-
-  /** The result interface if validation fails. */
-  export interface FailureResult {
-    /** The issues of failed validation. */
-    readonly issues: ReadonlyArray<Issue>;
-  }
-
-  /** The issue interface of the failure output. */
-  export interface Issue {
-    /** The error message of the issue. */
-    readonly message: string;
-    /** The path of the issue, if any. */
-    readonly path?: ReadonlyArray<PropertyKey | PathSegment> | undefined;
-  }
-
-  /** The path segment interface of the issue. */
-  export interface PathSegment {
-    /** The key representing a path segment. */
-    readonly key: PropertyKey;
-  }
-
-  /** The Standard Schema types interface. */
-  export interface Types<TInput = unknown, TOutput = TInput> {
-    /** The input type of the schema. */
-    readonly input: TInput;
-    /** The output type of the schema. */
-    readonly output: TOutput;
-  }
-
-  /** Infers the input type of a Standard Schema. */
-  export type InferInput<TSchema extends StandardSchemaV1> = NonNullable<
-    TSchema["~standard"]["types"]
-  >["input"];
-
-  /** Infers the output type of a Standard Schema. */
-  export type InferOutput<TSchema extends StandardSchemaV1> = NonNullable<
-    TSchema["~standard"]["types"]
-  >["output"];
-}
-
-/**
- * The Standard Typed interface.
- * This is a base type extended by other specs.
- */
-export interface StandardTypedV1<TInput = unknown, TOutput = TInput> {
-  readonly "~standard": StandardTypedV1.Props<TInput, TOutput>;
-}
-
-export declare namespace StandardTypedV1 {
-  export interface Props<TInput = unknown, TOutput = TInput> {
-    readonly version: 1;
-    readonly vendor: string;
-    readonly types?: Types<TInput, TOutput> | undefined;
-  }
-  export interface Types<TInput = unknown, TOutput = TInput> {
-    readonly input: TInput;
-    readonly output: TOutput;
-  }
-  export type InferInput<TSchema extends StandardTypedV1> = NonNullable<
-    TSchema["~standard"]["types"]
-  >["input"];
-  export type InferOutput<TSchema extends StandardTypedV1> = NonNullable<
-    TSchema["~standard"]["types"]
-  >["output"];
-}
-
-/** The Standard JSON Schema interface. https://standardschema.dev/json-schema */
-export interface StandardJSONSchemaV1<TInput = unknown, TOutput = TInput> {
-  readonly "~standard": StandardJSONSchemaV1.Props<TInput, TOutput>;
-}
-
-export declare namespace StandardJSONSchemaV1 {
-  export interface Props<TInput = unknown, TOutput = TInput>
-    extends StandardTypedV1.Props<TInput, TOutput> {
-    readonly jsonSchema: StandardJSONSchemaV1.Converter;
-  }
-  export interface Converter {
-    readonly input: (options: StandardJSONSchemaV1.Options) => Record<string, unknown>;
-    readonly output: (options: StandardJSONSchemaV1.Options) => Record<string, unknown>;
-  }
-  export type Target =
-    | "draft-2020-12"
-    | "draft-07"
-    | "openapi-3.0"
-    | ({} & string);
-  export interface Options {
-    readonly target: Target;
-    readonly libraryOptions?: Record<string, unknown> | undefined;
-  }
-  export interface Types<TInput = unknown, TOutput = TInput>
-    extends StandardTypedV1.Types<TInput, TOutput> {}
-  export type InferInput<TSchema extends StandardTypedV1> =
-    StandardTypedV1.InferInput<TSchema>;
-  export type InferOutput<TSchema extends StandardTypedV1> =
-    StandardTypedV1.InferOutput<TSchema>;
-}
 
 
 export type SuccessResult<TValue> = {
@@ -139,14 +27,6 @@ export type FailureResult = {
 };
 
 export type Result<TValue> = SuccessResult<TValue> | FailureResult;
-
-export type JSON =
-  | string
-  | boolean
-  | number
-  | null
-  | { [key: string]: JSON }
-  | JSON[];
 
 export type NumberFormat = "int32" | "port";
 export type StringFormat = "json" | "date-time" | "email" | "uuid" | "cuid" | "url";
@@ -916,196 +796,50 @@ export function to<
   encode?: (value: TTargetOutput) => TOutput
 ): Schema<TInput, TTargetOutput>;
 
+// The dialect the `target` option selects decides the shape of the result, so
+// each one gets its own overload. Falling back to the widest type for a
+// non-literal target is what keeps a caller holding `target` in a variable
+// compiling.
+export function toJSONSchema<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>
+): JSONSchema7;
 export function toJSONSchema<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,
-  options?: {
-    target?: "draft-07" | "draft-2020-12" | "openapi-3.0";
-  }
+  options: { target?: "draft-07" }
 ): JSONSchema7;
-export function fromJSONSchema<TOutput extends JSON>(
-  jsonSchema: JSONSchema7
-): Schema<JSON, TOutput>;
+export function toJSONSchema<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>,
+  options: { target: "draft-2020-12" }
+): JSONSchema2020;
+export function toJSONSchema<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>,
+  options: { target: "openapi-3.0" }
+): OpenAPISchema30;
+export function toJSONSchema<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>,
+  options: { target: StandardJSONSchemaV1.Target }
+): JSONSchema;
+/**
+ * Builds a schema from a JSON Schema at runtime.
+ *
+ * A schema written inline is inferred: the result is typed with the data type
+ * it describes, including local `$ref` pointers (`#/$defs/…`,
+ * `#/definitions/…`), even recursive ones — but the runtime does not yet
+ * validate a `$ref`, so treat data in a `$ref` position as unchecked. To also
+ * have TypeScript check the schema itself, annotate it:
+ * `{ ... } satisfies S.JSONSchema` — the annotation widens literals (e.g.
+ * `required`, `enum`), so the inferred type gets wider too.
+ *
+ * A schema read from a file or an API needs no cast — a non-literal argument
+ * (`unknown`, `S.JSON`, a dialect type) falls back to `Schema<JSON, JSON>`.
+ * Use `S.to` to refine it further.
+ */
+export function fromJSONSchema<const T = unknown>(
+  jsonSchema: T
+): Schema<FromJSONSchema<T>, FromJSONSchema<T>>;
 export function extendJSONSchema<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,
-  jsonSchema: JSONSchema7
+  jsonSchema: JSONSchema
 ): Schema<TInput, TOutput>;
 /** Enables `~standard.jsonSchema`; its input/output throw before this is called. */
 export function enableStandardJSONSchema(): void;
-
-// ==================================================================================================
-// JSON Schema Draft 07
-// ==================================================================================================
-// https://tools.ietf.org/html/draft-handrews-json-schema-validation-01
-// --------------------------------------------------------------------------------------------------
-
-/**
- * Primitive type
- * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-6.1.1
- */
-export type JSONSchema7TypeName =
-  | "string" //
-  | "number"
-  | "integer"
-  | "boolean"
-  | "object"
-  | "array"
-  | "null";
-
-/**
- * Primitive type
- * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-6.1.1
- */
-export type JSONSchema7Type =
-  | string //
-  | number
-  | boolean
-  | JSONSchema7Object
-  | JSONSchema7Array
-  | null;
-
-// Workaround for infinite type recursion
-export interface JSONSchema7Object {
-  [key: string]: JSONSchema7Type;
-}
-
-// Workaround for infinite type recursion
-// https://github.com/Microsoft/TypeScript/issues/3496#issuecomment-128553540
-export interface JSONSchema7Array extends Array<JSONSchema7Type> {}
-
-/**
- * Meta schema
- *
- * Recommended values:
- * - 'http://json-schema.org/schema#'
- * - 'http://json-schema.org/hyper-schema#'
- * - 'http://json-schema.org/draft-07/schema#'
- * - 'http://json-schema.org/draft-07/hyper-schema#'
- *
- * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-5
- */
-export type JSONSchema7Version = string;
-
-/**
- * JSON Schema v7
- * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01
- */
-export type JSONSchema7Definition = JSONSchema7 | boolean;
-export interface JSONSchema7 {
-  $id?: string | undefined;
-  $ref?: string | undefined;
-  $schema?: JSONSchema7Version | undefined;
-  $comment?: string | undefined;
-
-  /**
-   * @see https://datatracker.ietf.org/doc/html/draft-bhutton-json-schema-00#section-8.2.4
-   * @see https://datatracker.ietf.org/doc/html/draft-bhutton-json-schema-validation-00#appendix-A
-   */
-  $defs?:
-    | {
-        [key: string]: JSONSchema7Definition;
-      }
-    | undefined;
-
-  /**
-   * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-6.1
-   */
-  type?: JSONSchema7TypeName | JSONSchema7TypeName[] | undefined;
-  enum?: JSONSchema7Type[] | undefined;
-  const?: JSONSchema7Type | undefined;
-
-  /**
-   * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-6.2
-   */
-  multipleOf?: number | undefined;
-  maximum?: number | undefined;
-  exclusiveMaximum?: number | undefined;
-  minimum?: number | undefined;
-  exclusiveMinimum?: number | undefined;
-
-  /**
-   * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-6.3
-   */
-  maxLength?: number | undefined;
-  minLength?: number | undefined;
-  pattern?: string | undefined;
-
-  /**
-   * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-6.4
-   */
-  items?: JSONSchema7Definition | JSONSchema7Definition[] | undefined;
-  prefixItems?: JSONSchema7Definition[] | undefined;
-  additionalItems?: JSONSchema7Definition | undefined;
-  maxItems?: number | undefined;
-  minItems?: number | undefined;
-  uniqueItems?: boolean | undefined;
-  contains?: JSONSchema7Definition | undefined;
-
-  /**
-   * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-6.5
-   */
-  maxProperties?: number | undefined;
-  minProperties?: number | undefined;
-  required?: string[] | undefined;
-  properties?:
-    | {
-        [key: string]: JSONSchema7Definition;
-      }
-    | undefined;
-  patternProperties?:
-    | {
-        [key: string]: JSONSchema7Definition;
-      }
-    | undefined;
-  additionalProperties?: JSONSchema7Definition | undefined;
-  dependencies?:
-    | {
-        [key: string]: JSONSchema7Definition | string[];
-      }
-    | undefined;
-  propertyNames?: JSONSchema7Definition | undefined;
-
-  /**
-   * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-6.6
-   */
-  if?: JSONSchema7Definition | undefined;
-  then?: JSONSchema7Definition | undefined;
-  else?: JSONSchema7Definition | undefined;
-
-  /**
-   * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-6.7
-   */
-  allOf?: JSONSchema7Definition[] | undefined;
-  anyOf?: JSONSchema7Definition[] | undefined;
-  oneOf?: JSONSchema7Definition[] | undefined;
-  not?: JSONSchema7Definition | undefined;
-
-  /**
-   * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-7
-   */
-  format?: string | undefined;
-
-  /**
-   * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-8
-   */
-  contentMediaType?: string | undefined;
-  contentEncoding?: string | undefined;
-
-  /**
-   * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-9
-   */
-  definitions?:
-    | {
-        [key: string]: JSONSchema7Definition;
-      }
-    | undefined;
-
-  /**
-   * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-10
-   */
-  title?: string | undefined;
-  description?: string | undefined;
-  default?: JSONSchema7Type | undefined;
-  readOnly?: boolean | undefined;
-  writeOnly?: boolean | undefined;
-  examples?: JSONSchema7Type | undefined;
-}

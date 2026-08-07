@@ -11,9 +11,9 @@
 # creation error the file gives every other keyword it cannot model.
 ts:
   schema: 'S.fromJSONSchema({ type: "integer", maximum: 3000000000 })'
-  input: JSON
-  output: JSON
-  instantiations: 274
+  input: number
+  output: number
+  instantiations: 387
 vs:
   zod:
     _skip: not-applicable
