@@ -7,9 +7,11 @@ import type {
   JSONSchema7,
   OpenAPISchema30,
 } from "./src/types/jsonschema.js";
+import type { FromJSONSchema, JSON } from "./src/types/json.js";
 
 export * from "./src/types/standard.js";
 export * from "./src/types/jsonschema.js";
+export * from "./src/types/json.js";
 
 
 
@@ -25,14 +27,6 @@ export type FailureResult = {
 };
 
 export type Result<TValue> = SuccessResult<TValue> | FailureResult;
-
-export type JSON =
-  | string
-  | boolean
-  | number
-  | null
-  | { [key: string]: JSON }
-  | JSON[];
 
 export type NumberFormat = "int32" | "port";
 export type StringFormat = "json" | "date-time" | "email" | "uuid" | "cuid" | "url";
@@ -910,13 +904,21 @@ export function toJSONSchema<TInput, TOutput>(
 /**
  * Builds a schema from a JSON Schema at runtime.
  *
- * Takes `unknown` so a schema read from a file or an API needs no cast. To have
- * TypeScript check one written inline, annotate it: `{ ... } satisfies S.JSONSchema`.
+ * A schema written inline is inferred: the result is typed with the data type
+ * it describes, including local `$ref` pointers (`#/$defs/…`,
+ * `#/definitions/…`), even recursive ones — but the runtime does not yet
+ * validate a `$ref`, so treat data in a `$ref` position as unchecked. To also
+ * have TypeScript check the schema itself, annotate it:
+ * `{ ... } satisfies S.JSONSchema` — the annotation widens literals (e.g.
+ * `required`, `enum`), so the inferred type gets wider too.
  *
- * The result parses JSON into JSON — the described type is not known statically.
+ * A schema read from a file or an API needs no cast — a non-literal argument
+ * (`unknown`, `S.JSON`, a dialect type) falls back to `Schema<JSON, JSON>`.
  * Use `S.to` to refine it further.
  */
-export function fromJSONSchema(jsonSchema: unknown): Schema<JSON, JSON>;
+export function fromJSONSchema<const T = unknown>(
+  jsonSchema: T
+): Schema<FromJSONSchema<T>, FromJSONSchema<T>>;
 export function extendJSONSchema<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,
   jsonSchema: JSONSchema

@@ -197,19 +197,20 @@ S.assert(
 // Throws S.Error: Expected email, received "example.com"
 ```
 
-It takes `unknown`, so a schema read from a file or an API needs no cast. To have TypeScript check one written inline, annotate it with `satisfies S.JSONSchema` — that catches a misspelled keyword while leaving `x-` vendor extensions open:
+A schema written inline is inferred — the result is typed with the data type the document describes, including local `$ref` pointers (`#/$defs/…`, `#/definitions/…`), even recursive ones. `$ref` is resolved by the inference only: the runtime does not yet follow a pointer, so a `$ref` validates as any JSON while the static type names the shape it points at.
 
 ```ts
-const jsonSchema = {
+const schema = S.fromJSONSchema({
   type: "object",
-  properties: { id: { type: "string" } },
+  properties: { id: { type: "string" }, role: { enum: ["admin", "user"] } },
   required: ["id"],
-} satisfies S.JSONSchema;
-
-const schema = S.fromJSONSchema(jsonSchema);
+});
+// S.Schema<{ id: string; role?: "admin" | "user" | undefined }>
 ```
 
-The result is a `S.Schema<S.JSON, S.JSON>`: the described type isn't known statically, so pair it with `S.to` when you need a narrower one.
+To also have TypeScript check the schema document itself, annotate it with `satisfies S.JSONSchema` — that catches a misspelled keyword while leaving `x-` vendor extensions open. The annotation widens literals (e.g. `required`, `enum`), so the inferred type gets wider too — every property becomes optional.
+
+A schema read from a file or an API needs no cast: a non-literal argument — `unknown`, `S.JSON`, or one of the dialect types — falls back to `S.Schema<S.JSON, S.JSON>`, so pair it with `S.to` when you need a narrower type.
 
 > 🧠 **Sury**'s internal representation is itself JSON Schema-shaped, so a schema is readable as-is: `S.schema("Hello world!")` logs `{ type: "string", const: "Hello world!", … }`.
 
