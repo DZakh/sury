@@ -13,7 +13,7 @@ ts:
   schema: 'S.fromJSONSchema({ type: "integer", maximum: 3000000000 })'
   input: JSON
   output: JSON
-  instantiations: 274
+  instantiations: 254
 vs:
   zod:
     _skip: not-applicable
