@@ -3,7 +3,7 @@ ts:
   schema: S.array(S.string).with(S.minLength, 1).with(S.maxLength, 2)
   input: "[string, ...string[]]"
   output: "[string, ...string[]]"
-  instantiations: 5993
+  instantiations: 5960
 vs:
   zod:
     schema: z.array(z.string()).min(1).max(2)

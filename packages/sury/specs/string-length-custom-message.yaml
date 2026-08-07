@@ -3,7 +3,7 @@ ts:
   schema: S.string.with(S.length, 5, "Postcode must have 5 symbols")
   input: string
   output: string
-  instantiations: 5417
+  instantiations: 5369
 vs:
   zod: z.string().length(5, "Postcode must have 5 symbols")
 jsonSchema:

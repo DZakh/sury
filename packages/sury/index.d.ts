@@ -750,10 +750,10 @@ export const lte: <TInput, TOutput extends number | bigint>(
 // a compile error instead of the runtime one it already raises.
 //
 // A bound binds one value, so it may only rewrite the input side when that is
-// the same value as the output — `TInput extends TOutput` is what guards it.
-// A codec's input is a different value that happens to be reachable from the
-// bounded one, and its length says nothing: `S.string.with(S.to, S.array(...))`
-// under `S.empty` bounds the array, never the string it decodes from.
+// the same value as the output — `Same` is what guards it. A codec's input is
+// a different value that happens to be reachable from the bounded one, and its
+// length says nothing: `S.string.with(S.to, S.array(...))` under `S.empty`
+// bounds the array, never the string it decodes from.
 // `Tail` is what follows the `N` fixed elements: nothing for an exact bound,
 // `E[]` for a lower one, which is the only difference between the two.
 type Repeat<E, N extends number, Acc extends unknown[], Tail extends unknown[]> =
@@ -771,6 +771,13 @@ type Repeat<E, N extends number, Acc extends unknown[], Tail extends unknown[]> 
 // redundant bound or a contradiction, and `Repeat` rebuilding a tuple from the
 // union of its elements would turn `["bar", number]` under a redundant
 // `length(2)` into `[number | "bar", number | "bar"]`.
+// Assignability would let a codec whose input is a strict *subtype* of its
+// output rewrite the input too: `S.to(S.literal("x"), S.string)` satisfies
+// `"x" extends string`, and `S.empty` would then retype the input to `""` —
+// a value that schema rejects. Mutual assignability admits only the identity
+// case the rewrite is for. The `[T]`/`[U]` brackets stop a union input from
+// distributing, which would compare member-by-member and pass on the first hit.
+type Same<T, U> = [T] extends [U] ? ([U] extends [T] ? true : false) : false;
 type Sized<T, N extends number> = number extends N
   ? T
   : N extends N
@@ -823,7 +830,7 @@ export const minLength: <TInput, TOutput extends string | unknown[], N extends n
   schema: SchemaLike<TInput, TOutput>,
   length: N,
   message?: string
-) => Schema<TInput extends TOutput ? AtLeast<TInput, N> : TInput, AtLeast<TOutput, N>>;
+) => Schema<Same<TInput, TOutput> extends true ? AtLeast<TInput, N> : TInput, AtLeast<TOutput, N>>;
 export const maxLength: <TInput, TOutput extends string | unknown[]>(
   schema: SchemaLike<TInput, TOutput>,
   length: number,
@@ -833,15 +840,15 @@ export const length: <TInput, TOutput extends string | unknown[], N extends numb
   schema: SchemaLike<TInput, TOutput>,
   length: N,
   message?: string
-) => Schema<TInput extends TOutput ? Sized<TInput, N> : TInput, Sized<TOutput, N>>;
+) => Schema<Same<TInput, TOutput> extends true ? Sized<TInput, N> : TInput, Sized<TOutput, N>>;
 export const empty: <TInput, TOutput extends string | unknown[]>(
   schema: SchemaLike<TInput, TOutput>,
   message?: string
-) => Schema<TInput extends TOutput ? Emptied<TInput> : TInput, Emptied<TOutput>>;
+) => Schema<Same<TInput, TOutput> extends true ? Emptied<TInput> : TInput, Emptied<TOutput>>;
 export const nonEmpty: <TInput, TOutput extends string | unknown[]>(
   schema: SchemaLike<TInput, TOutput>,
   message?: string
-) => Schema<TInput extends TOutput ? NonEmptied<TInput> : TInput, NonEmptied<TOutput>>;
+) => Schema<Same<TInput, TOutput> extends true ? NonEmptied<TInput> : TInput, NonEmptied<TOutput>>;
 
 export const pattern: <TInput>(
   schema: SchemaLike<TInput, string>,

@@ -3,7 +3,7 @@ ts:
   schema: S.array(S.string).with(S.nonEmpty)
   input: "[string, ...string[]]"
   output: "[string, ...string[]]"
-  instantiations: 910
+  instantiations: 830
 vs:
   zod:
     schema: z.array(z.string()).min(1)

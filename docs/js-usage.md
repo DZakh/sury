@@ -682,8 +682,8 @@ S.array(S.number).with(S.length, 2); //? S.Schema<[number, number]>
 S.array(S.string).with(S.nonEmpty); //? S.Schema<[string, ...string[]]>
 ```
 
-So destructuring and indexing just work — the first item of a `nonEmpty` array is
-a `string`, not `string | undefined`:
+So destructuring and indexing just work — `lat` and `lng` are `number`, not
+`number | undefined`:
 
 ```ts
 const [lat, lng] = S.parser(S.array(S.number).with(S.length, 2))(input);
