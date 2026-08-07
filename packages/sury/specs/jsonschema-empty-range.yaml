@@ -1,9 +1,9 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
   schema: 'S.fromJSONSchema({ type: "number", minimum: 5, maximum: 1 })'
-  input: JSON
-  output: JSON
-  instantiations: 254
+  input: number
+  output: number
+  instantiations: 387
 vs:
   zod:
     _skip: not-applicable

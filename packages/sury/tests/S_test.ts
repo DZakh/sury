@@ -1224,7 +1224,7 @@ test("fromJSONSchema", (t) => {
     type: "string",
     format: "email",
   });
-  expectSchemaType(emailSchema).toBe<S.JSON, S.JSON>();
+  expectSchemaType(emailSchema).toBe<string, string>();
   const result = S.safe(() => S.assert(emailSchema, "example.com"));
 
   t.expect(result.error?.message).toBe(
@@ -1235,9 +1235,11 @@ test("fromJSONSchema", (t) => {
 test("fromJSONSchema: takes untyped input, `satisfies` checks an inline one", (t) => {
   // A schema loaded from a file or an API is untyped, and must not need a cast.
   const loaded: unknown = JSON.parse(`{"type":"string"}`);
+  expectSchemaType(S.fromJSONSchema(loaded)).toBe<S.JSON, S.JSON>();
   t.expect(S.parser(S.fromJSONSchema(loaded))("hello")).toBe("hello");
 
   const asJson: S.JSON = { type: "boolean" };
+  expectSchemaType(S.fromJSONSchema(asJson)).toBe<S.JSON, S.JSON>();
   t.expect(S.parser(S.fromJSONSchema(asJson))(true)).toBe(true);
 
   const authored = {
@@ -1256,6 +1258,55 @@ test("fromJSONSchema: takes untyped input, `satisfies` checks an inline one", (t
     requird: ["id"],
   } satisfies S.JSONSchema;
   t.expect(typo.type).toBe("object");
+});
+
+test("fromJSONSchema: an inline schema infers the type it describes", (t) => {
+  const userSchema = S.fromJSONSchema({
+    type: "object",
+    properties: {
+      id: { type: "string" },
+      role: { enum: ["admin", "user"] },
+      tags: { type: "array", items: { type: "string" } },
+      point: { type: "array", prefixItems: [{ type: "number" }, { type: "number" }] },
+      score: { type: "number", nullable: true },
+    },
+    required: ["id", "role"],
+  });
+  expectSchemaType(userSchema).toBe<{
+    id: string;
+    role: "admin" | "user";
+    tags?: string[] | undefined;
+    point?: [number, number] | undefined;
+    score?: number | null | undefined;
+  }>();
+  t.expect(S.parser(userSchema)({ id: "1", role: "admin" })).toEqual({
+    id: "1",
+    role: "admin",
+  });
+
+  // Local $ref pointers resolve, including recursive ones. The runtime still
+  // parses a $ref as plain JSON — the static type leads it here.
+  const treeSchema = S.fromJSONSchema({
+    $ref: "#/$defs/node",
+    $defs: {
+      node: {
+        type: "object",
+        properties: {
+          value: { type: "string" },
+          children: { type: "array", items: { $ref: "#/$defs/node" } },
+        },
+        required: ["value"],
+      },
+    },
+  });
+  type Tree = S.Output<typeof treeSchema>;
+  const tree: Tree = { value: "root", children: [{ value: "leaf" }] };
+  assertType<string | undefined>(tree.children?.[0]?.value);
+
+  // A dialect interface isn't a literal, so it falls back to Schema<JSON, JSON>.
+  expectSchemaType(
+    S.fromJSONSchema(S.toJSONSchema(S.schema({ a: S.string }))),
+  ).toBe<S.JSON, S.JSON>();
 });
 
 test("toJSONSchema: the target picks the dialect of the result", (t) => {
