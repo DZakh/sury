@@ -771,21 +771,28 @@ type Repeat<E, N extends number, Acc extends unknown[], Tail extends unknown[]> 
 // `N extends N` distributes, so a bound that isn't one literal resolves per
 // member. Without it `0 | 2` matches the empty branch alone and silently pins
 // the type to `[]`.
+//
+// Every bound speaks only while the arity is still open (`number extends
+// T["length"]`) — on a tuple it is either the no-op the runtime makes of a
+// redundant bound or a contradiction, and `Repeat` rebuilding a tuple from the
+// union of its elements would turn `["bar", number]` under a redundant
+// `length(2)` into `[number | "bar", number | "bar"]`.
 type Sized<T, N extends number> = number extends N
   ? T
   : N extends N
   ? T extends (infer E)[]
-    ? Repeat<E, N, [], []>
+    ? number extends T["length"]
+      ? Repeat<E, N, [], []>
+      : T
     : T extends string
     ? N extends 0
       ? ""
       : T
     : T
   : never;
-// A lower bound fixes a head and leaves the tail open, so it only has something
-// to say while the tail is still open: applied to an array already pinned to an
-// arity it is the no-op the runtime makes it, not a widening back to
-// `[string, ...string[]]`.
+// A lower bound fixes a head and leaves the tail open, so unlike the exact one
+// it still has something new to say when stacked on its own kind — the head
+// just grows.
 //
 // No string case. A tuple carries its arity, but TypeScript has no type for a
 // string of at least N characters — `${string}${string}` is `string`, since each
@@ -801,10 +808,16 @@ type AtLeast<T, N extends number> = number extends N
       : T
     : T
   : never;
-// `Sized<T, 0>` reaches the same two answers, through a guard on a bound that
-// can't vary and a `Repeat` that stops on its first step. Spelling the one case
-// `empty` has costs less than either.
-type Emptied<T> = T extends unknown[] ? [] : T extends string ? "" : T;
+// `Sized<T, 0>` reaches the same answers, through a guard on a bound that
+// can't vary and a `Repeat` that stops on its first step. Spelling the two
+// cases `empty` has costs less than either.
+type Emptied<T> = T extends unknown[]
+  ? number extends T["length"]
+    ? []
+    : T
+  : T extends string
+  ? ""
+  : T;
 // `AtLeast<T, 1>`, minus the guard on a bound that can't vary.
 type NonEmptied<T> = T extends (infer E)[]
   ? number extends T["length"]

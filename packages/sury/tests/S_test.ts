@@ -3161,6 +3161,13 @@ test("Array length type pinning falls back to the unbounded type", () => {
   expectSchemaType(S.array(S.string).with(S.minLength, 1).with(S.length, 2)).toBe<
     [string, string]
   >();
+  // On an already-pinned arity the bound is redundant and must change nothing:
+  // rebuilding a tuple from the union of its elements would widen
+  // `["bar", number]` into `[number | "bar", number | "bar"]`.
+  expectSchemaType(S.tuple(["bar", S.number]).with(S.length, 2)).toBe<["bar", number]>();
+  expectSchemaType(S.array(S.string).with(S.length, 2).with(S.length, 2)).toBe<
+    [string, string]
+  >();
 
   const n: number = 2;
   expectSchemaType(S.array(S.string).with(S.length, n)).toBe<string[]>();

@@ -3,7 +3,7 @@ ts:
   schema: S.string.with(S.empty)
   input: '""'
   output: '""'
-  instantiations: 606
+  instantiations: 683
 vs:
   zod:
     schema: z.string().length(0)
