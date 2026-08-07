@@ -3,7 +3,7 @@ ts:
   schema: 'S.fromJSONSchema({ type: "object", properties: { id: { type: "string" }, role: { enum: ["admin", "user"] }, tags: { type: "array", items: { type: "string" } } }, required: ["id", "role"] })'
   input: '{ id: string; role: "admin" | "user"; tags?: string[] | undefined; }'
   output: '{ id: string; role: "admin" | "user"; tags?: string[] | undefined; }'
-  instantiations: 1784
+  instantiations: 1783
 vs:
   zod:
     _skip: not-applicable
