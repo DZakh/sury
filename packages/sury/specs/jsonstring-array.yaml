@@ -12,7 +12,7 @@ jsonSchema:
   output: '{ type: "string" }'
 operations:
   parse:
-    expression: i=>{Array.isArray(i)||e[4](i);let v5=new Array(i.length);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];typeof v1==="object"&&v1&&!Array.isArray(v1)||e[2](v1);let v2=v1["id"],v3=v1["name"];typeof v2==="number"&&!Number.isNaN(v2)||e[0](v2);typeof v3==="string"||e[1](v3);v5[v0]={"id":v2,"name":v3,}}catch(v4){v4.path='["'+v0+'"]'+v4.path;throw v4}}let v7="";for(let v6=0;v6<v5.length;++v6){let v8=v5[v6];v7+=(v6?",":"")+"{\"id\":"+v8["id"]+",\"name\":"+e[3](v8["name"])+"}"}return "["+v7+"]"}
+    expression: i=>{Array.isArray(i)||e[5](i);let v5=new Array(i.length);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];typeof v1==="object"&&v1&&!Array.isArray(v1)||e[2](v1);let v2=v1["id"],v3=v1["name"];typeof v2==="number"&&!Number.isNaN(v2)||e[0](v2);typeof v3==="string"||e[1](v3);v5[v0]={"id":v2,"name":v3,}}catch(v4){v4.path='["'+v0+'"]'+v4.path;throw v4}}let v7="";for(let v6=0;v6<v5.length;++v6){try{let v8=v5[v6];let v9=v8["id"];v7+=(v6?",":"")+"{\"id\":"+(Number.isFinite(v9)?""+v9:e[3](v9))+",\"name\":"+e[4](v8["name"])+"}"}catch(v10){v10.path='["'+v6+'"]'+v10.path;throw v10}}return "["+v7+"]"}
     examples:
       empty:
         input: "[]"
@@ -24,7 +24,7 @@ operations:
         input: "[{ id: 1, name: 2 }]"
         error: 'Failed at ["0"]["name"]: Expected string, received 2'
   decode:
-    expression: i=>{let v3="";for(let v2=0;v2<i.length;++v2){let v4=i[v2];v3+=(v2?",":"")+"{\"id\":"+v4["id"]+",\"name\":"+e[0](v4["name"])+"}"}return "["+v3+"]"}
+    expression: i=>{let v3="";for(let v2=0;v2<i.length;++v2){try{let v4=i[v2];let v5=v4["id"];v3+=(v2?",":"")+"{\"id\":"+(Number.isFinite(v5)?""+v5:e[0](v5))+",\"name\":"+e[1](v4["name"])+"}"}catch(v6){v6.path='["'+v2+'"]'+v6.path;throw v6}}return "["+v3+"]"}
     examples:
       two-items:
         input: '[{ id: 1, name: "a" }, { id: 2, name: "b" }]'
