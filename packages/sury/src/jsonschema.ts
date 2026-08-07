@@ -897,8 +897,17 @@ const refError = (reason: string): SuryError =>
 
 // RFC 6901: `~1` is `/` and `~0` is `~`, in that order, and the fragment may
 // arrive percent-encoded.
-const unescapePointer = (segment: string): string =>
-  decodeURIComponent(segment).replace(/~1/g, "/").replace(/~0/g, "~");
+const unescapePointer = (segment: string): string => {
+  // A raw `%` that isn't valid percent-encoding ("50%") is common in real
+  // documents; take the segment literally rather than letting a URIError
+  // escape past the SuryError contract. Literally, not replacement-char
+  // substituted the way a non-throwing decoder would: raw text can still match
+  // the key the document wrote, `U+FFFD` never can (see IDEAS.md on `deuri`).
+  try {
+    segment = decodeURIComponent(segment);
+  } catch {}
+  return segment.replace(/~1/g, "/").replace(/~0/g, "~");
+};
 
 const resolveRef = (ref: string, ctx: RefContext): Internal => {
   if (ctx.cyc[ref]) {
@@ -927,14 +936,26 @@ const resolveRef = (ref: string, ctx: RefContext): Internal => {
         ? (target as Record<string, unknown>)[unescapePointer(segments[i]!)]
         : U;
   }
-  if (target === U) {
+  // A pointer that lands on a non-schema value (a string, `null`, an `enum`
+  // array) must fail like a dangling one — falling through would hand the
+  // untyped branch an accept-everything `S.json`.
+  if (
+    target === null ||
+    (typeof target !== "object" && typeof target !== "boolean") ||
+    Array.isArray(target)
+  ) {
     throw refError(`Failed to resolve JSON Schema $ref: ${ref}`);
   }
 
   // The pointer's last segment is the name the document already uses for the
   // definition, so a round-trip through toJSONSchema keeps it. `#` points at
-  // the document itself and has no segment to take.
-  const base = ref === "#" ? "Root" : unescapePointer(segments[segments.length - 1]!);
+  // the document itself and has no segment to take. `/`, `~` and `%` can't
+  // keep: recursiveDecoder slices the raw suffix off `$ref`, so they'd come
+  // back out of toJSONSchema as a pointer that resolves to a different key.
+  const base =
+    ref === "#"
+      ? "Root"
+      : unescapePointer(segments[segments.length - 1]!).replace(/[~/%]/g, "_");
   let name = base;
   let suffix = 2;
   while (ctx.names[name]) {
@@ -949,11 +970,21 @@ const resolveRef = (ref: string, ctx: RefContext): Internal => {
   ctx.ph[ref] = refSchema;
 
   const def = jsonDefinitionToSchema(target as JSONSchemaDefinition, ctx);
+  // A cycle with no schema between the refs (`{"$ref": "#"}`, or A→B→A) builds
+  // a def that is its own placeholder: nothing to compile, only recursion, and
+  // compiling it would recurse forever. Comparing `$ref` rather than identity
+  // also catches the placeholder coming back wrapped in a meta copy.
+  if ((def as Record<string, unknown>)["$ref"] === refSchema["$ref"]) {
+    throw refError(`Infinite JSON Schema $ref loop: ${ref}`);
+  }
   ctx.built[ref] = def;
   if (ctx.cyc[ref]) {
     ctx.defs[name] = def;
     return refSchema;
   }
+  // The target turned out finite, so the ref inlines and the minted schema is
+  // discarded — release the name for a def that will actually occupy it.
+  delete ctx.names[name];
   return def;
 };
 

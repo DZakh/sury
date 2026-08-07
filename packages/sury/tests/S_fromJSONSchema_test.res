@@ -440,6 +440,81 @@ test("fromJSONSchema: a $ref out of the document throws", t => {
   )
 })
 
+test("fromJSONSchema: a $ref to a non-schema value throws instead of widening to any", t => {
+  // Resolvable pointers into a string, null and an array — all valid JSON, none a schema.
+  t->Assert.throws(
+    () =>
+      S.fromJSONSchema(
+        %raw(`{"$ref": "#/$defs/A/type", "$defs": {"A": {"type": "string"}}}`),
+      ),
+    ~expectations={message: "Failed to resolve JSON Schema $ref: #/$defs/A/type"},
+  )
+  t->Assert.throws(
+    () => S.fromJSONSchema(%raw(`{"$ref": "#/$defs/N", "$defs": {"N": null}}`)),
+    ~expectations={message: "Failed to resolve JSON Schema $ref: #/$defs/N"},
+  )
+  t->Assert.throws(
+    () =>
+      S.fromJSONSchema(
+        %raw(`{"$ref": "#/$defs/A/enum", "$defs": {"A": {"enum": [1]}}}`),
+      ),
+    ~expectations={message: "Failed to resolve JSON Schema $ref: #/$defs/A/enum"},
+  )
+})
+
+test("fromJSONSchema: a content-free $ref cycle throws instead of overflowing the stack", t => {
+  t->Assert.throws(
+    () => S.fromJSONSchema(%raw(`{"$ref": "#"}`)),
+    ~expectations={message: "Infinite JSON Schema $ref loop: #"},
+  )
+  t->Assert.throws(
+    () =>
+      S.fromJSONSchema(
+        %raw(`{"$ref": "#/$defs/A", "$defs": {"A": {"$ref": "#/$defs/B"}, "B": {"$ref": "#/$defs/A"}}}`),
+      ),
+    ~expectations={message: "Infinite JSON Schema $ref loop: #/$defs/A"},
+  )
+})
+
+test("fromJSONSchema: a % that isn't percent-encoding resolves literally", t => {
+  let js: JSONSchema.t = %raw(`{
+    "$ref": "#/$defs/50%",
+    "$defs": {"50%": {"type": "string"}}
+  }`)
+  t->Assert.deepEqual(parse(S.fromJSONSchema(js), "half"), "half")
+})
+
+test("fromJSONSchema: a recursive def whose name needs escaping round-trips resolvable", t => {
+  let js: JSONSchema.t = %raw(`{
+    "$ref": "#/$defs/a~1b",
+    "$defs": {
+      "a/b": {"type": "object", "properties": {"next": {"$ref": "#/$defs/a~1b"}}}
+    }
+  }`)
+  let out = jsonRoundTrip(js)
+  // The emitted name is sanitized so the emitted pointer parses back to the
+  // same key; the document must feed fromJSONSchema again unchanged.
+  let schema = S.fromJSONSchema(out)
+  t->Assert.deepEqual(parse(schema, {"next": Dict.make()}), {"next": Dict.make()})
+})
+
+test("fromJSONSchema: an inlined ref releases its def name for a later cycle", t => {
+  let js: JSONSchema.t = %raw(`{
+    "type": "object",
+    "properties": {
+      "finite": {"$ref": "#/components/schemas/Node"},
+      "rec": {"$ref": "#/$defs/Node"}
+    },
+    "components": {"schemas": {"Node": {"type": "string"}}},
+    "$defs": {"Node": {"type": "object", "properties": {"next": {"$ref": "#/$defs/Node"}}}}
+  }`)
+  let out = jsonRoundTrip(js)
+  t->Assert.deepEqual(
+    (out->Obj.magic)["$defs"]["Node"]["type"],
+    %raw(`"object"`),
+  )
+})
+
 // 11. Round-trip S -> toJSONSchema -> fromJSONSchema -> S
 
 test("fromJSONSchema: round-trip for string schema", t => {
