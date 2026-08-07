@@ -24,7 +24,7 @@ operations:
         input: '[["0", "1"], ["12345678901234567890", "98765432109876543210"]]'
         output: '[{ id: "0", amount: 12345678901234567890n }, { id: "1", amount: 98765432109876543210n }]'
   encode:
-    expression: i=>{for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}let v4=[new Array(i.length),new Array(i.length),];for(let v3=0;v3<i.length;++v3){v4[0][v3]=i[v3]["id"];v4[1][v3]=""+i[v3]["amount"];}return v4}
+    expression: i=>{let v3=[new Array(i.length),new Array(i.length),];for(let v2=0;v2<i.length;++v2){v3[0][v2]=i[v2]["id"];v3[1][v2]=""+i[v2]["amount"];}return v3}
     examples:
       round-trip:
         input: '[{ id: "0", amount: 12345678901234567890n }, { id: "1", amount: 98765432109876543210n }]'
