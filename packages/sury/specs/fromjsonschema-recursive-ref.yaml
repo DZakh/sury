@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.fromJSONSchema({ $ref: "#/$defs/node", $defs: { node: { type: "object", properties: { value: { type: "string" }, children: { type: "array", items: { $ref: "#/$defs/node" } } }, required: ["value"] } } })'
+  input: "{ value: string; children?: ...[] | undefined; }"
+  output: "{ value: string; children?: ...[] | undefined; }"
+  instantiations: 2083
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ $ref: "#/$defs/node", $defs: { node: { type: "object", properties: { value: { type: "string" }, children: { items: { $ref: "#/$defs/node" }, type: "array" } }, required: ["value"] } } }'
+  output: '{ $ref: "#/$defs/node", $defs: { node: { type: "object", properties: { value: { type: "string" }, children: { items: { $ref: "#/$defs/node" }, type: "array" } }, required: ["value"] } } }'
+operations:
+  parse:
+    expression: i=>{let v0;v0=e[0](i);return v0}
+    examples:
+      tree:
+        input: '{ value: "root", children: [{ value: "leaf" }] }'
+        output: '{ value: "root", children: [{ value: "leaf", children: undefined }] }'
+      leaf:
+        input: '{ value: "leaf" }'
+        output: '{ value: "leaf", children: undefined }'
+      deeply-nested:
+        input: '{ value: "a", children: [{ value: "b", children: [{ value: "c" }] }] }'
+        output: '{ value: "a", children: [{ value: "b", children: [{ value: "c", children: undefined }] }] }'
+      wrong-type-at-depth:
+        input: '{ value: "root", children: [{ value: 1 }] }'
+        error: 'Failed at ["children"]["0"]["value"]: Expected string, received 1'
+      missing-required-at-depth:
+        input: '{ value: "root", children: [{}] }'
+        error: 'Failed at ["children"]["0"]["value"]: Expected string, received undefined'
+      not-matching-the-ref:
+        input: '"any json"'
+        error: 'Expected { value: string; children: node[] | undefined; }, received "any json"'
+  decode: eq-to-parse
+  encode: eq-to-parse

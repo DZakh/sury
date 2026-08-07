@@ -1,9 +1,9 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
   schema: 'S.fromJSONSchema({ $ref: "#/$defs/Tree", $defs: { Tree: { type: "object", properties: { value: { type: "string" }, fork: { $ref: "#/$defs/Fork" } }, required: ["value"] }, Fork: { type: "object", properties: { left: { $ref: "#/$defs/Tree" }, right: { $ref: "#/$defs/Tree" } }, required: ["left", "right"] } } })'
-  input: JSON
-  output: JSON
-  instantiations: 254
+  input: "{ value: string; fork?: { left: ...; right: ...; } | undefined; }"
+  output: "{ value: string; fork?: { left: ...; right: ...; } | undefined; }"
+  instantiations: 2104
 vs:
   zod:
     _skip: not-applicable

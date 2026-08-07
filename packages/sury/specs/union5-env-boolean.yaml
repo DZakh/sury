@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union([S.schema("t").with(S.to, S.schema(true)).with(S.to, S.boolean), S.schema("1").with(S.to, S.schema(true)).with(S.to, S.boolean), S.schema("f").with(S.to, S.schema(false)).with(S.to, S.boolean), S.schema("0").with(S.to, S.schema(false)).with(S.to, S.boolean), S.string.with(S.to, S.boolean)])
+  input: string
+  output: boolean
+  instantiations: 9234
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ anyOf: [{ type: "string", const: "t" }, { type: "string", const: "1" }, { type: "string", const: "f" }, { type: "string", const: "0" }, { type: "string" }] }'
+  output: '{ anyOf: [{ type: "boolean", const: true }, { type: "boolean", const: false }, { type: "boolean" }] }'
+operations:
+  parse:
+    expression: i=>{for(;;){if(typeof i==="string"&&i==="t"){i=true;break}if(typeof i==="string"&&i==="1"){i=true;break}if(typeof i==="string"&&i==="f"){i=false;break}if(typeof i==="string"&&i==="0"){i=false;break}if(typeof i==="string"){let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0;break}e[1](i)}return i}
+    examples:
+      t-shorthand:
+        input: '"t"'
+        output: "true"
+      one-shorthand:
+        input: '"1"'
+        output: "true"
+      f-shorthand:
+        input: '"f"'
+        output: "false"
+      zero-shorthand:
+        input: '"0"'
+        output: "false"
+      true-text:
+        input: '"true"'
+        output: "true"
+      false-text:
+        input: '"false"'
+        output: "false"
+      not-a-boolean-text:
+        input: '"x"'
+        error: Expected boolean, received "x"
+      not-a-string:
+        input: "1"
+        error: Expected "t" | "1" | "f" | "0" | string, received 1
+  decode: eq-to-parse
+  encode:
+    expression: i=>{for(;;){if(typeof i==="boolean"&&i===true){i="t";break}if(typeof i==="boolean"&&i===false){i="f";break}if(typeof i==="boolean"){i=""+i;break}e[0](i)}return i}
+    examples:
+      "true":
+        input: "true"
+        output: '"t"'
+      "false":
+        input: "false"
+        output: '"f"'

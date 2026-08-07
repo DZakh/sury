@@ -80,6 +80,12 @@ flat interface is what makes a hover, a completion and an error name the dialect
 instead of expanding an intersection. Don't collapse them into `extends`, `Omit`
 or mapped types.
 
+`src/types/json.d.ts` holds `JSON` and the `FromJSONSchema` inference engine.
+Its `Flatten` duplicates `index.d.ts`'s on purpose — a non-exported type can't
+cross a file, and exporting one would add `S.Flatten` to the public API. Don't
+collapse the two. The engine's dispatch order mirrors the runtime chain in
+`src/jsonschema.ts`; a comment on each side says so, and they move together.
+
 Each must stay assignable to the wide `JSONSchema` — that is what lets a
 `toJSONSchema` result feed `fromJSONSchema` or `extendJSONSchema` uncast — so a
 keyword added to one belongs on `JSONSchema` too, and in the other two spellings
