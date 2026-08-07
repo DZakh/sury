@@ -363,6 +363,26 @@ max 12.4k; today's `fromJSONSchema` specs pin 254.
   {enum: [b, d]}}]` infers all five) — exclusion only applies same-level.
   Pin whatever behavior the adaptation keeps in a spec.
 
+**`$ref` is in scope for the types** (decided after the measurements below;
+the runtime keeps producing `json` for `$ref` until it learns resolution —
+the type side leads):
+
+- Upstream v3.1.1 already resolves **non-recursive** `$ref` — `#/definitions/`,
+  `#/$defs/` and the `references` option all infer correctly at ~6k inst.
+  The earlier "PR #224 means no `$defs`" read was too pessimistic; only verify
+  nested/edge placements after vendoring.
+- **Recursive** `$ref` is where upstream hard-fails: "Type of property
+  'children' circularly references itself in mapped type", property degrades
+  to `any`, both via `references` and internal `definitions`.
+- The `ata-validator` `RootDefs`/`RefName`/`ResolveRef` graft closes exactly
+  that gap, measured on its shipped `index.d.ts` (546 lines, MIT): direct
+  recursion (tree) **616 inst**, mutual recursion (expr/binop) **974 inst**,
+  and the inferred types are usable — deep `next?.next?....` chains and
+  discriminant narrowing typecheck clean, TS displays the cycle lazily.
+  Its `InferObject` mapped-type deferral is the pattern the vendored engine's
+  `$ref` branch must adopt; note it leaks `readonly` from `as const` (strip
+  with `-readonly` during adaptation).
+
 ArkType postmortem (checked 2026-08): `@ark/json-schema` built full literal
 inference as direct recursive conditional types (accumulator + one
 `Omit<schema, kw>` per keyword, piggybacking their constraint brands), then
