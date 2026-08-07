@@ -213,6 +213,50 @@ S.assert(S.fromJSONSchema({ type: "string", format: "email" }), "example.com");
 // => throws S.Error: Expected email, received "example.com"
 ```
 
+A document written inline is typed as well as validated, and a `$ref` into the same document is followed — recursive ones included:
+
+```ts
+const comment = S.fromJSONSchema({
+  $ref: "#/$defs/comment",
+  $defs: {
+    comment: {
+      type: "object",
+      properties: {
+        text: { type: "string" },
+        replies: { type: "array", items: { $ref: "#/$defs/comment" } },
+      },
+      required: ["text"],
+    },
+  },
+});
+//? S.Schema<{ text: string; replies?: ...[] | undefined }, { text: string; replies?: ...[] | undefined }>
+
+S.assert(comment, { text: "hi", replies: [{ text: 1 }] });
+// => throws S.Error: Failed at ["replies"]["0"]["text"]: Expected string, received 1
+```
+
+A document written inline is typed as well as validated, and a `$ref` into the same document is followed — recursive ones included:
+
+```ts
+const comment = S.fromJSONSchema({
+  $ref: "#/$defs/comment",
+  $defs: {
+    comment: {
+      type: "object",
+      properties: {
+        text: { type: "string" },
+        replies: { type: "array", items: { $ref: "#/$defs/comment" } },
+      },
+      required: ["text"],
+    },
+  },
+});
+//? S.Schema<{ text: string; replies?: ...[] | undefined }, { text: string; replies?: ...[] | undefined }>
+
+S.assert(comment, { text: "hi", replies: [{ text: 1 }] });
+// => throws S.Error: Failed at ["replies"]["0"]["text"]: Expected string, received 1
+```
+
 ### Types you can actually read
 
 Hover any schema and you see the data, not the library's internals:

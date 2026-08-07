@@ -197,7 +197,7 @@ S.assert(
 // Throws S.Error: Expected email, received "example.com"
 ```
 
-A schema written inline is inferred — the result is typed with the data type the document describes, including local `$ref` pointers (`#/$defs/…`, `#/definitions/…`), even recursive ones. `$ref` is resolved by the inference only: the runtime does not yet follow a pointer, so a `$ref` validates as any JSON while the static type names the shape it points at.
+A document written inline is read all the way through — the schema validates what the document describes, and is typed with it:
 
 ```ts
 const schema = S.fromJSONSchema({
@@ -207,6 +207,32 @@ const schema = S.fromJSONSchema({
 });
 // S.Schema<{ id: string; role?: "admin" | "user" | undefined }>
 ```
+
+A `$ref` pointing into the same document is followed, recursive ones included:
+
+```ts
+const comment = S.fromJSONSchema({
+  $ref: "#/$defs/comment",
+  $defs: {
+    comment: {
+      type: "object",
+      properties: {
+        text: { type: "string" },
+        replies: { type: "array", items: { $ref: "#/$defs/comment" } },
+      },
+      required: ["text"],
+    },
+  },
+});
+// S.Schema<{ text: string; replies?: ...[] | undefined }>
+
+S.assert(comment, { text: "hi", replies: [{ text: 1 }] });
+// Throws S.Error: Failed at ["replies"]["0"]["text"]: Expected string, received 1
+```
+
+Pointers under `$defs` and `definitions` are also named in the type; one taking any other path — `#/components/schemas/Pet`, say — is validated just the same, but typed as `S.JSON`.
+
+A `$ref` that leads outside the document — a URL, a `urn:`, an `$anchor`, anything resolved against a `$id` base — throws rather than quietly accepting whatever arrives, so bundle the document before converting it.
 
 To also have TypeScript check the schema document itself, annotate it with `satisfies S.JSONSchema` — that catches a misspelled keyword while leaving `x-` vendor extensions open. The annotation widens literals (e.g. `required`, `enum`), so the inferred type gets wider too — every property becomes optional.
 
