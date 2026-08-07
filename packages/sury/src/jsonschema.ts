@@ -889,7 +889,7 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
   };
 
   // The dispatch order of this chain is mirrored by `JSONSchemaResolve` in
-  // index.d.ts — reordering branches here changes which keyword wins a
+  // src/types/json.d.ts — reordering branches here changes which keyword wins a
   // conflict, so the type-level chain must move with it.
   let schema: Internal;
   if (jsonSchema.nullable) {
