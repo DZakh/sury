@@ -56,8 +56,8 @@ operations:
       escapes-pipe-in-path:
         input: new URL("http://ex.com/a|b")
         output: '"http://ex.com/a%7Cb"'
-      escapes-caret-in-path:
-        input: new URL("http://ex.com/a^b")
+      keeps-caret-the-url-parser-already-escaped:
+        input: new URL("http://ex.com/a%5Eb")
         output: '"http://ex.com/a%5Eb"'
       escapes-brackets-in-path:
         input: new URL("http://ex.com/a[0]")

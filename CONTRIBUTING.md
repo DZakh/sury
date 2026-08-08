@@ -356,6 +356,14 @@ instead of silently working around it.
   recorded *as the example's golden* — so a passing operation is pinned as an
   error and reads like real behavior. Failing the check outright would be
   better than writing a golden the harness knows is a lie.
+- A `URL` example is rendered from its `.href`, which makes the golden depend on
+  the runtime's WHATWG parser rather than on Sury. `new URL("http://ex.com/a^b")`
+  keeps the caret on Node 22 and normalizes it to `%5E` on the pinned Node 24, so
+  the same spec is canonical on one and not the other, and the canonical-form
+  test fails in CI with no Sury change behind it. Rendering the source string the
+  example was written with — rather than the parsed value's serialization — would
+  keep the golden about the schema. Until then a `URL` example silently pins
+  runtime behavior, and the `engines` pin is the only thing keeping it honest.
 - A codec spec is named `codec-<from>-<to>`, so `codec` is a prefix and never a
   suffix. Nothing enforces it — `url-codec.yaml` sat the other way round until
   it was renamed — and the id is what orders the specs directory, so the
