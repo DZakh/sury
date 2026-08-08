@@ -78,6 +78,7 @@ export {
   bool,
   int as int32,
   int,
+  integer,
   float as number,
   float,
   bigint,
@@ -144,10 +145,10 @@ export {
   gte,
   lt,
   lte,
+  multipleOf,
   minLength,
   maxLength,
   length,
-  empty,
   nonEmpty,
 } from "./refinements";
 export {

@@ -1,11 +1,15 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
   schema: S.array(S.string).with(S.minLength, 1).with(S.maxLength, 2)
-  input: string[]
-  output: string[]
-  instantiations: 5402
+  input: "[string, ...string[]]"
+  output: "[string, ...string[]]"
+  instantiations: 5960
 vs:
-  zod: z.array(z.string()).min(1).max(2)
+  zod:
+    schema: z.array(z.string()).min(1).max(2)
+    divergence: The lower bound fixes a head in the Sury type; the upper one has no tuple spelling that isn't a union of every arity under it, so the tail stays open at `[string, ...string[]]` where Zod keeps the unbounded `string[]`.
+    input: string[]
+    output: string[]
 jsonSchema:
   input: '{ items: { type: "string" }, type: "array", minItems: 1, maxItems: 2 }'
   output: '{ items: { type: "string" }, type: "array", minItems: 1, maxItems: 2 }'

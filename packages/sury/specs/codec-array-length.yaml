@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.to(S.array(S.string), S.array(S.unknown)).with(S.length, 2)
+  input: string[]
+  output: "[unknown, unknown]"
+  instantiations: 5856
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ items: { type: "string" }, type: "array" }'
+  output: "Failed at []: Expected JSON, received unknown"
+operations:
+  parse:
+    expression: i=>{Array.isArray(i)||e[2](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}i.length===2||e[1](i);return i}
+    examples:
+      at bound:
+        input: '["a", "b"]'
+        output: '["a", "b"]'
+      under bound:
+        input: '["a"]'
+        error: Expected unknown[].length == 2, received ["a"]
+      over bound:
+        input: '["a", "b", "c"]'
+        error: Expected unknown[].length == 2, received ["a", "b", "c"]
+      empty:
+        input: "[]"
+        error: Expected unknown[].length == 2, received []
+      element type still checked:
+        input: '["a", 1]'
+        error: 'Failed at ["1"]: Expected string, received 1'
+  decode:
+    expression: i=>{i.length===2||e[0](i);return i}
+    examples:
+      at bound:
+        input: '["a", "b"]'
+        output: '["a", "b"]'
+      under bound:
+        input: '["a"]'
+        error: Expected unknown[].length == 2, received ["a"]
+  encode:
+    expression: i=>{i.length===2||e[1](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}return i}
+    examples:
+      at bound:
+        input: '["a", "b"]'
+        output: '["a", "b"]'
+      under bound:
+        input: '["a"]'
+        error: Expected unknown[].length == 2, received ["a"]

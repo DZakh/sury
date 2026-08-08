@@ -57,14 +57,20 @@ gaps dominate the current number:
 
 - **Under-validation** (the large majority of failures) — keywords
   `fromJSONSchema` doesn't implement yet are silently ignored, so invalid data
-  is accepted. `$ref`/`$defs`, `patternProperties`, `uniqueItems`,
-  `multipleOf`, `propertyNames`, `dependentRequired`, `min`/`maxProperties`,
-  `contains`, `unevaluated*`, and `additionalProperties` as a schema are all in
-  this bucket.
+  is accepted. `patternProperties`, `uniqueItems`, `multipleOf`,
+  `propertyNames`, `dependentRequired`, `min`/`maxProperties`, `contains`,
+  `unevaluated*`, and `additionalProperties` as a schema are all in this bucket.
 - **Over-strictness** — JSON Schema keywords are type-conditional assertions
   (`{"maxLength": 2}` must accept `100`; `{"properties": {…}}` must accept `5`;
   `{}` accepts anything), while `fromJSONSchema` builds typed schemas that
   reject the non-applicable type outright.
+
+`$ref` left the first bucket and mostly landed in `errored`: a JSON Pointer into
+the same document resolves, and anything that needs a base URI — `$id`,
+`$anchor`, `$dynamicRef`, a remote or `urn:` target — fails conversion instead
+of widening to `any`. That trades score for honesty, since a case that errors
+loses its valid-data tests too; `ref.json` and `refRemote.json` are where the
+difference is visible.
 
 The second is a design decision rather than a defect: either `fromJSONSchema`
 becomes faithful, or the supported subset gets documented and those tests stay

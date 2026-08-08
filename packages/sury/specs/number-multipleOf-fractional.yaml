@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.number.with(S.multipleOf, 0.1)
+  input: number
+  output: number
+  instantiations: 5146
+vs:
+  zod: z.number().multipleOf(0.1)
+jsonSchema:
+  input: '{ type: "number", multipleOf: 0.1 }'
+  output: '{ type: "number", multipleOf: 0.1 }'
+operations:
+  parse:
+    expression: i=>{typeof i==="number"&&!Number.isNaN(i)||e[2](i);e[0](i)||e[1](i);return i}
+    examples:
+      valid:
+        input: "0.2"
+        output: "0.2"
+      valid-integer:
+        input: "1"
+        output: "1"
+      valid-remainder-near-the-divisor:
+        input: "0.3"
+        output: "0.3"
+      valid-negative:
+        input: "-0.7"
+        output: "-0.7"
+      valid-zero:
+        input: "0"
+        output: "0"
+      invalid-not-a-multiple:
+        input: "0.25"
+        error: Expected number % 0.1, received 0.25
+      invalid-nan:
+        input: NaN
+        error: Expected number % 0.1, received NaN
+      invalid-infinity:
+        input: Infinity
+        error: Expected number % 0.1, received Infinity
+  decode:
+    expression: i=>{e[0](i)||e[1](i);return i}
+    examples:
+      valid-remainder-near-the-divisor:
+        input: "0.3"
+        output: "0.3"
+      invalid-not-a-multiple:
+        input: "0.25"
+        error: Expected number % 0.1, received 0.25
+  encode:
+    expression: i=>{e[0](i)||e[1](i);return i}
+    examples:
+      valid-remainder-near-the-divisor:
+        input: "0.3"
+        output: "0.3"
+      invalid-not-a-multiple:
+        input: "0.25"
+        error: Expected number % 0.1, received 0.25
