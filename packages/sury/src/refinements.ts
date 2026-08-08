@@ -253,11 +253,16 @@ const boundsRefiner = (input: Val): Check[] => {
     const mo = s.multipleOf;
     if (mo !== U) {
       let cond: (inputVar: string) => string;
-      if (exactDivisor(mo)) {
-        // A bigint remainder is `0n`, which `===0` never matches — the zero
-        // literal has to be the schema's own numeric type.
-        const zero = typeof mo === bigintTag ? "0n" : "0";
-        cond = (inputVar) => `${inputVar}%${lit(mo)}===${zero}`;
+      if (typeof mo === bigintTag) {
+        // Truthiness rather than `===0n`: a bigint remainder is never NaN, so
+        // the two agree on every input, and this drops the `n`-suffixed zero
+        // the comparison would need (`===0` never matches `0n`).
+        cond = (inputVar) => `!(${inputVar}%${lit(mo)})`;
+      } else if (exactDivisor(mo)) {
+        // `===0` and not `!(…)`: `Infinity % 2` and `NaN % 2` are NaN, which
+        // is falsy — truthiness would accept exactly the two values this is
+        // the only check standing against.
+        cond = (inputVar) => `${inputVar}%${lit(mo)}===0`;
       } else {
         const embedded = B_embed(input, multipleOfValidator(mo as number));
         cond = (inputVar) => `${embedded}(${inputVar})`;
