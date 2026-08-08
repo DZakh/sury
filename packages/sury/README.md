@@ -154,11 +154,18 @@ JSON.stringify({ price: Infinity });
 
 | Encode to JSON string                        | `JSON.stringify` | fast-json-stringify | **Sury**    |
 | -------------------------------------------- | ---------------- | ------------------- | ----------- |
-| API response (user profile, 7 fields)        | 573 ns           | 378 ns              | **311 ns**  |
-| Event feed (50 tagged-union events)          | 7.71 µs          | 20.38 µs            | **5.12 µs** |
-| `bigint` id + binary payload + `Date`        | 1.47 µs          | 1.46 µs             | **1.23 µs** |
+| API response (user profile, 7 fields)        | 396 ns           | 301 ns              | **250 ns**  |
+| Event feed (50 tagged-union events)          | 4.61 µs          | 13.52 µs            | **3.67 µs** |
+| `bigint` id + binary payload + `Date`        | 1.10 µs          | 1.11 µs             | **1.02 µs** |
+| List endpoint (100 rows)                     | **9.74 µs**      | 10.90 µs            | 10.66 µs    |
+| Labels dict (50 string values)               | 3.72 µs          | 7.94 µs             | **3.61 µs** |
+| Metrics dict (50 number values)              | **4.82 µs**      | 8.52 µs             | 8.69 µs     |
 
-The union row is where compiling wins: fast-json-stringify resolves `anyOf` by running **Ajv** on every item, which is also why it ships 56.7 kB against **Sury**'s 15.8 kB (min + gzip, encoder included).
+Reproduce with `pnpm --filter=sury bench:jsonstring` (numbers are machine-specific; ratios are what travel).
+
+The union row is where compiling wins: fast-json-stringify resolves `anyOf` by running **Ajv** on every item, which is also why it ships 56.7 kB against **Sury**'s 16.2 kB (min + gzip, encoder included).
+
+The last row is the honest counterexample. A dict of plain strings compiles to a bare `JSON.stringify` call, since nothing can beat the native one when the bytes are identical — but a dict of *numbers* keeps the compiled loop, because `JSON.stringify` writes `null` for `Infinity` and `NaN` where **Sury** raises. That check costs roughly 1.8× on this shape; use `S.json` if you want the native behavior.
 
 ### Transformations that reverse themselves
 
