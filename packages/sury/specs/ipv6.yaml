@@ -70,6 +70,9 @@ operations:
       mixed-format-with-leading-double-colons-ipv4-mapped:
         input: '"::ffff:192.168.0.1"'
         output: '"::ffff:192.168.0.1"'
+      mixed-format-with-a-leading-zero-ipv4-octet-is-invalid:
+        input: '"::ffff:01.2.3.4"'
+        error: Expected ipv6, received "::ffff:01.2.3.4"
       triple-colons-is-invalid:
         input: '"1:2:3:4:5:::8"'
         error: Expected ipv6, received "1:2:3:4:5:::8"

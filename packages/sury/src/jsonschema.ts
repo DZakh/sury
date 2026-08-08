@@ -734,7 +734,12 @@ const primitiveToSchema = (primitive: unknown): Internal => {
 // on one side without the other is a reversibility bug. A record rather than a
 // branch chain: reaching fromJSONSchema at all means wanting the whole
 // vocabulary, so there is nothing here for a bundler to drop anyway.
-const stringFormatSchemas: Record<string, Internal> = {
+//
+// Null-prototype because the key is attacker-controlled: `format: "constructor"`
+// against a plain literal resolves up the chain to a truthy function, which then
+// flows on as if it were a schema instead of falling back to `string`.
+const stringFormatSchemas = {
+  __proto__: null,
   "date-time": isoDateTime,
   date: isoDate,
   time: isoTime,
@@ -753,7 +758,7 @@ const stringFormatSchemas: Record<string, Internal> = {
   uuid: uuid,
   "json-pointer": jsonPointer,
   "relative-json-pointer": relativeJsonPointer,
-};
+} as unknown as Record<string, Internal | undefined>;
 
 // draft-04 (and OpenAPI 3.0) make `exclusiveMinimum` a boolean that flips the
 // meaning of `minimum`; draft-06+ make it an independent numeric bound. `true`

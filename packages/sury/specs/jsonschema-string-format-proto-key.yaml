@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.fromJSONSchema({ type: "string", format: "constructor" })'
+  input: JSON
+  output: JSON
+  instantiations: 274
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "string" }'
+  output: '{ type: "string" }'
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[0](i);return i}
+    examples:
+      a-prototype-chain-format-name-falls-back-to-plain-string:
+        input: '"anything"'
+        output: '"anything"'
+      a-non-string-still-fails:
+        input: "42"
+        error: Expected string, received 42
+  decode: identity
+  encode: identity

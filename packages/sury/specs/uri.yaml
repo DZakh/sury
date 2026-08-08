@@ -40,6 +40,12 @@ operations:
       a-valid-url:
         input: '"ldap://[2001:db8::7]/c=GB?objectClass?one"'
         output: '"ldap://[2001:db8::7]/c=GB?objectClass?one"'
+      an-ip-literal-with-a-leading-zero-ipv4-octet-is-invalid:
+        input: '"http://[::ffff:01.2.3.4]/"'
+        error: Expected uri, received "http://[::ffff:01.2.3.4]/"
+      the-same-digits-as-a-host-are-a-reg-name-not-an-ipv4-address:
+        input: '"http://01.2.3.4/"'
+        output: '"http://01.2.3.4/"'
       a-valid-mailto-uri:
         input: '"mailto:John.Doe@example.com"'
         output: '"mailto:John.Doe@example.com"'
