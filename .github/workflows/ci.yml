@@ -188,23 +188,26 @@ jobs:
       - name: Write drift to run summary
         run: npx tsx packages/spec/perfComment.ts spec-perf.txt "$GITHUB_STEP_SUMMARY" "Performance drift since last release"
 
-  ppx-build:
-    name: ppx-build-${{ matrix.target }}
-    runs-on: ${{ matrix.runs-on }}
-    defaults:
-      run:
-        working-directory: packages/sury-ppx/src
+  # e2e needs this slice on every run, so it stays its own job.
+  ppx-build-linux:
+    uses: ./.github/workflows/ppx-build.yml
+    with:
+      target: linux
+      runs-on: ubuntu-24.04
+      # Static linking pins the binary off the runner's glibc. The macOS and
+      # Windows toolchains have no working equivalent.
+      build-flags: --profile static
+
+  # The other four slices only feed the published tarball, and macOS runners
+  # bill at 10x. A PR that breaks them breaks the linux build too, near enough.
+  ppx-build-rest:
+    if: github.event_name != 'pull_request'
     strategy:
       # A slice failing to build is per-platform news; the others still tell us
       # whether the failure is local to one toolchain.
       fail-fast: false
       matrix:
         include:
-          - target: linux
-            runs-on: ubuntu-24.04
-            # Static linking pins the binary off the runner's glibc. The macOS
-            # and Windows toolchains have no working equivalent.
-            build-flags: --profile static
           - target: linux-arm
             runs-on: ubuntu-24.04-arm
             build-flags: --profile static
@@ -219,30 +222,17 @@ jobs:
           - target: windows
             runs-on: windows-2025
             build-flags: ""
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Use OCaml
-        uses: ocaml/setup-ocaml@v3
-        with:
-          ocaml-compiler: 5.3.0
-
-      - name: Install deps
-        run: opam install . --deps-only --with-test
-
-      - name: Build
-        run: opam exec -- dune build ${{ matrix.build-flags }}
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ppx-build-${{ matrix.target }}
-          path: packages/sury-ppx/src/_build/default/bin/bin.exe
-          if-no-files-found: error
+    uses: ./.github/workflows/ppx-build.yml
+    with:
+      target: ${{ matrix.target }}
+      runs-on: ${{ matrix.runs-on }}
+      build-flags: ${{ matrix.build-flags }}
 
   pack-sury-ppx:
     name: Pack sury-ppx
-    needs: [ppx-build]
+    # Skipped on PRs because ppx-build-rest is: there is no tarball to pack
+    # without all five slices.
+    needs: [ppx-build-linux, ppx-build-rest]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -321,9 +311,7 @@ jobs:
 
   e2e:
     name: E2E Test
-    # Only the linux slice is used below, but a matrix job can't be depended on
-    # leg-by-leg, so this waits for the slowest platform too.
-    needs: [ppx-build]
+    needs: [ppx-build-linux]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
