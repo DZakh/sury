@@ -112,6 +112,75 @@ const cases: Case[] = [];
   });
 }
 
+// ── Tagged union: 50 events ──────────────────────────────────────────────────
+// fast-json-stringify resolves `anyOf` by running Ajv against each branch at
+// serialization time; Sury compiles the discriminant into the encoder.
+{
+  const data = {
+    events: Array.from({ length: 50 }, (_, i) =>
+      i % 3 === 0
+        ? { type: "click", x: i, y: i * 2 }
+        : i % 3 === 1
+          ? { type: "view", path: `/page/${i}` }
+          : { type: "error", message: `boom ${i}`, code: 500 },
+    ),
+  };
+  const fj = fastJson({
+    type: "object",
+    properties: {
+      events: {
+        type: "array",
+        items: {
+          anyOf: [
+            {
+              type: "object",
+              properties: {
+                type: { const: "click" },
+                x: { type: "number" },
+                y: { type: "number" },
+              },
+              required: ["type", "x", "y"],
+            },
+            {
+              type: "object",
+              properties: { type: { const: "view" }, path: { type: "string" } },
+              required: ["type", "path"],
+            },
+            {
+              type: "object",
+              properties: {
+                type: { const: "error" },
+                message: { type: "string" },
+                code: { type: "number" },
+              },
+              required: ["type", "message", "code"],
+            },
+          ],
+        },
+      },
+    },
+    required: ["events"],
+  });
+  const sury = S.encoder(
+    S.schema({
+      events: S.array(
+        S.union([
+          S.schema({ type: "click", x: S.number, y: S.number }),
+          S.schema({ type: "view", path: S.string }),
+          S.schema({ type: "error", message: S.string, code: S.number }),
+        ]),
+      ),
+    }),
+    S.jsonString,
+  );
+  cases.push({
+    name: "Event feed (50 tagged-union events)",
+    stringify: () => JSON.stringify(data),
+    fastJson: () => fj(data),
+    sury: () => sury(data),
+  });
+}
+
 // ── Dict with 50 dynamic keys ────────────────────────────────────────────────
 {
   const data: Record<string, number> = {};

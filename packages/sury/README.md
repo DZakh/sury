@@ -117,30 +117,30 @@ This is why **Sury** will most likely outperform not only other libraries, but a
 
 ### JSON serialization faster than `JSON.stringify`
 
-`S.encoder(schema, S.jsonString)` compiles your schema into a dedicated JSON string encoder — so every API response, event payload and queue message goes straight from your domain objects to JSON text:
-
-| Encode to JSON string                        | `JSON.stringify` | fast-json-stringify | **Sury**    |
-| -------------------------------------------- | ---------------- | ------------------- | ----------- |
-| API response (user profile, 7 fields)        | 455 ns           | 280 ns              | **246 ns**  |
-| List endpoint (100 rows)                     | 11.0 µs          | 11.0 µs             | **10.6 µs** |
-| Event: `bigint` id + binary payload + `Date` | 1.34 µs          | 1.18 µs             | **1.03 µs** |
-
-And the types `JSON.stringify` refuses are just fields:
+`S.encoder(schema, S.jsonString)` compiles your schema into a dedicated JSON string encoder, so responses and event payloads go straight from your objects to JSON text:
 
 ```ts
-const event = S.schema({
-  id: S.bigint,
-  payload: S.uint8Array,
-  at: S.date,
-});
+const event = S.schema({ id: S.bigint, payload: S.uint8Array, at: S.date });
 
-S.encoder(event, S.jsonString)({ id: 9007199254740993n, payload: bytes, at: new Date() });
+const toJson = S.encoder(event, S.jsonString);
+toJson({ id: 9007199254740993n, payload: bytes, at: new Date() });
 // '{"id":"9007199254740993","payload":"…","at":"2026-01-15T10:30:00.000Z"}'
 ```
 
-`JSON.stringify` throws on that input and fast-json-stringify wants it pre-mapped. **Sury** encodes it directly — and the same definition still gives you the decoder, the validation and the JSON Schema.
+`JSON.stringify` throws on that `bigint`. Read it back with the same schema:
 
-Ships in **20.9 kB** (min + gzip) against fast-json-stringify's 56.7 kB, or **15.8 kB** when your schemas are written in **Sury** rather than loaded from JSON Schema. On raw serialization microbenchmarks the two trade blows within ~15%; **Sury** pulls ahead once mapping or validation is part of the job.
+```ts
+S.decoder(S.jsonString, event)(json);
+// { id: 9007199254740993n, payload: Uint8Array, at: Date }
+```
+
+| Encode to JSON string                        | `JSON.stringify` | fast-json-stringify | **Sury**    |
+| -------------------------------------------- | ---------------- | ------------------- | ----------- |
+| API response (user profile, 7 fields)        | 328 ns           | 256 ns              | **237 ns**  |
+| List endpoint (100 rows)                     | 8.62 µs          | 9.36 µs             | **8.59 µs** |
+| Event feed (50 tagged-union events)          | 4.17 µs          | 11.97 µs            | **2.99 µs** |
+
+The union row is where compiling wins: fast-json-stringify resolves `anyOf` by running **Ajv** on every item, which is also why it ships 56.7 kB against **Sury**'s 15.8 kB (min + gzip, encoder included).
 
 ### Transformations that reverse themselves
 
@@ -272,7 +272,7 @@ else result.error;
 
 - Works with plain JavaScript, TypeScript, and ReScript — no compiler required
 - The **fastest** parsing and validation library in the JavaScript ecosystem ([benchmarks](#comparison))
-- Compiled JSON string encoding — [faster than `JSON.stringify`](#json-serialization-faster-than-jsonstringify), with `bigint`, `Uint8Array`, and `Date` support built in
+- Compiled JSON string encoding — [faster than `JSON.stringify`](#json-serialization-faster-than-jsonstringify), with `bigint`, `Uint8Array` and `Date` support built in
 - Tree-shakable API with a small footprint — 12.4 kB (min + gzip) for a schema and a parser
 - Async transformations, recursive schemas, and custom schemas
 
