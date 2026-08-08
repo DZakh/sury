@@ -12,7 +12,7 @@ jsonSchema:
   output: '{ type: "string" }'
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[7](i);let v1=i["big"],v2=i["d"];try{e[0](i["j"]);}catch(v0){v0.path="[\"j\"]"+v0.path;throw v0}typeof v1==="bigint"||e[1](v1);v2 instanceof e[3]||e[4](v2);!Number.isNaN(v2.getTime())||e[2](v2);try{e[5](i["u"]);}catch(v3){v3.path="[\"u\"]"+v3.path;throw v3}let v4=JSON.stringify(i["u"]);let v5=JSON.stringify(i["j"]);let v6="";if(v4!==void 0){v6+="\"u\":"+v4}if(v5!==void 0){v6+=(v6?",":"")+"\"j\":"+v5}v6+=(v6?",":"")+"\"big\":\""+v1+"\",\"d\":"+e[6](v2.toISOString());return "{"+v6+"}"}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[7](i);let v1=i["big"],v2=i["d"],v3=i["u"];try{e[0](i["j"]);}catch(v0){v0.path="[\"j\"]"+v0.path;throw v0}typeof v1==="bigint"||e[1](v1);v2 instanceof e[3]||e[4](v2);!Number.isNaN(v2.getTime())||e[2](v2);let v5;if(v3!==void 0){try{e[5](v3);}catch(v4){v4.path="[\"u\"]"+v4.path;throw v4}v5=JSON.stringify(v3)}let v6=JSON.stringify(i["j"]);let v7="";if(v5!==void 0){v7+="\"u\":"+v5}if(v6!==void 0){v7+=(v7?",":"")+"\"j\":"+v6}v7+=(v7?",":"")+"\"big\":\""+v1+"\",\"d\":"+e[6](v2.toISOString());return "{"+v7+"}"}
     examples:
       valid:
         input: '{ u: { any: [1] }, j: ["j", null], big: 1n, d: new Date("1970-01-01T00:00:00.000Z") }'
@@ -24,7 +24,7 @@ operations:
         input: '{ u: new (class { toJSON() {} })(), j: 1, big: 1n, d: new Date("1970-01-01T00:00:00.000Z") }'
         output: '"{\"j\":1,\"big\":\"1\",\"d\":\"1970-01-01T00:00:00.000Z\"}"'
   decode:
-    expression: i=>{try{e[0](i["u"]);}catch(v0){v0.path="[\"u\"]"+v0.path;throw v0}let v1=JSON.stringify(i["u"]);let v2=JSON.stringify(i["j"]);let v3="";if(v1!==void 0){v3+="\"u\":"+v1}if(v2!==void 0){v3+=(v3?",":"")+"\"j\":"+v2}v3+=(v3?",":"")+"\"big\":\""+i["big"]+"\",\"d\":"+e[1](i["d"].toISOString());return "{"+v3+"}"}
+    expression: i=>{let v0=i["u"];let v2;if(v0!==void 0){try{e[0](v0);}catch(v1){v1.path="[\"u\"]"+v1.path;throw v1}v2=JSON.stringify(v0)}let v3=JSON.stringify(i["j"]);let v4="";if(v2!==void 0){v4+="\"u\":"+v2}if(v3!==void 0){v4+=(v4?",":"")+"\"j\":"+v3}v4+=(v4?",":"")+"\"big\":\""+i["big"]+"\",\"d\":"+e[1](i["d"].toISOString());return "{"+v4+"}"}
     examples:
       valid:
         input: '{ u: { any: [1] }, j: ["j", null], big: 1n, d: new Date("1970-01-01T00:00:00.000Z") }'

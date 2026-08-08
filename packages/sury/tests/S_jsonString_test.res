@@ -423,7 +423,7 @@ test("Converts JSON string to object with unknown field", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{e[0](i);let v0=JSON.stringify(i);let v1="";if(v0!==void 0){v1+="\\"foo\\":"+v0}return "{"+v1+"}"}`,
+    `i=>{let v0;if(i!==void 0){e[0](i);v0=JSON.stringify(i)}let v1="";if(v0!==void 0){v1+="\\"foo\\":"+v0}return "{"+v1+"}"}`,
   )
 
   t->Assert.deepEqual(%raw(`"foo"`)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`'{"foo":"foo"}'`))

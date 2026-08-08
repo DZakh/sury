@@ -12,7 +12,7 @@ jsonSchema:
   output: '{ type: "string" }'
 operations:
   parse:
-    expression: i=>{Array.isArray(i)&&i.length===3||e[6](i);let v0=i["0"],v1=i["1"],v2=i["2"];typeof v0==="string"||e[0](v0);typeof v1==="number"&&!Number.isNaN(v1)||e[1](v1);(typeof v2==="string"||v2===void 0)||e[2](v2);for(;;){if(typeof v2==="string"){v2=e[3](v2);break}if(v2===void 0){v2="null";break}e[5](v2)}return "["+e[3](v0)+","+(Number.isFinite(v1)?""+v1:e[4](v1))+","+v2+"]"}
+    expression: i=>{Array.isArray(i)&&i.length===3||e[6](i);let v0=i["0"],v1=i["1"],v2=i["2"];typeof v0==="string"||e[0](v0);typeof v1==="number"&&!Number.isNaN(v1)||e[1](v1);(typeof v2==="string"||v2===void 0)||e[2](v2);for(;;){if(typeof v2==="string"){v2=e[3](v2);break}if(v2===void 0){v2="null";break}e[5](v2)}return "["+e[3](v0)+","+(Number.isFinite(v1)?v1:e[4](v1))+","+v2+"]"}
     examples:
       all-present:
         input: '["a", 1, "b"]'
@@ -24,7 +24,7 @@ operations:
         input: '["a", 1]'
         error: Expected [string, number, string | undefined], received ["a", 1]
   decode:
-    expression: i=>{let v0=i["1"],v1=i["2"];for(;;){if(typeof v1==="string"){v1=e[0](i["2"]);break}if(v1===void 0){v1="null";break}e[2](v1)}return "["+e[0](i["0"])+","+(Number.isFinite(v0)?""+v0:e[1](v0))+","+v1+"]"}
+    expression: i=>{let v0=i["1"],v1=i["2"];for(;;){if(typeof v1==="string"){v1=e[0](v1);break}if(v1===void 0){v1="null";break}e[2](v1)}return "["+e[0](i["0"])+","+(Number.isFinite(v0)?v0:e[1](v0))+","+v1+"]"}
     examples:
       undefined-item-renders-null:
         input: '["a", 1, undefined]'
