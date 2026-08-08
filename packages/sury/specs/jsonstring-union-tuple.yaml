@@ -30,7 +30,7 @@ operations:
         input: '"[\"42\",\"a\"]"'
         output: '[42n, "a"]'
   encode:
-    expression: i=>{for(;;){if(Array.isArray(i)&&i.length===2){let v0=i["0"],v1=i["1"];typeof v0==="bigint"||e[0](v0);typeof v1==="string"||e[1](v1);i="[\""+v0+"\","+e[2](v1)+"]";break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i["t"]==="x"){let v2=i["id"];typeof v2==="bigint"||e[3](v2);i="{\"t\":\"x\",\"id\":\""+v2+"\"}";break}e[4](i)}return i}
+    expression: i=>{for(;;){if(Array.isArray(i)&&i.length===2){let v0=i["0"],v1=i["1"];typeof v0==="bigint"||e[0](v0);typeof v1==="string"||e[1](v1);i="[\""+v0+"\","+e[2](v1)+"]";break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i["t"]==="x"){i="{\"t\":\"x\",\"id\":\""+i["id"]+"\"}";break}e[3](i)}return i}
     examples:
       tuple:
         input: '[42n, "a"]'

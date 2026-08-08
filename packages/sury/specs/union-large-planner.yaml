@@ -37,6 +37,17 @@ operations:
         error: |-
           Expected "literal-0" | "literal-1" | "literal-2" | "literal-3" | "literal-4" | "literal-5" | "literal-6" | "literal-7" | { kind: "number"; value: number; } | { kind: "string"; value: string; } | { kind: "boolean"; value: boolean; } | { kind: "bigint"; value: bigint; } | Date | Error | TypeError | string.length >= 12 | number | string | number | boolean | bigint | symbol | null | undefined, received { kind: "number"; value: "wrong"; }
           - At ["value"]: Expected number, received "wrong"
-  decode: eq-to-parse
+  decode:
+    expression: i=>{for(;;){let r;if(typeof i==="string"&&(i==="literal-0"||i==="literal-1"||i==="literal-2"||i==="literal-3"||i==="literal-4"||i==="literal-5"||i==="literal-6"||i==="literal-7"))break;if(i instanceof e[3]){try{let v0;try{v0=e[0](i)}catch(x){e[1](x);e[2](x)}i=v0;break}catch(x){(r||(r=[])).push(e[16](x))}}if(i instanceof e[7]){try{let v1;try{v1=e[4](i)}catch(x){e[5](x);e[6](x)}i=v1;break}catch(x){(r||(r=[])).push(e[16](x))}}if(i instanceof e[11]){try{let v2;try{v2=e[8](i)}catch(x){e[9](x);e[10](x)}i=v2;break}catch(x){(r||(r=[])).push(e[16](x))}}if(typeof i==="object"&&i&&!Array.isArray(i)&&(i["kind"]==="number"||i["kind"]==="string"||i["kind"]==="boolean"||i["kind"]==="bigint"))break;try{for(;;){if(typeof i==="string"){i.length>11||e[12](i);break}if(typeof i==="number"&&!Number.isNaN(i))break;e[13](i)}e[14](i)||e[15](i);break}catch(x){(r||(r=[])).push(e[16](x))}if(typeof i==="string")break;if(typeof i==="number"&&!Number.isNaN(i))break;if(typeof i==="boolean")break;if(typeof i==="bigint")break;if(typeof i==="symbol")break;if(i===null)break;if(i===void 0)break;e[17](i,...(r||[]))}return i}
+    examples:
+      discriminated:
+        input: '{ kind: "number", value: 1.5 }'
+        output: '{ kind: "number", value: 1.5 }'
+      scalar:
+        input: '"plain"'
+        output: '"plain"'
+      nullish:
+        input: "null"
+        output: "null"
   encode:
     creationError: "SuryError: Can't decode string to Date. Use S.to to define a custom decoder"

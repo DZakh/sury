@@ -4,22 +4,12 @@
 
 ### ideas
 
-- A discriminated union re-validates every field of the variant the
-  discriminant already selected, so `S.encoder` — which emits no checks at all
-  for a plain object — emits a `typeof` per field for a union, and `decode`
-  compiles to the same code as `parse` instead of skipping validation
-  (`specs/jsonstring-union-encode.yaml`). Once `i["type"]==="user.renamed"`
-  matches, no other variant can, so the remaining checks are neither dispatch
-  nor (in the decode direction) wanted. They are load-bearing only for a
-  union whose members are told apart by shape rather than by a discriminant.
-- `fromJSONSchema({const: {...}})` builds an instance-tagged literal compared by
-  reference, so it rejects a structurally equal value — `S.parseOrThrow({bar:
-  "baz"}, S.fromJSONSchema({const: {bar: "baz"}}))` fails with `Expected
-  { bar: "baz"; }, received invalid { bar: "baz"; }`. `S.literal({bar: "baz"})`
-  builds a structural object schema instead and compares deeply, which is the
-  behavior the document means. Found by running fast-json-stringify's benchmark
-  suite (`pnpm --filter=sury bench:fjs`), where it's the one case Sury can't
-  serialize.
+- Trusted union decode can leave a dead `let` behind: `valGet` builds a
+  grandchild's inline string eagerly (`` `${parent.v()}${pathAppend}` ``,
+  `composites.ts`), materializing the parent var even when the passthrough
+  case never uses the child — `{let v0=i["VAL"];break}` in
+  `S_union_test.res`'s issue-101 golden. Eliminating it means making
+  field-val inline strings lazy, a cross-cutting builder change.
 - `fromJSONSchema` on `{type: "string", format: "unsafe"}` (a fast-json-stringify
   extension meaning "skip escaping") produces a schema whose jsonString encode
   treats the value as JSON text and re-parses it, so a string containing quotes

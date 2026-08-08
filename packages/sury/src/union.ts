@@ -25,6 +25,7 @@ import {
   getOrRethrow,
   immutableEmptyArray,
   immutableEmptyObject,
+  inlinedValueFromString,
   inputExpression,
   type Internal,
   isLiteral,
@@ -60,6 +61,7 @@ import {
   _notVar,
   _var,
   B_embed,
+  B_inlineConst,
   B_invalidOperation,
   B_makeInvalidInputDetails,
   B_markOutput,
@@ -1064,7 +1066,8 @@ const unionEmit = (
   input: Val,
   self: Internal,
   plan: UnionGroup[],
-  toPerCase: Internal | undefined
+  toPerCase: Internal | undefined,
+  trustedSelf?: boolean
 ): Val => {
   const initialInline = input.i;
   let output = B_refine(input);
@@ -1083,6 +1086,27 @@ const unionEmit = (
     r: () => rethrow || (rethrow = B_embed(input, getOrRethrow)),
     s: () => expected || (expected = B_embed(input, self)),
   };
+  // Trusting a case's discriminant requires it to actually discriminate:
+  // unique among every member's (two ReScript variants can share their first
+  // literal field, e.g. `TAG: "Connective"`, and only differ on a later one),
+  // with no same-typed member lacking its own — such a member can own values
+  // the discriminant check would misclaim from it.
+  const unionDTrusted = (member: UnionMember): boolean => {
+    const d = member.d!;
+    for (const group of plan) {
+      for (const m of group.a) {
+        if (m === member) continue;
+        if (
+          m.d !== U
+            ? m.d[0] === d[0] && unionLiteralEqual(m.d[1], d[1])
+            : m.k === member.k
+        ) {
+          return false;
+        }
+      }
+    }
+    return true;
+  };
   const compile = (
     member: UnionMember,
     source: Val,
@@ -1094,6 +1118,25 @@ const unionEmit = (
     caseInput.t = source.t;
     caseInput.io = false;
     caseInput.e = member.s;
+    // Trusted source + a field discriminant to dispatch on: the case converts
+    // from its own variant instead of re-validating from unknown — what makes
+    // `decode` skip member validation the way a typed object does. Restricted
+    // to field-discriminated members (a literal or scalar member's validation
+    // check IS its dispatch condition) that can't fall through (a falling
+    // member is re-dispatched by its body failing, which a trusted body never
+    // does). The discriminant equality, which trusted compilation no longer
+    // emits as a hoisted check, is added to the dispatch condition below.
+    const trustedD =
+      trustedSelf &&
+      member.p === 1 &&
+      !(member.f & unionMemberFalls) &&
+      member.d![0] !== "" &&
+      unionDTrusted(member)
+        ? member.d
+        : U;
+    if (trustedD !== U) {
+      caseInput.s = member.s;
+    }
     let caseOut: Val;
     const options = input.g.o;
     input.g.o |= flagUnionTransformContext;
@@ -1129,6 +1172,16 @@ const unionEmit = (
       if (async || caseOut.i !== itemVar) {
         body += `${itemVar}=${async && awaitAsync ? "await " : ""}${caseOut.i}`;
       }
+    }
+    if (trustedD !== U) {
+      const dSchema = ((member.s.properties || member.s.items) as Record<
+        string,
+        Internal
+      >)[trustedD[0]]!;
+      const dCond = `${source.v()}[${inlinedValueFromString(
+        trustedD[0]
+      )}]===${B_inlineConst(caseInput, dSchema)}`;
+      cond.c = cond.c ? `${dCond}&&${cond.c}` : dCond;
     }
     const flags =
       (body !== "" && input.g.t !== mark ? 1 : 0) |
@@ -1298,6 +1351,13 @@ export const unionDecoder: Builder = (input: Val) => {
   }
 
   const initialTagFlag = tagFlags[input.s.type]!;
+  // A source typed as this very union was already validated against it (the
+  // parse direction reaches here as `unknown`), so a case the discriminant
+  // selects can trust its variant's fields the way a typed object does —
+  // re-validating them is what made `decode` compile the same code as
+  // `parse`. The widening below still runs: dispatch needs the runtime
+  // narrows, since the value's variant is only known at runtime.
+  const trustedSelf = input.s === self;
   if (
     (initialTagFlag & tagFlagUnion) ||
     (input.s.encoder === U && (initialTagFlag & tagFlagRef))
@@ -1358,7 +1418,7 @@ export const unionDecoder: Builder = (input: Val) => {
 
   const analyzed = unionAnalyze(normalized, variants, source, nan);
   const plan = unionPlan(analyzed);
-  return unionEmit(input, self, plan, toPerCase);
+  return unionEmit(input, self, plan, toPerCase, trustedSelf);
 };
 
 // Calls each source refiner at most once so its predicate is embedded once and

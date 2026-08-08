@@ -119,10 +119,10 @@ const cases: Case[] = [];
   const data = {
     events: Array.from({ length: 50 }, (_, i) =>
       i % 3 === 0
-        ? { type: "click", x: i, y: i * 2 }
+        ? ({ type: "click", x: i, y: i * 2 } as const)
         : i % 3 === 1
-          ? { type: "view", path: `/page/${i}` }
-          : { type: "error", message: `boom ${i}`, code: 500 },
+          ? ({ type: "view", path: `/page/${i}` } as const)
+          : ({ type: "error", message: `boom ${i}`, code: 500 } as const),
     ),
   };
   const fj = fastJson({

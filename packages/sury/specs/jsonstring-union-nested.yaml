@@ -33,7 +33,7 @@ operations:
         input: '"{\"t\":\"b\"}"'
         output: '{ t: "b" }'
   encode:
-    expression: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)&&i["t"]==="a"){let v0=i["inner"],v2=i["note"];typeof v0==="object"&&v0&&!Array.isArray(v0)||e[1](v0);let v1=v0["id"];typeof v1==="bigint"||e[0](v1);(typeof v2==="string"||v2===void 0)||e[2](v2);let v3="\"t\":\"a\",\"inner\":{\"id\":\""+v1+"\"}";if(v2!==void 0){v3+=",\"note\":"+e[3](v2)}i="{"+v3+"}";break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i["t"]==="b"){i="{\"t\":\"b\"}";break}e[4](i)}return i}
+    expression: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)&&i["t"]==="a"){let v0=i["inner"],v1=i["note"];let v2="\"t\":\"a\",\"inner\":{\"id\":\""+v0["id"]+"\"}";if(v1!==void 0){v2+=",\"note\":"+e[0](v1)}i="{"+v2+"}";break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i["t"]==="b"){i="{\"t\":\"b\"}";break}e[1](i)}return i}
     examples:
       with-note:
         input: '{ t: "a", inner: { id: 7n }, note: "hi" }'

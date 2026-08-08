@@ -113,24 +113,20 @@ This is why **Sury** will most likely outperform not only other libraries, but a
 
 ### JSON serialization faster than `JSON.stringify`
 
-The same `eventSchema` encodes back out — `S.encoder(schema, S.jsonString)` compiles it into a dedicated JSON string encoder, no second definition needed:
+The same `eventSchema` encodes back out — no second definition:
 
 ```ts
 S.encoder(eventSchema, S.jsonString)(event);
 // => '{"type":"user.renamed","id":"42","name":"Dmitry"}'
 ```
 
-There's no intermediate object and no `JSON.stringify` — everything the schema already knows is baked into the text:
+There's no intermediate object and no `JSON.stringify` — the discriminant picks a branch and the JSON text is baked in:
 
 ```js
 (i) => {
   for (;;) {
     if (typeof i === "object" && i && i["type"] === "user.renamed") {
-      let v1 = i["id"],
-        v2 = i["name"];
-      typeof v1 === "bigint" || e[1](v1);
-      typeof v2 === "string" || e[2](v2);
-      i = '{"type":"user.renamed","id":"' + v1 + '","name":' + e[3](v2) + "}";
+      i = '{"type":"user.renamed","id":"' + i["id"] + '","name":' + e[0](i["name"]) + "}";
       break;
     }
     // …one branch per variant
@@ -139,26 +135,20 @@ There's no intermediate object and no `JSON.stringify` — everything the schema
 };
 ```
 
-Types `JSON.stringify` refuses are ordinary fields, and the same schema reads them back:
+Types `JSON.stringify` refuses are ordinary fields, values it silently corrupts throw, and the same schema reads it all back:
 
 ```ts
-const event = S.schema({ id: S.bigint, payload: S.uint8Array, at: S.date });
+const event = S.schema({ id: S.bigint, payload: S.uint8Array, at: S.date, price: S.number });
+const encode = S.encoder(event, S.jsonString);
 
-S.encoder(event, S.jsonString)({ id: 9007199254740993n, payload: bytes, at: new Date() });
-// => '{"id":"9007199254740993","payload":"…","at":"2026-01-15T10:30:00.000Z"}'
+encode({ id: 9007199254740993n, payload: bytes, at: new Date(), price: 9.99 });
+// => '{"id":"9007199254740993","payload":"…","at":"2026-01-15T10:30:00.000Z","price":9.99}'
+
+encode({ id: 1n, payload: bytes, at: new Date(), price: Infinity });
+// => throws S.Error: Failed at ["price"] — JSON.stringify writes '{"price":null}'
 
 S.decoder(S.jsonString, event)(json);
-// => { id: 9007199254740993n, payload: Uint8Array, at: Date }
-```
-
-And the values it silently corrupts are caught instead — JSON has no `Infinity`, so **Sury** raises where `JSON.stringify` quietly writes `null`:
-
-```ts
-S.encoder(S.schema({ price: S.number }), S.jsonString)({ price: Infinity });
-// => throws S.Error: Failed at ["price"]: Expected JSON string, received Infinity
-
-JSON.stringify({ price: Infinity });
-// => '{"price":null}'
+// => { id: 9007199254740993n, payload: Uint8Array, at: Date, price: 9.99 }
 ```
 
 | Encode to JSON string                        | `JSON.stringify` | fast-json-stringify | **Sury**    |
