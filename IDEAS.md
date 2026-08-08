@@ -4,6 +4,71 @@
 
 ### ideas
 
+- Bytes on the wire: make `S.uint8Array` encode as base64, and give the text
+  conversion its own name. Today `S.uint8Array`'s string codec runs
+  `TextEncoder`/`TextDecoder`, so any byte outside ASCII is silently destroyed —
+  `S.encoder(S.schema({payload: S.uint8Array}), S.jsonString)` on
+  `[137, 80, 78, 71]` (a PNG magic number) emits `"�PNG"`, which decodes back as
+  `[239, 191, 189, 80, 78, 71]`, with no error at either end. The file's own
+  first line already promises the intended contract ("a base64 string on the
+  JSON side, bytes on ours"); the implementation just never matched it. The type
+  can't say whether bytes are text or opaque, so the default has to be the total
+  conversion — guessing base64 when the user meant text is instantly visible,
+  guessing text when they meant binary corrupts data nobody re-reads.
+  - `S.uint8Array` <-> string becomes base64. Feature-detect
+    `Uint8Array.prototype.toBase64` / `Uint8Array.fromBase64` (TC39 stage 3;
+    Bun has it, Node 22 does not) once at module init and embed the chosen
+    helper, so generated code stays a single `e[N](i)` call with no per-schema
+    branch. The fallback (`btoa`/`atob` over a latin1 bridge, or `Buffer`)
+    allocates an intermediate string per value where the native path doesn't —
+    worth a `scenarios.yaml` entry before byte fields appear in a benchmark.
+  - Add `S.base64`, a string schema carrying the encoding, so the wire format is
+    named on the wire side. It gets JSON Schema both ways:
+    `{type: "string", contentEncoding: "base64"}` out of `toJSONSchema` and back
+    through `fromJSONSchema`. `contentEncoding` is already in the keyword set
+    (`src/types/jsonschema.d.ts`, `jsonschema.ts`, `JSONSchema.res`), and
+    `toJSONSchema(S.uint8Array)` currently throws `Expected JSON, received
+    Uint8Array` — so this closes a gap that exists whichever encoding wins.
+  - Add `S.utf8` for bytes that really are text, converting against
+    `S.uint8Array` via `TextEncoder`/`TextDecoder` — with
+    `new TextDecoder("utf-8", {fatal: true})`, so invalid bytes throw instead of
+    becoming U+FFFD. An error is recoverable; a replacement character isn't.
+    That flag alone is the minimum fix if the default is left as it is.
+  - Consider `base64url` too, but only as an explicit spelling — there is no
+    reliable signal for "this value is going into a URL", and inferring one is
+    the same class of guess that produced the current bug. The principled
+    exception is a container that genuinely owns a URL-safe context (a
+    query-string or path codec, the way `compactColumns` owns columns), which
+    could default its byte fields to it.
+  - Layering: `src/advanced/` is for schemas nothing else builds on, so if
+    `uint8Array` builds on `S.base64` the shared piece belongs in the core, not
+    beside it. Specs must round-trip non-ASCII bytes in both directions —
+    ASCII-only fixtures are exactly what hid this. Breaking for anyone relying
+    on text semantics, so it wants a CHANGELOG line; `tests/S_test.ts`'s
+    `S.decoder(S.string, S.uint8Array, S.jsonString)("data") === '"data"'`
+    becoming `'"ZGF0YQ=="'` is the whole behavior change in one assertion.
+- Trusted union decode can leave a dead `let` behind: `valGet` builds a
+  grandchild's inline string eagerly (`` `${parent.v()}${pathAppend}` ``,
+  `composites.ts`), materializing the parent var even when the passthrough
+  case never uses the child — `{let v0=i["VAL"];break}` in
+  `S_union_test.res`'s issue-101 golden. Eliminating it means making
+  field-val inline strings lazy, a cross-cutting builder change.
+- `fromJSONSchema` on `{type: "string", format: "unsafe"}` (a fast-json-stringify
+  extension meaning "skip escaping") produces a schema whose jsonString encode
+  treats the value as JSON text and re-parses it, so a string containing quotes
+  throws at runtime instead of being escaped. An unknown/unsupported `format`
+  should fall back to a plain string rather than change the conversion.
+- Follow a field's own forward chain before targeting `S.json`/`S.jsonString`.
+  An object field declared `S.uint8Array.with(S.to, S.string)` fails to encode
+  to `S.json` and `S.jsonString` with "Can't decode Uint8Array to JSON": the
+  field piece retargets the field's *input* schema at json instead of first
+  resolving the field's `.to` chain (Uint8Array -> string) and serializing its
+  output. The same chain works top-level (`S.decoder(S.uint8Array, S.string)`)
+  and wire-side-declared (`S.string.with(S.to, S.uint8Array)` + `S.encoder`).
+  Fix idea: in `jsonDecoderFn`'s object-field mapping and `fieldPiece`, when
+  `itemVal.s.to !== U`, parse the field's own chain first and retarget the
+  resolved output at json/jsonString — mirroring what `updateOutput`/
+  `perVariantTo` already does for union variants.
 - Add `promise` type and `S.promise` (instead of async flag internally)
 - Async output refiner runs on the Promise wrapper, not the resolved value.
   When a decoder result is async (e.g. a union with an async member) and the

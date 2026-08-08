@@ -332,33 +332,33 @@ export const Object_setAdditionalItems = (
   deep: boolean
 ): Internal => {
   const currentAdditionalItems = schema.additionalItems;
-  if (
+  const set =
     currentAdditionalItems !== U &&
     currentAdditionalItems !== additionalItems &&
-    typeof currentAdditionalItems !== objectTag
-  ) {
-    const mut = copySchema(schema);
-    mut.additionalItems = additionalItems;
-    if (deep) {
-      const items = schema.items;
-      if (items !== U) {
-        mut.items = items.map((s) => Object_setAdditionalItems(s, additionalItems, deep));
-      }
-
-      const properties = schema.properties;
-      if (properties !== U) {
-        mut.properties = Object.fromEntries(
-          Object.keys(properties).map((key) => [
-            key,
-            Object_setAdditionalItems(properties[key]!, additionalItems, deep),
-          ])
-        );
-      }
-    }
-    return mut;
-  } else {
+    typeof currentAdditionalItems !== objectTag;
+  // A deep pass still has to descend through a level that already carries the
+  // mode — a tuple is strict from the start, and its object items are not.
+  const items = deep ? schema.items : U;
+  const properties = deep ? schema.properties : U;
+  if (!set && items === U && properties === U) {
     return schema;
   }
+  const mut = copySchema(schema);
+  if (set) {
+    mut.additionalItems = additionalItems;
+  }
+  if (items !== U) {
+    mut.items = items.map((s) => Object_setAdditionalItems(s, additionalItems, deep));
+  }
+  if (properties !== U) {
+    mut.properties = Object.fromEntries(
+      Object.keys(properties).map((key) => [
+        key,
+        Object_setAdditionalItems(properties[key]!, additionalItems, deep),
+      ])
+    );
+  }
+  return mut;
 };
 
 // @__NO_SIDE_EFFECTS__

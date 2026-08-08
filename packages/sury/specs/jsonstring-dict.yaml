@@ -12,7 +12,7 @@ jsonSchema:
   output: '{ type: "string" }'
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);for(let v0 in i){try{let v1=i[v0];(typeof v1==="string"||v1===void 0)||e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}let v4="";for(let v3 in i){let v5=i[v3];if(v5!==void 0){v4+=(v4?",":"")+e[1](v3)+":"+e[1](v5)}}return "{"+v4+"}"}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v1="";for(let v0 in i){try{let v2=i[v0];(typeof v2==="string"||v2===void 0)||e[1](v2);if(v2!==void 0){v1+=(v1?",":"")+e[0](v0)+":"+e[0](v2)}}catch(v3){v3.path='["'+v0+'"]'+v3.path;throw v3}}return "{"+v1+"}"}
     examples:
       empty:
         input: "{}"

@@ -51,6 +51,7 @@ import {
   Metadata_Id_internal,
   Metadata_set,
   Option_getOr,
+  deepStrict,
   refine,
   refineInput,
   strict,
@@ -731,9 +732,18 @@ export const extendJSONSchema = (schema: Internal, jsonSchema: JSONSchemaT): Int
 // definitionToDefaultValue) are hoisted to module-scope functions —
 // same behavior, they close over nothing but module-level bindings.
 
-const primitiveToSchema = (primitive: unknown): Internal => {
-  return Literal_parse(primitive);
-}
+// `const`/`enum` values. An object or array goes through schemaFactory (what
+// `S.literal` is) so it becomes a structural schema whose fields are literals,
+// matching the document's meaning — a deep comparison. Literal_parse would
+// make it an instance literal compared by reference, which rejects every value
+// but the one the document object itself was built from.
+const primitiveToSchema = (primitive: unknown): Internal =>
+  primitive !== null && typeof primitive === "object"
+    ? // deepStrict because `const` is equality, not a shape: an object with an
+      // extra property is a different value, where a plain object schema would
+      // ignore the extra and accept it.
+      deepStrict(schemaFactory(primitive))
+    : Literal_parse(primitive);
 
 // draft-04 (and OpenAPI 3.0) make `exclusiveMinimum` a boolean that flips the
 // meaning of `minimum`; draft-06+ make it an independent numeric bound. `true`

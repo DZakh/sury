@@ -20,10 +20,14 @@ import {
   objectTag,
   pathConcat,
   pathFromInlinedLocation,
+  flagAsync,
   tagFlagArray,
+  tagFlagBoolean,
+  tagFlagNull,
   tagFlagObject,
   tagFlagRef,
   tagFlags,
+  tagFlagString,
   tagFlagUnknown,
   U,
   undefinedTag,
@@ -69,6 +73,62 @@ import { unionFactory } from "./union";
 // Narrows the dict-value-schema-or-mode union down to the schema case.
 const isItemSchema = (x: AdditionalItems | undefined): x is Internal =>
   x !== U && typeof x !== "string";
+
+// A `.to` continuation into non-pretty jsonString serializes dynamic items in
+// its own loop (jsonStringAggregate in advanced/json.ts) and re-parses each
+// item from unknown when the incoming val carries `uv` — so the validation
+// loop here would walk the container a second time (and rebuild transformed
+// items) for nothing. Skip it and hand the container over unvalidated. Value
+// types the aggregate serializes via native JSON.stringify (its fallback:
+// bare strings/booleans/null) must stay validated here — the aggregate
+// mirrors that by never taking the fallback on a `uv` val.
+const B_fuseIntoJsonString = (
+  input: Val,
+  expectedSchema: Internal,
+  item: Internal,
+  isArr: boolean,
+): Val | undefined => {
+  const to = expectedSchema.to;
+  if (
+    // Only an unknown-typed source has validation pending — a typed source
+    // (decode direction) has nothing to fuse, and marking it would make the
+    // aggregate re-validate trusted input.
+    input.s.additionalItems === unknown &&
+    to !== U &&
+    to.format === "json" &&
+    !to.space &&
+    !flagUnsafeHas(input.g.o, flagAsync) &&
+    (isArr ||
+      !(
+        item.to === U &&
+        flagUnsafeHas(
+          tagFlags[item.type]!,
+          (tagFlagString | tagFlagBoolean) | tagFlagNull,
+        )
+      ))
+  ) {
+    const marked = copySchema(expectedSchema);
+    marked.uv = true;
+    return B_refine(input, marked);
+  }
+  return U;
+};
+
+// The wire form of a nested bare json-format string is an escaped string
+// value, not raw JSON text (see fieldPiece in advanced/json.ts). So a
+// JSON-sourced item (a JSON.parse result typed `json`) converting to one must
+// validate the string and pass it through — narrowing the source to `unknown`
+// routes it to jsonString's own decoder instead of json's serialize encoder,
+// which would re-stringify and double-wrap on encode.
+const B_narrowJsonSourcedJsonString = (itemInput: Val): void => {
+  if (
+    itemInput.s.name === jsonName &&
+    itemInput.e.format === "json" &&
+    itemInput.e.to === U
+  ) {
+    itemInput.s = unknown;
+  }
+};
 
 export const makeObjectVal = (prev: Val, schema: Internal): Val => {
   // Canonical Val field order (see B_operationArg in builder.ts).
@@ -243,6 +303,12 @@ export const arrayDecoder = (unknownInput: Val): Val => {
     const itemSchema = expectedAdditionalItems;
     if (itemSchema === unknown) {
       output = input;
+    } else if (
+      expectedLength === 0 &&
+      (output = B_fuseIntoJsonString(input, expectedSchema, itemSchema, true)!) !== U
+    ) {
+      // Plain-array fusion only: fixed tuple slots are read by the aggregate
+      // outside its dynamic loop, so they must stay validated here.
     } else {
       const inputVar = input.v();
       const iteratorVar = B_varWithoutAllocation(input.g);
@@ -299,6 +365,7 @@ export const arrayDecoder = (unknownInput: Val): Val => {
       itemInput.e = schema;
       itemInput.io = false;
       itemInput.u = isUnion; // We want to control validation on the decoder side
+      B_narrowJsonSourcedJsonString(itemInput);
       const itemOutput = parse(itemInput);
 
       if (isUnion && isLiteral(schema)) {
@@ -391,10 +458,15 @@ export const objectDecoder = (unknownInput: Val): Val => {
   if (dictItem !== U && dictItem === unknown) {
     output = input;
   } else if (dictItem !== U && sourceIsDict) {
+    const fused = B_fuseIntoJsonString(input, expectedSchema, dictItem, false);
+    if (fused !== U) {
+      return B_markOutput(fused, input);
+    }
     const inputVar = input.v();
     const keyVar = B_varWithoutAllocation(input.g);
     const raiseCountBefore = input.g.t;
     const itemInput = B_dynamicScope(input, keyVar);
+    B_narrowJsonSourcedJsonString(itemInput);
     const itemOutput = parseDynamic(itemInput);
 
     const hasTransform = itemOutput.t!;
@@ -442,6 +514,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
       itemInput.e = itemSchema;
       itemInput.io = false;
       itemInput.u = isUnion;
+      B_narrowJsonSourcedJsonString(itemInput);
       B_addObjectField(objectVal, key, parse(itemInput));
     }
     output = completeObjectVal(objectVal);
@@ -493,6 +566,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
       if (isJsonParent && schema.type === anyOfTag && schema.has![undefinedTag]) {
         itemInput.i = `(${itemInput.i}??null)`;
       }
+      B_narrowJsonSourcedJsonString(itemInput);
 
       const itemOutput = parse(itemInput);
 
