@@ -4,8 +4,9 @@
 // a consumer would download by accident.
 
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { describe, expect, test } from "vitest";
@@ -34,6 +35,9 @@ const FILES = [
   "src/S.res.mjs",
   "src/StandardSchema.res",
   "src/StandardSchema.res.mjs",
+  "src/types/json.d.ts",
+  "src/types/jsonschema.d.ts",
+  "src/types/standard.d.ts",
 ];
 
 // jsr.json configures the JSR publish; it isn't part of the npm tarball.
@@ -74,10 +78,10 @@ const prose = (markdown: string): string => {
 // URL scheme (`https:`, `mailto:`) or a title after the path.
 const RELATIVE_LINK = /]\((?!\w+:)([^)#\s]+)[^)]*\)/g;
 
-// `pnpm test` doesn't run the packer, so these only mean anything after a
-// `pnpm build`. Skipping is fine locally, but in CI a missing artifacts/ means
-// the build step was dropped or reordered — and a silent skip here would
-// retire this whole guard without anyone noticing.
+// `pnpm test` packs first, so artifacts/ is there for the normal run. The skip
+// covers a bare `vitest run` — but in CI a missing artifacts/ means the build
+// step was dropped or reordered, and a silent skip there would retire this
+// whole guard without anyone noticing.
 if (process.env.CI && !existsSync(artifactsPath)) {
   throw new Error("artifacts/ is missing in CI — run `pnpm build` before the tests");
 }
@@ -93,6 +97,32 @@ const requireCjsEntry = (): any =>
 // is a file the tarball must carry.
 const exportTargets = (entry: unknown): string[] =>
   typeof entry === "string" ? [entry] : Object.values(entry as object).flatMap(exportTargets);
+
+const DECLARATION =
+  /^export\s+(?:declare\s+)?(?:abstract\s+)?(?:type|interface|class|const|let|var|function|namespace|enum)\s+([A-Za-z_$][\w$]*)/gm;
+const REEXPORT = /^export\s+\*\s+from\s+["'](\.[^"']+)["']/gm;
+
+// Every type name the entry publishes, following `export * from` — a name is no
+// less public for being declared in a module the entry only re-exports, and
+// scanning index.d.ts alone would quietly stop checking every type that moves
+// out of it. Paths are the TS convention of importing a `.js` that resolves to
+// the `.d.ts` beside it.
+const declaredTypeNames = (entry: string): string[] => {
+  const names: string[] = [];
+  const queue = [entry];
+  const seen = new Set<string>();
+  while (queue.length) {
+    const file = queue.shift()!;
+    if (seen.has(file)) continue;
+    seen.add(file);
+    const source = read(file);
+    for (const [, name] of source.matchAll(DECLARATION)) names.push(name!);
+    for (const [, target] of source.matchAll(REEXPORT)) {
+      queue.push(path.join(path.dirname(file), target!.replace(/\.js$/, ".d.ts")));
+    }
+  }
+  return names;
+};
 
 describeArtifact("artifact", () => {
   test("contains exactly the files it ships", () => {
@@ -110,6 +140,44 @@ describeArtifact("artifact", () => {
     });
     const packed = JSON.parse(output)[0].files.map((f: { path: string }) => f.path);
     expect(packed.sort()).toEqual(PUBLISHED_FILES);
+  });
+
+  // A bare `Blob`/`File` in index.d.ts once made the whole package fail to
+  // typecheck for a consumer whose tsconfig has neither lib.dom nor
+  // @types/node — including consumers who never touch those schemas. The
+  // failure is a property of the consumer's compiler options, so no spec can
+  // express it; this compiles a minimal consumer with the globals withheld.
+  test("declarations compile without lib.dom or @types/node", () => {
+    const tscBin = createRequire(import.meta.url).resolve("typescript/bin/tsc");
+    // Outside artifacts/, whose exact contents another test asserts.
+    const dir = mkdtempSync(path.join(tmpdir(), "sury-domless-"));
+    writeFileSync(
+      path.join(dir, "tsconfig.json"),
+      JSON.stringify({
+        compilerOptions: {
+          lib: ["ES2022"],
+          types: [],
+          moduleResolution: "bundler",
+          module: "esnext",
+          target: "es2022",
+          strict: true,
+          noEmit: true,
+          baseUrl: dir,
+          paths: { sury: [path.join(artifactsPath, "index.d.ts")] },
+        },
+        files: ["consumer.ts"],
+      })
+    );
+    writeFileSync(
+      path.join(dir, "consumer.ts"),
+      `import * as S from "sury";\nexport const s = S.string;\nexport const f = S.file.with(S.minSize, 3);\n`
+    );
+    expect(() =>
+      execFileSync(process.execPath, [tscBin, "-p", dir], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+      })
+    ).not.toThrow();
   });
 
   test("ships no TypeScript beyond the declarations", () => {
@@ -153,10 +221,8 @@ describeArtifact("artifact", () => {
   // the samples are exactly where stale API names live.
   test("the JS docs name only API that exists", () => {
     const api = new Set(Object.keys(requireCjsEntry()));
-    for (const [, name] of read("index.d.ts").matchAll(
-      /^export\s+(?:declare\s+)?(?:abstract\s+)?(?:type|interface|class|const|let|var|function|namespace|enum)\s+([A-Za-z_$][\w$]*)/gm
-    )) {
-      api.add(name!);
+    for (const name of declaredTypeNames("index.d.ts")) {
+      api.add(name);
     }
     const unknown = new Set<string>();
     for (const file of ["README.md", "docs/js-usage.md"]) {

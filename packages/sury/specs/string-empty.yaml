@@ -1,11 +1,15 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: S.string.with(S.empty)
-  input: string
-  output: string
-  instantiations: 534
+  schema: S.string.with(S.length, 0)
+  input: '""'
+  output: '""'
+  instantiations: 5413
 vs:
-  zod: z.string().length(0)
+  zod:
+    schema: z.string().length(0)
+    divergence: '`S.empty` pins the Sury type to exactly `""` where Zod keeps the unbounded `string`.'
+    input: string
+    output: string
 jsonSchema:
   input: '{ type: "string", minLength: 0, maxLength: 0 }'
   output: '{ type: "string", minLength: 0, maxLength: 0 }'

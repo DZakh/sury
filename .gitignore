@@ -19,3 +19,4 @@ packages/json-schema-test-suite/.suite
 packages/spec/.bench-cache
 spec-perf.txt
 spec-perf-comment.md
+packages/sury/src/S.mjs

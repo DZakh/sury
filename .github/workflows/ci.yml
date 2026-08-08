@@ -27,6 +27,16 @@ jobs:
       - run: pnpm build
         working-directory: packages/sury
 
+      # The *.res.mjs beside each *.res are compiled output, checked in because
+      # they ship in the published package. Every job that needs them rebuilds
+      # them first, so a commit that forgot to regenerate passes the whole suite
+      # while the file in git says something else — the drift is only ever read
+      # by a consumer installing from npm. The build above just regenerated
+      # them; anything that moved was stale in the commit.
+      - name: Compiled ReScript matches its source
+        run: ../../scripts/assert-no-drift.sh '*.res.mjs'
+        working-directory: packages/sury
+
       - run: pnpm coverage
         working-directory: packages/sury
 
@@ -384,4 +394,12 @@ jobs:
         working-directory: packages/e2e
 
       - run: pnpm rescript && pnpm test
+        working-directory: packages/e2e
+
+      # Same guard as the sury job, for the ppx-generated output. This one is
+      # never published, but it is the only readable record of what the ppx
+      # emits, and the step above regenerates it before asserting on it — so a
+      # stale commit here is invisible in every other signal.
+      - name: Compiled ReScript matches its source
+        run: ../../scripts/assert-no-drift.sh '*.res.mjs'
         working-directory: packages/e2e

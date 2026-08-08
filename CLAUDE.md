@@ -18,14 +18,22 @@ Every change under `packages/sury/src` goes through it. Specs snapshot generated
 code, bundle size and type-cost; the printed metric summary is the deliverable.
 Never hand-write a golden.
 
-Findings from a bug report or review go into a spec's `examples`, never into a
-test file or a commit message.
+**Every issue found — bug report, review finding, or one you hit yourself —
+lands as a spec that reproduces it, and stays as the regression test.** No spec,
+not fixed. Add `examples` to the spec that covers the schema, or a new
+`specs/<id>.yaml` when none does. A test file is for what the format genuinely
+can't express (a packaging or tsconfig-level failure); say so in the commit.
+Never a commit message alone.
+
+Specs carry no prose — the id is the explanation, and a comment is allowed only
+as `FIXME:` marking behavior still to fix. Delete the FIXME when it stops being
+true.
 
 ## Layering
 
 ```
 base → builder → primitives → parse → union → composites → factory
-     → modifiers → refinements → operations → advanced/* → jsapi → jsonschema
+     → modifiers → refinements → operations → advanced/* → jsonschema → entry
 ```
 
 - Only type-only imports may point "up"; `operations → jsonschema` is the one
@@ -34,9 +42,13 @@ base → builder → primitives → parse → union → composites → factory
   name lives there rather than with its schema.
 - `src/advanced/` is one file per schema nothing else builds on; a schema other
   modules build on stays in the core.
-- `src/entry.ts` is the single public entry. Add a `$res_*` export *only* for an
-  API with no public-JS equivalent; where ReScript differs only in argument
-  shape, bind the public export in `S.res` and adapt there.
+- `src/entry.ts` is the single public entry, and the only module allowed to both
+  re-export and declare: a public name that exists purely to adapt a core
+  primitive to its documented argument shape is declared there, since nothing
+  else may import it. Anything a second module needs belongs in the core.
+- Add a `$`-prefixed export *only* for an API with no public-JS equivalent;
+  where ReScript differs only in argument shape, bind the public export in
+  `S.res` and adapt there.
 - `S.res` is the only ReScript module, and reaches the runtime through the
   package's own `"."` export so both languages share one instance.
 
@@ -62,14 +74,36 @@ base → builder → primitives → parse → union → composites → factory
   code you're only editing.
 - An invariant that binds *another* module goes on the definition both sides
   reach, so the person about to break it is looking at it.
-- Repo-wide, not just `packages/spec`.
+- Repo-wide, not just `packages/sury`.
+- The files in `artifact_test.ts`'s `FILES` ship — they land in a consumer's
+  `node_modules` and editor hover. Comments there answer what the API does; a
+  rule for whoever maintains it goes where only we read it — this file, or the
+  test that enforces it.
+
+## JSON Schema types
+
+The dialect interfaces in `src/types/jsonschema.d.ts` are duplicated on purpose:
+they mirror frozen specs, and a flat interface is what makes a hover, completion
+and error name the dialect instead of expanding an intersection. Don't collapse
+them into `extends`, `Omit` or mapped types.
+
+`src/types/json.d.ts` holds `JSON` and the `FromJSONSchema` inference engine. Its
+`Flatten` duplicates `index.d.ts`'s on purpose — a non-exported type can't cross
+a file, and exporting one would add `S.Flatten` to the public API. The engine's
+dispatch order mirrors the runtime chain in `src/jsonschema.ts` and they move
+together.
+
+Each must stay assignable to the wide `JSONSchema` — that is what lets a
+`toJSONSchema` result feed `fromJSONSchema` or `extendJSONSchema` uncast — so a
+keyword added to one belongs on `JSONSchema` too, and in the other two spellings
+of the keyword set (`JSONSchemaT` in `src/jsonschema.ts`, `JSONSchema.res`).
 
 ## Tree-shaking
 
 - Every public pure factory carries `// @__NO_SIDE_EFFECTS__` on the line above
   its declaration — except exports whose point *is* the effect (`assert`, `is`,
   `safe`, `safeAsync`, `global`, `enableStandardJSONSchema`,
-  `$res_assertAsyncOrThrow`, `$res_setExnId`).
+  `$assertAsyncOrThrow`, `$setExnId`).
 - **Never publish a factory through an alias** (`export const object = schemaObject`):
   the annotation counts only on the declaration that *is* the function. Re-export
   instead — `export { schemaObject as object } from "./factory"`.

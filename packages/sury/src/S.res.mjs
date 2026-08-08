@@ -14,7 +14,7 @@ let Path = {
 
 let Exn = /* @__PURE__ */Primitive_exceptions.create("S.Exn");
 
-Sury.$res_setExnId(Exn);
+Sury.$setExnId(Exn);
 
 let none = 0;
 

@@ -17,7 +17,7 @@
   "workspaces": {
     "packages/sury": {
       "entry": [
-        // Public JS/TS API + `$res_*` exports consumed by S.res (ReScript) at
+        // Public JS/TS API + `$`-prefixed exports consumed by S.res (ReScript) at
         // runtime, not via TS imports — anchor them so they aren't flagged.
         "src/entry.ts",
         // Invoked through package.json scripts (build:entry / build).

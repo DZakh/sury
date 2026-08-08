@@ -55,7 +55,7 @@ test("stale golden (expression drifted from what the schema actually compiles to
     {
       "stderr": "✗ string
         goldens stale — run \`pnpm spec check string --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -11,7 +11,7 @@
+    @@ -13,7 +13,7 @@
         output: '{ type: "string" }'
       operations:
         parse:
@@ -63,7 +63,10 @@ test("stale golden (expression drifted from what the schema actually compiles to
     +     expression: i=>{typeof i==="string"||e[0](i);return i}
           examples:
             valid:
-              input: '"hello"'",
+              input: '"hello"'
+        ts.aliases["S.schema(S.string)"]: operations.parse.expression differs:
+    - i=>i /* stale */
+    + i=>{typeof i==="string"||e[0](i);return i}",
       "stdout": "",
     }
   `);
@@ -80,7 +83,7 @@ test("stale golden (recorded example output no longer matches live behavior)", a
     {
       "stderr": "✗ string
         goldens stale — run \`pnpm spec check string --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -15,7 +15,7 @@
+    @@ -17,7 +17,7 @@
           examples:
             valid:
               input: '"hello"'
@@ -187,7 +190,7 @@ test("not canonical (on-disk text doesn't match the canonical form)", async () =
     {
       "stderr": "✗ string
         not canonical — run \`pnpm spec format string\` (or \`pnpm spec check string --write\`, which also refreshes goldens):
-    @@ -4,7 +4,8 @@
+    @@ -6,7 +6,8 @@
         input: string
         output: string
         instantiations: 254
@@ -254,12 +257,12 @@ test("identity claimed but the operation doesn't actually compile to identity", 
         operations.decode: marked \`identity\` but does not compile to identity — use a full op block with examples
         operations.encode: marked \`identity\` but does not compile to identity — use a full op block with examples
         goldens stale — resolve the identity mismatch above first, then \`pnpm spec check string --write\` can fix it (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -3,28 +3,28 @@
-        schema: S.string.with(S.minLength, 3)
+    @@ -5,28 +5,28 @@
+          - S.schema(S.string)
         input: string
         output: string
     -   instantiations: 254
-    +   instantiations: 5167
+    +   instantiations: 5357
       vs:
         zod: z.string()
       jsonSchema:
@@ -305,7 +308,7 @@ test("full op block claimed but the operation actually compiles to identity", as
         operations.decode: no examples — a compiled op block must run at least one input (add a named entry with just \`input\`, then \`--write\` fills the result)
         operations.decode: compiles to identity — use \`identity\` instead of an expression + examples
         goldens stale — resolve the identity mismatch above first, then \`pnpm spec check string --write\` can fix it (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -26,7 +26,10 @@
+    @@ -28,7 +28,10 @@
               input: "null"
               error: Expected string, received null
         decode:
@@ -316,7 +319,8 @@ test("full op block claimed but the operation actually compiles to identity", as
     +       }
           examples: {}
         encode: identity
-    ",
+
+        ts.aliases["S.schema(S.string)"]: operations.decode compiles to identity on this alias but not on schema",
       "stdout": "",
     }
   `);
@@ -340,7 +344,7 @@ test("eq-to-parse claimed but the operation doesn't actually compile to the same
     -   instantiations: 254
     +   input: string
     +   output: string
-    +   instantiations: 5167
+    +   instantiations: 5357
       vs:
         zod: z.never()
       jsonSchema:
@@ -457,7 +461,7 @@ test("multiple simultaneous problems all get their own guiding message", async (
       "stderr": "✗ string
         ts.instantiations: invalid _skip reason "nonsense-reason"
         goldens stale — run \`pnpm spec check string --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -12,7 +12,7 @@
+    @@ -14,7 +14,7 @@
         output: '{ type: "string" }'
       operations:
         parse:
@@ -465,7 +469,10 @@ test("multiple simultaneous problems all get their own guiding message", async (
     +     expression: i=>{typeof i==="string"||e[0](i);return i}
           examples:
             valid:
-              input: '"hello"'",
+              input: '"hello"'
+        ts.aliases["S.schema(S.string)"]: operations.parse.expression differs:
+    - i=>i /* stale */
+    + i=>{typeof i==="string"||e[0](i);return i}",
       "stdout": "",
     }
   `);

@@ -1,9 +1,9 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
   schema: 'S.fromJSONSchema({ type: "string", format: "constructor" })'
-  input: JSON
-  output: JSON
-  instantiations: 274
+  input: string
+  output: string
+  instantiations: 386
 vs:
   zod:
     _skip: not-applicable

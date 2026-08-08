@@ -209,7 +209,7 @@ export const wrapExnToFailure = (exn: unknown): JsResult<never> => {
   }
 }
 
-export const js_safe = <TValue>(fn: () => TValue): JsResult<TValue> => {
+export const safe = <TValue>(fn: () => TValue): JsResult<TValue> => {
   try {
     return {
       success: true,
@@ -220,7 +220,7 @@ export const js_safe = <TValue>(fn: () => TValue): JsResult<TValue> => {
   }
 }
 
-export const js_safeAsync = <TValue>(fn: () => Promise<TValue>): Promise<JsResult<TValue>> => {
+export const safeAsync = <TValue>(fn: () => Promise<TValue>): Promise<JsResult<TValue>> => {
   try {
     return fn().then(
       (value): JsResult<TValue> => ({ success: true, value }),

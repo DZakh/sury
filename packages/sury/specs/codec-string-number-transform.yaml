@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.string.with(S.to, S.number, (string) => { const number = Number(string); if (Number.isNaN(number)) { throw new Error("Invalid number") } return number }, (number) => { if (number < 100) { throw new Error("Number is too small") } return number.toString() })
+  input: string
+  output: number
+  instantiations: 5135
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "string" }'
+  output: '{ type: "number" }'
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}
+    examples:
+      valid:
+        input: '"123"'
+        output: "123"
+      small:
+        input: '"80"'
+        output: "80"
+      user-error:
+        input: '"asdf"'
+        error: Invalid number
+  decode:
+    expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}
+    examples:
+      valid:
+        input: '"123"'
+        output: "123"
+  encode:
+    expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}
+    examples:
+      valid:
+        input: "123"
+        output: '"123"'
+      user-error-too-small:
+        input: "80"
+        error: Number is too small

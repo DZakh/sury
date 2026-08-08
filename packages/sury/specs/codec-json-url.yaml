@@ -3,7 +3,7 @@ ts:
   schema: S.json.with(S.to, S.url)
   input: JSON
   output: URL
-  instantiations: 5094
+  instantiations: 5105
 vs:
   zod:
     _skip: not-applicable
