@@ -191,6 +191,8 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<Type.Classify.object>,
       default?: Type.Classify.object,
+      minSize?: int,
+      maxSize?: int,
       errorMessage?: schemaErrorMessage,
     })
   | @as("array")
@@ -256,6 +258,8 @@ and schemaErrorMessage = {
   maxLength?: string,
   minItems?: string,
   maxItems?: string,
+  minSize?: string,
+  maxSize?: string,
   pattern?: string,
 }
 and meta<'value> = {
@@ -419,6 +423,12 @@ module Error = {
 @module("sury") external jsonString: t<string> = "jsonString"
 @module("sury") external jsonStringWithSpace: int => t<string> = "jsonStringWithSpace"
 @module("sury") external uint8Array: t<Uint8Array.t> = "uint8Array"
+// `Js.Blob.t`/`Js.File.t` rather than a pair of abstract types declared here:
+// the stdlib has no Blob or File module, and these two are the compiler's own
+// builtin abstract types — the ones untagged variants match on — so a value
+// from any other binding unifies with these.
+@module("sury") external blob: t<Js.Blob.t> = "blob"
+@module("sury") external file: t<Js.File.t> = "file"
 @module("sury") external isoDateTime: t<string> = "isoDateTime"
 @module("sury") external port: t<int> = "port"
 @module("sury") external email: t<string> = "email"
@@ -578,6 +588,10 @@ external multipleOf: (t<'value>, 'value, ~message: string=?) => t<'value> = "mul
 @module("sury") external maxLength: (t<'value>, int, ~message: string=?) => t<'value> = "maxLength"
 @module("sury") external length: (t<'value>, int, ~message: string=?) => t<'value> = "length"
 @module("sury") external nonEmpty: (t<'value>, ~message: string=?) => t<'value> = "nonEmpty"
+
+@module("sury") external minSize: (t<'value>, int, ~message: string=?) => t<'value> = "minSize"
+@module("sury") external maxSize: (t<'value>, int, ~message: string=?) => t<'value> = "maxSize"
+@module("sury") external size: (t<'value>, int, ~message: string=?) => t<'value> = "size"
 
 @module("sury")
 external pattern: (t<string>, RegExp.t, ~message: string=?) => t<string> = "pattern"

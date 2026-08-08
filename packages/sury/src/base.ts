@@ -227,6 +227,8 @@ export type SchemaErrorMessage = {
   maxLength?: string;
   minItems?: string;
   maxItems?: string;
+  minSize?: string;
+  maxSize?: string;
   pattern?: string;
 }
 
@@ -282,8 +284,8 @@ export type Internal = {
   // range in the fields below, so the values can't tell a caller's bound from
   // a format's — this can, and only the bound constructors ever set it.
   // 1 lower inclusive · 2 upper inclusive · 4 lower exclusive · 8 upper
-  // exclusive. A schema bounds either its value or its length, never both, so
-  // one pair of bits covers minimum/minLength/minItems alike.
+  // exclusive. A schema bounds exactly one of its value, its length or its
+  // size, so one pair of bits covers minimum/minLength/minItems/minSize alike.
   bounds?: number;
   minimum?: number | bigint;
   maximum?: number | bigint;
@@ -297,6 +299,10 @@ export type Internal = {
   maxLength?: number;
   minItems?: number;
   maxItems?: number;
+  // Bytes, for the binary instances. No JSON Schema keyword bounds a blob's
+  // size, so unlike the four above these don't reach the emit.
+  minSize?: number;
+  maxSize?: number;
   pattern?: RegExp;
   errorMessage?: SchemaErrorMessage;
   space?: number;

@@ -91,6 +91,7 @@ export { never_ as never } from "./parse";
 export { json, jsonString } from "./advanced/json";
 export { uint8Array } from "./advanced/uint8Array";
 export { date } from "./advanced/date";
+export { blob, file } from "./advanced/file";
 export {
   isoDateTime,
   port,
@@ -150,6 +151,9 @@ export {
   maxLength,
   length,
   nonEmpty,
+  minSize,
+  maxSize,
+  size,
 } from "./refinements";
 export {
   meta,

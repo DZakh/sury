@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.file.with(S.minSize, 0)
+  input: File
+  output: File
+  instantiations: 5165
+vs:
+  zod: z.file().min(0)
+jsonSchema:
+  input: Expected JSON, received File
+  output: Expected JSON, received File
+operations:
+  parse:
+    expression: i=>{i instanceof e[0]||e[1](i);return i}
+    examples:
+      empty:
+        input: new File([], "a.txt")
+        output: new File([], "a.txt")
+      non-empty:
+        input: new File(["ab"], "a.txt")
+        output: new File(["ab"], "a.txt")
+      wrong-type:
+        input: "null"
+        error: Expected File, received null
+  decode: identity
+  encode: identity
