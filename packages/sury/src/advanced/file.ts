@@ -5,23 +5,22 @@
 import { initSchema, instanceTag, type Internal, panic, U } from "../base";
 import { instanceDecoder } from "../parse";
 
-// A runtime without the global would otherwise leave `class` undefined, and
-// every reader of it — the rendering, the JSON Schema emit, `String(schema)` —
-// dereferences it for a `.name`. The stand-in keeps those answering, and the
-// decoder is what reports the real problem, once, when an operation is
-// compiled. It is never reached by an `instanceof`: the decoder panics first.
+// On a runtime that has no such global there is no schema to be had, so `class`
+// reports that instead of sitting there as `undefined` for its readers to
+// dereference. Every route into the schema goes through `class` — the decoder's
+// `instanceof`, the rendering and the JSON Schema emit via `.name`, and
+// `copySchema`'s `Object.assign` for `.with(…)` and `reverse` — so all of them
+// answer with this one sentence rather than a TypeError, or worse, a schema
+// that builds and fails later.
 //
-// Not a throwing getter in `class`'s place, which would read as the tidier fix:
-// `copySchema` builds every derived schema with `Object.assign`, so the throw
-// would land on `.with(…)`, on reverse, and on anything that serializes a
-// schema, turning "this can't compile here" into "touching this explodes".
-// `name` is the class's, so the rendering reads the same either way; the export
-// it belongs to is that lowercased.
-const unsupportIfMissing = (s: Internal, name: string): void => {
-  if (s.class === U) {
-    s.class = { name };
-    s.decoder = () => panic(`S.${name.toLowerCase()} is not supported in this runtime`);
-  }
+// Enumerable, so the `Object.assign` copy is one of the routes it covers.
+// `console.log` still works: `util.inspect` shows an accessor rather than
+// invoking it.
+const unsupported = (s: Internal, name: string): void => {
+  Object.defineProperty(s, "class", {
+    enumerable: true,
+    get: () => panic(`S.${name} is not supported in this runtime`),
+  });
 };
 
 // The global is read *inside* the initializer, not passed into it: a member
@@ -34,11 +33,11 @@ const unsupportIfMissing = (s: Internal, name: string): void => {
 export const blob: Internal = /* @__PURE__ */ initSchema(instanceTag, (s) => {
   s.class = globalThis.Blob;
   s.decoder = instanceDecoder;
-  unsupportIfMissing(s, "Blob");
+  if (s.class === U) unsupported(s, "blob");
 });
 
 export const file: Internal = /* @__PURE__ */ initSchema(instanceTag, (s) => {
   s.class = globalThis.File;
   s.decoder = instanceDecoder;
-  unsupportIfMissing(s, "File");
+  if (s.class === U) unsupported(s, "file");
 });

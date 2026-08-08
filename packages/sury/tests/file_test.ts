@@ -19,34 +19,36 @@ const withoutGlobal = (name: string, body: string): string =>
     { encoding: "utf8" }
   ).trim();
 
-test("a schema whose class the runtime lacks says so when it is compiled", () => {
-  // Not `i instanceof undefined`, which throws a TypeError naming neither the
-  // schema nor the reason, and not at import, which would punish a consumer
-  // who never touches these two.
-  expect(withoutGlobal("File", `try { S.parser(S.file) } catch (e) { console.log(e.message) }`)).toBe(
-    "[Sury] S.file is not supported in this runtime"
-  );
-  // A bound in front of it doesn't swallow the report.
+test("every route into a schema the runtime can't support says so", () => {
+  // `class` is the one thing all of them read — the decoder's `instanceof`,
+  // the rendering and the JSON Schema emit via `.name`, and `copySchema`'s
+  // `Object.assign` for `.with(…)` and `reverse`. Left undefined it produced a
+  // TypeError naming neither the schema nor the reason; a schema that built
+  // and failed later would be worse still.
+  const message = "[Sury] S.file is not supported in this runtime";
+  for (const route of [
+    `S.parser(S.file)`,
+    `S.file.with(S.minSize, 3)`,
+    `S.parser(S.reverse(S.file))`,
+    `S.inputExpression(S.file)`,
+    `String(S.file)`,
+    `S.toJSONSchema(S.file)`,
+    `S.parser(S.union([S.file, S.string]))`,
+  ]) {
+    expect(withoutGlobal("File", `try { ${route} } catch (e) { console.log(e.message) }`), route).toBe(
+      message
+    );
+  }
+  // `reverse` of a self-reversing schema is that schema, so it copies nothing
+  // and reads nothing — the report comes when the result is used, above.
+  expect(withoutGlobal("File", `console.log(S.reverse(S.file) === S.file)`)).toBe("true");
+  // Inspecting one is not using it — util.inspect reports the accessor rather
+  // than invoking it, so a `console.log` of a schema never explodes.
   expect(
-    withoutGlobal("File", `try { S.parser(S.file.with(S.minSize, 3)) } catch (e) { console.log(e.message) }`)
-  ).toBe("[Sury] S.file is not supported in this runtime");
-  // And the sibling that IS present still compiles.
+    withoutGlobal("File", `console.log((await import("node:util")).default.inspect(S.file).length > 0)`)
+  ).toBe("true");
+  // And the sibling the runtime does have is untouched.
   expect(withoutGlobal("File", `console.log(typeof S.parser(S.blob))`)).toBe("function");
-});
-
-test("a schema whose class the runtime lacks still introspects", () => {
-  // `class` gets a stand-in rather than being left undefined: every reader of
-  // it dereferences a `.name`, so without one these answered with a raw
-  // TypeError naming neither the schema nor the reason.
-  expect(withoutGlobal("File", `console.log(S.inputExpression(S.file))`)).toBe("File");
-  expect(withoutGlobal("File", `console.log(String(S.file))`)).toBe("Schema<File>");
-  expect(
-    withoutGlobal("File", `try { S.toJSONSchema(S.file) } catch (e) { console.log(e.message) }`)
-  ).toBe("Expected JSON, received File");
-  // Deriving a schema from it is a copy, not a compile, so it still works.
-  expect(withoutGlobal("File", `console.log(S.inputExpression(S.file.with(S.minSize, 3)))`)).toBe(
-    "File.size >= 3"
-  );
 });
 
 test("a file is a blob but a blob is not a file", () => {
