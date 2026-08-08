@@ -43,7 +43,7 @@ The API mirrors TypeScript types, so there's not much new syntax to learn.
 
 ### Discriminated unions, decoded straight from a JSON string
 
-Declare the union, and get parsing, narrowing, and encoding from one definition:
+Declare the union, and get parsing and narrowing from one definition:
 
 ```ts
 const eventSchema = S.union([
@@ -63,10 +63,6 @@ switch (event.type) {
     event.name; // string — TypeScript narrows it for you
     break;
 }
-
-// The same schema encodes back out, no second definition needed
-S.encoder(eventSchema, S.jsonString)(event);
-// => '{"type":"user.renamed","id":"42","name":"Dmitry"}'
 ```
 
 Note that you write `id: S.bigint` — the type you want to work with. A `bigint` can't exist in JSON, so **Sury** infers the `"42"` → `42n` coercion from the input side of the pipeline, in both directions. No `as const`, no coercion wrappers, no second schema for the wire format.
@@ -117,28 +113,49 @@ This is why **Sury** will most likely outperform not only other libraries, but a
 
 ### JSON serialization faster than `JSON.stringify`
 
-`S.encoder(schema, S.jsonString)` compiles your schema into a dedicated JSON string encoder, so responses and event payloads go straight from your objects to JSON text:
+The same `eventSchema` encodes back out — `S.encoder(schema, S.jsonString)` compiles it into a dedicated JSON string encoder, no second definition needed:
+
+```ts
+S.encoder(eventSchema, S.jsonString)(event);
+// => '{"type":"user.renamed","id":"42","name":"Dmitry"}'
+```
+
+There's no intermediate object and no `JSON.stringify` — everything the schema already knows is baked into the text:
+
+```js
+(i) => {
+  for (;;) {
+    if (typeof i === "object" && i && i["type"] === "user.renamed") {
+      let v1 = i["id"],
+        v2 = i["name"];
+      typeof v1 === "bigint" || e[1](v1);
+      typeof v2 === "string" || e[2](v2);
+      i = '{"type":"user.renamed","id":"' + v1 + '","name":' + e[3](v2) + "}";
+      break;
+    }
+    // …one branch per variant
+  }
+  return i;
+};
+```
+
+Types `JSON.stringify` refuses are ordinary fields, and the same schema reads them back:
 
 ```ts
 const event = S.schema({ id: S.bigint, payload: S.uint8Array, at: S.date });
 
-const toJson = S.encoder(event, S.jsonString);
-toJson({ id: 9007199254740993n, payload: bytes, at: new Date() });
-// '{"id":"9007199254740993","payload":"…","at":"2026-01-15T10:30:00.000Z"}'
-```
+S.encoder(event, S.jsonString)({ id: 9007199254740993n, payload: bytes, at: new Date() });
+// => '{"id":"9007199254740993","payload":"…","at":"2026-01-15T10:30:00.000Z"}'
 
-`JSON.stringify` throws on that `bigint`. Read it back with the same schema:
-
-```ts
 S.decoder(S.jsonString, event)(json);
-// { id: 9007199254740993n, payload: Uint8Array, at: Date }
+// => { id: 9007199254740993n, payload: Uint8Array, at: Date }
 ```
 
 | Encode to JSON string                        | `JSON.stringify` | fast-json-stringify | **Sury**    |
 | -------------------------------------------- | ---------------- | ------------------- | ----------- |
 | API response (user profile, 7 fields)        | 328 ns           | 256 ns              | **237 ns**  |
-| List endpoint (100 rows)                     | 8.62 µs          | 9.36 µs             | **8.59 µs** |
 | Event feed (50 tagged-union events)          | 4.17 µs          | 11.97 µs            | **2.99 µs** |
+| `bigint` id + binary payload + `Date`        | 896 ns           | 921 ns              | **836 ns**  |
 
 The union row is where compiling wins: fast-json-stringify resolves `anyOf` by running **Ajv** on every item, which is also why it ships 56.7 kB against **Sury**'s 15.8 kB (min + gzip, encoder included).
 
