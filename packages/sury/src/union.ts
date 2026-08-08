@@ -1037,6 +1037,24 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
   return plan;
 };
 
+// The source's own variant for a runtime tag, when the source is a
+// self-describing boundary (`$ref` + `$defs` resolving to a union — `S.json`):
+// a value that passed the tag narrow is known to conform to that variant.
+const unionBoundaryVariant = (
+  source: Internal,
+  tag: Tag
+): Internal | undefined => {
+  const defs = source["$defs"];
+  const ref = source["$ref"];
+  if (defs !== U && ref !== U) {
+    const resolved = defs[ref.slice(ref.lastIndexOf("/") + 1)];
+    if (resolved !== U && resolved !== source && resolved.anyOf !== U) {
+      return resolved.anyOf.find((v) => v.type === tag);
+    }
+  }
+  return U;
+};
+
 const unionEmit = (
   input: Val,
   self: Internal,
@@ -1137,6 +1155,20 @@ const unionEmit = (
     narrowInput.io = false;
     narrowInput.e = group.n!;
     const narrow = parse(narrowInput);
+    // The narrow proves the group's runtime tag, but its minimal schema
+    // forgets what the source guarantees about that tag's CONTENT — a `S.json`
+    // source's object is a dict of json whose fields still need converting (a
+    // bigint field arrives as its string form). Restore the source's own
+    // same-tag variant as the case input, so a structured case converts from
+    // it instead of validating the already-converted shape
+    // (specs/jsonstring-union-encode.yaml). Direct single-member cases keep
+    // `input.s` and never lose it.
+    if (tagFlags[group.n!.type]! & (tagFlagObject | tagFlagArray)) {
+      const sourceVariant = unionBoundaryVariant(input.s, group.n!.type);
+      if (sourceVariant !== U) {
+        narrow.s = sourceVariant;
+      }
+    }
     const inner: UnionCase[] = [];
     for (let j = 0; j < group.a.length; j++) {
       const c = compile(group.a[j]!, narrow, narrowInput);

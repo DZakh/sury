@@ -12,16 +12,6 @@
   matches, no other variant can, so the remaining checks are neither dispatch
   nor (in the decode direction) wanted. They are load-bearing only for a
   union whose members are told apart by shape rather than by a discriminant.
-- A union carrying a coerced field can't be encoded back through
-  `S.jsonString`: for
-  `S.union([S.schema({type: "user.created", id: S.bigint}), …])`, parse turns
-  `"42"` into `42n`, but the encode direction checks `typeof id === "bigint"`
-  against the value JSON.parse produced — a string — so nothing round-trips
-  (`Failed at ["id"]: Expected bigint, received "42"`, pinned in the same
-  spec). The union's per-variant path seems to lose the `.to` coercion the
-  object path keeps; `S.schema({id: S.bigint})` alone round-trips fine. This
-  also means README's headline `S.decoder(S.jsonString, eventSchema)` example
-  does not run as written. Pre-existing, not from the jsonString work.
 - `fromJSONSchema({const: {...}})` builds an instance-tagged literal compared by
   reference, so it rejects a structurally equal value — `S.parseOrThrow({bar:
   "baz"}, S.fromJSONSchema({const: {bar: "baz"}}))` fails with `Expected
