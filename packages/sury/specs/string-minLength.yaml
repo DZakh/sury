@@ -3,7 +3,7 @@ ts:
   schema: S.string.with(S.minLength, 2)
   input: string
   output: string
-  instantiations: 5167
+  instantiations: 5357
 vs:
   zod: z.string().min(2)
 jsonSchema:
@@ -28,13 +28,6 @@ operations:
       single-space:
         input: '" "'
         error: Expected string.length >= 2, received " "
-      # FIXME: a bound is the only refinement that rewrites the schema's type
-      # expression, so it is the only one that shows up when the *type* check
-      # is what failed. The same string carrying `S.pattern` or `S.refine`
-      # still reports `Expected string, received 1`. The statement isn't wrong
-      # — 1 is not a string of length >= 2 — but it points at the length when
-      # nothing got far enough to have one, and which refinement was applied
-      # shouldn't decide how a wrong-type failure reads.
       wrong-type:
         input: "1"
         error: Expected string.length >= 2, received 1

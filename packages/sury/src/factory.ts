@@ -182,9 +182,7 @@ function schemaNested(this: AdvancedObjectCtx & Record<string, unknown>, fieldNa
         const flattenedProperties = schema.properties;
         const to = schema.to;
         if (to) {
-          panic(
-            `Unsupported nested flatten for transformed object schema ${inputExpression(schema)}`
-          );
+          panic(`Can't flatten transformed ${inputExpression(schema)}`);
         }
         const flattenedKeys = Object.keys(flattenedProperties!);
         const result: Record<string, unknown> = {};

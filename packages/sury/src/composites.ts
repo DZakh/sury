@@ -21,6 +21,7 @@ import {
   isSchemaObject,
   jsonName,
   objectTag,
+  panic,
   pathConcat,
   pathFromInlinedLocation,
   tagFlagArray,
@@ -175,12 +176,9 @@ export const completeObjectVal = (objectVal: Val): Val => {
     }
   }
 }
-// Takes an already-built schema. Callers that construct a schema *during
-// module initialization* — the `S.json` singleton's own members — must use
-// this and not `array`: `~standard` is installed on the prototype by
-// operations.ts, so a schema built before that lands has no marker for
-// definitionToSchema to recognise and gets misread as an instance literal.
-// Decoders use it too, to skip a conversion that codegen would only redo.
+// `S.json` builds its members before operations.ts installs the `~standard`
+// marker, so `array` would misread them as instance literals — init-time and
+// codegen callers take this one.
 export const arrayFactory = (item: Internal): Internal => {
   const mut = baseSchema(arrayTag, !!item.sr);
   mut.additionalItems = item;
@@ -189,7 +187,7 @@ export const arrayFactory = (item: Internal): Internal => {
   return mut;
 }
 // @__NO_SIDE_EFFECTS__
-export const array = (item: unknown): Internal => arrayFactory(definitionToSchema(item));
+export const array = (item: unknown): Internal => arrayFactory(definitionToItem(item));
 export const arrayDecoder = (unknownInput: Val): Val => {
   const isUnion = unknownInput.u!;
   const expectedSchema = unknownInput.e;
@@ -560,8 +558,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
   return B_markOutput(output, input);
 }
 
-// Schema-taking flavor, subject to the same init-order constraint as
-// arrayFactory above.
+// Same init-order constraint as arrayFactory.
 export const dictFactory = (item: Internal): Internal => {
   const mut = baseSchema(objectTag, !!item.sr);
   mut.properties = immutableEmptyObject as Record<string, Internal>;
@@ -570,7 +567,14 @@ export const dictFactory = (item: Internal): Internal => {
   return mut;
 }
 // @__NO_SIDE_EFFECTS__
-export const dict = (item: unknown): Internal => dictFactory(definitionToSchema(item));
+export const dict = (item: unknown): Internal => dictFactory(definitionToItem(item));
+
+// undefined here is a forgotten argument far more often than a request for the
+// undefined literal, which S.schema still spells.
+export const definitionToItem = (definition: unknown): Internal =>
+  definition === U
+    ? panic("Missing schema. Use S.schema(undefined) for the literal")
+    : definitionToSchema(definition);
 
 export const definitionToSchema = (definition: unknown): Internal => {
   return traverseDefinition(definition, (node) => {
@@ -593,10 +597,11 @@ export const traverseDefinition = (
     } else {
       if (Array.isArray(definition)) {
         const node = definition as unknown[];
-        for (let idx = 0; idx < node.length; idx++) {
-          node[idx] = traverseDefinition(node[idx], onNode);
+        const length = node.length;
+        const items: Internal[] = new Array(length);
+        for (let idx = 0; idx < length; idx++) {
+          items[idx] = traverseDefinition(node[idx], onNode);
         }
-        const items = node as Internal[];
 
         const mut = baseSchema(arrayTag, false);
         mut.items = items;
@@ -620,13 +625,19 @@ export const traverseDefinition = (
           const node = definition as Record<string, unknown>;
           const fieldNames = Object.keys(node);
           const length = fieldNames.length;
+          // Clone rather than write back into the caller's object — a
+          // definition is theirs to keep using. Spread beats both `{}` (+36%)
+          // and Object.create(null) (+107%): it lands the fast shape in one
+          // step, and it copies an own `__proto__` key as an own key, so the
+          // assignments below can't reach the setter on Object.prototype.
+          const properties = { ...node } as Record<string, Internal>;
           for (let idx = 0; idx < length; idx++) {
             const location = fieldNames[idx]!;
-            node[location] = traverseDefinition(node[location], onNode);
+            properties[location] = traverseDefinition(node[location], onNode);
           }
           const mut = baseSchema(objectTag, false);
           mut.required = fieldNames;
-          mut.properties = node as Record<string, Internal>;
+          mut.properties = properties;
           mut.additionalItems = globalConfig.a;
           mut.decoder = objectDecoder;
           return mut;

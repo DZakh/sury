@@ -34,6 +34,9 @@ const FILES = [
   "src/S.res.mjs",
   "src/StandardSchema.res",
   "src/StandardSchema.res.mjs",
+  "src/types/json.d.ts",
+  "src/types/jsonschema.d.ts",
+  "src/types/standard.d.ts",
 ];
 
 // jsr.json configures the JSR publish; it isn't part of the npm tarball.
@@ -74,10 +77,10 @@ const prose = (markdown: string): string => {
 // URL scheme (`https:`, `mailto:`) or a title after the path.
 const RELATIVE_LINK = /]\((?!\w+:)([^)#\s]+)[^)]*\)/g;
 
-// `pnpm test` doesn't run the packer, so these only mean anything after a
-// `pnpm build`. Skipping is fine locally, but in CI a missing artifacts/ means
-// the build step was dropped or reordered — and a silent skip here would
-// retire this whole guard without anyone noticing.
+// `pnpm test` packs first, so artifacts/ is there for the normal run. The skip
+// covers a bare `vitest run` — but in CI a missing artifacts/ means the build
+// step was dropped or reordered, and a silent skip there would retire this
+// whole guard without anyone noticing.
 if (process.env.CI && !existsSync(artifactsPath)) {
   throw new Error("artifacts/ is missing in CI — run `pnpm build` before the tests");
 }
@@ -93,6 +96,32 @@ const requireCjsEntry = (): any =>
 // is a file the tarball must carry.
 const exportTargets = (entry: unknown): string[] =>
   typeof entry === "string" ? [entry] : Object.values(entry as object).flatMap(exportTargets);
+
+const DECLARATION =
+  /^export\s+(?:declare\s+)?(?:abstract\s+)?(?:type|interface|class|const|let|var|function|namespace|enum)\s+([A-Za-z_$][\w$]*)/gm;
+const REEXPORT = /^export\s+\*\s+from\s+["'](\.[^"']+)["']/gm;
+
+// Every type name the entry publishes, following `export * from` — a name is no
+// less public for being declared in a module the entry only re-exports, and
+// scanning index.d.ts alone would quietly stop checking every type that moves
+// out of it. Paths are the TS convention of importing a `.js` that resolves to
+// the `.d.ts` beside it.
+const declaredTypeNames = (entry: string): string[] => {
+  const names: string[] = [];
+  const queue = [entry];
+  const seen = new Set<string>();
+  while (queue.length) {
+    const file = queue.shift()!;
+    if (seen.has(file)) continue;
+    seen.add(file);
+    const source = read(file);
+    for (const [, name] of source.matchAll(DECLARATION)) names.push(name!);
+    for (const [, target] of source.matchAll(REEXPORT)) {
+      queue.push(path.join(path.dirname(file), target!.replace(/\.js$/, ".d.ts")));
+    }
+  }
+  return names;
+};
 
 describeArtifact("artifact", () => {
   test("contains exactly the files it ships", () => {
@@ -153,10 +182,8 @@ describeArtifact("artifact", () => {
   // the samples are exactly where stale API names live.
   test("the JS docs name only API that exists", () => {
     const api = new Set(Object.keys(requireCjsEntry()));
-    for (const [, name] of read("index.d.ts").matchAll(
-      /^export\s+(?:declare\s+)?(?:abstract\s+)?(?:type|interface|class|const|let|var|function|namespace|enum)\s+([A-Za-z_$][\w$]*)/gm
-    )) {
-      api.add(name!);
+    for (const name of declaredTypeNames("index.d.ts")) {
+      api.add(name);
     }
     const unknown = new Set<string>();
     for (const file of ["README.md", "docs/js-usage.md"]) {

@@ -53,7 +53,7 @@ import {
   B_next,
   B_varWithoutAllocation,
 } from "./builder";
-import { definitionToSchema, objectDecoder } from "./composites";
+import { definitionToItem, definitionToSchema, objectDecoder } from "./composites";
 import {
   internalRefine,
   nullAsUnit,
@@ -77,6 +77,7 @@ export {
   bool,
   int as int32,
   int,
+  integer,
   float as number,
   float,
   bigint,
@@ -143,10 +144,10 @@ export {
   gte,
   lt,
   lte,
+  multipleOf,
   minLength,
   maxLength,
   length,
-  empty,
   nonEmpty,
 } from "./refinements";
 export {
@@ -314,7 +315,7 @@ export const asyncDecoderAssert = (
 // @__NO_SIDE_EFFECTS__
 export const optional = (definition: unknown, maybeOr: unknown): Internal => {
   // TODO: maybeOr should be part of the unit schema
-  const schema = unionFactory([definitionToSchema(definition), unit]);
+  const schema = unionFactory([definitionToItem(definition), unit]);
   if (maybeOr !== U && typeof maybeOr === functionTag) {
     return Option_getOrWith(schema, maybeOr as () => unknown);
   } else if (maybeOr !== U) {
@@ -326,7 +327,7 @@ export const optional = (definition: unknown, maybeOr: unknown): Internal => {
 
 // @__NO_SIDE_EFFECTS__
 export const nullable = (definition: unknown, maybeOr: unknown): Internal => {
-  const schema = definitionToSchema(definition);
+  const schema = definitionToItem(definition);
   // TODO: maybeOr should be part of the unit schema
   if (maybeOr !== U) {
     const schema2 = unionFactory([schema, nullAsUnit]);
@@ -369,9 +370,7 @@ export const merge = (s1: Internal, s2: Internal): Internal => {
   if (result !== U) {
     return result;
   } else {
-    return panic(
-      "The merge supports only structured object schemas without transformations",
-    );
+    return panic("S.merge expects plain object schemas");
   }
 };
 

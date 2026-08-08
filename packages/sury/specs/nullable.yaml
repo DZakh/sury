@@ -1,6 +1,8 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
   schema: S.nullable(S.string)
+  aliases:
+    - S.nullable(S.nullable(S.nullable(S.string)))
   input: string | null
   output: string | null
   instantiations: 422

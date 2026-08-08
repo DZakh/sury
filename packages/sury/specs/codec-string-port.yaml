@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.string.with(S.to, S.port)
+  input: string
+  output: number
+  instantiations: 5091
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "string" }'
+  output: '{ type: "integer", minimum: 0, maximum: 65535 }'
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);let v0=+i;!Number.isNaN(v0)||e[1](i);v0>=0&&v0<65536&&v0%1===0||e[0](v0);return v0}
+    examples:
+      valid:
+        input: '"10"'
+        output: "10"
+      fractional-port:
+        input: '"10.2"'
+        error: Expected port, received 10.2
+      not-a-string:
+        input: "10.2"
+        error: Expected string, received 10.2
+  decode:
+    expression: i=>{let v0=+i;!Number.isNaN(v0)||e[1](i);v0>=0&&v0<65536&&v0%1===0||e[0](v0);return v0}
+    examples:
+      valid:
+        input: '"10"'
+        output: "10"
+  encode:
+    expression: i=>{i>=0&&i<65536&&i%1===0||e[0](i);return ""+i}
+    examples:
+      valid:
+        input: "10"
+        output: '"10"'

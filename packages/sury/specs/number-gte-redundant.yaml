@@ -1,17 +1,9 @@
 # yaml-language-server: $schema=./spec.schema.json
-# FIXME: the second bound doesn't narrow, so it is dropped — and "MY MESSAGE"
-# goes with it, silently. Dropping the *check* is right (there is no failure
-# left for it to guard), but the message is the caller's own text and its
-# disappearance is invisible: nothing is logged, no error is raised, and the
-# schema builds. A caller who writes a message and never sees it has no way to
-# learn why. Either the message should carry onto the bound that survived, or
-# supplying one on a bound that doesn't narrow should say so at construction
-# the way a contradictory pair already does.
 ts:
   schema: S.number.with(S.gte, 5).with(S.gte, 1, "MY MESSAGE")
   input: number
   output: number
-  instantiations: 5359
+  instantiations: 5342
 vs:
   zod: z.number().gte(5).gte(1, "MY MESSAGE")
 jsonSchema:
@@ -26,13 +18,13 @@ operations:
         output: "5"
       between-the-two-bounds:
         input: "3"
-        error: Expected number >= 5, received 3
+        error: MY MESSAGE
       at-the-dropped-bound:
         input: "1"
-        error: Expected number >= 5, received 1
+        error: MY MESSAGE
       below-both:
         input: "0"
-        error: Expected number >= 5, received 0
+        error: MY MESSAGE
   decode:
     expression: i=>{i>=5||e[0](i);return i}
     examples:
@@ -41,7 +33,7 @@ operations:
         output: "5"
       between-the-two-bounds:
         input: "3"
-        error: Expected number >= 5, received 3
+        error: MY MESSAGE
   encode:
     expression: i=>{i>=5||e[0](i);return i}
     examples:
@@ -50,4 +42,4 @@ operations:
         output: "5"
       between-the-two-bounds:
         input: "3"
-        error: Expected number >= 5, received 3
+        error: MY MESSAGE

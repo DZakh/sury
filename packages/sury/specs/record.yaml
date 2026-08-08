@@ -26,6 +26,12 @@ operations:
       empty:
         input: "{}"
         output: "{}"
+      # FIXME: the `for (let v0 in i)` loop skips symbol keys entirely, so a
+      # value under one is never reached, whatever the value schema says — 123
+      # passes through a record of strings unvalidated and unstripped.
+      symbol-keyed-value-is-not-validated:
+        input: '{ [Symbol.for("k")]: 123 }'
+        output: '{ [Symbol.for("k")]: 123 }'
       invalid-value:
         input: "{ a: 1 }"
         error: 'Failed at ["a"]: Expected string, received 1'

@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.array(S.string)
+  input: string[]
+  output: string[]
+  instantiations: 419
+vs:
+  zod: z.array(z.string())
+jsonSchema:
+  input: '{ items: { type: "string" }, type: "array" }'
+  output: '{ items: { type: "string" }, type: "array" }'
+operations:
+  parse:
+    expression: i=>{Array.isArray(i)||e[1](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}return i}
+    examples:
+      valid:
+        input: '["foo"]'
+        output: '["foo"]'
+      empty:
+        input: "[]"
+        output: "[]"
+      invalid-item:
+        input: '["foo", 1]'
+        error: 'Failed at ["1"]: Expected string, received 1'
+      not-an-array:
+        input: '"x"'
+        error: Expected string[], received "x"
+      null-is-not-an-array:
+        input: "null"
+        error: Expected string[], received null
+  decode: identity
+  encode: identity

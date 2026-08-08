@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.nullish(S.string)
+  input: string | null | undefined
+  output: string | null | undefined
+  instantiations: 419
+vs:
+  zod: z.string().nullish()
+jsonSchema:
+  input: Expected JSON, received string | undefined | null
+  output: Expected JSON, received string | undefined | null
+operations:
+  parse:
+    expression: i=>{(typeof i==="string"||i===void 0||i===null)||e[0](i);return i}
+    examples:
+      string:
+        input: '"foo"'
+        output: '"foo"'
+      undefined:
+        input: undefined
+        output: undefined
+      "null":
+        input: "null"
+        output: "null"
+      invalid-type:
+        input: "1"
+        error: Expected string | undefined | null, received 1
+  decode: identity
+  encode: identity
