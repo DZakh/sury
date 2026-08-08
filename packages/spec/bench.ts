@@ -72,6 +72,8 @@ export type Target = {
   specId: string;
   phase: Phase;
   op?: OpName;
+  /** Build the operation with the async builder — the only way an async schema compiles. */
+  isAsync?: boolean;
   /** Type-stripped already: the child has no TypeScript to strip it with. */
   schemaSrc?: string;
   inputSrc?: string;
@@ -110,6 +112,7 @@ export type Perf = {
   unchanged: number;
   added: string[];
   skippedConstants: number;
+  skippedAsync: number;
   errors: { name: string; error: string }[];
   // Targets whose accept/reject outcome moved. Not timings — a behavior change
   // that a percentage would misreport as an enormous slowdown.
@@ -210,9 +213,10 @@ const isConstantSchema = (src: string): boolean => evalSchema(src) === evalSchem
 export const deriveTargets = (
   files: string[],
   scenarioIds?: string[],
-): { targets: Target[]; skippedConstants: number } => {
+): { targets: Target[]; skippedConstants: number; skippedAsync: number } => {
   const targets: Target[] = [];
   let skippedConstants = 0;
+  let skippedAsync = 0;
 
   for (const [id, scenario] of Object.entries(readScenarios())) {
     if (scenarioIds && !scenarioIds.includes(id)) continue;
@@ -251,8 +255,17 @@ export const deriveTargets = (
       // and no examples to run. Timing how fast it throws would measure error
       // construction, not the schema.
       if (isCreationError(block)) continue;
+      const isAsync = block.isAsync === true;
       if (!constant)
-        targets.push({ ...base, name: `${id}${SEP}create+compile${SEP}${op}`, phase: "create+compile", op });
+        targets.push({ ...base, name: `${id}${SEP}create+compile${SEP}${op}`, phase: "create+compile", op, isAsync });
+      // Compiling an async operation is ordinary synchronous work (above), but
+      // running one is not: the batch loop can only start the promises, so the
+      // resolution it is supposed to be timing lands in microtasks after the
+      // clock is read. Counted, not silently dropped — the report says how many.
+      if (isAsync) {
+        skippedAsync += Object.keys(block.examples).length;
+        continue;
+      }
       for (const [example, ex] of Object.entries(block.examples))
         targets.push({
           ...base,
@@ -275,7 +288,7 @@ export const deriveTargets = (
       controls.push({ ...inPhase[i]!, name: `control${SEP}${inPhase[i]!.name}`, control: true });
   }
 
-  return { targets: [...targets, ...controls], skippedConstants };
+  return { targets: [...targets, ...controls], skippedConstants, skippedAsync };
 };
 
 // ---- statistics ------------------------------------------------------------
@@ -342,7 +355,7 @@ export const runPerf = async (
     buildChild(),
   ]);
 
-  const { targets, skippedConstants } = deriveTargets(files, scenarioIds);
+  const { targets, skippedConstants, skippedAsync } = deriveTargets(files, scenarioIds);
   const childPath = join(CACHE, "child.mjs");
   const payloadFor = (list: Target[]): ChildPayload => ({
     baseline: pathToFileURL(baselinePath).href,
@@ -484,6 +497,7 @@ export const runPerf = async (
     unchanged: real.length - changed.length,
     added: [...new Set(added)],
     skippedConstants,
+    skippedAsync,
     // Deduped by name like outcomeChanged: collect runs over the screening pass
     // plus every confirm pass, so one target can report the same failure twice.
     errors: [...new Map(errors.map((e) => [e.name, e])).values()],
