@@ -135,27 +135,27 @@ There's no intermediate object and no `JSON.stringify` — the discriminant pick
 };
 ```
 
-Types `JSON.stringify` refuses are ordinary fields, values it silently corrupts throw, and the same schema reads it all back:
+Types `JSON.stringify` refuses are ordinary fields, and the values it silently corrupts throw instead:
 
 ```ts
-const event = S.schema({ id: S.bigint, payload: S.uint8Array, at: S.date, price: S.number });
-const encode = S.encoder(event, S.jsonString);
+const schema = S.schema({ id: S.bigint, payload: S.uint8Array, at: S.date, price: S.number });
+const encode = S.encoder(schema, S.jsonString);
 
 encode({ id: 9007199254740993n, payload: bytes, at: new Date(), price: 9.99 });
 // => '{"id":"9007199254740993","payload":"…","at":"2026-01-15T10:30:00.000Z","price":9.99}'
 
 encode({ id: 1n, payload: bytes, at: new Date(), price: Infinity });
-// => throws S.Error: Failed at ["price"] — JSON.stringify writes '{"price":null}'
+// => throws S.Error: Failed at ["price"]: Expected JSON string, received Infinity
 
-S.decoder(S.jsonString, event)(json);
-// => { id: 9007199254740993n, payload: Uint8Array, at: Date, price: 9.99 }
+JSON.stringify({ price: Infinity });
+// => '{"price":null}'
 ```
 
 | Encode to JSON string                        | `JSON.stringify` | fast-json-stringify | **Sury**    |
 | -------------------------------------------- | ---------------- | ------------------- | ----------- |
-| API response (user profile, 7 fields)        | 328 ns           | 256 ns              | **237 ns**  |
-| Event feed (50 tagged-union events)          | 4.17 µs          | 11.97 µs            | **2.99 µs** |
-| `bigint` id + binary payload + `Date`        | 896 ns           | 921 ns              | **836 ns**  |
+| API response (user profile, 7 fields)        | 337 ns           | 271 ns              | **241 ns**  |
+| Event feed (50 tagged-union events)          | 4.45 µs          | 13.26 µs            | **3.77 µs** |
+| `bigint` id + binary payload + `Date`        | 959 ns           | 955 ns              | **887 ns**  |
 
 The union row is where compiling wins: fast-json-stringify resolves `anyOf` by running **Ajv** on every item, which is also why it ships 56.7 kB against **Sury**'s 15.8 kB (min + gzip, encoder included).
 

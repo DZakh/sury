@@ -4,6 +4,16 @@
 
 ### ideas
 
+- Trusted union decode stops at the first nesting level. `unionDecoder` proves
+  the source trustworthy with `input.s === self`, but a union reached through
+  `perVariantTo` (json.ts — an array item or object field being serialized to
+  `S.jsonString`) has `self` a rebuilt copy of the source union, so the check
+  fails and every field is re-validated inside the loop. The README's own
+  "Event feed" benchmark row is exactly this shape. The variants are
+  position-aligned and `copySchema` shares `properties`/`items` by reference,
+  so the input-side guarantee is identical — the fix is to trust a member whose
+  source-union variant at `member.i` shares that identity, rather than
+  comparing the unions themselves.
 - Trusted union decode can leave a dead `let` behind: `valGet` builds a
   grandchild's inline string eagerly (`` `${parent.v()}${pathAppend}` ``,
   `composites.ts`), materializing the parent var even when the passthrough
