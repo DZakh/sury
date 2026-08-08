@@ -4,24 +4,49 @@
 
 ### ideas
 
-- `S.uint8Array` to JSON is lossy for any byte outside ASCII: it converts
-  through `TextDecoder`, so an invalid UTF-8 sequence becomes U+FFFD and never
-  comes back. `S.encoder(S.schema({payload: S.uint8Array}), S.jsonString)` on
-  `[137, 80, 78, 71]` (a PNG magic number) emits `"�PNG"`, which decodes
-  to `[239, 191, 189, 80, 78, 71]` — silent corruption of exactly the binary
-  payloads the type exists for, with no error at either end. Base64 (or
-  base64url) is the encoding a JSON consumer expects; whichever is chosen, the
-  round trip has to be lossless or the conversion should refuse to compile.
-- Trusted union decode stops at the first nesting level. `unionDecoder` proves
-  the source trustworthy with `input.s === self`, but a union reached through
-  `perVariantTo` (json.ts — an array item or object field being serialized to
-  `S.jsonString`) has `self` a rebuilt copy of the source union, so the check
-  fails and every field is re-validated inside the loop. The README's own
-  "Event feed" benchmark row is exactly this shape. The variants are
-  position-aligned and `copySchema` shares `properties`/`items` by reference,
-  so the input-side guarantee is identical — the fix is to trust a member whose
-  source-union variant at `member.i` shares that identity, rather than
-  comparing the unions themselves.
+- Bytes on the wire: make `S.uint8Array` encode as base64, and give the text
+  conversion its own name. Today `S.uint8Array`'s string codec runs
+  `TextEncoder`/`TextDecoder`, so any byte outside ASCII is silently destroyed —
+  `S.encoder(S.schema({payload: S.uint8Array}), S.jsonString)` on
+  `[137, 80, 78, 71]` (a PNG magic number) emits `"�PNG"`, which decodes back as
+  `[239, 191, 189, 80, 78, 71]`, with no error at either end. The file's own
+  first line already promises the intended contract ("a base64 string on the
+  JSON side, bytes on ours"); the implementation just never matched it. The type
+  can't say whether bytes are text or opaque, so the default has to be the total
+  conversion — guessing base64 when the user meant text is instantly visible,
+  guessing text when they meant binary corrupts data nobody re-reads.
+  - `S.uint8Array` <-> string becomes base64. Feature-detect
+    `Uint8Array.prototype.toBase64` / `Uint8Array.fromBase64` (TC39 stage 3;
+    Bun has it, Node 22 does not) once at module init and embed the chosen
+    helper, so generated code stays a single `e[N](i)` call with no per-schema
+    branch. The fallback (`btoa`/`atob` over a latin1 bridge, or `Buffer`)
+    allocates an intermediate string per value where the native path doesn't —
+    worth a `scenarios.yaml` entry before byte fields appear in a benchmark.
+  - Add `S.base64`, a string schema carrying the encoding, so the wire format is
+    named on the wire side. It gets JSON Schema both ways:
+    `{type: "string", contentEncoding: "base64"}` out of `toJSONSchema` and back
+    through `fromJSONSchema`. `contentEncoding` is already in the keyword set
+    (`src/types/jsonschema.d.ts`, `jsonschema.ts`, `JSONSchema.res`), and
+    `toJSONSchema(S.uint8Array)` currently throws `Expected JSON, received
+    Uint8Array` — so this closes a gap that exists whichever encoding wins.
+  - Add `S.utf8` for bytes that really are text, converting against
+    `S.uint8Array` via `TextEncoder`/`TextDecoder` — with
+    `new TextDecoder("utf-8", {fatal: true})`, so invalid bytes throw instead of
+    becoming U+FFFD. An error is recoverable; a replacement character isn't.
+    That flag alone is the minimum fix if the default is left as it is.
+  - Consider `base64url` too, but only as an explicit spelling — there is no
+    reliable signal for "this value is going into a URL", and inferring one is
+    the same class of guess that produced the current bug. The principled
+    exception is a container that genuinely owns a URL-safe context (a
+    query-string or path codec, the way `compactColumns` owns columns), which
+    could default its byte fields to it.
+  - Layering: `src/advanced/` is for schemas nothing else builds on, so if
+    `uint8Array` builds on `S.base64` the shared piece belongs in the core, not
+    beside it. Specs must round-trip non-ASCII bytes in both directions —
+    ASCII-only fixtures are exactly what hid this. Breaking for anyone relying
+    on text semantics, so it wants a CHANGELOG line; `tests/S_test.ts`'s
+    `S.decoder(S.string, S.uint8Array, S.jsonString)("data") === '"data"'`
+    becoming `'"ZGF0YQ=="'` is the whole behavior change in one assertion.
 - Trusted union decode can leave a dead `let` behind: `valGet` builds a
   grandchild's inline string eagerly (`` `${parent.v()}${pathAppend}` ``,
   `composites.ts`), materializing the parent var even when the passthrough
