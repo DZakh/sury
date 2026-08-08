@@ -51,6 +51,7 @@ import {
   Metadata_Id_internal,
   Metadata_set,
   Option_getOr,
+  deepStrict,
   refine,
   refineInput,
   strict,
@@ -738,7 +739,10 @@ export const extendJSONSchema = (schema: Internal, jsonSchema: JSONSchemaT): Int
 // but the one the document object itself was built from.
 const primitiveToSchema = (primitive: unknown): Internal =>
   primitive !== null && typeof primitive === "object"
-    ? schemaFactory(primitive)
+    ? // deepStrict because `const` is equality, not a shape: an object with an
+      // extra property is a different value, where a plain object schema would
+      // ignore the extra and accept it.
+      deepStrict(schemaFactory(primitive))
     : Literal_parse(primitive);
 
 // draft-04 (and OpenAPI 3.0) make `exclusiveMinimum` a boolean that flips the
