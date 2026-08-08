@@ -444,15 +444,25 @@ const unionWiden = (tagFlag: number, nan: number): number =>
 
 // Mode 0 describes produced output, 1 a member's accepted input, and 2 the
 // declared source (whose root ref may expose a bounded input tag).
+// A self-describing boundary's definition: what `$ref` + `$defs` resolve to
+// (`S.json`'s recursive union), or undefined for everything else.
+const unionRefDef = (schema: Internal): Internal | undefined => {
+  const defs = schema["$defs"];
+  const ref = schema["$ref"];
+  if (defs !== U && ref !== U) {
+    const resolved = defs[ref.slice(ref.lastIndexOf("/") + 1)];
+    if (resolved !== U && resolved !== schema) {
+      return resolved;
+    }
+  }
+  return U;
+};
+
 const unionMask = (schema: Internal, mode: number, nan = 0): number => {
   if (mode === 2) {
-    const defs = schema["$defs"];
-    const ref = schema["$ref"];
-    if (defs !== U && ref !== U) {
-      const resolved = defs[ref.slice(ref.lastIndexOf("/") + 1)];
-      if (resolved !== U && resolved !== schema) {
-        return unionMask(resolved, 1, nan);
-      }
+    const resolved = unionRefDef(schema);
+    if (resolved !== U) {
+      return unionMask(resolved, 1, nan);
     }
   }
   const tagFlag = tagFlags[schema.type]!;
@@ -1038,21 +1048,16 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
 };
 
 // The source's own variant for a runtime tag, when the source is a
-// self-describing boundary (`$ref` + `$defs` resolving to a union — `S.json`):
-// a value that passed the tag narrow is known to conform to that variant.
+// self-describing boundary whose definition is a union (`S.json`): a value
+// that passed the tag narrow is known to conform to that variant.
 const unionBoundaryVariant = (
   source: Internal,
   tag: Tag
 ): Internal | undefined => {
-  const defs = source["$defs"];
-  const ref = source["$ref"];
-  if (defs !== U && ref !== U) {
-    const resolved = defs[ref.slice(ref.lastIndexOf("/") + 1)];
-    if (resolved !== U && resolved !== source && resolved.anyOf !== U) {
-      return resolved.anyOf.find((v) => v.type === tag);
-    }
-  }
-  return U;
+  const resolved = unionRefDef(source);
+  return resolved !== U && resolved.anyOf !== U
+    ? resolved.anyOf.find((v) => v.type === tag)
+    : U;
 };
 
 const unionEmit = (
