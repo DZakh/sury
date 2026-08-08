@@ -457,9 +457,17 @@ export const serialize = (obj: Spec, comments: SpecComments = NO_COMMENTS): stri
 // ---- golden recomputation --------------------------------------------------
 
 // An object key needs quotes only when it isn't a valid identifier — matches
-// how a human would hand-write the same literal.
+// how a human would hand-write the same literal. `__proto__` must be computed
+// (`["__proto__"]`): both the bare and the quoted form are prototype-setter
+// syntax in an object literal, so either would read back as a different value
+// (the key silently dropped) and `--write` would oscillate the golden.
 const IDENT_RE = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
-const keyToCode = (k: string): string => (IDENT_RE.test(k) ? k : JSON.stringify(k));
+const keyToCode = (k: string): string =>
+  k === "__proto__"
+    ? '["__proto__"]'
+    : IDENT_RE.test(k)
+      ? k
+      : JSON.stringify(k);
 
 // Recursive (not JSON.stringify) because JSON.stringify throws outright on a
 // bare (or nested) bigint, and silently mangles Date (→ a plain string, not a
@@ -469,10 +477,9 @@ const keyToCode = (k: string): string => (IDENT_RE.test(k) ? k : JSON.stringify(
 // no source expression can reproduce it.
 //
 // Anything the emitted source would NOT evaluate back to (structurally) must
-// throw rather than emit: a cyclic value would recurse forever, a class
-// instance would silently flatten to a plain-object literal, and symbol keys
-// would be dropped by Object.entries — each of those would record a golden
-// that looks fine but doesn't equal the real output.
+// throw rather than emit: a cyclic value would recurse forever, and a class
+// instance would silently flatten to a plain-object literal — each of those
+// would record a golden that looks fine but doesn't equal the real output.
 const valueToCode = (v: unknown, seen: WeakSet<object> = new WeakSet()): string => {
   if (v === undefined) return "undefined";
   if (typeof v === "bigint") return `${v}n`;
@@ -499,11 +506,15 @@ const valueToCode = (v: unknown, seen: WeakSet<object> = new WeakSet()): string 
       throw new Error(
         `cannot represent a ${(v as object).constructor?.name ?? "unknown-class"} instance as spec source code`,
       );
-    if (Object.getOwnPropertySymbols(v).length)
-      throw new Error("cannot represent an object with symbol keys as spec source code");
-    const entries = Object.entries(v);
-    if (entries.length === 0) return "{}";
-    return `{ ${entries.map(([k, val]) => `${keyToCode(k)}: ${valueToCode(val, seen)}`).join(", ")} }`;
+    // Symbol keys ride along as computed keys — only registry symbols, for the
+    // same reason as symbol values above. Object.entries would drop them.
+    const parts = Object.entries(v).map(([k, val]) => `${keyToCode(k)}: ${valueToCode(val, seen)}`);
+    for (const sym of Object.getOwnPropertySymbols(v)) {
+      if (!Object.getOwnPropertyDescriptor(v, sym)!.enumerable) continue;
+      parts.push(`[${valueToCode(sym, seen)}]: ${valueToCode((v as Record<symbol, unknown>)[sym], seen)}`);
+    }
+    if (parts.length === 0) return "{}";
+    return `{ ${parts.join(", ")} }`;
   }
   throw new Error(`cannot represent a ${typeof v} as spec source code`);
 };
@@ -572,8 +583,19 @@ export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
     for (const [name, ex] of Object.entries(op.examples)) {
       const bench = ex.bench;
       try {
-        const out = fn(evalSchema(ex.input));
-        op.examples[name] = clean({ input: ex.input, output: valueToCode(out), bench });
+        const value = evalSchema(ex.input);
+        const out = fn(value);
+        // An operation that hands its input straight back records the input's
+        // own source rather than a re-derived spelling of the same value. It
+        // reads better, and it's the only way a value the serializer can't
+        // reproduce gets a passing example at all — a Blob or a File only
+        // yields its bytes asynchronously, so `new File(["ab"], "a.txt")`
+        // could be *run* but never written down as a result.
+        op.examples[name] = clean({
+          input: ex.input,
+          output: out === value ? ex.input : valueToCode(out),
+          bench,
+        });
       } catch (e) {
         op.examples[name] = clean({ input: ex.input, error: (e as Error).message, bench });
       }

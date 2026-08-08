@@ -13,6 +13,12 @@ operations:
   parse:
     expression: i=>{i instanceof e[0]||e[1](i);return i}
     examples:
+      valid:
+        input: new File(["abc"], "a.txt")
+        output: new File(["abc"], "a.txt")
+      empty:
+        input: new File([], "a.txt")
+        output: new File([], "a.txt")
       blob-is-not-a-file:
         input: new Blob(["abc"])
         error: Expected File, received Blob

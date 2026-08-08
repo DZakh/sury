@@ -3,7 +3,7 @@ ts:
   schema: S.file.with(S.maxSize, 5)
   input: File
   output: File
-  instantiations: 5184
+  instantiations: 5165
 vs:
   zod: z.file().max(5)
 jsonSchema:
@@ -13,6 +13,15 @@ operations:
   parse:
     expression: i=>{i instanceof e[1]||e[2](i);i.size<6||e[0](i);return i}
     examples:
+      at-the-size:
+        input: new File(["abcde"], "a.txt")
+        output: new File(["abcde"], "a.txt")
+      under-the-size:
+        input: new File(["a"], "a.txt")
+        output: new File(["a"], "a.txt")
+      over-the-size:
+        input: new File(["abcdef"], "a.txt")
+        error: Expected File.size <= 5, received File
       blob-is-not-a-file:
         input: new Blob(["ab"])
         error: Expected File.size <= 5, received Blob

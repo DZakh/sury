@@ -3,7 +3,7 @@ ts:
   schema: S.blob.with(S.size, 2)
   input: Blob
   output: Blob
-  instantiations: 5181
+  instantiations: 5162
 vs:
   zod:
     _skip: not-applicable
@@ -14,6 +14,15 @@ operations:
   parse:
     expression: i=>{i instanceof e[1]||e[2](i);i.size===2||e[0](i);return i}
     examples:
+      at-the-size:
+        input: new Blob(["ab"])
+        output: new Blob(["ab"])
+      under-the-size:
+        input: new Blob(["a"])
+        error: Expected Blob.size == 2, received Blob
+      over-the-size:
+        input: new Blob(["abc"])
+        error: Expected Blob.size == 2, received Blob
       wrong-type:
         input: '"ab"'
         error: Expected Blob.size == 2, received "ab"

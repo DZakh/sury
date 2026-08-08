@@ -77,8 +77,13 @@ test("a length rejects values that are not counts", () => {
     );
     expect(() => S.minSize(S.file, value), `minSize(${value})`).toThrow(/expects integer >= 0/);
   }
-  expect(S.inputExpression(S.string.with(S.minLength, 0))).toBe("string.length >= 0");
-  expect(S.inputExpression(S.file.with(S.minSize, 0))).toBe("File.size >= 0");
+  // 0 is the one non-negative count that isn't a bound: dropped rather than
+  // compiled into a check no value can fail. Pinned in specs/string-minLength-zero
+  // and specs/file-minSize-zero; asserted here too because it's the boundary
+  // the loop above stops one short of.
+  expect(S.inputExpression(S.string.with(S.minLength, 0))).toBe("string");
+  expect(S.inputExpression(S.file.with(S.minSize, 0))).toBe("File");
+  expect(S.inputExpression(S.array(S.string).with(S.minLength, 0))).toBe("string[]");
 });
 
 test("a size is only applied to an instance", () => {

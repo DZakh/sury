@@ -3,7 +3,7 @@ ts:
   schema: S.instance(Set).with(S.minSize, 2)
   input: Set<unknown>
   output: Set<unknown>
-  instantiations: 7161
+  instantiations: 7142
 vs:
   zod:
     _skip: not-applicable

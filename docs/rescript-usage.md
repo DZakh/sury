@@ -181,6 +181,7 @@ The obvious ones, at a glance:
 | `S.string` | `S.t<string>` | [refinements ↓](#string) |
 | `S.bool` | `S.t<bool>` | |
 | `S.int` | `S.t<int>` | [refinements ↓](#int) |
+| `S.integer` | `S.t<float>` | integer without `int`'s range [↓](#int) |
 | `S.float` | `S.t<float>` | [refinements ↓](#float) |
 | `S.bigint` | `S.t<bigint>` | |
 | `S.symbol` | `S.t<Symbol.t>` | |
@@ -212,7 +213,6 @@ S.string->S.maxLength(5) // Expected string.length <= 5
 S.string->S.minLength(5) // Expected string.length >= 5
 S.string->S.length(5) // Expected string.length == 5
 S.string->S.nonEmpty // Expected string.length >= 1
-S.string->S.empty // Expected string.length == 0
 S.string->S.pattern(%re(`/[0-9]/`)) // Invalid pattern
 
 S.string->S.trim // trim whitespaces
@@ -290,16 +290,24 @@ S.int->S.lte(5) // Expected int32 <= 5
 S.int->S.gte(5) // Expected int32 >= 5
 S.int->S.lt(5) // Expected int32 < 5
 S.int->S.gt(5) // Expected int32 > 5
+S.int->S.multipleOf(2) // Expected int32 % 2
 S.port // Standalone port schema
 ```
 
-The same four work on `S.float` and `S.bigint`. A numeric format carries its
+They all work on `S.float` and `S.bigint` too. A numeric format carries its
 own range, so a bound outside it fails where it's written rather than building
 a schema nothing satisfies:
 
 ```rescript
 S.int->S.gte(3000000000)
 // int32 >= 3000000000 contradicts int32 <= 2147483647
+```
+
+`S.integer` is an integer without that range, typed `S.t<float>` since one can
+exceed ReScript's `int`:
+
+```rescript
+S.integer->S.gte(5.) // Expected integer >= 5
 ```
 
 ### **`float`**
@@ -1137,6 +1145,10 @@ They bound whatever a schema measures with `.size`, so a `Set` or a `Map`
 reached through `S.instance` takes them too, counting entries instead of bytes.
 Strings and arrays are bounded by `S.minLength`/`S.maxLength`/`S.length`
 instead — nothing is bounded by both.
+
+A lower bound of `0` is dropped rather than checked, in both families: every
+length and every size is already at least zero. A negative or fractional one is
+an error, and `S.length(0)` still means exactly empty.
 
 ### **`instance`**
 

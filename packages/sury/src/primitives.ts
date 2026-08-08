@@ -48,6 +48,12 @@ export const int32FormatValidation = (inputVar: string) => {
   return `${inputVar}<=2147483647&&${inputVar}>=-2147483648&&${inputVar}%1===0`;
 };
 
+// `%1===0` is NaN (falsy) for NaN and ±Infinity, so one check covers "is a
+// finite mathematical integer" with no separate NaN validation.
+export const integerFormatValidation = (inputVar: string) => {
+  return `${inputVar}%1===0`;
+};
+
 // Atomic type-narrow conditions, shared by the type decoders and the union
 // dispatch (`typeCheckCond`) so the two can't drift. Memoized per tag: the
 // returned closure depends only on `tag`, and this is called all over the
@@ -76,6 +82,13 @@ const typeofCheck = (tag: Tag): Check =>
   typeofCheckCache[tag] || (typeofCheckCache[tag] = { c: typeofCond(tag), f: failInvalidType });
 const notNanCheck: Check = { c: (inputVar) => `!${nanCond(inputVar)}`, f: failInvalidType };
 const int32Check: Check = { c: int32FormatValidation, f: failInvalidType };
+const integerCheck: Check = { c: integerFormatValidation, f: failInvalidType };
+// For a source that already carries a number format — integer-valued by the
+// NumberFormat invariant — only int32's range is left to check.
+const int32RangeCheck: Check = {
+  c: (inputVar) => `${inputVar}<=2147483647&&${inputVar}>=-2147483648`,
+  f: failInvalidType,
+};
 const nanCheck: Check = { c: nanCond, f: failInvalidType };
 
 // Reject anything but `tag` when the input is still `unknown` — shared by
@@ -94,10 +107,13 @@ const B_nextVar = (input: Val, expected: Internal): Val => {
 
 export const numberDecoder: Builder = (input: Val) => {
   const inputTagFlag = tagFlags[input.s.type]!;
+  const expectedFormat = input.e.format;
   if (flagUnsafeHas(inputTagFlag, tagFlagUnknown)) {
     const checks: Check[] = [typeofCheck(numberTag)];
-    if (input.e.format === "int32") {
+    if (expectedFormat === "int32") {
       checks.push(int32Check);
+    } else if (expectedFormat === "integer") {
+      checks.push(integerCheck);
     } else {
       if (!flagUnsafeHas(input.g.o, flagDisableNanNumberValidation)) {
         checks.push(notNanCheck);
@@ -114,23 +130,30 @@ export const numberDecoder: Builder = (input: Val) => {
     output.vc = [
       {
         c: (_inputVar) =>
-          input.e.format === "int32"
+          expectedFormat === "int32"
             ? int32FormatValidation(output.i)
-            : `!${nanCond(output.i)}`,
+            : expectedFormat === "integer"
+              ? integerFormatValidation(output.i)
+              : `!${nanCond(output.i)}`,
         f: failInvalidType,
       },
     ];
     return output;
   } else if (
     flagUnsafeHas(inputTagFlag, tagFlagNaN) &&
-    input.e.format !== "int32" &&
+    expectedFormat !== "int32" &&
+    expectedFormat !== "integer" &&
     flagUnsafeHas(input.g.o, flagDisableNanNumberValidation)
   ) {
     return B_refine(input, input.e);
   } else if (!flagUnsafeHas(inputTagFlag, tagFlagNumber)) {
     return B_unsupportedDecode(input, input.s, input.e);
-  } else if (input.s.format !== input.e.format && input.e.format === "int32") {
-    return B_refine(input, input.e, [int32Check]);
+  } else if (input.s.format !== expectedFormat && expectedFormat === "int32") {
+    return B_refine(input, input.e, [input.s.format === U ? int32Check : int32RangeCheck]);
+  } else if (expectedFormat === "integer" && input.s.format === U) {
+    // Any formatted number source is already integer-valued (the NumberFormat
+    // invariant), so only a bare number still needs the check.
+    return B_refine(input, input.e, [integerCheck]);
   } else {
     return input;
   }
@@ -147,6 +170,14 @@ export const int: Internal = /* @__PURE__ */ initSchema(numberTag, (s) => {
   // int32 is caught as a contradiction instead of silently building.
   s.minimum = -2147483648;
   s.maximum = 2147483647;
+  s.decoder = numberDecoder;
+});
+
+// JSON Schema's unbounded `integer`: any number with no fractional part, with
+// none of int32's range. Carries no bound fields — there is no range to
+// advertise or for a user bound to contradict.
+export const integer: Internal = /* @__PURE__ */ initSchema(numberTag, (s) => {
+  s.format = "integer";
   s.decoder = numberDecoder;
 });
 

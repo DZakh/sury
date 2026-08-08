@@ -37,7 +37,7 @@ type tag =
   | @as("ref") Ref
 
 
-type numberFormat = | @as("int32") Int32 | @as("port") Port
+type numberFormat = | @as("int32") Int32 | @as("port") Port | @as("integer") Integer
 type stringFormat =
   | @as("json") JSON
   | @as("date-time") DateTime
@@ -102,6 +102,7 @@ type rec t<'value> =
       maximum?: float,
       exclusiveMinimum?: float,
       exclusiveMaximum?: float,
+      multipleOf?: float,
       errorMessage?: schemaErrorMessage,
     })
   | @as("bigint")
@@ -117,6 +118,7 @@ type rec t<'value> =
       maximum?: bigint,
       exclusiveMinimum?: bigint,
       exclusiveMaximum?: bigint,
+      multipleOf?: bigint,
       errorMessage?: schemaErrorMessage,
     })
   | @as("boolean")
@@ -251,6 +253,7 @@ and schemaErrorMessage = {
   maximum?: string,
   exclusiveMinimum?: string,
   exclusiveMaximum?: string,
+  multipleOf?: string,
   minLength?: string,
   maxLength?: string,
   minItems?: string,
@@ -358,13 +361,11 @@ type exn += private Exn(error)
 // Bindings to the TypeScript core
 // =============================================================================
 //
-// Sury's implementation lives in src/*.ts, bundled into the package
-// entry by scripts/pack.ts (see src/entry.ts). This module is the ReScript
-// face of it: the public types above, plus `@module("sury") external`
-// bindings below, resolved through the package root "." conditional export
-// (import -> the ESM S.mjs, require -> the published CJS S.js). That's what
-// makes the bindings work for consumers compiling to either module format —
-// a plain relative `@module("./S.mjs")` would break under a "commonjs"
+// This module is the ReScript face of Sury: the public types above, plus the
+// `@module("sury") external` bindings below, resolved through the package root
+// "." conditional export (import -> the ESM entry, require -> the CJS one).
+// That's what makes them work whichever module format you compile to — a plain
+// relative `@module("./index.mjs")` would break under a "commonjs"
 // package-spec (require()-ing an ESM file throws).
 
 external castToUnknown: t<'any> => t<unknown> = "%identity"
@@ -373,8 +374,8 @@ external untag: t<'any> => untagged = "%identity"
 
 // ReScript's `catch { | Exn(e) => }` compiles to a `RE_EXN_ID === Exn`
 // identity test against the constructor id synthesized right here by the
-// `type exn +=` declaration above. The throwing side lives in core.ts, so
-// hand it that identity once at module load — SuryError's RE_EXN_ID getter
+// `type exn +=` declaration above. The runtime that throws needs the same
+// identity, so hand it over once at module load — SuryError's RE_EXN_ID getter
 // returns it. `%raw` because a private exn constructor can't be referenced
 // as a value from ReScript code, only from spliced JS.
 %%private(@module("sury") external __setExnId: unknown => unit = "$setExnId")
@@ -400,9 +401,9 @@ module Error = {
   external throw: error => 'a = "%raise"
 }
 
-// Primitive schema values — the same eager, PURE-annotated instances the JS
-// entry exports (see src/entry.ts), so both surfaces share one object per
-// primitive. Some (string, bool, ...) shadow stdlib names on purpose.
+// Primitive schema values — the very instances the JS entry exports, so both
+// surfaces share one object per primitive. Some (string, bool, ...) shadow
+// stdlib names on purpose.
 @module("sury") external never: t<never> = "never"
 @module("sury") external unknown: t<unknown> = "unknown"
 @module("sury") external unit: t<unit> = "$unit"
@@ -410,6 +411,9 @@ module Error = {
 @module("sury") external string: t<string> = "string"
 @module("sury") external bool: t<bool> = "bool"
 @module("sury") external int: t<int> = "int"
+// `t<float>`, not `t<int>`: ReScript's `int` is int32, and a JS integer
+// (JSON Schema's unbounded `integer`) can exceed that range.
+@module("sury") external integer: t<float> = "integer"
 @module("sury") external float: t<float> = "float"
 @module("sury") external bigint: t<bigint> = "bigint"
 @module("sury") external symbol: t<Symbol.t> = "symbol"
@@ -577,11 +581,12 @@ module Metadata = {
 @module("sury") external gte: (t<'value>, 'value, ~message: string=?) => t<'value> = "gte"
 @module("sury") external lt: (t<'value>, 'value, ~message: string=?) => t<'value> = "lt"
 @module("sury") external lte: (t<'value>, 'value, ~message: string=?) => t<'value> = "lte"
+@module("sury")
+external multipleOf: (t<'value>, 'value, ~message: string=?) => t<'value> = "multipleOf"
 
 @module("sury") external minLength: (t<'value>, int, ~message: string=?) => t<'value> = "minLength"
 @module("sury") external maxLength: (t<'value>, int, ~message: string=?) => t<'value> = "maxLength"
 @module("sury") external length: (t<'value>, int, ~message: string=?) => t<'value> = "length"
-@module("sury") external empty: (t<'value>, ~message: string=?) => t<'value> = "empty"
 @module("sury") external nonEmpty: (t<'value>, ~message: string=?) => t<'value> = "nonEmpty"
 
 @module("sury") external minSize: (t<'value>, int, ~message: string=?) => t<'value> = "minSize"

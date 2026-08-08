@@ -14,6 +14,15 @@ operations:
   parse:
     expression: i=>{i instanceof e[0]||e[1](i);return i}
     examples:
+      valid:
+        input: new Blob(["abc"])
+        output: new Blob(["abc"])
+      empty:
+        input: new Blob([])
+        output: new Blob([])
+      file-is-a-blob:
+        input: new File(["abc"], "a.txt")
+        output: new File(["abc"], "a.txt")
       string-is-not-a-blob:
         input: '"abc"'
         error: Expected Blob, received "abc"

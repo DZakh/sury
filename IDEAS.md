@@ -48,14 +48,15 @@ S.reverse(S.schema({
   refinement whose check duplicates what the decoder could emit from the
   bound fields directly, so `S.int32.with(S.gte, 5)` range-checks twice.
   Deriving them in `numberDecoder` fuses the two and drops a check per bound.
-  Do it in its own PR, in this order — the risk and the safety net are the
-  same piece:
-    1. Merge the branch that renamed `S.min`/`S.max`. `pnpm fuzz:union` builds
-       its baseline from a git ref, and every ref before that rename lacks
-       `S.gte`/`S.minLength`, so the harness cannot build one today.
-    2. First commit of the follow-up: run `fuzz:union --ref=<merge-base>` on an
-       unchanged tree, to confirm the harness works against the new API.
-    3. Then make the change and diff, so the gate actually gates.
+  Half the groundwork is already done: `boundsRefiner` derives every check
+  from the schema's own fields at codegen time rather than from a value each
+  call closed over, so moving them is now relocating a field read rather than
+  inventing one. The other half is the payoff — that refiner currently ships
+  with every bound export, and folding it into the decoder every number
+  consumer already carries is what wins those bytes back.
+  Run `fuzz:union --ref=<merge-base>` before *and* after; the harness builds
+  its baseline from a git ref, so confirm it works on an unchanged tree first
+  and the gate actually gates.
   Three knock-ons to expect: `union.ts` decides a schema has refinements with
   `schema.refiner !== U`, which bounded schemas would stop setting;
   `parse.ts`'s reverse swaps `refiner`/`inputRefiner`, and a field carries no
@@ -65,107 +66,68 @@ S.reverse(S.schema({
   `errorMessage[key]` — without that it reports `Expected int32` where the
   refinement reports the bound.
 
-- **A narrowing bound should retract the check it supersedes.** Applying a
-  bound that doesn't narrow is skipped outright, but in the other order the
-  earlier check is already in the refiner chain and can't be pulled back, so
-  `gte(1).gte(5)` runs `i>=1` and `i>=5` where only the second matters. The
-  advertised JSON Schema is right either way — but this is *not* codegen only,
-  which is the part worth fixing first: a superseded check keeps its own
-  message, so which one a caller sees depends on which check fires.
-  `S.string.with(S.maxLength, 5, "MAX").with(S.length, 3)` advertises
-  `string.length == 3` and reports "MAX" for a 6-character string and the
-  generic message for a 4-character one, both being equally "too long"
-  (`specs/string-length-supersedes-maxLength-message.yaml`). The size family
-  inherits both halves of this whole — same shape, same fix
-  (`specs/set-size-supersedes-maxSize-message.yaml`,
-  `specs/set-minSize-redundant.yaml`). Compounding it,
-  `length()` writes its message under both `minLength` and `maxLength` while
-  the check it attaches reads only `minLength` — dead in that order, and in the
-  reverse order (`maxLength(5, "MAX").length(3, "EXACT")`) it overwrites the
-  caller's "MAX" so the surviving `i.length<6` check reports "EXACT". Retracting
-  the check retires both. ArkType
-  reduces both orders to a single `number >= 5` node because its refinements
-  intersect rather than append (`min: (l, r) => l.isStricterThan(r) ? l : r`),
-  so it's reachable, but it needs `internalRefine` to be able to replace a
-  check rather than only push one. Of the rest: Zod narrows the field but runs
-  both checks (same as here), Valibot keeps both in the pipe with no
-  narrowing, and TypeBox lets the later option win outright — so
-  `Type.Number({minimum:5})` overridden by `{minimum:1}` accepts 3.
-
 - **Narrow a numeric format's range check against the schema's own bounds.**
   `S.int32.with(S.gt, 5)` emits `i<=2147483647&&i>=-2147483648&&i%1===0` and
   then `i>5`, but `i>5` already implies the lower half; `S.lt` makes the upper
   half dead the same way, and `S.port` (`i>=0&&i<65536&&i%1===0`) has the
   identical redundancy. `numberDecoder` has `input.e` in hand and the bounds
   are native fields on it, so `int32FormatValidation` can drop whichever half
-  the bound subsumes. Two costs: a value outside the format range but also
-  outside the bound would report the bound's error rather than
+  the bound subsumes. The same read gives `S.integer`'s `i%1===0` away for
+  free wherever a divisor is an integer multiple of 1 — `multipleOf(2)` on an
+  integer schema already implies it. Two costs: a value outside the format
+  range but also outside the bound would report the bound's error rather than
   `Expected int32`, and `int32Check` would stop being a module-level const —
   the one place `primitives.ts` deliberately avoids a per-compile closure.
+  Do it with the item above, not before it: both rewrite the same emit.
 
-- **A range `fromJSONSchema` can't represent resolves two different silent
-  ways.** `integer` maps onto int32, so a document whose bound falls outside
-  that range has no faithful schema — and the two sides disagree about what to
-  do. `{minimum: 3000000000}` collapses to `never` (`applyBound` reads the
-  panic and gives up), rejecting the very values the document describes;
-  `{maximum: 3000000000}` is dropped as non-narrowing, leaving a schema that
-  rejects 2.5e9 and re-emits int32's edge as if the document had said it.
-  Neither round-trips. The file already fails creation for keywords it cannot
-  model rather than widening silently — an unrepresentable range wants the same
-  answer, or a wider integer schema to land in. Pinned in
-  `specs/jsonschema-int-{minimum,maximum}-above-int32.yaml`.
+- **A bound applied after a transform emits no check.**
+  `S.string.with(S.trim).with(S.minLength, 5)` accepts `""`: `transform` sets
+  the output tail to a copy of `unknown`, `updateBounds` writes
+  `bounds`/`minLength` onto that tail, and `boundsRefiner` dispatches on the
+  tail's `type` — `unknown` matches neither the length branch nor the numeric
+  one, so it returns no checks at all. Before `boundsRefiner` the per-call
+  closure emitted `i.length>4` regardless of type, so the check ran (though
+  its expression rendered as the garbled `unknown <= undefined` — the write
+  site targeting the tail while the bound helpers read the root predates this
+  refactor, and the JSON Schema output loses the bound the same way). Fix
+  candidates: have `boundsRefiner` pick the branch from which bound fields
+  are set instead of from `type`, or make `updateBounds` refuse/forward when
+  the tail carries no type to range over. Needs a spec for
+  transform-then-bound in both directions; none exists today.
 
-- **A bound is the only refinement that rewrites the schema's type
-  expression.** So it's the only one that shows up when the *type* check is
-  what failed: `S.string.with(S.minLength, 2)` reports
-  `Expected string.length >= 2, received null`, where the same string carrying
-  `S.pattern` or `S.refine` still reports `Expected string, received null`.
-  The statement is true — `null` is not a string of length >= 2 — but it points
-  at a length nothing got far enough to have, and which refinement was applied
-  shouldn't decide how a wrong-type failure reads. The two checks are already
-  separate throws with separate builders (`e[1]` vs `e[0]`), so a custom bound
-  message correctly does *not* leak here; only the rendering does. Fixing it
-  means `failInvalidType` rendering the bare type where the bound check renders
-  the bounded one — which costs the `skipOverride` path a second caller.
-  Pinned in `specs/string-minLength.yaml`.
+- **Type-less JSON Schema assertion keywords vanish on re-emit.**
+  `fromJSONSchema({multipleOf: 2})` builds (the keyword joined the type-less
+  `keywordTypes` "number" group) and validates correctly through the opaque
+  `refine()` that group compiles to, but `toJSONSchema` of the result returns
+  `{}` — the document silently widens on a round-trip, where the keyword used
+  to be rejected loudly as unsupported. First settle what a type-less schema
+  should even mean here: per spec `{multipleOf: 2}` constrains only numeric
+  instances and accepts everything else, which is what the refine does — so
+  the fix is on the emit side, carrying the original keywords through the
+  opaque refinement onto the output document rather than changing validation.
 
-- **Union headers enumerate bounds.** The same rewrite reaches the union
-  header, which is built from member expressions and deduped on rendered text.
-  Bounded members no longer render alike, so three string members that used to
-  collapse to `string` now spell
-  `string.length >= 5 | string | string.length <= 1`, and a non-string input
-  gets all three back as the answer to what was wrong with it. Visible in
-  `specs/union3-same-tag-effect-boundary.yaml`,
-  `union3-same-tag-validation-group`, `union2-refined-literal-fallback` and
-  `union-large-planner`. Three options, cheapest first: build the header from
-  `inputExpression(member, true)` so it names the shapes and leaves the bounds
-  to the per-member lines, which already carry them; or dedupe on the base
-  rendering and re-add a bound only where it's what distinguishes two members;
-  or keep the header and drop the `, received X` each sub-line repeats from it.
-  The first restores every golden above to its pre-bounds text without losing
-  detail, since the sub-lines are per-member already.
+- **Rewrite a zero length bound on an array to a real empty tuple at runtime.** The
+  type-level half of "a hard-coded length is arity" is done, for the exact
+  bound and the lower one alike: on an array `S.length(N)` infers the N-tuple,
+  `S.minLength(N)` the N-tuple with an open tail, `S.nonEmpty`
+  `[T, ...T[]]` and `S.length(0)` `[]`; on a string only `S.length(0)` reaches a type
+  (`""`), since TypeScript can't count characters (`Sized`/`AtLeast`/`Repeat`
+  in `index.d.ts`, pinned in the `array-`/`string-` length specs).
+  The runtime deliberately still refines: a general tuple rewrite unrolls
+  generated code O(N) where the loop is O(1), emits N copies of the item
+  schema in JSON Schema, bypasses the `maybeMessage` machinery (tuple arity
+  fails as `invalid_type`), and compiles decode/encode to `identity` where the
+  refinement re-checks the length — each a behavior change to pin
+  deliberately, not inherit. The N=0 case has none of the scaling problems
+  and a strict win: `S.length(0)` on an array rewriting to `items: []` +
+  `additionalItems: "strict"` drops the dead element loop from parse
+  (`Array.isArray(i)&&i.length===0||e(i)`), turns decode/encode into
+  identity, and makes the schema union-dispatchable by arity. Settle there
+  whether JSON Schema keeps emitting the now-unreachable `items` schema, and
+  what `minLength`/`maxLength` applied *after* the rewrite should do
+  (compare against `items.length` and no-op/conflict, not add a redundant
+  bound).
 
-- **A hard-coded array length should build a tuple.** `S.array(S.string)`
-  with `S.length(2)` describes exactly `[string, string]`, and with `S.empty`
-  exactly `[]` — but both infer `string[]` and run a length check beside the
-  array's own loop, where a tuple would carry the arity in its type and check
-  it once. `S.tuple` already exists and already emits `i.length===n`, so this
-  is `length`/`empty` on an array tag rewriting to it rather than refining,
-  and the win is a truer inferred type more than codegen. Two things to settle:
-  the bound is reversible today and a tuple rewrite has to stay so, and
-  `length` applied to an already-bounded array (`minLength(1).length(2)`) has
-  to pick one representation. Pinned in `specs/array-length.yaml` and
-  `specs/array-empty.yaml`.
-
-- **A bound that doesn't narrow takes its custom message down with it.**
-  `gte(5).gte(1, "MY MESSAGE")` drops the second bound — correctly, there is no
-  failure left for it to guard — but the message is the caller's own text and
-  it vanishes with no log, no error, and a schema that builds. A caller who
-  writes a message and never sees it has no way to learn why. Either carry it
-  onto the bound that survived, or reject a message supplied to a bound that
-  doesn't narrow at construction, the way a contradictory pair already is.
-  Same on the length side. Pinned in `specs/number-gte-redundant.yaml` and
-  `specs/string-length-redundant.yaml`.
 
 ### Size bounds and the form-data family
 
@@ -341,6 +303,34 @@ s.fn(s.arg(0, S.string))
 - S.produce
 - S.mutator
 - Check only number of fields for strict object schema when fields are not optional (bad idea since it's not possible to create a good error message, so we still need to have the loop)
+
+## `fromJSONSchema` type inference follow-ups
+
+- **Runtime `$defs`/`$ref` resolution** — the static type already resolves
+  local pointers while the runtime parses a `$ref` as plain JSON; the FIXME in
+  `specs/fromjsonschema-recursive-ref.yaml` pins the divergence. Recursive
+  documents need the runtime's recursive-schema machinery (`S_recursive`), so
+  size that first. Closing this deletes the one "type leads runtime" caveat.
+- **Corpus-wide round-trip dimension (phase 3)** — derive a `fromJSONSchema`
+  check in the spec harness from each spec's existing `jsonSchema.input`
+  golden (~126 cases): pin the inferred type + instantiations next to the
+  emitter's output so a runtime branch gaining support without a matching
+  type branch shows up as a spec diff. Harness change → log under Spec
+  Harness Suggestions in CONTRIBUTING.md per the spec skill's rule.
+- **`default`-fold input/output split** — a non-required property with
+  `default` is folded via `Option_getOr`, so it's optional on the input side
+  but always present on the output side; the inferred type currently keeps it
+  optional on both (sound, just wider). Needs `FromJSONSchema` split into
+  per-side resolvers; measure the cost of doubling before committing.
+- **Same-level `not` exclusion** — `{ enum: [...], not: { enum: [...] } }`
+  could infer `Exclude<...>` cheaply. Only worth doing together with runtime
+  structure (today `not` is an opaque refinement), and note upstream
+  `json-schema-to-ts` gets the `allOf`-sibling variant wrong — pin whatever
+  behavior lands in a spec.
+- **`anyOf`/`oneOf` inside `type: "object"`** — the runtime drops them (TODO
+  at the object branch in `src/jsonschema.ts`); the type chain mirrors that.
+  When the runtime TODO lands, add the matching branch to `JSONSchemaResolve`
+  in the same change — the dispatch-order comment binds the two.
 
 ## Articles
 

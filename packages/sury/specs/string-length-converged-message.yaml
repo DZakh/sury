@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.string.with(S.maxLength, 5, "custom too long").with(S.minLength, 5)
+  input: string
+  output: string
+  instantiations: 5640
+vs:
+  zod: z.string().max(5, "custom too long").min(5)
+jsonSchema:
+  input: '{ type: "string", minLength: 5, maxLength: 5 }'
+  output: '{ type: "string", minLength: 5, maxLength: 5 }'
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);i.length>4||e[0](i);i.length<6||e[1](i);return i}
+    examples:
+      at-the-length:
+        input: '"abcde"'
+        output: '"abcde"'
+      too-long:
+        input: '"abcdef"'
+        error: custom too long
+      too-short:
+        input: '"abc"'
+        error: Expected string.length == 5, received "abc"
+  decode:
+    expression: i=>{i.length>4||e[0](i);i.length<6||e[1](i);return i}
+    examples:
+      at-the-length:
+        input: '"abcde"'
+        output: '"abcde"'
+      too-long:
+        input: '"abcdef"'
+        error: custom too long
+      too-short:
+        input: '"abc"'
+        error: Expected string.length == 5, received "abc"
+  encode:
+    expression: i=>{i.length>4||e[0](i);i.length<6||e[1](i);return i}
+    examples:
+      at-the-length:
+        input: '"abcde"'
+        output: '"abcde"'
+      too-long:
+        input: '"abcdef"'
+        error: custom too long
+      too-short:
+        input: '"abc"'
+        error: Expected string.length == 5, received "abc"

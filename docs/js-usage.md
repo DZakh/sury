@@ -183,6 +183,8 @@ S.toJSONSchema(documented);
 // }
 ```
 
+The `target` decides the type of the result — `S.JSONSchema7`, `S.JSONSchema2020`, or `S.OpenAPISchema30` — so `prefixItems` is there to reach for on a draft-2020-12 result and `nullable` on an OpenAPI one, and neither is on a draft-07 one.
+
 `S.fromJSONSchema` converts in the other direction:
 
 ```ts
@@ -195,6 +197,47 @@ S.assert(
 );
 // Throws S.Error: Expected email, received "example.com"
 ```
+
+A document written inline is validated and typed:
+
+```ts
+const schema = S.fromJSONSchema({
+  type: "object",
+  properties: { id: { type: "string" }, role: { enum: ["admin", "user"] } },
+  required: ["id"],
+});
+// S.Schema<{ id: string; role?: "admin" | "user" | undefined }>
+```
+
+A `$ref` pointing into the same document is followed, recursive ones included:
+
+```ts
+const comment = S.fromJSONSchema({
+  $ref: "#/$defs/comment",
+  $defs: {
+    comment: {
+      type: "object",
+      properties: {
+        text: { type: "string" },
+        replies: { type: "array", items: { $ref: "#/$defs/comment" } },
+      },
+      required: ["text"],
+    },
+  },
+});
+// S.Schema<{ text: string; replies?: ...[] | undefined }>
+
+S.assert(comment, { text: "hi", replies: [{ text: 1 }] });
+// Throws S.Error: Failed at ["replies"]["0"]["text"]: Expected string, received 1
+```
+
+`$defs` and `definitions` pointers are named in the type; one on any other path (`#/components/schemas/Pet`) is validated the same, but typed as `S.JSON`.
+
+A `$ref` leading outside the document — a URL, a `urn:`, an `$anchor`, a `$id` base — throws instead of silently accepting anything, so bundle first.
+
+To also have TypeScript check the schema document itself, annotate it with `satisfies S.JSONSchema` — that catches a misspelled keyword while leaving `x-` vendor extensions open. The annotation widens literals (e.g. `required`, `enum`), so the inferred type gets wider too — every property becomes optional.
+
+A schema read from a file or an API needs no cast: a non-literal argument — `unknown`, `S.JSON`, or one of the dialect types — falls back to `S.Schema<S.JSON, S.JSON>`, so pair it with `S.to` when you need a narrower type.
 
 > 🧠 **Sury**'s internal representation is itself JSON Schema-shaped, so a schema is readable as-is: `S.schema("Hello world!")` logs `{ type: "string", const: "Hello world!", … }`.
 
@@ -234,6 +277,7 @@ import * as S from "sury";
 S.string;
 S.number;
 S.int32;
+S.integer;
 S.boolean;
 S.bigint;
 S.symbol;
@@ -329,7 +373,6 @@ S.string.with(S.maxLength, 5); // Expected string.length <= 5
 S.string.with(S.minLength, 5); // Expected string.length >= 5
 S.string.with(S.length, 5); // Expected string.length == 5
 S.string.with(S.nonEmpty); // Expected string.length >= 1
-S.string.with(S.empty); // Expected string.length == 0
 S.string.with(S.pattern, /[0-9]/); // Invalid pattern
 
 S.string.with(S.trim); // trim whitespaces
@@ -409,13 +452,15 @@ S.number.with(S.lte, 5); // Expected number <= 5
 S.number.with(S.gte, 5); // Expected number >= 5
 S.number.with(S.lt, 5); // Expected number < 5
 S.number.with(S.gt, 5); // Expected number > 5
+S.number.with(S.multipleOf, 2); // Expected number % 2
 ```
 
-The comparison refinements work on `S.bigint` too, and on the numeric formats
-(`S.int32`, `S.port`), whose own range takes part in the check — a bound
-outside it describes a schema nothing satisfies, and fails where it's written:
+They work on `S.bigint`, `S.integer`, `S.int32` and `S.port` too. `S.int32`
+and `S.port` have a range of their own, so a bound outside it describes a
+schema nothing satisfies and fails where it's written:
 
 ```ts
+S.integer.with(S.gte, 5); // Expected integer >= 5
 S.int32.with(S.gte, 3000000000);
 // int32 >= 3000000000 contradicts int32 <= 2147483647
 S.number.with(S.gte, 5).with(S.lte, 1);
@@ -623,14 +668,16 @@ type Teacher = S.Infer<typeof teacherSchema>; // => { students: string[], id: st
 const stringArraySchema = S.array(S.string);
 ```
 
-**Sury** includes some of array-specific refinements:
+**Sury** includes some of array-specific refinements. A bound on the size shows
+up in the inferred type, so destructuring and indexing just work:
 
 ```ts
-S.array(S.string).with(S.maxLength, 5); // Expected string[].length <= 5
-S.array(S.string).with(S.minLength, 5); // Expected string[].length >= 5
-S.array(S.string).with(S.length, 5); // Expected string[].length == 5
-S.array(S.string).with(S.nonEmpty); // Expected string[].length >= 1
-S.array(S.string).with(S.empty); // Expected string[].length == 0
+S.array(S.string).with(S.length, 2); //? S.Schema<[string, string]>
+S.array(S.string).with(S.minLength, 2); //? S.Schema<[string, string, ...string[]]>
+S.array(S.string).with(S.nonEmpty); //? S.Schema<[string, ...string[]]>
+S.array(S.string).with(S.maxLength, 5); //? S.Schema<string[]>
+
+const [lat, lng] = S.parser(S.array(S.number).with(S.length, 2))(input); // both number
 ```
 
 ### Compact Columns
@@ -951,6 +998,11 @@ S.instance(Set).with(S.minSize, 1); // Expected Set.size >= 1
 
 > Use `S.minLength`/`S.maxLength`/`S.length` for strings and arrays. The two
 > families never overlap: nothing is bounded by both.
+
+> A lower bound of `0` is dropped rather than checked — every length and every
+> size is already at least zero, so it constrains nothing and the emitted JSON
+> Schema omits it. A negative or fractional one is an error. `S.length(0)` still
+> means exactly empty.
 
 ## Instance
 

@@ -3,7 +3,7 @@ ts:
   schema: S.file.with(S.minSize, 2).with(S.maxSize, 10)
   input: File
   output: File
-  instantiations: 5304
+  instantiations: 5363
 vs:
   zod: z.file().min(2).max(10)
 jsonSchema:
@@ -13,6 +13,18 @@ operations:
   parse:
     expression: i=>{i instanceof e[2]||e[3](i);i.size>1||e[0](i);i.size<11||e[1](i);return i}
     examples:
+      at-the-lower-bound:
+        input: new File(["ab"], "a.txt")
+        output: new File(["ab"], "a.txt")
+      at-the-upper-bound:
+        input: new File(["abcdefghij"], "a.txt")
+        output: new File(["abcdefghij"], "a.txt")
+      under-the-lower-bound:
+        input: new File(["a"], "a.txt")
+        error: Expected 2 <= File.size <= 10, received File
+      over-the-upper-bound:
+        input: new File(["abcdefghijk"], "a.txt")
+        error: Expected 2 <= File.size <= 10, received File
       wrong-type:
         input: '"abc"'
         error: Expected 2 <= File.size <= 10, received "abc"

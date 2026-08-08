@@ -1,13 +1,9 @@
 # yaml-language-server: $schema=./spec.schema.json
-# FIXME: the size side drops a re-applied bound's message the same way
-# number-gte-redundant and string-length-redundant do, and just as silently —
-# see the FIXME there. One fix retires all three, since the message routing is
-# shared.
 ts:
   schema: S.instance(Set).with(S.minSize, 5).with(S.minSize, 1, "MY MESSAGE")
   input: Set<unknown>
   output: Set<unknown>
-  instantiations: 7357
+  instantiations: 7340
 vs:
   zod:
     _skip: not-applicable
@@ -21,15 +17,12 @@ operations:
       at-the-surviving-size:
         input: new Set([1, 2, 3, 4, 5])
         output: new Set([1, 2, 3, 4, 5])
-      # FIXME: satisfies the bound the caller wrote second and is still
-      # rejected — correctly, the first bound is the narrower one. It is the
-      # "MY MESSAGE" that went with it, reported nowhere here, that is the bug.
       within-the-dropped-bound:
         input: new Set([1])
-        error: Expected Set.size >= 5, received Set
+        error: MY MESSAGE
       empty:
         input: new Set([])
-        error: Expected Set.size >= 5, received Set
+        error: MY MESSAGE
   decode:
     expression: i=>{i.size>4||e[0](i);return i}
     examples:
@@ -38,7 +31,7 @@ operations:
         output: new Set([1, 2, 3, 4, 5])
       within-the-dropped-bound:
         input: new Set([1])
-        error: Expected Set.size >= 5, received Set
+        error: MY MESSAGE
   encode:
     expression: i=>{i.size>4||e[0](i);return i}
     examples:
@@ -47,4 +40,4 @@ operations:
         output: new Set([1, 2, 3, 4, 5])
       within-the-dropped-bound:
         input: new Set([1])
-        error: Expected Set.size >= 5, received Set
+        error: MY MESSAGE
