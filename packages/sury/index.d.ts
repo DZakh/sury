@@ -189,6 +189,8 @@ export type Schema<TInput = unknown, TOutput = TInput> = {
       readonly type: "instance";
       readonly class: Class<TInput>;
       readonly const?: TInput;
+      readonly minSize?: number;
+      readonly maxSize?: number;
     }
   | {
       readonly type: "array";
@@ -439,6 +441,35 @@ export const jsonString: Schema<string, string>;
 export const jsonStringWithSpace: (space: number) => Schema<string, string>;
 
 export const uint8Array: Schema<Uint8Array, Uint8Array>;
+
+// `Blob` and `File` are ambient globals, from lib.dom or @types/node. Naming
+// them bare fails to typecheck for a consumer who has neither — including one
+// who never touches these schemas — so they resolve through `globalThis`: the
+// real type wherever it exists, a structural stand-in where it doesn't. The
+// stand-in stays usable rather than erroring, because a runtime can carry the
+// value while the project carries no types for it.
+/**
+ * The runtime's `Blob`, or a structural stand-in when the project has no type
+ * for it. Exported because that stand-in is otherwise unnameable: a consumer
+ * with neither lib.dom nor @types/node has no `Blob` of their own to annotate
+ * with.
+ */
+export type Blob = typeof globalThis extends {
+  Blob: abstract new (...args: never) => infer T;
+}
+  ? T
+  : { readonly size: number; readonly type: string };
+
+/** The runtime's `File`, or a structural stand-in. See {@link Blob}. */
+export type File = typeof globalThis extends {
+  File: abstract new (...args: never) => infer T;
+}
+  ? T
+  : Blob & { readonly name: string };
+
+export const blob: Schema<Blob, Blob>;
+
+export const file: Schema<File, File>;
 
 export const isoDateTime: Schema<string, string>;
 
@@ -711,6 +742,8 @@ export type SchemaErrorMessage = {
   maxLength?: string;
   minItems?: string;
   maxItems?: string;
+  minSize?: string;
+  maxSize?: string;
   pattern?: string;
 };
 
@@ -854,6 +887,22 @@ export const nonEmpty: <TInput, TOutput extends string | unknown[]>(
   schema: SchemaLike<TInput, TOutput>,
   message?: string
 ) => Schema<Same<TInput, TOutput> extends true ? NonEmptied<TInput> : TInput, NonEmptied<TOutput>>;
+
+export const minSize: <TInput, TOutput extends { size: number }>(
+  schema: SchemaLike<TInput, TOutput>,
+  size: number,
+  message?: string
+) => Schema<TInput, TOutput>;
+export const maxSize: <TInput, TOutput extends { size: number }>(
+  schema: SchemaLike<TInput, TOutput>,
+  size: number,
+  message?: string
+) => Schema<TInput, TOutput>;
+export const size: <TInput, TOutput extends { size: number }>(
+  schema: SchemaLike<TInput, TOutput>,
+  size: number,
+  message?: string
+) => Schema<TInput, TOutput>;
 
 export const pattern: <TInput>(
   schema: SchemaLike<TInput, string>,

@@ -573,7 +573,7 @@ export const dict = (item: unknown): Internal => dictFactory(definitionToItem(it
 // undefined literal, which S.schema still spells.
 export const definitionToItem = (definition: unknown): Internal =>
   definition === U
-    ? panic("Missing schema. Use S.schema(undefined) for the literal")
+    ? panic("Unexpected undefined. Use S.schema(undefined) for the literal")
     : definitionToSchema(definition);
 
 export const definitionToSchema = (definition: unknown): Internal => {
@@ -597,11 +597,10 @@ export const traverseDefinition = (
     } else {
       if (Array.isArray(definition)) {
         const node = definition as unknown[];
-        const length = node.length;
-        const items: Internal[] = new Array(length);
-        for (let idx = 0; idx < length; idx++) {
-          items[idx] = traverseDefinition(node[idx], onNode);
+        for (let idx = 0; idx < node.length; idx++) {
+          node[idx] = traverseDefinition(node[idx], onNode);
         }
+        const items = node as Internal[];
 
         const mut = baseSchema(arrayTag, false);
         mut.items = items;
@@ -625,19 +624,13 @@ export const traverseDefinition = (
           const node = definition as Record<string, unknown>;
           const fieldNames = Object.keys(node);
           const length = fieldNames.length;
-          // Clone rather than write back into the caller's object — a
-          // definition is theirs to keep using. Spread beats both `{}` (+36%)
-          // and Object.create(null) (+107%): it lands the fast shape in one
-          // step, and it copies an own `__proto__` key as an own key, so the
-          // assignments below can't reach the setter on Object.prototype.
-          const properties = { ...node } as Record<string, Internal>;
           for (let idx = 0; idx < length; idx++) {
             const location = fieldNames[idx]!;
-            properties[location] = traverseDefinition(node[location], onNode);
+            node[location] = traverseDefinition(node[location], onNode);
           }
           const mut = baseSchema(objectTag, false);
           mut.required = fieldNames;
-          mut.properties = properties;
+          mut.properties = node as Record<string, Internal>;
           mut.additionalItems = globalConfig.a;
           mut.decoder = objectDecoder;
           return mut;

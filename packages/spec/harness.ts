@@ -583,8 +583,19 @@ export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
     for (const [name, ex] of Object.entries(op.examples)) {
       const bench = ex.bench;
       try {
-        const out = fn(evalSchema(ex.input));
-        op.examples[name] = clean({ input: ex.input, output: valueToCode(out), bench });
+        const value = evalSchema(ex.input);
+        const out = fn(value);
+        // An operation that hands its input straight back records the input's
+        // own source rather than a re-derived spelling of the same value. It
+        // reads better, and it's the only way a value the serializer can't
+        // reproduce gets a passing example at all — a Blob or a File only
+        // yields its bytes asynchronously, so `new File(["ab"], "a.txt")`
+        // could be *run* but never written down as a result.
+        op.examples[name] = clean({
+          input: ex.input,
+          output: out === value ? ex.input : valueToCode(out),
+          bench,
+        });
       } catch (e) {
         op.examples[name] = clean({ input: ex.input, error: (e as Error).message, bench });
       }

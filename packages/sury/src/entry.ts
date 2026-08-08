@@ -32,6 +32,7 @@ import {
   type GlobalConfigOverride,
   initialDefaultFlag,
   initialOnAdditionalItems,
+  inputExpression,
   type Internal,
   isSchemaObject,
   objectTag,
@@ -90,6 +91,7 @@ export { never_ as never } from "./parse";
 export { json, jsonString } from "./advanced/json";
 export { uint8Array } from "./advanced/uint8Array";
 export { date } from "./advanced/date";
+export { blob, file } from "./advanced/file";
 export {
   isoDateTime,
   port,
@@ -149,6 +151,9 @@ export {
   maxLength,
   length,
   nonEmpty,
+  minSize,
+  maxSize,
+  size,
 } from "./refinements";
 export {
   meta,
@@ -341,37 +346,29 @@ export const nullable = (definition: unknown, maybeOr: unknown): Internal => {
   }
 };
 
+// A string additionalItems is what separates a plain object from an S.record,
+// whose keys aren't known field-wise; `to` marks a transformed one, whose
+// fields describe the output rather than what merging would produce.
+const isMergeable = (s: Internal): boolean =>
+  s.type === objectTag && typeof s.additionalItems === stringTag && !s.to;
+
 // @__NO_SIDE_EFFECTS__
 export const merge = (s1: Internal, s2: Internal): Internal => {
-  // PORT-NOTE: the source matches on the public `Object({...})` variants —
-  // at runtime that's a `type === "object"` check plus field reads, ported
-  // as explicit conditions below.
-  let result: Internal | undefined;
-  if (
-    s1.type === objectTag &&
-    s2.type === objectTag &&
-    // Filter out S.record schemas
-    typeof s1.additionalItems === stringTag &&
-    typeof s2.additionalItems === stringTag &&
-    !s1.to &&
-    !s2.to
-  ) {
-    const properties = { ...s1.properties!, ...s2.properties! };
-
-    const mut = baseSchema(objectTag, false);
-
-    // TODO: Merge to required fields
-    mut.required = Object.keys(properties);
-    mut.properties = properties;
-    mut.additionalItems = s1.additionalItems;
-    mut.decoder = objectDecoder;
-    result = mut;
+  if (!isMergeable(s1) || !isMergeable(s2)) {
+    const bad = isMergeable(s1) ? s2 : s1;
+    // TODO: Can theoretically support the transformed case
+    return panic(`Can't merge ${bad.to ? "transformed " : ""}${inputExpression(bad)}`);
   }
-  if (result !== U) {
-    return result;
-  } else {
-    return panic("S.merge expects plain object schemas");
-  }
+  const properties = { ...s1.properties!, ...s2.properties! };
+
+  const mut = baseSchema(objectTag, false);
+
+  // TODO: Merge to required fields
+  mut.required = Object.keys(properties);
+  mut.properties = properties;
+  mut.additionalItems = s1.additionalItems;
+  mut.decoder = objectDecoder;
+  return mut;
 };
 
 // PORT-NOTE: kept the source's `global` name — legal as a module-scoped

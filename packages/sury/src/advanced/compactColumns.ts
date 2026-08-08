@@ -93,7 +93,7 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
   }
 
   if (!maybeProperties) {
-    return panic("S.compactColumns expects an object schema");
+    return panic("S.compactColumns expects .to(S.array(objectSchema))");
   } else {
     const properties = maybeProperties;
     const keys = Object.keys(properties);

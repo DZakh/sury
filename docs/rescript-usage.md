@@ -46,6 +46,8 @@
   - [`date`](#date)
   - [`isoDateTime`](#isodatetime)
   - [`instance`](#instance)
+  - [`blob`](#blob)
+  - [`file`](#file)
   - [`json`](#json)
   - [`jsonString`](#jsonstring)
   - [`meta`](#meta)
@@ -253,7 +255,7 @@ S.email->S.meta({errorMessage: {catchAll: "Invalid input"}})
 schema->S.meta({errorMessage: {}})
 ```
 
-Available fields: `format`, `type_`, `minimum`, `maximum`, `minLength`, `maxLength`, `minItems`, `maxItems`, `pattern`, `catchAll` (encoded as `_`).
+Available fields: `format`, `type_`, `minimum`, `maximum`, `minLength`, `maxLength`, `minItems`, `maxItems`, `minSize`, `maxSize`, `pattern`, `catchAll` (encoded as `_`).
 
 #### ISO datetimes
 
@@ -1125,6 +1127,38 @@ let schema: S.t<Set.t<string>> = S.instance(%raw(`Set`))->Obj.magic;
 ```
 
 The `S.instance` schema represents an instance of a class. Requires some type casting to make it work, but better than `S.unknown` as a building block for more complex schemas.
+
+### **`blob`**
+
+`S.t<Js.Blob.t>`
+
+```rescript
+S.blob // Expected Blob
+S.blob->S.maxSize(1_000_000) // Expected Blob.size <= 1000000
+S.blob->S.minSize(1) // Expected Blob.size >= 1
+S.blob->S.size(2) // Expected Blob.size == 2
+S.blob->S.maxSize(1_000_000, ~message="Too large")
+```
+
+`S.minSize`, `S.maxSize` and `S.size` bound the size in bytes. They work on any
+`S.instance` schema with a `.size`, counting entries rather than bytes.
+
+> Strings and arrays use `S.minLength`/`S.maxLength`/`S.length` instead.
+> A lower bound of `0` is dropped; a negative one is an error.
+
+### **`file`**
+
+`S.t<Js.File.t>`
+
+```rescript
+let schema = S.file->S.maxSize(1_000_000)
+
+%raw(`new File(["hi"], "a.txt")`)->S.parseOrThrow(~to=schema) // passes
+%raw(`new Blob(["hi"])`)->S.parseOrThrow(~to=schema) // throws - Expected File, received Blob
+```
+
+A `File` is a `Blob`, so it also satisfies [`S.blob`](#blob) — not the other way
+round. It takes the same size bounds.
 
 ### **`json`**
 

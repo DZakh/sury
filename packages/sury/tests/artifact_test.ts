@@ -4,8 +4,9 @@
 // a consumer would download by accident.
 
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { describe, expect, test } from "vitest";
@@ -139,6 +140,44 @@ describeArtifact("artifact", () => {
     });
     const packed = JSON.parse(output)[0].files.map((f: { path: string }) => f.path);
     expect(packed.sort()).toEqual(PUBLISHED_FILES);
+  });
+
+  // A bare `Blob`/`File` in index.d.ts once made the whole package fail to
+  // typecheck for a consumer whose tsconfig has neither lib.dom nor
+  // @types/node — including consumers who never touch those schemas. The
+  // failure is a property of the consumer's compiler options, so no spec can
+  // express it; this compiles a minimal consumer with the globals withheld.
+  test("declarations compile without lib.dom or @types/node", () => {
+    const tscBin = createRequire(import.meta.url).resolve("typescript/bin/tsc");
+    // Outside artifacts/, whose exact contents another test asserts.
+    const dir = mkdtempSync(path.join(tmpdir(), "sury-domless-"));
+    writeFileSync(
+      path.join(dir, "tsconfig.json"),
+      JSON.stringify({
+        compilerOptions: {
+          lib: ["ES2022"],
+          types: [],
+          moduleResolution: "bundler",
+          module: "esnext",
+          target: "es2022",
+          strict: true,
+          noEmit: true,
+          baseUrl: dir,
+          paths: { sury: [path.join(artifactsPath, "index.d.ts")] },
+        },
+        files: ["consumer.ts"],
+      })
+    );
+    writeFileSync(
+      path.join(dir, "consumer.ts"),
+      `import * as S from "sury";\nexport const s = S.string;\nexport const f = S.file.with(S.minSize, 3);\n`
+    );
+    expect(() =>
+      execFileSync(process.execPath, [tscBin, "-p", dir], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+      })
+    ).not.toThrow();
   });
 
   test("ships no TypeScript beyond the declarations", () => {

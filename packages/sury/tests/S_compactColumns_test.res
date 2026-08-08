@@ -125,7 +125,7 @@ test("Handles non-object schemas", t => {
       %raw(`[["a"], [0]]`)->S.parseOrThrow(~to=schema)
     },
     ~expectations={
-      message: "[Sury] S.compactColumns expects an object schema",
+      message: "[Sury] S.compactColumns expects .to(S.array(objectSchema))",
     },
   )
 })

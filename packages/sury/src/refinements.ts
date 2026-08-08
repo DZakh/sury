@@ -7,6 +7,7 @@ import {
   type Check,
   initSchema,
   inputExpression,
+  instanceTag,
   type Internal,
   numberTag,
   panic,
@@ -92,17 +93,56 @@ const assertLengthBound = (fnName: string, schema: Internal, value: unknown): vo
   }
 };
 
+// Don't add a `.size` probe on the class: it gets the answer wrong both ways,
+// accepting one whose `size` is a method (the check then compares a function
+// and rejects everything) and rejecting one that assigns `this.size` in its
+// constructor. The tag is what's knowable here; `TOutput extends { size:
+// number }` on the signatures covers the rest.
+const assertSizeBound = (fnName: string, schema: Internal, value: unknown): void => {
+  if (schema.type !== instanceTag) {
+    panic(expects(fnName, "instance schema", inputExpression(schema)));
+  }
+  if (typeof value !== numberTag || !Number.isSafeInteger(value) || (value as number) < 0) {
+    throw new SuryError({
+      code: "invalid_operation",
+      path: pathEmpty,
+      reason: expects(fnName, "integer >= 0", stringify(value)),
+    });
+  }
+};
+
 // A bigint prints as bare digits, so the suffix goes back on to keep it a
 // bigint literal — without it the generated comparison silently becomes a mixed
 // bigint/number one, and a rendered bound reads as the number it isn't while
 // `received` next to it prints `4n`.
 const lit = (value: number | bigint): string => (typeof value === bigintTag ? `${value}n` : `${value}`);
 
-// A string bounds minLength/maxLength where an array bounds minItems/maxItems.
-// Same generated check either way, so the tag picks the keyword rather than
-// there being two of each function.
-const sizeKey = (schema: Internal, upper: boolean): "minLength" | "maxLength" | "minItems" | "maxItems" =>
-  schema.type === arrayTag ? (upper ? "maxItems" : "minItems") : upper ? "maxLength" : "minLength";
+// A string bounds minLength/maxLength, an array minItems/maxItems, and an
+// instance that measures itself minSize/maxSize. Same generated check every
+// way — only the member it reads differs — so the tag picks the keyword rather
+// than there being one function per pair. This is the single place a new
+// sized container has to be taught: the refiner, the rendering and both guards
+// read it.
+const sizeKey = (
+  schema: Internal,
+  upper: boolean,
+): "minLength" | "maxLength" | "minItems" | "maxItems" | "minSize" | "maxSize" =>
+  schema.type === arrayTag
+    ? upper ? "maxItems" : "minItems"
+    : schema.type === instanceTag
+      ? upper ? "maxSize" : "minSize"
+      : upper ? "maxLength" : "minLength";
+
+// What a sized schema measures itself by. `U` for one that doesn't — a number
+// bounds its own value.
+const sizeMember = (schema: Internal): string | undefined => {
+  const tag = schema.type;
+  return tag === instanceTag
+    ? ".size"
+    : tag === stringTag || tag === arrayTag
+      ? ".length"
+      : U;
+};
 
 // Bounds wrap the expression they constrain, in ArkType's double-bounded
 // spelling — `0 < number < 10` rather than a clause per side. A string or
@@ -115,10 +155,10 @@ const sizeKey = (schema: Internal, upper: boolean): "minLength" | "maxLength" | 
 // rendering another module owns.
 const withBounds = (schema: Internal, base: string): string => {
   const written = schema.bounds ?? 0;
-  const isArray = schema.type === arrayTag;
-  const sized = isArray || schema.type === stringTag;
-  const minKey = isArray ? "minItems" : sized ? "minLength" : "minimum";
-  const maxKey = isArray ? "maxItems" : sized ? "maxLength" : "maximum";
+  const member = sizeMember(schema);
+  const sized = member !== U;
+  const minKey = sized ? sizeKey(schema, false) : "minimum";
+  const maxKey = sized ? sizeKey(schema, true) : "maximum";
   // No JSON Schema keyword bounds a length exclusively, so only a value bound
   // can be strict.
   const exMin = written & 4 ? schema.exclusiveMinimum : U;
@@ -130,7 +170,7 @@ const withBounds = (schema: Internal, base: string): string => {
   // carry one (multipleOf rejects string | array), so `.length` never mixes
   // with `%`.
   const mo = schema.multipleOf;
-  const subject0 = sized ? `${base}.length` : base;
+  const subject0 = sized ? `${base}${member}` : base;
   if (low === U && high === U) {
     // Only reachable with a bare divisor — nothing wraps it, so no parens.
     return `${subject0} % ${lit(mo!)}`;
@@ -203,7 +243,8 @@ const boundsRefiner = (input: Val): Check[] => {
   const s = input.e;
   const written = s.bounds ?? 0;
   const checks: Check[] = [];
-  if (s.type === stringTag || s.type === arrayTag) {
+  const member = sizeMember(s);
+  if (member !== U) {
     const minKey = sizeKey(s, false);
     const maxKey = sizeKey(s, true);
     const min = written & 1 ? (s[minKey] as number) : U;
@@ -216,19 +257,19 @@ const boundsRefiner = (input: Val): Check[] => {
     // "custom": those keep a check per direction, each with its own key.
     if (min !== U && min === max && (em !== U ? em[minKey] : U) === (em !== U ? em[maxKey] : U)) {
       checks.push({
-        c: (inputVar) => `${inputVar}.length===${min}`,
+        c: (inputVar) => `${inputVar}${member}===${min}`,
         f: B_failWithErrorMessage(minKey),
       });
     } else {
       if (min !== U) {
         checks.push({
-          c: (inputVar) => `${inputVar}.length>${min - 1}`,
+          c: (inputVar) => `${inputVar}${member}>${min - 1}`,
           f: B_failWithErrorMessage(minKey),
         });
       }
       if (max !== U) {
         checks.push({
-          c: (inputVar) => `${inputVar}.length<${max + 1}`,
+          c: (inputVar) => `${inputVar}${member}<${max + 1}`,
           f: B_failWithErrorMessage(maxKey),
         });
       }
@@ -365,8 +406,14 @@ const narrowsUpper = (schema: Internal, value: number | bigint, exclusive: boole
   );
 };
 
+// A lower bound of 0 is measured against 0 rather than against "no bound yet",
+// so it never narrows: every length and every size is already >= 0, and the
+// `i.length>-1` it would otherwise emit is a check no value can fail. Dropping
+// it also keeps the advertised JSON Schema honest, since `minLength: 0` is the
+// keyword's own default. `S.length(0)` is unaffected — it pins both sides and
+// takes neither path.
 const narrowsSize = (current: number | undefined, value: number, upper: boolean): boolean =>
-  current === U || (upper ? value < current : value > current);
+  upper ? current === U || value < current : value > (current ?? 0);
 
 // An empty range is always a caller bug: the schema compiles, emits, and then
 // rejects every possible value, which only shows up in production. Reported
@@ -607,6 +654,54 @@ export const length = (schema: Internal, length: number, maybeMessage?: string):
     mut[maxKey] = length;
     setBoundMessage(mut, schema, minKey, maybeMessage);
     setBoundMessage(mut, schema, maxKey, maybeMessage);
+  });
+}
+
+// @__NO_SIDE_EFFECTS__
+export const minSize = (schema: Internal, size: number, maybeMessage?: string): Internal => {
+  assertSizeBound("minSize", schema, size);
+  assertSize(schema, size, false);
+  if (!narrowsSize(schema.minSize, size, false)) {
+    return carryMessage(schema, (schema.bounds ?? 0) & 1 ? "minSize" : U, maybeMessage);
+  }
+  return updateBounds(schema, (mut: Internal) => {
+    setBoundExpression(mut, schema);
+    mut.bounds = (schema.bounds ?? 0) | 1;
+    mut.minSize = size;
+    setBoundMessage(mut, schema, "minSize", maybeMessage);
+  });
+}
+
+// @__NO_SIDE_EFFECTS__
+export const maxSize = (schema: Internal, size: number, maybeMessage?: string): Internal => {
+  assertSizeBound("maxSize", schema, size);
+  assertSize(schema, size, true);
+  if (!narrowsSize(schema.maxSize, size, true)) {
+    return carryMessage(schema, (schema.bounds ?? 0) & 2 ? "maxSize" : U, maybeMessage);
+  }
+  return updateBounds(schema, (mut: Internal) => {
+    setBoundExpression(mut, schema);
+    mut.bounds = (schema.bounds ?? 0) | 2;
+    mut.maxSize = size;
+    setBoundMessage(mut, schema, "maxSize", maybeMessage);
+  });
+}
+
+// @__NO_SIDE_EFFECTS__
+export const size = (schema: Internal, size: number, maybeMessage?: string): Internal => {
+  assertSizeBound("size", schema, size);
+  assertSize(schema, size, false);
+  assertSize(schema, size, true);
+  if (schema.minSize === size && schema.maxSize === size) {
+    return carryMessage(schema, "minSize", maybeMessage);
+  }
+  return updateBounds(schema, (mut: Internal) => {
+    setBoundExpression(mut, schema);
+    mut.bounds = (schema.bounds ?? 0) | 3;
+    mut.minSize = size;
+    mut.maxSize = size;
+    setBoundMessage(mut, schema, "minSize", maybeMessage);
+    setBoundMessage(mut, schema, "maxSize", maybeMessage);
   });
 }
 
