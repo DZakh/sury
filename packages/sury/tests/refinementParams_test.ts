@@ -27,6 +27,7 @@ const HOSTILE: [string, unknown][] = [
 
 const NUMERIC = ["gt", "gte", "lt", "lte"] as const;
 const SIZED = ["minLength", "maxLength", "length"] as const;
+const SIZED_INSTANCE = ["minSize", "maxSize", "size"] as const;
 
 test("a bound rejects any value it could not safely inline", () => {
   (globalThis as Record<string, unknown>).__SURY_PWNED = false;
@@ -41,6 +42,12 @@ test("a bound rejects any value it could not safely inline", () => {
     for (const fn of SIZED) {
       expect(
         () => (S as never as Record<string, (...a: unknown[]) => unknown>)[fn]!(S.string, value),
+        `S.${fn} accepted ${label}`,
+      ).toThrow(/expects integer >= 0/);
+    }
+    for (const fn of SIZED_INSTANCE) {
+      expect(
+        () => (S as never as Record<string, (...a: unknown[]) => unknown>)[fn]!(S.file, value),
         `S.${fn} accepted ${label}`,
       ).toThrow(/expects integer >= 0/);
     }
@@ -68,8 +75,34 @@ test("a length rejects values that are not counts", () => {
     expect(() => S.maxLength(S.array(S.string), value), `maxLength(${value})`).toThrow(
       /expects integer >= 0/,
     );
+    expect(() => S.minSize(S.file, value), `minSize(${value})`).toThrow(/expects integer >= 0/);
   }
-  expect(S.inputExpression(S.string.with(S.minLength, 0))).toBe("string.length >= 0");
+  // 0 is the one non-negative count that isn't a bound: dropped rather than
+  // compiled into a check no value can fail. Pinned in specs/string-minLength-zero
+  // and specs/file-minSize-zero; asserted here too because it's the boundary
+  // the loop above stops one short of.
+  expect(S.inputExpression(S.string.with(S.minLength, 0))).toBe("string");
+  expect(S.inputExpression(S.file.with(S.minSize, 0))).toBe("File");
+  expect(S.inputExpression(S.array(S.string).with(S.minLength, 0))).toBe("string[]");
+});
+
+test("a size is only applied to an instance", () => {
+  // The mistake this catches is reaching for a size where a length was meant.
+  expect(() => S.minSize(S.string as never, 1)).toThrow(
+    "S.minSize expects instance schema, got string",
+  );
+  expect(() => S.maxSize(S.array(S.string) as never, 1)).toThrow(
+    "S.maxSize expects instance schema, got string[]",
+  );
+  // Every `.size` carrier works, not just the two binary ones — which is what
+  // keeps a future S.set/S.map from needing another pair of constructors, and
+  // covers a class that assigns `this.size` rather than inheriting a getter.
+  expect(S.parser(S.instance(Set).with(S.minSize, 1)).toString()).toContain("i.size>0");
+  class Chunk {
+    size = 4;
+  }
+  expect(S.parser(S.instance(Chunk).with(S.minSize, 4))(new Chunk())).toBeInstanceOf(Chunk);
+  expect(S.inputExpression(S.blob.with(S.size, 2))).toBe("Blob.size == 2");
 });
 
 test("values that are safe to inline still round-trip through codegen", () => {

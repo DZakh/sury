@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.string.with(S.minLength, 0)
+  input: string
+  output: string
+  instantiations: 5357
+vs:
+  zod: z.string().min(0)
+jsonSchema:
+  input: '{ type: "string" }'
+  output: '{ type: "string" }'
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[0](i);return i}
+    examples:
+      empty:
+        input: '""'
+        output: '""'
+      non-empty:
+        input: '"ab"'
+        output: '"ab"'
+      wrong-type:
+        input: "1"
+        error: Expected string, received 1
+  decode: identity
+  encode: identity

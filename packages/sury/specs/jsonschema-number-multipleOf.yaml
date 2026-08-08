@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.fromJSONSchema({ type: "number", multipleOf: 2.5 })'
+  input: number
+  output: number
+  instantiations: 387
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "number", multipleOf: 2.5 }'
+  output: '{ type: "number", multipleOf: 2.5 }'
+operations:
+  parse:
+    expression: i=>{typeof i==="number"&&!Number.isNaN(i)||e[2](i);e[0](i)||e[1](i);return i}
+    examples:
+      valid:
+        input: "5"
+        output: "5"
+      valid-fractional-multiple:
+        input: "7.5"
+        output: "7.5"
+      valid-zero:
+        input: "0"
+        output: "0"
+      invalid:
+        input: "6"
+        error: Expected number % 2.5, received 6
+      invalid-fraction:
+        input: "2.6"
+        error: Expected number % 2.5, received 2.6
+  decode:
+    expression: i=>{e[0](i)||e[1](i);return i}
+    examples:
+      valid:
+        input: "5"
+        output: "5"
+      invalid:
+        input: "6"
+        error: Expected number % 2.5, received 6
+  encode:
+    expression: i=>{e[0](i)||e[1](i);return i}
+    examples:
+      valid:
+        input: "5"
+        output: "5"
+      invalid:
+        input: "6"
+        error: Expected number % 2.5, received 6

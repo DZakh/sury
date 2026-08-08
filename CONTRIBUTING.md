@@ -349,7 +349,29 @@ instead of silently working around it.
   `re.test(i)`, so the job got roughly 70% more expensive for no extra signal.
   A per-spec opt-out, or benchmarking one representative example per outcome
   rather than all of them, would decouple example coverage from perf runtime.
-- Example values are recorded as source text, so an operation returning a class instance can't be snapshotted (`specs/url-codec.yaml` records only the rejecting parse cases; `S.date` has no spec at all for the same reason). A constructor-expression form for expected values — the way `input` already accepts `new URL("…")` — would close it.
+- Example values are recorded as source text, so an operation returning a class
+  instance can only be snapshotted if the serializer knows that class. `Date`,
+  `URL`, `RegExp`, `Map` and `Set` round-trip; anything else still fails with
+  "cannot represent a … instance as spec source code", and the failure is
+  recorded *as the example's golden* — so a passing operation is pinned as an
+  error and reads like real behavior. Failing the check outright would be
+  better than writing a golden the harness knows is a lie.
+- A `URL` example is rendered from its `.href`, which makes the golden depend on
+  the runtime's WHATWG parser rather than on Sury. `new URL("http://ex.com/a^b")`
+  keeps the caret on Node 22 and normalizes it to `%5E` on the pinned Node 24, so
+  the same spec is canonical on one and not the other, and the canonical-form
+  test fails in CI with no Sury change behind it. Rendering the source string the
+  example was written with — rather than the parsed value's serialization — would
+  keep the golden about the schema. Until then a `URL` example silently pins
+  runtime behavior, and the `engines` pin is the only thing keeping it honest.
+- A codec spec is named `codec-<from>-<to>`, so `codec` is a prefix and never a
+  suffix. Nothing enforces it — `url-codec.yaml` sat the other way round until
+  it was renamed — and the id is what orders the specs directory, so the
+  convention is only worth having if the linter holds it.
+- A spec whose `operations` block omits an op the schema supports crashes the
+  linter with `TypeError: Cannot read properties of undefined (reading
+  'examples')` instead of naming the missing block. Hand-writing a spec rather
+  than scaffolding it with `spec new` is the way in.
 - No operation dimension for JSON-target conversions (`.to(S.json)` / `.to(S.jsonString)`), so bugs like #311 (nested optional fields failing to encode) can't be captured as spec examples — their repros live in `tests/` instead.
 - Example results are serialized back to spec source, so a value with symbol keys can't be recorded ("cannot represent an object with symbol keys as spec source code"). `S.record`'s unvalidated symbol-keyed values are pinned in `tests/` instead of `specs/record.yaml`, where the rest of that gap lives.
 - The same serializer emits an own `__proto__` key as `{ __proto__: … }`, which is prototype syntax and reads back as a *different* value, so `check --write` rewrites such an example into one that no longer reproduces and the goldens oscillate between runs. `specs/object-proto-key.yaml` works around it by covering only inputs without that key; a computed-key form (`{ ["__proto__"]: … }`) would let the example be recorded directly.

@@ -46,6 +46,8 @@
   - [`date`](#date)
   - [`isoDateTime`](#isodatetime)
   - [`instance`](#instance)
+  - [`blob`](#blob)
+  - [`file`](#file)
   - [`json`](#json)
   - [`jsonString`](#jsonstring)
   - [`meta`](#meta)
@@ -180,6 +182,7 @@ The obvious ones, at a glance:
 | `S.string` | `S.t<string>` | [refinements ↓](#string) |
 | `S.bool` | `S.t<bool>` | |
 | `S.int` | `S.t<int>` | [refinements ↓](#int) |
+| `S.integer` | `S.t<float>` | integer without `int`'s range [↓](#int) |
 | `S.float` | `S.t<float>` | [refinements ↓](#float) |
 | `S.bigint` | `S.t<bigint>` | |
 | `S.symbol` | `S.t<Symbol.t>` | |
@@ -211,7 +214,6 @@ S.string->S.maxLength(5) // Expected string.length <= 5
 S.string->S.minLength(5) // Expected string.length >= 5
 S.string->S.length(5) // Expected string.length == 5
 S.string->S.nonEmpty // Expected string.length >= 1
-S.string->S.empty // Expected string.length == 0
 S.string->S.pattern(%re(`/[0-9]/`)) // Invalid pattern
 
 S.string->S.trim // trim whitespaces
@@ -253,7 +255,7 @@ S.email->S.meta({errorMessage: {catchAll: "Invalid input"}})
 schema->S.meta({errorMessage: {}})
 ```
 
-Available fields: `format`, `type_`, `minimum`, `maximum`, `minLength`, `maxLength`, `minItems`, `maxItems`, `pattern`, `catchAll` (encoded as `_`).
+Available fields: `format`, `type_`, `minimum`, `maximum`, `minLength`, `maxLength`, `minItems`, `maxItems`, `minSize`, `maxSize`, `pattern`, `catchAll` (encoded as `_`).
 
 #### ISO datetimes
 
@@ -289,16 +291,24 @@ S.int->S.lte(5) // Expected int32 <= 5
 S.int->S.gte(5) // Expected int32 >= 5
 S.int->S.lt(5) // Expected int32 < 5
 S.int->S.gt(5) // Expected int32 > 5
+S.int->S.multipleOf(2) // Expected int32 % 2
 S.port // Standalone port schema
 ```
 
-The same four work on `S.float` and `S.bigint`. A numeric format carries its
+They all work on `S.float` and `S.bigint` too. A numeric format carries its
 own range, so a bound outside it fails where it's written rather than building
 a schema nothing satisfies:
 
 ```rescript
 S.int->S.gte(3000000000)
 // int32 >= 3000000000 contradicts int32 <= 2147483647
+```
+
+`S.integer` is an integer without that range, typed `S.t<float>` since one can
+exceed ReScript's `int`:
+
+```rescript
+S.integer->S.gte(5.) // Expected integer >= 5
 ```
 
 ### **`float`**
@@ -1117,6 +1127,38 @@ let schema: S.t<Set.t<string>> = S.instance(%raw(`Set`))->Obj.magic;
 ```
 
 The `S.instance` schema represents an instance of a class. Requires some type casting to make it work, but better than `S.unknown` as a building block for more complex schemas.
+
+### **`blob`**
+
+`S.t<Js.Blob.t>`
+
+```rescript
+S.blob // Expected Blob
+S.blob->S.maxSize(1_000_000) // Expected Blob.size <= 1000000
+S.blob->S.minSize(1) // Expected Blob.size >= 1
+S.blob->S.size(2) // Expected Blob.size == 2
+S.blob->S.maxSize(1_000_000, ~message="Too large")
+```
+
+`S.minSize`, `S.maxSize` and `S.size` bound the size in bytes. They work on any
+`S.instance` schema with a `.size`, counting entries rather than bytes.
+
+> Strings and arrays use `S.minLength`/`S.maxLength`/`S.length` instead.
+> A lower bound of `0` is dropped; a negative one is an error.
+
+### **`file`**
+
+`S.t<Js.File.t>`
+
+```rescript
+let schema = S.file->S.maxSize(1_000_000)
+
+%raw(`new File(["hi"], "a.txt")`)->S.parseOrThrow(~to=schema) // passes
+%raw(`new Blob(["hi"])`)->S.parseOrThrow(~to=schema) // throws - Expected File, received Blob
+```
+
+A `File` is a `Blob`, so it also satisfies [`S.blob`](#blob) — not the other way
+round. It takes the same size bounds.
 
 ### **`json`**
 

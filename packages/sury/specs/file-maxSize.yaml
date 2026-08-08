@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.file.with(S.maxSize, 5)
+  input: File
+  output: File
+  instantiations: 5165
+vs:
+  zod: z.file().max(5)
+jsonSchema:
+  input: Expected JSON, received File.size <= 5
+  output: Expected JSON, received File.size <= 5
+operations:
+  parse:
+    expression: i=>{i instanceof e[1]||e[2](i);i.size<6||e[0](i);return i}
+    examples:
+      at-the-size:
+        input: new File(["abcde"], "a.txt")
+        output: new File(["abcde"], "a.txt")
+      under-the-size:
+        input: new File(["a"], "a.txt")
+        output: new File(["a"], "a.txt")
+      over-the-size:
+        input: new File(["abcdef"], "a.txt")
+        error: Expected File.size <= 5, received File
+      blob-is-not-a-file:
+        input: new Blob(["ab"])
+        error: Expected File.size <= 5, received Blob
+      wrong-type:
+        input: "0"
+        error: Expected File.size <= 5, received 0
+  decode:
+    expression: i=>{i.size<6||e[0](i);return i}
+    examples:
+      over-the-size:
+        input: new Blob(["abcdef"])
+        error: Expected File.size <= 5, received Blob
+  encode:
+    expression: i=>{i.size<6||e[0](i);return i}
+    examples:
+      over-the-size:
+        input: new Blob(["abcdef"])
+        error: Expected File.size <= 5, received Blob

@@ -46,8 +46,14 @@ export const date: Internal = /* @__PURE__ */ initSchema(instanceTag, (s) => {
     if (flagUnsafeHas(toTagFlag, tagFlagString)) {
       const dateTimeString = baseSchema(stringTag, false);
       dateTimeString.format = "date-time";
+      // See the note in advanced/url.ts: the B_refine wrap is what makes the
+      // produced string the subject of the target's checks. Without it
+      // `S.isoDateTime.with(S.to, S.date)` tests the datetime regex against the
+      // `Date`, which stringifies to "Wed Jan 01 2020 …" and never matches.
       return parse(
-        B_next(input, `${input.i}.toISOString()`, dateTimeString, target),
+        B_refine(
+          B_next(input, `${input.i}.toISOString()`, dateTimeString, target),
+        ),
       );
     } else {
       return input;

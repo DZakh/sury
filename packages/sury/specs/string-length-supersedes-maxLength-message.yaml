@@ -1,33 +1,17 @@
 # yaml-language-server: $schema=./spec.schema.json
-# FIXME: a superseded bound keeps its check, so its message fires for some
-# violations of the surviving bound and not others. `length(3)` narrows
-# `maxLength` from 5 to 3 in the fields, but the `i.length<6` check is already
-# in the refiner chain and can't be pulled back — so this schema, which
-# advertises `string.length == 3`, reports "MAX" for a 6-character string and
-# the generic message for a 4-character one. Both are just "too long".
-# Two things have to move together to fix it: `internalRefine` needs to be able
-# to *replace* a check rather than only append one (the open
-# "A narrowing bound should retract the check it supersedes" item in IDEAS.md,
-# which is about codegen and turns out to decide error text too); and `length()`
-# writes its message under both `minLength` and `maxLength` while the check it
-# attaches reads only `minLength` — dead in this order, and in the other order
-# (`maxLength(5, "MAX").length(3, "EXACT")`) it silently overwrites the "MAX"
-# the caller set, so the surviving `i.length<6` check then reports "EXACT".
 ts:
   schema: S.string.with(S.maxLength, 5, "MAX").with(S.length, 3)
   input: string
   output: string
-  instantiations: 5448
+  instantiations: 5658
 vs:
   zod: z.string().max(5, "MAX").length(3)
 jsonSchema:
-  # FIXME: says `length == 3` and mentions neither the 5 the surviving check
-  # still enforces nor the message attached to it.
   input: '{ type: "string", minLength: 3, maxLength: 3 }'
   output: '{ type: "string", minLength: 3, maxLength: 3 }'
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[2](i);i.length<6||e[0](i);i.length===3||e[1](i);return i}
+    expression: i=>{typeof i==="string"||e[1](i);i.length===3||e[0](i);return i}
     examples:
       at-the-length:
         input: '"abc"'
@@ -35,20 +19,17 @@ operations:
       too-short:
         input: '"ab"'
         error: Expected string.length == 3, received "ab"
-      # FIXME: too long for `length == 3`, reported generically...
       too-long-within-the-superseded-bound:
         input: '"abcd"'
         error: Expected string.length == 3, received "abcd"
-      # FIXME: ...and too long in exactly the same way, reported as "MAX" —
-      # the message of a bound this schema no longer advertises.
       too-long-past-the-superseded-bound:
         input: '"abcdef"'
-        error: MAX
+        error: Expected string.length == 3, received "abcdef"
       wrong-type:
         input: "1"
         error: Expected string.length == 3, received 1
   decode:
-    expression: i=>{i.length<6||e[0](i);i.length===3||e[1](i);return i}
+    expression: i=>{i.length===3||e[0](i);return i}
     examples:
       at-the-length:
         input: '"abc"'
@@ -58,9 +39,9 @@ operations:
         error: Expected string.length == 3, received "abcd"
       too-long-past-the-superseded-bound:
         input: '"abcdef"'
-        error: MAX
+        error: Expected string.length == 3, received "abcdef"
   encode:
-    expression: i=>{i.length<6||e[0](i);i.length===3||e[1](i);return i}
+    expression: i=>{i.length===3||e[0](i);return i}
     examples:
       at-the-length:
         input: '"abc"'
@@ -70,4 +51,4 @@ operations:
         error: Expected string.length == 3, received "abcd"
       too-long-past-the-superseded-bound:
         input: '"abcdef"'
-        error: MAX
+        error: Expected string.length == 3, received "abcdef"

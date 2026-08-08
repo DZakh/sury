@@ -78,6 +78,7 @@ export {
   bool,
   int as int32,
   int,
+  integer,
   float as number,
   float,
   bigint,
@@ -91,6 +92,7 @@ export { json, jsonString } from "./advanced/json";
 export { uint8Array } from "./advanced/uint8Array";
 export { date } from "./advanced/date";
 export { url } from "./advanced/url";
+export { blob, file } from "./advanced/file";
 export {
   isoDateTime,
   port,
@@ -159,11 +161,14 @@ export {
   gte,
   lt,
   lte,
+  multipleOf,
   minLength,
   maxLength,
   length,
-  empty,
   nonEmpty,
+  minSize,
+  maxSize,
+  size,
 } from "./refinements";
 export {
   meta,

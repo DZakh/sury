@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.jsonStringWithSpace(2).with(S.to, S.schema({ foo: [1, S.number] }))"
+  input: string
+  output: "{ foo: [1, number]; }"
+  instantiations: 6464
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "string" }'
+  output: '{ type: "object", properties: { foo: { type: "array", minItems: 2, maxItems: 2, items: [{ type: "number", const: 1 }, { type: "number" }] } }, required: ["foo"] }'
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[6](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[5](v0);let v1=v0["foo"];Array.isArray(v1)||e[4](v1);v1.length===2||e[3](v1);let v2=v1["0"],v3=v1["1"];v2===1||e[1](v2);typeof v3==="number"&&!Number.isNaN(v3)||e[2](v3);return {"foo":v1,}}
+    examples:
+      valid:
+        input: '"{\"foo\":[1,2]}"'
+        output: "{ foo: [1, 2] }"
+  decode:
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[5](v0);let v1=v0["foo"];Array.isArray(v1)||e[4](v1);v1.length===2||e[3](v1);let v2=v1["0"],v3=v1["1"];v2===1||e[1](v2);typeof v3==="number"&&!Number.isNaN(v3)||e[2](v3);return {"foo":v1,}}
+    examples:
+      valid:
+        input: '"{\"foo\":[1,2]}"'
+        output: "{ foo: [1, 2] }"
+  encode:
+    expression: i=>{let v0=i["foo"];return JSON.stringify(i,null,2)}
+    examples:
+      pretty-prints:
+        input: "{ foo: [1, 2] }"
+        output: '"{\n  \"foo\": [\n    1,\n    2\n  ]\n}"'

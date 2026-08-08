@@ -47,84 +47,6 @@ const expectSchemaType = <TSchema extends S.Schema<unknown, unknown>>(
 // Can use genType schema
 // expectSchemaType(stringSchema).toBe<unknown, string>();
 
-test("JSON string demo", (t) => {
-  t.expect(S.parser(S.jsonString)("123")).toEqual("123");
-  // i=>{if(typeof i!=="string"){e[1](i)}try{JSON.parse(i)}catch(t){e[0](i)}return i}
-
-  const schemaWithTo = S.jsonString.with(S.to, S.number);
-  t.expect(S.parser(schemaWithTo)("123")).toEqual(123);
-  // i=>{if(typeof i!=="string"){e[2](i)}let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}if(typeof v0!=="number"||Number.isNaN(v0)){e[1](v0)}return v0}
-
-  const schemaWithTo2 = S.number.with(S.to, S.jsonString);
-  t.expect(S.decoder(schemaWithTo2)(123)).toEqual("123");
-  // i=>{return ""+i}
-});
-
-test("Successfully parses string with built-in refinement", (t) => {
-  const schema = S.string.with(S.length, 5);
-  const result = S.safe(() => S.parser(schema)("123"));
-
-  expectTypeOf(result).toEqualTypeOf<S.Result<string>>();
-
-  if (result.success) {
-    t.expect.fail("Should fail");
-    return;
-  }
-  t.expect(result.error.message).toBe(
-    'Expected string.length == 5, received "123"',
-  );
-
-  expectSchemaType(schema).toBe<string, string>();
-  expectTypeOf(result).toEqualTypeOf<{
-    readonly success: false;
-    readonly error: S.Error;
-  }>();
-});
-
-test("Successfully parses string with built-in refinement and custom message", (t) => {
-  const schema = S.string.with(S.length, 5, "Postcode must have 5 symbols");
-  const result = S.safe(() => S.parser(schema)("123"));
-
-  if (result.success) {
-    t.expect.fail("Should fail");
-    return;
-  }
-  t.expect(result.error.message).toBe("Postcode must have 5 symbols");
-
-  expectSchemaType(schema).toBe<string, string>();
-});
-
-test("S.pattern preserves the Input type through a transform (#282)", (t) => {
-  // Regression test for https://github.com/DZakh/sury/pull/282 — pattern's
-  // .d.ts declaration was missing the `schema` param, which hard-coded
-  // Input to `string` and broke any schema whose Input differs from Output.
-  const schema = S.number.with(S.to, S.jsonString).with(S.pattern, /^\d+$/);
-
-  t.expect(S.decoder(schema)(123)).toEqual("123");
-
-  expectSchemaType(schema).toBe<number, string>();
-});
-
-test("Successfully parses string with built-in transform", (t) => {
-  const schema = S.trim(S.string);
-  const value = S.parser(schema)("  123");
-
-  t.expect(value).toEqual("123");
-
-  expectSchemaType(schema).toBe<string, string>();
-  expectTypeOf(value).toEqualTypeOf<string>();
-});
-
-test("Successfully parses string to Date via S.to(S.date)", (t) => {
-  const schema = S.to(S.string, S.date);
-  const value = S.parser(schema)("2020-01-01T00:00:00Z");
-
-  t.expect(value).toEqual(new Date("2020-01-01T00:00:00Z"));
-
-  expectSchemaType(schema).toBe<string, Date>();
-  expectTypeOf(value).toEqualTypeOf<Date>();
-});
-
 test("S.to returns the schema itself when the target is the same instance", (t) => {
   const make = () => S.string.with(S.to, S.number, (string) => string.length);
   const schema = make();
@@ -144,26 +66,6 @@ test("S.to returns the schema itself when the target is the same instance", (t) 
 
   expectSchemaType(schema).toBe<string, number>();
   expectSchemaType(S.to(schema, schema)).toBe<string, number>();
-});
-
-test("Successfully parses string to Date with S.to", (t) => {
-  const schema = S.string.with(S.to, S.date);
-  const value = S.parser(schema)("2024-01-01T00:00:00.000Z");
-
-  t.expect(value).toEqual(new Date("2024-01-01T00:00:00.000Z"));
-
-  expectSchemaType(schema).toBe<string, Date>();
-  expectTypeOf(value).toEqualTypeOf<Date>();
-});
-
-test("Successfully converts Date to string with S.to", (t) => {
-  const schema = S.date.with(S.to, S.string);
-  const value = S.decoder(schema)(new Date("2024-01-01T00:00:00.000Z"));
-
-  t.expect(value).toBe("2024-01-01T00:00:00.000Z");
-
-  expectSchemaType(schema).toBe<Date, string>();
-  expectTypeOf(value).toEqualTypeOf<string>();
 });
 
 test("Function literal schema", (t) => {
@@ -198,42 +100,6 @@ test("Successfully parses float when NaN is provided and NaN check disabled in g
   expectTypeOf(value).toEqualTypeOf<number>();
 });
 
-test("Successfully parses json", (t) => {
-  const schema = S.json;
-  const value = S.parser(schema)(true);
-
-  t.expect(value).toEqual(true);
-
-  expectSchemaType(schema).toBe<S.JSON, S.JSON>();
-  expectTypeOf(value).toEqualTypeOf<S.JSON>();
-});
-
-test("Successfully parses invalid json without validation", (t) => {
-  const schema = S.json.with(S.noValidation, true);
-
-  let fn = S.parser(schema);
-
-  const value = fn(undefined);
-  t.expect(value).toEqual(undefined);
-
-  t.expect(fn.name).toEqual(`noopOperation`);
-
-  t.expect(fn([undefined])).toEqual([undefined]);
-
-  expectSchemaType(schema).toBe<S.JSON, S.JSON>();
-  expectTypeOf(value).toEqualTypeOf<S.JSON>();
-});
-
-test("Successfully parses undefined", (t) => {
-  const schema = S.schema(undefined);
-  const value = S.parser(schema)(undefined);
-
-  t.expect(value).toEqual(undefined);
-
-  expectSchemaType(schema).toBe<undefined, undefined>();
-  expectTypeOf(value).toEqualTypeOf<undefined>();
-});
-
 test("Can get a reason from an error", (t) => {
   const schema = S.never;
 
@@ -244,82 +110,6 @@ test("Can get a reason from an error", (t) => {
     return;
   }
   t.expect(result.error.reason).toBe("Expected never, received true");
-});
-
-test("Successfully parses array", (t) => {
-  const schema = S.array(S.string);
-  const value = S.parser(schema)(["foo"]);
-
-  t.expect(value).toEqual(["foo"]);
-
-  expectSchemaType(schema).toBe<string[], string[]>();
-  expectTypeOf(value).toEqualTypeOf<string[]>();
-});
-
-test("Transforms array of bigint to array of string", (t) => {
-  const fn = S.decoder(S.array(S.bigint), S.array(S.string));
-
-  t.expect(fn.toString()).toEqual(
-    `i=>{let v2=new Array(i.length);for(let v1=0;v1<i.length;++v1){v2[v1]=""+i[v1]}return v2}`,
-  );
-  t.expect(fn([123n])).toEqual(["123"]);
-});
-
-test("Successfully parses array with min and max refinements", (t) => {
-  const schema = S.array(S.string).with(S.minLength, 1).with(S.maxLength, 2);
-  const value = S.parser(schema)(["foo"]);
-  t.expect(value).toEqual(["foo"]);
-
-  const result = S.safe(() => S.parser(schema)([]));
-  t.expect(result.error?.message).toEqual("Expected 1 <= string[].length <= 2, received []");
-
-  expectSchemaType(schema).toBe<string[], string[]>();
-  expectTypeOf(value).toEqualTypeOf<string[]>();
-});
-
-test("Successfully parses record", (t) => {
-  const schema = S.record(S.string);
-  const value = S.parser(schema)({ foo: "bar" });
-
-  t.expect(value).toEqual({ foo: "bar" });
-
-  expectSchemaType(schema).toBe<Record<string, string>>();
-  expectTypeOf(value).toEqualTypeOf<Record<string, string>>();
-});
-
-test("Successfully parses JSON string", (t) => {
-  const schema = S.jsonString.with(S.to, S.boolean);
-  const value = S.parser(schema)(`true`);
-
-  t.expect(value).toEqual(true);
-  t.expect(schema.type === "string" && schema.format === "json").toEqual(true);
-
-  expectSchemaType(schema).toBe<string, boolean>();
-  expectTypeOf(value).toEqualTypeOf<boolean>();
-});
-
-test("Parse JSON string, extract a field, and serialize it back to JSON string", (t) => {
-  const schema = S.jsonString
-    .with(
-      S.to,
-      S.schema({
-        type: "info",
-        value: S.number,
-      }).with(S.shape, (msg) => msg.value),
-    )
-    .with(S.to, S.jsonString);
-
-  t.expect(S.parser(schema)(`{"type": "info", "value": 123}`)).toEqual("123");
-  t.expect(() => S.parser(schema)(`{"type": "info", "value": "123"}`)).toThrow(
-    t.expect.objectContaining({
-      name: "SuryError",
-      message: `Failed at ["value"]: Expected number, received "123"`,
-    }),
-  );
-
-  t.expect(S.encoder(schema)("123")).toEqual(`{"type":"info","value":123}`);
-
-  expectSchemaType(schema).toBe<string, string>();
 });
 
 test("Parse JSON string to object with bigint and back", (t) => {
@@ -346,40 +136,6 @@ test("Parse JSON string to object with bigint and back", (t) => {
       118, 97, 108, 117, 101, 34, 58, 34, 49, 50, 51, 34, 125,
     ]),
   );
-});
-
-test("Successfully serialized JSON object", (t) => {
-  const objectSchema = S.schema({ foo: [1, S.number] });
-  const schema = S.jsonString.with(S.to, objectSchema);
-  const schemaWithSpace = S.jsonStringWithSpace(2).with(S.to, objectSchema);
-
-  const value = S.encoder(schema)({ foo: [1, 2] });
-  t.expect(value).toEqual('{"foo":[1,2]}');
-
-  const valueWithSpace = S.encoder(schemaWithSpace)({ foo: [1, 2] });
-  t.expect(valueWithSpace).toEqual('{\n  "foo": [\n    1,\n    2\n  ]\n}');
-
-  expectSchemaType(schema).toBe<string, { foo: [1, number] }>();
-  expectSchemaType(schema).toBe<
-    S.Input<typeof schemaWithSpace>,
-    S.Output<typeof schemaWithSpace>
-  >();
-  expectTypeOf(value).toEqualTypeOf<string>();
-});
-
-test("Successfully parses optional string", (t) => {
-  const schema = S.optional(S.string);
-  const value1 = S.parser(schema)("foo");
-  const value2 = S.parser(schema)(undefined);
-
-  t.expect(value1).toEqual("foo");
-  t.expect(value2).toEqual(undefined);
-
-  expectTypeOf(schema).toEqualTypeOf<
-    S.Schema<string | undefined, string | undefined>
-  >();
-  expectTypeOf(value1).toEqualTypeOf<string | undefined>();
-  expectTypeOf(value2).toEqualTypeOf<string | undefined>();
 });
 
 test("Optional enum", (t) => {
@@ -479,65 +235,6 @@ test("Optional enum", (t) => {
   >();
 });
 
-test("Successfully parses schema wrapped in optional multiple times", (t) => {
-  const schema = S.optional(S.optional(S.optional(S.string)));
-  const value1 = S.parser(schema)("foo");
-  const value2 = S.parser(schema)(undefined);
-
-  t.expect(value1).toEqual("foo");
-  t.expect(value2).toEqual(undefined);
-
-  expectTypeOf(schema).toEqualTypeOf<
-    S.Schema<string | undefined, string | undefined>
-  >();
-  expectTypeOf(value1).toEqualTypeOf<string | undefined>();
-  expectTypeOf(value2).toEqualTypeOf<string | undefined>();
-});
-
-test("Successfully parses nullable string", (t) => {
-  const schema = S.nullable(S.string);
-  const value1 = S.parser(schema)("foo");
-  const value2 = S.parser(schema)(null);
-
-  t.expect(value1).toEqual("foo");
-  t.expect(value2).toEqual(null);
-
-  expectTypeOf(schema).toEqualTypeOf<S.Schema<string | null, string | null>>();
-  expectTypeOf(value1).toEqualTypeOf<string | null>();
-});
-
-test("Successfully parses nullable of array with default", (t) => {
-  const schema = S.nullable(S.array(S.string), []);
-  const value1 = S.parser(schema)(["foo"]);
-  const value2 = S.parser(schema)(null);
-
-  t.expect(value1).toEqual(["foo"]);
-  t.expect(value2).toEqual([]);
-
-  expectTypeOf(schema).toEqualTypeOf<S.Schema<string[] | null, string[]>>();
-  expectTypeOf(value1).toEqualTypeOf<string[]>();
-});
-
-test("Successfully parses nullable string with default", (t) => {
-  const schema = S.nullable(S.string, "bar");
-
-  const value1 = S.parser(schema)("foo");
-  const value2 = S.parser(schema)(null);
-
-  t.expect(value1).toEqual("foo");
-  t.expect(value2).toEqual("bar");
-
-  t.expect(() => S.parser(schema)(undefined)).toThrow(
-    t.expect.objectContaining({
-      name: "SuryError",
-      message: "Expected string | null, received undefined",
-    }),
-  );
-
-  expectTypeOf(schema).toEqualTypeOf<S.Schema<string | null, string>>();
-  expectTypeOf(value1).toEqualTypeOf<string>();
-});
-
 test("Successfully parses nullable string with dynamic default", (t) => {
   const schema = S.nullable(S.string, () => "bar");
   const value1 = S.parser(schema)("foo");
@@ -548,51 +245,6 @@ test("Successfully parses nullable string with dynamic default", (t) => {
 
   expectTypeOf(schema).toEqualTypeOf<S.Schema<string | null, string>>();
   expectTypeOf(value1).toEqualTypeOf<string>();
-});
-
-test("Successfully parses nullish string", (t) => {
-  const schema = S.nullish(S.string);
-  const value1 = S.parser(schema)("foo");
-  const value2 = S.parser(schema)(undefined);
-  const value3 = S.parser(schema)(null);
-
-  t.expect(value1).toEqual("foo");
-  t.expect(value2).toEqual(undefined);
-  t.expect(value3).toEqual(null);
-
-  expectTypeOf(schema).toEqualTypeOf<
-    S.Schema<string | undefined | null, string | undefined | null>
-  >();
-  expectTypeOf(value1).toEqualTypeOf<string | undefined | null>();
-});
-
-test("Successfully parses schema wrapped in nullable multiple times", (t) => {
-  const nullable = S.nullable(S.string);
-  const schema = S.nullable(S.nullable(nullable));
-  const value1 = S.parser(schema)("foo");
-  const value2 = S.parser(schema)(null);
-
-  // TODO: Test that it should flatten nested nullable schemas
-
-  t.expect(value1).toEqual("foo");
-  t.expect(value2).toEqual(null);
-
-  expectTypeOf(schema).toEqualTypeOf<S.Schema<string | null, string | null>>();
-  expectTypeOf(value1).toEqualTypeOf<string | null>();
-  expectTypeOf(value2).toEqualTypeOf<string | null>();
-});
-
-test("Fails to parse with invalid data", (t) => {
-  const schema = S.string;
-
-  t.expect(() => {
-    S.parser(schema)(123);
-  }).toThrow(
-    t.expect.objectContaining({
-      name: "SuryError",
-      message: "Expected string, received 123",
-    }),
-  );
 });
 
 test("Pattern match on schema", (t) => {
@@ -621,164 +273,6 @@ test("Test extended JSON Schema", (t) => {
     minimum: -2147483648,
     maximum: 2147483647,
   });
-});
-
-test("Successfully reverse converts with valid value", (t) => {
-  const schema = S.string;
-  const result = S.encoder(schema)("123");
-
-  t.expect(result).toEqual("123");
-
-  expectTypeOf(result).toEqualTypeOf<string>();
-});
-
-test("Successfully reverse converts to Json with valid value", (t) => {
-  const schema = S.string;
-  const result = S.encoder(schema, S.json)("123");
-
-  t.expect(result).toEqual("123");
-
-  expectTypeOf(result).toEqualTypeOf<S.JSON>();
-});
-
-test("Successfully reverse converts to Json string with valid value", (t) => {
-  const result = S.encoder(S.int32, S.jsonString)(123);
-
-  t.expect(result).toEqual(`123`);
-
-  expectTypeOf(result).toEqualTypeOf<string>();
-});
-
-test("Fails to serialize never", (t) => {
-  const schema = S.never;
-
-  t.expect(() => {
-    S.encoder(schema)("123" as never);
-  }).toThrow(
-    t.expect.objectContaining({
-      name: "SuryError",
-      message: `Expected never, received "123"`,
-    }),
-  );
-});
-
-test("Successfully parses with transform to another type", (t) => {
-  const schema = S.string.with(S.to, S.number, (string) => Number(string));
-  const value = S.parser(schema)("123");
-
-  t.expect(value).toEqual(123);
-
-  expectTypeOf(value).toEqualTypeOf<number>();
-});
-
-test("Handles errors during custom encoding", (t) => {
-  const schema = S.string.with(S.to, S.number, undefined, (number) => {
-    if (number < 100) {
-      throw new Error("Number is too small");
-    }
-    return number.toString();
-  });
-
-  const output = S.parser(schema)("80");
-  t.expect(output).toEqual(80);
-
-  t.expect(() => {
-    S.encoder(schema)(output);
-  }).toThrow(
-    t.expect.objectContaining({
-      name: "SuryError",
-      message: "Number is too small",
-    }),
-  );
-});
-
-test("Fails to parse with transform with user error", (t) => {
-  const schema = S.string.with(S.to, S.number, (string) => {
-    const number = Number(string);
-    if (Number.isNaN(number)) {
-      throw new Error("Invalid number");
-    }
-    return number;
-  });
-  const value = S.parser(schema)("123");
-  t.expect(value).toEqual(123);
-  expectTypeOf(value).toEqualTypeOf<number>();
-
-  t.expect(() => {
-    S.parser(schema)("asdf");
-  }).toThrow(
-    t.expect.objectContaining({
-      name: "SuryError",
-      message: "Invalid number",
-    }),
-  );
-});
-
-test("Successfully converts reversed schema with transform to another type", (t) => {
-  const schema = S.string.with(S.to, S.number, undefined, (number) => {
-    expectTypeOf(number).toEqualTypeOf<number>();
-    return number.toString();
-  });
-  const result = S.encoder(schema)(123);
-
-  t.expect(result).toEqual("123");
-
-  expectTypeOf(result).toEqualTypeOf<string>();
-});
-
-test("Successfully parses with refine", (t) => {
-  const schema = S.string.with(S.refine, (string) => {
-    expectTypeOf(string).toEqualTypeOf<string>();
-    return true;
-  });
-  const value = S.parser(schema)("123");
-
-  t.expect(value).toEqual("123");
-
-  expectTypeOf(value).toEqualTypeOf<string>();
-});
-
-test("Successfully reverse converts with refine", (t) => {
-  const schema = S.string.with(S.refine, (string) => {
-    expectTypeOf(string).toEqualTypeOf<string>();
-    return true;
-  });
-  const result = S.encoder(schema)("123");
-
-  t.expect(result).toEqual("123");
-
-  expectTypeOf(result).toEqualTypeOf<string>();
-});
-
-test("Fails to parses with refine raising an error", (t) => {
-  const schema = S.string.with(S.refine, () => false, {
-    error: "User error",
-  });
-
-  t.expect(() => {
-    S.parser(schema)("123");
-  }).toThrow(
-    t.expect.objectContaining({
-      name: "SuryError",
-      message: "User error",
-    }),
-  );
-});
-
-test("Fails to parse with refine with path option", (t) => {
-  const schema = S.string.with(S.refine, () => false, {
-    error: "User error",
-    path: ["data", "field"],
-  });
-
-  t.expect(() => {
-    S.parser(schema)("123");
-  }).toThrow(
-    t.expect.objectContaining({
-      name: "SuryError",
-      message: `Failed at ["data"]["field"]: User error`,
-    }),
-  );
 });
 
 test("JS refine produces invalid_input error with expected/received populated", (t) => {
@@ -832,210 +326,6 @@ test("Fails to parses async schema", async (t) => {
   t.expect(result.error.code).toBe("invalid_conversion");
 });
 
-test("Successfully parses object by provided shape", (t) => {
-  const schema = S.schema({
-    foo: S.string,
-    bar: S.boolean,
-  });
-  const value = S.parser(schema)({
-    foo: "bar",
-    bar: true,
-  });
-
-  t.expect(value).toEqual({
-    foo: "bar",
-    bar: true,
-  });
-
-  expectSchemaType(schema).toBe<
-    { foo: string; bar: boolean },
-    { foo: string; bar: boolean }
-  >();
-  expectTypeOf(value).toEqualTypeOf<{ foo: string; bar: boolean }>();
-});
-
-test("Successfully parses object with quoted keys", (t) => {
-  const schema = S.schema({
-    [`"`]: S.string,
-    [`'`]: S.string,
-    ["`"]: S.string,
-  });
-  const value = S.parser(schema)({
-    '"': '"',
-    "'": "'",
-    "`": "`",
-  });
-
-  t.expect(value).toEqual({
-    '"': '"',
-    "'": "'",
-    "`": "`",
-  });
-
-  expectSchemaType(schema).toBe<{ '"': string; "'": string; "`": string }>();
-});
-
-test("Successfully parses tagged object", (t) => {
-  const schema = S.schema({
-    tag: "block" as const,
-    bar: S.boolean,
-  });
-  const value = S.parser(schema)({
-    tag: "block",
-    bar: true,
-  });
-
-  t.expect(value).toEqual({
-    tag: "block",
-    bar: true,
-  });
-
-  expectSchemaType(schema).toBe<
-    { tag: "block"; bar: boolean },
-    { tag: "block"; bar: boolean }
-  >();
-  expectTypeOf(value).toEqualTypeOf<{ tag: "block"; bar: boolean }>();
-});
-
-test("Successfully parses and reverse convert object with optional field", (t) => {
-  const schema = S.schema({
-    bar: S.optional(S.boolean),
-    baz: S.boolean,
-  });
-  const value = S.parser(schema)({ baz: true });
-  t.expect(value).toEqual({ bar: undefined, baz: true });
-
-  const reversed = S.encoder(schema)({ baz: true });
-  t.expect(reversed).toEqual({ baz: true });
-
-  expectSchemaType(schema).toBe<
-    { bar?: boolean | undefined; baz: boolean },
-    { bar?: boolean | undefined; baz: boolean }
-  >();
-});
-
-test("Successfully parses object with field names transform", (t) => {
-  const schema = S.object((s) => ({
-    foo: s.field("Foo", S.string),
-    bar: s.field("Bar", S.boolean),
-  }));
-  const value = S.parser(schema)({
-    Foo: "bar",
-    Bar: true,
-  });
-
-  t.expect(value).toEqual({
-    foo: "bar",
-    bar: true,
-  });
-
-  expectSchemaType(schema).toBe<
-    Record<string, unknown>,
-    { foo: string; bar: boolean }
-  >();
-  expectTypeOf(value).toEqualTypeOf<{ foo: string; bar: boolean }>();
-});
-
-test("Successfully parses advanced object with all features", (t) => {
-  const schema = S.object((s) => {
-    s.tag("type", 0);
-    return {
-      nested: s.nested("nested").field("field", S.number),
-      flattened: s.flatten(S.schema({ id: S.string })),
-      foo: s.field("Foo", S.string),
-      bar: s.fieldOr("Bar", S.boolean, true),
-    };
-  });
-
-  const value = S.parser(schema)({
-    nested: {
-      field: 123,
-    },
-    type: 0,
-    id: "id",
-    Foo: "bar",
-  });
-
-  t.expect(value).toEqual({
-    nested: 123,
-    flattened: { id: "id" },
-    foo: "bar",
-    bar: true,
-  });
-
-  expectSchemaType(schema).toBe<
-    Record<string, unknown>,
-    { nested: number; flattened: { id: string }; foo: string; bar: boolean }
-  >();
-});
-
-test("Successfully parses object with transformed field", (t) => {
-  const schema = S.schema({
-    foo: S.string.with(S.to, S.number, (string) => Number(string)),
-    bar: S.boolean,
-  });
-  const value = S.parser(schema)({
-    foo: "123",
-    bar: true,
-  });
-
-  t.expect(value).toEqual({
-    foo: 123,
-    bar: true,
-  });
-
-  expectSchemaType(schema).toBe<
-    { foo: string; bar: boolean },
-    { foo: number; bar: boolean }
-  >();
-  expectTypeOf(value).toEqualTypeOf<{ foo: number; bar: boolean }>();
-});
-
-test("Fails to parse strict object with exccess fields", (t) => {
-  const schema = S.schema({
-    foo: S.string,
-  }).with(S.strict);
-
-  t.expect(() => {
-    const value = S.parser(schema)({
-      foo: "bar",
-      bar: true,
-    });
-    expectTypeOf(schema).toEqualTypeOf<
-      S.Schema<{ foo: string }, { foo: string }>
-    >();
-    expectTypeOf(value).toEqualTypeOf<{ foo: string }>();
-  }).toThrow(
-    t.expect.objectContaining({
-      name: "SuryError",
-      message: `Unrecognized key "bar"`,
-    }),
-  );
-});
-
-test("Fails to parse deep strict object with exccess fields", (t) => {
-  const schema = S.schema({
-    foo: {
-      a: S.string,
-    },
-  }).with(S.deepStrict);
-
-  t.expect(() => {
-    const value = S.parser(schema)({
-      foo: {
-        a: "bar",
-        b: true,
-      },
-    });
-    expectSchemaType(schema).toBe<{ foo: { a: string } }>();
-  }).toThrow(
-    t.expect.objectContaining({
-      name: "SuryError",
-      message: `Failed at ["foo"]: Unrecognized key "b"`,
-    }),
-  );
-});
-
 test("Fails to parse strict object with exccess fields which created using global config override", (t) => {
   S.global({
     defaultAdditionalItems: "strict",
@@ -1061,26 +351,6 @@ test("Fails to parse strict object with exccess fields which created using globa
       message: `Unrecognized key "bar"`,
     }),
   );
-});
-
-test("Resets object strict mode with strip method", (t) => {
-  const schema = S.strip(
-    S.strict(
-      S.schema({
-        foo: S.string,
-      }),
-    ),
-  );
-
-  const value = S.parser(schema)({
-    foo: "bar",
-    bar: true,
-  });
-
-  t.expect(value).toEqual({ foo: "bar" });
-
-  expectSchemaType(schema).toBe<{ foo: string }, { foo: string }>();
-  expectTypeOf(value).toEqualTypeOf<{ foo: string }>();
 });
 
 test("Fails to parse intersected objects with transform", (t) => {
@@ -1144,135 +414,6 @@ test("Fails to parse intersected objects with transform", (t) => {
   // });
 });
 
-test("Merge overwrites the left fields by schema from the right", (t) => {
-  const baseSchema = S.schema({
-    type: S.union(["foo", "bar"]),
-    name: S.string,
-  });
-
-  const fooSchema = S.merge(
-    baseSchema,
-    S.schema({
-      type: "foo" as const,
-      fooCount: S.number,
-    }),
-  );
-
-  const value = S.parser(fooSchema)({
-    type: "foo",
-    name: "foo",
-    fooCount: 123,
-  });
-
-  expectSchemaType(fooSchema).toBe<
-    { type: "foo"; name: string; fooCount: number },
-    { type: "foo"; name: string; fooCount: number }
-  >();
-
-  t.expect(value).toEqual({
-    type: "foo",
-    name: "foo",
-    fooCount: 123,
-  });
-
-  t.expect(() =>
-    S.parser(fooSchema)({
-      type: "bar",
-      name: "foo",
-      fooCount: 123,
-    }),
-  ).toThrow(
-    t.expect.objectContaining({
-      name: "SuryError",
-      message: `Failed at ["type"]: Expected "foo", received "bar"`,
-    }),
-  );
-});
-
-test("Name of merge schema", (t) => {
-  const schema = S.merge(
-    S.schema({
-      foo: S.string,
-      bar: S.boolean,
-    }),
-    S.schema({
-      baz: S.string,
-    }),
-  );
-
-  t.expect(S.inputExpression(schema)).toBe(
-    `{ foo: string; bar: boolean; baz: string; }`,
-  );
-});
-
-test("Successfully parses object using S.schema", (t) => {
-  const schema = S.schema({
-    foo: S.string,
-    bar: S.boolean,
-  });
-  const value = S.parser(schema)({
-    foo: "bar",
-    bar: true,
-  });
-
-  t.expect(value).toEqual({
-    foo: "bar",
-    bar: true,
-  });
-
-  expectSchemaType(schema).toBe<{ foo: string; bar: boolean }>();
-  expectTypeOf(value).toEqualTypeOf<{ foo: string; bar: boolean }>();
-});
-
-test("Successfully parses tuple using S.schema", (t) => {
-  const schema = S.schema([S.string, S.boolean] as const);
-  const value = S.parser(schema)(["bar", true]);
-
-  t.expect(value).toEqual(["bar", true]);
-
-  expectSchemaType(schema).toBe<[string, boolean]>();
-  expectTypeOf(value).toEqualTypeOf<[string, boolean]>();
-});
-
-test("Successfully parses primitive schema passed to S.schema", (t) => {
-  const schema = S.schema(S.string);
-  const value = S.parser(schema)("bar");
-
-  t.expect(value).toEqual("bar");
-
-  expectSchemaType(schema).toBe<string, string>();
-  expectTypeOf(value).toEqualTypeOf<string>();
-});
-
-test("Successfully parses literal using S.schema with as cost", (t) => {
-  const schema = S.schema("foo" as const);
-
-  const value = S.parser(schema)("foo");
-
-  t.expect(value).toEqual("foo");
-
-  expectSchemaType(schema).toBe<"foo">();
-  expectTypeOf(value).toEqualTypeOf<"foo">();
-});
-
-test("Successfully parses nested object using S.schema", (t) => {
-  const schema = S.schema({
-    foo: {
-      bar: S.number,
-    },
-  });
-  const value = S.parser(schema)({
-    foo: { bar: 123 },
-  });
-
-  t.expect(value).toEqual({
-    foo: { bar: 123 },
-  });
-
-  expectSchemaType(schema).toBe<{ foo: { bar: number } }>();
-  expectTypeOf(value).toEqualTypeOf<{ foo: { bar: number } }>();
-});
-
 test("Object with an S.never field is inferred as a required never property", (t) => {
   const schema = S.schema({
     key: S.string,
@@ -1304,30 +445,6 @@ test("Object with an S.optional(S.never) field is inferred as optional undefined
 
   const value = S.parser(schema)({ key: "value" });
   t.expect(value).toEqual({ key: "value", oldKey: undefined });
-});
-
-test("S.schema example", (t) => {
-  type Shape =
-    | { kind: "circle"; radius: number }
-    | { kind: "square"; x: number };
-
-  let circleSchema: S.Schema<Shape, Shape> = S.schema({
-    kind: "circle",
-    radius: S.number,
-  });
-
-  const value = S.parser(circleSchema)({
-    kind: "circle",
-    radius: 123,
-  });
-
-  t.expect(value).toEqual({
-    kind: "circle",
-    radius: 123,
-  });
-
-  expectTypeOf(circleSchema).toEqualTypeOf<S.Schema<Shape, Shape>>();
-  expectTypeOf(value).toEqualTypeOf<Shape>();
 });
 
 test("S.name", (t) => {
@@ -1375,93 +492,6 @@ test("Successfully reverse converts and returns result", (t) => {
       readonly error: S.Error;
     }>();
   }
-});
-
-test("Successfully parses union", (t) => {
-  const schema = S.union([S.string, S.number]);
-  const value = S.safe(() => S.parser(schema)("123"));
-
-  t.expect(value).toEqual({ success: true, value: "123" });
-
-  expectSchemaType(schema).toBe<string | number>();
-});
-
-test("Successfully parses union of literals", (t) => {
-  const schema = S.union(["foo", 123, true]);
-  const value = S.safe(() => S.parser(schema)("foo"));
-
-  t.expect(value).toEqual({ success: true, value: "foo" });
-
-  expectSchemaType(schema).toBe<"foo" | 123 | true>();
-});
-
-test("Shape union", (t) => {
-  const shapeSchema = S.union([
-    {
-      kind: "circle" as const,
-      radius: S.number,
-    },
-    {
-      kind: "square" as const,
-      x: S.number,
-    },
-    {
-      kind: "triangle" as const,
-      x: S.number,
-      y: S.number,
-    },
-  ]);
-  const value = S.parser(shapeSchema)({
-    kind: "circle",
-    radius: 123,
-  });
-
-  t.expect(value).toEqual({
-    kind: "circle",
-    radius: 123,
-  });
-
-  expectTypeOf(shapeSchema).toEqualTypeOf<
-    S.Schema<
-      | { kind: "circle"; radius: number }
-      | { kind: "square"; x: number }
-      | { kind: "triangle"; x: number; y: number },
-      | { kind: "circle"; radius: number }
-      | { kind: "square"; x: number }
-      | { kind: "triangle"; x: number; y: number }
-    >
-  >();
-});
-
-test("Successfully parses union with transformed items", (t) => {
-  const schema = S.union([
-    S.string.with(S.to, S.number, (string) => Number(string)),
-    S.number,
-  ]);
-  const value = S.safe(() => S.parser(schema)("123"));
-
-  t.expect(value).toEqual({ success: true, value: 123 });
-
-  expectSchemaType(schema).toBe<string | number, number>();
-});
-
-test("Correctly infers type", (t) => {
-  const schema = S.string.with(S.to, S.number, Number);
-  expectSchemaType(schema).toBe<string, number>();
-  expectTypeOf<S.Input<typeof schema>>().toEqualTypeOf<string>();
-  expectTypeOf<S.Output<typeof schema>>().toEqualTypeOf<number>();
-});
-
-test("Successfully parses undefined using the default value", (t) => {
-  const schema = S.string.with(S.optional, "foo");
-
-  const value = S.parser(schema)(undefined);
-
-  t.expect(value).toEqual("foo");
-  t.expect(schema.default).toEqual("foo");
-
-  expectTypeOf(schema.default).toEqualTypeOf<string | undefined>();
-  expectSchemaType(schema).toBe<string | undefined, string>();
 });
 
 test("Successfully parses undefined using the default value for transformed schema", (t) => {
@@ -1546,22 +576,6 @@ test("Creates schema with deprecation", (t) => {
   t.expect(schema.deprecated).toEqual(undefined);
   t.expect(deprecatedStringSchema.deprecated).toEqual(true);
   t.expect(deprecatedStringSchema.description).toEqual("Use number instead.");
-});
-
-test("Tuple with single element", (t) => {
-  const schema = S.schema([S.string.with(S.to, S.number, (s) => Number(s))]);
-
-  t.expect(S.parser(schema)(["123"])).toEqual([123]);
-
-  expectSchemaType(schema).toBe<[string], [number]>();
-});
-
-test("Tuple with multiple elements", (t) => {
-  const schema = S.schema([S.string, S.number, true]);
-
-  t.expect(S.parser(schema)(["123", 123, true])).toEqual(["123", 123, true]);
-
-  expectSchemaType(schema).toBe<[string, number, true]>();
 });
 
 test("Tuple types", (t) => {
@@ -1773,131 +787,6 @@ test("Standard JSON Schema interface support", (t) => {
   ).toThrow("Unsupported JSON Schema target: unsupported-target");
 });
 
-test("Env schema: Reggression version", (t) => {
-  const env = <T>(schema: S.Schema<unknown, T>): S.Schema<string, T> => {
-    if (schema.type === "boolean") {
-      return S.union([
-        S.schema("t").with(S.to, S.schema(true)).with(S.to, schema),
-        S.schema("1").with(S.to, S.schema(true)).with(S.to, schema),
-        S.schema("f").with(S.to, S.schema(false)).with(S.to, schema),
-        S.schema("0").with(S.to, S.schema(false)).with(S.to, schema),
-        S.string.with(S.to, schema),
-      ]);
-    } else if (
-      schema.type === "number" ||
-      schema.type === "bigint" ||
-      schema.type === "string"
-    ) {
-      return S.string.with(S.to, schema);
-    } else {
-      return S.jsonString.with(S.to, schema);
-    }
-  };
-
-  t.expect(S.parser(env(S.boolean)).toString()).toEqual(
-    `i=>{for(;;){if(typeof i==="string"&&i==="t"){i=true;break}if(typeof i==="string"&&i==="1"){i=true;break}if(typeof i==="string"&&i==="f"){i=false;break}if(typeof i==="string"&&i==="0"){i=false;break}if(typeof i==="string"){let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0;break}e[1](i)}return i}`,
-  );
-
-  t.expect(S.parser(env(S.boolean))("t")).toEqual(true);
-  t.expect(S.parser(env(S.boolean))("true")).toEqual(true);
-});
-
-test("CompactColumns schema", (t) => {
-  const schema = S.to(
-    S.compactColumns(S.unknown),
-    S.array(
-      S.schema({
-        id: S.string,
-        name: S.nullable(S.string),
-        deleted: S.boolean,
-      }),
-    ),
-  );
-
-  // Test parsing columnar data to row objects
-  const parse = S.parser(schema);
-  const parsed = parse([
-    ["0", "1"],
-    ["Hello", null],
-    [false, true],
-  ] as unknown[][]);
-  t.expect(parsed).toEqual([
-    { id: "0", name: "Hello", deleted: false },
-    { id: "1", name: null, deleted: true },
-  ]);
-
-  // Test encoding row objects back to columnar data
-  const encode = S.encoder(schema);
-  const encoded = encode([
-    { id: "0", name: "Hello", deleted: false },
-    { id: "1", name: null, deleted: true },
-  ]);
-  t.expect(encoded).toEqual([
-    ["0", "1"],
-    ["Hello", null],
-    [false, true],
-  ]);
-});
-
-test("CompactColumns with json and bigint", (t) => {
-  const schema = S.to(
-    S.compactColumns(S.json),
-    S.array(
-      S.schema({
-        id: S.string,
-        amount: S.bigint,
-      }),
-    ),
-  );
-
-  // Test parsing - json strings are converted to bigint via BigInt()
-  const parse = S.parser(schema);
-  const parsed = parse([
-    ["0", "1"],
-    ["12345678901234567890", "98765432109876543210"],
-  ]);
-  t.expect(parsed).toEqual([
-    { id: "0", amount: 12345678901234567890n },
-    { id: "1", amount: 98765432109876543210n },
-  ]);
-
-  // Test encoding - bigint values are converted back to strings for json
-  const encode = S.encoder(schema);
-  const encoded = encode([
-    { id: "0", amount: 12345678901234567890n },
-    { id: "1", amount: 98765432109876543210n },
-  ]);
-  t.expect(encoded).toEqual([
-    ["0", "1"],
-    ["12345678901234567890", "98765432109876543210"],
-  ]);
-});
-
-test("Set schema", (t) => {
-  const schema = S.instance(Set);
-
-  expectSchemaType(schema).toBe<Set<unknown>, Set<unknown>>();
-  if (schema.type === "instance") {
-    expectTypeOf(schema.class).toEqualTypeOf<S.Class<Set<unknown>>>();
-    t.expect(schema.class).toBe(Set);
-  }
-
-  const parser = S.parser(schema);
-  expectTypeOf(parser).toEqualTypeOf<(input: unknown) => Set<unknown>>();
-
-  t.expect(parser.toString()).toBe("i=>{i instanceof e[0]||e[1](i);return i}");
-
-  const data = new Set(["foo", "bar"]);
-  t.expect(parser(data)).toBe(data);
-
-  t.expect(() => parser(123)).toThrow(
-    t.expect.objectContaining({
-      name: "SuryError",
-      message: "Expected Set, received 123",
-    }),
-  );
-});
-
 test("Full Set schema", (t) => {
   const mySet = <T>(itemSchema: S.Schema<unknown, T>): S.Schema<unknown, Set<T>> =>
     S.instance(Set<unknown>)
@@ -1939,40 +828,6 @@ test("Full Set schema", (t) => {
       message: `At item 3 - Expected number, received "3"`,
     }),
   );
-});
-
-test("Coerce string to number", (t) => {
-  const schema = S.to(S.string, S.number);
-
-  t.expect(schema.to).toBe(S.number);
-
-  expectSchemaType(schema).toBe<string, number>();
-  expectTypeOf(schema.to).toEqualTypeOf<S.Schema<unknown> | undefined>();
-
-  t.expect(S.parser(schema)("123")).toEqual(123);
-  t.expect(S.parser(schema)("123.4")).toEqual(123.4);
-  t.expect(S.encoder(schema)(123)).toEqual("123");
-});
-
-test("Shape string to object", (t) => {
-  const schema = S.shape(S.string, (string) => ({ foo: string }));
-
-  t.expect(S.parser(schema)("bar")).toEqual({ foo: "bar" });
-  t.expect(S.encoder(schema)({ foo: "bar" })).toEqual("bar");
-});
-
-test("Tuple with transform to object", (t) => {
-  let pointSchema = S.tuple((s) => {
-    s.tag(0, "point");
-    return {
-      x: s.item(1, S.int32),
-      y: s.item(2, S.int32),
-    };
-  });
-
-  t.expect(S.parser(pointSchema)(["point", 1, -4])).toEqual({ x: 1, y: -4 });
-
-  expectSchemaType(pointSchema).toBe<unknown[], { x: number; y: number }>();
 });
 
 test("Assert throws with invalid data", (t) => {
@@ -2234,164 +1089,6 @@ test("Recursive with self as transform target", (t) => {
   );
 });
 
-test("Port schema", (t) => {
-  const portSchema = S.port;
-  if (portSchema.type === "number") {
-    t.expect(portSchema.format).toEqual("port");
-  } else {
-    t.expect.fail("portSchema should be a number");
-  }
-
-  expectSchemaType(portSchema).toBe<number, number>();
-
-  t.expect(() => {
-    S.parser(portSchema)(10.2);
-  }).toThrow(
-    t.expect.objectContaining({
-      name: "SuryError",
-      message: "Expected port, received 10.2",
-    }),
-  );
-
-  const portCoercedFromString = S.string.with(S.to, S.port);
-  expectSchemaType(portCoercedFromString).toBe<string, number>();
-
-  if (portCoercedFromString.type === "string") {
-    t.expect(portCoercedFromString.format).toEqual(undefined);
-  } else {
-    t.expect.fail("portCoercedFromString should be a string");
-  }
-
-  if (S.reverse(portCoercedFromString).type === "number") {
-    t.expect(S.parser(portCoercedFromString)("10")).toEqual(10);
-    t.expect(() => {
-      S.parser(portCoercedFromString)(10.2);
-    }).toThrow(
-      t.expect.objectContaining({
-        name: "SuryError",
-        message: "Expected string, received 10.2",
-      }),
-    );
-    t.expect(() => {
-      S.parser(portCoercedFromString)("10.2");
-    }).toThrow(
-      t.expect.objectContaining({
-        name: "SuryError",
-        message: "Expected port, received 10.2",
-      }),
-    );
-    t.expect(S.encoder(portCoercedFromString)(10)).toEqual("10");
-  } else {
-    t.expect.fail("portCoercedFromString should be a number");
-  }
-});
-
-test("Example", (t) => {
-  // Create login schema with email and password
-  const loginSchema = S.schema({
-    email: S.email,
-    password: S.string.with(S.minLength, 8),
-  });
-
-  // Infer output TypeScript type of login schema
-  type LoginData = S.Output<typeof loginSchema>; // { email: string; password: string }
-
-  t.expect(() => {
-    // Throws the S.Error(`Failed at ["email"]: Expected email, received ""`)
-    S.parser(loginSchema)({ email: "", password: "" });
-  }).toThrow(
-    t.expect.objectContaining({
-      message: `Failed at ["email"]: Expected email, received ""`,
-    }),
-  );
-
-  // Returns data as { email: string; password: string }
-  const result = S.parser(loginSchema)({
-    email: "jane@example.com",
-    password: "12345678",
-  });
-
-  t.expect(result).toEqual({
-    email: "jane@example.com",
-    password: "12345678",
-  });
-
-  expectSchemaType(loginSchema).toBe<
-    { email: string; password: string },
-    { email: string; password: string }
-  >();
-  expectTypeOf<LoginData>().toEqualTypeOf<{
-    email: string;
-    password: string;
-  }>();
-});
-
-test("Decode from json", async (t) => {
-  t.expect(S.decoder(S.json, S.array(S.bigint))(["123"])).toEqual([123n]);
-  t.expect(S.decoder(S.array(S.bigint), S.json)([123n])).toEqual(["123"]);
-
-  const schema = S.string.with(S.nullable);
-
-  t.expect(S.decoder(S.json, schema)("hello")).toEqual("hello");
-  t.expect(S.decoder(S.json, schema)(null)).toEqual(null);
-
-  // Date fields should be encoded to ISO string when decoding to JSON
-  const dateSchema = S.schema({ field: S.date });
-  const dateToJson = S.decoder(dateSchema, S.json);
-  t.expect(dateToJson({ field: new Date("2024-01-01T00:00:00.000Z") })).toEqual(
-    {
-      field: "2024-01-01T00:00:00.000Z",
-    },
-  );
-  t.expect(dateToJson.toString()).toEqual(
-    `i=>{return {"field":i["field"].toISOString(),}}`,
-  );
-
-  // Date fields should work through the full jsonString pipeline
-  const dateToJsonString = S.decoder(dateSchema, S.jsonString);
-  t.expect(
-    dateToJsonString({ field: new Date("2024-01-01T00:00:00.000Z") }),
-  ).toEqual(`{"field":"2024-01-01T00:00:00.000Z"}`);
-
-  // JSON to Date: decode ISO string from JSON back to Date
-  const jsonToDate = S.decoder(S.json, dateSchema);
-  t.expect(jsonToDate({ field: "2024-01-01T00:00:00.000Z" })).toEqual({
-    field: new Date("2024-01-01T00:00:00.000Z"),
-  });
-  t.expect(jsonToDate.toString()).toEqual(
-    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v1=i["field"];typeof v1==="string"||e[1](v1);let v0=new Date(i["field"]);!Number.isNaN(v0.getTime())||e[0](v0);return {"field":v0,}}`,
-  );
-
-  // JSON string to Date: full round-trip through jsonString
-  const jsonStringToDate = S.decoder(S.jsonString, dateSchema);
-  t.expect(jsonStringToDate(`{"field":"2024-01-01T00:00:00.000Z"}`)).toEqual({
-    field: new Date("2024-01-01T00:00:00.000Z"),
-  });
-});
-
-test("Decode from json string", async (t) => {
-  const schema = S.nullable(S.string);
-
-  t.expect(S.decoder(S.jsonString, schema)(`"hello"`)).toEqual("hello");
-  t.expect(S.decoder(S.jsonString, schema)("null")).toEqual(null);
-});
-
-test("Decode from json string, convert to number", async (t) => {
-  const fn = S.decoder(S.jsonString, S.string, S.number);
-
-  expectTypeOf(fn).toEqualTypeOf<(data: string) => number>();
-
-  t.expect(fn(`"123"`)).toEqual(123);
-});
-
-test("Decode from json string to array of bigints", async (t) => {
-  const fn = S.decoder(S.jsonString, S.array(S.bigint));
-
-  expectTypeOf(fn).toEqualTypeOf<(data: string) => bigint[]>();
-
-  t.expect(fn(`["123"]`)).toEqual([123n]);
-});
-
 test("Parse to literal with no validation to emulate assert", async (t) => {
   const fn = S.parser(
     S.schema({ foo: S.string }),
@@ -2523,11 +1220,11 @@ test("Brand", (t) => {
 });
 
 test("fromJSONSchema", (t) => {
-  const emailSchema = S.fromJSONSchema<string>({
+  const emailSchema = S.fromJSONSchema({
     type: "string",
     format: "email",
   });
-  expectSchemaType(emailSchema).toBe<S.JSON, string>();
+  expectSchemaType(emailSchema).toBe<string, string>();
   const result = S.safe(() => S.assert(emailSchema, "example.com"));
 
   t.expect(result.error?.message).toBe(
@@ -2535,8 +1232,130 @@ test("fromJSONSchema", (t) => {
   );
 });
 
+test("fromJSONSchema: takes untyped input, `satisfies` checks an inline one", (t) => {
+  // A schema loaded from a file or an API is untyped, and must not need a cast.
+  const loaded: unknown = JSON.parse(`{"type":"string"}`);
+  expectSchemaType(S.fromJSONSchema(loaded)).toBe<S.JSON, S.JSON>();
+  t.expect(S.parser(S.fromJSONSchema(loaded))("hello")).toBe("hello");
+
+  const asJson: S.JSON = { type: "boolean" };
+  expectSchemaType(S.fromJSONSchema(asJson)).toBe<S.JSON, S.JSON>();
+  t.expect(S.parser(S.fromJSONSchema(asJson))(true)).toBe(true);
+
+  const authored = {
+    type: "object",
+    properties: { id: { type: "string" } },
+    required: ["id"],
+    "x-internal": true,
+  } satisfies S.JSONSchema;
+  t.expect(S.parser(S.fromJSONSchema(authored))({ id: "1" })).toEqual({
+    id: "1",
+  });
+
+  const typo = {
+    type: "object",
+    // @ts-expect-error - an unknown keyword is still caught; only `x-` is open
+    requird: ["id"],
+  } satisfies S.JSONSchema;
+  t.expect(typo.type).toBe("object");
+});
+
+test("fromJSONSchema: an inline schema infers the type it describes", (t) => {
+  const userSchema = S.fromJSONSchema({
+    type: "object",
+    properties: {
+      id: { type: "string" },
+      role: { enum: ["admin", "user"] },
+      tags: { type: "array", items: { type: "string" } },
+      point: { type: "array", prefixItems: [{ type: "number" }, { type: "number" }] },
+      score: { type: "number", nullable: true },
+    },
+    required: ["id", "role"],
+  });
+  expectSchemaType(userSchema).toBe<{
+    id: string;
+    role: "admin" | "user";
+    tags?: string[] | undefined;
+    point?: [number, number] | undefined;
+    score?: number | null | undefined;
+  }>();
+  t.expect(S.parser(userSchema)({ id: "1", role: "admin" })).toEqual({
+    id: "1",
+    role: "admin",
+  });
+
+  // Local $ref pointers resolve, including recursive ones. The runtime still
+  // parses a $ref as plain JSON — the static type leads it here.
+  const treeSchema = S.fromJSONSchema({
+    $ref: "#/$defs/node",
+    $defs: {
+      node: {
+        type: "object",
+        properties: {
+          value: { type: "string" },
+          children: { type: "array", items: { $ref: "#/$defs/node" } },
+        },
+        required: ["value"],
+      },
+    },
+  });
+  type Tree = S.Output<typeof treeSchema>;
+  const tree: Tree = { value: "root", children: [{ value: "leaf" }] };
+  assertType<string | undefined>(tree.children?.[0]?.value);
+
+  // A dialect interface isn't a literal, so it falls back to Schema<JSON, JSON>.
+  expectSchemaType(
+    S.fromJSONSchema(S.toJSONSchema(S.schema({ a: S.string }))),
+  ).toBe<S.JSON, S.JSON>();
+});
+
+test("toJSONSchema: the target picks the dialect of the result", (t) => {
+  const tupleSchema = S.schema([S.string, S.number]);
+
+  const draft07 = S.toJSONSchema(tupleSchema);
+  expectTypeOf(draft07).toEqualTypeOf<S.JSONSchema7>();
+  t.expect(draft07.items).toEqual([{ type: "string" }, { type: "number" }]);
+
+  const draft2020 = S.toJSONSchema(tupleSchema, { target: "draft-2020-12" });
+  expectTypeOf(draft2020).toEqualTypeOf<S.JSONSchema2020>();
+  t.expect(draft2020.prefixItems).toEqual([
+    { type: "string" },
+    { type: "number" },
+  ]);
+
+  const openapi = S.toJSONSchema(S.nullable(S.string), {
+    target: "openapi-3.0",
+  });
+  expectTypeOf(openapi).toEqualTypeOf<S.OpenAPISchema30>();
+  t.expect(openapi.nullable).toBe(true);
+
+  // A target held in a variable can't select a dialect, so the result widens.
+  const target: S.StandardJSONSchemaV1.Target = "draft-07";
+  expectTypeOf(S.toJSONSchema(tupleSchema, { target })).toEqualTypeOf<
+    S.JSONSchema
+  >();
+
+  // @ts-expect-error - draft-07 spells tuples with `items`, not `prefixItems`
+  draft07.prefixItems;
+  // @ts-expect-error - OpenAPI 3.0 has no `const`; it uses a one-value `enum`
+  openapi.const;
+
+  // Every dialect's result feeds back in without a cast.
+  t.expect(S.parser(S.fromJSONSchema(draft2020))(["a", 1])).toEqual(["a", 1]);
+  t.expect(S.parser(S.fromJSONSchema(openapi))(null)).toBe(null);
+
+  // Every dialect stays assignable to the wide type — the invariant that keeps
+  // `extendJSONSchema(schema, toJSONSchema(other, { target }))` compiling. This
+  // breaks when a shared keyword is typed incompatibly across the two (extra
+  // dialect-only keywords slip through structurally — parity there is on the
+  // comment in src/types/jsonschema.d.ts).
+  expectTypeOf<S.JSONSchema7>().toExtend<S.JSONSchema>();
+  expectTypeOf<S.JSONSchema2020>().toExtend<S.JSONSchema>();
+  expectTypeOf<S.OpenAPISchema30>().toExtend<S.JSONSchema>();
+});
+
 test("fromJSONSchema: assertion keywords bind without an explicit `type`", (t) => {
-  const parse = (js: object) => S.parser(S.fromJSONSchema(js as never)) as (d: unknown) => unknown;
+  const parse = (js: object) => S.parser(S.fromJSONSchema(js)) as (d: unknown) => unknown;
 
   const obj = parse({ properties: { bar: { type: "integer" } }, required: ["bar"] });
   t.expect(obj({ bar: 2 })).toEqual({ bar: 2 });
@@ -2561,7 +1380,7 @@ test("fromJSONSchema: composition keywords constrain in addition to the base sha
     properties: { bar: { type: "integer" } },
     required: ["bar"],
     allOf: [{ properties: { foo: { type: "string" } }, required: ["foo"] }],
-  } as never);
+  });
   const parse = S.parser(schema) as (d: unknown) => unknown;
 
   // The allOf branch sees the whole document, while the base object schema
@@ -2575,12 +1394,12 @@ test("fromJSONSchema: composition keywords constrain in addition to the base sha
 
 test("fromJSONSchema: oneOf counts matches, `not` and if/then/else layer on", (t) => {
   const one = S.parser(
-    S.fromJSONSchema({ oneOf: [{ type: "number" }, { type: "string" }] } as never),
+    S.fromJSONSchema({ oneOf: [{ type: "number" }, { type: "string" }] }),
   ) as (d: unknown) => unknown;
   t.expect(one(1)).toBe(1);
   t.expect(S.safe(() => one(true)).error).toBeDefined();
 
-  const not = S.parser(S.fromJSONSchema({ not: { type: "string" } } as never)) as (
+  const not = S.parser(S.fromJSONSchema({ not: { type: "string" } })) as (
     d: unknown,
   ) => unknown;
   t.expect(not(1)).toBe(1);
@@ -2588,7 +1407,7 @@ test("fromJSONSchema: oneOf counts matches, `not` and if/then/else layer on", (t
 
   // `then`/`else` are each optional and default to "always passes".
   const ite = S.parser(
-    S.fromJSONSchema({ if: { type: "number" }, then: { minimum: 5 } } as never),
+    S.fromJSONSchema({ if: { type: "number" }, then: { minimum: 5 } }),
   ) as (d: unknown) => unknown;
   t.expect(ite(7)).toBe(7);
   t.expect(ite("anything")).toBe("anything");
@@ -2598,17 +1417,17 @@ test("fromJSONSchema: oneOf counts matches, `not` and if/then/else layer on", (t
 test("fromJSONSchema: an unmodelled assertion keyword fails at creation", (t) => {
   // Ignoring it would widen the schema — the validator would accept data the
   // author wrote the keyword to reject — so this must not silently succeed.
-  const result = S.safe(() => S.fromJSONSchema({ type: "number", multipleOf: 2 } as never));
-  t.expect(result.error?.message).toContain("Unsupported JSON Schema keyword: multipleOf");
+  const result = S.safe(() => S.fromJSONSchema({ type: "object", patternProperties: {} }));
+  t.expect(result.error?.message).toContain("Unsupported JSON Schema keyword: patternProperties");
 
   t.expect(
-    S.safe(() => S.fromJSONSchema({ type: "array", uniqueItems: true } as never)).error?.message,
+    S.safe(() => S.fromJSONSchema({ type: "array", uniqueItems: true })).error?.message,
   ).toContain("uniqueItems");
 });
 
 test("fromJSONSchema: exclusiveMaximum bounds the maximum, not the minimum", (t) => {
   const parse = S.parser(
-    S.fromJSONSchema({ type: "integer", exclusiveMaximum: 5 } as never),
+    S.fromJSONSchema({ type: "integer", exclusiveMaximum: 5 }),
   ) as (d: unknown) => unknown;
   t.expect(parse(4)).toBe(4);
   t.expect(S.safe(() => parse(5)).error).toBeDefined();
@@ -2887,9 +1706,9 @@ test("A contradictory bound pair is rejected where it's written", (t) => {
   t.expect(() => S.array(S.string).with(S.minLength, 5).with(S.maxLength, 1)).toThrow(
     `[Sury] string[].length <= 1 contradicts string[].length >= 5`,
   );
-  // `empty`/`nonEmpty` desugar to length bounds, and report as those rather
-  // than naming a constructor the caller didn't write.
-  t.expect(() => S.string.with(S.minLength, 2).with(S.empty)).toThrow(
+  // `nonEmpty` desugars to a length bound, and reports as one rather than
+  // naming a constructor the caller didn't write.
+  t.expect(() => S.string.with(S.minLength, 2).with(S.length, 0)).toThrow(
     `[Sury] string.length <= 0 contradicts string.length >= 2`,
   );
   // A format's range is a bound like any other, so a value outside it conflicts.
@@ -2899,6 +1718,24 @@ test("A contradictory bound pair is rejected where it's written", (t) => {
   t.expect(() => S.port.with(S.lte, -1)).toThrow(
     `[Sury] port <= -1 contradicts port >= 0`,
   );
+  // Combining divisors stores their LCM; an LCM past 2^53 rounds and would
+  // validate the wrong set, and fractional divisors have no float LCM — both
+  // refuse rather than silently drift.
+  t.expect(() =>
+    S.integer.with(S.multipleOf, 67108859).with(S.multipleOf, 134217689).with(S.multipleOf, 2097143)
+  ).toThrow(`[Sury] multipleOf 2097143 cannot be combined with multipleOf 9007195966406851`);
+  t.expect(() => S.number.with(S.multipleOf, 0.3).with(S.multipleOf, 0.2)).toThrow(
+    `[Sury] multipleOf 0.2 cannot be combined with multipleOf 0.3`,
+  );
+  // A divisor excluded by the range is NOT a construction error, unlike a
+  // pair of bounds: detecting it needs multiples-in-range arithmetic (see the
+  // updateBounds comment). The schema builds and rejects everything, with the
+  // divisor and the range both in the message.
+  t.expect(
+    S.safe(() =>
+      S.assert(S.number.with(S.gt, 0).with(S.lt, 5).with(S.multipleOf, 10), 3)
+    ).error?.message
+  ).toBe("Expected 0 < (number % 10) < 5, received 3");
 
   // A single point is satisfiable, so these stay legal.
   t.expect(S.toJSONSchema(S.number.with(S.gte, 5).with(S.lte, 5))).toEqual({
@@ -2911,6 +1748,34 @@ test("A contradictory bound pair is rejected where it's written", (t) => {
     exclusiveMinimum: 5,
     exclusiveMaximum: 6,
   });
+  // A divisor larger than the range still admits 0, and a single point is a
+  // point like any other.
+  t.expect(S.toJSONSchema(S.int32.with(S.multipleOf, 3000000000))).toEqual({
+    type: "integer",
+    minimum: -2147483648,
+    maximum: 2147483647,
+    multipleOf: 3000000000,
+  });
+});
+
+test("A superseded bound takes its message with it", (t) => {
+  // The surviving check is the one the caller's message has to reach, so a
+  // message written on a bound that doesn't narrow carries onto it...
+  t.expect(
+    S.safe(() => S.assert(S.number.with(S.gte, 5).with(S.gte, 1, "MY MESSAGE"), 3)).error?.message
+  ).toBe("MY MESSAGE");
+  // ...and a narrowing replacement without one clears the stale text rather
+  // than reporting a bound the schema no longer advertises.
+  t.expect(
+    S.safe(() => S.assert(S.number.with(S.gte, 5, "A").with(S.gte, 10), 7)).error?.message
+  ).toBe("Expected number >= 10, received 7");
+  // Switching form replaces the field, so the message keyed to the old form
+  // goes with it instead of lingering where nothing reads it.
+  const flipped = S.number.with(S.gte, 5, "A").with(S.gt, 10);
+  t.expect(flipped.errorMessage?.minimum).toBe(undefined);
+  t.expect(
+    S.safe(() => S.assert(flipped, 7)).error?.message
+  ).toBe("Expected number > 10, received 7");
 });
 
 test("An unsatisfiable JSON Schema document loads as never", (t) => {
@@ -2985,24 +1850,6 @@ test("Error messages render through inputExpression, not toString", (t) => {
   t.expect(`${error!.expected}`).toBe("Schema<string>");
 });
 
-// FIXME: S.record takes no key schema, so keys are never validated. The
-// generated loop is `for (let v0 in i)`, which skips symbol keys entirely — a
-// value under one is never reached, whatever the value schema says. Lives here
-// rather than in specs/record.yaml because the spec harness cannot serialize an
-// object with symbol keys back to source (see CONTRIBUTING.md).
-test("S.record does not validate values under symbol keys", (t) => {
-  const key = Symbol.for("sury-test-symbol-key");
-  const input: Record<symbol, unknown> = { [key]: 123 };
-
-  const result = S.parser(S.record(S.string))(
-    input as unknown as Record<string, string>,
-  );
-
-  // 123 is not a string, yet this neither throws nor strips the property.
-  t.expect(result).toBe(input);
-  t.expect((result as unknown as Record<symbol, unknown>)[key]).toBe(123);
-});
-
 // Rendering the received value used to walk objects and arrays without a
 // limit, so a cyclic input overflowed the stack inside the error formatter — a
 // validation failure surfaced as a RangeError instead of a SuryError. One level
@@ -3071,4 +1918,107 @@ test("A received value is expanded one level", (t) => {
 test("A nan schema renders as NaN without a dedicated branch", (t) => {
   t.expect(S.inputExpression(S.schema(NaN))).toBe("NaN");
   t.expect(`${S.schema(NaN)}`).toBe("Schema<NaN>");
+});
+
+// A literal length on an array pins arity in the type (specs/array-length,
+// specs/array-empty, specs/string-empty pin the direct cases). Pinned here are
+// the fallbacks a spec can't express: a non-literal bound narrows nothing, and
+// past 64 the tuple spelling bails to the unbounded type instead of hitting
+// TS's recursion ceiling — both must stay `string[]`, not become errors.
+test("Array length type pinning falls back to the unbounded type", () => {
+  expectSchemaType(S.array(S.string).with(S.length, 2)).toBe<[string, string]>();
+  expectSchemaType(S.length(S.array(S.boolean), 3)).toBe<[boolean, boolean, boolean]>();
+  expectSchemaType(S.array(S.number).with(S.length, 0)).toBe<[]>();
+  expectSchemaType(S.string.with(S.length, 0)).toBe<"">();
+  // length picks up an earlier bound's subsumption unchanged
+  expectSchemaType(S.array(S.string).with(S.minLength, 1).with(S.length, 2)).toBe<
+    [string, string]
+  >();
+  // On an already-pinned arity the bound is redundant and must change nothing:
+  // rebuilding a tuple from the union of its elements would widen
+  // `["bar", number]` into `[number | "bar", number | "bar"]`.
+  expectSchemaType(S.tuple(["bar", S.number]).with(S.length, 2)).toBe<["bar", number]>();
+  expectSchemaType(S.array(S.string).with(S.length, 2).with(S.length, 2)).toBe<
+    [string, string]
+  >();
+
+  const n: number = 2;
+  expectSchemaType(S.array(S.string).with(S.length, n)).toBe<string[]>();
+  expectSchemaType(S.array(S.string).with(S.length, 100)).toBe<string[]>();
+  expectSchemaType(S.length(S.array(S.string), 1e6)).toBe<string[]>();
+
+  // Never called, and the bound has to arrive as a parameter: `S.length` raises
+  // on a bound no value can satisfy, and a `const` initialized to a literal is
+  // narrowed to it, so a local would test the literal case over again.
+  const _typeOnly = (union: 0 | 2) => {
+    // A bound that isn't one literal resolves per member rather than letting
+    // the smallest match stand for all of them.
+    expectSchemaType(S.array(S.string).with(S.length, union)).toBe<[string, string] | []>();
+    // A tuple built by recursing until it matched would report an unsatisfiable
+    // bound as a compile error on the recursion limit, not as the runtime error
+    // it already is.
+    expectSchemaType(S.length(S.array(S.string), -1)).toBe<string[]>();
+    expectSchemaType(S.length(S.array(S.string), 2.5)).toBe<string[]>();
+  };
+});
+
+// A lower bound fixes a head and leaves the tail open. specs/array-nonEmpty and
+// specs/array-minLength pin the direct cases; what needs pinning here is that it
+// only has something to say while the tail *is* open — every no-op the runtime
+// makes of a redundant bound the type has to make too, or the two disagree about
+// a schema that compiled fine.
+test("A lower bound only widens an array whose length is still open", () => {
+  expectSchemaType(S.array(S.string).with(S.nonEmpty)).toBe<[string, ...string[]]>();
+  expectSchemaType(S.minLength(S.array(S.number), 2)).toBe<[number, number, ...number[]]>();
+  // Stacking lower bounds keeps the strictest, as the runtime does.
+  expectSchemaType(S.array(S.string).with(S.minLength, 1).with(S.minLength, 3)).toBe<
+    [string, string, string, ...string[]]
+  >();
+  // Already pinned to an arity: `narrowsSize` drops the bound outright, so the
+  // type must not widen back to `[string, ...string[]]` either.
+  expectSchemaType(S.array(S.string).with(S.length, 2).with(S.minLength, 1)).toBe<
+    [string, string]
+  >();
+  // A zero lower bound is no bound at all.
+  expectSchemaType(S.array(S.string).with(S.minLength, 0)).toBe<string[]>();
+  expectSchemaType(S.array(S.string).with(S.minLength, 100)).toBe<string[]>();
+
+  // TypeScript counts tuple elements, not characters, so a string keeps its type
+  // under every lower bound — only the exact bound reaches `""`, the one
+  // length with a literal to name it.
+  expectSchemaType(S.string.with(S.nonEmpty)).toBe<string>();
+  expectSchemaType(S.string.with(S.minLength, 3)).toBe<string>();
+});
+
+// The bound binds the array, and a codec's input is a different value reachable
+// from it — pinning the array's arity says nothing about the string it decodes
+// from, which is why the input side is rewritten only when it is the same type.
+test("A length bound leaves the other side of a codec alone", () => {
+  const csv = S.string.with(
+    S.to,
+    S.array(S.string),
+    (s) => s.split(","),
+    (a) => a.join(","),
+  );
+  expectSchemaType(csv.with(S.length, 0)).toBe<string, []>();
+  expectSchemaType(csv.with(S.length, 2)).toBe<string, [string, string]>();
+  expectSchemaType(csv.with(S.nonEmpty)).toBe<string, [string, ...string[]]>();
+  expectSchemaType(csv.with(S.minLength, 2)).toBe<string, [string, string, ...string[]]>();
+});
+
+// The runtime tags a spec cannot record: specs snapshot codegen and types,
+// not the introspectable schema object itself.
+test("Schema introspection tags survive on coerced and instance schemas", (t) => {
+  t.expect(S.jsonString.type === "string" && S.jsonString.format === "json").toBe(true);
+
+  const coerced = S.to(S.string, S.number);
+  t.expect(coerced.to).toBe(S.number);
+
+  const portFromString = S.string.with(S.to, S.port);
+  t.expect(portFromString.type === "string" && portFromString.format === undefined).toBe(true);
+  const reversedPort = S.reverse(portFromString);
+  t.expect(reversedPort.type === "number" && (reversedPort as { format?: string }).format === "port").toBe(true);
+
+  const setSchema = S.instance(Set);
+  t.expect(setSchema.type === "instance" && setSchema.class === Set).toBe(true);
 });

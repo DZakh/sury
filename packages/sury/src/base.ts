@@ -154,11 +154,14 @@ export const s = /* @__PURE__ */ Symbol(vendor);
 // Internal symbol to identify the item proxy (see the makeObjectVal Proxy use).
 export const itemSymbol = /* @__PURE__ */ Symbol(vendor + ":item");
 
-export type NumberFormat = "int32" | "port";
+// Every number format describes integer-valued numbers — numberDecoder skips
+// the "integer" check for any formatted source on that invariant.
+export type NumberFormat = "int32" | "port" | "integer";
 // Mirrored by `StringFormat` in index.d.ts, which is the surface TS users see —
-// a name added here without being added there is invisible to them. Every
-// member but `json` and `cuid` is a JSON Schema format name verbatim, which is
-// what lets jsonschema.ts pass it through in both directions.
+// a name added here without being added there is invisible to them, and a third
+// copy lives in `S.res`. Every member but `json` and `cuid` is a JSON Schema
+// format name verbatim, which is what lets jsonschema.ts pass it through in
+// both directions.
 export type StringFormat =
   | "json"
   | "date-time"
@@ -244,10 +247,13 @@ export type SchemaErrorMessage = {
   maximum?: string;
   exclusiveMinimum?: string;
   exclusiveMaximum?: string;
+  multipleOf?: string;
   minLength?: string;
   maxLength?: string;
   minItems?: string;
   maxItems?: string;
+  minSize?: string;
+  maxSize?: string;
   pattern?: string;
 }
 
@@ -303,8 +309,8 @@ export type Internal = {
   // range in the fields below, so the values can't tell a caller's bound from
   // a format's — this can, and only the bound constructors ever set it.
   // 1 lower inclusive · 2 upper inclusive · 4 lower exclusive · 8 upper
-  // exclusive. A schema bounds either its value or its length, never both, so
-  // one pair of bits covers minimum/minLength/minItems alike.
+  // exclusive. A schema bounds exactly one of its value, its length or its
+  // size, so one pair of bits covers minimum/minLength/minItems/minSize alike.
   bounds?: number;
   minimum?: number | bigint;
   maximum?: number | bigint;
@@ -313,10 +319,15 @@ export type Internal = {
   // is the one its author wrote, not an equivalent rewritten form.
   exclusiveMinimum?: number | bigint;
   exclusiveMaximum?: number | bigint;
+  multipleOf?: number | bigint;
   minLength?: number;
   maxLength?: number;
   minItems?: number;
   maxItems?: number;
+  // Bytes, for the binary instances. No JSON Schema keyword bounds a blob's
+  // size, so unlike the four above these don't reach the emit.
+  minSize?: number;
+  maxSize?: number;
   pattern?: RegExp;
   errorMessage?: SchemaErrorMessage;
   space?: number;
@@ -589,9 +600,12 @@ export const inputExpression = (schema: Internal, skipOverride?: boolean): strin
     if (typeof additionalItems === objectTag) {
       const item = additionalItems as Internal;
       const itemName = inputExpression(item);
-      // A bound reads as part of the item, not the array: `int32 > 5[]` parses
-      // as an array-typed bound, the same ambiguity a union has.
-      return (item.type === anyOfTag || item.bounds !== U ? `(${itemName})` : itemName) + "[]";
+      // A bound or divisor reads as part of the item, not the array:
+      // `int32 > 5[]` parses as an array-typed bound and `number % 2[]` as an
+      // array-typed divisor, the same ambiguity a union has.
+      return (item.type === anyOfTag || item.bounds !== U || item.multipleOf !== U
+        ? `(${itemName})`
+        : itemName) + "[]";
     }
     const items = schema.items!;
     let body = "";
