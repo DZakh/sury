@@ -36,10 +36,7 @@ test("fromJSONSchema: integer", t => {
   let schema = S.fromJSONSchema(js)
   t->Assert.deepEqual(parse(schema, 42), 42)
   t->Assert.throws(() => parse(schema, 1.5))
-  t->Assert.deepEqual(
-    jsonRoundTrip(js),
-    {type_: Arrayable.single(#integer), minimum: -2147483648., maximum: 2147483647.},
-  )
+  t->Assert.deepEqual(jsonRoundTrip(js), js)
 })
 
 test("fromJSONSchema: boolean", t => {

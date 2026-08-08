@@ -276,6 +276,7 @@ import * as S from "sury";
 S.string;
 S.number;
 S.int32;
+S.integer;
 S.boolean;
 S.bigint;
 S.symbol;
@@ -450,13 +451,15 @@ S.number.with(S.lte, 5); // Expected number <= 5
 S.number.with(S.gte, 5); // Expected number >= 5
 S.number.with(S.lt, 5); // Expected number < 5
 S.number.with(S.gt, 5); // Expected number > 5
+S.number.with(S.multipleOf, 2); // Expected number % 2
 ```
 
-The comparison refinements work on `S.bigint` too, and on the numeric formats
-(`S.int32`, `S.port`), whose own range takes part in the check — a bound
-outside it describes a schema nothing satisfies, and fails where it's written:
+They work on `S.bigint`, `S.integer`, `S.int32` and `S.port` too. `S.int32`
+and `S.port` have a range of their own, so a bound outside it describes a
+schema nothing satisfies and fails where it's written:
 
 ```ts
+S.integer.with(S.gte, 5); // Expected integer >= 5
 S.int32.with(S.gte, 3000000000);
 // int32 >= 3000000000 contradicts int32 <= 2147483647
 S.number.with(S.gte, 5).with(S.lte, 1);

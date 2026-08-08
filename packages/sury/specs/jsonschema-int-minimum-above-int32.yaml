@@ -1,13 +1,4 @@
 # yaml-language-server: $schema=./spec.schema.json
-# FIXME: this document is satisfiable — 3000000000 and every integer above it
-# inhabit it — but it loads as `never` and rejects everything, including the
-# values it describes. The emptiness is an artifact of mapping `integer` onto
-# int32, not a property of the document: `applyBound` reads the panic that
-# `S.gte` raises for a bound outside int32's range and settles on `never`,
-# which is right for `{minimum: 5, maximum: 1}` (empty in its own terms) and
-# wrong here. `fromJSONSchema` already fails creation for keywords it cannot
-# model rather than silently widening — a range it cannot represent deserves
-# the same treatment instead of a third, silent outcome.
 ts:
   schema: 'S.fromJSONSchema({ type: "integer", minimum: 3000000000 })'
   input: number
@@ -17,25 +8,39 @@ vs:
   zod:
     _skip: not-applicable
 jsonSchema:
-  # FIXME: should round-trip back to `{ type: "integer", minimum: 3000000000 }`.
-  input: "{ not: {} }"
-  output: "{ not: {} }"
+  input: '{ type: "integer", minimum: 3000000000 }'
+  output: '{ type: "integer", minimum: 3000000000 }'
 operations:
   parse:
-    expression: i=>{e[0](i);return i}
+    expression: i=>{typeof i==="number"&&i%1===0||e[1](i);i>=3000000000||e[0](i);return i}
     examples:
-      # FIXME: both of these satisfy the document that was loaded.
       at-the-minimum:
         input: "3000000000"
-        error: Expected never, received 3000000000
+        output: "3000000000"
       above-the-minimum:
         input: "4000000000"
-        error: Expected never, received 4000000000
+        output: "4000000000"
       below-the-minimum:
         input: "5"
-        error: Expected never, received 5
+        error: Expected integer >= 3000000000, received 5
       wrong-type:
         input: '"3000000000"'
-        error: Expected never, received "3000000000"
-  decode: eq-to-parse
-  encode: eq-to-parse
+        error: Expected integer >= 3000000000, received "3000000000"
+  decode:
+    expression: i=>{i>=3000000000||e[0](i);return i}
+    examples:
+      at-the-minimum:
+        input: "3000000000"
+        output: "3000000000"
+      below-the-minimum:
+        input: "5"
+        error: Expected integer >= 3000000000, received 5
+  encode:
+    expression: i=>{i>=3000000000||e[0](i);return i}
+    examples:
+      at-the-minimum:
+        input: "3000000000"
+        output: "3000000000"
+      below-the-minimum:
+        input: "5"
+        error: Expected integer >= 3000000000, received 5

@@ -60,7 +60,7 @@ import {
 } from "./modifiers";
 import { __setStandardJSONSchemaConverter, assertOrThrow } from "./operations";
 import { never_, parse, reverse } from "./parse";
-import { bool, float, int, Literal_parse, string } from "./primitives";
+import { bool, float, integer, Literal_parse, string } from "./primitives";
 import {
   dict,
   email,
@@ -71,6 +71,7 @@ import {
   lte,
   maxLength,
   minLength,
+  multipleOf,
   null_,
   object,
   pattern,
@@ -390,7 +391,10 @@ const internalToJSONSchemaBase = (
     // int32 and port carry their range as bound fields, so nothing
     // format-specific is left to emit here — and a user bound that superseded
     // one of them has already cleared it.
-    jsonSchema.type = format === "int32" || format === "port" ? "integer" : "number";
+    jsonSchema.type = format !== U ? "integer" : "number";
+    if (schema.multipleOf !== U) {
+      jsonSchema.multipleOf = schema.multipleOf as number;
+    }
     if (minimum !== U) {
       jsonSchema.minimum = minimum;
     }
@@ -756,7 +760,6 @@ const inclusiveBound = (
 // The integer and number branches read the same four keywords the same way,
 // so they share one pass rather than each spelling it out.
 const withNumericBounds = (schema: Internal, jsonSchema: JSONSchemaT): Internal => {
-  // TODO: Support jsonSchema.multipleOf
   const min = inclusiveBound(jsonSchema.minimum, jsonSchema.exclusiveMinimum);
   const exMin = exclusiveBound(jsonSchema.minimum, jsonSchema.exclusiveMinimum);
   const max = inclusiveBound(jsonSchema.maximum, jsonSchema.exclusiveMaximum);
@@ -773,17 +776,22 @@ const withNumericBounds = (schema: Internal, jsonSchema: JSONSchemaT): Internal 
   if (exMax !== U) {
     schema = applyBound(schema, lt, exMax);
   }
+  // `multipleOf: 1` on an integer schema restates what the format already
+  // checks — storing it would emit a keyword the author's document may not
+  // have had (the int-schema branches synthesize integer from other spellings).
+  if (jsonSchema.multipleOf !== U && !(schema.format !== U && jsonSchema.multipleOf === 1)) {
+    schema = applyBound(schema, multipleOf, jsonSchema.multipleOf);
+  }
   return schema;
 }
 
-const toIntSchema = (jsonSchema: JSONSchemaT): Internal => withNumericBounds(int, jsonSchema);
+const toIntSchema = (jsonSchema: JSONSchemaT): Internal => withNumericBounds(integer, jsonSchema);
 
 // Assertion keywords Sury doesn't model. Silently ignoring one widens the
 // schema — the validator then accepts data the author wrote the keyword to
 // reject — so creation fails instead. Annotations (`title`, `default`,
 // `$comment`, …) are ignored on purpose and stay out of this list.
 const unsupportedKeywords = [
-  "multipleOf",
   "uniqueItems",
   "contains",
   "minContains",
@@ -805,7 +813,7 @@ const unsupportedKeywords = [
 // schema without `type` has to apply each group only to its own type.
 const keywordTypes: [JSONSchemaTypeName, string[]][] = [
   ["string", ["pattern", "minLength", "maxLength"]],
-  ["number", ["minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum"]],
+  ["number", ["minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf"]],
   ["object", ["properties", "required", "additionalProperties"]],
   ["array", ["items", "prefixItems", "minItems", "maxItems"]],
 ];

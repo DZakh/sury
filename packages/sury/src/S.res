@@ -37,7 +37,7 @@ type tag =
   | @as("ref") Ref
 
 
-type numberFormat = | @as("int32") Int32 | @as("port") Port
+type numberFormat = | @as("int32") Int32 | @as("port") Port | @as("integer") Integer
 type stringFormat =
   | @as("json") JSON
   | @as("date-time") DateTime
@@ -102,6 +102,7 @@ type rec t<'value> =
       maximum?: float,
       exclusiveMinimum?: float,
       exclusiveMaximum?: float,
+      multipleOf?: float,
       errorMessage?: schemaErrorMessage,
     })
   | @as("bigint")
@@ -117,6 +118,7 @@ type rec t<'value> =
       maximum?: bigint,
       exclusiveMinimum?: bigint,
       exclusiveMaximum?: bigint,
+      multipleOf?: bigint,
       errorMessage?: schemaErrorMessage,
     })
   | @as("boolean")
@@ -249,6 +251,7 @@ and schemaErrorMessage = {
   maximum?: string,
   exclusiveMinimum?: string,
   exclusiveMaximum?: string,
+  multipleOf?: string,
   minLength?: string,
   maxLength?: string,
   minItems?: string,
@@ -404,6 +407,9 @@ module Error = {
 @module("sury") external string: t<string> = "string"
 @module("sury") external bool: t<bool> = "bool"
 @module("sury") external int: t<int> = "int"
+// `t<float>`, not `t<int>`: ReScript's `int` is int32, and a JS integer
+// (JSON Schema's unbounded `integer`) can exceed that range.
+@module("sury") external integer: t<float> = "integer"
 @module("sury") external float: t<float> = "float"
 @module("sury") external bigint: t<bigint> = "bigint"
 @module("sury") external symbol: t<Symbol.t> = "symbol"
@@ -565,6 +571,8 @@ module Metadata = {
 @module("sury") external gte: (t<'value>, 'value, ~message: string=?) => t<'value> = "gte"
 @module("sury") external lt: (t<'value>, 'value, ~message: string=?) => t<'value> = "lt"
 @module("sury") external lte: (t<'value>, 'value, ~message: string=?) => t<'value> = "lte"
+@module("sury")
+external multipleOf: (t<'value>, 'value, ~message: string=?) => t<'value> = "multipleOf"
 
 @module("sury") external minLength: (t<'value>, int, ~message: string=?) => t<'value> = "minLength"
 @module("sury") external maxLength: (t<'value>, int, ~message: string=?) => t<'value> = "maxLength"

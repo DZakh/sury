@@ -1417,8 +1417,8 @@ test("fromJSONSchema: oneOf counts matches, `not` and if/then/else layer on", (t
 test("fromJSONSchema: an unmodelled assertion keyword fails at creation", (t) => {
   // Ignoring it would widen the schema — the validator would accept data the
   // author wrote the keyword to reject — so this must not silently succeed.
-  const result = S.safe(() => S.fromJSONSchema({ type: "number", multipleOf: 2 }));
-  t.expect(result.error?.message).toContain("Unsupported JSON Schema keyword: multipleOf");
+  const result = S.safe(() => S.fromJSONSchema({ type: "object", patternProperties: {} }));
+  t.expect(result.error?.message).toContain("Unsupported JSON Schema keyword: patternProperties");
 
   t.expect(
     S.safe(() => S.fromJSONSchema({ type: "array", uniqueItems: true })).error?.message,
@@ -1718,6 +1718,24 @@ test("A contradictory bound pair is rejected where it's written", (t) => {
   t.expect(() => S.port.with(S.lte, -1)).toThrow(
     `[Sury] port <= -1 contradicts port >= 0`,
   );
+  // Combining divisors stores their LCM; an LCM past 2^53 rounds and would
+  // validate the wrong set, and fractional divisors have no float LCM — both
+  // refuse rather than silently drift.
+  t.expect(() =>
+    S.integer.with(S.multipleOf, 67108859).with(S.multipleOf, 134217689).with(S.multipleOf, 2097143)
+  ).toThrow(`[Sury] multipleOf 2097143 cannot be combined with multipleOf 9007195966406851`);
+  t.expect(() => S.number.with(S.multipleOf, 0.3).with(S.multipleOf, 0.2)).toThrow(
+    `[Sury] multipleOf 0.2 cannot be combined with multipleOf 0.3`,
+  );
+  // A divisor excluded by the range is NOT a construction error, unlike a
+  // pair of bounds: detecting it needs multiples-in-range arithmetic (see the
+  // updateBounds comment). The schema builds and rejects everything, with the
+  // divisor and the range both in the message.
+  t.expect(
+    S.safe(() =>
+      S.assert(S.number.with(S.gt, 0).with(S.lt, 5).with(S.multipleOf, 10), 3)
+    ).error?.message
+  ).toBe("Expected 0 < (number % 10) < 5, received 3");
 
   // A single point is satisfiable, so these stay legal.
   t.expect(S.toJSONSchema(S.number.with(S.gte, 5).with(S.lte, 5))).toEqual({
@@ -1730,6 +1748,34 @@ test("A contradictory bound pair is rejected where it's written", (t) => {
     exclusiveMinimum: 5,
     exclusiveMaximum: 6,
   });
+  // A divisor larger than the range still admits 0, and a single point is a
+  // point like any other.
+  t.expect(S.toJSONSchema(S.int32.with(S.multipleOf, 3000000000))).toEqual({
+    type: "integer",
+    minimum: -2147483648,
+    maximum: 2147483647,
+    multipleOf: 3000000000,
+  });
+});
+
+test("A superseded bound takes its message with it", (t) => {
+  // The surviving check is the one the caller's message has to reach, so a
+  // message written on a bound that doesn't narrow carries onto it...
+  t.expect(
+    S.safe(() => S.assert(S.number.with(S.gte, 5).with(S.gte, 1, "MY MESSAGE"), 3)).error?.message
+  ).toBe("MY MESSAGE");
+  // ...and a narrowing replacement without one clears the stale text rather
+  // than reporting a bound the schema no longer advertises.
+  t.expect(
+    S.safe(() => S.assert(S.number.with(S.gte, 5, "A").with(S.gte, 10), 7)).error?.message
+  ).toBe("Expected number >= 10, received 7");
+  // Switching form replaces the field, so the message keyed to the old form
+  // goes with it instead of lingering where nothing reads it.
+  const flipped = S.number.with(S.gte, 5, "A").with(S.gt, 10);
+  t.expect(flipped.errorMessage?.minimum).toBe(undefined);
+  t.expect(
+    S.safe(() => S.assert(flipped, 7)).error?.message
+  ).toBe("Expected number > 10, received 7");
 });
 
 test("An unsatisfiable JSON Schema document loads as never", (t) => {
