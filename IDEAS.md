@@ -282,14 +282,28 @@ which is what `packages/sury/specs/<format>.yaml` examples are drawn from.
   handling means a string-or-anything-else schema, since `format` is
   type-conditional — the same structural question the suite README raises for
   `maxLength` and `properties`.
-- `S.uri.with(S.to, S.url)` cannot encode a `URL` whose href is not already a
-  URI: the `uri` refinement runs against the instance before the encoder gets to
-  escape it, so `new URL("http://ex.com/a|b")` fails with `Expected uri, received
-  URL` where the same value through `S.string.with(S.to, S.url)` encodes to
-  `http://ex.com/a%7Cb`. Pinned in `specs/codec-uri-url.yaml`. Running the
-  refinement on the encoder's output rather than its input would fix it, and is
-  the same ordering question any `refined.with(S.to, codec)` pair raises — worth
-  settling generally rather than for `url` alone.
+- The ordering question behind the `S.uri.with(S.to, S.url)` encode bug is
+  settled for the two instance codecs but not in general. A check emits against
+  its val's *prev* var, so a val carrying its own transform expression is the
+  wrong place to hang one — `date.ts` and `url.ts` both did, and both tested the
+  instance rather than the string built from it. They wrap in `B_refine` now.
+  Nothing stops the next codec from making the same mistake: the invariant lives
+  in a comment on the two encoders rather than in the type or in `B_next`.
+- Drop the `.test` from the decode path of a format-plus-codec pair such as
+  `S.uri.with(S.to, S.url)` once `S.constructor` exists. Decode runs the URI
+  regex *and* constructs the `URL`, which is two validations of one value, and
+  under a constructor-shaped schema the construction is the validation — there
+  is nothing left for the regex to add. Not done now because it cannot be scoped
+  to `uri`: `decode` skips the type guard but keeps every refinement, uniformly
+  (`string-minLength` decode still checks `i.length>1`, `ipv6` still `.test`s),
+  so dropping it for one format alone makes that format the odd one out.
+  The constraint to carry over: the two languages **cross**, so neither check
+  subsumes the other. Over ~5.2k sampled forms, 2601 parse as `URL` but fail the
+  RFC 3986 regex (`http://a.b `, `%zz`, backslashes, braces) and 181 pass the
+  regex but make `new URL` throw (`http:`, `http://` — legal path-empty URIs the
+  WHATWG parser refuses). So the construction guard cannot be dropped either,
+  and whatever `S.constructor` validates has to be understood as WHATWG's
+  language, not RFC 3986's — the schema's accepted set changes with it.
 - IDNA validation for `S.hostname` / `S.idnHostname` (32/55 and 51/84). Both
   accept an `xn--` label on shape alone; rejecting one whose Punycode decodes to
   a character IDNA2008 disallows needs Punycode plus the Unicode
