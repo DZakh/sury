@@ -14,6 +14,7 @@ import {
   recomputeGoldens,
   evalSchema,
   identityViolations,
+  asyncViolations,
   checkAliases,
   collectComments,
   lintComments,
@@ -221,6 +222,11 @@ describe.each(specs)("spec: $id", ({ file }) => {
   test("has no identity-invariant violations (run `pnpm spec check`)", () => {
     const schema = evalSchema(spec.ts.schema);
     const violations = identityViolations(schema, spec);
+    expect(violations, violations.join("\n")).toEqual([]);
+  });
+
+  test("every `isAsync` marker matches the schema (run `pnpm spec check`)", () => {
+    const violations = asyncViolations(evalSchema(spec.ts.schema), spec);
     expect(violations, violations.join("\n")).toEqual([]);
   });
 

@@ -81,6 +81,27 @@ test("a scenario contributes one target built from its own prepare and run", () 
   expect(real[0]!.runSrc).toBe('(schema["~standard"].validate(data))');
 });
 
+// Compiling an async operation is ordinary sync work and is measured (with the
+// async builder, the only one that accepts the schema); running one can't be —
+// a batch loop only starts the promises. The skipped examples are counted so
+// the report doesn't read as if they were timed and found unchanged.
+test("an async op contributes its compilation target but none of its examples", () => {
+  const { targets, skippedAsync } = targetsFor("async-assert");
+  const real = targets.filter((t) => !t.control);
+  expect(real.map((t) => t.name)).toEqual([
+    "async-assert · create",
+    "async-assert · create+compile · parse",
+    "async-assert · create+compile · decode",
+    "async-assert · create+compile · encode",
+    "async-assert · encode · valid",
+  ]);
+  expect(real.filter((t) => t.isAsync).map((t) => t.name)).toEqual([
+    "async-assert · create+compile · parse",
+    "async-assert · create+compile · decode",
+  ]);
+  expect(skippedAsync).toBe(5);
+});
+
 test("scenarios are selected by name, so narrowing to a spec picks up none of them", () => {
   expect(targetsFor("string").targets.some((t) => t.phase === "scenario")).toBe(false);
   expect(deriveTargets([], []).targets.length).toBe(0);
@@ -126,6 +147,7 @@ const perf = (changed: Perf["changed"], over: Partial<Perf> = {}): Perf => ({
   unchanged: 137,
   added: [],
   skippedConstants: 13,
+  skippedAsync: 0,
   errors: [],
   outcomeChanged: [],
   meta: "node 24.16.0 · linux x64 · 4 cores · 8×2 rounds · confirmed",
@@ -157,6 +179,14 @@ test("renderPerformance ranks worst regression first and states the floor per ph
       137 unchanged · 13 constant-schema targets skipped · advisory only
       node 24.16.0 · linux x64 · 4 cores · 8×2 rounds · confirmed"
   `);
+});
+
+// Only when there are any: a "0 async examples skipped" on every run of a
+// suite that has none is noise in the one line that summarizes coverage.
+test("renderPerformance reports skipped async examples alongside the constant-schema ones", () => {
+  expect(renderPerformance(perf([], { skippedAsync: 5 }))).toContain(
+    "137 unchanged · 13 constant-schema targets skipped · 5 async examples skipped · advisory only",
+  );
 });
 
 test("renderPerformance says so plainly when nothing cleared the floor", () => {

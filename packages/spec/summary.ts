@@ -210,7 +210,9 @@ export const renderPerformance = (perf: Perf): string => {
     lines.push(`  behavior changed, not timed — ${o.name}: ${o.note}`);
   for (const e of perf.errors) lines.push(`  could not measure ${e.name}: ${e.error}`);
   lines.push(
-    `  ${perf.unchanged} unchanged · ${perf.skippedConstants} constant-schema targets skipped · advisory only`,
+    `  ${perf.unchanged} unchanged · ${perf.skippedConstants} constant-schema targets skipped · ` +
+      (perf.skippedAsync ? `${perf.skippedAsync} async examples skipped · ` : "") +
+      "advisory only",
     `  ${perf.meta}`,
   );
   return lines.join("\n");
