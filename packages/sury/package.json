@@ -54,6 +54,7 @@
     "build:entry": "tsx ./scripts/pack.ts entry-only",
     "fuzz:union": "tsx ./scripts/unionFuzz.ts",
     "bench:jsonstring": "pnpm build:entry && tsx ./scripts/jsonStringifyBench.ts",
+    "bench:fjs": "pnpm build:entry && tsx ./scripts/fjsBench.ts",
     "build": "pnpm rescript && tsx ./scripts/pack.ts for-publish",
     "res": "pnpm build:entry && rescript watch",
     "test": "pnpm build && vitest run",

@@ -117,19 +117,16 @@ This is why **Sury** will most likely outperform not only other libraries, but a
 
 ### JSON serialization faster than `JSON.stringify`
 
-The same compiler works in the encode direction: `S.encoder(schema, S.jsonString)` builds an optimized JSON string encoder for your schema — the technique pioneered by [fast-json-stringify](https://github.com/fastify/fast-json-stringify) — so the serialization your service does on every request (API responses, event payloads, queue messages) goes straight from domain objects to JSON text:
+`S.encoder(schema, S.jsonString)` compiles your schema into a dedicated JSON string encoder — so every API response, event payload and queue message goes straight from your domain objects to JSON text:
 
-| Encode to JSON string                                 | `JSON.stringify` | fast-json-stringify | **Sury** `S.encoder(schema, S.jsonString)` |
-| ----------------------------------------------------- | ---------------- | ------------------- | ------------------------------------------ |
-| API response (user profile, 7 fields)                 | 455 ns           | 280 ns              | **246 ns**                                 |
-| List endpoint (100 rows)                              | 11.0 µs          | 11.0 µs             | **10.6 µs**                                |
-| Metrics dict (50 number values)                       | **5.4 µs**       | 8.8 µs              | 9.7 µs                                     |
-| Labels dict (50 string values)                        | 4.1 µs           | 7.5 µs              | **4.0 µs**                                 |
-| Event: `bigint` id + binary payload + `Date`          | 1.34 µs          | 1.18 µs             | **1.03 µs**                                |
+| Encode to JSON string                        | `JSON.stringify` | fast-json-stringify | **Sury**     |
+| -------------------------------------------- | ---------------- | ------------------- | ------------ |
+| API response (user profile, 7 fields)        | 455 ns           | 280 ns              | **246 ns**   |
+| List endpoint (100 rows)                     | 11.0 µs          | 11.0 µs             | **10.6 µs**  |
+| Event: `bigint` id + binary payload + `Date` | 1.34 µs          | 1.18 µs             | **1.03 µs**  |
+| Bundle cost (min + gzip)                     | —                | 56.7 kB             | **20.9 kB**  |
 
-When the native call is unbeatable — a dict of plain strings — the compiled encoder simply *becomes* `JSON.stringify`, so you never pay for the abstraction. Number-valued dicts keep the compiled loop on purpose: it rejects `Infinity`/`NaN` instead of silently writing `null` the way `JSON.stringify` does.
-
-The last row is the important one: `JSON.stringify` throws on `bigint` and mangles `Uint8Array`, and fast-json-stringify expects pre-mapped strings — so for both, the benchmark includes the hand-written mapping pass a real consumer has to run. **Sury** describes those fields once (`S.string.with(S.to, S.bigint)`) and the mapping becomes part of the encoder itself — while the same definition also gives you the decoder, validation, and JSON Schema. Reproduce with `pnpm --filter=sury bench:jsonstring`.
+That last payload is the one that matters: `JSON.stringify` throws on `bigint` and mangles `Uint8Array`, and fast-json-stringify only speaks plain JSON — both need a hand-written mapping pass first. **Sury** describes those fields once and encodes them directly, and the same definition still gives you the decoder, the validation and the JSON Schema.
 
 ### Transformations that reverse themselves
 

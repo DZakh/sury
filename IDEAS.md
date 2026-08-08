@@ -4,6 +4,19 @@
 
 ### ideas
 
+- `fromJSONSchema({const: {...}})` builds an instance-tagged literal compared by
+  reference, so it rejects a structurally equal value — `S.parseOrThrow({bar:
+  "baz"}, S.fromJSONSchema({const: {bar: "baz"}}))` fails with `Expected
+  { bar: "baz"; }, received invalid { bar: "baz"; }`. `S.literal({bar: "baz"})`
+  builds a structural object schema instead and compares deeply, which is the
+  behavior the document means. Found by running fast-json-stringify's benchmark
+  suite (`pnpm --filter=sury bench:fjs`), where it's the one case Sury can't
+  serialize.
+- `fromJSONSchema` on `{type: "string", format: "unsafe"}` (a fast-json-stringify
+  extension meaning "skip escaping") produces a schema whose jsonString encode
+  treats the value as JSON text and re-parses it, so a string containing quotes
+  throws at runtime instead of being escaped. An unknown/unsupported `format`
+  should fall back to a plain string rather than change the conversion.
 - Follow a field's own forward chain before targeting `S.json`/`S.jsonString`.
   An object field declared `S.uint8Array.with(S.to, S.string)` fails to encode
   to `S.json` and `S.jsonString` with "Can't decode Uint8Array to JSON": the
