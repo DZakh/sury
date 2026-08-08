@@ -756,13 +756,25 @@ export const jsonString = /* @__PURE__ */ (() => {
     } else {
       // Same fallback `json` uses: decode to string first (covers instances
       // with a string representation, e.g. Date), then serialize that.
+      const stringTarget = copySchema(string);
+      stringTarget.to = expectedSchema;
       try {
-        const expected = copySchema(string);
-        expected.to = expectedSchema;
-        input.e = expected;
+        input.e = stringTarget;
         return parse(input);
       } catch {
-        return B_unsupportedDecode(input, input.s, expectedSchema);
+        // A schema that converts to string only when it is itself the target
+        // (S.uint8Array reads `e.to` to decide, so a bare `string` target
+        // leaves it out of the chain) needs the conversion asked of it
+        // directly: keep the input's own schema and hang the string target
+        // off its `.to`.
+        try {
+          const viaSelf = copySchema(input.s);
+          viaSelf.to = stringTarget;
+          input.e = viaSelf;
+          return parse(input);
+        } catch {
+          return B_unsupportedDecode(input, input.s, expectedSchema);
+        }
       }
     }
   };

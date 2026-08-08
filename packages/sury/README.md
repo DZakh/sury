@@ -129,9 +129,9 @@ And the types `JSON.stringify` refuses are just fields:
 
 ```ts
 const event = S.schema({
-  id: S.string.with(S.to, S.bigint),
-  payload: S.string.with(S.to, S.uint8Array),
-  at: S.string.with(S.to, S.date),
+  id: S.bigint,
+  payload: S.uint8Array,
+  at: S.date,
 });
 
 S.encoder(event, S.jsonString)({ id: 9007199254740993n, payload: bytes, at: new Date() });
