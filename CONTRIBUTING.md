@@ -337,10 +337,13 @@ instead of silently working around it.
 
 - <placeholder>
 - A golden containing a control character is written as a plain scalar, so
-  `specs/ipv4.yaml` carries a literal tab that the `yaml` package round-trips
-  but PyYAML and yamllint reject outright. Newlines are handled (they become a
-  block scalar); tabs are not. Since the specs are published as documentation,
-  the writer should quote any scalar holding a control character.
+  `specs/ipv4.yaml` carries a literal tab and `specs/uri-template.yaml` a literal
+  DEL and C1 byte, all of which the `yaml` package round-trips but PyYAML and
+  yamllint reject outright. The set is exactly what `JSON.stringify` leaves raw:
+  newlines and tabs it escapes are fine, DEL and the C1 block are not. Since the
+  specs are published as documentation, the writer should quote or escape any
+  scalar holding a control character. Reference-suite coverage is kept rather
+  than trimmed to dodge this — the defect is in the writer.
 - `--perf` measures every example in both builds, so a spec's example count sets
   its share of the performance job's runtime. That suits codec specs, where each
   example exercises a different path, but not format specs: the string-format
@@ -373,8 +376,7 @@ instead of silently working around it.
   'examples')` instead of naming the missing block. Hand-writing a spec rather
   than scaffolding it with `spec new` is the way in.
 - No operation dimension for JSON-target conversions (`.to(S.json)` / `.to(S.jsonString)`), so bugs like #311 (nested optional fields failing to encode) can't be captured as spec examples — their repros live in `tests/` instead.
-- Example results are serialized back to spec source, so a value with symbol keys can't be recorded ("cannot represent an object with symbol keys as spec source code"). `S.record`'s unvalidated symbol-keyed values are pinned in `tests/` instead of `specs/record.yaml`, where the rest of that gap lives.
-- The same serializer emits an own `__proto__` key as `{ __proto__: … }`, which is prototype syntax and reads back as a *different* value, so `check --write` rewrites such an example into one that no longer reproduces and the goldens oscillate between runs. `specs/object-proto-key.yaml` works around it by covering only inputs without that key; a computed-key form (`{ ["__proto__"]: … }`) would let the example be recorded directly.
+- Example results are serialized back to spec source, so a value keyed by a *non-registry* symbol can't be recorded ("cannot represent a non-registry symbol (use Symbol.for(key)) as spec source code"). A registry symbol round-trips as a computed key. `S.record`'s unvalidated symbol-keyed values are pinned in `tests/` instead of `specs/record.yaml`, where the rest of that gap lives.
 - Scenario measurements can be bimodal across child processes: the identical `encoder-lookup` build measured "unchanged" and "−44%" against the same baseline in back-to-back runs, each individually printed as `confirmed`. The screening/rounds design averages within a process but can't see a whole process landing in a different JIT state (IC/feedback shapes settle per child, then every block agrees with itself). Until runs repeat the *process* (not just the rounds) and require agreement across them, treat any single scenario delta on a shared-arity path as one sample, not a verdict.
 
 ## License

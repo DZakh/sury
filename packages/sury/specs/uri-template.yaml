@@ -14,6 +14,18 @@ operations:
   parse:
     expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
     examples:
+      a-del-character-is-not-a-literal:
+        input: "\"\""
+        error: "Expected uri-template, received \"\""
+      a-c1-control-is-not-a-literal:
+        input: "\"\""
+        error: "Expected uri-template, received \"\""
+      an-unpaired-surrogate-is-not-a-literal:
+        input: '"\ud800"'
+        error: "Expected uri-template, received \"\ud800\""
+      an-astral-character-is-a-literal:
+        input: '"🎉"'
+        output: '"🎉"'
       a-valid-uri-template:
         input: '"http://example.com/dictionary/{term:1}/{term}"'
         output: '"http://example.com/dictionary/{term:1}/{term}"'

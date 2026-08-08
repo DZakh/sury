@@ -955,9 +955,14 @@ export const uriReference: Internal = /* @__PURE__ */ stringFormat(
   /* @__PURE__ */ uriPattern("?"),
 );
 
+// RFC 6570 `literals` runs out at %x7E and resumes at ucschar (%xA0), so DEL,
+// the C1 block and a lone surrogate are all outside it. The `u` flag is what
+// makes the surrogate range mean "unpaired": under it a valid astral character
+// is one code point and never matches, where without it the class would see a
+// surrogate pair as two halves and reject every emoji.
 export const uriTemplate: Internal = /* @__PURE__ */ stringFormat(
   "uri-template",
-  /^(?:(?:[^\x00-\x20"'<>%\\^`{|}]|%[0-9a-f]{2})|\{[+#./;?&=,!@|]?(?:[a-z0-9_]|%[0-9a-f]{2})+(?::[1-9][0-9]{0,3}|\*)?(?:,(?:[a-z0-9_]|%[0-9a-f]{2})+(?::[1-9][0-9]{0,3}|\*)?)*\})*$/i,
+  /^(?:(?:[^\x00-\x20\x7f-\x9f"'<>%\\^`{|}\ud800-\udfff]|%[0-9a-f]{2})|\{[+#./;?&=,!@|]?(?:[a-z0-9_]|%[0-9a-f]{2})+(?::[1-9][0-9]{0,3}|\*)?(?:,(?:[a-z0-9_]|%[0-9a-f]{2})+(?::[1-9][0-9]{0,3}|\*)?)*\})*$/iu,
 );
 
 // RFC 3987 §3.1: an IRI is the URI you get by percent-encoding every non-ASCII
