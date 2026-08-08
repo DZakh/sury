@@ -116,7 +116,7 @@ This is why **Sury** will most likely outperform not only other libraries, but a
 The same `eventSchema` encodes back out — no second definition:
 
 ```ts
-S.encoder(eventSchema, S.jsonString)(event);
+S.encoder(eventSchema, S.jsonString)({ type: "user.renamed", id: 42n, name: "Dmitry" });
 // => '{"type":"user.renamed","id":"42","name":"Dmitry"}'
 ```
 
@@ -140,12 +140,13 @@ Types `JSON.stringify` refuses are ordinary fields, and the values it silently c
 ```ts
 const schema = S.schema({ id: S.bigint, payload: S.uint8Array, at: S.date, price: S.number });
 const encode = S.encoder(schema, S.jsonString);
+const bytes = new TextEncoder().encode("hello");
 
 encode({ id: 9007199254740993n, payload: bytes, at: new Date(), price: 9.99 });
-// => '{"id":"9007199254740993","payload":"…","at":"2026-01-15T10:30:00.000Z","price":9.99}'
+// => '{"id":"9007199254740993","payload":"hello","at":"2026-01-15T10:30:00.000Z","price":9.99}'
 
 encode({ id: 1n, payload: bytes, at: new Date(), price: Infinity });
-// => throws S.Error: Failed at ["price"]: Expected JSON string, received Infinity
+// => throws S.Error: Failed at ["price"]: Expected JSON, received Infinity
 
 JSON.stringify({ price: Infinity });
 // => '{"price":null}'
@@ -153,9 +154,9 @@ JSON.stringify({ price: Infinity });
 
 | Encode to JSON string                        | `JSON.stringify` | fast-json-stringify | **Sury**    |
 | -------------------------------------------- | ---------------- | ------------------- | ----------- |
-| API response (user profile, 7 fields)        | 337 ns           | 271 ns              | **241 ns**  |
-| Event feed (50 tagged-union events)          | 4.45 µs          | 13.26 µs            | **3.77 µs** |
-| `bigint` id + binary payload + `Date`        | 959 ns           | 955 ns              | **887 ns**  |
+| API response (user profile, 7 fields)        | 573 ns           | 378 ns              | **311 ns**  |
+| Event feed (50 tagged-union events)          | 7.71 µs          | 20.38 µs            | **5.12 µs** |
+| `bigint` id + binary payload + `Date`        | 1.47 µs          | 1.46 µs             | **1.23 µs** |
 
 The union row is where compiling wins: fast-json-stringify resolves `anyOf` by running **Ajv** on every item, which is also why it ships 56.7 kB against **Sury**'s 15.8 kB (min + gzip, encoder included).
 

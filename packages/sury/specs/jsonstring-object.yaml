@@ -34,7 +34,7 @@ operations:
         output: '"{\"id\":0,\"name\":\"a\",\"tag\":\"x\",\"flag\":true}"'
       non-finite:
         input: '{ id: Infinity, name: "a", tag: "x", flag: true }'
-        error: 'Failed at ["id"]: Expected JSON string, received Infinity'
+        error: 'Failed at ["id"]: Expected JSON, received Infinity'
   decode:
     expression: i=>{let v0=i["id"];return "{\"id\":"+(Number.isFinite(v0)?""+v0:e[0](v0))+",\"name\":"+e[1](i["name"])+",\"tag\":\"x\",\"flag\":"+i["flag"]+"}"}
     examples:

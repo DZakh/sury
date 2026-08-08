@@ -4,6 +4,14 @@
 
 ### ideas
 
+- `S.uint8Array` to JSON is lossy for any byte outside ASCII: it converts
+  through `TextDecoder`, so an invalid UTF-8 sequence becomes U+FFFD and never
+  comes back. `S.encoder(S.schema({payload: S.uint8Array}), S.jsonString)` on
+  `[137, 80, 78, 71]` (a PNG magic number) emits `"�PNG"`, which decodes
+  to `[239, 191, 189, 80, 78, 71]` — silent corruption of exactly the binary
+  payloads the type exists for, with no error at either end. Base64 (or
+  base64url) is the encoding a JSON consumer expects; whichever is chosen, the
+  round trip has to be lossless or the conversion should refuse to compile.
 - Trusted union decode stops at the first nesting level. `unionDecoder` proves
   the source trustworthy with `input.s === self`, but a union reached through
   `perVariantTo` (json.ts — an array item or object field being serialized to

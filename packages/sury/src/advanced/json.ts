@@ -713,10 +713,13 @@ export const jsonString = /* @__PURE__ */ (() => {
       // invalid `Infinity`/`NaN` text. Raise instead of JSON.stringify's
       // silent null. An expression (not a statement) so a `!== void 0`
       // omission guard around the piece keeps guarding the check too.
+      // Blamed on `json`, not on the jsonString target: what the value fails
+      // to be is a JSON value, and `S.parser(S.json)` rejects it with that
+      // same wording.
       const inputVar = input.v();
       return B_next(
         input,
-        `(Number.isFinite(${inputVar})?""+${inputVar}:${B_embedInvalidInput(input)})`,
+        `(Number.isFinite(${inputVar})?""+${inputVar}:${B_embedInvalidInput(input, json)})`,
         expectedSchema,
       );
     } else if (flagUnsafeHas(inputTagFlag, tagFlagBigint)) {

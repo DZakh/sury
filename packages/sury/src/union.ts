@@ -1089,18 +1089,21 @@ const unionEmit = (
   // Trusting a case's discriminant requires it to actually discriminate:
   // unique among every member's (two ReScript variants can share their first
   // literal field, e.g. `TAG: "Connective"`, and only differ on a later one),
-  // with no same-typed member lacking its own — such a member can own values
-  // the discriminant check would misclaim from it.
+  // and no *other* member may accept this member's runtime type. The second
+  // half is what makes "the value passed the union" mean "the value matches
+  // this variant": in `S.union([{kind: "a", v: S.string}, S.unknown])`,
+  // `{kind: "a", v: 1}` is accepted by `unknown`, and the `kind` discriminant
+  // then routes it to the first case — which must still check `v`. Comparing
+  // acceptance masks rather than type keys is what catches the broad member;
+  // `unknown` keys itself `"unknown"` and would otherwise look disjoint from
+  // every object.
   const unionDTrusted = (member: UnionMember): boolean => {
     const d = member.d!;
+    const tag = tagFlags[member.s.type]!;
     for (const group of plan) {
       for (const m of group.a) {
         if (m === member) continue;
-        if (
-          m.d !== U
-            ? m.d[0] === d[0] && unionLiteralEqual(m.d[1], d[1])
-            : m.k === member.k
-        ) {
+        if (m.d !== U ? m.d[0] === d[0] && unionLiteralEqual(m.d[1], d[1]) : m.m & tag) {
           return false;
         }
       }
@@ -1357,7 +1360,12 @@ export const unionDecoder: Builder = (input: Val) => {
   // re-validating them is what made `decode` compile the same code as
   // `parse`. The widening below still runs: dispatch needs the runtime
   // narrows, since the value's variant is only known at runtime.
-  const trustedSelf = input.s === self;
+  // `self.tr` is the same guarantee arriving second-hand: `unionRewrite`
+  // already performed this widening on a union-typed source, so the val no
+  // longer names it. Without that, a union serialized as an array item or
+  // object field — which reaches the target through `unionEncoder` — would
+  // re-validate every field inside the container's loop.
+  const trustedSelf = input.s === self || self.tr === true;
   if (
     (initialTagFlag & tagFlagUnion) ||
     (input.s.encoder === U && (initialTagFlag & tagFlagRef))
@@ -1463,6 +1471,10 @@ export const unionRewrite = (
   mut.decoder = unionDecoder;
   mut.encoder = unionEncoder;
   mut.perVariant = input.s.perVariant;
+  // The variants above were mapped from `input.s`'s, so the value is already
+  // known to satisfy one of them — a fact the `unknown` below throws away. See
+  // `tr` in base.ts: this is the only place allowed to claim it.
+  mut.tr = true;
   return B_refine(input, unknown, U, mut);
 };
 

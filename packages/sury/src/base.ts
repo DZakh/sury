@@ -303,6 +303,14 @@ export type Internal = {
   // inside its own serialize loop. Carried on the schema (not the val) so it
   // survives the parse loop's per-segment B_refine.
   uv?: boolean;
+  // Compile-time only, and `unionRewrite` (union.ts) is the ONLY producer: this
+  // union's variants were rewritten from the variants of the union the value
+  // was already typed as, so a dispatched case may convert from its own variant
+  // instead of re-validating it. Spelling it `true` anywhere else licenses
+  // skipping checks the value never passed — the rewrite is what makes it true,
+  // because it drops the val's source to `unknown` and would otherwise lose the
+  // guarantee the source union carried.
+  tr?: boolean;
   "$ref"?: string;
   "$defs"?: Record<string, Internal>;
   isAsync?: boolean; // Optional value means that it's not lazily computed yet.
