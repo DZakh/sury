@@ -151,6 +151,16 @@ S.decoder(S.jsonString, event)(json);
 // => { id: 9007199254740993n, payload: Uint8Array, at: Date }
 ```
 
+And the values it silently corrupts are caught instead — JSON has no `Infinity`, so **Sury** raises where `JSON.stringify` quietly writes `null`:
+
+```ts
+S.encoder(S.schema({ price: S.number }), S.jsonString)({ price: Infinity });
+// => throws S.Error: Failed at ["price"]: Expected JSON string, received Infinity
+
+JSON.stringify({ price: Infinity });
+// => '{"price":null}'
+```
+
 | Encode to JSON string                        | `JSON.stringify` | fast-json-stringify | **Sury**    |
 | -------------------------------------------- | ---------------- | ------------------- | ----------- |
 | API response (user profile, 7 fields)        | 328 ns           | 256 ns              | **237 ns**  |
