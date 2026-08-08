@@ -312,8 +312,14 @@ S.record(S.number); // { [k: string]: number }
 // passed through S.schema for you
 S.array({ id: S.string }); // { id: string }[]
 S.record({ n: S.number }); // { [k: string]: { n: number } }
-S.optional({ a: S.boolean }); // { a: boolean } | undefined
+S.optional([S.string, "ok"]); // [string, "ok"] | undefined
 S.nullable("foo"); // "foo" | null
+
+// A schema that came out undefined — a typo, a circular import — throws on
+// the spot instead of quietly becoming a schema that matches nothing
+S.array(undefined);
+// => throws: Ambiguous undefined. Fix the schema or use S.schema(undefined)
+S.schema(undefined); // undefined — when the literal is what you meant
 
 // Simple Tuples
 S.schema([S.string, S.number]);
