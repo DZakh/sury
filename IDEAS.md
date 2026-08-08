@@ -315,6 +315,14 @@ which is what `packages/sury/specs/<format>.yaml` examples are drawn from.
   WHATWG parser refuses). So the construction guard cannot be dropped either,
   and whatever `S.constructor` validates has to be understood as WHATWG's
   language, not RFC 3986's — the schema's accepted set changes with it.
+- `S.uriReference` accepts `1:b`. RFC 3986 §4.2 builds a relative-path reference on
+  `segment-nz-nc`, which is a first segment with no colon in it — the colon is what
+  would make the segment read as a scheme. The shared `uriPattern` uses full `pchar`
+  for the rootless-path branch, so the two references differ only by the optional
+  scheme today and this is the one place they should not: `uri` wants the colon
+  there, `uri-reference` does not. Fixing it means the branch stops being shared, or
+  takes the character class as a second parameter. It only over-accepts, and the
+  format suite has no case for it.
 - IDNA validation for `S.hostname` / `S.idnHostname` (32/55 and 51/84). Both
   accept an `xn--` label on shape alone; rejecting one whose Punycode decodes to
   a character IDNA2008 disallows needs Punycode plus the Unicode
