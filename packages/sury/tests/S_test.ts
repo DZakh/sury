@@ -2863,6 +2863,22 @@ test("Throwing one retained error instance twice doesn't accumulate the path", (
   t.expect(retained.path).toEqual([]);
 });
 
+test("Formatting a path segment that isn't a string renders instead of throwing", (t) => {
+  // Sury never emits a symbol segment, but `refine`'s `path` is user-supplied
+  // and plain JS callers aren't held to its `string[]` type. `message` is a
+  // getter, so throwing while formatting would swallow the failure being
+  // reported.
+  const path = ["a", Symbol("k")] as unknown as string[];
+  t.expect(() =>
+    S.parser(S.string.with(S.refine, () => false, { error: "bad", path }))("x"),
+  ).toThrow(
+    t.expect.objectContaining({
+      name: "SuryError",
+      message: "Failed at a[Symbol(k)]: bad",
+    }),
+  );
+});
+
 test("A contradictory bound pair is rejected where it's written", (t) => {
   // The schema would compile and then reject every possible value, which only
   // surfaces in production — so it fails at construction instead. Both sides

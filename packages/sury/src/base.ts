@@ -40,6 +40,12 @@ export const valFlagAsync: Flag = 1;
 //
 // Never mutate a path array — details objects, codegen closures and retained
 // user errors share instances, so every prepend/concat must allocate.
+//
+// No symbol segment: every key that becomes one comes from `Object.keys` or a
+// generated `for-in`, both of which skip symbol keys. `S.res`'s `@unboxed`
+// segment variant can't represent one, and the `~standard` bridge hands this
+// array straight out as the spec's `PropertyKey[]` — widening here means
+// revisiting both.
 export type Path = readonly (string | number)[];
 
 export const pathEmpty: Path = [];
@@ -56,22 +62,26 @@ export const pathConcat = (path: Path, concatedPath: Path): Path => {
 
 // Dot-path display (`user.tags[2]`, `config["my key"]`): dots for
 // identifier-safe keys, brackets for indices and everything else, the "[]"
-// dynamic marker verbatim.
+// dynamic marker verbatim. A segment that isn't a string is bracketed via
+// `String` rather than assumed: this runs inside the `message` getter, so
+// throwing on an unexpected segment would mask the error being reported.
 // @__NO_SIDE_EFFECTS__
 export const pathToText = (path: Path): string => {
   let text = "";
   for (let idx = 0; idx < path.length; idx++) {
     const segment = path[idx]!;
     text +=
-      typeof segment === "number" || /^\d+$/.test(segment)
-        ? `[${segment}]`
-        : segment === "[]"
-          ? segment
-          : /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(segment)
-            ? text
-              ? `.${segment}`
-              : segment
-            : `[${inlinedValueFromString(segment)}]`;
+      typeof segment !== "string"
+        ? `[${String(segment)}]`
+        : /^\d+$/.test(segment)
+          ? `[${segment}]`
+          : segment === "[]"
+            ? segment
+            : /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(segment)
+              ? text
+                ? `.${segment}`
+                : segment
+              : `[${inlinedValueFromString(segment)}]`;
   }
   return text;
 }
