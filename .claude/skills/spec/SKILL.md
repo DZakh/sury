@@ -15,8 +15,6 @@ pnpm spec check [id]           # gate
 
 Add a case: a named entry with just `input` under an op's `examples`, then `--write`. Follow the CLI's error messages — op shorthands (`identity`, `eq-to-parse`), `_skip` reasons, and the `vs.zod` divergence form all report the fix in the message.
 
-An async direction (a schema with an async transform or refine) is the one thing about an operation you declare rather than derive: put `isAsync: true` on the op block, and `check` builds it with `S.asyncParser`/`asyncDecoder`/`asyncEncoder` and awaits every example. It errors when a direction is async and unmarked, or marked and synchronous — asyncness is per direction, so `S.asyncDecoderAssert` marks decode/parse while encode stays sync.
-
 **Examples are where findings live.** Cover every edge case the schema turns up — boundary values, IEEE-754 oddities (`-0`, `NaN`, `Infinity`), coercion corners, each generated-check branch. A bug report or review finding becomes an example, not a test file and not a commit message.
 
 ## Metrics ratchet
