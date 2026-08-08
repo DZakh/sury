@@ -41,7 +41,7 @@ test("Parses JSON string to string", t => {
 
   t->Assert.deepEqual(`"Foo`->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`'"\\"Foo"'`))
 
-  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return JSON.stringify(i)}`)
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return e[0](i)}`)
 })
 
 test("Parses JSON string to string literal", t => {
@@ -93,7 +93,7 @@ test("Parses JSON string to float", t => {
 
   t->Assert.deepEqual(1.23->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"1.23"`))
 
-  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return ""+i}`)
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return (Number.isFinite(i)?""+i:e[0](i))}`)
 })
 
 test("Parses JSON string to float literal", t => {
@@ -276,7 +276,11 @@ test("Parses JSON string to dict", t => {
 
   t->Assert.deepEqual(value->S.decodeOrThrow(~from=schema, ~to=S.unknown), `{"foo":true}`->Obj.magic)
 
-  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return JSON.stringify(i)}`)
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Encode,
+    `i=>{return JSON.stringify(i)}`,
+  )
 })
 
 test("Parses JSON string to array", t => {
@@ -293,7 +297,11 @@ test("Parses JSON string to array", t => {
 
   t->Assert.deepEqual(value->S.decodeOrThrow(~from=schema, ~to=S.unknown), `[true,false]`->Obj.magic)
 
-  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return JSON.stringify(i)}`)
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Encode,
+    `i=>{let v2="";for(let v1=0;v1<i.length;++v1){v2+=(v1?",":"")+i[v1]}return "["+v2+"]"}`,
+  )
 })
 
 test("A chain of JSON string schemas should do nothing", t => {
@@ -356,7 +364,7 @@ test("Parses JSON string to object with bigint", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{let v0=i["bar"];return JSON.stringify({"foo":"bar","bar":[""+v0["0"],v0["1"],],})}`,
+    `i=>{let v0=i["bar"];return "{\\"foo\\":\\"bar\\",\\"bar\\":[\\""+v0["0"]+"\\","+v0["1"]+"]}"}`,
   )
 })
 
@@ -415,7 +423,7 @@ test("Converts JSON string to object with unknown field", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{e[0](i);return JSON.stringify({"foo":i,})}`,
+    `i=>{let v0;if(i!==void 0){e[0](i);v0=JSON.stringify(i)}let v1="";if(v0!==void 0){v1+="\\"foo\\":"+v0}return "{"+v1+"}"}`,
   )
 
   t->Assert.deepEqual(%raw(`"foo"`)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`'{"foo":"foo"}'`))
@@ -467,6 +475,6 @@ test("Can apply refinement to JSON string with S.to before", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="number"&&i<=2147483647&&i>=-2147483648&&i%1===0||e[2](i);let v0=""+i;e[0](v0)||e[1](v0);return v0}`,
+    `i=>{typeof i==="number"&&i<=2147483647&&i>=-2147483648&&i%1===0||e[3](i);let v0=(Number.isFinite(i)?""+i:e[0](i));e[1](v0)||e[2](v0);return v0}`,
   )
 })

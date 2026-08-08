@@ -197,6 +197,19 @@ type Outcome =
   | { ok: false; kind: "sury"; message: string; reasons: number }
   | { ok: false; kind: "foreign"; name: string; message: string };
 
+// The directions a union compiles for. `parse` validates from `unknown`; the
+// other two decode *from the union itself*, the trusted source that lets a case
+// skip re-validating the variant its discriminant already selected — so they are
+// the only ones that exercise that path at all. `json` wraps the union in an
+// array, because a union reached as a container item resolves its target per
+// variant and reaches the compiler differently than a top-level one.
+//
+// Both trusted directions run only on values `parse` accepted, and on `parse`'s
+// own output — that is exactly what a decoder is allowed to assume it was
+// handed. Feeding them a value the union rejects would compare undefined
+// behavior, where skipping validation is *supposed* to change the answer.
+type Direction = "parse" | "convert" | "json";
+
 const show = (value: unknown): string => {
   if (typeof value === "bigint") return `${value}n`;
   if (typeof value === "symbol") return value.toString();
@@ -212,30 +225,53 @@ const show = (value: unknown): string => {
   }
 };
 
-const run = (S: Sury, spec: readonly MemberSpec[], input: unknown): Outcome => {
+// `outcome` also hands back the raw produced value, because the trusted
+// directions are driven with what `parse` returned rather than the input.
+const outcome = (
+  S: Sury,
+  produce: () => unknown,
+): { o: Outcome; value?: unknown } => {
   try {
-    const schema = S.union(spec.map((m) => m.of(S)));
-    const parse = S.parser(schema);
-    return { ok: true, value: show(parse(input)) };
+    const value = produce();
+    return { o: { ok: true, value: show(value) }, value };
   } catch (error: any) {
     // `S.Error` is the "this didn't match" signal; anything else is a foreign
     // exception, and the two must never be confused.
     if (error instanceof S.Error) {
       return {
-        ok: false,
-        kind: "sury",
-        message: error.message,
-        reasons: error.unionErrors?.length ?? 0,
+        o: {
+          ok: false,
+          kind: "sury",
+          message: error.message,
+          reasons: error.unionErrors?.length ?? 0,
+        },
       };
     }
     return {
-      ok: false,
-      kind: "foreign",
-      name: error?.constructor?.name ?? "unknown",
-      message: String(error?.message ?? error),
+      o: {
+        ok: false,
+        kind: "foreign",
+        name: error?.constructor?.name ?? "unknown",
+        message: String(error?.message ?? error),
+      },
     };
   }
 };
+
+const run = (
+  S: Sury,
+  spec: readonly MemberSpec[],
+  input: unknown,
+  direction: Direction,
+): { o: Outcome; value?: unknown } =>
+  outcome(S, () => {
+    const schema = S.union(spec.map((m) => m.of(S)));
+    // Schema creation itself throws for a union that can't be reversed, and
+    // that is a behavior worth comparing — so it stays inside the try.
+    if (direction === "parse") return S.parser(schema)(input);
+    if (direction === "convert") return S.decoder(schema, S.unknown)(input);
+    return S.encoder(S.array(schema), S.jsonString)([input]);
+  });
 
 const describe = (outcome: Outcome): string =>
   outcome.ok
@@ -312,21 +348,49 @@ const main = async (): Promise<void> => {
       for (let m = 0; m < size; m++) spec.push(pick(members));
 
       for (const input of inputs) {
-        const before = run(refModule, spec, input);
-        const after = run(currentModule, spec, input);
-        compared++;
-        if (describe(before) === describe(after)) continue;
-        diffs++;
-        const kind = classify(before, after);
-        byClass[kind]++;
-        if (shown[kind]++ < budget[kind]) {
-          console.log(
-            `\n[${kind}] S.union([${spec
-              .map((m) => m.id)
-              .join(", ")}]) <- ${show(input)}`
-          );
-          console.log(`  ${ref}: ${describe(before)}`);
-          console.log(`  working: ${describe(after)}`);
+        const report = (
+          direction: Direction,
+          value: unknown,
+          before: Outcome,
+          after: Outcome
+        ): void => {
+          compared++;
+          if (describe(before) === describe(after)) return;
+          diffs++;
+          const kind = classify(before, after);
+          byClass[kind]++;
+          if (shown[kind]++ < budget[kind]) {
+            console.log(
+              `\n[${kind}/${direction}] S.union([${spec
+                .map((m) => m.id)
+                .join(", ")}]) <- ${show(value)}`
+            );
+            console.log(`  ${ref}: ${describe(before)}`);
+            console.log(`  working: ${describe(after)}`);
+          }
+        };
+
+        const before = run(refModule, spec, input, "parse");
+        const after = run(currentModule, spec, input, "parse");
+        report("parse", input, before.o, after.o);
+
+        // Only a value both builds parsed to the same thing can drive the
+        // trusted directions: if they already disagree, the parse diff above is
+        // the finding, and feeding two different values downstream would report
+        // it a second time as a phantom decode diff.
+        if (
+          before.o.ok &&
+          after.o.ok &&
+          describe(before.o) === describe(after.o)
+        ) {
+          for (const direction of ["convert", "json"] as const) {
+            report(
+              direction,
+              before.value,
+              run(refModule, spec, before.value, direction).o,
+              run(currentModule, spec, after.value, direction).o
+            );
+          }
         }
       }
     }

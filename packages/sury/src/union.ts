@@ -25,6 +25,7 @@ import {
   getOrRethrow,
   immutableEmptyArray,
   immutableEmptyObject,
+  inlinedValueFromString,
   inputExpression,
   type Internal,
   isLiteral,
@@ -60,6 +61,7 @@ import {
   _notVar,
   _var,
   B_embed,
+  B_inlineConst,
   B_invalidOperation,
   B_makeInvalidInputDetails,
   B_markOutput,
@@ -444,15 +446,25 @@ const unionWiden = (tagFlag: number, nan: number): number =>
 
 // Mode 0 describes produced output, 1 a member's accepted input, and 2 the
 // declared source (whose root ref may expose a bounded input tag).
+// A self-describing boundary's definition: what `$ref` + `$defs` resolve to
+// (`S.json`'s recursive union), or undefined for everything else.
+const unionRefDef = (schema: Internal): Internal | undefined => {
+  const defs = schema["$defs"];
+  const ref = schema["$ref"];
+  if (defs !== U && ref !== U) {
+    const resolved = defs[ref.slice(ref.lastIndexOf("/") + 1)];
+    if (resolved !== U && resolved !== schema) {
+      return resolved;
+    }
+  }
+  return U;
+};
+
 const unionMask = (schema: Internal, mode: number, nan = 0): number => {
   if (mode === 2) {
-    const defs = schema["$defs"];
-    const ref = schema["$ref"];
-    if (defs !== U && ref !== U) {
-      const resolved = defs[ref.slice(ref.lastIndexOf("/") + 1)];
-      if (resolved !== U && resolved !== schema) {
-        return unionMask(resolved, 1, nan);
-      }
+    const resolved = unionRefDef(schema);
+    if (resolved !== U) {
+      return unionMask(resolved, 1, nan);
     }
   }
   const tagFlag = tagFlags[schema.type]!;
@@ -1037,11 +1049,25 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
   return plan;
 };
 
+// The source's own variant for a runtime tag, when the source is a
+// self-describing boundary whose definition is a union (`S.json`): a value
+// that passed the tag narrow is known to conform to that variant.
+const unionBoundaryVariant = (
+  source: Internal,
+  tag: Tag
+): Internal | undefined => {
+  const resolved = unionRefDef(source);
+  return resolved !== U && resolved.anyOf !== U
+    ? resolved.anyOf.find((v) => v.type === tag)
+    : U;
+};
+
 const unionEmit = (
   input: Val,
   self: Internal,
   plan: UnionGroup[],
-  toPerCase: Internal | undefined
+  toPerCase: Internal | undefined,
+  trustedSelf?: boolean
 ): Val => {
   const initialInline = input.i;
   let output = B_refine(input);
@@ -1060,6 +1086,30 @@ const unionEmit = (
     r: () => rethrow || (rethrow = B_embed(input, getOrRethrow)),
     s: () => expected || (expected = B_embed(input, self)),
   };
+  // Trusting a case's discriminant requires it to actually discriminate:
+  // unique among every member's (two ReScript variants can share their first
+  // literal field, e.g. `TAG: "Connective"`, and only differ on a later one),
+  // and no *other* member may accept this member's runtime type. The second
+  // half is what makes "the value passed the union" mean "the value matches
+  // this variant": in `S.union([{kind: "a", v: S.string}, S.unknown])`,
+  // `{kind: "a", v: 1}` is accepted by `unknown`, and the `kind` discriminant
+  // then routes it to the first case — which must still check `v`. Comparing
+  // acceptance masks rather than type keys is what catches the broad member;
+  // `unknown` keys itself `"unknown"` and would otherwise look disjoint from
+  // every object.
+  const unionDTrusted = (member: UnionMember): boolean => {
+    const d = member.d!;
+    const tag = tagFlags[member.s.type]!;
+    for (const group of plan) {
+      for (const m of group.a) {
+        if (m === member) continue;
+        if (m.d !== U ? m.d[0] === d[0] && unionLiteralEqual(m.d[1], d[1]) : m.m & tag) {
+          return false;
+        }
+      }
+    }
+    return true;
+  };
   const compile = (
     member: UnionMember,
     source: Val,
@@ -1071,6 +1121,25 @@ const unionEmit = (
     caseInput.t = source.t;
     caseInput.io = false;
     caseInput.e = member.s;
+    // Trusted source + a field discriminant to dispatch on: the case converts
+    // from its own variant instead of re-validating from unknown — what makes
+    // `decode` skip member validation the way a typed object does. Restricted
+    // to field-discriminated members (a literal or scalar member's validation
+    // check IS its dispatch condition) that can't fall through (a falling
+    // member is re-dispatched by its body failing, which a trusted body never
+    // does). The discriminant equality, which trusted compilation no longer
+    // emits as a hoisted check, is added to the dispatch condition below.
+    const trustedD =
+      trustedSelf &&
+      member.p === 1 &&
+      !(member.f & unionMemberFalls) &&
+      member.d![0] !== "" &&
+      unionDTrusted(member)
+        ? member.d
+        : U;
+    if (trustedD !== U) {
+      caseInput.s = member.s;
+    }
     let caseOut: Val;
     const options = input.g.o;
     input.g.o |= flagUnionTransformContext;
@@ -1107,6 +1176,16 @@ const unionEmit = (
         body += `${itemVar}=${async && awaitAsync ? "await " : ""}${caseOut.i}`;
       }
     }
+    if (trustedD !== U) {
+      const dSchema = ((member.s.properties || member.s.items) as Record<
+        string,
+        Internal
+      >)[trustedD[0]]!;
+      const dCond = `${source.v()}[${inlinedValueFromString(
+        trustedD[0]
+      )}]===${B_inlineConst(caseInput, dSchema)}`;
+      cond.c = cond.c ? `${dCond}&&${cond.c}` : dCond;
+    }
     const flags =
       (body !== "" && input.g.t !== mark ? 1 : 0) |
       (async && awaitAsync ? 2 : 0) |
@@ -1137,6 +1216,20 @@ const unionEmit = (
     narrowInput.io = false;
     narrowInput.e = group.n!;
     const narrow = parse(narrowInput);
+    // The narrow proves the group's runtime tag, but its minimal schema
+    // forgets what the source guarantees about that tag's CONTENT — a `S.json`
+    // source's object is a dict of json whose fields still need converting (a
+    // bigint field arrives as its string form). Restore the source's own
+    // same-tag variant as the case input, so a structured case converts from
+    // it instead of validating the already-converted shape
+    // (specs/jsonstring-union-encode.yaml). Direct single-member cases keep
+    // `input.s` and never lose it.
+    if (tagFlags[group.n!.type]! & (tagFlagObject | tagFlagArray)) {
+      const sourceVariant = unionBoundaryVariant(input.s, group.n!.type);
+      if (sourceVariant !== U) {
+        narrow.s = sourceVariant;
+      }
+    }
     const inner: UnionCase[] = [];
     for (let j = 0; j < group.a.length; j++) {
       const c = compile(group.a[j]!, narrow, narrowInput);
@@ -1261,6 +1354,18 @@ export const unionDecoder: Builder = (input: Val) => {
   }
 
   const initialTagFlag = tagFlags[input.s.type]!;
+  // A source typed as this very union was already validated against it (the
+  // parse direction reaches here as `unknown`), so a case the discriminant
+  // selects can trust its variant's fields the way a typed object does —
+  // re-validating them is what made `decode` compile the same code as
+  // `parse`. The widening below still runs: dispatch needs the runtime
+  // narrows, since the value's variant is only known at runtime.
+  // `self.tr` is the same guarantee arriving second-hand: `unionRewrite`
+  // already performed this widening on a union-typed source, so the val no
+  // longer names it. Without that, a union serialized as an array item or
+  // object field — which reaches the target through `unionEncoder` — would
+  // re-validate every field inside the container's loop.
+  const trustedSelf = input.s === self || self.tr === true;
   if (
     (initialTagFlag & tagFlagUnion) ||
     (input.s.encoder === U && (initialTagFlag & tagFlagRef))
@@ -1321,7 +1426,7 @@ export const unionDecoder: Builder = (input: Val) => {
 
   const analyzed = unionAnalyze(normalized, variants, source, nan);
   const plan = unionPlan(analyzed);
-  return unionEmit(input, self, plan, toPerCase);
+  return unionEmit(input, self, plan, toPerCase, trustedSelf);
 };
 
 // Calls each source refiner at most once so its predicate is embedded once and
@@ -1366,6 +1471,10 @@ export const unionRewrite = (
   mut.decoder = unionDecoder;
   mut.encoder = unionEncoder;
   mut.perVariant = input.s.perVariant;
+  // The variants above were mapped from `input.s`'s, so the value is already
+  // known to satisfy one of them — a fact the `unknown` below throws away. See
+  // `tr` in base.ts: this is the only place allowed to claim it.
+  mut.tr = true;
   return B_refine(input, unknown, U, mut);
 };
 
