@@ -69,6 +69,35 @@
   `itemVal.s.to !== U`, parse the field's own chain first and retarget the
   resolved output at json/jsonString — mirroring what `updateOutput`/
   `perVariantTo` already does for union variants.
+- **Publish the module graph instead of one flat `index.mjs`.** A flat bundle
+  has no module boundaries left for `sideEffects` to act on, so three
+  side-effectful statements anchor the whole library for every consumer: the
+  `~standard` prototype getter (~80% of it — it reaches `compileDecoder`, and
+  from there the builder), the `reversed` getter, and `toString`. Annotations
+  survive the rebundle fine and no esbuild flag fixes this; only shipping the
+  per-file graph does. Measured with esbuild min+gzip against a
+  `import * as S from "sury"` consumer entry: `string` 4420 -> 2188 B (-50%),
+  `refine` 4348 -> 1850 (-57%), `toJSONSchema` 5555 -> 4633 (-17%), total
+  unchanged (~25.5 kB) — i.e. this is pure tree-shaking recovery for small
+  consumers, not a smaller library. Rollup `preserveModules` produced a
+  working graph in Node; the exports map moves to `dist/entry.js`, and `S.res`
+  must keep reaching the runtime through the package's own `"."` export so
+  both languages still share one instance. The behavior question to settle
+  first: a bundle that never touches `operations.ts` would lose
+  `["~standard"]`/`.r`/`toString` on its schemas — that's precisely where the
+  bytes are. Either accept it with a CHANGELOG line or keep an always-on
+  `~standard` stub and take the smaller win.
+- **`fromJSONSchema` builds its own schemas through the proxy ctx.** The
+  object and tuple construction sites in `src/jsonschema.ts` go through
+  `object(() => {})` / `tuple(s => ...)`, which drag `schemaObject`/
+  `schemaTuple`'s proxy-ctx machinery — `proxifyShapedSchema`, `makeFieldOr`
+  (and through it `optionFactory`), `shapedSerializer` — into every
+  `fromJSONSchema` bundle. Swapping them for the `schemaFactory` /
+  `definitionToSchema` the module already imports drops factory retention
+  from 4694 to 598 B minified, -1588 B gzip on the export. Mechanical, but
+  not free: a `definitionToSchema` tuple is strict and carries no shaped
+  serializer, so the equivalence with `schemaTuple` for the
+  identity-mapping case needs pinning in a spec before the swap.
 - Add `promise` type and `S.promise` (instead of async flag internally)
 - Async output refiner runs on the Promise wrapper, not the resolved value.
   When a decoder result is async (e.g. a union with an async member) and the
@@ -238,9 +267,6 @@ S.reverse(S.schema({
 - **`S.merge` forces all keys of both objects into `required`.**
   `merge` (`packages/sury/src/entry.ts`) rebuilds the merged object with
   every property required, dropping optionality that either side declared.
-- **`inlinedValueFromString` escapes only `"` and `\n`.**
-  (`packages/sury/src/types.ts`) — other control characters (`\r`, `\t`,
-  backslash itself) survive unescaped into generated code and error text.
 - **ReDoS risk in `fromJSONSchema` patterns.** `new RegExp(jsonSchema.pattern)`
   compiles untrusted patterns directly; a hostile JSON Schema can supply a
   catastrophic-backtracking pattern.
