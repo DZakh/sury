@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.file.with(S.to, S.jsonString.with(S.to, S.schema({ port: S.number })))"
+  input: File
+  output: "{ port: number; }"
+  instantiations: 6515
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: Expected JSON, received File
+  output: '{ type: "object", properties: { port: { type: "number" } }, required: ["port"] }'
+operations:
+  parse:
+    creationError: "SuryError: Encountered unexpected async transform or refine. Use parseAsyncOrThrow operation instead"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{return new e[0]([JSON.stringify(i)],"")}
+    examples:
+      writes-the-json-into-a-file:
+        input: "{ port: 3000 }"
+        error: cannot represent a File instance as spec source code
+      bigint-is-not-json:
+        input: "{ port: 1n }"
+        error: Do not know how to serialize a BigInt

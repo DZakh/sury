@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.file.with(S.to, S.number)
+  input: File
+  output: number
+  instantiations: 5107
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: Expected JSON, received File
+  output: '{ type: "number" }'
+operations:
+  parse:
+    creationError: "SuryError: Can't decode File to number. Use S.to to define a custom decoder"
+  decode: eq-to-parse
+  encode:
+    creationError: "SuryError: Can't decode number to File. Use S.to to define a custom decoder"

@@ -335,7 +335,18 @@ case the harness *should* have caught or guided better — a missing check, a we
 error message, a strictness gap that let a bad spec through — add a bullet here
 instead of silently working around it.
 
-- <placeholder>
+- **No async operation.** `OP_BUILDER` compiles `parse`/`decode`/`encode` with
+  the sync builders only, so a schema whose decode is async (`S.blob`/`S.file`
+  content codecs, `S.asyncDecoderAssert`) can only ever snapshot the
+  `invalid_operation` a sync compile throws. Running one needs `S.asyncParser`
+  plus an `await` around the example call.
+- **An example output that is a class instance has no golden.** `valueToCode`
+  can write a `Date`/`Map`/`Set` but nothing else, so an example whose result is
+  a `Blob`/`File` records `error: cannot represent a File instance as spec source
+  code` — the operation ran fine and returned a File, but the golden reads like a
+  failure (see `codec-file-string.yaml`). A `Blob`'s bytes are only readable
+  asynchronously, so this one wants either an async `valueToCode` or a way for an
+  example to assert a predicate instead of a value.
 
 ## License
 

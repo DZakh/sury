@@ -1160,6 +1160,23 @@ let schema = S.file->S.maxSize(1_000_000)
 A `File` is a `Blob`, so it also satisfies [`S.blob`](#blob) — not the other way
 round. It takes the same size bounds.
 
+`S.to` turns either of them into a content codec — `S.string` for text,
+`S.uint8Array` for raw bytes. Bytes only arrive asynchronously, so decoding runs
+through `S.parseAsyncOrThrow`, while encoding builds the file back synchronously:
+
+```rescript
+type config = {port: int}
+
+let configSchema =
+  S.file->S.to(S.jsonString->S.to(S.object(s => {port: s.field("port", S.int)})))
+
+await upload->S.parseAsyncOrThrow(~to=configSchema) // {port: 3000}
+{port: 3000}->S.decodeOrThrow(~from=configSchema, ~to=S.file) // File containing {"port":3000}
+```
+
+> 🧠 The reverse builds a `File` with an empty name — a string doesn't carry one.
+> Reach for `S.blob` when the name doesn't matter.
+
 ### **`json`**
 
 `S.t<JSON.t>`

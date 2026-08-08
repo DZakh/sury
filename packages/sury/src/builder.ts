@@ -806,20 +806,27 @@ export const B_scope = (val: Val): Val => {
   return nextVal;
 }
 
+// A val that holds a Promise of its schema's value. Only an operation compiled
+// for async has somewhere to await it, so the sync one fails here at build
+// rather than handing the caller a Promise it never asked for.
+export const B_markAsync = (val: Val): void => {
+  if (!flagUnsafeHas(val.g.o, flagAsync)) {
+    B_throw({
+      code: "invalid_operation",
+      path: pathEmpty,
+      reason:
+        "Encountered unexpected async transform or refine. Use parseAsyncOrThrow operation instead",
+    });
+  }
+  val.f |= valFlagAsync;
+}
+
 export const B_embedTransformation = (input: Val, fn: (input: unknown) => unknown, isAsync: boolean): Val => {
   const outputVar = B_varWithoutAllocation(input.g);
   const output = B_next(input, outputVar, unknown, input.e.to!);
   output.v = _var;
   if (isAsync) {
-    if (!flagUnsafeHas(input.g.o, flagAsync)) {
-      B_throw({
-        code: "invalid_operation",
-        path: pathEmpty,
-        reason:
-          "Encountered unexpected async transform or refine. Use parseAsyncOrThrow operation instead",
-      });
-    }
-    output.f |= valFlagAsync;
+    B_markAsync(output);
   }
   const embeddedFn = B_embed(input, fn);
   const inputValue = input.vc ? input.v() : input.i;

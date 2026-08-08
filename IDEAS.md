@@ -147,13 +147,19 @@ of a form-data story. What they were built to make cheap, roughly in order:
   is visible before it ships. Unlike `minSize`, both keywords are native JSON
   Schema, so `jsonschema.ts` gains a real emit rather than the nothing that
   `minSize` maps to today.
-- **File/Blob content codecs.** `S.file.with(S.to, S.string)` (via `.text()`)
-  and `S.to(S.uint8Array)` (via `.arrayBuffer()`) are async in the decode
-  direction and sync in the encode one (`new File([i], name)`), so they need
-  `B_asyncVal` and the `flagAsync` guard that already makes a sync `S.decode`
-  fail with `invalid_operation`. `advanced/uint8Array.ts` is the shape to copy.
-  The payoff is `S.file.with(S.to, S.jsonString.with(S.to, configSchema))` —
-  parse an upload into a typed value, and reverse it to *build* the upload.
+- **A name for the File the encode direction builds.** The content codecs
+  landed, but `new File([i], "")` is all the reverse can do: nothing in a string
+  or a byte array says what the file should be called. A `S.file` that takes a
+  name (or a `S.mime`-style modifier that carries one) would let the reverse
+  produce an upload a server won't reject.
+- **`S.uint8Array` disagrees with `S.blob`/`S.file` about `jsonString`.** For the
+  containers, `S.to(S.jsonString.with(S.to, x))` reads the content *as* the
+  document; for `S.uint8Array` the same chain quotes the decoded text into a JSON
+  string instead (asserted in `tests/S_test.ts`'s Uint8Array case), which makes
+  the three-stage form dead on arrival — a JSON string never parses back to an
+  object. The container behavior is the useful one; adopting it means setting
+  `content` on `uint8Array` and handing the decoded text to `e.to` rather than to
+  a bare `string`, plus a decision about the tested quoting semantics.
 - **`S.formData` as a codec, not a preprocessor.** A `FormData` field is
   `string | File`, so the per-field work is the existing string coercions plus
   `.get`/`.getAll` extraction; the object rebuild in `advanced/json.ts`

@@ -307,7 +307,10 @@ export const jsonString = /* @__PURE__ */ (() => {
   };
 
   const jsonStringEncoder: Encoder = (input, target) => {
-    if (target.format !== "json") {
+    // `content` (S.blob/S.file) takes the JSON text as its payload, so it is
+    // the target's own decoder that runs — parsing here would hand the
+    // container a value instead of the document it asked for.
+    if (target.format !== "json" && !target.content) {
       if (isLiteral(target)) {
         const jsonStringConstSchema = baseSchema(stringTag, true);
         jsonStringConstSchema.const = constSchemaToJsonStringConst(input, target);

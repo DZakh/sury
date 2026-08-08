@@ -259,6 +259,11 @@ export type Internal = {
   flattened?: Internal[];
   const?: unknown;
   class?: unknown;
+  // The schema stores a string payload verbatim (S.blob / S.file). A source
+  // that already holds text converts into one by wrapping it, never by
+  // re-encoding it — which is why jsonString's encoder declines the target
+  // instead of parsing the text it is supposed to be handing over.
+  content?: boolean;
   name?: string;
   title?: string;
   description?: string;

@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.blob.with(S.to, S.uint8Array)
+  input: Blob
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 5104
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: Expected JSON, received Blob
+  output: Expected JSON, received Uint8Array
+operations:
+  parse:
+    creationError: "SuryError: Encountered unexpected async transform or refine. Use parseAsyncOrThrow operation instead"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{return new e[0]([i])}
+    examples:
+      wraps-the-bytes-in-a-blob:
+        input: new Uint8Array([1, 2, 3])
+        error: cannot represent a Blob instance as spec source code

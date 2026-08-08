@@ -140,7 +140,7 @@ Every schema is reversible, so `S.reverse` hands you a full-featured schema with
 
 ### Every schema is a pipeline stage
 
-`S.jsonString` above wasn't a special "parse JSON" mode — it's an ordinary schema used as a stage. So is `S.json`, `S.uint8Array`, `S.date`, and every schema you write. Instead of a fixed menu of `parseJson` / `parseJsonString` / `convertToJson` functions, you describe the shape of the data at each step and let **Sury** compile the path between them.
+`S.jsonString` above wasn't a special "parse JSON" mode — it's an ordinary schema used as a stage. So is `S.json`, `S.uint8Array`, `S.date`, `S.file`, and every schema you write. Instead of a fixed menu of `parseJson` / `parseJsonString` / `convertToJson` functions, you describe the shape of the data at each step and let **Sury** compile the path between them.
 
 Stages nest, so any field can be its own pipeline:
 
@@ -168,6 +168,21 @@ S.parser(rows)([["1", "2"], ["Tbilisi", "Batumi"]]);
 
 S.encoder(rows)([{ id: 1n, city: "Tbilisi" }, { id: 2n, city: "Batumi" }]);
 // => [["1", "2"], ["Tbilisi", "Batumi"]]
+```
+
+Uploads are stages too — `S.file` and `S.blob` read their own content, so one definition serves the request handler and the `fetch` body:
+
+```ts
+const configSchema = S.file.with(
+  S.to,
+  S.jsonString.with(S.to, S.schema({ port: S.number })),
+);
+
+await S.asyncParser(configSchema)(upload);
+// => { port: 3000 }
+
+S.encoder(configSchema)({ port: 3000 });
+// => File containing {"port":3000}
 ```
 
 ### JSON Schema, through the standard interface

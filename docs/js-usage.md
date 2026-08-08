@@ -41,6 +41,7 @@
 - [Instance](#instance)
 - [Blob](#blob)
 - [File](#file)
+  - [File content](#file-content)
 - [Meta](#meta)
 - [Brand](#brand)
 - [Custom schema](#custom-schema)
@@ -1007,6 +1008,9 @@ S.instance(Set).with(S.minSize, 1); // Expected Set.size >= 1
 > Strings and arrays use `S.minLength`/`S.maxLength`/`S.length` instead.
 > A lower bound of `0` is dropped; a negative one is an error.
 
+Point it at another schema and it reads its own content — see
+[File content](#file-content).
+
 ## File
 
 `S.file` validates a `File`. A `File` is a `Blob`, so it also satisfies
@@ -1031,6 +1035,41 @@ its own:
 ```ts
 const upload = (f: S.File) => S.parser(S.file)(f);
 ```
+
+### File content
+
+Point a `S.blob`/`S.file` at another schema and it stops being a validation and
+becomes a codec — text with `S.string`, raw bytes with `S.uint8Array`. Bytes
+only arrive asynchronously, so decoding runs through `S.asyncParser`; building
+the file back is synchronous.
+
+```ts
+const noteSchema = S.file.with(S.to, S.string);
+
+await S.asyncParser(noteSchema)(upload); // "Dear reader…"
+S.encoder(noteSchema)("Dear reader…"); // File
+
+const bytesSchema = S.blob.with(S.to, S.uint8Array);
+await S.asyncParser(bytesSchema)(new Blob(["abc"])); // Uint8Array [97, 98, 99]
+```
+
+Chain it, and an upload parses straight into a typed value — and reverses into
+the request body that carries it:
+
+```ts
+const configSchema = S.file.with(
+  S.to,
+  S.jsonString.with(S.to, S.schema({ port: S.number })),
+);
+
+await S.asyncParser(configSchema)(upload); // { port: 3000 }
+
+S.encoder(configSchema); // i=>{return new e[0]([JSON.stringify(i)],"")}
+S.encoder(configSchema)({ port: 3000 }); // File containing {"port":3000}
+```
+
+> 🧠 The reverse builds a `File` with an empty name — a string doesn't carry one.
+> Reach for `S.blob` when the name doesn't matter.
 
 ## Meta
 
@@ -1252,7 +1291,7 @@ S.encoder(circleSchema)({ kind: "circle", radius: 1 }); //? 1
 
 ### Pipelines
 
-Conversion targets are schemas, not dedicated functions: `S.json`, `S.jsonString`, `S.unknown`, `S.date`, and `S.uint8Array` are ordinary schemas usable at any position in a chain.
+Conversion targets are schemas, not dedicated functions: `S.json`, `S.jsonString`, `S.unknown`, `S.date`, `S.uint8Array`, `S.blob` and `S.file` are ordinary schemas usable at any position in a chain.
 
 - **`S.decoder(from, …intermediate, to)`** — compile a forward pipeline from one schema to another.
 - **`S.encoder(from, …intermediate, to)`** — compile the reverse pipeline.

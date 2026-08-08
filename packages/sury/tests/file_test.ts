@@ -51,6 +51,38 @@ test("every route into a schema the runtime can't support says so", () => {
   expect(withoutGlobal("File", `console.log(typeof S.parser(S.blob))`)).toBe("function");
 });
 
+// The content codecs are specced (`codec-file-string`, `codec-blob-uint8array`,
+// `codec-file-jsonstring-object`) for their codegen and their types, but not for
+// what they produce: a Blob only yields its bytes asynchronously, so the harness
+// can neither run the async decode direction nor write a File down as the
+// expected output of the sync one. That round trip lives here.
+test("a blob's content decodes as text or bytes, and encoding builds it back", async () => {
+  const text = S.file.with(S.to, S.string);
+  expect(await S.asyncParser(text)(new File(["hello"], "a.txt"))).toBe("hello");
+
+  const built = S.encoder(text)("hello");
+  expect(built).toBeInstanceOf(File);
+  // Nothing in a string names the file it came from, so the reverse leaves the
+  // name to the caller rather than inventing one.
+  expect(built.name).toBe("");
+  expect(await built.text()).toBe("hello");
+
+  const bytes = S.blob.with(S.to, S.uint8Array);
+  expect(await S.asyncParser(bytes)(new Blob(["abc"]))).toEqual(new Uint8Array([97, 98, 99]));
+  expect(await S.encoder(bytes)(new Uint8Array([97, 98, 99])).text()).toBe("abc");
+});
+
+test("a file of JSON parses into a typed value, and encoding rebuilds the upload", async () => {
+  const configSchema = S.file.with(S.to, S.jsonString.with(S.to, S.schema({ port: S.number })));
+
+  expect(await S.asyncParser(configSchema)(new File([`{"port":3000}`], "config.json"))).toEqual({
+    port: 3000,
+  });
+  // The file's text is the document, so neither direction re-encodes it — the
+  // encoder is a single `JSON.stringify` inside the constructor.
+  expect(await S.encoder(configSchema)({ port: 3000 }).text()).toBe(`{"port":3000}`);
+});
+
 test("a file is a blob but a blob is not a file", () => {
   const file = new File(["abc"], "a.txt");
   expect(S.parser(S.blob)(file)).toBe(file);

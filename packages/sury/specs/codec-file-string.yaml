@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.file.with(S.to, S.string)
+  input: File
+  output: string
+  instantiations: 5107
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: Expected JSON, received File
+  output: '{ type: "string" }'
+operations:
+  parse:
+    creationError: "SuryError: Encountered unexpected async transform or refine. Use parseAsyncOrThrow operation instead"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{return new e[0]([i],"")}
+    examples:
+      wraps-the-text-in-a-file:
+        input: '"hello"'
+        error: cannot represent a File instance as spec source code
