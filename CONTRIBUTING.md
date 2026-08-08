@@ -336,6 +336,48 @@ error message, a strictness gap that let a bad spec through — add a bullet her
 instead of silently working around it.
 
 - <placeholder>
+- A golden containing a control character is written as a plain scalar, so
+  `specs/ipv4.yaml` carries a literal tab and `specs/uri-template.yaml` a literal
+  DEL and C1 byte, all of which the `yaml` package round-trips but PyYAML and
+  yamllint reject outright. The set is exactly what `JSON.stringify` leaves raw:
+  newlines and tabs it escapes are fine, DEL and the C1 block are not. Since the
+  specs are published as documentation, the writer should quote or escape any
+  scalar holding a control character. Reference-suite coverage is kept rather
+  than trimmed to dodge this — the defect is in the writer.
+- `--perf` measures every example in both builds, so a spec's example count sets
+  its share of the performance job's runtime. That suits codec specs, where each
+  example exercises a different path, but not format specs: the string-format
+  vocabulary contributes 510 of the suite's 1228 examples (the nine largest
+  specs are all formats) while every one of them runs the same single
+  `re.test(i)`, so the job got roughly 70% more expensive for no extra signal.
+  A per-spec opt-out, or benchmarking one representative example per outcome
+  rather than all of them, would decouple example coverage from perf runtime.
+- Example values are recorded as source text, so an operation returning a class
+  instance can only be snapshotted if the serializer knows that class. `Date`,
+  `URL`, `RegExp`, `Map` and `Set` round-trip; anything else still fails with
+  "cannot represent a … instance as spec source code", and the failure is
+  recorded *as the example's golden* — so a passing operation is pinned as an
+  error and reads like real behavior. Failing the check outright would be
+  better than writing a golden the harness knows is a lie.
+- A `URL` example is rendered from its `.href`, which makes the golden depend on
+  the runtime's WHATWG parser rather than on Sury. `new URL("http://ex.com/a^b")`
+  keeps the caret on Node 22 and normalizes it to `%5E` on the pinned Node 24, so
+  the same spec is canonical on one and not the other, and the canonical-form
+  test fails in CI with no Sury change behind it. Rendering the source string the
+  example was written with — rather than the parsed value's serialization — would
+  keep the golden about the schema. Until then a `URL` example silently pins
+  runtime behavior, and the `engines` pin is the only thing keeping it honest.
+- A codec spec is named `codec-<from>-<to>`, so `codec` is a prefix and never a
+  suffix. Nothing enforces it — `url-codec.yaml` sat the other way round until
+  it was renamed — and the id is what orders the specs directory, so the
+  convention is only worth having if the linter holds it.
+- A spec whose `operations` block omits an op the schema supports crashes the
+  linter with `TypeError: Cannot read properties of undefined (reading
+  'examples')` instead of naming the missing block. Hand-writing a spec rather
+  than scaffolding it with `spec new` is the way in.
+- No operation dimension for JSON-target conversions (`.to(S.json)` / `.to(S.jsonString)`), so bugs like #311 (nested optional fields failing to encode) can't be captured as spec examples — their repros live in `tests/` instead.
+- Example results are serialized back to spec source, so a value keyed by a *non-registry* symbol can't be recorded ("cannot represent a non-registry symbol (use Symbol.for(key)) as spec source code"). A registry symbol round-trips as a computed key. `S.record`'s unvalidated symbol-keyed values are pinned in `tests/` instead of `specs/record.yaml`, where the rest of that gap lives.
+- Scenario measurements can be bimodal across child processes: the identical `encoder-lookup` build measured "unchanged" and "−44%" against the same baseline in back-to-back runs, each individually printed as `confirmed`. The screening/rounds design averages within a process but can't see a whole process landing in a different JIT state (IC/feedback shapes settle per child, then every block agrees with itself). Until runs repeat the *process* (not just the rounds) and require agreement across them, treat any single scenario delta on a shared-arity path as one sample, not a verdict.
 
 ## License
 

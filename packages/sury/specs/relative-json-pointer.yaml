@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.relativeJsonPointer
+  input: string
+  output: string
+  instantiations: 254
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "string", format: "relative-json-pointer" }'
+  output: '{ type: "string", format: "relative-json-pointer" }'
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    examples:
+      a-valid-upwards-rjp:
+        input: '"1"'
+        output: '"1"'
+      a-valid-downwards-rjp:
+        input: '"0/foo/bar"'
+        output: '"0/foo/bar"'
+      a-valid-up-and-then-down-rjp-with:
+        input: '"2/0/baz/1/zip"'
+        output: '"2/0/baz/1/zip"'
+      a-valid-rjp-taking-the-member-or-index:
+        input: '"0#"'
+        output: '"0#"'
+      an-invalid-rjp-that-is-a-valid-json:
+        input: '"/foo/bar"'
+        error: Expected relative-json-pointer, received "/foo/bar"
+      negative-prefix:
+        input: '"-1/foo/bar"'
+        error: Expected relative-json-pointer, received "-1/foo/bar"
+      explicit-positive-prefix:
+        input: '"+1/foo/bar"'
+        error: Expected relative-json-pointer, received "+1/foo/bar"
+      non-ascii-digit-in-the-prefix-is-not:
+        input: '"١/foo"'
+        error: Expected relative-json-pointer, received "١/foo"
+      is-not-a-valid-json-pointer:
+        input: '"0##"'
+        error: Expected relative-json-pointer, received "0##"
+      zero-cannot-be-followed-by-other-digits-plus:
+        input: '"01/a"'
+        error: Expected relative-json-pointer, received "01/a"
+      zero-cannot-be-followed-by-other-digits-plus-2:
+        input: '"01#"'
+        error: Expected relative-json-pointer, received "01#"
+      empty-string:
+        input: '""'
+        error: Expected relative-json-pointer, received ""
+      multi-digit-integer-prefix:
+        input: '"120/foo/bar"'
+        output: '"120/foo/bar"'
+      multi-digit-prefix-with-a-zero-followed-by:
+        input: '"100"'
+        output: '"100"'
+  decode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"1"'
+        output: '"1"'
+      invalid:
+        input: '"/foo/bar"'
+        error: Expected relative-json-pointer, received "/foo/bar"
+  encode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"1"'
+        output: '"1"'
+      invalid:
+        input: '"/foo/bar"'
+        error: Expected relative-json-pointer, received "/foo/bar"

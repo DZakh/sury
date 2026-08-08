@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.json.with(S.to, S.url)
+  input: JSON
+  output: URL
+  instantiations: 5105
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "string", format: "uri" }'
+  output: Expected JSON, received URL
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);let v0=e[0](i);v0||e[1](i);return v0}
+    examples:
+      valid:
+        input: '"http://dzakh.dev/"'
+        output: new URL("http://dzakh.dev/")
+      invalid-no-scheme:
+        input: '"cifjhdsfhsd"'
+        error: Expected URL, received "cifjhdsfhsd"
+      invalid-not-a-string:
+        input: "123"
+        error: Expected string, received 123
+  decode: eq-to-parse
+  encode:
+    expression: i=>{return e[0](i)}
+    examples:
+      valid:
+        input: new URL("http://dzakh.dev/")
+        output: '"http://dzakh.dev/"'
+      escapes-to-stay-a-uri:
+        input: new URL("http://ex.com/a|b")
+        output: '"http://ex.com/a%7Cb"'

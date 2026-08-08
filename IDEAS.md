@@ -255,6 +255,85 @@ of a form-data story. What they were built to make cheap, roughly in order:
   from the homomorphic-type rewrite — just an existing gap now easier to spot
   in the simpler form.
 
+### String formats (follow-ups to the JSON Schema format vocabulary)
+
+Scores below are against the JSON-Schema-Test-Suite `optional/format` corpus,
+which is what `packages/sury/specs/<format>.yaml` examples are drawn from.
+
+- `S.email` scores 13/21 — now the weakest format, and untouched pre-existing
+  code. The suite wants RFC 5321 behavior where the current regex is the
+  practical one Zod ships. Cheapest correctness win left in the vocabulary.
+- Emit `pattern` for formats with no JSON Schema name. `cuid` currently vanishes
+  in `toJSONSchema` — the denylist in the string branch drops it. Zod emits a
+  regex `pattern` in that situation, which would let it survive a round trip
+  through a JSON Schema consumer.
+- Decide whether `S.isoDateTime` should accept RFC 3339 offsets. It is UTC-only
+  by choice, and that is the only thing between it and 23/23 — the three
+  remaining suite failures are all offset forms. `S.isoTime` already has the
+  offset and leap-second machinery to compose with, so it is a small change,
+  but it is breaking and belongs to a major version. Alternative: keep
+  `isoDateTime` strict and add a separate lenient export, at the cost of two
+  schemas emitting `format: "date-time"` (only one can be the `fromJSONSchema`
+  target).
+- `S.pattern` drops the regex flags when emitting JSON Schema, so
+  `S.string.with(S.pattern, /^https:\/\//i)` accepts `HTTPS://` while emitting
+  `pattern: "^https:\\/\\/"`, which a downstream validator reads
+  case-sensitively and rejects. The emitted schema is stricter than the schema
+  it describes. JSON Schema `pattern` has no flag syntax, so the fix is either
+  to desugar `i` into the pattern source or to reject flagged regexes that
+  cannot be represented.
+- `fromJSONSchema` only reaches the format schemas through the
+  `type === "string"` branch, so a bare `{"format": "date"}` — which is exactly
+  how the JSON-Schema-Test-Suite and most real documents write it — converts to
+  an unconstrained schema and validates nothing. Pre-existing (the same gate
+  held for `email`/`uri`/`uuid`/`date-time` before the vocabulary landed), but
+  it is now the main thing between the format work and real `fromJSONSchema`
+  coverage: `packages/json-schema-test-suite` scores `optional/format/date.json`
+  at 22/75 where the schemas themselves are 69/69 on the same strings. Faithful
+  handling means a string-or-anything-else schema, since `format` is
+  type-conditional — the same structural question the suite README raises for
+  `maxLength` and `properties`.
+- The ordering question behind the `S.uri.with(S.to, S.url)` encode bug is
+  settled for the two instance codecs but not in general. A check emits against
+  its val's *prev* var, so a val carrying its own transform expression is the
+  wrong place to hang one — `date.ts` and `url.ts` both did, and both tested the
+  instance rather than the string built from it. They wrap in `B_refine` now.
+  Nothing stops the next codec from making the same mistake: the invariant lives
+  in a comment on the two encoders rather than in the type or in `B_next`.
+- Drop the `.test` from the decode path of a format-plus-codec pair such as
+  `S.uri.with(S.to, S.url)` once `S.constructor` exists. Decode runs the URI
+  regex *and* constructs the `URL`, which is two validations of one value, and
+  under a constructor-shaped schema the construction is the validation — there
+  is nothing left for the regex to add. Not done now because it cannot be scoped
+  to `uri`: `decode` skips the type guard but keeps every refinement, uniformly
+  (`string-minLength` decode still checks `i.length>1`, `ipv6` still `.test`s),
+  so dropping it for one format alone makes that format the odd one out.
+  The constraint to carry over: the two languages **cross**, so neither check
+  subsumes the other. Over ~5.2k sampled forms, 2601 parse as `URL` but fail the
+  RFC 3986 regex (`http://a.b `, `%zz`, backslashes, braces) and 181 pass the
+  regex but make `new URL` throw (`http:`, `http://` — legal path-empty URIs the
+  WHATWG parser refuses). So the construction guard cannot be dropped either,
+  and whatever `S.constructor` validates has to be understood as WHATWG's
+  language, not RFC 3986's — the schema's accepted set changes with it.
+- `S.uriReference` and `S.iriReference` accept `1:b`. RFC 3986 §4.2 builds a
+  relative-path reference on `segment-nz-nc` — a first segment with no colon in it,
+  the colon being exactly what would make that segment read as a scheme.
+  `uriPattern` uses full `pchar` for the rootless-path branch and makes the scheme
+  group optional, so the reference forms inherit a first segment that admits `:`.
+  Parameterizing that character class is *not* the fix: the same branch carries the
+  path of a scheme-bearing URI, where a colon is legal and common — `urn:oasis:names:x`
+  and `http:1:b` are valid URIs and therefore valid URI-references, and both would
+  start failing. Doing it properly means spelling the reference form as the grammar
+  does, `URI-reference = URI / relative-ref`, so the two paths stop being one branch.
+  It only over-accepts, and the format suite has no case for it.
+- IDNA validation for `S.hostname` / `S.idnHostname` (32/55 and 51/84). Both
+  accept an `xn--` label on shape alone; rejecting one whose Punycode decodes to
+  a character IDNA2008 disallows needs Punycode plus the Unicode
+  derived-property tables (see TypeBox's `src/format/_idna.ts` / `_puny.ts` for
+  the shape of it). This is a bundle-size decision rather than a code one, and
+  the gap only ever over-accepts — no valid hostname is turned away. The cases
+  are published as `known-gap-*` spec examples so they stay visible.
+
 ## v11 initial
 
 - Add `s.parseChild` to EffectContext ???

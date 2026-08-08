@@ -553,6 +553,7 @@ const valueToCode = (v: unknown, seen: WeakSet<object> = new WeakSet()): string 
     seen.add(v);
   }
   if (v instanceof Date) return `new Date(${JSON.stringify(v.toISOString())})`;
+  if (v instanceof URL) return `new URL(${JSON.stringify(v.href)})`;
   if (v instanceof RegExp) return v.toString();
   if (v instanceof Map) return `new Map(${valueToCode([...v], seen)})`;
   if (v instanceof Set) return `new Set(${valueToCode([...v], seen)})`;
