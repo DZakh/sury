@@ -69,24 +69,39 @@
   `itemVal.s.to !== U`, parse the field's own chain first and retarget the
   resolved output at json/jsonString — mirroring what `updateOutput`/
   `perVariantTo` already does for union variants.
-- **Publish the module graph instead of one flat `index.mjs`.** A flat bundle
-  has no module boundaries left for `sideEffects` to act on, so three
-  side-effectful statements anchor the whole library for every consumer: the
-  `~standard` prototype getter (~80% of it — it reaches `compileDecoder`, and
-  from there the builder), the `reversed` getter, and `toString`. Annotations
-  survive the rebundle fine and no esbuild flag fixes this; only shipping the
-  per-file graph does. Measured with esbuild min+gzip against a
-  `import * as S from "sury"` consumer entry: `string` 4420 -> 2188 B (-50%),
-  `refine` 4348 -> 1850 (-57%), `toJSONSchema` 5555 -> 4633 (-17%), total
-  unchanged (~25.5 kB) — i.e. this is pure tree-shaking recovery for small
-  consumers, not a smaller library. Rollup `preserveModules` produced a
-  working graph in Node; the exports map moves to `dist/entry.js`, and `S.res`
-  must keep reaching the runtime through the package's own `"."` export so
-  both languages still share one instance. The behavior question to settle
-  first: a bundle that never touches `operations.ts` would lose
-  `["~standard"]`/`.r`/`toString` on its schemas — that's precisely where the
-  bytes are. Either accept it with a CHANGELOG line or keep an always-on
-  `~standard` stub and take the smaller win.
+- **Every composite export carries the whole union compiler.** `S.array`,
+  `S.dict`, `S.schema`, `S.tuple`, `S.shape` — none of which have union
+  semantics — each retain all ~10.2 kB minified of `union.ts`, through two
+  statically-reachable but usually-dead edges: `valGet`'s dict-missing-key
+  wrap (`schema = option(s)`, `composites.ts`) and the `fieldOr` helper the
+  object ctx builds eagerly (`makeFieldOr`, `factory.ts`). Both reach
+  `optionFactory` -> `unionFactory`, which attaches `unionDecoder` and
+  `unionEncoder` as fields and so drags planner, emitter and rewrite in as one
+  clump. Cutting them is the largest per-export win measured anywhere in the
+  library (esbuild min+gzip, against main): `array` 11088 -> 5580 B gzip
+  (-50%), `dict` 11090 -> 5578, `schema` 11338 -> 6160, `shape` 12268 -> 7132,
+  `tuple` 12385 -> 7220, `object` 13563 -> 7656 (needs both edges — cutting
+  `valGet` alone leaves it at 13535).
+  Neither edge yields to a mechanical fix. Splitting `valGet` into plain and
+  option-wrapping variants was tried and does *not* work: `makeObjectVal`'s
+  val template names `decoder: objectDecoder`, which `arrayDecoder` reaches,
+  so the decoder graph is one strongly-connected component and `array` keeps
+  the retention anyway. Breaking it needs late binding — a mutable slot like
+  the one `enableStandardJSONSchema` already uses, or parameterizing the wrap
+  — which trades a runtime indirection on the decoder path. The `fieldOr` edge
+  wants the other treatment: implement field-with-default without a union at
+  all (an `if(v===void 0){v=def}` decoder wrapper instead of
+  `union([unit, item])` + default fold), which also shortens generated code.
+  That subsumes "Remove fieldOr in favor of optionOr?" below.
+  What is *not* worth doing: splitting `union.ts` into core + planner files.
+  Measured as a dead end — a mechanical split drops zero bytes, since
+  everything is reachable from the two field assignments in `unionFactory`
+  (and two more in `unionRewrite`). Real severance needs a new light
+  dispatcher for the 2-3-variant `T | undefined` shapes (est. 1.5-3 kB of new
+  code, and any case it can't compile either panics or falls back to the
+  planner, restoring the retention), and it only pays off for
+  `optional`/`nullable`-only bundles — ceiling -4.9 kB gzip there. Do the two
+  edges first; revisit the split only if that ceiling still matters.
 - **`fromJSONSchema` builds its own schemas through the proxy ctx.** The
   object and tuple construction sites in `src/jsonschema.ts` go through
   `object(() => {})` / `tuple(s => ...)`, which drag `schemaObject`/
@@ -98,6 +113,14 @@
   not free: a `definitionToSchema` tuple is strict and carries no shaped
   serializer, so the equivalence with `schemaTuple` for the
   identity-mapping case needs pinning in a spec before the swap.
+  Two neighbours measured and deliberately left alone: the bounds machinery
+  (`minimum`/`minLength`/`multipleOf` -> `refinements.ts`, ~1.7 kB gzip) is
+  core-keyword payload, and a `fromJSONSchema` that drops those keywords is
+  simply wrong; and mapping `true`/`{}` to `unknown` instead of `S.json`
+  would save its own ~1 kB but stops rejecting non-JSON values, which is a
+  semantics change to argue on its own merits, not a size fix.
+  `toJSONSchema` needs nothing here — it already retains a disjoint half of
+  `jsonschema.ts` (~130 B overlap) and none of refinements, factory or union.
 - Add `promise` type and `S.promise` (instead of async flag internally)
 - Async output refiner runs on the Promise wrapper, not the resolved value.
   When a decoder result is async (e.g. a union with an async member) and the
