@@ -86,6 +86,7 @@ const B_fuseIntoJsonString = (
   input: Val,
   expectedSchema: Internal,
   item: Internal,
+  isArr: boolean,
 ): Val | undefined => {
   const to = expectedSchema.to;
   if (
@@ -97,13 +98,14 @@ const B_fuseIntoJsonString = (
     to.format === "json" &&
     !to.space &&
     !flagUnsafeHas(input.g.o, flagAsync) &&
-    !(
-      item.to === U &&
-      flagUnsafeHas(
-        tagFlags[item.type]!,
-        (tagFlagString | tagFlagBoolean) | tagFlagNull,
-      )
-    )
+    (isArr ||
+      !(
+        item.to === U &&
+        flagUnsafeHas(
+          tagFlags[item.type]!,
+          (tagFlagString | tagFlagBoolean) | tagFlagNull,
+        )
+      ))
   ) {
     const marked = copySchema(expectedSchema);
     marked.uv = true;
@@ -303,7 +305,7 @@ export const arrayDecoder = (unknownInput: Val): Val => {
       output = input;
     } else if (
       expectedLength === 0 &&
-      (output = B_fuseIntoJsonString(input, expectedSchema, itemSchema)!) !== U
+      (output = B_fuseIntoJsonString(input, expectedSchema, itemSchema, true)!) !== U
     ) {
       // Plain-array fusion only: fixed tuple slots are read by the aggregate
       // outside its dynamic loop, so they must stay validated here.
@@ -456,7 +458,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
   if (dictItem !== U && dictItem === unknown) {
     output = input;
   } else if (dictItem !== U && sourceIsDict) {
-    const fused = B_fuseIntoJsonString(input, expectedSchema, dictItem);
+    const fused = B_fuseIntoJsonString(input, expectedSchema, dictItem, false);
     if (fused !== U) {
       return B_markOutput(fused, input);
     }

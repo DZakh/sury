@@ -339,12 +339,11 @@ const B_constJsonText = (schema: Internal): string | undefined => {
   } else if (flagUnsafeHas(tagFlag, tagFlagBigint)) {
     return `"${schema.const}"`;
   }
-  // Every remaining literal — a JSON Schema `const` holding an object or
-  // array (which arrives instance-tagged), a Date — serializes at compile
-  // time. Callers all guard on isLiteral, so `const` is present; undefined
-  // back from JSON.stringify means the value has no JSON form (a function, a
-  // symbol), which the caller reports as an unsupported conversion.
-  return JSON.stringify(schema.const);
+  // An instance literal (a Date, a class instance) has no JSON text of its
+  // own — an object/array `const` never reaches here, since it builds a
+  // structural schema whose fields are literals (primitiveToSchema in
+  // jsonschema.ts) and serializes field by field.
+  return U;
 };
 
 export const jsonString = /* @__PURE__ */ (() => {

@@ -91,7 +91,11 @@ for (const b of benchmarks) {
   await bench.run();
   const hz = (n: string): string => {
     const task = bench.tasks.find((t) => t.name === n);
-    const v = (task?.result as { hz?: number } | undefined)?.hz;
+    // tinybench moved ops/sec from `hz` to `throughput.mean`; accept either.
+    const r = task?.result as
+      | { hz?: number; throughput?: { mean: number } }
+      | undefined;
+    const v = r?.throughput?.mean ?? r?.hz;
     return v === undefined ? "—" : Math.round(v).toLocaleString("en-US");
   };
   rows.push({ name, fjs: hz("fjs"), sury: suryFn ? hz("sury") : "—", note });
