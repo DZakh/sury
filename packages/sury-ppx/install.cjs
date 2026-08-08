@@ -40,8 +40,12 @@ switch (process.platform) {
     );
     break;
   case "darwin":
-    // ppx-osx.exe is arm64; Intel Macs run it under Rosetta.
-    installMacLinuxBinary("ppx-osx.exe");
+    // Rosetta translates x64 -> arm64, never the reverse, so an Apple Silicon
+    // build can't stand in for the Intel one.
+    installMacLinuxBinary(
+      process.arch === "arm64" ? "ppx-osx-arm.exe" : "ppx-osx.exe"
+    );
+    break;
   case "win32":
     installWindowsBinary();
     break;

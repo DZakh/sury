@@ -252,7 +252,9 @@ jobs:
 
   ppx-build-macos:
     name: ppx-build-macos
-    runs-on: macOS-latest
+    # Intel binaries run on Apple Silicon under Rosetta, but not the reverse,
+    # so the x64 build needs an actual Intel runner.
+    runs-on: macos-15-intel
     defaults:
       run:
         working-directory: packages/sury-ppx/src
@@ -278,6 +280,37 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ppx-build-macos
+          path: packages/sury-ppx/src/_build/default/bin/bin.exe
+          if-no-files-found: error
+
+  ppx-build-macos-arm:
+    name: ppx-build-macos-arm
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: packages/sury-ppx/src
+    strategy:
+      matrix:
+        ocaml-compiler:
+          - 5.3.0
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use OCaml ${{ matrix.ocaml-compiler}}
+        uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: ${{ matrix.ocaml-compiler }}
+
+      - name: Install deps
+        run: opam install . --deps-only --with-test
+
+      - name: Build
+        run: opam exec -- dune build
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ppx-build-macos-arm
           path: packages/sury-ppx/src/_build/default/bin/bin.exe
           if-no-files-found: error
 
@@ -314,7 +347,14 @@ jobs:
 
   pack-sury-ppx:
     name: Pack sury-ppx
-    needs: [ppx-build-linux, ppx-build-linux-arm, ppx-build-macos, ppx-build-windows]
+    needs:
+      [
+        ppx-build-linux,
+        ppx-build-linux-arm,
+        ppx-build-macos,
+        ppx-build-macos-arm,
+        ppx-build-windows,
+      ]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -343,6 +383,12 @@ jobs:
           name: ppx-build-macos
           path: binaries/macos
 
+      - name: Download macOS-ARM artifacts
+        uses: actions/download-artifact@master
+        with:
+          name: ppx-build-macos-arm
+          path: binaries/macos-arm
+
       - name: Download windows artifacts
         uses: actions/download-artifact@master
         with:
@@ -354,6 +400,7 @@ jobs:
           mv binaries/linux/bin.exe packages/sury-ppx/ppx-linux.exe
           mv binaries/linux-arm/bin.exe packages/sury-ppx/ppx-linux-arm.exe
           mv binaries/macos/bin.exe packages/sury-ppx/ppx-osx.exe
+          mv binaries/macos-arm/bin.exe packages/sury-ppx/ppx-osx-arm.exe
           mv binaries/windows/bin.exe packages/sury-ppx/ppx-windows.exe
 
       - name: npm pack (sury-ppx)

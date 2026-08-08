@@ -1,5 +1,8 @@
 #!/usr/bin/env sh
 
+# Only reached when install.cjs didn't run (dev checkout, or an installer that
+# skips postinstall) - otherwise the chosen binary has replaced this script.
+
 # Get the directory of the script to work from.
 DIR=$(dirname "$0")
 
@@ -8,10 +11,16 @@ if [ -f $DIR/src/_build/default/bin/bin.exe ]; then
     $DIR/src/_build/default/bin/bin.exe "$@"
 elif [ "$(uname)" = "Darwin" ]; then
     # Run the Mac PPX
-    $DIR/ppx-osx.exe "$@"
+    case "$(uname -m)" in
+        arm64) $DIR/ppx-osx-arm.exe "$@" ;;
+        *) $DIR/ppx-osx.exe "$@" ;;
+    esac
 elif [ "$(expr substr $(uname -s) 1 5)" = "Linux" ]; then
     # Run the Linux PPX
-    $DIR/ppx-linux.exe "$@"
+    case "$(uname -m)" in
+        aarch64 | arm64) $DIR/ppx-linux-arm.exe "$@" ;;
+        *) $DIR/ppx-linux.exe "$@" ;;
+    esac
 else
     echo "No release available for '$(uname)'"
     exit 1
