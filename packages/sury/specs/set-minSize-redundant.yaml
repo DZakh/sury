@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.instance(Set).with(S.minSize, 5).with(S.minSize, 1, "MY MESSAGE")
+  input: Set<unknown>
+  output: Set<unknown>
+  instantiations: 7340
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: Expected JSON, received Set.size >= 5
+  output: Expected JSON, received Set.size >= 5
+operations:
+  parse:
+    expression: i=>{i instanceof e[1]||e[2](i);i.size>4||e[0](i);return i}
+    examples:
+      at-the-surviving-size:
+        input: new Set([1, 2, 3, 4, 5])
+        output: new Set([1, 2, 3, 4, 5])
+      within-the-dropped-bound:
+        input: new Set([1])
+        error: MY MESSAGE
+      empty:
+        input: new Set([])
+        error: MY MESSAGE
+  decode:
+    expression: i=>{i.size>4||e[0](i);return i}
+    examples:
+      at-the-surviving-size:
+        input: new Set([1, 2, 3, 4, 5])
+        output: new Set([1, 2, 3, 4, 5])
+      within-the-dropped-bound:
+        input: new Set([1])
+        error: MY MESSAGE
+  encode:
+    expression: i=>{i.size>4||e[0](i);return i}
+    examples:
+      at-the-surviving-size:
+        input: new Set([1, 2, 3, 4, 5])
+        output: new Set([1, 2, 3, 4, 5])
+      within-the-dropped-bound:
+        input: new Set([1])
+        error: MY MESSAGE

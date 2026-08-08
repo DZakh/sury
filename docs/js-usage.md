@@ -39,6 +39,8 @@
 - [Date](#date)
 - [ISO DateTime](#iso-datetime)
 - [Instance](#instance)
+- [Blob](#blob)
+- [File](#file)
 - [Meta](#meta)
 - [Brand](#brand)
 - [Custom schema](#custom-schema)
@@ -421,7 +423,7 @@ S.email.with(S.meta, { errorMessage: { _: "Invalid input" } });
 schema.with(S.meta, { errorMessage: {} });
 ```
 
-Available keys: `format`, `type`, `minimum`, `maximum`, `minLength`, `maxLength`, `minItems`, `maxItems`, `pattern`, `_` (catch-all).
+Available keys: `format`, `type`, `minimum`, `maximum`, `minLength`, `maxLength`, `minItems`, `maxItems`, `minSize`, `maxSize`, `pattern`, `_` (catch-all).
 
 ### ISO datetimes
 
@@ -982,6 +984,54 @@ const testSchema = S.instance(Test);
 const blob: any = "whatever";
 S.parser(testSchema)(new Test()); // passes
 S.parser(testSchema)(blob); // throws S.Error: Expected Test, received "whatever"
+```
+
+## Blob
+
+`S.blob` validates a `Blob`. Its size is bounded in bytes with `S.minSize`,
+`S.maxSize` and `S.size`:
+
+```ts
+S.blob; // Expected Blob
+S.blob.with(S.maxSize, 1_000_000); // Expected Blob.size <= 1000000
+S.blob.with(S.minSize, 1); // Expected Blob.size >= 1
+S.blob.with(S.size, 2); // Expected Blob.size == 2
+S.blob.with(S.maxSize, 1_000_000, "Too large"); // custom message
+```
+
+The same bounds work on any `S.instance` schema with a `.size`, counting
+entries rather than bytes:
+
+```ts
+S.instance(Set).with(S.minSize, 1); // Expected Set.size >= 1
+```
+
+> Strings and arrays use `S.minLength`/`S.maxLength`/`S.length` instead.
+> A lower bound of `0` is dropped; a negative one is an error.
+
+## File
+
+`S.file` validates a `File`. A `File` is a `Blob`, so it also satisfies
+`S.blob` — not the other way round.
+
+```ts
+S.parser(S.file)(new File(["hi"], "a.txt")); // passes
+S.parser(S.file)(new Blob(["hi"])); // throws - Expected File, received Blob
+S.parser(S.blob)(new File(["hi"], "a.txt")); // passes
+```
+
+It takes the same size bounds as [`S.blob`](#blob):
+
+```ts
+S.file.with(S.minSize, 2).with(S.maxSize, 10); // Expected 2 <= File.size <= 10
+```
+
+`S.Blob` and `S.File` are exported as types, for projects whose TypeScript
+config has neither `lib.dom` nor `@types/node` and so has no `Blob`/`File` of
+its own:
+
+```ts
+const upload = (f: S.File) => S.parser(S.file)(f);
 ```
 
 ## Meta

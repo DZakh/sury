@@ -18,8 +18,16 @@ Every change under `packages/sury/src` goes through it. Specs snapshot generated
 code, bundle size and type-cost; the printed metric summary is the deliverable.
 Never hand-write a golden.
 
-Findings from a bug report or review go into a spec's `examples`, never into a
-test file or a commit message.
+**Every issue found — bug report, review finding, or one you hit yourself —
+lands as a spec that reproduces it, and stays as the regression test.** No spec,
+not fixed. Add `examples` to the spec that covers the schema, or a new
+`specs/<id>.yaml` when none does. A test file is for what the format genuinely
+can't express (a packaging or tsconfig-level failure); say so in the commit.
+Never a commit message alone.
+
+Specs carry no prose — the id is the explanation, and a comment is allowed only
+as `FIXME:` marking behavior still to fix. Delete the FIXME when it stops being
+true.
 
 ## Layering
 
@@ -66,25 +74,24 @@ base → builder → primitives → parse → union → composites → factory
   code you're only editing.
 - An invariant that binds *another* module goes on the definition both sides
   reach, so the person about to break it is looking at it.
-- Repo-wide, not just `packages/spec`.
-- The files in `artifact_test.ts`'s `FILES` ship — `index.d.ts`, `src/types/*.d.ts`
-  and every `*.res` land in a consumer's `node_modules` and their editor's hover.
-  Comments there answer what the API does; a rule for whoever maintains it goes
-  somewhere only we read — this file, or the test that enforces it.
+- Repo-wide, not just `packages/sury`.
+- The files in `artifact_test.ts`'s `FILES` ship — they land in a consumer's
+  `node_modules` and editor hover. Comments there answer what the API does; a
+  rule for whoever maintains it goes where only we read it — this file, or the
+  test that enforces it.
 
 ## JSON Schema types
 
 The dialect interfaces in `src/types/jsonschema.d.ts` are duplicated on purpose:
-they mirror frozen specs, so there is no shared base worth keeping in sync, and a
-flat interface is what makes a hover, a completion and an error name the dialect
-instead of expanding an intersection. Don't collapse them into `extends`, `Omit`
-or mapped types.
+they mirror frozen specs, and a flat interface is what makes a hover, completion
+and error name the dialect instead of expanding an intersection. Don't collapse
+them into `extends`, `Omit` or mapped types.
 
-`src/types/json.d.ts` holds `JSON` and the `FromJSONSchema` inference engine.
-Its `Flatten` duplicates `index.d.ts`'s on purpose — a non-exported type can't
-cross a file, and exporting one would add `S.Flatten` to the public API. Don't
-collapse the two. The engine's dispatch order mirrors the runtime chain in
-`src/jsonschema.ts`; a comment on each side says so, and they move together.
+`src/types/json.d.ts` holds `JSON` and the `FromJSONSchema` inference engine. Its
+`Flatten` duplicates `index.d.ts`'s on purpose — a non-exported type can't cross
+a file, and exporting one would add `S.Flatten` to the public API. The engine's
+dispatch order mirrors the runtime chain in `src/jsonschema.ts` and they move
+together.
 
 Each must stay assignable to the wide `JSONSchema` — that is what lets a
 `toJSONSchema` result feed `fromJSONSchema` or `extendJSONSchema` uncast — so a
