@@ -119,6 +119,9 @@ importers:
       rollup:
         specifier: 3.21.0
         version: 3.21.0
+      tinybench:
+        specifier: ^6.1.2
+        version: 6.1.2
       tsx:
         specifier: 4.22.4
         version: 4.22.4
@@ -1233,6 +1236,10 @@ packages:
   tinybench@2.9.0:
     resolution: {integrity: sha512-0+DUvqWMValLmha6lr4kD8iAMK1HzV0/aKnCtWb9v9641TnP/MFb7Pc2bxoxQjTXAErryXVgUOfv2YqNllqGeg==}
 
+  tinybench@6.1.2:
+    resolution: {integrity: sha512-REdMxUreK3VSUeWcLd5+ijUGNKFyHT8s1trKmYEE/tlYE6ggdOkFOlKba/vI/l1fIqh/NTEEr1Cyw4AwttOicA==}
+    engines: {node: '>=20.0.0'}
+
   tinyexec@1.2.3:
     resolution: {integrity: sha512-g62dB+w1/OEFnPvmX0yd/HnetYITOL+1nJW7kitOycOeAvmbWC/nu0fwmmQ/kupNojqExzyC/T++pST/jRJ2mQ==}
     engines: {node: '>=18'}
@@ -2318,6 +2325,8 @@ snapshots:
       rescript: 12.2.0
 
   tinybench@2.9.0: {}
+
+  tinybench@6.1.2: {}
 
   tinyexec@1.2.3: {}
 

@@ -73,6 +73,7 @@
     "rescript": "12.2.0",
     "rescript-stdlib-vendorer": "1.1.0",
     "rollup": "3.21.0",
+    "tinybench": "^6.1.2",
     "tsx": "4.22.4",
     "typescript": "5.8.3",
     "vitest": "4.1.7",
