@@ -6,22 +6,19 @@
 # Get the directory of the script to work from.
 DIR=$(dirname "$0")
 
-if [ -f $DIR/src/_build/default/bin/bin.exe ]; then
+if [ -f "$DIR/src/_build/default/bin/bin.exe" ]; then
     # Use the dev build
-    $DIR/src/_build/default/bin/bin.exe "$@"
-elif [ "$(uname)" = "Darwin" ]; then
-    # Run the Mac PPX
-    case "$(uname -m)" in
-        arm64) $DIR/ppx-osx-arm.exe "$@" ;;
-        *) $DIR/ppx-osx.exe "$@" ;;
-    esac
-elif [ "$(expr substr $(uname -s) 1 5)" = "Linux" ]; then
-    # Run the Linux PPX
-    case "$(uname -m)" in
-        aarch64 | arm64) $DIR/ppx-linux-arm.exe "$@" ;;
-        *) $DIR/ppx-linux.exe "$@" ;;
-    esac
-else
-    echo "No release available for '$(uname)'"
-    exit 1
+    exec "$DIR/src/_build/default/bin/bin.exe" "$@"
 fi
+
+case "$(uname -m)" in
+    arm64 | aarch64) ARCH=-arm ;;
+    x86_64 | amd64) ARCH= ;;
+    *) echo "No release available for '$(uname -m)'" >&2; exit 1 ;;
+esac
+
+case "$(uname)" in
+    Darwin) exec "$DIR/ppx-osx$ARCH.exe" "$@" ;;
+    Linux) exec "$DIR/ppx-linux$ARCH.exe" "$@" ;;
+    *) echo "No release available for '$(uname)'" >&2; exit 1 ;;
+esac
