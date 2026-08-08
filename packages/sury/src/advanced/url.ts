@@ -136,8 +136,16 @@ export const url: Internal = /* @__PURE__ */ initSchema(instanceTag, (s) => {
     if (flagUnsafeHas(toTagFlag, tagFlagString)) {
       const uriString = baseSchema(stringTag, false);
       uriString.format = "uri";
+      // B_refine, not the bare B_next: a check emits against its val's *prev*
+      // var, so the target's reversed refiner would test the `URL` this
+      // converts from rather than the URI it produces — `new URL("…/a|b")`
+      // failing `Expected uri` even though urlToUri hands back the escaped
+      // form that satisfies it. The wrap makes the converted value the prev,
+      // which is what materializes it into the var the check reads.
       return parse(
-        B_next(input, `${B_embed(input, urlToUri)}(${input.i})`, uriString, target),
+        B_refine(
+          B_next(input, `${B_embed(input, urlToUri)}(${input.i})`, uriString, target),
+        ),
       );
     } else {
       return input;

@@ -33,11 +33,17 @@ operations:
         input: '"cifjhdsfhsd"'
         error: Expected uri, received "cifjhdsfhsd"
   encode:
-    expression: i=>{e[1].test(i)||e[2](i);return e[0](i)}
+    expression: i=>{let v0=e[0](i);e[1].test(v0)||e[2](v0);return v0}
     examples:
       valid:
         input: new URL("http://dzakh.dev/")
         output: '"http://dzakh.dev/"'
-      href-that-is-not-yet-a-uri:
+      an-href-that-is-not-yet-a-uri-is-escaped-into-one:
         input: new URL("http://ex.com/a|b")
-        error: Expected uri, received URL
+        output: '"http://ex.com/a%7Cb"'
+      a-url-whose-href-is-already-a-uri-round-trips-unchanged:
+        input: new URL("http://ex.com/a%7Cb")
+        output: '"http://ex.com/a%7Cb"'
+      the-check-runs-on-the-encoded-uri-not-on-the-url:
+        input: new URL("http://ex.com/p%20q#a#b")
+        output: '"http://ex.com/p%20q#a%23b"'
