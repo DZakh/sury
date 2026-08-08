@@ -595,8 +595,7 @@ const definitionToShapedSchema = (definition: unknown): Internal => {
   const s = copySchema(
     traverseDefinition(
       definition,
-      (definition: unknown) =>
-        (definition as Record<symbol, Internal | undefined>)[itemSymbol]
+      (node) => (node as Record<symbol, Internal | undefined>)[itemSymbol]
     )
   );
   s.serializer = shapedSerializer;

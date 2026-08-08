@@ -569,22 +569,21 @@ export const dictFactory = (item: Internal): Internal => {
 // @__NO_SIDE_EFFECTS__
 export const dict = (item: unknown): Internal => dictFactory(definitionToItem(item));
 
-// undefined here is a forgotten argument far more often than a request for the
-// undefined literal, which S.schema still spells.
+// undefined reads as both "I forgot the argument" and "I want the undefined
+// literal". Only S.schema keeps the second meaning; the containers refuse to
+// guess, since the wrong guess is a schema that silently matches nothing.
+// An already-built schema is the overwhelmingly common argument, so it takes
+// the direct exit instead of paying traverseDefinition's typeof/null checks
+// on top of the ones isSchemaObject already made.
 export const definitionToItem = (definition: unknown): Internal =>
-  definition === U
-    ? panic("Unexpected undefined. Use S.schema(undefined) for the literal")
-    : definitionToSchema(definition);
+  isSchemaObject(definition)
+    ? (definition as Internal)
+    : definition === U
+      ? panic("Ambiguous undefined. Fix the schema or use S.schema(undefined)")
+      : definitionToSchema(definition);
 
-export const definitionToSchema = (definition: unknown): Internal => {
-  return traverseDefinition(definition, (node) => {
-    if (isSchemaObject(node)) {
-      return node as Internal;
-    } else {
-      return U;
-    }
-  });
-}
+export const definitionToSchema = (definition: unknown): Internal =>
+  traverseDefinition(definition, (node) => (isSchemaObject(node) ? (node as Internal) : U));
 
 export const traverseDefinition = (
   definition: unknown,

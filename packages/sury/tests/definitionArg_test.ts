@@ -32,7 +32,7 @@ test("a missing argument names the fix", () => {
 
   for (const [name, build] of cases) {
     expect(build, `S.${name} accepted undefined`).toThrow(
-      "[Sury] Unexpected undefined. Use S.schema(undefined) for the literal",
+      "[Sury] Ambiguous undefined. Fix the schema or use S.schema(undefined)",
     );
   }
 

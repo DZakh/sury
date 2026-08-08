@@ -355,6 +355,7 @@ const isMergeable = (s: Internal): boolean =>
 // @__NO_SIDE_EFFECTS__
 export const merge = (s1: Internal, s2: Internal): Internal => {
   if (!isMergeable(s1) || !isMergeable(s2)) {
+    // Recomputed, not cached — this path throws, and the temp measured larger.
     const bad = isMergeable(s1) ? s2 : s1;
     // TODO: Can theoretically support the transformed case
     return panic(`Can't merge ${bad.to ? "transformed " : ""}${inputExpression(bad)}`);
