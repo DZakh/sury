@@ -15,6 +15,7 @@ import {
 import {
   B_embed,
   B_next,
+  B_pushCheck,
   B_refine,
   B_unsupportedDecode,
   failInvalidType,
@@ -24,14 +25,12 @@ export const url: Internal = /* @__PURE__ */ initSchema(instanceTag, (s) => {
   // `new URL(…)` throws where `new Date(…)` merely yields an Invalid Date, so
   // the conversion goes through a helper — a thrown TypeError would escape as
   // itself rather than as a Sury error, and `URL.canParse` would parse twice.
-  // It hands back the input string on failure rather than undefined so the
-  // refine below reports the value the user actually passed.
+  // Falling out of the catch with no value makes the failure falsy, which is
+  // the whole check: a constructed URL is always truthy.
   const urlFromString = (value: string) => {
     try {
       return new URL(value);
-    } catch {
-      return value;
-    }
+    } catch {}
   };
   // WHATWG serialization is not a subset of RFC 3986, so `.href` alone would
   // make the emitted `format: "uri"` false: the path/query/fragment
@@ -113,16 +112,23 @@ export const url: Internal = /* @__PURE__ */ initSchema(instanceTag, (s) => {
   s.decoder = (input: Val): Val => {
     const inputTagFlag = tagFlags[input.s.type]!;
     if (flagUnsafeHas(inputTagFlag, tagFlagString)) {
-      return B_refine(
-        B_next(input, `${B_embed(input, urlFromString)}(${input.i})`, s),
-        input.e,
-        [
-          {
-            c: (inputVar) => `typeof ${inputVar}!=="string"`,
-            f: failInvalidType,
-          },
-        ],
+      const constructed = B_next(
+        input,
+        `${B_embed(input, urlFromString)}(${input.i})`,
+        s,
       );
+      // The two halves of this check read different vars on purpose: the cond
+      // tests the constructed URL, the failure reports the string that failed
+      // to construct — `received "cifjhdsfhsd"`, not `received undefined`.
+      // B_emitChecks hands one var to both, and it is `prev`'s, so the cond
+      // has to close over this var name instead of taking the one it is given.
+      // Materializing here is what fixes that name before the cond is built.
+      const constructedVar = constructed.v();
+      B_pushCheck(constructed, {
+        c: () => constructedVar,
+        f: failInvalidType,
+      });
+      return B_refine(constructed, input.e);
     } else if (flagUnsafeHas(inputTagFlag, tagFlagUnknown)) {
       return instanceDecoder(input);
     } else if (flagUnsafeHas(inputTagFlag, tagFlagInstance) && input.s.class === s.class) {

@@ -12,7 +12,7 @@ jsonSchema:
   output: Expected JSON, received URL
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[4](i);e[2].test(i)||e[3](i);let v0=e[0](i);typeof v0!=="string"||e[1](v0);return v0}
+    expression: i=>{typeof i==="string"||e[4](i);e[2].test(i)||e[3](i);let v0=e[0](i);v0||e[1](i);return v0}
     examples:
       valid:
         input: '"http://dzakh.dev/"'
@@ -24,7 +24,7 @@ operations:
         input: '"cifjhdsfhsd"'
         error: Expected uri, received "cifjhdsfhsd"
   decode:
-    expression: i=>{e[2].test(i)||e[3](i);let v0=e[0](i);typeof v0!=="string"||e[1](v0);return v0}
+    expression: i=>{e[2].test(i)||e[3](i);let v0=e[0](i);v0||e[1](i);return v0}
     examples:
       valid:
         input: '"http://dzakh.dev/"'
