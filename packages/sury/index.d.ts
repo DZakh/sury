@@ -448,17 +448,28 @@ export const uint8Array: Schema<Uint8Array, Uint8Array>;
 // real type wherever it exists, a structural stand-in where it doesn't. The
 // stand-in stays usable rather than erroring, because a runtime can carry the
 // value while the project carries no types for it.
-type BlobLike = typeof globalThis extends { Blob: abstract new (...args: never) => infer T }
+/**
+ * The runtime's `Blob`, or a structural stand-in when the project has no type
+ * for it. Exported because that stand-in is otherwise unnameable: a consumer
+ * with neither lib.dom nor @types/node has no `Blob` of their own to annotate
+ * with.
+ */
+export type Blob = typeof globalThis extends {
+  Blob: abstract new (...args: never) => infer T;
+}
   ? T
   : { readonly size: number; readonly type: string };
 
-type FileLike = typeof globalThis extends { File: abstract new (...args: never) => infer T }
+/** The runtime's `File`, or a structural stand-in. See {@link Blob}. */
+export type File = typeof globalThis extends {
+  File: abstract new (...args: never) => infer T;
+}
   ? T
-  : BlobLike & { readonly name: string };
+  : Blob & { readonly name: string };
 
-export const blob: Schema<BlobLike, BlobLike>;
+export const blob: Schema<Blob, Blob>;
 
-export const file: Schema<FileLike, FileLike>;
+export const file: Schema<File, File>;
 
 export const isoDateTime: Schema<string, string>;
 

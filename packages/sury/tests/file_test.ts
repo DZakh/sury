@@ -34,6 +34,21 @@ test("a schema whose class the runtime lacks says so when it is compiled", () =>
   expect(withoutGlobal("File", `console.log(typeof S.parser(S.blob))`)).toBe("function");
 });
 
+test("a schema whose class the runtime lacks still introspects", () => {
+  // `class` gets a stand-in rather than being left undefined: every reader of
+  // it dereferences a `.name`, so without one these answered with a raw
+  // TypeError naming neither the schema nor the reason.
+  expect(withoutGlobal("File", `console.log(S.inputExpression(S.file))`)).toBe("File");
+  expect(withoutGlobal("File", `console.log(String(S.file))`)).toBe("Schema<File>");
+  expect(
+    withoutGlobal("File", `try { S.toJSONSchema(S.file) } catch (e) { console.log(e.message) }`)
+  ).toBe("Expected JSON, received File");
+  // Deriving a schema from it is a copy, not a compile, so it still works.
+  expect(withoutGlobal("File", `console.log(S.inputExpression(S.file.with(S.minSize, 3)))`)).toBe(
+    "File.size >= 3"
+  );
+});
+
 test("a file is a blob but a blob is not a file", () => {
   const file = new File(["abc"], "a.txt");
   expect(S.parser(S.blob)(file)).toBe(file);

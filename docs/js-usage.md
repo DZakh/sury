@@ -1024,6 +1024,14 @@ It takes the same size bounds as [`S.blob`](#blob):
 S.file.with(S.minSize, 2).with(S.maxSize, 10); // Expected 2 <= File.size <= 10
 ```
 
+`S.Blob` and `S.File` are exported as types, for projects whose TypeScript
+config has neither `lib.dom` nor `@types/node` and so has no `Blob`/`File` of
+its own:
+
+```ts
+const upload = (f: S.File) => S.parser(S.file)(f);
+```
+
 ## Meta
 
 Use `S.meta` to add metadata to the resulting schema.

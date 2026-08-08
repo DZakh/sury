@@ -2,16 +2,27 @@
 // carries. `File` extends `Blob`, so a file value satisfies `S.blob` through the
 // same `instanceof` the decoder already emits.
 
-import { type Builder, initSchema, instanceTag, type Internal, panic, U } from "../base";
+import { initSchema, instanceTag, type Internal, panic, U } from "../base";
 import { instanceDecoder } from "../parse";
 
-// Missing, the class would reach `i instanceof e[0]` and fail there with a
-// TypeError naming neither the schema nor the reason, so the decoder says it
-// instead. It runs when an operation is compiled — the first moment the schema
-// is actually used, and still early enough to be a build error rather than a
-// per-value one.
-const unsupported = (name: string): Builder => () =>
-  panic(`S.${name} is not supported in this runtime`);
+// A runtime without the global would otherwise leave `class` undefined, and
+// every reader of it — the rendering, the JSON Schema emit, `String(schema)` —
+// dereferences it for a `.name`. The stand-in keeps those answering, and the
+// decoder is what reports the real problem, once, when an operation is
+// compiled. It is never reached by an `instanceof`: the decoder panics first.
+//
+// Not a throwing getter in `class`'s place, which would read as the tidier fix:
+// `copySchema` builds every derived schema with `Object.assign`, so the throw
+// would land on `.with(…)`, on reverse, and on anything that serializes a
+// schema, turning "this can't compile here" into "touching this explodes".
+// `name` is the class's, so the rendering reads the same either way; the export
+// it belongs to is that lowercased.
+const unsupportIfMissing = (s: Internal, name: string): void => {
+  if (s.class === U) {
+    s.class = { name };
+    s.decoder = () => panic(`S.${name.toLowerCase()} is not supported in this runtime`);
+  }
+};
 
 // The global is read *inside* the initializer, not passed into it: a member
 // expression at module scope is not something esbuild will drop (the getter
@@ -22,10 +33,12 @@ const unsupported = (name: string): Builder => () =>
 // Node 20, and a bare one would throw at import.
 export const blob: Internal = /* @__PURE__ */ initSchema(instanceTag, (s) => {
   s.class = globalThis.Blob;
-  s.decoder = s.class !== U ? instanceDecoder : unsupported("blob");
+  s.decoder = instanceDecoder;
+  unsupportIfMissing(s, "Blob");
 });
 
 export const file: Internal = /* @__PURE__ */ initSchema(instanceTag, (s) => {
   s.class = globalThis.File;
-  s.decoder = s.class !== U ? instanceDecoder : unsupported("file");
+  s.decoder = instanceDecoder;
+  unsupportIfMissing(s, "File");
 });
