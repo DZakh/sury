@@ -93,19 +93,11 @@ const assertLengthBound = (fnName: string, schema: Internal, value: unknown): vo
   }
 };
 
-// The size counterpart, carrying its own copy of the count check rather than
-// sharing one: factoring the two halves out put the extra call on every length
-// bound, which is by far the commoner schema.
-//
-// The tag is all this can check. Whether the class actually carries a numeric
-// `.size` is not knowable here — a prototype probe gets it wrong both ways,
-// accepting a class whose `size` is a *method* (the emitted `i.size>n` then
-// compares a function and rejects everything) and rejecting one that assigns
-// `this.size` in its constructor (which works). `S.instance` already takes the
-// caller's word for what the class is; this does the same, and still catches
-// the mistake that actually happens — reaching for a size where a length was
-// meant. A class with no size at all is the case left over, and the
-// `TOutput extends { size: number }` on the three signatures rejects that.
+// Don't add a `.size` probe on the class: it gets the answer wrong both ways,
+// accepting one whose `size` is a method (the check then compares a function
+// and rejects everything) and rejecting one that assigns `this.size` in its
+// constructor. The tag is what's knowable here; `TOutput extends { size:
+// number }` on the signatures covers the rest.
 const assertSizeBound = (fnName: string, schema: Internal, value: unknown): void => {
   if (schema.type !== instanceTag) {
     panic(expects(fnName, "instance schema", inputExpression(schema)));
@@ -665,10 +657,6 @@ export const length = (schema: Internal, length: number, maybeMessage?: string):
   });
 }
 
-// Bytes for a blob, entries for a set or a map — the same three constructors
-// the length family has, against `.size` instead of `.length`. The two never
-// overlap: a string and an array are bounded by `S.minLength`, and nothing is
-// bounded by both.
 // @__NO_SIDE_EFFECTS__
 export const minSize = (schema: Internal, size: number, maybeMessage?: string): Internal => {
   assertSizeBound("minSize", schema, size);

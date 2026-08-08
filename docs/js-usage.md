@@ -38,8 +38,9 @@
 - [Records](#records)
 - [Date](#date)
 - [ISO DateTime](#iso-datetime)
-- [Files](#files)
 - [Instance](#instance)
+- [Blob](#blob)
+- [File](#file)
 - [Meta](#meta)
 - [Brand](#brand)
 - [Custom schema](#custom-schema)
@@ -967,43 +968,6 @@ S.parser(schema)("not-a-date"); // throws
 
 Standalone string schema that validates ISO 8601 UTC datetime strings. See also [ISO datetimes](#iso-datetimes) under Strings for more details and examples.
 
-## Files
-
-`S.file` and `S.blob` validate the two binary containers a form submission or a
-`fetch` body carries. A `File` is a `Blob`, so it satisfies both.
-
-```ts
-S.parser(S.file)(new File(["hi"], "a.txt")); // passes
-S.parser(S.file)(new Blob(["hi"])); // throws - Expected File, received Blob
-S.parser(S.blob)(new File(["hi"], "a.txt")); // passes
-```
-
-Their size is bounded with `S.minSize`, `S.maxSize` and `S.size`, in bytes:
-
-```ts
-S.file.with(S.maxSize, 1_000_000); // Expected File.size <= 1000000
-S.file.with(S.minSize, 1); // Expected File.size >= 1
-S.file.with(S.minSize, 2).with(S.maxSize, 10); // Expected 2 <= File.size <= 10
-S.blob.with(S.size, 2); // Expected Blob.size == 2
-S.file.with(S.maxSize, 1_000_000, "File is too large"); // custom message
-```
-
-These bound whatever a schema measures with `.size`, not just the binary
-containers — so a `Set` or a `Map` reached through `S.instance` takes them too,
-counting entries instead of bytes:
-
-```ts
-S.instance(Set).with(S.minSize, 1); // Expected Set.size >= 1
-```
-
-> Use `S.minLength`/`S.maxLength`/`S.length` for strings and arrays. The two
-> families never overlap: nothing is bounded by both.
-
-> A lower bound of `0` is dropped rather than checked — every length and every
-> size is already at least zero, so it constrains nothing and the emitted JSON
-> Schema omits it. A negative or fractional one is an error. `S.length(0)` still
-> means exactly empty.
-
 ## Instance
 
 You can use `S.instance` to check that the input is an instance of a class. This is useful to validate inputs against classes that are exported from third-party libraries.
@@ -1018,6 +982,46 @@ const testSchema = S.instance(Test);
 const blob: any = "whatever";
 S.parser(testSchema)(new Test()); // passes
 S.parser(testSchema)(blob); // throws S.Error: Expected Test, received "whatever"
+```
+
+## Blob
+
+`S.blob` validates a `Blob`. Its size is bounded in bytes with `S.minSize`,
+`S.maxSize` and `S.size`:
+
+```ts
+S.blob; // Expected Blob
+S.blob.with(S.maxSize, 1_000_000); // Expected Blob.size <= 1000000
+S.blob.with(S.minSize, 1); // Expected Blob.size >= 1
+S.blob.with(S.size, 2); // Expected Blob.size == 2
+S.blob.with(S.maxSize, 1_000_000, "Too large"); // custom message
+```
+
+The same bounds work on any `S.instance` schema with a `.size`, counting
+entries rather than bytes:
+
+```ts
+S.instance(Set).with(S.minSize, 1); // Expected Set.size >= 1
+```
+
+> Strings and arrays use `S.minLength`/`S.maxLength`/`S.length` instead.
+> A lower bound of `0` is dropped; a negative one is an error.
+
+## File
+
+`S.file` validates a `File`. A `File` is a `Blob`, so it also satisfies
+`S.blob` — not the other way round.
+
+```ts
+S.parser(S.file)(new File(["hi"], "a.txt")); // passes
+S.parser(S.file)(new Blob(["hi"])); // throws - Expected File, received Blob
+S.parser(S.blob)(new File(["hi"], "a.txt")); // passes
+```
+
+It takes the same size bounds as [`S.blob`](#blob):
+
+```ts
+S.file.with(S.minSize, 2).with(S.maxSize, 10); // Expected 2 <= File.size <= 10
 ```
 
 ## Meta

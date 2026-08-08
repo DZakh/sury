@@ -45,8 +45,9 @@
   - [`dict`](#dict)
   - [`date`](#date)
   - [`isoDateTime`](#isodatetime)
-  - [`blob` & `file`](#blob--file)
   - [`instance`](#instance)
+  - [`blob`](#blob)
+  - [`file`](#file)
   - [`json`](#json)
   - [`jsonString`](#jsonstring)
   - [`meta`](#meta)
@@ -1117,39 +1118,6 @@ let schema = S.isoDateTime
 
 Standalone string schema that validates ISO 8601 UTC datetime strings. See also [ISO datetimes](#iso-datetimes) under Strings for more details and examples.
 
-### **`blob` & `file`**
-
-`S.t<Js.Blob.t>` & `S.t<Js.File.t>`
-
-```rescript
-let schema = S.file->S.maxSize(1_000_000)
-
-%raw(`new File(["hi"], "a.txt")`)->S.parseOrThrow(~to=schema) // passes
-%raw(`new Blob(["hi"])`)->S.parseOrThrow(~to=schema) // throws - Expected File, received Blob
-```
-
-The two binary containers a form submission or a `fetch` body carries. A `File`
-is a `Blob`, so it satisfies both.
-
-`S.minSize`, `S.maxSize` and `S.size` bound the byte count, and take the same
-optional `~message` every other built-in refinement does:
-
-```rescript
-S.file->S.minSize(1) // Expected File.size >= 1
-S.file->S.minSize(2)->S.maxSize(10) // Expected 2 <= File.size <= 10
-S.blob->S.size(2) // Expected Blob.size == 2
-S.file->S.maxSize(1_000_000, ~message="File is too large")
-```
-
-They bound whatever a schema measures with `.size`, so a `Set` or a `Map`
-reached through `S.instance` takes them too, counting entries instead of bytes.
-Strings and arrays are bounded by `S.minLength`/`S.maxLength`/`S.length`
-instead — nothing is bounded by both.
-
-A lower bound of `0` is dropped rather than checked, in both families: every
-length and every size is already at least zero. A negative or fractional one is
-an error, and `S.length(0)` still means exactly empty.
-
 ### **`instance`**
 
 `S.t<instance>`
@@ -1159,6 +1127,38 @@ let schema: S.t<Set.t<string>> = S.instance(%raw(`Set`))->Obj.magic;
 ```
 
 The `S.instance` schema represents an instance of a class. Requires some type casting to make it work, but better than `S.unknown` as a building block for more complex schemas.
+
+### **`blob`**
+
+`S.t<Js.Blob.t>`
+
+```rescript
+S.blob // Expected Blob
+S.blob->S.maxSize(1_000_000) // Expected Blob.size <= 1000000
+S.blob->S.minSize(1) // Expected Blob.size >= 1
+S.blob->S.size(2) // Expected Blob.size == 2
+S.blob->S.maxSize(1_000_000, ~message="Too large")
+```
+
+`S.minSize`, `S.maxSize` and `S.size` bound the size in bytes. They work on any
+`S.instance` schema with a `.size`, counting entries rather than bytes.
+
+> Strings and arrays use `S.minLength`/`S.maxLength`/`S.length` instead.
+> A lower bound of `0` is dropped; a negative one is an error.
+
+### **`file`**
+
+`S.t<Js.File.t>`
+
+```rescript
+let schema = S.file->S.maxSize(1_000_000)
+
+%raw(`new File(["hi"], "a.txt")`)->S.parseOrThrow(~to=schema) // passes
+%raw(`new Blob(["hi"])`)->S.parseOrThrow(~to=schema) // throws - Expected File, received Blob
+```
+
+A `File` is a `Blob`, so it also satisfies [`S.blob`](#blob) — not the other way
+round. It takes the same size bounds.
 
 ### **`json`**
 

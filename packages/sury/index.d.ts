@@ -442,11 +442,12 @@ export const jsonStringWithSpace: (space: number) => Schema<string, string>;
 
 export const uint8Array: Schema<Uint8Array, Uint8Array>;
 
-// `Blob` and `File` are ambient globals, from lib.dom or @types/node, and a
-// consumer can legitimately have neither. Naming them bare made the whole
-// package fail to typecheck for those users — including ones who never touch
-// these two — so they're resolved through `globalThis`: the real type wherever
-// it exists, a structural stand-in where it doesn't.
+// `Blob` and `File` are ambient globals, from lib.dom or @types/node. Naming
+// them bare fails to typecheck for a consumer who has neither — including one
+// who never touches these schemas — so they resolve through `globalThis`: the
+// real type wherever it exists, a structural stand-in where it doesn't. The
+// stand-in stays usable rather than erroring, because a runtime can carry the
+// value while the project carries no types for it.
 type BlobLike = typeof globalThis extends { Blob: abstract new (...args: never) => infer T }
   ? T
   : { readonly size: number; readonly type: string };
@@ -849,9 +850,6 @@ export const nonEmpty: <TInput, TOutput extends string | unknown[]>(
   message?: string
 ) => Schema<Same<TInput, TOutput> extends true ? NonEmptied<TInput> : TInput, NonEmptied<TOutput>>;
 
-// Structural, to say exactly what the runtime tests for — a class carrying a
-// `.size`. Blob, File, Set and Map all satisfy it, so naming them instead
-// would have to grow every time one more does.
 export const minSize: <TInput, TOutput extends { size: number }>(
   schema: SchemaLike<TInput, TOutput>,
   size: number,
