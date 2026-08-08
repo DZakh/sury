@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.nullable("foo")
+  input: '"foo" | null'
+  output: '"foo" | null'
+  instantiations: 435
+vs:
+  zod: z.literal("foo").nullable()
+jsonSchema:
+  input: '{ enum: ["foo", null] }'
+  output: '{ enum: ["foo", null] }'
+operations:
+  parse:
+    expression: i=>{(typeof i==="string"&&i==="foo"||i===null)||e[0](i);return i}
+    examples:
+      literal:
+        input: '"foo"'
+        output: '"foo"'
+      null-passes-through:
+        input: "null"
+        output: "null"
+      wrong-literal:
+        input: '"bar"'
+        error: Expected "foo" | null, received "bar"
+      invalid-undefined:
+        input: undefined
+        error: Expected "foo" | null, received undefined
+  decode: identity
+  encode: identity

@@ -20,7 +20,7 @@ import {
   type Val,
 } from "./base";
 import { B_embed, B_failWithErrorMessage } from "./builder";
-import { optionFactory } from "./composites";
+import { definitionToItem, optionFactory } from "./composites";
 import { getMutErrorMessage, internalRefine, nullAsUnit, transform } from "./modifiers";
 import { nullLiteral, numberDecoder, stringDecoderFn, unit } from "./primitives";
 import { unionFactory } from "./union";
@@ -31,7 +31,7 @@ import { unionFactory } from "./union";
 // alias silently drops the annotation, and every `S.object(…)` a consumer
 // never uses stays in their bundle.
 export { schemaObject as object, schemaShape as shape, schemaTuple as tuple } from "./factory";
-export { dictFactory as dict } from "./composites";
+export { dict } from "./composites";
 export { unionFactory as union } from "./union";
 // @__NO_SIDE_EFFECTS__
 export const nullAsOption = (item: Internal): Internal =>
@@ -739,8 +739,8 @@ export const trim = (schema: Internal): Internal => {
 }
 
 // @__NO_SIDE_EFFECTS__
-export const nullable = (schema: Internal): Internal => {
-  return unionFactory([schema, unit, nullLiteral]);
+export const nullable = (definition: unknown): Internal => {
+  return unionFactory([definitionToItem(definition), unit, nullLiteral]);
 }
 
 // @__NO_SIDE_EFFECTS__
