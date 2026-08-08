@@ -37,8 +37,12 @@ export type Path = string;
 export const pathEmpty: Path = "";
 export const pathDynamic: Path = "[]";
 
+// Everything a raw splice into a double-quoted JS literal can't carry: the
+// quote itself, `\` (an accidental escape reads as a different string), and
+// both line terminators (a SyntaxError inside new Function).
+const inlineUnsafeRe = /["\\\n\r]/;
 export const inlinedValueFromString = (str: string): string => {
-  return str.includes('"') || str.includes("\n") ? JSON.stringify(str) : `"${str}"`;
+  return inlineUnsafeRe.test(str) ? JSON.stringify(str) : `"${str}"`;
 }
 
 export const pathFromInlinedLocation = (inlinedLocation: string): Path => {

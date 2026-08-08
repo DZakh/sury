@@ -748,8 +748,10 @@ const primitiveToSchema = (primitive: unknown): Internal =>
   primitive !== null && typeof primitive === "object"
     ? // deepStrict because `const` is equality, not a shape: an object with an
       // extra property is a different value, where a plain object schema would
-      // ignore the extra and accept it.
-      deepStrict(schemaFactory(primitive))
+      // ignore the extra and accept it. Cloned first: schemaFactory converts
+      // its definition in place, and this one belongs to the caller's
+      // document (which is JSON, so the round-trip is lossless).
+      deepStrict(schemaFactory(JSON.parse(JSON.stringify(primitive))))
     : Literal_parse(primitive);
 
 // draft-04 (and OpenAPI 3.0) make `exclusiveMinimum` a boolean that flips the

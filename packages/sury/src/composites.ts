@@ -303,18 +303,21 @@ export const arrayDecoder = (unknownInput: Val): Val => {
     const itemSchema = expectedAdditionalItems;
     if (itemSchema === unknown) {
       output = input;
-    } else if (
-      expectedLength === 0 &&
-      (output = B_fuseIntoJsonString(input, expectedSchema, itemSchema, true)!) !== U
-    ) {
-      // Plain-array fusion only: fixed tuple slots are read by the aggregate
-      // outside its dynamic loop, so they must stay validated here.
     } else {
+      if (expectedLength === 0) {
+        // Plain-array fusion only: fixed tuple slots are read by the aggregate
+        // outside its dynamic loop, so they must stay validated here.
+        const fused = B_fuseIntoJsonString(input, expectedSchema, itemSchema, true);
+        if (fused !== U) {
+          return B_markOutput(fused, input);
+        }
+      }
       const inputVar = input.v();
       const iteratorVar = B_varWithoutAllocation(input.g);
 
       const raiseCountBefore = input.g.t;
       const itemInput = B_dynamicScope(input, iteratorVar);
+      B_narrowJsonSourcedJsonString(itemInput);
       const itemOutput = parseDynamic(itemInput);
       const hasTransform = itemOutput.t!;
       const output2 = hasTransform

@@ -12,7 +12,7 @@ jsonSchema:
   output: '{ type: "string" }'
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[6](i);let v0=i["id"],v1=i["name"],v2=i["tag"],v3=i["flag"];typeof v0==="number"&&!Number.isNaN(v0)||e[0](v0);typeof v1==="string"||e[1](v1);v2==="x"||e[2](v2);typeof v3==="boolean"||e[3](v3);return "{\"id\":"+(Number.isFinite(v0)?""+v0:e[4](v0))+",\"name\":"+e[5](v1)+",\"tag\":\"x\",\"flag\":"+v3+"}"}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[6](i);let v0=i["id"],v1=i["name"],v2=i["tag"],v3=i["flag"];typeof v0==="number"&&!Number.isNaN(v0)||e[0](v0);typeof v1==="string"||e[1](v1);v2==="x"||e[2](v2);typeof v3==="boolean"||e[3](v3);return "{\"id\":"+(Number.isFinite(v0)?v0:e[4](v0))+",\"name\":"+e[5](v1)+",\"tag\":\"x\",\"flag\":"+v3+"}"}
     examples:
       valid:
         input: '{ id: 1, name: "hello", tag: "x", flag: true }'
@@ -36,7 +36,7 @@ operations:
         input: '{ id: Infinity, name: "a", tag: "x", flag: true }'
         error: 'Failed at ["id"]: Expected JSON, received Infinity'
   decode:
-    expression: i=>{let v0=i["id"];return "{\"id\":"+(Number.isFinite(v0)?""+v0:e[0](v0))+",\"name\":"+e[1](i["name"])+",\"tag\":\"x\",\"flag\":"+i["flag"]+"}"}
+    expression: i=>{let v0=i["id"];return "{\"id\":"+(Number.isFinite(v0)?v0:e[0](v0))+",\"name\":"+e[1](i["name"])+",\"tag\":\"x\",\"flag\":"+i["flag"]+"}"}
     examples:
       valid:
         input: '{ id: 1, name: "hello", tag: "x", flag: true }'

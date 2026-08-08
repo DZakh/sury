@@ -338,25 +338,38 @@ export const Object_setAdditionalItems = (
     typeof currentAdditionalItems !== objectTag;
   // A deep pass still has to descend through a level that already carries the
   // mode — a tuple is strict from the start, and its object items are not.
+  // When nothing changes anywhere in the subtree, return the same object:
+  // a repeated call stays identity-stable, so the operation cache (keyed on
+  // the schema object) keeps hitting.
+  let changed = set;
+  const mapItem = (s: Internal): Internal => {
+    const mapped = Object_setAdditionalItems(s, additionalItems, deep);
+    if (mapped !== s) {
+      changed = true;
+    }
+    return mapped;
+  };
   const items = deep ? schema.items : U;
+  const newItems = items !== U ? items.map(mapItem) : U;
   const properties = deep ? schema.properties : U;
-  if (!set && items === U && properties === U) {
+  const newProperties =
+    properties !== U
+      ? Object.fromEntries(
+          Object.keys(properties).map((key) => [key, mapItem(properties[key]!)])
+        )
+      : U;
+  if (!changed) {
     return schema;
   }
   const mut = copySchema(schema);
   if (set) {
     mut.additionalItems = additionalItems;
   }
-  if (items !== U) {
-    mut.items = items.map((s) => Object_setAdditionalItems(s, additionalItems, deep));
+  if (newItems !== U) {
+    mut.items = newItems;
   }
-  if (properties !== U) {
-    mut.properties = Object.fromEntries(
-      Object.keys(properties).map((key) => [
-        key,
-        Object_setAdditionalItems(properties[key]!, additionalItems, deep),
-      ])
-    );
+  if (newProperties !== U) {
+    mut.properties = newProperties;
   }
   return mut;
 };
