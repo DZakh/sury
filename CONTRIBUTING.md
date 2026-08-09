@@ -344,14 +344,28 @@ instead of silently working around it.
   specs are published as documentation, the writer should quote or escape any
   scalar holding a control character. Reference-suite coverage is kept rather
   than trimmed to dodge this — the defect is in the writer.
-- `--perf` measures every example in both builds, so a spec's example count sets
-  its share of the performance job's runtime. That suits codec specs, where each
-  example exercises a different path, but not format specs: the string-format
-  vocabulary contributes 510 of the suite's 1228 examples (the nine largest
-  specs are all formats) while every one of them runs the same single
-  `re.test(i)`, so the job got roughly 70% more expensive for no extra signal.
-  A per-spec opt-out, or benchmarking one representative example per outcome
-  rather than all of them, would decouple example coverage from perf runtime.
+- `--perf` measures every example in both builds and spawns one child process
+  per target, so a spec's example count sets its share of the performance job's
+  runtime. Measured at 216 specs on a 4-core box: 2274 targets, of which 1732
+  are individual examples, 3m34s wall and 7m39s CPU — about 0.2s of CPU each,
+  roughly 46ms of process startup (32ms node, 14ms importing both bundles) and
+  the rest batch time (20 warmup batches plus 8 blocks × 2 rounds × 8 batches at
+  500µs).
+  That suits codec specs, where each example dispatches differently, but not
+  format specs: 976 of the 1732 run targets are a repeat of some (spec, op,
+  accept/reject) that is already covered — `iso-date` alone spends 53 of them on
+  the same failing `re.test(i)`. Capping examples per group would cut total
+  targets to 73% at 2 and 57% at 1, and the cap is the whole fix: nothing else
+  in the loop scales with coverage.
+  Two things not to reach for. Batching targets into one process would save that
+  46ms but give up the fresh heap per target the design deliberately buys. And
+  raising the screening parallelism trades away exactly what the job is for —
+  contention widens intervals, which hides regressions rather than inventing
+  them.
+- `ciRank` returns -1 below six blocks, and `conservativePct` then reports 0 for
+  every target — so dropping `BLOCKS` under 6 to save time does not weaken the
+  report, it silently empties it. Worth an assert next to the constant, since
+  the failure looks exactly like "no regressions".
 - Example values are recorded as source text, so an operation returning a class
   instance can only be snapshotted if the serializer knows that class. `Date`,
   `URL`, `RegExp`, `Map` and `Set` round-trip; anything else still fails with
