@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.noValidation(S.json, true).with(S.to, S.jsonString)
+  input: JSON
+  output: string
+  instantiations: 5211
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: "{}"
+  output: '{ type: "string" }'
+operations:
+  parse:
+    expression: i=>{return JSON.stringify(i)}
+    examples:
+      object:
+        input: "{ a: 1 }"
+        output: '"{\"a\":1}"'
+      non-json-skips-declared-string-output:
+        input: undefined
+        output: undefined
+  decode: eq-to-parse
+  encode: identity

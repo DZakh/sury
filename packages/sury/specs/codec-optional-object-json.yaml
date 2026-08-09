@@ -36,7 +36,7 @@ operations:
         input: '{ a: { s: "x" } }'
         output: '{ a: { s: "x" } }'
   encode:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=(i["a"]??null);for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=v0["s"];(typeof v1==="string"||v1===void 0)||e[0](v1);v0={"s":v1,};break}if(v0===null){v0=void 0;break}e[1](v0)}return {"a":v0,}}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=(i["a"]??null);for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=(v0["s"]??null);for(;;){if(typeof v1==="string")break;if(v1===null){v1=void 0;break}e[0](v1)}v0={"s":v1,};break}if(v0===null){v0=void 0;break}e[1](v0)}return {"a":v0,}}
     examples:
       omitted-round-trips-to-none:
         input: "{}"

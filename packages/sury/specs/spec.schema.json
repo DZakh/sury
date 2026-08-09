@@ -179,6 +179,11 @@
             {
               "type": "object",
               "properties": {
+                "isAsync": {
+                  "type": "boolean",
+                  "const": true,
+                  "description": "`true` if this direction is async (built with S.asyncParser/asyncDecoder/asyncEncoder, examples awaited). Written when the block is first created; `spec check` errors when it disagrees with the schema. Omit when sync."
+                },
                 "expression": {
                   "anyOf": [
                     {
@@ -292,6 +297,11 @@
             {
               "type": "object",
               "properties": {
+                "isAsync": {
+                  "type": "boolean",
+                  "const": true,
+                  "description": "`true` if this direction is async (built with S.asyncParser/asyncDecoder/asyncEncoder, examples awaited). Written when the block is first created; `spec check` errors when it disagrees with the schema. Omit when sync."
+                },
                 "expression": {
                   "anyOf": [
                     {
@@ -405,6 +415,11 @@
             {
               "type": "object",
               "properties": {
+                "isAsync": {
+                  "type": "boolean",
+                  "const": true,
+                  "description": "`true` if this direction is async (built with S.asyncParser/asyncDecoder/asyncEncoder, examples awaited). Written when the block is first created; `spec check` errors when it disagrees with the schema. Omit when sync."
+                },
                 "expression": {
                   "anyOf": [
                     {

@@ -1639,11 +1639,24 @@ test("Uint8Array", (t) => {
     `"data"`,
   );
   t.expect(S.decoder(S.string, S.uint8Array, S.jsonString).toString()).toEqual(
-    `i=>{return JSON.stringify(e[1].decode(e[0].encode(i)))}`,
+    `i=>{return e[2](e[1].decode(e[0].encode(i)))}`,
   );
   t.expect(S.decoder(S.unknown, S.uint8Array, S.jsonString).toString()).toEqual(
-    `i=>{i instanceof e[1]||e[2](i);return JSON.stringify(e[0].decode(i))}`,
+    `i=>{i instanceof e[2]||e[3](i);return e[1](e[0].decode(i))}`,
   );
+
+  // As an object field: jsonString's fallback asks the field's own schema for
+  // the string conversion, since uint8Array only performs it when it is
+  // itself the target. Not a spec — the encode direction's output holds a
+  // Uint8Array, which the spec harness can't write as source (see
+  // CONTRIBUTING.md's Spec Harness Suggestions).
+  const withField = S.schema({ payload: S.uint8Array });
+  t.expect(
+    S.encoder(withField, S.jsonString)({ payload: new TextEncoder().encode("hi") }),
+  ).toEqual(`{"payload":"hi"}`);
+  t.expect(S.decoder(S.jsonString, withField)(`{"payload":"hi"}`)).toEqual({
+    payload: new TextEncoder().encode("hi"),
+  });
 });
 
 test("Throwing one retained error instance twice doesn't accumulate the path", (t) => {

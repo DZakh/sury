@@ -28,15 +28,5 @@ operations:
       not-an-array:
         input: '{ id: "a" }'
         error: 'Expected { id: string; }[], received { id: "a"; }'
-  decode:
-    expression: i=>{for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}return i}
-    examples:
-      valid:
-        input: '[{ id: "a" }]'
-        output: '[{ id: "a" }]'
-  encode:
-    expression: i=>{for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}return i}
-    examples:
-      valid:
-        input: '[{ id: "a" }]'
-        output: '[{ id: "a" }]'
+  decode: identity
+  encode: identity

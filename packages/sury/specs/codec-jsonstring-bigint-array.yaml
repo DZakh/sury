@@ -27,7 +27,7 @@ operations:
         input: '"[\"123\"]"'
         output: "[123n]"
   encode:
-    expression: i=>{let v2=new Array(i.length);for(let v1=0;v1<i.length;++v1){v2[v1]=""+i[v1]}return JSON.stringify(v2)}
+    expression: i=>{let v2="";for(let v1=0;v1<i.length;++v1){v2+=(v1?",":"")+"\""+i[v1]+"\""}return "["+v2+"]"}
     examples:
       valid:
         input: "[123n]"

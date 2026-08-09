@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.record(S.number).with(S.to, S.jsonString)
+  input: "{ [x: string]: number; }"
+  output: string
+  instantiations: 5273
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "object", additionalProperties: { type: "number" } }'
+  output: '{ type: "string" }'
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v1="";for(let v0 of Object.keys(i)){try{let v2=i[v0];typeof v2==="number"&&!Number.isNaN(v2)||e[2](v2);v1+=(v1?",":"")+e[0](v0)+":"+(Number.isFinite(v2)?v2:e[1](v2))}catch(v3){v3.path='["'+v0+'"]'+v3.path;throw v3}}return "{"+v1+"}"}
+    examples:
+      plain:
+        input: "{ a: 1, b: 2 }"
+        output: '"{\"a\":1,\"b\":2}"'
+      inherited-key-not-serialized:
+        input: "Object.assign(Object.create({ inherited: 999 }), { own: 1 })"
+        output: '"{\"own\":1}"'
+      non-finite-rejected:
+        input: "{ a: Infinity }"
+        error: 'Failed at ["a"]: Expected JSON, received Infinity'
+  decode:
+    expression: i=>{let v2="";for(let v1 of Object.keys(i)){try{let v3=i[v1];v2+=(v2?",":"")+e[0](v1)+":"+(Number.isFinite(v3)?v3:e[1](v3))}catch(v4){v4.path='["'+v1+'"]'+v4.path;throw v4}}return "{"+v2+"}"}
+    examples:
+      plain:
+        input: "{ a: 1 }"
+        output: '"{\"a\":1}"'
+      inherited-key-not-serialized:
+        input: "Object.assign(Object.create({ inherited: 999 }), { own: 1 })"
+        output: '"{\"own\":1}"'
+  encode:
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);for(let v1 in v0){try{let v2=v0[v1];typeof v2==="number"&&!Number.isNaN(v2)||e[1](v2);}catch(v3){v3.path='["'+v1+'"]'+v3.path;throw v3}}return v0}
+    examples:
+      plain:
+        input: '"{\"a\":1}"'
+        output: "{ a: 1 }"

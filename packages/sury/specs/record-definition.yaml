@@ -28,15 +28,5 @@ operations:
       not-a-record:
         input: "[]"
         error: "Expected { [key: string]: { n: number; }; }, received []"
-  decode:
-    expression: i=>{for(let v0 in i){try{let v1=i[v0];}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}return i}
-    examples:
-      valid:
-        input: "{ a: { n: 1 } }"
-        output: "{ a: { n: 1 } }"
-  encode:
-    expression: i=>{for(let v0 in i){try{let v1=i[v0];}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}return i}
-    examples:
-      valid:
-        input: "{ a: { n: 1 } }"
-        output: "{ a: { n: 1 } }"
+  decode: identity
+  encode: identity

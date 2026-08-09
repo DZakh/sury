@@ -43,7 +43,7 @@ The API mirrors TypeScript types, so there's not much new syntax to learn.
 
 ### Discriminated unions, decoded straight from a JSON string
 
-Declare the union, and get parsing, narrowing, and encoding from one definition:
+Declare the union, and get parsing and narrowing from one definition:
 
 ```ts
 const eventSchema = S.union([
@@ -63,10 +63,6 @@ switch (event.type) {
     event.name; // string — TypeScript narrows it for you
     break;
 }
-
-// The same schema encodes back out, no second definition needed
-S.encoder(eventSchema, S.jsonString)(event);
-// => '{"type":"user.renamed","id":"42","name":"Dmitry"}'
 ```
 
 Note that you write `id: S.bigint` — the type you want to work with. A `bigint` can't exist in JSON, so **Sury** infers the `"42"` → `42n` coercion from the input side of the pipeline, in both directions. No `as const`, no coercion wrappers, no second schema for the wire format.
@@ -102,7 +98,7 @@ parseEvent('{"type":"user.renamed","id":"42"}');
       }
       v0 = { type: v0["type"], id: v1 };
     } else if (v0["type"] === "user.renamed") {
-      // …one branch per variant, no loop over union members
+      // ...one branch per variant, no loop over union members
     } else {
       e[8](v0);
     }
@@ -114,6 +110,55 @@ parseEvent('{"type":"user.renamed","id":"42"}');
 ```
 
 This is why **Sury** will most likely outperform not only other libraries, but also your own hand-rolled validation logic.
+
+### JSON serialization faster than `JSON.stringify`
+
+The same `eventSchema` encodes back out — no second definition:
+
+```ts
+S.encoder(eventSchema, S.jsonString)({ type: "user.renamed", id: 42n, name: "Dmitry" });
+// => '{"type":"user.renamed","id":"42","name":"Dmitry"}'
+```
+
+There's no intermediate object and no `JSON.stringify` — the discriminant picks a branch and the JSON text is baked in:
+
+```js
+(i) => {
+  for (;;) {
+    if (typeof i === "object" && i && i["type"] === "user.renamed") {
+      i = '{"type":"user.renamed","id":"' + i["id"] + '","name":' + e[0](i["name"]) + "}";
+      break;
+    }
+    // ...one branch per variant
+  }
+  return i;
+};
+```
+
+Types `JSON.stringify` refuses are ordinary fields, and the values it silently corrupts throw instead:
+
+```ts
+const schema = S.schema({ id: S.bigint, payload: S.uint8Array, at: S.date, price: S.number });
+const encode = S.encoder(schema, S.jsonString);
+const bytes = new TextEncoder().encode("hello");
+
+encode({ id: 9007199254740993n, payload: bytes, at: new Date("2026-01-15T10:30:00.000Z"), price: 9.99 });
+// => '{"id":"9007199254740993","payload":"hello","at":"2026-01-15T10:30:00.000Z","price":9.99}'
+
+encode({ id: 1n, payload: bytes, at: new Date(), price: Infinity });
+// => throws S.Error: Failed at ["price"]: Expected JSON, received Infinity
+
+JSON.stringify({ price: Infinity });
+// => '{"price":null}'
+```
+
+| Encode to JSON string                        | `JSON.stringify` | fast-json-stringify | **Sury**    |
+| -------------------------------------------- | ---------------- | ------------------- | ----------- |
+| API response (user profile, 7 fields)        | 396 ns           | 301 ns              | **250 ns**  |
+| Event feed (50 tagged-union events)          | 4.61 µs          | 13.52 µs            | **3.67 µs** |
+| `bigint` id + binary payload + `Date`        | 1.10 µs          | 1.11 µs             | **1.02 µs** |
+
+Faster than `JSON.stringify`, and 3.5× lighter than fast-json-stringify — 16.2 kB against 56.7 kB, encoder included.
 
 ### Transformations that reverse themselves
 
@@ -198,7 +243,7 @@ productSchema["~standard"].jsonSchema.input({ target: "draft-2020-12" });
 // }
 
 productSchema["~standard"].jsonSchema.output({ target: "draft-2020-12" });
-// { … properties: { id: { type: "string" }, price: { type: "number" } }, … }
+// { ... properties: { id: { type: "string" }, price: { type: "number" } }, ... }
 //                                                   ↑ what your code receives
 ```
 
@@ -262,7 +307,8 @@ else result.error;
 
 - Works with plain JavaScript, TypeScript, and ReScript — no compiler required
 - The **fastest** parsing and validation library in the JavaScript ecosystem ([benchmarks](#comparison))
-- Small JS footprint & tree-shakable API
+- Compiled JSON string encoding — [faster and safer than `JSON.stringify`](#json-serialization-faster-than-jsonstringify), with `bigint`, `Uint8Array` and `Date` support built in
+- Tree-shakable API with a small footprint — 12.4 kB (min + gzip) for a schema and a parser
 - Async transformations, recursive schemas, and custom schemas
 
 ## Integrations

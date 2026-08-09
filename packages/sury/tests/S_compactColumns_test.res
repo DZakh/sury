@@ -21,7 +21,7 @@ test("Successfully parses and reverse converts a simple object with compactColum
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}let v4=[new Array(i.length),new Array(i.length),];for(let v3=0;v3<i.length;++v3){v4[0][v3]=i[v3]["foo"];v4[1][v3]=i[v3]["bar"];}return v4}`,
+    `i=>{let v3=[new Array(i.length),new Array(i.length),];for(let v2=0;v2<i.length;++v2){v3[0][v2]=i[v2]["foo"];v3[1][v2]=i[v2]["bar"];}return v3}`,
   )
 
   t->Assert.deepEqual(
@@ -91,7 +91,7 @@ test("Case with missing item at the end", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}let v4=[new Array(i.length),new Array(i.length),];for(let v3=0;v3<i.length;++v3){v4[0][v3]=i[v3]["foo"];v4[1][v3]=i[v3]["bar"];}return v4}`,
+    `i=>{let v3=[new Array(i.length),new Array(i.length),];for(let v2=0;v2<i.length;++v2){v3[0][v2]=i[v2]["foo"];v3[1][v2]=i[v2]["bar"];}return v3}`,
   )
 
   t->Assert.deepEqual(
