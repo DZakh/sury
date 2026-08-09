@@ -792,7 +792,9 @@ export const B_scope = (val: Val): Val => {
     e: val.e,
     prev: U,
     f: flagNone,
-    d: val.d, // See the aliasing note on B_next's `d: prev.d` above.
+    // Shared, not dropped as in B_next: a scope names the same value, so the
+    // same field vals describe it.
+    d: val.d,
     fv: U,
     cp: "",
     hd: "",
