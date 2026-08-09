@@ -351,12 +351,25 @@ instead of silently working around it.
   roughly 46ms of process startup (32ms node, 14ms importing both bundles) and
   the rest batch time (20 warmup batches plus 8 blocks × 2 rounds × 8 batches at
   500µs).
-  That suits codec specs, where each example dispatches differently, but not
-  format specs: 976 of the 1732 run targets are a repeat of some (spec, op,
-  accept/reject) that is already covered — `iso-date` alone spends 53 of them on
-  the same failing `re.test(i)`. Capping examples per group would cut total
-  targets to 73% at 2 and 57% at 1, and the cap is the whole fix: nothing else
-  in the loop scales with coverage.
+  976 of the 1732 run targets repeat a (spec, op, accept/reject) already
+  covered, so measuring only the first accepted and first rejected example
+  would cut total targets to 57% — 3m34s to about 2m10s. Nothing else in the
+  loop scales with coverage, so that is the only lever of its size.
+  What it costs is not nothing, and not what you would guess. Timing every
+  example in its group says 48% of groups vary by under 1.10x, where the extra
+  examples really are free — but 30% vary by more than 1.5x and 24% by more
+  than 2x. Union dispatch is the extreme (a value matching the first member
+  against one matching the last runs into the thousands), and format specs are
+  *not* the safe case they look like: `uri|parse|accept` spreads 17.5x across
+  its 18 examples and `idn-hostname` 7.5x across 33, because a regex costs what
+  its input is long.
+  Position and size are both bad ways to pick the survivor. The first example
+  is within 5% of its group's cheapest 66% of the time, so "first" is a
+  best-case bias rather than a neutral sample, and the longest input is the
+  most expensive one only 42% of the time — no better than picking at random.
+  Whatever keeps the signal has to be told, not inferred: an opt-in marker on
+  the examples worth timing, defaulting to first-accepted/first-rejected, gets
+  the 43% back while leaving the union specs their dispatch coverage.
   Two things not to reach for. Batching targets into one process would save that
   46ms but give up the fresh heap per target the design deliberately buys. And
   raising the screening parallelism trades away exactly what the job is for —
