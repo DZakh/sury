@@ -14,6 +14,10 @@ import type { ChildPayload, ChildResult, Target } from "./bench";
 import { buildScenarioRunner } from "./scenario";
 
 const OP_BUILDER = { parse: "parser", decode: "decoder", encode: "encoder" } as const;
+// An async schema compiles only through these, so a `create+compile` target for
+// one has to name the builder its spec's `isAsync` declares. (There are no
+// async `run` targets — see deriveTargets.)
+const ASYNC_OP_BUILDER = { parse: "asyncParser", decode: "asyncDecoder", encode: "asyncEncoder" } as const;
 
 // Every measured value is stored into a box so V8 can't delete the work as
 // dead. The boxes are kept alive here (and read at exit) so escape analysis
@@ -57,7 +61,7 @@ const buildRunner = (
       )(factory, S, box),
     };
 
-  const builder = S[OP_BUILDER[target.op!]];
+  const builder = S[(target.isAsync ? ASYNC_OP_BUILDER : OP_BUILDER)[target.op!]];
 
   if (target.phase === "create+compile")
     return {

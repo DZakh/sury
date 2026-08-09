@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({id: S.number, name: S.string, tag: "x", flag: S.boolean}).with(S.to, S.jsonString)'
+  input: '{ id: number; name: string; tag: "x"; flag: boolean; }'
+  output: string
+  instantiations: 6487
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "object", properties: { id: { type: "number" }, name: { type: "string" }, tag: { type: "string", const: "x" }, flag: { type: "boolean" } }, required: ["id", "name", "tag", "flag"] }'
+  output: '{ type: "string" }'
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[6](i);let v0=i["id"],v1=i["name"],v2=i["tag"],v3=i["flag"];typeof v0==="number"&&!Number.isNaN(v0)||e[0](v0);typeof v1==="string"||e[1](v1);v2==="x"||e[2](v2);typeof v3==="boolean"||e[3](v3);return "{\"id\":"+(Number.isFinite(v0)?v0:e[4](v0))+",\"name\":"+e[5](v1)+",\"tag\":\"x\",\"flag\":"+v3+"}"}
+    examples:
+      valid:
+        input: '{ id: 1, name: "hello", tag: "x", flag: true }'
+        output: '"{\"id\":1,\"name\":\"hello\",\"tag\":\"x\",\"flag\":true}"'
+      escaped-string:
+        input: '{ id: 1, name: "say \"hi\"\n", tag: "x", flag: false }'
+        output: '"{\"id\":1,\"name\":\"say \\\"hi\\\"\\n\",\"tag\":\"x\",\"flag\":false}"'
+      unicode-string:
+        input: '{ id: 1, name: "emoji 😀", tag: "x", flag: true }'
+        output: '"{\"id\":1,\"name\":\"emoji 😀\",\"tag\":\"x\",\"flag\":true}"'
+      wrong-literal:
+        input: '{ id: 1, name: "a", tag: "y", flag: true }'
+        error: 'Failed at ["tag"]: Expected "x", received "y"'
+      missing-field:
+        input: '{ id: 1, name: "a", tag: "x" }'
+        error: 'Failed at ["flag"]: Expected boolean, received undefined'
+      negative-zero:
+        input: '{ id: -0, name: "a", tag: "x", flag: true }'
+        output: '"{\"id\":0,\"name\":\"a\",\"tag\":\"x\",\"flag\":true}"'
+      non-finite:
+        input: '{ id: Infinity, name: "a", tag: "x", flag: true }'
+        error: 'Failed at ["id"]: Expected JSON, received Infinity'
+  decode:
+    expression: i=>{let v0=i["id"];return "{\"id\":"+(Number.isFinite(v0)?v0:e[0](v0))+",\"name\":"+e[1](i["name"])+",\"tag\":\"x\",\"flag\":"+i["flag"]+"}"}
+    examples:
+      valid:
+        input: '{ id: 1, name: "hello", tag: "x", flag: true }'
+        output: '"{\"id\":1,\"name\":\"hello\",\"tag\":\"x\",\"flag\":true}"'
+  encode:
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[5](v0);let v1=v0["id"],v2=v0["name"],v3=v0["tag"],v4=v0["flag"];typeof v1==="number"&&!Number.isNaN(v1)||e[1](v1);typeof v2==="string"||e[2](v2);v3==="x"||e[3](v3);typeof v4==="boolean"||e[4](v4);return {"id":v1,"name":v2,"tag":v3,"flag":v4,}}
+    examples:
+      valid:
+        input: '"{\"id\":1,\"name\":\"hello\",\"tag\":\"x\",\"flag\":true}"'
+        output: '{ id: 1, name: "hello", tag: "x", flag: true }'
+      invalid-json:
+        input: '"nope"'
+        error: Expected JSON string, received "nope"
