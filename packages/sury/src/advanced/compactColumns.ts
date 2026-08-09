@@ -30,7 +30,7 @@ import {
   B_varWithoutAllocation,
   failInvalidType,
 } from "../builder";
-import { array } from "../composites";
+import { array, arrayFactory } from "../composites";
 import { parse } from "../parse";
 
 // The column types only exist once `.to` has been applied, so this must stay
@@ -93,9 +93,7 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
   }
 
   if (!maybeProperties) {
-    return panic(
-      "S.compactColumns supports only object schemas. Use S.compactColumns(S.unknown)->S.to(S.array(objectSchema)).",
-    );
+    return panic("S.compactColumns expects .to(S.array(objectSchema))");
   } else {
     const properties = maybeProperties;
     const keys = Object.keys(properties);
@@ -110,7 +108,7 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
     if (isForwardDirection) {
       outputSchema = selfSchema.to!;
     } else {
-      const s = array(array(unknown));
+      const s = arrayFactory(arrayFactory(unknown));
       s.to = selfSchema.to;
       outputSchema = s;
     }
@@ -315,9 +313,9 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
 }
 
 // @__NO_SIDE_EFFECTS__
-export const compactColumns = (inputSchema: Internal): Internal => {
+export const compactColumns = (inputSchema: unknown): Internal => {
   const innerArray = array(inputSchema);
-  const mut = array(innerArray);
+  const mut = arrayFactory(innerArray);
   mut.format = "compactColumns";
   mut.decoder = compactColumnsDecoder;
   mut.expression = compactColumnsExpression;

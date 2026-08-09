@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.record({ n: S.number })"
+  input: "{ [x: string]: { n: number; }; }"
+  output: "{ [x: string]: { n: number; }; }"
+  instantiations: 1777
+vs:
+  zod: "z.record(z.string(), z.object({ n: z.number() }))"
+jsonSchema:
+  input: '{ type: "object", additionalProperties: { type: "object", properties: { n: { type: "number" } }, required: ["n"] } }'
+  output: '{ type: "object", additionalProperties: { type: "object", properties: { n: { type: "number" } }, required: ["n"] } }'
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v4={};for(let v0 in i){try{let v1=i[v0];typeof v1==="object"&&v1&&!Array.isArray(v1)||e[1](v1);let v2=v1["n"];typeof v2==="number"&&!Number.isNaN(v2)||e[0](v2);v4[v0]={"n":v2,}}catch(v3){v3.path='["'+v0+'"]'+v3.path;throw v3}}return v4}
+    examples:
+      valid:
+        input: "{ a: { n: 1 } }"
+        output: "{ a: { n: 1 } }"
+      empty:
+        input: "{}"
+        output: "{}"
+      invalid-nested-value:
+        input: '{ a: { n: "1" } }'
+        error: 'Failed at ["a"]["n"]: Expected number, received "1"'
+      value-is-not-an-object:
+        input: "{ a: 1 }"
+        error: 'Failed at ["a"]: Expected { n: number; }, received 1'
+      not-a-record:
+        input: "[]"
+        error: "Expected { [key: string]: { n: number; }; }, received []"
+  decode: identity
+  encode: identity

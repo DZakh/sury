@@ -3,7 +3,7 @@ ts:
   schema: S.record(S.number).with(S.to, S.jsonString)
   input: "{ [x: string]: number; }"
   output: string
-  instantiations: 5231
+  instantiations: 5273
 vs:
   zod:
     _skip: not-applicable

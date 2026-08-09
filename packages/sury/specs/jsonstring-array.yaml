@@ -3,7 +3,7 @@ ts:
   schema: "S.array(S.schema({id: S.number, name: S.string})).with(S.to, S.jsonString)"
   input: "{ id: number; name: string; }[]"
   output: string
-  instantiations: 6588
+  instantiations: 6754
 vs:
   zod:
     _skip: not-applicable
