@@ -12,11 +12,7 @@ tsconfig.tsbuildinfo
 _opam/
 .attest
 packages/sury/index.mjs
-# Older revisions of scripts/pack.ts emitted the entry here; unionFuzz still
-# builds them, so the stale artifact reappears in a checkout that ran the fuzzer.
-packages/sury/src/S.mjs
 packages/json-schema-test-suite/.suite
 packages/spec/.bench-cache
 spec-perf.txt
 spec-perf-comment.md
-packages/sury/src/S.mjs
