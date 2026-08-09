@@ -16,25 +16,3 @@ test("one definition builds two working schemas", () => {
   });
   expect(() => S.parser(first)([{ tag: "b", n: 1 }])).toThrow();
 });
-
-// `undefined` is a forgotten argument far more often than a request for the
-// undefined literal, so the containers reject it and name the spelling that
-// does mean the literal.
-test("a missing argument names the fix", () => {
-  const cases: [string, () => unknown][] = [
-    ["array", () => S.array(undefined as never)],
-    ["record", () => S.record(undefined as never)],
-    ["optional", () => S.optional(undefined as never)],
-    ["nullable", () => S.nullable(undefined as never)],
-    ["nullish", () => S.nullish(undefined as never)],
-    ["list", () => (S as never as Record<string, () => unknown>)["list"]!()],
-  ];
-
-  for (const [name, build] of cases) {
-    expect(build, `S.${name} accepted undefined`).toThrow(
-      "[Sury] Ambiguous undefined. Fix the schema or use S.schema(undefined)",
-    );
-  }
-
-  expect(S.parser(S.schema(undefined))(undefined)).toBe(undefined);
-});

@@ -319,12 +319,6 @@ S.record({ n: S.number }); // { [k: string]: { n: number } }
 S.optional([S.string, "ok"]); // [string, "ok"] | undefined
 S.nullable("foo"); // "foo" | null
 
-// A schema that came out undefined — a typo, a circular import — throws on
-// the spot instead of quietly becoming a schema that matches nothing
-S.array(undefined);
-// => throws: Ambiguous undefined. Fix the schema or use S.schema(undefined)
-S.schema(undefined); // undefined — when the literal is what you meant
-
 // Unions
 S.union([S.string, S.number]);
 S.anyOf([S.string, S.number]); // alias for S.union

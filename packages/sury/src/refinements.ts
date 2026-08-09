@@ -20,7 +20,7 @@ import {
   type Val,
 } from "./base";
 import { B_embed, B_failWithErrorMessage } from "./builder";
-import { definitionToItem, optionFactory } from "./composites";
+import { definitionToSchema, optionFactory } from "./composites";
 import { getMutErrorMessage, internalRefine, nullAsUnit, transform } from "./modifiers";
 import { nullLiteral, numberDecoder, stringDecoderFn, unit } from "./primitives";
 import { unionFactory } from "./union";
@@ -740,7 +740,7 @@ export const trim = (schema: Internal): Internal => {
 
 // @__NO_SIDE_EFFECTS__
 export const nullable = (definition: unknown): Internal => {
-  return unionFactory([definitionToItem(definition), unit, nullLiteral]);
+  return unionFactory([definitionToSchema(definition), unit, nullLiteral]);
 }
 
 // @__NO_SIDE_EFFECTS__

@@ -21,7 +21,6 @@ import {
   isSchemaObject,
   jsonName,
   objectTag,
-  panic,
   pathConcat,
   pathFromInlinedLocation,
   tagFlagArray,
@@ -187,7 +186,7 @@ export const arrayFactory = (item: Internal): Internal => {
   return mut;
 }
 // @__NO_SIDE_EFFECTS__
-export const array = (item: unknown): Internal => arrayFactory(definitionToItem(item));
+export const array = (item: unknown): Internal => arrayFactory(definitionToSchema(item));
 export const arrayDecoder = (unknownInput: Val): Val => {
   const isUnion = unknownInput.u!;
   const expectedSchema = unknownInput.e;
@@ -567,23 +566,17 @@ export const dictFactory = (item: Internal): Internal => {
   return mut;
 }
 // @__NO_SIDE_EFFECTS__
-export const dict = (item: unknown): Internal => dictFactory(definitionToItem(item));
+export const dict = (item: unknown): Internal => dictFactory(definitionToSchema(item));
 
-// undefined reads as both "I forgot the argument" and "I want the undefined
-// literal". Only S.schema keeps the second meaning; the containers refuse to
-// guess, since the wrong guess is a schema that silently matches nothing.
-// An already-built schema is the overwhelmingly common argument, so it takes
-// the direct exit instead of paying traverseDefinition's typeof/null checks
-// on top of the ones isSchemaObject already made.
-export const definitionToItem = (definition: unknown): Internal =>
+// An already-built schema is the overwhelmingly common argument, so it exits
+// here instead of paying traverseDefinition's typeof/null checks on top of the
+// ones isSchemaObject just made.
+export const definitionToSchema = (definition: unknown): Internal =>
   isSchemaObject(definition)
     ? (definition as Internal)
-    : definition === U
-      ? panic("Ambiguous undefined. Fix the schema or use S.schema(undefined)")
-      : definitionToSchema(definition);
-
-export const definitionToSchema = (definition: unknown): Internal =>
-  traverseDefinition(definition, (node) => (isSchemaObject(node) ? (node as Internal) : U));
+    : traverseDefinition(definition, (node) =>
+        isSchemaObject(node) ? (node as Internal) : U
+      );
 
 export const traverseDefinition = (
   definition: unknown,
