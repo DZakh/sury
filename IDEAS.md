@@ -369,6 +369,25 @@ of a form-data story. What they were built to make cheap, roughly in order:
   from the homomorphic-type rewrite — just an existing gap now easier to spot
   in the simpler form.
 
+### `toJSONSchema` drops refinements across a per-variant conversion
+
+`S.json.with(S.to, S.array(S.optional(S.number.with(S.lte, 1))))` emits
+`{items: {anyOf: [{type: "number"}, {type: "null"}]}}` — the item's
+`maximum: 1` is gone. A variant converted through `.to(json)` (jsonDecoderFn's
+`unionRewriteTo`, via `perVariantTo`) is described by the target's type, and the
+source's refinements aren't carried onto it. The non-optional
+`S.array(S.number.with(S.lte, 1))` keeps its `maximum`, so the loss is specific
+to the per-variant path.
+
+Validation is unaffected — the generated code enforces the bound in both
+directions — so this is a fidelity gap in the emitted contract, not a hole:
+a consumer handed the JSON Schema would accept `[2]` where the codec rejects it.
+
+Pinned by `specs/codec-json-array-optional-bounded.yaml` (FIXME) and the
+`toJSONSchema` case in `tests/S_toJSONSchema_test.res`. Surfaced by #376, whose
+`undefined -> null` conversion made this shape describable at all — before it,
+the whole schema emitted `{}`.
+
 ### String formats (follow-ups to the JSON Schema format vocabulary)
 
 Scores below are against the JSON-Schema-Test-Suite `optional/format` corpus,
