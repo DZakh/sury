@@ -9,7 +9,7 @@
 
 Describe your data once. Parse it, validate it, transform it, encode it back, and turn it into JSON Schema — all from that one definition, all compiled into a single function.
 
-- ⚡ **Compiled, not interpreted.** Each schema becomes JavaScript written for exactly its shape — the fastest parsing and validation in the ecosystem ([benchmarks](#comparison)). [See the code →](#see-the-code-it-compiles)
+- ⚡ **Compiled, not interpreted.** Each schema becomes JavaScript written for exactly its shape — the fastest parsing in the ecosystem ([benchmarks](#comparison)). [See the code →](#see-the-code-it-compiles)
 - 🚀 **Encodes JSON faster than `JSON.stringify`** — and throws on the values `JSON.stringify` silently corrupts. [→](#json-serialization-faster-than-jsonstringify)
 - 🔄 **Every schema reverses.** Decode and encode come from the same definition. [→](#transformations-that-reverse-themselves)
 - 🧩 **Every schema is a pipeline stage.** `S.jsonString.with(S.to, eventSchema)` is a schema like any other. [→](#every-schema-is-a-pipeline-stage)
