@@ -34,6 +34,14 @@ const benchmarks: { name: string; schema: any; input: unknown }[] = new Function
   "__dirname",
   `${body}; return benchmarks;`,
 )(require, require("node:path").dirname(benchPath));
+// The strip above is pinned to bench.js's current layout, which is a private
+// path fjs can change in any release. Without this, a stripped-to-nothing body
+// silently benchmarks zero cases and prints an empty table.
+if (!Array.isArray(benchmarks) || benchmarks.length === 0) {
+  throw new Error(
+    `Could not extract \`benchmarks\` from ${benchPath} — fast-json-stringify's benchmark layout changed.`,
+  );
+}
 
 type Row = { name: string; fjs: string; sury: string; note: string };
 const rows: Row[] = [];
@@ -42,34 +50,62 @@ const trim = (s: string): string => (s.length > 40 ? `${s.slice(0, 40)}…` : s)
 const main = async (): Promise<void> => {
 for (const b of benchmarks) {
   const name = b.name.replace(/\.+$/, "");
-  const fjsFn = fastJson(b.schema);
-  let suryFn: ((v: unknown) => string) | undefined;
   let note = "";
+
+  // Every step below is attributed to the side it came from. Sharing one
+  // try/catch made a fjs failure surface as `sury threw` and drop Sury's row:
+  // their `format: "unsafe"` cases emit unescaped (invalid) JSON on purpose,
+  // and the comparison's `JSON.parse` was the thing that threw.
+  let fjsFn: ((v: unknown) => string) | undefined;
+  try {
+    fjsFn = fastJson(b.schema) as (v: unknown) => string;
+  } catch (e) {
+    note = `fjs unsupported: ${(e as Error).message.split("\n")[0]}`;
+  }
+  let suryFn: ((v: unknown) => string) | undefined;
   try {
     suryFn = S.encoder(S.fromJSONSchema(b.schema) as any, S.jsonString) as any;
   } catch (e) {
-    note = `unsupported: ${(e as Error).message.split("\n")[0]}`;
+    note = note || `unsupported: ${(e as Error).message.split("\n")[0]}`;
   }
 
-  let fjsOut = "";
-  try {
-    fjsOut = fjsFn(b.input);
-  } catch (e) {
-    note = note || `fjs threw: ${(e as Error).message}`;
+  let fjsOut: string | undefined;
+  if (fjsFn) {
+    try {
+      fjsOut = fjsFn(b.input);
+    } catch (e) {
+      note = note || `fjs threw: ${(e as Error).message.split("\n")[0]}`;
+      fjsFn = undefined;
+    }
   }
+  let suryOut: string | undefined;
   if (suryFn) {
     try {
-      const suryOut = suryFn(b.input);
-      if (suryOut !== fjsOut) {
-        // Equivalent JSON with different text (key order, number form) still
-        // counts as agreement; only a semantic difference is worth flagging.
-        const eq =
-          JSON.stringify(JSON.parse(suryOut)) === JSON.stringify(JSON.parse(fjsOut));
-        note = eq ? "" : `differs: fjs=${trim(fjsOut)} sury=${trim(suryOut)}`;
-      }
+      suryOut = suryFn(b.input);
     } catch (e) {
       note = `sury threw: ${(e as Error).message.split("\n")[0]}`;
       suryFn = undefined;
+    }
+  }
+
+  if (fjsOut !== undefined && suryOut !== undefined && suryOut !== fjsOut) {
+    // Equivalent JSON with different text (key order, number form) still
+    // counts as agreement; only a semantic difference is worth flagging.
+    const canonical = (s: string): string | undefined => {
+      try {
+        return JSON.stringify(JSON.parse(s));
+      } catch {
+        return undefined;
+      }
+    };
+    const suryJson = canonical(suryOut);
+    const fjsJson = canonical(fjsOut);
+    if (suryJson === undefined) {
+      note = `sury emitted invalid JSON: ${trim(suryOut)}`;
+    } else if (fjsJson === undefined) {
+      note = `fjs emitted invalid JSON: ${trim(fjsOut)}`;
+    } else if (suryJson !== fjsJson) {
+      note = `differs: fjs=${trim(fjsOut)} sury=${trim(suryOut)}`;
     }
   }
 
@@ -79,9 +115,12 @@ for (const b of benchmarks) {
       if (mode === "warmup" && typeof globalThis.gc === "function") globalThis.gc();
     },
   });
-  bench.add("fjs", () => {
-    fjsFn(b.input);
-  });
+  if (fjsFn) {
+    const fn = fjsFn;
+    bench.add("fjs", () => {
+      fn(b.input);
+    });
+  }
   if (suryFn) {
     const fn = suryFn;
     bench.add("sury", () => {

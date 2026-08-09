@@ -722,8 +722,14 @@ export const jsonString = /* @__PURE__ */ (() => {
           () => (g !== U ? `if(${g}!==void 0){${appendCode}}` : appendCode),
           raiseCountBefore,
         );
+        // `Object.keys`, not `for...in`: the latter walks the prototype chain,
+        // so an inherited enumerable key would be serialized where
+        // JSON.stringify (and the whole-value path this replaced) emits own
+        // keys only.
         loopCode = `let ${dynAcc}="";for(let ${iterVar}${
-          isArr ? `=${fixedLen};${iterVar}<${inputVar}.length;++${iterVar}` : ` in ${inputVar}`
+          isArr
+            ? `=${fixedLen};${iterVar}<${inputVar}.length;++${iterVar}`
+            : ` of Object.keys(${inputVar})`
         }){${itemCode}}`;
       }
 

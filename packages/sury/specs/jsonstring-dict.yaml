@@ -12,7 +12,7 @@ jsonSchema:
   output: '{ type: "string" }'
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v1="";for(let v0 in i){try{let v2=i[v0];(typeof v2==="string"||v2===void 0)||e[1](v2);if(v2!==void 0){v1+=(v1?",":"")+e[0](v0)+":"+e[0](v2)}}catch(v3){v3.path='["'+v0+'"]'+v3.path;throw v3}}return "{"+v1+"}"}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v1="";for(let v0 of Object.keys(i)){try{let v2=i[v0];(typeof v2==="string"||v2===void 0)||e[1](v2);if(v2!==void 0){v1+=(v1?",":"")+e[0](v0)+":"+e[0](v2)}}catch(v3){v3.path='["'+v0+'"]'+v3.path;throw v3}}return "{"+v1+"}"}
     examples:
       empty:
         input: "{}"
@@ -27,7 +27,7 @@ operations:
         input: '{ "quote\"key": "v" }'
         output: '"{\"quote\\\"key\":\"v\"}"'
   decode:
-    expression: i=>{let v2="";for(let v1 in i){let v3=i[v1];if(v3!==void 0){v2+=(v2?",":"")+e[0](v1)+":"+e[0](v3)}}return "{"+v2+"}"}
+    expression: i=>{let v2="";for(let v1 of Object.keys(i)){let v3=i[v1];if(v3!==void 0){v2+=(v2?",":"")+e[0](v1)+":"+e[0](v3)}}return "{"+v2+"}"}
     examples:
       values:
         input: '{ a: "1" }'

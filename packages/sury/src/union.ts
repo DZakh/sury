@@ -29,6 +29,7 @@ import {
   inputExpression,
   type Internal,
   isLiteral,
+  nanTag,
   neverTag,
   nullTag,
   numberTag,
@@ -1181,9 +1182,14 @@ const unionEmit = (
         string,
         Internal
       >)[trustedD[0]]!;
-      const dCond = `${source.v()}[${inlinedValueFromString(
-        trustedD[0]
-      )}]===${B_inlineConst(caseInput, dSchema)}`;
+      // `===` can't match a NaN discriminant (`x===NaN` is always false), which
+      // made the member unreachable and rejected a value it declares. The
+      // hoisted-check path this replaces used the same NaN-aware form.
+      const dRead = `${source.v()}[${inlinedValueFromString(trustedD[0])}]`;
+      const dCond =
+        dSchema.type === nanTag
+          ? `Number.isNaN(${dRead})`
+          : `${dRead}===${B_inlineConst(caseInput, dSchema)}`;
       cond.c = cond.c ? `${dCond}&&${cond.c}` : dCond;
     }
     const flags =

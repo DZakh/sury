@@ -30,7 +30,7 @@ operations:
         input: '"{\"a\":\"42\"}"'
         output: "{ a: 42n }"
   encode:
-    expression: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v1="";for(let v0 in i){try{let v2=i[v0];typeof v2==="bigint"||e[1](v2);v1+=(v1?",":"")+e[0](v0)+":\""+i[v0]+"\""}catch(v3){v3.path='["'+v0+'"]'+v3.path;throw v3}}i="{"+v1+"}";break}if(Array.isArray(i)){let v5="";for(let v4=0;v4<i.length;++v4){try{let v6=i[v4];typeof v6==="bigint"||e[2](v6);v5+=(v4?",":"")+"\""+i[v4]+"\""}catch(v7){v7.path='["'+v4+'"]'+v7.path;throw v7}}i="["+v5+"]";break}e[3](i)}return i}
+    expression: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v1="";for(let v0 of Object.keys(i)){try{let v2=i[v0];typeof v2==="bigint"||e[1](v2);v1+=(v1?",":"")+e[0](v0)+":\""+i[v0]+"\""}catch(v3){v3.path='["'+v0+'"]'+v3.path;throw v3}}i="{"+v1+"}";break}if(Array.isArray(i)){let v5="";for(let v4=0;v4<i.length;++v4){try{let v6=i[v4];typeof v6==="bigint"||e[2](v6);v5+=(v4?",":"")+"\""+i[v4]+"\""}catch(v7){v7.path='["'+v4+'"]'+v7.path;throw v7}}i="["+v5+"]";break}e[3](i)}return i}
     examples:
       dict:
         input: "{ a: 42n }"

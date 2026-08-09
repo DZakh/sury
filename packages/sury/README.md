@@ -98,7 +98,7 @@ parseEvent('{"type":"user.renamed","id":"42"}');
       }
       v0 = { type: v0["type"], id: v1 };
     } else if (v0["type"] === "user.renamed") {
-      // …one branch per variant, no loop over union members
+      // ...one branch per variant, no loop over union members
     } else {
       e[8](v0);
     }
@@ -129,7 +129,7 @@ There's no intermediate object and no `JSON.stringify` — the discriminant pick
       i = '{"type":"user.renamed","id":"' + i["id"] + '","name":' + e[0](i["name"]) + "}";
       break;
     }
-    // …one branch per variant
+    // ...one branch per variant
   }
   return i;
 };
@@ -142,7 +142,7 @@ const schema = S.schema({ id: S.bigint, payload: S.uint8Array, at: S.date, price
 const encode = S.encoder(schema, S.jsonString);
 const bytes = new TextEncoder().encode("hello");
 
-encode({ id: 9007199254740993n, payload: bytes, at: new Date(), price: 9.99 });
+encode({ id: 9007199254740993n, payload: bytes, at: new Date("2026-01-15T10:30:00.000Z"), price: 9.99 });
 // => '{"id":"9007199254740993","payload":"hello","at":"2026-01-15T10:30:00.000Z","price":9.99}'
 
 encode({ id: 1n, payload: bytes, at: new Date(), price: Infinity });
@@ -158,7 +158,7 @@ JSON.stringify({ price: Infinity });
 | Event feed (50 tagged-union events)          | 4.61 µs          | 13.52 µs            | **3.67 µs** |
 | `bigint` id + binary payload + `Date`        | 1.10 µs          | 1.11 µs             | **1.02 µs** |
 
-Faster than `JSON.stringify`, and 3.5× lighter than fast-json-stringify — 16.2 kB against 56.7 kB, encoder included. Run it yourself with `pnpm bench:jsonstring`.
+Faster than `JSON.stringify`, and 3.5× lighter than fast-json-stringify — 16.2 kB against 56.7 kB, encoder included.
 
 ### Transformations that reverse themselves
 
@@ -243,7 +243,7 @@ productSchema["~standard"].jsonSchema.input({ target: "draft-2020-12" });
 // }
 
 productSchema["~standard"].jsonSchema.output({ target: "draft-2020-12" });
-// { … properties: { id: { type: "string" }, price: { type: "number" } }, … }
+// { ... properties: { id: { type: "string" }, price: { type: "number" } }, ... }
 //                                                   ↑ what your code receives
 ```
 
@@ -307,7 +307,7 @@ else result.error;
 
 - Works with plain JavaScript, TypeScript, and ReScript — no compiler required
 - The **fastest** parsing and validation library in the JavaScript ecosystem ([benchmarks](#comparison))
-- Compiled JSON string encoding — [faster than `JSON.stringify`](#json-serialization-faster-than-jsonstringify), with `bigint`, `Uint8Array` and `Date` support built in
+- Compiled JSON string encoding — [faster and safer than `JSON.stringify`](#json-serialization-faster-than-jsonstringify), with `bigint`, `Uint8Array` and `Date` support built in
 - Tree-shakable API with a small footprint — 12.4 kB (min + gzip) for a schema and a parser
 - Async transformations, recursive schemas, and custom schemas
 

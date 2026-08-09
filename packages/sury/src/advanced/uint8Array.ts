@@ -1,4 +1,4 @@
-// `S.uint8Array` — a base64 string on the JSON side, bytes on ours.
+// `S.uint8Array` — a UTF-8 string on the JSON side, bytes on ours.
 
 import {
   flagUnsafeHas,
