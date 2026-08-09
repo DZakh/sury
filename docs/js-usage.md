@@ -308,6 +308,10 @@ S.object({ name: S.string, age: S.number }); // alias for S.schema
 S.array(S.string);
 S.record(S.number); // { [k: string]: number }
 
+// Simple Tuples
+S.schema([S.string, S.number]);
+S.tuple([S.string, S.number]); // alias for S.schema
+
 // Anywhere a schema is accepted, a raw definition works too — it's
 // passed through S.schema for you
 S.array({ id: S.string }); // { id: string }[]
@@ -320,10 +324,6 @@ S.nullable("foo"); // "foo" | null
 S.array(undefined);
 // => throws: Ambiguous undefined. Fix the schema or use S.schema(undefined)
 S.schema(undefined); // undefined — when the literal is what you meant
-
-// Simple Tuples
-S.schema([S.string, S.number]);
-S.tuple([S.string, S.number]); // alias for S.schema
 
 // Unions
 S.union([S.string, S.number]);
