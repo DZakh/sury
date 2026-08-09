@@ -188,133 +188,51 @@ jobs:
       - name: Write drift to run summary
         run: npx tsx packages/spec/perfComment.ts spec-perf.txt "$GITHUB_STEP_SUMMARY" "Performance drift since last release"
 
+  # e2e needs this slice on every run, so it stays its own job.
   ppx-build-linux:
-    name: ppx-build-linux
-    runs-on: ubuntu-24.04
-    defaults:
-      run:
-        working-directory: packages/sury-ppx/src
+    uses: ./.github/workflows/ppx-build.yml
+    with:
+      target: linux
+      runs-on: ubuntu-24.04
+      # Static linking pins the binary off the runner's glibc. The macOS and
+      # Windows toolchains have no working equivalent.
+      build-flags: --profile static
+
+  # The other four slices only feed the published tarball, and macOS runners
+  # bill at 10x. A PR that breaks them breaks the linux build too, near enough.
+  ppx-build-rest:
+    if: github.event_name != 'pull_request'
     strategy:
+      # A slice failing to build is per-platform news; the others still tell us
+      # whether the failure is local to one toolchain.
+      fail-fast: false
       matrix:
-        ocaml-compiler:
-          - 5.3.0
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Use OCaml ${{ matrix.ocaml-compiler}}
-        uses: ocaml/setup-ocaml@v3
-        with:
-          ocaml-compiler: ${{ matrix.ocaml-compiler }}
-
-      - name: Install deps
-        run: opam install . --deps-only --with-test
-
-      - name: Build
-        run: opam exec -- dune build --profile static
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ppx-build-linux
-          path: packages/sury-ppx/src/_build/default/bin/bin.exe
-          if-no-files-found: error
-
-  ppx-build-linux-arm:
-    name: ppx-build-linux-arm
-    runs-on: ubuntu-24.04-arm
-    defaults:
-      run:
-        working-directory: packages/sury-ppx/src
-    strategy:
-      matrix:
-        ocaml-compiler:
-          - 5.3.0
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Use OCaml ${{ matrix.ocaml-compiler}}
-        uses: ocaml/setup-ocaml@v3
-        with:
-          ocaml-compiler: ${{ matrix.ocaml-compiler }}
-
-      - name: Install deps
-        run: opam install . --deps-only --with-test
-
-      - name: Build
-        run: opam exec -- dune build --profile static
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ppx-build-linux-arm
-          path: packages/sury-ppx/src/_build/default/bin/bin.exe
-          if-no-files-found: error
-
-  ppx-build-macos:
-    name: ppx-build-macos
-    runs-on: macOS-latest
-    defaults:
-      run:
-        working-directory: packages/sury-ppx/src
-    strategy:
-      matrix:
-        ocaml-compiler:
-          - 5.3.0
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Use OCaml ${{ matrix.ocaml-compiler}}
-        uses: ocaml/setup-ocaml@v3
-        with:
-          ocaml-compiler: ${{ matrix.ocaml-compiler }}
-
-      - name: Install deps
-        run: opam install . --deps-only --with-test
-
-      - name: Build
-        run: opam exec -- dune build
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ppx-build-macos
-          path: packages/sury-ppx/src/_build/default/bin/bin.exe
-          if-no-files-found: error
-
-  ppx-build-windows:
-    name: ppx-build-windows
-    runs-on: windows-2025
-    defaults:
-      run:
-        working-directory: packages/sury-ppx/src
-    strategy:
-      matrix:
-        ocaml-compiler:
-          - 5.3.0
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Use OCaml ${{ matrix.ocaml-compiler}}
-        uses: ocaml/setup-ocaml@v3
-        with:
-          ocaml-compiler: ${{ matrix.ocaml-compiler }}
-
-      - name: Install deps
-        run: opam install . --deps-only --with-test
-
-      - name: Build
-        run: opam exec -- dune build
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ppx-build-windows
-          path: packages/sury-ppx/src/_build/default/bin/bin.exe
-          if-no-files-found: error
+        include:
+          - target: linux-arm
+            runs-on: ubuntu-24.04-arm
+            build-flags: --profile static
+          - target: macos
+            # Rosetta translates x64 -> arm64, never the reverse, so the x64
+            # slice needs an actual Intel runner rather than macos-latest.
+            runs-on: macos-15-intel
+            build-flags: ""
+          - target: macos-arm
+            runs-on: macos-latest
+            build-flags: ""
+          - target: windows
+            runs-on: windows-2025
+            build-flags: ""
+    uses: ./.github/workflows/ppx-build.yml
+    with:
+      target: ${{ matrix.target }}
+      runs-on: ${{ matrix.runs-on }}
+      build-flags: ${{ matrix.build-flags }}
 
   pack-sury-ppx:
     name: Pack sury-ppx
-    needs: [ppx-build-linux, ppx-build-linux-arm, ppx-build-macos, ppx-build-windows]
+    # Skipped on PRs because ppx-build-rest is: there is no tarball to pack
+    # without all five slices.
+    needs: [ppx-build-linux, ppx-build-rest]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -325,40 +243,65 @@ jobs:
           cache: "pnpm"
       - run: pnpm install
 
-      - name: Download ppx linux artifacts
+      - name: Download ppx artifacts
         uses: actions/download-artifact@v4
         with:
-          name: ppx-build-linux
-          path: binaries/linux
-
-      - name: Download ppx linux-ARM artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: ppx-build-linux-arm
-          path: binaries/linux-arm
-
-      - name: Download macOS artifacts
-        uses: actions/download-artifact@master
-        with:
-          name: ppx-build-macos
-          path: binaries/macos
-
-      - name: Download windows artifacts
-        uses: actions/download-artifact@master
-        with:
-          name: ppx-build-windows
-          path: binaries/windows
+          pattern: ppx-build-*
+          path: binaries
 
       - name: Move ppx artifacts
         run: |
-          mv binaries/linux/bin.exe packages/sury-ppx/ppx-linux.exe
-          mv binaries/linux-arm/bin.exe packages/sury-ppx/ppx-linux-arm.exe
-          mv binaries/macos/bin.exe packages/sury-ppx/ppx-osx.exe
-          mv binaries/windows/bin.exe packages/sury-ppx/ppx-windows.exe
+          mv binaries/ppx-build-linux/bin.exe packages/sury-ppx/ppx-linux.exe
+          mv binaries/ppx-build-linux-arm/bin.exe packages/sury-ppx/ppx-linux-arm.exe
+          mv binaries/ppx-build-macos/bin.exe packages/sury-ppx/ppx-osx.exe
+          mv binaries/ppx-build-macos-arm/bin.exe packages/sury-ppx/ppx-osx-arm.exe
+          mv binaries/ppx-build-windows/bin.exe packages/sury-ppx/ppx-windows.exe
+
+          # Artifact download drops the executable bit. install.cjs chmods the
+          # binary it picks, but installers that skip postinstall (pnpm >=10 by
+          # default) fall through to the `bin` script, which execs it as-is.
+          chmod +x packages/sury-ppx/ppx-*.exe
+
+      # Nothing else notices when a runner label silently changes architecture
+      # (#367 shipped an arm64 binary to Intel Macs for exactly this reason) or
+      # when a new slice is missing from package.json "files".
+      - name: Verify binary architectures
+        working-directory: packages/sury-ppx
+        run: |
+          check() {
+            if ! file -b "$1" | grep -qE "$2"; then
+              echo "::error::$1 should be $2 but is: $(file -b "$1")"
+              exit 1
+            fi
+          }
+          check ppx-linux.exe 'ELF.*x86-64'
+          check ppx-linux-arm.exe 'ELF.*aarch64'
+          check ppx-osx.exe 'Mach-O.*x86_64'
+          check ppx-osx-arm.exe 'Mach-O.*arm64'
+          check ppx-windows.exe 'PE32\+.*x86-64'
 
       - name: npm pack (sury-ppx)
         run: npm pack
         working-directory: packages/sury-ppx
+
+      - name: Verify tarball contents
+        working-directory: packages/sury-ppx
+        run: |
+          listing=$(tar -tvzf sury-ppx-*.tgz)
+          for f in ppx-linux.exe ppx-linux-arm.exe ppx-osx.exe ppx-osx-arm.exe \
+                   ppx-windows.exe bin bin.cmd install.cjs; do
+            if ! grep -q " package/$f\$" <<<"$listing"; then
+              echo "::error::package/$f missing from the tarball - add it to package.json \"files\""
+              exit 1
+            fi
+          done
+          # The `bin` script execs these directly when postinstall is skipped.
+          for f in ppx-linux.exe ppx-linux-arm.exe ppx-osx.exe ppx-osx-arm.exe; do
+            if ! grep -qE "^-rwx.* package/$f\$" <<<"$listing"; then
+              echo "::error::package/$f is not executable in the tarball"
+              exit 1
+            fi
+          done
 
       - name: "Upload artifact: sury-ppx npm package"
         uses: actions/upload-artifact@v4
