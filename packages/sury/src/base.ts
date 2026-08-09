@@ -37,8 +37,12 @@ export type Path = string;
 export const pathEmpty: Path = "";
 export const pathDynamic: Path = "[]";
 
+// Everything a raw splice into a double-quoted JS literal can't carry: the
+// quote itself, `\` (an accidental escape reads as a different string), and
+// both line terminators (a SyntaxError inside new Function).
+const inlineUnsafeRe = /["\\\n\r]/;
 export const inlinedValueFromString = (str: string): string => {
-  return str.includes('"') || str.includes("\n") ? JSON.stringify(str) : `"${str}"`;
+  return inlineUnsafeRe.test(str) ? JSON.stringify(str) : `"${str}"`;
 }
 
 export const pathFromInlinedLocation = (inlinedLocation: string): Path => {
@@ -331,6 +335,21 @@ export type Internal = {
   pattern?: RegExp;
   errorMessage?: SchemaErrorMessage;
   space?: number;
+  // Compile-time only, set on a per-operation schema copy by the container
+  // decoders' jsonString fusion (B_fuseIntoJsonString in composites.ts): the
+  // container's dynamic items are typed but UNVALIDATED — the validation loop
+  // was skipped because jsonStringAggregate re-parses each item from unknown
+  // inside its own serialize loop. Carried on the schema (not the val) so it
+  // survives the parse loop's per-segment B_refine.
+  uv?: boolean;
+  // Compile-time only, and `unionRewrite` (union.ts) is the ONLY producer: this
+  // union's variants were rewritten from the variants of the union the value
+  // was already typed as, so a dispatched case may convert from its own variant
+  // instead of re-validating it. Spelling it `true` anywhere else licenses
+  // skipping checks the value never passed — the rewrite is what makes it true,
+  // because it drops the val's source to `unknown` and would otherwise lose the
+  // guarantee the source union carried.
+  tr?: boolean;
   "$ref"?: string;
   "$defs"?: Record<string, Internal>;
   isAsync?: boolean; // Optional value means that it's not lazily computed yet.
@@ -364,6 +383,9 @@ export type BGlobal = {
   // generated code, so a builder can bracket a stretch of emission and learn
   // whether what it produced can throw. Read the difference, never the value.
   t: number;
+  // @as("js") — the operation's asJsonString embed accessor, cached by
+  // B_embedJsonStr (advanced/json.ts) on first use.
+  js?: string;
 }
 
 // Adjacent checks sharing `fail` by reference equality are fused with `&&`
