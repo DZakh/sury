@@ -90,21 +90,16 @@ const buildRunner = (
     }
   });
   // The batch iterates every example, which is why one target covers the whole
-  // outcome. The inner loop is indexed rather than `for…of` so the batch times
-  // the operation and not an iterator protocol.
-  const run = target.throws
-    ? new Function(
-        "op",
-        "inputs",
-        "box",
-        "return (n) => { for (let i = 0; i < n; i++) for (let j = 0; j < inputs.length; j++) { try { box.v = op(inputs[j]); } catch (e) { box.v = e; } } };",
-      )(op, inputs, box)
-    : new Function(
-        "op",
-        "inputs",
-        "box",
-        "return (n) => { for (let i = 0; i < n; i++) for (let j = 0; j < inputs.length; j++) box.v = op(inputs[j]); };",
-      )(op, inputs, box);
+  // outcome. Indexed rather than `for…of`, so it times the operation and not an
+  // iterator protocol — and a single-example outcome (half of them) keeps the
+  // flat loop it had before outcomes were aggregated, so the majority of
+  // targets measure exactly what they measured before.
+  const call = target.throws ? "try { box.v = op(INPUT); } catch (e) { box.v = e; }" : "box.v = op(INPUT);";
+  const body =
+    inputs.length === 1
+      ? `for (let i = 0; i < n; i++) { ${call.replace("INPUT", "inputs[0]")} }`
+      : `for (let i = 0; i < n; i++) for (let j = 0; j < inputs.length; j++) { ${call.replace("INPUT", "inputs[j]")} }`;
+  const run = new Function("op", "inputs", "box", `return (n) => { ${body} };`)(op, inputs, box);
   return { run, threw };
 };
 
