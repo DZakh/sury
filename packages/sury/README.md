@@ -13,7 +13,7 @@ Describe your data once. Parse it, validate it, transform it, encode it back, an
 - 🚀 **Encodes JSON faster than `JSON.stringify`** — and throws on the values `JSON.stringify` silently corrupts. [→](#json-serialization-faster-than-jsonstringify)
 - 🔄 **Every schema reverses.** Decode and encode come from the same definition. [→](#transformations-that-reverse-themselves)
 - 🧩 **Every schema is a pipeline stage.** `S.jsonString.with(S.to, eventSchema)` is a schema like any other. [→](#every-schema-is-a-pipeline-stage)
-- 📄 **JSON Schema in both directions** — `$ref` and recursion included, no codegen step. [→](#json-schema-through-the-standard-interface)
+- 📄 **JSON Schema in both directions** — paste a document in and TypeScript infers the type, `$ref` and recursion included. No codegen step, no `any`. [→](#json-schema-through-the-standard-interface)
 - 🔍 **Types you can read.** You hover `S.Schema<{foo: string}, {foo: string}>`, not the library's internals. [→](#types-you-can-actually-read)
 - 🌳 **Small and tree-shakable** — 12.4 kB min+gzip for a schema and a parser. Async, recursive and custom schemas included.
 - 🟨 **Plain JavaScript, TypeScript and ReScript** — no compiler required.
