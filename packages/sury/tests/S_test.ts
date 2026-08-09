@@ -369,8 +369,7 @@ test("Fails to parse intersected objects with transform", (t) => {
   }).toThrow(
     t.expect.objectContaining({
       name: "Error",
-      // TODO: Can theoretically support this case
-      message: `[Sury] The merge supports only structured object schemas without transformations`,
+      message: `[Sury] Can't merge transformed { foo: string; bar: boolean; }`,
     }),
   );
 

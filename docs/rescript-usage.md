@@ -10,6 +10,7 @@
 - [Real-world examples](#real-world-examples)
 - [API reference](#api-reference)
   - [`string`](#string)
+    - [String formats](#string-formats)
     - [Custom error messages](#custom-error-messages)
     - [ISO datetimes](#iso-datetimes)
   - [`int`](#int)
@@ -219,18 +220,64 @@ S.string->S.pattern(%re(`/[0-9]/`)) // Invalid pattern
 S.string->S.trim // trim whitespaces
 ```
 
-For format-specific string validation, use the standalone schemas:
-
-```rescript
-S.email // Standalone email schema
-S.url // Standalone URL schema
-S.uuid // Standalone UUID schema
-S.cuid // Standalone CUID schema
-```
+For format-specific validation, use the standalone schemas — see [String formats](#string-formats) below.
 
 > For ISO 8601 UTC datetime strings use the dedicated standalone `S.isoDateTime` schema — see [ISO datetimes](#iso-datetimes) below.
 
 > ⚠️ Validating email addresses is nearly impossible with just code. Different clients and servers accept different things and many diverge from the various specs defining "valid" emails. The ONLY real way to validate an email address is to send a verification email to it and check that the user got it. With that in mind, Sury picks a relatively simple regex that does not cover all cases.
+
+#### String formats
+
+The JSON Schema string format vocabulary, as standalone schemas:
+
+```rescript
+S.email // Email address
+S.idnEmail // Internationalized email address
+S.uuid // UUID
+S.cuid // CUID
+S.uri // URI — a scheme is required
+S.uriReference // URI or relative reference
+S.uriTemplate // URI Template
+S.iri // IRI — a URI with Unicode allowed
+S.iriReference // IRI or relative reference
+S.hostname // Host name
+S.idnHostname // Internationalized host name
+S.ipv4 // IPv4 address
+S.ipv6 // IPv6 address
+S.isoDate // Calendar date
+S.isoTime // Time of day
+S.isoDateTime // UTC timestamp
+S.duration // Duration
+S.jsonPointer // JSON Pointer
+S.relativeJsonPointer // Relative JSON Pointer
+```
+
+Each survives a round trip through `S.toJSONSchema` and `S.fromJSONSchema`.
+
+**A format checks syntax, not safety.** Every one is exactly as strict as its
+spec, so a well-formed value passes even when it isn't one you want to accept:
+
+```rescript
+"javascript:alert(1)"->S.assertOrThrow(~to=S.uri) // passes — a valid URI
+"169.254.169.254"->S.assertOrThrow(~to=S.hostname) // passes — a valid host name
+"//evil.com"->S.assertOrThrow(~to=S.uriReference) // passes — a valid reference
+```
+
+When you want a security decision rather than a syntax check, compose one. The
+extra constraint rides along into the JSON Schema, so it stays honest:
+
+```rescript
+let httpsOnly = S.uri->S.pattern(%re(`/^https:\/\//`))
+// { type: "string", format: "uri", pattern: "^https:\\/\\/" }
+```
+
+Two worth knowing before you pick one:
+
+- **`S.url` is not `S.uri`.** `S.url` is an instance of the JS `URL` class, the
+  way `S.date` is a `Date` — use it when you want the parsed object and its
+  `.host` / `.pathname`. `S.uri` validates a string and leaves it a string.
+- **`S.uriReference` is usually the one you want for a link field.** `S.uri`
+  requires a scheme, so it rejects `/dashboard`.
 
 #### Custom error messages
 

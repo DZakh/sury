@@ -13,10 +13,8 @@ import {
   immutableEmptyArray,
   inlinedValueFromString,
   inputExpression,
-  instanceTag,
   type Internal,
   isLiteral,
-  isSchemaObject,
   itemSymbol,
   objectTag,
   panic,
@@ -41,14 +39,16 @@ import {
 import {
   arrayDecoder,
   completeObjectVal,
+  definitionToSchema,
   makeObjectVal,
   objectDecoder,
   optionFactory,
+  traverseDefinition,
   valGet,
 } from "./composites";
 import { Option_getOr, type TupleCtx } from "./modifiers";
 import { getOutputSchema, parse, reverse } from "./parse";
-import { Literal_parse, literalDecoder, unit } from "./primitives";
+import { unit } from "./primitives";
 import { unionFactory } from "./union";
 
 type ShapedSerializerAcc = {
@@ -181,9 +181,7 @@ function schemaNested(this: AdvancedObjectCtx & Record<string, unknown>, fieldNa
         const flattenedProperties = schema.properties;
         const to = schema.to;
         if (to) {
-          panic(
-            `Unsupported nested flatten for transformed object schema ${inputExpression(schema)}`
-          );
+          panic(`Can't flatten transformed ${inputExpression(schema)}`);
         }
         const flattenedKeys = Object.keys(flattenedProperties!);
         const result: Record<string, unknown> = {};
@@ -594,75 +592,11 @@ const definitionToShapedSchema = (definition: unknown): Internal => {
   const s = copySchema(
     traverseDefinition(
       definition,
-      (definition: unknown) =>
-        (definition as Record<symbol, Internal | undefined>)[itemSymbol]
+      (node) => (node as Record<symbol, Internal | undefined>)[itemSymbol]
     )
   );
   s.serializer = shapedSerializer;
   return s;
-}
-
-export const definitionToSchema = (definition: unknown): Internal => {
-  return traverseDefinition(definition, (node) => {
-    if (isSchemaObject(node)) {
-      return node as Internal;
-    } else {
-      return U;
-    }
-  });
-}
-
-const traverseDefinition = (
-  definition: unknown,
-  onNode: (node: unknown) => Internal | undefined
-): Internal => {
-  if (typeof definition === objectTag && definition !== null) {
-    const s = onNode(definition);
-    if (s !== U) {
-      return s;
-    } else {
-      if (Array.isArray(definition)) {
-        const node = definition as unknown[];
-        for (let idx = 0; idx < node.length; idx++) {
-          node[idx] = traverseDefinition(node[idx], onNode);
-        }
-        const items = node as Internal[];
-
-        const mut = baseSchema(arrayTag, false, arrayDecoder);
-        mut.items = items;
-        mut.additionalItems = "strict";
-        return mut;
-      } else {
-        // A prototype other than Object.prototype (or null, e.g. Object.create(null))
-        // means `definition` is a genuine class instance (Date, RegExp, a user
-        // class, ...) to match as a literal — not a plain-record description.
-        // Checking definition["constructor"] instead would misclassify any plain
-        // record that happens to declare an own field named "constructor".
-        const proto = Object.getPrototypeOf(definition);
-        if (proto !== null && proto !== Object.prototype) {
-          const mut = baseSchema(instanceTag, true, literalDecoder);
-          mut.class = (definition as Record<string, unknown>)["constructor"];
-          mut.const = definition;
-          return mut;
-        } else {
-          const node = definition as Record<string, unknown>;
-          const fieldNames = Object.keys(node);
-          const length = fieldNames.length;
-          for (let idx = 0; idx < length; idx++) {
-            const location = fieldNames[idx]!;
-            node[location] = traverseDefinition(node[location], onNode);
-          }
-          const mut = baseSchema(objectTag, false, objectDecoder);
-          mut.required = fieldNames;
-          mut.properties = node as Record<string, Internal>;
-          mut.additionalItems = globalConfig.a;
-          return mut;
-        }
-      }
-    }
-  } else {
-    return Literal_parse(definition);
-  }
 }
 
 const schemaCtx: SchemaCtx = {

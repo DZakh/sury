@@ -35,11 +35,19 @@ test("JSONSchema of email schema", t => {
   )
 })
 
-test("JSONSchema of url schema", t => {
+test("JSONSchema of uri schema", t => {
   t->Assert.deepEqual(
-    S.url->S.toJSONSchema,
+    S.uri->S.toJSONSchema,
     %raw(`{"type": "string", "format": "uri"}`),
-    ~message="The format should be uri for url schema",
+    ~message="The format should be uri for uri schema",
+  )
+})
+
+test("JSONSchema of S.string->S.to(S.url)", t => {
+  t->Assert.deepEqual(
+    S.string->S.to(S.url)->S.toJSONSchema,
+    %raw(`{"type": "string", "format": "uri"}`),
+    ~message="A URL instance describes itself as a uri string",
   )
 })
 

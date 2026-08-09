@@ -3,7 +3,7 @@ ts:
   schema: 'S.json.with(S.to, S.schema({ value: S.union([S.schema({ type: "B", value: S.optional(S.string.with(S.to, S.date)) }), S.schema({ type: "C", value: S.optional(S.string.with(S.to, S.date)) })]) }))'
   input: JSON
   output: '{ value: { type: "B"; value?: Date | undefined; } | { type: "C"; value?: Date | undefined; }; }'
-  instantiations: 13896
+  instantiations: 13969
 vs:
   zod:
     _skip: not-applicable

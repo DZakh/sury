@@ -3,7 +3,7 @@ ts:
   schema: S.nullish(S.string)
   input: string | null | undefined
   output: string | null | undefined
-  instantiations: 377
+  instantiations: 419
 vs:
   zod: z.string().nullish()
 jsonSchema:

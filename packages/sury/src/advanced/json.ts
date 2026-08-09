@@ -56,8 +56,8 @@ import {
   failInvalidType,
 } from "../builder";
 import {
-  array,
   arrayDecoder,
+  arrayFactory,
   completeObjectVal,
   dictFactory,
   makeObjectVal,
@@ -106,7 +106,7 @@ export const jsonEncoderFn = (input: Val, target: Internal): Val => {
   } else if (flagUnsafeHas(toTagFlag, tagFlagArray)) {
     // Validate that the input is an array
     // and then update the schema to be an array of json instead of array of unknown
-    const jsonExpected = array(unknown);
+    const jsonExpected = arrayFactory(unknown);
     const output = parse(B_refine(input, unknown, U, jsonExpected));
     output.s.additionalItems = json;
     output.e = target;
@@ -289,7 +289,7 @@ export const json: Internal = /* @__PURE__ */ initSchema(refTag, jsonDecoderFn, 
     ]),
     nullLiteral,
     dictFactory(jsonRef),
-    array(jsonRef),
+    arrayFactory(jsonRef),
   ];
   const has: Partial<Record<Tag, boolean>> = {};
   anyOf.forEach((schema) => {

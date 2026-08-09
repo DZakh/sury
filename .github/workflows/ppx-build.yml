@@ -1,0 +1,48 @@
+name: ppx-build
+
+# One build recipe for every platform slice. Called once per target from ci.yml
+# rather than matrixed there directly, because e2e needs the linux slice alone
+# and a matrix job can't be depended on leg-by-leg.
+on:
+  workflow_call:
+    inputs:
+      target:
+        description: Names the uploaded artifact (ppx-build-<target>).
+        required: true
+        type: string
+      runs-on:
+        required: true
+        type: string
+      build-flags:
+        description: Extra flags for `dune build`.
+        required: false
+        type: string
+        default: ""
+
+jobs:
+  build:
+    name: ${{ inputs.target }}
+    runs-on: ${{ inputs.runs-on }}
+    defaults:
+      run:
+        working-directory: packages/sury-ppx/src
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use OCaml
+        uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: 5.3.0
+
+      - name: Install deps
+        run: opam install . --deps-only --with-test
+
+      - name: Build
+        run: opam exec -- dune build ${{ inputs.build-flags }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ppx-build-${{ inputs.target }}
+          path: packages/sury-ppx/src/_build/default/bin/bin.exe
+          if-no-files-found: error

@@ -5,7 +5,7 @@ ts:
     - S.optional(S.optional(S.optional(S.string)))
   input: string | undefined
   output: string | undefined
-  instantiations: 380
+  instantiations: 422
 vs:
   zod: z.string().optional()
 jsonSchema:

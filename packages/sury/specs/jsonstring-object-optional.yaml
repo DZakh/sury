@@ -3,7 +3,7 @@ ts:
   schema: "S.schema({a: S.optional(S.string), b: S.number, c: S.optional(S.boolean)}).with(S.to, S.jsonString)"
   input: "{ b: number; a?: string | undefined; c?: boolean | undefined; }"
   output: string
-  instantiations: 7333
+  instantiations: 7404
 vs:
   zod:
     _skip: not-applicable
