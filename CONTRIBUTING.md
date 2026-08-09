@@ -367,9 +367,23 @@ instead of silently working around it.
   is within 5% of its group's cheapest 66% of the time, so "first" is a
   best-case bias rather than a neutral sample, and the longest input is the
   most expensive one only 42% of the time — no better than picking at random.
-  Whatever keeps the signal has to be told, not inferred: an opt-in marker on
-  the examples worth timing, defaulting to first-accepted/first-rejected, gets
-  the 43% back while leaving the union specs their dispatch coverage.
+  So don't pick one. Running the whole group in one loop — one target per
+  (spec, op, accept/reject), its batch iterating every example — collapses the
+  targets exactly as hard while dropping nothing, which is what makes it the
+  better trade. Measured against timing the same examples separately: the loop
+  costs 1.05x or less in 56% of groups and 1.20x or less in 77%, so the
+  megamorphic call site the loop creates is mostly cheap, and what it does cost
+  lands on both sides of the ratio. A 2x regression on a group's *cheapest*
+  example still moves that group's aggregate by 33% at the median, and falls
+  under the 3% floor in only 25 of 353 groups.
+  Keep the split by outcome. Mixing accepted and rejected inputs puts the whole
+  loop behind the try/catch the rejecting side needs, which measures the catch
+  rather than the schema.
+  The 25 groups aggregation does lose are the ones with an enormous internal
+  spread — `union-large-planner` runs 5ns against 12µs, so its cheap member is
+  0.02% of the total and invisible inside it. Those are the same groups
+  first-only mishandles, and the honest fix for them is to stay split rather
+  than to pick a representative.
   Two things not to reach for. Batching targets into one process would save that
   46ms but give up the fresh heap per target the design deliberately buys. And
   raising the screening parallelism trades away exactly what the job is for —
