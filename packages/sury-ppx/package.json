@@ -26,6 +26,7 @@
     "ppx-linux.exe",
     "ppx-linux-arm.exe",
     "ppx-osx.exe",
+    "ppx-osx-arm.exe",
     "bin.cmd",
     "bin"
   ],
