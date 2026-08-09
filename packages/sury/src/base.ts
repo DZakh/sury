@@ -161,7 +161,32 @@ export const itemSymbol = /* @__PURE__ */ Symbol(vendor + ":item");
 // Every number format describes integer-valued numbers — numberDecoder skips
 // the "integer" check for any formatted source on that invariant.
 export type NumberFormat = "int32" | "port" | "integer";
-export type StringFormat = "json" | "date-time" | "email" | "uuid" | "cuid" | "url";
+// Mirrored by `StringFormat` in index.d.ts, which is the surface TS users see —
+// a name added here without being added there is invisible to them, and a third
+// copy lives in `S.res`. Every member but `json` and `cuid` is a JSON Schema
+// format name verbatim, which is what lets jsonschema.ts pass it through in
+// both directions.
+export type StringFormat =
+  | "json"
+  | "date-time"
+  | "email"
+  | "uuid"
+  | "cuid"
+  | "uri"
+  | "date"
+  | "time"
+  | "duration"
+  | "hostname"
+  | "idn-hostname"
+  | "ipv4"
+  | "ipv6"
+  | "uri-reference"
+  | "uri-template"
+  | "iri"
+  | "iri-reference"
+  | "idn-email"
+  | "json-pointer"
+  | "relative-json-pointer";
 export type ArrayFormat = "compactColumns";
 export type Format = NumberFormat | StringFormat | ArrayFormat;
 

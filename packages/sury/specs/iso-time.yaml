@@ -1,0 +1,156 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.isoTime
+  input: string
+  output: string
+  instantiations: 254
+vs:
+  zod: z.iso.time()
+jsonSchema:
+  input: '{ type: "string", format: "time" }'
+  output: '{ type: "string", format: "time" }'
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0](i)||e[1](i);return i}
+    examples:
+      a-valid-time-string:
+        input: '"08:30:06Z"'
+        output: '"08:30:06Z"'
+      invalid-time-string-with-extra-leading-zeros:
+        input: '"008:030:006Z"'
+        error: Expected time, received "008:030:006Z"
+      invalid-time-string-with-no-leading-zero-for:
+        input: '"8:3:6Z"'
+        error: Expected time, received "8:3:6Z"
+      hour-minute-second-must-be-two-digits:
+        input: '"8:0030:6Z"'
+        error: Expected time, received "8:0030:6Z"
+      a-valid-time-string-with-leap-second-zulu:
+        input: '"23:59:60Z"'
+        output: '"23:59:60Z"'
+      invalid-leap-second-zulu-wrong-hour:
+        input: '"22:59:60Z"'
+        error: Expected time, received "22:59:60Z"
+      invalid-leap-second-zulu-wrong-minute:
+        input: '"23:58:60Z"'
+        error: Expected time, received "23:58:60Z"
+      valid-leap-second-zero-time-offset:
+        input: '"23:59:60+00:00"'
+        output: '"23:59:60+00:00"'
+      invalid-leap-second-zero-time-offset-wrong-hour:
+        input: '"22:59:60+00:00"'
+        error: Expected time, received "22:59:60+00:00"
+      invalid-leap-second-zero-time-offset-wrong-minute:
+        input: '"23:58:60+00:00"'
+        error: Expected time, received "23:58:60+00:00"
+      valid-leap-second-positive-time-offset:
+        input: '"01:29:60+01:30"'
+        output: '"01:29:60+01:30"'
+      valid-leap-second-large-positive-time-offset:
+        input: '"23:29:60+23:30"'
+        output: '"23:29:60+23:30"'
+      invalid-leap-second-positive-time-offset-wrong-hour:
+        input: '"23:59:60+01:00"'
+        error: Expected time, received "23:59:60+01:00"
+      invalid-leap-second-positive-time-offset-wrong-minute:
+        input: '"23:59:60+00:30"'
+        error: Expected time, received "23:59:60+00:30"
+      valid-leap-second-negative-time-offset:
+        input: '"15:59:60-08:00"'
+        output: '"15:59:60-08:00"'
+      valid-leap-second-large-negative-time-offset:
+        input: '"00:29:60-23:30"'
+        output: '"00:29:60-23:30"'
+      invalid-leap-second-negative-time-offset-wrong-hour:
+        input: '"23:59:60-01:00"'
+        error: Expected time, received "23:59:60-01:00"
+      invalid-leap-second-negative-time-offset-wrong-minute:
+        input: '"23:59:60-00:30"'
+        error: Expected time, received "23:59:60-00:30"
+      a-valid-time-string-with-second-fraction:
+        input: '"23:20:50.52Z"'
+        output: '"23:20:50.52Z"'
+      a-valid-time-string-with-precise-second-fraction:
+        input: '"08:30:06.283185Z"'
+        output: '"08:30:06.283185Z"'
+      a-valid-time-string-with-plus-offset:
+        input: '"08:30:06+00:20"'
+        output: '"08:30:06+00:20"'
+      a-valid-time-string-with-minus-offset:
+        input: '"08:30:06-08:00"'
+        output: '"08:30:06-08:00"'
+      time-with-unknown-local-offset-is-valid:
+        input: '"12:34:56-00:00"'
+        output: '"12:34:56-00:00"'
+      hour-minute-in-time-offset-must-be-two:
+        input: '"08:30:06-8:000"'
+        error: Expected time, received "08:30:06-8:000"
+      a-valid-time-string-with-case-insensitive-z:
+        input: '"08:30:06z"'
+        output: '"08:30:06z"'
+      an-invalid-time-string-with-invalid-hour:
+        input: '"24:00:00Z"'
+        error: Expected time, received "24:00:00Z"
+      an-invalid-time-string-with-invalid-minute:
+        input: '"00:60:00Z"'
+        error: Expected time, received "00:60:00Z"
+      an-invalid-time-string-with-invalid-second:
+        input: '"00:00:61Z"'
+        error: Expected time, received "00:00:61Z"
+      an-invalid-time-string-with-invalid-leap-second:
+        input: '"22:59:60Z"'
+        error: Expected time, received "22:59:60Z"
+      an-invalid-time-string-with-invalid-leap-second-2:
+        input: '"23:58:60Z"'
+        error: Expected time, received "23:58:60Z"
+      an-invalid-time-string-with-invalid-time-numoffset:
+        input: '"01:02:03+24:00"'
+        error: Expected time, received "01:02:03+24:00"
+      an-invalid-time-string-with-invalid-time-numoffset-2:
+        input: '"01:02:03+00:60"'
+        error: Expected time, received "01:02:03+00:60"
+      an-invalid-time-string-with-invalid-time-with:
+        input: '"01:02:03Z+00:30"'
+        error: Expected time, received "01:02:03Z+00:30"
+      an-invalid-offset-indicator:
+        input: '"08:30:06 PST"'
+        error: Expected time, received "08:30:06 PST"
+      only-rfc3339-not-all-of-iso-8601-are:
+        input: '"01:01:01,1111"'
+        error: Expected time, received "01:01:01,1111"
+      no-time-offset:
+        input: '"12:00:00"'
+        error: Expected time, received "12:00:00"
+      no-time-offset-with-second-fraction:
+        input: '"12:00:00.52"'
+        error: Expected time, received "12:00:00.52"
+      invalid-non-ascii-a-bengali-2:
+        input: '"1২:00:00Z"'
+        error: Expected time, received "1২:00:00Z"
+      offset-not-starting-with-plus-or-minus:
+        input: '"08:30:06#00:20"'
+        error: Expected time, received "08:30:06#00:20"
+      contains-letters:
+        input: '"ab:cd:ef"'
+        error: Expected time, received "ab:cd:ef"
+      an-invalid-time-string-in-date-time-format:
+        input: '"2020-11-28T23:55:45Z"'
+        error: Expected time, received "2020-11-28T23:55:45Z"
+  decode:
+    expression: i=>{e[0](i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"08:30:06Z"'
+        output: '"08:30:06Z"'
+      invalid:
+        input: '"008:030:006Z"'
+        error: Expected time, received "008:030:006Z"
+  encode:
+    expression: i=>{e[0](i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"08:30:06Z"'
+        output: '"08:30:06Z"'
+      invalid:
+        input: '"008:030:006Z"'
+        error: Expected time, received "008:030:006Z"

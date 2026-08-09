@@ -15,6 +15,7 @@ Describe your data once. Parse it, validate it, transform it, encode it back, an
 - 🧩 **Every schema is a pipeline stage.** `S.jsonString.with(S.to, eventSchema)` is a schema like any other. [→](#every-schema-is-a-pipeline-stage)
 - 📄 **JSON Schema in both directions** — paste a document in and TypeScript infers the type, `$ref` and recursion included. No codegen step, no `any`. [→](#json-schema-through-the-standard-interface)
 - 🔍 **Types you can read.** You hover `S.Schema<{foo: string}, {foo: string}>`, not the library's internals. [→](#types-you-can-actually-read)
+- 🔤 **The JSON Schema string format vocabulary** — dates, durations, URIs, IRIs, hostnames, IP addresses and JSON Pointers, built in. [JS](https://github.com/DZakh/sury/blob/main/docs/js-usage.md#string-formats) · [ReScript](https://github.com/DZakh/sury/blob/main/docs/rescript-usage.md#string-formats)
 - 🌳 **Small and tree-shakable** — 12.4 kB min+gzip for a schema and a parser. Async, recursive and custom schemas included.
 - 🟨 **Plain JavaScript, TypeScript and ReScript** — no compiler required.
 

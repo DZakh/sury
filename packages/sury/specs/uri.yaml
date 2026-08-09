@@ -1,0 +1,159 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.uri
+  input: string
+  output: string
+  instantiations: 254
+vs:
+  zod: z.url()
+jsonSchema:
+  input: '{ type: "string", format: "uri" }'
+  output: '{ type: "string", format: "uri" }'
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    examples:
+      a-valid-url-with-anchor-tag:
+        input: '"http://foo.bar/?baz=qux#quux"'
+        output: '"http://foo.bar/?baz=qux#quux"'
+      a-valid-url-with-anchor-tag-and-parentheses:
+        input: '"http://foo.com/blah_(wikipedia)_blah#cite-1"'
+        output: '"http://foo.com/blah_(wikipedia)_blah#cite-1"'
+      a-valid-url-with-url-encoded-stuff:
+        input: '"http://foo.bar/?q=Test%20URL-encoded%20stuff"'
+        output: '"http://foo.bar/?q=Test%20URL-encoded%20stuff"'
+      a-valid-puny-coded-url:
+        input: '"http://xn--nw2a.xn--j6w193g/"'
+        output: '"http://xn--nw2a.xn--j6w193g/"'
+      a-valid-url-with-many-special-characters:
+        input: "\"http://-.~_!$&'()*+,;=:%40:80%2f::::::@example.com\""
+        output: "\"http://-.~_!$&'()*+,;=:%40:80%2f::::::@example.com\""
+      a-valid-url-based-on-ipv4:
+        input: '"http://223.255.255.254"'
+        output: '"http://223.255.255.254"'
+      a-valid-url-with-ftp-scheme:
+        input: '"ftp://ftp.is.co.za/rfc/rfc1808.txt"'
+        output: '"ftp://ftp.is.co.za/rfc/rfc1808.txt"'
+      a-valid-url-for-a-simple-text-file:
+        input: '"http://www.ietf.org/rfc/rfc2396.txt"'
+        output: '"http://www.ietf.org/rfc/rfc2396.txt"'
+      a-valid-url:
+        input: '"ldap://[2001:db8::7]/c=GB?objectClass?one"'
+        output: '"ldap://[2001:db8::7]/c=GB?objectClass?one"'
+      an-ip-literal-with-a-leading-zero-ipv4-octet-is-invalid:
+        input: '"http://[::ffff:01.2.3.4]/"'
+        error: Expected uri, received "http://[::ffff:01.2.3.4]/"
+      the-same-digits-as-a-host-are-a-reg-name-not-an-ipv4-address:
+        input: '"http://01.2.3.4/"'
+        output: '"http://01.2.3.4/"'
+      a-valid-mailto-uri:
+        input: '"mailto:John.Doe@example.com"'
+        output: '"mailto:John.Doe@example.com"'
+      a-valid-newsgroup-uri:
+        input: '"news:comp.infosystems.www.servers.unix"'
+        output: '"news:comp.infosystems.www.servers.unix"'
+      a-valid-tel-uri:
+        input: '"tel:+1-816-555-1212"'
+        output: '"tel:+1-816-555-1212"'
+      a-valid-urn:
+        input: '"urn:oasis:names:specification:docbook:dtd:xml:4.1.2"'
+        output: '"urn:oasis:names:specification:docbook:dtd:xml:4.1.2"'
+      a-valid-path-empty-uri:
+        input: '"mailto:"'
+        output: '"mailto:"'
+      a-valid-path-empty-uri-with-query-and-fragment:
+        input: '"about:?x=1#f"'
+        output: '"about:?x=1#f"'
+      an-invalid-protocol-relative-uri-reference:
+        input: '"//foo.bar/?baz=qux#quux"'
+        error: Expected uri, received "//foo.bar/?baz=qux#quux"
+      an-invalid-relative-uri-reference:
+        input: '"/abc"'
+        error: Expected uri, received "/abc"
+      an-invalid-uri:
+        input: '"\\\\WINDOWS\\fileshare"'
+        error: Expected uri, received "\\WINDOWS\fileshare"
+      an-invalid-uri-though-valid-uri-reference:
+        input: '"abc"'
+        error: Expected uri, received "abc"
+      an-invalid-uri-with-spaces:
+        input: '"http:// shouldfail.com"'
+        error: Expected uri, received "http:// shouldfail.com"
+      an-invalid-uri-with-spaces-and-missing-scheme:
+        input: '":// should fail"'
+        error: Expected uri, received ":// should fail"
+      an-invalid-uri-with-comma-in-scheme:
+        input: '"bar,baz:foo"'
+        error: Expected uri, received "bar,baz:foo"
+      invalid-userinfo:
+        input: '"https://[@example.org/test.txt"'
+        error: Expected uri, received "https://[@example.org/test.txt"
+      unescaped-non-us-ascii-characters:
+        input: '"https://example.org/foobar®.txt"'
+        error: Expected uri, received "https://example.org/foobar®.txt"
+      invalid-backslash-character:
+        input: '"https://example.org/foobar\\.txt"'
+        error: Expected uri, received "https://example.org/foobar\.txt"
+      invalid-character:
+        input: '"https://example.org/foobar\".txt"'
+        error: Expected uri, received "https://example.org/foobar".txt"
+      invalid-characters:
+        input: '"https://example.org/foobar<>.txt"'
+        error: Expected uri, received "https://example.org/foobar<>.txt"
+      invalid-characters-2:
+        input: '"https://example.org/foobar{}.txt"'
+        error: Expected uri, received "https://example.org/foobar{}.txt"
+      invalid-character-2:
+        input: '"https://example.org/foobar^.txt"'
+        error: Expected uri, received "https://example.org/foobar^.txt"
+      invalid-character-3:
+        input: '"https://example.org/foobar`.txt"'
+        error: Expected uri, received "https://example.org/foobar`.txt"
+      invalid-space-character:
+        input: '"https://example.org/foo bar.txt"'
+        error: Expected uri, received "https://example.org/foo bar.txt"
+      invalid-character-4:
+        input: '"https://example.org/foobar|.txt"'
+        error: Expected uri, received "https://example.org/foobar|.txt"
+      uri-with-leading-zero-ipv4-is-structurally-valid:
+        input: '"http://087.10.0.1/"'
+        output: '"http://087.10.0.1/"'
+      uri-with-out-of-bounds-ipv4-is-structurally:
+        input: '"http://999.999.999.999/"'
+        output: '"http://999.999.999.999/"'
+      invalid-percent-encoding-with-non-hex-digits:
+        input: '"http://example.com/%6G"'
+        error: Expected uri, received "http://example.com/%6G"
+      incomplete-percent-encoding-triplet:
+        input: '"http://example.com/%A"'
+        error: Expected uri, received "http://example.com/%A"
+      lone-percent-sign-is-invalid:
+        input: '"http://example.com/%"'
+        error: Expected uri, received "http://example.com/%"
+      scheme-must-start-with-a-letter:
+        input: '"1http://example.com"'
+        error: Expected uri, received "1http://example.com"
+      invalid-character-in-scheme:
+        input: '"ht_tp://example.com"'
+        error: Expected uri, received "ht_tp://example.com"
+      non-numeric-port-is-invalid:
+        input: '"http://example.com:abc/path"'
+        error: Expected uri, received "http://example.com:abc/path"
+  decode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"http://foo.bar/?baz=qux#quux"'
+        output: '"http://foo.bar/?baz=qux#quux"'
+      invalid:
+        input: '"\\\\WINDOWS\\fileshare"'
+        error: Expected uri, received "\\WINDOWS\fileshare"
+  encode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"http://foo.bar/?baz=qux#quux"'
+        output: '"http://foo.bar/?baz=qux#quux"'
+      invalid:
+        input: '"\\\\WINDOWS\\fileshare"'
+        error: Expected uri, received "\\WINDOWS\fileshare"

@@ -64,10 +64,21 @@ import { never_, parse, reverse } from "./parse";
 import { bool, float, integer, Literal_parse, string } from "./primitives";
 import {
   dict,
+  duration,
   email,
   gt,
   gte,
+  hostname,
+  idnEmail,
+  idnHostname,
+  ipv4,
+  ipv6,
+  iri,
+  iriReference,
+  isoDate,
   isoDateTime,
+  isoTime,
+  jsonPointer,
   lt,
   lte,
   maxLength,
@@ -76,9 +87,12 @@ import {
   null_,
   object,
   pattern,
+  relativeJsonPointer,
   tuple,
   union,
-  url,
+  uri,
+  uriReference,
+  uriTemplate,
   uuid,
 } from "./refinements";
 
@@ -351,21 +365,12 @@ const internalToJSONSchemaBase = (
     const const_ = schema.const as string | undefined;
     const format = schema.format;
     jsonSchema.type = "string";
-    switch (format) {
-      case "date-time":
-        jsonSchema.format = "date-time";
-        break;
-      case "email":
-        jsonSchema.format = "email";
-        break;
-      case "uuid":
-        jsonSchema.format = "uuid";
-        break;
-      case "url":
-        jsonSchema.format = "uri";
-        break;
-      default:
-        break;
+    // String formats store the JSON Schema name verbatim, so they pass
+    // through. Only `cuid` and `json` have no JSON Schema equivalent — a
+    // denylist of the two costs less than an allowlist of the eighteen, and
+    // stays flat as formats are added.
+    if (format !== U && format !== "cuid" && format !== "json") {
+      jsonSchema.format = format;
     }
     if (schema.minLength !== U) {
       jsonSchema.minLength = schema.minLength;
@@ -753,6 +758,37 @@ const primitiveToSchema = (primitive: unknown): Internal =>
       // document (which is JSON, so the round-trip is lossless).
       deepStrict(schemaFactory(JSON.parse(JSON.stringify(primitive))))
     : Literal_parse(primitive);
+
+// The inverse of the format pass-through in toJSONSchema. Every format Sury can
+// emit has to round-trip back to the schema that emitted it, so a format added
+// on one side without the other is a reversibility bug. A record rather than a
+// branch chain: reaching fromJSONSchema at all means wanting the whole
+// vocabulary, so there is nothing here for a bundler to drop anyway.
+//
+// Null-prototype because the key is attacker-controlled: `format: "constructor"`
+// against a plain literal resolves up the chain to a truthy function, which then
+// flows on as if it were a schema instead of falling back to `string`.
+const stringFormatSchemas = {
+  __proto__: null,
+  "date-time": isoDateTime,
+  date: isoDate,
+  time: isoTime,
+  duration: duration,
+  email: email,
+  "idn-email": idnEmail,
+  hostname: hostname,
+  "idn-hostname": idnHostname,
+  ipv4: ipv4,
+  ipv6: ipv6,
+  uri: uri,
+  "uri-reference": uriReference,
+  "uri-template": uriTemplate,
+  iri: iri,
+  "iri-reference": iriReference,
+  uuid: uuid,
+  "json-pointer": jsonPointer,
+  "relative-json-pointer": relativeJsonPointer,
+} as unknown as Record<string, Internal | undefined>;
 
 // draft-04 (and OpenAPI 3.0) make `exclusiveMinimum` a boolean that flips the
 // meaning of `minimum`; draft-06+ make it an independent numeric bound. `true`
@@ -1178,17 +1214,7 @@ export const fromJSONSchema = (
       types.map((type) => fromJSONSchema(jsonSchemaMerge(jsonSchema, { type }), ctx))
     );
   } else if (jsonSchema.type === "string") {
-    if (jsonSchema.format === "email") {
-      schema = email;
-    } else if (jsonSchema.format === "uri") {
-      schema = url;
-    } else if (jsonSchema.format === "uuid") {
-      schema = uuid;
-    } else if (jsonSchema.format === "date-time") {
-      schema = isoDateTime;
-    } else {
-      schema = string;
-    }
+    schema = stringFormatSchemas[jsonSchema.format!] || string;
     if (jsonSchema.pattern !== U) {
       schema = pattern(schema, new RegExp(jsonSchema.pattern));
     }

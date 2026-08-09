@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.idnEmail
+  input: string
+  output: string
+  instantiations: 254
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "string", format: "idn-email" }'
+  output: '{ type: "string", format: "idn-email" }'
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    examples:
+      a-valid-idn-e-mail-example-example-test:
+        input: '"실례@실례.테스트"'
+        output: '"실례@실례.테스트"'
+      an-invalid-e-mail-idn-e-mail-address:
+        input: '"2962"'
+        error: Expected idn-email, received "2962"
+      a-valid-e-mail-address:
+        input: '"joe.bloggs@example.com"'
+        output: '"joe.bloggs@example.com"'
+      a-non-ascii-local-part-with-an-ascii:
+        input: '"δοκιμή@example.com"'
+        output: '"δοκιμή@example.com"'
+      a-non-ascii-quoted-local-part-is-valid:
+        input: '"\"δοκιμή\"@example.com"'
+        output: '"\"δοκιμή\"@example.com"'
+      a-domain-label-that-is-not-in-unicode:
+        input: '"user@café.com"'
+        output: '"user@café.com"'
+      a-local-part-that-is-not-in-unicode:
+        input: '"café@example.com"'
+        output: '"café@example.com"'
+  decode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"실례@실례.테스트"'
+        output: '"실례@실례.테스트"'
+      invalid:
+        input: '"2962"'
+        error: Expected idn-email, received "2962"
+  encode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"실례@실례.테스트"'
+        output: '"실례@실례.테스트"'
+      invalid:
+        input: '"2962"'
+        error: Expected idn-email, received "2962"

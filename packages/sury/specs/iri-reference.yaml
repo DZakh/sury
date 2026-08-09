@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.iriReference
+  input: string
+  output: string
+  instantiations: 254
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "string", format: "iri-reference" }'
+  output: '{ type: "string", format: "iri-reference" }'
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0](i)||e[1](i);return i}
+    examples:
+      a-valid-iri:
+        input: '"http://ƒøø.ßår/?∂éœ=πîx#πîüx"'
+        output: '"http://ƒøø.ßår/?∂éœ=πîx#πîüx"'
+      a-valid-protocol-relative-iri-reference:
+        input: '"//ƒøø.ßår/?∂éœ=πîx#πîüx"'
+        output: '"//ƒøø.ßår/?∂éœ=πîx#πîüx"'
+      a-valid-relative-iri-reference:
+        input: '"/âππ"'
+        output: '"/âππ"'
+      an-invalid-iri-reference:
+        input: '"\\\\WINDOWS\\filëßåré"'
+        error: Expected iri-reference, received "\\WINDOWS\filëßåré"
+      a-valid-iri-reference:
+        input: '"âππ"'
+        output: '"âππ"'
+      a-valid-iri-fragment:
+        input: '"#ƒrägmênt"'
+        output: '"#ƒrägmênt"'
+      an-invalid-iri-fragment:
+        input: '"#ƒräg\\mênt"'
+        error: Expected iri-reference, received "#ƒräg\mênt"
+      emoji-non-bmp:
+        input: '"/😀"'
+        output: '"/😀"'
+      lone-surrogate-is-not-an-iri:
+        input: '"/\udc00"'
+        error: "Expected iri-reference, received \"/\udc00\""
+  decode:
+    expression: i=>{e[0](i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"http://ƒøø.ßår/?∂éœ=πîx#πîüx"'
+        output: '"http://ƒøø.ßår/?∂éœ=πîx#πîüx"'
+      invalid:
+        input: '"\\\\WINDOWS\\filëßåré"'
+        error: Expected iri-reference, received "\\WINDOWS\filëßåré"
+  encode:
+    expression: i=>{e[0](i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"http://ƒøø.ßår/?∂éœ=πîx#πîüx"'
+        output: '"http://ƒøø.ßår/?∂éœ=πîx#πîüx"'
+      invalid:
+        input: '"\\\\WINDOWS\\filëßåré"'
+        error: Expected iri-reference, received "\\WINDOWS\filëßåré"

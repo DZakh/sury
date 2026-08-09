@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.uriReference
+  input: string
+  output: string
+  instantiations: 254
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "string", format: "uri-reference" }'
+  output: '{ type: "string", format: "uri-reference" }'
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    examples:
+      a-valid-uri:
+        input: '"http://foo.bar/?baz=qux#quux"'
+        output: '"http://foo.bar/?baz=qux#quux"'
+      a-valid-protocol-relative-uri-reference:
+        input: '"//foo.bar/?baz=qux#quux"'
+        output: '"//foo.bar/?baz=qux#quux"'
+      a-valid-relative-uri-reference:
+        input: '"/abc"'
+        output: '"/abc"'
+      an-invalid-uri-reference:
+        input: '"\\\\WINDOWS\\fileshare"'
+        error: Expected uri-reference, received "\\WINDOWS\fileshare"
+      a-valid-uri-reference:
+        input: '"abc"'
+        output: '"abc"'
+      a-valid-uri-fragment:
+        input: '"#fragment"'
+        output: '"#fragment"'
+      an-invalid-uri-fragment:
+        input: '"#frag\\ment"'
+        error: Expected uri-reference, received "#frag\ment"
+      unescaped-non-us-ascii-characters:
+        input: '"/foobar®.txt"'
+        error: Expected uri-reference, received "/foobar®.txt"
+      invalid-backslash-character:
+        input: '"https://example.org/foobar\\.txt"'
+        error: Expected uri-reference, received "https://example.org/foobar\.txt"
+      uri-with-leading-zero-ipv4-is-structurally-valid:
+        input: '"http://087.10.0.1/"'
+        output: '"http://087.10.0.1/"'
+      uri-with-out-of-bounds-ipv4-is-structurally:
+        input: '"http://999.999.999.999/"'
+        output: '"http://999.999.999.999/"'
+  decode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"http://foo.bar/?baz=qux#quux"'
+        output: '"http://foo.bar/?baz=qux#quux"'
+      invalid:
+        input: '"\\\\WINDOWS\\fileshare"'
+        error: Expected uri-reference, received "\\WINDOWS\fileshare"
+  encode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"http://foo.bar/?baz=qux#quux"'
+        output: '"http://foo.bar/?baz=qux#quux"'
+      invalid:
+        input: '"\\\\WINDOWS\\fileshare"'
+        error: Expected uri-reference, received "\\WINDOWS\fileshare"
