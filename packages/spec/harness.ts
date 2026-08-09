@@ -22,6 +22,7 @@ import {
   VS_KEY_ORDER,
   VS_ZOD_KEY_ORDER,
   OP_ORDER,
+  OP_BLOCK_KEY_ORDER,
   BUNDLE_SIZE_KEY_ORDER,
   SKIP_REASONS,
   isSkip,
@@ -68,6 +69,27 @@ const OP_BUILDER: Record<OpName, (schema: any) => (input: any) => any> = {
   decode: S.decoder,
   encode: S.encoder,
 };
+
+// A schema carrying an async transform or refine compiles only through these:
+// the sync builders reject it at operation creation ("Encountered unexpected
+// async transform or refine"), and they wrap a sync direction in
+// `Promise.resolve(...)`, so which builder an op uses is part of its codegen —
+// hence a declared `isAsync`, checked against the schema, rather than a guess.
+const ASYNC_OP_BUILDER: Record<OpName, (schema: any) => (input: any) => Promise<any>> = {
+  parse: S.asyncParser,
+  decode: S.asyncDecoder,
+  encode: S.asyncEncoder,
+};
+
+// `S.isAsync` is exported by the runtime entry but declared only for ReScript
+// (docs/rescript-usage.md), so index.d.ts has no signature to import.
+const schemaIsAsync = (S as unknown as { isAsync: (schema: any) => boolean }).isAsync;
+
+// Asked per direction, not per schema: `S.asyncDecoderAssert` makes the decode
+// side async while the encode side stays a plain sync pass, and encode runs the
+// reversed schema.
+const opIsAsync = (opName: OpName, schema: any): boolean =>
+  schemaIsAsync(opName === "encode" ? S.reverse(schema) : schema);
 
 const SKIP_REASON_SET = new Set<string>(SKIP_REASONS);
 export const isValidSkipReason = (r: unknown): boolean =>
@@ -220,6 +242,40 @@ export const identityViolations = (schema: any, spec: Spec): string[] => {
   return out;
 };
 
+// The `isAsync` marker checked both ways, like identityViolations: an async
+// direction must declare it (the operation returns a Promise — a different API
+// for every consumer, and different codegen), and a declared one must hold.
+// Only full op blocks carry the marker: `identity` can't be async (an async op
+// never compiles to Sury's noop, so identityViolations already reports it),
+// `eq-to-parse` inherits parse's block, and a `{creationError}` block has no
+// compiled operation to be async.
+export const asyncViolations = (schema: any, spec: Spec): string[] => {
+  const out: string[] = [];
+  for (const opName of OP_ORDER) {
+    const op = spec.operations[opName];
+    if (typeof op === "string" || isCreationError(op)) continue;
+    let isAsync: boolean;
+    try {
+      isAsync = opIsAsync(opName, schema);
+    } catch {
+      // Not a usable schema — reported by checkSpec's own evaluation, and by
+      // the creationError golden if the operation is what fails.
+      continue;
+    }
+    if (isAsync && op.isAsync !== true)
+      out.push(
+        `operations.${opName}: is async (the schema has an async transform or refine) — add \`isAsync: true\`, ` +
+          "which builds it with S.asyncParser/asyncDecoder/asyncEncoder and awaits every example",
+      );
+    else if (!isAsync && op.isAsync === true)
+      out.push(
+        `operations.${opName}: marked \`isAsync: true\` but the operation is synchronous — remove the marker ` +
+          "(the async builders would only wrap the result in `Promise.resolve`)",
+      );
+  }
+  return out;
+};
+
 // JSON Schema has no representation for bigint or symbol, so `S.toJSONSchema`
 // throws for any schema containing one (at any nesting depth) — a real "this
 // concept doesn't apply" case, not a bug to work around. Recorded per
@@ -252,10 +308,11 @@ export const scaffoldJsonSchema = (schema: any): Spec["jsonSchema"] => deriveJso
 // so a bug stays visibly distinct in the golden — and flips back to compiled
 // code once a fix turns the crash into a real operation — rather than silently
 // masquerading as a normal rejection.
-type BuiltOp = { fn: (input: any) => any } | { creationError: string };
+type BuiltOp = { fn: (input: any) => any; isAsync: boolean } | { creationError: string };
 const buildOp = (opName: OpName, schema: any): BuiltOp => {
   try {
-    return { fn: OP_BUILDER[opName](schema) };
+    const isAsync = opIsAsync(opName, schema);
+    return { fn: (isAsync ? ASYNC_OP_BUILDER : OP_BUILDER)[opName](schema), isAsync };
   } catch (e) {
     const err = e as Error;
     return { creationError: `${err.constructor.name}: ${err.message}` };
@@ -284,7 +341,7 @@ const opForm = (opName: OpName, built: BuiltOp, parseBuilt: BuiltOp): Operation 
     ? "identity"
     : opName !== "parse" && parseCode !== undefined && built.fn.toString() === parseCode
       ? "eq-to-parse"
-      : { expression: built.fn.toString(), examples: {} };
+      : clean({ isAsync: built.isAsync ? (true as const) : undefined, expression: built.fn.toString(), examples: {} });
 };
 
 // Can throw if `schema` isn't actually a usable schema (e.g. `--ts` evaluated
@@ -331,7 +388,7 @@ const canonExample = (ex: Example): Example => {
 const canonOp = (op: Operation): Operation => {
   if (typeof op === "string") return op;
   if (isCreationError(op)) return order(op, ["creationError"]);
-  const o = order(op, ["expression", "examples"]);
+  const o = order(op, OP_BLOCK_KEY_ORDER as string[]);
   if (o.examples && typeof o.examples === "object") {
     const ex: Record<string, Example> = {};
     for (const [name, v] of Object.entries(o.examples)) ex[name] = canonExample(v);
@@ -585,7 +642,12 @@ export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
       const bench = ex.bench;
       try {
         const value = evalSchema(ex.input);
-        const out = fn(value);
+        // `await` on a sync operation's result is a no-op, so both kinds run
+        // through one path. An async operation can still throw synchronously
+        // (the top-level type check runs before the first await), which the
+        // same catch handles — a rejection and a synchronous throw are one
+        // outcome to the author.
+        const out = await fn(value);
         // An operation that hands its input straight back records the input's
         // own source rather than a re-derived spelling of the same value. It
         // reads better, and it's the only way a value the serializer can't
@@ -718,6 +780,13 @@ export const checkAliases = async (spec: Spec): Promise<string[]> => {
             errs.push(
               `${label}: operations.${opName} is \`eq-to-parse\` on schema but does not compile to the same code as parse on this alias`,
             );
+        } else if (built.isAsync !== (op.isAsync === true)) {
+          // Reported instead of the expression diff below: the two are built by
+          // different builders, so their code differs everywhere and the diff
+          // would bury the one fact that explains it.
+          errs.push(
+            `${label}: operations.${opName} is ${built.isAsync ? "async on this alias but not on schema" : "async on schema but not on this alias"}`,
+          );
         } else if (!isSkip(op.expression) && fn.toString() !== op.expression) {
           errs.push(`${label}: operations.${opName}.expression differs:\n${diffText(op.expression, fn.toString())}`);
         }
@@ -845,6 +914,11 @@ export const checkSpec = async (
     try {
       const violations = identityViolations(schema, spec);
       for (const violation of violations) errs.push(violation);
+      // Not part of `violations`: a wrong `isAsync` doesn't block `--write`
+      // (which builder a direction uses is derived from the schema, so the
+      // recomputed goldens are right either way) — only the marker needs the
+      // author's hand.
+      errs.push(...asyncViolations(schema, spec));
       const fresh = knownFresh ?? serialize(await recomputeGoldens(spec), comments);
       if (fresh !== canon)
         errs.push(

@@ -410,6 +410,47 @@ test("eq-to-parse claimed but parse itself is identity — identity wins", async
   `);
 });
 
+// An async direction is compiled by a different builder and its examples are
+// awaited, so the marker is the author's acknowledgment that the operation's
+// whole shape changed — the two directions of getting it wrong are checked
+// against a spec that really is async on one side and sync on the other.
+const asyncBaseline = readSpec(listSpecFiles().find((f) => specId(f) === "async-assert")!);
+
+const mutateAsync = (patch: (spec: Spec) => void): Spec => {
+  const spec = structuredClone(asyncBaseline);
+  patch(spec);
+  return spec;
+};
+
+test("an async operation left unmarked", async () => {
+  const spec = mutateAsync((s) => {
+    if (s.operations.parse !== "identity" && !isCreationError(s.operations.parse))
+      delete s.operations.parse.isAsync;
+  });
+  await expect(runCheck("async-assert", serialize(spec))).resolves.toMatchInlineSnapshot(`
+    {
+      "stderr": "✗ async-assert
+        operations.parse: is async (the schema has an async transform or refine) — add \`isAsync: true\`, which builds it with S.asyncParser/asyncDecoder/asyncEncoder and awaits every example",
+      "stdout": "",
+    }
+  `);
+});
+
+test("`isAsync: true` on an operation that is synchronous", async () => {
+  const spec = mutateAsync((s) => {
+    // async-assert's encode side runs the assert's sync `s: noop` half.
+    if (typeof s.operations.encode !== "string" && !isCreationError(s.operations.encode))
+      s.operations.encode.isAsync = true;
+  });
+  await expect(runCheck("async-assert", serialize(spec))).resolves.toMatchInlineSnapshot(`
+    {
+      "stderr": "✗ async-assert
+        operations.encode: marked \`isAsync: true\` but the operation is synchronous — remove the marker (the async builders would only wrap the result in \`Promise.resolve\`)",
+      "stdout": "",
+    }
+  `);
+});
+
 test("format validation failure (unrecognized key)", async () => {
   const spec = mutate((s) => {
     (s as unknown as Record<string, unknown>).notAField = true;
