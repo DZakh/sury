@@ -72,6 +72,17 @@ export type Example = S.Output<typeof example>;
 // Examples are addressed by name, not array index, so identity survives
 // insertion/removal.
 const operationExpression = S.schema({
+  // Declared, not refreshed: an async operation is compiled by a different
+  // builder and returns a Promise — a different API for every consumer — so
+  // `--write` never adds or removes the marker in place. A schema that turns
+  // async fails the check instead of quietly rewriting the spec to say so.
+  // Absent means sync; `false` is never written, so there's one spelling per state.
+  isAsync: S.optional(S.schema(true)).with(S.meta, {
+    description:
+      "`true` if this direction is async (built with S.asyncParser/asyncDecoder/asyncEncoder, " +
+      "examples awaited). Written when the block is first created; `spec check` errors when it " +
+      "disagrees with the schema. Omit when sync.",
+  }),
   expression: orSkip(S.string).with(S.meta, {
     description: "Compiled function source (`.toString()`). Filled by `spec check --write`.",
   }),
@@ -81,6 +92,7 @@ const operationExpression = S.schema({
 })
   .with(S.strict)
   .with(S.meta, { description: "Compiled codegen plus its runnable examples." });
+export type OperationExpression = S.Output<typeof operationExpression>;
 
 // The operation analogue of a thrown `jsonSchema` string: some conversions are
 // rejected when the operation is compiled (an unsupported or ambiguous `.to`),
@@ -235,6 +247,11 @@ export const TS_KEY_ORDER = keyOrder<Spec["ts"]>({
   instantiations: true,
 });
 export const OP_ORDER = keyOrder<Spec["operations"]>({ parse: true, decode: true, encode: true });
+export const OP_BLOCK_KEY_ORDER = keyOrder<OperationExpression>({
+  isAsync: true,
+  expression: true,
+  examples: true,
+});
 
 export const isSkip = (v: unknown): v is Skip => S.is(skip, v);
 
