@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.object((s) => ({ x: s.flatten(S.schema({ b: S.string }).with(S.to, S.schema({ b: S.string }), (v) => ({ b: v.b + "!" }), (v) => ({ b: v.b.slice(0, -1) }))).b }))'
+  input: "{ [x: string]: unknown; }"
+  output: "{ x: string; }"
+  instantiations: 6632
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "object", properties: { b: { type: "string" } }, required: ["b"] }'
+  output: '{ type: "object", properties: { x: { type: "string" } }, required: ["x"] }'
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["b"];typeof v0==="string"||e[0](v0);let v1;try{v1=e[1]({"b":v0,})}catch(x){e[2](x)}return {"x":v1["b"],}}
+    examples:
+      reads-through-member-transform:
+        input: '{ b: "x" }'
+        output: '{ x: "x!" }'
+  decode:
+    expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return {"x":v0["b"],}}
+    examples:
+      reads-through-member-transform:
+        input: '{ b: "x" }'
+        output: '{ x: "x!" }'
+  encode:
+    expression: i=>{let v0;try{v0=e[0]({"b":i["x"],})}catch(x){e[1](x)}return {"b":v0["b"],}}
+    examples:
+      round-trip:
+        input: '{ x: "x!" }'
+        output: '{ b: "x" }'

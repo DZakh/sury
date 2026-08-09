@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.object((s) => ({ outer: s.field("Outer", S.string), inner: s.flatten(S.object((n) => ({ x: n.field("X", S.string) }))) }))'
+  input: "{ [x: string]: unknown; }"
+  output: "{ outer: string; inner: { x: string; }; }"
+  instantiations: 735
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "object", properties: { Outer: { type: "string" }, X: { type: "string" } }, required: ["Outer", "X"] }'
+  output: '{ type: "object", properties: { outer: { type: "string" }, inner: { type: "object", properties: { x: { type: "string" } }, required: ["x"] } }, required: ["outer", "inner"] }'
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["Outer"],v1=i["X"];typeof v0==="string"||e[0](v0);typeof v1==="string"||e[1](v1);return {"outer":v0,"inner":{"x":v1,},}}
+    examples:
+      both-fields:
+        input: '{ Outer: "o", X: "x" }'
+        output: '{ outer: "o", inner: { x: "x" } }'
+      missing-flattened-field:
+        input: '{ Outer: "o" }'
+        error: 'Failed at ["X"]: Expected string, received undefined'
+  decode:
+    expression: i=>{return {"outer":i["Outer"],"inner":{"x":i["X"],},}}
+    examples:
+      both-fields:
+        input: '{ Outer: "o", X: "x" }'
+        output: '{ outer: "o", inner: { x: "x" } }'
+  encode:
+    expression: i=>{let v0=i["inner"];return {"X":v0["x"],"Outer":i["outer"],}}
+    examples:
+      round-trip:
+        input: '{ outer: "o", inner: { x: "x" } }'
+        output: '{ X: "x", Outer: "o" }'
