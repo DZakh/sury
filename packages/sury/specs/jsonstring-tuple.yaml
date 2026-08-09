@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.schema([S.string, S.number, S.union([S.string, undefined])]).with(S.to, S.jsonString)
+  input: "[string, number, string | undefined]"
+  output: string
+  instantiations: 6468
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: 'Failed at ["2"]: Expected JSON, received string | undefined'
+  output: '{ type: "string" }'
+operations:
+  parse:
+    expression: i=>{Array.isArray(i)&&i.length===3||e[6](i);let v0=i["0"],v1=i["1"],v2=i["2"];typeof v0==="string"||e[0](v0);typeof v1==="number"&&!Number.isNaN(v1)||e[1](v1);(typeof v2==="string"||v2===void 0)||e[2](v2);for(;;){if(typeof v2==="string"){v2=e[3](v2);break}if(v2===void 0){v2="null";break}e[5](v2)}return "["+e[3](v0)+","+(Number.isFinite(v1)?v1:e[4](v1))+","+v2+"]"}
+    examples:
+      all-present:
+        input: '["a", 1, "b"]'
+        output: '"[\"a\",1,\"b\"]"'
+      undefined-item-renders-null:
+        input: '["a", 1, undefined]'
+        output: '"[\"a\",1,null]"'
+      wrong-length:
+        input: '["a", 1]'
+        error: Expected [string, number, string | undefined], received ["a", 1]
+  decode:
+    expression: i=>{let v0=i["1"],v1=i["2"];for(;;){if(typeof v1==="string"){v1=e[0](v1);break}if(v1===void 0){v1="null";break}e[2](v1)}return "["+e[0](i["0"])+","+(Number.isFinite(v0)?v0:e[1](v0))+","+v1+"]"}
+    examples:
+      undefined-item-renders-null:
+        input: '["a", 1, undefined]'
+        output: '"[\"a\",1,null]"'
+  encode:
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}Array.isArray(v0)||e[5](v0);v0.length===3||e[4](v0);let v1=v0["0"],v2=v0["1"],v3=v0["2"];typeof v1==="string"||e[1](v1);typeof v2==="number"&&!Number.isNaN(v2)||e[2](v2);for(;;){if(typeof v3==="string")break;if(v3===null){v3=void 0;break}e[3](v3)}return [v1,v2,v3,]}
+    examples:
+      null-item:
+        input: '"[\"a\",1,null]"'
+        output: '["a", 1, undefined]'

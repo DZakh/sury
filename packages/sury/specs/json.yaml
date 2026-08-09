@@ -20,6 +20,9 @@ operations:
       valid-null:
         input: "null"
         output: "null"
+      valid-number:
+        input: "1.5"
+        output: "1.5"
       invalid-undefined:
         input: undefined
         error: Expected JSON, received undefined
@@ -29,5 +32,14 @@ operations:
       invalid-nan:
         input: NaN
         error: Expected JSON, received NaN
+      invalid-non-finite:
+        input: Infinity
+        error: Expected JSON, received Infinity
+      invalid-nested-non-finite:
+        input: "{ a: Infinity }"
+        error: 'Failed at ["a"]: Expected JSON, received Infinity'
+      invalid-function:
+        input: () => {}
+        error: Expected JSON, received Function
   decode: identity
   encode: identity

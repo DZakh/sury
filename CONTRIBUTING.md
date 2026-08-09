@@ -335,7 +335,13 @@ case the harness *should* have caught or guided better — a missing check, a we
 error message, a strictness gap that let a bad spec through — add a bullet here
 instead of silently working around it.
 
-- <placeholder>
+- An operation whose output holds a class instance (`S.uint8Array` decoding to
+  `Uint8Array`) can't be specced: the golden writer raises "cannot represent a
+  Uint8Array instance as spec source code", and an op has no way to opt out —
+  `_skip` is accepted under `vs.zod` but crashes the run under `operations.<op>`
+  (`Cannot convert undefined or null to object`). Either teach the writer a
+  constructor call for the common typed arrays, or make `_skip` legal on an
+  operation with a reason.
 
 ## License
 
