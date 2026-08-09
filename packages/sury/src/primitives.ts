@@ -159,26 +159,22 @@ export const numberDecoder: Builder = (input: Val) => {
   }
 };
 
-export const float: Internal = /* @__PURE__ */ initSchema(numberTag, (s) => {
-  s.decoder = numberDecoder;
-});
+export const float: Internal = /* @__PURE__ */ initSchema(numberTag, numberDecoder);
 
-export const int: Internal = /* @__PURE__ */ initSchema(numberTag, (s) => {
+export const int: Internal = /* @__PURE__ */ initSchema(numberTag, numberDecoder, (s) => {
   s.format = "int32";
   // The format's range as real bound fields, not just something the JSON
   // Schema emit knows: S.gte/S.lte compare against them, so a bound outside
   // int32 is caught as a contradiction instead of silently building.
   s.minimum = -2147483648;
   s.maximum = 2147483647;
-  s.decoder = numberDecoder;
 });
 
 // JSON Schema's unbounded `integer`: any number with no fractional part, with
 // none of int32's range. Carries no bound fields — there is no range to
 // advertise or for a user bound to contradict.
-export const integer: Internal = /* @__PURE__ */ initSchema(numberTag, (s) => {
+export const integer: Internal = /* @__PURE__ */ initSchema(numberTag, numberDecoder, (s) => {
   s.format = "integer";
-  s.decoder = numberDecoder;
 });
 
 // inputToString/stringDecoderFn/string are mutually recursive (stringDecoderFn
@@ -198,7 +194,13 @@ export const stringDecoderFn = (input: Val): Val => {
     ) && isLiteral(input.s)
   ) {
     const const_ = "" + (input.s.const as string);
-    const schema = baseSchema(stringTag, false);
+    // The stringified literal is still a literal, so it wants `literalDecoder`
+    // — taken off the source rather than imported, the way unionNarrowSchema
+    // avoids naming a decoder. `isLiteral(input.s)` above is what guarantees
+    // this is that decoder, and reaching this branch at all requires a literal
+    // schema in the bundle: naming it statically would instead ship it to every
+    // `S.string` consumer (+264 gz on that export, +4 on total).
+    const schema = baseSchema(stringTag, false, input.s.decoder);
     schema.const = const_;
     return B_next(input, `"${const_}"`, schema);
   } else if (flagUnsafeHas(inputTagFlag, tagFlagBoolean | tagFlagNumber | tagFlagBigint)) {
@@ -209,9 +211,7 @@ export const stringDecoderFn = (input: Val): Val => {
     return input;
   }
 }
-export const string: Internal = /* @__PURE__ */ initSchema(stringTag, (s) => {
-  s.decoder = stringDecoderFn;
-});
+export const string: Internal = /* @__PURE__ */ initSchema(stringTag, stringDecoderFn);
 
 export const booleanDecoder: Builder = (input: Val) => {
   const inputTagFlag = tagFlags[input.s.type]!;
@@ -231,9 +231,7 @@ export const booleanDecoder: Builder = (input: Val) => {
   }
 };
 
-export const bool: Internal = /* @__PURE__ */ initSchema(booleanTag, (s) => {
-  s.decoder = booleanDecoder;
-});
+export const bool: Internal = /* @__PURE__ */ initSchema(booleanTag, booleanDecoder);
 
 export const bigintDecoder: Builder = (input: Val) => {
   const inputTagFlag = tagFlags[input.s.type]!;
@@ -256,9 +254,7 @@ export const bigintDecoder: Builder = (input: Val) => {
   }
 };
 
-export const bigint: Internal = /* @__PURE__ */ initSchema(bigintTag, (s) => {
-  s.decoder = bigintDecoder;
-});
+export const bigint: Internal = /* @__PURE__ */ initSchema(bigintTag, bigintDecoder);
 
 export const symbolDecoder: Builder = (input: Val) => {
   const inputTagFlag = tagFlags[input.s.type]!;
@@ -271,9 +267,7 @@ export const symbolDecoder: Builder = (input: Val) => {
   }
 };
 
-export const symbol: Internal = /* @__PURE__ */ initSchema(symbolTag, (s) => {
-  s.decoder = symbolDecoder;
-});
+export const symbol: Internal = /* @__PURE__ */ initSchema(symbolTag, symbolDecoder);
 
 export const literalDecoder: Builder = (input: Val) => {
   const expectedSchema = input.e;
@@ -295,7 +289,7 @@ export const literalDecoder: Builder = (input: Val) => {
         tagFlagBoolean | tagFlagNumber | tagFlagBigint | tagFlagUndefined | tagFlagNull | tagFlagNaN,
       )
     ) {
-      const stringConstSchema = baseSchema(stringTag, false);
+      const stringConstSchema = baseSchema(stringTag, false, literalDecoder);
       stringConstSchema.const = "" + (expectedSchema.const as string);
 
       const stringConstVal = B_nextConst(input, stringConstSchema, stringConstSchema);
@@ -321,25 +315,21 @@ export const literalDecoder: Builder = (input: Val) => {
   }
 };
 
-export const unit: Internal = /* @__PURE__ */ initSchema(undefinedTag, (s) => {
+export const unit: Internal = /* @__PURE__ */ initSchema(undefinedTag, literalDecoder, (s) => {
   s.const = U;
-  s.decoder = literalDecoder;
 });
 
-export const void_: Internal = /* @__PURE__ */ initSchema(undefinedTag, (s) => {
+export const void_: Internal = /* @__PURE__ */ initSchema(undefinedTag, literalDecoder, (s) => {
   s.const = U;
   s.name = "void";
-  s.decoder = literalDecoder;
 });
 
-export const nullLiteral: Internal = /* @__PURE__ */ initSchema(nullTag, (s) => {
+export const nullLiteral: Internal = /* @__PURE__ */ initSchema(nullTag, literalDecoder, (s) => {
   s.const = null;
-  s.decoder = literalDecoder;
 });
 
-export const nan: Internal = /* @__PURE__ */ initSchema(nanTag, (s) => {
+export const nan: Internal = /* @__PURE__ */ initSchema(nanTag, literalDecoder, (s) => {
   s.const = NaN;
-  s.decoder = literalDecoder;
 });
 
 export const Literal_parse = (value: unknown): Internal => {
@@ -352,15 +342,13 @@ export const Literal_parse = (value: unknown): Internal => {
     } else if (tag === numberTag && Number.isNaN(value as number)) {
       return nan;
     } else if (tag === objectTag) {
-      const s = baseSchema(instanceTag, true);
+      const s = baseSchema(instanceTag, true, literalDecoder);
       s.class = (value as Record<string, unknown>)["constructor"];
       s.const = value;
-      s.decoder = literalDecoder;
       return s;
     } else {
-      const s = baseSchema(tag, true);
+      const s = baseSchema(tag, true, literalDecoder);
       s.const = value;
-      s.decoder = literalDecoder;
       return s;
     }
   }

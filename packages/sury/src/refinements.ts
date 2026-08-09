@@ -748,9 +748,8 @@ export const nullableAsOption = (schema: Internal): Internal => {
   return unionFactory([schema, unit, nullAsUnit]);
 }
 
-export const isoDateTime: Internal = /* @__PURE__ */ initSchema(stringTag, (s) => {
+export const isoDateTime: Internal = /* @__PURE__ */ initSchema(stringTag, stringDecoderFn, (s) => {
   const datetimeRe = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
-  s.decoder = stringDecoderFn;
   s.format = "date-time";
   s.refiner = (input) => {
     return [
@@ -768,8 +767,7 @@ export const isoDateTime: Internal = /* @__PURE__ */ initSchema(stringTag, (s) =
 // The range as real bound fields, for the reason int32 carries its own. The
 // check accepts 0, which the emitted `minimum: 0` has always advertised and
 // the old `>0` check contradicted — a schema and its description now agree.
-export const port: Internal = /* @__PURE__ */ initSchema(numberTag, (s) => {
-  s.decoder = numberDecoder;
+export const port: Internal = /* @__PURE__ */ initSchema(numberTag, numberDecoder, (s) => {
   s.format = "port";
   s.minimum = 0;
   s.maximum = 65535;
@@ -783,9 +781,8 @@ export const port: Internal = /* @__PURE__ */ initSchema(numberTag, (s) => {
   };
 });
 
-export const email: Internal = /* @__PURE__ */ initSchema(stringTag, (s) => {
+export const email: Internal = /* @__PURE__ */ initSchema(stringTag, stringDecoderFn, (s) => {
   const emailRegex = /^(?!\.)(?!.*\.\.)([A-Z0-9_'+\-\.]*)[A-Z0-9_+-]@([A-Z0-9][A-Z0-9\-]*\.)+[A-Z]{2,}$/i;
-  s.decoder = stringDecoderFn;
   s.format = "email";
   s.refiner = (input) => {
     return [
@@ -797,9 +794,8 @@ export const email: Internal = /* @__PURE__ */ initSchema(stringTag, (s) => {
   };
 });
 
-export const uuid: Internal = /* @__PURE__ */ initSchema(stringTag, (s) => {
+export const uuid: Internal = /* @__PURE__ */ initSchema(stringTag, stringDecoderFn, (s) => {
   const uuidRegex = /^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/i;
-  s.decoder = stringDecoderFn;
   s.format = "uuid";
   s.refiner = (input) => {
     return [
@@ -811,9 +807,8 @@ export const uuid: Internal = /* @__PURE__ */ initSchema(stringTag, (s) => {
   };
 });
 
-export const cuid: Internal = /* @__PURE__ */ initSchema(stringTag, (s) => {
+export const cuid: Internal = /* @__PURE__ */ initSchema(stringTag, stringDecoderFn, (s) => {
   const cuidRegex = /^c[^\s-]{8,}$/i;
-  s.decoder = stringDecoderFn;
   s.format = "cuid";
   s.refiner = (input) => {
     return [
@@ -825,7 +820,7 @@ export const cuid: Internal = /* @__PURE__ */ initSchema(stringTag, (s) => {
   };
 });
 
-export const url: Internal = /* @__PURE__ */ initSchema(stringTag, (s) => {
+export const url: Internal = /* @__PURE__ */ initSchema(stringTag, stringDecoderFn, (s) => {
   const urlValidator = (s: string) => {
     try {
       new URL(s);
@@ -834,7 +829,6 @@ export const url: Internal = /* @__PURE__ */ initSchema(stringTag, (s) => {
       return false;
     }
   };
-  s.decoder = stringDecoderFn;
   s.format = "url";
   s.refiner = (input) => {
     return [

@@ -984,10 +984,9 @@ const resolveRef = (ref: string, ctx: RefContext): Internal => {
   }
   ctx.names[name] = true;
 
-  const refSchema = baseSchema(refTag, false);
+  const refSchema = baseSchema(refTag, false, recursiveDecoder);
   refSchema["$ref"] = `${defsPath}${name}`;
   refSchema.name = name;
-  refSchema.decoder = recursiveDecoder;
   ctx.ph[ref] = refSchema;
 
   const def = jsonDefinitionToSchema(target as JSONSchemaDefinition, ctx);

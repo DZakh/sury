@@ -490,9 +490,7 @@ const neverBuilderFn = (input: Val): Val => {
   output.cp = B_embedInvalidInput(input) + ";";
   return output;
 }
-export const never_: Internal = /* @__PURE__ */ initSchema(neverTag, (s) => {
-  s.decoder = neverBuilderFn;
-});
+export const never_: Internal = /* @__PURE__ */ initSchema(neverTag, neverBuilderFn);
 
 export const nestedOptionParser: Builder = (input: Val) => {
   const nextSchema = input.e.to!;
@@ -522,9 +520,8 @@ export const instanceDecoder: Builder = (input: Val) => {
 
 // @__NO_SIDE_EFFECTS__
 export const instance = (class_: unknown): Internal => {
-  const mut = baseSchema(instanceTag, true);
+  const mut = baseSchema(instanceTag, true, instanceDecoder);
   mut.class = class_;
-  mut.decoder = instanceDecoder;
   return mut;
 }
 

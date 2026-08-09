@@ -148,11 +148,10 @@ function schemaNested(this: AdvancedObjectCtx & Record<string, unknown>, fieldNa
     const required: string[] = [];
     let schema: Internal;
     {
-      const s = baseSchema(objectTag, false);
+      const s = baseSchema(objectTag, false, objectDecoder);
       s.required = required;
       s.properties = properties;
       s.additionalItems = globalConfig.a;
-      s.decoder = objectDecoder;
       schema = s;
     }
 
@@ -272,11 +271,10 @@ export const schemaObject = (
 
   const definition = definer(ctx);
 
-  const mut = baseSchema(objectTag, false);
+  const mut = baseSchema(objectTag, false, objectDecoder);
   mut.required = Object.keys(properties);
   mut.properties = properties;
   mut.additionalItems = globalConfig.a;
-  mut.decoder = objectDecoder;
   mut.parser = shapedParser;
   mut.to = definitionToShapedSchema(definition);
   if (flattened !== U) {
@@ -321,10 +319,9 @@ export const schemaTuple = (
     }
   }
 
-  const mut = baseSchema(arrayTag, false);
+  const mut = baseSchema(arrayTag, false, arrayDecoder);
   mut.items = items;
   mut.additionalItems = "strict";
-  mut.decoder = arrayDecoder;
   mut.parser = shapedParser;
   mut.to = definitionToShapedSchema(definition);
   return mut;
@@ -631,10 +628,9 @@ const traverseDefinition = (
         }
         const items = node as Internal[];
 
-        const mut = baseSchema(arrayTag, false);
+        const mut = baseSchema(arrayTag, false, arrayDecoder);
         mut.items = items;
         mut.additionalItems = "strict";
-        mut.decoder = arrayDecoder;
         return mut;
       } else {
         // A prototype other than Object.prototype (or null, e.g. Object.create(null))
@@ -644,10 +640,9 @@ const traverseDefinition = (
         // record that happens to declare an own field named "constructor".
         const proto = Object.getPrototypeOf(definition);
         if (proto !== null && proto !== Object.prototype) {
-          const mut = baseSchema(instanceTag, true);
+          const mut = baseSchema(instanceTag, true, literalDecoder);
           mut.class = (definition as Record<string, unknown>)["constructor"];
           mut.const = definition;
-          mut.decoder = literalDecoder;
           return mut;
         } else {
           const node = definition as Record<string, unknown>;
@@ -657,11 +652,10 @@ const traverseDefinition = (
             const location = fieldNames[idx]!;
             node[location] = traverseDefinition(node[location], onNode);
           }
-          const mut = baseSchema(objectTag, false);
+          const mut = baseSchema(objectTag, false, objectDecoder);
           mut.required = fieldNames;
           mut.properties = node as Record<string, Internal>;
           mut.additionalItems = globalConfig.a;
-          mut.decoder = objectDecoder;
           return mut;
         }
       }

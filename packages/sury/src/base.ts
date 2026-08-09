@@ -735,15 +735,19 @@ export const valKey = "value";
 // survive minification as a real assignment.
 type SchemaClass = new () => Internal;
 
-// Leaves `decoder` unset — it can't pick one per tag without importing every
-// decoder and pinning them all into every bundle. The caller sets it, and must:
-// a schema handed to a builder as a val's `s` becomes that value's output
-// schema, and an output schema is reachable as another operation's *target*,
-// where the parse loop calls `e.decoder` unconditionally.
-export const baseSchema = (tag: Tag, selfReverse: boolean): Internal => {
+// `decoder` is a parameter, not something the caller assigns afterwards, and
+// that is load-bearing: a schema handed to a builder as a val's `s` becomes
+// that value's output schema, an output schema is reachable as another
+// operation's *target*, and the parse loop calls `e.decoder` on a target
+// unconditionally. A site that forgot the assignment produced a TypeError deep
+// inside compilation (#369); requiring the argument makes that unrepresentable.
+// It also means every schema gains its fields in one order, so the instances
+// share a single hidden class.
+export const baseSchema = (tag: Tag, selfReverse: boolean, decoder: Builder): Internal => {
   const schema = new ((selfReverse ? SelfReverseSchema : Schema) as unknown as SchemaClass)();
   schema.type = tag;
   schema.seq = seq++;
+  schema.decoder = decoder;
   return schema;
 }
 
@@ -758,18 +762,21 @@ export const noopDecoder: Builder = (input: Val) => {
 // per use would recompile every time), and the single pure expression is what
 // lets a consumer's bundler drop the unused ones.
 // @__NO_SIDE_EFFECTS__
-export const initSchema = (tag: Tag, init: (schema: Internal) => void): Internal => {
-  const schema = baseSchema(tag, true);
-  init(schema);
+export const initSchema = (
+  tag: Tag,
+  decoder: Builder,
+  init?: (schema: Internal) => void
+): Internal => {
+  const schema = baseSchema(tag, true, decoder);
+  init?.(schema);
   return schema;
 }
 
-// Deliberately NOT the single-pure-expression form the other singletons use:
+// Deliberately NOT the `/* @__PURE__ */` form the other singletons use:
 // `unknown` is reachable from nearly every export, so it never tree-shakes
-// anyway, and the bare statement pair minifies smaller than any wrapper that
-// would make it droppable.
-export const unknown: Internal = baseSchema(unknownTag, true);
-unknown.decoder = noopDecoder;
+// anyway, and the bare call minifies smaller than any wrapper that would make
+// it droppable.
+export const unknown: Internal = baseSchema(unknownTag, true, noopDecoder);
 
 export const copySchema = (schema: Internal): Internal => {
   const c: Internal = Object.assign(new (Schema as unknown as SchemaClass)(), schema);
