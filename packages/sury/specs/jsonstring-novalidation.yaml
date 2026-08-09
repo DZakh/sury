@@ -9,7 +9,7 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: "{}"
-  output: '{ type: "string" }'
+  output: '{ type: "string", contentMediaType: "application/json" }'
 operations:
   parse:
     expression: i=>{return JSON.stringify(i)}

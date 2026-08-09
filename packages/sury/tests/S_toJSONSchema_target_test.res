@@ -191,3 +191,41 @@ test("toJSONSchema keeps both bounds when only one is exclusive", t => {
     }`),
   )
 })
+
+// `contentSchema` is 2019-09 and later, and OpenAPI 3.0 predates the whole
+// content family — so the same schema says three different amounts about the
+// document it carries. Not a spec: the format snapshots one target (the
+// default), so the dialect gating is only observable here.
+test("toJSONSchema of a JSON string describes the document it carries", t => {
+  let schema = S.jsonString->S.to(S.object(s => s.field("port", S.int)))
+
+  t->Assert.deepEqual(
+    schema->S.toJSONSchema(~options={target: Draft07}),
+    %raw(`{
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "type": "string",
+      "contentMediaType": "application/json"
+    }`),
+  )
+
+  t->Assert.deepEqual(
+    schema->S.toJSONSchema(~options={target: Draft202012}),
+    %raw(`{
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "string",
+      "contentMediaType": "application/json",
+      "contentSchema": {
+        "type": "object",
+        "properties": {
+          "port": {"type": "integer", "minimum": -2147483648, "maximum": 2147483647}
+        },
+        "required": ["port"]
+      }
+    }`),
+  )
+
+  t->Assert.deepEqual(
+    schema->S.toJSONSchema(~options={target: OpenApi30}),
+    %raw(`{"type": "string"}`),
+  )
+})

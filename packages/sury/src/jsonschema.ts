@@ -201,6 +201,7 @@ export type JSONSchemaT = {
    */
   contentMediaType?: string;
   contentEncoding?: string;
+  contentSchema?: JSONSchemaDefinition;
   /**
    * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-9
    */
@@ -229,6 +230,7 @@ export type JsonSchemaTarget = "draft-07" | "draft-2020-12" | "openapi-3.0" | (s
 // Compared on every emit branch that differs by dialect; naming it once keeps
 // the literal out of the bundle at each of those sites.
 const openApi30 = "openapi-3.0";
+const draft202012 = "draft-2020-12";
 
 export type StandardJsonSchemaOptions = {
   target: JsonSchemaTarget;
@@ -322,12 +324,29 @@ const internalToJSONSchema = (
   const encoded = hasUserTo
     ? encodeToJsonSchema(schema, path, defs, parent, target)
     : U;
-  if (encoded !== U) {
-    applyMetadataOverlay(encoded, schema, defs);
-    return encoded;
-  } else {
-    return internalToJSONSchemaBase(schema, path, defs, parent, target);
+  const result =
+    encoded !== U
+      ? (applyMetadataOverlay(encoded, schema, defs), encoded)
+      : internalToJSONSchemaBase(schema, path, defs, parent, target);
+
+  // A JSON string is a document carried inside a value, which is what the
+  // `content*` keywords describe — and `.to` names the schema of that document,
+  // so the reverse-parse above (which can only ever answer "a string") stops
+  // dropping it. Annotations, not assertions: a validator that doesn't decode
+  // the string stays conformant, so nothing here changes what Sury validates.
+  //
+  // Dialect-gated rather than emitted blind: `contentSchema` is 2019-09 and
+  // later, and OpenAPI 3.0 predates the whole family — its `format: byte`/
+  // `binary` spelling covers the encodings, and it has no slot for an embedded
+  // schema.
+  if (schemaInternal.format === "json" && target !== openApi30) {
+    result.contentMediaType = "application/json";
+    const to = schemaInternal.to;
+    if (to !== U && target === draft202012) {
+      result.contentSchema = internalToJSONSchema(to, path, defs, schemaInternal, target);
+    }
   }
+  return result;
 }
 
 const internalToJSONSchemaBase = (
@@ -467,7 +486,7 @@ const internalToJSONSchemaBase = (
         // OpenAPI 3.0 has no tuple support. Describe a fixed-length array
         // whose every item matches any of the positional item schemas.
         jsonSchema.items = { anyOf: itemDefinitions };
-      } else if (target === "draft-2020-12") {
+      } else if (target === draft202012) {
         // draft-2020-12 uses `prefixItems` for positional schemas.
         jsonSchema.prefixItems = itemDefinitions;
       } else {
@@ -636,7 +655,7 @@ const targetSchemaUri = (target: JsonSchemaTarget): string | undefined => {
   switch (target) {
     case "draft-07":
       return "http://json-schema.org/draft-07/schema#";
-    case "draft-2020-12":
+    case draft202012:
       return "https://json-schema.org/draft/2020-12/schema";
     // OpenAPI 3.0 has no `$schema` property.
     case openApi30:

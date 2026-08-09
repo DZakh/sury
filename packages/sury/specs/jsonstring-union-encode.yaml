@@ -9,7 +9,7 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: 'Failed at ["id"]: Expected JSON, received bigint'
-  output: '{ type: "string" }'
+  output: '{ type: "string", contentMediaType: "application/json" }'
 operations:
   parse:
     expression: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)&&i["type"]==="user.created"){let v0=i["id"];typeof v0==="bigint"||e[0](v0);i="{\"type\":\"user.created\",\"id\":\""+v0+"\"}";break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i["type"]==="user.renamed"){let v1=i["id"],v2=i["name"];typeof v1==="bigint"||e[1](v1);typeof v2==="string"||e[2](v2);i="{\"type\":\"user.renamed\",\"id\":\""+v1+"\",\"name\":"+e[3](v2)+"}";break}e[4](i)}return i}

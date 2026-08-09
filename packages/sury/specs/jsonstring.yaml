@@ -8,8 +8,8 @@ vs:
   zod:
     _skip: not-applicable
 jsonSchema:
-  input: '{ type: "string" }'
-  output: '{ type: "string" }'
+  input: '{ type: "string", contentMediaType: "application/json" }'
+  output: '{ type: "string", contentMediaType: "application/json" }'
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[1](i);try{JSON.parse(i)}catch(t){e[0](i)}return i}

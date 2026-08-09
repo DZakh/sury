@@ -335,6 +335,11 @@ case the harness *should* have caught or guided better — a missing check, a we
 error message, a strictness gap that let a bad spec through — add a bullet here
 instead of silently working around it.
 
+- `jsonSchema` snapshots one target (the default draft-07), so an emit that is
+  dialect-gated — `contentSchema` is 2019-09+, OpenAPI 3.0 has no content
+  keywords at all — has no golden for the targets it differs on, and lands in
+  `S_toJSONSchema_target_test.res` instead. A `jsonSchema.targets` map, or a
+  per-spec target override, would keep it with the schema it belongs to.
 - An operation whose output holds a class instance (`S.uint8Array` decoding to
   `Uint8Array`) can't be specced: the golden writer raises "cannot represent a
   Uint8Array instance as spec source code", and an op has no way to opt out —

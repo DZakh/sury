@@ -186,6 +186,23 @@ S.toJSONSchema(documented);
 
 The `target` decides the type of the result — `S.JSONSchema7`, `S.JSONSchema2020`, or `S.OpenAPISchema30` — so `prefixItems` is there to reach for on a draft-2020-12 result and `nullable` on an OpenAPI one, and neither is on a draft-07 one.
 
+A schema that carries a document rather than a plain value says so. `S.jsonString` emits `contentMediaType`, and on draft-2020-12 the document's own schema rides along as `contentSchema`:
+
+```ts
+S.toJSONSchema(S.jsonString.with(S.to, playerSchema), { target: "draft-2020-12" });
+// {
+//   type: "string",
+//   contentMediaType: "application/json",
+//   contentSchema: {
+//     type: "object",
+//     properties: { username: { type: "string" }, xp: { type: "number" } },
+//     required: ["username", "xp"],
+//   },
+// }
+```
+
+Both are annotations in the spec's sense — a consumer that never decodes the string is still conformant — so this describes the payload without changing what anyone validates. `contentSchema` landed in draft 2019-09, and OpenAPI 3.0 predates the family entirely, so a draft-07 result carries only the media type and an OpenAPI 3.0 one carries neither.
+
 `S.fromJSONSchema` converts in the other direction:
 
 ```ts
