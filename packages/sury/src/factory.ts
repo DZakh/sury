@@ -32,7 +32,6 @@ import {
   B_invalidOperation,
   B_markOutput,
   B_merge,
-  B_mergeObjectFields,
   B_nextConst,
   B_scope,
 } from "./builder";
@@ -568,7 +567,18 @@ const getShapedSerializerOutput = (
               reverse(flattenedSchemas[idx]!),
               path
             );
-            B_mergeObjectFields(v, flattenedOutput.d!);
+            // Only the member's fields are placed here, so take just the
+            // segment that declares them (`codeFromPrev`) and leave the stages
+            // that compute the member's own value: nothing reads it, and
+            // emitting them would run a member-level codec's transform for a
+            // discarded result. `valGet` then scopes each field — a
+            // whole-object placement hands back the very vals the parent's own
+            // decode declared, and adding those unscoped is what emitted their
+            // `let`s a second time (#368).
+            v.cp = v.cp + flattenedOutput.cp;
+            for (const key of Object.keys(flattenedOutput.d!)) {
+              B_addObjectField(v, key, valGet(flattenedOutput, key));
+            }
           });
         }
       },

@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.object((s) => s.flatten(S.schema({ n: S.number.with(S.gte, 3) })))"
+  input: "{ [x: string]: unknown; }"
+  output: "{ n: number; }"
+  instantiations: 6475
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "object", properties: { n: { type: "number", minimum: 3 } }, required: ["n"] }'
+  output: '{ type: "object", properties: { n: { type: "number", minimum: 3 } }, required: ["n"] }'
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["n"];typeof v0==="number"&&!Number.isNaN(v0)||e[1](v0);v0>=3||e[0](v0);return {"n":v0,}}
+    examples:
+      at-bound:
+        input: "{ n: 3 }"
+        output: "{ n: 3 }"
+      below-bound:
+        input: "{ n: 2 }"
+        error: 'Failed at ["n"]: Expected number >= 3, received 2'
+  decode:
+    expression: i=>{let v0=i["n"];v0>=3||e[0](v0);return {"n":v0,}}
+    examples:
+      at-bound:
+        input: "{ n: 3 }"
+        output: "{ n: 3 }"
+  encode:
+    expression: i=>{let v0=i["n"];v0>=3||e[0](v0);return {"n":v0,}}
+    examples:
+      at-bound:
+        input: "{ n: 3 }"
+        output: "{ n: 3 }"
+      below-bound:
+        input: "{ n: 2 }"
+        error: 'Failed at ["n"]: Expected number >= 3, received 2'

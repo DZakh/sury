@@ -771,12 +771,6 @@ export const B_addObjectField = (objectVal: Val, location: string, val: Val): vo
   objectVal.d![location] = val;
 }
 
-export const B_mergeObjectFields = (target: Val, vals: Record<string, Val>): void => {
-  for (const location of Object.keys(vals)) {
-    B_addObjectField(target, location, vals[location]!);
-  }
-}
-
 export const B_addKey = (objVal: Val, key: string, value: Val): string => {
   return `${objVal.v()}[${key}]=${value.i}`;
 }
