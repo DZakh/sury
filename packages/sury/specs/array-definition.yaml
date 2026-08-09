@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.array({ id: S.string })"
+  input: "{ id: string; }[]"
+  output: "{ id: string; }[]"
+  instantiations: 1351
+vs:
+  zod: "z.array(z.object({ id: z.string() }))"
+jsonSchema:
+  input: '{ items: { type: "object", properties: { id: { type: "string" } }, required: ["id"] }, type: "array" }'
+  output: '{ items: { type: "object", properties: { id: { type: "string" } }, required: ["id"] }, type: "array" }'
+operations:
+  parse:
+    expression: i=>{Array.isArray(i)||e[2](i);let v4=new Array(i.length);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];typeof v1==="object"&&v1&&!Array.isArray(v1)||e[1](v1);let v2=v1["id"];typeof v2==="string"||e[0](v2);v4[v0]={"id":v2,}}catch(v3){v3.path='["'+v0+'"]'+v3.path;throw v3}}return v4}
+    examples:
+      valid:
+        input: '[{ id: "a" }, { id: "b" }]'
+        output: '[{ id: "a" }, { id: "b" }]'
+      empty:
+        input: "[]"
+        output: "[]"
+      invalid-item-value:
+        input: '[{ id: "a" }, { id: 1 }]'
+        error: 'Failed at ["1"]["id"]: Expected string, received 1'
+      item-is-not-an-object:
+        input: '["a"]'
+        error: 'Failed at ["0"]: Expected { id: string; }, received "a"'
+      not-an-array:
+        input: '{ id: "a" }'
+        error: 'Expected { id: string; }[], received { id: "a"; }'
+  decode: identity
+  encode: identity

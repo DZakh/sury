@@ -46,8 +46,8 @@ import {
 import { json } from "./advanced/json";
 import { recursiveDecoder } from "./advanced/recursive";
 import { B_operationArg } from "./builder";
-import { array, option } from "./composites";
-import { definitionToSchema, schemaFactory } from "./factory";
+import { array, definitionToSchema, option } from "./composites";
+import { schemaFactory } from "./factory";
 import {
   meta,
   Metadata_get,

@@ -313,6 +313,13 @@ S.record(S.number); // { [k: string]: number }
 S.schema([S.string, S.number]);
 S.tuple([S.string, S.number]); // alias for S.schema
 
+// Anywhere a schema is accepted, a raw definition works too — it's
+// passed through S.schema for you
+S.array({ id: S.string }); // { id: string }[]
+S.record({ n: S.number }); // { [k: string]: { n: number } }
+S.optional([S.string, "ok"]); // [string, "ok"] | undefined
+S.nullable("foo"); // "foo" | null
+
 // Unions
 S.union([S.string, S.number]);
 S.anyOf([S.string, S.number]); // alias for S.union

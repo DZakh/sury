@@ -3,7 +3,7 @@ ts:
   schema: 'S.array(S.union([S.schema({type: "click", x: S.number}), S.schema({type: "view", path: S.string})])).with(S.to, S.jsonString)'
   input: '({ type: "click"; x: number; } | { type: "view"; path: string; })[]'
   output: string
-  instantiations: 8999
+  instantiations: 9299
 vs:
   zod:
     _skip: not-applicable
