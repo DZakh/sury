@@ -23,11 +23,9 @@ operations:
       reads-through-member-transform:
         input: '{ b: "x" }'
         output: '{ x: "x!" }'
-  # FIXME: a leaf picked out of a flattened member encodes without the
-  # member's own transform — the round trip should give back { b: "x" }.
   encode:
-    expression: i=>{return {"b":i["x"],}}
+    expression: i=>{let v0;try{v0=e[0]({"b":i["x"],})}catch(x){e[1](x)}return {"b":v0["b"],}}
     examples:
       round-trip:
         input: '{ x: "x!" }'
-        output: '{ b: "x!" }'
+        output: '{ b: "x" }'

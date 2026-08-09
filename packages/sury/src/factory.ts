@@ -541,7 +541,7 @@ const getShapedSerializerOutput = (
       return missingInput();
     }
 
-    return assembleShapedObject(
+    const assembled = assembleShapedObject(
       input,
       resolvedTargetSchema,
       (location, childSchema) =>
@@ -583,6 +583,11 @@ const getShapedSerializerOutput = (
       },
       missingInput
     );
+    // The walk built the head of `targetSchema`'s chain. If the schema also
+    // carries a transform of its own, run it here: the assembled head is its
+    // input, and nobody else will apply it (a pending operation-level `to`
+    // — `parser` absent — is the compile pipeline's job, not ours).
+    return targetSchema.parser === U ? assembled : parse(assembled);
   }
 }
 
