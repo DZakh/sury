@@ -735,6 +735,11 @@ export const valKey = "value";
 // survive minification as a real assignment.
 type SchemaClass = new () => Internal;
 
+// Leaves `decoder` unset — it can't pick one per tag without importing every
+// decoder and pinning them all into every bundle. The caller sets it, and must:
+// a schema handed to a builder as a val's `s` becomes that value's output
+// schema, and an output schema is reachable as another operation's *target*,
+// where the parse loop calls `e.decoder` unconditionally.
 export const baseSchema = (tag: Tag, selfReverse: boolean): Internal => {
   const schema = new ((selfReverse ? SelfReverseSchema : Schema) as unknown as SchemaClass)();
   schema.type = tag;

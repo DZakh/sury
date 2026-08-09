@@ -15,6 +15,7 @@ import {
 } from "../base";
 import { B_next, B_refine, B_unsupportedDecode, failInvalidType } from "../builder";
 import { instanceDecoder, parse } from "../parse";
+import { stringDecoderFn } from "../primitives";
 
 export const invalidDateRefine = (input: Val): Val => {
   return B_refine(input, input.e, [
@@ -45,6 +46,7 @@ export const date: Internal = /* @__PURE__ */ initSchema(instanceTag, (s) => {
     const toTagFlag = tagFlags[target.type]!;
     if (flagUnsafeHas(toTagFlag, tagFlagString)) {
       const dateTimeString = baseSchema(stringTag, false);
+      dateTimeString.decoder = stringDecoderFn;
       dateTimeString.format = "date-time";
       return parse(
         B_next(input, `${input.i}.toISOString()`, dateTimeString, target),
