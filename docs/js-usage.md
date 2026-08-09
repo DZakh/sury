@@ -15,6 +15,7 @@
 - [Defining schemas](#defining-schemas)
   - [Advanced schemas](#advanced-schemas)
 - [Strings](#strings)
+  - [String formats](#string-formats)
   - [Custom error messages](#custom-error-messages)
   - [ISO datetimes](#iso-datetimes)
 - [Numbers](#numbers)
@@ -379,14 +380,7 @@ S.string.with(S.pattern, /[0-9]/); // Invalid pattern
 S.string.with(S.trim); // trim whitespaces
 ```
 
-For format-specific string validation, use the standalone schemas:
-
-```ts
-S.email; // Standalone email schema
-S.url; // Standalone URL schema
-S.uuid; // Standalone UUID schema
-S.cuid; // Standalone CUID schema
-```
+For format-specific validation, use the standalone schemas — see [String formats](#string-formats) below.
 
 > For ISO 8601 UTC datetime strings use the dedicated standalone `S.isoDateTime` schema — see [ISO datetimes](#iso-datetimes) below.
 
@@ -398,6 +392,61 @@ When using built-in refinements, you can provide a custom error message.
 S.nonEmpty(S.string, "String can't be empty");
 S.length(S.string, 5, "SMS code should be 5 digits long");
 ```
+
+### String formats
+
+The JSON Schema string format vocabulary, as standalone schemas:
+
+```ts
+S.email; // Email address
+S.idnEmail; // Internationalized email address
+S.uuid; // UUID
+S.cuid; // CUID
+S.uri; // URI — a scheme is required
+S.uriReference; // URI or relative reference
+S.uriTemplate; // URI Template
+S.iri; // IRI — a URI with Unicode allowed
+S.iriReference; // IRI or relative reference
+S.hostname; // Host name
+S.idnHostname; // Internationalized host name
+S.ipv4; // IPv4 address
+S.ipv6; // IPv6 address
+S.isoDate; // Calendar date
+S.isoTime; // Time of day
+S.isoDateTime; // UTC timestamp
+S.duration; // Duration
+S.jsonPointer; // JSON Pointer
+S.relativeJsonPointer; // Relative JSON Pointer
+```
+
+Each survives a round trip through `S.toJSONSchema` and `S.fromJSONSchema`.
+
+**A format checks syntax, not safety.** Every one is exactly as strict as its
+spec, so a well-formed value passes even when it isn't one you want to accept:
+
+```ts
+S.assert(S.uri, "javascript:alert(1)"); // passes — a valid URI
+S.assert(S.hostname, "169.254.169.254"); // passes — a valid host name
+S.assert(S.uriReference, "//evil.com"); // passes — a valid reference
+```
+
+When you want a security decision rather than a syntax check, compose one. The
+extra constraint rides along into the JSON Schema, so it stays honest:
+
+```ts
+const httpsOnly = S.uri.with(S.pattern, /^https:\/\//);
+// { type: "string", format: "uri", pattern: "^https:\\/\\/" }
+```
+
+Two worth knowing before you pick one:
+
+- **`S.url` is not `S.uri`.** `S.url` is an instance of the JS `URL` class, the
+  way `S.date` is a `Date` — use it when you want the parsed object and its
+  `.host` / `.pathname`. `S.uri` validates a string and leaves it a string.
+- **`S.uriReference` is usually the one you want for a link field.** `S.uri`
+  requires a scheme, so it rejects `/dashboard`.
+
+To make the *type* record that a value was validated, [brand it](#brand).
 
 ### Custom error messages
 
