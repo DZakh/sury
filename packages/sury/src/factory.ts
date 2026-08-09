@@ -567,15 +567,14 @@ const getShapedSerializerOutput = (
               reverse(flattenedSchemas[idx]!),
               path
             );
-            // Only the member's fields are placed here, so take just the
-            // segment that declares them (`codeFromPrev`) and leave the stages
-            // that compute the member's own value: nothing reads it, and
-            // emitting them would run a member-level codec's transform for a
-            // discarded result. `valGet` then scopes each field — a
-            // whole-object placement hands back the very vals the parent's own
-            // decode declared, and adding those unscoped is what emitted their
-            // `let`s a second time (#368).
-            v.cp = v.cp + flattenedOutput.cp;
+            // Only the member's fields are placed here, so take its code once
+            // and read each field back out of it. `valGet` scopes a field the
+            // member already emitted — a whole-object placement hands back the
+            // very vals the parent's own decode declared, and adding those
+            // unscoped is what emitted their `let`s a second time (#368) — and
+            // synthesizes a read when the member ends in its own transform,
+            // whose result carries no field vals of its own (B_next).
+            v.cp = v.cp + B_merge(flattenedOutput);
             for (const key of Object.keys(flattenedOutput.d!)) {
               B_addObjectField(v, key, valGet(flattenedOutput, key));
             }

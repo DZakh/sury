@@ -558,10 +558,12 @@ const B_linkVar = (val: Val, nextVal: Val): void => {
 }
 
 export const B_next = (prev: Val, initial: string, schema: Internal, expected: Internal = prev.e): Val => {
-  // FIXME: `d` (the object-field-vals dict) and other val fields that hold
-  // child vals are shared by reference with `prev`/`val`, not copied — see
-  // the matching note on B_scope's `d: val.d` below. Whether that aliasing
-  // is actually safe is an open question, not a settled design.
+  // No `d`: this val is a *new* value, so `prev`'s field vals don't describe
+  // it. Inheriting them let a reader of a transformed object read the fields
+  // of the value that went in — a flattened member's codec ran and its result
+  // was then discarded field by field (#368's FIXME). `valGet` re-reads them
+  // off this value instead. B_scope, which names the *same* value, does share
+  // `d` — that aliasing is the correct one.
   // Canonical Val field order (see B_operationArg).
   return {
     b: U,
@@ -573,7 +575,7 @@ export const B_next = (prev: Val, initial: string, schema: Internal, expected: I
     e: expected,
     prev,
     f: valFlagNone,
-    d: prev.d,
+    d: U,
     fv: U,
     cp: "",
     hd: "",

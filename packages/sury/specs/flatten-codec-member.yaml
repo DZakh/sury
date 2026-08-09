@@ -23,11 +23,9 @@ operations:
       applies-member-transform:
         input: '{ b: "x" }'
         output: '{ b: "x!" }'
-  # FIXME: encode drops the flattened member's own transform — a round trip
-  # should give back { b: "x" }, and parse applies it.
   encode:
-    expression: i=>{return {"b":i["b"],}}
+    expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return {"b":v0["b"],}}
     examples:
       round-trip:
         input: '{ b: "x!" }'
-        output: '{ b: "x!" }'
+        output: '{ b: "x" }'
