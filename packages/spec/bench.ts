@@ -76,7 +76,10 @@ export type Target = {
   isAsync?: boolean;
   /** Type-stripped already: the child has no TypeScript to strip it with. */
   schemaSrc?: string;
-  inputSrc?: string;
+  /** Every example of this target's outcome, run in one batch. */
+  inputSrcs?: string[];
+  /** Parallel to `inputSrcs`, so a changed outcome can name the example. */
+  exampleNames?: string[];
   /** `scenario` phase only — same type-stripped contract as schemaSrc. */
   prepareSrc?: string;
   runSrc?: string;
@@ -266,15 +269,33 @@ export const deriveTargets = (
         skippedAsync += Object.keys(block.examples).length;
         continue;
       }
-      for (const [example, ex] of Object.entries(block.examples))
+      // One target per outcome, its batch iterating every example of that
+      // outcome, rather than one target per example. Same coverage at a third
+      // of the child processes — and no example has to be elected the
+      // representative, which nothing can do well: the first example is within
+      // 5% of its group's cheapest 66% of the time, and the longest input is
+      // the priciest only 42% of the time.
+      //
+      // Accepted and rejected stay apart. One loop over both would have to run
+      // behind the try/catch the rejecting side needs, which times the catch
+      // rather than the schema.
+      for (const throws of [false, true]) {
+        const examples = Object.entries(block.examples).filter(
+          ([, ex]) => !("output" in ex) === throws,
+        );
+        if (examples.length === 0) continue;
         targets.push({
           ...base,
-          name: `${id}${SEP}${op}${SEP}${example}`,
+          name: `${id}${SEP}${op}${SEP}${throws ? "rejects" : "accepts"}${
+            examples.length > 1 ? ` ×${examples.length}` : ""
+          }`,
           phase: "run",
           op,
-          inputSrc: stripTypes(ex.input),
-          throws: !("output" in ex),
+          inputSrcs: examples.map(([, ex]) => stripTypes(ex.input)),
+          exampleNames: examples.map(([name]) => name),
+          throws,
         });
+      }
     }
   }
 

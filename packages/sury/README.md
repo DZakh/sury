@@ -310,6 +310,9 @@ else result.error;
 - Compiled JSON string encoding — [faster and safer than `JSON.stringify`](#json-serialization-faster-than-jsonstringify), with `bigint`, `Uint8Array` and `Date` support built in
 - Tree-shakable API with a small footprint — 12.4 kB (min + gzip) for a schema and a parser
 - Async transformations, recursive schemas, and custom schemas
+- The JSON Schema string format vocabulary — dates, durations, URIs, IRIs,
+  hostnames, IP addresses and JSON Pointers
+  ([JS](https://github.com/DZakh/sury/blob/main/docs/js-usage.md#string-formats) · [ReScript](https://github.com/DZakh/sury/blob/main/docs/rescript-usage.md#string-formats))
 
 ## Integrations
 

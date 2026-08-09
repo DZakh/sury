@@ -45,9 +45,9 @@ test("Main example", t => {
 })
 
 @schema
-type matches = @s.matches(S.url) string
+type matches = @s.matches(S.uri) string
 test("@s.matches", t => {
-  t->assertEqualSchemas(matchesSchema, S.url)
+  t->assertEqualSchemas(matchesSchema, S.uri)
 })
 
 @schema
