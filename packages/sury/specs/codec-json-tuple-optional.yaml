@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.json.with(S.to, S.schema(["B", S.optional(S.string)]))
+  input: JSON
+  output: '["B", string | undefined]'
+  instantiations: 5981
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string", const: "B" }, { anyOf: [{ type: "string" }, { type: "null" }] }] }'
+  output: 'Failed at ["1"]: Expected JSON, received string | undefined'
+operations:
+  parse:
+    expression: i=>{Array.isArray(i)||e[3](i);i.length===2||e[2](i);let v0=i["0"],v1=i["1"];v0==="B"||e[0](v0);for(;;){if(typeof v1==="string")break;if(v1===null){v1=void 0;break}e[1](v1)}return [v0,v1,]}
+    examples:
+      item-present:
+        input: '["B", "x"]'
+        output: '["B", "x"]'
+      item-null-becomes-undefined:
+        input: '["B", null]'
+        output: '["B", undefined]'
+      item-missing:
+        input: '["B"]'
+        error: Expected ["B", string | undefined], received ["B"]
+      wrong-item-type:
+        input: '["B", 5]'
+        error: 'Failed at ["1"]: Expected string | undefined, received 5'
+  decode: eq-to-parse
+  encode:
+    expression: i=>{let v0=i["1"];for(;;){if(typeof v0==="string")break;if(v0===void 0){v0=null;break}e[0](v0)}return ["B",v0,]}
+    examples:
+      item-present:
+        input: '["B", "x"]'
+        output: '["B", "x"]'
+      item-undefined-becomes-null:
+        input: '["B", undefined]'
+        output: '["B", null]'

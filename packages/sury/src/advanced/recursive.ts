@@ -138,10 +138,9 @@ export const recursiveDecoder: Builder = (input) => {
 // @__NO_SIDE_EFFECTS__
 export const recursive = (name: string, fn: (schema: Internal) => Internal): Internal => {
   const ref = `${defsPath}${name}`;
-  const refSchema = baseSchema(refTag, false);
+  const refSchema = baseSchema(refTag, false, recursiveDecoder);
   refSchema["$ref"] = ref;
   refSchema.name = name;
-  refSchema.decoder = recursiveDecoder;
 
   // This is for mutual recursion
   const isNestedRec = globalConfig.d !== U;
@@ -157,11 +156,10 @@ export const recursive = (name: string, fn: (schema: Internal) => Internal): Int
   if (isNestedRec) {
     return refSchema;
   } else {
-    const schema = baseSchema(refTag, false);
+    const schema = baseSchema(refTag, false, recursiveDecoder);
     schema.name = refSchema.name;
     schema["$ref"] = ref;
     schema["$defs"] = globalConfig.d;
-    schema.decoder = recursiveDecoder;
 
     globalConfig.d = U;
 

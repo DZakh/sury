@@ -170,9 +170,8 @@ Object.defineProperty(schemaPrototype, "~standard", {
 // Operations
 // =============
 
-export const assertResult: Internal = /* @__PURE__ */ initSchema(undefinedTag, (s) => {
+export const assertResult: Internal = /* @__PURE__ */ initSchema(undefinedTag, literalDecoder, (s) => {
   s.const = U;
-  s.decoder = literalDecoder;
   s.noValidation = true;
 });
 

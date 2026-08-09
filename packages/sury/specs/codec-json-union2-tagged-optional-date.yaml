@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.json.with(S.to, S.schema({ value: S.union([S.schema({ type: "B", value: S.optional(S.string.with(S.to, S.date)) }), S.schema({ type: "C", value: S.optional(S.string.with(S.to, S.date)) })]) }))'
+  input: JSON
+  output: '{ value: { type: "B"; value?: Date | undefined; } | { type: "C"; value?: Date | undefined; }; }'
+  instantiations: 13969
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "object", properties: { value: { anyOf: [{ type: "object", properties: { type: { type: "string", const: "B" }, value: { type: "string", format: "date-time" } }, additionalProperties: false, required: ["type"] }, { type: "object", properties: { type: { type: "string", const: "C" }, value: { type: "string", format: "date-time" } }, additionalProperties: false, required: ["type"] }] } }, additionalProperties: false, required: ["value"] }'
+  output: 'Failed at ["value"]["value"]: Expected JSON, received Date | undefined'
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[7](i);let v0=i["value"];for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)&&v0["type"]==="B"){let v2=(v0["value"]??null);for(;;){let r;if(typeof v2==="string"){try{let v1=new Date((v0["value"]??null));!Number.isNaN(v1.getTime())||e[0](v1);v2=v1;break}catch(x){(r||(r=[])).push(e[1](x))}}if(v2===null){v2=void 0;break}e[2](v2,...(r||[]))}v0={"type":v0["type"],"value":v2,};break}if(typeof v0==="object"&&v0&&!Array.isArray(v0)&&v0["type"]==="C"){let v4=(v0["value"]??null);for(;;){let r;if(typeof v4==="string"){try{let v3=new Date((v0["value"]??null));!Number.isNaN(v3.getTime())||e[3](v3);v4=v3;break}catch(x){(r||(r=[])).push(e[4](x))}}if(v4===null){v4=void 0;break}e[5](v4,...(r||[]))}v0={"type":v0["type"],"value":v4,};break}e[6](v0)}return {"value":v0,}}
+    examples:
+      b-with-date:
+        input: '{ value: { type: "B", value: "2024-01-01T00:00:00.000Z" } }'
+        output: '{ value: { type: "B", value: new Date("2024-01-01T00:00:00.000Z") } }'
+      c-without-date:
+        input: '{ value: { type: "C" } }'
+        output: '{ value: { type: "C", value: undefined } }'
+      unknown-tag:
+        input: '{ value: { type: "D" } }'
+        error: 'Failed at ["value"]: Expected { type: "B"; value: string | undefined; } | { type: "C"; value: string | undefined; }, received { type: "D"; }'
+      invalid-date-text:
+        input: '{ value: { type: "B", value: "nope" } }'
+        error: |-
+          Failed at ["value"]["value"]: Expected string | undefined, received "nope"
+          - At ["value"]["value"]: Expected Date, received invalid Date
+  decode: eq-to-parse
+  encode:
+    expression: i=>{let v0=i["value"];for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)&&v0["type"]==="B"){let v1=v0["value"];for(;;){if(v1 instanceof e[0]){v1=v0["value"].toISOString();break}if(v1===void 0)break;e[1](v1)}v0={"type":"B","value":v1,};break}if(typeof v0==="object"&&v0&&!Array.isArray(v0)&&v0["type"]==="C"){let v2=v0["value"];for(;;){if(v2 instanceof e[2]){v2=v0["value"].toISOString();break}if(v2===void 0)break;e[3](v2)}v0={"type":"C","value":v2,};break}e[4](v0)}for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)&&v0["type"]==="B"){let v4=v0["value"];let v3={"type":"B",};if(v4!==void 0){v3["value"]=v4}v0=v3;break}if(typeof v0==="object"&&v0&&!Array.isArray(v0)&&v0["type"]==="C"){let v6=v0["value"];let v5={"type":"C",};if(v6!==void 0){v5["value"]=v6}v0=v5;break}e[5](v0)}return {"value":v0,}}
+    examples:
+      b-with-date:
+        input: '{ value: { type: "B", value: new Date("2024-01-01T00:00:00.000Z") } }'
+        output: '{ value: { type: "B", value: "2024-01-01T00:00:00.000Z" } }'
+      c-without-date:
+        input: '{ value: { type: "C" } }'
+        output: '{ value: { type: "C" } }'

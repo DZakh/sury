@@ -148,11 +148,10 @@ function schemaNested(this: AdvancedObjectCtx & Record<string, unknown>, fieldNa
     const required: string[] = [];
     let schema: Internal;
     {
-      const s = baseSchema(objectTag, false);
+      const s = baseSchema(objectTag, false, objectDecoder);
       s.required = required;
       s.properties = properties;
       s.additionalItems = globalConfig.a;
-      s.decoder = objectDecoder;
       schema = s;
     }
 
@@ -270,11 +269,10 @@ export const schemaObject = (
 
   const definition = definer(ctx);
 
-  const mut = baseSchema(objectTag, false);
+  const mut = baseSchema(objectTag, false, objectDecoder);
   mut.required = Object.keys(properties);
   mut.properties = properties;
   mut.additionalItems = globalConfig.a;
-  mut.decoder = objectDecoder;
   mut.parser = shapedParser;
   mut.to = definitionToShapedSchema(definition);
   if (flattened !== U) {
@@ -319,10 +317,9 @@ export const schemaTuple = (
     }
   }
 
-  const mut = baseSchema(arrayTag, false);
+  const mut = baseSchema(arrayTag, false, arrayDecoder);
   mut.items = items;
   mut.additionalItems = "strict";
-  mut.decoder = arrayDecoder;
   mut.parser = shapedParser;
   mut.to = definitionToShapedSchema(definition);
   return mut;

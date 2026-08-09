@@ -377,13 +377,12 @@ export const merge = (s1: Internal, s2: Internal): Internal => {
   }
   const properties = { ...s1.properties!, ...s2.properties! };
 
-  const mut = baseSchema(objectTag, false);
+  const mut = baseSchema(objectTag, false, objectDecoder);
 
   // TODO: Merge to required fields
   mut.required = Object.keys(properties);
   mut.properties = properties;
   mut.additionalItems = s1.additionalItems;
-  mut.decoder = objectDecoder;
   return mut;
 };
 

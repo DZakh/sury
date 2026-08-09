@@ -782,9 +782,8 @@ const stringFormat = (
   test: RegExp | string | ((value: string) => boolean),
   message?: string,
 ): Internal =>
-  initSchema(stringTag, (s) => {
+  initSchema(stringTag, stringDecoderFn, (s) => {
     const re = typeof test === "string" ? new RegExp(test, "i") : test;
-    s.decoder = stringDecoderFn;
     s.format = format;
     s.refiner = (input) => {
       return [
@@ -813,8 +812,7 @@ export const isoDateTime: Internal = /* @__PURE__ */ stringFormat(
 // The range as real bound fields, for the reason int32 carries its own. The
 // check accepts 0, which the emitted `minimum: 0` has always advertised and
 // the old `>0` check contradicted — a schema and its description now agree.
-export const port: Internal = /* @__PURE__ */ initSchema(numberTag, (s) => {
-  s.decoder = numberDecoder;
+export const port: Internal = /* @__PURE__ */ initSchema(numberTag, numberDecoder, (s) => {
   s.format = "port";
   s.minimum = 0;
   s.maximum = 65535;
