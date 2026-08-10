@@ -60,6 +60,9 @@ const ELF_MACHINES: Record<number, string> = { 0x3e: "x86-64", 0xb7: "aarch64" }
 // to resolve. That single check is the whole "no shared libraries" question -
 // the DT_NEEDED list can't be non-empty without an interpreter to read it.
 const inspectElf = (buf: Buffer): Inspection => {
+  if (buf.readUInt32BE(0) !== 0x7f454c46) {
+    throw new Error("missing ELF magic");
+  }
   if (buf[4] !== 2 || buf[5] !== 1) {
     throw new Error("not a little-endian 64-bit ELF");
   }
@@ -87,15 +90,19 @@ const MACHO_CPUS: Record<number, string> = {
   0x0100000c: "arm64",
 };
 
-// LC_REQ_DYLD (0x80000000) is set on the weak/reexport/upward variants; all
-// four record a path dyld must resolve at launch, so all four count.
+// LC_REQ_DYLD (0x80000000) is set on the weak/reexport/upward variants, and the
+// lazy one defers the load rather than dropping it; every one of the five names
+// a path dyld has to find on the consumer's machine, so all five count.
 const MACHO_DYLIB_COMMANDS = new Set([
-  0x0c, 0x80000018, 0x8000001f, 0x80000023,
+  0x0c, 0x20, 0x80000018, 0x8000001f, 0x80000023,
 ]);
 
 const inspectMacho = (buf: Buffer): Inspection => {
   if (buf.readUInt32LE(0) === 0xbebafeca) {
     throw new Error("universal binary: the slices are shipped separately");
+  }
+  if (buf.readUInt32LE(0) !== 0xfeedfacf) {
+    throw new Error("missing 64-bit Mach-O magic");
   }
   const deps: string[] = [];
   let cursor = 32;
