@@ -162,11 +162,11 @@ JSON.stringify({ price: Infinity });
 // => '{"price":null}'
 ```
 
-| Encode to JSON string                        | `JSON.stringify` | fast-json-stringify | **Sury**    |
-| -------------------------------------------- | ---------------- | ------------------- | ----------- |
-| API response (user profile, 7 fields)        | 396 ns           | 301 ns              | **250 ns**  |
-| Event feed (50 tagged-union events)          | 4.61 µs          | 13.52 µs            | **3.67 µs** |
-| `bigint` id + binary payload + `Date`        | 1.10 µs          | 1.11 µs             | **1.02 µs** |
+| Encode to JSON string                        | **Sury**    | `JSON.stringify` | fast-json-stringify |
+| -------------------------------------------- | ----------- | ---------------- | ------------------- |
+| API response (user profile, 7 fields)        | **250 ns**  | 396 ns           | 301 ns              |
+| Event feed (50 tagged-union events)          | **3.67 µs** | 4.61 µs          | 13.52 µs            |
+| `bigint` id + binary payload + `Date`        | **1.02 µs** | 1.10 µs          | 1.11 µs             |
 
 Faster than `JSON.stringify`, and 3.5× lighter than fast-json-stringify — 16.2 kB against 56.7 kB, encoder included.
 
