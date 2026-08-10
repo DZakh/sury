@@ -62,8 +62,8 @@ importers:
   packages/spec:
     dependencies:
       sury-published:
-        specifier: npm:sury@11.0.0-alpha.9
-        version: sury@11.0.0-alpha.9(rescript@12.2.0)
+        specifier: npm:sury@11.0.0-rc.1
+        version: sury@11.0.0-rc.1(rescript@12.2.0)
     devDependencies:
       '@types/node':
         specifier: 20.19.41
@@ -1225,8 +1225,8 @@ packages:
     resolution: {integrity: sha512-ot0WnXS9fgdkgIcePe6RHNk1WA8+muPa6cSjeR3V8K27q9BB1rTE3R1p7Hv0z1ZyAc8s6Vvv8DIyWf681MAt0w==}
     engines: {node: '>= 0.4'}
 
-  sury@11.0.0-alpha.9:
-    resolution: {integrity: sha512-hyJuZsILflnsUC/PMQya+VJYHMlfrIOtpQyYrKdVHxF+4iNxgwynQkUQyVMuIXL4SnHDrYmPRnH5ZqEkwKj4bA==}
+  sury@11.0.0-rc.1:
+    resolution: {integrity: sha512-UzxKHMmL2iNdKmbckYDYgaQOnv1l6I+r6orv03P29oAEC9CpzljkpYeIcJ/oAoBc63VSFaCnmoL6gfuhPDTimA==}
     peerDependencies:
       rescript: 12.x
     peerDependenciesMeta:
@@ -2320,7 +2320,7 @@ snapshots:
 
   supports-preserve-symlinks-flag@1.0.0: {}
 
-  sury@11.0.0-alpha.9(rescript@12.2.0):
+  sury@11.0.0-rc.1(rescript@12.2.0):
     optionalDependencies:
       rescript: 12.2.0
 
