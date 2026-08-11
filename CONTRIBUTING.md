@@ -197,11 +197,11 @@ https://bundlejs.com/ with the recipes below.
 `sury`
 
 ```ts
-export * as S from "sury@11.0.0-alpha.11";
+export * as S from "sury@11.0.0-rc.1";
 ```
 
 ```ts
-import * as S from "sury@11.0.0-alpha.11";
+import * as S from "sury@11.0.0-rc.1";
 
 const schema = S.schema({
   number: S.number,
