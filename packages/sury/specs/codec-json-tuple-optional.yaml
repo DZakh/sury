@@ -9,7 +9,7 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string", const: "B" }, { anyOf: [{ type: "string" }, { type: "null" }] }] }'
-  fromInputType: '[("B" | undefined)?, (string | null | undefined)?, ...JSON[]]'
+  fromInputType: '["B", string | null]'
   output: 'Failed at ["1"]: Expected JSON, received string | undefined'
 operations:
   parse:

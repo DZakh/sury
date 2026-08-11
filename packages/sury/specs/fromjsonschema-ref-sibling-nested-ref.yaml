@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.fromJSONSchema({ "$schema": "https://json-schema.org/draft/2020-12/schema", "$ref": "#/$defs/base", type: "object", properties: { child: { "$ref": "#/$defs/leaf" } }, required: ["child"], additionalProperties: true, "$defs": { base: { type: "object", additionalProperties: true }, leaf: { type: "string" } } })'
+  input: "{ [key: string]: JSON; } & {} & { child: string; }"
+  output: "{ [key: string]: JSON; } & {} & { child: string; }"
+  instantiations: 3522
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "object", additionalProperties: true, properties: { child: { type: "string" } }, required: ["child"], $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  fromInputType: "{ child: string; }"
+  output: '{ type: "object", additionalProperties: true, properties: { child: { type: "string" } }, required: ["child"], $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  fromOutputType: "{ child: string; }"
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);e[1](i)||e[3](i);for(let v0 in i){try{e[0](i[v0]);}catch(v1){v1.path='["'+v0+'"]'+v1.path;throw v1}}return i}
+    examples:
+      valid:
+        input: '{ child: "ok", extra: true }'
+        output: '{ child: "ok", extra: true }'
+      missing-child:
+        input: "{ extra: true }"
+        error: Should pass the keywords adjacent to the $ref.
+      invalid-child:
+        input: "{ child: 1 }"
+        error: Should pass the keywords adjacent to the $ref.
+  decode:
+    expression: i=>{e[0](i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '{ child: "ok", extra: true }'
+        output: '{ child: "ok", extra: true }'
+  encode:
+    expression: i=>{e[0](i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '{ child: "ok", extra: true }'
+        output: '{ child: "ok", extra: true }'

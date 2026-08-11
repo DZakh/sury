@@ -239,9 +239,7 @@ export type JsonSchemaTarget = "draft-07" | "draft-2020-12" | "openapi-3.0" | (s
 // Compared on every emit branch that differs by dialect; naming it once keeps
 // the literal out of the bundle at each of those sites.
 const openApi30 = "openapi-3.0";
-const draft06Uri = "http://json-schema.org/draft-06/schema#";
 const draft07Uri = "http://json-schema.org/draft-07/schema#";
-const draft2019Uri = "https://json-schema.org/draft/2019-09/schema";
 const draft2020Uri = "https://json-schema.org/draft/2020-12/schema";
 
 export type StandardJsonSchemaOptions = {
@@ -974,11 +972,27 @@ const refError = (reason: string): SuryError =>
   });
 
 const refSiblingsForDialect = (uri: string | undefined): boolean => {
-  if (uri === U || uri === draft06Uri || uri === draft07Uri) return false;
-  if (uri === draft2019Uri || uri === draft2020Uri) return true;
+  if (uri === U) return false;
+  const dialect =
+    /^https?:\/\/json-schema\.org\/(?:draft-0[67]|draft(\/)(?:2019-09|2020-12))\/schema#?$/.exec(
+      uri
+    );
+  if (dialect) return !!dialect[1];
   throw refError(
     `Unsupported JSON Schema $schema: ${uri}. Custom metaschemas can change keyword semantics through $vocabulary, which Sury cannot infer from the schema document alone`
   );
+};
+
+const compilePattern = (source: string): RegExp => {
+  try {
+    return new RegExp(source, "u");
+  } catch (_) {
+    try {
+      return new RegExp(source);
+    } catch (_) {
+      throw refError("Invalid JSON Schema pattern");
+    }
+  }
 };
 
 // RFC 6901: `~1` is `/` and `~0` is `~`, in that order, and the fragment may
@@ -1227,23 +1241,21 @@ export const fromJSONSchema = (
         (keyword) => (jsonSchema as Record<string, unknown>)[keyword] !== U
       )
     ) {
-      const siblingSchema = asAssertion(
-        jsonSchemaMerge(jsonSchema, {
-          $ref: U,
-          allOf: U,
-          anyOf: U,
-          oneOf: U,
-          not: U,
-          if: U,
-          then: U,
-          else: U,
-        }),
-        ctx
-      );
+      const siblingKeywords: JSONSchemaT = {};
+      for (let idx = 0; idx < refSiblingKeywords.length; idx++) {
+        const keyword = refSiblingKeywords[idx]!;
+        const value = (jsonSchema as Record<string, unknown>)[keyword];
+        if (value !== U) (siblingKeywords as Record<string, unknown>)[keyword] = value;
+      }
+      const siblingSchema = asAssertion(siblingKeywords, ctx);
       schema = refineInput(
         schema,
         (data: unknown) => passesSchema(data, siblingSchema),
         "Should pass the keywords adjacent to the $ref."
+      );
+      schema = extendJSONSchema(
+        schema,
+        assertionToJSONDefinition(siblingKeywords, siblingSchema, ctx) as JSONSchemaT
       );
     }
   } else if (jsonSchema.type === "object") {
@@ -1423,7 +1435,7 @@ export const fromJSONSchema = (
   } else if (jsonSchema.type === "string") {
     schema = stringFormatSchemas[jsonSchema.format!] || string;
     if (jsonSchema.pattern !== U) {
-      schema = pattern(schema, new RegExp(jsonSchema.pattern, "u"));
+      schema = pattern(schema, compilePattern(jsonSchema.pattern));
     }
     if (jsonSchema.minLength !== U || jsonSchema.maxLength !== U) {
       const minimum = jsonSchema.minLength;
@@ -1598,16 +1610,6 @@ export const fromJSONSchema = (
     if (jsonSchema.else !== U)
       conditionalKeywords.else = assertionToJSONDefinition(jsonSchema.else, elseSchema!, ctx);
     schema = extendJSONSchema(schema, conditionalKeywords);
-  }
-
-  if (jsonSchema["$ref"] !== U && ctx.refSiblings) {
-    const siblingKeywords: JSONSchemaT = {};
-    for (let idx = 0; idx < refSiblingKeywords.length; idx++) {
-      const keyword = refSiblingKeywords[idx]!;
-      const value = (jsonSchema as Record<string, unknown>)[keyword];
-      if (value !== U) (siblingKeywords as Record<string, unknown>)[keyword] = value;
-    }
-    schema = extendJSONSchema(schema, siblingKeywords);
   }
 
   if (jsonSchema.default !== U) {

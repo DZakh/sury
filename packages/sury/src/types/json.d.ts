@@ -93,9 +93,30 @@ type JSONSchemaObject<S, D, M extends boolean> = S extends { properties: infer P
       }
   : { [key: string]: JSON } & { [K in JSONSchemaRequiredKeys<S>]: JSON };
 
-type JSONSchemaOptionalTuple<P extends readonly unknown[], D, M extends boolean> = {
+type JSONSchemaOptionalTuple<
+  P extends readonly unknown[],
+  D,
+  M extends boolean,
+> = {
   -readonly [K in keyof P]?: JSONSchemaResolve<P[K], D, M>;
 };
+
+type JSONSchemaTupleWithRequired<
+  P extends readonly unknown[],
+  D,
+  M extends boolean,
+  Min extends number,
+  Acc extends unknown[] = [],
+> = number extends Min
+  ? JSONSchemaOptionalTuple<P, D, M>
+  : Acc["length"] extends Min
+    ? JSONSchemaOptionalTuple<P, D, M>
+    : P extends readonly [infer H, ...infer T]
+      ? [
+          JSONSchemaResolve<H, D, M>,
+          ...JSONSchemaTupleWithRequired<T, D, M, Min, [...Acc, unknown]>,
+        ]
+      : [];
 
 type JSONSchemaRest<I, D, M extends boolean> = I extends false
   ? never
@@ -159,18 +180,36 @@ type JSONSchemaRepeat<
     ? E[]
     : JSONSchemaRepeat<E, N, [...Acc, E]>;
 
-type JSONSchemaTuple<P extends readonly unknown[], I, D, M extends boolean> = [
-  ...JSONSchemaOptionalTuple<P, D, M>,
-  ...JSONSchemaRest<I, D, M>[],
-];
+type JSONSchemaTupleRest<S, P extends readonly unknown[], I, D, M extends boolean> =
+  S extends { maxItems: infer Max extends number }
+    ? JSONSchemaGreater<P["length"], Max> extends true
+      ? []
+      : JSONSchemaEqual<P["length"], Max> extends true
+        ? []
+        : JSONSchemaRest<I, D, M>[]
+    : JSONSchemaRest<I, D, M>[];
+
+type JSONSchemaTuple<S, P extends readonly unknown[], I, D, M extends boolean> =
+  S extends { minItems: infer Min extends number }
+    ? [
+        ...JSONSchemaTupleWithRequired<P, D, M, Min>,
+        ...JSONSchemaTupleRest<S, P, I, D, M>,
+      ]
+    : S extends { maxItems: number }
+      ? [
+          ...JSONSchemaOptionalTuple<P, D, M>,
+          ...JSONSchemaTupleRest<S, P, I, D, M>,
+        ]
+      : [...JSONSchemaOptionalTuple<P, D, M>, ...JSONSchemaRest<I, D, M>[]];
 
 type JSONSchemaArrayBase<S, D, M extends boolean> = S extends {
   prefixItems: infer P extends readonly unknown[];
 }
-  ? JSONSchemaTuple<P, S extends { items: infer I } ? I : true, D, M>
+  ? JSONSchemaTuple<S, P, S extends { items: infer I } ? I : true, D, M>
   : S extends { items: infer I }
   ? I extends readonly unknown[]
     ? JSONSchemaTuple<
+        S,
         I,
         S extends { additionalItems: infer A } ? A : true,
         D,
@@ -402,8 +441,12 @@ type JSONSchemaResolveNonNullable<S, D, M extends boolean> = S extends { $ref: i
         : JSONSchemaApplyValues<S, D, M, JSONSchemaResolveBase<S, D, M>>
     : JSONSchemaApplyValues<S, D, M, JSONSchemaResolveBase<S, D, M>>;
 
+type JSONSchemaModernDialect =
+  | `${"http" | "https"}://json-schema.org/draft/2019-09/schema${"" | "#"}`
+  | `${"http" | "https"}://json-schema.org/draft/2020-12/schema${"" | "#"}`;
+
 type JSONSchemaRefSiblings<S> = S extends { $schema: infer U extends string }
-  ? U extends `${string}/draft/2020-12/${string}` | `${string}/draft/2019-09/${string}`
+  ? U extends JSONSchemaModernDialect
     ? true
     : false
   : false;

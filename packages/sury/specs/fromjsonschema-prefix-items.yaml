@@ -3,7 +3,7 @@ ts:
   schema: 'S.fromJSONSchema({ type: "array", prefixItems: [{ type: "string" }, { type: "number" }], items: false })'
   input: "[(string | undefined)?, (number | undefined)?, ...never[]]"
   output: "[(string | undefined)?, (number | undefined)?, ...never[]]"
-  instantiations: 859
+  instantiations: 861
 vs:
   zod:
     schema: z.tuple([z.string().optional(), z.number().optional()])

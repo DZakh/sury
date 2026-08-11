@@ -1336,6 +1336,17 @@ test("fromJSONSchema: assertion-only schemas preserve valid JSON", (t) => {
     "Should pass the positional and additional item schemas."
   );
 
+  const closedTupleSchema = S.fromJSONSchema({
+    type: "array",
+    minItems: 2,
+    maxItems: 2,
+    items: [{ type: "string" }, { type: "number" }],
+  });
+  expectSchemaType(closedTupleSchema).toBe<[string, number]>();
+  t.expect(S.parser(closedTupleSchema)(["a", 1])).toEqual(["a", 1]);
+  t.expect(() => S.parser(closedTupleSchema)(["a"])).toThrow("length == 2");
+  t.expect(() => S.parser(closedTupleSchema)(["a", 1, true])).toThrow("length == 2");
+
   const objectSchema = S.fromJSONSchema({
     type: "object",
     properties: { value: { type: "string", default: "fallback" } },
@@ -1366,6 +1377,16 @@ test("fromJSONSchema: assertion-only schemas preserve valid JSON", (t) => {
   t.expect(() => S.parser(unicode)("😀")).toThrow(
     "Should have a code-point length within the JSON Schema bounds."
   );
+
+  const legacyPattern = S.fromJSONSchema({
+    type: "string",
+    pattern: "^\\d{3}\\-\\d{4}$",
+  });
+  t.expect(S.parser(legacyPattern)("123-4567")).toBe("123-4567");
+  t.expect(() => S.parser(legacyPattern)("1234567")).toThrow("Invalid pattern");
+  t.expect(() => S.fromJSONSchema({ type: "string", pattern: "[" })).toThrow(
+    "Invalid JSON Schema pattern"
+  );
 });
 
 test("fromJSONSchema: $ref siblings follow the declared dialect", (t) => {
@@ -1394,6 +1415,35 @@ test("fromJSONSchema: $ref siblings follow the declared dialect", (t) => {
     "Should pass at least one schema according to the anyOf property."
   );
   t.expect(S.parser(legacy)("ab")).toBe("ab");
+
+  const modernAlias = S.fromJSONSchema({
+    $schema: "http://json-schema.org/draft/2020-12/schema#",
+    $ref: "#/$defs/id",
+    type: "number",
+    $defs: { id: target },
+  });
+  const legacyAlias = S.fromJSONSchema({
+    $schema: "https://json-schema.org/draft-07/schema",
+    $ref: "#/$defs/id",
+    type: "number",
+    $defs: { id: target },
+  });
+  expectSchemaType(modernAlias).toBe<never>();
+  expectSchemaType(legacyAlias).toBe<string>();
+  t.expect(() => S.parser(modernAlias)("abc")).toThrow(
+    "Should pass the keywords adjacent to the $ref."
+  );
+  t.expect(S.parser(legacyAlias)("abc")).toBe("abc");
+
+  const customDialect = {
+    $schema: "https://json-schema.org/draft/2020-12/custom",
+    $ref: "#/$defs/id",
+    type: "number",
+    $defs: { id: target },
+  } as const;
+  const customDialectSchema = () => S.fromJSONSchema(customDialect);
+  expectTypeOf(customDialectSchema).returns.toEqualTypeOf<S.Schema<string>>();
+  t.expect(customDialectSchema).toThrow("Unsupported JSON Schema $schema");
 
   const nestedModern = S.fromJSONSchema({
     $schema: "https://json-schema.org/draft/2020-12/schema",

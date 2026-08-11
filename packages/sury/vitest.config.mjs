@@ -3,7 +3,7 @@ import { defineConfig } from "vitest/config";
 
 const rescriptTests = globSync("tests/**/*_test.res", {
   cwd: import.meta.dirname,
-}).map((path) => `${path}.mjs`);
+}).map((path) => `${path.replaceAll("\\", "/")}.mjs`);
 
 export default defineConfig({
   test: {
