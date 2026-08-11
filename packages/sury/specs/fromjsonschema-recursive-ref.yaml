@@ -8,8 +8,8 @@ vs:
   zod:
     _skip: not-applicable
 jsonSchema:
-  input: '{ $ref: "#/$defs/node", $defs: { node: { type: "object", additionalProperties: true, properties: { value: { type: "string" }, children: { type: "array", items: { $ref: "#/$defs/node" } } }, required: ["value"] } } }'
-  output: '{ $ref: "#/$defs/node", $defs: { node: { type: "object", additionalProperties: true, properties: { value: { type: "string" }, children: { type: "array", items: { $ref: "#/$defs/node" } } }, required: ["value"] } } }'
+  input: '{ $ref: "#/$defs/node", $defs: { node: { type: "object", properties: { value: { type: "string" }, children: { type: "array", items: { $ref: "#/$defs/node" } } }, required: ["value"] } } }'
+  output: '{ $ref: "#/$defs/node", $defs: { node: { type: "object", properties: { value: { type: "string" }, children: { type: "array", items: { $ref: "#/$defs/node" } } }, required: ["value"] } } }'
 operations:
   parse:
     expression: i=>{e[0](i);return i}

@@ -257,6 +257,9 @@ const jsonSchemaMerge = (a: JSONSchemaT, b: JSONSchemaT): JSONSchemaT => {
   return Object.assign({}, a, b);
 }
 
+const isAnyJSONSchema = (definition: JSONSchemaDefinition | undefined): boolean =>
+  definition === true || (!!definition && Object.keys(definition).length === 0);
+
 const applyMetadataOverlay = (
   jsonSchema: JSONSchemaT,
   schema: Internal,
@@ -566,8 +569,9 @@ const internalToJSONSchemaBase = (
         schema,
         target
       );
-      jsonSchema.additionalProperties =
-        Object.keys(childJsonSchema).length === 0 ? true : childJsonSchema;
+      if (Object.keys(childJsonSchema).length !== 0) {
+        jsonSchema.additionalProperties = childJsonSchema;
+      }
     } else {
       const required: string[] = [];
       const jsonProperties: Record<string, JSONSchemaDefinition> = {};
@@ -888,23 +892,13 @@ const refSiblingKeywords = [
 ];
 
 const jsonTypeOf = (data: unknown): string =>
-  data === null
-    ? "null"
-    : Array.isArray(data)
-      ? "array"
-      : typeof data === "boolean"
-        ? "boolean"
-        : typeof data === "number"
-          ? "number"
-          : typeof data === "string"
-            ? "string"
-            : "object";
+  data === null ? "null" : Array.isArray(data) ? "array" : typeof data;
 
 const passesSchema = (data: unknown, schema: Internal): boolean => {
   try {
     assertOrThrow(data, schema);
     return true;
-  } catch (_) {
+  } catch {
     return false;
   }
 };
@@ -974,7 +968,7 @@ const refError = (reason: string): SuryError =>
 const refSiblingsForDialect = (uri: string | undefined): boolean => {
   if (uri === U) return false;
   const dialect =
-    /^https?:\/\/json-schema\.org\/(?:draft-0[67]|draft(\/)(?:2019-09|2020-12))\/schema#?$/.exec(
+    /^https?:\/\/json-schema\.org\/(?:draft-0[67]|draft(\/20)(?:19-09|20-12))\/schema#?$/.exec(
       uri
     );
   if (dialect) return !!dialect[1];
@@ -986,10 +980,10 @@ const refSiblingsForDialect = (uri: string | undefined): boolean => {
 const compilePattern = (source: string): RegExp => {
   try {
     return new RegExp(source, "u");
-  } catch (_) {
+  } catch {
     try {
       return new RegExp(source);
-    } catch (_) {
+    } catch {
       throw refError("Invalid JSON Schema pattern");
     }
   }
@@ -1179,6 +1173,7 @@ const assertionToJSONDefinition = (
       const child = current[keyword];
       if (child !== U) output[keyword] = rewrite(child) as never;
     }
+    if (isAnyJSONSchema(current.additionalProperties)) delete output.additionalProperties;
     const arrayKeywords = ["allOf", "anyOf", "oneOf"] as const;
     for (let idx = 0; idx < arrayKeywords.length; idx++) {
       const keyword = arrayKeywords[idx]!;
@@ -1235,35 +1230,49 @@ export const fromJSONSchema = (
     // Draft-07 and OpenAPI 3.0 ignore assertion siblings beside `$ref`;
     // draft-2019-09 and newer apply them. The root `$schema` selects the rule.
     schema = resolveRef(jsonSchema["$ref"], ctx);
-    if (
-      ctx.refSiblings &&
-      refSiblingKeywords.some(
-        (keyword) => (jsonSchema as Record<string, unknown>)[keyword] !== U
-      )
-    ) {
+    if (ctx.refSiblings) {
       const siblingKeywords: JSONSchemaT = {};
       for (let idx = 0; idx < refSiblingKeywords.length; idx++) {
         const keyword = refSiblingKeywords[idx]!;
         const value = (jsonSchema as Record<string, unknown>)[keyword];
         if (value !== U) (siblingKeywords as Record<string, unknown>)[keyword] = value;
       }
-      const siblingSchema = asAssertion(siblingKeywords, ctx);
-      schema = refineInput(
-        schema,
-        (data: unknown) => passesSchema(data, siblingSchema),
-        "Should pass the keywords adjacent to the $ref."
-      );
-      schema = extendJSONSchema(
-        schema,
-        assertionToJSONDefinition(siblingKeywords, siblingSchema, ctx) as JSONSchemaT
-      );
+      if (Object.keys(siblingKeywords).length) {
+        const siblingSchema = asAssertion(siblingKeywords, ctx);
+        schema = refineInput(
+          schema,
+          (data: unknown) => passesSchema(data, siblingSchema),
+          "Should pass the keywords adjacent to the $ref."
+        );
+        schema = extendJSONSchema(
+          schema,
+          assertionToJSONDefinition(siblingKeywords, siblingSchema, ctx) as JSONSchemaT
+        );
+      }
     }
   } else if (jsonSchema.type === "object") {
     schema = dict(anySchema);
     let roundTripProperties: Record<string, JSONSchemaDefinition> | undefined = U;
+    const additionalProperties = jsonSchema.additionalProperties;
+    let additionalSchema: Internal | undefined = U;
+    let roundTripAdditionalProperties: JSONSchemaDefinition | undefined = U;
+    if (additionalProperties === false) {
+      roundTripAdditionalProperties = false;
+    } else if (additionalProperties !== U && !isAnyJSONSchema(additionalProperties)) {
+      additionalSchema = asAssertion(additionalProperties, ctx);
+      roundTripAdditionalProperties = assertionToJSONDefinition(
+        additionalProperties,
+        additionalSchema,
+        ctx
+      );
+      if (isAnyJSONSchema(roundTripAdditionalProperties)) {
+        additionalSchema = roundTripAdditionalProperties = U;
+      }
+    }
     if (jsonSchema.properties !== U) {
       const properties = jsonSchema.properties;
-      const propertySchemas = Object.keys(properties).map((key) => {
+      const propertyKeys = Object.keys(properties);
+      const propertySchemas = propertyKeys.map((key) => {
         const definition = properties[key]!;
         const propertySchema = asAssertion(definition, ctx);
         return [
@@ -1285,20 +1294,16 @@ export const fromJSONSchema = (
           ),
         "Should pass every declared property schema."
       );
-      if (jsonSchema.additionalProperties === false) {
-        const propertyNames = new Set(Object.keys(properties));
+      if (additionalProperties === false) {
+        const propertyNames = new Set(propertyKeys);
         schema = refineInput(
           schema,
           (data: unknown) =>
             Object.keys(data as Record<string, unknown>).every((key) => propertyNames.has(key)),
           "Should not contain additional properties."
         );
-      } else if (
-        jsonSchema.additionalProperties !== U &&
-        jsonSchema.additionalProperties !== true
-      ) {
-        const propertyNames = new Set(Object.keys(properties));
-        const additionalSchema = asAssertion(jsonSchema.additionalProperties, ctx);
+      } else if (additionalSchema !== U) {
+        const propertyNames = new Set(propertyKeys);
         schema = refineInput(
           schema,
           (data: unknown) =>
@@ -1311,29 +1316,25 @@ export const fromJSONSchema = (
         );
       }
     } else {
-      const additionalProperties = jsonSchema.additionalProperties;
-      if (additionalProperties !== U) {
-        if (additionalProperties === false) {
-          schema = refineInput(
-            schema,
-            (data: unknown) => Object.keys(data as Record<string, unknown>).length === 0,
-            "Should not contain additional properties."
-          );
-        } else if (additionalProperties !== true) {
-          const additionalSchema = asAssertion(additionalProperties, ctx);
-          schema = refineInput(
-            schema,
-            (data: unknown) =>
-              Object.keys(data as Record<string, unknown>).every((key) =>
-                passesSchema((data as Record<string, unknown>)[key], additionalSchema)
-              ),
-            "Should pass the additionalProperties schema."
-          );
-        }
+      if (additionalProperties === false) {
+        schema = refineInput(
+          schema,
+          (data: unknown) => Object.keys(data as Record<string, unknown>).length === 0,
+          "Should not contain additional properties."
+        );
+      } else if (additionalSchema !== U) {
+        schema = refineInput(
+          schema,
+          (data: unknown) =>
+            Object.keys(data as Record<string, unknown>).every((key) =>
+              passesSchema((data as Record<string, unknown>)[key], additionalSchema)
+            ),
+          "Should pass the additionalProperties schema."
+        );
       }
     }
 
-    if (jsonSchema.required !== U && jsonSchema.required.length > 0) {
+    if (jsonSchema.required?.length) {
       const required = jsonSchema.required;
       schema = refineInput(
         schema,
@@ -1343,19 +1344,10 @@ export const fromJSONSchema = (
       );
     }
     const objectKeywords: JSONSchemaT = {};
+    if (roundTripAdditionalProperties !== U)
+      objectKeywords.additionalProperties = roundTripAdditionalProperties;
     if (roundTripProperties !== U) objectKeywords.properties = roundTripProperties;
     if (jsonSchema.required !== U) objectKeywords.required = jsonSchema.required;
-    if (jsonSchema.additionalProperties !== U) {
-      const additionalProperties = jsonSchema.additionalProperties;
-      objectKeywords.additionalProperties =
-        typeof additionalProperties === "boolean"
-          ? additionalProperties
-          : assertionToJSONDefinition(
-              additionalProperties,
-              asAssertion(additionalProperties, ctx),
-              ctx
-            );
-    }
     schema = extendJSONSchema(schema, objectKeywords);
   } else if (jsonSchema.type === "array") {
     const prefixItems =

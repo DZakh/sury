@@ -8,9 +8,9 @@ vs:
   zod:
     _skip: not-applicable
 jsonSchema:
-  input: '{ type: "object", additionalProperties: true, properties: { child: { type: "string" } }, required: ["child"], $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  input: '{ type: "object", properties: { child: { type: "string" } }, required: ["child"], $schema: "https://json-schema.org/draft/2020-12/schema" }'
   fromInputType: "{ child: string; }"
-  output: '{ type: "object", additionalProperties: true, properties: { child: { type: "string" } }, required: ["child"], $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  output: '{ type: "object", properties: { child: { type: "string" } }, required: ["child"], $schema: "https://json-schema.org/draft/2020-12/schema" }'
   fromOutputType: "{ child: string; }"
 operations:
   parse:

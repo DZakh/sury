@@ -8,8 +8,8 @@ vs:
   zod:
     _skip: not-applicable
 jsonSchema:
-  input: '{ $ref: "#/$defs/Tree", $defs: { Tree: { type: "object", additionalProperties: true, properties: { value: { type: "string" }, fork: { type: "object", additionalProperties: true, properties: { left: { $ref: "#/$defs/Tree" }, right: { $ref: "#/$defs/Tree" } }, required: ["left", "right"] } }, required: ["value"] } } }'
-  output: '{ $ref: "#/$defs/Tree", $defs: { Tree: { type: "object", additionalProperties: true, properties: { value: { type: "string" }, fork: { type: "object", additionalProperties: true, properties: { left: { $ref: "#/$defs/Tree" }, right: { $ref: "#/$defs/Tree" } }, required: ["left", "right"] } }, required: ["value"] } } }'
+  input: '{ $ref: "#/$defs/Tree", $defs: { Tree: { type: "object", properties: { value: { type: "string" }, fork: { type: "object", properties: { left: { $ref: "#/$defs/Tree" }, right: { $ref: "#/$defs/Tree" } }, required: ["left", "right"] } }, required: ["value"] } } }'
+  output: '{ $ref: "#/$defs/Tree", $defs: { Tree: { type: "object", properties: { value: { type: "string" }, fork: { type: "object", properties: { left: { $ref: "#/$defs/Tree" }, right: { $ref: "#/$defs/Tree" } }, required: ["left", "right"] } }, required: ["value"] } } }'
 operations:
   parse:
     expression: i=>{e[0](i);return i}

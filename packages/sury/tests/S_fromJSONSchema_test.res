@@ -148,7 +148,7 @@ test("fromJSONSchema: object with properties", t => {
   let schema = S.fromJSONSchema(js)
   t->Assert.deepEqual(parse(schema, {"foo": "hi", "bar": 1}), {"foo": "hi", "bar": 1})
   t->Assert.throws(() => parse(schema, {"bar": 1}))
-  t->Assert.deepEqual(jsonRoundTrip(js), {...js, additionalProperties: Any})
+  t->Assert.deepEqual(jsonRoundTrip(js), js)
 })
 
 test("fromJSONSchema: object with additionalProperties false", t => {
@@ -170,7 +170,7 @@ test("fromJSONSchema: object with additionalProperties true", t => {
   }
   let schema = S.fromJSONSchema(js)
   t->Assert.deepEqual(parse(schema, {"foo": 1, "bar": 2}), {"foo": 1, "bar": 2})
-  t->Assert.deepEqual(jsonRoundTrip(js), js)
+  t->Assert.deepEqual(jsonRoundTrip(js), {type_: Arrayable.single(#object)})
 })
 
 test("fromJSONSchema: bare object with no properties or additionalProperties", t => {
@@ -402,7 +402,7 @@ test("fromJSONSchema: a recursive $ref round-trips as a $ref plus its $defs", t 
   t->Assert.deepEqual(parse(schema, {"next": {"next": Dict.make()}}), {"next": {"next": Dict.make()}})
   let out = jsonRoundTrip(js)
   t->Assert.deepEqual((out->Obj.magic)["$ref"], %raw(`"#/$defs/Node"`))
-  t->Assert.deepEqual((out->Obj.magic)["$defs"]["Node"]["additionalProperties"], true)
+  t->Assert.deepEqual((out->Obj.magic)["$defs"]["Node"]["additionalProperties"], %raw(`undefined`))
   t->Assert.deepEqual(parse(S.fromJSONSchema(out), {"next": Dict.make()}), {"next": Dict.make()})
 })
 
@@ -531,5 +531,5 @@ test("fromJSONSchema: round-trip for object schema", t => {
   let round = roundTrip(orig)
   t->Assert.deepEqual(parse(round, {"foo": "bar"}), {"foo": "bar"})
   t->Assert.throws(() => parse(round, {"foo": 1}))
-  t->Assert.deepEqual(round->S.toJSONSchema, {...orig->S.toJSONSchema, additionalProperties: Any})
+  t->Assert.deepEqual(round->S.toJSONSchema, orig->S.toJSONSchema)
 })

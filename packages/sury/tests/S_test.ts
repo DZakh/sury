@@ -275,6 +275,33 @@ test("Test extended JSON Schema", (t) => {
   });
 });
 
+test("toJSONSchema omits default additionalProperties schemas", (t) => {
+  const expected = {
+    type: "object",
+    properties: { value: { type: "string" } },
+  };
+  const input = { value: "ok", extra: { nested: true } };
+
+  for (const additionalProperties of [true, {}] as const) {
+    const schema = S.fromJSONSchema({
+      type: "object",
+      properties: { value: { type: "string" } },
+      additionalProperties,
+    });
+    t.expect(S.parser(schema)(input)).toBe(input);
+    t.expect(S.toJSONSchema(schema)).toEqual(expected);
+  }
+
+  const referencedAny = S.fromJSONSchema({
+    type: "object",
+    additionalProperties: { $ref: "#/$defs/any" },
+    $defs: { any: {} },
+  });
+  t.expect(S.parser(referencedAny)(input)).toBe(input);
+  t.expect(S.toJSONSchema(referencedAny)).toEqual({ type: "object" });
+  t.expect(S.toJSONSchema(S.record(S.json))).toEqual({ type: "object" });
+});
+
 test("JS refine produces invalid_input error with expected/received populated", (t) => {
   const schema = S.string.with(S.refine, () => false, { error: "nope" });
   const result = S.safe(() => S.parser(schema)("123"));
@@ -1454,7 +1481,6 @@ test("fromJSONSchema: $ref siblings follow the declared dialect", (t) => {
   expectSchemaType(nestedModern).toBe<{ id?: string | undefined }>();
   t.expect(S.toJSONSchema(nestedModern)).toEqual({
     type: "object",
-    additionalProperties: true,
     properties: { id: { type: "string" } },
     $schema: "https://json-schema.org/draft/2020-12/schema",
   });
