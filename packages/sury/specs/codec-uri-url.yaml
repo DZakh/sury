@@ -10,7 +10,6 @@ vs:
 jsonSchema:
   input: '{ type: "string", format: "uri" }'
   output: Expected JSON, received URL
-  fromOutputType: Expected JSON, received URL
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[4](i);e[2].test(i)||e[3](i);let v0=e[0](i);v0||e[1](i);return v0}

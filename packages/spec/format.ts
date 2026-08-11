@@ -220,14 +220,14 @@ export const specSchema = S.schema({
     }),
     fromInputType: S.optional(S.string).with(S.meta, {
       description:
-        "The output type inferred by S.fromJSONSchema(input), or input's conversion error; omit when equal to ts.input.",
+        "The output type inferred by S.fromJSONSchema(input), only when it differs from ts.input; omit when equal or when input is a conversion error.",
     }),
     output: S.string.with(S.meta, {
       description: "S.toJSONSchema(S.reverse(schema)), as source text, or its conversion error.",
     }),
     fromOutputType: S.optional(S.string).with(S.meta, {
       description:
-        "The output type inferred by S.fromJSONSchema(output), or output's conversion error; omit when equal to ts.output.",
+        "The output type inferred by S.fromJSONSchema(output), only when it differs from ts.output; omit when equal or when output is a conversion error.",
     }),
   })
     .with(S.strict)
@@ -235,7 +235,7 @@ export const specSchema = S.schema({
       description:
         "S.toJSONSchema(schema) for both directions, as one-line source text, plus any divergent " +
         "output type inferred by S.fromJSONSchema for each generated document. Matching types are " +
-        "omitted; if a direction can't be represented, its conversion error records the divergence. " +
+        "omitted; if a direction can't be represented, no round-trip type is recorded. " +
         "Filled by `spec check --write`.",
     }),
   operations,

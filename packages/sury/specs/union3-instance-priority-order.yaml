@@ -9,7 +9,6 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: "Expected JSON, received Error | { x: string; } | TypeError"
-  fromInputType: "Expected JSON, received Error | { x: string; } | TypeError"
   output: '{ anyOf: [{ type: "string" }, { type: "object", properties: { x: { type: "string" } }, required: ["x"] }] }'
 operations:
   parse:

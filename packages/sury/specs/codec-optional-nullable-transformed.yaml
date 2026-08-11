@@ -9,7 +9,6 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: Expected JSON, received string | undefined
-  fromInputType: Expected JSON, received string | undefined
   output: '{ anyOf: [{ type: "boolean" }, { type: "null" }] }'
 operations:
   parse:

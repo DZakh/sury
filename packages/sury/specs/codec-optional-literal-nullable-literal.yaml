@@ -9,7 +9,6 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: Expected JSON, received "x" | undefined
-  fromInputType: Expected JSON, received "x" | undefined
   output: '{ enum: ["x", null] }'
 operations:
   parse:

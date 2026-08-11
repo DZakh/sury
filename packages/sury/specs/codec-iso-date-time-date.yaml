@@ -10,7 +10,6 @@ vs:
 jsonSchema:
   input: '{ type: "string", format: "date-time" }'
   output: Expected JSON, received Date
-  fromOutputType: Expected JSON, received Date
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[3](i);e[1].test(i)||e[2](i);let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](v0);return v0}

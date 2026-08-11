@@ -9,7 +9,6 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: 'Failed at ["u"]: Expected JSON, received unknown'
-  fromInputType: 'Failed at ["u"]: Expected JSON, received unknown'
   output: '{ type: "string" }'
 operations:
   parse:

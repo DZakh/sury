@@ -8,9 +8,7 @@ vs:
   zod: z.file().min(3)
 jsonSchema:
   input: Expected JSON, received File.size >= 3
-  fromInputType: Expected JSON, received File.size >= 3
   output: Expected JSON, received File.size >= 3
-  fromOutputType: Expected JSON, received File.size >= 3
 operations:
   parse:
     expression: i=>{i instanceof e[1]||e[2](i);i.size>2||e[0](i);return i}

@@ -9,7 +9,6 @@ vs:
 jsonSchema:
   input: '{ type: "string" }'
   output: Expected JSON, received unknown
-  fromOutputType: Expected JSON, received unknown
 operations:
   parse:
     isAsync: true

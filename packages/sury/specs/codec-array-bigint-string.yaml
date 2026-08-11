@@ -9,7 +9,6 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: "Failed at []: Expected JSON, received bigint"
-  fromInputType: "Failed at []: Expected JSON, received bigint"
   output: '{ items: { type: "string" }, type: "array" }'
 operations:
   parse:

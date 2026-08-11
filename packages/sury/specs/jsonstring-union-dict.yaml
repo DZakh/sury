@@ -10,7 +10,6 @@ vs:
 jsonSchema:
   input: '{ type: "string" }'
   output: "Failed at []: Expected JSON, received bigint"
-  fromOutputType: "Failed at []: Expected JSON, received bigint"
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[6](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v5={};for(let v1 in v0){try{let v3=v0[v1];typeof v3==="string"||e[2](v3);let v2;try{v2=BigInt(v3)}catch(_){e[1](v3)}v5[v1]=v2}catch(v4){v4.path='["'+v1+'"]'+v4.path;throw v4}}v0=v5;break}if(Array.isArray(v0)){let v10=new Array(v0.length);for(let v6=0;v6<v0.length;++v6){try{let v8=v0[v6];typeof v8==="string"||e[4](v8);let v7;try{v7=BigInt(v8)}catch(_){e[3](v8)}v10[v6]=v7}catch(v9){v9.path='["'+v6+'"]'+v9.path;throw v9}}v0=v10;break}e[5](v0)}return v0}

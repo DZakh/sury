@@ -8,9 +8,7 @@ vs:
   zod: z.date()
 jsonSchema:
   input: Expected JSON, received Date
-  fromInputType: Expected JSON, received Date
   output: Expected JSON, received Date
-  fromOutputType: Expected JSON, received Date
 operations:
   parse:
     expression: i=>{i instanceof e[1]||e[2](i);!Number.isNaN(i.getTime())||e[0](i);return i}

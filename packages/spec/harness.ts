@@ -297,9 +297,9 @@ const toJsonSchemaOrError = (
 };
 const deriveJsonSchemaSide = async (
   fn: () => unknown,
-): Promise<{ schema: string; inferred: string }> => {
+): Promise<{ schema: string; inferred?: string }> => {
   const result = toJsonSchemaOrError(fn);
-  if (!result.ok) return { schema: result.error, inferred: result.error };
+  if (!result.ok) return { schema: result.error };
   const inferred = (await deriveTypeInfo(`S.fromJSONSchema(${result.source})`)).output;
   return { schema: result.source, inferred };
 };
@@ -312,9 +312,13 @@ const deriveJsonSchema = async (
   const output = await deriveJsonSchemaSide(() => S.toJSONSchema(S.reverse(schema)));
   return {
     input: input.schema,
-    ...(input.inferred === types.input ? {} : { fromInputType: input.inferred }),
+    ...(input.inferred === undefined || input.inferred === types.input
+      ? {}
+      : { fromInputType: input.inferred }),
     output: output.schema,
-    ...(output.inferred === types.output ? {} : { fromOutputType: output.inferred }),
+    ...(output.inferred === undefined || output.inferred === types.output
+      ? {}
+      : { fromOutputType: output.inferred }),
   };
 };
 
@@ -705,12 +709,19 @@ const jsonSchemaTypePresenceViolations = (spec: Spec, expected: Spec): string[] 
     const expectedType = expected.jsonSchema[field];
     const schemaType = expected.ts[side];
     if (isSkip(schemaType)) continue;
-    if (currentType !== undefined && expectedType === undefined)
-      errs.push(
-        `jsonSchema.${field}: S.fromJSONSchema(jsonSchema.${side}) matches ts.${side} ` +
-          `${JSON.stringify(schemaType)} — omit \`${field}\`.`,
-      );
-    else if (currentType === undefined && expectedType !== undefined)
+    if (currentType !== undefined && expectedType === undefined) {
+      try {
+        evalSchema(expected.jsonSchema[side]);
+        errs.push(
+          `jsonSchema.${field}: S.fromJSONSchema(jsonSchema.${side}) matches ts.${side} ` +
+            `${JSON.stringify(schemaType)} — omit \`${field}\`.`,
+        );
+      } catch {
+        errs.push(
+          `jsonSchema.${field}: jsonSchema.${side} failed to create, so there is no round-trip type to record — omit \`${field}\`.`,
+        );
+      }
+    } else if (currentType === undefined && expectedType !== undefined)
       errs.push(
         `jsonSchema.${field}: omitted, but S.fromJSONSchema(jsonSchema.${side}) infers ` +
           `${JSON.stringify(expectedType)} !== ts.${side} ${JSON.stringify(schemaType)} — add \`${field}\`.`,

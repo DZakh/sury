@@ -11,7 +11,6 @@ vs:
 jsonSchema:
   input: '{ type: "string" }'
   output: Expected JSON, received unknown
-  fromOutputType: Expected JSON, received unknown
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[2](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}

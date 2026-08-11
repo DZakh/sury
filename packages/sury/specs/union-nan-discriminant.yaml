@@ -9,7 +9,6 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: 'Failed at ["t"]: Expected JSON, received NaN'
-  fromInputType: 'Failed at ["t"]: Expected JSON, received NaN'
   output: '{ type: "string" }'
 operations:
   parse:

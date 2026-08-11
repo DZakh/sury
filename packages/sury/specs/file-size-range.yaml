@@ -8,9 +8,7 @@ vs:
   zod: z.file().min(2).max(10)
 jsonSchema:
   input: Expected JSON, received 2 <= File.size <= 10
-  fromInputType: Expected JSON, received 2 <= File.size <= 10
   output: Expected JSON, received 2 <= File.size <= 10
-  fromOutputType: Expected JSON, received 2 <= File.size <= 10
 operations:
   parse:
     expression: i=>{i instanceof e[2]||e[3](i);i.size>1||e[0](i);i.size<11||e[1](i);return i}

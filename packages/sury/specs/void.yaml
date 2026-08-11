@@ -8,9 +8,7 @@ vs:
   zod: z.void()
 jsonSchema:
   input: Expected JSON, received void
-  fromInputType: Expected JSON, received void
   output: Expected JSON, received void
-  fromOutputType: Expected JSON, received void
 operations:
   parse:
     expression: i=>{i===void 0||e[0](i);return i}

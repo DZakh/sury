@@ -22,9 +22,7 @@ vs:
 # document's own prototype is polluted the same way.
 jsonSchema:
   input: cannot represent a Object instance as spec source code
-  fromInputType: cannot represent a Object instance as spec source code
   output: cannot represent a Object instance as spec source code
-  fromOutputType: cannot represent a Object instance as spec source code
 operations:
   parse:
     expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i["__proto__"];typeof v0==="string"||e[0](v0);return {"__proto__":v0,}}

@@ -9,7 +9,6 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: Expected JSON, received boolean | symbol
-  fromInputType: Expected JSON, received boolean | symbol
   output: '{ type: "string" }'
 operations:
   parse:

@@ -11,9 +11,7 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: Expected JSON, received Symbol(tuna)
-  fromInputType: Expected JSON, received Symbol(tuna)
   output: Expected JSON, received Symbol(tuna)
-  fromOutputType: Expected JSON, received Symbol(tuna)
 operations:
   parse:
     expression: i=>{i===e[0]||e[1](i);return i}

@@ -10,7 +10,6 @@ vs:
 jsonSchema:
   input: '{ anyOf: [{ not: {} }, { type: "string" }] }'
   output: Expected JSON, received undefined | string
-  fromOutputType: Expected JSON, received undefined | string
 operations:
   parse:
     creationError: "SuryError: Invalid operation: can't convert never | string to undefined | string — undefined has no same-type variant on the other side. Use S.to to say what you mean, or S.never to mark a variant unreachable"
