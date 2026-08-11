@@ -5,6 +5,8 @@
   "scripts": {
     "res": "pnpm --filter=sury exec rescript watch",
     "spec": "tsx packages/spec/cli.ts",
+    "fuzz": "pnpm --filter=fuzz fuzz",
+    "test:fuzz": "pnpm --filter=fuzz test",
     "compliance": "pnpm --filter=sury build:entry && tsx packages/json-schema-test-suite/cli.ts",
     "test": "pnpm --filter=sury test && pnpm --filter=e2e test",
     "build": "pnpm --filter=sury build",

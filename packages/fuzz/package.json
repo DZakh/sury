@@ -1,0 +1,20 @@
+{
+  "name": "fuzz",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Schema compiler fuzzing for Sury's public decoder and encoder API",
+  "scripts": {
+    "fuzz": "pnpm --filter=sury build:entry && tsx ./cli.ts",
+    "test": "tsx ./engine_test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "sury": "file:../sury"
+  },
+  "devDependencies": {
+    "@types/node": "20.19.41",
+    "tsx": "4.22.4",
+    "typescript": "5.8.3"
+  }
+}
