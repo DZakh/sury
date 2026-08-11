@@ -105,12 +105,66 @@ type JSONSchemaRest<I, D, M extends boolean> = I extends false
   ? JSON
   : JSONSchemaResolve<I, D, M>;
 
+type JSONSchemaNaturalGreater<
+  A extends number,
+  B extends number,
+  Acc extends unknown[] = [],
+> = `${A}` extends `${bigint}`
+  ? `${B}` extends `${bigint}`
+    ? Acc["length"] extends A
+      ? false
+      : Acc["length"] extends B
+        ? true
+        : Acc["length"] extends 64
+          ? false
+          : JSONSchemaNaturalGreater<A, B, [...Acc, unknown]>
+    : false
+  : false;
+
+type JSONSchemaGreaterOne<A extends number, B extends number> = number extends A | B
+  ? false
+  : `${A}` extends `-${infer AbsA extends number}`
+    ? `${B}` extends `-${infer AbsB extends number}`
+      ? JSONSchemaNaturalGreater<AbsB, AbsA>
+      : false
+    : `${B}` extends `-${number}`
+      ? true
+      : JSONSchemaNaturalGreater<A, B>;
+
+// Distributing both sides makes a widened union return `boolean`; callers only
+// narrow when every possible pair proves the same relation.
+type JSONSchemaGreater<A extends number, B extends number> = A extends A
+  ? B extends B
+    ? JSONSchemaGreaterOne<A, B>
+    : never
+  : never;
+
+type JSONSchemaEqual<A, B> = A extends A
+  ? B extends B
+    ? [A] extends [B]
+      ? [B] extends [A]
+        ? true
+        : false
+      : false
+    : never
+  : never;
+
+type JSONSchemaRepeat<
+  E,
+  N extends number,
+  Acc extends unknown[] = [],
+> = Acc["length"] extends N
+  ? Acc
+  : Acc["length"] extends 64
+    ? E[]
+    : JSONSchemaRepeat<E, N, [...Acc, E]>;
+
 type JSONSchemaTuple<P extends readonly unknown[], I, D, M extends boolean> = [
   ...JSONSchemaOptionalTuple<P, D, M>,
   ...JSONSchemaRest<I, D, M>[],
 ];
 
-type JSONSchemaArray<S, D, M extends boolean> = S extends {
+type JSONSchemaArrayBase<S, D, M extends boolean> = S extends {
   prefixItems: infer P extends readonly unknown[];
 }
   ? JSONSchemaTuple<P, S extends { items: infer I } ? I : true, D, M>
@@ -125,6 +179,48 @@ type JSONSchemaArray<S, D, M extends boolean> = S extends {
     : JSONSchemaResolve<I, D, M>[]
   : JSON[];
 
+type JSONSchemaHasPositionalItems<S> = S extends {
+  prefixItems: readonly unknown[];
+}
+  ? true
+  : S extends { items: readonly unknown[] }
+    ? true
+    : false;
+
+type JSONSchemaApplyArrayLength<
+  S,
+  T,
+  N extends number,
+> = number extends N
+  ? T
+  : N extends 0
+    ? []
+    : JSONSchemaHasPositionalItems<S> extends true
+      ? T
+      : T extends (infer E)[]
+        ? JSONSchemaRepeat<E, N>
+        : T;
+
+type JSONSchemaArrayBounds<
+  S,
+  T,
+  Max extends number,
+> = S extends { minItems: infer Min extends number }
+  ? JSONSchemaGreater<Min, Max> extends true
+    ? never
+    : JSONSchemaEqual<Min, Max> extends true
+      ? JSONSchemaApplyArrayLength<S, T, Min>
+      : T
+  : [Max] extends [0]
+    ? []
+    : T;
+
+type JSONSchemaArray<S, D, M extends boolean> = S extends {
+  maxItems: infer Max extends number;
+}
+  ? JSONSchemaArrayBounds<S, JSONSchemaArrayBase<S, D, M>, Max>
+  : JSONSchemaArrayBase<S, D, M>;
+
 // Undoes the `readonly` a `const T` call site stamps onto `enum`/`const`
 // values, the same way index.d.ts's `UnknownToOutput` does for `S.schema`.
 // One branch covers arrays too: the homomorphic mapped type keeps a tuple a
@@ -137,14 +233,84 @@ type JSONSchemaUnion<A extends readonly unknown[], D, M extends boolean> = {
   [K in keyof A]: JSONSchemaResolve<A[K], D, M>;
 }[number];
 
+type JSONSchemaString<S> = S extends { maxLength: infer Max extends number }
+  ? S extends { minLength: infer Min extends number }
+    ? JSONSchemaGreater<Min, Max> extends true
+      ? never
+      : [Max] extends [0]
+        ? ""
+        : string
+    : [Max] extends [0]
+      ? ""
+      : string
+  : string;
+
+type JSONSchemaBoundsImpossiblePair<
+  Lower extends number,
+  LowerExclusive extends boolean,
+  Upper extends number,
+  UpperExclusive extends boolean,
+> = JSONSchemaGreater<Lower, Upper> extends true
+  ? true
+  : JSONSchemaEqual<Lower, Upper> extends true
+    ? true extends LowerExclusive | UpperExclusive
+      ? true
+      : false
+    : false;
+
+type JSONSchemaNumber<S> = S extends {
+  exclusiveMinimum: infer Lower extends number;
+  exclusiveMaximum: infer Upper extends number;
+}
+  ? JSONSchemaBoundsImpossiblePair<Lower, true, Upper, true> extends true
+    ? never
+    : number
+  : S extends {
+        exclusiveMinimum: infer Lower extends number;
+        maximum: infer Upper extends number;
+      }
+    ? JSONSchemaBoundsImpossiblePair<
+        Lower,
+        true,
+        Upper,
+        S extends { exclusiveMaximum: true } ? true : false
+      > extends true
+      ? never
+      : number
+    : S extends {
+          minimum: infer Lower extends number;
+          exclusiveMaximum: infer Upper extends number;
+        }
+      ? JSONSchemaBoundsImpossiblePair<
+          Lower,
+          S extends { exclusiveMinimum: true } ? true : false,
+          Upper,
+          true
+        > extends true
+        ? never
+        : number
+      : S extends {
+            minimum: infer Lower extends number;
+            maximum: infer Upper extends number;
+          }
+        ? JSONSchemaBoundsImpossiblePair<
+            Lower,
+            S extends { exclusiveMinimum: true } ? true : false,
+            Upper,
+            S extends { exclusiveMaximum: true } ? true : false
+          > extends true
+          ? never
+          : number
+        : number;
+
 type JSONSchemaTypeNameToType<N, S, D, M extends boolean> = N extends "object"
   ? JSONSchemaObject<S, D, M>
   : N extends "array"
   ? JSONSchemaArray<S, D, M>
   : N extends "string"
-  ? string
+  ? JSONSchemaString<S>
   : N extends "number" | "integer"
-  ? number
+  ? JSONSchemaNumber<S>
   : N extends "boolean"
   ? boolean
   : N extends "null"

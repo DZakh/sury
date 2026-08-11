@@ -239,6 +239,10 @@ export type JsonSchemaTarget = "draft-07" | "draft-2020-12" | "openapi-3.0" | (s
 // Compared on every emit branch that differs by dialect; naming it once keeps
 // the literal out of the bundle at each of those sites.
 const openApi30 = "openapi-3.0";
+const draft06Uri = "http://json-schema.org/draft-06/schema#";
+const draft07Uri = "http://json-schema.org/draft-07/schema#";
+const draft2019Uri = "https://json-schema.org/draft/2019-09/schema";
+const draft2020Uri = "https://json-schema.org/draft/2020-12/schema";
 
 export type StandardJsonSchemaOptions = {
   target: JsonSchemaTarget;
@@ -636,9 +640,9 @@ export type toJSONSchemaOptions = { target?: JsonSchemaTarget };
 const targetSchemaUri = (target: JsonSchemaTarget): string | undefined => {
   switch (target) {
     case "draft-07":
-      return "http://json-schema.org/draft-07/schema#";
+      return draft07Uri;
     case "draft-2020-12":
-      return "https://json-schema.org/draft/2020-12/schema";
+      return draft2020Uri;
     // OpenAPI 3.0 has no `$schema` property.
     case openApi30:
       return U;
@@ -836,6 +840,7 @@ const toIntSchema = (jsonSchema: JSONSchemaT): Internal => withNumericBounds(int
 // reject — so creation fails instead. Annotations (`title`, `default`,
 // `$comment`, …) are ignored on purpose and stay out of this list.
 const unsupportedKeywords = [
+  "$dynamicRef",
   "uniqueItems",
   "contains",
   "minContains",
@@ -967,6 +972,14 @@ const refError = (reason: string): SuryError =>
     path: pathEmpty,
     reason,
   });
+
+const refSiblingsForDialect = (uri: string | undefined): boolean => {
+  if (uri === U || uri === draft06Uri || uri === draft07Uri) return false;
+  if (uri === draft2019Uri || uri === draft2020Uri) return true;
+  throw refError(
+    `Unsupported JSON Schema $schema: ${uri}. Custom metaschemas can change keyword semantics through $vocabulary, which Sury cannot infer from the schema document alone`
+  );
+};
 
 // RFC 6901: `~1` is `/` and `~0` is `~`, in that order, and the fragment may
 // arrive percent-encoded.
@@ -1172,6 +1185,7 @@ export const fromJSONSchema = (
   if (typeof jsonSchema === "boolean") {
     return jsonSchema ? anySchema : never_;
   }
+  const refSiblings = refSiblingsForDialect(jsonSchema["$schema"]);
   // Every nested call threads the caller's context; only the outermost one
   // owns the document, and only it publishes the `$defs` collected below.
   const ctx: RefContext =
@@ -1179,9 +1193,7 @@ export const fromJSONSchema = (
       ? parentCtx
       : {
           root: jsonSchema,
-          refSiblings:
-            jsonSchema["$schema"]?.includes("/draft/2020-12/") === true ||
-            jsonSchema["$schema"]?.includes("/draft/2019-09/") === true,
+          refSiblings,
           ph: {},
           built: {},
           cyc: {},

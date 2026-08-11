@@ -3,7 +3,7 @@ ts:
   schema: 'S.fromJSONSchema({ type: "array", items: [{ type: "string" }, { type: "number" }], additionalItems: { type: "boolean" } })'
   input: "[(string | undefined)?, (number | undefined)?, ...boolean[]]"
   output: "[(string | undefined)?, (number | undefined)?, ...boolean[]]"
-  instantiations: 903
+  instantiations: 958
 vs:
   zod: z.tuple([z.string().optional(), z.number().optional()]).rest(z.boolean())
 jsonSchema:

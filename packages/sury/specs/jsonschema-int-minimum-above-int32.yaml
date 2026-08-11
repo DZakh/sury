@@ -3,7 +3,7 @@ ts:
   schema: 'S.fromJSONSchema({ type: "integer", minimum: 3000000000 })'
   input: number
   output: number
-  instantiations: 495
+  instantiations: 522
 vs:
   zod:
     _skip: not-applicable

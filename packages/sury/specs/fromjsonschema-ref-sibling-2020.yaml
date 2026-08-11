@@ -3,7 +3,7 @@ ts:
   schema: 'S.fromJSONSchema({ "$schema": "https://json-schema.org/draft/2020-12/schema", "$ref": "#/$defs/id", minLength: 3, anyOf: [{ pattern: "c$" }], "$defs": { id: { type: "string" } } })'
   input: string
   output: string
-  instantiations: 827
+  instantiations: 839
 vs:
   zod: z.string()
 jsonSchema:

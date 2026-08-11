@@ -1524,6 +1524,19 @@ test("fromJSONSchema: an unmodelled assertion keyword fails at creation", (t) =>
   t.expect(
     S.safe(() => S.fromJSONSchema({ type: "array", uniqueItems: true })).error?.message,
   ).toContain("uniqueItems");
+
+  t.expect(
+    S.safe(() => S.fromJSONSchema({ $dynamicRef: "#items" })).error?.message,
+  ).toContain("$dynamicRef");
+
+  t.expect(
+    S.safe(() =>
+      S.fromJSONSchema({
+        $schema: "https://example.com/custom-meta-schema",
+        type: "number",
+      }),
+    ).error?.message,
+  ).toContain("Unsupported JSON Schema $schema");
 });
 
 test("fromJSONSchema: exclusiveMaximum bounds the maximum, not the minimum", (t) => {
@@ -1905,6 +1918,35 @@ test("An unsatisfiable JSON Schema document loads as never", (t) => {
     const schema = S.fromJSONSchema(definition);
     t.expect(S.inputExpression(schema)).toEqual("never");
   }
+});
+
+test("fromJSONSchema: literal bounds narrow the inferred type", () => {
+  expectSchemaType(
+    S.fromJSONSchema({
+      type: "array",
+      items: { type: "string" },
+      minItems: 2,
+      maxItems: 2,
+    }),
+  ).toBe<[string, string]>();
+  expectSchemaType(
+    S.fromJSONSchema({ type: "array", items: { type: "string" }, maxItems: 0 }),
+  ).toBe<[]>();
+  expectSchemaType(
+    S.fromJSONSchema({ type: "string", minLength: 0, maxLength: 0 }),
+  ).toBe<"">();
+  expectSchemaType(
+    S.fromJSONSchema({ type: "number", minimum: 5, maximum: 1 }),
+  ).toBe<never>();
+  expectSchemaType(
+    S.fromJSONSchema({ type: "number", exclusiveMinimum: 5, maximum: 5 }),
+  ).toBe<never>();
+  expectSchemaType(
+    S.fromJSONSchema({ type: "string", minLength: 5, maxLength: 1 }),
+  ).toBe<never>();
+  expectSchemaType(
+    S.fromJSONSchema({ type: "array", minItems: 5, maxItems: 1 }),
+  ).toBe<never>();
 });
 
 test("Schema toString prints Schema<input, output>", (t) => {
