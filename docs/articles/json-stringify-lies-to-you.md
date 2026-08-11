@@ -253,7 +253,20 @@ stringify({ price: NaN, name: "a" });       // => throws: The value "NaN" cannot
 stringify({ price: 1, name: 42 });          // => '{"price":1,"name":"42"}'     silently coerced
 ```
 
-`Infinity` still becomes `null`. `NaN` throws with a message that doesn't name the field. And a number where you declared a string gets **silently coerced into a string** — your consumer now receives `"42"` and has no idea it was ever a number. It also has an [`unsafe` string format](https://github.com/fastify/fast-json-stringify) that skips escaping entirely, which is exactly the kind of footgun you don't want in a serializer.
+`Infinity` still becomes `null`. `NaN` throws with a message that doesn't name the field. And a number where you declared a string gets **silently coerced into a string** — your consumer now receives `"42"` and has no idea it was ever a number. That one isn't even a bug: its types declare `StringCoercible = string | Date | RegExp`. It also has an [`unsafe` string format](https://github.com/fastify/fast-json-stringify) that skips escaping entirely, which is exactly the kind of footgun you don't want in a serializer.
+
+And the schema never reaches TypeScript:
+
+```ts
+// fast-json-stringify — <TDoc extends object = object>(doc: TDoc) => string
+stringify({ totally: "unrelated", nonsense: 123 }); // ✅ compiles, strict mode
+
+// Sury — (data: { price: number; name: string }) => string
+encode({ totally: "unrelated", nonsense: 123 });
+// => TS2353: 'totally' does not exist in type '{ price: number; name: string }'
+```
+
+You wrote a schema that fully describes the shape, and your editor learned nothing from it.
 
 **[json-accelerator](https://github.com/elysiajs/json-accelerator)** comes from the [ElysiaJS](https://elysiajs.com/) team — the people behind one of the fastest HTTP frameworks in the JavaScript ecosystem — so it's worth taking seriously as the state of the art in raw speed. It's faster still than fast-json-stringify, and completely honest about why: it says in its own README that it **will not** check type validity, and expects the schema to always be correct. Here's what that means in practice:
 
@@ -275,6 +288,7 @@ That isn't a bug — it's the documented deal. You're supposed to run a validato
 | Wrong type | ❌ throws with path | silently coerced | `"[object Object]"` | ❌ throws |
 | Missing field | ❌ throws with path | ❌ throws | `"undefined"` | ❌ throws |
 | `bigint` / `Date` as real types | ✅ | ❌ | ❌ | ❌ |
+| Schema reaches TypeScript | ✅ inferred | ❌ any object | ✅ inferred | ✅ inferred |
 | Decodes back too | ✅ same schema | ❌ | ❌ | ❌ |
 | min+gzip | **16.2 kB** | 56.7 kB | 13.9 kB | 24.5 kB |
 
