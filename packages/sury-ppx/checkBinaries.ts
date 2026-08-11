@@ -33,9 +33,15 @@ const ALSO_IN_TARBALL = ["bin.cmd", "install.cjs"];
 // Everything else has to ship beside the binary, and nothing does.
 const MACOS_SYSTEM_PREFIXES = ["/usr/lib/", "/System/Library/"];
 
-// The mingw-w64 build imports only DLLs Windows itself provides. `api-ms-win-*`
-// are the API sets; the rest are named individually so a runtime DLL that has
-// to be shipped (libwinpthread-1, libzstd) can't hide among them.
+// The mingw-w64 build imports only DLLs Windows itself provides. The API sets
+// are matched by prefix; the rest are named individually so a runtime DLL that
+// has to be shipped (libwinpthread-1, libzstd) can't hide among them.
+//
+// `vcruntime*`/`msvcp*` are deliberately absent: those ship in the VC++
+// redistributable, not in Windows, so a binary importing one is as broken for a
+// consumer as one importing libzstd. mingw links msvcrt.dll instead.
+const WINDOWS_SYSTEM_PREFIXES = ["api-ms-win-", "ext-ms-win-"];
+
 const WINDOWS_SYSTEM_DLLS = new Set(
   [
     "kernel32.dll",
@@ -49,12 +55,17 @@ const WINDOWS_SYSTEM_DLLS = new Set(
     "user32.dll",
     "dbghelp.dll",
     "userenv.dll",
+    // Windows' own C runtime since 10; a UCRT-configured mingw imports it.
+    "ucrtbase.dll",
   ].map((n) => n.toLowerCase()),
 );
 
 type Inspection = { arch: string; deps: string[] };
 
-const ELF_MACHINES: Record<number, string> = { 0x3e: "x86-64", 0xb7: "aarch64" };
+const ELF_MACHINES: Record<number, string> = {
+  0x3e: "x86-64",
+  0xb7: "aarch64",
+};
 
 // A statically linked ELF has no PT_INTERP: no loader runs, so there is nothing
 // to resolve. That single check is the whole "no shared libraries" question -
@@ -90,9 +101,10 @@ const MACHO_CPUS: Record<number, string> = {
   0x0100000c: "arm64",
 };
 
-// LC_REQ_DYLD (0x80000000) is set on the weak/reexport/upward variants, and the
-// lazy one defers the load rather than dropping it; every one of the five names
-// a path dyld has to find on the consumer's machine, so all five count.
+// LC_REQ_DYLD (0x80000000) is set on the weak/reexport/upward variants. All
+// five count, including the two dyld tolerates the absence of: a weak load
+// binds its symbols to null and a lazy one defers the failure to first use,
+// which makes a path off the build machine worse to diagnose, not acceptable.
 const MACHO_DYLIB_COMMANDS = new Set([
   0x0c, 0x20, 0x80000018, 0x8000001f, 0x80000023,
 ]);
@@ -174,7 +186,9 @@ const isSystemDep = (format: string, dep: string): boolean =>
   format === "macho"
     ? MACOS_SYSTEM_PREFIXES.some((prefix) => dep.startsWith(prefix))
     : format === "pe" &&
-      (dep.toLowerCase().startsWith("api-ms-win-") ||
+      (WINDOWS_SYSTEM_PREFIXES.some((prefix) =>
+        dep.toLowerCase().startsWith(prefix),
+      ) ||
         WINDOWS_SYSTEM_DLLS.has(dep.toLowerCase()));
 
 const errors: string[] = [];
@@ -220,7 +234,9 @@ for (const [file, expected] of Object.entries(BINARIES)) {
   }
   for (const dep of inspection.deps) {
     if (!isSystemDep(expected.format, dep)) {
-      fail(`${file}: depends on ${dep}, which a consumer has no reason to have`);
+      fail(
+        `${file}: depends on ${dep}, which a consumer has no reason to have`,
+      );
     }
   }
 }
@@ -229,28 +245,44 @@ const [tarball] = process.argv.slice(2);
 if (!tarball) {
   fail("usage: checkBinaries.ts <sury-ppx-*.tgz>");
 } else {
-  const listing = execFileSync("tar", ["-tvzf", tarball], { encoding: "utf8" })
-    .split("\n")
-    .flatMap((line) => {
-      const match = line.match(/^(\S+).* package\/(\S+)$/);
-      return match ? [{ mode: match[1]!, file: match[2]! }] : [];
-    });
-  for (const file of [...EXECUTABLE_IN_TARBALL, ...ALSO_IN_TARBALL]) {
-    const entry = listing.find((e) => e.file === file);
-    if (!entry) {
-      fail(`${file}: missing from the tarball — add it to package.json "files"`);
-    } else if (
-      EXECUTABLE_IN_TARBALL.includes(file) &&
-      !entry.mode.startsWith("-rwx")
-    ) {
-      fail(`${file}: not executable in the tarball`);
+  // Reading the tarball is the one step that can throw: an unguarded exception
+  // would escape with the binary errors still unprinted, and those are the ones
+  // worth reading.
+  let listing: { mode: string; file: string }[] | undefined;
+  try {
+    listing = execFileSync("tar", ["-tvzf", tarball], { encoding: "utf8" })
+      .split("\n")
+      .flatMap((line) => {
+        const match = line.match(/^(\S+).* package\/(\S+)$/);
+        return match ? [{ mode: match[1]!, file: match[2]! }] : [];
+      });
+  } catch (error) {
+    // An empty listing would report all eight entries as missing and bury this.
+    fail(`${tarball}: cannot be read — ${error}`);
+  }
+  const entries = listing;
+  if (entries) {
+    for (const file of [...EXECUTABLE_IN_TARBALL, ...ALSO_IN_TARBALL]) {
+      const entry = entries.find((e) => e.file === file);
+      if (!entry) {
+        fail(
+          `${file}: missing from the tarball — add it to package.json "files"`,
+        );
+      } else if (
+        EXECUTABLE_IN_TARBALL.includes(file) &&
+        !entry.mode.startsWith("-rwx")
+      ) {
+        fail(`${file}: not executable in the tarball`);
+      }
     }
   }
 }
 
 if (errors.length) {
   for (const error of errors) {
-    console.error(`${process.env.GITHUB_ACTIONS ? "::error::" : "error: "}${error}`);
+    console.error(
+      `${process.env.GITHUB_ACTIONS ? "::error::" : "error: "}${error}`,
+    );
   }
   process.exit(1);
 }

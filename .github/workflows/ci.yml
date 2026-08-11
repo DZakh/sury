@@ -201,7 +201,11 @@ jobs:
   # The other four slices only feed the published tarball, and macOS runners
   # bill at 10x. A PR that breaks them breaks the linux build too, near enough.
   ppx-build-rest:
-    if: github.event_name != 'pull_request'
+    # FIXME: temporary, revert before merging. This PR is the exception the rule
+    # above doesn't cover: the zstd fix and checkBinaries.ts are both about the
+    # macOS slices, so the one run that would prove them is the one a PR skips.
+    # Restore `if: github.event_name != 'pull_request'`.
+    if: true
     strategy:
       # A slice failing to build is per-platform news; the others still tell us
       # whether the failure is local to one toolchain.
