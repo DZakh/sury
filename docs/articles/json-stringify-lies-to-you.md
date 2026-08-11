@@ -288,11 +288,14 @@ That isn't a bug — it's the documented deal. You're supposed to run a validato
 | Wrong type | ❌ throws with path | silently coerced | `"[object Object]"` | ❌ throws |
 | Missing field | ❌ throws with path | ❌ throws | `"undefined"` | ❌ throws |
 | `bigint` / `Date` as real types | ✅ | ❌ | ❌ | ❌ |
+| Undeclared fields | stripped, or ❌ with `S.strict` | stripped | stripped | stripped |
 | Schema reaches TypeScript | ✅ inferred | ❌ any object | ✅ inferred | ✅ inferred |
 | Decodes back too | ✅ same schema | ❌ | ❌ | ❌ |
 | min+gzip | **16.2 kB** | 56.7 kB | 13.9 kB | 24.5 kB |
 
 Those sizes are measured, not estimated — esbuild, minified, gzipped, one schema and one encoder each. **Sury**'s 16.2 kB includes validation, encoding *and* decoding. json-accelerator is smaller until you add the validator it tells you to add, at which point it's 1.5× bigger and still can't read the data back.
+
+One row they all win, and it's worth pausing on: every schema-driven serializer emits only the fields you declared. `JSON.stringify` emits everything it finds — which is how a `passwordHash` ends up in an API response. Anything on this table beats the built-in there.
 
 And notice what none of these three can do at all: give you a `bigint` or a `Date` on one side and correct JSON on the other. They serialize the types JSON already has. The mapper from Part 2 is still yours to write and still yours to keep in sync.
 
