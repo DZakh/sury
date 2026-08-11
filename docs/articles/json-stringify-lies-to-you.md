@@ -1,7 +1,7 @@
 ---
 title: Encode, don't stringify - how JSON.stringify lies to you
 published: false
-description: It corrupts your data, it crashes, it returns undefined. After 15 years of lies, it's time to stop using JSON.stringify.
+description: It corrupts your data, it crashes, it returns undefined. And there are zero reasons to keep using it.
 tags: javascript, typescript, json, webdev
 ---
 
@@ -82,24 +82,27 @@ This is the part that actually costs money. No crash, no warning, just a negativ
 ```ts
 JSON.stringify({ price: Infinity }); // => '{"price":null}'
 JSON.stringify({ price: NaN }); // => '{"price":null}'
+// Your math overflowed. Your client renders an empty cell. Nobody was told.
 
-JSON.stringify({ a: undefined, b: 1 }); // => '{"b":1}'      the field is gone
-JSON.stringify([1, undefined, 2]); // => '[1,null,2]'   ...unless it's an array
+JSON.stringify({ a: undefined, b: 1 }); // => '{"b":1}'      the key is gone
+JSON.stringify([1, undefined, 2]); // => '[1,null,2]'   the same value, now null
 JSON.stringify([1, () => {}, 2]); // => '[1,null,2]'
+// One value, two corruption flavors, depending on where it sits
 
 JSON.stringify({ m: new Map([["a", 1]]) }); // => '{"m":{}}'
 JSON.stringify({ s: new Set([1, 2]) }); // => '{"s":{}}'
+// Your data didn't survive. You got an empty object and no error.
+
 JSON.stringify({ b: new Uint8Array([1, 2, 3]) });
 // => '{"b":{"0":1,"1":2,"2":3}}'
+// A byte array became a dictionary of indices, three times the size
 
 JSON.stringify({ login: "hello", _internalSecret: "1232" });
 // => '{"login":"hello","_internalSecret":"1232"}'
-// Doesn't strip internal fields you don't want to expose
+// And a field you never meant to send is now in someone else's browser
 ```
 
-Read that list again. A computation overflowed and produced `Infinity`, and your API returned `null` — which your client happily rendered as an empty cell (or crashes). A `Map` became an empty object. A byte array became a dictionary of indices, three times the size. And a field you never meant to send is now in someone else's browser.
-
-And notice the inconsistency: `undefined` in an object **drops the key**, but `undefined` in an array **becomes `null`**. Same value, two different corruption flavors.
+Not one of these told you anything went wrong.
 
 ## Part 2: `JSON.parse` lies too
 
