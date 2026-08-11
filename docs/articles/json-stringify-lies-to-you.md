@@ -213,7 +213,13 @@ parseEvent('{"type":"user.renamed","id":"42"}');
 
 ## Part 4: I'm not the first to notice this
 
-Compiling a serializer from a schema is not a new idea, and I'd rather walk through the existing ones honestly than pretend they don't exist. There are three worth your time, and they land in very different places on the safety question.
+Compiling a serializer from a schema is not a new idea, and I'd rather walk through the existing ones honestly than pretend they don't exist. But let me say upfront which ones I'm skipping, and why.
+
+**I'm skipping everything that needs a compiler.** There's a whole family of libraries — [typia](https://typia.io/) is the best of them — that read your TypeScript types at build time and emit a serializer from them. They're fast, and typia's `assertStringify` is genuinely safe. But they need a compiler transform wired into your build, they can't run from plain JavaScript, and there's no schema value at runtime to hand to anything else. I don't want a compiler. If you're happy to add one, typia is a good tool and I won't argue against it — it's just a different deal than the one this article is about.
+
+**I'm also skipping the unmaintained ones.** `compile-json-stringify` and `slow-json-stringify` have both been untouched since 2022, and `@deepkit/type` is a build-time transform anyway with its last release in September 2025. For the record on why "unmaintained serializer" should worry you: `slow-json-stringify` doesn't escape quotes, so `{ name: 'he said "hi"' }` serializes to `{"name":"he said "hi""}` — output no JSON parser will accept, sitting there for four years.
+
+That leaves two libraries you'd actually reach for today.
 
 **[fast-json-stringify](https://github.com/fastify/fast-json-stringify)** (the Fastify one) keeps some of the lies and adds a new one:
 
@@ -231,7 +237,7 @@ stringify({ price: 1, name: 42 });          // => '{"price":1,"name":"42"}'     
 
 `Infinity` still becomes `null`. `NaN` throws with a message that doesn't name the field. And a number where you declared a string gets **silently coerced into a string** — your consumer now receives `"42"` and has no idea it was ever a number. It also has an [`unsafe` string format](https://github.com/fastify/fast-json-stringify) that skips escaping entirely, which is exactly the kind of footgun you don't want in a serializer.
 
-**[json-accelerator](https://github.com/elysiajs/json-accelerator)** (from the Elysia team) is faster still, and completely honest about why: it says in its own README that it **will not** check type validity, and expects the schema to always be correct. Here's what that means in practice:
+**[json-accelerator](https://github.com/elysiajs/json-accelerator)** comes from the [ElysiaJS](https://elysiajs.com/) team — the people behind one of the fastest HTTP frameworks in the JavaScript ecosystem — so it's worth taking seriously as the state of the art in raw speed. It's faster still than fast-json-stringify, and completely honest about why: it says in its own README that it **will not** check type validity, and expects the schema to always be correct. Here's what that means in practice:
 
 ```ts
 const encode = createAccelerator(t.Object({ price: t.Number(), name: t.String() }));
@@ -243,27 +249,20 @@ encode({ price: 1, name: { a: 1 } });        // => '{"price":1,"name":"[object O
 
 Look at the first one closely: `{"price":Infinity}` is **not valid JSON**. `JSON.parse` throws on it. The serializer produced a string that no JSON parser in any language will accept, and told you nothing.
 
-That isn't a bug — it's the documented deal. You're supposed to run a validator first. Which means the real comparison isn't "accelerator vs **Sury**", it's "validator + accelerator vs **Sury**".
+That isn't a bug — it's the documented deal. You're supposed to run a validator first. Which means the real comparison isn't "accelerator vs **Sury**", it's "validator + accelerator vs **Sury**":
 
-**[typia](https://typia.io/)** is the serious one, and I want to be fair to it because it's the only library in this list that takes the safety problem as seriously as I do. It offers four variants — `stringify` (no checks, garbage on bad input, exactly like json-accelerator), plus `isStringify`, `validateStringify` and `assertStringify`, which validate first and give you a `TypeGuardError` with a path. Use `assertStringify` and you get a genuinely safe, genuinely fast encoder. No argument from me.
-
-The cost is elsewhere. typia is a **compiler transform**: it reads your TypeScript types at build time, which means you need `ttsc` or the unplugin wired into your build, it can't run from plain JavaScript, and there's no schema value at runtime to hand to anything else. And because it derives everything from TS types, it inherits JSON's type system rather than bridging it — [`bigint` is prohibited outright](https://github.com/samchon/typia/issues/444) in its JSON functions, and a `Date` goes out as an ISO string but comes back as `string & Format<"date-time">`, not a `Date`. You're back to writing the mapper by hand.
-
-That's the actual dividing line. It isn't safety — typia has that. It's whether the schema is a *value* that exists at runtime, describes both directions of a transformation, and can come from somewhere other than a TypeScript type.
-
-| Encode a `{ price, name }` object | **Sury** | fast-json-stringify | json-accelerator | typia `assertStringify` |
+| Encode a `{ price, name }` object | **Sury** | fast-json-stringify | json-accelerator | + TypeBox validation |
 | --- | --- | --- | --- | --- |
-| `Infinity` | ❌ throws with path | `null` | `Infinity` (invalid JSON!) | ❌ throws with path |
-| Wrong type | ❌ throws with path | silently coerced | `"[object Object]"` | ❌ throws with path |
-| Missing field | ❌ throws with path | ❌ throws | `"undefined"` | ❌ throws with path |
-| Decodes back | ✅ same schema | ❌ | ❌ | ⭕ same type, no transforms |
-| `bigint` / `Date` as real types | ✅ | ❌ | ❌ | ❌ prohibited / one-way |
-| Build step required | ❌ none | ❌ none | ❌ none | ✅ compiler transform |
-| Runtime size, min+gzip | **16.2 kB** | 56.7 kB | 13.9 kB (24.5 with validation) | ~0 (inlined at build) |
+| `Infinity` | ❌ throws with path | `null` | `Infinity` (invalid JSON!) | ❌ throws |
+| Wrong type | ❌ throws with path | silently coerced | `"[object Object]"` | ❌ throws |
+| Missing field | ❌ throws with path | ❌ throws | `"undefined"` | ❌ throws |
+| `bigint` / `Date` as real types | ✅ | ❌ | ❌ | ❌ |
+| Decodes back too | ✅ same schema | ❌ | ❌ | ❌ |
+| min+gzip | **16.2 kB** | 56.7 kB | 13.9 kB | 24.5 kB |
 
-Those sizes are measured, not estimated — esbuild, minified, gzipped, one schema and one encoder each. **Sury**'s 16.2 kB includes validation, encoding *and* decoding. json-accelerator is smaller until you add the validator it tells you to add, at which point it's 1.5× bigger and still can't read the data back. typia's runtime cost is essentially zero, which is the honest reward for making you change your build.
+Those sizes are measured, not estimated — esbuild, minified, gzipped, one schema and one encoder each. **Sury**'s 16.2 kB includes validation, encoding *and* decoding. json-accelerator is smaller until you add the validator it tells you to add, at which point it's 1.5× bigger and still can't read the data back.
 
-> There are older entries in this genre — `compile-json-stringify` and `slow-json-stringify` — both unmaintained since 2022. I'll note only that `slow-json-stringify` doesn't escape quotes: `{ name: 'he said "hi"' }` serializes to `{"name":"he said "hi""}`, which no JSON parser will accept. Consider that the genre's cautionary tale.
+And notice what none of these three can do at all: give you a `bigint` or a `Date` on one side and correct JSON on the other. They serialize the types JSON already has. The mapper from Part 2 is still yours to write and still yours to keep in sync.
 
 ## Part 5: "but isn't `JSON.stringify` hardware-accelerated?"
 
