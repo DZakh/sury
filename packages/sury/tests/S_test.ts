@@ -1302,11 +1302,10 @@ test("fromJSONSchema: assertion-only schemas preserve valid JSON", (t) => {
   expectSchemaType(anySchema).toBe<S.JSON>();
   expectSchemaType(noSchema).toBe<never>();
   expectSchemaType(emptyEnum).toBe<never>();
+  t.expect(S.toJSONSchema(emptyEnum)).toEqual({ not: {} });
   t.expect(S.parser(anySchema)({ nested: [1, true] })).toEqual({ nested: [1, true] });
   t.expect(() => S.parser(noSchema)(null)).toThrow("Expected never");
-  t.expect(() => S.parser(emptyEnum)("anything")).toThrow(
-    "Should equal one of the values in the enum property."
-  );
+  t.expect(() => S.parser(emptyEnum)("anything")).toThrow("Expected never");
 
   const composed = S.fromJSONSchema({
     type: "string",

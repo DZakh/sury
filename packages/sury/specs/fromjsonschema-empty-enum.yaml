@@ -7,27 +7,17 @@ ts:
 vs:
   zod: z.never()
 jsonSchema:
-  input: "{ enum: [] }"
-  output: "{ enum: [] }"
+  input: "{ not: {} }"
+  output: "{ not: {} }"
 operations:
   parse:
-    expression: i=>{e[0](i);e[1](i)||e[2](i);return i}
+    expression: i=>{e[0](i);return i}
     examples:
       rejects-string:
         input: '"anything"'
-        error: Should equal one of the values in the enum property.
+        error: Expected never, received "anything"
       rejects-null:
         input: "null"
-        error: Should equal one of the values in the enum property.
-  decode:
-    expression: i=>{e[0](i)||e[1](i);return i}
-    examples:
-      rejects-string:
-        input: '"anything"'
-        error: Should equal one of the values in the enum property.
-  encode:
-    expression: i=>{e[0](i)||e[1](i);return i}
-    examples:
-      rejects-string:
-        input: '"anything"'
-        error: Should equal one of the values in the enum property.
+        error: Expected never, received null
+  decode: eq-to-parse
+  encode: eq-to-parse

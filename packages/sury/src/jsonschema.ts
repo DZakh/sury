@@ -1498,13 +1498,17 @@ export const fromJSONSchema = (
   // layer on as refinements rather than replacing the shape — a schema is not
   // either "an object with these properties" or "an allOf", it is both.
   if (jsonSchema["$ref"] === U && jsonSchema.enum !== U) {
-    const schemas = jsonSchema.enum.map(primitiveToSchema);
-    schema = refineInput(
-      schema,
-      (data: unknown) => schemas.some((candidate) => passesSchema(data, candidate)),
-      "Should equal one of the values in the enum property."
-    );
-    schema = extendJSONSchema(schema, { enum: jsonSchema.enum });
+    if (jsonSchema.enum.length === 0) {
+      schema = never_;
+    } else {
+      const schemas = jsonSchema.enum.map(primitiveToSchema);
+      schema = refineInput(
+        schema,
+        (data: unknown) => schemas.some((candidate) => passesSchema(data, candidate)),
+        "Should equal one of the values in the enum property."
+      );
+      schema = extendJSONSchema(schema, { enum: jsonSchema.enum });
+    }
   }
   if (jsonSchema["$ref"] === U && jsonSchema.const !== U) {
     const constSchema = primitiveToSchema(jsonSchema.const);
