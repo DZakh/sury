@@ -262,46 +262,14 @@ jobs:
           # default) fall through to the `bin` script, which execs it as-is.
           chmod +x packages/sury-ppx/ppx-*.exe
 
-      # Nothing else notices when a runner label silently changes architecture
-      # (#367 shipped an arm64 binary to Intel Macs for exactly this reason) or
-      # when a new slice is missing from package.json "files".
-      - name: Verify binary architectures
-        working-directory: packages/sury-ppx
-        run: |
-          check() {
-            if ! file -b "$1" | grep -qE "$2"; then
-              echo "::error::$1 should be $2 but is: $(file -b "$1")"
-              exit 1
-            fi
-          }
-          check ppx-linux.exe 'ELF.*x86-64'
-          check ppx-linux-arm.exe 'ELF.*aarch64'
-          check ppx-osx.exe 'Mach-O.*x86_64'
-          check ppx-osx-arm.exe 'Mach-O.*arm64'
-          check ppx-windows.exe 'PE32\+.*x86-64'
-
       - name: npm pack (sury-ppx)
         run: npm pack
         working-directory: packages/sury-ppx
 
-      - name: Verify tarball contents
-        working-directory: packages/sury-ppx
-        run: |
-          listing=$(tar -tvzf sury-ppx-*.tgz)
-          for f in ppx-linux.exe ppx-linux-arm.exe ppx-osx.exe ppx-osx-arm.exe \
-                   ppx-windows.exe bin bin.cmd install.cjs; do
-            if ! grep -q " package/$f\$" <<<"$listing"; then
-              echo "::error::package/$f missing from the tarball - add it to package.json \"files\""
-              exit 1
-            fi
-          done
-          # The `bin` script execs these directly when postinstall is skipped.
-          for f in ppx-linux.exe ppx-linux-arm.exe ppx-osx.exe ppx-osx-arm.exe; do
-            if ! grep -qE "^-rwx.* package/$f\$" <<<"$listing"; then
-              echo "::error::package/$f is not executable in the tarball"
-              exit 1
-            fi
-          done
+      # The last gate before an artifact becomes a published tarball: what the
+      # binaries are, what they need at runtime, and what reached the package.
+      - name: Verify the ppx binaries and tarball
+        run: npx tsx packages/sury-ppx/checkBinaries.ts packages/sury-ppx/sury-ppx-*.tgz
 
       - name: "Upload artifact: sury-ppx npm package"
         uses: actions/upload-artifact@v4

@@ -6,9 +6,10 @@ const fs = require("fs");
 // emulates x64, so it shares the one Windows binary.
 //
 // This list is spelled four times: here, `files` in package.json, the `bin`
-// fallback script, and the pack step in .github/workflows/ci.yml. That job
-// asserts every entry is present in the tarball and built for the right
-// architecture, so drift fails CI rather than reaching a user.
+// fallback script, and checkBinaries.ts. That last one runs before publish and
+// asserts every entry reached the tarball, executable, built for the right
+// architecture and needing nothing but the OS, so drift fails CI rather than
+// reaching a user.
 const BINARIES = {
   "linux-x64": "ppx-linux.exe",
   "linux-arm64": "ppx-linux-arm.exe",
