@@ -291,9 +291,9 @@ That isn't a bug — it's the documented deal. You're supposed to run a validato
 | Undeclared fields | stripped, or ❌ with `S.strict` | stripped | stripped | stripped |
 | Schema reaches TypeScript | ✅ inferred | ❌ any object | ✅ inferred | ✅ inferred |
 | Decodes back too | ✅ same schema | ❌ | ❌ | ❌ |
-| min+gzip | **16.2 kB** | 56.7 kB | 13.9 kB | 24.5 kB |
+| Tree-shaken, min+gzip | **16.4 kB** | 56.7 kB | 13.9 kB | 24.5 kB |
 
-Those sizes are measured, not estimated — esbuild, minified, gzipped, one schema and one encoder each. **Sury**'s 16.2 kB includes validation, encoding *and* decoding. json-accelerator is smaller until you add the validator it tells you to add, at which point it's 1.5× bigger and still can't read the data back.
+Those sizes are measured, not estimated: this exact `{ price, name }` encoder as the only entry point, bundled and minified with esbuild, tree-shaken, then gzipped. Nothing you don't import is in the number. **Sury**'s 16.4 kB includes validation, encoding *and* decoding. json-accelerator is smaller until you add the validator it tells you to add, at which point it's 1.5× bigger and still can't read the data back.
 
 One row they all win, and it's worth pausing on: every schema-driven serializer emits only the fields you declared. `JSON.stringify` emits everything it finds — which is how a `passwordHash` ends up in an API response. Anything on this table beats the built-in there.
 
