@@ -335,6 +335,7 @@ export type Internal = {
   pattern?: RegExp;
   errorMessage?: SchemaErrorMessage;
   space?: number;
+  pb?: unknown;
   // Compile-time only, set on a per-operation schema copy by the container
   // decoders' jsonString fusion (B_fuseIntoJsonString in composites.ts): the
   // container's dynamic items are typed but UNVALIDATED — the validation loop

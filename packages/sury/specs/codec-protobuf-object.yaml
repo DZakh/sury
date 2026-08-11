@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({id: S.string.with(S.protobufField, {number: 1, type: "uint32"}), name: S.string.with(S.protobufField, {number: 2, type: "string"})}).with(S.to, S.protobuf)'
+  input: "{ id: string; name: string; }"
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 6931
+vs:
+  zod:
+    _skip: todo(#…)
+jsonSchema:
+  input: '{ type: "object", properties: { id: { type: "string" }, name: { type: "string" } }, required: ["id", "name"] }'
+  output: Expected JSON, received Uint8Array
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i["id"],v1=i["name"];typeof v0==="string"||e[0](v0);typeof v1==="string"||e[1](v1);let v2;try{v2=e[2]({"id":v0,"name":v1,})}catch(x){e[3](x)}return v2}
+    examples:
+      coercion-and-text:
+        input: '{ id: "150", name: "Ada" }'
+        error: cannot represent a Uint8Array instance as spec source code
+  decode:
+    expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}
+    examples:
+      trusted-object:
+        input: '{ id: "0", name: "" }'
+        error: cannot represent a Uint8Array instance as spec source code
+  encode:
+    expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}
+    examples:
+      wire-value:
+        input: new Uint8Array([8, 150, 1, 18, 3, 65, 100, 97])
+        output: '{ id: "150", name: "Ada" }'

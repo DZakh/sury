@@ -90,6 +90,8 @@ export {
 export { never_ as never } from "./parse";
 export { json, jsonString } from "./advanced/json";
 export { uint8Array } from "./advanced/uint8Array";
+export { protobuf } from "./advanced/protobuf";
+export { protobufField } from "./advanced/protobufField";
 export { date } from "./advanced/date";
 export { url } from "./advanced/url";
 export { blob, file } from "./advanced/file";

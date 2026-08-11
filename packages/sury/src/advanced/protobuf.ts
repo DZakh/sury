@@ -1,0 +1,464 @@
+import {
+  anyOfTag,
+  arrayTag,
+  baseSchema,
+  copySchema,
+  initSchema,
+  instanceTag,
+  type Internal,
+  objectTag,
+  U,
+  undefinedTag,
+  type Val,
+} from "../base";
+import { B_embedTransformation, B_refine, B_unsupportedDecode } from "../builder";
+import { arrayFactory, objectDecoder } from "../composites";
+import { getDecoder, getOutputSchema, instanceDecoder } from "../parse";
+import { bigint, bool, float, int, integer, string } from "../primitives";
+import { uint8Array } from "./uint8Array";
+import type { ProtobufField, ProtobufType } from "./protobufField";
+
+type Field = ProtobufField & {
+  key: string;
+  repeated: boolean;
+  optional: boolean;
+  message?: Message;
+};
+
+type Message = {
+  fields: Field[];
+  byNumber: Record<number, Field>;
+  strict: boolean;
+  raw: Internal;
+  schema: Internal;
+};
+
+const packable: Record<ProtobufType, boolean> = {
+  double: true,
+  float: true,
+  int32: true,
+  int64: true,
+  uint32: true,
+  uint64: true,
+  sint32: true,
+  sint64: true,
+  fixed32: true,
+  fixed64: true,
+  sfixed32: true,
+  sfixed64: true,
+  bool: true,
+  string: false,
+  bytes: false,
+  enum: true,
+  message: false,
+};
+
+const wireType = (type: ProtobufType): number => {
+  if (type === "double" || type === "fixed64" || type === "sfixed64") return 1;
+  if (type === "string" || type === "bytes" || type === "message") return 2;
+  if (type === "float" || type === "fixed32" || type === "sfixed32") return 5;
+  return 0;
+};
+
+const fieldMetadata = (schema: Internal): ProtobufField | undefined => {
+  let current: Internal | undefined = schema;
+  while (current !== U) {
+    if (current.pb !== U) return current.pb as ProtobufField;
+    current = current.to;
+  }
+  return U;
+};
+
+const unwrapOptional = (schema: Internal): [Internal, boolean] => {
+  const output = getOutputSchema(schema);
+  if (output.type !== anyOfTag || output.anyOf === U) return [schema, false];
+  let value: Internal | undefined = U;
+  let hasUndefined = false;
+  for (let idx = 0; idx < output.anyOf.length; idx++) {
+    const member = output.anyOf[idx]!;
+    if (getOutputSchema(member).type === undefinedTag) hasUndefined = true;
+    else if (value === U) value = member;
+    else return [output, false];
+  }
+  return hasUndefined && value !== U ? [value, true] : [output, false];
+};
+
+const scalarSchema = (type: ProtobufType): Internal => {
+  if (type === "string") return string;
+  if (type === "bytes") return uint8Array;
+  if (type === "bool") return bool;
+  if (
+    type === "int64" ||
+    type === "uint64" ||
+    type === "sint64" ||
+    type === "fixed64" ||
+    type === "sfixed64"
+  ) return bigint;
+  if (type === "float" || type === "double") return float;
+  if (type === "int32" || type === "sint32" || type === "sfixed32" || type === "enum") return int;
+  return integer;
+};
+
+const compileMessage = (schema: Internal, seen = new Set<Internal>()): Message | undefined => {
+  let output = schema;
+  while (output.type !== objectTag && output.to !== U) output = output.to;
+  if (output.type !== objectTag || output.properties === U || seen.has(output)) return U;
+  seen.add(output);
+  const fields: Field[] = [];
+  const byNumber: Record<number, Field> = Object.create(null);
+  const rawProperties: Record<string, Internal> = Object.create(null);
+  const normalizedProperties: Record<string, Internal> = Object.create(null);
+  const rawRequired: string[] = [];
+  const keys = Object.keys(output.properties);
+  for (let idx = 0; idx < keys.length; idx++) {
+    const key = keys[idx]!;
+    const property = output.properties[key]!;
+    const metadata = fieldMetadata(property);
+    if (metadata === U || byNumber[metadata.number] !== U) return U;
+    const [propertyValue, optional] = unwrapOptional(property);
+    let shape = getOutputSchema(propertyValue);
+    let repeated = false;
+    if (shape.type === arrayTag && typeof shape.additionalItems === objectTag) {
+      if (optional) return U;
+      repeated = true;
+      shape = getOutputSchema(shape.additionalItems as Internal);
+    }
+    let message: Message | undefined;
+    let raw: Internal;
+    let normalizedProperty = optional ? propertyValue : property;
+    if (metadata.type === "message") {
+      message = compileMessage(shape, new Set(seen));
+      if (message === U) return U;
+      raw = message.raw;
+      normalizedProperty = message.schema;
+    } else {
+      raw = scalarSchema(metadata.type);
+    }
+    if (repeated) {
+      raw = arrayFactory(raw);
+      if (message !== U) normalizedProperty = arrayFactory(message.schema);
+    }
+    else if (!optional) rawRequired.push(key);
+    rawProperties[key] = raw;
+    normalizedProperties[key] = normalizedProperty;
+    const field: Field = { ...metadata, key, repeated, optional, message };
+    fields.push(field);
+    byNumber[field.number] = field;
+  }
+  fields.sort((a, b) => a.number - b.number);
+  const raw = baseSchema(objectTag, false, objectDecoder);
+  raw.properties = rawProperties;
+  raw.required = rawRequired;
+  raw.additionalItems = output.additionalItems === "strict" ? "strict" : "strip";
+  const normalized = copySchema(output);
+  normalized.properties = normalizedProperties;
+  normalized.required = rawRequired;
+  delete normalized.to;
+  return { fields, byNumber, strict: output.additionalItems === "strict", raw, schema: normalized };
+};
+
+class Reader {
+  pos = 0;
+  constructor(readonly bytes: Uint8Array, readonly limit = bytes.length) {}
+  varint(): bigint {
+    let value = 0n;
+    for (let shift = 0n; shift < 70n; shift += 7n) {
+      if (this.pos >= this.limit) throw Error("truncated varint");
+      const byte = this.bytes[this.pos++]!;
+      if (shift === 63n && byte > 1) throw Error("varint exceeds 64 bits");
+      value |= BigInt(byte & 127) << shift;
+      if (byte < 128) return value;
+    }
+    throw Error("varint exceeds 64 bits");
+  }
+  tag(): number {
+    const start = this.pos;
+    const tag = Number(this.varint());
+    if (this.pos - start > 5 || tag > 4294967295) throw Error("invalid protobuf tag");
+    return tag;
+  }
+  fixed(size: number): Uint8Array {
+    const end = this.pos + size;
+    if (end > this.limit) throw Error("truncated protobuf field");
+    const value = this.bytes.subarray(this.pos, end);
+    this.pos = end;
+    return value;
+  }
+  length(): Reader {
+    const length = Number(this.varint());
+    if (!Number.isSafeInteger(length) || this.pos + length > this.limit) throw Error("truncated protobuf field");
+    const reader = new Reader(this.bytes, this.pos + length);
+    reader.pos = this.pos;
+    this.pos += length;
+    return reader;
+  }
+}
+
+class Writer {
+  bytes: number[] = [];
+  varint(value: bigint): void {
+    value = BigInt.asUintN(64, value);
+    while (value > 127n) {
+      this.bytes.push(Number(value & 127n) | 128);
+      value >>= 7n;
+    }
+    this.bytes.push(Number(value));
+  }
+  fixed(value: Uint8Array): void {
+    for (let idx = 0; idx < value.length; idx++) this.bytes.push(value[idx]!);
+  }
+  tag(number: number, wire: number): void {
+    this.varint(BigInt(number * 8 + wire));
+  }
+  finish(): Uint8Array {
+    return Uint8Array.from(this.bytes);
+  }
+}
+
+const dataView = (bytes: Uint8Array): DataView => new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+const textDecoder = /* @__PURE__ */ new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
+const textEncoder = /* @__PURE__ */ new TextEncoder();
+
+const readScalar = (reader: Reader, type: ProtobufType): unknown => {
+  if (wireType(type) === 0) {
+    const value = reader.varint();
+    if (type === "bool") return value !== 0n;
+    if (type === "sint32") return Number(BigInt.asIntN(32, (value >> 1n) ^ -(value & 1n)));
+    if (type === "sint64") return BigInt.asIntN(64, (value >> 1n) ^ -(value & 1n));
+    if (type === "int64") return BigInt.asIntN(64, value);
+    if (type === "uint64") return BigInt.asUintN(64, value);
+    if (type === "int32" || type === "enum") return Number(BigInt.asIntN(32, value));
+    return Number(BigInt.asUintN(32, value));
+  }
+  if (wireType(type) === 1) {
+    const bytes = reader.fixed(8);
+    const view = dataView(bytes);
+    if (type === "double") return view.getFloat64(0, true);
+    const value = view.getBigUint64(0, true);
+    return type === "sfixed64" ? BigInt.asIntN(64, value) : value;
+  }
+  if (wireType(type) === 5) {
+    const bytes = reader.fixed(4);
+    const view = dataView(bytes);
+    if (type === "float") return view.getFloat32(0, true);
+    const value = view.getUint32(0, true);
+    return type === "sfixed32" ? value | 0 : value;
+  }
+  const child = reader.length();
+  const bytes = child.fixed(child.limit - child.pos);
+  if (type === "string") return textDecoder.decode(bytes);
+  return new Uint8Array(bytes);
+};
+
+const skip = (reader: Reader, wire: number, fieldNumber: number, depth: number): void => {
+  if (wire === 0) reader.varint();
+  else if (wire === 1) reader.fixed(8);
+  else if (wire === 2) {
+    const child = reader.length();
+    child.pos = child.limit;
+  } else if (wire === 5) reader.fixed(4);
+  else if (wire === 3) {
+    if (depth >= 100) throw Error("protobuf group nesting limit exceeded");
+    while (reader.pos < reader.limit) {
+      const tag = reader.tag();
+      const number = tag >>> 3;
+      const nestedWire = tag & 7;
+      if (number === 0) throw Error("invalid protobuf field number");
+      if (nestedWire === 4) {
+        if (number !== fieldNumber) throw Error("mismatched protobuf end group");
+        return;
+      }
+      skip(reader, nestedWire, number, depth + 1);
+    }
+    throw Error("unterminated protobuf group");
+  } else throw Error("invalid protobuf wire type");
+};
+
+const defaultValue = (field: Field): unknown => {
+  if (field.repeated) return [];
+  if (field.optional || field.type === "message") return U;
+  if (field.type === "string") return "";
+  if (field.type === "bytes") return new Uint8Array();
+  if (field.type === "bool") return false;
+  if (field.type.includes("64")) return 0n;
+  return 0;
+};
+
+const mergeMessage = (into: Record<string, unknown>, value: Record<string, unknown>, message: Message): void => {
+  for (let idx = 0; idx < message.fields.length; idx++) {
+    const field = message.fields[idx]!;
+    const next = value[field.key];
+    if (next === U) continue;
+    if (field.repeated) (into[field.key] as unknown[]).push(...(next as unknown[]));
+    else if (field.type === "message" && into[field.key] !== U)
+      mergeMessage(into[field.key] as Record<string, unknown>, next as Record<string, unknown>, field.message!);
+    else into[field.key] = next;
+  }
+};
+
+const decodeMessage = (reader: Reader, message: Message): Record<string, unknown> => {
+  const output: Record<string, unknown> = {};
+  for (let idx = 0; idx < message.fields.length; idx++) {
+    const field = message.fields[idx]!;
+    const value = defaultValue(field);
+    if (value !== U) output[field.key] = value;
+  }
+  while (reader.pos < reader.limit) {
+    const tag = reader.tag();
+    const number = tag >>> 3;
+    const wire = tag & 7;
+    if (number === 0) throw Error("invalid protobuf field number");
+    const field = message.byNumber[number];
+    if (field === U || (wire !== wireType(field.type) && !(field.repeated && packable[field.type] && wire === 2))) {
+      if (message.strict) throw Error(`unknown protobuf field ${number}`);
+      skip(reader, wire, number, 0);
+      continue;
+    }
+    if (field.repeated && packable[field.type] && wire === 2) {
+      const packed = reader.length();
+      while (packed.pos < packed.limit) (output[field.key] as unknown[]).push(readScalar(packed, field.type));
+      continue;
+    }
+    let value: unknown;
+    if (field.type === "message") {
+      const child = reader.length();
+      value = decodeMessage(child, field.message!);
+      if (child.pos !== child.limit) throw Error("invalid nested protobuf message");
+    } else value = readScalar(reader, field.type);
+    if (field.repeated) (output[field.key] as unknown[]).push(value);
+    else if (field.type === "message" && output[field.key] !== U)
+      mergeMessage(output[field.key] as Record<string, unknown>, value as Record<string, unknown>, field.message!);
+    else output[field.key] = value;
+  }
+  return output;
+};
+
+const checkedNumber = (value: unknown, min: number, max: number, type: string): number => {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < min || value > max) throw Error(`invalid ${type}`);
+  return value;
+};
+
+const checkedBigint = (value: unknown, min: bigint, max: bigint, type: string): bigint => {
+  if (typeof value !== "bigint" || value < min || value > max) throw Error(`invalid ${type}`);
+  return value;
+};
+
+const writeScalar = (writer: Writer, type: ProtobufType, value: unknown): void => {
+  if (wireType(type) === 0) {
+    if (type === "bool") writer.varint((value as boolean) ? 1n : 0n);
+    else if (type === "int64") writer.varint(checkedBigint(value, -9223372036854775808n, 9223372036854775807n, type));
+    else if (type === "uint64") writer.varint(checkedBigint(value, 0n, 18446744073709551615n, type));
+    else if (type === "sint64") {
+      const signed = checkedBigint(value, -9223372036854775808n, 9223372036854775807n, type);
+      writer.varint((signed << 1n) ^ (signed >> 63n));
+    } else if (type === "sint32") {
+      const signed = checkedNumber(value, -2147483648, 2147483647, type);
+      const bigint = BigInt(signed);
+      writer.varint(BigInt.asUintN(32, (bigint << 1n) ^ (bigint >> 31n)));
+    } else if (type === "int32" || type === "enum") writer.varint(BigInt(checkedNumber(value, -2147483648, 2147483647, type)));
+    else writer.varint(BigInt(checkedNumber(value, 0, 4294967295, type)));
+    return;
+  }
+  if (wireType(type) === 1) {
+    const bytes = new Uint8Array(8);
+    const view = dataView(bytes);
+    if (type === "double") view.setFloat64(0, value as number, true);
+    else {
+      const bigint = type === "sfixed64"
+        ? checkedBigint(value, -9223372036854775808n, 9223372036854775807n, type)
+        : checkedBigint(value, 0n, 18446744073709551615n, type);
+      view.setBigUint64(0, BigInt.asUintN(64, bigint), true);
+    }
+    writer.fixed(bytes);
+    return;
+  }
+  if (wireType(type) === 5) {
+    const bytes = new Uint8Array(4);
+    const view = dataView(bytes);
+    if (type === "float") {
+      const number = value as number;
+      if (Number.isFinite(number) && Math.abs(number) > 3.4028234663852886e38) throw Error("invalid float");
+      view.setFloat32(0, number, true);
+    }
+    else view.setUint32(0, checkedNumber(value, type === "sfixed32" ? -2147483648 : 0, type === "sfixed32" ? 2147483647 : 4294967295, type), true);
+    writer.fixed(bytes);
+    return;
+  }
+  const bytes = type === "string" ? textEncoder.encode(value as string) : value as Uint8Array;
+  writer.varint(BigInt(bytes.length));
+  writer.fixed(bytes);
+};
+
+const isDefault = (field: Field, value: unknown): boolean => {
+  if (field.optional || field.type === "message") return value === U;
+  if (field.type === "string") return value === "";
+  if (field.type === "bytes") return (value as Uint8Array).length === 0;
+  if (field.type === "bool") return value === false;
+  if (field.type === "float" || field.type === "double") return value === 0 && !Object.is(value, -0);
+  return value === 0 || value === 0n;
+};
+
+const encodeFieldValue = (writer: Writer, field: Field, value: unknown): void => {
+  writer.tag(field.number, wireType(field.type));
+  if (field.type === "message") {
+    const bytes = encodeMessage(value as Record<string, unknown>, field.message!);
+    writer.varint(BigInt(bytes.length));
+    writer.fixed(bytes);
+  } else writeScalar(writer, field.type, value);
+};
+
+const encodeMessage = (value: Record<string, unknown>, message: Message): Uint8Array => {
+  const writer = new Writer();
+  for (let idx = 0; idx < message.fields.length; idx++) {
+    const field = message.fields[idx]!;
+    const fieldValue = value[field.key];
+    if (field.repeated) {
+      const values = fieldValue as unknown[];
+      if (values.length === 0) continue;
+      if (packable[field.type]) {
+        const packed = new Writer();
+        for (let item = 0; item < values.length; item++) writeScalar(packed, field.type, values[item]);
+        const bytes = packed.finish();
+        writer.tag(field.number, 2);
+        writer.varint(BigInt(bytes.length));
+        writer.fixed(bytes);
+      } else for (let item = 0; item < values.length; item++) encodeFieldValue(writer, field, values[item]);
+    } else if (!isDefault(field, fieldValue)) encodeFieldValue(writer, field, fieldValue);
+  }
+  return writer.finish();
+};
+
+const bridge = (input: Val, target: Internal, fn: (value: unknown) => unknown): Val => {
+  const expected = copySchema(input.e);
+  expected.to = target;
+  const output = B_embedTransformation(B_refine(input, U, U, expected), fn, false);
+  output.s = target;
+  output.e = target;
+  return output;
+};
+
+const protobufDecoder = (input: Val): Val => {
+  if (input.s.encoder === protobufEncoder) return instanceDecoder(input);
+  const message = compileMessage(input.s);
+  if (message === U) return B_unsupportedDecode(input, input.s, input.e);
+  const convert = getDecoder(message.schema, message.raw);
+  return bridge(input, input.e, (value) =>
+    encodeMessage(convert(value) as Record<string, unknown>, message)
+  );
+};
+
+const protobufEncoder = (input: Val, target: Internal): Val => {
+  const message = compileMessage(target);
+  if (message === U) return B_unsupportedDecode(input, input.s, target);
+  const convert = getDecoder(message.raw, message.schema);
+  return bridge(
+    input,
+    message.schema,
+    (value) => convert(decodeMessage(new Reader(value as Uint8Array), message)),
+  );
+};
+
+export const protobuf: Internal = /* @__PURE__ */ initSchema(instanceTag, protobufDecoder, (schema) => {
+  schema.class = Uint8Array;
+  schema.encoder = protobufEncoder;
+});
