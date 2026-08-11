@@ -16,7 +16,7 @@ Describe your data once. Parse it, validate it, transform it, encode it back, an
 - 📄 **JSON Schema in both directions** — paste a document in and TypeScript infers the type, `$ref` and recursion included. No codegen step, no `any`. [→](#json-schema-through-the-standard-interface)
 - 🔍 **Types you can read.** You hover `S.Schema<{foo: string}, {foo: string}>`, not the library's internals. [→](#types-you-can-actually-read)
 - 🔤 **The JSON Schema string format vocabulary** — dates, durations, URIs, IRIs, hostnames, IP addresses and JSON Pointers, built in. [JS](https://github.com/DZakh/sury/blob/main/docs/js-usage.md#string-formats) · [ReScript](https://github.com/DZakh/sury/blob/main/docs/rescript-usage.md#string-formats)
-- 🌳 **Small and tree-shakable** — 12.4 kB min+gzip for a schema and a parser. Async, recursive and custom schemas included.
+- 🌳 **Small and tree-shakable** — 13.3 kB min+gzip for a schema and a parser. Async, recursive and custom schemas included.
 - 🟨 **Plain JavaScript, TypeScript and ReScript** — no compiler required.
 
 > Formerly known as **ReScript Schema**. It's plain JavaScript — you don't need the ReScript compiler to use it. ReScript users, see the [ReScript docs](https://github.com/DZakh/sury/blob/main/docs/rescript-usage.md).
@@ -336,16 +336,16 @@ Building something with **Sury**? [Let me know](https://x.com/dzakh_dev) and I'l
 
 It's also small. Instead of a few large classes with many methods, the API and source are built from many small, independent functions, each with a single task. A bundler follows your imports and drops everything you don't use, which can cut the shipped size by up to 2× compared to [Zod](https://github.com/colinhacks/zod). (The approach is borrowed from [Valibot](https://github.com/fabian-hiller/valibot), which pioneered it.)
 
-Measured against `sury@11.0.0-alpha.11`, `zod@4.4.3`, `typebox@0.34.52`, `valibot@1.4.2`, `arktype@2.2.3`:
+Measured against `sury@11.0.0-rc.1`, `zod@4.4.3`, `typebox@0.34.52`, `valibot@1.4.2`, `arktype@2.2.3`:
 
 ### Size & speed
 
-|                                 | Sury           | Zod          | TypeBox                        | Valibot      | ArkType       |
-| ------------------------------- | -------------- | ------------ | ------------------------------ | ------------ | ------------- |
-| **Total size** (min + gzip)     | 20.8 kB        | 64.7 kB      | 31.2 kB                        | 15.2 kB      | 47.9 kB       |
-| **Benchmark size** (min + gzip) | 9.88 kB        | 19.6 kB      | 22.6 kB                        | 1.30 kB      | 47.8 kB       |
-| **Parse with the same schema**  | 160,549 ops/ms | 8,463 ops/ms | 120,684 ops/ms (no transforms) | 1,328 ops/ms | 77,405 ops/ms |
-| **Create schema & parse once**  | 54 ops/ms      | 7 ops/ms     | 82 ops/ms (no transforms)      | 198 ops/ms   | 9 ops/ms      |
+|                                 | Sury           | Zod          | TypeBox                        | Valibot      | ArkType        |
+| ------------------------------- | -------------- | ------------ | ------------------------------ | ------------ | -------------- |
+| **Total size** (min + gzip)     | 29.9 kB        | 65.0 kB      | 31.3 kB                        | 15.3 kB      | 47.2 kB        |
+| **Benchmark size** (min + gzip) | 13.3 kB        | 19.6 kB      | 22.6 kB                        | 1.29 kB      | 47.1 kB        |
+| **Parse with the same schema**  | 210,061 ops/ms | 9,367 ops/ms | 158,185 ops/ms (no transforms) | 1,970 ops/ms | 106,520 ops/ms |
+| **Create schema & parse once**  | 99 ops/ms      | 11 ops/ms    | 103 ops/ms (no transforms)     | 315 ops/ms   | 11 ops/ms      |
 
 Independent benchmarks and conformance suites that include **Sury**:
 
