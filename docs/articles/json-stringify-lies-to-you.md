@@ -116,6 +116,24 @@ typeof data.at; // "string"  — you wanted a Date
 
 `JSON.parse` returns `any`, which TypeScript will cheerfully assign to whatever type you claim. So now you need a *second* mapper for the way back, kept in sync with the first one by hand. Two functions, one contract, no compiler checking that they agree.
 
+### "Just use ts-reset"
+
+Fair — and you should. [ts-reset](https://github.com/mattpocock/ts-reset) patches exactly this hole:
+
+```ts
+// with ts-reset
+const data = JSON.parse(wire);
+//    ^? unknown
+```
+
+`any` becomes `unknown`, and the compiler stops taking your word for what came off the wire. If you're not using it, go install it; it fixes several other built-ins the same way.
+
+But look at what it changed and what it didn't. `unknown` is a *question*, not an answer. Something still has to narrow it — a hand-written type guard you maintain forever, or a schema. ts-reset doesn't remove the work; it makes the compiler finally admit the work exists. That's an argument for a schema library, not against one.
+
+And notice which rules it ships: there's a `json-parse` rule, and no `json-stringify` rule. That's not an oversight. `JSON.stringify` is still declared to return `string` while handing you `undefined` — but everything else in Part 1 isn't a *type* problem at all. `{ price: number }` is a perfectly true type for `{ price: Infinity }`. The type was never wrong. The output was.
+
+No `.d.ts` file can fix a function that returns the wrong data.
+
 This is the real cost. It isn't that `JSON.stringify` has a few quirks — it's that JSON has fewer types than your program does, and the built-ins hand you that mismatch as homework, twice, in opposite directions.
 
 ## Part 3: encode, don't stringify
