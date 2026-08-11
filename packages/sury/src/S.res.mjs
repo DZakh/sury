@@ -27,6 +27,13 @@ let Flag = {
 
 let $$Error = {};
 
+function protobufField(schema, number, type_) {
+  return Sury.protobufField(schema, {
+    number: number,
+    type: type_
+  });
+}
+
 function refine(schema, refiner, error, path) {
   return Sury.refine(schema, refiner, {
     error: error,
@@ -123,6 +130,7 @@ export {
   Exn,
   Flag,
   $$Error,
+  protobufField,
   refine,
   to,
   decoder,

@@ -463,6 +463,36 @@ export const jsonString: Schema<string, string>;
 export const jsonStringWithSpace: (space: number) => Schema<string, string>;
 
 export const uint8Array: Schema<Uint8Array, Uint8Array>;
+export const protobuf: Schema<Uint8Array, Uint8Array>;
+
+export type ProtobufType =
+  | "double"
+  | "float"
+  | "int32"
+  | "int64"
+  | "uint32"
+  | "uint64"
+  | "sint32"
+  | "sint64"
+  | "fixed32"
+  | "fixed64"
+  | "sfixed32"
+  | "sfixed64"
+  | "bool"
+  | "string"
+  | "bytes"
+  | "enum"
+  | "message";
+
+export type ProtobufField = {
+  number: number;
+  type: ProtobufType;
+};
+
+export function protobufField<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>,
+  field: ProtobufField
+): Schema<TInput, TOutput>;
 
 // `Blob` and `File` are ambient globals, from lib.dom or @types/node. Naming
 // them bare fails to typecheck for a consumer who has neither — including one
