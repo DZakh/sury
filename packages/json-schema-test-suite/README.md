@@ -60,9 +60,9 @@ explicit errors account for most uncovered assertions: `patternProperties`,
 Local JSON Pointer `$ref`s resolve, including recursive definitions. Anything
 that needs resource or dynamic scope — `$id`, `$anchor`, `$dynamicRef`, a remote
 URI, or a URN — remains outside the supported reference model and generally
-fails conversion. The only four non-conversion mismatches currently recorded
-by draft-2020-12 are three `$dynamicRef` false acceptances and one custom
-vocabulary false rejection; draft-07 has none.
+fails conversion. Both required dialects currently have no non-conversion
+mismatches: every uncovered case fails conversion explicitly rather than
+accepting or rejecting data with the wrong semantics.
 
 The goldens are a measurement, not a target — nothing here asserts that 100%
 coverage is the goal.
