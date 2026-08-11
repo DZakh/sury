@@ -187,11 +187,11 @@ There's no intermediate object either. `encode` is a function generated for exac
 };
 ```
 
-That's the whole encoder. The only runtime check left is the `Number.isFinite` guard - the one that turns silent corruption into an error.
+That's the whole encoder - no, I didn't trim it for the article. The only runtime check left is the `Number.isFinite` guard, the one that turns silent corruption into an error.
 
 ### One schema, both directions
 
-The same definition reads the data back, so there's no second mapper to keep in sync:
+And it goes the other way for free - no second mapper to keep in sync:
 
 ```ts
 const eventSchema = S.union([
@@ -256,7 +256,7 @@ stringify({ price: NaN, name: "a" }); // => throws: The value "NaN" cannot be co
 stringify({ price: 1, name: 42 }); // => '{"price":1,"name":"42"}'     silently coerced
 ```
 
-The silent coercion is not a bug - its types literally declare `StringCoercible = string | Date | RegExp` - but definitely something I wouldn't expect.
+The silent coercion is not a bug - its types literally declare `StringCoercible = string | Date | RegExp` - but it took me a while to believe it wasn't my schema.
 
 The main reason for the behavior is that the schema never reaches TypeScript:
 
@@ -270,6 +270,8 @@ encode({ totally: "unrelated", nonsense: 123 });
 ```
 
 In the AI age, ignoring the types your schema provides is a free ticket to many funny bugs. At the same time [**Sury**](https://github.com/DZakh/sury) has `S.fromJSONSchema`, which correctly infers types even from recursive JSON Schema definitions.
+
+Anyway, the whole thing side by side:
 
 | Encode a `{ price, name }` object | **Sury** (with S.fromJSONSchema) | fast-json-stringify    | + Ajv               |
 | --------------------------------- | -------------------------------- | ---------------------- | ------------------- |
@@ -325,7 +327,7 @@ S.encoder(surySchema, S.json); // safe, json encoder
 S.assert(surySchema, data); // fast validation with error paths
 ```
 
-Keep your schemas where they are. Use **Sury** as an accelerator in the infrastructure layer - the serialization boundary, the hot endpoint, the queue producer - and leave the rest of your application alone.
+Keep your schemas where they are. Use **Sury** as an accelerator in the infrastructure layer - the serialization boundary, the hot endpoint, the queue producer - and leave the rest of your application alone. No migration meeting required.
 
 (If the phrase [_Standard JSON Schema_](https://standardschema.dev/json-schema) means nothing to you yet: it's the spec that makes this work across libraries without any of them knowing about each other. Follow me - that's one of the next articles.)
 
