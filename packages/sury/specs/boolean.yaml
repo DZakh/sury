@@ -8,7 +8,9 @@ vs:
   zod: z.boolean()
 jsonSchema:
   input: '{ type: "boolean" }'
+  inputType: boolean
   output: '{ type: "boolean" }'
+  outputType: boolean
 operations:
   parse:
     expression: i=>{typeof i==="boolean"||e[0](i);return i}

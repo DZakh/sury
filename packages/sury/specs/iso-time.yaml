@@ -8,7 +8,9 @@ vs:
   zod: z.iso.time()
 jsonSchema:
   input: '{ type: "string", format: "time" }'
+  inputType: string
   output: '{ type: "string", format: "time" }'
+  outputType: string
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[2](i);e[0](i)||e[1](i);return i}

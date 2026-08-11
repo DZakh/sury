@@ -8,7 +8,9 @@ vs:
   zod: z.nan()
 jsonSchema:
   input: Expected JSON, received NaN
+  inputType: Expected JSON, received NaN
   output: Expected JSON, received NaN
+  outputType: Expected JSON, received NaN
 operations:
   parse:
     expression: i=>{Number.isNaN(i)||e[0](i);return i}

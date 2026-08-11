@@ -8,7 +8,9 @@ vs:
   zod: z.union([z.literal("a"), z.literal("a"), z.string()])
 jsonSchema:
   input: '{ anyOf: [{ type: "string", const: "a" }, { type: "string" }] }'
+  inputType: string
   output: '{ anyOf: [{ type: "string", const: "a" }, { type: "string" }] }'
+  outputType: string
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[0](i);return i}

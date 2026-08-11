@@ -8,7 +8,9 @@ vs:
   zod: z.symbol()
 jsonSchema:
   input: Expected JSON, received symbol
+  inputType: Expected JSON, received symbol
   output: Expected JSON, received symbol
+  outputType: Expected JSON, received symbol
 operations:
   parse:
     expression: i=>{typeof i==="symbol"||e[0](i);return i}

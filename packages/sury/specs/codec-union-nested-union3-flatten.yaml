@@ -8,7 +8,9 @@ vs:
   zod: z.union([z.string(), z.union([z.number(), z.boolean()])])
 jsonSchema:
   input: '{ anyOf: [{ type: "boolean" }, { type: "number" }, { type: "string" }] }'
+  inputType: string | number | boolean
   output: '{ anyOf: [{ type: "string" }, { type: "number" }, { type: "boolean" }] }'
+  outputType: string | number | boolean
 operations:
   parse:
     expression: i=>{(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i)||typeof i==="boolean")||e[0](i);return i}

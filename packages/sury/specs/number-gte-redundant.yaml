@@ -8,7 +8,9 @@ vs:
   zod: z.number().gte(5).gte(1, "MY MESSAGE")
 jsonSchema:
   input: '{ type: "number", minimum: 5 }'
+  inputType: number
   output: '{ type: "number", minimum: 5 }'
+  outputType: number
 operations:
   parse:
     expression: i=>{typeof i==="number"&&!Number.isNaN(i)||e[1](i);i>=5||e[0](i);return i}

@@ -8,7 +8,9 @@ vs:
   zod: z.bigint()
 jsonSchema:
   input: Expected JSON, received bigint
+  inputType: Expected JSON, received bigint
   output: Expected JSON, received bigint
+  outputType: Expected JSON, received bigint
 operations:
   parse:
     expression: i=>{typeof i==="bigint"||e[0](i);return i}

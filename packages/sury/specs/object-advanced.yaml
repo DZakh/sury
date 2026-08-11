@@ -9,7 +9,9 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: '{ type: "object", properties: { type: { type: "number", const: 0 }, nested: { type: "object", properties: { field: { type: "number" } }, required: ["field"] }, id: { type: "string" }, Foo: { type: "string" }, Bar: { default: true, type: "boolean" } }, required: ["type", "nested", "id", "Foo"] }'
+  inputType: "{ type: 0; nested: { field: number; }; id: string; Foo: string; Bar?: boolean | undefined; }"
   output: '{ type: "object", properties: { nested: { type: "number" }, flattened: { type: "object", properties: { id: { type: "string" } }, required: ["id"] }, foo: { type: "string" }, bar: { type: "boolean" } }, required: ["nested", "flattened", "foo", "bar"] }'
+  outputType: "{ nested: number; flattened: { id: string; }; foo: string; bar: boolean; }"
 operations:
   parse:
     expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[6](i);let v0=i["type"],v1=i["nested"],v3=i["id"],v4=i["Foo"],v5=i["Bar"];v0===0||e[0](v0);typeof v1==="object"&&v1&&!Array.isArray(v1)||e[2](v1);let v2=v1["field"];typeof v2==="number"&&!Number.isNaN(v2)||e[1](v2);typeof v3==="string"||e[3](v3);typeof v4==="string"||e[4](v4);(typeof v5==="boolean"||v5===void 0)||e[5](v5);return {"nested":v2,"flattened":{"id":v3,},"foo":v4,"bar":v5===void 0?true:v5,}}

@@ -8,7 +8,9 @@ vs:
   zod: z.string().nullish()
 jsonSchema:
   input: Expected JSON, received string | undefined | null
+  inputType: Expected JSON, received string | undefined | null
   output: Expected JSON, received string | undefined | null
+  outputType: Expected JSON, received string | undefined | null
 operations:
   parse:
     expression: i=>{(typeof i==="string"||i===void 0||i===null)||e[0](i);return i}

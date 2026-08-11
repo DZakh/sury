@@ -9,7 +9,9 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: '{ type: "object", properties: { field: { type: "string", format: "date-time" } }, additionalProperties: false, required: ["field"] }'
+  inputType: "{ field: string; }"
   output: 'Failed at ["field"]: Expected JSON, received Date'
+  outputType: 'Failed at ["field"]: Expected JSON, received Date'
 operations:
   parse:
     expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v1=i["field"];typeof v1==="string"||e[1](v1);let v0=new Date(i["field"]);!Number.isNaN(v0.getTime())||e[0](v0);return {"field":v0,}}

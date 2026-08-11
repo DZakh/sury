@@ -9,7 +9,9 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: '{ type: "string" }'
+  inputType: string
   output: '{ type: "string" }'
+  outputType: string
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[1](i);try{JSON.parse(i)}catch(t){e[0](i)}return i}

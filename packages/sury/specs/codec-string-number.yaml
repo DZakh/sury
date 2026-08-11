@@ -10,7 +10,9 @@ vs:
   zod: z.string().transform((value) => Number(value))
 jsonSchema:
   input: '{ type: "string" }'
+  inputType: string
   output: '{ type: "number" }'
+  outputType: number
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[1](i);let v0=+i;!Number.isNaN(v0)||e[0](i);return v0}

@@ -10,7 +10,9 @@ vs:
   zod: "z.union([z.object({ a: z.string() }), z.number()])"
 jsonSchema:
   input: '{ anyOf: [{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }, { type: "number" }] }'
+  inputType: "number | { a: string; }"
   output: '{ anyOf: [{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }, { type: "number" }] }'
+  outputType: "number | { a: string; }"
 operations:
   parse:
     expression: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i["a"];typeof v0==="string"||e[0](v0);i={"a":v0,};break}if(typeof i==="number"&&!Number.isNaN(i))break;e[1](i)}return i}

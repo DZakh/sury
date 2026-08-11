@@ -9,7 +9,9 @@ vs:
 jsonSchema:
   # FIXME: should be {} (any value), same as S.toJSONSchema(S.json) — see any.yaml.
   input: Expected JSON, received unknown
+  inputType: Expected JSON, received unknown
   output: Expected JSON, received unknown
+  outputType: Expected JSON, received unknown
 operations:
   parse: identity
   decode: identity

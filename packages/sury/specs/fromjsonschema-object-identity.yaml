@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.fromJSONSchema({ type: "object", properties: { value: { type: "string", default: "fallback" } }, required: ["constructor"], additionalProperties: { type: "integer" } })'
+  input: "{ value?: string | undefined; constructor: number; }"
+  output: "{ value?: string | undefined; constructor: number; }"
+  instantiations: 2262
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "object", additionalProperties: { type: "integer" }, properties: { value: { type: "string", default: "fallback" } }, required: ["constructor"] }'
+  inputType: "{ value?: string | undefined; constructor: number; }"
+  output: '{ type: "object", additionalProperties: { type: "integer" }, properties: { value: { type: "string", default: "fallback" } }, required: ["constructor"] }'
+  outputType: "{ value?: string | undefined; constructor: number; }"
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);e[1](i)||e[5](i);e[2](i)||e[6](i);e[3](i)||e[7](i);for(let v0 in i){try{e[0](i[v0]);}catch(v1){v1.path='["'+v0+'"]'+v1.path;throw v1}}return i}
+    examples:
+      required-own-key:
+        input: "{ constructor: 1 }"
+        output: "{ constructor: 1 }"
+      preserves-known-and-extra:
+        input: '{ constructor: 1, value: "set", extra: 2 }'
+        output: '{ constructor: 1, value: "set", extra: 2 }'
+      inherited-constructor-is-absent:
+        input: "{}"
+        error: Should contain every required property.
+      annotation-default-not-injected:
+        input: "{ constructor: 1 }"
+        output: "{ constructor: 1 }"
+      wrong-known-property:
+        input: "{ constructor: 1, value: 2 }"
+        error: Should pass every declared property schema.
+      wrong-additional-property:
+        input: '{ constructor: 1, extra: "no" }'
+        error: Should pass the additionalProperties schema.
+  decode:
+    expression: i=>{e[0](i)||e[3](i);e[1](i)||e[4](i);e[2](i)||e[5](i);return i}
+    examples:
+      preserves-known-and-extra:
+        input: '{ constructor: 1, value: "set", extra: 2 }'
+        output: '{ constructor: 1, value: "set", extra: 2 }'
+  encode:
+    expression: i=>{e[0](i)||e[3](i);e[1](i)||e[4](i);e[2](i)||e[5](i);return i}
+    examples:
+      preserves-known-and-extra:
+        input: '{ constructor: 1, value: "set", extra: 2 }'
+        output: '{ constructor: 1, value: "set", extra: 2 }'

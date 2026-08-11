@@ -9,7 +9,9 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: '{ type: "object", properties: { selector: { anyOf: [{ type: "string", const: "*" }, { type: "string" }, { items: { type: "string" }, type: "array" }] } } }'
+  inputType: "{ selector?: string | string[] | undefined; }"
   output: '{ type: "object", properties: { selector: { anyOf: [{ type: "string" }, { items: { type: "string" }, type: "array" }] } }, additionalProperties: false }'
+  outputType: "{ selector?: string | string[] | undefined; }"
 operations:
   # FIXME: parse emits the union check twice — once validating the source field,
   # once re-validating on the identity conversion to JSON.

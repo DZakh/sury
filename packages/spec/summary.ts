@@ -117,6 +117,13 @@ const specDeltas = (
       const a = after.ts[side];
       if (!isSkip(b) && !isSkip(a)) changed(`${id}.ts.${side}`, b, a, behavior);
       changed(`${id}.jsonSchema.${side}`, before.jsonSchema?.[side], after.jsonSchema?.[side], behavior);
+      const typeSide = `${side}Type` as const;
+      changed(
+        `${id}.jsonSchema.${typeSide}`,
+        before.jsonSchema?.[typeSide],
+        after.jsonSchema?.[typeSide],
+        behavior,
+      );
     }
 
     for (const op of OP_ORDER) {

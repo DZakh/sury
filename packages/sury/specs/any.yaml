@@ -11,7 +11,9 @@ jsonSchema:
   # true), and S.toJSONSchema(S.json) already returns {} — both directions
   # should too instead of throwing. The message also mislabels S.any as unknown.
   input: Expected JSON, received unknown
+  inputType: Expected JSON, received unknown
   output: Expected JSON, received unknown
+  outputType: Expected JSON, received unknown
 operations:
   parse: identity
   decode: identity

@@ -8,7 +8,9 @@ vs:
   zod: z.ipv6()
 jsonSchema:
   input: '{ type: "string", format: "ipv6" }'
+  inputType: string
   output: '{ type: "string", format: "ipv6" }'
+  outputType: string
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}

@@ -632,7 +632,9 @@ external pattern: (t<string>, RegExp.t, ~message: string=?) => t<string> = "patt
 type toJSONSchemaOptions = {target?: StandardSchema.JsonSchema.target}
 @module("sury")
 external toJSONSchema: (t<'value>, ~options: toJSONSchemaOptions=?) => JSONSchema.t = "toJSONSchema"
-@module("sury") external fromJSONSchema: JSONSchema.t => t<JSON.t> = "fromJSONSchema"
+@module("sury")
+external fromJSONSchemaDefinition: JSONSchema.definition => t<JSON.t> = "fromJSONSchema"
+let fromJSONSchema = jsonSchema => fromJSONSchemaDefinition(JSONSchema.Schema(jsonSchema))
 @module("sury")
 external extendJSONSchema: (t<'value>, JSONSchema.t) => t<'value> = "extendJSONSchema"
 // Enables `~standard.jsonSchema`; its input/output throw before this is called.
@@ -644,4 +646,3 @@ type globalConfigOverride = {
 }
 
 @module("sury") external global: globalConfigOverride => unit = "global"
-

@@ -46,18 +46,16 @@ import {
 import { json } from "./advanced/json";
 import { recursiveDecoder } from "./advanced/recursive";
 import { B_operationArg } from "./builder";
-import { array, definitionToSchema, option } from "./composites";
+import { array } from "./composites";
 import { schemaFactory } from "./factory";
 import {
   meta,
   Metadata_get,
   Metadata_Id_internal,
   Metadata_set,
-  Option_getOr,
   deepStrict,
   refine,
   refineInput,
-  strict,
 } from "./modifiers";
 import { __setStandardJSONSchemaConverter, assertOrThrow } from "./operations";
 import { never_, parse, reverse } from "./parse";
@@ -85,10 +83,8 @@ import {
   minLength,
   multipleOf,
   null_,
-  object,
   pattern,
   relativeJsonPointer,
-  tuple,
   union,
   uri,
   uriReference,
@@ -853,7 +849,6 @@ const unsupportedKeywords = [
   "dependentRequired",
   "unevaluatedProperties",
   "unevaluatedItems",
-  "additionalItems",
 ];
 
 // Which JSON type each assertion keyword constrains. A keyword says nothing
@@ -864,6 +859,29 @@ const keywordTypes: [JSONSchemaTypeName, string[]][] = [
   ["number", ["minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf"]],
   ["object", ["properties", "required", "additionalProperties"]],
   ["array", ["items", "prefixItems", "minItems", "maxItems"]],
+];
+
+const refSiblingKeywords = [
+  "type",
+  "enum",
+  "const",
+  "format",
+  "multipleOf",
+  "maximum",
+  "exclusiveMaximum",
+  "minimum",
+  "exclusiveMinimum",
+  "pattern",
+  "minLength",
+  "maxLength",
+  "properties",
+  "required",
+  "additionalProperties",
+  "items",
+  "prefixItems",
+  "additionalItems",
+  "minItems",
+  "maxItems",
 ];
 
 const jsonTypeOf = (data: unknown): string =>
@@ -888,13 +906,11 @@ const passesSchema = (data: unknown, schema: Internal): boolean => {
   }
 };
 
-const definitionToDefaultValue = (definition: JSONSchemaDefinition): unknown => {
-  if (typeof definition !== "boolean") {
-    return definition.default;
-  } else {
-    return U;
-  }
-}
+const codePointLength = (value: string): number => {
+  let length = 0;
+  for (const _ of value) length++;
+  return length;
+};
 
 // A document may describe an empty range — `{minimum: 5, maximum: 1}`, or a
 // bound past int32's edge. That is legal JSON Schema with no inhabitants, so
@@ -926,7 +942,8 @@ const applyBound = (
 // from the document's root wherever it appears, so the nested calls need the
 // root and each other's work, not just their own subschema.
 type RefContext = {
-  root: JSONSchemaT;
+  root: JSONSchemaDefinition;
+  refSiblings: boolean;
   // pointer -> the ref schema minted for it, before its target is built. A
   // pointer reached again while its own target is still building is a cycle,
   // and finds this instead of recursing forever.
@@ -1075,12 +1092,86 @@ const withDefs = (schema: Internal, ctx: RefContext): Internal => {
 const asAssertion = (definition: JSONSchemaDefinition, ctx: RefContext): Internal =>
   withDefs(jsonDefinitionToSchema(definition, ctx), ctx);
 
+const assertionToJSONDefinition = (
+  definition: JSONSchemaDefinition,
+  schema: Internal,
+  ctx: RefContext
+): JSONSchemaDefinition => {
+  const rewrite = (
+    current: JSONSchemaDefinition,
+    resolved?: Internal
+  ): JSONSchemaDefinition => {
+    if (typeof current === "boolean") return current;
+    const ref = current["$ref"];
+    if (ref !== U) {
+      if (!ctx.cyc[ref]) {
+        const target = resolved ?? ctx.built[ref];
+        if (target === U) throw refError(`Failed to resolve JSON Schema $ref: ${ref}`);
+        const expanded = toJSONSchema(target);
+        if (!ctx.refSiblings) return expanded;
+        const siblings = { ...current };
+        delete siblings["$ref"];
+        return jsonSchemaMerge(expanded, rewrite(siblings) as JSONSchemaT);
+      }
+      const siblingsSchema = { ...current };
+      delete siblingsSchema["$ref"];
+      const siblings = ctx.refSiblings ? rewrite(siblingsSchema) : {};
+      return jsonSchemaMerge(siblings as JSONSchemaT, { $ref: ctx.ph[ref]!["$ref"] });
+    }
+
+    const output: JSONSchemaT = { ...current };
+    delete output["$defs"];
+    delete output.definitions;
+    const mapRecord = (record: Record<string, JSONSchemaDefinition>) =>
+      Object.fromEntries(Object.entries(record).map(([key, child]) => [key, rewrite(child)]));
+    if (current.properties !== U) output.properties = mapRecord(current.properties);
+    if (current.patternProperties !== U)
+      output.patternProperties = mapRecord(current.patternProperties);
+    if (current.dependentSchemas !== U)
+      output.dependentSchemas = mapRecord(current.dependentSchemas);
+    if (current.items !== U)
+      output.items = Array.isArray(current.items)
+        ? current.items.map((child) => rewrite(child))
+        : rewrite(current.items);
+    if (current.prefixItems !== U)
+      output.prefixItems = current.prefixItems.map((child) => rewrite(child));
+    const singleKeywords = [
+      "additionalItems",
+      "unevaluatedItems",
+      "contains",
+      "additionalProperties",
+      "unevaluatedProperties",
+      "propertyNames",
+      "if",
+      "then",
+      "else",
+      "not",
+    ] as const;
+    for (let idx = 0; idx < singleKeywords.length; idx++) {
+      const keyword = singleKeywords[idx]!;
+      const child = current[keyword];
+      if (child !== U) output[keyword] = rewrite(child) as never;
+    }
+    const arrayKeywords = ["allOf", "anyOf", "oneOf"] as const;
+    for (let idx = 0; idx < arrayKeywords.length; idx++) {
+      const keyword = arrayKeywords[idx]!;
+      const children = current[keyword];
+      if (children !== U) output[keyword] = children.map((child) => rewrite(child));
+    }
+    return output;
+  };
+  return rewrite(definition, schema);
+};
+
 // @__NO_SIDE_EFFECTS__
 export const fromJSONSchema = (
-  jsonSchema: JSONSchemaT,
+  jsonSchema: JSONSchemaDefinition,
   parentCtx?: RefContext
 ): Internal => {
   const anySchema = json;
+  if (typeof jsonSchema === "boolean") {
+    return jsonSchema ? anySchema : never_;
+  }
   // Every nested call threads the caller's context; only the outermost one
   // owns the document, and only it publishes the `$defs` collected below.
   const ctx: RefContext =
@@ -1088,6 +1179,9 @@ export const fromJSONSchema = (
       ? parentCtx
       : {
           root: jsonSchema,
+          refSiblings:
+            jsonSchema["$schema"]?.includes("/draft/2020-12/") === true ||
+            jsonSchema["$schema"]?.includes("/draft/2019-09/") === true,
           ph: {},
           built: {},
           cyc: {},
@@ -1106,77 +1200,200 @@ export const fromJSONSchema = (
     }
   }
 
-  // The dispatch order of this chain is mirrored by `JSONSchemaResolve` in
-  // src/types/json.d.ts — reordering branches here changes which keyword wins a
-  // conflict, so the type-level chain must move with it.
+  // The base type dispatch is mirrored by `JSONSchemaResolve` in
+  // src/types/json.d.ts.
   let schema: Internal;
   if (jsonSchema.nullable) {
     schema = null_(fromJSONSchema(jsonSchemaMerge(jsonSchema, { nullable: false }), ctx));
   } else if (jsonSchema["$ref"] !== U) {
-    // A `$ref` replaces the assertion keywords beside it, which is draft-07's
-    // and OpenAPI 3.0's reading; draft-2019-09 made it assert alongside them.
-    // The two disagree and this converter takes no dialect, so it follows the
-    // spelling that documents are actually written in — a sibling next to a
-    // `$ref` is written to be ignored, because that is what draft-07 validators
-    // did. `nullable` above and the composition keywords below still layer on.
+    // Draft-07 and OpenAPI 3.0 ignore assertion siblings beside `$ref`;
+    // draft-2019-09 and newer apply them. The root `$schema` selects the rule.
     schema = resolveRef(jsonSchema["$ref"], ctx);
+    if (
+      ctx.refSiblings &&
+      refSiblingKeywords.some(
+        (keyword) => (jsonSchema as Record<string, unknown>)[keyword] !== U
+      )
+    ) {
+      const siblingSchema = asAssertion(
+        jsonSchemaMerge(jsonSchema, {
+          $ref: U,
+          allOf: U,
+          anyOf: U,
+          oneOf: U,
+          not: U,
+          if: U,
+          then: U,
+          else: U,
+        }),
+        ctx
+      );
+      schema = refineInput(
+        schema,
+        (data: unknown) => passesSchema(data, siblingSchema),
+        "Should pass the keywords adjacent to the $ref."
+      );
+    }
   } else if (jsonSchema.type === "object") {
+    schema = dict(anySchema);
+    let roundTripProperties: Record<string, JSONSchemaDefinition> | undefined = U;
     if (jsonSchema.properties !== U) {
       const properties = jsonSchema.properties;
-      // Null prototype: a JSON Schema may declare a property named `__proto__`,
-      // and on a plain `{}` that assignment replaces the object's prototype
-      // instead of adding a key.
-      const obj: Record<string, Internal> = Object.create(null);
-      Object.keys(properties).forEach((key) => {
-        const property = properties[key]!;
-        let propertySchema = jsonDefinitionToSchema(property, ctx);
-        if (!jsonSchema.required?.includes(key)) {
-          const defaultValue = definitionToDefaultValue(property);
-          if (defaultValue !== U) {
-            propertySchema = Option_getOr(option(propertySchema), defaultValue);
-          } else {
-            propertySchema = option(propertySchema);
-          }
-        }
-        obj[key] = propertySchema;
+      const propertySchemas = Object.keys(properties).map((key) => {
+        const definition = properties[key]!;
+        const propertySchema = asAssertion(definition, ctx);
+        return [
+          key,
+          propertySchema,
+          assertionToJSONDefinition(definition, propertySchema, ctx),
+        ] as const;
       });
-      schema = definitionToSchema(obj);
+      roundTripProperties = Object.fromEntries(
+        propertySchemas.map(([key, , definition]) => [key, definition])
+      );
+      schema = refineInput(
+        schema,
+        (data: unknown) =>
+          propertySchemas.every(
+            ([key, propertySchema]) =>
+              !Object.hasOwn(data as object, key) ||
+              passesSchema((data as Record<string, unknown>)[key], propertySchema)
+          ),
+        "Should pass every declared property schema."
+      );
       if (jsonSchema.additionalProperties === false) {
-        schema = strict(schema);
+        const propertyNames = new Set(Object.keys(properties));
+        schema = refineInput(
+          schema,
+          (data: unknown) =>
+            Object.keys(data as Record<string, unknown>).every((key) => propertyNames.has(key)),
+          "Should not contain additional properties."
+        );
+      } else if (
+        jsonSchema.additionalProperties !== U &&
+        jsonSchema.additionalProperties !== true
+      ) {
+        const propertyNames = new Set(Object.keys(properties));
+        const additionalSchema = asAssertion(jsonSchema.additionalProperties, ctx);
+        schema = refineInput(
+          schema,
+          (data: unknown) =>
+            Object.keys(data as Record<string, unknown>).every(
+              (key) =>
+                propertyNames.has(key) ||
+                passesSchema((data as Record<string, unknown>)[key], additionalSchema)
+            ),
+          "Should pass the additionalProperties schema."
+        );
       }
     } else {
       const additionalProperties = jsonSchema.additionalProperties;
       if (additionalProperties !== U) {
-        if (additionalProperties === true) {
-          schema = dict(anySchema);
-        } else if (additionalProperties === false) {
-          schema = strict(object(() => {}));
-        } else {
-          schema = dict(fromJSONSchema(additionalProperties, ctx));
+        if (additionalProperties === false) {
+          schema = refineInput(
+            schema,
+            (data: unknown) => Object.keys(data as Record<string, unknown>).length === 0,
+            "Should not contain additional properties."
+          );
+        } else if (additionalProperties !== true) {
+          const additionalSchema = asAssertion(additionalProperties, ctx);
+          schema = refineInput(
+            schema,
+            (data: unknown) =>
+              Object.keys(data as Record<string, unknown>).every((key) =>
+                passesSchema((data as Record<string, unknown>)[key], additionalSchema)
+              ),
+            "Should pass the additionalProperties schema."
+          );
         }
-      } else {
-        schema = schemaFactory({});
       }
     }
 
-    // TODO: jsonSchema.anyOf and jsonSchema.oneOf support
-  } else if (jsonSchema.type === "array") {
-    if (jsonSchema.prefixItems !== U) {
-      // draft-2020-12 describes tuples with `prefixItems` instead of an
-      // `items` array.
-      const prefixItems = jsonSchema.prefixItems;
-      schema = tuple((s: { item: (idx: number, schema: Internal) => unknown }) =>
-        prefixItems.map((d, idx) => s.item(idx, jsonDefinitionToSchema(d, ctx)))
+    if (jsonSchema.required !== U && jsonSchema.required.length > 0) {
+      const required = jsonSchema.required;
+      schema = refineInput(
+        schema,
+        (data: unknown) =>
+          required.every((key) => Object.hasOwn(data as object, key)),
+        "Should contain every required property."
       );
+    }
+    const objectKeywords: JSONSchemaT = {};
+    if (roundTripProperties !== U) objectKeywords.properties = roundTripProperties;
+    if (jsonSchema.required !== U) objectKeywords.required = jsonSchema.required;
+    if (jsonSchema.additionalProperties !== U) {
+      const additionalProperties = jsonSchema.additionalProperties;
+      objectKeywords.additionalProperties =
+        typeof additionalProperties === "boolean"
+          ? additionalProperties
+          : assertionToJSONDefinition(
+              additionalProperties,
+              asAssertion(additionalProperties, ctx),
+              ctx
+            );
+    }
+    schema = extendJSONSchema(schema, objectKeywords);
+  } else if (jsonSchema.type === "array") {
+    const prefixItems =
+      jsonSchema.prefixItems !== U
+        ? jsonSchema.prefixItems
+        : Array.isArray(jsonSchema.items)
+          ? jsonSchema.items
+          : U;
+    if (prefixItems !== U) {
+      const prefixSchemas = prefixItems.map((definition) => asAssertion(definition, ctx));
+      const restDefinition =
+        jsonSchema.prefixItems !== U
+          ? Array.isArray(jsonSchema.items)
+            ? true
+            : (jsonSchema.items ?? true)
+          : (jsonSchema.additionalItems ?? true);
+      const restSchema = restDefinition === true ? U : asAssertion(restDefinition, ctx);
+      schema = refineInput(
+        array(anySchema),
+        (data: unknown) => {
+          const items = data as unknown[];
+          const prefixLength = Math.min(items.length, prefixSchemas.length);
+          for (let idx = 0; idx < prefixLength; idx++) {
+            if (!passesSchema(items[idx], prefixSchemas[idx]!)) return false;
+          }
+          if (restSchema !== U) {
+            for (let idx = prefixSchemas.length; idx < items.length; idx++) {
+              if (!passesSchema(items[idx], restSchema)) return false;
+            }
+          }
+          return true;
+        },
+        "Should pass the positional and additional item schemas."
+      );
+      const tupleKeywords: JSONSchemaT = {};
+      if (jsonSchema.prefixItems !== U) {
+        tupleKeywords.prefixItems = prefixItems.map((definition, idx) =>
+          assertionToJSONDefinition(definition, prefixSchemas[idx]!, ctx)
+        );
+        if (jsonSchema.items !== U && !Array.isArray(jsonSchema.items)) {
+          tupleKeywords.items = assertionToJSONDefinition(
+            jsonSchema.items,
+            restSchema === U ? anySchema : restSchema,
+            ctx
+          );
+        }
+      } else {
+        tupleKeywords.items = prefixItems.map((definition, idx) =>
+          assertionToJSONDefinition(definition, prefixSchemas[idx]!, ctx)
+        );
+        if (jsonSchema.additionalItems !== U) {
+          tupleKeywords.additionalItems = assertionToJSONDefinition(
+            jsonSchema.additionalItems,
+            restSchema === U ? anySchema : restSchema,
+            ctx
+          );
+        }
+      }
+      schema = extendJSONSchema(schema, tupleKeywords);
     } else if (jsonSchema.items !== U) {
       const items = jsonSchema.items;
-      if (Array.isArray(items)) {
-        schema = tuple((s: { item: (idx: number, schema: Internal) => unknown }) =>
-          items.map((d, idx) => s.item(idx, jsonDefinitionToSchema(d, ctx)))
-        );
-      } else {
-        schema = array(jsonDefinitionToSchema(items, ctx));
-      }
+      schema = array(jsonDefinitionToSchema(items as JSONSchemaDefinition, ctx));
     } else {
       schema = array(anySchema);
     }
@@ -1186,27 +1403,6 @@ export const fromJSONSchema = (
     if (jsonSchema.maxItems !== U) {
       schema = applyBound(schema, maxLength, jsonSchema.maxItems);
     }
-  } else if (jsonSchema.anyOf !== U) {
-    const definitions = jsonSchema.anyOf;
-    if (definitions.length === 0) {
-      schema = anySchema;
-    } else if (definitions.length === 1) {
-      schema = jsonDefinitionToSchema(definitions[0]!, ctx);
-    } else {
-      schema = union(definitions.map((d) => jsonDefinitionToSchema(d, ctx)));
-    }
-  // needs to come before primitives
-  } else if (jsonSchema.enum !== U) {
-    const primitives = jsonSchema.enum;
-    if (primitives.length === 0) {
-      schema = anySchema;
-    } else if (primitives.length === 1) {
-      schema = primitiveToSchema(primitives[0]);
-    } else {
-      schema = union(primitives.map(primitiveToSchema));
-    }
-  } else if (jsonSchema.const !== U) {
-    schema = primitiveToSchema(jsonSchema.const);
   } else if (Array.isArray(jsonSchema.type)) {
     const types = jsonSchema.type;
     schema = union(
@@ -1215,13 +1411,31 @@ export const fromJSONSchema = (
   } else if (jsonSchema.type === "string") {
     schema = stringFormatSchemas[jsonSchema.format!] || string;
     if (jsonSchema.pattern !== U) {
-      schema = pattern(schema, new RegExp(jsonSchema.pattern));
+      schema = pattern(schema, new RegExp(jsonSchema.pattern, "u"));
     }
-    if (jsonSchema.minLength !== U) {
-      schema = applyBound(schema, minLength, jsonSchema.minLength);
-    }
-    if (jsonSchema.maxLength !== U) {
-      schema = applyBound(schema, maxLength, jsonSchema.maxLength);
+    if (jsonSchema.minLength !== U || jsonSchema.maxLength !== U) {
+      const minimum = jsonSchema.minLength;
+      const maximum = jsonSchema.maxLength;
+      if (
+        (minimum !== U && (!Number.isSafeInteger(minimum) || minimum < 0)) ||
+        (maximum !== U && (!Number.isSafeInteger(maximum) || maximum < 0)) ||
+        (minimum !== U && maximum !== U && minimum > maximum)
+      ) {
+        schema = never_;
+      } else {
+        schema = refineInput(
+          schema,
+          (data: unknown) => {
+            const length = codePointLength(data as string);
+            return (minimum === U || length >= minimum) && (maximum === U || length <= maximum);
+          },
+          "Should have a code-point length within the JSON Schema bounds."
+        );
+      }
+      const lengthKeywords: JSONSchemaT = {};
+      if (minimum !== U) lengthKeywords.minLength = minimum;
+      if (maximum !== U) lengthKeywords.maxLength = maximum;
+      schema = extendJSONSchema(schema, lengthKeywords);
     }
   } else if (jsonSchema.type === "integer") {
     schema = toIntSchema(jsonSchema);
@@ -1271,7 +1485,25 @@ export const fromJSONSchema = (
   // Composition keywords constrain *in addition to* everything above, so they
   // layer on as refinements rather than replacing the shape — a schema is not
   // either "an object with these properties" or "an allOf", it is both.
-  if (jsonSchema.allOf !== U) {
+  if (jsonSchema["$ref"] === U && jsonSchema.enum !== U) {
+    const schemas = jsonSchema.enum.map(primitiveToSchema);
+    schema = refineInput(
+      schema,
+      (data: unknown) => schemas.some((candidate) => passesSchema(data, candidate)),
+      "Should equal one of the values in the enum property."
+    );
+    schema = extendJSONSchema(schema, { enum: jsonSchema.enum });
+  }
+  if (jsonSchema["$ref"] === U && jsonSchema.const !== U) {
+    const constSchema = primitiveToSchema(jsonSchema.const);
+    schema = refineInput(
+      schema,
+      (data: unknown) => passesSchema(data, constSchema),
+      "Should equal the const property."
+    );
+    schema = extendJSONSchema(schema, { const: jsonSchema.const });
+  }
+  if (jsonSchema.allOf !== U && (jsonSchema["$ref"] === U || ctx.refSiblings)) {
     const definitions = jsonSchema.allOf;
     const schemas = definitions.map((d) => asAssertion(d, ctx));
     if (schemas.length > 0) {
@@ -1281,28 +1513,53 @@ export const fromJSONSchema = (
         "Should pass for all schemas of the allOf property."
       );
     }
+    schema = extendJSONSchema(schema, {
+      allOf: definitions.map((definition, idx) =>
+        assertionToJSONDefinition(definition, schemas[idx]!, ctx)
+      ),
+    });
   }
-  if (jsonSchema.oneOf !== U) {
+  if (jsonSchema.anyOf !== U && (jsonSchema["$ref"] === U || ctx.refSiblings)) {
+    const definitions = jsonSchema.anyOf;
+    const schemas = definitions.map((d) => asAssertion(d, ctx));
+    schema = refineInput(
+      schema,
+      (data: unknown) => schemas.some((candidate) => passesSchema(data, candidate)),
+      "Should pass at least one schema according to the anyOf property."
+    );
+    schema = extendJSONSchema(schema, {
+      anyOf: definitions.map((definition, idx) =>
+        assertionToJSONDefinition(definition, schemas[idx]!, ctx)
+      ),
+    });
+  }
+  if (jsonSchema.oneOf !== U && (jsonSchema["$ref"] === U || ctx.refSiblings)) {
     const definitions = jsonSchema.oneOf;
     const schemas = definitions.map((d) => asAssertion(d, ctx));
-    if (schemas.length > 0) {
-      schema = refineInput(
-        schema,
-        (data: unknown) =>
-          schemas.filter((s) => passesSchema(data, s)).length === 1,
-        "Should pass exactly one schema according to the oneOf property."
-      );
-    }
+    schema = refineInput(
+      schema,
+      (data: unknown) =>
+        schemas.filter((candidate) => passesSchema(data, candidate)).length === 1,
+      "Should pass exactly one schema according to the oneOf property."
+    );
+    schema = extendJSONSchema(schema, {
+      oneOf: definitions.map((definition, idx) =>
+        assertionToJSONDefinition(definition, schemas[idx]!, ctx)
+      ),
+    });
   }
-  if (jsonSchema.not !== U) {
+  if (jsonSchema.not !== U && (jsonSchema["$ref"] === U || ctx.refSiblings)) {
     const notSchema = asAssertion(jsonSchema.not, ctx);
     schema = refineInput(
       schema,
       (data: unknown) => !passesSchema(data, notSchema),
       "Should NOT be valid against schema in the not property."
     );
+    schema = extendJSONSchema(schema, {
+      not: assertionToJSONDefinition(jsonSchema.not, notSchema, ctx),
+    });
   }
-  if (jsonSchema.if !== U) {
+  if (jsonSchema.if !== U && (jsonSchema["$ref"] === U || ctx.refSiblings)) {
     // `then`/`else` default to "always passes" when absent.
     const ifSchema = asAssertion(jsonSchema.if, ctx);
     const thenSchema =
@@ -1317,6 +1574,28 @@ export const fromJSONSchema = (
       },
       "Should pass the if/then/else schema validation."
     );
+    const conditionalKeywords: JSONSchemaT = {
+      if: assertionToJSONDefinition(jsonSchema.if, ifSchema, ctx),
+    };
+    if (jsonSchema.then !== U)
+      conditionalKeywords.then = assertionToJSONDefinition(jsonSchema.then, thenSchema!, ctx);
+    if (jsonSchema.else !== U)
+      conditionalKeywords.else = assertionToJSONDefinition(jsonSchema.else, elseSchema!, ctx);
+    schema = extendJSONSchema(schema, conditionalKeywords);
+  }
+
+  if (jsonSchema["$ref"] !== U && ctx.refSiblings) {
+    const siblingKeywords: JSONSchemaT = {};
+    for (let idx = 0; idx < refSiblingKeywords.length; idx++) {
+      const keyword = refSiblingKeywords[idx]!;
+      const value = (jsonSchema as Record<string, unknown>)[keyword];
+      if (value !== U) (siblingKeywords as Record<string, unknown>)[keyword] = value;
+    }
+    schema = extendJSONSchema(schema, siblingKeywords);
+  }
+
+  if (jsonSchema.default !== U) {
+    schema = extendJSONSchema(schema, { default: jsonSchema.default });
   }
 
   if (
@@ -1336,8 +1615,11 @@ export const fromJSONSchema = (
   // `cyc` rather than `defs`, which `withDefs` also folds unrelated defs into:
   // what decides whether the outermost schema needs one is whether the document
   // had a cycle to name.
-  if (parentCtx === U && Object.keys(ctx.cyc).length !== 0) {
-    schema = withDefs(schema, ctx);
+  if (parentCtx === U) {
+    if (Object.keys(ctx.cyc).length !== 0) schema = withDefs(schema, ctx);
+    const documentKeywords: JSONSchemaT = {};
+    if (jsonSchema["$schema"] !== U) documentKeywords["$schema"] = jsonSchema["$schema"];
+    schema = extendJSONSchema(schema, documentKeywords);
   }
 
   return schema;

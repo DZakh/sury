@@ -9,7 +9,9 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: Expected JSON, received boolean | symbol
+  inputType: Expected JSON, received boolean | symbol
   output: '{ type: "string" }'
+  outputType: string
 operations:
   parse:
     creationError: "SuryError: Can't decode symbol to string. Use S.to to define a custom decoder"

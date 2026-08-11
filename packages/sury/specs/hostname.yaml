@@ -8,7 +8,9 @@ vs:
   zod: z.hostname()
 jsonSchema:
   input: '{ type: "string", format: "hostname" }'
+  inputType: string
   output: '{ type: "string", format: "hostname" }'
+  outputType: string
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}

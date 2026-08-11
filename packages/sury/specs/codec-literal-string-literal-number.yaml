@@ -11,7 +11,9 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: '{ type: "string", const: "a" }'
+  inputType: '"a"'
   output: '{ type: "number", const: 42 }'
+  outputType: "42"
 operations:
   parse:
     expression: i=>{i==="a"||e[0](i);return 42}

@@ -9,7 +9,9 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: '{ anyOf: [{ type: "number" }, { type: "string" }] }'
+  inputType: string | number
   output: '{ type: "string" }'
+  outputType: string
 operations:
   parse:
     expression: i=>{for(;;){if(typeof i==="number"&&!Number.isNaN(i)){e[0](i);break}if(typeof i==="string")break;e[1](i)}return i}

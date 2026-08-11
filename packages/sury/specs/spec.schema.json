@@ -154,18 +154,30 @@
       "type": "object",
       "properties": {
         "input": {
-          "type": "string"
+          "type": "string",
+          "description": "S.toJSONSchema(schema), as source text, or its conversion error."
+        },
+        "inputType": {
+          "type": "string",
+          "description": "The output type inferred by S.fromJSONSchema(input), or input's conversion error."
         },
         "output": {
-          "type": "string"
+          "type": "string",
+          "description": "S.toJSONSchema(S.reverse(schema)), as source text, or its conversion error."
+        },
+        "outputType": {
+          "type": "string",
+          "description": "The output type inferred by S.fromJSONSchema(output), or output's conversion error."
         }
       },
       "additionalProperties": false,
       "required": [
         "input",
-        "output"
+        "inputType",
+        "output",
+        "outputType"
       ],
-      "description": "S.toJSONSchema(schema) for both directions, as a one-line source-text string (same formatting as example values) — or (per direction) the message S.toJSONSchema threw if that direction can't be represented (e.g. a bigint/symbol field). Filled by `spec check --write`."
+      "description": "S.toJSONSchema(schema) for both directions, as one-line source text, plus the output type inferred by S.fromJSONSchema for each generated document. If a direction can't be represented, its conversion error is recorded in both fields. Filled by `spec check --write`."
     },
     "operations": {
       "type": "object",

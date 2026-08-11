@@ -3,13 +3,15 @@ ts:
   schema: 'S.fromJSONSchema({ type: "string", format: "constructor" })'
   input: string
   output: string
-  instantiations: 386
+  instantiations: 494
 vs:
   zod:
     _skip: not-applicable
 jsonSchema:
   input: '{ type: "string" }'
+  inputType: string
   output: '{ type: "string" }'
+  outputType: string
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[0](i);return i}

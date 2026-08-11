@@ -9,7 +9,9 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: '{ type: "string" }'
+  inputType: string
   output: "Failed at []: Expected JSON, received bigint"
+  outputType: "Failed at []: Expected JSON, received bigint"
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[4](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}Array.isArray(v0)||e[3](v0);let v5=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){try{let v3=v0[v1];typeof v3==="string"||e[2](v3);let v2;try{v2=BigInt(v3)}catch(_){e[1](v3)}v5[v1]=v2}catch(v4){v4.path='["'+v1+'"]'+v4.path;throw v4}}return v5}

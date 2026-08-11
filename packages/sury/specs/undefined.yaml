@@ -8,7 +8,9 @@ vs:
   zod: z.undefined()
 jsonSchema:
   input: Expected JSON, received undefined
+  inputType: Expected JSON, received undefined
   output: Expected JSON, received undefined
+  outputType: Expected JSON, received undefined
 operations:
   parse:
     expression: i=>{i===void 0||e[0](i);return i}

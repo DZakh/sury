@@ -10,7 +10,9 @@ vs:
   zod: z.string().optional()
 jsonSchema:
   input: Expected JSON, received string | undefined
+  inputType: Expected JSON, received string | undefined
   output: Expected JSON, received string | undefined
+  outputType: Expected JSON, received string | undefined
 operations:
   parse:
     expression: i=>{(typeof i==="string"||i===void 0)||e[0](i);return i}

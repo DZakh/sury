@@ -8,7 +8,9 @@ vs:
   zod: z.int().multipleOf(2).multipleOf(3)
 jsonSchema:
   input: '{ type: "integer", multipleOf: 6 }'
+  inputType: number
   output: '{ type: "integer", multipleOf: 6 }'
+  outputType: number
 operations:
   parse:
     expression: i=>{typeof i==="number"&&i%1===0||e[1](i);i%6===0||e[0](i);return i}

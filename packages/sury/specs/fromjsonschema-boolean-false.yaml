@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.fromJSONSchema(false)
+  input: never
+  output: never
+  instantiations: 330
+vs:
+  zod: z.never()
+jsonSchema:
+  input: "{ not: {} }"
+  inputType: never
+  output: "{ not: {} }"
+  outputType: never
+operations:
+  parse:
+    expression: i=>{e[0](i);return i}
+    examples:
+      rejects-null:
+        input: "null"
+        error: Expected never, received null
+      rejects-object:
+        input: "{}"
+        error: Expected never, received {}
+  decode: eq-to-parse
+  encode: eq-to-parse

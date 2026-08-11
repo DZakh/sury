@@ -8,7 +8,9 @@ vs:
   zod: z.literal("foo").nullable()
 jsonSchema:
   input: '{ enum: ["foo", null] }'
+  inputType: '"foo" | null'
   output: '{ enum: ["foo", null] }'
+  outputType: '"foo" | null'
 operations:
   parse:
     expression: i=>{(typeof i==="string"&&i==="foo"||i===null)||e[0](i);return i}

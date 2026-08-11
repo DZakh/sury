@@ -1188,21 +1188,8 @@ test("Example of transformed schema", (t) => {
   });
 
   const fromJsonSchema = S.fromJSONSchema(S.toJSONSchema(userSchema));
-  t.expect(
-    S.parser(fromJsonSchema)({ USER_ID: "0", USER_NAME: "Dmitry" }),
-  ).toEqual({
-    USER_ID: "0",
-    USER_NAME: "Dmitry",
-  });
-  if (fromJsonSchema.type === "object") {
-    t.expect(fromJsonSchema.additionalItems).toBe("strip");
-    t.expect(Object.keys(fromJsonSchema.properties)).toEqual([
-      "USER_ID",
-      "USER_NAME",
-    ]);
-  } else {
-    t.expect.fail("fromJsonSchema should be an object");
-  }
+  const jsonInput = { USER_ID: "0", USER_NAME: "Dmitry" };
+  t.expect(S.parser(fromJsonSchema)(jsonInput)).toBe(jsonInput);
 });
 
 test("Brand", (t) => {
@@ -1275,7 +1262,7 @@ test("fromJSONSchema: an inline schema infers the type it describes", (t) => {
     id: string;
     role: "admin" | "user";
     tags?: string[] | undefined;
-    point?: [number, number] | undefined;
+    point?: [number?, number?, ...S.JSON[]] | undefined;
     score?: number | null | undefined;
   }>();
   t.expect(S.parser(userSchema)({ id: "1", role: "admin" })).toEqual({
@@ -1306,6 +1293,122 @@ test("fromJSONSchema: an inline schema infers the type it describes", (t) => {
   expectSchemaType(
     S.fromJSONSchema(S.toJSONSchema(S.schema({ a: S.string }))),
   ).toBe<S.JSON, S.JSON>();
+});
+
+test("fromJSONSchema: assertion-only schemas preserve valid JSON", (t) => {
+  const anySchema = S.fromJSONSchema(true);
+  const noSchema = S.fromJSONSchema(false);
+  const emptyEnum = S.fromJSONSchema({ enum: [] });
+  expectSchemaType(anySchema).toBe<S.JSON>();
+  expectSchemaType(noSchema).toBe<never>();
+  expectSchemaType(emptyEnum).toBe<never>();
+  t.expect(S.parser(anySchema)({ nested: [1, true] })).toEqual({ nested: [1, true] });
+  t.expect(() => S.parser(noSchema)(null)).toThrow("Expected never");
+  t.expect(() => S.parser(emptyEnum)("anything")).toThrow(
+    "Should equal one of the values in the enum property."
+  );
+
+  const composed = S.fromJSONSchema({
+    type: "string",
+    minLength: 2,
+    anyOf: [{ pattern: "^a" }, { pattern: "z$" }],
+  });
+  expectSchemaType(composed).toBe<string>();
+  t.expect(S.parser(composed)("ab")).toBe("ab");
+  t.expect(S.parser(composed)("zz")).toBe("zz");
+  t.expect(() => S.parser(composed)("bb")).toThrow(
+    "Should pass at least one schema according to the anyOf property."
+  );
+
+  const tupleSchema = S.fromJSONSchema({
+    type: "array",
+    items: [{ type: "string" }, { type: "number" }],
+    additionalItems: { type: "boolean" },
+  });
+  expectSchemaType(tupleSchema).toBe<[
+    (string | undefined)?,
+    (number | undefined)?,
+    ...boolean[],
+  ]>();
+  for (const value of [[], ["a"], ["a", 1], ["a", 1, true, false]]) {
+    t.expect(S.parser(tupleSchema)(value)).toBe(value);
+  }
+  t.expect(() => S.parser(tupleSchema)(["a", 1, 2])).toThrow(
+    "Should pass the positional and additional item schemas."
+  );
+
+  const objectSchema = S.fromJSONSchema({
+    type: "object",
+    properties: { value: { type: "string", default: "fallback" } },
+    required: ["constructor"],
+    additionalProperties: { type: "integer" },
+  });
+  expectSchemaType(objectSchema).toBe<{
+    value?: string | undefined;
+    constructor: number;
+  }>();
+  const objectInput = { constructor: 1, value: "set", extra: 2 };
+  t.expect(S.parser(objectSchema)(objectInput)).toBe(objectInput);
+  t.expect(S.parser(objectSchema)({ constructor: 1 })).toEqual({ constructor: 1 });
+  t.expect(() => S.parser(objectSchema)({})).toThrow(
+    "Should contain every required property."
+  );
+  t.expect(() => S.parser(objectSchema)({ constructor: 1, extra: "no" })).toThrow(
+    "Should pass the additionalProperties schema."
+  );
+
+  const unicode = S.fromJSONSchema({
+    type: "string",
+    minLength: 2,
+    maxLength: 2,
+    pattern: "^\\p{Letter}{2}$",
+  });
+  t.expect(S.parser(unicode)("\u{10400}\u{10401}")).toBe("\u{10400}\u{10401}");
+  t.expect(() => S.parser(unicode)("😀")).toThrow(
+    "Should have a code-point length within the JSON Schema bounds."
+  );
+});
+
+test("fromJSONSchema: $ref siblings follow the declared dialect", (t) => {
+  const target = { type: "string" } as const;
+  const modern = S.fromJSONSchema({
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    $ref: "#/$defs/id",
+    minLength: 3,
+    anyOf: [{ pattern: "c$" }],
+    $defs: { id: target },
+  });
+  const legacy = S.fromJSONSchema({
+    $schema: "http://json-schema.org/draft-07/schema#",
+    $ref: "#/$defs/id",
+    minLength: 3,
+    anyOf: [{ pattern: "never$" }],
+    $defs: { id: target },
+  });
+  expectSchemaType(modern).toBe<string>();
+  expectSchemaType(legacy).toBe<string>();
+  t.expect(S.parser(modern)("abc")).toBe("abc");
+  t.expect(() => S.parser(modern)("ab")).toThrow(
+    "Should pass the keywords adjacent to the $ref."
+  );
+  t.expect(() => S.parser(modern)("abd")).toThrow(
+    "Should pass at least one schema according to the anyOf property."
+  );
+  t.expect(S.parser(legacy)("ab")).toBe("ab");
+
+  const nestedModern = S.fromJSONSchema({
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    properties: { id: { $ref: "#/$defs/id" } },
+    $defs: { id: target },
+  });
+  expectSchemaType(nestedModern).toBe<{ id?: string | undefined }>();
+  t.expect(S.toJSONSchema(nestedModern)).toEqual({
+    type: "object",
+    additionalProperties: true,
+    properties: { id: { type: "string" } },
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+  });
 });
 
 test("toJSONSchema: the target picks the dialect of the result", (t) => {
@@ -1382,9 +1485,8 @@ test("fromJSONSchema: composition keywords constrain in addition to the base sha
   });
   const parse = S.parser(schema) as (d: unknown) => unknown;
 
-  // The allOf branch sees the whole document, while the base object schema
-  // still strips what it doesn't declare — so `foo` validates, then drops.
-  t.expect(parse({ bar: 2, foo: "x" })).toEqual({ bar: 2 });
+  const input = { bar: 2, foo: "x" };
+  t.expect(parse(input)).toBe(input);
   // Fails the base shape.
   t.expect(S.safe(() => parse({ bar: "no", foo: "x" })).error).toBeDefined();
   // Fails only the allOf branch — the base shape alone used to win.

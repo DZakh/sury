@@ -8,7 +8,9 @@ vs:
   zod: 'z.union([z.object({ kind: z.literal("a"), value: z.number().min(2) }), z.object({ kind: z.literal("a"), value: z.literal(1) })])'
 jsonSchema:
   input: '{ anyOf: [{ type: "object", properties: { kind: { type: "string", const: "a" }, value: { type: "number", minimum: 2 } }, required: ["kind", "value"] }, { type: "object", properties: { kind: { type: "string", const: "a" }, value: { type: "number", const: 1 } }, required: ["kind", "value"] }] }'
+  inputType: '{ kind: "a"; value: number; } | { kind: "a"; value: 1; }'
   output: '{ anyOf: [{ type: "object", properties: { kind: { type: "string", const: "a" }, value: { type: "number", minimum: 2 } }, required: ["kind", "value"] }, { type: "object", properties: { kind: { type: "string", const: "a" }, value: { type: "number", const: 1 } }, required: ["kind", "value"] }] }'
+  outputType: '{ kind: "a"; value: number; } | { kind: "a"; value: 1; }'
 operations:
   parse:
     expression: i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){let r;if(i["kind"]==="a"){try{let v0=i["value"];typeof v0==="number"&&!Number.isNaN(v0)||e[1](v0);v0>=2||e[0](v0);i={"kind":i["kind"],"value":v0,};break}catch(x){(r||(r=[])).push(e[2](x))}}if(i["kind"]==="a"&&i["value"]===1){i={"kind":i["kind"],"value":i["value"],};break}e[3](i,...(r||[]))}}else{e[4](i)}return i}

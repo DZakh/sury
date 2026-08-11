@@ -350,6 +350,11 @@ instead of silently working around it.
   specs are published as documentation, the writer should quote or escape any
   scalar holding a control character. Reference-suite coverage is kept rather
   than trimmed to dodge this — the defect is in the writer.
+- JSON Schema round trips now snapshot the type inferred by
+  `S.fromJSONSchema(S.toJSONSchema(schema))`, but not that second schema's type
+  instantiation cost. Tracking the cost would catch regressions in the
+  `FromJSONSchema` conditional type, at the expense of making every spec own a
+  second TypeScript performance budget.
 - `--perf` spawns one child process per target, and a target is one
   (spec, op, accept/reject) whose batch iterates every example of that outcome.
   It used to be one target per *example*, which made the job scale with

@@ -8,7 +8,9 @@ vs:
   zod: z.union([z.string().refine((v) => { throw new TypeError("predicate blew up") }), z.string()])
 jsonSchema:
   input: '{ type: "string" }'
+  inputType: string
   output: '{ type: "string" }'
+  outputType: string
 operations:
   parse:
     expression: i=>{if(typeof i==="string"){for(;;){let r;try{e[0](i)||e[1](i);break}catch(x){(r||(r=[])).push(e[2](x))}break;}}else{e[3](i)}return i}

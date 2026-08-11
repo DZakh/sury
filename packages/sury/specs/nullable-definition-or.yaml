@@ -12,7 +12,9 @@ vs:
     output: "{ a: boolean; } | null"
 jsonSchema:
   input: '{ default: { a: false }, anyOf: [{ type: "object", properties: { a: { type: "boolean" } }, required: ["a"] }, { type: "null" }] }'
+  inputType: "{ a: boolean; } | null"
   output: '{ type: "object", properties: { a: { type: "boolean" } }, required: ["a"] }'
+  outputType: "{ a: boolean; }"
 operations:
   parse:
     expression: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i["a"];typeof v0==="boolean"||e[0](v0);i={"a":v0,};break}if(i===null){i=void 0;break}e[1](i)}return i===void 0?e[2]:i}

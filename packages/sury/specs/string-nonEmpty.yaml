@@ -8,7 +8,9 @@ vs:
   zod: z.string().min(1)
 jsonSchema:
   input: '{ type: "string", minLength: 1 }'
+  inputType: string
   output: '{ type: "string", minLength: 1 }'
+  outputType: string
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[1](i);i.length>0||e[0](i);return i}

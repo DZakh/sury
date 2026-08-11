@@ -10,7 +10,9 @@ vs:
   zod: "z.object({ constructor: z.string(), hasOwnProperty: z.number() })"
 jsonSchema:
   input: '{ type: "object", properties: { constructor: { type: "string" }, hasOwnProperty: { type: "number" } }, required: ["constructor", "hasOwnProperty"] }'
+  inputType: "{ constructor: string; hasOwnProperty: number; }"
   output: '{ type: "object", properties: { constructor: { type: "string" }, hasOwnProperty: { type: "number" } }, required: ["constructor", "hasOwnProperty"] }'
+  outputType: "{ constructor: string; hasOwnProperty: number; }"
 operations:
   parse:
     expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["constructor"],v1=i["hasOwnProperty"];typeof v0==="string"||e[0](v0);typeof v1==="number"&&!Number.isNaN(v1)||e[1](v1);return {"constructor":v0,"hasOwnProperty":v1,}}

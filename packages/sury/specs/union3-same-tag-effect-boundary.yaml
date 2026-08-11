@@ -8,7 +8,9 @@ vs:
   zod: z.union([z.string().min(5), z.string().pipe(z.coerce.number()), z.string().max(1)])
 jsonSchema:
   input: '{ anyOf: [{ type: "string", minLength: 5 }, { type: "string" }, { type: "string", maxLength: 1 }] }'
+  inputType: string
   output: '{ anyOf: [{ type: "string", minLength: 5 }, { type: "number" }, { type: "string", maxLength: 1 }] }'
+  outputType: string | number
 operations:
   parse:
     expression: i=>{for(;;){let r;if(typeof i==="string"){try{i.length>4||e[0](i);break}catch(x){(r||(r=[])).push(e[3](x))}try{let v0=+i;!Number.isNaN(v0)||e[1](i);i=v0;break}catch(x){(r||(r=[])).push(e[3](x))}try{i.length<2||e[2](i);break}catch(x){(r||(r=[])).push(e[3](x))}}e[4](i,...(r||[]))}return i}

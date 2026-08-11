@@ -12,7 +12,9 @@ vs:
     output: string
 jsonSchema:
   input: '{ type: "string", minLength: 0, maxLength: 0 }'
+  inputType: string
   output: '{ type: "string", minLength: 0, maxLength: 0 }'
+  outputType: string
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[1](i);i.length===0||e[0](i);return i}

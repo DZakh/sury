@@ -15,6 +15,11 @@ let eq = (a, b) => JSON.stringify(a) == JSON.stringify(b)
 
 // 1. Primitive types
 
+test("fromJSONSchema: boolean definitions", t => {
+  t->Assert.deepEqual(parse(S.fromJSONSchemaDefinition(Any), {"ok": true}), {"ok": true})
+  t->Assert.throws(() => parse(S.fromJSONSchemaDefinition(Never), %raw("null")))
+})
+
 test("fromJSONSchema: string", t => {
   let js = {type_: Arrayable.single(#string)}
   let schema = S.fromJSONSchema(js)
@@ -62,8 +67,7 @@ test("fromJSONSchema: const", t => {
   let schema = S.fromJSONSchema(js)
   t->Assert.deepEqual(parse(schema, "foo"), "foo")
   t->Assert.throws(() => parse(schema, "bar"))
-  // toJSONSchema adds type for literal schemas
-  t->Assert.deepEqual(jsonRoundTrip(js), {...js, type_: Arrayable.single(#string)})
+  t->Assert.deepEqual(jsonRoundTrip(js), js)
 })
 
 test("fromJSONSchema: enum", t => {
@@ -144,7 +148,7 @@ test("fromJSONSchema: object with properties", t => {
   let schema = S.fromJSONSchema(js)
   t->Assert.deepEqual(parse(schema, {"foo": "hi", "bar": 1}), {"foo": "hi", "bar": 1})
   t->Assert.throws(() => parse(schema, {"bar": 1}))
-  t->Assert.deepEqual(jsonRoundTrip(js), js)
+  t->Assert.deepEqual(jsonRoundTrip(js), {...js, additionalProperties: Any})
 })
 
 test("fromJSONSchema: object with additionalProperties false", t => {
@@ -172,7 +176,7 @@ test("fromJSONSchema: object with additionalProperties true", t => {
 test("fromJSONSchema: bare object with no properties or additionalProperties", t => {
   let js = {type_: Arrayable.single(#object)}
   let schema = S.fromJSONSchema(js)
-  t->Assert.deepEqual(parse(schema, {"foo": 1}), Dict.make())
+  t->Assert.deepEqual(parse(schema, {"foo": 1}), {"foo": 1})
 })
 
 // 5. Combinators
@@ -196,8 +200,7 @@ test("fromJSONSchema: oneOf", t => {
   t->Assert.deepEqual(parse(schema, "hi"), "hi")
   t->Assert.deepEqual(parse(schema, 1), 1)
   t->Assert.throws(() => parse(schema, true))
-  // refine-based oneOf can't round-trip the structural info
-  t->Assert.deepEqual(jsonRoundTrip(js), {})
+  t->Assert.deepEqual(jsonRoundTrip(js), js)
 })
 
 test("fromJSONSchema: allOf", t => {
@@ -210,8 +213,7 @@ test("fromJSONSchema: allOf", t => {
   let schema = S.fromJSONSchema(js)
   t->Assert.deepEqual(parse(schema, 5), 5)
   t->Assert.throws(() => parse(schema, 20))
-  // refine-based allOf can't round-trip the structural info
-  t->Assert.deepEqual(jsonRoundTrip(js), {})
+  t->Assert.deepEqual(jsonRoundTrip(js), js)
 })
 
 test("fromJSONSchema: not", t => {
@@ -219,8 +221,7 @@ test("fromJSONSchema: not", t => {
   let schema = S.fromJSONSchema(js)
   t->Assert.deepEqual(parse(schema, 1), 1)
   t->Assert.throws(() => parse(schema, "hi"))
-  // refine-based not can't round-trip the structural info
-  t->Assert.deepEqual(jsonRoundTrip(js), {})
+  t->Assert.deepEqual(jsonRoundTrip(js), js)
 })
 
 // 6. Nullable
@@ -399,7 +400,10 @@ test("fromJSONSchema: a recursive $ref round-trips as a $ref plus its $defs", t 
   }`)
   let schema = S.fromJSONSchema(js)
   t->Assert.deepEqual(parse(schema, {"next": {"next": Dict.make()}}), {"next": {"next": Dict.make()}})
-  t->Assert.deepEqual(jsonRoundTrip(js), js)
+  let out = jsonRoundTrip(js)
+  t->Assert.deepEqual((out->Obj.magic)["$ref"], %raw(`"#/$defs/Node"`))
+  t->Assert.deepEqual((out->Obj.magic)["$defs"]["Node"]["additionalProperties"], true)
+  t->Assert.deepEqual(parse(S.fromJSONSchema(out), {"next": Dict.make()}), {"next": Dict.make()})
 })
 
 test("fromJSONSchema: `#` points at the document itself", t => {
@@ -527,5 +531,5 @@ test("fromJSONSchema: round-trip for object schema", t => {
   let round = roundTrip(orig)
   t->Assert.deepEqual(parse(round, {"foo": "bar"}), {"foo": "bar"})
   t->Assert.throws(() => parse(round, {"foo": 1}))
-  t->Assert.deepEqual(round->S.toJSONSchema, orig->S.toJSONSchema)
+  t->Assert.deepEqual(round->S.toJSONSchema, {...orig->S.toJSONSchema, additionalProperties: Any})
 })

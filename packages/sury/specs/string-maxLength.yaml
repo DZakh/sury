@@ -8,7 +8,9 @@ vs:
   zod: z.string().max(2)
 jsonSchema:
   input: '{ type: "string", maxLength: 2 }'
+  inputType: string
   output: '{ type: "string", maxLength: 2 }'
+  outputType: string
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[1](i);i.length<3||e[0](i);return i}

@@ -9,7 +9,9 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: '{ type: "object", properties: { Outer: { type: "string" }, X: { type: "string" } }, required: ["Outer", "X"] }'
+  inputType: "{ Outer: string; X: string; }"
   output: '{ type: "object", properties: { outer: { type: "string" }, inner: { type: "object", properties: { x: { type: "string" } }, required: ["x"] } }, required: ["outer", "inner"] }'
+  outputType: "{ outer: string; inner: { x: string; }; }"
 operations:
   parse:
     expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["Outer"],v1=i["X"];typeof v0==="string"||e[0](v0);typeof v1==="string"||e[1](v1);return {"outer":v0,"inner":{"x":v1,},}}

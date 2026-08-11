@@ -214,13 +214,28 @@ const vs = S.schema({
 export const specSchema = S.schema({
   ts,
   vs,
-  jsonSchema: S.schema({ input: S.string, output: S.string }).with(S.strict).with(S.meta, {
-    description:
-      "S.toJSONSchema(schema) for both directions, as a one-line source-text string (same " +
-      "formatting as example values) — or (per direction) the message S.toJSONSchema threw " +
-      "if that direction can't be represented (e.g. a bigint/symbol field). Filled by " +
-      "`spec check --write`.",
-  }),
+  jsonSchema: S.schema({
+    input: S.string.with(S.meta, {
+      description: "S.toJSONSchema(schema), as source text, or its conversion error.",
+    }),
+    inputType: S.string.with(S.meta, {
+      description: "The output type inferred by S.fromJSONSchema(input), or input's conversion error.",
+    }),
+    output: S.string.with(S.meta, {
+      description: "S.toJSONSchema(S.reverse(schema)), as source text, or its conversion error.",
+    }),
+    outputType: S.string.with(S.meta, {
+      description: "The output type inferred by S.fromJSONSchema(output), or output's conversion error.",
+    }),
+  })
+    .with(S.strict)
+    .with(S.meta, {
+      description:
+        "S.toJSONSchema(schema) for both directions, as one-line source text, plus the " +
+        "output type inferred by S.fromJSONSchema for each generated document. If a " +
+        "direction can't be represented, its conversion error is recorded in both fields. " +
+        "Filled by `spec check --write`.",
+    }),
   operations,
 })
   .with(S.strict)

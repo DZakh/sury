@@ -9,7 +9,9 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: '{ type: "object", properties: { "c\\d": { type: "string" }, "q\"t": { type: "number" } }, required: ["c\\d", "q\"t"] }'
+  inputType: '{ "c\\d": string; "q\"t": number; }'
   output: '{ type: "string" }'
+  outputType: string
 operations:
   parse:
     expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i["c\\d"],v1=i["q\"t"];typeof v0==="string"||e[0](v0);typeof v1==="number"&&!Number.isNaN(v1)||e[1](v1);return "{\"c\\\\d\":"+e[2](v0)+",\"q\\\"t\":"+(Number.isFinite(v1)?v1:e[3](v1))+"}"}
