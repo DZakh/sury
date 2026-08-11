@@ -9,9 +9,7 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: '{ type: "object", additionalProperties: true, properties: { id: { type: "string" }, role: { enum: ["admin", "user"] }, tags: { type: "array", items: { type: "string" } } }, required: ["id", "role"] }'
-  inputType: '{ id: string; role: "admin" | "user"; tags?: string[] | undefined; }'
   output: '{ type: "object", additionalProperties: true, properties: { id: { type: "string" }, role: { enum: ["admin", "user"] }, tags: { type: "array", items: { type: "string" } } }, required: ["id", "role"] }'
-  outputType: '{ id: string; role: "admin" | "user"; tags?: string[] | undefined; }'
 operations:
   parse:
     expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);e[1](i)||e[4](i);e[2](i)||e[5](i);for(let v0 in i){try{e[0](i[v0]);}catch(v1){v1.path='["'+v0+'"]'+v1.path;throw v1}}return i}

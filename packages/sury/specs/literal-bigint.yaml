@@ -10,9 +10,9 @@ vs:
   zod: z.literal(123n)
 jsonSchema:
   input: Expected JSON, received 123n
-  inputType: Expected JSON, received 123n
+  fromInputType: Expected JSON, received 123n
   output: Expected JSON, received 123n
-  outputType: Expected JSON, received 123n
+  fromOutputType: Expected JSON, received 123n
 operations:
   parse:
     expression: i=>{i===123n||e[0](i);return i}

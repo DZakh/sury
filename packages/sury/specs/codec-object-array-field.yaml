@@ -9,9 +9,7 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: '{ type: "object", properties: { x: { items: { type: "string" }, type: "array" } }, required: ["x"] }'
-  inputType: "{ x: string[]; }"
   output: '{ type: "object", properties: { x: { items: { type: "string" }, type: "array" } }, required: ["x"] }'
-  outputType: "{ x: string[]; }"
 operations:
   # FIXME: each op declares the target's array field (`let vN=vM["x"]`) and
   # never reads it — decoding the transform's result walks its fields, and the

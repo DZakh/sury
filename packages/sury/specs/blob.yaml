@@ -9,9 +9,9 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: Expected JSON, received Blob
-  inputType: Expected JSON, received Blob
+  fromInputType: Expected JSON, received Blob
   output: Expected JSON, received Blob
-  outputType: Expected JSON, received Blob
+  fromOutputType: Expected JSON, received Blob
 operations:
   parse:
     expression: i=>{i instanceof e[0]||e[1](i);return i}

@@ -12,9 +12,7 @@ vs:
   zod: 'z.object({ foo: z.literal("bar") })'
 jsonSchema:
   input: '{ type: "object", properties: { foo: { type: "string", const: "bar" } }, required: ["foo"] }'
-  inputType: '{ foo: "bar"; }'
   output: '{ type: "object", properties: { foo: { type: "string", const: "bar" } }, required: ["foo"] }'
-  outputType: '{ foo: "bar"; }'
 operations:
   parse:
     expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i["foo"];v0==="bar"||e[0](v0);return {"foo":v0,}}

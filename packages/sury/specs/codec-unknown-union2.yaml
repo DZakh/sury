@@ -9,9 +9,9 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: Expected JSON, received unknown
-  inputType: Expected JSON, received unknown
+  fromInputType: Expected JSON, received unknown
   output: Expected JSON, received bigint | string
-  outputType: Expected JSON, received bigint | string
+  fromOutputType: Expected JSON, received bigint | string
 operations:
   parse:
     expression: i=>{(typeof i==="bigint"||typeof i==="string")||e[0](i);return i}

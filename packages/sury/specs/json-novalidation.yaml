@@ -9,9 +9,7 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: "{}"
-  inputType: JSON
   output: "{}"
-  outputType: JSON
 operations:
   parse: identity
   decode: identity

@@ -9,9 +9,7 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: '{ allOf: [{ enum: ["a", "b"] }, { enum: ["b", "c"] }] }'
-  inputType: '"b"'
   output: '{ allOf: [{ enum: ["a", "b"] }, { enum: ["b", "c"] }] }'
-  outputType: '"b"'
 operations:
   parse:
     expression: i=>{e[0](i);e[1](i)||e[2](i);return i}

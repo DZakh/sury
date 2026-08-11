@@ -9,9 +9,8 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: Expected JSON, received "x" | undefined
-  inputType: Expected JSON, received "x" | undefined
+  fromInputType: Expected JSON, received "x" | undefined
   output: '{ enum: ["x", null] }'
-  outputType: '"x" | null'
 operations:
   parse:
     expression: i=>{for(;;){if(typeof i==="string"&&i==="x")break;if(i===void 0){i=null;break}e[0](i)}return i}

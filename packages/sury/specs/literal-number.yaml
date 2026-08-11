@@ -10,9 +10,7 @@ vs:
   zod: z.literal(123)
 jsonSchema:
   input: '{ type: "number", const: 123 }'
-  inputType: "123"
   output: '{ type: "number", const: 123 }'
-  outputType: "123"
 operations:
   parse:
     expression: i=>{i===123||e[0](i);return i}

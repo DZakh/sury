@@ -8,9 +8,9 @@ vs:
   zod: z.union([z.string(), z.number(), z.bigint(), z.boolean(), z.symbol()])
 jsonSchema:
   input: Expected JSON, received string | number | boolean | bigint | symbol
-  inputType: Expected JSON, received string | number | boolean | bigint | symbol
+  fromInputType: Expected JSON, received string | number | boolean | bigint | symbol
   output: Expected JSON, received string | number | boolean | bigint | symbol
-  outputType: Expected JSON, received string | number | boolean | bigint | symbol
+  fromOutputType: Expected JSON, received string | number | boolean | bigint | symbol
 operations:
   parse:
     expression: i=>{(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i)||typeof i==="boolean"||typeof i==="bigint"||typeof i==="symbol")||e[0](i);return i}

@@ -8,9 +8,7 @@ vs:
   zod: z.never()
 jsonSchema:
   input: "{ not: {} }"
-  inputType: never
   output: "{ not: {} }"
-  outputType: never
 operations:
   parse:
     expression: i=>{e[0](i);return i}

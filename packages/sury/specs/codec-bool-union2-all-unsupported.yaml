@@ -9,9 +9,8 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: '{ type: "boolean" }'
-  inputType: boolean
   output: Expected JSON, received number | symbol
-  outputType: Expected JSON, received number | symbol
+  fromOutputType: Expected JSON, received number | symbol
 operations:
   parse:
     creationError: "SuryError: Can't decode boolean to number. Use S.to to define a custom decoder"

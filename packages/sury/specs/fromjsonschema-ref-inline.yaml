@@ -9,9 +9,7 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: '{ type: "object", additionalProperties: true, properties: { from: { type: "object", additionalProperties: true, properties: { x: { type: "number" }, y: { type: "number" } }, required: ["x", "y"] }, to: { type: "object", additionalProperties: true, properties: { x: { type: "number" }, y: { type: "number" } }, required: ["x", "y"] } }, required: ["from", "to"] }'
-  inputType: "{ from: { x: number; y: number; }; to: { x: number; y: number; }; }"
   output: '{ type: "object", additionalProperties: true, properties: { from: { type: "object", additionalProperties: true, properties: { x: { type: "number" }, y: { type: "number" } }, required: ["x", "y"] }, to: { type: "object", additionalProperties: true, properties: { x: { type: "number" }, y: { type: "number" } }, required: ["x", "y"] } }, required: ["from", "to"] }'
-  outputType: "{ from: { x: number; y: number; }; to: { x: number; y: number; }; }"
 operations:
   parse:
     expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);e[1](i)||e[4](i);e[2](i)||e[5](i);for(let v0 in i){try{e[0](i[v0]);}catch(v1){v1.path='["'+v0+'"]'+v1.path;throw v1}}return i}

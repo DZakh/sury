@@ -8,9 +8,7 @@ vs:
   zod: z.union([z.string().min(3), z.number(), z.string()])
 jsonSchema:
   input: '{ anyOf: [{ type: "string", minLength: 3 }, { type: "number" }, { type: "string" }] }'
-  inputType: string | number
   output: '{ anyOf: [{ type: "string", minLength: 3 }, { type: "number" }, { type: "string" }] }'
-  outputType: string | number
 operations:
   parse:
     expression: i=>{for(;;){if(typeof i==="string"){for(;;){let r;try{i.length>2||e[0](i);break}catch(x){(r||(r=[])).push(e[1](x))}break;};break}if(typeof i==="number"&&!Number.isNaN(i))break;e[2](i)}return i}

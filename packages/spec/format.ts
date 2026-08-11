@@ -218,22 +218,24 @@ export const specSchema = S.schema({
     input: S.string.with(S.meta, {
       description: "S.toJSONSchema(schema), as source text, or its conversion error.",
     }),
-    inputType: S.string.with(S.meta, {
-      description: "The output type inferred by S.fromJSONSchema(input), or input's conversion error.",
+    fromInputType: S.optional(S.string).with(S.meta, {
+      description:
+        "The output type inferred by S.fromJSONSchema(input), or input's conversion error; omit when equal to ts.input.",
     }),
     output: S.string.with(S.meta, {
       description: "S.toJSONSchema(S.reverse(schema)), as source text, or its conversion error.",
     }),
-    outputType: S.string.with(S.meta, {
-      description: "The output type inferred by S.fromJSONSchema(output), or output's conversion error.",
+    fromOutputType: S.optional(S.string).with(S.meta, {
+      description:
+        "The output type inferred by S.fromJSONSchema(output), or output's conversion error; omit when equal to ts.output.",
     }),
   })
     .with(S.strict)
     .with(S.meta, {
       description:
-        "S.toJSONSchema(schema) for both directions, as one-line source text, plus the " +
-        "output type inferred by S.fromJSONSchema for each generated document. If a " +
-        "direction can't be represented, its conversion error is recorded in both fields. " +
+        "S.toJSONSchema(schema) for both directions, as one-line source text, plus any divergent " +
+        "output type inferred by S.fromJSONSchema for each generated document. Matching types are " +
+        "omitted; if a direction can't be represented, its conversion error records the divergence. " +
         "Filled by `spec check --write`.",
     }),
   operations,

@@ -9,9 +9,8 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: '{ anyOf: [{ type: "string", const: "a" }, { type: "number" }, { type: "string", const: "b" }] }'
-  inputType: number | "a" | "b"
+  fromInputType: number | "a" | "b"
   output: '{ anyOf: [{ type: "string", const: "a" }, { type: "number" }, { type: "string", const: "b" }] }'
-  outputType: number | "a" | "b"
 operations:
   parse:
     expression: i=>{(typeof i==="string"&&(i==="a"||i==="b")||typeof i==="number"&&!Number.isNaN(i))||e[0](i);return i}

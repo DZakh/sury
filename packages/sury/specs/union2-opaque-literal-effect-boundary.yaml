@@ -9,9 +9,8 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: '{ enum: ["a", "b"] }'
-  inputType: '"a" | "b"'
   output: '{ anyOf: [{ type: "string", const: "a" }, { type: "string", const: "b" }] }'
-  outputType: '"a" | "b"'
+  fromOutputType: '"a" | "b"'
 operations:
   parse:
     expression: i=>{(typeof i==="string"&&i==="a"||typeof i==="string"&&i==="b")||e[0](i);return i}

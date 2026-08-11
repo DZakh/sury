@@ -8,9 +8,7 @@ vs:
   zod: z.string().nullable().transform((value) => value ?? "bar")
 jsonSchema:
   input: '{ default: "bar", anyOf: [{ type: "string" }, { type: "null" }] }'
-  inputType: string | null
   output: '{ type: "string" }'
-  outputType: string
 operations:
   parse:
     expression: i=>{for(;;){if(typeof i==="string")break;if(i===null){i=void 0;break}e[0](i)}return i===void 0?"bar":i}

@@ -9,9 +9,8 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: '{ type: "string" }'
-  inputType: string
   output: Expected JSON, received string | undefined
-  outputType: Expected JSON, received string | undefined
+  fromOutputType: Expected JSON, received string | undefined
 operations:
   parse:
     creationError: "SuryError: Invalid operation: can't convert string to string | undefined — string has the same type as the source and the others don't. Use S.to to say what you mean, or S.never to mark a variant unreachable"

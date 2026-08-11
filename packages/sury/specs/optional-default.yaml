@@ -8,9 +8,8 @@ vs:
   zod: z.string().optional().transform((value) => value ?? "foo")
 jsonSchema:
   input: Expected JSON, received string | undefined
-  inputType: Expected JSON, received string | undefined
+  fromInputType: Expected JSON, received string | undefined
   output: '{ type: "string" }'
-  outputType: string
 operations:
   parse:
     expression: i=>{(typeof i==="string"||i===void 0)||e[0](i);return i===void 0?"foo":i}

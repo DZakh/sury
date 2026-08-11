@@ -9,9 +9,7 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: '{ anyOf: [{ type: "string" }, { type: "number" }, { type: "boolean" }] }'
-  inputType: string | number | boolean
   output: '{ anyOf: [{ type: "number" }, { type: "string" }] }'
-  outputType: string | number
 operations:
   parse:
     creationError: "SuryError: Invalid operation: can't convert string | number | boolean to number | string — boolean has no same-type variant on the other side. Use S.to to say what you mean, or S.never to mark a variant unreachable"

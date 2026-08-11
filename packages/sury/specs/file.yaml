@@ -8,9 +8,9 @@ vs:
   zod: z.file()
 jsonSchema:
   input: Expected JSON, received File
-  inputType: Expected JSON, received File
+  fromInputType: Expected JSON, received File
   output: Expected JSON, received File
-  outputType: Expected JSON, received File
+  fromOutputType: Expected JSON, received File
 operations:
   parse:
     expression: i=>{i instanceof e[0]||e[1](i);return i}

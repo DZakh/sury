@@ -9,9 +9,8 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: Expected JSON, received string | undefined
-  inputType: Expected JSON, received string | undefined
+  fromInputType: Expected JSON, received string | undefined
   output: '{ anyOf: [{ type: "string" }, { type: "null" }] }'
-  outputType: string | null
 operations:
   parse:
     expression: i=>{for(;;){if(typeof i==="string")break;if(i===void 0){i=null;break}e[0](i)}return i}

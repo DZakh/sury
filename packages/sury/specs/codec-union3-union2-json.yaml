@@ -9,9 +9,9 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: Expected JSON, received string | number | bigint
-  inputType: Expected JSON, received string | number | bigint
+  fromInputType: Expected JSON, received string | number | bigint
   output: Expected JSON, received JSON | bigint
-  outputType: Expected JSON, received JSON | bigint
+  fromOutputType: Expected JSON, received JSON | bigint
 operations:
   parse:
     creationError: "SuryError: Invalid operation: can't convert bigint to JSON | bigint — bigint has the same type as the source and the others don't. Use S.to to say what you mean, or S.never to mark a variant unreachable"

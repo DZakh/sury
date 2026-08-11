@@ -8,9 +8,7 @@ vs:
   zod: z.number().gt(5)
 jsonSchema:
   input: '{ type: "number", exclusiveMinimum: 5 }'
-  inputType: number
   output: '{ type: "number", exclusiveMinimum: 5 }'
-  outputType: number
 operations:
   parse:
     expression: i=>{typeof i==="number"&&!Number.isNaN(i)||e[1](i);i>5||e[0](i);return i}

@@ -10,9 +10,7 @@ vs:
   zod: z.union([z.string(), z.number()])
 jsonSchema:
   input: '{ anyOf: [{ type: "string" }, { type: "number" }] }'
-  inputType: string | number
   output: '{ anyOf: [{ type: "string" }, { type: "number" }] }'
-  outputType: string | number
 operations:
   parse:
     expression: i=>{(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i))||e[0](i);return i}

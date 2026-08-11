@@ -10,9 +10,9 @@ vs:
   zod: z.tuple([z.literal("bar"), z.number()])
 jsonSchema:
   input: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string", const: "bar" }, { type: "number" }] }'
-  inputType: '[("bar" | undefined)?, (number | undefined)?, ...JSON[]]'
+  fromInputType: '[("bar" | undefined)?, (number | undefined)?, ...JSON[]]'
   output: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string", const: "bar" }, { type: "number" }] }'
-  outputType: '[("bar" | undefined)?, (number | undefined)?, ...JSON[]]'
+  fromOutputType: '[("bar" | undefined)?, (number | undefined)?, ...JSON[]]'
 operations:
   parse:
     expression: i=>{Array.isArray(i)&&i.length===2||e[2](i);let v0=i["0"],v1=i["1"];v0==="bar"||e[0](v0);typeof v1==="number"&&!Number.isNaN(v1)||e[1](v1);return i}

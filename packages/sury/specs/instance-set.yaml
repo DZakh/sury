@@ -9,9 +9,9 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: Expected JSON, received Set
-  inputType: Expected JSON, received Set
+  fromInputType: Expected JSON, received Set
   output: Expected JSON, received Set
-  outputType: Expected JSON, received Set
+  fromOutputType: Expected JSON, received Set
 operations:
   parse:
     expression: i=>{i instanceof e[0]||e[1](i);return i}

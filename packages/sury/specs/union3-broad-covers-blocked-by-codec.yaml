@@ -9,9 +9,7 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: '{ anyOf: [{ type: "string", const: "apple" }, { type: "string" }] }'
-  inputType: string
   output: '{ anyOf: [{ type: "string", const: "apple" }, { type: "number" }, { type: "string" }] }'
-  outputType: string | number
 operations:
   parse:
     expression: i=>{for(;;){let r;if(typeof i==="string"&&i==="apple")break;if(typeof i==="string"){try{let v0;try{v0=e[0](i)}catch(x){e[1](x);e[2](x)}i=v0;break}catch(x){(r||(r=[])).push(e[3](x))}break}e[4](i,...(r||[]))}return i}

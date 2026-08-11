@@ -10,9 +10,7 @@ vs:
   zod: z.literal(true)
 jsonSchema:
   input: '{ type: "boolean", const: true }'
-  inputType: "true"
   output: '{ type: "boolean", const: true }'
-  outputType: "true"
 operations:
   parse:
     expression: i=>{i===true||e[0](i);return i}

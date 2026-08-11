@@ -8,9 +8,7 @@ vs:
   zod: z.string()
 jsonSchema:
   input: '{ type: "string", pattern: "^\\p{Letter}{2}$", minLength: 2, maxLength: 2 }'
-  inputType: string
   output: '{ type: "string", pattern: "^\\p{Letter}{2}$", minLength: 2, maxLength: 2 }'
-  outputType: string
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[3](i);e[0](i)||e[4](i);e[1].test(i)||e[2](i);return i}

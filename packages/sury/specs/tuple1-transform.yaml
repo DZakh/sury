@@ -9,9 +9,9 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: '{ type: "array", minItems: 1, maxItems: 1, items: [{ type: "string" }] }'
-  inputType: "[(string | undefined)?, ...JSON[]]"
+  fromInputType: "[(string | undefined)?, ...JSON[]]"
   output: '{ type: "array", minItems: 1, maxItems: 1, items: [{ type: "number" }] }'
-  outputType: "[(number | undefined)?, ...JSON[]]"
+  fromOutputType: "[(number | undefined)?, ...JSON[]]"
 operations:
   parse:
     expression: i=>{Array.isArray(i)&&i.length===1||e[3](i);let v1=i["0"];typeof v1==="string"||e[2](v1);let v0;try{v0=e[0](i["0"])}catch(x){e[1](x)}return [v0,]}

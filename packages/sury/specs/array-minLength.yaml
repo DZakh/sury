@@ -12,9 +12,9 @@ vs:
     output: string[]
 jsonSchema:
   input: '{ items: { type: "string" }, type: "array", minItems: 2 }'
-  inputType: string[]
+  fromInputType: string[]
   output: '{ items: { type: "string" }, type: "array", minItems: 2 }'
-  outputType: string[]
+  fromOutputType: string[]
 operations:
   parse:
     expression: i=>{Array.isArray(i)||e[2](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}i.length>1||e[1](i);return i}

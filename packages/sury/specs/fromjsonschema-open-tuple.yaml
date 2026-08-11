@@ -8,9 +8,7 @@ vs:
   zod: z.tuple([z.string().optional(), z.number().optional()]).rest(z.boolean())
 jsonSchema:
   input: '{ items: [{ type: "string" }, { type: "number" }], type: "array", additionalItems: { type: "boolean" } }'
-  inputType: "[(string | undefined)?, (number | undefined)?, ...boolean[]]"
   output: '{ items: [{ type: "string" }, { type: "number" }], type: "array", additionalItems: { type: "boolean" } }'
-  outputType: "[(string | undefined)?, (number | undefined)?, ...boolean[]]"
 operations:
   parse:
     expression: i=>{Array.isArray(i)||e[2](i);e[1](i)||e[3](i);for(let v0=0;v0<i.length;++v0){try{e[0](i[v0]);}catch(v1){v1.path='["'+v0+'"]'+v1.path;throw v1}}return i}

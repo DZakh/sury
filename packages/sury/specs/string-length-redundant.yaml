@@ -8,9 +8,7 @@ vs:
   zod: z.string().length(2).length(2, "MY MESSAGE")
 jsonSchema:
   input: '{ type: "string", minLength: 2, maxLength: 2 }'
-  inputType: string
   output: '{ type: "string", minLength: 2, maxLength: 2 }'
-  outputType: string
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[2](i);i.length>1||e[0](i);i.length<3||e[1](i);return i}

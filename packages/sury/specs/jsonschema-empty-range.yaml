@@ -9,9 +9,9 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: "{ not: {} }"
-  inputType: never
+  fromInputType: never
   output: "{ not: {} }"
-  outputType: never
+  fromOutputType: never
 operations:
   parse:
     expression: i=>{e[0](i);return i}

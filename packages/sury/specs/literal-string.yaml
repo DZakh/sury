@@ -10,9 +10,7 @@ vs:
   zod: z.literal("tuna")
 jsonSchema:
   input: '{ type: "string", const: "tuna" }'
-  inputType: '"tuna"'
   output: '{ type: "string", const: "tuna" }'
-  outputType: '"tuna"'
 operations:
   parse:
     expression: i=>{i==="tuna"||e[0](i);return i}

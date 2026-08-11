@@ -12,9 +12,7 @@ vs:
     output: "{ '\"': string; \"'\": string; \"`\": string; }"
 jsonSchema:
   input: "{ type: \"object\", properties: { \"\\\"\": { type: \"string\" }, \"'\": { type: \"string\" }, \"`\": { type: \"string\" } }, required: [\"\\\"\", \"'\", \"`\"] }"
-  inputType: "{ \"\\\"\": string; \"'\": string; \"`\": string; }"
   output: "{ type: \"object\", properties: { \"\\\"\": { type: \"string\" }, \"'\": { type: \"string\" }, \"`\": { type: \"string\" } }, required: [\"\\\"\", \"'\", \"`\"] }"
-  outputType: "{ \"\\\"\": string; \"'\": string; \"`\": string; }"
 operations:
   parse:
     expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["\""],v1=i["'"],v2=i["`"];typeof v0==="string"||e[0](v0);typeof v1==="string"||e[1](v1);typeof v2==="string"||e[2](v2);return {"\"":v0,"'":v1,"`":v2,}}

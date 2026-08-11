@@ -9,9 +9,8 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: 'Failed at []: Expected JSON, received { kind: "a"; v: string; } | unknown'
-  inputType: 'Failed at []: Expected JSON, received { kind: "a"; v: string; } | unknown'
+  fromInputType: 'Failed at []: Expected JSON, received { kind: "a"; v: string; } | unknown'
   output: '{ type: "string" }'
-  outputType: string
 operations:
   parse:
     expression: i=>{Array.isArray(i)||e[9](i);let v1="";for(let v0=0;v0<i.length;++v0){try{let v2=i[v0];for(;;){let r;if(typeof v2==="object"&&v2&&!Array.isArray(v2)&&v2["kind"]==="a"){try{let v3=v2["v"];typeof v3==="string"||e[0](v3);v2={"kind":v2["kind"],"v":v3,};break}catch(x){(r||(r=[])).push(e[1](x))}}break;}for(;;){let r;if(typeof v2==="object"&&v2&&!Array.isArray(v2)&&v2["kind"]==="a"){try{let v4=v2["v"],v5;typeof v4==="string"||e[2](v4);for(v5 in v2){if(v5!=="kind"&&v5!=="v"){e[3](v5)}}v2="{\"kind\":\"a\",\"v\":"+e[4](v4)+"}";break}catch(x){(r||(r=[])).push(e[7](x))}}try{typeof v2==="string"||e[6](v2);try{JSON.parse(v2)}catch(t){e[5](v2)};break}catch(x){(r||(r=[])).push(e[7](x))}e[8](v2,...(r||[]))}v1+=(v0?",":"")+v2}catch(v6){v6.path='["'+v0+'"]'+v6.path;throw v6}}return "["+v1+"]"}

@@ -8,9 +8,7 @@ vs:
   zod: z.null()
 jsonSchema:
   input: '{ type: "null" }'
-  inputType: "null"
   output: '{ type: "null" }'
-  outputType: "null"
 operations:
   parse:
     expression: i=>{i===null||e[0](i);return i}

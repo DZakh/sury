@@ -10,9 +10,7 @@ vs:
   zod: z.string().nullable()
 jsonSchema:
   input: '{ anyOf: [{ type: "string" }, { type: "null" }] }'
-  inputType: string | null
   output: '{ anyOf: [{ type: "string" }, { type: "null" }] }'
-  outputType: string | null
 operations:
   parse:
     expression: i=>{(typeof i==="string"||i===null)||e[0](i);return i}

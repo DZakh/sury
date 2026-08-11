@@ -12,9 +12,9 @@ vs:
 # The generated code still enforces the bound, in both directions.
 jsonSchema:
   input: '{ items: { anyOf: [{ type: "number" }, { type: "null" }] }, type: "array" }'
-  inputType: (number | null)[]
+  fromInputType: (number | null)[]
   output: "Failed at []: Expected JSON, received number <= 1 | undefined"
-  outputType: "Failed at []: Expected JSON, received number <= 1 | undefined"
+  fromOutputType: "Failed at []: Expected JSON, received number <= 1 | undefined"
 operations:
   parse:
     expression: i=>{Array.isArray(i)||e[2](i);let v3=new Array(i.length);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];for(;;){if(typeof v1==="number"&&!Number.isNaN(v1)){v1<=1||e[0](v1);break}if(v1===null){v1=void 0;break}e[1](v1)}v3[v0]=v1}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}return v3}

@@ -9,9 +9,7 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: '{ type: "integer", maximum: 65535, exclusiveMinimum: 80 }'
-  inputType: number
   output: '{ type: "integer", maximum: 65535, exclusiveMinimum: 80 }'
-  outputType: number
 operations:
   parse:
     expression: i=>{typeof i==="number"&&!Number.isNaN(i)||e[2](i);i>=0&&i<65536&&i%1===0||e[0](i);i>80||e[1](i);return i}

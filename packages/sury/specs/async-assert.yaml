@@ -8,9 +8,8 @@ vs:
   zod: z.string().refine(async (value) => value !== "bad")
 jsonSchema:
   input: '{ type: "string" }'
-  inputType: string
   output: Expected JSON, received unknown
-  outputType: Expected JSON, received unknown
+  fromOutputType: Expected JSON, received unknown
 operations:
   parse:
     isAsync: true

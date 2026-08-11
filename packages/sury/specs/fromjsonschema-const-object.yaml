@@ -9,9 +9,7 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: '{ const: { kind: "point", coords: [1, 2] } }'
-  inputType: '{ kind: "point"; coords: [1, 2]; }'
   output: '{ const: { kind: "point", coords: [1, 2] } }'
-  outputType: '{ kind: "point"; coords: [1, 2]; }'
 operations:
   parse:
     expression: i=>{e[0](i);e[1](i)||e[2](i);return i}

@@ -304,19 +304,25 @@ const deriveJsonSchemaSide = async (
   return { schema: result.source, inferred };
 };
 
-const deriveJsonSchema = async (schema: any): Promise<Spec["jsonSchema"]> => {
+const deriveJsonSchema = async (
+  schema: any,
+  types: { input: string; output: string },
+): Promise<Spec["jsonSchema"]> => {
   const input = await deriveJsonSchemaSide(() => S.toJSONSchema(schema));
   const output = await deriveJsonSchemaSide(() => S.toJSONSchema(S.reverse(schema)));
   return {
     input: input.schema,
-    inputType: input.inferred,
+    ...(input.inferred === types.input ? {} : { fromInputType: input.inferred }),
     output: output.schema,
-    outputType: output.inferred,
+    ...(output.inferred === types.output ? {} : { fromOutputType: output.inferred }),
   };
 };
 
 // No example inputs needed, so `spec new` can fill this in immediately from `--ts`.
-export const scaffoldJsonSchema = (schema: any): Promise<Spec["jsonSchema"]> => deriveJsonSchema(schema);
+export const scaffoldJsonSchema = (
+  schema: any,
+  types: { input: string; output: string },
+): Promise<Spec["jsonSchema"]> => deriveJsonSchema(schema, types);
 
 // Compile an operation, capturing any creation-time throw as the golden instead
 // of letting it abort — the operation analogue of toJsonSchemaOrError. The
@@ -425,9 +431,9 @@ export const canonicalize = (obj: Spec): Spec => {
   if (o.jsonSchema)
     o.jsonSchema = order(o.jsonSchema as Record<string, unknown>, [
       "input",
-      "inputType",
+      "fromInputType",
       "output",
-      "outputType",
+      "fromOutputType",
     ]) as Spec["jsonSchema"];
   if (o.operations) {
     const ops = order(o.operations, OP_ORDER) as Record<OpName, Operation>;
@@ -610,9 +616,9 @@ const clean = <T extends Record<string, unknown>>(o: T): T => {
 export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
   const next: Spec = structuredClone(obj);
   const schema = evalSchema(next.ts.schema);
+  const info = await deriveTypeInfo(next.ts.schema);
 
   if (!isSkip(next.ts.input) || !isSkip(next.ts.output) || !isSkip(next.ts.instantiations)) {
-    const info = await deriveTypeInfo(next.ts.schema);
     if (!isSkip(next.ts.input)) next.ts.input = info.input;
     if (!isSkip(next.ts.output)) next.ts.output = info.output;
     if (!isSkip(next.ts.instantiations)) next.ts.instantiations = info.instantiations;
@@ -630,7 +636,7 @@ export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
     if (next.vs.zod.output !== undefined) next.vs.zod.output = zi.output;
   }
 
-  next.jsonSchema = await deriveJsonSchema(schema);
+  next.jsonSchema = await deriveJsonSchema(schema, info);
 
   const parseBuilt = buildOp("parse", schema);
   // Indexing by a `OpName` union narrows the value type to the intersection of
@@ -687,6 +693,30 @@ export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
   }
 
   return next;
+};
+
+const jsonSchemaTypePresenceViolations = (spec: Spec, expected: Spec): string[] => {
+  const errs: string[] = [];
+  for (const { field, side } of [
+    { field: "fromInputType", side: "input" },
+    { field: "fromOutputType", side: "output" },
+  ] as const) {
+    const currentType = spec.jsonSchema[field];
+    const expectedType = expected.jsonSchema[field];
+    const schemaType = expected.ts[side];
+    if (isSkip(schemaType)) continue;
+    if (currentType !== undefined && expectedType === undefined)
+      errs.push(
+        `jsonSchema.${field}: S.fromJSONSchema(jsonSchema.${side}) matches ts.${side} ` +
+          `${JSON.stringify(schemaType)} — omit \`${field}\`.`,
+      );
+    else if (currentType === undefined && expectedType !== undefined)
+      errs.push(
+        `jsonSchema.${field}: omitted, but S.fromJSONSchema(jsonSchema.${side}) infers ` +
+          `${JSON.stringify(expectedType)} !== ts.${side} ${JSON.stringify(schemaType)} — add \`${field}\`.`,
+      );
+  }
+  return errs;
 };
 
 // `ts.schema` can evaluate without throwing to a value that still isn't a
@@ -747,23 +777,17 @@ export const checkAliases = async (spec: Spec): Promise<string[]> => {
     // resolve the alias's type) must not abort the remaining aliases or
     // surface as the outer, label-less "goldens could not be computed".
     try {
-      if (!isSkip(spec.ts.input) || !isSkip(spec.ts.output)) {
-        const info = await deriveTypeInfo(aliasSrc);
-        if (!isSkip(spec.ts.input) && info.input !== spec.ts.input)
-          errs.push(`${label}: ts.input ${JSON.stringify(info.input)} !== ${JSON.stringify(spec.ts.input)}`);
-        if (!isSkip(spec.ts.output) && info.output !== spec.ts.output)
-          errs.push(`${label}: ts.output ${JSON.stringify(info.output)} !== ${JSON.stringify(spec.ts.output)}`);
-      }
+      const info = await deriveTypeInfo(aliasSrc);
+      if (!isSkip(spec.ts.input) && info.input !== spec.ts.input)
+        errs.push(`${label}: ts.input ${JSON.stringify(info.input)} !== ${JSON.stringify(spec.ts.input)}`);
+      if (!isSkip(spec.ts.output) && info.output !== spec.ts.output)
+        errs.push(`${label}: ts.output ${JSON.stringify(info.output)} !== ${JSON.stringify(spec.ts.output)}`);
 
-      const js = await deriveJsonSchema(aliasSchema);
+      const js = await deriveJsonSchema(aliasSchema, info);
       if (js.input !== spec.jsonSchema.input)
         errs.push(`${label}: jsonSchema.input differs:\n${diffText(spec.jsonSchema.input, js.input)}`);
-      if (js.inputType !== spec.jsonSchema.inputType)
-        errs.push(`${label}: jsonSchema.inputType differs:\n${diffText(spec.jsonSchema.inputType, js.inputType)}`);
       if (js.output !== spec.jsonSchema.output)
         errs.push(`${label}: jsonSchema.output differs:\n${diffText(spec.jsonSchema.output, js.output)}`);
-      if (js.outputType !== spec.jsonSchema.outputType)
-        errs.push(`${label}: jsonSchema.outputType differs:\n${diffText(spec.jsonSchema.outputType, js.outputType)}`);
 
       const aliasParseBuilt = buildOp("parse", aliasSchema);
       const aliasParseCode = "fn" in aliasParseBuilt ? aliasParseBuilt.fn.toString() : undefined;
@@ -944,7 +968,9 @@ export const checkSpec = async (
       // recomputed goldens are right either way) — only the marker needs the
       // author's hand.
       errs.push(...asyncViolations(schema, spec));
-      const fresh = knownFresh ?? serialize(await recomputeGoldens(spec), comments);
+      const recomputed = knownFresh === undefined ? await recomputeGoldens(spec) : undefined;
+      if (recomputed) errs.push(...jsonSchemaTypePresenceViolations(spec, recomputed));
+      const fresh = knownFresh ?? serialize(recomputed!, comments);
       if (fresh !== canon)
         errs.push(
           (violations.length

@@ -9,9 +9,7 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: '{ anyOf: [{ type: "string", const: "t" }, { type: "string", const: "1" }, { type: "string", const: "f" }, { type: "string", const: "0" }, { type: "string" }] }'
-  inputType: string
   output: '{ anyOf: [{ type: "boolean", const: true }, { type: "boolean", const: false }, { type: "boolean" }] }'
-  outputType: boolean
 operations:
   parse:
     expression: i=>{for(;;){if(typeof i==="string"&&i==="t"){i=true;break}if(typeof i==="string"&&i==="1"){i=true;break}if(typeof i==="string"&&i==="f"){i=false;break}if(typeof i==="string"&&i==="0"){i=false;break}if(typeof i==="string"){let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0;break}e[1](i)}return i}

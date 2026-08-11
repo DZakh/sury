@@ -9,9 +9,7 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: '{ $ref: "#/$defs/Tree", $defs: { Tree: { type: "object", additionalProperties: true, properties: { value: { type: "string" }, fork: { type: "object", additionalProperties: true, properties: { left: { $ref: "#/$defs/Tree" }, right: { $ref: "#/$defs/Tree" } }, required: ["left", "right"] } }, required: ["value"] } } }'
-  inputType: "{ value: string; fork?: { left: ...; right: ...; } | undefined; }"
   output: '{ $ref: "#/$defs/Tree", $defs: { Tree: { type: "object", additionalProperties: true, properties: { value: { type: "string" }, fork: { type: "object", additionalProperties: true, properties: { left: { $ref: "#/$defs/Tree" }, right: { $ref: "#/$defs/Tree" } }, required: ["left", "right"] } }, required: ["value"] } } }'
-  outputType: "{ value: string; fork?: { left: ...; right: ...; } | undefined; }"
 operations:
   parse:
     expression: i=>{e[0](i);return i}

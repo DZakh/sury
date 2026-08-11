@@ -12,9 +12,7 @@ vs:
     output: "[(string | undefined)?, (number | undefined)?]"
 jsonSchema:
   input: '{ items: false, type: "array", prefixItems: [{ type: "string" }, { type: "number" }] }'
-  inputType: "[(string | undefined)?, (number | undefined)?, ...never[]]"
   output: '{ items: false, type: "array", prefixItems: [{ type: "string" }, { type: "number" }] }'
-  outputType: "[(string | undefined)?, (number | undefined)?, ...never[]]"
 operations:
   parse:
     expression: i=>{Array.isArray(i)||e[2](i);e[1](i)||e[3](i);for(let v0=0;v0<i.length;++v0){try{e[0](i[v0]);}catch(v1){v1.path='["'+v0+'"]'+v1.path;throw v1}}return i}

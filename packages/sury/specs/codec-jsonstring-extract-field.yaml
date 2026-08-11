@@ -9,9 +9,7 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: '{ type: "string" }'
-  inputType: string
   output: '{ type: "string" }'
-  outputType: string
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[5](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[4](v0);let v1=v0["type"],v2=v0["value"];v1==="info"||e[1](v1);typeof v2==="number"&&!Number.isNaN(v2)||e[2](v2);return (Number.isFinite(v2)?""+v2:e[3](v2))}

@@ -11,9 +11,7 @@ vs:
   zod: "z.object({ a: z.string(), nested: z.object({ b: z.number(), inner: z.object({ c: z.boolean(), d: z.string().optional() }) }) })"
 jsonSchema:
   input: '{ type: "object", properties: { a: { type: "string" }, nested: { type: "object", properties: { b: { type: "number" }, inner: { type: "object", properties: { c: { type: "boolean" }, d: { type: "string" } }, required: ["c"] } }, required: ["b", "inner"] } }, required: ["a", "nested"] }'
-  inputType: "{ a: string; nested: { b: number; inner: { c: boolean; d?: string | undefined; }; }; }"
   output: '{ type: "object", properties: { a: { type: "string" }, nested: { type: "object", properties: { b: { type: "number" }, inner: { type: "object", properties: { c: { type: "boolean" }, d: { type: "string" } }, required: ["c"] } }, required: ["b", "inner"] } }, required: ["a", "nested"] }'
-  outputType: "{ a: string; nested: { b: number; inner: { c: boolean; d?: string | undefined; }; }; }"
 operations:
   parse:
     expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[6](i);let v0=i["a"],v1=i["nested"];typeof v0==="string"||e[0](v0);typeof v1==="object"&&v1&&!Array.isArray(v1)||e[5](v1);let v2=v1["b"],v3=v1["inner"];typeof v2==="number"&&!Number.isNaN(v2)||e[1](v2);typeof v3==="object"&&v3&&!Array.isArray(v3)||e[4](v3);let v4=v3["c"],v5=v3["d"];typeof v4==="boolean"||e[2](v4);(typeof v5==="string"||v5===void 0)||e[3](v5);return {"a":v0,"nested":{"b":v2,"inner":{"c":v4,"d":v5,},},}}

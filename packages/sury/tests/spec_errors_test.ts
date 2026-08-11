@@ -55,8 +55,8 @@ test("stale golden (expression drifted from what the schema actually compiles to
     {
       "stderr": "✗ string
         goldens stale — run \`pnpm spec check string --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -15,7 +15,7 @@
-        outputType: string
+    @@ -13,7 +13,7 @@
+        output: '{ type: "string" }'
       operations:
         parse:
     -     expression: i=>i /* stale */
@@ -83,7 +83,7 @@ test("stale golden (recorded example output no longer matches live behavior)", a
     {
       "stderr": "✗ string
         goldens stale — run \`pnpm spec check string --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -19,7 +19,7 @@
+    @@ -17,7 +17,7 @@
           examples:
             valid:
               input: '"hello"'
@@ -123,8 +123,8 @@ test("stale creationError golden (recorded message drifted from what the schema 
     {
       "stderr": "✗ codec-bool-number-unsupported
         goldens stale — run \`pnpm spec check codec-bool-number-unsupported --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -14,7 +14,7 @@
-        outputType: number
+    @@ -12,7 +12,7 @@
+        output: '{ type: "number" }'
       operations:
         parse:
     -     creationError: stale message
@@ -183,6 +183,57 @@ test("vs.zod overwrite form omits a side that actually diverges from ts (must be
   `);
 });
 
+test("jsonSchema round-trip types are omitted when they match the schema types", async () => {
+  const spec = mutate((s) => {
+    s.jsonSchema.fromInputType = "string";
+    s.jsonSchema.fromOutputType = "string";
+  });
+  await expect(runCheck("string", serialize(spec))).resolves.toMatchInlineSnapshot(`
+    {
+      "stderr": "✗ string
+        jsonSchema.fromInputType: S.fromJSONSchema(jsonSchema.input) matches ts.input "string" — omit \`fromInputType\`.
+        jsonSchema.fromOutputType: S.fromJSONSchema(jsonSchema.output) matches ts.output "string" — omit \`fromOutputType\`.
+        goldens stale — run \`pnpm spec check string --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
+    @@ -10,9 +10,7 @@
+        zod: z.string()
+      jsonSchema:
+        input: '{ type: "string" }'
+    -   fromInputType: string
+        output: '{ type: "string" }'
+    -   fromOutputType: string
+      operations:
+        parse:
+          expression: i=>{typeof i==="string"||e[0](i);return i}",
+      "stdout": "",
+    }
+  `);
+});
+
+test("jsonSchema round-trip types are required when they diverge from the schema types", async () => {
+  const spec = readSpec(listSpecFiles().find((f) => specId(f) === "bigint")!);
+  delete spec.jsonSchema.fromInputType;
+  delete spec.jsonSchema.fromOutputType;
+  await expect(runCheck("bigint", serialize(spec))).resolves.toMatchInlineSnapshot(`
+    {
+      "stderr": "✗ bigint
+        jsonSchema.fromInputType: omitted, but S.fromJSONSchema(jsonSchema.input) infers "Expected JSON, received bigint" !== ts.input "bigint" — add \`fromInputType\`.
+        jsonSchema.fromOutputType: omitted, but S.fromJSONSchema(jsonSchema.output) infers "Expected JSON, received bigint" !== ts.output "bigint" — add \`fromOutputType\`.
+        goldens stale — run \`pnpm spec check bigint --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
+    @@ -8,7 +8,9 @@
+        zod: z.bigint()
+      jsonSchema:
+        input: Expected JSON, received bigint
+    +   fromInputType: Expected JSON, received bigint
+        output: Expected JSON, received bigint
+    +   fromOutputType: Expected JSON, received bigint
+      operations:
+        parse:
+          expression: i=>{typeof i==="bigint"||e[0](i);return i}",
+      "stdout": "",
+    }
+  `);
+});
+
 test("not canonical (on-disk text doesn't match the canonical form)", async () => {
   const spec = mutate(() => {});
   const scrambled = serialize(spec).replace("vs:\n  zod: z.string()\n", "vs: { zod: z.string() }\n");
@@ -199,7 +250,7 @@ test("not canonical (on-disk text doesn't match the canonical form)", async () =
     +   zod: z.string()
       jsonSchema:
         input: '{ type: "string" }'
-        inputType: string",
+        output: '{ type: "string" }'",
       "stdout": "",
     }
   `);
@@ -257,7 +308,7 @@ test("identity claimed but the operation doesn't actually compile to identity", 
         operations.decode: marked \`identity\` but does not compile to identity — use a full op block with examples
         operations.encode: marked \`identity\` but does not compile to identity — use a full op block with examples
         goldens stale — resolve the identity mismatch above first, then \`pnpm spec check string --write\` can fix it (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -5,30 +5,30 @@
+    @@ -5,28 +5,28 @@
           - S.schema(S.string)
         input: string
         output: string
@@ -267,11 +318,9 @@ test("identity claimed but the operation doesn't actually compile to identity", 
         zod: z.string()
       jsonSchema:
     -   input: '{ type: "string" }'
-    +   input: '{ type: "string", minLength: 3 }'
-        inputType: string
     -   output: '{ type: "string" }'
+    +   input: '{ type: "string", minLength: 3 }'
     +   output: '{ type: "string", minLength: 3 }'
-        outputType: string
       operations:
         parse:
     -     expression: i=>{typeof i==="string"||e[0](i);return i}
@@ -310,7 +359,7 @@ test("full op block claimed but the operation actually compiles to identity", as
         operations.decode: no examples — a compiled op block must run at least one input (add a named entry with just \`input\`, then \`--write\` fills the result)
         operations.decode: compiles to identity — use \`identity\` instead of an expression + examples
         goldens stale — resolve the identity mismatch above first, then \`pnpm spec check string --write\` can fix it (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -30,7 +30,10 @@
+    @@ -28,7 +28,10 @@
               input: "null"
               error: Expected string, received null
         decode:
@@ -351,13 +400,9 @@ test("eq-to-parse claimed but the operation doesn't actually compile to the same
         zod: z.never()
       jsonSchema:
     -   input: "{ not: {} }"
-    -   inputType: never
     -   output: "{ not: {} }"
-    -   outputType: never
     +   input: '{ type: "string", minLength: 3 }'
-    +   inputType: string
     +   output: '{ type: "string", minLength: 3 }'
-    +   outputType: string
       operations:
         parse:
     -     expression: i=>{e[0](i);return i}
@@ -389,7 +434,7 @@ test("full op block claimed but the operation actually compiles to the same code
         operations.decode: no examples — a compiled op block must run at least one input (add a named entry with just \`input\`, then \`--write\` fills the result)
         operations.decode: compiles to the same code as parse — use \`eq-to-parse\` instead of an expression + examples
         goldens stale — resolve the identity mismatch above first, then \`pnpm spec check never --write\` can fix it (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -22,7 +22,7 @@
+    @@ -20,7 +20,7 @@
               input: undefined
               error: Expected never, received undefined
         decode:
@@ -508,8 +553,8 @@ test("multiple simultaneous problems all get their own guiding message", async (
       "stderr": "✗ string
         ts.instantiations: invalid _skip reason "nonsense-reason"
         goldens stale — run \`pnpm spec check string --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -16,7 +16,7 @@
-        outputType: string
+    @@ -14,7 +14,7 @@
+        output: '{ type: "string" }'
       operations:
         parse:
     -     expression: i=>i /* stale */

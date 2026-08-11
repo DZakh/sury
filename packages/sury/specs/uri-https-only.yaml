@@ -8,9 +8,7 @@ vs:
   zod: z.url().regex(/^https:\/\//)
 jsonSchema:
   input: '{ type: "string", format: "uri", pattern: "^https:\\/\\/" }'
-  inputType: string
   output: '{ type: "string", format: "uri", pattern: "^https:\\/\\/" }'
-  outputType: string
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[4](i);e[1].test(i)||e[2](i);e[0].test(i)||e[3](i);return i}

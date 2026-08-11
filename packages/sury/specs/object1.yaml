@@ -11,9 +11,7 @@ vs:
   zod: "z.object({ a: z.string() })"
 jsonSchema:
   input: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'
-  inputType: "{ a: string; }"
   output: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'
-  outputType: "{ a: string; }"
 operations:
   parse:
     expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i["a"];typeof v0==="string"||e[0](v0);return {"a":v0,}}

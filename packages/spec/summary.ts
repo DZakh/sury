@@ -87,6 +87,16 @@ const changed = (
   out.push(`${label}  ${clip(before)} → ${clip(after)}`);
 };
 
+const changedOptional = (
+  label: string,
+  before: string | undefined,
+  after: string | undefined,
+  out: string[],
+): void => {
+  if (before === after) return;
+  out.push(`${label}  ${clip(before ?? "omitted")} → ${clip(after ?? "omitted")}`);
+};
+
 // A spec written from scratch has no goldens on its `before` side, so every
 // field would report as a change. That's noise — the `wrote <id>` line already
 // named it. Listed as new instead, mirroring bundleSize's "first recorded".
@@ -117,8 +127,8 @@ const specDeltas = (
       const a = after.ts[side];
       if (!isSkip(b) && !isSkip(a)) changed(`${id}.ts.${side}`, b, a, behavior);
       changed(`${id}.jsonSchema.${side}`, before.jsonSchema?.[side], after.jsonSchema?.[side], behavior);
-      const typeSide = `${side}Type` as const;
-      changed(
+      const typeSide = `from${side === "input" ? "Input" : "Output"}Type` as const;
+      changedOptional(
         `${id}.jsonSchema.${typeSide}`,
         before.jsonSchema?.[typeSide],
         after.jsonSchema?.[typeSide],

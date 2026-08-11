@@ -9,9 +9,9 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: Expected JSON, received NaN
-  inputType: Expected JSON, received NaN
+  fromInputType: Expected JSON, received NaN
   output: Expected JSON, received NaN | string
-  outputType: Expected JSON, received NaN | string
+  fromOutputType: Expected JSON, received NaN | string
 operations:
   parse:
     expression: i=>{Number.isNaN(i)||e[0](i);i=NaN;return i}
