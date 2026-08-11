@@ -36,13 +36,13 @@ JSON.stringify(() => {});
 // => undefined
 ```
 
-Not the string `"undefined"`. The value `undefined`. From a function whose TypeScript signature is:
+Not the string `"undefined"`. The actual value. From a function typed as:
 
 ```ts
 stringify(value: any, replacer?: ..., space?: ...): string;
 ```
 
-The type says `string`, well... ok... TypeScript will happily let you do `JSON.stringify(x).length` and hand you a Sentry alert with `TypeError: Cannot read properties of undefined` at 3am.
+The type says `string`, well... ok... So TypeScript happily lets you write `JSON.stringify(x).length` and hands you a Sentry alert at 3am.
 
 ### It crashes
 
@@ -62,7 +62,7 @@ JSON.stringify(root);
 // => RangeError: Maximum call stack size exceeded
 ```
 
-The last 2 are honestly true edge cases and wrapping in a `try/catch` will be fine. But let's be honest - how often do you properly handle your `JSON.stringify` errors, especially when `undefined`, `TypeError` and `RangeError` with different reasons are all on the table at the same time?
+The last 2 are true edge cases and a `try/catch` handles them fine. But be honest - when did you last wrap a `JSON.stringify` in one? Especially knowing it can hand you `undefined`, a `TypeError` or a `RangeError` depending on the day.
 
 ### The errors don't tell you where
 
@@ -132,9 +132,7 @@ const data = JSON.parse(wire);
 //    ^? unknown
 ```
 
-Now instead of `any` you get `unknown`, which you later parse with one of thousands of schema libraries.
-
-The problem is that none of the `JSON.stringify` issues are solved by `ts-reset`. It ships a `json-parse` rule and no `json-stringify` rule - the return type still says `string`, every corruption above is still in place, and you still need separate encoding and decoding logic for non-jsonable fields in your code.
+Now instead of `any` you get `unknown`, which you later parse with one of thousands of schema libraries. But it ships a `json-parse` rule and no `json-stringify` rule - everything from Part 1 is still there, and you still write both mappers by hand.
 
 ## Part 3: encode, don't stringify
 
@@ -142,7 +140,7 @@ Over the last five years, **"parse, don't validate"** became a genuine trend in 
 
 I think the next three years belong to the other half of that idea: **encode, don't `JSON.stringify`.**
 
-The insight is the same. `JSON.stringify` doesn't know what your data is supposed to be, so it guesses - and sometimes it guesses wrong. A schema knows exactly. And if the schema already describes the data going _in_, it can describe the data going _out_, from the same definition.
+The insight is the same. `JSON.stringify` doesn't know what your data is supposed to be, so it guesses. A schema knows. And if it already describes the data going _in_, it can describe the data going _out_, from the same definition.
 
 That's what [**Sury**](https://github.com/DZakh/sury) pioneers in the JS schema world. Same schema, both directions:
 
@@ -165,19 +163,14 @@ encode({
 // => '{"id":"9007199254740993","at":"2026-01-15T10:30:00.000Z","price":9.99}'
 ```
 
-The types `JSON.stringify` refuses are ordinary fields here. And the values it silently corrupts throw instead — with a path:
+The types `JSON.stringify` refuses are ordinary fields here. And the values it silently corrupts throw instead - with a path:
 
 ```ts
 encode({ id: 1n, at: new Date(), price: Infinity });
 // => throws S.Error: Failed at ["price"]: Expected JSON, received Infinity
-
-JSON.stringify({ price: Infinity });
-// => '{"price":null}'
 ```
 
-`Failed at ["price"]`. Not "somewhere in this request."
-
-There's no intermediate object to stringify, either. `encode` is a function generated for exactly this shape:
+There's no intermediate object either. `encode` is a function generated for exactly this shape:
 
 ```js
 (i) => {
@@ -194,7 +187,7 @@ There's no intermediate object to stringify, either. `encode` is a function gene
 };
 ```
 
-That's the whole encoder. The keys are baked into string literals, the `bigint` is interpolated directly, the `Date` goes straight to `.toISOString()`, and the only check that survives is the one that actually matters — the `Number.isFinite` guard that turns silent corruption into an error.
+That's the whole encoder. The only runtime check left is the `Number.isFinite` guard - the one that turns silent corruption into an error.
 
 ### One schema, both directions
 
@@ -239,13 +232,13 @@ S.encoder(schema, S.json);
 
 Compiling a serializer from a schema is not a new idea. Even I first started working in this direction 4 years ago 😱
 
-So let me walk through the existing ones honestly rather than pretend they don't exist. But let me say upfront which ones I'm skipping, and why.
+So let's go through them - starting with the ones I'm skipping, and why.
 
-**I'm skipping everything that needs a compiler.** There's a whole family of libraries - [typia](https://typia.io/) is the best of them - that read your TypeScript types at build time and emit a serializer from them. They're fast, and typia's `assertStringify` is genuinely safe. But I don't want a compiler and work with runtime values instead. If you're happy to add one, typia is a good tool and I won't argue against it - it's just a different deal than the one this article is about.
+**Everything that needs a compiler.** There's a whole family of libraries - [typia](https://typia.io/) is the best of them - that read your TypeScript types at build time and emit a serializer from them. They're fast, and typia's `assertStringify` is genuinely safe. But I don't want a compiler and work with runtime values instead. If you're happy to add one, typia is a good tool and I won't argue against it - it's just a different deal than the one this article is about.
 
-**I'm also skipping the unmaintained ones.** `compile-json-stringify` and `slow-json-stringify` have both been untouched since 2022, and `@deepkit/type` is a build-time transform with its last release in September 2025. For the record on why "unmaintained serializer" should worry you: `slow-json-stringify` doesn't escape quotes, so `{ name: 'he said "hi"' }` serializes to `{"name":"he said "hi""}` - a crash-causing bug sitting there for four years.
+**The unmaintained ones.** `compile-json-stringify` and `slow-json-stringify` have both been untouched since 2022, and `@deepkit/type` is a build-time transform with its last release in September 2025. Why that matters: `slow-json-stringify` doesn't escape quotes, so `{ name: 'he said "hi"' }` serializes to `{"name":"he said "hi""}` - a crash-causing bug sitting there for four years.
 
-**[ElysiaJS](https://elysiajs.com/) team prototype.** [json-accelerator](https://github.com/elysiajs/json-accelerator) is an interesting prototype from the people behind one of the fastest HTTP frameworks in the JavaScript ecosystem. But it never shipped inside the framework itself, it hasn't had a release since April 2025, and it does no validation at all - it coerces whatever you hand it, so `{ price: Infinity }` comes out as `{"price":Infinity}`, which isn't even valid JSON. Skipping it as unmaintained as well.
+**[ElysiaJS](https://elysiajs.com/) team prototype.** [json-accelerator](https://github.com/elysiajs/json-accelerator) is an interesting prototype from the people behind one of the fastest HTTP frameworks in the JavaScript ecosystem. But it never shipped inside the framework itself, it hasn't had a release since April 2025, and it does no validation at all - it coerces whatever you hand it, so `{ price: Infinity }` comes out as `{"price":Infinity}`, which isn't even valid JSON.
 
 That leaves one library you'd actually reach for today.
 
@@ -278,16 +271,16 @@ encode({ totally: "unrelated", nonsense: 123 });
 
 In the AI age, ignoring the types your schema provides is a free ticket to many funny bugs. At the same time [**Sury**](https://github.com/DZakh/sury) has `S.fromJSONSchema`, which correctly infers types even from recursive JSON Schema definitions.
 
-| Encode a `{ price, name }` object | **Sury** (with S.fromJSONSchema) | fast-json-stringify   | + Ajv               |
-| --------------------------------- | -------------------------------- | --------------------- | ------------------- |
-| `Infinity`                        | ✅ throws with path              | ❌ `null`             | ✅ throws with path |
-| Wrong type                        | ✅ throws with path              | ❌ silently coerced   | ✅ throws with path |
+| Encode a `{ price, name }` object | **Sury** (with S.fromJSONSchema) | fast-json-stringify    | + Ajv               |
+| --------------------------------- | -------------------------------- | ---------------------- | ------------------- |
+| `Infinity`                        | ✅ throws with path              | ❌ `null`              | ✅ throws with path |
+| Wrong type                        | ✅ throws with path              | ❌ silently coerced    | ✅ throws with path |
 | Missing field                     | ✅ throws with path              | ✅ throws (field only) | ✅ throws with path |
-| `bigint` / `Date` as real types   | ✅                               | ❌                    | ❌                  |
-| Undeclared fields                 | ✅ stripped or prevented         | ✅ stripped           | ✅ stripped         |
-| Schema reaches TypeScript         | ✅ inferred                      | ❌ any object         | ❌ any object       |
-| Decodes back too                  | ✅ same schema                   | ❌                    | ❌                  |
-| min+gzip                          | **16.4 kB**                      | 56.7 kB               | 56.7 kB             |
+| `bigint` / `Date` as real types   | ✅                               | ❌                     | ❌                  |
+| Undeclared fields                 | ✅ stripped or prevented         | ✅ stripped            | ✅ stripped         |
+| Schema reaches TypeScript         | ✅ inferred                      | ❌ any object          | ❌ any object       |
+| Decodes back too                  | ✅ same schema                   | ❌                     | ❌                  |
+| min+gzip                          | **16.4 kB**                      | 56.7 kB                | 56.7 kB             |
 
 Those sizes are measured with tree-shaking. And `+ Ajv` is nearly free to add, since fast-json-stringify already depends on it - what you don't get for those bytes is the second direction, the types, or the ability to say `bigint`.
 
@@ -299,9 +292,9 @@ Three things.
 
 **1. It's still a function call.** Crossing into the engine's serializer, walking an object it knows nothing about, checking every value's type at runtime - that costs more than concatenating a few strings. And string concatenation is also one of the most aggressively optimized operations in every JS engine 😁
 
-**2. The schema deletes the work.** `JSON.stringify` has to discover your object's shape on every single call - enumerate keys, branch on each value's type, escape every string. **Sury** can do it at encoder creation time. What's left at runtime is `'{"id":"' + i["id"] + '"'`.
+**2. The schema deletes the work.** `JSON.stringify` has to discover your object's shape on every single call - enumerate keys, branch on each value's type, escape every string. **Sury** can do it at encoder creation time.
 
-**3. Where `JSON.stringify` wins, Sury calls it.** Because why not. **Sury** uses `JSON.stringify` internally - for strings past a length threshold where a manual escape scan stops paying off, for pretty-printed output, and for whole subtrees that are already plain JSON. The point of the article is not that `JSON.stringify` is slow. The point is that `JSON.stringify` is not safe. When the schema says a subtree is ordinary JSON, calling the fast built-in _is_ often indeed faster, and **Sury** does it.
+**3. Where `JSON.stringify` wins, Sury calls it.** Because why not. **Sury** uses it internally for long strings, pretty-printed output, and whole subtrees that are already plain JSON. The point of the article is not that `JSON.stringify` is slow. The point is that `JSON.stringify` is not safe.
 
 Here's the full benchmark, every row, including the ones I lose:
 
