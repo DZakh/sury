@@ -264,6 +264,31 @@ Those sizes are measured, not estimated — esbuild, minified, gzipped, one sche
 
 And notice what none of these three can do at all: give you a `bigint` or a `Date` on one side and correct JSON on the other. They serialize the types JSON already has. The mapper from Part 2 is still yours to write and still yours to keep in sync.
 
+### Even the fast frameworks give up at the last step
+
+Here's the thing that convinced me this article was worth writing.
+
+json-accelerator is an experiment by the Elysia team, not something Elysia ships — it isn't in the framework's dependencies. So what does one of the fastest HTTP frameworks in the ecosystem actually do when it turns your handler's return value into a response body?
+
+It cleans the value against your schema, using its own compiled [`exact-mirror`](https://github.com/elysiajs/exact-mirror) — a genuinely clever bit of engineering that strips fields you didn't declare, hundreds of times faster than the naive approach. It validates, if you declared a `response` schema.
+
+And then:
+
+```ts
+// elysia/src/adapter/web-standard/handler.ts
+return new Response(JSON.stringify(response), set as any);
+
+// elysia/src/adapter/bun/handler.ts
+// Response.json is faster than new Response(JSON.stringify()) in Bun
+return Response.json(response, set as any);
+```
+
+The schema was *right there*. It was compiled. It was used to strip fields and check types. And at the one step that actually produces the bytes on the wire, it's thrown away and the generic serializer takes over.
+
+I'm not picking on Elysia — it's a great framework, and every other framework I've looked at does the same thing. That's exactly my point. This is the industry-standard architecture: describe your data precisely, validate it rigorously, then hand it to a function that knows none of it. Every corruption in Part 1 still lands in the response body. Return a `bigint` from a handler and you get a raw `TypeError` with no field name. Return an `Infinity` past a `Clean` that isn't a `Check`, and your client gets `null`.
+
+The schema already knows what the JSON should look like. Encoding is the one place nobody uses it.
+
 ## Part 5: "but isn't `JSON.stringify` hardware-accelerated?"
 
 This is the objection I get most, and it's a fair one. `JSON.stringify` is C++ inside the engine, hand-tuned for two decades. How does JavaScript beat it?
