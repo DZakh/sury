@@ -280,22 +280,26 @@ encode({ price: 1, name: { a: 1 } });        // => '{"price":1,"name":"[object O
 
 Look at the first one closely: `{"price":Infinity}` is **not valid JSON**. `JSON.parse` throws on it. The serializer produced a string that no JSON parser in any language will accept, and told you nothing.
 
-That isn't a bug — it's the documented deal. You're supposed to run a validator first. Which means the real comparison isn't "accelerator vs **Sury**", it's "validator + accelerator vs **Sury**":
+That isn't a bug — it's the documented deal. You're supposed to run a validator first.
 
-| Encode a `{ price, name }` object | **Sury** | fast-json-stringify | json-accelerator | + TypeBox validation |
-| --- | --- | --- | --- | --- |
-| `Infinity` | ❌ throws with path | `null` | `Infinity` (invalid JSON!) | ❌ throws |
-| Wrong type | ❌ throws with path | silently coerced | `"[object Object]"` | ❌ throws |
-| Missing field | ❌ throws with path | ❌ throws | `"undefined"` | ❌ throws |
-| `bigint` / `Date` as real types | ✅ | ❌ | ❌ | ❌ |
-| Undeclared fields | stripped, or ❌ with `S.strict` | stripped | stripped | stripped |
-| Schema reaches TypeScript | ✅ inferred | ❌ any object | ✅ inferred | ✅ inferred |
-| Decodes back too | ✅ same schema | ❌ | ❌ | ❌ |
-| Tree-shaken, min+gzip | **16.4 kB** | 56.7 kB | 13.9 kB | 24.5 kB |
+Which is the honest way to read this whole category: a serializer alone is never safe, so the real comparison is **validator + serializer**. For fast-json-stringify that pairing is [Ajv](https://ajv.js.org/) — it's what Fastify itself runs, both speak JSON Schema, and fast-json-stringify already depends on Ajv internally. Adding it to the bundle costs 46 bytes.
 
-Those sizes are measured, not estimated: this exact `{ price, name }` encoder as the only entry point, bundled and minified with esbuild, tree-shaken, then gzipped. Nothing you don't import is in the number. **Sury**'s 16.4 kB includes validation, encoding *and* decoding. json-accelerator is smaller until you add the validator it tells you to add, at which point it's 1.5× bigger and still can't read the data back.
+| Encode a `{ price, name }` object | **Sury** | fast-json-stringify | + Ajv |
+| --- | --- | --- | --- |
+| `Infinity` | ❌ throws with path | `null` | ❌ throws with path |
+| Wrong type | ❌ throws with path | silently coerced | ❌ throws with path |
+| Missing field | ❌ throws with path | ❌ throws | ❌ throws with path |
+| Undeclared fields | stripped, or ❌ with `S.strict` | stripped | stripped |
+| `bigint` / `Date` as real types | ✅ | ❌ | ❌ |
+| Schema reaches TypeScript | ✅ inferred | ❌ any object | ❌ any object |
+| Decodes back too | ✅ same schema | ❌ | ❌ |
+| Tree-shaken, min+gzip | **16.4 kB** | 56.7 kB | 56.7 kB |
 
-One row they all win, and it's worth pausing on: every schema-driven serializer emits only the fields you declared. `JSON.stringify` emits everything it finds — which is how a `passwordHash` ends up in an API response. Anything on this table beats the built-in there.
+Those sizes are measured, not estimated: this exact `{ price, name }` encoder as the only entry point, bundled and minified with esbuild, tree-shaken, then gzipped. Nothing you don't import is in the number. **Sury**'s 16.4 kB includes validation, encoding *and* decoding — 3.5× lighter than the stack that only encodes.
+
+Validate first and the corruptions do go away: Ajv rejects `Infinity` and `NaN`, and points at `data/price` when it does. What you don't get is the second direction, the types, or the ability to say `bigint`. You've bought safety by walking the data twice — once to check it, once to serialize it — and you're still writing the mapper from Part 2 by hand.
+
+One row everything here wins, and it's worth pausing on: every schema-driven serializer emits only the fields you declared. `JSON.stringify` emits everything it finds — which is how a `passwordHash` ends up in an API response. Anything on this table beats the built-in there.
 
 And notice what none of these three can do at all: give you a `bigint` or a `Date` on one side and correct JSON on the other. They serialize the types JSON already has. The mapper from Part 2 is still yours to write and still yours to keep in sync.
 
