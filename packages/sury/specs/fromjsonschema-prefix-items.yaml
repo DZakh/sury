@@ -11,11 +11,11 @@ vs:
     input: "[(string | undefined)?, (number | undefined)?]"
     output: "[(string | undefined)?, (number | undefined)?]"
 jsonSchema:
-  input: '{ type: "array", items: [{ type: "string" }, { type: "number" }], additionalItems: false }'
-  output: '{ type: "array", items: [{ type: "string" }, { type: "number" }], additionalItems: false }'
+  input: '{ items: false, type: "array", prefixItems: [{ type: "string" }, { type: "number" }] }'
+  output: '{ items: false, type: "array", prefixItems: [{ type: "string" }, { type: "number" }] }'
 operations:
   parse:
-    expression: i=>{Array.isArray(i)&&i.length<=2||e[2](i);let v0=i["0"],v1=i["1"];(typeof v0==="string"||v0===void 0)||e[0](v0);(typeof v1==="number"&&!Number.isNaN(v1)||v1===void 0)||e[1](v1);return i}
+    expression: i=>{Array.isArray(i)||e[2](i);e[1](i)||e[3](i);for(let v0=0;v0<i.length;++v0){try{e[0](i[v0]);}catch(v1){v1.path='["'+v0+'"]'+v1.path;throw v1}}return i}
     examples:
       empty:
         input: "[]"
@@ -28,12 +28,12 @@ operations:
         output: '["a", 1]'
       additional-item-rejected:
         input: '["a", 1, true]'
-        error: Expected never[], received ["a", 1, true]
+        error: Should pass the positional and additional item schemas.
       wrong-prefix-item:
         input: '["a", "1"]'
-        error: 'Failed at ["1"]: Expected number | undefined, received "1"'
+        error: Should pass the positional and additional item schemas.
   decode:
-    expression: i=>{i.length<=2||e[0](i);return i}
+    expression: i=>{e[0](i)||e[1](i);return i}
     examples:
       empty:
         input: "[]"
@@ -46,9 +46,9 @@ operations:
         output: '["a", 1]'
       additional-item-rejected:
         input: '["a", 1, true]'
-        error: Expected never[], received ["a", 1, true]
+        error: Should pass the positional and additional item schemas.
   encode:
-    expression: i=>{i.length<=2||e[0](i);return i}
+    expression: i=>{e[0](i)||e[1](i);return i}
     examples:
       empty:
         input: "[]"
@@ -61,4 +61,4 @@ operations:
         output: '["a", 1]'
       additional-item-rejected:
         input: '["a", 1, true]'
-        error: Expected never[], received ["a", 1, true]
+        error: Should pass the positional and additional item schemas.

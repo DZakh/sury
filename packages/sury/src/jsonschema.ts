@@ -49,10 +49,8 @@ import { B_operationArg } from "./builder";
 import {
   array,
   arrayDecoder,
-  arrayWithRestDecoder,
   dict,
   objectDecoder,
-  objectWithAdditionalDecoder,
   option,
 } from "./composites";
 import { schemaFactory } from "./factory";
@@ -986,9 +984,7 @@ const objectSchema = (
     objectTag,
     children.every((child) => !!child.sr) &&
       (typeof additionalItems === "string" || !!additionalItems.sr),
-    typeof additionalItems === "object"
-      ? objectWithAdditionalDecoder
-      : objectDecoder
+    objectDecoder
   );
   schema.required = required;
   schema.properties = properties;
@@ -996,18 +992,10 @@ const objectSchema = (
   return schema;
 };
 
-const tupleSchema = (
-  items: Internal[],
-  additionalItems: Internal | "strict"
-): Internal => {
-  const schema = baseSchema(
-    arrayTag,
-    items.every((item) => !!item.sr) &&
-      (typeof additionalItems === "string" || !!additionalItems.sr),
-    typeof additionalItems === "object" ? arrayWithRestDecoder : arrayDecoder
-  );
+const tupleSchema = (items: Internal[]): Internal => {
+  const schema = baseSchema(arrayTag, items.every((item) => !!item.sr), arrayDecoder);
   schema.items = items;
-  schema.additionalItems = additionalItems;
+  schema.additionalItems = "strict";
   return schema;
 };
 
@@ -1358,37 +1346,92 @@ export const fromJSONSchema = (
                 : jsonDefinitionToSchema(additional, ctx)
             );
     } else {
-      const properties: Record<string, Internal> = Object.create(null);
-      const required = new Set(jsonSchema.required);
       const additional = jsonSchema.additionalProperties;
-      const additionalSchema =
-        additional === U
-          ? U
-          : additional === false
-            ? never_
-            : isAnyJSONSchema(additional)
-              ? anySchema
-              : jsonDefinitionToSchema(additional, ctx);
-      for (const key of Object.keys(definitions)) {
-        const definition = definitions[key]!;
-        let property = jsonDefinitionToSchema(definition, ctx);
-        if (!required.has(key)) {
-          const defaultValue = definitionDefault(definition);
-          property =
-            defaultValue === U
-              ? option(property)
-              : Option_getOr(option(property), defaultValue);
+      if (additional === U || additional === false) {
+        const properties: Record<string, Internal> = Object.create(null);
+        const required = new Set(jsonSchema.required);
+        for (const key of Object.keys(definitions)) {
+          const definition = definitions[key]!;
+          let property = jsonDefinitionToSchema(definition, ctx);
+          if (!required.has(key)) {
+            const defaultValue = definitionDefault(definition);
+            property =
+              defaultValue === U
+                ? option(property)
+                : Option_getOr(option(property), defaultValue);
+          }
+          properties[key] = property;
         }
-        properties[key] = property;
+        for (const key of required) {
+          if (!(key in properties)) properties[key] = anySchema;
+        }
+        schema = objectSchema(
+          properties,
+          additional === false ? "strict" : "strip",
+          [...required]
+        );
+      } else {
+        schema = dict(anySchema);
+        const propertyKeys = Object.keys(definitions);
+        const propertySchemas = propertyKeys.map((key) => {
+          const definition = definitions[key]!;
+          const propertySchema = asAssertion(definition, ctx);
+          return [
+            key,
+            propertySchema,
+            assertionToJSONDefinition(definition, propertySchema, ctx),
+          ] as const;
+        });
+        schema = refineInput(
+          schema,
+          (data: unknown) =>
+            propertySchemas.every(
+              ([key, propertySchema]) =>
+                !Object.hasOwn(data as object, key) ||
+                passesSchema((data as Record<string, unknown>)[key], propertySchema)
+            ),
+          "Should pass every declared property schema."
+        );
+        let additionalSchema = isAnyJSONSchema(additional)
+          ? U
+          : asAssertion(additional, ctx);
+        let roundTripAdditional = additionalSchema === U
+          ? U
+          : assertionToJSONDefinition(additional, additionalSchema, ctx);
+        if (roundTripAdditional !== U && isAnyJSONSchema(roundTripAdditional)) {
+          additionalSchema = roundTripAdditional = U;
+        }
+        if (additionalSchema !== U) {
+          const propertyNames = new Set(propertyKeys);
+          schema = refineInput(
+            schema,
+            (data: unknown) =>
+              Object.keys(data as Record<string, unknown>).every(
+                (key) =>
+                  propertyNames.has(key) ||
+                  passesSchema((data as Record<string, unknown>)[key], additionalSchema)
+              ),
+            "Should pass the additionalProperties schema."
+          );
+        }
+        if (jsonSchema.required?.length) {
+          const required = jsonSchema.required;
+          schema = refineInput(
+            schema,
+            (data: unknown) => required.every((key) => Object.hasOwn(data as object, key)),
+            "Should contain every required property."
+          );
+        }
+        const objectKeywords: JSONSchemaT = {
+          properties: Object.fromEntries(
+            propertySchemas.map(([key, , definition]) => [key, definition])
+          ),
+        };
+        if (roundTripAdditional !== U)
+          objectKeywords.additionalProperties = roundTripAdditional;
+        if (jsonSchema.required !== U) objectKeywords.required = jsonSchema.required;
+        schema = extendJSONSchema(schema, objectKeywords);
       }
-      for (const key of required) {
-        if (!(key in properties)) properties[key] = additionalSchema ?? anySchema;
-      }
-      schema = objectSchema(
-        properties,
-        additional === false ? "strict" : (additionalSchema ?? "strip"),
-        [...required]
-      );
     }
   } else if (jsonSchema.type === "array") {
     const prefixItems =
@@ -1399,24 +1442,66 @@ export const fromJSONSchema = (
           : U;
     if (prefixItems !== U) {
       const minimum = jsonSchema.minItems ?? 0;
-      const prefixSchemas = prefixItems.map((definition, idx) => {
-        const item = jsonDefinitionToSchema(definition, ctx);
-        return idx < minimum ? item : option(item);
-      });
       const restDefinition =
         jsonSchema.prefixItems !== U
           ? Array.isArray(jsonSchema.items)
             ? true
             : (jsonSchema.items ?? true)
           : (jsonSchema.additionalItems ?? true);
-      schema = tupleSchema(
-        prefixSchemas,
-        restDefinition === false
-          ? never_
-          : restDefinition === true || isAnyJSONSchema(restDefinition)
-            ? anySchema
-            : jsonDefinitionToSchema(restDefinition, ctx)
-      );
+      const maximum = jsonSchema.maxItems;
+      if (
+        minimum >= prefixItems.length &&
+        (restDefinition === false || (maximum !== U && maximum <= prefixItems.length))
+      ) {
+        schema = tupleSchema(
+          prefixItems.map((definition) => jsonDefinitionToSchema(definition, ctx))
+        );
+      } else {
+        const prefixSchemas = prefixItems.map((definition) => asAssertion(definition, ctx));
+        const restSchema = restDefinition === true ? U : asAssertion(restDefinition, ctx);
+        schema = refineInput(
+          array(anySchema),
+          (data: unknown) => {
+            const items = data as unknown[];
+            const prefixLength = Math.min(items.length, prefixSchemas.length);
+            for (let idx = 0; idx < prefixLength; idx++) {
+              if (!passesSchema(items[idx], prefixSchemas[idx]!)) return false;
+            }
+            if (restSchema !== U) {
+              for (let idx = prefixSchemas.length; idx < items.length; idx++) {
+                if (!passesSchema(items[idx], restSchema)) return false;
+              }
+            }
+            return true;
+          },
+          "Should pass the positional and additional item schemas."
+        );
+        const tupleKeywords: JSONSchemaT = {};
+        if (jsonSchema.prefixItems !== U) {
+          tupleKeywords.prefixItems = prefixItems.map((definition, idx) =>
+            assertionToJSONDefinition(definition, prefixSchemas[idx]!, ctx)
+          );
+          if (jsonSchema.items !== U && !Array.isArray(jsonSchema.items)) {
+            tupleKeywords.items = assertionToJSONDefinition(
+              jsonSchema.items,
+              restSchema === U ? anySchema : restSchema,
+              ctx
+            );
+          }
+        } else {
+          tupleKeywords.items = prefixItems.map((definition, idx) =>
+            assertionToJSONDefinition(definition, prefixSchemas[idx]!, ctx)
+          );
+          if (jsonSchema.additionalItems !== U) {
+            tupleKeywords.additionalItems = assertionToJSONDefinition(
+              jsonSchema.additionalItems,
+              restSchema === U ? anySchema : restSchema,
+              ctx
+            );
+          }
+        }
+        schema = extendJSONSchema(schema, tupleKeywords);
+      }
     } else if (jsonSchema.items !== U) {
       const items = jsonSchema.items;
       schema = array(jsonDefinitionToSchema(items as JSONSchemaDefinition, ctx));

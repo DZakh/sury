@@ -1360,8 +1360,28 @@ test("fromJSONSchema: assertion-only schemas preserve valid JSON", (t) => {
     t.expect(S.parser(tupleSchema)(value)).toBe(value);
   }
   t.expect(() => S.parser(tupleSchema)(["a", 1, 2])).toThrow(
-    'Failed at ["2"]: Expected boolean, received 2'
+    "Should pass the positional and additional item schemas."
   );
+
+  const optionalTransformedTuple = S.fromJSONSchema({
+    type: "array",
+    prefixItems: [
+      {
+        type: "object",
+        properties: { value: { type: "string", default: "fallback" } },
+      },
+    ],
+    items: false,
+  });
+  expectSchemaType(optionalTransformedTuple).toBe<
+    [({ value?: string | undefined } | undefined)?, ...never[]]
+  >();
+  const absentPrefix: [] = [];
+  t.expect(S.parser(optionalTransformedTuple)(absentPrefix)).toBe(absentPrefix);
+  t.expect(absentPrefix).toHaveLength(0);
+  const presentPrefix: [{ value?: string }] = [{}];
+  t.expect(S.parser(optionalTransformedTuple)(presentPrefix)).toBe(presentPrefix);
+  t.expect(presentPrefix).toEqual([{}]);
 
   const closedTupleSchema = S.fromJSONSchema({
     type: "array",
@@ -1372,7 +1392,7 @@ test("fromJSONSchema: assertion-only schemas preserve valid JSON", (t) => {
   expectSchemaType(closedTupleSchema).toBe<[string, number]>();
   t.expect(S.parser(closedTupleSchema)(["a", 1])).toEqual(["a", 1]);
   t.expect(() => S.parser(closedTupleSchema)(["a"])).toThrow(
-    'Failed at ["1"]: Expected number, received undefined'
+    "Expected [string, number].length == 2"
   );
   t.expect(() => S.parser(closedTupleSchema)(["a", 1, true])).toThrow("length == 2");
 
@@ -1384,20 +1404,42 @@ test("fromJSONSchema: assertion-only schemas preserve valid JSON", (t) => {
   });
   expectSchemaType(objectSchema).toBe<
     { value?: string | undefined; constructor: number },
-    { value: string; constructor: number }
+    { value?: string | undefined; constructor: number }
   >();
   const objectInput = { constructor: 1, value: "set", extra: 2 };
-  t.expect(S.parser(objectSchema)(objectInput)).toEqual(objectInput);
-  t.expect(S.parser(objectSchema)({ constructor: 1 })).toEqual({
-    constructor: 1,
-    value: "fallback",
-  });
+  t.expect(S.parser(objectSchema)(objectInput)).toBe(objectInput);
+  t.expect(S.parser(objectSchema)({ constructor: 1 })).toEqual({ constructor: 1 });
   t.expect(() => S.parser(objectSchema)({})).toThrow(
-    'Failed at ["constructor"]: Expected integer, received undefined'
+    "Should contain every required property."
   );
   t.expect(() => S.parser(objectSchema)({ constructor: 1, extra: "no" })).toThrow(
-    'Failed at ["extra"]: Expected integer, received "no"'
+    "Should pass the additionalProperties schema."
   );
+
+  const nativeDefaultObject = S.fromJSONSchema({
+    type: "object",
+    properties: { value: { type: "string", default: "fallback" } },
+    additionalProperties: false,
+  });
+  expectSchemaType(nativeDefaultObject).toBe<
+    { value?: string | undefined },
+    { value: string }
+  >();
+  t.expect(S.parser(nativeDefaultObject)({})).toEqual({ value: "fallback" });
+
+  const openObjectSchema = S.fromJSONSchema({
+    type: "object",
+    properties: { value: { type: "string" } },
+    additionalProperties: true,
+  });
+  const ownProto = JSON.parse(
+    '{"value":"ok","__proto__":{"polluted":true}}'
+  ) as S.Input<typeof openObjectSchema>;
+  const parsedOwnProto = S.parser(openObjectSchema)(ownProto);
+  t.expect(parsedOwnProto).toBe(ownProto);
+  t.expect(Object.getPrototypeOf(parsedOwnProto)).toBe(Object.prototype);
+  t.expect(Object.hasOwn(parsedOwnProto, "__proto__")).toBe(true);
+  t.expect((parsedOwnProto as { polluted?: boolean }).polluted).toBeUndefined();
 
   const unicode = S.fromJSONSchema({
     type: "string",

@@ -518,24 +518,30 @@ type JSONSchemaOutputRequiredKeys<S, P> = Extract<
   | { [K in keyof P]: P[K] extends { default: unknown } ? K : never }[keyof P]
 >;
 
+type JSONSchemaOutputNativeObject<S, P, D, M extends boolean> = Flatten<
+  {
+    -readonly [K in keyof P as K extends JSONSchemaOutputRequiredKeys<S, P>
+      ? K
+      : never]: JSONSchemaResolveOutput<P[K], D, M>;
+  } & {
+    -readonly [K in keyof P as K extends JSONSchemaOutputRequiredKeys<S, P> ? never : K]?:
+      | JSONSchemaResolveOutput<P[K], D, M>
+      | undefined;
+  } & {
+    [K in Exclude<JSONSchemaRequiredKeys<S>, keyof P>]: JSONSchemaOutputAdditionalProperty<
+      S,
+      D,
+      M
+    >;
+  }
+>;
+
 type JSONSchemaOutputObject<S, D, M extends boolean> = S extends { properties: infer P }
-  ? Flatten<
-      {
-        -readonly [K in keyof P as K extends JSONSchemaOutputRequiredKeys<S, P>
-          ? K
-          : never]: JSONSchemaResolveOutput<P[K], D, M>;
-      } & {
-        -readonly [K in keyof P as K extends JSONSchemaOutputRequiredKeys<S, P> ? never : K]?:
-          | JSONSchemaResolveOutput<P[K], D, M>
-          | undefined;
-      } & {
-        [K in Exclude<JSONSchemaRequiredKeys<S>, keyof P>]: JSONSchemaOutputAdditionalProperty<
-          S,
-          D,
-          M
-        >;
-      }
-    >
+  ? S extends { additionalProperties: infer A }
+    ? A extends false
+      ? JSONSchemaOutputNativeObject<S, P, D, M>
+      : JSONSchemaObject<S, D, M>
+    : JSONSchemaOutputNativeObject<S, P, D, M>
   : JSONSchemaObject<S, D, M>;
 
 type JSONSchemaOutputOptionalTuple<
@@ -605,13 +611,41 @@ type JSONSchemaOutputTuple<
       ]
     : [...JSONSchemaOutputOptionalTuple<P, D, M>, ...JSONSchemaOutputRest<I, D, M>[]];
 
+type JSONSchemaOutputPositionalArray<
+  S,
+  P extends readonly unknown[],
+  I,
+  D,
+  M extends boolean,
+> = S extends { minItems: infer Min extends number }
+  ? number extends Min
+    ? JSONSchemaTuple<S, P, I, D, M>
+    : JSONSchemaGreater<P["length"], Min> extends true
+      ? JSONSchemaTuple<S, P, I, D, M>
+      : I extends false
+        ? JSONSchemaOutputTuple<S, P, I, D, M>
+        : S extends { maxItems: infer Max extends number }
+          ? number extends Max
+            ? JSONSchemaTuple<S, P, I, D, M>
+            : JSONSchemaGreater<Max, P["length"]> extends true
+              ? JSONSchemaTuple<S, P, I, D, M>
+              : JSONSchemaOutputTuple<S, P, I, D, M>
+          : JSONSchemaTuple<S, P, I, D, M>
+  : JSONSchemaTuple<S, P, I, D, M>;
+
 type JSONSchemaOutputArrayBase<S, D, M extends boolean> = S extends {
   prefixItems: infer P extends readonly unknown[];
 }
-  ? JSONSchemaOutputTuple<S, P, S extends { items: infer I } ? I : true, D, M>
+  ? JSONSchemaOutputPositionalArray<
+      S,
+      P,
+      S extends { items: infer I } ? I : true,
+      D,
+      M
+    >
   : S extends { items: infer I }
     ? I extends readonly unknown[]
-      ? JSONSchemaOutputTuple<
+      ? JSONSchemaOutputPositionalArray<
           S,
           I,
           S extends { additionalItems: infer A } ? A : true,
