@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.extendJSONSchema(S.jsonString, { contentMediaType: "application/geo+json" })'
+  input: string
+  output: string
+  instantiations: 335
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "string", contentMediaType: "application/geo+json" }'
+  output: '{ type: "string", contentMediaType: "application/geo+json" }'
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[1](i);try{JSON.parse(i)}catch(t){e[0](i)}return i}
+    examples:
+      valid-json-object-text:
+        input: '"{\"type\":\"Point\"}"'
+        output: '"{\"type\":\"Point\"}"'
+      invalid-json-text:
+        input: '"{"'
+        error: Expected JSON string, received "{"
+  decode: identity
+  encode: identity

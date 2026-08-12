@@ -229,3 +229,87 @@ test("toJSONSchema of a JSON string describes the document it carries", t => {
     %raw(`{"type": "string"}`),
   )
 })
+
+test("toJSONSchema of a JSON string keeps converting when the document has no JSON Schema", t => {
+  // `contentSchema` is an annotation, so a `to` with no JSON Schema form takes
+  // it off rather than failing the conversion of a schema that is otherwise
+  // perfectly describable.
+  t->Assert.deepEqual(
+    (S.jsonString->S.to(S.bigint))->S.toJSONSchema(~options={target: Draft202012}),
+    %raw(`{
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "string",
+      "contentMediaType": "application/json"
+    }`),
+  )
+
+  t->Assert.deepEqual(
+    (S.jsonString->S.to(S.uint8Array))->S.toJSONSchema(~options={target: Draft202012}),
+    %raw(`{
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "string",
+      "contentMediaType": "application/json"
+    }`),
+  )
+})
+
+test("toJSONSchema of a JSON string omits contentSchema when the document is any JSON", t => {
+  t->Assert.deepEqual(
+    (S.jsonString->S.to(S.json))->S.toJSONSchema(~options={target: Draft202012}),
+    %raw(`{
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "string",
+      "contentMediaType": "application/json"
+    }`),
+  )
+})
+
+test("toJSONSchema lets extendJSONSchema override both content keywords", t => {
+  let schema =
+    S.jsonString
+    ->S.to(S.object(s => s.field("port", S.int)))
+    ->S.extendJSONSchema({
+      contentMediaType: "application/geo+json",
+      contentSchema: JSONSchema.Schema({type_: JSONSchema.Arrayable.single(#object)}),
+    })
+
+  t->Assert.deepEqual(
+    schema->S.toJSONSchema(~options={target: Draft202012}),
+    %raw(`{
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "string",
+      "contentMediaType": "application/geo+json",
+      "contentSchema": {"type": "object"}
+    }`),
+  )
+})
+
+test("toJSONSchema publishes the $defs a contentSchema reaches", t => {
+  let node = S.recursive("Node", node =>
+    S.object(s =>
+      {
+        "name": s.field("name", S.string),
+        "child": s.field("child", S.option(node)),
+      }
+    )
+  )
+
+  // A recursive document converts to a `$ref`, so `contentSchema` is only
+  // resolvable if the definition it names is published beside it.
+  t->Assert.deepEqual(
+    (S.jsonString->S.to(node))->S.toJSONSchema(~options={target: Draft202012}),
+    %raw(`{
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "string",
+      "contentMediaType": "application/json",
+      "contentSchema": {"$ref": "#/$defs/Node"},
+      "$defs": {
+        "Node": {
+          "type": "object",
+          "properties": {"name": {"type": "string"}, "child": {"$ref": "#/$defs/Node"}},
+          "required": ["name"]
+        }
+      }
+    }`),
+  )
+})

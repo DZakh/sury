@@ -198,10 +198,11 @@ S.toJSONSchema(S.jsonString.with(S.to, playerSchema), { target: "draft-2020-12" 
 //     properties: { username: { type: "string" }, xp: { type: "number" } },
 //     required: ["username", "xp"],
 //   },
+//   $schema: "https://json-schema.org/draft/2020-12/schema",
 // }
 ```
 
-Both are annotations in the spec's sense — a consumer that never decodes the string is still conformant — so this describes the payload without changing what anyone validates. `contentSchema` landed in draft 2019-09, and OpenAPI 3.0 predates the family entirely, so a draft-07 result carries only the media type and an OpenAPI 3.0 one carries neither.
+Both are annotations in the spec's sense — a consumer that never decodes the string is still conformant — so this describes the payload without changing what anyone validates. `contentSchema` landed in draft 2019-09, and OpenAPI 3.0 predates the family entirely, so a draft-07 result carries only the media type and an OpenAPI 3.0 one carries neither. A document with no JSON Schema form (`S.jsonString.with(S.to, S.bigint)`) keeps the media type and drops `contentSchema`, and `S.extendJSONSchema` overrides either of them.
 
 `S.fromJSONSchema` converts in the other direction:
 

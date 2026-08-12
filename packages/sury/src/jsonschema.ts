@@ -316,34 +316,45 @@ const internalToJSONSchema = (
   // Option.getOrWith, ...) where the union's anyOf is the input format we want
   // to keep describing. Object/array still need their nested item metadata, so
   // they keep using the base path.
+  const to = schemaInternal.to;
   const tagFlag = tagFlags[schemaInternal.type]!;
   const hasUserTo =
-    !!schemaInternal.to &&
+    !!to &&
     !flagUnsafeHas(tagFlag, (tagFlagObject | tagFlagArray)) &&
     !(flagUnsafeHas(tagFlag, tagFlagUnion) && !!schemaInternal.parser);
   const encoded = hasUserTo
     ? encodeToJsonSchema(schema, path, defs, parent, target)
     : U;
-  const result =
-    encoded !== U
-      ? (applyMetadataOverlay(encoded, schema, defs), encoded)
-      : internalToJSONSchemaBase(schema, path, defs, parent, target);
+  let result: JSONSchemaT;
+  if (encoded !== U) {
+    applyMetadataOverlay(encoded, schema, defs);
+    result = encoded;
+  } else {
+    result = internalToJSONSchemaBase(schema, path, defs, parent, target);
+  }
 
-  // A JSON string is a document carried inside a value, which is what the
-  // `content*` keywords describe — and `.to` names the schema of that document,
-  // so the reverse-parse above (which can only ever answer "a string") stops
-  // dropping it. Annotations, not assertions: a validator that doesn't decode
-  // the string stays conformant, so nothing here changes what Sury validates.
-  //
-  // Dialect-gated rather than emitted blind: `contentSchema` is 2019-09 and
-  // later, and OpenAPI 3.0 predates the whole family — its `format: byte`/
-  // `binary` spelling covers the encodings, and it has no slot for an embedded
-  // schema.
-  if (schemaInternal.format === "json" && target !== openApi30) {
-    result.contentMediaType = "application/json";
-    const to = schemaInternal.to;
-    if (to !== U && target === draft202012) {
-      result.contentSchema = internalToJSONSchema(to, path, defs, schemaInternal, target);
+  // The reverse-parse above can only ever answer "a string"; `.to` is what
+  // names the document that string carries, and the base conversion — which
+  // emits the media type with the rest of the string keywords — never sees it.
+  // `contentSchema` landed in draft 2019-09, so draft-07 has no slot for it.
+  // Runs after the overlay and defers to what it wrote, so `S.extendJSONSchema`
+  // keeps the final word.
+  if (
+    to !== U &&
+    schemaInternal.format === "json" &&
+    target === draft202012 &&
+    result.contentSchema === U
+  ) {
+    try {
+      const contentSchema = internalToJSONSchema(to, path, defs, schemaInternal, target);
+      // `{}` — what `S.json` converts to — says nothing the media type hasn't.
+      if (Object.keys(contentSchema).length) {
+        result.contentSchema = contentSchema;
+      }
+    } catch (exn) {
+      // A `.to` with no JSON Schema form (`S.bigint`, `S.uint8Array`) drops the
+      // annotation rather than failing a conversion that has an answer.
+      getOrRethrow(exn);
     }
   }
   return result;
@@ -382,6 +393,15 @@ const internalToJSONSchemaBase = (
         break;
       case "url":
         jsonSchema.format = "uri";
+        break;
+      case "json":
+        // A carried document isn't one of the spec's named string shapes, so
+        // it's `contentMediaType` rather than a `format`. An annotation, not an
+        // assertion — a validator that never decodes the string stays
+        // conformant. OpenAPI 3.0 predates the whole content family.
+        if (target !== openApi30) {
+          jsonSchema.contentMediaType = "application/json";
+        }
         break;
       default:
         break;
@@ -688,26 +708,21 @@ export const toJSONSchema = (schema: Internal, options?: toJSONSchemaOptions): J
   }
   const defs: Record<string, Internal> = {};
   const jsonSchema = internalToJSONSchema(schema, pathEmpty, defs, schema, target);
-  delete (defs as Record<string, unknown>).JSON;
-  const defsKeys = Object.keys(defs);
-  if (defsKeys.length) {
-    // Reuse the same object to prevent allocations
-    // Nothing critical, just because we can
-    const jsonSchemDefs = defs as unknown as Record<string, JSONSchemaDefinition>;
-    defsKeys.forEach((key) => {
-      const schema = defs[key]!;
-      jsonSchemDefs[key] = internalToJSONSchema(
-        schema,
-        pathEmpty,
-        // A fresh, thrown-away sink — it's not possible to have nested
-        // recursive schemas here; everything should be grouped into the
-        // single top-level $defs collected above, not accumulate into a
-        // second one.
-        {},
-        schema,
-        target
-      );
-    });
+  const jsonSchemDefs: Record<string, JSONSchemaDefinition> = {};
+  // A def body names defs of its own whenever a recursive schema is only
+  // reached from inside another one — nested directly, or through a JSON
+  // string's `contentSchema` — so the set grows while it is walked, and each
+  // body converts into the same `defs` rather than a sink that is thrown away
+  // with its `$ref` targets still in it. `S.json` names itself in here too,
+  // and that one stays unpublished: it converts to `{}`.
+  let name: string | undefined;
+  while (
+    (name = Object.keys(defs).find((key) => key !== jsonName && !(key in jsonSchemDefs))) !== U
+  ) {
+    const def = defs[name]!;
+    jsonSchemDefs[name] = internalToJSONSchema(def, pathEmpty, defs, def, target);
+  }
+  if (Object.keys(jsonSchemDefs).length) {
     jsonSchema.$defs = jsonSchemDefs;
   }
   if (schemaUri !== U) {
