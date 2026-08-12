@@ -12,9 +12,9 @@
     "rate": "71.3%",
     "assertOpPassed": 661,
     "assertOpRate": "71.3%",
-    "identityPassed": 384,
+    "identityPassed": 365,
     "identityAssertions": 384,
-    "identityRate": "100.0%",
+    "identityRate": "95.1%",
     "divergent": 0
   },
   "erroredCases": [
@@ -87,6 +87,26 @@
     "uniqueItems.json :: uniqueItems=false with an array of items and additionalItems=false"
   ],
   "falseAccepting": [],
-  "mutated": [],
+  "mutated": [
+    "additionalProperties.json :: additionalProperties are allowed by default :: additional properties are allowed",
+    "allOf.json :: allOf with base schema :: valid",
+    "anyOf.json :: anyOf complex types :: both anyOf valid (complex)",
+    "default.json :: invalid type for default :: still valid when the invalid default is used",
+    "default.json :: invalid string value for default :: still valid when the invalid default is used",
+    "default.json :: the default keyword does not do anything if the property is missing :: missing properties are not filled in with the default",
+    "enum.json :: enums in properties :: missing optional property is valid",
+    "not.json :: forbidden property :: property absent",
+    "properties.json :: object properties validation :: doesn't invalidate other properties",
+    "properties.json :: properties with boolean schema :: no property present is valid",
+    "properties.json :: properties with boolean schema :: only 'true' property present is valid",
+    "properties.json :: properties whose names are Javascript object property names :: none of the properties mentioned",
+    "ref.json :: relative pointer ref to object :: match",
+    "ref.json :: escaped pointer ref :: slash valid",
+    "ref.json :: escaped pointer ref :: tilde valid",
+    "ref.json :: escaped pointer ref :: percent valid",
+    "required.json :: required validation :: present required property is valid",
+    "required.json :: required default validation :: not required by default",
+    "required.json :: required with empty array :: property not required"
+  ],
   "failing": []
 }

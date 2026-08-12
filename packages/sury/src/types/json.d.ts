@@ -234,10 +234,15 @@ type JSONSchemaTupleRest<S, P extends readonly unknown[], I, D, M extends boolea
 
 type JSONSchemaTuple<S, P extends readonly unknown[], I, D, M extends boolean> =
   S extends { minItems: infer Min extends number }
-    ? [
-        ...JSONSchemaTupleWithRequired<P, D, M, Min>,
-        ...JSONSchemaTupleRest<S, P, I, D, M>,
-      ]
+    ? // `items: false` caps the length at the prefix, so a `minItems` past it
+      // leaves no length an array can have. The `maxItems` spelling of the same
+      // emptiness is `JSONSchemaArrayBounds`.
+      (I extends false ? JSONSchemaGreater<Min, P["length"]> : false) extends true
+      ? never
+      : [
+          ...JSONSchemaTupleWithRequired<P, D, M, Min>,
+          ...JSONSchemaTupleRest<S, P, I, D, M>,
+        ]
     : S extends { maxItems: number }
       ? [
           ...JSONSchemaOptionalTuple<P, D, M>,
@@ -516,19 +521,28 @@ type JSONSchemaOutputAdditionalProperty<S, D, M extends boolean> = S extends {
       : JSONSchemaResolveOutput<A, D, M>
   : JSON;
 
-type JSONSchemaOutputRequiredKeys<S, P> = Extract<
+// A `default` the property's own schema rejects is an annotation the runtime
+// can't fill in with (see `withDefault` in src/jsonschema.ts), so it leaves the
+// key optional. Resolving the property is only paid for on a key that has one.
+type JSONSchemaOutputRequiredKeys<S, P, D, M extends boolean> = Extract<
   keyof P,
   | JSONSchemaRequiredKeys<S>
-  | { [K in keyof P]: P[K] extends { default: unknown } ? K : never }[keyof P]
+  | {
+      [K in keyof P]: P[K] extends { default: infer V }
+        ? V extends JSONSchemaResolve<P[K], D, M>
+          ? K
+          : never
+        : never;
+    }[keyof P]
 >;
 
 type JSONSchemaOutputNativeObject<S, P, D, M extends boolean> = Flatten<
   {
-    -readonly [K in keyof P as K extends JSONSchemaOutputRequiredKeys<S, P>
+    -readonly [K in keyof P as K extends JSONSchemaOutputRequiredKeys<S, P, D, M>
       ? K
       : never]: JSONSchemaResolveOutput<P[K], D, M>;
   } & {
-    -readonly [K in keyof P as K extends JSONSchemaOutputRequiredKeys<S, P> ? never : K]?:
+    -readonly [K in keyof P as K extends JSONSchemaOutputRequiredKeys<S, P, D, M> ? never : K]?:
       | JSONSchemaResolveOutput<P[K], D, M>
       | undefined;
   } & {
@@ -633,7 +647,11 @@ type JSONSchemaOutputPositionalArray<
     : JSONSchemaGreater<P["length"], Min> extends true
       ? JSONSchemaTuple<S, P, I, D, M>
       : I extends false
-        ? JSONSchemaOutputTuple<S, P, I, D, M>
+        ? // Min >= the prefix and nothing may follow it, so the tuple compiles
+          // natively at exactly the prefix length — or not at all.
+          JSONSchemaEqual<Min, P["length"]> extends true
+          ? JSONSchemaOutputTuple<S, P, I, D, M>
+          : never
         : S extends { maxItems: infer Max extends number }
           ? number extends Max
             ? JSONSchemaTuple<S, P, I, D, M>

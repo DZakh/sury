@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.fromJSONSchema({ nullable: true, type: "string", enum: ["a", "b"] })'
+  input: '"a" | "b" | null'
+  output: '"a" | "b" | null'
+  instantiations: 564
+vs:
+  zod: z.enum(["a", "b"]).nullable()
+jsonSchema:
+  input: '{ enum: ["a", "b", null] }'
+  output: '{ enum: ["a", "b", null] }'
+operations:
+  parse:
+    expression: i=>{(typeof i==="string"&&(i==="a"||i==="b")||i===null)||e[0](i);return i}
+    examples:
+      literal-member:
+        input: '"a"'
+        output: '"a"'
+      other-literal-member:
+        input: '"b"'
+        output: '"b"'
+      null-stays-a-member:
+        input: "null"
+        output: "null"
+      outside-the-enum:
+        input: '"c"'
+        error: Expected "a" | "b" | null, received "c"
+  decode: identity
+  encode: identity

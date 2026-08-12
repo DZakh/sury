@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.fromJSONSchema({ type: "object", properties: { count: { type: "integer", default: "" } } })'
+  input: "{ count?: number | undefined; }"
+  output: "{ count?: number | undefined; }"
+  instantiations: 3299
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "object", properties: { count: { type: "integer", default: "" } } }'
+  output: '{ type: "object", properties: { count: { type: "integer", default: "" } } }'
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i["count"];(typeof v0==="number"&&!Number.isNaN(v0)&&v0%1===0||v0===void 0)||e[0](v0);return {"count":v0,}}
+    examples:
+      value-present:
+        input: "{ count: 1 }"
+        output: "{ count: 1 }"
+      value-absent-stays-absent:
+        input: "{}"
+        output: "{ count: undefined }"
+      wrong-value-type:
+        input: '{ count: "1" }'
+        error: 'Failed at ["count"]: Expected integer | undefined, received "1"'
+  decode: identity
+  encode: identity

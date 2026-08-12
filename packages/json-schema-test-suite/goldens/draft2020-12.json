@@ -4,17 +4,17 @@
   "dialect": "draft2020-12",
   "summary": {
     "assertions": 1299,
-    "passed": 712,
-    "failed": 0,
+    "passed": 716,
+    "failed": 1,
     "falseAccept": 0,
-    "falseReject": 0,
-    "errored": 587,
-    "rate": "54.8%",
-    "assertOpPassed": 712,
-    "assertOpRate": "54.8%",
-    "identityPassed": 429,
-    "identityAssertions": 429,
-    "identityRate": "100.0%",
+    "falseReject": 1,
+    "errored": 582,
+    "rate": "55.1%",
+    "assertOpPassed": 716,
+    "assertOpRate": "55.1%",
+    "identityPassed": 411,
+    "identityAssertions": 431,
+    "identityRate": "95.4%",
     "divergent": 0
   },
   "erroredCases": [
@@ -205,11 +205,32 @@
     "uniqueItems.json :: uniqueItems with an array of items and additionalItems=false",
     "uniqueItems.json :: uniqueItems=false validation",
     "uniqueItems.json :: uniqueItems=false with an array of items",
-    "uniqueItems.json :: uniqueItems=false with an array of items and additionalItems=false",
-    "vocabulary.json :: schema that uses custom metaschema with with no validation vocabulary",
-    "vocabulary.json :: ignore unrecognized optional vocabulary"
+    "uniqueItems.json :: uniqueItems=false with an array of items and additionalItems=false"
   ],
   "falseAccepting": [],
-  "mutated": [],
-  "failing": []
+  "mutated": [
+    "additionalProperties.json :: additionalProperties are allowed by default :: additional properties are allowed",
+    "allOf.json :: allOf with base schema :: valid",
+    "anyOf.json :: anyOf complex types :: both anyOf valid (complex)",
+    "default.json :: invalid type for default :: still valid when the invalid default is used",
+    "default.json :: invalid string value for default :: still valid when the invalid default is used",
+    "default.json :: the default keyword does not do anything if the property is missing :: missing properties are not filled in with the default",
+    "enum.json :: enums in properties :: missing optional property is valid",
+    "not.json :: forbidden property :: property absent",
+    "properties.json :: object properties validation :: doesn't invalidate other properties",
+    "properties.json :: properties with boolean schema :: no property present is valid",
+    "properties.json :: properties with boolean schema :: only 'true' property present is valid",
+    "properties.json :: properties whose names are Javascript object property names :: none of the properties mentioned",
+    "ref.json :: relative pointer ref to object :: match",
+    "ref.json :: escaped pointer ref :: slash valid",
+    "ref.json :: escaped pointer ref :: tilde valid",
+    "ref.json :: escaped pointer ref :: percent valid",
+    "required.json :: required validation :: present required property is valid",
+    "required.json :: required default validation :: not required by default",
+    "required.json :: required with empty array :: property not required",
+    "vocabulary.json :: schema that uses custom metaschema with with no validation vocabulary :: no validation: valid number"
+  ],
+  "failing": [
+    "vocabulary.json :: schema that uses custom metaschema with with no validation vocabulary :: no validation: invalid number, but it still validates"
+  ]
 }

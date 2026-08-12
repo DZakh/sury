@@ -343,7 +343,7 @@ test("fromJSONSchema: unknown type throws", t => {
 
 // 10. $ref
 
-test("fromJSONSchema: a finite $ref stays inlined while its document round-trips", t => {
+test("fromJSONSchema: a finite $ref inlines, and round-trips as what it inlined", t => {
   let js = {
     ref: "#/$defs/Name",
     defs: Dict.fromArray([("Name", Schema({type_: Arrayable.single(#string)}))]),
@@ -351,7 +351,9 @@ test("fromJSONSchema: a finite $ref stays inlined while its document round-trips
   let schema = S.fromJSONSchema(js)
   t->Assert.deepEqual(parse(schema, "foo"), "foo")
   t->Assert.throws(() => parse(schema, 1))
-  t->Assert.deepEqual(jsonRoundTrip(js), js)
+  // No cycle came back to the pointer, so it left no `$defs` entry to point at
+  // — and the same document comes back out whether or not options are passed.
+  t->Assert.deepEqual(jsonRoundTrip(js), {type_: Arrayable.single(#string)})
 })
 
 test("fromJSONSchema: draft-07 spells the same defs `definitions`", t => {

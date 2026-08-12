@@ -255,7 +255,7 @@ export const arrayDecoder = (unknownInput: Val): Val => {
   const expectedSchema = unknownInput.e;
   const unknownInputTagFlag = tagFlags[unknownInput.s.type]!;
   const expectedItems = expectedSchema.items!;
-  const expectedLength = expectedSchema.items!.length;
+  const expectedLength = expectedItems.length;
 
   let input: Val;
   if (flagUnsafeHas(unknownInputTagFlag, (tagFlagUnknown | tagFlagArray))) {
@@ -314,6 +314,8 @@ export const arrayDecoder = (unknownInput: Val): Val => {
       output = input;
     } else {
       if (expectedLength === 0) {
+        // Plain-array fusion only: fixed tuple slots are read by the aggregate
+        // outside its dynamic loop, so they must stay validated here.
         const fused = B_fuseIntoJsonString(input, expectedSchema, itemSchema, true);
         if (fused !== U) {
           return B_markOutput(fused, input);
@@ -407,6 +409,7 @@ export const arrayDecoder = (unknownInput: Val): Val => {
 export const objectDecoder = (unknownInput: Val): Val => {
   const isUnion = unknownInput.u!;
   const expectedSchema = unknownInput.e;
+
   const unknownInputTagFlag = tagFlags[unknownInput.s.type]!;
 
   let input: Val;

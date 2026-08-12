@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.fromJSONSchema({ type: "array", prefixItems: [{ type: "string" }], minItems: 3, items: false })'
+  input: never
+  output: never
+  instantiations: 1033
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: "{ not: {} }"
+  output: "{ not: {} }"
+operations:
+  parse:
+    expression: i=>{e[0](i);return i}
+    examples:
+      at-the-prefix-length:
+        input: '["a"]'
+        error: Expected never, received ["a"]
+      at-the-minimum:
+        input: '["a", "b", "c"]'
+        error: Expected never, received ["a", "b", "c"]
+  decode: eq-to-parse
+  encode: eq-to-parse

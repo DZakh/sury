@@ -8,8 +8,8 @@ vs:
   zod:
     _skip: not-applicable
 jsonSchema:
-  input: '{ $ref: "#/$defs/base", allOf: [{ minLength: 2 }], not: { const: "bad" }, $defs: { base: { type: "string" } } }'
-  output: '{ $ref: "#/$defs/base", allOf: [{ minLength: 2 }], not: { const: "bad" }, $defs: { base: { type: "string" } } }'
+  input: '{ type: "string", allOf: [{ minLength: 2 }], not: { const: "bad" } }'
+  output: '{ type: "string", allOf: [{ minLength: 2 }], not: { const: "bad" } }'
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[2](i);e[0](i)||e[3](i);e[1](i)||e[4](i);return i}

@@ -8,8 +8,8 @@ vs:
   zod:
     _skip: not-applicable
 jsonSchema:
-  input: '{ $schema: "http://json-schema.org/draft-04/schema#", $ref: "#/definitions/value", definitions: { value: { type: "string" } } }'
-  output: '{ $schema: "http://json-schema.org/draft-04/schema#", $ref: "#/definitions/value", definitions: { value: { type: "string" } } }'
+  input: '{ type: "string" }'
+  output: '{ type: "string" }'
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[0](i);return i}

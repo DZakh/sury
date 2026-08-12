@@ -1391,10 +1391,25 @@ test("fromJSONSchema: assertion-only schemas preserve valid JSON", (t) => {
   });
   expectSchemaType(closedTupleSchema).toBe<[string, number]>();
   t.expect(S.parser(closedTupleSchema)(["a", 1])).toEqual(["a", 1]);
+  // The tuple's own arity is the length check, so `minItems`/`maxItems` add
+  // nothing and the error reads like a hand-written `S.tuple`.
   t.expect(() => S.parser(closedTupleSchema)(["a"])).toThrow(
-    "Expected [string, number].length == 2"
+    "Expected [string, number], received"
   );
-  t.expect(() => S.parser(closedTupleSchema)(["a", 1, true])).toThrow("length == 2");
+  t.expect(() => S.parser(closedTupleSchema)(["a", 1, true])).toThrow(
+    "Expected [string, number], received"
+  );
+
+  // Bounds that cross describe an array no value can have, rather than a tuple
+  // carrying two contradictory length checks.
+  const emptyTupleRange = S.fromJSONSchema({
+    type: "array",
+    prefixItems: [{ type: "string" }],
+    minItems: 3,
+    items: false,
+  });
+  expectSchemaType(emptyTupleRange).toBe<never>();
+  t.expect(S.toJSONSchema(emptyTupleRange)).toEqual({ not: {} });
 
   const objectSchema = S.fromJSONSchema({
     type: "object",
@@ -1506,15 +1521,18 @@ test("fromJSONSchema: $ref siblings follow the declared dialect", (t) => {
   t.expect(() => S.parser(legacy)("ab")).toThrow(
     "Should pass at least one schema according to the anyOf property."
   );
-  t.expect(S.toJSONSchema(legacy)).toEqual({
-    $schema: "http://json-schema.org/draft-07/schema#",
-    $ref: "#/$defs/id",
-    anyOf: [{ pattern: "never$" }],
-    $defs: { id: target },
-  });
-  t.expect(S.toJSONSchema(legacy, { target: "openapi-3.0" })).toEqual({
+  // The `$ref` resolved to a finite shape and inlined, so it left no `$defs`
+  // entry behind — and the rendering doesn't depend on whether options were
+  // passed, only on the dialect they name.
+  const legacyRendering = {
     type: "string",
     anyOf: [{ pattern: "never$" }],
+  };
+  t.expect(S.toJSONSchema(legacy)).toEqual(legacyRendering);
+  t.expect(S.toJSONSchema(legacy, { target: "openapi-3.0" })).toEqual(legacyRendering);
+  t.expect(S.toJSONSchema(legacy, { target: "draft-07" })).toEqual({
+    ...legacyRendering,
+    $schema: "http://json-schema.org/draft-07/schema#",
   });
 
   const modernAlias = S.fromJSONSchema({
