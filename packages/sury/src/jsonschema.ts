@@ -613,19 +613,13 @@ const internalToJSONSchemaBase = (
     propertyKeys.forEach((key) => {
       const itemSchema = properties[key]!;
       if (!isOptional(itemSchema)) required.push(key);
-      if (
-        typeof additionalItems !== "object" ||
-        itemSchema !== additionalItems ||
-        !schema.required!.includes(key)
-      ) {
-        jsonProperties[key] = internalToJSONSchema(
-          itemSchema,
-          pathConcat(path, pathFromLocation(key)),
-          defs,
-          schema,
-          target
-        );
-      }
+      jsonProperties[key] = internalToJSONSchema(
+        itemSchema,
+        pathConcat(path, pathFromLocation(key)),
+        defs,
+        schema,
+        target
+      );
     });
 
     jsonSchema.type = "object";
@@ -725,6 +719,7 @@ export const toJSONSchema = (schema: Internal, options?: toJSONSchemaOptions): J
   }
   const defs: Record<string, Internal> = {};
   const jsonSchema = internalToJSONSchema(schema, pathEmpty, defs, schema, target);
+  if (options !== U) delete jsonSchema.$schema;
   delete (defs as Record<string, unknown>).JSON;
   const defsKeys = Object.keys(defs);
   if (defsKeys.length) {
@@ -965,6 +960,15 @@ const codePointLength = (value: string): number => {
   }
   return length;
 };
+
+const B_invalidLengthRange = (
+  minimum = 0,
+  maximum = minimum
+): boolean =>
+  !Number.isSafeInteger(minimum) ||
+  minimum < 0 ||
+  !Number.isSafeInteger(maximum) ||
+  maximum < minimum;
 
 const definitionDefault = (definition: JSONSchemaDefinition): unknown =>
   typeof definition === "object" ? definition.default : U;
@@ -1472,10 +1476,10 @@ export const fromJSONSchema = (
             ? true
             : (jsonSchema.items ?? true)
           : (jsonSchema.additionalItems ?? true);
-      const maximum = jsonSchema.maxItems;
       if (
         minimum >= prefixItems.length &&
-        (restDefinition === false || (maximum !== U && maximum <= prefixItems.length))
+        (restDefinition === false ||
+          (jsonSchema.maxItems !== U && jsonSchema.maxItems <= prefixItems.length))
       ) {
         schema = tupleSchema(
           prefixItems.map((definition) => jsonDefinitionToSchema(definition, ctx))
@@ -1532,17 +1536,27 @@ export const fromJSONSchema = (
     } else {
       schema = array(anySchema);
     }
-    if (jsonSchema.minItems !== U) {
-      schema = applyBound(schema, minLength, jsonSchema.minItems);
-    }
-    if (jsonSchema.maxItems !== U) {
-      schema = applyBound(schema, maxLength, jsonSchema.maxItems);
+    const minimum = jsonSchema.minItems;
+    const maximum = jsonSchema.maxItems;
+    if (B_invalidLengthRange(minimum, maximum)) {
+      schema = never_;
+    } else {
+      if (minimum) {
+        schema = applyBound(schema, minLength, minimum);
+      }
+      if (maximum !== U) {
+        schema = applyBound(schema, maxLength, maximum);
+      }
     }
   } else if (Array.isArray(jsonSchema.type)) {
     const types = jsonSchema.type;
-    schema = union(
-      types.map((type) => fromJSONSchema(withoutLayeredKeywords(jsonSchema, type), ctx))
-    );
+    schema = types.length
+      ? union(
+          types.map((type) =>
+            fromJSONSchema(withoutLayeredKeywords(jsonSchema, type), ctx)
+          )
+        )
+      : never_;
   } else if (jsonSchema.type === "string") {
     schema = stringFormatSchemas[jsonSchema.format!] || string;
     if (jsonSchema.pattern !== U) {
@@ -1551,11 +1565,7 @@ export const fromJSONSchema = (
     if (jsonSchema.minLength !== U || jsonSchema.maxLength !== U) {
       const minimum = jsonSchema.minLength;
       const maximum = jsonSchema.maxLength;
-      if (
-        (minimum !== U && (!Number.isSafeInteger(minimum) || minimum < 0)) ||
-        (maximum !== U && (!Number.isSafeInteger(maximum) || maximum < 0)) ||
-        (minimum !== U && maximum !== U && minimum > maximum)
-      ) {
+      if (B_invalidLengthRange(minimum, maximum)) {
         schema = never_;
       } else if (minimum !== 0 || maximum !== U) {
         schema = refineInput(
@@ -1753,9 +1763,6 @@ export const fromJSONSchema = (
   // had a cycle to name.
   if (parentCtx === U) {
     if (Object.keys(ctx.cyc).length !== 0) schema = withDefs(schema, ctx);
-    if (jsonSchema["$schema"] !== U) {
-      schema = extendJSONSchema(schema, { "$schema": jsonSchema["$schema"] });
-    }
     const rootRef = jsonSchema["$ref"];
     if (
       rootRef !== U &&

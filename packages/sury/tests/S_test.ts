@@ -1556,7 +1556,6 @@ test("fromJSONSchema: $ref siblings follow the declared dialect", (t) => {
   t.expect(S.toJSONSchema(nestedModern)).toEqual({
     type: "object",
     properties: { id: { type: "string" } },
-    $schema: "https://json-schema.org/draft/2020-12/schema",
   });
 });
 
@@ -1579,6 +1578,25 @@ test("toJSONSchema: the target picks the dialect of the result", (t) => {
   });
   expectTypeOf(openapi).toEqualTypeOf<S.OpenAPISchema30>();
   t.expect(openapi.nullable).toBe(true);
+
+  const imported2020 = S.fromJSONSchema({
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "array",
+    items: [{ type: "string" }, { type: "number" }],
+    additionalItems: false,
+    minItems: 2,
+    maxItems: 2,
+  });
+  t.expect(S.toJSONSchema(imported2020, { target: "draft-07" })).toEqual({
+    $schema: "http://json-schema.org/draft-07/schema#",
+    type: "array",
+    minItems: 2,
+    maxItems: 2,
+    items: [{ type: "string" }, { type: "number" }],
+  });
+  t.expect(S.toJSONSchema(imported2020, { target: "openapi-3.0" })).not.toHaveProperty(
+    "$schema",
+  );
 
   // A target held in a variable can't select a dialect, so the result widens.
   const target: S.StandardJSONSchemaV1.Target = "draft-07";
@@ -2083,7 +2101,11 @@ test("An unsatisfiable JSON Schema document loads as never", (t) => {
     { type: "integer", minimum: 5, maximum: 1 },
     { type: "number", exclusiveMinimum: 5, maximum: 5 },
     { type: "string", minLength: 5, maxLength: 1 },
+    { type: "string", minLength: -1 },
     { type: "array", minItems: 5, maxItems: 1 },
+    { type: "array", minItems: -1 },
+    { type: "array", maxItems: -1 },
+    { type: [] },
   ] as const) {
     const schema = S.fromJSONSchema(definition);
     t.expect(S.inputExpression(schema)).toEqual("never");
@@ -2117,6 +2139,7 @@ test("fromJSONSchema: literal bounds narrow the inferred type", () => {
   expectSchemaType(
     S.fromJSONSchema({ type: "array", minItems: 5, maxItems: 1 }),
   ).toBe<never>();
+  expectSchemaType(S.fromJSONSchema({ type: [] })).toBe<never>();
 });
 
 test("Schema toString prints Schema<input, output>", (t) => {

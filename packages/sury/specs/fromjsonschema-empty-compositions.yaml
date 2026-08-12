@@ -3,6 +3,7 @@ ts:
   schema: "S.fromJSONSchema({ anyOf: [] })"
   aliases:
     - "S.fromJSONSchema({ oneOf: [] })"
+    - "S.fromJSONSchema({ type: [] })"
   input: never
   output: never
   instantiations: 611

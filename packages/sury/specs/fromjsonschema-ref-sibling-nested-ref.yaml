@@ -8,8 +8,8 @@ vs:
   zod:
     _skip: not-applicable
 jsonSchema:
-  input: '{ type: "object", allOf: [{ type: "object", properties: { child: { type: "string" } }, required: ["child"] }], $schema: "https://json-schema.org/draft/2020-12/schema" }'
-  output: '{ type: "object", allOf: [{ type: "object", properties: { child: { type: "string" } }, required: ["child"] }], $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  input: '{ type: "object", allOf: [{ type: "object", properties: { child: { type: "string" } }, required: ["child"] }] }'
+  output: '{ type: "object", allOf: [{ type: "object", properties: { child: { type: "string" } }, required: ["child"] }] }'
 operations:
   parse:
     expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);e[1](i)||e[3](i);for(let v0 in i){try{e[0](i[v0]);}catch(v1){v1.path='["'+v0+'"]'+v1.path;throw v1}}return i}
