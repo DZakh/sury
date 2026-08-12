@@ -215,6 +215,23 @@ So let's go through them - starting with the ones I'm skipping, and why.
 
 **[ElysiaJS](https://elysiajs.com/) team prototype.** [json-accelerator](https://github.com/elysiajs/json-accelerator) is an interesting prototype from the people behind one of the fastest HTTP frameworks in the JavaScript ecosystem. But it never shipped inside the framework itself, it hasn't had a release since April 2025, and it does no validation at all - it coerces whatever you hand it, so `{ price: Infinity }` comes out as `{"price":Infinity}`, which isn't even valid JSON.
 
+**Wire formats.** [devalue](https://github.com/sveltejs/devalue) (SvelteKit) and [superjson](https://github.com/ravionhq/superjson) (tRPC) are huge - together around 20M downloads a week - and they solve a different problem:
+
+```ts
+const value = { at: new Date("2026-01-15T10:30:00Z"), price: Infinity, secret: "LEAKED" };
+
+devalue.stringify(value);
+// => [{"at":1,"price":-4,"secret":2},["Date","2026-01-15T10:30:00.000Z"],"LEAKED"]
+
+superjson.stringify(value);
+// => {"json":{"at":"2026-01-15T10:30:00.000Z","price":"Infinity","secret":"LEAKED"},
+//     "meta":{"values":{"at":["Date"],"price":["number"]},"v":1}}
+```
+
+They make `bigint`, `Date`, `Map` and even circular references survive a round trip, and they do it by inventing their own wire format. Still valid JSON, just not your data anymore - so both ends have to run the same library. Great for JS to JS, not something you hand to an OpenAPI consumer or a Python service.
+
+And a wire format is not a schema. Nothing here knows what your data was supposed to be, so `Infinity` travels happily and `secret` goes out either way. Different problem, no correctness guarantees.
+
 That leaves one library you'd actually reach for today.
 
 **[fast-json-stringify](https://github.com/fastify/fast-json-stringify)** (the Fastify one) is the most used, but it keeps some of the lies and adds a new one:
@@ -271,16 +288,16 @@ I got this comment a few times during development and it's fair. `JSON.stringify
 
 **And where `JSON.stringify` wins, Sury just calls it.** Long strings, pretty-printed output, subtrees that are already plain JSON. No pride involved 😁
 
-Here's the full benchmark, every row, including the ones I lose:
+Here's the full benchmark, every row, including the one I lose:
 
-| Encode to JSON string                 | **Sury**    | `JSON.stringify` | fast-json-stringify |
-| ------------------------------------- | ----------- | ---------------- | ------------------- |
-| API response (user profile, 7 fields) | **242 ns**  | 402 ns           | 303 ns              |
-| List endpoint (100 rows)              | 11.71 µs    | **11.08 µs**     | 11.71 µs            |
-| Event feed (50 tagged-union events)   | **3.99 µs** | 5.56 µs          | 13.90 µs            |
-| Metrics dict (50 number values)       | 8.31 µs     | **4.81 µs**      | 9.67 µs             |
-| Labels dict (50 string values)        | **3.94 µs** | 3.96 µs          | 8.18 µs             |
-| `bigint` id + binary payload + `Date` | **1.04 µs** | 1.14 µs          | 1.14 µs             |
+| Encode to JSON string                 | **Sury**    | `JSON.stringify` | fast-json-stringify | devalue / superjson |
+| ------------------------------------- | ----------- | ---------------- | ------------------- | ------------------- |
+| API response (user profile, 7 fields) | **317 ns**  | 595 ns           | 372 ns              | 3.36 - 4.88 µs      |
+| List endpoint (100 rows)              | **14.84 µs** | 15.85 µs        | 16.07 µs            | 177 - 297 µs        |
+| Event feed (50 tagged-union events)   | **5.26 µs** | 8.18 µs          | 21.04 µs            | 72 - 140 µs         |
+| Metrics dict (50 number values)       | 11.82 µs    | **6.73 µs**      | 12.69 µs            | 34 - 51 µs          |
+| Labels dict (50 string values)        | **5.38 µs** | 5.43 µs          | 10.83 µs            | 33 - 48 µs          |
+| `bigint` id + binary payload + `Date` | **1.24 µs** | 1.54 µs          | 1.49 µs             | 4.42 - 7.26 µs      |
 
 Important! I'm not asking you to switch for the nanoseconds. The point is that `JSON.stringify` is unsafe, and that fixing it costs you nothing - no performance regression, and in most real shapes an improvement. Safety is the reason. Speed is just the excuse you can bring to your team lead.
 

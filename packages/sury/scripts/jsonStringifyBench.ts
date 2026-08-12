@@ -12,6 +12,8 @@
 // as noise and re-run before updating the README.
 
 import fastJson from "fast-json-stringify";
+import * as devalue from "devalue";
+import superjson from "superjson";
 import * as S from "../index.mjs";
 
 const ROUNDS = 7;
@@ -33,6 +35,10 @@ type Case = {
   stringify: () => string;
   fastJson: () => string;
   sury: () => string;
+  // devalue/superjson take the domain value directly: they encode bigint,
+  // Date and Uint8Array themselves, into their own wire format.
+  devalue: () => string;
+  superjson: () => string;
 };
 
 const cases: Case[] = [];
@@ -78,6 +84,8 @@ const cases: Case[] = [];
     stringify: () => JSON.stringify(data),
     fastJson: () => fj(data),
     sury: () => sury(data),
+    devalue: () => devalue.stringify(data),
+    superjson: () => superjson.stringify(data),
   });
 }
 
@@ -109,6 +117,8 @@ const cases: Case[] = [];
     stringify: () => JSON.stringify(data),
     fastJson: () => fj(data),
     sury: () => sury(data),
+    devalue: () => devalue.stringify(data),
+    superjson: () => superjson.stringify(data),
   });
 }
 
@@ -178,6 +188,8 @@ const cases: Case[] = [];
     stringify: () => JSON.stringify(data),
     fastJson: () => fj(data),
     sury: () => sury(data),
+    devalue: () => devalue.stringify(data),
+    superjson: () => superjson.stringify(data),
   });
 }
 
@@ -195,6 +207,8 @@ const cases: Case[] = [];
     stringify: () => JSON.stringify(data),
     fastJson: () => fj(data),
     sury: () => sury(data),
+    devalue: () => devalue.stringify(data),
+    superjson: () => superjson.stringify(data),
   });
 }
 
@@ -212,6 +226,8 @@ const cases: Case[] = [];
     stringify: () => JSON.stringify(data),
     fastJson: () => fj(data),
     sury: () => sury(data),
+    devalue: () => devalue.stringify(data),
+    superjson: () => superjson.stringify(data),
   });
 }
 
@@ -256,6 +272,8 @@ const cases: Case[] = [];
     stringify: () => JSON.stringify(map(data)),
     fastJson: () => fj(map(data)),
     sury: () => sury(data),
+    devalue: () => devalue.stringify(data),
+    superjson: () => superjson.stringify(data),
   });
 }
 
@@ -265,7 +283,7 @@ const fmt = (ns: number): string =>
 const main = () => {
   console.log(`node ${process.version}\n`);
   const rows: string[][] = [
-    ["Encode to JSON string", "Sury", "JSON.stringify", "fast-json-stringify"],
+    ["Encode to JSON string", "Sury", "JSON.stringify", "fast-json-stringify", "devalue", "superjson"],
   ];
   for (const c of cases) {
     // Guard against benchmarking functions that disagree on the output.
@@ -273,7 +291,14 @@ const main = () => {
     if (JSON.stringify(JSON.parse(out.stringify)) !== JSON.stringify(JSON.parse(out.sury))) {
       throw new Error(`${c.name}: Sury output differs\n${out.stringify}\n${out.sury}`);
     }
-    rows.push([c.name, fmt(bench(c.sury)), fmt(bench(c.stringify)), fmt(bench(c.fastJson))]);
+    rows.push([
+      c.name,
+      fmt(bench(c.sury)),
+      fmt(bench(c.stringify)),
+      fmt(bench(c.fastJson)),
+      fmt(bench(c.devalue)),
+      fmt(bench(c.superjson)),
+    ]);
   }
   const widths = rows[0]!.map((_, i) => Math.max(...rows.map((r) => r[i]!.length)));
   for (const r of rows) {
