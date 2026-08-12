@@ -3,7 +3,7 @@ ts:
   schema: 'S.fromJSONSchema({ type: "object", properties: { value: { type: "string" } }, additionalProperties: {} })'
   input: "{ value?: string | undefined; }"
   output: "{ value?: string | undefined; }"
-  instantiations: 2382
+  instantiations: 2376
 vs:
   zod:
     _skip: not-applicable

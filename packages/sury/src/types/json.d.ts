@@ -61,6 +61,10 @@ type JSONSchemaAdditionalProperty<S, D, M extends boolean> = S extends {
       : JSONSchemaResolve<A, D, M>
   : JSON;
 
+type JSONSchemaRecord<S, V> = [JSONSchemaRequiredKeys<S>] extends [never]
+  ? { [key: string]: V }
+  : { [key: string]: V } & { [K in JSONSchemaRequiredKeys<S>]: V };
+
 // Required/optional split by key remapping, not index.d.ts's `ResolveObject`:
 // its `undefined extends TFields[keyof TFields]` probe forces every field type
 // eagerly, which turns a recursive `$ref` through a property into a
@@ -81,13 +85,11 @@ type JSONSchemaObject<S, D, M extends boolean> = S extends { properties: infer P
     >
   : S extends { additionalProperties: infer A }
   ? A extends true
-    ? { [key: string]: JSON } & { [K in JSONSchemaRequiredKeys<S>]: JSON }
+    ? JSONSchemaRecord<S, JSON>
     : A extends false
-    ? Record<string, never> & { [K in JSONSchemaRequiredKeys<S>]: never }
-    : { [key: string]: JSONSchemaResolve<A, D, M> } & {
-        [K in JSONSchemaRequiredKeys<S>]: JSONSchemaResolve<A, D, M>;
-      }
-  : { [key: string]: JSON } & { [K in JSONSchemaRequiredKeys<S>]: JSON };
+    ? JSONSchemaRecord<S, never>
+    : JSONSchemaRecord<S, JSONSchemaResolve<A, D, M>>
+  : JSONSchemaRecord<S, JSON>;
 
 type JSONSchemaOptionalTuple<
   P extends readonly unknown[],
@@ -338,6 +340,8 @@ type JSONSchemaBoundsImpossiblePair<
       : false
     : false;
 
+// draft-04 uses boolean exclusivity flags beside minimum/maximum, while
+// draft-06+ use numeric exclusive bounds; both spellings remain accepted.
 type JSONSchemaNumber<S> = S extends {
   exclusiveMinimum: infer Lower extends number;
   exclusiveMaximum: infer Upper extends number;
@@ -423,7 +427,7 @@ type JSONSchemaApplyAnyOf<S, D, M extends boolean, T> = S extends {
   anyOf: infer A extends readonly unknown[];
 }
   ? A extends readonly []
-    ? JSONSchemaApplyOneOf<S, D, M, T>
+    ? JSONSchemaApplyOneOf<S, D, M, never>
     : JSONSchemaApplyOneOf<S, D, M, JSONSchemaConstrain<T, JSONSchemaUnion<A, D, M>>>
   : JSONSchemaApplyOneOf<S, D, M, T>;
 
@@ -431,7 +435,7 @@ type JSONSchemaApplyOneOf<S, D, M extends boolean, T> = S extends {
   oneOf: infer A extends readonly unknown[];
 }
   ? A extends readonly []
-    ? T
+    ? never
     : JSONSchemaConstrain<T, JSONSchemaUnion<A, D, M>>
   : T;
 
@@ -542,7 +546,13 @@ type JSONSchemaOutputObject<S, D, M extends boolean> = S extends { properties: i
       ? JSONSchemaOutputNativeObject<S, P, D, M>
       : JSONSchemaObject<S, D, M>
     : JSONSchemaOutputNativeObject<S, P, D, M>
-  : JSONSchemaObject<S, D, M>;
+  : S extends { additionalProperties: infer A }
+    ? A extends true
+      ? JSONSchemaRecord<S, JSON>
+      : A extends false
+        ? JSONSchemaRecord<S, never>
+        : JSONSchemaRecord<S, JSONSchemaResolveOutput<A, D, M>>
+    : JSONSchemaRecord<S, JSON>;
 
 type JSONSchemaOutputOptionalTuple<
   P extends readonly unknown[],
@@ -695,7 +705,7 @@ type JSONSchemaOutputAnyOf<S, D, M extends boolean, T> = S extends {
   anyOf: infer A extends readonly unknown[];
 }
   ? A extends readonly []
-    ? JSONSchemaOutputOneOf<S, D, M, T>
+    ? JSONSchemaOutputOneOf<S, D, M, never>
     : JSONSchemaOutputOneOf<
         S,
         D,
@@ -708,7 +718,7 @@ type JSONSchemaOutputOneOf<S, D, M extends boolean, T> = S extends {
   oneOf: infer A extends readonly unknown[];
 }
   ? A extends readonly []
-    ? T
+    ? never
     : JSONSchemaConstrain<T, JSONSchemaOutputUnion<A, D, M>>
   : T;
 
@@ -761,6 +771,10 @@ type JSONSchemaResolveOutput<S, D, M extends boolean> = S extends true
         ? null | JSONSchemaResolveOutputNonNullable<S, D, M>
         : JSONSchemaResolveOutputNonNullable<S, D, M>;
 
+// Only schemas reached by a native decoder can change the output. Composition
+// members and mixed properties/additionalProperties are validation-only, so
+// treating defaults inside them as transformations would make this type claim
+// required values that runtime never inserts.
 type JSONSchemaHasDefault<S, D, A extends unknown[] = []> = A["length"] extends 16
   ? false
   : S extends { default: unknown }
@@ -787,13 +801,9 @@ type JSONSchemaHasDefault<S, D, A extends unknown[] = []> = A["length"] extends 
                 D,
                 [...A, unknown]
               >
-            : S extends { anyOf: infer U extends readonly unknown[] }
-              ? JSONSchemaHasDefault<U[number], D, [...A, unknown]>
-              : S extends { oneOf: infer U extends readonly unknown[] }
-                ? JSONSchemaHasDefault<U[number], D, [...A, unknown]>
-                : S extends { allOf: infer U extends readonly unknown[] }
-                  ? JSONSchemaHasDefault<U[number], D, [...A, unknown]>
-                  : false;
+            : S extends { additionalProperties: infer I }
+              ? JSONSchemaHasDefault<I, D, [...A, unknown]>
+              : false;
 
 /**
  * The type a JSON Schema literal describes, as inferred by

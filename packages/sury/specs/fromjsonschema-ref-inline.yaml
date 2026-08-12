@@ -3,7 +3,7 @@ ts:
   schema: 'S.fromJSONSchema({ type: "object", properties: { from: { $ref: "#/$defs/Point" }, to: { $ref: "#/$defs/Point" } }, required: ["from", "to"], $defs: { Point: { type: "object", properties: { x: { type: "number" }, y: { type: "number" } }, required: ["x", "y"] } } })'
   input: "{ from: { x: number; y: number; }; to: { x: number; y: number; }; }"
   output: "{ from: { x: number; y: number; }; to: { x: number; y: number; }; }"
-  instantiations: 3123
+  instantiations: 3111
 vs:
   zod:
     _skip: not-applicable

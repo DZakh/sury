@@ -1178,6 +1178,11 @@ export function toJSONSchema<TInput, TOutput>(
  * (`unknown`, `S.JSON`, a dialect type) falls back to `Schema<JSON, JSON>`.
  * Use `S.to` to refine it further.
  */
+export function fromJSONSchema<
+  const T extends { type: "string" | "number" | "integer" | "boolean" | "null" },
+>(
+  jsonSchema: T
+): Schema<FromJSONSchema<T>>;
 export function fromJSONSchema<const T = unknown>(
   jsonSchema: T
 ): Schema<FromJSONSchema<T>, FromJSONSchemaOutput<T>>;

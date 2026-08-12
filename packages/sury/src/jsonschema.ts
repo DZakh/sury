@@ -289,7 +289,15 @@ const applyMetadataOverlay = (
   const metadataRawSchema = Metadata_get(schema, jsonSchemaMetadataId) as
     | JSONSchemaT
     | undefined;
-  if (metadataRawSchema !== U) {
+  const source = schema.jd;
+  if (
+    source !== U &&
+    (source[0] === schema || reverse(source[0]) === schema)
+  ) {
+    for (const key of Object.keys(jsonSchema))
+      delete (jsonSchema as Record<string, unknown>)[key];
+    Object.assign(jsonSchema, source[1]);
+  } else if (metadataRawSchema !== U) {
     Object.assign(jsonSchema, metadataRawSchema);
   }
 }
@@ -600,7 +608,7 @@ const internalToJSONSchemaBase = (
     const properties = schema.properties!;
     const additionalItems = schema.additionalItems!;
     const required: string[] = [];
-    const jsonProperties: Record<string, JSONSchemaDefinition> = {};
+    const jsonProperties: Record<string, JSONSchemaDefinition> = Object.create(null);
     const propertyKeys = Object.keys(properties);
     propertyKeys.forEach((key) => {
       const itemSchema = properties[key]!;
@@ -698,6 +706,10 @@ const targetSchemaUri = (target: JsonSchemaTarget): string | undefined => {
 
 // @__NO_SIDE_EFFECTS__
 export const toJSONSchema = (schema: Internal, options?: toJSONSchemaOptions): JSONSchemaT => {
+  if (options !== U && schema.jd !== U) {
+    schema = copySchema(schema);
+    delete schema.jd;
+  }
   // Resolve the target and the `$schema` URI to stamp. When no options object is
   // provided we keep the historical behavior: default to "draft-07" and do NOT
   // stamp `$schema`. With options, an unsupported target throws up front (even
@@ -880,6 +892,7 @@ const toIntSchema = (jsonSchema: JSONSchemaT): Internal => withNumericBounds(int
 // `$comment`, …) are ignored on purpose and stay out of this list.
 const unsupportedKeywords = [
   "$dynamicRef",
+  "$recursiveRef",
   "uniqueItems",
   "contains",
   "minContains",
@@ -902,7 +915,7 @@ const keywordTypes: [JSONSchemaTypeName, string[]][] = [
   ["string", ["pattern", "minLength", "maxLength"]],
   ["number", ["minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf"]],
   ["object", ["properties", "required", "additionalProperties"]],
-  ["array", ["items", "prefixItems", "additionalItems", "minItems", "maxItems"]],
+  ["array", ["items", "prefixItems", "minItems", "maxItems"]],
 ];
 
 const refSiblingKeywords = [
@@ -971,6 +984,10 @@ const withoutLayeredKeywords = (
   delete base.then;
   delete base.else;
   delete base.default;
+  delete base.title;
+  delete base.description;
+  delete base.deprecated;
+  delete base.examples;
   return base;
 };
 
@@ -1055,18 +1072,24 @@ const refError = (reason: string): SuryError =>
     reason,
   });
 
-const refSiblingsForDialect = (uri: string | undefined): boolean => {
+const B_refSiblingsForDialect = (uri: string | undefined): boolean => {
   if (uri === U) return false;
+  // JSON Schema only changed `$ref` from a replacement into an applicator in
+  // the two date-named dialect families matched by this alternation.
   return /^https?:\/\/json-schema\.org\/draft\/20(?:19-09|20-12)\/schema#?$/.test(
     uri
   );
 };
 
-const compilePattern = (source: string): RegExp => {
+const B_compilePattern = (source: string): RegExp => {
   try {
-    return new RegExp(source);
+    return new RegExp(source, "u");
   } catch {
-    throw refError("Invalid JSON Schema pattern");
+    try {
+      return new RegExp(source);
+    } catch {
+      throw refError(`Invalid JSON Schema pattern: ${JSON.stringify(source)}`);
+    }
   }
 };
 
@@ -1273,7 +1296,8 @@ export const fromJSONSchema = (
   if (typeof jsonSchema === "boolean") {
     return jsonSchema ? anySchema : never_;
   }
-  const refSiblings = parentCtx === U && refSiblingsForDialect(jsonSchema["$schema"]);
+  const refSiblings =
+    parentCtx === U && B_refSiblingsForDialect(jsonSchema["$schema"]);
   // Every nested call threads the caller's context; only the outermost one
   // owns the document, and only it publishes the `$defs` collected below.
   const ctx: RefContext =
@@ -1522,7 +1546,7 @@ export const fromJSONSchema = (
   } else if (jsonSchema.type === "string") {
     schema = stringFormatSchemas[jsonSchema.format!] || string;
     if (jsonSchema.pattern !== U) {
-      schema = pattern(schema, compilePattern(jsonSchema.pattern));
+      schema = pattern(schema, B_compilePattern(jsonSchema.pattern));
     }
     if (jsonSchema.minLength !== U || jsonSchema.maxLength !== U) {
       const minimum = jsonSchema.minLength;
@@ -1537,7 +1561,11 @@ export const fromJSONSchema = (
         schema = refineInput(
           schema,
           (data: unknown) => {
-            const length = codePointLength(data as string);
+            const stringData = data as string;
+            if (minimum !== U && stringData.length < minimum) return false;
+            if (minimum === U && maximum !== U && stringData.length <= maximum)
+              return true;
+            const length = codePointLength(stringData);
             return (minimum === U || length >= minimum) && (maximum === U || length <= maximum);
           },
           "Should have a code-point length within the JSON Schema bounds."
@@ -1616,24 +1644,25 @@ export const fromJSONSchema = (
   if (jsonSchema.allOf !== U) {
     const definitions = jsonSchema.allOf;
     const schemas = definitions.map((d) => asAssertion(d, ctx));
-    if (schemas.length > 0) {
+    if (definitions.length !== 0) {
       schema = refineInput(
         schema,
         (data: unknown) => schemas.every((s) => passesSchema(data, s)),
         "Should pass for all schemas of the allOf property."
       );
-    }
-    if (definitions.length !== 0)
       schema = extendJSONSchema(schema, {
         allOf: definitions.map((definition, idx) =>
           assertionToJSONDefinition(definition, schemas[idx]!, ctx)
         ),
       });
+    }
   }
   if (jsonSchema.anyOf !== U) {
     const definitions = jsonSchema.anyOf;
     const schemas = definitions.map((d) => asAssertion(d, ctx));
-    if (schemas.length !== 0) {
+    if (definitions.length === 0) {
+      schema = never_;
+    } else {
       schema = refineInput(
         schema,
         (data: unknown) => schemas.some((candidate) => passesSchema(data, candidate)),
@@ -1649,7 +1678,9 @@ export const fromJSONSchema = (
   if (jsonSchema.oneOf !== U) {
     const definitions = jsonSchema.oneOf;
     const schemas = definitions.map((d) => asAssertion(d, ctx));
-    if (schemas.length !== 0) {
+    if (definitions.length === 0) {
+      schema = never_;
+    } else {
       schema = refineInput(
         schema,
         (data: unknown) =>
@@ -1724,6 +1755,23 @@ export const fromJSONSchema = (
     if (Object.keys(ctx.cyc).length !== 0) schema = withDefs(schema, ctx);
     if (jsonSchema["$schema"] !== U) {
       schema = extendJSONSchema(schema, { "$schema": jsonSchema["$schema"] });
+    }
+    const rootRef = jsonSchema["$ref"];
+    if (
+      rootRef !== U &&
+      !ctx.refSiblings &&
+      Object.keys(ctx.cyc).length === 0
+    ) {
+      const document = { ...jsonSchema };
+      for (let idx = 0; idx < refSiblingKeywords.length; idx++) {
+        delete (document as Record<string, unknown>)[refSiblingKeywords[idx]!];
+      }
+      const overlay = Metadata_get(schema, jsonSchemaMetadataId) as
+        | JSONSchemaT
+        | undefined;
+      if (overlay !== U) delete overlay["$schema"];
+      schema = copySchema(schema);
+      schema.jd = [schema, document];
     }
   }
 

@@ -317,24 +317,16 @@ const deriveJsonSchemaSides = (schema: any): JsonSchemaSides => ({
 const deriveJsonSchema = async (
   schema: any,
   types: { input: string; output: string },
-  combinedInfo?: Pick<
+  combinedInfo: Pick<
     TypeInfo,
     "fromInput" | "fromOutput" | "inputMatches" | "outputMatches"
   >,
   sides = deriveJsonSchemaSides(schema),
 ): Promise<Spec["jsonSchema"]> => {
-  const inputInferred =
-    combinedInfo?.fromInput ??
-    (sides.input.source === undefined
-      ? undefined
-      : (await deriveTypeInfo(`S.fromJSONSchema(${sides.input.source})`)).input);
-  const outputInferred =
-    combinedInfo?.fromOutput ??
-    (sides.output.source === undefined
-      ? undefined
-      : (await deriveTypeInfo(`S.fromJSONSchema(${sides.output.source})`)).output);
-  const inputMatches = combinedInfo?.inputMatches ?? inputInferred === types.input;
-  const outputMatches = combinedInfo?.outputMatches ?? outputInferred === types.output;
+  const inputInferred = combinedInfo.fromInput;
+  const outputInferred = combinedInfo.fromOutput;
+  const inputMatches = combinedInfo.inputMatches ?? inputInferred === types.input;
+  const outputMatches = combinedInfo.outputMatches ?? outputInferred === types.output;
   return {
     input: sides.input.schema,
     ...(inputInferred === undefined || inputMatches

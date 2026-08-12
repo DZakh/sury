@@ -352,6 +352,8 @@ export type Internal = {
   tr?: boolean;
   "$ref"?: string;
   "$defs"?: Record<string, Internal>;
+  // Original finite root `$ref` document paired with the schema copy that owns it.
+  jd?: [Internal, Record<string, unknown>];
   isAsync?: boolean; // Optional value means that it's not lazily computed yet.
   hasTransform?: boolean; // Optional value means that it's not lazily computed yet.
   "~standard"?: unknown;

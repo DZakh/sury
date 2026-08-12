@@ -3,7 +3,7 @@ ts:
   schema: S.fromJSONSchema(false)
   input: never
   output: never
-  instantiations: 405
+  instantiations: 398
 vs:
   zod: z.never()
 jsonSchema:

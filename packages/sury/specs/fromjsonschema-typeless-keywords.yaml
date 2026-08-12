@@ -3,7 +3,7 @@ ts:
   schema: "S.fromJSONSchema({ minLength: 2 })"
   input: JSON
   output: JSON
-  instantiations: 599
+  instantiations: 593
 vs:
   zod:
     _skip: not-applicable

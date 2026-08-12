@@ -1,9 +1,9 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
   schema: 'S.fromJSONSchema({ "$schema": "https://json-schema.org/draft/2020-12/schema", "$ref": "#/$defs/base", type: "object", properties: { child: { "$ref": "#/$defs/leaf" } }, required: ["child"], additionalProperties: true, "$defs": { base: { type: "object", additionalProperties: true }, leaf: { type: "string" } } })'
-  input: "{ [key: string]: JSON; } & {} & { child: string; }"
-  output: "{ [key: string]: JSON; } & {} & { child: string; }"
-  instantiations: 3711
+  input: "{ [key: string]: JSON; } & { child: string; }"
+  output: "{ [key: string]: JSON; } & { child: string; }"
+  instantiations: 3289
 vs:
   zod:
     _skip: not-applicable

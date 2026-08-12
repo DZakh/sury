@@ -3,7 +3,7 @@ ts:
   schema: 'S.fromJSONSchema({ type: "array", prefixItems: [{ type: "object", properties: { value: { type: "string", default: "fallback" } } }], items: false })'
   input: "[({ value?: string | undefined; } | undefined)?, ...never[]]"
   output: "[({ value?: string | undefined; } | undefined)?, ...never[]]"
-  instantiations: 3116
+  instantiations: 3125
 vs:
   zod:
     _skip: not-applicable

@@ -1,27 +1,26 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: "S.fromJSONSchema({ anyOf: [], oneOf: [], allOf: [] })"
-  input: JSON
-  output: JSON
-  instantiations: 747
+  schema: "S.fromJSONSchema({ anyOf: [] })"
+  aliases:
+    - "S.fromJSONSchema({ oneOf: [] })"
+  input: never
+  output: never
+  instantiations: 611
 vs:
   zod:
     _skip: not-applicable
 jsonSchema:
-  input: "{}"
-  output: "{}"
+  input: "{ not: {} }"
+  output: "{ not: {} }"
 operations:
   parse:
     expression: i=>{e[0](i);return i}
     examples:
-      string:
+      rejects-string:
         input: '"anything"'
-        output: '"anything"'
-      object:
-        input: "{ value: true }"
-        output: "{ value: true }"
-      non-json:
-        input: undefined
-        error: Expected JSON, received undefined
-  decode: identity
-  encode: identity
+        error: Expected never, received "anything"
+      rejects-null:
+        input: "null"
+        error: Expected never, received null
+  decode: eq-to-parse
+  encode: eq-to-parse

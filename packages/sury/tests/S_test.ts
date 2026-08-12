@@ -1427,6 +1427,22 @@ test("fromJSONSchema: assertion-only schemas preserve valid JSON", (t) => {
   >();
   t.expect(S.parser(nativeDefaultObject)({})).toEqual({ value: "fallback" });
 
+  const defaultRecord = S.fromJSONSchema({
+    type: "object",
+    additionalProperties: {
+      type: "object",
+      properties: { value: { type: "string", default: "fallback" } },
+      additionalProperties: false,
+    },
+  });
+  expectSchemaType(defaultRecord).toBe<
+    { [key: string]: { value?: string | undefined } },
+    { [key: string]: { value: string } }
+  >();
+  t.expect(S.parser(defaultRecord)({ first: {} })).toEqual({
+    first: { value: "fallback" },
+  });
+
   const openObjectSchema = S.fromJSONSchema({
     type: "object",
     properties: { value: { type: "string" } },
@@ -1458,7 +1474,7 @@ test("fromJSONSchema: assertion-only schemas preserve valid JSON", (t) => {
   t.expect(S.parser(legacyPattern)("123-4567")).toBe("123-4567");
   t.expect(() => S.parser(legacyPattern)("1234567")).toThrow("Invalid pattern");
   t.expect(() => S.fromJSONSchema({ type: "string", pattern: "[" })).toThrow(
-    "Invalid JSON Schema pattern"
+    'Invalid JSON Schema pattern: "["'
   );
 });
 
@@ -1490,6 +1506,16 @@ test("fromJSONSchema: $ref siblings follow the declared dialect", (t) => {
   t.expect(() => S.parser(legacy)("ab")).toThrow(
     "Should pass at least one schema according to the anyOf property."
   );
+  t.expect(S.toJSONSchema(legacy)).toEqual({
+    $schema: "http://json-schema.org/draft-07/schema#",
+    $ref: "#/$defs/id",
+    anyOf: [{ pattern: "never$" }],
+    $defs: { id: target },
+  });
+  t.expect(S.toJSONSchema(legacy, { target: "openapi-3.0" })).toEqual({
+    type: "string",
+    anyOf: [{ pattern: "never$" }],
+  });
 
   const modernAlias = S.fromJSONSchema({
     $schema: "http://json-schema.org/draft/2020-12/schema#",
@@ -1597,9 +1623,26 @@ test("fromJSONSchema: assertion keywords bind without an explicit `type`", (t) =
   t.expect(minLength("abcd")).toBe("abcd");
   t.expect(S.safe(() => minLength("a")).error).toBeDefined();
   t.expect(minLength(1)).toBe(1);
+
+  t.expect(parse({ additionalItems: false })(["anything"])).toEqual(["anything"]);
+});
+
+test("fromJSONSchema: annotations stay on a synthesized type union's root", (t) => {
+  const schema = S.fromJSONSchema({
+    type: ["string", "number"],
+    title: "Value",
+  });
+  t.expect(S.toJSONSchema(schema)).toEqual({
+    anyOf: [{ type: "string" }, { type: "number" }],
+    title: "Value",
+  });
 });
 
 test("fromJSONSchema: composition keywords constrain in addition to the base shape", (t) => {
+  const emptyAllOf = S.fromJSONSchema({ allOf: [] });
+  expectSchemaType(emptyAllOf).toBe<S.JSON>();
+  t.expect(S.parser(emptyAllOf)({ anything: true })).toEqual({ anything: true });
+
   const schema = S.fromJSONSchema({
     type: "object",
     properties: { bar: { type: "integer" } },
@@ -1651,6 +1694,10 @@ test("fromJSONSchema: an unmodelled assertion keyword fails at creation", (t) =>
   t.expect(
     S.safe(() => S.fromJSONSchema({ $dynamicRef: "#items" })).error?.message,
   ).toContain("$dynamicRef");
+
+  t.expect(
+    S.safe(() => S.fromJSONSchema({ $recursiveRef: "#" })).error?.message,
+  ).toContain("$recursiveRef");
 
   t.expect(
     S.parser(

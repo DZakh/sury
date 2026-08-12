@@ -177,8 +177,8 @@ export const deriveRoundTripTypeInfo = async (
   return {
     fromInput,
     fromOutput,
-    inputMatches: inputMatches === "true",
-    outputMatches: outputMatches === "true",
+    inputMatches: inputSource === undefined ? undefined : inputMatches === "true",
+    outputMatches: outputSource === undefined ? undefined : outputMatches === "true",
   };
 };
 

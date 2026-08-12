@@ -3,7 +3,7 @@ ts:
   schema: 'S.fromJSONSchema({ const: { kind: "point", coords: [1, 2] } })'
   input: '{ kind: "point"; coords: [1, 2]; }'
   output: '{ kind: "point"; coords: [1, 2]; }'
-  instantiations: 974
+  instantiations: 968
 vs:
   zod:
     _skip: not-applicable

@@ -3,7 +3,7 @@ ts:
   schema: 'S.fromJSONSchema({ "$schema": "https://json-schema.org/draft/2020-12/schema", "$ref": "#/$defs/base", type: "object", properties: { b: { type: "number" } }, required: ["b"], "$defs": { base: { type: "object", properties: { a: { type: "string" } }, required: ["a"], additionalProperties: true } } })'
   input: "{ a: string; } & { b: number; }"
   output: "{ a: string; } & { b: number; }"
-  instantiations: 5337
+  instantiations: 5331
 vs:
   zod:
     _skip: not-applicable

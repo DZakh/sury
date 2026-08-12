@@ -3,7 +3,7 @@ ts:
   schema: 'S.fromJSONSchema({ type: "string", minLength: 100, maxLength: 50 })'
   input: never
   output: never
-  instantiations: 950
+  instantiations: 828
 vs:
   zod:
     _skip: not-applicable
