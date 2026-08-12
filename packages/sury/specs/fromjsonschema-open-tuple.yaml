@@ -3,15 +3,15 @@ ts:
   schema: 'S.fromJSONSchema({ type: "array", items: [{ type: "string" }, { type: "number" }], additionalItems: { type: "boolean" } })'
   input: "[(string | undefined)?, (number | undefined)?, ...boolean[]]"
   output: "[(string | undefined)?, (number | undefined)?, ...boolean[]]"
-  instantiations: 959
+  instantiations: 1170
 vs:
   zod: z.tuple([z.string().optional(), z.number().optional()]).rest(z.boolean())
 jsonSchema:
-  input: '{ items: [{ type: "string" }, { type: "number" }], type: "array", additionalItems: { type: "boolean" } }'
-  output: '{ items: [{ type: "string" }, { type: "number" }], type: "array", additionalItems: { type: "boolean" } }'
+  input: '{ type: "array", items: [{ type: "string" }, { type: "number" }], additionalItems: { type: "boolean" } }'
+  output: '{ type: "array", items: [{ type: "string" }, { type: "number" }], additionalItems: { type: "boolean" } }'
 operations:
   parse:
-    expression: i=>{Array.isArray(i)||e[2](i);e[1](i)||e[3](i);for(let v0=0;v0<i.length;++v0){try{e[0](i[v0]);}catch(v1){v1.path='["'+v0+'"]'+v1.path;throw v1}}return i}
+    expression: i=>{Array.isArray(i)||e[3](i);let v0=i["0"],v1=i["1"];(typeof v0==="string"||v0===void 0)||e[0](v0);(typeof v1==="number"&&!Number.isNaN(v1)||v1===void 0)||e[1](v1);for(let v2=2;v2<i.length;++v2){try{let v3=i[v2];typeof v3==="boolean"||e[2](v3);}catch(v4){v4.path='["'+v2+'"]'+v4.path;throw v4}}return i}
     examples:
       empty:
         input: "[]"
@@ -27,19 +27,9 @@ operations:
         output: '["a", 1, true, false]'
       wrong-prefix-item:
         input: '["a", "1"]'
-        error: Should pass the positional and additional item schemas.
+        error: 'Failed at ["1"]: Expected number | undefined, received "1"'
       wrong-additional-item:
         input: '["a", 1, 2]'
-        error: Should pass the positional and additional item schemas.
-  decode:
-    expression: i=>{e[0](i)||e[1](i);return i}
-    examples:
-      additional-items:
-        input: '["a", 1, true]'
-        output: '["a", 1, true]'
-  encode:
-    expression: i=>{e[0](i)||e[1](i);return i}
-    examples:
-      additional-items:
-        input: '["a", 1, true]'
-        output: '["a", 1, true]'
+        error: 'Failed at ["2"]: Expected boolean, received 2'
+  decode: identity
+  encode: identity

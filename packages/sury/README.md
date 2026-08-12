@@ -342,7 +342,7 @@ Measured against `sury@11.0.0-rc.1`, `zod@4.4.3`, `typebox@0.34.52`, `valibot@1.
 
 |                                 | Sury           | Zod          | TypeBox                        | Valibot      | ArkType        |
 | ------------------------------- | -------------- | ------------ | ------------------------------ | ------------ | -------------- |
-| **Total size** (min + gzip)     | 29.9 kB        | 65.0 kB      | 31.3 kB                        | 15.3 kB      | 47.2 kB        |
+| **Total size** (min + gzip)     | 31.5 kB        | 65.0 kB      | 31.3 kB                        | 15.3 kB      | 47.2 kB        |
 | **Benchmark size** (min + gzip) | 13.3 kB        | 19.6 kB      | 22.6 kB                        | 1.29 kB      | 47.1 kB        |
 | **Parse with the same schema**  | 210,061 ops/ms | 9,367 ops/ms | 158,185 ops/ms (no transforms) | 1,970 ops/ms | 106,520 ops/ms |
 | **Create schema & parse once**  | 99 ops/ms      | 11 ops/ms    | 103 ops/ms (no transforms)     | 315 ops/ms   | 11 ops/ms      |

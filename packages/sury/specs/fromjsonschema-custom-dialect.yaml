@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.fromJSONSchema({ "$schema": "https://example.com/custom", "$ref": "#/$defs/value", minLength: 3, "$defs": { value: { type: "string" } } })'
+  input: string
+  output: string
+  instantiations: 803
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "string", $schema: "https://example.com/custom" }'
+  output: '{ type: "string", $schema: "https://example.com/custom" }'
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[0](i);return i}
+    examples:
+      ignored-sibling:
+        input: '"a"'
+        output: '"a"'
+      wrong-type:
+        input: "1"
+        error: Expected string, received 1
+  decode: identity
+  encode: identity

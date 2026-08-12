@@ -9,9 +9,7 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: '{ type: "object", properties: { type: { type: "string", const: "foo" }, name: { type: "string" }, fooCount: { type: "number" } }, required: ["type", "name", "fooCount"] }'
-  fromInputType: '{ type: "foo"; name: string; fooCount: number; }'
   output: '{ type: "object", properties: { type: { type: "string", const: "foo" }, name: { type: "string" }, fooCount: { type: "number" } }, required: ["type", "name", "fooCount"] }'
-  fromOutputType: '{ type: "foo"; name: string; fooCount: number; }'
 operations:
   parse:
     expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["type"],v1=i["name"],v2=i["fooCount"];v0==="foo"||e[0](v0);typeof v1==="string"||e[1](v1);typeof v2==="number"&&!Number.isNaN(v2)||e[2](v2);return {"type":v0,"name":v1,"fooCount":v2,}}

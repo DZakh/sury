@@ -71,17 +71,16 @@ export interface OpenAPIExternalDocs {
 export type JSONSchemaDefinition = JSONSchema | boolean;
 
 /**
- * A JSON Schema of any dialect Sury understands — draft-06 through draft-2020-12,
- * plus the OpenAPI 3.0 `nullable` extension.
+ * A JSON Schema of any dialect Sury understands — draft-04 through draft-2020-12,
+ * custom metaschema identifiers, plus the OpenAPI 3.0 `nullable` extension.
  *
  * This is the type to author against (`{ ... } satisfies S.JSONSchema`) and what
  * `extendJSONSchema` accepts. It carries every keyword of every supported
  * dialect, including a few `fromJSONSchema` cannot model and rejects when it
  * builds the schema.
  *
- * Draft-04 is not supported: it spells `$id` as `id`, and its boolean
- * `exclusiveMinimum`/`exclusiveMaximum` pair with `minimum`/`maximum` rather than
- * replacing them, which Sury does not interpret.
+ * Draft-04 and unknown metaschemas use legacy `$ref` sibling semantics. Nested
+ * `$schema` values are annotations; the root selects the document dialect.
  */
 export interface JSONSchema {
   $id?: string | undefined;

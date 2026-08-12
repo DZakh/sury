@@ -3,7 +3,7 @@ ts:
   schema: 'S.fromJSONSchema({ allOf: [{ enum: ["a", "b"] }, { enum: ["b", "c"] }] })'
   input: '"b"'
   output: '"b"'
-  instantiations: 892
+  instantiations: 1120
 vs:
   zod:
     _skip: not-applicable

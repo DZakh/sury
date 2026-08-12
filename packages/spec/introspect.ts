@@ -94,7 +94,15 @@ const extractAliases = (program: ts.Program, file: ts.SourceFile): Record<string
 const diagnosticsText = (diagnostics: readonly ts.Diagnostic[]): string =>
   diagnostics.map((d) => ts.flattenDiagnosticMessageText(d.messageText, "\n")).join("\n");
 
-export type TypeInfo = { input: string; output: string; instantiations: number };
+export type TypeInfo = {
+  input: string;
+  output: string;
+  instantiations: number;
+  fromInput?: string;
+  fromOutput?: string;
+  inputMatches?: boolean;
+  outputMatches?: boolean;
+};
 
 // Derives {input, output} type strings and the instantiation count
 // contributed by declaring `schemaTs` and extracting S.Output<>/S.Input<>
@@ -128,6 +136,50 @@ export const deriveTypeInfo = async (schemaTs: string): Promise<TypeInfo> => {
     );
   }
   return { input, output, instantiations: count - getBaselineCount() };
+};
+
+export const deriveRoundTripTypeInfo = async (
+  schemaTs: string,
+  inputSource?: string,
+  outputSource?: string,
+): Promise<
+  Pick<TypeInfo, "fromInput" | "fromOutput" | "inputMatches" | "outputMatches">
+> => {
+  if (inputSource === undefined && outputSource === undefined) return {};
+  const withExpr =
+    IMPORT_LINE +
+    `const __schema = ${schemaTs};\n` +
+    `type __Input = S.Input<typeof __schema>;\n` +
+    `type __Output = S.Output<typeof __schema>;\n` +
+    (inputSource === undefined
+      ? ""
+      : `const __inputSchema = S.fromJSONSchema(${inputSource});\n` +
+        `type __FromInput = S.Input<typeof __inputSchema>;\n` +
+        `type __InputMatches = [__Input] extends [__FromInput] ? [__FromInput] extends [__Input] ? true : false : false;\n`) +
+    (outputSource === undefined
+      ? ""
+      : `const __outputSchema = S.fromJSONSchema(${outputSource});\n` +
+        `type __FromOutput = S.Output<typeof __outputSchema>;\n` +
+        `type __OutputMatches = [__Output] extends [__FromOutput] ? [__FromOutput] extends [__Output] ? true : false : false;\n`);
+  const { program, file, diagnostics } = check(withExpr);
+  const {
+    __FromInput: fromInput,
+    __FromOutput: fromOutput,
+    __InputMatches: inputMatches,
+    __OutputMatches: outputMatches,
+  } = extractAliases(program, file);
+  if ((inputSource !== undefined && !fromInput) || (outputSource !== undefined && !fromOutput)) {
+    throw new Error(
+      "deriveRoundTripTypeInfo: could not resolve JSON Schema round-trip types" +
+        (diagnostics.length === 0 ? "" : `:\n${diagnosticsText(diagnostics)}`),
+    );
+  }
+  return {
+    fromInput,
+    fromOutput,
+    inputMatches: inputMatches === "true",
+    outputMatches: outputMatches === "true",
+  };
 };
 
 // The inferred input/output type strings of a `vs` cross-library schema, read

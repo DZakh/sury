@@ -3,7 +3,7 @@ ts:
   schema: "S.fromJSONSchema({ enum: [] })"
   input: never
   output: never
-  instantiations: 503
+  instantiations: 636
 vs:
   zod: z.never()
 jsonSchema:

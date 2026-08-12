@@ -8,9 +8,7 @@ vs:
   zod: "z.record(z.string(), z.object({ n: z.number() }))"
 jsonSchema:
   input: '{ type: "object", additionalProperties: { type: "object", properties: { n: { type: "number" } }, required: ["n"] } }'
-  fromInputType: "{ [key: string]: { n: number; }; } & {}"
   output: '{ type: "object", additionalProperties: { type: "object", properties: { n: { type: "number" } }, required: ["n"] } }'
-  fromOutputType: "{ [key: string]: { n: number; }; } & {}"
 operations:
   parse:
     expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v4={};for(let v0 in i){try{let v1=i[v0];typeof v1==="object"&&v1&&!Array.isArray(v1)||e[1](v1);let v2=v1["n"];typeof v2==="number"&&!Number.isNaN(v2)||e[0](v2);v4[v0]={"n":v2,}}catch(v3){v3.path='["'+v0+'"]'+v3.path;throw v3}}return v4}

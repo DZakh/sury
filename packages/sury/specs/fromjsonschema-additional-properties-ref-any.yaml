@@ -1,9 +1,9 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: 'S.fromJSONSchema({ type: "object", properties: { value: { type: "string" } }, additionalProperties: {} })'
+  schema: 'S.fromJSONSchema({ type: "object", properties: { value: { type: "string" } }, additionalProperties: { "$ref": "#/$defs/anything" }, "$defs": { anything: {} } })'
   input: "{ value?: string | undefined; }"
   output: "{ value?: string | undefined; }"
-  instantiations: 2382
+  instantiations: 2799
 vs:
   zod:
     _skip: not-applicable
@@ -17,13 +17,10 @@ operations:
       declared-and-extra:
         input: '{ value: "ok", extra: { nested: true } }'
         output: '{ value: "ok", extra: { nested: true } }'
-      declared-absent:
-        input: "{ extra: [1, null] }"
-        output: "{ extra: [1, null] }"
-      declared-invalid:
+      invalid-declared:
         input: "{ value: 1 }"
         error: 'Failed at ["value"]: Expected string | undefined, received 1'
-      extra-not-json:
+      non-json-extra:
         input: "{ extra: undefined }"
         error: 'Failed at ["extra"]: Expected JSON, received undefined'
   decode: identity

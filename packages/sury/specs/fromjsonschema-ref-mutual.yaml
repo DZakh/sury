@@ -3,7 +3,7 @@ ts:
   schema: 'S.fromJSONSchema({ $ref: "#/$defs/Tree", $defs: { Tree: { type: "object", properties: { value: { type: "string" }, fork: { $ref: "#/$defs/Fork" } }, required: ["value"] }, Fork: { type: "object", properties: { left: { $ref: "#/$defs/Tree" }, right: { $ref: "#/$defs/Tree" } }, required: ["left", "right"] } } })'
   input: "{ value: string; fork?: { left: ...; right: ...; } | undefined; }"
   output: "{ value: string; fork?: { left: ...; right: ...; } | undefined; }"
-  instantiations: 2829
+  instantiations: 3883
 vs:
   zod:
     _skip: not-applicable
@@ -12,22 +12,22 @@ jsonSchema:
   output: '{ $ref: "#/$defs/Tree", $defs: { Tree: { type: "object", properties: { value: { type: "string" }, fork: { type: "object", properties: { left: { $ref: "#/$defs/Tree" }, right: { $ref: "#/$defs/Tree" } }, required: ["left", "right"] } }, required: ["value"] } } }'
 operations:
   parse:
-    expression: i=>{e[0](i);return i}
+    expression: i=>{let v0;v0=e[0](i);return v0}
     examples:
       leaf:
         input: '{ value: "a" }'
-        output: '{ value: "a" }'
+        output: '{ value: "a", fork: undefined }'
       one-fork:
         input: '{ value: "a", fork: { left: { value: "l" }, right: { value: "r" } } }'
-        output: '{ value: "a", fork: { left: { value: "l" }, right: { value: "r" } } }'
+        output: '{ value: "a", fork: { left: { value: "l", fork: undefined }, right: { value: "r", fork: undefined } } }'
       nested-fork:
         input: '{ value: "a", fork: { left: { value: "l", fork: { left: { value: "ll" }, right: { value: "lr" } } }, right: { value: "r" } } }'
-        output: '{ value: "a", fork: { left: { value: "l", fork: { left: { value: "ll" }, right: { value: "lr" } } }, right: { value: "r" } } }'
+        output: '{ value: "a", fork: { left: { value: "l", fork: { left: { value: "ll", fork: undefined }, right: { value: "lr", fork: undefined } } }, right: { value: "r", fork: undefined } } }'
       half-a-fork:
         input: '{ value: "a", fork: { left: { value: "l" } } }'
-        error: Should pass every declared property schema.
+        error: 'Failed at ["fork"]["right"]: Expected { value: string; fork: { left: Tree; right: Tree; } | undefined; }, received undefined'
       wrong-type-across-the-cycle:
         input: '{ value: "a", fork: { left: { value: 1 }, right: { value: "r" } } }'
-        error: Should pass every declared property schema.
+        error: 'Failed at ["fork"]["left"]["value"]: Expected string, received 1'
   decode: eq-to-parse
   encode: eq-to-parse

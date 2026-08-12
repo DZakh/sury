@@ -3,65 +3,31 @@ ts:
   schema: 'S.fromJSONSchema({ type: "object", properties: { id: { type: "string" }, role: { enum: ["admin", "user"] }, tags: { type: "array", items: { type: "string" } } }, required: ["id", "role"] })'
   input: '{ id: string; role: "admin" | "user"; tags?: string[] | undefined; }'
   output: '{ id: string; role: "admin" | "user"; tags?: string[] | undefined; }'
-  instantiations: 2373
+  instantiations: 2670
 vs:
   zod:
     _skip: not-applicable
 jsonSchema:
-  input: '{ type: "object", properties: { id: { type: "string" }, role: { enum: ["admin", "user"] }, tags: { type: "array", items: { type: "string" } } }, required: ["id", "role"] }'
-  output: '{ type: "object", properties: { id: { type: "string" }, role: { enum: ["admin", "user"] }, tags: { type: "array", items: { type: "string" } } }, required: ["id", "role"] }'
+  input: '{ type: "object", properties: { id: { type: "string" }, role: { enum: ["admin", "user"] }, tags: { items: { type: "string" }, type: "array" } }, required: ["id", "role"] }'
+  output: '{ type: "object", properties: { id: { type: "string" }, role: { enum: ["admin", "user"] }, tags: { items: { type: "string" }, type: "array" } }, required: ["id", "role"] }'
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);e[1](i)||e[4](i);e[2](i)||e[5](i);for(let v0 in i){try{e[0](i[v0]);}catch(v1){v1.path='["'+v0+'"]'+v1.path;throw v1}}return i}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i["id"],v1=i["role"],v2=i["tags"];typeof v0==="string"||e[0](v0);typeof v1==="string"&&(v1==="admin"||v1==="user")||e[1](v1);for(;;){if(Array.isArray(v2)){for(let v3=0;v3<v2.length;++v3){try{let v4=v2[v3];typeof v4==="string"||e[2](v4);}catch(v5){v5.path="[\"tags\"]"+'["'+v3+'"]'+v5.path;throw v5}};break}if(v2===void 0)break;e[3](v2)}return {"id":v0,"role":v1,"tags":v2,}}
     examples:
       valid:
         input: '{ id: "1", role: "admin", tags: ["a"] }'
         output: '{ id: "1", role: "admin", tags: ["a"] }'
       optional-key-absent:
         input: '{ id: "1", role: "user" }'
-        output: '{ id: "1", role: "user" }'
-      undeclared-key-preserved:
+        output: '{ id: "1", role: "user", tags: undefined }'
+      undeclared-key-stripped:
         input: '{ id: "1", role: "admin", extra: true }'
-        output: '{ id: "1", role: "admin", extra: true }'
+        output: '{ id: "1", role: "admin", tags: undefined }'
       enum-mismatch:
         input: '{ id: "1", role: "root" }'
-        error: Should pass every declared property schema.
+        error: 'Failed at ["role"]: Expected "admin" | "user", received "root"'
       missing-required:
         input: '{ role: "admin" }'
-        error: Should contain every required property.
-  decode:
-    expression: i=>{e[0](i)||e[2](i);e[1](i)||e[3](i);return i}
-    examples:
-      valid:
-        input: '{ id: "1", role: "admin", tags: ["a"] }'
-        output: '{ id: "1", role: "admin", tags: ["a"] }'
-      optional-key-absent:
-        input: '{ id: "1", role: "user" }'
-        output: '{ id: "1", role: "user" }'
-      undeclared-key-preserved:
-        input: '{ id: "1", role: "admin", extra: true }'
-        output: '{ id: "1", role: "admin", extra: true }'
-      enum-mismatch:
-        input: '{ id: "1", role: "root" }'
-        error: Should pass every declared property schema.
-      missing-required:
-        input: '{ role: "admin" }'
-        error: Should contain every required property.
-  encode:
-    expression: i=>{e[0](i)||e[2](i);e[1](i)||e[3](i);return i}
-    examples:
-      valid:
-        input: '{ id: "1", role: "admin", tags: ["a"] }'
-        output: '{ id: "1", role: "admin", tags: ["a"] }'
-      optional-key-absent:
-        input: '{ id: "1", role: "user" }'
-        output: '{ id: "1", role: "user" }'
-      undeclared-key-preserved:
-        input: '{ id: "1", role: "admin", extra: true }'
-        output: '{ id: "1", role: "admin", extra: true }'
-      enum-mismatch:
-        input: '{ id: "1", role: "root" }'
-        error: Should pass every declared property schema.
-      missing-required:
-        input: '{ role: "admin" }'
-        error: Should contain every required property.
+        error: 'Failed at ["id"]: Expected string, received undefined'
+  decode: identity
+  encode: identity

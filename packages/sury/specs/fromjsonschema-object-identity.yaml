@@ -2,45 +2,40 @@
 ts:
   schema: 'S.fromJSONSchema({ type: "object", properties: { value: { type: "string", default: "fallback" } }, required: ["constructor"], additionalProperties: { type: "integer" } })'
   input: "{ value?: string | undefined; constructor: number; }"
-  output: "{ value?: string | undefined; constructor: number; }"
-  instantiations: 2262
+  output: "{ value: string; constructor: number; }"
+  instantiations: 2852
 vs:
   zod:
     _skip: not-applicable
 jsonSchema:
-  input: '{ type: "object", additionalProperties: { type: "integer" }, properties: { value: { type: "string", default: "fallback" } }, required: ["constructor"] }'
-  output: '{ type: "object", additionalProperties: { type: "integer" }, properties: { value: { type: "string", default: "fallback" } }, required: ["constructor"] }'
+  input: '{ type: "object", properties: { value: { default: "fallback", type: "string" } }, additionalProperties: { type: "integer" }, required: ["constructor"] }'
+  output: '{ type: "object", properties: { value: { type: "string", default: "fallback" } }, additionalProperties: { type: "integer" }, required: ["value", "constructor"] }'
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);e[1](i)||e[5](i);e[2](i)||e[6](i);e[3](i)||e[7](i);for(let v0 in i){try{e[0](i[v0]);}catch(v1){v1.path='["'+v0+'"]'+v1.path;throw v1}}return i}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["value"],v3=(Object.hasOwn(i,"constructor")?i["constructor"]:void 0);let v2=Object.assign({},i);(typeof v0==="string"||v0===void 0)||e[0](v0);v2["value"]=v0===void 0?"fallback":v0;typeof v3==="number"&&v3%1===0||e[1](v3);for(let v1 in i){if(v1!=="value"&&v1!=="constructor"){try{let v4=i[v1];typeof v4==="number"&&v4%1===0||e[2](v4);}catch(v5){v5.path='["'+v1+'"]'+v5.path;throw v5}}}return v2}
     examples:
       required-own-key:
         input: "{ constructor: 1 }"
-        output: "{ constructor: 1 }"
+        output: '{ constructor: 1, value: "fallback" }'
       preserves-known-and-extra:
         input: '{ constructor: 1, value: "set", extra: 2 }'
         output: '{ constructor: 1, value: "set", extra: 2 }'
       inherited-constructor-is-absent:
         input: "{}"
-        error: Should contain every required property.
-      annotation-default-not-injected:
+        error: 'Failed at ["constructor"]: Expected integer, received undefined'
+      default-injected:
         input: "{ constructor: 1 }"
-        output: "{ constructor: 1 }"
+        output: '{ constructor: 1, value: "fallback" }'
       wrong-known-property:
         input: "{ constructor: 1, value: 2 }"
-        error: Should pass every declared property schema.
+        error: 'Failed at ["value"]: Expected string | undefined, received 2'
       wrong-additional-property:
         input: '{ constructor: 1, extra: "no" }'
-        error: Should pass the additionalProperties schema.
+        error: 'Failed at ["extra"]: Expected integer, received "no"'
   decode:
-    expression: i=>{e[0](i)||e[3](i);e[1](i)||e[4](i);e[2](i)||e[5](i);return i}
+    expression: i=>{let v0=i["value"];let v2=Object.assign({},i);v2["value"]=v0===void 0?"fallback":v0;return v2}
     examples:
-      preserves-known-and-extra:
-        input: '{ constructor: 1, value: "set", extra: 2 }'
-        output: '{ constructor: 1, value: "set", extra: 2 }'
-  encode:
-    expression: i=>{e[0](i)||e[3](i);e[1](i)||e[4](i);e[2](i)||e[5](i);return i}
-    examples:
-      preserves-known-and-extra:
-        input: '{ constructor: 1, value: "set", extra: 2 }'
-        output: '{ constructor: 1, value: "set", extra: 2 }'
+      default-injected:
+        input: "{ constructor: 1 }"
+        output: '{ constructor: 1, value: "fallback" }'
+  encode: identity

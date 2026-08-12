@@ -3,15 +3,13 @@ ts:
   schema: 'S.fromJSONSchema({ "$schema": "https://json-schema.org/draft/2020-12/schema", "$ref": "#/$defs/base", type: "object", properties: { child: { "$ref": "#/$defs/leaf" } }, required: ["child"], additionalProperties: true, "$defs": { base: { type: "object", additionalProperties: true }, leaf: { type: "string" } } })'
   input: "{ [key: string]: JSON; } & {} & { child: string; }"
   output: "{ [key: string]: JSON; } & {} & { child: string; }"
-  instantiations: 3522
+  instantiations: 3711
 vs:
   zod:
     _skip: not-applicable
 jsonSchema:
-  input: '{ type: "object", properties: { child: { type: "string" } }, required: ["child"], $schema: "https://json-schema.org/draft/2020-12/schema" }'
-  fromInputType: "{ child: string; }"
-  output: '{ type: "object", properties: { child: { type: "string" } }, required: ["child"], $schema: "https://json-schema.org/draft/2020-12/schema" }'
-  fromOutputType: "{ child: string; }"
+  input: '{ type: "object", allOf: [{ type: "object", properties: { child: { type: "string" } }, required: ["child"] }], $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  output: '{ type: "object", allOf: [{ type: "object", properties: { child: { type: "string" } }, required: ["child"] }], $schema: "https://json-schema.org/draft/2020-12/schema" }'
 operations:
   parse:
     expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);e[1](i)||e[3](i);for(let v0 in i){try{e[0](i[v0]);}catch(v1){v1.path='["'+v0+'"]'+v1.path;throw v1}}return i}

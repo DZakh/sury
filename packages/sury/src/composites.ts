@@ -20,6 +20,7 @@ import {
   isOptional,
   isSchemaObject,
   jsonName,
+  neverTag,
   objectTag,
   pathConcat,
   pathFromInlinedLocation,
@@ -246,14 +247,11 @@ export const arrayFactory = (item: Internal): Internal => {
 }
 // @__NO_SIDE_EFFECTS__
 export const array = (item: unknown): Internal => arrayFactory(definitionToSchema(item));
-export const arrayDecoder = (unknownInput: Val): Val => {
-  const isUnion = unknownInput.u!;
+const B_arrayInput = (unknownInput: Val): Val => {
   const expectedSchema = unknownInput.e;
   const unknownInputTagFlag = tagFlags[unknownInput.s.type]!;
-  const expectedItems = expectedSchema.items!;
-  const expectedLength = expectedItems.length;
+  const expectedLength = expectedSchema.items!.length;
 
-  let input: Val;
   if (flagUnsafeHas(unknownInputTagFlag, (tagFlagUnknown | tagFlagArray))) {
     const isArrayInput = flagUnsafeHas(unknownInputTagFlag, tagFlagArray);
     let schema: Internal;
@@ -277,7 +275,15 @@ export const arrayDecoder = (unknownInput: Val): Val => {
 
     if (!isExactSize) {
       const expectedAdditionalItems = expectedSchema.additionalItems;
-      if (expectedAdditionalItems === "strict") {
+      if (
+        isItemSchema(expectedAdditionalItems) &&
+        expectedAdditionalItems.type === neverTag
+      ) {
+        checks.push({
+          c: (inputVar) => `${inputVar}.length<=${expectedLength}`,
+          f: failInvalidType,
+        });
+      } else if (expectedAdditionalItems === "strict") {
         checks.push({
           c: (inputVar) => `${inputVar}.length===${expectedLength}`,
           f: failInvalidType,
@@ -294,13 +300,78 @@ export const arrayDecoder = (unknownInput: Val): Val => {
     // so literals for union cases don't mutate input
     // FIXME: This should be removed and validation attached to output instead
     if (checks.length > 0) {
-      input = B_refine(unknownInput, schema, checks);
+      return B_refine(unknownInput, schema, checks);
     } else {
-      input = B_refine(unknownInput, schema);
+      return B_refine(unknownInput, schema);
     }
   } else {
-    input = B_unsupportedDecode(unknownInput, unknownInput.s, expectedSchema);
+    return B_unsupportedDecode(unknownInput, unknownInput.s, expectedSchema);
   }
+};
+
+export const arrayWithRestDecoder = (unknownInput: Val): Val => {
+  const isUnion = unknownInput.u!;
+  const expectedSchema = unknownInput.e;
+  const expectedItems = expectedSchema.items!;
+  const expectedLength = expectedItems.length;
+  const expectedAdditionalItems = expectedSchema.additionalItems as Internal;
+  const input = B_arrayInput(unknownInput);
+  const itemOutputs: Val[] = [];
+  let hasTransform = false;
+  for (let idx = 0; idx < expectedLength; idx++) {
+    const itemInput = valGet(input, String(idx));
+    itemInput.e = expectedItems[idx]!;
+    itemInput.io = false;
+    itemInput.u = isUnion;
+    const itemOutput = parse(itemInput);
+    itemOutputs.push(itemOutput);
+    if (itemOutput.t) hasTransform = true;
+  }
+
+  const hasRest = expectedAdditionalItems.type !== neverTag;
+  const iteratorVar = hasRest ? B_varWithoutAllocation(input.g) : "";
+  const restOutput = hasRest
+    ? parseDynamic(B_dynamicScope(input, iteratorVar))
+    : U;
+  if (restOutput !== U && restOutput.t) hasTransform = true;
+
+  const outputSchema = copySchema(expectedSchema);
+  outputSchema.items = itemOutputs.map((item) => item.s);
+  outputSchema.additionalItems =
+    restOutput === U ? expectedAdditionalItems : restOutput.s;
+  const output = hasTransform
+    ? B_next(input, `${input.v()}.slice()`, outputSchema)
+    : B_refine(input, expectedSchema);
+
+  for (let idx = 0; idx < expectedLength; idx++) {
+    const itemOutput = itemOutputs[idx]!;
+    const itemCode =
+      B_merge(itemOutput) +
+      (itemOutput.t ? B_addKey(output, String(idx), itemOutput) + ";" : "");
+    output.cp = output.cp + itemCode;
+  }
+  if (restOutput !== U) {
+    const restCode = B_mergeWithPathPrepend(
+      restOutput,
+      input,
+      iteratorVar,
+      restOutput.t ? () => B_addKey(output, iteratorVar, restOutput) : U,
+    );
+    if (restOutput.t || restCode !== "") {
+      output.cp =
+        output.cp +
+        `for(let ${iteratorVar}=${expectedLength};${iteratorVar}<${input.v()}.length;++${iteratorVar}){${restCode}}`;
+    }
+  }
+  return B_markOutput(output, input);
+};
+
+export const arrayDecoder = (unknownInput: Val): Val => {
+  const isUnion = unknownInput.u!;
+  const expectedSchema = unknownInput.e;
+  const expectedItems = expectedSchema.items!;
+  const expectedLength = expectedItems.length;
+  const input = B_arrayInput(unknownInput);
 
   let output: Val;
   const expectedAdditionalItems = expectedSchema.additionalItems;
@@ -309,13 +380,9 @@ export const arrayDecoder = (unknownInput: Val): Val => {
     if (itemSchema === unknown) {
       output = input;
     } else {
-      if (expectedLength === 0) {
-        // Plain-array fusion only: fixed tuple slots are read by the aggregate
-        // outside its dynamic loop, so they must stay validated here.
-        const fused = B_fuseIntoJsonString(input, expectedSchema, itemSchema, true);
-        if (fused !== U) {
-          return B_markOutput(fused, input);
-        }
+      const fused = B_fuseIntoJsonString(input, expectedSchema, itemSchema, true);
+      if (fused !== U) {
+        return B_markOutput(fused, input);
       }
       const inputVar = input.v();
       const iteratorVar = B_varWithoutAllocation(input.g);
@@ -402,13 +469,8 @@ export const arrayDecoder = (unknownInput: Val): Val => {
   }
   return B_markOutput(output, input);
 }
-export const objectDecoder = (unknownInput: Val): Val => {
-  const isUnion = unknownInput.u!;
-  const expectedSchema = unknownInput.e;
-
+const B_objectInput = (unknownInput: Val): Val => {
   const unknownInputTagFlag = tagFlags[unknownInput.s.type]!;
-
-  let input: Val;
   if (flagUnsafeHas(unknownInputTagFlag, (tagFlagUnknown | tagFlagObject))) {
     const isObjectInput = flagUnsafeHas(unknownInputTagFlag, tagFlagObject);
     let schema: Internal;
@@ -441,13 +503,84 @@ export const objectDecoder = (unknownInput: Val): Val => {
     // Apply refine also when there are no checks,
     // so literals for union cases don't mutate input
     if (checks.length > 0) {
-      input = B_refine(unknownInput, schema, checks);
+      return B_refine(unknownInput, schema, checks);
     } else {
-      input = B_refine(unknownInput, schema);
+      return B_refine(unknownInput, schema);
     }
   } else {
-    input = B_unsupportedDecode(unknownInput, unknownInput.s, expectedSchema);
+    return B_unsupportedDecode(unknownInput, unknownInput.s, unknownInput.e);
   }
+};
+
+export const objectWithAdditionalDecoder = (unknownInput: Val): Val => {
+  const isUnion = unknownInput.u!;
+  const expectedSchema = unknownInput.e;
+  const input = B_objectInput(unknownInput);
+  if (!isItemSchema(input.s.additionalItems)) return objectDecoder(unknownInput);
+
+  const properties = expectedSchema.properties!;
+  const keys = Object.keys(properties);
+  const itemOutputs: Val[] = [];
+  const outputProperties: Record<string, Internal> = Object.create(null);
+  let hasTransform = false;
+  for (let idx = 0; idx < keys.length; idx++) {
+    const key = keys[idx]!;
+    const itemInput = valGet(input, key);
+    itemInput.e = properties[key]!;
+    itemInput.io = false;
+    itemInput.u = isUnion;
+    const itemOutput = parse(itemInput);
+    if (isUnion && isLiteral(properties[key]!)) {
+      B_hoistChildChecks(input, itemOutput, key);
+    }
+    itemOutputs.push(itemOutput);
+    outputProperties[key] = itemOutput.s;
+    if (itemOutput.t) hasTransform = true;
+  }
+
+  const keyVar = B_varWithoutAllocation(input.g);
+  const restOutput = parseDynamic(B_dynamicScope(input, keyVar));
+  if (restOutput.t) hasTransform = true;
+
+  const outputSchema = copySchema(expectedSchema);
+  outputSchema.properties = outputProperties;
+  outputSchema.additionalItems = restOutput.s;
+  const output = hasTransform
+    ? B_next(input, `Object.assign({},${input.v()})`, outputSchema)
+    : B_refine(input, expectedSchema);
+
+  for (let idx = 0; idx < keys.length; idx++) {
+    const itemOutput = itemOutputs[idx]!;
+    const itemCode =
+      B_merge(itemOutput) +
+      (itemOutput.t
+        ? B_addKey(output, inlinedValueFromString(keys[idx]!), itemOutput) + ";"
+        : "");
+    output.cp = output.cp + itemCode;
+  }
+  const restCode = B_mergeWithPathPrepend(
+    restOutput,
+    input,
+    keyVar,
+    restOutput.t ? () => B_addKey(output, keyVar, restOutput) : U,
+  );
+  if (restOutput.t || restCode !== "") {
+    let condition = "";
+    for (let idx = 0; idx < keys.length; idx++) {
+      if (idx !== 0) condition = condition + "&&";
+      condition = condition + `${keyVar}!==${inlinedValueFromString(keys[idx]!)}`;
+    }
+    output.cp =
+      output.cp +
+      `for(let ${keyVar} in ${input.v()}){if(${condition}){${restCode}}}`;
+  }
+  return B_markOutput(output, input);
+};
+
+export const objectDecoder = (unknownInput: Val): Val => {
+  const isUnion = unknownInput.u!;
+  const expectedSchema = unknownInput.e;
+  const input = B_objectInput(unknownInput);
 
   // The target's value schema when it's a dict (additionalProperties), else None
   // for a fixed-property object target.
@@ -460,6 +593,8 @@ export const objectDecoder = (unknownInput: Val): Val => {
   // construction below, driven by the source's known keys.
   const inputAdditionalItems = input.s.additionalItems;
   const sourceIsDict = isItemSchema(inputAdditionalItems);
+  const properties = expectedSchema.properties!;
+  const keys = Object.keys(properties);
 
   let output: Val;
   // dict<unknown> target: any object/dict is already a valid value, pass through.
@@ -528,8 +663,6 @@ export const objectDecoder = (unknownInput: Val): Val => {
     output = completeObjectVal(objectVal);
   } else {
     // Build a fixed-property object target (from a dict or object source).
-    const properties = expectedSchema.properties!;
-    const keys = Object.keys(properties);
     const keysCount = keys.length;
 
     const objectVal = makeObjectVal(input, expectedSchema);
@@ -857,7 +990,11 @@ export const valGet = (parent: Val, location: string): Val => {
       b: U,
       p: parent,
       v: _notVarAtParent,
-      i: isLiteral(schema) ? B_inlineConst(parent, schema) : `${parent.v()}${pathAppend}`,
+      i: isLiteral(schema)
+        ? B_inlineConst(parent, schema)
+        : parent.s.type === objectTag && location in Object.prototype
+          ? `(Object.hasOwn(${parent.v()},${inlinedValueFromString(location)})?${parent.v()}${pathAppend}:void 0)`
+          : `${parent.v()}${pathAppend}`,
       s: schema,
       io: U,
       e: schema,

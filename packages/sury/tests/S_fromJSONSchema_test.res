@@ -67,7 +67,7 @@ test("fromJSONSchema: const", t => {
   let schema = S.fromJSONSchema(js)
   t->Assert.deepEqual(parse(schema, "foo"), "foo")
   t->Assert.throws(() => parse(schema, "bar"))
-  t->Assert.deepEqual(jsonRoundTrip(js), js)
+  t->Assert.deepEqual(jsonRoundTrip(js), %raw(`{"type": "string", "const": "foo"}`))
 })
 
 test("fromJSONSchema: enum", t => {

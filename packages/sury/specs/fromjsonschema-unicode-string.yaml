@@ -3,7 +3,7 @@ ts:
   schema: 'S.fromJSONSchema({ type: "string", minLength: 2, maxLength: 2, pattern: "^\\p{Letter}{2}$" })'
   input: string
   output: string
-  instantiations: 637
+  instantiations: 878
 vs:
   zod: z.string()
 jsonSchema:
@@ -15,10 +15,10 @@ operations:
     examples:
       bmp-letters:
         input: '"éa"'
-        output: '"éa"'
+        error: Invalid pattern
       astral-letters:
         input: '"𐐀𐐁"'
-        output: '"𐐀𐐁"'
+        error: Invalid pattern
       one-code-point:
         input: '"😀"'
         error: Should have a code-point length within the JSON Schema bounds.
@@ -30,10 +30,10 @@ operations:
     examples:
       astral-letters:
         input: '"𐐀𐐁"'
-        output: '"𐐀𐐁"'
+        error: Invalid pattern
   encode:
     expression: i=>{e[0].test(i)||e[2](i);e[1](i)||e[3](i);return i}
     examples:
       astral-letters:
         input: '"𐐀𐐁"'
-        output: '"𐐀𐐁"'
+        error: Invalid pattern

@@ -25,7 +25,7 @@ jsonSchema:
   output: cannot represent a Object instance as spec source code
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i["__proto__"];typeof v0==="string"||e[0](v0);return {"__proto__":v0,}}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=(Object.hasOwn(i,"__proto__")?i["__proto__"]:void 0);typeof v0==="string"||e[0](v0);return {"__proto__":v0,}}
     examples:
       not-an-object:
         input: '"nope"'
@@ -38,7 +38,7 @@ operations:
       # `constructor` and `hasOwnProperty`.
       missing-field:
         input: "{}"
-        error: 'Failed at ["__proto__"]: Expected string, received {}'
+        error: 'Failed at ["__proto__"]: Expected string, received undefined'
       # FIXME: the one valid input. The result literal `{"__proto__":v0,}` runs
       # the prototype setter (a string is ignored), so the key is dropped and a
       # valid input parses to `{}` — the bug the comment above describes,

@@ -40,7 +40,12 @@ import {
   type Scenarios,
 } from "./format";
 import { buildScenarioRunner, type ScenarioSource } from "./scenario";
-import { deriveTypeInfo, deriveVsTypeInfo } from "./introspect";
+import {
+  deriveRoundTripTypeInfo,
+  deriveTypeInfo,
+  deriveVsTypeInfo,
+  type TypeInfo,
+} from "./introspect";
 import { deriveBundleSize } from "./bundleSize";
 
 const here = (rel: string) => fileURLToPath(new URL(rel, import.meta.url));
@@ -295,30 +300,50 @@ const toJsonSchemaOrError = (
     return { ok: false, error: (e as Error).message };
   }
 };
-const deriveJsonSchemaSide = async (
-  fn: () => unknown,
-): Promise<{ schema: string; inferred?: string }> => {
+type JsonSchemaSide = { schema: string; source?: string };
+type JsonSchemaSides = { input: JsonSchemaSide; output: JsonSchemaSide };
+
+const deriveJsonSchemaSide = (fn: () => unknown): JsonSchemaSide => {
   const result = toJsonSchemaOrError(fn);
   if (!result.ok) return { schema: result.error };
-  const inferred = (await deriveTypeInfo(`S.fromJSONSchema(${result.source})`)).output;
-  return { schema: result.source, inferred };
+  return { schema: result.source, source: result.source };
 };
+
+const deriveJsonSchemaSides = (schema: any): JsonSchemaSides => ({
+  input: deriveJsonSchemaSide(() => S.toJSONSchema(schema)),
+  output: deriveJsonSchemaSide(() => S.toJSONSchema(S.reverse(schema))),
+});
 
 const deriveJsonSchema = async (
   schema: any,
   types: { input: string; output: string },
+  combinedInfo?: Pick<
+    TypeInfo,
+    "fromInput" | "fromOutput" | "inputMatches" | "outputMatches"
+  >,
+  sides = deriveJsonSchemaSides(schema),
 ): Promise<Spec["jsonSchema"]> => {
-  const input = await deriveJsonSchemaSide(() => S.toJSONSchema(schema));
-  const output = await deriveJsonSchemaSide(() => S.toJSONSchema(S.reverse(schema)));
+  const inputInferred =
+    combinedInfo?.fromInput ??
+    (sides.input.source === undefined
+      ? undefined
+      : (await deriveTypeInfo(`S.fromJSONSchema(${sides.input.source})`)).input);
+  const outputInferred =
+    combinedInfo?.fromOutput ??
+    (sides.output.source === undefined
+      ? undefined
+      : (await deriveTypeInfo(`S.fromJSONSchema(${sides.output.source})`)).output);
+  const inputMatches = combinedInfo?.inputMatches ?? inputInferred === types.input;
+  const outputMatches = combinedInfo?.outputMatches ?? outputInferred === types.output;
   return {
-    input: input.schema,
-    ...(input.inferred === undefined || input.inferred === types.input
+    input: sides.input.schema,
+    ...(inputInferred === undefined || inputMatches
       ? {}
-      : { fromInputType: input.inferred }),
-    output: output.schema,
-    ...(output.inferred === undefined || output.inferred === types.output
+      : { fromInputType: inputInferred }),
+    output: sides.output.schema,
+    ...(outputInferred === undefined || outputMatches
       ? {}
-      : { fromOutputType: output.inferred }),
+      : { fromOutputType: outputInferred }),
   };
 };
 
@@ -326,7 +351,17 @@ const deriveJsonSchema = async (
 export const scaffoldJsonSchema = (
   schema: any,
   types: { input: string; output: string },
-): Promise<Spec["jsonSchema"]> => deriveJsonSchema(schema, types);
+  schemaTs: string,
+): Promise<Spec["jsonSchema"]> => {
+  const sides = deriveJsonSchemaSides(schema);
+  return deriveRoundTripTypeInfo(
+    schemaTs,
+    sides.input.source,
+    sides.output.source,
+  ).then((roundTripInfo) =>
+    deriveJsonSchema(schema, types, roundTripInfo, sides),
+  );
+};
 
 // Compile an operation, capturing any creation-time throw as the golden instead
 // of letting it abort — the operation analogue of toJsonSchemaOrError. The
@@ -620,7 +655,13 @@ const clean = <T extends Record<string, unknown>>(o: T): T => {
 export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
   const next: Spec = structuredClone(obj);
   const schema = evalSchema(next.ts.schema);
+  const jsonSchemaSides = deriveJsonSchemaSides(schema);
   const info = await deriveTypeInfo(next.ts.schema);
+  const roundTripInfo = await deriveRoundTripTypeInfo(
+    next.ts.schema,
+    jsonSchemaSides.input.source,
+    jsonSchemaSides.output.source,
+  );
 
   if (!isSkip(next.ts.input) || !isSkip(next.ts.output) || !isSkip(next.ts.instantiations)) {
     if (!isSkip(next.ts.input)) next.ts.input = info.input;
@@ -640,7 +681,12 @@ export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
     if (next.vs.zod.output !== undefined) next.vs.zod.output = zi.output;
   }
 
-  next.jsonSchema = await deriveJsonSchema(schema, info);
+  next.jsonSchema = await deriveJsonSchema(
+    schema,
+    info,
+    roundTripInfo,
+    jsonSchemaSides,
+  );
 
   const parseBuilt = buildOp("parse", schema);
   // Indexing by a `OpName` union narrows the value type to the intersection of
@@ -788,13 +834,24 @@ export const checkAliases = async (spec: Spec): Promise<string[]> => {
     // resolve the alias's type) must not abort the remaining aliases or
     // surface as the outer, label-less "goldens could not be computed".
     try {
+      const jsonSchemaSides = deriveJsonSchemaSides(aliasSchema);
       const info = await deriveTypeInfo(aliasSrc);
+      const roundTripInfo = await deriveRoundTripTypeInfo(
+        aliasSrc,
+        jsonSchemaSides.input.source,
+        jsonSchemaSides.output.source,
+      );
       if (!isSkip(spec.ts.input) && info.input !== spec.ts.input)
         errs.push(`${label}: ts.input ${JSON.stringify(info.input)} !== ${JSON.stringify(spec.ts.input)}`);
       if (!isSkip(spec.ts.output) && info.output !== spec.ts.output)
         errs.push(`${label}: ts.output ${JSON.stringify(info.output)} !== ${JSON.stringify(spec.ts.output)}`);
 
-      const js = await deriveJsonSchema(aliasSchema, info);
+      const js = await deriveJsonSchema(
+        aliasSchema,
+        info,
+        roundTripInfo,
+        jsonSchemaSides,
+      );
       if (js.input !== spec.jsonSchema.input)
         errs.push(`${label}: jsonSchema.input differs:\n${diffText(spec.jsonSchema.input, js.input)}`);
       if (js.output !== spec.jsonSchema.output)

@@ -76,11 +76,7 @@ type JSONSchemaObject<S, D, M extends boolean> = S extends { properties: infer P
           | JSONSchemaResolve<P[K], D, M>
           | undefined;
       } & {
-        [K in Exclude<JSONSchemaRequiredKeys<S>, keyof P>]: JSONSchemaAdditionalProperty<
-          S,
-          D,
-          M
-        >;
+        [K in Exclude<JSONSchemaRequiredKeys<S>, keyof P>]: JSONSchemaAdditionalProperty<S, D, M>;
       }
     >
   : S extends { additionalProperties: infer A }
@@ -129,18 +125,61 @@ type JSONSchemaRest<I, D, M extends boolean> = I extends false
 type JSONSchemaNaturalGreater<
   A extends number,
   B extends number,
-  Acc extends unknown[] = [],
 > = `${A}` extends `${bigint}`
   ? `${B}` extends `${bigint}`
-    ? Acc["length"] extends A
-      ? false
-      : Acc["length"] extends B
-        ? true
-        : Acc["length"] extends 64
-          ? false
-          : JSONSchemaNaturalGreater<A, B, [...Acc, unknown]>
+    ? JSONSchemaIntegerStringGreater<`${A}`, `${B}`>
     : false
   : false;
+
+type JSONSchemaStringLength<S extends string, A extends unknown[] = []> =
+  S extends `${infer _}${infer R}`
+    ? JSONSchemaStringLength<R, [...A, unknown]>
+    : A;
+
+type JSONSchemaTupleGreater<A extends unknown[], B extends unknown[]> =
+  A extends [unknown, ...infer AR]
+    ? B extends [unknown, ...infer BR]
+      ? JSONSchemaTupleGreater<AR, BR>
+      : true
+    : false;
+
+type JSONSchemaDigitGreater<A extends string, B extends string> = A extends "9"
+  ? B extends "9" ? false : true
+  : A extends "8"
+    ? B extends "8" | "9" ? false : true
+    : A extends "7"
+      ? B extends "7" | "8" | "9" ? false : true
+      : A extends "6"
+        ? B extends "6" | "7" | "8" | "9" ? false : true
+        : A extends "5"
+          ? B extends "5" | "6" | "7" | "8" | "9" ? false : true
+          : A extends "4"
+            ? B extends "4" | "5" | "6" | "7" | "8" | "9" ? false : true
+            : A extends "3"
+              ? B extends "3" | "4" | "5" | "6" | "7" | "8" | "9" ? false : true
+              : A extends "2"
+                ? B extends "0" | "1" ? true : false
+                : A extends "1"
+                  ? B extends "0" ? true : false
+                  : false;
+
+type JSONSchemaEqualLengthStringGreater<A extends string, B extends string> =
+  A extends `${infer AH}${infer AR}`
+    ? B extends `${infer BH}${infer BR}`
+      ? AH extends BH
+        ? JSONSchemaEqualLengthStringGreater<AR, BR>
+        : JSONSchemaDigitGreater<AH, BH>
+      : false
+    : false;
+
+type JSONSchemaIntegerStringGreater<A extends string, B extends string> =
+  JSONSchemaStringLength<A> extends infer AL extends unknown[]
+    ? JSONSchemaStringLength<B> extends infer BL extends unknown[]
+      ? AL["length"] extends BL["length"]
+        ? JSONSchemaEqualLengthStringGreater<A, B>
+        : JSONSchemaTupleGreater<AL, BL>
+      : false
+    : false;
 
 type JSONSchemaGreaterOne<A extends number, B extends number> = number extends A | B
   ? false
@@ -181,7 +220,9 @@ type JSONSchemaRepeat<
     : JSONSchemaRepeat<E, N, [...Acc, E]>;
 
 type JSONSchemaTupleRest<S, P extends readonly unknown[], I, D, M extends boolean> =
-  S extends { maxItems: infer Max extends number }
+  I extends false
+    ? []
+    : S extends { maxItems: infer Max extends number }
     ? JSONSchemaGreater<P["length"], Max> extends true
       ? []
       : JSONSchemaEqual<P["length"], Max> extends true
@@ -381,13 +422,17 @@ type JSONSchemaApplyCompositions<S, D, M extends boolean, T> = S extends {
 type JSONSchemaApplyAnyOf<S, D, M extends boolean, T> = S extends {
   anyOf: infer A extends readonly unknown[];
 }
-  ? JSONSchemaApplyOneOf<S, D, M, JSONSchemaConstrain<T, JSONSchemaUnion<A, D, M>>>
+  ? A extends readonly []
+    ? JSONSchemaApplyOneOf<S, D, M, T>
+    : JSONSchemaApplyOneOf<S, D, M, JSONSchemaConstrain<T, JSONSchemaUnion<A, D, M>>>
   : JSONSchemaApplyOneOf<S, D, M, T>;
 
 type JSONSchemaApplyOneOf<S, D, M extends boolean, T> = S extends {
   oneOf: infer A extends readonly unknown[];
 }
-  ? JSONSchemaConstrain<T, JSONSchemaUnion<A, D, M>>
+  ? A extends readonly []
+    ? T
+    : JSONSchemaConstrain<T, JSONSchemaUnion<A, D, M>>
   : T;
 
 type JSONSchemaApplyValues<S, D, M extends boolean, T> = S extends {
@@ -451,6 +496,271 @@ type JSONSchemaRefSiblings<S> = S extends { $schema: infer U extends string }
     : false
   : false;
 
+type JSONSchemaOutputRef<R, D, M extends boolean> = [JSONSchemaRefName<R>] extends [never]
+  ? JSON
+  : JSONSchemaRefName<R> extends keyof D
+    ? JSONSchemaResolveOutput<D[JSONSchemaRefName<R>], D, M>
+    : JSON;
+
+type JSONSchemaOutputAdditionalProperty<S, D, M extends boolean> = S extends {
+  additionalProperties: infer A;
+}
+  ? A extends true
+    ? JSON
+    : A extends false
+      ? never
+      : JSONSchemaResolveOutput<A, D, M>
+  : JSON;
+
+type JSONSchemaOutputRequiredKeys<S, P> = Extract<
+  keyof P,
+  | JSONSchemaRequiredKeys<S>
+  | { [K in keyof P]: P[K] extends { default: unknown } ? K : never }[keyof P]
+>;
+
+type JSONSchemaOutputObject<S, D, M extends boolean> = S extends { properties: infer P }
+  ? Flatten<
+      {
+        -readonly [K in keyof P as K extends JSONSchemaOutputRequiredKeys<S, P>
+          ? K
+          : never]: JSONSchemaResolveOutput<P[K], D, M>;
+      } & {
+        -readonly [K in keyof P as K extends JSONSchemaOutputRequiredKeys<S, P> ? never : K]?:
+          | JSONSchemaResolveOutput<P[K], D, M>
+          | undefined;
+      } & {
+        [K in Exclude<JSONSchemaRequiredKeys<S>, keyof P>]: JSONSchemaOutputAdditionalProperty<
+          S,
+          D,
+          M
+        >;
+      }
+    >
+  : JSONSchemaObject<S, D, M>;
+
+type JSONSchemaOutputOptionalTuple<
+  P extends readonly unknown[],
+  D,
+  M extends boolean,
+> = {
+  -readonly [K in keyof P]?: JSONSchemaResolveOutput<P[K], D, M>;
+};
+
+type JSONSchemaOutputTupleWithRequired<
+  P extends readonly unknown[],
+  D,
+  M extends boolean,
+  Min extends number,
+  Acc extends unknown[] = [],
+> = number extends Min
+  ? JSONSchemaOutputOptionalTuple<P, D, M>
+  : Acc["length"] extends Min
+    ? JSONSchemaOutputOptionalTuple<P, D, M>
+    : P extends readonly [infer H, ...infer T]
+      ? [
+          JSONSchemaResolveOutput<H, D, M>,
+          ...JSONSchemaOutputTupleWithRequired<T, D, M, Min, [...Acc, unknown]>,
+        ]
+      : [];
+
+type JSONSchemaOutputRest<I, D, M extends boolean> = I extends false
+  ? never
+  : I extends true
+    ? JSON
+    : I extends readonly unknown[]
+      ? JSON
+      : JSONSchemaResolveOutput<I, D, M>;
+
+type JSONSchemaOutputTupleRest<
+  S,
+  P extends readonly unknown[],
+  I,
+  D,
+  M extends boolean,
+> = I extends false
+  ? []
+  : S extends { maxItems: infer Max extends number }
+    ? JSONSchemaGreater<P["length"], Max> extends true
+      ? []
+      : JSONSchemaEqual<P["length"], Max> extends true
+        ? []
+        : JSONSchemaOutputRest<I, D, M>[]
+    : JSONSchemaOutputRest<I, D, M>[];
+
+type JSONSchemaOutputTuple<
+  S,
+  P extends readonly unknown[],
+  I,
+  D,
+  M extends boolean,
+> = S extends { minItems: infer Min extends number }
+  ? [
+      ...JSONSchemaOutputTupleWithRequired<P, D, M, Min>,
+      ...JSONSchemaOutputTupleRest<S, P, I, D, M>,
+    ]
+  : S extends { maxItems: number }
+    ? [
+        ...JSONSchemaOutputOptionalTuple<P, D, M>,
+        ...JSONSchemaOutputTupleRest<S, P, I, D, M>,
+      ]
+    : [...JSONSchemaOutputOptionalTuple<P, D, M>, ...JSONSchemaOutputRest<I, D, M>[]];
+
+type JSONSchemaOutputArrayBase<S, D, M extends boolean> = S extends {
+  prefixItems: infer P extends readonly unknown[];
+}
+  ? JSONSchemaOutputTuple<S, P, S extends { items: infer I } ? I : true, D, M>
+  : S extends { items: infer I }
+    ? I extends readonly unknown[]
+      ? JSONSchemaOutputTuple<
+          S,
+          I,
+          S extends { additionalItems: infer A } ? A : true,
+          D,
+          M
+        >
+      : JSONSchemaResolveOutput<I, D, M>[]
+    : JSON[];
+
+type JSONSchemaOutputArray<S, D, M extends boolean> = S extends {
+  maxItems: infer Max extends number;
+}
+  ? JSONSchemaArrayBounds<S, JSONSchemaOutputArrayBase<S, D, M>, Max>
+  : JSONSchemaOutputArrayBase<S, D, M>;
+
+type JSONSchemaOutputTypeName<N, S, D, M extends boolean> = N extends "object"
+  ? JSONSchemaOutputObject<S, D, M>
+  : N extends "array"
+    ? JSONSchemaOutputArray<S, D, M>
+    : JSONSchemaTypeNameToType<N, S, D, M>;
+
+type JSONSchemaOutputUnion<A extends readonly unknown[], D, M extends boolean> = {
+  [K in keyof A]: JSONSchemaResolveOutput<A[K], D, M>;
+}[number];
+
+type JSONSchemaOutputIntersection<A, D, M extends boolean> = A extends readonly [
+  infer H,
+  ...infer T,
+]
+  ? JSONSchemaResolveOutput<H, D, M> & JSONSchemaOutputIntersection<T, D, M>
+  : unknown;
+
+type JSONSchemaOutputCompositions<S, D, M extends boolean, T> = S extends {
+  allOf: infer A extends readonly unknown[];
+}
+  ? A extends readonly []
+    ? JSONSchemaOutputAnyOf<S, D, M, T>
+    : JSONSchemaOutputAnyOf<
+        S,
+        D,
+        M,
+        JSONSchemaConstrain<T, JSONSchemaOutputIntersection<A, D, M>>
+      >
+  : JSONSchemaOutputAnyOf<S, D, M, T>;
+
+type JSONSchemaOutputAnyOf<S, D, M extends boolean, T> = S extends {
+  anyOf: infer A extends readonly unknown[];
+}
+  ? A extends readonly []
+    ? JSONSchemaOutputOneOf<S, D, M, T>
+    : JSONSchemaOutputOneOf<
+        S,
+        D,
+        M,
+        JSONSchemaConstrain<T, JSONSchemaOutputUnion<A, D, M>>
+      >
+  : JSONSchemaOutputOneOf<S, D, M, T>;
+
+type JSONSchemaOutputOneOf<S, D, M extends boolean, T> = S extends {
+  oneOf: infer A extends readonly unknown[];
+}
+  ? A extends readonly []
+    ? T
+    : JSONSchemaConstrain<T, JSONSchemaOutputUnion<A, D, M>>
+  : T;
+
+type JSONSchemaOutputValues<S, D, M extends boolean, T> = S extends {
+  enum: infer E extends readonly unknown[];
+}
+  ? JSONSchemaOutputConst<S, D, M, JSONSchemaConstrain<T, JSONSchemaLiteral<E[number]>>>
+  : JSONSchemaOutputConst<S, D, M, T>;
+
+type JSONSchemaOutputConst<S, D, M extends boolean, T> = S extends { const: infer C }
+  ? JSONSchemaOutputCompositions<S, D, M, JSONSchemaConstrain<T, JSONSchemaLiteral<C>>>
+  : JSONSchemaOutputCompositions<S, D, M, T>;
+
+type JSONSchemaResolveOutputBase<S, D, M extends boolean> = S extends { type: "object" }
+  ? JSONSchemaOutputObject<S, D, M>
+  : S extends { type: "array" }
+    ? JSONSchemaOutputArray<S, D, M>
+    : S extends { type: infer N }
+      ? N extends readonly unknown[]
+        ? JSONSchemaOutputTypeName<N[number], S, D, M>
+        : JSONSchemaOutputTypeName<N, S, D, M>
+      : JSON;
+
+type JSONSchemaResolveOutputNonNullable<S, D, M extends boolean> = S extends { $ref: infer R }
+  ? M extends true
+    ? JSONSchemaOutputValues<
+        S,
+        D,
+        M,
+        JSONSchemaConstrain<JSONSchemaOutputRef<R, D, M>, JSONSchemaResolveOutputBase<S, D, M>>
+      >
+    : JSONSchemaOutputRef<R, D, M>
+  : S extends { not: infer N }
+    ? N extends object
+      ? keyof N extends never
+        ? never
+        : JSONSchemaOutputValues<S, D, M, JSONSchemaResolveOutputBase<S, D, M>>
+      : N extends true
+        ? never
+        : JSONSchemaOutputValues<S, D, M, JSONSchemaResolveOutputBase<S, D, M>>
+    : JSONSchemaOutputValues<S, D, M, JSONSchemaResolveOutputBase<S, D, M>>;
+
+type JSONSchemaResolveOutput<S, D, M extends boolean> = S extends true
+  ? JSON
+  : S extends false
+    ? never
+    : string extends keyof S
+      ? JSON
+      : S extends { nullable: true }
+        ? null | JSONSchemaResolveOutputNonNullable<S, D, M>
+        : JSONSchemaResolveOutputNonNullable<S, D, M>;
+
+type JSONSchemaHasDefault<S, D, A extends unknown[] = []> = A["length"] extends 16
+  ? false
+  : S extends { default: unknown }
+    ? true
+    : S extends { $ref: infer R }
+      ? JSONSchemaRefName<R> extends keyof D
+        ? JSONSchemaHasDefault<D[JSONSchemaRefName<R>], D, [...A, unknown]>
+        : false
+      : S extends { properties: infer P }
+        ? true extends {
+            [K in keyof P]: JSONSchemaHasDefault<P[K], D, [...A, unknown]>;
+          }[keyof P]
+          ? true
+          : false
+        : S extends { prefixItems: infer P extends readonly unknown[] }
+          ? true extends JSONSchemaHasDefault<P[number], D, [...A, unknown]>
+            ? true
+            : S extends { items: infer I }
+              ? JSONSchemaHasDefault<I, D, [...A, unknown]>
+              : false
+          : S extends { items: infer I }
+            ? JSONSchemaHasDefault<
+                I extends readonly unknown[] ? I[number] : I,
+                D,
+                [...A, unknown]
+              >
+            : S extends { anyOf: infer U extends readonly unknown[] }
+              ? JSONSchemaHasDefault<U[number], D, [...A, unknown]>
+              : S extends { oneOf: infer U extends readonly unknown[] }
+                ? JSONSchemaHasDefault<U[number], D, [...A, unknown]>
+                : S extends { allOf: infer U extends readonly unknown[] }
+                  ? JSONSchemaHasDefault<U[number], D, [...A, unknown]>
+                  : false;
+
 /**
  * The type a JSON Schema literal describes, as inferred by
  * `S.fromJSONSchema`. Resolves local `$ref` pointers (`#/$defs/…`,
@@ -462,3 +772,9 @@ type JSONSchemaRefSiblings<S> = S extends { $schema: infer U extends string }
 export type FromJSONSchema<T> = unknown extends T
   ? JSON
   : JSONSchemaResolve<T, JSONSchemaDefs<T>, JSONSchemaRefSiblings<T>>;
+
+export type FromJSONSchemaOutput<T> = unknown extends T
+  ? JSON
+  : JSONSchemaHasDefault<T, JSONSchemaDefs<T>> extends true
+    ? JSONSchemaResolveOutput<T, JSONSchemaDefs<T>, JSONSchemaRefSiblings<T>>
+    : FromJSONSchema<T>;

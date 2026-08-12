@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.fromJSONSchema({ type: "string", pattern: "^\\u{61}$" })'
+  input: string
+  output: string
+  instantiations: 633
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "string", pattern: "^\\u{61}$" }'
+  output: '{ type: "string", pattern: "^\\u{61}$" }'
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    examples:
+      flagless-quantifier:
+        input: '"uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu"'
+        output: '"uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu"'
+      unicode-code-point-form-rejected:
+        input: '"a"'
+        error: Invalid pattern
+  decode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      flagless-quantifier:
+        input: '"uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu"'
+        output: '"uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu"'
+  encode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      flagless-quantifier:
+        input: '"uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu"'
+        output: '"uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu"'
