@@ -42,7 +42,7 @@ Not the string `"undefined"`. The actual value. From a function typed as:
 stringify(value: any, replacer?: ..., space?: ...): string;
 ```
 
-The type says `string`, well... ok... So TypeScript happily lets you write `JSON.stringify(x).length` and hands you a Sentry alert at 3am.
+The type says `string`, well... ok... So TypeScript happily lets you write `JSON.stringify(x).length` and hands you a Sentry alert at 3am. And no, [ts-reset](https://github.com/mattpocock/ts-reset) doesn't save you here - it patches `JSON.parse`, and ships no rule for `JSON.stringify` at all.
 
 ### It crashes
 
@@ -96,45 +96,20 @@ JSON.stringify({ s: new Set([1, 2]) }); // => '{"s":{}}'
 JSON.stringify({ b: new Uint8Array([1, 2, 3]) });
 // => '{"b":{"0":1,"1":2,"2":3}}'
 // A byte array became a dictionary of indices, three times the size
-
-JSON.stringify({ login: "hello", _internalSecret: "1232" });
-// => '{"login":"hello","_internalSecret":"1232"}'
-// And a field you never meant to send is now in someone else's browser
 ```
 
 Not one of these told you anything went wrong.
 
-## Part 2: `JSON.parse` lies too
-
-Not what you opened the article for, but bear with me 🙏
-
-Say you work around all of the above with a custom mapper. `bigint` becomes a string, `Date` becomes an ISO string, your `Map` becomes an array of pairs. Fine.
-
-Now read it back:
+### It sends everything it finds
 
 ```ts
-const wire = JSON.stringify({ id: "42", at: new Date().toISOString() });
-
-const data = JSON.parse(wire);
-typeof data.id; // "string"  — you wanted a bigint
-typeof data.at; // "string"  — you wanted a Date
+JSON.stringify({ login: "hello", _internalSecret: "1232" });
+// => '{"login":"hello","_internalSecret":"1232"}'
 ```
 
-`JSON.parse` returns `any`, which TypeScript will cheerfully assign to whatever type you claim. So now you need a _second_ mapper for the way back, kept in sync with the first one by hand. Two functions, one contract, no compiler checking that they agree - normal life for 90% of developers.
+There's no list of fields you approved - whatever sits on the object goes out on the wire. Add a column to a database model and it can be in your public API response the same day, and nothing in your code changed to tell you.
 
-### Kind of solution: Use ts-reset
-
-Fair. [ts-reset](https://github.com/mattpocock/ts-reset) patches exactly this hole:
-
-```ts
-// with ts-reset
-const data = JSON.parse(wire);
-//    ^? unknown
-```
-
-Now instead of `any` you get `unknown`, which you later parse with one of thousands of schema libraries. But it ships a `json-parse` rule and no `json-stringify` rule - everything from Part 1 is still there, and you still write both mappers by hand.
-
-## Part 3: encode, don't stringify
+## Part 2: encode, don't stringify
 
 Over the last five years, **"parse, don't validate"** became a genuine trend in the JavaScript world. We stopped checking whether data was fine and started converting it into a type we can trust, at the edge, once.
 
@@ -163,7 +138,7 @@ encode({
 // => '{"id":"9007199254740993","at":"2026-01-15T10:30:00.000Z","price":9.99}'
 ```
 
-The types `JSON.stringify` refuses are ordinary fields here. And the values it silently corrupts throw instead - with a path:
+The types `JSON.stringify` refuses are ordinary fields here. The values it silently corrupts throw instead - with a path. And the fields you didn't declare simply don't make it out:
 
 ```ts
 encode({ id: 1n, at: new Date(), price: Infinity });
@@ -216,7 +191,7 @@ encodeEvent(event);
 // => '{"type":"user.renamed","id":"42","name":"Dmitry"}'
 ```
 
-You wrote `id: S.bigint` - the type you want in your code. A `bigint` can't exist in JSON, so **Sury** infers the `"42"` <-> `42n` conversion in both directions. No coercion wrapper, no second schema for the wire format. And no `JSON.parse`/`JSON.stringify` in your own code either - `S.jsonString` is just another schema in the pipeline. One less reason to use `ts-reset` as well.
+You wrote `id: S.bigint` - the type you want in your code. A `bigint` can't exist in JSON, so **Sury** infers the `"42"` <-> `42n` conversion in both directions. No coercion wrapper, no second schema for the wire format. And no `JSON.parse`/`JSON.stringify` in your own code either - `S.jsonString` is just another schema in the pipeline.
 
 ### Encode to X
 
@@ -228,7 +203,7 @@ What's extra cool is that `S.jsonString` is just another schema, and you can rep
 S.encoder(schema, S.json);
 ```
 
-## Part 4: I'm not the first
+## Part 3: I'm not the first
 
 Compiling a serializer from a schema is not a new idea. Even I first started working in this direction 4 years ago 😱
 
@@ -286,17 +261,15 @@ Anyway, the whole thing side by side:
 
 Those sizes are measured with tree-shaking. And `+ Ajv` is nearly free to add, since fast-json-stringify already depends on it - what you don't get for those bytes is the second direction, the types, or the ability to say `bigint`.
 
-## Part 5: "but isn't `JSON.stringify` hardware-accelerated?"
+## Part 4: "but isn't `JSON.stringify` hardware-accelerated?"
 
-I got the comment a few times during development and it's a fair one. `JSON.stringify` is C++ inside the engine, hand-tuned for two decades. How does JavaScript beat it?
+I got this comment a few times during development and it's fair. `JSON.stringify` is C++ inside the engine, hand-tuned for two decades. How does JavaScript beat it?
 
-Three things.
+**The schema already did the work.** `JSON.stringify` has to discover your object's shape on every single call - walk the keys, branch on each value's type, escape every string. **Sury** did all of that once, when you created the encoder. What's left at runtime is string concatenation, which engines optimize just as hard.
 
-**1. It's still a function call.** Crossing into the engine's serializer, walking an object it knows nothing about, checking every value's type at runtime - that costs more than concatenating a few strings. And string concatenation is also one of the most aggressively optimized operations in every JS engine 😁
+**No intermediate object.** This is the one people miss. Even if you write the mappers by hand, you build a whole new object first - `{ id: String(id), at: at.toISOString() }` - and then hand it to `JSON.stringify`, which walks it all over again. An allocation, plus a second pass. **Sury** goes straight to the string.
 
-**2. The schema deletes the work.** `JSON.stringify` has to discover your object's shape on every single call - enumerate keys, branch on each value's type, escape every string. **Sury** can do it at encoder creation time.
-
-**3. Where `JSON.stringify` wins, Sury calls it.** Because why not. **Sury** uses it internally for long strings, pretty-printed output, and whole subtrees that are already plain JSON. The point of the article is not that `JSON.stringify` is slow. The point is that `JSON.stringify` is not safe.
+**And where `JSON.stringify` wins, Sury just calls it.** Long strings, pretty-printed output, subtrees that are already plain JSON. No pride involved 😁
 
 Here's the full benchmark, every row, including the ones I lose:
 
@@ -309,7 +282,7 @@ Here's the full benchmark, every row, including the ones I lose:
 | Labels dict (50 string values)        | **3.94 µs** | 3.96 µs          | 8.18 µs             |
 | `bigint` id + binary payload + `Date` | **1.04 µs** | 1.14 µs          | 1.14 µs             |
 
-Important! The main point is not that **Sury** is faster, but that `JSON.stringify` is unsafe and you can solve it without performance regression and even get an improvement for many cases.
+Important! I'm not asking you to switch for the nanoseconds. The point is that `JSON.stringify` is unsafe, and that fixing it costs you nothing - no performance regression, and in most real shapes an improvement. Safety is the reason. Speed is just the excuse you can bring to your team lead.
 
 ## You don't have to rewrite your project
 
