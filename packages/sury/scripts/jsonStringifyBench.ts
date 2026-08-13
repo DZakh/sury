@@ -107,7 +107,9 @@ const cases: Case[] = [];
   );
   const effEnc = E.encodeSync(
     E.fromJsonString(
-      E.Struct({ id: E.Number, name: E.String, email: E.String, age: E.Number, verified: E.Boolean, score: E.Number, role: E.String }),
+      E.toCodecJson(
+        E.Struct({ id: E.Number, name: E.String, email: E.String, age: E.Number, verified: E.Boolean, score: E.Number, role: E.String }),
+      ),
     ),
   );
   const zodSchema = z.object({ id: z.number(), name: z.string(), email: z.string(), age: z.number(), verified: z.boolean(), score: z.number(), role: z.string() });
@@ -147,7 +149,9 @@ const cases: Case[] = [];
     S.array(S.schema({ id: S.number, name: S.string, active: S.boolean })),
     S.jsonString,
   );
-  const effEnc = E.encodeSync(E.fromJsonString(E.Array(E.Struct({ id: E.Number, name: E.String, active: E.Boolean }))));
+  const effEnc = E.encodeSync(
+    E.fromJsonString(E.toCodecJson(E.Array(E.Struct({ id: E.Number, name: E.String, active: E.Boolean })))),
+  );
   const zodSchema = z.array(z.object({ id: z.number(), name: z.string(), active: z.boolean() }));
   cases.push({
     name: "List endpoint (100 rows)",
@@ -225,11 +229,13 @@ const cases: Case[] = [];
   );
   const effEnc = E.encodeSync(
     E.fromJsonString(
+      E.toCodecJson(
       E.Struct({ events: E.Array(E.Union([
         E.Struct({ type: E.Literal("click"), x: E.Number, y: E.Number }),
         E.Struct({ type: E.Literal("view"), path: E.String }),
         E.Struct({ type: E.Literal("error"), message: E.String, code: E.Number }),
       ])) }),
+      ),
     ),
   );
   const zodSchema = z.object({ events: z.array(z.discriminatedUnion("type", [
@@ -259,7 +265,7 @@ const cases: Case[] = [];
     additionalProperties: { type: "number" },
   });
   const sury = S.encoder(S.record(S.number), S.jsonString);
-  const effEnc = E.encodeSync(E.fromJsonString(E.Record(E.String, E.Number)));
+  const effEnc = E.encodeSync(E.fromJsonString(E.toCodecJson(E.Record(E.String, E.Number))));
   const zodSchema = z.record(z.string(), z.number());
   cases.push({
     name: "Metrics dict (50 number values)",
@@ -283,7 +289,7 @@ const cases: Case[] = [];
     additionalProperties: { type: "string" },
   });
   const sury = S.encoder(S.record(S.string), S.jsonString);
-  const effEnc = E.encodeSync(E.fromJsonString(E.Record(E.String, E.String)));
+  const effEnc = E.encodeSync(E.fromJsonString(E.toCodecJson(E.Record(E.String, E.String))));
   const zodSchema = z.record(z.string(), z.string());
   cases.push({
     name: "Labels dict (50 string values)",
@@ -334,10 +340,11 @@ const cases: Case[] = [];
     }),
     S.jsonString,
   );
-  // Effect has base64/hex codecs but no utf8 one, so the payload takes the
-  // same hand-written mapping pass the other competitors pay for.
+  // toCodecJson carries bigint and Date on its own; only the payload needs the
+  // hand-written pass, since Effect encodes binary as base64 and this wire
+  // format is utf8.
   const effEnc = E.encodeSync(
-    E.fromJsonString(E.Struct({ id: E.BigIntFromString, payload: E.String, createdAt: E.Date, label: E.String })),
+    E.fromJsonString(E.toCodecJson(E.Struct({ id: E.BigInt, payload: E.String, createdAt: E.Date, label: E.String }))),
   );
   const zodSchema = z.object({
     id: z.codec(z.string(), z.bigint(), { decode: (v) => BigInt(v), encode: (v) => v.toString() }),
