@@ -13,6 +13,9 @@
 
 import fastJson from "fast-json-stringify";
 import * as devalue from "devalue";
+import * as E from "effect/Schema";
+import * as z from "zod";
+import * as typia from "./typiaEncoders.generated";
 import superjson from "superjson";
 import * as S from "../index.mjs";
 
@@ -39,6 +42,13 @@ type Case = {
   // Date and Uint8Array themselves, into their own wire format.
   devalue: () => string;
   superjson: () => string;
+  // typia expands at build time, so its encoders live in a checked-in
+  // generated module rather than being constructed here.
+  typia: () => string;
+  effect: () => string;
+  // Zod encodes to a value, never to JSON text, so the stringify call a
+  // consumer still has to make is part of what's timed.
+  zod: () => string;
 };
 
 const cases: Case[] = [];
@@ -79,6 +89,12 @@ const cases: Case[] = [];
     }),
     S.jsonString,
   );
+  const effEnc = E.encodeSync(
+    E.fromJsonString(
+      E.Struct({ id: E.Number, name: E.String, email: E.String, age: E.Number, verified: E.Boolean, score: E.Number, role: E.String }),
+    ),
+  );
+  const zodSchema = z.object({ id: z.number(), name: z.string(), email: z.string(), age: z.number(), verified: z.boolean(), score: z.number(), role: z.string() });
   cases.push({
     name: "API response (user profile, 7 fields)",
     stringify: () => JSON.stringify(data),
@@ -86,6 +102,9 @@ const cases: Case[] = [];
     sury: () => sury(data),
     devalue: () => devalue.stringify(data),
     superjson: () => superjson.stringify(data),
+    typia: () => typia.encUser(data),
+    effect: () => effEnc(data),
+    zod: () => JSON.stringify(z.encode(zodSchema, data)),
   });
 }
 
@@ -112,6 +131,8 @@ const cases: Case[] = [];
     S.array(S.schema({ id: S.number, name: S.string, active: S.boolean })),
     S.jsonString,
   );
+  const effEnc = E.encodeSync(E.fromJsonString(E.Array(E.Struct({ id: E.Number, name: E.String, active: E.Boolean }))));
+  const zodSchema = z.array(z.object({ id: z.number(), name: z.string(), active: z.boolean() }));
   cases.push({
     name: "List endpoint (100 rows)",
     stringify: () => JSON.stringify(data),
@@ -119,6 +140,9 @@ const cases: Case[] = [];
     sury: () => sury(data),
     devalue: () => devalue.stringify(data),
     superjson: () => superjson.stringify(data),
+    typia: () => typia.encRows(data),
+    effect: () => effEnc(data),
+    zod: () => JSON.stringify(z.encode(zodSchema, data)),
   });
 }
 
@@ -183,6 +207,20 @@ const cases: Case[] = [];
     }),
     S.jsonString,
   );
+  const effEnc = E.encodeSync(
+    E.fromJsonString(
+      E.Struct({ events: E.Array(E.Union([
+        E.Struct({ type: E.Literal("click"), x: E.Number, y: E.Number }),
+        E.Struct({ type: E.Literal("view"), path: E.String }),
+        E.Struct({ type: E.Literal("error"), message: E.String, code: E.Number }),
+      ])) }),
+    ),
+  );
+  const zodSchema = z.object({ events: z.array(z.discriminatedUnion("type", [
+    z.object({ type: z.literal("click"), x: z.number(), y: z.number() }),
+    z.object({ type: z.literal("view"), path: z.string() }),
+    z.object({ type: z.literal("error"), message: z.string(), code: z.number() }),
+  ])) });
   cases.push({
     name: "Event feed (50 tagged-union events)",
     stringify: () => JSON.stringify(data),
@@ -190,6 +228,9 @@ const cases: Case[] = [];
     sury: () => sury(data),
     devalue: () => devalue.stringify(data),
     superjson: () => superjson.stringify(data),
+    typia: () => typia.encFeed(data),
+    effect: () => effEnc(data),
+    zod: () => JSON.stringify(z.encode(zodSchema, data)),
   });
 }
 
@@ -202,6 +243,8 @@ const cases: Case[] = [];
     additionalProperties: { type: "number" },
   });
   const sury = S.encoder(S.record(S.number), S.jsonString);
+  const effEnc = E.encodeSync(E.fromJsonString(E.Record(E.String, E.Number)));
+  const zodSchema = z.record(z.string(), z.number());
   cases.push({
     name: "Metrics dict (50 number values)",
     stringify: () => JSON.stringify(data),
@@ -209,6 +252,9 @@ const cases: Case[] = [];
     sury: () => sury(data),
     devalue: () => devalue.stringify(data),
     superjson: () => superjson.stringify(data),
+    typia: () => typia.encNumDict(data),
+    effect: () => effEnc(data),
+    zod: () => JSON.stringify(z.encode(zodSchema, data)),
   });
 }
 
@@ -221,6 +267,8 @@ const cases: Case[] = [];
     additionalProperties: { type: "string" },
   });
   const sury = S.encoder(S.record(S.string), S.jsonString);
+  const effEnc = E.encodeSync(E.fromJsonString(E.Record(E.String, E.String)));
+  const zodSchema = z.record(z.string(), z.string());
   cases.push({
     name: "Labels dict (50 string values)",
     stringify: () => JSON.stringify(data),
@@ -228,6 +276,9 @@ const cases: Case[] = [];
     sury: () => sury(data),
     devalue: () => devalue.stringify(data),
     superjson: () => superjson.stringify(data),
+    typia: () => typia.encStrDict(data),
+    effect: () => effEnc(data),
+    zod: () => JSON.stringify(z.encode(zodSchema, data)),
   });
 }
 
@@ -267,6 +318,17 @@ const cases: Case[] = [];
     }),
     S.jsonString,
   );
+  // Effect has base64/hex codecs but no utf8 one, so the payload takes the
+  // same hand-written mapping pass the other competitors pay for.
+  const effEnc = E.encodeSync(
+    E.fromJsonString(E.Struct({ id: E.BigIntFromString, payload: E.String, createdAt: E.Date, label: E.String })),
+  );
+  const zodSchema = z.object({
+    id: z.codec(z.string(), z.bigint(), { decode: (v) => BigInt(v), encode: (v) => v.toString() }),
+    payload: z.codec(z.string(), z.instanceof(Uint8Array), { decode: (v) => new TextEncoder().encode(v), encode: (v) => Buffer.from(v).toString() }),
+    createdAt: z.codec(z.string(), z.date(), { decode: (v) => new Date(v), encode: (v) => v.toISOString() }),
+    label: z.string(),
+  });
   cases.push({
     name: "Event: bigint id + binary payload + Date",
     stringify: () => JSON.stringify(map(data)),
@@ -274,6 +336,9 @@ const cases: Case[] = [];
     sury: () => sury(data),
     devalue: () => devalue.stringify(data),
     superjson: () => superjson.stringify(data),
+    typia: () => typia.encWire(map(data)),
+    effect: () => effEnc({ ...data, payload: Buffer.from(data.payload).toString() }),
+    zod: () => JSON.stringify(z.encode(zodSchema, data)),
   });
 }
 
@@ -283,19 +348,26 @@ const fmt = (ns: number): string =>
 const main = () => {
   console.log(`node ${process.version}\n`);
   const rows: string[][] = [
-    ["Encode to JSON string", "Sury", "JSON.stringify", "fast-json-stringify", "devalue", "superjson"],
+    ["Encode to JSON string", "Sury", "JSON.stringify", "fast-json-stringify", "typia", "Effect", "Zod", "devalue", "superjson"],
   ];
   for (const c of cases) {
     // Guard against benchmarking functions that disagree on the output.
-    const out = { stringify: c.stringify(), sury: c.sury() };
-    if (JSON.stringify(JSON.parse(out.stringify)) !== JSON.stringify(JSON.parse(out.sury))) {
-      throw new Error(`${c.name}: Sury output differs\n${out.stringify}\n${out.sury}`);
+    // devalue/superjson are exempt: they encode into their own wire format.
+    const expected = JSON.stringify(JSON.parse(c.stringify()));
+    for (const k of ["sury", "fastJson", "typia", "effect", "zod"] as const) {
+      const actual = JSON.stringify(JSON.parse(c[k]()));
+      if (actual !== expected) {
+        throw new Error(`${c.name}: ${k} output differs\n${expected}\n${actual}`);
+      }
     }
     rows.push([
       c.name,
       fmt(bench(c.sury)),
       fmt(bench(c.stringify)),
       fmt(bench(c.fastJson)),
+      fmt(bench(c.typia)),
+      fmt(bench(c.effect)),
+      fmt(bench(c.zod)),
       fmt(bench(c.devalue)),
       fmt(bench(c.superjson)),
     ]);

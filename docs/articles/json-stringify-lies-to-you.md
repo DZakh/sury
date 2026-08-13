@@ -309,14 +309,14 @@ Here's the full benchmark, every row, including the ones I lose:
 
 | Encode to JSON string                 | **Sury**    | `JSON.stringify` | fast-json-stringify | typia    | Effect   | Zod      | devalue / superjson |
 | ------------------------------------- | ----------- | ---------------- | ------------------- | -------- | -------- | -------- | ------------------- |
-| API response (user profile, 7 fields) | **237 ns**  | 397 ns           | 270 ns              | 267 ns   | 2.09 µs  | 599 ns   | 2.31 - 3.49 µs      |
-| List endpoint (100 rows)              | 10.11 µs    | **10.07 µs**     | 10.98 µs            | 10.42 µs | 43.42 µs | 17.74 µs | 125 - 193 µs        |
-| Event feed (50 tagged-union events)   | **3.38 µs** | 4.77 µs          | 12.83 µs            | 6.65 µs  | 28.12 µs | 9.65 µs  | 56 - 93 µs          |
-| Metrics dict (50 number values)       | 8.10 µs     | **4.54 µs**      | 8.51 µs             | 21.16 µs | 11.75 µs | 14.48 µs | 24 - 35 µs          |
-| Labels dict (50 string values)        | **3.53 µs** | 3.59 µs          | 8.07 µs             | 18.06 µs | 10.66 µs | 13.73 µs | 22 - 34 µs          |
-| `bigint` id + binary payload + `Date` | **956 ns**  | 1.07 µs          | 1.13 µs             | 1.10 µs  | 4.17 µs  | 1.49 µs  | 3.25 - 5.33 µs      |
+| API response (user profile, 7 fields) | **223 ns**  | 385 ns           | 267 ns              | 2.30 µs  | 2.06 µs  | 520 ns   | 2.25 - 3.38 µs      |
+| List endpoint (100 rows)              | 9.92 µs     | **9.74 µs**      | 11.11 µs            | 13.65 µs | 43.13 µs | 16.55 µs | 117 - 193 µs        |
+| Event feed (50 tagged-union events)   | **3.41 µs** | 4.49 µs          | 12.63 µs            | 13.64 µs | 25.82 µs | 9.91 µs  | 50 - 98 µs          |
+| Metrics dict (50 number values)       | 8.10 µs     | **4.53 µs**      | 8.55 µs             | 22.66 µs | 11.99 µs | 14.69 µs | 24 - 36 µs          |
+| Labels dict (50 string values)        | **3.72 µs** | 3.78 µs          | 7.82 µs             | 21.02 µs | 10.77 µs | 13.67 µs | 23 - 32 µs          |
+| `bigint` id + binary payload + `Date` | **982 ns**  | 1.15 µs          | 1.15 µs             | 3.42 µs  | 4.15 µs  | 1.54 µs  | 3.51 - 5.24 µs      |
 
-typia is the closest, which makes sense - it's compiled too, just at build time instead of runtime. Zod pays for the intermediate object it hands you before `JSON.stringify` walks it again.
+Every column above encodes the same six payloads into byte-identical JSON, in one process, from the same benchmark script - `pnpm bench:jsonstring` in the repo if you want to run it yourself.
 
 Important! I'm not asking you to switch for the nanoseconds. The point is that `JSON.stringify` is unsafe, and that fixing it costs you nothing - no performance regression, and in most real shapes an improvement. Safety is the reason. Speed is just the excuse you can bring to your team lead.
 
