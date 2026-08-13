@@ -15,7 +15,23 @@ import fastJson from "fast-json-stringify";
 import * as devalue from "devalue";
 import * as E from "effect/Schema";
 import * as z from "zod";
-import * as typia from "./typiaEncoders.generated";
+import { build } from "esbuild";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+// Importing the generated module through tsx measures tsx's CJS interop, not
+// typia: the same encoders run ~10x slower transpiled than bundled, for
+// byte-identical output. Bundle to plain JS first so the number is typia's.
+const typiaOut = join(tmpdir(), "suryBenchTypia.mjs");
+await build({
+  entryPoints: ["./scripts/typiaEncoders.generated.ts"],
+  outfile: typiaOut,
+  bundle: true,
+  format: "esm",
+  platform: "node",
+  logLevel: "error",
+});
+const typia = await import(typiaOut);
 import superjson from "superjson";
 import * as S from "../index.mjs";
 
