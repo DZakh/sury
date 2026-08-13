@@ -3,7 +3,7 @@ ts:
   schema: 'S.fromJSONSchema({ $ref: "#/$defs/node", $defs: { node: { type: "object", properties: { value: { type: "string" }, children: { type: "array", items: { $ref: "#/$defs/node" } } }, required: ["value"] } } })'
   input: "{ value: string; children?: ...[] | undefined; }"
   output: "{ value: string; children?: ...[] | undefined; }"
-  instantiations: 2083
+  instantiations: 3712
 vs:
   zod:
     _skip: not-applicable

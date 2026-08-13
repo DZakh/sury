@@ -9,6 +9,7 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: '{ type: "string", format: "uri" }'
+  fromInputType: string
   output: Expected JSON, received URL
 operations:
   parse:

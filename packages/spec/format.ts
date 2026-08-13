@@ -214,13 +214,30 @@ const vs = S.schema({
 export const specSchema = S.schema({
   ts,
   vs,
-  jsonSchema: S.schema({ input: S.string, output: S.string }).with(S.strict).with(S.meta, {
-    description:
-      "S.toJSONSchema(schema) for both directions, as a one-line source-text string (same " +
-      "formatting as example values) — or (per direction) the message S.toJSONSchema threw " +
-      "if that direction can't be represented (e.g. a bigint/symbol field). Filled by " +
-      "`spec check --write`.",
-  }),
+  jsonSchema: S.schema({
+    input: S.string.with(S.meta, {
+      description: "S.toJSONSchema(schema), as source text, or its conversion error.",
+    }),
+    fromInputType: S.optional(S.string).with(S.meta, {
+      description:
+        "The output type inferred by S.fromJSONSchema(input), only when it differs from ts.input; omit when equal or when input is a conversion error.",
+    }),
+    output: S.string.with(S.meta, {
+      description: "S.toJSONSchema(S.reverse(schema)), as source text, or its conversion error.",
+    }),
+    fromOutputType: S.optional(S.string).with(S.meta, {
+      description:
+        "The output type inferred by S.fromJSONSchema(output), only when it differs from ts.output; omit when equal or when output is a conversion error.",
+    }),
+  })
+    .with(S.strict)
+    .with(S.meta, {
+      description:
+        "S.toJSONSchema(schema) for both directions, as one-line source text, plus any divergent " +
+        "output type inferred by S.fromJSONSchema for each generated document. Matching types are " +
+        "omitted; if a direction can't be represented, no round-trip type is recorded. " +
+        "Filled by `spec check --write`.",
+    }),
   operations,
 })
   .with(S.strict)

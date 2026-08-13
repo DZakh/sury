@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.fromJSONSchema({ type: "string", pattern: "^\\a$" })'
+  input: string
+  output: string
+  instantiations: 508
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "string", pattern: "^\\a$" }'
+  output: '{ type: "string", pattern: "^\\a$" }'
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    examples:
+      flagless-identity-escape:
+        input: '"a"'
+        output: '"a"'
+      wrong-value:
+        input: '"b"'
+        error: Invalid pattern
+  decode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      flagless-identity-escape:
+        input: '"a"'
+        output: '"a"'
+  encode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      flagless-identity-escape:
+        input: '"a"'
+        output: '"a"'

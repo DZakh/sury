@@ -212,7 +212,7 @@ const cmdNew = async (): Promise<void> => {
     // skip (a placeholder, not a claim of no-equivalent) and prompt the author
     // (below) to replace it with the real Zod equivalent.
     vs: { zod: { _skip: "todo(#…)" } },
-    jsonSchema: scaffoldJsonSchema(schema),
+    jsonSchema: await scaffoldJsonSchema(schema, typeInfo, ts),
     operations,
   };
   writeFileSync(file, serialize(spec));

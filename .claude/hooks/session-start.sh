@@ -22,7 +22,7 @@ SWITCH="sury-ppx"
 SUDO=""
 if [ "$(id -u)" -ne 0 ]; then SUDO="sudo"; fi
 
-# 1. JavaScript workspace dependencies (rescript, ava, sury, sury-ppx, ...).
+# 1. JavaScript workspace dependencies (rescript, sury, sury-ppx, ...).
 if command -v pnpm >/dev/null 2>&1; then
   (cd "$ROOT" && pnpm install)
 fi

@@ -190,13 +190,17 @@ export const completeObjectVal = (objectVal: Val): Val => {
       optionalSettingCode = (objectVar: string) => {
         return (
           (existingFn === U ? "" : existingFn(objectVar)) +
-          `if(${val.v()}!==void 0){${objectVar}[${inlinedValueFromString(key)}]=${val.i}}`
+          (key === "__proto__"
+            ? `if(${val.v()}!==void 0){${objectVar}={...${objectVar},["__proto__"]:${val.i}}}`
+            : `if(${val.v()}!==void 0){${objectVar}[${inlinedValueFromString(key)}]=${val.i}}`)
         );
       };
     } else {
       inline =
         inline +
-        (isArray ? `${val.i}` : `${inlinedValueFromString(key)}:${val.i}`) +
+        (isArray
+          ? `${val.i}`
+          : `${key === "__proto__" ? '["__proto__"]' : inlinedValueFromString(key)}:${val.i}`) +
         ",";
     }
   }
@@ -857,7 +861,11 @@ export const valGet = (parent: Val, location: string): Val => {
       b: U,
       p: parent,
       v: _notVarAtParent,
-      i: isLiteral(schema) ? B_inlineConst(parent, schema) : `${parent.v()}${pathAppend}`,
+      i: isLiteral(schema)
+        ? B_inlineConst(parent, schema)
+        : parent.s.type === objectTag && location in Object.prototype
+          ? `(Object.hasOwn(${parent.v()},${inlinedValueFromString(location)})?${parent.v()}${pathAppend}:void 0)`
+          : `${parent.v()}${pathAppend}`,
       s: schema,
       io: U,
       e: schema,

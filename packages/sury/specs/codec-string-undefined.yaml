@@ -9,6 +9,7 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: '{ type: "string", const: "undefined" }'
+  fromInputType: '"undefined"'
   output: Expected JSON, received undefined
 operations:
   parse:

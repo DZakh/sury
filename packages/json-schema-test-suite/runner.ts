@@ -2,6 +2,7 @@
 // that gets snapshotted into goldens/.
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
+import { isDeepStrictEqual } from "node:util";
 import * as S from "sury";
 
 export const DIALECTS = ["draft7", "draft2020-12"] as const;
@@ -28,11 +29,14 @@ export type DialectResult = {
   // score because the two disagreeing is always a Sury bug, never a JSON
   // Schema gap — that delta is what surfaced the `S.json` assert break.
   assertPassed: number;
+  identityAssertions: number;
+  identityPassed: number;
   files: FileResult[];
   failing: string[];
   falseAccepting: string[];
   erroredCases: string[];
   divergent: string[];
+  mutated: string[];
 };
 
 const jsonFilesIn = (dir: string): string[] =>
@@ -89,11 +93,14 @@ export const runDialect = (
     falseReject: 0,
     errored: 0,
     assertPassed: 0,
+    identityAssertions: 0,
+    identityPassed: 0,
     files: [],
     failing: [],
     falseAccepting: [],
     erroredCases: [],
     divergent: [],
+    mutated: [],
   };
 
   for (const path of files) {
@@ -117,9 +124,14 @@ export const runDialect = (
       }
 
       for (const test of testCase.tests) {
-        const parseValid = attempt(() => parse(test.data));
+        let parseValid = false;
+        let output: unknown;
+        try {
+          output = parse(structuredClone(test.data));
+          parseValid = true;
+        } catch {}
         const assertValid = attempt(() => {
-          if (!S.is(test.data, schema as never)) throw new Error("invalid");
+          if (!S.is(structuredClone(test.data), schema as never)) throw new Error("invalid");
         });
 
         if (parseValid === test.valid) {
@@ -141,6 +153,14 @@ export const runDialect = (
         }
         if (assertValid === test.valid) result.assertPassed++;
         if (assertValid !== parseValid) result.divergent.push(testId(file, testCase, test));
+        if (test.valid && parseValid) {
+          result.identityAssertions++;
+          if (isDeepStrictEqual(output, test.data)) {
+            result.identityPassed++;
+          } else {
+            result.mutated.push(testId(file, testCase, test));
+          }
+        }
       }
     }
     result.files.push(fileResult);
@@ -166,14 +186,15 @@ export type Golden = {
     rate: string;
     assertOpPassed: number;
     assertOpRate: string;
-    // Count, not a list: today a single bug (`S.is` rejecting everything but
-    // null for `S.json`) accounts for most of it, so the ids would be ~1200
-    // lines of goldens that one fix deletes. `report --divergent` prints them.
+    identityPassed: number;
+    identityAssertions: number;
+    identityRate: string;
     divergent: number;
   };
   erroredCases: string[];
   // Listed, not just counted: this is the bucket that must never grow silently.
   falseAccepting: string[];
+  mutated: string[];
   failing: string[];
 };
 
@@ -191,10 +212,14 @@ export const toGolden = (result: DialectResult, suiteCommit: string): Golden => 
     rate: rate(result.passed, result.assertions),
     assertOpPassed: result.assertPassed,
     assertOpRate: rate(result.assertPassed, result.assertions),
+    identityPassed: result.identityPassed,
+    identityAssertions: result.identityAssertions,
+    identityRate: rate(result.identityPassed, result.identityAssertions),
     divergent: result.divergent.length,
   },
   erroredCases: result.erroredCases,
   falseAccepting: result.falseAccepting,
+  mutated: result.mutated,
   failing: result.failing,
 });
 

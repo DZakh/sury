@@ -9,6 +9,7 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: '{ type: "string" }'
+  fromInputType: string
   output: Expected JSON, received bigint | string
 operations:
   parse:

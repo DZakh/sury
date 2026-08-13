@@ -9,6 +9,7 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: '{ type: "object", properties: { field: { type: "string", format: "date-time" } }, additionalProperties: false, required: ["field"] }'
+  fromInputType: "{ field: string; }"
   output: 'Failed at ["field"]: Expected JSON, received Date'
 operations:
   parse:

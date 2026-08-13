@@ -7,7 +7,7 @@ import type {
   JSONSchema7,
   OpenAPISchema30,
 } from "./src/types/jsonschema.js";
-import type { FromJSONSchema, JSON } from "./src/types/json.js";
+import type { FromJSONSchema, FromJSONSchemaOutput, JSON } from "./src/types/json.js";
 
 export * from "./src/types/standard.js";
 export * from "./src/types/jsonschema.js";
@@ -1178,9 +1178,14 @@ export function toJSONSchema<TInput, TOutput>(
  * (`unknown`, `S.JSON`, a dialect type) falls back to `Schema<JSON, JSON>`.
  * Use `S.to` to refine it further.
  */
+export function fromJSONSchema<
+  const T extends { type: "string" | "number" | "integer" | "boolean" | "null" },
+>(
+  jsonSchema: T
+): Schema<FromJSONSchema<T>>;
 export function fromJSONSchema<const T = unknown>(
   jsonSchema: T
-): Schema<FromJSONSchema<T>, FromJSONSchema<T>>;
+): Schema<FromJSONSchema<T>, FromJSONSchemaOutput<T>>;
 export function extendJSONSchema<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,
   jsonSchema: JSONSchema

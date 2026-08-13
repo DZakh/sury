@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.fromJSONSchema({ type: "object", properties: { value: { type: "string" } }, additionalProperties: { "$ref": "#/$defs/anything" }, "$defs": { anything: {} } })'
+  input: "{ value?: string | undefined; }"
+  output: "{ value?: string | undefined; }"
+  instantiations: 2793
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "object", properties: { value: { type: "string" } } }'
+  output: '{ type: "object", properties: { value: { type: "string" } } }'
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);e[1](i)||e[3](i);for(let v0 in i){try{e[0](i[v0]);}catch(v1){v1.path='["'+v0+'"]'+v1.path;throw v1}}return i}
+    examples:
+      declared-and-extra:
+        input: '{ value: "ok", extra: { nested: true } }'
+        output: '{ value: "ok", extra: { nested: true } }'
+      invalid-declared:
+        input: "{ value: 1 }"
+        error: Should pass every declared property schema.
+      non-json-extra:
+        input: "{ extra: undefined }"
+        error: 'Failed at ["extra"]: Expected JSON, received undefined'
+  decode:
+    expression: i=>{e[0](i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '{ value: "ok", extra: { nested: true } }'
+        output: '{ value: "ok", extra: { nested: true } }'
+  encode:
+    expression: i=>{e[0](i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '{ value: "ok", extra: { nested: true } }'
+        output: '{ value: "ok", extra: { nested: true } }'

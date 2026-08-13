@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.fromJSONSchema({ type: "string", minLength: 2, anyOf: [{ pattern: "^a" }, { pattern: "z$" }] })'
+  input: string
+  output: string
+  instantiations: 755
+vs:
+  zod: z.string()
+jsonSchema:
+  input: '{ type: "string", minLength: 2, anyOf: [{ pattern: "^a" }, { pattern: "z$" }] }'
+  output: '{ type: "string", minLength: 2, anyOf: [{ pattern: "^a" }, { pattern: "z$" }] }'
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0](i)||e[3](i);e[1](i)||e[4](i);return i}
+    examples:
+      starts-with-a:
+        input: '"ab"'
+        output: '"ab"'
+      ends-with-z:
+        input: '"zz"'
+        output: '"zz"'
+      too-short:
+        input: '"a"'
+        error: Should have a code-point length within the JSON Schema bounds.
+      neither-branch:
+        input: '"bb"'
+        error: Should pass at least one schema according to the anyOf property.
+  decode:
+    expression: i=>{e[0](i)||e[2](i);e[1](i)||e[3](i);return i}
+    examples:
+      starts-with-a:
+        input: '"ab"'
+        output: '"ab"'
+  encode:
+    expression: i=>{e[0](i)||e[2](i);e[1](i)||e[3](i);return i}
+    examples:
+      starts-with-a:
+        input: '"ab"'
+        output: '"ab"'

@@ -13,7 +13,7 @@ jsonSchema:
   output: '{ type: "object", properties: { constructor: { type: "string" }, hasOwnProperty: { type: "number" } }, required: ["constructor", "hasOwnProperty"] }'
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["constructor"],v1=i["hasOwnProperty"];typeof v0==="string"||e[0](v0);typeof v1==="number"&&!Number.isNaN(v1)||e[1](v1);return {"constructor":v0,"hasOwnProperty":v1,}}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=(Object.hasOwn(i,"constructor")?i["constructor"]:void 0),v1=(Object.hasOwn(i,"hasOwnProperty")?i["hasOwnProperty"]:void 0);typeof v0==="string"||e[0](v0);typeof v1==="number"&&!Number.isNaN(v1)||e[1](v1);return {"constructor":v0,"hasOwnProperty":v1,}}
     examples:
       valid:
         input: '{ constructor: "hi", hasOwnProperty: 5 }'
@@ -21,13 +21,9 @@ operations:
       wrong-type:
         input: "{ constructor: 1, hasOwnProperty: 5 }"
         error: 'Failed at ["constructor"]: Expected string, received 1'
-      # FIXME: fields are read off the prototype chain, so an absent one reports
-      # the inherited value ("received Function") instead of undefined — and an
-      # *optional* field named after a prototype member fails outright:
-      # S.schema({toString: S.optional(S.string)}) rejects {}.
       missing-fields:
         input: "{}"
-        error: 'Failed at ["constructor"]: Expected string, received Function'
+        error: 'Failed at ["constructor"]: Expected string, received undefined'
       not-an-object:
         input: '"nope"'
         error: 'Expected { constructor: string; hasOwnProperty: number; }, received "nope"'
@@ -36,6 +32,6 @@ operations:
         error: "Expected { constructor: string; hasOwnProperty: number; }, received []"
       class-instance-input:
         input: new Date("1970-01-01T00:00:00.000Z")
-        error: 'Failed at ["constructor"]: Expected string, received Function'
+        error: 'Failed at ["constructor"]: Expected string, received undefined'
   decode: identity
   encode: identity

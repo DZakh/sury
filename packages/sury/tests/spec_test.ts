@@ -120,6 +120,7 @@ test("summarize renders ranked metric moves and behavior changes", () => {
   const after = structuredClone(before);
   after.ts.instantiations = 300;
   after.ts.output = "string | undefined";
+  after.jsonSchema.fromInputType = "unknown";
   if (after.operations.parse !== "identity" && !isCreationError(after.operations.parse)) {
     after.operations.parse.expression = "i=>i";
     const ex = after.operations.parse.examples.valid;
@@ -161,6 +162,7 @@ test("summarize renders ranked metric moves and behavior changes", () => {
       toJSONSchema     4000 →  5229  +30.7%
       fromJSONSchema  20000 → 15165  -24.2%
     behavior changed:
+      string.jsonSchema.fromInputType  omitted → unknown
       string.ts.output  string → string | undefined
       string.parse.valid  output "hello" → output "HELLO""
   `);

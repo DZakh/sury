@@ -3,7 +3,7 @@ ts:
   schema: 'S.fromJSONSchema({ type: "object", properties: { id: { type: "string" }, role: { enum: ["admin", "user"] }, tags: { type: "array", items: { type: "string" } } }, required: ["id", "role"] })'
   input: '{ id: string; role: "admin" | "user"; tags?: string[] | undefined; }'
   output: '{ id: string; role: "admin" | "user"; tags?: string[] | undefined; }'
-  instantiations: 1791
+  instantiations: 2652
 vs:
   zod:
     _skip: not-applicable
@@ -20,7 +20,7 @@ operations:
       optional-key-absent:
         input: '{ id: "1", role: "user" }'
         output: '{ id: "1", role: "user", tags: undefined }'
-      undeclared-key-strips:
+      undeclared-key-stripped:
         input: '{ id: "1", role: "admin", extra: true }'
         output: '{ id: "1", role: "admin", tags: undefined }'
       enum-mismatch:

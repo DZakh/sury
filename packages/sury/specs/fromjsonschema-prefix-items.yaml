@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.fromJSONSchema({ type: "array", prefixItems: [{ type: "string" }, { type: "number" }], items: false })'
+  input: "[(string | undefined)?, (number | undefined)?, ...never[]]"
+  output: "[(string | undefined)?, (number | undefined)?, ...never[]]"
+  instantiations: 1107
+vs:
+  zod:
+    schema: z.tuple([z.string().optional(), z.number().optional()])
+    divergence: Zod prints the closed tuple without Sury's equivalent never rest.
+    input: "[(string | undefined)?, (number | undefined)?]"
+    output: "[(string | undefined)?, (number | undefined)?]"
+jsonSchema:
+  input: '{ items: false, type: "array", prefixItems: [{ type: "string" }, { type: "number" }] }'
+  output: '{ items: false, type: "array", prefixItems: [{ type: "string" }, { type: "number" }] }'
+operations:
+  parse:
+    expression: i=>{Array.isArray(i)||e[2](i);e[1](i)||e[3](i);for(let v0=0;v0<i.length;++v0){try{e[0](i[v0]);}catch(v1){v1.path='["'+v0+'"]'+v1.path;throw v1}}return i}
+    examples:
+      empty:
+        input: "[]"
+        output: "[]"
+      first-only:
+        input: '["a"]'
+        output: '["a"]'
+      full-prefix:
+        input: '["a", 1]'
+        output: '["a", 1]'
+      additional-item-rejected:
+        input: '["a", 1, true]'
+        error: Should pass the positional and additional item schemas.
+      wrong-prefix-item:
+        input: '["a", "1"]'
+        error: Should pass the positional and additional item schemas.
+  decode:
+    expression: i=>{e[0](i)||e[1](i);return i}
+    examples:
+      empty:
+        input: "[]"
+        output: "[]"
+      first-only:
+        input: '["a"]'
+        output: '["a"]'
+      full-prefix:
+        input: '["a", 1]'
+        output: '["a", 1]'
+      additional-item-rejected:
+        input: '["a", 1, true]'
+        error: Should pass the positional and additional item schemas.
+  encode:
+    expression: i=>{e[0](i)||e[1](i);return i}
+    examples:
+      empty:
+        input: "[]"
+        output: "[]"
+      first-only:
+        input: '["a"]'
+        output: '["a"]'
+      full-prefix:
+        input: '["a", 1]'
+        output: '["a", 1]'
+      additional-item-rejected:
+        input: '["a", 1, true]'
+        error: Should pass the positional and additional item schemas.

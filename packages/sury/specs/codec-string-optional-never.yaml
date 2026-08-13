@@ -10,6 +10,7 @@ vs:
 jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "string" }'
+  fromOutputType: string
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[0](i);return i}

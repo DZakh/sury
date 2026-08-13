@@ -9,6 +9,7 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: '{ type: "object", properties: { f: { type: "object", properties: { b: { type: "string" } }, required: ["b"] } }, required: ["f"] }'
+  fromInputType: "{ f: { b: string; }; }"
   output: '{ type: "object", properties: { y: { type: "string" } }, required: ["y"] }'
 operations:
   parse:

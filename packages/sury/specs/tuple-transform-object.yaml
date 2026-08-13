@@ -9,6 +9,7 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: '{ type: "array", minItems: 3, maxItems: 3, items: [{ type: "string", const: "point" }, { type: "integer", minimum: -2147483648, maximum: 2147483647 }, { type: "integer", minimum: -2147483648, maximum: 2147483647 }] }'
+  fromInputType: '["point", number, number]'
   output: '{ type: "object", properties: { x: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, y: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["x", "y"] }'
 operations:
   parse:

@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.fromJSONSchema({ "$schema": "https://json-schema.org/draft/2020-12/schema", "$ref": "#/$defs/id", minLength: 3, anyOf: [{ pattern: "c$" }], "$defs": { id: { type: "string" } } })'
+  input: string
+  output: string
+  instantiations: 1036
+vs:
+  zod: z.string()
+jsonSchema:
+  input: '{ type: "string", allOf: [{ minLength: 3 }], anyOf: [{ pattern: "c$" }] }'
+  output: '{ type: "string", allOf: [{ minLength: 3 }], anyOf: [{ pattern: "c$" }] }'
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0](i)||e[3](i);e[1](i)||e[4](i);return i}
+    examples:
+      sibling-passes:
+        input: '"abc"'
+        output: '"abc"'
+      sibling-rejects:
+        input: '"ab"'
+        error: Should pass the keywords adjacent to the $ref.
+      sibling-composition-rejects:
+        input: '"abd"'
+        error: Should pass at least one schema according to the anyOf property.
+      ref-still-rejects-type:
+        input: "123"
+        error: Expected string, received 123
+  decode:
+    expression: i=>{e[0](i)||e[2](i);e[1](i)||e[3](i);return i}
+    examples:
+      sibling-passes:
+        input: '"abc"'
+        output: '"abc"'
+  encode:
+    expression: i=>{e[0](i)||e[2](i);e[1](i)||e[3](i);return i}
+    examples:
+      sibling-passes:
+        input: '"abc"'
+        output: '"abc"'

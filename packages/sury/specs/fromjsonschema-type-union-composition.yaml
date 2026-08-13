@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.fromJSONSchema({ type: ["string", "number"], anyOf: [{ type: "string", minLength: 2 }, { type: "number", minimum: 10 }] })'
+  input: string | number
+  output: string | number
+  instantiations: 1020
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ anyOf: [{ type: "string", minLength: 2 }, { type: "number", minimum: 10 }] }'
+  output: '{ anyOf: [{ type: "string", minLength: 2 }, { type: "number", minimum: 10 }] }'
+operations:
+  parse:
+    expression: i=>{e[0](i)||e[2](i);(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i))||e[1](i);return i}
+    examples:
+      valid-string:
+        input: '"ab"'
+        output: '"ab"'
+      short-string:
+        input: '"a"'
+        error: Should pass at least one schema according to the anyOf property.
+      valid-number:
+        input: "10"
+        output: "10"
+      small-number:
+        input: "9"
+        error: Should pass at least one schema according to the anyOf property.
+      wrong-type:
+        input: "true"
+        error: Should pass at least one schema according to the anyOf property.
+  decode:
+    expression: i=>{e[0](i)||e[1](i);return i}
+    examples:
+      valid-string:
+        input: '"ab"'
+        output: '"ab"'
+  encode:
+    expression: i=>{e[0](i)||e[1](i);return i}
+    examples:
+      valid-number:
+        input: "10"
+        output: "10"

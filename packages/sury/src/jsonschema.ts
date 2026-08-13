@@ -46,7 +46,13 @@ import {
 import { json } from "./advanced/json";
 import { recursiveDecoder } from "./advanced/recursive";
 import { B_operationArg } from "./builder";
-import { array, definitionToSchema, option } from "./composites";
+import {
+  array,
+  arrayDecoder,
+  dict,
+  objectDecoder,
+  option,
+} from "./composites";
 import { schemaFactory } from "./factory";
 import {
   meta,
@@ -55,15 +61,12 @@ import {
   Metadata_set,
   Option_getOr,
   deepStrict,
-  refine,
   refineInput,
-  strict,
 } from "./modifiers";
 import { __setStandardJSONSchemaConverter, assertOrThrow } from "./operations";
 import { never_, parse, reverse } from "./parse";
 import { bool, float, integer, Literal_parse, string } from "./primitives";
 import {
-  dict,
   duration,
   email,
   gt,
@@ -85,10 +88,8 @@ import {
   minLength,
   multipleOf,
   null_,
-  object,
   pattern,
   relativeJsonPointer,
-  tuple,
   union,
   uri,
   uriReference,
@@ -243,6 +244,8 @@ export type JsonSchemaTarget = "draft-07" | "draft-2020-12" | "openapi-3.0" | (s
 // Compared on every emit branch that differs by dialect; naming it once keeps
 // the literal out of the bundle at each of those sites.
 const openApi30 = "openapi-3.0";
+const draft07Uri = "http://json-schema.org/draft-07/schema#";
+const draft2020Uri = "https://json-schema.org/draft/2020-12/schema";
 
 export type StandardJsonSchemaOptions = {
   target: JsonSchemaTarget;
@@ -258,6 +261,9 @@ const jsonSchemaMetadataId: string = /* @__PURE__ */ Metadata_Id_internal("JSONS
 const jsonSchemaMerge = (a: JSONSchemaT, b: JSONSchemaT): JSONSchemaT => {
   return Object.assign({}, a, b);
 }
+
+const isAnyJSONSchema = (definition: JSONSchemaDefinition | undefined): boolean =>
+  definition === true || (!!definition && Object.keys(definition).length === 0);
 
 const applyMetadataOverlay = (
   jsonSchema: JSONSchemaT,
@@ -438,7 +444,7 @@ const internalToJSONSchemaBase = (
   } else if (tag === arrayTag) {
     const additionalItems = schema.additionalItems!;
     const items = schema.items!;
-    if (typeof additionalItems === "object") {
+    if (items.length === 0 && typeof additionalItems === "object") {
       jsonSchema.items = internalToJSONSchema(
         additionalItems,
         pathConcat(path, pathDynamic),
@@ -464,10 +470,18 @@ const internalToJSONSchemaBase = (
         );
       });
       const itemsNumber = itemDefinitions.length;
+      let minItems = itemsNumber;
+      if (typeof additionalItems === "object") {
+        while (minItems > 0 && isOptional(items[minItems - 1]!)) minItems--;
+      }
 
       jsonSchema.type = "array";
-      jsonSchema.minItems = itemsNumber;
-      jsonSchema.maxItems = itemsNumber;
+      if (schema.minItems !== U || minItems !== 0) {
+        jsonSchema.minItems = schema.minItems ?? minItems;
+      }
+      if (schema.maxItems !== U || typeof additionalItems !== "object") {
+        jsonSchema.maxItems = schema.maxItems ?? itemsNumber;
+      }
       if (target === openApi30) {
         // OpenAPI 3.0 has no tuple support. Describe a fixed-length array
         // whose every item matches any of the positional item schemas.
@@ -479,6 +493,24 @@ const internalToJSONSchemaBase = (
         // draft-07 (default) uses an `items` array for positional schemas.
         jsonSchema.items = itemDefinitions;
       }
+      if (typeof additionalItems === "object") {
+        if (additionalItems.type === neverTag) {
+          if (target === "draft-2020-12") jsonSchema.items = false;
+          else if (target !== openApi30) jsonSchema.additionalItems = false;
+        } else {
+          const rest = internalToJSONSchema(
+            additionalItems,
+            pathConcat(path, pathDynamic),
+            defs,
+            schema,
+            target
+          );
+          if (Object.keys(rest).length !== 0) {
+            if (target === "draft-2020-12") jsonSchema.items = rest;
+            else if (target !== openApi30) jsonSchema.additionalItems = rest;
+          }
+        }
+      }
     }
   } else if (tag === anyOfTag) {
     const anyOf = schema.anyOf!;
@@ -489,7 +521,15 @@ const internalToJSONSchemaBase = (
     anyOf.forEach((childSchema) => {
       // Filter out undefined to support optional fields — no `else` branch
       // needed, this variant is simply skipped.
-      if (!(childSchema.type === undefinedTag && parent.type === objectTag)) {
+      if (
+        !(
+          childSchema.type === undefinedTag &&
+          (parent.type === objectTag ||
+            (parent.type === arrayTag &&
+              typeof parent.additionalItems === "object" &&
+              parent.items!.includes(schema)))
+        )
+      ) {
         const childJsonSchema = internalToJSONSchema(childSchema, path, defs, schema, target);
         // Collapse structurally-identical members (e.g. variants coercing to
         // the same `.to` target) so the union renders as `T`, not `anyOf:[T,T]`.
@@ -559,45 +599,38 @@ const internalToJSONSchemaBase = (
   } else if (tag === objectTag) {
     const properties = schema.properties!;
     const additionalItems = schema.additionalItems!;
+    const required: string[] = [];
+    const jsonProperties: Record<string, JSONSchemaDefinition> = Object.create(null);
+    const propertyKeys = Object.keys(properties);
+    propertyKeys.forEach((key) => {
+      const itemSchema = properties[key]!;
+      if (!isOptional(itemSchema)) required.push(key);
+      jsonProperties[key] = internalToJSONSchema(
+        itemSchema,
+        pathConcat(path, pathFromLocation(key)),
+        defs,
+        schema,
+        target
+      );
+    });
+
+    jsonSchema.type = "object";
+    if (Object.keys(jsonProperties).length !== 0 || typeof additionalItems !== "object") {
+      jsonSchema.properties = jsonProperties;
+    }
     if (typeof additionalItems === "object") {
-      jsonSchema.type = "object";
-      const childJsonSchema = internalToJSONSchema(
+      const rest = internalToJSONSchema(
         additionalItems,
         pathConcat(path, pathDynamic),
         defs,
         schema,
         target
       );
-      jsonSchema.additionalProperties =
-        Object.keys(childJsonSchema).length === 0 ? true : childJsonSchema;
-    } else {
-      const required: string[] = [];
-      const jsonProperties: Record<string, JSONSchemaDefinition> = {};
-
-      Object.keys(properties).forEach((key) => {
-        const itemSchema = properties[key]!;
-        const fieldSchema = internalToJSONSchema(
-          itemSchema,
-          pathConcat(path, pathFromLocation(key)),
-          defs,
-          schema,
-          target
-        );
-        if (!isOptional(itemSchema)) {
-          required.push(key);
-        }
-        jsonProperties[key] = fieldSchema;
-      });
-
-      jsonSchema.type = "object";
-      jsonSchema.properties = jsonProperties;
-      if (additionalItems === "strict") {
-        jsonSchema.additionalProperties = false;
-      }
-      if (required.length !== 0) {
-        jsonSchema.required = required;
-      }
+      if (Object.keys(rest).length !== 0) jsonSchema.additionalProperties = rest;
+    } else if (additionalItems === "strict") {
+      jsonSchema.additionalProperties = false;
     }
+    if (required.length !== 0) jsonSchema.required = required;
   } else if (tag === refTag && schema["$ref"] === `${defsPath}${jsonName}`) {
     // S.json → empty {}
   } else if (tag === refTag) {
@@ -640,9 +673,9 @@ export type toJSONSchemaOptions = { target?: JsonSchemaTarget };
 const targetSchemaUri = (target: JsonSchemaTarget): string | undefined => {
   switch (target) {
     case "draft-07":
-      return "http://json-schema.org/draft-07/schema#";
+      return draft07Uri;
     case "draft-2020-12":
-      return "https://json-schema.org/draft/2020-12/schema";
+      return draft2020Uri;
     // OpenAPI 3.0 has no `$schema` property.
     case openApi30:
       return U;
@@ -674,6 +707,7 @@ export const toJSONSchema = (schema: Internal, options?: toJSONSchemaOptions): J
   }
   const defs: Record<string, Internal> = {};
   const jsonSchema = internalToJSONSchema(schema, pathEmpty, defs, schema, target);
+  if (options !== U) delete jsonSchema.$schema;
   delete (defs as Record<string, unknown>).JSON;
   const defsKeys = Object.keys(defs);
   if (defsKeys.length) {
@@ -840,6 +874,8 @@ const toIntSchema = (jsonSchema: JSONSchemaT): Internal => withNumericBounds(int
 // reject — so creation fails instead. Annotations (`title`, `default`,
 // `$comment`, …) are ignored on purpose and stay out of this list.
 const unsupportedKeywords = [
+  "$dynamicRef",
+  "$recursiveRef",
   "uniqueItems",
   "contains",
   "minContains",
@@ -853,7 +889,6 @@ const unsupportedKeywords = [
   "dependentRequired",
   "unevaluatedProperties",
   "unevaluatedItems",
-  "additionalItems",
 ];
 
 // Which JSON type each assertion keyword constrains. A keyword says nothing
@@ -866,35 +901,130 @@ const keywordTypes: [JSONSchemaTypeName, string[]][] = [
   ["array", ["items", "prefixItems", "minItems", "maxItems"]],
 ];
 
-const jsonTypeOf = (data: unknown): string =>
-  data === null
-    ? "null"
-    : Array.isArray(data)
-      ? "array"
-      : typeof data === "boolean"
-        ? "boolean"
-        : typeof data === "number"
-          ? "number"
-          : typeof data === "string"
-            ? "string"
-            : "object";
+// The keywords that layer on top of a base type rather than describing one.
+// Pinning a type — for a `type` array member, or for an untyped document's
+// per-type pass — has to drop them, or every member re-applies the whole
+// document.
+const layeredKeywords = [
+  "nullable",
+  "enum",
+  "const",
+  "allOf",
+  "anyOf",
+  "oneOf",
+  "not",
+  "if",
+  "then",
+  "else",
+  "default",
+  "title",
+  "description",
+  "deprecated",
+  "examples",
+];
+
+// `required` names keys the shape around it can't make mandatory — a `dict`,
+// or an object whose `additionalProperties` schema keeps it one.
+const withRequired = (schema: Internal, required: string[]): Internal =>
+  refineInput(
+    schema,
+    (data: unknown) => required.every((key) => Object.hasOwn(data as object, key)),
+    "Should contain every required property."
+  );
 
 const passesSchema = (data: unknown, schema: Internal): boolean => {
   try {
     assertOrThrow(data, schema);
     return true;
-  } catch (_) {
+  } catch {
     return false;
   }
 };
 
-const definitionToDefaultValue = (definition: JSONSchemaDefinition): unknown => {
-  if (typeof definition !== "boolean") {
-    return definition.default;
-  } else {
-    return U;
+const codePointLength = (value: string): number => {
+  const end = value.length;
+  let length = end;
+  for (let idx = 0; idx < end - 1; idx++) {
+    const first = value.charCodeAt(idx);
+    if (first >= 0xd800 && first <= 0xdbff) {
+      const second = value.charCodeAt(idx + 1);
+      if (second >= 0xdc00 && second <= 0xdfff) {
+        length--;
+        idx++;
+      }
+    }
   }
-}
+  return length;
+};
+
+const B_invalidLengthRange = (
+  minimum = 0,
+  maximum = minimum
+): boolean =>
+  !Number.isSafeInteger(minimum) ||
+  minimum < 0 ||
+  !Number.isSafeInteger(maximum) ||
+  maximum < minimum;
+
+const definitionDefault = (definition: JSONSchemaDefinition): unknown =>
+  typeof definition === "object" ? definition.default : U;
+
+// `default` is an annotation, not an assertion: a document may carry one its own
+// property schema rejects (`{type: "integer", default: ""}` is everywhere in
+// hand-written OpenAPI) and it still has to load. `Option_getOr` panics on that,
+// because writing one by hand *is* a caller bug — so an unusable default falls
+// back to a plain optional that keeps the annotation for the round-trip. Same
+// shape as `applyBound`: a SuryError still escapes.
+const withDefault = (property: Internal, defaultValue: unknown): Internal => {
+  const optional = option(property);
+  try {
+    return Option_getOr(optional, defaultValue);
+  } catch (exn) {
+    if (exn && (exn as { s?: symbol }).s === errorSymbol) {
+      throw exn;
+    }
+    return extendJSONSchema(optional, { default: defaultValue });
+  }
+};
+
+const withoutLayeredKeywords = (
+  jsonSchema: JSONSchemaT,
+  type: JSONSchemaTypeName
+): JSONSchemaT => {
+  const base = { ...jsonSchema, type };
+  for (let idx = 0; idx < layeredKeywords.length; idx++) {
+    delete (base as Record<string, unknown>)[layeredKeywords[idx]!];
+  }
+  return base;
+};
+
+const objectSchema = (
+  properties: Record<string, Internal>,
+  additionalItems: Internal | "strip" | "strict"
+): Internal => {
+  const children = Object.values(properties);
+  const schema = baseSchema(
+    objectTag,
+    children.every((child) => !!child.sr) &&
+      (typeof additionalItems === "string" || !!additionalItems.sr),
+    objectDecoder
+  );
+  // Every other producer of `required` (builder, factory, composites) means the
+  // non-optional properties in declaration order, not the document's `required`
+  // set — which is the same list only once each absent key has been wrapped in
+  // `option`, and in a different order.
+  schema.required = Object.keys(properties).filter((key) => !isOptional(properties[key]!));
+  schema.properties = properties;
+  schema.additionalItems = additionalItems;
+  return schema;
+};
+
+const tupleSchema = (items: Internal[]): Internal => {
+  const schema = baseSchema(arrayTag, items.every((item) => !!item.sr), arrayDecoder);
+  schema.items = items;
+  schema.additionalItems = "strict";
+  return schema;
+};
 
 // A document may describe an empty range — `{minimum: 5, maximum: 1}`, or a
 // bound past int32's edge. That is legal JSON Schema with no inhabitants, so
@@ -926,7 +1056,8 @@ const applyBound = (
 // from the document's root wherever it appears, so the nested calls need the
 // root and each other's work, not just their own subschema.
 type RefContext = {
-  root: JSONSchemaT;
+  root: JSONSchemaDefinition;
+  refSiblings: boolean;
   // pointer -> the ref schema minted for it, before its target is built. A
   // pointer reached again while its own target is still building is a cycle,
   // and finds this instead of recursing forever.
@@ -950,6 +1081,27 @@ const refError = (reason: string): SuryError =>
     path: pathEmpty,
     reason,
   });
+
+const B_refSiblingsForDialect = (uri: string | undefined): boolean => {
+  if (uri === U) return false;
+  // JSON Schema only changed `$ref` from a replacement into an applicator in
+  // the two date-named dialect families matched by this alternation.
+  return /^https?:\/\/json-schema\.org\/draft\/20(?:19-09|20-12)\/schema#?$/.test(
+    uri
+  );
+};
+
+const B_compilePattern = (source: string): RegExp => {
+  try {
+    return new RegExp(source, "u");
+  } catch {
+    try {
+      return new RegExp(source);
+    } catch {
+      throw refError(`Invalid JSON Schema pattern: ${JSON.stringify(source)}`);
+    }
+  }
+};
 
 // RFC 6901: `~1` is `/` and `~0` is `~`, in that order, and the fragment may
 // arrive percent-encoded.
@@ -1075,12 +1227,94 @@ const withDefs = (schema: Internal, ctx: RefContext): Internal => {
 const asAssertion = (definition: JSONSchemaDefinition, ctx: RefContext): Internal =>
   withDefs(jsonDefinitionToSchema(definition, ctx), ctx);
 
+// The JSON rendering of a definition that only ever runs through
+// `passesSchema` — a keyword whose constraint no Sury schema carries, so
+// `toJSONSchema` of the built schema would return the shape the refinement sits
+// on, not the keyword. The document's own text is the rendering, with one
+// rewrite it can't skip: a `$ref` whose target turned out finite was inlined
+// and has no `$defs` entry left to point at, so it expands here. Only a `$ref`
+// the cycle detector kept survives as a pointer.
+const assertionToJSONDefinition = (
+  definition: JSONSchemaDefinition,
+  schema: Internal,
+  ctx: RefContext
+): JSONSchemaDefinition => {
+  const rewrite = (
+    current: JSONSchemaDefinition,
+    resolved?: Internal
+  ): JSONSchemaDefinition => {
+    if (typeof current === "boolean") return current;
+    const ref = current["$ref"];
+    if (ref !== U) {
+      if (!ctx.cyc[ref]) {
+        const target = resolved ?? ctx.built[ref];
+        if (target === U) throw refError(`Failed to resolve JSON Schema $ref: ${ref}`);
+        const expanded = toJSONSchema(target);
+        if (!ctx.refSiblings) return expanded;
+        const siblings = { ...current };
+        delete siblings["$ref"];
+        const rewritten = rewrite(siblings);
+        return isAnyJSONSchema(rewritten)
+          ? expanded
+          : jsonSchemaMerge(expanded, { allOf: [rewritten] });
+      }
+      const siblingsSchema = { ...current };
+      delete siblingsSchema["$ref"];
+      const siblings = ctx.refSiblings ? rewrite(siblingsSchema) : {};
+      return jsonSchemaMerge(siblings as JSONSchemaT, { $ref: ctx.ph[ref]!["$ref"] });
+    }
+
+    const output: JSONSchemaT = { ...current };
+    delete output["$defs"];
+    delete output.definitions;
+    const mapRecord = (record: Record<string, JSONSchemaDefinition>) =>
+      Object.fromEntries(Object.entries(record).map(([key, child]) => [key, rewrite(child)]));
+    if (current.properties !== U) output.properties = mapRecord(current.properties);
+    if (current.items !== U)
+      output.items = Array.isArray(current.items)
+        ? current.items.map((child) => rewrite(child))
+        : rewrite(current.items);
+    if (current.prefixItems !== U)
+      output.prefixItems = current.prefixItems.map((child) => rewrite(child));
+    const singleKeywords = [
+      "additionalItems",
+      "if",
+      "then",
+      "else",
+      "not",
+    ] as const;
+    for (let idx = 0; idx < singleKeywords.length; idx++) {
+      const keyword = singleKeywords[idx]!;
+      const child = current[keyword];
+      if (child !== U) output[keyword] = rewrite(child) as never;
+    }
+    if (current.additionalProperties !== U) {
+      const additionalProperties = rewrite(current.additionalProperties);
+      if (isAnyJSONSchema(additionalProperties)) delete output.additionalProperties;
+      else output.additionalProperties = additionalProperties;
+    }
+    const arrayKeywords = ["allOf", "anyOf", "oneOf"] as const;
+    for (let idx = 0; idx < arrayKeywords.length; idx++) {
+      const keyword = arrayKeywords[idx]!;
+      const children = current[keyword];
+      if (children !== U) output[keyword] = children.map((child) => rewrite(child));
+    }
+    return output;
+  };
+  return rewrite(definition, schema);
+};
+
 // @__NO_SIDE_EFFECTS__
 export const fromJSONSchema = (
-  jsonSchema: JSONSchemaT,
+  jsonSchema: JSONSchemaDefinition,
   parentCtx?: RefContext
 ): Internal => {
   const anySchema = json;
+  if (typeof jsonSchema === "boolean") {
+    return jsonSchema ? anySchema : never_;
+  }
+  const refSiblings =
+    parentCtx === U && B_refSiblingsForDialect(jsonSchema["$schema"]);
   // Every nested call threads the caller's context; only the outermost one
   // owns the document, and only it publishes the `$defs` collected below.
   const ctx: RefContext =
@@ -1088,6 +1322,7 @@ export const fromJSONSchema = (
       ? parentCtx
       : {
           root: jsonSchema,
+          refSiblings,
           ph: {},
           built: {},
           cyc: {},
@@ -1106,122 +1341,282 @@ export const fromJSONSchema = (
     }
   }
 
-  // The dispatch order of this chain is mirrored by `JSONSchemaResolve` in
-  // src/types/json.d.ts — reordering branches here changes which keyword wins a
-  // conflict, so the type-level chain must move with it.
+  // The base type dispatch is mirrored by `JSONSchemaResolve` in
+  // src/types/json.d.ts.
   let schema: Internal;
-  if (jsonSchema.nullable) {
-    schema = null_(fromJSONSchema(jsonSchemaMerge(jsonSchema, { nullable: false }), ctx));
-  } else if (jsonSchema["$ref"] !== U) {
-    // A `$ref` replaces the assertion keywords beside it, which is draft-07's
-    // and OpenAPI 3.0's reading; draft-2019-09 made it assert alongside them.
-    // The two disagree and this converter takes no dialect, so it follows the
-    // spelling that documents are actually written in — a sibling next to a
-    // `$ref` is written to be ignored, because that is what draft-07 validators
-    // did. `nullable` above and the composition keywords below still layer on.
+  if (jsonSchema["$ref"] !== U) {
+    // Draft-07 and OpenAPI 3.0 ignore assertion siblings beside `$ref`;
+    // draft-2019-09 and newer apply them. The root `$schema` selects the rule.
     schema = resolveRef(jsonSchema["$ref"], ctx);
-  } else if (jsonSchema.type === "object") {
-    if (jsonSchema.properties !== U) {
-      const properties = jsonSchema.properties;
-      // Null prototype: a JSON Schema may declare a property named `__proto__`,
-      // and on a plain `{}` that assignment replaces the object's prototype
-      // instead of adding a key.
-      const obj: Record<string, Internal> = Object.create(null);
-      Object.keys(properties).forEach((key) => {
-        const property = properties[key]!;
-        let propertySchema = jsonDefinitionToSchema(property, ctx);
-        if (!jsonSchema.required?.includes(key)) {
-          const defaultValue = definitionToDefaultValue(property);
-          if (defaultValue !== U) {
-            propertySchema = Option_getOr(option(propertySchema), defaultValue);
-          } else {
-            propertySchema = option(propertySchema);
-          }
-        }
-        obj[key] = propertySchema;
-      });
-      schema = definitionToSchema(obj);
-      if (jsonSchema.additionalProperties === false) {
-        schema = strict(schema);
+    if (ctx.refSiblings) {
+      const siblingKeywords: JSONSchemaT = {};
+      // Every assertion keyword that may sit beside a `$ref`: the per-type ones
+      // `keywordTypes` maps, plus the five that pick a type rather than
+      // constrain one. Derived so the two can't drift, and built here rather
+      // than at module scope — a top-level call is a side effect to esbuild,
+      // which then pins both arrays into every export's bundle.
+      const candidates = (["type", "enum", "const", "format", "additionalItems"] as string[]).concat(
+        ...keywordTypes.map(([, keywords]) => keywords)
+      );
+      for (let idx = 0; idx < candidates.length; idx++) {
+        const keyword = candidates[idx]!;
+        const value = (jsonSchema as Record<string, unknown>)[keyword];
+        if (value !== U) (siblingKeywords as Record<string, unknown>)[keyword] = value;
       }
-    } else {
-      const additionalProperties = jsonSchema.additionalProperties;
-      if (additionalProperties !== U) {
-        if (additionalProperties === true) {
-          schema = dict(anySchema);
-        } else if (additionalProperties === false) {
-          schema = strict(object(() => {}));
-        } else {
-          schema = dict(fromJSONSchema(additionalProperties, ctx));
-        }
-      } else {
-        schema = schemaFactory({});
+      if (Object.keys(siblingKeywords).length) {
+        const siblingSchema = asAssertion(siblingKeywords, ctx);
+        schema = refineInput(
+          schema,
+          (data: unknown) => passesSchema(data, siblingSchema),
+          "Should pass the keywords adjacent to the $ref."
+        );
+        schema = extendJSONSchema(
+          schema,
+          {
+            allOf: [
+              assertionToJSONDefinition(siblingKeywords, siblingSchema, ctx),
+            ],
+          }
+        );
       }
     }
-
-    // TODO: jsonSchema.anyOf and jsonSchema.oneOf support
+  } else if (jsonSchema.type === "object") {
+    const definitions = jsonSchema.properties;
+    if (definitions === U) {
+      const additional = jsonSchema.additionalProperties;
+      const required = jsonSchema.required;
+      if (additional === false) {
+        // Nothing may appear, so a required key has nowhere to live.
+        schema = required?.length ? never_ : objectSchema(Object.create(null), "strict");
+      } else {
+        schema = dict(
+          additional === U || isAnyJSONSchema(additional)
+            ? anySchema
+            : jsonDefinitionToSchema(additional, ctx)
+        );
+        if (required?.length) {
+          schema = extendJSONSchema(withRequired(schema, required), { required });
+        }
+      }
+    } else {
+      const additional = jsonSchema.additionalProperties;
+      if (additional === U || additional === false) {
+        const properties: Record<string, Internal> = Object.create(null);
+        const required = new Set(jsonSchema.required);
+        for (const key of Object.keys(definitions)) {
+          const definition = definitions[key]!;
+          let property = jsonDefinitionToSchema(definition, ctx);
+          if (!required.has(key)) {
+            const defaultValue = definitionDefault(definition);
+            property =
+              defaultValue === U ? option(property) : withDefault(property, defaultValue);
+          }
+          properties[key] = property;
+        }
+        for (const key of required) {
+          if (!(key in properties)) properties[key] = anySchema;
+        }
+        schema = objectSchema(properties, additional === false ? "strict" : "strip");
+      } else {
+        schema = dict(anySchema);
+        const propertyKeys = Object.keys(definitions);
+        const propertySchemas = propertyKeys.map((key) => {
+          const definition = definitions[key]!;
+          const propertySchema = asAssertion(definition, ctx);
+          return [
+            key,
+            propertySchema,
+            assertionToJSONDefinition(definition, propertySchema, ctx),
+          ] as const;
+        });
+        schema = refineInput(
+          schema,
+          (data: unknown) =>
+            propertySchemas.every(
+              ([key, propertySchema]) =>
+                !Object.hasOwn(data as object, key) ||
+                passesSchema((data as Record<string, unknown>)[key], propertySchema)
+            ),
+          "Should pass every declared property schema."
+        );
+        let additionalSchema = isAnyJSONSchema(additional)
+          ? U
+          : asAssertion(additional, ctx);
+        let roundTripAdditional = additionalSchema === U
+          ? U
+          : assertionToJSONDefinition(additional, additionalSchema, ctx);
+        if (roundTripAdditional !== U && isAnyJSONSchema(roundTripAdditional)) {
+          additionalSchema = roundTripAdditional = U;
+        }
+        if (additionalSchema !== U) {
+          const propertyNames = new Set(propertyKeys);
+          schema = refineInput(
+            schema,
+            (data: unknown) =>
+              Object.keys(data as Record<string, unknown>).every(
+                (key) =>
+                  propertyNames.has(key) ||
+                  passesSchema((data as Record<string, unknown>)[key], additionalSchema)
+              ),
+            "Should pass the additionalProperties schema."
+          );
+        }
+        if (jsonSchema.required?.length) {
+          schema = withRequired(schema, jsonSchema.required);
+        }
+        const objectKeywords: JSONSchemaT = {
+          properties: Object.fromEntries(
+            propertySchemas.map(([key, , definition]) => [key, definition])
+          ),
+        };
+        if (roundTripAdditional !== U)
+          objectKeywords.additionalProperties = roundTripAdditional;
+        if (jsonSchema.required !== U) objectKeywords.required = jsonSchema.required;
+        schema = extendJSONSchema(schema, objectKeywords);
+      }
+    }
   } else if (jsonSchema.type === "array") {
-    if (jsonSchema.prefixItems !== U) {
-      // draft-2020-12 describes tuples with `prefixItems` instead of an
-      // `items` array.
-      const prefixItems = jsonSchema.prefixItems;
-      schema = tuple((s: { item: (idx: number, schema: Internal) => unknown }) =>
-        prefixItems.map((d, idx) => s.item(idx, jsonDefinitionToSchema(d, ctx)))
+    const prefixItems =
+      jsonSchema.prefixItems !== U
+        ? jsonSchema.prefixItems
+        : Array.isArray(jsonSchema.items)
+          ? jsonSchema.items
+          : U;
+    // A tuple carries its own arity, so it needs no `minItems`/`maxItems` pass;
+    // every other array shape does.
+    let pinned = false;
+    if (prefixItems !== U) {
+      const length = prefixItems.length;
+      const minimum = jsonSchema.minItems ?? 0;
+      const restDefinition =
+        jsonSchema.prefixItems !== U
+          ? Array.isArray(jsonSchema.items)
+            ? true
+            : (jsonSchema.items ?? true)
+          : (jsonSchema.additionalItems ?? true);
+      // `items: false` caps the length at the prefix, and so does a `maxItems`
+      // landing inside it. A Sury tuple is the shape only when the bounds pin
+      // the length to exactly the prefix — and when they cross, the document
+      // describes an array no value can have, which is `never` rather than the
+      // two contradictory length checks the bounds pass would emit.
+      const maximum = Math.min(
+        jsonSchema.maxItems ?? Infinity,
+        restDefinition === false ? length : Infinity
       );
-    } else if (jsonSchema.items !== U) {
-      const items = jsonSchema.items;
-      if (Array.isArray(items)) {
-        schema = tuple((s: { item: (idx: number, schema: Internal) => unknown }) =>
-          items.map((d, idx) => s.item(idx, jsonDefinitionToSchema(d, ctx)))
+      if (minimum > maximum) {
+        schema = never_;
+      } else if (minimum === length && maximum === length) {
+        pinned = true;
+        schema = tupleSchema(
+          prefixItems.map((definition) => jsonDefinitionToSchema(definition, ctx))
         );
       } else {
-        schema = array(jsonDefinitionToSchema(items, ctx));
+        const prefixSchemas = prefixItems.map((definition) => asAssertion(definition, ctx));
+        const restSchema = restDefinition === true ? U : asAssertion(restDefinition, ctx);
+        schema = refineInput(
+          array(anySchema),
+          (data: unknown) => {
+            const items = data as unknown[];
+            const prefixLength = Math.min(items.length, prefixSchemas.length);
+            for (let idx = 0; idx < prefixLength; idx++) {
+              if (!passesSchema(items[idx], prefixSchemas[idx]!)) return false;
+            }
+            if (restSchema !== U) {
+              for (let idx = prefixSchemas.length; idx < items.length; idx++) {
+                if (!passesSchema(items[idx], restSchema)) return false;
+              }
+            }
+            return true;
+          },
+          "Should pass the positional and additional item schemas."
+        );
+        const tupleKeywords: JSONSchemaT = {};
+        if (jsonSchema.prefixItems !== U) {
+          tupleKeywords.prefixItems = prefixItems.map((definition, idx) =>
+            assertionToJSONDefinition(definition, prefixSchemas[idx]!, ctx)
+          );
+          if (jsonSchema.items !== U && !Array.isArray(jsonSchema.items)) {
+            tupleKeywords.items = assertionToJSONDefinition(
+              jsonSchema.items,
+              restSchema === U ? anySchema : restSchema,
+              ctx
+            );
+          }
+        } else {
+          tupleKeywords.items = prefixItems.map((definition, idx) =>
+            assertionToJSONDefinition(definition, prefixSchemas[idx]!, ctx)
+          );
+          if (jsonSchema.additionalItems !== U) {
+            tupleKeywords.additionalItems = assertionToJSONDefinition(
+              jsonSchema.additionalItems,
+              restSchema === U ? anySchema : restSchema,
+              ctx
+            );
+          }
+        }
+        schema = extendJSONSchema(schema, tupleKeywords);
       }
+    } else if (jsonSchema.items !== U) {
+      const items = jsonSchema.items;
+      schema = array(jsonDefinitionToSchema(items as JSONSchemaDefinition, ctx));
     } else {
       schema = array(anySchema);
     }
-    if (jsonSchema.minItems !== U) {
-      schema = applyBound(schema, minLength, jsonSchema.minItems);
+    if (!pinned) {
+      const minimum = jsonSchema.minItems;
+      const maximum = jsonSchema.maxItems;
+      if (B_invalidLengthRange(minimum, maximum)) {
+        schema = never_;
+      } else {
+        if (minimum) {
+          schema = applyBound(schema, minLength, minimum);
+        }
+        if (maximum !== U) {
+          schema = applyBound(schema, maxLength, maximum);
+        }
+      }
     }
-    if (jsonSchema.maxItems !== U) {
-      schema = applyBound(schema, maxLength, jsonSchema.maxItems);
-    }
-  } else if (jsonSchema.anyOf !== U) {
-    const definitions = jsonSchema.anyOf;
-    if (definitions.length === 0) {
-      schema = anySchema;
-    } else if (definitions.length === 1) {
-      schema = jsonDefinitionToSchema(definitions[0]!, ctx);
-    } else {
-      schema = union(definitions.map((d) => jsonDefinitionToSchema(d, ctx)));
-    }
-  // needs to come before primitives
-  } else if (jsonSchema.enum !== U) {
-    const primitives = jsonSchema.enum;
-    if (primitives.length === 0) {
-      schema = anySchema;
-    } else if (primitives.length === 1) {
-      schema = primitiveToSchema(primitives[0]);
-    } else {
-      schema = union(primitives.map(primitiveToSchema));
-    }
-  } else if (jsonSchema.const !== U) {
-    schema = primitiveToSchema(jsonSchema.const);
   } else if (Array.isArray(jsonSchema.type)) {
     const types = jsonSchema.type;
-    schema = union(
-      types.map((type) => fromJSONSchema(jsonSchemaMerge(jsonSchema, { type }), ctx))
-    );
+    schema = types.length
+      ? union(
+          types.map((type) =>
+            fromJSONSchema(withoutLayeredKeywords(jsonSchema, type), ctx)
+          )
+        )
+      : never_;
   } else if (jsonSchema.type === "string") {
     schema = stringFormatSchemas[jsonSchema.format!] || string;
     if (jsonSchema.pattern !== U) {
-      schema = pattern(schema, new RegExp(jsonSchema.pattern));
+      schema = pattern(schema, B_compilePattern(jsonSchema.pattern));
     }
-    if (jsonSchema.minLength !== U) {
-      schema = applyBound(schema, minLength, jsonSchema.minLength);
-    }
-    if (jsonSchema.maxLength !== U) {
-      schema = applyBound(schema, maxLength, jsonSchema.maxLength);
+    if (jsonSchema.minLength !== U || jsonSchema.maxLength !== U) {
+      const minimum = jsonSchema.minLength;
+      const maximum = jsonSchema.maxLength;
+      if (B_invalidLengthRange(minimum, maximum)) {
+        schema = never_;
+      } else if (minimum !== 0 || maximum !== U) {
+        schema = refineInput(
+          schema,
+          (data: unknown) => {
+            const stringData = data as string;
+            if (minimum !== U && stringData.length < minimum) return false;
+            if (minimum === U && maximum !== U && stringData.length <= maximum)
+              return true;
+            const length = codePointLength(stringData);
+            return (minimum === U || length >= minimum) && (maximum === U || length <= maximum);
+          },
+          "Should have a code-point length within the JSON Schema bounds."
+        );
+      }
+      // `minLength: 0` asserts nothing, so a document carrying only that has
+      // no keyword to store and no copy to pay for.
+      if (schema.type !== neverTag && (minimum || maximum !== U)) {
+        const lengthKeywords: JSONSchemaT = {};
+        if (minimum) lengthKeywords.minLength = minimum;
+        if (maximum !== U) lengthKeywords.maxLength = maximum;
+        schema = extendJSONSchema(schema, lengthKeywords);
+      }
     }
   } else if (jsonSchema.type === "integer") {
     schema = toIntSchema(jsonSchema);
@@ -1242,56 +1637,115 @@ export const fromJSONSchema = (
       reason: `Unsupported JSON Schema type: ${jsonSchema.type}`,
     });
   } else {
-    // No `type`, but the assertion keywords still bind — each to its own JSON
-    // type, and vacuously to every other. Recursing with the type pinned reuses
-    // the branches above; the runtime guard is what keeps it vacuous.
-    const guarded: [string, Internal][] = [];
+    const schemas: Internal[] = [];
+    let constrained = false;
     for (let i = 0; i < keywordTypes.length; i++) {
       const [type, keywords] = keywordTypes[i]!;
-      if (keywords.some((k) => (jsonSchema as Record<string, unknown>)[k] !== U)) {
-        guarded.push([type, asAssertion(jsonSchemaMerge(jsonSchema, { type }), ctx)]);
-      }
+      const applies = keywords.some(
+        (key) => (jsonSchema as Record<string, unknown>)[key] !== U
+      );
+      if (applies) constrained = true;
+      schemas.push(
+        fromJSONSchema(
+          applies ? withoutLayeredKeywords(jsonSchema, type) : { type },
+          ctx
+        )
+      );
     }
-    schema =
-      guarded.length === 0
-        ? anySchema
-        : refine(
-            anySchema,
-            (data: unknown) => {
-              const type = jsonTypeOf(data);
-              return guarded.every(
-                ([guardType, guardSchema]) =>
-                  type !== guardType || passesSchema(data, guardSchema)
-              );
-            },
-            "Should pass the schema's assertion keywords for its type."
-          );
+    schema = constrained
+      ? union([...schemas, bool, schemaFactory(null)])
+      : anySchema;
   }
 
-  // Composition keywords constrain *in addition to* everything above, so they
-  // layer on as refinements rather than replacing the shape — a schema is not
-  // either "an object with these properties" or "an allOf", it is both.
+  // `const`/`enum` replace the base with native literals after filtering out
+  // values that fail sibling assertions. The resulting runtime only needs the
+  // literal checks; re-running the base for every parse would be redundant.
+  if (jsonSchema["$ref"] === U && jsonSchema.enum !== U) {
+    const assertion = withDefs(schema, ctx);
+    const candidates = jsonSchema.enum
+      .filter(
+        (candidate) => schema === anySchema || passesSchema(candidate, assertion)
+      )
+      .map(primitiveToSchema);
+    schema =
+      candidates.length === 0
+        ? never_
+        : candidates.length === 1
+          ? candidates[0]!
+          : union(candidates);
+  }
+  if (jsonSchema["$ref"] === U && jsonSchema.const !== U) {
+    schema = schema === anySchema || passesSchema(jsonSchema.const, withDefs(schema, ctx))
+      ? primitiveToSchema(jsonSchema.const)
+      : never_;
+  }
+
+  // Composition keywords constrain *in addition to* everything above — so they
+  // layer on as refinements rather than replacing the shape. The exception is a
+  // base nothing has constrained yet: intersecting with "any JSON" is the
+  // member itself, so the member compiles natively instead, keeping the union
+  // codegen and the per-member error a document with no sibling keywords
+  // deserves. `schema === anySchema` is exactly that test — every other branch
+  // above, and `enum`/`const`, replace it.
   if (jsonSchema.allOf !== U) {
     const definitions = jsonSchema.allOf;
-    const schemas = definitions.map((d) => asAssertion(d, ctx));
-    if (schemas.length > 0) {
+    if (definitions.length !== 0) {
+      // Only a lone member: Sury has no intersection to compile two into.
+      if (schema === anySchema && definitions.length === 1) {
+        schema = jsonDefinitionToSchema(definitions[0]!, ctx);
+      } else {
+        const schemas = definitions.map((d) => asAssertion(d, ctx));
+        schema = refineInput(
+          schema,
+          (data: unknown) => schemas.every((s) => passesSchema(data, s)),
+          "Should pass for all schemas of the allOf property."
+        );
+        schema = extendJSONSchema(schema, {
+          allOf: definitions.map((definition, idx) =>
+            assertionToJSONDefinition(definition, schemas[idx]!, ctx)
+          ),
+        });
+      }
+    }
+  }
+  if (jsonSchema.anyOf !== U) {
+    const definitions = jsonSchema.anyOf;
+    if (definitions.length === 0) {
+      schema = never_;
+    } else if (schema === anySchema) {
+      const members = definitions.map((d) => jsonDefinitionToSchema(d, ctx));
+      schema = members.length === 1 ? members[0]! : union(members);
+    } else {
+      const schemas = definitions.map((d) => asAssertion(d, ctx));
       schema = refineInput(
         schema,
-        (data: unknown) => schemas.every((s) => passesSchema(data, s)),
-        "Should pass for all schemas of the allOf property."
+        (data: unknown) => schemas.some((candidate) => passesSchema(data, candidate)),
+        "Should pass at least one schema according to the anyOf property."
       );
+      schema = extendJSONSchema(schema, {
+        anyOf: definitions.map((definition, idx) =>
+          assertionToJSONDefinition(definition, schemas[idx]!, ctx)
+        ),
+      });
     }
   }
   if (jsonSchema.oneOf !== U) {
     const definitions = jsonSchema.oneOf;
-    const schemas = definitions.map((d) => asAssertion(d, ctx));
-    if (schemas.length > 0) {
+    if (definitions.length === 0) {
+      schema = never_;
+    } else {
+      const schemas = definitions.map((d) => asAssertion(d, ctx));
       schema = refineInput(
         schema,
         (data: unknown) =>
-          schemas.filter((s) => passesSchema(data, s)).length === 1,
+          schemas.filter((candidate) => passesSchema(data, candidate)).length === 1,
         "Should pass exactly one schema according to the oneOf property."
       );
+      schema = extendJSONSchema(schema, {
+        oneOf: definitions.map((definition, idx) =>
+          assertionToJSONDefinition(definition, schemas[idx]!, ctx)
+        ),
+      });
     }
   }
   if (jsonSchema.not !== U) {
@@ -1301,6 +1755,9 @@ export const fromJSONSchema = (
       (data: unknown) => !passesSchema(data, notSchema),
       "Should NOT be valid against schema in the not property."
     );
+    schema = extendJSONSchema(schema, {
+      not: assertionToJSONDefinition(jsonSchema.not, notSchema, ctx),
+    });
   }
   if (jsonSchema.if !== U) {
     // `then`/`else` default to "always passes" when absent.
@@ -1317,6 +1774,29 @@ export const fromJSONSchema = (
       },
       "Should pass the if/then/else schema validation."
     );
+    const conditionalKeywords: JSONSchemaT = {
+      if: assertionToJSONDefinition(jsonSchema.if, ifSchema, ctx),
+    };
+    if (jsonSchema.then !== U)
+      conditionalKeywords.then = assertionToJSONDefinition(jsonSchema.then, thenSchema!, ctx);
+    if (jsonSchema.else !== U)
+      conditionalKeywords.else = assertionToJSONDefinition(jsonSchema.else, elseSchema!, ctx);
+    schema = extendJSONSchema(schema, conditionalKeywords);
+  }
+
+  // OpenAPI 3.0's `nullable` widens whatever the rest of the document
+  // describes, so it wraps the finished schema instead of re-entering the
+  // dispatch with `nullable: false`: re-entering applies every keyword below
+  // the base twice, and lets `enum`/`const` replace the very schema `null` was
+  // added to. Mirrored by `JSONSchemaResolve` in src/types/json.d.ts, which
+  // likewise unions `null` onto the fully resolved type. Skipped for an
+  // unconstrained base, which already admits `null`.
+  if (jsonSchema.nullable && schema !== anySchema) {
+    schema = null_(schema);
+  }
+
+  if (jsonSchema.default !== U) {
+    schema = extendJSONSchema(schema, { default: jsonSchema.default });
   }
 
   if (

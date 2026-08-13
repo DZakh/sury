@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.fromJSONSchema({ "$ref": "#/$defs/base", allOf: [{ minLength: 2 }], not: { const: "bad" }, "$defs": { base: { type: "string" } } })'
+  input: string
+  output: string
+  instantiations: 815
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "string", allOf: [{ minLength: 2 }], not: { const: "bad" } }'
+  output: '{ type: "string", allOf: [{ minLength: 2 }], not: { const: "bad" } }'
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0](i)||e[3](i);e[1](i)||e[4](i);return i}
+    examples:
+      valid:
+        input: '"ok"'
+        output: '"ok"'
+      too-short:
+        input: '"a"'
+        error: Should pass for all schemas of the allOf property.
+      excluded:
+        input: '"bad"'
+        error: Should NOT be valid against schema in the not property.
+      wrong-type:
+        input: "1"
+        error: Expected string, received 1
+  decode:
+    expression: i=>{e[0](i)||e[2](i);e[1](i)||e[3](i);return i}
+    examples:
+      valid:
+        input: '"ok"'
+        output: '"ok"'
+  encode:
+    expression: i=>{e[0](i)||e[2](i);e[1](i)||e[3](i);return i}
+    examples:
+      valid:
+        input: '"ok"'
+        output: '"ok"'

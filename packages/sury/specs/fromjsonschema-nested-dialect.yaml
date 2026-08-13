@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.fromJSONSchema({ type: "object", properties: { value: { "$schema": "http://json-schema.org/draft-04/schema#", type: "string" } }, required: ["value"] })'
+  input: "{ value: string; }"
+  output: "{ value: string; }"
+  instantiations: 2442
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "object", properties: { value: { type: "string" } }, required: ["value"] }'
+  output: '{ type: "object", properties: { value: { type: "string" } }, required: ["value"] }'
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i["value"];typeof v0==="string"||e[0](v0);return {"value":v0,}}
+    examples:
+      valid:
+        input: '{ value: "ok" }'
+        output: '{ value: "ok" }'
+      invalid:
+        input: "{ value: 1 }"
+        error: 'Failed at ["value"]: Expected string, received 1'
+  decode: identity
+  encode: identity

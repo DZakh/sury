@@ -275,6 +275,33 @@ test("Test extended JSON Schema", (t) => {
   });
 });
 
+test("toJSONSchema omits default additionalProperties schemas", (t) => {
+  const expected = {
+    type: "object",
+    properties: { value: { type: "string" } },
+  };
+  const input = { value: "ok", extra: { nested: true } };
+
+  for (const additionalProperties of [true, {}] as const) {
+    const schema = S.fromJSONSchema({
+      type: "object",
+      properties: { value: { type: "string" } },
+      additionalProperties,
+    });
+    t.expect(S.parser(schema)(input)).toBe(input);
+    t.expect(S.toJSONSchema(schema)).toEqual(expected);
+  }
+
+  const referencedAny = S.fromJSONSchema({
+    type: "object",
+    additionalProperties: { $ref: "#/$defs/any" },
+    $defs: { any: {} },
+  });
+  t.expect(S.parser(referencedAny)(input)).toBe(input);
+  t.expect(S.toJSONSchema(referencedAny)).toEqual({ type: "object" });
+  t.expect(S.toJSONSchema(S.record(S.json))).toEqual({ type: "object" });
+});
+
 test("JS refine produces invalid_input error with expected/received populated", (t) => {
   const schema = S.string.with(S.refine, () => false, { error: "nope" });
   const result = S.safe(() => S.parser(schema)("123"));
@@ -1188,21 +1215,8 @@ test("Example of transformed schema", (t) => {
   });
 
   const fromJsonSchema = S.fromJSONSchema(S.toJSONSchema(userSchema));
-  t.expect(
-    S.parser(fromJsonSchema)({ USER_ID: "0", USER_NAME: "Dmitry" }),
-  ).toEqual({
-    USER_ID: "0",
-    USER_NAME: "Dmitry",
-  });
-  if (fromJsonSchema.type === "object") {
-    t.expect(fromJsonSchema.additionalItems).toBe("strip");
-    t.expect(Object.keys(fromJsonSchema.properties)).toEqual([
-      "USER_ID",
-      "USER_NAME",
-    ]);
-  } else {
-    t.expect.fail("fromJsonSchema should be an object");
-  }
+  const jsonInput = { USER_ID: "0", USER_NAME: "Dmitry" };
+  t.expect(S.parser(fromJsonSchema)(jsonInput)).toEqual(jsonInput);
 });
 
 test("Brand", (t) => {
@@ -1275,7 +1289,7 @@ test("fromJSONSchema: an inline schema infers the type it describes", (t) => {
     id: string;
     role: "admin" | "user";
     tags?: string[] | undefined;
-    point?: [number, number] | undefined;
+    point?: [number?, number?, ...S.JSON[]] | undefined;
     score?: number | null | undefined;
   }>();
   t.expect(S.parser(userSchema)({ id: "1", role: "admin" })).toEqual({
@@ -1308,6 +1322,261 @@ test("fromJSONSchema: an inline schema infers the type it describes", (t) => {
   ).toBe<S.JSON, S.JSON>();
 });
 
+test("fromJSONSchema: assertion-only schemas preserve valid JSON", (t) => {
+  const anySchema = S.fromJSONSchema(true);
+  const noSchema = S.fromJSONSchema(false);
+  const emptyEnum = S.fromJSONSchema({ enum: [] });
+  expectSchemaType(anySchema).toBe<S.JSON>();
+  expectSchemaType(noSchema).toBe<never>();
+  expectSchemaType(emptyEnum).toBe<never>();
+  t.expect(S.toJSONSchema(emptyEnum)).toEqual({ not: {} });
+  t.expect(S.parser(anySchema)({ nested: [1, true] })).toEqual({ nested: [1, true] });
+  t.expect(() => S.parser(noSchema)(null)).toThrow("Expected never");
+  t.expect(() => S.parser(emptyEnum)("anything")).toThrow("Expected never");
+
+  const composed = S.fromJSONSchema({
+    type: "string",
+    minLength: 2,
+    anyOf: [{ pattern: "^a" }, { pattern: "z$" }],
+  });
+  expectSchemaType(composed).toBe<string>();
+  t.expect(S.parser(composed)("ab")).toBe("ab");
+  t.expect(S.parser(composed)("zz")).toBe("zz");
+  t.expect(() => S.parser(composed)("bb")).toThrow(
+    "Should pass at least one schema according to the anyOf property."
+  );
+
+  const tupleSchema = S.fromJSONSchema({
+    type: "array",
+    items: [{ type: "string" }, { type: "number" }],
+    additionalItems: { type: "boolean" },
+  });
+  expectSchemaType(tupleSchema).toBe<[
+    (string | undefined)?,
+    (number | undefined)?,
+    ...boolean[],
+  ]>();
+  for (const value of [[], ["a"], ["a", 1], ["a", 1, true, false]]) {
+    t.expect(S.parser(tupleSchema)(value)).toBe(value);
+  }
+  t.expect(() => S.parser(tupleSchema)(["a", 1, 2])).toThrow(
+    "Should pass the positional and additional item schemas."
+  );
+
+  const optionalTransformedTuple = S.fromJSONSchema({
+    type: "array",
+    prefixItems: [
+      {
+        type: "object",
+        properties: { value: { type: "string", default: "fallback" } },
+      },
+    ],
+    items: false,
+  });
+  expectSchemaType(optionalTransformedTuple).toBe<
+    [({ value?: string | undefined } | undefined)?, ...never[]]
+  >();
+  const absentPrefix: [] = [];
+  t.expect(S.parser(optionalTransformedTuple)(absentPrefix)).toBe(absentPrefix);
+  t.expect(absentPrefix).toHaveLength(0);
+  const presentPrefix: [{ value?: string }] = [{}];
+  t.expect(S.parser(optionalTransformedTuple)(presentPrefix)).toBe(presentPrefix);
+  t.expect(presentPrefix).toEqual([{}]);
+
+  const closedTupleSchema = S.fromJSONSchema({
+    type: "array",
+    minItems: 2,
+    maxItems: 2,
+    items: [{ type: "string" }, { type: "number" }],
+  });
+  expectSchemaType(closedTupleSchema).toBe<[string, number]>();
+  t.expect(S.parser(closedTupleSchema)(["a", 1])).toEqual(["a", 1]);
+  // The tuple's own arity is the length check, so `minItems`/`maxItems` add
+  // nothing and the error reads like a hand-written `S.tuple`.
+  t.expect(() => S.parser(closedTupleSchema)(["a"])).toThrow(
+    "Expected [string, number], received"
+  );
+  t.expect(() => S.parser(closedTupleSchema)(["a", 1, true])).toThrow(
+    "Expected [string, number], received"
+  );
+
+  // Bounds that cross describe an array no value can have, rather than a tuple
+  // carrying two contradictory length checks.
+  const emptyTupleRange = S.fromJSONSchema({
+    type: "array",
+    prefixItems: [{ type: "string" }],
+    minItems: 3,
+    items: false,
+  });
+  expectSchemaType(emptyTupleRange).toBe<never>();
+  t.expect(S.toJSONSchema(emptyTupleRange)).toEqual({ not: {} });
+
+  const objectSchema = S.fromJSONSchema({
+    type: "object",
+    properties: { value: { type: "string", default: "fallback" } },
+    required: ["constructor"],
+    additionalProperties: { type: "integer" },
+  });
+  expectSchemaType(objectSchema).toBe<
+    { value?: string | undefined; constructor: number },
+    { value?: string | undefined; constructor: number }
+  >();
+  const objectInput = { constructor: 1, value: "set", extra: 2 };
+  t.expect(S.parser(objectSchema)(objectInput)).toBe(objectInput);
+  t.expect(S.parser(objectSchema)({ constructor: 1 })).toEqual({ constructor: 1 });
+  t.expect(() => S.parser(objectSchema)({})).toThrow(
+    "Should contain every required property."
+  );
+  t.expect(() => S.parser(objectSchema)({ constructor: 1, extra: "no" })).toThrow(
+    "Should pass the additionalProperties schema."
+  );
+
+  const nativeDefaultObject = S.fromJSONSchema({
+    type: "object",
+    properties: { value: { type: "string", default: "fallback" } },
+    additionalProperties: false,
+  });
+  expectSchemaType(nativeDefaultObject).toBe<
+    { value?: string | undefined },
+    { value: string }
+  >();
+  t.expect(S.parser(nativeDefaultObject)({})).toEqual({ value: "fallback" });
+
+  const defaultRecord = S.fromJSONSchema({
+    type: "object",
+    additionalProperties: {
+      type: "object",
+      properties: { value: { type: "string", default: "fallback" } },
+      additionalProperties: false,
+    },
+  });
+  expectSchemaType(defaultRecord).toBe<
+    { [key: string]: { value?: string | undefined } },
+    { [key: string]: { value: string } }
+  >();
+  t.expect(S.parser(defaultRecord)({ first: {} })).toEqual({
+    first: { value: "fallback" },
+  });
+
+  const openObjectSchema = S.fromJSONSchema({
+    type: "object",
+    properties: { value: { type: "string" } },
+    additionalProperties: true,
+  });
+  const ownProto = JSON.parse(
+    '{"value":"ok","__proto__":{"polluted":true}}'
+  ) as S.Input<typeof openObjectSchema>;
+  const parsedOwnProto = S.parser(openObjectSchema)(ownProto);
+  t.expect(parsedOwnProto).toBe(ownProto);
+  t.expect(Object.getPrototypeOf(parsedOwnProto)).toBe(Object.prototype);
+  t.expect(Object.hasOwn(parsedOwnProto, "__proto__")).toBe(true);
+  t.expect((parsedOwnProto as { polluted?: boolean }).polluted).toBeUndefined();
+
+  const unicode = S.fromJSONSchema({
+    type: "string",
+    minLength: 2,
+    maxLength: 2,
+  });
+  t.expect(S.parser(unicode)("\u{10400}\u{10401}")).toBe("\u{10400}\u{10401}");
+  t.expect(() => S.parser(unicode)("😀")).toThrow(
+    "Should have a code-point length within the JSON Schema bounds."
+  );
+
+  const legacyPattern = S.fromJSONSchema({
+    type: "string",
+    pattern: "^\\d{3}\\-\\d{4}$",
+  });
+  t.expect(S.parser(legacyPattern)("123-4567")).toBe("123-4567");
+  t.expect(() => S.parser(legacyPattern)("1234567")).toThrow("Invalid pattern");
+  t.expect(() => S.fromJSONSchema({ type: "string", pattern: "[" })).toThrow(
+    'Invalid JSON Schema pattern: "["'
+  );
+});
+
+test("fromJSONSchema: $ref siblings follow the declared dialect", (t) => {
+  const target = { type: "string" } as const;
+  const modern = S.fromJSONSchema({
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    $ref: "#/$defs/id",
+    minLength: 3,
+    anyOf: [{ pattern: "c$" }],
+    $defs: { id: target },
+  });
+  const legacy = S.fromJSONSchema({
+    $schema: "http://json-schema.org/draft-07/schema#",
+    $ref: "#/$defs/id",
+    minLength: 3,
+    anyOf: [{ pattern: "never$" }],
+    $defs: { id: target },
+  });
+  expectSchemaType(modern).toBe<string>();
+  expectSchemaType(legacy).toBe<string>();
+  t.expect(S.parser(modern)("abc")).toBe("abc");
+  t.expect(() => S.parser(modern)("ab")).toThrow(
+    "Should pass the keywords adjacent to the $ref."
+  );
+  t.expect(() => S.parser(modern)("abd")).toThrow(
+    "Should pass at least one schema according to the anyOf property."
+  );
+  t.expect(() => S.parser(legacy)("ab")).toThrow(
+    "Should pass at least one schema according to the anyOf property."
+  );
+  // The `$ref` resolved to a finite shape and inlined, so it left no `$defs`
+  // entry behind — and the rendering doesn't depend on whether options were
+  // passed, only on the dialect they name.
+  const legacyRendering = {
+    type: "string",
+    anyOf: [{ pattern: "never$" }],
+  };
+  t.expect(S.toJSONSchema(legacy)).toEqual(legacyRendering);
+  t.expect(S.toJSONSchema(legacy, { target: "openapi-3.0" })).toEqual(legacyRendering);
+  t.expect(S.toJSONSchema(legacy, { target: "draft-07" })).toEqual({
+    ...legacyRendering,
+    $schema: "http://json-schema.org/draft-07/schema#",
+  });
+
+  const modernAlias = S.fromJSONSchema({
+    $schema: "http://json-schema.org/draft/2020-12/schema#",
+    $ref: "#/$defs/id",
+    type: "number",
+    $defs: { id: target },
+  });
+  const legacyAlias = S.fromJSONSchema({
+    $schema: "https://json-schema.org/draft-07/schema",
+    $ref: "#/$defs/id",
+    type: "number",
+    $defs: { id: target },
+  });
+  expectSchemaType(modernAlias).toBe<never>();
+  expectSchemaType(legacyAlias).toBe<string>();
+  t.expect(() => S.parser(modernAlias)("abc")).toThrow(
+    "Should pass the keywords adjacent to the $ref."
+  );
+  t.expect(S.parser(legacyAlias)("abc")).toBe("abc");
+
+  const customDialect = {
+    $schema: "https://json-schema.org/draft/2020-12/custom",
+    $ref: "#/$defs/id",
+    type: "number",
+    $defs: { id: target },
+  } as const;
+  const customDialectSchema = S.fromJSONSchema(customDialect);
+  expectSchemaType(customDialectSchema).toBe<string>();
+  t.expect(S.parser(customDialectSchema)("abc")).toBe("abc");
+
+  const nestedModern = S.fromJSONSchema({
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    properties: { id: { $ref: "#/$defs/id" } },
+    $defs: { id: target },
+  });
+  expectSchemaType(nestedModern).toBe<{ id?: string | undefined }>();
+  t.expect(S.toJSONSchema(nestedModern)).toEqual({
+    type: "object",
+    properties: { id: { type: "string" } },
+  });
+});
+
 test("toJSONSchema: the target picks the dialect of the result", (t) => {
   const tupleSchema = S.schema([S.string, S.number]);
 
@@ -1327,6 +1596,25 @@ test("toJSONSchema: the target picks the dialect of the result", (t) => {
   });
   expectTypeOf(openapi).toEqualTypeOf<S.OpenAPISchema30>();
   t.expect(openapi.nullable).toBe(true);
+
+  const imported2020 = S.fromJSONSchema({
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "array",
+    items: [{ type: "string" }, { type: "number" }],
+    additionalItems: false,
+    minItems: 2,
+    maxItems: 2,
+  });
+  t.expect(S.toJSONSchema(imported2020, { target: "draft-07" })).toEqual({
+    $schema: "http://json-schema.org/draft-07/schema#",
+    type: "array",
+    minItems: 2,
+    maxItems: 2,
+    items: [{ type: "string" }, { type: "number" }],
+  });
+  t.expect(S.toJSONSchema(imported2020, { target: "openapi-3.0" })).not.toHaveProperty(
+    "$schema",
+  );
 
   // A target held in a variable can't select a dialect, so the result widens.
   const target: S.StandardJSONSchemaV1.Target = "draft-07";
@@ -1371,9 +1659,26 @@ test("fromJSONSchema: assertion keywords bind without an explicit `type`", (t) =
   t.expect(minLength("abcd")).toBe("abcd");
   t.expect(S.safe(() => minLength("a")).error).toBeDefined();
   t.expect(minLength(1)).toBe(1);
+
+  t.expect(parse({ additionalItems: false })(["anything"])).toEqual(["anything"]);
+});
+
+test("fromJSONSchema: annotations stay on a synthesized type union's root", (t) => {
+  const schema = S.fromJSONSchema({
+    type: ["string", "number"],
+    title: "Value",
+  });
+  t.expect(S.toJSONSchema(schema)).toEqual({
+    anyOf: [{ type: "string" }, { type: "number" }],
+    title: "Value",
+  });
 });
 
 test("fromJSONSchema: composition keywords constrain in addition to the base shape", (t) => {
+  const emptyAllOf = S.fromJSONSchema({ allOf: [] });
+  expectSchemaType(emptyAllOf).toBe<S.JSON>();
+  t.expect(S.parser(emptyAllOf)({ anything: true })).toEqual({ anything: true });
+
   const schema = S.fromJSONSchema({
     type: "object",
     properties: { bar: { type: "integer" } },
@@ -1382,9 +1687,8 @@ test("fromJSONSchema: composition keywords constrain in addition to the base sha
   });
   const parse = S.parser(schema) as (d: unknown) => unknown;
 
-  // The allOf branch sees the whole document, while the base object schema
-  // still strips what it doesn't declare — so `foo` validates, then drops.
-  t.expect(parse({ bar: 2, foo: "x" })).toEqual({ bar: 2 });
+  const input = { bar: 2, foo: "x" };
+  t.expect(parse(input)).toEqual({ bar: 2 });
   // Fails the base shape.
   t.expect(S.safe(() => parse({ bar: "no", foo: "x" })).error).toBeDefined();
   // Fails only the allOf branch — the base shape alone used to win.
@@ -1422,6 +1726,23 @@ test("fromJSONSchema: an unmodelled assertion keyword fails at creation", (t) =>
   t.expect(
     S.safe(() => S.fromJSONSchema({ type: "array", uniqueItems: true })).error?.message,
   ).toContain("uniqueItems");
+
+  t.expect(
+    S.safe(() => S.fromJSONSchema({ $dynamicRef: "#items" })).error?.message,
+  ).toContain("$dynamicRef");
+
+  t.expect(
+    S.safe(() => S.fromJSONSchema({ $recursiveRef: "#" })).error?.message,
+  ).toContain("$recursiveRef");
+
+  t.expect(
+    S.parser(
+      S.fromJSONSchema({
+        $schema: "https://example.com/custom-meta-schema",
+        type: "number",
+      }),
+    )(1),
+  ).toBe(1);
 });
 
 test("fromJSONSchema: exclusiveMaximum bounds the maximum, not the minimum", (t) => {
@@ -1798,11 +2119,45 @@ test("An unsatisfiable JSON Schema document loads as never", (t) => {
     { type: "integer", minimum: 5, maximum: 1 },
     { type: "number", exclusiveMinimum: 5, maximum: 5 },
     { type: "string", minLength: 5, maxLength: 1 },
+    { type: "string", minLength: -1 },
     { type: "array", minItems: 5, maxItems: 1 },
+    { type: "array", minItems: -1 },
+    { type: "array", maxItems: -1 },
+    { type: [] },
   ] as const) {
     const schema = S.fromJSONSchema(definition);
     t.expect(S.inputExpression(schema)).toEqual("never");
   }
+});
+
+test("fromJSONSchema: literal bounds narrow the inferred type", () => {
+  expectSchemaType(
+    S.fromJSONSchema({
+      type: "array",
+      items: { type: "string" },
+      minItems: 2,
+      maxItems: 2,
+    }),
+  ).toBe<[string, string]>();
+  expectSchemaType(
+    S.fromJSONSchema({ type: "array", items: { type: "string" }, maxItems: 0 }),
+  ).toBe<[]>();
+  expectSchemaType(
+    S.fromJSONSchema({ type: "string", minLength: 0, maxLength: 0 }),
+  ).toBe<"">();
+  expectSchemaType(
+    S.fromJSONSchema({ type: "number", minimum: 5, maximum: 1 }),
+  ).toBe<never>();
+  expectSchemaType(
+    S.fromJSONSchema({ type: "number", exclusiveMinimum: 5, maximum: 5 }),
+  ).toBe<never>();
+  expectSchemaType(
+    S.fromJSONSchema({ type: "string", minLength: 5, maxLength: 1 }),
+  ).toBe<never>();
+  expectSchemaType(
+    S.fromJSONSchema({ type: "array", minItems: 5, maxItems: 1 }),
+  ).toBe<never>();
+  expectSchemaType(S.fromJSONSchema({ type: [] })).toBe<never>();
 });
 
 test("Schema toString prints Schema<input, output>", (t) => {

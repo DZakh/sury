@@ -183,6 +183,82 @@ test("vs.zod overwrite form omits a side that actually diverges from ts (must be
   `);
 });
 
+test("jsonSchema round-trip types are omitted when they match the schema types", async () => {
+  const spec = mutate((s) => {
+    s.jsonSchema.fromInputType = "string";
+    s.jsonSchema.fromOutputType = "string";
+  });
+  await expect(runCheck("string", serialize(spec))).resolves.toMatchInlineSnapshot(`
+    {
+      "stderr": "✗ string
+        jsonSchema.fromInputType: S.fromJSONSchema(jsonSchema.input) matches ts.input "string" — omit \`fromInputType\`.
+        jsonSchema.fromOutputType: S.fromJSONSchema(jsonSchema.output) matches ts.output "string" — omit \`fromOutputType\`.
+        goldens stale — run \`pnpm spec check string --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
+    @@ -10,9 +10,7 @@
+        zod: z.string()
+      jsonSchema:
+        input: '{ type: "string" }'
+    -   fromInputType: string
+        output: '{ type: "string" }'
+    -   fromOutputType: string
+      operations:
+        parse:
+          expression: i=>{typeof i==="string"||e[0](i);return i}",
+      "stdout": "",
+    }
+  `);
+});
+
+test("jsonSchema round-trip types are forbidden when JSON Schema creation fails", async () => {
+  const spec = readSpec(listSpecFiles().find((f) => specId(f) === "bigint")!);
+  spec.jsonSchema.fromInputType = "bigint";
+  spec.jsonSchema.fromOutputType = "bigint";
+  await expect(runCheck("bigint", serialize(spec))).resolves.toMatchInlineSnapshot(`
+    {
+      "stderr": "✗ bigint
+        jsonSchema.fromInputType: jsonSchema.input failed to create, so there is no round-trip type to record — omit \`fromInputType\`.
+        jsonSchema.fromOutputType: jsonSchema.output failed to create, so there is no round-trip type to record — omit \`fromOutputType\`.
+        goldens stale — run \`pnpm spec check bigint --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
+    @@ -8,9 +8,7 @@
+        zod: z.bigint()
+      jsonSchema:
+        input: Expected JSON, received bigint
+    -   fromInputType: bigint
+        output: Expected JSON, received bigint
+    -   fromOutputType: bigint
+      operations:
+        parse:
+          expression: i=>{typeof i==="bigint"||e[0](i);return i}",
+      "stdout": "",
+    }
+  `);
+});
+
+test("jsonSchema round-trip types are required when they diverge from the schema types", async () => {
+  const spec = readSpec(listSpecFiles().find((f) => specId(f) === "array-minLength")!);
+  delete spec.jsonSchema.fromInputType;
+  delete spec.jsonSchema.fromOutputType;
+  await expect(runCheck("array-minLength", serialize(spec))).resolves.toMatchInlineSnapshot(`
+    {
+      "stderr": "✗ array-minLength
+        jsonSchema.fromInputType: omitted, but S.fromJSONSchema(jsonSchema.input) infers "string[]" !== ts.input "[string, string, ...string[]]" — add \`fromInputType\`.
+        jsonSchema.fromOutputType: omitted, but S.fromJSONSchema(jsonSchema.output) infers "string[]" !== ts.output "[string, string, ...string[]]" — add \`fromOutputType\`.
+        goldens stale — run \`pnpm spec check array-minLength --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
+    @@ -12,7 +12,9 @@
+          output: string[]
+      jsonSchema:
+        input: '{ items: { type: "string" }, type: "array", minItems: 2 }'
+    +   fromInputType: string[]
+        output: '{ items: { type: "string" }, type: "array", minItems: 2 }'
+    +   fromOutputType: string[]
+      operations:
+        parse:
+          expression: i=>{Array.isArray(i)||e[2](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}i.length>1||e[1](i);return i}",
+      "stdout": "",
+    }
+  `);
+});
+
 test("not canonical (on-disk text doesn't match the canonical form)", async () => {
   const spec = mutate(() => {});
   const scrambled = serialize(spec).replace("vs:\n  zod: z.string()\n", "vs: { zod: z.string() }\n");

@@ -9,6 +9,7 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: '{ anyOf: [{ type: "string", const: "123" }, { type: "string" }] }'
+  fromInputType: string
   output: Expected JSON, received "123" | bigint | string
 operations:
   parse:
