@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.set(S.unknown)
+  input: Set<unknown>
+  output: Set<unknown>
+  instantiations: 419
+jsonSchema:
+  input: Expected JSON, received Set<unknown>
+  output: Expected JSON, received Set<unknown>
+vs:
+  zod: z.set(z.unknown())
+operations:
+  parse:
+    expression: i=>{i instanceof e[0]||e[1](i);return i}
+    examples:
+      valid:
+        input: new Set([1, "a"])
+        output: new Set([1, "a"])
+      not-a-set:
+        input: '["a"]'
+        error: Expected Set<unknown>, received ["a"]
+  decode: identity
+  encode: identity

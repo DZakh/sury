@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.array(S.string).with(S.to, S.set(S.string))
+  input: string[]
+  output: Set<string>
+  instantiations: 5397
+jsonSchema:
+  input: '{ items: { type: "string" }, type: "array" }'
+  output: Expected JSON, received Set<string>
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{Array.isArray(i)||e[1](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}let v4=new Set;for(let v3 of i){v4.add(v3);}return v4}
+    examples:
+      valid:
+        input: '["a", "b"]'
+        output: new Set(["a", "b"])
+      duplicates-collapse:
+        input: '["a", "a"]'
+        output: new Set(["a"])
+      empty:
+        input: "[]"
+        output: new Set([])
+      invalid-item:
+        input: '["a", 2]'
+        error: 'Failed at ["1"]: Expected string, received 2'
+      not-an-array:
+        input: new Set(["a"])
+        error: Expected string[], received Set
+  decode:
+    expression: i=>{let v2=new Set;for(let v1 of i){v2.add(v1);}return v2}
+    examples:
+      valid:
+        input: '["a"]'
+        output: new Set(["a"])
+  encode:
+    expression: i=>{let v2=Array.from(i);return v2}
+    examples:
+      valid:
+        input: new Set(["a", "b"])
+        output: '["a", "b"]'

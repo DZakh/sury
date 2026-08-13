@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.set(S.string.with(S.asyncDecoderAssert, async (value) => { if (value === "bad") throw new Error("rejected"); }))
+  input: Set<string>
+  output: Set<string>
+  instantiations: 5666
+jsonSchema:
+  input: Expected JSON, received Set<string>
+  output: Expected JSON, received Set<unknown>
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    isAsync: true
+    expression: i=>{i instanceof e[3]||e[4](i);let v2=[];let v4=0;for(let v0 of i){let v3=v4++;try{typeof v0==="string"||e[2](v0);let v1;try{v1=e[0](v0).catch(x=>e[1](x))}catch(x){e[1](x)}v2.push(v1.catch(v5=>{v5.path='["'+v3+'"]'+v5.path;throw v5}));}catch(v5){v5.path='["'+v3+'"]'+v5.path;throw v5}}return Promise.all(v2).then(v6=>new Set(v6))}
+    examples:
+      valid:
+        input: new Set(["a", "b"])
+        output: new Set(["a", "b"])
+      rejected-item-is-located:
+        input: new Set(["bad", "b"])
+        error: 'Failed at ["0"]: rejected'
+      rejected-later-item:
+        input: new Set(["a", "bad"])
+        error: 'Failed at ["1"]: rejected'
+  decode:
+    isAsync: true
+    expression: i=>{let v2=[];let v4=0;for(let v0 of i){let v3=v4++;try{let v1;try{v1=e[0](v0).catch(x=>e[1](x))}catch(x){e[1](x)}v2.push(v1.catch(v5=>{v5.path='["'+v3+'"]'+v5.path;throw v5}));}catch(v5){v5.path='["'+v3+'"]'+v5.path;throw v5}}return Promise.all(v2).then(v6=>new Set(v6))}
+    examples:
+      valid:
+        input: new Set(["a"])
+        output: new Set(["a"])
+  encode:
+    expression: i=>{let v2=new Set;let v3=0;for(let v0 of i){try{let v1;try{v1=e[0](v0)}catch(x){e[1](x)}typeof v1==="string"||e[2](v1);v2.add(v1);v3++;}catch(v4){v4.path='["'+v3+'"]'+v4.path;throw v4}}return v2}
+    examples:
+      valid:
+        input: new Set(["a"])
+        output: new Set(["a"])

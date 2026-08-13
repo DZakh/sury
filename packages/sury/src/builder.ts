@@ -740,6 +740,42 @@ export const B_dynamicScope = (from: Val, locationVar: string): Val => {
   };
 }
 
+// B_dynamicScope for a container iterated by value rather than by index: the
+// loop variable IS the item (`for (const v1 of set)`), so there's no location
+// to read the item back through and no `additionalItems` to take the schemas
+// from — both sides are passed in. Same fresh-root shape otherwise: no `prev`,
+// so merging the body stops at the loop.
+export const B_iterScope = (
+  from: Val,
+  inline: string,
+  schema: Internal,
+  expected: Internal
+): Val => {
+  // Canonical Val field order (see B_operationArg).
+  return {
+    b: U,
+    p: from,
+    v: _notVarBeforeValidation,
+    i: inline,
+    s: schema,
+    io: U,
+    e: expected,
+    prev: U,
+    f: from.f,
+    d: U,
+    fv: U,
+    cp: "",
+    hd: "",
+    fz: U,
+    vc: U,
+    u: U,
+    t: U,
+    path: pathEmpty,
+    g: from.g,
+    o: U,
+  };
+}
+
 export const B_nextConst = (from: Val, schema: Internal, expected?: Internal): Val => {
   return B_next(from, B_inlineConst(from, schema), schema, expected);
 }

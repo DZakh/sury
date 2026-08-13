@@ -40,6 +40,8 @@
     - [Enums](#enums)
     - [Converting to / from a union](#converting-to-from-a-union)
   - [`list`](#list)
+  - [`set`](#set)
+  - [`map`](#map)
   - [`compactColumns`](#compactcolumns)
   - [`tuple`](#tuple)
   - [`tuple1` - `tuple3`](#tuple1---tuple3)
@@ -1020,6 +1022,39 @@ let schema = S.list(S.string)
 ```
 
 The `S.list` schema represents an array of data of a specific type which is transformed to ReScript's list data-structure.
+
+### **`set`**
+
+`S.t<'value> => S.t<Set.t<'value>>`
+
+```rescript
+let schema = S.set(S.string)
+
+Set.fromArray(["Hello", "World"])->S.parseOrThrow(~to=schema)
+```
+
+Validates a `Set` and every item in it. A `Set` isn't JSON, so its wire form is
+an array — `S.to` decodes one into a `Set`, and the same schema reversed encodes
+it back:
+
+```rescript
+let schema = S.array(S.string)->S.to(S.set(S.string))
+
+["Hello", "World"]->S.parseOrThrow(~to=schema)
+```
+
+### **`map`**
+
+`(S.t<'key>, S.t<'value>) => S.t<Map.t<'key, 'value>>`
+
+```rescript
+let schema = S.map(S.string, S.int)
+
+Map.fromArray([("Hello", 1)])->S.parseOrThrow(~to=schema)
+```
+
+Validates a `Map`, both keys and values. Its wire form is an array of
+`(key, value)` entries.
 
 ### **`compactColumns`**
 
