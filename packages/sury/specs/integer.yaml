@@ -4,11 +4,11 @@ ts:
   input: number
   output: number
   instantiations: 254
-vs:
-  zod: z.int()
 jsonSchema:
   input: '{ type: "integer" }'
   output: '{ type: "integer" }'
+vs:
+  zod: z.int()
 operations:
   parse:
     expression: i=>{typeof i==="number"&&i%1===0||e[0](i);return i}

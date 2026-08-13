@@ -4,12 +4,12 @@ ts:
   input: '{ id: number; name: string; tag: "x"; flag: boolean; }'
   output: string
   instantiations: 6487
-vs:
-  zod:
-    _skip: not-applicable
 jsonSchema:
   input: '{ type: "object", properties: { id: { type: "number" }, name: { type: "string" }, tag: { type: "string", const: "x" }, flag: { type: "boolean" } }, required: ["id", "name", "tag", "flag"] }'
   output: '{ type: "string" }'
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[6](i);let v0=i["id"],v1=i["name"],v2=i["tag"],v3=i["flag"];typeof v0==="number"&&!Number.isNaN(v0)||e[0](v0);typeof v1==="string"||e[1](v1);v2==="x"||e[2](v2);typeof v3==="boolean"||e[3](v3);return "{\"id\":"+(Number.isFinite(v0)?v0:e[4](v0))+",\"name\":"+e[5](v1)+",\"tag\":\"x\",\"flag\":"+v3+"}"}

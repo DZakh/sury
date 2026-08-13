@@ -4,12 +4,12 @@ ts:
   input: JSON
   output: string
   instantiations: 5211
-vs:
-  zod:
-    _skip: not-applicable
 jsonSchema:
   input: "{}"
   output: '{ type: "string" }'
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     expression: i=>{return JSON.stringify(i)}

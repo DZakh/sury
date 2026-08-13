@@ -4,13 +4,13 @@ ts:
   input: "{ [x: string]: unknown; }"
   output: "{ x: string; }"
   instantiations: 6632
-vs:
-  zod:
-    _skip: not-applicable
 jsonSchema:
   input: '{ type: "object", properties: { b: { type: "string" } }, required: ["b"] }'
   fromInputType: "{ b: string; }"
   output: '{ type: "object", properties: { x: { type: "string" } }, required: ["x"] }'
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["b"];typeof v0==="string"||e[0](v0);let v1;try{v1=e[1]({"b":v0,})}catch(x){e[2](x)}return {"x":v1["b"],}}

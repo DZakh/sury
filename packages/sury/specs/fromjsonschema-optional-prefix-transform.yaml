@@ -4,12 +4,12 @@ ts:
   input: "[({ value?: string | undefined; } | undefined)?, ...never[]]"
   output: "[({ value?: string | undefined; } | undefined)?, ...never[]]"
   instantiations: 3125
-vs:
-  zod:
-    _skip: not-applicable
 jsonSchema:
   input: '{ items: false, type: "array", prefixItems: [{ type: "object", properties: { value: { type: "string", default: "fallback" } } }] }'
   output: '{ items: false, type: "array", prefixItems: [{ type: "object", properties: { value: { type: "string", default: "fallback" } } }] }'
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     expression: i=>{Array.isArray(i)||e[2](i);e[1](i)||e[3](i);for(let v0=0;v0<i.length;++v0){try{e[0](i[v0]);}catch(v1){v1.path='["'+v0+'"]'+v1.path;throw v1}}return i}

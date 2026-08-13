@@ -4,11 +4,11 @@ ts:
   input: "null"
   output: "null"
   instantiations: 369
-vs:
-  zod: z.null()
 jsonSchema:
   input: '{ type: "null" }'
   output: '{ type: "null" }'
+vs:
+  zod: z.null()
 operations:
   parse:
     expression: i=>{i===null||e[0](i);return i}

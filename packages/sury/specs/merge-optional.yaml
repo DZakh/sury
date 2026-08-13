@@ -4,15 +4,15 @@ ts:
   input: "{ name: string; _id?: string | undefined; _rev?: string | undefined; code: string; _deleted?: boolean | undefined; }"
   output: "{ name: string; _id?: string | undefined; _rev?: string | undefined; code: string; _deleted?: boolean | undefined; }"
   instantiations: 7723
+jsonSchema:
+  input: '{ type: "object", properties: { _id: { type: "string" }, _rev: { type: "string" }, name: { type: "string" }, code: { type: "string" }, _deleted: { type: "boolean" } }, required: ["name", "code"] }'
+  output: '{ type: "object", properties: { _id: { type: "string" }, _rev: { type: "string" }, name: { type: "string" }, code: { type: "string" }, _deleted: { type: "boolean" } }, required: ["name", "code"] }'
 vs:
   zod:
     schema: "z.object({ _id: z.string().optional(), _rev: z.string().optional(), name: z.string(), code: z.string(), _deleted: z.boolean().optional() })"
     divergence: Field ordering. Zod groups optional fields last (name, code, then _id?, _rev?, _deleted?); S.merge preserves each sub-schema's insertion order, so required `code` from the second schema lands after the first schema's optionals (name, _id?, _rev?, code, _deleted?).
     input: "{ name: string; code: string; _id?: string | undefined; _rev?: string | undefined; _deleted?: boolean | undefined; }"
     output: "{ name: string; code: string; _id?: string | undefined; _rev?: string | undefined; _deleted?: boolean | undefined; }"
-jsonSchema:
-  input: '{ type: "object", properties: { _id: { type: "string" }, _rev: { type: "string" }, name: { type: "string" }, code: { type: "string" }, _deleted: { type: "boolean" } }, required: ["name", "code"] }'
-  output: '{ type: "object", properties: { _id: { type: "string" }, _rev: { type: "string" }, name: { type: "string" }, code: { type: "string" }, _deleted: { type: "boolean" } }, required: ["name", "code"] }'
 operations:
   parse:
     expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=i["_id"],v1=i["_rev"],v2=i["name"],v3=i["code"],v4=i["_deleted"];(typeof v0==="string"||v0===void 0)||e[0](v0);(typeof v1==="string"||v1===void 0)||e[1](v1);typeof v2==="string"||e[2](v2);typeof v3==="string"||e[3](v3);(typeof v4==="boolean"||v4===void 0)||e[4](v4);return {"_id":v0,"_rev":v1,"name":v2,"code":v3,"_deleted":v4,}}

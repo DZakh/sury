@@ -213,7 +213,6 @@ const vs = S.schema({
 
 export const specSchema = S.schema({
   ts,
-  vs,
   jsonSchema: S.schema({
     input: S.string.with(S.meta, {
       description: "S.toJSONSchema(schema), as source text, or its conversion error.",
@@ -238,6 +237,7 @@ export const specSchema = S.schema({
         "omitted; if a direction can't be represented, no round-trip type is recorded. " +
         "Filled by `spec check --write`.",
     }),
+  vs,
   operations,
 })
   .with(S.strict)
@@ -253,7 +253,7 @@ export type OpName = keyof Spec["operations"];
 // `ts`/`operations`/`specSchema` without updating the matching order here is a
 // compile error, not a silently-out-of-order key at serialize time.
 const keyOrder = <T,>(order: Record<keyof T, true>) => Object.keys(order) as (keyof T)[];
-export const KEY_ORDER = keyOrder<Spec>({ ts: true, vs: true, jsonSchema: true, operations: true });
+export const KEY_ORDER = keyOrder<Spec>({ ts: true, jsonSchema: true, vs: true, operations: true });
 export const VS_KEY_ORDER = keyOrder<Spec["vs"]>({ zod: true });
 export const VS_ZOD_KEY_ORDER = keyOrder<ZodOverwrite>({ schema: true, divergence: true, input: true, output: true });
 export const TS_KEY_ORDER = keyOrder<Spec["ts"]>({

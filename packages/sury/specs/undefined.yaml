@@ -4,11 +4,11 @@ ts:
   input: undefined
   output: undefined
   instantiations: 369
-vs:
-  zod: z.undefined()
 jsonSchema:
   input: Expected JSON, received undefined
   output: Expected JSON, received undefined
+vs:
+  zod: z.undefined()
 operations:
   parse:
     expression: i=>{i===void 0||e[0](i);return i}

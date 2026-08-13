@@ -4,12 +4,12 @@ ts:
   input: "{ value?: string | undefined; constructor: number; }"
   output: "{ value?: string | undefined; constructor: number; }"
   instantiations: 2587
-vs:
-  zod:
-    _skip: not-applicable
 jsonSchema:
   input: '{ type: "object", properties: { value: { type: "string", default: "fallback" } }, additionalProperties: { type: "integer" }, required: ["constructor"] }'
   output: '{ type: "object", properties: { value: { type: "string", default: "fallback" } }, additionalProperties: { type: "integer" }, required: ["constructor"] }'
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);e[1](i)||e[5](i);e[2](i)||e[6](i);e[3](i)||e[7](i);for(let v0 in i){try{e[0](i[v0]);}catch(v1){v1.path='["'+v0+'"]'+v1.path;throw v1}}return i}

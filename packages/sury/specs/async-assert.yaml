@@ -4,11 +4,11 @@ ts:
   input: string
   output: string
   instantiations: 5245
-vs:
-  zod: z.string().refine(async (value) => value !== "bad")
 jsonSchema:
   input: '{ type: "string" }'
   output: Expected JSON, received unknown
+vs:
+  zod: z.string().refine(async (value) => value !== "bad")
 operations:
   parse:
     isAsync: true

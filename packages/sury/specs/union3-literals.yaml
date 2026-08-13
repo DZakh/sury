@@ -4,11 +4,11 @@ ts:
   input: true | "foo" | 123
   output: true | "foo" | 123
   instantiations: 617
-vs:
-  zod: z.union([z.literal("foo"), z.literal(123), z.literal(true)])
 jsonSchema:
   input: '{ enum: ["foo", 123, true] }'
   output: '{ enum: ["foo", 123, true] }'
+vs:
+  zod: z.union([z.literal("foo"), z.literal(123), z.literal(true)])
 operations:
   parse:
     expression: i=>{(typeof i==="string"&&i==="foo"||typeof i==="number"&&!Number.isNaN(i)&&i===123||typeof i==="boolean"&&i===true)||e[0](i);return i}

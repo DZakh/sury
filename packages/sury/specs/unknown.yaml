@@ -4,12 +4,12 @@ ts:
   input: unknown
   output: unknown
   instantiations: 254
-vs:
-  zod: z.unknown()
 jsonSchema:
   # FIXME: should be {} (any value), same as S.toJSONSchema(S.json) — see any.yaml.
   input: Expected JSON, received unknown
   output: Expected JSON, received unknown
+vs:
+  zod: z.unknown()
 operations:
   parse: identity
   decode: identity

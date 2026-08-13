@@ -6,11 +6,11 @@ ts:
   input: 123n
   output: 123n
   instantiations: 379
-vs:
-  zod: z.literal(123n)
 jsonSchema:
   input: Expected JSON, received 123n
   output: Expected JSON, received 123n
+vs:
+  zod: z.literal(123n)
 operations:
   parse:
     expression: i=>{i===123n||e[0](i);return i}

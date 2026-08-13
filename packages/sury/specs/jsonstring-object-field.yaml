@@ -4,12 +4,12 @@ ts:
   input: "{ meta: string; name: string; }"
   output: string
   instantiations: 5871
-vs:
-  zod:
-    _skip: not-applicable
 jsonSchema:
   input: '{ type: "object", properties: { meta: { type: "string" }, name: { type: "string" } }, required: ["meta", "name"] }'
   output: '{ type: "string" }'
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i["meta"],v1=i["name"];typeof v0==="string"||e[1](v0);try{JSON.parse(v0)}catch(t){e[0](v0)}typeof v1==="string"||e[2](v1);return "{\"meta\":"+e[3](v0)+",\"name\":"+e[3](v1)+"}"}

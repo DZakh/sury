@@ -4,13 +4,13 @@ ts:
   input: JSON
   output: URL
   instantiations: 5105
-vs:
-  zod:
-    _skip: not-applicable
 jsonSchema:
   input: '{ type: "string", format: "uri" }'
   fromInputType: string
   output: Expected JSON, received URL
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[2](i);let v0=e[0](i);v0||e[1](i);return v0}

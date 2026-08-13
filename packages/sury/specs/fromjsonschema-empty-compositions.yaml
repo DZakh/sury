@@ -7,12 +7,12 @@ ts:
   input: never
   output: never
   instantiations: 611
-vs:
-  zod:
-    _skip: not-applicable
 jsonSchema:
   input: "{ not: {} }"
   output: "{ not: {} }"
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     expression: i=>{e[0](i);return i}

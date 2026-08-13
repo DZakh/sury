@@ -4,11 +4,11 @@ ts:
   input: string
   output: string
   instantiations: 254
-vs:
-  zod: z.iso.duration()
 jsonSchema:
   input: '{ type: "string", format: "duration" }'
   output: '{ type: "string", format: "duration" }'
+vs:
+  zod: z.iso.duration()
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}

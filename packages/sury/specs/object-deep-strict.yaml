@@ -4,11 +4,11 @@ ts:
   input: "{ foo: { a: string; }; }"
   output: "{ foo: { a: string; }; }"
   instantiations: 1708
-vs:
-  zod: "z.strictObject({ foo: z.strictObject({ a: z.string() }) })"
 jsonSchema:
   input: '{ type: "object", properties: { foo: { type: "object", properties: { a: { type: "string" } }, additionalProperties: false, required: ["a"] } }, additionalProperties: false, required: ["foo"] }'
   output: '{ type: "object", properties: { foo: { type: "object", properties: { a: { type: "string" } }, additionalProperties: false, required: ["a"] } }, additionalProperties: false, required: ["foo"] }'
+vs:
+  zod: "z.strictObject({ foo: z.strictObject({ a: z.string() }) })"
 operations:
   parse:
     expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i["foo"],v3;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0["a"],v2;typeof v1==="string"||e[0](v1);for(v2 in v0){if(v2!=="a"){e[1](v2)}}for(v3 in i){if(v3!=="foo"){e[3](v3)}}return i}

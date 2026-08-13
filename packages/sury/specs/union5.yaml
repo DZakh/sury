@@ -4,11 +4,11 @@ ts:
   input: string | number | bigint | boolean | symbol
   output: string | number | bigint | boolean | symbol
   instantiations: 1877
-vs:
-  zod: z.union([z.string(), z.number(), z.bigint(), z.boolean(), z.symbol()])
 jsonSchema:
   input: Expected JSON, received string | number | boolean | bigint | symbol
   output: Expected JSON, received string | number | boolean | bigint | symbol
+vs:
+  zod: z.union([z.string(), z.number(), z.bigint(), z.boolean(), z.symbol()])
 operations:
   parse:
     expression: i=>{(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i)||typeof i==="boolean"||typeof i==="bigint"||typeof i==="symbol")||e[0](i);return i}
