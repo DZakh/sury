@@ -410,6 +410,16 @@ instead of silently working around it.
 - No operation dimension for JSON-target conversions (`.to(S.json)` / `.to(S.jsonString)`), so bugs like #311 (nested optional fields failing to encode) can't be captured as spec examples — their repros live in `tests/` instead.
 - Example results are serialized back to spec source, so a value keyed by a *non-registry* symbol can't be recorded ("cannot represent a non-registry symbol (use Symbol.for(key)) as spec source code"). A registry symbol round-trips as a computed key. `S.record`'s unvalidated symbol-keyed values are pinned in `tests/` instead of `specs/record.yaml`, where the rest of that gap lives.
 - Scenario measurements can be bimodal across child processes: the identical `encoder-lookup` build measured "unchanged" and "−44%" against the same baseline in back-to-back runs, each individually printed as `confirmed`. The screening/rounds design averages within a process but can't see a whole process landing in a different JIT state (IC/feedback shapes settle per child, then every block agrees with itself). Until runs repeat the *process* (not just the rounds) and require agreement across them, treat any single scenario delta on a shared-arity path as one sample, not a verdict.
+- A spec fixes one schema and computes its goldens once, so nothing in the format
+  can express a bug that needs two calls in a particular *order* — or one whose
+  damage lands on a different schema than the one probed. The
+  `isAsync`/`hasTransform` caches were both: `S.isAsync(S.string)` poisoned every
+  later `S.string.with(S.to, asyncSchema)`, and the schema that answered wrong
+  never had a probe of its own (fixed in #389, pinned in
+  `tests/directionCache_test.ts`). A per-spec dimension can't reach this; what
+  would is a suite-level block of ordered calls over named schemas with an
+  assertion per step — the `scenarios.yaml` shape, but asserting results rather
+  than timing them.
 
 ## License
 
