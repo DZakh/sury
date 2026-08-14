@@ -923,6 +923,11 @@ const B_mergeWithCatch = (
   }
 }
 
+// A container that hands its parent a *promise* has to emit this prepend
+// itself — the merge only ever wraps the one val it is given, and an entry made
+// of two vals (advanced/map.ts) has a second promise the wrap never reaches.
+// Kept inline rather than shared with that caller: a helper both reach costs
+// every export that merges anything, for one container's concern.
 export const B_mergeWithPathPrepend = (
   val: Val,
   parent: Val,

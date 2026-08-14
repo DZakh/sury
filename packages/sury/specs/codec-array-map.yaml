@@ -12,7 +12,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{Array.isArray(i)||e[3](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];Array.isArray(v1)&&v1.length===2||e[2](v1);let v2=v1["0"],v3=v1["1"];typeof v2==="string"||e[0](v2);typeof v3==="number"&&!Number.isNaN(v3)||e[1](v3);}catch(v4){v4.path='["'+v0+'"]'+v4.path;throw v4}}let v6=new Map;for(let v5 of i){v6.set(v5[0],v5[1]);}return v6}
+    expression: i=>{Array.isArray(i)||e[3](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];Array.isArray(v1)&&v1.length===2||e[2](v1);let v2=v1["0"],v3=v1["1"];typeof v2==="string"||e[0](v2);typeof v3==="number"&&!Number.isNaN(v3)||e[1](v3);}catch(v4){v4.path='["'+v0+'"]'+v4.path;throw v4}}return new Map(i)}
     examples:
       valid:
         input: '[["a", 1], ["b", 2]]'
@@ -30,7 +30,7 @@ operations:
         input: new Map([["a", 1]])
         error: Expected [string, number][], received Map
   decode:
-    expression: i=>{let v3=new Map;for(let v2 of i){v3.set(v2[0],v2[1]);}return v3}
+    expression: i=>{return new Map(i)}
     examples:
       valid:
         input: '[["a", 1]]'

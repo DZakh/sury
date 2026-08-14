@@ -3,6 +3,7 @@
 import {
   arrayTag,
   baseSchema,
+  inlinedValueFromString,
   type Encoder,
   flagUnsafeHas,
   inputExpression,
@@ -12,6 +13,7 @@ import {
   tagFlagInstance,
   tagFlags,
   tagFlagUnknown,
+  U,
   unknown,
   type Val,
   valFlagAsync,
@@ -31,30 +33,46 @@ import { arrayDecoder, arrayFactory, definitionToSchema } from "../composites";
 import { parse, parseDynamic } from "../parse";
 import { instanceofCond } from "../primitives";
 
-// Key and value live on `items`, where a tuple's do, so that `reverse`
-// reverses them without knowing this schema exists — the rendering, the
-// encoder and the entry loop all read them back off the schema they are handed
-// rather than closing over them, which is what makes them follow the schema
-// when it flips.
-const itemAt = (schema: Internal | undefined, idx: number): Internal =>
-  schema?.items?.[idx] ?? unknown;
-
-const mapExpression = (schema: Internal): string =>
-  `Map<${inputExpression(itemAt(schema, 0))}, ${inputExpression(itemAt(schema, 1))}>`;
-
-// The wire form of one entry: the `[key, value]` pair `Array.from` produces and
-// `new Map` consumes.
-const entryFactory = (schema: Internal): Internal => {
+// One entry, described as the `[key, value]` tuple that `Array.from` produces
+// and `new Map` consumes — the wire form, and the only place the key and value
+// schemas live.
+const entryFactory = (key: Internal, value: Internal): Internal => {
   const mut = baseSchema(arrayTag, false, arrayDecoder);
-  mut.items = [itemAt(schema, 0), itemAt(schema, 1)];
+  mut.items = [key, value];
   mut.additionalItems = "strict";
   return mut;
+};
+
+// The entry hangs off `additionalItems`, where an array's item does, so that
+// `reverse` inverts it (and through it the key and value) without knowing this
+// schema exists — the rendering, the encoder and the entry loop all read it
+// back off the schema they are handed rather than closing over it, which is
+// what makes them follow the schema when it flips.
+//
+// Cross-module invariant: NOT on `items`. That field means "the tuple slots of
+// an array" to everything that pattern-matches a schema — union dispatch reads
+// it as `properties || items`, and a Map whose key/value sat there made two Map
+// members of a union look like one 2-tuple case, silently dropping the second.
+const entryOf = (schema: Internal | undefined): Internal | undefined => {
+  const entry = schema?.additionalItems;
+  return entry !== U && typeof entry !== "string" ? entry : U;
+};
+
+const itemAt = (entry: Internal | undefined, idx: number): Internal =>
+  entry?.items?.[idx] ?? unknown;
+
+const mapExpression = (schema: Internal): string => {
+  const entry = entryOf(schema);
+  return `Map<${inputExpression(itemAt(entry, 0))}, ${inputExpression(itemAt(entry, 1))}>`;
 };
 
 const mapDecoder = (input: Val): Val => {
   const expected = input.e;
   const inputTagFlag = tagFlags[input.s.type]!;
   const isArraySource = flagUnsafeHas(inputTagFlag, tagFlagArray);
+  // Every source describes its entries the same way — through
+  // `additionalItems`, an array's item schema and a Map's entry alike.
+  const sourceEntry = entryOf(input.s);
 
   let source: Val;
   if (flagUnsafeHas(inputTagFlag, tagFlagUnknown)) {
@@ -68,32 +86,36 @@ const mapDecoder = (input: Val): Val => {
       },
     ]);
   } else if (
-    isArraySource ||
+    // An array converts entry by entry, so its item has to BE an entry. Tested
+    // here rather than left to the loop: a source of plain numbers would
+    // otherwise compile, then read `undefined` out of every item at runtime.
+    (isArraySource && sourceEntry !== U && sourceEntry.type === arrayTag) ||
     (flagUnsafeHas(inputTagFlag, tagFlagInstance) && input.s.class === expected.class)
   ) {
-    source = input;
+    // Refined even with no checks of its own, as arrayDecoder does: an
+    // input-side refine (a size bound, reversed) can only emit before the loop
+    // when the val it attaches to has a `prev` — the bare operation arg has
+    // none, and B_markOutput would defer the check past the rebuild.
+    source = B_refine(input);
   } else {
     return B_unsupportedDecode(input, input.s, expected);
   }
 
-  // An array source describes its entries through the item schema of the
-  // array; a Map source through the Map schema itself.
-  const sourceEntry = isArraySource
-    ? (source.s.additionalItems as Internal | undefined)
-    : source.s;
-
   const entryVar = B_varWithoutAllocation(source.g);
   const sourceVar = source.v();
   const location = `${entryVar}[0]`;
+  const fromEntry = entryOf(source.s);
+  const toEntry = entryOf(expected);
 
+  const raiseCountBefore = source.g.t;
   const keyOutput = parseDynamic(
-    B_iterScope(source, location, itemAt(sourceEntry, 0), itemAt(expected, 0)),
+    B_iterScope(source, location, itemAt(fromEntry, 0), itemAt(toEntry, 0)),
   );
   const valueScope = B_iterScope(
     source,
     `${entryVar}[1]`,
-    itemAt(sourceEntry, 1),
-    itemAt(expected, 1),
+    itemAt(fromEntry, 1),
+    itemAt(toEntry, 1),
   );
   // The value continues the key's chain rather than starting its own, so the
   // entry merges as one block: a key materialized into a variable inside a
@@ -102,40 +124,57 @@ const mapDecoder = (input: Val): Val => {
   const valueOutput = parseDynamic(valueScope);
 
   const isAsync = flagUnsafeHas(keyOutput.f | valueOutput.f, valFlagAsync);
+  const hasTransform = keyOutput.t === true || valueOutput.t === true;
   // An array source is a different value, so it is rebuilt even when the
   // entries pass through untouched. An async entry can't be `set` as it
   // arrives, so it accumulates into an array that `Promise.all` resolves.
-  const rebuild =
-    isArraySource || keyOutput.t === true || valueOutput.t === true || isAsync;
+  const rebuild = isArraySource || hasTransform || isAsync;
+  // Nothing to do per entry: the wire array already IS the entry list, so the
+  // constructor does the whole rebuild and the loop is left to validation.
+  const fromSource = rebuild && !hasTransform && !isAsync;
 
-  const outSchema = mapFactory(keyOutput.s, valueOutput.s);
-  const out = rebuild
-    ? B_next(
-        source,
-        isAsync ? "[]" : "new Map",
-        isAsync ? arrayFactory(entryFactory(outSchema)) : outSchema,
-      )
-    : B_refine(source, expected);
-  const outVar = rebuild ? out.v() : "";
+  let out: Val;
+  let outSchema: Internal | undefined;
+  if (rebuild) {
+    outSchema = mapFactory(keyOutput.s, valueOutput.s);
+    out = B_next(
+      source,
+      fromSource ? `new Map(${sourceVar})` : isAsync ? "[]" : "new Map",
+      isAsync ? arrayFactory(entryOf(outSchema)!) : outSchema,
+    );
+  } else {
+    out = B_refine(source, expected);
+  }
+  const outVar = rebuild && !fromSource ? out.v() : "";
+  // An async key hands its promise to `Promise.all` unwrapped, so the merge's
+  // own wrap (which only ever reaches the val it merges — the value) never
+  // names where it failed.
+  const keyErrorVar = isAsync ? B_varWithoutAllocation(source.g) : "";
   // Lazy: merging an entry can rename the val it produces (materialization)
   // and can wrap an async one in a `.catch`, both after this is decided.
-  const append = (): string =>
-    rebuild
-      ? isAsync
-        ? `${outVar}.push(Promise.all([${keyOutput.i},${valueOutput.i}]));`
-        : `${outVar}.set(${keyOutput.i},${valueOutput.i});`
-      : "";
+  const append = (): string => {
+    if (!isAsync) {
+      return `${outVar}.set(${keyOutput.i},${valueOutput.i});`;
+    }
+    // Same prepend B_mergeWithPathPrepend emits for the value — see the note on
+    // it. `source.path` is the enclosing path, `location` the entry's key.
+    const key = flagUnsafeHas(keyOutput.f, valFlagAsync)
+      ? `${keyOutput.i}.catch(${keyErrorVar}=>{${keyErrorVar}.path=${
+          source.path === "" ? "" : `${inlinedValueFromString(source.path)}+`
+        }'["'+${location}+'"]'+${keyErrorVar}.path;throw ${keyErrorVar}})`
+      : keyOutput.i;
+    return `${outVar}.push(Promise.all([${key},${valueOutput.i}]));`;
+  };
 
-  // The raise count is read right before the merge, not before the parse: a
-  // check embeds its failure (and bumps the count) as it is emitted, not as it
-  // is built, so this is what tells an entry that can fail — and needs itself
-  // located in the path — from one that can't.
-  const raiseCountBefore = source.g.t;
+  // The count sampled above tells an entry that can fail — and so needs itself
+  // located in the path — from one that can't: a check embeds its failure as it
+  // is emitted, a recursive reference embeds its operation as it is built, and
+  // the sample precedes both.
   const body = B_mergeWithPathPrepend(
     valueOutput,
     source,
     location,
-    append,
+    outVar ? append : U,
     raiseCountBefore,
   );
 
@@ -150,12 +189,17 @@ const mapDecoder = (input: Val): Val => {
       out,
       `Promise.all(${out.i}).then(${resolvedVar}=>new Map(${resolvedVar}))`,
     );
-    output.s = outSchema;
+    output.s = outSchema!;
   } else {
     output = out;
   }
 
-  return B_markOutput(output, input);
+  // `source`, not `input`: an input-side refine or size bound belongs to the
+  // Map that came in, and only a val with a `prev` puts it before the loop —
+  // handed the bare operation arg, B_markOutput defers it past the rebuild and
+  // bounds the result instead (arrayDecoder passes its refined val for the
+  // same reason).
+  return B_markOutput(output, source);
 };
 
 const mapEncoder: Encoder = (input: Val, target: Internal): Val => {
@@ -168,7 +212,7 @@ const mapEncoder: Encoder = (input: Val, target: Internal): Val => {
         B_next(
           input,
           `Array.from(${input.i})`,
-          arrayFactory(entryFactory(input.s)),
+          arrayFactory(entryOf(input.s)!),
           target,
         ),
       ),
@@ -180,7 +224,7 @@ const mapEncoder: Encoder = (input: Val, target: Internal): Val => {
 const mapFactory = (key: Internal, value: Internal): Internal => {
   const mut = baseSchema(instanceTag, !!(key.sr && value.sr), mapDecoder);
   mut.class = Map;
-  mut.items = [key, value];
+  mut.additionalItems = entryFactory(key, value);
   mut.expression = mapExpression;
   mut.encoder = mapEncoder;
   return mut;

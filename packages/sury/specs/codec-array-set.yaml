@@ -12,7 +12,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{Array.isArray(i)||e[1](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}let v4=new Set;for(let v3 of i){v4.add(v3);}return v4}
+    expression: i=>{Array.isArray(i)||e[1](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}return new Set(i)}
     examples:
       valid:
         input: '["a", "b"]'
@@ -30,7 +30,7 @@ operations:
         input: new Set(["a"])
         error: Expected string[], received Set
   decode:
-    expression: i=>{let v2=new Set;for(let v1 of i){v2.add(v1);}return v2}
+    expression: i=>{return new Set(i)}
     examples:
       valid:
         input: '["a"]'

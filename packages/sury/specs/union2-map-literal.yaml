@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union([S.map(S.string, S.literal(1)), S.map(S.string, S.literal(2))])
+  input: Map<string, 1> | Map<string, 2>
+  output: Map<string, 1> | Map<string, 2>
+  instantiations: 1822
+jsonSchema:
+  input: Expected JSON, received Map<string, 1> | Map<string, 2>
+  output: Expected JSON, received Map<string, 1> | Map<string, 2>
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{if(i instanceof e[4]){for(;;){let r;try{for(let v0 of i){try{let v2=v0[0];typeof v2==="string"||e[1](v2);let v1=v0[1];v1===1||e[0](v1);}catch(v3){v3.path='["'+v0[0]+'"]'+v3.path;throw v3}};break}catch(x){(r||(r=[])).push(e[5](x))}try{for(let v4 of i){try{let v6=v4[0];typeof v6==="string"||e[3](v6);let v5=v4[1];v5===2||e[2](v5);}catch(v7){v7.path='["'+v4[0]+'"]'+v7.path;throw v7}};break}catch(x){(r||(r=[])).push(e[5](x))}e[6](i,...(r||[]))}}else{e[7](i)}return i}
+    examples:
+      first-member:
+        input: new Map([["a", 1]])
+        output: new Map([["a", 1]])
+      second-member:
+        input: new Map([["a", 2]])
+        output: new Map([["a", 2]])
+      neither:
+        input: new Map([["a", 3]])
+        error: |-
+          Expected Map<string, 1> | Map<string, 2>, received Map
+          - At ["a"]: Expected 1, received 3
+          - At ["a"]: Expected 2, received 3
+      not-a-map:
+        input: '[["a", 1]]'
+        error: Expected Map<string, 1> | Map<string, 2>, received [Array(2)]
+  decode: identity
+  encode: identity

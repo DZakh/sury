@@ -30,7 +30,7 @@ operations:
         input: new Set(["a"])
         output: '["a"]'
   encode:
-    expression: i=>{let v2=new Set;for(let v1 of i){v2.add(v1);}return v2}
+    expression: i=>{return new Set(i)}
     examples:
       valid:
         input: '["a", "b"]'

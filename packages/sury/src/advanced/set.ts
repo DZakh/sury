@@ -66,85 +66,99 @@ const setDecoder = (input: Val): Val => {
     isArraySource ||
     (flagUnsafeHas(inputTagFlag, tagFlagInstance) && input.s.class === expected.class)
   ) {
-    source = input;
+    // Refined even with no checks of its own, as arrayDecoder does: an
+    // input-side refine (a size bound, reversed) can only emit before the loop
+    // when the val it attaches to has a `prev` — the bare operation arg has
+    // none, and B_markOutput would defer the check past the rebuild.
+    source = B_refine(input);
   } else {
     return B_unsupportedDecode(input, input.s, expected);
   }
 
   const sourceItem = itemOf(source.s);
 
-  let output: Val;
-  if (!isArraySource && item === unknown && sourceItem === unknown) {
-    output = B_refine(source, expected);
-  } else {
-    const sourceVar = source.v();
-    const itemVar = B_varWithoutAllocation(source.g);
-    const itemInput = B_iterScope(source, itemVar, sourceItem, item);
-    // The item expression is already a variable — the loop's — so reading it
-    // must not copy it into a second one, as a dynamic member read would.
-    itemInput.v = _var;
-    const itemOutput = parseDynamic(itemInput);
-    const isAsync = flagUnsafeHas(itemOutput.f, valFlagAsync);
-    // An array source is a different value, so it is rebuilt even when the
-    // items pass through untouched. An async item can't be `add`ed as it
-    // arrives, so it accumulates into an array that `Promise.all` resolves.
-    const rebuild = isArraySource || itemOutput.t === true || isAsync;
-    const out = rebuild
-      ? B_next(
-          source,
-          isAsync ? "[]" : "new Set",
-          isAsync ? arrayFactory(itemOutput.s) : setFactory(itemOutput.s),
-        )
-      : B_refine(source, expected);
-    const outVar = rebuild ? out.v() : "";
-    // Lazy: merging the item can rename the val it produces (materialization)
-    // and can wrap an async one in a `.catch`, both after this is decided.
-    const add = (): string =>
-      rebuild ? `${outVar}.${isAsync ? "push" : "add"}(${itemOutput.i});` : "";
+  const sourceVar = source.v();
+  const itemVar = B_varWithoutAllocation(source.g);
+  const raiseCountBefore = source.g.t;
+  const itemInput = B_iterScope(source, itemVar, sourceItem, item);
+  // The item expression is already a variable — the loop's — so reading it must
+  // not copy it into a second one, as a dynamic member read would.
+  itemInput.v = _var;
+  const itemOutput = parseDynamic(itemInput);
+  const isAsync = flagUnsafeHas(itemOutput.f, valFlagAsync);
+  const hasTransform = itemOutput.t === true;
+  // An array source is a different value, so it is rebuilt even when the items
+  // pass through untouched. An async item can't be `add`ed as it arrives, so it
+  // accumulates into an array that `Promise.all` resolves.
+  const rebuild = isArraySource || hasTransform || isAsync;
+  // Nothing to do per item: the constructor does the whole rebuild, and the
+  // loop is left to whatever validation the items still need.
+  const fromSource = rebuild && !hasTransform && !isAsync;
 
-    // A Set item has no key to be located by, so a failing one is located by
-    // its position — well defined, since iteration follows insertion order.
-    // The counter is only worth keeping when the body can actually fail, and
-    // that's known only once it has been merged: a check embeds its failure
-    // (and bumps the raise count) as it is emitted, not as it is built.
-    const indexVar = B_varWithoutAllocation(source.g);
-    // An async item reads its location from inside a `.catch` closure that
-    // outlives the iteration, so the location it reads has to be a binding the
-    // loop body owns — the counter itself is one binding shared by every
-    // iteration, and by rejection time it holds the final count.
-    const counterVar = isAsync ? B_varWithoutAllocation(source.g) : indexVar;
-    const raiseCountBefore = source.g.t;
-    const canThrow = (): boolean => source.g.t !== raiseCountBefore;
-    const body = B_mergeWithPathPrepend(
-      itemOutput,
+  let out: Val;
+  if (rebuild) {
+    out = B_next(
       source,
-      indexVar,
-      () => `${add()}${canThrow() && !isAsync ? `${indexVar}++;` : ""}`,
-      raiseCountBefore,
+      fromSource ? `new Set(${sourceVar})` : isAsync ? "[]" : "new Set",
+      isAsync ? arrayFactory(itemOutput.s) : setFactory(itemOutput.s),
     );
+  } else {
+    out = B_refine(source, expected);
+  }
+  const outVar = rebuild && !fromSource ? out.v() : "";
+  // Lazy: merging the item can rename the val it produces (materialization) and
+  // can wrap an async one in a `.catch`, both after this is decided.
+  const add = (): string =>
+    outVar ? `${outVar}.${isAsync ? "push" : "add"}(${itemOutput.i});` : "";
 
-    if (body !== "") {
-      const counted = canThrow();
-      out.cp =
-        out.cp +
-        `${counted ? `let ${counterVar}=0;` : ""}for(let ${itemVar} of ${sourceVar}){${
-          counted && isAsync ? `let ${indexVar}=${counterVar}++;` : ""
-        }${body}}`;
-    }
+  // A Set item has no key to be located by, so a failing one is located by its
+  // position — well defined, since iteration follows insertion order. The
+  // counter is only worth keeping when the body can actually fail, which is
+  // only known after the merge: a check embeds its failure as it is emitted,
+  // where a recursive reference embeds its operation as it is built — the count
+  // is sampled before both, so neither escapes the test.
+  const indexVar = B_varWithoutAllocation(source.g);
+  // An async item reads its location from inside a `.catch` closure that
+  // outlives the iteration, so the location it reads has to be a binding the
+  // loop body owns — the counter itself is one binding shared by every
+  // iteration, and by rejection time it holds the final count.
+  const counterVar = isAsync ? B_varWithoutAllocation(source.g) : indexVar;
+  const canThrow = (): boolean => source.g.t !== raiseCountBefore;
+  const body = B_mergeWithPathPrepend(
+    itemOutput,
+    source,
+    indexVar,
+    () => `${add()}${canThrow() && !isAsync ? `${indexVar}++;` : ""}`,
+    raiseCountBefore,
+  );
 
-    if (isAsync) {
-      const resolvedVar = B_varWithoutAllocation(source.g);
-      output = B_asyncVal(
-        out,
-        `Promise.all(${out.i}).then(${resolvedVar}=>new Set(${resolvedVar}))`,
-      );
-      output.s = setFactory(itemOutput.s);
-    } else {
-      output = out;
-    }
+  if (body !== "") {
+    const counted = canThrow();
+    out.cp =
+      out.cp +
+      `${counted ? `let ${counterVar}=0;` : ""}for(let ${itemVar} of ${sourceVar}){${
+        counted && isAsync ? `let ${indexVar}=${counterVar}++;` : ""
+      }${body}}`;
   }
 
-  return B_markOutput(output, input);
+  let output: Val;
+  if (isAsync) {
+    const resolvedVar = B_varWithoutAllocation(source.g);
+    output = B_asyncVal(
+      out,
+      `Promise.all(${out.i}).then(${resolvedVar}=>new Set(${resolvedVar}))`,
+    );
+    output.s = setFactory(itemOutput.s);
+  } else {
+    output = out;
+  }
+
+  // `source`, not `input`: an input-side refine or size bound belongs to the
+  // Set that came in, and only a val with a `prev` puts it before the loop —
+  // handed the bare operation arg, B_markOutput defers it past the rebuild and
+  // bounds the result instead (arrayDecoder passes its refined val for the same
+  // reason).
+  return B_markOutput(output, source);
 };
 
 const setEncoder: Encoder = (input: Val, target: Internal): Val => {
