@@ -859,18 +859,20 @@ export const jsonString = /* @__PURE__ */ (() => {
       const additionalItems = input.s.additionalItems;
       // Pretty-printing and async fields keep the whole-value JSON.stringify
       // path — inlined aggregation supports neither indentation nor promises.
-      // So does a dict whose values JSON.stringify already serializes
-      // byte-identically (strings — nested json-format ones escape as strings
-      // too — booleans, null): a dynamic-key loop built from JS string concat
-      // can't beat the native call. Number values stay compiled — the
+      // So does a dict or array whose dynamic values JSON.stringify already
+      // serializes byte-identically (strings — nested json-format ones escape
+      // as strings too — booleans, null): a per-item loop built from JS string
+      // concat can't beat the native call. Number values stay compiled — the
       // aggregate raises on non-finite where JSON.stringify demotes to null.
+      // `!items.length`: a tuple prefix serializes under its own item schemas,
+      // which the whole-value call would ignore.
       if (
         (expectedSchema.space !== U && expectedSchema.space !== 0) ||
         flagUnsafeHas(input.g.o, flagAsync) ||
         // `!uv`: a fused container skipped upstream validation, and the
         // whole-value paths don't validate — only the aggregate loop does.
         (!input.s.uv &&
-          input.s.type !== arrayTag &&
+          !input.s.items?.length &&
           typeof additionalItems === "object" &&
           additionalItems.to === U &&
           flagUnsafeHas(
