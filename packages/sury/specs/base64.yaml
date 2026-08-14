@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.base64
+  input: string
+  output: string
+  instantiations: 254
+vs:
+  zod: z.base64()
+jsonSchema:
+  input: '{ type: "string", contentEncoding: "base64", pattern: "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$" }'
+  output: '{ type: "string", contentEncoding: "base64", pattern: "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$" }'
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    examples:
+      valid-one-pad:
+        input: '"SGVsbG8="'
+        output: '"SGVsbG8="'
+      valid-two-pads:
+        input: '"SGVsbA=="'
+        output: '"SGVsbA=="'
+      valid-no-pad:
+        input: '"SGVsbG8h"'
+        output: '"SGVsbG8h"'
+      empty:
+        input: '""'
+        output: '""'
+      padding-required:
+        input: '"SGVsbG8"'
+        error: Expected base64, received "SGVsbG8"
+      whitespace-rejected:
+        input: '"SGVs bG8="'
+        error: Expected base64, received "SGVs bG8="
+      newline-rejected:
+        input: '"SGVs\nbG8="'
+        error: |-
+          Expected base64, received "SGVs
+          bG8="
+      over-padded:
+        input: '"SGk==="'
+        error: Expected base64, received "SGk==="
+      pad-not-at-the-end:
+        input: '"SG=k"'
+        error: Expected base64, received "SG=k"
+      url-alphabet-rejected:
+        input: '"SG-k_w=="'
+        error: Expected base64, received "SG-k_w=="
+      non-canonical-trailing-bits-accepted:
+        input: '"SGk9"'
+        output: '"SGk9"'
+      not-a-string:
+        input: "42"
+        error: Expected base64, received 42
+  decode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"SGVsbG8="'
+        output: '"SGVsbG8="'
+      padding-required:
+        input: '"SGVsbG8"'
+        error: Expected base64, received "SGVsbG8"
+  encode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"SGVsbG8="'
+        output: '"SGVsbG8="'
+      padding-required:
+        input: '"SGVsbG8"'
+        error: Expected base64, received "SGVsbG8"

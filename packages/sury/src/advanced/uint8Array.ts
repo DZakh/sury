@@ -34,9 +34,17 @@ export const uint8Array: Internal = /* @__PURE__ */ initSchema(
       input = instanceDecoder(input);
     }
 
+    // A string target is decoded as UTF-8 text — unless it is one of the base64
+    // formats, which represent the same bytes rather than describing them, and
+    // build themselves from the instance in advanced/base64.ts. Compared by
+    // format name rather than by schema identity so that importing this module
+    // never drags the base64 encoders into a bundle that only wanted UTF-8.
+    const toFormat = inputArg.e.to?.format;
     if (
       inputArg.e.to !== U &&
       inputArg.e.parser === U &&
+      toFormat !== "base64" &&
+      toFormat !== "base64url" &&
       flagUnsafeHas(tagFlags[inputArg.e.to.type]!, tagFlagString)
     ) {
       input = B_next(

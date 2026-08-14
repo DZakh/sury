@@ -168,6 +168,8 @@ export type NumberFormat = "int32" | "port" | "integer";
 // both directions.
 export type StringFormat =
   | "json"
+  | "base64"
+  | "base64url"
   | "date-time"
   | "email"
   | "uuid"

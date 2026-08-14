@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.base64url.with(S.to, S.uint8Array)
+  input: string
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 5091
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "string", contentEncoding: "base64url", pattern: "^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-]{2,3})?$" }'
+  output: Expected JSON, received Uint8Array
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[3](i);e[1].test(i)||e[2](i);return e[0](i)}
+    examples:
+      padded-rejected-before-decoding:
+        input: '"SGVsbG8="'
+        error: Expected base64url, received "SGVsbG8="
+      standard-alphabet-rejected-before-decoding:
+        input: '"SG+k/w"'
+        error: Expected base64url, received "SG+k/w"
+      length-1-mod-4-rejected-before-decoding:
+        input: '"A"'
+        error: Expected base64url, received "A"
+  decode:
+    expression: i=>{e[1].test(i)||e[2](i);return e[0](i)}
+    examples:
+      padded-rejected-before-decoding:
+        input: '"SGVsbG8="'
+        error: Expected base64url, received "SGVsbG8="
+  encode:
+    expression: i=>{return e[0](i)}
+    examples:
+      url-alphabet:
+        input: new Uint8Array([72, 111, 164, 255])
+        output: '"SG-k_w"'
+      one-byte-drops-both-pads:
+        input: new Uint8Array([72])
+        output: '"SA"'
+      two-bytes-drop-one-pad:
+        input: new Uint8Array([72, 101])
+        output: '"SGU"'
+      empty:
+        input: new Uint8Array([])
+        output: '""'

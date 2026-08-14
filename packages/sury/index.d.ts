@@ -31,6 +31,8 @@ export type Result<TValue> = SuccessResult<TValue> | FailureResult;
 export type NumberFormat = "int32" | "port" | "integer";
 export type StringFormat =
   | "json"
+  | "base64"
+  | "base64url"
   | "date-time"
   | "email"
   | "uuid"
@@ -519,6 +521,19 @@ export const uuid: Schema<string, string>;
  * @example "cjld2cjxh0000qzrmn831i7rn"
  */
 export const cuid: Schema<string, string>;
+
+/**
+ * Base64 (RFC 4648 §4), padding required. Convert to bytes with
+ * `S.base64.with(S.to, S.uint8Array)`, or the other way around.
+ * @example "SGVsbG8="
+ */
+export const base64: Schema<string, string>;
+
+/**
+ * Base64url (RFC 4648 §5) — the `-_` alphabet, unpadded, as used by JWT.
+ * @example "SGVsbG8"
+ */
+export const base64url: Schema<string, string>;
 
 /**
  * An instance of the JS `URL` class, parsed by the WHATWG URL Standard — the same

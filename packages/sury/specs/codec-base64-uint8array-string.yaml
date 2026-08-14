@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.base64.with(S.to, S.uint8Array).with(S.to, S.string)
+  input: string
+  output: string
+  instantiations: 5240
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "string", contentEncoding: "base64", pattern: "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$" }'
+  output: '{ type: "string" }'
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[4](i);e[2].test(i)||e[3](i);return e[1].decode(e[0](i))}
+    examples:
+      ascii:
+        input: '"SGVsbG8="'
+        output: '"Hello"'
+      multibyte:
+        input: '"aMOpbGxvIPCfjI0="'
+        output: '"héllo 🌍"'
+      empty:
+        input: '""'
+        output: '""'
+      unpadded-rejected:
+        input: '"SGVsbG8"'
+        error: Expected base64, received "SGVsbG8"
+  decode:
+    expression: i=>{e[2].test(i)||e[3](i);return e[1].decode(e[0](i))}
+    examples:
+      ascii:
+        input: '"SGVsbG8="'
+        output: '"Hello"'
+  encode:
+    expression: i=>{return e[1](e[0].encode(i))}
+    examples:
+      ascii:
+        input: '"Hello"'
+        output: '"SGVsbG8="'
+      multibyte:
+        input: '"héllo 🌍"'
+        output: '"aMOpbGxvIPCfjI0="'
+      empty:
+        input: '""'
+        output: '""'

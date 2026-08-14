@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.base64url
+  input: string
+  output: string
+  instantiations: 254
+vs:
+  zod: z.base64url()
+jsonSchema:
+  input: '{ type: "string", contentEncoding: "base64url", pattern: "^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-]{2,3})?$" }'
+  output: '{ type: "string", contentEncoding: "base64url", pattern: "^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-]{2,3})?$" }'
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    examples:
+      valid-unpadded:
+        input: '"SGVsbG8"'
+        output: '"SGVsbG8"'
+      valid-whole-quantum:
+        input: '"SGVsbG8h"'
+        output: '"SGVsbG8h"'
+      valid-url-alphabet:
+        input: '"SG-k_w"'
+        output: '"SG-k_w"'
+      empty:
+        input: '""'
+        output: '""'
+      padding-rejected:
+        input: '"SGVsbG8="'
+        error: Expected base64url, received "SGVsbG8="
+      standard-alphabet-rejected:
+        input: '"SG+k/w"'
+        error: Expected base64url, received "SG+k/w"
+      length-1-mod-4-rejected:
+        input: '"A"'
+        error: Expected base64url, received "A"
+      whitespace-rejected:
+        input: '"SGV sbG8"'
+        error: Expected base64url, received "SGV sbG8"
+      not-a-string:
+        input: "42"
+        error: Expected base64url, received 42
+  decode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"SG-k_w"'
+        output: '"SG-k_w"'
+      padding-rejected:
+        input: '"SGVsbG8="'
+        error: Expected base64url, received "SGVsbG8="
+  encode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"SG-k_w"'
+        output: '"SG-k_w"'
+      padding-rejected:
+        input: '"SGVsbG8="'
+        error: Expected base64url, received "SGVsbG8="

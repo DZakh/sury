@@ -43,6 +43,7 @@ import {
   undefinedTag,
   unknown,
 } from "./base";
+import { base64, base64url } from "./advanced/base64";
 import { json } from "./advanced/json";
 import { recursiveDecoder } from "./advanced/recursive";
 import { B_operationArg } from "./builder";
@@ -366,10 +367,14 @@ const internalToJSONSchemaBase = (
     const format = schema.format;
     jsonSchema.type = "string";
     // String formats store the JSON Schema name verbatim, so they pass
-    // through. Only `cuid` and `json` have no JSON Schema equivalent — a
-    // denylist of the two costs less than an allowlist of the eighteen, and
-    // stays flat as formats are added.
-    if (format !== U && format !== "cuid" && format !== "json") {
+    // through. `cuid` and `json` have no JSON Schema equivalent — a denylist
+    // costs less than an allowlist of the eighteen, and stays flat as formats
+    // are added. The two base64 spellings do have one, but it is
+    // `contentEncoding` rather than `format`: they describe how the string
+    // decodes, not what it denotes.
+    if (format === "base64" || format === "base64url") {
+      jsonSchema.contentEncoding = format;
+    } else if (format !== U && format !== "cuid" && format !== "json") {
       jsonSchema.format = format;
     }
     if (schema.minLength !== U) {
@@ -788,6 +793,14 @@ const stringFormatSchemas = {
   uuid: uuid,
   "json-pointer": jsonPointer,
   "relative-json-pointer": relativeJsonPointer,
+} as unknown as Record<string, Internal | undefined>;
+
+// The inverse of the `contentEncoding` emit above. Null-prototype for the same
+// reason `stringFormatSchemas` is: the key comes from the document.
+const contentEncodingSchemas = {
+  __proto__: null,
+  base64: base64,
+  base64url: base64url,
 } as unknown as Record<string, Internal | undefined>;
 
 // draft-04 (and OpenAPI 3.0) make `exclusiveMinimum` a boolean that flips the
@@ -1213,8 +1226,15 @@ export const fromJSONSchema = (
       types.map((type) => fromJSONSchema(jsonSchemaMerge(jsonSchema, { type }), ctx))
     );
   } else if (jsonSchema.type === "string") {
-    schema = stringFormatSchemas[jsonSchema.format!] || string;
-    if (jsonSchema.pattern !== U) {
+    schema =
+      contentEncodingSchemas[jsonSchema.contentEncoding!] ||
+      stringFormatSchemas[jsonSchema.format!] ||
+      string;
+    // A `pattern` that restates the format's own is what `toJSONSchema` emitted
+    // for it, so applying it would add a second identical check to every
+    // round-tripped base64 schema — the same reason `multipleOf: 1` is skipped
+    // on an integer format below.
+    if (jsonSchema.pattern !== U && jsonSchema.pattern !== schema.pattern?.source) {
       schema = pattern(schema, new RegExp(jsonSchema.pattern));
     }
     if (jsonSchema.minLength !== U) {

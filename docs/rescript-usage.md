@@ -250,9 +250,25 @@ S.isoDateTime // UTC timestamp
 S.duration // Duration
 S.jsonPointer // JSON Pointer
 S.relativeJsonPointer // Relative JSON Pointer
+S.base64 // Base64, padding required
+S.base64url // Base64url — the `-_` alphabet, unpadded
 ```
 
 Each survives a round trip through `S.toJSONSchema` and `S.fromJSONSchema`.
+The two base64 formats emit `contentEncoding` rather than `format`, which is
+how JSON Schema spells them.
+
+Base64 describes bytes rather than text, so it converts through `S.uint8Array`:
+
+```rescript
+S.base64->S.to(S.uint8Array) // base64 string -> bytes
+S.uint8Array->S.to(S.base64url) // bytes -> base64url string
+S.base64->S.to(S.uint8Array)->S.to(S.string) // base64 of utf-8 text
+```
+
+`S.uint8Array->S.to(S.string)` decodes UTF-8; the base64 formats are the only
+string targets that don't, since they re-encode the same bytes instead of
+interpreting them as text.
 
 **A format checks syntax, not safety.** Every one is exactly as strict as its
 spec, so a well-formed value passes even when it isn't one you want to accept:
