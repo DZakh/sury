@@ -314,6 +314,24 @@ test("Appending S.to(S.jsonString) after getOr extends the output chain", t => {
   )
 })
 
+// getOr hands jsonString a bare ternary, and `+` binds tighter than `?:`, so
+// splicing it between quotes unparenthesized reassociated into
+// `("\""+i)===void 0?…` — which dropped the opening quote on BOTH branches and
+// went unnoticed because no test paired a default with a quoted primitive.
+// Spelled here rather than as a spec: `spec new` can't evaluate `$Option_getOr`.
+test("getOr default reaches jsonString quoted, not reassociated", t => {
+  let schema = S.string->S.to(S.bigint)->S.option->S.Option.getOr(7n)->S.to(S.jsonString)
+
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{for(;;){if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=v0;break}if(i===void 0)break;e[1](i)}return "\\""+(i===void 0?7n:i)+"\\""}`,
+  )
+
+  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), `"7"`)
+  t->Assert.deepEqual("123"->S.parseOrThrow(~to=schema), `"123"`)
+})
+
 // A multi-member transforming union + getOr. Each string-coercing branch
 // declares its conversion var (`let v0 = +i` / `let v1 = BigInt(i)`) inside the
 // try block that owns the branch's type check, so a string input dispatches

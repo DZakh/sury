@@ -332,8 +332,30 @@ export const json: Internal = /* @__PURE__ */ initSchema(refTag, jsonDecoderFn, 
 // Anchored, so an absent format stringifies to "undefined" and misses.
 const escFreeFormatRe =
   /^(date(-time)?|duration|uuid|email|hostname|ipv[46]|uri(-reference)?)$/;
-const B_isEscFree = (schema: Internal): boolean =>
-  !schema.noValidation && escFreeFormatRe.test(schema.format!);
+// `accessorRe` does double duty here, and the second job is the load-bearing
+// one: it is also the only cheap evidence that the expression really is the
+// string the format vouches for. A `.to` chain carrying a default emits
+// `i===void 0?e[2]:i.toISOString()`, whose default branch is the default value
+// itself — a `Date`, not its ISO text — so the format proves nothing about it.
+// The helper stringifies that correctly (JSON.stringify of a Date is its ISO
+// text) where a splice would emit `Mon Jan 01 2024 …`. Anything but a bare
+// accessor keeps the helper.
+const B_isEscFree = (input: Val): boolean =>
+  !input.s.noValidation &&
+  escFreeFormatRe.test(input.s.format!) &&
+  accessorRe.test(input.i);
+
+// An identifier, property access, index or no-arg call — nothing that could
+// hold an operator. Everything else has to be parenthesized before it can sit
+// between two `+`: `+` binds tighter than `?:`, so the bare ternary a `.to`
+// chain with a default hands over (`i===void 0?e[2]:i.toISOString()`)
+// reassociates into `("\""+i)===void 0?…` and loses the opening quote on every
+// input.
+const accessorRe = /^[\w$]+(\.[\w$]+|\[[^\[\]]*\]|\(\))*$/;
+
+// A value that needs no escaping, as JSON text: the value between bare quotes.
+const B_quoted = (i: string): string =>
+  `"\\""+${accessorRe.test(i) ? i : `(${i})`}+"\\""`;
 
 // Runtime helper embedded into generated jsonString code: the JSON text of a
 // string value. The fast path skips JSON.stringify's escape handling when a
@@ -859,8 +881,8 @@ export const jsonString = /* @__PURE__ */ (() => {
     } else if (flagUnsafeHas(inputTagFlag, tagFlagString)) {
       return B_next(
         input,
-        B_isEscFree(input.s)
-          ? `"\\""+${input.i}+"\\""`
+        B_isEscFree(input)
+          ? B_quoted(input.i)
           : `${B_embedJsonStr(input)}(${input.i})`,
         expectedSchema,
       );
@@ -884,7 +906,7 @@ export const jsonString = /* @__PURE__ */ (() => {
         expectedSchema,
       );
     } else if (flagUnsafeHas(inputTagFlag, tagFlagBigint)) {
-      return B_next(input, `"\\""+${input.i}+"\\""`, expectedSchema);
+      return B_next(input, B_quoted(input.i), expectedSchema);
     } else if (flagUnsafeHas(inputTagFlag, (tagFlagObject | tagFlagArray))) {
       const additionalItems = input.s.additionalItems;
       // Pretty-printing and async fields keep the whole-value JSON.stringify
