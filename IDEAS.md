@@ -47,6 +47,40 @@
     on text semantics, so it wants a CHANGELOG line; `tests/S_test.ts`'s
     `S.decoder(S.string, S.uint8Array, S.jsonString)("data") === '"data"'`
     becoming `'"ZGF0YQ=="'` is the whole behavior change in one assertion.
+- **`jsonString` -> `Uint8Array`, and a native encoder under it.** Every real
+  consumer of `S.jsonString` hands the result to something that wants bytes —
+  `fetch`'s body, a socket write, `fs.write`, a Kafka producer — so the JS
+  string it returns is an intermediate that exists only to be UTF-8 encoded a
+  moment later. Two halves, and the second is what makes the first worth doing:
+  - `S.jsonString.with(S.to, S.uint8Array)` (and the reverse) as a declared
+    target, so the wire type is bytes and the codec owns the encoding. Today the
+    same thing spells as two hops through `advanced/uint8Array.ts`, which is the
+    text codec the base64 idea above is about to change under it — settle that
+    first, since `jsonString -> uint8Array` must stay UTF-8 and must *not*
+    inherit whatever `S.uint8Array <-> string` becomes.
+  - A native encoder for the aggregate: reuse one module-level `TextEncoder`
+    (`encodeInto` into a caller-owned buffer where one is supplied) instead of
+    building the whole JSON text and encoding it after. The interesting version
+    doesn't materialize the string at all — the aggregate already emits a
+    concat chain, and the constant pieces (`{"id":"`, `","at":"`) are known at
+    codegen time, so they can be pre-encoded to byte arrays once per compiled
+    operation and only the dynamic slices go through `encodeInto`. That is the
+    same trick the escape-free format splice plays, one level lower.
+  Measured, 100-row list to `Uint8Array` on node 22, the whole trip inside the
+  timer — `JSON.stringify` + `Buffer.from` 18.4µs, today's `jsonString` +
+  `Buffer.from` 23.7µs, a byte writer 6.6µs. So the prize is real (~2.6x over
+  the current path), but it lives entirely in *how* the bytes are written: the
+  same writer built the obvious way, one `buf.write` per piece with `""+n` for
+  numbers, measured 24.4µs — slower than the string path it replaces. The 3.6x
+  between those two is byte stores for the constant chunks, a manual itoa, and
+  an inline char loop for short strings, and all three are things only a
+  compiler can emit. Two shapes that look alike are worth ruling out first:
+  `parts.join()` produces a flat string but costs more to build than the
+  cheaper `Buffer.from` wins back (25.8µs), and `encodeInto` over a pooled
+  buffer under the existing concat is only ~7% (22.1µs). Wants a
+  `scenarios.yaml`/`bench:jsonstring` entry measuring end-to-end (stringify +
+  encode), never stringify alone — that is the measurement that hides the
+  flatten and made the string path look like it was already winning.
 - Trusted union decode can leave a dead `let` behind: `valGet` builds a
   grandchild's inline string eagerly (`` `${parent.v()}${pathAppend}` ``,
   `composites.ts`), materializing the parent var even when the passthrough

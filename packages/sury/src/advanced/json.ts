@@ -309,15 +309,20 @@ export const json: Internal = /* @__PURE__ */ initSchema(refTag, jsonDecoderFn, 
 
 // Formats whose every accepted value is ASCII carrying no JSON escape
 // character, so the value splices between bare quotes and skips the escape
-// helper entirely. Two kinds qualify, and both are checked by
-// `pnpm --filter=sury fuzz:escfree`:
+// helper. Two kinds qualify:
 //
 //   - manufactured by the code we emit — date.ts's `toISOString()` is
 //     "date-time", url.ts's `urlToUri` is "uri" — where the producer's range
 //     is the proof, and no caller can reach around it;
-//   - validated by an anchored pattern that admits none of those characters,
-//     where `S.encoder`'s contract (input already satisfies the schema — use
-//     `S.parser` if it might not) is what carries the guarantee.
+//   - carried by a value the format's own anchored pattern already checked,
+//     which is what `B_isEscFree` insists on: the check is the guarantee, so
+//     `noValidation` (which drops it) must fall back to the helper or the
+//     encoder emits `{"id":"a"b"}` for a lying caller.
+//
+// `pnpm --filter=sury fuzz:escfree` proves the second kind — that no value a
+// listed pattern accepts needs escaping. The first kind it can only observe
+// through a format, since `dateTimeString`/`uriString` are module-private;
+// their proof is the producer, restated at each one.
 //
 // Deliberately partial. `cuid` is `/^c[^\s-]{8,}$/i`, which accepts a quote,
 // and the IDN/IRI family admits arbitrary non-ASCII including lone
@@ -327,6 +332,8 @@ export const json: Internal = /* @__PURE__ */ initSchema(refTag, jsonDecoderFn, 
 // Anchored, so an absent format stringifies to "undefined" and misses.
 const escFreeFormatRe =
   /^(date(-time)?|duration|uuid|email|hostname|ipv[46]|uri(-reference)?)$/;
+const B_isEscFree = (schema: Internal): boolean =>
+  !schema.noValidation && escFreeFormatRe.test(schema.format!);
 
 // Runtime helper embedded into generated jsonString code: the JSON text of a
 // string value. The fast path skips JSON.stringify's escape handling when a
@@ -852,7 +859,7 @@ export const jsonString = /* @__PURE__ */ (() => {
     } else if (flagUnsafeHas(inputTagFlag, tagFlagString)) {
       return B_next(
         input,
-        escFreeFormatRe.test(input.s.format!)
+        B_isEscFree(input.s)
           ? `"\\""+${input.i}+"\\""`
           : `${B_embedJsonStr(input)}(${input.i})`,
         expectedSchema,
