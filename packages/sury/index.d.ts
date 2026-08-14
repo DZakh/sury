@@ -795,6 +795,7 @@ export function tuple<TInput extends unknown[], TOutput>(
       schema: SchemaLike<unknown, TItemOutput>
     ) => TItemOutput;
     tag: (inputIndex: number, value: unknown) => void;
+    rest: <TItemOutput>(schema: SchemaLike<unknown, TItemOutput>) => TItemOutput[];
   }) => TOutput
 ): Schema<TInput, TOutput>;
 export function tuple<const T extends unknown[]>(
@@ -886,6 +887,10 @@ type ObjectCtx<TInput extends Record<string, unknown>> = {
     schema: SchemaLike<unknown, TFieldOutput>
   ) => TFieldOutput;
   nested: (name: string) => ObjectCtx<Record<string, unknown>>;
+  // Every key the declared fields don't name, as one value. Only on the top
+  // ctx: `nested` builds its own object, which has its own answer for what its
+  // undeclared keys are.
+  rest: <TItemOutput>(schema: SchemaLike<unknown, TItemOutput>) => Record<string, TItemOutput>;
 };
 
 export function object<TInput extends Record<string, unknown>, TOutput>(

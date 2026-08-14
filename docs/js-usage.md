@@ -740,6 +740,35 @@ In JSON Schema the two spellings are `additionalProperties` and
 `additionalItems`, and both round-trip through `S.toJSONSchema` and
 `S.fromJSONSchema`.
 
+Inside an [advanced object](#advanced-object-schema) or
+[advanced tuple](#advanced-tuple-schema) schema, `s.rest` gives the undeclared
+keys a field of their own instead of leaving them where they are — the schema
+equivalent of `const { USER_ID, ...extra } = value`:
+
+```ts
+const userSchema = S.object((s) => ({
+  id: s.field("USER_ID", S.string),
+  extra: s.rest(S.number),
+}));
+// Schema<unknown, { id: string; extra: Record<string, number> }>
+
+S.parser(userSchema)({ USER_ID: "u1", a: 1, b: 2 });
+// => returns { id: "u1", extra: { a: 1, b: 2 } }
+```
+
+It reverses like every other field, spreading `extra` back out on encode, and
+the tuple ctx has the same method for the items past the declared ones:
+
+```ts
+const rowSchema = S.tuple((s) => ({
+  head: s.item(0, S.string),
+  tail: s.rest(S.number),
+}));
+
+S.parser(rowSchema)(["a", 1, 2]);
+// => returns { head: "a", tail: [1, 2] }
+```
+
 ### `merge`
 
 You can add additional fields to an object schema with the `merge` function.

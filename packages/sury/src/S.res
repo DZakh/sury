@@ -556,6 +556,7 @@ module Object = {
     tag: 'value. (string, 'value) => unit,
     nested: string => s,
     flatten: 'value. t<'value> => 'value,
+    rest: 'item. t<'item> => dict<'item>,
   }
 }
 
@@ -570,6 +571,7 @@ module Tuple = {
   type s = {
     item: 'value. (int, t<'value>) => 'value,
     tag: 'value. (int, 'value) => unit,
+    rest: 'item. t<'item> => array<'item>,
   }
 }
 

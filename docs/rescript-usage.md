@@ -25,6 +25,7 @@
   - [`literal`](#literal)
   - [`object`](#object)
     - [Transform object field names](#transform-object-field-names)
+    - [Collect the undeclared keys with `s.rest`](#collect-the-undeclared-keys-with-srest)
     - [Transform to a structurally typed object](#transform-to-a-structurally-typed-object)
     - [Transform to a tuple](#transform-to-a-tuple)
     - [Transform to a variant](#transform-to-a-variant)
@@ -553,6 +554,44 @@ let schema = S.object(s => {
 // {id: 1, name: "John"}
 {id: 1, name: "John"}->S.decodeOrThrow(~from=schema, ~to=S.unknown)
 // {"USER_ID": 1, "USER_NAME": "John"}
+```
+
+#### Collect the undeclared keys with `s.rest`
+
+Every key the declared fields don't name can go into a field of its own, as a
+`dict`:
+
+```rescript
+type user = {id: string, extra: dict<int>}
+
+let schema = S.object(s => {
+  id: s.field("USER_ID", S.string),
+  extra: s.rest(S.int),
+})
+
+{
+  "USER_ID": "u1",
+  "a": 1,
+  "b": 2,
+}->S.parseOrThrow(~to=schema)
+// {id: "u1", extra: dict{"a": 1, "b": 2}}
+```
+
+Every collected value is validated against the schema given to `s.rest`, and
+encoding spreads the dict back out alongside the declared fields. The tuple ctx
+has the same method for the items past the declared ones, collecting them into
+an `array`:
+
+```rescript
+type row = {head: string, tail: array<bool>}
+
+let schema = S.tuple(s => {
+  head: s.item(0, S.string),
+  tail: s.rest(S.bool),
+})
+
+%raw(`["a", true, false]`)->S.parseOrThrow(~to=schema)
+// {head: "a", tail: [true, false]}
 ```
 
 #### Transform to a structurally typed object

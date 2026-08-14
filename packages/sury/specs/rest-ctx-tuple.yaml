@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.tuple((s) => ({ head: s.item(0, S.string), tail: s.rest(S.number) }))"
+  input: unknown[]
+  output: "{ head: string; tail: number[]; }"
+  instantiations: 593
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "array", minItems: 1, items: [{ type: "string" }], additionalItems: { type: "number" } }'
+  fromInputType: "[string, ...number[]]"
+  output: '{ type: "object", properties: { head: { type: "string" }, tail: { items: { type: "number" }, type: "array" } }, required: ["head", "tail"] }'
+operations:
+  parse:
+    expression: i=>{Array.isArray(i)&&i.length>=1||e[2](i);let v0=i["0"];typeof v0==="string"||e[0](v0);let v4=[];for(let v1=1;v1<i.length;++v1){try{let v2=i[v1];typeof v2==="number"&&!Number.isNaN(v2)||e[1](v2);v4[v1-1]=v2}catch(v3){v3.path='["'+v1+'"]'+v3.path;throw v3}}return {"head":v0,"tail":v4,}}
+    examples:
+      prefix-and-rest:
+        input: '["a", 1, 2]'
+        output: '{ head: "a", tail: [1, 2] }'
+      prefix-only:
+        input: '["a"]'
+        output: '{ head: "a", tail: [] }'
+      too-short-for-the-prefix:
+        input: "[]"
+        error: Expected [string, ...number[]], received []
+      rest-item-of-wrong-type:
+        input: '["a", "b"]'
+        error: 'Failed at ["1"]: Expected number, received "b"'
+  decode:
+    expression: i=>{i.length>=1||e[0](i);let v1=[];for(let v0=1;v0<i.length;++v0){v1[v0-1]=i[v0]}return {"head":i["0"],"tail":v1,}}
+    examples:
+      prefix-and-rest:
+        input: '["a", 1]'
+        output: '{ head: "a", tail: [1] }'
+  encode:
+    expression: i=>{let v0=i["tail"];return [i["head"],...v0]}
+    examples:
+      prefix-and-rest:
+        input: '{ head: "a", tail: [1, 2] }'
+        output: '["a", 1, 2]'
+      empty-rest:
+        input: '{ head: "a", tail: [] }'
+        output: '["a"]'

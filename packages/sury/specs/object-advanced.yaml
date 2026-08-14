@@ -3,7 +3,7 @@ ts:
   schema: 'S.object((s) => { s.tag("type", 0); return { nested: s.nested("nested").field("field", S.number), flattened: s.flatten(S.schema({ id: S.string })), foo: s.field("Foo", S.string), bar: s.fieldOr("Bar", S.boolean, true) } })'
   input: "{ [x: string]: unknown; }"
   output: "{ nested: number; flattened: { id: string; }; foo: string; bar: boolean; }"
-  instantiations: 1482
+  instantiations: 1484
 vs:
   zod:
     _skip: not-applicable

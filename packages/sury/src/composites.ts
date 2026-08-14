@@ -135,6 +135,18 @@ const B_narrowJsonSourcedJsonString = (itemInput: Val): void => {
   }
 };
 
+// An `s.rest(...)` reshape re-reads the source value (`collectRest` in
+// factory.ts), so the decoder has to leave that value in place — a rebuilt one
+// carries the declared part only. The rebuild is dead weight there anyway: the
+// reshape assembles its own value out of the decoded field vals. The returned
+// schema keeps the SOURCE's `additionalItems`, so the reshape still sees the
+// rest as unvalidated and checks it exactly once instead of never.
+const restSourceSchema = (expectedSchema: Internal, input: Val): Internal => {
+  const mut = copySchema(expectedSchema);
+  mut.additionalItems = input.s.additionalItems;
+  return mut;
+}
+
 export const makeObjectVal = (prev: Val, schema: Internal): Val => {
   // Canonical Val field order (see B_operationArg in builder.ts).
   return {
@@ -162,6 +174,7 @@ export const makeObjectVal = (prev: Val, schema: Internal): Val => {
     f: valFlagNone,
     d: Object.create(null),
     fv: U,
+    sp: U,
     cp: "",
     hd: "",
     fz: U,
@@ -207,7 +220,15 @@ export const completeObjectVal = (objectVal: Val): Val => {
     }
   }
 
-  objectVal.i = isArray ? "[" + inline + "]" : "{" + inline + "}";
+  // Where the spread goes is the whole difference between the two containers: a
+  // tuple's declared items own indices 0..n-1 so the rest follows them, while an
+  // object's declared keys have to win a name collision so the rest precedes
+  // them — which is the precedence the decode side gets for free, its rest loop
+  // skipping every declared key.
+  const spread = objectVal.sp !== U ? "..." + objectVal.sp.i : "";
+  objectVal.i = isArray
+    ? "[" + inline + spread + "]"
+    : "{" + (spread === "" ? "" : spread + ",") + inline + "}";
 
   // FIXME: Test whether re-asserting `additionalItems = "strict"` here is
   // needed, now that the object's properties are already fully assembled.
@@ -407,7 +428,8 @@ export const arrayDecoder = (unknownInput: Val): Val => {
     let restOutput: Val | undefined = U;
     let restIteratorVar = "";
     let restRaiseCountBefore = 0;
-    if (restItem !== U) {
+    // Same hand-off as the object rest loop.
+    if (restItem !== U && expectedSchema.fromRest === U) {
       restIteratorVar = B_varWithoutAllocation(objectVal.g);
       restRaiseCountBefore = input.g.t;
       const itemInput = B_dynamicScope(input, restIteratorVar);
@@ -421,13 +443,16 @@ export const arrayDecoder = (unknownInput: Val): Val => {
 
     // After input.schema was used, set it to selfSchema
     // so it has a more accurate name in error messages
-    if (shouldRecreateInput) {
+    if (shouldRecreateInput && expectedSchema.fromRest === U) {
       output = completeObjectVal(objectVal);
     } else {
       // Same stale-schema class as #284/#252: carry expectedSchema, not
       // input.schema (which may be a minimal union dispatch narrow), so a
       // pending `.to(json)` conversion routes through the fixed-items path
-      const o = B_refine(input, expectedSchema);
+      const o = B_refine(
+        input,
+        expectedSchema.fromRest !== U ? restSourceSchema(expectedSchema, input) : expectedSchema,
+      );
       o.cp = objectVal.cp;
       o.d = objectVal.d;
       output = o;
@@ -672,7 +697,10 @@ export const objectDecoder = (unknownInput: Val): Val => {
     let restOutput: Val | undefined = U;
     let restKeyVar = "";
     let restRaiseCountBefore = 0;
-    if (restItem !== U && sourceIsDict) {
+    // `fromRest` means an `s.rest(...)` reshape collects and decodes these keys
+    // itself (`collectRest` in factory.ts) — validating them here too would run
+    // every check twice.
+    if (restItem !== U && sourceIsDict && expectedSchema.fromRest === U) {
       restKeyVar = B_varWithoutAllocation(objectVal.g);
       restRaiseCountBefore = input.g.t;
       const itemInput = B_dynamicScope(input, restKeyVar);
@@ -686,7 +714,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
 
     // After input.schema was used, set it to selfSchema
     // so it has a more accurate name in error messages
-    if (shouldRecreateInput) {
+    if (shouldRecreateInput && expectedSchema.fromRest === U) {
       output = completeObjectVal(objectVal);
     } else {
       // The value was just validated against expectedSchema — carry it as
@@ -694,7 +722,10 @@ export const objectDecoder = (unknownInput: Val): Val => {
       // union dispatch narrow ({properties:{}, additionalItems: unknown}).
       // Keeping the narrow mis-routed a pending `.to(json)` conversion
       // into the dict path, which rejects undefined optional fields (#252)
-      const o = B_refine(input, expectedSchema);
+      const o = B_refine(
+        input,
+        expectedSchema.fromRest !== U ? restSourceSchema(expectedSchema, input) : expectedSchema,
+      );
       o.cp = objectVal.cp;
       o.d = objectVal.d;
       output = o;
@@ -736,9 +767,9 @@ const panicOnAsyncRest = (restOutput: Val, schema: Internal): void => {
 }
 
 // The `for..in` guard that skips the keys `properties` already covers — shared
-// by the strict excess-key check and the rest loop, which differ only in what
-// they do with a key that gets through.
-const undeclaredKeyCond = (keys: string[], keyVar: string): string => {
+// by the strict excess-key check, the rest loop, and `collectRest` in
+// factory.ts, which differ only in what they do with a key that gets through.
+export const undeclaredKeyCond = (keys: string[], keyVar: string): string => {
   let cond = "";
   for (let idx = 0; idx < keys.length; idx++) {
     cond = cond + (idx === 0 ? "" : "&&") + `${keyVar}!==${inlinedValueFromString(keys[idx]!)}`;
@@ -978,6 +1009,7 @@ export const valGet = (parent: Val, location: string): Val => {
       f: valFlagNone,
       d: U,
       fv: U,
+    sp: U,
       cp: "",
       hd: "",
       fz: U,

@@ -428,6 +428,7 @@ export const rest = (schema: Internal, item: unknown): Internal => {
 export type TupleCtx = {
   item: (idx: number, schema: Internal) => unknown;
   tag: (idx: number, value: unknown) => void;
+  rest: (schema: unknown) => unknown;
 };
 
 export type Meta<TValue> = {

@@ -3,7 +3,7 @@ ts:
   schema: 'S.tuple((s) => { s.tag(0, "point"); return { x: s.item(1, S.int32), y: s.item(2, S.int32) } })'
   input: unknown[]
   output: "{ x: number; y: number; }"
-  instantiations: 505
+  instantiations: 517
 vs:
   zod:
     _skip: not-applicable

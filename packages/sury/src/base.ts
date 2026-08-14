@@ -286,6 +286,11 @@ export type Internal = {
   // The index of the flattened schema reshaping is happening from.
   fromFlattened?: number;
   flattened?: Internal[];
+  // Set on the `s.rest(...)` placeholder instead of `from`: the value isn't at
+  // any one path, it's everything the declared locations don't cover. Set on
+  // the object/tuple being built too, where it tells the decoder to leave the
+  // rest to the reshape rather than validating it a second time.
+  fromRest?: boolean;
   const?: unknown;
   class?: unknown;
   name?: string;
@@ -423,6 +428,10 @@ export type Val = {
   d?: Record<string, Val>;
   // @as("fv") — flattenedVals
   fv?: Val[];
+  // @as("sp") — the val spread into this object/array before its own fields,
+  // so a reshape can place `s.rest(...)` back where it came from. Only
+  // `completeObjectVal` reads it.
+  sp?: Val;
   // @as("cp") — codeFromPrev
   cp: string;
   // Comma-joined `let` declarations hoisted onto this val by descendants

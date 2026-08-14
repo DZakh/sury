@@ -28,25 +28,33 @@ import {
 } from "./base";
 import {
   _notVarAtParent,
+  B_addKey,
   B_addObjectField,
+  B_dynamicScope,
   B_invalidOperation,
   B_markOutput,
   B_merge,
+  B_mergeWithPathPrepend,
+  B_next,
   B_nextConst,
   B_scope,
+  B_varWithoutAllocation,
 } from "./builder";
 import {
   arrayDecoder,
+  arrayFactory,
   completeObjectVal,
   definitionToSchema,
+  dictFactory,
   makeObjectVal,
   objectDecoder,
   optionFactory,
   traverseDefinition,
+  undeclaredKeyCond,
   valGet,
 } from "./composites";
 import { Option_getOr, type TupleCtx } from "./modifiers";
-import { getOutputSchema, parse, reverse } from "./parse";
+import { getOutputSchema, parse, parseDynamic, reverse } from "./parse";
 import { unit } from "./primitives";
 import { unionFactory } from "./union";
 
@@ -54,6 +62,7 @@ type ShapedSerializerAcc = {
   val?: Val;
   properties?: Record<string, ShapedSerializerAcc>;
   flattened?: ShapedSerializerAcc[];
+  rest?: Val;
 };
 
 export type SchemaCtx = {
@@ -72,6 +81,7 @@ export type AdvancedObjectCtx = {
   tag: (tag: string, asValue: unknown) => void;
   nested: (fieldName: string) => AdvancedObjectCtx;
   flatten: (schema: Internal) => unknown;
+  rest?: (schema: unknown) => unknown;
 };
 
 const makeTag = (field: (location: string, schema: Internal) => unknown) =>
@@ -116,6 +126,19 @@ const proxifyShapedSchema = (schema: Internal, from: string[], fromFlattened?: n
           target.fromFlattened
         );
       }
+    },
+  } as ProxyHandler<object>);
+}
+
+// The `s.rest(...)` placeholder. Unlike a field proxy it names no path, so it
+// gets no `from` and isn't walkable — reading a property off it would be a
+// property of a value that doesn't exist yet.
+const proxifyRestSchema = (schema: Internal): unknown => {
+  const mut = copySchema(schema);
+  mut.fromRest = true;
+  return new Proxy(mut, {
+    get(target: Internal, prop) {
+      return prop === itemSymbol ? target : panic(`Cannot read property "${String(prop)}" of the rest`);
     },
   } as ProxyHandler<object>);
 }
@@ -255,6 +278,15 @@ export const schemaObject = (
   const tag = makeTag(field);
   const fieldOr = makeFieldOr(field);
 
+  let restItem: Internal | undefined = U;
+  const rest = (schema: unknown): unknown => {
+    if (restItem !== U) {
+      panic("The rest is defined twice");
+    }
+    restItem = definitionToSchema(schema);
+    return proxifyRestSchema(dictFactory(restItem));
+  };
+
   const ctx: AdvancedObjectCtx = {
     // js/ts methods
     field,
@@ -264,6 +296,7 @@ export const schemaObject = (
     tag,
     nested: schemaNested,
     flatten,
+    rest,
   };
 
   const definition = definer(ctx);
@@ -271,9 +304,12 @@ export const schemaObject = (
   const mut = baseSchema(objectTag, false, objectDecoder);
   mut.required = Object.keys(properties);
   mut.properties = properties;
-  mut.additionalItems = globalConfig.a;
+  mut.additionalItems = restItem !== U ? restItem : globalConfig.a;
   mut.parser = shapedParser;
   mut.to = definitionToShapedSchema(definition);
+  if (restItem !== U) {
+    mut.fromRest = true;
+  }
   if (flattened !== U) {
     mut.flattened = flattened;
   }
@@ -303,9 +339,19 @@ export const schemaTuple = (
     item(idx, definitionToSchema(asValue));
   };
 
+  let restItem: Internal | undefined = U;
+  const rest = (schema: unknown): unknown => {
+    if (restItem !== U) {
+      panic("The rest is defined twice");
+    }
+    restItem = definitionToSchema(schema);
+    return proxifyRestSchema(arrayFactory(restItem));
+  };
+
   const ctx: TupleCtx = {
     item,
     tag,
+    rest,
   };
 
   const definition = definer(ctx);
@@ -318,7 +364,10 @@ export const schemaTuple = (
 
   const mut = baseSchema(arrayTag, false, arrayDecoder);
   mut.items = items;
-  mut.additionalItems = "strict";
+  mut.additionalItems = restItem !== U ? restItem : "strict";
+  if (restItem !== U) {
+    mut.fromRest = true;
+  }
   mut.parser = shapedParser;
   mut.to = definitionToShapedSchema(definition);
   return mut;
@@ -345,10 +394,14 @@ const assembleShapedObject = (
   schema: Internal,
   field: (location: string, childSchema: Internal) => Val,
   init?: (output: Val) => void,
-  onMissing?: () => void
+  onMissing?: () => void,
+  rest?: Val
 ): Val => {
   const output = makeObjectVal(input, schema);
   output.io = true;
+  if (rest !== U) {
+    output.sp = rest;
+  }
   if (init !== U) {
     init(output);
   }
@@ -379,9 +432,48 @@ const assembleShapedObject = (
   return completeObjectVal(output);
 }
 
+// `s.rest(...)`'s value: everything the declared locations don't cover, decoded
+// into a fresh dict (object ctx) or array (tuple ctx). The decoders leave this
+// to us — they see `fromRest` on the schema and skip their own rest loop — so
+// each source key is validated once, here.
+const collectRest = (input: Val, targetSchema: Internal): Val => {
+  const sourceSchema = input.e;
+  const isArray = sourceSchema.type === arrayTag;
+  const prefixLength = isArray ? sourceSchema.items!.length : 0;
+  const inputVar = input.v();
+  const keyVar = B_varWithoutAllocation(input.g);
+
+  const itemInput = B_dynamicScope(input, keyVar);
+  const itemOutput = parseDynamic(itemInput);
+  const output = B_next(
+    input,
+    isArray ? "[]" : "{}",
+    isArray ? arrayFactory(itemOutput.s) : dictFactory(itemOutput.s),
+    targetSchema
+  );
+
+  const itemCode = B_mergeWithPathPrepend(itemOutput, input, keyVar, () =>
+    // An array rest starts at 0 in its own value, so the source index is
+    // shifted by the prefix it sits behind.
+    B_addKey(output, prefixLength === 0 ? keyVar : `${keyVar}-${prefixLength}`, itemOutput)
+  );
+
+  output.cp =
+    output.cp +
+    (isArray
+      ? `for(let ${keyVar}=${prefixLength};${keyVar}<${inputVar}.length;++${keyVar}){${itemCode}}`
+      : `for(let ${keyVar} in ${inputVar}){if(${undeclaredKeyCond(
+          Object.keys(sourceSchema.properties!),
+          keyVar
+        )}){${itemCode}}}`);
+  return output;
+}
+
 const getShapedParserOutput = (input: Val, targetSchema: Internal): Val => {
   let v: Val;
-  if (targetSchema.fromFlattened !== U) {
+  if (targetSchema.fromRest !== U) {
+    v = collectRest(input, targetSchema);
+  } else if (targetSchema.fromFlattened !== U) {
     v = B_scope(
       getValByFrom(input.fv![targetSchema.fromFlattened]!, targetSchema.from!, 0)
     );
@@ -450,7 +542,11 @@ const shapedParser: Builder = (input: Val) => {
 }
 
 const prepareShapedSerializerAcc = (acc: ShapedSerializerAcc, input: Val): void => {
-  if (input.e.from !== U) {
+  if (input.e.fromRest !== U) {
+    // No `from` to walk — the rest goes back to the object/tuple being
+    // assembled, whole, and `assembleShapedObject` spreads it in.
+    acc.rest = input;
+  } else if (input.e.from !== U) {
     const from = input.e.from;
     const fromFlattened = input.e.fromFlattened;
     let accAtFrom: ShapedSerializerAcc;
@@ -581,7 +677,8 @@ const getShapedSerializerOutput = (
           });
         }
       },
-      missingInput
+      missingInput,
+      acc !== U ? acc.rest : U
     );
     // The walk built the head of `targetSchema`'s chain. If the schema also
     // carries a transform of its own, run it here: the assembled head is its

@@ -3,7 +3,7 @@ ts:
   schema: 'S.jsonString.with(S.to, S.union([S.tuple(s => [s.item(0, S.bigint), s.item(1, S.string)]), S.schema({t: "x", id: S.bigint})]))'
   input: string
   output: '(string | bigint)[] | { t: "x"; id: bigint; }'
-  instantiations: 7722
+  instantiations: 7734
 vs:
   zod:
     _skip: not-applicable

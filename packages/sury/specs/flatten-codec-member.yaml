@@ -3,7 +3,7 @@ ts:
   schema: 'S.object((s) => s.flatten(S.schema({ b: S.string }).with(S.to, S.schema({ b: S.string }), (v) => ({ b: v.b + "!" }), (v) => ({ b: v.b.slice(0, -1) }))))'
   input: "{ [x: string]: unknown; }"
   output: "{ b: string; }"
-  instantiations: 6820
+  instantiations: 6822
 vs:
   zod:
     _skip: not-applicable

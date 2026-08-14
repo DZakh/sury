@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.object((s) => ({ id: s.field("USER_ID", S.string), extra: s.rest(S.number) }))'
+  input: "{ [x: string]: unknown; }"
+  output: "{ id: string; extra: Record<string, number>; }"
+  instantiations: 637
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "object", properties: { USER_ID: { type: "string" } }, additionalProperties: { type: "number" }, required: ["USER_ID"] }'
+  fromInputType: "{ USER_ID: string; } & Record<string, number>"
+  output: '{ type: "object", properties: { id: { type: "string" }, extra: { type: "object", additionalProperties: { type: "number" } } }, required: ["id", "extra"] }'
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["USER_ID"];typeof v0==="string"||e[0](v0);let v4={};for(let v1 in i){if(v1!=="USER_ID"){try{let v2=i[v1];typeof v2==="number"&&!Number.isNaN(v2)||e[1](v2);v4[v1]=v2}catch(v3){v3.path='["'+v1+'"]'+v3.path;throw v3}}}return {"id":v0,"extra":v4,}}
+    examples:
+      declared-and-rest:
+        input: '{ USER_ID: "u1", a: 1, b: 2 }'
+        output: '{ id: "u1", extra: { a: 1, b: 2 } }'
+      no-rest-keys:
+        input: '{ USER_ID: "u1" }'
+        output: '{ id: "u1", extra: {} }'
+      rest-key-of-wrong-type:
+        input: '{ USER_ID: "u1", a: "nope" }'
+        error: 'Failed at ["a"]: Expected number, received "nope"'
+      missing-declared-key:
+        input: "{ a: 1 }"
+        error: 'Failed at ["USER_ID"]: Expected string, received undefined'
+  decode:
+    expression: i=>{let v1={};for(let v0 in i){if(v0!=="USER_ID"){v1[v0]=i[v0]}}return {"id":i["USER_ID"],"extra":v1,}}
+    examples:
+      declared-and-rest:
+        input: '{ USER_ID: "u1", a: 1 }'
+        output: '{ id: "u1", extra: { a: 1 } }'
+  encode:
+    expression: i=>{let v0=i["extra"];return {...v0,"USER_ID":i["id"],}}
+    examples:
+      declared-and-rest:
+        input: '{ id: "u1", extra: { a: 1 } }'
+        output: '{ a: 1, USER_ID: "u1" }'
+      empty-rest:
+        input: '{ id: "u1", extra: {} }'
+        output: '{ USER_ID: "u1" }'
+      declared-key-inside-the-rest-loses:
+        input: '{ id: "u1", extra: { USER_ID: 9 } }'
+        output: '{ USER_ID: "u1" }'

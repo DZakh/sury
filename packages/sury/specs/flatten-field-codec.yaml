@@ -3,7 +3,7 @@ ts:
   schema: 'S.object((s) => ({ f: s.flatten(S.schema({ b: S.string.with(S.to, S.number, (v) => +v, (v) => "" + v) })), o: s.field("O", S.string) }))'
   input: "{ [x: string]: unknown; }"
   output: "{ f: { b: number; }; o: string; }"
-  instantiations: 6354
+  instantiations: 6356
 vs:
   zod:
     _skip: not-applicable

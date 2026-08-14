@@ -3,7 +3,7 @@ ts:
   schema: 'S.object((s) => ({ outer: s.field("Outer", S.string), inner: s.flatten(S.object((n) => ({ x: n.field("X", S.string) }))) }))'
   input: "{ [x: string]: unknown; }"
   output: "{ outer: string; inner: { x: string; }; }"
-  instantiations: 735
+  instantiations: 737
 vs:
   zod:
     _skip: not-applicable
