@@ -14,6 +14,18 @@ operations:
   parse:
     expression: i=>{typeof i==="string"||e[3](i);e[1].test(i)||e[2](i);return e[0](i)}
     examples:
+      valid:
+        input: '"SGVsbG8="'
+        output: new Uint8Array([72, 101, 108, 108, 111])
+      empty:
+        input: '""'
+        output: new Uint8Array([])
+      multibyte:
+        input: '"aMOpbGxvIPCfjI0="'
+        output: new Uint8Array([104, 195, 169, 108, 108, 111, 32, 240, 159, 140, 141])
+      high-bytes:
+        input: '"//79"'
+        output: new Uint8Array([255, 254, 253])
       unpadded-rejected-before-decoding:
         input: '"SGVsbG8"'
         error: Expected base64, received "SGVsbG8"
@@ -29,6 +41,9 @@ operations:
   decode:
     expression: i=>{e[1].test(i)||e[2](i);return e[0](i)}
     examples:
+      valid:
+        input: '"SGVsbG8="'
+        output: new Uint8Array([72, 101, 108, 108, 111])
       unpadded-rejected-before-decoding:
         input: '"SGVsbG8"'
         error: Expected base64, received "SGVsbG8"

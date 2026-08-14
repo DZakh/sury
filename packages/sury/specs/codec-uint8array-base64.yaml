@@ -35,6 +35,15 @@ operations:
   encode:
     expression: i=>{e[1].test(i)||e[2](i);return e[0](i)}
     examples:
+      valid:
+        input: '"SGVsbG8="'
+        output: new Uint8Array([72, 101, 108, 108, 111])
+      empty:
+        input: '""'
+        output: new Uint8Array([])
+      high-bytes:
+        input: '"//79"'
+        output: new Uint8Array([255, 254, 253])
       unpadded-rejected:
         input: '"SGVsbG8"'
         error: Expected base64, received "SGVsbG8"

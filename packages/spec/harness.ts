@@ -554,6 +554,15 @@ const valueToCode = (v: unknown, seen: WeakSet<object> = new WeakSet()): string 
   }
   if (v instanceof Date) return `new Date(${JSON.stringify(v.toISOString())})`;
   if (v instanceof URL) return `new URL(${JSON.stringify(v.href)})`;
+  // Every typed array, by constructor name, so a schema decoding to bytes can
+  // be specced. Spread rather than the buffer: the element list is what a
+  // reader can check against the encoding, and it drops any offset into a
+  // larger buffer — which is what makes the emitted source structurally equal
+  // to the value, since a view's own indices always start at 0. A DataView
+  // carries no element type to spread, so it falls through to the class-instance
+  // error below.
+  if (ArrayBuffer.isView(v) && !(v instanceof DataView))
+    return `new ${v.constructor.name}(${valueToCode([...(v as unknown as Iterable<unknown>)], seen)})`;
   if (v instanceof RegExp) return v.toString();
   if (v instanceof Map) return `new Map(${valueToCode([...v], seen)})`;
   if (v instanceof Set) return `new Set(${valueToCode([...v], seen)})`;

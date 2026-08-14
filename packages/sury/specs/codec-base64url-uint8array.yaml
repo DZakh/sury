@@ -14,6 +14,15 @@ operations:
   parse:
     expression: i=>{typeof i==="string"||e[3](i);e[1].test(i)||e[2](i);return e[0](i)}
     examples:
+      valid-unpadded:
+        input: '"SGVsbG8"'
+        output: new Uint8Array([72, 101, 108, 108, 111])
+      url-alphabet:
+        input: '"SG-k_w"'
+        output: new Uint8Array([72, 111, 164, 255])
+      empty:
+        input: '""'
+        output: new Uint8Array([])
       padded-rejected-before-decoding:
         input: '"SGVsbG8="'
         error: Expected base64url, received "SGVsbG8="
@@ -26,6 +35,9 @@ operations:
   decode:
     expression: i=>{e[1].test(i)||e[2](i);return e[0](i)}
     examples:
+      valid-unpadded:
+        input: '"SGVsbG8"'
+        output: new Uint8Array([72, 101, 108, 108, 111])
       padded-rejected-before-decoding:
         input: '"SGVsbG8="'
         error: Expected base64url, received "SGVsbG8="

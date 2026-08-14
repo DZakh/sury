@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.uint8Array.with(S.to, S.string)
+  input: Uint8Array<ArrayBufferLike>
+  output: string
+  instantiations: 5091
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: Expected JSON, received Uint8Array
+  output: '{ type: "string" }'
+operations:
+  parse:
+    expression: i=>{i instanceof e[1]||e[2](i);return e[0].decode(i)}
+    examples:
+      ascii:
+        input: new Uint8Array([72, 101, 108, 108, 111])
+        output: '"Hello"'
+      multibyte:
+        input: new Uint8Array([104, 195, 169, 108, 108, 111, 32, 240, 159, 140, 141])
+        output: '"héllo 🌍"'
+      empty:
+        input: new Uint8Array([])
+        output: '""'
+  decode:
+    expression: i=>{return e[0].decode(i)}
+    examples:
+      ascii:
+        input: new Uint8Array([72, 101, 108, 108, 111])
+        output: '"Hello"'
+  encode:
+    expression: i=>{return e[0].encode(i)}
+    examples:
+      ascii:
+        input: '"Hello"'
+        output: new Uint8Array([72, 101, 108, 108, 111])
+      multibyte:
+        input: '"héllo 🌍"'
+        output: new Uint8Array([104, 195, 169, 108, 108, 111, 32, 240, 159, 140, 141])
+      empty:
+        input: '""'
+        output: new Uint8Array([])

@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.uint8Array
+  input: Uint8Array<ArrayBufferLike>
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 254
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: Expected JSON, received Uint8Array
+  output: Expected JSON, received Uint8Array
+operations:
+  parse:
+    expression: i=>{i instanceof e[0]||e[1](i);return i}
+    examples:
+      valid:
+        input: new Uint8Array([72, 101, 108, 108, 111])
+        output: new Uint8Array([72, 101, 108, 108, 111])
+      empty:
+        input: new Uint8Array([])
+        output: new Uint8Array([])
+      not-a-uint8array:
+        input: "[72, 101]"
+        error: Expected Uint8Array, received [72, 101]
+      not-an-instance:
+        input: '"Hello"'
+        error: Expected Uint8Array, received "Hello"
+  decode: identity
+  encode: identity

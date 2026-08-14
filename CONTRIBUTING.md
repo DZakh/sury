@@ -335,13 +335,12 @@ case the harness *should* have caught or guided better — a missing check, a we
 error message, a strictness gap that let a bad spec through — add a bullet here
 instead of silently working around it.
 
-- An operation whose output holds a class instance (`S.uint8Array` decoding to
-  `Uint8Array`) can't be specced: the golden writer raises "cannot represent a
-  Uint8Array instance as spec source code", and an op has no way to opt out —
-  `_skip` is accepted under `vs.zod` but crashes the run under `operations.<op>`
-  (`Cannot convert undefined or null to object`). Either teach the writer a
-  constructor call for the common typed arrays, or make `_skip` legal on an
-  operation with a reason.
+- An operation has no way to opt out of its examples: `_skip` is accepted under
+  `vs.zod` but crashes the run under `operations.<op>` (`Cannot convert
+  undefined or null to object`), and so does omitting an op the schema has —
+  both should say what is wrong instead. Typed arrays no longer need this
+  (the writer emits `new Uint8Array([…])`), but every other class instance
+  still hits the "cannot represent" error with no legal way to spec around it.
 - A golden containing a control character is written as a plain scalar, so
   `specs/ipv4.yaml` carries a literal tab and `specs/uri-template.yaml` a literal
   DEL and C1 byte, all of which the `yaml` package round-trips but PyYAML and
