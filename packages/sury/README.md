@@ -168,8 +168,6 @@ JSON.stringify({ price: Infinity });
 | Event feed (50 tagged-union events)          | **5.05 µs** | 7.82 µs          | 20.26 µs            |
 | `bigint` id + binary payload + `Date`        | **1.17 µs** | 1.51 µs          | 1.45 µs             |
 
-<sub>node 22.22.2, Xeon @ 2.80GHz (4 cores). Reproduce with `pnpm --filter=sury bench:jsonstring`, which measures more shapes than fit here — including the ones Sury loses.</sub>
-
 Faster than `JSON.stringify`, and 3.5× lighter than fast-json-stringify — 16.4 kB against 56.7 kB, encoder included.
 
 ### Transformations that reverse themselves
