@@ -604,9 +604,9 @@ export const inputExpression = (schema: Internal, skipOverride?: boolean): strin
     }
     return body;
   } else if (schema.type === objectTag) {
-    // Properties and an index signature share one accumulator: no factory
-    // produces both at once today, but the shape is representable, and the
-    // branchy version silently dropped the index signature.
+    // Properties and an index signature share one accumulator — `S.rest` over
+    // declared fields produces both, and the branchy version silently dropped
+    // the index signature.
     const properties = schema.properties!;
     const additionalItems = schema.additionalItems;
     let body = "";
@@ -619,20 +619,25 @@ export const inputExpression = (schema: Internal, skipOverride?: boolean): strin
     return body ? `{ ${body}}` : "{}";
   } else if (schema.type === arrayTag) {
     const additionalItems = schema.additionalItems;
+    const items = schema.items;
+    let body = "";
+    if (items !== U) {
+      for (let idx = 0; idx < items.length; idx++) {
+        body = body + (idx ? ", " : "") + inputExpression(items[idx]!);
+      }
+    }
     if (typeof additionalItems === objectTag) {
       const item = additionalItems as Internal;
       const itemName = inputExpression(item);
       // A bound or divisor reads as part of the item, not the array:
       // `int32 > 5[]` parses as an array-typed bound and `number % 2[]` as an
       // array-typed divisor, the same ambiguity a union has.
-      return (item.type === anyOfTag || item.bounds !== U || item.multipleOf !== U
-        ? `(${itemName})`
-        : itemName) + "[]";
-    }
-    const items = schema.items!;
-    let body = "";
-    for (let idx = 0; idx < items.length; idx++) {
-      body = body + (idx ? ", " : "") + inputExpression(items[idx]!);
+      const arrayName =
+        (item.type === anyOfTag || item.bounds !== U || item.multipleOf !== U
+          ? `(${itemName})`
+          : itemName) + "[]";
+      // A fixed prefix makes it a tuple with a rest element, not a plain array.
+      return body === "" ? arrayName : `[${body}, ...${arrayName}]`;
     }
     return `[${body}]`;
   } else if (schema.format) {

@@ -1417,9 +1417,12 @@ test("fromJSONSchema: assertion-only schemas preserve valid JSON", (t) => {
     required: ["constructor"],
     additionalProperties: { type: "integer" },
   });
+  // `additionalProperties` keeps the keys `properties` doesn't name — which the
+  // `extra: 2` assertion below is exactly about — so the index signature is
+  // part of the type.
   expectSchemaType(objectSchema).toBe<
-    { value?: string | undefined; constructor: number },
-    { value?: string | undefined; constructor: number }
+    { value?: string | undefined; constructor: number } & Record<string, number>,
+    { value?: string | undefined; constructor: number } & Record<string, number>
   >();
   const objectInput = { constructor: 1, value: "set", extra: 2 };
   t.expect(S.parser(objectSchema)(objectInput)).toBe(objectInput);

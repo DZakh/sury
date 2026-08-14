@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.object({ id: S.string }).with(S.rest, S.number)"
+  input: "{ id: string; } & Record<string, number>"
+  output: "{ id: string; } & Record<string, number>"
+  instantiations: 6895
+vs:
+  zod:
+    schema: "z.object({ id: z.string() }).catchall(z.number())"
+    divergence: Sury keeps the declared fields and the rest apart as an intersection, so `id` stays `string`; Zod folds them into one index signature, which widens every declared field to the rest type.
+    input: "{ [x: string]: number; id: string; }"
+    output: "{ [x: string]: number; id: string; }"
+jsonSchema:
+  input: '{ type: "object", properties: { id: { type: "string" } }, additionalProperties: { type: "number" }, required: ["id"] }'
+  output: '{ type: "object", properties: { id: { type: "string" } }, additionalProperties: { type: "number" }, required: ["id"] }'
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["id"];typeof v0==="string"||e[0](v0);for(let v1 in i){if(v1!=="id"){try{let v2=i[v1];typeof v2==="number"&&!Number.isNaN(v2)||e[1](v2);}catch(v3){v3.path='["'+v1+'"]'+v3.path;throw v3}}}return i}
+    examples:
+      declared-and-rest:
+        input: '{ id: "u1", a: 1, b: 2 }'
+        output: '{ id: "u1", a: 1, b: 2 }'
+      no-rest-keys:
+        input: '{ id: "u1" }'
+        output: '{ id: "u1" }'
+      rest-key-of-wrong-type:
+        input: '{ id: "u1", a: "nope" }'
+        error: 'Failed at ["a"]: Expected number, received "nope"'
+      declared-key-of-wrong-type:
+        input: "{ id: 1, a: 1 }"
+        error: 'Failed at ["id"]: Expected string, received 1'
+      missing-declared-key:
+        input: "{ a: 1 }"
+        error: 'Failed at ["id"]: Expected string, received undefined'
+      not-an-object:
+        input: '"nope"'
+        error: 'Expected { id: string; [key: string]: number; }, received "nope"'
+      numeric-key-is-a-rest-key:
+        input: '{ "0": 1, id: "u1" }'
+        output: '{ "0": 1, id: "u1" }'
+      # FIXME: `for..in` doesn't reach symbol keys, so the rest schema never
+      # sees this value — the same gap record.yaml documents for `S.record`.
+      symbol-keyed-value-is-not-validated:
+        input: '{ id: "u1", [Symbol.for("k")]: "not a number" }'
+        output: '{ id: "u1", [Symbol.for("k")]: "not a number" }'
+  decode: identity
+  encode: identity

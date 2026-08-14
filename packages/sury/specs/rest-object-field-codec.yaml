@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.object({ id: S.string.with(S.to, S.number) }).with(S.rest, S.boolean)"
+  input: "{ id: string; } & Record<string, boolean>"
+  output: "{ id: number; } & Record<string, boolean>"
+  instantiations: 7335
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "object", properties: { id: { type: "string" } }, additionalProperties: { type: "boolean" }, required: ["id"] }'
+  output: '{ type: "object", properties: { id: { type: "number" } }, additionalProperties: { type: "boolean" }, required: ["id"] }'
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v1=i["id"];typeof v1==="string"||e[1](v1);let v0=+v1;!Number.isNaN(v0)||e[0](v1);let v5={"id":v0,};for(let v2 in i){if(v2!=="id"){try{let v3=i[v2];typeof v3==="boolean"||e[2](v3);v5[v2]=v3}catch(v4){v4.path='["'+v2+'"]'+v4.path;throw v4}}}return v5}
+    examples:
+      rest-survives-the-field-transform:
+        input: '{ id: "1", ok: true }'
+        output: "{ id: 1, ok: true }"
+      no-rest-keys:
+        input: '{ id: "1" }'
+        output: "{ id: 1 }"
+      rest-value-of-wrong-type:
+        input: '{ id: "1", ok: 1 }'
+        error: 'Failed at ["ok"]: Expected boolean, received 1'
+  decode:
+    expression: i=>{let v1=i["id"];let v0=+v1;!Number.isNaN(v0)||e[0](v1);let v3={"id":v0,};for(let v2 in i){if(v2!=="id"){v3[v2]=i[v2]}}return v3}
+    examples:
+      rest-survives-the-field-transform:
+        input: '{ id: "1", ok: true }'
+        output: "{ id: 1, ok: true }"
+  encode:
+    expression: i=>{let v1={"id":""+i["id"],};for(let v0 in i){if(v0!=="id"){v1[v0]=i[v0]}}return v1}
+    examples:
+      rest-survives-the-field-transform:
+        input: "{ id: 1, ok: true }"
+        output: '{ id: "1", ok: true }'

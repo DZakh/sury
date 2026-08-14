@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.object({ id: S.string }).with(S.rest, S.unknown)"
+  input: "{ id: string; } & Record<string, unknown>"
+  output: "{ id: string; } & Record<string, unknown>"
+  instantiations: 6834
+vs:
+  zod:
+    schema: "z.object({ id: z.string() }).catchall(z.unknown())"
+    divergence: Sury keeps the declared fields and the rest apart as an intersection, so `id` stays `string`; Zod folds them into one index signature, which widens every declared field to the rest type.
+    input: "{ [x: string]: unknown; id: string; }"
+    output: "{ [x: string]: unknown; id: string; }"
+jsonSchema:
+  input: "Failed at []: Expected JSON, received unknown"
+  output: "Failed at []: Expected JSON, received unknown"
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i["id"];typeof v0==="string"||e[0](v0);return i}
+    examples:
+      any-rest-value-passes:
+        input: '{ id: "u1", a: [1, null], b: Symbol.for("s") }'
+        output: '{ id: "u1", a: [1, null], b: Symbol.for("s") }'
+      missing-declared-key:
+        input: "{ a: 1 }"
+        error: 'Failed at ["id"]: Expected string, received undefined'
+  decode: identity
+  encode: identity

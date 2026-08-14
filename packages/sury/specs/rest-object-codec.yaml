@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.object({ id: S.string }).with(S.rest, S.string.with(S.to, S.number))"
+  input: "{ id: string; } & Record<string, string>"
+  output: "{ id: string; } & Record<string, number>"
+  instantiations: 7350
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "object", properties: { id: { type: "string" } }, additionalProperties: { type: "string" }, required: ["id"] }'
+  output: '{ type: "object", properties: { id: { type: "string" } }, additionalProperties: { type: "number" }, required: ["id"] }'
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["id"];typeof v0==="string"||e[0](v0);let v5={"id":v0,};for(let v1 in i){if(v1!=="id"){try{let v3=i[v1];typeof v3==="string"||e[2](v3);let v2=+v3;!Number.isNaN(v2)||e[1](v3);v5[v1]=v2}catch(v4){v4.path='["'+v1+'"]'+v4.path;throw v4}}}return v5}
+    examples:
+      declared-and-rest:
+        input: '{ id: "u1", a: "1", b: "2" }'
+        output: '{ id: "u1", a: 1, b: 2 }'
+      rest-value-of-wrong-type:
+        input: '{ id: "u1", a: 1 }'
+        error: 'Failed at ["a"]: Expected string, received 1'
+      no-rest-keys:
+        input: '{ id: "u1" }'
+        output: '{ id: "u1" }'
+      # FIXME: an own `__proto__` key is dropped by the rebuild — `out[key]=value`
+      # on that key writes the prototype instead of adding an own property. The
+      # same loop shape backs `S.record` with a codec, which drops it too.
+      proto-key-is-dropped:
+        input: '{ id: "u1", ["__proto__"]: "1" }'
+        output: '{ id: "u1" }'
+  decode:
+    expression: i=>{let v4={"id":i["id"],};for(let v0 in i){if(v0!=="id"){try{let v2=i[v0];let v1=+v2;!Number.isNaN(v1)||e[0](v2);v4[v0]=v1}catch(v3){v3.path='["'+v0+'"]'+v3.path;throw v3}}}return v4}
+    examples:
+      declared-and-rest:
+        input: '{ id: "u1", a: "1" }'
+        output: '{ id: "u1", a: 1 }'
+  encode:
+    expression: i=>{let v1={"id":i["id"],};for(let v0 in i){if(v0!=="id"){v1[v0]=""+i[v0]}}return v1}
+    examples:
+      declared-and-rest:
+        input: '{ id: "u1", a: 1 }'
+        output: '{ id: "u1", a: "1" }'

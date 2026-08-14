@@ -4,6 +4,7 @@
 
 import {
   type AdditionalItems,
+  arrayTag,
   type Check,
   copySchema,
   getOrRethrow,
@@ -30,6 +31,7 @@ import {
   B_next,
   B_refine,
 } from "./builder";
+import { definitionToSchema } from "./composites";
 import { getDecoder, getOutputSchema, reverse } from "./parse";
 import { Literal_parse, nullLiteral, unit } from "./primitives";
 import { unionFactory } from "./union";
@@ -326,6 +328,15 @@ export type ObjectCtx = {
   flatten: (schema: Internal) => unknown;
 };
 
+const hasDeclaredPart = (schema: Internal): boolean => {
+  const items = schema.items;
+  const properties = schema.properties;
+  return (
+    (items !== U && items.length !== 0) ||
+    (properties !== U && Object.keys(properties).length !== 0)
+  );
+}
+
 export const Object_setAdditionalItems = (
   schema: Internal,
   additionalItems: AdditionalItems,
@@ -335,7 +346,12 @@ export const Object_setAdditionalItems = (
   const set =
     currentAdditionalItems !== U &&
     currentAdditionalItems !== additionalItems &&
-    typeof currentAdditionalItems !== objectTag;
+    // A mode replaces a rest schema only where there is a declared part for the
+    // mode to be about: `strict` over `S.rest(S.object({id}), x)` drops the rest
+    // and keeps `id`. Without a declared part the slot IS the schema — an
+    // array's element type, a dict's value type — and a deep pass walking into
+    // one must leave it alone.
+    (typeof currentAdditionalItems !== objectTag || hasDeclaredPart(schema));
   // A deep pass still has to descend through a level that already carries the
   // mode — a tuple is strict from the start, and its object items are not.
   // When nothing changes anywhere in the subtree, return the same object:
@@ -392,6 +408,21 @@ export const strict = (schema: Internal): Internal => {
 // @__NO_SIDE_EFFECTS__
 export const deepStrict = (schema: Internal): Internal => {
   return Object_setAdditionalItems(schema, "strict", true);
+}
+
+// The third answer to "what about what `properties`/`items` don't cover?",
+// next to `strip` and `strict`. It can't go through Object_setAdditionalItems:
+// that one refuses to overwrite a schema-valued slot, because a deep pass
+// walking into an array or a dict must not replace the element schema with a
+// mode. Here replacing it is the point.
+// @__NO_SIDE_EFFECTS__
+export const rest = (schema: Internal, item: unknown): Internal => {
+  if (schema.type !== objectTag && schema.type !== arrayTag) {
+    panic(`Can't set rest for ${inputExpression(schema)}`);
+  }
+  const mut = copySchema(schema);
+  mut.additionalItems = definitionToSchema(item);
+  return mut;
 }
 
 export type TupleCtx = {

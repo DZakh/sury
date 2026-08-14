@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.object({ id: S.string }).with(S.rest, S.number).with(S.strict)"
+  input: "{ id: string; }"
+  output: "{ id: string; }"
+  instantiations: 7475
+vs:
+  zod: "z.strictObject({ id: z.string() })"
+jsonSchema:
+  input: '{ type: "object", properties: { id: { type: "string" } }, additionalProperties: false, required: ["id"] }'
+  output: '{ type: "object", properties: { id: { type: "string" } }, additionalProperties: false, required: ["id"] }'
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["id"],v1;typeof v0==="string"||e[0](v0);for(v1 in i){if(v1!=="id"){e[1](v1)}}return i}
+    examples:
+      declared-only:
+        input: '{ id: "u1" }'
+        output: '{ id: "u1" }'
+      strict-wins-over-the-rest-schema:
+        input: '{ id: "u1", a: 1 }'
+        error: Unrecognized key "a"
+  decode: identity
+  encode: identity

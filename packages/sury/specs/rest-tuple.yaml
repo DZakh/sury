@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.schema([S.string]).with(S.rest, S.number)
+  input: "[string, ...number[]]"
+  output: "[string, ...number[]]"
+  instantiations: 6067
+vs:
+  zod: z.tuple([z.string()]).rest(z.number())
+jsonSchema:
+  input: '{ type: "array", minItems: 1, items: [{ type: "string" }], additionalItems: { type: "number" } }'
+  output: '{ type: "array", minItems: 1, items: [{ type: "string" }], additionalItems: { type: "number" } }'
+operations:
+  parse:
+    expression: i=>{Array.isArray(i)&&i.length>=1||e[2](i);let v0=i["0"];typeof v0==="string"||e[0](v0);for(let v1=1;v1<i.length;++v1){try{let v2=i[v1];typeof v2==="number"&&!Number.isNaN(v2)||e[1](v2);}catch(v3){v3.path='["'+v1+'"]'+v3.path;throw v3}}return i}
+    examples:
+      prefix-and-rest:
+        input: '["a", 1, 2]'
+        output: '["a", 1, 2]'
+      prefix-only:
+        input: '["a"]'
+        output: '["a"]'
+      too-short-for-the-prefix:
+        input: "[]"
+        error: Expected [string, ...number[]], received []
+      rest-item-of-wrong-type:
+        input: '["a", "b"]'
+        error: 'Failed at ["1"]: Expected number, received "b"'
+      prefix-item-of-wrong-type:
+        input: "[1, 2]"
+        error: 'Failed at ["0"]: Expected string, received 1'
+  decode:
+    expression: i=>{i.length>=1||e[0](i);return i}
+    examples:
+      prefix-and-rest:
+        input: '["a", 1]'
+        output: '["a", 1]'
+      too-short-for-the-prefix:
+        input: "[]"
+        error: Expected [string, ...number[]], received []
+  encode:
+    expression: i=>{i.length>=1||e[0](i);return i}
+    examples:
+      prefix-and-rest:
+        input: '["a", 1]'
+        output: '["a", 1]'
+      too-short-for-the-prefix:
+        input: "[]"
+        error: Expected [string, ...number[]], received []

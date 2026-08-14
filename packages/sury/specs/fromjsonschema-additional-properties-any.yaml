@@ -1,9 +1,9 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
   schema: 'S.fromJSONSchema({ type: "object", properties: { value: { type: "string" } }, additionalProperties: {} })'
-  input: "{ value?: string | undefined; }"
-  output: "{ value?: string | undefined; }"
-  instantiations: 2376
+  input: "{ value?: string | undefined; } & Record<string, JSON>"
+  output: "{ value?: string | undefined; } & Record<string, JSON>"
+  instantiations: 2629
 vs:
   zod:
     _skip: not-applicable

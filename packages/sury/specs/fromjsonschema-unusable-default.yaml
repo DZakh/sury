@@ -3,7 +3,7 @@ ts:
   schema: 'S.fromJSONSchema({ type: "object", properties: { count: { type: "integer", default: "" } } })'
   input: "{ count?: number | undefined; }"
   output: "{ count?: number | undefined; }"
-  instantiations: 3299
+  instantiations: 3321
 vs:
   zod:
     _skip: not-applicable

@@ -16,11 +16,13 @@ import {
   inlinedValueFromString,
   instanceTag,
   type Internal,
+  inputExpression,
   isLiteral,
   isOptional,
   isSchemaObject,
   jsonName,
   objectTag,
+  panic,
   pathConcat,
   pathFromInlinedLocation,
   flagAsync,
@@ -286,7 +288,10 @@ export const arrayDecoder = (unknownInput: Val): Val => {
           c: (inputVar) => `${inputVar}.length===${expectedLength}`,
           f: failInvalidType,
         });
-      } else if (expectedAdditionalItems === "strip") {
+      } else if (expectedAdditionalItems === "strip" || expectedLength !== 0) {
+        // `strip`, or a rest schema over a fixed prefix: the prefix items are
+        // read by index below, so they have to be there. A rest schema with no
+        // prefix is a plain array and accepts any length.
         checks.push({
           c: (inputVar) => `${inputVar}.length>=${expectedLength}`,
           f: failInvalidType,
@@ -308,18 +313,23 @@ export const arrayDecoder = (unknownInput: Val): Val => {
 
   let output: Val;
   const expectedAdditionalItems = expectedSchema.additionalItems;
-  if (isItemSchema(expectedAdditionalItems)) {
-    const itemSchema = expectedAdditionalItems;
+  const restItem: Internal | undefined = isItemSchema(expectedAdditionalItems)
+    ? expectedAdditionalItems
+    : U;
+  // A rest schema over a fixed prefix (`[string, ...number[]]`) is not a plain
+  // array: the prefix has its own item schemas, decoded by index in the path
+  // below, and only the tail is iterated.
+  if (restItem !== U && expectedLength === 0) {
+    const itemSchema = restItem;
     if (itemSchema === unknown) {
       output = input;
     } else {
-      if (expectedLength === 0) {
-        // Plain-array fusion only: fixed tuple slots are read by the aggregate
-        // outside its dynamic loop, so they must stay validated here.
-        const fused = B_fuseIntoJsonString(input, expectedSchema, itemSchema, true);
-        if (fused !== U) {
-          return B_markOutput(fused, input);
-        }
+      // Plain-array fusion only — hence this branch, not the prefixed one:
+      // fixed slots are read by the aggregate outside its dynamic loop, so they
+      // must stay validated.
+      const fused = B_fuseIntoJsonString(input, expectedSchema, itemSchema, true);
+      if (fused !== U) {
+        return B_markOutput(fused, input);
       }
       const inputVar = input.v();
       const iteratorVar = B_varWithoutAllocation(input.g);
@@ -366,7 +376,9 @@ export const arrayDecoder = (unknownInput: Val): Val => {
         const inputAi = input.s.additionalItems;
         shouldRecreateInput = isItemSchema(inputAi) ? true : input.s.items!.length !== expectedLength;
       } else {
-        shouldRecreateInput = true;
+        // A rest schema keeps every item it validates, so the input still
+        // describes the output — only a transform forces a rebuild.
+        shouldRecreateInput = false;
       }
     }
 
@@ -390,6 +402,23 @@ export const arrayDecoder = (unknownInput: Val): Val => {
       }
     }
 
+    // `items` + a rest schema: the prefix was decoded by index above, and every
+    // item past it goes through `restItem`.
+    let restOutput: Val | undefined = U;
+    let restIteratorVar = "";
+    let restRaiseCountBefore = 0;
+    if (restItem !== U) {
+      restIteratorVar = B_varWithoutAllocation(objectVal.g);
+      restRaiseCountBefore = input.g.t;
+      const itemInput = B_dynamicScope(input, restIteratorVar);
+      B_narrowJsonSourcedJsonString(itemInput);
+      restOutput = parseDynamic(itemInput);
+      panicOnAsyncRest(restOutput, expectedSchema);
+      if (restOutput.t) {
+        shouldRecreateInput = true;
+      }
+    }
+
     // After input.schema was used, set it to selfSchema
     // so it has a more accurate name in error messages
     if (shouldRecreateInput) {
@@ -402,6 +431,25 @@ export const arrayDecoder = (unknownInput: Val): Val => {
       o.cp = objectVal.cp;
       o.d = objectVal.d;
       output = o;
+    }
+
+    if (restOutput !== U) {
+      // Same as the object rest loop: a rebuilt output holds the fixed items
+      // only, so the tail has to be copied into it even when the rest schema
+      // doesn't transform.
+      const itemCode = B_mergeWithPathPrepend(
+        restOutput,
+        input,
+        restIteratorVar,
+        shouldRecreateInput ? () => B_addKey(output, restIteratorVar, restOutput!) : U,
+        restOutput.t ? U : restRaiseCountBefore,
+      );
+      if (shouldRecreateInput || itemCode !== "") {
+        const inputVar = input.v();
+        output.cp =
+          output.cp +
+          `for(let ${restIteratorVar}=${expectedLength};${restIteratorVar}<${inputVar}.length;++${restIteratorVar}){${itemCode}}`;
+      }
     }
   }
   return B_markOutput(output, input);
@@ -453,12 +501,17 @@ export const objectDecoder = (unknownInput: Val): Val => {
     input = B_unsupportedDecode(unknownInput, unknownInput.s, expectedSchema);
   }
 
-  // The target's value schema when it's a dict (additionalProperties), else None
-  // for a fixed-property object target.
+  // The target's value schema for whatever the declared properties don't cover.
   const expectedAdditionalItems = expectedSchema.additionalItems;
-  const dictItem: Internal | undefined = isItemSchema(expectedAdditionalItems)
+  const restItem: Internal | undefined = isItemSchema(expectedAdditionalItems)
     ? expectedAdditionalItems
     : U;
+  const expectedKeys = Object.keys(expectedSchema.properties!);
+  // A rest schema with no declared properties is a dict — the whole value is
+  // iterated. With declared properties it's `properties` + `additionalProperties`,
+  // which the fixed-property path below handles: declared keys are decoded by
+  // name, and the rest loop covers what's left.
+  const dictItem: Internal | undefined = expectedKeys.length === 0 ? restItem : U;
   // Only a dict source can be iterated dynamically (`for..in`). A fixed-property
   // object source coerced into a dict target reuses the static object-literal
   // construction below, driven by the source's known keys.
@@ -533,7 +586,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
   } else {
     // Build a fixed-property object target (from a dict or object source).
     const properties = expectedSchema.properties!;
-    const keys = Object.keys(properties);
+    const keys = expectedKeys;
     const keysCount = keys.length;
 
     const objectVal = makeObjectVal(input, expectedSchema);
@@ -547,7 +600,9 @@ export const objectDecoder = (unknownInput: Val): Val => {
         shouldRecreateInput =
           sourceIsDict || Object.keys(input.s.properties!).length !== keysCount;
       } else {
-        shouldRecreateInput = true;
+        // A rest schema keeps every key it validates, so the input still
+        // describes the output — only a transform forces a rebuild.
+        shouldRecreateInput = false;
       }
     }
 
@@ -595,21 +650,9 @@ export const objectDecoder = (unknownInput: Val): Val => {
     if (expectedSchema.additionalItems === "strict" && isItemSchema(inputAdditionalItems)) {
       const keyVar = B_varWithoutAllocation(objectVal.g);
       B_hoistDecl(input, keyVar);
-      objectVal.cp = objectVal.cp + `for(${keyVar} in ${input.v()}){if(`;
-      if (keys.length === 0) {
-        objectVal.cp = objectVal.cp + "true";
-      } else {
-        for (let idx = 0; idx < keys.length; idx++) {
-          const key = keys[idx]!;
-          if (idx !== 0) {
-            objectVal.cp = objectVal.cp + "&&";
-          }
-          objectVal.cp = objectVal.cp + `${keyVar}!==${inlinedValueFromString(key)}`;
-        }
-      }
       objectVal.cp =
         objectVal.cp +
-        `){${B_failWithArg(
+        `for(${keyVar} in ${input.v()}){if(${undeclaredKeyCond(keys, keyVar)}){${B_failWithArg(
           input,
           (excessFieldName: string) =>
             ({
@@ -620,6 +663,25 @@ export const objectDecoder = (unknownInput: Val): Val => {
             }) as ErrorDetails,
           keyVar,
         )}}}`;
+    }
+
+    // `properties` + a rest schema: the declared keys were decoded by name
+    // above, and every other key of the source goes through `restItem`. Only a
+    // dict-shaped source can carry keys the properties don't name — a
+    // fixed-property source has none to iterate.
+    let restOutput: Val | undefined = U;
+    let restKeyVar = "";
+    let restRaiseCountBefore = 0;
+    if (restItem !== U && sourceIsDict) {
+      restKeyVar = B_varWithoutAllocation(objectVal.g);
+      restRaiseCountBefore = input.g.t;
+      const itemInput = B_dynamicScope(input, restKeyVar);
+      B_narrowJsonSourcedJsonString(itemInput);
+      restOutput = parseDynamic(itemInput);
+      panicOnAsyncRest(restOutput, expectedSchema);
+      if (restOutput.t) {
+        shouldRecreateInput = true;
+      }
     }
 
     // After input.schema was used, set it to selfSchema
@@ -637,8 +699,51 @@ export const objectDecoder = (unknownInput: Val): Val => {
       o.d = objectVal.d;
       output = o;
     }
+
+    if (restOutput !== U) {
+      // A rebuilt output holds the declared fields only, so the rest keys have
+      // to be copied into it even when the rest schema itself doesn't transform
+      // — otherwise a transform on any declared field silently drops every key
+      // the rest just validated.
+      const itemCode = B_mergeWithPathPrepend(
+        restOutput,
+        input,
+        restKeyVar,
+        shouldRecreateInput ? () => B_addKey(output, restKeyVar, restOutput!) : U,
+        restOutput.t ? U : restRaiseCountBefore,
+      );
+      if (shouldRecreateInput || itemCode !== "") {
+        output.cp =
+          output.cp +
+          `for(let ${restKeyVar} in ${input.v()}){if(${undeclaredKeyCond(
+            keys,
+            restKeyVar,
+          )}){${itemCode}}}`;
+      }
+    }
   }
   return B_markOutput(output, input);
+}
+
+// The declared part and the rest settle through two different mechanisms —
+// `completeObjectVal`'s Promise.all over a fixed list, versus a counter over a
+// dynamic one — and nothing joins them, so an async rest would compile to an
+// object of pending promises.
+const panicOnAsyncRest = (restOutput: Val, schema: Internal): void => {
+  if (flagUnsafeHas(restOutput.f, valFlagAsync)) {
+    panic(`Async rest is not supported for ${inputExpression(schema)}`);
+  }
+}
+
+// The `for..in` guard that skips the keys `properties` already covers — shared
+// by the strict excess-key check and the rest loop, which differ only in what
+// they do with a key that gets through.
+const undeclaredKeyCond = (keys: string[], keyVar: string): string => {
+  let cond = "";
+  for (let idx = 0; idx < keys.length; idx++) {
+    cond = cond + (idx === 0 ? "" : "&&") + `${keyVar}!==${inlinedValueFromString(keys[idx]!)}`;
+  }
+  return cond === "" ? "true" : cond;
 }
 
 // Same init-order constraint as arrayFactory.

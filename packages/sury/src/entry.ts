@@ -135,6 +135,7 @@ export {
   deepStrict,
   strip,
   deepStrip,
+  rest,
   noValidation,
 } from "./modifiers";
 export {

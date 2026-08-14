@@ -69,6 +69,21 @@ type JSONSchemaRecord<S, V> = [JSONSchemaRequiredKeys<S>] extends [never]
 // its `undefined extends TFields[keyof TFields]` probe forces every field type
 // eagerly, which turns a recursive `$ref` through a property into a
 // circular-reference error. Same required-first shape as `ResolveObject`.
+// `additionalProperties` next to `properties` is a rest schema over the keys
+// `properties` doesn't name. Intersected rather than folded into the Flatten so
+// the declared fields keep their own types instead of widening to the index
+// signature's, and `unknown` for the no-rest case so `X & unknown` collapses
+// back to `X` and every rest-less object type stays exactly what it was.
+type JSONSchemaRestSignature<S, D, M extends boolean> = S extends {
+  additionalProperties: infer A;
+}
+  ? A extends false
+    ? unknown
+    : A extends true
+      ? Record<string, JSON>
+      : Record<string, JSONSchemaResolve<A, D, M>>
+  : unknown;
+
 type JSONSchemaObject<S, D, M extends boolean> = S extends { properties: infer P }
   ? Flatten<
       {
@@ -82,7 +97,8 @@ type JSONSchemaObject<S, D, M extends boolean> = S extends { properties: infer P
       } & {
         [K in Exclude<JSONSchemaRequiredKeys<S>, keyof P>]: JSONSchemaAdditionalProperty<S, D, M>;
       }
-    >
+    > &
+      JSONSchemaRestSignature<S, D, M>
   : S extends { additionalProperties: infer A }
   ? A extends true
     ? JSONSchemaRecord<S, JSON>

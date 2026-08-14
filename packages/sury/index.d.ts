@@ -895,18 +895,53 @@ export function object<T extends Record<string, unknown>>(
   definition: T
 ): Schema<UnknownToInput<T>, UnknownToOutput<T>>;
 
+// Both modes take the `additionalItems` slot away from a rest schema at runtime
+// (`Object_setAdditionalItems` in src/modifiers.ts), so the index signature that
+// rest put in the type has to go with it — otherwise `S.rest(...)` followed by
+// `S.strict` types as accepting keys the compiled schema rejects. Key remapping
+// keeps the mapped type homomorphic, so optionality survives. The `string
+// extends keyof T` guard is what keeps this off everyone else's bill: mapping
+// every strict/strip result unconditionally cost +40% instantiations on a plain
+// object (object-deep-strict, 1708 -> 2386), and there is nothing to remove
+// unless an index signature is there in the first place.
+type WithoutRest<T> = string extends keyof T
+  ? { [K in keyof T as string extends K ? never : number extends K ? never : K]: T[K] }
+  : T;
+
 export function strip<TInput extends Record<string, unknown>, TOutput>(
   schema: SchemaLike<TInput, TOutput>
-): Schema<TInput, TOutput>;
+): Schema<WithoutRest<TInput>, WithoutRest<TOutput>>;
 export function deepStrip<TInput extends Record<string, unknown>, TOutput>(
   schema: SchemaLike<TInput, TOutput>
-): Schema<TInput, TOutput>;
+): Schema<WithoutRest<TInput>, WithoutRest<TOutput>>;
 export function strict<TInput extends Record<string, unknown>, TOutput>(
   schema: SchemaLike<TInput, TOutput>
-): Schema<TInput, TOutput>;
+): Schema<WithoutRest<TInput>, WithoutRest<TOutput>>;
 export function deepStrict<TInput extends Record<string, unknown>, TOutput>(
   schema: SchemaLike<TInput, TOutput>
-): Schema<TInput, TOutput>;
+): Schema<WithoutRest<TInput>, WithoutRest<TOutput>>;
+
+// Intersection rather than a mapped type: `{ id: string } & Record<string, number>`
+// is legal where the flattened `{ id: string; [k: string]: number }` is not, and
+// flattening it drops the declared fields' own types into the index signature.
+type Rest<T, TItem> = T extends unknown[] ? [...T, ...TItem[]] : T & Record<string, TItem>;
+
+// One signature, not an array/object overload pair: `.with(S.rest, item)` infers
+// through the `fn` parameter of `with`, and overload resolution there picks the
+// first candidate rather than the one matching the receiver. The constraints are
+// what keep `.with` off that first candidate — `with`'s `S.to` overload takes
+// any `(schema, target)` function, and a `rest` accepting `Schema<unknown>`
+// matches it, silently typing the result as the item schema's output.
+export function rest<
+  TInput extends Record<string, unknown> | unknown[],
+  TOutput extends Record<string, unknown> | unknown[],
+  const TDef = never,
+  TItemInput = UnknownToInput<TDef>,
+  TItemOutput = UnknownToOutput<TDef>
+>(
+  schema: SchemaLike<TInput, TOutput>,
+  item: SchemaLike<TItemInput, TItemOutput> | TDef
+): Schema<Rest<TInput, TItemInput>, Rest<TOutput, TItemOutput>>;
 
 // Bare Flatten, not ResolveObject: re-splitting the merged intersection to
 // hoist optionals last nearly doubled this type's instantiation cost, so Merge

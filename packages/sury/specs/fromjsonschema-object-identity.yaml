@@ -1,9 +1,9 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
   schema: 'S.fromJSONSchema({ type: "object", properties: { value: { type: "string", default: "fallback" } }, required: ["constructor"], additionalProperties: { type: "integer" } })'
-  input: "{ value?: string | undefined; constructor: number; }"
-  output: "{ value?: string | undefined; constructor: number; }"
-  instantiations: 2587
+  input: "{ value?: string | undefined; constructor: number; } & Record<string, number>"
+  output: "{ value?: string | undefined; constructor: number; } & Record<string, number>"
+  instantiations: 2896
 vs:
   zod:
     _skip: not-applicable
