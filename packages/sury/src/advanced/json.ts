@@ -307,6 +307,27 @@ export const json: Internal = /* @__PURE__ */ initSchema(refTag, jsonDecoderFn, 
   s["$defs"] = defs;
 });
 
+// Formats whose every accepted value is ASCII carrying no JSON escape
+// character, so the value splices between bare quotes and skips the escape
+// helper entirely. Two kinds qualify, and both are checked by
+// `pnpm --filter=sury fuzz:escfree`:
+//
+//   - manufactured by the code we emit — date.ts's `toISOString()` is
+//     "date-time", url.ts's `urlToUri` is "uri" — where the producer's range
+//     is the proof, and no caller can reach around it;
+//   - validated by an anchored pattern that admits none of those characters,
+//     where `S.encoder`'s contract (input already satisfies the schema — use
+//     `S.parser` if it might not) is what carries the guarantee.
+//
+// Deliberately partial. `cuid` is `/^c[^\s-]{8,}$/i`, which accepts a quote,
+// and the IDN/IRI family admits arbitrary non-ASCII including lone
+// surrogates. Widening this list without running the fuzzer emits broken JSON
+// rather than merely over-escaped JSON, so add a format only once the fuzzer
+// clears it — and re-run it when a pattern here changes.
+// Anchored, so an absent format stringifies to "undefined" and misses.
+const escFreeFormatRe =
+  /^(date(-time)?|duration|uuid|email|hostname|ipv[46]|uri(-reference)?)$/;
+
 // Runtime helper embedded into generated jsonString code: the JSON text of a
 // string value. The fast path skips JSON.stringify's escape handling when a
 // regex scan proves no character needs it; thresholds follow
@@ -831,7 +852,9 @@ export const jsonString = /* @__PURE__ */ (() => {
     } else if (flagUnsafeHas(inputTagFlag, tagFlagString)) {
       return B_next(
         input,
-        `${B_embedJsonStr(input)}(${input.i})`,
+        escFreeFormatRe.test(input.s.format!)
+          ? `"\\""+${input.i}+"\\""`
+          : `${B_embedJsonStr(input)}(${input.i})`,
         expectedSchema,
       );
     } else if (flagUnsafeHas(inputTagFlag, tagFlagBoolean)) {

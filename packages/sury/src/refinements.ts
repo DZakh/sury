@@ -776,6 +776,11 @@ const datePattern =
 // hold, on `stringFormat(…)` itself, which is what keeps a format the consumer
 // never imports out of their bundle. `i` is safe for every source passed: the
 // patterns that care about case spell both out.
+// Widening a pattern here can cost more than a laxer check: jsonString splices
+// some formats between bare quotes with no escaping (`escFreeFormatRe` in
+// advanced/json.ts), so a pattern that starts admitting a quote, a backslash, a
+// control char or a lone surrogate makes that encoder emit broken JSON. Run
+// `pnpm --filter=sury fuzz:escfree` after touching one.
 // @__NO_SIDE_EFFECTS__
 const stringFormat = (
   format: StringFormat,
