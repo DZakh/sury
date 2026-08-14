@@ -4,12 +4,12 @@ ts:
   input: string
   output: "{ foo: string; }"
   instantiations: 503
-vs:
-  zod:
-    _skip: not-applicable
 jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "object", properties: { foo: { type: "string" } }, required: ["foo"] }'
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[0](i);return {"foo":i,}}

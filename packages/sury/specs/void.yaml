@@ -4,11 +4,11 @@ ts:
   input: void
   output: void
   instantiations: 254
-vs:
-  zod: z.void()
 jsonSchema:
   input: Expected JSON, received void
   output: Expected JSON, received void
+vs:
+  zod: z.void()
 operations:
   parse:
     expression: i=>{i===void 0||e[0](i);return i}

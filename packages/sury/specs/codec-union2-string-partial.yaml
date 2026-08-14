@@ -4,12 +4,12 @@ ts:
   input: string | number
   output: string
   instantiations: 5751
-vs:
-  zod:
-    _skip: not-applicable
 jsonSchema:
   input: '{ anyOf: [{ type: "number" }, { type: "string" }] }'
   output: '{ type: "string" }'
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     creationError: "SuryError: Invalid operation: can't convert number | string to string — string has the same type as the target and the others don't. Use S.to to say what you mean, or S.never to mark a variant unreachable"

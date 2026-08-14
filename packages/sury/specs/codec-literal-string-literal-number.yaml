@@ -6,12 +6,12 @@ ts:
   input: '"a"'
   output: "42"
   instantiations: 5577
-vs:
-  zod:
-    _skip: not-applicable
 jsonSchema:
   input: '{ type: "string", const: "a" }'
   output: '{ type: "number", const: 42 }'
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     expression: i=>{i==="a"||e[0](i);return 42}

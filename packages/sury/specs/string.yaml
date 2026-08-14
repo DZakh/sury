@@ -6,11 +6,11 @@ ts:
   input: string
   output: string
   instantiations: 254
-vs:
-  zod: z.string()
 jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "string" }'
+vs:
+  zod: z.string()
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[0](i);return i}

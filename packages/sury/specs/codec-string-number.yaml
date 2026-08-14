@@ -6,11 +6,11 @@ ts:
   input: string
   output: number
   instantiations: 5091
-vs:
-  zod: z.string().transform((value) => Number(value))
 jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "number" }'
+vs:
+  zod: z.string().transform((value) => Number(value))
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[1](i);let v0=+i;!Number.isNaN(v0)||e[0](i);return v0}

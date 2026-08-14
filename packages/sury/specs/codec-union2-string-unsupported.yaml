@@ -4,12 +4,12 @@ ts:
   input: boolean | symbol
   output: string
   instantiations: 5809
-vs:
-  zod:
-    _skip: not-applicable
 jsonSchema:
   input: Expected JSON, received boolean | symbol
   output: '{ type: "string" }'
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     creationError: "SuryError: Can't decode symbol to string. Use S.to to define a custom decoder"

@@ -4,13 +4,13 @@ ts:
   input: "{ a?: { s?: string | undefined; } | undefined; }"
   output: JSON
   instantiations: 9347
-vs:
-  zod:
-    _skip: not-applicable
 jsonSchema:
   input: '{ type: "object", properties: { a: { type: "object", properties: { s: { type: "string" } } } } }'
   output: '{ type: "object", properties: { a: { type: "object", properties: { s: { type: "string" } }, additionalProperties: false } }, additionalProperties: false }'
   fromOutputType: "{ a?: { s?: string | undefined; } | undefined; }"
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=i["a"];for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=v0["s"];(typeof v1==="string"||v1===void 0)||e[0](v1);v0={"s":v1,};break}if(v0===void 0)break;e[1](v0)}for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v2=v0["s"],v3;(typeof v2==="string"||v2===void 0)||e[2](v2);for(v3 in v0){if(v3!=="s"){e[3](v3)}}let v4={};if(v2!==void 0){v4["s"]=v2}v0=v4;break}if(v0===void 0)break;e[4](v0)}let v5={};if(v0!==void 0){v5["a"]=v0}return v5}

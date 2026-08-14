@@ -4,11 +4,11 @@ ts:
   input: string
   output: string
   instantiations: 5158
-vs:
-  zod: z.url().regex(/^https:\/\//)
 jsonSchema:
   input: '{ type: "string", format: "uri", pattern: "^https:\\/\\/" }'
   output: '{ type: "string", format: "uri", pattern: "^https:\\/\\/" }'
+vs:
+  zod: z.url().regex(/^https:\/\//)
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[4](i);e[1].test(i)||e[2](i);e[0].test(i)||e[3](i);return i}

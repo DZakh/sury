@@ -6,11 +6,11 @@ ts:
   input: string | undefined
   output: string | undefined
   instantiations: 422
-vs:
-  zod: z.string().optional()
 jsonSchema:
   input: Expected JSON, received string | undefined
   output: Expected JSON, received string | undefined
+vs:
+  zod: z.string().optional()
 operations:
   parse:
     expression: i=>{(typeof i==="string"||i===void 0)||e[0](i);return i}

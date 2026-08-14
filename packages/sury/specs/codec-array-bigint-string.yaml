@@ -4,12 +4,12 @@ ts:
   input: bigint[]
   output: string[]
   instantiations: 5412
-vs:
-  zod:
-    _skip: not-applicable
 jsonSchema:
   input: "Failed at []: Expected JSON, received bigint"
   output: '{ items: { type: "string" }, type: "array" }'
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     expression: i=>{Array.isArray(i)||e[1](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];typeof v1==="bigint"||e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}let v4=new Array(i.length);for(let v3=0;v3<i.length;++v3){v4[v3]=""+i[v3]}return v4}

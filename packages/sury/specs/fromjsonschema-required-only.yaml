@@ -4,12 +4,12 @@ ts:
   input: "{ [key: string]: JSON; } & { a: JSON; }"
   output: "{ [key: string]: JSON; } & { a: JSON; }"
   instantiations: 1165
-vs:
-  zod:
-    _skip: not-applicable
 jsonSchema:
   input: '{ type: "object", required: ["a"] }'
   output: '{ type: "object", required: ["a"] }'
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);e[1](i)||e[3](i);for(let v0 in i){try{e[0](i[v0]);}catch(v1){v1.path='["'+v0+'"]'+v1.path;throw v1}}return i}

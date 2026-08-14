@@ -4,12 +4,12 @@ ts:
   input: '"x" | undefined'
   output: '"x" | null'
   instantiations: 5768
-vs:
-  zod:
-    _skip: not-applicable
 jsonSchema:
   input: Expected JSON, received "x" | undefined
   output: '{ enum: ["x", null] }'
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     expression: i=>{for(;;){if(typeof i==="string"&&i==="x")break;if(i===void 0){i=null;break}e[0](i)}return i}

@@ -4,12 +4,12 @@ ts:
   input: string | number
   output: string | number | boolean
   instantiations: 6522
-vs:
-  zod:
-    _skip: not-applicable
 jsonSchema:
   input: '{ anyOf: [{ type: "string" }, { type: "number" }] }'
   output: '{ anyOf: [{ type: "number" }, { type: "string" }, { type: "boolean" }] }'
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     creationError: "SuryError: Invalid operation: can't convert string | number to number | string | boolean — boolean has no same-type variant on the other side. Use S.to to say what you mean, or S.never to mark a variant unreachable"

@@ -7,11 +7,11 @@ ts:
   input: "{ a: string; }"
   output: "{ a: string; }"
   instantiations: 1205
-vs:
-  zod: "z.object({ a: z.string() })"
 jsonSchema:
   input: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'
   output: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'
+vs:
+  zod: "z.object({ a: z.string() })"
 operations:
   parse:
     expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i["a"];typeof v0==="string"||e[0](v0);return {"a":v0,}}

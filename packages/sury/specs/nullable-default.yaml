@@ -4,11 +4,11 @@ ts:
   input: string | null
   output: string
   instantiations: 424
-vs:
-  zod: z.string().nullable().transform((value) => value ?? "bar")
 jsonSchema:
   input: '{ default: "bar", anyOf: [{ type: "string" }, { type: "null" }] }'
   output: '{ type: "string" }'
+vs:
+  zod: z.string().nullable().transform((value) => value ?? "bar")
 operations:
   parse:
     expression: i=>{for(;;){if(typeof i==="string")break;if(i===null){i=void 0;break}e[0](i)}return i===void 0?"bar":i}

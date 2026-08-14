@@ -4,11 +4,11 @@ ts:
   input: symbol
   output: symbol
   instantiations: 254
-vs:
-  zod: z.symbol()
 jsonSchema:
   input: Expected JSON, received symbol
   output: Expected JSON, received symbol
+vs:
+  zod: z.symbol()
 operations:
   parse:
     expression: i=>{typeof i==="symbol"||e[0](i);return i}

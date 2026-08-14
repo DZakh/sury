@@ -4,12 +4,12 @@ ts:
   input: "{ count?: number | undefined; }"
   output: "{ count?: number | undefined; }"
   instantiations: 3299
-vs:
-  zod:
-    _skip: not-applicable
 jsonSchema:
   input: '{ type: "object", properties: { count: { type: "integer", default: "" } } }'
   output: '{ type: "object", properties: { count: { type: "integer", default: "" } } }'
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i["count"];(typeof v0==="number"&&!Number.isNaN(v0)&&v0%1===0||v0===void 0)||e[0](v0);return {"count":v0,}}

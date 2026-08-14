@@ -4,11 +4,11 @@ ts:
   input: string
   output: string
   instantiations: 5369
-vs:
-  zod: z.string().length(5, "Postcode must have 5 symbols")
 jsonSchema:
   input: '{ type: "string", minLength: 5, maxLength: 5 }'
   output: '{ type: "string", minLength: 5, maxLength: 5 }'
+vs:
+  zod: z.string().length(5, "Postcode must have 5 symbols")
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[1](i);i.length===5||e[0](i);return i}

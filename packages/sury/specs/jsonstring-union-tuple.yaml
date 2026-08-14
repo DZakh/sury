@@ -4,12 +4,12 @@ ts:
   input: string
   output: '(string | bigint)[] | { t: "x"; id: bigint; }'
   instantiations: 7722
-vs:
-  zod:
-    _skip: not-applicable
 jsonSchema:
   input: '{ type: "string" }'
   output: 'Failed at ["0"]: Expected JSON, received bigint'
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[7](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}for(;;){if(Array.isArray(v0)&&v0.length===2){let v2=v0["0"],v3=v0["1"];typeof v2==="string"||e[2](v2);let v1;try{v1=BigInt(v2)}catch(_){e[1](v2)}typeof v3==="string"||e[3](v3);v0=[v1,v3,];break}if(typeof v0==="object"&&v0&&!Array.isArray(v0)&&v0["t"]==="x"){let v5=v0["id"];typeof v5==="string"||e[5](v5);let v4;try{v4=BigInt(v5)}catch(_){e[4](v5)}v0={"t":v0["t"],"id":v4,};break}e[6](v0)}return v0}

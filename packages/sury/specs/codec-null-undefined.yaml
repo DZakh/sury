@@ -4,12 +4,12 @@ ts:
   input: "null"
   output: undefined
   instantiations: 5509
-vs:
-  zod:
-    _skip: not-applicable
 jsonSchema:
   input: '{ type: "null" }'
   output: Expected JSON, received undefined
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     expression: i=>{i===null||e[0](i);return void 0}

@@ -4,12 +4,12 @@ ts:
   input: Chunk
   output: Chunk
   instantiations: 5182
-vs:
-  zod:
-    _skip: not-applicable
 jsonSchema:
   input: Expected JSON, received Chunk.size >= 4
   output: Expected JSON, received Chunk.size >= 4
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     expression: i=>{i instanceof e[1]||e[2](i);i.size>3||e[0](i);return i}

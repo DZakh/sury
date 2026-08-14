@@ -4,15 +4,15 @@ ts:
   input: "[]"
   output: "[]"
   instantiations: 5598
+jsonSchema:
+  input: '{ items: { type: "string" }, type: "array", minItems: 0, maxItems: 0 }'
+  output: '{ items: { type: "string" }, type: "array", minItems: 0, maxItems: 0 }'
 vs:
   zod:
     schema: z.array(z.string()).length(0)
     divergence: "`S.empty` pins the Sury type to exactly `[]` where Zod keeps the unbounded `string[]`."
     input: string[]
     output: string[]
-jsonSchema:
-  input: '{ items: { type: "string" }, type: "array", minItems: 0, maxItems: 0 }'
-  output: '{ items: { type: "string" }, type: "array", minItems: 0, maxItems: 0 }'
 operations:
   parse:
     expression: i=>{Array.isArray(i)||e[2](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}i.length===0||e[1](i);return i}

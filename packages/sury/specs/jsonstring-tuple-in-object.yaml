@@ -4,12 +4,12 @@ ts:
   input: "{ x: [string, string | undefined]; }"
   output: string
   instantiations: 9578
-vs:
-  zod:
-    _skip: not-applicable
 jsonSchema:
   input: 'Failed at ["x"]["1"]: Expected JSON, received string | undefined'
   output: '{ type: "string" }'
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=i["x"];Array.isArray(v0)&&v0.length===2||e[2](v0);let v1=v0["0"],v2=v0["1"];typeof v1==="string"||e[0](v1);(typeof v2==="string"||v2===void 0)||e[1](v2);for(;;){if(typeof v2==="string"){v2=e[3](v2);break}if(v2===void 0){v2="null";break}e[4](v2)}return "{\"x\":["+e[3](v1)+","+v2+"]}"}

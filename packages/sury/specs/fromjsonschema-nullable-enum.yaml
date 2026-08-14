@@ -4,11 +4,11 @@ ts:
   input: '"a" | "b" | null'
   output: '"a" | "b" | null'
   instantiations: 564
-vs:
-  zod: z.enum(["a", "b"]).nullable()
 jsonSchema:
   input: '{ enum: ["a", "b", null] }'
   output: '{ enum: ["a", "b", null] }'
+vs:
+  zod: z.enum(["a", "b"]).nullable()
 operations:
   parse:
     expression: i=>{(typeof i==="string"&&(i==="a"||i==="b")||i===null)||e[0](i);return i}

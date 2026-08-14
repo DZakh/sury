@@ -4,11 +4,11 @@ ts:
   input: never
   output: never
   instantiations: 398
-vs:
-  zod: z.never()
 jsonSchema:
   input: "{ not: {} }"
   output: "{ not: {} }"
+vs:
+  zod: z.never()
 operations:
   parse:
     expression: i=>{e[0](i);return i}

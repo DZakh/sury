@@ -4,11 +4,11 @@ ts:
   input: string
   output: string
   instantiations: 5148
-vs:
-  zod: z.string().max(2)
 jsonSchema:
   input: '{ type: "string", maxLength: 2 }'
   output: '{ type: "string", maxLength: 2 }'
+vs:
+  zod: z.string().max(2)
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[1](i);i.length<3||e[0](i);return i}

@@ -6,11 +6,11 @@ ts:
   input: "123"
   output: "123"
   instantiations: 382
-vs:
-  zod: z.literal(123)
 jsonSchema:
   input: '{ type: "number", const: 123 }'
   output: '{ type: "number", const: 123 }'
+vs:
+  zod: z.literal(123)
 operations:
   parse:
     expression: i=>{i===123||e[0](i);return i}

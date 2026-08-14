@@ -4,12 +4,12 @@ ts:
   input: '{ name: string; type: "foo"; fooCount: number; }'
   output: '{ name: string; type: "foo"; fooCount: number; }'
   instantiations: 4450
-vs:
-  zod:
-    _skip: not-applicable
 jsonSchema:
   input: '{ type: "object", properties: { type: { type: "string", const: "foo" }, name: { type: "string" }, fooCount: { type: "number" } }, required: ["type", "name", "fooCount"] }'
   output: '{ type: "object", properties: { type: { type: "string", const: "foo" }, name: { type: "string" }, fooCount: { type: "number" } }, required: ["type", "name", "fooCount"] }'
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["type"],v1=i["name"],v2=i["fooCount"];v0==="foo"||e[0](v0);typeof v1==="string"||e[1](v1);typeof v2==="number"&&!Number.isNaN(v2)||e[2](v2);return {"type":v0,"name":v1,"fooCount":v2,}}

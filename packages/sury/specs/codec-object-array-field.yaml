@@ -4,12 +4,12 @@ ts:
   input: "{ x: string[]; }"
   output: "{ x: string[]; }"
   instantiations: 6841
-vs:
-  zod:
-    _skip: not-applicable
 jsonSchema:
   input: '{ type: "object", properties: { x: { items: { type: "string" }, type: "array" } }, required: ["x"] }'
   output: '{ type: "object", properties: { x: { items: { type: "string" }, type: "array" } }, required: ["x"] }'
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   # FIXME: each op declares the target's array field (`let vN=vM["x"]`) and
   # never reads it — decoding the transform's result walks its fields, and the
