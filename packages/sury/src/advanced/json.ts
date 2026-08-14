@@ -182,9 +182,8 @@ export const jsonDecoderFn = (input: Val): Val => {
   } else if (flagUnsafeHas(inputTagFlag, (tagFlagUndefined | tagFlagNaN))) {
     return B_nextConst(input, nullLiteral);
   } else if (flagUnsafeHas(inputTagFlag, tagFlagArray)) {
-    const expected = baseSchema(arrayTag, false);
+    const expected = baseSchema(arrayTag, false, arrayDecoder);
     expected.items = input.s.items!.map((_) => json);
-    expected.decoder = arrayDecoder;
     expected.additionalItems =
       typeof input.s.additionalItems === "object"
         ? json
@@ -226,15 +225,14 @@ export const jsonDecoderFn = (input: Val): Val => {
   } else if (flagUnsafeHas(inputTagFlag, tagFlagRef)) {
     // FIXME: Should be a unified solution for ref inputs
     return recursiveDecoder(input);
-  } else if (
-    flagUnsafeHas(inputTagFlag, tagFlagUnion) &&
-    // Union-tagged schemas always carry `anyOf` and `has`
-    // (set by unionFactory, reverse and the S.json def).
-    // Unions with an undefined variant are not supported,
-    // since undefined is not representable in JSON
-    !(undefinedTag in input.s.has!)
-  ) {
-    // Decode each union variant to JSON separately
+  } else if (flagUnsafeHas(inputTagFlag, tagFlagUnion)) {
+    // Each variant decodes to JSON separately, and an `undefined` one becomes
+    // `null` through the branch above — the nullish bridge (CODEC_SPEC.md),
+    // which a union reaching the target as a whole already applied. Refusing it
+    // here only made a bridgeable variant unreachable one level down.
+    // Only an object property can express "absent" rather than `null`, and it
+    // never arrives here: the object branch below resolves its own optional
+    // properties through `perVariantTo` before recursing.
     return parse(unionRewriteTo(input, input.e));
   } else if (flagUnsafeHas(inputTagFlag, tagFlagUnknown)) {
     const to = input.e.to!;
@@ -265,17 +263,15 @@ export const jsonDecoderFn = (input: Val): Val => {
   }
 }
 
-export const json: Internal = /* @__PURE__ */ initSchema(refTag, (s) => {
-  const jsonRef = baseSchema(refTag, true);
+export const json: Internal = /* @__PURE__ */ initSchema(refTag, jsonDecoderFn, (s) => {
+  const jsonRef = baseSchema(refTag, true, jsonDecoderFn);
   jsonRef["$ref"] = `${defsPath}${jsonName}`;
   jsonRef.name = jsonName;
 
-  jsonRef.decoder = jsonDecoderFn;
   jsonRef.encoder = jsonEncoderFn;
 
   s["$ref"] = jsonRef["$ref"];
   s.name = jsonName;
-  s.decoder = jsonDecoderFn;
   s.encoder = jsonEncoderFn;
 
   const anyOf = [
@@ -300,10 +296,9 @@ export const json: Internal = /* @__PURE__ */ initSchema(refTag, (s) => {
     has[schema.type] = true;
   });
 
-  const jsonDef = baseSchema(anyOfTag, true);
+  const jsonDef = baseSchema(anyOfTag, true, unionDecoder);
   jsonDef.anyOf = anyOf;
   jsonDef.has = has;
-  jsonDef.decoder = unionDecoder;
   jsonDef.name = jsonName;
   jsonDef.type = anyOfTag;
 
@@ -367,10 +362,9 @@ export const jsonString = /* @__PURE__ */ (() => {
   const jsonStringEncoder: Encoder = (input, target) => {
     if (target.format !== "json") {
       if (isLiteral(target)) {
-        const jsonStringConstSchema = baseSchema(stringTag, true);
+        const jsonStringConstSchema = baseSchema(stringTag, true, literalDecoder);
         jsonStringConstSchema.const = constSchemaToJsonStringConst(input, target);
         jsonStringConstSchema.to = target;
-        jsonStringConstSchema.decoder = literalDecoder;
         return B_refine(input, U, U, jsonStringConstSchema);
       } else {
         const outputVar = B_varWithoutAllocation(input.g);
@@ -919,11 +913,10 @@ export const jsonString = /* @__PURE__ */ (() => {
     }
   };
 
-  return initSchema(stringTag, (s) => {
+  return initSchema(stringTag, jsonStringDecoder, (s) => {
     s.format = "json";
     s.name = `${jsonName} string`;
     s.encoder = jsonStringEncoder;
-    s.decoder = jsonStringDecoder;
   });
 })();
 

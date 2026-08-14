@@ -833,19 +833,19 @@ test("Regression https://github.com/DZakh/sury/issues/121", t => {
 })
 
 test("Union of strings with different refinements", t => {
-  let schema = S.union([S.email, S.url])
+  let schema = S.union([S.email, S.uri])
 
   t->U.assertThrowsMessage(
     () => %raw(`"123"`)->S.parseOrThrow(~to=schema),
-    `Expected email | url, received "123"
+    `Expected email | uri, received "123"
 - Expected email, received "123"
-- Expected url, received "123"`,
+- Expected uri, received "123"`,
   )
 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i==="string"){for(;;){let r;try{e[0].test(i)||e[1](i);break}catch(x){(r||(r=[])).push(e[4](x))}try{e[2](i)||e[3](i);break}catch(x){(r||(r=[])).push(e[4](x))}e[5](i,...(r||[]))}}else{e[6](i)}return i}`,
+    `i=>{if(typeof i==="string"){for(;;){let r;try{e[0].test(i)||e[1](i);break}catch(x){(r||(r=[])).push(e[4](x))}try{e[2].test(i)||e[3](i);break}catch(x){(r||(r=[])).push(e[4](x))}e[5](i,...(r||[]))}}else{e[6](i)}return i}`,
   )
 })
 

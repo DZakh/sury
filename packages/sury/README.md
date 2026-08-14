@@ -7,7 +7,17 @@
 
 **The fastest schema with next-gen DX.**
 
-Describe your data once, then parse it, validate it, transform it, encode it back, and turn it into JSON Schema — all from the same definition, all compiled into a single optimized function.
+Describe your data once. Parse it, validate it, transform it, encode it back, and turn it into JSON Schema — all from that one definition, all compiled into a single function.
+
+- ⚡ **Compiled, not interpreted.** Each schema becomes JavaScript written for exactly its shape — the fastest parsing in the ecosystem ([benchmarks](#comparison)). [See the code →](#see-the-code-it-compiles)
+- 🚀 **Encodes JSON faster than `JSON.stringify`** — and throws on the values `JSON.stringify` silently corrupts. [→](#json-serialization-faster-than-jsonstringify)
+- 🔄 **Every schema reverses.** Decode and encode come from the same definition. [→](#transformations-that-reverse-themselves)
+- 🧩 **Every schema is a pipeline stage.** `S.jsonString.with(S.to, eventSchema)` is a schema like any other. [→](#every-schema-is-a-pipeline-stage)
+- 📄 **JSON Schema in both directions** — paste a document in and TypeScript infers the type, `$ref` and recursion included. No codegen step, no `any`. [→](#json-schema-through-the-standard-interface)
+- 🔍 **Types you can read.** You hover `S.Schema<{foo: string}, {foo: string}>`, not the library's internals. [→](#types-you-can-actually-read)
+- 🔤 **The JSON Schema string format vocabulary** — dates, durations, URIs, IRIs, hostnames, IP addresses and JSON Pointers, built in. [JS](https://github.com/DZakh/sury/blob/main/docs/js-usage.md#string-formats) · [ReScript](https://github.com/DZakh/sury/blob/main/docs/rescript-usage.md#string-formats)
+- 🌳 **Small and tree-shakable** — 13.3 kB min+gzip for a schema and a parser. Async, recursive and custom schemas included.
+- 🟨 **Plain JavaScript, TypeScript and ReScript** — no compiler required.
 
 > Formerly known as **ReScript Schema**. It's plain JavaScript — you don't need the ReScript compiler to use it. ReScript users, see the [ReScript docs](https://github.com/DZakh/sury/blob/main/docs/rescript-usage.md).
 
@@ -43,7 +53,7 @@ The API mirrors TypeScript types, so there's not much new syntax to learn.
 
 ### Discriminated unions, decoded straight from a JSON string
 
-Declare the union, and get parsing and narrowing from one definition:
+Declare the union once, and get parsing and narrowing from it:
 
 ```ts
 const eventSchema = S.union([
@@ -65,7 +75,7 @@ switch (event.type) {
 }
 ```
 
-Note that you write `id: S.bigint` — the type you want to work with. A `bigint` can't exist in JSON, so **Sury** infers the `"42"` → `42n` coercion from the input side of the pipeline, in both directions. No `as const`, no coercion wrappers, no second schema for the wire format.
+You write `id: S.bigint` — the type you want to work with. A `bigint` can't exist in JSON, so **Sury** infers the `"42"` → `42n` coercion from the input side of the pipeline, in both directions. No `as const`, no coercion wrappers, no second schema for the wire format.
 
 Errors point at the field inside the matched variant, not at the union as a whole:
 
@@ -76,7 +86,7 @@ parseEvent('{"type":"user.renamed","id":"42"}');
 
 ### See the code it compiles
 
-`parseEvent` above isn't an interpreter walking a schema tree at runtime — it's a function **Sury** generated for exactly this shape. The union dispatches on the discriminant, the inferred `bigint` coercion is inlined as a bare `BigInt()` call, and the whole `S.jsonString` → union → field-level pipeline is fused into one pass:
+`parseEvent` isn't an interpreter walking a schema tree. It's a function **Sury** generated for exactly this shape. The union dispatches on the discriminant, the inferred `bigint` coercion is inlined as a bare `BigInt()` call, and `S.jsonString` → union → fields fuse into one pass:
 
 ```js
 (i) => {
@@ -109,18 +119,18 @@ parseEvent('{"type":"user.renamed","id":"42"}');
 };
 ```
 
-This is why **Sury** will most likely outperform not only other libraries, but also your own hand-rolled validation logic.
+That's why **Sury** tends to outrun not just other libraries, but hand-rolled validation too.
 
 ### JSON serialization faster than `JSON.stringify`
 
-The same `eventSchema` encodes back out — no second definition:
+The same `eventSchema` encodes back out. No second definition:
 
 ```ts
 S.encoder(eventSchema, S.jsonString)({ type: "user.renamed", id: 42n, name: "Dmitry" });
 // => '{"type":"user.renamed","id":"42","name":"Dmitry"}'
 ```
 
-There's no intermediate object and no `JSON.stringify` — the discriminant picks a branch and the JSON text is baked in:
+There's no intermediate object and no `JSON.stringify` — the discriminant picks a branch, and the JSON text is baked in:
 
 ```js
 (i) => {
@@ -135,7 +145,7 @@ There's no intermediate object and no `JSON.stringify` — the discriminant pick
 };
 ```
 
-Types `JSON.stringify` refuses are ordinary fields, and the values it silently corrupts throw instead:
+Types `JSON.stringify` refuses are ordinary fields here. Values it silently corrupts throw instead:
 
 ```ts
 const schema = S.schema({ id: S.bigint, payload: S.uint8Array, at: S.date, price: S.number });
@@ -152,17 +162,17 @@ JSON.stringify({ price: Infinity });
 // => '{"price":null}'
 ```
 
-| Encode to JSON string                        | `JSON.stringify` | fast-json-stringify | **Sury**    |
-| -------------------------------------------- | ---------------- | ------------------- | ----------- |
-| API response (user profile, 7 fields)        | 396 ns           | 301 ns              | **250 ns**  |
-| Event feed (50 tagged-union events)          | 4.61 µs          | 13.52 µs            | **3.67 µs** |
-| `bigint` id + binary payload + `Date`        | 1.10 µs          | 1.11 µs             | **1.02 µs** |
+| Encode to JSON string                        | **Sury**    | `JSON.stringify` | fast-json-stringify |
+| -------------------------------------------- | ----------- | ---------------- | ------------------- |
+| API response (user profile, 7 fields)        | **250 ns**  | 396 ns           | 301 ns              |
+| Event feed (50 tagged-union events)          | **3.67 µs** | 4.61 µs          | 13.52 µs            |
+| `bigint` id + binary payload + `Date`        | **1.02 µs** | 1.10 µs          | 1.11 µs             |
 
 Faster than `JSON.stringify`, and 3.5× lighter than fast-json-stringify — 16.2 kB against 56.7 kB, encoder included.
 
 ### Transformations that reverse themselves
 
-Rename fields, coerce types, and reshape objects — then get the inverse for free:
+Rename fields, coerce types, reshape objects — then get the inverse for free:
 
 ```ts
 const userSchema = S.schema({
@@ -181,11 +191,11 @@ S.encoder(userSchema)({ id: 0n, name: "Dmitry" });
 // => { USER_ID: "0", USER_NAME: "Dmitry" }
 ```
 
-Every schema is reversible, so `S.reverse` hands you a full-featured schema with `Input` and `Output` swapped — usable with every operation, not just an encode shortcut.
+Every schema is reversible. `S.reverse` hands you a real schema with `Input` and `Output` swapped — it works with every operation, not just as an encode shortcut.
 
 ### Every schema is a pipeline stage
 
-`S.jsonString` above wasn't a special "parse JSON" mode — it's an ordinary schema used as a stage. So is `S.json`, `S.uint8Array`, `S.date`, and every schema you write. Instead of a fixed menu of `parseJson` / `parseJsonString` / `convertToJson` functions, you describe the shape of the data at each step and let **Sury** compile the path between them.
+`S.jsonString` above wasn't a special "parse JSON" mode. It's an ordinary schema used as a stage, and so are `S.json`, `S.uint8Array`, `S.date`, and every schema you write. There's no fixed menu of `parseJson` / `parseJsonString` / `convertToJson` functions: you describe the data at each step, and **Sury** compiles the path between them.
 
 Stages nest, so any field can be its own pipeline:
 
@@ -200,7 +210,7 @@ const apiUser = S.schema({
 });
 ```
 
-The whole tree — top-level operation plus every nested `S.to` — still folds into one generated function, so deep pipelines cost nothing at runtime.
+The whole tree still folds into one generated function, so deep pipelines cost nothing at runtime.
 
 Once schemas are stages, layouts that usually need hand-written glue become a single definition. `S.compactColumns` maps columnar arrays to rows, in both directions:
 
@@ -217,9 +227,9 @@ S.encoder(rows)([{ id: 1n, city: "Tbilisi" }, { id: 2n, city: "Batumi" }]);
 
 ### JSON Schema, through the standard interface
 
-**Sury** speaks JSON Schema natively — no converter bolted on top — through the [Standard JSON Schema](https://standardschema.dev/json-schema) extension of the [Standard Schema](https://standardschema.dev/) spec, so tools consume it without special-casing **Sury**.
+**Sury** speaks JSON Schema natively — no converter bolted on top. It goes through the [Standard JSON Schema](https://standardschema.dev/json-schema) extension of the [Standard Schema](https://standardschema.dev/) spec, so tools consume it without special-casing **Sury**.
 
-Because **Sury** tracks Input and Output separately, it describes both sides of a transformation:
+And because **Sury** tracks Input and Output separately, it describes both sides of a transformation:
 
 ```ts
 S.enableStandardJSONSchema();
@@ -247,11 +257,11 @@ productSchema["~standard"].jsonSchema.output({ target: "draft-2020-12" });
 //                                                   ↑ what your code receives
 ```
 
-`S.meta` attaches `description`, `title`, `examples`, and `deprecated`. Write examples in the Output format you work with (`price: 9.99`); they're emitted in the Input format the wire uses (`price: "9.99"`), so a generated OpenAPI document describes what a client really sends.
+`S.meta` attaches `description`, `title`, `examples` and `deprecated`. Write examples in the Output format you work with (`price: 9.99`). They're emitted in the Input format the wire uses (`price: "9.99"`), so a generated OpenAPI document describes what a client really sends.
 
-`"draft-07"`, `"draft-2020-12"`, and `"openapi-3.0"` are all supported targets, and `S.toJSONSchema(schema, options)` skips `~standard` if you'd rather.
+`"draft-07"`, `"draft-2020-12"` and `"openapi-3.0"` are all supported targets, and `S.toJSONSchema(schema, options)` skips `~standard` if you'd rather.
 
-And it reads JSON Schema back in — the whole document, `$ref` and recursion included, typed as it goes:
+It reads JSON Schema back in too — the whole document, `$ref` and recursion included, typed as it goes:
 
 ```ts
 const comment = S.fromJSONSchema({
@@ -273,7 +283,7 @@ S.assert(comment, { text: "hi", replies: [{ text: 1 }] });
 // => throws S.Error: Failed at ["replies"]["0"]["text"]: Expected string, received 1
 ```
 
-No codegen step, no `any`: paste a document in and it's a schema your editor understands.
+No codegen step, no `any`: paste a document in, and it's a schema your editor understands.
 
 ### Types you can actually read
 
@@ -284,7 +294,7 @@ S.schema({ foo: S.string });
 //? S.Schema<{ foo: string }, { foo: string }>
 ```
 
-Compare that with `v.ObjectSchema<{readonly foo: v.StringSchema<undefined>}, undefined>`. Both sides are right there, and they read in the direction the data flows — `S.Schema<TInput, TOutput>` — which is what makes a transformation's two sides obvious at a glance rather than something you reconstruct in your head.
+Compare that with `v.ObjectSchema<{readonly foo: v.StringSchema<undefined>}, undefined>`. Both sides are right there, and they read in the direction the data flows — `S.Schema<TInput, TOutput>`. A transformation's two sides are obvious at a glance instead of something you reconstruct in your head.
 
 ### Errors that tell you where to look
 
@@ -295,21 +305,13 @@ S.parser(S.schema({ a: S.array(S.schema({ b: S.string })) }))({
 // => throws S.Error: Failed at ["a"]["1"]["b"]: Expected string, received 1
 ```
 
-Every error is an `S.Error` (`err instanceof S.Error`), and `S.safe` / `S.safeAsync` wrap any block into a typed result if you'd rather not catch:
+Every error is an `S.Error` (`err instanceof S.Error`). If you'd rather not catch, `S.safe` and `S.safeAsync` wrap any block into a typed result:
 
 ```ts
 const result = S.safe(() => S.parser(playerSchema)(data));
 if (result.success) result.value;
 else result.error;
 ```
-
-## More highlights
-
-- Works with plain JavaScript, TypeScript, and ReScript — no compiler required
-- The **fastest** parsing and validation library in the JavaScript ecosystem ([benchmarks](#comparison))
-- Compiled JSON string encoding — [faster and safer than `JSON.stringify`](#json-serialization-faster-than-jsonstringify), with `bigint`, `Uint8Array` and `Date` support built in
-- Tree-shakable API with a small footprint — 12.4 kB (min + gzip) for a schema and a parser
-- Async transformations, recursive schemas, and custom schemas
 
 ## Integrations
 
@@ -330,20 +332,20 @@ Building something with **Sury**? [Let me know](https://x.com/dzakh_dev) and I'l
 
 ## Comparison
 
-Instead of a few large classes with many methods, **Sury**'s API and source are built from many small, independent functions, each with a single task. A bundler can follow your import statements and drop everything you don't use, which can cut the shipped size by up to 2× compared to [Zod](https://github.com/colinhacks/zod). (The approach is borrowed from [Valibot](https://github.com/fabian-hiller/valibot), which pioneered it.)
+**Sury** is the fastest composable validation library in the ecosystem, because schemas are compiled to specialized code with `new Function` rather than interpreted.
 
-At the same time **Sury** is the fastest composable validation library in the ecosystem, because schemas are compiled to specialized code with `new Function` rather than interpreted.
+It's also small. Instead of a few large classes with many methods, the API and source are built from many small, independent functions, each with a single task. A bundler follows your imports and drops everything you don't use, which can cut the shipped size by up to 2× compared to [Zod](https://github.com/colinhacks/zod). (The approach is borrowed from [Valibot](https://github.com/fabian-hiller/valibot), which pioneered it.)
 
-Measured against `sury@11.0.0-alpha.11`, `zod@4.4.3`, `typebox@0.34.52`, `valibot@1.4.2`, `arktype@2.2.3`:
+Measured against `sury@11.0.0-rc.1`, `zod@4.4.3`, `typebox@0.34.52`, `valibot@1.4.2`, `arktype@2.2.3`:
 
 ### Size & speed
 
-|                                 | Sury           | Zod          | TypeBox                        | Valibot      | ArkType       |
-| ------------------------------- | -------------- | ------------ | ------------------------------ | ------------ | ------------- |
-| **Total size** (min + gzip)     | 20.8 kB        | 64.7 kB      | 31.2 kB                        | 15.2 kB      | 47.9 kB       |
-| **Benchmark size** (min + gzip) | 9.88 kB        | 19.6 kB      | 22.6 kB                        | 1.30 kB      | 47.8 kB       |
-| **Parse with the same schema**  | 160,549 ops/ms | 8,463 ops/ms | 120,684 ops/ms (no transforms) | 1,328 ops/ms | 77,405 ops/ms |
-| **Create schema & parse once**  | 54 ops/ms      | 7 ops/ms     | 82 ops/ms (no transforms)      | 198 ops/ms   | 9 ops/ms      |
+|                                 | Sury           | Zod          | TypeBox                        | Valibot      | ArkType        |
+| ------------------------------- | -------------- | ------------ | ------------------------------ | ------------ | -------------- |
+| **Total size** (min + gzip)     | 31.5 kB        | 65.0 kB      | 31.3 kB                        | 15.3 kB      | 47.2 kB        |
+| **Benchmark size** (min + gzip) | 13.3 kB        | 19.6 kB      | 22.6 kB                        | 1.29 kB      | 47.1 kB        |
+| **Parse with the same schema**  | 210,061 ops/ms | 9,367 ops/ms | 158,185 ops/ms (no transforms) | 1,970 ops/ms | 106,520 ops/ms |
+| **Create schema & parse once**  | 99 ops/ms      | 11 ops/ms    | 103 ops/ms (no transforms)     | 315 ops/ms   | 11 ops/ms      |
 
 Independent benchmarks and conformance suites that include **Sury**:
 
@@ -368,9 +370,9 @@ Independent benchmarks and conformance suites that include **Sury**:
 
 ### Does it really use `new Function`?
 
-Yes — that's where the speed comes from. The approach is battle-tested and has no known security issues; it's also how TypeBox, Zod v4, and ArkType work. Even Cloudflare Workers added support for it.
+Yes — that's where the speed comes from. The approach is battle-tested and has no known security issues. It's also how TypeBox, Zod v4 and ArkType work, and even Cloudflare Workers added support for it.
 
-There's currently no eval-free mode, so **Sury** won't run in environments that forbid dynamic code evaluation, such as pages under a strict CSP without `'unsafe-eval'`, some browser extension contexts, and a few restricted edge runtimes. If that's your environment, [Valibot](https://valibot.dev/) is the honest recommendation today.
+There's currently no eval-free mode, so **Sury** won't run where dynamic code evaluation is forbidden: pages under a strict CSP without `'unsafe-eval'`, some browser extension contexts, and a few restricted edge runtimes. If that's your environment, [Valibot](https://valibot.dev/) is the honest recommendation today.
 
 ### Why "Sury"?
 

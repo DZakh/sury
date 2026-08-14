@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({ x: S.array(S.string) }).with(S.to, S.schema({ x: S.array(S.string) }), (v) => v, (v) => v)"
+  input: "{ x: string[]; }"
+  output: "{ x: string[]; }"
+  instantiations: 6841
+jsonSchema:
+  input: '{ type: "object", properties: { x: { items: { type: "string" }, type: "array" } }, required: ["x"] }'
+  output: '{ type: "object", properties: { x: { items: { type: "string" }, type: "array" } }, required: ["x"] }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  # FIXME: each op declares the target's array field (`let vN=vM["x"]`) and
+  # never reads it — decoding the transform's result walks its fields, and the
+  # array decoder materializes a var before finding it has no loop to emit.
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i["x"];Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"||e[0](v2);}catch(v3){v3.path="[\"x\"]"+'["'+v1+'"]'+v3.path;throw v3}}let v4;try{v4=e[2]({"x":v0,})}catch(x){e[3](x)}let v5=v4["x"];return v4}
+    examples:
+      round-trip:
+        input: '{ x: ["a"] }'
+        output: '{ x: ["a"] }'
+  decode:
+    expression: i=>{let v0=i["x"];let v2;try{v2=e[0](i)}catch(x){e[1](x)}let v3=v2["x"];return v2}
+    examples:
+      round-trip:
+        input: '{ x: ["a"] }'
+        output: '{ x: ["a"] }'
+  encode:
+    expression: i=>{let v0=i["x"];let v2;try{v2=e[0](i)}catch(x){e[1](x)}let v3=v2["x"];return v2}
+    examples:
+      round-trip:
+        input: '{ x: ["a"] }'
+        output: '{ x: ["a"] }'

@@ -32,7 +32,6 @@ import {
   B_invalidOperation,
   B_markOutput,
   B_merge,
-  B_mergeObjectFields,
   B_nextConst,
   B_scope,
 } from "./builder";
@@ -148,11 +147,10 @@ function schemaNested(this: AdvancedObjectCtx & Record<string, unknown>, fieldNa
     const required: string[] = [];
     let schema: Internal;
     {
-      const s = baseSchema(objectTag, false);
+      const s = baseSchema(objectTag, false, objectDecoder);
       s.required = required;
       s.properties = properties;
       s.additionalItems = globalConfig.a;
-      s.decoder = objectDecoder;
       schema = s;
     }
 
@@ -270,11 +268,10 @@ export const schemaObject = (
 
   const definition = definer(ctx);
 
-  const mut = baseSchema(objectTag, false);
+  const mut = baseSchema(objectTag, false, objectDecoder);
   mut.required = Object.keys(properties);
   mut.properties = properties;
   mut.additionalItems = globalConfig.a;
-  mut.decoder = objectDecoder;
   mut.parser = shapedParser;
   mut.to = definitionToShapedSchema(definition);
   if (flattened !== U) {
@@ -319,10 +316,9 @@ export const schemaTuple = (
     }
   }
 
-  const mut = baseSchema(arrayTag, false);
+  const mut = baseSchema(arrayTag, false, arrayDecoder);
   mut.items = items;
   mut.additionalItems = "strict";
-  mut.decoder = arrayDecoder;
   mut.parser = shapedParser;
   mut.to = definitionToShapedSchema(definition);
   return mut;
@@ -545,7 +541,7 @@ const getShapedSerializerOutput = (
       return missingInput();
     }
 
-    return assembleShapedObject(
+    const assembled = assembleShapedObject(
       input,
       resolvedTargetSchema,
       (location, childSchema) =>
@@ -571,12 +567,27 @@ const getShapedSerializerOutput = (
               reverse(flattenedSchemas[idx]!),
               path
             );
-            B_mergeObjectFields(v, flattenedOutput.d!);
+            // Only the member's fields are placed here, so take its code once
+            // and read each field back out of it. `valGet` scopes a field the
+            // member already emitted — a whole-object placement hands back the
+            // very vals the parent's own decode declared, and adding those
+            // unscoped is what emitted their `let`s a second time (#368) — and
+            // synthesizes a read when the member ends in its own transform,
+            // whose result carries no field vals of its own (B_next).
+            v.cp = v.cp + B_merge(flattenedOutput);
+            for (const key of Object.keys(flattenedOutput.d!)) {
+              B_addObjectField(v, key, valGet(flattenedOutput, key));
+            }
           });
         }
       },
       missingInput
     );
+    // The walk built the head of `targetSchema`'s chain. If the schema also
+    // carries a transform of its own, run it here: the assembled head is its
+    // input, and nobody else will apply it (a pending operation-level `to`
+    // — `parser` absent — is the compile pipeline's job, not ours).
+    return targetSchema.parser === U ? assembled : parse(assembled);
   }
 }
 

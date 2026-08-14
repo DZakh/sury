@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.isoDateTime.with(S.to, S.date)
+  input: string
+  output: Date
+  instantiations: 5091
+jsonSchema:
+  input: '{ type: "string", format: "date-time" }'
+  output: Expected JSON, received Date
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[3](i);e[1].test(i)||e[2](i);let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](v0);return v0}
+    examples:
+      valid:
+        input: '"2020-01-01T00:00:00.000Z"'
+        output: new Date("2020-01-01T00:00:00.000Z")
+      a-calendar-impossible-date:
+        input: '"2021-02-30T00:00:00.000Z"'
+        error: Invalid datetime string! Expected UTC
+  decode:
+    expression: i=>{e[1].test(i)||e[2](i);let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](v0);return v0}
+    examples:
+      valid:
+        input: '"2020-01-01T00:00:00.000Z"'
+        output: new Date("2020-01-01T00:00:00.000Z")
+  encode:
+    expression: i=>{let v0=i.toISOString();e[0].test(v0)||e[1](v0);return v0}
+    examples:
+      valid:
+        input: new Date("2020-01-01T00:00:00.000Z")
+        output: '"2020-01-01T00:00:00.000Z"'
+      # FIXME: `Invalid time value` is the raw RangeError from toISOString, not a
+      # SuryError — it carries no path and does not match `catch { S.Raised }`,
+      # so an invalid Date inside an object encodes to an exception the caller
+      # cannot attribute. `S.url` guards the same hazard by routing the throwing
+      # call through a helper (see urlFromString in advanced/url.ts); `S.date`
+      # has no such guard on the encode side.
+      an-invalid-date-cannot-be-serialized:
+        input: new Date(NaN)
+        error: Invalid time value

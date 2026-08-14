@@ -4,12 +4,12 @@ ts:
   input: number | bigint | null
   output: number | bigint | undefined
   instantiations: 6338
-vs:
-  zod:
-    _skip: not-applicable
 jsonSchema:
   input: Expected JSON, received bigint | number | null
   output: Expected JSON, received bigint | number | undefined
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     expression: i=>{for(;;){if(typeof i==="bigint")break;if(typeof i==="number"&&!Number.isNaN(i))break;if(i===null){i=void 0;break}e[0](i)}return i}

@@ -24,8 +24,25 @@ test("JSONSchema of S.json transformed to object with bigint and array of option
       "items": s.matches(S.array(S.option(S.float->S.lte(1.)))),
     }
   )
-  // TODO: Should coerce nonJsonableSchema to jsonable JSON Schema
-  t->Assert.deepEqual(S.json->S.to(nonJsonableSchema)->S.toJSONSchema, %raw(`{}`))
+  // Was `{}` while an array of optional items had no JSON form at all. Now that
+  // None decodes to null the whole shape is describable: bigint by its string
+  // form, unknown by the empty schema, the items as number-or-null.
+  // FIXME: the item's `maximum: 1` is dropped — a variant converted through
+  // `.to(json)` reports the target's type without the source's refinements.
+  // See specs/codec-json-array-optional-bounded.yaml.
+  t->Assert.deepEqual(
+    S.json->S.to(nonJsonableSchema)->S.toJSONSchema,
+    %raw(`{
+      "type": "object",
+      "properties": {
+        "id": {"type": "string"},
+        "data": {},
+        "items": {"type": "array", "items": {"anyOf": [{"type": "number"}, {"type": "null"}]}}
+      },
+      "additionalProperties": false,
+      "required": ["id", "data", "items"]
+    }`),
+  )
 })
 
 test("JSONSchema of email schema", t => {
@@ -35,11 +52,19 @@ test("JSONSchema of email schema", t => {
   )
 })
 
-test("JSONSchema of url schema", t => {
+test("JSONSchema of uri schema", t => {
   t->Assert.deepEqual(
-    S.url->S.toJSONSchema,
+    S.uri->S.toJSONSchema,
     %raw(`{"type": "string", "format": "uri"}`),
-    ~message="The format should be uri for url schema",
+    ~message="The format should be uri for uri schema",
+  )
+})
+
+test("JSONSchema of S.string->S.to(S.url)", t => {
+  t->Assert.deepEqual(
+    S.string->S.to(S.url)->S.toJSONSchema,
+    %raw(`{"type": "string", "format": "uri"}`),
+    ~message="A URL instance describes itself as a uri string",
   )
 })
 

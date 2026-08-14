@@ -4,12 +4,13 @@ ts:
   input: unknown[]
   output: "{ x: number; y: number; }"
   instantiations: 505
+jsonSchema:
+  input: '{ type: "array", minItems: 3, maxItems: 3, items: [{ type: "string", const: "point" }, { type: "integer", minimum: -2147483648, maximum: 2147483647 }, { type: "integer", minimum: -2147483648, maximum: 2147483647 }] }'
+  fromInputType: '["point", number, number]'
+  output: '{ type: "object", properties: { x: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, y: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["x", "y"] }'
 vs:
   zod:
     _skip: not-applicable
-jsonSchema:
-  input: '{ type: "array", minItems: 3, maxItems: 3, items: [{ type: "string", const: "point" }, { type: "integer", minimum: -2147483648, maximum: 2147483647 }, { type: "integer", minimum: -2147483648, maximum: 2147483647 }] }'
-  output: '{ type: "object", properties: { x: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, y: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["x", "y"] }'
 operations:
   parse:
     expression: i=>{Array.isArray(i)&&i.length===3||e[3](i);let v0=i["0"],v1=i["1"],v2=i["2"];v0==="point"||e[0](v0);typeof v1==="number"&&v1<=2147483647&&v1>=-2147483648&&v1%1===0||e[1](v1);typeof v2==="number"&&v2<=2147483647&&v2>=-2147483648&&v2%1===0||e[2](v2);return {"x":v1,"y":v2,}}

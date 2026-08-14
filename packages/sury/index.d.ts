@@ -7,7 +7,7 @@ import type {
   JSONSchema7,
   OpenAPISchema30,
 } from "./src/types/jsonschema.js";
-import type { FromJSONSchema, JSON } from "./src/types/json.js";
+import type { FromJSONSchema, FromJSONSchemaOutput, JSON } from "./src/types/json.js";
 
 export * from "./src/types/standard.js";
 export * from "./src/types/jsonschema.js";
@@ -29,7 +29,27 @@ export type FailureResult = {
 export type Result<TValue> = SuccessResult<TValue> | FailureResult;
 
 export type NumberFormat = "int32" | "port" | "integer";
-export type StringFormat = "json" | "date-time" | "email" | "uuid" | "cuid" | "url";
+export type StringFormat =
+  | "json"
+  | "date-time"
+  | "email"
+  | "uuid"
+  | "cuid"
+  | "uri"
+  | "date"
+  | "time"
+  | "duration"
+  | "hostname"
+  | "idn-hostname"
+  | "ipv4"
+  | "ipv6"
+  | "uri-reference"
+  | "uri-template"
+  | "iri"
+  | "iri-reference"
+  | "idn-email"
+  | "json-pointer"
+  | "relative-json-pointer";
 export type ArrayFormat = "compactColumns";
 export type Format = NumberFormat | StringFormat | ArrayFormat;
 
@@ -471,17 +491,199 @@ export const blob: Schema<Blob, Blob>;
 
 export const file: Schema<File, File>;
 
+/**
+ * RFC 3339 timestamp, **UTC only** — an offset like `+02:00` is rejected, which
+ * is narrower than the JSON Schema `date-time` format it emits.
+ * Calendar-aware: month, day, hour, minute and leap second are all range-checked.
+ * @example "1963-06-19T08:30:06.283185Z"
+ */
 export const isoDateTime: Schema<string, string>;
 
 export const port: Schema<number, number>;
 
+/**
+ * Email address, ASCII only. Practical rather than exhaustive: it wants a dot-TLD
+ * domain, so `a@localhost` and `a@127.0.0.1` are rejected.
+ * @example "joe.bloggs@example.com"
+ */
 export const email: Schema<string, string>;
 
+/**
+ * UUID in canonical 8-4-4-4-12 hex form, any version.
+ * @example "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
+ */
 export const uuid: Schema<string, string>;
 
+/**
+ * CUID. Not a JSON Schema format, so `toJSONSchema` emits a plain `string` for it.
+ * @example "cjld2cjxh0000qzrmn831i7rn"
+ */
 export const cuid: Schema<string, string>;
 
-export const url: Schema<string, string>;
+/**
+ * An instance of the JS `URL` class, parsed by the WHATWG URL Standard — the same
+ * shape as {@link date}. Bare it accepts a `URL`; `S.string.with(S.to, S.url)`
+ * parses a string into one and encodes back via `.href`.
+ *
+ * Not the same language as {@link uri}: WHATWG silently percent-encodes spaces,
+ * quotes and backslashes that RFC 3986 forbids, and rejects reg-names like
+ * `999.999.999.999` that RFC 3986 allows. Use this when you want the parsed
+ * object; use {@link uri} when you want to validate a string stays a string.
+ * @example new URL("https://example.com/a?b=c")
+ */
+export const url: Schema<URL, URL>;
+
+/**
+ * The runtime's `URL`, or a structural stand-in when the project has no type
+ * for it. See {@link Blob} — `URL` is a lib.dom/@types/node global too, so
+ * naming it bare would fail to typecheck for a consumer who has neither, one
+ * who never touches {@link url} included.
+ */
+export type URL = typeof globalThis extends {
+  URL: abstract new (...args: never) => infer T;
+}
+  ? T
+  : { readonly href: string; toString(): string };
+
+/**
+ * URI string, RFC 3986 — a scheme is required. See {@link uriReference} for the
+ * relative form, and {@link url} for a parsed `URL` instance instead of a string.
+ *
+ * Syntax only: **any** scheme parses, including `javascript:` and `file:`. To
+ * restrict them, compose a pattern — the emitted JSON Schema keeps both
+ * constraints, so it still describes the behavior:
+ * `S.uri.with(S.pattern, /^https?:\/\//)`
+ * @example "http://foo.bar/?baz=qux#quux"
+ */
+export const uri: Schema<string, string>;
+
+/**
+ * RFC 3339 full-date, no time component. Calendar-aware: rejects `2021-02-29`,
+ * `2021-13-45` and `2020-04-31`, and honors the ÷100/÷400 century leap rule.
+ * @example "1963-06-19"
+ */
+export const isoDate: Schema<string, string>;
+
+/**
+ * RFC 3339 full-time. An offset is **required** — `"12:00:00"` is invalid.
+ * Leap seconds are correlated against UTC, so `01:29:60+01:30` is valid and
+ * `23:59:60+01:00` is not.
+ * @example "08:30:06Z"
+ */
+export const isoTime: Schema<string, string>;
+
+/**
+ * RFC 3339 duration. The ABNF nests its components, so a unit may only be
+ * followed by the next smaller one: `P1Y2M3D` is valid, `P1Y2D` and `PT1H2S` are
+ * not. Fractional seconds are not in the grammar. Note `PT1M` is one minute and
+ * `P1M` is one month.
+ * @example "P4DT12H30M5S"
+ */
+export const duration: Schema<string, string>;
+
+/**
+ * RFC 1123 hostname: 1-63 character labels, 253 overall.
+ *
+ * Syntax only, and **not a security boundary**. A bare label like `localhost` is
+ * a valid hostname, as are `169.254.169.254` and `metadata.google.internal`. An
+ * `xn--` label is accepted on shape alone — its Punycode is not decoded, so a
+ * label that IDNA2008 disallows still passes. For an SSRF guard or a homograph
+ * filter, add your own check on top.
+ * @example "www.example.com"
+ */
+export const hostname: Schema<string, string>;
+
+/**
+ * Internationalized hostname — {@link hostname}'s label shape over the four
+ * Unicode label separators, with the character repertoire left open.
+ *
+ * The IDNA2008 property, bidi and contextual rules are **not** applied; see the
+ * caveats on {@link hostname}, which all apply here too.
+ * @example "실례.테스트"
+ */
+export const idnHostname: Schema<string, string>;
+
+/**
+ * Dotted-quad IPv4. Rejects the `inet_aton` shorthands (`127.1`, `0x7f000001`)
+ * that often slip past naive filters.
+ *
+ * Syntax only: loopback, private and link-local ranges all parse, so
+ * `127.0.0.1` and `169.254.169.254` are valid. Not an SSRF defense on its own.
+ * @example "192.168.0.1"
+ */
+export const ipv4: Schema<string, string>;
+
+/**
+ * IPv6 in any RFC 4291 form, including IPv4-mapped (`::ffff:192.168.0.1`). A
+ * zone id (`fe80::a%eth1`) is not part of the format.
+ *
+ * Syntax only — see the caveats on {@link ipv4}.
+ * @example "::1"
+ */
+export const ipv6: Schema<string, string>;
+
+/**
+ * URI reference, RFC 3986 — the scheme and path are both optional, so relative
+ * forms parse. This is usually what you want for a link or `href` field, since
+ * {@link uri} would reject `/dashboard`.
+ *
+ * Very permissive by design: `""`, `"abc"`, `"//evil.com"` and
+ * `"javascript:alert(1)"` are all valid references. Compose a pattern if you
+ * need to narrow it.
+ * @example "/abc"
+ */
+export const uriReference: Schema<string, string>;
+
+/**
+ * RFC 6570 URI template — a URL *pattern* with `{placeholders}`, not a URL.
+ * Used by HAL/JSON:API hypermedia links and OpenAPI path patterns.
+ * @example "http://example.com/dictionary/{term:1}/{term}"
+ */
+export const uriTemplate: Schema<string, string>;
+
+/**
+ * IRI, RFC 3987 — {@link uri} with non-ASCII characters allowed unescaped.
+ * Validated by percent-encoding every non-ASCII character and testing the
+ * result as a URI, per RFC 3987 §3.1.
+ * @example "http://ƒøø.ßår/?∂éœ=πîx#πîüx"
+ */
+export const iri: Schema<string, string>;
+
+/**
+ * IRI reference — {@link uriReference} with non-ASCII characters allowed
+ * unescaped. The same permissiveness caveats apply.
+ * @example "/âππ"
+ */
+export const iriReference: Schema<string, string>;
+
+/**
+ * Internationalized email address, RFC 6531 — a Unicode local part and domain
+ * are both allowed, including a quoted local part, though only one without
+ * whitespace: `"john doe"@example.com` is rejected.
+ *
+ * Shape only, and much looser than {@link email}: RFC 6531 constrains little
+ * beyond the length limits, so `a@b` and `a@localhost` are valid.
+ * @example "실례@실례.테스트"
+ */
+export const idnEmail: Schema<string, string>;
+
+/**
+ * RFC 6901 JSON Pointer, as used by JSON Patch `path` and JSON Schema `$ref`
+ * fragments. `""` is valid and addresses the whole document. `~` must be
+ * escaped: `~0` is a literal `~`, `~1` is a literal `/`.
+ *
+ * It addresses a location, it does not make one safe to follow — `/__proto__`
+ * is a well-formed pointer.
+ * @example "/foo/bar~0/baz~1/%a"
+ */
+export const jsonPointer: Schema<string, string>;
+
+/**
+ * RFC 6901 relative JSON Pointer — a leading integer means "go up N levels".
+ * A trailing `#` asks for the member name or array index rather than the value.
+ * @example "2/0/baz/1/zip"
+ */
+export const relativeJsonPointer: Schema<string, string>;
 
 export const date: Schema<Date, Date>;
 
@@ -976,9 +1178,14 @@ export function toJSONSchema<TInput, TOutput>(
  * (`unknown`, `S.JSON`, a dialect type) falls back to `Schema<JSON, JSON>`.
  * Use `S.to` to refine it further.
  */
+export function fromJSONSchema<
+  const T extends { type: "string" | "number" | "integer" | "boolean" | "null" },
+>(
+  jsonSchema: T
+): Schema<FromJSONSchema<T>>;
 export function fromJSONSchema<const T = unknown>(
   jsonSchema: T
-): Schema<FromJSONSchema<T>, FromJSONSchema<T>>;
+): Schema<FromJSONSchema<T>, FromJSONSchemaOutput<T>>;
 export function extendJSONSchema<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,
   jsonSchema: JSONSchema

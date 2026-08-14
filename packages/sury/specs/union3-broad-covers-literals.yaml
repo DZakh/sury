@@ -4,11 +4,11 @@ ts:
   input: string
   output: string
   instantiations: 1441
-vs:
-  zod: z.union([z.literal("apple"), z.string(), z.literal("banana")])
 jsonSchema:
   input: '{ anyOf: [{ type: "string", const: "apple" }, { type: "string" }, { type: "string", const: "banana" }] }'
   output: '{ anyOf: [{ type: "string", const: "apple" }, { type: "string" }, { type: "string", const: "banana" }] }'
+vs:
+  zod: z.union([z.literal("apple"), z.string(), z.literal("banana")])
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[0](i);return i}

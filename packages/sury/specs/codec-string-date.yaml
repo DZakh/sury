@@ -6,12 +6,12 @@ ts:
   input: string
   output: Date
   instantiations: 5091
-vs:
-  zod:
-    _skip: not-applicable
 jsonSchema:
   input: '{ type: "string", format: "date-time" }'
   output: Expected JSON, received Date
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[1](i);let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](v0);return v0}

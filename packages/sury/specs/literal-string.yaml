@@ -6,11 +6,11 @@ ts:
   input: '"tuna"'
   output: '"tuna"'
   instantiations: 429
-vs:
-  zod: z.literal("tuna")
 jsonSchema:
   input: '{ type: "string", const: "tuna" }'
   output: '{ type: "string", const: "tuna" }'
+vs:
+  zod: z.literal("tuna")
 operations:
   parse:
     expression: i=>{i==="tuna"||e[0](i);return i}

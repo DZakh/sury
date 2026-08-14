@@ -190,13 +190,17 @@ export const completeObjectVal = (objectVal: Val): Val => {
       optionalSettingCode = (objectVar: string) => {
         return (
           (existingFn === U ? "" : existingFn(objectVar)) +
-          `if(${val.v()}!==void 0){${objectVar}[${inlinedValueFromString(key)}]=${val.i}}`
+          (key === "__proto__"
+            ? `if(${val.v()}!==void 0){${objectVar}={...${objectVar},["__proto__"]:${val.i}}}`
+            : `if(${val.v()}!==void 0){${objectVar}[${inlinedValueFromString(key)}]=${val.i}}`)
         );
       };
     } else {
       inline =
         inline +
-        (isArray ? `${val.i}` : `${inlinedValueFromString(key)}:${val.i}`) +
+        (isArray
+          ? `${val.i}`
+          : `${key === "__proto__" ? '["__proto__"]' : inlinedValueFromString(key)}:${val.i}`) +
         ",";
     }
   }
@@ -239,10 +243,9 @@ export const completeObjectVal = (objectVal: Val): Val => {
 // marker, so `array` would misread them as instance literals — init-time and
 // codegen callers take this one.
 export const arrayFactory = (item: Internal): Internal => {
-  const mut = baseSchema(arrayTag, !!item.sr);
+  const mut = baseSchema(arrayTag, !!item.sr, arrayDecoder);
   mut.additionalItems = item;
   mut.items = immutableEmptyArray as Internal[];
-  mut.decoder = arrayDecoder;
   return mut;
 }
 // @__NO_SIDE_EFFECTS__
@@ -415,7 +418,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
     let schema: Internal;
     if (!isObjectInput) {
       // TODO: Use dictFactory here
-      const mut = baseSchema(objectTag, false);
+      const mut = baseSchema(objectTag, false, objectDecoder);
       mut.properties = immutableEmptyObject as Record<string, Internal>;
       mut.additionalItems = unknown;
       schema = mut;
@@ -640,10 +643,9 @@ export const objectDecoder = (unknownInput: Val): Val => {
 
 // Same init-order constraint as arrayFactory.
 export const dictFactory = (item: Internal): Internal => {
-  const mut = baseSchema(objectTag, !!item.sr);
+  const mut = baseSchema(objectTag, !!item.sr, objectDecoder);
   mut.properties = immutableEmptyObject as Record<string, Internal>;
   mut.additionalItems = item;
-  mut.decoder = objectDecoder;
   return mut;
 }
 // @__NO_SIDE_EFFECTS__
@@ -675,10 +677,9 @@ export const traverseDefinition = (
         }
         const items = node as Internal[];
 
-        const mut = baseSchema(arrayTag, false);
+        const mut = baseSchema(arrayTag, false, arrayDecoder);
         mut.items = items;
         mut.additionalItems = "strict";
-        mut.decoder = arrayDecoder;
         return mut;
       } else {
         // A prototype other than Object.prototype (or null, e.g. Object.create(null))
@@ -688,10 +689,9 @@ export const traverseDefinition = (
         // record that happens to declare an own field named "constructor".
         const proto = Object.getPrototypeOf(definition);
         if (proto !== null && proto !== Object.prototype) {
-          const mut = baseSchema(instanceTag, true);
+          const mut = baseSchema(instanceTag, true, literalDecoder);
           mut.class = (definition as Record<string, unknown>)["constructor"];
           mut.const = definition;
-          mut.decoder = literalDecoder;
           return mut;
         } else {
           const node = definition as Record<string, unknown>;
@@ -701,11 +701,10 @@ export const traverseDefinition = (
             const location = fieldNames[idx]!;
             node[location] = traverseDefinition(node[location], onNode);
           }
-          const mut = baseSchema(objectTag, false);
+          const mut = baseSchema(objectTag, false, objectDecoder);
           mut.required = fieldNames;
           mut.properties = node as Record<string, Internal>;
           mut.additionalItems = globalConfig.a;
-          mut.decoder = objectDecoder;
           return mut;
         }
       }
@@ -862,7 +861,11 @@ export const valGet = (parent: Val, location: string): Val => {
       b: U,
       p: parent,
       v: _notVarAtParent,
-      i: isLiteral(schema) ? B_inlineConst(parent, schema) : `${parent.v()}${pathAppend}`,
+      i: isLiteral(schema)
+        ? B_inlineConst(parent, schema)
+        : parent.s.type === objectTag && location in Object.prototype
+          ? `(Object.hasOwn(${parent.v()},${inlinedValueFromString(location)})?${parent.v()}${pathAppend}:void 0)`
+          : `${parent.v()}${pathAppend}`,
       s: schema,
       io: U,
       e: schema,

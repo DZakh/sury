@@ -4,12 +4,12 @@ ts:
   input: Set<unknown>
   output: Set<unknown>
   instantiations: 2253
-vs:
-  zod:
-    _skip: not-applicable
 jsonSchema:
   input: Expected JSON, received Set
   output: Expected JSON, received Set
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     expression: i=>{i instanceof e[0]||e[1](i);return i}

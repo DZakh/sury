@@ -161,7 +161,32 @@ export const itemSymbol = /* @__PURE__ */ Symbol(vendor + ":item");
 // Every number format describes integer-valued numbers — numberDecoder skips
 // the "integer" check for any formatted source on that invariant.
 export type NumberFormat = "int32" | "port" | "integer";
-export type StringFormat = "json" | "date-time" | "email" | "uuid" | "cuid" | "url";
+// Mirrored by `StringFormat` in index.d.ts, which is the surface TS users see —
+// a name added here without being added there is invisible to them, and a third
+// copy lives in `S.res`. Every member but `json` and `cuid` is a JSON Schema
+// format name verbatim, which is what lets jsonschema.ts pass it through in
+// both directions.
+export type StringFormat =
+  | "json"
+  | "date-time"
+  | "email"
+  | "uuid"
+  | "cuid"
+  | "uri"
+  | "date"
+  | "time"
+  | "duration"
+  | "hostname"
+  | "idn-hostname"
+  | "ipv4"
+  | "ipv6"
+  | "uri-reference"
+  | "uri-template"
+  | "iri"
+  | "iri-reference"
+  | "idn-email"
+  | "json-pointer"
+  | "relative-json-pointer";
 export type ArrayFormat = "compactColumns";
 export type Format = NumberFormat | StringFormat | ArrayFormat;
 
@@ -735,10 +760,19 @@ export const valKey = "value";
 // survive minification as a real assignment.
 type SchemaClass = new () => Internal;
 
-export const baseSchema = (tag: Tag, selfReverse: boolean): Internal => {
+// `decoder` is a parameter, not something the caller assigns afterwards, and
+// that is load-bearing: a schema handed to a builder as a val's `s` becomes
+// that value's output schema, an output schema is reachable as another
+// operation's *target*, and the parse loop calls `e.decoder` on a target
+// unconditionally. A site that forgot the assignment produced a TypeError deep
+// inside compilation (#369); requiring the argument makes that unrepresentable.
+// It also means every schema gains its fields in one order, so the instances
+// share a single hidden class.
+export const baseSchema = (tag: Tag, selfReverse: boolean, decoder: Builder): Internal => {
   const schema = new ((selfReverse ? SelfReverseSchema : Schema) as unknown as SchemaClass)();
   schema.type = tag;
   schema.seq = seq++;
+  schema.decoder = decoder;
   return schema;
 }
 
@@ -753,18 +787,21 @@ export const noopDecoder: Builder = (input: Val) => {
 // per use would recompile every time), and the single pure expression is what
 // lets a consumer's bundler drop the unused ones.
 // @__NO_SIDE_EFFECTS__
-export const initSchema = (tag: Tag, init: (schema: Internal) => void): Internal => {
-  const schema = baseSchema(tag, true);
-  init(schema);
+export const initSchema = (
+  tag: Tag,
+  decoder: Builder,
+  init?: (schema: Internal) => void
+): Internal => {
+  const schema = baseSchema(tag, true, decoder);
+  init?.(schema);
   return schema;
 }
 
-// Deliberately NOT the single-pure-expression form the other singletons use:
+// Deliberately NOT the `/* @__PURE__ */` form the other singletons use:
 // `unknown` is reachable from nearly every export, so it never tree-shakes
-// anyway, and the bare statement pair minifies smaller than any wrapper that
-// would make it droppable.
-export const unknown: Internal = baseSchema(unknownTag, true);
-unknown.decoder = noopDecoder;
+// anyway, and the bare call minifies smaller than any wrapper that would make
+// it droppable.
+export const unknown: Internal = baseSchema(unknownTag, true, noopDecoder);
 
 export const copySchema = (schema: Internal): Internal => {
   const c: Internal = Object.assign(new (Schema as unknown as SchemaClass)(), schema);

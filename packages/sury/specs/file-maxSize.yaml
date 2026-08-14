@@ -4,11 +4,11 @@ ts:
   input: File
   output: File
   instantiations: 5165
-vs:
-  zod: z.file().max(5)
 jsonSchema:
   input: Expected JSON, received File.size <= 5
   output: Expected JSON, received File.size <= 5
+vs:
+  zod: z.file().max(5)
 operations:
   parse:
     expression: i=>{i instanceof e[1]||e[2](i);i.size<6||e[0](i);return i}

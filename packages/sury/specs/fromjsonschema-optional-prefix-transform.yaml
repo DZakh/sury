@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.fromJSONSchema({ type: "array", prefixItems: [{ type: "object", properties: { value: { type: "string", default: "fallback" } } }], items: false })'
+  input: "[({ value?: string | undefined; } | undefined)?, ...never[]]"
+  output: "[({ value?: string | undefined; } | undefined)?, ...never[]]"
+  instantiations: 3125
+jsonSchema:
+  input: '{ items: false, type: "array", prefixItems: [{ type: "object", properties: { value: { type: "string", default: "fallback" } } }] }'
+  output: '{ items: false, type: "array", prefixItems: [{ type: "object", properties: { value: { type: "string", default: "fallback" } } }] }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{Array.isArray(i)||e[2](i);e[1](i)||e[3](i);for(let v0=0;v0<i.length;++v0){try{e[0](i[v0]);}catch(v1){v1.path='["'+v0+'"]'+v1.path;throw v1}}return i}
+    examples:
+      absent-prefix:
+        input: "[]"
+        output: "[]"
+      present-empty-object:
+        input: "[{}]"
+        output: "[{}]"
+      present-value:
+        input: '[{ value: "set" }]'
+        output: '[{ value: "set" }]'
+      invalid-present-value:
+        input: "[{ value: 1 }]"
+        error: Should pass the positional and additional item schemas.
+      additional-item-rejected:
+        input: "[{}, true]"
+        error: Should pass the positional and additional item schemas.
+  decode:
+    expression: i=>{e[0](i)||e[1](i);return i}
+    examples:
+      absent-prefix:
+        input: "[]"
+        output: "[]"
+      present-empty-object:
+        input: "[{}]"
+        output: "[{}]"
+  encode:
+    expression: i=>{e[0](i)||e[1](i);return i}
+    examples:
+      absent-prefix:
+        input: "[]"
+        output: "[]"
+      present-empty-object:
+        input: "[{}]"
+        output: "[{}]"

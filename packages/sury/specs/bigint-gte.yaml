@@ -4,11 +4,11 @@ ts:
   input: bigint
   output: bigint
   instantiations: 5165
-vs:
-  zod: z.bigint().gte(5n)
 jsonSchema:
   input: Expected JSON, received bigint >= 5n
   output: Expected JSON, received bigint >= 5n
+vs:
+  zod: z.bigint().gte(5n)
 operations:
   parse:
     expression: i=>{typeof i==="bigint"||e[1](i);i>=5n||e[0](i);return i}

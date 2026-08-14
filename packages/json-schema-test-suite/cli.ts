@@ -47,6 +47,7 @@ Options:
   --optional            report only: include tests/<dialect>/optional/**.
   --failures            report only: list every failing test id.
   --divergent           report only: list tests where S.is disagrees with S.parser.
+  --mutated             report only: list valid inputs whose parsed output changed.
 
 Goldens cover the required tests only; optional/ (formats, bignum, content
 encoding) is exploratory and deliberately unsnapshotted.`;
@@ -135,6 +136,9 @@ if (cmd === "report") {
     `  parse  ${result.passed}/${result.assertions} (${rate(result.passed, result.assertions)})` +
       `   is  ${result.assertPassed}/${result.assertions} (${rate(result.assertPassed, result.assertions)})` +
       `   errored ${result.errored}   divergent ${result.divergent.length}\n` +
+      `  identity ${result.identityPassed}/${result.identityAssertions}` +
+      ` (${rate(result.identityPassed, result.identityAssertions)})` +
+      `   mutated ${result.mutated.length}\n` +
       `  accepts-invalid ${result.falseAccept}   rejects-valid ${result.falseReject}\n`
   );
 
@@ -154,6 +158,10 @@ if (cmd === "report") {
   if (flag("--divergent")) {
     console.log("\nS.is disagrees with S.parser:");
     for (const id of result.divergent) console.log(`  ${id}`);
+  }
+  if (flag("--mutated")) {
+    console.log("\nparsed output differs from valid input:");
+    for (const id of result.mutated) console.log(`  ${id}`);
   }
   process.exit(0);
 }
@@ -183,6 +191,7 @@ for (const dialect of targets) {
     ["accepting invalid data", golden.falseAccepting, current.falseAccepting],
     ["failing", golden.failing, current.failing],
     ["errored", golden.erroredCases, current.erroredCases],
+    ["mutating valid input", golden.mutated ?? [], current.mutated],
   ] as const) {
     const { added, removed } = diffLists(before, after);
     if (removed.length)
@@ -201,6 +210,15 @@ for (const dialect of targets) {
     sections.push(
       `    S.is score: ${golden.summary.assertOpPassed} → ${current.summary.assertOpPassed}` +
         ` of ${current.summary.assertions}`
+    );
+  if (
+    golden.summary.identityPassed !== current.summary.identityPassed ||
+    golden.summary.identityAssertions !== current.summary.identityAssertions
+  )
+    sections.push(
+      `    output identity: ${golden.summary.identityPassed ?? 0}/${golden.summary.identityAssertions ?? 0}` +
+        ` → ${current.summary.identityPassed}/${current.summary.identityAssertions}` +
+        ` (\`pnpm compliance report ${dialect} --mutated\` to list changed outputs)`
     );
 
   if (sections.length === 0) {

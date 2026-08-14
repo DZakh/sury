@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.json.with(S.to, S.record(S.optional(S.boolean)))
+  input: JSON
+  output: "{ [x: string]: boolean | undefined; }"
+  instantiations: 5503
+jsonSchema:
+  input: '{ type: "object", additionalProperties: { anyOf: [{ type: "boolean" }, { type: "null" }] } }'
+  fromInputType: "{ [key: string]: boolean | null; }"
+  output: '{ type: "object", additionalProperties: { type: "boolean" } }'
+  fromOutputType: "{ [key: string]: boolean; }"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v3={};for(let v0 in i){try{let v1=i[v0];for(;;){if(typeof v1==="boolean")break;if(v1===null){v1=void 0;break}e[0](v1)}v3[v0]=v1}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}return v3}
+    examples:
+      null-becomes-undefined:
+        input: "{ a: null, b: true }"
+        output: "{ a: undefined, b: true }"
+      empty:
+        input: "{}"
+        output: "{}"
+      wrong-value-type:
+        input: "{ a: 1 }"
+        error: 'Failed at ["a"]: Expected boolean | undefined, received 1'
+  decode: eq-to-parse
+  encode:
+    expression: i=>{let v4={};for(let v1 in i){try{let v2=i[v1];for(;;){if(typeof v2==="boolean")break;if(v2===void 0){v2=null;break}e[0](v2)}v4[v1]=v2}catch(v3){v3.path='["'+v1+'"]'+v3.path;throw v3}}return v4}
+    examples:
+      undefined-becomes-null:
+        input: "{ a: undefined, b: true }"
+        output: "{ a: null, b: true }"
+      empty:
+        input: "{}"
+        output: "{}"

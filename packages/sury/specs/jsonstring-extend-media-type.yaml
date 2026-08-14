@@ -4,12 +4,12 @@ ts:
   input: string
   output: string
   instantiations: 335
-vs:
-  zod:
-    _skip: not-applicable
 jsonSchema:
   input: '{ type: "string", contentMediaType: "application/geo+json" }'
   output: '{ type: "string", contentMediaType: "application/geo+json" }'
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[1](i);try{JSON.parse(i)}catch(t){e[0](i)}return i}

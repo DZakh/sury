@@ -393,24 +393,11 @@ const unionEmitChain = (cases: UnionCase[], ctx: UnionCtx): string => {
 const unionNarrowSchema = (schema: Internal): Internal => {
   const tagFlag = tagFlags[schema.type]!;
   const container = tagFlagObject | tagFlagArray;
-  const narrow = baseSchema(schema.type, false);
-  narrow.encoder = schema.encoder;
-  if (tagFlag & tagFlagInstance) {
-    narrow.class = schema.class;
-  } else if (tagFlag & container) {
-    narrow.additionalItems = unknown;
-    if (tagFlag & tagFlagObject) {
-      narrow.properties = immutableEmptyObject as Record<string, Internal>;
-    } else {
-      narrow.items = immutableEmptyArray as Internal[];
-    }
-  } else if (tagFlag & (tagFlagNull | tagFlagUndefined | tagFlagNaN)) {
-    // null/undefined/nan stay literals so the case body passes through.
-    narrow.const = schema.const;
-  }
+  // The decoder closes over `narrow` itself. Passing it to the constructor is
+  // still fine — nothing calls it until the schema is fully built.
   // This schema is only used by effect-compatible validation groups. It owns
   // the runtime tag check, never a member's conversion.
-  narrow.decoder = (input: Val) => {
+  const narrow: Internal = baseSchema(schema.type, false, (input: Val) => {
     if (tagFlags[input.s.type]! & tagFlagUnknown) {
       return B_refine(input, input.e, [
         {
@@ -425,7 +412,21 @@ const unionNarrowSchema = (schema: Internal): Internal => {
         : input;
     }
     return schema.decoder(input);
-  };
+  });
+  narrow.encoder = schema.encoder;
+  if (tagFlag & tagFlagInstance) {
+    narrow.class = schema.class;
+  } else if (tagFlag & container) {
+    narrow.additionalItems = unknown;
+    if (tagFlag & tagFlagObject) {
+      narrow.properties = immutableEmptyObject as Record<string, Internal>;
+    } else {
+      narrow.items = immutableEmptyArray as Internal[];
+    }
+  } else if (tagFlag & (tagFlagNull | tagFlagUndefined | tagFlagNaN)) {
+    // null/undefined/nan stay literals so the case body passes through.
+    narrow.const = schema.const;
+  }
   return narrow;
 };
 
@@ -1471,10 +1472,9 @@ export const unionRewrite = (
     anyOf.push(rewritten);
     setHas(has, rewritten.type);
   }
-  const mut = baseSchema(anyOfTag, false);
+  const mut = baseSchema(anyOfTag, false, unionDecoder);
   mut.anyOf = anyOf;
   mut.has = has;
-  mut.decoder = unionDecoder;
   mut.encoder = unionEncoder;
   mut.perVariant = input.s.perVariant;
   // The variants above were mapped from `input.s`'s, so the value is already
@@ -1695,9 +1695,8 @@ export const unionFactory = (schemas: Internal[]): Internal => {
     }
   }
 
-  const mut = baseSchema(anyOfTag, false);
+  const mut = baseSchema(anyOfTag, false, unionDecoder);
   mut.anyOf = anyOf;
-  mut.decoder = unionDecoder;
   mut.encoder = unionEncoder;
   mut.has = has;
   return mut;

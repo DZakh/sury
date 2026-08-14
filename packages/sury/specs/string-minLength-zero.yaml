@@ -4,11 +4,11 @@ ts:
   input: string
   output: string
   instantiations: 5357
-vs:
-  zod: z.string().min(0)
 jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "string" }'
+vs:
+  zod: z.string().min(0)
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[0](i);return i}

@@ -265,7 +265,7 @@ const fmt = (ns: number): string =>
 const main = () => {
   console.log(`node ${process.version}\n`);
   const rows: string[][] = [
-    ["Encode to JSON string", "JSON.stringify", "fast-json-stringify", "Sury"],
+    ["Encode to JSON string", "Sury", "JSON.stringify", "fast-json-stringify"],
   ];
   for (const c of cases) {
     // Guard against benchmarking functions that disagree on the output.
@@ -273,7 +273,7 @@ const main = () => {
     if (JSON.stringify(JSON.parse(out.stringify)) !== JSON.stringify(JSON.parse(out.sury))) {
       throw new Error(`${c.name}: Sury output differs\n${out.stringify}\n${out.sury}`);
     }
-    rows.push([c.name, fmt(bench(c.stringify)), fmt(bench(c.fastJson)), fmt(bench(c.sury))]);
+    rows.push([c.name, fmt(bench(c.sury)), fmt(bench(c.stringify)), fmt(bench(c.fastJson))]);
   }
   const widths = rows[0]!.map((_, i) => Math.max(...rows.map((r) => r[i]!.length)));
   for (const r of rows) {

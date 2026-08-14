@@ -52,11 +52,32 @@ test("a constant schema contributes no creation targets", () => {
   const { targets, skippedConstants } = targetsFor("string");
   expect(skippedConstants).toBe(1);
   expect(targets.filter((t) => !t.control).map((t) => t.name)).toEqual([
-    "string · parse · valid",
-    "string · parse · empty",
-    "string · parse · invalid-number",
-    "string · parse · invalid-null",
+    "string · parse · accepts ×2",
+    "string · parse · rejects ×2",
   ]);
+});
+
+// One target per outcome carrying every example of it, rather than one target
+// per example: the same coverage for a third of the child processes, and no
+// example has to be elected to represent the rest.
+test("an operation's examples become one target per outcome, carrying all their inputs", () => {
+  const real = targetsFor("string").targets.filter((t) => !t.control);
+  const accepts = real.find((t) => t.name === "string · parse · accepts ×2")!;
+  const rejects = real.find((t) => t.name === "string · parse · rejects ×2")!;
+  // Every example is still measured — none was dropped to get the target count
+  // down, which is the whole point of aggregating rather than sampling.
+  expect(accepts.inputSrcs).toEqual(['("hello")', '("")']);
+  expect(rejects.inputSrcs!.length).toBe(2);
+  // Parallel to the inputs, so a side that changes its mind about one example
+  // can be reported as that example rather than as the batch it shared.
+  expect(accepts.exampleNames).toEqual(["valid", "empty"]);
+});
+
+// Mixing them would put the accepted inputs behind the try/catch the rejecting
+// ones need, which times the catch rather than the schema.
+test("accepted and rejected examples never share a target", () => {
+  for (const t of targetsFor("string").targets.filter((t) => t.phase === "run"))
+    expect(t.name).toMatch(t.throws ? /rejects/ : /accepts/);
 });
 
 test("a factory schema contributes creation and compilation targets alongside every example", () => {
@@ -93,7 +114,7 @@ test("an async op contributes its compilation target but none of its examples", 
     "async-assert · create+compile · parse",
     "async-assert · create+compile · decode",
     "async-assert · create+compile · encode",
-    "async-assert · encode · valid",
+    "async-assert · encode · accepts",
   ]);
   expect(real.filter((t) => t.isAsync).map((t) => t.name)).toEqual([
     "async-assert · create+compile · parse",
@@ -118,8 +139,8 @@ test("omitting the scenario selection runs all of them", () => {
 
 test("an example expecting an error is marked as throwing, so it is measured in a try/catch", () => {
   const { targets } = targetsFor("string");
-  expect(targets.find((t) => t.name === "string · parse · invalid-number")!.throws).toBe(true);
-  expect(targets.find((t) => t.name === "string · parse · valid")!.throws).toBe(false);
+  expect(targets.find((t) => t.name === "string · parse · rejects ×2")!.throws).toBe(true);
+  expect(targets.find((t) => t.name === "string · parse · accepts ×2")!.throws).toBe(false);
 });
 
 test("controls duplicate real targets so a run measures the baseline against itself", () => {

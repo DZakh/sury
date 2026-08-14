@@ -91,6 +91,7 @@ export { never_ as never } from "./parse";
 export { json, jsonString } from "./advanced/json";
 export { uint8Array } from "./advanced/uint8Array";
 export { date } from "./advanced/date";
+export { url } from "./advanced/url";
 export { blob, file } from "./advanced/file";
 export {
   isoDateTime,
@@ -98,7 +99,21 @@ export {
   email,
   uuid,
   cuid,
-  url,
+  uri,
+  isoDate,
+  isoTime,
+  duration,
+  hostname,
+  idnHostname,
+  ipv4,
+  ipv6,
+  uriReference,
+  uriTemplate,
+  iri,
+  iriReference,
+  idnEmail,
+  jsonPointer,
+  relativeJsonPointer,
 } from "./refinements";
 export { nullAsUnit as $nullAsUnit } from "./modifiers";
 export {
@@ -362,13 +377,12 @@ export const merge = (s1: Internal, s2: Internal): Internal => {
   }
   const properties = { ...s1.properties!, ...s2.properties! };
 
-  const mut = baseSchema(objectTag, false);
+  const mut = baseSchema(objectTag, false, objectDecoder);
 
   // TODO: Merge to required fields
   mut.required = Object.keys(properties);
   mut.properties = properties;
   mut.additionalItems = s1.additionalItems;
-  mut.decoder = objectDecoder;
   return mut;
 };
 

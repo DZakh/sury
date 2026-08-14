@@ -25,9 +25,9 @@ not fixed. Add `examples` to the spec that covers the schema, or a new
 can't express (a packaging or tsconfig-level failure); say so in the commit.
 Never a commit message alone.
 
-Specs carry no prose — the id is the explanation, and a comment is allowed only
-as `FIXME:` marking behavior still to fix. Delete the FIXME when it stops being
-true.
+`spec check` decides what a spec may carry, comments included — it is the rule,
+so there isn't one here. The one thing it can't see is a `FIXME:` that has
+stopped being true; delete those yourself.
 
 ## Layering
 

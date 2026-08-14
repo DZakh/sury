@@ -4,12 +4,13 @@ ts:
   input: "{ [x: string]: string | undefined; }"
   output: string
   instantiations: 5416
+jsonSchema:
+  input: '{ type: "object", additionalProperties: { type: "string" } }'
+  fromInputType: "{ [key: string]: string; }"
+  output: '{ type: "string", contentMediaType: "application/json" }'
 vs:
   zod:
     _skip: not-applicable
-jsonSchema:
-  input: '{ type: "object", additionalProperties: { type: "string" } }'
-  output: '{ type: "string", contentMediaType: "application/json" }'
 operations:
   parse:
     expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v1="";for(let v0 of Object.keys(i)){try{let v2=i[v0];(typeof v2==="string"||v2===void 0)||e[1](v2);if(v2!==void 0){v1+=(v1?",":"")+e[0](v0)+":"+e[0](v2)}}catch(v3){v3.path='["'+v0+'"]'+v3.path;throw v3}}return "{"+v1+"}"}

@@ -4,12 +4,12 @@ ts:
   input: '{ t: number; a: string; } | { t: "b"; b: number; }'
   output: string
   instantiations: 8530
-vs:
-  zod:
-    _skip: not-applicable
 jsonSchema:
   input: 'Failed at ["t"]: Expected JSON, received NaN'
   output: '{ type: "string", contentMediaType: "application/json" }'
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     expression: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)&&Number.isNaN(i["t"])){let v0=i["a"];typeof v0==="string"||e[0](v0);i="{\"t\":null,\"a\":"+e[1](v0)+"}";break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i["t"]==="b"){let v1=i["b"];typeof v1==="number"&&!Number.isNaN(v1)||e[2](v1);i="{\"t\":\"b\",\"b\":"+(Number.isFinite(v1)?v1:e[3](v1))+"}";break}e[4](i)}return i}

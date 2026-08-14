@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.fromJSONSchema({ type: "string", minLength: 2, maxLength: 2, pattern: "^\\p{Letter}{2}$" })'
+  input: string
+  output: string
+  instantiations: 753
+jsonSchema:
+  input: '{ type: "string", pattern: "^\\p{Letter}{2}$", minLength: 2, maxLength: 2 }'
+  output: '{ type: "string", pattern: "^\\p{Letter}{2}$", minLength: 2, maxLength: 2 }'
+vs:
+  zod: z.string()
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[3](i);e[0](i)||e[4](i);e[1].test(i)||e[2](i);return i}
+    examples:
+      bmp-letters:
+        input: '"éa"'
+        output: '"éa"'
+      astral-letters:
+        input: '"𐐀𐐁"'
+        output: '"𐐀𐐁"'
+      one-code-point:
+        input: '"😀"'
+        error: Should have a code-point length within the JSON Schema bounds.
+      three-code-points:
+        input: '"éab"'
+        error: Should have a code-point length within the JSON Schema bounds.
+  decode:
+    expression: i=>{e[0](i)||e[2](i);e[1].test(i)||e[3](i);return i}
+    examples:
+      astral-letters:
+        input: '"𐐀𐐁"'
+        output: '"𐐀𐐁"'
+  encode:
+    expression: i=>{e[0].test(i)||e[2](i);e[1](i)||e[3](i);return i}
+    examples:
+      astral-letters:
+        input: '"𐐀𐐁"'
+        output: '"𐐀𐐁"'

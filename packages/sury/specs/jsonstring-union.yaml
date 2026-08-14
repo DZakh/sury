@@ -4,12 +4,12 @@ ts:
   input: '{ t: "a"; v: string; } | { t: "b"; v: number; }'
   output: string
   instantiations: 8523
-vs:
-  zod:
-    _skip: not-applicable
 jsonSchema:
   input: '{ anyOf: [{ type: "object", properties: { t: { type: "string", const: "a" }, v: { type: "string" } }, additionalProperties: false, required: ["t", "v"] }, { type: "object", properties: { t: { type: "string", const: "b" }, v: { type: "number" } }, additionalProperties: false, required: ["t", "v"] }] }'
   output: '{ type: "string", contentMediaType: "application/json" }'
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     expression: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)&&i["t"]==="a"){let v0=i["v"];typeof v0==="string"||e[0](v0);i="{\"t\":\"a\",\"v\":"+e[1](v0)+"}";break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i["t"]==="b"){let v1=i["v"];typeof v1==="number"&&!Number.isNaN(v1)||e[2](v1);i="{\"t\":\"b\",\"v\":"+(Number.isFinite(v1)?v1:e[3](v1))+"}";break}e[4](i)}return i}

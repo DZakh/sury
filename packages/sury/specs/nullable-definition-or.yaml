@@ -4,15 +4,15 @@ ts:
   input: "{ a: boolean; } | null"
   output: "{ a: boolean; }"
   instantiations: 1303
+jsonSchema:
+  input: '{ default: { a: false }, anyOf: [{ type: "object", properties: { a: { type: "boolean" } }, required: ["a"] }, { type: "null" }] }'
+  output: '{ type: "object", properties: { a: { type: "boolean" } }, required: ["a"] }'
 vs:
   zod:
     schema: "z.object({ a: z.boolean() }).nullable().default({ a: false })"
     divergence: Zod's `.default()` fills in for `undefined`, Sury's `or` fills in for the absent case the schema names — here `null`. So Zod additionally accepts `undefined` on the input side, and keeps `null` on the output side because `.default()` never replaces it.
     input: "{ a: boolean; } | null | undefined"
     output: "{ a: boolean; } | null"
-jsonSchema:
-  input: '{ default: { a: false }, anyOf: [{ type: "object", properties: { a: { type: "boolean" } }, required: ["a"] }, { type: "null" }] }'
-  output: '{ type: "object", properties: { a: { type: "boolean" } }, required: ["a"] }'
 operations:
   parse:
     expression: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i["a"];typeof v0==="boolean"||e[0](v0);i={"a":v0,};break}if(i===null){i=void 0;break}e[1](i)}return i===void 0?e[2]:i}

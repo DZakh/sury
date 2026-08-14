@@ -4,12 +4,12 @@ ts:
   input: JSON
   output: JSON
   instantiations: 254
-vs:
-  zod:
-    _skip: not-applicable
 jsonSchema:
   input: "{}"
   output: "{}"
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     expression: i=>{e[0](i);return i}

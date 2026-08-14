@@ -1,0 +1,131 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.ipv4
+  input: string
+  output: string
+  instantiations: 254
+jsonSchema:
+  input: '{ type: "string", format: "ipv4" }'
+  output: '{ type: "string", format: "ipv4" }'
+vs:
+  zod: z.ipv4()
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    examples:
+      a-valid-ip-address:
+        input: '"192.168.0.1"'
+        output: '"192.168.0.1"'
+      an-ip-address-with-too-many-components:
+        input: '"127.0.0.0.1"'
+        error: Expected ipv4, received "127.0.0.0.1"
+      an-ip-address-with-out-of-range-values:
+        input: '"256.256.256.256"'
+        error: Expected ipv4, received "256.256.256.256"
+      an-ip-address-without-4-components:
+        input: '"127.0"'
+        error: Expected ipv4, received "127.0"
+      a-2-part-address-resolving-to-a-routable:
+        input: '"127.1"'
+        error: Expected ipv4, received "127.1"
+      a-3-part-address-resolving-to-a-routable:
+        input: '"127.0.1"'
+        error: Expected ipv4, received "127.0.1"
+      an-ip-address-as-an-integer:
+        input: '"0x7f000001"'
+        error: Expected ipv4, received "0x7f000001"
+      an-ip-address-as-an-integer-decimal:
+        input: '"2130706433"'
+        error: Expected ipv4, received "2130706433"
+      invalid-non-ascii-a-bengali-2:
+        input: '"1২7.0.0.1"'
+        error: Expected ipv4, received "1২7.0.0.1"
+      invalid-fullwidth-digits-non-ascii:
+        input: '"１９２.１６８.１.１"'
+        error: Expected ipv4, received "１９２.１６８.１.１"
+      invalid-mathematical-bold-digits-non-ascii:
+        input: '"𝟏𝟗𝟐.𝟏𝟔𝟖.𝟏.𝟏"'
+        error: Expected ipv4, received "𝟏𝟗𝟐.𝟏𝟔𝟖.𝟏.𝟏"
+      netmask-is-not-a-part-of-ipv4-address:
+        input: '"192.168.1.0/24"'
+        error: Expected ipv4, received "192.168.1.0/24"
+      leading-whitespace-is-invalid:
+        input: '" 192.168.0.1"'
+        error: Expected ipv4, received " 192.168.0.1"
+      trailing-whitespace-is-invalid:
+        input: '"192.168.0.1 "'
+        error: Expected ipv4, received "192.168.0.1 "
+      trailing-newline-is-invalid:
+        input: '"192.168.0.1\n"'
+        error: |-
+          Expected ipv4, received "192.168.0.1
+          "
+      hexadecimal-notation-is-invalid:
+        input: '"0x7f.0.0.1"'
+        error: Expected ipv4, received "0x7f.0.0.1"
+      octal-notation-explicit-is-invalid:
+        input: '"0o10.0.0.1"'
+        error: Expected ipv4, received "0o10.0.0.1"
+      empty-part-double-dot-is-invalid:
+        input: '"192.168..1"'
+        error: Expected ipv4, received "192.168..1"
+      leading-dot-is-invalid:
+        input: '".192.168.0.1"'
+        error: Expected ipv4, received ".192.168.0.1"
+      trailing-dot-is-invalid:
+        input: '"192.168.0.1."'
+        error: Expected ipv4, received "192.168.0.1."
+      minimum-valid-ipv4-address:
+        input: '"0.0.0.0"'
+        output: '"0.0.0.0"'
+      maximum-valid-ipv4-address:
+        input: '"255.255.255.255"'
+        output: '"255.255.255.255"'
+      empty-string-is-invalid:
+        input: '""'
+        error: Expected ipv4, received ""
+      plus-sign-is-invalid:
+        input: '"+1.2.3.4"'
+        error: Expected ipv4, received "+1.2.3.4"
+      negative-sign-is-invalid:
+        input: '"-1.2.3.4"'
+        error: Expected ipv4, received "-1.2.3.4"
+      exponential-notation-is-invalid:
+        input: '"1e2.0.0.1"'
+        error: Expected ipv4, received "1e2.0.0.1"
+      alpha-characters-are-invalid:
+        input: '"192.168.a.1"'
+        error: Expected ipv4, received "192.168.a.1"
+      internal-whitespace-is-invalid:
+        input: '"192. 168.0.1"'
+        error: Expected ipv4, received "192. 168.0.1"
+      tab-character-is-invalid:
+        input: '"192.168.0.1\t"'
+        error: Expected ipv4, received "192.168.0.1	"
+      additional-content-after-an-embedded-nul-byte:
+        input: '"192.168.0.1\u0000.evil.com"'
+        error: "Expected ipv4, received \"192.168.0.1\0.evil.com\""
+      with-port-number-is-invalid:
+        input: '"192.168.0.1:80"'
+        error: Expected ipv4, received "192.168.0.1:80"
+      single-octet-out-of-range-in-last-position:
+        input: '"192.168.0.256"'
+        error: Expected ipv4, received "192.168.0.256"
+  decode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"192.168.0.1"'
+        output: '"192.168.0.1"'
+      invalid:
+        input: '"127.0.0.0.1"'
+        error: Expected ipv4, received "127.0.0.0.1"
+  encode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"192.168.0.1"'
+        output: '"192.168.0.1"'
+      invalid:
+        input: '"127.0.0.0.1"'
+        error: Expected ipv4, received "127.0.0.0.1"

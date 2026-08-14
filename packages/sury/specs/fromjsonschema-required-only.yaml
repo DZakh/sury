@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.fromJSONSchema({ type: "object", required: ["a"] })'
+  input: "{ [key: string]: JSON; } & { a: JSON; }"
+  output: "{ [key: string]: JSON; } & { a: JSON; }"
+  instantiations: 1165
+jsonSchema:
+  input: '{ type: "object", required: ["a"] }'
+  output: '{ type: "object", required: ["a"] }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);e[1](i)||e[3](i);for(let v0 in i){try{e[0](i[v0]);}catch(v1){v1.path='["'+v0+'"]'+v1.path;throw v1}}return i}
+    examples:
+      required-key-present:
+        input: "{ a: 1 }"
+        output: "{ a: 1 }"
+      required-key-absent:
+        input: "{}"
+        error: Should contain every required property.
+      other-keys-pass-through:
+        input: '{ a: 1, b: "x" }'
+        output: '{ a: 1, b: "x" }'
+  decode:
+    expression: i=>{e[0](i)||e[1](i);return i}
+    examples:
+      required-key-present:
+        input: "{ a: 1 }"
+        output: "{ a: 1 }"
+      required-key-absent:
+        input: "{}"
+        error: Should contain every required property.
+  encode:
+    expression: i=>{e[0](i)||e[1](i);return i}
+    examples:
+      required-key-present:
+        input: "{ a: 1 }"
+        output: "{ a: 1 }"
+      required-key-absent:
+        input: "{}"
+        error: Should contain every required property.

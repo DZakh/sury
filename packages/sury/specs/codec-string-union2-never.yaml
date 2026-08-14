@@ -4,12 +4,13 @@ ts:
   input: string
   output: string | number
   instantiations: 6365
-vs:
-  zod:
-    _skip: not-applicable
 jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "string" }'
+  fromOutputType: string
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[0](i);return i}

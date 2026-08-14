@@ -1,0 +1,138 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.hostname
+  input: string
+  output: string
+  instantiations: 254
+jsonSchema:
+  input: '{ type: "string", format: "hostname" }'
+  output: '{ type: "string", format: "hostname" }'
+vs:
+  zod: z.hostname()
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    examples:
+      a-valid-host-name:
+        input: '"www.example.com"'
+        output: '"www.example.com"'
+      single-label:
+        input: '"hostname"'
+        output: '"hostname"'
+      single-label-with-digits:
+        input: '"h0stn4me"'
+        output: '"h0stn4me"'
+      single-label-starting-with-digit:
+        input: '"1host"'
+        output: '"1host"'
+      single-label-ending-with-digit:
+        input: '"hostnam3"'
+        output: '"hostnam3"'
+      empty-string:
+        input: '""'
+        error: Expected hostname, received ""
+      single-dot:
+        input: '"."'
+        error: Expected hostname, received "."
+      leading-dot:
+        input: '".example"'
+        error: Expected hostname, received ".example"
+      trailing-dot:
+        input: '"example."'
+        error: Expected hostname, received "example."
+      idn-label-separator:
+        input: '"example．com"'
+        error: Expected hostname, received "example．com"
+      single-label-with-hyphen:
+        input: '"host-name"'
+        output: '"host-name"'
+      starts-with-hyphen:
+        input: '"-hostname"'
+        error: Expected hostname, received "-hostname"
+      ends-with-hyphen:
+        input: '"hostname-"'
+        error: Expected hostname, received "hostname-"
+      contains-underscore:
+        input: '"host_name"'
+        error: Expected hostname, received "host_name"
+      exceeds-maximum-overall-length-256:
+        input: '"abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijk.abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijk.abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijk.abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijk.com"'
+        error: Expected hostname, received "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijk.abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijk.abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijk.abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijk.com"
+      maximum-label-length-63:
+        input: '"abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijk.com"'
+        output: '"abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijk.com"'
+      exceeds-maximum-label-length-63:
+        input: '"abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijkl.com"'
+        error: Expected hostname, received "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijkl.com"
+      a-valid-host-name-example-test-in-hangul:
+        input: '"xn--9n2bp8q.xn--9t4b11yi5a"'
+        output: '"xn--9n2bp8q.xn--9t4b11yi5a"'
+      exceptions-that-are-pvalid-left-to-right-chars:
+        input: '"xn--zca29lwxobi7a"'
+        output: '"xn--zca29lwxobi7a"'
+      exceptions-that-are-pvalid-right-to-left-chars:
+        input: '"xn--qmbc"'
+        output: '"xn--qmbc"'
+      middle-dot-with-surrounding-l-s:
+        input: '"xn--ll-0ea"'
+        output: '"xn--ll-0ea"'
+      greek-keraia-followed-by-greek:
+        input: '"xn--wva3je"'
+        output: '"xn--wva3je"'
+      hebrew-geresh-preceded-by-hebrew:
+        input: '"xn--4dbc5h"'
+        output: '"xn--4dbc5h"'
+      hebrew-gershayim-preceded-by-hebrew:
+        input: '"xn--4dbc8h"'
+        output: '"xn--4dbc8h"'
+      katakana-middle-dot-with-hiragana:
+        input: '"xn--k8j5u"'
+        output: '"xn--k8j5u"'
+      katakana-middle-dot-with-katakana:
+        input: '"xn--bck0j"'
+        output: '"xn--bck0j"'
+      katakana-middle-dot-with-han:
+        input: '"xn--vek778f"'
+        output: '"xn--vek778f"'
+      arabic-indic-digits-not-mixed-with-extended-arabic:
+        input: '"xn--ngba1o"'
+        output: '"xn--ngba1o"'
+      extended-arabic-indic-digits-not-mixed-with-arabic:
+        input: '"xn--0-gyc"'
+        output: '"xn--0-gyc"'
+      zero-width-joiner-preceded-by-virama:
+        input: '"xn--11b2ezcw70k"'
+        output: '"xn--11b2ezcw70k"'
+      zero-width-non-joiner-preceded-by-virama:
+        input: '"xn--11b2ezcs70k"'
+        output: '"xn--11b2ezcs70k"'
+      zero-width-non-joiner-not-preceded-by-virama:
+        input: '"xn--ngba5hb2804a"'
+        output: '"xn--ngba5hb2804a"'
+      known-gap-invalid-punycode:
+        input: '"xn--X"'
+        output: '"xn--X"'
+      known-gap-contains-illegal-char-u-302e-hangul-single-dot:
+        input: '"xn--07jt112bpxg.xn--9t4b11yi5a"'
+        output: '"xn--07jt112bpxg.xn--9t4b11yi5a"'
+      known-gap-begins-with-a-spacing-combining-mark:
+        input: '"xn--hello-txk"'
+        output: '"xn--hello-txk"'
+  decode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"www.example.com"'
+        output: '"www.example.com"'
+      invalid:
+        input: '""'
+        error: Expected hostname, received ""
+  encode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"www.example.com"'
+        output: '"www.example.com"'
+      invalid:
+        input: '""'
+        error: Expected hostname, received ""

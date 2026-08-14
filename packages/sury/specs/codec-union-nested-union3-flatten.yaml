@@ -4,11 +4,11 @@ ts:
   input: string | number | boolean
   output: string | number | boolean
   instantiations: 6893
-vs:
-  zod: z.union([z.string(), z.union([z.number(), z.boolean()])])
 jsonSchema:
   input: '{ anyOf: [{ type: "boolean" }, { type: "number" }, { type: "string" }] }'
   output: '{ anyOf: [{ type: "string" }, { type: "number" }, { type: "boolean" }] }'
+vs:
+  zod: z.union([z.string(), z.union([z.number(), z.boolean()])])
 operations:
   parse:
     expression: i=>{(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i)||typeof i==="boolean")||e[0](i);return i}

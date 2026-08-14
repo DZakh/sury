@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.uri.with(S.pattern, /^https:\/\//)
+  input: string
+  output: string
+  instantiations: 5158
+jsonSchema:
+  input: '{ type: "string", format: "uri", pattern: "^https:\\/\\/" }'
+  output: '{ type: "string", format: "uri", pattern: "^https:\\/\\/" }'
+vs:
+  zod: z.url().regex(/^https:\/\//)
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[4](i);e[1].test(i)||e[2](i);e[0].test(i)||e[3](i);return i}
+    examples:
+      https:
+        input: '"https://example.com/a"'
+        output: '"https://example.com/a"'
+      rejects-http:
+        input: '"http://example.com/a"'
+        error: Invalid pattern
+      rejects-uppercase-scheme:
+        input: '"HTTPS://example.com/a"'
+        error: Invalid pattern
+      rejects-javascript-scheme:
+        input: '"javascript:alert(1)"'
+        error: Invalid pattern
+      rejects-file-scheme:
+        input: '"file:///etc/passwd"'
+        error: Invalid pattern
+      rejects-data-scheme:
+        input: '"data:text/plain,hi"'
+        error: Invalid pattern
+      rejects-non-uri:
+        input: '"not a uri"'
+        error: Expected uri, received "not a uri"
+      rejects-scheme-relative:
+        input: '"//example.com/a"'
+        error: Expected uri, received "//example.com/a"
+  decode:
+    expression: i=>{e[1].test(i)||e[2](i);e[0].test(i)||e[3](i);return i}
+    examples:
+      https:
+        input: '"https://example.com/a"'
+        output: '"https://example.com/a"'
+      rejects-javascript-scheme:
+        input: '"javascript:alert(1)"'
+        error: Invalid pattern
+  encode:
+    expression: i=>{e[1].test(i)||e[2](i);e[0].test(i)||e[3](i);return i}
+    examples:
+      https:
+        input: '"https://example.com/a"'
+        output: '"https://example.com/a"'
+      rejects-javascript-scheme:
+        input: '"javascript:alert(1)"'
+        error: Invalid pattern

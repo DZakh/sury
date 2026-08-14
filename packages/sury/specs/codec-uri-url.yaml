@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.uri.with(S.to, S.url)
+  input: string
+  output: URL
+  instantiations: 5102
+jsonSchema:
+  input: '{ type: "string", format: "uri" }'
+  output: Expected JSON, received URL
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[4](i);e[2].test(i)||e[3](i);let v0=e[0](i);v0||e[1](i);return v0}
+    examples:
+      valid:
+        input: '"http://dzakh.dev/"'
+        output: new URL("http://dzakh.dev/")
+      uri-rejects-before-url-is-built:
+        input: '"http://ex.com/a|b"'
+        error: Expected uri, received "http://ex.com/a|b"
+      invalid-no-scheme:
+        input: '"cifjhdsfhsd"'
+        error: Expected uri, received "cifjhdsfhsd"
+  decode:
+    expression: i=>{e[2].test(i)||e[3](i);let v0=e[0](i);v0||e[1](i);return v0}
+    examples:
+      valid:
+        input: '"http://dzakh.dev/"'
+        output: new URL("http://dzakh.dev/")
+      invalid-no-scheme:
+        input: '"cifjhdsfhsd"'
+        error: Expected uri, received "cifjhdsfhsd"
+  encode:
+    expression: i=>{let v0=e[0](i);e[1].test(v0)||e[2](v0);return v0}
+    examples:
+      valid:
+        input: new URL("http://dzakh.dev/")
+        output: '"http://dzakh.dev/"'
+      an-href-that-is-not-yet-a-uri-is-escaped-into-one:
+        input: new URL("http://ex.com/a|b")
+        output: '"http://ex.com/a%7Cb"'
+      a-url-whose-href-is-already-a-uri-round-trips-unchanged:
+        input: new URL("http://ex.com/a%7Cb")
+        output: '"http://ex.com/a%7Cb"'
+      the-check-runs-on-the-encoded-uri-not-on-the-url:
+        input: new URL("http://ex.com/p%20q#a#b")
+        output: '"http://ex.com/p%20q#a%23b"'

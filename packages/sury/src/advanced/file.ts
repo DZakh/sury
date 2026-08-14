@@ -30,14 +30,12 @@ const unsupported = (s: Internal, name: string): void => {
 // blob. `globalThis.` rather than a bare `Blob` because the reference has to
 // survive a runtime that has neither: `Blob` landed in Node 18 and `File` in
 // Node 20, and a bare one would throw at import.
-export const blob: Internal = /* @__PURE__ */ initSchema(instanceTag, (s) => {
+export const blob: Internal = /* @__PURE__ */ initSchema(instanceTag, instanceDecoder, (s) => {
   s.class = globalThis.Blob;
-  s.decoder = instanceDecoder;
   if (s.class === U) unsupported(s, "blob");
 });
 
-export const file: Internal = /* @__PURE__ */ initSchema(instanceTag, (s) => {
+export const file: Internal = /* @__PURE__ */ initSchema(instanceTag, instanceDecoder, (s) => {
   s.class = globalThis.File;
-  s.decoder = instanceDecoder;
   if (s.class === U) unsupported(s, "file");
 });

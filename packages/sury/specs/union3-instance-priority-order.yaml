@@ -4,12 +4,12 @@ ts:
   input: "Error | { x: string; }"
   output: "string | { x: string; }"
   instantiations: 7684
-vs:
-  zod:
-    _skip: not-applicable
 jsonSchema:
   input: "Expected JSON, received Error | { x: string; } | TypeError"
   output: '{ anyOf: [{ type: "string" }, { type: "object", properties: { x: { type: "string" } }, required: ["x"] }] }'
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     expression: i=>{for(;;){let r;if(i instanceof e[3]){try{let v0;try{v0=e[0](i)}catch(x){e[1](x);e[2](x)}i=v0;break}catch(x){(r||(r=[])).push(e[9](x))}}if(i instanceof e[7]){try{let v1;try{v1=e[4](i)}catch(x){e[5](x);e[6](x)}i=v1;break}catch(x){(r||(r=[])).push(e[9](x))}}if(typeof i==="object"&&i&&!Array.isArray(i)){try{let v2=i["x"];typeof v2==="string"||e[8](v2);i={"x":v2,};break}catch(x){(r||(r=[])).push(e[9](x))}}e[10](i,...(r||[]))}return i}

@@ -4,15 +4,17 @@ ts:
   input: "[string, string, ...string[]]"
   output: "[string, string, ...string[]]"
   instantiations: 5689
+jsonSchema:
+  input: '{ items: { type: "string" }, type: "array", minItems: 2 }'
+  fromInputType: string[]
+  output: '{ items: { type: "string" }, type: "array", minItems: 2 }'
+  fromOutputType: string[]
 vs:
   zod:
     schema: z.array(z.string()).min(2)
     divergence: A literal lower bound fixes a head in the Sury type and leaves the tail open, so `S.minLength(2)` on an array admits `[string, string, ...string[]]` where Zod keeps the unbounded `string[]`.
     input: string[]
     output: string[]
-jsonSchema:
-  input: '{ items: { type: "string" }, type: "array", minItems: 2 }'
-  output: '{ items: { type: "string" }, type: "array", minItems: 2 }'
 operations:
   parse:
     expression: i=>{Array.isArray(i)||e[2](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}i.length>1||e[1](i);return i}

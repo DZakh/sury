@@ -4,11 +4,11 @@ ts:
   input: "{ [x: string]: string; }"
   output: "{ [x: string]: string; }"
   instantiations: 434
-vs:
-  zod: z.record(z.string(), z.string())
 jsonSchema:
   input: '{ type: "object", additionalProperties: { type: "string" } }'
   output: '{ type: "object", additionalProperties: { type: "string" } }'
+vs:
+  zod: z.record(z.string(), z.string())
 operations:
   parse:
     expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);for(let v0 in i){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}return i}

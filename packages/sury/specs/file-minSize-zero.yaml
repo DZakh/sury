@@ -4,11 +4,11 @@ ts:
   input: File
   output: File
   instantiations: 5165
-vs:
-  zod: z.file().min(0)
 jsonSchema:
   input: Expected JSON, received File
   output: Expected JSON, received File
+vs:
+  zod: z.file().min(0)
 operations:
   parse:
     expression: i=>{i instanceof e[0]||e[1](i);return i}

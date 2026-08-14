@@ -1,0 +1,240 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.isoDate
+  input: string
+  output: string
+  instantiations: 254
+jsonSchema:
+  input: '{ type: "string", format: "date" }'
+  output: '{ type: "string", format: "date" }'
+vs:
+  zod: z.iso.date()
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    examples:
+      a-valid-date-string:
+        input: '"1963-06-19"'
+        output: '"1963-06-19"'
+      a-valid-date-string-with-31-days-in:
+        input: '"2020-01-31"'
+        output: '"2020-01-31"'
+      a-invalid-date-string-with-32-days-in:
+        input: '"2020-01-32"'
+        error: Expected date, received "2020-01-32"
+      a-valid-date-string-with-28-days-in:
+        input: '"2021-02-28"'
+        output: '"2021-02-28"'
+      a-invalid-date-string-with-30-days-in:
+        input: '"2020-02-30"'
+        error: Expected date, received "2020-02-30"
+      a-valid-date-string-with-31-days-in-2:
+        input: '"2020-03-31"'
+        output: '"2020-03-31"'
+      a-invalid-date-string-with-32-days-in-2:
+        input: '"2020-03-32"'
+        error: Expected date, received "2020-03-32"
+      a-valid-date-string-with-30-days-in:
+        input: '"2020-04-30"'
+        output: '"2020-04-30"'
+      a-invalid-date-string-with-31-days-in:
+        input: '"2020-04-31"'
+        error: Expected date, received "2020-04-31"
+      a-valid-date-string-with-31-days-in-3:
+        input: '"2020-05-31"'
+        output: '"2020-05-31"'
+      a-invalid-date-string-with-32-days-in-3:
+        input: '"2020-05-32"'
+        error: Expected date, received "2020-05-32"
+      a-valid-date-string-with-30-days-in-2:
+        input: '"2020-06-30"'
+        output: '"2020-06-30"'
+      a-invalid-date-string-with-31-days-in-2:
+        input: '"2020-06-31"'
+        error: Expected date, received "2020-06-31"
+      a-valid-date-string-with-31-days-in-4:
+        input: '"2020-07-31"'
+        output: '"2020-07-31"'
+      a-invalid-date-string-with-32-days-in-4:
+        input: '"2020-07-32"'
+        error: Expected date, received "2020-07-32"
+      a-valid-date-string-with-31-days-in-5:
+        input: '"2020-08-31"'
+        output: '"2020-08-31"'
+      a-invalid-date-string-with-32-days-in-5:
+        input: '"2020-08-32"'
+        error: Expected date, received "2020-08-32"
+      a-valid-date-string-with-30-days-in-3:
+        input: '"2020-09-30"'
+        output: '"2020-09-30"'
+      a-invalid-date-string-with-31-days-in-3:
+        input: '"2020-09-31"'
+        error: Expected date, received "2020-09-31"
+      a-valid-date-string-with-31-days-in-6:
+        input: '"2020-10-31"'
+        output: '"2020-10-31"'
+      a-invalid-date-string-with-32-days-in-6:
+        input: '"2020-10-32"'
+        error: Expected date, received "2020-10-32"
+      a-valid-date-string-with-30-days-in-4:
+        input: '"2020-11-30"'
+        output: '"2020-11-30"'
+      a-invalid-date-string-with-31-days-in-4:
+        input: '"2020-11-31"'
+        error: Expected date, received "2020-11-31"
+      a-valid-date-string-with-31-days-in-7:
+        input: '"2020-12-31"'
+        output: '"2020-12-31"'
+      a-invalid-date-string-with-32-days-in-7:
+        input: '"2020-12-32"'
+        error: Expected date, received "2020-12-32"
+      an-invalid-date-string:
+        input: '"06/19/1963"'
+        error: Expected date, received "06/19/1963"
+      only-rfc3339-not-all-of-iso-8601-are:
+        input: '"2013-350"'
+        error: Expected date, received "2013-350"
+      non-padded-month-dates-are-not-valid:
+        input: '"1998-1-20"'
+        error: Expected date, received "1998-1-20"
+      non-padded-day-dates-are-not-valid:
+        input: '"1998-01-1"'
+        error: Expected date, received "1998-01-1"
+      invalid-month:
+        input: '"1998-13-01"'
+        error: Expected date, received "1998-13-01"
+      2021-is-not-a-leap-year:
+        input: '"2021-02-29"'
+        error: Expected date, received "2021-02-29"
+      2020-is-a-leap-year:
+        input: '"2020-02-29"'
+        output: '"2020-02-29"'
+      invalid-non-ascii-a-bengali-4:
+        input: '"1963-06-1৪"'
+        error: Expected date, received "1963-06-1৪"
+      invalid-non-ascii-bengali-digit-in-month-field:
+        input: '"2020-0৪-01"'
+        error: Expected date, received "2020-0৪-01"
+      iso8601-non-rfc3339-yyyymmdd-without-dashes-2023-03:
+        input: '"20230328"'
+        error: Expected date, received "20230328"
+      iso8601-non-rfc3339-week-number-implicit-day-of:
+        input: '"2023-W01"'
+        error: Expected date, received "2023-W01"
+      iso8601-non-rfc3339-week-number-with-day-of:
+        input: '"2023-W13-2"'
+        error: Expected date, received "2023-W13-2"
+      iso8601-non-rfc3339-week-number-rollover-to-next:
+        input: '"2022W527"'
+        error: Expected date, received "2022W527"
+      an-invalid-time-string-in-date-time-format:
+        input: '"2020-11-28T23:55:45Z"'
+        error: Expected date, received "2020-11-28T23:55:45Z"
+      century-year-0100-is-not-a-leap-year:
+        input: '"0100-02-29"'
+        error: Expected date, received "0100-02-29"
+      century-year-0400-is-a-leap-year:
+        input: '"0400-02-29"'
+        output: '"0400-02-29"'
+      century-year-2100-is-not-a-leap-year:
+        input: '"2100-02-29"'
+        error: Expected date, received "2100-02-29"
+      invalid-leading-whitespace-is-not-permitted:
+        input: '" 2024-01-15"'
+        error: Expected date, received " 2024-01-15"
+      invalid-trailing-whitespace-is-not-permitted:
+        input: '"2024-01-15 "'
+        error: Expected date, received "2024-01-15 "
+      invalid-month-00-is-not-valid-per-date:
+        input: '"2024-00-15"'
+        error: Expected date, received "2024-00-15"
+      invalid-day-00-is-not-valid-per-date:
+        input: '"2024-01-00"'
+        error: Expected date, received "2024-01-00"
+      invalid-empty-string:
+        input: '""'
+        error: Expected date, received ""
+      invalid-embedded-whitespace-between-year-and-month:
+        input: '"2020 -01-01"'
+        error: Expected date, received "2020 -01-01"
+      invalid-trailing-character-after-valid-full-date:
+        input: '"2020-01-01X"'
+        error: Expected date, received "2020-01-01X"
+      invalid-trailing-z-after-full-date:
+        input: '"2020-01-01Z"'
+        error: Expected date, received "2020-01-01Z"
+      invalid-full-date-followed-by-space-and-time:
+        input: '"2020-01-01 00:00:00Z"'
+        error: Expected date, received "2020-01-01 00:00:00Z"
+      valid-four-digit-year-0001:
+        input: '"0001-01-01"'
+        output: '"0001-01-01"'
+      invalid-two-digit-year-n-2-digits:
+        input: '"20-01-01"'
+        error: Expected date, received "20-01-01"
+      invalid-three-digit-year-n-1-digits:
+        input: '"998-01-01"'
+        error: Expected date, received "998-01-01"
+      invalid-five-digit-year-n-1-digits:
+        input: '"12020-01-01"'
+        error: Expected date, received "12020-01-01"
+      invalid-positive-sign-prefix-on-year:
+        input: '"+2020-01-01"'
+        error: Expected date, received "+2020-01-01"
+      invalid-negative-sign-prefix-on-year:
+        input: '"-2020-01-01"'
+        error: Expected date, received "-2020-01-01"
+      invalid-non-ascii-bengali-digit-in-year-field:
+        input: '"২020-01-01"'
+        error: Expected date, received "২020-01-01"
+      invalid-alphabetic-characters-in-year-field:
+        input: '"YYYY-01-01"'
+        error: Expected date, received "YYYY-01-01"
+      invalid-three-digit-month-n-1-digits:
+        input: '"2020-001-01"'
+        error: Expected date, received "2020-001-01"
+      invalid-alphabetic-characters-in-month-field:
+        input: '"2020-MM-01"'
+        error: Expected date, received "2020-MM-01"
+      invalid-three-digit-day-n-1-digits:
+        input: '"2020-01-001"'
+        error: Expected date, received "2020-01-001"
+      invalid-alphabetic-characters-in-day-field:
+        input: '"2020-01-DD"'
+        error: Expected date, received "2020-01-DD"
+      invalid-colon-separators:
+        input: '"2020:01:01"'
+        error: Expected date, received "2020:01:01"
+      invalid-dot-separators:
+        input: '"2020.01.01"'
+        error: Expected date, received "2020.01.01"
+      invalid-space-separators:
+        input: '"2020 01 01"'
+        error: Expected date, received "2020 01 01"
+      invalid-mixed-slash-and-hyphen-separators:
+        input: '"2020-01/01"'
+        error: Expected date, received "2020-01/01"
+      invalid-duplicated-first-hyphen:
+        input: '"2020--01-01"'
+        error: Expected date, received "2020--01-01"
+      invalid-duplicated-second-hyphen:
+        input: '"2020-01--01"'
+        error: Expected date, received "2020-01--01"
+  decode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"1963-06-19"'
+        output: '"1963-06-19"'
+      invalid:
+        input: '"2020-01-32"'
+        error: Expected date, received "2020-01-32"
+  encode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"1963-06-19"'
+        output: '"1963-06-19"'
+      invalid:
+        input: '"2020-01-32"'
+        error: Expected date, received "2020-01-32"

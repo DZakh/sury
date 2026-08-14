@@ -56,7 +56,7 @@ test("stale golden (expression drifted from what the schema actually compiles to
       "stderr": "✗ string
         goldens stale — run \`pnpm spec check string --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
     @@ -13,7 +13,7 @@
-        output: '{ type: "string" }'
+        zod: z.string()
       operations:
         parse:
     -     expression: i=>i /* stale */
@@ -124,7 +124,7 @@ test("stale creationError golden (recorded message drifted from what the schema 
       "stderr": "✗ codec-bool-number-unsupported
         goldens stale — run \`pnpm spec check codec-bool-number-unsupported --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
     @@ -12,7 +12,7 @@
-        output: '{ type: "number" }'
+          _skip: not-applicable
       operations:
         parse:
     -     creationError: stale message
@@ -183,6 +183,82 @@ test("vs.zod overwrite form omits a side that actually diverges from ts (must be
   `);
 });
 
+test("jsonSchema round-trip types are omitted when they match the schema types", async () => {
+  const spec = mutate((s) => {
+    s.jsonSchema.fromInputType = "string";
+    s.jsonSchema.fromOutputType = "string";
+  });
+  await expect(runCheck("string", serialize(spec))).resolves.toMatchInlineSnapshot(`
+    {
+      "stderr": "✗ string
+        jsonSchema.fromInputType: S.fromJSONSchema(jsonSchema.input) matches ts.input "string" — omit \`fromInputType\`.
+        jsonSchema.fromOutputType: S.fromJSONSchema(jsonSchema.output) matches ts.output "string" — omit \`fromOutputType\`.
+        goldens stale — run \`pnpm spec check string --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
+    @@ -8,9 +8,7 @@
+        instantiations: 254
+      jsonSchema:
+        input: '{ type: "string" }'
+    -   fromInputType: string
+        output: '{ type: "string" }'
+    -   fromOutputType: string
+      vs:
+        zod: z.string()
+      operations:",
+      "stdout": "",
+    }
+  `);
+});
+
+test("jsonSchema round-trip types are forbidden when JSON Schema creation fails", async () => {
+  const spec = readSpec(listSpecFiles().find((f) => specId(f) === "bigint")!);
+  spec.jsonSchema.fromInputType = "bigint";
+  spec.jsonSchema.fromOutputType = "bigint";
+  await expect(runCheck("bigint", serialize(spec))).resolves.toMatchInlineSnapshot(`
+    {
+      "stderr": "✗ bigint
+        jsonSchema.fromInputType: jsonSchema.input failed to create, so there is no round-trip type to record — omit \`fromInputType\`.
+        jsonSchema.fromOutputType: jsonSchema.output failed to create, so there is no round-trip type to record — omit \`fromOutputType\`.
+        goldens stale — run \`pnpm spec check bigint --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
+    @@ -6,9 +6,7 @@
+        instantiations: 254
+      jsonSchema:
+        input: Expected JSON, received bigint
+    -   fromInputType: bigint
+        output: Expected JSON, received bigint
+    -   fromOutputType: bigint
+      vs:
+        zod: z.bigint()
+      operations:",
+      "stdout": "",
+    }
+  `);
+});
+
+test("jsonSchema round-trip types are required when they diverge from the schema types", async () => {
+  const spec = readSpec(listSpecFiles().find((f) => specId(f) === "array-minLength")!);
+  delete spec.jsonSchema.fromInputType;
+  delete spec.jsonSchema.fromOutputType;
+  await expect(runCheck("array-minLength", serialize(spec))).resolves.toMatchInlineSnapshot(`
+    {
+      "stderr": "✗ array-minLength
+        jsonSchema.fromInputType: omitted, but S.fromJSONSchema(jsonSchema.input) infers "string[]" !== ts.input "[string, string, ...string[]]" — add \`fromInputType\`.
+        jsonSchema.fromOutputType: omitted, but S.fromJSONSchema(jsonSchema.output) infers "string[]" !== ts.output "[string, string, ...string[]]" — add \`fromOutputType\`.
+        goldens stale — run \`pnpm spec check array-minLength --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
+    @@ -6,7 +6,9 @@
+        instantiations: 5689
+      jsonSchema:
+        input: '{ items: { type: "string" }, type: "array", minItems: 2 }'
+    +   fromInputType: string[]
+        output: '{ items: { type: "string" }, type: "array", minItems: 2 }'
+    +   fromOutputType: string[]
+      vs:
+        zod:
+          schema: z.array(z.string()).min(2)",
+      "stdout": "",
+    }
+  `);
+});
+
 test("not canonical (on-disk text doesn't match the canonical form)", async () => {
   const spec = mutate(() => {});
   const scrambled = serialize(spec).replace("vs:\n  zod: z.string()\n", "vs: { zod: z.string() }\n");
@@ -190,16 +266,16 @@ test("not canonical (on-disk text doesn't match the canonical form)", async () =
     {
       "stderr": "✗ string
         not canonical — run \`pnpm spec format string\` (or \`pnpm spec check string --write\`, which also refreshes goldens):
-    @@ -6,7 +6,8 @@
-        input: string
-        output: string
-        instantiations: 254
+    @@ -9,7 +9,8 @@
+      jsonSchema:
+        input: '{ type: "string" }'
+        output: '{ type: "string" }'
     - vs: { zod: z.string() }
     + vs:
     +   zod: z.string()
-      jsonSchema:
-        input: '{ type: "string" }'
-        output: '{ type: "string" }'",
+      operations:
+        parse:
+          expression: i=>{typeof i==="string"||e[0](i);return i}",
       "stdout": "",
     }
   `);
@@ -263,13 +339,13 @@ test("identity claimed but the operation doesn't actually compile to identity", 
         output: string
     -   instantiations: 254
     +   instantiations: 5357
-      vs:
-        zod: z.string()
       jsonSchema:
     -   input: '{ type: "string" }'
     -   output: '{ type: "string" }'
     +   input: '{ type: "string", minLength: 3 }'
     +   output: '{ type: "string", minLength: 3 }'
+      vs:
+        zod: z.string()
       operations:
         parse:
     -     expression: i=>{typeof i==="string"||e[0](i);return i}
@@ -345,13 +421,13 @@ test("eq-to-parse claimed but the operation doesn't actually compile to the same
     +   input: string
     +   output: string
     +   instantiations: 5357
-      vs:
-        zod: z.never()
       jsonSchema:
     -   input: "{ not: {} }"
     -   output: "{ not: {} }"
     +   input: '{ type: "string", minLength: 3 }'
     +   output: '{ type: "string", minLength: 3 }'
+      vs:
+        zod: z.never()
       operations:
         parse:
     -     expression: i=>{e[0](i);return i}
@@ -503,7 +579,7 @@ test("multiple simultaneous problems all get their own guiding message", async (
         ts.instantiations: invalid _skip reason "nonsense-reason"
         goldens stale — run \`pnpm spec check string --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
     @@ -14,7 +14,7 @@
-        output: '{ type: "string" }'
+        zod: z.string()
       operations:
         parse:
     -     expression: i=>i /* stale */

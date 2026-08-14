@@ -1,0 +1,139 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.string.with(S.to, S.url)
+  input: string
+  output: URL
+  instantiations: 5102
+jsonSchema:
+  input: '{ type: "string", format: "uri" }'
+  output: Expected JSON, received URL
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);let v0=e[0](i);v0||e[1](i);return v0}
+    examples:
+      valid:
+        input: '"http://dzakh.dev/"'
+        output: new URL("http://dzakh.dev/")
+      valid-normalizes:
+        input: '"HTTP://Example.ORG:80/a/../b"'
+        output: new URL("http://example.org/b")
+      invalid-no-scheme:
+        input: '"cifjhdsfhsd"'
+        error: Expected URL, received "cifjhdsfhsd"
+      invalid-empty:
+        input: '""'
+        error: Expected URL, received ""
+      invalid-scheme-only:
+        input: '"http://"'
+        error: Expected URL, received "http://"
+  decode:
+    expression: i=>{let v0=e[0](i);v0||e[1](i);return v0}
+    examples:
+      valid:
+        input: '"http://dzakh.dev/"'
+        output: new URL("http://dzakh.dev/")
+      invalid-no-scheme:
+        input: '"cifjhdsfhsd"'
+        error: Expected URL, received "cifjhdsfhsd"
+      invalid-empty:
+        input: '""'
+        error: Expected URL, received ""
+      invalid-scheme-only:
+        input: '"http://"'
+        error: Expected URL, received "http://"
+  encode:
+    expression: i=>{return e[0](i)}
+    examples:
+      valid:
+        input: new URL("http://dzakh.dev/")
+        output: '"http://dzakh.dev/"'
+      normalizes-on-the-way-out:
+        input: new URL("http://example.org/b")
+        output: '"http://example.org/b"'
+      escapes-pipe-in-path:
+        input: new URL("http://ex.com/a|b")
+        output: '"http://ex.com/a%7Cb"'
+      keeps-caret-the-url-parser-already-escaped:
+        input: new URL("http://ex.com/a%5Eb")
+        output: '"http://ex.com/a%5Eb"'
+      escapes-brackets-in-path:
+        input: new URL("http://ex.com/a[0]")
+        output: '"http://ex.com/a%5B0%5D"'
+      escapes-backslash-in-query:
+        input: new URL("http://ex.com/?a\\b")
+        output: '"http://ex.com/?a%5Cb"'
+      escapes-backtick-in-query:
+        input: new URL("http://ex.com/?a`b")
+        output: '"http://ex.com/?a%60b"'
+      escapes-braces-in-query:
+        input: new URL("http://ex.com/?a{b}c")
+        output: '"http://ex.com/?a%7Bb%7Dc"'
+      escapes-pipe-in-fragment:
+        input: new URL("http://ex.com/#a|b")
+        output: '"http://ex.com/#a%7Cb"'
+      escapes-bare-percent:
+        input: new URL("http://ex.com/a%b")
+        output: '"http://ex.com/a%25b"'
+      escapes-truncated-percent:
+        input: new URL("http://ex.com/a%A")
+        output: '"http://ex.com/a%25A"'
+      escapes-non-hex-percent:
+        input: new URL("http://ex.com/a%6G")
+        output: '"http://ex.com/a%256G"'
+      escapes-percent-in-userinfo:
+        input: new URL("http://u%x:p%y@ex.com/")
+        output: '"http://u%25x:p%25y@ex.com/"'
+      keeps-valid-percent-triplet:
+        input: new URL("http://ex.com/p%20q")
+        output: '"http://ex.com/p%20q"'
+      keeps-valid-triplet-beside-an-escape:
+        input: new URL("http://ex.com/p%20q|r")
+        output: '"http://ex.com/p%20q%7Cr"'
+      escapes-second-hash:
+        input: new URL("http://ex.com/#a#b")
+        output: '"http://ex.com/#a%23b"'
+      keeps-ipv6-host-brackets:
+        input: new URL("http://[::1]:8080/p")
+        output: '"http://[::1]:8080/p"'
+      keeps-ipv6-host-long-form:
+        input: new URL("http://[2001:db8::7]/c=GB")
+        output: '"http://[2001:db8::7]/c=GB"'
+      escapes-backtick-in-host:
+        input: new URL("http://a`b/p")
+        output: '"http://a%60b/p"'
+      escapes-brace-in-opaque-host:
+        input: new URL("foo://a{b/p")
+        output: '"foo://a%7Bb/p"'
+      escapes-space-in-opaque-path:
+        input: new URL("mailto:a b")
+        output: '"mailto:a%20b"'
+      escapes-pipe-in-opaque-path:
+        input: new URL("mailto:a|b")
+        output: '"mailto:a%7Cb"'
+      keeps-empty-query:
+        input: new URL("http://ex.com/a?")
+        output: '"http://ex.com/a?"'
+      keeps-empty-fragment:
+        input: new URL("http://ex.com/a#")
+        output: '"http://ex.com/a#"'
+      keeps-punycode-host:
+        input: new URL("http://xn--nw2a.xn--j6w193g/")
+        output: '"http://xn--nw2a.xn--j6w193g/"'
+      keeps-idn-host-as-punycode:
+        input: new URL("http://xn--pdaa47b.example/")
+        output: '"http://xn--pdaa47b.example/"'
+      keeps-encoded-non-bmp-path:
+        input: new URL("http://ex.com/%F0%9F%8E%89")
+        output: '"http://ex.com/%F0%9F%8E%89"'
+      keeps-userinfo-and-port:
+        input: new URL("https://u:pw@ex.com:8443/a/b?q=1#f")
+        output: '"https://u:pw@ex.com:8443/a/b?q=1#f"'
+      keeps-opaque-scheme:
+        input: new URL("urn:oasis:names:specification:docbook:dtd:xml:4.1.2")
+        output: '"urn:oasis:names:specification:docbook:dtd:xml:4.1.2"'
+      keeps-data-uri:
+        input: new URL("data:text/plain;base64,SGk=")
+        output: '"data:text/plain;base64,SGk="'

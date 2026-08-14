@@ -3,13 +3,13 @@ ts:
   schema: 'S.fromJSONSchema({ $ref: "#/$defs/node", $defs: { node: { type: "object", properties: { value: { type: "string" }, children: { type: "array", items: { $ref: "#/$defs/node" } } }, required: ["value"] } } })'
   input: "{ value: string; children?: ...[] | undefined; }"
   output: "{ value: string; children?: ...[] | undefined; }"
-  instantiations: 2083
-vs:
-  zod:
-    _skip: not-applicable
+  instantiations: 3712
 jsonSchema:
   input: '{ $ref: "#/$defs/node", $defs: { node: { type: "object", properties: { value: { type: "string" }, children: { items: { $ref: "#/$defs/node" }, type: "array" } }, required: ["value"] } } }'
   output: '{ $ref: "#/$defs/node", $defs: { node: { type: "object", properties: { value: { type: "string" }, children: { items: { $ref: "#/$defs/node" }, type: "array" } }, required: ["value"] } } }'
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     expression: i=>{let v0;v0=e[0](i);return v0}

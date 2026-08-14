@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.object((s) => ({ f: s.flatten(S.schema({ b: S.string.with(S.to, S.number, (v) => +v, (v) => "" + v) })), o: s.field("O", S.string) }))'
+  input: "{ [x: string]: unknown; }"
+  output: "{ f: { b: number; }; o: string; }"
+  instantiations: 6354
+jsonSchema:
+  input: '{ type: "object", properties: { b: { type: "string" }, O: { type: "string" } }, required: ["b", "O"] }'
+  fromInputType: "{ b: string; O: string; }"
+  output: '{ type: "object", properties: { f: { type: "object", properties: { b: { type: "number" } }, required: ["b"] }, o: { type: "string" } }, required: ["f", "o"] }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v1=i["b"],v2=i["O"];typeof v1==="string"||e[2](v1);let v0;try{v0=e[0](i["b"])}catch(x){e[1](x)}typeof v2==="string"||e[3](v2);return {"f":{"b":v0,},"o":v2,}}
+    examples:
+      codec-field-and-sibling:
+        input: '{ b: "42", O: "o" }'
+        output: '{ f: { b: 42 }, o: "o" }'
+      field-wrong-type:
+        input: '{ b: 42, O: "o" }'
+        error: 'Failed at ["b"]: Expected string, received 42'
+  decode:
+    expression: i=>{let v0;try{v0=e[0](i["b"])}catch(x){e[1](x)}return {"f":{"b":v0,},"o":i["O"],}}
+    examples:
+      codec-field-and-sibling:
+        input: '{ b: "42", O: "o" }'
+        output: '{ f: { b: 42 }, o: "o" }'
+  encode:
+    expression: i=>{let v0=i["f"];let v1;try{v1=e[0](v0["b"])}catch(x){e[1](x)}return {"b":v1,"O":i["o"],}}
+    examples:
+      round-trip:
+        input: '{ f: { b: 42 }, o: "o" }'
+        output: '{ b: "42", O: "o" }'

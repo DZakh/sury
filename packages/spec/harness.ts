@@ -40,7 +40,12 @@ import {
   type Scenarios,
 } from "./format";
 import { buildScenarioRunner, type ScenarioSource } from "./scenario";
-import { deriveTypeInfo, deriveVsTypeInfo } from "./introspect";
+import {
+  deriveRoundTripTypeInfo,
+  deriveTypeInfo,
+  deriveVsTypeInfo,
+  type TypeInfo,
+} from "./introspect";
 import { deriveBundleSize } from "./bundleSize";
 
 const here = (rel: string) => fileURLToPath(new URL(rel, import.meta.url));
@@ -286,20 +291,69 @@ export const asyncViolations = (schema: any, spec: Spec): string[] => {
 // Always a string (source text, same formatting as example values) so the
 // success case (the schema itself) and the failure case (the thrown message)
 // are one uniform, one-line field — not a structural union at the YAML level.
-const toJsonSchemaOrError = (fn: () => unknown): string => {
+const toJsonSchemaOrError = (
+  fn: () => unknown,
+): { ok: true; source: string } | { ok: false; error: string } => {
   try {
-    return valueToCode(fn());
+    return { ok: true, source: valueToCode(fn()) };
   } catch (e) {
-    return (e as Error).message;
+    return { ok: false, error: (e as Error).message };
   }
 };
-const deriveJsonSchema = (schema: any): Spec["jsonSchema"] => ({
-  input: toJsonSchemaOrError(() => S.toJSONSchema(schema)),
-  output: toJsonSchemaOrError(() => S.toJSONSchema(S.reverse(schema))),
+type JsonSchemaSide = { schema: string; source?: string };
+type JsonSchemaSides = { input: JsonSchemaSide; output: JsonSchemaSide };
+
+const deriveJsonSchemaSide = (fn: () => unknown): JsonSchemaSide => {
+  const result = toJsonSchemaOrError(fn);
+  if (!result.ok) return { schema: result.error };
+  return { schema: result.source, source: result.source };
+};
+
+const deriveJsonSchemaSides = (schema: any): JsonSchemaSides => ({
+  input: deriveJsonSchemaSide(() => S.toJSONSchema(schema)),
+  output: deriveJsonSchemaSide(() => S.toJSONSchema(S.reverse(schema))),
 });
 
+const deriveJsonSchema = async (
+  schema: any,
+  types: { input: string; output: string },
+  combinedInfo: Pick<
+    TypeInfo,
+    "fromInput" | "fromOutput" | "inputMatches" | "outputMatches"
+  >,
+  sides = deriveJsonSchemaSides(schema),
+): Promise<Spec["jsonSchema"]> => {
+  const inputInferred = combinedInfo.fromInput;
+  const outputInferred = combinedInfo.fromOutput;
+  const inputMatches = combinedInfo.inputMatches ?? inputInferred === types.input;
+  const outputMatches = combinedInfo.outputMatches ?? outputInferred === types.output;
+  return {
+    input: sides.input.schema,
+    ...(inputInferred === undefined || inputMatches
+      ? {}
+      : { fromInputType: inputInferred }),
+    output: sides.output.schema,
+    ...(outputInferred === undefined || outputMatches
+      ? {}
+      : { fromOutputType: outputInferred }),
+  };
+};
+
 // No example inputs needed, so `spec new` can fill this in immediately from `--ts`.
-export const scaffoldJsonSchema = (schema: any): Spec["jsonSchema"] => deriveJsonSchema(schema);
+export const scaffoldJsonSchema = (
+  schema: any,
+  types: { input: string; output: string },
+  schemaTs: string,
+): Promise<Spec["jsonSchema"]> => {
+  const sides = deriveJsonSchemaSides(schema);
+  return deriveRoundTripTypeInfo(
+    schemaTs,
+    sides.input.source,
+    sides.output.source,
+  ).then((roundTripInfo) =>
+    deriveJsonSchema(schema, types, roundTripInfo, sides),
+  );
+};
 
 // Compile an operation, capturing any creation-time throw as the golden instead
 // of letting it abort — the operation analogue of toJsonSchemaOrError. The
@@ -408,7 +462,9 @@ export const canonicalize = (obj: Spec): Spec => {
   if (o.jsonSchema)
     o.jsonSchema = order(o.jsonSchema as Record<string, unknown>, [
       "input",
+      "fromInputType",
       "output",
+      "fromOutputType",
     ]) as Spec["jsonSchema"];
   if (o.operations) {
     const ops = order(o.operations, OP_ORDER) as Record<OpName, Operation>;
@@ -551,27 +607,30 @@ const valueToCode = (v: unknown, seen: WeakSet<object> = new WeakSet()): string 
   if (typeof v === "object") {
     if (seen.has(v)) throw new Error("cannot represent a cyclic value as spec source code");
     seen.add(v);
-  }
-  if (v instanceof Date) return `new Date(${JSON.stringify(v.toISOString())})`;
-  if (v instanceof RegExp) return v.toString();
-  if (v instanceof Map) return `new Map(${valueToCode([...v], seen)})`;
-  if (v instanceof Set) return `new Set(${valueToCode([...v], seen)})`;
-  if (Array.isArray(v)) return `[${v.map((x) => valueToCode(x, seen)).join(", ")}]`;
-  if (typeof v === "object") {
-    const proto = Object.getPrototypeOf(v);
-    if (proto !== Object.prototype && proto !== null)
-      throw new Error(
-        `cannot represent a ${(v as object).constructor?.name ?? "unknown-class"} instance as spec source code`,
-      );
-    // Symbol keys ride along as computed keys — only registry symbols, for the
-    // same reason as symbol values above. Object.entries would drop them.
-    const parts = Object.entries(v).map(([k, val]) => `${keyToCode(k)}: ${valueToCode(val, seen)}`);
-    for (const sym of Object.getOwnPropertySymbols(v)) {
-      if (!Object.getOwnPropertyDescriptor(v, sym)!.enumerable) continue;
-      parts.push(`[${valueToCode(sym, seen)}]: ${valueToCode((v as Record<symbol, unknown>)[sym], seen)}`);
+    try {
+      if (v instanceof Date) return `new Date(${JSON.stringify(v.toISOString())})`;
+      if (v instanceof URL) return `new URL(${JSON.stringify(v.href)})`;
+      if (v instanceof RegExp) return v.toString();
+      if (v instanceof Map) return `new Map(${valueToCode([...v], seen)})`;
+      if (v instanceof Set) return `new Set(${valueToCode([...v], seen)})`;
+      if (Array.isArray(v)) return `[${v.map((x) => valueToCode(x, seen)).join(", ")}]`;
+      const proto = Object.getPrototypeOf(v);
+      if (proto !== Object.prototype && proto !== null)
+        throw new Error(
+          `cannot represent a ${(v as object).constructor?.name ?? "unknown-class"} instance as spec source code`,
+        );
+      // Symbol keys ride along as computed keys — only registry symbols, for the
+      // same reason as symbol values above. Object.entries would drop them.
+      const parts = Object.entries(v).map(([k, val]) => `${keyToCode(k)}: ${valueToCode(val, seen)}`);
+      for (const sym of Object.getOwnPropertySymbols(v)) {
+        if (!Object.getOwnPropertyDescriptor(v, sym)!.enumerable) continue;
+        parts.push(`[${valueToCode(sym, seen)}]: ${valueToCode((v as Record<symbol, unknown>)[sym], seen)}`);
+      }
+      if (parts.length === 0) return "{}";
+      return `{ ${parts.join(", ")} }`;
+    } finally {
+      seen.delete(v);
     }
-    if (parts.length === 0) return "{}";
-    return `{ ${parts.join(", ")} }`;
   }
   throw new Error(`cannot represent a ${typeof v} as spec source code`);
 };
@@ -588,9 +647,15 @@ const clean = <T extends Record<string, unknown>>(o: T): T => {
 export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
   const next: Spec = structuredClone(obj);
   const schema = evalSchema(next.ts.schema);
+  const jsonSchemaSides = deriveJsonSchemaSides(schema);
+  const info = await deriveTypeInfo(next.ts.schema);
+  const roundTripInfo = await deriveRoundTripTypeInfo(
+    next.ts.schema,
+    jsonSchemaSides.input.source,
+    jsonSchemaSides.output.source,
+  );
 
   if (!isSkip(next.ts.input) || !isSkip(next.ts.output) || !isSkip(next.ts.instantiations)) {
-    const info = await deriveTypeInfo(next.ts.schema);
     if (!isSkip(next.ts.input)) next.ts.input = info.input;
     if (!isSkip(next.ts.output)) next.ts.output = info.output;
     if (!isSkip(next.ts.instantiations)) next.ts.instantiations = info.instantiations;
@@ -608,7 +673,12 @@ export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
     if (next.vs.zod.output !== undefined) next.vs.zod.output = zi.output;
   }
 
-  next.jsonSchema = deriveJsonSchema(schema);
+  next.jsonSchema = await deriveJsonSchema(
+    schema,
+    info,
+    roundTripInfo,
+    jsonSchemaSides,
+  );
 
   const parseBuilt = buildOp("parse", schema);
   // Indexing by a `OpName` union narrows the value type to the intersection of
@@ -665,6 +735,37 @@ export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
   }
 
   return next;
+};
+
+const jsonSchemaTypePresenceViolations = (spec: Spec, expected: Spec): string[] => {
+  const errs: string[] = [];
+  for (const { field, side } of [
+    { field: "fromInputType", side: "input" },
+    { field: "fromOutputType", side: "output" },
+  ] as const) {
+    const currentType = spec.jsonSchema[field];
+    const expectedType = expected.jsonSchema[field];
+    const schemaType = expected.ts[side];
+    if (isSkip(schemaType)) continue;
+    if (currentType !== undefined && expectedType === undefined) {
+      try {
+        evalSchema(expected.jsonSchema[side]);
+        errs.push(
+          `jsonSchema.${field}: S.fromJSONSchema(jsonSchema.${side}) matches ts.${side} ` +
+            `${JSON.stringify(schemaType)} — omit \`${field}\`.`,
+        );
+      } catch {
+        errs.push(
+          `jsonSchema.${field}: jsonSchema.${side} failed to create, so there is no round-trip type to record — omit \`${field}\`.`,
+        );
+      }
+    } else if (currentType === undefined && expectedType !== undefined)
+      errs.push(
+        `jsonSchema.${field}: omitted, but S.fromJSONSchema(jsonSchema.${side}) infers ` +
+          `${JSON.stringify(expectedType)} !== ts.${side} ${JSON.stringify(schemaType)} — add \`${field}\`.`,
+      );
+  }
+  return errs;
 };
 
 // `ts.schema` can evaluate without throwing to a value that still isn't a
@@ -725,15 +826,24 @@ export const checkAliases = async (spec: Spec): Promise<string[]> => {
     // resolve the alias's type) must not abort the remaining aliases or
     // surface as the outer, label-less "goldens could not be computed".
     try {
-      if (!isSkip(spec.ts.input) || !isSkip(spec.ts.output)) {
-        const info = await deriveTypeInfo(aliasSrc);
-        if (!isSkip(spec.ts.input) && info.input !== spec.ts.input)
-          errs.push(`${label}: ts.input ${JSON.stringify(info.input)} !== ${JSON.stringify(spec.ts.input)}`);
-        if (!isSkip(spec.ts.output) && info.output !== spec.ts.output)
-          errs.push(`${label}: ts.output ${JSON.stringify(info.output)} !== ${JSON.stringify(spec.ts.output)}`);
-      }
+      const jsonSchemaSides = deriveJsonSchemaSides(aliasSchema);
+      const info = await deriveTypeInfo(aliasSrc);
+      const roundTripInfo = await deriveRoundTripTypeInfo(
+        aliasSrc,
+        jsonSchemaSides.input.source,
+        jsonSchemaSides.output.source,
+      );
+      if (!isSkip(spec.ts.input) && info.input !== spec.ts.input)
+        errs.push(`${label}: ts.input ${JSON.stringify(info.input)} !== ${JSON.stringify(spec.ts.input)}`);
+      if (!isSkip(spec.ts.output) && info.output !== spec.ts.output)
+        errs.push(`${label}: ts.output ${JSON.stringify(info.output)} !== ${JSON.stringify(spec.ts.output)}`);
 
-      const js = deriveJsonSchema(aliasSchema);
+      const js = await deriveJsonSchema(
+        aliasSchema,
+        info,
+        roundTripInfo,
+        jsonSchemaSides,
+      );
       if (js.input !== spec.jsonSchema.input)
         errs.push(`${label}: jsonSchema.input differs:\n${diffText(spec.jsonSchema.input, js.input)}`);
       if (js.output !== spec.jsonSchema.output)
@@ -918,7 +1028,9 @@ export const checkSpec = async (
       // recomputed goldens are right either way) — only the marker needs the
       // author's hand.
       errs.push(...asyncViolations(schema, spec));
-      const fresh = knownFresh ?? serialize(await recomputeGoldens(spec), comments);
+      const recomputed = knownFresh === undefined ? await recomputeGoldens(spec) : undefined;
+      if (recomputed) errs.push(...jsonSchemaTypePresenceViolations(spec, recomputed));
+      const fresh = knownFresh ?? serialize(recomputed!, comments);
       if (fresh !== canon)
         errs.push(
           (violations.length

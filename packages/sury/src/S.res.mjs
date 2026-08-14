@@ -91,6 +91,10 @@ let Metadata = {
   Id: Id
 };
 
+function fromJSONSchema(jsonSchema) {
+  return Sury.fromJSONSchema(jsonSchema);
+}
+
 export {
   Path,
   Exn,
@@ -111,5 +115,6 @@ export {
   tuple3,
   Option,
   Metadata,
+  fromJSONSchema,
 }
 /*  Not a pure module */
