@@ -28,6 +28,7 @@
   - [`strict`](#strict)
   - [`strip`](#strip)
   - [`deepStrict` & `deepStrip`](#deepstrict-deepstrip)
+  - [`rest`](#rest)
   - [`merge`](#merge)
 - [Arrays](#arrays)
   - [Compact Columns](#compact-columns)
@@ -706,6 +707,38 @@ const schema = S.schema({
 S.strict(schema); // { "baz": string } will still allow unknown keys
 S.deepStrict(schema); // { "baz": string } will not allow unknown keys
 ```
+
+### `rest`
+
+`S.strip` drops the keys an object schema doesn't declare and `S.strict` rejects
+them. The third option is to give them a schema of their own with `S.rest`, which
+validates every undeclared key against it and keeps it:
+
+```ts
+const configSchema = S.rest(S.schema({ name: S.string }), S.number);
+// { name: string } & Record<string, number>
+
+S.parser(configSchema)({ name: "app", retries: 3 });
+// => returns { name: "app", retries: 3 }
+
+S.parser(configSchema)({ name: "app", retries: "3" });
+// => throws S.Error
+```
+
+Only one of the three applies at a time — the last one wins, so
+`S.strict(S.rest(schema, S.number))` is a strict schema.
+
+`S.rest` works on tuples too, where the rest schema covers every item past the
+declared ones:
+
+```ts
+const rowSchema = S.rest(S.schema([S.string]), S.number);
+// [string, ...number[]]
+```
+
+In JSON Schema the two spellings are `additionalProperties` and
+`additionalItems`, and both round-trip through `S.toJSONSchema` and
+`S.fromJSONSchema`.
 
 ### `merge`
 
