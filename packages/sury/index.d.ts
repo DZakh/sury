@@ -26,6 +26,15 @@ export type FailureResult = {
   readonly error: Error;
 };
 
+/**
+ * What {@link safe} returns. Narrow on `success` before reading `value`.
+ *
+ * ```ts
+ * const result = S.safe(() => S.parser(schema)(data));
+ * if (result.success) use(result.value);
+ * else console.log(result.error.message);
+ * ```
+ */
 export type Result<TValue> = SuccessResult<TValue> | FailureResult;
 
 export type NumberFormat = "int32" | "port" | "integer";
@@ -57,7 +66,32 @@ export type Format = NumberFormat | StringFormat | ArrayFormat;
 // default is dependent, so TS instantiates it at every one-arg reference —
 // internal references write `Schema<unknown, unknown>` in full to keep that
 // off the per-schema type-cost the specs measure.
+/**
+ * A schema, typed in the direction data flows: the encoded type it accepts,
+ * then the decoded type it produces. `TOutput` defaults to `TInput`, so an
+ * identity schema is `S.Schema<string>`.
+ *
+ * To accept "any schema producing `T`, whatever it takes", leave the input
+ * side `unknown`:
+ *
+ * ```ts
+ * const parse = <T>(schema: S.Schema<unknown, T>, data: unknown): T =>
+ *   S.parser(schema)(data);
+ * ```
+ */
 export type Schema<TInput = unknown, TOutput = TInput> = {
+  /**
+   * Applies a schema function as a method — `schema.with(S.fn, ...args)` is
+   * `S.fn(schema, ...args)`, chainable left to right.
+   *
+   * ```ts
+   * S.string.with(S.minLength, 3).with(S.to, S.bigint);
+   * ```
+   *
+   * A `.with` call can never be tree-shaken (the receiver is opaque, so the
+   * bundler can't see which function ran). In a library that ships to
+   * browsers, prefer the functional spelling.
+   */
   with<TTargetInput = unknown, TTargetOutput = unknown>(
     to: (
       schema: Schema<unknown, unknown>,
@@ -255,6 +289,10 @@ export type Schema<TInput = unknown, TOutput = TInput> = {
     }
 );
 
+/**
+ * Where inside the value a failure happened — `["items"]["0"]["id"]`, and `""`
+ * at the root. Opaque, so read it as a string: `String(error.path)`.
+ */
 export abstract class Path {
   protected opaque: unknown;
 } /* simulate opaque types */
@@ -265,6 +303,24 @@ type BaseError = {
   readonly reason: string;
 };
 
+/**
+ * What every operation throws. `code` discriminates it, `message` is
+ * pre-formatted for display and `reason` is the same without the path.
+ *
+ * ```ts
+ * try {
+ *   S.parser(schema)(data);
+ * } catch (e) {
+ *   if (e instanceof S.Error && e.code === "unrecognized_keys") console.log(e.keys);
+ *   else throw e;
+ * }
+ * ```
+ *
+ * `invalid_input` is a value that didn't match. `invalid_operation` and
+ * `unsupported_decode` mean the schema itself can't do what was asked, and
+ * throw at the `S.parser` / `S.encoder` call before any value is seen.
+ * `invalid_conversion` wraps whatever a custom decode/encode threw, as `cause`.
+ */
 export type Error =
   | (BaseError & {
       readonly code: "invalid_input";
@@ -300,12 +356,21 @@ export const Error: {
 // Extract Output/Input by matching only the `~standard` marker instead of the
 // full `Schema<…>` shape (whose 14-member union + `with` overloads are costly to
 // instantiate per match). `types` is optional, so the pattern keeps it optional.
+/**
+ * The decoded type a schema produces.
+ *
+ * ```ts
+ * type Player = S.Output<typeof playerSchema>;
+ * ```
+ */
 export type Output<T> = T extends {
   readonly ["~standard"]: { readonly types?: { readonly output: infer TOutput } };
 }
   ? TOutput
   : never;
+/** {@link Output}, under the name the rest of the ecosystem uses. */
 export type Infer<T> = Output<T>;
+/** The encoded type a schema accepts — what {@link encoder} gives back. */
 export type Input<T> = T extends {
   readonly ["~standard"]: { readonly types?: { readonly input: infer TInput } };
 }
@@ -386,6 +451,18 @@ export type Brand<T, TId extends string> = T & {
   readonly [" brand"]: [T, TId];
 };
 
+/**
+ * Marks the output type as nominal, so only a parsed value satisfies it. A
+ * type-only marker — pair it with the validation that earns the brand.
+ *
+ * ```ts
+ * const userIdSchema = S.string.with(S.pattern, /^u_/).with(S.brand, "UserId");
+ * type UserId = S.Infer<typeof userIdSchema>; // S.Brand<string, "UserId">
+ *
+ * const id: UserId = S.parser(userIdSchema)("u_123"); // ok
+ * const nope: UserId = "u_123"; // type error
+ * ```
+ */
 export function brand<TId extends string, TInput = unknown, TOutput = unknown>(
   schema: SchemaLike<TInput, TOutput>,
   brandId: TId
@@ -419,6 +496,20 @@ type UnknownArrayToInput<T extends unknown[]> = number extends T["length"]
   ? T
   : { -readonly [K in keyof T]: UnknownToInput<T[K]> };
 
+/**
+ * Turns a definition into a schema: schemas pass through, an object or array
+ * is built member by member, and any other value becomes a literal.
+ *
+ * ```ts
+ * S.schema({ kind: "circle", radius: S.number });
+ * //? S.Schema<{ kind: "circle"; radius: number }>
+ * ```
+ *
+ * Anywhere a schema is accepted a definition works too — `S.array({ id: S.string })`
+ * — so this is mostly for the top level. {@link literal} is the same factory
+ * under a name that reads better for one value; {@link object} and
+ * {@link tuple} take the same definitions and add a definer form.
+ */
 export function schema<const T extends unknown[]>(
   schemas: [...T]
 ): Schema<[...UnknownArrayToInput<T>], [...UnknownArrayToOutput<T>]>;
@@ -426,10 +517,31 @@ export function schema<const T>(
   value: T
 ): Schema<UnknownToInput<T>, UnknownToOutput<T>>;
 
+/**
+ * {@link schema}, named for the single-value case: `S.literal("tuna")`,
+ * `S.literal(2n)`, `S.literal(Symbol.iterator)`. Matching is `===`, except
+ * that plain objects and arrays are compared deeply and `NaN` via
+ * `Number.isNaN`.
+ */
 export function literal<const T>(
   value: T
 ): Schema<UnknownToInput<T>, UnknownToOutput<T>>;
 
+/**
+ * Accepts a value matching any member; the first one that fits wins, so order
+ * is the tie-breaker.
+ *
+ * ```ts
+ * S.union(["Win", "Draw", "Loss"]);
+ * S.union([
+ *   { kind: "circle", radius: S.number },
+ *   { kind: "square", x: S.number },
+ * ]);
+ * ```
+ *
+ * A nested union counts as one flat union. Also exported as `S.anyOf`,
+ * matching the JSON Schema keyword it emits.
+ */
 export function union<const TFirst, const TRest extends unknown[]>(
   schemas: [TFirst, ...TRest]
 ): Schema<
@@ -444,22 +556,51 @@ export { union as anyOf };
 
 export const string: Schema<string, string>;
 export const boolean: Schema<boolean, boolean>;
+/**
+ * Whole number inside the signed 32-bit range, emitted as `format: "int32"`.
+ * The range is a real bound, so a wider one contradicts it and throws where
+ * it's written: `S.int32.with(S.gte, 3_000_000_000)`. Use {@link integer} when
+ * the value can be larger.
+ */
 export const int32: Schema<number, number>;
+/** Whole number of any magnitude, emitted as `format: "integer"`. */
 export const integer: Schema<number, number>;
+/** Any JS number. `NaN` is rejected, unless {@link GlobalConfigOverride} turns that check off. */
 export const number: Schema<number, number>;
 export const bigint: Schema<bigint, bigint>;
 export const symbol: Schema<symbol, symbol>;
+/**
+ * Accepts nothing. Useful to mark a union member as unreachable rather than
+ * unsupported: `S.boolean.with(S.to, S.union([S.string, S.never.with(S.to, S.symbol)]))`.
+ */
 export const never: Schema<never, never>;
+/** Accepts anything, validating nothing — the input side of {@link parser}. */
 export const unknown: Schema<unknown, unknown>;
+/** {@link unknown}, typed `any` so its output flows on without a cast. */
 export const any: Schema<any, any>;
+/** `undefined`, reported as `void` in errors and expressions. */
 declare const void_: Schema<void, void>;
 export { void_ as void };
 
+/** Any JSON value, checked all the way down. A good source for {@link to} when the shape is decided elsewhere: `S.json.with(S.to, userSchema)`. */
 export const json: Schema<JSON, JSON>;
 
+/**
+ * A string holding valid JSON. Chain it to say what the JSON must contain:
+ *
+ * ```ts
+ * S.jsonString.with(S.to, userSchema); // parse and validate in one pass
+ * S.number.with(S.to, S.jsonString);   // stringify
+ * ```
+ *
+ * Encoding to it generates a dedicated stringifier instead of calling
+ * `JSON.stringify`, usually 1.3-2x faster.
+ */
 export const jsonString: Schema<string, string>;
+/** {@link jsonString} that indents by `space` when encoding. */
 export const jsonStringWithSpace: (space: number) => Schema<string, string>;
 
+/** A `Uint8Array`. `S.uint8Array.with(S.to, S.string)` decodes it as UTF-8, and the reverse encodes. */
 export const uint8Array: Schema<Uint8Array, Uint8Array>;
 
 // `Blob` and `File` are ambient globals, from lib.dom or @types/node. Naming
@@ -487,8 +628,10 @@ export type File = typeof globalThis extends {
   ? T
   : Blob & { readonly name: string };
 
+/** A `Blob`, sized in bytes with {@link minSize} / {@link maxSize} / {@link size}. */
 export const blob: Schema<Blob, Blob>;
 
+/** A `File`. Every `File` satisfies {@link blob}, not the other way round. Takes the same size bounds. */
 export const file: Schema<File, File>;
 
 /**
@@ -499,6 +642,7 @@ export const file: Schema<File, File>;
  */
 export const isoDateTime: Schema<string, string>;
 
+/** TCP/UDP port: an integer in 0-65535. */
 export const port: Schema<number, number>;
 
 /**
@@ -685,17 +829,54 @@ export const jsonPointer: Schema<string, string>;
  */
 export const relativeJsonPointer: Schema<string, string>;
 
+/**
+ * A `Date` instance; Invalid Date is rejected. To go from a string, convert:
+ * `S.string.with(S.to, S.date)`. To validate a timestamp that stays a string,
+ * use {@link isoDateTime}.
+ */
 export const date: Schema<Date, Date>;
 
+/**
+ * Runs `scope` and returns a {@link Result} instead of throwing. Only `S.Error`
+ * is caught — anything else propagates.
+ *
+ * ```ts
+ * const result = S.safe(() => S.parser(schema)(data));
+ * ```
+ *
+ * The whole callback is covered, so a chain of operations can share one.
+ */
 export function safe<TValue>(scope: () => TValue): Result<TValue>;
+/** {@link safe} for an async scope. */
 export function safeAsync<TValue>(
   scope: () => Promise<TValue>
 ): Promise<Result<TValue>>;
 
+/**
+ * Swaps a schema's Input and Output — transformations, fields and all.
+ *
+ * ```ts
+ * S.parser(S.reverse(userSchema))(user); // validates, then encodes
+ * ```
+ *
+ * The result is an ordinary schema, so unlike {@link encoder} the reverse pass
+ * validates too.
+ */
 export function reverse<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>
 ): Schema<TOutput, TInput>;
 
+/**
+ * Compiles a validating parse function — `S.decoder(S.unknown, schema)` under
+ * a shorter name. Compile once, call many times:
+ *
+ * ```ts
+ * const parseUser = S.parser(userSchema);
+ * parseUser(data);
+ *
+ * S.parser(S.jsonString, userSchema)(raw); // extra schemas make it a pipeline
+ * ```
+ */
 export function parser<TOutput>(
   schema: SchemaLike<unknown, TOutput>
 ): (data: unknown) => TOutput;
@@ -707,6 +888,7 @@ export function parser<
   TSchemas extends readonly [SchemaLike<any, any>, ...SchemaLike<any, any>[]]
 >(...schemas: TSchemas): (data: unknown) => ExtractLastOutput<TSchemas>;
 
+/** {@link parser} for a schema carrying an async step ({@link asyncDecoderAssert}). */
 export function asyncParser<TOutput>(
   schema: SchemaLike<unknown, TOutput>
 ): (data: unknown) => Promise<TOutput>;
@@ -718,6 +900,18 @@ export function asyncParser<
   TSchemas extends readonly [SchemaLike<any, any>, ...SchemaLike<any, any>[]]
 >(...schemas: TSchemas): (data: unknown) => Promise<ExtractLastOutput<TSchemas>>;
 
+/**
+ * Compiles a conversion from Input to Output, or across a chain of schemas.
+ * The type check {@link parser} performs is skipped — refinements and
+ * transformations still run — so pass it data you already trust.
+ *
+ * ```ts
+ * S.decoder(S.jsonString, userSchema)(raw);
+ * S.decoder(S.string, S.date)("2024-01-01T00:00:00Z");
+ * ```
+ *
+ * The whole chain fuses into one generated function, however many stages.
+ */
 export function decoder<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>
 ): (data: TInput) => TOutput;
@@ -731,6 +925,7 @@ export function decoder<
   ...schemas: TSchemas
 ): (data: ExtractFirstInput<TSchemas>) => ExtractLastOutput<TSchemas>;
 
+/** {@link decoder} for a schema carrying an async step. */
 export function asyncDecoder<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>
 ): (data: TInput) => Promise<TOutput>;
@@ -744,6 +939,17 @@ export function asyncDecoder<
   ...schemas: TSchemas
 ): (data: ExtractFirstInput<TSchemas>) => Promise<ExtractLastOutput<TSchemas>>;
 
+/**
+ * The mirror of {@link decoder}: Output back to Input.
+ *
+ * ```ts
+ * S.encoder(userSchema)(user);
+ * S.encoder(userSchema, S.jsonString)(user); // straight out to a JSON string
+ * ```
+ *
+ * Validation is skipped here as well; `S.parser(S.reverse(schema))` is the
+ * validating way back.
+ */
 export function encoder<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>
 ): (data: TOutput) => TInput;
@@ -757,6 +963,7 @@ export function encoder<
   ...schemas: TSchemas
 ): (data: ExtractFirstOutput<TSchemas>) => ExtractLastInput<TSchemas>;
 
+/** {@link encoder} for a schema carrying an async step. */
 export function asyncEncoder<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>
 ): (data: TOutput) => Promise<TInput>;
@@ -770,6 +977,17 @@ export function asyncEncoder<
   ...schemas: TSchemas
 ): (data: ExtractFirstOutput<TSchemas>) => Promise<ExtractLastInput<TSchemas>>;
 
+/**
+ * Throws unless the data matches, narrowing it in place. No output is built,
+ * which makes it 2-3x faster than {@link parser} — reach for it when you only
+ * need the verdict.
+ *
+ * ```ts
+ * S.assert(data, S.string); // data is string from here on
+ * ```
+ *
+ * The schema and the data go in either order.
+ */
 export function assert<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,
   data: unknown
@@ -779,6 +997,17 @@ export function assert<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>
 ): asserts data is TInput;
 
+/**
+ * Type guard over {@link assert}'s validate-only path, in either argument
+ * order.
+ *
+ * ```ts
+ * if (S.is(data, S.string)) data.trim();
+ * ```
+ *
+ * A schema that can't validate at all (a rejected conversion) still throws —
+ * that's a bug in the schema, not a `false`.
+ */
 export function is<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,
   data: unknown
@@ -788,6 +1017,20 @@ export function is<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>
 ): data is TInput;
 
+/**
+ * Fixed-length array. The definer form maps positions onto a shape, and back
+ * again for free:
+ *
+ * ```ts
+ * const athlete = S.tuple((s) => ({
+ *   name: s.item(0, S.string),
+ *   jerseyNumber: s.item(1, S.number),
+ * }));
+ * ```
+ *
+ * `s.tag(index, value)` pins a constant slot. Passing an array instead —
+ * `S.tuple([S.string, S.number])` — is {@link schema}.
+ */
 export function tuple<TInput extends unknown[], TOutput>(
   definer: (s: {
     item: <TItemOutput>(
@@ -806,6 +1049,18 @@ export function tuple<const T extends unknown[]>(
 // raw definition falls through to TDef. Must stay one signature — `.with` infers
 // through a single call signature only, so any overload pair collapses
 // `schema.with(S.optional, …)` to Schema<unknown, unknown>.
+/**
+ * Adds `undefined` to what the schema accepts. A second argument replaces the
+ * missing case after parsing — a function is re-run for every value:
+ *
+ * ```ts
+ * S.optional(S.string, "tuna");
+ * S.optional(S.number, Math.random);
+ * ```
+ *
+ * An object field whose type admits `undefined` is what makes its key optional
+ * in the inferred type.
+ */
 export function optional<
   const TDef = never,
   TInput = UnknownToInput<TDef>,
@@ -821,6 +1076,11 @@ export function optional<
   TOr extends undefined ? TOutput | undefined : TOutput
 >;
 
+/**
+ * {@link optional} for `null`: `S.nullable(S.string)`, or
+ * `S.nullable(S.string, "fallback")` to replace the null case. Use
+ * {@link nullish} to accept both `null` and `undefined`.
+ */
 export function nullable<
   const TDef = never,
   TInput = UnknownToInput<TDef>,
@@ -833,6 +1093,7 @@ export function nullable<
   _?: never
 ): Schema<TInput | null, TOr extends null ? TOutput | null : TOutput>;
 
+/** Accepts `null` and `undefined`, and gives back whichever arrived. */
 export const nullish: <
   const TDef = never,
   TInput = UnknownToInput<TDef>,
@@ -842,8 +1103,26 @@ export const nullish: <
 ) => Schema<TInput | undefined | null, TOutput | undefined | null>;
 
 export type Class<T> = new (...args: readonly any[]) => T;
+/**
+ * `data instanceof Class`, for a type Sury has no schema for.
+ *
+ * ```ts
+ * S.instance(Set).with(S.minSize, 1);
+ * ```
+ *
+ * It's also the usual base for a custom schema: add {@link to} with your own
+ * decode/encode, and {@link meta} to give it a name in error messages.
+ */
 export const instance: <T>(class_: Class<T>) => Schema<T, T>;
 
+/**
+ * An array of a single element type. A literal length bound refines the type,
+ * so indexing and destructuring stay checked:
+ *
+ * ```ts
+ * S.array(S.number).with(S.length, 2); //? S.Schema<[number, number]>
+ * ```
+ */
 export const array: <
   const TDef = never,
   TInput = UnknownToInput<TDef>,
@@ -852,6 +1131,19 @@ export const array: <
   schema: SchemaLike<TInput, TOutput> | TDef
 ) => Schema<TInput[], TOutput[]>;
 
+/**
+ * Columnar form of an array of rows — one array per field, in field order.
+ *
+ * ```ts
+ * const schema = S.compactColumns(S.json).with(S.to, S.array(rowSchema));
+ *
+ * S.encoder(schema)([{ id: "0", ok: false }, { id: "1", ok: true }]);
+ * // [["0", "1"], [false, true]]
+ * ```
+ *
+ * Worth it for bulk payloads — a `UNNEST`-style INSERT, a wire format where
+ * repeating every key per row costs more than the rows themselves.
+ */
 export const compactColumns: <
   const TDef = never,
   TInput = UnknownToInput<TDef>,
@@ -860,6 +1152,7 @@ export const compactColumns: <
   schema: SchemaLike<TInput, TOutput> | TDef
 ) => Schema<TInput[][], TOutput[][]>;
 
+/** `{ [k: string]: T }` — every value checked, no key is required or forbidden. */
 export const record: <
   const TDef = never,
   TInput = UnknownToInput<TDef>,
@@ -888,6 +1181,27 @@ type ObjectCtx<TInput extends Record<string, unknown>> = {
   nested: (name: string) => ObjectCtx<Record<string, unknown>>;
 };
 
+/**
+ * An object schema. Pass a plain definition — that's {@link schema} — or a
+ * definer, which renames and restructures fields at no runtime cost and gives
+ * you the encode direction with it:
+ *
+ * ```ts
+ * const userSchema = S.object((s) => ({
+ *   id: s.field("USER_ID", S.number),
+ *   name: s.fieldOr("USER_NAME", S.string, "anonymous"),
+ * }));
+ *
+ * S.parser(userSchema)({ USER_ID: 1, USER_NAME: "John" }); // { id: 1, name: "John" }
+ * S.encoder(userSchema)({ id: 1, name: "John" });          // { USER_ID: 1, USER_NAME: "John" }
+ * ```
+ *
+ * `s.tag(name, value)` pins a constant field, `s.nested(name)` gives the same
+ * context one level down, and `s.flatten(schema)` inlines another object
+ * schema's fields into this one.
+ *
+ * Undeclared keys are dropped; {@link strict} rejects them instead.
+ */
 export function object<TInput extends Record<string, unknown>, TOutput>(
   definer: (ctx: ObjectCtx<TInput>) => TOutput
 ): Schema<TInput, TOutput>;
@@ -895,15 +1209,23 @@ export function object<T extends Record<string, unknown>>(
   definition: T
 ): Schema<UnknownToInput<T>, UnknownToOutput<T>>;
 
+/** Back to the default: undeclared keys are dropped. Undoes {@link strict}. */
 export function strip<TInput extends Record<string, unknown>, TOutput>(
   schema: SchemaLike<TInput, TOutput>
 ): Schema<TInput, TOutput>;
+/** {@link strip} applied to nested object schemas too. */
 export function deepStrip<TInput extends Record<string, unknown>, TOutput>(
   schema: SchemaLike<TInput, TOutput>
 ): Schema<TInput, TOutput>;
+/**
+ * Fails on a key the schema doesn't declare, instead of dropping it. Applies
+ * to this object only — {@link deepStrict} covers the nested ones, and
+ * `S.global({ defaultAdditionalItems: "strict" })` the whole app.
+ */
 export function strict<TInput extends Record<string, unknown>, TOutput>(
   schema: SchemaLike<TInput, TOutput>
 ): Schema<TInput, TOutput>;
+/** {@link strict} applied to nested object schemas too. */
 export function deepStrict<TInput extends Record<string, unknown>, TOutput>(
   schema: SchemaLike<TInput, TOutput>
 ): Schema<TInput, TOutput>;
@@ -915,6 +1237,14 @@ type Merge<TLeft, TRight> = Flatten<
   { [K in keyof TLeft as K extends keyof TRight ? never : K]: TLeft[K] } & TRight
 >;
 
+/**
+ * One object schema with both sets of fields. Throws on a shared key, and
+ * keeps the *first* schema's strip/strict policy.
+ *
+ * ```ts
+ * S.merge(S.schema({ students: S.array(S.string) }), S.schema({ id: S.string }));
+ * ```
+ */
 export function merge<
   TInput1,
   TOutput1 extends Record<string, unknown>,
@@ -925,11 +1255,35 @@ export function merge<
   schema2: SchemaLike<TInput2, TOutput2>
 ): Schema<Merge<TInput1, TInput2>, Merge<TOutput1, TOutput2>>;
 
+/**
+ * A schema that refers to itself. TypeScript can't infer through the cycle,
+ * so state the type:
+ *
+ * ```ts
+ * type Node = { id: string; children: Node[] };
+ *
+ * const nodeSchema = S.recursive<Node>("Node", (node) =>
+ *   S.schema({ id: S.string, children: S.array(node) })
+ * );
+ * ```
+ *
+ * Pass both parameters when the schema transforms — `S.recursive<unknown, Row>`.
+ * `identifier` names it in errors and in the emitted `$defs`. Cyclical *data*
+ * still loops forever.
+ */
 export function recursive<TInput = unknown, TOutput = TInput>(
   identifier: string,
   definer: (schema: Schema<TInput, TOutput>) => Schema<TInput, TOutput>
 ): Schema<TInput, TOutput>;
 
+/**
+ * Replaces the message of a failed check, keyed by the constraint that failed.
+ * `{}` clears every override.
+ *
+ * ```ts
+ * S.email.with(S.meta, { errorMessage: { format: "Must be a valid email" } });
+ * ```
+ */
 export type SchemaErrorMessage = {
   /** Catch-all override, used when no more specific key below matches the failing check. */
   _?: string;
@@ -958,23 +1312,73 @@ export type Meta<TOutput> = {
   errorMessage?: SchemaErrorMessage;
 };
 
+/**
+ * Documents a schema. It all lands in {@link toJSONSchema} output, and `name`
+ * is what error messages call the schema.
+ *
+ * ```ts
+ * S.string.with(S.meta, {
+ *   description: "A useful bit of text",
+ *   examples: ["hello"],
+ * });
+ * ```
+ *
+ * Metadata is per-schema, not inherited, so attach it where the constraint is.
+ */
 export function meta<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,
   meta: Meta<TOutput>
 ): Schema<TInput, TOutput>;
 
+/**
+ * The schema's input type, as the expression error messages use — `"{ abc: 123; }"`,
+ * or its {@link meta} `name` when it has one. Handy for naming a custom schema
+ * after its argument. The exact format may change between releases.
+ */
 export function inputExpression(schema: SchemaLike<unknown, unknown>): string;
+/** {@link inputExpression} for the output side. */
 export function outputExpression(schema: SchemaLike<unknown, unknown>): string;
+/**
+ * Drops this schema's own type check — its fields and items are still checked.
+ * Worth it for data you constructed yourself and are only reshaping.
+ */
 export function noValidation<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,
   value: boolean
 ): Schema<TInput, TOutput>;
 
+/**
+ * An async check, run on decode only. Throw inside it to fail.
+ *
+ * ```ts
+ * S.uuid.with(S.asyncDecoderAssert, async (id) => {
+ *   if (!(await isActive(id))) throw new Error(`The user ${id} is inactive.`);
+ * });
+ * ```
+ *
+ * The schema becomes async, so parse it with {@link asyncParser}.
+ */
 export function asyncDecoderAssert<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,
   assertFn: (value: TOutput) => Promise<void>
 ): Schema<TInput, TOutput>;
 
+/**
+ * A check of your own, run on decode and encode alike. Return `false` to fail.
+ *
+ * ```ts
+ * S.schema({ password: S.string, confirm: S.string }).with(
+ *   S.refine,
+ *   (v) => v.password === v.confirm,
+ *   { error: "Passwords don't match", path: ["confirm"] }
+ * );
+ * ```
+ *
+ * `path` attaches the failure to a field rather than the whole object. A
+ * refinement is opaque to {@link toJSONSchema}, so prefer a built-in
+ * constraint ({@link pattern}, {@link minLength}, …) when one says the same
+ * thing.
+ */
 export function refine<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,
   refineCheck: (value: TOutput) => boolean,
@@ -984,26 +1388,43 @@ export function refine<TInput, TOutput>(
   }
 ): Schema<TInput, TOutput>;
 
+/**
+ * Exclusive lower bound, on any numeric schema — {@link number},
+ * {@link integer}, {@link int32}, {@link port}, `S.bigint`.
+ *
+ * ```ts
+ * S.number.with(S.gt, 0);
+ * S.number.with(S.lte, 5, "this👏is👏too👏big");
+ * ```
+ *
+ * Bounds are compared against each other and against the format's own range,
+ * so a contradiction (`S.int32.with(S.gte, 3e9)`) throws where it's written
+ * instead of building a schema nothing satisfies.
+ */
 export const gt: <TInput, TOutput extends number | bigint>(
   schema: SchemaLike<TInput, TOutput>,
   value: TOutput,
   message?: string
 ) => Schema<TInput, TOutput>;
+/** Inclusive lower bound. See {@link gt}. */
 export const gte: <TInput, TOutput extends number | bigint>(
   schema: SchemaLike<TInput, TOutput>,
   value: TOutput,
   message?: string
 ) => Schema<TInput, TOutput>;
+/** Exclusive upper bound. See {@link gt}. */
 export const lt: <TInput, TOutput extends number | bigint>(
   schema: SchemaLike<TInput, TOutput>,
   value: TOutput,
   message?: string
 ) => Schema<TInput, TOutput>;
+/** Inclusive upper bound. See {@link gt}. */
 export const lte: <TInput, TOutput extends number | bigint>(
   schema: SchemaLike<TInput, TOutput>,
   value: TOutput,
   message?: string
 ) => Schema<TInput, TOutput>;
+/** Divisible by `value`. See {@link gt} for the schemas it applies to. */
 export const multipleOf: <TInput, TOutput extends number | bigint>(
   schema: SchemaLike<TInput, TOutput>,
   value: TOutput,
@@ -1070,65 +1491,147 @@ type NonEmptied<T> = T extends (infer E)[]
 // union input from distributing and passing on one member.
 type Same<T, U> = [T] extends [U] ? ([U] extends [T] ? true : false) : false;
 
+/**
+ * Lower bound on a string's or array's length. A literal bound shows up in the
+ * inferred type:
+ *
+ * ```ts
+ * S.array(S.string).with(S.minLength, 2); //? S.Schema<[string, string, ...string[]]>
+ * ```
+ *
+ * For a `Blob`, a `File` or a `Set`, bound `.size` instead — {@link minSize}.
+ */
 export const minLength: <TInput, TOutput extends string | unknown[], N extends number>(
   schema: SchemaLike<TInput, TOutput>,
   length: N,
   message?: string
 ) => Schema<Same<TInput, TOutput> extends true ? AtLeast<TInput, N> : TInput, AtLeast<TOutput, N>>;
+/** Upper bound on length. Nothing an upper bound implies is expressible in the type, so the type is unchanged. */
 export const maxLength: <TInput, TOutput extends string | unknown[]>(
   schema: SchemaLike<TInput, TOutput>,
   length: number,
   message?: string
 ) => Schema<TInput, TOutput>;
+/**
+ * Exact length. On an array with a literal bound the result is a tuple, so
+ * destructuring is checked:
+ *
+ * ```ts
+ * const [lat, lng] = S.parser(S.array(S.number).with(S.length, 2))(input);
+ * ```
+ */
 export const length: <TInput, TOutput extends string | unknown[], N extends number>(
   schema: SchemaLike<TInput, TOutput>,
   length: N,
   message?: string
 ) => Schema<Same<TInput, TOutput> extends true ? Sized<TInput, N> : TInput, Sized<TOutput, N>>;
+/** `length >= 1`, typed `[T, ...T[]]` for an array. */
 export const nonEmpty: <TInput, TOutput extends string | unknown[]>(
   schema: SchemaLike<TInput, TOutput>,
   message?: string
 ) => Schema<Same<TInput, TOutput> extends true ? NonEmptied<TInput> : TInput, NonEmptied<TOutput>>;
 
+/**
+ * Lower bound on `.size` — bytes for {@link blob} and {@link file}, entries
+ * for something like `S.instance(Set)`. A bound of `0` is dropped, a negative
+ * one is an error.
+ */
 export const minSize: <TInput, TOutput extends { size: number }>(
   schema: SchemaLike<TInput, TOutput>,
   size: number,
   message?: string
 ) => Schema<TInput, TOutput>;
+/** Upper bound on `.size`. See {@link minSize}. */
 export const maxSize: <TInput, TOutput extends { size: number }>(
   schema: SchemaLike<TInput, TOutput>,
   size: number,
   message?: string
 ) => Schema<TInput, TOutput>;
+/** Exact `.size`. See {@link minSize}. */
 export const size: <TInput, TOutput extends { size: number }>(
   schema: SchemaLike<TInput, TOutput>,
   size: number,
   message?: string
 ) => Schema<TInput, TOutput>;
 
+/**
+ * The string must match `re`. It rides along into the emitted JSON Schema, so
+ * narrowing a format stays honest about what it accepts:
+ *
+ * ```ts
+ * S.uri.with(S.pattern, /^https:\/\//);
+ * // { type: "string", format: "uri", pattern: "^https:\\/\\/" }
+ * ```
+ */
 export const pattern: <TInput>(
   schema: SchemaLike<TInput, string>,
   re: RegExp,
   message?: string
 ) => Schema<TInput, string>;
+/** Trims surrounding whitespace — a transformation, not a check, and applied in both directions. */
 export const trim: <TInput>(
   schema: SchemaLike<TInput, string>
 ) => Schema<TInput, string>;
 
+/** What an object or tuple does with members it doesn't declare. */
 export type AdditionalItemsMode = "strip" | "strict";
 
 export type GlobalConfigOverride = {
+  /** `"strict"` makes every object schema reject undeclared keys. Default `"strip"`. */
   defaultAdditionalItems?: AdditionalItemsMode;
+  /** Skips the `NaN` check in every number schema — ~10% faster when your numbers can't be `NaN`. */
   disableNanNumberValidation?: boolean;
 };
 
+/**
+ * Sets library-wide defaults. Call it once at startup, before the schemas
+ * that should follow them are built.
+ *
+ * ```ts
+ * S.global({ defaultAdditionalItems: "strict" });
+ * ```
+ */
 export function global(globalConfigOverride: GlobalConfigOverride): void;
 
+/**
+ * Restructures a value, deriving the way back from the shape you return:
+ *
+ * ```ts
+ * const circle = S.number.with(S.shape, (radius) => ({ kind: "circle", radius }));
+ *
+ * S.parser(circle)(1);                              // { kind: "circle", radius: 1 }
+ * S.encoder(circle)({ kind: "circle", radius: 1 }); // 1
+ * ```
+ *
+ * The argument is a proxy standing in for the value, not the value — branching
+ * on it or calling its methods won't do what it looks like. Use {@link to}
+ * with a decode function when you need real logic.
+ */
 export function shape<TShape = unknown, TInput = unknown, TOutput = unknown>(
   schema: SchemaLike<TInput, TOutput>,
   shaper: (value: TOutput) => TShape
 ): Schema<TInput, TShape>;
 
+/**
+ * Converts to another type, in both directions:
+ *
+ * ```ts
+ * const schema = S.string.with(S.to, S.number);
+ *
+ * S.parser(schema)("123"); // 123
+ * S.encoder(schema)(123);  // "123"
+ * ```
+ *
+ * Any schema is a valid target — `S.json`, `S.jsonString`, `S.date`,
+ * `S.uint8Array`, a union, an object schema — and nested conversions fold into
+ * the same generated function, so a deep pipeline costs no more than a shallow
+ * one. A conversion Sury can't derive, or one with more than one reasonable
+ * meaning, is rejected at the `S.parser` / `S.encoder` call with the rewrite in
+ * the message.
+ *
+ * Pass `decode` / `encode` only for logic of your own; prefer the built-in
+ * conversion where there is one.
+ */
 export function to<
   TInput = unknown,
   TOutput = unknown,
@@ -1145,6 +1648,17 @@ export function to<
 // each one gets its own overload. Falling back to the widest type for a
 // non-literal target is what keeps a caller holding `target` in a variable
 // compiling.
+/**
+ * ```ts
+ * S.toJSONSchema(schema);                              // draft-07
+ * S.toJSONSchema(schema, { target: "draft-2020-12" });
+ * ```
+ *
+ * Keywords and examples describe the **Input** side — pass
+ * `S.reverse(schema)` for the output side. The target picks the result type,
+ * so `prefixItems` is there to reach for on a 2020-12 result and `nullable` on
+ * an OpenAPI one.
+ */
 export function toJSONSchema<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>
 ): JSONSchema7;
@@ -1186,6 +1700,11 @@ export function fromJSONSchema<
 export function fromJSONSchema<const T = unknown>(
   jsonSchema: T
 ): Schema<FromJSONSchema<T>, FromJSONSchemaOutput<T>>;
+/**
+ * Merges extra keywords into what {@link toJSONSchema} emits for this schema —
+ * vendor extensions, a `$id`, a hand-written `description`. Validation is
+ * untouched, so keep the two in agreement yourself.
+ */
 export function extendJSONSchema<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,
   jsonSchema: JSONSchema

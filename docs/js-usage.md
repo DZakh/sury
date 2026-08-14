@@ -719,7 +719,7 @@ const teacherSchema = S.merge(baseTeacherSchema, hasIDSchema);
 type Teacher = S.Infer<typeof teacherSchema>; // => { students: string[], id: string }
 ```
 
-> 🧠 The function will throw if the schemas share keys. The returned schema also inherits the "unknownKeys" policy (strip/strict) of B.
+> 🧠 The function will throw if the schemas share keys. The returned schema inherits the "unknownKeys" policy (strip/strict) of the first schema.
 
 ## Arrays
 

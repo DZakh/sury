@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.merge(S.schema({a: S.string}), S.strict(S.schema({b: S.number})))"
+  input: "{ a: string; b: number; }"
+  output: "{ a: string; b: number; }"
+  instantiations: 4203
+jsonSchema:
+  input: '{ type: "object", properties: { a: { type: "string" }, b: { type: "number" } }, required: ["a", "b"] }'
+  output: '{ type: "object", properties: { a: { type: "string" }, b: { type: "number" } }, required: ["a", "b"] }'
+vs:
+  zod: "z.object({ a: z.string(), b: z.number() })"
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["a"],v1=i["b"];typeof v0==="string"||e[0](v0);typeof v1==="number"&&!Number.isNaN(v1)||e[1](v1);return {"a":v0,"b":v1,}}
+    examples:
+      valid:
+        input: '{ a: "x", b: 1 }'
+        output: '{ a: "x", b: 1 }'
+      unknown-key-stripped-despite-strict-second:
+        input: '{ a: "x", b: 1, c: true }'
+        output: '{ a: "x", b: 1 }'
+  decode: identity
+  encode: identity

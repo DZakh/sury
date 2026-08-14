@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.merge(S.strict(S.schema({a: S.string})), S.schema({b: S.number}))"
+  input: "{ a: string; b: number; }"
+  output: "{ a: string; b: number; }"
+  instantiations: 4203
+jsonSchema:
+  input: '{ type: "object", properties: { a: { type: "string" }, b: { type: "number" } }, additionalProperties: false, required: ["a", "b"] }'
+  output: '{ type: "object", properties: { a: { type: "string" }, b: { type: "number" } }, additionalProperties: false, required: ["a", "b"] }'
+vs:
+  zod: "z.strictObject({ a: z.string(), b: z.number() })"
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["a"],v1=i["b"],v2;typeof v0==="string"||e[0](v0);typeof v1==="number"&&!Number.isNaN(v1)||e[1](v1);for(v2 in i){if(v2!=="a"&&v2!=="b"){e[2](v2)}}return i}
+    examples:
+      valid:
+        input: '{ a: "x", b: 1 }'
+        output: '{ a: "x", b: 1 }'
+      unknown-key-rejected-by-strict-first:
+        input: '{ a: "x", b: 1, c: true }'
+        error: Unrecognized key "c"
+  decode: identity
+  encode: identity
