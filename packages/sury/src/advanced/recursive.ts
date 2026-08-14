@@ -8,6 +8,7 @@ import {
   globalConfig,
   type Internal,
   refTag,
+  setCache,
   U,
   type Val,
   valFlagAsync,
@@ -62,10 +63,10 @@ export const recursiveDecoder: Builder = (input) => {
         // Set optimistic values on def before compiling (if not already set)
         // Inner circular references will read these values
         if (def.hasTransform === U) {
-          def.hasTransform = assumedHasTransform;
+          setCache(def, "hasTransform", assumedHasTransform);
         }
         if (def.isAsync === U) {
-          def.isAsync = assumedIsAsync;
+          setCache(def, "isAsync", assumedIsAsync);
         }
 
         // Back to in-progress: a recompile's inner circular references must

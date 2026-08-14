@@ -755,6 +755,23 @@ export const valueOptions: Record<string, unknown> = {};
 export const configurableValueOptions = { configurable: true };
 export const valKey = "value";
 
+// `isAsync` and `hasTransform` are lazily computed answers about ONE schema's
+// decode direction — a cache, not part of what the schema describes. Written
+// non-enumerable (like `r` and the operation cache, for the same reason) so
+// copySchema's `Object.assign` can't carry them onto a derived schema: a copy
+// is a different schema, and `.with(S.to, …)` or a reverse changes the very
+// chain they answer for. Inherited, they made `S.isAsync` answer `false` for a
+// genuinely async schema built from an already-probed one — which sends the
+// caller to `S.parser` and a thrown `invalid_operation`.
+// Every write goes through here (a plain assignment would define an enumerable
+// property again), so the descriptor stays non-writable and is redefined —
+// which is what `configurable` is for, and why this shares the operation
+// cache's descriptor object rather than declaring a second one.
+export const setCache = (schema: Internal, key: string, value: boolean): void => {
+  (configurableValueOptions as Record<string, unknown>)[valKey] = value;
+  Object.defineProperty(schema, key, configurableValueOptions as PropertyDescriptor);
+};
+
 // `function` declarations have no construct signature in TS, so `new` needs a
 // cast. A type is erased where a `const SchemaCtor = Schema as …` alias would
 // survive minification as a real assignment.

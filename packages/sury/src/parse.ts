@@ -26,6 +26,7 @@ import {
   reversedKey,
   s,
   schemaPrototype,
+  setCache,
   setHas,
   tagFlagArray,
   tagFlagBigint,
@@ -183,7 +184,7 @@ export const isAsyncInternal = (
     const input = B_operationArg(unknown, schema, flagAsync, defs);
     const output = parse(input);
     const isAsync = flagUnsafeHas(output.f, valFlagAsync);
-    schema.isAsync = isAsync;
+    setCache(schema, "isAsync", isAsync);
     return isAsync;
   } catch (exn) {
     getOrRethrow(exn);
@@ -202,9 +203,9 @@ export const compileDecoder = (
   const code = B_merge(output);
 
   const isAsync = flagUnsafeHas(output.f, valFlagAsync);
-  expected.isAsync = isAsync;
+  setCache(expected, "isAsync", isAsync);
   const hasTransform = output.t === true;
-  expected.hasTransform = hasTransform;
+  setCache(expected, "hasTransform", hasTransform);
 
   if (
     code === "" &&
@@ -281,15 +282,6 @@ Object.defineProperty(schemaPrototype, reversedKey, {
       } else {
         mut.to = reversedHead;
       }
-      // Both are lazily computed answers about the *decode* direction, and
-      // this copy's decode direction is the original's encode one — inherited,
-      // they made `S.isAsync(reverse(schema))` (and the spec harness's
-      // per-direction async check) answer for a direction never compiled.
-      // Dropped here rather than in copySchema: this runs once per schema and
-      // caches, where copySchema is on every `.with(…)`, and a `delete` there
-      // costs the fresh object its hidden class (~90% on schema creation).
-      delete mut.isAsync;
-      delete mut.hasTransform;
       const record = mut as unknown as Record<string, unknown>;
       reverseSwap(record, "parser", "serializer");
       reverseSwap(record, "refiner", "inputRefiner");

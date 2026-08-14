@@ -204,7 +204,6 @@ export const transform = (
       }
     };
     mut.to = to;
-    delete mut.isAsync;
   });
 }
 
