@@ -240,14 +240,16 @@ They make `bigint`, `Date`, `Map` and even circular references survive a round t
 
 **[typia](https://typia.io/)** reads your TypeScript types at build time and emits a serializer from them. `typia.json.assertStringify<T>()` validates first and points at the field - `invalid type on $input.id` - so it's genuinely safe, and the runtime cost is near zero because everything is inlined at build. The price is the build: you need `ttsc` or the unplugin wired in, it can't run from plain JavaScript, and there's no schema value at runtime to hand to anything else. `bigint` is also [prohibited outright](https://github.com/samchon/typia/issues/444) in its JSON functions, so back to a manual mapper for those. Recommended if you like compile-time tools.
 
-**[Effect Schema](https://effect.website/)** has had bidirectional codecs for years, and v4 ships `fromJsonString`, so the pipeline idea is there too:
+**[Effect Schema](https://effect.website/)** has had bidirectional codecs for years, and v4 has the strongest answer here besides Sury. The idiomatic way is `toCodecJson`, which turns any schema into a JSON-compatible one:
 
 ```ts
-S.encodeSync(S.fromJsonString(Item))({ price: Infinity, name: "a" });
-// => '{"price":null,"name":"a"}'
+const codec = S.toCodecJson(S.Struct({ id: S.BigInt, at: S.Date }));
+
+S.encodeSync(codec)({ id: 42n, at: new Date("2026-01-15T10:30:00Z") });
+// => { id: "42", at: "2026-01-15T10:30:00.000Z" }
 ```
 
-However, the same `null` problem is still here. It reaches `JSON.stringify` at the end, and the corruption comes back with it. You can use `BigIntFromString` to bridge the `bigint` type properly, but it pollutes your schema definition with wire logic.
+`bigint`, `Date` and `Uint8Array` are handled automatically, with no wire logic in your schema definition. The one thing to know is what it does with values JSON can't hold - `Infinity` becomes the string `"Infinity"` and round-trips back perfectly. Great if both ends speak Effect, surprising for a consumer in another language that expected a number there. Sury throws instead, which I think is the safer default for a public API, but calling it a lie would be unfair - nothing is lost.
 
 Besides all the roast, I'd call Effect v4 the best TypeScript library of 2026, and Effect Schema is a no-brainer if you already use Effect.
 
@@ -290,17 +292,17 @@ In the AI age, ignoring the types your schema provides is a free ticket to funny
 
 Anyway, the whole thing side by side:
 
-| Encode a `{ price, name }` object | **Sury**         | Zod              | Effect Schema       | typia              | fast-json-stringify    |
-| --------------------------------- | ---------------- | ---------------- | ------------------- | ------------------ | ---------------------- |
-| `Infinity`                        | ✅ throws + path | ✅ throws + path | ❌ `null`           | ✅ throws + path   | ❌ `null`              |
-| Wrong type                        | ✅ throws + path | ✅ throws + path | ✅ throws + path    | ✅ throws + path   | ❌ silently coerced    |
-| Missing field                     | ✅ throws + path | ✅ throws + path | ✅ throws + path    | ✅ throws + path   | ✅ throws (field only) |
-| `bigint` / `Date` as real types   | ✅               | ✅ hand-written  | ✅ explicit encoder | ❌ `bigint` banned | ❌                     |
-| Undeclared fields                 | ✅ stripped      | ✅ stripped      | ✅ stripped         | ✅ stripped        | ✅ stripped            |
-| Schema reaches TypeScript         | ✅ inferred      | ✅ inferred      | ✅ inferred         | ✅ it is the type  | ❌ any object          |
-| Decodes back too                  | ✅ same schema   | ✅               | ✅                  | ✅                 | ❌                     |
-| Runs without a build step         | ✅               | ✅               | ✅                  | ❌ compiler        | ✅                     |
-| min+gzip                          | **16.4 kB**      | 19.4 kB          | 23.5 kB             | inlined            | 56.7 kB                |
+| Encode a `{ price, name }` object | **Sury**         | Effect Schema        | Zod              | typia              | fast-json-stringify    |
+| --------------------------------- | ---------------- | -------------------- | ---------------- | ------------------ | ---------------------- |
+| `Infinity`                        | ✅ throws + path | ⭕ `"Infinity"` text | ✅ throws + path | ✅ throws + path   | ❌ `null`              |
+| Wrong type                        | ✅ throws + path | ✅ throws + path     | ✅ throws + path | ✅ throws + path   | ❌ silently coerced    |
+| Missing field                     | ✅ throws + path | ✅ throws + path     | ✅ throws + path | ✅ throws + path   | ✅ throws (field only) |
+| `bigint` / `Date` as real types   | ✅               | ✅ automatic         | ✅ hand-written  | ❌ `bigint` banned | ❌                     |
+| Undeclared fields                 | ✅ stripped      | ✅ stripped          | ✅ stripped      | ✅ stripped        | ✅ stripped            |
+| Schema reaches TypeScript         | ✅ inferred      | ✅ inferred          | ✅ inferred      | ✅ it is the type  | ❌ any object          |
+| Decodes back too                  | ✅ same schema   | ✅                   | ✅               | ✅                 | ❌                     |
+| Runs without a build step         | ✅               | ✅                   | ✅               | ❌ compiler        | ✅                     |
+| min+gzip                          | **16.4 kB**      | 23.5 kB              | 19.4 kB          | inlined            | 56.7 kB                |
 
 Those sizes are measured with tree-shaking. fast-json-stringify is the only one here that corrupts and coerces without telling you - and adding [Ajv](https://ajv.js.org/) in front of it fixes that for about 46 bytes, since it already depends on Ajv anyway.
 
@@ -308,16 +310,16 @@ Those sizes are measured with tree-shaking. fast-json-stringify is the only one 
 
 This is the debate I used to hear often when people started bringing schemas for parsing to every project 5 years ago. It's pretty much the same situation here - you trade extra logic for correct outgoing data. But my point is that it can be a winning trade, with performance improved instead.
 
-Here's the full benchmark taken from `fast-json-stringify` readme page:
+Here's the full benchmark, every row, including the ones I lose:
 
-| Encode to JSON string                 | **Sury**    | `JSON.stringify` | Zod      | Effect   | typia    | fast-json-stringify | devalue / superjson |
+| Encode to JSON string                 | **Sury**    | `JSON.stringify` | Effect   | Zod      | typia    | fast-json-stringify | devalue / superjson |
 | ------------------------------------- | ----------- | ---------------- | -------- | -------- | -------- | ------------------- | ------------------- |
-| API response (user profile, 7 fields) | **227 ns**  | 385 ns           | 516 ns   | 2.15 µs  | 277 ns   | 266 ns              | 2.30 - 3.38 µs      |
-| List endpoint (100 rows)              | 10.39 µs    | **10.23 µs**     | 16.64 µs | 44.13 µs | 10.39 µs | 10.95 µs            | 120 - 200 µs        |
-| Event feed (50 tagged-union events)   | **3.30 µs** | 4.62 µs          | 9.38 µs  | 25.53 µs | 5.99 µs  | 12.65 µs            | 50 - 94 µs          |
-| Metrics dict (50 number values)       | 8.34 µs     | **4.72 µs**      | 14.74 µs | 12.16 µs | 19.92 µs | 8.74 µs             | 24 - 34 µs          |
-| Labels dict (50 string values)        | **3.67 µs** | **3.67 µs**      | 14.09 µs | 10.69 µs | 18.74 µs | 7.90 µs             | 23 - 33 µs          |
-| `bigint` id + binary payload + `Date` | **1.00 µs** | 1.14 µs          | 1.50 µs  | 4.28 µs  | 1.14 µs  | 1.13 µs             | 3.36 - 5.44 µs      |
+| API response (user profile, 7 fields) | **262 ns**  | 413 ns           | 3.19 µs  | 530 ns   | 277 ns   | 279 ns              | 2.36 - 3.68 µs      |
+| List endpoint (100 rows)              | 10.20 µs    | **10.15 µs**     | 67.80 µs | 16.90 µs | 10.62 µs | 10.92 µs            | 121 - 196 µs        |
+| Event feed (50 tagged-union events)   | **3.49 µs** | 4.74 µs          | 41.36 µs | 9.77 µs  | 6.12 µs  | 13.15 µs            | 52 - 96 µs          |
+| Metrics dict (50 number values)       | 8.26 µs     | **4.70 µs**      | 22.30 µs | 14.70 µs | 19.92 µs | 8.98 µs             | 24 - 34 µs          |
+| Labels dict (50 string values)        | **3.80 µs** | 3.92 µs          | 11.71 µs | 14.49 µs | 19.18 µs | 7.96 µs             | 23 - 33 µs          |
+| `bigint` id + binary payload + `Date` | **989 ns**  | 1.13 µs          | 3.57 µs  | 1.48 µs  | 1.15 µs  | 1.13 µs             | 3.28 - 5.48 µs      |
 
 Important! I'm not saying you need to switch to [Sury](https://github.com/DZakh/sury) for the nanoseconds. The point is that `JSON.stringify` is unsafe, and that fixing it costs you nothing - no performance regression, and in most real shapes an improvement. Safety is the main reason, and if you decide to migrate, you can bring speed as an extra candy for your team.
 
