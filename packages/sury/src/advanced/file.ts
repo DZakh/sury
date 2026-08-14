@@ -8,12 +8,12 @@ import { instanceDecoder } from "../parse";
 
 // On a runtime that has no such global there is no schema to be had, so `class`
 // reports that instead of sitting there as `undefined` for its readers to
-// dereference. Every route that needs the class goes through it — the decoder's
-// `instanceof`, the rendering, and `copySchema`'s `Object.assign` for `.with(…)`
-// and `reverse` — so all of them answer with this one sentence rather than a
-// TypeError, or worse, a schema that builds and fails later. The JSON Schema
-// emit below is the exception on purpose: it describes the wire, which is worth
-// generating on a runtime that could never hold the value.
+// dereference. Every route into the schema goes through `class` — the decoder's
+// `instanceof`, the rendering and the JSON Schema emit via `.name`, and
+// `copySchema`'s `Object.assign` for `.with(…)` and `reverse` — so all of them
+// answer with this one sentence rather than a TypeError, or worse, a schema
+// that builds and fails later — converting a schema that merely decodes to one
+// included, since the encode-reverse copies the target to get there.
 //
 // Enumerable, so the `Object.assign` copy is one of the routes it covers.
 // `console.log` still works: `util.inspect` shows an accessor rather than
@@ -25,17 +25,22 @@ const unsupported = (s: Internal, name: string): void => {
   });
 };
 
-// The one thing about these schemas a structural conversion can't reach: the
-// value is octets, which no JSON type describes, so both dialects describe the
-// carrier instead and disagree on how. OpenAPI 3.0 has `format: "binary"` for
-// exactly this and no content keywords at all; JSON Schema has no such format
-// and says it with `contentMediaType`. `minSize`/`maxSize` have no keyword in
-// either and stay off — a byte count is not `minLength`, which counts
-// characters.
+// What a schema that decodes *to* one of these adds to its own document. No
+// `type`: a blob is octets, which no JSON type describes, so the carrier is the
+// only thing with a type to give and this says what it carries. Read only from
+// a carrier, so `S.blob` on its own still has no document at all — which is the
+// truth, a `Blob` is not JSON.
+//
+// The two dialects disagree on the spelling, which is the whole reason this
+// can't be an `S.extendJSONSchema` document: OpenAPI 3.0 has `format: "binary"`
+// for exactly this and no content keywords at all, JSON Schema has no such
+// format and says it with `contentMediaType`. `minSize`/`maxSize` have no
+// keyword in either and stay off — a byte count is not `minLength`, which
+// counts characters.
 const binaryJSONSchema = (_schema: Internal, target: string): JSONSchemaT =>
   target === openApi30
-    ? { type: "string", format: "binary" }
-    : { type: "string", contentMediaType: "application/octet-stream" };
+    ? { format: "binary" }
+    : { contentMediaType: "application/octet-stream" };
 
 // The global is read *inside* the initializer, not passed into it: a member
 // expression at module scope is not something esbuild will drop (the getter

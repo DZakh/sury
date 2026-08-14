@@ -21,10 +21,10 @@ const withoutGlobal = (name: string, body: string): string =>
 
 test("every route into a schema the runtime can't support says so", () => {
   // `class` is the one thing all of them read — the decoder's `instanceof`,
-  // the rendering, and `copySchema`'s `Object.assign` for `.with(…)` and
-  // `reverse`. Left undefined it produced a TypeError naming neither the
-  // schema nor the reason; a schema that built and failed later would be worse
-  // still.
+  // the rendering and the JSON Schema emit via `.name`, and `copySchema`'s
+  // `Object.assign` for `.with(…)` and `reverse`. Left undefined it produced a
+  // TypeError naming neither the schema nor the reason; a schema that built
+  // and failed later would be worse still.
   const message = "[Sury] S.file is not supported in this runtime";
   for (const route of [
     `S.parser(S.file)`,
@@ -32,19 +32,16 @@ test("every route into a schema the runtime can't support says so", () => {
     `S.parser(S.reverse(S.file))`,
     `S.inputExpression(S.file)`,
     `String(S.file)`,
+    `S.toJSONSchema(S.file)`,
+    // Even converting a carrier: the encode-reverse copies the target, and
+    // `copySchema` reads `class` like every other route.
+    `S.toJSONSchema(S.string.with(S.to, S.file))`,
     `S.parser(S.union([S.file, S.string]))`,
   ]) {
     expect(withoutGlobal("File", `try { ${route} } catch (e) { console.log(e.message) }`), route).toBe(
       message
     );
   }
-  // The JSON Schema emit is the one route that doesn't read `class`: the
-  // schema converts itself, and a document describing an upload is worth
-  // generating on a runtime that could never hold one — a build step, or a
-  // server emitting an OpenAPI spec it doesn't itself submit forms to.
-  expect(withoutGlobal("File", `console.log(JSON.stringify(S.toJSONSchema(S.file)))`)).toBe(
-    `{"type":"string","contentMediaType":"application/octet-stream"}`
-  );
   // `reverse` of a self-reversing schema is that schema, so it copies nothing
   // and reads nothing — the report comes when the result is used, above.
   expect(withoutGlobal("File", `console.log(S.reverse(S.file) === S.file)`)).toBe("true");

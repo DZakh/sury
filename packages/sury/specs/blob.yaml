@@ -5,10 +5,8 @@ ts:
   output: Blob
   instantiations: 265
 jsonSchema:
-  input: '{ type: "string", contentMediaType: "application/octet-stream" }'
-  fromInputType: string
-  output: '{ type: "string", contentMediaType: "application/octet-stream" }'
-  fromOutputType: string
+  input: Expected JSON, received Blob
+  output: Expected JSON, received Blob
 vs:
   zod:
     _skip: not-applicable

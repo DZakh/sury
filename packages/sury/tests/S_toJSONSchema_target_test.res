@@ -230,18 +230,20 @@ test("toJSONSchema of a JSON string describes the document it carries", t => {
   )
 })
 
-// A blob is octets, which no JSON type describes — so each dialect describes
-// the carrier instead, and they disagree on how. `S.extendJSONSchema` holds one
-// document for every target and could not express this; the schema converting
-// itself is what can.
-test("toJSONSchema of a binary instance follows the target's spelling", t => {
+// A blob is octets, which no JSON type describes — so a document exists only
+// for the string somebody encodes it into, and the two dialects spell what that
+// string carries differently. `S.extendJSONSchema` holds one document for every
+// target and could not have said this.
+test("toJSONSchema of a schema decoding to a blob follows the target's spelling", t => {
+  let upload = S.string->S.to(S.blob)
+
   t->Assert.deepEqual(
-    S.file->S.toJSONSchema(~options={target: OpenApi30}),
+    upload->S.toJSONSchema(~options={target: OpenApi30}),
     %raw(`{"type": "string", "format": "binary"}`),
   )
 
   t->Assert.deepEqual(
-    S.blob->S.toJSONSchema(~options={target: Draft202012}),
+    upload->S.toJSONSchema(~options={target: Draft202012}),
     %raw(`{
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "type": "string",
@@ -249,12 +251,21 @@ test("toJSONSchema of a binary instance follows the target's spelling", t => {
     }`),
   )
 
-  // The override still lands on top of what the schema produced for itself.
+  // The override still lands on top of what the target contributed.
   t->Assert.deepEqual(
-    S.blob
+    upload
     ->S.extendJSONSchema({contentMediaType: "image/png"})
     ->S.toJSONSchema(~options={target: OpenApi30}),
     %raw(`{"type": "string", "format": "binary", "contentMediaType": "image/png"}`),
+  )
+})
+
+test("toJSONSchema of a binary instance still has no document at all", t => {
+  // A `Blob` is not JSON, whatever the target, and saying so is the whole
+  // reason the annotation above is read off the carrier and not off `S.blob`.
+  t->Assert.throws(
+    () => S.blob->S.toJSONSchema(~options={target: OpenApi30})->ignore,
+    ~expectations={message: "Expected JSON, received Blob"},
   )
 })
 

@@ -365,13 +365,17 @@ export type Internal = {
   // the `.to` target. Everything structural is rendered by inputExpression
   // itself, so setting this is the exception, not the pattern.
   expression?: (schema: Internal) => string;
-  // Overrides how toJSONSchema converts this schema, and the only way a
-  // conversion can depend on the target — the metadata overlay
-  // (S.extendJSONSchema) holds one document for every dialect. Only for a
-  // schema whose tag can't produce a document at all: the binary instances,
-  // which JSON Schema and OpenAPI 3.0 spell differently and neither spells
-  // structurally. Everything structural is converted by jsonschema.ts itself,
-  // so setting this is the exception, not the pattern.
+  // What this schema adds to the JSON Schema of a value that decodes to it —
+  // read off `.to` by the carrier, never off the schema being converted. A
+  // schema whose own input isn't JSON has no document of its own and must keep
+  // failing the conversion; what it can describe is the string (or whatever)
+  // somebody encodes it into, which the encode-reverse renders structurally and
+  // strips of every hint of what it was for.
+  //
+  // This is also the only way a conversion can depend on the target: the
+  // metadata overlay (S.extendJSONSchema) holds one document for every dialect.
+  // Setting it is the exception, not the pattern — everything structural is
+  // converted by jsonschema.ts itself.
   //
   // Internal: nothing publishes it, so its shape can still change. The result
   // is `unknown` because base.ts imports nothing and `JSONSchemaT` lives in

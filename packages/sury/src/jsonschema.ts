@@ -271,8 +271,22 @@ const isAnyJSONSchema = (definition: JSONSchemaDefinition | undefined): boolean 
 const applyMetadataOverlay = (
   jsonSchema: JSONSchemaT,
   schema: Internal,
-  defs: Record<string, Internal>
+  defs: Record<string, Internal>,
+  target: JsonSchemaTarget
 ): void => {
+  // A `.to` target the conversion above could only answer structurally — the
+  // encode-reverse says "a string" and drops what the string is *for*. Read
+  // from the carrier rather than from the target itself, because the target's
+  // own input isn't JSON at all: `S.blob` alone still has no document, and
+  // `S.string.with(S.to, S.blob)` is the schema that does.
+  //
+  // Here rather than beside the conversion so the layering falls out: it lands
+  // over the structural keywords and under `description` and the user's
+  // `S.extendJSONSchema`, which is applied last.
+  const to = schema.to;
+  if (to?.jsonSchema) {
+    Object.assign(jsonSchema, to.jsonSchema(to, target));
+  }
   if (schema.description !== U) {
     jsonSchema.description = schema.description;
   }
@@ -348,7 +362,7 @@ const internalToJSONSchema = (
     : U;
   let result: JSONSchemaT;
   if (encoded !== U) {
-    applyMetadataOverlay(encoded, schema, defs);
+    applyMetadataOverlay(encoded, schema, defs, target);
     result = encoded;
   } else {
     result = internalToJSONSchemaBase(schema, path, defs, parent, target);
@@ -398,13 +412,7 @@ const internalToJSONSchemaBase = (
     }
   };
   const tag = schema.type;
-  // Ahead of the structural tags, the way `expression` sits ahead of them in
-  // inputExpression: a schema that carries its own conversion is one whose tag
-  // has no document to give. Behind `applyMetadataOverlay` below all the same,
-  // so `S.extendJSONSchema` still has the last word over it.
-  if (schema.jsonSchema) {
-    Object.assign(jsonSchema, schema.jsonSchema(schema, target));
-  } else if (tag === stringTag) {
+  if (tag === stringTag) {
     const const_ = schema.const as string | undefined;
     const format = schema.format;
     jsonSchema.type = "string";
@@ -701,7 +709,7 @@ const internalToJSONSchemaBase = (
     });
   }
 
-  applyMetadataOverlay(jsonSchema, schema, defs);
+  applyMetadataOverlay(jsonSchema, schema, defs, target);
 
   return jsonSchema;
 }
