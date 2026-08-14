@@ -389,6 +389,23 @@ interpreting them as text. The format is validated before anything is decoded,
 so `S.base64` and `S.base64.with(S.to, S.uint8Array)` accept exactly the same
 strings.
 
+Bytes reach a JSON document as base64, since JSON has no byte type:
+
+```ts
+S.parser(S.uint8Array.with(S.to, S.json))(new Uint8Array([72, 105])); // "SGk="
+S.parser(S.schema({ payload: S.uint8Array }).with(S.to, S.jsonString))({
+  payload: new Uint8Array([72, 105]),
+}); // '{"payload":"SGk="}'
+```
+
+UTF-8 is not an option here: it can't represent bytes that aren't valid UTF-8,
+which would come back as U+FFFD instead of the original data. Ask for the text
+conversion explicitly when the bytes really are text:
+
+```ts
+S.uint8Array.with(S.to, S.string).with(S.to, S.jsonString); // utf-8, then JSON
+```
+
 ## Strings
 
 **Sury** includes a handful of string-specific refinements and transforms:

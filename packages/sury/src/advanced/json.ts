@@ -124,8 +124,10 @@ export const jsonEncoderFn = (input: Val, target: Internal): Val => {
   } else if (flagUnsafeHas(toTagFlag, (tagFlagUnion | tagFlagRef))) {
     return input;
   } else {
-    // For non-JSON types (bigint, instance, etc.), decode through string
-    const jsonExpected = copySchema(string);
+    // For non-JSON types (bigint, instance, etc.), decode through string — the
+    // one the target names if it has a JSON form of its own, so that its
+    // decoder can still tell what the string holds.
+    const jsonExpected = copySchema(target.jsonAs || string);
     jsonExpected.to = target;
     return parse(B_refine(input, unknown, U, jsonExpected));
   }

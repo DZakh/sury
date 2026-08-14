@@ -270,6 +270,16 @@ S.base64->S.to(S.uint8Array)->S.to(S.string) // base64 of utf-8 text
 string targets that don't, since they re-encode the same bytes instead of
 interpreting them as text.
 
+Bytes reach a JSON document as base64, since JSON has no byte type — UTF-8 is
+not an option there, because bytes that aren't valid UTF-8 would come back as
+U+FFFD instead of the original data. Ask for the text conversion explicitly
+when the bytes really are text:
+
+```rescript
+S.uint8Array->S.to(S.json) // bytes -> base64 inside JSON
+S.uint8Array->S.to(S.string)->S.to(S.jsonString) // utf-8, then JSON
+```
+
 **A format checks syntax, not safety.** Every one is exactly as strict as its
 spec, so a well-formed value passes even when it isn't one you want to accept:
 

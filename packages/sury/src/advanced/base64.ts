@@ -92,7 +92,7 @@ const bufferToBytes = (value: string, encoding: string): Uint8Array =>
 // every input they disagree about (specs/base64.yaml pins that acceptance). A
 // path that reached these without the pattern would decode differently on
 // different runtimes.
-const B_toBytes = (input: Val, url: boolean): string => {
+export const B_toBytes = (input: Val, url: boolean): string => {
   const impl =
     (Uint8Array as unknown as NativeBase64).fromBase64 !== U
       ? url
@@ -106,7 +106,7 @@ const B_toBytes = (input: Val, url: boolean): string => {
   return `${B_embed(input, impl)}(${input.i})`;
 };
 
-const B_fromBytes = (input: Val, url: boolean): string => {
+export const B_fromBytes = (input: Val, url: boolean): string => {
   const impl =
     (Uint8Array as unknown as NativeBase64).prototype.toBase64 !== U
       ? url

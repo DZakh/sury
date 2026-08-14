@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.uint8Array.with(S.to, S.json)
+  input: Uint8Array<ArrayBufferLike>
+  output: JSON
+  instantiations: 5091
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: Expected JSON, received Uint8Array
+  output: '{ type: "string", contentEncoding: "base64", pattern: "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$" }'
+operations:
+  parse:
+    expression: i=>{i instanceof e[1]||e[2](i);return e[0](i)}
+    examples:
+      ascii:
+        input: new Uint8Array([72, 105])
+        output: '"SGk="'
+      not-valid-utf8:
+        input: new Uint8Array([255, 254, 253])
+        output: '"//79"'
+      empty:
+        input: new Uint8Array([])
+        output: '""'
+  decode:
+    expression: i=>{return e[0](i)}
+    examples:
+      ascii:
+        input: new Uint8Array([72, 105])
+        output: '"SGk="'
+      not-valid-utf8:
+        input: new Uint8Array([255, 254, 253])
+        output: '"//79"'
+      empty:
+        input: new Uint8Array([])
+        output: '""'
+  encode:
+    expression: i=>{typeof i==="string"||e[3](i);e[1].test(i)||e[2](i);return e[0](i)}
+    examples:
+      ascii:
+        input: '"SGk="'
+        output: new Uint8Array([72, 105])
+      not-valid-utf8:
+        input: '"//79"'
+        output: new Uint8Array([255, 254, 253])
+      not-base64:
+        input: '"not base64!"'
+        error: Expected base64, received "not base64!"

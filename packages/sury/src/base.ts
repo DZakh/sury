@@ -280,6 +280,13 @@ export type Internal = {
   inputRefiner?: (input: Val) => Check[];
   // Custom validations on output (after decoder).
   refiner?: (input: Val) => Check[];
+  // How this schema appears inside a JSON document, for a type JSON has no
+  // spelling for. advanced/json.ts narrows such a value through a string on the
+  // way in and out, and reads this to know *which* string — without it the
+  // provenance is gone by the time the target's decoder runs, and a
+  // Uint8Array's base64 could not be told apart from a UTF-8 one. Set it on any
+  // schema whose JSON form is not the plain string coercion.
+  jsonAs?: Internal;
   // A schema we transform to.
   to?: Internal;
   // When transforming with changing shape, store from which path it came
