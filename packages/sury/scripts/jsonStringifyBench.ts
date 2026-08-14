@@ -259,6 +259,44 @@ const cases: Case[] = [];
   });
 }
 
+// ── Formatted strings (uuid, timestamp, ip, email) ───────────────────────────
+// The shape an audit log or an event envelope actually has. Sury splices a
+// value whose format admits no escapable character straight between quotes
+// (escFreeFormatRe in advanced/json.ts) — and still runs each format's pattern
+// check first, which the competitors don't, so this charges Sury for
+// validation they skip.
+{
+  const data = {
+    id: "123e4567-e89b-12d3-a456-426614174000",
+    at: "2026-01-15T10:30:00.000Z",
+    ip: "192.168.1.100",
+    who: "anna@example.com",
+    note: "updated the billing address",
+  };
+  const str = { type: "string" } as const;
+  const fj = fastJson({
+    type: "object",
+    properties: { id: str, at: str, ip: str, who: str, note: str },
+    required: ["id", "at", "ip", "who", "note"],
+  });
+  const sury = S.encoder(
+    S.schema({
+      id: S.uuid,
+      at: S.isoDateTime,
+      ip: S.ipv4,
+      who: S.email,
+      note: S.string,
+    }),
+    S.jsonString,
+  );
+  cases.push({
+    name: "Audit row (uuid + timestamp + ip + email)",
+    stringify: () => JSON.stringify(data),
+    fastJson: () => fj(data),
+    sury: () => sury(data),
+  });
+}
+
 const fmt = (ns: number): string =>
   ns < 1000 ? `${ns.toFixed(0)} ns` : `${(ns / 1000).toFixed(2)} µs`;
 
