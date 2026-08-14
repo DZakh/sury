@@ -35,3 +35,6 @@ operations:
       valid:
         input: new Set([new Date("1970-01-01T00:00:00.000Z")])
         output: new Set(["1970-01-01T00:00:00.000Z"])
+      two-dates-encoding-alike-are-one-item:
+        input: new Set([new Date("1970-01-01T00:00:00.000Z"), new Date("1970-01-01T00:00:00.000Z")])
+        output: new Set(["1970-01-01T00:00:00.000Z"])

@@ -35,3 +35,6 @@ operations:
       valid:
         input: new Map([[new Date("1970-01-01T00:00:00.000Z"), 1]])
         output: new Map([["1970-01-01T00:00:00.000Z", 1]])
+      two-keys-encoding-alike-are-one-entry-the-last-winning:
+        input: new Map([[new Date("1970-01-01T00:00:00.000Z"), 1], [new Date("1970-01-01T00:00:00.000Z"), 2]])
+        output: new Map([["1970-01-01T00:00:00.000Z", 2]])

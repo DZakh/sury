@@ -281,6 +281,15 @@ Object.defineProperty(schemaPrototype, reversedKey, {
       } else {
         mut.to = reversedHead;
       }
+      // Both are lazily computed answers about the *decode* direction, and
+      // this copy's decode direction is the original's encode one — inherited,
+      // they made `S.isAsync(reverse(schema))` (and the spec harness's
+      // per-direction async check) answer for a direction never compiled.
+      // Dropped here rather than in copySchema: this runs once per schema and
+      // caches, where copySchema is on every `.with(…)`, and a `delete` there
+      // costs the fresh object its hidden class (~90% on schema creation).
+      delete mut.isAsync;
+      delete mut.hasTransform;
       const record = mut as unknown as Record<string, unknown>;
       reverseSwap(record, "parser", "serializer");
       reverseSwap(record, "refiner", "inputRefiner");

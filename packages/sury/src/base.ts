@@ -803,16 +803,9 @@ export const initSchema = (
 // it droppable.
 export const unknown: Internal = baseSchema(unknownTag, true, noopDecoder);
 
-// `isAsync` and `hasTransform` are lazily computed answers about one schema's
-// decode direction, so a copy — a *different* schema, as its fresh `seq` says —
-// must not inherit them: `.with(S.to, …)` changes both, and the reverse getter
-// copies too, which is how `S.isAsync(schema)` used to make `S.isAsync(reverse(
-// schema))` answer for the direction it never compiled.
 export const copySchema = (schema: Internal): Internal => {
   const c: Internal = Object.assign(new (Schema as unknown as SchemaClass)(), schema);
   c.seq = seq++;
-  delete c.isAsync;
-  delete c.hasTransform;
   return c;
 }
 
