@@ -1083,6 +1083,20 @@ S.instance(Set).with(S.minSize, 1); // Expected Set.size >= 1
 > Strings and arrays use `S.minLength`/`S.maxLength`/`S.length` instead.
 > A lower bound of `0` is dropped; a negative one is an error.
 
+A blob is octets, which no JSON type describes, so `S.toJSONSchema` describes
+the carrier — and each target spells that differently:
+
+```ts
+S.toJSONSchema(S.blob, { target: "openapi-3.0" });
+// { type: "string", format: "binary" }
+
+S.toJSONSchema(S.blob, { target: "draft-2020-12" });
+// { type: "string", contentMediaType: "application/octet-stream", $schema: … }
+```
+
+The size bounds don't survive the conversion: neither dialect has a keyword for
+a byte count, and `minLength` counts characters.
+
 ## File
 
 `S.file` validates a `File`. A `File` is a `Blob`, so it also satisfies

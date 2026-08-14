@@ -5,8 +5,10 @@ ts:
   output: File
   instantiations: 5165
 jsonSchema:
-  input: Expected JSON, received File
-  output: Expected JSON, received File
+  input: '{ type: "string", contentMediaType: "application/octet-stream" }'
+  fromInputType: string
+  output: '{ type: "string", contentMediaType: "application/octet-stream" }'
+  fromOutputType: string
 vs:
   zod: z.file().min(0)
 operations:

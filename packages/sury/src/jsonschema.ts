@@ -27,6 +27,7 @@ import {
   nullTag,
   numberTag,
   objectTag,
+  openApi30,
   type Path,
   pathConcat,
   pathDynamic,
@@ -243,8 +244,8 @@ export type JSONSchemaT = {
 export type JsonSchemaTarget = "draft-07" | "draft-2020-12" | "openapi-3.0" | (string & {});
 
 // Compared on every emit branch that differs by dialect; naming it once keeps
-// the literal out of the bundle at each of those sites.
-const openApi30 = "openapi-3.0";
+// the literal out of the bundle at each of those sites. `openApi30` is in
+// base.ts, where a schema converting itself can reach it too.
 const draft202012 = "draft-2020-12";
 const draft07Uri = "http://json-schema.org/draft-07/schema#";
 const draft2020Uri = "https://json-schema.org/draft/2020-12/schema";
@@ -397,7 +398,13 @@ const internalToJSONSchemaBase = (
     }
   };
   const tag = schema.type;
-  if (tag === stringTag) {
+  // Ahead of the structural tags, the way `expression` sits ahead of them in
+  // inputExpression: a schema that carries its own conversion is one whose tag
+  // has no document to give. Behind `applyMetadataOverlay` below all the same,
+  // so `S.extendJSONSchema` still has the last word over it.
+  if (schema.jsonSchema) {
+    Object.assign(jsonSchema, schema.jsonSchema(schema, target));
+  } else if (tag === stringTag) {
     const const_ = schema.const as string | undefined;
     const format = schema.format;
     jsonSchema.type = "string";
