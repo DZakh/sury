@@ -619,10 +619,11 @@ const unionCheckPartial = (
   for (let idx = 0; idx < variants.length; idx++) {
     const variant = variants[idx]!;
     const match = outputSide ? unionOutput(variant) : variant;
+    // The sentinel-aware unionOutput already reports a never-linked chain on
+    // the output side, so the explicit link walk is only for the input side.
     if (
       variant.type === neverTag ||
-      (outputSide && match.type === neverTag) ||
-      unionNeverLink(variant)
+      (outputSide ? match.type === neverTag : unionNeverLink(variant))
     ) {
       continue;
     }

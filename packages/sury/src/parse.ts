@@ -172,21 +172,6 @@ export const parseDynamic = (input: Val): Val => {
   }
 }
 
-export const isAsyncInternal = (
-  schema: Internal,
-  defs: Record<string, Internal> | undefined
-): boolean => {
-  try {
-    const input = B_operationArg(unknown, schema, flagAsync, defs);
-    const output = parse(input);
-    const isAsync = flagUnsafeHas(output.f, valFlagAsync);
-    schema.isAsync = isAsync;
-    return isAsync;
-  } catch (exn) {
-    getOrRethrow(exn);
-    return false;
-  }
-}
 export const compileDecoder = (
   schema: Internal,
   expected: Internal,

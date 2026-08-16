@@ -27,6 +27,7 @@ import {
   B_invalidInputBuilder,
   B_invalidOperation,
   B_neverSlot,
+  B_refine,
 } from "./builder";
 import { objectDecoder } from "./composites";
 import { definitionToSchema } from "./factory";
@@ -196,7 +197,12 @@ export const js_refine = (
   });
 };
 
-const noop = <T>(a: T): T => a;
+// An assert doesn't change the value, so the encode direction claims the
+// reversed continuation outright instead of compiling a try/catch around an
+// identity call.
+const passthroughSlot: Builder = (input: Val) =>
+  B_refine(input, input.e.to!, U, input.e.to!);
+
 // @__NO_SIDE_EFFECTS__
 export const js_asyncDecoderAssert = (
   schema: Internal,
@@ -206,7 +212,7 @@ export const js_asyncDecoderAssert = (
     schema,
     unknown,
     B_conversion((v: unknown) => assertFn(v).then(() => v), true),
-    B_conversion(noop),
+    passthroughSlot,
   );
 };
 
