@@ -145,7 +145,10 @@ export const recursive = (name: string, fn: (schema: Internal) => Internal): Int
   // This is for mutual recursion
   const isNestedRec = globalConfig.d !== U;
   if (!isNestedRec) {
-    globalConfig.d = {};
+    // Null prototype: the caller names the definition, and a schema named
+    // `__proto__` would set this object's prototype instead of taking a key —
+    // leaving a `$ref` to a definition that never appears in `$defs`.
+    globalConfig.d = Object.create(null);
   }
   const def = fn(refSchema);
   if (def.name) {

@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ a: S.recursive("toString", (self) => S.schema({ v: S.string, next: S.optional(self) })), b: S.recursive("__proto__", (self) => S.schema({ v: S.string, next: S.optional(self) })) })'
+  input: "{ a?: unknown; b?: unknown; }"
+  output: "{ a?: unknown; b?: unknown; }"
+  instantiations: 12841
+jsonSchema:
+  input: '{ type: "object", properties: { a: { $ref: "#/$defs/toString" }, b: { $ref: "#/$defs/__proto__" } }, required: ["a", "b"], $defs: { toString: { type: "object", properties: { v: { type: "string" }, next: { $ref: "#/$defs/toString" } }, required: ["v"] }, ["__proto__"]: { type: "object", properties: { v: { type: "string" }, next: { $ref: "#/$defs/__proto__" } }, required: ["v"] } } }'
+  fromInputType: "{ a: { v: string; next?: ... | undefined; }; b: { v: string; next?: ... | undefined; }; }"
+  output: '{ type: "object", properties: { a: { $ref: "#/$defs/toString" }, b: { $ref: "#/$defs/__proto__" } }, required: ["a", "b"], $defs: { toString: { type: "object", properties: { v: { type: "string" }, next: { $ref: "#/$defs/toString" } }, required: ["v"] }, ["__proto__"]: { type: "object", properties: { v: { type: "string" }, next: { $ref: "#/$defs/__proto__" } }, required: ["v"] } } }'
+  fromOutputType: "{ a: { v: string; next?: ... | undefined; }; b: { v: string; next?: ... | undefined; }; }"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0;try{v0=e[0](i["a"]);}catch(v1){v1.path="[\"a\"]"+v1.path;throw v1}let v2;try{v2=e[1](i["b"]);}catch(v3){v3.path="[\"b\"]"+v3.path;throw v3}return {"a":v0,"b":v2,}}
+    examples:
+      both-chains:
+        input: '{ a: { v: "x", next: { v: "y" } }, b: { v: "z" } }'
+        output: '{ a: { v: "x", next: { v: "y", next: undefined } }, b: { v: "z", next: undefined } }'
+      wrong-type-in-reserved-def:
+        input: '{ a: { v: 1 }, b: { v: "z" } }'
+        error: 'Failed at ["a"]["v"]: Expected string, received 1'
+  decode:
+    expression: i=>{let v0;try{v0=e[0](i["a"]);}catch(v1){v1.path="[\"a\"]"+v1.path;throw v1}let v2;try{v2=e[1](i["b"]);}catch(v3){v3.path="[\"b\"]"+v3.path;throw v3}return {"a":v0,"b":v2,}}
+    examples:
+      both-chains:
+        input: '{ a: { v: "x", next: { v: "y" } }, b: { v: "z" } }'
+        output: '{ a: { v: "x", next: { v: "y", next: undefined } }, b: { v: "z", next: undefined } }'
+      wrong-type-in-reserved-def:
+        input: '{ a: { v: 1 }, b: { v: "z" } }'
+        output: '{ a: { v: 1, next: undefined }, b: { v: "z", next: undefined } }'
+  encode:
+    expression: i=>{let v0;try{v0=e[0](i["a"]);}catch(v1){v1.path="[\"a\"]"+v1.path;throw v1}let v2;try{v2=e[1](i["b"]);}catch(v3){v3.path="[\"b\"]"+v3.path;throw v3}return {"a":v0,"b":v2,}}
+    examples:
+      both-chains:
+        input: '{ a: { v: "x", next: { v: "y" } }, b: { v: "z" } }'
+        output: '{ a: { v: "x", next: { v: "y", next: undefined } }, b: { v: "z", next: undefined } }'
+      wrong-type-in-reserved-def:
+        input: '{ a: { v: 1 }, b: { v: "z" } }'
+        output: '{ a: { v: 1, next: undefined }, b: { v: "z", next: undefined } }'

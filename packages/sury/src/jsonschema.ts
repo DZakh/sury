@@ -756,10 +756,15 @@ export const toJSONSchema = (schema: Internal, options?: toJSONSchemaOptions): J
     target = "draft-07";
     schemaUri = U;
   }
-  const defs: Record<string, Internal> = {};
+  // Null prototypes: a definition is named by its author, so both maps are keyed
+  // by arbitrary strings. `__proto__` would set a prototype instead of a key on
+  // the way in, and every `Object.prototype` name — `toString`, `valueOf` —
+  // would read back as already converted on the way out, either way publishing
+  // a `$ref` to a definition that never lands in the document.
+  const defs: Record<string, Internal> = Object.create(null);
   const jsonSchema = internalToJSONSchema(schema, pathEmpty, defs, schema, target);
   if (options !== U) delete jsonSchema.$schema;
-  const jsonSchemDefs: Record<string, JSONSchemaDefinition> = {};
+  const jsonSchemDefs: Record<string, JSONSchemaDefinition> = Object.create(null);
   // A def body names defs of its own whenever a recursive schema is only
   // reached from inside another one — nested directly, or through a JSON
   // string's `contentSchema` — so the set grows while it is walked, and each
