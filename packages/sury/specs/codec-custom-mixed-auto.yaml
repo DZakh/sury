@@ -12,13 +12,13 @@ jsonSchema:
   output: '{ type: "string" }'
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[2](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}
+    expression: i=>{typeof i==="string"||e[3](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);return v0}
     examples:
       normalizes:
         input: '"  abc "'
         output: '"abc"'
   decode:
-    expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}
+    expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);return v0}
     examples:
       normalizes:
         input: '"  abc "'

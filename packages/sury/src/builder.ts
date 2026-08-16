@@ -807,18 +807,31 @@ export const B_scope = (val: Val): Val => {
   return nextVal;
 }
 
-// Compiles one custom codec slot of `S.to` (rule 4 of CUSTOM_CODEC_SPEC.md):
-// the coder's result claims the link target outright — both `schema` and
-// `expected` — so the target's forward pipeline is bypassed and only its
-// output-side refiners run on the result. Inside a union case the sync form
-// rethrows foreign exceptions raw (the union owns exception classification)
-// while still wrapping Sury failures with the reached path; the async form
-// leaves the promise bare — the case's own await/catch classifies rejections.
-export const B_conversion = (fn: (value: unknown) => unknown, isAsync?: boolean): Builder => {
+// Compiles one custom codec slot of `S.to` (rule 4 of CUSTOM_CODEC_SPEC.md).
+// Two seams, chosen by `junction`:
+//  - junction (the JS `{decode, encode}` surface): the result claims `unknown`
+//    and feeds the link target's own pipeline, so it is validated and
+//    built-in-converted like any untrusted input.
+//  - output seam (the ReScript `~custom` adapter's decodeToOutput /
+//    encodeFromOutput slots): the result claims the target outright — both
+//    `schema` and `expected` — bypassing its pipeline; only the target's
+//    output-side refiners run. The coder's signature is compiler-checked on
+//    that surface, so re-validating it would only cost generated code.
+// Inside a union case the sync form rethrows foreign exceptions raw (the
+// union owns exception classification) while still wrapping Sury failures
+// with the reached path; the async form leaves the promise bare — the case's
+// own await/catch classifies rejections.
+export const B_conversion = (
+  fn: (value: unknown) => unknown,
+  isAsync?: boolean,
+  junction?: boolean,
+): Builder => {
   return (input: Val): Val => {
     const target = input.e.to!;
     const outputVar = B_varWithoutAllocation(input.g);
-    const output = B_next(input, outputVar, target, target);
+    const output = junction
+      ? B_next(input, outputVar, unknown, target)
+      : B_next(input, outputVar, target, target);
     output.v = _var;
     if (isAsync) {
       if (!flagUnsafeHas(input.g.o, flagAsync)) {

@@ -30,7 +30,7 @@ operations:
         input: '"{\"id\":1}"'
         output: "{ id: 1 }"
   encode:
-    expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}
+    expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);return v0}
     examples:
       round-trip:
         input: "{ id: 1 }"

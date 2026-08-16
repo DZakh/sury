@@ -66,7 +66,6 @@
   - [`decoder1` / `asyncDecoder1`](#decoder1-asyncdecoder1)
   - [`reverse`](#reverse)
   - [`to`](#to)
-  - [`isAsync`](#isasync)
   - [`name`](#name)
   - [`inputExpression`](#inputexpression)
   - [`outputExpression`](#outputexpression)
@@ -1635,19 +1634,6 @@ let schema = S.string->S.to(S.float)
 // Reverse works correctly as well 🔥
 123.->S.decodeOrThrow(~from=schema, ~to=S.unknown) //? "123"
 ```
-
-### **`isAsync`**
-
-`(S.t<'value>) => bool`
-
-```rescript
-S.string->S.isAsync
-// false
-S.string->S.transform(() => {asyncParser: i => Promise.resolve(i)})->S.isAsync
-// true
-```
-
-Determines if the schema is async. It can be useful to decide whether you should use async operation.
 
 ### **`name`**
 

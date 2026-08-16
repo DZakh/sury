@@ -82,7 +82,6 @@ export {
   noValidation,
 } from "./modifiers";
 export {
-  isAsync,
   js_safe as safe,
   js_safeAsync as safeAsync,
 } from "./operations";

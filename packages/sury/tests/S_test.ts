@@ -137,11 +137,11 @@ test("S.to returns the schema itself when the target is the same instance", (t) 
   // decoder runs twice over its own output — silently wrong, not an error.
   t.expect(S.parser(S.to(schema, make()))("hello")).toBe(1);
 
-  // A custom coder means a real conversion step, so a target carrying its own
-  // `.to` chain is ambiguous (rule 4's guard) — same instance or not.
-  t.expect(() => S.to(schema, schema, (n) => n * 2)).toThrow(
-    "[Sury] The target carries its own conversion — chain S.to explicitly",
-  );
+  // A junction coder means a real conversion step, same instance or not: the
+  // result feeds the target's own chain, so it decodes again.
+  const doubled = S.to(schema, schema, (n) => String(n * 2));
+  t.expect(doubled).not.toBe(schema);
+  t.expect(S.parser(doubled)("hello")).toBe(2);
 
   expectSchemaType(schema).toBe<string, number>();
   expectSchemaType(S.to(schema, schema)).toBe<string, number>();
@@ -809,9 +809,9 @@ test("S.asyncEncoder runs an async encode codec", async (t) => {
     encode: { async: (number) => Promise.resolve("x".repeat(number)) },
   });
 
-  // The forward direction stays sync-parseable.
+  // The forward direction stays sync-parseable; async-ness is discovered by
+  // catching the sync operation's rejection, not via a dedicated probe.
   t.expect(S.parser(schema)("abc")).toBe(3);
-  t.expect(S.isAsync(S.reverse(schema))).toBe(true);
   t.expect(() => S.encoder(schema)).toThrow(
     "Encountered unexpected async transform or refine. Use parseAsyncOrThrow operation instead",
   );
@@ -2635,7 +2635,7 @@ test("Preprocess nested fields", (t) => {
   const fn = S.encoder(schema);
 
   t.expect(fn.toString()).toEqual(
-    `i=>{i===void 0||e[4](i);let v0;try{v0=e[0]("foo")}catch(x){e[1](x)}let v1;try{v1=e[2]("1")}catch(x){e[3](x)}return {"nested":{"tag":v0,"numberTag":v1,},}}`,
+    `i=>{i===void 0||e[6](i);let v0;try{v0=e[0]("foo")}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);let v1;try{v1=e[3]("1")}catch(x){e[4](x)}typeof v1==="string"||e[5](v1);return {"nested":{"tag":v0,"numberTag":v1,},}}`,
   );
 
   const value = fn(undefined);
@@ -2721,7 +2721,8 @@ test("Overwrite error message", (t) => {
   ): S.Schema<TInput, TOutput> => {
     return S.any.with(S.to, schema, (v) => {
       try {
-        return S.parser(schema)(v);
+        S.assert(schema, v);
+        return v;
       } catch (e) {
         if (e instanceof S.Error) {
           throw new Error(e.reason);

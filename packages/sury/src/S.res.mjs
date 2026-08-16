@@ -49,8 +49,8 @@ function unwrapConversion(conversion) {
 function to(from, target, custom) {
   if (custom !== undefined) {
     return Sury.to(from, target, {
-      decode: unwrapConversion(custom.decode),
-      encode: unwrapConversion(custom.encode)
+      decodeToOutput: unwrapConversion(custom.decode),
+      encodeFromOutput: unwrapConversion(custom.encode)
     });
   } else {
     return Sury.to(from, target);

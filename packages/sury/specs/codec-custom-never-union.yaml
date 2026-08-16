@@ -12,7 +12,7 @@ jsonSchema:
   output: '{ type: "string" }'
 operations:
   parse:
-    expression: i=>{for(;;){if(typeof i==="string")break;if(i===void 0){let v0;try{v0=e[0](i)}catch(x){e[1](x);e[2](x)}i=v0;break}e[3](i)}return i}
+    expression: i=>{for(;;){if(typeof i==="string")break;if(i===void 0){let v0;try{v0=e[0](i)}catch(x){e[1](x);e[2](x)}typeof v0==="string"||e[3](v0);i=v0;break}e[4](i)}return i}
     examples:
       sibling-arm:
         input: '"abc"'

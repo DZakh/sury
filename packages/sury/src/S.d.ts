@@ -167,7 +167,7 @@ export type Schema<TInput = unknown, TOutput = TInput> = {
     target: SchemaLike<TTargetInput, TTargetOutput>,
     // Coder (not a plain arrow): the shorthand must compare bivariantly for
     // the same reason as the Codecs slots — see the Coder note below.
-    codecs?: Coder<TOutput, TTargetOutput> | Codecs<TOutput, TTargetOutput>
+    codecs?: Coder<TOutput, TTargetInput> | Codecs<TOutput, TTargetInput>
   ): Schema<TInput, TTargetOutput>;
   with(
     refine: (
@@ -573,8 +573,6 @@ export function reverse<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>
 ): Schema<TOutput, TInput>;
 
-export function isAsync(schema: SchemaLike<unknown, unknown>): boolean;
-
 export function parser<TOutput>(
   schema: SchemaLike<unknown, TOutput>
 ): (data: unknown) => TOutput;
@@ -920,13 +918,15 @@ export type Conversion<A, B> =
   | { async: Coder<A, Promise<B>> };
 
 /**
- * Custom coders on an `S.to` conversion, one per direction. Both slots land
- * on the target's *output* side: decode maps the schema's output to the
- * target's output, encode the reverse.
+ * Custom coders on an `S.to` conversion, one per direction, sitting at the
+ * junction between the two schemas: decode maps the schema's output to the
+ * target's *input* — the result then runs through the target's own pipeline,
+ * validated and converted like any input — and encode maps the target's
+ * input back.
  */
-export type Codecs<TOutput, TTargetOutput> = {
-  decode: Conversion<TOutput, TTargetOutput>;
-  encode: Conversion<TTargetOutput, TOutput>;
+export type Codecs<TOutput, TTargetInput> = {
+  decode: Conversion<TOutput, TTargetInput>;
+  encode: Conversion<TTargetInput, TOutput>;
 };
 
 export function to<
@@ -937,7 +937,7 @@ export function to<
 >(
   schema: SchemaLike<TInput, TOutput>,
   target: SchemaLike<TTargetInput, TTargetOutput>,
-  codecs?: ((value: TOutput) => TTargetOutput) | Codecs<TOutput, TTargetOutput>
+  codecs?: ((value: TOutput) => TTargetInput) | Codecs<TOutput, TTargetInput>
 ): Schema<TInput, TTargetOutput>;
 
 export function toJSONSchema<TInput, TOutput>(

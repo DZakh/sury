@@ -464,11 +464,20 @@ type codecs<'from, 'to> = {
 @module("sury") external to: (t<'from>, t<'to>) => t<'to> = "to"
 %%private(
   @module("sury")
-  external toCustom: (t<'from>, t<'to>, codecs<'from, 'to>) => t<'to> = "to"
+  external toCustom: (
+    t<'from>,
+    t<'to>,
+    {"decodeToOutput": conversion<'from, 'to>, "encodeFromOutput": conversion<'to, 'from>},
+  ) => t<'to> = "to"
 )
 // Auto/Never already erase to the exact "auto"/"never" strings via @as;
 // Sync/Async keep the default variant representation the public JS `to`
 // doesn't understand, so each slot unwraps to the JS `f` / `{async: f}` forms.
+// The slots target the output seam (decodeToOutput/encodeFromOutput): the
+// junction seam the public JS `{decode, encode}` uses isn't typeable from
+// ReScript, where `t<'to>` only exposes the target's output type — and the
+// compiler already guarantees the coder's signature, so the junction seam's
+// re-validation would buy nothing here.
 %%private(
   let unwrapConversion = (conversion: conversion<'i, 'o>): conversion<'i, 'o> =>
     switch conversion {
@@ -484,7 +493,10 @@ let to = (from, target, ~custom=?) =>
     toCustom(
       from,
       target,
-      {decode: unwrapConversion(decode), encode: unwrapConversion(encode)},
+      {
+        "decodeToOutput": unwrapConversion(decode),
+        "encodeFromOutput": unwrapConversion(encode),
+      },
     )
   }
 
@@ -511,8 +523,6 @@ let parseAsyncOrThrow = (any, ~to) => asyncParser(~to)(any)
 external assertAsyncOrThrow: ('any, ~to: t<'value>) => promise<unit> = "$res_assertAsyncOrThrow"
 let decodeOrThrow = (any, ~from, ~to) => decoder(~from, ~to)(any)
 let decodeAsyncOrThrow = (any, ~from, ~to) => asyncDecoder(~from, ~to)(any)
-
-@module("sury") external isAsync: t<'value> => bool = "isAsync"
 
 @module("sury") external recursive: (string, t<'value> => t<'value>) => t<'value> = "recursive"
 

@@ -1354,7 +1354,7 @@ S.string.with(S.to, S.any, {
 });
 ```
 
-Both coders land on the target's *output* side: `decode` maps the schema's output to the target's output, `encode` the reverse. The target contributes its output-side refinements (they run on decode's result), validation of incoming values in the reverse direction, and the output type for `S.reverse` and `S.toJSONSchema`. With no natural target schema, use `S.any`.
+Both coders sit at the junction between the two schemas: `decode` maps the schema's output to the target's *input*, and the result then runs through the target's own pipeline — validated and converted like any other input, so a coder returning the wrong thing is caught at the boundary. `encode` receives what the target's reversed pipeline produced and maps it back. With no natural target schema, use `S.any` (where the validation is a no-op).
 
 Passing a bare function is a decode-only shorthand: parsing works, but compiling any operation that needs the encode direction fails where the operation is created — spell out `{decode, encode}` to say what encoding means.
 

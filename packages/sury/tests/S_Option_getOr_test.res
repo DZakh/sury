@@ -98,7 +98,6 @@ asyncTest("Compiled async parse code snapshot", async t => {
       false,
     )
 
-  t->Assert.deepEqual(schema->S.isAsync, true)
   t->Assert.deepEqual(await None->S.parseAsyncOrThrow(~to=schema), false)
   t->U.assertCompiledCode(
     ~schema,

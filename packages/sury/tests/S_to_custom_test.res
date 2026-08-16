@@ -262,8 +262,8 @@ asyncTest("An async encode compiles through the reversed chain", async t => {
 
   // The forward direction stays sync-parseable.
   t->Assert.deepEqual(%raw(`"abc"`)->S.parseOrThrow(~to=schema), %raw(`"abc"`))
-  t->Assert.is(schema->S.reverse->S.isAsync, true)
-  // The sync encoder rejects at creation.
+  // Async-ness is discovered by catching the sync operation's rejection —
+  // there is no S.isAsync probe.
   t->U.assertThrowsMessage(
     () => "abc"->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     `Encountered unexpected async transform or refine. Use parseAsyncOrThrow operation instead`,
