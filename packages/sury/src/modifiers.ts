@@ -158,6 +158,10 @@ export const codecTo = (
 ): Internal => {
   const root: Internal = updateOutput(schema, (mut) => {
     if (serializerB !== U) {
+      // copySchema keeps `anyOf` shared by reference with the target — union
+      // resolution (unionResolveToUnion) recognizes an arm that produces the
+      // whole target union by exactly that shared array, so a deep copy here
+      // would silently break Option.getOr's default arms.
       const targetMut = copySchema(target);
       targetMut.serializer = serializerB;
       mut.to = targetMut;

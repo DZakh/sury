@@ -803,6 +803,45 @@ test("JS refine produces invalid_input error with expected/received populated", 
   }
 });
 
+test("S.asyncEncoder runs an async encode codec", async (t) => {
+  const schema = S.string.with(S.to, S.number, {
+    decode: (string) => string.length,
+    encode: { async: (number) => Promise.resolve("x".repeat(number)) },
+  });
+
+  // The forward direction stays sync-parseable.
+  t.expect(S.parser(schema)("abc")).toBe(3);
+  t.expect(S.isAsync(S.reverse(schema))).toBe(true);
+  t.expect(() => S.encoder(schema)).toThrow(
+    "Encountered unexpected async transform or refine. Use parseAsyncOrThrow operation instead",
+  );
+  await t.expect(S.asyncEncoder(schema)(3)).resolves.toBe("xxx");
+});
+
+test("All-auto codecs behave exactly like the coder-less spelling", (t) => {
+  const schema = S.string.with(S.to, S.number, (string) => string.length);
+
+  // Same-instance target: the self-chain shortcut must apply to the
+  // all-"auto" object too, not only to the omitted argument.
+  t.expect(S.to(schema, schema, { decode: "auto", encode: "auto" })).toBe(schema);
+});
+
+test("Rejects unknown codec slot values at schema creation", (t) => {
+  t.expect(() =>
+    S.string.with(S.to, S.number, { decode: 1 as any, encode: "auto" }),
+  ).toThrow('[Sury] Unknown conversion 1 — expected a function, "auto", "never" or {async}');
+  // {async} is strict: extra keys are a misuse, not something to guess about.
+  t.expect(() =>
+    S.string.with(S.to, S.number, {
+      decode: { async: async (value: string) => value.length, sync: 1 } as any,
+      encode: "auto",
+    }),
+  ).toThrow("[Sury] Unknown conversion");
+  t.expect(() =>
+    S.string.with(S.to, S.number, { decode: null as any, encode: "auto" }),
+  ).toThrow("[Sury] Unknown conversion");
+});
+
 test("Successfully parses async schema", async (t) => {
   const schema = S.string.with(S.asyncDecoderAssert, async (string) => {
     expectTypeOf(string).toEqualTypeOf<string>();

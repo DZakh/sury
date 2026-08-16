@@ -1329,6 +1329,8 @@ The refine function is applied for both parsing and serializing.
 
 **Sury** allows to augment a conversion with custom logic, letting you transform the value during parsing and serializing. This is most commonly used for mapping the value to more convenient data-structures.
 
+<a id="transform"></a>
+
 ### **`to` with `~custom`**
 
 `(S.t<'from>, S.t<'to>, ~custom: S.codecs<'from, 'to>=?) => S.t<'to>`

@@ -573,6 +573,8 @@ export function reverse<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>
 ): Schema<TOutput, TInput>;
 
+export function isAsync(schema: SchemaLike<unknown, unknown>): boolean;
+
 export function parser<TOutput>(
   schema: SchemaLike<unknown, TOutput>
 ): (data: unknown) => TOutput;

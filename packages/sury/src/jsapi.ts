@@ -103,8 +103,10 @@ const conversionBuilder = (slot: unknown): Builder | undefined => {
   } else if (typeof slot === functionTag) {
     return B_conversion(slot as (value: unknown) => unknown);
   } else if (
-    slot &&
-    typeof (slot as { async?: unknown }).async === functionTag
+    slot !== null &&
+    typeof slot === objectTag &&
+    typeof (slot as { async?: unknown }).async === functionTag &&
+    Object.keys(slot as object).length === 1
   ) {
     return B_conversion((slot as { async: (value: unknown) => Promise<unknown> }).async, true);
   } else {
@@ -116,18 +118,12 @@ const conversionBuilder = (slot: unknown): Builder | undefined => {
 
 // @__NO_SIDE_EFFECTS__
 export const js_to = (schema: Internal, target: Internal, custom?: unknown) => {
-  // Chaining a schema to itself would append a second copy of its own chain,
-  // re-decoding the value it just produced. Custom coders still get a real
-  // conversion step — only the coder-less spelling is a no-op.
-  if (custom === U) {
-    return schema === target ? schema : codecTo(schema, target);
-  }
   let decode: Builder | undefined;
   let encode: Builder | undefined;
   if (typeof custom === functionTag) {
     decode = B_conversion(custom as (value: unknown) => unknown);
     encode = ambiguousEncode;
-  } else {
+  } else if (custom !== U) {
     const codecs = custom as { decode?: unknown; encode?: unknown };
     if (codecs.decode === U || codecs.encode === U) {
       return panic(
@@ -136,6 +132,13 @@ export const js_to = (schema: Internal, target: Internal, custom?: unknown) => {
     }
     decode = conversionBuilder(codecs.decode);
     encode = conversionBuilder(codecs.encode);
+  }
+  // Chaining a schema to itself would append a second copy of its own chain,
+  // re-decoding the value it just produced. Custom coders still get a real
+  // conversion step — the check runs after slot resolution so the all-"auto"
+  // spelling behaves exactly like the coder-less one.
+  if (schema === target && decode === U && encode === U) {
+    return schema;
   }
   // Rule 4's guard: on a target with its own `.to` chain the output seam and
   // the junction seam diverge, so a sync/async coder there is ambiguous.
