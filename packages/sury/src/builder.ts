@@ -13,6 +13,7 @@ import {
   inlinedValueFromString,
   inputExpression,
   type Internal,
+  isLiteral,
   type InvalidInputDetails,
   type Path,
   pathConcat,
@@ -807,19 +808,22 @@ export const B_scope = (val: Val): Val => {
   return nextVal;
 }
 
-// Compiles one custom coder of `S.to` into the chain. The only difference
-// between the two seams is what the coder's result claims to be, which is
-// what decides whether the link target then validates it:
+// Compiles one custom coder of `S.to` into the chain. The two seams differ in
+// exactly one thing: what the coder's result claims to already be, which is
+// what decides how much of the target the parse loop still runs over it.
 //
 //  - `junction` (the JS `{decode, encode}` surface): the result claims
-//    `unknown`, so the parse loop still owes the target a decode and runs the
-//    target's whole pipeline over it. A coder returning the wrong thing is
-//    caught there.
+//    `unknown`, so the loop owes the target a full decode. A coder returning
+//    the wrong thing is caught there.
 //  - otherwise (the ReScript adapter's decodeToOutput / encodeFromOutput):
-//    the result claims the target as both its runtime and expected schema, so
-//    the loop has nothing left to decode and only the target's output-side
-//    refiners run. The ReScript compiler already checks the coder's
-//    signature, so re-validating would only add generated code.
+//    the result claims the target itself, so the loop only runs what a typed
+//    decode would, the same deal `S.decoder` gives a caller who declares the
+//    input's schema. The ReScript compiler has already checked the coder's
+//    signature, so the skipped work is provably redundant.
+//
+// A literal target is the exception, and `compileDecoder` states the same
+// rule for its typed input: a type says "string", never "the string \"a\"",
+// so a const is checked whatever the value claims to be.
 //
 // Inside a union case the sync form rethrows foreign exceptions raw (the
 // union owns exception classification) while still wrapping Sury failures
@@ -833,9 +837,12 @@ export const B_conversion = (
   return (input: Val): Val => {
     const target = input.e.to!;
     const outputVar = B_varWithoutAllocation(input.g);
-    const output = junction
-      ? B_next(input, outputVar, unknown, target)
-      : B_next(input, outputVar, target, target);
+    const output = B_next(
+      input,
+      outputVar,
+      junction || isLiteral(target) ? unknown : target,
+      target,
+    );
     output.v = _var;
     if (isAsync) {
       if (!flagUnsafeHas(input.g.o, flagAsync)) {
