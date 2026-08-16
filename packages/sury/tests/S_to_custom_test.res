@@ -1,7 +1,8 @@
 open Vitest
 
-// Custom codecs on S.to (CUSTOM_CODEC_SPEC.md) — the ReScript surface of what
-// used to be S.transform.
+// Custom codecs on S.to: the ReScript surface of what used to be S.transform.
+// The coders land on the target's output side, so their results are trusted
+// (see the toOutput slots in S.res).
 
 test("Parses with a custom decode to the same type and a validating Auto encode", t => {
   let schema = S.string->S.to(S.string, ~custom={decode: Sync(String.trim), encode: Auto})
@@ -35,7 +36,7 @@ test("A never decode rejects the parse operation at creation", t => {
 
   t->U.assertThrowsMessage(
     () => "Hello world!"->S.parseOrThrow(~to=schema),
-    `The conversion from string to unknown is marked as never`,
+    `Can't decode string to unknown. The conversion is marked as never`,
   )
 })
 
@@ -45,7 +46,7 @@ test("A never encode rejects the encode operation at creation", t => {
   t->Assert.deepEqual("Hello world!"->S.parseOrThrow(~to=schema), %raw(`"Hello world!"`))
   t->U.assertThrowsMessage(
     () => "Hello world!"->S.decodeOrThrow(~from=schema, ~to=S.unknown),
-    `The conversion from unknown to string is marked as never`,
+    `Can't decode unknown to string. The conversion is marked as never`,
   )
 })
 
@@ -210,7 +211,7 @@ test("Fails to parse async decode using parseOrThrow", t => {
 
   t->U.assertThrowsMessage(
     () => %raw(`"Hello world!"`)->S.parseOrThrow(~to=schema),
-    `Encountered unexpected async transform or refine. Use parseAsyncOrThrow operation instead`,
+    `The conversion is async. Use the Async version of the operation`,
   )
 })
 
@@ -266,7 +267,7 @@ asyncTest("An async encode compiles through the reversed chain", async t => {
   // there is no S.isAsync probe.
   t->U.assertThrowsMessage(
     () => "abc"->S.decodeOrThrow(~from=schema, ~to=S.unknown),
-    `Encountered unexpected async transform or refine. Use parseAsyncOrThrow operation instead`,
+    `The conversion is async. Use the Async version of the operation`,
   )
   t->Assert.deepEqual(await "abc"->S.decodeAsyncOrThrow(~from=schema, ~to=S.unknown), %raw(`"abc"`))
 })
@@ -324,8 +325,8 @@ test("Compiled serialize code snapshot", t => {
       ~custom={decode: Sync(Int.toFloat), encode: Sync(value => value->Int.fromFloat)},
     )
 
-  // The custom pair lands on the output seam, so the coder's result is
-  // trusted — no int32 re-validation like the old S.transform emitted.
+  // The coder's result is trusted on this seam, so there's no int32
+  // re-validation like the old S.transform emitted.
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,

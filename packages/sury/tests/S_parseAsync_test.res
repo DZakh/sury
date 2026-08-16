@@ -480,7 +480,7 @@ module Union = {
     // work — the operation itself is the problem, so it's raised once.
     t->U.assertThrowsMessage(
       () => 2->S.parseOrThrow(~to=schema),
-      "Encountered unexpected async transform or refine. Use parseAsyncOrThrow operation instead",
+      "The conversion is async. Use the Async version of the operation",
     )
   })
 

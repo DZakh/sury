@@ -166,7 +166,7 @@ export type Schema<TInput = unknown, TOutput = TInput> = {
     ) => Schema<unknown, unknown>,
     target: SchemaLike<TTargetInput, TTargetOutput>,
     // Coder (not a plain arrow): the shorthand must compare bivariantly for
-    // the same reason as the Codecs slots — see the Coder note below.
+    // the same reason as the Codecs slots (see the Coder note below).
     codecs?: Coder<TOutput, TTargetInput> | Codecs<TOutput, TTargetInput>
   ): Schema<TInput, TTargetOutput>;
   with(
@@ -908,7 +908,7 @@ type Coder<A, B> = { bivarianceHack(value: A): B }["bivarianceHack"];
 /**
  * One custom conversion slot of `S.to`'s codecs: a sync coder, `"auto"` for
  * the built-in conversion, `"never"` for an unreachable direction, or an
- * async coder as `{async}` — sync/async is part of the definition because
+ * async coder as `{async}`. Async is declared rather than discovered, because
  * Sury compiles operations ahead of time.
  */
 export type Conversion<A, B> =
@@ -919,10 +919,9 @@ export type Conversion<A, B> =
 
 /**
  * Custom coders on an `S.to` conversion, one per direction, sitting at the
- * junction between the two schemas: decode maps the schema's output to the
- * target's *input* — the result then runs through the target's own pipeline,
- * validated and converted like any input — and encode maps the target's
- * input back.
+ * junction between the two schemas. `decode` maps the schema's output to the
+ * target's *input*, so its result runs through the target's own pipeline and
+ * is validated like any input; `encode` maps that input back.
  */
 export type Codecs<TOutput, TTargetInput> = {
   decode: Conversion<TOutput, TTargetInput>;

@@ -12,7 +12,7 @@ jsonSchema:
   output: '{ type: "number" }'
 operations:
   parse:
-    creationError: "SuryError: Encountered unexpected async transform or refine. Use parseAsyncOrThrow operation instead"
+    creationError: "SuryError: The conversion is async. Use the Async version of the operation"
   decode: eq-to-parse
   encode:
     expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);return v0}

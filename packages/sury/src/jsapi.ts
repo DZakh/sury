@@ -84,40 +84,34 @@ export const js_is = (a: unknown, b: unknown): boolean => {
 // @__NO_SIDE_EFFECTS__
 export const js_union = (values: unknown[]) => unionFactory(values.map(definitionToSchema));
 
-// Rule 3: the decode shorthand's encode direction is a hard error at
-// operation creation, even inside a union — silently skipping would commit to
-// a semantics the user never chose.
+// The decode-only shorthand leaves the encode direction undefined. It errors
+// at operation creation, and unlike the never slot it stays a hard error
+// inside a union too: skipping the variant silently would commit to a
+// semantics the caller never chose.
 const ambiguousEncode: Builder = (input: Val) =>
   B_invalidOperation(
     input,
     "Encoding is ambiguous when only a decode function is provided. Use S.to(target, {decode, encode})",
   );
 
-// One codec slot resolved to its Builder: `"auto"` (and an omitted argument)
-// is the built-in conversion, `"never"` the unreachable direction, a function
-// a sync coder, `{async}` an async one. `junction` picks the seam the coder's
-// result lands on (see B_conversion).
-const conversionBuilder = (slot: unknown, junction?: boolean): Builder | undefined => {
+// One codec slot resolved to its Builder. `"auto"` (and an omitted argument)
+// is `undefined`, which every caller reads as "no coder, use the built-in
+// conversion". `junction` picks which seam the coder's result lands on (see
+// B_conversion). An `{async}` object must carry that key alone: guessing past
+// a typo would silently pick a different direction's semantics.
+const conversionBuilder = (slot: unknown, junction: boolean): Builder | undefined => {
+  const async = (slot as { async?: unknown } | null)?.async;
   if (slot === "auto") {
     return U;
   } else if (slot === "never") {
     return B_neverSlot;
   } else if (typeof slot === functionTag) {
     return B_conversion(slot as (value: unknown) => unknown, false, junction);
-  } else if (
-    slot !== null &&
-    typeof slot === objectTag &&
-    typeof (slot as { async?: unknown }).async === functionTag &&
-    Object.keys(slot as object).length === 1
-  ) {
-    return B_conversion(
-      (slot as { async: (value: unknown) => Promise<unknown> }).async,
-      true,
-      junction,
-    );
+  } else if (typeof async === functionTag && Object.keys(slot as object).length === 1) {
+    return B_conversion(async as (value: unknown) => Promise<unknown>, true, junction);
   } else {
     return panic(
-      `Unknown conversion ${stringify(slot)} — expected a function, "auto", "never" or {async}`,
+      `Invalid conversion ${stringify(slot)}. Expected a function, "auto", "never" or {async: fn}`,
     );
   }
 };
@@ -126,53 +120,47 @@ const conversionBuilder = (slot: unknown, junction?: boolean): Builder | undefin
 export const js_to = (schema: Internal, target: Internal, custom?: unknown) => {
   let decode: Builder | undefined;
   let encode: Builder | undefined;
-  let outputSeamCoder = false;
+  let outputSeam = false;
   if (typeof custom === functionTag) {
     decode = B_conversion(custom as (value: unknown) => unknown, false, true);
     encode = ambiguousEncode;
-  } else if (custom !== U) {
-    // The public TS surface is the junction seam ({decode, encode}); the
-    // decodeToOutput/encodeFromOutput spellings are the output seam, kept out
-    // of S.d.ts — they exist for the ReScript `~custom` adapter, whose record
-    // is only typeable there. One spelling per direction, nothing else.
+  } else if (custom) {
     const codecs = custom as Record<string, unknown>;
-    const decodeJunction = codecs["decode"] !== U;
-    const encodeJunction = codecs["encode"] !== U;
-    if (
-      !(decodeJunction || codecs["decodeToOutput"] !== U) ||
-      !(encodeJunction || codecs["encodeFromOutput"] !== U)
-    ) {
+    // Two spellings, one per seam, never mixed: `{decode, encode}` is the
+    // public TS surface, `{decodeToOutput, encodeFromOutput}` is what the
+    // ReScript `~custom` adapter emits and is deliberately absent from
+    // S.d.ts. The key count rejects a typo instead of reading it as a
+    // missing direction.
+    const toOutput = codecs["decodeToOutput"];
+    outputSeam = !!toOutput;
+    const decodeSlot = outputSeam ? toOutput : codecs["decode"];
+    const encodeSlot = outputSeam ? codecs["encodeFromOutput"] : codecs["encode"];
+    if (!decodeSlot || !encodeSlot || Object.keys(codecs).length !== 2) {
       return panic(
-        `Both decode and encode are required for custom codecs — use "auto" for the built-in conversion`,
+        `Custom codecs must define both decode and encode. Use "auto" for the built-in conversion`,
       );
     }
-    if (Object.keys(codecs).length !== 2) {
-      return panic(`Custom codecs take exactly one conversion per direction`);
-    }
-    decode = conversionBuilder(
-      decodeJunction ? codecs["decode"] : codecs["decodeToOutput"],
-      decodeJunction,
-    );
-    encode = conversionBuilder(
-      encodeJunction ? codecs["encode"] : codecs["encodeFromOutput"],
-      encodeJunction,
-    );
-    outputSeamCoder =
-      (!decodeJunction && decode !== U && decode !== B_neverSlot) ||
-      (!encodeJunction && encode !== U && encode !== B_neverSlot);
+    decode = conversionBuilder(decodeSlot, !outputSeam);
+    encode = conversionBuilder(encodeSlot, !outputSeam);
   }
   // Chaining a schema to itself would append a second copy of its own chain,
-  // re-decoding the value it just produced. Custom coders still get a real
-  // conversion step — the check runs after slot resolution so the all-"auto"
-  // spelling behaves exactly like the coder-less one.
-  if (schema === target && decode === U && encode === U) {
+  // re-decoding the value it just produced. Resolving the slots first is what
+  // makes the all-"auto" spelling behave exactly like the coder-less one.
+  if (schema === target && !decode && !encode) {
     return schema;
   }
-  // Rule 4's guard: only the output seam is ambiguous on a target with its
-  // own `.to` chain. A junction coder's result enters the chain's head, so
-  // it stays legal — as do the "never"/"auto" slots, which place no coder.
-  if (outputSeamCoder && target.to !== U) {
-    return panic(`The target carries its own conversion — chain S.to explicitly`);
+  // An output-seam coder claims the target as its result, so a target that
+  // still converts on its own would have that conversion skipped. The
+  // junction seam feeds the target's chain instead, so it stays legal, as do
+  // the slots that place no coder.
+  if (
+    outputSeam &&
+    target.to &&
+    ((decode && decode !== B_neverSlot) || (encode && encode !== B_neverSlot))
+  ) {
+    return panic(
+      `The target already converts. Chain S.to instead of passing a custom codec`,
+    );
   }
   return codecTo(schema, target, decode, encode);
 };

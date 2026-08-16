@@ -813,7 +813,7 @@ test("S.asyncEncoder runs an async encode codec", async (t) => {
   // catching the sync operation's rejection, not via a dedicated probe.
   t.expect(S.parser(schema)("abc")).toBe(3);
   t.expect(() => S.encoder(schema)).toThrow(
-    "Encountered unexpected async transform or refine. Use parseAsyncOrThrow operation instead",
+    "The conversion is async. Use the Async version of the operation",
   );
   await t.expect(S.asyncEncoder(schema)(3)).resolves.toBe("xxx");
 });
@@ -829,17 +829,20 @@ test("All-auto codecs behave exactly like the coder-less spelling", (t) => {
 test("Rejects unknown codec slot values at schema creation", (t) => {
   t.expect(() =>
     S.string.with(S.to, S.number, { decode: 1 as any, encode: "auto" }),
-  ).toThrow('[Sury] Unknown conversion 1 — expected a function, "auto", "never" or {async}');
+  ).toThrow('[Sury] Invalid conversion 1. Expected a function, "auto", "never" or {async: fn}');
   // {async} is strict: extra keys are a misuse, not something to guess about.
   t.expect(() =>
     S.string.with(S.to, S.number, {
       decode: { async: async (value: string) => value.length, sync: 1 } as any,
       encode: "auto",
     }),
-  ).toThrow("[Sury] Unknown conversion");
+  ).toThrow("[Sury] Invalid conversion");
+  // A missing (or nulled) direction reads as the incomplete pair it is.
   t.expect(() =>
     S.string.with(S.to, S.number, { decode: null as any, encode: "auto" }),
-  ).toThrow("[Sury] Unknown conversion");
+  ).toThrow(
+    '[Sury] Custom codecs must define both decode and encode. Use "auto" for the built-in conversion',
+  );
 });
 
 test("Successfully parses async schema", async (t) => {

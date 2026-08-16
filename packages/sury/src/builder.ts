@@ -807,20 +807,24 @@ export const B_scope = (val: Val): Val => {
   return nextVal;
 }
 
-// Compiles one custom codec slot of `S.to` (rule 4 of CUSTOM_CODEC_SPEC.md).
-// Two seams, chosen by `junction`:
-//  - junction (the JS `{decode, encode}` surface): the result claims `unknown`
-//    and feeds the link target's own pipeline, so it is validated and
-//    built-in-converted like any untrusted input.
-//  - output seam (the ReScript `~custom` adapter's decodeToOutput /
-//    encodeFromOutput slots): the result claims the target outright — both
-//    `schema` and `expected` — bypassing its pipeline; only the target's
-//    output-side refiners run. The coder's signature is compiler-checked on
-//    that surface, so re-validating it would only cost generated code.
+// Compiles one custom coder of `S.to` into the chain. The only difference
+// between the two seams is what the coder's result claims to be, which is
+// what decides whether the link target then validates it:
+//
+//  - `junction` (the JS `{decode, encode}` surface): the result claims
+//    `unknown`, so the parse loop still owes the target a decode and runs the
+//    target's whole pipeline over it. A coder returning the wrong thing is
+//    caught there.
+//  - otherwise (the ReScript adapter's decodeToOutput / encodeFromOutput):
+//    the result claims the target as both its runtime and expected schema, so
+//    the loop has nothing left to decode and only the target's output-side
+//    refiners run. The ReScript compiler already checks the coder's
+//    signature, so re-validating would only add generated code.
+//
 // Inside a union case the sync form rethrows foreign exceptions raw (the
 // union owns exception classification) while still wrapping Sury failures
-// with the reached path; the async form leaves the promise bare — the case's
-// own await/catch classifies rejections.
+// with the reached path; the async form leaves the promise bare, since the
+// case's own await/catch classifies rejections.
 export const B_conversion = (
   fn: (value: unknown) => unknown,
   isAsync?: boolean,
@@ -838,8 +842,7 @@ export const B_conversion = (
         B_throw({
           code: "invalid_operation",
           path: pathEmpty,
-          reason:
-            "Encountered unexpected async transform or refine. Use parseAsyncOrThrow operation instead",
+          reason: "The conversion is async. Use the Async version of the operation",
         });
       }
       output.f |= valFlagAsync;
@@ -866,15 +869,16 @@ export const B_conversion = (
   };
 };
 
-// The "never" codec slot. Identity-compared by the union planner: a variant
-// whose compiled direction crosses this builder accepts nothing and yields to
-// its siblings; compiled standalone it rejects the operation at creation.
+// The "never" codec slot. The union planner compares against this reference
+// to find a direction a variant can't take: such a variant accepts nothing
+// and yields to its siblings, while standalone it rejects the operation here,
+// at creation.
 export const B_neverSlot: Builder = (input: Val) =>
   B_invalidOperation(
     input,
-    `The conversion from ${inputExpression(input.e)} to ${inputExpression(
+    `Can't decode ${inputExpression(input.e)} to ${inputExpression(
       input.e.to!,
-    )} is marked as never`,
+    )}. The conversion is marked as never`,
   );
 
 export const B_invalidOperation = (val: Val, description: string): never => {

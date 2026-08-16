@@ -146,10 +146,12 @@ export const getMutErrorMessage = (mut: Internal): SchemaErrorMessage => {
 }
 
 // The `S.to` codec wiring: the decode slot rides the source's output node as
-// its `parser`, the encode slot a copy of the target as its `serializer` —
-// `reverseSwap` trades their places, which is what makes double reversal
-// restore every slot. Slot semantics (auto/never/async/the JS shorthand) are
-// resolved by the caller into Builders; `U` means the built-in conversion.
+// its `parser`, the encode slot a copy of the target as its `serializer`.
+// That placement is what makes reversal free: `reverseSwap` trades the two
+// fields, so the encode coder becomes the reversed chain's parser and double
+// reversal restores every slot. Slot semantics (auto/never/async/the JS
+// shorthand) are resolved by the caller into Builders; `U` means no coder,
+// i.e. the built-in conversion.
 export const codecTo = (
   schema: Internal,
   target: Internal,
@@ -158,10 +160,10 @@ export const codecTo = (
 ): Internal => {
   const root: Internal = updateOutput(schema, (mut) => {
     if (serializerB !== U) {
-      // copySchema keeps `anyOf` shared by reference with the target — union
-      // resolution (unionResolveToUnion) recognizes an arm that produces the
-      // whole target union by exactly that shared array, so a deep copy here
-      // would silently break Option.getOr's default arms.
+      // copySchema keeps `anyOf` shared by reference with the target, and
+      // unionResolveToUnion recognizes an arm producing the whole target
+      // union by exactly that shared array. A deep copy here would silently
+      // break Option.getOr's default arms.
       const targetMut = copySchema(target);
       targetMut.serializer = serializerB;
       mut.to = targetMut;
@@ -172,9 +174,10 @@ export const codecTo = (
       mut.parser = parserB;
     }
   });
-  // copySchema carries a cached isAsync/hasTransform from the source, and a
-  // custom slot can change both — let the next compile re-derive them. Slotless
-  // links keep the fast path: the built-in conversion never turns async.
+  // copySchema carries a cached isAsync/hasTransform from the source and a
+  // custom slot can change both, so let the next compile re-derive them.
+  // Slotless links keep the fast path: a built-in conversion never turns
+  // async.
   if (parserB !== U || serializerB !== U) {
     delete root.isAsync;
     delete root.hasTransform;
@@ -199,9 +202,10 @@ export type OptionDefault =
   | { type: "value"; value: unknown }
   | { type: "callback"; callback: () => unknown };
 
-// Rule 2's union spelling of CUSTOM_CODEC_SPEC.md: every undefined-producing
-// variant converts to the item union with the default on decode, and yields to
-// its siblings on encode via the never slot.
+// Every undefined-producing variant converts to the item union, supplying the
+// default on decode and taking the never slot on encode so it yields to its
+// siblings there. Spelling the default as ordinary union arms is what lets the
+// planner treat it like any other variant.
 export const Option_getWithDefault = (schema: Internal, default_: OptionDefault): Internal => {
   return updateOutput(schema, (mut) => {
     const anyOf = mut.anyOf;
@@ -246,8 +250,9 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
       }
       const originalItem: Internal =
         originalItems.length === 1 ? originalItems[0]! : unionFactory(originalItems);
-      // Best-effort input form for JSON Schema metadata — a never or async
-      // encode makes it uncomputable, so skip rather than throw (rule 6).
+      // Best-effort input form for JSON Schema metadata. A never or async
+      // encode makes it uncomputable, so skip it rather than throw: metadata
+      // is not a value operation.
       try {
         mut.default = (getDecoder(reverse(originalItem)) as (input: unknown) => unknown)(v);
       } catch (_exn) {}
@@ -267,8 +272,9 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
         target
       );
       if (default_.type === "value") {
-        // A constant inline is idempotent, so re-reads don't need a var. The
-        // callback form stays materializable — re-reading would call it twice.
+        // A constant inline is idempotent, so re-reads need no var. The
+        // callback form stays materializable, since re-reading it would call
+        // the callback twice.
         output.v = _var;
       }
       return output;
@@ -400,10 +406,9 @@ export const meta = <TValue>(schema: Internal, data: Meta<TValue>): Internal => 
     if (data.examples.length === 0) {
       delete mut.examples;
     } else {
-      // Rule 6 of CUSTOM_CODEC_SPEC.md: a `never` or async encode makes the
-      // input-form examples uncomputable — skip them rather than throw. Only
-      // the operation-level rejection is absorbed; a per-value failure still
-      // names the author's bad example.
+      // A never or async encode makes the input-form examples uncomputable,
+      // so skip them rather than throw. Only the operation-level rejection is
+      // absorbed; a per-value failure still names the author's bad example.
       try {
         mut.examples = data.examples.map(getDecoder(reverse(schema)));
       } catch (exn) {

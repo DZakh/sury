@@ -470,14 +470,13 @@ type codecs<'from, 'to> = {
     {"decodeToOutput": conversion<'from, 'to>, "encodeFromOutput": conversion<'to, 'from>},
   ) => t<'to> = "to"
 )
-// Auto/Never already erase to the exact "auto"/"never" strings via @as;
-// Sync/Async keep the default variant representation the public JS `to`
-// doesn't understand, so each slot unwraps to the JS `f` / `{async: f}` forms.
-// The slots target the output seam (decodeToOutput/encodeFromOutput): the
-// junction seam the public JS `{decode, encode}` uses isn't typeable from
-// ReScript, where `t<'to>` only exposes the target's output type — and the
-// compiler already guarantees the coder's signature, so the junction seam's
-// re-validation would buy nothing here.
+// Auto/Never already erase to the exact "auto"/"never" strings via @as, while
+// Sync/Async keep the default variant representation the JS side doesn't
+// understand, so each slot unwraps to the JS `f` / `{async: f}` forms.
+// The slots are the toOutput ones: `t<'to>` exposes only the target's output
+// type, so the coder can't be typed against the target's input the way the JS
+// `{decode, encode}` surface is. Nothing is lost, because the compiler
+// already checks the coder's signature.
 %%private(
   let unwrapConversion = (conversion: conversion<'i, 'o>): conversion<'i, 'o> =>
     switch conversion {

@@ -24,4 +24,4 @@ operations:
         input: '"abc"'
         output: "3"
   encode:
-    creationError: "SuryError: Encountered unexpected async transform or refine. Use parseAsyncOrThrow operation instead"
+    creationError: "SuryError: The conversion is async. Use the Async version of the operation"

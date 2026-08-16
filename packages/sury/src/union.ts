@@ -101,11 +101,10 @@ const unionLiteralEqual = (a: unknown, b: unknown): boolean =>
   a === b || (a !== a && b !== b);
 
 // Union reachability stops at the first `never`: a later `.to(...)` is not
-// executable because the `never` decoder rejects first — and a link whose
-// codec slot is the "never" sentinel produces nothing the same way. The
-// general output helper intentionally follows the whole chain for type
-// introspection, so the planner needs this terminal-aware view for production
-// and coverage.
+// executable because the `never` decoder rejects first, and a link whose codec
+// slot is the "never" sentinel produces nothing the same way. The general
+// output helper intentionally follows the whole chain for type introspection,
+// so the planner needs this terminal-aware view for production and coverage.
 const unionOutput = (schema: Internal): Internal => {
   let output = schema;
   while (output.type !== neverTag && output.to !== U) {
@@ -115,10 +114,11 @@ const unionOutput = (schema: Internal): Internal => {
   return output;
 };
 
-// Whether the variant's compiled direction crosses a "never" codec slot. A
-// chain-terminal `S.never` still *dispatches* and rejects per value (effect
-// 3); a never slot instead removes the variant from the direction entirely —
-// it accepts nothing, counts toward no coverage, and yields to its siblings.
+// Whether the variant's compiled direction crosses a "never" codec slot. The
+// distinction that matters: a chain-terminal `S.never` still *dispatches* and
+// rejects per value (effect 3), while a never slot removes the variant from
+// this direction entirely, so it accepts nothing, counts toward no coverage,
+// and yields to its siblings.
 const unionNeverLink = (schema: Internal): boolean => {
   for (let node: Internal | undefined = schema; node !== U && node.type !== neverTag; node = node.to) {
     if (node.parser === B_neverSlot) return true;
@@ -1281,9 +1281,8 @@ export const unionDecoder: Builder = (input: Val) => {
     input.s = unknown;
   }
 
-  // Rule 2: a variant whose direction is a "never" slot yields to its
-  // siblings — but with nothing left to yield to, the operation itself is the
-  // mistake.
+  // A never-slot variant yields to its siblings, but with nothing left to
+  // yield to the operation itself is the mistake.
   if (variants.every(unionNeverLink)) {
     B_invalidOperation(
       input,
@@ -1500,10 +1499,10 @@ const unionResolveToUnion = (
     if (!produces) {
       continue;
     }
-    // An arm that produces the whole target union — its codec link target is
-    // the union itself or a copy sharing its `anyOf` (Option.getOr's default
-    // arm) — has nothing left to append and stands in for every target
-    // variant's coverage.
+    // An arm whose codec link target is the union itself, or a copy sharing
+    // its `anyOf` (Option.getOr's default arm), already produces the whole
+    // target union: nothing left to append, and it covers every target
+    // variant on its own.
     if (sourceOut === target || (target.anyOf !== U && sourceOut.anyOf === target.anyOf)) {
       for (let t = 0; t < targets.length; t++) {
         covered[t] = true;

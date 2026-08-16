@@ -1334,22 +1334,7 @@ The refine function is applied for both parsing and serializing.
 
 `(S.t<'from>, S.t<'to>, ~custom: S.codecs<'from, 'to>=?) => S.t<'to>`
 
-Custom codecs ride the same `S.to` used for built-in conversions: pass the
-target schema and one conversion per direction. Each slot is one of:
-
-- `Sync(fn)` — a synchronous coder
-- `Async(fn)` — an asynchronous coder (`fn` returns a `promise`)
-- `Auto` — the built-in conversion for the pair, exactly as if no codec was given
-- `Never` — the direction is unreachable: compiling an operation that needs it
-  fails where the operation is created, and inside a union the variant simply
-  yields to its siblings
-
-Both coders land on the target's *output* side: `decode` maps the schema's
-output to the target's output, `encode` the reverse. The target contributes its
-output-side refinements (they run on decode's result), validation of incoming
-values in the reverse direction, and the output type for `reverse`,
-`outputExpression` and `toJSONSchema`. With no natural target schema, use
-`S.any`:
+When no built-in conversion fits, pass your own coders:
 
 ```rescript
 let intToString = schema =>
@@ -1368,19 +1353,38 @@ let intToString = schema =>
   )
 ```
 
-A coder fails by throwing, and the path it is reached through is prepended to
-whatever it throws. It surfaces as an `InvalidConversion` carrying the original
-as `cause`:
+Each direction is one of:
+
+```rescript
+Sync(fn)   // a coder
+Async(fn)  // a coder returning a promise, run with parseAsyncOrThrow
+Auto       // keep the built-in conversion for this direction
+Never      // this direction is impossible, fail when an operation needs it
+```
+
+```rescript
+// Trim on decode, built-in validation on encode
+S.string->S.to(S.string, ~custom={decode: Sync(String.trim), encode: Auto})
+
+// Load a user by id
+S.uuid->S.to(
+  S.any,
+  ~custom={decode: Async(userId => loadUser(~userId)), encode: Sync(user => user.id)},
+)
+```
+
+Use `S.any` as the target when there's no schema for the decoded value.
+
+A coder fails by throwing, and the path it was reached through is prepended:
 
 ```rescript
 "abc"->S.decodeOrThrow(~from=S.int->intToString, ~to=S.unknown)
 // Can't convert string to int
 ```
 
-Any exception works — a ReScript one (`throw(Failure("…"))`) included — but only
+Any exception works, a ReScript one (`throw(Failure("…"))`) included, but only
 a JS error carries a message, so anything else is reported by its structure.
-When you need to name a path or the schemas involved, build the error instead
-and throw that:
+To name a path or the schemas involved, build the error and throw that:
 
 ```rescript
 S.Error.make(
@@ -1391,46 +1395,6 @@ S.Error.make(
     received: S.unknown,
   }),
 )->S.Error.throw
-```
-
-Sync/async is part of the definition — Sury compiles operations ahead of time,
-so an async coder is declared with `Async` and rides `parseAsyncOrThrow` (or
-`decodeAsyncOrThrow` when it sits on the encode side):
-
-```rescript
-type user = {
-  id: string,
-  name: string,
-}
-
-let userSchema =
-  S.uuid->S.to(
-    S.any,
-    ~custom={
-      decode: Async(userId => loadUser(~userId)),
-      encode: Sync(user => user.id),
-    },
-  )
-
-await "1"->S.parseAsyncOrThrow(~to=userSchema)
-// {
-//   id: "1",
-//   name: "John",
-// }
-
-{
-  id: "1",
-  name: "John",
-}->S.decodeOrThrow(~from=userSchema, ~to=S.unknown)
-// "1"
-```
-
-Mixing a custom coder with the built-in conversion is legal — `Auto` keeps the
-built-in path for its direction, so one-way normalization is a one-liner:
-
-```rescript
-// Trim on decode, validating pass-through on encode
-S.string->S.to(S.string, ~custom={decode: Sync(String.trim), encode: Auto})
 ```
 
 ## Functions on schema

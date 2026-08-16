@@ -1318,44 +1318,58 @@ S.encoder(schema)(123); //? "123"
 
 #### Custom transformations
 
-You can also provide custom codecs to the `S.to` operation — one conversion per direction. This is useful when you need to perform a more complex transformation than the built-in ones.
+When no built-in conversion fits, pass your own `decode` and `encode`:
 
 ```ts
 const schema = S.string.with(S.to, S.number, {
-  decode: (string) => {
-    const number = parseInt(string, 10);
-    if (Number.isNaN(number)) {
-      throw new Error("Invalid number");
-    }
-    return number;
-  },
+  decode: (string) => parseInt(string, 10),
   encode: (number) => number.toString(),
 });
 
 S.parser(schema)("123"); //? 123
-S.parser(schema)("abc"); //? throws: Invalid number
-
+S.parser(schema)("abc"); //? throws: Expected number, received NaN
 S.encoder(schema)(123); //? "123"
 ```
 
-Each slot accepts a function, `"auto"` for the built-in conversion of the pair, `"never"` to mark the direction unreachable, or `{async: fn}` for an asynchronous coder — sync/async is part of the definition because Sury compiles operations ahead of time:
+The result of `decode` is validated by the target schema, so a coder that
+returns the wrong thing fails right there instead of leaking a bad value.
+
+Besides a function, each direction accepts:
 
 ```ts
-// One-way normalization: custom decode, built-in validating encode
+// "auto": keep the built-in conversion for that direction
 S.string.with(S.to, S.string, { decode: (s) => s.trim(), encode: "auto" });
 
-// Async decode; the forward direction requires S.asyncParser
-S.string.with(S.to, S.any, {
-  decode: { async: (userId) => loadUser(userId) },
+// "never": this direction is impossible, fail when an operation needs it
+S.string.with(S.to, S.number, { decode: (s) => s.length, encode: "never" });
+
+// {async: fn}: run with S.asyncParser / S.asyncEncoder
+S.uuid.with(S.to, S.any, {
+  decode: { async: (id) => loadUser(id) },
   encode: (user) => user.id,
 });
 ```
 
-Both coders sit at the junction between the two schemas: `decode` maps the schema's output to the target's *input*, and the result then runs through the target's own pipeline — validated and converted like any other input, so a coder returning the wrong thing is caught at the boundary. `encode` receives what the target's reversed pipeline produced and maps it back. With no natural target schema, use `S.any` (where the validation is a no-op).
+Use `S.any` as the target when there's no schema for the decoded value:
 
-Passing a bare function is a decode-only shorthand: parsing works, but compiling any operation that needs the encode direction fails where the operation is created — spell out `{decode, encode}` to say what encoding means.
+```ts
+S.string.with(S.to, S.any, {
+  decode: (csv) => csv.split(","),
+  encode: (items) => items.join(","),
+});
+```
 
-> 🧠 Prefer to use built-in `S.string.with(S.to, S.number)` instead of custom codecs when possible.
+Passing a single function is a decode-only shorthand. Encoding such a schema
+fails, since Sury has no way back:
+
+```ts
+const schema = S.string.with(S.to, S.number, (string) => string.length);
+
+S.parser(schema)("abc"); //? 3
+S.encoder(schema); //? throws: Encoding is ambiguous when only a decode function is provided
+```
+
+> 🧠 Prefer the built-in `S.string.with(S.to, S.number)` when it does the job.
 
 ### **`name`**
 
