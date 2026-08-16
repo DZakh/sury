@@ -332,18 +332,6 @@ export const json: Internal = /* @__PURE__ */ initSchema(refTag, jsonDecoderFn, 
 // Anchored, so an absent format stringifies to "undefined" and misses.
 const escFreeFormatRe =
   /^(date(-time)?|duration|uuid|email|hostname|ipv[46]|uri(-reference)?)$/;
-// `accessorRe` does double duty here, and the second job is the load-bearing
-// one: it is also the only cheap evidence that the expression really is the
-// string the format vouches for. A `.to` chain carrying a default emits
-// `i===void 0?e[2]:i.toISOString()`, whose default branch is the default value
-// itself — a `Date`, not its ISO text — so the format proves nothing about it.
-// The helper stringifies that correctly (JSON.stringify of a Date is its ISO
-// text) where a splice would emit `Mon Jan 01 2024 …`. Anything but a bare
-// accessor keeps the helper.
-const B_isEscFree = (input: Val): boolean =>
-  !input.s.noValidation &&
-  escFreeFormatRe.test(input.s.format!) &&
-  accessorRe.test(input.i);
 
 // An identifier, property access, index or no-arg call — nothing that could
 // hold an operator. Everything else has to be parenthesized before it can sit
@@ -353,9 +341,6 @@ const B_isEscFree = (input: Val): boolean =>
 // input.
 const accessorRe = /^[\w$]+(\.[\w$]+|\[[^\[\]]*\]|\(\))*$/;
 
-// A value that needs no escaping, as JSON text: the value between bare quotes.
-const B_quoted = (i: string): string =>
-  `"\\""+${accessorRe.test(i) ? i : `(${i})`}+"\\""`;
 
 // Runtime helper embedded into generated jsonString code: the JSON text of a
 // string value. The fast path skips JSON.stringify's escape handling when a
@@ -879,10 +864,21 @@ export const jsonString = /* @__PURE__ */ (() => {
     } else if (isLiteral(input.s)) {
       return B_next(input, inlineJsonString(input, input.s), expectedSchema);
     } else if (flagUnsafeHas(inputTagFlag, tagFlagString)) {
+      // `accessorRe` here is double duty, and the second job is the
+      // load-bearing one: it is also the only cheap evidence that the
+      // expression really is the string the format vouches for. A `.to` chain
+      // carrying a default emits `i===void 0?e[2]:i.toISOString()`, whose
+      // default branch is the default value itself — a `Date`, not its ISO
+      // text — so the format proves nothing about it. The helper stringifies
+      // that correctly (JSON.stringify of a Date is its ISO text) where a
+      // splice would emit `Mon Jan 01 2024 …`. And `noValidation` drops the
+      // format check the splice relies on. Either way: keep the helper.
       return B_next(
         input,
-        B_isEscFree(input)
-          ? B_quoted(input.i)
+        !input.s.noValidation &&
+          escFreeFormatRe.test(input.s.format!) &&
+          accessorRe.test(input.i)
+          ? `"\\""+${input.i}+"\\""`
           : `${B_embedJsonStr(input)}(${input.i})`,
         expectedSchema,
       );
@@ -906,7 +902,13 @@ export const jsonString = /* @__PURE__ */ (() => {
         expectedSchema,
       );
     } else if (flagUnsafeHas(inputTagFlag, tagFlagBigint)) {
-      return B_next(input, B_quoted(input.i), expectedSchema);
+      // Parenthesized unless a bare accessor: same reassociation hazard as the
+      // splice above, and bigint has no helper to fall back to.
+      return B_next(
+        input,
+        `"\\""+${accessorRe.test(input.i) ? input.i : `(${input.i})`}+"\\""`,
+        expectedSchema,
+      );
     } else if (flagUnsafeHas(inputTagFlag, (tagFlagObject | tagFlagArray))) {
       const additionalItems = input.s.additionalItems;
       // Pretty-printing and async fields keep the whole-value JSON.stringify
