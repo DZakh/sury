@@ -97,8 +97,12 @@ failure (that's a throwing function) and no message form:
 - **In a union**: the variant is skipped for that direction — not counted
   toward rule 4 coverage, no partial-match rejections. It yields to siblings;
   all variants `Never` → operation-creation error.
-- Subsumes the `S.never.with(S.to, X)` idiom; `CODEC_SPEC.md`'s suggested
-  rewrites switch to `{decode: "never", encode: "auto"}` spellings.
+- Generalizes the `S.never.with(S.to, X)` idiom to a *single* direction — an
+  arm that still converts the other way (getOr's default) is only expressible
+  with the slot. For an arm unreachable in both directions plain `S.never`
+  stays the suggested spelling: shorter, and its `never` input type is
+  truthful where a `{decode: "never"}` arm claims an input it never accepts.
+  `CODEC_SPEC.md`'s rewrites keep using it.
 - **`Option.getOr` becomes a plain union**, deleting `Option_getWithDefault`
   and its FIXMEs — `getOrWith` is `Sync(_ => cb())`, async defaults come free,
   and `S.Option.getOr` stays public as sugar that also stamps `default`

@@ -838,11 +838,8 @@ const asNumber = S.string.with(S.to, S.union([S.string.with(S.to, S.number), S.s
 S.parser(asNumber)("123"); // 123
 S.parser(asNumber)("abc"); // "abc"
 
-// Or pass strings through, marking the number path unreachable:
-const asString = S.string.with(
-  S.to,
-  S.union([S.number.with(S.to, S.number, { decode: "never", encode: "auto" }), S.string]),
-);
+// Or pass strings through, never producing a number:
+const asString = S.string.with(S.to, S.union([S.never.with(S.to, S.number), S.string]));
 S.parser(asString)("123"); // "123"
 S.parser(asString)("abc"); // "abc"
 ```
