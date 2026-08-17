@@ -3,7 +3,7 @@ ts:
   schema: S.string.with(S.maxLength, 2)
   input: string
   output: string
-  instantiations: 5148
+  instantiations: 581
 jsonSchema:
   input: '{ type: "string", maxLength: 2 }'
   output: '{ type: "string", maxLength: 2 }'

@@ -38,20 +38,23 @@ test("Object with a single nested field with S.transform", t => {
   let schema = S.object(s =>
     s.nested("nested").field(
       "foo",
-      S.float->S.transform(
-        () => {
-          parser: f => f->Float.toString,
-          serializer: string => {
-            // There used to be a case of double application of the serializer.
-            // Check that it doesn't happen again.
-            if string->typeof !== #string {
-              U.fail("Unexpected type")
-            }
-            switch string->Float.fromString {
-            | Some(float) => float
-            | None => U.fail("Invalid float")
-            }
-          },
+      S.float->S.to(
+        S.any,
+        ~custom={
+          decode: Sync(f => f->Float.toString),
+          encode: Sync(
+            string => {
+              // There used to be a case of double application of the serializer.
+              // Check that it doesn't happen again.
+              if string->typeof !== #string {
+                U.fail("Unexpected type")
+              }
+              switch string->Float.fromString {
+              | Some(float) => float
+              | None => U.fail("Invalid float")
+              }
+            },
+          ),
         },
       ),
     )
@@ -67,7 +70,10 @@ test("Object with a single nested field with S.transform", t => {
     ~op=#Encode,
     `i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="number"&&!Number.isNaN(v0)||e[2](v0);return {"nested":{"foo":v0,},}}`,
   )
-  t->Assert.deepEqual("123.4"->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`{"nested":{"foo":123.4}}`))
+  t->Assert.deepEqual(
+    "123.4"->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    %raw(`{"nested":{"foo":123.4}}`),
+  )
 })
 
 test("Object with a nested tag and optional field", t => {
@@ -84,12 +90,12 @@ test("Object with a nested tag and optional field", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i["nested"],v3=i["bar"];typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0["tag"],v2=v0["foo"];v1==="value"||e[0](v1);(typeof v2==="string"||v2===void 0)||e[1](v2);typeof v3==="string"||e[3](v3);return {"foo":v2===void 0?"":v2,"bar":v3,}}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i["nested"],v3=i["bar"];typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0["tag"],v2=v0["foo"];v1==="value"||e[0](v1);for(;;){if(typeof v2==="string")break;if(v2===void 0){v2="";break}e[1](v2)}typeof v3==="string"||e[3](v3);return {"foo":v2,"bar":v3,}}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{return {"nested":{"tag":"value","foo":i["foo"],},"bar":i["bar"],}}`,
+    `i=>{let v0=i["foo"];typeof v0==="string"||e[0](v0);return {"nested":{"tag":"value","foo":v0,},"bar":i["bar"],}}`,
   )
 })
 
@@ -126,11 +132,7 @@ test("Object with a single nested nested field", t => {
     ~op=#Parse,
     `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["nested"];typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0["deeply"];typeof v1==="object"&&v1&&!Array.isArray(v1)||e[1](v1);let v2=v1["foo"];typeof v2==="string"||e[0](v2);return v2}`,
   )
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#Encode,
-    `i=>{return {"nested":{"deeply":{"foo":i,},},}}`,
-  )
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return {"nested":{"deeply":{"foo":i,},},}}`)
 })
 
 test("Object with a two nested field calling s.nested twice", t => {
@@ -223,22 +225,30 @@ test("Nested tags on reverse convert", t => {
     s.nested("nested").tag("tag", "value")
   })
 
-  t->Assert.deepEqual(()->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`{"nested":{"tag":"value"}}`))
+  t->Assert.deepEqual(
+    ()->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    %raw(`{"nested":{"tag":"value"}}`),
+  )
 })
 
 test("Nested preprocessed tags on reverse convert", t => {
   let prefixedWithUnderscore =
     S.string
-    ->S.transform(() => {
-      parser: v => {
-        if v->String.startsWith("_") {
-          v->String.slice(~start=1)
-        } else {
-          U.fail("String should start with an underscore")
-        }
+    ->S.to(
+      S.any,
+      ~custom={
+        decode: Sync(
+          v => {
+            if v->String.startsWith("_") {
+              v->String.slice(~start=1)
+            } else {
+              U.fail("String should start with an underscore")
+            }
+          },
+        ),
+        encode: Sync(v => "_" ++ v),
       },
-      serializer: v => "_" ++ v,
-    })
+    )
     ->S.to(S.string)
 
   let schema = S.object(s => {
@@ -332,11 +342,7 @@ test("Object with a deep strict applied to the nested field parent + reverse", t
     // Test strict & deepStrict for S.shape
     `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["foo"],v1;typeof v0==="string"||e[0](v0);for(v1 in i){if(v1!=="foo"){e[1](v1)}}return {"nested":{"foo":v0,},}}`,
   )
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#Encode,
-    `i=>{let v0=i["nested"];return {"foo":v0["foo"],}}`,
-  )
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{let v0=i["nested"];return {"foo":v0["foo"],}}`)
 })
 
 test("Object with nested field together with flatten", t => {
@@ -410,7 +416,7 @@ test("s.nested.flattened doesn't work with transformed S.schema", t => {
                 {
                   "foo": s.matches(S.string),
                 },
-            )->S.transform(() => {parser: i => i}),
+            )->S.to(S.any, ~custom={decode: Sync(i => i), encode: Never}),
           )
         },
       )

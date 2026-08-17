@@ -1152,25 +1152,29 @@ For more information on branding in general, check out [this excellent article](
 **Sury** might not have many built-in schemas for your use case. In this case you can create a custom schema for any TypeScript type.
 
 1. Choose a base schema which is the closest to your type. Most likely it'll be `S.instance`.
-2. Use `S.to` to add a custom decode and encode logic.
+2. Use `S.to` with `{decode, encode}` codecs to add the custom conversion logic.
 3. Optionally, use `S.meta` to add customize the name of the schema and additional metadata.
 
 ```ts
 const mySet = <T>(itemSchema: S.Schema<unknown, T>): S.Schema<unknown, Set<T>> =>
   S.instance(Set<unknown>)
-    .with(S.to, S.instance(Set<T>), (input) => {
-      const output = new Set<T>();
-      input.forEach((item, index) => {
-        try {
-          output.add(S.parser(itemSchema)(item));
-        } catch (e) {
-          if (e instanceof S.Error) {
-            throw new Error(`At item ${index} - ${e.reason}`);
+    .with(S.to, S.instance(Set<T>), {
+      decode: (input) => {
+        const output = new Set<T>();
+        input.forEach((item, index) => {
+          try {
+            output.add(S.parser(itemSchema)(item));
+          } catch (e) {
+            if (e instanceof S.Error) {
+              throw new Error(`At item ${index} - ${e.reason}`);
+            }
+            throw e;
           }
-          throw e;
-        }
-      });
-      return output;
+        });
+        return output;
+      },
+      encode: (output) =>
+        new Set([...output].map((item) => S.encoder(itemSchema)(item))),
     })
     .with(S.meta, {
       name: `Set<${S.inputExpression(itemSchema)}>`,
@@ -1266,16 +1270,26 @@ const evenPositiveSchema = S.number
 
 The refine function is applied for both parsing and encoding.
 
-Also, you can have an asynchronous assertion (for decoder only):
+A refinement can't be async. For a check that has to await, use an async
+[codec](#custom-transformations) that returns the value unchanged, and keep
+`encode: "auto"` so encoding stays a plain pass:
 
 ```ts
+const activeUser = S.uuid.with(S.to, S.uuid, {
+  decode: {
+    async: async (id) => {
+      const isActiveUser = await checkIsActiveUser(id);
+      if (!isActiveUser) {
+        throw new Error(`The user ${id} is inactive.`);
+      }
+      return id;
+    },
+  },
+  encode: "auto",
+});
+
 const userSchema = S.schema({
-  id: S.uuid.with(S.asyncDecoderAssert, async (id) => {
-    const isActiveUser = await checkIsActiveUser(id);
-    if (!isActiveUser) {
-      throw new Error(`The user ${id} is inactive.`);
-    }
-  }),
+  id: activeUser,
   name: S.string,
 });
 
@@ -1470,33 +1484,68 @@ S.encoder(schema)(123); //? "123"
 
 #### Custom transformations
 
-You can also provide a custom transformation function to the `S.to` operation. This is useful when you need to perform a more complex transformation than the built-in ones.
+When no built-in conversion fits, pass your own `decode` and `encode`:
 
 ```ts
-const schema = S.string.with(
-  S.to,
-  S.number,
-  // Custom decode function
-  (string) => {
-    const number = parseInt(string, 10);
-    if (Number.isNaN(number)) {
-      throw new Error("Invalid number");
-    }
-    return number;
-  },
-  // Custom encode function
-  (number) => {
-    return number.toString();
-  }
-);
+const schema = S.string.with(S.to, S.number, {
+  decode: (string) => parseInt(string, 10),
+  encode: (number) => number.toString(),
+});
 
 S.parser(schema)("123"); //? 123
-S.parser(schema)("abc"); //? throws: Invalid number
-
+S.parser(schema)("abc"); //? throws: Expected number, received NaN
 S.encoder(schema)(123); //? "123"
 ```
 
-> 🧠 Prefer to use built-in `S.string.with(S.to, S.number)` instead of custom transformation functions when possible.
+The result of `decode` is validated by the target schema, so a coder that
+returns the wrong thing fails right there instead of leaking a bad value.
+
+Besides a function, each direction accepts:
+
+```ts
+// "auto": keep the built-in conversion for that direction
+S.string.with(S.to, S.string, { decode: (s) => s.trim(), encode: "auto" });
+
+// "never": this direction is impossible, fail when an operation needs it
+S.string.with(S.to, S.number, { decode: (s) => s.length, encode: "never" });
+
+// {async: fn}: run with S.asyncParser / S.asyncEncoder
+const user = S.schema({ id: S.uuid, name: S.string });
+
+S.uuid.with(S.to, user, {
+  decode: { async: (id) => loadUser(id) },
+  encode: (user) => user.id,
+});
+```
+
+Describe what you decode into. The target is what validates the coder's result,
+types the output, and exports to JSON Schema:
+
+```ts
+const csv = S.string.with(S.to, S.array(S.string), {
+  decode: (csv) => csv.split(","),
+  encode: (items) => items.join(","),
+});
+
+S.parser(csv)("a,b,c"); //? ["a", "b", "c"]
+S.encoder(csv)(["a", "b"]); //? "a,b"
+```
+
+> 🧠 `S.any` accepts anything, so it's the escape hatch for a value no schema
+> can describe. It checks nothing about what the coder returns — reach for it
+> last, not first.
+
+Passing a single function is a decode-only shorthand. Encoding such a schema
+fails, since Sury has no way back:
+
+```ts
+const schema = S.string.with(S.to, S.number, (string) => string.length);
+
+S.parser(schema)("abc"); //? 3
+S.encoder(schema); //? throws: Encoding is ambiguous when only a decode function is provided
+```
+
+> 🧠 Prefer the built-in `S.string.with(S.to, S.number)` when it does the job.
 
 ### **`name`**
 

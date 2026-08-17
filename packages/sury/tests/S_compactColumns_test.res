@@ -1,17 +1,16 @@
 open Vitest
 
 test("Successfully parses and reverse converts a simple object with compactColumns", t => {
-  let schema =
-    S.compactColumns(S.unknown)->S.to(
-      S.array(
-        S.schema(s =>
-          {
-            "foo": s.matches(S.string),
-            "bar": s.matches(S.int),
-          }
-        ),
+  let schema = S.compactColumns(S.unknown)->S.to(
+    S.array(
+      S.schema(s =>
+        {
+          "foo": s.matches(S.string),
+          "bar": s.matches(S.int),
+        }
       ),
-    )
+    ),
+  )
 
   t->U.assertCompiledCode(
     ~schema,
@@ -30,23 +29,25 @@ test("Successfully parses and reverse converts a simple object with compactColum
   )
 
   t->Assert.deepEqual(
-    %raw(`[{"foo": "a", "bar": 0}, {"foo": "b", "bar": 1}]`)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    %raw(`[{"foo": "a", "bar": 0}, {"foo": "b", "bar": 1}]`)->S.decodeOrThrow(
+      ~from=schema,
+      ~to=S.unknown,
+    ),
     %raw(`[["a", "b"], [0, 1]]`),
   )
 })
 
 test("Transforms nullable fields", t => {
-  let schema =
-    S.compactColumns(S.unknown)->S.to(
-      S.array(
-        S.schema(s =>
-          {
-            "foo": s.matches(S.string),
-            "bar": s.matches(S.nullAsOption(S.int)),
-          }
-        ),
+  let schema = S.compactColumns(S.unknown)->S.to(
+    S.array(
+      S.schema(s =>
+        {
+          "foo": s.matches(S.string),
+          "bar": s.matches(S.nullAsOption(S.int)),
+        }
       ),
-    )
+    ),
+  )
 
   t->U.assertCompiledCode(
     ~schema,
@@ -65,23 +66,25 @@ test("Transforms nullable fields", t => {
   )
 
   t->Assert.deepEqual(
-    %raw(`[{"foo": "a", "bar": 0}, {"foo": "b", "bar": undefined}]`)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    %raw(`[{"foo": "a", "bar": 0}, {"foo": "b", "bar": undefined}]`)->S.decodeOrThrow(
+      ~from=schema,
+      ~to=S.unknown,
+    ),
     %raw(`[["a", "b"], [0, null]]`),
   )
 })
 
 test("Case with missing item at the end", t => {
-  let schema =
-    S.compactColumns(S.unknown)->S.to(
-      S.array(
-        S.schema(s =>
-          {
-            "foo": s.matches(S.option(S.string)),
-            "bar": s.matches(S.bool),
-          }
-        ),
+  let schema = S.compactColumns(S.unknown)->S.to(
+    S.array(
+      S.schema(s =>
+        {
+          "foo": s.matches(S.option(S.string)),
+          "bar": s.matches(S.bool),
+        }
       ),
-    )
+    ),
+  )
 
   t->U.assertCompiledCode(
     ~schema,
@@ -100,7 +103,10 @@ test("Case with missing item at the end", t => {
   )
 
   t->Assert.deepEqual(
-    %raw(`[{"foo": "a", "bar": true}, {"foo": "b", "bar": true}, {"foo": undefined, "bar": false}]`)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    %raw(`[{"foo": "a", "bar": true}, {"foo": "b", "bar": true}, {"foo": undefined, "bar": false}]`)->S.decodeOrThrow(
+      ~from=schema,
+      ~to=S.unknown,
+    ),
     %raw(`[["a", "b", undefined], [true, true, false]]`),
   )
 })
@@ -138,17 +144,16 @@ test("Schema has format field set to compactColumns", t => {
 test("Typed input schema (non-unknown inputSchema branch)", t => {
   // Exercises the non-unknown branch of itemSchema derivation,
   // where input.schema.additionalItems is walked twice.
-  let schema =
-    S.compactColumns(S.string)->S.to(
-      S.array(
-        S.schema(s =>
-          {
-            "foo": s.matches(S.string),
-            "bar": s.matches(S.string),
-          }
-        ),
+  let schema = S.compactColumns(S.string)->S.to(
+    S.array(
+      S.schema(s =>
+        {
+          "foo": s.matches(S.string),
+          "bar": s.matches(S.string),
+        }
       ),
-    )
+    ),
+  )
 
   t->Assert.deepEqual(
     %raw(`[["a", "b"], ["c", "d"]]`)->S.parseOrThrow(~to=schema),
@@ -156,23 +161,25 @@ test("Typed input schema (non-unknown inputSchema branch)", t => {
   )
 
   t->Assert.deepEqual(
-    %raw(`[{"foo": "a", "bar": "c"}, {"foo": "b", "bar": "d"}]`)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    %raw(`[{"foo": "a", "bar": "c"}, {"foo": "b", "bar": "d"}]`)->S.decodeOrThrow(
+      ~from=schema,
+      ~to=S.unknown,
+    ),
     %raw(`[["a", "b"], ["c", "d"]]`),
   )
 })
 
 test("Invalid field value reports error with path", t => {
-  let schema =
-    S.compactColumns(S.unknown)->S.to(
-      S.array(
-        S.schema(s =>
-          {
-            "foo": s.matches(S.string),
-            "bar": s.matches(S.int),
-          }
-        ),
+  let schema = S.compactColumns(S.unknown)->S.to(
+    S.array(
+      S.schema(s =>
+        {
+          "foo": s.matches(S.string),
+          "bar": s.matches(S.int),
+        }
       ),
-    )
+    ),
+  )
 
   // Second row, bar column contains a non-int value.
   t->U.assertThrowsMessage(
@@ -183,17 +190,16 @@ test("Invalid field value reports error with path", t => {
 
 test("Error path reporting for invalid column value", t => {
   // Asserts that validation errors carry a useful path to the offending cell.
-  let schema =
-    S.compactColumns(S.unknown)->S.to(
-      S.array(
-        S.schema(s =>
-          {
-            "foo": s.matches(S.string),
-            "bar": s.matches(S.int),
-          }
-        ),
+  let schema = S.compactColumns(S.unknown)->S.to(
+    S.array(
+      S.schema(s =>
+        {
+          "foo": s.matches(S.string),
+          "bar": s.matches(S.int),
+        }
       ),
-    )
+    ),
+  )
 
   t->U.assertThrowsMessage(
     () => %raw(`[["a"], ["not-an-int"]]`)->S.parseOrThrow(~to=schema),
@@ -202,17 +208,18 @@ test("Error path reporting for invalid column value", t => {
 })
 
 asyncTest("Async field schema", async t => {
-  let schema =
-    S.compactColumns(S.unknown)->S.to(
-      S.array(
-        S.schema(s =>
-          {
-            "foo": s.matches(S.string->S.transform(() => {asyncParser: async i => i})),
-            "bar": s.matches(S.int),
-          }
-        ),
+  let schema = S.compactColumns(S.unknown)->S.to(
+    S.array(
+      S.schema(s =>
+        {
+          "foo": s.matches(
+            S.string->S.to(S.any, ~custom={decode: Async(async i => i), encode: Never}),
+          ),
+          "bar": s.matches(S.int),
+        }
       ),
-    )
+    ),
+  )
 
   t->Assert.deepEqual(
     await %raw(`[["a", "b"], [0, 1]]`)->S.parseAsyncOrThrow(~to=schema),
@@ -221,17 +228,21 @@ asyncTest("Async field schema", async t => {
 })
 
 test("Field schema with S.transform", t => {
-  let schema =
-    S.compactColumns(S.unknown)->S.to(
-      S.array(
-        S.schema(s =>
-          {
-            "foo": s.matches(S.string->S.transform(() => {parser: v => v->String.toUpperCase})),
-            "bar": s.matches(S.int),
-          }
-        ),
+  let schema = S.compactColumns(S.unknown)->S.to(
+    S.array(
+      S.schema(s =>
+        {
+          "foo": s.matches(
+            S.string->S.to(
+              S.any,
+              ~custom={decode: Sync(v => v->String.toUpperCase), encode: Never},
+            ),
+          ),
+          "bar": s.matches(S.int),
+        }
       ),
-    )
+    ),
+  )
 
   t->Assert.deepEqual(
     %raw(`[["a", "b"], [0, 1]]`)->S.parseOrThrow(~to=schema),
@@ -240,17 +251,16 @@ test("Field schema with S.transform", t => {
 })
 
 test("Nullable field (null | undefined)", t => {
-  let schema =
-    S.compactColumns(S.unknown)->S.to(
-      S.array(
-        S.schema(s =>
-          {
-            "foo": s.matches(S.nullable(S.string)),
-            "bar": s.matches(S.int),
-          }
-        ),
+  let schema = S.compactColumns(S.unknown)->S.to(
+    S.array(
+      S.schema(s =>
+        {
+          "foo": s.matches(S.nullable(S.string)),
+          "bar": s.matches(S.int),
+        }
       ),
-    )
+    ),
+  )
 
   t->Assert.deepEqual(
     %raw(`[["a", null], [0, 1]]`)->S.parseOrThrow(~to=schema),
@@ -258,25 +268,27 @@ test("Nullable field (null | undefined)", t => {
   )
 
   t->Assert.deepEqual(
-    %raw(`[{"foo": "a", "bar": 0}, {"foo": null, "bar": 1}]`)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    %raw(`[{"foo": "a", "bar": 0}, {"foo": null, "bar": 1}]`)->S.decodeOrThrow(
+      ~from=schema,
+      ~to=S.unknown,
+    ),
     %raw(`[["a", null], [0, 1]]`),
   )
 })
 
 test("More than 2 fields", t => {
-  let schema =
-    S.compactColumns(S.unknown)->S.to(
-      S.array(
-        S.schema(s =>
-          {
-            "a": s.matches(S.string),
-            "b": s.matches(S.int),
-            "c": s.matches(S.bool),
-            "d": s.matches(S.float),
-          }
-        ),
+  let schema = S.compactColumns(S.unknown)->S.to(
+    S.array(
+      S.schema(s =>
+        {
+          "a": s.matches(S.string),
+          "b": s.matches(S.int),
+          "c": s.matches(S.bool),
+          "d": s.matches(S.float),
+        }
       ),
-    )
+    ),
+  )
 
   t->Assert.deepEqual(
     %raw(`[["x", "y"], [1, 2], [true, false], [1.5, 2.5]]`)->S.parseOrThrow(~to=schema),
@@ -293,16 +305,15 @@ test("More than 2 fields", t => {
 })
 
 test("Single-field object", t => {
-  let schema =
-    S.compactColumns(S.unknown)->S.to(
-      S.array(
-        S.schema(s =>
-          {
-            "only": s.matches(S.string),
-          }
-        ),
+  let schema = S.compactColumns(S.unknown)->S.to(
+    S.array(
+      S.schema(s =>
+        {
+          "only": s.matches(S.string),
+        }
       ),
-    )
+    ),
+  )
 
   t->Assert.deepEqual(
     %raw(`[["a", "b", "c"]]`)->S.parseOrThrow(~to=schema),
@@ -310,23 +321,25 @@ test("Single-field object", t => {
   )
 
   t->Assert.deepEqual(
-    %raw(`[{"only": "a"}, {"only": "b"}, {"only": "c"}]`)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    %raw(`[{"only": "a"}, {"only": "b"}, {"only": "c"}]`)->S.decodeOrThrow(
+      ~from=schema,
+      ~to=S.unknown,
+    ),
     %raw(`[["a", "b", "c"]]`),
   )
 })
 
 test("Union field", t => {
-  let schema =
-    S.compactColumns(S.unknown)->S.to(
-      S.array(
-        S.schema(s =>
-          {
-            "foo": s.matches(S.union([S.int->S.castToUnknown, S.string->S.castToUnknown])),
-            "bar": s.matches(S.bool),
-          }
-        ),
+  let schema = S.compactColumns(S.unknown)->S.to(
+    S.array(
+      S.schema(s =>
+        {
+          "foo": s.matches(S.union([S.int->S.castToUnknown, S.string->S.castToUnknown])),
+          "bar": s.matches(S.bool),
+        }
       ),
-    )
+    ),
+  )
 
   t->Assert.deepEqual(
     %raw(`[[1, "two"], [true, false]]`)->S.parseOrThrow(~to=schema),
@@ -335,17 +348,16 @@ test("Union field", t => {
 })
 
 test("Field with S.refine", t => {
-  let schema =
-    S.compactColumns(S.unknown)->S.to(
-      S.array(
-        S.schema(s =>
-          {
-            "age": s.matches(S.int->S.refine(age => age >= 0, ~error="Age must be non-negative")),
-            "name": s.matches(S.string),
-          }
-        ),
+  let schema = S.compactColumns(S.unknown)->S.to(
+    S.array(
+      S.schema(s =>
+        {
+          "age": s.matches(S.int->S.refine(age => age >= 0, ~error="Age must be non-negative")),
+          "name": s.matches(S.string),
+        }
       ),
-    )
+    ),
+  )
 
   // Valid row parses successfully.
   t->Assert.deepEqual(
@@ -361,17 +373,16 @@ test("Field with S.refine", t => {
 })
 
 test("decodeToJson with nullable field", t => {
-  let schema =
-    S.compactColumns(S.unknown)->S.to(
-      S.array(
-        S.schema(s =>
-          {
-            "foo": s.matches(S.string),
-            "bar": s.matches(S.nullAsOption(S.int)),
-          }
-        ),
+  let schema = S.compactColumns(S.unknown)->S.to(
+    S.array(
+      S.schema(s =>
+        {
+          "foo": s.matches(S.string),
+          "bar": s.matches(S.nullAsOption(S.int)),
+        }
       ),
-    )
+    ),
+  )
 
   let value = %raw(`[{"foo": "a", "bar": 0}, {"foo": "b", "bar": undefined}]`)
   t->Assert.deepEqual(
@@ -381,17 +392,16 @@ test("decodeToJson with nullable field", t => {
 })
 
 test("Roundtrip: parse -> encode -> parse", t => {
-  let schema =
-    S.compactColumns(S.unknown)->S.to(
-      S.array(
-        S.schema(s =>
-          {
-            "foo": s.matches(S.string),
-            "bar": s.matches(S.nullAsOption(S.int)),
-          }
-        ),
+  let schema = S.compactColumns(S.unknown)->S.to(
+    S.array(
+      S.schema(s =>
+        {
+          "foo": s.matches(S.string),
+          "bar": s.matches(S.nullAsOption(S.int)),
+        }
       ),
-    )
+    ),
+  )
 
   let columnar = %raw(`[["a", "b", "c"], [0, null, 2]]`)
   let rows = columnar->S.parseOrThrow(~to=schema)
@@ -400,16 +410,15 @@ test("Roundtrip: parse -> encode -> parse", t => {
 })
 
 test("decodeToJson validates non-JSON-able unknown field values", t => {
-  let schema =
-    S.compactColumns(S.unknown)->S.to(
-      S.array(
-        S.schema(s =>
-          {
-            "foo": s.matches(S.unknown),
-          }
-        ),
+  let schema = S.compactColumns(S.unknown)->S.to(
+    S.array(
+      S.schema(s =>
+        {
+          "foo": s.matches(S.unknown),
+        }
       ),
-    )
+    ),
+  )
 
   // JSON-compatible values round-trip through the columnar form unchanged.
   t->Assert.deepEqual(
@@ -428,43 +437,46 @@ test("decodeToJson validates non-JSON-able unknown field values", t => {
 })
 
 test("Json source with bigint field converts string↔bigint", t => {
-  let schema =
-    S.compactColumns(S.json)->S.to(
-      S.array(
-        S.schema(s =>
-          {
-            "id": s.matches(S.string),
-            "amount": s.matches(S.bigint),
-          }
-        ),
+  let schema = S.compactColumns(S.json)->S.to(
+    S.array(
+      S.schema(s =>
+        {
+          "id": s.matches(S.string),
+          "amount": s.matches(S.bigint),
+        }
       ),
-    )
+    ),
+  )
 
   // Forward: json strings are converted to bigint via BigInt()
   t->Assert.deepEqual(
-    %raw(`[["0", "1"], ["12345678901234567890", "98765432109876543210"]]`)->S.parseOrThrow(~to=schema),
+    %raw(`[["0", "1"], ["12345678901234567890", "98765432109876543210"]]`)->S.parseOrThrow(
+      ~to=schema,
+    ),
     %raw(`[{"id": "0", "amount": 12345678901234567890n}, {"id": "1", "amount": 98765432109876543210n}]`),
   )
 
   // Reverse: bigint values are converted back to strings for json
   t->Assert.deepEqual(
-    %raw(`[{"id": "0", "amount": 12345678901234567890n}, {"id": "1", "amount": 98765432109876543210n}]`)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    %raw(`[{"id": "0", "amount": 12345678901234567890n}, {"id": "1", "amount": 98765432109876543210n}]`)->S.decodeOrThrow(
+      ~from=schema,
+      ~to=S.unknown,
+    ),
     %raw(`[["0", "1"], ["12345678901234567890", "98765432109876543210"]]`),
   )
 })
 
 test("Json source roundtrip with bigint", t => {
-  let schema =
-    S.compactColumns(S.json)->S.to(
-      S.array(
-        S.schema(s =>
-          {
-            "id": s.matches(S.string),
-            "amount": s.matches(S.bigint),
-          }
-        ),
+  let schema = S.compactColumns(S.json)->S.to(
+    S.array(
+      S.schema(s =>
+        {
+          "id": s.matches(S.string),
+          "amount": s.matches(S.bigint),
+        }
       ),
-    )
+    ),
+  )
 
   let columnar = %raw(`[["0", "1"], ["12345678901234567890", "98765432109876543210"]]`)
   let rows = columnar->S.parseOrThrow(~to=schema)

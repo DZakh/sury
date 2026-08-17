@@ -3,7 +3,7 @@ ts:
   schema: S.boolean.with(S.to, S.union([S.string, S.symbol]))
   input: boolean
   output: string | symbol
-  instantiations: 6066
+  instantiations: 6208
 jsonSchema:
   input: '{ type: "boolean" }'
   output: Expected JSON, received string | symbol

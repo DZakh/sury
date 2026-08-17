@@ -3,7 +3,7 @@ ts:
   schema: S.union([S.never.with(S.to, S.schema(null)), S.string]).with(S.to, S.union([S.schema(undefined), S.string]))
   input: string
   output: string | undefined
-  instantiations: 7160
+  instantiations: 7301
 jsonSchema:
   input: '{ anyOf: [{ not: {} }, { type: "string" }] }'
   output: Expected JSON, received undefined | string

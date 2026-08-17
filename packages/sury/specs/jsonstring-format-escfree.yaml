@@ -3,7 +3,7 @@ ts:
   schema: "S.schema({ id: S.uuid, at: S.isoDateTime, note: S.string }).with(S.to, S.jsonString)"
   input: "{ id: string; at: string; note: string; }"
   output: string
-  instantiations: 5886
+  instantiations: 5964
 jsonSchema:
   input: '{ type: "object", properties: { id: { type: "string", format: "uuid" }, at: { type: "string", format: "date-time" }, note: { type: "string" } }, required: ["id", "at", "note"] }'
   output: '{ type: "string" }'

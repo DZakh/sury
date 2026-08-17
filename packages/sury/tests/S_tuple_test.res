@@ -70,7 +70,10 @@ test("Successfully serializes tuple with holes", t => {
   let schema = S.tuple(s => (s.item(0, S.string), s.item(2, S.int)))
 
   t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return [i["0"],void 0,i["1"],]}`)
-  t->Assert.deepEqual(("value", 123)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`["value",, 123]`))
+  t->Assert.deepEqual(
+    ("value", 123)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    %raw(`["value",, 123]`),
+  )
 })
 
 test("Reverse convert of tuple schema with single item registered multiple times", t => {
@@ -244,7 +247,10 @@ module Compiled = {
 
   test("Compiled parse code snapshot for simple tuple with async", t => {
     let schema = S.tuple(s => (
-      s.item(0, S.unknown->S.transform(() => {asyncParser: i => Promise.resolve(i)})),
+      s.item(
+        0,
+        S.unknown->S.to(S.any, ~custom={decode: Async(i => Promise.resolve(i)), encode: Never}),
+      ),
       s.item(1, S.bool),
     ))
 

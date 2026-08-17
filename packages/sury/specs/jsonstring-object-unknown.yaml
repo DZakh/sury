@@ -3,7 +3,7 @@ ts:
   schema: "S.schema({a: S.optional(S.unknown), b: S.string}).with(S.to, S.jsonString)"
   input: "{ b: string; a?: unknown; }"
   output: string
-  instantiations: 6860
+  instantiations: 6912
 jsonSchema:
   input: 'Failed at ["a"]: Expected JSON, received unknown | undefined'
   output: '{ type: "string" }'

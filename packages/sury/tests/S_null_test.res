@@ -43,7 +43,9 @@ module Common = {
   })
 
   test("Compiled async parse code snapshot", t => {
-    let schema = S.nullAsOption(S.unknown->S.transform(() => {asyncParser: i => Promise.resolve(i)}))
+    let schema = S.nullAsOption(
+      S.unknown->S.to(S.any, ~custom={decode: Async(i => Promise.resolve(i)), encode: Never}),
+    )
 
     t->U.assertCompiledCode(
       ~schema,
@@ -177,7 +179,10 @@ module OuterRecord = {
     let record = {record: None}
 
     t->Assert.deepEqual(record, %raw(`{ record: { BS_PRIVATE_NESTED_SOME_NONE: 0 } }`))
-    t->Assert.deepEqual(record->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`{ record: null }`))
+    t->Assert.deepEqual(
+      record->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+      %raw(`{ record: null }`),
+    )
     t->Assert.deepEqual(record->S.decodeOrThrow(~from=schema, ~to=S.jsonString), `{"record":null}`)
 
     t->U.assertCompiledCode(

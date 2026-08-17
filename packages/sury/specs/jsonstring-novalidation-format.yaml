@@ -3,7 +3,7 @@ ts:
   schema: "S.schema({ id: S.uuid.with(S.noValidation, true) }).with(S.to, S.jsonString)"
   input: "{ id: string; }"
   output: string
-  instantiations: 6352
+  instantiations: 6390
 jsonSchema:
   input: '{ type: "object", properties: { id: { type: "string", format: "uuid" } }, required: ["id"] }'
   output: '{ type: "string" }'

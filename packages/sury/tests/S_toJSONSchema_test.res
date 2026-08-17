@@ -9,7 +9,10 @@ test("JSONSchema of string schema", t => {
 })
 
 test("JSONSchema of int schema", t => {
-  t->Assert.deepEqual(S.int->S.toJSONSchema, %raw(`{"type": "integer", "minimum": -2147483648, "maximum": 2147483647}`))
+  t->Assert.deepEqual(
+    S.int->S.toJSONSchema,
+    %raw(`{"type": "integer", "minimum": -2147483648, "maximum": 2147483647}`),
+  )
 })
 
 test("JSONSchema of float schema", t => {
@@ -46,10 +49,7 @@ test("JSONSchema of S.json transformed to object with bigint and array of option
 })
 
 test("JSONSchema of email schema", t => {
-  t->Assert.deepEqual(
-    S.email->S.toJSONSchema,
-    %raw(`{"type": "string", "format": "email"}`),
-  )
+  t->Assert.deepEqual(S.email->S.toJSONSchema, %raw(`{"type": "string", "format": "email"}`))
 })
 
 test("JSONSchema of uri schema", t => {
@@ -116,10 +116,7 @@ test("JSONSchema of cuid schema", t => {
 })
 
 test("JSONSchema of uuid schema", t => {
-  t->Assert.deepEqual(
-    S.uuid->S.toJSONSchema,
-    %raw(`{"type": "string", "format": "uuid"}`),
-  )
+  t->Assert.deepEqual(S.uuid->S.toJSONSchema, %raw(`{"type": "string", "format": "uuid"}`))
 })
 
 test("JSONSchema of pattern schema", t => {
@@ -158,11 +155,17 @@ test("JSONSchema of string with both min and max", t => {
 })
 
 test("JSONSchema of int with min", t => {
-  t->Assert.deepEqual(S.int->S.gte(1)->S.toJSONSchema, %raw(`{"type": "integer", "minimum": 1, "maximum": 2147483647}`))
+  t->Assert.deepEqual(
+    S.int->S.gte(1)->S.toJSONSchema,
+    %raw(`{"type": "integer", "minimum": 1, "maximum": 2147483647}`),
+  )
 })
 
 test("JSONSchema of int with max", t => {
-  t->Assert.deepEqual(S.int->S.lte(1)->S.toJSONSchema, %raw(`{"type": "integer", "minimum": -2147483648, "maximum": 1}`))
+  t->Assert.deepEqual(
+    S.int->S.lte(1)->S.toJSONSchema,
+    %raw(`{"type": "integer", "minimum": -2147483648, "maximum": 1}`),
+  )
 })
 
 test("JSONSchema of port", t => {
@@ -177,17 +180,11 @@ test("JSONSchema of port", t => {
 })
 
 test("JSONSchema of float with min", t => {
-  t->Assert.deepEqual(
-    S.float->S.gte(1.)->S.toJSONSchema,
-    %raw(`{"type": "number", "minimum": 1}`),
-  )
+  t->Assert.deepEqual(S.float->S.gte(1.)->S.toJSONSchema, %raw(`{"type": "number", "minimum": 1}`))
 })
 
 test("JSONSchema of float with max", t => {
-  t->Assert.deepEqual(
-    S.float->S.lte(1.)->S.toJSONSchema,
-    %raw(`{"type": "number", "maximum": 1}`),
-  )
+  t->Assert.deepEqual(S.float->S.lte(1.)->S.toJSONSchema, %raw(`{"type": "number", "maximum": 1}`))
 })
 
 test("JSONSchema of nullable float", t => {
@@ -360,10 +357,7 @@ test("JSONSchema of union narrowed by .to: union([string, bigint])->to(string)",
 
   // Spelled out per member, the bigint arm converts and the JSON Schema narrows.
   let explicit =
-    S.union([
-      S.string->S.castToUnknown,
-      S.bigint->S.to(S.string)->S.castToUnknown,
-    ])->S.to(S.string)
+    S.union([S.string->S.castToUnknown, S.bigint->S.to(S.string)->S.castToUnknown])->S.to(S.string)
   t->Assert.deepEqual(explicit->S.toJSONSchema, %raw(`{"type": "string"}`))
 })
 
@@ -582,14 +576,18 @@ test(
       s.field(
         "field",
         S.option(
-          S.bool->S.transform(
-            () => {
-              parser: bool => {
-                switch bool {
-                | true => "true"
-                | false => ""
-                }
-              },
+          S.bool->S.to(
+            S.any,
+            ~custom={
+              decode: Sync(
+                bool => {
+                  switch bool {
+                  | true => "true"
+                  | false => ""
+                  }
+                },
+              ),
+              encode: Never,
             },
           ),
         )->S.Option.getOr("true"),
@@ -611,20 +609,25 @@ test("Transformed schema schema uses default with correct type", t => {
     s.field(
       "field",
       S.option(
-        S.bool->S.transform(
-          () => {
-            parser: bool => {
-              switch bool {
-              | true => "true"
-              | false => ""
-              }
-            },
-            serializer: string => {
-              switch string {
-              | "true" => true
-              | _ => false
-              }
-            },
+        S.bool->S.to(
+          S.any,
+          ~custom={
+            decode: Sync(
+              bool => {
+                switch bool {
+                | true => "true"
+                | false => ""
+                }
+              },
+            ),
+            encode: Sync(
+              string => {
+                switch string {
+                | "true" => true
+                | _ => false
+                }
+              },
+            ),
           },
         ),
       )->S.Option.getOr("true"),

@@ -23,7 +23,7 @@ import {
   vendor,
 } from "./base";
 import type { JSONSchemaT, StandardJsonSchemaOptions } from "./jsonschema";
-import { getDecoder, isAsyncInternal, reverse } from "./parse";
+import { getDecoder, reverse } from "./parse";
 import { literalDecoder } from "./primitives";
 
 // PORT-NOTE: StandardSchema/JSONSchema types are ported as loose, type-only
@@ -185,15 +185,6 @@ export const assertAsyncOrThrow = (any: unknown, schema: Internal): Promise<void
       input: unknown
     ) => Promise<void>
   )(any);
-}
-
-// @__NO_SIDE_EFFECTS__
-export const isAsync = (schema: Internal): boolean => {
-  if (schema.isAsync === U) {
-    return isAsyncInternal(schema, U);
-  } else {
-    return schema.isAsync;
-  }
 }
 
 export type JsResult<TValue> =

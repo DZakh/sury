@@ -90,7 +90,7 @@ function getCompiledCodeString(schema, op) {
     } else if (op === "Convert") {
       return S.decoder(Sury.reverse(schema), Sury.unknown);
     } else if (op === "Assert") {
-      return S.decoder(Sury.unknown, Sury.to(schema, Sury.noValidation(Sury.literal(), true)));
+      return S.decoder(Sury.unknown, S.to(schema, Sury.noValidation(Sury.literal(), true), undefined));
     } else if (op === "EncodeAsync") {
       return S.asyncDecoder(schema, Sury.unknown);
     } else if (op === "ReverseParse") {

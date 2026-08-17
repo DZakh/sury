@@ -8,10 +8,12 @@ import {
   flagNone,
   flagUnionTransformContext,
   flagUnsafeHas,
+  getOrRethrow,
   immutableEmptyArray,
   inlinedValueFromString,
   inputExpression,
   type Internal,
+  isLiteral,
   type InvalidInputDetails,
   type Path,
   pathConcat,
@@ -812,43 +814,95 @@ export const B_scope = (val: Val): Val => {
   return nextVal;
 }
 
-export const B_embedTransformation = (input: Val, fn: (input: unknown) => unknown, isAsync: boolean): Val => {
-  const outputVar = B_varWithoutAllocation(input.g);
-  const output = B_next(input, outputVar, unknown, input.e.to!);
-  output.v = _var;
-  if (isAsync) {
-    if (!flagUnsafeHas(input.g.o, flagAsync)) {
-      B_throw({
-        code: "invalid_operation",
-        path: pathEmpty,
-        reason:
-          "Encountered unexpected async transform or refine. Use parseAsyncOrThrow operation instead",
-      });
+// Compiles one custom coder of `S.to` into the chain. The two seams differ in
+// exactly one thing: what the coder's result claims to already be, which is
+// what decides how much of the target the parse loop still runs over it.
+//
+//  - `junction` (the JS `{decode, encode}` surface): the result claims
+//    `unknown`, so the loop owes the target a full decode. A coder returning
+//    the wrong thing is caught there.
+//  - otherwise (the ReScript adapter's decodeToOutput / encodeFromOutput):
+//    the result claims the target itself, so the loop only runs what a typed
+//    decode would, the same deal `S.decoder` gives a caller who declares the
+//    input's schema. The ReScript compiler has already checked the coder's
+//    signature, so the skipped work is provably redundant.
+//
+// A literal target is the exception, and `compileDecoder` states the same
+// rule for its typed input: a type says "string", never "the string \"a\"",
+// so a const is checked whatever the value claims to be.
+//
+// Inside a union case the sync form rethrows foreign exceptions raw (the
+// union owns exception classification) while still wrapping Sury failures
+// with the reached path; the async form leaves the promise bare, since the
+// case's own await/catch classifies rejections.
+export const B_conversion = (
+  fn: (value: unknown) => unknown,
+  isAsync?: boolean,
+  junction?: boolean,
+): Builder => {
+  return (input: Val): Val => {
+    const target = input.e.to!;
+    const outputVar = B_varWithoutAllocation(input.g);
+    const output = B_next(
+      input,
+      outputVar,
+      junction || isLiteral(target) ? unknown : target,
+      target,
+    );
+    output.v = _var;
+    if (isAsync) {
+      if (!flagUnsafeHas(input.g.o, flagAsync)) {
+        B_throw({
+          code: "invalid_operation",
+          path: pathEmpty,
+          reason: "Invalid async during sync operation",
+        });
+      }
+      output.f |= valFlagAsync;
     }
-    output.f |= valFlagAsync;
-  }
-  const embeddedFn = B_embed(input, fn);
-  const inputValue = input.vc ? input.v() : input.i;
-  if (input.g.o & flagUnionTransformContext) {
-    // The enclosing union owns exception classification. Wrapping a foreign
-    // exception here would make it look like a Sury mismatch.
-    output.cp = `let ${outputVar}=${embeddedFn}(${inputValue});`;
-    return output;
-  }
-  const failure = `${B_failWithArg(
-    output,
-    (e: unknown) => B_makeInvalidConversionDetails(input, unknown, e),
-    `x`
-  )}`;
-  // Feed the transform the input's var when it already carries checks — it's
-  // materialized into a var anyway (the check references it), so reuse it
-  // instead of re-inlining the source expression (e.g. `i["x"]`) twice.
-  output.cp = `let ${outputVar};try{${outputVar}=${embeddedFn}(${inputValue})${
-    isAsync ? `.catch(x=>${failure})` : ""
-  }}catch(x){${failure}}`;
-  return output;
-}
+    const embeddedFn = B_embed(input, fn);
+    // Reuse the input's var when checks already materialized it, instead of
+    // re-inlining the source expression twice.
+    const inputValue = input.vc ? input.v() : input.i;
+    const unionContext = input.g.o & flagUnionTransformContext;
+    if (unionContext && isAsync) {
+      output.cp = `let ${outputVar}=${embeddedFn}(${inputValue});`;
+      return output;
+    }
+    const rethrow = unionContext ? `${B_embed(input, getOrRethrow)}(x);` : "";
+    const failure = B_failWithArg(
+      output,
+      (e: unknown) => B_makeInvalidConversionDetails(input, target, e),
+      `x`,
+    );
+    output.cp = `let ${outputVar};try{${outputVar}=${embeddedFn}(${inputValue})${
+      isAsync ? `.catch(x=>${failure})` : ""
+    }}catch(x){${rethrow}${failure}}`;
+    return trusted(output);
+  };
+};
 
+// A val whose result the target's own refiners can attach to. `val.vc` checks
+// emit at the *pre-transform* slot (`prev.v()` in B_merge), so leaving them on
+// the coder's own val would validate what went into the coder instead of what
+// came out — `S.uuid->S.to(userSchema, ~custom=…)` ran the uuid pattern over
+// the user object. The junction seam never hits this: its `unknown` source
+// makes the loop compile the target's decoder, which supplies a val of its
+// own. The trusted seam claims the target outright, so it has to supply one.
+const trusted = (output: Val): Val =>
+  output.s === unknown ? output : B_refine(output);
+
+// The "never" codec slot. The union planner compares against this reference
+// to find a direction a variant can't take: such a variant accepts nothing
+// and yields to its siblings, while standalone it rejects the operation here,
+// at creation.
+export const B_neverSlot: Builder = (input: Val) =>
+  B_invalidOperation(
+    input,
+    `Can't decode ${inputExpression(input.e)} to ${inputExpression(
+      input.e.to!,
+    )}. The conversion is marked as never`,
+  );
 
 export const B_invalidOperation = (val: Val, description: string): never => {
   return B_throw({ code: "invalid_operation", reason: description, path: val.path });
@@ -868,7 +922,7 @@ const B_mergeWithCatch = (
   const pure = pureSince !== U && val.g.t === pureSince;
   if (
     (valCode === "" || pure) &&
-    // FIXME: Instead of this wrap all S.transform in a try/catch
+    // FIXME: Instead of this wrap every custom coder in a try/catch
     !flagUnsafeHas(val.f, valFlagAsync)
   ) {
     return appendSafe !== U ? valCode + appendSafe() : pure ? "" : valCode;

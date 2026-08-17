@@ -17,7 +17,10 @@ module Common = {
   test("Fails to parse invalid value", t => {
     let schema = factory()
 
-    t->U.assertThrowsMessage(() => invalidAny->S.parseOrThrow(~to=schema), `Expected 123, received 444`)
+    t->U.assertThrowsMessage(
+      () => invalidAny->S.parseOrThrow(~to=schema),
+      `Expected 123, received 444`,
+    )
   })
 
   test("Fails to parse invalid type", t => {

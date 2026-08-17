@@ -213,11 +213,7 @@ test("Expression of renamed schema", t => {
     ~op=#ReverseParse,
     `i=>{if(i===void 0){i=null}else{e[0](i)}return i}`,
   )
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#Encode,
-    `i=>{if(i===void 0){i=null}else{e[0](i)}return i}`,
-  )
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{if(i===void 0){i=null}else{e[0](i)}return i}`)
   t->Assert.deepEqual(None->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`null`))
   t->U.assertThrowsMessage(
     () => %raw(`"smth"`)->S.parseOrThrow(~to=schema->S.reverse),
@@ -312,7 +308,10 @@ test("toString collapses to one parameter when the sides match", t => {
 })
 
 test("toString reverses nested schemas for the output side", t => {
-  t->Assert.deepEqual((S.array(S.string->S.to(S.int))->S.untag).toString(), "Schema<string[], int32[]>")
+  t->Assert.deepEqual(
+    (S.array(S.string->S.to(S.int))->S.untag).toString(),
+    "Schema<string[], int32[]>",
+  )
 })
 
 test("Bounds render on the schema they constrain", t => {

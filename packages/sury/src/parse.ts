@@ -175,21 +175,6 @@ export const parseDynamic = (input: Val): Val => {
   }
 }
 
-export const isAsyncInternal = (
-  schema: Internal,
-  defs: Record<string, Internal> | undefined
-): boolean => {
-  try {
-    const input = B_operationArg(unknown, schema, flagAsync, defs);
-    const output = parse(input);
-    const isAsync = flagUnsafeHas(output.f, valFlagAsync);
-    schema.isAsync = isAsync;
-    return isAsync;
-  } catch (exn) {
-    getOrRethrow(exn);
-    return false;
-  }
-}
 export const compileDecoder = (
   schema: Internal,
   expected: Internal,
@@ -234,7 +219,8 @@ export const getOutputSchema = (schema: Internal): Internal => {
 }
 // The two sides of a schema trade places: what parsed now serializes, what
 // refined the input now refines the output. `delete` rather than `= U` because
-// `"fromDefault" in self` (union.ts) tells absent apart from undefined.
+// `unionIsTransparent` (union.ts) counts a schema's keys, and a key left
+// present with an undefined value would stop every union from flattening.
 const reverseSwap = (mut: Record<string, unknown>, a: string, b: string): void => {
   const previous = mut[a];
   if (mut[b] !== U) {

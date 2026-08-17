@@ -3,7 +3,7 @@ ts:
   schema: 'S.union([S.schema({type: "user.created", id: S.bigint}), S.schema({type: "user.renamed", id: S.bigint, name: S.string})]).with(S.to, S.jsonString)'
   input: '{ type: "user.created"; id: bigint; } | { type: "user.renamed"; id: bigint; name: string; }'
   output: string
-  instantiations: 8537
+  instantiations: 8602
 jsonSchema:
   input: 'Failed at ["id"]: Expected JSON, received bigint'
   output: '{ type: "string" }'

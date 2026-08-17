@@ -302,6 +302,86 @@ test("toJSONSchema omits default additionalProperties schemas", (t) => {
   t.expect(S.toJSONSchema(S.record(S.json))).toEqual({ type: "object" });
 });
 
+test("S.asyncEncoder runs an async encode codec", async (t) => {
+  const schema = S.string.with(S.to, S.number, {
+    decode: (string) => string.length,
+    encode: { async: (number) => Promise.resolve("x".repeat(number)) },
+  });
+
+  // The forward direction stays sync-parseable; async-ness is discovered by
+  // catching the sync operation's rejection, not via a dedicated probe.
+  t.expect(S.parser(schema)("abc")).toBe(3);
+  t.expect(() => S.encoder(schema)).toThrow(
+    "Invalid async during sync operation",
+  );
+  await t.expect(S.asyncEncoder(schema)(3)).resolves.toBe("xxx");
+});
+
+test("All-auto codecs behave exactly like the coder-less spelling", (t) => {
+  const schema = S.string.with(S.to, S.number, (string) => string.length);
+
+  // Same-instance target: the self-chain shortcut must apply to the
+  // all-"auto" object too, not only to the omitted argument.
+  t.expect(S.to(schema, schema, { decode: "auto", encode: "auto" })).toBe(schema);
+});
+
+test("Rejects unknown codec slot values at schema creation", (t) => {
+  const codec = (codecs: any) => () => S.string.with(S.to, S.number, codecs);
+
+  // The rejection names the direction the caller got wrong, not the pair.
+  t.expect(codec({ decode: 1, encode: "auto" })).toThrow(
+    '[Sury] Invalid decode 1. Expected a function, "auto", "never" or {async: fn}',
+  );
+  t.expect(codec({ decode: "auto", encode: 1 })).toThrow("[Sury] Invalid encode 1.");
+  // {async} is strict: extra keys are a misuse, not something to guess about.
+  t.expect(
+    codec({ decode: { async: async (v: string) => v.length, sync: 1 }, encode: "auto" }),
+  ).toThrow("[Sury] Invalid decode");
+  // A missing (or nulled) direction reads as the incomplete pair it is.
+  t.expect(codec({ decode: null, encode: "auto" })).toThrow(
+    '[Sury] Expected {decode, encode}. Use "auto" for the built-in conversion',
+  );
+});
+
+test("Custom codecs type their coders against the junction, and stay assignable", (t) => {
+  const schema = S.string.with(S.to, S.number.with(S.gt, 0), {
+    decode: (value) => {
+      expectTypeOf(value).toEqualTypeOf<string>();
+      return value.length;
+    },
+    // `encode` receives the target's *input*, not its output — the coder sits
+    // at the junction, so its result runs through the target's own pipeline.
+    encode: (value) => {
+      expectTypeOf(value).toEqualTypeOf<number>();
+      return "x".repeat(value);
+    },
+  });
+  expectTypeOf(schema).toEqualTypeOf<S.Schema<string, number>>();
+
+  // The Coder bivariance hack: without it every `with` mention of Codecs makes
+  // TOutput compare contravariantly, and a concrete schema stops being usable
+  // where the erased one is expected.
+  const erased: S.Schema<unknown, unknown> = schema;
+  t.expect(S.parser(erased)("abc")).toBe(3);
+});
+
+test("An output-seam codec rejects a target that already converts", (t) => {
+  const target = S.string.with(S.to, S.number);
+
+  // Only the ReScript adapter can reach this seam, and only it is restricted:
+  // the JS pair feeds the target's chain instead of replacing it.
+  t.expect(() =>
+    (S.to as any)(S.string, target, {
+      decodeToOutput: (value: string) => value.length,
+      encodeFromOutput: (value: number) => String(value),
+    }),
+  ).toThrow("[Sury] The target already converts. Chain S.to instead of passing a custom codec");
+
+  t.expect(
+    S.parser(S.string.with(S.to, target, { decode: (v) => v, encode: (v) => v }))("42"),
+  ).toBe(42);
+});
+
 test("JS refine produces invalid_input error with expected/received populated", (t) => {
   const schema = S.string.with(S.refine, () => false, { error: "nope" });
   const result = S.safe(() => S.parser(schema)("123"));
@@ -318,8 +398,14 @@ test("JS refine produces invalid_input error with expected/received populated", 
 });
 
 test("Successfully parses async schema", async (t) => {
-  const schema = S.string.with(S.asyncDecoderAssert, async (string) => {
-    expectTypeOf(string).toEqualTypeOf<string>();
+  const schema = S.string.with(S.to, S.string, {
+    decode: {
+      async: async (string) => {
+        expectTypeOf(string).toEqualTypeOf<string>();
+        return string;
+      },
+    },
+    encode: "auto",
   });
   const value = await S.safeAsync(() => S.asyncParser(schema)("123"));
 
@@ -329,8 +415,13 @@ test("Successfully parses async schema", async (t) => {
 });
 
 test("Fails to parses async schema", async (t) => {
-  const schema = S.string.with(S.asyncDecoderAssert, async () => {
-    throw new Error("User error");
+  const schema = S.string.with(S.to, S.string, {
+    decode: {
+      async: async (): Promise<string> => {
+        throw new Error("User error");
+      },
+    },
+    encode: "auto",
   });
 
   const result = await S.safeAsync(() => S.asyncParser(schema)("123"));
@@ -667,7 +758,9 @@ test("Standard schema", (t) => {
 // on the arguments and the global flag, so anything that picks a different
 // compiled operation must still get it.
 test("Compiled operations stay per-operation and per-global-config", (t) => {
-  const schema = S.schema({ a: S.string.with(S.to, S.number, Number, String) });
+  const schema = S.schema({
+    a: S.string.with(S.to, S.number, { decode: Number, encode: String }),
+  });
 
   // Alternating operations on one schema must not answer each other.
   for (let i = 0; i < 3; i++) {
@@ -1816,18 +1909,16 @@ test("Preprocess nested fields", (t) => {
     schema: S.Schema<TInput, string>,
     prefix: string,
   ): S.Schema<TInput, string> =>
-    S.to(
-      schema,
-      S.string,
-      (v) => {
+    S.to(schema, S.string, {
+      decode: (v) => {
         if (v.startsWith(prefix)) {
           return v.slice(1);
         } else {
           throw new Error(`String must start with ${prefix}`);
         }
       },
-      (v) => prefix + v,
-    );
+      encode: (v) => prefix + v,
+    });
 
   const schema = S.schema({
     nested: {
@@ -1839,7 +1930,8 @@ test("Preprocess nested fields", (t) => {
   const fn = S.encoder(schema);
 
   t.expect(fn.toString()).toEqual(
-    `i=>{i===void 0||e[4](i);let v0;try{v0=e[0]("foo")}catch(x){e[1](x)}let v1;try{v1=e[2]("1")}catch(x){e[3](x)}return {"nested":{"tag":v0,"numberTag":v1,},}}`,
+    // The junction seam validates each coder's result against its target.
+    `i=>{i===void 0||e[6](i);let v0;try{v0=e[0]("foo")}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);let v1;try{v1=e[3]("1")}catch(x){e[4](x)}typeof v1==="string"||e[5](v1);return {"nested":{"tag":v0,"numberTag":v1,},}}`,
   );
 
   const value = fn(undefined);
@@ -2361,12 +2453,10 @@ test("A lower bound only widens an array whose length is still open", () => {
 // from it — pinning the array's arity says nothing about the string it decodes
 // from, which is why the input side is rewritten only when it is the same type.
 test("A length bound leaves the other side of a codec alone", () => {
-  const csv = S.string.with(
-    S.to,
-    S.array(S.string),
-    (s) => s.split(","),
-    (a) => a.join(","),
-  );
+  const csv = S.string.with(S.to, S.array(S.string), {
+    decode: (s) => s.split(","),
+    encode: (a) => a.join(","),
+  });
   expectSchemaType(csv.with(S.length, 0)).toBe<string, []>();
   expectSchemaType(csv.with(S.length, 2)).toBe<string, [string, string]>();
   expectSchemaType(csv.with(S.nonEmpty)).toBe<string, [string, ...string[]]>();
