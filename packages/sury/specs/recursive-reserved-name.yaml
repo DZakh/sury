@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ a: S.recursive("toString", (self) => S.schema({ v: S.string, next: S.optional(self) })), b: S.recursive("__proto__", (self) => S.schema({ v: S.string, next: S.optional(self) })) })'
   input: "{ a?: unknown; b?: unknown; }"
   output: "{ a?: unknown; b?: unknown; }"
-  instantiations: 12841
+  instantiations: 12869
 jsonSchema:
   input: '{ type: "object", properties: { a: { $ref: "#/$defs/toString" }, b: { $ref: "#/$defs/__proto__" } }, required: ["a", "b"], $defs: { toString: { type: "object", properties: { v: { type: "string" }, next: { $ref: "#/$defs/toString" } }, required: ["v"] }, ["__proto__"]: { type: "object", properties: { v: { type: "string" }, next: { $ref: "#/$defs/__proto__" } }, required: ["v"] } } }'
   fromInputType: "{ a: { v: string; next?: ... | undefined; }; b: { v: string; next?: ... | undefined; }; }"

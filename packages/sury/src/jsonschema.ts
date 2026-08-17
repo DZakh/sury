@@ -244,8 +244,7 @@ export type JSONSchemaT = {
 export type JsonSchemaTarget = "draft-07" | "draft-2020-12" | "openapi-3.0" | (string & {});
 
 // Compared on every emit branch that differs by dialect; naming it once keeps
-// the literal out of the bundle at each of those sites. `openApi30` is in
-// base.ts, where a schema converting itself can reach it too.
+// the literal out of the bundle at each of those sites.
 const draft202012 = "draft-2020-12";
 const draft07Uri = "http://json-schema.org/draft-07/schema#";
 const draft2020Uri = "https://json-schema.org/draft/2020-12/schema";
@@ -268,24 +267,38 @@ const jsonSchemaMerge = (a: JSONSchemaT, b: JSONSchemaT): JSONSchemaT => {
 const isAnyJSONSchema = (definition: JSONSchemaDefinition | undefined): boolean =>
   definition === true || (!!definition && Object.keys(definition).length === 0);
 
+// Everything the structural conversion didn't say, in precedence order: the
+// user's own `S.extendJSONSchema` document lands last and so always wins.
 const applyMetadataOverlay = (
   jsonSchema: JSONSchemaT,
   schema: Internal,
+  path: Path,
   defs: Record<string, Internal>,
   target: JsonSchemaTarget
 ): void => {
-  // A `.to` target the conversion above could only answer structurally — the
-  // encode-reverse says "a string" and drops what the string is *for*. Read
-  // from the carrier rather than from the target itself, because the target's
-  // own input isn't JSON at all: `S.blob` alone still has no document, and
-  // `S.string.with(S.to, S.blob)` is the schema that does.
-  //
-  // Here rather than beside the conversion so the layering falls out: it lands
-  // over the structural keywords and under `description` and the user's
-  // `S.extendJSONSchema`, which is applied last.
+  // Both read `.to` from the carrier, never from the target itself: the
+  // encode-reverse only ever answers "a string", and the target's own input is
+  // often not JSON at all — `S.blob` has no document, the string it encodes
+  // into does.
   const to = schema.to;
-  if (to?.jsonSchema) {
-    Object.assign(jsonSchema, to.jsonSchema(to, target));
+  if (to !== U) {
+    if (to.jsonSchema) {
+      Object.assign(jsonSchema, to.jsonSchema(to, target));
+    }
+    // `contentSchema` landed in draft 2019-09; draft-07 has no slot for it.
+    if (schema.format === "json" && target === draft202012) {
+      try {
+        const contentSchema = internalToJSONSchema(to, path, defs, schema, target);
+        // `{}` — what `S.json` converts to — says nothing the media type hasn't.
+        if (Object.keys(contentSchema).length) {
+          jsonSchema.contentSchema = contentSchema;
+        }
+      } catch (exn) {
+        // A `.to` with no JSON Schema form (`S.bigint`, `S.uint8Array`) drops
+        // the annotation rather than failing a conversion that has an answer.
+        getOrRethrow(exn);
+      }
+    }
   }
   if (schema.description !== U) {
     jsonSchema.description = schema.description;
@@ -351,48 +364,20 @@ const internalToJSONSchema = (
   // Option.getOrWith, ...) where the union's anyOf is the input format we want
   // to keep describing. Object/array still need their nested item metadata, so
   // they keep using the base path.
-  const to = schemaInternal.to;
   const tagFlag = tagFlags[schemaInternal.type]!;
   const hasUserTo =
-    !!to &&
+    !!schemaInternal.to &&
     !flagUnsafeHas(tagFlag, (tagFlagObject | tagFlagArray)) &&
     !(flagUnsafeHas(tagFlag, tagFlagUnion) && !!schemaInternal.parser);
   const encoded = hasUserTo
     ? encodeToJsonSchema(schema, path, defs, parent, target)
     : U;
-  let result: JSONSchemaT;
   if (encoded !== U) {
-    applyMetadataOverlay(encoded, schema, defs, target);
-    result = encoded;
+    applyMetadataOverlay(encoded, schema, path, defs, target);
+    return encoded;
   } else {
-    result = internalToJSONSchemaBase(schema, path, defs, parent, target);
+    return internalToJSONSchemaBase(schema, path, defs, parent, target);
   }
-
-  // The reverse-parse above can only ever answer "a string"; `.to` is what
-  // names the document that string carries, and the base conversion — which
-  // emits the media type with the rest of the string keywords — never sees it.
-  // `contentSchema` landed in draft 2019-09, so draft-07 has no slot for it.
-  // Runs after the overlay and defers to what it wrote, so `S.extendJSONSchema`
-  // keeps the final word.
-  if (
-    to !== U &&
-    schemaInternal.format === "json" &&
-    target === draft202012 &&
-    result.contentSchema === U
-  ) {
-    try {
-      const contentSchema = internalToJSONSchema(to, path, defs, schemaInternal, target);
-      // `{}` — what `S.json` converts to — says nothing the media type hasn't.
-      if (Object.keys(contentSchema).length) {
-        result.contentSchema = contentSchema;
-      }
-    } catch (exn) {
-      // A `.to` with no JSON Schema form (`S.bigint`, `S.uint8Array`) drops the
-      // annotation rather than failing a conversion that has an answer.
-      getOrRethrow(exn);
-    }
-  }
-  return result;
 }
 
 const internalToJSONSchemaBase = (
@@ -423,10 +408,9 @@ const internalToJSONSchemaBase = (
     if (format !== U && format !== "cuid" && format !== "json") {
       jsonSchema.format = format;
     } else if (format === "json" && target !== openApi30) {
-      // A carried document isn't one of the spec's named string shapes, so it's
-      // `contentMediaType` rather than a `format`. An annotation, not an
-      // assertion — a validator that never decodes the string stays conformant.
-      // OpenAPI 3.0 predates the whole content family.
+      // A carried document is not one of the spec's named string shapes, so it
+      // is `contentMediaType` rather than a `format`. OpenAPI 3.0 predates the
+      // whole content family.
       jsonSchema.contentMediaType = "application/json";
     }
     if (schema.minLength !== U) {
@@ -709,7 +693,7 @@ const internalToJSONSchemaBase = (
     });
   }
 
-  applyMetadataOverlay(jsonSchema, schema, defs, target);
+  applyMetadataOverlay(jsonSchema, schema, path, defs, target);
 
   return jsonSchema;
 }
@@ -756,21 +740,17 @@ export const toJSONSchema = (schema: Internal, options?: toJSONSchemaOptions): J
     target = "draft-07";
     schemaUri = U;
   }
-  // Null prototypes: a definition is named by its author, so both maps are keyed
-  // by arbitrary strings. `__proto__` would set a prototype instead of a key on
-  // the way in, and every `Object.prototype` name — `toString`, `valueOf` —
-  // would read back as already converted on the way out, either way publishing
-  // a `$ref` to a definition that never lands in the document.
+  // Null prototypes: definitions are named by their author. `__proto__` would
+  // set a prototype instead of taking a key, and `toString` would read back as
+  // already converted — either way a `$ref` to a definition nobody publishes.
   const defs: Record<string, Internal> = Object.create(null);
   const jsonSchema = internalToJSONSchema(schema, pathEmpty, defs, schema, target);
   if (options !== U) delete jsonSchema.$schema;
   const jsonSchemDefs: Record<string, JSONSchemaDefinition> = Object.create(null);
-  // A def body names defs of its own whenever a recursive schema is only
-  // reached from inside another one — nested directly, or through a JSON
-  // string's `contentSchema` — so the set grows while it is walked, and each
-  // body converts into the same `defs` rather than a sink that is thrown away
-  // with its `$ref` targets still in it. `S.json` names itself in here too,
-  // and that one stays unpublished: it converts to `{}`.
+  // Converting a def body can name defs of its own, so the set grows while it
+  // is walked — a schema reached only from inside another one is otherwise left
+  // with a `$ref` nobody publishes. `S.json` names itself in here and is the
+  // one that stays unpublished: it converts to `{}`.
   let name: string | undefined;
   while (
     (name = Object.keys(defs).find((key) => key !== jsonName && !(key in jsonSchemDefs))) !== U

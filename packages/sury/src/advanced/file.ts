@@ -12,7 +12,7 @@ import { instanceDecoder } from "../parse";
 // `instanceof`, the rendering and the JSON Schema emit via `.name`, and
 // `copySchema`'s `Object.assign` for `.with(…)` and `reverse` — so all of them
 // answer with this one sentence rather than a TypeError, or worse, a schema
-// that builds and fails later — converting a schema that merely decodes to one
+// that builds and fails later — converting a schema that only decodes to one
 // included, since the encode-reverse copies the target to get there.
 //
 // Enumerable, so the `Object.assign` copy is one of the routes it covers.
@@ -25,17 +25,9 @@ const unsupported = (s: Internal, name: string): void => {
   });
 };
 
-// What a schema that decodes *to* one of these adds to its own document. No
-// `type`: a blob is octets, which no JSON type describes, so the carrier is the
-// only thing with a type to give and this says what it carries. Read only from
-// a carrier, so `S.blob` on its own still has no document at all — which is the
-// truth, a `Blob` is not JSON.
-//
-// The two dialects disagree on the spelling, which is the whole reason this
-// can't be an `S.extendJSONSchema` document: OpenAPI 3.0 has `format: "binary"`
-// for exactly this and no content keywords at all, JSON Schema has no such
-// format and says it with `contentMediaType`. `minSize`/`maxSize` have no
-// keyword in either and stay off — a byte count is not `minLength`, which
+// No `type`: octets have none, so the carrier that decodes to a blob is the
+// side with a type to give and this only says what it carries. `minSize` and
+// `maxSize` stay off — neither dialect bounds a byte count, and `minLength`
 // counts characters.
 const binaryJSONSchema = (_schema: Internal, target: string): JSONSchemaT =>
   target === openApi30
