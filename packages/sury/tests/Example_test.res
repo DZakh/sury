@@ -37,8 +37,8 @@ let filmSchema = S.object(s => {
 
 test("Example", t => {
   t->Assert.deepEqual(
-    %raw(`{"Id": 1, "Title": "My first film", "Rating": "R", "Age": 17}`)->S.parseOrThrow(~to=
-      filmSchema,
+    %raw(`{"Id": 1, "Title": "My first film", "Rating": "R", "Age": 17}`)->S.parseOrThrow(
+      ~to=filmSchema,
     ),
     {
       id: 1.,
@@ -89,17 +89,23 @@ test("Compiled serialize code snapshot", t => {
 test("Custom schema", t => {
   let mySet = itemSchema => {
     S.instance(%raw(`Set`))
-    ->S.to(S.any, ~custom={decode: Sync(input => {
-        let output = Set.make()
-        input
-        ->Obj.magic
-        ->Set.forEach(
-          item => {
-            output->Set.add(S.parseOrThrow(item, ~to=itemSchema))
+    ->S.to(
+      S.any,
+      ~custom={
+        decode: Sync(
+          input => {
+            let output = Set.make()
+            input
+            ->Obj.magic
+            ->Set.forEach(item => {
+              output->Set.add(S.parseOrThrow(item, ~to=itemSchema))
+            })
+            output
           },
-        )
-        output
-      }), encode: Never})
+        ),
+        encode: Never,
+      },
+    )
     ->S.meta({name: `Set.t<${S.inputExpression(itemSchema)}>`})
   }
 

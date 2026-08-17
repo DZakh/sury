@@ -92,7 +92,7 @@ const ASYNC_OP_BUILDER: Record<OpName, (schema: any) => (input: any) => Promise<
 // compiles the sync operation and reads this message off the rejection. That
 // also keeps it per direction for free, which matters because
 // `S.asyncDecoderAssert` makes decode async while encode stays a sync pass.
-const ASYNC_REJECTION = "The conversion is async. Use the Async version of the operation";
+const ASYNC_REJECTION = "Invalid async during sync operation";
 
 const SKIP_REASON_SET = new Set<string>(SKIP_REASONS);
 export const isValidSkipReason = (r: unknown): boolean =>

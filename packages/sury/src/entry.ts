@@ -258,7 +258,13 @@ const ambiguousEncode: Builder = (input: Val) =>
 // conversion". `junction` picks which seam the coder's result lands on (see
 // B_conversion). An `{async}` object must carry that key alone: guessing past
 // a typo would silently pick a different direction's semantics.
-const conversionBuilder = (slot: unknown, junction: boolean): Builder | undefined => {
+// `name` is the key the caller wrote, so the rejection names the direction
+// they got wrong rather than the pair.
+const conversionBuilder = (
+  name: string,
+  slot: unknown,
+  junction: boolean,
+): Builder | undefined => {
   const async = (slot as { async?: unknown } | null)?.async;
   if (slot === "auto") {
     return U;
@@ -270,7 +276,7 @@ const conversionBuilder = (slot: unknown, junction: boolean): Builder | undefine
     return B_conversion(async as (value: unknown) => Promise<unknown>, true, junction);
   } else {
     return panic(
-      `Invalid conversion ${stringify(slot)}. Expected a function, "auto", "never" or {async: fn}`,
+      `Invalid ${name} ${stringify(slot)}. Expected a function, "auto", "never" or {async: fn}`,
     );
   }
 };
@@ -291,16 +297,21 @@ export const to = (schema: Internal, target: Internal, custom?: unknown) => {
     // index.d.ts. The key count rejects a typo instead of reading it as a
     // missing direction.
     const toOutput = codecs["decodeToOutput"];
-    outputSeam = !!toOutput;
-    const decodeSlot = outputSeam ? toOutput : codecs["decode"];
-    const encodeSlot = outputSeam ? codecs["encodeFromOutput"] : codecs["encode"];
+    const fromRescript = !!toOutput;
+    const decodeSlot = fromRescript ? toOutput : codecs["decode"];
+    const encodeSlot = fromRescript ? codecs["encodeFromOutput"] : codecs["encode"];
     if (!decodeSlot || !encodeSlot || Object.keys(codecs).length !== 2) {
-      return panic(
-        `Custom codecs must define both decode and encode. Use "auto" for the built-in conversion`,
-      );
+      return panic(`Expected {decode, encode}. Use "auto" for the built-in conversion`);
     }
-    decode = conversionBuilder(decodeSlot, !outputSeam);
-    encode = conversionBuilder(encodeSlot, !outputSeam);
+    // `S.any` is this very `unknown` schema under a second name, and its
+    // ReScript type is `t<'any>` — a variable that unifies with whatever the
+    // coder returns, so the seam against it carries nothing to trust. Same
+    // carve-out B_conversion makes for a literal target, one level up: the
+    // untrustworthy side can be either end of the pair, and only `to` sees
+    // both.
+    outputSeam = fromRescript && schema !== unknown && target !== unknown;
+    decode = conversionBuilder("decode", decodeSlot, !outputSeam);
+    encode = conversionBuilder("encode", encodeSlot, !outputSeam);
   }
   // Chaining a schema to itself would append a second copy of its own chain,
   // re-decoding the value it just produced. Resolving the slots first is what

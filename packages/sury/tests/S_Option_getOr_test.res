@@ -59,12 +59,20 @@ test("Successfully parses schema with transformation", t => {
   let schema =
     S.option(S.float)
     ->S.Option.getOr(-123.)
-    ->S.to(S.any, ~custom={decode: Sync(number =>
-        if number > 0. {
-          Some("positive")
-        } else {
-          None
-        }), encode: Never})
+    ->S.to(
+      S.any,
+      ~custom={
+        decode: Sync(
+          number =>
+            if number > 0. {
+              Some("positive")
+            } else {
+              None
+            },
+        ),
+        encode: Never,
+      },
+    )
     ->S.to(S.option(S.string))
     ->S.Option.getOr("not positive")
 
@@ -94,9 +102,9 @@ test("Compiled parse code snapshot", t => {
 
 asyncTest("Compiled async parse code snapshot", async t => {
   let schema =
-    S.option(S.bool->S.to(S.any, ~custom={decode: Async(i => Promise.resolve(i)), encode: Never}))->S.Option.getOr(
-      false,
-    )
+    S.option(
+      S.bool->S.to(S.any, ~custom={decode: Async(i => Promise.resolve(i)), encode: Never}),
+    )->S.Option.getOr(false)
 
   t->Assert.deepEqual(await None->S.parseAsyncOrThrow(~to=schema), false)
   t->U.assertCompiledCode(
@@ -190,10 +198,7 @@ test("Uses object default with all required fields", t => {
     ->S.Option.getOr({"a": "hi", "b": 1.})
 
   t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), {"a": "hi", "b": 1.})
-  t->Assert.deepEqual(
-    %raw(`{"a":"x","b":2}`)->S.parseOrThrow(~to=schema),
-    {"a": "x", "b": 2.},
-  )
+  t->Assert.deepEqual(%raw(`{"a":"x","b":2}`)->S.parseOrThrow(~to=schema), {"a": "x", "b": 2.})
 })
 
 test("Rejects object default with field of wrong type", t => {
@@ -213,8 +218,7 @@ test("Rejects object default with field of wrong type", t => {
 test("Rejects object default with missing required field", t => {
   t->Assert.throws(
     () => {
-      let _ =
-        S.schema(s => {"a": s.matches(S.string)})->S.option->S.Option.getOr(%raw(`{}`))
+      let _ = S.schema(s => {"a": s.matches(S.string)})->S.option->S.Option.getOr(%raw(`{}`))
     },
     ~expectations={
       message: `[Sury] Invalid default for { a: string; } | undefined: Failed at ["a"]: Expected string, received undefined`,
@@ -293,10 +297,7 @@ test("Appending S.to(S.jsonString) after getOr extends the output chain", t => {
   let toLevel1 = untagged.to->Option.getOrThrow->S.untag
   t->Assert.is(toLevel1.tag, S.String)
 
-  t->Assert.deepEqual(
-    %raw(`undefined`)->S.parseOrThrow(~to=schema),
-    `"2024-01-01T00:00:00.000Z"`,
-  )
+  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), `"2024-01-01T00:00:00.000Z"`)
   t->Assert.deepEqual(
     "2024-06-15T12:30:45.123Z"->S.parseOrThrow(~to=schema),
     `"2024-06-15T12:30:45.123Z"`,

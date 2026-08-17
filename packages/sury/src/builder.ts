@@ -855,7 +855,7 @@ export const B_conversion = (
         B_throw({
           code: "invalid_operation",
           path: pathEmpty,
-          reason: "The conversion is async. Use the Async version of the operation",
+          reason: "Invalid async during sync operation",
         });
       }
       output.f |= valFlagAsync;

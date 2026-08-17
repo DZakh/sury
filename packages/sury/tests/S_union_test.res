@@ -113,33 +113,36 @@ test("A never-decode variant yields to its siblings", t => {
 })
 
 // https://github.com/DZakh/sury/issues/115
-test("Reports the named union schema when a string-shape fallback rejects a non-string input", t => {
-  let schema =
-    S.union([
-      S.literal(#hyper),
-      S.literal(#development),
-      S.literal(#small),
-      S.literal(#medium),
-      S.literal(#large),
-      S.literal(#dedicated),
-      S.string->S.shape(_ => #unknown),
-    ])->S.meta({name: "indexer plan"})
+test(
+  "Reports the named union schema when a string-shape fallback rejects a non-string input",
+  t => {
+    let schema =
+      S.union([
+        S.literal(#hyper),
+        S.literal(#development),
+        S.literal(#small),
+        S.literal(#medium),
+        S.literal(#large),
+        S.literal(#dedicated),
+        S.string->S.shape(_ => #unknown),
+      ])->S.meta({name: "indexer plan"})
 
-  t->Assert.deepEqual(%raw(`"hyper"`)->S.parseOrThrow(~to=schema), #hyper)
-  t->Assert.deepEqual(%raw(`"anything-else"`)->S.parseOrThrow(~to=schema), #unknown)
-  t->U.assertThrowsMessage(
-    () => %raw(`42`)->S.parseOrThrow(~to=schema),
-    `Expected indexer plan, received 42`,
-  )
+    t->Assert.deepEqual(%raw(`"hyper"`)->S.parseOrThrow(~to=schema), #hyper)
+    t->Assert.deepEqual(%raw(`"anything-else"`)->S.parseOrThrow(~to=schema), #unknown)
+    t->U.assertThrowsMessage(
+      () => %raw(`42`)->S.parseOrThrow(~to=schema),
+      `Expected indexer plan, received 42`,
+    )
 
-  // The `S.shape(_ => #unknown)` member throws away its input, so there is no
-  // way back from #unknown to a string. That's an error in the encode operation
-  // itself, raised once when it's created rather than per value.
-  t->U.assertThrowsMessage(
-    () => #hyper->S.decodeOrThrow(~from=schema, ~to=S.unknown),
-    `Missing input for string`,
-  )
-})
+    // The `S.shape(_ => #unknown)` member throws away its input, so there is no
+    // way back from #unknown to a string. That's an error in the encode operation
+    // itself, raised once when it's created rather than per value.
+    t->U.assertThrowsMessage(
+      () => #hyper->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+      `Missing input for string`,
+    )
+  },
+)
 
 test("A never-encode variant yields to its siblings when reversed", t => {
   let schema = S.union([
@@ -392,7 +395,10 @@ test("Instance schema should be checked before object even if it's later item in
     S.instance(%raw(`Set`))->Obj.magic,
   ])
 
-  t->Assert.deepEqual(%raw(`new Set(["baz"])`)->S.parseOrThrow(~to=schema), %raw(`new Set(["baz"])`))
+  t->Assert.deepEqual(
+    %raw(`new Set(["baz"])`)->S.parseOrThrow(~to=schema),
+    %raw(`new Set(["baz"])`),
+  )
   t->Assert.deepEqual(%raw(`{"foo": "bar"}`)->S.parseOrThrow(~to=schema), ["bar"])
 
   t->U.assertCompiledCode(
@@ -417,11 +423,19 @@ type uboxedVariant = String(string) | Int(int)
 test("Successfully serializes unboxed variant", t => {
   let toInt =
     S.string
-    ->S.to(S.any, ~custom={decode: Sync(string =>
-        switch string->Int.fromString {
-        | Some(value) => value
-        | None => U.fail("Invalid int")
-        }), encode: Sync(Int.toString(_))})
+    ->S.to(
+      S.any,
+      ~custom={
+        decode: Sync(
+          string =>
+            switch string->Int.fromString {
+            | Some(value) => value
+            | None => U.fail("Invalid int")
+            },
+        ),
+        encode: Sync(Int.toString(_)),
+      },
+    )
     ->S.shape(i => Int(i))
   let toString = S.string->S.shape(s => String(s))
   let schema = S.union([toInt, toString])
@@ -439,7 +453,7 @@ test("Successfully serializes unboxed variant", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{for(;;){let r;try{let v0;try{v0=e[0](i)}catch(x){e[1](x);e[2](x)}i=v0;break}catch(x){(r||(r=[])).push(e[3](x))}if(typeof i==="string")break;e[4](i,...(r||[]))}return i}`,
+    `i=>{for(;;){let r;try{let v0;try{v0=e[0](i)}catch(x){e[1](x);e[2](x)}typeof v0==="string"||e[3](v0);i=v0;break}catch(x){(r||(r=[])).push(e[4](x))}if(typeof i==="string")break;e[5](i,...(r||[]))}return i}`,
   )
 
   // The same, but toString schema is the first
@@ -459,7 +473,7 @@ test("Successfully serializes unboxed variant", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{for(;;){if(typeof i==="string")break;let v0;try{v0=e[0](i)}catch(x){e[1](x);e[2](x)}i=v0;break;}return i}`,
+    `i=>{for(;;){if(typeof i==="string")break;let v0;try{v0=e[0](i)}catch(x){e[1](x);e[2](x)}typeof v0==="string"||e[3](v0);i=v0;break;}return i}`,
   )
 })
 
@@ -930,13 +944,19 @@ module CknittelBugReport = {
         b: 42,
       },
     }
-    t->Assert.deepEqual(B(x)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`{"payload":{"b":42}}`))
+    t->Assert.deepEqual(
+      B(x)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+      %raw(`{"payload":{"b":42}}`),
+    )
     let x = {
       A.payload: {
         a: "foo",
       },
     }
-    t->Assert.deepEqual(A(x)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`{"payload":{"a":"foo"}}`))
+    t->Assert.deepEqual(
+      A(x)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+      %raw(`{"payload":{"a":"foo"}}`),
+    )
   })
 }
 
@@ -969,8 +989,7 @@ test("Union type-narrow stays in sync with each schema's own decoder", t => {
   // emits. If `typeCheckCond` or a decoder drifts, this fails.
   let assertSync = (schema, ~other, atoms) => {
     let standalone = schema->U.getCompiledCodeString(~op=#Parse)
-    let dispatch =
-      S.union([schema->S.castToUnknown, other])->U.getCompiledCodeString(~op=#Parse)
+    let dispatch = S.union([schema->S.castToUnknown, other])->U.getCompiledCodeString(~op=#Parse)
     atoms->Array.forEach(atom => {
       t->Assert.is(standalone->String.includes(atom), true, ~message=`decoder emits ${atom}`)
       t->Assert.is(dispatch->String.includes(atom), true, ~message=`union dispatch emits ${atom}`)

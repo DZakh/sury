@@ -60,7 +60,7 @@ test("errorMessage.minLength override produces InvalidInput with custom reason",
 
 test("S.refine with ~error produces InvalidInput with custom reason", t => {
   let schema = S.int->S.refine(n => n > 0, ~error="must be positive")
-  switch (-1)->S.parseOrThrow(~to=schema) {
+  switch -1->S.parseOrThrow(~to=schema) {
   | _ => t->Assert.fail("Should have thrown")
   | exception S.Exn(error) =>
     t->assertInvalidInput(error, ~reason="must be positive", ~expected="int32", ~received="int32")
@@ -82,7 +82,11 @@ test("S.refine with ~error and ~path applies path correctly", t => {
 })
 
 test("S.transform parser ctx.fail produces InvalidInput with custom reason", t => {
-  let schema = S.string->S.to(S.any, ~custom={decode: Sync(str => str === "" ? U.fail("empty not allowed") : str), encode: Never})
+  let schema =
+    S.string->S.to(
+      S.any,
+      ~custom={decode: Sync(str => str === "" ? U.fail("empty not allowed") : str), encode: Never},
+    )
   switch ""->S.parseOrThrow(~to=schema) {
   | _ => t->Assert.fail("Should have thrown")
   | exception S.Exn(error) =>
@@ -94,7 +98,13 @@ test("S.transform parser ctx.fail produces InvalidInput with custom reason", t =
 })
 
 test("S.transform serializer ctx.fail produces InvalidInput with custom reason", t => {
-  let schema = S.string->S.to(S.any, ~custom={decode: Sync(str => str), encode: Sync(str => str === "" ? U.fail("empty not allowed") : str)})
+  let schema = S.string->S.to(
+    S.any,
+    ~custom={
+      decode: Sync(str => str),
+      encode: Sync(str => str === "" ? U.fail("empty not allowed") : str),
+    },
+  )
   switch ""->S.decodeOrThrow(~from=schema, ~to=S.unknown) {
   | _ => t->Assert.fail("Should have thrown")
   | exception S.Exn(error) =>

@@ -17,7 +17,6 @@ module Path = {
   @module("sury") external concat: (t, t) => t = "$pathConcat"
 }
 
-
 type tag =
   | @as("string") String
   | @as("number") Number
@@ -35,7 +34,6 @@ type tag =
   | @as("never") Never
   | @as("unknown") Unknown
   | @as("ref") Ref
-
 
 type numberFormat = | @as("int32") Int32 | @as("port") Port | @as("integer") Integer
 type stringFormat =

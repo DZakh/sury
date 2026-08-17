@@ -338,7 +338,10 @@ test("fromJSONSchema: empty schema is any", t => {
 
 test("fromJSONSchema: unknown type throws", t => {
   let js = {type_: Arrayable.single((Obj.magic("unknownType"): typeName))}
-  t->Assert.throws(() => S.fromJSONSchema(js), ~expectations={message: "Unsupported JSON Schema type: unknownType"})
+  t->Assert.throws(
+    () => S.fromJSONSchema(js),
+    ~expectations={message: "Unsupported JSON Schema type: unknownType"},
+  )
 })
 
 // 10. $ref
@@ -400,7 +403,10 @@ test("fromJSONSchema: a recursive $ref round-trips as a $ref plus its $defs", t 
     }
   }`)
   let schema = S.fromJSONSchema(js)
-  t->Assert.deepEqual(parse(schema, {"next": {"next": Dict.make()}}), {"next": {"next": Dict.make()}})
+  t->Assert.deepEqual(
+    parse(schema, {"next": {"next": Dict.make()}}),
+    {"next": {"next": Dict.make()}},
+  )
   let out = jsonRoundTrip(js)
   t->Assert.deepEqual((out->Obj.magic)["$ref"], %raw(`"#/$defs/Node"`))
   t->Assert.deepEqual((out->Obj.magic)["$defs"]["Node"]["additionalProperties"], %raw(`undefined`))
@@ -445,10 +451,7 @@ test("fromJSONSchema: a $ref out of the document throws", t => {
 test("fromJSONSchema: a $ref to a non-schema value throws instead of widening to any", t => {
   // Resolvable pointers into a string, null and an array — all valid JSON, none a schema.
   t->Assert.throws(
-    () =>
-      S.fromJSONSchema(
-        %raw(`{"$ref": "#/$defs/A/type", "$defs": {"A": {"type": "string"}}}`),
-      ),
+    () => S.fromJSONSchema(%raw(`{"$ref": "#/$defs/A/type", "$defs": {"A": {"type": "string"}}}`)),
     ~expectations={message: "Failed to resolve JSON Schema $ref: #/$defs/A/type"},
   )
   t->Assert.throws(
@@ -456,10 +459,7 @@ test("fromJSONSchema: a $ref to a non-schema value throws instead of widening to
     ~expectations={message: "Failed to resolve JSON Schema $ref: #/$defs/N"},
   )
   t->Assert.throws(
-    () =>
-      S.fromJSONSchema(
-        %raw(`{"$ref": "#/$defs/A/enum", "$defs": {"A": {"enum": [1]}}}`),
-      ),
+    () => S.fromJSONSchema(%raw(`{"$ref": "#/$defs/A/enum", "$defs": {"A": {"enum": [1]}}}`)),
     ~expectations={message: "Failed to resolve JSON Schema $ref: #/$defs/A/enum"},
   )
 })
@@ -511,10 +511,7 @@ test("fromJSONSchema: an inlined ref releases its def name for a later cycle", t
     "$defs": {"Node": {"type": "object", "properties": {"next": {"$ref": "#/$defs/Node"}}}}
   }`)
   let out = jsonRoundTrip(js)
-  t->Assert.deepEqual(
-    (out->Obj.magic)["$defs"]["Node"]["type"],
-    %raw(`"object"`),
-  )
+  t->Assert.deepEqual((out->Obj.magic)["$defs"]["Node"]["type"], %raw(`"object"`))
 })
 
 // 11. Round-trip S -> toJSONSchema -> fromJSONSchema -> S

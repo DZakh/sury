@@ -2,17 +2,25 @@ open Vitest
 
 test("Keeps operation of the error passed to S.Error.throw", t => {
   let schema = S.array(
-    S.string->S.to(S.any, ~custom={decode: Sync(_ =>
-        U.throwError(
-          S.Error.make(
-            InvalidInput({
-              reason: "User error",
-              path: S.Path.fromArray(["a", "b"]),
-              expected: S.unknown,
-              received: S.unknown,
-            }),
-          ),
-        )), encode: Never}),
+    S.string->S.to(
+      S.any,
+      ~custom={
+        decode: Sync(
+          _ =>
+            U.throwError(
+              S.Error.make(
+                InvalidInput({
+                  reason: "User error",
+                  path: S.Path.fromArray(["a", "b"]),
+                  expected: S.unknown,
+                  received: S.unknown,
+                }),
+              ),
+            ),
+        ),
+        encode: Never,
+      },
+    ),
   )
 
   t->U.assertThrowsMessage(
@@ -66,4 +74,3 @@ test("Prepends the field and item path to a thrown error inside an array", t => 
     `Failed at ["field"]["0"]["a"]["b"]: User error`,
   )
 })
-

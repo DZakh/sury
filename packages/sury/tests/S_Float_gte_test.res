@@ -10,10 +10,7 @@ test("Successfully parses valid data", t => {
 test("Fails to parse invalid data", t => {
   let schema = S.float->S.gte(1.)
 
-  t->U.assertThrowsMessage(
-    () => 0->S.parseOrThrow(~to=schema),
-    `Expected number >= 1, received 0`,
-  )
+  t->U.assertThrowsMessage(() => 0->S.parseOrThrow(~to=schema), `Expected number >= 1, received 0`)
 })
 
 test("Successfully serializes valid value", t => {

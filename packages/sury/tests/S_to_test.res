@@ -166,11 +166,7 @@ test("Coerce from string to undefined literal", t => {
     ~op=#Parse,
     `i=>{typeof i==="string"||e[1](i);i==="undefined"||e[0](i);return void 0}`,
   )
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#Encode,
-    `i=>{i===void 0||e[0](i);return "undefined"}`,
-  )
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{i===void 0||e[0](i);return "undefined"}`)
 })
 
 test("Coerce from string to NaN literal", t => {
@@ -188,11 +184,7 @@ test("Coerce from string to NaN literal", t => {
     ~op=#Parse,
     `i=>{typeof i==="string"||e[1](i);i==="NaN"||e[0](i);return NaN}`,
   )
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#Encode,
-    `i=>{Number.isNaN(i)||e[0](i);return "NaN"}`,
-  )
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{Number.isNaN(i)||e[0](i);return "NaN"}`)
 })
 
 test("Coerce from string to string literal", t => {
@@ -241,11 +233,7 @@ test("Coerce to literal can be used as tag and automatically embeded on reverse 
   })
 
   t->Assert.deepEqual(()->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`{"tag": "true"}`))
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#Encode,
-    `i=>{i===void 0||e[0](i);return {"tag":"true",}}`,
-  )
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{i===void 0||e[0](i);return {"tag":"true",}}`)
 
   t->Assert.deepEqual({"tag": "true"}->S.parseOrThrow(~to=schema), ())
   t->U.assertThrowsMessage(
@@ -333,11 +321,7 @@ test("Coerce from string to port", t => {
     ~op=#Convert,
     `i=>{let v0=+i;!Number.isNaN(v0)||e[1](i);v0>=0&&v0<65536&&v0%1===0||e[0](v0);return v0}`,
   )
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#Encode,
-    `i=>{i>=0&&i<65536&&i%1===0||e[0](i);return ""+i}`,
-  )
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{i>=0&&i<65536&&i%1===0||e[0](i);return ""+i}`)
 })
 
 test("Coerce from true to bool", t => {
@@ -387,7 +371,8 @@ test("Coerce from string to bigint", t => {
 })
 
 test("Coerce string after a transform", t => {
-  let schema = S.string->S.to(S.any, ~custom={decode: Sync(v => v), encode: Sync(v => v)})->S.to(S.bool)
+  let schema =
+    S.string->S.to(S.any, ~custom={decode: Sync(v => v), encode: Sync(v => v)})->S.to(S.bool)
 
   t->U.assertThrowsMessage(
     () => "true"->S.parseOrThrow(~to=schema),
@@ -399,13 +384,16 @@ test("Coerce string after a transform", t => {
     `i=>{typeof i==="string"||e[3](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="boolean"||e[2](v0);return v0}`,
   )
 
-  // The custom encode's result lands on the S.any seam and is trusted — the
-  // reversed parse validates the incoming boolean, not what the coder returns.
-  t->Assert.deepEqual(true->S.parseOrThrow(~to=S.reverse(schema)), %raw(`true`))
+  // S.any carries no type to trust, so the coder's result is validated against
+  // the source instead of passed straight through as a string it isn't.
+  t->U.assertThrowsMessage(
+    () => true->S.parseOrThrow(~to=S.reverse(schema)),
+    `Expected string, received true`,
+  )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseParse,
-    `i=>{typeof i==="boolean"||e[2](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}`,
+    `i=>{typeof i==="boolean"||e[3](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);return v0}`,
   )
 })
 
@@ -698,12 +686,7 @@ test("Coerce from JSON to tuple with bigint", t => {
     ~embedded=[],
     `i=>{Array.isArray(i)||e[4](i);i.length===2||e[3](i);let v0=i["0"],v2=i["1"];typeof v0==="string"||e[0](v0);typeof v2==="string"||e[2](v2);let v1;try{v1=BigInt(v2)}catch(_){e[1](v2)}return [v0,v1,]}`,
   )
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#Encode,
-    ~embedded=[],
-    `i=>{return [i["0"],""+i["1"],]}`,
-  )
+  t->U.assertCompiledCode(~schema, ~op=#Encode, ~embedded=[], `i=>{return [i["0"],""+i["1"],]}`)
 })
 
 // test("Coerce from JSON to object with optional field", t => {
@@ -756,7 +739,11 @@ test("Coerce from union to bigint", t => {
     123n->S.parseOrThrow(~to=schema)
   }, "Expected string | number, received 123n")
 
-  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{for(;;){if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=v0;break}if(typeof i==="number"&&!Number.isNaN(i)){i=BigInt(i);break}e[1](i)}return i}`)
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{for(;;){if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=v0;break}if(typeof i==="number"&&!Number.isNaN(i)){i=BigInt(i);break}e[1](i)}return i}`,
+  )
 })
 
 test("Rejects a union -> bigint conversion whose member has no decoder", t => {
@@ -808,7 +795,11 @@ test("Coerce from union to bigint with refinement on union", t => {
     ->S.refine(v => typeof(v) !== #bigint, ~error="Unsupported bigint")
     ->S.to(S.bigint)
 
-  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{for(;;){if(typeof i==="string"){e[0](i)||e[2](i);let v0;try{v0=BigInt(i)}catch(_){e[1](i)}i=v0;break}if(typeof i==="number"&&!Number.isNaN(i)){e[0](i)||e[3](i);i=BigInt(i);break}e[4](i)}return i}`)
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{for(;;){if(typeof i==="string"){e[0](i)||e[2](i);let v0;try{v0=BigInt(i)}catch(_){e[1](i)}i=v0;break}if(typeof i==="number"&&!Number.isNaN(i)){e[0](i)||e[3](i);i=BigInt(i);break}e[4](i)}return i}`,
+  )
 })
 
 test("Coerce from union to bigint with refinement on union (with an item transformed to)", t => {
@@ -835,7 +826,11 @@ test("Coerce from union to bigint and then to string", t => {
     123n->S.parseOrThrow(~to=schema)
   }, "Expected string | number, received 123n")
 
-  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{for(;;){if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=""+v0;break}if(typeof i==="number"&&!Number.isNaN(i)){i=""+BigInt(i);break}e[1](i)}return i}`)
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{for(;;){if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=""+v0;break}if(typeof i==="number"&&!Number.isNaN(i)){i=""+BigInt(i);break}e[1](i)}return i}`,
+  )
 })
 
 test("Rejects widening a union into one with an uncovered member", t => {
@@ -866,7 +861,11 @@ test("Rejects widening a union into one with an uncovered member", t => {
     true->S.parseOrThrow(~to=explicit)
   }, "Expected string | number, received true")
 
-  t->U.assertCompiledCode(~schema=explicit, ~op=#Parse, `i=>{(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i))||e[0](i);return i}`)
+  t->U.assertCompiledCode(
+    ~schema=explicit,
+    ~op=#Parse,
+    `i=>{(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i))||e[0](i);return i}`,
+  )
 })
 
 test("Fails to transform union to union to string", t => {
@@ -896,7 +895,11 @@ test("Transform from union to reordered union keeps source type", t => {
   t->U.assertThrowsMessage(() => {
     true->S.parseOrThrow(~to=schema)
   }, "Expected string | number, received true")
-  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i))||e[0](i);return i}`)
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i))||e[0](i);return i}`,
+  )
 })
 
 test("Rejects a source matching some but not all target members", t => {
@@ -911,17 +914,13 @@ test("Rejects a source matching some but not all target members", t => {
 
   // Pass strings through, never producing a boolean:
   let passThrough =
-    S.string->S.to(
-      S.union([S.never->S.to(S.bool)->S.castToUnknown, S.string->S.castToUnknown]),
-    )
+    S.string->S.to(S.union([S.never->S.to(S.bool)->S.castToUnknown, S.string->S.castToUnknown]))
   t->Assert.deepEqual("true"->S.parseOrThrow(~to=passThrough), %raw(`"true"`))
   t->Assert.deepEqual("anything"->S.parseOrThrow(~to=passThrough), %raw(`"anything"`))
 
   // Or try decoding to a boolean first, keeping the string otherwise:
   let decodeFirst =
-    S.string->S.to(
-      S.union([S.string->S.to(S.bool)->S.castToUnknown, S.string->S.castToUnknown]),
-    )
+    S.string->S.to(S.union([S.string->S.to(S.bool)->S.castToUnknown, S.string->S.castToUnknown]))
   t->Assert.deepEqual("true"->S.parseOrThrow(~to=decodeFirst), %raw(`true`))
   t->Assert.deepEqual("anything"->S.parseOrThrow(~to=decodeFirst), %raw(`"anything"`))
 })
@@ -939,7 +938,11 @@ test("No nullish bridge for a non-union source — members are tried in order", 
     `Expected null, received "hello"`,
   )
 
-  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{i===null||e[0](i);for(;;){i="null";break;}return i}`)
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{i===null||e[0](i);for(;;){i="null";break;}return i}`,
+  )
 
   // Reach the undefined member by marking the string one unreachable.
   let toUndefined =
@@ -960,9 +963,7 @@ test("No source-tag match — every member must still be decodable", t => {
   )
 
   let explicit =
-    S.bool->S.to(
-      S.union([S.string->S.castToUnknown, S.never->S.to(S.float)->S.castToUnknown]),
-    )
+    S.bool->S.to(S.union([S.string->S.castToUnknown, S.never->S.to(S.float)->S.castToUnknown]))
   t->Assert.deepEqual(true->S.parseOrThrow(~to=explicit), %raw(`"true"`))
   t->Assert.deepEqual(false->S.parseOrThrow(~to=explicit), %raw(`"false"`))
   t->U.assertThrowsMessage(
@@ -970,14 +971,16 @@ test("No source-tag match — every member must still be decodable", t => {
     `Expected boolean, received "hello"`,
   )
 
-  t->U.assertCompiledCode(~schema=explicit, ~op=#Parse, `i=>{typeof i==="boolean"||e[0](i);i=""+i;return i}`)
+  t->U.assertCompiledCode(
+    ~schema=explicit,
+    ~op=#Parse,
+    `i=>{typeof i==="boolean"||e[0](i);i=""+i;return i}`,
+  )
 })
 
 test("No nullish bridge for an undefined source either", t => {
   let schema =
-    S.unit->S.to(
-      S.union([S.string->S.castToUnknown, S.literal(%raw(`null`))->S.castToUnknown]),
-    )
+    S.unit->S.to(S.union([S.string->S.castToUnknown, S.literal(%raw(`null`))->S.castToUnknown]))
 
   t->Assert.deepEqual(()->S.parseOrThrow(~to=schema), %raw(`"undefined"`))
   t->U.assertThrowsMessage(
@@ -987,10 +990,7 @@ test("No nullish bridge for an undefined source either", t => {
 
   let toNull =
     S.unit->S.to(
-      S.union([
-        S.never->S.to(S.string)->S.castToUnknown,
-        S.literal(%raw(`null`))->S.castToUnknown,
-      ]),
+      S.union([S.never->S.to(S.string)->S.castToUnknown, S.literal(%raw(`null`))->S.castToUnknown]),
     )
   t->Assert.deepEqual(()->S.parseOrThrow(~to=toNull), %raw(`null`))
 })
@@ -1042,22 +1042,22 @@ test("S.date -> S.union([S.string, S.date]) is an ambiguous widening", t => {
   )
 
   let explicit =
-    S.date->S.to(
-      S.union([S.never->S.to(S.string)->S.castToUnknown, S.date->S.castToUnknown]),
-    )
+    S.date->S.to(S.union([S.never->S.to(S.string)->S.castToUnknown, S.date->S.castToUnknown]))
   t->Assert.deepEqual(d->S.parseOrThrow(~to=explicit), d->Obj.magic)
   t->U.assertThrowsMessage(
     () => %raw(`"2024-01-01"`)->S.parseOrThrow(~to=explicit),
     `Expected Date, received "2024-01-01"`,
   )
-  t->U.assertCompiledCode(~schema=explicit, ~op=#Parse, `i=>{i instanceof e[1]||e[2](i);!Number.isNaN(i.getTime())||e[0](i);return i}`)
+  t->U.assertCompiledCode(
+    ~schema=explicit,
+    ~op=#Parse,
+    `i=>{i instanceof e[1]||e[2](i);!Number.isNaN(i.getTime())||e[0](i);return i}`,
+  )
 })
 
 test("A const source the target spells out exactly reaches only that member", t => {
   let schema =
-    S.unit->S.to(
-      S.union([S.literal(%raw(`null`))->S.castToUnknown, S.unit->S.castToUnknown]),
-    )
+    S.unit->S.to(S.union([S.literal(%raw(`null`))->S.castToUnknown, S.unit->S.castToUnknown]))
 
   // The value already *is* undefined, so the null member is dead code and the
   // bridge never applies.
@@ -1123,7 +1123,11 @@ test("Refined+converted target union is still an ambiguous widening", t => {
     ->S.to(S.bigint)
   let explicit = S.string->S.to(explicitTarget)
   t->Assert.deepEqual("123"->S.parseOrThrow(~to=explicit), %raw(`123n`))
-  t->U.assertCompiledCode(~schema=explicit, ~op=#Parse, `i=>{typeof i==="string"||e[3](i);e[0](i)||e[2](i);let v0;try{v0=BigInt(i)}catch(_){e[1](i)}i=v0;return i}`)
+  t->U.assertCompiledCode(
+    ~schema=explicit,
+    ~op=#Parse,
+    `i=>{typeof i==="string"||e[3](i);e[0](i)||e[2](i);let v0;try{v0=BigInt(i)}catch(_){e[1](i)}i=v0;return i}`,
+  )
 })
 
 test("A narrowed target union runs its refine and chained .to on the one member", t => {
@@ -1138,7 +1142,11 @@ test("A narrowed target union runs its refine and chained .to on the one member"
 
   t->Assert.deepEqual("123"->S.parseOrThrow(~to=schema), %raw(`123n`))
 
-  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{typeof i==="string"||e[3](i);e[0](i)||e[2](i);let v0;try{v0=BigInt(i)}catch(_){e[1](i)}i=v0;return i}`)
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{typeof i==="string"||e[3](i);e[0](i)||e[2](i);let v0;try{v0=BigInt(i)}catch(_){e[1](i)}i=v0;return i}`,
+  )
 })
 
 // Union schema as decoder input: the conversion runs for each source variant
@@ -1147,23 +1155,22 @@ test("A narrowed target union runs its refine and chained .to on the one member"
 test("Converts union nested in object into another union (per member)", t => {
   // Rule 4 coerces nothing, so a member that needs converting says so with its
   // own S.to; null <-> undefined still bridges on its own.
-  let schema =
+  let schema = S.schema(s =>
+    {
+      "f": s.matches(
+        S.union([
+          S.bigint->S.to(S.string)->S.castToUnknown,
+          S.literal(%raw(`null`))->S.castToUnknown,
+        ]),
+      ),
+    }
+  )->S.to(
     S.schema(s =>
       {
-        "f": s.matches(
-          S.union([
-            S.bigint->S.to(S.string)->S.castToUnknown,
-            S.literal(%raw(`null`))->S.castToUnknown,
-          ]),
-        ),
+        "f": s.matches(S.union([S.string->S.castToUnknown, S.unit->S.castToUnknown])),
       }
-    )->S.to(
-      S.schema(s =>
-        {
-          "f": s.matches(S.union([S.string->S.castToUnknown, S.unit->S.castToUnknown])),
-        }
-      ),
-    )
+    ),
+  )
 
   t->Assert.deepEqual({"f": %raw(`123n`)}->S.parseOrThrow(~to=schema), {"f": %raw(`"123"`)})
   t->Assert.deepEqual({"f": %raw(`null`)}->S.parseOrThrow(~to=schema), {"f": %raw(`undefined`)})
@@ -1180,20 +1187,19 @@ test("Converts union nested in object into another union (per member)", t => {
 })
 
 test("Rejects a nested union whose member has no same-type target member", t => {
-  let schema =
+  let schema = S.schema(s =>
+    {
+      "f": s.matches(
+        S.union([S.bigint->S.castToUnknown, S.literal(%raw(`null`))->S.castToUnknown]),
+      ),
+    }
+  )->S.to(
     S.schema(s =>
       {
-        "f": s.matches(
-          S.union([S.bigint->S.castToUnknown, S.literal(%raw(`null`))->S.castToUnknown]),
-        ),
+        "f": s.matches(S.union([S.string->S.castToUnknown, S.unit->S.castToUnknown])),
       }
-    )->S.to(
-      S.schema(s =>
-        {
-          "f": s.matches(S.union([S.string->S.castToUnknown, S.unit->S.castToUnknown])),
-        }
-      ),
-    )
+    ),
+  )
 
   t->U.assertThrowsMessage(
     () => {"f": %raw(`123n`)}->S.parseOrThrow(~to=schema),
@@ -1202,26 +1208,24 @@ test("Rejects a nested union whose member has no same-type target member", t => 
 })
 
 test("Converts union nested in object into a single schema (per member)", t => {
-  let schema =
-    S.schema(s =>
-      {
-        "f": s.matches(
-          S.union([S.string->S.castToUnknown, S.float->S.to(S.string)->S.castToUnknown]),
-        ),
-      }
-    )->S.to(S.schema(s => {"f": s.matches(S.string)}))
+  let schema = S.schema(s =>
+    {
+      "f": s.matches(
+        S.union([S.string->S.castToUnknown, S.float->S.to(S.string)->S.castToUnknown]),
+      ),
+    }
+  )->S.to(S.schema(s => {"f": s.matches(S.string)}))
 
   t->Assert.deepEqual({"f": %raw(`123`)}->S.parseOrThrow(~to=schema), {"f": %raw(`"123"`)})
   t->Assert.deepEqual({"f": %raw(`"abc"`)}->S.parseOrThrow(~to=schema), {"f": %raw(`"abc"`)})
 })
 
 test("Rejects a nested union where only some members match the single target", t => {
-  let schema =
-    S.schema(s =>
-      {
-        "f": s.matches(S.union([S.string->S.castToUnknown, S.float->S.castToUnknown])),
-      }
-    )->S.to(S.schema(s => {"f": s.matches(S.string)}))
+  let schema = S.schema(s =>
+    {
+      "f": s.matches(S.union([S.string->S.castToUnknown, S.float->S.castToUnknown])),
+    }
+  )->S.to(S.schema(s => {"f": s.matches(S.string)}))
 
   t->U.assertThrowsMessage(
     () => {"f": %raw(`123`)}->S.parseOrThrow(~to=schema),
@@ -1230,26 +1234,22 @@ test("Rejects a nested union where only some members match the single target", t
 })
 
 test("Union member with no decoder to the target rejects the operation", t => {
-  let schema =
-    S.schema(s =>
-      {
-        "f": s.matches(S.union([S.string->S.castToUnknown, S.bool->S.castToUnknown])),
-      }
-    )->S.to(S.schema(s => {"f": s.matches(S.bigint)}))
+  let schema = S.schema(s =>
+    {
+      "f": s.matches(S.union([S.string->S.castToUnknown, S.bool->S.castToUnknown])),
+    }
+  )->S.to(S.schema(s => {"f": s.matches(S.bigint)}))
 
   t->U.assertThrowsMessage(
     () => {"f": %raw(`"12"`)}->S.parseOrThrow(~to=schema),
     `Failed at ["f"]: Can't decode boolean to bigint. Use S.to to define a custom decoder`,
   )
 
-  let explicit =
-    S.schema(s =>
-      {
-        "f": s.matches(
-          S.union([S.string->S.castToUnknown, S.bool->S.to(S.never)->S.castToUnknown]),
-        ),
-      }
-    )->S.to(S.schema(s => {"f": s.matches(S.bigint)}))
+  let explicit = S.schema(s =>
+    {
+      "f": s.matches(S.union([S.string->S.castToUnknown, S.bool->S.to(S.never)->S.castToUnknown])),
+    }
+  )->S.to(S.schema(s => {"f": s.matches(S.bigint)}))
   t->Assert.deepEqual({"f": %raw(`"12"`)}->S.parseOrThrow(~to=explicit), {"f": %raw(`12n`)})
   t->U.assertThrowsMessage(
     () => {"f": %raw(`true`)}->S.parseOrThrow(~to=explicit),
@@ -1287,14 +1287,9 @@ test("Converts union of objects into reordered union of objects", t => {
   let objA = S.schema(s => {"k": s.matches(S.literal("a")), "x": s.matches(S.float)})
   let objB = S.schema(s => {"k": s.matches(S.literal("b")), "y": s.matches(S.string)})
   let schema =
-    S.union([objA->Obj.magic, objB->Obj.magic])->S.to(
-      S.union([objB->Obj.magic, objA->Obj.magic]),
-    )
+    S.union([objA->Obj.magic, objB->Obj.magic])->S.to(S.union([objB->Obj.magic, objA->Obj.magic]))
 
-  t->Assert.deepEqual(
-    %raw(`{k: "a", x: 1}`)->S.parseOrThrow(~to=schema),
-    %raw(`{k: "a", x: 1}`),
-  )
+  t->Assert.deepEqual(%raw(`{k: "a", x: 1}`)->S.parseOrThrow(~to=schema), %raw(`{k: "a", x: 1}`))
   t->Assert.deepEqual(
     %raw(`{k: "b", y: "hi"}`)->S.parseOrThrow(~to=schema),
     %raw(`{k: "b", y: "hi"}`),
@@ -1314,10 +1309,7 @@ test("Converts union nested in array into another union (per member)", t => {
       ]),
     )->S.to(S.array(S.union([S.string->S.castToUnknown, S.unit->S.castToUnknown])))
 
-  t->Assert.deepEqual(
-    %raw(`[123n, null]`)->S.parseOrThrow(~to=schema),
-    %raw(`["123", undefined]`),
-  )
+  t->Assert.deepEqual(%raw(`[123n, null]`)->S.parseOrThrow(~to=schema), %raw(`["123", undefined]`))
   t->U.assertThrowsMessage(
     () => %raw(`[true]`)->S.parseOrThrow(~to=schema),
     `Failed at ["0"]: Expected bigint | null, received true`,
@@ -1336,29 +1328,24 @@ test("Converts union nested in tuple into a single schema (per member)", t => {
 })
 
 asyncTest("Converts union nested in object into an async target (per member)", async t => {
-  let schema =
+  let schema = S.schema(s =>
+    {
+      "f": s.matches(
+        S.union([S.string->S.castToUnknown, S.float->S.to(S.string)->S.castToUnknown]),
+      ),
+    }
+  )->S.to(
     S.schema(s =>
       {
         "f": s.matches(
-          S.union([S.string->S.castToUnknown, S.float->S.to(S.string)->S.castToUnknown]),
+          S.string->S.to(S.any, ~custom={decode: Async(v => Promise.resolve(v)), encode: Never}),
         ),
       }
-    )->S.to(
-      S.schema(s =>
-        {
-          "f": s.matches(S.string->S.to(S.any, ~custom={decode: Async(v => Promise.resolve(v)), encode: Never})),
-        }
-      ),
-    )
+    ),
+  )
 
-  t->Assert.deepEqual(
-    await %raw(`{f: 123}`)->S.parseAsyncOrThrow(~to=schema),
-    {"f": "123"},
-  )
-  t->Assert.deepEqual(
-    await %raw(`{f: "abc"}`)->S.parseAsyncOrThrow(~to=schema),
-    {"f": "abc"},
-  )
+  t->Assert.deepEqual(await %raw(`{f: 123}`)->S.parseAsyncOrThrow(~to=schema), {"f": "123"})
+  t->Assert.deepEqual(await %raw(`{f: "abc"}`)->S.parseAsyncOrThrow(~to=schema), {"f": "abc"})
 })
 
 test("Union variant with a transformed field — parse and encode roundtrip", t => {
@@ -1392,9 +1379,8 @@ test("Two fused .to stages over a composite field round-trip (no phantom var)", 
   // re-read this dropped the declaration and emitted an undeclared var, throwing
   // `ReferenceError` at runtime.
   let inner = () => S.schema(s => {"a": s.matches(S.int->S.to(S.string))})
-  let schema = S.schema(s => {"foo": s.matches(inner())})->S.to(
-    S.schema(s => {"foo": s.matches(inner())}),
-  )
+  let schema =
+    S.schema(s => {"foo": s.matches(inner())})->S.to(S.schema(s => {"foo": s.matches(inner())}))
 
   t->Assert.deepEqual(
     %raw(`{"foo":{"a":5}}`)->S.parseOrThrow(~to=schema),

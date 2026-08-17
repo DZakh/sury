@@ -59,11 +59,7 @@ test("Can flatten & destructure S.schema", t => {
     ~op=#Parse,
     `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["bar"],v1=i["foo"];typeof v0==="string"||e[0](v0);typeof v1==="string"||e[1](v1);return {"bar":v0,"foo":v1,}}`,
   )
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#Encode,
-    `i=>{return {"bar":i["bar"],"foo":i["foo"],}}`,
-  )
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return {"bar":i["bar"],"foo":i["foo"],}}`)
 })
 
 test("Can flatten strict object", t => {
@@ -179,7 +175,12 @@ test("Can flatten renamed object schema", t => {
 test("Can flatten transformed object schema", t => {
   let schema = S.object(s =>
     {
-      "bar": s.flatten(S.object(s => s.field("bar", S.string))->S.to(S.any, ~custom={decode: Sync(i => i), encode: Never})),
+      "bar": s.flatten(
+        S.object(s => s.field("bar", S.string))->S.to(
+          S.any,
+          ~custom={decode: Sync(i => i), encode: Never},
+        ),
+      ),
       "foo": s.field("foo", S.string),
     }
   )
@@ -193,7 +194,11 @@ test("Can flatten transformed object schema", t => {
 
 // https://github.com/DZakh/sury/issues/271
 test("Flattened object with a transformed field decodes the field once", t => {
-  let fieldSchema = S.string->S.to(S.any, ~custom={decode: Sync(s => s ++ "!"), encode: Sync(s => s->String.replaceAll("!", ""))})
+  let fieldSchema =
+    S.string->S.to(
+      S.any,
+      ~custom={decode: Sync(s => s ++ "!"), encode: Sync(s => s->String.replaceAll("!", ""))},
+    )
   let inner = S.object(s => {"createdAt": s.field("createdAt", fieldSchema)})
   let schema = S.object(s => {"properties": s.flatten(inner)})
 
@@ -216,7 +221,11 @@ test("Flattened object with a transformed field decodes the field once", t => {
 // A flattened S.schema with an identity definition has no `.to`, but a
 // transformed field still must not be decoded twice.
 test("Flattened schema without a reshape decodes a transformed field once", t => {
-  let fieldSchema = S.string->S.to(S.any, ~custom={decode: Sync(s => s ++ "!"), encode: Sync(s => s->String.replaceAll("!", ""))})
+  let fieldSchema =
+    S.string->S.to(
+      S.any,
+      ~custom={decode: Sync(s => s ++ "!"), encode: Sync(s => s->String.replaceAll("!", ""))},
+    )
   let schema = S.object(s => {"wrap": s.flatten(S.schema(s => {"name": s.matches(fieldSchema)}))})
 
   t->Assert.deepEqual(
@@ -235,7 +244,10 @@ test("Flattened schema without a reshape decodes a transformed field once", t =>
 // decoded fields must not drop them.
 test("Flattened schema without a reshape keeps its refiners", t => {
   let inner =
-    S.schema(s => {"n": s.matches(S.int)})->S.refine(value => value["n"] >= 0, ~error="must be non-negative")
+    S.schema(s => {"n": s.matches(S.int)})->S.refine(
+      value => value["n"] >= 0,
+      ~error="must be non-negative",
+    )
   let schema = S.object(s => {"wrap": s.flatten(inner)})
 
   t->Assert.deepEqual(%raw(`{"n": 1}`)->S.parseOrThrow(~to=schema), %raw(`{"wrap": {"n": 1}}`))
@@ -277,11 +289,7 @@ test("Successfully serializes simple object with flatten", t => {
     {"foo": "foo", "bar": "bar"}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     %raw(`{"foo": "foo", "bar": "bar"}`),
   )
-  t->U.assertCompiledCode(
-    ~op=#Encode,
-    ~schema,
-    `i=>{return {"bar":i["bar"],"foo":i["foo"],}}`,
-  )
+  t->U.assertCompiledCode(~op=#Encode, ~schema, `i=>{return {"bar":i["bar"],"foo":i["foo"],}}`)
 })
 
 type entityData = {

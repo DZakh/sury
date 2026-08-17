@@ -157,7 +157,10 @@ test("Encodes an array of flattened tagged union values to JSON string", t => {
   let arraySchema = S.array(flattenedXSchema)
 
   t->Assert.deepEqual(
-    [FlattenedA({s: None}), FlattenedB({v: 1})]->S.decodeOrThrow(~from=arraySchema, ~to=S.jsonString),
+    [FlattenedA({s: None}), FlattenedB({v: 1})]->S.decodeOrThrow(
+      ~from=arraySchema,
+      ~to=S.jsonString,
+    ),
     `[{"type":"a"},{"v":1,"type":"b"}]`,
   )
 

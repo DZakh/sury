@@ -9,7 +9,10 @@ test("Parses with a custom decode to the same type and a validating Auto encode"
 
   t->Assert.deepEqual("  Hello world!"->S.parseOrThrow(~to=schema), "Hello world!")
   // Auto encode is the built-in string -> string validating pass-through.
-  t->Assert.deepEqual("Hello world!"->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"Hello world!"`))
+  t->Assert.deepEqual(
+    "Hello world!"->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    %raw(`"Hello world!"`),
+  )
 })
 
 test("Parses with a custom decode to another type", t => {
@@ -19,14 +22,13 @@ test("Parses with a custom decode to another type", t => {
 })
 
 asyncTest("Parses with an async decode to another type", async t => {
-  let schema =
-    S.int->S.to(
-      S.float,
-      ~custom={
-        decode: Async(value => Promise.resolve()->Promise.thenResolve(() => value->Int.toFloat)),
-        encode: Never,
-      },
-    )
+  let schema = S.int->S.to(
+    S.float,
+    ~custom={
+      decode: Async(value => Promise.resolve()->Promise.thenResolve(() => value->Int.toFloat)),
+      encode: Never,
+    },
+  )
 
   t->Assert.deepEqual(await 123->S.parseAsyncOrThrow(~to=schema), 123.)
 })
@@ -51,7 +53,8 @@ test("A never encode rejects the encode operation at creation", t => {
 })
 
 test("Fails to parse when user throws error in a custom decode", t => {
-  let schema = S.string->S.to(S.any, ~custom={decode: Sync(_ => U.fail("User error")), encode: Never})
+  let schema =
+    S.string->S.to(S.any, ~custom={decode: Sync(_ => U.fail("User error")), encode: Never})
 
   t->U.assertThrowsMessage(() => "Hello world!"->S.parseOrThrow(~to=schema), `User error`)
 })
@@ -155,13 +158,15 @@ test("Successfully serializes with a custom encode to the same type", t => {
 })
 
 test("Successfully serializes with a custom encode to another type", t => {
-  let schema = S.float->S.to(S.any, ~custom={decode: Never, encode: Sync(value => value->Int.toFloat)})
+  let schema =
+    S.float->S.to(S.any, ~custom={decode: Never, encode: Sync(value => value->Int.toFloat)})
 
   t->Assert.deepEqual(123->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`123`))
 })
 
 test("Fails to serialize when user throws error in a custom encode", t => {
-  let schema = S.string->S.to(S.any, ~custom={decode: Never, encode: Sync(_ => U.fail("User error"))})
+  let schema =
+    S.string->S.to(S.any, ~custom={decode: Never, encode: Sync(_ => U.fail("User error"))})
 
   t->U.assertThrowsMessage(
     () => "Hello world!"->S.decodeOrThrow(~from=schema, ~to=S.unknown),
@@ -211,7 +216,7 @@ test("Fails to parse async decode using parseOrThrow", t => {
 
   t->U.assertThrowsMessage(
     () => %raw(`"Hello world!"`)->S.parseOrThrow(~to=schema),
-    `The conversion is async. Use the Async version of the operation`,
+    `Invalid async during sync operation`,
   )
 })
 
@@ -252,14 +257,13 @@ asyncTest("Fails to parse async decode with user error", t => {
 })
 
 asyncTest("An async encode compiles through the reversed chain", async t => {
-  let schema =
-    S.string->S.to(
-      S.any,
-      ~custom={
-        decode: Sync(value => value),
-        encode: Async(value => Promise.resolve(value)),
-      },
-    )
+  let schema = S.string->S.to(
+    S.any,
+    ~custom={
+      decode: Sync(value => value),
+      encode: Async(value => Promise.resolve(value)),
+    },
+  )
 
   // The forward direction stays sync-parseable.
   t->Assert.deepEqual(%raw(`"abc"`)->S.parseOrThrow(~to=schema), %raw(`"abc"`))
@@ -267,7 +271,7 @@ asyncTest("An async encode compiles through the reversed chain", async t => {
   // there is no S.isAsync probe.
   t->U.assertThrowsMessage(
     () => "abc"->S.decodeOrThrow(~from=schema, ~to=S.unknown),
-    `The conversion is async. Use the Async version of the operation`,
+    `Invalid async during sync operation`,
   )
   t->Assert.deepEqual(await "abc"->S.decodeAsyncOrThrow(~from=schema, ~to=S.unknown), %raw(`"abc"`))
 })
@@ -302,14 +306,13 @@ test("Compiled parse code snapshot", t => {
 })
 
 test("Compiled async parse code snapshot", t => {
-  let schema =
-    S.int->S.to(
-      S.float,
-      ~custom={
-        decode: Async(int => int->Int.toFloat->Promise.resolve),
-        encode: Sync(value => value->Int.fromFloat),
-      },
-    )
+  let schema = S.int->S.to(
+    S.float,
+    ~custom={
+      decode: Async(int => int->Int.toFloat->Promise.resolve),
+      encode: Sync(value => value->Int.fromFloat),
+    },
+  )
 
   t->U.assertCompiledCode(
     ~schema,

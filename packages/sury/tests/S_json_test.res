@@ -74,7 +74,10 @@ test("Fails to parse matrix field", t => {
 
 test("Fails to parse NaN", t => {
   let schema = S.json
-  t->U.assertThrowsMessage(() => %raw(`NaN`)->S.parseOrThrow(~to=schema), `Expected JSON, received NaN`)
+  t->U.assertThrowsMessage(
+    () => %raw(`NaN`)->S.parseOrThrow(~to=schema),
+    `Expected JSON, received NaN`,
+  )
 })
 
 test("Fails to parse undefined", t => {
@@ -97,12 +100,7 @@ test("Compiled parse code snapshot", t => {
 test("Compiled serialize code snapshot", t => {
   let schema = S.json
   t->U.assertCompiledCodeIsNoop(~schema=schema->S.reverse, ~op=#Convert)
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#ReverseParse,
-    jsonParseCode,
-    ~embedded=[("JSON", 0)],
-  )
+  t->U.assertCompiledCode(~schema, ~op=#ReverseParse, jsonParseCode, ~embedded=[("JSON", 0)])
 })
 
 test("Reverse schema to S.json", t => {

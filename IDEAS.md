@@ -298,10 +298,12 @@ of a form-data story. What they were built to make cheap, roughly in order:
   run, its decoder does not, which is the same deal `S.decoder` gives a caller
   who declares the input's schema, and it's why the surface costs nothing on a
   structural target (it skips a full walk plus the object rebuild, not just a
-  `typeof`). Literals are already carved out, since a type says `string` and
+  `typeof`). Two carve-outs exist. Literals, since a type says `string` and
   never `the string "a"`: `B_conversion` routes a const-carrying target through
   the validating seam, the rule `compileDecoder` already states for its own
-  typed input. What's left is every constraint a ReScript type is too coarse to
+  typed input. And `S.any`, whose `t<'any>` unifies with whatever the coder
+  returns, so `to` drops that whole pair to the junction. What's left is every
+  constraint a ReScript type is too coarse to
   imply. `S.float` rejects `NaN` while ReScript's `float` includes it, so
   `S.string->S.to(S.float, ~custom={decode: Sync(_ => Float.Constants.nan), encode: Never})`
   returns `NaN` where the JS surface rejects it, and any `Obj.magic` upstream

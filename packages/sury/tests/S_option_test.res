@@ -39,7 +39,9 @@ module Common = {
 
   // Undefined check should be first ?
   test("Compiled async parse code snapshot", t => {
-    let schema = S.option(S.unknown->S.to(S.any, ~custom={decode: Async(i => Promise.resolve(i)), encode: Never}))
+    let schema = S.option(
+      S.unknown->S.to(S.any, ~custom={decode: Async(i => Promise.resolve(i)), encode: Never}),
+    )
 
     t->U.assertCompiledCode(
       ~schema,
@@ -144,11 +146,7 @@ test("Applies valFromOption for Some()", t => {
   t->Assert.deepEqual(Some()->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
   t->Assert.deepEqual(None->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
 
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#Parse,
-    `i=>{for(;;){if(i===void 0)break;e[0](i)}return i}`,
-  )
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{for(;;){if(i===void 0)break;e[0](i)}return i}`)
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
@@ -180,8 +178,14 @@ test("Triple nested option support", t => {
   let schema = S.option(S.option(S.option(S.bool)))
 
   t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), None)
-  t->Assert.deepEqual(Some(Some(Some(true)))->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`true`))
-  t->Assert.deepEqual(Some(Some(None))->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
+  t->Assert.deepEqual(
+    Some(Some(Some(true)))->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    %raw(`true`),
+  )
+  t->Assert.deepEqual(
+    Some(Some(None))->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    %raw(`undefined`),
+  )
   t->Assert.deepEqual(Some(None)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
   t->Assert.deepEqual(None->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
 
@@ -224,14 +228,13 @@ test("Doesn't apply valFromOption for non-undefined literals in option", t => {
   let schema: S.t<option<Null.t<unknown>>> = S.option(S.literal(%raw(`null`)))
 
   // Note: It'll fail without a type annotation, but we can't do anything here
-  t->Assert.deepEqual(Some(%raw(`null`))->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`null`))
+  t->Assert.deepEqual(
+    Some(%raw(`null`))->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    %raw(`null`),
+  )
   t->Assert.deepEqual(None->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
 
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#Encode,
-    `i=>{(i===null||i===void 0)||e[0](i);return i}`,
-  )
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{(i===null||i===void 0)||e[0](i);return i}`)
 })
 
 test("Option with unknown", t => {
@@ -241,7 +244,10 @@ test("Option with unknown", t => {
     Some(%raw(`undefined`))->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     %raw(`{BS_PRIVATE_NESTED_SOME_NONE: 0}`),
   )
-  t->Assert.deepEqual(Some(%raw(`"foo"`))->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"foo"`))
+  t->Assert.deepEqual(
+    Some(%raw(`"foo"`))->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    %raw(`"foo"`),
+  )
   t->Assert.deepEqual(None->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
 
   t->U.assertCompiledCodeIsNoop(~schema, ~op=#Parse)
@@ -251,18 +257,17 @@ test("Option with unknown", t => {
 test("Option with transformed unknown", t => {
   let schema = S.option(S.unknown->S.shape(v => {"field": v}))
 
-  t->Assert.deepEqual(Some(%raw(`undefined`))->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
+  t->Assert.deepEqual(
+    Some(%raw(`undefined`))->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    %raw(`undefined`),
+  )
   t->Assert.deepEqual(
     Some({"field": %raw(`"foo"`)})->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     %raw(`"foo"`),
   )
   t->Assert.deepEqual(None->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
 
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#Parse,
-    `i=>{for(;;){i={"field":i,};break;}return i}`,
-  )
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{for(;;){i={"field":i,};break;}return i}`)
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,

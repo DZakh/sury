@@ -39,7 +39,10 @@ test("Successfully serializes valid value", t => {
 test("Fails to serialize invalid value", t => {
   let schema = S.string->S.pattern(/[0-9]/)
 
-  t->U.assertThrowsMessage(() => "abc"->S.decodeOrThrow(~from=schema, ~to=S.unknown), `Invalid pattern`)
+  t->U.assertThrowsMessage(
+    () => "abc"->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    `Invalid pattern`,
+  )
 })
 
 test("Returns custom error message", t => {
@@ -61,22 +64,21 @@ test("Reflects errorMessage on schema", t => {
   let schema = S.string->S.pattern(~message="Custom", /[0-9]/)
 
   switch schema {
-  | String({errorMessage}) =>
-    t->Assert.deepEqual(errorMessage, {pattern: "Custom"})
+  | String({errorMessage}) => t->Assert.deepEqual(errorMessage, {pattern: "Custom"})
   | _ => t->Assert.fail("Expected String")
   }
 })
 
 test("Chaining patterns overwrites pattern but keeps last", t => {
-  let schema = S.string->S.pattern(~message="Should have digit", /[0-9]+/)->S.pattern(~message="Should have text", /\w+/)
+  let schema =
+    S.string
+    ->S.pattern(~message="Should have digit", /[0-9]+/)
+    ->S.pattern(~message="Should have text", /\w+/)
 
   switch schema {
   | String({pattern, errorMessage}) => {
       t->Assert.deepEqual(pattern, /\w+/)
-      t->Assert.deepEqual(
-        errorMessage,
-        {pattern: "Should have text"},
-      )
+      t->Assert.deepEqual(errorMessage, {pattern: "Should have text"})
     }
   | _ => t->Assert.fail("Expected String with pattern")
   }

@@ -331,10 +331,13 @@ value no schema describes (`codec-custom-any`).
 ReScript's `~custom` is the one exception, and it is a narrower claim, not a
 wider one: the ReScript compiler has already checked the coder's signature, so
 the result lands at the target's *output* and only the output-side refinements
-run. A literal target is carved back out — a type says `string`, never the
-string `"a"` — so a `const` is checked whatever the value claims to be. Because
-that seam skips the target's own conversion, it rejects a target that converts
-(`The target already converts`); chain `S.to` instead.
+run. Two things are carved back out, because the type they rest on isn't a
+proof. A literal, since a type says `string` and never the string `"a"`, so a
+`const` is checked whatever the value claims to be. And `S.any` on either side
+— its `t<'any>` is a variable that unifies with whatever the coder returns, so
+a pair written against it goes through the junction like the JS one. Because
+the trusting seam skips the target's own conversion, it rejects a target that
+converts (`The target already converts`); chain `S.to` instead.
 
 **A single function is a decode-only shorthand**, and the encode direction is
 then rejected when the operation is created — not skipped, and not skipped
