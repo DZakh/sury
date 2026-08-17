@@ -344,6 +344,45 @@ test("Rejects unknown codec slot values at schema creation", (t) => {
   );
 });
 
+test("Custom codecs type their coders against the junction, and stay assignable", (t) => {
+  const schema = S.string.with(S.to, S.number.with(S.gt, 0), {
+    decode: (value) => {
+      expectTypeOf(value).toEqualTypeOf<string>();
+      return value.length;
+    },
+    // `encode` receives the target's *input*, not its output — the coder sits
+    // at the junction, so its result runs through the target's own pipeline.
+    encode: (value) => {
+      expectTypeOf(value).toEqualTypeOf<number>();
+      return "x".repeat(value);
+    },
+  });
+  expectTypeOf(schema).toEqualTypeOf<S.Schema<string, number>>();
+
+  // The Coder bivariance hack: without it every `with` mention of Codecs makes
+  // TOutput compare contravariantly, and a concrete schema stops being usable
+  // where the erased one is expected.
+  const erased: S.Schema<unknown, unknown> = schema;
+  t.expect(S.parser(erased)("abc")).toBe(3);
+});
+
+test("An output-seam codec rejects a target that already converts", (t) => {
+  const target = S.string.with(S.to, S.number);
+
+  // Only the ReScript adapter can reach this seam, and only it is restricted:
+  // the JS pair feeds the target's chain instead of replacing it.
+  t.expect(() =>
+    (S.to as any)(S.string, target, {
+      decodeToOutput: (value: string) => value.length,
+      encodeFromOutput: (value: number) => String(value),
+    }),
+  ).toThrow("[Sury] The target already converts. Chain S.to instead of passing a custom codec");
+
+  t.expect(
+    S.parser(S.string.with(S.to, target, { decode: (v) => v, encode: (v) => v }))("42"),
+  ).toBe(42);
+});
+
 test("JS refine produces invalid_input error with expected/received populated", (t) => {
   const schema = S.string.with(S.refine, () => false, { error: "nope" });
   const result = S.safe(() => S.parser(schema)("123"));

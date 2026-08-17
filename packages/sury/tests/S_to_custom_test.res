@@ -368,3 +368,18 @@ test("Succesfully uses reversed schema for parsing back to initial value", t => 
   let schema = S.int->S.to(S.float, ~custom={decode: Sync(Int.toFloat), encode: Sync(Float.toInt)})
   t->U.assertReverseParsesBack(schema, 12.)
 })
+
+test("Fails to define a custom codec for a target that already converts", t => {
+  let target = S.string->S.to(S.float)
+
+  // `codecs<'from, 'to>` types the coder against the target's output, so there
+  // is no name for the chain's input to feed. Chaining says it explicitly.
+  t->Assert.throws(
+    () => {
+      let _ = S.int->S.to(target, ~custom={decode: Sync(Int.toFloat), encode: Sync(Float.toInt)})
+    },
+    ~expectations={
+      message: `[Sury] The target already converts. Chain S.to instead of passing a custom codec`,
+    },
+  )
+})
