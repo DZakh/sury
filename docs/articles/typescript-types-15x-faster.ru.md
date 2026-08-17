@@ -1,7 +1,7 @@
 ---
 title: Как я ускорил свои TypeScript-типы в 15.7 раза
 published: true
-description: Почему большие TypeScript-типы тормозят, как это померить через @ark/attest и одно поле, из-за которого проверка типов в моей библиотеке схем стала в 15.7 раза дешевле.
+description: Почему большие TypeScript-типы тормозят, как это померить через @ark/attest и какое одно поле сделало проверку типов в моей библиотеке схем в 15.7 раза дешевле.
 tags: typescript, performance, opensource, webdev
 # cover_image: https://direct_url_to_image.jpg
 # Use a ratio of 100:42 for best results.
@@ -10,11 +10,11 @@ tags: typescript, performance, opensource, webdev
 
 Раз вы открыли эту статью, вы наверняка со мной согласны: иногда TypeScript компилируется *мучительно* долго.
 
-С этим же столкнулся [@_chenglou](https://x.com/_chenglou) — крутой разработчик, на которого я равняюсь (он работал над React, Messenger, ReasonML и ReScript, а сейчас — над Midjourney и Pretext).
+С тем же самым столкнулся [@_chenglou](https://x.com/_chenglou) — крутой разработчик, на которого я равняюсь (он работал над React, Messenger, ReasonML и ReScript, а сейчас — над Midjourney и Pretext).
 
 А ещё он пользуется [Sury](https://github.com/DZakh/sury) — самой быстрой библиотекой валидации схем, которую я поддерживаю, — и завёл вот этот issue: ["Large TS types cause type inference slowdown"](https://github.com/DZakh/sury/issues/166).
 
-Ну... неприятно. Но я знал, что есть [ArkType](https://arktype.io) и что на системе типов TS люди собирали и не такое — вплоть до Doom. Значит, тормоза лечатся, а не заложены в фундамент. Ниже — рецепт, по которому я шёл. Его можно применить и к своей библиотеке.
+Ну... неприятно. Но я знал, что есть [ArkType](https://arktype.io) и что в системе типов TS люди собирали и не такое — вплоть до Doom. Значит, тормоза лечатся, а не заложены в фундамент. Ниже — рецепт, по которому я шёл. Его можно применить и к своей библиотеке.
 
 Прежде чем начать — результаты. Это количество инстанцирований типов, измеренное через [`@ark/attest`](https://github.com/arktypeio/arktype/tree/main/ark/attest):
 
@@ -30,7 +30,7 @@ tags: typescript, performance, opensource, webdev
 | **Описать + достать (объект из 10 полей)** | 9446 | 844 | **11.2×** |
 | Смёржить + достать output | 13651 | 7039 | 1.9× |
 
-Заголовок — про те самые **15.7×** на `S.Output`. Достаём тип мы чаще всего остального: каждый `type X = S.Output<typeof schema>` в вашем коде платит именно за это.
+Заголовок — про те самые **15.7×** на `S.Output`. Извлечение — самая частая операция: каждый `type X = S.Output<typeof schema>` в вашем коде платит именно за это.
 
 Поехали. В рецепте три шага.
 
@@ -102,4 +102,4 @@ type Output<T> = T extends { "~standard": { types?: { output: infer Output } } }
 
 Одна оговорка: 15.7× — это падение числа *инстанцирований* типов, а не секунд. Реальную компиляцию я не замерял. Но инстанцирования — это и есть та работа, которую `tsc` делает при проверке типов, так что их количество вполне честно отражает то, что вы чувствуете в редакторе. 🙂
 
-Надеюсь, было полезно. Загляните в [Sury](https://dev.to/dzakh/welcome-sury-the-fastest-schema-with-next-gen-dx-5gl4) — самую мощную библиотеку схем в экосистеме TS. Подписывайтесь на меня в X — [@dzakh_dev](https://x.com/dzakh_dev), и задавайте вопросы в комментариях!
+Надеюсь, было полезно. Загляните в [Sury](https://dev.to/dzakh/welcome-sury-the-fastest-schema-with-next-gen-dx-5gl4) — самую мощную библиотеку схем в экосистеме TS. Подписывайтесь на меня в X ([@dzakh_dev](https://x.com/dzakh_dev)) и задавайте вопросы в комментариях!
