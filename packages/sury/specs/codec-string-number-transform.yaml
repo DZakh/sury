@@ -1,9 +1,9 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: S.string.with(S.to, S.number, (string) => { const number = Number(string); if (Number.isNaN(number)) { throw new Error("Invalid number") } return number }, (number) => { if (number < 100) { throw new Error("Number is too small") } return number.toString() })
+  schema: 'S.string.with(S.to, S.number, { decode: (string) => { const number = Number(string); if (Number.isNaN(number)) { throw new Error("Invalid number") } return number }, encode: (number) => { if (number < 100) { throw new Error("Number is too small") } return number.toString() } })'
   input: string
   output: number
-  instantiations: 442
+  instantiations: 5309
 jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "number" }'
@@ -30,4 +30,11 @@ operations:
         input: '"123"'
         output: "123"
   encode:
-    creationError: "SuryError: Encoding is ambiguous when only a decode function is provided. Use S.to(target, {decode, encode})"
+    expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);return v0}
+    examples:
+      valid:
+        input: "123"
+        output: '"123"'
+      user-error-too-small:
+        input: "80"
+        error: Number is too small

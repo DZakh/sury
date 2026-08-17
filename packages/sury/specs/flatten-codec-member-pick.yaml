@@ -1,9 +1,9 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: 'S.object((s) => ({ x: s.flatten(S.schema({ b: S.string }).with(S.to, S.schema({ b: S.string }), (v) => ({ b: v.b + "!" }), (v) => ({ b: v.b.slice(0, -1) }))).b }))'
+  schema: 'S.object((s) => ({ x: s.flatten(S.schema({ b: S.string }).with(S.to, S.schema({ b: S.string }), { decode: (v) => ({ b: v.b + "!" }), encode: (v) => ({ b: v.b.slice(0, -1) }) })).b }))'
   input: "{ [x: string]: unknown; }"
   output: "{ x: string; }"
-  instantiations: 1908
+  instantiations: 6792
 jsonSchema:
   input: '{ type: "object", properties: { b: { type: "string" } }, required: ["b"] }'
   fromInputType: "{ b: string; }"
@@ -25,4 +25,8 @@ operations:
         input: '{ b: "x" }'
         output: '{ x: "x!" }'
   encode:
-    creationError: "SuryError: Encoding is ambiguous when only a decode function is provided. Use S.to(target, {decode, encode})"
+    expression: i=>{let v0;try{v0=e[0]({"b":i["x"],})}catch(x){e[1](x)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[3](v0);let v1=v0["b"];typeof v1==="string"||e[2](v1);return {"b":v1,}}
+    examples:
+      round-trip:
+        input: '{ x: "x!" }'
+        output: '{ b: "x" }'

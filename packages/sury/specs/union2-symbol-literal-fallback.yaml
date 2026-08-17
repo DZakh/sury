@@ -1,9 +1,9 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: S.union([S.schema(Symbol.for("union-fallback")).with(S.refine, () => false, "first rejected"), S.schema(Symbol.for("union-fallback"))])
+  schema: 'S.union([S.schema(Symbol.for("union-fallback")).with(S.refine, () => false, { error: "first rejected" }), S.schema(Symbol.for("union-fallback"))])'
   input: symbol
-  output: unknown
-  instantiations: 6704
+  output: symbol
+  instantiations: 5788
 jsonSchema:
   input: Expected JSON, received Symbol(union-fallback)
   output: Expected JSON, received Symbol(union-fallback)

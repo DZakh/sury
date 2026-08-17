@@ -135,6 +135,15 @@ export const deriveTypeInfo = async (schemaTs: string): Promise<TypeInfo> => {
         (msg ? `:\n${msg}` : " (no compiler diagnostics — schema didn't produce the expected type alias)"),
     );
   }
+  // Aliases resolving is not the same as the schema typechecking. An excess
+  // argument still infers a schema, so a spec written against a removed
+  // signature keeps producing goldens — with the argument silently dropped at
+  // runtime, which is how the codec specs lost their encode direction.
+  if (diagnostics.length) {
+    throw new Error(
+      `deriveTypeInfo: \`${schemaTs}\` does not typecheck:\n${diagnosticsText(diagnostics)}`,
+    );
+  }
   return { input, output, instantiations: count - getBaselineCount() };
 };
 

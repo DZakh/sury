@@ -146,7 +146,6 @@ S.reverse(S.schema({
 - rename `serializer` to reverse parser ?
 - Make `foo->S.to(S.unknown)` stricter ??
 
-- Add `S.to(from, target, parser, serializer)` instead of `S.transform`?
 - Make built-in refinements not work with `unknown`. Use `S.to` (manually & automatically) to deside the type first
 - Better inline empty recursive schema operations (union convert)
 - Don't iterate over JSON value when it's `S.json` convert without parsing
@@ -326,6 +325,20 @@ of a form-data story. What they were built to make cheap, roughly in order:
   ReScript, and a two-parameter `t` would close both. Until then the error
   message is the API, and chaining `.to` explicitly says exactly what the fused
   form would have meant.
+
+- **A never-slot arm blocks the union's identity shortcut.** `unionDecoder`
+  returns the input untouched when the source is the union itself and every
+  variant is a noop, and a never-slot arm fails that test because it carries a
+  `parser` and a `.to`. So `S.optional(schema, default)` now encodes as
+  `typeof i==="string"||e[0](i)` where it used to be `identity`, and
+  `object-advanced` pays the same check per defaulted field. Treating a
+  never-linked arm as absent is wrong in general: the arm's *input* type is
+  still part of the union's, so a value only it could hold has to be rejected
+  rather than passed through. The sound version is narrower — in trusted mode,
+  drop a dispatch check the declared source type already guarantees, comparing
+  the live members' acceptance masks against the source's. `getOr`'s default
+  arm is a copy of the surviving item, so its mask adds nothing and the check
+  falls out. That lands in `unionEmit`, so it needs `fuzz:union` on both sides.
 
 ### Known bugs left over from the validation refactor (`val.validation: array<validationCheck>`)
 

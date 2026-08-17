@@ -723,11 +723,10 @@ export const nestedNone = (): Internal => {
   // FIXME: dict{}
   const properties: Record<string, Internal> = {};
   properties[nestedLoc] = itemSchema;
-  const mut = baseSchema(objectTag, false);
+  const mut = baseSchema(objectTag, false, objectDecoder);
   mut.required = [nestedLoc];
   mut.properties = properties;
   mut.additionalItems = "strip";
-  mut.decoder = objectDecoder;
   // TODO: Support this as a default coercion
   mut.serializer = (input: Val) => {
     const nextSchema = input.e.to!;

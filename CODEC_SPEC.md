@@ -306,6 +306,49 @@ ignored by variant matching, so it never triggers this rejection:
 S.boolean.with(S.to, S.union([S.string, S.never.with(S.to, S.symbol)])); // ✅ the symbol path is unreachable
 ```
 
+## Custom conversions
+
+`S.to`'s third argument replaces the built-in decoder for a pair, one direction
+at a time. Every rule above still decides which schemas the conversion is asked
+about; only the conversion itself changes.
+
+Each direction takes a function, `"auto"` (keep the built-in decoder),
+`"never"`, or `{async: fn}`. Async is declared, not discovered — an async slot
+compiles only into an async operation, and the sync one is rejected when it's
+created (`codec-custom-async-decode`, `codec-custom-async-encode`).
+
+```ts
+S.string.with(S.to, S.number, { decode: (v) => v.length, encode: (v) => "x".repeat(v) });
+S.string.with(S.to, S.string, { decode: (v) => v.trim(), encode: "auto" });
+```
+
+**A coder's result is an input, not a conclusion.** It lands at the target's
+*input*, so the target's whole pipeline runs over it: a coder that returns the
+wrong thing fails right there, and a target that decodes further keeps decoding
+(`codec-custom-pair`, `codec-custom-chained-input`). `S.any` is the target for a
+value no schema describes (`codec-custom-any`).
+
+ReScript's `~custom` is the one exception, and it is a narrower claim, not a
+wider one: the ReScript compiler has already checked the coder's signature, so
+the result lands at the target's *output* and only the output-side refinements
+run. A literal target is carved back out — a type says `string`, never the
+string `"a"` — so a `const` is checked whatever the value claims to be. Because
+that seam skips the target's own conversion, it rejects a target that converts
+(`The target already converts`); chain `S.to` instead.
+
+**A single function is a decode-only shorthand**, and the encode direction is
+then rejected when the operation is created — not skipped, and not skipped
+inside a union either, since yielding the variant would commit to a semantics
+the caller never wrote (`codec-custom-shorthand`, `codec-custom-shorthand-union`).
+
+**`"never"` marks one direction unreachable**, where `S.never` marks the whole
+path. In that direction the variant is ignored by the rules above exactly like
+`S.never`: inside a union it yields to its siblings, standalone it rejects the
+operation, and a union whose every variant yields is rejected as well
+(`codec-custom-never`, `codec-custom-never-union`). That single-direction reach
+is what `S.optional(schema, default)` is built from — the default arm decodes
+`undefined` and takes the never slot on encode.
+
 ## Spec coverage
 
 Every `packages/sury/specs/codec-*.yaml` spec matches these rules. The rows that

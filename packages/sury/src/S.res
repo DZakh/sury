@@ -488,7 +488,6 @@ type url
 
 @module("sury") external meta: (t<'value>, meta<'value>) => t<'value> = "meta"
 
-
 // The public JS `refine` takes an options object; build it here from the
 // ReScript labeled args.
 type refineOptions = {error?: string, path?: array<string>}

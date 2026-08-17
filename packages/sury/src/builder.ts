@@ -912,7 +912,7 @@ const B_mergeWithCatch = (
   const pure = pureSince !== U && val.g.t === pureSince;
   if (
     (valCode === "" || pure) &&
-    // FIXME: Instead of this wrap all S.transform in a try/catch
+    // FIXME: Instead of this wrap every custom coder in a try/catch
     !flagUnsafeHas(val.f, valFlagAsync)
   ) {
     return appendSafe !== U ? valCode + appendSafe() : pure ? "" : valCode;
