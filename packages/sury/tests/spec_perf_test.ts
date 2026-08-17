@@ -109,8 +109,8 @@ test("a scenario contributes one target built from its own prepare and run", () 
 test("an async op contributes its compilation target but none of its examples", () => {
   const { targets, skippedAsync } = targetsFor("async-assert");
   const real = targets.filter((t) => !t.control);
-  // `asyncDecoderAssert` leaves the value untouched, so its encode direction
-  // is `identity` and contributes nothing to measure.
+  // The assert leaves the value untouched and its encode slot is `"auto"`, so
+  // that direction is `identity` and contributes nothing to measure.
   expect(real.map((t) => t.name)).toEqual([
     "async-assert · create",
     "async-assert · create+compile · parse",

@@ -86,14 +86,6 @@ const ASYNC_OP_BUILDER: Record<OpName, (schema: any) => (input: any) => Promise<
   encode: S.asyncEncoder,
 };
 
-// The rejection a sync builder raises for an async schema. Sury has no
-// `isAsync` probe (a schema's combinations are open-ended, so no static answer
-// covers them), so the harness discovers asyncness the way a caller does: it
-// compiles the sync operation and reads this message off the rejection. That
-// also keeps it per direction for free, which matters because
-// `S.asyncDecoderAssert` makes decode async while encode stays a sync pass.
-const ASYNC_REJECTION = "Invalid async during sync operation";
-
 const SKIP_REASON_SET = new Set<string>(SKIP_REASONS);
 export const isValidSkipReason = (r: unknown): boolean =>
   typeof r === "string" && (SKIP_REASON_SET.has(r) || /^todo\(#.+\)$/.test(r));
@@ -358,20 +350,27 @@ export const scaffoldJsonSchema = (
 // code once a fix turns the crash into a real operation — rather than silently
 // masquerading as a normal rejection.
 type BuiltOp = { fn: (input: any) => any; isAsync: boolean } | { creationError: string };
+const describeThrow = (e: unknown): string =>
+  `${(e as Error).constructor.name}: ${(e as Error).message}`;
+// Sury has no `isAsync` probe — a schema's combinations are open-ended, so no
+// static answer covers them — and the sync builder rejecting is what tells a
+// caller to switch. The harness does the same, per direction, which matters
+// when only one direction is async. Retry on the error's `code`, not its
+// wording: a non-async `invalid_operation` fails the async attempt too and is
+// recorded from there, so the only cost of the broader test is one extra
+// compile.
 const buildOp = (opName: OpName, schema: any): BuiltOp => {
   try {
     return { fn: OP_BUILDER[opName](schema), isAsync: false };
   } catch (e) {
-    const err = e as Error;
-    if (err.message !== ASYNC_REJECTION) {
-      return { creationError: `${err.constructor.name}: ${err.message}` };
+    if ((e as { code?: string }).code !== "invalid_operation") {
+      return { creationError: describeThrow(e) };
     }
   }
   try {
     return { fn: ASYNC_OP_BUILDER[opName](schema), isAsync: true };
   } catch (e) {
-    const err = e as Error;
-    return { creationError: `${err.constructor.name}: ${err.message}` };
+    return { creationError: describeThrow(e) };
   }
 };
 

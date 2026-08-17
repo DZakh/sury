@@ -49,7 +49,6 @@ import {
   B_invalidInputBuilder,
   B_invalidOperation,
   B_neverSlot,
-  B_refine,
 } from "./builder";
 import { definitionToSchema, objectDecoder } from "./composites";
 import {
@@ -355,25 +354,6 @@ export const refine = (
   });
 };
 
-// An assert doesn't change the value, so the encode direction claims the
-// reversed continuation outright instead of compiling a try/catch around an
-// identity call.
-const passthroughSlot: Builder = (input: Val) =>
-  B_refine(input, input.e.to!, U, input.e.to!);
-
-// @__NO_SIDE_EFFECTS__
-export const asyncDecoderAssert = (
-  schema: Internal,
-  assertFn: (value: unknown) => Promise<unknown>,
-) => {
-  return codecTo(
-    schema,
-    unknown,
-    B_conversion((v: unknown) => assertFn(v).then(() => v), true),
-    passthroughSlot,
-  );
-};
-
 // @__NO_SIDE_EFFECTS__
 export const optional = (definition: unknown, maybeOr: unknown): Internal => {
   // TODO: maybeOr should be part of the unit schema
@@ -455,8 +435,7 @@ export {
   pathConcat as $pathConcat,
 } from "./base";
 export {
-  // Async flavor of the public `assert` — no public JS equivalent
-  // (`asyncDecoderAssert` is a different, callback-taking API).
+  // Async flavor of the public `assert`, which has no public JS equivalent.
   assertAsyncOrThrow as $assertAsyncOrThrow,
 } from "./operations";
 export {

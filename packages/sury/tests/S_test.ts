@@ -398,8 +398,14 @@ test("JS refine produces invalid_input error with expected/received populated", 
 });
 
 test("Successfully parses async schema", async (t) => {
-  const schema = S.string.with(S.asyncDecoderAssert, async (string) => {
-    expectTypeOf(string).toEqualTypeOf<string>();
+  const schema = S.string.with(S.to, S.string, {
+    decode: {
+      async: async (string) => {
+        expectTypeOf(string).toEqualTypeOf<string>();
+        return string;
+      },
+    },
+    encode: "auto",
   });
   const value = await S.safeAsync(() => S.asyncParser(schema)("123"));
 
@@ -409,8 +415,13 @@ test("Successfully parses async schema", async (t) => {
 });
 
 test("Fails to parses async schema", async (t) => {
-  const schema = S.string.with(S.asyncDecoderAssert, async () => {
-    throw new Error("User error");
+  const schema = S.string.with(S.to, S.string, {
+    decode: {
+      async: async (): Promise<string> => {
+        throw new Error("User error");
+      },
+    },
+    encode: "auto",
   });
 
   const result = await S.safeAsync(() => S.asyncParser(schema)("123"));

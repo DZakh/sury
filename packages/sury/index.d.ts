@@ -970,11 +970,6 @@ export function noValidation<TInput, TOutput>(
   value: boolean
 ): Schema<TInput, TOutput>;
 
-export function asyncDecoderAssert<TInput, TOutput>(
-  schema: SchemaLike<TInput, TOutput>,
-  assertFn: (value: TOutput) => Promise<void>
-): Schema<TInput, TOutput>;
-
 export function refine<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,
   refineCheck: (value: TOutput) => boolean,

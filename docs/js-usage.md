@@ -1270,16 +1270,26 @@ const evenPositiveSchema = S.number
 
 The refine function is applied for both parsing and encoding.
 
-Also, you can have an asynchronous assertion (for decoder only):
+A refinement can't be async. For a check that has to await, use an async
+[codec](#custom-transformations) that returns the value unchanged, and keep
+`encode: "auto"` so encoding stays a plain pass:
 
 ```ts
+const activeUser = S.uuid.with(S.to, S.uuid, {
+  decode: {
+    async: async (id) => {
+      const isActiveUser = await checkIsActiveUser(id);
+      if (!isActiveUser) {
+        throw new Error(`The user ${id} is inactive.`);
+      }
+      return id;
+    },
+  },
+  encode: "auto",
+});
+
 const userSchema = S.schema({
-  id: S.uuid.with(S.asyncDecoderAssert, async (id) => {
-    const isActiveUser = await checkIsActiveUser(id);
-    if (!isActiveUser) {
-      throw new Error(`The user ${id} is inactive.`);
-    }
-  }),
+  id: activeUser,
   name: S.string,
 });
 
