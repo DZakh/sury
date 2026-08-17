@@ -1310,11 +1310,13 @@ The same schema works for encoding:
 You can also use asynchronous parser:
 
 ```rescript
+let paramsSchema = S.schema(s => {name: s.matches(S.string)})
+
 let nodeSchema = S.recursive("Node", nodeSchema => {
   S.object(s => {
     params: s.field(
       "Id",
-      S.string->S.to(S.any, ~custom={decode: Async(id => loadParams(~id)), encode: Never}),
+      S.string->S.to(paramsSchema, ~custom={decode: Async(id => loadParams(~id)), encode: Never}),
     ),
     children: s.field("Children", S.array(nodeSchema)),
   })
@@ -1337,6 +1339,9 @@ One great aspect of the example above is that it uses parallelism to make four r
 let mySet = itemSchema => {
   S.instance(%raw(`Set`))
   ->S.to(
+    // The escape hatch earns its keep here: no schema carries `Set.t<'item>`,
+    // and `S.any` is what lets `mySet` return `S.t<Set.t<'item>>`. Reach for a
+    // real target everywhere it exists — see `to` with `~custom`.
     S.any,
     ~custom={
       decode: Sync(
@@ -1460,13 +1465,20 @@ Never      // this direction is impossible, fail when an operation needs it
 S.string->S.to(S.string, ~custom={decode: Sync(String.trim), encode: Auto})
 
 // Load a user by id
+let userSchema = S.schema(s => {id: s.matches(S.uuid), name: s.matches(S.string)})
+
 S.uuid->S.to(
-  S.any,
+  userSchema,
   ~custom={decode: Async(userId => loadUser(~userId)), encode: Sync(user => user.id)},
 )
 ```
 
-Use `S.any` as the target when there's no schema for the decoded value.
+Describe what you decode into. The target is what validates the coder's result,
+types the output, and exports to JSON Schema.
+
+> 🧠 `S.any` accepts anything, so it checks nothing about what a coder returns.
+> It's the escape hatch for a value no schema can describe — reach for it last,
+> not first.
 
 A coder fails by throwing, and the path it was reached through is prepended:
 

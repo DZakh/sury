@@ -1500,20 +1500,30 @@ S.string.with(S.to, S.string, { decode: (s) => s.trim(), encode: "auto" });
 S.string.with(S.to, S.number, { decode: (s) => s.length, encode: "never" });
 
 // {async: fn}: run with S.asyncParser / S.asyncEncoder
-S.uuid.with(S.to, S.any, {
+const user = S.schema({ id: S.uuid, name: S.string });
+
+S.uuid.with(S.to, user, {
   decode: { async: (id) => loadUser(id) },
   encode: (user) => user.id,
 });
 ```
 
-Use `S.any` as the target when there's no schema for the decoded value:
+Describe what you decode into. The target is what validates the coder's result,
+types the output, and exports to JSON Schema:
 
 ```ts
-S.string.with(S.to, S.any, {
+const csv = S.string.with(S.to, S.array(S.string), {
   decode: (csv) => csv.split(","),
   encode: (items) => items.join(","),
 });
+
+S.parser(csv)("a,b,c"); //? ["a", "b", "c"]
+S.encoder(csv)(["a", "b"]); //? "a,b"
 ```
+
+> 🧠 `S.any` accepts anything, so it's the escape hatch for a value no schema
+> can describe. It checks nothing about what the coder returns — reach for it
+> last, not first.
 
 Passing a single function is a decode-only shorthand. Encoding such a schema
 fails, since Sury has no way back:

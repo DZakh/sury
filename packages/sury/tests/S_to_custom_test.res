@@ -386,3 +386,35 @@ test("Fails to define a custom codec for a target that already converts", t => {
     },
   )
 })
+
+test("Refines the coder's result, not what went into it", t => {
+  // Regression: the trusted seam left the target's refiners on the coder's own
+  // val, and those emit at the pre-transform slot, so `S.uuid`'s pattern ran
+  // over the user object instead of the id the coder returned.
+  let userSchema = S.schema(s => {"id": s.matches(S.string), "name": s.matches(S.string)})
+  let schema = S.uuid->S.to(
+    userSchema,
+    ~custom={
+      decode: Sync(id => {"id": id, "name": "John"}),
+      encode: Sync(user => user["id"]),
+    },
+  )
+
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Encode,
+    `i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}e[2].test(v0)||e[3](v0);return v0}`,
+  )
+  t->Assert.deepEqual(
+    {"id": "6d8d3a9a-1e0a-4f6a-9a4a-0f2d3f4a5b6c", "name": "John"}->S.decodeOrThrow(
+      ~from=schema,
+      ~to=S.unknown,
+    ),
+    %raw(`"6d8d3a9a-1e0a-4f6a-9a4a-0f2d3f4a5b6c"`),
+  )
+  t->U.assertThrowsMessage(() =>
+    {"id": "not-a-uuid", "name": "John"}
+    ->S.decodeOrThrow(~from=schema, ~to=S.unknown)
+    ->ignore
+  , `Expected uuid, received "not-a-uuid"`)
+})

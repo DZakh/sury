@@ -878,9 +878,19 @@ export const B_conversion = (
     output.cp = `let ${outputVar};try{${outputVar}=${embeddedFn}(${inputValue})${
       isAsync ? `.catch(x=>${failure})` : ""
     }}catch(x){${rethrow}${failure}}`;
-    return output;
+    return trusted(output);
   };
 };
+
+// A val whose result the target's own refiners can attach to. `val.vc` checks
+// emit at the *pre-transform* slot (`prev.v()` in B_merge), so leaving them on
+// the coder's own val would validate what went into the coder instead of what
+// came out — `S.uuid->S.to(userSchema, ~custom=…)` ran the uuid pattern over
+// the user object. The junction seam never hits this: its `unknown` source
+// makes the loop compile the target's decoder, which supplies a val of its
+// own. The trusted seam claims the target outright, so it has to supply one.
+const trusted = (output: Val): Val =>
+  output.s === unknown ? output : B_refine(output);
 
 // The "never" codec slot. The union planner compares against this reference
 // to find a direction a variant can't take: such a variant accepts nothing
