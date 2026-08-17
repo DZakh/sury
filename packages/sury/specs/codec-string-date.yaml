@@ -5,7 +5,7 @@ ts:
     - S.to(S.string, S.date)
   input: string
   output: Date
-  instantiations: 5091
+  instantiations: 5233
 jsonSchema:
   input: '{ type: "string", format: "date-time" }'
   output: Expected JSON, received Date

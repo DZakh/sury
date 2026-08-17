@@ -3,7 +3,7 @@ ts:
   schema: 'S.string.with(S.refine, (value) => value !== "bad", { error: "User error" })'
   input: string
   output: string
-  instantiations: 4960
+  instantiations: 5069
 jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "string" }'

@@ -3,7 +3,7 @@ ts:
   schema: S.jsonString.with(S.to, S.union([S.record(S.bigint), S.array(S.bigint)]))
   input: string
   output: Record<string, bigint> | bigint[]
-  instantiations: 6358
+  instantiations: 6500
 jsonSchema:
   input: '{ type: "string", contentMediaType: "application/json" }'
   output: "Failed at []: Expected JSON, received bigint"

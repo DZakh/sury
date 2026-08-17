@@ -1,18 +1,18 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: S.string.with(S.asyncDecoderAssert, async (value) => { if (value === "bad") throw new Error("rejected"); })
+  schema: 'S.string.with(S.to, S.string, { decode: { async: async (value) => { if (value === "bad") { throw new Error("rejected") } return value } }, encode: "auto" })'
   input: string
   output: string
-  instantiations: 5245
+  instantiations: 5265
 jsonSchema:
   input: '{ type: "string" }'
-  output: Expected JSON, received unknown
+  output: '{ type: "string" }'
 vs:
   zod: z.string().refine(async (value) => value !== "bad")
 operations:
   parse:
     isAsync: true
-    expression: i=>{typeof i==="string"||e[2](i);let v0;try{v0=e[0](i).catch(x=>e[1](x))}catch(x){e[1](x)}return v0}
+    expression: i=>{typeof i==="string"||e[3](i);let v0;try{v0=e[0](i).catch(x=>e[1](x))}catch(x){e[1](x)}return v0.then(v0=>{typeof v0==="string"||e[2](v0);return v0})}
     examples:
       valid:
         input: '"hello"'
@@ -25,7 +25,7 @@ operations:
         error: Expected string, received 42
   decode:
     isAsync: true
-    expression: i=>{let v0;try{v0=e[0](i).catch(x=>e[1](x))}catch(x){e[1](x)}return v0}
+    expression: i=>{let v0;try{v0=e[0](i).catch(x=>e[1](x))}catch(x){e[1](x)}return v0.then(v0=>{typeof v0==="string"||e[2](v0);return v0})}
     examples:
       valid:
         input: '"hello"'
@@ -33,9 +33,4 @@ operations:
       rejected-by-assert:
         input: '"bad"'
         error: rejected
-  encode:
-    expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);return v0}
-    examples:
-      valid:
-        input: '"hello"'
-        output: '"hello"'
+  encode: identity

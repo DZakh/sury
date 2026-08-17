@@ -3,7 +3,7 @@ ts:
   schema: S.int32.with(S.gte, 5)
   input: number
   output: number
-  instantiations: 5146
+  instantiations: 582
 jsonSchema:
   input: '{ type: "integer", minimum: 5, maximum: 2147483647 }'
   output: '{ type: "integer", minimum: 5, maximum: 2147483647 }'

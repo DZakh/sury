@@ -72,18 +72,21 @@ test("[milestone 1] absent required bigint field errors", t => {
   )
 })
 
-test("[milestone 1] absent required string field stringifies to \"undefined\" (deferred tier fix)", t => {
-  let schema = makeSchema()
+test(
+  "[milestone 1] absent required string field stringifies to \"undefined\" (deferred tier fix)",
+  t => {
+    let schema = makeSchema()
 
-  // A missing `foo` (required string) flows through the option's undefined arm,
-  // which the string coercion turns into the literal "undefined" — the mirror of
-  // the `string -> option` `"undefined" <-> None` sentinel, locked in by
-  // reversibility. Tightening this to an error is a deferred "tier fix".
-  t->Assert.deepEqual(
-    %raw(`{"bar":"7","zoo":"1.5"}`)->S.parseOrThrow(~to=schema),
-    {"foo": "undefined", "bar": 7n, "zoo": Some(1.5)},
-  )
-})
+    // A missing `foo` (required string) flows through the option's undefined arm,
+    // which the string coercion turns into the literal "undefined" — the mirror of
+    // the `string -> option` `"undefined" <-> None` sentinel, locked in by
+    // reversibility. Tightening this to an error is a deferred "tier fix".
+    t->Assert.deepEqual(
+      %raw(`{"bar":"7","zoo":"1.5"}`)->S.parseOrThrow(~to=schema),
+      {"foo": "undefined", "bar": 7n, "zoo": Some(1.5)},
+    )
+  },
+)
 
 test("the literal string \"undefined\" decodes to None (string sentinel)", t => {
   let schema = makeSchema()

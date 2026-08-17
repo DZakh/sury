@@ -31,24 +31,19 @@ test("Successfully parses with default when provided primitive", t => {
 })
 
 test("Successfully serializes nested option with default value", t => {
-  t->Assert.throws(
-    () => {
-      let schema = S.option(
-        S.option(S.option(S.option(S.option(S.option(S.bool)))->S.Option.getOr(Some(Some(true))))),
-      )
-
-      t->Assert.deepEqual(
-        Some(Some(Some(Some(None))))->S.decodeOrThrow(~from=schema, ~to=S.unknown),
-        Some(Some(Some(Some(None))))->Obj.magic,
-      )
-      // FIXME: I'm not sure this is correct
-      t->Assert.deepEqual(Some(None)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
-      t->Assert.deepEqual(None->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
-    },
-    ~expectations={
-      message: `Expected boolean | { BS_PRIVATE_NESTED_SOME_NONE: 0; } | { BS_PRIVATE_NESTED_SOME_NONE: 1; }, received { BS_PRIVATE_NESTED_SOME_NONE: 3; }`,
-    },
+  let schema = S.option(
+    S.option(S.option(S.option(S.option(S.option(S.bool)))->S.Option.getOr(Some(Some(true))))),
   )
+
+  // Every outer Some-level nested-none marker encodes back to the undefined
+  // it was parsed from; the default arm itself is never-encode, so it yields
+  // instead of failing the whole operation like the old S.transform wiring.
+  t->Assert.deepEqual(
+    Some(Some(Some(Some(None))))->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    %raw(`undefined`),
+  )
+  t->Assert.deepEqual(Some(None)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
+  t->Assert.deepEqual(None->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
 })
 
 test("Fails to parse data with default", t => {
@@ -64,14 +59,20 @@ test("Successfully parses schema with transformation", t => {
   let schema =
     S.option(S.float)
     ->S.Option.getOr(-123.)
-    ->S.transform(() => {
-      parser: number =>
-        if number > 0. {
-          Some("positive")
-        } else {
-          None
-        },
-    })
+    ->S.to(
+      S.any,
+      ~custom={
+        decode: Sync(
+          number =>
+            if number > 0. {
+              Some("positive")
+            } else {
+              None
+            },
+        ),
+        encode: Never,
+      },
+    )
     ->S.to(S.option(S.string))
     ->S.Option.getOr("not positive")
 
@@ -79,7 +80,7 @@ test("Successfully parses schema with transformation", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{(typeof i==="number"&&!Number.isNaN(i)||i===void 0)||e[3](i);let v0;try{v0=e[0](i===void 0?-123:i)}catch(x){e[1](x)}(typeof v0==="string"||v0===void 0)||e[2](v0);return v0===void 0?"not positive":v0}`,
+    `i=>{for(;;){if(typeof i==="number"&&!Number.isNaN(i))break;if(i===void 0){i=-123;break}e[0](i)}let v0;try{v0=e[1](i)}catch(x){e[2](x)}for(;;){if(typeof v0==="string")break;if(v0===void 0){v0="not positive";break}e[3](v0)}return v0}`,
   )
 })
 
@@ -95,34 +96,33 @@ test("Compiled parse code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{(typeof i==="boolean"||i===void 0)||e[0](i);return i===void 0?false:i}`,
+    `i=>{for(;;){if(typeof i==="boolean")break;if(i===void 0){i=false;break}e[0](i)}return i}`,
   )
 })
 
 asyncTest("Compiled async parse code snapshot", async t => {
   let schema =
-    S.option(S.bool->S.transform(() => {asyncParser: i => Promise.resolve(i)}))->S.Option.getOr(
-      false,
-    )
+    S.option(
+      S.bool->S.to(S.any, ~custom={decode: Async(i => Promise.resolve(i)), encode: Never}),
+    )->S.Option.getOr(false)
 
-  t->Assert.deepEqual(schema->S.isAsync, true)
   t->Assert.deepEqual(await None->S.parseAsyncOrThrow(~to=schema), false)
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ParseAsync,
-    `i=>{for(;;){if(typeof i==="boolean"){let v0=e[0](i);i=v0;break}if(i===void 0)break;e[1](i)}let v1=Promise.resolve(i);return v1.then(v1=>{return v1===void 0?false:v1})}`,
+    `i=>{for(;;){if(typeof i==="boolean"){let v0=e[0](i);i=v0;break}if(i===void 0){i=false;break}e[1](i)}return Promise.resolve(i)}`,
   )
 
   let schema =
     S.option(S.bool)
     ->S.Option.getOr(false)
-    ->S.transform(() => {asyncParser: i => Promise.resolve(i)})
+    ->S.to(S.any, ~custom={decode: Async(i => Promise.resolve(i)), encode: Never})
 
   t->Assert.deepEqual(await None->S.parseAsyncOrThrow(~to=schema), false)
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ParseAsync,
-    `i=>{(typeof i==="boolean"||i===void 0)||e[2](i);let v0;try{v0=e[0](i===void 0?false:i).catch(x=>e[1](x))}catch(x){e[1](x)}return v0}`,
+    `i=>{for(;;){if(typeof i==="boolean")break;if(i===void 0){i=false;break}e[0](i)}let v0;try{v0=e[1](i).catch(x=>e[2](x))}catch(x){e[2](x)}return v0}`,
   )
 })
 
@@ -198,10 +198,7 @@ test("Uses object default with all required fields", t => {
     ->S.Option.getOr({"a": "hi", "b": 1.})
 
   t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), {"a": "hi", "b": 1.})
-  t->Assert.deepEqual(
-    %raw(`{"a":"x","b":2}`)->S.parseOrThrow(~to=schema),
-    {"a": "x", "b": 2.},
-  )
+  t->Assert.deepEqual(%raw(`{"a":"x","b":2}`)->S.parseOrThrow(~to=schema), {"a": "x", "b": 2.})
 })
 
 test("Rejects object default with field of wrong type", t => {
@@ -221,8 +218,7 @@ test("Rejects object default with field of wrong type", t => {
 test("Rejects object default with missing required field", t => {
   t->Assert.throws(
     () => {
-      let _ =
-        S.schema(s => {"a": s.matches(S.string)})->S.option->S.Option.getOr(%raw(`{}`))
+      let _ = S.schema(s => {"a": s.matches(S.string)})->S.option->S.Option.getOr(%raw(`{}`))
     },
     ~expectations={
       message: `[Sury] Invalid default for { a: string; } | undefined: Failed at ["a"]: Expected string, received undefined`,
@@ -263,7 +259,8 @@ test("Default on a primary item with S.to runs the transformation on parse and r
   t->Assert.is(untagged.tag, S.AnyOf)
   t->Assert.is(untagged.anyOf->Option.getOrThrow->Array.length, 2)
   t->Assert.deepEqual(untagged.default, %raw(`"2024-01-01T00:00:00.000Z"`))
-  t->Assert.is((untagged.to->Option.getOrThrow->S.untag).tag, S.Instance)
+  // The default arm carries the conversion — the union itself has no `.to`.
+  t->Assert.is(untagged.to, None)
 
   t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), defaultDate)
   t->Assert.deepEqual("2024-06-15T12:30:45.123Z"->S.parseOrThrow(~to=schema), otherDate)
@@ -280,10 +277,13 @@ test("Default on a primary item with S.to runs the transformation on parse and r
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){if(typeof i==="string"){let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](v0);i=v0;break}if(i===void 0)break;e[1](i)}return i===void 0?e[2]:i}`,
+    `i=>{for(;;){if(typeof i==="string"){let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](v0);i=v0;break}if(i===void 0){i=e[1];break}e[2](i)}return i}`,
   )
-  // Output is non-optional Date, so encoder skips both undefined and Date checks.
-  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return i.toISOString()}`)
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Encode,
+    `i=>{if(i instanceof e[0]){i=i.toISOString()}else{e[1](i)}return i}`,
+  )
 })
 
 // .to(jsonString) extends the .to chain rather than replacing getWithDefault's wiring.
@@ -295,14 +295,9 @@ test("Appending S.to(S.jsonString) after getOr extends the output chain", t => {
   t->Assert.is(untagged.tag, S.AnyOf)
   t->Assert.deepEqual(untagged.default, %raw(`"2024-01-01T00:00:00.000Z"`))
   let toLevel1 = untagged.to->Option.getOrThrow->S.untag
-  t->Assert.is(toLevel1.tag, S.Instance)
-  let toLevel2 = toLevel1.to->Option.getOrThrow->S.untag
-  t->Assert.is(toLevel2.tag, S.String)
+  t->Assert.is(toLevel1.tag, S.String)
 
-  t->Assert.deepEqual(
-    %raw(`undefined`)->S.parseOrThrow(~to=schema),
-    `"2024-01-01T00:00:00.000Z"`,
-  )
+  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), `"2024-01-01T00:00:00.000Z"`)
   t->Assert.deepEqual(
     "2024-06-15T12:30:45.123Z"->S.parseOrThrow(~to=schema),
     `"2024-06-15T12:30:45.123Z"`,
@@ -342,7 +337,7 @@ test("Multi-member union with transformed members + getOr", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){let r;if(typeof i==="string"){try{let v0=+i;!Number.isNaN(v0)||e[0](i);i=v0;break}catch(x){(r||(r=[])).push(e[2](x))}try{let v1;try{v1=BigInt(i)}catch(_){e[1](i)}i=v1;break}catch(x){(r||(r=[])).push(e[2](x))}}if(typeof i==="boolean")break;if(i===void 0)break;e[3](i,...(r||[]))}return i===void 0?true:i}`,
+    `i=>{for(;;){let r;if(typeof i==="string"){try{let v0=+i;!Number.isNaN(v0)||e[0](i);i=v0;break}catch(x){(r||(r=[])).push(e[2](x))}try{let v1;try{v1=BigInt(i)}catch(_){e[1](i)}i=v1;break}catch(x){(r||(r=[])).push(e[2](x))}}if(typeof i==="boolean")break;if(i===void 0){i=true;break}e[3](i,...(r||[]))}return i}`,
   )
 
   t->U.assertCompiledCode(
@@ -355,5 +350,7 @@ test("Multi-member union with transformed members + getOr", t => {
 test("Compiled serialize code snapshot", t => {
   let schema = S.bool->S.option->S.Option.getOr(false)
 
-  t->U.assertCompiledCodeIsNoop(~schema, ~op=#Encode)
+  // The reversed union validates the value like any other typed decode — the
+  // old noop relied on Option_getWithDefault's noopDecoder hack.
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{typeof i==="boolean"||e[0](i);return i}`)
 })

@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.any.with(S.to, S.number, { decode: "auto", encode: (value) => value })'
+  input: any
+  output: number
+  instantiations: 5304
+jsonSchema:
+  input: Expected JSON, received unknown
+  output: '{ type: "number" }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="number"&&!Number.isNaN(i)||e[0](i);return i}
+    examples:
+      validating-downcast:
+        input: "5"
+        output: "5"
+      rejects-non-number:
+        input: '"abc"'
+        error: Expected number, received "abc"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}
+    examples:
+      custom-upcast:
+        input: "5"
+        output: "5"

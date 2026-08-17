@@ -130,4 +130,5 @@ It sorts differences into `acceptance` / `exception-kind` (a behavior change —
 exits non-zero) and `reasons` / `message` (error detail, for you to accept or
 reject).
 
-`CODEC_SPEC.md` is the normative statement of what conversions are legal.
+`CODEC_SPEC.md` is the normative statement of what conversions are legal,
+built-in and custom alike.

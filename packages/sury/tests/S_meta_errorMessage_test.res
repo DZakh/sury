@@ -22,11 +22,11 @@ test("Empty errorMessage deletes the field from schema", t => {
 })
 
 test("S.meta errorMessage overwrites, not merges", t => {
-  let schema = S.string->S.minLength(1)->S.maxLength(10)->S.meta({errorMessage: {minLength: "Custom min"}})
+  let schema =
+    S.string->S.minLength(1)->S.maxLength(10)->S.meta({errorMessage: {minLength: "Custom min"}})
 
   switch schema {
-  | String({errorMessage}) =>
-    t->Assert.deepEqual(errorMessage, {minLength: "Custom min"})
+  | String({errorMessage}) => t->Assert.deepEqual(errorMessage, {minLength: "Custom min"})
   | _ => t->Assert.fail("Expected String")
   }
   // maxLength message is gone since we overwrote
@@ -61,7 +61,8 @@ test("Catch-all _ works on constraint refiners", t => {
 })
 
 test("Override pattern message via S.meta", t => {
-  let schema = S.string->S.pattern(~message="Original", /^\d+$/)->S.meta({errorMessage: {pattern: "Override"}})
+  let schema =
+    S.string->S.pattern(~message="Original", /^\d+$/)->S.meta({errorMessage: {pattern: "Override"}})
 
   t->U.assertThrowsMessage(() => "abc"->S.parseOrThrow(~to=schema), `Override`)
 })
@@ -89,5 +90,8 @@ test("S.meta does not mutate the original schema", t => {
   let _ = original->S.meta({errorMessage: {minLength: "Custom"}})
 
   // Original still uses default message
-  t->U.assertThrowsMessage(() => ""->S.parseOrThrow(~to=original), `Expected string.length >= 1, received ""`)
+  t->U.assertThrowsMessage(
+    () => ""->S.parseOrThrow(~to=original),
+    `Expected string.length >= 1, received ""`,
+  )
 })

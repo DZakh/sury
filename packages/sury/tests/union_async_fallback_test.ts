@@ -2,16 +2,36 @@ import { test } from "vitest";
 
 import * as S from "../index.mjs";
 
+// An async check that leaves the value alone: `encode: "auto"` keeps the
+// reverse direction a plain pass. Local because these cases are about the
+// union planner's async fallback, not about how the member turns async.
+// `S.Schema<T, T>`, not `<TInput, TOutput>`: `decode` has to land on the
+// target's *input*, which only coincides with the value it was handed when the
+// schema doesn't transform.
+const asyncAssert = <T>(
+  schema: S.Schema<T, T>,
+  assertFn: (value: T) => Promise<unknown>,
+): S.Schema<T, T> =>
+  S.to(schema, schema, {
+    decode: {
+      async: async (value) => {
+        await assertFn(value);
+        return value;
+      },
+    },
+    encode: "auto",
+  });
+
 const rejectingAsyncMember = (message: string) =>
   S.string
-    .with(S.asyncDecoderAssert, async () => {})
+    .with(asyncAssert, async () => {})
     .with(S.refine, () => false, { error: message });
 
 test("disjoint async exact literals keep the allocation-free dispatch path", async (t) => {
   let calls = 0;
   const parser = S.asyncParser(
     S.union([
-      S.schema(0).with(S.asyncDecoderAssert, async () => {
+      S.schema(0).with(asyncAssert, async () => {
         calls++;
       }),
       S.schema(1),
@@ -27,7 +47,7 @@ test("disjoint async exact literals keep the allocation-free dispatch path", asy
 test("a Promise rejection containing a Sury error falls through", async (t) => {
   let fallbackCalls = 0;
   const schema = S.union([
-    S.string.with(S.asyncDecoderAssert, async () => {
+    S.string.with(asyncAssert, async () => {
       S.parser(S.number)("not a number");
     }),
     S.string.with(S.refine, () => {
@@ -59,11 +79,11 @@ test("same-literal async members await and fall through inside one group", async
   let secondCalls = 0;
   const schema = S.union([
     S.schema("value")
-      .with(S.asyncDecoderAssert, async () => {
+      .with(asyncAssert, async () => {
         firstCalls++;
       })
       .with(S.refine, () => false, { error: "grouped async rejection" }),
-    S.schema("value").with(S.asyncDecoderAssert, async () => {
+    S.schema("value").with(asyncAssert, async () => {
       secondCalls++;
     }),
   ]);
@@ -76,10 +96,10 @@ test("same-literal async members await and fall through inside one group", async
 test("an accepted async first match does not evaluate a same-tier fallback", async (t) => {
   const calls: string[] = [];
   const schema = S.union([
-    S.string.with(S.asyncDecoderAssert, async () => {
+    S.string.with(asyncAssert, async () => {
       calls.push("first");
     }),
-    S.string.with(S.asyncDecoderAssert, async () => {
+    S.string.with(asyncAssert, async () => {
       calls.push("second");
     }),
   ]);
@@ -93,7 +113,7 @@ test("SameValueZero exact literals remain overlapping", async (t) => {
   const parser = S.asyncParser(
     S.union([
       S.schema(-0)
-        .with(S.asyncDecoderAssert, async () => {})
+        .with(asyncAssert, async () => {})
         .with(S.refine, () => false, { error: "negative zero rejected" }),
       S.schema(0).with(S.refine, () => {
         fallbackCalls++;
@@ -113,7 +133,7 @@ test("cross-group semantic discriminators preserve overlap and disjointness", as
     S.schema({
       kind: S.schema("same"),
       value: S.string,
-    }).with(S.asyncDecoderAssert, async () => {
+    }).with(asyncAssert, async () => {
       S.parser(S.number)("not a number");
     }),
     S.schema({
@@ -135,7 +155,7 @@ test("cross-group semantic discriminators preserve overlap and disjointness", as
       S.schema({
         kind: S.schema("first"),
         value: S.string,
-      }).with(S.asyncDecoderAssert, async () => {
+      }).with(asyncAssert, async () => {
         disjointFirstCalls++;
       }),
       S.schema({
@@ -156,7 +176,7 @@ test("distinct symbol identities are disjoint", async (t) => {
   const second = Symbol("same description");
   const parser = S.asyncParser(
     S.union([
-      S.schema(first).with(S.asyncDecoderAssert, async () => {}),
+      S.schema(first).with(asyncAssert, async () => {}),
       S.schema(second),
     ]),
   );
@@ -171,7 +191,7 @@ test("a broad intervening member remains an overlap barrier", async (t) => {
   const parser = S.asyncParser(
     S.union([
       S.schema(0)
-        .with(S.asyncDecoderAssert, async () => {})
+        .with(asyncAssert, async () => {})
         .with(S.refine, () => false, { error: "zero rejected" }),
       S.schema(1),
       S.number.with(S.refine, () => {
@@ -191,7 +211,7 @@ test("a non-bucketed deoptimized member remains an overlap barrier", async (t) =
   const parser = S.asyncParser(
     S.union([
       S.schema(0)
-        .with(S.asyncDecoderAssert, async () => {})
+        .with(asyncAssert, async () => {})
         .with(S.refine, () => false, { error: "zero rejected" }),
       S.unknown.with(S.refine, () => {
         fallbackCalls++;
@@ -237,7 +257,7 @@ test("an async foreign rejection escapes without trying a fallback", async (t) =
   const foreignError = new RangeError("foreign async transform rejection");
   let fallbackCalls = 0;
   const schema = S.union([
-    S.string.with(S.asyncDecoderAssert, async () => {
+    S.string.with(asyncAssert, async () => {
       throw foreignError;
     }),
     S.string.with(S.refine, () => {
@@ -272,7 +292,7 @@ test("a nested async foreign rejection keeps identity and skips object fallback"
   const schema = S.union([
     S.schema({
       kind: S.schema("nested"),
-      value: S.string.with(S.asyncDecoderAssert, async () => {
+      value: S.string.with(asyncAssert, async () => {
         throw foreignError;
       }),
     }),

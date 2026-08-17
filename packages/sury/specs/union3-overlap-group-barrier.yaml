@@ -3,7 +3,7 @@ ts:
   schema: 'S.union([S.schema({ kind: "left", value: S.string }).with(S.refine, () => false, { error: "left member rejected" }), S.schema({ kind: S.string, value: S.string.with(S.pattern, /^broad-/, "broad member rejected") }), S.schema({ kind: "right", value: S.string.with(S.pattern, /^right-/, "right member rejected") })])'
   input: '{ kind: "left"; value: string; } | { kind: string; value: string; } | { kind: "right"; value: string; }'
   output: '{ kind: "left"; value: string; } | { kind: string; value: string; } | { kind: "right"; value: string; }'
-  instantiations: 10612
+  instantiations: 10719
 jsonSchema:
   input: '{ anyOf: [{ type: "object", properties: { kind: { type: "string", const: "left" }, value: { type: "string" } }, required: ["kind", "value"] }, { type: "object", properties: { kind: { type: "string" }, value: { type: "string", pattern: "^broad-" } }, required: ["kind", "value"] }, { type: "object", properties: { kind: { type: "string", const: "right" }, value: { type: "string", pattern: "^right-" } }, required: ["kind", "value"] }] }'
   output: '{ anyOf: [{ type: "object", properties: { kind: { type: "string", const: "left" }, value: { type: "string" } }, required: ["kind", "value"] }, { type: "object", properties: { kind: { type: "string" }, value: { type: "string", pattern: "^broad-" } }, required: ["kind", "value"] }, { type: "object", properties: { kind: { type: "string", const: "right" }, value: { type: "string", pattern: "^right-" } }, required: ["kind", "value"] }] }'

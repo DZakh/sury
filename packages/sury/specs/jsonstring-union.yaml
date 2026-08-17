@@ -3,7 +3,7 @@ ts:
   schema: 'S.union([S.schema({t: "a", v: S.string}), S.schema({t: "b", v: S.number})]).with(S.to, S.jsonString)'
   input: '{ t: "a"; v: string; } | { t: "b"; v: number; }'
   output: string
-  instantiations: 8523
+  instantiations: 8588
 jsonSchema:
   input: '{ anyOf: [{ type: "object", properties: { t: { type: "string", const: "a" }, v: { type: "string" } }, additionalProperties: false, required: ["t", "v"] }, { type: "object", properties: { t: { type: "string", const: "b" }, v: { type: "number" } }, additionalProperties: false, required: ["t", "v"] }] }'
   output: '{ type: "string", contentMediaType: "application/json" }'
