@@ -37,8 +37,12 @@ export type Path = string;
 export const pathEmpty: Path = "";
 export const pathDynamic: Path = "[]";
 
+// Everything a raw splice into a double-quoted JS literal can't carry: the
+// quote itself, `\` (an accidental escape reads as a different string), and
+// both line terminators (a SyntaxError inside new Function).
+const inlineUnsafeRe = /["\\\n\r]/;
 export const inlinedValueFromString = (str: string): string => {
-  return str.includes('"') || str.includes("\n") ? JSON.stringify(str) : `"${str}"`;
+  return inlineUnsafeRe.test(str) ? JSON.stringify(str) : `"${str}"`;
 }
 
 export const pathFromInlinedLocation = (inlinedLocation: string): Path => {
@@ -154,8 +158,35 @@ export const s = /* @__PURE__ */ Symbol(vendor);
 // Internal symbol to identify the item proxy (see the makeObjectVal Proxy use).
 export const itemSymbol = /* @__PURE__ */ Symbol(vendor + ":item");
 
-export type NumberFormat = "int32" | "port";
-export type StringFormat = "json" | "date-time" | "email" | "uuid" | "cuid" | "url";
+// Every number format describes integer-valued numbers — numberDecoder skips
+// the "integer" check for any formatted source on that invariant.
+export type NumberFormat = "int32" | "port" | "integer";
+// Mirrored by `StringFormat` in index.d.ts, which is the surface TS users see —
+// a name added here without being added there is invisible to them, and a third
+// copy lives in `S.res`. Every member but `json` and `cuid` is a JSON Schema
+// format name verbatim, which is what lets jsonschema.ts pass it through in
+// both directions.
+export type StringFormat =
+  | "json"
+  | "date-time"
+  | "email"
+  | "uuid"
+  | "cuid"
+  | "uri"
+  | "date"
+  | "time"
+  | "duration"
+  | "hostname"
+  | "idn-hostname"
+  | "ipv4"
+  | "ipv6"
+  | "uri-reference"
+  | "uri-template"
+  | "iri"
+  | "iri-reference"
+  | "idn-email"
+  | "json-pointer"
+  | "relative-json-pointer";
 export type ArrayFormat = "compactColumns";
 export type Format = NumberFormat | StringFormat | ArrayFormat;
 
@@ -220,10 +251,13 @@ export type SchemaErrorMessage = {
   maximum?: string;
   exclusiveMinimum?: string;
   exclusiveMaximum?: string;
+  multipleOf?: string;
   minLength?: string;
   maxLength?: string;
   minItems?: string;
   maxItems?: string;
+  minSize?: string;
+  maxSize?: string;
   pattern?: string;
 }
 
@@ -279,8 +313,8 @@ export type Internal = {
   // range in the fields below, so the values can't tell a caller's bound from
   // a format's — this can, and only the bound constructors ever set it.
   // 1 lower inclusive · 2 upper inclusive · 4 lower exclusive · 8 upper
-  // exclusive. A schema bounds either its value or its length, never both, so
-  // one pair of bits covers minimum/minLength/minItems alike.
+  // exclusive. A schema bounds exactly one of its value, its length or its
+  // size, so one pair of bits covers minimum/minLength/minItems/minSize alike.
   bounds?: number;
   minimum?: number | bigint;
   maximum?: number | bigint;
@@ -289,13 +323,33 @@ export type Internal = {
   // is the one its author wrote, not an equivalent rewritten form.
   exclusiveMinimum?: number | bigint;
   exclusiveMaximum?: number | bigint;
+  multipleOf?: number | bigint;
   minLength?: number;
   maxLength?: number;
   minItems?: number;
   maxItems?: number;
+  // Bytes, for the binary instances. No JSON Schema keyword bounds a blob's
+  // size, so unlike the four above these don't reach the emit.
+  minSize?: number;
+  maxSize?: number;
   pattern?: RegExp;
   errorMessage?: SchemaErrorMessage;
   space?: number;
+  // Compile-time only, set on a per-operation schema copy by the container
+  // decoders' jsonString fusion (B_fuseIntoJsonString in composites.ts): the
+  // container's dynamic items are typed but UNVALIDATED — the validation loop
+  // was skipped because jsonStringAggregate re-parses each item from unknown
+  // inside its own serialize loop. Carried on the schema (not the val) so it
+  // survives the parse loop's per-segment B_refine.
+  uv?: boolean;
+  // Compile-time only, and `unionRewrite` (union.ts) is the ONLY producer: this
+  // union's variants were rewritten from the variants of the union the value
+  // was already typed as, so a dispatched case may convert from its own variant
+  // instead of re-validating it. Spelling it `true` anywhere else licenses
+  // skipping checks the value never passed — the rewrite is what makes it true,
+  // because it drops the val's source to `unknown` and would otherwise lose the
+  // guarantee the source union carried.
+  tr?: boolean;
   "$ref"?: string;
   "$defs"?: Record<string, Internal>;
   isAsync?: boolean; // Optional value means that it's not lazily computed yet.
@@ -306,9 +360,14 @@ export type Internal = {
   // the `.to` target. Everything structural is rendered by inputExpression
   // itself, so setting this is the exception, not the pattern.
   expression?: (schema: Internal) => string;
-  // The reversed (Input ↔ Output swapped) schema, cached lazily as a hidden
-  // non-enumerable property via Object.defineProperty (see schema.ts/parse.ts).
+  // The reversed (Input ↔ Output swapped) schema. Always readable: `this` via
+  // the self-reverse prototype getter, otherwise computed and cached by the
+  // general prototype getter (parse.ts). Reading it on a plain schema COMPUTES
+  // the reverse — probe `sr` instead when only self-reverseness is asked.
   r?: Internal;
+  // Set on the self-reverse prototype only — the cheap "reverses to itself"
+  // probe (see selfReversePrototype below).
+  sr?: boolean;
 }
 
 export type BGlobal = {
@@ -324,6 +383,9 @@ export type BGlobal = {
   // generated code, so a builder can bracket a stretch of emission and learn
   // whether what it produced can throw. Read the difference, never the value.
   t: number;
+  // @as("js") — the operation's asJsonString embed accessor, cached by
+  // B_embedJsonStr (advanced/json.ts) on first use.
+  js?: string;
 }
 
 // Adjacent checks sharing `fail` by reference equality are fused with `&&`
@@ -406,7 +468,7 @@ export const immutableEmptyObject: Record<string, unknown> = Object.create(null)
 // (+4 closures) on every access, and this runs per-node while building every
 // `S.schema({...})`. `in` walks the prototype chain without invoking the
 // getter. The `typeof === object` guard keeps primitives (passed by
-// `js_assert`) from throwing on `in` and reproduces the old falsy-on-primitive
+// `assert`) from throwing on `in` and reproduces the old falsy-on-primitive
 // result.
 export const isSchemaObject = (obj: unknown): boolean => {
   return typeof obj === objectTag && obj !== null && "~standard" in (obj as object);
@@ -560,9 +622,12 @@ export const inputExpression = (schema: Internal, skipOverride?: boolean): strin
     if (typeof additionalItems === objectTag) {
       const item = additionalItems as Internal;
       const itemName = inputExpression(item);
-      // A bound reads as part of the item, not the array: `int32 > 5[]` parses
-      // as an array-typed bound, the same ambiguity a union has.
-      return (item.type === anyOfTag || item.bounds !== U ? `(${itemName})` : itemName) + "[]";
+      // A bound or divisor reads as part of the item, not the array:
+      // `int32 > 5[]` parses as an array-typed bound and `number % 2[]` as an
+      // array-typed divisor, the same ambiguity a union has.
+      return (item.type === anyOfTag || item.bounds !== U || item.multipleOf !== U
+        ? `(${itemName})`
+        : itemName) + "[]";
     }
     const items = schema.items!;
     let body = "";
@@ -594,6 +659,30 @@ Object.defineProperty(schemaPrototype, "with", {
 });
 // Also has ~standard below
 Schema.prototype = schemaPrototype;
+
+// A self-reversing schema answers `reversed` from this prototype getter
+// instead of an own property: the per-instance defineProperty cost an order
+// of magnitude more than everything else baseSchema does. Object.assign never
+// copies the getter, so a derived schema (copySchema) recomputes its reverse —
+// correct, since a copy made to be modified no longer reverses to itself.
+// No setter, so a plain `schema.reversed = …` throws: the cache is only ever
+// written with defineProperty (parse.ts).
+//
+// `sr` is the cheap self-reverse probe: reading `.reversed` off a plain schema
+// would *compute* the reverse (the general getter in parse.ts), so callers
+// that only ask "does it reverse to itself?" (composites) read the marker.
+// "r", not "reversed": internal-only (S.reverse is the public API), and short
+// field names on hot objects survive minification (CLAUDE.md).
+export const reversedKey = "r";
+function SelfReverseSchema(this: Internal): void {}
+const selfReversePrototype: Record<string, unknown> = Object.create(schemaPrototype);
+Object.defineProperty(selfReversePrototype, reversedKey, {
+  get: function (this: Internal) {
+    return this;
+  },
+});
+Object.defineProperty(selfReversePrototype, "sr", { value: true });
+SelfReverseSchema.prototype = selfReversePrototype;
 
 let seq = 1;
 
@@ -665,18 +754,25 @@ export const globalConfig: GlobalConfig = {
 export const valueOptions: Record<string, unknown> = {};
 export const configurableValueOptions = { configurable: true };
 export const valKey = "value";
-export const reversedKey = "r";
 
-const SchemaCtor = Schema as unknown as { new (): Internal };
+// `function` declarations have no construct signature in TS, so `new` needs a
+// cast. A type is erased where a `const SchemaCtor = Schema as …` alias would
+// survive minification as a real assignment.
+type SchemaClass = new () => Internal;
 
-export const baseSchema = (tag: Tag, selfReverse: boolean): Internal => {
-  const schema = new SchemaCtor();
+// `decoder` is a parameter, not something the caller assigns afterwards, and
+// that is load-bearing: a schema handed to a builder as a val's `s` becomes
+// that value's output schema, an output schema is reachable as another
+// operation's *target*, and the parse loop calls `e.decoder` on a target
+// unconditionally. A site that forgot the assignment produced a TypeError deep
+// inside compilation (#369); requiring the argument makes that unrepresentable.
+// It also means every schema gains its fields in one order, so the instances
+// share a single hidden class.
+export const baseSchema = (tag: Tag, selfReverse: boolean, decoder: Builder): Internal => {
+  const schema = new ((selfReverse ? SelfReverseSchema : Schema) as unknown as SchemaClass)();
   schema.type = tag;
   schema.seq = seq++;
-  if (selfReverse) {
-    valueOptions[valKey] = schema;
-    Object.defineProperty(schema, reversedKey, valueOptions as PropertyDescriptor);
-  }
+  schema.decoder = decoder;
   return schema;
 }
 
@@ -691,21 +787,24 @@ export const noopDecoder: Builder = (input: Val) => {
 // per use would recompile every time), and the single pure expression is what
 // lets a consumer's bundler drop the unused ones.
 // @__NO_SIDE_EFFECTS__
-export const initSchema = (tag: Tag, init: (schema: Internal) => void): Internal => {
-  const schema = baseSchema(tag, true);
-  init(schema);
+export const initSchema = (
+  tag: Tag,
+  decoder: Builder,
+  init?: (schema: Internal) => void
+): Internal => {
+  const schema = baseSchema(tag, true, decoder);
+  init?.(schema);
   return schema;
 }
 
-// Deliberately NOT the single-pure-expression form the other singletons use:
+// Deliberately NOT the `/* @__PURE__ */` form the other singletons use:
 // `unknown` is reachable from nearly every export, so it never tree-shakes
-// anyway, and the bare statement pair minifies smaller than any wrapper that
-// would make it droppable.
-export const unknown: Internal = baseSchema(unknownTag, true);
-unknown.decoder = noopDecoder;
+// anyway, and the bare call minifies smaller than any wrapper that would make
+// it droppable.
+export const unknown: Internal = baseSchema(unknownTag, true, noopDecoder);
 
 export const copySchema = (schema: Internal): Internal => {
-  const c: Internal = Object.assign(new SchemaCtor(), schema);
+  const c: Internal = Object.assign(new (Schema as unknown as SchemaClass)(), schema);
   c.seq = seq++;
   return c;
 }

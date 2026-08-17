@@ -1,6 +1,6 @@
 // Vendored from
 // https://github.com/enviodev/hyperindex/blob/main/packages/envio/src/bindings/Vitest.res
-// with an AVA-compatibility shim layered on top so existing tests keep working.
+// with compatibility helpers layered on top so existing tests keep working.
 
 // ============================================================================
 // Expectation object returned by expect()
@@ -145,10 +145,9 @@ external expectAssertions: (testContext, int) => unit = "assertions"
 external expectFail: (testContext, string) => unit = "fail"
 
 // ============================================================================
-// AVA-compatibility shim
+// Legacy assertion compatibility
 // ============================================================================
-// Kept thin so existing `open Ava` / `t->Assert.deepEqual(...)` test code keeps
-// reading the same. Each shim delegates to a Vitest matcher.
+// Each helper delegates to a Vitest matcher.
 
 let asyncTest = Async.test
 

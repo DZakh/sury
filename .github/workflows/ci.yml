@@ -27,8 +27,23 @@ jobs:
       - run: pnpm build
         working-directory: packages/sury
 
+      # The *.res.mjs beside each *.res are compiled output, checked in because
+      # they ship in the published package. Every job that needs them rebuilds
+      # them first, so a commit that forgot to regenerate passes the whole suite
+      # while the file in git says something else — the drift is only ever read
+      # by a consumer installing from npm. The build above just regenerated
+      # them; anything that moved was stale in the commit.
+      - name: Compiled ReScript matches its source
+        run: ../../scripts/assert-no-drift.sh '*.res.mjs'
+        working-directory: packages/sury
+
       - run: pnpm coverage
         working-directory: packages/sury
+
+      # artifact_test.ts checks jsr.json against package.json; only JSR itself
+      # checks the parts npm has no opinion on (slow types, the exclude list).
+      - run: npx --yes jsr@0.14.3 publish --dry-run --allow-dirty
+        working-directory: packages/sury/artifacts
 
       - uses: codecov/codecov-action@v7
         with:
@@ -111,29 +126,29 @@ jobs:
         run: npx tsx packages/spec/perfComment.ts spec-perf.txt spec-perf-comment.md
         env:
           ARTIFACT_URL: ${{ steps.spec-perf-artifact.outputs.artifact-url }}
+          # The PR's head, not GITHUB_SHA — on a pull_request event that's the
+          # ephemeral merge commit, which names nothing a reader can go look at.
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
 
-      - name: Post/update spec performance comment
+      # A new comment per push, not one edited in place. Editing keeps the PR
+      # tidy at the cost of the history: the numbers a reviewer read are gone
+      # the moment the next push lands, and nothing says whether a delta was
+      # already there two commits ago or arrived with the one under review.
+      # Each comment names the head it measured, so the thread reads in order.
+      - name: Post spec performance comment
         if: github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/github-script@v7
         env:
           BODY_FILE: spec-perf-comment.md
-          MARKER: "<!-- spec-perf -->"
         with:
           script: |
             const fs = require("fs");
-            const body = fs.readFileSync(process.env.BODY_FILE, "utf8");
-            const marker = process.env.MARKER;
-            const comments = await github.paginate(github.rest.issues.listComments, {
+            await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
+              body: fs.readFileSync(process.env.BODY_FILE, "utf8"),
             });
-            const existing = comments.find(
-              (c) => c.user?.login === "github-actions[bot]" && c.body?.includes(marker)
-            );
-            const args = { owner: context.repo.owner, repo: context.repo.repo, body };
-            if (existing) await github.rest.issues.updateComment({ ...args, comment_id: existing.id });
-            else await github.rest.issues.createComment({ ...args, issue_number: context.issue.number });
 
   # The `performance` job above only ever compares a PR against its own base, so
   # a change small enough to sit under the noise floor leaves no trace anywhere
@@ -173,133 +188,51 @@ jobs:
       - name: Write drift to run summary
         run: npx tsx packages/spec/perfComment.ts spec-perf.txt "$GITHUB_STEP_SUMMARY" "Performance drift since last release"
 
+  # e2e needs this slice on every run, so it stays its own job.
   ppx-build-linux:
-    name: ppx-build-linux
-    runs-on: ubuntu-24.04
-    defaults:
-      run:
-        working-directory: packages/sury-ppx/src
+    uses: ./.github/workflows/ppx-build.yml
+    with:
+      target: linux
+      runs-on: ubuntu-24.04
+      # Static linking pins the binary off the runner's glibc. The macOS and
+      # Windows toolchains have no working equivalent.
+      build-flags: --profile static
+
+  # The other four slices only feed the published tarball, and macOS runners
+  # bill at 10x. A PR that breaks them breaks the linux build too, near enough.
+  ppx-build-rest:
+    if: github.event_name != 'pull_request'
     strategy:
+      # A slice failing to build is per-platform news; the others still tell us
+      # whether the failure is local to one toolchain.
+      fail-fast: false
       matrix:
-        ocaml-compiler:
-          - 5.3.0
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Use OCaml ${{ matrix.ocaml-compiler}}
-        uses: ocaml/setup-ocaml@v3
-        with:
-          ocaml-compiler: ${{ matrix.ocaml-compiler }}
-
-      - name: Install deps
-        run: opam install . --deps-only --with-test
-
-      - name: Build
-        run: opam exec -- dune build --profile static
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ppx-build-linux
-          path: packages/sury-ppx/src/_build/default/bin/bin.exe
-          if-no-files-found: error
-
-  ppx-build-linux-arm:
-    name: ppx-build-linux-arm
-    runs-on: ubuntu-24.04-arm
-    defaults:
-      run:
-        working-directory: packages/sury-ppx/src
-    strategy:
-      matrix:
-        ocaml-compiler:
-          - 5.3.0
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Use OCaml ${{ matrix.ocaml-compiler}}
-        uses: ocaml/setup-ocaml@v3
-        with:
-          ocaml-compiler: ${{ matrix.ocaml-compiler }}
-
-      - name: Install deps
-        run: opam install . --deps-only --with-test
-
-      - name: Build
-        run: opam exec -- dune build --profile static
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ppx-build-linux-arm
-          path: packages/sury-ppx/src/_build/default/bin/bin.exe
-          if-no-files-found: error
-
-  ppx-build-macos:
-    name: ppx-build-macos
-    runs-on: macOS-latest
-    defaults:
-      run:
-        working-directory: packages/sury-ppx/src
-    strategy:
-      matrix:
-        ocaml-compiler:
-          - 5.3.0
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Use OCaml ${{ matrix.ocaml-compiler}}
-        uses: ocaml/setup-ocaml@v3
-        with:
-          ocaml-compiler: ${{ matrix.ocaml-compiler }}
-
-      - name: Install deps
-        run: opam install . --deps-only --with-test
-
-      - name: Build
-        run: opam exec -- dune build
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ppx-build-macos
-          path: packages/sury-ppx/src/_build/default/bin/bin.exe
-          if-no-files-found: error
-
-  ppx-build-windows:
-    name: ppx-build-windows
-    runs-on: windows-2025
-    defaults:
-      run:
-        working-directory: packages/sury-ppx/src
-    strategy:
-      matrix:
-        ocaml-compiler:
-          - 5.3.0
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Use OCaml ${{ matrix.ocaml-compiler}}
-        uses: ocaml/setup-ocaml@v3
-        with:
-          ocaml-compiler: ${{ matrix.ocaml-compiler }}
-
-      - name: Install deps
-        run: opam install . --deps-only --with-test
-
-      - name: Build
-        run: opam exec -- dune build
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ppx-build-windows
-          path: packages/sury-ppx/src/_build/default/bin/bin.exe
-          if-no-files-found: error
+        include:
+          - target: linux-arm
+            runs-on: ubuntu-24.04-arm
+            build-flags: --profile static
+          - target: macos
+            # Rosetta translates x64 -> arm64, never the reverse, so the x64
+            # slice needs an actual Intel runner rather than macos-latest.
+            runs-on: macos-15-intel
+            build-flags: ""
+          - target: macos-arm
+            runs-on: macos-latest
+            build-flags: ""
+          - target: windows
+            runs-on: windows-2025
+            build-flags: ""
+    uses: ./.github/workflows/ppx-build.yml
+    with:
+      target: ${{ matrix.target }}
+      runs-on: ${{ matrix.runs-on }}
+      build-flags: ${{ matrix.build-flags }}
 
   pack-sury-ppx:
     name: Pack sury-ppx
-    needs: [ppx-build-linux, ppx-build-linux-arm, ppx-build-macos, ppx-build-windows]
+    # Skipped on PRs because ppx-build-rest is: there is no tarball to pack
+    # without all five slices.
+    needs: [ppx-build-linux, ppx-build-rest]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -310,40 +243,33 @@ jobs:
           cache: "pnpm"
       - run: pnpm install
 
-      - name: Download ppx linux artifacts
+      - name: Download ppx artifacts
         uses: actions/download-artifact@v4
         with:
-          name: ppx-build-linux
-          path: binaries/linux
-
-      - name: Download ppx linux-ARM artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: ppx-build-linux-arm
-          path: binaries/linux-arm
-
-      - name: Download macOS artifacts
-        uses: actions/download-artifact@master
-        with:
-          name: ppx-build-macos
-          path: binaries/macos
-
-      - name: Download windows artifacts
-        uses: actions/download-artifact@master
-        with:
-          name: ppx-build-windows
-          path: binaries/windows
+          pattern: ppx-build-*
+          path: binaries
 
       - name: Move ppx artifacts
         run: |
-          mv binaries/linux/bin.exe packages/sury-ppx/ppx-linux.exe
-          mv binaries/linux-arm/bin.exe packages/sury-ppx/ppx-linux-arm.exe
-          mv binaries/macos/bin.exe packages/sury-ppx/ppx-osx.exe
-          mv binaries/windows/bin.exe packages/sury-ppx/ppx-windows.exe
+          mv binaries/ppx-build-linux/bin.exe packages/sury-ppx/ppx-linux.exe
+          mv binaries/ppx-build-linux-arm/bin.exe packages/sury-ppx/ppx-linux-arm.exe
+          mv binaries/ppx-build-macos/bin.exe packages/sury-ppx/ppx-osx.exe
+          mv binaries/ppx-build-macos-arm/bin.exe packages/sury-ppx/ppx-osx-arm.exe
+          mv binaries/ppx-build-windows/bin.exe packages/sury-ppx/ppx-windows.exe
+
+          # Artifact download drops the executable bit. install.cjs chmods the
+          # binary it picks, but installers that skip postinstall (pnpm >=10 by
+          # default) fall through to the `bin` script, which execs it as-is.
+          chmod +x packages/sury-ppx/ppx-*.exe
 
       - name: npm pack (sury-ppx)
         run: npm pack
         working-directory: packages/sury-ppx
+
+      # The last gate before an artifact becomes a published tarball: what the
+      # binaries are, what they need at runtime, and what reached the package.
+      - name: Verify the ppx binaries and tarball
+        run: npx tsx packages/sury-ppx/checkBinaries.ts packages/sury-ppx/sury-ppx-*.tgz
 
       - name: "Upload artifact: sury-ppx npm package"
         uses: actions/upload-artifact@v4
@@ -379,4 +305,12 @@ jobs:
         working-directory: packages/e2e
 
       - run: pnpm rescript && pnpm test
+        working-directory: packages/e2e
+
+      # Same guard as the sury job, for the ppx-generated output. This one is
+      # never published, but it is the only readable record of what the ppx
+      # emits, and the step above regenerates it before asserting on it — so a
+      # stale commit here is invisible in every other signal.
+      - name: Compiled ReScript matches its source
+        run: ../../scripts/assert-no-drift.sh '*.res.mjs'
         working-directory: packages/e2e

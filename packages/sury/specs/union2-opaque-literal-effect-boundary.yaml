@@ -4,12 +4,13 @@ ts:
   input: '"a" | "b"'
   output: JSON
   instantiations: 6319
-vs:
-  zod:
-    _skip: not-applicable
 jsonSchema:
   input: '{ enum: ["a", "b"] }'
   output: '{ anyOf: [{ type: "string", const: "a" }, { type: "string", const: "b" }] }'
+  fromOutputType: '"a" | "b"'
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     expression: i=>{(typeof i==="string"&&i==="a"||typeof i==="string"&&i==="b")||e[0](i);return i}

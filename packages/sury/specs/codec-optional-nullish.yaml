@@ -3,13 +3,13 @@ ts:
   schema: S.optional(S.string).with(S.to, S.union([S.string, null, undefined]))
   input: string | undefined
   output: string | null | undefined
-  instantiations: 6084
-vs:
-  zod:
-    _skip: not-applicable
+  instantiations: 6124
 jsonSchema:
   input: Expected JSON, received string | undefined
   output: Expected JSON, received string | null | undefined
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     expression: i=>{(typeof i==="string"||i===void 0)||e[0](i);return i}

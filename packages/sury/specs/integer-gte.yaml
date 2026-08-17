@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.integer.with(S.gte, 5)
+  input: number
+  output: number
+  instantiations: 582
+jsonSchema:
+  input: '{ type: "integer", minimum: 5 }'
+  output: '{ type: "integer", minimum: 5 }'
+vs:
+  zod: z.int().gte(5)
+operations:
+  parse:
+    expression: i=>{typeof i==="number"&&i%1===0||e[1](i);i>=5||e[0](i);return i}
+    examples:
+      above:
+        input: "6"
+        output: "6"
+      at-the-bound:
+        input: "5"
+        output: "5"
+      above-int32:
+        input: "3000000000"
+        output: "3000000000"
+      below:
+        input: "4"
+        error: Expected integer >= 5, received 4
+      non-integer-above:
+        input: "5.5"
+        error: Expected integer >= 5, received 5.5
+      nan:
+        input: NaN
+        error: Expected integer >= 5, received NaN
+  decode:
+    expression: i=>{i>=5||e[0](i);return i}
+    examples:
+      above:
+        input: "6"
+        output: "6"
+      below:
+        input: "4"
+        error: Expected integer >= 5, received 4
+  encode:
+    expression: i=>{i>=5||e[0](i);return i}
+    examples:
+      above:
+        input: "6"
+        output: "6"
+      below:
+        input: "4"
+        error: Expected integer >= 5, received 4

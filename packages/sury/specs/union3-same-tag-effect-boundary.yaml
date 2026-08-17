@@ -1,23 +1,14 @@
 # yaml-language-server: $schema=./spec.schema.json
-# FIXME: the union header enumerates every member's bounded expression now
-# that a bound rewrites the type expression, so three string members that
-# used to dedupe to `string` render as
-# `string.length >= 5 | string | string.length <= 1`. It reads worst on
-# `wrong-tag` below, where the value isn't a string at all and the header
-# answers with three length bounds. Same root cause as the type-expression
-# item in IDEAS.md, and systemic — union2-refined-literal-fallback,
-# union3-same-tag-validation-group and union-large-planner all moved the
-# same way. Options recorded under "Union headers enumerate bounds" there.
 ts:
   schema: S.union([S.string.with(S.minLength, 5), S.string.with(S.to, S.number), S.string.with(S.maxLength, 1)])
   input: string
   output: string | number
-  instantiations: 6539
-vs:
-  zod: z.union([z.string().min(5), z.string().pipe(z.coerce.number()), z.string().max(1)])
+  instantiations: 6804
 jsonSchema:
   input: '{ anyOf: [{ type: "string", minLength: 5 }, { type: "string" }, { type: "string", maxLength: 1 }] }'
   output: '{ anyOf: [{ type: "string", minLength: 5 }, { type: "number" }, { type: "string", maxLength: 1 }] }'
+vs:
+  zod: z.union([z.string().min(5), z.string().pipe(z.coerce.number()), z.string().max(1)])
 operations:
   parse:
     expression: i=>{for(;;){let r;if(typeof i==="string"){try{i.length>4||e[0](i);break}catch(x){(r||(r=[])).push(e[3](x))}try{let v0=+i;!Number.isNaN(v0)||e[1](i);i=v0;break}catch(x){(r||(r=[])).push(e[3](x))}try{i.length<2||e[2](i);break}catch(x){(r||(r=[])).push(e[3](x))}}e[4](i,...(r||[]))}return i}

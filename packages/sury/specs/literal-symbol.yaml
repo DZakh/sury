@@ -6,12 +6,12 @@ ts:
   input: symbol
   output: symbol
   instantiations: 389
-vs:
-  zod:
-    _skip: not-applicable
 jsonSchema:
   input: Expected JSON, received Symbol(tuna)
   output: Expected JSON, received Symbol(tuna)
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     expression: i=>{i===e[0]||e[1](i);return i}

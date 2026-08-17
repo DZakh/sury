@@ -4,11 +4,11 @@ ts:
   input: bigint
   output: bigint
   instantiations: 254
-vs:
-  zod: z.bigint()
 jsonSchema:
   input: Expected JSON, received bigint
   output: Expected JSON, received bigint
+vs:
+  zod: z.bigint()
 operations:
   parse:
     expression: i=>{typeof i==="bigint"||e[0](i);return i}

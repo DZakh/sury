@@ -4,11 +4,11 @@ ts:
   input: boolean
   output: boolean
   instantiations: 254
-vs:
-  zod: z.boolean()
 jsonSchema:
   input: '{ type: "boolean" }'
   output: '{ type: "boolean" }'
+vs:
+  zod: z.boolean()
 operations:
   parse:
     expression: i=>{typeof i==="boolean"||e[0](i);return i}

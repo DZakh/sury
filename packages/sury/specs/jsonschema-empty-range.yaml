@@ -1,15 +1,15 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
   schema: 'S.fromJSONSchema({ type: "number", minimum: 5, maximum: 1 })'
-  input: JSON
-  output: JSON
-  instantiations: 274
-vs:
-  zod:
-    _skip: not-applicable
+  input: never
+  output: never
+  instantiations: 796
 jsonSchema:
   input: "{ not: {} }"
   output: "{ not: {} }"
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     expression: i=>{e[0](i);return i}

@@ -172,10 +172,18 @@ export const failInvalidType = (input: Val): (value: unknown) => ErrorDetails =>
 // direction: union codegen wraps a case in a `try` it turns out not to need,
 // rather than dropping the fallback a raise needed.
 export const B_embed = (b: Val, value: unknown): string => {
+  b.g.t++;
+  return B_embedPure(b, value);
+}
+
+// B_embed for a value generated code can't raise through — a helper that
+// never throws. Skipping the raise counter keeps union codegen from wrapping
+// the case in a `try` it doesn't need, and keeps loop bodies recognizable as
+// throw-free (see B_mergeWithCatch's `pureSince`).
+export const B_embedPure = (b: Val, value: unknown): string => {
   const e = b.g.e;
   const l = e.length;
   e[l] = value;
-  b.g.t++;
   return `e[${l}]`;
 }
 
@@ -552,10 +560,12 @@ const B_linkVar = (val: Val, nextVal: Val): void => {
 }
 
 export const B_next = (prev: Val, initial: string, schema: Internal, expected: Internal = prev.e): Val => {
-  // FIXME: `d` (the object-field-vals dict) and other val fields that hold
-  // child vals are shared by reference with `prev`/`val`, not copied — see
-  // the matching note on B_scope's `d: val.d` below. Whether that aliasing
-  // is actually safe is an open question, not a settled design.
+  // No `d`: this val is a *new* value, so `prev`'s field vals don't describe
+  // it. Inheriting them let a reader of a transformed object read the fields
+  // of the value that went in — a flattened member's codec ran and its result
+  // was then discarded field by field (#368's FIXME). `valGet` re-reads them
+  // off this value instead. B_scope, which names the *same* value, does share
+  // `d` — that aliasing is the correct one.
   // Canonical Val field order (see B_operationArg).
   return {
     b: U,
@@ -567,7 +577,7 @@ export const B_next = (prev: Val, initial: string, schema: Internal, expected: I
     e: expected,
     prev,
     f: valFlagNone,
-    d: prev.d,
+    d: U,
     fv: U,
     cp: "",
     hd: "",
@@ -765,12 +775,6 @@ export const B_addObjectField = (objectVal: Val, location: string, val: Val): vo
   objectVal.d![location] = val;
 }
 
-export const B_mergeObjectFields = (target: Val, vals: Record<string, Val>): void => {
-  for (const location of Object.keys(vals)) {
-    B_addObjectField(target, location, vals[location]!);
-  }
-}
-
 export const B_addKey = (objVal: Val, key: string, value: Val): string => {
   return `${objVal.v()}[${key}]=${value.i}`;
 }
@@ -790,7 +794,9 @@ export const B_scope = (val: Val): Val => {
     e: val.e,
     prev: U,
     f: flagNone,
-    d: val.d, // See the aliasing note on B_next's `d: prev.d` above.
+    // Shared, not dropped as in B_next: a scope names the same value, so the
+    // same field vals describe it.
+    d: val.d,
     fv: U,
     cp: "",
     hd: "",
@@ -895,15 +901,21 @@ export const B_invalidOperation = (val: Val, description: string): never => {
 const B_mergeWithCatch = (
   val: Val,
   catchFn: (errorVar: string) => string,
-  appendSafe?: () => string
+  appendSafe?: () => string,
+  pureSince?: number
 ): string => {
   const valCode = B_merge(val);
+  // `pureSince` is the raise counter before the val was built: unchanged means
+  // nothing merged can throw, so the catch wrapper is dead. Without an append
+  // the code itself is dead too — an untransformed, unfailable body is only
+  // orphaned `let`s — and dropping it lets the caller skip its loop entirely.
+  const pure = pureSince !== U && val.g.t === pureSince;
   if (
-    valCode === "" &&
+    (valCode === "" || pure) &&
     // FIXME: Instead of this wrap all S.transform in a try/catch
     !flagUnsafeHas(val.f, valFlagAsync)
   ) {
-    return valCode + (appendSafe !== U ? appendSafe() : "");
+    return appendSafe !== U ? valCode + appendSafe() : pure ? "" : valCode;
   } else {
     const errorVar = B_varWithoutAllocation(val.g);
 
@@ -923,7 +935,8 @@ export const B_mergeWithPathPrepend = (
   val: Val,
   parent: Val,
   locationVar?: string,
-  appendSafe?: () => string
+  appendSafe?: () => string,
+  pureSince?: number
 ): string => {
   if (val.path === pathEmpty && locationVar === U) {
     return B_merge(val);
@@ -934,7 +947,8 @@ export const B_mergeWithPathPrepend = (
         `${errorVar}.path=${
           parent.path === "" ? "" : `${inlinedValueFromString(parent.path)}+`
         }${locationVar !== U ? `'["'+${locationVar}+'"]'+` : ""}${errorVar}.path`,
-      appendSafe
+      appendSafe,
+      pureSince
     );
   }
 }

@@ -14,7 +14,7 @@ let Path = {
 
 let Exn = /* @__PURE__ */Primitive_exceptions.create("S.Exn");
 
-Sury.$res_setExnId(Exn);
+Sury.$setExnId(Exn);
 
 let none = 0;
 
@@ -114,6 +114,10 @@ let Metadata = {
   Id: Id
 };
 
+function fromJSONSchema(jsonSchema) {
+  return Sury.fromJSONSchema(jsonSchema);
+}
+
 export {
   Path,
   Exn,
@@ -135,5 +139,6 @@ export {
   tuple3,
   Option,
   Metadata,
+  fromJSONSchema,
 }
 /*  Not a pure module */

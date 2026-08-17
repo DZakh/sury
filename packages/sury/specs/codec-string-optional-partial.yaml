@@ -3,13 +3,13 @@ ts:
   schema: S.string.with(S.to, S.optional(S.string))
   input: string
   output: string | undefined
-  instantiations: 5371
-vs:
-  zod:
-    _skip: not-applicable
+  instantiations: 5413
 jsonSchema:
   input: '{ type: "string" }'
   output: Expected JSON, received string | undefined
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     creationError: "SuryError: Invalid operation: can't convert string to string | undefined — string has the same type as the source and the others don't. Use S.to to say what you mean, or S.never to mark a variant unreachable"

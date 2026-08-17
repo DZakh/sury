@@ -34,14 +34,13 @@
     "./src/S.res.mjs",
     "./src/S.res.js"
   ],
-  "main": "./src/S.mjs",
-  "module": "./src/S.mjs",
-  "types": "./src/S.d.ts",
+  "main": "./index.mjs",
+  "module": "./index.mjs",
+  "types": "./index.d.ts",
   "exports": {
     ".": {
-      "import": "./src/S.mjs",
-      "require": "./src/S.js",
-      "types": "./src/S.d.ts"
+      "types": "./index.d.ts",
+      "import": "./index.mjs"
     },
     "./src/*": "./src/*",
     "./S.gen.js": {
@@ -49,19 +48,16 @@
     },
     "./package.json": "./package.json"
   },
-  "files": [
-    "src",
-    "rescript.json",
-    "specs/*.yaml"
-  ],
   "scripts": {
     "coverage": "pnpm build:entry && vitest run --coverage",
     "spec": "pnpm build:entry && tsx ../spec/cli.ts",
     "build:entry": "tsx ./scripts/pack.ts entry-only",
     "fuzz:union": "tsx ./scripts/unionFuzz.ts",
+    "bench:jsonstring": "pnpm build:entry && tsx ./scripts/jsonStringifyBench.ts",
+    "bench:fjs": "pnpm build:entry && tsx ./scripts/fjsBench.ts",
     "build": "pnpm rescript && tsx ./scripts/pack.ts for-publish",
     "res": "pnpm build:entry && rescript watch",
-    "test": "pnpm build:entry && rescript build && vitest run",
+    "test": "pnpm build && vitest run",
     "typecheck": "vitest run --typecheck.only",
     "lint:stdlib": "rescript-stdlib-vendorer lint --ignore-path=src",
     "prepublishOnly": "node -e \"console.error('Publish from ./artifacts (pnpm build), not the dev package.'); process.exit(1)\""
@@ -73,9 +69,11 @@
     "@vitest/coverage-v8": "4.1.7",
     "esbuild": "0.28.1",
     "execa": "7.1.1",
+    "fast-json-stringify": "^7.0.1",
     "rescript": "12.2.0",
     "rescript-stdlib-vendorer": "1.1.0",
     "rollup": "3.21.0",
+    "tinybench": "^6.1.2",
     "tsx": "4.22.4",
     "typescript": "5.8.3",
     "vitest": "4.1.7",

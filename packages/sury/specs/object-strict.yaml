@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({ foo: S.string }).with(S.strict)"
+  aliases:
+    - "S.strict(S.schema({ foo: S.string }))"
+  input: "{ foo: string; }"
+  output: "{ foo: string; }"
+  instantiations: 1548
+jsonSchema:
+  input: '{ type: "object", properties: { foo: { type: "string" } }, additionalProperties: false, required: ["foo"] }'
+  output: '{ type: "object", properties: { foo: { type: "string" } }, additionalProperties: false, required: ["foo"] }'
+vs:
+  zod: "z.strictObject({ foo: z.string() })"
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["foo"],v1;typeof v0==="string"||e[0](v0);for(v1 in i){if(v1!=="foo"){e[1](v1)}}return i}
+    examples:
+      valid:
+        input: '{ foo: "bar" }'
+        output: '{ foo: "bar" }'
+      excess-field:
+        input: '{ foo: "bar", bar: true }'
+        error: Unrecognized key "bar"
+  decode: identity
+  encode: identity

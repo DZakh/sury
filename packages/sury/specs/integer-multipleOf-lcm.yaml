@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.integer.with(S.multipleOf, 2).with(S.multipleOf, 3)
+  input: number
+  output: number
+  instantiations: 684
+jsonSchema:
+  input: '{ type: "integer", multipleOf: 6 }'
+  output: '{ type: "integer", multipleOf: 6 }'
+vs:
+  zod: z.int().multipleOf(2).multipleOf(3)
+operations:
+  parse:
+    expression: i=>{typeof i==="number"&&i%1===0||e[1](i);i%6===0||e[0](i);return i}
+    examples:
+      valid:
+        input: "12"
+        output: "12"
+      valid-zero:
+        input: "0"
+        output: "0"
+      invalid-even-only:
+        input: "4"
+        error: Expected integer % 6, received 4
+      invalid-odd-multiple-of-3:
+        input: "9"
+        error: Expected integer % 6, received 9
+      invalid-neither:
+        input: "5"
+        error: Expected integer % 6, received 5
+  decode:
+    expression: i=>{i%6===0||e[0](i);return i}
+    examples:
+      valid:
+        input: "12"
+        output: "12"
+      invalid-even-only:
+        input: "4"
+        error: Expected integer % 6, received 4
+  encode:
+    expression: i=>{i%6===0||e[0](i);return i}
+    examples:
+      valid:
+        input: "12"
+        output: "12"
+      invalid-even-only:
+        input: "4"
+        error: Expected integer % 6, received 4

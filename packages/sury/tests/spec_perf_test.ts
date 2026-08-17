@@ -12,7 +12,7 @@ import { test, expect } from "vitest";
 import { conservativePct, deriveTargets, type Perf } from "../../spec/bench";
 import { renderPerformance } from "../../spec/summary";
 import { renderComment } from "../../spec/perfComment";
-import { listSpecFiles, specId } from "../../spec/harness";
+import { listSpecFiles, readScenarios, specId } from "../../spec/harness";
 
 const ratios = (...xs: number[]) => xs;
 
@@ -40,7 +40,10 @@ test("conservativePct needs unanimity: one dissenting block is enough to report 
 
 // ---- targets ---------------------------------------------------------------
 
-const targetsFor = (id: string) => deriveTargets([listSpecFiles().find((f) => specId(f) === id)!]);
+// `[]` for the scenarios: they aren't files, so a run narrowed to one spec
+// selects none of them (an omitted argument means "every scenario").
+const targetsFor = (id: string) =>
+  deriveTargets([listSpecFiles().find((f) => specId(f) === id)!], []);
 
 test("a constant schema contributes no creation targets", () => {
   // `S.string` is a module-level constant, so there is nothing to construct and
@@ -49,11 +52,32 @@ test("a constant schema contributes no creation targets", () => {
   const { targets, skippedConstants } = targetsFor("string");
   expect(skippedConstants).toBe(1);
   expect(targets.filter((t) => !t.control).map((t) => t.name)).toEqual([
-    "string · parse · valid",
-    "string · parse · empty",
-    "string · parse · invalid-number",
-    "string · parse · invalid-null",
+    "string · parse · accepts ×2",
+    "string · parse · rejects ×2",
   ]);
+});
+
+// One target per outcome carrying every example of it, rather than one target
+// per example: the same coverage for a third of the child processes, and no
+// example has to be elected to represent the rest.
+test("an operation's examples become one target per outcome, carrying all their inputs", () => {
+  const real = targetsFor("string").targets.filter((t) => !t.control);
+  const accepts = real.find((t) => t.name === "string · parse · accepts ×2")!;
+  const rejects = real.find((t) => t.name === "string · parse · rejects ×2")!;
+  // Every example is still measured — none was dropped to get the target count
+  // down, which is the whole point of aggregating rather than sampling.
+  expect(accepts.inputSrcs).toEqual(['("hello")', '("")']);
+  expect(rejects.inputSrcs!.length).toBe(2);
+  // Parallel to the inputs, so a side that changes its mind about one example
+  // can be reported as that example rather than as the batch it shared.
+  expect(accepts.exampleNames).toEqual(["valid", "empty"]);
+});
+
+// Mixing them would put the accepted inputs behind the try/catch the rejecting
+// ones need, which times the catch rather than the schema.
+test("accepted and rejected examples never share a target", () => {
+  for (const t of targetsFor("string").targets.filter((t) => t.phase === "run"))
+    expect(t.name).toMatch(t.throws ? /rejects/ : /accepts/);
 });
 
 test("a factory schema contributes creation and compilation targets alongside every example", () => {
@@ -64,10 +88,59 @@ test("a factory schema contributes creation and compilation targets alongside ev
   expect(names.length).toBeGreaterThan(2);
 });
 
+// A scenario carries its own setup and expression instead of a schema, and is
+// selected by name — the one target kind that comes from scenarios.yaml rather
+// than from a spec file.
+test("a scenario contributes one target built from its own prepare and run", () => {
+  const { targets } = deriveTargets([], ["standard-schema-validate"]);
+  const real = targets.filter((t) => !t.control);
+  expect(real.map((t) => t.name)).toEqual(["standard-schema-validate · scenario"]);
+  expect(real[0]!.phase).toBe("scenario");
+  expect(real[0]!.schemaSrc).toBe(undefined);
+  expect(real[0]!.prepareSrc).toContain("S.schema(");
+  // Parenthesized by stripTypes, same as a spec's ts.schema.
+  expect(real[0]!.runSrc).toBe('(schema["~standard"].validate(data))');
+});
+
+// Compiling an async operation is ordinary sync work and is measured (with the
+// async builder, the only one that accepts the schema); running one can't be —
+// a batch loop only starts the promises. The skipped examples are counted so
+// the report doesn't read as if they were timed and found unchanged.
+test("an async op contributes its compilation target but none of its examples", () => {
+  const { targets, skippedAsync } = targetsFor("async-assert");
+  const real = targets.filter((t) => !t.control);
+  // `asyncDecoderAssert` leaves the value untouched, so its encode direction
+  // is `identity` and contributes nothing to measure.
+  expect(real.map((t) => t.name)).toEqual([
+    "async-assert · create",
+    "async-assert · create+compile · parse",
+    "async-assert · create+compile · decode",
+  ]);
+  expect(real.filter((t) => t.isAsync).map((t) => t.name)).toEqual([
+    "async-assert · create+compile · parse",
+    "async-assert · create+compile · decode",
+  ]);
+  expect(skippedAsync).toBe(5);
+});
+
+test("scenarios are selected by name, so narrowing to a spec picks up none of them", () => {
+  expect(targetsFor("string").targets.some((t) => t.phase === "scenario")).toBe(false);
+  expect(deriveTargets([], []).targets.length).toBe(0);
+});
+
+// The unnarrowed case, which is what CI and a bare `pnpm spec check` run: no
+// scenario argument at all has to mean every scenario, not none — the same
+// omission that means every spec.
+test("omitting the scenario selection runs all of them", () => {
+  const real = deriveTargets([], undefined).targets.filter((t) => !t.control);
+  expect(real.map((t) => t.specId).sort()).toEqual(Object.keys(readScenarios()).sort());
+  expect(real.length).toBeGreaterThan(1);
+});
+
 test("an example expecting an error is marked as throwing, so it is measured in a try/catch", () => {
   const { targets } = targetsFor("string");
-  expect(targets.find((t) => t.name === "string · parse · invalid-number")!.throws).toBe(true);
-  expect(targets.find((t) => t.name === "string · parse · valid")!.throws).toBe(false);
+  expect(targets.find((t) => t.name === "string · parse · rejects ×2")!.throws).toBe(true);
+  expect(targets.find((t) => t.name === "string · parse · accepts ×2")!.throws).toBe(false);
 });
 
 test("controls duplicate real targets so a run measures the baseline against itself", () => {
@@ -95,6 +168,7 @@ const perf = (changed: Perf["changed"], over: Partial<Perf> = {}): Perf => ({
   unchanged: 137,
   added: [],
   skippedConstants: 13,
+  skippedAsync: 0,
   errors: [],
   outcomeChanged: [],
   meta: "node 24.16.0 · linux x64 · 4 cores · 8×2 rounds · confirmed",
@@ -126,6 +200,14 @@ test("renderPerformance ranks worst regression first and states the floor per ph
       137 unchanged · 13 constant-schema targets skipped · advisory only
       node 24.16.0 · linux x64 · 4 cores · 8×2 rounds · confirmed"
   `);
+});
+
+// Only when there are any: a "0 async examples skipped" on every run of a
+// suite that has none is noise in the one line that summarizes coverage.
+test("renderPerformance reports skipped async examples alongside the constant-schema ones", () => {
+  expect(renderPerformance(perf([], { skippedAsync: 5 }))).toContain(
+    "137 unchanged · 13 constant-schema targets skipped · 5 async examples skipped · advisory only",
+  );
 });
 
 test("renderPerformance says so plainly when nothing cleared the floor", () => {
@@ -186,13 +268,15 @@ test("renderPerformance surfaces a measurement failure without pretending it was
 // comment still rendered a bare, ambiguous percentage.
 const report = (rows: Perf["changed"]) => renderPerformance(perf(rows));
 
-test("renderComment builds a table, links the full report, and carries the sticky marker", () => {
+test("renderComment builds a table, links the full report, and names the head it measured", () => {
   const out = renderComment(
     report([
       row("object10 · create", "create", 12.4),
       row("union2 · parse · nested", "run", -6.1),
     ]),
     "https://x/artifact",
+    undefined,
+    "83f943bdeadbeef",
   );
   // A signed percentage alone doesn't say which way is bad, in the terminal or
   // in a PR comment, so the direction rides along with every row.
@@ -200,9 +284,18 @@ test("renderComment builds a table, links the full report, and carries the stick
   expect(out).toContain("| `union2 · parse · nested` | -6.1% faster |");
   expect(out).toContain("+% slower than baseline, -% faster");
   expect(out).toContain("[Full report ↗](https://x/artifact)");
-  // Without the marker the posting step can't find its own comment and would
-  // open a new one on every push.
-  expect(out).toContain("<!-- spec-perf -->");
+  // One comment per push, so a reader scrolling a long PR needs each to say
+  // which head produced it — the other sha in the header is the baseline.
+  expect(out).toContain("`83f943b` vs `93999e3`");
+});
+
+// The drift job renders the same report into a run summary, where there is no
+// head to name and nothing to link.
+test("renderComment omits the head when it wasn't given one", () => {
+  const out = renderComment(report([]), undefined, "Performance drift since last release");
+  expect(out).toContain("### Performance drift since last release");
+  expect(out).toContain("`93999e3` (merge-base with main)");
+  expect(out).not.toContain(" vs `93999e3`");
 });
 
 test("renderComment carries every footer line the CLI emits", () => {
@@ -240,7 +333,10 @@ test("renderComment truncates to the worst rows and says how many it dropped", (
 test("renderComment still posts when nothing changed, so a missing comment means a broken job", () => {
   const out = renderComment(report([]));
   expect(out).toContain("No significant changes.");
-  expect(out).toContain("<!-- spec-perf -->");
+  // Still a whole comment, header and footer included — a clean run is a
+  // result, not an empty one.
+  expect(out).toContain("`93999e3` (merge-base with main)");
+  expect(out).toContain("137 unchanged");
 });
 
 test("renderComment degrades to a pointer at the artifact rather than inventing a summary", () => {

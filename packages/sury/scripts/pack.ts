@@ -3,20 +3,24 @@
 //   pnpm build:entry  -> tsx scripts/pack.ts entry-only
 //   pnpm build        -> tsx scripts/pack.ts for-publish
 //
-// Stage 1 (always): bundle src/entry.ts (the single public entry re-exporting
-// src/*.ts) into the gitignored src/S.mjs; this stage keeps it fresh (it runs
-// before rescript/vitest via pnpm scripts). Types for S.mjs importers resolve
-// through the checked-in src/S.d.mts -> S.d.ts. The ReScript bindings (S.res)
-// reference the same entry as `@module("sury")`, resolved through the
-// package's "." conditional export — which is why the published package (see
-// stage 2) also ships a CJS src/S.js for the require condition and for
-// consumers compiling ReScript to commonjs.
+// Stage 1 (always): bundle src/entry.ts (the single public entry over src/*.ts)
+// into the gitignored index.mjs; this stage keeps it fresh (it runs
+// before rescript/vitest via pnpm scripts). Types for index.mjs importers
+// resolve through the checked-in index.d.mts -> index.d.ts. The ReScript
+// bindings (S.res) reference the same entry as `@module("sury")`, resolved
+// through the package's "." conditional export — which is why the published
+// package (see stage 2) also ships a CJS index.js for the require condition
+// and for consumers compiling ReScript to commonjs.
 //
 // Stage 2 (full pack only): assemble the publishable package in ./artifacts —
-// copy sources, compile ReScript there, overwrite the artifact's S.js with a
-// CJS build (the "." require condition), produce a CJS S.res.js for ReScript
-// consumers that don't run the compiler (with "sury" kept external so the
-// implementation ships exactly once), and flip package.json to commonjs.
+// copy sources, compile ReScript there, emit the two entries consumers load
+// (index.mjs / index.js), produce a CJS S.res.js for ReScript consumers that
+// don't run the compiler (with "sury" kept external so the implementation ships
+// exactly once), strip everything dev-only, and flip package.json to commonjs.
+//
+// Everything esbuild emits is named index.*, never S.*, because `src/S.res`
+// compiles to a JS file named after itself: an S.mjs / S.js sitting beside it
+// would be one rescript.json "suffix" change away from being overwritten.
 
 import { build } from "esbuild";
 import { rollup, type ModuleFormat } from "rollup";
@@ -28,10 +32,14 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectPath = path.join(__dirname, "..");
+const repoRootPath = path.join(projectPath, "../..");
 const artifactsPath = path.join(projectPath, "artifacts");
-const sourcePaths = ["package.json", "src", "rescript.json", "README.md", "jsr.json"];
+const sourcePaths = ["package.json", "src", "index.d.ts", "index.d.mts", "rescript.json", "README.md"];
+// Sury's user-facing docs live at the repo root, next to the README they link
+// from; LICENSE has to sit in the packed root for npm to pick it up.
+const repoRootPaths = ["LICENSE", "docs"];
 
-// ── Stage 1: entry.ts -> S.mjs (ESM) ─────────────────────────────────────────
+// ── Stage 1: entry.ts -> index.mjs (ESM) ─────────────────────────────────────
 
 async function buildEntry(format: "esm" | "cjs", outfile: string): Promise<void> {
   await build({
@@ -44,8 +52,8 @@ async function buildEntry(format: "esm" | "cjs", outfile: string): Promise<void>
     platform: "neutral",
     banner: {
       js: [
-        `/* @ts-self-types="./S.d.ts" */`,
-        "// Generated from entry.ts by scripts/pack.ts, PLEASE EDIT WITH CARE",
+        `/* @ts-self-types="./index.d.ts" */`,
+        "// Generated from src/entry.ts by scripts/pack.ts — do not edit.",
       ].join("\n"),
     },
     logLevel: "silent",
@@ -53,26 +61,49 @@ async function buildEntry(format: "esm" | "cjs", outfile: string): Promise<void>
 }
 
 const buildDevEntries = (): Promise<void> =>
-  buildEntry("esm", path.join(projectPath, "src/S.mjs"));
+  buildEntry("esm", path.join(projectPath, "index.mjs"));
 
 // ── Stage 2: the publishable artifact ────────────────────────────────────────
 
-function updateJsonFile(src: string, keyPath: string[], value: unknown): void {
-  const json = JSON.parse(fs.readFileSync(src, "utf8")) as Record<string, unknown>;
-  let target: Record<string, unknown> = json;
-  for (const key of keyPath.slice(0, -1)) {
-    if (typeof target[key] !== "object" || target[key] === null) target[key] = {};
-    target = target[key] as Record<string, unknown>;
+// The artifact is consumed, never built from, so src/ keeps only what a
+// consumer loads or type-checks against: ReScript sources, what the compiler
+// emitted from them, and the declarations. The TypeScript the entries were
+// bundled out of goes (and src/advanced/ with it), as does anything a dirty
+// working tree left behind — src/ is copied wholesale and is gitignore'd in
+// places, so it can hold more than a clean checkout would suggest. An
+// allowlist keeps that from reaching consumers; tests/artifact_test.ts pins
+// the resulting file list exactly.
+const KEEP = /\.res$|\.res\.m?js$|\.d\.ts$/;
+
+function stripSources(dir: string): void {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const entryPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      stripSources(entryPath);
+      if (fs.readdirSync(entryPath).length === 0) fs.rmdirSync(entryPath);
+    } else if (!KEEP.test(entry.name)) {
+      fs.rmSync(entryPath);
+    }
   }
-  target[keyPath[keyPath.length - 1]!] = value;
-  fs.writeFileSync(src, JSON.stringify(json, null, 2), "utf8");
+}
+
+const readArtifactJson = (file: string): any =>
+  JSON.parse(fs.readFileSync(path.join(artifactsPath, file), "utf8"));
+
+const writeArtifactFile = (file: string, contents: string): void =>
+  fs.writeFileSync(path.join(artifactsPath, file), `${contents}\n`, "utf8");
+
+function writeArtifactJson(file: string, update: (json: any) => void): void {
+  const json = readArtifactJson(file);
+  update(json);
+  writeArtifactFile(file, JSON.stringify(json, null, 2));
 }
 
 // Inline the "rescript" runtime dependency into the compiled S.res output, so
 // ReScript consumers that don't run the compiler don't need it installed. The
 // `sury` self-import stays external — the implementation must ship exactly
-// once (S.mjs / CJS S.js), or mixed usage would load two instances (two Exn
-// identities, two schema caches).
+// once (index.mjs / CJS index.js), or mixed usage would load two instances
+// (two Exn identities, two schema caches).
 async function resolveRescriptRuntime(
   format: ModuleFormat,
   input: string,
@@ -97,37 +128,99 @@ async function pack(): Promise<void> {
   }
   fs.mkdirSync(artifactsPath);
 
-  // Add empty dev dirs to prevent `pnpm rescript` from failing
+  // rescript.json names these as source dirs, so `pnpm rescript` below fails
+  // if they're missing. They're removed again at the end of this function.
   fs.mkdirSync(path.join(artifactsPath, "tests"));
   fs.mkdirSync(path.join(artifactsPath, "scripts"));
 
   for (const p of sourcePaths) {
     fs.cpSync(path.join(projectPath, p), path.join(artifactsPath, p), { recursive: true });
   }
+  for (const p of repoRootPaths) {
+    fs.cpSync(path.join(repoRootPath, p), path.join(artifactsPath, p), { recursive: true });
+  }
 
   execaSync("pnpm", ["rescript"], { cwd: artifactsPath, stdio: "inherit" });
 
-  // The artifact package is commonjs (see below), so its S.js must be the CJS
+  // The artifact package is commonjs (see below), so index.js must be the CJS
   // build — the "." require condition points at it.
-  await buildEntry("cjs", path.join(artifactsPath, "src/S.js"));
+  await buildEntry("cjs", path.join(artifactsPath, "index.js"));
+  await buildEntry("esm", path.join(artifactsPath, "index.mjs"));
 
   // CJS build of the ReScript-facing module, in case some ReScript libraries
   // will use sury without running a compiler (rescript-stdlib-vendorer)
   await resolveRescriptRuntime("es", "src/S.res.mjs", "src/S.res.mjs");
   await resolveRescriptRuntime("cjs", "src/S.res.mjs", "src/S.res.js");
 
-  // ReScript applications don't work with type: module set on packages
-  updateJsonFile(path.join(artifactsPath, "package.json"), ["type"], "commonjs");
-  // The dev repo has no S.js (ESM-only); the artifact's main is the CJS build
-  updateJsonFile(path.join(artifactsPath, "package.json"), ["main"], "./src/S.js");
-  updateJsonFile(path.join(artifactsPath, "package.json"), ["private"], false);
-  // Publishing is only valid from this assembled artifact (see prepublishOnly
-  // in the dev package.json)
-  updateJsonFile(path.join(artifactsPath, "package.json"), ["scripts", "prepublishOnly"], undefined);
+  stripSources(path.join(artifactsPath, "src"));
 
-  // Clean up before uploading artifacts
-  fs.rmSync(path.join(artifactsPath, "lib"), { force: true, recursive: true });
-  fs.rmSync(path.join(artifactsPath, "node_modules"), { force: true, recursive: true });
+  // Every field below is rewritten rather than inherited, because the dev
+  // package and the artifact are genuinely different packages: the dev tree is
+  // ESM-only and its entry is the gitignored index.mjs that the spec harness,
+  // the fuzzer and the TS tests all import by name. Don't try to make the two
+  // package.json files agree — make this function the single source of truth.
+  writeArtifactJson("package.json", (pkg) => {
+    pkg.private = false;
+    // ReScript applications don't work with type: module set on packages
+    pkg.type = "commonjs";
+    pkg.main = "./index.js";
+    pkg.module = "./index.mjs";
+    pkg.types = "./index.d.ts";
+    // Per-format declarations: the package is commonjs, so a lone index.d.ts
+    // would type the ESM entry as CJS under node16 resolution. TypeScript only
+    // honors "types" when it comes first within its condition.
+    pkg.exports = {
+      ".": {
+        import: { types: "./index.d.mts", default: "./index.mjs" },
+        require: { types: "./index.d.ts", default: "./index.js" },
+      },
+      "./src/*": "./src/*",
+      "./S.gen.js": { types: "./src/S.gen.d.ts" },
+      "./package.json": "./package.json",
+    };
+    pkg.files = ["index.mjs", "index.js", "index.d.ts", "index.d.mts", "src", "rescript.json", "docs"];
+    // Nothing here builds the artifact, and dropping the scripts also drops the
+    // prepublishOnly guard that makes publishing the dev package fail.
+    delete pkg.devDependencies;
+    delete pkg.scripts;
+  });
+  // Written from scratch rather than checked in: the dev tree has nothing to
+  // publish to JSR, and a checked-in copy would carry its own version to bump
+  // in lockstep with package.json's. The scoped name is JSR's own — npm's
+  // registry has no scopes to mirror.
+  const pkg = readArtifactJson("package.json");
+  writeArtifactFile(
+    "jsr.json",
+    JSON.stringify(
+      {
+        name: "@sury/sury",
+        version: pkg.version,
+        license: pkg.license,
+        exports: pkg.module,
+        // The shipped package.json rides along, so everything its fields point
+        // at must too — including the CJS index.js its require condition names.
+        exclude: [
+          "!index.mjs",
+          "!index.js",
+          "!index.d.ts",
+          "!index.d.mts",
+          "!src",
+          "!rescript.json",
+          "!README.md",
+          "!LICENSE",
+          "!package.json",
+          "!docs",
+        ],
+      },
+      null,
+      2
+    )
+  );
+
+  // Build leftovers, plus the empty source dirs `pnpm rescript` needed above.
+  for (const p of ["lib", "node_modules", "tests", "scripts"]) {
+    fs.rmSync(path.join(artifactsPath, p), { force: true, recursive: true });
+  }
 }
 
 async function main(): Promise<void> {

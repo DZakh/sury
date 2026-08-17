@@ -3,12 +3,12 @@ ts:
   schema: "S.optional(S.schema({ a: S.optional(S.string) }))"
   input: "{ a?: string | undefined; } | undefined"
   output: "{ a?: string | undefined; } | undefined"
-  instantiations: 2754
-vs:
-  zod: "z.object({ a: z.string().optional() }).optional()"
+  instantiations: 3116
 jsonSchema:
   input: "Expected JSON, received { a: string | undefined; } | undefined"
   output: "Expected JSON, received { a: string | undefined; } | undefined"
+vs:
+  zod: "z.object({ a: z.string().optional() }).optional()"
 operations:
   parse:
     expression: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i["a"];(typeof v0==="string"||v0===void 0)||e[0](v0);i={"a":v0,};break}if(i===void 0)break;e[1](i)}return i}

@@ -4,12 +4,12 @@ ts:
   input: string | undefined
   output: string
   instantiations: 6228
-vs:
-  zod:
-    _skip: not-applicable
 jsonSchema:
   input: Expected JSON, received string | undefined
   output: '{ type: "string" }'
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     expression: i=>{for(;;){if(typeof i==="string")break;if(i===void 0){let v0;try{v0=e[0](i)}catch(x){e[1](x);e[2](x)}typeof v0==="string"||e[3](v0);i=v0;break}e[4](i)}return i}

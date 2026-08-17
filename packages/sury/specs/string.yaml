@@ -1,14 +1,16 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
   schema: S.string
+  aliases:
+    - S.schema(S.string)
   input: string
   output: string
   instantiations: 254
-vs:
-  zod: z.string()
 jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "string" }'
+vs:
+  zod: z.string()
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[0](i);return i}

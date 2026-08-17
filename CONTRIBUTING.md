@@ -197,11 +197,11 @@ https://bundlejs.com/ with the recipes below.
 `sury`
 
 ```ts
-export * as S from "sury@11.0.0-alpha.11";
+export * as S from "sury@11.0.0-rc.1";
 ```
 
 ```ts
-import * as S from "sury@11.0.0-alpha.11";
+import * as S from "sury@11.0.0-rc.1";
 
 const schema = S.schema({
   number: S.number,
@@ -335,12 +335,83 @@ case the harness *should* have caught or guided better — a missing check, a we
 error message, a strictness gap that let a bad spec through — add a bullet here
 instead of silently working around it.
 
-- <placeholder>
+- An operation whose output holds a class instance (`S.uint8Array` decoding to
+  `Uint8Array`) can't be specced: the golden writer raises "cannot represent a
+  Uint8Array instance as spec source code", and an op has no way to opt out —
+  `_skip` is accepted under `vs.zod` but crashes the run under `operations.<op>`
+  (`Cannot convert undefined or null to object`). Either teach the writer a
+  constructor call for the common typed arrays, or make `_skip` legal on an
+  operation with a reason.
+- A golden containing a control character is written as a plain scalar, so
+  `specs/ipv4.yaml` carries a literal tab and `specs/uri-template.yaml` a literal
+  DEL and C1 byte, all of which the `yaml` package round-trips but PyYAML and
+  yamllint reject outright. The set is exactly what `JSON.stringify` leaves raw:
+  newlines and tabs it escapes are fine, DEL and the C1 block are not. Since the
+  specs are published as documentation, the writer should quote or escape any
+  scalar holding a control character. Reference-suite coverage is kept rather
+  than trimmed to dodge this — the defect is in the writer.
+- JSON Schema round trips now snapshot the type inferred by
+  `S.fromJSONSchema(S.toJSONSchema(schema))`, but not that second schema's type
+  instantiation cost. Tracking the cost would catch regressions in the
+  `FromJSONSchema` conditional type, at the expense of making every spec own a
+  second TypeScript performance budget.
+- `--perf` spawns one child process per target, and a target is one
+  (spec, op, accept/reject) whose batch iterates every example of that outcome.
+  It used to be one target per *example*, which made the job scale with
+  coverage rather than with the library: measured on a 4-core box, 2511 targets
+  against the current suite's 1480, and 3m34s wall / 7m39s CPU against 2m16s /
+  4m49s. About 0.2s of CPU each, roughly 46ms of process startup (32ms node,
+  14ms importing both bundles) and the rest batch time (20 warmup batches plus
+  8 blocks × 2 rounds × 8 batches at 500µs).
+  Aggregate rather than sample, if this is ever revisited. No rule picks a
+  representative example well: the first is within 5% of its group's cheapest
+  66% of the time, and the longest input is the priciest only 42% of the time,
+  so "first accepted, first rejected" would measure a systematic best case. The
+  costs of aggregating were measured instead — the megamorphic call site the
+  loop creates costs 1.05x or less in 56% of groups and 1.20x or less in 77%,
+  and lands on both sides of the ratio; a 2x regression on a group's cheapest
+  example still moves the aggregate 33% at the median.
+  What it does lose is the 25 of 353 groups whose internal spread is enormous:
+  `union-large-planner` runs 5ns against 12µs, so its cheap member is 0.02% of
+  the aggregate and a regression there is invisible. Splitting those back out
+  is the fix, not electing a representative for them.
+  Two things not to reach for. Batching targets into one process would save that
+  46ms but give up the fresh heap per target the design deliberately buys. And
+  raising the screening parallelism trades away exactly what the job is for —
+  contention widens intervals, which hides regressions rather than inventing
+  them.
+- `ciRank` returns -1 below six blocks, and `conservativePct` then reports 0 for
+  every target — so dropping `BLOCKS` under 6 to save time does not weaken the
+  report, it silently empties it. Worth an assert next to the constant, since
+  the failure looks exactly like "no regressions".
+- Example values are recorded as source text, so an operation returning a class
+  instance can only be snapshotted if the serializer knows that class. `Date`,
+  `URL`, `RegExp`, `Map` and `Set` round-trip; anything else still fails with
+  "cannot represent a … instance as spec source code", and the failure is
+  recorded *as the example's golden* — so a passing operation is pinned as an
+  error and reads like real behavior. Failing the check outright would be
+  better than writing a golden the harness knows is a lie.
+- A `URL` example is rendered from its `.href`, which makes the golden depend on
+  the runtime's WHATWG parser rather than on Sury. `new URL("http://ex.com/a^b")`
+  keeps the caret on Node 22 and normalizes it to `%5E` on the pinned Node 24, so
+  the same spec is canonical on one and not the other, and the canonical-form
+  test fails in CI with no Sury change behind it. Rendering the source string the
+  example was written with — rather than the parsed value's serialization — would
+  keep the golden about the schema. Until then a `URL` example silently pins
+  runtime behavior, and the `engines` pin is the only thing keeping it honest.
+- A codec spec is named `codec-<from>-<to>`, so `codec` is a prefix and never a
+  suffix. Nothing enforces it — `url-codec.yaml` sat the other way round until
+  it was renamed — and the id is what orders the specs directory, so the
+  convention is only worth having if the linter holds it.
+- A spec whose `operations` block omits an op the schema supports crashes the
+  linter with `TypeError: Cannot read properties of undefined (reading
+  'examples')` instead of naming the missing block. Hand-writing a spec rather
+  than scaffolding it with `spec new` is the way in.
 - No operation dimension for JSON-target conversions (`.to(S.json)` / `.to(S.jsonString)`), so bugs like #311 (nested optional fields failing to encode) can't be captured as spec examples — their repros live in `tests/` instead.
 - A schema-creation error (a `panic` thrown while `ts.schema` evaluates) can't be a golden: `checkSpec` reports "ts.schema did not evaluate" instead of recording the message, so every rejection Sury raises at construction (e.g. a custom codec on a target that already converts) is pinned in `tests/` instead.
-- Async operations have no spec dimension (ops are parse/decode/encode, all sync), so an async codec's success path is only visible as the sync ops' `creationError` goldens; the resolved values live in `tests/`.
-- Example results are serialized back to spec source, so a value with symbol keys can't be recorded ("cannot represent an object with symbol keys as spec source code"). `S.record`'s unvalidated symbol-keyed values are pinned in `tests/` instead of `specs/record.yaml`, where the rest of that gap lives.
-- The same serializer emits an own `__proto__` key as `{ __proto__: … }`, which is prototype syntax and reads back as a *different* value, so `check --write` rewrites such an example into one that no longer reproduces and the goldens oscillate between runs. `specs/object-proto-key.yaml` works around it by covering only inputs without that key; a computed-key form (`{ ["__proto__"]: … }`) would let the example be recorded directly.
+- Async operations have no spec dimension for the *encode* direction, so an async encode codec's success path is only visible as the sync op's `creationError` golden; the resolved value lives in `tests/`.
+- Example results are serialized back to spec source, so a value keyed by a *non-registry* symbol can't be recorded ("cannot represent a non-registry symbol (use Symbol.for(key)) as spec source code"). A registry symbol round-trips as a computed key. `S.record`'s unvalidated symbol-keyed values are pinned in `tests/` instead of `specs/record.yaml`, where the rest of that gap lives.
+- Scenario measurements can be bimodal across child processes: the identical `encoder-lookup` build measured "unchanged" and "−44%" against the same baseline in back-to-back runs, each individually printed as `confirmed`. The screening/rounds design averages within a process but can't see a whole process landing in a different JIT state (IC/feedback shapes settle per child, then every block agrees with itself). Until runs repeat the *process* (not just the rounds) and require agreement across them, treat any single scenario delta on a shared-arity path as one sample, not a verdict.
 
 ## License
 

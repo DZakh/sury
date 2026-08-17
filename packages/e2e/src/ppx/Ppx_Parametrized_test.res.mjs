@@ -6,7 +6,7 @@ import * as Vitest from "../utils/Vitest.res.mjs";
 import * as Vitest$1 from "vitest";
 
 function wrapperSchema(_aSchema) {
-  return Sury.$res_schema(s => ({
+  return Sury.$schema(s => ({
     value: s.m(_aSchema)
   }));
 }
@@ -25,7 +25,7 @@ Vitest$1.test("Parametrized record with single type param — string", t => {
   }, undefined);
 });
 
-let parentSchema = Sury.$res_schema(s => ({
+let parentSchema = Sury.$schema(s => ({
   wrapped: s.m(wrapperSchema(Sury.int))
 }));
 
@@ -36,7 +36,7 @@ Vitest$1.test("Record using parametrized type as field", t => Vitest.Assert.deep
 }, undefined));
 
 function nestedSchema(_aSchema) {
-  return Sury.$res_schema(s => ({
+  return Sury.$schema(s => ({
     inner: s.m(wrapperSchema(_aSchema))
   }));
 }
@@ -51,8 +51,8 @@ Vitest$1.test("Nested parametrized types", t => {
 });
 
 function withOptionSchema(_aSchema) {
-  return Sury.$res_schema(s => ({
-    data: s.m(Sury.$res_option(_aSchema))
+  return Sury.$schema(s => ({
+    data: s.m(Sury.$option(_aSchema))
   }));
 }
 
@@ -64,7 +64,7 @@ Vitest$1.test("Parametrized type with option field", t => {
 });
 
 function withArraySchema(_aSchema) {
-  return Sury.$res_schema(s => ({
+  return Sury.$schema(s => ({
     items: s.m(Sury.array(_aSchema))
   }));
 }
@@ -82,18 +82,18 @@ Vitest$1.test("Parametrized type with array field", t => {
 
 function result2Schema(aSchema, bSchema) {
   return Sury.union([
-    Sury.$res_schema(s => ({
+    Sury.$schema(s => ({
       TAG: "R2A",
       _0: s.m(aSchema)
     })),
-    Sury.$res_schema(s => ({
+    Sury.$schema(s => ({
       TAG: "R2B",
       _0: s.m(bSchema)
     }))
   ]);
 }
 
-let holderSchema = Sury.$res_schema(s => ({
+let holderSchema = Sury.$schema(s => ({
   res: s.m(result2Schema(Sury.int, Sury.string))
 }));
 

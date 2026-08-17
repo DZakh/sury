@@ -3,13 +3,13 @@ ts:
   schema: S.optional(S.string).with(S.to, S.nullable(S.string))
   input: string | undefined
   output: string | null
-  instantiations: 5455
-vs:
-  zod:
-    _skip: not-applicable
+  instantiations: 5542
 jsonSchema:
   input: Expected JSON, received string | undefined
   output: '{ anyOf: [{ type: "string" }, { type: "null" }] }'
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     expression: i=>{for(;;){if(typeof i==="string")break;if(i===void 0){i=null;break}e[0](i)}return i}

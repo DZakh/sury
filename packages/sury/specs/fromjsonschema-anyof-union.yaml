@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.fromJSONSchema({ anyOf: [{ type: "string" }, { type: "number" }] })'
+  input: string | number
+  output: string | number
+  instantiations: 939
+jsonSchema:
+  input: '{ anyOf: [{ type: "string" }, { type: "number" }] }'
+  output: '{ anyOf: [{ type: "string" }, { type: "number" }] }'
+vs:
+  zod: z.union([z.string(), z.number()])
+operations:
+  parse:
+    expression: i=>{(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i))||e[0](i);return i}
+    examples:
+      string-member:
+        input: '"a"'
+        output: '"a"'
+      number-member:
+        input: "1"
+        output: "1"
+      neither-member:
+        input: "true"
+        error: Expected string | number, received true
+  decode: identity
+  encode: identity

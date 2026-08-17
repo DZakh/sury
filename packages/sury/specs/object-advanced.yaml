@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.object((s) => { s.tag("type", 0); return { nested: s.nested("nested").field("field", S.number), flattened: s.flatten(S.schema({ id: S.string })), foo: s.field("Foo", S.string), bar: s.fieldOr("Bar", S.boolean, true) } })'
+  input: "{ [x: string]: unknown; }"
+  output: "{ nested: number; flattened: { id: string; }; foo: string; bar: boolean; }"
+  instantiations: 1482
+jsonSchema:
+  input: '{ type: "object", properties: { type: { type: "number", const: 0 }, nested: { type: "object", properties: { field: { type: "number" } }, required: ["field"] }, id: { type: "string" }, Foo: { type: "string" }, Bar: { default: true, type: "boolean" } }, required: ["type", "nested", "id", "Foo"] }'
+  fromInputType: "{ type: 0; nested: { field: number; }; id: string; Foo: string; Bar?: boolean | undefined; }"
+  output: '{ type: "object", properties: { nested: { type: "number" }, flattened: { type: "object", properties: { id: { type: "string" } }, required: ["id"] }, foo: { type: "string" }, bar: { type: "boolean" } }, required: ["nested", "flattened", "foo", "bar"] }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[6](i);let v0=i["type"],v1=i["nested"],v3=i["id"],v4=i["Foo"],v5=i["Bar"];v0===0||e[0](v0);typeof v1==="object"&&v1&&!Array.isArray(v1)||e[2](v1);let v2=v1["field"];typeof v2==="number"&&!Number.isNaN(v2)||e[1](v2);typeof v3==="string"||e[3](v3);typeof v4==="string"||e[4](v4);for(;;){if(typeof v5==="boolean")break;if(v5===void 0){v5=true;break}e[5](v5)}return {"nested":v2,"flattened":{"id":v3,},"foo":v4,"bar":v5,}}
+    examples:
+      all-features:
+        input: '{ nested: { field: 123 }, type: 0, id: "id", Foo: "bar" }'
+        output: '{ nested: 123, flattened: { id: "id" }, foo: "bar", bar: true }'
+      with-explicit-bar:
+        input: '{ nested: { field: 123 }, type: 0, id: "id", Foo: "bar", Bar: false }'
+        output: '{ nested: 123, flattened: { id: "id" }, foo: "bar", bar: false }'
+      missing-tag:
+        input: '{ nested: { field: 123 }, id: "id", Foo: "bar" }'
+        error: 'Failed at ["type"]: Expected 0, received undefined'
+  decode:
+    expression: i=>{let v0=i["nested"],v1=i["Bar"];for(;;){if(typeof v1==="boolean")break;if(v1===void 0){v1=true;break}e[0](v1)}return {"nested":v0["field"],"flattened":{"id":i["id"],},"foo":i["Foo"],"bar":v1,}}
+    examples:
+      all-features:
+        input: '{ nested: { field: 123 }, type: 0, id: "id", Foo: "bar" }'
+        output: '{ nested: 123, flattened: { id: "id" }, foo: "bar", bar: true }'
+  encode:
+    expression: i=>{let v0=i["flattened"],v1=i["bar"];typeof v1==="boolean"||e[0](v1);return {"id":v0["id"],"type":0,"nested":{"field":i["nested"],},"Foo":i["foo"],"Bar":v1,}}
+    examples:
+      round-trip:
+        input: '{ nested: 123, flattened: { id: "id" }, foo: "bar", bar: true }'
+        output: '{ id: "id", type: 0, nested: { field: 123 }, Foo: "bar", Bar: true }'

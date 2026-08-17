@@ -11,10 +11,10 @@ module Path = {
   let empty: t = %raw(`""`)
   let dynamic: t = %raw(`"[]"`)
 
-  @module("sury") external toArray: t => array<string> = "$res_pathToArray"
-  @module("sury") external fromArray: array<string> => t = "$res_pathFromArray"
-  @module("sury") external fromLocation: string => t = "$res_pathFromLocation"
-  @module("sury") external concat: (t, t) => t = "$res_pathConcat"
+  @module("sury") external toArray: t => array<string> = "$pathToArray"
+  @module("sury") external fromArray: array<string> => t = "$pathFromArray"
+  @module("sury") external fromLocation: string => t = "$pathFromLocation"
+  @module("sury") external concat: (t, t) => t = "$pathConcat"
 }
 
 
@@ -37,14 +37,28 @@ type tag =
   | @as("ref") Ref
 
 
-type numberFormat = | @as("int32") Int32 | @as("port") Port
+type numberFormat = | @as("int32") Int32 | @as("port") Port | @as("integer") Integer
 type stringFormat =
   | @as("json") JSON
   | @as("date-time") DateTime
   | @as("email") Email
   | @as("uuid") Uuid
   | @as("cuid") Cuid
-  | @as("url") Url
+  | @as("uri") Uri
+  | @as("date") Date
+  | @as("time") Time
+  | @as("duration") Duration
+  | @as("hostname") Hostname
+  | @as("idn-hostname") IdnHostname
+  | @as("ipv4") Ipv4
+  | @as("ipv6") Ipv6
+  | @as("uri-reference") UriReference
+  | @as("uri-template") UriTemplate
+  | @as("iri") Iri
+  | @as("iri-reference") IriReference
+  | @as("idn-email") IdnEmail
+  | @as("json-pointer") JsonPointer
+  | @as("relative-json-pointer") RelativeJsonPointer
 type arrayFormat = | @as("compactColumns") CompactColumns
 
 type format = | ...numberFormat | ...stringFormat | ...arrayFormat
@@ -102,6 +116,7 @@ type rec t<'value> =
       maximum?: float,
       exclusiveMinimum?: float,
       exclusiveMaximum?: float,
+      multipleOf?: float,
       errorMessage?: schemaErrorMessage,
     })
   | @as("bigint")
@@ -117,6 +132,7 @@ type rec t<'value> =
       maximum?: bigint,
       exclusiveMinimum?: bigint,
       exclusiveMaximum?: bigint,
+      multipleOf?: bigint,
       errorMessage?: schemaErrorMessage,
     })
   | @as("boolean")
@@ -189,6 +205,8 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<Type.Classify.object>,
       default?: Type.Classify.object,
+      minSize?: int,
+      maxSize?: int,
       errorMessage?: schemaErrorMessage,
     })
   | @as("array")
@@ -249,10 +267,13 @@ and schemaErrorMessage = {
   maximum?: string,
   exclusiveMinimum?: string,
   exclusiveMaximum?: string,
+  multipleOf?: string,
   minLength?: string,
   maxLength?: string,
   minItems?: string,
   maxItems?: string,
+  minSize?: string,
+  maxSize?: string,
   pattern?: string,
 }
 and meta<'value> = {
@@ -354,13 +375,11 @@ type exn += private Exn(error)
 // Bindings to the TypeScript core
 // =============================================================================
 //
-// Sury's implementation lives in src/*.ts, bundled into the package
-// entry by scripts/pack.ts (see src/entry.ts). This module is the ReScript
-// face of it: the public types above, plus `@module("sury") external`
-// bindings below, resolved through the package root "." conditional export
-// (import -> the ESM S.mjs, require -> the published CJS S.js). That's what
-// makes the bindings work for consumers compiling to either module format —
-// a plain relative `@module("./S.mjs")` would break under a "commonjs"
+// This module is the ReScript face of Sury: the public types above, plus the
+// `@module("sury") external` bindings below, resolved through the package root
+// "." conditional export (import -> the ESM entry, require -> the CJS one).
+// That's what makes them work whichever module format you compile to — a plain
+// relative `@module("./index.mjs")` would break under a "commonjs"
 // package-spec (require()-ing an ESM file throws).
 
 external castToUnknown: t<'any> => t<unknown> = "%identity"
@@ -369,11 +388,11 @@ external untag: t<'any> => untagged = "%identity"
 
 // ReScript's `catch { | Exn(e) => }` compiles to a `RE_EXN_ID === Exn`
 // identity test against the constructor id synthesized right here by the
-// `type exn +=` declaration above. The throwing side lives in core.ts, so
-// hand it that identity once at module load — SuryError's RE_EXN_ID getter
+// `type exn +=` declaration above. The runtime that throws needs the same
+// identity, so hand it over once at module load — SuryError's RE_EXN_ID getter
 // returns it. `%raw` because a private exn constructor can't be referenced
 // as a value from ReScript code, only from spliced JS.
-%%private(@module("sury") external __setExnId: unknown => unit = "$res_setExnId")
+%%private(@module("sury") external __setExnId: unknown => unit = "$setExnId")
 let () = __setExnId(%raw(`Exn`))
 
 module Flag = {
@@ -396,17 +415,20 @@ module Error = {
   external throw: error => 'a = "%raise"
 }
 
-// Primitive schema values — the same eager, PURE-annotated instances the JS
-// entry exports (see src/entry.ts), so both surfaces share one object per
-// primitive. Some (string, bool, ...) shadow stdlib names on purpose.
+// Primitive schema values — the very instances the JS entry exports, so both
+// surfaces share one object per primitive. Some (string, bool, ...) shadow
+// stdlib names on purpose.
 @module("sury") external never: t<never> = "never"
 @module("sury") external unknown: t<unknown> = "unknown"
 @module("sury") external any: t<'any> = "any"
-@module("sury") external unit: t<unit> = "$res_unit"
-@module("sury") external nullAsUnit: t<unit> = "$res_nullAsUnit"
+@module("sury") external unit: t<unit> = "$unit"
+@module("sury") external nullAsUnit: t<unit> = "$nullAsUnit"
 @module("sury") external string: t<string> = "string"
 @module("sury") external bool: t<bool> = "bool"
 @module("sury") external int: t<int> = "int"
+// `t<float>`, not `t<int>`: ReScript's `int` is int32, and a JS integer
+// (JSON Schema's unbounded `integer`) can exceed that range.
+@module("sury") external integer: t<float> = "integer"
 @module("sury") external float: t<float> = "float"
 @module("sury") external bigint: t<bigint> = "bigint"
 @module("sury") external symbol: t<Symbol.t> = "symbol"
@@ -416,12 +438,36 @@ module Error = {
 @module("sury") external jsonString: t<string> = "jsonString"
 @module("sury") external jsonStringWithSpace: int => t<string> = "jsonStringWithSpace"
 @module("sury") external uint8Array: t<Uint8Array.t> = "uint8Array"
+// `Js.Blob.t`/`Js.File.t` rather than a pair of abstract types declared here:
+// the stdlib has no Blob or File module, and these two are the compiler's own
+// builtin abstract types — the ones untagged variants match on — so a value
+// from any other binding unifies with these.
+@module("sury") external blob: t<Js.Blob.t> = "blob"
+@module("sury") external file: t<Js.File.t> = "file"
 @module("sury") external isoDateTime: t<string> = "isoDateTime"
 @module("sury") external port: t<int> = "port"
 @module("sury") external email: t<string> = "email"
 @module("sury") external uuid: t<string> = "uuid"
 @module("sury") external cuid: t<string> = "cuid"
-@module("sury") external url: t<string> = "url"
+@module("sury") external uri: t<string> = "uri"
+/** An instance of the JS `URL` class. ReScript has no stdlib binding for it,
+    so this is an abstract type standing for one. */
+type url
+@module("sury") external url: t<url> = "url"
+@module("sury") external isoDate: t<string> = "isoDate"
+@module("sury") external isoTime: t<string> = "isoTime"
+@module("sury") external duration: t<string> = "duration"
+@module("sury") external hostname: t<string> = "hostname"
+@module("sury") external idnHostname: t<string> = "idnHostname"
+@module("sury") external ipv4: t<string> = "ipv4"
+@module("sury") external ipv6: t<string> = "ipv6"
+@module("sury") external uriReference: t<string> = "uriReference"
+@module("sury") external uriTemplate: t<string> = "uriTemplate"
+@module("sury") external iri: t<string> = "iri"
+@module("sury") external iriReference: t<string> = "iriReference"
+@module("sury") external idnEmail: t<string> = "idnEmail"
+@module("sury") external jsonPointer: t<string> = "jsonPointer"
+@module("sury") external relativeJsonPointer: t<string> = "relativeJsonPointer"
 
 @module("sury") external literal: 'value => t<'value> = "literal"
 @module("sury") external array: t<'value> => t<array<'value>> = "array"
@@ -429,17 +475,19 @@ module Error = {
 @module("sury") external list: t<'value> => t<list<'value>> = "list"
 @module("sury") external instance: unknown => t<unknown> = "instance"
 @module("sury") external dict: t<'value> => t<dict<'value>> = "dict"
-@module("sury") external option: t<'value> => t<option<'value>> = "$res_option"
+@module("sury") external option: t<'value> => t<option<'value>> = "$option"
 // The public JS `nullable` called without a default is exactly
 // `union([item, literal(null)])` — what ReScript calls `S.null`.
 @module("sury") external null: t<'value> => t<null<'value>> = "nullable"
-@module("sury") external nullAsOption: t<'value> => t<option<'value>> = "$res_nullAsOption"
+@module("sury") external nullAsOption: t<'value> => t<option<'value>> = "$nullAsOption"
 @module("sury") external nullable: t<'value> => t<nullable<'value>> = "nullish"
-@module("sury") external nullableAsOption: t<'value> => t<option<'value>> = "$res_nullableAsOption"
+@module("sury") external nullableAsOption: t<'value> => t<option<'value>> = "$nullableAsOption"
 @module("sury") external union: array<t<'value>> => t<'value> = "union"
+@module("sury") external anyOf: array<t<'value>> => t<'value> = "anyOf"
 @module("sury") external enum: array<'value> => t<'value> = "enum"
 
 @module("sury") external meta: (t<'value>, meta<'value>) => t<'value> = "meta"
+
 
 // The public JS `refine` takes an options object; build it here from the
 // ReScript labeled args.
@@ -519,7 +567,7 @@ let parseOrThrow = (any, ~to) => parser(~to)(any)
 let parseAsyncOrThrow = (any, ~to) => asyncParser(~to)(any)
 @module("sury") external assertOrThrow: ('any, ~to: t<'value>) => unit = "assert"
 @module("sury")
-external assertAsyncOrThrow: ('any, ~to: t<'value>) => promise<unit> = "$res_assertAsyncOrThrow"
+external assertAsyncOrThrow: ('any, ~to: t<'value>) => promise<unit> = "$assertAsyncOrThrow"
 let decodeOrThrow = (any, ~from, ~to) => decoder(~from, ~to)(any)
 let decodeAsyncOrThrow = (any, ~from, ~to) => asyncDecoder(~from, ~to)(any)
 
@@ -534,7 +582,7 @@ let decodeAsyncOrThrow = (any, ~from, ~to) => asyncDecoder(~from, ~to)(any)
 module Schema = {
   type s = {@as("m") matches: 'value. t<'value> => 'value}
 }
-@module("sury") external schema: (Schema.s => 'value) => t<'value> = "$res_schema"
+@module("sury") external schema: (Schema.s => 'value) => t<'value> = "$schema"
 
 module Object = {
   type rec s = {
@@ -569,23 +617,23 @@ let tuple3 = (v1, v2, v3) => tuple3([castToUnknown(v1), castToUnknown(v2), castT
 
 module Option = {
   @module("sury")
-  external getOr: (t<option<'value>>, 'value) => t<'value> = "$res_Option_getOr"
+  external getOr: (t<option<'value>>, 'value) => t<'value> = "$Option_getOr"
   @module("sury")
-  external getOrWith: (t<option<'value>>, unit => 'value) => t<'value> = "$res_Option_getOrWith"
+  external getOrWith: (t<option<'value>>, unit => 'value) => t<'value> = "$Option_getOrWith"
 }
 
 module Metadata = {
   module Id = {
     type t<'metadata>
     @module("sury")
-    external make: (~namespace: string, ~name: string) => t<'metadata> = "$res_Metadata_Id_make"
+    external make: (~namespace: string, ~name: string) => t<'metadata> = "$Metadata_Id_make"
   }
 
   @module("sury")
-  external get: (t<'value>, ~id: Id.t<'metadata>) => option<'metadata> = "$res_Metadata_get"
+  external get: (t<'value>, ~id: Id.t<'metadata>) => option<'metadata> = "$Metadata_get"
 
   @module("sury")
-  external set: (t<'value>, ~id: Id.t<'metadata>, 'metadata) => t<'value> = "$res_Metadata_set"
+  external set: (t<'value>, ~id: Id.t<'metadata>, 'metadata) => t<'value> = "$Metadata_set"
 }
 
 // =============
@@ -600,12 +648,17 @@ module Metadata = {
 @module("sury") external gte: (t<'value>, 'value, ~message: string=?) => t<'value> = "gte"
 @module("sury") external lt: (t<'value>, 'value, ~message: string=?) => t<'value> = "lt"
 @module("sury") external lte: (t<'value>, 'value, ~message: string=?) => t<'value> = "lte"
+@module("sury")
+external multipleOf: (t<'value>, 'value, ~message: string=?) => t<'value> = "multipleOf"
 
 @module("sury") external minLength: (t<'value>, int, ~message: string=?) => t<'value> = "minLength"
 @module("sury") external maxLength: (t<'value>, int, ~message: string=?) => t<'value> = "maxLength"
 @module("sury") external length: (t<'value>, int, ~message: string=?) => t<'value> = "length"
-@module("sury") external empty: (t<'value>, ~message: string=?) => t<'value> = "empty"
 @module("sury") external nonEmpty: (t<'value>, ~message: string=?) => t<'value> = "nonEmpty"
+
+@module("sury") external minSize: (t<'value>, int, ~message: string=?) => t<'value> = "minSize"
+@module("sury") external maxSize: (t<'value>, int, ~message: string=?) => t<'value> = "maxSize"
+@module("sury") external size: (t<'value>, int, ~message: string=?) => t<'value> = "size"
 
 @module("sury")
 external pattern: (t<string>, RegExp.t, ~message: string=?) => t<string> = "pattern"
@@ -614,7 +667,9 @@ external pattern: (t<string>, RegExp.t, ~message: string=?) => t<string> = "patt
 type toJSONSchemaOptions = {target?: StandardSchema.JsonSchema.target}
 @module("sury")
 external toJSONSchema: (t<'value>, ~options: toJSONSchemaOptions=?) => JSONSchema.t = "toJSONSchema"
-@module("sury") external fromJSONSchema: JSONSchema.t => t<JSON.t> = "fromJSONSchema"
+@module("sury")
+external fromJSONSchemaDefinition: JSONSchema.definition => t<JSON.t> = "fromJSONSchema"
+let fromJSONSchema = jsonSchema => fromJSONSchemaDefinition(JSONSchema.Schema(jsonSchema))
 @module("sury")
 external extendJSONSchema: (t<'value>, JSONSchema.t) => t<'value> = "extendJSONSchema"
 // Enables `~standard.jsonSchema`; its input/output throw before this is called.
@@ -626,4 +681,3 @@ type globalConfigOverride = {
 }
 
 @module("sury") external global: globalConfigOverride => unit = "global"
-

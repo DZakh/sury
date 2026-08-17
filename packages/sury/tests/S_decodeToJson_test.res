@@ -97,30 +97,33 @@ test("Allows to convert to JSON with optional S.json as an object field", t => {
   )
 })
 
-test("Doesn't allow to convert to JSON array with optional items", t => {
+// An array item, a tuple slot and a dict value have no way to be absent, so
+// None takes the same null the bare-undefined test below asserts. Only an
+// object property can drop the key instead.
+test("Converts optional array items to JSON null", t => {
   let schema = S.array(S.option(S.bool))
 
-  t->U.assertThrowsMessage(
-    () => [None]->S.decodeOrThrow(~from=schema, ~to=S.json),
-    "Failed at []: Can't decode boolean | undefined to JSON. Use S.to to define a custom decoder",
+  t->Assert.deepEqual(
+    [None, Some(true)]->S.decodeOrThrow(~from=schema, ~to=S.json),
+    JSON.Encode.array([JSON.Null, JSON.Encode.bool(true)]),
   )
 })
 
-test("Doesn't allow to encode tuple with optional item to JSON", t => {
+test("Converts an optional tuple item to JSON null", t => {
   let schema = S.tuple1(S.option(S.bool))
 
-  t->U.assertThrowsMessage(
-    () => None->S.decodeOrThrow(~from=schema, ~to=S.json),
-    `Can't decode boolean | undefined to JSON. Use S.to to define a custom decoder`,
+  t->Assert.deepEqual(
+    None->S.decodeOrThrow(~from=schema, ~to=S.json),
+    JSON.Encode.array([JSON.Null]),
   )
 })
 
-test("Allows to convert to JSON with option as dict field", t => {
+test("Converts an optional dict value to JSON null", t => {
   let schema = S.dict(S.option(S.bool))
 
-  t->U.assertThrowsMessage(
-    () => dict{"foo": None}->S.decodeOrThrow(~from=schema, ~to=S.json),
-    `Failed at []: Can't decode boolean | undefined to JSON. Use S.to to define a custom decoder`,
+  t->Assert.deepEqual(
+    dict{"foo": None}->S.decodeOrThrow(~from=schema, ~to=S.json),
+    JSON.Encode.object(Dict.fromArray([("foo", JSON.Null)])),
   )
 })
 

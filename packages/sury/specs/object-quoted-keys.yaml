@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({ ['\"']: S.string, [\"'\"]: S.string, [\"`\"]: S.string })"
+  input: "{ \"\\\"\": string; \"'\": string; \"`\": string; }"
+  output: "{ \"\\\"\": string; \"'\": string; \"`\": string; }"
+  instantiations: 1233
+jsonSchema:
+  input: "{ type: \"object\", properties: { \"\\\"\": { type: \"string\" }, \"'\": { type: \"string\" }, \"`\": { type: \"string\" } }, required: [\"\\\"\", \"'\", \"`\"] }"
+  output: "{ type: \"object\", properties: { \"\\\"\": { type: \"string\" }, \"'\": { type: \"string\" }, \"`\": { type: \"string\" } }, required: [\"\\\"\", \"'\", \"`\"] }"
+vs:
+  zod:
+    schema: "z.object({ '\"': z.string(), \"'\": z.string(), \"`\": z.string() })"
+    divergence: Same structural type — Zod's printer single-quotes the `"` key where Sury's escapes it inside double quotes.
+    input: "{ '\"': string; \"'\": string; \"`\": string; }"
+    output: "{ '\"': string; \"'\": string; \"`\": string; }"
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["\""],v1=i["'"],v2=i["`"];typeof v0==="string"||e[0](v0);typeof v1==="string"||e[1](v1);typeof v2==="string"||e[2](v2);return {"\"":v0,"'":v1,"`":v2,}}
+    examples:
+      valid:
+        input: "{ \"\\\"\": \"\\\"\", \"'\": \"'\", \"`\": \"`\" }"
+        output: "{ \"\\\"\": \"\\\"\", \"'\": \"'\", \"`\": \"`\" }"
+  decode: identity
+  encode: identity

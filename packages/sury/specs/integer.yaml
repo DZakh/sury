@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.integer
+  input: number
+  output: number
+  instantiations: 254
+jsonSchema:
+  input: '{ type: "integer" }'
+  output: '{ type: "integer" }'
+vs:
+  zod: z.int()
+operations:
+  parse:
+    expression: i=>{typeof i==="number"&&i%1===0||e[0](i);return i}
+    examples:
+      valid:
+        input: "42"
+        output: "42"
+      valid-negative:
+        input: "-42"
+        output: "-42"
+      valid-negative-zero:
+        input: "-0"
+        output: "-0"
+      valid-above-int32:
+        input: "3000000000"
+        output: "3000000000"
+      valid-above-safe-integer:
+        input: "1e+21"
+        output: "1e+21"
+      invalid-float:
+        input: "42.5"
+        error: Expected integer, received 42.5
+      invalid-nan:
+        input: NaN
+        error: Expected integer, received NaN
+      invalid-infinity:
+        input: Infinity
+        error: Expected integer, received Infinity
+      invalid-string:
+        input: '"42"'
+        error: Expected integer, received "42"
+  decode: identity
+  encode: identity

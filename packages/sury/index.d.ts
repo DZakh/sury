@@ -1,130 +1,18 @@
-/** The Standard Schema interface. */
-export interface StandardSchemaV1<TInput = unknown, TOutput = TInput> {
-  /** The Standard Schema properties. */
-  readonly "~standard": StandardSchemaV1.Props<TInput, TOutput>;
-}
+// The Standard Schema and JSON Schema specs are mirrored under ./src/types.
+// Imported as well as re-exported, since the declarations below refer to them.
+import type { StandardJSONSchemaV1, StandardSchemaV1 } from "./src/types/standard.js";
+import type {
+  JSONSchema,
+  JSONSchema2020,
+  JSONSchema7,
+  OpenAPISchema30,
+} from "./src/types/jsonschema.js";
+import type { FromJSONSchema, FromJSONSchemaOutput, JSON } from "./src/types/json.js";
 
-export declare namespace StandardSchemaV1 {
-  /** The Standard Schema properties interface. */
-  export interface Props<TInput = unknown, TOutput = TInput> {
-    /** The version number of the standard. */
-    readonly version: 1;
-    /** The vendor name of the schema library. */
-    readonly vendor: string;
-    /** Validates unknown input values. */
-    readonly validate: (
-      value: unknown
-    ) => Result<TOutput> | Promise<Result<TOutput>>;
-    /** Inferred types associated with the schema. */
-    readonly types?: Types<TInput, TOutput> | undefined;
-  }
+export * from "./src/types/standard.js";
+export * from "./src/types/jsonschema.js";
+export * from "./src/types/json.js";
 
-  /** The result interface of the validate function. */
-  export type Result<TOutput> = SuccessResult<TOutput> | FailureResult;
-
-  /** The result interface if validation succeeds. */
-  export interface SuccessResult<TOutput> {
-    /** The typed output value. */
-    readonly value: TOutput;
-    /** The non-existent issues. */
-    readonly issues?: undefined;
-  }
-
-  /** The result interface if validation fails. */
-  export interface FailureResult {
-    /** The issues of failed validation. */
-    readonly issues: ReadonlyArray<Issue>;
-  }
-
-  /** The issue interface of the failure output. */
-  export interface Issue {
-    /** The error message of the issue. */
-    readonly message: string;
-    /** The path of the issue, if any. */
-    readonly path?: ReadonlyArray<PropertyKey | PathSegment> | undefined;
-  }
-
-  /** The path segment interface of the issue. */
-  export interface PathSegment {
-    /** The key representing a path segment. */
-    readonly key: PropertyKey;
-  }
-
-  /** The Standard Schema types interface. */
-  export interface Types<TInput = unknown, TOutput = TInput> {
-    /** The input type of the schema. */
-    readonly input: TInput;
-    /** The output type of the schema. */
-    readonly output: TOutput;
-  }
-
-  /** Infers the input type of a Standard Schema. */
-  export type InferInput<TSchema extends StandardSchemaV1> = NonNullable<
-    TSchema["~standard"]["types"]
-  >["input"];
-
-  /** Infers the output type of a Standard Schema. */
-  export type InferOutput<TSchema extends StandardSchemaV1> = NonNullable<
-    TSchema["~standard"]["types"]
-  >["output"];
-}
-
-/**
- * The Standard Typed interface.
- * This is a base type extended by other specs.
- */
-export interface StandardTypedV1<TInput = unknown, TOutput = TInput> {
-  readonly "~standard": StandardTypedV1.Props<TInput, TOutput>;
-}
-
-export declare namespace StandardTypedV1 {
-  export interface Props<TInput = unknown, TOutput = TInput> {
-    readonly version: 1;
-    readonly vendor: string;
-    readonly types?: Types<TInput, TOutput> | undefined;
-  }
-  export interface Types<TInput = unknown, TOutput = TInput> {
-    readonly input: TInput;
-    readonly output: TOutput;
-  }
-  export type InferInput<TSchema extends StandardTypedV1> = NonNullable<
-    TSchema["~standard"]["types"]
-  >["input"];
-  export type InferOutput<TSchema extends StandardTypedV1> = NonNullable<
-    TSchema["~standard"]["types"]
-  >["output"];
-}
-
-/** The Standard JSON Schema interface. https://standardschema.dev/json-schema */
-export interface StandardJSONSchemaV1<TInput = unknown, TOutput = TInput> {
-  readonly "~standard": StandardJSONSchemaV1.Props<TInput, TOutput>;
-}
-
-export declare namespace StandardJSONSchemaV1 {
-  export interface Props<TInput = unknown, TOutput = TInput>
-    extends StandardTypedV1.Props<TInput, TOutput> {
-    readonly jsonSchema: StandardJSONSchemaV1.Converter;
-  }
-  export interface Converter {
-    readonly input: (options: StandardJSONSchemaV1.Options) => Record<string, unknown>;
-    readonly output: (options: StandardJSONSchemaV1.Options) => Record<string, unknown>;
-  }
-  export type Target =
-    | "draft-2020-12"
-    | "draft-07"
-    | "openapi-3.0"
-    | ({} & string);
-  export interface Options {
-    readonly target: Target;
-    readonly libraryOptions?: Record<string, unknown> | undefined;
-  }
-  export interface Types<TInput = unknown, TOutput = TInput>
-    extends StandardTypedV1.Types<TInput, TOutput> {}
-  export type InferInput<TSchema extends StandardTypedV1> =
-    StandardTypedV1.InferInput<TSchema>;
-  export type InferOutput<TSchema extends StandardTypedV1> =
-    StandardTypedV1.InferOutput<TSchema>;
-}
 
 
 export type SuccessResult<TValue> = {
@@ -140,16 +28,28 @@ export type FailureResult = {
 
 export type Result<TValue> = SuccessResult<TValue> | FailureResult;
 
-export type JSON =
-  | string
-  | boolean
-  | number
-  | null
-  | { [key: string]: JSON }
-  | JSON[];
-
-export type NumberFormat = "int32" | "port";
-export type StringFormat = "json" | "date-time" | "email" | "uuid" | "cuid" | "url";
+export type NumberFormat = "int32" | "port" | "integer";
+export type StringFormat =
+  | "json"
+  | "date-time"
+  | "email"
+  | "uuid"
+  | "cuid"
+  | "uri"
+  | "date"
+  | "time"
+  | "duration"
+  | "hostname"
+  | "idn-hostname"
+  | "ipv4"
+  | "ipv6"
+  | "uri-reference"
+  | "uri-template"
+  | "iri"
+  | "iri-reference"
+  | "idn-email"
+  | "json-pointer"
+  | "relative-json-pointer";
 export type ArrayFormat = "compactColumns";
 export type Format = NumberFormat | StringFormat | ArrayFormat;
 
@@ -193,11 +93,14 @@ export type Schema<TInput = unknown, TOutput = TInput> = {
   with<TNextInput, TNextOutput>(
     fn: (schema: Schema<TInput, TOutput>) => SchemaLike<TNextInput, TNextOutput>
   ): Schema<TNextInput, TNextOutput>;
-  // Constraining TArg1 to string makes a string-literal arg1 (e.g.
-  // `.with(S.brand, "myId")`) infer its literal type instead of widening to
-  // `string` — needed for brand-based nominal typing. The next overload
-  // covers the general (non-string) arg1 case.
-  with<TNextInput, TNextOutput, TArg1 extends string>(
+  // Constraining TArg1 to string | number makes a literal arg1 infer its
+  // literal type instead of widening — `.with(S.brand, "myId")` needs the
+  // string literal for nominal typing, `.with(S.length, 2)` the number
+  // literal for its tuple-typed result. One overload for both: a second
+  // overload would be attempted (and instantiated) by every `.with` call
+  // that falls through to the general case, taxing schemas that never pass
+  // a literal. The next overload covers the general arg1 case.
+  with<TNextInput, TNextOutput, TArg1 extends string | number>(
     fn: (
       schema: Schema<TInput, TOutput>,
       arg1: TArg1
@@ -246,6 +149,9 @@ export type Schema<TInput = unknown, TOutput = TInput> = {
   readonly errorMessage?: SchemaErrorMessage;
 
   // jsonSchema.input/.output throw until enableStandardJSONSchema() is called.
+  // validate reports a failed input as `issues`, but throws when the schema
+  // has no compilable parse operation at all (a rejected `.to` conversion) —
+  // that's a bug in the schema, not a verdict on the value.
   readonly ["~standard"]: StandardSchemaV1.Props<TInput, TOutput> &
     StandardJSONSchemaV1.Props<TInput, TOutput>;
 } & (
@@ -269,6 +175,7 @@ export type Schema<TInput = unknown, TOutput = TInput> = {
       readonly const?: number;
       readonly minimum?: number;
       readonly maximum?: number;
+      readonly multipleOf?: number;
     }
   | {
       readonly type: "bigint";
@@ -302,6 +209,8 @@ export type Schema<TInput = unknown, TOutput = TInput> = {
       readonly type: "instance";
       readonly class: Class<TInput>;
       readonly const?: TInput;
+      readonly minSize?: number;
+      readonly maxSize?: number;
     }
   | {
       readonly type: "array";
@@ -531,9 +440,12 @@ export function union<const T>(
   schemas: readonly T[]
 ): Schema<UnknownToInput<T>, UnknownToOutput<T>>;
 
+export { union as anyOf };
+
 export const string: Schema<string, string>;
 export const boolean: Schema<boolean, boolean>;
 export const int32: Schema<number, number>;
+export const integer: Schema<number, number>;
 export const number: Schema<number, number>;
 export const bigint: Schema<bigint, bigint>;
 export const symbol: Schema<symbol, symbol>;
@@ -550,17 +462,228 @@ export const jsonStringWithSpace: (space: number) => Schema<string, string>;
 
 export const uint8Array: Schema<Uint8Array, Uint8Array>;
 
+// `Blob` and `File` are ambient globals, from lib.dom or @types/node. Naming
+// them bare fails to typecheck for a consumer who has neither — including one
+// who never touches these schemas — so they resolve through `globalThis`: the
+// real type wherever it exists, a structural stand-in where it doesn't. The
+// stand-in stays usable rather than erroring, because a runtime can carry the
+// value while the project carries no types for it.
+/**
+ * The runtime's `Blob`, or a structural stand-in when the project has no type
+ * for it. Exported because that stand-in is otherwise unnameable: a consumer
+ * with neither lib.dom nor @types/node has no `Blob` of their own to annotate
+ * with.
+ */
+export type Blob = typeof globalThis extends {
+  Blob: abstract new (...args: never) => infer T;
+}
+  ? T
+  : { readonly size: number; readonly type: string };
+
+/** The runtime's `File`, or a structural stand-in. See {@link Blob}. */
+export type File = typeof globalThis extends {
+  File: abstract new (...args: never) => infer T;
+}
+  ? T
+  : Blob & { readonly name: string };
+
+export const blob: Schema<Blob, Blob>;
+
+export const file: Schema<File, File>;
+
+/**
+ * RFC 3339 timestamp, **UTC only** — an offset like `+02:00` is rejected, which
+ * is narrower than the JSON Schema `date-time` format it emits.
+ * Calendar-aware: month, day, hour, minute and leap second are all range-checked.
+ * @example "1963-06-19T08:30:06.283185Z"
+ */
 export const isoDateTime: Schema<string, string>;
 
 export const port: Schema<number, number>;
 
+/**
+ * Email address, ASCII only. Practical rather than exhaustive: it wants a dot-TLD
+ * domain, so `a@localhost` and `a@127.0.0.1` are rejected.
+ * @example "joe.bloggs@example.com"
+ */
 export const email: Schema<string, string>;
 
+/**
+ * UUID in canonical 8-4-4-4-12 hex form, any version.
+ * @example "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
+ */
 export const uuid: Schema<string, string>;
 
+/**
+ * CUID. Not a JSON Schema format, so `toJSONSchema` emits a plain `string` for it.
+ * @example "cjld2cjxh0000qzrmn831i7rn"
+ */
 export const cuid: Schema<string, string>;
 
-export const url: Schema<string, string>;
+/**
+ * An instance of the JS `URL` class, parsed by the WHATWG URL Standard — the same
+ * shape as {@link date}. Bare it accepts a `URL`; `S.string.with(S.to, S.url)`
+ * parses a string into one and encodes back via `.href`.
+ *
+ * Not the same language as {@link uri}: WHATWG silently percent-encodes spaces,
+ * quotes and backslashes that RFC 3986 forbids, and rejects reg-names like
+ * `999.999.999.999` that RFC 3986 allows. Use this when you want the parsed
+ * object; use {@link uri} when you want to validate a string stays a string.
+ * @example new URL("https://example.com/a?b=c")
+ */
+export const url: Schema<URL, URL>;
+
+/**
+ * The runtime's `URL`, or a structural stand-in when the project has no type
+ * for it. See {@link Blob} — `URL` is a lib.dom/@types/node global too, so
+ * naming it bare would fail to typecheck for a consumer who has neither, one
+ * who never touches {@link url} included.
+ */
+export type URL = typeof globalThis extends {
+  URL: abstract new (...args: never) => infer T;
+}
+  ? T
+  : { readonly href: string; toString(): string };
+
+/**
+ * URI string, RFC 3986 — a scheme is required. See {@link uriReference} for the
+ * relative form, and {@link url} for a parsed `URL` instance instead of a string.
+ *
+ * Syntax only: **any** scheme parses, including `javascript:` and `file:`. To
+ * restrict them, compose a pattern — the emitted JSON Schema keeps both
+ * constraints, so it still describes the behavior:
+ * `S.uri.with(S.pattern, /^https?:\/\//)`
+ * @example "http://foo.bar/?baz=qux#quux"
+ */
+export const uri: Schema<string, string>;
+
+/**
+ * RFC 3339 full-date, no time component. Calendar-aware: rejects `2021-02-29`,
+ * `2021-13-45` and `2020-04-31`, and honors the ÷100/÷400 century leap rule.
+ * @example "1963-06-19"
+ */
+export const isoDate: Schema<string, string>;
+
+/**
+ * RFC 3339 full-time. An offset is **required** — `"12:00:00"` is invalid.
+ * Leap seconds are correlated against UTC, so `01:29:60+01:30` is valid and
+ * `23:59:60+01:00` is not.
+ * @example "08:30:06Z"
+ */
+export const isoTime: Schema<string, string>;
+
+/**
+ * RFC 3339 duration. The ABNF nests its components, so a unit may only be
+ * followed by the next smaller one: `P1Y2M3D` is valid, `P1Y2D` and `PT1H2S` are
+ * not. Fractional seconds are not in the grammar. Note `PT1M` is one minute and
+ * `P1M` is one month.
+ * @example "P4DT12H30M5S"
+ */
+export const duration: Schema<string, string>;
+
+/**
+ * RFC 1123 hostname: 1-63 character labels, 253 overall.
+ *
+ * Syntax only, and **not a security boundary**. A bare label like `localhost` is
+ * a valid hostname, as are `169.254.169.254` and `metadata.google.internal`. An
+ * `xn--` label is accepted on shape alone — its Punycode is not decoded, so a
+ * label that IDNA2008 disallows still passes. For an SSRF guard or a homograph
+ * filter, add your own check on top.
+ * @example "www.example.com"
+ */
+export const hostname: Schema<string, string>;
+
+/**
+ * Internationalized hostname — {@link hostname}'s label shape over the four
+ * Unicode label separators, with the character repertoire left open.
+ *
+ * The IDNA2008 property, bidi and contextual rules are **not** applied; see the
+ * caveats on {@link hostname}, which all apply here too.
+ * @example "실례.테스트"
+ */
+export const idnHostname: Schema<string, string>;
+
+/**
+ * Dotted-quad IPv4. Rejects the `inet_aton` shorthands (`127.1`, `0x7f000001`)
+ * that often slip past naive filters.
+ *
+ * Syntax only: loopback, private and link-local ranges all parse, so
+ * `127.0.0.1` and `169.254.169.254` are valid. Not an SSRF defense on its own.
+ * @example "192.168.0.1"
+ */
+export const ipv4: Schema<string, string>;
+
+/**
+ * IPv6 in any RFC 4291 form, including IPv4-mapped (`::ffff:192.168.0.1`). A
+ * zone id (`fe80::a%eth1`) is not part of the format.
+ *
+ * Syntax only — see the caveats on {@link ipv4}.
+ * @example "::1"
+ */
+export const ipv6: Schema<string, string>;
+
+/**
+ * URI reference, RFC 3986 — the scheme and path are both optional, so relative
+ * forms parse. This is usually what you want for a link or `href` field, since
+ * {@link uri} would reject `/dashboard`.
+ *
+ * Very permissive by design: `""`, `"abc"`, `"//evil.com"` and
+ * `"javascript:alert(1)"` are all valid references. Compose a pattern if you
+ * need to narrow it.
+ * @example "/abc"
+ */
+export const uriReference: Schema<string, string>;
+
+/**
+ * RFC 6570 URI template — a URL *pattern* with `{placeholders}`, not a URL.
+ * Used by HAL/JSON:API hypermedia links and OpenAPI path patterns.
+ * @example "http://example.com/dictionary/{term:1}/{term}"
+ */
+export const uriTemplate: Schema<string, string>;
+
+/**
+ * IRI, RFC 3987 — {@link uri} with non-ASCII characters allowed unescaped.
+ * Validated by percent-encoding every non-ASCII character and testing the
+ * result as a URI, per RFC 3987 §3.1.
+ * @example "http://ƒøø.ßår/?∂éœ=πîx#πîüx"
+ */
+export const iri: Schema<string, string>;
+
+/**
+ * IRI reference — {@link uriReference} with non-ASCII characters allowed
+ * unescaped. The same permissiveness caveats apply.
+ * @example "/âππ"
+ */
+export const iriReference: Schema<string, string>;
+
+/**
+ * Internationalized email address, RFC 6531 — a Unicode local part and domain
+ * are both allowed, including a quoted local part, though only one without
+ * whitespace: `"john doe"@example.com` is rejected.
+ *
+ * Shape only, and much looser than {@link email}: RFC 6531 constrains little
+ * beyond the length limits, so `a@b` and `a@localhost` are valid.
+ * @example "실례@실례.테스트"
+ */
+export const idnEmail: Schema<string, string>;
+
+/**
+ * RFC 6901 JSON Pointer, as used by JSON Patch `path` and JSON Schema `$ref`
+ * fragments. `""` is valid and addresses the whole document. `~` must be
+ * escaped: `~0` is a literal `~`, `~1` is a literal `/`.
+ *
+ * It addresses a location, it does not make one safe to follow — `/__proto__`
+ * is a well-formed pointer.
+ * @example "/foo/bar~0/baz~1/%a"
+ */
+export const jsonPointer: Schema<string, string>;
+
+/**
+ * RFC 6901 relative JSON Pointer — a leading integer means "go up N levels".
+ * A trailing `#` asks for the member name or array index rather than the value.
+ * @example "2/0/baz/1/zip"
+ */
+export const relativeJsonPointer: Schema<string, string>;
 
 export const date: Schema<Date, Date>;
 
@@ -678,12 +801,18 @@ export function tuple<const T extends unknown[]>(
   schemas: [...T]
 ): Schema<[...UnknownArrayToInput<T>], [...UnknownArrayToOutput<T>]>;
 
+// `SchemaLike<TInput, TOutput> | TDef` in ONE signature: a schema matches the
+// structural constituent and skips the recursive UnknownTo* machinery, only a
+// raw definition falls through to TDef. Must stay one signature — `.with` infers
+// through a single call signature only, so any overload pair collapses
+// `schema.with(S.optional, …)` to Schema<unknown, unknown>.
 export function optional<
-  TInput,
-  TOutput,
+  const TDef = never,
+  TInput = UnknownToInput<TDef>,
+  TOutput = UnknownToOutput<TDef>,
   TOr extends TOutput | undefined = undefined
 >(
-  schema: SchemaLike<TInput, TOutput>,
+  schema: SchemaLike<TInput, TOutput> | TDef,
   or?: (() => TOr) | TOr,
   // To make .with work
   _?: never
@@ -692,30 +821,51 @@ export function optional<
   TOr extends undefined ? TOutput | undefined : TOutput
 >;
 
-export function nullable<TInput, TOutput, TOr extends TOutput | null = null>(
-  schema: SchemaLike<TInput, TOutput>,
+export function nullable<
+  const TDef = never,
+  TInput = UnknownToInput<TDef>,
+  TOutput = UnknownToOutput<TDef>,
+  TOr extends TOutput | null = null
+>(
+  schema: SchemaLike<TInput, TOutput> | TDef,
   or?: (() => TOr) | TOr,
   // To make .with work
   _?: never
 ): Schema<TInput | null, TOr extends null ? TOutput | null : TOutput>;
 
-export const nullish: <TInput, TOutput>(
-  schema: SchemaLike<TInput, TOutput>
+export const nullish: <
+  const TDef = never,
+  TInput = UnknownToInput<TDef>,
+  TOutput = UnknownToOutput<TDef>
+>(
+  schema: SchemaLike<TInput, TOutput> | TDef
 ) => Schema<TInput | undefined | null, TOutput | undefined | null>;
 
 export type Class<T> = new (...args: readonly any[]) => T;
 export const instance: <T>(class_: Class<T>) => Schema<T, T>;
 
-export const array: <TInput, TOutput>(
-  schema: SchemaLike<TInput, TOutput>
+export const array: <
+  const TDef = never,
+  TInput = UnknownToInput<TDef>,
+  TOutput = UnknownToOutput<TDef>
+>(
+  schema: SchemaLike<TInput, TOutput> | TDef
 ) => Schema<TInput[], TOutput[]>;
 
-export const compactColumns: <TInput, TOutput>(
-  schema: SchemaLike<TInput, TOutput>
+export const compactColumns: <
+  const TDef = never,
+  TInput = UnknownToInput<TDef>,
+  TOutput = UnknownToOutput<TDef>
+>(
+  schema: SchemaLike<TInput, TOutput> | TDef
 ) => Schema<TInput[][], TOutput[][]>;
 
-export const record: <TInput, TOutput>(
-  schema: SchemaLike<TInput, TOutput>
+export const record: <
+  const TDef = never,
+  TInput = UnknownToInput<TDef>,
+  TOutput = UnknownToOutput<TDef>
+>(
+  schema: SchemaLike<TInput, TOutput> | TDef
 ) => Schema<Record<string, TInput>, Record<string, TOutput>>;
 
 type ObjectCtx<TInput extends Record<string, unknown>> = {
@@ -789,10 +939,13 @@ export type SchemaErrorMessage = {
   maximum?: string;
   exclusiveMinimum?: string;
   exclusiveMaximum?: string;
+  multipleOf?: string;
   minLength?: string;
   maxLength?: string;
   minItems?: string;
   maxItems?: string;
+  minSize?: string;
+  maxSize?: string;
   pattern?: string;
 };
 
@@ -851,28 +1004,105 @@ export const lte: <TInput, TOutput extends number | bigint>(
   value: TOutput,
   message?: string
 ) => Schema<TInput, TOutput>;
-
-export const minLength: <TInput, TOutput extends string | unknown[]>(
+export const multipleOf: <TInput, TOutput extends number | bigint>(
   schema: SchemaLike<TInput, TOutput>,
-  length: number,
+  value: TOutput,
   message?: string
 ) => Schema<TInput, TOutput>;
+
+// A literal bound is arity, so the refined type says so; a `number`-typed
+// bound narrows nothing. A bound may retype the input side only when the input
+// is the same value as the bounded output — a codec's input is a different
+// value and its length says nothing about it.
+//
+// `Tail` follows the N fixed elements: empty for an exact bound, `E[]` for a
+// lower one. The 64 cap bails to `E[]` — past it TypeScript's recursion limit
+// is nearer than the worth of a spelled-out tuple, and a fractional or huge
+// bound would compile-error instead of failing at runtime as it already does.
+type Repeat<E, N extends number, Acc extends unknown[], Tail extends unknown[]> =
+  Acc["length"] extends N
+    ? [...Acc, ...Tail]
+    : Acc["length"] extends 64
+    ? E[]
+    : Repeat<E, N, [...Acc, E], Tail>;
+// `N extends N` distributes; without it a union bound like `0 | 2` matches one
+// branch and pins the type to it. The `number extends T["length"]` guard keeps
+// a bound off an existing tuple, where `Repeat` would rebuild `["bar", number]`
+// as `[number | "bar", number | "bar"]`.
+type Sized<T, N extends number> = number extends N
+  ? T
+  : N extends N
+  ? T extends (infer E)[]
+    ? number extends T["length"]
+      ? Repeat<E, N, [], []>
+      : T
+    : T extends string
+    ? N extends 0
+      ? ""
+      : T
+    : T
+  : never;
+// Kept separate from `Sized` deliberately: collapsing both into one
+// `Bounded<T, N, Exact>` instantiates the discrimination at every use and
+// regressed every spec that touches a bound.
+//
+// No string case: TypeScript can't say "at least N characters" — each segment
+// of `${string}${string}` matches `""`, so it collapses to `string`. Only the
+// exact bound reaches a string type, at `""`.
+type AtLeast<T, N extends number> = number extends N
+  ? T
+  : N extends N
+  ? T extends (infer E)[]
+    ? number extends T["length"]
+      ? Repeat<E, N, [], E[]>
+      : T
+    : T
+  : never;
+// `AtLeast<T, 1>` minus the guard on a bound that can't vary.
+type NonEmptied<T> = T extends (infer E)[]
+  ? number extends T["length"]
+    ? [E, ...E[]]
+    : T
+  : T;
+// Mutual assignability, not one-way: an input that is a strict subtype of the
+// output keeps its own type, or `S.to(S.literal("x"), S.string)` under a bound
+// would retype its input to a value that schema rejects. The brackets stop a
+// union input from distributing and passing on one member.
+type Same<T, U> = [T] extends [U] ? ([U] extends [T] ? true : false) : false;
+
+export const minLength: <TInput, TOutput extends string | unknown[], N extends number>(
+  schema: SchemaLike<TInput, TOutput>,
+  length: N,
+  message?: string
+) => Schema<Same<TInput, TOutput> extends true ? AtLeast<TInput, N> : TInput, AtLeast<TOutput, N>>;
 export const maxLength: <TInput, TOutput extends string | unknown[]>(
   schema: SchemaLike<TInput, TOutput>,
   length: number,
   message?: string
 ) => Schema<TInput, TOutput>;
-export const length: <TInput, TOutput extends string | unknown[]>(
+export const length: <TInput, TOutput extends string | unknown[], N extends number>(
   schema: SchemaLike<TInput, TOutput>,
-  length: number,
+  length: N,
   message?: string
-) => Schema<TInput, TOutput>;
-export const empty: <TInput, TOutput extends string | unknown[]>(
-  schema: SchemaLike<TInput, TOutput>,
-  message?: string
-) => Schema<TInput, TOutput>;
+) => Schema<Same<TInput, TOutput> extends true ? Sized<TInput, N> : TInput, Sized<TOutput, N>>;
 export const nonEmpty: <TInput, TOutput extends string | unknown[]>(
   schema: SchemaLike<TInput, TOutput>,
+  message?: string
+) => Schema<Same<TInput, TOutput> extends true ? NonEmptied<TInput> : TInput, NonEmptied<TOutput>>;
+
+export const minSize: <TInput, TOutput extends { size: number }>(
+  schema: SchemaLike<TInput, TOutput>,
+  size: number,
+  message?: string
+) => Schema<TInput, TOutput>;
+export const maxSize: <TInput, TOutput extends { size: number }>(
+  schema: SchemaLike<TInput, TOutput>,
+  size: number,
+  message?: string
+) => Schema<TInput, TOutput>;
+export const size: <TInput, TOutput extends { size: number }>(
+  schema: SchemaLike<TInput, TOutput>,
+  size: number,
   message?: string
 ) => Schema<TInput, TOutput>;
 
@@ -939,196 +1169,54 @@ export function to<
   codecs?: ((value: TOutput) => TTargetInput) | Codecs<TOutput, TTargetInput>
 ): Schema<TInput, TTargetOutput>;
 
+// The dialect the `target` option selects decides the shape of the result, so
+// each one gets its own overload. Falling back to the widest type for a
+// non-literal target is what keeps a caller holding `target` in a variable
+// compiling.
+export function toJSONSchema<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>
+): JSONSchema7;
 export function toJSONSchema<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,
-  options?: {
-    target?: "draft-07" | "draft-2020-12" | "openapi-3.0";
-  }
+  options: { target?: "draft-07" }
 ): JSONSchema7;
-export function fromJSONSchema<TOutput extends JSON>(
-  jsonSchema: JSONSchema7
-): Schema<JSON, TOutput>;
+export function toJSONSchema<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>,
+  options: { target: "draft-2020-12" }
+): JSONSchema2020;
+export function toJSONSchema<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>,
+  options: { target: "openapi-3.0" }
+): OpenAPISchema30;
+export function toJSONSchema<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>,
+  options: { target: StandardJSONSchemaV1.Target }
+): JSONSchema;
+/**
+ * Builds a schema from a JSON Schema at runtime.
+ *
+ * A document written inline is validated and typed, following a `$ref` into the
+ * same document — recursive ones included. A `$ref` leading outside it (a URL,
+ * a `urn:`, an `$anchor`, a `$id` base) throws, so bundle first. To also have
+ * TypeScript check the document itself, annotate it:
+ * `{ ... } satisfies S.JSONSchema` — the annotation widens literals (e.g.
+ * `required`, `enum`), so the inferred type gets wider too.
+ *
+ * A schema read from a file or an API needs no cast — a non-literal argument
+ * (`unknown`, `S.JSON`, a dialect type) falls back to `Schema<JSON, JSON>`.
+ * Use `S.to` to refine it further.
+ */
+export function fromJSONSchema<
+  const T extends { type: "string" | "number" | "integer" | "boolean" | "null" },
+>(
+  jsonSchema: T
+): Schema<FromJSONSchema<T>>;
+export function fromJSONSchema<const T = unknown>(
+  jsonSchema: T
+): Schema<FromJSONSchema<T>, FromJSONSchemaOutput<T>>;
 export function extendJSONSchema<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,
-  jsonSchema: JSONSchema7
+  jsonSchema: JSONSchema
 ): Schema<TInput, TOutput>;
 /** Enables `~standard.jsonSchema`; its input/output throw before this is called. */
 export function enableStandardJSONSchema(): void;
-
-// ==================================================================================================
-// JSON Schema Draft 07
-// ==================================================================================================
-// https://tools.ietf.org/html/draft-handrews-json-schema-validation-01
-// --------------------------------------------------------------------------------------------------
-
-/**
- * Primitive type
- * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-6.1.1
- */
-export type JSONSchema7TypeName =
-  | "string" //
-  | "number"
-  | "integer"
-  | "boolean"
-  | "object"
-  | "array"
-  | "null";
-
-/**
- * Primitive type
- * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-6.1.1
- */
-export type JSONSchema7Type =
-  | string //
-  | number
-  | boolean
-  | JSONSchema7Object
-  | JSONSchema7Array
-  | null;
-
-// Workaround for infinite type recursion
-export interface JSONSchema7Object {
-  [key: string]: JSONSchema7Type;
-}
-
-// Workaround for infinite type recursion
-// https://github.com/Microsoft/TypeScript/issues/3496#issuecomment-128553540
-export interface JSONSchema7Array extends Array<JSONSchema7Type> {}
-
-/**
- * Meta schema
- *
- * Recommended values:
- * - 'http://json-schema.org/schema#'
- * - 'http://json-schema.org/hyper-schema#'
- * - 'http://json-schema.org/draft-07/schema#'
- * - 'http://json-schema.org/draft-07/hyper-schema#'
- *
- * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-5
- */
-export type JSONSchema7Version = string;
-
-/**
- * JSON Schema v7
- * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01
- */
-export type JSONSchema7Definition = JSONSchema7 | boolean;
-export interface JSONSchema7 {
-  $id?: string | undefined;
-  $ref?: string | undefined;
-  $schema?: JSONSchema7Version | undefined;
-  $comment?: string | undefined;
-
-  /**
-   * @see https://datatracker.ietf.org/doc/html/draft-bhutton-json-schema-00#section-8.2.4
-   * @see https://datatracker.ietf.org/doc/html/draft-bhutton-json-schema-validation-00#appendix-A
-   */
-  $defs?:
-    | {
-        [key: string]: JSONSchema7Definition;
-      }
-    | undefined;
-
-  /**
-   * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-6.1
-   */
-  type?: JSONSchema7TypeName | JSONSchema7TypeName[] | undefined;
-  enum?: JSONSchema7Type[] | undefined;
-  const?: JSONSchema7Type | undefined;
-
-  /**
-   * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-6.2
-   */
-  multipleOf?: number | undefined;
-  maximum?: number | undefined;
-  exclusiveMaximum?: number | undefined;
-  minimum?: number | undefined;
-  exclusiveMinimum?: number | undefined;
-
-  /**
-   * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-6.3
-   */
-  maxLength?: number | undefined;
-  minLength?: number | undefined;
-  pattern?: string | undefined;
-
-  /**
-   * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-6.4
-   */
-  items?: JSONSchema7Definition | JSONSchema7Definition[] | undefined;
-  prefixItems?: JSONSchema7Definition[] | undefined;
-  additionalItems?: JSONSchema7Definition | undefined;
-  maxItems?: number | undefined;
-  minItems?: number | undefined;
-  uniqueItems?: boolean | undefined;
-  contains?: JSONSchema7Definition | undefined;
-
-  /**
-   * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-6.5
-   */
-  maxProperties?: number | undefined;
-  minProperties?: number | undefined;
-  required?: string[] | undefined;
-  properties?:
-    | {
-        [key: string]: JSONSchema7Definition;
-      }
-    | undefined;
-  patternProperties?:
-    | {
-        [key: string]: JSONSchema7Definition;
-      }
-    | undefined;
-  additionalProperties?: JSONSchema7Definition | undefined;
-  dependencies?:
-    | {
-        [key: string]: JSONSchema7Definition | string[];
-      }
-    | undefined;
-  propertyNames?: JSONSchema7Definition | undefined;
-
-  /**
-   * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-6.6
-   */
-  if?: JSONSchema7Definition | undefined;
-  then?: JSONSchema7Definition | undefined;
-  else?: JSONSchema7Definition | undefined;
-
-  /**
-   * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-6.7
-   */
-  allOf?: JSONSchema7Definition[] | undefined;
-  anyOf?: JSONSchema7Definition[] | undefined;
-  oneOf?: JSONSchema7Definition[] | undefined;
-  not?: JSONSchema7Definition | undefined;
-
-  /**
-   * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-7
-   */
-  format?: string | undefined;
-
-  /**
-   * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-8
-   */
-  contentMediaType?: string | undefined;
-  contentEncoding?: string | undefined;
-
-  /**
-   * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-9
-   */
-  definitions?:
-    | {
-        [key: string]: JSONSchema7Definition;
-      }
-    | undefined;
-
-  /**
-   * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-10
-   */
-  title?: string | undefined;
-  description?: string | undefined;
-  default?: JSONSchema7Type | undefined;
-  readOnly?: boolean | undefined;
-  writeOnly?: boolean | undefined;
-  examples?: JSONSchema7Type | undefined;
-}

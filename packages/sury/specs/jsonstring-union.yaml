@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.union([S.schema({t: "a", v: S.string}), S.schema({t: "b", v: S.number})]).with(S.to, S.jsonString)'
+  input: '{ t: "a"; v: string; } | { t: "b"; v: number; }'
+  output: string
+  instantiations: 8588
+jsonSchema:
+  input: '{ anyOf: [{ type: "object", properties: { t: { type: "string", const: "a" }, v: { type: "string" } }, additionalProperties: false, required: ["t", "v"] }, { type: "object", properties: { t: { type: "string", const: "b" }, v: { type: "number" } }, additionalProperties: false, required: ["t", "v"] }] }'
+  output: '{ type: "string" }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)&&i["t"]==="a"){let v0=i["v"];typeof v0==="string"||e[0](v0);i="{\"t\":\"a\",\"v\":"+e[1](v0)+"}";break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i["t"]==="b"){let v1=i["v"];typeof v1==="number"&&!Number.isNaN(v1)||e[2](v1);i="{\"t\":\"b\",\"v\":"+(Number.isFinite(v1)?v1:e[3](v1))+"}";break}e[4](i)}return i}
+    examples:
+      first-variant:
+        input: '{ t: "a", v: "hi" }'
+        output: '"{\"t\":\"a\",\"v\":\"hi\"}"'
+      second-variant:
+        input: '{ t: "b", v: 1 }'
+        output: '"{\"t\":\"b\",\"v\":1}"'
+      no-match:
+        input: '{ t: "c", v: 1 }'
+        error: 'Expected { t: "a"; v: string; } | { t: "b"; v: number; }, received { t: "c"; v: 1; }'
+  decode:
+    expression: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)&&i["t"]==="a"){i="{\"t\":\"a\",\"v\":"+e[0](i["v"])+"}";break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i["t"]==="b"){let v0=i["v"];i="{\"t\":\"b\",\"v\":"+(Number.isFinite(v0)?v0:e[1](v0))+"}";break}e[2](i)}return i}
+    examples:
+      first-variant:
+        input: '{ t: "a", v: "hi" }'
+        output: '"{\"t\":\"a\",\"v\":\"hi\"}"'
+      second-variant:
+        input: '{ t: "b", v: 1.5 }'
+        output: '"{\"t\":\"b\",\"v\":1.5}"'
+  encode:
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0["t"]==="a"){let v1=v0["v"];typeof v1==="string"||e[1](v1);v0={"t":v0["t"],"v":v1,};break}if(v0["t"]==="b"){let v2=v0["v"];typeof v2==="number"&&!Number.isNaN(v2)||e[2](v2);v0={"t":v0["t"],"v":v2,};break}e[3](v0)}}else{e[4](v0)}return v0}
+    examples:
+      first-variant:
+        input: '"{\"t\":\"a\",\"v\":\"hi\"}"'
+        output: '{ t: "a", v: "hi" }'
+      second-variant:
+        input: '"{\"t\":\"b\",\"v\":1}"'
+        output: '{ t: "b", v: 1 }'

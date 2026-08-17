@@ -3,12 +3,12 @@ ts:
   schema: 'S.string.with(S.to, S.number.with(S.gt, 0), { decode: (value) => value.length, encode: (value) => "x".repeat(value) })'
   input: string
   output: number
-  instantiations: 5890
-vs:
-  zod: 'z.codec(z.string(), z.number().positive(), { decode: (value) => value.length, encode: (value) => "x".repeat(value) })'
+  instantiations: 5842
 jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "number", exclusiveMinimum: 0 }'
+vs:
+  zod: 'z.codec(z.string(), z.number().positive(), { decode: (value) => value.length, encode: (value) => "x".repeat(value) })'
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[4](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="number"&&!Number.isNaN(v0)||e[3](v0);v0>0||e[2](v0);return v0}

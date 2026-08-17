@@ -11,8 +11,13 @@
 // Bundled to .bench-cache/child.mjs (see bench.ts) instead of run through tsx,
 // because 32 tsx startups would cost more than the measurement itself.
 import type { ChildPayload, ChildResult, Target } from "./bench";
+import { buildScenarioRunner } from "./scenario";
 
 const OP_BUILDER = { parse: "parser", decode: "decoder", encode: "encoder" } as const;
+// An async schema compiles only through these, so a `create+compile` target for
+// one has to name the builder its spec's `isAsync` declares. (There are no
+// async `run` targets — see deriveTargets.)
+const ASYNC_OP_BUILDER = { parse: "asyncParser", decode: "asyncDecoder", encode: "asyncEncoder" } as const;
 
 // Every measured value is stored into a box so V8 can't delete the work as
 // dead. The boxes are kept alive here (and read at exit) so escape analysis
@@ -25,16 +30,26 @@ const boxes: { v: unknown }[] = [];
 // and measure the driver instead of the schema. A distinct function per target
 // per side keeps every call site monomorphic.
 // Returns the runner, plus — for run-phase targets — whether the operation
-// threw on this input. The two sides are timed against each other, so an
-// outcome that differs between them makes the ratio meaningless: returning a
-// value and raising a `SuryError` are different work, not the same work at a
-// different speed.
+// threw on each of this target's inputs. The two sides are timed against each
+// other, so an outcome that differs between them makes the ratio meaningless:
+// returning a value and raising a `SuryError` are different work, not the same
+// work at a different speed. One target now carries a whole outcome's examples,
+// so this is a vector: one disagreeing example spoils the batch they share.
 const buildRunner = (
   S: any,
   target: Target,
-): { run: (n: number) => void; threw?: boolean } => {
+): { run: (n: number) => void; threw?: boolean[] } => {
   const box: { v: unknown } = { v: undefined };
   boxes.push(box);
+
+  // A scenario brings its own setup and expression instead of a schema. No
+  // `threw` either — the builder runs the expression once, so a side that
+  // can't execute it fails here instead of reaching a comparison.
+  if (target.phase === "scenario")
+    return {
+      run: buildScenarioRunner(S, { prepareSrc: target.prepareSrc, runSrc: target.runSrc! }, box),
+    };
+
   const factory = new Function("S", `return ${target.schemaSrc};`) as (s: any) => unknown;
 
   if (target.phase === "create")
@@ -47,7 +62,7 @@ const buildRunner = (
       )(factory, S, box),
     };
 
-  const builder = S[OP_BUILDER[target.op!]];
+  const builder = S[(target.isAsync ? ASYNC_OP_BUILDER : OP_BUILDER)[target.op!]];
 
   if (target.phase === "create+compile")
     return {
@@ -60,28 +75,31 @@ const buildRunner = (
       )(factory, S, builder, box),
     };
 
-  // Input is evaluated per side, not shared: an operation that mutates its
+  // Inputs are evaluated per side, not shared: an operation that mutates its
   // input would otherwise have one side's runs observed by the other.
   const op = builder(factory(S));
-  const input = new Function(`return ${target.inputSrc};`)();
-  let threw = false;
-  try {
-    op(input);
-  } catch (_) {
-    threw = true;
-  }
-  const run = target.throws
-    ? new Function(
-        "op",
-        "input",
-        "box",
-        "return (n) => { for (let i = 0; i < n; i++) { try { box.v = op(input); } catch (e) { box.v = e; } } };",
-      )(op, input, box)
-    : new Function("op", "input", "box", "return (n) => { for (let i = 0; i < n; i++) box.v = op(input); };")(
-        op,
-        input,
-        box,
-      );
+  const inputs = target.inputSrcs!.map((src) => new Function(`return ${src};`)());
+  // Per input, so a side that changes its mind about one example is reported
+  // as that example rather than as a timing difference.
+  const threw = inputs.map((input) => {
+    try {
+      op(input);
+      return false;
+    } catch (_) {
+      return true;
+    }
+  });
+  // The batch iterates every example, which is why one target covers the whole
+  // outcome. Indexed rather than `for…of`, so it times the operation and not an
+  // iterator protocol — and a single-example outcome (half of them) keeps the
+  // flat loop it had before outcomes were aggregated, so the majority of
+  // targets measure exactly what they measured before.
+  const call = target.throws ? "try { box.v = op(INPUT); } catch (e) { box.v = e; }" : "box.v = op(INPUT);";
+  const body =
+    inputs.length === 1
+      ? `for (let i = 0; i < n; i++) { ${call.replace("INPUT", "inputs[0]")} }`
+      : `for (let i = 0; i < n; i++) for (let j = 0; j < inputs.length; j++) { ${call.replace("INPUT", "inputs[j]")} }`;
+  const run = new Function("op", "inputs", "box", `return (n) => { ${body} };`)(op, inputs, box);
   return { run, threw };
 };
 
@@ -107,8 +125,8 @@ const calibrate = (run: (n: number) => void, targetNs: number): number => {
 };
 
 const measure = (baseline: any, current: any, payload: ChildPayload, target: Target): ChildResult => {
-  let a: { run: (n: number) => void; threw?: boolean };
-  let b: { run: (n: number) => void; threw?: boolean };
+  let a: { run: (n: number) => void; threw?: boolean[] };
+  let b: { run: (n: number) => void; threw?: boolean[] };
   try {
     a = buildRunner(baseline, target);
   } catch (e) {
@@ -127,11 +145,19 @@ const measure = (baseline: any, current: any, payload: ChildPayload, target: Tar
   // Timing them against each other would compare a returned value with a
   // thrown error and report the difference as a slowdown — a correctness fix
   // that starts rejecting an input shows up as several hundred times "slower".
-  if (a.threw !== b.threw)
-    return {
-      name: target.name,
-      outcomeChanged: a.threw ? "baseline rejected it, now accepted" : "baseline accepted it, now rejected",
-    };
+  // The whole target is withheld when any single example disagrees, because the
+  // batch times them together and one changed example is enough to move it.
+  if (a.threw !== undefined && b.threw !== undefined) {
+    const bThrew = b.threw;
+    const i = a.threw.findIndex((threw, at) => threw !== bThrew[at]);
+    if (i !== -1)
+      return {
+        name: target.name,
+        outcomeChanged: `${target.exampleNames?.[i] ?? `example ${i + 1}`}: ${
+          a.threw[i] ? "baseline rejected it, now accepted" : "baseline accepted it, now rejected"
+        }`,
+      };
+  }
 
   const n = Math.max(calibrate(a.run, payload.batchTargetNs), calibrate(b.run, payload.batchTargetNs));
   // Long enough for both sides to reach their final tier. A side still being

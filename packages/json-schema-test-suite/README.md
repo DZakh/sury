@@ -10,6 +10,7 @@ pnpm compliance --update                         # re-baseline after a change
 pnpm compliance report draft2020-12              # per-file breakdown
 pnpm compliance report draft7 --failures         # every failing test id
 pnpm compliance report draft7 --divergent        # where S.is disagrees with S.parser
+pnpm compliance report draft7 --mutated          # valid inputs changed by parsing
 pnpm compliance report draft7 --optional         # include optional/ (formats, bignum, content)
 ```
 
@@ -24,25 +25,23 @@ what the new tests changed.
 
 Each suite assertion is run as `S.fromJSONSchema(schema)` followed by
 `S.parser(schema)(data)`, and a test passes when the parse outcome matches the
-suite's `valid`. A schema that throws at conversion or compile time marks its
-whole case as `errored`.
+suite's `valid`. Every valid example that parses also has an output-identity
+assertion: because JSON Schema only validates, parsing must return deeply equal
+data. A schema that throws at conversion or compile time marks its whole case
+as `errored`.
 
-`S.is` is scored over the same corpus in parallel. It is the semantically
-correct operation — JSON Schema is assertion-only — but it currently rejects
-everything except `null` for `S.json`, which `fromJSONSchema` emits for `{}`,
-`true`, and unrecognised keywords, so it scores far lower. The two operations
-disagreeing is always a Sury bug rather than a JSON Schema gap, which makes
-that delta a standing bug detector; the count is tracked in each golden and
-the ids are available via `report --divergent`. Once the gap closes, `S.is`
-becomes the canonical operation.
+`S.is` is scored over the same corpus in parallel. The two operations
+disagreeing is always a Sury bug rather than a JSON Schema gap, so that delta is
+a standing bug detector; the count is tracked in each golden and the ids are
+available via `report --divergent`.
 
 ## Goldens
 
 `goldens/<dialect>.json` records a summary plus the sorted ids of every failing
-test and errored case. Only failures are listed, so a diff reads directly:
-removed lines are newly passing, added lines are regressions. `check` fails on
-drift in **either** direction — an improvement is supposed to land its golden
-update in the same PR.
+test, errored case, false acceptance, and valid input whose output was changed.
+The lists make a diff read directly: removed lines are newly passing, added
+lines are regressions. `check` fails on drift in **either** direction — an
+improvement is supposed to land its golden update in the same PR.
 
 Goldens cover the required tests only. `optional/` (format assertion, bignum,
 content encoding) is exploratory and deliberately unsnapshotted, because
@@ -51,22 +50,19 @@ question rather than a bug.
 
 ## What the score is measuring
 
-Sury is not a JSON Schema validator; the suite is being used to measure how
-faithfully `S.fromJSONSchema` reproduces JSON Schema semantics. Two structural
-gaps dominate the current number:
+Sury is not a JSON Schema validator; the suite measures how faithfully
+`S.fromJSONSchema` reproduces JSON Schema semantics. Unsupported assertion
+keywords fail conversion instead of silently widening the schema. Those
+explicit errors account for most uncovered assertions: `patternProperties`,
+`uniqueItems`, `propertyNames`, `dependentRequired`, `min`/`maxProperties`,
+`contains`, and `unevaluated*` are prominent examples.
 
-- **Under-validation** (the large majority of failures) — keywords
-  `fromJSONSchema` doesn't implement yet are silently ignored, so invalid data
-  is accepted. `$ref`/`$defs`, `patternProperties`, `uniqueItems`,
-  `multipleOf`, `propertyNames`, `dependentRequired`, `min`/`maxProperties`,
-  `contains`, `unevaluated*`, and `additionalProperties` as a schema are all in
-  this bucket.
-- **Over-strictness** — JSON Schema keywords are type-conditional assertions
-  (`{"maxLength": 2}` must accept `100`; `{"properties": {…}}` must accept `5`;
-  `{}` accepts anything), while `fromJSONSchema` builds typed schemas that
-  reject the non-applicable type outright.
+Local JSON Pointer `$ref`s resolve, including recursive definitions. Anything
+that needs resource or dynamic scope — `$id`, `$anchor`, `$dynamicRef`, a remote
+URI, or a URN — remains outside the supported reference model and generally
+fails conversion. Both required dialects currently have no non-conversion
+mismatches: every uncovered case fails conversion explicitly rather than
+accepting or rejecting data with the wrong semantics.
 
-The second is a design decision rather than a defect: either `fromJSONSchema`
-becomes faithful, or the supported subset gets documented and those tests stay
-red on purpose. The goldens are a measurement, not a target — nothing here
-asserts that 100% is the goal.
+The goldens are a measurement, not a target — nothing here asserts that 100%
+coverage is the goal.

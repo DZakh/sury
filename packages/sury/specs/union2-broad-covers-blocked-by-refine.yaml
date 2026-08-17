@@ -3,12 +3,12 @@ ts:
   schema: S.union([S.string.with(S.minLength, 3), S.string])
   input: string
   output: string
-  instantiations: 1226
-vs:
-  zod: z.union([z.string().min(3), z.string()])
+  instantiations: 1418
 jsonSchema:
   input: '{ anyOf: [{ type: "string", minLength: 3 }, { type: "string" }] }'
   output: '{ anyOf: [{ type: "string", minLength: 3 }, { type: "string" }] }'
+vs:
+  zod: z.union([z.string().min(3), z.string()])
 operations:
   parse:
     expression: i=>{if(typeof i==="string"){for(;;){let r;try{i.length>2||e[0](i);break}catch(x){(r||(r=[])).push(e[1](x))}break;}}else{e[2](i)}return i}

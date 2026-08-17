@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.fromJSONSchema({ type: "string", minLength: 5, maxLength: 1 })'
+  input: never
+  output: never
+  instantiations: 754
+jsonSchema:
+  input: "{ not: {} }"
+  output: "{ not: {} }"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{e[0](i);return i}
+    examples:
+      rejects:
+        input: '"anything"'
+        error: Expected never, received "anything"
+  decode: eq-to-parse
+  encode: eq-to-parse

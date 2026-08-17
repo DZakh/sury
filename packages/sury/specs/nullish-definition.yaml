@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.nullish(1)
+  input: 1 | null | undefined
+  output: 1 | null | undefined
+  instantiations: 387
+jsonSchema:
+  input: Expected JSON, received 1 | undefined | null
+  output: Expected JSON, received 1 | undefined | null
+vs:
+  zod: z.literal(1).nullish()
+operations:
+  parse:
+    expression: i=>{(typeof i==="number"&&!Number.isNaN(i)&&i===1||i===void 0||i===null)||e[0](i);return i}
+    examples:
+      literal:
+        input: "1"
+        output: "1"
+      null-passes-through:
+        input: "null"
+        output: "null"
+      undefined-passes-through:
+        input: undefined
+        output: undefined
+      wrong-literal:
+        input: "2"
+        error: Expected 1 | undefined | null, received 2
+  decode: identity
+  encode: identity

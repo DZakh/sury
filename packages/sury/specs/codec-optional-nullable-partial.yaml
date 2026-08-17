@@ -3,13 +3,13 @@ ts:
   schema: S.optional(S.string).with(S.to, S.nullable(S.boolean))
   input: string | undefined
   output: boolean | null
-  instantiations: 5518
-vs:
-  zod:
-    _skip: not-applicable
+  instantiations: 5600
 jsonSchema:
   input: Expected JSON, received string | undefined
   output: '{ anyOf: [{ type: "boolean" }, { type: "null" }] }'
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     creationError: "SuryError: Invalid operation: can't convert string | undefined to boolean | null — string has no same-type variant on the other side. Use S.to to say what you mean, or S.never to mark a variant unreachable"

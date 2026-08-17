@@ -1,4 +1,4 @@
-[⬅ Back to highlights](/README.md)
+[⬅ Back to highlights](../README.md)
 
 # JavaScript API reference
 
@@ -9,12 +9,13 @@
 - [Basic usage](#basic-usage)
   - [Parsing data](#parsing-data)
   - [Inferred types](#inferred-types)
-  - [Serializing data](#serializing-data)
+  - [Encoding data](#encoding-data)
   - [JSON Schema](#json-schema)
   - [Standard Schema](#standard-schema)
 - [Defining schemas](#defining-schemas)
   - [Advanced schemas](#advanced-schemas)
 - [Strings](#strings)
+  - [String formats](#string-formats)
   - [Custom error messages](#custom-error-messages)
   - [ISO datetimes](#iso-datetimes)
 - [Numbers](#numbers)
@@ -39,6 +40,8 @@
 - [Date](#date)
 - [ISO DateTime](#iso-datetime)
 - [Instance](#instance)
+- [Blob](#blob)
+- [File](#file)
 - [Meta](#meta)
 - [Brand](#brand)
 - [Custom schema](#custom-schema)
@@ -73,7 +76,7 @@ npm install sury
 The main building block of **Sury** is a schema — a type definition that exists at runtime.
 
 ```ts
-import * as S from "sury"; // 9.77 kB (min + gzip)
+import * as S from "sury"; // 13.3 kB (min + gzip) for this schema, tree-shaken
 
 const playerSchema = S.schema({
   username: S.string,
@@ -99,7 +102,7 @@ S.parser(playerSchema)({ username: "billie", xp: "not a number" });
 
 Use `S.safe` / `S.safeAsync` if you'd rather have a result than an exception — see [Error handling](#error-handling).
 
-> 🧠 Besides `parser` there are operations to transform without validation, assert without allocating an output, and serialize back to the input format. See [Functions on schema](#functions-on-schema).
+> 🧠 Besides `parser` there are operations to transform without validation, assert without allocating an output, and encode back to the input format. See [Functions on schema](#functions-on-schema).
 
 ### Inferred types
 
@@ -124,9 +127,9 @@ const parseT = <T>(schema: S.Schema<unknown, T>, data: unknown): T =>
   S.parser(schema)(data);
 ```
 
-### Serializing data
+### Encoding data
 
-Every schema has an `Input` type as well as an `Output` type, so the same definition serializes back to the input format:
+Every schema has an `Input` type as well as an `Output` type, so the same definition encodes back to the input format:
 
 ```ts
 S.encoder(playerSchema)({ username: "billie", xp: 100 });
@@ -182,6 +185,8 @@ S.toJSONSchema(documented);
 // }
 ```
 
+The `target` decides the type of the result — `S.JSONSchema7`, `S.JSONSchema2020`, or `S.OpenAPISchema30` — so `prefixItems` is there to reach for on a draft-2020-12 result and `nullable` on an OpenAPI one, and neither is on a draft-07 one.
+
 `S.fromJSONSchema` converts in the other direction:
 
 ```ts
@@ -194,6 +199,47 @@ S.assert(
 );
 // Throws S.Error: Expected email, received "example.com"
 ```
+
+A document written inline is validated and typed:
+
+```ts
+const schema = S.fromJSONSchema({
+  type: "object",
+  properties: { id: { type: "string" }, role: { enum: ["admin", "user"] } },
+  required: ["id"],
+});
+// S.Schema<{ id: string; role?: "admin" | "user" | undefined }>
+```
+
+A `$ref` pointing into the same document is followed, recursive ones included:
+
+```ts
+const comment = S.fromJSONSchema({
+  $ref: "#/$defs/comment",
+  $defs: {
+    comment: {
+      type: "object",
+      properties: {
+        text: { type: "string" },
+        replies: { type: "array", items: { $ref: "#/$defs/comment" } },
+      },
+      required: ["text"],
+    },
+  },
+});
+// S.Schema<{ text: string; replies?: ...[] | undefined }>
+
+S.assert(comment, { text: "hi", replies: [{ text: 1 }] });
+// Throws S.Error: Failed at ["replies"]["0"]["text"]: Expected string, received 1
+```
+
+`$defs` and `definitions` pointers are named in the type; one on any other path (`#/components/schemas/Pet`) is validated the same, but typed as `S.JSON`.
+
+A `$ref` leading outside the document — a URL, a `urn:`, an `$anchor`, a `$id` base — throws instead of silently accepting anything, so bundle first.
+
+To also have TypeScript check the schema document itself, annotate it with `satisfies S.JSONSchema` — that catches a misspelled keyword while leaving `x-` vendor extensions open. The annotation widens literals (e.g. `required`, `enum`), so the inferred type gets wider too — every property becomes optional.
+
+A schema read from a file or an API needs no cast: a non-literal argument — `unknown`, `S.JSON`, or one of the dialect types — falls back to `S.Schema<S.JSON, S.JSON>`, so pair it with `S.to` when you need a narrower type.
 
 > 🧠 **Sury**'s internal representation is itself JSON Schema-shaped, so a schema is readable as-is: `S.schema("Hello world!")` logs `{ type: "string", const: "Hello world!", … }`.
 
@@ -233,6 +279,7 @@ import * as S from "sury";
 S.string;
 S.number;
 S.int32;
+S.integer;
 S.boolean;
 S.bigint;
 S.symbol;
@@ -266,8 +313,16 @@ S.record(S.number); // { [k: string]: number }
 S.schema([S.string, S.number]);
 S.tuple([S.string, S.number]); // alias for S.schema
 
+// Anywhere a schema is accepted, a raw definition works too — it's
+// passed through S.schema for you
+S.array({ id: S.string }); // { id: string }[]
+S.record({ n: S.number }); // { [k: string]: { n: number } }
+S.optional([S.string, "ok"]); // [string, "ok"] | undefined
+S.nullable("foo"); // "foo" | null
+
 // Unions
 S.union([S.string, S.number]);
+S.anyOf([S.string, S.number]); // alias for S.union
 // Enum-like union of literals
 S.union(["Win", "Draw", "Loss"]);
 // Discriminated unions
@@ -304,8 +359,10 @@ S.jsonStringWithSpace(2);
 // Parses JSON string and validates that it's a number
 // JSON string -> number
 S.jsonString.with(S.to, S.number);
-// Serializes number to JSON string
+// Encodes number to JSON string
 S.number.with(S.to, S.jsonString);
+// Encoding to S.jsonString builds an optimized JSON string encoder instead of
+// calling JSON.stringify — usually 1.3-2x faster.
 
 // Asserts that the input is a Date instance and not Invalid Date
 S.date;
@@ -327,20 +384,12 @@ S.string.with(S.maxLength, 5); // Expected string.length <= 5
 S.string.with(S.minLength, 5); // Expected string.length >= 5
 S.string.with(S.length, 5); // Expected string.length == 5
 S.string.with(S.nonEmpty); // Expected string.length >= 1
-S.string.with(S.empty); // Expected string.length == 0
 S.string.with(S.pattern, /[0-9]/); // Invalid pattern
 
 S.string.with(S.trim); // trim whitespaces
 ```
 
-For format-specific string validation, use the standalone schemas:
-
-```ts
-S.email; // Standalone email schema
-S.url; // Standalone URL schema
-S.uuid; // Standalone UUID schema
-S.cuid; // Standalone CUID schema
-```
+For format-specific validation, use the standalone schemas — see [String formats](#string-formats) below.
 
 > For ISO 8601 UTC datetime strings use the dedicated standalone `S.isoDateTime` schema — see [ISO datetimes](#iso-datetimes) below.
 
@@ -352,6 +401,61 @@ When using built-in refinements, you can provide a custom error message.
 S.nonEmpty(S.string, "String can't be empty");
 S.length(S.string, 5, "SMS code should be 5 digits long");
 ```
+
+### String formats
+
+The JSON Schema string format vocabulary, as standalone schemas:
+
+```ts
+S.email; // Email address
+S.idnEmail; // Internationalized email address
+S.uuid; // UUID
+S.cuid; // CUID
+S.uri; // URI — a scheme is required
+S.uriReference; // URI or relative reference
+S.uriTemplate; // URI Template
+S.iri; // IRI — a URI with Unicode allowed
+S.iriReference; // IRI or relative reference
+S.hostname; // Host name
+S.idnHostname; // Internationalized host name
+S.ipv4; // IPv4 address
+S.ipv6; // IPv6 address
+S.isoDate; // Calendar date
+S.isoTime; // Time of day
+S.isoDateTime; // UTC timestamp
+S.duration; // Duration
+S.jsonPointer; // JSON Pointer
+S.relativeJsonPointer; // Relative JSON Pointer
+```
+
+Each survives a round trip through `S.toJSONSchema` and `S.fromJSONSchema`.
+
+**A format checks syntax, not safety.** Every one is exactly as strict as its
+spec, so a well-formed value passes even when it isn't one you want to accept:
+
+```ts
+S.assert(S.uri, "javascript:alert(1)"); // passes — a valid URI
+S.assert(S.hostname, "169.254.169.254"); // passes — a valid host name
+S.assert(S.uriReference, "//evil.com"); // passes — a valid reference
+```
+
+When you want a security decision rather than a syntax check, compose one. The
+extra constraint rides along into the JSON Schema, so it stays honest:
+
+```ts
+const httpsOnly = S.uri.with(S.pattern, /^https:\/\//);
+// { type: "string", format: "uri", pattern: "^https:\\/\\/" }
+```
+
+Two worth knowing before you pick one:
+
+- **`S.url` is not `S.uri`.** `S.url` is an instance of the JS `URL` class, the
+  way `S.date` is a `Date` — use it when you want the parsed object and its
+  `.host` / `.pathname`. `S.uri` validates a string and leaves it a string.
+- **`S.uriReference` is usually the one you want for a link field.** `S.uri`
+  requires a scheme, so it rejects `/dashboard`.
+
+To make the *type* record that a value was validated, [brand it](#brand).
 
 ### Custom error messages
 
@@ -375,7 +479,7 @@ S.email.with(S.meta, { errorMessage: { _: "Invalid input" } });
 schema.with(S.meta, { errorMessage: {} });
 ```
 
-Available keys: `format`, `type`, `minimum`, `maximum`, `minLength`, `maxLength`, `minItems`, `maxItems`, `pattern`, `_` (catch-all).
+Available keys: `format`, `type`, `minimum`, `maximum`, `minLength`, `maxLength`, `minItems`, `maxItems`, `minSize`, `maxSize`, `pattern`, `_` (catch-all).
 
 ### ISO datetimes
 
@@ -407,13 +511,15 @@ S.number.with(S.lte, 5); // Expected number <= 5
 S.number.with(S.gte, 5); // Expected number >= 5
 S.number.with(S.lt, 5); // Expected number < 5
 S.number.with(S.gt, 5); // Expected number > 5
+S.number.with(S.multipleOf, 2); // Expected number % 2
 ```
 
-The comparison refinements work on `S.bigint` too, and on the numeric formats
-(`S.int32`, `S.port`), whose own range takes part in the check — a bound
-outside it describes a schema nothing satisfies, and fails where it's written:
+They work on `S.bigint`, `S.integer`, `S.int32` and `S.port` too. `S.int32`
+and `S.port` have a range of their own, so a bound outside it describes a
+schema nothing satisfies and fails where it's written:
 
 ```ts
+S.integer.with(S.gte, 5); // Expected integer >= 5
 S.int32.with(S.gte, 3000000000);
 // int32 >= 3000000000 contradicts int32 <= 2147483647
 S.number.with(S.gte, 5).with(S.lte, 1);
@@ -621,14 +727,16 @@ type Teacher = S.Infer<typeof teacherSchema>; // => { students: string[], id: st
 const stringArraySchema = S.array(S.string);
 ```
 
-**Sury** includes some of array-specific refinements:
+**Sury** includes some of array-specific refinements. A bound on the size shows
+up in the inferred type, so destructuring and indexing just work:
 
 ```ts
-S.array(S.string).with(S.maxLength, 5); // Expected string[].length <= 5
-S.array(S.string).with(S.minLength, 5); // Expected string[].length >= 5
-S.array(S.string).with(S.length, 5); // Expected string[].length == 5
-S.array(S.string).with(S.nonEmpty); // Expected string[].length >= 1
-S.array(S.string).with(S.empty); // Expected string[].length == 0
+S.array(S.string).with(S.length, 2); //? S.Schema<[string, string]>
+S.array(S.string).with(S.minLength, 2); //? S.Schema<[string, string, ...string[]]>
+S.array(S.string).with(S.nonEmpty); //? S.Schema<[string, ...string[]]>
+S.array(S.string).with(S.maxLength, 5); //? S.Schema<string[]>
+
+const [lat, lng] = S.parser(S.array(S.number).with(S.length, 2))(input); // both number
 ```
 
 ### Compact Columns
@@ -728,6 +836,8 @@ An union represents a logical OR relationship. You can apply this concept to you
 The schema function `union` creates an OR relationship between any number of schemas that you pass as the first argument in the form of an array. On validation, the schema returns the result of the first schema that was successfully validated.
 
 > 🧠 Members are matched in the order they are passed to `S.union` — the first one that fits the value wins.
+
+It's also available as `S.anyOf`, matching the JSON Schema keyword it maps to.
 
 ```ts
 // TypeScript type for reference:
@@ -932,6 +1042,54 @@ S.parser(testSchema)(new Test()); // passes
 S.parser(testSchema)(blob); // throws S.Error: Expected Test, received "whatever"
 ```
 
+## Blob
+
+`S.blob` validates a `Blob`. Its size is bounded in bytes with `S.minSize`,
+`S.maxSize` and `S.size`:
+
+```ts
+S.blob; // Expected Blob
+S.blob.with(S.maxSize, 1_000_000); // Expected Blob.size <= 1000000
+S.blob.with(S.minSize, 1); // Expected Blob.size >= 1
+S.blob.with(S.size, 2); // Expected Blob.size == 2
+S.blob.with(S.maxSize, 1_000_000, "Too large"); // custom message
+```
+
+The same bounds work on any `S.instance` schema with a `.size`, counting
+entries rather than bytes:
+
+```ts
+S.instance(Set).with(S.minSize, 1); // Expected Set.size >= 1
+```
+
+> Strings and arrays use `S.minLength`/`S.maxLength`/`S.length` instead.
+> A lower bound of `0` is dropped; a negative one is an error.
+
+## File
+
+`S.file` validates a `File`. A `File` is a `Blob`, so it also satisfies
+`S.blob` — not the other way round.
+
+```ts
+S.parser(S.file)(new File(["hi"], "a.txt")); // passes
+S.parser(S.file)(new Blob(["hi"])); // throws - Expected File, received Blob
+S.parser(S.blob)(new File(["hi"], "a.txt")); // passes
+```
+
+It takes the same size bounds as [`S.blob`](#blob):
+
+```ts
+S.file.with(S.minSize, 2).with(S.maxSize, 10); // Expected 2 <= File.size <= 10
+```
+
+`S.Blob` and `S.File` are exported as types, for projects whose TypeScript
+config has neither `lib.dom` nor `@types/node` and so has no `Blob`/`File` of
+its own:
+
+```ts
+const upload = (f: S.File) => S.parser(S.file)(f);
+```
+
 ## Meta
 
 Use `S.meta` to add metadata to the resulting schema.
@@ -1110,7 +1268,7 @@ const evenPositiveSchema = S.number
   .with(S.refine, (val) => val % 2 === 0, { error: "Must be even" });
 ```
 
-The refine function is applied for both parsing and serializing.
+The refine function is applied for both parsing and encoding.
 
 Also, you can have an asynchronous assertion (for decoder only):
 
@@ -1218,7 +1376,7 @@ Note, that in this case only type validations are skipped. If your schema has re
 
 Also, you can use `S.noValidation(schema, true)` helper to turn off type validations for the schema even when it's used with a parse operation.
 
-More often than converting input to output, you'll need to perform the reversed operation. It's usually called "serializing" or "decoding". The ReScript Schema has a unique mental model and provides an ability to reverse any schema with `S.reverse` which you can later use with all possible kinds of operations. But for convinence, there's a few helper functions that can be used to convert output values to the initial format:
+More often than converting input to output, you'll need to perform the reversed operation — encoding. **Sury** has a unique mental model and provides an ability to reverse any schema with `S.reverse` which you can later use with all possible kinds of operations. But for convenience, there's a few helper functions that can be used to convert output values to the initial format:
 
 | Operation       | Interface                                              | Description                                                           |
 | --------------- | ------------------------------------------------------ | --------------------------------------------------------------------- |
@@ -1276,8 +1434,6 @@ const stringifyUser = S.encoder(userSchema, S.jsonString);
 stringifyUser({ id: "1", name: "John" });
 ```
 
-This covers the use cases that previously needed `S.compile` — see the [migration cheat sheet](/IDEAS.md#typescript--javascript) for the full mapping.
-
 ### **`reverse`**
 
 ```ts
@@ -1297,7 +1453,7 @@ S.parser(reversed)("bar");
 // {"foo": "bar"}
 
 S.parser(reversed)(123);
-// throws S.error with the message: `Expected string, received 123`
+// throws S.Error with the message: `Expected string, received 123`
 ```
 
 Reverses the schema. This gets especially magical for schemas with transformations 🪄
@@ -1387,7 +1543,7 @@ Used internally for readable error messages.
 S.inputExpression(S.schema({ abc: 123 }));
 // "{ abc: 123; }"
 
-S.inputExpression(S.name(S.string, "Address"));
+S.inputExpression(S.string.with(S.meta, { name: "Address" }));
 // "Address"
 ```
 

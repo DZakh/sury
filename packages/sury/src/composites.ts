@@ -6,23 +6,31 @@ import {
   type AdditionalItems,
   arrayTag,
   baseSchema,
+  copySchema,
   type Check,
   type ErrorDetails,
   flagUnsafeHas,
+  globalConfig,
   immutableEmptyArray,
   immutableEmptyObject,
   inlinedValueFromString,
+  instanceTag,
   type Internal,
   isLiteral,
   isOptional,
+  isSchemaObject,
   jsonName,
   objectTag,
   pathConcat,
   pathFromInlinedLocation,
+  flagAsync,
   tagFlagArray,
+  tagFlagBoolean,
+  tagFlagNull,
   tagFlagObject,
   tagFlagRef,
   tagFlags,
+  tagFlagString,
   tagFlagUnknown,
   U,
   undefinedTag,
@@ -62,12 +70,68 @@ import {
   parse,
   parseDynamic,
 } from "./parse";
-import { isArrayCond, Literal_parse, objectTagCond, unit } from "./primitives";
+import { isArrayCond, Literal_parse, literalDecoder, objectTagCond, unit } from "./primitives";
 import { unionFactory } from "./union";
 
 // Narrows the dict-value-schema-or-mode union down to the schema case.
 const isItemSchema = (x: AdditionalItems | undefined): x is Internal =>
   x !== U && typeof x !== "string";
+
+// A `.to` continuation into non-pretty jsonString serializes dynamic items in
+// its own loop (jsonStringAggregate in advanced/json.ts) and re-parses each
+// item from unknown when the incoming val carries `uv` — so the validation
+// loop here would walk the container a second time (and rebuild transformed
+// items) for nothing. Skip it and hand the container over unvalidated. Value
+// types the aggregate serializes via native JSON.stringify (its fallback:
+// bare strings/booleans/null) must stay validated here — the aggregate
+// mirrors that by never taking the fallback on a `uv` val.
+const B_fuseIntoJsonString = (
+  input: Val,
+  expectedSchema: Internal,
+  item: Internal,
+  isArr: boolean,
+): Val | undefined => {
+  const to = expectedSchema.to;
+  if (
+    // Only an unknown-typed source has validation pending — a typed source
+    // (decode direction) has nothing to fuse, and marking it would make the
+    // aggregate re-validate trusted input.
+    input.s.additionalItems === unknown &&
+    to !== U &&
+    to.format === "json" &&
+    !to.space &&
+    !flagUnsafeHas(input.g.o, flagAsync) &&
+    (isArr ||
+      !(
+        item.to === U &&
+        flagUnsafeHas(
+          tagFlags[item.type]!,
+          (tagFlagString | tagFlagBoolean) | tagFlagNull,
+        )
+      ))
+  ) {
+    const marked = copySchema(expectedSchema);
+    marked.uv = true;
+    return B_refine(input, marked);
+  }
+  return U;
+};
+
+// The wire form of a nested bare json-format string is an escaped string
+// value, not raw JSON text (see fieldPiece in advanced/json.ts). So a
+// JSON-sourced item (a JSON.parse result typed `json`) converting to one must
+// validate the string and pass it through — narrowing the source to `unknown`
+// routes it to jsonString's own decoder instead of json's serialize encoder,
+// which would re-stringify and double-wrap on encode.
+const B_narrowJsonSourcedJsonString = (itemInput: Val): void => {
+  if (
+    itemInput.s.name === jsonName &&
+    itemInput.e.format === "json" &&
+    itemInput.e.to === U
+  ) {
+    itemInput.s = unknown;
+  }
+};
 
 export const makeObjectVal = (prev: Val, schema: Internal): Val => {
   // Canonical Val field order (see B_operationArg in builder.ts).
@@ -126,13 +190,17 @@ export const completeObjectVal = (objectVal: Val): Val => {
       optionalSettingCode = (objectVar: string) => {
         return (
           (existingFn === U ? "" : existingFn(objectVar)) +
-          `if(${val.v()}!==void 0){${objectVar}[${inlinedValueFromString(key)}]=${val.i}}`
+          (key === "__proto__"
+            ? `if(${val.v()}!==void 0){${objectVar}={...${objectVar},["__proto__"]:${val.i}}}`
+            : `if(${val.v()}!==void 0){${objectVar}[${inlinedValueFromString(key)}]=${val.i}}`)
         );
       };
     } else {
       inline =
         inline +
-        (isArray ? `${val.i}` : `${inlinedValueFromString(key)}:${val.i}`) +
+        (isArray
+          ? `${val.i}`
+          : `${key === "__proto__" ? '["__proto__"]' : inlinedValueFromString(key)}:${val.i}`) +
         ",";
     }
   }
@@ -171,15 +239,17 @@ export const completeObjectVal = (objectVal: Val): Val => {
     }
   }
 }
-// @__NO_SIDE_EFFECTS__
-export const array = (item: Internal): Internal => {
-  const itemInternal = item;
-  const mut = baseSchema(arrayTag, itemInternal.r === itemInternal);
-  mut.additionalItems = itemInternal;
+// `S.json` builds its members before operations.ts installs the `~standard`
+// marker, so `array` would misread them as instance literals — init-time and
+// codegen callers take this one.
+export const arrayFactory = (item: Internal): Internal => {
+  const mut = baseSchema(arrayTag, !!item.sr, arrayDecoder);
+  mut.additionalItems = item;
   mut.items = immutableEmptyArray as Internal[];
-  mut.decoder = arrayDecoder;
   return mut;
 }
+// @__NO_SIDE_EFFECTS__
+export const array = (item: unknown): Internal => arrayFactory(definitionToSchema(item));
 export const arrayDecoder = (unknownInput: Val): Val => {
   const isUnion = unknownInput.u!;
   const expectedSchema = unknownInput.e;
@@ -192,7 +262,7 @@ export const arrayDecoder = (unknownInput: Val): Val => {
     const isArrayInput = flagUnsafeHas(unknownInputTagFlag, tagFlagArray);
     let schema: Internal;
     if (!isArrayInput) {
-      schema = array(unknown);
+      schema = arrayFactory(unknown);
     } else {
       schema = unknownInput.s;
     }
@@ -243,15 +313,25 @@ export const arrayDecoder = (unknownInput: Val): Val => {
     if (itemSchema === unknown) {
       output = input;
     } else {
+      if (expectedLength === 0) {
+        // Plain-array fusion only: fixed tuple slots are read by the aggregate
+        // outside its dynamic loop, so they must stay validated here.
+        const fused = B_fuseIntoJsonString(input, expectedSchema, itemSchema, true);
+        if (fused !== U) {
+          return B_markOutput(fused, input);
+        }
+      }
       const inputVar = input.v();
       const iteratorVar = B_varWithoutAllocation(input.g);
 
+      const raiseCountBefore = input.g.t;
       const itemInput = B_dynamicScope(input, iteratorVar);
+      B_narrowJsonSourcedJsonString(itemInput);
       const itemOutput = parseDynamic(itemInput);
       const hasTransform = itemOutput.t!;
       const output2 = hasTransform
         ? // The next `.to` segment decodes from this schema — item-output, not expectedSchema (#284)
-          B_next(input, `new Array(${inputVar}.length)`, array(itemOutput.s))
+          B_next(input, `new Array(${inputVar}.length)`, arrayFactory(itemOutput.s))
         : B_refine(input, expectedSchema);
 
       const itemCode = B_mergeWithPathPrepend(
@@ -259,6 +339,7 @@ export const arrayDecoder = (unknownInput: Val): Val => {
         input,
         iteratorVar,
         hasTransform ? () => B_addKey(output2, iteratorVar, itemOutput) : U,
+        hasTransform ? U : raiseCountBefore,
       );
 
       if (hasTransform || itemCode !== "") {
@@ -296,6 +377,7 @@ export const arrayDecoder = (unknownInput: Val): Val => {
       itemInput.e = schema;
       itemInput.io = false;
       itemInput.u = isUnion; // We want to control validation on the decoder side
+      B_narrowJsonSourcedJsonString(itemInput);
       const itemOutput = parse(itemInput);
 
       if (isUnion && isLiteral(schema)) {
@@ -336,7 +418,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
     let schema: Internal;
     if (!isObjectInput) {
       // TODO: Use dictFactory here
-      const mut = baseSchema(objectTag, false);
+      const mut = baseSchema(objectTag, false, objectDecoder);
       mut.properties = immutableEmptyObject as Record<string, Internal>;
       mut.additionalItems = unknown;
       schema = mut;
@@ -388,9 +470,15 @@ export const objectDecoder = (unknownInput: Val): Val => {
   if (dictItem !== U && dictItem === unknown) {
     output = input;
   } else if (dictItem !== U && sourceIsDict) {
+    const fused = B_fuseIntoJsonString(input, expectedSchema, dictItem, false);
+    if (fused !== U) {
+      return B_markOutput(fused, input);
+    }
     const inputVar = input.v();
     const keyVar = B_varWithoutAllocation(input.g);
+    const raiseCountBefore = input.g.t;
     const itemInput = B_dynamicScope(input, keyVar);
+    B_narrowJsonSourcedJsonString(itemInput);
     const itemOutput = parseDynamic(itemInput);
 
     const hasTransform = itemOutput.t!;
@@ -404,6 +492,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
       input,
       keyVar,
       hasTransform ? () => B_addKey(output2, keyVar, itemOutput) : U,
+      hasTransform ? U : raiseCountBefore,
     );
 
     if (hasTransform || itemCode !== "") {
@@ -437,6 +526,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
       itemInput.e = itemSchema;
       itemInput.io = false;
       itemInput.u = isUnion;
+      B_narrowJsonSourcedJsonString(itemInput);
       B_addObjectField(objectVal, key, parse(itemInput));
     }
     output = completeObjectVal(objectVal);
@@ -488,6 +578,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
       if (isJsonParent && schema.type === anyOfTag && schema.has![undefinedTag]) {
         itemInput.i = `(${itemInput.i}??null)`;
       }
+      B_narrowJsonSourcedJsonString(itemInput);
 
       const itemOutput = parse(itemInput);
 
@@ -550,33 +641,100 @@ export const objectDecoder = (unknownInput: Val): Val => {
   return B_markOutput(output, input);
 }
 
-// @__NO_SIDE_EFFECTS__
+// Same init-order constraint as arrayFactory.
 export const dictFactory = (item: Internal): Internal => {
-  const mut = baseSchema(objectTag, item.r === item);
+  const mut = baseSchema(objectTag, !!item.sr, objectDecoder);
   mut.properties = immutableEmptyObject as Record<string, Internal>;
   mut.additionalItems = item;
-  mut.decoder = objectDecoder;
   return mut;
 }
+// @__NO_SIDE_EFFECTS__
+export const dict = (item: unknown): Internal => dictFactory(definitionToSchema(item));
 
+// An already-built schema is the overwhelmingly common argument, so it exits
+// here instead of paying traverseDefinition's typeof/null checks on top of the
+// ones isSchemaObject just made.
+export const definitionToSchema = (definition: unknown): Internal =>
+  isSchemaObject(definition)
+    ? (definition as Internal)
+    : traverseDefinition(definition, (node) =>
+        isSchemaObject(node) ? (node as Internal) : U
+      );
+
+export const traverseDefinition = (
+  definition: unknown,
+  onNode: (node: unknown) => Internal | undefined
+): Internal => {
+  if (typeof definition === objectTag && definition !== null) {
+    const s = onNode(definition);
+    if (s !== U) {
+      return s;
+    } else {
+      if (Array.isArray(definition)) {
+        const node = definition as unknown[];
+        for (let idx = 0; idx < node.length; idx++) {
+          node[idx] = traverseDefinition(node[idx], onNode);
+        }
+        const items = node as Internal[];
+
+        const mut = baseSchema(arrayTag, false, arrayDecoder);
+        mut.items = items;
+        mut.additionalItems = "strict";
+        return mut;
+      } else {
+        // A prototype other than Object.prototype (or null, e.g. Object.create(null))
+        // means `definition` is a genuine class instance (Date, RegExp, a user
+        // class, ...) to match as a literal — not a plain-record description.
+        // Checking definition["constructor"] instead would misclassify any plain
+        // record that happens to declare an own field named "constructor".
+        const proto = Object.getPrototypeOf(definition);
+        if (proto !== null && proto !== Object.prototype) {
+          const mut = baseSchema(instanceTag, true, literalDecoder);
+          mut.class = (definition as Record<string, unknown>)["constructor"];
+          mut.const = definition;
+          return mut;
+        } else {
+          const node = definition as Record<string, unknown>;
+          const fieldNames = Object.keys(node);
+          const length = fieldNames.length;
+          for (let idx = 0; idx < length; idx++) {
+            const location = fieldNames[idx]!;
+            node[location] = traverseDefinition(node[location], onNode);
+          }
+          const mut = baseSchema(objectTag, false, objectDecoder);
+          mut.required = fieldNames;
+          mut.properties = node as Record<string, Internal>;
+          mut.additionalItems = globalConfig.a;
+          return mut;
+        }
+      }
+    }
+  } else {
+    return Literal_parse(definition);
+  }
+}
+
+// baseSchema, not an object literal: anything reachable as a union member has
+// to carry the schema prototype, since that is where the lazily derived
+// reverse (`schema.r`) lives. A default on a nested option puts this schema
+// in exactly that position.
 export const nestedNone = (): Internal => {
   const itemSchema = Literal_parse(0);
   // FIXME: dict{}
   const properties: Record<string, Internal> = {};
   properties[nestedLoc] = itemSchema;
-  return {
-    type: objectTag,
-    required: [nestedLoc],
-    properties,
-    additionalItems: "strip",
-    decoder: objectDecoder,
-    // TODO: Support this as a default coercion
-    serializer: (input: Val) => {
-      const nextSchema = input.e.to!;
-      return B_nextConst(input, nextSchema, nextSchema);
-      // FIXME: Need to set isOutput?
-    },
-  } as Internal;
+  const mut = baseSchema(objectTag, false);
+  mut.required = [nestedLoc];
+  mut.properties = properties;
+  mut.additionalItems = "strip";
+  mut.decoder = objectDecoder;
+  // TODO: Support this as a default coercion
+  mut.serializer = (input: Val) => {
+    const nextSchema = input.e.to!;
+    return B_nextConst(input, nextSchema, nextSchema);
+    // FIXME: Need to set isOutput?
+  };
+  return mut;
 }
 
 export const nestedOption = (item: Internal): Internal => {
@@ -613,12 +771,14 @@ export const optionFactory = (item: Internal, unitSchema: Internal = unit): Inte
           const nestedSchema = properties[nestedLoc];
           if (nestedSchema !== U) {
             toPush = updateOutput<Internal>(schema, (mut) => {
+              // copySchema, not a spread: a spread keeps the original's seq,
+              // and two schemas sharing a seq can collide in the seq-keyed
+              // operation caches.
+              const bumped = copySchema(nestedSchema);
+              bumped.const = (nestedSchema.const as number) + 1;
               // FIXME: dict{}
               const properties: Record<string, Internal> = {};
-              properties[nestedLoc] = {
-                ...nestedSchema,
-                const: (nestedSchema.const as number) + 1,
-              } as Internal;
+              properties[nestedLoc] = bumped;
               mut.properties = properties;
             });
           } else {
@@ -704,7 +864,11 @@ export const valGet = (parent: Val, location: string): Val => {
       b: U,
       p: parent,
       v: _notVarAtParent,
-      i: isLiteral(schema) ? B_inlineConst(parent, schema) : `${parent.v()}${pathAppend}`,
+      i: isLiteral(schema)
+        ? B_inlineConst(parent, schema)
+        : parent.s.type === objectTag && location in Object.prototype
+          ? `(Object.hasOwn(${parent.v()},${inlinedValueFromString(location)})?${parent.v()}${pathAppend}:void 0)`
+          : `${parent.v()}${pathAppend}`,
       s: schema,
       io: U,
       e: schema,

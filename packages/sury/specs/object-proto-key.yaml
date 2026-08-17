@@ -4,29 +4,15 @@ ts:
   input: "{ __proto__: string; }"
   output: "{ __proto__: string; }"
   instantiations: 1204
+jsonSchema:
+  input: '{ type: "object", properties: { ["__proto__"]: { type: "string" } }, required: ["__proto__"] }'
+  output: '{ type: "object", properties: { ["__proto__"]: { type: "string" } }, required: ["__proto__"] }'
 vs:
   zod:
     _skip: not-applicable
-# FIXME: `__proto__` is a live prototype setter in every place this schema
-# touches a plain object, and `parse.expression` below still walks into it: it
-# builds its result as `{"__proto__":v0,}`, and a quoted key in an object literal
-# is still prototype syntax, so the validated value is assigned to the prototype
-# and the key is dropped — a valid input parses to `{}`. `{["__proto__"]:v0}`
-# would fix it, at the cost of that form on every emitted object.
-# `reverse` used to have the same bug through its property dict, which reparented
-# the reversed dict onto the property's own schema and made `outputExpression`
-# render schema internals; that one is fixed (Object.create(null) in reverseDict,
-# the guard fromJSONSchema already uses for this key).
-# The examples cover only inputs the harness can serialize back to source; an
-# object with a `__proto__` own property is not one (see CONTRIBUTING.md), which
-# is also why both `jsonSchema` sides below are harness markers rather than
-# schemas — the output side reaching the same marker is what the fix restored.
-jsonSchema:
-  input: cannot represent a Object instance as spec source code
-  output: cannot represent a Object instance as spec source code
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i["__proto__"];typeof v0==="string"||e[0](v0);return {"__proto__":v0,}}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=(Object.hasOwn(i,"__proto__")?i["__proto__"]:void 0);typeof v0==="string"||e[0](v0);return {["__proto__"]:v0,}}
     examples:
       not-an-object:
         input: '"nope"'
@@ -34,11 +20,11 @@ operations:
       array-input:
         input: "[]"
         error: "Expected { __proto__: string; }, received []"
-      # FIXME: reads the inherited Object.prototype rather than undefined, the
-      # same prototype-chain leak object-reserved-names.yaml pins for
-      # `constructor` and `hasOwnProperty`.
       missing-field:
         input: "{}"
-        error: 'Failed at ["__proto__"]: Expected string, received {}'
+        error: 'Failed at ["__proto__"]: Expected string, received undefined'
+      present-key:
+        input: '{ ["__proto__"]: "x" }'
+        output: '{ ["__proto__"]: "x" }'
   decode: identity
   encode: identity

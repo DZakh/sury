@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.nullable(S.string, "bar")
+  input: string | null
+  output: string
+  instantiations: 424
+jsonSchema:
+  input: '{ default: "bar", anyOf: [{ type: "string" }, { type: "null" }] }'
+  output: '{ type: "string" }'
+vs:
+  zod: z.string().nullable().transform((value) => value ?? "bar")
+operations:
+  parse:
+    expression: i=>{for(;;){if(typeof i==="string")break;if(i===null){i="bar";break}e[0](i)}return i}
+    examples:
+      string:
+        input: '"foo"'
+        output: '"foo"'
+      null-becomes-the-default:
+        input: "null"
+        output: '"bar"'
+      undefined-is-not-accepted:
+        input: undefined
+        error: Expected string | null, received undefined
+  decode: eq-to-parse
+  encode:
+    expression: i=>{typeof i==="string"||e[0](i);return i}
+    examples:
+      string:
+        input: '"foo"'
+        output: '"foo"'

@@ -129,8 +129,7 @@ function getCompiledCodeString(schema, op, embedded) {
       Stdlib_Dict.forEachWithKey(defs, (schema, key) => {
         try {
           let defFn = toFn(schema);
-          let defCode = defFn.toString().replaceAll(Sury.unknown.seq.toString() + `-` + schema.seq.toString(), `unknown->` + key);
-          code.contents = code.contents + "\n" + (key + `: ` + defCode);
+          code.contents = code.contents + "\n" + (key + `: ` + defFn.toString());
           return;
         } catch (_exn) {
           return;

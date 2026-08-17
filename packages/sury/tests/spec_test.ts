@@ -14,6 +14,7 @@ import {
   recomputeGoldens,
   evalSchema,
   identityViolations,
+  asyncViolations,
   checkAliases,
   collectComments,
   lintComments,
@@ -21,8 +22,11 @@ import {
   lintSkips,
   lintSpecsDir,
   checkBundleSize,
+  checkScenarios,
+  readScenarios,
+  SCENARIOS_SCHEMA_PATH,
 } from "../../spec/harness";
-import { validate, schemaJson, isCreationError } from "../../spec/format";
+import { validate, schemaJson, scenariosSchemaJson, isCreationError } from "../../spec/format";
 import { summarize } from "../../spec/summary";
 
 // recomputeGoldens does a TS-program introspection pass per spec, and the
@@ -45,6 +49,39 @@ test("spec.schema.json is fresh (run `pnpm spec schema`)", () => {
   expect(readFileSync(SCHEMA_PATH, "utf8")).toBe(schemaJson());
 });
 
+test("scenarios.schema.json is fresh (run `pnpm spec schema`)", () => {
+  expect(readFileSync(SCENARIOS_SCHEMA_PATH, "utf8")).toBe(scenariosSchemaJson());
+});
+
+// Scenarios have no goldens, so nothing else would ever execute them — a
+// broken one would only show up in a perf run, as an indistinguishable "new".
+test("scenarios.yaml is valid and every scenario runs (run `pnpm spec check`)", () => {
+  const errs = checkScenarios();
+  expect(errs, errs.join("\n")).toEqual([]);
+});
+
+test("there is at least one scenario", () => {
+  expect(Object.keys(readScenarios()).length).toBeGreaterThan(0);
+});
+
+test("checkScenarios reports a bad shape, a colliding id, and one that throws", () => {
+  expect(checkScenarios("standard: { run: 1 }", [])[0]).toMatch(/^schema: /);
+  expect(
+    checkScenarios(["string:", "  run: S.parser(S.string)"].join("\n"), ["string"]),
+  ).toEqual(["string: id collides with a spec of the same name"]);
+  expect(
+    checkScenarios(["broken:", "  run: S.parse(S.string)"].join("\n"), [])[0],
+  ).toMatch(/^broken: did not run: /);
+  // A `prepare` binding has to reach `run`, or every scenario would have to
+  // inline its whole setup into the measured expression.
+  expect(
+    checkScenarios(
+      ["ok:", "  prepare: const schema = S.string", "  run: S.parser(schema)"].join("\n"),
+      [],
+    ),
+  ).toEqual([]);
+});
+
 // Same reasoning as the spec.schema.json freshness test above: CI runs
 // `pnpm test`, not `pnpm spec check`, so without this the bundle-size ratchet
 // would only bite on a manual run.
@@ -65,9 +102,11 @@ test("lintSpecsDir rejects a non-yaml file and a dotted/invalid id", () => {
     "bad.dotted.yaml",
     "spec.schema.json",
     "bundleSize.yaml",
+    "scenarios.yaml",
+    "scenarios.schema.json",
   ]);
   expect(errs).toEqual([
-    `specs dir: unexpected file "notes.txt" (only *.yaml and spec.schema.json/bundleSize.yaml allowed)`,
+    `specs dir: unexpected file "notes.txt" (only *.yaml and spec.schema.json/bundleSize.yaml/scenarios.yaml/scenarios.schema.json allowed)`,
     `specs dir: invalid spec id "bad.dotted" (only letters, digits, and - allowed)`,
   ]);
 });
@@ -81,6 +120,7 @@ test("summarize renders ranked metric moves and behavior changes", () => {
   const after = structuredClone(before);
   after.ts.instantiations = 300;
   after.ts.output = "string | undefined";
+  after.jsonSchema.fromInputType = "unknown";
   if (after.operations.parse !== "identity" && !isCreationError(after.operations.parse)) {
     after.operations.parse.expression = "i=>i";
     const ex = after.operations.parse.examples.valid;
@@ -122,6 +162,7 @@ test("summarize renders ranked metric moves and behavior changes", () => {
       toJSONSchema     4000 →  5229  +30.7%
       fromJSONSchema  20000 → 15165  -24.2%
     behavior changed:
+      string.jsonSchema.fromInputType  omitted → unknown
       string.ts.output  string → string | undefined
       string.parse.valid  output "hello" → output "HELLO""
   `);
@@ -183,6 +224,11 @@ describe.each(specs)("spec: $id", ({ file }) => {
   test("has no identity-invariant violations (run `pnpm spec check`)", () => {
     const schema = evalSchema(spec.ts.schema);
     const violations = identityViolations(schema, spec);
+    expect(violations, violations.join("\n")).toEqual([]);
+  });
+
+  test("every `isAsync` marker matches the schema (run `pnpm spec check`)", () => {
+    const violations = asyncViolations(evalSchema(spec.ts.schema), spec);
     expect(violations, violations.join("\n")).toEqual([]);
   });
 

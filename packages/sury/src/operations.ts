@@ -2,8 +2,10 @@
 // interop surface built on top of them.
 
 import {
+  type Flag,
   flagAsync,
   getOrRethrow,
+  globalConfig,
   initSchema,
   inputExpression,
   type Internal,
@@ -112,13 +114,28 @@ Object.defineProperty(schemaPrototype, "toString", {
 Object.defineProperty(schemaPrototype, "~standard", {
   get: function (this: Internal) {
     const schema = this;
+    // The decoder lives in the closure: the Standard Schema contract is a
+    // per-call `schema["~standard"].validate(input)`, so the getDecoder
+    // lookup can't be hoisted by the consumer and would outweigh the decode.
+    // `globalConfig.f` is getDecoder's flag source, so re-reading it is the
+    // whole invalidation condition.
+    let decoderFlag: Flag | undefined = U;
+    let decoder: (input: unknown) => unknown;
     const standard: StandardProps = {
       version: 1,
       vendor,
       validate: (input: unknown): StandardResult => {
+        // Outside the try: a conversion rejected at operation creation fails
+        // for every input — a schema bug for the developer, not an `issues`
+        // entry for whoever is filling in the form. It throws on every call,
+        // since `decoderFlag` commits only once there is a decoder.
+        if (decoderFlag !== globalConfig.f) {
+          decoder = getDecoder(unknown, schema) as (input: unknown) => unknown;
+          decoderFlag = globalConfig.f;
+        }
         try {
           return {
-            value: (getDecoder(unknown, schema) as (input: unknown) => unknown)(input),
+            value: decoder(input),
           };
         } catch (exn) {
           const error = getOrRethrow(exn);
@@ -153,9 +170,8 @@ Object.defineProperty(schemaPrototype, "~standard", {
 // Operations
 // =============
 
-export const assertResult: Internal = /* @__PURE__ */ initSchema(undefinedTag, (s) => {
+export const assertResult: Internal = /* @__PURE__ */ initSchema(undefinedTag, literalDecoder, (s) => {
   s.const = U;
-  s.decoder = literalDecoder;
   s.noValidation = true;
 });
 
@@ -183,7 +199,7 @@ export const wrapExnToFailure = (exn: unknown): JsResult<never> => {
   }
 }
 
-export const js_safe = <TValue>(fn: () => TValue): JsResult<TValue> => {
+export const safe = <TValue>(fn: () => TValue): JsResult<TValue> => {
   try {
     return {
       success: true,
@@ -194,7 +210,7 @@ export const js_safe = <TValue>(fn: () => TValue): JsResult<TValue> => {
   }
 }
 
-export const js_safeAsync = <TValue>(fn: () => Promise<TValue>): Promise<JsResult<TValue>> => {
+export const safeAsync = <TValue>(fn: () => Promise<TValue>): Promise<JsResult<TValue>> => {
   try {
     return fn().then(
       (value): JsResult<TValue> => ({ success: true, value }),

@@ -29,7 +29,7 @@ const listToArray = (list: RescriptList): unknown[] => {
 }
 
 // @__NO_SIDE_EFFECTS__
-export const list = (schema: Internal): Internal => {
+export const list = (schema: unknown): Internal => {
   // `unknown` target: a ReScript list has no schema of its own to land on.
   return codecTo(
     array(schema),

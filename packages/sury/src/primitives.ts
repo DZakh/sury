@@ -48,6 +48,12 @@ export const int32FormatValidation = (inputVar: string) => {
   return `${inputVar}<=2147483647&&${inputVar}>=-2147483648&&${inputVar}%1===0`;
 };
 
+// `%1===0` is NaN (falsy) for NaN and ±Infinity, so one check covers "is a
+// finite mathematical integer" with no separate NaN validation.
+export const integerFormatValidation = (inputVar: string) => {
+  return `${inputVar}%1===0`;
+};
+
 // Atomic type-narrow conditions, shared by the type decoders and the union
 // dispatch (`typeCheckCond`) so the two can't drift. Memoized per tag: the
 // returned closure depends only on `tag`, and this is called all over the
@@ -76,6 +82,13 @@ const typeofCheck = (tag: Tag): Check =>
   typeofCheckCache[tag] || (typeofCheckCache[tag] = { c: typeofCond(tag), f: failInvalidType });
 const notNanCheck: Check = { c: (inputVar) => `!${nanCond(inputVar)}`, f: failInvalidType };
 const int32Check: Check = { c: int32FormatValidation, f: failInvalidType };
+const integerCheck: Check = { c: integerFormatValidation, f: failInvalidType };
+// For a source that already carries a number format — integer-valued by the
+// NumberFormat invariant — only int32's range is left to check.
+const int32RangeCheck: Check = {
+  c: (inputVar) => `${inputVar}<=2147483647&&${inputVar}>=-2147483648`,
+  f: failInvalidType,
+};
 const nanCheck: Check = { c: nanCond, f: failInvalidType };
 
 // Reject anything but `tag` when the input is still `unknown` — shared by
@@ -94,10 +107,13 @@ const B_nextVar = (input: Val, expected: Internal): Val => {
 
 export const numberDecoder: Builder = (input: Val) => {
   const inputTagFlag = tagFlags[input.s.type]!;
+  const expectedFormat = input.e.format;
   if (flagUnsafeHas(inputTagFlag, tagFlagUnknown)) {
     const checks: Check[] = [typeofCheck(numberTag)];
-    if (input.e.format === "int32") {
+    if (expectedFormat === "int32") {
       checks.push(int32Check);
+    } else if (expectedFormat === "integer") {
+      checks.push(integerCheck);
     } else {
       if (!flagUnsafeHas(input.g.o, flagDisableNanNumberValidation)) {
         checks.push(notNanCheck);
@@ -114,40 +130,51 @@ export const numberDecoder: Builder = (input: Val) => {
     output.vc = [
       {
         c: (_inputVar) =>
-          input.e.format === "int32"
+          expectedFormat === "int32"
             ? int32FormatValidation(output.i)
-            : `!${nanCond(output.i)}`,
+            : expectedFormat === "integer"
+              ? integerFormatValidation(output.i)
+              : `!${nanCond(output.i)}`,
         f: failInvalidType,
       },
     ];
     return output;
   } else if (
     flagUnsafeHas(inputTagFlag, tagFlagNaN) &&
-    input.e.format !== "int32" &&
+    expectedFormat !== "int32" &&
+    expectedFormat !== "integer" &&
     flagUnsafeHas(input.g.o, flagDisableNanNumberValidation)
   ) {
     return B_refine(input, input.e);
   } else if (!flagUnsafeHas(inputTagFlag, tagFlagNumber)) {
     return B_unsupportedDecode(input, input.s, input.e);
-  } else if (input.s.format !== input.e.format && input.e.format === "int32") {
-    return B_refine(input, input.e, [int32Check]);
+  } else if (input.s.format !== expectedFormat && expectedFormat === "int32") {
+    return B_refine(input, input.e, [input.s.format === U ? int32Check : int32RangeCheck]);
+  } else if (expectedFormat === "integer" && input.s.format === U) {
+    // Any formatted number source is already integer-valued (the NumberFormat
+    // invariant), so only a bare number still needs the check.
+    return B_refine(input, input.e, [integerCheck]);
   } else {
     return input;
   }
 };
 
-export const float: Internal = /* @__PURE__ */ initSchema(numberTag, (s) => {
-  s.decoder = numberDecoder;
-});
+export const float: Internal = /* @__PURE__ */ initSchema(numberTag, numberDecoder);
 
-export const int: Internal = /* @__PURE__ */ initSchema(numberTag, (s) => {
+export const int: Internal = /* @__PURE__ */ initSchema(numberTag, numberDecoder, (s) => {
   s.format = "int32";
   // The format's range as real bound fields, not just something the JSON
   // Schema emit knows: S.gte/S.lte compare against them, so a bound outside
   // int32 is caught as a contradiction instead of silently building.
   s.minimum = -2147483648;
   s.maximum = 2147483647;
-  s.decoder = numberDecoder;
+});
+
+// JSON Schema's unbounded `integer`: any number with no fractional part, with
+// none of int32's range. Carries no bound fields — there is no range to
+// advertise or for a user bound to contradict.
+export const integer: Internal = /* @__PURE__ */ initSchema(numberTag, numberDecoder, (s) => {
+  s.format = "integer";
 });
 
 // inputToString/stringDecoderFn/string are mutually recursive (stringDecoderFn
@@ -167,7 +194,13 @@ export const stringDecoderFn = (input: Val): Val => {
     ) && isLiteral(input.s)
   ) {
     const const_ = "" + (input.s.const as string);
-    const schema = baseSchema(stringTag, false);
+    // The stringified literal is still a literal, so it wants `literalDecoder`
+    // — taken off the source rather than imported, the way unionNarrowSchema
+    // avoids naming a decoder. `isLiteral(input.s)` above is what guarantees
+    // this is that decoder, and reaching this branch at all requires a literal
+    // schema in the bundle: naming it statically would instead ship it to every
+    // `S.string` consumer (+264 gz on that export, +4 on total).
+    const schema = baseSchema(stringTag, false, input.s.decoder);
     schema.const = const_;
     return B_next(input, `"${const_}"`, schema);
   } else if (flagUnsafeHas(inputTagFlag, tagFlagBoolean | tagFlagNumber | tagFlagBigint)) {
@@ -178,9 +211,7 @@ export const stringDecoderFn = (input: Val): Val => {
     return input;
   }
 }
-export const string: Internal = /* @__PURE__ */ initSchema(stringTag, (s) => {
-  s.decoder = stringDecoderFn;
-});
+export const string: Internal = /* @__PURE__ */ initSchema(stringTag, stringDecoderFn);
 
 export const booleanDecoder: Builder = (input: Val) => {
   const inputTagFlag = tagFlags[input.s.type]!;
@@ -200,9 +231,7 @@ export const booleanDecoder: Builder = (input: Val) => {
   }
 };
 
-export const bool: Internal = /* @__PURE__ */ initSchema(booleanTag, (s) => {
-  s.decoder = booleanDecoder;
-});
+export const bool: Internal = /* @__PURE__ */ initSchema(booleanTag, booleanDecoder);
 
 export const bigintDecoder: Builder = (input: Val) => {
   const inputTagFlag = tagFlags[input.s.type]!;
@@ -225,9 +254,7 @@ export const bigintDecoder: Builder = (input: Val) => {
   }
 };
 
-export const bigint: Internal = /* @__PURE__ */ initSchema(bigintTag, (s) => {
-  s.decoder = bigintDecoder;
-});
+export const bigint: Internal = /* @__PURE__ */ initSchema(bigintTag, bigintDecoder);
 
 export const symbolDecoder: Builder = (input: Val) => {
   const inputTagFlag = tagFlags[input.s.type]!;
@@ -240,9 +267,7 @@ export const symbolDecoder: Builder = (input: Val) => {
   }
 };
 
-export const symbol: Internal = /* @__PURE__ */ initSchema(symbolTag, (s) => {
-  s.decoder = symbolDecoder;
-});
+export const symbol: Internal = /* @__PURE__ */ initSchema(symbolTag, symbolDecoder);
 
 export const literalDecoder: Builder = (input: Val) => {
   const expectedSchema = input.e;
@@ -264,7 +289,7 @@ export const literalDecoder: Builder = (input: Val) => {
         tagFlagBoolean | tagFlagNumber | tagFlagBigint | tagFlagUndefined | tagFlagNull | tagFlagNaN,
       )
     ) {
-      const stringConstSchema = baseSchema(stringTag, false);
+      const stringConstSchema = baseSchema(stringTag, false, literalDecoder);
       stringConstSchema.const = "" + (expectedSchema.const as string);
 
       const stringConstVal = B_nextConst(input, stringConstSchema, stringConstSchema);
@@ -290,25 +315,21 @@ export const literalDecoder: Builder = (input: Val) => {
   }
 };
 
-export const unit: Internal = /* @__PURE__ */ initSchema(undefinedTag, (s) => {
+export const unit: Internal = /* @__PURE__ */ initSchema(undefinedTag, literalDecoder, (s) => {
   s.const = U;
-  s.decoder = literalDecoder;
 });
 
-export const void_: Internal = /* @__PURE__ */ initSchema(undefinedTag, (s) => {
+export const void_: Internal = /* @__PURE__ */ initSchema(undefinedTag, literalDecoder, (s) => {
   s.const = U;
   s.name = "void";
-  s.decoder = literalDecoder;
 });
 
-export const nullLiteral: Internal = /* @__PURE__ */ initSchema(nullTag, (s) => {
+export const nullLiteral: Internal = /* @__PURE__ */ initSchema(nullTag, literalDecoder, (s) => {
   s.const = null;
-  s.decoder = literalDecoder;
 });
 
-export const nan: Internal = /* @__PURE__ */ initSchema(nanTag, (s) => {
+export const nan: Internal = /* @__PURE__ */ initSchema(nanTag, literalDecoder, (s) => {
   s.const = NaN;
-  s.decoder = literalDecoder;
 });
 
 export const Literal_parse = (value: unknown): Internal => {
@@ -321,15 +342,13 @@ export const Literal_parse = (value: unknown): Internal => {
     } else if (tag === numberTag && Number.isNaN(value as number)) {
       return nan;
     } else if (tag === objectTag) {
-      const s = baseSchema(instanceTag, true);
+      const s = baseSchema(instanceTag, true, literalDecoder);
       s.class = (value as Record<string, unknown>)["constructor"];
       s.const = value;
-      s.decoder = literalDecoder;
       return s;
     } else {
-      const s = baseSchema(tag, true);
+      const s = baseSchema(tag, true, literalDecoder);
       s.const = value;
-      s.decoder = literalDecoder;
       return s;
     }
   }

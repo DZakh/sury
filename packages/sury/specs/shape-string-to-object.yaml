@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.shape(S.string, (string) => ({ foo: string }))"
+  input: string
+  output: "{ foo: string; }"
+  instantiations: 503
+jsonSchema:
+  input: '{ type: "string" }'
+  output: '{ type: "object", properties: { foo: { type: "string" } }, required: ["foo"] }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[0](i);return {"foo":i,}}
+    examples:
+      valid:
+        input: '"bar"'
+        output: '{ foo: "bar" }'
+      not-a-string:
+        input: "1"
+        error: Expected string, received 1
+  decode:
+    expression: i=>{return {"foo":i,}}
+    examples:
+      valid:
+        input: '"bar"'
+        output: '{ foo: "bar" }'
+  encode:
+    expression: i=>{return i["foo"]}
+    examples:
+      round-trip:
+        input: '{ foo: "bar" }'
+        output: '"bar"'

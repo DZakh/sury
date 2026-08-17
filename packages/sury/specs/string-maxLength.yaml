@@ -3,12 +3,12 @@ ts:
   schema: S.string.with(S.maxLength, 2)
   input: string
   output: string
-  instantiations: 600
-vs:
-  zod: z.string().max(2)
+  instantiations: 581
 jsonSchema:
   input: '{ type: "string", maxLength: 2 }'
   output: '{ type: "string", maxLength: 2 }'
+vs:
+  zod: z.string().max(2)
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[1](i);i.length<3||e[0](i);return i}

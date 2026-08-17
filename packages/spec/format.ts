@@ -72,6 +72,17 @@ export type Example = S.Output<typeof example>;
 // Examples are addressed by name, not array index, so identity survives
 // insertion/removal.
 const operationExpression = S.schema({
+  // Declared, not refreshed: an async operation is compiled by a different
+  // builder and returns a Promise — a different API for every consumer — so
+  // `--write` never adds or removes the marker in place. A schema that turns
+  // async fails the check instead of quietly rewriting the spec to say so.
+  // Absent means sync; `false` is never written, so there's one spelling per state.
+  isAsync: S.optional(S.schema(true)).with(S.meta, {
+    description:
+      "`true` if this direction is async (built with S.asyncParser/asyncDecoder/asyncEncoder, " +
+      "examples awaited). Written when the block is first created; `spec check` errors when it " +
+      "disagrees with the schema. Omit when sync.",
+  }),
   expression: orSkip(S.string).with(S.meta, {
     description: "Compiled function source (`.toString()`). Filled by `spec check --write`.",
   }),
@@ -81,6 +92,7 @@ const operationExpression = S.schema({
 })
   .with(S.strict)
   .with(S.meta, { description: "Compiled codegen plus its runnable examples." });
+export type OperationExpression = S.Output<typeof operationExpression>;
 
 // The operation analogue of a thrown `jsonSchema` string: some conversions are
 // rejected when the operation is compiled (an unsupported or ambiguous `.to`),
@@ -201,14 +213,31 @@ const vs = S.schema({
 
 export const specSchema = S.schema({
   ts,
+  jsonSchema: S.schema({
+    input: S.string.with(S.meta, {
+      description: "S.toJSONSchema(schema), as source text, or its conversion error.",
+    }),
+    fromInputType: S.optional(S.string).with(S.meta, {
+      description:
+        "The output type inferred by S.fromJSONSchema(input), only when it differs from ts.input; omit when equal or when input is a conversion error.",
+    }),
+    output: S.string.with(S.meta, {
+      description: "S.toJSONSchema(S.reverse(schema)), as source text, or its conversion error.",
+    }),
+    fromOutputType: S.optional(S.string).with(S.meta, {
+      description:
+        "The output type inferred by S.fromJSONSchema(output), only when it differs from ts.output; omit when equal or when output is a conversion error.",
+    }),
+  })
+    .with(S.strict)
+    .with(S.meta, {
+      description:
+        "S.toJSONSchema(schema) for both directions, as one-line source text, plus any divergent " +
+        "output type inferred by S.fromJSONSchema for each generated document. Matching types are " +
+        "omitted; if a direction can't be represented, no round-trip type is recorded. " +
+        "Filled by `spec check --write`.",
+    }),
   vs,
-  jsonSchema: S.schema({ input: S.string, output: S.string }).with(S.strict).with(S.meta, {
-    description:
-      "S.toJSONSchema(schema) for both directions, as a one-line source-text string (same " +
-      "formatting as example values) — or (per direction) the message S.toJSONSchema threw " +
-      "if that direction can't be represented (e.g. a bigint/symbol field). Filled by " +
-      "`spec check --write`.",
-  }),
   operations,
 })
   .with(S.strict)
@@ -224,7 +253,7 @@ export type OpName = keyof Spec["operations"];
 // `ts`/`operations`/`specSchema` without updating the matching order here is a
 // compile error, not a silently-out-of-order key at serialize time.
 const keyOrder = <T,>(order: Record<keyof T, true>) => Object.keys(order) as (keyof T)[];
-export const KEY_ORDER = keyOrder<Spec>({ ts: true, vs: true, jsonSchema: true, operations: true });
+export const KEY_ORDER = keyOrder<Spec>({ ts: true, jsonSchema: true, vs: true, operations: true });
 export const VS_KEY_ORDER = keyOrder<Spec["vs"]>({ zod: true });
 export const VS_ZOD_KEY_ORDER = keyOrder<ZodOverwrite>({ schema: true, divergence: true, input: true, output: true });
 export const TS_KEY_ORDER = keyOrder<Spec["ts"]>({
@@ -235,6 +264,11 @@ export const TS_KEY_ORDER = keyOrder<Spec["ts"]>({
   instantiations: true,
 });
 export const OP_ORDER = keyOrder<Spec["operations"]>({ parse: true, decode: true, encode: true });
+export const OP_BLOCK_KEY_ORDER = keyOrder<OperationExpression>({
+  isAsync: true,
+  expression: true,
+  examples: true,
+});
 
 export const isSkip = (v: unknown): v is Skip => S.is(skip, v);
 
@@ -299,3 +333,43 @@ export const validateBundleSize = (
     return { ok: false, error: (e as Error).message };
   }
 };
+
+// ---- scenarios.yaml --------------------------------------------------------
+
+// A spec times the library's inner surface (create, compile, compiled
+// operation); a scenario times a whole call the way a consumer writes it, so
+// the dispatch around the compiled operation — invisible to every per-spec
+// phase — is inside the measurement. Perf never stores a number, so scenarios
+// have no goldens and no `--write`; `spec check` executes each one instead.
+export const scenarioSchema = S.schema({
+  prepare: S.optional(S.string).with(S.meta, {
+    description:
+      "Statements run once per library version before measuring, with `S` in scope; their bindings are in scope for `run`. Build the schema and the input here — only `run` is timed.",
+  }),
+  run: S.string.with(S.meta, {
+    description:
+      "The expression to measure, evaluated in `prepare`'s scope. Must not throw: timing a throw measures error construction.",
+  }),
+})
+  .with(S.strict)
+  .with(S.meta, { description: "One measured consumer-level call." });
+export type Scenario = S.Output<typeof scenarioSchema>;
+
+export const scenariosSchema = S.record(scenarioSchema).with(S.meta, {
+  description:
+    "Consumer-level performance scenarios, keyed by id, measured by `spec check --perf` alongside the specs.",
+});
+export type Scenarios = S.Output<typeof scenariosSchema>;
+
+export const validateScenarios = (
+  obj: unknown,
+): { ok: true; value: Scenarios } | { ok: false; error: string } => {
+  try {
+    return { ok: true, value: S.parser(scenariosSchema)(obj) };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+};
+
+export const scenariosSchemaJson = (): string =>
+  JSON.stringify(S.toJSONSchema(scenariosSchema), null, 2) + "\n";

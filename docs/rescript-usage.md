@@ -1,4 +1,4 @@
-[⬅ Back to highlights](/README.md)
+[⬅ Back to highlights](../README.md)
 
 # ReScript API reference
 
@@ -10,6 +10,7 @@
 - [Real-world examples](#real-world-examples)
 - [API reference](#api-reference)
   - [`string`](#string)
+    - [String formats](#string-formats)
     - [Custom error messages](#custom-error-messages)
     - [ISO datetimes](#iso-datetimes)
   - [`int`](#int)
@@ -46,6 +47,8 @@
   - [`date`](#date)
   - [`isoDateTime`](#isodatetime)
   - [`instance`](#instance)
+  - [`blob`](#blob)
+  - [`file`](#file)
   - [`json`](#json)
   - [`jsonString`](#jsonstring)
   - [`meta`](#meta)
@@ -179,6 +182,7 @@ The obvious ones, at a glance:
 | `S.string` | `S.t<string>` | [refinements ↓](#string) |
 | `S.bool` | `S.t<bool>` | |
 | `S.int` | `S.t<int>` | [refinements ↓](#int) |
+| `S.integer` | `S.t<float>` | integer without `int`'s range [↓](#int) |
 | `S.float` | `S.t<float>` | [refinements ↓](#float) |
 | `S.bigint` | `S.t<bigint>` | |
 | `S.symbol` | `S.t<Symbol.t>` | |
@@ -210,24 +214,69 @@ S.string->S.maxLength(5) // Expected string.length <= 5
 S.string->S.minLength(5) // Expected string.length >= 5
 S.string->S.length(5) // Expected string.length == 5
 S.string->S.nonEmpty // Expected string.length >= 1
-S.string->S.empty // Expected string.length == 0
 S.string->S.pattern(%re(`/[0-9]/`)) // Invalid pattern
 
 S.string->S.trim // trim whitespaces
 ```
 
-For format-specific string validation, use the standalone schemas:
-
-```rescript
-S.email // Standalone email schema
-S.url // Standalone URL schema
-S.uuid // Standalone UUID schema
-S.cuid // Standalone CUID schema
-```
+For format-specific validation, use the standalone schemas — see [String formats](#string-formats) below.
 
 > For ISO 8601 UTC datetime strings use the dedicated standalone `S.isoDateTime` schema — see [ISO datetimes](#iso-datetimes) below.
 
 > ⚠️ Validating email addresses is nearly impossible with just code. Different clients and servers accept different things and many diverge from the various specs defining "valid" emails. The ONLY real way to validate an email address is to send a verification email to it and check that the user got it. With that in mind, Sury picks a relatively simple regex that does not cover all cases.
+
+#### String formats
+
+The JSON Schema string format vocabulary, as standalone schemas:
+
+```rescript
+S.email // Email address
+S.idnEmail // Internationalized email address
+S.uuid // UUID
+S.cuid // CUID
+S.uri // URI — a scheme is required
+S.uriReference // URI or relative reference
+S.uriTemplate // URI Template
+S.iri // IRI — a URI with Unicode allowed
+S.iriReference // IRI or relative reference
+S.hostname // Host name
+S.idnHostname // Internationalized host name
+S.ipv4 // IPv4 address
+S.ipv6 // IPv6 address
+S.isoDate // Calendar date
+S.isoTime // Time of day
+S.isoDateTime // UTC timestamp
+S.duration // Duration
+S.jsonPointer // JSON Pointer
+S.relativeJsonPointer // Relative JSON Pointer
+```
+
+Each survives a round trip through `S.toJSONSchema` and `S.fromJSONSchema`.
+
+**A format checks syntax, not safety.** Every one is exactly as strict as its
+spec, so a well-formed value passes even when it isn't one you want to accept:
+
+```rescript
+"javascript:alert(1)"->S.assertOrThrow(~to=S.uri) // passes — a valid URI
+"169.254.169.254"->S.assertOrThrow(~to=S.hostname) // passes — a valid host name
+"//evil.com"->S.assertOrThrow(~to=S.uriReference) // passes — a valid reference
+```
+
+When you want a security decision rather than a syntax check, compose one. The
+extra constraint rides along into the JSON Schema, so it stays honest:
+
+```rescript
+let httpsOnly = S.uri->S.pattern(%re(`/^https:\/\//`))
+// { type: "string", format: "uri", pattern: "^https:\\/\\/" }
+```
+
+Two worth knowing before you pick one:
+
+- **`S.url` is not `S.uri`.** `S.url` is an instance of the JS `URL` class, the
+  way `S.date` is a `Date` — use it when you want the parsed object and its
+  `.host` / `.pathname`. `S.uri` validates a string and leaves it a string.
+- **`S.uriReference` is usually the one you want for a link field.** `S.uri`
+  requires a scheme, so it rejects `/dashboard`.
 
 #### Custom error messages
 
@@ -252,7 +301,7 @@ S.email->S.meta({errorMessage: {catchAll: "Invalid input"}})
 schema->S.meta({errorMessage: {}})
 ```
 
-Available fields: `format`, `type_`, `minimum`, `maximum`, `minLength`, `maxLength`, `minItems`, `maxItems`, `pattern`, `catchAll` (serialized as `_`).
+Available fields: `format`, `type_`, `minimum`, `maximum`, `minLength`, `maxLength`, `minItems`, `maxItems`, `minSize`, `maxSize`, `pattern`, `catchAll` (encoded as `_`).
 
 #### ISO datetimes
 
@@ -288,16 +337,24 @@ S.int->S.lte(5) // Expected int32 <= 5
 S.int->S.gte(5) // Expected int32 >= 5
 S.int->S.lt(5) // Expected int32 < 5
 S.int->S.gt(5) // Expected int32 > 5
+S.int->S.multipleOf(2) // Expected int32 % 2
 S.port // Standalone port schema
 ```
 
-The same four work on `S.float` and `S.bigint`. A numeric format carries its
+They all work on `S.float` and `S.bigint` too. A numeric format carries its
 own range, so a bound outside it fails where it's written rather than building
 a schema nothing satisfies:
 
 ```rescript
 S.int->S.gte(3000000000)
 // int32 >= 3000000000 contradicts int32 <= 2147483647
+```
+
+`S.integer` is an integer without that range, typed `S.t<float>` since one can
+exceed ReScript's `int`:
+
+```rescript
+S.integer->S.gte(5.) // Expected integer >= 5
 ```
 
 ### **`float`**
@@ -309,8 +366,10 @@ The `S.float` schema represents a data that is a number.
 **Sury** includes some of float-specific refinements:
 
 ```rescript
-S.float->S.floatMax(5.) // Number must be lower than or equal to 5
-S.float->S.floatMin(5.) // Number must be greater than or equal to 5
+S.float->S.lte(5.) // Expected number <= 5
+S.float->S.gte(5.) // Expected number >= 5
+S.float->S.lt(5.) // Expected number < 5
+S.float->S.gt(5.) // Expected number > 5
 ```
 
 ### **`option`**
@@ -413,7 +472,7 @@ The `S.nullable` schema represents a data of `Nullable.t` that might be null or 
 
 `S.t<'value> => S.t<option<'value>>`
 
-The same as `S.nullable`, but returns `option` type instead of `Nullable.t`. When serializing, it will return `undefined` for `None` values.
+The same as `S.nullable`, but returns `option` type instead of `Nullable.t`. When encoding, it will return `undefined` for `None` values.
 
 ### **`literal`**
 
@@ -448,7 +507,7 @@ let weakMap = WeakMap.make()
 let weakMapSchema = S.literal(weakMap)
 ```
 
-The `S.literal` schema enforces that a data matches an exact value during parsing and serializing.
+The `S.literal` schema enforces that a data matches an exact value during parsing and encoding.
 
 ### **`object`**
 
@@ -466,7 +525,7 @@ let pointSchema = S.object(s => {
   y: s.field("y", S.int),
 })
 
-// It can be used both for parsing and serializing
+// It can be used both for parsing and encoding
 {"x": 1, "y": -4}->S.parseOrThrow(~to=pointSchema)
 {x: 1, y: -4}->S.decodeOrThrow(~from=pointSchema, ~to=S.unknown)
 ```
@@ -515,7 +574,7 @@ let schema = S.object(s => (s.field("USER_ID", S.int), s.field("USER_NAME", S.st
 // (1, "John")
 ```
 
-The same schema also works for serializing:
+The same schema also works for encoding:
 
 ```rescript
 (1, "John")->S.decodeOrThrow(~from=schema, ~to=S.unknown)
@@ -556,7 +615,7 @@ let schema = S.schema(s => Circle({
 }))
 ```
 
-You can use the schema for parsing as well as serializing:
+You can use the schema for parsing as well as encoding:
 
 ```rescript
 Circle({radius: 1})->S.decodeOrThrow(~from=schema, ~to=S.unknown)
@@ -741,7 +800,7 @@ let schema = S.float->S.shape(radius => Circle({radius: radius}))
 // Circle({radius: 1.})
 ```
 
-The same schema also works for serializing:
+The same schema also works for encoding:
 
 ```rescript
 Circle({radius: 1})->S.decodeOrThrow(~from=schema, ~to=S.unknown)
@@ -757,6 +816,8 @@ An union represents a logical OR relationship. You can apply this concept to you
 On validation, the `S.union` schema returns the result of the first item that was successfully validated.
 
 > 🧠 Members are matched in the order they are passed to `S.union` — the first one that fits the value wins.
+
+It's also available as `S.anyOf`, matching the JSON Schema keyword it maps to.
 
 ```rescript
 // TypeScript type for reference:
@@ -1027,7 +1088,7 @@ let pointSchema = S.tuple(s => {
   }
 })
 
-// It can be used both for parsing and serializing
+// It can be used both for parsing and encoding
 ["point", 1, -4]->S.parseOrThrow(~to=pointSchema)
 { x: 1, y: -4 }->S.decodeOrThrow(~from=pointSchema, ~to=S.unknown)
 ```
@@ -1113,6 +1174,38 @@ let schema: S.t<Set.t<string>> = S.instance(%raw(`Set`))->Obj.magic;
 
 The `S.instance` schema represents an instance of a class. Requires some type casting to make it work, but better than `S.unknown` as a building block for more complex schemas.
 
+### **`blob`**
+
+`S.t<Js.Blob.t>`
+
+```rescript
+S.blob // Expected Blob
+S.blob->S.maxSize(1_000_000) // Expected Blob.size <= 1000000
+S.blob->S.minSize(1) // Expected Blob.size >= 1
+S.blob->S.size(2) // Expected Blob.size == 2
+S.blob->S.maxSize(1_000_000, ~message="Too large")
+```
+
+`S.minSize`, `S.maxSize` and `S.size` bound the size in bytes. They work on any
+`S.instance` schema with a `.size`, counting entries rather than bytes.
+
+> Strings and arrays use `S.minLength`/`S.maxLength`/`S.length` instead.
+> A lower bound of `0` is dropped; a negative one is an error.
+
+### **`file`**
+
+`S.t<Js.File.t>`
+
+```rescript
+let schema = S.file->S.maxSize(1_000_000)
+
+%raw(`new File(["hi"], "a.txt")`)->S.parseOrThrow(~to=schema) // passes
+%raw(`new Blob(["hi"])`)->S.parseOrThrow(~to=schema) // throws - Expected File, received Blob
+```
+
+A `File` is a `Blob`, so it also satisfies [`S.blob`](#blob) — not the other way
+round. It takes the same size bounds.
+
 ### **`json`**
 
 `S.t<JSON.t>`
@@ -1139,7 +1232,7 @@ let schema = S.jsonString->S.to(S.int)
 
 The `S.jsonString` schema represents JSON string.
 
-There's also `S.jsonStringWithSpace` to configure space in the JSON string during serialization.
+There's also `S.jsonStringWithSpace` to configure space in the JSON string during encoding.
 
 ### **`meta`**
 
@@ -1198,7 +1291,7 @@ let nodeSchema = S.recursive("Node", nodeSchema => {
 // }
 ```
 
-The same schema works for serializing:
+The same schema works for encoding:
 
 ```rescript
 {
@@ -1322,11 +1415,11 @@ let evenPositiveSchema = S.int
   ->S.refine(value => mod(value, 2) === 0, ~error="Must be even")
 ```
 
-The refine function is applied for both parsing and serializing.
+The refine function is applied for both parsing and encoding.
 
 ## Transforms
 
-**Sury** allows to augment a conversion with custom logic, letting you transform the value during parsing and serializing. This is most commonly used for mapping the value to more convenient data-structures.
+**Sury** allows to augment a conversion with custom logic, letting you transform the value during parsing and encoding. This is most commonly used for mapping the value to more convenient data-structures.
 
 <a id="transform"></a>
 
@@ -1460,22 +1553,22 @@ The library provides a bunch of built-in operations that can be used to parse, d
 Common decode patterns:
 
 ```rescript
-// Parse JSON value (replaces S.parseJsonOrThrow)
+// Parse JSON value
 data->S.decodeOrThrow(~from=S.json, ~to=schema)
 
-// Parse JSON string (replaces S.parseJsonStringOrThrow)
+// Parse JSON string
 data->S.decodeOrThrow(~from=S.jsonString, ~to=schema)
 
-// Serialize to unknown (replaces S.reverseConvertOrThrow)
+// Encode to unknown
 data->S.decodeOrThrow(~from=schema, ~to=S.unknown)
 
-// Serialize to JSON (replaces S.reverseConvertToJsonOrThrow)
+// Encode to JSON
 data->S.decodeOrThrow(~from=schema, ~to=S.json)
 
-// Serialize to JSON string (replaces S.reverseConvertToJsonStringOrThrow)
+// Encode to JSON string
 data->S.decodeOrThrow(~from=schema, ~to=S.jsonString)
 
-// Serialize to JSON string with space
+// Encode to JSON string with space
 data->S.decodeOrThrow(~from=schema, ~to=S.jsonStringWithSpace(2))
 ```
 
@@ -1525,13 +1618,13 @@ S.asyncDecoder: (~from: S.t<'from>, ~through: array<S.t<unknown>>=?, ~to: S.t<'t
 Returns a compiled decode function that transforms values from one schema to another. Use `~through` to chain intermediate schemas.
 
 ```rescript
-// Compile a serializer
-let serialize = S.decoder(~from=schema, ~to=S.unknown)
+// Compile an encoder
+let encode = S.decoder(~from=schema, ~to=S.unknown)
 
 // Compile a JSON decoder
 let decodeJson = S.decoder(~from=S.json, ~to=schema)
 
-// Compile a JSON string serializer
+// Compile a JSON string encoder
 let toJsonString = S.decoder(~from=schema, ~to=S.jsonString)
 
 // Compile an async decoder

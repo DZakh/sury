@@ -8,11 +8,11 @@ ts:
   input: '{ foo: "bar"; }'
   output: '{ foo: "bar"; }'
   instantiations: 1043
-vs:
-  zod: 'z.object({ foo: z.literal("bar") })'
 jsonSchema:
   input: '{ type: "object", properties: { foo: { type: "string", const: "bar" } }, required: ["foo"] }'
   output: '{ type: "object", properties: { foo: { type: "string", const: "bar" } }, required: ["foo"] }'
+vs:
+  zod: 'z.object({ foo: z.literal("bar") })'
 operations:
   parse:
     expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i["foo"];v0==="bar"||e[0](v0);return {"foo":v0,}}

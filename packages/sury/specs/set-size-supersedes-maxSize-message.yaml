@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.instance(Set).with(S.maxSize, 5, "MAX").with(S.size, 3)
+  input: Set<unknown>
+  output: Set<unknown>
+  instantiations: 2898
+jsonSchema:
+  input: Expected JSON, received Set.size == 3
+  output: Expected JSON, received Set.size == 3
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{i instanceof e[1]||e[2](i);i.size===3||e[0](i);return i}
+    examples:
+      at-the-size:
+        input: new Set([1, 2, 3])
+        output: new Set([1, 2, 3])
+      too-small:
+        input: new Set([1, 2])
+        error: Expected Set.size == 3, received Set
+      too-big-within-the-superseded-bound:
+        input: new Set([1, 2, 3, 4])
+        error: Expected Set.size == 3, received Set
+      too-big-past-the-superseded-bound:
+        input: new Set([1, 2, 3, 4, 5, 6])
+        error: Expected Set.size == 3, received Set
+      wrong-type:
+        input: "null"
+        error: Expected Set.size == 3, received null
+  decode:
+    expression: i=>{i.size===3||e[0](i);return i}
+    examples:
+      at-the-size:
+        input: new Set([1, 2, 3])
+        output: new Set([1, 2, 3])
+      too-big-within-the-superseded-bound:
+        input: new Set([1, 2, 3, 4])
+        error: Expected Set.size == 3, received Set
+      too-big-past-the-superseded-bound:
+        input: new Set([1, 2, 3, 4, 5, 6])
+        error: Expected Set.size == 3, received Set
+  encode:
+    expression: i=>{i.size===3||e[0](i);return i}
+    examples:
+      at-the-size:
+        input: new Set([1, 2, 3])
+        output: new Set([1, 2, 3])
+      too-big-within-the-superseded-bound:
+        input: new Set([1, 2, 3, 4])
+        error: Expected Set.size == 3, received Set
+      too-big-past-the-superseded-bound:
+        input: new Set([1, 2, 3, 4, 5, 6])
+        error: Expected Set.size == 3, received Set

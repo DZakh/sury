@@ -4,12 +4,12 @@ ts:
   input: string
   output: number
   instantiations: 5304
-vs:
-  zod:
-    _skip: not-applicable
 jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "number" }'
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     creationError: "SuryError: Can't decode string to number. The conversion is marked as never"

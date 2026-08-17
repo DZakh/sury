@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.instance(class Chunk { size = 4 }).with(S.minSize, 4)
+  input: Chunk
+  output: Chunk
+  instantiations: 619
+jsonSchema:
+  input: Expected JSON, received Chunk.size >= 4
+  output: Expected JSON, received Chunk.size >= 4
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{i instanceof e[1]||e[2](i);i.size>3||e[0](i);return i}
+    examples:
+      plain-object-is-not-the-class:
+        input: "{ size: 4 }"
+        error: "Expected Chunk.size >= 4, received { size: 4; }"
+      wrong-type:
+        input: "null"
+        error: Expected Chunk.size >= 4, received null
+  decode:
+    expression: i=>{i.size>3||e[0](i);return i}
+    examples:
+      under-the-size:
+        input: "{ size: 1 }"
+        error: "Expected Chunk.size >= 4, received { size: 1; }"
+  encode:
+    expression: i=>{i.size>3||e[0](i);return i}
+    examples:
+      under-the-size:
+        input: "{ size: 1 }"
+        error: "Expected Chunk.size >= 4, received { size: 1; }"

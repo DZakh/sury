@@ -1,0 +1,196 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.idnHostname
+  input: string
+  output: string
+  instantiations: 254
+jsonSchema:
+  input: '{ type: "string", format: "idn-hostname" }'
+  output: '{ type: "string", format: "idn-hostname" }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    examples:
+      a-valid-host-name-example-test-in-hangul:
+        input: '"실례.테스트"'
+        output: '"실례.테스트"'
+      a-single-label-of-63-characters-is-valid:
+        input: '"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"'
+        output: '"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"'
+      a-single-label-of-64-characters-is-too:
+        input: '"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"'
+        error: Expected idn-hostname, received "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      invalid-label-correct-punycode:
+        input: '"-> $1.00 <--"'
+        error: Expected idn-hostname, received "-> $1.00 <--"
+      valid-chinese-punycode:
+        input: '"xn--ihqwcrb4cv8a8dqg056pqjye"'
+        output: '"xn--ihqwcrb4cv8a8dqg056pqjye"'
+      u-label-starts-with-a-dash:
+        input: '"-hello"'
+        error: Expected idn-hostname, received "-hello"
+      u-label-ends-with-a-dash:
+        input: '"hello-"'
+        error: Expected idn-hostname, received "hello-"
+      u-label-starts-and-ends-with-a-dash:
+        input: '"-hello-"'
+        error: Expected idn-hostname, received "-hello-"
+      exceptions-that-are-pvalid-left-to-right-chars:
+        input: '"ßς་〇"'
+        output: '"ßς་〇"'
+      exceptions-that-are-pvalid-right-to-left-chars:
+        input: '"۽۾"'
+        output: '"۽۾"'
+      middle-dot-with-surrounding-l-s:
+        input: '"l·l"'
+        output: '"l·l"'
+      greek-keraia-followed-by-greek:
+        input: '"α͵β"'
+        output: '"α͵β"'
+      hebrew-geresh-preceded-by-hebrew:
+        input: '"א׳ב"'
+        output: '"א׳ב"'
+      hebrew-gershayim-preceded-by-hebrew:
+        input: '"א״ב"'
+        output: '"א״ב"'
+      katakana-middle-dot-with-hiragana:
+        input: '"・ぁ"'
+        output: '"・ぁ"'
+      katakana-middle-dot-with-katakana:
+        input: '"・ァ"'
+        output: '"・ァ"'
+      katakana-middle-dot-with-han:
+        input: '"・丈"'
+        output: '"・丈"'
+      arabic-indic-digits-not-mixed-with-extended-arabic:
+        input: '"ب٠ب"'
+        output: '"ب٠ب"'
+      extended-arabic-indic-digits-not-mixed-with-arabic:
+        input: '"۰0"'
+        output: '"۰0"'
+      zero-width-joiner-preceded-by-virama:
+        input: '"क्‍ष"'
+        output: '"क्‍ष"'
+      zero-width-non-joiner-preceded-by-virama:
+        input: '"क्‌ष"'
+        output: '"क्‌ष"'
+      zero-width-non-joiner-not-preceded-by-virama:
+        input: '"بي‌بي"'
+        output: '"بي‌بي"'
+      single-label:
+        input: '"hostname"'
+        output: '"hostname"'
+      single-label-with-hyphen:
+        input: '"host-name"'
+        output: '"host-name"'
+      single-label-with-digits:
+        input: '"h0stn4me"'
+        output: '"h0stn4me"'
+      single-label-starting-with-digit:
+        input: '"1host"'
+        output: '"1host"'
+      single-label-ending-with-digit:
+        input: '"hostnam3"'
+        output: '"hostnam3"'
+      empty-string:
+        input: '""'
+        error: Expected idn-hostname, received ""
+      empty-label-between-two-dots-is-invalid:
+        input: '"a..b"'
+        error: Expected idn-hostname, received "a..b"
+      a-name-longer-than-253-characters-is-invalid:
+        input: '"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"'
+        error: Expected idn-hostname, received "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      a-label-that-decodes-to-only-ascii-is:
+        input: '"xn--example-"'
+        error: Expected idn-hostname, received "xn--example-"
+      single-dot:
+        input: '"."'
+        error: Expected idn-hostname, received "."
+      single-ideographic-full-stop:
+        input: '"。"'
+        error: Expected idn-hostname, received "。"
+      single-fullwidth-full-stop:
+        input: '"．"'
+        error: Expected idn-hostname, received "．"
+      single-halfwidth-ideographic-full-stop:
+        input: '"｡"'
+        error: Expected idn-hostname, received "｡"
+      dot-as-label-separator:
+        input: '"a.b"'
+        output: '"a.b"'
+      ideographic-full-stop-as-label-separator:
+        input: '"a。b"'
+        output: '"a。b"'
+      fullwidth-full-stop-as-label-separator:
+        input: '"a．b"'
+        output: '"a．b"'
+      halfwidth-ideographic-full-stop-as-label-separator:
+        input: '"a｡b"'
+        output: '"a｡b"'
+      leading-dot:
+        input: '".example"'
+        error: Expected idn-hostname, received ".example"
+      leading-ideographic-full-stop:
+        input: '"。example"'
+        error: Expected idn-hostname, received "。example"
+      leading-fullwidth-full-stop:
+        input: '"．example"'
+        error: Expected idn-hostname, received "．example"
+      leading-halfwidth-ideographic-full-stop:
+        input: '"｡example"'
+        error: Expected idn-hostname, received "｡example"
+      trailing-dot:
+        input: '"example."'
+        error: Expected idn-hostname, received "example."
+      trailing-ideographic-full-stop:
+        input: '"example。"'
+        error: Expected idn-hostname, received "example。"
+      trailing-fullwidth-full-stop:
+        input: '"example．"'
+        error: Expected idn-hostname, received "example．"
+      trailing-halfwidth-ideographic-full-stop:
+        input: '"example｡"'
+        error: Expected idn-hostname, received "example｡"
+      label-too-long-if-separator-ignored-full-stop:
+        input: '"παράδειγμαπαράδειγμαπαράδειγμαπαράδειγμαπαράδειγμαπα.com"'
+        output: '"παράδειγμαπαράδειγμαπαράδειγμαπαράδειγμαπαράδειγμαπα.com"'
+      label-too-long-if-separator-ignored-ideographic-full:
+        input: '"παράδειγμαπαράδειγμαπαράδειγμαπαράδειγμαπαράδειγμαπα。com"'
+        output: '"παράδειγμαπαράδειγμαπαράδειγμαπαράδειγμαπαράδειγμαπα。com"'
+      label-too-long-if-separator-ignored-fullwidth-full:
+        input: '"παράδειγμαπαράδειγμαπαράδειγμαπαράδειγμαπαράδειγμαπα．com"'
+        output: '"παράδειγμαπαράδειγμαπαράδειγμαπαράδειγμαπαράδειγμαπα．com"'
+      label-too-long-if-separator-ignored-halfwidth-ideographic:
+        input: '"παράδειγμαπαράδειγμαπαράδειγμαπαράδειγμαπαράδειγμαπα｡com"'
+        output: '"παράδειγμαπαράδειγμαπαράδειγμαπαράδειγμαπαράδειγμαπα｡com"'
+      known-gap-illegal-first-char-u-302e-hangul-single-dot:
+        input: '"〮실례.테스트"'
+        output: '"〮실례.테스트"'
+      known-gap-contains-illegal-char-u-302e-hangul-single-dot:
+        input: '"실〮례.테스트"'
+        output: '"실〮례.테스트"'
+      known-gap-invalid-punycode:
+        input: '"xn--X"'
+        output: '"xn--X"'
+  decode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"실례.테스트"'
+        output: '"실례.테스트"'
+      invalid:
+        input: '"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"'
+        error: Expected idn-hostname, received "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  encode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"실례.테스트"'
+        output: '"실례.테스트"'
+      invalid:
+        input: '"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"'
+        error: Expected idn-hostname, received "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"

@@ -4,12 +4,12 @@ ts:
   input: string
   output: number
   instantiations: 5266
-vs:
-  zod:
-    _skip: not-applicable
 jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "number" }'
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[3](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="number"&&!Number.isNaN(v0)||e[2](v0);return v0}

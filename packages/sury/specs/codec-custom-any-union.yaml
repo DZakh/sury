@@ -4,12 +4,12 @@ ts:
   input: string | boolean
   output: any
   instantiations: 6177
-vs:
-  zod:
-    _skip: not-applicable
 jsonSchema:
   input: '{ anyOf: [{ type: "string" }, { type: "boolean" }] }'
   output: Expected JSON, received unknown | boolean
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     expression: i=>{for(;;){if(typeof i==="string"){let v0;try{v0=e[0](i)}catch(x){e[1](x);e[2](x)}i=v0;break}if(typeof i==="boolean")break;e[3](i)}return i}

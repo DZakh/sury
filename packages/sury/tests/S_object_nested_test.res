@@ -394,7 +394,7 @@ test("s.nested.flattened doesn't work with S.object", t => {
       )
     },
     ~expectations={
-      message: `[Sury] Unsupported nested flatten for transformed object schema { foo: string; }`,
+      message: `[Sury] Can't flatten transformed { foo: string; }`,
     },
   )
 })
@@ -416,7 +416,7 @@ test("s.nested.flattened doesn't work with transformed S.schema", t => {
       )
     },
     ~expectations={
-      message: `[Sury] Unsupported nested flatten for transformed object schema { foo: string; }`,
+      message: `[Sury] Can't flatten transformed { foo: string; }`,
     },
   )
 })
@@ -438,7 +438,7 @@ test("s.nested.flattened doesn't work with S.schema->S.shape", t => {
       )
     },
     ~expectations={
-      message: `[Sury] Unsupported nested flatten for transformed object schema { foo: string; }`,
+      message: `[Sury] Can't flatten transformed { foo: string; }`,
     },
   )
 })

@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.fromJSONSchema({ type: "string", pattern: "^\\d{3}\\-\\d{4}$" })'
+  input: string
+  output: string
+  instantiations: 508
+jsonSchema:
+  input: '{ type: "string", pattern: "^\\d{3}\\-\\d{4}$" }'
+  output: '{ type: "string", pattern: "^\\d{3}\\-\\d{4}$" }'
+vs:
+  zod: z.string().regex(/^\d{3}\-\d{4}$/)
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"123-4567"'
+        output: '"123-4567"'
+      invalid:
+        input: '"1234567"'
+        error: Invalid pattern
+  decode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"123-4567"'
+        output: '"123-4567"'
+  encode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"123-4567"'
+        output: '"123-4567"'

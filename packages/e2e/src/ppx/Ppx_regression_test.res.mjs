@@ -6,11 +6,11 @@ import * as Sury from "sury";
 import * as Vitest from "../utils/Vitest.res.mjs";
 import * as Vitest$1 from "vitest";
 
-let payloadSchema = Sury.$res_schema(s => ({
-  a: s.m(Sury.$res_option(Sury.string))
+let payloadSchema = Sury.$schema(s => ({
+  a: s.m(Sury.$option(Sury.string))
 }));
 
-let schema = Sury.$res_schema(s => ({
+let schema = Sury.$schema(s => ({
   payload: s.m(payloadSchema)
 }));
 
@@ -19,11 +19,11 @@ let A = {
   schema: schema
 };
 
-let payloadSchema$1 = Sury.$res_schema(s => ({
-  b: s.m(Sury.$res_option(Sury.int))
+let payloadSchema$1 = Sury.$schema(s => ({
+  b: s.m(Sury.$option(Sury.int))
 }));
 
-let schema$1 = Sury.$res_schema(s => ({
+let schema$1 = Sury.$schema(s => ({
   payload: s.m(payloadSchema$1)
 }));
 
@@ -43,7 +43,7 @@ Vitest$1.test("Union serializing of objects with optional fields", t => {
       _0: m
     }))
   ]);
-  U.assertCompiledCode(t, schema$2, "Encode", `i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)&&i["TAG"]==="A"){let v0=i["_0"];typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0["payload"];typeof v1==="object"&&v1&&!Array.isArray(v1)||e[1](v1);let v2=v1["a"];(typeof v2==="string"||v2===void 0)||e[0](v2);i={"payload":{"a":v2,},};break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i["TAG"]==="B"){let v3=i["_0"];typeof v3==="object"&&v3&&!Array.isArray(v3)||e[5](v3);let v4=v3["payload"];typeof v4==="object"&&v4&&!Array.isArray(v4)||e[4](v4);let v5=v4["b"];(typeof v5==="number"&&!Number.isNaN(v5)&&v5<=2147483647&&v5>=-2147483648&&v5%1===0||v5===void 0)||e[3](v5);i={"payload":{"b":v5,},};break}e[6](i)}return i}`, undefined);
+  U.assertCompiledCode(t, schema$2, "Encode", `i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)&&i["TAG"]==="A"){let v0=i["_0"];let v1=v0["payload"];i=v0;break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i["TAG"]==="B"){let v2=i["_0"];let v3=v2["payload"];i=v2;break}e[0](i)}return i}`, undefined);
   Vitest.Assert.deepEqual(t, S.decodeOrThrow({
     TAG: "B",
     _0: {
@@ -67,11 +67,11 @@ let CknittelBugReport = {
   B: B
 };
 
-let aSchema = Sury.$res_schema(s => ({
+let aSchema = Sury.$schema(s => ({
   x: s.m(Sury.int)
 }));
 
-let bSchema = Sury.$res_schema(s => ({
+let bSchema = Sury.$schema(s => ({
   y: s.m(Sury.string)
 }));
 
@@ -92,8 +92,8 @@ let testSchema = Sury.union([
   })
 ]);
 
-let schema$2 = Sury.$res_schema(s => ({
-  test: s.m(Sury.$res_option(testSchema))
+let schema$2 = Sury.$schema(s => ({
+  test: s.m(Sury.$option(testSchema))
 }));
 
 Vitest$1.test("Successfully parses nested optional union", t => {

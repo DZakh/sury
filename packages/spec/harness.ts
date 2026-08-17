@@ -2,7 +2,7 @@
 // executing the real schema.
 //
 // Unlike format.ts (which runs on published sury), this half imports the
-// in-development sury SOURCE (`../sury/src/S.mjs`), because goldens must reflect
+// in-development sury SOURCE (`../sury/index.mjs`), because goldens must reflect
 // the code under test — that's how `spec check` catches codegen changes.
 //
 // There is no code-generation step: packages/sury/tests/spec_test.ts loops
@@ -15,13 +15,14 @@ import { fileURLToPath } from "node:url";
 import { Document, parse as parseYaml, parseDocument, stringify as stringifyYaml, isMap, isSeq } from "yaml";
 import { diffLinesUnified } from "@vitest/utils/diff";
 import ts from "typescript";
-import * as S from "../sury/src/S.mjs";
+import * as S from "../sury/index.mjs";
 import {
   KEY_ORDER,
   TS_KEY_ORDER,
   VS_KEY_ORDER,
   VS_ZOD_KEY_ORDER,
   OP_ORDER,
+  OP_BLOCK_KEY_ORDER,
   BUNDLE_SIZE_KEY_ORDER,
   SKIP_REASONS,
   isSkip,
@@ -29,13 +30,22 @@ import {
   isCreationError,
   validate,
   validateBundleSize,
+  validateScenarios,
   type Spec,
   type Operation,
   type Example,
   type OpName,
   type BundleSize,
+  type Scenario,
+  type Scenarios,
 } from "./format";
-import { deriveTypeInfo, deriveVsTypeInfo } from "./introspect";
+import { buildScenarioRunner, type ScenarioSource } from "./scenario";
+import {
+  deriveRoundTripTypeInfo,
+  deriveTypeInfo,
+  deriveVsTypeInfo,
+  type TypeInfo,
+} from "./introspect";
 import { deriveBundleSize } from "./bundleSize";
 
 const here = (rel: string) => fileURLToPath(new URL(rel, import.meta.url));
@@ -43,11 +53,19 @@ const here = (rel: string) => fileURLToPath(new URL(rel, import.meta.url));
 export const SPECS_DIR = here("../sury/specs/");
 export const SCHEMA_PATH = join(SPECS_DIR, "spec.schema.json");
 export const BUNDLE_SIZE_PATH = join(SPECS_DIR, "bundleSize.yaml");
+export const SCENARIOS_PATH = join(SPECS_DIR, "scenarios.yaml");
+export const SCENARIOS_SCHEMA_PATH = join(SPECS_DIR, "scenarios.schema.json");
 
-// Lives in the specs dir but isn't a spec: one whole-package measurement, not
-// a per-schema contract. `bundleSize` is a valid spec id, so every walk of the
-// directory has to exclude it by name or it gets validated as a Spec.
-const NON_SPEC_FILES = new Set([basename(SCHEMA_PATH), basename(BUNDLE_SIZE_PATH)]);
+// Live in the specs dir but aren't specs: one whole-package measurement and
+// one set of consumer-level perf scenarios, neither a per-schema contract.
+// `bundleSize` and `scenarios` are both valid spec ids, so every walk of the
+// directory has to exclude them by name or they get validated as Specs.
+const NON_SPEC_FILES = new Set([
+  basename(SCHEMA_PATH),
+  basename(BUNDLE_SIZE_PATH),
+  basename(SCENARIOS_PATH),
+  basename(SCENARIOS_SCHEMA_PATH),
+]);
 
 const HEADER = "# yaml-language-server: $schema=./spec.schema.json";
 
@@ -56,6 +74,25 @@ const OP_BUILDER: Record<OpName, (schema: any) => (input: any) => any> = {
   decode: S.decoder,
   encode: S.encoder,
 };
+
+// A schema carrying an async transform or refine compiles only through these:
+// the sync builders reject it at operation creation ("Encountered unexpected
+// async transform or refine"), and they wrap a sync direction in
+// `Promise.resolve(...)`, so which builder an op uses is part of its codegen —
+// hence a declared `isAsync`, checked against the schema, rather than a guess.
+const ASYNC_OP_BUILDER: Record<OpName, (schema: any) => (input: any) => Promise<any>> = {
+  parse: S.asyncParser,
+  decode: S.asyncDecoder,
+  encode: S.asyncEncoder,
+};
+
+// The rejection a sync builder raises for an async schema. Sury has no
+// `isAsync` probe (a schema's combinations are open-ended, so no static answer
+// covers them), so the harness discovers asyncness the way a caller does: it
+// compiles the sync operation and reads this message off the rejection. That
+// also keeps it per direction for free, which matters because
+// `S.asyncDecoderAssert` makes decode async while encode stays a sync pass.
+const ASYNC_REJECTION = "The conversion is async. Use the Async version of the operation";
 
 const SKIP_REASON_SET = new Set<string>(SKIP_REASONS);
 export const isValidSkipReason = (r: unknown): boolean =>
@@ -141,6 +178,19 @@ export const stripTypes = (tsSource: string): string =>
 export const evalSchema = (tsSource: string): any =>
   new Function("S", `return ${stripTypes(tsSource)};`)(S);
 
+// A scenario's `prepare` is statements, not an expression, so it goes through
+// transpileModule directly — stripTypes' parenthesization exists only to keep
+// a bare object literal from parsing as a block, which statements must not get.
+const stripStatements = (tsSource: string): string =>
+  ts.transpileModule(tsSource, {
+    compilerOptions: { target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.ESNext },
+  }).outputText.trim();
+
+export const scenarioSource = (scenario: Scenario): ScenarioSource => ({
+  prepareSrc: scenario.prepare === undefined ? undefined : stripStatements(scenario.prepare),
+  runSrc: stripTypes(scenario.run),
+});
+
 // Sury compiles a pass-through operation to this shared function — the ONLY
 // signal identity detection has. If this name is ever changed in Sury's
 // source, every `identity`-marked operation starts failing loudly (across
@@ -195,6 +245,37 @@ export const identityViolations = (schema: any, spec: Spec): string[] => {
   return out;
 };
 
+// The `isAsync` marker checked both ways, like identityViolations: an async
+// direction must declare it (the operation returns a Promise — a different API
+// for every consumer, and different codegen), and a declared one must hold.
+// Only full op blocks carry the marker: `identity` can't be async (an async op
+// never compiles to Sury's noop, so identityViolations already reports it),
+// `eq-to-parse` inherits parse's block, and a `{creationError}` block has no
+// compiled operation to be async.
+export const asyncViolations = (schema: any, spec: Spec): string[] => {
+  const out: string[] = [];
+  for (const opName of OP_ORDER) {
+    const op = spec.operations[opName];
+    if (typeof op === "string" || isCreationError(op)) continue;
+    const built = buildOp(opName, schema);
+    // Rejected at creation: reported by the creationError golden instead, and
+    // an operation that doesn't compile can't be async.
+    if (!("fn" in built)) continue;
+    const isAsync = built.isAsync;
+    if (isAsync && op.isAsync !== true)
+      out.push(
+        `operations.${opName}: is async (the schema has an async transform or refine) — add \`isAsync: true\`, ` +
+          "which builds it with S.asyncParser/asyncDecoder/asyncEncoder and awaits every example",
+      );
+    else if (!isAsync && op.isAsync === true)
+      out.push(
+        `operations.${opName}: marked \`isAsync: true\` but the operation is synchronous — remove the marker ` +
+          "(the async builders would only wrap the result in `Promise.resolve`)",
+      );
+  }
+  return out;
+};
+
 // JSON Schema has no representation for bigint or symbol, so `S.toJSONSchema`
 // throws for any schema containing one (at any nesting depth) — a real "this
 // concept doesn't apply" case, not a bug to work around. Recorded per
@@ -205,20 +286,69 @@ export const identityViolations = (schema: any, spec: Spec): string[] => {
 // Always a string (source text, same formatting as example values) so the
 // success case (the schema itself) and the failure case (the thrown message)
 // are one uniform, one-line field — not a structural union at the YAML level.
-const toJsonSchemaOrError = (fn: () => unknown): string => {
+const toJsonSchemaOrError = (
+  fn: () => unknown,
+): { ok: true; source: string } | { ok: false; error: string } => {
   try {
-    return valueToCode(fn());
+    return { ok: true, source: valueToCode(fn()) };
   } catch (e) {
-    return (e as Error).message;
+    return { ok: false, error: (e as Error).message };
   }
 };
-const deriveJsonSchema = (schema: any): Spec["jsonSchema"] => ({
-  input: toJsonSchemaOrError(() => S.toJSONSchema(schema)),
-  output: toJsonSchemaOrError(() => S.toJSONSchema(S.reverse(schema))),
+type JsonSchemaSide = { schema: string; source?: string };
+type JsonSchemaSides = { input: JsonSchemaSide; output: JsonSchemaSide };
+
+const deriveJsonSchemaSide = (fn: () => unknown): JsonSchemaSide => {
+  const result = toJsonSchemaOrError(fn);
+  if (!result.ok) return { schema: result.error };
+  return { schema: result.source, source: result.source };
+};
+
+const deriveJsonSchemaSides = (schema: any): JsonSchemaSides => ({
+  input: deriveJsonSchemaSide(() => S.toJSONSchema(schema)),
+  output: deriveJsonSchemaSide(() => S.toJSONSchema(S.reverse(schema))),
 });
 
+const deriveJsonSchema = async (
+  schema: any,
+  types: { input: string; output: string },
+  combinedInfo: Pick<
+    TypeInfo,
+    "fromInput" | "fromOutput" | "inputMatches" | "outputMatches"
+  >,
+  sides = deriveJsonSchemaSides(schema),
+): Promise<Spec["jsonSchema"]> => {
+  const inputInferred = combinedInfo.fromInput;
+  const outputInferred = combinedInfo.fromOutput;
+  const inputMatches = combinedInfo.inputMatches ?? inputInferred === types.input;
+  const outputMatches = combinedInfo.outputMatches ?? outputInferred === types.output;
+  return {
+    input: sides.input.schema,
+    ...(inputInferred === undefined || inputMatches
+      ? {}
+      : { fromInputType: inputInferred }),
+    output: sides.output.schema,
+    ...(outputInferred === undefined || outputMatches
+      ? {}
+      : { fromOutputType: outputInferred }),
+  };
+};
+
 // No example inputs needed, so `spec new` can fill this in immediately from `--ts`.
-export const scaffoldJsonSchema = (schema: any): Spec["jsonSchema"] => deriveJsonSchema(schema);
+export const scaffoldJsonSchema = (
+  schema: any,
+  types: { input: string; output: string },
+  schemaTs: string,
+): Promise<Spec["jsonSchema"]> => {
+  const sides = deriveJsonSchemaSides(schema);
+  return deriveRoundTripTypeInfo(
+    schemaTs,
+    sides.input.source,
+    sides.output.source,
+  ).then((roundTripInfo) =>
+    deriveJsonSchema(schema, types, roundTripInfo, sides),
+  );
+};
 
 // Compile an operation, capturing any creation-time throw as the golden instead
 // of letting it abort — the operation analogue of toJsonSchemaOrError. The
@@ -227,10 +357,18 @@ export const scaffoldJsonSchema = (schema: any): Spec["jsonSchema"] => deriveJso
 // so a bug stays visibly distinct in the golden — and flips back to compiled
 // code once a fix turns the crash into a real operation — rather than silently
 // masquerading as a normal rejection.
-type BuiltOp = { fn: (input: any) => any } | { creationError: string };
+type BuiltOp = { fn: (input: any) => any; isAsync: boolean } | { creationError: string };
 const buildOp = (opName: OpName, schema: any): BuiltOp => {
   try {
-    return { fn: OP_BUILDER[opName](schema) };
+    return { fn: OP_BUILDER[opName](schema), isAsync: false };
+  } catch (e) {
+    const err = e as Error;
+    if (err.message !== ASYNC_REJECTION) {
+      return { creationError: `${err.constructor.name}: ${err.message}` };
+    }
+  }
+  try {
+    return { fn: ASYNC_OP_BUILDER[opName](schema), isAsync: true };
   } catch (e) {
     const err = e as Error;
     return { creationError: `${err.constructor.name}: ${err.message}` };
@@ -259,7 +397,7 @@ const opForm = (opName: OpName, built: BuiltOp, parseBuilt: BuiltOp): Operation 
     ? "identity"
     : opName !== "parse" && parseCode !== undefined && built.fn.toString() === parseCode
       ? "eq-to-parse"
-      : { expression: built.fn.toString(), examples: {} };
+      : clean({ isAsync: built.isAsync ? (true as const) : undefined, expression: built.fn.toString(), examples: {} });
 };
 
 // Can throw if `schema` isn't actually a usable schema (e.g. `--ts` evaluated
@@ -306,7 +444,7 @@ const canonExample = (ex: Example): Example => {
 const canonOp = (op: Operation): Operation => {
   if (typeof op === "string") return op;
   if (isCreationError(op)) return order(op, ["creationError"]);
-  const o = order(op, ["expression", "examples"]);
+  const o = order(op, OP_BLOCK_KEY_ORDER as string[]);
   if (o.examples && typeof o.examples === "object") {
     const ex: Record<string, Example> = {};
     for (const [name, v] of Object.entries(o.examples)) ex[name] = canonExample(v);
@@ -326,7 +464,9 @@ export const canonicalize = (obj: Spec): Spec => {
   if (o.jsonSchema)
     o.jsonSchema = order(o.jsonSchema as Record<string, unknown>, [
       "input",
+      "fromInputType",
       "output",
+      "fromOutputType",
     ]) as Spec["jsonSchema"];
   if (o.operations) {
     const ops = order(o.operations, OP_ORDER) as Record<OpName, Operation>;
@@ -432,9 +572,17 @@ export const serialize = (obj: Spec, comments: SpecComments = NO_COMMENTS): stri
 // ---- golden recomputation --------------------------------------------------
 
 // An object key needs quotes only when it isn't a valid identifier — matches
-// how a human would hand-write the same literal.
+// how a human would hand-write the same literal. `__proto__` must be computed
+// (`["__proto__"]`): both the bare and the quoted form are prototype-setter
+// syntax in an object literal, so either would read back as a different value
+// (the key silently dropped) and `--write` would oscillate the golden.
 const IDENT_RE = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
-const keyToCode = (k: string): string => (IDENT_RE.test(k) ? k : JSON.stringify(k));
+const keyToCode = (k: string): string =>
+  k === "__proto__"
+    ? '["__proto__"]'
+    : IDENT_RE.test(k)
+      ? k
+      : JSON.stringify(k);
 
 // Recursive (not JSON.stringify) because JSON.stringify throws outright on a
 // bare (or nested) bigint, and silently mangles Date (→ a plain string, not a
@@ -444,10 +592,9 @@ const keyToCode = (k: string): string => (IDENT_RE.test(k) ? k : JSON.stringify(
 // no source expression can reproduce it.
 //
 // Anything the emitted source would NOT evaluate back to (structurally) must
-// throw rather than emit: a cyclic value would recurse forever, a class
-// instance would silently flatten to a plain-object literal, and symbol keys
-// would be dropped by Object.entries — each of those would record a golden
-// that looks fine but doesn't equal the real output.
+// throw rather than emit: a cyclic value would recurse forever, and a class
+// instance would silently flatten to a plain-object literal — each of those
+// would record a golden that looks fine but doesn't equal the real output.
 const valueToCode = (v: unknown, seen: WeakSet<object> = new WeakSet()): string => {
   if (v === undefined) return "undefined";
   if (typeof v === "bigint") return `${v}n`;
@@ -462,23 +609,30 @@ const valueToCode = (v: unknown, seen: WeakSet<object> = new WeakSet()): string 
   if (typeof v === "object") {
     if (seen.has(v)) throw new Error("cannot represent a cyclic value as spec source code");
     seen.add(v);
-  }
-  if (v instanceof Date) return `new Date(${JSON.stringify(v.toISOString())})`;
-  if (v instanceof RegExp) return v.toString();
-  if (v instanceof Map) return `new Map(${valueToCode([...v], seen)})`;
-  if (v instanceof Set) return `new Set(${valueToCode([...v], seen)})`;
-  if (Array.isArray(v)) return `[${v.map((x) => valueToCode(x, seen)).join(", ")}]`;
-  if (typeof v === "object") {
-    const proto = Object.getPrototypeOf(v);
-    if (proto !== Object.prototype && proto !== null)
-      throw new Error(
-        `cannot represent a ${(v as object).constructor?.name ?? "unknown-class"} instance as spec source code`,
-      );
-    if (Object.getOwnPropertySymbols(v).length)
-      throw new Error("cannot represent an object with symbol keys as spec source code");
-    const entries = Object.entries(v);
-    if (entries.length === 0) return "{}";
-    return `{ ${entries.map(([k, val]) => `${keyToCode(k)}: ${valueToCode(val, seen)}`).join(", ")} }`;
+    try {
+      if (v instanceof Date) return `new Date(${JSON.stringify(v.toISOString())})`;
+      if (v instanceof URL) return `new URL(${JSON.stringify(v.href)})`;
+      if (v instanceof RegExp) return v.toString();
+      if (v instanceof Map) return `new Map(${valueToCode([...v], seen)})`;
+      if (v instanceof Set) return `new Set(${valueToCode([...v], seen)})`;
+      if (Array.isArray(v)) return `[${v.map((x) => valueToCode(x, seen)).join(", ")}]`;
+      const proto = Object.getPrototypeOf(v);
+      if (proto !== Object.prototype && proto !== null)
+        throw new Error(
+          `cannot represent a ${(v as object).constructor?.name ?? "unknown-class"} instance as spec source code`,
+        );
+      // Symbol keys ride along as computed keys — only registry symbols, for the
+      // same reason as symbol values above. Object.entries would drop them.
+      const parts = Object.entries(v).map(([k, val]) => `${keyToCode(k)}: ${valueToCode(val, seen)}`);
+      for (const sym of Object.getOwnPropertySymbols(v)) {
+        if (!Object.getOwnPropertyDescriptor(v, sym)!.enumerable) continue;
+        parts.push(`[${valueToCode(sym, seen)}]: ${valueToCode((v as Record<symbol, unknown>)[sym], seen)}`);
+      }
+      if (parts.length === 0) return "{}";
+      return `{ ${parts.join(", ")} }`;
+    } finally {
+      seen.delete(v);
+    }
   }
   throw new Error(`cannot represent a ${typeof v} as spec source code`);
 };
@@ -495,9 +649,15 @@ const clean = <T extends Record<string, unknown>>(o: T): T => {
 export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
   const next: Spec = structuredClone(obj);
   const schema = evalSchema(next.ts.schema);
+  const jsonSchemaSides = deriveJsonSchemaSides(schema);
+  const info = await deriveTypeInfo(next.ts.schema);
+  const roundTripInfo = await deriveRoundTripTypeInfo(
+    next.ts.schema,
+    jsonSchemaSides.input.source,
+    jsonSchemaSides.output.source,
+  );
 
   if (!isSkip(next.ts.input) || !isSkip(next.ts.output) || !isSkip(next.ts.instantiations)) {
-    const info = await deriveTypeInfo(next.ts.schema);
     if (!isSkip(next.ts.input)) next.ts.input = info.input;
     if (!isSkip(next.ts.output)) next.ts.output = info.output;
     if (!isSkip(next.ts.instantiations)) next.ts.instantiations = info.instantiations;
@@ -515,7 +675,12 @@ export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
     if (next.vs.zod.output !== undefined) next.vs.zod.output = zi.output;
   }
 
-  next.jsonSchema = deriveJsonSchema(schema);
+  next.jsonSchema = await deriveJsonSchema(
+    schema,
+    info,
+    roundTripInfo,
+    jsonSchemaSides,
+  );
 
   const parseBuilt = buildOp("parse", schema);
   // Indexing by a `OpName` union narrows the value type to the intersection of
@@ -547,8 +712,24 @@ export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
     for (const [name, ex] of Object.entries(op.examples)) {
       const bench = ex.bench;
       try {
-        const out = fn(evalSchema(ex.input));
-        op.examples[name] = clean({ input: ex.input, output: valueToCode(out), bench });
+        const value = evalSchema(ex.input);
+        // `await` on a sync operation's result is a no-op, so both kinds run
+        // through one path. An async operation can still throw synchronously
+        // (the top-level type check runs before the first await), which the
+        // same catch handles — a rejection and a synchronous throw are one
+        // outcome to the author.
+        const out = await fn(value);
+        // An operation that hands its input straight back records the input's
+        // own source rather than a re-derived spelling of the same value. It
+        // reads better, and it's the only way a value the serializer can't
+        // reproduce gets a passing example at all — a Blob or a File only
+        // yields its bytes asynchronously, so `new File(["ab"], "a.txt")`
+        // could be *run* but never written down as a result.
+        op.examples[name] = clean({
+          input: ex.input,
+          output: out === value ? ex.input : valueToCode(out),
+          bench,
+        });
       } catch (e) {
         op.examples[name] = clean({ input: ex.input, error: (e as Error).message, bench });
       }
@@ -558,10 +739,41 @@ export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
   return next;
 };
 
+const jsonSchemaTypePresenceViolations = (spec: Spec, expected: Spec): string[] => {
+  const errs: string[] = [];
+  for (const { field, side } of [
+    { field: "fromInputType", side: "input" },
+    { field: "fromOutputType", side: "output" },
+  ] as const) {
+    const currentType = spec.jsonSchema[field];
+    const expectedType = expected.jsonSchema[field];
+    const schemaType = expected.ts[side];
+    if (isSkip(schemaType)) continue;
+    if (currentType !== undefined && expectedType === undefined) {
+      try {
+        evalSchema(expected.jsonSchema[side]);
+        errs.push(
+          `jsonSchema.${field}: S.fromJSONSchema(jsonSchema.${side}) matches ts.${side} ` +
+            `${JSON.stringify(schemaType)} — omit \`${field}\`.`,
+        );
+      } catch {
+        errs.push(
+          `jsonSchema.${field}: jsonSchema.${side} failed to create, so there is no round-trip type to record — omit \`${field}\`.`,
+        );
+      }
+    } else if (currentType === undefined && expectedType !== undefined)
+      errs.push(
+        `jsonSchema.${field}: omitted, but S.fromJSONSchema(jsonSchema.${side}) infers ` +
+          `${JSON.stringify(expectedType)} !== ts.${side} ${JSON.stringify(schemaType)} — add \`${field}\`.`,
+      );
+  }
+  return errs;
+};
+
 // `ts.schema` can evaluate without throwing to a value that still isn't a
 // usable Sury schema (e.g. `ts.schema: "42"` evaluates to the number 42).
 // Every Sury schema carries a Standard Schema `~standard` prop whose `vendor`
-// is `"sury"` (Sury's own internals use this exact check — see `js_assert` in
+// is `"sury"` (Sury's own internals use this exact check — see `assert` in
 // the sury entry) — a reliable, non-throwing alternative to probing with a builder.
 const isUsableSchema = (schema: unknown): boolean =>
   (schema as { ["~standard"]?: { vendor?: string } } | null | undefined)?.["~standard"]?.vendor === "sury";
@@ -616,15 +828,24 @@ export const checkAliases = async (spec: Spec): Promise<string[]> => {
     // resolve the alias's type) must not abort the remaining aliases or
     // surface as the outer, label-less "goldens could not be computed".
     try {
-      if (!isSkip(spec.ts.input) || !isSkip(spec.ts.output)) {
-        const info = await deriveTypeInfo(aliasSrc);
-        if (!isSkip(spec.ts.input) && info.input !== spec.ts.input)
-          errs.push(`${label}: ts.input ${JSON.stringify(info.input)} !== ${JSON.stringify(spec.ts.input)}`);
-        if (!isSkip(spec.ts.output) && info.output !== spec.ts.output)
-          errs.push(`${label}: ts.output ${JSON.stringify(info.output)} !== ${JSON.stringify(spec.ts.output)}`);
-      }
+      const jsonSchemaSides = deriveJsonSchemaSides(aliasSchema);
+      const info = await deriveTypeInfo(aliasSrc);
+      const roundTripInfo = await deriveRoundTripTypeInfo(
+        aliasSrc,
+        jsonSchemaSides.input.source,
+        jsonSchemaSides.output.source,
+      );
+      if (!isSkip(spec.ts.input) && info.input !== spec.ts.input)
+        errs.push(`${label}: ts.input ${JSON.stringify(info.input)} !== ${JSON.stringify(spec.ts.input)}`);
+      if (!isSkip(spec.ts.output) && info.output !== spec.ts.output)
+        errs.push(`${label}: ts.output ${JSON.stringify(info.output)} !== ${JSON.stringify(spec.ts.output)}`);
 
-      const js = deriveJsonSchema(aliasSchema);
+      const js = await deriveJsonSchema(
+        aliasSchema,
+        info,
+        roundTripInfo,
+        jsonSchemaSides,
+      );
       if (js.input !== spec.jsonSchema.input)
         errs.push(`${label}: jsonSchema.input differs:\n${diffText(spec.jsonSchema.input, js.input)}`);
       if (js.output !== spec.jsonSchema.output)
@@ -670,6 +891,13 @@ export const checkAliases = async (spec: Spec): Promise<string[]> => {
             errs.push(
               `${label}: operations.${opName} is \`eq-to-parse\` on schema but does not compile to the same code as parse on this alias`,
             );
+        } else if (built.isAsync !== (op.isAsync === true)) {
+          // Reported instead of the expression diff below: the two are built by
+          // different builders, so their code differs everywhere and the diff
+          // would bury the one fact that explains it.
+          errs.push(
+            `${label}: operations.${opName} is ${built.isAsync ? "async on this alias but not on schema" : "async on schema but not on this alias"}`,
+          );
         } else if (!isSkip(op.expression) && fn.toString() !== op.expression) {
           errs.push(`${label}: operations.${opName}.expression differs:\n${diffText(op.expression, fn.toString())}`);
         }
@@ -797,7 +1025,14 @@ export const checkSpec = async (
     try {
       const violations = identityViolations(schema, spec);
       for (const violation of violations) errs.push(violation);
-      const fresh = knownFresh ?? serialize(await recomputeGoldens(spec), comments);
+      // Not part of `violations`: a wrong `isAsync` doesn't block `--write`
+      // (which builder a direction uses is derived from the schema, so the
+      // recomputed goldens are right either way) — only the marker needs the
+      // author's hand.
+      errs.push(...asyncViolations(schema, spec));
+      const recomputed = knownFresh === undefined ? await recomputeGoldens(spec) : undefined;
+      if (recomputed) errs.push(...jsonSchemaTypePresenceViolations(spec, recomputed));
+      const fresh = knownFresh ?? serialize(recomputed!, comments);
       if (fresh !== canon)
         errs.push(
           (violations.length
@@ -819,7 +1054,7 @@ export const checkSpec = async (
 // Part of the compared text, so an edited or dropped header reads as stale
 // like any other drift.
 const BUNDLE_SIZE_HEADER = [
-  "# Minified+gzipped bytes per public export of src/S.mjs, plus `total` for the whole entry.",
+  "# Minified+gzipped bytes per public export of index.mjs, plus `total` for the whole entry.",
   "# Generated by `pnpm spec check --write` — every row is measured, so never hand-write one.",
 ].join("\n");
 
@@ -868,6 +1103,54 @@ export const checkBundleSize = async (
   if (raw !== fresh) errs.push(`stale — run \`pnpm spec check --write\`:\n${diffText(raw, fresh)}`);
 
   return { errs, fresh, before, after };
+};
+
+// ---- scenarios.yaml --------------------------------------------------------
+
+export const readScenarios = (raw: string = readScenariosRaw()): Scenarios =>
+  raw ? ((parseYaml(raw) as Scenarios) ?? {}) : {};
+
+const readScenariosRaw = (): string =>
+  existsSync(SCENARIOS_PATH) ? readFileSync(SCENARIOS_PATH, "utf8") : "";
+
+// Scenarios have no goldens, so this checks the file's shape and that each
+// scenario runs. The second matters most: the perf pass reports a throwing
+// scenario as "new" (indistinguishable from one the baseline predates), which
+// would leave a typo quietly unmeasured forever. `raw`/`specIds` are
+// injectable for tests, same as lintSpecsDir's `names`.
+export const checkScenarios = (
+  raw: string = readScenariosRaw(),
+  specIds: string[] = listSpecFiles().map(specId),
+): string[] => {
+  if (!raw) return [];
+
+  let parsed: unknown;
+  try {
+    parsed = parseYaml(raw);
+  } catch (e) {
+    return [`is not valid YAML: ${(e as Error).message}`];
+  }
+
+  const v = validateScenarios(parsed);
+  if (!v.ok) return [`schema: ${v.error}`];
+
+  const errs: string[] = [];
+  const taken = new Set(specIds);
+  for (const [id, scenario] of Object.entries(v.value)) {
+    // `spec check --perf [id…]` resolves an id against both, so a name that
+    // is both a spec and a scenario would silently select only one of them.
+    if (taken.has(id)) errs.push(`${id}: id collides with a spec of the same name`);
+    if (!VALID_ID_RE.test(id))
+      errs.push(`${id}: invalid scenario id (only letters, digits, and - allowed)`);
+    try {
+      // Built exactly as benchChild.ts builds it (and buildScenarioRunner runs
+      // it once), so what passes here is what the perf pass can measure.
+      buildScenarioRunner(S, scenarioSource(scenario), { v: undefined });
+    } catch (e) {
+      errs.push(`${id}: did not run: ${(e as Error).message}`);
+    }
+  }
+  return errs;
 };
 
 // Re-exported so `spec new` can populate ts.input/ts.output/ts.instantiations

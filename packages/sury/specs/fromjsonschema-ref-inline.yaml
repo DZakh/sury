@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.fromJSONSchema({ type: "object", properties: { from: { $ref: "#/$defs/Point" }, to: { $ref: "#/$defs/Point" } }, required: ["from", "to"], $defs: { Point: { type: "object", properties: { x: { type: "number" }, y: { type: "number" } }, required: ["x", "y"] } } })'
+  input: "{ from: { x: number; y: number; }; to: { x: number; y: number; }; }"
+  output: "{ from: { x: number; y: number; }; to: { x: number; y: number; }; }"
+  instantiations: 3111
+jsonSchema:
+  input: '{ type: "object", properties: { from: { type: "object", properties: { x: { type: "number" }, y: { type: "number" } }, required: ["x", "y"] }, to: { type: "object", properties: { x: { type: "number" }, y: { type: "number" } }, required: ["x", "y"] } }, required: ["from", "to"] }'
+  output: '{ type: "object", properties: { from: { type: "object", properties: { x: { type: "number" }, y: { type: "number" } }, required: ["x", "y"] }, to: { type: "object", properties: { x: { type: "number" }, y: { type: "number" } }, required: ["x", "y"] } }, required: ["from", "to"] }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[6](i);let v0=i["from"],v3=i["to"];typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0["x"],v2=v0["y"];typeof v1==="number"&&!Number.isNaN(v1)||e[0](v1);typeof v2==="number"&&!Number.isNaN(v2)||e[1](v2);typeof v3==="object"&&v3&&!Array.isArray(v3)||e[5](v3);let v4=v3["x"],v5=v3["y"];typeof v4==="number"&&!Number.isNaN(v4)||e[3](v4);typeof v5==="number"&&!Number.isNaN(v5)||e[4](v5);return {"from":{"x":v1,"y":v2,},"to":{"x":v4,"y":v5,},}}
+    examples:
+      both-points:
+        input: "{ from: { x: 0, y: 0 }, to: { x: 1, y: 2 } }"
+        output: "{ from: { x: 0, y: 0 }, to: { x: 1, y: 2 } }"
+      missing-a-coordinate:
+        input: "{ from: { x: 0 }, to: { x: 1, y: 2 } }"
+        error: 'Failed at ["from"]["y"]: Expected number, received undefined'
+      wrong-coordinate-type:
+        input: '{ from: { x: 0, y: 0 }, to: { x: 1, y: "2" } }'
+        error: 'Failed at ["to"]["y"]: Expected number, received "2"'
+      missing-a-point:
+        input: "{ from: { x: 0, y: 0 } }"
+        error: 'Failed at ["to"]: Expected { x: number; y: number; }, received undefined'
+  decode:
+    expression: i=>{let v0=i["from"],v1=i["to"];return i}
+    examples:
+      both-points:
+        input: "{ from: { x: 0, y: 0 }, to: { x: 1, y: 2 } }"
+        output: "{ from: { x: 0, y: 0 }, to: { x: 1, y: 2 } }"
+      missing-a-coordinate:
+        input: "{ from: { x: 0 }, to: { x: 1, y: 2 } }"
+        output: "{ from: { x: 0 }, to: { x: 1, y: 2 } }"
+      wrong-coordinate-type:
+        input: '{ from: { x: 0, y: 0 }, to: { x: 1, y: "2" } }'
+        output: '{ from: { x: 0, y: 0 }, to: { x: 1, y: "2" } }'
+      missing-a-point:
+        input: "{ from: { x: 0, y: 0 } }"
+        output: "{ from: { x: 0, y: 0 } }"
+  encode:
+    expression: i=>{let v0=i["from"],v1=i["to"];return i}
+    examples:
+      both-points:
+        input: "{ from: { x: 0, y: 0 }, to: { x: 1, y: 2 } }"
+        output: "{ from: { x: 0, y: 0 }, to: { x: 1, y: 2 } }"
+      missing-a-coordinate:
+        input: "{ from: { x: 0 }, to: { x: 1, y: 2 } }"
+        output: "{ from: { x: 0 }, to: { x: 1, y: 2 } }"
+      wrong-coordinate-type:
+        input: '{ from: { x: 0, y: 0 }, to: { x: 1, y: "2" } }'
+        output: '{ from: { x: 0, y: 0 }, to: { x: 1, y: "2" } }'
+      missing-a-point:
+        input: "{ from: { x: 0, y: 0 } }"
+        output: "{ from: { x: 0, y: 0 } }"

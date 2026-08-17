@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.string.with(S.to, S.date)
+  aliases:
+    - S.to(S.string, S.date)
+  input: string
+  output: Date
+  instantiations: 5233
+jsonSchema:
+  input: '{ type: "string", format: "date-time" }'
+  output: Expected JSON, received Date
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[1](i);let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](v0);return v0}
+    examples:
+      valid:
+        input: '"2024-01-01T00:00:00.000Z"'
+        output: new Date("2024-01-01T00:00:00.000Z")
+      not-a-date-text:
+        input: '"nope"'
+        error: Expected Date, received invalid Date
+      not-a-string:
+        input: "0"
+        error: Expected string, received 0
+  decode:
+    expression: i=>{let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](v0);return v0}
+    examples:
+      valid:
+        input: '"2024-01-01T00:00:00.000Z"'
+        output: new Date("2024-01-01T00:00:00.000Z")
+  encode:
+    expression: i=>{return i.toISOString()}
+    examples:
+      valid:
+        input: new Date("2024-01-01T00:00:00.000Z")
+        output: '"2024-01-01T00:00:00.000Z"'

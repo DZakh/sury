@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.number.with(S.to, S.jsonString)
+  input: number
+  output: string
+  instantiations: 5233
+jsonSchema:
+  input: '{ type: "number" }'
+  output: '{ type: "string" }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="number"&&!Number.isNaN(i)||e[1](i);return (Number.isFinite(i)?""+i:e[0](i))}
+    examples:
+      valid:
+        input: "123"
+        output: '"123"'
+      not-a-number:
+        input: '"123"'
+        error: Expected number, received "123"
+  decode:
+    expression: i=>{return (Number.isFinite(i)?""+i:e[0](i))}
+    examples:
+      valid:
+        input: "123"
+        output: '"123"'
+      float:
+        input: "123.4"
+        output: '"123.4"'
+  encode:
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="number"&&!Number.isNaN(v0)||e[1](v0);return v0}
+    examples:
+      number-text:
+        input: '"123"'
+        output: "123"
+      not-a-number-payload:
+        input: '"\"abc\""'
+        error: Expected number, received "abc"

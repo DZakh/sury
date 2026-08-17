@@ -4,12 +4,12 @@ ts:
   input: string
   output: string | number
   instantiations: 1894
-vs:
-  zod:
-    _skip: not-applicable
 jsonSchema:
   input: '{ anyOf: [{ type: "string", const: "apple" }, { type: "string" }] }'
   output: '{ anyOf: [{ type: "string", const: "apple" }, { type: "number" }, { type: "string" }] }'
+vs:
+  zod:
+    _skip: not-applicable
 operations:
   parse:
     expression: i=>{for(;;){let r;if(typeof i==="string"&&i==="apple")break;if(typeof i==="string"){try{let v0;try{v0=e[0](i)}catch(x){e[1](x);e[2](x)}typeof v0==="number"&&!Number.isNaN(v0)||e[3](v0);i=v0;break}catch(x){(r||(r=[])).push(e[4](x))}break}e[5](i,...(r||[]))}return i}
@@ -20,7 +20,7 @@ operations:
       coerced-by-codec:
         input: '"42"'
         output: "42"
-      unparseable-string-falls-through:
+      unparseable-string-coerces-to-nan:
         input: '"cherry"'
         output: '"cherry"'
       wrong-tag:

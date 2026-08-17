@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.string.with(S.to, S.number)
+  aliases:
+    - S.to(S.string, S.number)
+  input: string
+  output: number
+  instantiations: 5233
+jsonSchema:
+  input: '{ type: "string" }'
+  output: '{ type: "number" }'
+vs:
+  zod: z.string().transform((value) => Number(value))
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[1](i);let v0=+i;!Number.isNaN(v0)||e[0](i);return v0}
+    examples:
+      integer:
+        input: '"123"'
+        output: "123"
+      float:
+        input: '"123.4"'
+        output: "123.4"
+      not-a-number-text:
+        input: '"abc"'
+        error: Expected number, received "abc"
+      not-a-string:
+        input: "123"
+        error: Expected string, received 123
+  decode:
+    expression: i=>{let v0=+i;!Number.isNaN(v0)||e[0](i);return v0}
+    examples:
+      valid:
+        input: '"123"'
+        output: "123"
+  encode:
+    expression: i=>{return ""+i}
+    examples:
+      valid:
+        input: "123"
+        output: '"123"'

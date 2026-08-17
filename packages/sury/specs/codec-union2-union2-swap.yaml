@@ -4,11 +4,11 @@ ts:
   input: string | number
   output: string | number
   instantiations: 6324
-vs:
-  zod: z.union([z.string(), z.number()])
 jsonSchema:
   input: '{ anyOf: [{ type: "number" }, { type: "string" }] }'
   output: '{ anyOf: [{ type: "string" }, { type: "number" }] }'
+vs:
+  zod: z.union([z.string(), z.number()])
 operations:
   parse:
     expression: i=>{(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i))||e[0](i);return i}

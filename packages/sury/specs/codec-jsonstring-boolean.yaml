@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.jsonString.with(S.to, S.boolean)
+  input: string
+  output: boolean
+  instantiations: 5233
+jsonSchema:
+  input: '{ type: "string" }'
+  output: '{ type: "boolean" }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="boolean"||e[1](v0);return v0}
+    examples:
+      true-text:
+        input: '"true"'
+        output: "true"
+      false-text:
+        input: '"false"'
+        output: "false"
+      not-a-boolean-payload:
+        input: '"123"'
+        error: Expected boolean, received 123
+      not-a-string:
+        input: "true"
+        error: Expected JSON string, received true
+  decode:
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="boolean"||e[1](v0);return v0}
+    examples:
+      true-text:
+        input: '"true"'
+        output: "true"
+  encode:
+    expression: i=>{return ""+i}
+    examples:
+      "true":
+        input: "true"
+        output: '"true"'
+      "false":
+        input: "false"
+        output: '"false"'

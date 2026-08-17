@@ -19,7 +19,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { build } from "esbuild";
 import { OP_ORDER, isCreationError, type OpName } from "./format";
-import { evalSchema, readSpec, specId, stripTypes } from "./harness";
+import { evalSchema, readScenarios, readSpec, scenarioSource, specId, stripTypes } from "./harness";
 
 const here = (rel: string) => fileURLToPath(new URL(rel, import.meta.url));
 const REPO_ROOT = here("../../");
@@ -44,6 +44,14 @@ const WARMUP_BATCHES = 20;
 // of magnitude stricter.
 const BLOCKS = 8;
 const ROUNDS_PER_BLOCK = 2;
+// A whole child process can land in one JIT state and stay there — IC and
+// feedback shapes settle early, after which every block in that process agrees
+// with itself. The identical build has measured "unchanged" and "−44%" against
+// the same baseline in back-to-back runs, each individually "confirmed", so
+// within-process repetition (blocks) cannot see this failure mode at all. A
+// candidate is therefore confirmed by fresh PROCESSES, and kept only when the
+// screening process and every confirm process agree on direction.
+const CONFIRM_PROCESSES = 2;
 // Controls are sampled PER PHASE, and the floor is computed per phase too,
 // because the phases are not equally measurable: `create` allocates millions of
 // schemas and so runs against the garbage collector, which is a real cost but a
@@ -55,18 +63,26 @@ const CONTROLS_PER_PHASE = 6;
 // point a real but sub-noise delta is not actionable, and listing it trains
 // the reader to ignore the section.
 const MIN_FLOOR_PCT = 3;
-const PHASES = ["create", "create+compile", "run"] as const;
+const PHASES = ["create", "create+compile", "run", "scenario"] as const;
 
-export type Phase = "create" | "create+compile" | "run";
+export type Phase = "create" | "create+compile" | "run" | "scenario";
 
 export type Target = {
   name: string;
   specId: string;
   phase: Phase;
   op?: OpName;
+  /** Build the operation with the async builder — the only way an async schema compiles. */
+  isAsync?: boolean;
   /** Type-stripped already: the child has no TypeScript to strip it with. */
-  schemaSrc: string;
-  inputSrc?: string;
+  schemaSrc?: string;
+  /** Every example of this target's outcome, run in one batch. */
+  inputSrcs?: string[];
+  /** Parallel to `inputSrcs`, so a changed outcome can name the example. */
+  exampleNames?: string[];
+  /** `scenario` phase only — same type-stripped contract as schemaSrc. */
+  prepareSrc?: string;
+  runSrc?: string;
   throws: boolean;
   control: boolean;
 };
@@ -99,6 +115,7 @@ export type Perf = {
   unchanged: number;
   added: string[];
   skippedConstants: number;
+  skippedAsync: number;
   errors: { name: string; error: string }[];
   // Targets whose accept/reject outcome moved. Not timings — a behavior change
   // that a percentage would misreport as an enormous slowdown.
@@ -194,9 +211,27 @@ const SEP = " · ";
 // operation is cached on the singleton, so a second call measures the cache.
 const isConstantSchema = (src: string): boolean => evalSchema(src) === evalSchema(src);
 
-export const deriveTargets = (files: string[]): { targets: Target[]; skippedConstants: number } => {
+// Scenarios are selected by their own id, since they aren't files: a narrowed
+// run naming only spec ids gets no scenarios, and vice versa.
+export const deriveTargets = (
+  files: string[],
+  scenarioIds?: string[],
+): { targets: Target[]; skippedConstants: number; skippedAsync: number } => {
   const targets: Target[] = [];
   let skippedConstants = 0;
+  let skippedAsync = 0;
+
+  for (const [id, scenario] of Object.entries(readScenarios())) {
+    if (scenarioIds && !scenarioIds.includes(id)) continue;
+    targets.push({
+      name: `${id}${SEP}scenario`,
+      specId: id,
+      phase: "scenario",
+      ...scenarioSource(scenario),
+      throws: false,
+      control: false,
+    });
+  }
 
   for (const file of files) {
     const id = specId(file);
@@ -223,17 +258,44 @@ export const deriveTargets = (files: string[]): { targets: Target[]; skippedCons
       // and no examples to run. Timing how fast it throws would measure error
       // construction, not the schema.
       if (isCreationError(block)) continue;
+      const isAsync = block.isAsync === true;
       if (!constant)
-        targets.push({ ...base, name: `${id}${SEP}create+compile${SEP}${op}`, phase: "create+compile", op });
-      for (const [example, ex] of Object.entries(block.examples))
+        targets.push({ ...base, name: `${id}${SEP}create+compile${SEP}${op}`, phase: "create+compile", op, isAsync });
+      // Compiling an async operation is ordinary synchronous work (above), but
+      // running one is not: the batch loop can only start the promises, so the
+      // resolution it is supposed to be timing lands in microtasks after the
+      // clock is read. Counted, not silently dropped — the report says how many.
+      if (isAsync) {
+        skippedAsync += Object.keys(block.examples).length;
+        continue;
+      }
+      // One target per outcome, its batch iterating every example of that
+      // outcome, rather than one target per example. Same coverage at a third
+      // of the child processes — and no example has to be elected the
+      // representative, which nothing can do well: the first example is within
+      // 5% of its group's cheapest 66% of the time, and the longest input is
+      // the priciest only 42% of the time.
+      //
+      // Accepted and rejected stay apart. One loop over both would have to run
+      // behind the try/catch the rejecting side needs, which times the catch
+      // rather than the schema.
+      for (const throws of [false, true]) {
+        const examples = Object.entries(block.examples).filter(
+          ([, ex]) => !("output" in ex) === throws,
+        );
+        if (examples.length === 0) continue;
         targets.push({
           ...base,
-          name: `${id}${SEP}${op}${SEP}${example}`,
+          name: `${id}${SEP}${op}${SEP}${throws ? "rejects" : "accepts"}${
+            examples.length > 1 ? ` ×${examples.length}` : ""
+          }`,
           phase: "run",
           op,
-          inputSrc: stripTypes(ex.input),
-          throws: !("output" in ex),
+          inputSrcs: examples.map(([, ex]) => stripTypes(ex.input)),
+          exampleNames: examples.map(([name]) => name),
+          throws,
         });
+      }
     }
   }
 
@@ -247,7 +309,7 @@ export const deriveTargets = (files: string[]): { targets: Target[]; skippedCons
       controls.push({ ...inPhase[i]!, name: `control${SEP}${inPhase[i]!.name}`, control: true });
   }
 
-  return { targets: [...targets, ...controls], skippedConstants };
+  return { targets: [...targets, ...controls], skippedConstants, skippedAsync };
 };
 
 // ---- statistics ------------------------------------------------------------
@@ -299,7 +361,11 @@ const medianOf = (xs: number[]): number => {
 
 // ---- run -------------------------------------------------------------------
 
-export const runPerf = async (files: string[], against?: string): Promise<Perf> => {
+export const runPerf = async (
+  files: string[],
+  against?: string,
+  scenarioIds?: string[],
+): Promise<Perf> => {
   const { sha, label } = resolveBaseline(against);
   mkdirSync(CACHE, { recursive: true });
 
@@ -310,7 +376,7 @@ export const runPerf = async (files: string[], against?: string): Promise<Perf> 
     buildChild(),
   ]);
 
-  const { targets, skippedConstants } = deriveTargets(files);
+  const { targets, skippedConstants, skippedAsync } = deriveTargets(files, scenarioIds);
   const childPath = join(CACHE, "child.mjs");
   const payloadFor = (list: Target[]): ChildPayload => ({
     baseline: pathToFileURL(baselinePath).href,
@@ -394,15 +460,21 @@ export const runPerf = async (files: string[], against?: string): Promise<Perf> 
   // set are established under the same quiet serial conditions as the values
   // those floors gate. Screened under contention they would read as noisier
   // than the run they describe, and suppress real regressions to match.
-  const confirmed = collect(await measureAll([...candidates, ...controls], "confirm", 1));
+  // Each confirm pass spawns a fresh child process per target (see measureAll),
+  // so the CONFIRM_PROCESSES passes are independent JIT states, not repeats of
+  // one. Controls ride along in EVERY pass, not just the first: the floor they
+  // set gates the candidates, so a floor read from a single process would keep
+  // the one-sample failure mode this loop exists to remove.
+  const confirmRuns: Map<string, { pct: number; median: number; batch: number }>[] = [];
+  for (let i = 0; i < CONFIRM_PROCESSES; i++)
+    confirmRuns.push(
+      collect(await measureAll([...candidates, ...controls], `confirm ${i + 1}/${CONFIRM_PROCESSES}`, 1)),
+    );
 
   const floors = PHASES.map((phase) => {
     const measured = controls
       .filter((c) => c.phase === phase)
-      .flatMap((c) => {
-        const m = confirmed.get(c.name);
-        return m ? [m] : [];
-      });
+      .flatMap((c) => confirmRuns.flatMap((run) => run.get(c.name) ?? []));
     // Both statistics: the conservative bound catches a control that produced
     // an outright false positive, the median the subtler case of a phase that
     // is visibly biased without any single control clearing the bar.
@@ -417,18 +489,23 @@ export const runPerf = async (files: string[], against?: string): Promise<Perf> 
   });
   const floorFor = (phase: Phase) => floors.find((f) => f.phase === phase)!.pct;
 
-  // Kept only if the serial re-measurement agrees on direction, reporting the
-  // smaller magnitude. Deliberately not an average of the two: re-measuring
-  // only the large values and pooling them pulls a real regression toward the
-  // mean exactly as hard as a false one, so this confirms rather than estimates.
+  // Kept only if every serial re-measurement agrees on direction, reporting the
+  // smallest magnitude. Deliberately not an average: re-measuring only the
+  // large values and pooling them pulls a real regression toward the mean
+  // exactly as hard as a false one, so this confirms rather than estimates.
   const changed = candidates
     .flatMap((t) => {
       const first = screened.get(t.name)!;
-      const again = confirmed.get(t.name);
-      if (!again || Math.sign(again.pct) !== Math.sign(first.pct)) return [];
-      const pct = Math.sign(first.pct) * Math.min(Math.abs(first.pct), Math.abs(again.pct));
+      const samples = [first];
+      for (const run of confirmRuns) {
+        const again = run.get(t.name);
+        if (!again || Math.sign(again.pct) !== Math.sign(first.pct)) return [];
+        samples.push(again);
+      }
+      const pct = Math.sign(first.pct) * Math.min(...samples.map((s) => Math.abs(s.pct)));
       if (Math.abs(pct) < floorFor(t.phase)) return [];
-      return [{ name: t.name, phase: t.phase, pct, median: again.median, batch: again.batch }];
+      const last = samples[samples.length - 1]!;
+      return [{ name: t.name, phase: t.phase, pct, median: last.median, batch: last.batch }];
     })
     .sort((a, b) => b.pct - a.pct);
 
@@ -441,10 +518,13 @@ export const runPerf = async (files: string[], against?: string): Promise<Perf> 
     unchanged: real.length - changed.length,
     added: [...new Set(added)],
     skippedConstants,
-    errors,
+    skippedAsync,
+    // Deduped by name like outcomeChanged: collect runs over the screening pass
+    // plus every confirm pass, so one target can report the same failure twice.
+    errors: [...new Map(errors.map((e) => [e.name, e])).values()],
     outcomeChanged: [...new Map(outcomeChanged.map((o) => [o.name, o])).values()],
     meta:
       `node ${process.versions.node} · ${process.platform} ${process.arch} · ${cpu.length} cores · ` +
-      `${BLOCKS}×${ROUNDS_PER_BLOCK} rounds · ${SCREEN_JOBS} screening jobs · confirmed`,
+      `${BLOCKS}×${ROUNDS_PER_BLOCK} rounds · ${SCREEN_JOBS} screening jobs · confirmed by ${CONFIRM_PROCESSES} fresh processes`,
   };
 };

@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ f: S.schema({ b: S.string }).with(S.to, S.schema({ b: S.string }), (v) => ({ b: v.b + "!" }), (v) => ({ b: v.b.slice(0, -1) })) }).with(S.shape, (v) => ({ z: v.f.b }))'
+  input: "{ f: { b: string; }; }"
+  output: "{ z: string; }"
+  instantiations: 9214
+jsonSchema:
+  input: '{ type: "object", properties: { f: { type: "object", properties: { b: { type: "string" } }, required: ["b"] } }, required: ["f"] }'
+  output: '{ type: "object", properties: { z: { type: "string" } }, required: ["z"] }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[6](i);let v0=i["f"];typeof v0==="object"&&v0&&!Array.isArray(v0)||e[5](v0);let v1=v0["b"];typeof v1==="string"||e[0](v1);let v2;try{v2=e[1]({"b":v1,})}catch(x){e[2](x)}typeof v2==="object"&&v2&&!Array.isArray(v2)||e[4](v2);let v3=v2["b"];typeof v3==="string"||e[3](v3);return {"z":v3,}}
+    examples:
+      reads-through-field-transform:
+        input: '{ f: { b: "x" } }'
+        output: '{ z: "x!" }'
+  decode:
+    expression: i=>{let v0=i["f"];let v1;try{v1=e[0](v0)}catch(x){e[1](x)}typeof v1==="object"&&v1&&!Array.isArray(v1)||e[3](v1);let v2=v1["b"];typeof v2==="string"||e[2](v2);return {"z":v2,}}
+    examples:
+      reads-through-field-transform:
+        input: '{ f: { b: "x" } }'
+        output: '{ z: "x!" }'
+  encode:
+    creationError: "SuryError: Encoding is ambiguous when only a decode function is provided. Use S.to(target, {decode, encode})"

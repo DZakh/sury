@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({x: S.tuple([S.string, S.optional(S.string)])}).with(S.to, S.jsonString)"
+  input: "{ x: [string, string | undefined]; }"
+  output: string
+  instantiations: 9620
+jsonSchema:
+  input: 'Failed at ["x"]["1"]: Expected JSON, received string | undefined'
+  output: '{ type: "string" }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=i["x"];Array.isArray(v0)&&v0.length===2||e[2](v0);let v1=v0["0"],v2=v0["1"];typeof v1==="string"||e[0](v1);(typeof v2==="string"||v2===void 0)||e[1](v2);for(;;){if(typeof v2==="string"){v2=e[3](v2);break}if(v2===void 0){v2="null";break}e[4](v2)}return "{\"x\":["+e[3](v1)+","+v2+"]}"}
+    examples:
+      both-present:
+        input: '{ x: ["t", "o"] }'
+        output: '"{\"x\":[\"t\",\"o\"]}"'
+      optional-item-undefined:
+        input: '{ x: ["t", undefined] }'
+        output: '"{\"x\":[\"t\",null]}"'
+  decode:
+    expression: i=>{let v0=i["x"];let v1=v0["1"];for(;;){if(typeof v1==="string"){v1=e[0](v1);break}if(v1===void 0){v1="null";break}e[1](v1)}return "{\"x\":["+e[0](v0["0"])+","+v1+"]}"}
+    examples:
+      both-present:
+        input: '{ x: ["t", "o"] }'
+        output: '"{\"x\":[\"t\",\"o\"]}"'
+      optional-item-undefined:
+        input: '{ x: ["t", undefined] }'
+        output: '"{\"x\":[\"t\",null]}"'
+  encode:
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[5](v0);let v1=v0["x"];Array.isArray(v1)||e[4](v1);v1.length===2||e[3](v1);let v2=v1["0"],v3=v1["1"];typeof v2==="string"||e[1](v2);for(;;){if(typeof v3==="string")break;if(v3===null){v3=void 0;break}e[2](v3)}return {"x":[v2,v3,],}}
+    examples:
+      both-present:
+        input: '"{\"x\":[\"t\",\"o\"]}"'
+        output: '{ x: ["t", "o"] }'
+      null-item:
+        input: '"{\"x\":[\"t\",null]}"'
+        output: '{ x: ["t", undefined] }'

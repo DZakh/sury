@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.json.with(S.to, S.jsonString)
+  input: JSON
+  output: string
+  instantiations: 5233
+jsonSchema:
+  input: "{}"
+  output: '{ type: "string" }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{e[0](i);return JSON.stringify(i)}
+    examples:
+      object:
+        input: '{ a: [1, "x", null] }'
+        output: '"{\"a\":[1,\"x\",null]}"'
+      string:
+        input: '"plain"'
+        output: '"\"plain\""'
+      number:
+        input: "123"
+        output: '"123"'
+      not-json:
+        input: () => {}
+        error: Expected JSON, received Function
+  decode:
+    expression: i=>{return JSON.stringify(i)}
+    examples:
+      object:
+        input: '{ a: [1, "x", null] }'
+        output: '"{\"a\":[1,\"x\",null]}"'
+      string:
+        input: '"plain"'
+        output: '"\"plain\""'
+  encode:
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}return v0}
+    examples:
+      object:
+        input: '"{\"a\":[1,\"x\",null]}"'
+        output: '{ a: [1, "x", null] }'
+      number:
+        input: '"123"'
+        output: "123"

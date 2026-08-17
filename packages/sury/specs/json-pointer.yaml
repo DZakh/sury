@@ -1,0 +1,136 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.jsonPointer
+  input: string
+  output: string
+  instantiations: 254
+jsonSchema:
+  input: '{ type: "string", format: "json-pointer" }'
+  output: '{ type: "string", format: "json-pointer" }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    examples:
+      a-valid-json-pointer:
+        input: '"/foo/bar~0/baz~1/%a"'
+        output: '"/foo/bar~0/baz~1/%a"'
+      not-a-valid-json-pointer-not-escaped:
+        input: '"/foo/bar~"'
+        error: Expected json-pointer, received "/foo/bar~"
+      valid-json-pointer-with-empty-segment:
+        input: '"/foo//bar"'
+        output: '"/foo//bar"'
+      valid-json-pointer-with-the-last-empty-segment:
+        input: '"/foo/bar/"'
+        output: '"/foo/bar/"'
+      valid-json-pointer-as-stated-in-rfc-6901:
+        input: '""'
+        output: '""'
+      valid-json-pointer-as-stated-in-rfc-6901-2:
+        input: '"/foo"'
+        output: '"/foo"'
+      valid-json-pointer-as-stated-in-rfc-6901-3:
+        input: '"/foo/0"'
+        output: '"/foo/0"'
+      valid-json-pointer-as-stated-in-rfc-6901-4:
+        input: '"/"'
+        output: '"/"'
+      valid-json-pointer-as-stated-in-rfc-6901-5:
+        input: '"/a~1b"'
+        output: '"/a~1b"'
+      valid-json-pointer-as-stated-in-rfc-6901-6:
+        input: '"/c%d"'
+        output: '"/c%d"'
+      valid-json-pointer-as-stated-in-rfc-6901-7:
+        input: '"/e^f"'
+        output: '"/e^f"'
+      valid-json-pointer-as-stated-in-rfc-6901-8:
+        input: '"/g|h"'
+        output: '"/g|h"'
+      valid-json-pointer-as-stated-in-rfc-6901-9:
+        input: '"/i\\j"'
+        output: '"/i\\j"'
+      valid-json-pointer-as-stated-in-rfc-6901-10:
+        input: '"/k\"l"'
+        output: '"/k\"l"'
+      valid-json-pointer-as-stated-in-rfc-6901-11:
+        input: '"/ "'
+        output: '"/ "'
+      valid-json-pointer-as-stated-in-rfc-6901-12:
+        input: '"/m~0n"'
+        output: '"/m~0n"'
+      valid-json-pointer-used-adding-to-the-last:
+        input: '"/foo/-"'
+        output: '"/foo/-"'
+      valid-json-pointer-used-as-object-member-name:
+        input: '"/foo/-/bar"'
+        output: '"/foo/-/bar"'
+      valid-json-pointer-multiple-escaped-characters:
+        input: '"/~1~0~0~1~1"'
+        output: '"/~1~0~0~1~1"'
+      valid-json-pointer-escaped-with-fraction-part-1:
+        input: '"/~1.1"'
+        output: '"/~1.1"'
+      valid-json-pointer-escaped-with-fraction-part-2:
+        input: '"/~0.1"'
+        output: '"/~0.1"'
+      not-a-valid-json-pointer-uri-fragment-identifier:
+        input: '"#"'
+        error: Expected json-pointer, received "#"
+      not-a-valid-json-pointer-uri-fragment-identifier-2:
+        input: '"#/"'
+        error: Expected json-pointer, received "#/"
+      not-a-valid-json-pointer-uri-fragment-identifier-3:
+        input: '"#a"'
+        error: Expected json-pointer, received "#a"
+      not-a-valid-json-pointer-some-escaped-but:
+        input: '"/~0~"'
+        error: Expected json-pointer, received "/~0~"
+      not-a-valid-json-pointer-some-escaped-but-2:
+        input: '"/~0/~"'
+        error: Expected json-pointer, received "/~0/~"
+      not-a-valid-json-pointer-wrong-escape-character:
+        input: '"/~2"'
+        error: Expected json-pointer, received "/~2"
+      not-a-valid-json-pointer-wrong-escape-character-2:
+        input: '"/~-1"'
+        error: Expected json-pointer, received "/~-1"
+      not-a-valid-json-pointer-multiple-characters-not:
+        input: '"/~~"'
+        error: Expected json-pointer, received "/~~"
+      not-a-valid-json-pointer-isn-t-empty:
+        input: '"a"'
+        error: Expected json-pointer, received "a"
+      not-a-valid-json-pointer-isn-t-empty-2:
+        input: '"0"'
+        error: Expected json-pointer, received "0"
+      not-a-valid-json-pointer-isn-t-empty-3:
+        input: '"a/a"'
+        error: Expected json-pointer, received "a/a"
+      valid-json-pointer-unicode-characters-allowed-by-rfc:
+        input: '"/foo/bar/😎"'
+        output: '"/foo/bar/😎"'
+      valid-json-pointer-control-characters-allowed-after-json:
+        input: '"/foo\u0000bar\n\tbaz"'
+        output: '"/foo\u0000bar\n\tbaz"'
+  decode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"/foo/bar~0/baz~1/%a"'
+        output: '"/foo/bar~0/baz~1/%a"'
+      invalid:
+        input: '"/foo/bar~"'
+        error: Expected json-pointer, received "/foo/bar~"
+  encode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"/foo/bar~0/baz~1/%a"'
+        output: '"/foo/bar~0/baz~1/%a"'
+      invalid:
+        input: '"/foo/bar~"'
+        error: Expected json-pointer, received "/foo/bar~"

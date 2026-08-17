@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.email
+  input: string
+  output: string
+  instantiations: 254
+jsonSchema:
+  input: '{ type: "string", format: "email" }'
+  output: '{ type: "string", format: "email" }'
+vs:
+  zod: z.email()
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"jane@example.com"'
+        output: '"jane@example.com"'
+      empty:
+        input: '""'
+        error: Expected email, received ""
+      not-an-email:
+        input: '"example.com"'
+        error: Expected email, received "example.com"
+      not-a-string:
+        input: "42"
+        error: Expected email, received 42
+  decode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"jane@example.com"'
+        output: '"jane@example.com"'
+      empty:
+        input: '""'
+        error: Expected email, received ""
+  encode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"jane@example.com"'
+        output: '"jane@example.com"'
+      empty:
+        input: '""'
+        error: Expected email, received ""

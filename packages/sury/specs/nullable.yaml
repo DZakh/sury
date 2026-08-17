@@ -1,14 +1,16 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
   schema: S.nullable(S.string)
+  aliases:
+    - S.nullable(S.nullable(S.nullable(S.string)))
   input: string | null
   output: string | null
-  instantiations: 380
-vs:
-  zod: z.string().nullable()
+  instantiations: 422
 jsonSchema:
   input: '{ anyOf: [{ type: "string" }, { type: "null" }] }'
   output: '{ anyOf: [{ type: "string" }, { type: "null" }] }'
+vs:
+  zod: z.string().nullable()
 operations:
   parse:
     expression: i=>{(typeof i==="string"||i===null)||e[0](i);return i}

@@ -4,6 +4,123 @@
 
 ### ideas
 
+- Bytes on the wire: make `S.uint8Array` encode as base64, and give the text
+  conversion its own name. Today `S.uint8Array`'s string codec runs
+  `TextEncoder`/`TextDecoder`, so any byte outside ASCII is silently destroyed —
+  `S.encoder(S.schema({payload: S.uint8Array}), S.jsonString)` on
+  `[137, 80, 78, 71]` (a PNG magic number) emits `"�PNG"`, which decodes back as
+  `[239, 191, 189, 80, 78, 71]`, with no error at either end. The file's own
+  first line already promises the intended contract ("a base64 string on the
+  JSON side, bytes on ours"); the implementation just never matched it. The type
+  can't say whether bytes are text or opaque, so the default has to be the total
+  conversion — guessing base64 when the user meant text is instantly visible,
+  guessing text when they meant binary corrupts data nobody re-reads.
+  - `S.uint8Array` <-> string becomes base64. Feature-detect
+    `Uint8Array.prototype.toBase64` / `Uint8Array.fromBase64` (TC39 stage 3;
+    Bun has it, Node 22 does not) once at module init and embed the chosen
+    helper, so generated code stays a single `e[N](i)` call with no per-schema
+    branch. The fallback (`btoa`/`atob` over a latin1 bridge, or `Buffer`)
+    allocates an intermediate string per value where the native path doesn't —
+    worth a `scenarios.yaml` entry before byte fields appear in a benchmark.
+  - Add `S.base64`, a string schema carrying the encoding, so the wire format is
+    named on the wire side. It gets JSON Schema both ways:
+    `{type: "string", contentEncoding: "base64"}` out of `toJSONSchema` and back
+    through `fromJSONSchema`. `contentEncoding` is already in the keyword set
+    (`src/types/jsonschema.d.ts`, `jsonschema.ts`, `JSONSchema.res`), and
+    `toJSONSchema(S.uint8Array)` currently throws `Expected JSON, received
+    Uint8Array` — so this closes a gap that exists whichever encoding wins.
+  - Add `S.utf8` for bytes that really are text, converting against
+    `S.uint8Array` via `TextEncoder`/`TextDecoder` — with
+    `new TextDecoder("utf-8", {fatal: true})`, so invalid bytes throw instead of
+    becoming U+FFFD. An error is recoverable; a replacement character isn't.
+    That flag alone is the minimum fix if the default is left as it is.
+  - Consider `base64url` too, but only as an explicit spelling — there is no
+    reliable signal for "this value is going into a URL", and inferring one is
+    the same class of guess that produced the current bug. The principled
+    exception is a container that genuinely owns a URL-safe context (a
+    query-string or path codec, the way `compactColumns` owns columns), which
+    could default its byte fields to it.
+  - Layering: `src/advanced/` is for schemas nothing else builds on, so if
+    `uint8Array` builds on `S.base64` the shared piece belongs in the core, not
+    beside it. Specs must round-trip non-ASCII bytes in both directions —
+    ASCII-only fixtures are exactly what hid this. Breaking for anyone relying
+    on text semantics, so it wants a CHANGELOG line; `tests/S_test.ts`'s
+    `S.decoder(S.string, S.uint8Array, S.jsonString)("data") === '"data"'`
+    becoming `'"ZGF0YQ=="'` is the whole behavior change in one assertion.
+- Trusted union decode can leave a dead `let` behind: `valGet` builds a
+  grandchild's inline string eagerly (`` `${parent.v()}${pathAppend}` ``,
+  `composites.ts`), materializing the parent var even when the passthrough
+  case never uses the child — `{let v0=i["VAL"];break}` in
+  `S_union_test.res`'s issue-101 golden. Eliminating it means making
+  field-val inline strings lazy, a cross-cutting builder change.
+- `fromJSONSchema` on `{type: "string", format: "unsafe"}` (a fast-json-stringify
+  extension meaning "skip escaping") produces a schema whose jsonString encode
+  treats the value as JSON text and re-parses it, so a string containing quotes
+  throws at runtime instead of being escaped. An unknown/unsupported `format`
+  should fall back to a plain string rather than change the conversion.
+- Follow a field's own forward chain before targeting `S.json`/`S.jsonString`.
+  An object field declared `S.uint8Array.with(S.to, S.string)` fails to encode
+  to `S.json` and `S.jsonString` with "Can't decode Uint8Array to JSON": the
+  field piece retargets the field's *input* schema at json instead of first
+  resolving the field's `.to` chain (Uint8Array -> string) and serializing its
+  output. The same chain works top-level (`S.decoder(S.uint8Array, S.string)`)
+  and wire-side-declared (`S.string.with(S.to, S.uint8Array)` + `S.encoder`).
+  Fix idea: in `jsonDecoderFn`'s object-field mapping and `fieldPiece`, when
+  `itemVal.s.to !== U`, parse the field's own chain first and retarget the
+  resolved output at json/jsonString — mirroring what `updateOutput`/
+  `perVariantTo` already does for union variants.
+- **Every composite export carries the whole union compiler.** `S.array`,
+  `S.dict`, `S.schema`, `S.tuple`, `S.shape` — none of which have union
+  semantics — each retain all ~10.2 kB minified of `union.ts`, through two
+  statically-reachable but usually-dead edges: `valGet`'s dict-missing-key
+  wrap (`schema = option(s)`, `composites.ts`) and the `fieldOr` helper the
+  object ctx builds eagerly (`makeFieldOr`, `factory.ts`). Both reach
+  `optionFactory` -> `unionFactory`, which attaches `unionDecoder` and
+  `unionEncoder` as fields and so drags planner, emitter and rewrite in as one
+  clump. Cutting them is the largest per-export win measured anywhere in the
+  library (esbuild min+gzip, against main): `array` 11088 -> 5580 B gzip
+  (-50%), `dict` 11090 -> 5578, `schema` 11338 -> 6160, `shape` 12268 -> 7132,
+  `tuple` 12385 -> 7220, `object` 13563 -> 7656 (needs both edges — cutting
+  `valGet` alone leaves it at 13535).
+  Neither edge yields to a mechanical fix. Splitting `valGet` into plain and
+  option-wrapping variants was tried and does *not* work: `makeObjectVal`'s
+  val template names `decoder: objectDecoder`, which `arrayDecoder` reaches,
+  so the decoder graph is one strongly-connected component and `array` keeps
+  the retention anyway. Breaking it needs late binding — a mutable slot like
+  the one `enableStandardJSONSchema` already uses, or parameterizing the wrap
+  — which trades a runtime indirection on the decoder path. The `fieldOr` edge
+  wants the other treatment: implement field-with-default without a union at
+  all (an `if(v===void 0){v=def}` decoder wrapper instead of
+  `union([unit, item])` + default fold), which also shortens generated code.
+  That subsumes "Remove fieldOr in favor of optionOr?" below.
+  What is *not* worth doing: splitting `union.ts` into core + planner files.
+  Measured as a dead end — a mechanical split drops zero bytes, since
+  everything is reachable from the two field assignments in `unionFactory`
+  (and two more in `unionRewrite`). Real severance needs a new light
+  dispatcher for the 2-3-variant `T | undefined` shapes (est. 1.5-3 kB of new
+  code, and any case it can't compile either panics or falls back to the
+  planner, restoring the retention), and it only pays off for
+  `optional`/`nullable`-only bundles — ceiling -4.9 kB gzip there. Do the two
+  edges first; revisit the split only if that ceiling still matters.
+- **`fromJSONSchema` builds its own schemas through the proxy ctx.** The
+  object and tuple construction sites in `src/jsonschema.ts` go through
+  `object(() => {})` / `tuple(s => ...)`, which drag `schemaObject`/
+  `schemaTuple`'s proxy-ctx machinery — `proxifyShapedSchema`, `makeFieldOr`
+  (and through it `optionFactory`), `shapedSerializer` — into every
+  `fromJSONSchema` bundle. Swapping them for the `schemaFactory` /
+  `definitionToSchema` the module already imports drops factory retention
+  from 4694 to 598 B minified, -1588 B gzip on the export. Mechanical, but
+  not free: a `definitionToSchema` tuple is strict and carries no shaped
+  serializer, so the equivalence with `schemaTuple` for the
+  identity-mapping case needs pinning in a spec before the swap.
+  Two neighbours measured and deliberately left alone: the bounds machinery
+  (`minimum`/`minLength`/`multipleOf` -> `refinements.ts`, ~1.7 kB gzip) is
+  core-keyword payload, and a `fromJSONSchema` that drops those keywords is
+  simply wrong; and mapping `true`/`{}` to `unknown` instead of `S.json`
+  would save its own ~1 kB but stops rejecting non-JSON values, which is a
+  semantics change to argue on its own merits, not a size fix.
+  `toJSONSchema` needs nothing here — it already retains a disjoint half of
+  `jsonschema.ts` (~130 B overlap) and none of refinements, factory or union.
 - Add `promise` type and `S.promise` (instead of async flag internally)
 - Async output refiner runs on the Promise wrapper, not the resolved value.
   When a decoder result is async (e.g. a union with an async member) and the
@@ -48,14 +165,15 @@ S.reverse(S.schema({
   refinement whose check duplicates what the decoder could emit from the
   bound fields directly, so `S.int32.with(S.gte, 5)` range-checks twice.
   Deriving them in `numberDecoder` fuses the two and drops a check per bound.
-  Do it in its own PR, in this order — the risk and the safety net are the
-  same piece:
-    1. Merge the branch that renamed `S.min`/`S.max`. `pnpm fuzz:union` builds
-       its baseline from a git ref, and every ref before that rename lacks
-       `S.gte`/`S.minLength`, so the harness cannot build one today.
-    2. First commit of the follow-up: run `fuzz:union --ref=<merge-base>` on an
-       unchanged tree, to confirm the harness works against the new API.
-    3. Then make the change and diff, so the gate actually gates.
+  Half the groundwork is already done: `boundsRefiner` derives every check
+  from the schema's own fields at codegen time rather than from a value each
+  call closed over, so moving them is now relocating a field read rather than
+  inventing one. The other half is the payoff — that refiner currently ships
+  with every bound export, and folding it into the decoder every number
+  consumer already carries is what wins those bytes back.
+  Run `fuzz:union --ref=<merge-base>` before *and* after; the harness builds
+  its baseline from a git ref, so confirm it works on an unchanged tree first
+  and the gate actually gates.
   Three knock-ons to expect: `union.ts` decides a schema has refinements with
   `schema.refiner !== U`, which bounded schemas would stop setting;
   `parse.ts`'s reverse swaps `refiner`/`inputRefiner`, and a field carries no
@@ -65,104 +183,114 @@ S.reverse(S.schema({
   `errorMessage[key]` — without that it reports `Expected int32` where the
   refinement reports the bound.
 
-- **A narrowing bound should retract the check it supersedes.** Applying a
-  bound that doesn't narrow is skipped outright, but in the other order the
-  earlier check is already in the refiner chain and can't be pulled back, so
-  `gte(1).gte(5)` runs `i>=1` and `i>=5` where only the second matters. The
-  advertised JSON Schema is right either way — but this is *not* codegen only,
-  which is the part worth fixing first: a superseded check keeps its own
-  message, so which one a caller sees depends on which check fires.
-  `S.string.with(S.maxLength, 5, "MAX").with(S.length, 3)` advertises
-  `string.length == 3` and reports "MAX" for a 6-character string and the
-  generic message for a 4-character one, both being equally "too long"
-  (`specs/string-length-supersedes-maxLength-message.yaml`). Compounding it,
-  `length()` writes its message under both `minLength` and `maxLength` while
-  the check it attaches reads only `minLength` — dead in that order, and in the
-  reverse order (`maxLength(5, "MAX").length(3, "EXACT")`) it overwrites the
-  caller's "MAX" so the surviving `i.length<6` check reports "EXACT". Retracting
-  the check retires both. ArkType
-  reduces both orders to a single `number >= 5` node because its refinements
-  intersect rather than append (`min: (l, r) => l.isStricterThan(r) ? l : r`),
-  so it's reachable, but it needs `internalRefine` to be able to replace a
-  check rather than only push one. Of the rest: Zod narrows the field but runs
-  both checks (same as here), Valibot keeps both in the pipe with no
-  narrowing, and TypeBox lets the later option win outright — so
-  `Type.Number({minimum:5})` overridden by `{minimum:1}` accepts 3.
-
 - **Narrow a numeric format's range check against the schema's own bounds.**
   `S.int32.with(S.gt, 5)` emits `i<=2147483647&&i>=-2147483648&&i%1===0` and
   then `i>5`, but `i>5` already implies the lower half; `S.lt` makes the upper
   half dead the same way, and `S.port` (`i>=0&&i<65536&&i%1===0`) has the
   identical redundancy. `numberDecoder` has `input.e` in hand and the bounds
   are native fields on it, so `int32FormatValidation` can drop whichever half
-  the bound subsumes. Two costs: a value outside the format range but also
-  outside the bound would report the bound's error rather than
+  the bound subsumes. The same read gives `S.integer`'s `i%1===0` away for
+  free wherever a divisor is an integer multiple of 1 — `multipleOf(2)` on an
+  integer schema already implies it. Two costs: a value outside the format
+  range but also outside the bound would report the bound's error rather than
   `Expected int32`, and `int32Check` would stop being a module-level const —
   the one place `primitives.ts` deliberately avoids a per-compile closure.
+  Do it with the item above, not before it: both rewrite the same emit.
 
-- **A range `fromJSONSchema` can't represent resolves two different silent
-  ways.** `integer` maps onto int32, so a document whose bound falls outside
-  that range has no faithful schema — and the two sides disagree about what to
-  do. `{minimum: 3000000000}` collapses to `never` (`applyBound` reads the
-  panic and gives up), rejecting the very values the document describes;
-  `{maximum: 3000000000}` is dropped as non-narrowing, leaving a schema that
-  rejects 2.5e9 and re-emits int32's edge as if the document had said it.
-  Neither round-trips. The file already fails creation for keywords it cannot
-  model rather than widening silently — an unrepresentable range wants the same
-  answer, or a wider integer schema to land in. Pinned in
-  `specs/jsonschema-int-{minimum,maximum}-above-int32.yaml`.
+- **A bound applied after a transform emits no check.**
+  `S.string.with(S.trim).with(S.minLength, 5)` accepts `""`: `transform` sets
+  the output tail to a copy of `unknown`, `updateBounds` writes
+  `bounds`/`minLength` onto that tail, and `boundsRefiner` dispatches on the
+  tail's `type` — `unknown` matches neither the length branch nor the numeric
+  one, so it returns no checks at all. Before `boundsRefiner` the per-call
+  closure emitted `i.length>4` regardless of type, so the check ran (though
+  its expression rendered as the garbled `unknown <= undefined` — the write
+  site targeting the tail while the bound helpers read the root predates this
+  refactor, and the JSON Schema output loses the bound the same way). Fix
+  candidates: have `boundsRefiner` pick the branch from which bound fields
+  are set instead of from `type`, or make `updateBounds` refuse/forward when
+  the tail carries no type to range over. Needs a spec for
+  transform-then-bound in both directions; none exists today.
 
-- **A bound is the only refinement that rewrites the schema's type
-  expression.** So it's the only one that shows up when the *type* check is
-  what failed: `S.string.with(S.minLength, 2)` reports
-  `Expected string.length >= 2, received null`, where the same string carrying
-  `S.pattern` or `S.refine` still reports `Expected string, received null`.
-  The statement is true — `null` is not a string of length >= 2 — but it points
-  at a length nothing got far enough to have, and which refinement was applied
-  shouldn't decide how a wrong-type failure reads. The two checks are already
-  separate throws with separate builders (`e[1]` vs `e[0]`), so a custom bound
-  message correctly does *not* leak here; only the rendering does. Fixing it
-  means `failInvalidType` rendering the bare type where the bound check renders
-  the bounded one — which costs the `skipOverride` path a second caller.
-  Pinned in `specs/string-minLength.yaml`.
+- **Type-less JSON Schema assertion keywords vanish on re-emit.**
+  `fromJSONSchema({multipleOf: 2})` builds (the keyword joined the type-less
+  `keywordTypes` "number" group) and validates correctly through the opaque
+  `refine()` that group compiles to, but `toJSONSchema` of the result returns
+  `{}` — the document silently widens on a round-trip, where the keyword used
+  to be rejected loudly as unsupported. First settle what a type-less schema
+  should even mean here: per spec `{multipleOf: 2}` constrains only numeric
+  instances and accepts everything else, which is what the refine does — so
+  the fix is on the emit side, carrying the original keywords through the
+  opaque refinement onto the output document rather than changing validation.
 
-- **Union headers enumerate bounds.** The same rewrite reaches the union
-  header, which is built from member expressions and deduped on rendered text.
-  Bounded members no longer render alike, so three string members that used to
-  collapse to `string` now spell
-  `string.length >= 5 | string | string.length <= 1`, and a non-string input
-  gets all three back as the answer to what was wrong with it. Visible in
-  `specs/union3-same-tag-effect-boundary.yaml`,
-  `union3-same-tag-validation-group`, `union2-refined-literal-fallback` and
-  `union-large-planner`. Three options, cheapest first: build the header from
-  `inputExpression(member, true)` so it names the shapes and leaves the bounds
-  to the per-member lines, which already carry them; or dedupe on the base
-  rendering and re-add a bound only where it's what distinguishes two members;
-  or keep the header and drop the `, received X` each sub-line repeats from it.
-  The first restores every golden above to its pre-bounds text without losing
-  detail, since the sub-lines are per-member already.
+- **Rewrite a zero length bound on an array to a real empty tuple at runtime.** The
+  type-level half of "a hard-coded length is arity" is done, for the exact
+  bound and the lower one alike: on an array `S.length(N)` infers the N-tuple,
+  `S.minLength(N)` the N-tuple with an open tail, `S.nonEmpty`
+  `[T, ...T[]]` and `S.length(0)` `[]`; on a string only `S.length(0)` reaches a type
+  (`""`), since TypeScript can't count characters (`Sized`/`AtLeast`/`Repeat`
+  in `index.d.ts`, pinned in the `array-`/`string-` length specs).
+  The runtime deliberately still refines: a general tuple rewrite unrolls
+  generated code O(N) where the loop is O(1), emits N copies of the item
+  schema in JSON Schema, bypasses the `maybeMessage` machinery (tuple arity
+  fails as `invalid_type`), and compiles decode/encode to `identity` where the
+  refinement re-checks the length — each a behavior change to pin
+  deliberately, not inherit. The N=0 case has none of the scaling problems
+  and a strict win: `S.length(0)` on an array rewriting to `items: []` +
+  `additionalItems: "strict"` drops the dead element loop from parse
+  (`Array.isArray(i)&&i.length===0||e(i)`), turns decode/encode into
+  identity, and makes the schema union-dispatchable by arity. Settle there
+  whether JSON Schema keeps emitting the now-unreachable `items` schema, and
+  what `minLength`/`maxLength` applied *after* the rewrite should do
+  (compare against `items.length` and no-op/conflict, not add a redundant
+  bound).
 
-- **A hard-coded array length should build a tuple.** `S.array(S.string)`
-  with `S.length(2)` describes exactly `[string, string]`, and with `S.empty`
-  exactly `[]` — but both infer `string[]` and run a length check beside the
-  array's own loop, where a tuple would carry the arity in its type and check
-  it once. `S.tuple` already exists and already emits `i.length===n`, so this
-  is `length`/`empty` on an array tag rewriting to it rather than refining,
-  and the win is a truer inferred type more than codegen. Two things to settle:
-  the bound is reversible today and a tuple rewrite has to stay so, and
-  `length` applied to an already-bounded array (`minLength(1).length(2)`) has
-  to pick one representation. Pinned in `specs/array-length.yaml` and
-  `specs/array-empty.yaml`.
 
-- **A bound that doesn't narrow takes its custom message down with it.**
-  `gte(5).gte(1, "MY MESSAGE")` drops the second bound — correctly, there is no
-  failure left for it to guard — but the message is the caller's own text and
-  it vanishes with no log, no error, and a schema that builds. A caller who
-  writes a message and never sees it has no way to learn why. Either carry it
-  onto the bound that survived, or reject a message supplied to a bound that
-  doesn't narrow at construction, the way a contradictory pair already is.
-  Same on the length side. Pinned in `specs/number-gte-redundant.yaml` and
-  `specs/string-length-redundant.yaml`.
+### Size bounds and the form-data family
+
+`S.blob`/`S.file` and `S.minSize`/`S.maxSize`/`S.size` landed as the first step
+of a form-data story. What they were built to make cheap, roughly in order:
+
+- **Widen `S.minSize` to the other containers.** The runtime already accepts any
+  instance whose prototype carries a `.size`, so `S.instance(Set)` and
+  `S.instance(Map)` work today (`specs/set-minSize.yaml` is the coverage that
+  proves it, and exists because a `Set` is the only `.size` carrier the spec
+  harness can serialize). What's missing is schemas of their own: `S.set(item)`
+  and `S.map(key, value)` would make the bounds discoverable rather than
+  reachable only through `S.instance`.
+- **Objects, under `minProperties`/`maxProperties`.** The one container whose
+  size is neither `.length` nor `.size`: the check would be
+  `Object.keys(i).length`, which allocates — worth a spec snapshot so the cost
+  is visible before it ships. Unlike `minSize`, both keywords are native JSON
+  Schema, so `jsonschema.ts` gains a real emit rather than the nothing that
+  `minSize` maps to today.
+- **File/Blob content codecs.** `S.file.with(S.to, S.string)` (via `.text()`)
+  and `S.to(S.uint8Array)` (via `.arrayBuffer()`) are async in the decode
+  direction and sync in the encode one (`new File([i], name)`), so they need
+  `B_asyncVal` and the `flagAsync` guard that already makes a sync `S.decode`
+  fail with `invalid_operation`. `advanced/uint8Array.ts` is the shape to copy.
+  The payoff is `S.file.with(S.to, S.jsonString.with(S.to, configSchema))` —
+  parse an upload into a typed value, and reverse it to *build* the upload.
+- **`S.formData` as a codec, not a preprocessor.** A `FormData` field is
+  `string | File`, so the per-field work is the existing string coercions plus
+  `.get`/`.getAll` extraction; the object rebuild in `advanced/json.ts`
+  (`jsonDecoderFn`, via `makeObjectVal`/`B_addObjectField`) is the pattern.
+  Reversing it emits `new FormData()` + `append` per field, which is what makes
+  this different from VineJS and every other form validator: one schema serves
+  the request handler *and* the `fetch` body. `S.urlSearchParams` is the same
+  code minus files, and `S.queryString` is to it what `S.jsonString` is to
+  `S.json`.
+- **The three HTML-form quirks**, once `S.formData` exists: a checkbox is absent
+  when unchecked and `"on"` when checked (VineJS spells this `vine.accepted()`),
+  an empty text input submits `""` rather than nothing, and repeated keys are
+  how arrays arrive. The first wants a named `S.accepted`; the second belongs to
+  the codec rather than a global flag, since it's a wire quirk; the third is
+  `.getAll`. Bracket notation (`user[name]`) is deliberately out — VineJS leans
+  on `qs` for it too.
+- **`S.mime`** for uploads, next to the size bounds. Wants a JSON Schema emit
+  (`contentMediaType`, and `format: "binary"` for the instances) — which is the
+  point at which `minSize`/`maxSize` should be revisited, since neither has a
+  keyword today and both are dropped from the emitted document.
 
 ### Custom codec follow-ups
 
@@ -241,11 +369,8 @@ S.reverse(S.schema({
   (`packages/sury/src/jsonschema.ts`, the two max dispatch sites), so
   exclusive upper bounds round-trip incorrectly.
 - **`S.merge` forces all keys of both objects into `required`.**
-  `js_merge` (`packages/sury/src/jsapi.ts`) rebuilds the merged object with
+  `merge` (`packages/sury/src/entry.ts`) rebuilds the merged object with
   every property required, dropping optionality that either side declared.
-- **`inlinedValueFromString` escapes only `"` and `\n`.**
-  (`packages/sury/src/types.ts`) — other control characters (`\r`, `\t`,
-  backslash itself) survive unescaped into generated code and error text.
 - **ReDoS risk in `fromJSONSchema` patterns.** `new RegExp(jsonSchema.pattern)`
   compiles untrusted patterns directly; a hostile JSON Schema can supply a
   catastrophic-backtracking pattern.
@@ -269,7 +394,7 @@ S.reverse(S.schema({
   ReScript `Object.setAdditionalItems` (`Sury.res`), carried through the TS
   migration unchanged.
 - **Homomorphic tuple-mapped types don't map variadic tuple elements.**
-  `UnknownArrayToOutput`/`UnknownArrayToInput` (`packages/sury/src/S.d.ts`)
+  `UnknownArrayToOutput`/`UnknownArrayToInput` (`packages/sury/index.d.ts`)
   guard on `number extends T["length"]` to distinguish tuples from plain
   arrays, but a variadic tuple like `[string, ...number[]]` also has
   `T["length"]` widened to `number`, so it falls into the "return as-is"
@@ -278,6 +403,104 @@ S.reverse(S.schema({
   `_RestToOutput`/`_RestToInput` accumulator types, so this isn't a regression
   from the homomorphic-type rewrite — just an existing gap now easier to spot
   in the simpler form.
+
+### `toJSONSchema` drops refinements across a per-variant conversion
+
+`S.json.with(S.to, S.array(S.optional(S.number.with(S.lte, 1))))` emits
+`{items: {anyOf: [{type: "number"}, {type: "null"}]}}` — the item's
+`maximum: 1` is gone. A variant converted through `.to(json)` (jsonDecoderFn's
+`unionRewriteTo`, via `perVariantTo`) is described by the target's type, and the
+source's refinements aren't carried onto it. The non-optional
+`S.array(S.number.with(S.lte, 1))` keeps its `maximum`, so the loss is specific
+to the per-variant path.
+
+Validation is unaffected — the generated code enforces the bound in both
+directions — so this is a fidelity gap in the emitted contract, not a hole:
+a consumer handed the JSON Schema would accept `[2]` where the codec rejects it.
+
+Pinned by `specs/codec-json-array-optional-bounded.yaml` (FIXME) and the
+`toJSONSchema` case in `tests/S_toJSONSchema_test.res`. Surfaced by #376, whose
+`undefined -> null` conversion made this shape describable at all — before it,
+the whole schema emitted `{}`.
+
+### String formats (follow-ups to the JSON Schema format vocabulary)
+
+Scores below are against the JSON-Schema-Test-Suite `optional/format` corpus,
+which is what `packages/sury/specs/<format>.yaml` examples are drawn from.
+
+- `S.email` scores 13/21 — now the weakest format, and untouched pre-existing
+  code. The suite wants RFC 5321 behavior where the current regex is the
+  practical one Zod ships. Cheapest correctness win left in the vocabulary.
+- Emit `pattern` for formats with no JSON Schema name. `cuid` currently vanishes
+  in `toJSONSchema` — the denylist in the string branch drops it. Zod emits a
+  regex `pattern` in that situation, which would let it survive a round trip
+  through a JSON Schema consumer.
+- Decide whether `S.isoDateTime` should accept RFC 3339 offsets. It is UTC-only
+  by choice, and that is the only thing between it and 23/23 — the three
+  remaining suite failures are all offset forms. `S.isoTime` already has the
+  offset and leap-second machinery to compose with, so it is a small change,
+  but it is breaking and belongs to a major version. Alternative: keep
+  `isoDateTime` strict and add a separate lenient export, at the cost of two
+  schemas emitting `format: "date-time"` (only one can be the `fromJSONSchema`
+  target).
+- `S.pattern` drops the regex flags when emitting JSON Schema, so
+  `S.string.with(S.pattern, /^https:\/\//i)` accepts `HTTPS://` while emitting
+  `pattern: "^https:\\/\\/"`, which a downstream validator reads
+  case-sensitively and rejects. The emitted schema is stricter than the schema
+  it describes. JSON Schema `pattern` has no flag syntax, so the fix is either
+  to desugar `i` into the pattern source or to reject flagged regexes that
+  cannot be represented.
+- `fromJSONSchema` only reaches the format schemas through the
+  `type === "string"` branch, so a bare `{"format": "date"}` — which is exactly
+  how the JSON-Schema-Test-Suite and most real documents write it — converts to
+  an unconstrained schema and validates nothing. Pre-existing (the same gate
+  held for `email`/`uri`/`uuid`/`date-time` before the vocabulary landed), but
+  it is now the main thing between the format work and real `fromJSONSchema`
+  coverage: `packages/json-schema-test-suite` scores `optional/format/date.json`
+  at 22/75 where the schemas themselves are 69/69 on the same strings. Faithful
+  handling means a string-or-anything-else schema, since `format` is
+  type-conditional — the same structural question the suite README raises for
+  `maxLength` and `properties`.
+- The ordering question behind the `S.uri.with(S.to, S.url)` encode bug is
+  settled for the two instance codecs but not in general. A check emits against
+  its val's *prev* var, so a val carrying its own transform expression is the
+  wrong place to hang one — `date.ts` and `url.ts` both did, and both tested the
+  instance rather than the string built from it. They wrap in `B_refine` now.
+  Nothing stops the next codec from making the same mistake: the invariant lives
+  in a comment on the two encoders rather than in the type or in `B_next`.
+- Drop the `.test` from the decode path of a format-plus-codec pair such as
+  `S.uri.with(S.to, S.url)` once `S.constructor` exists. Decode runs the URI
+  regex *and* constructs the `URL`, which is two validations of one value, and
+  under a constructor-shaped schema the construction is the validation — there
+  is nothing left for the regex to add. Not done now because it cannot be scoped
+  to `uri`: `decode` skips the type guard but keeps every refinement, uniformly
+  (`string-minLength` decode still checks `i.length>1`, `ipv6` still `.test`s),
+  so dropping it for one format alone makes that format the odd one out.
+  The constraint to carry over: the two languages **cross**, so neither check
+  subsumes the other. Over ~5.2k sampled forms, 2601 parse as `URL` but fail the
+  RFC 3986 regex (`http://a.b `, `%zz`, backslashes, braces) and 181 pass the
+  regex but make `new URL` throw (`http:`, `http://` — legal path-empty URIs the
+  WHATWG parser refuses). So the construction guard cannot be dropped either,
+  and whatever `S.constructor` validates has to be understood as WHATWG's
+  language, not RFC 3986's — the schema's accepted set changes with it.
+- `S.uriReference` and `S.iriReference` accept `1:b`. RFC 3986 §4.2 builds a
+  relative-path reference on `segment-nz-nc` — a first segment with no colon in it,
+  the colon being exactly what would make that segment read as a scheme.
+  `uriPattern` uses full `pchar` for the rootless-path branch and makes the scheme
+  group optional, so the reference forms inherit a first segment that admits `:`.
+  Parameterizing that character class is *not* the fix: the same branch carries the
+  path of a scheme-bearing URI, where a colon is legal and common — `urn:oasis:names:x`
+  and `http:1:b` are valid URIs and therefore valid URI-references, and both would
+  start failing. Doing it properly means spelling the reference form as the grammar
+  does, `URI-reference = URI / relative-ref`, so the two paths stop being one branch.
+  It only over-accepts, and the format suite has no case for it.
+- IDNA validation for `S.hostname` / `S.idnHostname` (32/55 and 51/84). Both
+  accept an `xn--` label on shape alone; rejecting one whose Punycode decodes to
+  a character IDNA2008 disallows needs Punycode plus the Unicode
+  derived-property tables (see TypeBox's `src/format/_idna.ts` / `_puny.ts` for
+  the shape of it). This is a bundle-size decision rather than a code one, and
+  the gap only ever over-accepts — no valid hostname is turned away. The cases
+  are published as `known-gap-*` spec examples so they stay visible.
 
 ## v11 initial
 
@@ -327,6 +550,34 @@ s.fn(s.arg(0, S.string))
 - S.produce
 - S.mutator
 - Check only number of fields for strict object schema when fields are not optional (bad idea since it's not possible to create a good error message, so we still need to have the loop)
+
+## `fromJSONSchema` type inference follow-ups
+
+- **Runtime `$defs`/`$ref` resolution** — the static type already resolves
+  local pointers while the runtime parses a `$ref` as plain JSON; the FIXME in
+  `specs/fromjsonschema-recursive-ref.yaml` pins the divergence. Recursive
+  documents need the runtime's recursive-schema machinery (`S_recursive`), so
+  size that first. Closing this deletes the one "type leads runtime" caveat.
+- **Corpus-wide round-trip dimension (phase 3)** — derive a `fromJSONSchema`
+  check in the spec harness from each spec's existing `jsonSchema.input`
+  golden (~126 cases): pin the inferred type + instantiations next to the
+  emitter's output so a runtime branch gaining support without a matching
+  type branch shows up as a spec diff. Harness change → log under Spec
+  Harness Suggestions in CONTRIBUTING.md per the spec skill's rule.
+- **`default`-fold input/output split** — a non-required property with
+  `default` is folded via `Option_getOr`, so it's optional on the input side
+  but always present on the output side; the inferred type currently keeps it
+  optional on both (sound, just wider). Needs `FromJSONSchema` split into
+  per-side resolvers; measure the cost of doubling before committing.
+- **Same-level `not` exclusion** — `{ enum: [...], not: { enum: [...] } }`
+  could infer `Exclude<...>` cheaply. Only worth doing together with runtime
+  structure (today `not` is an opaque refinement), and note upstream
+  `json-schema-to-ts` gets the `allOf`-sibling variant wrong — pin whatever
+  behavior lands in a spec.
+- **`anyOf`/`oneOf` inside `type: "object"`** — the runtime drops them (TODO
+  at the object branch in `src/jsonschema.ts`); the type chain mirrors that.
+  When the runtime TODO lands, add the matching branch to `JSONSchemaResolve`
+  in the same change — the dispatch-order comment binds the two.
 
 ## Articles
 

@@ -324,7 +324,7 @@ module Advanced = {
       ~schema=shapeSchema,
       ~op=#Encode,
       // TODO: Can be optimized
-      `i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)&&i["TAG"]==="Circle"){let v0=i["radius"];typeof v0==="number"&&!Number.isNaN(v0)||e[0](v0);i={"kind":"circle","radius":v0,};break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i["TAG"]==="Square"){let v1=i["x"];typeof v1==="number"&&!Number.isNaN(v1)||e[1](v1);i={"kind":"square","x":v1,};break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i["TAG"]==="Triangle"){let v2=i["x"],v3=i["y"];typeof v2==="number"&&!Number.isNaN(v2)||e[2](v2);typeof v3==="number"&&!Number.isNaN(v3)||e[3](v3);i={"kind":"triangle","x":v2,"y":v3,};break}e[4](i)}return i}`,
+      `i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)&&i["TAG"]==="Circle"){i={"kind":"circle","radius":i["radius"],};break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i["TAG"]==="Square"){i={"kind":"square","x":i["x"],};break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i["TAG"]==="Triangle"){i={"kind":"triangle","x":i["x"],"y":i["y"],};break}e[0](i)}return i}`,
     )
   })
 }
@@ -585,7 +585,7 @@ test("Compiled serialize code snapshot of objects returning literal fields", t =
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Convert,
-    `i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)&&i["foo"]===0){i=i["foo"];break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i["bar"]===1){i=i["bar"];break}e[0](i)}return i}`,
+    `i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)&&i["foo"]===0){i=0;break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i["bar"]===1){i=1;break}e[0](i)}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
@@ -694,7 +694,7 @@ Crazy: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)&&i["type"]==="A"
     S.global({})
     let reversed = schema->S.reverse
     let code = `i=>{let v0;v0=e[0](i);return v0}
-Crazy: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)&&i["TAG"]==="A"){let v0=i["_0"];Array.isArray(v0)||e[1](v0);let v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){try{let v2;v2=e[0](v0[v1]);v4[v1]=v2}catch(v3){v3.path="[\\"_0\\"]"+'["'+v1+'"]'+v3.path;throw v3}}i={"type":"A","nested":v4,};break}if(typeof i==="string"&&(i==="B"||i==="C"||i==="D"||i==="E"||i==="F"||i==="G"||i==="H"||i==="I"||i==="J"||i==="K"||i==="L"||i==="M"||i==="N"||i==="O"||i==="P"||i==="Q"||i==="R"||i==="S"||i==="T"||i==="U"||i==="V"||i==="W"||i==="X"||i==="Y"))break;if(typeof i==="object"&&i&&!Array.isArray(i)&&i["TAG"]==="Z"){let v5=i["_0"];Array.isArray(v5)||e[3](v5);let v9=new Array(v5.length);for(let v6=0;v6<v5.length;++v6){try{let v7;v7=e[2](v5[v6]);v9[v6]=v7}catch(v8){v8.path="[\\"_0\\"]"+'["'+v6+'"]'+v8.path;throw v8}}i={"type":"Z","nested":v9,};break}e[4](i)}return i}`
+Crazy: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)&&i["TAG"]==="A"){let v0=i["_0"];let v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){try{let v2;v2=e[0](v0[v1]);v4[v1]=v2}catch(v3){v3.path="[\\"_0\\"]"+'["'+v1+'"]'+v3.path;throw v3}}i={"type":"A","nested":v4,};break}if(typeof i==="string"&&(i==="B"||i==="C"||i==="D"||i==="E"||i==="F"||i==="G"||i==="H"||i==="I"||i==="J"||i==="K"||i==="L"||i==="M"||i==="N"||i==="O"||i==="P"||i==="Q"||i==="R"||i==="S"||i==="T"||i==="U"||i==="V"||i==="W"||i==="X"||i==="Y"))break;if(typeof i==="object"&&i&&!Array.isArray(i)&&i["TAG"]==="Z"){let v5=i["_0"];let v9=new Array(v5.length);for(let v6=0;v6<v5.length;++v6){try{let v7;v7=e[1](v5[v6]);v9[v6]=v7}catch(v8){v8.path="[\\"_0\\"]"+'["'+v6+'"]'+v8.path;throw v8}}i={"type":"Z","nested":v9,};break}e[2](i)}return i}`
     t->U.assertCompiledCode(~schema=reversed, ~op=#Convert, code, ~embedded=[("Crazy", 0)])
     // There was an issue with reverse when it doesn't return the same code on second run
     t->U.assertCompiledCode(~schema=reversed, ~op=#Convert, code, ~embedded=[("Crazy", 0)])
@@ -762,7 +762,7 @@ test("json-rpc response", t => {
   t->U.assertCompiledCode(
     ~schema=getLogsResponseSchema,
     ~op=#Encode,
-    `i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)&&i["TAG"]==="Ok"){let v0=i["_0"];Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"||e[0](v2);}catch(v3){v3.path="[\\"_0\\"]"+'["'+v1+'"]'+v3.path;throw v3}}i={"result":v0,};break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i["TAG"]==="Error"){let v4=i["_0"];for(;;){if(typeof v4==="string"&&v4==="LogsNotFound"){v4={"message":"NotFound",};break}if(typeof v4==="object"&&v4&&!Array.isArray(v4)&&v4["NAME"]==="InvalidData"){let v5=v4["VAL"];typeof v5==="string"||e[2](v5);v4={"message":"Invalid","data":v5,};break}e[3](v4)}i={"error":v4,};break}e[4](i)}return i}`,
+    `i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)&&i["TAG"]==="Ok"){let v0=i["_0"];i={"result":v0,};break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i["TAG"]==="Error"){let v2=i["_0"];for(;;){if(typeof v2==="string"&&v2==="LogsNotFound"){v2={"message":"NotFound",};break}if(typeof v2==="object"&&v2&&!Array.isArray(v2)&&v2["NAME"]==="InvalidData"){v2={"message":"Invalid","data":v2["VAL"],};break}e[0](v2)}i={"error":v2,};break}e[1](i)}return i}`,
   )
 
   // A value of the right outer type but a bogus inner variant is rejected now
@@ -802,7 +802,7 @@ test("Issue https://github.com/DZakh/rescript-schema/issues/101", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)&&i["NAME"]==="request"){let v0=i["VAL"];typeof v0==="object"&&v0&&!Array.isArray(v0)||e[1](v0);let v1=v0["collectionName"];typeof v1==="string"||e[0](v1);i={"NAME":i["NAME"],"VAL":{"collectionName":v1,},};break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i["NAME"]==="response"){let v2=i["VAL"];typeof v2==="object"&&v2&&!Array.isArray(v2)||e[4](v2);let v3=v2["collectionName"],v4=v2["response"];typeof v3==="string"||e[2](v3);typeof v4==="string"&&(v4==="accepted"||v4==="rejected")||e[3](v4);i={"NAME":i["NAME"],"VAL":{"collectionName":v3,"response":v4,},};break}e[5](i)}return i}`,
+    `i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)&&i["NAME"]==="request"){let v0=i["VAL"];break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i["NAME"]==="response"){let v1=i["VAL"];break}e[0](i)}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
@@ -835,19 +835,19 @@ test("Regression https://github.com/DZakh/sury/issues/121", t => {
 })
 
 test("Union of strings with different refinements", t => {
-  let schema = S.union([S.email, S.url])
+  let schema = S.union([S.email, S.uri])
 
   t->U.assertThrowsMessage(
     () => %raw(`"123"`)->S.parseOrThrow(~to=schema),
-    `Expected email | url, received "123"
+    `Expected email | uri, received "123"
 - Expected email, received "123"
-- Expected url, received "123"`,
+- Expected uri, received "123"`,
   )
 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i==="string"){for(;;){let r;try{e[0].test(i)||e[1](i);break}catch(x){(r||(r=[])).push(e[4](x))}try{e[2](i)||e[3](i);break}catch(x){(r||(r=[])).push(e[4](x))}e[5](i,...(r||[]))}}else{e[6](i)}return i}`,
+    `i=>{if(typeof i==="string"){for(;;){let r;try{e[0].test(i)||e[1](i);break}catch(x){(r||(r=[])).push(e[4](x))}try{e[2].test(i)||e[3](i);break}catch(x){(r||(r=[])).push(e[4](x))}e[5](i,...(r||[]))}}else{e[6](i)}return i}`,
   )
 })
 
@@ -922,7 +922,7 @@ module CknittelBugReport = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Encode,
-      `i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)&&i["TAG"]==="A"){let v0=i["_0"];typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0["payload"];typeof v1==="object"&&v1&&!Array.isArray(v1)||e[1](v1);let v2=v1["a"];(typeof v2==="string"||v2===void 0)||e[0](v2);i={"payload":{"a":v2,},};break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i["TAG"]==="B"){let v3=i["_0"];typeof v3==="object"&&v3&&!Array.isArray(v3)||e[5](v3);let v4=v3["payload"];typeof v4==="object"&&v4&&!Array.isArray(v4)||e[4](v4);let v5=v4["b"];(typeof v5==="number"&&!Number.isNaN(v5)&&v5<=2147483647&&v5>=-2147483648&&v5%1===0||v5===void 0)||e[3](v5);i={"payload":{"b":v5,},};break}e[6](i)}return i}`,
+      `i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)&&i["TAG"]==="A"){let v0=i["_0"];let v1=v0["payload"];i=v0;break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i["TAG"]==="B"){let v2=i["_0"];let v3=v2["payload"];i=v2;break}e[0](i)}return i}`,
     )
 
     let x = {

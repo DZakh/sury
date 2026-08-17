@@ -24,7 +24,7 @@ test("Can reuse schemas from other types", t => {
   )
 })
 
-// TODO: Support recursive schemas
+// Recursive types are covered in Ppx_Recursive_test.res
 
 @schema
 type stringWithDefault = @s.default("Foo") string
@@ -33,20 +33,20 @@ test("Creates schema with default", t => {
 })
 
 @schema
-type stringWithDefaultAndMatches = @s.default("https://example.com") @s.matches(S.url) string
+type stringWithDefaultAndMatches = @s.default("https://example.com") @s.matches(S.uri) string
 test("Creates schema with default using @s.matches", t => {
   t->assertEqualSchemas(
     stringWithDefaultAndMatchesSchema,
-    S.option(S.url)->S.Option.getOr("https://example.com"),
+    S.option(S.uri)->S.Option.getOr("https://example.com"),
   )
 })
 
 @schema
-type stringWithDefaultNullAndMatches = @s.default("https://example.com") @s.null @s.matches(S.url) string
+type stringWithDefaultNullAndMatches = @s.default("https://example.com") @s.null @s.matches(S.uri) string
 test("Creates schema with default null using @s.matches", t => {
   t->assertEqualSchemas(
     stringWithDefaultNullAndMatchesSchema,
-    S.nullAsOption(S.url)->S.Option.getOr("https://example.com"),
+    S.nullAsOption(S.uri)->S.Option.getOr("https://example.com"),
   )
 })
 

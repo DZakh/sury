@@ -12,76 +12,76 @@ let fooSchema = Sury.int;
 
 Vitest.test("Creates schema with the type name and schema at the for non t types", t => U.assertEqualSchemas(t, fooSchema, Sury.int, undefined));
 
-let reusedTypesSchema = Sury.$res_schema(s => [
+let reusedTypesSchema = Sury.$schema(s => [
   s.m(schema),
   s.m(fooSchema),
   s.m(Sury.bool),
   s.m(Sury.float)
 ]);
 
-Vitest.test("Can reuse schemas from other types", t => U.assertEqualSchemas(t, reusedTypesSchema, Sury.$res_schema(s => [
+Vitest.test("Can reuse schemas from other types", t => U.assertEqualSchemas(t, reusedTypesSchema, Sury.$schema(s => [
   s.m(schema),
   s.m(fooSchema),
   s.m(Sury.bool),
   s.m(Sury.float)
 ]), undefined));
 
-let stringWithDefaultSchema = Sury.$res_Option_getOr(Sury.$res_option(Sury.string), "Foo");
+let stringWithDefaultSchema = Sury.$Option_getOr(Sury.$option(Sury.string), "Foo");
 
-Vitest.test("Creates schema with default", t => U.assertEqualSchemas(t, stringWithDefaultSchema, Sury.$res_Option_getOr(Sury.$res_option(Sury.string), "Foo"), undefined));
+Vitest.test("Creates schema with default", t => U.assertEqualSchemas(t, stringWithDefaultSchema, Sury.$Option_getOr(Sury.$option(Sury.string), "Foo"), undefined));
 
-let stringWithDefaultAndMatchesSchema = Sury.$res_Option_getOr(Sury.$res_option(Sury.url), "https://example.com");
+let stringWithDefaultAndMatchesSchema = Sury.$Option_getOr(Sury.$option(Sury.uri), "https://example.com");
 
-Vitest.test("Creates schema with default using @s.matches", t => U.assertEqualSchemas(t, stringWithDefaultAndMatchesSchema, Sury.$res_Option_getOr(Sury.$res_option(Sury.url), "https://example.com"), undefined));
+Vitest.test("Creates schema with default using @s.matches", t => U.assertEqualSchemas(t, stringWithDefaultAndMatchesSchema, Sury.$Option_getOr(Sury.$option(Sury.uri), "https://example.com"), undefined));
 
-let stringWithDefaultNullAndMatchesSchema = Sury.$res_Option_getOr(Sury.$res_nullAsOption(Sury.url), "https://example.com");
+let stringWithDefaultNullAndMatchesSchema = Sury.$Option_getOr(Sury.$nullAsOption(Sury.uri), "https://example.com");
 
-Vitest.test("Creates schema with default null using @s.matches", t => U.assertEqualSchemas(t, stringWithDefaultNullAndMatchesSchema, Sury.$res_Option_getOr(Sury.$res_nullAsOption(Sury.url), "https://example.com"), undefined));
+Vitest.test("Creates schema with default null using @s.matches", t => U.assertEqualSchemas(t, stringWithDefaultNullAndMatchesSchema, Sury.$Option_getOr(Sury.$nullAsOption(Sury.uri), "https://example.com"), undefined));
 
-let ignoredNullWithMatchesSchema = Sury.$res_option(Sury.string);
+let ignoredNullWithMatchesSchema = Sury.$option(Sury.string);
 
-Vitest.test("@s.null doesn't override @s.matches(S.option(_))", t => U.assertEqualSchemas(t, ignoredNullWithMatchesSchema, Sury.$res_option(Sury.string), undefined));
+Vitest.test("@s.null doesn't override @s.matches(S.option(_))", t => U.assertEqualSchemas(t, ignoredNullWithMatchesSchema, Sury.$option(Sury.string), undefined));
 
 let stringWithWithSchema = Sury.trim(Sury.string);
 
 Vitest.test("Creates schema with @s.with transform", t => U.assertEqualSchemas(t, stringWithWithSchema, Sury.trim(Sury.string), undefined));
 
-let stringWithMultipleWithSchema = Sury.max(Sury.min(Sury.trim(Sury.string), 1), 5);
+let stringWithMultipleWithSchema = Sury.maxLength(Sury.minLength(Sury.trim(Sury.string), 1), 5);
 
-Vitest.test("Applies multiple @s.with transforms in order of appearance", t => U.assertEqualSchemas(t, stringWithMultipleWithSchema, Sury.max(Sury.min(Sury.trim(Sury.string), 1), 5), undefined));
+Vitest.test("Applies multiple @s.with transforms in order of appearance", t => U.assertEqualSchemas(t, stringWithMultipleWithSchema, Sury.maxLength(Sury.minLength(Sury.trim(Sury.string), 1), 5), undefined));
 
-let userWithWithSchema = Sury.meta(Sury.$res_schema(s => ({
+let userWithWithSchema = Sury.meta(Sury.$schema(s => ({
   name: s.m(Sury.length(Sury.string, 2)),
-  age: s.m(Sury.min(Sury.int, 18))
+  age: s.m(Sury.gte(Sury.int, 18))
 })), {
   description: "A user"
 });
 
-Vitest.test("Applies @s.with on type declaration and on fields of different types", t => U.assertEqualSchemas(t, userWithWithSchema, Sury.meta(Sury.$res_schema(s => ({
+Vitest.test("Applies @s.with on type declaration and on fields of different types", t => U.assertEqualSchemas(t, userWithWithSchema, Sury.meta(Sury.$schema(s => ({
   name: s.m(Sury.length(Sury.string, 2)),
-  age: s.m(Sury.min(Sury.int, 18))
+  age: s.m(Sury.gte(Sury.int, 18))
 })), {
   description: "A user"
 }), undefined));
 
-let stringWithDefaultAndWithSchema = Sury.trim(Sury.$res_Option_getOr(Sury.$res_option(Sury.string), "Foo"));
+let stringWithDefaultAndWithSchema = Sury.trim(Sury.$Option_getOr(Sury.$option(Sury.string), "Foo"));
 
-Vitest.test("Combines @s.with with @s.default", t => U.assertEqualSchemas(t, stringWithDefaultAndWithSchema, Sury.trim(Sury.$res_Option_getOr(Sury.$res_option(Sury.string), "Foo")), undefined));
+Vitest.test("Combines @s.with with @s.default", t => U.assertEqualSchemas(t, stringWithDefaultAndWithSchema, Sury.trim(Sury.$Option_getOr(Sury.$option(Sury.string), "Foo")), undefined));
 
-let stringWithWithAndDefaultSchema = Sury.$res_Option_getOr(Sury.$res_option(Sury.trim(Sury.string)), "Foo");
+let stringWithWithAndDefaultSchema = Sury.$Option_getOr(Sury.$option(Sury.trim(Sury.string)), "Foo");
 
-Vitest.test("Combines @s.with written before @s.default", t => U.assertEqualSchemas(t, stringWithWithAndDefaultSchema, Sury.$res_Option_getOr(Sury.$res_option(Sury.trim(Sury.string)), "Foo"), undefined));
+Vitest.test("Combines @s.with written before @s.default", t => U.assertEqualSchemas(t, stringWithWithAndDefaultSchema, Sury.$Option_getOr(Sury.$option(Sury.trim(Sury.string)), "Foo"), undefined));
 
-let intWithWithPlaceholderSchema = Sury.max(Sury.min(Sury.int, 1), 5);
+let intWithWithPlaceholderSchema = Sury.lte(Sury.gte(Sury.int, 1), 5);
 
-Vitest.test("Applies @s.with with partial application placeholder", t => U.assertEqualSchemas(t, intWithWithPlaceholderSchema, Sury.max(Sury.min(Sury.int, 1), 5), undefined));
+Vitest.test("Applies @s.with with partial application placeholder", t => U.assertEqualSchemas(t, intWithWithPlaceholderSchema, Sury.lte(Sury.gte(Sury.int, 1), 5), undefined));
 
-let recordWithOptionalWithFieldSchema = Sury.$res_schema(s => ({
-  maybe: s.m(Sury.$res_option(Sury.trim(Sury.string)))
+let recordWithOptionalWithFieldSchema = Sury.$schema(s => ({
+  maybe: s.m(Sury.$option(Sury.trim(Sury.string)))
 }));
 
-Vitest.test("Applies @s.with on an optional field", t => U.assertEqualSchemas(t, recordWithOptionalWithFieldSchema, Sury.$res_schema(s => ({
-  maybe: s.m(Sury.$res_option(Sury.trim(Sury.string)))
+Vitest.test("Applies @s.with on an optional field", t => U.assertEqualSchemas(t, recordWithOptionalWithFieldSchema, Sury.$schema(s => ({
+  maybe: s.m(Sury.$option(Sury.trim(Sury.string)))
 })), undefined));
 
 function paramWithWithSchema(_sWith1Schema) {
@@ -94,11 +94,11 @@ Vitest.test("Applies @s.with on a parametrized type", t => U.assertEqualSchemas(
   description: "wrapped"
 }), undefined));
 
-let withOverNestedAttributesSchema = Sury.meta(Sury.array(Sury.$res_Option_getOr(Sury.$res_option(Sury.string), "x")), {
+let withOverNestedAttributesSchema = Sury.meta(Sury.array(Sury.$Option_getOr(Sury.$option(Sury.string), "x")), {
   description: "items"
 });
 
-Vitest.test("Applies @s.with over a nested @s.default", t => U.assertEqualSchemas(t, withOverNestedAttributesSchema, Sury.meta(Sury.array(Sury.$res_Option_getOr(Sury.$res_option(Sury.string), "x")), {
+Vitest.test("Applies @s.with over a nested @s.default", t => U.assertEqualSchemas(t, withOverNestedAttributesSchema, Sury.meta(Sury.array(Sury.$Option_getOr(Sury.$option(Sury.string), "x")), {
   description: "items"
 }), undefined));
 
