@@ -164,6 +164,41 @@ S.reverse(S.schema({
   Same on the length side. Pinned in `specs/number-gte-redundant.yaml` and
   `specs/string-length-redundant.yaml`.
 
+### Custom codec follow-ups
+
+- **The ReScript codec seam trusts more than the ReScript type proves.** A
+  `~custom` coder's result compiles as a typed decode: the target's refiners
+  run, its decoder does not, which is the same deal `S.decoder` gives a caller
+  who declares the input's schema, and it's why the surface costs nothing on a
+  structural target (it skips a full walk plus the object rebuild, not just a
+  `typeof`). Literals are already carved out, since a type says `string` and
+  never `the string "a"`: `B_conversion` routes a const-carrying target through
+  the validating seam, the rule `compileDecoder` already states for its own
+  typed input. What's left is every constraint a ReScript type is too coarse to
+  imply. `S.float` rejects `NaN` while ReScript's `float` includes it, so
+  `S.string->S.to(S.float, ~custom={decode: Sync(_ => Float.Constants.nan), encode: Never})`
+  returns `NaN` where the JS surface rejects it, and any `Obj.magic` upstream
+  turns the tag itself into a claim rather than a proof. Tightening this inside
+  the codec alone would make a coder stricter than `S.decoder(~from=S.float)`,
+  which accepts the same `NaN`, so both want one shared answer: a single
+  predicate for "constraints a tag does not imply", consulted by the
+  typed-decode entry and by `B_conversion`. Cheap interim step: route the
+  number family through the validating seam the way literals already are, then
+  measure what it costs.
+
+- **A ReScript codec can't target a schema that already converts.**
+  `s1->S.to(s2WithChain, ~custom)` fails at creation with "The target already
+  converts", because `codecs<'from, 'to>` types the coder against `t<'to>`,
+  which is the chain's output, while the value has to be fed to the chain's
+  input. JS has no such limit: its `{decode, encode}` pair lands at the chain
+  head and the whole chain runs after it. So the runtime is already there and
+  only the ReScript type is missing: `t<'value>` carries one type parameter, so
+  a chain's input type has no name to write. That makes this the same
+  underlying gap as printing an accurate `Schema<'input, 'output>` from
+  ReScript, and a two-parameter `t` would close both. Until then the error
+  message is the API, and chaining `.to` explicitly says exactly what the fused
+  form would have meant.
+
 ### Known bugs left over from the validation refactor (`val.validation: array<validationCheck>`)
 
 - **Union discriminant hoists refinement checks with `&&` instead of `;`.**
