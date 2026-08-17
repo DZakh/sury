@@ -1,19 +1,18 @@
-// Fuzz for jsonString's escape-free format list (`escFreeFormatRe` in
-// src/advanced/json.ts).
+// Fuzz for jsonString's escape-free splice (the `ef` field in src/base.ts).
 //
-// A format on that list is spliced between bare quotes with no escaping, so a
+// An `ef`-flagged format is spliced between bare quotes with no escaping, so a
 // value it accepts carrying `"`, `\`, a control char or a lone surrogate would
 // make the encoder emit syntactically broken JSON — a much louder bug than the
 // over-escaping it replaces. The guarantee is a property of the format's
-// pattern, which lives in refinements.ts and can be widened by someone who
-// never opens json.ts. This is what keeps the two in sync.
+// pattern, which sits right next to the flag in refinements.ts but can still
+// be widened without re-checking it. This is what keeps the two in sync.
 //
 //   pnpm --filter=sury fuzz:escfree
 //   pnpm --filter=sury fuzz:escfree --cases=2000000 --seed=7
 //
 // Which formats are raw-spliced is read off the emitted code, not restated
-// here, so a format added to the list without a seed fails as unfuzzed rather
-// than passing silently. For each one it hunts, from known-valid seeds, for an
+// here, so a format flagged without a seed fails as unfuzzed rather than
+// passing silently. For each one it hunts, from known-valid seeds, for an
 // accepted value needing escapes: every single-character insert and replace at
 // every position (exhaustive), then seeded random multi-character mutation.
 //
@@ -44,7 +43,7 @@ const needsEscape = (value: string): boolean =>
 
 const DANGER = ['"', "\\", "\u0000", "\u0007", "\u001f", "\n", "\r", "\t", "\ud800", "\udfff"];
 
-// Keyed by format name, as the list in json.ts is.
+// Keyed by format name.
 const SEEDS: Record<string, string[]> = {
   "date-time": ["2026-01-15T10:30:00.000Z", "2026-01-15t10:30:00z", "2026-12-31T23:59:60Z"],
   date: ["2026-01-15", "0000-01-01", "9999-12-31"],
@@ -98,7 +97,7 @@ for (const [name, schema] of stringFormatSchemas) {
   if (!seeds.length) {
     failures.push(
       `${name} (${format}): raw-spliced but this script has no valid seed for it — ` +
-        `add seeds here, or drop the format from escFreeFormatRe`,
+        `add seeds here, or clear its escFree flag in refinements.ts`,
     );
     rows.push([name, format, "RAW SPLICE", "NO SEED — unfuzzed"]);
     continue;

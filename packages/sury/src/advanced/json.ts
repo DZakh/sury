@@ -307,32 +307,6 @@ export const json: Internal = /* @__PURE__ */ initSchema(refTag, jsonDecoderFn, 
   s["$defs"] = defs;
 });
 
-// Formats whose every accepted value is ASCII carrying no JSON escape
-// character, so the value splices between bare quotes and skips the escape
-// helper. Two kinds qualify:
-//
-//   - manufactured by the code we emit — date.ts's `toISOString()` is
-//     "date-time", url.ts's `urlToUri` is "uri" — where the producer's range
-//     is the proof, and no caller can reach around it;
-//   - carried by a value the format's own anchored pattern already checked,
-//     which is what `B_isEscFree` insists on: the check is the guarantee, so
-//     `noValidation` (which drops it) must fall back to the helper or the
-//     encoder emits `{"id":"a"b"}` for a lying caller.
-//
-// `pnpm --filter=sury fuzz:escfree` proves the second kind — that no value a
-// listed pattern accepts needs escaping. The first kind it can only observe
-// through a format, since `dateTimeString`/`uriString` are module-private;
-// their proof is the producer, restated at each one.
-//
-// Deliberately partial. `cuid` is `/^c[^\s-]{8,}$/i`, which accepts a quote,
-// and the IDN/IRI family admits arbitrary non-ASCII including lone
-// surrogates. Widening this list without running the fuzzer emits broken JSON
-// rather than merely over-escaped JSON, so add a format only once the fuzzer
-// clears it — and re-run it when a pattern here changes.
-// Anchored, so an absent format stringifies to "undefined" and misses.
-const escFreeFormatRe =
-  /^(date(-time)?|duration|uuid|email|hostname|ipv[46]|uri(-reference)?)$/;
-
 // An identifier, property access, index or no-arg call — nothing that could
 // hold an operator. Everything else has to be parenthesized before it can sit
 // between two `+`: `+` binds tighter than `?:`, so the bare ternary a `.to`
@@ -864,20 +838,17 @@ export const jsonString = /* @__PURE__ */ (() => {
     } else if (isLiteral(input.s)) {
       return B_next(input, inlineJsonString(input, input.s), expectedSchema);
     } else if (flagUnsafeHas(inputTagFlag, tagFlagString)) {
-      // `accessorRe` here is double duty, and the second job is the
-      // load-bearing one: it is also the only cheap evidence that the
-      // expression really is the string the format vouches for. A `.to` chain
-      // carrying a default emits `i===void 0?e[2]:i.toISOString()`, whose
-      // default branch is the default value itself — a `Date`, not its ISO
-      // text — so the format proves nothing about it. The helper stringifies
-      // that correctly (JSON.stringify of a Date is its ISO text) where a
-      // splice would emit `Mon Jan 01 2024 …`. And `noValidation` drops the
-      // format check the splice relies on. Either way: keep the helper.
+      // An escape-free schema (`ef` in base.ts) splices between bare quotes —
+      // unless its evidence is void here. `noValidation` drops the pattern
+      // check the flag relies on. And `accessorRe` is the only cheap evidence
+      // that the expression really is the string the schema vouches for: a
+      // `.to` chain carrying a default emits `i===void 0?e[2]:i.toISOString()`,
+      // whose default branch is the default value itself — a `Date`, not its
+      // ISO text. The helper stringifies that correctly (JSON.stringify of a
+      // Date is its ISO text) where a splice would emit `Mon Jan 01 2024 …`.
       return B_next(
         input,
-        !input.s.noValidation &&
-          escFreeFormatRe.test(input.s.format!) &&
-          accessorRe.test(input.i)
+        input.s.ef && !input.s.noValidation && accessorRe.test(input.i)
           ? `"\\""+${input.i}+"\\""`
           : `${B_embedJsonStr(input)}(${input.i})`,
         expectedSchema,

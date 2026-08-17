@@ -1042,19 +1042,26 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
       !(group.f & unionMemberDirect)
     ) {
       group.n = unionNarrowSchema(group.a[0]!.s);
-      // A single-member string group keeps its member's format (and the
-      // noValidation that voids it): the group emit appends the member's
-      // format check to the narrow, so jsonString's escape-free splice
-      // (escFreeFormatRe in advanced/json.ts) holds inside a union case —
-      // `S.nullable(S.isoDateTime)` splices like the bare field. Never for a
-      // multi-member group (the narrow is built from `a[0]` but stands in for
-      // every member), and never `format: "json"` — jsonString treats that
-      // marker as "already JSON text" and would splice a nested json string
-      // raw where the wire form is an escaped string value (see fieldPiece).
-      const f = group.a[0]!.s.format;
-      if (group.a.length === 1 && f !== U && f !== "json" && group.n.type === stringTag) {
-        group.n.format = f;
-        group.n.noValidation = group.a[0]!.s.noValidation;
+      // A single-member string group keeps its member's format — for
+      // toJSONSchema fidelity — plus its `ef` and the noValidation that voids
+      // it: the group emit appends the member's format check to the narrow, so
+      // jsonString's escape-free splice (`ef` in base.ts) holds inside a union
+      // case — `S.nullable(S.isoDateTime)` splices like the bare field. Never
+      // for a multi-member group (the narrow is built from `a[0]` but stands
+      // in for every member), and never `format: "json"` — jsonString treats
+      // that marker as "already JSON text" and would splice a nested json
+      // string raw where the wire form is an escaped string value (see
+      // fieldPiece).
+      const single = group.a[0]!.s;
+      if (
+        group.a.length === 1 &&
+        single.format !== U &&
+        single.format !== "json" &&
+        group.n.type === stringTag
+      ) {
+        group.n.format = single.format;
+        group.n.ef = single.ef;
+        group.n.noValidation = single.noValidation;
       }
     }
     if (route !== unionAnyTag && (group.m & ~route) === 0) {

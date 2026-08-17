@@ -294,8 +294,18 @@ export type Internal = {
   deprecated?: boolean;
   examples?: unknown[];
   default?: unknown;
-  fromDefault?: unknown;
   format?: Format;
+  // Escape-free: every value this schema can vouch for is ASCII carrying no
+  // JSON escape character (`"`, `\`, controls, lone surrogates), so jsonString
+  // splices it between bare quotes instead of calling the escape helper. Set
+  // ONLY at a declaration site that owns the proof — a pattern whose accepted
+  // range excludes those characters (stringFormat's escFree arg), or a
+  // conversion that manufactures the string (date.ts's `toISOString()`,
+  // url.ts's `urlToUri`). The pattern kind is checked by
+  // `pnpm --filter=sury fuzz:escfree`; setting this without running it emits
+  // broken JSON rather than merely over-escaped JSON. `noValidation` voids the
+  // pattern proof at the read site, so producers don't need to care about it.
+  ef?: boolean;
   has?: Partial<Record<Tag, boolean>>;
   anyOf?: Internal[];
   additionalItems?: AdditionalItems;
