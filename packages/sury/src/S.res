@@ -17,7 +17,6 @@ module Path = {
   @module("sury") external concat: (t, t) => t = "$pathConcat"
 }
 
-
 type tag =
   | @as("string") String
   | @as("number") Number
@@ -35,7 +34,6 @@ type tag =
   | @as("never") Never
   | @as("unknown") Unknown
   | @as("ref") Ref
-
 
 type numberFormat = | @as("int32") Int32 | @as("port") Port | @as("integer") Integer
 type stringFormat =
@@ -420,6 +418,7 @@ module Error = {
 // stdlib names on purpose.
 @module("sury") external never: t<never> = "never"
 @module("sury") external unknown: t<unknown> = "unknown"
+@module("sury") external any: t<'any> = "any"
 @module("sury") external unit: t<unit> = "$unit"
 @module("sury") external nullAsUnit: t<unit> = "$nullAsUnit"
 @module("sury") external string: t<string> = "string"
@@ -487,18 +486,6 @@ type url
 
 @module("sury") external meta: (t<'value>, meta<'value>) => t<'value> = "meta"
 
-type transformDefinition<'input, 'output> = {
-  @as("p")
-  parser?: 'input => 'output,
-  @as("a")
-  asyncParser?: 'input => promise<'output>,
-  @as("s")
-  serializer?: 'output => 'input,
-}
-@module("sury")
-external transform: (t<'input>, unit => transformDefinition<'input, 'output>) => t<'output> =
-  "$transform"
-
 // The public JS `refine` takes an options object; build it here from the
 // ReScript labeled args.
 type refineOptions = {error?: string, path?: array<string>}
@@ -508,7 +495,54 @@ let refine = (schema, refiner, ~error=?, ~path=?) => refine(schema, refiner, {?e
 
 @module("sury") external shape: (t<'value>, 'value => 'shape) => t<'shape> = "shape"
 
+type conversion<'i, 'o> =
+  | @as("auto") Auto
+  | @as("never") Never
+  | Sync('i => 'o)
+  | Async('i => promise<'o>)
+
+type codecs<'from, 'to> = {
+  decode: conversion<'from, 'to>,
+  encode: conversion<'to, 'from>,
+}
+
 @module("sury") external to: (t<'from>, t<'to>) => t<'to> = "to"
+%%private(
+  @module("sury")
+  external toCustom: (
+    t<'from>,
+    t<'to>,
+    {"decodeToOutput": conversion<'from, 'to>, "encodeFromOutput": conversion<'to, 'from>},
+  ) => t<'to> = "to"
+)
+// Auto/Never already erase to the exact "auto"/"never" strings via @as, while
+// Sync/Async keep the default variant representation the JS side doesn't
+// understand, so each slot unwraps to the JS `f` / `{async: f}` forms.
+// The slots are the toOutput ones: `t<'to>` exposes only the target's output
+// type, so the coder can't be typed against the target's input the way the JS
+// `{decode, encode}` surface is. Nothing is lost, because the compiler
+// already checks the coder's signature.
+%%private(
+  let unwrapConversion = (conversion: conversion<'i, 'o>): conversion<'i, 'o> =>
+    switch conversion {
+    | Sync(fn) => fn->Obj.magic
+    | Async(fn) => {"async": fn}->Obj.magic
+    | erased => erased
+    }
+)
+let to = (from, target, ~custom=?) =>
+  switch custom {
+  | None => to(from, target)
+  | Some({decode, encode}) =>
+    toCustom(
+      from,
+      target,
+      {
+        "decodeToOutput": unwrapConversion(decode),
+        "encodeFromOutput": unwrapConversion(encode),
+      },
+    )
+  }
 
 @module("sury") external reverse: t<'value> => t<unknown> = "reverse"
 
@@ -533,8 +567,6 @@ let parseAsyncOrThrow = (any, ~to) => asyncParser(~to)(any)
 external assertAsyncOrThrow: ('any, ~to: t<'value>) => promise<unit> = "$assertAsyncOrThrow"
 let decodeOrThrow = (any, ~from, ~to) => decoder(~from, ~to)(any)
 let decodeAsyncOrThrow = (any, ~from, ~to) => asyncDecoder(~from, ~to)(any)
-
-@module("sury") external isAsync: t<'value> => bool = "isAsync"
 
 @module("sury") external recursive: (string, t<'value> => t<'value>) => t<'value> = "recursive"
 

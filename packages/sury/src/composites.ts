@@ -714,24 +714,26 @@ export const traverseDefinition = (
   }
 }
 
+// baseSchema, not an object literal: anything reachable as a union member has
+// to carry the schema prototype, since that is where the lazily derived
+// reverse (`schema.r`) lives. A default on a nested option puts this schema
+// in exactly that position.
 export const nestedNone = (): Internal => {
   const itemSchema = Literal_parse(0);
   // FIXME: dict{}
   const properties: Record<string, Internal> = {};
   properties[nestedLoc] = itemSchema;
-  return {
-    type: objectTag,
-    required: [nestedLoc],
-    properties,
-    additionalItems: "strip",
-    decoder: objectDecoder,
-    // TODO: Support this as a default coercion
-    serializer: (input: Val) => {
-      const nextSchema = input.e.to!;
-      return B_nextConst(input, nextSchema, nextSchema);
-      // FIXME: Need to set isOutput?
-    },
-  } as Internal;
+  const mut = baseSchema(objectTag, false, objectDecoder);
+  mut.required = [nestedLoc];
+  mut.properties = properties;
+  mut.additionalItems = "strip";
+  // TODO: Support this as a default coercion
+  mut.serializer = (input: Val) => {
+    const nextSchema = input.e.to!;
+    return B_nextConst(input, nextSchema, nextSchema);
+    // FIXME: Need to set isOutput?
+  };
+  return mut;
 }
 
 export const nestedOption = (item: Internal): Internal => {

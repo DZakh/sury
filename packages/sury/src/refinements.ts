@@ -20,10 +20,10 @@ import {
   updateOutput,
   type Val,
 } from "./base";
-import { B_embed, B_failWithErrorMessage } from "./builder";
+import { B_conversion, B_embed, B_failWithErrorMessage } from "./builder";
 import { definitionToSchema, optionFactory } from "./composites";
-import { getMutErrorMessage, internalRefine, nullAsUnit, transform } from "./modifiers";
-import { nullLiteral, numberDecoder, stringDecoderFn, unit } from "./primitives";
+import { codecTo, getMutErrorMessage, internalRefine, nullAsUnit } from "./modifiers";
+import { nullLiteral, numberDecoder, string, stringDecoderFn, unit } from "./primitives";
 import { unionFactory } from "./union";
 
 // Re-exports, not `const object = schemaObject` aliases: an alias makes the
@@ -732,11 +732,8 @@ export const pattern = (schema: Internal, re: RegExp, message: string = `Invalid
 
 // @__NO_SIDE_EFFECTS__
 export const trim = (schema: Internal): Internal => {
-  const transformer = (string: unknown) => (string as string).trim();
-  return transform(schema, () => ({
-    p: transformer,
-    s: transformer,
-  }));
+  const transformer = B_conversion((value: unknown) => (value as string).trim());
+  return codecTo(schema, string, transformer, transformer);
 }
 
 // @__NO_SIDE_EFFECTS__

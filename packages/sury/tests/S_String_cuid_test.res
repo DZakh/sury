@@ -12,7 +12,10 @@ test("Successfully parses valid data", t => {
 test("Fails to parse invalid data", t => {
   let schema = S.cuid
 
-  t->U.assertThrowsMessage(() => "cifjhdsfhsd-invalid-cuid"->S.parseOrThrow(~to=schema), `Expected cuid, received "cifjhdsfhsd-invalid-cuid"`)
+  t->U.assertThrowsMessage(
+    () => "cifjhdsfhsd-invalid-cuid"->S.parseOrThrow(~to=schema),
+    `Expected cuid, received "cifjhdsfhsd-invalid-cuid"`,
+  )
 })
 
 test("Successfully serializes valid value", t => {

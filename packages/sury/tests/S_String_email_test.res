@@ -9,7 +9,10 @@ test("Successfully parses valid data", t => {
 test("Fails to parse invalid data", t => {
   let schema = S.email
 
-  t->U.assertThrowsMessage(() => "dzakh.dev"->S.parseOrThrow(~to=schema), `Expected email, received "dzakh.dev"`)
+  t->U.assertThrowsMessage(
+    () => "dzakh.dev"->S.parseOrThrow(~to=schema),
+    `Expected email, received "dzakh.dev"`,
+  )
 })
 
 test("Successfully serializes valid value", t => {
@@ -45,5 +48,8 @@ test("Custom error message via S.meta", t => {
 
   t->U.assertThrowsMessage(() => "dzakh.dev"->S.parseOrThrow(~to=schema), `Custom`)
   // Original singleton is not mutated
-  t->U.assertThrowsMessage(() => "dzakh.dev"->S.parseOrThrow(~to=S.email), `Expected email, received "dzakh.dev"`)
+  t->U.assertThrowsMessage(
+    () => "dzakh.dev"->S.parseOrThrow(~to=S.email),
+    `Expected email, received "dzakh.dev"`,
+  )
 })

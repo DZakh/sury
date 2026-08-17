@@ -88,12 +88,10 @@ type dictInner = {name: string, counter: option<string>}
 type dictOuter = {items: option<dict<dictInner>>}
 
 test("Optional dict of objects with optional fields encodes to JSON (issue comment repro)", t => {
-  let innerSchema = S.schema(m =>
-    {
-      name: m.matches(S.string),
-      counter: m.matches(S.option(S.string)),
-    }
-  )
+  let innerSchema = S.schema(m => {
+    name: m.matches(S.string),
+    counter: m.matches(S.option(S.string)),
+  })
   let outerSchema = S.schema(m => {items: m.matches(S.option(S.dict(innerSchema)))})
   let value = {items: Some(Dict.fromArray([("a", {name: "x", counter: None})]))}
   t->Assert.deepEqual(
@@ -113,10 +111,7 @@ test("Optional array field of objects with optional fields encodes to JSON", t =
 
 test("Optional non-jsonable field converts per variant instead of leaking through", t => {
   let schema = S.schema(m => {"d": m.matches(S.option(S.bigint))})
-  t->Assert.deepEqual(
-    {"d": Some(5n)}->S.decodeOrThrow(~from=schema, ~to=S.json),
-    %raw(`{d: "5"}`),
-  )
+  t->Assert.deepEqual({"d": Some(5n)}->S.decodeOrThrow(~from=schema, ~to=S.json), %raw(`{d: "5"}`))
   t->Assert.deepEqual({"d": None}->S.decodeOrThrow(~from=schema, ~to=S.json), %raw(`{}`))
 })
 

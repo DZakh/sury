@@ -3,7 +3,7 @@ ts:
   schema: "S.schema({a: S.optional(S.string), b: S.number, c: S.optional(S.boolean)}).with(S.to, S.jsonString)"
   input: "{ b: number; a?: string | undefined; c?: boolean | undefined; }"
   output: string
-  instantiations: 7404
+  instantiations: 7452
 jsonSchema:
   input: '{ type: "object", properties: { a: { type: "string" }, b: { type: "number" }, c: { type: "boolean" } }, required: ["b"] }'
   output: '{ type: "string" }'

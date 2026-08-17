@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.string.with(S.to, S.string, { decode: (value) => value.trim(), encode: "auto" })'
+  input: string
+  output: string
+  instantiations: 5245
+jsonSchema:
+  input: '{ type: "string" }'
+  output: '{ type: "string" }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[3](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);return v0}
+    examples:
+      normalizes:
+        input: '"  abc "'
+        output: '"abc"'
+  decode:
+    expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);return v0}
+    examples:
+      normalizes:
+        input: '"  abc "'
+        output: '"abc"'
+  encode: identity

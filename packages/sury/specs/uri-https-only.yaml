@@ -3,7 +3,7 @@ ts:
   schema: S.uri.with(S.pattern, /^https:\/\//)
   input: string
   output: string
-  instantiations: 5158
+  instantiations: 596
 jsonSchema:
   input: '{ type: "string", format: "uri", pattern: "^https:\\/\\/" }'
   output: '{ type: "string", format: "uri", pattern: "^https:\\/\\/" }'

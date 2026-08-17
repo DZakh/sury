@@ -31,10 +31,7 @@ test("Works for literals", t => {
 // a union, or for `S.noValidation` on a literal inside a union to be
 // rejected at schema construction time.
 test("Union dispatch still works when a case has noValidation", t => {
-  let schema = S.union([
-    S.literal("a")->S.noValidation(true),
-    S.literal("b"),
-  ])
+  let schema = S.union([S.literal("a")->S.noValidation(true), S.literal("b")])
 
   t->Assert.deepEqual("a"->S.parseOrThrow(~to=schema), "a")
   // BUG: returns "a" instead of "b" — first case becomes catch-all.

@@ -125,10 +125,7 @@ test("Fails to parse nested recursive object", t => {
   let nodeSchema = S.recursive("Node", nodeSchema => {
     S.object(
       s => {
-        id: s.field(
-          "Id",
-          S.string->S.refine(id => id !== "4", ~error="Invalid id"),
-        ),
+        id: s.field("Id", S.string->S.refine(id => id !== "4", ~error="Invalid id")),
         children: s.field("Children", S.array(nodeSchema)),
       },
     )
@@ -154,10 +151,7 @@ test("Fails to parse nested recursive object inside of another object", t => {
         nodeSchema => {
           S.object(
             s => {
-              id: s.field(
-                "Id",
-                S.string->S.refine(id => id !== "4", ~error="Invalid id"),
-              ),
+              id: s.field("Id", S.string->S.refine(id => id !== "4", ~error="Invalid id")),
               children: s.field("Children", S.array(nodeSchema)),
             },
           )
@@ -253,23 +247,18 @@ test("Fails to serialise nested recursive object", t => {
   let nodeSchema = S.recursive("Node", nodeSchema => {
     S.object(
       s => {
-        id: s.field(
-          "Id",
-          S.string->S.refine(id => id !== "4", ~error="Invalid id"),
-        ),
+        id: s.field("Id", S.string->S.refine(id => id !== "4", ~error="Invalid id")),
         children: s.field("Children", S.array(nodeSchema)),
       },
     )
   })
 
-  t->U.assertThrowsMessage(
-    () =>
-      {
-        id: "1",
-        children: [{id: "2", children: []}, {id: "3", children: [{id: "4", children: []}]}],
-      }->S.decodeOrThrow(~from=nodeSchema, ~to=S.unknown),
-    `Failed at ["children"]["1"]["children"]["0"]["id"]: Invalid id`,
-  )
+  t->U.assertThrowsMessage(() =>
+    {
+      id: "1",
+      children: [{id: "2", children: []}, {id: "3", children: [{id: "4", children: []}]}],
+    }->S.decodeOrThrow(~from=nodeSchema, ~to=S.unknown)
+  , `Failed at ["children"]["1"]["children"]["0"]["id"]: Invalid id`)
 })
 
 test(
@@ -281,10 +270,11 @@ test(
           id: s.field("Id", S.string),
           children: s.field("Children", S.array(nodeSchema)),
         },
-      )->S.transform(
-        () => {
-          parser: node => {...node, id: `node_${node.id}`},
-          serializer: node => {...node, id: node.id->String.slice(~start=5)},
+      )->S.to(
+        S.any,
+        ~custom={
+          decode: Sync(node => {...node, id: `node_${node.id}`}),
+          encode: Sync(node => {...node, id: node.id->String.slice(~start=5)}),
         },
       )
     })
@@ -346,10 +336,11 @@ test("Recursively transforms nested objects when added transform to the placehol
         children: s.field(
           "Children",
           S.array(
-            nodeSchema->S.transform(
-              () => {
-                parser: node => {...node, id: `child_${node.id}`},
-                serializer: node => {...node, id: node.id->String.slice(~start=6)},
+            nodeSchema->S.to(
+              S.any,
+              ~custom={
+                decode: Sync(node => {...node, id: `child_${node.id}`}),
+                encode: Sync(node => {...node, id: node.id->String.slice(~start=6)}),
               },
             ),
           ),
@@ -400,10 +391,13 @@ test("Shallowly transforms object when added transform to the S.recursive result
         children: s.field("Children", S.array(nodeSchema)),
       },
     )
-  })->S.transform(() => {
-    parser: node => {...node, id: `parent_${node.id}`},
-    serializer: node => {...node, id: node.id->String.slice(~start=7)},
-  })
+  })->S.to(
+    S.any,
+    ~custom={
+      decode: Sync(node => {...node, id: `parent_${node.id}`}),
+      encode: Sync(node => {...node, id: node.id->String.slice(~start=7)}),
+    },
+  )
 
   // FIXME: There's a double run of array decoder
   t->Assert.deepEqual(
@@ -452,7 +446,10 @@ asyncTest("Successfully parses recursive object with async parse function", t =>
   let nodeSchema = S.recursive("Node", nodeSchema => {
     S.object(
       s => {
-        id: s.field("Id", S.string->S.transform(() => {asyncParser: i => Promise.resolve(i)})),
+        id: s.field(
+          "Id",
+          S.string->S.to(S.any, ~custom={decode: Async(i => Promise.resolve(i)), encode: Never}),
+        ),
         children: s.field("Children", S.array(nodeSchema)),
       },
     )
@@ -493,12 +490,16 @@ test("Parses recursive object with async fields in parallel", t => {
       s => {
         id: s.field(
           "Id",
-          S.string->S.transform(
-            () => {
-              asyncParser: _ => {
-                actionCounter.contents = actionCounter.contents + 1
-                unresolvedPromise
-              },
+          S.string->S.to(
+            S.any,
+            ~custom={
+              decode: Async(
+                _ => {
+                  actionCounter.contents = actionCounter.contents + 1
+                  unresolvedPromise
+                },
+              ),
+              encode: Never,
             },
           ),
         ),

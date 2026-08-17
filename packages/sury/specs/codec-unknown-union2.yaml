@@ -3,7 +3,7 @@ ts:
   schema: S.unknown.with(S.to, S.union([S.bigint, S.string]))
   input: unknown
   output: string | bigint
-  instantiations: 6045
+  instantiations: 6187
 jsonSchema:
   input: Expected JSON, received unknown
   output: Expected JSON, received bigint | string

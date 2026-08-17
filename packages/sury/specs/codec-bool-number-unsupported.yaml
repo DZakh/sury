@@ -3,7 +3,7 @@ ts:
   schema: S.boolean.with(S.to, S.number)
   input: boolean
   output: number
-  instantiations: 5091
+  instantiations: 5233
 jsonSchema:
   input: '{ type: "boolean" }'
   output: '{ type: "number" }'

@@ -44,8 +44,5 @@ test("Successfully serializes transformed value to empty object", t => {
 test("Rejects an array passed to an object schema with no declared fields", t => {
   let schema = S.object(_ => ())
 
-  t->U.assertThrowsMessage(
-    () => %raw(`[]`)->S.parseOrThrow(~to=schema),
-    `Expected {}, received []`,
-  )
+  t->U.assertThrowsMessage(() => %raw(`[]`)->S.parseOrThrow(~to=schema), `Expected {}, received []`)
 })
