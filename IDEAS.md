@@ -326,19 +326,24 @@ of a form-data story. What they were built to make cheap, roughly in order:
   message is the API, and chaining `.to` explicitly says exactly what the fused
   form would have meant.
 
-- **A never-slot arm blocks the union's identity shortcut.** `unionDecoder`
-  returns the input untouched when the source is the union itself and every
-  variant is a noop, and a never-slot arm fails that test because it carries a
-  `parser` and a `.to`. So `S.optional(schema, default)` now encodes as
-  `typeof i==="string"||e[0](i)` where it used to be `identity`, and
-  `object-advanced` pays the same check per defaulted field. Treating a
-  never-linked arm as absent is wrong in general: the arm's *input* type is
-  still part of the union's, so a value only it could hold has to be rejected
-  rather than passed through. The sound version is narrower — in trusted mode,
-  drop a dispatch check the declared source type already guarantees, comparing
-  the live members' acceptance masks against the source's. `getOr`'s default
-  arm is a copy of the surviving item, so its mask adds nothing and the check
-  falls out. That lands in `unionEmit`, so it needs `fuzz:union` on both sides.
+- **A never-slot arm blocks the union's identity shortcut, so encoding a
+  default is no longer free.** `unionDecoder` returns the input untouched when
+  the source is the union itself and every variant is a noop; a never-slot arm
+  fails that test because it carries a `parser` and a `.to`. Encode used to be
+  `identity` for every defaulted schema and now dispatches:
+  `optional-default` and `nullable-default` pay a `typeof` (+49% on the
+  measured encode), `object-advanced` pays one per defaulted field, and
+  `nullable-definition-or` pays a full validate-and-rebuild of its object
+  (+528%) because a member with no literal discriminant is never compiled
+  trusted. Treating a never-linked arm as absent is wrong in general: the
+  arm's *input* type is still part of the union's, so a value only it could
+  hold has to be rejected rather than passed through. Two sound pieces, both
+  in `unionEmit` and both needing `fuzz:union` on either side: drop a dispatch
+  check the declared source type already guarantees (compare the live members'
+  acceptance masks against the source's — `getOr`'s default arm is a copy of
+  the surviving item, so its mask adds nothing and the check falls out), and
+  extend trusted case compilation past field-discriminated members, so a lone
+  object member validates as little as a typed object does.
 
 ### Known bugs left over from the validation refactor (`val.validation: array<validationCheck>`)
 
