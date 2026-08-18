@@ -164,11 +164,11 @@ JSON.stringify({ price: Infinity });
 
 | Encode to JSON string                        | **Sury**    | `JSON.stringify` | fast-json-stringify |
 | -------------------------------------------- | ----------- | ---------------- | ------------------- |
-| API response (user profile, 7 fields)        | **250 ns**  | 396 ns           | 301 ns              |
-| Event feed (50 tagged-union events)          | **3.67 µs** | 4.61 µs          | 13.52 µs            |
-| `bigint` id + binary payload + `Date`        | **1.02 µs** | 1.10 µs          | 1.11 µs             |
+| API response (user profile, 7 fields)        | **305 ns**  | 590 ns           | 382 ns              |
+| Event feed (50 tagged-union events)          | **5.05 µs** | 7.82 µs          | 20.26 µs            |
+| `bigint` id + binary payload + `Date`        | **1.17 µs** | 1.51 µs          | 1.45 µs             |
 
-Faster than `JSON.stringify`, and 3.5× lighter than fast-json-stringify — 16.2 kB against 56.7 kB, encoder included.
+Faster than `JSON.stringify`, and 3.5× lighter than fast-json-stringify — 16.4 kB against 56.7 kB, encoder included.
 
 ### Transformations that reverse themselves
 

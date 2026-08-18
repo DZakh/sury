@@ -31,6 +31,7 @@ import {
   isLiteral,
   nanTag,
   neverTag,
+  stringTag,
   nullTag,
   numberTag,
   objectTag,
@@ -1041,6 +1042,23 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
       !(group.f & unionMemberDirect)
     ) {
       group.n = unionNarrowSchema(group.a[0]!.s);
+      // A single-member string group carries its member's `format` (which
+      // toJSONSchema reads), `escapeFree` and `noValidation` onto the narrow:
+      // the group emit appends the member's format check, so the escape-free
+      // splice holds inside the case. A multi-member group can't — one narrow
+      // stands in for every member — and `format: "json"` must not, since
+      // jsonString reads that as "already JSON text" (see fieldPiece).
+      const single = group.a[0]!.s;
+      if (
+        group.a.length === 1 &&
+        single.format !== U &&
+        single.format !== "json" &&
+        group.n.type === stringTag
+      ) {
+        group.n.format = single.format;
+        group.n.escapeFree = single.escapeFree;
+        group.n.noValidation = single.noValidation;
+      }
     }
     if (route !== unionAnyTag && (group.m & ~route) === 0) {
       if (key === false) {

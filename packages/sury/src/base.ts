@@ -299,8 +299,15 @@ export type Internal = {
   deprecated?: boolean;
   examples?: unknown[];
   default?: unknown;
-  fromDefault?: unknown;
   format?: Format;
+  // jsonString splices this value between bare quotes with no escaping, so
+  // every value the schema admits must be free of `"`, `\`, controls and lone
+  // surrogates. Set it only where that is proven — a pattern whose range
+  // excludes them, or a conversion that manufactures the string — and re-run
+  // `pnpm --filter=sury fuzz:escfree`, because getting it wrong emits broken
+  // JSON rather than merely over-escaped JSON. `noValidation` voids the proof;
+  // the read site handles that.
+  escapeFree?: boolean;
   has?: Partial<Record<Tag, boolean>>;
   anyOf?: Internal[];
   additionalItems?: AdditionalItems;

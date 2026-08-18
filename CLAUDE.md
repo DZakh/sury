@@ -58,7 +58,8 @@ base → builder → primitives → parse → union → composites → factory
 - Prefer `const f = () => {}` over `function` — measurably smaller minified.
 - Inline intrinsics (`a | b`, `typeof x`) rather than wrapping them in helpers.
 - Runtime field names on hot objects stay short: property names survive
-  minification, so every character ships.
+  minification, so every character ships. A field that lives on a schema a
+  consumer can print is the exception — spell those out.
 - Write bit-flag literals, not named `const`s — esbuild won't inline them, so the
   name costs bytes at every use. Document the values in a comment.
 - Every schema must be reversible (Input ↔ Output) unless explicitly opted out.

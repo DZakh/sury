@@ -773,15 +773,24 @@ const datePattern =
 // hold, on `stringFormat(…)` itself, which is what keeps a format the consumer
 // never imports out of their bundle. `i` is safe for every source passed: the
 // patterns that care about case spell both out.
+// `escFree` (see base.ts) lets jsonString skip escaping for what a pattern
+// accepts, so widening one can emit broken JSON rather than merely admit more
+// strings. Run `pnpm --filter=sury fuzz:escfree` after touching either.
 // @__NO_SIDE_EFFECTS__
 const stringFormat = (
   format: StringFormat,
   test: RegExp | string | ((value: string) => boolean),
+  escFree?: boolean,
   message?: string,
 ): Internal =>
   initSchema(stringTag, stringDecoderFn, (s) => {
     const re = typeof test === "string" ? new RegExp(test, "i") : test;
     s.format = format;
+    // Conditional so an unflagged format carries no key at all: schemas are
+    // printed by consumers, and `escapeFree: undefined` is noise on every one.
+    if (escFree) {
+      s.escapeFree = escFree;
+    }
     s.refiner = (input) => {
       return [
         {
@@ -794,16 +803,23 @@ const stringFormat = (
   });
 
 // UTC-only by choice, which is narrower than the JSON Schema `date-time`
-// format: an RFC 3339 offset like +02:00 is rejected. That fixed Z is also
-// why second 60 can be spelled out here — it is legal only at 23:59:60 in
-// UTC, where `isoTime` has to do the offset arithmetic to know.
+// format: an RFC 3339 offset like +02:00 is rejected. Hence the name — a
+// rejected `+02:00` timestamp IS a date-time, so `Expected date-time` would
+// read as a bug. That fixed Z is also why second 60 can be spelled out here —
+// it is legal only at 23:59:60 in UTC, where `isoTime` has to do the offset
+// arithmetic to know.
 export const isoDateTime: Internal = /* @__PURE__ */ stringFormat(
   "date-time",
   /* @__PURE__ */ anchor(
     datePattern,
     "[Tt](?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d|23:59:60)(?:\\.\\d+)?[Zz]",
   ),
-  "Invalid datetime string! Expected UTC",
+  true,
+  // The lone built-in default: `Expected date-time` would read as a bug, since
+  // a rejected `+02:00` timestamp IS a date-time. Phrased like the generic
+  // failure it replaces, minus the `received` half a message can't carry —
+  // see IDEAS.md.
+  "Expected UTC date-time",
 );
 
 // The range as real bound fields, for the reason int32 carries its own. The
@@ -826,11 +842,13 @@ export const port: Internal = /* @__PURE__ */ initSchema(numberTag, numberDecode
 export const email: Internal = /* @__PURE__ */ stringFormat(
   "email",
   /^(?!\.)(?!.*\.\.)([A-Z0-9_'+\-\.]*)[A-Z0-9_+-]@([A-Z0-9][A-Z0-9\-]*\.)+[A-Z]{2,}$/i,
+  true,
 );
 
 export const uuid: Internal = /* @__PURE__ */ stringFormat(
   "uuid",
   /^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/i,
+  true,
 );
 
 export const cuid: Internal = /* @__PURE__ */ stringFormat("cuid", /^c[^\s-]{8,}$/i);
@@ -882,6 +900,7 @@ const uriEscapeNonAscii = (value: string): string | undefined => {
 export const isoDate: Internal = /* @__PURE__ */ stringFormat(
   "date",
   /* @__PURE__ */ anchor(datePattern),
+  true,
 );
 
 // RFC 3339 permits second 60 only on a leap-second boundary, which is 23:59:60
@@ -910,6 +929,7 @@ export const isoTime: Internal = /* @__PURE__ */ stringFormat("time", timeValida
 export const duration: Internal = /* @__PURE__ */ stringFormat(
   "duration",
   /^P(?:\d+W|(?:\d+Y(?:\d+M(?:\d+D)?)?|\d+M(?:\d+D)?|\d+D)(?:T(?:\d+H(?:\d+M(?:\d+S)?)?|\d+M(?:\d+S)?|\d+S))?|T(?:\d+H(?:\d+M(?:\d+S)?)?|\d+M(?:\d+S)?|\d+S))$/,
+  true,
 );
 
 // RFC 1123: 253 chars overall, labels of 1-63 alphanumerics-or-hyphen that
@@ -919,6 +939,7 @@ export const duration: Internal = /* @__PURE__ */ stringFormat(
 export const hostname: Internal = /* @__PURE__ */ stringFormat(
   "hostname",
   /^(?=.{1,253}$)[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/,
+  true,
 );
 
 // Same label shape as `hostname` over the four Unicode label separators, with
@@ -932,22 +953,25 @@ export const idnHostname: Internal = /* @__PURE__ */ stringFormat(
 export const ipv4: Internal = /* @__PURE__ */ stringFormat(
   "ipv4",
   /* @__PURE__ */ anchor(ipv4Pattern),
+  true,
 );
 
 export const ipv6: Internal = /* @__PURE__ */ stringFormat(
   "ipv6",
   /* @__PURE__ */ anchor(/* @__PURE__ */ ipv6Pattern()),
+  true,
 );
 
 // The string form of a URI. `S.url` (advanced/url.ts) parses the same syntax
 // into a `URL` instance, but not the same language: RFC 3986 is stricter than
 // the WHATWG URL parser behind `new URL`, which silently percent-encodes
 // characters this rejects — so a value can be a legal URL and not a legal URI.
-export const uri: Internal = /* @__PURE__ */ stringFormat("uri", /* @__PURE__ */ uriPattern(""));
+export const uri: Internal = /* @__PURE__ */ stringFormat("uri", /* @__PURE__ */ uriPattern(""), true);
 
 export const uriReference: Internal = /* @__PURE__ */ stringFormat(
   "uri-reference",
   /* @__PURE__ */ uriPattern("?"),
+  true,
 );
 
 // RFC 6570 `literals` runs out at %x7E and resumes at ucschar (%xA0), so DEL,

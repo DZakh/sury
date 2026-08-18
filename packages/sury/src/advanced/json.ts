@@ -307,6 +307,13 @@ export const json: Internal = /* @__PURE__ */ initSchema(refTag, jsonDecoderFn, 
   s["$defs"] = defs;
 });
 
+// Anything but a bare accessor needs parenthesizing before it can sit between
+// two `+`: `+` binds tighter than `?:`, so the ternary a `.to` chain with a
+// default hands over reassociates into `("\""+i)===void 0?…` and drops the
+// opening quote on every input.
+const accessorRe = /^[\w$]+(\.[\w$]+|\[[^\[\]]*\]|\(\))*$/;
+
+
 // Runtime helper embedded into generated jsonString code: the JSON text of a
 // string value. The fast path skips JSON.stringify's escape handling when a
 // regex scan proves no character needs it; thresholds follow
@@ -829,9 +836,15 @@ export const jsonString = /* @__PURE__ */ (() => {
     } else if (isLiteral(input.s)) {
       return B_next(input, inlineJsonString(input, input.s), expectedSchema);
     } else if (flagUnsafeHas(inputTagFlag, tagFlagString)) {
+      // Two ways `escapeFree`'s proof is void here: `noValidation` drops the
+      // pattern check it rests on, and a `.to` chain carrying a default hands
+      // over `i===void 0?e[2]:i.toISOString()`, whose default branch is the
+      // raw default — a `Date`, not its ISO text. The helper handles both.
       return B_next(
         input,
-        `${B_embedJsonStr(input)}(${input.i})`,
+        input.s.escapeFree && !input.s.noValidation && accessorRe.test(input.i)
+          ? `"\\""+${input.i}+"\\""`
+          : `${B_embedJsonStr(input)}(${input.i})`,
         expectedSchema,
       );
     } else if (flagUnsafeHas(inputTagFlag, tagFlagBoolean)) {
@@ -854,23 +867,30 @@ export const jsonString = /* @__PURE__ */ (() => {
         expectedSchema,
       );
     } else if (flagUnsafeHas(inputTagFlag, tagFlagBigint)) {
-      return B_next(input, `"\\""+${input.i}+"\\""`, expectedSchema);
+      // Same reassociation hazard, with no helper to fall back to.
+      return B_next(
+        input,
+        `"\\""+${accessorRe.test(input.i) ? input.i : `(${input.i})`}+"\\""`,
+        expectedSchema,
+      );
     } else if (flagUnsafeHas(inputTagFlag, (tagFlagObject | tagFlagArray))) {
       const additionalItems = input.s.additionalItems;
       // Pretty-printing and async fields keep the whole-value JSON.stringify
       // path — inlined aggregation supports neither indentation nor promises.
-      // So does a dict whose values JSON.stringify already serializes
-      // byte-identically (strings — nested json-format ones escape as strings
-      // too — booleans, null): a dynamic-key loop built from JS string concat
-      // can't beat the native call. Number values stay compiled — the
+      // So does a dict or array whose dynamic values JSON.stringify already
+      // serializes byte-identically (strings — nested json-format ones escape
+      // as strings too — booleans, null): a per-item loop built from JS string
+      // concat can't beat the native call. Number values stay compiled — the
       // aggregate raises on non-finite where JSON.stringify demotes to null.
+      // `!items.length`: a tuple prefix serializes under its own item schemas,
+      // which the whole-value call would ignore.
       if (
         (expectedSchema.space !== U && expectedSchema.space !== 0) ||
         flagUnsafeHas(input.g.o, flagAsync) ||
         // `!uv`: a fused container skipped upstream validation, and the
         // whole-value paths don't validate — only the aggregate loop does.
         (!input.s.uv &&
-          input.s.type !== arrayTag &&
+          !input.s.items?.length &&
           typeof additionalItems === "object" &&
           additionalItems.to === U &&
           flagUnsafeHas(

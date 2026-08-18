@@ -270,7 +270,10 @@ Object.defineProperty(schemaPrototype, reversedKey, {
       const record = mut as unknown as Record<string, unknown>;
       reverseSwap(record, "parser", "serializer");
       reverseSwap(record, "refiner", "inputRefiner");
-      reverseSwap(record, "fromDefault", "default");
+      // Deleted, not parked in a holding field: encode has no absent-input arm,
+      // and double reversal reads the cache below rather than re-deriving, so
+      // nothing needs the old value back.
+      delete record["default"];
       if (mut.items !== U) {
         mut.items = mut.items.map(reverse);
       }
