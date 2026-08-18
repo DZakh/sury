@@ -273,7 +273,9 @@ ASCII-only fixtures are what hid the corruption above.
 | `codec-uint8array-jsonstring-ambiguous`, `codec-uint8array-json-ambiguous`, `codec-file-jsonstring-ambiguous`, `codec-base64-jsonstring-ambiguous` | rule 4, one per carrier kind |
 | `codec-base64-jsonstring-payload` | rule 3, the JWT segment |
 | `codec-jsonstring-object-uint8array`, `codec-jsonstring-object-file` | rule 2, both directions |
+| `codec-jsonstring-object-optional-uint8array` | rule 2 through a union arm, where the dispatch works from the target's variants |
 | `codec-jsonstring-object-jsonstring` | the nested-document field |
+| `codec-email-string`, `codec-jsonstring-object-optional-jsonstring` | two bugs this work turned up and didn't cause, each carrying a `FIXME` that says so |
 | `codec-uint8array-jsonstring-slots`, `codec-uint8array-jsonstring-packed`, `codec-jsonstring-file-slots` | rule 1, both spellings of the pair |
 | `codec-uint8array-number-unsupported` | the decoder fall-through the soundness fix added |
 

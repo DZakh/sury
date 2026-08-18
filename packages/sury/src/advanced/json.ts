@@ -16,6 +16,7 @@ import {
   inlinedValueFromString,
   type Internal,
   isLiteral,
+  isOptional,
   jsonName,
   refTag,
   setContent,
@@ -125,6 +126,33 @@ export const jsonEncoderFn = (input: Val, target: Internal): Val => {
     output.io = false;
     return output;
   } else if (flagUnsafeHas(toTagFlag, (tagFlagUnion | tagFlagRef))) {
+    // A variant that stores a payload is read out of a document exactly like a
+    // lone one is (CONTENT_CODEC_SPEC.md rule 2) — but the dispatch works from
+    // the target's own variants, so the hop through the stored form has to be
+    // spelled into them. `perVariantTo` does the same on the way out.
+    const anyOf = target.anyOf;
+    if (anyOf !== U && anyOf.some((variant) => getOutputSchema(variant).content !== U)) {
+      const stored = unionFactory(
+        anyOf.map((variant) => {
+          const output = getOutputSchema(variant);
+          // `null` for an undefined arm, for the reason the branch above gives:
+          // JSON has no undefined, and objectDecoder has already coalesced the
+          // absent key into one.
+          const from = output.content ?? (isOptional(output) ? nullLiteral : U);
+          if (from === U) {
+            return variant;
+          }
+          // A bare `.to`, not `codecTo`: the pair is this module's own — a
+          // schema and the very content marker it names — so there is no
+          // reading for the content rules to be asked about.
+          const stored = copySchema(from);
+          stored.to = variant;
+          return stored;
+        }),
+      );
+      stored.perVariant = true;
+      return parse(B_refine(input, unknown, U, stored));
+    }
     return input;
   } else {
     // For non-JSON types (bigint, instance, etc.), decode through the schema

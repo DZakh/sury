@@ -946,7 +946,10 @@ export const base64: Internal = /* @__PURE__ */ (() => {
             schema,
           ),
         )
-      : stringDecoderFn(input);
+      // `B_refine` with the format as the val's schema, not the bare
+      // `stringDecoderFn` result: a string passes through unchanged, and the
+      // next link in a chain has to be able to see that it is base64 now.
+      : B_refine(stringDecoderFn(input), schema);
 
   // The text is handed over as the target's own document, not as a loose
   // string: that is what makes the format parse it rather than escape it.
