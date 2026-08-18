@@ -209,10 +209,10 @@ export const asyncEncoder = (a: unknown, ...rest: unknown[]) =>
     ? getDecoder(...([a, ...rest] as Internal[]).map(reverse), 1)
     : getDecoder(reverse(a as Internal), 1);
 
-// `assert` and `is` accept both `(schema, data)` and `(data, schema)`, told
-// apart by the Standard Schema marker. The truthiness guard keeps falsy data
-// from throwing on the marker access, routing it to the data slot so
-// validation fails with a proper Sury error.
+// `assert`, `isInput` and `isOutput` accept both `(schema, data)` and
+// `(data, schema)`, told apart by the Standard Schema marker. The truthiness
+// guard keeps falsy data from throwing on the marker access, routing it to the
+// data slot so validation fails with a proper Sury error.
 export const assert = (a: unknown, b: unknown): unknown => {
   const aIsSchema = !!a && isSchemaObject(a);
   const schema = (aIsSchema ? a : b) as Internal;
@@ -220,20 +220,42 @@ export const assert = (a: unknown, b: unknown): unknown => {
   return getDecoder(unknown, schema, assertResult)(data);
 };
 
-export const is = (a: unknown, b: unknown): boolean => {
-  const aIsSchema = !!a && isSchemaObject(a);
-  // Compiled outside the try: a conversion rejected at operation creation
-  // means the schema can't check any value, so it throws rather than reading
-  // as `false` — the same split `~standard.validate` makes.
-  const operation = getDecoder(unknown, (aIsSchema ? a : b) as Internal, assertResult);
+const guardRun = (operation: (data: unknown) => unknown, data: unknown): boolean => {
   try {
-    operation(aIsSchema ? b : a);
+    operation(data);
     return true;
   } catch (exn) {
     // Rethrow anything that isn't a Sury validation failure.
     getOrRethrow(exn);
     return false;
   }
+};
+
+// Two flat helpers rather than one closure-returning helper: the curried form
+// pays for its closure once, and the direct form must not allocate at all.
+const guard = (schema: Internal, data: unknown, curried: boolean): unknown => {
+  // Compiled outside the try: a conversion rejected at operation creation
+  // means the schema can't check any value, so it throws rather than reading
+  // as `false` — the same split `~standard.validate` makes.
+  const operation = getDecoder(unknown, schema, assertResult) as (data: unknown) => unknown;
+  return curried ? (data: unknown) => guardRun(operation, data) : guardRun(operation, data);
+};
+
+// `function` rather than an arrow: `arguments.length` is the only thing that
+// separates the curried form from `(schema, undefined)`, which is a real
+// question for every schema that accepts undefined.
+export const isInput = function (a: unknown, b: unknown): unknown {
+  const aIsSchema = !!a && isSchemaObject(a);
+  return guard((aIsSchema ? a : b) as Internal, aIsSchema ? b : a, arguments.length === 1);
+};
+
+export const isOutput = function (a: unknown, b: unknown): unknown {
+  const aIsSchema = !!a && isSchemaObject(a);
+  return guard(
+    reverse((aIsSchema ? a : b) as Internal),
+    aIsSchema ? b : a,
+    arguments.length === 1
+  );
 };
 
 // @__NO_SIDE_EFFECTS__

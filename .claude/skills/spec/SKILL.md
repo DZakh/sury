@@ -32,7 +32,7 @@ is:
   prepare: |
     const schema = S.schema({ id: S.string })
     const data = { id: "u1" }
-  run: S.is(schema, data)
+  run: S.isInput(schema, data)
 ```
 
 `prepare` is optional, runs once per library version, and its bindings are in scope for `run`; only `run` is timed. No goldens, so no `--write` — but `check` executes each one, so a typo fails the gate. Ids share the `[id…]` namespace with specs.

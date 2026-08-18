@@ -83,6 +83,11 @@ export type Schema<TInput = unknown, TOutput = TInput> = {
   // instead of the more specific `refine` overload above hasn't been pinned
   // down. Treat it as load-bearing for both call sites and verify against
   // S_refine_test.res / S_shape_test.res before changing its shape.
+  //
+  // FIXME: it also swallows every other `.with(fn, callback)`, since a
+  // function argument matches nothing more specific first. `.with(S.optional,
+  // () => …)` infers TShape as the callback's return type and loses the absent
+  // case, so the lazy default has to be called directly to type correctly.
   with<TShape>(
     fn: (
       schema: Schema<unknown, unknown>,
@@ -779,14 +784,29 @@ export function assert<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>
 ): asserts data is TInput;
 
-export function is<TInput, TOutput>(
+export function isInput<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>
+): (data: unknown) => data is TInput;
+export function isInput<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,
   data: unknown
 ): data is TInput;
-export function is<TInput, TOutput>(
+export function isInput<TInput, TOutput>(
   data: unknown,
   schema: SchemaLike<TInput, TOutput>
 ): data is TInput;
+
+export function isOutput<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>
+): (data: unknown) => data is TOutput;
+export function isOutput<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>,
+  data: unknown
+): data is TOutput;
+export function isOutput<TInput, TOutput>(
+  data: unknown,
+  schema: SchemaLike<TInput, TOutput>
+): data is TOutput;
 
 export function tuple<TInput extends unknown[], TOutput>(
   definer: (s: {

@@ -1395,20 +1395,21 @@ More often than converting input to output, you'll need to perform the reversed 
 
 This is literally the same as convert operations applied to the reversed schema.
 
-For some cases you might want to simply check whether the input value is valid, without parsing it. For this there are the `S.assert` and `S.is` operations:
+For some cases you might want to simply check whether a value is valid, without parsing it. For this there are the `S.assert`, `S.isInput` and `S.isOutput` operations:
 
-| Operation | Interface                                                      | Description                                                                                                                                    |
-| --------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| S.assert  | `(Schema<TInput, TOutput>, data: unknown) asserts data is TInput` or `(data: unknown, Schema<TInput, TOutput>) asserts data is TInput` | Asserts that the input value is valid. Since the operation doesn't return a value, it's 2-3 times faster than `parser` depending on the schema |
-| S.is      | `(Schema<TInput, TOutput>, data: unknown) => data is TInput` or `(data: unknown, Schema<TInput, TOutput>) => data is TInput`      | Returns `true`/`false` whether the input value is valid. Acts as a TypeScript type guard and shares the fast validate-only path with `assert`  |
+| Operation  | Interface                                                      | Description                                                                                                                                    |
+| ---------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| S.assert   | `(Schema<TInput, TOutput>, data: unknown) asserts data is TInput` or `(data: unknown, Schema<TInput, TOutput>) asserts data is TInput` | Asserts that the value is valid input. Since the operation doesn't return a value, it's 2-3 times faster than `parser` depending on the schema |
+| S.isInput  | `(Schema<TInput, TOutput>, data: unknown) => data is TInput` or `(data: unknown, Schema<TInput, TOutput>) => data is TInput`      | Returns `true`/`false` whether the value is valid input. Acts as a TypeScript type guard and shares the fast validate-only path with `assert`  |
+| S.isOutput | `(Schema<TInput, TOutput>, data: unknown) => data is TOutput` or `(data: unknown, Schema<TInput, TOutput>) => data is TOutput`    | The same check against the schema's output type — what `S.encoder` accepts                                                                     |
 
-Both `S.assert` and `S.is` accept their arguments in either order, so `(schema, data)` and `(data, schema)` are equivalent and both narrow the type. There's no "correct" order to memorize — pass the schema and the data in whatever order feels natural, and it just works. This is especially handy for AI assistants, which no longer have to guess the right argument position:
+They accept their arguments in either order, so `(schema, data)` and `(data, schema)` are equivalent and both narrow the type. There's no "correct" order to memorize — pass the schema and the data in whatever order feels natural, and it just works. This is especially handy for AI assistants, which no longer have to guess the right argument position:
 
 ```ts
 const data: unknown = "abc";
 
 // (data, schema) order
-if (S.is(data, S.string)) {
+if (S.isInput(data, S.string)) {
   // data is now typed as string
 }
 
@@ -1416,12 +1417,20 @@ S.assert(data, S.string);
 // data is now typed as string
 
 // (schema, data) order — equivalent
-if (S.is(S.string, data)) {
+if (S.isInput(S.string, data)) {
   // data is now typed as string
 }
 
 S.assert(S.string, data);
 // data is now typed as string
+```
+
+Passing only the schema returns a reusable type guard — the faster choice when you check many values against the same schema:
+
+```ts
+const isUser = S.isInput(userSchema);
+
+const users = records.filter(isUser);
 ```
 
 All operations either return the output value or throw an error. For convinient error handling you can use the `S.safe` and `S.safeAsync` helpers, which would catch the error an wrap it into a `Result` type:
