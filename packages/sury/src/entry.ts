@@ -320,9 +320,14 @@ export const to = (schema: Internal, target: Internal, custom?: unknown) => {
     decode = conversionBuilder("decode", decodeSlot, !outputSeam);
     encode = conversionBuilder("encode", encodeSlot, !outputSeam);
     // Each reading names what its direction does to its own source, so the two
-    // directions can't both open (or both store): there would be no side of the
-    // link left holding the payload.
-    if (typeof decode === "boolean" && decode === encode) {
+    // directions can't both open (or both store) — there would be no side of
+    // the link left holding the payload — and a reading opposite the built-in
+    // conversion leaves that side still asking the question the reading just
+    // answered. A coder opposite one is fine: it answers for itself.
+    if (
+      (typeof decode === "boolean" || typeof encode === "boolean") &&
+      (decode === encode || decode === U || encode === U)
+    ) {
       return panic(`Expected "pack" opposite "unpack"`);
     }
   }
