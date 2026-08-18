@@ -27,7 +27,7 @@ operations:
         input: '"{\"payload\":\"!!\"}"'
         error: 'Failed at ["payload"]: Expected base64, received "!!"'
   encode:
-    expression: i=>{let v0=i["payload"];for(;;){if(v0 instanceof e[2]){v0=e[1](e[0](v0));break}if(v0===void 0)break;e[3](v0)}let v1="";if(v0!==void 0){v1+="\"payload\":"+v0}return "{"+v1+"}"}
+    expression: i=>{let v0=i["payload"];for(;;){if(v0 instanceof e[1]){v0="\""+e[0](v0)+"\"";break}if(v0===void 0)break;e[2](v0)}let v1="";if(v0!==void 0){v1+="\"payload\":"+v0}return "{"+v1+"}"}
     examples:
       base64-value:
         input: "{ payload: new Uint8Array([137, 80, 78, 71]) }"

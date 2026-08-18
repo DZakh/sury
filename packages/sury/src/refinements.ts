@@ -934,17 +934,19 @@ export const base64: Internal = /* @__PURE__ */ (() => {
   );
   setContent(schema, schema);
 
-  // Rule 3: the payload is bytes, so a format that declares a payload of its
-  // own is handed the text those bytes spell — a JWT segment. Nothing else is
-  // asking for that. A bare string target in particular is not: a string is not
-  // bytes, so the format widens into it unchanged.
-  const wantsPayload = (other: Internal): boolean =>
-    other.content !== U && other.content !== schema && B_readsPayload(other);
+  // Whether the other side of a link stores something other than bytes.
+  const differs = (other: Internal): boolean =>
+    other.content !== U && other.content !== schema;
 
   // The `B_refine` wrap is what makes the produced text the subject of the
   // format's own pattern check, rather than the document that went in.
+  // Decode: a document on its way in, which is a source mid-chain — a lone JSON
+  // value arriving at a base64 field is just a string. `input.s.to`, not
+  // `B_readsPayload`: a reading on the source describes the link that produced
+  // it, not this one, and rule 4 has already turned away the pairs where this
+  // one would be ambiguous.
   schema.decoder = (input) =>
-    wantsPayload(input.s)
+    differs(input.s) && input.s.to !== U
       ? B_refine(
           B_next(
             input,
@@ -962,10 +964,14 @@ export const base64: Internal = /* @__PURE__ */ (() => {
       // with it.
       : B_refine(stringDecoderFn(input), input.e);
 
-  // The text is handed over as the target's own document, not as a loose
-  // string: that is what makes the format parse it rather than escape it.
+  // Encode: rule 3 — a format that declares a payload of its own is handed the
+  // text these bytes spell (a JWT segment), where a bare string target is not
+  // asking for that, since a string is not bytes. The reading of this link
+  // rides the target, so `B_readsPayload` is the whole answer. The text goes
+  // over as the target's own document, not as a loose string: that is what
+  // makes the format parse it rather than escape it.
   schema.encoder = (input, target) =>
-    wantsPayload(target)
+    differs(target) && B_readsPayload(target)
       ? B_next(
           input,
           `${B_embed(input, new TextDecoder())}.decode(${B_embed(input, base64ToBytes)}(${

@@ -59,7 +59,7 @@ import {
   Option_getOrWith,
 } from "./modifiers";
 import { assertResult } from "./operations";
-import { getDecoder, reverse } from "./parse";
+import { getDecoder, getOutputSchema, reverse } from "./parse";
 import { nullLiteral, unit } from "./primitives";
 import { unionFactory } from "./union";
 
@@ -329,10 +329,11 @@ export const to = (schema: Internal, target: Internal, custom?: unknown) => {
         return panic(`Expected "pack" opposite "unpack"`);
       }
       // A reading picks between two, and there are only two when each side
-      // stores something the other could hold. Rejecting it here is also what
-      // keeps the marker off a union, whose field count decides whether it
-      // flattens.
-      if (schema.content === U || target.content === U) {
+      // stores something the other could hold. `getOutputSchema`, because that
+      // is the node `codecTo` links from — the head of a chain is not the side
+      // of the link. Rejecting it here is also what keeps the marker off a
+      // union, whose field count decides whether it flattens.
+      if (getOutputSchema(schema).content === U || target.content === U) {
         return panic(`Expected a payload on both sides of the link for "pack" | "unpack"`);
       }
     }

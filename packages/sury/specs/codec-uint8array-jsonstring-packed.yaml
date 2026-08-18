@@ -12,7 +12,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{i instanceof e[2]||e[3](i);return e[1](e[0](i))}
+    expression: i=>{i instanceof e[1]||e[2](i);return "\""+e[0](i)+"\""}
     examples:
       the-bytes-are-a-value:
         input: new Uint8Array([137, 80, 78, 71])
@@ -21,7 +21,7 @@ operations:
         input: new Uint8Array([])
         output: '"\"\""'
   decode:
-    expression: i=>{return e[1](e[0](i))}
+    expression: i=>{return "\""+e[0](i)+"\""}
     examples:
       the-bytes-are-a-value:
         input: new Uint8Array([137, 80, 78, 71])

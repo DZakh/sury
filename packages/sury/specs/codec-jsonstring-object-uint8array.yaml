@@ -24,7 +24,7 @@ operations:
         input: '"{\"payload\":\"!!\"}"'
         error: 'Failed at ["payload"]: Expected base64, received "!!"'
   encode:
-    expression: i=>{return "{\"payload\":"+e[1](e[0](i["payload"]))+"}"}
+    expression: i=>{return "{\"payload\":\""+e[0](i["payload"])+"\"}"}
     examples:
       non-utf8-bytes:
         input: "{ payload: new Uint8Array([137, 80, 78, 71]) }"

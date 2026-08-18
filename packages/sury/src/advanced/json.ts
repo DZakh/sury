@@ -346,8 +346,11 @@ export const json: Internal = /* @__PURE__ */ initSchema(refTag, jsonDecoderFn, 
 // Anything but a bare accessor needs parenthesizing before it can sit between
 // two `+`: `+` binds tighter than `?:`, so the ternary a `.to` chain with a
 // default hands over reassociates into `("\""+i)===void 0?…` and drops the
-// opening quote on every input.
-const accessorRe = /^[\w$]+(\.[\w$]+|\[[^\[\]]*\]|\(\))*$/;
+// opening quote on every input. A call is admitted — it binds tighter than `+`,
+// and a packed bytes field arrives as one — but only with parenthesis-free
+// arguments, so the shape stays something this regex can actually see the end
+// of.
+const accessorRe = /^[\w$]+(\.[\w$]+|\[[^\[\]]*\]|\([^()]*\))*$/;
 
 
 // Runtime helper embedded into generated jsonString code: the JSON text of a
