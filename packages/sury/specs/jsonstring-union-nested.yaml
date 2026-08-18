@@ -5,7 +5,7 @@ ts:
   output: '{ t: "a"; inner: { id: bigint; }; note?: string | undefined; } | { t: "b"; }'
   instantiations: 11475
 jsonSchema:
-  input: '{ type: "string" }'
+  input: '{ type: "string", contentMediaType: "application/json" }'
   output: 'Failed at ["inner"]["id"]: Expected JSON, received bigint'
 vs:
   zod:

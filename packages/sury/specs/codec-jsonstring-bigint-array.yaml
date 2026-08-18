@@ -5,7 +5,7 @@ ts:
   output: bigint[]
   instantiations: 5431
 jsonSchema:
-  input: '{ type: "string" }'
+  input: '{ type: "string", contentMediaType: "application/json" }'
   output: "Failed at []: Expected JSON, received bigint"
 vs:
   zod:

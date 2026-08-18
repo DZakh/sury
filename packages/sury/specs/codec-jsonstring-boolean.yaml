@@ -5,7 +5,7 @@ ts:
   output: boolean
   instantiations: 5233
 jsonSchema:
-  input: '{ type: "string" }'
+  input: '{ type: "string", contentMediaType: "application/json" }'
   output: '{ type: "boolean" }'
 vs:
   zod:

@@ -5,7 +5,7 @@ ts:
   output: "{ foo: [1, number]; }"
   instantiations: 6633
 jsonSchema:
-  input: '{ type: "string" }'
+  input: '{ type: "string", contentMediaType: "application/json" }'
   output: '{ type: "object", properties: { foo: { type: "array", minItems: 2, maxItems: 2, items: [{ type: "number", const: 1 }, { type: "number" }] } }, required: ["foo"] }'
 vs:
   zod:
