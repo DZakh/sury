@@ -238,6 +238,11 @@ ships one. The format side checks only the generic `content` marker — it never
 names toon, env, or any other format, which is what keeps each future carrier a
 self-contained file.
 
+`S.fromJSONSchema` pays for the round trip: reading `contentEncoding` back means
+naming `S.base64`, which brings its pattern and its conversions — +704 gzipped
+on that one export, the largest row in `bundleSize.yaml`. Every format costs it
+something; this is the first that carries a codec.
+
 **The base64 helpers** feature-detect `Uint8Array.prototype.toBase64` /
 `Uint8Array.fromBase64` once at import and embed the chosen function, so
 generated code is a single `e[N](i)` call either way. The fallback bridges
@@ -270,6 +275,7 @@ ASCII-only fixtures are what hid the corruption above.
 | `base64`, `uint8array` | the carriers themselves, and `base64`'s `contentEncoding` emit |
 | `codec-uint8array-base64` | the bytes payload transfer |
 | `codec-base64-string` vs `codec-jsonstring-string` | the payload rule's least guessable pair — widen vs parse |
+| `jsonstring-object-url` | the raw splice `accessorRe` now admits, and that `S.url` really is escape-free through it |
 | `codec-base64-file` | payload transfer in and out of a binary container |
 | `codec-uint8array-jsonstring-ambiguous`, `codec-uint8array-json-ambiguous`, `codec-file-jsonstring-ambiguous`, `codec-base64-jsonstring-ambiguous` | rule 4, one per carrier kind |
 | `codec-base64-jsonstring-payload` | rule 3, the JWT segment |

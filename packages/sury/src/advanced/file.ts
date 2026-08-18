@@ -57,8 +57,13 @@ const binaryJSONSchema = (_schema: Internal, target: string): JSONSchemaT =>
 // One promise per read, chained inside the expression rather than left for the
 // parse loop to unwrap: the awaited value is what the target asked for, not the
 // `ArrayBuffer` the platform hands back.
+//
+// Parenthesized unconditionally: `.` binds tighter than `?:`, so a val handed
+// over as a ternary would read the method off the wrong branch. Two characters
+// beats carrying `accessorRe`'s shape test (advanced/json.ts) into every bundle
+// that mentions a blob.
 const read = (input: Val, call: string, schema: Internal): Val => {
-  const output = B_next(input, `${input.i}${call}`, schema);
+  const output = B_next(input, `(${input.i})${call}`, schema);
   B_markAsync(input, output);
   return output;
 };

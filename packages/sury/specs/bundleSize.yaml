@@ -29,7 +29,7 @@ exports:
   asyncParser: 4315
   base64: 5092
   bigint: 4593
-  blob: 5547
+  blob: 5546
   bool: 4582
   boolean: 4582
   brand: 4319

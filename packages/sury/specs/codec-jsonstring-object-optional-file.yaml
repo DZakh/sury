@@ -25,7 +25,7 @@ operations:
         error: Expected JSON string, received "nope"
   encode:
     isAsync: true
-    expression: i=>{let v2=i["note"];let v0=i["avatar"].arrayBuffer().then(b=>e[0](new Uint8Array(b)));let v4=Promise.all([v0,]).then(([v0,])=>{let v1={"avatar":v0,};if(v2!==void 0){v1["note"]=v2}return v1});return v4.then(v3=>JSON.stringify(v3))}
+    expression: i=>{let v2=i["note"];let v0=(i["avatar"]).arrayBuffer().then(b=>e[0](new Uint8Array(b)));let v4=Promise.all([v0,]).then(([v0,])=>{let v1={"avatar":v0,};if(v2!==void 0){v1["note"]=v2}return v1});return v4.then(v3=>JSON.stringify(v3))}
     examples:
       optional-present:
         input: '{ note: "hi", avatar: new File([new Uint8Array([137, 80, 78, 71])], "a.png") }'
