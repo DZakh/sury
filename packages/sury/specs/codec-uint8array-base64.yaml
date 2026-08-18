@@ -32,9 +32,6 @@ operations:
   encode:
     expression: i=>{e[1](i)||e[2](i);return e[0](i)}
     examples:
-      non-utf8-bytes:
-        input: '"iVBORw=="'
-        error: cannot represent a Uint8Array instance as spec source code
       invalid-base64:
         input: '"!!"'
         error: Expected base64, received "!!"

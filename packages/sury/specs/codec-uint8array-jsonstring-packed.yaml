@@ -29,9 +29,6 @@ operations:
   encode:
     expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="string"||e[4](v0);e[2](v0)||e[3](v0);return e[1](v0)}
     examples:
-      base64-value-back:
+      not-a-document:
         input: '"iVBORw=="'
         error: Expected JSON string, received "iVBORw=="
-      not-a-document:
-        input: iVBORw==
-        error: Unexpected token ')'

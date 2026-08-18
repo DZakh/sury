@@ -14,15 +14,18 @@ operations:
   parse:
     expression: i=>{typeof i==="string"||e[7](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[6](v0);let v1=v0["avatar"];typeof v1==="string"||e[5](v1);e[3](v1)||e[4](v1);return {"avatar":new e[2]([e[1](v0["avatar"])],""),}}
     examples:
-      base64-field:
-        input: '{ avatar: "aGk=" }'
-        error: 'Expected JSON string, received { avatar: "aGk="; }'
+      not-a-document:
+        input: '"nope"'
+        error: Expected JSON string, received "nope"
+      not-base64:
+        input: '"{\"avatar\":\"!!\"}"'
+        error: 'Failed at ["avatar"]: Expected base64, received "!!"'
   decode:
     expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[6](v0);let v1=v0["avatar"];typeof v1==="string"||e[5](v1);e[3](v1)||e[4](v1);return {"avatar":new e[2]([e[1](v0["avatar"])],""),}}
     examples:
-      base64-field:
-        input: '{ avatar: "aGk=" }'
-        error: 'Expected JSON string, received { avatar: "aGk="; }'
+      not-base64:
+        input: '"{\"avatar\":\"!!\"}"'
+        error: 'Failed at ["avatar"]: Expected base64, received "!!"'
   encode:
     isAsync: true
     expression: i=>{let v0=i["avatar"].arrayBuffer().then(b=>e[0](new Uint8Array(b)));let v2=Promise.all([v0,]).then(([v0,])=>{return {"avatar":v0,}});return v2.then(v1=>JSON.stringify(v1))}

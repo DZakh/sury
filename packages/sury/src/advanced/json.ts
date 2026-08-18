@@ -852,7 +852,7 @@ export const jsonString = /* @__PURE__ */ (() => {
       // question the unknown branch above already asks. Without it a nested
       // `S.jsonString.with(S.to, X)` field round-tripped its own text through
       // `JSON.stringify`/`JSON.parse` and then failed against X.
-      if (expectedSchema.to !== U) {
+      if (B_readsPayload(expectedSchema)) {
         return carriedJsonString(input, expectedSchema);
       }
       // Two ways `escapeFree`'s proof is void here: `noValidation` drops the

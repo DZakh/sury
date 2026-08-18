@@ -16,7 +16,7 @@ import {
   U,
   type Val,
 } from "../base";
-import { B_embed, B_next, B_readsPayload, B_unsupportedDecode } from "../builder";
+import { B_embed, B_next, B_readsPayload, B_refine, B_unsupportedDecode } from "../builder";
 import { instanceDecoder } from "../parse";
 import { string } from "../primitives";
 import { base64, base64ToBytes, bytesToBase64 } from "../refinements";
@@ -49,22 +49,26 @@ export const uint8Array: Internal = /* @__PURE__ */ initSchema(
     s.class = Uint8Array;
     s.content = base64;
 
-    // Packing (a value position, or base64 itself as the target) writes base64;
-    // anything else that wants a string wants the text the bytes spell, which
-    // is also what a format opened by rule 3 is handed.
     s.encoder = (input, target) => {
-      if (!flagUnsafeHas(tagFlags[target.type]!, tagFlagString)) {
+      const targetTagFlag = tagFlags[target.type]!;
+      if (flagUnsafeHas(targetTagFlag, tagFlagInstance)) {
+        // Another binary carrier holds these very bytes, rather than a
+        // rendering of them — leave the value alone and let it take them.
         return input;
       }
-      const packs =
-        target.content !== U && (target.content === base64 || !B_readsPayload(target));
-      return B_next(
-        input,
-        packs
-          ? `${B_embed(input, bytesToBase64)}(${input.i})`
-          : `${B_embed(input, new TextDecoder())}.decode(${input.i})`,
-        packs ? base64 : string,
-      );
+      // A value position (or base64 itself) stores the bytes as base64. The
+      // test comes before the string one because a JSON document is a value
+      // position without being string-tagged.
+      if (target.content !== U && (target.content === base64 || !B_readsPayload(target))) {
+        // The `B_refine` wrap is what makes the produced text the subject of
+        // the format's own checks, rather than the bytes that went in.
+        return B_refine(B_next(input, `${B_embed(input, bytesToBase64)}(${input.i})`, base64));
+      }
+      // Anything else that wants a string wants the text the bytes spell, which
+      // is also what a format opened by rule 3 is handed.
+      return flagUnsafeHas(targetTagFlag, tagFlagString)
+        ? B_next(input, `${B_embed(input, new TextDecoder())}.decode(${input.i})`, string)
+        : input;
     };
   },
 );

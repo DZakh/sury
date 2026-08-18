@@ -183,7 +183,8 @@ string; a `Blob` input has no document, and keeps saying so.
 | `S.string.with(S.to, S.blob)` | `contentMediaType: "application/octet-stream"` | `format: "binary"` |
 | `S.base64.with(S.to, S.file)` | both of the above | `format: "binary"` |
 
-The first row round-trips through `fromJSONSchema`, from either spelling. The
+The base64 rows round-trip through `fromJSONSchema`, from either spelling; a
+`contentMediaType` does not yet, and comes back as a plain string. The
 `contentSchema` emit is gated on a json-format source, so a base64 segment
 carrying a document annotates the encoding it is stored in and stops there.
 
@@ -266,12 +267,20 @@ ASCII-only fixtures are what hid the corruption above.
 | spec | what it pins |
 | --- | --- |
 | `base64`, `uint8array` | the carriers themselves, and `base64`'s `contentEncoding` emit |
-| `codec-uint8array-string`, `codec-uint8array-base64` | the two unambiguous bytes readings, side by side |
+| `codec-uint8array-base64` | the bytes payload transfer |
 | `codec-base64-string` vs `codec-jsonstring-string` | the payload rule's least guessable pair — widen vs parse |
-| `codec-file-string`, `codec-file-uint8array`, `codec-base64-file`, `string-to-blob` | payload transfer in and out of a binary container, async out and sync in |
+| `codec-base64-file` | payload transfer in and out of a binary container |
 | `codec-uint8array-jsonstring-ambiguous`, `codec-uint8array-json-ambiguous`, `codec-file-jsonstring-ambiguous`, `codec-base64-jsonstring-ambiguous` | rule 4, one per carrier kind |
-| `codec-uint8array-jsonstring-payload`, `codec-base64-jsonstring-payload`, `codec-file-jsonstring-payload` | rule 3, including the JWT segment |
+| `codec-base64-jsonstring-payload` | rule 3, the JWT segment |
 | `codec-jsonstring-object-uint8array`, `codec-jsonstring-object-file` | rule 2, both directions |
 | `codec-jsonstring-object-jsonstring` | the nested-document field |
 | `codec-uint8array-jsonstring-slots`, `codec-uint8array-jsonstring-packed`, `codec-jsonstring-file-slots` | rule 1, both spellings of the pair |
 | `codec-uint8array-number-unsupported` | the decoder fall-through the soundness fix added |
+
+`tests/content_test.ts` holds the rest, and only because the spec format can't:
+a golden can't hold a `Uint8Array`, `Blob` or `File`, and every compiled
+operation must run an example — so a conversion that only ever produces one has
+no spec to live in. That covers the UTF-8 hop both ways, `S.file` to and from
+bytes and text, rule 3 into a payload the caller reads as bytes, and every
+round trip whose far end is a carrier. CONTRIBUTING.md's Spec Harness
+Suggestions is where the fix belongs; when it lands, those rows move back.

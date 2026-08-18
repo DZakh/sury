@@ -14,16 +14,13 @@ operations:
   parse:
     expression: i=>{typeof i==="string"||e[6](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="string"||e[5](v0);e[3](v0)||e[4](v0);return new e[2]([e[1](v0)],"")}
     examples:
-      base64-in-a-json-string:
+      not-a-document:
         input: '"aGk="'
         error: Expected JSON string, received "aGk="
-      not-a-document:
-        input: aGk=
-        error: Unexpected token ')'
   decode:
     expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="string"||e[5](v0);e[3](v0)||e[4](v0);return new e[2]([e[1](v0)],"")}
     examples:
-      base64-in-a-json-string:
+      not-a-document:
         input: '"aGk="'
         error: Expected JSON string, received "aGk="
   encode:

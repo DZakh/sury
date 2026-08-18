@@ -15,20 +15,20 @@ operations:
     expression: i=>{typeof i==="string"||e[7](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[6](v0);let v1=v0["id"],v3=v0["meta"];typeof v1==="string"||e[1](v1);typeof v3==="string"||e[5](v3);let v2;try{v2=JSON.parse(v3)}catch(t){e[2](v3)}typeof v2==="object"&&v2&&!Array.isArray(v2)||e[4](v2);let v4=v2["tag"];typeof v4==="string"||e[3](v4);return {"id":v1,"meta":{"tag":v4,},}}
     examples:
       nested-document:
-        input: '{"id":"x","meta":"{\\"tag\\":\\"a\\"}"}'
-        error: Unexpected token '}'
+        input: '"{\"id\":\"x\",\"meta\":\"{\\\"tag\\\":\\\"a\\\"}\"}"'
+        output: '{ id: "x", meta: { tag: "a" } }'
       nested-not-a-string:
-        input: '{ id: "x", meta: { tag: "a" } }'
-        error: 'Expected JSON string, received { id: "x"; meta: object; }'
+        input: '"{\"id\":\"x\",\"meta\":{\"tag\":\"a\"}}"'
+        error: 'Failed at ["meta"]: Expected JSON string, received { tag: "a"; }'
       nested-not-json:
-        input: '{ id: "x", meta: "nope" }'
-        error: 'Expected JSON string, received { id: "x"; meta: "nope"; }'
+        input: '"{\"id\":\"x\",\"meta\":\"nope\"}"'
+        error: 'Failed at ["meta"]: Expected JSON string, received "nope"'
   decode:
     expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[6](v0);let v1=v0["id"],v3=v0["meta"];typeof v1==="string"||e[1](v1);typeof v3==="string"||e[5](v3);let v2;try{v2=JSON.parse(v3)}catch(t){e[2](v3)}typeof v2==="object"&&v2&&!Array.isArray(v2)||e[4](v2);let v4=v2["tag"];typeof v4==="string"||e[3](v4);return {"id":v1,"meta":{"tag":v4,},}}
     examples:
       nested-document:
-        input: '{"id":"x","meta":"{\\"tag\\":\\"a\\"}"}'
-        error: Unexpected token '}'
+        input: '"{\"id\":\"x\",\"meta\":\"{\\\"tag\\\":\\\"a\\\"}\"}"'
+        output: '{ id: "x", meta: { tag: "a" } }'
   encode:
     expression: i=>{let v0=i["meta"];return "{\"id\":"+e[0](i["id"])+",\"meta\":"+e[0]("{\"tag\":"+e[0](v0["tag"])+"}")+"}"}
     examples:

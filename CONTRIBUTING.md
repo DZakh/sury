@@ -341,12 +341,15 @@ instead of silently working around it.
   `S_toJSONSchema_target_test.res` instead. A `jsonSchema.targets` map, or a
   per-spec target override, would keep it with the schema it belongs to.
 - An operation whose output holds a class instance (`S.uint8Array` decoding to
-  `Uint8Array`) can't be specced: the golden writer raises "cannot represent a
-  Uint8Array instance as spec source code", and an op has no way to opt out —
-  `_skip` is accepted under `vs.zod` but crashes the run under `operations.<op>`
-  (`Cannot convert undefined or null to object`). Either teach the writer a
-  constructor call for the common typed arrays, or make `_skip` legal on an
-  operation with a reason.
+  `Uint8Array`, `S.blob`/`S.file` to a `Blob`/`File`) can't be specced: the
+  golden writer raises "cannot represent a Uint8Array instance as spec source
+  code", and an op has no way to opt out — `_skip` is accepted under `vs.zod`
+  but crashes the run under `operations.<op>` (`Cannot convert undefined or null
+  to object`). Either teach the writer a constructor call for the common typed
+  arrays and binary containers, or make `_skip` legal on an operation with a
+  reason. It costs a whole direction of the content axis: the `codec-*` specs
+  for `S.uint8Array`, `S.base64`, `S.blob` and `S.file` carry codegen and error
+  cases only, and `tests/content_test.ts` holds the values instead.
 - A recursive schema the perf harness rebuilds per iteration can fail the
   `create+compile` phase where every other phase measures it fine —
   `specs/recursive-proto-name.yaml` raises "Cannot read properties of undefined
