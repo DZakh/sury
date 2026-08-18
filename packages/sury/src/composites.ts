@@ -115,18 +115,15 @@ const B_fuseIntoJsonString = (
   return U;
 };
 
-// The wire form of a nested bare json-format string is an escaped string
-// value, not raw JSON text (see fieldPiece in advanced/json.ts). So a
-// JSON-sourced item (a JSON.parse result typed `json`) converting to one must
-// validate the string and pass it through — narrowing the source to `unknown`
-// routes it to jsonString's own decoder instead of json's serialize encoder,
-// which would re-stringify and double-wrap on encode.
+// The wire form of a nested json-format string is an escaped string value, not
+// raw JSON text (see fieldPiece in advanced/json.ts). So a JSON-sourced item (a
+// JSON.parse result typed `json`) converting to one holds the document itself —
+// narrowing the source to `unknown` routes it to jsonString's own decoder
+// instead of json's serialize encoder, which would re-stringify and double-wrap
+// on encode, and would hand a declared payload (CONTENT_CODEC_SPEC.md rule 3)
+// the text it had just escaped instead of parsing it.
 const B_narrowJsonSourcedJsonString = (itemInput: Val): void => {
-  if (
-    itemInput.s.name === jsonName &&
-    itemInput.e.format === "json" &&
-    itemInput.e.to === U
-  ) {
+  if (itemInput.s.name === jsonName && itemInput.e.format === "json") {
     itemInput.s = unknown;
   }
 };

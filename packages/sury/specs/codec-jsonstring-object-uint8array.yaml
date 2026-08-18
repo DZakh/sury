@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.jsonString.with(S.to, S.schema({ payload: S.uint8Array }))"
+  input: string
+  output: "{ payload: Uint8Array<ArrayBufferLike>; }"
+  instantiations: 6260
+jsonSchema:
+  input: '{ type: "string", contentMediaType: "application/json" }'
+  output: 'Failed at ["payload"]: Expected JSON, received Uint8Array'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[6](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[5](v0);let v1=v0["payload"];typeof v1==="string"||e[4](v1);e[2](v1)||e[3](v1);return {"payload":e[1](v0["payload"]),}}
+    examples:
+      base64-field:
+        input: '{ payload: "iVBORw==" }'
+        error: 'Expected JSON string, received { payload: "iVBORw=="; }'
+      empty-field:
+        input: '{ payload: "" }'
+        error: 'Expected JSON string, received { payload: ""; }'
+      not-base64:
+        input: '{ payload: "!!" }'
+        error: 'Expected JSON string, received { payload: "!!"; }'
+  decode:
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[5](v0);let v1=v0["payload"];typeof v1==="string"||e[4](v1);e[2](v1)||e[3](v1);return {"payload":e[1](v0["payload"]),}}
+    examples:
+      base64-field:
+        input: '{ payload: "iVBORw==" }'
+        error: 'Expected JSON string, received { payload: "iVBORw=="; }'
+  encode:
+    expression: i=>{return "{\"payload\":"+e[1](e[0](i["payload"]))+"}"}
+    examples:
+      non-utf8-bytes:
+        input: "{ payload: new Uint8Array([137, 80, 78, 71]) }"
+        output: '"{\"payload\":\"iVBORw==\"}"'
+      empty:
+        input: "{ payload: new Uint8Array([]) }"
+        output: '"{\"payload\":\"\"}"'

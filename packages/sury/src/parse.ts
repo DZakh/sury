@@ -51,6 +51,7 @@ import {
 } from "./base";
 import {
   B_embedInvalidInput,
+  B_contentSlot,
   B_inlineConst,
   B_markOutput,
   B_merge,
@@ -456,6 +457,13 @@ export function getDecoder(..._args: unknown[]): (from: unknown) => unknown {
       const to = schema;
       schema = updateOutput(args[i] as Internal, (mut) => {
         mut.to = to;
+        // Only this direction: an operation compiles the chain the way it runs
+        // it, so the encode side is a chain of its own, built from the reversed
+        // schemas.
+        const ambiguous = B_contentSlot(mut, to);
+        if (ambiguous !== U) {
+          mut.parser = ambiguous;
+        }
       });
     }
     const f = compileDecoder(schema, schema, flag!, U) as (from: unknown) => unknown;

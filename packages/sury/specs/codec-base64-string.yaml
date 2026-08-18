@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.base64.with(S.to, S.string)
+  input: string
+  output: string
+  instantiations: 5175
+jsonSchema:
+  input: Maximum call stack size exceeded
+  output: Maximum call stack size exceeded
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0](i)||e[1](i);return i}
+    examples:
+      passes-through:
+        input: '"ZGF0YQ=="'
+        output: '"ZGF0YQ=="'
+      invalid-base64:
+        input: '"ZG!0YQ=="'
+        error: Expected base64, received "ZG!0YQ=="
+  decode:
+    expression: i=>{e[0](i)||e[1](i);return i}
+    examples:
+      passes-through:
+        input: '"ZGF0YQ=="'
+        output: '"ZGF0YQ=="'
+  encode:
+    expression: i=>{e[0](i)||e[1](i);return i}
+    examples:
+      passes-through:
+        input: '"ZGF0YQ=="'
+        output: '"ZGF0YQ=="'
+      invalid-base64:
+        input: '"ZG!0YQ=="'
+        error: Expected base64, received "ZG!0YQ=="

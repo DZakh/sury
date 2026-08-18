@@ -752,6 +752,21 @@ export const B_asyncVal = (from: Val, initial: string): Val => {
   return v;
 }
 
+// A val the rest of the pipeline continues from inside a `.then`. Async is
+// declared, not discovered: a sync operation that reaches one is rejected here,
+// where it is written, rather than returning a promise its caller never asked
+// for.
+export const B_markAsync = (input: Val, output: Val): void => {
+  if (!flagUnsafeHas(input.g.o, flagAsync)) {
+    B_throw({
+      code: "invalid_operation",
+      path: pathEmpty,
+      reason: "Invalid async during sync operation",
+    });
+  }
+  output.f |= valFlagAsync;
+}
+
 export const B_addObjectField = (objectVal: Val, location: string, val: Val): void => {
   if (objectVal.s.type === arrayTag) {
     objectVal.s.items!.push(val.s);
@@ -851,14 +866,7 @@ export const B_conversion = (
     );
     output.v = _var;
     if (isAsync) {
-      if (!flagUnsafeHas(input.g.o, flagAsync)) {
-        B_throw({
-          code: "invalid_operation",
-          path: pathEmpty,
-          reason: "Invalid async during sync operation",
-        });
-      }
-      output.f |= valFlagAsync;
+      B_markAsync(input, output);
     }
     const embeddedFn = B_embed(input, fn);
     // Reuse the input's var when checks already materialized it, instead of
@@ -903,6 +911,36 @@ export const B_neverSlot: Builder = (input: Val) =>
       input.e.to!,
     )}. The conversion is marked as never`,
   );
+
+// CONTENT_CODEC_SPEC.md rules 3 and 4, for the direction a link is written in:
+// two schemas whose payloads disagree (`content`) have two readings of it —
+// store the source's value in the target, or open the source and hand its
+// payload over — and the target naming its own payload with `.to` is what picks
+// the second. Compiling can't tell the two apart, because reversing a chain
+// turns that payload declaration into just another link: the legal
+// `X -> jsonString -> File` and the rejected `jsonString -> File` reach the
+// decoder as the same pair. So the reading is settled where the link is made,
+// and an unreadable one takes a slot that rejects the operation instead.
+export const B_contentSlot = (mut: Internal, target: Internal): Builder | undefined =>
+  mut.content !== U &&
+  target.content !== U &&
+  mut.content !== target.content &&
+  target.to === U
+    ? (input: Val) =>
+        B_invalidOperation(
+          input,
+          `Ambiguous conversion from ${inputExpression(mut)} to ${inputExpression(
+            target,
+          )}. Use S.to(from, to, {decode: "unpack" | "pack", encode: ...})`,
+        )
+    : U;
+
+// Which reading of a content link applies: a `"pack"`/`"unpack"` slot the caller
+// wrote wins (rule 1), and otherwise a target that names its own payload is what
+// asks for the source to be opened (rule 3). Read by the carriers, never by the
+// formats — the format side only ever asks whether a `content` marker is there.
+export const B_readsPayload = (target: Internal): boolean =>
+  target.opens !== U ? target.opens : target.to !== U;
 
 export const B_invalidOperation = (val: Val, description: string): never => {
   return B_throw({ code: "invalid_operation", reason: description, path: val.path });

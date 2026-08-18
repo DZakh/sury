@@ -168,11 +168,14 @@ export const itemSymbol = /* @__PURE__ */ Symbol(vendor + ":item");
 export type NumberFormat = "int32" | "port" | "integer";
 // Mirrored by `StringFormat` in index.d.ts, which is the surface TS users see —
 // a name added here without being added there is invisible to them, and a third
-// copy lives in `S.res`. Every member but `json` and `cuid` is a JSON Schema
-// format name verbatim, which is what lets jsonschema.ts pass it through in
-// both directions.
+// copy lives in `S.res`. Every member but `json`, `base64` and `cuid` is a JSON
+// Schema format name verbatim, which is what lets jsonschema.ts pass it through
+// in both directions; the content-family members name a keyword of their own
+// (`contentMediaType`, `contentEncoding`) instead, which jsonschema.ts spells
+// out per dialect.
 export type StringFormat =
   | "json"
+  | "base64"
   | "date-time"
   | "email"
   | "uuid"
@@ -300,6 +303,20 @@ export type Internal = {
   examples?: unknown[];
   default?: unknown;
   format?: Format;
+  // The content axis (CONTENT_CODEC_SPEC.md): the schema this value's payload
+  // is stored as inside a JSON document — base64 text for bytes, the JSON value
+  // itself for a JSON document. Two schemas that agree on it carry the same
+  // kind of payload, so a link between them is a plain transfer; two that
+  // disagree have two readings of it (store the value, or open it) and the
+  // conversion asks instead of guessing. Absent means the value carries no
+  // payload of its own.
+  content?: Internal;
+  // Which reading of a content link the caller wrote, when they wrote one: on
+  // the schema the direction converts INTO (the target for decode, the source
+  // for encode, which is what reversal makes of it). `true` opens the source
+  // and hands its payload over, `false` stores the source's value. Absent means
+  // the link's shape decides — see `B_readsPayload` in builder.ts.
+  opens?: boolean;
   // jsonString splices this value between bare quotes with no escaping, so
   // every value the schema admits must be free of `"`, `\`, controls and lone
   // surrogates. Set it only where that is proven — a pattern whose range

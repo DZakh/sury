@@ -20,7 +20,14 @@ import {
   updateOutput,
   type Val,
 } from "./base";
-import { B_conversion, B_embed, B_failWithErrorMessage } from "./builder";
+import {
+  B_conversion,
+  B_embed,
+  B_failWithErrorMessage,
+  B_next,
+  B_readsPayload,
+  B_refine,
+} from "./builder";
 import { definitionToSchema, optionFactory } from "./composites";
 import { codecTo, getMutErrorMessage, internalRefine, nullAsUnit } from "./modifiers";
 import { nullLiteral, numberDecoder, string, stringDecoderFn, unit } from "./primitives";
@@ -852,6 +859,100 @@ export const uuid: Internal = /* @__PURE__ */ stringFormat(
 );
 
 export const cuid: Internal = /* @__PURE__ */ stringFormat("cuid", /^c[^\s-]{8,}$/i);
+
+// The base64 pair, resolved once at import — the ES2026 methods where the
+// runtime has them, a binary-string bridge through `btoa`/`atob` otherwise — so
+// generated code is one embedded call either way. The fallbacks walk the value
+// rather than spreading it into `String.fromCharCode`, whose argument limit a
+// large payload blows.
+export const bytesToBase64: (bytes: Uint8Array) => string = /* @__PURE__ */ (() => {
+  const native = (Uint8Array.prototype as { toBase64?: () => string }).toBase64;
+  return native
+    ? (bytes) => (bytes as unknown as { toBase64: () => string }).toBase64()
+    : (bytes) => {
+        let binary = "";
+        // In chunks, not one `apply`: the whole array blows the argument limit,
+        // and a byte at a time is several times slower than either.
+        for (let idx = 0; idx < bytes.length; idx += 8192) {
+          binary += String.fromCharCode.apply(
+            null,
+            bytes.subarray(idx, idx + 8192) as unknown as number[],
+          );
+        }
+        return btoa(binary);
+      };
+})();
+
+// No `try` around `atob`: every route here validates against `base64`'s pattern
+// first, which is the whole reason the format carries one.
+export const base64ToBytes: (text: string) => Uint8Array = /* @__PURE__ */ (() => {
+  const native = (Uint8Array as { fromBase64?: (text: string) => Uint8Array }).fromBase64;
+  return native
+    ? (text) => native(text)
+    : (text) => {
+        const binary = atob(text);
+        const bytes = new Uint8Array(binary.length);
+        for (let idx = 0; idx < bytes.length; idx++) {
+          bytes[idx] = binary.charCodeAt(idx);
+        }
+        return bytes;
+      };
+})();
+
+// `S.base64` — bytes stored as text. `content` points at the schema itself:
+// base64 IS how bytes sit in a document, so a link to another bytes carrier is
+// a plain payload transfer and a link to a JSON document is not
+// (CONTENT_CODEC_SPEC.md). Standard alphabet with canonical padding — the
+// pattern is what lets the decode skip a `try` around `atob`, so widening it
+// means giving the decode one.
+export const base64: Internal = /* @__PURE__ */ (() => {
+  // A length check plus one flat scan, rather than the canonical
+  // `(?:[A-Za-z0-9+/]{4})*(?:…==|…=)?` — the four-at-a-time group backtracks per
+  // quantum and costs about twice as much on a payload-sized string, which is
+  // the only size that matters here. The two accept exactly the same strings.
+  const padded = /^[A-Za-z0-9+/]*={0,2}$/;
+  const schema = stringFormat(
+    "base64",
+    (value) => value.length % 4 === 0 && padded.test(value),
+    true,
+  );
+  schema.content = schema;
+
+  // Rule 3: the payload is bytes, so a format that declares a payload of its
+  // own is handed the text those bytes spell — a JWT segment. Nothing else is
+  // asking for that. A bare string target in particular is not: a string is not
+  // bytes, so the format widens into it unchanged.
+  const wantsPayload = (other: Internal): boolean =>
+    other.content !== U && other.content !== schema && B_readsPayload(other);
+
+  // The `B_refine` wrap is what makes the produced text the subject of the
+  // format's own pattern check, rather than the document that went in.
+  schema.decoder = (input) =>
+    wantsPayload(input.s)
+      ? B_refine(
+          B_next(
+            input,
+            `${B_embed(input, bytesToBase64)}(${B_embed(input, new TextEncoder())}.encode(${
+              input.i
+            }))`,
+            schema,
+          ),
+        )
+      : stringDecoderFn(input);
+
+  schema.encoder = (input, target) =>
+    wantsPayload(target)
+      ? B_next(
+          input,
+          `${B_embed(input, new TextDecoder())}.decode(${B_embed(input, base64ToBytes)}(${
+            input.i
+          }))`,
+          string,
+        )
+      : input;
+
+  return schema;
+})();
 
 // RFC 3986 dec-octet, four of them: a leading zero is rejected because some
 // resolvers read `010` as octal, so accepting it would make two readings of the

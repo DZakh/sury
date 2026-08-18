@@ -42,6 +42,7 @@
 - [Instance](#instance)
 - [Blob](#blob)
 - [File](#file)
+- [Content](#content)
 - [Meta](#meta)
 - [Brand](#brand)
 - [Custom schema](#custom-schema)
@@ -373,7 +374,14 @@ S.uint8Array;
 S.uint8Array.with(S.to, S.string);
 // Encodes utf-8 string to Uint8Array
 S.string.with(S.to, S.uint8Array);
+
+// Base64 text, whose payload is bytes
+S.base64;
+// Decodes base64 to the bytes it stores
+S.base64.with(S.to, S.uint8Array);
 ```
+
+See [Content](#content) for what happens when bytes and a JSON document meet.
 
 ## Strings
 
@@ -426,9 +434,13 @@ S.isoDateTime; // UTC timestamp
 S.duration; // Duration
 S.jsonPointer; // JSON Pointer
 S.relativeJsonPointer; // Relative JSON Pointer
+S.base64; // Base64, standard alphabet with canonical padding
 ```
 
 Each survives a round trip through `S.toJSONSchema` and `S.fromJSONSchema`.
+`S.base64` is the one that isn't a JSON Schema *format*: it emits
+`contentEncoding: "base64"` (`format: "byte"` for OpenAPI 3.0), and it carries a
+payload, so [Content](#content) has more to say about it.
 
 **A format checks syntax, not safety.** Every one is exactly as strict as its
 spec, so a well-formed value passes even when it isn't one you want to accept:
@@ -1088,6 +1100,64 @@ its own:
 
 ```ts
 const upload = (f: S.File) => S.parser(S.file)(f);
+```
+
+## Content
+
+Some values store other data: `S.uint8Array` and `S.base64` store bytes,
+`S.blob`/`S.file` store bytes you read asynchronously, `S.jsonString` stores a
+JSON document. When two of them meet, there are two readings of the same
+conversion — store this value inside that one, or open it and hand the payload
+over — and Sury does not guess.
+
+**A value position stores.** A field or an item is a value in the document, so
+bytes there become base64 rather than mangled text:
+
+```ts
+S.encoder(S.schema({ payload: S.uint8Array }), S.jsonString)({ payload: bytes });
+// {"payload":"iVBORw=="}
+
+// A Blob/File field stores the same way, and reading it is async:
+S.asyncEncoder(S.schema({ avatar: S.file }), S.jsonString)({ avatar });
+```
+
+**A declared payload opens.** Writing what is inside a format is how you say
+"open it":
+
+```ts
+S.file.with(S.to, S.jsonString.with(S.to, configSchema)); // read + parse
+S.base64.with(S.to, S.jsonString.with(S.to, claimsSchema)); // a JWT segment
+```
+
+**Otherwise Sury asks.** A pair with both readings live is rejected where the
+operation is created, rather than silently picking one:
+
+```ts
+S.parser(S.uint8Array.with(S.to, S.jsonString));
+// Ambiguous conversion from Uint8Array to JSON string.
+// Use S.to(from, to, {decode: "unpack" | "pack", encode: ...})
+```
+
+Say which one you mean with the `"pack"` / `"unpack"` slots. Each names what its
+own direction does to its own source, so the two are always opposites:
+
+```ts
+// the bytes ARE the JSON text
+S.uint8Array.with(S.to, S.jsonString, { decode: "unpack", encode: "pack" });
+
+// base64 inside a JSON string, into a File
+S.jsonString.with(S.to, S.file, { decode: "unpack", encode: "pack" });
+```
+
+Pairs with only one reading never ask. `S.uint8Array.with(S.to, S.string)` is
+UTF-8 either way; `S.base64.with(S.to, S.uint8Array)` and
+`S.file.with(S.to, S.string)` hand over a payload; `S.jsonString.with(S.to, S.json)`
+parses. The contrast worth memorizing is the two string conversions, and it
+follows from what each one carries:
+
+```ts
+S.jsonString.with(S.to, S.string); // parses — a string IS a JSON value
+S.base64.with(S.to, S.string); // widens — a string is NOT bytes
 ```
 
 ## Meta

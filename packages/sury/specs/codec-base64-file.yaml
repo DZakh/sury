@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.base64.with(S.to, S.file)
+  input: string
+  output: File
+  instantiations: 5245
+jsonSchema:
+  input: '{ type: "string", contentEncoding: "base64", contentMediaType: "application/octet-stream" }'
+  output: Expected JSON, received File
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[4](i);e[2](i)||e[3](i);return new e[1]([e[0](i)],"")}
+    examples:
+      decodes-the-payload:
+        input: '"iVBORw=="'
+        error: cannot represent a File instance as spec source code
+      not-base64:
+        input: '"!!"'
+        error: Expected base64, received "!!"
+  decode:
+    expression: i=>{e[2](i)||e[3](i);return new e[1]([e[0](i)],"")}
+    examples:
+      decodes-the-payload:
+        input: '"iVBORw=="'
+        error: cannot represent a File instance as spec source code
+  encode:
+    isAsync: true
+    expression: i=>{let v0=i.arrayBuffer().then(b=>e[0](new Uint8Array(b)));return v0.then(v0=>{e[1](v0)||e[2](v0);return v0})}
+    examples:
+      stores-the-bytes:
+        input: new File([new Uint8Array([137, 80, 78, 71])], "a.png")
+        output: '"iVBORw=="'

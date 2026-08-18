@@ -55,9 +55,10 @@ const SEEDS: Record<string, string[]> = {
   ipv6: ["::1", "2001:db8::8a2e:370:7334", "::ffff:127.0.0.1"],
   uri: ["https://example.com/a?b=c#d", "mailto:a@b.co", "urn:isbn:0451450523"],
   "uri-reference": ["/a/b?c#d", "https://example.com", "//host/path", "?q", "#f", ""],
+  base64: ["ZGF0YQ==", "aGkh", "iVBORw==", ""],
 };
 
-type Schema = { format?: string; type?: string };
+type Schema = { format?: string; type?: string; content?: unknown };
 
 const stringFormatSchemas = Object.entries(S as Record<string, unknown>).filter(
   (entry): entry is [string, Schema] => {
@@ -87,7 +88,16 @@ for (const [name, schema] of stringFormatSchemas) {
   const format = schema.format!;
   // Ground truth: a raw-spliced format emits `"\""+i+"\""`, an escaped one a
   // call into the embedded helper.
-  const emitted = String((S as any).encoder(schema, (S as any).jsonString));
+  // A content format's link to jsonString has two readings (CONTENT_CODEC_SPEC.md)
+  // and asks rather than guessing, so name the one this script is about: the
+  // value spliced into a document.
+  const emitted = String(
+    schema.content
+      ? (S as any).decoder(
+          (S as any).to(schema, (S as any).jsonString, { decode: "pack", encode: "unpack" }),
+        )
+      : (S as any).encoder(schema, (S as any).jsonString),
+  );
   if (!emitted.includes(`"\\""+`)) {
     rows.push([name, format, "escape helper", "—"]);
     continue;

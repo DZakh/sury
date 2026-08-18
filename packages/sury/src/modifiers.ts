@@ -7,6 +7,7 @@ import {
   type Builder,
   type Check,
   copySchema,
+  functionTag,
   getOrRethrow,
   inputExpression,
   type Internal,
@@ -24,6 +25,7 @@ import {
 import {
   _var,
   B_embed,
+  B_contentSlot,
   B_inlineConst,
   B_invalidInputBuilder,
   B_neverSlot,
@@ -150,35 +152,55 @@ export const getMutErrorMessage = (mut: Internal): SchemaErrorMessage => {
 // That placement is what makes reversal free: `reverseSwap` trades the two
 // fields, so the encode coder becomes the reversed chain's parser and double
 // reversal restores every slot. Slot semantics (auto/never/async/the JS
-// shorthand) are resolved by the caller into Builders; `U` means no coder,
-// i.e. the built-in conversion.
+// shorthand) are resolved by the caller into Builders; a boolean is a content
+// reading (`true` opens the direction's own source) and rides the schema that
+// direction converts into, which is what makes reversal swap those too. `U`
+// means no slot, i.e. the built-in conversion — or, where the pair has two of
+// them, the rejection `B_contentSlot` supplies.
 export const codecTo = (
   schema: Internal,
   target: Internal,
-  parserB?: Builder,
-  serializerB?: Builder
+  decode?: Builder | boolean,
+  encode?: Builder | boolean
 ): Internal => {
   const root: Internal = updateOutput(schema, (mut) => {
-    if (serializerB !== U) {
+    const ambiguous = B_contentSlot(mut, target);
+    const opened = typeof decode === "boolean";
+    const parser = typeof decode === functionTag ? (decode as Builder) : opened ? U : ambiguous;
+    const serializer =
+      typeof encode === functionTag
+        ? (encode as Builder)
+        : typeof encode === "boolean"
+          ? U
+          : ambiguous;
+    if (serializer !== U || opened) {
       // copySchema keeps `anyOf` shared by reference with the target, and
-      // unionResolveToUnion recognizes an arm producing the whole target
-      // union by exactly that shared array. A deep copy here would silently
-      // break Option.getOr's default arms.
+      // unionResolveToUnion recognizes an arm producing the whole target union
+      // by exactly that shared array. A deep copy here would silently break
+      // Option.getOr's default arms.
       const targetMut = copySchema(target);
-      targetMut.serializer = serializerB;
+      if (serializer !== U) {
+        targetMut.serializer = serializer;
+      }
+      if (opened) {
+        targetMut.opens = decode as boolean;
+      }
       mut.to = targetMut;
     } else {
       mut.to = target;
     }
-    if (parserB !== U) {
-      mut.parser = parserB;
+    if (parser !== U) {
+      mut.parser = parser;
+    }
+    if (typeof encode === "boolean") {
+      mut.opens = encode;
     }
   });
   // copySchema carries a cached isAsync/hasTransform from the source and a
   // custom slot can change both, so let the next compile re-derive them.
   // Slotless links keep the fast path: a built-in conversion never turns
   // async.
-  if (parserB !== U || serializerB !== U) {
+  if (decode !== U || encode !== U) {
     delete root.isAsync;
     delete root.hasTransform;
   }

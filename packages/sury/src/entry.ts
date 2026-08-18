@@ -95,6 +95,7 @@ export {
   email,
   uuid,
   cuid,
+  base64,
   uri,
   isoDate,
   isoTime,
@@ -252,38 +253,45 @@ const ambiguousEncode: Builder = (input: Val) =>
     "Encoding is ambiguous when only a decode function is provided. Use S.to(target, {decode, encode})",
   );
 
-// One codec slot resolved to its Builder. `"auto"` (and an omitted argument)
+// One codec slot resolved. `"auto"` (and an omitted argument)
 // is `undefined`, which every caller reads as "no coder, use the built-in
 // conversion". `junction` picks which seam the coder's result lands on (see
 // B_conversion). An `{async}` object must carry that key alone: guessing past
 // a typo would silently pick a different direction's semantics.
 // `name` is the key the caller wrote, so the rejection names the direction
-// they got wrong rather than the pair.
+// they got wrong rather than the pair. `"pack"`/`"unpack"` are the odd pair out:
+// they are not coders but a choice between a content link's two readings
+// (CONTENT_CODEC_SPEC.md rule 1), so they resolve to a boolean that rides the
+// link itself — `true` opens the direction's own source, `false` stores it.
 const conversionBuilder = (
   name: string,
   slot: unknown,
   junction: boolean,
-): Builder | undefined => {
+): Builder | boolean | undefined => {
   const async = (slot as { async?: unknown } | null)?.async;
   if (slot === "auto") {
     return U;
   } else if (slot === "never") {
     return B_neverSlot;
+  } else if (slot === "unpack") {
+    return true;
+  } else if (slot === "pack") {
+    return false;
   } else if (typeof slot === functionTag) {
     return B_conversion(slot as (value: unknown) => unknown, false, junction);
   } else if (typeof async === functionTag && Object.keys(slot as object).length === 1) {
     return B_conversion(async as (value: unknown) => Promise<unknown>, true, junction);
   } else {
     return panic(
-      `Invalid ${name} ${stringify(slot)}. Expected a function, "auto", "never" or {async: fn}`,
+      `Invalid ${name} ${stringify(slot)}. Expected a function, "auto", "never", "pack", "unpack" or {async: fn}`,
     );
   }
 };
 
 // @__NO_SIDE_EFFECTS__
 export const to = (schema: Internal, target: Internal, custom?: unknown) => {
-  let decode: Builder | undefined;
-  let encode: Builder | undefined;
+  let decode: Builder | boolean | undefined;
+  let encode: Builder | boolean | undefined;
   let outputSeam = false;
   if (typeof custom === functionTag) {
     decode = B_conversion(custom as (value: unknown) => unknown, false, true);
@@ -311,11 +319,17 @@ export const to = (schema: Internal, target: Internal, custom?: unknown) => {
     outputSeam = fromRescript && schema !== unknown && target !== unknown;
     decode = conversionBuilder("decode", decodeSlot, !outputSeam);
     encode = conversionBuilder("encode", encodeSlot, !outputSeam);
+    // Each reading names what its direction does to its own source, so the two
+    // directions can't both open (or both store): there would be no side of the
+    // link left holding the payload.
+    if (typeof decode === "boolean" && decode === encode) {
+      return panic(`Expected "pack" opposite "unpack"`);
+    }
   }
   // Chaining a schema to itself would append a second copy of its own chain,
   // re-decoding the value it just produced. Resolving the slots first is what
   // makes the all-"auto" spelling behave exactly like the coder-less one.
-  if (schema === target && !decode && !encode) {
+  if (schema === target && decode === U && encode === U) {
     return schema;
   }
   // An output-seam coder claims the target as its result, so a target that

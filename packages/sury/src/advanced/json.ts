@@ -38,6 +38,7 @@ import {
   unknown,
   unknownTag,
   updateOutput,
+  valFlagAsync,
   type Val,
 } from "../base";
 import {
@@ -50,6 +51,7 @@ import {
   B_mergeWithPathPrepend,
   B_next,
   B_nextConst,
+  B_readsPayload,
   B_refine,
   B_unsupportedDecode,
   B_varWithoutAllocation,
@@ -124,8 +126,10 @@ export const jsonEncoderFn = (input: Val, target: Internal): Val => {
   } else if (flagUnsafeHas(toTagFlag, (tagFlagUnion | tagFlagRef))) {
     return input;
   } else {
-    // For non-JSON types (bigint, instance, etc.), decode through string
-    const jsonExpected = copySchema(string);
+    // For non-JSON types (bigint, instance, etc.), decode through the schema
+    // the target is stored as — a plain string, unless it carries a payload of
+    // its own and names how a document holds it (bytes as base64).
+    const jsonExpected = copySchema(target.content !== U ? target.content : string);
     jsonExpected.to = target;
     return parse(B_refine(input, unknown, U, jsonExpected));
   }
@@ -273,6 +277,7 @@ export const json: Internal = /* @__PURE__ */ initSchema(refTag, jsonDecoderFn, 
   s["$ref"] = jsonRef["$ref"];
   s.name = jsonName;
   s.encoder = jsonEncoderFn;
+  s.content = s;
 
   const anyOf = [
     string,
@@ -368,6 +373,11 @@ export const jsonString = /* @__PURE__ */ (() => {
 
   const jsonStringEncoder: Encoder = (input, target) => {
     if (target.format !== "json") {
+      if (target.content !== U && target.content !== json && !B_readsPayload(target)) {
+        // The target stores this document rather than being another rendering
+        // of it, so it takes the text as it stands.
+        return input;
+      }
       if (isLiteral(target)) {
         const jsonStringConstSchema = baseSchema(stringTag, true, literalDecoder);
         jsonStringConstSchema.const = constSchemaToJsonStringConst(input, target);
@@ -807,35 +817,44 @@ export const jsonString = /* @__PURE__ */ (() => {
     return output;
   };
 
+  // A string that already IS the document, rather than a value to be escaped
+  // into one. The declared payload is decoded straight out of it where nothing
+  // in between needs the intermediate string — encoding into a concrete type
+  // validates the JSON implicitly, so the parse doubles as the check.
+  const carriedJsonString = (input: Val, expectedSchema: Internal): Val => {
+    const to = expectedSchema.to;
+    const stringVal = stringDecoderFn(input);
+    stringVal.s = expectedSchema;
+    stringVal.e = expectedSchema;
+
+    if (to !== U && to.type !== unknownTag && !expectedSchema.parser && !expectedSchema.refiner) {
+      return jsonStringEncoder(stringVal, to);
+    }
+    const stringVar = stringVal.v();
+    const output = B_refine(stringVal, expectedSchema);
+    output.cp = `try{JSON.parse(${stringVar})}catch(t){${B_embedInvalidInput(stringVal)}}`;
+    return output;
+  };
+
   const jsonStringDecoder: Builder = (input) => {
     const inputTagFlag = tagFlags[input.s.type]!;
     const expectedSchema = input.e;
 
     if (flagUnsafeHas(inputTagFlag, tagFlagUnknown)) {
-      const to = expectedSchema.to!;
-      // Whether we can optimize encoding during decoding
-      const preEncode: boolean =
-        !!to && to.type !== unknownTag && !expectedSchema.parser && !expectedSchema.refiner;
-
-      const stringVal = stringDecoderFn(input);
-      stringVal.s = expectedSchema;
-      stringVal.e = expectedSchema;
-
-      if (preEncode) {
-        return jsonStringEncoder(stringVal, to);
-      } else {
-        const stringVar = stringVal.v();
-        const output = B_refine(stringVal, expectedSchema);
-        output.cp = `try{JSON.parse(${stringVar})}catch(t){${B_embedInvalidInput(
-          stringVal,
-        )}}`;
-        return output;
-      }
+      return carriedJsonString(input, expectedSchema);
     } else if (input.s.format === "json") {
       return input;
     } else if (isLiteral(input.s)) {
       return B_next(input, inlineJsonString(input, input.s), expectedSchema);
     } else if (flagUnsafeHas(inputTagFlag, tagFlagString)) {
+      // A declared payload says the incoming string is the document, so it is
+      // opened rather than escaped (CONTENT_CODEC_SPEC.md rule 3) — the same
+      // question the unknown branch above already asks. Without it a nested
+      // `S.jsonString.with(S.to, X)` field round-tripped its own text through
+      // `JSON.stringify`/`JSON.parse` and then failed against X.
+      if (expectedSchema.to !== U) {
+        return carriedJsonString(input, expectedSchema);
+      }
       // Two ways `escapeFree`'s proof is void here: `noValidation` drops the
       // pattern check it rests on, and a `.to` chain carrying a default hands
       // over `i===void 0?e[2]:i.toISOString()`, whose default branch is the
@@ -899,6 +918,22 @@ export const jsonString = /* @__PURE__ */ (() => {
           ))
       ) {
         const jsonVal = parse(B_refine(input, U, U, json));
+        // An async field leaves a promise here, and `JSON.stringify` of one is
+        // `{}` — the serialization is what waits, not the caller.
+        if (flagUnsafeHas(jsonVal.f, valFlagAsync)) {
+          const resolvedVar = B_varWithoutAllocation(input.g);
+          const output = B_next(
+            jsonVal,
+            `${jsonVal.v()}.then(${resolvedVar}=>${B_stringifyCall(
+              resolvedVar,
+              expectedSchema.space,
+            )})`,
+            expectedSchema,
+            expectedSchema,
+          );
+          output.f |= valFlagAsync;
+          return output;
+        }
         return B_next(
           jsonVal,
           B_stringifyCall(jsonVal.i, expectedSchema.space),
@@ -916,19 +951,7 @@ export const jsonString = /* @__PURE__ */ (() => {
         input.e = stringTarget;
         return parse(input);
       } catch {
-        // A schema that converts to string only when it is itself the target
-        // (S.uint8Array reads `e.to` to decide, so a bare `string` target
-        // leaves it out of the chain) needs the conversion asked of it
-        // directly: keep the input's own schema and hang the string target
-        // off its `.to`.
-        try {
-          const viaSelf = copySchema(input.s);
-          viaSelf.to = stringTarget;
-          input.e = viaSelf;
-          return parse(input);
-        } catch {
-          return B_unsupportedDecode(input, input.s, expectedSchema);
-        }
+        return B_unsupportedDecode(input, input.s, expectedSchema);
       }
     }
   };
@@ -937,6 +960,7 @@ export const jsonString = /* @__PURE__ */ (() => {
     s.format = "json";
     s.name = `${jsonName} string`;
     s.encoder = jsonStringEncoder;
+    s.content = json;
   });
 })();
 

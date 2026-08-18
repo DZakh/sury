@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.uint8Array.with(S.to, S.string)
+  input: Uint8Array<ArrayBufferLike>
+  output: string
+  instantiations: 5233
+jsonSchema:
+  input: Expected JSON, received Uint8Array
+  output: '{ type: "string" }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{i instanceof e[1]||e[2](i);return e[0].decode(i)}
+    examples:
+      utf8:
+        input: new Uint8Array([226, 130, 172])
+        output: '"€"'
+      empty:
+        input: new Uint8Array([])
+        output: '""'
+      lossy-non-utf8:
+        input: new Uint8Array([137, 80, 78, 71])
+        output: '"�PNG"'
+  decode:
+    expression: i=>{return e[0].decode(i)}
+    examples:
+      utf8:
+        input: new Uint8Array([226, 130, 172])
+        output: '"€"'
+  encode:
+    expression: i=>{return e[0].encode(i)}
+    examples:
+      utf8:
+        input: '"€"'
+        error: cannot represent a Uint8Array instance as spec source code
+      empty:
+        input: '""'
+        error: cannot represent a Uint8Array instance as spec source code

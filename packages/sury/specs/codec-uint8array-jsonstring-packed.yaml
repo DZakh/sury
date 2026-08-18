@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.uint8Array.with(S.to, S.jsonString, { decode: "pack", encode: "unpack" })'
+  input: Uint8Array<ArrayBufferLike>
+  output: string
+  instantiations: 5298
+jsonSchema:
+  input: Expected JSON, received Uint8Array
+  output: '{ type: "string", contentMediaType: "application/json" }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{i instanceof e[2]||e[3](i);return e[1](e[0](i))}
+    examples:
+      the-bytes-are-a-value:
+        input: new Uint8Array([137, 80, 78, 71])
+        output: '"\"iVBORw==\""'
+      empty:
+        input: new Uint8Array([])
+        output: '"\"\""'
+  decode:
+    expression: i=>{return e[1](e[0](i))}
+    examples:
+      the-bytes-are-a-value:
+        input: new Uint8Array([137, 80, 78, 71])
+        output: '"\"iVBORw==\""'
+  encode:
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="string"||e[4](v0);e[2](v0)||e[3](v0);return e[1](v0)}
+    examples:
+      base64-value-back:
+        input: '"iVBORw=="'
+        error: Expected JSON string, received "iVBORw=="
+      not-a-document:
+        input: iVBORw==
+        error: Unexpected token ')'
