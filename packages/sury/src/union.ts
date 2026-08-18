@@ -1043,9 +1043,9 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
     ) {
       group.n = unionNarrowSchema(group.a[0]!.s);
       // A single-member string group keeps its member's format — for
-      // toJSONSchema fidelity — plus its `ef` and the noValidation that voids
+      // toJSONSchema fidelity — plus its `escapeFree` and the noValidation that voids
       // it: the group emit appends the member's format check to the narrow, so
-      // jsonString's escape-free splice (`ef` in base.ts) holds inside a union
+      // jsonString's escape-free splice (`escapeFree` in base.ts) holds inside a union
       // case — `S.nullable(S.isoDateTime)` splices like the bare field. Never
       // for a multi-member group (the narrow is built from `a[0]` but stands
       // in for every member), and never `format: "json"` — jsonString treats
@@ -1060,7 +1060,7 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
         group.n.type === stringTag
       ) {
         group.n.format = single.format;
-        group.n.ef = single.ef;
+        group.n.escapeFree = single.escapeFree;
         group.n.noValidation = single.noValidation;
       }
     }

@@ -42,8 +42,8 @@ const urlFromString = (value: string) => {
 const uriString: Internal = /* @__PURE__ */ initSchema(stringTag, stringDecoderFn, (s) => {
   s.format = "uri";
   // `urlToUri` percent-encodes everything outside RFC 3986's ASCII repertoire
-  // — the producer is the proof (see `ef` in base.ts).
-  s.ef = true;
+  // — the producer is the proof (see `escapeFree` in base.ts).
+  s.escapeFree = true;
 });
 
 // The decoder names `url` rather than the `init` callback's `s`: it is built

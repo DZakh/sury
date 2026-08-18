@@ -305,7 +305,10 @@ export type Internal = {
   // `pnpm --filter=sury fuzz:escfree`; setting this without running it emits
   // broken JSON rather than merely over-escaped JSON. `noValidation` voids the
   // pattern proof at the read site, so producers don't need to care about it.
-  ef?: boolean;
+  // Spelled out, not `ef`: it sits on exported schemas, so it prints in a
+  // consumer's console.log — the short-name rule is for fields only the
+  // compiler ever sees (`uv`, per-operation copies).
+  escapeFree?: boolean;
   has?: Partial<Record<Tag, boolean>>;
   anyOf?: Internal[];
   additionalItems?: AdditionalItems;

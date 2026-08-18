@@ -774,7 +774,7 @@ const datePattern =
 // never imports out of their bundle. `i` is safe for every source passed: the
 // patterns that care about case spell both out.
 // `escFree` marks the pattern's accepted range as free of JSON escape
-// characters (see `ef` in base.ts) — jsonString then splices values between
+// characters (see `escapeFree` in base.ts) — jsonString then splices values between
 // bare quotes with no escaping. So widening a pattern can cost more than a
 // laxer check: one that starts admitting a quote, a backslash, a control char
 // or a lone surrogate makes that encoder emit broken JSON. Run
@@ -789,10 +789,10 @@ const stringFormat = (
   initSchema(stringTag, stringDecoderFn, (s) => {
     const re = typeof test === "string" ? new RegExp(test, "i") : test;
     s.format = format;
-    // Conditional so a non-escape-free format carries no `ef` key at all — a
+    // Conditional so a non-escape-free format carries no `escapeFree` key at all — a
     // strict deep-equal distinguishes `ef: undefined` from absent.
     if (escFree) {
-      s.ef = escFree;
+      s.escapeFree = escFree;
     }
     s.refiner = (input) => {
       return [

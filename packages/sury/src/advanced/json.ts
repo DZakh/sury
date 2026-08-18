@@ -838,7 +838,7 @@ export const jsonString = /* @__PURE__ */ (() => {
     } else if (isLiteral(input.s)) {
       return B_next(input, inlineJsonString(input, input.s), expectedSchema);
     } else if (flagUnsafeHas(inputTagFlag, tagFlagString)) {
-      // An escape-free schema (`ef` in base.ts) splices between bare quotes —
+      // An escape-free schema (`escapeFree` in base.ts) splices between bare quotes —
       // unless its evidence is void here. `noValidation` drops the pattern
       // check the flag relies on. And `accessorRe` is the only cheap evidence
       // that the expression really is the string the schema vouches for: a
@@ -848,7 +848,7 @@ export const jsonString = /* @__PURE__ */ (() => {
       // Date is its ISO text) where a splice would emit `Mon Jan 01 2024 …`.
       return B_next(
         input,
-        input.s.ef && !input.s.noValidation && accessorRe.test(input.i)
+        input.s.escapeFree && !input.s.noValidation && accessorRe.test(input.i)
           ? `"\\""+${input.i}+"\\""`
           : `${B_embedJsonStr(input)}(${input.i})`,
         expectedSchema,

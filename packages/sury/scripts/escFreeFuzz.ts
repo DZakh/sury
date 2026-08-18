@@ -1,6 +1,6 @@
-// Fuzz for jsonString's escape-free splice (the `ef` field in src/base.ts).
+// Fuzz for jsonString's escape-free splice (the `escapeFree` field in src/base.ts).
 //
-// An `ef`-flagged format is spliced between bare quotes with no escaping, so a
+// An `escapeFree`-flagged format is spliced between bare quotes with no escaping, so a
 // value it accepts carrying `"`, `\`, a control char or a lone surrogate would
 // make the encoder emit syntactically broken JSON — a much louder bug than the
 // over-escaping it replaces. The guarantee is a property of the format's

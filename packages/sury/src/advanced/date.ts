@@ -36,8 +36,8 @@ const dateTimeString: Internal = /* @__PURE__ */ initSchema(
   (s) => {
     s.format = "date-time";
     // `toISOString()`'s range is digits, `-:.TZ` and a sign — the producer is
-    // the proof (see `ef` in base.ts).
-    s.ef = true;
+    // the proof (see `escapeFree` in base.ts).
+    s.escapeFree = true;
   },
 );
 
