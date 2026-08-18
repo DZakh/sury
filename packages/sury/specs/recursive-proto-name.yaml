@@ -1,13 +1,13 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: 'S.recursive("toString", (self) => S.schema({ v: S.string, next: S.optional(self) }))'
+  schema: 'S.recursive("__proto__", (self) => S.schema({ v: S.string, next: S.optional(self) }))'
   input: unknown
   output: unknown
   instantiations: 9071
 jsonSchema:
-  input: '{ $ref: "#/$defs/toString", $defs: { toString: { type: "object", properties: { v: { type: "string" }, next: { $ref: "#/$defs/toString" } }, required: ["v"] } } }'
+  input: '{ $ref: "#/$defs/__proto__", $defs: { ["__proto__"]: { type: "object", properties: { v: { type: "string" }, next: { $ref: "#/$defs/__proto__" } }, required: ["v"] } } }'
   fromInputType: "{ v: string; next?: ... | undefined; }"
-  output: '{ $ref: "#/$defs/toString", $defs: { toString: { type: "object", properties: { v: { type: "string" }, next: { $ref: "#/$defs/toString" } }, required: ["v"] } } }'
+  output: '{ $ref: "#/$defs/__proto__", $defs: { ["__proto__"]: { type: "object", properties: { v: { type: "string" }, next: { $ref: "#/$defs/__proto__" } }, required: ["v"] } } }'
   fromOutputType: "{ v: string; next?: ... | undefined; }"
 vs:
   zod:
@@ -22,7 +22,7 @@ operations:
       wrong-type-at-depth:
         input: '{ v: "x", next: { v: 1 } }'
         error: |-
-          Failed at ["next"]: Expected toString | undefined, received { v: 1; }
+          Failed at ["next"]: Expected __proto__ | undefined, received { v: 1; }
           - At ["next"]["v"]: Expected string, received 1
   decode: eq-to-parse
   encode: eq-to-parse

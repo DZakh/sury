@@ -347,6 +347,15 @@ instead of silently working around it.
   (`Cannot convert undefined or null to object`). Either teach the writer a
   constructor call for the common typed arrays, or make `_skip` legal on an
   operation with a reason.
+- A recursive schema the perf harness rebuilds per iteration can fail the
+  `create+compile` phase where every other phase measures it fine —
+  `specs/recursive-proto-name.yaml` raises "Cannot read properties of undefined
+  (reading 'c')" there, and did before the fix that spec exists for, so it is
+  the phase and not the schema. Rebuilding one inside an object schema fails the
+  same way (`loopInput.e.decoder is not a function`), which is why the reserved
+  names are two top-level specs rather than one object holding both. `recursive`
+  keeps its defs in `globalConfig.d` for the duration of a build, so a harness
+  that builds many schemas in one process is the thing that would see it.
 - A golden containing a control character is written as a plain scalar, so
   `specs/ipv4.yaml` carries a literal tab and `specs/uri-template.yaml` a literal
   DEL and C1 byte, all of which the `yaml` package round-trips but PyYAML and
