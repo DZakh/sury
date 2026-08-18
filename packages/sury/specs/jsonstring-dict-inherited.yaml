@@ -6,7 +6,7 @@ ts:
   instantiations: 5413
 jsonSchema:
   input: '{ type: "object", additionalProperties: { type: "number" } }'
-  output: '{ type: "string" }'
+  output: '{ type: "string", contentMediaType: "application/json" }'
 vs:
   zod:
     _skip: not-applicable

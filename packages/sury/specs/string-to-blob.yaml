@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.string.with(S.to, S.blob)
+  input: string
+  output: Blob
+  instantiations: 5244
+jsonSchema:
+  input: '{ type: "string", contentMediaType: "application/octet-stream" }'
+  output: Expected JSON, received Blob
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "SuryError: Can't decode string to Blob. Use S.to to define a custom decoder"
+  decode: eq-to-parse
+  encode:
+    creationError: "SuryError: Can't decode Blob to string. Use S.to to define a custom decoder"

@@ -6,7 +6,7 @@ ts:
   instantiations: 9620
 jsonSchema:
   input: 'Failed at ["x"]["1"]: Expected JSON, received string | undefined'
-  output: '{ type: "string" }'
+  output: '{ type: "string", contentMediaType: "application/json" }'
 vs:
   zod:
     _skip: not-applicable

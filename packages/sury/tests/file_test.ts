@@ -33,6 +33,9 @@ test("every route into a schema the runtime can't support says so", () => {
     `S.inputExpression(S.file)`,
     `String(S.file)`,
     `S.toJSONSchema(S.file)`,
+    // Even converting a carrier: the encode-reverse copies the target, and
+    // `copySchema` reads `class` like every other route.
+    `S.toJSONSchema(S.string.with(S.to, S.file))`,
     `S.parser(S.union([S.file, S.string]))`,
   ]) {
     expect(withoutGlobal("File", `try { ${route} } catch (e) { console.log(e.message) }`), route).toBe(

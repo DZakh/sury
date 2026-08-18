@@ -6,7 +6,7 @@ ts:
   instantiations: 8602
 jsonSchema:
   input: 'Failed at ["id"]: Expected JSON, received bigint'
-  output: '{ type: "string" }'
+  output: '{ type: "string", contentMediaType: "application/json" }'
 vs:
   zod:
     _skip: not-applicable

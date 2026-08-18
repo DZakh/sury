@@ -115,6 +115,11 @@ export const neverTag: Tag = "never";
 export const unknownTag: Tag = "unknown";
 export const refTag: Tag = "ref";
 
+// Named once for the emit branches that differ by dialect. Here rather than in
+// jsonschema.ts because a schema with a `jsonSchema` of its own names it too,
+// and may not import upwards.
+export const openApi30 = "openapi-3.0";
+
 export const tagFlagUnknown = 1;
 export const tagFlagString = 2;
 export const tagFlagNumber = 4;
@@ -368,6 +373,13 @@ export type Internal = {
   // the `.to` target. Everything structural is rendered by inputExpression
   // itself, so setting this is the exception, not the pattern.
   expression?: (schema: Internal) => string;
+  // What this schema adds to the JSON Schema of a value that decodes to it.
+  // jsonschema.ts reads it off `.to` and never off the schema being converted:
+  // a schema whose own input isn't JSON has no document and must keep failing
+  // the conversion. Unlike S.extendJSONSchema, which holds one document for
+  // every dialect, it can answer per target. `unknown` because base.ts imports
+  // nothing and `JSONSchemaT` lives upwards; the single read casts.
+  jsonSchema?: (schema: Internal, target: string) => unknown;
   // The reversed (Input ↔ Output swapped) schema. Always readable: `this` via
   // the self-reverse prototype getter, otherwise computed and cached by the
   // general prototype getter (parse.ts). Reading it on a plain schema COMPUTES

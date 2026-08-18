@@ -1,12 +1,12 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: S.jsonString
+  schema: 'S.extendJSONSchema(S.jsonString, { contentMediaType: "application/geo+json" })'
   input: string
   output: string
-  instantiations: 254
+  instantiations: 335
 jsonSchema:
-  input: '{ type: "string", contentMediaType: "application/json" }'
-  output: '{ type: "string", contentMediaType: "application/json" }'
+  input: '{ type: "string", contentMediaType: "application/geo+json" }'
+  output: '{ type: "string", contentMediaType: "application/geo+json" }'
 vs:
   zod:
     _skip: not-applicable
@@ -14,17 +14,11 @@ operations:
   parse:
     expression: i=>{typeof i==="string"||e[1](i);try{JSON.parse(i)}catch(t){e[0](i)}return i}
     examples:
-      valid-json-number-text:
-        input: '"123"'
-        output: '"123"'
       valid-json-object-text:
-        input: '"{\"foo\":[1,2]}"'
-        output: '"{\"foo\":[1,2]}"'
+        input: '"{\"type\":\"Point\"}"'
+        output: '"{\"type\":\"Point\"}"'
       invalid-json-text:
         input: '"{"'
         error: Expected JSON string, received "{"
-      not-a-string:
-        input: "123"
-        error: Expected JSON string, received 123
   decode: identity
   encode: identity
