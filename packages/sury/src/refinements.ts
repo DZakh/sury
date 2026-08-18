@@ -878,10 +878,16 @@ export const bytesToBase64: (bytes: Uint8Array) => string = /* @__PURE__ */ (() 
   return native
     ? (bytes) => (bytes as unknown as { toBase64: () => string }).toBase64()
     : (bytes) => {
-        let binary = "";
         // In chunks, not one `apply`: the whole array blows the argument limit,
-        // and a byte at a time is several times slower than either.
-        for (let idx = 0; idx < bytes.length; idx += 8192) {
+        // and a byte at a time is several times slower than either. The first
+        // chunk is taken before the loop so that a value which isn't bytes
+        // fails on `subarray` the way it fails on the native method, rather
+        // than skipping the loop and encoding as the empty string.
+        let binary = String.fromCharCode.apply(
+          null,
+          bytes.subarray(0, 8192) as unknown as number[],
+        );
+        for (let idx = 8192; idx < bytes.length; idx += 8192) {
           binary += String.fromCharCode.apply(
             null,
             bytes.subarray(idx, idx + 8192) as unknown as number[],
@@ -892,7 +898,9 @@ export const bytesToBase64: (bytes: Uint8Array) => string = /* @__PURE__ */ (() 
 })();
 
 // No `try` around `atob`: every route here validates against `base64`'s pattern
-// first, which is the whole reason the format carries one.
+// first, which is the whole reason the format carries one. `noValidation` voids
+// that the way it voids `escapeFree`'s proof — a caller who asserts a value is
+// base64 and is wrong gets the platform's own exception.
 export const base64ToBytes: (text: string) => Uint8Array = /* @__PURE__ */ (() => {
   const native = (Uint8Array as { fromBase64?: (text: string) => Uint8Array }).fromBase64;
   return native
