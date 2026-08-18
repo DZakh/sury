@@ -188,6 +188,13 @@ The base64 rows round-trip through `fromJSONSchema`, from either spelling; a
 `contentSchema` emit is gated on a json-format source, so a base64 segment
 carrying a document annotates the encoding it is stored in and stops there.
 
+**The axis stops at a union.** A union carries neither `content` nor `.to` of
+its own, and neither an arm's payload declaration nor a reading written on the
+union reaches the dispatch. So a carrier linked to one is read off the arms far
+enough to know the pair is not a plain transfer, and then rejected as having no
+decoder — which a custom coder still answers. Rule 2 is the exception, and only
+because `jsonEncoderFn` rewrites the arms itself.
+
 **Not yet:** a packed bytes field has no document form — `S.toJSONSchema` of
 `S.schema({payload: S.uint8Array})` reports `Expected JSON, received Uint8Array`
 rather than describing the base64 string the field becomes. That follows the
@@ -226,8 +233,9 @@ generated code a hand-written converter wouldn't contain.
 
 The one price is the universal path: `getDecoder` is in every bundle, so
 `B_contentSlot` and its message are too, and `copySchema` and `reverse` each
-carry a line for the two markers. About 215 gzipped bytes on every export
-(`bundleSize.yaml`, where the smallest go 4136 → 4351). That buys a
+carry a line for the two markers. About 300 gzipped bytes on every export
+(`bundleSize.yaml`, where the smallest go 4136 → 4439) — most of it the check
+and its two messages, since it has to answer for a union too. That buys a
 creation-time gate on conversions that otherwise corrupt data silently.
 
 **Conversions live on the carrier, not the format** — the existing `S.date`
@@ -278,7 +286,7 @@ ASCII-only fixtures are what hid the corruption above.
 | `jsonstring-object-url` | the raw splice `accessorRe` now admits, and that `S.url` really is escape-free through it |
 | `codec-base64-file` | payload transfer in and out of a binary container |
 | `codec-uint8array-jsonstring-ambiguous`, `codec-uint8array-json-ambiguous`, `codec-file-jsonstring-ambiguous`, `codec-base64-jsonstring-ambiguous` | rule 4, one per carrier kind |
-| `codec-uint8array-optional-jsonstring-ambiguous` | rule 4 read off a union's arms, which carry the content the union itself has none of |
+| `codec-uint8array-optional-jsonstring-unsupported` | the axis stopping at a union, whose arm carries the content it has none of |
 | `codec-file-blob` | the one instance widening the axis makes legal, and the direction that stays an error |
 | `codec-base64-jsonstring-payload` | rule 3, the JWT segment |
 | `codec-jsonstring-object-uint8array`, `codec-jsonstring-object-file` | rule 2, both directions |

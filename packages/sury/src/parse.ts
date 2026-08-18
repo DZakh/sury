@@ -460,8 +460,11 @@ export function getDecoder(..._args: unknown[]): (from: unknown) => unknown {
         mut.to = to;
         // Only this direction: an operation compiles the chain the way it runs
         // it, so the encode side is a chain of its own, built from the reversed
-        // schemas.
-        const ambiguous = B_contentSlot(mut, to);
+        // schemas. And only at the head, because that is where a carrier can
+        // still be the operation's own input — a link further along is fed by
+        // the one before it, which is the shape a payload declaration takes once
+        // the chain is written in the other order.
+        const ambiguous = i === 0 ? B_contentSlot(mut, to) : U;
         if (ambiguous !== U) {
           mut.parser = ambiguous;
         }

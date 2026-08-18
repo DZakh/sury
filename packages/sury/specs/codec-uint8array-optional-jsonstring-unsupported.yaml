@@ -12,6 +12,6 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    creationError: 'SuryError: Ambiguous conversion from Uint8Array to JSON string | undefined. Use S.to(from, to, {decode: "unpack" | "pack", encode: ...})'
+    creationError: "SuryError: Can't decode Uint8Array to JSON string | undefined. Use S.to to define a custom decoder"
   decode: eq-to-parse
   encode: eq-to-parse

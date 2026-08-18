@@ -921,33 +921,50 @@ export const B_neverSlot: Builder = (input: Val) =>
 // `X -> jsonString -> File` and the rejected `jsonString -> File` reach the
 // decoder as the same pair. So the reading is settled where the link is made,
 // and an unreadable one takes a slot that rejects the operation instead.
-// A union carries no `content` of its own, so it is read off the arms: linking a
-// carrier to `S.optional(S.jsonString)` puts the same two readings on the table
-// as linking it to `S.jsonString`, and skipping the check there let the pair
-// through to the corruption this whole axis exists to stop.
-const contentOf = (schema: Internal): Internal | undefined => {
-  let content = schema.content;
+// The node a link's content reading comes from: the schema, or the arm that
+// carries one where the schema is a union. A union has neither `content` nor
+// `.to` of its own, and linking a carrier to `S.optional(S.jsonString)` puts the
+// same two readings on the table as linking it to `S.jsonString` — skipping the
+// question there let the pair through to the corruption this axis exists to
+// stop, and skipping the answer made rule 3 unreachable through an arm.
+const B_contentNode = (schema: Internal): Internal => {
   const anyOf = schema.anyOf;
-  if (content === U && anyOf !== U) {
-    for (let idx = 0; content === U && idx < anyOf.length; idx++) {
-      content = anyOf[idx]!.content;
+  if (schema.content === U && anyOf !== U) {
+    for (let idx = 0; idx < anyOf.length; idx++) {
+      if (anyOf[idx]!.content !== U) {
+        return anyOf[idx]!;
+      }
     }
   }
-  return content;
+  return schema;
 };
 
 export const B_contentSlot = (mut: Internal, target: Internal): Builder | undefined => {
-  const from = contentOf(mut);
-  const to = contentOf(target);
-  return from !== U && to !== U && from !== to && target.to === U
-    ? (input: Val) =>
-        B_invalidOperation(
+  const from = B_contentNode(mut);
+  const to = B_contentNode(target);
+  // `target.to`, not `to.to`: a union has no `.to` to declare a payload with.
+  if (
+    from.content === U ||
+    to.content === U ||
+    from.content === to.content ||
+    target.to !== U
+  ) {
+    return U;
+  }
+  // A union is where the axis stops: the payload is on an arm, and neither a
+  // `.to` there nor a reading on the union itself reaches the dispatch — so
+  // there is no spelling to recommend, and the pair says it has no decoder,
+  // which a custom coder still answers.
+  const plain = from === mut && to === target;
+  return (input: Val) =>
+    plain
+      ? B_invalidOperation(
           input,
           `Ambiguous conversion from ${inputExpression(mut)} to ${inputExpression(
             target,
           )}. Use S.to(from, to, {decode: "unpack" | "pack", encode: ...})`,
         )
-    : U;
+      : B_unsupportedDecode(input, mut, target);
 };
 
 // Which reading of a content link applies: a `"pack"`/`"unpack"` slot the caller
