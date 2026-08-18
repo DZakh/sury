@@ -19,7 +19,7 @@ operations:
         output: new Date("2020-01-01T00:00:00.000Z")
       a-calendar-impossible-date:
         input: '"2021-02-30T00:00:00.000Z"'
-        error: Expected UTC date-time, received "2021-02-30T00:00:00.000Z"
+        error: Expected UTC date-time
   decode:
     expression: i=>{e[1].test(i)||e[2](i);let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](v0);return v0}
     examples:
