@@ -921,11 +921,25 @@ export const B_neverSlot: Builder = (input: Val) =>
 // `X -> jsonString -> File` and the rejected `jsonString -> File` reach the
 // decoder as the same pair. So the reading is settled where the link is made,
 // and an unreadable one takes a slot that rejects the operation instead.
-export const B_contentSlot = (mut: Internal, target: Internal): Builder | undefined =>
-  mut.content !== U &&
-  target.content !== U &&
-  mut.content !== target.content &&
-  target.to === U
+// A union carries no `content` of its own, so it is read off the arms: linking a
+// carrier to `S.optional(S.jsonString)` puts the same two readings on the table
+// as linking it to `S.jsonString`, and skipping the check there let the pair
+// through to the corruption this whole axis exists to stop.
+const contentOf = (schema: Internal): Internal | undefined => {
+  let content = schema.content;
+  const anyOf = schema.anyOf;
+  if (content === U && anyOf !== U) {
+    for (let idx = 0; content === U && idx < anyOf.length; idx++) {
+      content = anyOf[idx]!.content;
+    }
+  }
+  return content;
+};
+
+export const B_contentSlot = (mut: Internal, target: Internal): Builder | undefined => {
+  const from = contentOf(mut);
+  const to = contentOf(target);
+  return from !== U && to !== U && from !== to && target.to === U
     ? (input: Val) =>
         B_invalidOperation(
           input,
@@ -934,6 +948,7 @@ export const B_contentSlot = (mut: Internal, target: Internal): Builder | undefi
           )}. Use S.to(from, to, {decode: "unpack" | "pack", encode: ...})`,
         )
     : U;
+};
 
 // Which reading of a content link applies: a `"pack"`/`"unpack"` slot the caller
 // wrote wins (rule 1), and otherwise a target that names its own payload is what

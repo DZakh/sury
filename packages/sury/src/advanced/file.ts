@@ -86,8 +86,16 @@ const binarySchema = (name: string, global: string, nameArg: string): Internal =
         : flagUnsafeHas(sourceTagFlag, tagFlagInstance) && source.class === Uint8Array
           ? input.i
           : U;
-      return parts !== U
-        ? B_next(input, `new ${B_embed(input, input.e.class)}([${parts}]${nameArg})`, input.e)
+      if (parts !== U) {
+        return B_next(input, `new ${B_embed(input, input.e.class)}([${parts}]${nameArg})`, input.e);
+      }
+      // `File` extends `Blob`, so a file already satisfies `S.blob` — a widening
+      // `instanceDecoder`'s exact-class match refuses. The other direction still
+      // does: not every blob is a file.
+      return flagUnsafeHas(sourceTagFlag, tagFlagInstance) &&
+        (source.class as { prototype?: unknown }).prototype instanceof
+          (input.e.class as new () => unknown)
+        ? input
         : instanceDecoder(input);
     },
     (s) => {

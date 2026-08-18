@@ -226,8 +226,8 @@ generated code a hand-written converter wouldn't contain.
 
 The one price is the universal path: `getDecoder` is in every bundle, so
 `B_contentSlot` and its message are too, and `copySchema` and `reverse` each
-carry a line for the two markers. About 170 gzipped bytes on every export
-(`bundleSize.yaml`, where the smallest go 4136 → 4306). That buys a
+carry a line for the two markers. About 215 gzipped bytes on every export
+(`bundleSize.yaml`, where the smallest go 4136 → 4351). That buys a
 creation-time gate on conversions that otherwise corrupt data silently.
 
 **Conversions live on the carrier, not the format** — the existing `S.date`
@@ -259,7 +259,7 @@ several times slower than either. `scenarios.yaml`'s `base64-pack` /
 | `{payload: S.uint8Array}` in a JSON document — corrupts | base64 |
 | `S.encoder(S.uint8Array.with(S.to, S.number))(42)` — returns `42` typed as `Uint8Array` | error (the decoder's missing fall-through, a standalone soundness fix) |
 | a `S.jsonString.with(S.to, X)` field of a decoded document — re-escaped its own text, then failed against X | parsed (rule 3) |
-| every `Blob`/`File` conversion — creation error | works or asks |
+| every `Blob`/`File` conversion — creation error | its payload conversions work, and the rest asks. `S.file.with(S.to, S.blob)` widens; the other way round is still an error, because not every blob is a file |
 
 All land together. After this release, changes only turn errors into working
 code.
@@ -278,6 +278,8 @@ ASCII-only fixtures are what hid the corruption above.
 | `jsonstring-object-url` | the raw splice `accessorRe` now admits, and that `S.url` really is escape-free through it |
 | `codec-base64-file` | payload transfer in and out of a binary container |
 | `codec-uint8array-jsonstring-ambiguous`, `codec-uint8array-json-ambiguous`, `codec-file-jsonstring-ambiguous`, `codec-base64-jsonstring-ambiguous` | rule 4, one per carrier kind |
+| `codec-uint8array-optional-jsonstring-ambiguous` | rule 4 read off a union's arms, which carry the content the union itself has none of |
+| `codec-file-blob` | the one instance widening the axis makes legal, and the direction that stays an error |
 | `codec-base64-jsonstring-payload` | rule 3, the JWT segment |
 | `codec-jsonstring-object-uint8array`, `codec-jsonstring-object-file` | rule 2, both directions |
 | `codec-jsonstring-object-optional-uint8array` | rule 2 through a union arm, where the dispatch works from the target's variants |
