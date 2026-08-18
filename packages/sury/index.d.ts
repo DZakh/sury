@@ -852,6 +852,48 @@ export const array: <
   schema: SchemaLike<TInput, TOutput> | TDef
 ) => Schema<TInput[], TOutput[]>;
 
+/**
+ * A `Set`, with every item validated by `schema`.
+ *
+ * A `Set` is not JSON, so the wire form is an array: `S.array(item)` decodes
+ * to it with {@link to}, and the same schema reversed encodes back.
+ *
+ * ```ts
+ * S.parser(S.set(S.string))(new Set(["a"])); // Set { "a" }
+ * S.parser(S.array(S.string).with(S.to, S.set(S.string)))(["a"]); // Set { "a" }
+ * ```
+ */
+export const set: <
+  const TDef = never,
+  TInput = UnknownToInput<TDef>,
+  TOutput = UnknownToOutput<TDef>
+>(
+  schema: SchemaLike<TInput, TOutput> | TDef
+) => Schema<Set<TInput>, Set<TOutput>>;
+
+/**
+ * A `Map`, with every key validated by `key` and every value by `value`.
+ *
+ * A `Map` is not JSON, so the wire form is an array of `[key, value]` entries:
+ * `S.array(S.tuple([key, value]))` decodes to it with {@link to}, and the same
+ * schema reversed encodes back.
+ *
+ * ```ts
+ * S.parser(S.map(S.string, S.number))(new Map([["a", 1]])); // Map { "a" => 1 }
+ * ```
+ */
+export const map: <
+  const TKeyDef = never,
+  const TValueDef = never,
+  TKeyInput = UnknownToInput<TKeyDef>,
+  TKeyOutput = UnknownToOutput<TKeyDef>,
+  TValueInput = UnknownToInput<TValueDef>,
+  TValueOutput = UnknownToOutput<TValueDef>
+>(
+  key: SchemaLike<TKeyInput, TKeyOutput> | TKeyDef,
+  value: SchemaLike<TValueInput, TValueOutput> | TValueDef
+) => Schema<Map<TKeyInput, TValueInput>, Map<TKeyOutput, TValueOutput>>;
+
 export const compactColumns: <
   const TDef = never,
   TInput = UnknownToInput<TDef>,

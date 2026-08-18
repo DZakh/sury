@@ -61,6 +61,14 @@ let myDictOfStringFromCoreSchema = Sury.dict(Sury.string);
 
 Vitest.test("Dict of string schema from Core", t => U.assertEqualSchemas(t, myDictOfStringFromCoreSchema, Sury.dict(Sury.string), undefined));
 
+let mySetOfStringSchema = Sury.set(Sury.string);
+
+Vitest.test("Set of string schema", t => U.assertEqualSchemas(t, mySetOfStringSchema, Sury.set(Sury.string), undefined));
+
+let myMapOfStringToIntSchema = Sury.map(Sury.string, Sury.int);
+
+Vitest.test("Map of string to int schema", t => U.assertEqualSchemas(t, myMapOfStringToIntSchema, Sury.map(Sury.string, Sury.int), undefined));
+
 let myJsonSchema = Sury.json;
 
 Vitest.test("Json schema", t => U.assertEqualSchemas(t, myJsonSchema, Sury.json, undefined));
@@ -137,6 +145,8 @@ export {
   myDictOfStringSchema,
   myDictOfStringFromJsSchema,
   myDictOfStringFromCoreSchema,
+  mySetOfStringSchema,
+  myMapOfStringToIntSchema,
   myJsonSchema,
   myJsonFromCoreSchema,
   myTupleSchema,

@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.set(S.string).with(S.minSize, 2)
+  input: Set<string>
+  output: Set<string>
+  instantiations: 748
+jsonSchema:
+  input: Expected JSON, received Set<string>.size >= 2
+  output: Expected JSON, received Set<string>.size >= 2
+vs:
+  zod: z.set(z.string()).min(2)
+operations:
+  parse:
+    expression: i=>{i instanceof e[2]||e[3](i);let v1=0;for(let v0 of i){try{typeof v0==="string"||e[0](v0);v1++;}catch(v2){v2.path='["'+v1+'"]'+v2.path;throw v2}}i.size>1||e[1](i);return i}
+    examples:
+      valid:
+        input: new Set(["a", "b"])
+        output: new Set(["a", "b"])
+      too-small:
+        input: new Set(["a"])
+        error: Expected Set<string>.size >= 2, received Set
+      invalid-item-beats-the-bound:
+        input: new Set(["a", 2])
+        error: 'Failed at ["1"]: Expected string, received 2'
+  decode:
+    expression: i=>{i.size>1||e[0](i);return i}
+    examples:
+      valid:
+        input: new Set(["a", "b"])
+        output: new Set(["a", "b"])
+      too-small:
+        input: new Set(["a"])
+        error: Expected Set<string>.size >= 2, received Set
+  encode:
+    expression: i=>{i.size>1||e[0](i);return i}
+    examples:
+      valid:
+        input: new Set(["a", "b"])
+        output: new Set(["a", "b"])
+      too-small:
+        input: new Set(["a"])
+        error: Expected Set<string>.size >= 2, received Set

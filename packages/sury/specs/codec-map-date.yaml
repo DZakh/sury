@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.map(S.isoDateTime.with(S.to, S.date), S.number)
+  input: Map<string, number>
+  output: Map<Date, number>
+  instantiations: 5726
+jsonSchema:
+  input: Expected JSON, received Map<date-time, number>
+  output: Expected JSON, received Map<Date, number>
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{i instanceof e[5]||e[6](i);let v1=new Map;for(let v0 of i){try{let v4=v0[0];typeof v4==="string"||e[4](v4);e[2].test(v4)||e[3](v4);let v3=new Date(v0[0]);!Number.isNaN(v3.getTime())||e[1](v3);let v2=v0[1];typeof v2==="number"&&!Number.isNaN(v2)||e[0](v2);v1.set(v3,v2);}catch(v5){v5.path='["'+v0[0]+'"]'+v5.path;throw v5}}return v1}
+    examples:
+      valid:
+        input: new Map([["1970-01-01T00:00:00.000Z", 1]])
+        output: new Map([[new Date("1970-01-01T00:00:00.000Z"), 1]])
+      invalid-key:
+        input: new Map([["nope", 1]])
+        error: 'Failed at ["nope"]: Expected UTC date-time'
+      invalid-value:
+        input: new Map([["1970-01-01T00:00:00.000Z", "1"]])
+        error: 'Failed at ["1970-01-01T00:00:00.000Z"]: Expected number, received "1"'
+  decode:
+    expression: i=>{let v1=new Map;for(let v0 of i){try{let v3=v0[0];e[1].test(v3)||e[2](v3);let v2=new Date(v0[0]);!Number.isNaN(v2.getTime())||e[0](v2);v1.set(v2,v0[1]);}catch(v4){v4.path='["'+v0[0]+'"]'+v4.path;throw v4}}return v1}
+    examples:
+      valid:
+        input: new Map([["1970-01-01T00:00:00.000Z", 1]])
+        output: new Map([[new Date("1970-01-01T00:00:00.000Z"), 1]])
+  encode:
+    expression: i=>{let v1=new Map;for(let v0 of i){try{let v2=v0[0].toISOString();e[0].test(v2)||e[1](v2);v1.set(v2,v0[1]);}catch(v3){v3.path='["'+v0[0]+'"]'+v3.path;throw v3}}return v1}
+    examples:
+      valid:
+        input: new Map([[new Date("1970-01-01T00:00:00.000Z"), 1]])
+        output: new Map([["1970-01-01T00:00:00.000Z", 1]])
+      two-keys-encoding-alike-are-one-entry-the-last-winning:
+        input: new Map([[new Date("1970-01-01T00:00:00.000Z"), 1], [new Date("1970-01-01T00:00:00.000Z"), 2]])
+        output: new Map([["1970-01-01T00:00:00.000Z", 2]])

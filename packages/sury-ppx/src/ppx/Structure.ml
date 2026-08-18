@@ -79,6 +79,17 @@ let rec generateConstrSchemaExpression {Location.txt = identifier; loc}
   | Ldot (Ldot (Lident "Js", "Dict"), "t"), [item_type]
   | Ldot (Lident "Dict", "t"), [item_type] ->
     [%expr S.dict [%e generateCoreTypeSchemaExpression item_type]]
+  | Ldot (Lident "Set", "t"), [item_type]
+  | Ldot (Ldot (Lident "Stdlib", "Set"), "t"), [item_type] ->
+    [%expr S.set [%e generateCoreTypeSchemaExpression item_type]]
+  (* Ahead of the generic `Ldot` fallbacks below, which reject a second type
+     parameter — `Map.t` is the one built-in that has two. *)
+  | Ldot (Lident "Map", "t"), [key_type; value_type]
+  | Ldot (Ldot (Lident "Stdlib", "Map"), "t"), [key_type; value_type] ->
+    [%expr
+      S.map
+        [%e generateCoreTypeSchemaExpression key_type]
+        [%e generateCoreTypeSchemaExpression value_type]]
   | Lident s, [] -> makeIdentExpr (generateSchemaName s)
   | Lident s, [arg] ->
     Exp.apply (makeIdentExpr (generateSchemaName s))

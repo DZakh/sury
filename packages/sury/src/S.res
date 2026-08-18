@@ -471,6 +471,8 @@ type url
 @module("sury") external array: t<'value> => t<array<'value>> = "array"
 @module("sury") external compactColumns: t<'value> => t<array<array<'value>>> = "compactColumns"
 @module("sury") external list: t<'value> => t<list<'value>> = "list"
+@module("sury") external set: t<'value> => t<Set.t<'value>> = "set"
+@module("sury") external map: (t<'key>, t<'value>) => t<Map.t<'key, 'value>> = "map"
 @module("sury") external instance: unknown => t<unknown> = "instance"
 @module("sury") external dict: t<'value> => t<dict<'value>> = "dict"
 @module("sury") external option: t<'value> => t<option<'value>> = "$option"
