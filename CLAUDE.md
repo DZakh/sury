@@ -132,4 +132,5 @@ exits non-zero) and `reasons` / `message` (error detail, for you to accept or
 reject).
 
 `CODEC_SPEC.md` is the normative statement of what conversions are legal,
-built-in and custom alike.
+built-in and custom alike; `CONTENT_CODEC_SPEC.md` covers the carrier/format
+pairs where two built-in readings exist (pack/unpack).
