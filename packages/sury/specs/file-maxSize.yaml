@@ -3,7 +3,7 @@ ts:
   schema: S.file.with(S.maxSize, 5)
   input: File
   output: File
-  instantiations: 5165
+  instantiations: 599
 jsonSchema:
   input: Expected JSON, received File.size <= 5
   output: Expected JSON, received File.size <= 5

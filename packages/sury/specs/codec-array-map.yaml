@@ -3,7 +3,7 @@ ts:
   schema: S.array(S.tuple([S.string, S.number])).with(S.to, S.map(S.string, S.number))
   input: "[string, number][]"
   output: Map<string, number>
-  instantiations: 6803
+  instantiations: 6911
 jsonSchema:
   input: '{ items: { type: "array", minItems: 2, maxItems: 2, items: [{ type: "string" }, { type: "number" }] }, type: "array" }'
   output: Expected JSON, received Map<string, number>

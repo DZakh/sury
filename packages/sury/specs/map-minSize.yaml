@@ -3,7 +3,7 @@ ts:
   schema: S.map(S.string, S.number).with(S.minSize, 1)
   input: Map<string, number>
   output: Map<string, number>
-  instantiations: 5452
+  instantiations: 886
 jsonSchema:
   input: Expected JSON, received Map<string, number>.size >= 1
   output: Expected JSON, received Map<string, number>.size >= 1

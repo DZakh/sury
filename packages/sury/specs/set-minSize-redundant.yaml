@@ -3,7 +3,7 @@ ts:
   schema: S.instance(Set).with(S.minSize, 5).with(S.minSize, 1, "MY MESSAGE")
   input: Set<unknown>
   output: Set<unknown>
-  instantiations: 7340
+  instantiations: 2816
 jsonSchema:
   input: Expected JSON, received Set.size >= 5
   output: Expected JSON, received Set.size >= 5

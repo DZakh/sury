@@ -3,7 +3,7 @@ ts:
   schema: S.array(S.isoDateTime.with(S.to, S.date)).with(S.to, S.set(S.date))
   input: string[]
   output: Set<Date>
-  instantiations: 5782
+  instantiations: 5926
 jsonSchema:
   input: '{ items: { type: "string", format: "date-time" }, type: "array" }'
   output: Expected JSON, received Set<Date>
@@ -19,7 +19,7 @@ operations:
         output: new Set([new Date("1970-01-01T00:00:00.000Z")])
       invalid-item:
         input: '["not-a-date"]'
-        error: 'Failed at ["0"]: Invalid datetime string! Expected UTC'
+        error: 'Failed at ["0"]: Expected UTC date-time'
   decode:
     expression: i=>{let v4=new Array(i.length);for(let v0=0;v0<i.length;++v0){try{let v2=i[v0];e[1].test(v2)||e[2](v2);let v1=new Date(i[v0]);!Number.isNaN(v1.getTime())||e[0](v1);v4[v0]=v1}catch(v3){v3.path='["'+v0+'"]'+v3.path;throw v3}}return new Set(v4)}
     examples:

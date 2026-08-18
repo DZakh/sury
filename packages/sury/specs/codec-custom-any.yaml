@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.string.with(S.to, S.any, { decode: (value) => value.length, encode: (value) => String(value) })"
+  input: string
+  output: any
+  instantiations: 5309
+jsonSchema:
+  input: '{ type: "string" }'
+  output: Expected JSON, received unknown
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}
+    examples:
+      valid:
+        input: '"abc"'
+        output: "3"
+      invalid-type:
+        input: "1"
+        error: Expected string, received 1
+  decode:
+    expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}
+    examples:
+      valid:
+        input: '"abc"'
+        output: "3"
+  encode:
+    expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);return v0}
+    examples:
+      valid:
+        input: "3"
+        output: '"3"'

@@ -3,7 +3,7 @@ ts:
   schema: S.array(S.string).with(S.minLength, 1).with(S.maxLength, 2)
   input: "[string, ...string[]]"
   output: "[string, ...string[]]"
-  instantiations: 6002
+  instantiations: 1396
 jsonSchema:
   input: '{ items: { type: "string" }, type: "array", minItems: 1, maxItems: 2 }'
   fromInputType: string[]

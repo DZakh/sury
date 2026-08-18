@@ -3,7 +3,7 @@ ts:
   schema: 'S.recursive("Node", (nodeSchema) => S.schema({ value: S.string, children: S.set(nodeSchema) }))'
   input: unknown
   output: unknown
-  instantiations: 8664
+  instantiations: 8729
 jsonSchema:
   input: 'Failed at ["children"]: Expected JSON, received Set<Node>'
   output: 'Failed at ["children"]: Expected JSON, received Set<Node>'

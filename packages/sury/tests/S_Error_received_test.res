@@ -100,18 +100,21 @@ test("InvalidInput error reports number as received when float fails int32 forma
   }
 })
 
-test("InvalidInput error reports string as received when string-to-number coercion produces NaN", t => {
-  switch "abc"->S.decodeOrThrow(~from=S.string, ~to=S.float) {
-  | _ => t->Assert.fail("Should have thrown")
-  | exception S.Exn(error) =>
-    switch error->S.Error.classify {
-    | InvalidInput({expected, received}) =>
-      t->Assert.is(expected->S.inputExpression, "number", ~message="expected schema")
-      t->Assert.is(received->S.inputExpression, "string", ~message="received schema")
-    | _ => t->Assert.fail("Expected InvalidInput error")
+test(
+  "InvalidInput error reports string as received when string-to-number coercion produces NaN",
+  t => {
+    switch "abc"->S.decodeOrThrow(~from=S.string, ~to=S.float) {
+    | _ => t->Assert.fail("Should have thrown")
+    | exception S.Exn(error) =>
+      switch error->S.Error.classify {
+      | InvalidInput({expected, received}) =>
+        t->Assert.is(expected->S.inputExpression, "number", ~message="expected schema")
+        t->Assert.is(received->S.inputExpression, "string", ~message="received schema")
+      | _ => t->Assert.fail("Expected InvalidInput error")
+      }
     }
-  }
-})
+  },
+)
 
 test("InvalidInput error reports string as received when string doesn't match literal", t => {
   switch "wrong"->S.decodeOrThrow(~from=S.string, ~to=S.literal("apple")) {

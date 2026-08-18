@@ -3,9 +3,9 @@ ts:
   schema: "S.json.with(S.to, S.schema({ value: S.union([S.schema({ a: S.optional(S.string.with(S.to, S.date)) }), S.string]) }))"
   input: JSON
   output: "{ value: string | { a?: Date | undefined; }; }"
-  instantiations: 10683
+  instantiations: 10854
 jsonSchema:
-  input: '{ type: "object", properties: { value: { anyOf: [{ type: "object", properties: { a: { type: "string" } }, additionalProperties: false }, { type: "string" }] } }, additionalProperties: false, required: ["value"] }'
+  input: '{ type: "object", properties: { value: { anyOf: [{ type: "object", properties: { a: { type: "string", format: "date-time" } }, additionalProperties: false }, { type: "string" }] } }, additionalProperties: false, required: ["value"] }'
   fromInputType: "{ value: string | { a?: string | undefined; }; }"
   output: 'Failed at ["value"]["a"]: Expected JSON, received Date | undefined'
 vs:

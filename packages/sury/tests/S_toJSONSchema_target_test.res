@@ -191,3 +191,164 @@ test("toJSONSchema keeps both bounds when only one is exclusive", t => {
     }`),
   )
 })
+
+// `contentSchema` is 2019-09 and later, and OpenAPI 3.0 predates the whole
+// content family — so the same schema says three different amounts about the
+// document it carries. Not a spec: the format snapshots one target (the
+// default), so the dialect gating is only observable here.
+test("toJSONSchema of a JSON string describes the document it carries", t => {
+  let schema = S.jsonString->S.to(S.object(s => s.field("port", S.int)))
+
+  t->Assert.deepEqual(
+    schema->S.toJSONSchema(~options={target: Draft07}),
+    %raw(`{
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "type": "string",
+      "contentMediaType": "application/json"
+    }`),
+  )
+
+  t->Assert.deepEqual(
+    schema->S.toJSONSchema(~options={target: Draft202012}),
+    %raw(`{
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "string",
+      "contentMediaType": "application/json",
+      "contentSchema": {
+        "type": "object",
+        "properties": {
+          "port": {"type": "integer", "minimum": -2147483648, "maximum": 2147483647}
+        },
+        "required": ["port"]
+      }
+    }`),
+  )
+
+  t->Assert.deepEqual(
+    schema->S.toJSONSchema(~options={target: OpenApi30}),
+    %raw(`{"type": "string"}`),
+  )
+})
+
+// A blob is octets, which no JSON type describes — so a document exists only
+// for the string somebody encodes it into, and the two dialects spell what that
+// string carries differently. `S.extendJSONSchema` holds one document for every
+// target and could not have said this.
+test("toJSONSchema of a schema decoding to a blob follows the target's spelling", t => {
+  let upload = S.string->S.to(S.blob)
+
+  t->Assert.deepEqual(
+    upload->S.toJSONSchema(~options={target: OpenApi30}),
+    %raw(`{"type": "string", "format": "binary"}`),
+  )
+
+  t->Assert.deepEqual(
+    upload->S.toJSONSchema(~options={target: Draft202012}),
+    %raw(`{
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "string",
+      "contentMediaType": "application/octet-stream"
+    }`),
+  )
+
+  // The override still lands on top of what the target contributed.
+  t->Assert.deepEqual(
+    upload
+    ->S.extendJSONSchema({contentMediaType: "image/png"})
+    ->S.toJSONSchema(~options={target: OpenApi30}),
+    %raw(`{"type": "string", "format": "binary", "contentMediaType": "image/png"}`),
+  )
+})
+
+test("toJSONSchema of a binary instance still has no document at all", t => {
+  // A `Blob` is not JSON, whatever the target, and saying so is the whole
+  // reason the annotation above is read off the carrier and not off `S.blob`.
+  t->Assert.throws(
+    () => S.blob->S.toJSONSchema(~options={target: OpenApi30})->ignore,
+    ~expectations={message: "Expected JSON, received Blob"},
+  )
+})
+
+test("toJSONSchema of a JSON string keeps converting when the document has no JSON Schema", t => {
+  // `contentSchema` is an annotation, so a `to` with no JSON Schema form takes
+  // it off rather than failing the conversion of a schema that is otherwise
+  // perfectly describable.
+  t->Assert.deepEqual(
+    (S.jsonString->S.to(S.bigint))->S.toJSONSchema(~options={target: Draft202012}),
+    %raw(`{
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "string",
+      "contentMediaType": "application/json"
+    }`),
+  )
+
+  t->Assert.deepEqual(
+    (S.jsonString->S.to(S.uint8Array))->S.toJSONSchema(~options={target: Draft202012}),
+    %raw(`{
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "string",
+      "contentMediaType": "application/json"
+    }`),
+  )
+})
+
+test("toJSONSchema of a JSON string omits contentSchema when the document is any JSON", t => {
+  t->Assert.deepEqual(
+    (S.jsonString->S.to(S.json))->S.toJSONSchema(~options={target: Draft202012}),
+    %raw(`{
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "string",
+      "contentMediaType": "application/json"
+    }`),
+  )
+})
+
+test("toJSONSchema lets extendJSONSchema override both content keywords", t => {
+  let schema =
+    S.jsonString
+    ->S.to(S.object(s => s.field("port", S.int)))
+    ->S.extendJSONSchema({
+      contentMediaType: "application/geo+json",
+      contentSchema: JSONSchema.Schema({type_: JSONSchema.Arrayable.single(#object)}),
+    })
+
+  t->Assert.deepEqual(
+    schema->S.toJSONSchema(~options={target: Draft202012}),
+    %raw(`{
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "string",
+      "contentMediaType": "application/geo+json",
+      "contentSchema": {"type": "object"}
+    }`),
+  )
+})
+
+test("toJSONSchema publishes the $defs a contentSchema reaches", t => {
+  let node = S.recursive("Node", node =>
+    S.object(s =>
+      {
+        "name": s.field("name", S.string),
+        "child": s.field("child", S.option(node)),
+      }
+    )
+  )
+
+  // A recursive document converts to a `$ref`, so `contentSchema` is only
+  // resolvable if the definition it names is published beside it.
+  t->Assert.deepEqual(
+    (S.jsonString->S.to(node))->S.toJSONSchema(~options={target: Draft202012}),
+    %raw(`{
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "string",
+      "contentMediaType": "application/json",
+      "contentSchema": {"$ref": "#/$defs/Node"},
+      "$defs": {
+        "Node": {
+          "type": "object",
+          "properties": {"name": {"type": "string"}, "child": {"$ref": "#/$defs/Node"}},
+          "required": ["name"]
+        }
+      }
+    }`),
+  )
+})

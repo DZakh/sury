@@ -3,7 +3,7 @@ ts:
   schema: S.set(S.string).with(S.minSize, 2)
   input: Set<string>
   output: Set<string>
-  instantiations: 5314
+  instantiations: 748
 jsonSchema:
   input: Expected JSON, received Set<string>.size >= 2
   output: Expected JSON, received Set<string>.size >= 2

@@ -335,6 +335,11 @@ case the harness *should* have caught or guided better — a missing check, a we
 error message, a strictness gap that let a bad spec through — add a bullet here
 instead of silently working around it.
 
+- `jsonSchema` snapshots one target (the default draft-07), so an emit that is
+  dialect-gated — `contentSchema` is 2019-09+, OpenAPI 3.0 has no content
+  keywords at all — has no golden for the targets it differs on, and lands in
+  `S_toJSONSchema_target_test.res` instead. A `jsonSchema.targets` map, or a
+  per-spec target override, would keep it with the schema it belongs to.
 - An operation whose output holds a class instance (`S.uint8Array` decoding to
   `Uint8Array`) can't be specced: the golden writer raises "cannot represent a
   Uint8Array instance as spec source code", and an op has no way to opt out —
@@ -342,6 +347,15 @@ instead of silently working around it.
   (`Cannot convert undefined or null to object`). Either teach the writer a
   constructor call for the common typed arrays, or make `_skip` legal on an
   operation with a reason.
+- A recursive schema the perf harness rebuilds per iteration can fail the
+  `create+compile` phase where every other phase measures it fine —
+  `specs/recursive-proto-name.yaml` raises "Cannot read properties of undefined
+  (reading 'c')" there, and did before the fix that spec exists for, so it is
+  the phase and not the schema. Rebuilding one inside an object schema fails the
+  same way (`loopInput.e.decoder is not a function`), which is why the reserved
+  names are two top-level specs rather than one object holding both. `recursive`
+  keeps its defs in `globalConfig.d` for the duration of a build, so a harness
+  that builds many schemas in one process is the thing that would see it.
 - A golden containing a control character is written as a plain scalar, so
   `specs/ipv4.yaml` carries a literal tab and `specs/uri-template.yaml` a literal
   DEL and C1 byte, all of which the `yaml` package round-trips but PyYAML and
@@ -408,18 +422,11 @@ instead of silently working around it.
   'examples')` instead of naming the missing block. Hand-writing a spec rather
   than scaffolding it with `spec new` is the way in.
 - No operation dimension for JSON-target conversions (`.to(S.json)` / `.to(S.jsonString)`), so bugs like #311 (nested optional fields failing to encode) can't be captured as spec examples — their repros live in `tests/` instead.
+- A schema-creation error (a `panic` thrown while `ts.schema` evaluates) can't be a golden: `checkSpec` reports "ts.schema did not evaluate" instead of recording the message, so every rejection Sury raises at construction (e.g. a custom codec on a target that already converts) is pinned in `tests/` instead.
+- `ts.schema` is TypeScript, so a surface with no TS spelling can't be specced at all. The ReScript codec seam (`~custom`, which reaches `S.to` as `{decodeToOutput, encodeFromOutput}`) is deliberately absent from `index.d.ts`, so its goldens — including the refiner-anchoring regression — live in `tests/S_to_custom_test.res`.
+- Async operations have no spec dimension for the *encode* direction, so an async encode codec's success path is only visible as the sync op's `creationError` golden; the resolved value lives in `tests/`.
 - Example results are serialized back to spec source, so a value keyed by a *non-registry* symbol can't be recorded ("cannot represent a non-registry symbol (use Symbol.for(key)) as spec source code"). A registry symbol round-trips as a computed key. `S.record`'s unvalidated symbol-keyed values are pinned in `tests/` instead of `specs/record.yaml`, where the rest of that gap lives.
 - Scenario measurements can be bimodal across child processes: the identical `encoder-lookup` build measured "unchanged" and "−44%" against the same baseline in back-to-back runs, each individually printed as `confirmed`. The screening/rounds design averages within a process but can't see a whole process landing in a different JIT state (IC/feedback shapes settle per child, then every block agrees with itself). Until runs repeat the *process* (not just the rounds) and require agreement across them, treat any single scenario delta on a shared-arity path as one sample, not a verdict.
-- A spec fixes one schema and computes its goldens once, so nothing in the format
-  can express a bug that needs two calls in a particular *order* — or one whose
-  damage lands on a different schema than the one probed. The
-  `isAsync`/`hasTransform` caches were both: `S.isAsync(S.string)` poisoned every
-  later `S.string.with(S.to, asyncSchema)`, and the schema that answered wrong
-  never had a probe of its own (fixed in #389, pinned in
-  `tests/directionCache_test.ts`). A per-spec dimension can't reach this; what
-  would is a suite-level block of ordered calls over named schemas with an
-  assertion per step — the `scenarios.yaml` shape, but asserting results rather
-  than timing them.
 
 ## License
 

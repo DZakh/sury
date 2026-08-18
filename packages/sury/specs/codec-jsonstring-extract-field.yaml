@@ -3,10 +3,10 @@ ts:
   schema: 'S.jsonString.with(S.to, S.schema({ type: "info", value: S.number }).with(S.shape, (msg) => msg.value)).with(S.to, S.jsonString)'
   input: string
   output: string
-  instantiations: 7976
+  instantiations: 8045
 jsonSchema:
-  input: '{ type: "string" }'
-  output: '{ type: "string" }'
+  input: '{ type: "string", contentMediaType: "application/json" }'
+  output: '{ type: "string", contentMediaType: "application/json" }'
 vs:
   zod:
     _skip: not-applicable

@@ -18,7 +18,10 @@ test("Works on bigint", t => {
   let schema = S.bigint->S.multipleOf(2n)
 
   t->Assert.deepEqual(4n->S.parseOrThrow(~to=schema), 4n)
-  t->U.assertThrowsMessage(() => 3n->S.parseOrThrow(~to=schema), `Expected bigint % 2n, received 3n`)
+  t->U.assertThrowsMessage(
+    () => 3n->S.parseOrThrow(~to=schema),
+    `Expected bigint % 2n, received 3n`,
+  )
 })
 
 test("Works on integer, which accepts values beyond int32", t => {

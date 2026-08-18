@@ -3,7 +3,7 @@ ts:
   schema: 'S.json.with(S.to, S.schema({ value: S.union([S.schema({ type: "B", value: S.optional(S.string.with(S.to, S.date)) }), S.schema({ type: "C", value: S.optional(S.string.with(S.to, S.date)) })]) }))'
   input: JSON
   output: '{ value: { type: "B"; value?: Date | undefined; } | { type: "C"; value?: Date | undefined; }; }'
-  instantiations: 13969
+  instantiations: 14197
 jsonSchema:
   input: '{ type: "object", properties: { value: { anyOf: [{ type: "object", properties: { type: { type: "string", const: "B" }, value: { type: "string", format: "date-time" } }, additionalProperties: false, required: ["type"] }, { type: "object", properties: { type: { type: "string", const: "C" }, value: { type: "string", format: "date-time" } }, additionalProperties: false, required: ["type"] }] } }, additionalProperties: false, required: ["value"] }'
   fromInputType: '{ value: { type: "B"; value?: string | undefined; } | { type: "C"; value?: string | undefined; }; }'

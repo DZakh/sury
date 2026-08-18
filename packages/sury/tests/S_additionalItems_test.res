@@ -19,7 +19,9 @@ test("Fails fast and shows only one excees key in the error message", t => {
 
   t->U.assertThrowsMessage(
     () =>
-      %raw(`{key: "value", unknownKey: "value2", unknownKey2: "value2"}`)->S.parseOrThrow(~to=schema),
+      %raw(`{key: "value", unknownKey: "value2", unknownKey2: "value2"}`)->S.parseOrThrow(
+        ~to=schema,
+      ),
     `Unrecognized key "unknownKey"`,
   )
 })

@@ -199,15 +199,13 @@ test("Error for deeply nested missing field uses path instead of full schema dum
 
   // Missing field at innermost level
   t->U.assertThrowsMessage(
-    () =>
-      %raw(`{"g":{"f":{"e":{"d":{"c":{"b":{"wrong":42}}}}}}}`)->S.parseOrThrow(~to=hSchema),
+    () => %raw(`{"g":{"f":{"e":{"d":{"c":{"b":{"wrong":42}}}}}}}`)->S.parseOrThrow(~to=hSchema),
     `Failed at ["g"]["f"]["e"]["d"]["c"]["b"]["a"]: Expected int32, received undefined`,
   )
 
   // Missing field one level above innermost
   t->U.assertThrowsMessage(
-    () =>
-      %raw(`{"g":{"f":{"e":{"d":{"c":{"wrong":{"a":42}}}}}}}`)->S.parseOrThrow(~to=hSchema),
+    () => %raw(`{"g":{"f":{"e":{"d":{"c":{"wrong":{"a":42}}}}}}}`)->S.parseOrThrow(~to=hSchema),
     `Failed at ["g"]["f"]["e"]["d"]["c"]["b"]: Expected { a: int32; }, received undefined`,
   )
 })
@@ -219,7 +217,10 @@ test("Successfully serializes object with single field", t => {
     }
   )
 
-  t->Assert.deepEqual({"field": "bar"}->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`{field: "bar"}`))
+  t->Assert.deepEqual(
+    {"field": "bar"}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    %raw(`{field: "bar"}`),
+  )
 })
 
 test("Successfully parses object with multiple fields", t => {
@@ -255,7 +256,7 @@ test("Successfully parses object with transformed field", t => {
     {
       "string": s.field(
         "string",
-        S.string->S.transform(() => {parser: string => string ++ "field"}),
+        S.string->S.to(S.any, ~custom={decode: Sync(string => string ++ "field"), encode: Never}),
       ),
     }
   )
@@ -266,7 +267,10 @@ test("Successfully parses object with transformed field", t => {
 test("Fails to parse object when transformed field has throws error", t => {
   let schema = S.object(s =>
     {
-      "field": s.field("field", S.string->S.transform(() => {parser: _ => U.fail("User error")})),
+      "field": s.field(
+        "field",
+        S.string->S.to(S.any, ~custom={decode: Sync(_ => U.fail("User error")), encode: Never}),
+      ),
     }
   )
 
@@ -281,7 +285,7 @@ test("Shows transformed object field name in error path when fails to parse", t 
     {
       "transformedFieldName": s.field(
         "originalFieldName",
-        S.string->S.transform(() => {parser: _ => U.fail("User error")}),
+        S.string->S.to(S.any, ~custom={decode: Sync(_ => U.fail("User error")), encode: Never}),
       ),
     }
   )
@@ -297,7 +301,7 @@ test("Successfully serializes object with transformed field", t => {
     {
       "string": s.field(
         "string",
-        S.string->S.transform(() => {serializer: string => string ++ "field"}),
+        S.string->S.to(S.any, ~custom={decode: Never, encode: Sync(string => string ++ "field")}),
       ),
     }
   )
@@ -313,7 +317,7 @@ test("Fails to serializes object when transformed field has throws error", t => 
     {
       "field": s.field(
         "field",
-        S.string->S.transform(() => {serializer: _ => U.fail("User error")}),
+        S.string->S.to(S.any, ~custom={decode: Never, encode: Sync(_ => U.fail("User error"))}),
       ),
     }
   )
@@ -329,7 +333,7 @@ test("Shows transformed object field name in error path when fails to serializes
     {
       "transformedFieldName": s.field(
         "originalFieldName",
-        S.string->S.transform(() => {serializer: _ => U.fail("User error")}),
+        S.string->S.to(S.any, ~custom={decode: Never, encode: Sync(_ => U.fail("User error"))}),
       ),
     }
   )
@@ -346,7 +350,7 @@ test("Shows transformed to nested object field name in error path when fails to 
       "v1": {
         "transformedFieldName": s.field(
           "originalFieldName",
-          S.string->S.transform(() => {serializer: _ => U.fail("User error")}),
+          S.string->S.to(S.any, ~custom={decode: Never, encode: Sync(_ => U.fail("User error"))}),
         ),
       },
     }
@@ -476,7 +480,10 @@ test("Successfully serializes object with mapped field", t => {
   )
 
   t->Assert.deepEqual(
-    {"name": "Dmitry", "email": "dzakh.dev@gmail.com", "age": 21}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    {"name": "Dmitry", "email": "dzakh.dev@gmail.com", "age": 21}->S.decodeOrThrow(
+      ~from=schema,
+      ~to=S.unknown,
+    ),
     %raw(`{"Name":"Dmitry","Email":"dzakh.dev@gmail.com","Age":21}`),
   )
 })
@@ -490,7 +497,10 @@ test("Successfully parses object transformed to tuple", t => {
 test("Successfully serializes object transformed to tuple", t => {
   let schema = S.object(s => (s.field("boo", S.int), s.field("zoo", S.int)))
 
-  t->Assert.deepEqual((1, 2)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`{boo: 1, zoo: 2}`))
+  t->Assert.deepEqual(
+    (1, 2)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    %raw(`{boo: 1, zoo: 2}`),
+  )
 })
 
 test("Successfully parses object transformed to nested object", t => {
@@ -542,7 +552,10 @@ test("Successfully serializes object transformed to nested tuple", t => {
     }
   )
 
-  t->Assert.deepEqual({"v1": (1, 2)}->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`{boo: 1, zoo: 2}`))
+  t->Assert.deepEqual(
+    {"v1": (1, 2)}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    %raw(`{boo: 1, zoo: 2}`),
+  )
 })
 
 test("Successfully parses object with only one field returned from transformer", t => {
@@ -600,7 +613,10 @@ test("Successfully parses object transformed to variant", t => {
 test("Successfully serializes object transformed to variant", t => {
   let schema = S.object(s => #VARIANT(s.field("field", S.bool)))
 
-  t->Assert.deepEqual(#VARIANT(true)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`{"field": true}`))
+  t->Assert.deepEqual(
+    #VARIANT(true)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    %raw(`{"field": true}`),
+  )
 })
 
 test("Parse reversed schema with nested objects and tuples has type validation", t => {
@@ -735,7 +751,10 @@ module BenchmarkWithSObject = {
     })
     let schema = makeSchema()
 
-    t->Assert.deepEqual(makeTestObject()->S.decodeOrThrow(~from=schema, ~to=S.unknown), makeTestObject())
+    t->Assert.deepEqual(
+      makeTestObject()->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+      makeTestObject(),
+    )
 
     t->U.assertCompiledCode(
       ~schema,
@@ -855,7 +874,10 @@ module Benchmark = {
     })
     let schema = makeSchema()
 
-    t->Assert.deepEqual(makeTestObject()->S.decodeOrThrow(~from=schema, ~to=S.unknown), makeTestObject())
+    t->Assert.deepEqual(
+      makeTestObject()->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+      makeTestObject(),
+    )
 
     t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{let v0=i["deeplyNested"];return i}`)
     S.global({})
@@ -873,7 +895,10 @@ test("Successfully parses object and serializes it back to the initial data", t 
     }
   )
 
-  t->Assert.deepEqual(any->S.parseOrThrow(~to=schema)->S.decodeOrThrow(~from=schema, ~to=S.unknown), any)
+  t->Assert.deepEqual(
+    any->S.parseOrThrow(~to=schema)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    any,
+  )
 })
 
 test("Allows to create object schema with unused fields", t => {
@@ -939,7 +964,10 @@ test("Reverse convert of object schema with single field registered multiple tim
   )
 
   t->Assert.deepEqual(
-    {"field1": "foo", "field2": "foo", "field3": "foo"}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    {"field1": "foo", "field2": "foo", "field3": "foo"}->S.decodeOrThrow(
+      ~from=schema,
+      ~to=S.unknown,
+    ),
     %raw(`{"field": "foo"}`),
   )
   // t->U.assertThrows(
@@ -1008,24 +1036,24 @@ test("Object schema parsing checks order", t => {
   // Tag check should be the second
   t->U.assertThrowsMessage(
     () =>
-      %raw(`{tag: "wrong", key: 123, unknownKey: "value", unknownKey2: "value"}`)->S.parseOrThrow(~to=
-        schema,
+      %raw(`{tag: "wrong", key: 123, unknownKey: "value", unknownKey2: "value"}`)->S.parseOrThrow(
+        ~to=schema,
       ),
     `Failed at ["tag"]: Expected "value", received "wrong"`,
   )
   // Field check should be the third
   t->U.assertThrowsMessage(
     () =>
-      %raw(`{tag: "value", key: 123, unknownKey: "value", unknownKey2: "value"}`)->S.parseOrThrow(~to=
-        schema,
+      %raw(`{tag: "value", key: 123, unknownKey: "value", unknownKey2: "value"}`)->S.parseOrThrow(
+        ~to=schema,
       ),
     `Failed at ["key"]: Expected string, received 123`,
   )
   // Unknown keys check should be the last
   t->U.assertThrowsMessage(
     () =>
-      %raw(`{tag: "value", key: "value", unknownKey: "value2", unknownKey2: "value2"}`)->S.parseOrThrow(~to=
-        schema,
+      %raw(`{tag: "value", key: "value", unknownKey: "value2", unknownKey2: "value2"}`)->S.parseOrThrow(
+        ~to=schema,
       ),
     `Unrecognized key "unknownKey"`,
   )
@@ -1052,11 +1080,7 @@ module Compiled = {
       ~op=#Parse,
       `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["foo"],v1=i["bar"];typeof v0==="string"||e[0](v0);typeof v1==="boolean"||e[1](v1);return {"foo":v0,"bar":v1,}}`,
     )
-    t->U.assertCompiledCode(
-      ~schema,
-      ~op=#Encode,
-      `i=>{return {"foo":i["foo"],"bar":i["bar"],}}`,
-    )
+    t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return {"foo":i["foo"],"bar":i["bar"],}}`)
   })
 
   test("Compiled code snapshot for refined nested object", t => {
@@ -1090,7 +1114,10 @@ module Compiled = {
   test("Compiled parse code snapshot for simple object with async", t => {
     let schema = S.object(s =>
       {
-        "foo": s.field("foo", S.unknown->S.transform(() => {asyncParser: i => Promise.resolve(i)})),
+        "foo": s.field(
+          "foo",
+          S.unknown->S.to(S.any, ~custom={decode: Async(i => Promise.resolve(i)), encode: Never}),
+        ),
         "bar": s.field("bar", S.bool),
       }
     )
@@ -1104,7 +1131,10 @@ module Compiled = {
 
   test("Compiled parse code snapshot with async field registered as return", t => {
     let schema = S.object(s =>
-      s.field("foo", S.unknown->S.transform(() => {asyncParser: i => Promise.resolve(i)}))
+      s.field(
+        "foo",
+        S.unknown->S.to(S.any, ~custom={decode: Async(i => Promise.resolve(i)), encode: Never}),
+      )
     )
 
     t->U.assertCompiledCode(
@@ -1137,11 +1167,7 @@ module Compiled = {
       }
     )->S.strict
 
-    t->U.assertCompiledCode(
-      ~schema,
-      ~op=#Encode,
-      `i=>{return {"foo":i["foo"],"bar":i["bar"],}}`,
-    )
+    t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return {"foo":i["foo"],"bar":i["bar"],}}`)
   })
 
   test("Compiled code snapshot for nested empty object with strict unknown keys", t => {

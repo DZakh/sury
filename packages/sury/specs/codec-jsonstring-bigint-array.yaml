@@ -3,9 +3,9 @@ ts:
   schema: S.jsonString.with(S.to, S.array(S.bigint))
   input: string
   output: bigint[]
-  instantiations: 5289
+  instantiations: 5431
 jsonSchema:
-  input: '{ type: "string" }'
+  input: '{ type: "string", contentMediaType: "application/json" }'
   output: "Failed at []: Expected JSON, received bigint"
 vs:
   zod:

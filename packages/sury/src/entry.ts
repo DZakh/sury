@@ -23,9 +23,7 @@ import {
   baseSchema,
   type Builder,
   type Check,
-  copySchema,
   flagDisableNanNumberValidation,
-  flagUnionTransformContext,
   functionTag,
   getOrRethrow,
   globalConfig,
@@ -39,28 +37,26 @@ import {
   panic,
   pathEmpty,
   pathFromArray,
+  stringify,
   stringTag,
   U,
   unknown,
-  updateOutput,
   type Val,
 } from "./base";
 import {
-  _var,
+  B_conversion,
   B_embed,
-  B_failWithArg,
   B_invalidInputBuilder,
-  B_makeInvalidConversionDetails,
-  B_next,
-  B_varWithoutAllocation,
+  B_invalidOperation,
+  B_neverSlot,
 } from "./builder";
 import { definitionToSchema, objectDecoder } from "./composites";
 import {
+  codecTo,
   internalRefine,
   nullAsUnit,
   Option_getOr,
   Option_getOrWith,
-  transform,
 } from "./modifiers";
 import { assertResult } from "./operations";
 import { getDecoder, reverse } from "./parse";
@@ -138,7 +134,6 @@ export {
   noValidation,
 } from "./modifiers";
 export {
-  isAsync,
   safe,
   safeAsync,
 } from "./operations";
@@ -249,55 +244,96 @@ export const union = (values: unknown[]) => unionFactory(values.map(definitionTo
 // `const anyOf = union`, which would shed the purity annotation above.
 export { union as anyOf };
 
-// FIXME: Test how it'll work if we have async var as input
-// FIXME: Might not work well with object targets
-const customBuilder = (fn: (value: unknown) => unknown): Builder => {
-  return (input: Val): Val => {
-    const target = input.e.to!;
-    const outputVar = B_varWithoutAllocation(input.g);
-    const output = B_next(input, outputVar, target, target);
-    output.v = _var;
-    output.cp = `let ${outputVar};try{${output.i}=${B_embed(
-      input,
-      fn,
-    )}(${input.i})}catch(x){${
-      input.g.o & flagUnionTransformContext
-        ? `${B_embed(input, getOrRethrow)}(x);`
-        : ""
-    }${B_failWithArg(
-      output,
-      (e: unknown) => B_makeInvalidConversionDetails(input, target, e),
-      `x`,
-    )}}`;
-    return output;
-  };
+// The decode-only shorthand leaves the encode direction undefined. It errors
+// at operation creation, and unlike the never slot it stays a hard error
+// inside a union too: skipping the variant silently would commit to a
+// semantics the caller never chose.
+const ambiguousEncode: Builder = (input: Val) =>
+  B_invalidOperation(
+    input,
+    "Encoding is ambiguous when only a decode function is provided. Use S.to(target, {decode, encode})",
+  );
+
+// One codec slot resolved to its Builder. `"auto"` (and an omitted argument)
+// is `undefined`, which every caller reads as "no coder, use the built-in
+// conversion". `junction` picks which seam the coder's result lands on (see
+// B_conversion). An `{async}` object must carry that key alone: guessing past
+// a typo would silently pick a different direction's semantics.
+// `name` is the key the caller wrote, so the rejection names the direction
+// they got wrong rather than the pair.
+const conversionBuilder = (
+  name: string,
+  slot: unknown,
+  junction: boolean,
+): Builder | undefined => {
+  const async = (slot as { async?: unknown } | null)?.async;
+  if (slot === "auto") {
+    return U;
+  } else if (slot === "never") {
+    return B_neverSlot;
+  } else if (typeof slot === functionTag) {
+    return B_conversion(slot as (value: unknown) => unknown, false, junction);
+  } else if (typeof async === functionTag && Object.keys(slot as object).length === 1) {
+    return B_conversion(async as (value: unknown) => Promise<unknown>, true, junction);
+  } else {
+    return panic(
+      `Invalid ${name} ${stringify(slot)}. Expected a function, "auto", "never" or {async: fn}`,
+    );
+  }
 };
 
 // @__NO_SIDE_EFFECTS__
-export const to = (
-  schema: Internal,
-  target: Internal,
-  maybeDecoder?: (value: unknown) => unknown,
-  maybeEncoder?: (target: unknown) => unknown,
-) => {
+export const to = (schema: Internal, target: Internal, custom?: unknown) => {
+  let decode: Builder | undefined;
+  let encode: Builder | undefined;
+  let outputSeam = false;
+  if (typeof custom === functionTag) {
+    decode = B_conversion(custom as (value: unknown) => unknown, false, true);
+    encode = ambiguousEncode;
+  } else if (custom) {
+    const codecs = custom as Record<string, unknown>;
+    // Two spellings, one per seam, never mixed: `{decode, encode}` is the
+    // public TS surface, `{decodeToOutput, encodeFromOutput}` is what the
+    // ReScript `~custom` adapter emits and is deliberately absent from
+    // index.d.ts. The key count rejects a typo instead of reading it as a
+    // missing direction.
+    const toOutput = codecs["decodeToOutput"];
+    const fromRescript = !!toOutput;
+    const decodeSlot = fromRescript ? toOutput : codecs["decode"];
+    const encodeSlot = fromRescript ? codecs["encodeFromOutput"] : codecs["encode"];
+    if (!decodeSlot || !encodeSlot || Object.keys(codecs).length !== 2) {
+      return panic(`Expected {decode, encode}. Use "auto" for the built-in conversion`);
+    }
+    // `S.any` is this very `unknown` schema under a second name, and its
+    // ReScript type is `t<'any>` — a variable that unifies with whatever the
+    // coder returns, so the seam against it carries nothing to trust. Same
+    // carve-out B_conversion makes for a literal target, one level up: the
+    // untrustworthy side can be either end of the pair, and only `to` sees
+    // both.
+    outputSeam = fromRescript && schema !== unknown && target !== unknown;
+    decode = conversionBuilder("decode", decodeSlot, !outputSeam);
+    encode = conversionBuilder("encode", encodeSlot, !outputSeam);
+  }
   // Chaining a schema to itself would append a second copy of its own chain,
-  // re-decoding the value it just produced. Custom coders still get a real
-  // conversion step — only the coder-less spelling is a no-op.
-  if (schema === target && !maybeDecoder && !maybeEncoder) {
+  // re-decoding the value it just produced. Resolving the slots first is what
+  // makes the all-"auto" spelling behave exactly like the coder-less one.
+  if (schema === target && !decode && !encode) {
     return schema;
   }
-  return updateOutput(schema, (mut) => {
-    if (maybeEncoder) {
-      const targetMut = copySchema(target);
-      targetMut.serializer = customBuilder(maybeEncoder);
-      mut.to = targetMut;
-    } else {
-      mut.to = target;
-    }
-    if (maybeDecoder) {
-      mut.parser = customBuilder(maybeDecoder);
-    }
-  });
+  // An output-seam coder claims the target as its result, so a target that
+  // still converts on its own would have that conversion skipped. The
+  // junction seam feeds the target's chain instead, so it stays legal, as do
+  // the slots that place no coder.
+  if (
+    outputSeam &&
+    target.to &&
+    ((decode && decode !== B_neverSlot) || (encode && encode !== B_neverSlot))
+  ) {
+    return panic(
+      `The target already converts. Chain S.to instead of passing a custom codec`,
+    );
+  }
+  return codecTo(schema, target, decode, encode);
 };
 
 // @__NO_SIDE_EFFECTS__
@@ -317,20 +353,6 @@ export const refine = (
         f: B_invalidInputBuilder(U, extraPath, message),
       },
     ];
-  });
-};
-
-const noop = <T>(a: T): T => a;
-// @__NO_SIDE_EFFECTS__
-export const asyncDecoderAssert = (
-  schema: Internal,
-  assertFn: (value: unknown) => Promise<unknown>,
-) => {
-  return transform(schema, () => {
-    return {
-      a: (v: unknown) => assertFn(v).then(() => v),
-      s: noop,
-    };
   });
 };
 
@@ -415,12 +437,10 @@ export {
   pathConcat as $pathConcat,
 } from "./base";
 export {
-  // Async flavor of the public `assert` — no public JS equivalent
-  // (`asyncDecoderAssert` is a different, callback-taking API).
+  // Async flavor of the public `assert`, which has no public JS equivalent.
   assertAsyncOrThrow as $assertAsyncOrThrow,
 } from "./operations";
 export {
-  transform as $transform,
   Option_getOr as $Option_getOr,
   Option_getOrWith as $Option_getOrWith,
   Metadata_Id_make as $Metadata_Id_make,

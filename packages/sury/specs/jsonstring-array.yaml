@@ -3,10 +3,10 @@ ts:
   schema: "S.array(S.schema({id: S.number, name: S.string})).with(S.to, S.jsonString)"
   input: "{ id: number; name: string; }[]"
   output: string
-  instantiations: 6754
+  instantiations: 6832
 jsonSchema:
   input: '{ items: { type: "object", properties: { id: { type: "number" }, name: { type: "string" } }, required: ["id", "name"] }, type: "array" }'
-  output: '{ type: "string" }'
+  output: '{ type: "string", contentMediaType: "application/json" }'
 vs:
   zod:
     _skip: not-applicable

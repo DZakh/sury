@@ -3,7 +3,7 @@ ts:
   schema: S.set(S.isoDateTime.with(S.to, S.date)).with(S.minSize, 2)
   input: Set<string>
   output: Set<Date>
-  instantiations: 5789
+  instantiations: 5890
 jsonSchema:
   input: Expected JSON, received Set<date-time>.size >= 2
   output: Expected JSON, received Set<Date>.size >= 2

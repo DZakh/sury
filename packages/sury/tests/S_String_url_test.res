@@ -13,7 +13,10 @@ test("Successfully parses valid data", t => {
 test("Fails to parse invalid data", t => {
   let schema = S.uri
 
-  t->U.assertThrowsMessage(() => "cifjhdsfhsd"->S.parseOrThrow(~to=schema), `Expected uri, received "cifjhdsfhsd"`)
+  t->U.assertThrowsMessage(
+    () => "cifjhdsfhsd"->S.parseOrThrow(~to=schema),
+    `Expected uri, received "cifjhdsfhsd"`,
+  )
 })
 
 test("Rejects what new URL accepts but RFC 3986 does not", t => {
@@ -37,7 +40,10 @@ test("Successfully serializes valid value", t => {
 test("Fails to serialize invalid value", t => {
   let schema = S.uri
 
-  t->U.assertThrowsMessage(() => "cifjhdsfhsd"->S.decodeOrThrow(~from=schema, ~to=S.unknown), `Expected uri, received "cifjhdsfhsd"`)
+  t->U.assertThrowsMessage(
+    () => "cifjhdsfhsd"->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    `Expected uri, received "cifjhdsfhsd"`,
+  )
 })
 
 test("Custom error message via S.meta", t => {

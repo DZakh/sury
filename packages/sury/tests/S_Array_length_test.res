@@ -9,7 +9,10 @@ test("Successfully parses valid data", t => {
 test("Fails to parse invalid data", t => {
   let schema = S.array(S.int)->S.length(1)
 
-  t->U.assertThrowsMessage(() => []->S.parseOrThrow(~to=schema), `Expected int32[].length == 1, received []`)
+  t->U.assertThrowsMessage(
+    () => []->S.parseOrThrow(~to=schema),
+    `Expected int32[].length == 1, received []`,
+  )
   t->U.assertThrowsMessage(
     () => [1, 2, 3, 4]->S.parseOrThrow(~to=schema),
     `Expected int32[].length == 1, received [1, 2, 3, 4]`,

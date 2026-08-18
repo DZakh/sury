@@ -3,7 +3,7 @@ ts:
   schema: S.set(S.isoDateTime.with(S.to, S.date))
   input: Set<string>
   output: Set<Date>
-  instantiations: 5439
+  instantiations: 5588
 jsonSchema:
   input: Expected JSON, received Set<date-time>
   output: Expected JSON, received Set<Date>
@@ -19,7 +19,7 @@ operations:
         output: new Set([new Date("1970-01-01T00:00:00.000Z")])
       invalid-item:
         input: new Set(["1970-01-01T00:00:00.000Z", "nope"])
-        error: 'Failed at ["1"]: Invalid datetime string! Expected UTC'
+        error: 'Failed at ["1"]: Expected UTC date-time'
       not-a-set:
         input: '["1970-01-01T00:00:00.000Z"]'
         error: Expected Set<date-time>, received ["1970-01-01T00:00:00.000Z"]

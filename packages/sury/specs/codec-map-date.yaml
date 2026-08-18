@@ -3,7 +3,7 @@ ts:
   schema: S.map(S.isoDateTime.with(S.to, S.date), S.number)
   input: Map<string, number>
   output: Map<Date, number>
-  instantiations: 5577
+  instantiations: 5726
 jsonSchema:
   input: Expected JSON, received Map<date-time, number>
   output: Expected JSON, received Map<Date, number>
@@ -19,7 +19,7 @@ operations:
         output: new Map([[new Date("1970-01-01T00:00:00.000Z"), 1]])
       invalid-key:
         input: new Map([["nope", 1]])
-        error: 'Failed at ["nope"]: Invalid datetime string! Expected UTC'
+        error: 'Failed at ["nope"]: Expected UTC date-time'
       invalid-value:
         input: new Map([["1970-01-01T00:00:00.000Z", "1"]])
         error: 'Failed at ["1970-01-01T00:00:00.000Z"]: Expected number, received "1"'

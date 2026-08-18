@@ -81,6 +81,20 @@ const rng = (seed: number) => () => {
 // reproducible union spelling rather than an opaque schema dump.
 type MemberSpec = { readonly id: string; readonly of: (S: Sury) => unknown };
 
+// `S.to`'s custom-coder argument changed shape (positional decode/encode ->
+// one `{decode, encode}` object). The baseline is built from a git ref, so a
+// corpus pinned to either spelling makes the harness unable to build one side,
+// which is the same as having no gate. The old signature took four parameters,
+// the new one three, so `length` picks the spelling each revision understands.
+//
+// A decode-only member is the interesting one for dispatch, and the old API
+// left its encode direction on the built-in conversion, which the new API
+// spells `"auto"`. Anything else would compare two different schemas.
+const codec = (S: any, from: any, target: any, decode: (v: any) => any) =>
+  S.to.length === 3
+    ? S.to(from, target, { decode, encode: "auto" })
+    : S.to(from, target, decode);
+
 const members: MemberSpec[] = [
   { id: "string", of: (S) => S.string },
   { id: "number", of: (S) => S.number },
@@ -131,18 +145,18 @@ const members: MemberSpec[] = [
   // Transforming members distinguish "dispatched here" from "merely accepted".
   {
     id: "string-to-length",
-    of: (S) => S.string.with(S.to, S.number, (v: string) => v.length),
+    of: (S) => codec(S, S.string, S.number, (v: string) => v.length),
   },
   {
     id: "number-to-string",
-    of: (S) => S.number.with(S.to, S.string, (v: number) => `n${v}`),
+    of: (S) => codec(S, S.number, S.string, (v: number) => `n${v}`),
   },
   // A member whose transform throws a foreign error: must escape, never be
   // treated as "this member didn't match".
   {
     id: "string-to-throws",
     of: (S) =>
-      S.string.with(S.to, S.number, () => {
+      codec(S, S.string, S.number, () => {
         throw new RangeError("foreign");
       }),
   },

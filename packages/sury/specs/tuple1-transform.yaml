@@ -3,7 +3,7 @@ ts:
   schema: S.schema([S.string.with(S.to, S.number, (s) => Number(s))])
   input: "[string]"
   output: "[number]"
-  instantiations: 5857
+  instantiations: 6002
 jsonSchema:
   input: '{ type: "array", minItems: 1, maxItems: 1, items: [{ type: "string" }] }'
   output: '{ type: "array", minItems: 1, maxItems: 1, items: [{ type: "number" }] }'
@@ -12,26 +12,22 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{Array.isArray(i)&&i.length===1||e[3](i);let v1=i["0"];typeof v1==="string"||e[2](v1);let v0;try{v0=e[0](i["0"])}catch(x){e[1](x)}return [v0,]}
+    expression: i=>{Array.isArray(i)&&i.length===1||e[4](i);let v1=i["0"];typeof v1==="string"||e[3](v1);let v0;try{v0=e[0](v1)}catch(x){e[1](x)}typeof v0==="number"&&!Number.isNaN(v0)||e[2](v0);return [v0,]}
     examples:
       valid:
         input: '["123"]'
         output: "[123]"
       not-numeric-text:
         input: '["abc"]'
-        output: "[NaN]"
+        error: 'Failed at ["0"]: Expected number, received NaN'
       not-a-string-item:
         input: "[123]"
         error: 'Failed at ["0"]: Expected string, received 123'
   decode:
-    expression: i=>{let v0;try{v0=e[0](i["0"])}catch(x){e[1](x)}return [v0,]}
+    expression: i=>{let v0;try{v0=e[0](i["0"])}catch(x){e[1](x)}typeof v0==="number"&&!Number.isNaN(v0)||e[2](v0);return [v0,]}
     examples:
       valid:
         input: '["123"]'
         output: "[123]"
   encode:
-    expression: i=>{return [""+i["0"],]}
-    examples:
-      round-trip:
-        input: "[123]"
-        output: '["123"]'
+    creationError: 'SuryError: Failed at ["0"]: Encoding is ambiguous when only a decode function is provided. Use S.to(target, {decode, encode})'

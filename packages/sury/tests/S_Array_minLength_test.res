@@ -10,7 +10,10 @@ test("Successfully parses valid data", t => {
 test("Fails to parse invalid data", t => {
   let schema = S.array(S.int)->S.minLength(1)
 
-  t->U.assertThrowsMessage(() => []->S.parseOrThrow(~to=schema), `Expected int32[].length >= 1, received []`)
+  t->U.assertThrowsMessage(
+    () => []->S.parseOrThrow(~to=schema),
+    `Expected int32[].length >= 1, received []`,
+  )
 })
 
 test("Successfully serializes valid value", t => {

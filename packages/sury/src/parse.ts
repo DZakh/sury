@@ -26,7 +26,6 @@ import {
   reversedKey,
   s,
   schemaPrototype,
-  setCache,
   setHas,
   tagFlagArray,
   tagFlagBigint,
@@ -176,21 +175,6 @@ export const parseDynamic = (input: Val): Val => {
   }
 }
 
-export const isAsyncInternal = (
-  schema: Internal,
-  defs: Record<string, Internal> | undefined
-): boolean => {
-  try {
-    const input = B_operationArg(unknown, schema, flagAsync, defs);
-    const output = parse(input);
-    const isAsync = flagUnsafeHas(output.f, valFlagAsync);
-    setCache(schema, "isAsync", isAsync);
-    return isAsync;
-  } catch (exn) {
-    getOrRethrow(exn);
-    return false;
-  }
-}
 export const compileDecoder = (
   schema: Internal,
   expected: Internal,
@@ -203,9 +187,9 @@ export const compileDecoder = (
   const code = B_merge(output);
 
   const isAsync = flagUnsafeHas(output.f, valFlagAsync);
-  setCache(expected, "isAsync", isAsync);
+  expected.isAsync = isAsync;
   const hasTransform = output.t === true;
-  setCache(expected, "hasTransform", hasTransform);
+  expected.hasTransform = hasTransform;
 
   if (
     code === "" &&
@@ -235,7 +219,8 @@ export const getOutputSchema = (schema: Internal): Internal => {
 }
 // The two sides of a schema trade places: what parsed now serializes, what
 // refined the input now refines the output. `delete` rather than `= U` because
-// `"fromDefault" in self` (union.ts) tells absent apart from undefined.
+// `unionIsTransparent` (union.ts) counts a schema's keys, and a key left
+// present with an undefined value would stop every union from flattening.
 const reverseSwap = (mut: Record<string, unknown>, a: string, b: string): void => {
   const previous = mut[a];
   if (mut[b] !== U) {
@@ -285,7 +270,10 @@ Object.defineProperty(schemaPrototype, reversedKey, {
       const record = mut as unknown as Record<string, unknown>;
       reverseSwap(record, "parser", "serializer");
       reverseSwap(record, "refiner", "inputRefiner");
-      reverseSwap(record, "fromDefault", "default");
+      // Deleted, not parked in a holding field: encode has no absent-input arm,
+      // and double reversal reads the cache below rather than re-deriving, so
+      // nothing needs the old value back.
+      delete record["default"];
       if (mut.items !== U) {
         mut.items = mut.items.map(reverse);
       }

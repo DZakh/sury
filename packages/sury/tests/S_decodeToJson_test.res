@@ -2,16 +2,25 @@ open Vitest
 
 test("Successfully reverse converts jsonable schemas", t => {
   t->Assert.deepEqual(true->S.decodeOrThrow(~from=S.bool, ~to=S.json), true->JSON.Encode.bool)
-  t->Assert.deepEqual(true->S.decodeOrThrow(~from=S.literal(true), ~to=S.json), true->JSON.Encode.bool)
+  t->Assert.deepEqual(
+    true->S.decodeOrThrow(~from=S.literal(true), ~to=S.json),
+    true->JSON.Encode.bool,
+  )
   t->Assert.deepEqual("abc"->S.decodeOrThrow(~from=S.string, ~to=S.json), "abc"->JSON.Encode.string)
   t->Assert.deepEqual(
     "abc"->S.decodeOrThrow(~from=S.literal("abc"), ~to=S.json),
     "abc"->JSON.Encode.string,
   )
   t->Assert.deepEqual(123->S.decodeOrThrow(~from=S.int, ~to=S.json), 123.->JSON.Encode.float)
-  t->Assert.deepEqual(123->S.decodeOrThrow(~from=S.literal(123), ~to=S.json), 123.->JSON.Encode.float)
+  t->Assert.deepEqual(
+    123->S.decodeOrThrow(~from=S.literal(123), ~to=S.json),
+    123.->JSON.Encode.float,
+  )
   t->Assert.deepEqual(123.->S.decodeOrThrow(~from=S.float, ~to=S.json), 123.->JSON.Encode.float)
-  t->Assert.deepEqual(123.->S.decodeOrThrow(~from=S.literal(123.), ~to=S.json), 123.->JSON.Encode.float)
+  t->Assert.deepEqual(
+    123.->S.decodeOrThrow(~from=S.literal(123.), ~to=S.json),
+    123.->JSON.Encode.float,
+  )
   t->Assert.deepEqual(
     (true, "foo", 123)->S.decodeOrThrow(~from=S.literal((true, "foo", 123)), ~to=S.json),
     JSON.Encode.array([JSON.Encode.bool(true), JSON.Encode.string("foo"), JSON.Encode.float(123.)]),
@@ -38,7 +47,10 @@ test("Successfully reverse converts jsonable schemas", t => {
       ]),
     ),
   )
-  t->Assert.deepEqual(None->S.decodeOrThrow(~from=S.nullAsOption(S.bool), ~to=S.json), JSON.Encode.null)
+  t->Assert.deepEqual(
+    None->S.decodeOrThrow(~from=S.nullAsOption(S.bool), ~to=S.json),
+    JSON.Encode.null,
+  )
   t->Assert.deepEqual(
     JSON.Encode.null->S.decodeOrThrow(~from=S.literal(JSON.Encode.null), ~to=S.json),
     JSON.Encode.null,
@@ -79,10 +91,7 @@ test("Allows to convert to JSON with option as an object field", t => {
       "foo": s.matches(S.option(S.bool)),
     }
   )
-  t->Assert.deepEqual(
-    {"foo": None}->S.decodeOrThrow(~from=schema, ~to=S.json),
-    %raw(`{}`),
-  )
+  t->Assert.deepEqual({"foo": None}->S.decodeOrThrow(~from=schema, ~to=S.json), %raw(`{}`))
 })
 
 test("Allows to convert to JSON with optional S.json as an object field", t => {
@@ -91,10 +100,7 @@ test("Allows to convert to JSON with optional S.json as an object field", t => {
       "foo": s.matches(S.option(S.json)),
     }
   )
-  t->Assert.deepEqual(
-    {"foo": None}->S.decodeOrThrow(~from=schema, ~to=S.json),
-    %raw(`{}`),
-  )
+  t->Assert.deepEqual({"foo": None}->S.decodeOrThrow(~from=schema, ~to=S.json), %raw(`{}`))
 })
 
 // An array item, a tuple slot and a dict value have no way to be absent, so
@@ -196,7 +202,8 @@ test("Encodes object with unknown schema to JSON", t => {
     JSON.Object(dict{"foo": JSON.Boolean(true)}),
   )
   t->U.assertThrowsMessage(
-    () => Obj.magic(123n)->S.decodeOrThrow(~from=S.object(s => s.field("foo", S.unknown)), ~to=S.json),
+    () =>
+      Obj.magic(123n)->S.decodeOrThrow(~from=S.object(s => s.field("foo", S.unknown)), ~to=S.json),
     `Expected JSON, received 123n`,
   )
 })
@@ -216,7 +223,10 @@ test("Encodes a union to JSON when at least one item is not JSON-able", t => {
   let schema = S.union([S.string, S.unknown->(U.magic: S.t<unknown> => S.t<string>)])
 
   t->Assert.deepEqual("foo"->S.decodeOrThrow(~from=schema, ~to=S.json), JSON.Encode.string("foo"))
-  t->Assert.deepEqual(%raw(`true`)->S.decodeOrThrow(~from=schema, ~to=S.json), JSON.Encode.bool(true))
+  t->Assert.deepEqual(
+    %raw(`true`)->S.decodeOrThrow(~from=schema, ~to=S.json),
+    JSON.Encode.bool(true),
+  )
   t->U.assertThrowsMessage(
     () => %raw(`123n`)->S.decodeOrThrow(~from=schema, ~to=S.json),
     `Expected JSON, received 123n`,
