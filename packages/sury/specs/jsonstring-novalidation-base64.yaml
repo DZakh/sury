@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({ v: S.base64.with(S.noValidation, true) }).with(S.to, S.jsonString)"
+  input: "{ v: string; }"
+  output: string
+  instantiations: 6390
+jsonSchema:
+  input: '{ type: "object", properties: { v: { type: "string", contentEncoding: "base64" } }, required: ["v"] }'
+  output: '{ type: "string", contentMediaType: "application/json" }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);return "{\"v\":"+e[0](i["v"])+"}"}
+    examples:
+      escape-free:
+        input: '{ v: "iVBORw==" }'
+        output: '"{\"v\":\"iVBORw==\"}"'
+      needs-escaping:
+        input: '{ v: "a\"b" }'
+        output: '"{\"v\":\"a\\\"b\"}"'
+  decode:
+    expression: i=>{return "{\"v\":"+e[0](i["v"])+"}"}
+    examples:
+      escape-free:
+        input: '{ v: "iVBORw==" }'
+        output: '"{\"v\":\"iVBORw==\"}"'
+  encode:
+    creationError: "SuryError: Failed at [\"v\"]: Can't decode JSON to base64. Use S.to to define a custom decoder"

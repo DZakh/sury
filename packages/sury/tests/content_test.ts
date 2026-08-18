@@ -69,6 +69,24 @@ test("a binary container hands over its text, and takes text back", async () => 
   expect(file.name).toBe("");
 });
 
+test("a value position reads the field's own head, union arm or not", () => {
+  // `S.string.with(S.to, S.uint8Array)` says how it is stored — as text — so a
+  // union arm holding one keeps saying it, where the arm holding a bare
+  // `S.uint8Array` is stored as base64. Adding `S.optional` must not change the
+  // wire form.
+  const text = S.jsonString.with(S.to, S.schema({ a: S.optional(S.string.with(S.to, S.uint8Array)) }));
+  expect(S.encoder(text)({ a: euro })).toBe(`{"a":"€"}`);
+  expect(S.parser(text)(`{"a":"€"}`)).toEqual({ a: euro });
+  expect(S.encoder(S.jsonString.with(S.to, S.schema({ a: S.string.with(S.to, S.uint8Array) })))({ a: euro })).toBe(
+    `{"a":"€"}`,
+  );
+
+  const bytes = S.jsonString.with(S.to, S.schema({ a: S.optional(S.uint8Array) }));
+  expect(S.encoder(bytes)({ a: png })).toBe(`{"a":"iVBORw=="}`);
+  expect(S.parser(bytes)(`{"a":"iVBORw=="}`)).toEqual({ a: png });
+  expect(S.parser(bytes)(`{}`)).toEqual({ a: undefined });
+});
+
 test("the content slots pick a reading, and reverse trades them", async () => {
   const bytesAreTheDocument = S.uint8Array.with(S.to, S.jsonString, {
     decode: "unpack",

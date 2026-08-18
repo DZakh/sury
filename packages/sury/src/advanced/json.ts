@@ -131,14 +131,16 @@ export const jsonEncoderFn = (input: Val, target: Internal): Val => {
     // the target's own variants, so the hop through the stored form has to be
     // spelled into them. `perVariantTo` does the same on the way out.
     const anyOf = target.anyOf;
-    if (anyOf !== U && anyOf.some((variant) => getOutputSchema(variant).content !== U)) {
+    // The variant's own head, exactly as the `else` branch below reads the
+    // target's: an arm that already says how it is stored (`S.string.with(S.to,
+    // S.uint8Array)` is text, not base64) keeps saying it.
+    if (anyOf !== U && anyOf.some((variant) => variant.content !== U)) {
       const stored = unionFactory(
         anyOf.map((variant) => {
-          const output = getOutputSchema(variant);
           // `null` for an undefined arm, for the reason the branch above gives:
           // JSON has no undefined, and objectDecoder has already coalesced the
           // absent key into one.
-          const from = output.content ?? (isOptional(output) ? nullLiteral : U);
+          const from = variant.content ?? (isOptional(variant) ? nullLiteral : U);
           if (from === U) {
             return variant;
           }
