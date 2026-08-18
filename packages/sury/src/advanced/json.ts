@@ -133,14 +133,19 @@ export const jsonEncoderFn = (input: Val, target: Internal): Val => {
     const anyOf = target.anyOf;
     // The variant's own head, exactly as the `else` branch below reads the
     // target's: an arm that already says how it is stored (`S.string.with(S.to,
-    // S.uint8Array)` is text, not base64) keeps saying it.
-    if (anyOf !== U && anyOf.some((variant) => variant.content !== U)) {
+    // S.uint8Array)` is text, not base64) keeps saying it. An arm storing a JSON
+    // value is left alone too — a document nested in a document is an escaped
+    // string, which `B_narrowJsonSourcedJsonString` already routes, and standing
+    // `S.json` in front of it would match every value and swallow the dispatch.
+    const storedApart = (variant: Internal): Internal | undefined =>
+      variant.content !== json ? variant.content : U;
+    if (anyOf !== U && anyOf.some((variant) => storedApart(variant) !== U)) {
       const stored = unionFactory(
         anyOf.map((variant) => {
           // `null` for an undefined arm, for the reason the branch above gives:
           // JSON has no undefined, and objectDecoder has already coalesced the
           // absent key into one.
-          const from = variant.content ?? (isOptional(variant) ? nullLiteral : U);
+          const from = storedApart(variant) ?? (isOptional(variant) ? nullLiteral : U);
           if (from === U) {
             return variant;
           }
@@ -863,9 +868,11 @@ export const jsonString = /* @__PURE__ */ (() => {
 
     if (to !== U && to.type !== unknownTag && !expectedSchema.parser && !expectedSchema.refiner) {
       const encoded = jsonStringEncoder(stringVal, to);
-      // Unless the target only stores the text: then nothing downstream reads
-      // it as JSON, so the check below is the only thing asserting it is.
-      if (encoded !== stringVal) {
+      // Unless the target only stores the text: then nothing downstream reads it
+      // as JSON, so the check below is the only thing asserting it is. A target
+      // that carries a document of its own does read it, and adding the check
+      // would parse the same text twice.
+      if (encoded !== stringVal || to.format === "json") {
         return encoded;
       }
     }

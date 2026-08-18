@@ -224,10 +224,11 @@ target as instead of assuming `string`, and the nested-jsonString fix is
 declares a payload. No new `Val` fields, no compile-loop cost, nothing in
 generated code a hand-written converter wouldn't contain.
 
-The one price is `B_contentSlot` itself: `getDecoder` is in every bundle, so the
-check and its message are too — about 130 gzipped bytes on every export
-(`bundleSize.yaml`). That buys a creation-time gate on conversions that
-otherwise corrupt data silently.
+The one price is the universal path: `getDecoder` is in every bundle, so
+`B_contentSlot` and its message are too, and `copySchema` and `reverse` each
+carry a line for the two markers. About 170 gzipped bytes on every export
+(`bundleSize.yaml`, where the smallest go 4136 → 4306). That buys a
+creation-time gate on conversions that otherwise corrupt data silently.
 
 **Conversions live on the carrier, not the format** — the existing `S.date`
 pattern. `S.uint8Array`'s encoder owns base64; `S.file`'s owns `.text()` /
@@ -276,8 +277,8 @@ ASCII-only fixtures are what hid the corruption above.
 | `codec-jsonstring-object-optional-uint8array` | rule 2 through a union arm, where the dispatch works from the target's variants |
 | `codec-jsonstring-object-optional-file`, `codec-jsonstring-dict-file` | the two things an async encode broke: an object's optional fields, and a dict with no keys |
 | `jsonstring-novalidation-base64` | `noValidation` voids the raw-splice proof for a content format too |
-| `codec-jsonstring-object-jsonstring` | the nested-document field |
-| `codec-email-string`, `codec-jsonstring-object-optional-jsonstring` | two bugs this work turned up and didn't cause, each carrying a `FIXME` that says so |
+| `codec-jsonstring-object-jsonstring`, `codec-jsonstring-jsonstring-payload` | the nested-document field, and the document that carries one directly |
+| `codec-email-string`, `codec-jsonstring-object-optional-jsonstring`, `jsonstring-optional-jsonstring-field` | bugs this work turned up and didn't cause, each carrying a `FIXME` that says so |
 | `codec-uint8array-jsonstring-slots`, `codec-uint8array-jsonstring-packed`, `codec-jsonstring-file-slots` | rule 1, both spellings of the pair |
 | `codec-uint8array-number-unsupported` | the decoder fall-through the soundness fix added |
 
