@@ -6,7 +6,7 @@ ts:
   instantiations: 6111
 jsonSchema:
   input: '{ type: "object", properties: { at: { anyOf: [{ type: "string", format: "date-time" }, { type: "null" }] } }, required: ["at"] }'
-  output: '{ type: "string" }'
+  output: '{ type: "string", contentMediaType: "application/json" }'
 vs:
   zod:
     _skip: not-applicable
@@ -22,7 +22,7 @@ operations:
         output: '"{\"at\":null}"'
       invalid-format:
         input: '{ at: "yesterday" }'
-        error: 'Failed at ["at"]: Invalid datetime string! Expected UTC'
+        error: 'Failed at ["at"]: Expected UTC date-time, received "yesterday"'
   decode:
     expression: i=>{let v0=i["at"];for(;;){if(typeof v0==="string"){e[0].test(v0)||e[1](v0);v0="\""+v0+"\"";break}if(v0===null){v0="null";break}e[2](v0)}return "{\"at\":"+v0+"}"}
     examples:

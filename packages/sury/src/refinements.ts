@@ -781,7 +781,7 @@ const stringFormat = (
   format: StringFormat,
   test: RegExp | string | ((value: string) => boolean),
   escFree?: boolean,
-  message?: string,
+  name?: string,
 ): Internal =>
   initSchema(stringTag, stringDecoderFn, (s) => {
     const re = typeof test === "string" ? new RegExp(test, "i") : test;
@@ -791,21 +791,29 @@ const stringFormat = (
     if (escFree) {
       s.escapeFree = escFree;
     }
+    // Only where the format name alone would misdescribe the constraint —
+    // `inputExpression` prefers it, so the generic failure renders it in place
+    // of the JSON Schema name.
+    if (name) {
+      s.name = name;
+    }
     s.refiner = (input) => {
       return [
         {
           c: (inputVar) =>
             `${B_embed(input, re)}${re instanceof RegExp ? ".test" : ""}(${inputVar})`,
-          f: B_failWithErrorMessage("format", message),
+          f: B_failWithErrorMessage("format"),
         },
       ];
     };
   });
 
 // UTC-only by choice, which is narrower than the JSON Schema `date-time`
-// format: an RFC 3339 offset like +02:00 is rejected. That fixed Z is also
-// why second 60 can be spelled out here — it is legal only at 23:59:60 in
-// UTC, where `isoTime` has to do the offset arithmetic to know.
+// format: an RFC 3339 offset like +02:00 is rejected. Hence the name — a
+// rejected `+02:00` timestamp IS a date-time, so `Expected date-time` would
+// read as a bug. That fixed Z is also why second 60 can be spelled out here —
+// it is legal only at 23:59:60 in UTC, where `isoTime` has to do the offset
+// arithmetic to know.
 export const isoDateTime: Internal = /* @__PURE__ */ stringFormat(
   "date-time",
   /* @__PURE__ */ anchor(
@@ -813,7 +821,7 @@ export const isoDateTime: Internal = /* @__PURE__ */ stringFormat(
     "[Tt](?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d|23:59:60)(?:\\.\\d+)?[Zz]",
   ),
   true,
-  "Invalid datetime string! Expected UTC",
+  "UTC date-time",
 );
 
 // The range as real bound fields, for the reason int32 carries its own. The
