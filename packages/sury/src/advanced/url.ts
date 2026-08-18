@@ -41,8 +41,7 @@ const urlFromString = (value: string) => {
 // stable identity for the seq-keyed operation cache.
 const uriString: Internal = /* @__PURE__ */ initSchema(stringTag, stringDecoderFn, (s) => {
   s.format = "uri";
-  // `urlToUri` percent-encodes everything outside RFC 3986's ASCII repertoire
-  // — the producer is the proof (see `escapeFree` in base.ts).
+  // `urlToUri` percent-encodes everything outside RFC 3986's ASCII repertoire.
   s.escapeFree = true;
 });
 

@@ -307,12 +307,10 @@ export const json: Internal = /* @__PURE__ */ initSchema(refTag, jsonDecoderFn, 
   s["$defs"] = defs;
 });
 
-// An identifier, property access, index or no-arg call — nothing that could
-// hold an operator. Everything else has to be parenthesized before it can sit
-// between two `+`: `+` binds tighter than `?:`, so the bare ternary a `.to`
-// chain with a default hands over (`i===void 0?e[2]:i.toISOString()`)
-// reassociates into `("\""+i)===void 0?…` and loses the opening quote on every
-// input.
+// Anything but a bare accessor needs parenthesizing before it can sit between
+// two `+`: `+` binds tighter than `?:`, so the ternary a `.to` chain with a
+// default hands over reassociates into `("\""+i)===void 0?…` and drops the
+// opening quote on every input.
 const accessorRe = /^[\w$]+(\.[\w$]+|\[[^\[\]]*\]|\(\))*$/;
 
 
@@ -838,14 +836,10 @@ export const jsonString = /* @__PURE__ */ (() => {
     } else if (isLiteral(input.s)) {
       return B_next(input, inlineJsonString(input, input.s), expectedSchema);
     } else if (flagUnsafeHas(inputTagFlag, tagFlagString)) {
-      // An escape-free schema (`escapeFree` in base.ts) splices between bare quotes —
-      // unless its evidence is void here. `noValidation` drops the pattern
-      // check the flag relies on. And `accessorRe` is the only cheap evidence
-      // that the expression really is the string the schema vouches for: a
-      // `.to` chain carrying a default emits `i===void 0?e[2]:i.toISOString()`,
-      // whose default branch is the default value itself — a `Date`, not its
-      // ISO text. The helper stringifies that correctly (JSON.stringify of a
-      // Date is its ISO text) where a splice would emit `Mon Jan 01 2024 …`.
+      // Two ways `escapeFree`'s proof is void here: `noValidation` drops the
+      // pattern check it rests on, and a `.to` chain carrying a default hands
+      // over `i===void 0?e[2]:i.toISOString()`, whose default branch is the
+      // raw default — a `Date`, not its ISO text. The helper handles both.
       return B_next(
         input,
         input.s.escapeFree && !input.s.noValidation && accessorRe.test(input.i)
@@ -873,8 +867,7 @@ export const jsonString = /* @__PURE__ */ (() => {
         expectedSchema,
       );
     } else if (flagUnsafeHas(inputTagFlag, tagFlagBigint)) {
-      // Parenthesized unless a bare accessor: same reassociation hazard as the
-      // splice above, and bigint has no helper to fall back to.
+      // Same reassociation hazard, with no helper to fall back to.
       return B_next(
         input,
         `"\\""+${accessorRe.test(input.i) ? input.i : `(${input.i})`}+"\\""`,

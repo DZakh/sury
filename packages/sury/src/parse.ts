@@ -270,12 +270,9 @@ Object.defineProperty(schemaPrototype, reversedKey, {
       const record = mut as unknown as Record<string, unknown>;
       reverseSwap(record, "parser", "serializer");
       reverseSwap(record, "refiner", "inputRefiner");
-      // The decode-direction fallback annotation, stripped rather than swapped
-      // into a holding field: the reversed side never applies a default (encode
-      // has no absent-input arm), and double reversal reads the cache above
-      // back, so nothing needs the value preserved for the round trip. The
-      // `fromDefault` field this used to park in died with the S.to codec
-      // rewrite (#356).
+      // Deleted, not parked in a holding field: encode has no absent-input arm,
+      // and double reversal reads the cache below rather than re-deriving, so
+      // nothing needs the old value back.
       delete record["default"];
       if (mut.items !== U) {
         mut.items = mut.items.map(reverse);
