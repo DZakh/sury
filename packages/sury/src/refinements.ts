@@ -12,6 +12,7 @@ import {
   numberTag,
   panic,
   pathEmpty,
+  setContent,
   stringify,
   type StringFormat,
   stringTag,
@@ -916,7 +917,7 @@ export const base64: Internal = /* @__PURE__ */ (() => {
     (value) => value.length % 4 === 0 && padded.test(value),
     true,
   );
-  schema.content = schema;
+  setContent(schema, schema);
 
   // Rule 3: the payload is bytes, so a format that declares a payload of its
   // own is handed the text those bytes spell — a JWT segment. Nothing else is
@@ -940,6 +941,8 @@ export const base64: Internal = /* @__PURE__ */ (() => {
         )
       : stringDecoderFn(input);
 
+  // The text is handed over as the target's own document, not as a loose
+  // string: that is what makes the format parse it rather than escape it.
   schema.encoder = (input, target) =>
     wantsPayload(target)
       ? B_next(
@@ -947,7 +950,7 @@ export const base64: Internal = /* @__PURE__ */ (() => {
           `${B_embed(input, new TextDecoder())}.decode(${B_embed(input, base64ToBytes)}(${
             input.i
           }))`,
-          string,
+          target,
         )
       : input;
 

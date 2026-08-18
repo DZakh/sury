@@ -13,6 +13,7 @@ import {
   type Internal,
   openApi30,
   panic,
+  setContent,
   tagFlagInstance,
   tagFlags,
   tagFlagString,
@@ -94,7 +95,7 @@ const binarySchema = (name: string, global: string, nameArg: string): Internal =
       // landed in Node 18 and `File` in Node 20, and a bare one would throw at
       // import.
       s.class = (globalThis as unknown as Record<string, unknown>)[global];
-      s.content = base64;
+      setContent(s, base64);
       s.jsonSchema = binaryJSONSchema;
       if (s.class === U) {
         unsupported(s, name);
@@ -119,8 +120,10 @@ const binarySchema = (name: string, global: string, nameArg: string): Internal =
             base64,
           );
         }
+        // A format being opened (rule 3) is handed its own document, so it
+        // parses the text instead of escaping it.
         return flagUnsafeHas(targetTagFlag, tagFlagString)
-          ? read(input, `.text()`, string)
+          ? read(input, `.text()`, target.content !== U ? target : string)
           : input;
       };
     },

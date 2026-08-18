@@ -9,6 +9,7 @@ import {
   initSchema,
   instanceTag,
   type Internal,
+  setContent,
   tagFlagInstance,
   tagFlags,
   tagFlagString,
@@ -47,7 +48,7 @@ export const uint8Array: Internal = /* @__PURE__ */ initSchema(
   },
   (s) => {
     s.class = Uint8Array;
-    s.content = base64;
+    setContent(s, base64);
 
     s.encoder = (input, target) => {
       const targetTagFlag = tagFlags[target.type]!;
@@ -64,10 +65,15 @@ export const uint8Array: Internal = /* @__PURE__ */ initSchema(
         // the format's own checks, rather than the bytes that went in.
         return B_refine(B_next(input, `${B_embed(input, bytesToBase64)}(${input.i})`, base64));
       }
-      // Anything else that wants a string wants the text the bytes spell, which
-      // is also what a format opened by rule 3 is handed.
+      // Anything else that wants a string wants the text the bytes spell. When
+      // that target is a format being opened (rule 3), the text IS its document
+      // — hand it over as one, so the format parses instead of escaping it.
       return flagUnsafeHas(targetTagFlag, tagFlagString)
-        ? B_next(input, `${B_embed(input, new TextDecoder())}.decode(${input.i})`, string)
+        ? B_next(
+            input,
+            `${B_embed(input, new TextDecoder())}.decode(${input.i})`,
+            target.content !== U ? target : string,
+          )
         : input;
     };
   },

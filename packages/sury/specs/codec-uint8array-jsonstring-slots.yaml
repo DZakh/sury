@@ -12,7 +12,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{i instanceof e[2]||e[3](i);let v0=e[0].decode(i);try{JSON.parse(v0)}catch(t){e[1](v0)}return v0}
+    expression: i=>{i instanceof e[1]||e[2](i);return e[0].decode(i)}
     examples:
       the-bytes-are-the-document:
         input: new TextEncoder().encode('{"a":1}')
@@ -21,7 +21,7 @@ operations:
         input: new TextEncoder().encode('"\u20ac"')
         output: '"\"€\""'
   decode:
-    expression: i=>{let v0=e[0].decode(i);try{JSON.parse(v0)}catch(t){e[1](v0)}return v0}
+    expression: i=>{return e[0].decode(i)}
     examples:
       the-bytes-are-the-document:
         input: new TextEncoder().encode('{"a":1}')

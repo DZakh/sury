@@ -18,6 +18,7 @@ import {
   isLiteral,
   jsonName,
   refTag,
+  setContent,
   stringTag,
   type Tag,
   tagFlagArray,
@@ -277,7 +278,7 @@ export const json: Internal = /* @__PURE__ */ initSchema(refTag, jsonDecoderFn, 
   s["$ref"] = jsonRef["$ref"];
   s.name = jsonName;
   s.encoder = jsonEncoderFn;
-  s.content = s;
+  setContent(s, s);
 
   const anyOf = [
     string,
@@ -828,7 +829,12 @@ export const jsonString = /* @__PURE__ */ (() => {
     stringVal.e = expectedSchema;
 
     if (to !== U && to.type !== unknownTag && !expectedSchema.parser && !expectedSchema.refiner) {
-      return jsonStringEncoder(stringVal, to);
+      const encoded = jsonStringEncoder(stringVal, to);
+      // Unless the target only stores the text: then nothing downstream reads
+      // it as JSON, so the check below is the only thing asserting it is.
+      if (encoded !== stringVal) {
+        return encoded;
+      }
     }
     const stringVar = stringVal.v();
     const output = B_refine(stringVal, expectedSchema);
@@ -847,14 +853,6 @@ export const jsonString = /* @__PURE__ */ (() => {
     } else if (isLiteral(input.s)) {
       return B_next(input, inlineJsonString(input, input.s), expectedSchema);
     } else if (flagUnsafeHas(inputTagFlag, tagFlagString)) {
-      // A declared payload says the incoming string is the document, so it is
-      // opened rather than escaped (CONTENT_CODEC_SPEC.md rule 3) — the same
-      // question the unknown branch above already asks. Without it a nested
-      // `S.jsonString.with(S.to, X)` field round-tripped its own text through
-      // `JSON.stringify`/`JSON.parse` and then failed against X.
-      if (B_readsPayload(expectedSchema)) {
-        return carriedJsonString(input, expectedSchema);
-      }
       // Two ways `escapeFree`'s proof is void here: `noValidation` drops the
       // pattern check it rests on, and a `.to` chain carrying a default hands
       // over `i===void 0?e[2]:i.toISOString()`, whose default branch is the
@@ -960,7 +958,7 @@ export const jsonString = /* @__PURE__ */ (() => {
     s.format = "json";
     s.name = `${jsonName} string`;
     s.encoder = jsonStringEncoder;
-    s.content = json;
+    setContent(s, json);
   });
 })();
 
