@@ -19,7 +19,7 @@ import {
 } from "../base";
 import { B_embed, B_next, B_readsPayload, B_refine, B_unsupportedDecode } from "../builder";
 import { instanceDecoder } from "../parse";
-import { string } from "../primitives";
+import { openedText, string } from "../primitives";
 import { base64, base64ToBytes, bytesToBase64 } from "../refinements";
 
 // The decoder names `uint8Array` rather than the `init` callback's `s`: it is
@@ -65,14 +65,13 @@ export const uint8Array: Internal = /* @__PURE__ */ initSchema(
         // the format's own checks, rather than the bytes that went in.
         return B_refine(B_next(input, `${B_embed(input, bytesToBase64)}(${input.i})`, base64));
       }
-      // Anything else that wants a string wants the text the bytes spell. When
-      // that target is a format being opened (rule 3), the text IS its document
-      // — hand it over as one, so the format parses instead of escaping it.
+      // Anything else that wants a string wants the text the bytes spell —
+      // which, for a format being opened (rule 3), is its document.
       return flagUnsafeHas(targetTagFlag, tagFlagString)
         ? B_next(
             input,
             `${B_embed(input, new TextDecoder())}.decode(${input.i})`,
-            target.content !== U ? target : string,
+            target.content !== U ? openedText(target) : string,
           )
         : input;
     };

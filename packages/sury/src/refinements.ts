@@ -31,7 +31,14 @@ import {
 } from "./builder";
 import { definitionToSchema, optionFactory } from "./composites";
 import { codecTo, getMutErrorMessage, internalRefine, nullAsUnit } from "./modifiers";
-import { nullLiteral, numberDecoder, string, stringDecoderFn, unit } from "./primitives";
+import {
+  nullLiteral,
+  numberDecoder,
+  openedText,
+  string,
+  stringDecoderFn,
+  unit,
+} from "./primitives";
 import { unionFactory } from "./union";
 
 // Re-exports, not `const object = schemaObject` aliases: an alias makes the
@@ -950,7 +957,7 @@ export const base64: Internal = /* @__PURE__ */ (() => {
           `${B_embed(input, new TextDecoder())}.decode(${B_embed(input, base64ToBytes)}(${
             input.i
           }))`,
-          target,
+          openedText(target),
         )
       : input;
 

@@ -23,7 +23,7 @@ import {
 import { B_embed, B_markAsync, B_next, B_readsPayload } from "../builder";
 import type { JSONSchemaT } from "../jsonschema";
 import { instanceDecoder } from "../parse";
-import { string } from "../primitives";
+import { openedText, string } from "../primitives";
 import { base64, base64ToBytes, bytesToBase64 } from "../refinements";
 
 // On a runtime that has no such global there is no schema to be had, so `class`
@@ -123,7 +123,7 @@ const binarySchema = (name: string, global: string, nameArg: string): Internal =
         // A format being opened (rule 3) is handed its own document, so it
         // parses the text instead of escaping it.
         return flagUnsafeHas(targetTagFlag, tagFlagString)
-          ? read(input, `.text()`, target.content !== U ? target : string)
+          ? read(input, `.text()`, target.content !== U ? openedText(target) : string)
           : input;
       };
     },

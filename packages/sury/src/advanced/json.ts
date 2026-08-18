@@ -853,6 +853,12 @@ export const jsonString = /* @__PURE__ */ (() => {
     } else if (isLiteral(input.s)) {
       return B_next(input, inlineJsonString(input, input.s), expectedSchema);
     } else if (flagUnsafeHas(inputTagFlag, tagFlagString)) {
+      // A carrier opened into this format handed over its document (rule 3), so
+      // it is parsed rather than escaped — and checked here, since nothing has
+      // read it yet. Every other string is a value, and stays one.
+      if (input.s.content !== U && B_readsPayload(expectedSchema)) {
+        return carriedJsonString(input, expectedSchema);
+      }
       // Two ways `escapeFree`'s proof is void here: `noValidation` drops the
       // pattern check it rests on, and a `.to` chain carrying a default hands
       // over `i===void 0?e[2]:i.toISOString()`, whose default branch is the
