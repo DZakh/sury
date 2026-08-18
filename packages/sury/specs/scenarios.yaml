@@ -50,11 +50,20 @@ is-output:
   # Same dispatch through `reverse` — a second cache on a second schema.
   run: S.isOutput(schema, data)
 
-assert:
+assert-input:
   prepare: |
     const schema = S.schema({ id: S.string, age: S.number });
     const data = { id: "u1", age: 30 };
-  run: S.assert(schema, data)
+  run: S.assertInput(schema, data)
+
+output-constructor:
+  prepare: |
+    const schema = S.schema({ id: S.string, age: S.number });
+    const construct = S.outputConstructor(schema);
+    const value = { id: "u1", age: 30 };
+  # What building an entity costs once the operation is compiled: the checks
+  # plus the wrapper that hands the value back.
+  run: construct(value)
 
 parser-lookup:
   prepare: |

@@ -259,7 +259,7 @@ productSchema["~standard"].jsonSchema.output({ target: "draft-2020-12" });
 
 `S.meta` attaches `description`, `title`, `examples` and `deprecated`. Write examples in the Output format you work with (`price: 9.99`). They're emitted in the Input format the wire uses (`price: "9.99"`), so a generated OpenAPI document describes what a client really sends.
 
-`"draft-07"`, `"draft-2020-12"` and `"openapi-3.0"` are all supported targets, and `S.toJSONSchema(schema, options)` skips `~standard` if you'd rather.
+`"draft-07"`, `"draft-2020-12"` and `"openapi-3.0"` are all supported targets, and `S.inputJSONSchema(schema, options)` skips `~standard` if you'd rather.
 
 It reads JSON Schema back in too — the whole document, `$ref` and recursion included, typed as it goes:
 
@@ -279,7 +279,7 @@ const comment = S.fromJSONSchema({
 });
 //? S.Schema<{ text: string; replies?: ...[] | undefined }>
 
-S.assert(comment, { text: "hi", replies: [{ text: 1 }] });
+S.assertInput(comment, { text: "hi", replies: [{ text: 1 }] });
 // => throws S.Error: Failed at ["replies"]["0"]["text"]: Expected string, received 1
 ```
 
@@ -318,7 +318,7 @@ else result.error;
 Use **Sury** anywhere a schema is accepted:
 
 - [tRPC](https://trpc.io/), [TanStack Form](https://tanstack.com/form), [TanStack Router](https://tanstack.com/router), [Hono](https://hono.dev/), and 19+ more via the [Standard Schema](https://standardschema.dev/) spec
-- Anything that speaks [JSON Schema](https://json-schema.org/), via `S.toJSONSchema` / `S.fromJSONSchema`
+- Anything that speaks [JSON Schema](https://json-schema.org/), via `S.inputJSONSchema` / `S.fromJSONSchema`
 
 ## Used by
 
@@ -358,7 +358,7 @@ Independent benchmarks and conformance suites that include **Sury**:
 |                                          | Sury                                     | Zod                                       | TypeBox                   | Valibot                                                               | ArkType                   |
 | ---------------------------------------- | ---------------------------------------- | ----------------------------------------- | ------------------------- | --------------------------------------------------------------------- | ------------------------- |
 | **Inferred TS type** (what you hover)    | `S.Schema<{foo: string}, {foo: string}>` | `z.ZodObject<{foo: z.ZodString}, $strip>` | `TObject<{foo: TString}>` | `v.ObjectSchema<{readonly foo: v.StringSchema<undefined>}, undefined>` | `Type<{foo: string}, {}>` |
-| **JSON Schema**                          | `S.toJSONSchema` + `S.fromJSONSchema`    | `z.toJSONSchema`                          | 👑                        | `@valibot/to-json-schema`                                             | `myType.toJsonSchema()`   |
+| **JSON Schema**                          | `S.inputJSONSchema` + `S.fromJSONSchema` | `z.toJSONSchema`                          | 👑                        | `@valibot/to-json-schema`                                             | `myType.toJsonSchema()`   |
 | **Standard Schema**                      | ✅                                       | ✅                                        | ❌                        | ✅                                                                    | ✅                        |
 | **Codegen-free** (doesn't need compiler) | ✅                                       | ✅                                        | ✅                        | ✅                                                                    | ✅                        |
 | **Eval-free**                            | ❌                                       | ⭕ opt-out                                | ⭕ opt-in                 | ✅                                                                    | ⭕ opt-out                |

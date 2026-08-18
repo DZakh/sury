@@ -268,7 +268,7 @@ export const asyncViolations = (schema: any, spec: Spec): string[] => {
   return out;
 };
 
-// JSON Schema has no representation for bigint or symbol, so `S.toJSONSchema`
+// JSON Schema has no representation for bigint or symbol, so the conversion
 // throws for any schema containing one (at any nesting depth) — a real "this
 // concept doesn't apply" case, not a bug to work around. Recorded per
 // direction (rather than skipping the whole dimension) since the two
@@ -297,8 +297,8 @@ const deriveJsonSchemaSide = (fn: () => unknown): JsonSchemaSide => {
 };
 
 const deriveJsonSchemaSides = (schema: any): JsonSchemaSides => ({
-  input: deriveJsonSchemaSide(() => S.toJSONSchema(schema)),
-  output: deriveJsonSchemaSide(() => S.toJSONSchema(S.reverse(schema))),
+  input: deriveJsonSchemaSide(() => S.inputJSONSchema(schema)),
+  output: deriveJsonSchemaSide(() => S.outputJSONSchema(schema)),
 });
 
 const deriveJsonSchema = async (

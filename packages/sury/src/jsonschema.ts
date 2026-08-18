@@ -127,7 +127,7 @@ export type JSONSchemaDefinition = JSONSchemaT | boolean;
  * Every JSON Schema keyword the converters read or write, across all supported
  * dialects. The same set is spelled out in JSONSchema.res (the ReScript-facing
  * type) and in src/types/jsonschema.d.ts (the JS-facing `JSONSchema`, which also
- * splits per dialect for `toJSONSchema`'s result). A keyword added to one
+ * splits per dialect for `inputJSONSchema`'s result). A keyword added to one
  * belongs in all three.
  *
  * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01
@@ -663,7 +663,7 @@ const internalToJSONSchemaBase = (
   return jsonSchema;
 }
 
-export type toJSONSchemaOptions = { target?: JsonSchemaTarget };
+export type JSONSchemaOptions = { target?: JsonSchemaTarget };
 
 // Single source of truth for the `target` -> `$schema` URI mapping (mirrors
 // @valibot/to-json-schema). Returns the URI to stamp, or `None` when the target
@@ -691,7 +691,7 @@ const targetSchemaUri = (target: JsonSchemaTarget): string | undefined => {
 }
 
 // @__NO_SIDE_EFFECTS__
-export const toJSONSchema = (schema: Internal, options?: toJSONSchemaOptions): JSONSchemaT => {
+export const inputJSONSchema = (schema: Internal, options?: JSONSchemaOptions): JSONSchemaT => {
   // Resolve the target and the `$schema` URI to stamp. When no options object is
   // provided we keep the historical behavior: default to "draft-07" and do NOT
   // stamp `$schema`. With options, an unsupported target throws up front (even
@@ -736,20 +736,25 @@ export const toJSONSchema = (schema: Internal, options?: toJSONSchemaOptions): J
   return jsonSchema;
 }
 
-// Wiring this inside a function (vs top level) is what makes toJSONSchema/reverse tree-shakeable.
+// `S.reverse` swaps Input <-> Output, and the conversion always describes the
+// input type of what it receives.
+// @__NO_SIDE_EFFECTS__
+export const outputJSONSchema = (schema: Internal, options?: JSONSchemaOptions): JSONSchemaT =>
+  inputJSONSchema(reverse(schema), options);
+
+// Wiring this inside a function (vs top level) is what makes the converter and
+// `reverse` tree-shakeable.
 //
 // Mirrors @valibot/to-json-schema's `toStandardJsonSchema`: the `target` option
 // selects the JSON Schema dialect (and the stamped `$schema` URI), and an
-// unsupported target throws. `output` converts the reversed schema, since
-// `S.reverse` swaps Input <-> Output and `toJSONSchema` returns the input-type
-// schema of whatever it receives.
+// unsupported target throws.
 export const enableStandardJSONSchema = (): void => {
   __setStandardJSONSchemaConverter((schema, options, isOutput) => {
-    // The converter just forwards the target; `toJSONSchema` is the single
+    // The converter just forwards the target; the conversion is the single
     // source of truth for the `$schema` URI mapping and the unsupported-target
-    // throw. Passing an options object (vs none) is what makes `toJSONSchema`
-    // stamp `$schema`, which the Standard JSON Schema spec requires.
-    return toJSONSchema(isOutput ? reverse(schema) : schema, { target: options.target });
+    // throw. Passing an options object (vs none) is what makes it stamp
+    // `$schema`, which the Standard JSON Schema spec requires.
+    return (isOutput ? outputJSONSchema : inputJSONSchema)(schema, { target: options.target });
   });
 }
 
@@ -793,7 +798,7 @@ const primitiveToSchema = (primitive: unknown): Internal =>
       deepStrict(schemaFactory(JSON.parse(JSON.stringify(primitive))))
     : Literal_parse(primitive);
 
-// The inverse of the format pass-through in toJSONSchema. Every format Sury can
+// The inverse of the format pass-through in inputJSONSchema. Every format Sury can
 // emit has to round-trip back to the schema that emitted it, so a format added
 // on one side without the other is a reversibility bug. A record rather than a
 // branch chain: reaching fromJSONSchema at all means wanting the whole
@@ -1157,10 +1162,10 @@ const resolveRef = (ref: string, ctx: RefContext): Internal => {
   }
 
   // The pointer's last segment is the name the document already uses for the
-  // definition, so a round-trip through toJSONSchema keeps it. `#` points at
+  // definition, so a JSON Schema round-trip keeps it. `#` points at
   // the document itself and has no segment to take. `/`, `~` and `%` can't
   // keep: recursiveDecoder slices the raw suffix off `$ref`, so they'd come
-  // back out of toJSONSchema as a pointer that resolves to a different key.
+  // back out as a pointer that resolves to a different key.
   const base =
     ref === "#"
       ? "Root"
@@ -1229,7 +1234,7 @@ const asAssertion = (definition: JSONSchemaDefinition, ctx: RefContext): Interna
 
 // The JSON rendering of a definition that only ever runs through
 // `passesSchema` — a keyword whose constraint no Sury schema carries, so
-// `toJSONSchema` of the built schema would return the shape the refinement sits
+// The JSON Schema of the built schema would return the shape the refinement sits
 // on, not the keyword. The document's own text is the rendering, with one
 // rewrite it can't skip: a `$ref` whose target turned out finite was inlined
 // and has no `$defs` entry left to point at, so it expands here. Only a `$ref`
@@ -1249,7 +1254,7 @@ const assertionToJSONDefinition = (
       if (!ctx.cyc[ref]) {
         const target = resolved ?? ctx.built[ref];
         if (target === U) throw refError(`Failed to resolve JSON Schema $ref: ${ref}`);
-        const expanded = toJSONSchema(target);
+        const expanded = inputJSONSchema(target);
         if (!ctx.refSiblings) return expanded;
         const siblings = { ...current };
         delete siblings["$ref"];

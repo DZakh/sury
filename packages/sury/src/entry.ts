@@ -172,7 +172,8 @@ export {
 export { jsonStringWithSpace } from "./advanced/json";
 export { list } from "./advanced/list";
 export {
-  toJSONSchema,
+  inputJSONSchema,
+  outputJSONSchema,
   fromJSONSchema,
   extendJSONSchema,
   enableStandardJSONSchema,
@@ -209,15 +210,20 @@ export const asyncEncoder = (a: unknown, ...rest: unknown[]) =>
     ? getDecoder(...([a, ...rest] as Internal[]).map(reverse), 1)
     : getDecoder(reverse(a as Internal), 1);
 
-// `assert`, `isInput` and `isOutput` accept both `(schema, data)` and
+// The assert and guard operations accept both `(schema, data)` and
 // `(data, schema)`, told apart by the Standard Schema marker. The truthiness
 // guard keeps falsy data from throwing on the marker access, routing it to the
 // data slot so validation fails with a proper Sury error.
-export const assert = (a: unknown, b: unknown): unknown => {
+export const assertInput = (a: unknown, b: unknown): unknown => {
   const aIsSchema = !!a && isSchemaObject(a);
   const schema = (aIsSchema ? a : b) as Internal;
-  const data = aIsSchema ? b : a;
-  return getDecoder(unknown, schema, assertResult)(data);
+  return getDecoder(unknown, schema, assertResult)(aIsSchema ? b : a);
+};
+
+export const assertOutput = (a: unknown, b: unknown): unknown => {
+  const aIsSchema = !!a && isSchemaObject(a);
+  const schema = reverse((aIsSchema ? a : b) as Internal);
+  return getDecoder(unknown, schema, assertResult)(aIsSchema ? b : a);
 };
 
 const guardRun = (operation: (data: unknown) => unknown, data: unknown): boolean => {
@@ -257,6 +263,33 @@ export const isOutput = function (a: unknown, b: unknown): unknown {
     arguments.length === 1
   );
 };
+
+// The compiled operation is `assert`'s: the value runs the whole pipeline —
+// type checks, conversion, refinements — and the result is dropped, so what
+// comes back is the value handed in rather than a decoded clone of it.
+const construct = (schema: Internal): ((data: unknown) => unknown) => {
+  const operation = getDecoder(unknown, schema, assertResult) as (data: unknown) => unknown;
+  return (data) => (operation(data), data);
+};
+
+const constructAsync = (schema: Internal): ((data: unknown) => Promise<unknown>) => {
+  const operation = getDecoder(unknown, schema, assertResult, 1) as (
+    data: unknown
+  ) => Promise<unknown>;
+  return (data) => operation(data).then(() => data);
+};
+
+// @__NO_SIDE_EFFECTS__
+export const inputConstructor = (schema: Internal) => construct(schema);
+
+// @__NO_SIDE_EFFECTS__
+export const outputConstructor = (schema: Internal) => construct(reverse(schema));
+
+// @__NO_SIDE_EFFECTS__
+export const asyncInputConstructor = (schema: Internal) => constructAsync(schema);
+
+// @__NO_SIDE_EFFECTS__
+export const asyncOutputConstructor = (schema: Internal) => constructAsync(reverse(schema));
 
 // @__NO_SIDE_EFFECTS__
 export const union = (values: unknown[]) => unionFactory(values.map(definitionToSchema));

@@ -1,5 +1,5 @@
 // The JSON Schema dialects Sury reads and writes: a wide `JSONSchema` that any
-// of them satisfies, and one type per target `toJSONSchema` can emit.
+// of them satisfies, and one type per target the JSON Schema conversion can emit.
 //
 // A per-target type describes what Sury emits for that target, which is not
 // always what the dialect's spec alone would suggest — `$defs` comes out on
@@ -173,7 +173,7 @@ export interface JSONSchema {
 export type JSONSchema7Definition = JSONSchema7 | boolean;
 
 /**
- * JSON Schema draft-07 — what `toJSONSchema` emits by default.
+ * JSON Schema draft-07 — what `inputJSONSchema` emits by default.
  *
  * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01
  */
@@ -244,7 +244,7 @@ export interface JSONSchema7 {
 export type JSONSchema2020Definition = JSONSchema2020 | boolean;
 
 /**
- * JSON Schema draft-2020-12 — `toJSONSchema(schema, { target: "draft-2020-12" })`.
+ * JSON Schema draft-2020-12 — `inputJSONSchema(schema, { target: "draft-2020-12" })`.
  *
  * @see https://json-schema.org/draft/2020-12/schema
  */
@@ -322,7 +322,7 @@ export interface JSONSchema2020 {
 export type OpenAPISchema30Definition = OpenAPISchema30;
 
 /**
- * The OpenAPI 3.0 Schema Object — `toJSONSchema(schema, { target: "openapi-3.0" })`.
+ * The OpenAPI 3.0 Schema Object — `inputJSONSchema(schema, { target: "openapi-3.0" })`.
  *
  * A restricted, partly divergent draft-04: no `const`, no `null` type name, no
  * tuples, no `if`/`then`/`else`, and `nullable` in place of a union with null.

@@ -520,7 +520,7 @@ export const email: Schema<string, string>;
 export const uuid: Schema<string, string>;
 
 /**
- * CUID. Not a JSON Schema format, so `toJSONSchema` emits a plain `string` for it.
+ * CUID. Not a JSON Schema format, so a plain `string` is emitted for it.
  * @example "cjld2cjxh0000qzrmn831i7rn"
  */
 export const cuid: Schema<string, string>;
@@ -775,14 +775,23 @@ export function asyncEncoder<
   ...schemas: TSchemas
 ): (data: ExtractFirstOutput<TSchemas>) => Promise<ExtractLastInput<TSchemas>>;
 
-export function assert<TInput, TOutput>(
+export function assertInput<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,
   data: unknown
 ): asserts data is TInput;
-export function assert<TInput, TOutput>(
+export function assertInput<TInput, TOutput>(
   data: unknown,
   schema: SchemaLike<TInput, TOutput>
 ): asserts data is TInput;
+
+export function assertOutput<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>,
+  data: unknown
+): asserts data is TOutput;
+export function assertOutput<TInput, TOutput>(
+  data: unknown,
+  schema: SchemaLike<TInput, TOutput>
+): asserts data is TOutput;
 
 export function isInput<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>
@@ -807,6 +816,30 @@ export function isOutput<TInput, TOutput>(
   data: unknown,
   schema: SchemaLike<TInput, TOutput>
 ): data is TOutput;
+
+/**
+ * The value a constructor accepts for a branded schema: the brand is what the
+ * constructor mints, so it can't also be what it demands.
+ */
+type Unbranded<T> = T extends { readonly [" brand"]: [infer TValue, string] }
+  ? TValue
+  : T;
+
+export function inputConstructor<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>
+): (value: Unbranded<TInput>) => TInput;
+
+export function asyncInputConstructor<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>
+): (value: Unbranded<TInput>) => Promise<TInput>;
+
+export function outputConstructor<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>
+): (value: Unbranded<TOutput>) => TOutput;
+
+export function asyncOutputConstructor<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>
+): (value: Unbranded<TOutput>) => Promise<TOutput>;
 
 export function tuple<TInput extends unknown[], TOutput>(
   definer: (s: {
@@ -1188,22 +1221,42 @@ export function to<
 // each one gets its own overload. Falling back to the widest type for a
 // non-literal target is what keeps a caller holding `target` in a variable
 // compiling.
-export function toJSONSchema<TInput, TOutput>(
+export function inputJSONSchema<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>
 ): JSONSchema7;
-export function toJSONSchema<TInput, TOutput>(
+export function inputJSONSchema<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,
   options: { target?: "draft-07" }
 ): JSONSchema7;
-export function toJSONSchema<TInput, TOutput>(
+export function inputJSONSchema<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,
   options: { target: "draft-2020-12" }
 ): JSONSchema2020;
-export function toJSONSchema<TInput, TOutput>(
+export function inputJSONSchema<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,
   options: { target: "openapi-3.0" }
 ): OpenAPISchema30;
-export function toJSONSchema<TInput, TOutput>(
+export function inputJSONSchema<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>,
+  options: { target: StandardJSONSchemaV1.Target }
+): JSONSchema;
+
+export function outputJSONSchema<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>
+): JSONSchema7;
+export function outputJSONSchema<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>,
+  options: { target?: "draft-07" }
+): JSONSchema7;
+export function outputJSONSchema<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>,
+  options: { target: "draft-2020-12" }
+): JSONSchema2020;
+export function outputJSONSchema<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>,
+  options: { target: "openapi-3.0" }
+): OpenAPISchema30;
+export function outputJSONSchema<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,
   options: { target: StandardJSONSchemaV1.Target }
 ): JSONSchema;

@@ -60,8 +60,8 @@ module JsonSchema = {
   // the TS `Target = "draft-07" | "draft-2020-12" | "openapi-3.0" |
   // ({} & string)` in a single, ordinary (monomorphic) variant - no row type
   // variable needed, so unlike an open polymorphic variant (`[> ...]`) it's
-  // freely reusable from `options` below, `Sury.toJSONSchemaOptions`, and
-  // `.resi` files. `toJSONSchema` throws for `Unknown` (an unsupported
+  // freely reusable from `options` below, `Sury.jsonSchemaOptions`, and
+  // `.resi` files. The conversion throws for `Unknown` (an unsupported
   // target).
   @unboxed
   type target =

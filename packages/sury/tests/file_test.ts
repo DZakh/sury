@@ -32,7 +32,7 @@ test("every route into a schema the runtime can't support says so", () => {
     `S.parser(S.reverse(S.file))`,
     `S.inputExpression(S.file)`,
     `String(S.file)`,
-    `S.toJSONSchema(S.file)`,
+    `S.inputJSONSchema(S.file)`,
     `S.parser(S.union([S.file, S.string]))`,
   ]) {
     expect(withoutGlobal("File", `try { ${route} } catch (e) { console.log(e.message) }`), route).toBe(

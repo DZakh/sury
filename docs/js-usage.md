@@ -51,6 +51,8 @@
 - [Functions on schema](#functions-on-schema)
   - [Pipelines](#pipelines)
   - [Built-in operations](#built-in-operations)
+  - [Constructing entities](#constructing-entities)
+  - [Naming](#naming)
   - [Chaining operations](#chaining-operations)
   - [`reverse`](#reverse)
   - [`to`](#to)
@@ -164,7 +166,7 @@ S.parser(S.reverse(userSchema))({ id: 0n, name: "Dmitry" });
 
 ### JSON Schema
 
-`S.toJSONSchema(schema, { target })` emits `"draft-07"` (default), `"draft-2020-12"`, or `"openapi-3.0"`. Properties and examples come out in the **Input** format:
+`S.inputJSONSchema(schema, { target })` emits `"draft-07"` (default), `"draft-2020-12"`, or `"openapi-3.0"`. Properties and examples come out in the **Input** format:
 
 ```ts
 const documented = userSchema.with(S.meta, {
@@ -172,7 +174,7 @@ const documented = userSchema.with(S.meta, {
   examples: [{ id: 0n, name: "Dmitry" }],
 });
 
-S.toJSONSchema(documented);
+S.inputJSONSchema(documented);
 // {
 //   type: "object",
 //   properties: {
@@ -185,12 +187,30 @@ S.toJSONSchema(documented);
 // }
 ```
 
+`S.outputJSONSchema` describes the other side — what the schema produces, and what `S.encoder` accepts:
+
+```ts
+const apiUser = S.schema({
+  USER_NAME: S.string,
+  AGE: S.string.with(S.to, S.number),
+}).with(S.shape, (input) => ({ name: input.USER_NAME, age: input.AGE }));
+
+S.outputJSONSchema(apiUser);
+// {
+//   type: "object",
+//   properties: { name: { type: "string" }, age: { type: "number" } },
+//   required: ["name", "age"],
+// }
+```
+
+A type JSON has no way to describe — a `bigint`, a `symbol`, a `Date` — throws on the side it appears, whichever direction that is.
+
 The `target` decides the type of the result — `S.JSONSchema7`, `S.JSONSchema2020`, or `S.OpenAPISchema30` — so `prefixItems` is there to reach for on a draft-2020-12 result and `nullable` on an OpenAPI one, and neither is on a draft-07 one.
 
 `S.fromJSONSchema` converts in the other direction:
 
 ```ts
-S.assert(
+S.assertInput(
   S.fromJSONSchema({
     type: "string",
     format: "email",
@@ -229,7 +249,7 @@ const comment = S.fromJSONSchema({
 });
 // S.Schema<{ text: string; replies?: ...[] | undefined }>
 
-S.assert(comment, { text: "hi", replies: [{ text: 1 }] });
+S.assertInput(comment, { text: "hi", replies: [{ text: 1 }] });
 // Throws S.Error: Failed at ["replies"]["0"]["text"]: Expected string, received 1
 ```
 
@@ -268,7 +288,7 @@ schema["~standard"].jsonSchema.output({ target: "draft-2020-12" });
 // { $schema: "https://json-schema.org/draft/2020-12/schema", type: "number" }
 ```
 
-> 🧠 `jsonSchema.input(options)` equals `S.toJSONSchema(schema, options)` and `.output(options)` equals `S.toJSONSchema(S.reverse(schema), options)`, so the `target` option behaves the same as above. The `options` argument is required by the spec.
+> 🧠 `jsonSchema.input(options)` equals `S.inputJSONSchema(schema, options)` and `.output(options)` equals `S.inputJSONSchema(S.reverse(schema), options)`, so the `target` option behaves the same as above. The `options` argument is required by the spec.
 
 ## Defining schemas
 
@@ -428,15 +448,15 @@ S.jsonPointer; // JSON Pointer
 S.relativeJsonPointer; // Relative JSON Pointer
 ```
 
-Each survives a round trip through `S.toJSONSchema` and `S.fromJSONSchema`.
+Each survives a round trip through `S.inputJSONSchema` and `S.fromJSONSchema`.
 
 **A format checks syntax, not safety.** Every one is exactly as strict as its
 spec, so a well-formed value passes even when it isn't one you want to accept:
 
 ```ts
-S.assert(S.uri, "javascript:alert(1)"); // passes — a valid URI
-S.assert(S.hostname, "169.254.169.254"); // passes — a valid host name
-S.assert(S.uriReference, "//evil.com"); // passes — a valid reference
+S.assertInput(S.uri, "javascript:alert(1)"); // passes — a valid URI
+S.assertInput(S.hostname, "169.254.169.254"); // passes — a valid host name
+S.assertInput(S.uriReference, "//evil.com"); // passes — a valid reference
 ```
 
 When you want a security decision rather than a syntax check, compose one. The
@@ -1105,7 +1125,7 @@ documentedStringSchema.description; // A useful bit of text…
 This can be useful for documenting fields, generating JSON, etc.
 
 ```ts
-S.toJSONSchema(documentedStringSchema);
+S.inputJSONSchema(documentedStringSchema);
 // {
 //   "type": "string",
 //   "description": "A useful bit of text, if you know what to do with it."
@@ -1362,7 +1382,7 @@ const apiUser = S.schema({
 
 `S.to` is the same compiler as `S.decoder` / `S.encoder`, applied at a single point in a larger schema. The whole tree — top-level operation plus every nested `S.to` — folds into one generated function.
 
-> 🧠 `S.parser` and `S.assert` aren't separate primitives — they're just specializations of `S.decoder` with `S.unknown` on the input side. `S.parser(schema)` is `S.decoder(S.unknown, schema)`. `S.assert(schema, data)` runs a decoder from `S.unknown` *through* the schema *to* `S.literal(true).with(S.noValidation, true)` — the target is a no-op constant with validation disabled, so the compiler emits the schema's validation but no output-construction code at all. That's why `assert` is 2–3× faster than `parser`.
+> 🧠 `S.parser` and `S.assertInput` aren't separate primitives — they're just specializations of `S.decoder` with `S.unknown` on the input side. `S.parser(schema)` is `S.decoder(S.unknown, schema)`. `S.assertInput(schema, data)` runs a decoder from `S.unknown` *through* the schema *to* `S.literal(true).with(S.noValidation, true)` — the target is a no-op constant with validation disabled, so the compiler emits the schema's validation but no output-construction code at all. That's why asserting is 2–3× faster than parsing.
 
 ### Built-in operations
 
@@ -1395,13 +1415,14 @@ More often than converting input to output, you'll need to perform the reversed 
 
 This is literally the same as convert operations applied to the reversed schema.
 
-For some cases you might want to simply check whether a value is valid, without parsing it. For this there are the `S.assert`, `S.isInput` and `S.isOutput` operations:
+For some cases you might want to simply check whether a value is valid, without parsing it. For this there are the assert and guard operations:
 
-| Operation  | Interface                                                      | Description                                                                                                                                    |
-| ---------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| S.assert   | `(Schema<TInput, TOutput>, data: unknown) asserts data is TInput` or `(data: unknown, Schema<TInput, TOutput>) asserts data is TInput` | Asserts that the value is valid input. Since the operation doesn't return a value, it's 2-3 times faster than `parser` depending on the schema |
-| S.isInput  | `(Schema<TInput, TOutput>, data: unknown) => data is TInput` or `(data: unknown, Schema<TInput, TOutput>) => data is TInput`      | Returns `true`/`false` whether the value is valid input. Acts as a TypeScript type guard and shares the fast validate-only path with `assert`  |
-| S.isOutput | `(Schema<TInput, TOutput>, data: unknown) => data is TOutput` or `(data: unknown, Schema<TInput, TOutput>) => data is TOutput`    | The same check against the schema's output type — what `S.encoder` accepts                                                                     |
+| Operation     | Interface                                                      | Description                                                                                                                                        |
+| ------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| S.assertInput  | `(Schema<TInput, TOutput>, data: unknown) asserts data is TInput` or `(data: unknown, Schema<TInput, TOutput>) asserts data is TInput`   | Asserts that the value is valid input. Since the operation doesn't return a value, it's 2-3 times faster than `parser` depending on the schema |
+| S.assertOutput | `(Schema<TInput, TOutput>, data: unknown) asserts data is TOutput` or `(data: unknown, Schema<TInput, TOutput>) asserts data is TOutput` | The same assertion against the schema's output type — what `S.encoder` accepts                                                                 |
+| S.isInput      | `(Schema<TInput, TOutput>, data: unknown) => data is TInput` or `(data: unknown, Schema<TInput, TOutput>) => data is TInput`             | Returns `true`/`false` whether the value is valid input. Acts as a TypeScript type guard and shares the fast validate-only path with the asserts |
+| S.isOutput     | `(Schema<TInput, TOutput>, data: unknown) => data is TOutput` or `(data: unknown, Schema<TInput, TOutput>) => data is TOutput`           | The same check against the schema's output type                                                                                                |
 
 They accept their arguments in either order, so `(schema, data)` and `(data, schema)` are equivalent and both narrow the type. There's no "correct" order to memorize — pass the schema and the data in whatever order feels natural, and it just works. This is especially handy for AI assistants, which no longer have to guess the right argument position:
 
@@ -1413,7 +1434,7 @@ if (S.isInput(data, S.string)) {
   // data is now typed as string
 }
 
-S.assert(data, S.string);
+S.assertInput(data, S.string);
 // data is now typed as string
 
 // (schema, data) order — equivalent
@@ -1421,7 +1442,7 @@ if (S.isInput(S.string, data)) {
   // data is now typed as string
 }
 
-S.assert(S.string, data);
+S.assertInput(S.string, data);
 // data is now typed as string
 ```
 
@@ -1438,6 +1459,56 @@ All operations either return the output value or throw an error. For convinient 
 ```ts
 const result = S.safe(() => S.parser(S.string)(123));
 ```
+
+### Constructing entities
+
+When you already hold a value of the schema's type — one you built in code rather than received from the wire — a constructor validates it and hands it straight back, so the value keeps its identity instead of becoming a decoded clone:
+
+```ts
+const userSchema = S.schema({ id: S.string, email: S.email });
+const makeUser = S.outputConstructor(userSchema);
+
+makeUser({ id: "1", email: "billie@example.com" });
+// => returns the very object it was given
+
+makeUser({ id: "1", email: "not-an-address" });
+// throws S.Error: Failed at ["email"]: Expected email, received "not-an-address"
+```
+
+| Operation                 | Interface                                                      | Description                                     |
+| ------------------------- | -------------------------------------------------------------- | ------------------------------------------------- |
+| S.outputConstructor       | `(Schema<TInput, TOutput>) => (TOutput) => TOutput`               | Validates a value of the schema's output type   |
+| S.asyncOutputConstructor  | `(Schema<TInput, TOutput>) => (TOutput) => Promise<TOutput>`      | The same for a schema with async transformations |
+| S.inputConstructor        | `(Schema<TInput, TOutput>) => (TInput) => TInput`                 | Validates a value of the schema's input type    |
+| S.asyncInputConstructor   | `(Schema<TInput, TOutput>) => (TInput) => Promise<TInput>`        | The same for a schema with async transformations |
+
+Every check the schema carries runs — types, refinements, and the conversion itself — so an entity the schema has no way to encode is rejected at construction rather than at the point it's sent:
+
+```ts
+const eventSchema = S.schema({
+  at: S.string.with(S.to, S.date),
+});
+
+S.outputConstructor(eventSchema)({ at: new Date("nope") });
+// throws S.Error: Failed at ["at"]: Expected Date, received invalid Date
+```
+
+A branded schema is the one place a constructor takes a *narrower* value than it returns: the brand is what it mints, so it can't also be what it demands.
+
+```ts
+const userIdSchema = S.uuid.with(S.brand, "UserId");
+
+const userId = S.outputConstructor(userIdSchema)("f81d4fae-7dec-11d0-a765-00a0c91e6bf6");
+//? S.Brand<string, "UserId">
+```
+
+A branded schema used as a *field* keeps its brand in what the constructor asks for, so only a value that has already been through validation fits.
+
+### Naming
+
+Every operation that looks at one side of a schema says which side in its name — `inputExpression` / `outputExpression`, `inputJSONSchema` / `outputJSONSchema`, `isInput` / `isOutput`, `assertInput` / `assertOutput`, `inputConstructor` / `outputConstructor`.
+
+The conversions keep their own vocabulary, because their whole job is to cross between the two sides rather than describe one: `S.parser` goes from unknown data to the output type, `S.decoder` from input to output, and `S.encoder` back from output to input.
 
 ### Chaining operations
 
