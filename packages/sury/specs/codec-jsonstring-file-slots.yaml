@@ -5,7 +5,7 @@ ts:
   output: File
   instantiations: 5310
 jsonSchema:
-  input: '{ type: "string", contentMediaType: "application/octet-stream" }'
+  input: '{ type: "string", contentMediaType: "application/json" }'
   output: Expected JSON, received File
 vs:
   zod:

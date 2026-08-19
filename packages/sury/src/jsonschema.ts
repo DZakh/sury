@@ -284,7 +284,16 @@ const applyMetadataOverlay = (
   const to = schema.to;
   if (to !== U) {
     if (to.jsonSchema) {
-      Object.assign(jsonSchema, to.jsonSchema(to, target));
+      // Under what the structural emit already said, not over it: the carrier
+      // describes what the string holds, and where the string's own format has
+      // named what it IS — a JSON document carrying a base64 payload — that is
+      // the more specific claim and the one a reader validates against.
+      const carried = to.jsonSchema(to, target) as Record<string, unknown>;
+      for (const key in carried) {
+        if (!(key in jsonSchema)) {
+          (jsonSchema as Record<string, unknown>)[key] = carried[key];
+        }
+      }
     }
     // `contentSchema` landed in draft 2019-09; draft-07 has no slot for it.
     if (schema.format === "json" && target === draft202012) {

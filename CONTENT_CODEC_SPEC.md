@@ -314,13 +314,14 @@ ASCII-only fixtures are what hid the corruption above.
 | `jsonstring-novalidation-base64` | `noValidation` voids the raw-splice proof for a content format too |
 | `codec-jsonstring-object-jsonstring`, `codec-jsonstring-jsonstring-payload` | the nested-document field, and the document that carries one directly |
 | `codec-email-string`, `codec-jsonstring-object-optional-jsonstring`, `jsonstring-optional-jsonstring-field` | bugs this work turned up and didn't cause, each carrying a `FIXME` that says so |
-| `codec-uint8array-jsonstring-slots`, `codec-uint8array-jsonstring-packed`, `codec-jsonstring-file-slots` | rule 1, both spellings of the pair |
+| `codec-uint8array-jsonstring-packed`, `codec-jsonstring-file-slots` | rule 1, both spellings of the pair |
 | `codec-uint8array-number-unsupported` | the decoder fall-through the soundness fix added |
 
 `tests/content_test.ts` holds the rest, and only because the spec format can't:
 a golden can't hold a `Uint8Array`, `Blob` or `File`, and every compiled
 operation must run an example — so a conversion that only ever produces one has
 no spec to live in. That covers the UTF-8 hop both ways, `S.file` to and from
-bytes and text, rule 3 into a payload the caller reads as bytes, and every
-round trip whose far end is a carrier. CONTRIBUTING.md's Spec Harness
+bytes and text, rule 3 into a payload the caller reads as bytes, the
+`"unpack"`/`"pack"` spelling whose encode side lands on bytes, and every round
+trip whose far end is a carrier. CONTRIBUTING.md's Spec Harness
 Suggestions is where the fix belongs; when it lands, those rows move back.

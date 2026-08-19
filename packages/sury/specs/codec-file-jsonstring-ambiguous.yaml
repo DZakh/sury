@@ -6,7 +6,7 @@ ts:
   instantiations: 5245
 jsonSchema:
   input: Expected JSON, received File
-  output: '{ type: "string", contentMediaType: "application/octet-stream" }'
+  output: '{ type: "string", contentMediaType: "application/json" }'
 vs:
   zod:
     _skip: not-applicable
