@@ -51,7 +51,7 @@ import {
 } from "./base";
 import {
   B_embedInvalidInput,
-  B_contentSlot,
+  B_contentDiffers,
   B_inlineConst,
   B_markOutput,
   B_merge,
@@ -460,13 +460,11 @@ export function getDecoder(..._args: unknown[]): (from: unknown) => unknown {
         mut.to = to;
         // Only this direction: an operation compiles the chain the way it runs
         // it, so the encode side is a chain of its own, built from the reversed
-        // schemas. And only at the head, because that is where a carrier can
-        // still be the operation's own input — a link further along is fed by
-        // the one before it, which is the shape a payload declaration takes once
-        // the chain is written in the other order.
-        const ambiguous = i === 0 ? B_contentSlot(mut, to) : U;
-        if (ambiguous !== U) {
-          mut.parser = ambiguous;
+        // schemas. Reported as a missing decoder rather than with the slot
+        // spelling `codecTo` offers — this form has nowhere to write one, and a
+        // custom coder is what answers it.
+        if (B_contentDiffers(mut, to)) {
+          mut.parser = (input: Val) => B_unsupportedDecode(input, mut, to);
         }
       });
     }

@@ -113,7 +113,14 @@ say which reading you meant with a slot.
 
 ```ts
 S.file.with(S.to, S.jsonString);        // which reading?
-S.uint8Array.with(S.to, S.json);        // base64 value, or UTF-8 + parse?
+```
+
+Where no slot would resolve it either — a union, or `S.json` — the pair says it
+has no decoder instead of naming a spelling that wouldn't work:
+
+```ts
+S.uint8Array.with(S.to, S.json);              // Can't decode Uint8Array to JSON
+S.uint8Array.with(S.to, S.optional(S.jsonString));
 ```
 
 Both fail at **operation creation** (like every conversion error), one message
@@ -188,12 +195,14 @@ The base64 rows round-trip through `fromJSONSchema`, from either spelling; a
 `contentSchema` emit is gated on a json-format source, so a base64 segment
 carrying a document annotates the encoding it is stored in and stops there.
 
-**The axis stops at a union.** A union carries neither `content` nor `.to` of
-its own, and neither an arm's payload declaration nor a reading written on the
-union reaches the dispatch. So a carrier linked to one is read off the arms far
-enough to know the pair is not a plain transfer, and then rejected as having no
-decoder — which a custom coder still answers. Rule 2 is the exception, and only
-because `jsonEncoderFn` rewrites the arms itself.
+**The axis stops at a union, and at `S.json`.** A union carries neither `content`
+nor `.to` of its own, and neither an arm's payload declaration nor a reading
+written on the union reaches the dispatch; `S.json` is the document rather than
+a rendering of one, so neither reading of a link to it is built. Both are read
+far enough to know the pair is not a plain transfer, and then rejected as having
+no decoder — which a custom coder still answers. Rule 2 is the exception on both
+counts, and only because `jsonEncoderFn` rewrites the arms itself and reads
+`content` for the shape a document stores its target as.
 
 **Not yet:** a packed bytes field has no document form — `S.toJSONSchema` of
 `S.schema({payload: S.uint8Array})` reports `Expected JSON, received Uint8Array`
@@ -216,12 +225,19 @@ between them is a plain transfer; two that disagree have both readings live, and
 `B_readsPayload` answers which one applies: the slot if there is one, otherwise
 the target naming its own payload with `.to` (rule 3).
 
-`B_contentSlot` decides rule 4 at the two places a `.to` link is made — `codecTo`
-for a written `S.to`, `getDecoder` for an operation given its own target — and
-fills the empty direction with a slot that rejects the operation. It cannot be
-left to compile time, because reversing a chain turns the target's payload
-declaration into just another link: the legal `X -> jsonString -> File` and the
-rejected `jsonString -> File` reach the decoder as the same pair.
+`B_contentDiffers` asks rule 4's question at the two places a `.to` link is made
+— `codecTo` for a written `S.to`, `getDecoder` for an operation given its own
+target — and the empty direction takes a slot that rejects the operation. It
+cannot be left to compile time, because reversing a chain turns the target's
+payload declaration into just another link: the legal `X -> jsonString -> File`
+and the rejected `jsonString -> File` reach the decoder as the same pair.
+
+What the rejection *says* is the caller's, not the question's. `codecTo` names
+the slots, because the caller has somewhere to write one; `getDecoder`'s form
+has nowhere, so it reports the pair as having no decoder — which a coder still
+answers. And `codecTo` says the same for a pair no slot resolves: a union arm's
+payload and a reading written on the union both stop short of the dispatch, and
+`S.json` has no opened form of its own.
 
 Everything else is the two markers being read where a decision already happened:
 rule 2 is the carrier's `encoder` being handed a content-format target,
@@ -233,9 +249,9 @@ generated code a hand-written converter wouldn't contain.
 
 The one price is the universal path: `getDecoder` is in every bundle, so
 `B_contentSlot` and its message are too, and `copySchema` and `reverse` each
-carry a line for the two markers. About 300 gzipped bytes on every export
-(`bundleSize.yaml`, where the smallest go 4136 → 4439) — most of it the check
-and its two messages, since it has to answer for a union too. That buys a
+carry a line for the two markers. About 190 gzipped bytes on every export
+(`bundleSize.yaml`, where the smallest go 4136 → 4329) — the question and one
+closure; the messages ride with the callers. That buys a
 creation-time gate on conversions that otherwise corrupt data silently.
 
 **Conversions live on the carrier, not the format** — the existing `S.date`
@@ -285,8 +301,8 @@ ASCII-only fixtures are what hid the corruption above.
 | `codec-base64-string` vs `codec-jsonstring-string` | the payload rule's least guessable pair — widen vs parse |
 | `jsonstring-object-url` | the raw splice `accessorRe` now admits, and that `S.url` really is escape-free through it |
 | `codec-base64-file` | payload transfer in and out of a binary container |
-| `codec-uint8array-jsonstring-ambiguous`, `codec-uint8array-json-ambiguous`, `codec-file-jsonstring-ambiguous`, `codec-base64-jsonstring-ambiguous` | rule 4, one per carrier kind |
-| `codec-uint8array-optional-jsonstring-unsupported` | the axis stopping at a union, whose arm carries the content it has none of |
+| `codec-uint8array-jsonstring-ambiguous`, `codec-file-jsonstring-ambiguous`, `codec-base64-jsonstring-ambiguous` | rule 4, one per carrier kind |
+| `codec-uint8array-json-unsupported`, `codec-uint8array-optional-jsonstring-unsupported` | where the axis stops — `S.json` and a union, rejected without naming a slot |
 | `codec-file-blob` | the one instance widening the axis makes legal, and the direction that stays an error |
 | `codec-base64-jsonstring-payload` | rule 3, the JWT segment |
 | `codec-jsonstring-object-uint8array`, `codec-jsonstring-object-file` | rule 2, both directions |

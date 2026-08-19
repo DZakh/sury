@@ -32,6 +32,7 @@ import {
   initialOnAdditionalItems,
   inputExpression,
   type Internal,
+  jsonName,
   isSchemaObject,
   objectTag,
   panic,
@@ -331,10 +332,18 @@ export const to = (schema: Internal, target: Internal, custom?: unknown) => {
       // A reading picks between two, and there are only two when each side
       // stores something the other could hold. `getOutputSchema`, because that
       // is the node `codecTo` links from — the head of a chain is not the side
-      // of the link. Rejecting it here is also what keeps the marker off a
-      // union, whose field count decides whether it flattens.
-      if (getOutputSchema(schema).content === U || target.content === U) {
-        return panic(`Expected a payload on both sides of the link for "pack" | "unpack"`);
+      // of the link. `S.json` is out: it has no opened form of its own, so
+      // neither reading of a link to it is implemented. Rejecting here is also
+      // what keeps the marker off a union, whose field count decides whether it
+      // flattens.
+      const from = getOutputSchema(schema);
+      if (
+        from.content === U ||
+        target.content === U ||
+        from.name === jsonName ||
+        target.name === jsonName
+      ) {
+        return panic(`Can't pick a reading for this link. Use {decode, encode} coders instead`);
       }
     }
   }

@@ -924,47 +924,21 @@ export const B_neverSlot: Builder = (input: Val) =>
 // The node a link's content reading comes from: the schema, or the arm that
 // carries one where the schema is a union. A union has neither `content` nor
 // `.to` of its own, and linking a carrier to `S.optional(S.jsonString)` puts the
-// same two readings on the table as linking it to `S.jsonString` — skipping the
-// question there let the pair through to the corruption this axis exists to
-// stop, and skipping the answer made rule 3 unreachable through an arm.
-const B_contentNode = (schema: Internal): Internal => {
-  const anyOf = schema.anyOf;
-  if (schema.content === U && anyOf !== U) {
-    for (let idx = 0; idx < anyOf.length; idx++) {
-      if (anyOf[idx]!.content !== U) {
-        return anyOf[idx]!;
-      }
-    }
-  }
-  return schema;
-};
+// same two readings on the table as linking it to `S.jsonString`.
+export const B_contentNode = (schema: Internal): Internal =>
+  (schema.content === U && schema.anyOf?.find((arm) => arm.content !== U)) || schema;
 
-export const B_contentSlot = (mut: Internal, target: Internal): Builder | undefined => {
-  const from = B_contentNode(mut);
-  const to = B_contentNode(target);
-  // `target.to`, not `to.to`: a union has no `.to` to declare a payload with.
-  if (
-    from.content === U ||
-    to.content === U ||
-    from.content === to.content ||
-    target.to !== U
-  ) {
-    return U;
-  }
-  // A union is where the axis stops: the payload is on an arm, and neither a
-  // `.to` there nor a reading on the union itself reaches the dispatch — so
-  // there is no spelling to recommend, and the pair says it has no decoder,
-  // which a custom coder still answers.
-  const plain = from === mut && to === target;
-  return (input: Val) =>
-    plain
-      ? B_invalidOperation(
-          input,
-          `Ambiguous conversion from ${inputExpression(mut)} to ${inputExpression(
-            target,
-          )}. Use S.to(from, to, {decode: "unpack" | "pack", encode: ...})`,
-        )
-      : B_unsupportedDecode(input, mut, target);
+// CONTENT_CODEC_SPEC.md rule 4's question, without its answer: whether the link
+// has two readings — store the source's value in the target, or open the source
+// and hand its payload over — and no `.to` on the target picking the second
+// (rule 3). Compiling can't tell the two apart, because reversing a chain turns
+// that payload declaration into just another link, so the reading is settled
+// where the link is made. What to say about it differs by where that was, so the
+// message stays with the caller.
+export const B_contentDiffers = (mut: Internal, target: Internal): boolean => {
+  const from = B_contentNode(mut).content;
+  const to = B_contentNode(target).content;
+  return from !== U && to !== U && from !== to && target.to === U;
 };
 
 // Which reading of a content link applies: a `"pack"`/`"unpack"` slot the caller

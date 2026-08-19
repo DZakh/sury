@@ -11,6 +11,7 @@ import {
   getOrRethrow,
   inputExpression,
   type Internal,
+  jsonName,
   objectTag,
   panic,
   pathEmpty,
@@ -25,11 +26,14 @@ import {
 import {
   _var,
   B_embed,
-  B_contentSlot,
+  B_contentDiffers,
+  B_contentNode,
   B_inlineConst,
   B_invalidInputBuilder,
+  B_invalidOperation,
   B_neverSlot,
   B_next,
+  B_unsupportedDecode,
 } from "./builder";
 import { getDecoder, getOutputSchema, reverse } from "./parse";
 import { Literal_parse, nullLiteral, unit } from "./primitives";
@@ -164,7 +168,25 @@ export const codecTo = (
   encode?: Builder | boolean
 ): Internal => {
   const root: Internal = updateOutput(schema, (mut) => {
-    const ambiguous = B_contentSlot(mut, target);
+    // The slot spelling is worth naming here, where the caller has somewhere to
+    // write one — but only for a pair where writing one resolves it. A union
+    // arm's payload and a reading on the union both stop short of the dispatch,
+    // and `S.json` has no opened form of its own, so those say what every
+    // undecodable pair says instead.
+    const ambiguous = B_contentDiffers(mut, target)
+      ? B_contentNode(mut) === mut &&
+        B_contentNode(target) === target &&
+        mut.name !== jsonName &&
+        target.name !== jsonName
+        ? (input: Val) =>
+            B_invalidOperation(
+              input,
+              `Ambiguous conversion from ${inputExpression(mut)} to ${inputExpression(
+                target,
+              )}. Use S.to(from, to, {decode: "unpack" | "pack", encode: ...})`,
+            )
+        : (input: Val) => B_unsupportedDecode(input, mut, target)
+      : U;
     const opened = typeof decode === "boolean";
     const parser = typeof decode === functionTag ? (decode as Builder) : opened ? U : ambiguous;
     const serializer =
