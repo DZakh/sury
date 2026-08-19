@@ -746,6 +746,11 @@ export const B_nextConst = (from: Val, schema: Internal, expected?: Internal): V
   return B_next(from, B_inlineConst(from, schema), schema, expected);
 }
 
+// The expression to read a val by, once: the var checks already materialized,
+// or the inline where there is none. Same trade B_conversion makes — a source
+// expression re-emitted for a second reader is a second pass over the value.
+export const B_readOnce = (input: Val): string => (input.vc ? input.v() : input.i);
+
 // A conversion's result, held in a var. The splice that reads it may read it
 // twice (jsonString's escape-free form does), and unlike a property path this is
 // a fresh pass over the whole value — so it is computed once, the way

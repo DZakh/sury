@@ -20,7 +20,15 @@ import {
   U,
   type Val,
 } from "../base";
-import { B_embed, B_markAsync, B_next, B_readsPayload } from "../builder";
+import {
+  B_computed,
+  B_embed,
+  B_failWithArg,
+  B_makeInvalidConversionDetails,
+  B_markAsync,
+  B_next,
+  B_readsPayload,
+} from "../builder";
 import type { JSONSchemaT } from "../jsonschema";
 import { instanceDecoder } from "../parse";
 import { openedText, string } from "../primitives";
@@ -63,7 +71,15 @@ const binaryJSONSchema = (_schema: Internal, target: string): JSONSchemaT =>
 // beats carrying `accessorRe`'s shape test (advanced/json.ts) into every bundle
 // that mentions a blob.
 const read = (input: Val, call: string, schema: Internal): Val => {
-  const output = B_next(input, `(${input.i})${call}`, schema);
+  // Caught the way `B_conversion` catches a coder's rejection: a read that
+  // fails (the backing file moved, say) is a `DOMException`, and letting one
+  // escape hands the enclosing array or dict a plain Error to stamp a path onto.
+  const failure = B_failWithArg(
+    input,
+    (cause: unknown) => B_makeInvalidConversionDetails(input, schema, cause),
+    `x`,
+  );
+  const output = B_computed(input, `(${input.i})${call}.catch(x=>${failure})`, schema);
   B_markAsync(input, output);
   return output;
 };

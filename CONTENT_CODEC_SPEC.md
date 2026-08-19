@@ -52,9 +52,12 @@ built-in conversion reaches is still rejected — reading a `File` into an objec
 schema needs the format that turns its text into one
 (`S.file.with(S.to, S.jsonString.with(S.to, configSchema))`, rule 3), not a slot.
 
-Mixing with `"auto"`, `"never"`, coders and `{async}` follows `CODEC_SPEC.md`.
-One extra creation check: `"unpack"` opposite `"unpack"` (or `"pack"` opposite
-`"pack"`) is rejected — opening in both directions is incoherent.
+Mixing with `"never"`, coders and `{async}` follows `CODEC_SPEC.md` — each of
+those answers for its own direction. `"auto"` does not: it leaves that direction
+asking the question the reading just answered, so a reading has to be paired
+with its opposite. `"unpack"` opposite `"unpack"` (or `"pack"` opposite `"pack"`)
+is rejected for the mirror reason — opening in both directions leaves no side
+holding the payload.
 
 No bare-string shorthand: `.with(S.to, X, "unpack")` would mean a pair where a
 bare function means one side (custom rule 3).

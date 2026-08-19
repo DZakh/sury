@@ -20,6 +20,7 @@ import {
 import {
   B_computed,
   B_embed,
+  B_readOnce,
   B_readsPayload,
   B_refine,
   B_unsupportedDecode,
@@ -37,11 +38,12 @@ export const uint8Array: Internal = /* @__PURE__ */ initSchema(
     const sourceTagFlag = tagFlags[source.type]!;
 
     if (flagUnsafeHas(sourceTagFlag, tagFlagString)) {
+      const value = B_readOnce(input);
       return B_computed(
         input,
         source.content === base64
-          ? `${B_embed(input, base64ToBytes)}(${input.i})`
-          : `${B_embed(input, new TextEncoder())}.encode(${input.i})`,
+          ? `${B_embed(input, base64ToBytes)}(${value})`
+          : `${B_embed(input, new TextEncoder())}.encode(${value})`,
         uint8Array,
       );
     }
@@ -69,14 +71,16 @@ export const uint8Array: Internal = /* @__PURE__ */ initSchema(
       if (target.content !== U && (target.content === base64 || !B_readsPayload(target))) {
         // The `B_refine` wrap is what makes the produced text the subject of
         // the format's own checks, rather than the bytes that went in.
-        return B_refine(B_computed(input, `${B_embed(input, bytesToBase64)}(${input.i})`, base64));
+        return B_refine(
+          B_computed(input, `${B_embed(input, bytesToBase64)}(${B_readOnce(input)})`, base64),
+        );
       }
       // Anything else that wants a string wants the text the bytes spell —
       // which, for a format being opened (rule 3), is its document.
       return flagUnsafeHas(targetTagFlag, tagFlagString)
         ? B_computed(
             input,
-            `${B_embed(input, new TextDecoder())}.decode(${input.i})`,
+            `${B_embed(input, new TextDecoder())}.decode(${B_readOnce(input)})`,
             target.content !== U ? openedText(target) : string,
           )
         : input;

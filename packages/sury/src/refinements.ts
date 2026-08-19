@@ -26,6 +26,7 @@ import {
   B_conversion,
   B_embed,
   B_failWithErrorMessage,
+  B_readOnce,
   B_readsPayload,
   B_refine,
 } from "./builder";
@@ -950,9 +951,9 @@ export const base64: Internal = /* @__PURE__ */ (() => {
       ? B_refine(
           B_computed(
             input,
-            `${B_embed(input, bytesToBase64)}(${B_embed(input, new TextEncoder())}.encode(${
-              input.i
-            }))`,
+            `${B_embed(input, bytesToBase64)}(${B_embed(input, new TextEncoder())}.encode(${B_readOnce(
+              input,
+            )}))`,
             schema,
           ),
         )
@@ -974,9 +975,9 @@ export const base64: Internal = /* @__PURE__ */ (() => {
     differs(target) && B_readsPayload(target)
       ? B_computed(
           input,
-          `${B_embed(input, new TextDecoder())}.decode(${B_embed(input, base64ToBytes)}(${
-            input.i
-          }))`,
+          `${B_embed(input, new TextDecoder())}.decode(${B_embed(input, base64ToBytes)}(${B_readOnce(
+            input,
+          )}))`,
           openedText(target),
         )
       : input;
