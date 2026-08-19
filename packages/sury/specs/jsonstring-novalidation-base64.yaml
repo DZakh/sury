@@ -27,4 +27,8 @@ operations:
         input: '{ v: "iVBORw==" }'
         output: '"{\"v\":\"iVBORw==\"}"'
   encode:
-    creationError: "SuryError: Failed at [\"v\"]: Can't decode JSON to base64. Use S.to to define a custom decoder"
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[1](v0);return {"v":v0["v"],}}
+    examples:
+      takes-the-text-unchecked:
+        input: '"{\"v\":\"zz\"}"'
+        output: '{ v: "zz" }'

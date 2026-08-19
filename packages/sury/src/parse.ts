@@ -16,6 +16,7 @@ import {
   instanceTag,
   type Internal,
   isLiteral,
+  jsonName,
   neverTag,
   numberTag,
   objectTag,
@@ -138,13 +139,13 @@ export const parse = (input: Val): Val => {
         loopInput.s !== loopInput.e &&
         loopInput.e.type !== unknownTag &&
         // A `noValidation` target takes the value as it stands when it is a
-        // stored form of one (a JSON document) or when the operation discards
-        // it anyway (S.assert's `undefined` result sentinel). Skipping every
-        // such target swallowed a conversion too: bytes reaching a
-        // `noValidation` string still have to be decoded to text.
+        // whole document (`S.json`, whose parse is the only check it has) or
+        // when the operation discards it anyway (S.assert's `undefined` result
+        // sentinel). Every other such target still gets its conversion:
+        // `noValidation` drops the checks, not the re-representation.
         !(
           loopInput.e.noValidation &&
-          (loopInput.e.content !== U || loopInput.e.type === undefinedTag)
+          (loopInput.e.name === jsonName || loopInput.e.type === undefinedTag)
         )
       ) {
         result = maybeEncoder!(loopInput, loopInput.e);

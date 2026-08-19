@@ -157,3 +157,10 @@ test("a document still asserts, where nothing is re-represented at all", () => {
   expect(S.is(`{"a":1}`, S.jsonString)).toBe(true);
   expect(S.is(42, S.jsonString)).toBe(false);
 });
+
+test("a read that fails is not a case that didn't match", async () => {
+  const unreadable = new File([""], "a.txt");
+  unreadable.text = () => Promise.reject(new TypeError("read failed"));
+  const either = S.union([S.file.with(S.to, S.string), S.blob]);
+  await expect(S.asyncParser(either)(unreadable)).rejects.toThrow("read failed");
+});

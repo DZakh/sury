@@ -274,6 +274,13 @@ naming `S.base64`, which brings its pattern and its conversions — +704 gzipped
 on that one export, the largest row in `bundleSize.yaml`. Every format costs it
 something; this is the first that carries a codec.
 
+The keyword is an annotation in both dialects, so a validator that reads it as
+one accepts `"hello world"` under `contentEncoding: "base64"`. Sury reads it as
+a schema, because `format` — an annotation on the same terms — has always come
+back as the validating `S.uuid`, `S.email` and the rest. A round trip through
+`fromJSONSchema` produces the schema the keyword names, not a validator for the
+document it came from.
+
 **The base64 helpers** feature-detect `Uint8Array.prototype.toBase64` /
 `Uint8Array.fromBase64` once at import and embed the chosen function, so
 generated code is a single `e[N](i)` call either way. The fallback bridges
@@ -292,7 +299,7 @@ several times slower than either. `scenarios.yaml`'s `base64-pack` /
 | `S.optional(S.string).with(S.to, S.uint8Array)` — the `undefined` arm passed through as bytes | error, which `CODEC_SPEC.md`'s rule 3 already said: a variant with no decoder rejects the operation |
 | `S.base64.with(S.trim).with(S.to, S.uint8Array)` — packed the base64 *text* as bytes | the payload, same as untrimmed: a refinement that only reshapes the text carries the marker |
 | a `S.jsonString.with(S.to, X)` field of a decoded document — re-escaped its own text, then failed against X | parsed (rule 3) |
-| a `noValidation` field of a JSON document — `Can't decode JSON to Date` | decoded: `noValidation` drops the checks, not the conversion |
+| a `noValidation` field of a JSON document — `Can't decode JSON to Date` | decoded: `noValidation` drops the checks, not the conversion. Only `S.json` itself still travels as text, since its parse *is* its check |
 | every `Blob`/`File` conversion — creation error | its payload conversions work, and the rest asks. `S.file.with(S.to, S.blob)` widens; the other way round is still an error, because not every blob is a file |
 
 All land together. After this release, changes only turn errors into working
@@ -325,6 +332,7 @@ ASCII-only fixtures are what hid the corruption above.
 | `codec-uint8array-number-unsupported`, `codec-optional-string-uint8array-unsupported` | the decoder fall-through the soundness fix added, standalone and through a union arm |
 | `string-to-blob` | the conversion that used to be two creation errors |
 | `codec-base64-trim-jsonstring-ambiguous` | the marker surviving a `S.trim` link, so the pair still reports rather than guesses |
+| `jsonstring-novalidation-base64` | the third `noValidation` field, decoded back like the other two rather than by its own rule |
 | `jsonstring-novalidation-date`, `jsonstring-novalidation-format` | a `noValidation` field decoded back out of its document, and `jsonstring-novalidation` for the JSON target that still travels as text |
 
 `tests/content_test.ts` holds the rest, and only because the spec format can't:

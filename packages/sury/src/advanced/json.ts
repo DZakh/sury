@@ -285,7 +285,7 @@ export const jsonDecoderFn = (input: Val): Val => {
     // concrete type validates implicitly — except a json-format target, whose
     // JSON.stringify accepts (or silently drops) anything, so it still needs
     // the JSON validation here.
-    // FIXME: should this also check !input.e.refiner, like jsonStringDecoder's preEncode does?
+    // FIXME: should this also check !input.e.refiner, like `carriedJsonString`'s caller does?
     const preEncode: boolean = !!to && to.format !== "json" && !input.e.parser;
     if (preEncode) {
       input.s = json;

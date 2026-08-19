@@ -7,6 +7,7 @@
 // takes the parts as they are.
 
 import {
+  flagUnionTransformContext,
   flagUnsafeHas,
   initSchema,
   instanceTag,
@@ -76,14 +77,20 @@ const read = (input: Val, call: string, schema: Internal): Val => {
   // the promise rejects when the read fails (the backing file moved, say). A
   // `TypeError` or `DOMException` escaping either way hands the enclosing array
   // or dict a plain Error to stamp a path onto.
-  const failure = B_failWithArg(
-    input,
-    (cause: unknown) => B_makeInvalidConversionDetails(input, schema, cause),
-    `x`,
-  );
+  //
+  // Bare inside a union, for `B_conversion`'s reason: a read that fails is not
+  // a case that didn't match, and classifying it as one let the dispatch fall
+  // through to a sibling and hand back the container unread.
+  const failure = input.g.o & flagUnionTransformContext
+    ? U
+    : B_failWithArg(
+        input,
+        (cause: unknown) => B_makeInvalidConversionDetails(input, schema, cause),
+        `x`,
+      );
   const output = B_computed(
     input,
-    `${B_readOnce(input)}${call}.catch(x=>${failure})`,
+    `${B_readOnce(input)}${call}${failure === U ? `` : `.catch(x=>${failure})`}`,
     schema,
     failure,
   );
