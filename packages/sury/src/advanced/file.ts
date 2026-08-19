@@ -27,6 +27,7 @@ import {
   B_makeInvalidConversionDetails,
   B_markAsync,
   B_next,
+  B_readOnce,
   B_readsPayload,
 } from "../builder";
 import type { JSONSchemaT } from "../jsonschema";
@@ -66,10 +67,9 @@ const binaryJSONSchema = (_schema: Internal, target: string): JSONSchemaT =>
 // parse loop to unwrap: the awaited value is what the target asked for, not the
 // `ArrayBuffer` the platform hands back.
 //
-// Parenthesized unconditionally: `.` binds tighter than `?:`, so a val handed
-// over as a ternary would read the method off the wrong branch. Two characters
-// beats carrying `accessorRe`'s shape test (advanced/json.ts) into every bundle
-// that mentions a blob.
+// The method is read off `B_readOnce`'s var rather than the val's expression:
+// that is what makes `.`'s precedence a non-question, where a val handed over as
+// a ternary would otherwise have the method read off the wrong branch.
 const read = (input: Val, call: string, schema: Internal): Val => {
   // Caught the way `B_conversion` catches a coder's rejection: a read that
   // fails (the backing file moved, say) is a `DOMException`, and letting one
@@ -79,7 +79,7 @@ const read = (input: Val, call: string, schema: Internal): Val => {
     (cause: unknown) => B_makeInvalidConversionDetails(input, schema, cause),
     `x`,
   );
-  const output = B_computed(input, `(${input.i})${call}.catch(x=>${failure})`, schema);
+  const output = B_computed(input, `${B_readOnce(input)}${call}.catch(x=>${failure})`, schema);
   B_markAsync(input, output);
   return output;
 };
@@ -95,12 +95,13 @@ const binarySchema = (name: string, global: string, nameArg: string): Internal =
     (input: Val): Val => {
       const source = input.s;
       const sourceTagFlag = tagFlags[source.type]!;
+      const value = B_readOnce(input);
       const parts = flagUnsafeHas(sourceTagFlag, tagFlagString)
         ? source.content === base64
-          ? `${B_embed(input, base64ToBytes)}(${input.i})`
-          : input.i
+          ? `${B_embed(input, base64ToBytes)}(${value})`
+          : value
         : flagUnsafeHas(sourceTagFlag, tagFlagInstance) && source.class === Uint8Array
-          ? input.i
+          ? value
           : U;
       if (parts !== U) {
         return B_next(input, `new ${B_embed(input, input.e.class)}([${parts}]${nameArg})`, input.e);

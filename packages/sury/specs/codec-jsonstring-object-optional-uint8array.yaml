@@ -12,7 +12,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[6](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[5](v0);let v2=(v0["payload"]??null);for(;;){if(typeof v2==="string"){e[2](v2)||e[3](v2);let v1=e[1]((v0["payload"]??null));v2=v1;break}if(v2===null){v2=void 0;break}e[4](v2)}return {"payload":v2,}}
+    expression: i=>{typeof i==="string"||e[6](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[5](v0);let v1=(v0["payload"]??null);for(;;){if(typeof v1==="string"){e[2](v1)||e[3](v1);let v2=e[1](v1);v1=v2;break}if(v1===null){v1=void 0;break}e[4](v1)}return {"payload":v1,}}
     examples:
       not-base64:
         input: '"{\"payload\":\"!!\"}"'
@@ -21,7 +21,7 @@ operations:
         input: '"{}"'
         output: "{ payload: undefined }"
   decode:
-    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[5](v0);let v2=(v0["payload"]??null);for(;;){if(typeof v2==="string"){e[2](v2)||e[3](v2);let v1=e[1]((v0["payload"]??null));v2=v1;break}if(v2===null){v2=void 0;break}e[4](v2)}return {"payload":v2,}}
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[5](v0);let v1=(v0["payload"]??null);for(;;){if(typeof v1==="string"){e[2](v1)||e[3](v1);let v2=e[1](v1);v1=v2;break}if(v1===null){v1=void 0;break}e[4](v1)}return {"payload":v1,}}
     examples:
       not-base64:
         input: '"{\"payload\":\"!!\"}"'
