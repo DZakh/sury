@@ -418,3 +418,19 @@ test("Refines the coder's result, not what went into it", t => {
     ->ignore
   , `Expected uuid, received "not-a-uuid"`)
 })
+
+test("Picks a reading for a content link the way the ambiguity report says to", t => {
+  // The report names `"pack"`/`"unpack"`, so the binding has to offer them —
+  // without Pack/Unpack the remedy it points at is unwritable from ReScript.
+  let packed = S.base64->S.to(S.jsonString, ~custom={decode: Pack, encode: Unpack})
+  t->Assert.deepEqual("aGk="->S.parseOrThrow(~to=packed), `"aGk="`)
+  t->Assert.deepEqual(`"aGk="`->S.decodeOrThrow(~from=packed, ~to=S.base64), "aGk=")
+
+  let opened = S.base64->S.to(S.jsonString, ~custom={decode: Unpack, encode: Pack})
+  t->Assert.deepEqual(`eyJhIjoxfQ==`->S.parseOrThrow(~to=opened), `{"a":1}`)
+
+  t->U.assertThrowsMessage(
+    () => "aGk="->S.parseOrThrow(~to=S.base64->S.to(S.jsonString))->ignore,
+    `Ambiguous conversion from base64 to JSON string. Use S.to(from, to, {decode: "unpack" | "pack", encode: ...})`,
+  )
+})

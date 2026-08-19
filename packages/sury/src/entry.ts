@@ -345,6 +345,10 @@ export const to = (schema: Internal, target: Internal, custom?: unknown) => {
       if (
         from.content === U ||
         target.content === U ||
+        // Agreeing on the payload leaves one reading, not two: each side stores
+        // what the other does, so the link is a transfer and a slot picking
+        // between readings would be ignored.
+        from.content === target.content ||
         from.name === jsonName ||
         target.name === jsonName
       ) {

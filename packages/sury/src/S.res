@@ -500,6 +500,12 @@ let refine = (schema, refiner, ~error=?, ~path=?) => refine(schema, refiner, {?e
 type conversion<'i, 'o> =
   | @as("auto") Auto
   | @as("never") Never
+  // The two readings of a content link (CONTENT_CODEC_SPEC.md rule 1). They
+  // carry no payload, so they erase to their strings the way Auto/Never do —
+  // and they have to be here, because the ambiguity this axis reports names
+  // them as the remedy.
+  | @as("pack") Pack
+  | @as("unpack") Unpack
   | Sync('i => 'o)
   | Async('i => promise<'o>)
 

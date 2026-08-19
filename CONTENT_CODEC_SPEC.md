@@ -333,6 +333,11 @@ ASCII-only fixtures are what hid the corruption above.
 | `codec-uint8array-jsonstring-packed`, `codec-jsonstring-file-slots` | rule 1, both spellings of the pair |
 | `codec-uint8array-number-unsupported`, `codec-optional-string-uint8array-unsupported` | the decoder fall-through the soundness fix added, standalone and through a union arm |
 | `codec-array-never-uint8array` | the one source the fall-through has to keep letting through: nothing reaches a `never`, so there is no conversion to reject |
+
+`tests/content_test.ts` also holds every reading the API rejects outright — a
+pair that agrees on the payload, a side that carries none, `S.json`, and two
+readings naming the same direction. Those panic while the schema is being
+built, so `ts.schema` never evaluates and no spec can hold them.
 | `string-to-blob` | the conversion that used to be two creation errors |
 | `codec-base64-trim-jsonstring-ambiguous` | the marker surviving a `S.trim` link, so the pair still reports rather than guesses |
 | `jsonstring-novalidation-base64` | the third `noValidation` field, decoded back like the other two rather than by its own rule |

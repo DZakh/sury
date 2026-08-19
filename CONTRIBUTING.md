@@ -350,6 +350,12 @@ instead of silently working around it.
   reason. It costs a whole direction of the content axis: the `codec-*` specs
   for `S.uint8Array`, `S.base64`, `S.blob` and `S.file` carry codegen and error
   cases only, and `tests/content_test.ts` holds the values instead.
+- `ts.schema` has to evaluate, so a schema whose *construction* panics — every
+  argument the public API rejects outright, including the `"pack"`/`"unpack"`
+  pairs that don't name two readings — has no spec at all, only a
+  `creationError` for the ones that survive construction and fail at the
+  operation. `tests/content_test.ts` holds those. A `ts.constructionError`
+  beside `creationError` would keep them with the schema they reject.
 - `operations` names `parse`, `decode` and `encode` only, so `S.assert` and
   `S.is` have no golden anywhere. Both compile through the same builder chain
   under a different result target, and a change to that target's handling broke

@@ -107,6 +107,34 @@ test("the content slots pick a reading, and reverse trades them", async () => {
   expect(await S.asyncEncoder(intoAFile)(new File([png], "a.png"))).toBe(`"iVBORw=="`);
 });
 
+test("a reading is only offered where there are two", () => {
+  // Every rejection here is a panic at construction, so no spec can hold the
+  // schema (see CONTRIBUTING.md's Spec Harness Suggestions).
+  const readings = { decode: "pack", encode: "unpack" } as const;
+  // Both sides store bytes as base64, so the link is a transfer and there is
+  // nothing for a reading to pick.
+  expect(() => S.base64.with(S.to, S.uint8Array, readings)).toThrow(
+    "Can't pick a reading for this link",
+  );
+  expect(() => S.blob.with(S.to, S.file, readings)).toThrow(
+    "Can't pick a reading for this link",
+  );
+  // One side carries no payload at all, and `S.json` has no opened form.
+  expect(() => S.string.with(S.to, S.uint8Array, readings)).toThrow(
+    "Can't pick a reading for this link",
+  );
+  expect(() => S.base64.with(S.to, S.json, readings)).toThrow(
+    "Can't pick a reading for this link",
+  );
+  // A reading names what its own direction does, so the two can't agree.
+  expect(() =>
+    S.base64.with(S.to, S.jsonString, { decode: "pack", encode: "pack" }),
+  ).toThrow(`Expected "pack" opposite "unpack"`);
+  expect(() =>
+    S.base64.with(S.to, S.jsonString, { decode: "pack", encode: "auto" }),
+  ).toThrow(`Expected "pack" opposite "unpack"`);
+});
+
 test("a declared payload opens the carrier feeding it", async () => {
   const claims = S.schema({ sub: S.string });
   expect(S.parser(S.base64.with(S.to, S.jsonString.with(S.to, claims)))("eyJzdWIiOiJhIn0=")).toEqual({
