@@ -40,6 +40,7 @@ import {
   stringDecoderFn,
   unit,
 } from "./primitives";
+import { getOutputSchema } from "./parse";
 import { unionFactory } from "./union";
 
 // Re-exports, not `const object = schemaObject` aliases: an alias makes the
@@ -749,7 +750,16 @@ export const pattern = (schema: Internal, re: RegExp, message: string = `Invalid
 // @__NO_SIDE_EFFECTS__
 export const trim = (schema: Internal): Internal => {
   const transformer = B_conversion((value: unknown) => (value as string).trim());
-  return codecTo(schema, string, transformer, transformer);
+  // Trimming does not change what the text *is*: a trimmed base64 payload is
+  // still that payload. The marker has to be carried onto the link's target,
+  // because the next link reads the chain tail — left bare, it would see a
+  // plain string and pack the base64 text itself as bytes.
+  const content = getOutputSchema(schema).content;
+  const root = codecTo(schema, string, transformer, transformer);
+  if (content !== U) {
+    setContent(getOutputSchema(root), content);
+  }
+  return root;
 }
 
 // @__NO_SIDE_EFFECTS__

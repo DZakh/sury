@@ -290,6 +290,7 @@ several times slower than either. `scenarios.yaml`'s `base64-pack` /
 | `{payload: S.uint8Array}` in a JSON document — corrupts | base64 |
 | `S.encoder(S.uint8Array.with(S.to, S.number))(42)` — returns `42` typed as `Uint8Array` | error (the decoder's missing fall-through, a standalone soundness fix) |
 | `S.optional(S.string).with(S.to, S.uint8Array)` — the `undefined` arm passed through as bytes | error, which `CODEC_SPEC.md`'s rule 3 already said: a variant with no decoder rejects the operation |
+| `S.base64.with(S.trim).with(S.to, S.uint8Array)` — packed the base64 *text* as bytes | the payload, same as untrimmed: a refinement that only reshapes the text carries the marker |
 | a `S.jsonString.with(S.to, X)` field of a decoded document — re-escaped its own text, then failed against X | parsed (rule 3) |
 | every `Blob`/`File` conversion — creation error | its payload conversions work, and the rest asks. `S.file.with(S.to, S.blob)` widens; the other way round is still an error, because not every blob is a file |
 
@@ -322,6 +323,7 @@ ASCII-only fixtures are what hid the corruption above.
 | `codec-uint8array-jsonstring-packed`, `codec-jsonstring-file-slots` | rule 1, both spellings of the pair |
 | `codec-uint8array-number-unsupported`, `codec-optional-string-uint8array-unsupported` | the decoder fall-through the soundness fix added, standalone and through a union arm |
 | `string-to-blob` | the conversion that used to be two creation errors |
+| `codec-base64-trim-jsonstring-ambiguous` | the marker surviving a `S.trim` link, so the pair still reports rather than guesses |
 
 `tests/content_test.ts` holds the rest, and only because the spec format can't:
 a golden can't hold a `Uint8Array`, `Blob` or `File`, and every compiled

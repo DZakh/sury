@@ -125,3 +125,9 @@ test("a declared payload opens the carrier feeding it", async () => {
   expect(await S.asyncParser(config)(new File([`{"sub":"a"}`], "c.json"))).toEqual({ sub: "a" });
   expect(await S.encoder(config)({ sub: "a" }).text()).toBe(`{"sub":"a"}`);
 });
+
+test("a refinement that only reshapes the text keeps the carrier's marker", () => {
+  const trimmed = S.base64.with(S.trim).with(S.to, S.uint8Array);
+  expect(S.parser(trimmed)("4oKs")).toEqual(euro);
+  expect(S.encoder(trimmed)(euro)).toBe("4oKs");
+});

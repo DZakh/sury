@@ -200,6 +200,10 @@ export const codecTo = (
       // unionResolveToUnion recognizes an arm producing the whole target union
       // by exactly that shared array. A deep copy here would silently break
       // Option.getOr's default arms.
+      //
+      // A link built with either slot therefore owns its tail, which is what
+      // lets `trim` stamp a content marker onto the result without touching the
+      // shared `string` singleton. Stop copying here and it corrupts one.
       const targetMut = copySchema(target);
       if (serializer !== U) {
         targetMut.serializer = serializer;
