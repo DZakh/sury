@@ -191,10 +191,14 @@ string; a `Blob` input has no document, and keeps saying so.
 | `S.base64` | `contentEncoding: "base64"` | `format: "byte"` |
 | `S.jsonString.with(S.to, X)` | `contentMediaType: "application/json"`, plus `contentSchema: <X>` in 2020-12 | bare string |
 | `S.string.with(S.to, S.blob)` | `contentMediaType: "application/octet-stream"` | `format: "binary"` |
-| `S.base64.with(S.to, S.file)` | both of the above | `format: "binary"` |
+| `S.jsonString.with(S.to, S.file, {decode: "unpack", …})` | `contentMediaType: "application/json"` | `format: "binary"` |
+| `S.base64.with(S.to, S.file)` | both of the above | `format: "byte"` |
 
-The base64 rows round-trip through `fromJSONSchema`, from either spelling; a
-`contentMediaType` does not yet, and comes back as a plain string. The
+A carrier's own emit fills only what the string hasn't already said about
+itself, which is why the last two rows keep the encoding they are written in
+rather than the medium they end in. The base64 rows round-trip through
+`fromJSONSchema`, from either spelling; a `contentMediaType` does not yet, and
+comes back as a plain string. The
 `contentSchema` emit is gated on a json-format source, so a base64 segment
 carrying a document annotates the encoding it is stored in and stops there.
 
