@@ -82,7 +82,10 @@ const read = (input: Val, call: string, schema: Internal): Val => {
   //
   // Bare inside a union, for `B_conversion`'s reason: a read that fails is not
   // a case that didn't match, and classifying it as one let the dispatch fall
-  // through to a sibling and hand back the container unread.
+  // through to a sibling and hand back the container unread. The cost is the
+  // convention's: a Sury error is what an enclosing object stamps a path onto,
+  // so a rejection under `S.optional(…)` arrives raw where the same field
+  // required arrives at `["a"]`. Wrapping it back is what the fall-through was.
   const failure = input.g.o & flagUnionTransformContext
     ? U
     : B_failWithArg(

@@ -11,6 +11,7 @@ import {
   type Internal,
   setContent,
   tagFlagInstance,
+  tagFlagNever,
   tagFlags,
   tagFlagString,
   tagFlagUnknown,
@@ -55,7 +56,13 @@ export const uint8Array: Internal = /* @__PURE__ */ initSchema(
     // and isn't bytes is a different story — an encode trusts its declared
     // type, and the platform's own exception is what `S.date` gives for the
     // same lie, so neither is wrapped.
-    return B_unsupportedDecode(input, source, input.e);
+    //
+    // `never` is not one of those: nothing reaches it, so there is no
+    // conversion to reject — an empty array or dict of them still compiles, the
+    // way json.ts and union.ts let one through.
+    return flagUnsafeHas(sourceTagFlag, tagFlagNever)
+      ? input
+      : B_unsupportedDecode(input, source, input.e);
   },
   (s) => {
     s.class = Uint8Array;

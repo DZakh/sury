@@ -332,6 +332,7 @@ ASCII-only fixtures are what hid the corruption above.
 | `codec-email-string`, `codec-jsonstring-object-optional-jsonstring`, `jsonstring-optional-jsonstring-field`, `jsonstring-novalidation-date` | bugs this work turned up and didn't cause, each carrying a `FIXME` that says so |
 | `codec-uint8array-jsonstring-packed`, `codec-jsonstring-file-slots` | rule 1, both spellings of the pair |
 | `codec-uint8array-number-unsupported`, `codec-optional-string-uint8array-unsupported` | the decoder fall-through the soundness fix added, standalone and through a union arm |
+| `codec-array-never-uint8array` | the one source the fall-through has to keep letting through: nothing reaches a `never`, so there is no conversion to reject |
 | `string-to-blob` | the conversion that used to be two creation errors |
 | `codec-base64-trim-jsonstring-ambiguous` | the marker surviving a `S.trim` link, so the pair still reports rather than guesses |
 | `jsonstring-novalidation-base64` | the third `noValidation` field, decoded back like the other two rather than by its own rule |

@@ -291,6 +291,11 @@ const conversionBuilder = (
 
 // @__NO_SIDE_EFFECTS__
 export const to = (schema: Internal, target: Internal, custom?: unknown) => {
+  // A misspelled export arrives as `undefined`, which used to link to nothing
+  // and hand back the source unchanged — the conversion silently absent.
+  if (!target) {
+    return panic(`Expected a schema to convert to`);
+  }
   let decode: Builder | boolean | undefined;
   let encode: Builder | boolean | undefined;
   let outputSeam = false;

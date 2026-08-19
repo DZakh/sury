@@ -164,3 +164,20 @@ test("a read that fails is not a case that didn't match", async () => {
   const either = S.union([S.file.with(S.to, S.string), S.blob]);
   await expect(S.asyncParser(either)(unreadable)).rejects.toThrow("read failed");
 });
+
+test("a read inside a union arm reports rather than matching a sibling", async () => {
+  const unreadable = () => {
+    const f = new File([""], "a.txt");
+    f.arrayBuffer = () => Promise.reject(new TypeError("read failed"));
+    return f;
+  };
+  const bytes = S.file.with(S.to, S.uint8Array);
+  // A required field's rejection is a SuryError and takes the path; inside a
+  // union it stays raw, which is what keeps it out of the dispatch.
+  await expect(S.asyncParser(S.schema({ a: bytes }))({ a: unreadable() })).rejects.toThrow(
+    `Failed at ["a"]: TypeError: read failed`,
+  );
+  await expect(
+    S.asyncParser(S.schema({ a: S.optional(bytes) }))({ a: unreadable() }),
+  ).rejects.toThrow(TypeError);
+});
