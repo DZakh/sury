@@ -12,7 +12,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[7](i);e[5](i)||e[6](i);let v1=e[0].decode(e[1](i));let v0;try{v0=JSON.parse(v1)}catch(t){e[2](v1)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[4](v0);let v2=v0["sub"];typeof v2==="string"||e[3](v2);return {"sub":v2,}}
+    expression: i=>{typeof i==="string"||e[7](i);e[5](i)||e[6](i);let v0=e[0].decode(e[1](i));let v1;try{v1=JSON.parse(v0)}catch(t){e[2](v0)}typeof v1==="object"&&v1&&!Array.isArray(v1)||e[4](v1);let v2=v1["sub"];typeof v2==="string"||e[3](v2);return {"sub":v2,}}
     examples:
       jwt-segment:
         input: '"eyJzdWIiOiJhIn0="'
@@ -24,7 +24,7 @@ operations:
         input: '"aGk="'
         error: Expected JSON string, received "hi"
   decode:
-    expression: i=>{e[5](i)||e[6](i);let v1=e[0].decode(e[1](i));let v0;try{v0=JSON.parse(v1)}catch(t){e[2](v1)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[4](v0);let v2=v0["sub"];typeof v2==="string"||e[3](v2);return {"sub":v2,}}
+    expression: i=>{e[5](i)||e[6](i);let v0=e[0].decode(e[1](i));let v1;try{v1=JSON.parse(v0)}catch(t){e[2](v0)}typeof v1==="object"&&v1&&!Array.isArray(v1)||e[4](v1);let v2=v1["sub"];typeof v2==="string"||e[3](v2);return {"sub":v2,}}
     examples:
       jwt-segment:
         input: '"eyJzdWIiOiJhIn0="'

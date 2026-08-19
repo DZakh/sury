@@ -5,7 +5,7 @@ This file governs the pairs where **two** built-in readings exist: a carrier (a
 value that stores other data) meeting a format that could either rewrite it or
 open it.
 
-`B_contentSlot` and `B_readsPayload` in `src/builder.ts` are the two decisions
+`B_contentDiffers` and `B_readsPayload` in `src/builder.ts` are the two decisions
 below; the conversions themselves live on the carriers
 (`src/advanced/uint8Array.ts`, `src/advanced/file.ts`, `S.base64` in
 `src/refinements.ts`). `docs/js-usage.md` carries the user-facing version under
@@ -248,8 +248,8 @@ declares a payload. No new `Val` fields, no compile-loop cost, nothing in
 generated code a hand-written converter wouldn't contain.
 
 The one price is the universal path: `getDecoder` is in every bundle, so
-`B_contentSlot` and its message are too, and `copySchema` and `reverse` each
-carry a line for the two markers. About 190 gzipped bytes on every export
+`B_contentDiffers` is too, and `copySchema` and `reverse` each carry a line for
+the two markers. About 190 gzipped bytes on every export
 (`bundleSize.yaml`, where the smallest go 4136 → 4329) — the question and one
 closure; the messages ride with the callers. That buys a
 creation-time gate on conversions that otherwise corrupt data silently.

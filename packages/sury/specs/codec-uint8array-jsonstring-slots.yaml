@@ -27,7 +27,7 @@ operations:
         input: new TextEncoder().encode('{"a":1}')
         output: '"{\"a\":1}"'
   encode:
-    expression: i=>{return e[0].encode(i)}
+    expression: i=>{let v0=e[0].encode(i);return v0}
     examples:
       not-a-document:
         input: '"nope"'

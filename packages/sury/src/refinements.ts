@@ -22,10 +22,10 @@ import {
   type Val,
 } from "./base";
 import {
+  B_computed,
   B_conversion,
   B_embed,
   B_failWithErrorMessage,
-  B_next,
   B_readsPayload,
   B_refine,
 } from "./builder";
@@ -948,7 +948,7 @@ export const base64: Internal = /* @__PURE__ */ (() => {
   schema.decoder = (input) =>
     differs(input.s) && input.s.to !== U
       ? B_refine(
-          B_next(
+          B_computed(
             input,
             `${B_embed(input, bytesToBase64)}(${B_embed(input, new TextEncoder())}.encode(${
               input.i
@@ -972,7 +972,7 @@ export const base64: Internal = /* @__PURE__ */ (() => {
   // makes the format parse it rather than escape it.
   schema.encoder = (input, target) =>
     differs(target) && B_readsPayload(target)
-      ? B_next(
+      ? B_computed(
           input,
           `${B_embed(input, new TextDecoder())}.decode(${B_embed(input, base64ToBytes)}(${
             input.i

@@ -349,8 +349,10 @@ export const to = (schema: Internal, target: Internal, custom?: unknown) => {
   }
   // Chaining a schema to itself would append a second copy of its own chain,
   // re-decoding the value it just produced. Resolving the slots first is what
-  // makes the all-"auto" spelling behave exactly like the coder-less one.
-  if (schema === target && decode === U && encode === U) {
+  // makes the all-"auto" spelling behave exactly like the coder-less one — and
+  // a reading is the same: there is nothing to pick between when both sides are
+  // the same schema.
+  if (schema === target && typeof decode !== functionTag && typeof encode !== functionTag) {
     return schema;
   }
   // An output-seam coder claims the target as its result, so a target that

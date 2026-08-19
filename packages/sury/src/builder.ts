@@ -746,6 +746,18 @@ export const B_nextConst = (from: Val, schema: Internal, expected?: Internal): V
   return B_next(from, B_inlineConst(from, schema), schema, expected);
 }
 
+// A conversion's result, held in a var. The splice that reads it may read it
+// twice (jsonString's escape-free form does), and unlike a property path this is
+// a fresh pass over the whole value — so it is computed once, the way
+// B_conversion computes a custom coder's result once.
+export const B_computed = (input: Val, code: string, schema: Internal): Val => {
+  const outputVar = B_varWithoutAllocation(input.g);
+  const output = B_next(input, outputVar, schema);
+  output.v = _var;
+  output.cp = `let ${outputVar}=${code};`;
+  return output;
+};
+
 export const B_asyncVal = (from: Val, initial: string): Val => {
   const v = B_next(from, initial, from.s);
   v.f = valFlagAsync;

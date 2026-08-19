@@ -159,8 +159,8 @@ export const getMutErrorMessage = (mut: Internal): SchemaErrorMessage => {
 // shorthand) are resolved by the caller into Builders; a boolean is a content
 // reading (`true` opens the direction's own source) and rides the schema that
 // direction converts into, which is what makes reversal swap those too. `U`
-// means no slot, i.e. the built-in conversion — or, where the pair has two of
-// them, the rejection `B_contentSlot` supplies.
+// means no slot, i.e. the built-in conversion — or, where `B_contentDiffers`
+// says the pair has two readings, the rejection built below.
 export const codecTo = (
   schema: Internal,
   target: Internal,

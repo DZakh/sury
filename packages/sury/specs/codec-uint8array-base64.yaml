@@ -30,7 +30,7 @@ operations:
         input: new Uint8Array([137, 80, 78, 71])
         output: '"iVBORw=="'
   encode:
-    expression: i=>{e[1](i)||e[2](i);return e[0](i)}
+    expression: i=>{e[1](i)||e[2](i);let v0=e[0](i);return v0}
     examples:
       invalid-base64:
         input: '"!!"'
