@@ -962,8 +962,8 @@ export const B_contentNode = (schema: Internal): Internal =>
 // different kinds, which is what puts two readings on the table — store the
 // source's value in the target, or open the source and hand its payload over.
 // The other half, a `.to` on the target picking the second (rule 3), stays with
-// each caller: only one of them reaches unions, and folding it in here would put
-// that walk in every bundle. Compiling can't tell the two readings apart,
+// each caller, along with the `B_contentNode` walk that finds a marker on a
+// union arm. Compiling can't tell the two readings apart,
 // because reversing a chain turns a payload declaration into just another link,
 // so the reading is settled where the link is made — and what to say about it
 // differs by where that was, so the message stays with the caller too.

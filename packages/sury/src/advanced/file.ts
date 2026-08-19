@@ -18,6 +18,7 @@ import {
   tagFlagInstance,
   tagFlags,
   tagFlagString,
+  tagFlagUnion,
   U,
   type Val,
 } from "../base";
@@ -30,6 +31,7 @@ import {
   B_next,
   B_readOnce,
   B_readsPayload,
+  B_unsupportedDecode,
 } from "../builder";
 import type { JSONSchemaT } from "../jsonschema";
 import { instanceDecoder } from "../parse";
@@ -149,6 +151,13 @@ const binarySchema = (name: string, global: string, nameArg: string): Internal =
 
       s.encoder = (input, target) => {
         const targetTagFlag = tagFlags[target.type]!;
+        // A union picks its variant before an asynchronous read resolves, so the
+        // arm's own checks would run against the promise. The axis stops here,
+        // the way CONTENT_CODEC_SPEC.md says it stops at every union — a custom
+        // coder on the link is what reads a container into a choice of shapes.
+        if (flagUnsafeHas(targetTagFlag, tagFlagUnion)) {
+          return B_unsupportedDecode(input, input.s, target);
+        }
         if (flagUnsafeHas(targetTagFlag, tagFlagInstance)) {
           // Bytes are the payload, so a bytes target takes them as they are;
           // any other instance is not this carrier's business.

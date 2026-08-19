@@ -302,6 +302,7 @@ several times slower than either. `scenarios.yaml`'s `base64-pack` /
 | a `S.jsonString.with(S.to, X)` field of a decoded document — re-escaped its own text, then failed against X | parsed (rule 3) |
 | a `noValidation` field of a JSON document — `Can't decode JSON to Date` | decoded: `noValidation` drops the checks, not the conversion. Only `S.json` itself still travels as text, since its parse *is* its check |
 | every `Blob`/`File` conversion — creation error | its payload conversions work, and the rest asks. `S.file.with(S.to, S.blob)` widens; the other way round is still an error, because not every blob is a file |
+| — | a union target of a `Blob`/`File` stays an error, where a `S.uint8Array` one works: a union picks its variant before the read resolves, so the arm's checks would run against the promise |
 
 All land together. After this release, changes only turn errors into working
 code.
@@ -320,7 +321,7 @@ ASCII-only fixtures are what hid the corruption above.
 | `jsonstring-object-url`, `codec-array-never-jsonstring` | the two shapes that reach jsonString's fallback for a value it can't serialize piecewise |
 | `codec-base64-file` | payload transfer in and out of a binary container |
 | `codec-uint8array-jsonstring-ambiguous`, `codec-file-jsonstring-ambiguous`, `codec-base64-jsonstring-ambiguous` | rule 4, one per carrier kind |
-| `codec-uint8array-json-unsupported`, `codec-uint8array-optional-jsonstring-unsupported` | where the axis stops — `S.json` and a union, rejected without naming a slot |
+| `codec-uint8array-json-unsupported`, `codec-uint8array-optional-jsonstring-unsupported`, `codec-file-optional-email-unsupported` | where the axis stops — `S.json`, a union carrying a payload, and any union at all opposite a container whose read is asynchronous |
 | `codec-file-blob` | the one instance widening the axis makes legal, and the direction that stays an error |
 | `codec-base64-jsonstring-payload` | rule 3, the JWT segment |
 | `codec-jsonstring-object-uint8array`, `codec-jsonstring-object-file` | rule 2, both directions |

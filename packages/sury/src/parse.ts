@@ -54,6 +54,7 @@ import {
 import {
   B_embedInvalidInput,
   B_contentDiffers,
+  B_contentNode,
   B_inlineConst,
   B_markOutput,
   B_merge,
@@ -471,7 +472,10 @@ export function getDecoder(..._args: unknown[]): (from: unknown) => unknown {
         // schemas. Reported as a missing decoder rather than with the slot
         // spelling `codecTo` offers — this form has nowhere to write one, and a
         // custom coder is what answers it.
-        if (B_contentDiffers(mut.content, to.content) && to.to === U) {
+        if (
+          B_contentDiffers(B_contentNode(mut).content, B_contentNode(to).content) &&
+          to.to === U
+        ) {
           mut.parser = (input: Val) => B_unsupportedDecode(input, mut, to);
         }
       });
