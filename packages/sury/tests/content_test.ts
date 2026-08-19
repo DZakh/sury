@@ -131,3 +131,16 @@ test("a refinement that only reshapes the text keeps the carrier's marker", () =
   expect(S.parser(trimmed)("4oKs")).toEqual(euro);
   expect(S.encoder(trimmed)(euro)).toBe("4oKs");
 });
+
+test("the text a string target checks is the one the bytes spell", () => {
+  const address = S.email.with(S.to, S.uint8Array);
+  expect(S.encoder(address)(new TextEncoder().encode("a@b.co"))).toBe("a@b.co");
+  expect(() => S.encoder(address)(new TextEncoder().encode("nope"))).toThrow(
+    'Expected email, received "nope"',
+  );
+
+  // `noValidation` drops the checks, not the conversion.
+  const trusted = S.string.with(S.noValidation, true).with(S.to, S.uint8Array);
+  expect(S.encoder(trusted)(euro)).toBe("€");
+  expect(S.parser(S.uint8Array.with(S.to, S.string.with(S.noValidation, true)))(euro)).toBe("€");
+});

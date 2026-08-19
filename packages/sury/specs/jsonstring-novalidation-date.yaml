@@ -33,4 +33,8 @@ operations:
         input: '{ d: new Date("1970-01-01T00:00:00.000Z") }'
         output: '"{\"d\":\"1970-01-01T00:00:00.000Z\"}"'
   encode:
-    creationError: "SuryError: Failed at [\"d\"]: Can't decode JSON to Date. Use S.to to define a custom decoder"
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0["d"];typeof v1==="string"||e[1](v1);return {"d":new Date(v0["d"]),}}
+    examples:
+      reads-the-date-back:
+        input: '"{\"d\":\"1970-01-01T00:00:00.000Z\"}"'
+        output: '{ d: new Date("1970-01-01T00:00:00.000Z") }'

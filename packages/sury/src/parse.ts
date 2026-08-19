@@ -136,9 +136,11 @@ export const parse = (input: Val): Val => {
         maybeEncoder !== appliedEncoder &&
         loopInput.s !== loopInput.e &&
         loopInput.e.type !== unknownTag &&
-        // A `noValidation` target (S.assert's result sentinel) throws the value
-        // away, so there is nothing for an encoder to re-represent.
-        !loopInput.e.noValidation
+        // A `noValidation` target that is itself a stored form — a JSON
+        // document, S.assert's result sentinel — takes the value as it stands.
+        // Without the `content` test this also swallowed a conversion: bytes
+        // reaching a `noValidation` string still have to be decoded to text.
+        !(loopInput.e.noValidation && loopInput.e.content !== U)
       ) {
         result = maybeEncoder!(loopInput, loopInput.e);
       }

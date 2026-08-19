@@ -79,12 +79,16 @@ export const uint8Array: Internal = /* @__PURE__ */ initSchema(
         );
       }
       // Anything else that wants a string wants the text the bytes spell —
-      // which, for a format being opened (rule 3), is its document.
+      // which, for a format being opened (rule 3), is its document. Wrapped
+      // like the branch above, so the target's own checks read the text rather
+      // than the bytes that produced it.
       return flagUnsafeHas(targetTagFlag, tagFlagString)
-        ? B_computed(
-            input,
-            `${B_embed(input, new TextDecoder())}.decode(${B_readOnce(input)})`,
-            target.content !== U ? openedText(target) : string,
+        ? B_refine(
+            B_computed(
+              input,
+              `${B_embed(input, new TextDecoder())}.decode(${B_readOnce(input)})`,
+              target.content !== U ? openedText(target) : string,
+            ),
           )
         : input;
     };
