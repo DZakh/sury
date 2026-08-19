@@ -350,6 +350,13 @@ instead of silently working around it.
   reason. It costs a whole direction of the content axis: the `codec-*` specs
   for `S.uint8Array`, `S.base64`, `S.blob` and `S.file` carry codegen and error
   cases only, and `tests/content_test.ts` holds the values instead.
+- `operations` names `parse`, `decode` and `encode` only, so `S.assert` and
+  `S.is` have no golden anywhere. Both compile through the same builder chain
+  under a different result target, and a change to that target's handling broke
+  every `S.assert(…, S.json)` and `S.is(…, S.jsonString)` call with the whole
+  suite green. An `assert` op block, even one holding just an expression and a
+  pass/throw example, would have caught it; `tests/content_test.ts` holds it
+  instead.
 - A recursive schema the perf harness rebuilds per iteration can fail the
   `create+compile` phase where every other phase measures it fine —
   `specs/recursive-proto-name.yaml` raises "Cannot read properties of undefined

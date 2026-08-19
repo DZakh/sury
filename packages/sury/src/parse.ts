@@ -42,6 +42,7 @@ import {
   tagFlagUnknown,
   U,
   unknown,
+  undefinedTag,
   unknownTag,
   updateOutput,
   type Val,
@@ -136,11 +137,15 @@ export const parse = (input: Val): Val => {
         maybeEncoder !== appliedEncoder &&
         loopInput.s !== loopInput.e &&
         loopInput.e.type !== unknownTag &&
-        // A `noValidation` target that is itself a stored form — a JSON
-        // document, S.assert's result sentinel — takes the value as it stands.
-        // Without the `content` test this also swallowed a conversion: bytes
-        // reaching a `noValidation` string still have to be decoded to text.
-        !(loopInput.e.noValidation && loopInput.e.content !== U)
+        // A `noValidation` target takes the value as it stands when it is a
+        // stored form of one (a JSON document) or when the operation discards
+        // it anyway (S.assert's `undefined` result sentinel). Skipping every
+        // such target swallowed a conversion too: bytes reaching a
+        // `noValidation` string still have to be decoded to text.
+        !(
+          loopInput.e.noValidation &&
+          (loopInput.e.content !== U || loopInput.e.type === undefinedTag)
+        )
       ) {
         result = maybeEncoder!(loopInput, loopInput.e);
       }

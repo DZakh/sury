@@ -144,3 +144,16 @@ test("the text a string target checks is the one the bytes spell", () => {
   expect(S.encoder(trusted)(euro)).toBe("€");
   expect(S.parser(S.uint8Array.with(S.to, S.string.with(S.noValidation, true)))(euro)).toBe("€");
 });
+
+// `S.assert` and `S.is` compile through the same builder chain as the codecs
+// above, against a result target that discards the value — and the spec format
+// has no op block for either, so this is the only place the pair is pinned (see
+// CONTRIBUTING.md's Spec Harness Suggestions).
+test("a document still asserts, where nothing is re-represented at all", () => {
+  expect(S.assert(`"hi"`, S.jsonString)).toBe(undefined);
+  expect(S.assert({ a: 1 }, S.json)).toBe(undefined);
+  expect(S.assert("hi", S.string.with(S.to, S.jsonString))).toBe(undefined);
+  expect(S.is({ a: 1 }, S.json)).toBe(true);
+  expect(S.is(`{"a":1}`, S.jsonString)).toBe(true);
+  expect(S.is(42, S.jsonString)).toBe(false);
+});
