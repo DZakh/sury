@@ -5,6 +5,10 @@ ts:
   output: "{ a: string; }"
   instantiations: 6557
 jsonSchema:
+  # FIXME: `encodeToJsonSchema` reverses and parses to learn the input's shape,
+  # and a document carrying a document hands it back a node of the same shape,
+  # so it recurses until the stack goes. Predates the content axis — identical
+  # on main — but this work is what makes a nested payload something to write.
   input: Maximum call stack size exceeded
   output: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'
 vs:

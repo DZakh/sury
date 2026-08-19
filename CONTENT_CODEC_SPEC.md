@@ -256,10 +256,11 @@ generated code a hand-written converter wouldn't contain.
 
 The one price is the universal path: `getDecoder` is in every bundle, so
 `B_contentDiffers` is too, and `copySchema` and `reverse` each carry a line for
-the two markers. About 190 gzipped bytes on every export
-(`bundleSize.yaml`, where the smallest go 4136 → 4329) — the question and one
-closure; the messages ride with the callers. That buys a
-creation-time gate on conversions that otherwise corrupt data silently.
+the two markers. About 180 gzipped bytes on every export (`bundleSize.yaml`,
+where the smallest go 4136 → 4315) — the question and one closure; the messages
+ride with the callers, and so does the union walk `B_contentNode` does, which is
+why only `codecTo` pays for it. That buys a creation-time gate on conversions
+that otherwise corrupt data silently.
 
 **Conversions live on the carrier, not the format** — the existing `S.date`
 pattern. `S.uint8Array`'s encoder owns base64; `S.file`'s owns `.text()` /

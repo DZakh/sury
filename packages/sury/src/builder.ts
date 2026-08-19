@@ -958,18 +958,17 @@ export const B_neverSlot: Builder = (input: Val) =>
 export const B_contentNode = (schema: Internal): Internal =>
   (schema.content === U && schema.anyOf?.find((arm) => arm.content !== U)) || schema;
 
-// CONTENT_CODEC_SPEC.md rule 4's question, without its answer: whether the link
-// has two readings — store the source's value in the target, or open the source
-// and hand its payload over — and no `.to` on the target picking the second
-// (rule 3). Compiling can't tell the two apart, because reversing a chain turns
-// that payload declaration into just another link, so the reading is settled
-// where the link is made. What to say about it differs by where that was, so the
-// message stays with the caller.
-export const B_contentDiffers = (mut: Internal, target: Internal): boolean => {
-  const from = B_contentNode(mut).content;
-  const to = B_contentNode(target).content;
-  return from !== U && to !== U && from !== to && target.to === U;
-};
+// Half of CONTENT_CODEC_SPEC.md rule 4's question: whether two payloads are of
+// different kinds, which is what puts two readings on the table — store the
+// source's value in the target, or open the source and hand its payload over.
+// The other half, a `.to` on the target picking the second (rule 3), stays with
+// each caller: only one of them reaches unions, and folding it in here would put
+// that walk in every bundle. Compiling can't tell the two readings apart,
+// because reversing a chain turns a payload declaration into just another link,
+// so the reading is settled where the link is made — and what to say about it
+// differs by where that was, so the message stays with the caller too.
+export const B_contentDiffers = (from?: Internal, to?: Internal): boolean =>
+  from !== U && to !== U && from !== to;
 
 // Which reading of a content link applies: a `"pack"`/`"unpack"` slot the caller
 // wrote wins (rule 1), and otherwise a target that names its own payload is what

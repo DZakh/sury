@@ -109,13 +109,15 @@ const binarySchema = (name: string, global: string, nameArg: string): Internal =
     (input: Val): Val => {
       const source = input.s;
       const sourceTagFlag = tagFlags[source.type]!;
-      const value = B_readOnce(input);
+      // `B_readOnce` inside each branch that uses it: materializing the var up
+      // front left a dead `let vN = …` on the two paths below, which take the
+      // value as it stands.
       const parts = flagUnsafeHas(sourceTagFlag, tagFlagString)
         ? source.content === base64
-          ? `${B_embed(input, base64ToBytes)}(${value})`
-          : value
+          ? `${B_embed(input, base64ToBytes)}(${B_readOnce(input)})`
+          : B_readOnce(input)
         : flagUnsafeHas(sourceTagFlag, tagFlagInstance) && source.class === Uint8Array
-          ? value
+          ? B_readOnce(input)
           : U;
       if (parts !== U) {
         return B_next(input, `new ${B_embed(input, input.e.class)}([${parts}]${nameArg})`, input.e);
