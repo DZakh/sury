@@ -358,12 +358,12 @@ export const json: Internal = /* @__PURE__ */ initSchema(refTag, jsonDecoderFn, 
 // default hands over reassociates into `("\""+i)===void 0?…` and drops the
 // opening quote on every input.
 //
-// A call stays out even though it binds tighter than `+`: `escapeFree` is a
-// property of the values a schema admits, and the value a call produces is the
-// one the schema hasn't checked — `noValidation` on a `S.url` or `S.date` field
-// voids the proof exactly there, and a raw splice would emit broken JSON rather
-// than merely over-escaped JSON. So a converted value goes through the helper,
-// which is what every other computed piece does.
+// A call *with arguments* stays out, even though it binds no looser than a bare
+// one: `escapeFree` is a property of the values a schema admits, and what a
+// conversion hands over is the value its source was never checked to be — so a
+// packed carrier goes through the helper unless it materialized a var of its
+// own. The zero-argument form is grandfathered, `.toISOString()` among it; see
+// `jsonstring-novalidation-date`, which is what that costs.
 const accessorRe = /^[\w$]+(\.[\w$]+|\[[^\[\]]*\]|\(\))*$/;
 
 

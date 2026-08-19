@@ -952,9 +952,9 @@ export const B_neverSlot: Builder = (input: Val) =>
 // decoder as the same pair. So the reading is settled where the link is made,
 // and an unreadable one takes a slot that rejects the operation instead.
 // The node a link's content reading comes from: the schema, or the arm that
-// carries one where the schema is a union. A union has neither `content` nor
-// `.to` of its own, and linking a carrier to `S.optional(S.jsonString)` puts the
-// same two readings on the table as linking it to `S.jsonString`.
+// carries one where the schema is a union — which has neither `content` nor
+// `.to` of its own, though linking a carrier to `S.optional(S.jsonString)` puts
+// the same two readings on the table as linking it to `S.jsonString`.
 export const B_contentNode = (schema: Internal): Internal =>
   (schema.content === U && schema.anyOf?.find((arm) => arm.content !== U)) || schema;
 

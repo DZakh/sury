@@ -930,7 +930,11 @@ export const base64: Internal = /* @__PURE__ */ (() => {
   const padded = /^[A-Za-z0-9+/]*={0,2}$/;
   const schema = stringFormat(
     "base64",
-    (value) => value.length % 4 === 0 && padded.test(value),
+    // The `typeof` is what every RegExp-tested format gets for free from
+    // `.test`'s coercion: without it, reading `.length` off a value an operation
+    // trusted rather than checked throws the platform's error instead of
+    // reporting the format.
+    (value) => typeof value === stringTag && value.length % 4 === 0 && padded.test(value),
     true,
   );
   setContent(schema, schema);
