@@ -356,11 +356,15 @@ export const json: Internal = /* @__PURE__ */ initSchema(refTag, jsonDecoderFn, 
 // Anything but a bare accessor needs parenthesizing before it can sit between
 // two `+`: `+` binds tighter than `?:`, so the ternary a `.to` chain with a
 // default hands over reassociates into `("\""+i)===void 0?…` and drops the
-// opening quote on every input. A call is admitted — it binds tighter than `+`,
-// and a packed bytes field arrives as one — but only with parenthesis-free
-// arguments, so the shape stays something this regex can actually see the end
-// of.
-const accessorRe = /^[\w$]+(\.[\w$]+|\[[^\[\]]*\]|\([^()]*\))*$/;
+// opening quote on every input.
+//
+// A call stays out even though it binds tighter than `+`: `escapeFree` is a
+// property of the values a schema admits, and the value a call produces is the
+// one the schema hasn't checked — `noValidation` on a `S.url` or `S.date` field
+// voids the proof exactly there, and a raw splice would emit broken JSON rather
+// than merely over-escaped JSON. So a converted value goes through the helper,
+// which is what every other computed piece does.
+const accessorRe = /^[\w$]+(\.[\w$]+|\[[^\[\]]*\]|\(\))*$/;
 
 
 // Runtime helper embedded into generated jsonString code: the JSON text of a
@@ -1000,7 +1004,18 @@ export const jsonString = /* @__PURE__ */ (() => {
         input.e = stringTarget;
         return parse(input);
       } catch {
-        return B_unsupportedDecode(input, input.s, expectedSchema);
+        // A schema with no string form of its own still has one when it is
+        // asked directly — `S.never` is the reachable case, an unreachable item
+        // whose branch compiles away rather than converting anything. Keep its
+        // own schema and hang the string target off its `.to`.
+        try {
+          const viaSelf = copySchema(input.s);
+          viaSelf.to = stringTarget;
+          input.e = viaSelf;
+          return parse(input);
+        } catch {
+          return B_unsupportedDecode(input, input.s, expectedSchema);
+        }
       }
     }
   };

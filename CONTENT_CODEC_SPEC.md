@@ -302,7 +302,7 @@ ASCII-only fixtures are what hid the corruption above.
 | `base64`, `uint8array` | the carriers themselves, and `base64`'s `contentEncoding` emit |
 | `codec-uint8array-base64` | the bytes payload transfer |
 | `codec-base64-string` vs `codec-jsonstring-string` | the payload rule's least guessable pair — widen vs parse |
-| `jsonstring-object-url` | the raw splice `accessorRe` now admits, and that `S.url` really is escape-free through it |
+| `jsonstring-object-url`, `codec-array-never-jsonstring` | the two shapes that reach jsonString's fallback for a value it can't serialize piecewise |
 | `codec-base64-file` | payload transfer in and out of a binary container |
 | `codec-uint8array-jsonstring-ambiguous`, `codec-file-jsonstring-ambiguous`, `codec-base64-jsonstring-ambiguous` | rule 4, one per carrier kind |
 | `codec-uint8array-json-unsupported`, `codec-uint8array-optional-jsonstring-unsupported` | where the axis stops — `S.json` and a union, rejected without naming a slot |

@@ -51,7 +51,10 @@ export const uint8Array: Internal = /* @__PURE__ */ initSchema(
       return instanceDecoder(input);
     }
     // Without this arm a `S.uint8Array.with(S.to, S.number)` encode handed the
-    // number back typed as bytes.
+    // number back typed as bytes. A value that reaches the conversions above
+    // and isn't bytes is a different story — an encode trusts its declared
+    // type, and the platform's own exception is what `S.date` gives for the
+    // same lie, so neither is wrapped.
     return B_unsupportedDecode(input, source, input.e);
   },
   (s) => {

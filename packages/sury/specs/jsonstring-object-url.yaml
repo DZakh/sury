@@ -12,7 +12,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["href"];v0 instanceof e[0]||e[1](v0);return "{\"href\":\""+e[2](v0)+"\"}"}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i["href"];v0 instanceof e[0]||e[1](v0);return "{\"href\":"+e[3](e[2](v0))+"}"}
     examples:
       plain:
         input: '{ href: new URL("https://example.com/a?b=c#d") }'
@@ -21,7 +21,7 @@ operations:
         input: '{ href: new URL("https://example.com/%22x") }'
         output: '"{\"href\":\"https://example.com/%22x\"}"'
   decode:
-    expression: i=>{return "{\"href\":\""+e[0](i["href"])+"\"}"}
+    expression: i=>{return "{\"href\":"+e[1](e[0](i["href"]))+"}"}
     examples:
       plain:
         input: '{ href: new URL("https://example.com/a?b=c#d") }'
