@@ -71,15 +71,22 @@ const binaryJSONSchema = (_schema: Internal, target: string): JSONSchemaT =>
 // that is what makes `.`'s precedence a non-question, where a val handed over as
 // a ternary would otherwise have the method read off the wrong branch.
 const read = (input: Val, call: string, schema: Internal): Val => {
-  // Caught the way `B_conversion` catches a coder's rejection: a read that
-  // fails (the backing file moved, say) is a `DOMException`, and letting one
-  // escape hands the enclosing array or dict a plain Error to stamp a path onto.
+  // Caught the way `B_conversion` catches a coder's failure, both halves: the
+  // call itself throws on a value an operation trusted rather than checked, and
+  // the promise rejects when the read fails (the backing file moved, say). A
+  // `TypeError` or `DOMException` escaping either way hands the enclosing array
+  // or dict a plain Error to stamp a path onto.
   const failure = B_failWithArg(
     input,
     (cause: unknown) => B_makeInvalidConversionDetails(input, schema, cause),
     `x`,
   );
-  const output = B_computed(input, `${B_readOnce(input)}${call}.catch(x=>${failure})`, schema);
+  const output = B_computed(
+    input,
+    `${B_readOnce(input)}${call}.catch(x=>${failure})`,
+    schema,
+    failure,
+  );
   B_markAsync(input, output);
   return output;
 };

@@ -25,7 +25,7 @@ operations:
         error: Expected JSON string, received "nope"
   encode:
     isAsync: true
-    expression: i=>{let v6={};for(let v2 in i){try{let v3=i[v2];let v4=v3.arrayBuffer().then(b=>e[0](new Uint8Array(b))).catch(x=>e[1](x));v6[v2]=v4.catch(v5=>{v5.path='["'+v2+'"]'+v5.path;throw v5})}catch(v5){v5.path='["'+v2+'"]'+v5.path;throw v5}}let v12=new Promise((v7,v8)=>{let v10=Object.keys(v6).length;if(!v10){v7(v6)}for(let v2 in v6){v6[v2].then(v9=>{v6[v2]=v9;if(v10--===1){v7(v6)}},v8)}});return v12.then(v11=>JSON.stringify(v11))}
+    expression: i=>{let v6={};for(let v2 in i){try{let v3=i[v2];let v4;try{v4=v3.arrayBuffer().then(b=>e[0](new Uint8Array(b))).catch(x=>e[1](x))}catch(x){e[1](x)}v6[v2]=v4.catch(v5=>{v5.path='["'+v2+'"]'+v5.path;throw v5})}catch(v5){v5.path='["'+v2+'"]'+v5.path;throw v5}}let v12=new Promise((v7,v8)=>{let v10=Object.keys(v6).length;if(!v10){v7(v6)}for(let v2 in v6){v6[v2].then(v9=>{v6[v2]=v9;if(v10--===1){v7(v6)}},v8)}});return v12.then(v11=>JSON.stringify(v11))}
     examples:
       empty:
         input: "{}"

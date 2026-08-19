@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.jsonString.with(S.to, S.schema({ p: S.optional(S.base64.with(S.minLength, 2)) }))"
+  input: string
+  output: "{ p?: string | undefined; }"
+  instantiations: 7729
+jsonSchema:
+  input: '{ type: "string", contentMediaType: "application/json" }'
+  output: '{ type: "object", properties: { p: { type: "string", contentEncoding: "base64", minLength: 2 } } }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[6](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[5](v0);let v1=(v0["p"]??null);for(;;){if(typeof v1==="string"){e[1](v1)||e[2](v1);v1.length>1||e[3](v1);break}if(v1===null){v1=void 0;break}e[4](v1)}return {"p":v1,}}
+    examples:
+      present:
+        input: '"{\"p\":\"aGk=\"}"'
+        output: '{ p: "aGk=" }'
+      absent:
+        input: '"{}"'
+        output: "{ p: undefined }"
+      not-base64:
+        input: '"{\"p\":\"!!\"}"'
+        error: 'Failed at ["p"]: Expected base64.length >= 2, received "!!"'
+      too-short:
+        input: '"{\"p\":\"\"}"'
+        error: 'Failed at ["p"]: Expected base64.length >= 2, received ""'
+  decode:
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[5](v0);let v1=(v0["p"]??null);for(;;){if(typeof v1==="string"){e[1](v1)||e[2](v1);v1.length>1||e[3](v1);break}if(v1===null){v1=void 0;break}e[4](v1)}return {"p":v1,}}
+    examples:
+      present:
+        input: '"{\"p\":\"aGk=\"}"'
+        output: '{ p: "aGk=" }'
+  encode:
+    expression: i=>{let v0=i["p"];let v1="";if(v0!==void 0){v1+="\"p\":\""+v0+"\""}return "{"+v1+"}"}
+    examples:
+      present:
+        input: '{ p: "aGk=" }'
+        output: '"{\"p\":\"aGk=\"}"'
+      absent:
+        input: "{}"
+        output: '"{}"'

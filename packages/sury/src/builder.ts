@@ -757,11 +757,22 @@ export const B_readOnce = (input: Val): string => input.v();
 // twice (jsonString's escape-free form does), and unlike a property path this is
 // a fresh pass over the whole value — so it is computed once, the way
 // B_conversion computes a custom coder's result once.
-export const B_computed = (input: Val, code: string, schema: Internal): Val => {
+export const B_computed = (
+  input: Val,
+  code: string,
+  schema: Internal,
+  failure?: string,
+): Val => {
   const outputVar = B_varWithoutAllocation(input.g);
   const output = B_next(input, outputVar, schema);
   output.v = _var;
-  output.cp = `let ${outputVar}=${code};`;
+  // With a `failure`, the whole `B_conversion` shape: a computation that can
+  // throw on a value the operation trusted rather than checked reports it as a
+  // failed conversion instead of escaping as whatever the platform raised.
+  output.cp =
+    failure === U
+      ? `let ${outputVar}=${code};`
+      : `let ${outputVar};try{${outputVar}=${code}}catch(x){${failure}}`;
   return output;
 };
 

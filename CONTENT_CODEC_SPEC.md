@@ -309,7 +309,7 @@ ASCII-only fixtures are what hid the corruption above.
 | `codec-file-blob` | the one instance widening the axis makes legal, and the direction that stays an error |
 | `codec-base64-jsonstring-payload` | rule 3, the JWT segment |
 | `codec-jsonstring-object-uint8array`, `codec-jsonstring-object-file` | rule 2, both directions |
-| `codec-jsonstring-object-optional-uint8array` | rule 2 through a union arm, where the dispatch works from the target's variants |
+| `codec-jsonstring-object-optional-uint8array`, `jsonstring-optional-base64-field` | rule 2 through a union arm — the one that needs a hop to the stored form, and the one that already is it |
 | `codec-jsonstring-object-optional-file`, `codec-jsonstring-dict-file` | the two things an async encode broke: an object's optional fields, and a dict with no keys |
 | `jsonstring-novalidation-base64` | `noValidation` voids the raw-splice proof for a content format too |
 | `codec-jsonstring-object-jsonstring`, `codec-jsonstring-jsonstring-payload` | the nested-document field, and the document that carries one directly |

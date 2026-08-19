@@ -133,13 +133,17 @@ export const jsonEncoderFn = (input: Val, target: Internal): Val => {
     const anyOf = target.anyOf;
     // The variant's own head, exactly as the `else` branch below reads the
     // target's: an arm that already says how it is stored (`S.string.with(S.to,
-    // S.uint8Array)` is text, not base64) keeps saying it. An arm that *is* how
-    // it is stored (`S.base64`) needs no hop, and one storing a JSON value is
+    // S.uint8Array)` is text, not base64) keeps saying it. An arm already shaped
+    // like its stored form (`S.base64`, and anything derived from it) needs no
+    // hop — one would re-run the format's own checks and drop whatever the
+    // caller put on the arm — and one storing a JSON value is
     // left alone too — a document nested in a document is an escaped string,
     // which `B_narrowJsonSourcedJsonString` already routes, and standing
     // `S.json` in front of it would match every value and swallow the dispatch.
-    const storedApart = (variant: Internal): Internal | undefined =>
-      variant.content !== json && variant.content !== variant ? variant.content : U;
+    const storedApart = (variant: Internal): Internal | undefined => {
+      const content = variant.content;
+      return content !== U && content !== json && content.type !== variant.type ? content : U;
+    };
     if (anyOf !== U && anyOf.some((variant) => storedApart(variant) !== U)) {
       const stored = unionFactory(
         anyOf.map((variant) => {
