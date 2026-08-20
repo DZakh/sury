@@ -193,6 +193,5 @@ module Assert = {
     }
   }
 
-  let notThrows = (t: testContext, fn: unit => 'a, ~message as _=?) =>
-    t.expect(fn).not_.toThrow()
+  let notThrows = (t: testContext, fn: unit => 'a, ~message as _=?) => t.expect(fn).not_.toThrow()
 }

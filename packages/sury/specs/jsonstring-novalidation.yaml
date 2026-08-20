@@ -3,10 +3,10 @@ ts:
   schema: S.noValidation(S.json, true).with(S.to, S.jsonString)
   input: JSON
   output: string
-  instantiations: 5211
+  instantiations: 5350
 jsonSchema:
   input: "{}"
-  output: '{ type: "string" }'
+  output: '{ type: "string", contentMediaType: "application/json" }'
 vs:
   zod:
     _skip: not-applicable

@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.string.with(S.to, S.number, { decode: (value) => value.length, encode: { async: (value) => Promise.resolve("x".repeat(value)) } })'
+  input: string
+  output: number
+  instantiations: 5365
+jsonSchema:
+  input: '{ type: "string" }'
+  output: '{ type: "number" }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[3](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="number"&&!Number.isNaN(v0)||e[2](v0);return v0}
+    examples:
+      forward-stays-sync:
+        input: '"abc"'
+        output: "3"
+  decode:
+    expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="number"&&!Number.isNaN(v0)||e[2](v0);return v0}
+    examples:
+      forward-stays-sync:
+        input: '"abc"'
+        output: "3"
+  encode:
+    isAsync: true
+    expression: i=>{let v0;try{v0=e[0](i).catch(x=>e[1](x))}catch(x){e[1](x)}return v0.then(v0=>{typeof v0==="string"||e[2](v0);return v0})}
+    examples:
+      round-trip:
+        input: "3"
+        output: '"xxx"'

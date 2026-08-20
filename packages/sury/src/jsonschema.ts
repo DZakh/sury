@@ -27,6 +27,7 @@ import {
   nullTag,
   numberTag,
   objectTag,
+  openApi30,
   type Path,
   pathConcat,
   pathDynamic,
@@ -216,6 +217,7 @@ export type JSONSchemaT = {
    */
   contentMediaType?: string;
   contentEncoding?: string;
+  contentSchema?: JSONSchemaDefinition;
   /**
    * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-9
    */
@@ -243,7 +245,7 @@ export type JsonSchemaTarget = "draft-07" | "draft-2020-12" | "openapi-3.0" | (s
 
 // Compared on every emit branch that differs by dialect; naming it once keeps
 // the literal out of the bundle at each of those sites.
-const openApi30 = "openapi-3.0";
+const draft202012 = "draft-2020-12";
 const draft07Uri = "http://json-schema.org/draft-07/schema#";
 const draft2020Uri = "https://json-schema.org/draft/2020-12/schema";
 
@@ -265,11 +267,39 @@ const jsonSchemaMerge = (a: JSONSchemaT, b: JSONSchemaT): JSONSchemaT => {
 const isAnyJSONSchema = (definition: JSONSchemaDefinition | undefined): boolean =>
   definition === true || (!!definition && Object.keys(definition).length === 0);
 
+// Everything the structural conversion didn't say, in precedence order: the
+// user's own `S.extendJSONSchema` document lands last and so always wins.
 const applyMetadataOverlay = (
   jsonSchema: JSONSchemaT,
   schema: Internal,
-  defs: Record<string, Internal>
+  path: Path,
+  defs: Record<string, Internal>,
+  target: JsonSchemaTarget
 ): void => {
+  // Both read `.to` from the carrier, never from the target itself: the
+  // encode-reverse only ever answers "a string", and the target's own input is
+  // often not JSON at all — `S.blob` has no document, the string it encodes
+  // into does.
+  const to = schema.to;
+  if (to !== U) {
+    if (to.jsonSchema) {
+      Object.assign(jsonSchema, to.jsonSchema(to, target));
+    }
+    // `contentSchema` landed in draft 2019-09; draft-07 has no slot for it.
+    if (schema.format === "json" && target === draft202012) {
+      try {
+        const contentSchema = internalToJSONSchema(to, path, defs, schema, target);
+        // `{}` — what `S.json` converts to — says nothing the media type hasn't.
+        if (Object.keys(contentSchema).length) {
+          jsonSchema.contentSchema = contentSchema;
+        }
+      } catch (exn) {
+        // A `.to` with no JSON Schema form (`S.bigint`, `S.uint8Array`) drops
+        // the annotation rather than failing a conversion that has an answer.
+        getOrRethrow(exn);
+      }
+    }
+  }
   if (schema.description !== U) {
     jsonSchema.description = schema.description;
   }
@@ -343,7 +373,7 @@ const internalToJSONSchema = (
     ? encodeToJsonSchema(schema, path, defs, parent, target)
     : U;
   if (encoded !== U) {
-    applyMetadataOverlay(encoded, schema, defs);
+    applyMetadataOverlay(encoded, schema, path, defs, target);
     return encoded;
   } else {
     return internalToJSONSchemaBase(schema, path, defs, parent, target);
@@ -377,6 +407,11 @@ const internalToJSONSchemaBase = (
     // stays flat as formats are added.
     if (format !== U && format !== "cuid" && format !== "json") {
       jsonSchema.format = format;
+    } else if (format === "json" && target !== openApi30) {
+      // A carried document is not one of the spec's named string shapes, so it
+      // is `contentMediaType` rather than a `format`. OpenAPI 3.0 predates the
+      // whole content family.
+      jsonSchema.contentMediaType = "application/json";
     }
     if (schema.minLength !== U) {
       jsonSchema.minLength = schema.minLength;
@@ -486,7 +521,7 @@ const internalToJSONSchemaBase = (
         // OpenAPI 3.0 has no tuple support. Describe a fixed-length array
         // whose every item matches any of the positional item schemas.
         jsonSchema.items = { anyOf: itemDefinitions };
-      } else if (target === "draft-2020-12") {
+      } else if (target === draft202012) {
         // draft-2020-12 uses `prefixItems` for positional schemas.
         jsonSchema.prefixItems = itemDefinitions;
       } else {
@@ -495,7 +530,7 @@ const internalToJSONSchemaBase = (
       }
       if (typeof additionalItems === "object") {
         if (additionalItems.type === neverTag) {
-          if (target === "draft-2020-12") jsonSchema.items = false;
+          if (target === draft202012) jsonSchema.items = false;
           else if (target !== openApi30) jsonSchema.additionalItems = false;
         } else {
           const rest = internalToJSONSchema(
@@ -506,7 +541,7 @@ const internalToJSONSchemaBase = (
             target
           );
           if (Object.keys(rest).length !== 0) {
-            if (target === "draft-2020-12") jsonSchema.items = rest;
+            if (target === draft202012) jsonSchema.items = rest;
             else if (target !== openApi30) jsonSchema.additionalItems = rest;
           }
         }
@@ -658,7 +693,7 @@ const internalToJSONSchemaBase = (
     });
   }
 
-  applyMetadataOverlay(jsonSchema, schema, defs);
+  applyMetadataOverlay(jsonSchema, schema, path, defs, target);
 
   return jsonSchema;
 }
@@ -674,7 +709,7 @@ const targetSchemaUri = (target: JsonSchemaTarget): string | undefined => {
   switch (target) {
     case "draft-07":
       return draft07Uri;
-    case "draft-2020-12":
+    case draft202012:
       return draft2020Uri;
     // OpenAPI 3.0 has no `$schema` property.
     case openApi30:
@@ -705,29 +740,25 @@ export const toJSONSchema = (schema: Internal, options?: toJSONSchemaOptions): J
     target = "draft-07";
     schemaUri = U;
   }
-  const defs: Record<string, Internal> = {};
+  // Null prototypes: definitions are named by their author. `__proto__` would
+  // set a prototype instead of taking a key, and `toString` would read back as
+  // already converted — either way a `$ref` to a definition nobody publishes.
+  const defs: Record<string, Internal> = Object.create(null);
   const jsonSchema = internalToJSONSchema(schema, pathEmpty, defs, schema, target);
   if (options !== U) delete jsonSchema.$schema;
-  delete (defs as Record<string, unknown>).JSON;
-  const defsKeys = Object.keys(defs);
-  if (defsKeys.length) {
-    // Reuse the same object to prevent allocations
-    // Nothing critical, just because we can
-    const jsonSchemDefs = defs as unknown as Record<string, JSONSchemaDefinition>;
-    defsKeys.forEach((key) => {
-      const schema = defs[key]!;
-      jsonSchemDefs[key] = internalToJSONSchema(
-        schema,
-        pathEmpty,
-        // A fresh, thrown-away sink — it's not possible to have nested
-        // recursive schemas here; everything should be grouped into the
-        // single top-level $defs collected above, not accumulate into a
-        // second one.
-        {},
-        schema,
-        target
-      );
-    });
+  const jsonSchemDefs: Record<string, JSONSchemaDefinition> = Object.create(null);
+  // Converting a def body can name defs of its own, so the set grows while it
+  // is walked — a schema reached only from inside another one is otherwise left
+  // with a `$ref` nobody publishes. `S.json` names itself in here and is the
+  // one that stays unpublished: it converts to `{}`.
+  let name: string | undefined;
+  while (
+    (name = Object.keys(defs).find((key) => key !== jsonName && !(key in jsonSchemDefs))) !== U
+  ) {
+    const def = defs[name]!;
+    jsonSchemDefs[name] = internalToJSONSchema(def, pathEmpty, defs, def, target);
+  }
+  if (Object.keys(jsonSchemDefs).length) {
     jsonSchema.$defs = jsonSchemDefs;
   }
   if (schemaUri !== U) {

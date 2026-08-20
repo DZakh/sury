@@ -1,15 +1,18 @@
 open Vitest
 
-let validAsyncRefine = S.transform(_, () => {
-  asyncParser: value => value->Promise.resolve,
-})
+let validAsyncRefine = S.to(
+  _,
+  S.any,
+  ~custom={decode: Async(value => value->Promise.resolve), encode: Never},
+)
 let invalidSyncRefine = S.refine(_, _ => false, ~error="Sync user error")
 let unresolvedPromise = Promise.make((_, _) => ())
-let makeInvalidPromise = () =>
-  Promise.resolve()->Promise.then(() => U.fail("Async user error"))
-let invalidAsyncRefine = S.transform(_, () => {
-  asyncParser: _ => makeInvalidPromise(),
-})
+let makeInvalidPromise = () => Promise.resolve()->Promise.then(() => U.fail("Async user error"))
+let invalidAsyncRefine = S.to(
+  _,
+  S.any,
+  ~custom={decode: Async(_ => makeInvalidPromise()), encode: Never},
+)
 
 // asyncTest("Successfully parses without asyncRefine", t => {
 //   let schema = S.string
@@ -484,7 +487,7 @@ module Union = {
     // work — the operation itself is the problem, so it's raised once.
     t->U.assertThrowsMessage(
       () => 2->S.parseOrThrow(~to=schema),
-      "Encountered unexpected async transform or refine. Use parseAsyncOrThrow operation instead",
+      "Invalid async during sync operation",
     )
   })
 
@@ -527,18 +530,30 @@ module Union = {
     let actionCounter = ref(0)
 
     let schema = S.union([
-      S.literal(2)->S.transform(() => {
-        asyncParser: _ => {
-          actionCounter.contents = actionCounter.contents + 1
-          unresolvedPromise
+      S.literal(2)->S.to(
+        S.any,
+        ~custom={
+          decode: Async(
+            _ => {
+              actionCounter.contents = actionCounter.contents + 1
+              unresolvedPromise
+            },
+          ),
+          encode: Never,
         },
-      }),
-      S.literal(2)->S.transform(() => {
-        asyncParser: _ => {
-          actionCounter.contents = actionCounter.contents + 1
-          unresolvedPromise
+      ),
+      S.literal(2)->S.to(
+        S.any,
+        ~custom={
+          decode: Async(
+            _ => {
+              actionCounter.contents = actionCounter.contents + 1
+              unresolvedPromise
+            },
+          ),
+          encode: Never,
         },
-      }),
+      ),
     ])
 
     2->S.parseAsyncOrThrow(~to=schema)->ignore

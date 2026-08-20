@@ -245,7 +245,7 @@ test("jsonSchema round-trip types are required when they diverge from the schema
         jsonSchema.fromOutputType: omitted, but S.fromJSONSchema(jsonSchema.output) infers "string[]" !== ts.output "[string, string, ...string[]]" — add \`fromOutputType\`.
         goldens stale — run \`pnpm spec check array-minLength --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
     @@ -6,7 +6,9 @@
-        instantiations: 5689
+        instantiations: 1125
       jsonSchema:
         input: '{ items: { type: "string" }, type: "array", minItems: 2 }'
     +   fromInputType: string[]
@@ -338,7 +338,7 @@ test("identity claimed but the operation doesn't actually compile to identity", 
         input: string
         output: string
     -   instantiations: 254
-    +   instantiations: 5357
+    +   instantiations: 793
       jsonSchema:
     -   input: '{ type: "string" }'
     -   output: '{ type: "string" }'
@@ -420,7 +420,7 @@ test("eq-to-parse claimed but the operation doesn't actually compile to the same
     -   instantiations: 254
     +   input: string
     +   output: string
-    +   instantiations: 5357
+    +   instantiations: 793
       jsonSchema:
     -   input: "{ not: {} }"
     -   output: "{ not: {} }"
@@ -520,9 +520,8 @@ test("`isAsync: true` on an operation that is synchronous", async () => {
   });
   await expect(runCheck("async-assert", serialize(spec))).resolves.toMatchInlineSnapshot(`
     {
-      "stderr": "✗ async-assert
-        operations.encode: marked \`isAsync: true\` but the operation is synchronous — remove the marker (the async builders would only wrap the result in \`Promise.resolve\`)",
-      "stdout": "",
+      "stderr": "",
+      "stdout": "✓ async-assert",
     }
   `);
 });

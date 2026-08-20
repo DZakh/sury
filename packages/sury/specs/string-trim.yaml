@@ -8,7 +8,7 @@ ts:
   instantiations: 330
 jsonSchema:
   input: '{ type: "string" }'
-  output: Expected JSON, received unknown
+  output: '{ type: "string" }'
 vs:
   zod: z.string().trim()
 operations:
@@ -31,7 +31,7 @@ operations:
         input: '"  123"'
         output: '"123"'
   encode:
-    expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);return v0}
+    expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}
     examples:
       valid:
         input: '"123"'

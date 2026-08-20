@@ -3,7 +3,7 @@ ts:
   schema: S.schema(null).with(S.to, S.schema(undefined))
   input: "null"
   output: undefined
-  instantiations: 5509
+  instantiations: 5651
 jsonSchema:
   input: '{ type: "null" }'
   output: Expected JSON, received undefined

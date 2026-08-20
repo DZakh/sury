@@ -81,7 +81,7 @@ const isItemSchema = (x: AdditionalItems | undefined): x is Internal =>
 // its own loop (jsonStringAggregate in advanced/json.ts) and re-parses each
 // item from unknown when the incoming val carries `uv` — so the validation
 // loop here would walk the container a second time (and rebuild transformed
-// items) for nothing. Skip it and hand the container over unvalidated. Value
+// items) for nothing. Skip it and hand the container over unvalidated. Item
 // types the aggregate serializes via native JSON.stringify (its fallback:
 // bare strings/booleans/null) must stay validated here — the aggregate
 // mirrors that by never taking the fallback on a `uv` val.
@@ -89,7 +89,6 @@ const B_fuseIntoJsonString = (
   input: Val,
   expectedSchema: Internal,
   item: Internal,
-  isArr: boolean,
 ): Val | undefined => {
   const to = expectedSchema.to;
   if (
@@ -101,14 +100,13 @@ const B_fuseIntoJsonString = (
     to.format === "json" &&
     !to.space &&
     !flagUnsafeHas(input.g.o, flagAsync) &&
-    (isArr ||
-      !(
-        item.to === U &&
-        flagUnsafeHas(
-          tagFlags[item.type]!,
-          (tagFlagString | tagFlagBoolean) | tagFlagNull,
-        )
-      ))
+    !(
+      item.to === U &&
+      flagUnsafeHas(
+        tagFlags[item.type]!,
+        (tagFlagString | tagFlagBoolean) | tagFlagNull,
+      )
+    )
   ) {
     const marked = copySchema(expectedSchema);
     marked.uv = true;
@@ -316,7 +314,7 @@ export const arrayDecoder = (unknownInput: Val): Val => {
       if (expectedLength === 0) {
         // Plain-array fusion only: fixed tuple slots are read by the aggregate
         // outside its dynamic loop, so they must stay validated here.
-        const fused = B_fuseIntoJsonString(input, expectedSchema, itemSchema, true);
+        const fused = B_fuseIntoJsonString(input, expectedSchema, itemSchema);
         if (fused !== U) {
           return B_markOutput(fused, input);
         }
@@ -470,7 +468,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
   if (dictItem !== U && dictItem === unknown) {
     output = input;
   } else if (dictItem !== U && sourceIsDict) {
-    const fused = B_fuseIntoJsonString(input, expectedSchema, dictItem, false);
+    const fused = B_fuseIntoJsonString(input, expectedSchema, dictItem);
     if (fused !== U) {
       return B_markOutput(fused, input);
     }
@@ -714,24 +712,26 @@ export const traverseDefinition = (
   }
 }
 
+// baseSchema, not an object literal: anything reachable as a union member has
+// to carry the schema prototype, since that is where the lazily derived
+// reverse (`schema.r`) lives. A default on a nested option puts this schema
+// in exactly that position.
 export const nestedNone = (): Internal => {
   const itemSchema = Literal_parse(0);
   // FIXME: dict{}
   const properties: Record<string, Internal> = {};
   properties[nestedLoc] = itemSchema;
-  return {
-    type: objectTag,
-    required: [nestedLoc],
-    properties,
-    additionalItems: "strip",
-    decoder: objectDecoder,
-    // TODO: Support this as a default coercion
-    serializer: (input: Val) => {
-      const nextSchema = input.e.to!;
-      return B_nextConst(input, nextSchema, nextSchema);
-      // FIXME: Need to set isOutput?
-    },
-  } as Internal;
+  const mut = baseSchema(objectTag, false, objectDecoder);
+  mut.required = [nestedLoc];
+  mut.properties = properties;
+  mut.additionalItems = "strip";
+  // TODO: Support this as a default coercion
+  mut.serializer = (input: Val) => {
+    const nextSchema = input.e.to!;
+    return B_nextConst(input, nextSchema, nextSchema);
+    // FIXME: Need to set isOutput?
+  };
+  return mut;
 }
 
 export const nestedOption = (item: Internal): Internal => {

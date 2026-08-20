@@ -62,12 +62,12 @@ export type Schema<TInput = unknown, TOutput = TInput> = {
     to: (
       schema: Schema<unknown, unknown>,
       target: Schema<unknown, unknown>,
-      decode?: ((value: unknown) => unknown) | undefined,
-      encode?: (value: unknown) => TOutput
+      codecs?: ((value: unknown) => unknown) | Codecs<unknown, unknown>
     ) => Schema<unknown, unknown>,
     target: SchemaLike<TTargetInput, TTargetOutput>,
-    decode?: ((value: TOutput) => TTargetInput) | undefined,
-    encode?: (value: TTargetOutput) => TOutput
+    // Coder (not a plain arrow): the shorthand must compare bivariantly for
+    // the same reason as the Codecs slots (see the Coder note below).
+    codecs?: Coder<TOutput, TTargetInput> | Codecs<TOutput, TTargetInput>
   ): Schema<TInput, TTargetOutput>;
   with(
     refine: (
@@ -970,11 +970,6 @@ export function noValidation<TInput, TOutput>(
   value: boolean
 ): Schema<TInput, TOutput>;
 
-export function asyncDecoderAssert<TInput, TOutput>(
-  schema: SchemaLike<TInput, TOutput>,
-  assertFn: (value: TOutput) => Promise<void>
-): Schema<TInput, TOutput>;
-
 export function refine<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,
   refineCheck: (value: TOutput) => boolean,
@@ -1129,6 +1124,35 @@ export function shape<TShape = unknown, TInput = unknown, TOutput = unknown>(
   shaper: (value: TOutput) => TShape
 ): Schema<TInput, TShape>;
 
+// Extracted from method syntax so the coder compares bivariantly: as a plain
+// function property it would make `Schema<string>` unassignable to
+// `Schema<unknown, unknown>` (every `with` mention of Codecs<TOutput, …>
+// would compare contravariantly on TOutput).
+type Coder<A, B> = { bivarianceHack(value: A): B }["bivarianceHack"];
+
+/**
+ * One custom conversion slot of `S.to`'s codecs: a sync coder, `"auto"` for
+ * the built-in conversion, `"never"` for an unreachable direction, or an
+ * async coder as `{async}`. Async is declared rather than discovered, because
+ * Sury compiles operations ahead of time.
+ */
+export type Conversion<A, B> =
+  | Coder<A, B>
+  | "auto"
+  | "never"
+  | { async: Coder<A, Promise<B>> };
+
+/**
+ * Custom coders on an `S.to` conversion, one per direction, sitting at the
+ * junction between the two schemas. `decode` maps the schema's output to the
+ * target's *input*, so its result runs through the target's own pipeline and
+ * is validated like any input; `encode` maps that input back.
+ */
+export type Codecs<TOutput, TTargetInput> = {
+  decode: Conversion<TOutput, TTargetInput>;
+  encode: Conversion<TTargetInput, TOutput>;
+};
+
 export function to<
   TInput = unknown,
   TOutput = unknown,
@@ -1137,8 +1161,7 @@ export function to<
 >(
   schema: SchemaLike<TInput, TOutput>,
   target: SchemaLike<TTargetInput, TTargetOutput>,
-  decode?: ((value: TOutput) => TTargetInput) | undefined,
-  encode?: (value: TTargetOutput) => TOutput
+  codecs?: ((value: TOutput) => TTargetInput) | Codecs<TOutput, TTargetInput>
 ): Schema<TInput, TTargetOutput>;
 
 // The dialect the `target` option selects decides the shape of the result, so

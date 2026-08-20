@@ -3,10 +3,10 @@ ts:
   schema: S.number.with(S.to, S.jsonString).with(S.pattern, /^\d+$/)
   input: number
   output: string
-  instantiations: 5450
+  instantiations: 5548
 jsonSchema:
   input: '{ type: "number" }'
-  output: '{ type: "string", pattern: "^\\d+$" }'
+  output: '{ type: "string", contentMediaType: "application/json", pattern: "^\\d+$" }'
 vs:
   zod:
     _skip: not-applicable

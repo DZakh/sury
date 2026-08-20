@@ -44,7 +44,6 @@ export const FUZZ_EXPORTS: Record<string, FuzzExport> = {
   $pathToArray: skip(RESCRIPT_BINDING),
   $schema: skip(RESCRIPT_BINDING),
   $setExnId: skip(RESCRIPT_BINDING),
-  $transform: skip(RESCRIPT_BINDING),
   $unit: skip(RESCRIPT_BINDING),
   Error: skip("exception class, not a schema factory"),
   any: schema((S) => S.any),
@@ -52,7 +51,6 @@ export const FUZZ_EXPORTS: Record<string, FuzzExport> = {
   array: wrap((S, inner) => S.array(inner)),
   assert: skip("operation, not a schema factory"),
   asyncDecoder: skip("operation, not a schema factory"),
-  asyncDecoderAssert: skip("async modifier; the fuzzer is synchronous"),
   asyncEncoder: skip("operation, not a schema factory"),
   asyncParser: skip("operation, not a schema factory"),
   bigint: schema((S) => S.bigint),
@@ -98,7 +96,6 @@ export const FUZZ_EXPORTS: Record<string, FuzzExport> = {
   iri: schema((S) => S.iri),
   iriReference: schema((S) => S.iriReference),
   is: skip("operation, not a schema factory"),
-  isAsync: skip("introspection, not a schema factory"),
   isoDate: schema((S) => S.isoDate),
   isoDateTime: schema((S) => S.isoDateTime),
   isoTime: schema((S) => S.isoTime),
@@ -141,10 +138,6 @@ export const FUZZ_EXPORTS: Record<string, FuzzExport> = {
   parser: skip("operation, not a schema factory"),
   pattern: modify(["string"], (S, schema) => schema.with(S.pattern, /(?:)/)),
   port: schema((S) => S.port),
-  protobuf: skip(
-    "no decoder from unknown; cannot be a parse-from-unknown union member",
-  ),
-  protobufField: skip("field descriptor, not a standalone schema"),
   record: wrap((S, inner) => S.record(inner)),
   recursive: skip("cyclic schemas; generation is acyclic"),
   refine: modify(["string", "number", "bigint", "boolean", "object", "array"], (S, schema) =>
@@ -162,7 +155,10 @@ export const FUZZ_EXPORTS: Record<string, FuzzExport> = {
   strip: modify(["object"], (S, schema) => S.strip(schema)),
   symbol: schema((S) => S.symbol),
   to: modify(["string"], (S, schema) =>
-    schema.with(S.to, S.number, (v: string) => v.length),
+    schema.with(S.to, S.number, {
+      decode: (v: string) => v.length,
+      encode: "auto",
+    }),
   ),
   toJSONSchema: skip("JSON Schema export, not a schema factory"),
   trim: modify(["string"], (S, schema) => schema.with(S.trim)),

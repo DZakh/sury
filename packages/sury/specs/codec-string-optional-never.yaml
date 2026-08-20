@@ -3,7 +3,7 @@ ts:
   schema: S.string.with(S.to, S.union([S.string, S.never.with(S.to, S.schema(undefined))]))
   input: string
   output: string | undefined
-  instantiations: 6692
+  instantiations: 6836
 jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "string" }'

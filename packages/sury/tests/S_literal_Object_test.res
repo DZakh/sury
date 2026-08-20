@@ -26,7 +26,10 @@ module Common = {
   test("Successfully serializes", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.decodeOrThrow(~from=schema, ~to=S.unknown), value->U.castAnyToUnknown)
+    t->Assert.deepEqual(
+      value->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+      value->U.castAnyToUnknown,
+    )
   })
 
   test("Fails to serialize invalid", t => {
@@ -107,7 +110,10 @@ module EmptyDict = {
   test("Successfully serializes empty dict literal schema", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.decodeOrThrow(~from=schema, ~to=S.unknown), value->U.castAnyToUnknown)
+    t->Assert.deepEqual(
+      value->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+      value->U.castAnyToUnknown,
+    )
   })
 
   test("Ignores extra fields during conversion of empty object literal", t => {

@@ -83,10 +83,7 @@ test("Successfully reverse converts string-to-date schema", t => {
 test("Successfully converts Date to string with S.to", t => {
   let schema = S.date->S.to(S.string)
   let date = Date.fromString("2024-01-01T00:00:00.000Z")
-  t->Assert.deepEqual(
-    S.decoder1(schema)(date->Obj.magic),
-    "2024-01-01T00:00:00.000Z"->Obj.magic,
-  )
+  t->Assert.deepEqual(S.decoder1(schema)(date->Obj.magic), "2024-01-01T00:00:00.000Z"->Obj.magic)
 })
 
 test("Successfully reverse converts date-to-string schema", t => {
@@ -102,10 +99,7 @@ test("Successfully reverse converts date-to-string schema", t => {
 test("Successfully decodes JSON string to Date", t => {
   let date = Date.fromString("2024-01-01T00:00:00.000Z")
   let decoder = S.decoder(~from=S.json, ~to=S.date)
-  t->Assert.deepEqual(
-    decoder(JSON.Encode.string("2024-01-01T00:00:00.000Z")),
-    date,
-  )
+  t->Assert.deepEqual(decoder(JSON.Encode.string("2024-01-01T00:00:00.000Z")), date)
 })
 
 test("Successfully decodes JSON object with date field", t => {
@@ -116,18 +110,12 @@ test("Successfully decodes JSON object with date field", t => {
   )
   let date = Date.fromString("2024-01-01T00:00:00.000Z")
   let decoder = S.decoder(~from=S.json, ~to=dateSchema)
-  t->Assert.deepEqual(
-    decoder(%raw(`{"field":"2024-01-01T00:00:00.000Z"}`)),
-    {"field": date},
-  )
+  t->Assert.deepEqual(decoder(%raw(`{"field":"2024-01-01T00:00:00.000Z"}`)), {"field": date})
 })
 
 test("Fails to decode non-string JSON value to Date", t => {
   let decoder = S.decoder(~from=S.json, ~to=S.date)
-  t->U.assertThrowsMessage(
-    () => decoder(%raw(`123`)),
-    `Expected string, received 123`,
-  )
+  t->U.assertThrowsMessage(() => decoder(%raw(`123`)), `Expected string, received 123`)
 })
 
 test("Fails to decode invalid date string from JSON", t => {
@@ -171,10 +159,7 @@ test("Successfully round-trips date through JSON", t => {
   let date = Date.fromString("2024-06-15T12:30:45.123Z")
   let toJson = S.decoder(~from=dateSchema, ~to=S.json)
   let fromJson = S.decoder(~from=S.json, ~to=dateSchema)
-  t->Assert.deepEqual(
-    fromJson(toJson({"field": date})),
-    {"field": date},
-  )
+  t->Assert.deepEqual(fromJson(toJson({"field": date})), {"field": date})
 })
 
 // Regression guard: encoding a `@s.nullable option<Timestamp.t>` field (ppx-expanded
@@ -249,8 +234,9 @@ test("Reverse converts deeply nested records/array sharing a nullable Timestamp 
   let date = Date.fromString("2024-01-01T00:00:00.000Z")
 
   t->Assert.deepEqual(
-    %raw(`{createdAt: "2024-01-01T00:00:00.000Z", items: [{createdAt: "2024-01-01T00:00:00.000Z"}]}`)
-    ->S.parseOrThrow(~to=parentSchema),
+    %raw(`{createdAt: "2024-01-01T00:00:00.000Z", items: [{createdAt: "2024-01-01T00:00:00.000Z"}]}`)->S.parseOrThrow(
+      ~to=parentSchema,
+    ),
     {
       "createdAt": Some(date),
       "items": [{"createdAt": Some(date)}],
@@ -277,23 +263,24 @@ test("Encodes a nullable optional Timestamp whose input is string | number (issu
   // There is no built-in number -> Date decoder, so the numeric member has to
   // say how it converts (or that it can't) — the conversion is rejected where
   // it's written otherwise.
-  let timestamp =
-    S.union([S.string->S.castToUnknown, S.float->S.castToUnknown])->S.to(S.date)
+  let timestamp = S.union([S.string->S.castToUnknown, S.float->S.castToUnknown])->S.to(S.date)
   t->U.assertThrowsMessage(
     () => "2024-01-01T00:00:00.000Z"->S.parseOrThrow(~to=S.nullableAsOption(timestamp)),
     `Can't decode number to Date. Use S.to to define a custom decoder`,
   )
 
-  let timestamp =
-    S.union([
-      S.string->S.castToUnknown,
-      S.float
-      ->S.transform(() => {
-        parser: ms => Date.fromTime(ms)->Obj.magic,
-        serializer: d => (d->Obj.magic: Date.t)->Date.getTime->Obj.magic,
-      })
-      ->S.castToUnknown,
-    ])->S.to(S.date)
+  let timestamp = S.union([
+    S.string->S.castToUnknown,
+    S.float
+    ->S.to(
+      S.any,
+      ~custom={
+        decode: Sync(ms => Date.fromTime(ms)->Obj.magic),
+        encode: Sync(d => (d->Obj.magic: Date.t)->Date.getTime->Obj.magic),
+      },
+    )
+    ->S.castToUnknown,
+  ])->S.to(S.date)
   let schema = S.nullableAsOption(timestamp)
   let date = Date.fromString("2024-01-01T00:00:00.000Z")
 
@@ -305,5 +292,9 @@ test("Encodes a nullable optional Timestamp whose input is string | number (issu
     Some(date)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     "2024-01-01T00:00:00.000Z"->Obj.magic,
   )
-  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{for(;;){if(i instanceof e[2]){for(;;){i=i.toISOString();break;};break}if(i===void 0)break;e[3](i)}return i}`)
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Encode,
+    `i=>{for(;;){if(i instanceof e[4]){for(;;){i=i.toISOString();break;};break}if(i===void 0)break;e[5](i)}return i}`,
+  )
 })

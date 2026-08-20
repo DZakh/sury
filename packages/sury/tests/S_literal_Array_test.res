@@ -23,7 +23,10 @@ module Common = {
   test("Successfully serializes", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.decodeOrThrow(~from=schema, ~to=S.unknown), value->U.castAnyToUnknown)
+    t->Assert.deepEqual(
+      value->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+      value->U.castAnyToUnknown,
+    )
   })
 
   test("Fails to serialize invalid", t => {
@@ -112,13 +115,19 @@ module EmptyArray = {
   test("Successfully serializes empty array literal schema", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.decodeOrThrow(~from=schema, ~to=S.unknown), value->U.castAnyToUnknown)
+    t->Assert.deepEqual(
+      value->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+      value->U.castAnyToUnknown,
+    )
   })
 
   test("Serialize array with excess item in strict mode and it passes through", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(invalid->S.decodeOrThrow(~from=schema->S.strict, ~to=S.unknown), invalid->Obj.magic)
+    t->Assert.deepEqual(
+      invalid->S.decodeOrThrow(~from=schema->S.strict, ~to=S.unknown),
+      invalid->Obj.magic,
+    )
   })
 
   test("Compiled parse code snapshot of empty array literal schema", t => {

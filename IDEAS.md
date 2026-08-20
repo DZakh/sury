@@ -47,12 +47,69 @@
     on text semantics, so it wants a CHANGELOG line; `tests/S_test.ts`'s
     `S.decoder(S.string, S.uint8Array, S.jsonString)("data") === '"data"'`
     becoming `'"ZGF0YQ=="'` is the whole behavior change in one assertion.
+- **`jsonString` -> `Uint8Array`, and a native encoder under it.** Every real
+  consumer of `S.jsonString` hands the result to something that wants bytes —
+  `fetch`'s body, a socket write, `fs.write`, a Kafka producer — so the JS
+  string it returns is an intermediate that exists only to be UTF-8 encoded a
+  moment later. Two halves, and the second is what makes the first worth doing:
+  - `S.jsonString.with(S.to, S.uint8Array)` (and the reverse) as a declared
+    target, so the wire type is bytes and the codec owns the encoding. Today the
+    same thing spells as two hops through `advanced/uint8Array.ts`, which is the
+    text codec the base64 idea above is about to change under it — settle that
+    first, since `jsonString -> uint8Array` must stay UTF-8 and must *not*
+    inherit whatever `S.uint8Array <-> string` becomes.
+  - A native encoder for the aggregate: reuse one module-level `TextEncoder`
+    (`encodeInto` into a caller-owned buffer where one is supplied) instead of
+    building the whole JSON text and encoding it after. The interesting version
+    doesn't materialize the string at all — the aggregate already emits a
+    concat chain, and the constant pieces (`{"id":"`, `","at":"`) are known at
+    codegen time, so they can be pre-encoded to byte arrays once per compiled
+    operation and only the dynamic slices go through `encodeInto`. That is the
+    same trick the escape-free format splice plays, one level lower.
+  Measured, 100-row list to `Uint8Array` on node 22, the whole trip inside the
+  timer — `JSON.stringify` + `Buffer.from` 18.4µs, today's `jsonString` +
+  `Buffer.from` 23.7µs, a byte writer 6.6µs. So the prize is real (~2.6x over
+  the current path), but it lives entirely in *how* the bytes are written: the
+  same writer built the obvious way, one `buf.write` per piece with `""+n` for
+  numbers, measured 24.4µs — slower than the string path it replaces. The 3.6x
+  between those two is byte stores for the constant chunks, a manual itoa, and
+  an inline char loop for short strings, and all three are things only a
+  compiler can emit. Two shapes that look alike are worth ruling out first:
+  `parts.join()` produces a flat string but costs more to build than the
+  cheaper `Buffer.from` wins back (25.8µs), and `encodeInto` over a pooled
+  buffer under the existing concat is only ~7% (22.1µs). Wants a
+  `scenarios.yaml`/`bench:jsonstring` entry measuring end-to-end (stringify +
+  encode), never stringify alone — that is the measurement that hides the
+  flatten and made the string path look like it was already winning.
 - Trusted union decode can leave a dead `let` behind: `valGet` builds a
   grandchild's inline string eagerly (`` `${parent.v()}${pathAppend}` ``,
   `composites.ts`), materializing the parent var even when the passthrough
   case never uses the child — `{let v0=i["VAL"];break}` in
   `S_union_test.res`'s issue-101 golden. Eliminating it means making
   field-val inline strings lazy, a cross-cutting builder change.
+- **`S.isoDateTime` deserves a real error, and probably a different name.** It
+  is UTC-only, so it rejects `2026-01-15T10:30:00+02:00` — a string that plainly
+  IS an RFC 3339 date-time. `Expected date-time, received "…+02:00"` therefore
+  reads as a bug in Sury rather than a constraint, which is why this schema
+  carries the codebase's only built-in `stringFormat` message. That message is a
+  poor patch: a custom message replaces the whole reason, so it drops the
+  `received` half every other failure prints, and the two halves can't be
+  composed today.
+  - The fix is to let a check contribute the *expected* half and keep the
+    generic `received` — `B_failWithErrorMessage` currently chooses one or the
+    other (`B_invalidInputBuilder(U, U, m)` vs `failInvalidType`). Then this
+    renders `Expected UTC date-time, received "2026-01-15T10:30:00+02:00"` with
+    no special case. Setting `name` on the schema also produces that string and
+    is NOT the answer: `name` is public meta that also drives `$defs` naming,
+    and a multi-word name renders as `UTC date-time[]` inside a composite
+    expression.
+  - Consider renaming the export while at it. `isoDateTime` says nothing about
+    the UTC restriction, and the JSON Schema `date-time` format it emits is
+    genuinely wider than what it accepts — so a document round-tripped through
+    `toJSONSchema`/`fromJSONSchema` widens silently. `S.utcDateTime` (keeping
+    `isoDateTime` as a deprecated alias) would put the constraint in the name,
+    where the error message is trying to compensate for its absence. Breaking,
+    so it wants a CHANGELOG line.
 - `fromJSONSchema` on `{type: "string", format: "unsafe"}` (a fast-json-stringify
   extension meaning "skip escaping") produces a schema whose jsonString encode
   treats the value as JSON text and re-parses it, so a string containing quotes
@@ -146,7 +203,6 @@ S.reverse(S.schema({
 - rename `serializer` to reverse parser ?
 - Make `foo->S.to(S.unknown)` stricter ??
 
-- Add `S.to(from, target, parser, serializer)` instead of `S.transform`?
 - Make built-in refinements not work with `unknown`. Use `S.to` (manually & automatically) to deside the type first
 - Better inline empty recursive schema operations (union convert)
 - Don't iterate over JSON value when it's `S.json` convert without parsing
@@ -291,6 +347,62 @@ of a form-data story. What they were built to make cheap, roughly in order:
   (`contentMediaType`, and `format: "binary"` for the instances) — which is the
   point at which `minSize`/`maxSize` should be revisited, since neither has a
   keyword today and both are dropped from the emitted document.
+
+### Custom codec follow-ups
+
+- **The ReScript codec seam trusts more than the ReScript type proves.** A
+  `~custom` coder's result compiles as a typed decode: the target's refiners
+  run, its decoder does not, which is the same deal `S.decoder` gives a caller
+  who declares the input's schema, and it's why the surface costs nothing on a
+  structural target (it skips a full walk plus the object rebuild, not just a
+  `typeof`). Two carve-outs exist. Literals, since a type says `string` and
+  never `the string "a"`: `B_conversion` routes a const-carrying target through
+  the validating seam, the rule `compileDecoder` already states for its own
+  typed input. And `S.any`, whose `t<'any>` unifies with whatever the coder
+  returns, so `to` drops that whole pair to the junction. What's left is every
+  constraint a ReScript type is too coarse to
+  imply. `S.float` rejects `NaN` while ReScript's `float` includes it, so
+  `S.string->S.to(S.float, ~custom={decode: Sync(_ => Float.Constants.nan), encode: Never})`
+  returns `NaN` where the JS surface rejects it, and any `Obj.magic` upstream
+  turns the tag itself into a claim rather than a proof. Tightening this inside
+  the codec alone would make a coder stricter than `S.decoder(~from=S.float)`,
+  which accepts the same `NaN`, so both want one shared answer: a single
+  predicate for "constraints a tag does not imply", consulted by the
+  typed-decode entry and by `B_conversion`. Cheap interim step: route the
+  number family through the validating seam the way literals already are, then
+  measure what it costs.
+
+- **A ReScript codec can't target a schema that already converts.**
+  `s1->S.to(s2WithChain, ~custom)` fails at creation with "The target already
+  converts", because `codecs<'from, 'to>` types the coder against `t<'to>`,
+  which is the chain's output, while the value has to be fed to the chain's
+  input. JS has no such limit: its `{decode, encode}` pair lands at the chain
+  head and the whole chain runs after it. So the runtime is already there and
+  only the ReScript type is missing: `t<'value>` carries one type parameter, so
+  a chain's input type has no name to write. That makes this the same
+  underlying gap as printing an accurate `Schema<'input, 'output>` from
+  ReScript, and a two-parameter `t` would close both. Until then the error
+  message is the API, and chaining `.to` explicitly says exactly what the fused
+  form would have meant.
+
+- **A never-slot arm blocks the union's identity shortcut, so encoding a
+  default is no longer free.** `unionDecoder` returns the input untouched when
+  the source is the union itself and every variant is a noop; a never-slot arm
+  fails that test because it carries a `parser` and a `.to`. Encode used to be
+  `identity` for every defaulted schema and now dispatches:
+  `optional-default` and `nullable-default` pay a `typeof` (+49% on the
+  measured encode), `object-advanced` pays one per defaulted field, and
+  `nullable-definition-or` pays a full validate-and-rebuild of its object
+  (+528%) because a member with no literal discriminant is never compiled
+  trusted. Treating a never-linked arm as absent is wrong in general: the
+  arm's *input* type is still part of the union's, so a value only it could
+  hold has to be rejected rather than passed through. Two sound pieces, both
+  in `unionEmit` and both needing `fuzz:union` on either side: drop a dispatch
+  check the declared source type already guarantees (compare the live members'
+  acceptance masks against the source's — `getOr`'s default arm is a copy of
+  the surviving item, so its mask adds nothing and the check falls out), and
+  extend trusted case compilation past field-discriminated members, so a lone
+  object member validates as little as a typed object does.
 
 ### Known bugs left over from the validation refactor (`val.validation: array<validationCheck>`)
 

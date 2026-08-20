@@ -11,7 +11,7 @@ vs:
   zod: z.string().nullable().transform((value) => value ?? "bar")
 operations:
   parse:
-    expression: i=>{for(;;){if(typeof i==="string")break;if(i===null){i=void 0;break}e[0](i)}return i===void 0?"bar":i}
+    expression: i=>{for(;;){if(typeof i==="string")break;if(i===null){i="bar";break}e[0](i)}return i}
     examples:
       string:
         input: '"foo"'
@@ -23,4 +23,9 @@ operations:
         input: undefined
         error: Expected string | null, received undefined
   decode: eq-to-parse
-  encode: identity
+  encode:
+    expression: i=>{typeof i==="string"||e[0](i);return i}
+    examples:
+      string:
+        input: '"foo"'
+        output: '"foo"'

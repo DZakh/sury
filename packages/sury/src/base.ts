@@ -115,6 +115,11 @@ export const neverTag: Tag = "never";
 export const unknownTag: Tag = "unknown";
 export const refTag: Tag = "ref";
 
+// Named once for the emit branches that differ by dialect. Here rather than in
+// jsonschema.ts because a schema with a `jsonSchema` of its own names it too,
+// and may not import upwards.
+export const openApi30 = "openapi-3.0";
+
 export const tagFlagUnknown = 1;
 export const tagFlagString = 2;
 export const tagFlagNumber = 4;
@@ -294,8 +299,15 @@ export type Internal = {
   deprecated?: boolean;
   examples?: unknown[];
   default?: unknown;
-  fromDefault?: unknown;
   format?: Format;
+  // jsonString splices this value between bare quotes with no escaping, so
+  // every value the schema admits must be free of `"`, `\`, controls and lone
+  // surrogates. Set it only where that is proven — a pattern whose range
+  // excludes them, or a conversion that manufactures the string — and re-run
+  // `pnpm --filter=sury fuzz:escfree`, because getting it wrong emits broken
+  // JSON rather than merely over-escaped JSON. `noValidation` voids the proof;
+  // the read site handles that.
+  escapeFree?: boolean;
   has?: Partial<Record<Tag, boolean>>;
   anyOf?: Internal[];
   additionalItems?: AdditionalItems;
@@ -352,14 +364,29 @@ export type Internal = {
   tr?: boolean;
   "$ref"?: string;
   "$defs"?: Record<string, Internal>;
-  isAsync?: boolean; // Optional value means that it's not lazily computed yet.
-  hasTransform?: boolean; // Optional value means that it's not lazily computed yet.
+  // Written by compileDecoder onto the schema it compiled against, read back by
+  // `S.recursive`: a recursive definition compiles optimistically, and these
+  // two are what its inner circular references assume and what the fixpoint
+  // compares to decide whether to recompile. Absent means "this schema has not
+  // been compiled against yet", which is why `codecTo` deletes rather than
+  // clears them. Nothing derives them without compiling, so there is no probe
+  // to ask a schema whether it is async — an operation reports that by
+  // rejecting.
+  isAsync?: boolean;
+  hasTransform?: boolean;
   "~standard"?: unknown;
   // Overrides how inputExpression renders this schema. Only for a schema whose
   // expression its tag can't produce — compactColumns, whose columns live on
   // the `.to` target. Everything structural is rendered by inputExpression
   // itself, so setting this is the exception, not the pattern.
   expression?: (schema: Internal) => string;
+  // What this schema adds to the JSON Schema of a value that decodes to it.
+  // jsonschema.ts reads it off `.to` and never off the schema being converted:
+  // a schema whose own input isn't JSON has no document and must keep failing
+  // the conversion. Unlike S.extendJSONSchema, which holds one document for
+  // every dialect, it can answer per target. `unknown` because base.ts imports
+  // nothing and `JSONSchemaT` lives upwards; the single read casts.
+  jsonSchema?: (schema: Internal, target: string) => unknown;
   // The reversed (Input ↔ Output swapped) schema. Always readable: `this` via
   // the self-reverse prototype getter, otherwise computed and cached by the
   // general prototype getter (parse.ts). Reading it on a plain schema COMPUTES

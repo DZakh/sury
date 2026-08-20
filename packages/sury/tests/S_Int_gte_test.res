@@ -10,10 +10,7 @@ test("Successfully parses valid data", t => {
 test("Fails to parse invalid data", t => {
   let schema = S.int->S.gte(1)
 
-  t->U.assertThrowsMessage(
-    () => 0->S.parseOrThrow(~to=schema),
-    `Expected int32 >= 1, received 0`,
-  )
+  t->U.assertThrowsMessage(() => 0->S.parseOrThrow(~to=schema), `Expected int32 >= 1, received 0`)
 })
 
 test("Successfully serializes valid value", t => {
@@ -39,10 +36,7 @@ test("Returns custom error message", t => {
 })
 
 test("Throws when called with a non-number value", t => {
-  t->U.assertThrowsMessage(
-    () => S.int->S.gte(%raw(`"abc"`)),
-    `S.gte expects int32, got "abc"`,
-  )
+  t->U.assertThrowsMessage(() => S.int->S.gte(%raw(`"abc"`)), `S.gte expects int32, got "abc"`)
 })
 
 test("Returns refinement", t => {

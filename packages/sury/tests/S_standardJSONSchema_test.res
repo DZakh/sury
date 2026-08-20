@@ -17,29 +17,32 @@ let jsonSchemaConverter = schema => (schema->standardOf).jsonSchema->Option.getU
 // known dialects.
 let target = (s: string): StandardSchema.JsonSchema.target => s->U.magic
 
-test("Standard ~standard.jsonSchema throws a guiding error before enableStandardJSONSchema is called", t => {
-  let converter = S.string->jsonSchemaConverter
-  try {
-    converter.input({target: target("draft-07")})->ignore
-    t->Assert.fail("Expected to throw")
-  } catch {
-  | S.Exn(error) =>
-    t->Assert.is(
-      error.message,
-      `~standard.jsonSchema requires S.enableStandardJSONSchema() to be called first`,
-    )
-  }
-  try {
-    converter.output({target: target("draft-07")})->ignore
-    t->Assert.fail("Expected to throw")
-  } catch {
-  | S.Exn(error) =>
-    t->Assert.is(
-      error.message,
-      `~standard.jsonSchema requires S.enableStandardJSONSchema() to be called first`,
-    )
-  }
-})
+test(
+  "Standard ~standard.jsonSchema throws a guiding error before enableStandardJSONSchema is called",
+  t => {
+    let converter = S.string->jsonSchemaConverter
+    try {
+      converter.input({target: target("draft-07")})->ignore
+      t->Assert.fail("Expected to throw")
+    } catch {
+    | S.Exn(error) =>
+      t->Assert.is(
+        error.message,
+        `~standard.jsonSchema requires S.enableStandardJSONSchema() to be called first`,
+      )
+    }
+    try {
+      converter.output({target: target("draft-07")})->ignore
+      t->Assert.fail("Expected to throw")
+    } catch {
+    | S.Exn(error) =>
+      t->Assert.is(
+        error.message,
+        `~standard.jsonSchema requires S.enableStandardJSONSchema() to be called first`,
+      )
+    }
+  },
+)
 
 test("Standard ~standard exposes version, vendor, validate and a jsonSchema converter", t => {
   S.enableStandardJSONSchema()

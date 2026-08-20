@@ -3,7 +3,7 @@ ts:
   schema: S.json.with(S.to, S.url)
   input: JSON
   output: URL
-  instantiations: 5105
+  instantiations: 5244
 jsonSchema:
   input: '{ type: "string", format: "uri" }'
   fromInputType: string
