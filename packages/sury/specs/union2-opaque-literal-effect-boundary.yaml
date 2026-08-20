@@ -13,7 +13,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{(typeof i==="string"&&i==="a"||typeof i==="string"&&i==="b")||e[0](i);return i}
+    expression: i=>{typeof i==="string"&&(i==="a"||i==="b")||e[0](i);return i}
     examples:
       validating-literal:
         input: '"a"'

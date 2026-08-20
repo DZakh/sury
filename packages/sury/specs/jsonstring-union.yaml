@@ -12,7 +12,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)&&i["t"]==="a"){let v0=i["v"];typeof v0==="string"||e[0](v0);i="{\"t\":\"a\",\"v\":"+e[1](v0)+"}";break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i["t"]==="b"){let v1=i["v"];typeof v1==="number"&&!Number.isNaN(v1)||e[2](v1);i="{\"t\":\"b\",\"v\":"+(Number.isFinite(v1)?v1:e[3](v1))+"}";break}e[4](i)}return i}
+    expression: i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i["t"]==="a"){let v0=i["v"];typeof v0==="string"||e[0](v0);i="{\"t\":\"a\",\"v\":"+e[1](v0)+"}";break}if(i["t"]==="b"){let v1=i["v"];typeof v1==="number"&&!Number.isNaN(v1)||e[2](v1);i="{\"t\":\"b\",\"v\":"+(Number.isFinite(v1)?v1:e[3](v1))+"}";break}e[4](i)}}else{e[5](i)}return i}
     examples:
       first-variant:
         input: '{ t: "a", v: "hi" }'
@@ -24,7 +24,7 @@ operations:
         input: '{ t: "c", v: 1 }'
         error: 'Expected { t: "a"; v: string; } | { t: "b"; v: number; }, received { t: "c"; v: 1; }'
   decode:
-    expression: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)&&i["t"]==="a"){i="{\"t\":\"a\",\"v\":"+e[0](i["v"])+"}";break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i["t"]==="b"){let v0=i["v"];i="{\"t\":\"b\",\"v\":"+(Number.isFinite(v0)?v0:e[1](v0))+"}";break}e[2](i)}return i}
+    expression: i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i["t"]==="a"){i="{\"t\":\"a\",\"v\":"+e[0](i["v"])+"}";break}if(i["t"]==="b"){let v0=i["v"];i="{\"t\":\"b\",\"v\":"+(Number.isFinite(v0)?v0:e[1](v0))+"}";break}e[2](i)}}else{e[3](i)}return i}
     examples:
       first-variant:
         input: '{ t: "a", v: "hi" }'
