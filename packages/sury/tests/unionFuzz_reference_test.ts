@@ -9,7 +9,6 @@ import {
   referenceEncode,
   referenceParse,
 } from "../scripts/unionFuzz/reference";
-import { compareValue } from "../scripts/unionFuzz/run";
 import { witnessOf } from "../scripts/unionFuzz/witness";
 
 test("reference parse is sequential try of each member parser", () => {
@@ -59,26 +58,68 @@ test("reference agrees with a member on a witness that member accepts", () => {
   expect(referenceParse(S, union, { kind: "z" }).ok).toBe(false);
 });
 
-test("issue 392 later member: reference accepts, compiler is compared not trusted", () => {
+test("issue 392: compiled parse matches member parser and sequential-try reference", () => {
   const { members, laterWitness, allWitnesses } = issue392Case(S);
   const union = S.union(members.map((m) => m.schema));
   const four = members[3]!.schema;
 
   expect(memberParse(S, four, laterWitness).ok).toBe(true);
-  const reference = referenceParse(S, union, laterWitness);
-  expect(reference.ok, describeOutcome(reference)).toBe(true);
 
   for (const { label, value } of allWitnesses) {
-    const ref = referenceParse(S, union, value);
-    expect(ref.ok, `${label} ${describeOutcome(ref)}`).toBe(true);
+    const member = members.find((m) => m.id.includes(label))!.schema;
+    const own = memberParse(S, member, value);
+    const reference = referenceParse(S, union, value);
+    const compiled = compiledParse(S, union, value);
+    expect(own.ok, `${label} member ${describeOutcome(own)}`).toBe(true);
+    expect(reference.ok, `${label} reference ${describeOutcome(reference)}`).toBe(
+      true,
+    );
+    expect(compiled.ok, `${label} compiled ${describeOutcome(compiled)}`).toBe(
+      true,
+    );
+    expect(describeOutcome(compiled)).toBe(describeOutcome(reference));
+    expect(describeOutcome(compiled)).toBe(describeOutcome(own));
   }
 
-  const compiled = compiledParse(S, union, laterWitness);
-  const pair = compareValue(S, union, laterWitness, "parse");
-  expect(pair.reference.ok).toBe(true);
-  if (compiled.ok) {
-    expect(describeOutcome(compiled)).toBe(describeOutcome(reference));
-  } else {
-    expect(pair.compiled.ok).toBe(false);
+  const junk = compiledParse(S, union, { TAG: "Z", _0: "x" });
+  expect(junk.ok).toBe(false);
+
+  const parser = S.parser(union);
+  const reversed = S.parser(S.reverse(union));
+  for (const { value } of allWitnesses) {
+    expect(parser(value)).toEqual(value);
+    expect(S.encoder(union)(value)).toEqual(value);
+    expect(reversed(value)).toEqual(value);
   }
+});
+
+test("object group after nested optional/null payload still reaches later members", () => {
+  const four = { TAG: "Four", _0: "x" };
+  const optionalUnion = S.union([
+    S.schema({ TAG: "One", _0: S.string }),
+    S.schema({ TAG: "Two", _0: S.string }),
+    S.schema({
+      TAG: "Three",
+      _0: S.schema({ a: S.string, extra: S.optional(S.number) }),
+    }),
+    S.schema({ TAG: "Four", _0: S.string }),
+  ]);
+  const nullUnion = S.union([
+    S.schema({ TAG: "One", _0: S.string }),
+    S.schema({ TAG: "Two", _0: S.string }),
+    S.schema({
+      TAG: "Three",
+      _0: S.schema({ a: S.string, extra: S.nullable(S.number) }),
+    }),
+    S.schema({ TAG: "Four", _0: S.string }),
+  ]);
+  expect(S.parser(optionalUnion)(four)).toEqual(four);
+  expect(S.parser(nullUnion)(four)).toEqual(four);
+  expect(S.parser(optionalUnion)({ TAG: "Three", _0: { a: "x" } })).toEqual({
+    TAG: "Three",
+    _0: { a: "x" },
+  });
+  expect(
+    S.parser(nullUnion)({ TAG: "Three", _0: { a: "x", extra: null } }),
+  ).toEqual({ TAG: "Three", _0: { a: "x", extra: null } });
 });

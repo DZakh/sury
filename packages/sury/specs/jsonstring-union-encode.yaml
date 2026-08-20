@@ -12,7 +12,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)&&i["type"]==="user.created"){let v0=i["id"];typeof v0==="bigint"||e[0](v0);i="{\"type\":\"user.created\",\"id\":\""+v0+"\"}";break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i["type"]==="user.renamed"){let v1=i["id"],v2=i["name"];typeof v1==="bigint"||e[1](v1);typeof v2==="string"||e[2](v2);i="{\"type\":\"user.renamed\",\"id\":\""+v1+"\",\"name\":"+e[3](v2)+"}";break}e[4](i)}return i}
+    expression: i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i["type"]==="user.created"){let v0=i["id"];typeof v0==="bigint"||e[0](v0);i="{\"type\":\"user.created\",\"id\":\""+v0+"\"}";break}if(i["type"]==="user.renamed"){let v1=i["id"],v2=i["name"];typeof v1==="bigint"||e[1](v1);typeof v2==="string"||e[2](v2);i="{\"type\":\"user.renamed\",\"id\":\""+v1+"\",\"name\":"+e[3](v2)+"}";break}e[4](i)}}else{e[5](i)}return i}
     examples:
       renamed:
         input: '{ type: "user.renamed", id: 42n, name: "Dmitry" }'
@@ -24,7 +24,7 @@ operations:
         input: '{ type: "user.removed", id: 42n }'
         error: 'Expected { type: "user.created"; id: bigint; } | { type: "user.renamed"; id: bigint; name: string; }, received { type: "user.removed"; id: 42n; }'
   decode:
-    expression: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)&&i["type"]==="user.created"){i="{\"type\":\"user.created\",\"id\":\""+i["id"]+"\"}";break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i["type"]==="user.renamed"){i="{\"type\":\"user.renamed\",\"id\":\""+i["id"]+"\",\"name\":"+e[0](i["name"])+"}";break}e[1](i)}return i}
+    expression: i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i["type"]==="user.created"){i="{\"type\":\"user.created\",\"id\":\""+i["id"]+"\"}";break}if(i["type"]==="user.renamed"){i="{\"type\":\"user.renamed\",\"id\":\""+i["id"]+"\",\"name\":"+e[0](i["name"])+"}";break}e[1](i)}}else{e[2](i)}return i}
     examples:
       created:
         input: '{ type: "user.created", id: 42n }'

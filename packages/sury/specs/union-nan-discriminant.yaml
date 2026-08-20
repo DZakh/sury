@@ -12,7 +12,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)&&Number.isNaN(i["t"])){let v0=i["a"];typeof v0==="string"||e[0](v0);i="{\"t\":null,\"a\":"+e[1](v0)+"}";break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i["t"]==="b"){let v1=i["b"];typeof v1==="number"&&!Number.isNaN(v1)||e[2](v1);i="{\"t\":\"b\",\"b\":"+(Number.isFinite(v1)?v1:e[3](v1))+"}";break}e[4](i)}return i}
+    expression: i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(Number.isNaN(i["t"])){let v0=i["a"];typeof v0==="string"||e[0](v0);i="{\"t\":null,\"a\":"+e[1](v0)+"}";break}if(i["t"]==="b"){let v1=i["b"];typeof v1==="number"&&!Number.isNaN(v1)||e[2](v1);i="{\"t\":\"b\",\"b\":"+(Number.isFinite(v1)?v1:e[3](v1))+"}";break}e[4](i)}}else{e[5](i)}return i}
     examples:
       nan-variant:
         input: '{ t: NaN, a: "x" }'
@@ -24,7 +24,7 @@ operations:
         input: '{ t: "c" }'
         error: 'Expected { t: NaN; a: string; } | { t: "b"; b: number; }, received { t: "c"; }'
   decode:
-    expression: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)&&Number.isNaN(i["t"])){i="{\"t\":null,\"a\":"+e[0](i["a"])+"}";break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i["t"]==="b"){let v0=i["b"];i="{\"t\":\"b\",\"b\":"+(Number.isFinite(v0)?v0:e[1](v0))+"}";break}e[2](i)}return i}
+    expression: i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(Number.isNaN(i["t"])){i="{\"t\":null,\"a\":"+e[0](i["a"])+"}";break}if(i["t"]==="b"){let v0=i["b"];i="{\"t\":\"b\",\"b\":"+(Number.isFinite(v0)?v0:e[1](v0))+"}";break}e[2](i)}}else{e[3](i)}return i}
     examples:
       nan-variant:
         input: '{ t: NaN, a: "x" }'
