@@ -10,8 +10,8 @@
 // an earlier generic `object`, and an exact `NaN` ahead of `number`.
 //
 // Which member a value reaches is invisible in a golden until someone writes the
-// spec for exactly that permutation, so diff any change here against the commit
-// you started from with `pnpm --filter=sury fuzz:union --ref=<commit>`.
+// spec for exactly that permutation. `pnpm --filter=sury fuzz:union` compares
+// this compiler to a sequential try of each variant's own parser/encoder.
 
 import {
   anyOfTag,
