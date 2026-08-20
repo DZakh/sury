@@ -229,8 +229,10 @@ export const codecTo = (
   });
   // copySchema carries a cached isAsync/hasTransform from the source and a
   // custom slot can change both, so let the next compile re-derive them.
-  // Slotless links keep the fast path: a built-in conversion never turns
-  // async.
+  // Slotless links keep the fast path: a built-in conversion can turn async now
+  // that a container reads its payload, but only where the source itself is
+  // already one, and the cache is read off the link's own head — nothing that
+  // reaches here carries a value for either.
   if (decode !== U || encode !== U) {
     delete root.isAsync;
     delete root.hasTransform;
