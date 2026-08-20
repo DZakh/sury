@@ -37,6 +37,7 @@ import {
   objectTag,
   panic,
   setHas,
+  setContent,
   type SuryErrorRecord,
   type Tag,
   tagFlagArray,
@@ -430,6 +431,12 @@ const unionNarrowSchema = (schema: Internal): Internal => {
     return schema.decoder(input);
   });
   narrow.encoder = schema.encoder;
+  // With the encoder, its marker: the narrow is what a carrier's encoder is
+  // handed for this arm, and without it the arm reads as carrying no payload —
+  // bytes reaching a `S.base64` variant UTF-8-decoded instead of packing.
+  if (schema.content !== U) {
+    setContent(narrow, schema.content);
+  }
   if (tagFlag & tagFlagInstance) {
     narrow.class = schema.class;
   } else if (tagFlag & container) {

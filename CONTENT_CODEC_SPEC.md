@@ -342,8 +342,9 @@ a golden can't hold a `Uint8Array`, `Blob` or `File`, and every compiled
 operation must run an example — so a conversion that only ever produces one has
 no spec to live in. That covers the UTF-8 hop both ways, `S.file` to and from
 bytes and text, rule 3 into a payload the caller reads as bytes, the
-`"unpack"`/`"pack"` spelling whose encode side lands on bytes, and every round
-trip whose far end is a carrier. It also holds every reading the API rejects
+`"unpack"`/`"pack"` spelling whose encode side lands on bytes, rule 2 through a
+union arm storing the same payload as the source, and every round trip whose far
+end is a carrier. It also holds every reading the API rejects
 outright — a pair that agrees on the payload, a side that carries none,
 `S.json`, and two readings naming the same direction — since those panic while
 the schema is being built and `ts.schema` never evaluates. CONTRIBUTING.md's

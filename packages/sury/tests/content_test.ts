@@ -217,3 +217,16 @@ test("a read inside a union arm reports rather than matching a sibling", async (
     S.asyncParser(S.schema({ a: S.optional(bytes) }))({ a: unreadable() }),
   ).rejects.toThrow(TypeError);
 });
+
+test("a payload arm keeps its marker through the union narrow", () => {
+  // The narrow the union dispatches on is what a carrier's encoder is handed,
+  // so an arm that stores bytes as base64 has to still say so. Bytes spelling
+  // base64-legal ASCII passed the arm's own pattern otherwise, and the wrong
+  // string came back with no error at all.
+  const packed = new Uint8Array([97, 98, 99, 100]);
+  expect(S.parser(S.uint8Array.with(S.to, S.base64))(packed)).toBe("YWJjZA==");
+  expect(S.parser(S.uint8Array.with(S.to, S.optional(S.base64)))(packed)).toBe("YWJjZA==");
+  expect(S.parser(S.uint8Array.with(S.to, S.nullable(S.base64)))(packed)).toBe("YWJjZA==");
+  // An arm with no payload of its own still takes the text.
+  expect(S.parser(S.uint8Array.with(S.to, S.optional(S.string)))(packed)).toBe("abcd");
+});
