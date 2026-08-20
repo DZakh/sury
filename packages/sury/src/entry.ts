@@ -368,10 +368,14 @@ export const to = (schema: Internal, target: Internal, custom?: unknown) => {
   // still converts on its own would have that conversion skipped. The
   // junction seam feeds the target's chain instead, so it stays legal, as do
   // the slots that place no coder.
+  // A reading is exempt with `B_neverSlot`: neither places a coder, so neither
+  // claims the target's result — the very case a reading exists for is a target
+  // that converts on its own.
   if (
     outputSeam &&
     target.to &&
-    ((decode && decode !== B_neverSlot) || (encode && encode !== B_neverSlot))
+    ((typeof decode === functionTag && decode !== B_neverSlot) ||
+      (typeof encode === functionTag && encode !== B_neverSlot))
   ) {
     return panic(
       `The target already converts. Chain S.to instead of passing a custom codec`,

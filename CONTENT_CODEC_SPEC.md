@@ -333,14 +333,8 @@ ASCII-only fixtures are what hid the corruption above.
 | `codec-uint8array-jsonstring-packed`, `codec-jsonstring-file-slots` | rule 1, both spellings of the pair |
 | `codec-uint8array-number-unsupported`, `codec-optional-string-uint8array-unsupported` | the decoder fall-through the soundness fix added, standalone and through a union arm |
 | `codec-array-never-uint8array` | the one source the fall-through has to keep letting through: nothing reaches a `never`, so there is no conversion to reject |
-
-`tests/content_test.ts` also holds every reading the API rejects outright — a
-pair that agrees on the payload, a side that carries none, `S.json`, and two
-readings naming the same direction. Those panic while the schema is being
-built, so `ts.schema` never evaluates and no spec can hold them.
 | `string-to-blob` | the conversion that used to be two creation errors |
 | `codec-base64-trim-jsonstring-ambiguous` | the marker surviving a `S.trim` link, so the pair still reports rather than guesses |
-| `jsonstring-novalidation-base64` | the third `noValidation` field, decoded back like the other two rather than by its own rule |
 | `jsonstring-novalidation-date`, `jsonstring-novalidation-format` | a `noValidation` field decoded back out of its document, and `jsonstring-novalidation` for the JSON target that still travels as text |
 
 `tests/content_test.ts` holds the rest, and only because the spec format can't:
@@ -349,5 +343,9 @@ operation must run an example — so a conversion that only ever produces one ha
 no spec to live in. That covers the UTF-8 hop both ways, `S.file` to and from
 bytes and text, rule 3 into a payload the caller reads as bytes, the
 `"unpack"`/`"pack"` spelling whose encode side lands on bytes, and every round
-trip whose far end is a carrier. CONTRIBUTING.md's Spec Harness
-Suggestions is where the fix belongs; when it lands, those rows move back.
+trip whose far end is a carrier. It also holds every reading the API rejects
+outright — a pair that agrees on the payload, a side that carries none,
+`S.json`, and two readings naming the same direction — since those panic while
+the schema is being built and `ts.schema` never evaluates. CONTRIBUTING.md's
+Spec Harness Suggestions is where the fix belongs; when it lands, those rows
+move back.

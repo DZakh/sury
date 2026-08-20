@@ -184,6 +184,14 @@ test("a document still asserts, where nothing is re-represented at all", () => {
   expect(S.is({ a: 1 }, S.json)).toBe(true);
   expect(S.is(`{"a":1}`, S.jsonString)).toBe(true);
   expect(S.is(42, S.jsonString)).toBe(false);
+
+  // The other half: the result target discards the value, so it cannot stand in
+  // for the parse that says the text is a document.
+  expect(S.is("nope", S.jsonString)).toBe(false);
+  expect(() => S.assert("nope", S.jsonString)).toThrow(
+    `Expected JSON string, received "nope"`,
+  );
+  expect(S.is(function () {}, S.json)).toBe(false);
 });
 
 test("a read that fails is not a case that didn't match", async () => {

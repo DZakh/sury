@@ -286,7 +286,15 @@ export const jsonDecoderFn = (input: Val): Val => {
     // JSON.stringify accepts (or silently drops) anything, so it still needs
     // the JSON validation here.
     // FIXME: should this also check !input.e.refiner, like `carriedJsonString`'s caller does?
-    const preEncode: boolean = !!to && to.format !== "json" && !input.e.parser;
+    // The `undefined` sentinel `S.assert` targets is `noValidation` and reads
+    // nothing, so encoding into it asserts nothing either — `S.is(x, S.json)`
+    // answered true for a function. A `noValidation` document is a different
+    // thing: it still holds the value, and the encode is how it is described.
+    const preEncode: boolean =
+      !!to &&
+      to.format !== "json" &&
+      !(to.noValidation && to.type === undefinedTag) &&
+      !input.e.parser;
     if (preEncode) {
       input.s = json;
       return jsonEncoderFn(input, input.e);
@@ -875,7 +883,15 @@ export const jsonString = /* @__PURE__ */ (() => {
     stringVal.s = expectedSchema;
     stringVal.e = expectedSchema;
 
-    if (to !== U && to.type !== unknownTag && !expectedSchema.parser && !expectedSchema.refiner) {
+    // `S.assert`'s `undefined` result sentinel alongside `unknown`: neither
+    // reads the text, so neither can stand in for the parse below.
+    if (
+      to !== U &&
+      to.type !== unknownTag &&
+      !(to.noValidation && to.type === undefinedTag) &&
+      !expectedSchema.parser &&
+      !expectedSchema.refiner
+    ) {
       const encoded = jsonStringEncoder(stringVal, to);
       // Unless the target only stores the text: then nothing downstream reads it
       // as JSON, so the check below is the only thing asserting it is. A target

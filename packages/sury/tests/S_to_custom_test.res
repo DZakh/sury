@@ -36,6 +36,17 @@ asyncTest("Parses with an async decode to another type", async t => {
 test("A never decode rejects the parse operation at creation", t => {
   let schema = S.string->S.to(S.any, ~custom={decode: Never, encode: Sync(value => value)})
 
+  // The target converting on its own is the case a reading exists for, so the
+  // output-seam guard has to let one past: it places no coder to claim a result.
+  let carried = S.uint8Array->S.to(
+    S.jsonString->S.to(S.string),
+    ~custom={decode: Unpack, encode: Pack},
+  )
+  t->Assert.deepEqual(
+    %raw(`new TextEncoder().encode('"hi"')`)->S.parseOrThrow(~to=carried),
+    "hi",
+  )
+
   t->U.assertThrowsMessage(
     () => "Hello world!"->S.parseOrThrow(~to=schema),
     `Can't decode string to unknown. The conversion is marked as never`,
