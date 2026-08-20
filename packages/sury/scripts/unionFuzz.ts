@@ -48,7 +48,7 @@ const entryPath = (tree: string): string => {
   return existsSync(current) ? current : join(tree, "packages/sury/src/S.mjs");
 };
 
-const checkout = (ref: string): string => {
+const checkout = (ref: string): { dir: string; tree: string } => {
   const dir = mkdtempSync(join(tmpdir(), "sury-fuzz-"));
   const tree = join(dir, "tree");
   execFileSync("git", ["worktree", "add", "--detach", tree, ref], {
@@ -61,7 +61,7 @@ const checkout = (ref: string): string => {
     join(tree, "packages/sury/node_modules"),
   );
   build(tree);
-  return tree;
+  return { dir, tree };
 };
 
 const printDiff = (
@@ -86,10 +86,18 @@ const budget: Record<DiffClass, number> = {
   message: 10,
 };
 
+const num = (name: string, fallback: string): number => {
+  const value = Number(arg(name, fallback));
+  if (!Number.isFinite(value)) {
+    throw new Error(`--${name} must be a number`);
+  }
+  return value;
+};
+
 const main = async (): Promise<void> => {
-  const cases = Number(arg("cases", "400"));
-  const seed = Number(arg("seed", "1"));
-  const maxMembers = Number(arg("max-members", "4"));
+  const cases = num("cases", "400");
+  const seed = num("seed", "1");
+  const maxMembers = num("max-members", "4");
   const ref = arg("ref");
 
   build(repoRoot);
@@ -131,6 +139,7 @@ const main = async (): Promise<void> => {
     const members = generateMembers(S, next, size);
     const result = diffsForUnion(S, members);
     stats.compared += result.compared;
+    stats.skipped += result.skipped;
     for (const diff of result.diffs) {
       stats.diffs += 1;
       stats.byClass[diff.class] += 1;
@@ -139,7 +148,7 @@ const main = async (): Promise<void> => {
   }
 
   console.log(
-    `\n${stats.compared} compiled-vs-reference comparisons, ${stats.diffs} diff(s) (seed ${seed}, ${cases} unions)`,
+    `\n${stats.compared} compiled-vs-reference comparisons, ${stats.diffs} diff(s), ${stats.skipped} skipped (seed ${seed}, ${cases} unions)`,
   );
   for (const kind of Object.keys(stats.byClass) as DiffClass[]) {
     const total = stats.byClass[kind];
@@ -151,7 +160,7 @@ const main = async (): Promise<void> => {
   }
 
   if (ref) {
-    const tree = checkout(ref);
+    const { dir, tree } = checkout(ref);
     try {
       const baseline: Sury = await import(entryPath(tree));
       let refDiffs = 0;
@@ -173,7 +182,7 @@ const main = async (): Promise<void> => {
         `\n${refDiffs} changelog diff(s) vs ${ref} on the pinned case (not a gate)`,
       );
     } finally {
-      rmSync(tree, { recursive: true, force: true });
+      rmSync(dir, { recursive: true, force: true });
       execFileSync("git", ["worktree", "prune"], { cwd: repoRoot });
     }
   }

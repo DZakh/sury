@@ -13,6 +13,7 @@ export const show = (value: unknown): string => {
     return `Blob(${value.size})`;
   }
   if (value === undefined) return "undefined";
+  if (typeof value === "number" && !Number.isFinite(value)) return String(value);
   try {
     return JSON.stringify(value) ?? String(value);
   } catch {

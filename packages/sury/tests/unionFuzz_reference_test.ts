@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 import * as S from "../index.mjs";
 import { issue392Case } from "../scripts/unionFuzz/issue392";
-import { describeOutcome } from "../scripts/unionFuzz/outcome";
+import { describeOutcome, show } from "../scripts/unionFuzz/outcome";
 import {
   compiledParse,
   memberEncode,
@@ -10,6 +10,13 @@ import {
   referenceParse,
 } from "../scripts/unionFuzz/reference";
 import { witnessOf } from "../scripts/unionFuzz/witness";
+
+test("show distinguishes non-finite numbers from null", () => {
+  expect(show(Number.NaN)).toBe("NaN");
+  expect(show(Infinity)).toBe("Infinity");
+  expect(show(-Infinity)).toBe("-Infinity");
+  expect(show(null)).toBe("null");
+});
 
 test("reference parse is sequential try of each member parser", () => {
   const stringMember = S.string;

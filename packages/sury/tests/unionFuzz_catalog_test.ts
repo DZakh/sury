@@ -2,6 +2,7 @@ import { expect, test } from "vitest";
 import * as S from "../index.mjs";
 import {
   FUZZ_EXPORTS,
+  catalogNames,
   missingCatalogNames,
   staleCatalogNames,
 } from "../scripts/unionFuzz/catalog";
@@ -17,7 +18,7 @@ test("no stale fuzz classifications", () => {
 });
 
 test("the catalog is keyed by export name", () => {
-  expect(Object.keys(FUZZ_EXPORTS).sort()).toEqual(Object.keys(S).sort());
+  expect(catalogNames()).toEqual(Object.keys(S).sort());
 });
 
 test("every skip classification has a reason", () => {

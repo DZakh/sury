@@ -105,12 +105,13 @@ const memberWitnesses = (
 export const diffsForUnion = (
   S: Sury,
   members: readonly MemberSpec[],
-): { diffs: Comparison[]; compared: number } => {
+): { diffs: Comparison[]; compared: number; skipped: number } => {
   let unionSchema: unknown;
   try {
     unionSchema = S.union(members.map((m) => m.schema));
-  } catch {
-    return { diffs: [], compared: 0 };
+  } catch (error) {
+    console.log(`  skipped ${describeMembers(members)}: ${String(error)}`);
+    return { diffs: [], compared: 0, skipped: 1 };
   }
   const diffs: Comparison[] = [];
   let compared = 0;
@@ -119,18 +120,20 @@ export const diffsForUnion = (
     diffs.push(...next.diffs);
     compared += next.compared;
   }
-  return { diffs, compared };
+  return { diffs, compared, skipped: 0 };
 };
 
 export type RunStats = {
   compared: number;
   diffs: number;
+  skipped: number;
   byClass: Record<DiffClass, number>;
 };
 
 export const emptyStats = (): RunStats => ({
   compared: 0,
   diffs: 0,
+  skipped: 0,
   byClass: { acceptance: 0, "exception-kind": 0, reasons: 0, message: 0 },
 });
 
