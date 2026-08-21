@@ -115,18 +115,15 @@ const B_fuseIntoJsonString = (
   return U;
 };
 
-// The wire form of a nested bare json-format string is an escaped string
-// value, not raw JSON text (see fieldPiece in advanced/json.ts). So a
-// JSON-sourced item (a JSON.parse result typed `json`) converting to one must
-// validate the string and pass it through — narrowing the source to `unknown`
-// routes it to jsonString's own decoder instead of json's serialize encoder,
-// which would re-stringify and double-wrap on encode.
+// The wire form of a nested json-format string is an escaped string value, not
+// raw JSON text (see fieldPiece in advanced/json.ts). So a JSON-sourced item (a
+// JSON.parse result typed `json`) converting to one holds the document itself —
+// narrowing the source to `unknown` routes it to jsonString's own decoder
+// instead of json's serialize encoder, which would re-stringify and double-wrap
+// on encode, and would hand a declared payload (CONTENT_CODEC_SPEC.md rule 3)
+// the text it had just escaped instead of parsing it.
 const B_narrowJsonSourcedJsonString = (itemInput: Val): void => {
-  if (
-    itemInput.s.name === jsonName &&
-    itemInput.e.format === "json" &&
-    itemInput.e.to === U
-  ) {
+  if (itemInput.s.name === jsonName && itemInput.e.format === "json") {
     itemInput.s = unknown;
   }
 };
@@ -210,16 +207,27 @@ export const completeObjectVal = (objectVal: Val): Val => {
   const valWithRequired = objectVal;
 
   if (promiseAllContent) {
-    // FIXME: Test how this interacts with optional fields and fix if broken.
     const operationInput = B_scope(valWithRequired);
     operationInput.io = true;
     const operationOutput = parse(operationInput);
-    const operationCode = B_merge(operationOutput);
+    let operationCode = B_merge(operationOutput);
+    let result = operationOutput.i;
 
-    if (operationCode === "" && promiseAllContent === `${operationOutput.i},`) {
-      valWithRequired.i = operationOutput.i;
+    // Inside the `.then`, where the fields the optional ones read are bound:
+    // the sync branch below appends the same code after the literal, and
+    // leaving it off here dropped every optional field of an object that had
+    // any async one.
+    if (optionalSettingCode !== U) {
+      const objectVar = B_varWithoutAllocation(objectVal.g);
+      operationCode =
+        operationCode + `let ${objectVar}=${result};` + optionalSettingCode(objectVar);
+      result = objectVar;
+    }
+
+    if (operationCode === "" && promiseAllContent === `${result},`) {
+      valWithRequired.i = result;
     } else {
-      valWithRequired.i = `Promise.all([${promiseAllContent}]).then(([${promiseAllContent}])=>{${operationCode}return ${operationOutput.i}})`;
+      valWithRequired.i = `Promise.all([${promiseAllContent}]).then(([${promiseAllContent}])=>{${operationCode}return ${result}})`;
     }
     valWithRequired.f |= valFlagAsync;
     valWithRequired.s = operationOutput.s;
@@ -505,7 +513,9 @@ export const objectDecoder = (unknownInput: Val): Val => {
       const outputVar = output2.v();
       output = B_asyncVal(
         output2,
-        `new Promise((${resolveVar},${rejectVar})=>{let ${counterVar}=Object.keys(${outputVar}).length;for(let ${keyVar} in ${outputVar}){${outputVar}[${keyVar}].then(${asyncParseResultVar}=>{${outputVar}[${keyVar}]=${asyncParseResultVar};if(${counterVar}--===1){${resolveVar}(${outputVar})}},${rejectVar})}})`,
+        // `if(!counter)` first: with no keys the loop never runs, so nothing
+        // would ever resolve the promise.
+        `new Promise((${resolveVar},${rejectVar})=>{let ${counterVar}=Object.keys(${outputVar}).length;if(!${counterVar}){${resolveVar}(${outputVar})}for(let ${keyVar} in ${outputVar}){${outputVar}[${keyVar}].then(${asyncParseResultVar}=>{${outputVar}[${keyVar}]=${asyncParseResultVar};if(${counterVar}--===1){${resolveVar}(${outputVar})}},${rejectVar})}})`,
       );
     } else {
       output = output2;

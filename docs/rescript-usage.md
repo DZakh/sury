@@ -249,6 +249,7 @@ S.isoDateTime // UTC timestamp
 S.duration // Duration
 S.jsonPointer // JSON Pointer
 S.relativeJsonPointer // Relative JSON Pointer
+S.base64 // Base64, standard alphabet with canonical padding
 ```
 
 Each survives a round trip through `S.toJSONSchema` and `S.fromJSONSchema`.
@@ -1458,6 +1459,18 @@ Sync(fn)   // a coder
 Async(fn)  // a coder returning a promise, run with parseAsyncOrThrow
 Auto       // keep the built-in conversion for this direction
 Never      // this direction is impossible, fail when an operation needs it
+Pack       // store this direction's source as a value the target holds
+Unpack     // open this direction's source and hand its payload over
+```
+
+`Pack` and `Unpack` come in a pair, and only where the two sides carry payloads
+of different kinds — `S.base64` and `S.jsonString`, say, where storing the text
+and opening it are both readings of the same link. Sury reports that pair rather
+than picking, and these are the answer:
+
+```rescript
+// The base64 text is what the document holds
+S.base64->S.to(S.jsonString, ~custom={decode: Pack, encode: Unpack})
 ```
 
 ```rescript

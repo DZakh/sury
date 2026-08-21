@@ -16,6 +16,7 @@ import {
   instanceTag,
   type Internal,
   isLiteral,
+  jsonName,
   neverTag,
   numberTag,
   objectTag,
@@ -42,6 +43,7 @@ import {
   tagFlagUnknown,
   U,
   unknown,
+  undefinedTag,
   unknownTag,
   updateOutput,
   type Val,
@@ -51,6 +53,8 @@ import {
 } from "./base";
 import {
   B_embedInvalidInput,
+  B_contentDiffers,
+  B_contentNode,
   B_inlineConst,
   B_markOutput,
   B_merge,
@@ -135,9 +139,15 @@ export const parse = (input: Val): Val => {
         maybeEncoder !== appliedEncoder &&
         loopInput.s !== loopInput.e &&
         loopInput.e.type !== unknownTag &&
-        // A `noValidation` target (S.assert's result sentinel) throws the value
-        // away, so there is nothing for an encoder to re-represent.
-        !loopInput.e.noValidation
+        // A `noValidation` target takes the value as it stands when it is a
+        // whole document (`S.json`, whose parse is the only check it has) or
+        // when the operation discards it anyway (S.assert's `undefined` result
+        // sentinel). Every other such target still gets its conversion:
+        // `noValidation` drops the checks, not the re-representation.
+        !(
+          loopInput.e.noValidation &&
+          (loopInput.e.name === jsonName || loopInput.e.type === undefinedTag)
+        )
       ) {
         result = maybeEncoder!(loopInput, loopInput.e);
       }
@@ -270,6 +280,7 @@ Object.defineProperty(schemaPrototype, reversedKey, {
       const record = mut as unknown as Record<string, unknown>;
       reverseSwap(record, "parser", "serializer");
       reverseSwap(record, "refiner", "inputRefiner");
+      reverseSwap(record, "opens", "opensBack");
       // Deleted, not parked in a holding field: encode has no absent-input arm,
       // and double reversal reads the cache below rather than re-deriving, so
       // nothing needs the old value back.
@@ -456,6 +467,17 @@ export function getDecoder(..._args: unknown[]): (from: unknown) => unknown {
       const to = schema;
       schema = updateOutput(args[i] as Internal, (mut) => {
         mut.to = to;
+        // Only this direction: an operation compiles the chain the way it runs
+        // it, so the encode side is a chain of its own, built from the reversed
+        // schemas. Reported as a missing decoder rather than with the slot
+        // spelling `codecTo` offers — this form has nowhere to write one, and a
+        // custom coder is what answers it.
+        if (
+          B_contentDiffers(B_contentNode(mut).content, B_contentNode(to).content) &&
+          to.to === U
+        ) {
+          mut.parser = (input: Val) => B_unsupportedDecode(input, mut, to);
+        }
       });
     }
     const f = compileDecoder(schema, schema, flag!, U) as (from: unknown) => unknown;

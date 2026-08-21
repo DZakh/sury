@@ -1,5 +1,6 @@
 import {
   baseSchema,
+  copySchema,
   bigintTag,
   booleanTag,
   type Builder,
@@ -14,6 +15,7 @@ import {
   nullTag,
   numberTag,
   objectTag,
+  setContent,
   stringTag,
   symbolTag,
   type Tag,
@@ -212,6 +214,18 @@ export const stringDecoderFn = (input: Val): Val => {
   }
 }
 export const string: Internal = /* @__PURE__ */ initSchema(stringTag, stringDecoderFn);
+
+// The text a carrier hands over when it is opened (CONTENT_CODEC_SPEC.md rule
+// 3), carrying what document it claims to be. That marker is what lets the
+// format parse the text instead of escaping it, without every other string
+// being read as a document too — and the text still gets checked, because
+// nothing has looked at it yet.
+// @__NO_SIDE_EFFECTS__
+export const openedText = (format: Internal): Internal => {
+  const opened = copySchema(string);
+  setContent(opened, format.content!);
+  return opened;
+};
 
 export const booleanDecoder: Builder = (input: Val) => {
   const inputTagFlag = tagFlags[input.s.type]!;

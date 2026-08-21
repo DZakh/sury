@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.array(S.never).with(S.to, S.array(S.uint8Array))
+  input: never[]
+  output: Uint8Array<ArrayBufferLike>[]
+  instantiations: 5551
+jsonSchema:
+  input: '{ items: { not: {} }, type: "array" }'
+  output: "Failed at []: Expected JSON, received Uint8Array"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{Array.isArray(i)||e[1](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}return i}
+    examples:
+      empty:
+        input: "[]"
+        output: "[]"
+      one-value:
+        input: "[1]"
+        error: 'Failed at ["0"]: Expected never, received 1'
+  decode:
+    expression: i=>{for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}return i}
+    examples:
+      empty:
+        input: "[]"
+        output: "[]"
+  encode:
+    expression: i=>{for(let v1=0;v1<i.length;++v1){try{let v2=i[v1];e[0](v2);}catch(v3){v3.path='["'+v1+'"]'+v3.path;throw v3}}return i}
+    examples:
+      empty:
+        input: "[]"
+        output: "[]"

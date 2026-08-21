@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.jsonString.with(S.to, S.file, { decode: "unpack", encode: "pack" })'
+  input: string
+  output: File
+  instantiations: 5310
+jsonSchema:
+  input: '{ type: "string", contentMediaType: "application/json" }'
+  output: Expected JSON, received File
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[6](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="string"||e[5](v0);e[3](v0)||e[4](v0);return new e[2]([e[1](v0)],"")}
+    examples:
+      not-a-document:
+        input: '"aGk="'
+        error: Expected JSON string, received "aGk="
+  decode:
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="string"||e[5](v0);e[3](v0)||e[4](v0);return new e[2]([e[1](v0)],"")}
+    examples:
+      not-a-document:
+        input: '"aGk="'
+        error: Expected JSON string, received "aGk="
+  encode:
+    isAsync: true
+    expression: i=>{let v0;try{v0=i.arrayBuffer().then(b=>e[0](new Uint8Array(b))).catch(x=>e[1](x))}catch(x){e[1](x)}return v0.then(v0=>{return "\""+v0+"\""})}
+    examples:
+      stores-the-bytes:
+        input: new File([new Uint8Array([137, 80, 78, 71])], "a.png")
+        output: '"\"iVBORw==\""'

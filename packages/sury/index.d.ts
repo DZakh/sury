@@ -31,6 +31,7 @@ export type Result<TValue> = SuccessResult<TValue> | FailureResult;
 export type NumberFormat = "int32" | "port" | "integer";
 export type StringFormat =
   | "json"
+  | "base64"
   | "date-time"
   | "email"
   | "uuid"
@@ -519,6 +520,14 @@ export const uuid: Schema<string, string>;
  * @example "cjld2cjxh0000qzrmn831i7rn"
  */
 export const cuid: Schema<string, string>;
+
+/**
+ * Base64 with the standard alphabet and canonical padding. Its payload is bytes,
+ * so `S.to` reads it as such: converting to `S.uint8Array` decodes it, while
+ * converting to `S.string` widens it — a string is not bytes.
+ * @example "ZGF0YQ=="
+ */
+export const base64: Schema<string, string>;
 
 /**
  * An instance of the JS `URL` class, parsed by the WHATWG URL Standard — the same
@@ -1135,11 +1144,18 @@ type Coder<A, B> = { bivarianceHack(value: A): B }["bivarianceHack"];
  * the built-in conversion, `"never"` for an unreachable direction, or an
  * async coder as `{async}`. Async is declared rather than discovered, because
  * Sury compiles operations ahead of time.
+ *
+ * `"pack"` and `"unpack"` are not coders — they say which of the two built-in
+ * readings a carrier/format pair takes, each naming what its own direction does
+ * to its own source: `"unpack"` opens it and hands the payload on, `"pack"`
+ * stores its value. One direction must be the opposite of the other.
  */
 export type Conversion<A, B> =
   | Coder<A, B>
   | "auto"
   | "never"
+  | "pack"
+  | "unpack"
   | { async: Coder<A, Promise<B>> };
 
 /**

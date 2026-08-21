@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.email.with(S.to, S.string)
+  input: string
+  output: string
+  instantiations: 5175
+jsonSchema:
+  # FIXME: widening a string format overflows the stack —
+  # `internalToJSONSchema` encode-reverses a schema that has `.to`, and the
+  # reversed `S.string.with(S.to, S.email)` hands back one that still does, so
+  # the two call each other forever. `S.base64` escapes it only because its
+  # decoder re-schemas the val it passes through (codec-base64-string).
+  input: Maximum call stack size exceeded
+  output: Maximum call stack size exceeded
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"a@b.co"'
+        output: '"a@b.co"'
+      invalid:
+        input: '"nope"'
+        error: Expected email, received "nope"
+  decode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"a@b.co"'
+        output: '"a@b.co"'
+  encode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"a@b.co"'
+        output: '"a@b.co"'

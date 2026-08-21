@@ -746,10 +746,55 @@ export const B_nextConst = (from: Val, schema: Internal, expected?: Internal): V
   return B_next(from, B_inlineConst(from, schema), schema, expected);
 }
 
+// The expression to read a val by when it will be read more than once — the
+// conversion reads it, and whatever the conversion's own result is spliced into
+// may read that. `v()` hands back the var that already stands for the value
+// wherever one does, and hoists one only where the source is an expression
+// nothing has named yet, which is the case a second read would repeat.
+export const B_readOnce = (input: Val): string => input.v();
+
+// A conversion's result, held in a var. The splice that reads it may read it
+// twice (jsonString's escape-free form does), and unlike a property path this is
+// a fresh pass over the whole value — so it is computed once, the way
+// B_conversion computes a custom coder's result once.
+export const B_computed = (
+  input: Val,
+  code: string,
+  schema: Internal,
+  failure?: string,
+): Val => {
+  const outputVar = B_varWithoutAllocation(input.g);
+  const output = B_next(input, outputVar, schema);
+  output.v = _var;
+  // With a `failure`, the whole `B_conversion` shape: a computation that can
+  // throw on a value the operation trusted rather than checked reports it as a
+  // failed conversion instead of escaping as whatever the platform raised.
+  output.cp =
+    failure === U
+      ? `let ${outputVar}=${code};`
+      : `let ${outputVar};try{${outputVar}=${code}}catch(x){${failure}}`;
+  return output;
+};
+
 export const B_asyncVal = (from: Val, initial: string): Val => {
   const v = B_next(from, initial, from.s);
   v.f = valFlagAsync;
   return v;
+}
+
+// A val the rest of the pipeline continues from inside a `.then`. Async is
+// declared, not discovered: a sync operation that reaches one is rejected here,
+// where it is written, rather than returning a promise its caller never asked
+// for.
+export const B_markAsync = (input: Val, output: Val): void => {
+  if (!flagUnsafeHas(input.g.o, flagAsync)) {
+    B_throw({
+      code: "invalid_operation",
+      path: pathEmpty,
+      reason: "Invalid async during sync operation",
+    });
+  }
+  output.f |= valFlagAsync;
 }
 
 export const B_addObjectField = (objectVal: Val, location: string, val: Val): void => {
@@ -851,14 +896,7 @@ export const B_conversion = (
     );
     output.v = _var;
     if (isAsync) {
-      if (!flagUnsafeHas(input.g.o, flagAsync)) {
-        B_throw({
-          code: "invalid_operation",
-          path: pathEmpty,
-          reason: "Invalid async during sync operation",
-        });
-      }
-      output.f |= valFlagAsync;
+      B_markAsync(input, output);
     }
     const embeddedFn = B_embed(input, fn);
     // Reuse the input's var when checks already materialized it, instead of
@@ -903,6 +941,41 @@ export const B_neverSlot: Builder = (input: Val) =>
       input.e.to!,
     )}. The conversion is marked as never`,
   );
+
+// CONTENT_CODEC_SPEC.md rules 3 and 4, for the direction a link is written in:
+// two schemas whose payloads disagree (`content`) have two readings of it —
+// store the source's value in the target, or open the source and hand its
+// payload over — and the target naming its own payload with `.to` is what picks
+// the second. Compiling can't tell the two apart, because reversing a chain
+// turns that payload declaration into just another link: the legal
+// `X -> jsonString -> File` and the rejected `jsonString -> File` reach the
+// decoder as the same pair. So the reading is settled where the link is made,
+// and an unreadable one takes a slot that rejects the operation instead.
+// The node a link's content reading comes from: the schema, or the arm that
+// carries one where the schema is a union — which has neither `content` nor
+// `.to` of its own, though linking a carrier to `S.optional(S.jsonString)` puts
+// the same two readings on the table as linking it to `S.jsonString`.
+export const B_contentNode = (schema: Internal): Internal =>
+  (schema.content === U && schema.anyOf?.find((arm) => arm.content !== U)) || schema;
+
+// Half of CONTENT_CODEC_SPEC.md rule 4's question: whether two payloads are of
+// different kinds, which is what puts two readings on the table — store the
+// source's value in the target, or open the source and hand its payload over.
+// The other half, a `.to` on the target picking the second (rule 3), stays with
+// each caller, along with the `B_contentNode` walk that finds a marker on a
+// union arm. Compiling can't tell the two readings apart,
+// because reversing a chain turns a payload declaration into just another link,
+// so the reading is settled where the link is made — and what to say about it
+// differs by where that was, so the message stays with the caller too.
+export const B_contentDiffers = (from?: Internal, to?: Internal): boolean =>
+  from !== U && to !== U && from !== to;
+
+// Which reading of a content link applies: a `"pack"`/`"unpack"` slot the caller
+// wrote wins (rule 1), and otherwise a target that names its own payload is what
+// asks for the source to be opened (rule 3). Read by the carriers, never by the
+// formats — the format side only ever asks whether a `content` marker is there.
+export const B_readsPayload = (target: Internal): boolean =>
+  target.opens !== U ? target.opens : target.to !== U;
 
 export const B_invalidOperation = (val: Val, description: string): never => {
   return B_throw({ code: "invalid_operation", reason: description, path: val.path });

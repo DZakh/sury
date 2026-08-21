@@ -168,11 +168,14 @@ export const itemSymbol = /* @__PURE__ */ Symbol(vendor + ":item");
 export type NumberFormat = "int32" | "port" | "integer";
 // Mirrored by `StringFormat` in index.d.ts, which is the surface TS users see —
 // a name added here without being added there is invisible to them, and a third
-// copy lives in `S.res`. Every member but `json` and `cuid` is a JSON Schema
-// format name verbatim, which is what lets jsonschema.ts pass it through in
-// both directions.
+// copy lives in `S.res`. Every member but `json`, `base64` and `cuid` is a JSON
+// Schema format name verbatim, which is what lets jsonschema.ts pass it through
+// in both directions; the content-family members name a keyword of their own
+// (`contentMediaType`, `contentEncoding`) instead, which jsonschema.ts spells
+// out per dialect.
 export type StringFormat =
   | "json"
+  | "base64"
   | "date-time"
   | "email"
   | "uuid"
@@ -300,6 +303,25 @@ export type Internal = {
   examples?: unknown[];
   default?: unknown;
   format?: Format;
+  // The content axis (CONTENT_CODEC_SPEC.md): the schema this value's payload
+  // is stored as inside a JSON document — base64 text for bytes, the JSON value
+  // itself for a JSON document. Two schemas that agree on it carry the same
+  // kind of payload, so a link between them is a plain transfer; two that
+  // disagree have two readings of it (store the value, or open it) and the
+  // conversion asks instead of guessing. Absent means the value carries no
+  // payload of its own.
+  // Written only through `setContent` (below), which keeps it non-enumerable.
+  content?: Internal;
+  // Which reading of a content link the caller wrote, when they wrote one.
+  // `opens` is the reading of the link that converts INTO this schema — `true`
+  // opens the source and hands its payload over, `false` stores its value —
+  // and `opensBack` the same for the reversed chain, where this schema is the
+  // target instead. `reverse` trades the two, the way it trades
+  // parser/serializer, so each direction's slot lands on the node the other
+  // direction reads it from. Absent means the link's shape decides — see
+  // `B_readsPayload` in builder.ts.
+  opens?: boolean;
+  opensBack?: boolean;
   // jsonString splices this value between bare quotes with no escaping, so
   // every value the schema admits must be free of `"`, `\`, controls and lone
   // surrogates. Set it only where that is proven — a pattern whose range
@@ -833,7 +855,21 @@ export const unknown: Internal = baseSchema(unknownTag, true, noopDecoder);
 export const copySchema = (schema: Internal): Internal => {
   const c: Internal = Object.assign(new (Schema as unknown as SchemaClass)(), schema);
   c.seq = seq++;
+  // `content` is non-enumerable, so Object.assign skips it — carried by hand
+  // here, which is also the only place that pays for it.
+  if (schema.content !== U) {
+    setContent(c, schema.content);
+  }
   return c;
+}
+
+// `S.base64` and `S.json` are their own content, and an enumerable
+// self-reference makes `JSON.stringify(schema)` — and every error that embeds
+// one — throw on a cycle. Non-enumerable everywhere rather than only there, so
+// a carrier and its copies agree on the field count `unionIsTransparent` walks.
+export const setContent = (schema: Internal, content: Internal): void => {
+  valueOptions[valKey] = content;
+  Object.defineProperty(schema, "content", valueOptions as PropertyDescriptor);
 }
 
 export const updateOutput = <TValue>(schema: Internal, fn: (schema: Internal) => void): TValue => {
