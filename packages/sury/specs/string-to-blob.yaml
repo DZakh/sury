@@ -21,8 +21,8 @@ operations:
     expression: i=>{return new e[0]([i])}
     examples:
       not-a-part:
-        input: Symbol("x")
-        error: Cannot convert a Symbol value to a string
+        input: '{ toString: () => { throw new Error("boom") } }'
+        error: boom
   encode:
     isAsync: true
     expression: i=>{let v0;try{v0=i.text().catch(x=>e[0](x))}catch(x){e[0](x)}return v0}

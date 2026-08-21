@@ -350,6 +350,13 @@ instead of silently working around it.
   reason. It costs a whole direction of the content axis: the `codec-*` specs
   for `S.uint8Array`, `S.base64`, `S.blob` and `S.file` carry codegen and error
   cases only, and `tests/content_test.ts` holds the values instead.
+- An example's `error` is matched verbatim, so one raised by the *platform*
+  rather than by Sury pins that engine's wording: `new Blob([Symbol()])` says
+  "Cannot convert a Symbol value to a string" on Node 22 and "The argument
+  'value' is invalid" on Node 24, and the golden passed locally while failing
+  CI. Write such an example so the message is ours — an input whose own
+  `toString` throws — or the check could compare only the error's constructor
+  when the spec says the failure is the platform's.
 - `ts.schema` has to evaluate, so a schema whose *construction* panics — every
   argument the public API rejects outright, including the `"pack"`/`"unpack"`
   pairs that don't name two readings — has no spec at all, only a
