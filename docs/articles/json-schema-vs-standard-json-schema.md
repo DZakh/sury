@@ -59,7 +59,7 @@ S.toJSONSchema(S.schema({ id: S.string, price: S.number }));
 
 Three libraries, three call shapes, one of them a whole extra dependency. And others - ArkType, VineJS, TypeBox, effect - each with their own.
 
-They don't even agree on what to emit. Run those three and Zod stamps draft 2020-12, Valibot stamps draft-07, Sury stamps nothing at all.
+They don't even agree on what comes out by default. Run those three as written and Zod stamps draft 2020-12, Valibot stamps draft-07, and Sury stamps no `$schema` at all. Every one of them takes an option to fix that, and it's a different option each time.
 
 Now put yourself on the other side. You maintain a tool that wants "give me your schema". You either write an adapter per library and keep them all updated forever, or you pick one library and tell everyone else to convert manually. Almost everyone picked Zod.
 
@@ -111,11 +111,15 @@ const schemas = [
 
 for (const schema of schemas) {
   schema["~standard"].jsonSchema.input({ target: "draft-2020-12" });
-  // => { $schema: "...", type: "object", properties: { id: { type: "string" } }, required: ["id"] }
+  // all three: { $schema: "https://json-schema.org/draft/2020-12/schema",
+  //              type: "object", properties: { id: { type: "string" } },
+  //              required: ["id"] }
 }
 ```
 
-Two things worth saying out loud, because everyone mixes them up:
+Note that `target` isn't optional - the spec makes you pass it. That's the fix for the disagreement above: ask all three for `draft-07` and you get draft-07 from all three, ask for `openapi-3.0` and all three drop the `$schema`. The dialect stops being a per-library default you have to look up and becomes an argument you control.
+
+Two more things worth saying out loud, because everyone mixes them up:
 
 It's **not** [Standard Schema](https://standardschema.dev). That's the sibling spec for *validation*, on the same `~standard` field. A library can implement either one alone, and a schema that does both gives a tool validation and JSON Schema from a single argument.
 
@@ -188,8 +192,6 @@ Level 3 has a real cost, though. JSON Schema's superpower is that it's just data
 **Your users pick their own library.** That's the entire point, and it's worth more to them than it costs you.
 
 **Types come along for the ride.** `~standard.types` carries the inferred Input and Output, so your tool's return value is typed from the user's schema without a single generic of your own.
-
-**The dialect is your call, not theirs.** `target` takes `draft-2020-12`, `draft-07` or `openapi-3.0`, and the library deals with the differences. No more shipping your own converter that only speaks one draft.
 
 **And there are two schemas, not one.** This is the part plain JSON Schema genuinely can't express. A schema that transforms has an input shape and an output shape, and they're different:
 
