@@ -59,6 +59,8 @@ S.toJSONSchema(S.schema({ id: S.string, price: S.number }));
 
 Three libraries, three call shapes, one of them a whole extra dependency. And others - ArkType, VineJS, TypeBox, effect - each with their own.
 
+They don't even agree on what to emit. Run those three and Zod stamps draft 2020-12, Valibot stamps draft-07, Sury stamps nothing at all.
+
 Now put yourself on the other side. You maintain a tool that wants "give me your schema". You either write an adapter per library and keep them all updated forever, or you pick one library and tell everyone else to convert manually. Almost everyone picked Zod.
 
 ## Before the standard, people got creative
@@ -117,20 +119,13 @@ Two things worth saying out loud, because everyone mixes them up:
 
 It's **not** [Standard Schema](https://standardschema.dev). That's the sibling spec for *validation*, on the same `~standard` field. A library can implement either one alone, and a schema that does both gives a tool validation and JSON Schema from a single argument.
 
-And it's not automatic. Zod v4.2+ and ArkType have it built in, Valibot needs the `toStandardJsonSchema` wrapper above, and Sury needs `S.enableStandardJSONSchema()` once at startup (it's opt-in so the converter can be tree-shaken away when you don't use it).
-
-## If you maintain a tool that takes JSON Schema
-
-You don't have to choose. Accept both:
+And turning it on isn't the same everywhere. Zod v4.2+ and ArkType ship it enabled. Valibot needs the `toStandardJsonSchema` wrapper above. Sury needs one call at startup:
 
 ```ts
-const toJsonSchema = (schema, target = "draft-2020-12") =>
-  "~standard" in schema
-    ? schema["~standard"].jsonSchema.input({ target })
-    : schema; // already a plain JSON Schema
+S.enableStandardJSONSchema();
 ```
 
-That's the migration. Nobody's existing code breaks, and every Standard JSON Schema library works on day one.
+It's a call rather than always-on so that bundlers can drop the JSON Schema converter from apps that only parse - which is most of them.
 
 ## Who already accepts it
 
@@ -144,30 +139,55 @@ const response = await client.responses.parse({
   input: "Extract the product",
   text: { format: standardTextFormat(schema, "product") },
 });
+
+response.output_parsed; // { id: string, price: number }
 ```
 
-`schema` there is yours - Zod, Valibot, Sury, whatever you already use. Internally the SDK calls `schema["~standard"].jsonSchema?.input({ target: "draft-07" })` and gets on with it. Compare that to `zodTextFormat`, which is the same helper with one library's name baked into it.
+`schema` there is yours. Pass a Zod one, a Valibot one or a Sury one and nothing else in that snippet changes - same request on the wire, and `output_parsed` typed from whichever you handed over. Internally the SDK just calls `schema["~standard"].jsonSchema?.input({ target: "draft-07" })`.
+
+Compare that to `zodTextFormat`, the same helper with one library's name baked into it.
 
 **MCP Apps** ([`@modelcontextprotocol/ext-apps`](https://apps.extensions.modelcontextprotocol.io/api/interfaces/app.StandardSchemaWithJSON.html)) does the both-specs-at-once trick, with a type literally called `StandardSchemaWithJSON`. Also on the list: xsAI, GQLoom, and the Restate SDK.
 
 That's a short list. It's a young spec.
 
-## Who's missing it
+## If your tool is JSON Schema-native
 
-Anything today that says "pass a Zod schema, or hand-write a JSON Schema". Fastify, react-jsonschema-form, LangChain.js, most OpenAPI generators, and a pile of internal tools at your company. All of them already have the JSON Schema half working. They're maybe fifteen lines from the other one.
+By that I mean a tool where the user hands over a JSON Schema and the tool interprets it. API frameworks that validate requests, form renderers, OpenAPI generators, anything that defines LLM tools.
+
+They all end up in the same place. You take JSON Schema, so you ship a validator to enforce it - [Fastify's route validation runs on Ajv](https://fastify.dev/docs/latest/Reference/Validation-and-Serialization/). Then users ask to write schemas in a real library instead of by hand, so you grow an adapter per library - Fastify's [type providers](https://fastify.dev/docs/latest/Reference/Type-Providers/), one package each.
+
+Standard JSON Schema is the way out, and you can take it in three steps.
+
+**Level 1 — take it as well.** Keep everything you have and add one branch:
+
+```ts
+const toJsonSchema = (schema, target = "draft-2020-12") =>
+  "~standard" in schema
+    ? schema["~standard"].jsonSchema.input({ target })
+    : schema; // already a plain JSON Schema
+```
+
+Five lines. Nothing existing breaks, and every schema library starts working with your tool at once. For most tools this is the whole job.
+
+**Level 2 — let the schema do the validating.** If it also implements Standard Schema, the object you were handed can check values itself:
+
+```ts
+schema["~standard"].validate({ id: "p_1", price: "9.99" });
+// => { value: { id: "p_1", price: 9.99 } }
+```
+
+So don't run your own validator over it - call that and hand back the errors. Your users get messages from the library they already know, in the shape they already handle. And you stop validating the same data twice.
+
+**Level 3 — stop vendoring a validator.** For a new tool or a major version: if schemas only ever arrive as Standard JSON Schema, Ajv leaves your dependency tree completely. Validation becomes the user's library, and JSON Schema goes back to being something you *emit* rather than something you interpret.
+
+Level 3 has a real cost, though. JSON Schema's superpower is that it's just data - it can come from a file, a registry, an OpenAPI doc, another language. Drop the plain path and all of that stops working. If your users load schemas at runtime, Level 1 is the finish line, not a stepping stone.
 
 ## Why this beats asking for a JSON Schema
 
 **Your users pick their own library.** That's the entire point, and it's worth more to them than it costs you.
 
 **Types come along for the ride.** `~standard.types` carries the inferred Input and Output, so your tool's return value is typed from the user's schema without a single generic of your own.
-
-**Validation without an extra dependency.** If the schema also implements Standard Schema, you already have a validator - the same object that produced the JSON Schema can check the value that comes back:
-
-```ts
-schema["~standard"].validate({ id: "p_1", price: "9.99" });
-// => { value: { id: "p_1", price: 9.99 } }
-```
 
 **The dialect is your call, not theirs.** `target` takes `draft-2020-12`, `draft-07` or `openapi-3.0`, and the library deals with the differences. No more shipping your own converter that only speaks one draft.
 
@@ -192,6 +212,6 @@ Hand a tool one JSON Schema and it has no idea which of those it's holding. That
 
 Standard JSON Schema doesn't replace JSON Schema. It's the missing handshake in front of it: one interface, so tools stop hardcoding library names and users stop converting by hand.
 
-If you maintain a schema library, implement it. If you maintain a tool, accept it - the snippet above is the whole change. And if you're just picking a library, check whether yours does it yet.
+If you maintain a schema library, implement it. If you maintain a tool, Level 1 is five lines and buys you every library at once. And if you're just picking a library, check whether yours does it yet.
 
 Hope this was useful. Check out [Sury](https://dev.to/dzakh/welcome-sury-the-fastest-schema-with-next-gen-dx-5gl4) — the most powerful schema library in the TS ecosystem. Follow me on X at [@dzakh_dev](https://x.com/dzakh_dev), and ask your questions in the comments!
