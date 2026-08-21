@@ -10,8 +10,8 @@
 // an earlier generic `object`, and an exact `NaN` ahead of `number`.
 //
 // Which member a value reaches is invisible in a golden until someone writes the
-// spec for exactly that permutation, so diff any change here against the commit
-// you started from with `pnpm --filter=sury fuzz:union --ref=<commit>`.
+// spec for exactly that permutation. `pnpm --filter=sury fuzz:union` compares
+// this compiler to a sequential try of each variant's own parser/encoder.
 
 import {
   anyOfTag,
@@ -541,6 +541,8 @@ const unionMemberDirect = 16;
 //             synthetic "none of these matched" wrapper, not a member's error.
 //   group 2 — some value reaching this group could still be accepted by a later
 //             one, so a failure here has to be caught rather than raised.
+//   group 32 — later same runtime type; emit ANDs this group's discriminants
+//             into the outer condition so a disjoint TAG is not eaten (#392).
 //
 // Bits 8 (falls) and 16 (direct dispatch) mean the same on both.
 
@@ -888,9 +890,13 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
     const bucketed =
       member.r !== unionAnyTag &&
       (member.m & ~member.r) === 0;
+    // Field discriminants prove members don't compete, so payload opacity
+    // must not exclude them — that stranded later TAGs behind a type-narrow
+    // miss (#392). Coercing literals stay ungrouped: a later same-type
+    // catch-all would wrap them in try/catch longer than sequential checks.
     const compatible =
       member.e < 2 ||
-      (member.e === 4 && member.d?.[0] === "");
+      (member.d !== U && (member.e === 4 || member.d[0] !== ""));
     let bucket = bucketed
       ? member.p === 0
         ? priority[member.r] || active[member.r]
@@ -903,12 +909,15 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
     // is harmless — that bucket leaves `active`, so nothing can join it again.
     //
     // A member joins a group that is still open, holds the same runtime type, and
-    // sits on the same side of the pass-through boundary. Tier is deliberately
-    // *not* part of the test: tiers order groups by specificity, and specificity
-    // between two members of one type that both hand the value back is
-    // unobservable, so they belong under one narrow. Tier 0 is the exception — it
-    // holds what must be tried first (an exact NaN, a nested object), and folding
-    // one into a broader group would bury it behind that group's own members.
+    // sits on the same side of the pass-through boundary — unless both carry
+    // the same discriminant key, in which case they never compete and the
+    // effect cut would only strand a later TAG behind this group's type
+    // narrow (#392). Tier is deliberately *not* part of the test: tiers order
+    // groups by specificity, and specificity between two members of one type
+    // that both hand the value back is unobservable, so they belong under one
+    // narrow. Tier 0 is the exception — it holds what must be tried first (an
+    // exact NaN, a nested object), and folding one into a broader group would
+    // bury it behind that group's own members.
     let open: UnionGroup | undefined = U;
     let broad = false;
     if (bucket !== U) {
@@ -921,7 +930,8 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
           compatible &&
           group.o &&
           first.k === member.k &&
-          (first.e < 2) === (member.e < 2) &&
+          ((first.e < 2) === (member.e < 2) ||
+            (first.d !== U && first.d[0] === member.d?.[0])) &&
           (group.p === 0) === (member.p === 0)
         ) {
           open = group;
@@ -1083,6 +1093,9 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
       }
     } else {
       laterBroad |= group.m;
+    }
+    if (laterMask & group.m) {
+      group.f |= 32;
     }
     laterMask |= group.m;
   }
@@ -1304,6 +1317,13 @@ const unionEmit = (
         }
         body = only.b;
       } else {
+        // Flag 32: a later group still accepts this runtime type. Entering
+        // on the type narrow alone would throw+break on a TAG this group
+        // does not own and never reach that later group (#392).
+        if (inner.length > 1 && group.f & 32 && inner.every((c) => c.c)) {
+          const fused = `(${inner.map((c) => c.c).join("||")})`;
+          cond.c = cond.c ? `${cond.c}&&${fused}` : fused;
+        }
         body = narrowCode + unionEmitChain(inner, ctx);
         grouped = inner.length > 1;
       }
