@@ -25,6 +25,9 @@ operations:
       valid-infinity:
         input: Infinity
         output: Infinity
+      valid-negative-infinity:
+        input: -Infinity
+        output: -Infinity
       invalid-nan:
         input: NaN
         error: Expected number, received NaN
