@@ -48,6 +48,7 @@ import {
   arrayDecoder,
   completeObjectVal,
   definitionToSchema,
+  makeArrayVal,
   makeObjectVal,
   objectDecoder,
   traverseDefinition,
@@ -423,7 +424,7 @@ const assembleShapedObject = (
   init?: (output: Val) => void,
   onMissing?: () => void
 ): Val => {
-  const output = makeObjectVal(input, schema);
+  const output = schema.type === arrayTag ? makeArrayVal(input, schema) : makeObjectVal(input, schema);
   output.io = true;
   if (init !== U) {
     init(output);

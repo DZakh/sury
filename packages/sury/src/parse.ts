@@ -463,7 +463,7 @@ export const typeCheckCond = (input: Val, schema: Internal, inputVar: string): s
     const typeofCheck = typeofCond(numberTag)(inputVar);
     return (input.g.o & 2)
       ? typeofCheck
-      : `${typeofCheck}&&!${nanCond(inputVar)}`;
+      : `${typeofCheck}&&${inputVar}===${inputVar}`;
   }
   if ((tagFlag & 2048)) return nanCond(inputVar);
   if ((tagFlag & (16 | 32))) {

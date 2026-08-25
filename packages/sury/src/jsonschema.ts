@@ -52,8 +52,7 @@ import {
   array,
   arrayDecoder,
   dict,
-  objectDecoder,
-  option
+  objectDecoder
 } from "./composites";
 import {
  schemaFactory
@@ -65,6 +64,7 @@ import {
   Metadata_set,
   Option_getOr,
   deepStrict,
+  option,
   refineInput
 } from "./modifiers";
 import {

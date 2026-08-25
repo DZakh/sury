@@ -16,7 +16,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{Array.isArray(i)||e[2](i);let v3=new Array(i.length);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];for(;;){if(typeof v1==="number"&&!Number.isNaN(v1)){v1<=1||e[0](v1);break}if(v1===null){v1=void 0;break}e[1](v1)}v3[v0]=v1}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}return v3}
+    expression: i=>{Array.isArray(i)||e[2](i);let v3=new Array(i.length);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];for(;;){if(typeof v1==="number"&&v1===v1){v1<=1||e[0](v1);break}if(v1===null){v1=void 0;break}e[1](v1)}v3[v0]=v1}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}return v3}
     examples:
       null-becomes-undefined:
         input: "[null, 1]"
@@ -29,7 +29,7 @@ operations:
         output: "[]"
   decode: eq-to-parse
   encode:
-    expression: i=>{let v4=new Array(i.length);for(let v1=0;v1<i.length;++v1){try{let v2=i[v1];for(;;){if(typeof v2==="number"&&!Number.isNaN(v2)){v2<=1||e[0](v2);break}if(v2===void 0){v2=null;break}e[1](v2)}v4[v1]=v2}catch(v3){v3.path='["'+v1+'"]'+v3.path;throw v3}}return v4}
+    expression: i=>{let v4=new Array(i.length);for(let v1=0;v1<i.length;++v1){try{let v2=i[v1];for(;;){if(typeof v2==="number"&&v2===v2){v2<=1||e[0](v2);break}if(v2===void 0){v2=null;break}e[1](v2)}v4[v1]=v2}catch(v3){v3.path='["'+v1+'"]'+v3.path;throw v3}}return v4}
     examples:
       undefined-becomes-null:
         input: "[undefined, 1]"

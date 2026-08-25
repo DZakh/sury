@@ -13,7 +13,7 @@ vs:
   zod: 'z.discriminatedUnion("kind", [z.object({ kind: z.literal("a"), a: z.string() }), z.object({ kind: z.literal("b"), b: z.number() }), z.object({ kind: z.literal("c"), c: z.boolean() }), z.object({ kind: z.literal("d"), d: z.bigint() }), z.object({ kind: z.literal("e"), e: z.symbol() })])'
 operations:
   parse:
-    expression: i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i["kind"]==="a"){let v0=i["a"];typeof v0==="string"||e[0](v0);i={kind:i["kind"],a:v0};break}if(i["kind"]==="b"){let v1=i["b"];typeof v1==="number"&&!Number.isNaN(v1)||e[1](v1);i={kind:i["kind"],b:v1};break}if(i["kind"]==="c"){let v2=i["c"];typeof v2==="boolean"||e[2](v2);i={kind:i["kind"],c:v2};break}if(i["kind"]==="d"){let v3=i["d"];typeof v3==="bigint"||e[3](v3);i={kind:i["kind"],d:v3};break}if(i["kind"]==="e"){let v4=i["e"];typeof v4==="symbol"||e[4](v4);i={kind:i["kind"],e:v4};break}e[5](i)}}else{e[6](i)}return i}
+    expression: i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i["kind"]==="a"){let v0=i["a"];typeof v0==="string"||e[0](v0);i={kind:i["kind"],a:v0};break}if(i["kind"]==="b"){let v1=i["b"];typeof v1==="number"&&v1===v1||e[1](v1);i={kind:i["kind"],b:v1};break}if(i["kind"]==="c"){let v2=i["c"];typeof v2==="boolean"||e[2](v2);i={kind:i["kind"],c:v2};break}if(i["kind"]==="d"){let v3=i["d"];typeof v3==="bigint"||e[3](v3);i={kind:i["kind"],d:v3};break}if(i["kind"]==="e"){let v4=i["e"];typeof v4==="symbol"||e[4](v4);i={kind:i["kind"],e:v4};break}e[5](i)}}else{e[6](i)}return i}
     examples:
       valid-a:
         input: '{ kind: "a", a: "hello" }'

@@ -133,7 +133,7 @@ module EmptyDict = {
     t->U.assertCompiledCode(
       ~schema=schema->S.strict,
       ~op=#Parse,
-      `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0;for(v0 in i){if(true){e[0](v0)}}return i}`,
+      `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0;for(v0 in i)e[0](v0);return i}`,
     )
   })
 

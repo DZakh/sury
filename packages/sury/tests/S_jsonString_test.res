@@ -88,12 +88,12 @@ test("Parses JSON string to float", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="string"||e[2](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="number"&&!Number.isNaN(v0)||e[1](v0);return v0}`,
+    `i=>{typeof i==="string"||e[2](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="number"&&v0===v0||e[1](v0);return v0}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Convert,
-    `i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="number"&&!Number.isNaN(v0)||e[1](v0);return v0}`,
+    `i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="number"&&v0===v0||e[1](v0);return v0}`,
   )
 
   t->Assert.deepEqual(1.23->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"1.23"`))

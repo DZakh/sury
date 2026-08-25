@@ -31,7 +31,6 @@ import {
   undefinedTag,
   unknown,
   unknownTag,
-  updateOutput,
   type Val
 } from "./base";
 import {
@@ -51,7 +50,6 @@ import {
   B_merge,
   B_mergeWithPathPrepend,
   B_next,
-  B_nextConst,
   B_refine,
   B_scope,
   B_unsupportedDecode,
@@ -60,8 +58,6 @@ import {
 } from "./builder";
 import {
   getOutputSchema,
-  nestedLoc,
-  nestedOptionParser,
   parse,
   parseDynamic,
 } from "./parse";
@@ -72,9 +68,6 @@ import {
  objectTagCond,
  unit
 } from "./primitives";
-import {
- unionFactory
-} from "./union";
 
 // Narrows the dict-value-schema-or-mode union down to the schema case.
 const isItemSchema = (x: AdditionalItems | undefined): x is Internal =>
@@ -128,44 +121,45 @@ const B_narrowJsonSourcedJsonString = (itemInput: Val): void => {
   }
 };
 
-export const makeObjectVal = (prev: Val, schema: Internal): Val => {
-  // Canonical Val field order (see B_operationArg in builder.ts).
-  return {
-    b: U,
-    p: U,
-    v: _notVar,
-    i: "",
-    s: (schema.type === arrayTag
-      ? {
-          type: arrayTag,
-          items: [],
-          additionalItems: "strict",
-          decoder: arrayDecoder,
-        }
-      : {
-          type: objectTag,
-          required: [],
-          properties: Object.create(null),
-          additionalItems: "strict",
-          decoder: objectDecoder,
-        }) as Internal,
-    io: U,
-    e: prev.e,
-    prev,
-    f: 0,
-    d: Object.create(null),
-    fv: U,
-    cp: "",
-    hd: "",
-    fz: U,
-    vc: U,
-    u: U,
-    t: true,
-    path: prev.path,
-    g: prev.g,
-    o: U,
-  };
-}
+const B_makeContainerVal = (prev: Val, schema: Internal): Val => ({
+  b: U,
+  p: U,
+  v: _notVar,
+  i: "",
+  s: schema,
+  io: U,
+  e: prev.e,
+  prev,
+  f: 0,
+  d: Object.create(null),
+  fv: U,
+  cp: "",
+  hd: "",
+  fz: U,
+  vc: U,
+  u: U,
+  t: true,
+  path: prev.path,
+  g: prev.g,
+  o: U,
+});
+
+export const makeObjectVal = (prev: Val, _schema?: Internal): Val =>
+  B_makeContainerVal(prev, {
+    type: objectTag,
+    required: [],
+    properties: Object.create(null),
+    additionalItems: "strict",
+    decoder: objectDecoder,
+  } as Internal);
+
+export const makeArrayVal = (prev: Val, _schema?: Internal): Val =>
+  B_makeContainerVal(prev, {
+    type: arrayTag,
+    items: [],
+    additionalItems: "strict",
+    decoder: arrayDecoder,
+  } as Internal);
 export const completeObjectVal = (objectVal: Val): Val => {
   const isArray = objectVal.s.type === arrayTag;
   let inline = "";
@@ -360,7 +354,7 @@ export const arrayDecoder = (unknownInput: Val): Val => {
       }
     }
   } else {
-    const objectVal = makeObjectVal(input, expectedSchema);
+    const objectVal = makeArrayVal(input, expectedSchema);
     let shouldRecreateInput: boolean;
     {
       const ai = expectedSchema.additionalItems;
@@ -411,6 +405,15 @@ export const arrayDecoder = (unknownInput: Val): Val => {
   }
   return B_markOutput(output, input);
 }
+// Shared, immutable: B_refine wraps it in a fresh array. Must match
+// typeCheckCond's object tag — strip could skip `!Array.isArray` (it
+// rebuilds, so an array would decode to `{}`) but that widens the union
+// acceptance mask.
+const objectTypeCheck: Check = {
+  c: (inputVar) => `${objectTagCond(inputVar)}&&!${isArrayCond(inputVar)}`,
+  f: failInvalidType,
+};
+
 export const objectDecoder = (unknownInput: Val): Val => {
   const isUnion = unknownInput.u!;
   const expectedSchema = unknownInput.e;
@@ -422,7 +425,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
     const isObjectInput = (unknownInputTagFlag & 64);
     let schema: Internal;
     if (!isObjectInput) {
-      // TODO: Use dictFactory here
+      // Not dictFactory(unknown): unknown.sr is true; this input schema must not be.
       const mut = baseSchema(objectTag, false, objectDecoder);
       mut.properties = immutableEmptyObject as Record<string, Internal>;
       mut.additionalItems = unknown;
@@ -430,30 +433,10 @@ export const objectDecoder = (unknownInput: Val): Val => {
     } else {
       schema = unknownInput.s;
     }
-    const checks: Check[] = [];
-    if (!isObjectInput) {
-      checks.push({
-        c: objectTagCond,
-        f: failInvalidType,
-      });
-      // An array is not an object, whatever the mode. `strip` could skip this
-      // and still produce a sound value — it rebuilds from known properties, so
-      // an array decodes to `{}` — but that's silent acceptance of the wrong
-      // type, and it made the narrow weaker than `typeCheckCond`, which a union
-      // dispatch reads as the case's acceptance mask.
-      checks.push({
-        c: (inputVar) => `!${isArrayCond(inputVar)}`,
-        f: failInvalidType,
-      });
-    }
-
-    // Apply refine also when there are no checks,
-    // so literals for union cases don't mutate input
-    if (checks.length > 0) {
-      input = B_refine(unknownInput, schema, checks);
-    } else {
-      input = B_refine(unknownInput, schema);
-    }
+    // Refine even with no checks so literals for union cases don't mutate input.
+    input = isObjectInput
+      ? B_refine(unknownInput, schema)
+      : B_refine(unknownInput, schema, [objectTypeCheck]);
   } else {
     input = B_unsupportedDecode(unknownInput, unknownInput.s, expectedSchema);
   }
@@ -544,19 +527,10 @@ export const objectDecoder = (unknownInput: Val): Val => {
     const keysCount = keys.length;
 
     const objectVal = makeObjectVal(input, expectedSchema);
-    let shouldRecreateInput: boolean;
-    {
-      const ai = expectedSchema.additionalItems;
-      // Since we have a check validating the exact properties existence
-      if (ai === "strict") {
-        shouldRecreateInput = false;
-      } else if (ai === "strip") {
-        shouldRecreateInput =
-          sourceIsDict || Object.keys(input.s.properties!).length !== keysCount;
-      } else {
-        shouldRecreateInput = true;
-      }
-    }
+    const ai = expectedSchema.additionalItems;
+    let shouldRecreateInput =
+      ai !== "strict" &&
+      (ai !== "strip" || sourceIsDict || Object.keys(input.s.properties!).length !== keysCount);
 
     // FIXME: hack — detect "JSON-sourced object" via additionalItems=json
     // (set by jsonEncoderFn) and patch the field read inline to coalesce
@@ -570,9 +544,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
     // Detection is fragile (string-compares the schema name) and only
     // covers the union-with-undefined shape; fold this into a shared
     // JSON option representation post-release.
-    const isJsonParent = isItemSchema(inputAdditionalItems)
-      ? inputAdditionalItems.name === jsonName
-      : false;
+    const isJsonParent = isItemSchema(inputAdditionalItems) && inputAdditionalItems.name === jsonName;
 
     for (let idx = 0; idx < keysCount; idx++) {
       const key = keys[idx]!;
@@ -599,38 +571,29 @@ export const objectDecoder = (unknownInput: Val): Val => {
       }
     }
 
-    if (expectedSchema.additionalItems === "strict" && isItemSchema(inputAdditionalItems)) {
+    if (ai === "strict" && isItemSchema(inputAdditionalItems)) {
       const keyVar = B_varWithoutAllocation(objectVal.g);
       B_hoistDecl(input, keyVar);
-      objectVal.cp = objectVal.cp + `for(${keyVar} in ${input.v()}){if(`;
-      if (keys.length === 0) {
-        objectVal.cp = objectVal.cp + "true";
-      } else {
-        for (let idx = 0; idx < keys.length; idx++) {
-          const key = keys[idx]!;
-          if (idx !== 0) {
-            objectVal.cp = objectVal.cp + "&&";
-          }
-          objectVal.cp = objectVal.cp + `${keyVar}!==${inlinedValueFromString(key)}`;
-        }
+      const fail = B_failWithArg(
+        input,
+        (excessFieldName: string) =>
+          ({
+            code: "unrecognized_keys",
+            path: objectVal.path,
+            reason: `Unrecognized key "${excessFieldName}"`,
+            keys: [excessFieldName],
+          }) as ErrorDetails,
+        keyVar,
+      );
+      let cond = "";
+      for (let idx = 0; idx < keysCount; idx++) {
+        if (idx) cond += "&&";
+        cond += `${keyVar}!==${inlinedValueFromString(keys[idx]!)}`;
       }
-      objectVal.cp =
-        objectVal.cp +
-        `){${B_failWithArg(
-          input,
-          (excessFieldName: string) =>
-            ({
-              code: "unrecognized_keys",
-              path: objectVal.path,
-              reason: `Unrecognized key "${excessFieldName}"`,
-              keys: [excessFieldName],
-            }) as ErrorDetails,
-          keyVar,
-        )}}}`;
+      objectVal.cp +=
+        `for(${keyVar} in ${input.v()})` + (cond ? `if(${cond})` : "") + fail + ";";
     }
 
-    // After input.schema was used, set it to selfSchema
-    // so it has a more accurate name in error messages
     if (shouldRecreateInput) {
       output = completeObjectVal(objectVal);
     } else {
@@ -721,99 +684,6 @@ export const traverseDefinition = (
   }
 }
 
-// baseSchema, not an object literal: anything reachable as a union member has
-// to carry the schema prototype, since that is where the lazily derived
-// reverse (`schema.r`) lives. A default on a nested option puts this schema
-// in exactly that position.
-export const nestedNone = (): Internal => {
-  const itemSchema = Literal_parse(0);
-  // FIXME: dict{}
-  const properties: Record<string, Internal> = {};
-  properties[nestedLoc] = itemSchema;
-  const mut = baseSchema(objectTag, false, objectDecoder);
-  mut.required = [nestedLoc];
-  mut.properties = properties;
-  mut.additionalItems = "strip";
-  // TODO: Support this as a default coercion
-  mut.serializer = (input: Val) => {
-    const nextSchema = input.e.to!;
-    return B_nextConst(input, nextSchema, nextSchema);
-    // FIXME: Need to set isOutput?
-  };
-  return mut;
-}
-
-export const nestedOption = (item: Internal): Internal => {
-  return updateOutput<Internal>(item, (mut) => {
-    mut.to = nestedNone();
-    mut.parser = nestedOptionParser;
-  });
-}
-
-// PORT-NOTE: the `~unit` labeled arg is renamed to `unitSchema` so the
-// default expression can still reference the module-level `unit` singleton.
-export const optionFactory = (item: Internal, unitSchema: Internal = unit): Internal => {
-  const out = getOutputSchema(item);
-  if (out.type === undefinedTag) {
-    return unionFactory([unitSchema, nestedOption(item)]);
-  } else if (out.type === anyOfTag) {
-    const anyOf = out.anyOf;
-    const has = out.has;
-    return updateOutput<Internal>(item, (mut) => {
-      const schemas = anyOf!;
-      const mutHas = { ...has! };
-
-      const newAnyOf: Internal[] = [];
-      for (let idx = 0; idx < schemas.length; idx++) {
-        const schema = schemas[idx]!;
-        let toPush: Internal;
-        const schemaOut = getOutputSchema(schema);
-        if (schemaOut.type === undefinedTag) {
-          mutHas[unitSchema.type] = true;
-          newAnyOf.push(unitSchema);
-          toPush = nestedOption(schema);
-        } else if (schemaOut.properties !== U) {
-          const properties = schemaOut.properties;
-          const nestedSchema = properties[nestedLoc];
-          if (nestedSchema !== U) {
-            toPush = updateOutput<Internal>(schema, (mut) => {
-              // copySchema, not a spread: a spread keeps the original's seq,
-              // and two schemas sharing a seq can collide in the seq-keyed
-              // operation caches.
-              const bumped = copySchema(nestedSchema);
-              bumped.const = (nestedSchema.const as number) + 1;
-              // FIXME: dict{}
-              const properties: Record<string, Internal> = {};
-              properties[nestedLoc] = bumped;
-              mut.properties = properties;
-            });
-          } else {
-            toPush = schema;
-          }
-        } else {
-          toPush = schema;
-        }
-        newAnyOf.push(toPush);
-      }
-
-      if (newAnyOf.length === schemas.length) {
-        mutHas[unitSchema.type] = true;
-        newAnyOf.push(unitSchema);
-      }
-
-      mut.anyOf = newAnyOf;
-      mut.has = mutHas;
-    });
-  } else {
-    return unionFactory([item, unitSchema]);
-  }
-}
-
-// @__NO_SIDE_EFFECTS__
-export const option = (item: Internal): Internal => {
-  return optionFactory(item, unit);
-}
-
 // Dict-missing-key as `T | undefined` without unionFactory, so valGet does
 // not put the union compiler on the objectDecoder/arrayDecoder SCC. A missing
 // key against an optional target stays absent (None); against a required
@@ -837,7 +707,15 @@ const missingKeyEncoder: Encoder = (input, target) => {
   const output = B_next(input, v, getOutputSchema(target), target);
   output.v = _var;
   output.io = true;
-  output.cp = `if(${v}!==void 0){${presentCode}${presentAssign}}else{${absentCode}}`;
+  const presentBody = presentCode + presentAssign;
+  output.cp =
+    presentBody === ""
+      ? absentCode === ""
+        ? ""
+        : `${v}!==void 0||${absentCode};`
+      : absentCode === ""
+        ? `if(${v}!==void 0){${presentBody}}`
+        : `if(${v}!==void 0){${presentBody}}else{${absentCode}}`;
   return output;
 };
 

@@ -94,7 +94,7 @@ test("Ensures parsing order with unknown schema", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){let r;if(typeof i==="string"){try{i.length===2||e[0](i);break}catch(x){(r||(r=[])).push(e[4](x))}}if(typeof i==="boolean")break;try{let v0;try{v0=e[1](i)}catch(x){e[2](x);e[3](x)}i=v0;break}catch(x){(r||(r=[])).push(e[4](x))}if(typeof i==="number"&&!Number.isNaN(i))break;if(typeof i==="bigint")break;e[5](i,...(r||[]))}return i}`,
+    `i=>{for(;;){let r;if(typeof i==="string"){try{i.length===2||e[0](i);break}catch(x){(r||(r=[])).push(e[4](x))}}if(typeof i==="boolean")break;try{let v0;try{v0=e[1](i)}catch(x){e[2](x);e[3](x)}i=v0;break}catch(x){(r||(r=[])).push(e[4](x))}if(typeof i==="number"&&i===i)break;if(typeof i==="bigint")break;e[5](i,...(r||[]))}return i}`,
   )
 })
 
@@ -243,7 +243,7 @@ module Advanced = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[6](i);let v0=i["field"];if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0["kind"]==="circle"){let v1=v0["radius"];typeof v1==="number"&&!Number.isNaN(v1)||e[0](v1);v0={TAG:"Circle",radius:v1};break}if(v0["kind"]==="square"){let v2=v0["x"];typeof v2==="number"&&!Number.isNaN(v2)||e[1](v2);v0={TAG:"Square",x:v2};break}if(v0["kind"]==="triangle"){let v3=v0["x"],v4=v0["y"];typeof v3==="number"&&!Number.isNaN(v3)||e[2](v3);typeof v4==="number"&&!Number.isNaN(v4)||e[3](v4);v0={TAG:"Triangle",x:v3,y:v4};break}e[4](v0)}}else{e[5](v0)}return v0}`,
+      `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[6](i);let v0=i["field"];if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0["kind"]==="circle"){let v1=v0["radius"];typeof v1==="number"&&v1===v1||e[0](v1);v0={TAG:"Circle",radius:v1};break}if(v0["kind"]==="square"){let v2=v0["x"];typeof v2==="number"&&v2===v2||e[1](v2);v0={TAG:"Square",x:v2};break}if(v0["kind"]==="triangle"){let v3=v0["x"],v4=v0["y"];typeof v3==="number"&&v3===v3||e[2](v3);typeof v4==="number"&&v4===v4||e[3](v4);v0={TAG:"Triangle",x:v3,y:v4};break}e[4](v0)}}else{e[5](v0)}return v0}`,
     )
 
     t->U.assertThrowsMessage(
@@ -318,7 +318,7 @@ module Advanced = {
     t->U.assertCompiledCode(
       ~schema=shapeSchema,
       ~op=#Parse,
-      `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i["kind"]==="circle"){let v0=i["radius"];typeof v0==="number"&&!Number.isNaN(v0)||e[0](v0);i={TAG:"Circle",radius:v0};break}if(i["kind"]==="square"){let v1=i["x"];typeof v1==="number"&&!Number.isNaN(v1)||e[1](v1);i={TAG:"Square",x:v1};break}if(i["kind"]==="triangle"){let v2=i["x"],v3=i["y"];typeof v2==="number"&&!Number.isNaN(v2)||e[2](v2);typeof v3==="number"&&!Number.isNaN(v3)||e[3](v3);i={TAG:"Triangle",x:v2,y:v3};break}e[4](i)}}else{e[5](i)}return i}`,
+      `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i["kind"]==="circle"){let v0=i["radius"];typeof v0==="number"&&v0===v0||e[0](v0);i={TAG:"Circle",radius:v0};break}if(i["kind"]==="square"){let v1=i["x"];typeof v1==="number"&&v1===v1||e[1](v1);i={TAG:"Square",x:v1};break}if(i["kind"]==="triangle"){let v2=i["x"],v3=i["y"];typeof v2==="number"&&v2===v2||e[2](v2);typeof v3==="number"&&v3===v3||e[3](v3);i={TAG:"Triangle",x:v2,y:v3};break}e[4](i)}}else{e[5](i)}return i}`,
     )
   })
 
@@ -483,22 +483,22 @@ test("Compiled parse code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="number"&&!Number.isNaN(i)&&(i===0||i===1)||e[0](i);return i}`,
+    `i=>{typeof i==="number"&&i===i&&(i===0||i===1)||e[0](i);return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseParse,
-    `i=>{typeof i==="number"&&!Number.isNaN(i)&&(i===0||i===1)||e[0](i);return i}`,
+    `i=>{typeof i==="number"&&i===i&&(i===0||i===1)||e[0](i);return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Convert,
-    `i=>{typeof i==="number"&&!Number.isNaN(i)&&(i===0||i===1)||e[0](i);return i}`,
+    `i=>{typeof i==="number"&&i===i&&(i===0||i===1)||e[0](i);return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{typeof i==="number"&&!Number.isNaN(i)&&(i===0||i===1)||e[0](i);return i}`,
+    `i=>{typeof i==="number"&&i===i&&(i===0||i===1)||e[0](i);return i}`,
   )
 })
 
@@ -511,12 +511,12 @@ asyncTest("Compiled async parse code snapshot", async t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ParseAsync,
-    `i=>{if(typeof i==="number"&&!Number.isNaN(i)){for(;;){if(i===0){let v0=e[0](i);i=v0;break}if(i===1)break;e[1](i)}}else{e[2](i)}return Promise.resolve(i)}`,
+    `i=>{if(typeof i==="number"&&i===i){for(;;){if(i===0){let v0=e[0](i);i=v0;break}if(i===1)break;e[1](i)}}else{e[2](i)}return Promise.resolve(i)}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ConvertAsync,
-    `i=>{if(typeof i==="number"&&!Number.isNaN(i)){for(;;){if(i===0){let v0=e[0](i);i=v0;break}if(i===1)break;e[1](i)}}else{e[2](i)}return Promise.resolve(i)}`,
+    `i=>{if(typeof i==="number"&&i===i){for(;;){if(i===0){let v0=e[0](i);i=v0;break}if(i===1)break;e[1](i)}}else{e[2](i)}return Promise.resolve(i)}`,
   )
 
   t->Assert.deepEqual(await 1->S.parseAsyncOrThrow(~to=schema), 1)
@@ -594,7 +594,7 @@ test("Compiled serialize code snapshot of objects returning literal fields", t =
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{if(typeof i==="number"&&!Number.isNaN(i)){for(;;){if(i===0){i={foo:i};break}if(i===1){i={bar:i};break}e[0](i)}}else{e[1](i)}return i}`,
+    `i=>{if(typeof i==="number"&&i===i){for(;;){if(i===0){i={foo:i};break}if(i===1){i={bar:i};break}e[0](i)}}else{e[1](i)}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
@@ -930,7 +930,7 @@ module CknittelBugReport = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{for(;;){let r;if(typeof i==="object"&&i&&!Array.isArray(i)){try{let v0=i["payload"];typeof v0==="object"&&v0&&!Array.isArray(v0)||e[1](v0);let v1=v0["a"];(typeof v1==="string"||v1===void 0)||e[0](v1);i={TAG:"A",_0:{payload:{a:v1}}};break}catch(x){(r||(r=[])).push(e[4](x))}try{let v2=i["payload"];typeof v2==="object"&&v2&&!Array.isArray(v2)||e[3](v2);let v3=v2["b"];(typeof v3==="number"&&!Number.isNaN(v3)&&v3<=2147483647&&v3>=-2147483648&&v3%1===0||v3===void 0)||e[2](v3);i={TAG:"B",_0:{payload:{b:v3}}};break}catch(x){(r||(r=[])).push(e[4](x))}}e[5](i,...(r||[]))}return i}`,
+      `i=>{for(;;){let r;if(typeof i==="object"&&i&&!Array.isArray(i)){try{let v0=i["payload"];typeof v0==="object"&&v0&&!Array.isArray(v0)||e[1](v0);let v1=v0["a"];(typeof v1==="string"||v1===void 0)||e[0](v1);i={TAG:"A",_0:{payload:{a:v1}}};break}catch(x){(r||(r=[])).push(e[4](x))}try{let v2=i["payload"];typeof v2==="object"&&v2&&!Array.isArray(v2)||e[3](v2);let v3=v2["b"];(typeof v3==="number"&&v3===v3&&v3<=2147483647&&v3>=-2147483648&&v3%1===0||v3===void 0)||e[2](v3);i={TAG:"B",_0:{payload:{b:v3}}};break}catch(x){(r||(r=[])).push(e[4](x))}}e[5](i,...(r||[]))}return i}`,
     )
 
     t->U.assertCompiledCode(
@@ -966,7 +966,7 @@ test("Optional of int32 should keep a format validation", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{(typeof i==="number"&&!Number.isNaN(i)&&i<=2147483647&&i>=-2147483648&&i%1===0||i===void 0)||e[0](i);return i}`,
+    `i=>{(typeof i==="number"&&i===i&&i<=2147483647&&i>=-2147483648&&i%1===0||i===void 0)||e[0](i);return i}`,
   )
 })
 
@@ -996,7 +996,7 @@ test("Union type-narrow stays in sync with each schema's own decoder", t => {
     })
   }
   assertSync(S.string, ~other=S.bool->S.castToUnknown, [`typeof i==="string"`])
-  assertSync(S.float, ~other=S.bool->S.castToUnknown, [`typeof i==="number"&&!Number.isNaN(i)`])
+  assertSync(S.float, ~other=S.bool->S.castToUnknown, [`typeof i==="number"&&i===i`])
   assertSync(S.bool, ~other=S.string->S.castToUnknown, [`typeof i==="boolean"`])
   assertSync(S.bigint, ~other=S.bool->S.castToUnknown, [`typeof i==="bigint"`])
   assertSync(S.symbol, ~other=S.bool->S.castToUnknown, [`typeof i==="symbol"`])

@@ -13,7 +13,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v1=i["b"],v2=i["O"];typeof v1==="string"||e[3](v1);let v0;try{v0=e[0](v1)}catch(x){e[1](x)}typeof v0==="number"&&!Number.isNaN(v0)||e[2](v0);typeof v2==="string"||e[4](v2);return {f:{b:v0},o:v2}}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v1=i["b"],v2=i["O"];typeof v1==="string"||e[3](v1);let v0;try{v0=e[0](v1)}catch(x){e[1](x)}typeof v0==="number"&&v0===v0||e[2](v0);typeof v2==="string"||e[4](v2);return {f:{b:v0},o:v2}}
     examples:
       codec-field-and-sibling:
         input: '{ b: "42", O: "o" }'
@@ -22,7 +22,7 @@ operations:
         input: '{ b: 42, O: "o" }'
         error: 'Failed at ["b"]: Expected string, received 42'
   decode:
-    expression: i=>{let v0;try{v0=e[0](i["b"])}catch(x){e[1](x)}typeof v0==="number"&&!Number.isNaN(v0)||e[2](v0);return {f:{b:v0},o:i["O"]}}
+    expression: i=>{let v0;try{v0=e[0](i["b"])}catch(x){e[1](x)}typeof v0==="number"&&v0===v0||e[2](v0);return {f:{b:v0},o:i["O"]}}
     examples:
       codec-field-and-sibling:
         input: '{ b: "42", O: "o" }'

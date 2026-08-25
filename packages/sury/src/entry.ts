@@ -152,7 +152,8 @@ export {
   safe,
   safeAsync,
 } from "./operations";
-export { array } from "./composites";
+export { array, dict, dict as record } from "./composites";
+export { schemaObject as object, schemaShape as shape, schemaTuple as tuple } from "./factory";
 // `nullish` accepts null | undefined (the 3-member union) — distinct from
 // `nullable` below, which handles null only.
 export { nullable as nullish } from "./refinements";
@@ -160,11 +161,6 @@ export {
   compactColumns,
 } from "./advanced/compactColumns";
 export {
-  dict,
-  dict as record,
-  object,
-  shape,
-  tuple,
   pattern,
   trim,
   gt,
@@ -508,7 +504,7 @@ export {
   Metadata_get as $Metadata_get,
   Metadata_set as $Metadata_set,
 } from "./modifiers";
-export { option as $option } from "./composites";
+export { option as $option } from "./modifiers";
 export {
   nullAsOption as $nullAsOption,
   nullableAsOption as $nullableAsOption,

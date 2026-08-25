@@ -64,7 +64,7 @@ test("Coerce from string to option of int (union dispatch over a converted value
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="string"||e[4](i);for(;;){let r;try{let v0=+i;!Number.isNaN(v0)||e[1](i);v0<=2147483647&&v0>=-2147483648&&v0%1===0||e[0](v0);i=v0;break}catch(x){(r||(r=[])).push(e[2](x))}if(i==="undefined"){i=void 0;break}e[3](i,...(r||[]))}return i}`,
+    `i=>{typeof i==="string"||e[4](i);for(;;){let r;try{let v0=+i;v0===v0||e[1](i);v0<=2147483647&&v0>=-2147483648&&v0%1===0||e[0](v0);i=v0;break}catch(x){(r||(r=[])).push(e[2](x))}if(i==="undefined"){i=void 0;break}e[3](i,...(r||[]))}return i}`,
   )
 
   t->Assert.deepEqual(Some(123)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"123"`))
@@ -72,7 +72,7 @@ test("Coerce from string to option of int (union dispatch over a converted value
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{for(;;){if(typeof i==="number"&&!Number.isNaN(i)&&i<=2147483647&&i>=-2147483648&&i%1===0){i=""+i;break}if(i===void 0){i="undefined";break}e[0](i)}return i}`,
+    `i=>{for(;;){if(typeof i==="number"&&i===i&&i<=2147483647&&i>=-2147483648&&i%1===0){i=""+i;break}if(i===void 0){i="undefined";break}e[0](i)}return i}`,
   )
 })
 
@@ -220,7 +220,7 @@ test("Coerce from object shaped as string to float", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["foo"];typeof v0==="string"||e[0](v0);let v1=+v0;!Number.isNaN(v1)||e[1](v0);return v1}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["foo"];typeof v0==="string"||e[0](v0);let v1=+v0;v1===v1||e[1](v0);return v1}`,
   )
 
   t->Assert.deepEqual(123.->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`{"foo": "123"}`))
@@ -263,12 +263,12 @@ test("Coerce from string to float", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="string"||e[1](i);let v0=+i;!Number.isNaN(v0)||e[0](i);return v0}`,
+    `i=>{typeof i==="string"||e[1](i);let v0=+i;v0===v0||e[0](i);return v0}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Convert,
-    `i=>{let v0=+i;!Number.isNaN(v0)||e[0](i);return v0}`,
+    `i=>{let v0=+i;v0===v0||e[0](i);return v0}`,
   )
   t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return ""+i}`)
 })
@@ -314,12 +314,12 @@ test("Coerce from string to port", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="string"||e[2](i);let v0=+i;!Number.isNaN(v0)||e[1](i);v0>=0&&v0<65536&&v0%1===0||e[0](v0);return v0}`,
+    `i=>{typeof i==="string"||e[2](i);let v0=+i;v0===v0||e[1](i);v0>=0&&v0<65536&&v0%1===0||e[0](v0);return v0}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Convert,
-    `i=>{let v0=+i;!Number.isNaN(v0)||e[1](i);v0>=0&&v0<65536&&v0%1===0||e[0](v0);return v0}`,
+    `i=>{let v0=+i;v0===v0||e[1](i);v0>=0&&v0<65536&&v0%1===0||e[0](v0);return v0}`,
   )
   t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{i>=0&&i<65536&&i%1===0||e[0](i);return ""+i}`)
 })
@@ -427,7 +427,7 @@ test("Coerce string to unboxed union (each item separately)", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="string"||e[4](i);for(;;){let r;try{let v0=+i;!Number.isNaN(v0)||e[0](i);i=v0;break}catch(x){(r||(r=[])).push(e[2](x))}try{let v1;(v1=i==="true")||i==="false"||e[1](i);i=v1;break}catch(x){(r||(r=[])).push(e[2](x))}e[3](i,...(r||[]))}return i}`,
+    `i=>{typeof i==="string"||e[4](i);for(;;){let r;try{let v0=+i;v0===v0||e[0](i);i=v0;break}catch(x){(r||(r=[])).push(e[2](x))}try{let v1;(v1=i==="true")||i==="false"||e[1](i);i=v1;break}catch(x){(r||(r=[])).push(e[2](x))}e[3](i,...(r||[]))}return i}`,
   )
 
   t->Assert.deepEqual(Number(10.)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"10"`))
@@ -437,7 +437,7 @@ test("Coerce string to unboxed union (each item separately)", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{for(;;){if(typeof i==="number"&&!Number.isNaN(i)){i=""+i;break}if(typeof i==="boolean"){i=""+i;break}e[0](i)}return i}`,
+    `i=>{for(;;){if(typeof i==="number"&&i===i){i=""+i;break}if(typeof i==="boolean"){i=""+i;break}e[0](i)}return i}`,
   )
 })
 
@@ -742,7 +742,7 @@ test("Coerce from union to bigint", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=v0;break}if(typeof i==="number"&&!Number.isNaN(i)){i=BigInt(i);break}e[1](i)}return i}`,
+    `i=>{for(;;){if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=v0;break}if(typeof i==="number"&&i===i){i=BigInt(i);break}e[1](i)}return i}`,
   )
 })
 
@@ -798,7 +798,7 @@ test("Coerce from union to bigint with refinement on union", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){if(typeof i==="string"){e[0](i)||e[2](i);let v0;try{v0=BigInt(i)}catch(_){e[1](i)}i=v0;break}if(typeof i==="number"&&!Number.isNaN(i)){e[0](i)||e[3](i);i=BigInt(i);break}e[4](i)}return i}`,
+    `i=>{for(;;){if(typeof i==="string"){e[0](i)||e[2](i);let v0;try{v0=BigInt(i)}catch(_){e[1](i)}i=v0;break}if(typeof i==="number"&&i===i){e[0](i)||e[3](i);i=BigInt(i);break}e[4](i)}return i}`,
   )
 })
 
@@ -811,7 +811,7 @@ test("Coerce from union to bigint with refinement on union (with an item transfo
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){if(typeof i==="string"){e[0](i)||e[2](i);let v0;try{v0=BigInt(i)}catch(_){e[1](i)}i=v0;break}if(typeof i==="number"&&!Number.isNaN(i)){let v2=""+i;e[0](v2)||e[4](v2);let v1;try{v1=BigInt(v2)}catch(_){e[3](v2)}i=v1;break}e[5](i)}return i}`,
+    `i=>{for(;;){if(typeof i==="string"){e[0](i)||e[2](i);let v0;try{v0=BigInt(i)}catch(_){e[1](i)}i=v0;break}if(typeof i==="number"&&i===i){let v2=""+i;e[0](v2)||e[4](v2);let v1;try{v1=BigInt(v2)}catch(_){e[3](v2)}i=v1;break}e[5](i)}return i}`,
     ~message="Should apply refinement after the item transformation",
   )
 })
@@ -829,7 +829,7 @@ test("Coerce from union to bigint and then to string", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=""+v0;break}if(typeof i==="number"&&!Number.isNaN(i)){i=""+BigInt(i);break}e[1](i)}return i}`,
+    `i=>{for(;;){if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=""+v0;break}if(typeof i==="number"&&i===i){i=""+BigInt(i);break}e[1](i)}return i}`,
   )
 })
 
@@ -864,7 +864,7 @@ test("Rejects widening a union into one with an uncovered member", t => {
   t->U.assertCompiledCode(
     ~schema=explicit,
     ~op=#Parse,
-    `i=>{(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i))||e[0](i);return i}`,
+    `i=>{(typeof i==="string"||typeof i==="number"&&i===i)||e[0](i);return i}`,
   )
 })
 
@@ -898,7 +898,7 @@ test("Transform from union to reordered union keeps source type", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i))||e[0](i);return i}`,
+    `i=>{(typeof i==="string"||typeof i==="number"&&i===i)||e[0](i);return i}`,
   )
 })
 

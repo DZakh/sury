@@ -97,7 +97,7 @@ test("Flatten inside of a strict object", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["bar"],v1=i["foo"],v2;typeof v0==="string"||e[0](v0);typeof v1==="string"||e[1](v1);for(v2 in i){if(v2!=="bar"&&v2!=="foo"){e[2](v2)}}return {bar:v0,foo:v1}}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["bar"],v1=i["foo"],v2;typeof v0==="string"||e[0](v0);typeof v1==="string"||e[1](v1);for(v2 in i)if(v2!=="bar"&&v2!=="foo")e[2](v2);return {bar:v0,foo:v1}}`,
   )
 })
 

@@ -3,7 +3,9 @@
 // Distinct from `operations.ts`, which compiles a schema into a callable.
 
 import {
+  anyOfTag,
   type AdditionalItems,
+  baseSchema,
   type Builder,
   type Check,
   copySchema,
@@ -17,6 +19,7 @@ import {
   pathEmpty,
   pathFromArray,
   type SchemaErrorMessage,
+  setHas,
   U,
   undefinedTag,
   unknown,
@@ -33,11 +36,17 @@ import {
   B_invalidOperation,
   B_neverSlot,
   B_next,
+  B_nextConst,
   B_unsupportedDecode
 } from "./builder";
 import {
+  objectDecoder
+} from "./composites";
+import {
  getDecoder,
  getOutputSchema,
+ nestedLoc,
+ nestedOptionParser,
  reverse
 } from "./parse";
 import {
@@ -48,6 +57,93 @@ import {
 import {
  unionFactory
 } from "./union";
+
+// Lives here rather than in composites.ts so objectDecoder's module has no
+// static edge to unionFactory. baseSchema, not an object literal: a union
+// member has to carry the schema prototype, where the lazily derived reverse
+// (`schema.r`) lives.
+const nestedNone = (): Internal => {
+  const itemSchema = Literal_parse(0);
+  const properties: Record<string, Internal> = {};
+  properties[nestedLoc] = itemSchema;
+  const mut = baseSchema(objectTag, false, objectDecoder);
+  mut.required = [nestedLoc];
+  mut.properties = properties;
+  mut.additionalItems = "strip";
+  mut.serializer = (input: Val) => {
+    const nextSchema = input.e.to!;
+    return B_nextConst(input, nextSchema, nextSchema);
+  };
+  return mut;
+}
+
+const nestedOption = (item: Internal): Internal => {
+  return updateOutput<Internal>(item, (mut) => {
+    mut.to = nestedNone();
+    mut.parser = nestedOptionParser;
+  });
+}
+
+export const optionFactory = (item: Internal, unitSchema: Internal = unit): Internal => {
+  const out = getOutputSchema(item);
+  if (out.type === undefinedTag) {
+    return unionFactory([unitSchema, nestedOption(item)]);
+  } else if (out.type === anyOfTag) {
+    const anyOf = out.anyOf;
+    const has = out.has;
+    return updateOutput<Internal>(item, (mut) => {
+      const schemas = anyOf!;
+      const mutHas = { ...has! };
+
+      const newAnyOf: Internal[] = [];
+      for (let idx = 0; idx < schemas.length; idx++) {
+        const schema = schemas[idx]!;
+        let toPush: Internal;
+        const schemaOut = getOutputSchema(schema);
+        if (schemaOut.type === undefinedTag) {
+          mutHas[unitSchema.type] = true;
+          newAnyOf.push(unitSchema);
+          toPush = nestedOption(schema);
+        } else if (schemaOut.properties !== U) {
+          const properties = schemaOut.properties;
+          const nestedSchema = properties[nestedLoc];
+          if (nestedSchema !== U) {
+            toPush = updateOutput<Internal>(schema, (mut) => {
+              // copySchema, not a spread: a spread keeps the original's seq,
+              // and two schemas sharing a seq can collide in the seq-keyed
+              // operation caches.
+              const bumped = copySchema(nestedSchema);
+              bumped.const = (nestedSchema.const as number) + 1;
+              const properties: Record<string, Internal> = {};
+              properties[nestedLoc] = bumped;
+              mut.properties = properties;
+            });
+          } else {
+            toPush = schema;
+          }
+        } else {
+          toPush = schema;
+        }
+        newAnyOf.push(toPush);
+      }
+
+      if (newAnyOf.length === schemas.length) {
+        mutHas[unitSchema.type] = true;
+        newAnyOf.push(unitSchema);
+      }
+
+      mut.anyOf = newAnyOf;
+      mut.has = mutHas;
+    });
+  } else {
+    return unionFactory([item, unitSchema]);
+  }
+}
+
+// @__NO_SIDE_EFFECTS__
+export const option = (item: Internal): Internal => {
+  return optionFactory(item, unit);
+}
 
 // PORT-NOTE: `module Metadata` → flat `Metadata_*` functions. `Id.t<'metadata>` is a string at
 // runtime; `unionToKey` was `%identity` and is dropped.

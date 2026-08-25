@@ -23,7 +23,7 @@ operations:
         output: '"abc"'
   decode: identity
   encode:
-    expression: i=>{for(;;){if(typeof i==="number"&&!Number.isNaN(i)){e[0](i);break}if(typeof i==="string")break;e[1](i)}return i}
+    expression: i=>{for(;;){if(typeof i==="number"&&i===i){e[0](i);break}if(typeof i==="string")break;e[1](i)}return i}
     examples:
       string:
         input: '"abc"'

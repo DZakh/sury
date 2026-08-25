@@ -31,14 +31,14 @@ import {
   B_refine
 } from "./builder";
 import {
- definitionToSchema,
- optionFactory
+ definitionToSchema
 } from "./composites";
 import {
  codecTo,
  getMutErrorMessage,
  internalRefine,
- nullAsUnit
+ nullAsUnit,
+ optionFactory
 } from "./modifiers";
 import {
   nullLiteral,

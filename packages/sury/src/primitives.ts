@@ -100,7 +100,7 @@ export const numberDecoder: Builder = (input: Val) => {
       checks.push({ c: integerFormatValidation, f: failInvalidType });
     } else {
       if (!(input.g.o & 2)) {
-        checks.push({ c: (inputVar) => `!${nanCond(inputVar)}`, f: failInvalidType });
+        checks.push({ c: (inputVar) => `${inputVar}===${inputVar}`, f: failInvalidType });
       }
     }
     return B_refine(input, input.e, checks);
@@ -118,7 +118,7 @@ export const numberDecoder: Builder = (input: Val) => {
             ? int32FormatValidation(output.i)
             : expectedFormat === "integer"
               ? integerFormatValidation(output.i)
-              : `!${nanCond(output.i)}`,
+              : `${output.i}===${output.i}`,
         f: failInvalidType,
       },
     ];

@@ -63,15 +63,6 @@ import {
 } from "./builder";
 import { nestedLoc, never_, parse, typeCheckCond } from "./parse";
 
-// Bitwise masks only observe the low 32 bits, so -1 stays future-proof when a
-// new tag bit is added.
-const unionAnyTag = ~0;
-const unionBoundaryTags = 256 | 512 | 4096;
-// Tags with no `typeof`-style discriminant: they can't own a shared group
-// narrow, so each such variant dispatches inside its own decoded body.
-const unionOpaqueTags =
-  1 | unionBoundaryTags | 32768;
-
 // ── Type identity ────────────────────────────────────────────────────────────
 
 // The spec's "same type": tags match, including the class for instances and the
@@ -141,7 +132,7 @@ const unionTraits = (schema: Internal): number => {
   const tag = tagFlags[schema.type]!;
   let traits = 0;
   // Low bits: Sury failure, foreign failure, opaque boundary, change.
-  if ((tag & unionBoundaryTags) || schema.parser !== U) return 15;
+  if ((tag & (256 | 512 | 4096)) || schema.parser !== U) return 15;
   if (schema.refiner !== U || schema.inputRefiner !== U) {
     traits |= 3;
   } else if (tag & (64 | 128 | 8192)) {
@@ -155,7 +146,7 @@ const unionTraits = (schema: Internal): number => {
     if (
       to === schema ||
       to.parser !== U ||
-      (tagFlags[to.type]! & unionBoundaryTags)
+      (tagFlags[to.type]! & (256 | 512 | 4096))
     ) {
       traits |= 15;
     } else if (
@@ -417,12 +408,8 @@ const unionNarrowSchema = (schema: Internal): Internal => {
 // narrow, so two such cases are only provably disjoint after widening each to
 // everything its narrow could also let through. Arrays and NaN need no widening —
 // the object and number narrows exclude them explicitly.
-const unionObjectish = 64 | 8192;
-// Tags whose "same type" says nothing about the value's shape.
-const unionStructured =
-  64 | 128 | 8192 | 512 | 256;
 const unionWiden = (tagFlag: number, nan: number): number =>
-  tagFlag | (tagFlag & unionObjectish ? unionObjectish : tagFlag & tagFlags[numberTag]! ? nan : 0);
+  tagFlag | (tagFlag & (64 | 8192) ? 64 | 8192 : tagFlag & tagFlags[numberTag]! ? nan : 0);
 
 // Mode 0 describes produced output, 1 a member's accepted input, and 2 the
 // declared source (whose root ref may expose a bounded input tag).
@@ -448,8 +435,9 @@ const unionMask = (schema: Internal, mode: number, nan: number): number => {
     for (let i = 0; i < variants.length; i++) mask |= unionMask(variants[i]!, 1, nan);
     return mask;
   }
+  // ~0: bitwise ops only see the low 32 bits, so this stays future-proof.
   return tagFlag & (1 | 256 | 512)
-    ? unionAnyTag
+    ? ~0
     : unionWiden(tagFlag, nan);
 };
 
@@ -633,7 +621,7 @@ const unionAnalyze = (
   const sourceBoundary = sourceTag & (256 | 512);
   const unionSource =
     sourceBoundary &&
-    sourceMask !== unionAnyTag;
+    sourceMask !== ~0;
   const sourceDiscriminator = unionDiscriminator(source);
   const exact = flags & 1;
   const broadObject = flags & 64;
@@ -674,7 +662,7 @@ const unionAnalyze = (
           ? 4
           : coerces || (traits & 8)
             ? 2
-            : (traits & 1) || (tag & unionStructured)
+            : (traits & 1) || (tag & (64 | 128 | 8192 | 512 | 256))
               ? 1
               : 0;
     out[i] = {
@@ -709,7 +697,7 @@ const unionAnalyze = (
         (traits & 7) |
         (effect ? 1 : 0) |
         (sourceDeopt ? 4 : 0) |
-        ((!unknownSource && same) || (tag & unionOpaqueTags) ? 16 : 0),
+        ((!unknownSource && same) || (tag & (1 | 256 | 512 | 4096 | 32768)) ? 16 : 0),
       p:
         (s.type === objectTag && nestedLoc in s.properties!) ||
         (broadObject && (tag & (128 | 8192))) ||
@@ -719,8 +707,8 @@ const unionAnalyze = (
             ? 1
             : 2,
       k: tag & 8192 ? s.class : s.type,
-      r: tag & unionObjectish
-        ? unionObjectish
+      r: tag & (64 | 8192)
+        ? 64 | 8192
         : tag & numberish
           ? numberish
           : unionWiden(tag, nan),
@@ -779,7 +767,7 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
     }
 
     const bucketed =
-      member.r !== unionAnyTag &&
+      member.r !== ~0 &&
       (member.m & ~member.r) === 0;
     // Field discriminants prove members don't compete, so payload opacity
     // must not exclude them — that stranded later TAGs behind a type-narrow
@@ -941,7 +929,7 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
     if (
       overlaps ||
       (laterMask &&
-        (tagFlags[head.s.type]! & unionOpaqueTags) &&
+        (tagFlags[head.s.type]! & (1 | 256 | 512 | 4096 | 32768)) &&
         (head.s.to !== U || head.s.parser !== U))
     ) {
       group.f |= 8 | 2;
@@ -965,7 +953,7 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
         group.n.noValidation = head.s.noValidation;
       }
     }
-    if (route !== unionAnyTag && (group.m & ~route) === 0) {
+    if (route !== ~0 && (group.m & ~route) === 0) {
       if (key === false) {
         later[route] = false;
       } else if (semantic === U) {
@@ -1567,7 +1555,7 @@ const unionResolveToUnion = (
       // value to all the candidates and let their own dispatch (and fallback)
       // sort it out.
       matches[s] =
-        (tagFlags[sourceOut.type]! & unionStructured) &&
+        (tagFlags[sourceOut.type]! & (64 | 128 | 8192 | 512 | 256)) &&
         sameTyped.includes(sourceOut)
           ? sourceOut
           : unionFactory(sameTyped);
@@ -1624,7 +1612,7 @@ const unionResolveToUnion = (
         matched.inputRefiner === U &&
         matched.noValidation === U &&
         (matched.const === U || unionLiteralEqual(matched.const, sourceOut.const)) &&
-        !(tagFlags[matched.type]! & unionStructured) &&
+        !(tagFlags[matched.type]! & (64 | 128 | 8192 | 512 | 256)) &&
         unionSameType(matched, sourceOut))
       ? U
       : matched;

@@ -13,7 +13,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["n"];typeof v0==="number"&&!Number.isNaN(v0)||e[1](v0);v0>=3||e[0](v0);return {n:v0}}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["n"];typeof v0==="number"&&v0===v0||e[1](v0);v0>=3||e[0](v0);return {n:v0}}
     examples:
       at-bound:
         input: "{ n: 3 }"
