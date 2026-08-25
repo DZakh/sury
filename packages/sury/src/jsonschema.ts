@@ -85,6 +85,7 @@ import {
 } from "./primitives";
 import {
   base64,
+  base64url,
   duration,
   email,
   gt,
@@ -394,19 +395,17 @@ const internalToJSONSchemaBase = (
     const format = schema.format;
     jsonSchema.type = "string";
     // String formats store the JSON Schema name verbatim, so they pass
-    // through. Only `cuid` and the two content formats have no JSON Schema
-    // format of that name — a denylist of the three costs less than an
-    // allowlist of the eighteen, and stays flat as formats are added.
-    if (format !== U && format !== "cuid" && format !== "json" && format !== "base64") {
-      jsonSchema.format = format;
+    // through. Only `cuid` and the content formats have no JSON Schema format
+    // of that name — a denylist costs less than an allowlist of the rest, and
+    // stays flat as formats are added.
+    if (format === "base64" || format === "base64url") {
+      target === openApi30
+        ? (jsonSchema.format = format === "base64" ? "byte" : format)
+        : (jsonSchema.contentEncoding = format);
     } else if (format === "json" && target !== openApi30) {
-      // A carried document is not one of the spec's named string shapes, so it
-      // is `contentMediaType` rather than a `format`. OpenAPI 3.0 predates the
-      // whole content family, and spells a stored payload as a format of its
-      // own instead.
       jsonSchema.contentMediaType = "application/json";
-    } else if (format === "base64") {
-      target === openApi30 ? (jsonSchema.format = "byte") : (jsonSchema.contentEncoding = "base64");
+    } else if (format !== U && format !== "cuid") {
+      jsonSchema.format = format;
     }
     if (schema.minLength !== U) jsonSchema.minLength = schema.minLength;
     if (schema.maxLength !== U) jsonSchema.maxLength = schema.maxLength;
@@ -716,6 +715,13 @@ const stringFormatSchemas = {
   // OpenAPI 3.0's spelling of a base64 payload; every other dialect spells it
   // `contentEncoding`, which the string branch reads separately.
   byte: base64,
+  base64url: base64url,
+} as unknown as Record<string, Internal | undefined>;
+
+const contentEncodingSchemas = {
+  __proto__: null,
+  base64: base64,
+  base64url: base64url,
 } as unknown as Record<string, Internal | undefined>;
 
 // draft-04 (and OpenAPI 3.0) make `exclusiveMinimum` a boolean that flips the
@@ -1427,7 +1433,8 @@ export const fromJSONSchema = (
   } else if (jsonSchema.type === "string") {
     schema =
       stringFormatSchemas[jsonSchema.format!] ||
-      (jsonSchema.contentEncoding === "base64" ? base64 : string);
+      contentEncodingSchemas[jsonSchema.contentEncoding!] ||
+      string;
     if (jsonSchema.pattern !== U) schema = pattern(schema, B_compilePattern(jsonSchema.pattern));
     if (jsonSchema.minLength !== U || jsonSchema.maxLength !== U) {
       const minimum = jsonSchema.minLength;

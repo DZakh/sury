@@ -12,6 +12,6 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    creationError: 'SuryError: Ambiguous conversion from string to JSON string. Use S.to(from, to, {decode: "unpack" | "pack", encode: ...})'
+    creationError: 'SuryError: Ambiguous conversion from string to JSON string. Use S.to(from, to, "unpack" | "pack")'
   decode: eq-to-parse
   encode: eq-to-parse

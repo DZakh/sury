@@ -39,6 +39,7 @@ type numberFormat = | @as("int32") Int32 | @as("port") Port | @as("integer") Int
 type stringFormat =
   | @as("json") JSON
   | @as("base64") Base64
+  | @as("base64url") Base64url
   | @as("date-time") DateTime
   | @as("email") Email
   | @as("uuid") Uuid
@@ -449,6 +450,7 @@ module Error = {
 @module("sury") external uuid: t<string> = "uuid"
 @module("sury") external cuid: t<string> = "cuid"
 @module("sury") external base64: t<string> = "base64"
+@module("sury") external base64url: t<string> = "base64url"
 @module("sury") external uri: t<string> = "uri"
 /** An instance of the JS `URL` class. ReScript has no stdlib binding for it,
     so this is an abstract type standing for one. */

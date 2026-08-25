@@ -815,7 +815,7 @@ export const B_contentNode = (schema: Internal): Internal =>
 // so the reading is settled where the link is made — and what to say about it
 // differs by where that was, so the message stays with the caller too.
 export const B_contentDiffers = (from?: Internal, to?: Internal): boolean =>
-  from !== U && to !== U && from !== to;
+  from !== U && to !== U && from !== to && !(from.bc && to.bc);
 
 // Which reading of a content link applies: a `"pack"`/`"unpack"` slot the caller
 // wrote wins (rule 1), and otherwise a target that names its own payload is what

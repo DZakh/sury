@@ -59,8 +59,14 @@ with its opposite. `"unpack"` opposite `"unpack"` (or `"pack"` opposite `"pack"`
 is rejected for the mirror reason — opening in both directions leaves no side
 holding the payload.
 
-No bare-string shorthand: `.with(S.to, X, "unpack")` would mean a pair where a
-bare function means one side (custom rule 3).
+A bare `"pack"` or `"unpack"` as the third argument names the decode reading
+and takes the opposite on encode — readings must come as a pair, so one word
+is enough. A bare function still means decode-only (custom rule 3).
+
+```ts
+S.uint8Array.with(S.to, S.jsonString, "unpack");
+// ≡ { decode: "unpack", encode: "pack" }
+```
 
 ## Rule 1: an explicit slot wins
 
@@ -130,7 +136,7 @@ Both fail at **operation creation** (like every conversion error), one message
 built from the same pieces the existing unsupported-conversion error uses:
 
 ```
-Ambiguous conversion from File to JSON string. Use S.to(from, to, {decode: "unpack" | "pack", encode: ...})
+Ambiguous conversion from File to JSON string. Use S.to(from, to, "unpack" | "pack")
 ```
 
 There are no per-carrier defaults. When both readings are live, the library
@@ -166,6 +172,7 @@ S.base64.with(S.to, S.string);      // identity — a string is NOT bytes
 | `S.blob`, `S.file` | bytes **and** text | async | sync |
 | `S.uint8Array` | bytes | sync | sync |
 | `S.base64` | bytes | sync | sync |
+| `S.base64url` | bytes | sync | sync |
 | `S.jsonString` (future: toon, env) | a JSON value | sync | sync |
 | future: `S.formData`, protobuf | a record / a message | sync | sync |
 
@@ -189,6 +196,7 @@ string; a `Blob` input has no document, and keeps saying so.
 | schema | draft-07 / 2020-12 | openapi-3.0 |
 | --- | --- | --- |
 | `S.base64` | `contentEncoding: "base64"` | `format: "byte"` |
+| `S.base64url` | `contentEncoding: "base64url"` | `format: "base64url"` |
 | `S.jsonString.with(S.to, X)` | `contentMediaType: "application/json"`, plus `contentSchema: <X>` in 2020-12 | bare string |
 | `S.string.with(S.to, S.blob)` | `contentMediaType: "application/octet-stream"` | `format: "binary"` |
 | `S.jsonString.with(S.to, S.file, {decode: "unpack", …})` | `contentMediaType: "application/json"` | `format: "binary"` |

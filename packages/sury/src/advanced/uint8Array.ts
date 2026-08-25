@@ -16,6 +16,7 @@ import {
 import {
   B_computed,
   B_embed,
+  B_next,
   B_readOnce,
   B_readsPayload,
   B_refine,
@@ -30,8 +31,7 @@ import {
 } from "../primitives";
 import {
  base64,
- base64ToBytes,
- bytesToBase64
+ bytesTarget
 } from "../refinements";
 
 // The decoder names `uint8Array` rather than the `init` callback's `s`: it is
@@ -44,10 +44,11 @@ export const uint8Array: Internal = /* @__PURE__ */ initSchema(
 
     if ((sourceTagFlag & 2)) {
       const value = B_readOnce(input);
-      return B_computed(
+      const toBytes = source.content?.bc?.toBytes;
+      return B_next(
         input,
-        source.content === base64
-          ? `${B_embed(input, base64ToBytes)}(${value})`
+        toBytes
+          ? `${B_embed(input, toBytes)}(${value})`
           : `${B_embed(input, new TextEncoder())}.encode(${value})`,
         uint8Array,
       );
@@ -82,12 +83,18 @@ export const uint8Array: Internal = /* @__PURE__ */ initSchema(
       // A value position (or base64 itself) stores the bytes as base64. The
       // test comes before the string one because a JSON document is a value
       // position without being string-tagged.
-      if (target.content !== U && (target.content === base64 || !B_readsPayload(target))) {
-        // The `B_refine` wrap is what makes the produced text the subject of
-        // the format's own checks, rather than the bytes that went in.
-        return B_refine(
-          B_computed(input, `${B_embed(input, bytesToBase64)}(${B_readOnce(input)})`, base64)
-        );
+      if (target.content !== U && (target.content.bc || !B_readsPayload(target))) {
+        const { format: asFormat, fromBytes } = bytesTarget(target, base64);
+        const code = `${B_embed(input, fromBytes)}(${B_readOnce(input)})`;
+        // A var when the next stage still runs (jsonString's escape-free splice
+        // needs an identifier). The format singleton itself is done: mark output
+        // so the manufactured text is not re-tested.
+        if (target === asFormat) {
+          const output = B_next(input, code, asFormat);
+          output.io = true;
+          return output;
+        }
+        return B_computed(input, code, asFormat);
       }
       // Anything else that wants a string wants the text the bytes spell —
       // which, for a format being opened (rule 3), is its document. Wrapped

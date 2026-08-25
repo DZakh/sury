@@ -12,6 +12,7 @@ import {
   numberTag,
   panic,
   pathEmpty,
+  setBytesCodec,
   setContent,
   stringify,
   type StringFormat,
@@ -23,9 +24,11 @@ import {
 } from "./base";
 import {
   B_computed,
+  B_contentDiffers,
   B_conversion,
   B_embed,
   B_failWithErrorMessage,
+  B_next,
   B_readOnce,
   B_readsPayload,
   B_refine
@@ -891,125 +894,214 @@ export const uuid: Internal = /* @__PURE__ */ stringFormat(
 
 export const cuid: Internal = /* @__PURE__ */ stringFormat("cuid", /^c[^\s-]{8,}$/i);
 
-// The base64 pair, resolved once at import — the ES2026 methods where the
-// runtime has them, a binary-string bridge through `btoa`/`atob` otherwise — so
-// generated code is one embedded call either way. The fallbacks walk the value
-// rather than spreading it into `String.fromCharCode`, whose argument limit a
-// large payload blows.
-export const bytesToBase64: (bytes: Uint8Array) => string = /* @__PURE__ */ (() => {
-  const native = (Uint8Array.prototype as { toBase64?: () => string }).toBase64;
-  return native
-    ? (bytes) => (bytes as unknown as { toBase64: () => string }).toBase64()
-    : (bytes) => {
-        // In chunks, not one `apply`: the whole array blows the argument limit,
-        // and a byte at a time is several times slower than either. The first
-        // chunk is taken before the loop so that a value which isn't bytes
-        // fails on `subarray` the way it fails on the native method, rather
-        // than skipping the loop and encoding as the empty string.
-        let binary = String.fromCharCode.apply(
-          null,
-          bytes.subarray(0, 8192) as unknown as number[],
-        );
-        for (let idx = 8192; idx < bytes.length; idx += 8192) {
-          binary += String.fromCharCode.apply(
-            null,
-            bytes.subarray(idx, idx + 8192) as unknown as number[],
-          );
-        }
-        return btoa(binary);
-      };
-})();
+// Which primitive encodes bytes as text, resolved once at import so generated
+// code is `e[N](i)` either way. Native ES2026 methods, then Node's Buffer
+// (present here where `toBase64` is not), then a latin1 bridge through
+// `btoa`/`atob`. The atob fallbacks walk the value rather than spreading it
+// into `String.fromCharCode`, whose argument limit a large payload blows.
+type NativeBase64 = {
+  fromBase64?: (text: string, options?: { alphabet?: string }) => Uint8Array;
+  prototype: { toBase64?: (options?: { alphabet?: string; omitPadding?: boolean }) => string };
+};
+type MaybeBuffer = {
+  Buffer?: {
+    isEncoding?: (encoding: string) => boolean;
+    from: {
+      (value: string, encoding: string): Uint8Array;
+      (
+        buffer: ArrayBufferLike,
+        byteOffset: number,
+        length: number,
+      ): { toString: (encoding: string) => string };
+    };
+  };
+};
 
-// No `try` around `atob`: every route here validates against `base64`'s pattern
-// first, which is the whole reason the format carries one. `noValidation` voids
-// that the way it voids `escapeFree`'s proof — a caller who asserts a value is
-// base64 and is wrong gets the platform's own exception.
-export const base64ToBytes: (text: string) => Uint8Array = /* @__PURE__ */ (() => {
-  const native = (Uint8Array as { fromBase64?: (text: string) => Uint8Array }).fromBase64;
-  return native
-    ? (text) => native(text)
-    : (text) => {
-        const binary = atob(text);
-        const bytes = new Uint8Array(binary.length);
-        for (let idx = 0; idx < bytes.length; idx++) {
-          bytes[idx] = binary.charCodeAt(idx);
-        }
-        return bytes;
-      };
-})();
+const native = Uint8Array as unknown as NativeBase64;
+const Buf = (globalThis as MaybeBuffer).Buffer;
+const implKind: 0 | 1 | 2 = /* @__PURE__ */ (() =>
+  native.fromBase64 !== U && native.prototype.toBase64 !== U
+    ? 0
+    : Buf !== U
+      ? 1
+      : 2
+)();
+const implKindUrl: 0 | 1 | 2 = /* @__PURE__ */ (() =>
+  native.fromBase64 !== U && native.prototype.toBase64 !== U
+    ? 0
+    : Buf !== U && Buf.isEncoding !== U && Buf.isEncoding("base64url")
+      ? 1
+      : 2
+)();
 
-// `S.base64` — bytes stored as text. `content` points at the schema itself:
-// base64 IS how bytes sit in a document, so a link to another bytes carrier is
-// a plain payload transfer and a link to a JSON document is not
-// (CONTENT_CODEC_SPEC.md). Standard alphabet with canonical padding — the
-// pattern is what lets the decode skip a `try` around `atob`, so widening it
-// means giving the decode one.
-export const base64: Internal = /* @__PURE__ */ (() => {
-  // A length check plus one flat scan, rather than the canonical
-  // `(?:[A-Za-z0-9+/]{4})*(?:…==|…=)?` — the four-at-a-time group backtracks per
-  // quantum and costs about twice as much on a payload-sized string, which is
-  // the only size that matters here. The two accept exactly the same strings.
-  const padded = /^[A-Za-z0-9+/]*={0,2}$/;
-  const schema = stringFormat(
-    "base64",
-    // The `typeof` is what every RegExp-tested format gets for free from
-    // `.test`'s coercion: without it, reading `.length` off a value an operation
-    // trusted rather than checked throws the platform's error instead of
-    // reporting the format.
-    (value) => typeof value === stringTag && value.length % 4 === 0 && padded.test(value),
-    true,
+const bytesToAtob = (bytes: Uint8Array): string => {
+  // In chunks, not one `apply`: the whole array blows the argument limit, and
+  // a byte at a time is several times slower than either. The first chunk is
+  // taken before the loop so that a value which isn't bytes fails on `subarray`
+  // the way it fails on the native method, rather than skipping the loop and
+  // encoding as the empty string.
+  let binary = String.fromCharCode.apply(
+    null,
+    bytes.subarray(0, 8192) as unknown as number[],
   );
-  setContent(schema, schema);
+  for (let idx = 8192; idx < bytes.length; idx += 8192) {
+    binary += String.fromCharCode.apply(
+      null,
+      bytes.subarray(idx, idx + 8192) as unknown as number[],
+    );
+  }
+  return btoa(binary);
+};
 
-  // Whether the other side of a link stores something other than bytes.
-  const differs = (other: Internal): boolean =>
-    other.content !== U && other.content !== schema;
+const atobToBytes = (text: string): Uint8Array => {
+  const binary = atob(text);
+  const bytes = new Uint8Array(binary.length);
+  for (let idx = 0; idx < bytes.length; idx++) {
+    bytes[idx] = binary.charCodeAt(idx);
+  }
+  return bytes;
+};
 
-  // The `B_refine` wrap is what makes the produced text the subject of the
-  // format's own pattern check, rather than the document that went in.
-  // Decode: a document on its way in, which is a source mid-chain — a lone JSON
-  // value arriving at a base64 field is just a string. `input.s.to`, not
-  // `B_readsPayload`: a reading on the source describes the link that produced
-  // it, not this one, and rule 4 has already turned away the pairs where this
-  // one would be ambiguous.
-  schema.decoder = (input) =>
-    differs(input.s) && input.s.to !== U
-      ? B_refine(
-          B_computed(
-            input,
-            `${B_embed(input, bytesToBase64)}(${B_embed(input, new TextEncoder())}.encode(${B_readOnce(
-              input,
-            )}))`,
-            schema,
-          )
+const bytesToBase64: (bytes: Uint8Array) => string = /* @__PURE__ */ (() =>
+  implKind === 0
+    ? (bytes) => (bytes as unknown as { toBase64: () => string }).toBase64()
+    : implKind === 1
+      ? (bytes) => Buf!.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString("base64")
+      : bytesToAtob
+)();
+
+// No `try` around `atob`: every route here validates against the format's
+// pattern first, which is the whole reason the format carries one. `noValidation`
+// voids that the way it voids `escapeFree`'s proof — a caller who asserts a
+// value is base64 and is wrong gets the platform's own exception.
+const base64ToBytes: (text: string) => Uint8Array = /* @__PURE__ */ (() =>
+  implKind === 0
+    ? (text) => native.fromBase64!(text)
+    : implKind === 1
+      ? (text) => new Uint8Array(Buf!.from(text, "base64"))
+      : atobToBytes
+)();
+
+const urlEncodeOptions = { alphabet: "base64url", omitPadding: true };
+const urlDecodeOptions = { alphabet: "base64url" };
+
+const bytesToBase64url: (bytes: Uint8Array) => string = /* @__PURE__ */ (() =>
+  implKindUrl === 0
+    ? (bytes) =>
+        (bytes as unknown as { toBase64: (options?: { alphabet?: string; omitPadding?: boolean }) => string }).toBase64(
+          urlEncodeOptions,
         )
-      // `B_refine` carrying the expected schema, not the bare `stringDecoderFn`
-      // result: a string passes through unchanged, and the next link in a chain
-      // has to be able to see that it is base64 now. The caller's own schema
-      // rather than this singleton, because what it says about the value —
-      // `noValidation`, which voids jsonString's raw-splice proof — travels
-      // with it.
-      : B_refine(stringDecoderFn(input), input.e);
+    : implKindUrl === 1
+      ? (bytes) => Buf!.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString("base64url")
+      : (bytes) => bytesToAtob(bytes).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")
+)();
 
-  // Encode: rule 3 — a format that declares a payload of its own is handed the
-  // text these bytes spell (a JWT segment), where a bare string target is not
-  // asking for that, since a string is not bytes. The reading of this link
-  // rides the target, so `B_readsPayload` is the whole answer. The text goes
-  // over as the target's own document, not as a loose string: that is what
-  // makes the format parse it rather than escape it.
-  schema.encoder = (input, target) =>
-    differs(target) && B_readsPayload(target)
+const base64urlToBytes: (text: string) => Uint8Array = /* @__PURE__ */ (() =>
+  implKindUrl === 0
+    ? (text) => native.fromBase64!(text, urlDecodeOptions)
+    : implKindUrl === 1
+      ? (text) => new Uint8Array(Buf!.from(text, "base64url"))
+      : (text) => atobToBytes(text.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((text.length + 3) % 4))
+)();
+
+const stdCodec = { toBytes: base64ToBytes, fromBytes: bytesToBase64 };
+const urlCodec = { toBytes: base64urlToBytes, fromBytes: bytesToBase64url };
+
+// A length check plus one flat scan, rather than the canonical
+// `(?:[A-Za-z0-9+/]{4})*(?:…==|…=)?` — the four-at-a-time group backtracks per
+// quantum and costs about twice as much on a payload-sized string, which is
+// the only size that matters here. The two accept exactly the same strings.
+const stdTest = /^[A-Za-z0-9+/]*={0,2}$/;
+const urlTest = /^[A-Za-z0-9_-]*$/;
+
+// `S.base64` / `S.base64url` — bytes stored as text. `content` points at the
+// schema itself: this IS how bytes sit in a document. The two alphabets share
+// a payload kind via `bc`, so a link to another bytes carrier is a
+// plain transfer and a link to a JSON document is not (CONTENT_CODEC_SPEC.md).
+// @__NO_SIDE_EFFECTS__
+const bytesTextFormat = (
+  format: StringFormat,
+  test: (value: string) => boolean,
+  codec: { toBytes: (text: string) => Uint8Array; fromBytes: (bytes: Uint8Array) => string },
+): Internal => {
+  const schema = stringFormat(format, test, true);
+  setContent(schema, schema);
+  setBytesCodec(schema, codec);
+
+  const differs = (other: Internal): boolean => B_contentDiffers(other.content, schema);
+
+  schema.decoder = (input) => {
+    const src = input.s.bc;
+    if (src && src !== codec) {
+      const output = B_next(
+        input,
+        `${B_embed(input, codec.fromBytes)}(${B_embed(input, src.toBytes)}(${B_readOnce(input)}))`,
+        schema,
+      );
+      output.io = true;
+      return output;
+    }
+    if (differs(input.s) && input.s.to !== U) {
+      const output = B_next(
+        input,
+        `${B_embed(input, codec.fromBytes)}(${B_embed(input, new TextEncoder())}.encode(${B_readOnce(
+          input,
+        )}))`,
+        schema,
+      );
+      output.io = true;
+      return output;
+    }
+    return B_refine(stringDecoderFn(input), input.e);
+  };
+
+  schema.encoder = (input, target) => {
+    const dst = target.bc;
+    if (dst && dst !== codec) {
+      const output = B_next(
+        input,
+        `${B_embed(input, dst.fromBytes)}(${B_embed(input, codec.toBytes)}(${B_readOnce(input)}))`,
+        target,
+      );
+      output.io = true;
+      return output;
+    }
+    return differs(target) && B_readsPayload(target)
       ? B_computed(
           input,
-          `${B_embed(input, new TextDecoder())}.decode(${B_embed(input, base64ToBytes)}(${B_readOnce(
+          `${B_embed(input, new TextDecoder())}.decode(${B_embed(input, codec.toBytes)}(${B_readOnce(
             input,
           )}))`,
           openedText(target)
         )
       : input;
+  };
 
   return schema;
-})();
+};
+
+export const base64: Internal = /* @__PURE__ */ bytesTextFormat(
+  "base64",
+  (value) => typeof value === stringTag && value.length % 4 === 0 && stdTest.test(value),
+  stdCodec,
+);
+
+export const base64url: Internal = /* @__PURE__ */ bytesTextFormat(
+  "base64url",
+  (value) => typeof value === stringTag && value.length % 4 !== 1 && urlTest.test(value),
+  urlCodec,
+);
+
+export const bytesTarget = (
+  target: Internal,
+  fallback: Internal,
+): { format: Internal; fromBytes: (bytes: Uint8Array) => string } => {
+  const codec = target.content?.bc;
+  return {
+    format: codec ? target.content! : fallback,
+    fromBytes: codec?.fromBytes ?? fallback.bc!.fromBytes,
+  };
+};
 
 // RFC 3986 dec-octet, four of them: a leading zero is rejected because some
 // resolvers read `010` as octal, so accepting it would make two readings of the

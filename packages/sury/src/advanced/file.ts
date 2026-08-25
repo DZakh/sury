@@ -38,8 +38,7 @@ import {
 } from "../primitives";
 import {
  base64,
- base64ToBytes,
- bytesToBase64
+ bytesTarget
 } from "../refinements";
 
 // On a runtime that has no such global there is no schema to be had, so `class`
@@ -121,9 +120,10 @@ const binarySchema = (name: string, global: string, nameArg: string): Internal =
       // `B_readOnce` inside each branch that uses it: materializing the var up
       // front left a dead `let vN = …` on the two paths below, which take the
       // value as it stands.
+      const toBytes = source.content?.bc?.toBytes;
       const parts = (sourceTagFlag & 2)
-        ? source.content === base64
-          ? `${B_embed(input, base64ToBytes)}(${B_readOnce(input)})`
+        ? toBytes
+          ? `${B_embed(input, toBytes)}(${B_readOnce(input)})`
           : B_readOnce(input)
         : (sourceTagFlag & 8192) && source.class === Uint8Array
           ? B_readOnce(input)
@@ -175,12 +175,15 @@ const binarySchema = (name: string, global: string, nameArg: string): Internal =
         // A value position (or base64 itself) stores the bytes as base64;
         // anything else after a string wants the text they spell, which is also
         // what a format opened by rule 3 is handed.
-        if (target.content !== U && (target.content === base64 || !B_readsPayload(target))) {
-          return read(
+        if (target.content !== U && (target.content.bc || !B_readsPayload(target))) {
+          const { format: asFormat, fromBytes } = bytesTarget(target, base64);
+          const output = read(
             input,
-            `.arrayBuffer().then(b=>${B_embed(input, bytesToBase64)}(new Uint8Array(b)))`,
-            base64
+            `.arrayBuffer().then(b=>${B_embed(input, fromBytes)}(new Uint8Array(b)))`,
+            asFormat,
           );
+          if (target === asFormat) output.io = true;
+          return output;
         }
         // A format being opened (rule 3) is handed its own document, so it
         // parses the text instead of escaping it.

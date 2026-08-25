@@ -139,14 +139,15 @@ export const itemSymbol = /* @__PURE__ */ Symbol(vendor + ":item");
 export type NumberFormat = "int32" | "port" | "integer";
 // Mirrored by `StringFormat` in index.d.ts, which is the surface TS users see —
 // a name added here without being added there is invisible to them, and a third
-// copy lives in `S.res`. Every member but `json`, `base64` and `cuid` is a JSON
-// Schema format name verbatim, which is what lets jsonschema.ts pass it through
-// in both directions; the content-family members name a keyword of their own
-// (`contentMediaType`, `contentEncoding`) instead, which jsonschema.ts spells
-// out per dialect.
+// copy lives in `S.res`. Every member but `json`, `base64`, `base64url` and
+// `cuid` is a JSON Schema format name verbatim, which is what lets jsonschema.ts
+// pass it through in both directions; the content-family members name a keyword
+// of their own (`contentMediaType`, `contentEncoding`) instead, which
+// jsonschema.ts spells out per dialect.
 export type StringFormat =
   | "json"
   | "base64"
+  | "base64url"
   | "date-time"
   | "email"
   | "uuid"
@@ -168,6 +169,11 @@ export type StringFormat =
   | "relative-json-pointer";
 export type ArrayFormat = "compactColumns";
 export type Format = NumberFormat | StringFormat | ArrayFormat;
+
+export type BytesCodec = {
+  toBytes: (text: string) => Uint8Array;
+  fromBytes: (bytes: Uint8Array) => string;
+};
 
 export type AdditionalItemsMode = "strip" | "strict";
 
@@ -283,6 +289,13 @@ export type Internal = {
   // payload of its own.
   // Written only through `setContent` (below), which keeps it non-enumerable.
   content?: Internal;
+  // Bytes-as-text codec on a format singleton (`S.base64`, `S.base64url`).
+  // Presence is the payload *kind* `B_contentDiffers` uses, so the two alphabets
+  // are one family without importing either format into builder.ts. Always read
+  // Carriers look it up off `content.bc`. Copies of a format keep `bc` so
+  // alphabet recoding still sees it. `S.trim` targets `string`, which has none.
+  // Short: this name is in `B_contentDiffers`, which ships in every export.
+  bc?: BytesCodec;
   // Which reading of a content link the caller wrote, when they wrote one.
   // `opens` is the reading of the link that converts INTO this schema — `true`
   // opens the source and hands its payload over, `false` stores its value —
@@ -815,6 +828,7 @@ export const copySchema = (schema: Internal): Internal => {
   // `content` is non-enumerable, so Object.assign skips it — carried by hand
   // here, which is also the only place that pays for it.
   if (schema.content !== U) setContent(c, schema.content);
+  if (schema.bc !== U) setBytesCodec(c, schema.bc);
   return c;
 }
 
@@ -825,6 +839,11 @@ export const copySchema = (schema: Internal): Internal => {
 export const setContent = (schema: Internal, content: Internal): void => {
   valueOptions[valKey] = content;
   Object.defineProperty(schema, "content", valueOptions as PropertyDescriptor);
+}
+
+export const setBytesCodec = (schema: Internal, codec: BytesCodec): void => {
+  valueOptions[valKey] = codec;
+  Object.defineProperty(schema, "bc", valueOptions as PropertyDescriptor);
 }
 
 export const updateOutput = <TValue>(schema: Internal, fn: (schema: Internal) => void): TValue => {

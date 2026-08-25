@@ -44,6 +44,7 @@ import {
   type Val
 } from "./base";
 import {
+  B_contentDiffers,
   B_conversion,
   B_embed,
   B_invalidInputBuilder,
@@ -110,6 +111,7 @@ export {
   uuid,
   cuid,
   base64,
+  base64url,
   uri,
   isoDate,
   isoTime,
@@ -308,7 +310,10 @@ export const to = (schema: Internal, target: Internal, custom?: unknown) => {
   let decode: Builder | boolean | undefined;
   let encode: Builder | boolean | undefined;
   let outputSeam = false;
-  if (typeof custom === functionTag) {
+  if (custom === "unpack" || custom === "pack") {
+    decode = custom === "unpack";
+    encode = custom === "pack";
+  } else if (typeof custom === functionTag) {
     decode = B_conversion(custom as (value: unknown) => unknown, false, true);
     encode = ambiguousEncode;
   } else if (custom) {
@@ -339,30 +344,20 @@ export const to = (schema: Internal, target: Internal, custom?: unknown) => {
     // the link left holding the payload — and a reading opposite the built-in
     // conversion leaves that side still asking the question the reading just
     // answered. A coder opposite one is fine: it answers for itself.
-    if (typeof decode === "boolean" || typeof encode === "boolean") {
-      if (decode === encode || decode === U || encode === U) {
-        return panic(`Expected "pack" opposite "unpack"`);
-      }
-      // A reading picks between two, and there are only two when each side
-      // stores something the other could hold. `getOutputSchema`, because that
-      // is the node `codecTo` links from — the head of a chain is not the side
-      // of the link. `S.json` is out: it has no opened form of its own, so
-      // neither reading of a link to it is implemented. Rejecting here is also
-      // what keeps the marker off a union, whose field count decides whether it
-      // flattens.
-      const from = getOutputSchema(schema);
-      if (
-        from.content === U ||
-        target.content === U ||
-        // Agreeing on the payload leaves one reading, not two: each side stores
-        // what the other does, so the link is a transfer and a slot picking
-        // between readings would be ignored.
-        from.content === target.content ||
-        from.name === jsonName ||
-        target.name === jsonName
-      ) {
-        return panic(`Can't pick a reading for this link. Use {decode, encode} coders instead`);
-      }
+  }
+  if (typeof decode === "boolean" || typeof encode === "boolean") {
+    if (decode === encode || decode === U || encode === U) {
+      return panic(`Expected "pack" opposite "unpack"`);
+    }
+    const from = getOutputSchema(schema);
+    if (
+      from.content === U ||
+      target.content === U ||
+      !B_contentDiffers(from.content, target.content) ||
+      from.name === jsonName ||
+      target.name === jsonName
+    ) {
+      return panic(`Can't pick a reading for this link. Use {decode, encode} coders instead`);
     }
   }
   // Chaining a schema to itself would append a second copy of its own chain,

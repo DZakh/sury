@@ -435,12 +435,14 @@ S.duration; // Duration
 S.jsonPointer; // JSON Pointer
 S.relativeJsonPointer; // Relative JSON Pointer
 S.base64; // Base64, standard alphabet with canonical padding
+S.base64url; // Base64url, URL-safe alphabet, no padding
 ```
 
 Each survives a round trip through `S.toJSONSchema` and `S.fromJSONSchema`.
-`S.base64` is the one that isn't a JSON Schema *format*: it emits
-`contentEncoding: "base64"` (`format: "byte"` for OpenAPI 3.0), and it carries a
-payload, so [Content](#content) has more to say about it.
+`S.base64` and `S.base64url` are the ones that aren't JSON Schema *formats*: they
+emit `contentEncoding: "base64"` / `"base64url"` (`format: "byte"` / `"base64url"`
+for OpenAPI 3.0), and they carry a payload, so [Content](#content) has more to
+say about them.
 
 **A format checks syntax, not safety.** Every one is exactly as strict as its
 spec, so a well-formed value passes even when it isn't one you want to accept:
@@ -1135,18 +1137,20 @@ operation is created, rather than silently picking one:
 ```ts
 S.parser(S.uint8Array.with(S.to, S.jsonString));
 // Ambiguous conversion from Uint8Array to JSON string.
-// Use S.to(from, to, {decode: "unpack" | "pack", encode: ...})
+// Use S.to(from, to, "unpack" | "pack")
 ```
 
-Say which one you mean with the `"pack"` / `"unpack"` slots. Each names what its
-own direction does to its own source, so the two are always opposites:
+Say which one you mean with `"pack"` / `"unpack"`. Each names what its own
+direction does to its own source, so the two are always opposites. A bare
+string is the decode reading; encode takes the other:
 
 ```ts
 // the bytes ARE the JSON text
-S.uint8Array.with(S.to, S.jsonString, { decode: "unpack", encode: "pack" });
+S.uint8Array.with(S.to, S.jsonString, "unpack");
+// ≡ { decode: "unpack", encode: "pack" }
 
 // base64 inside a JSON string, into a File
-S.jsonString.with(S.to, S.file, { decode: "unpack", encode: "pack" });
+S.jsonString.with(S.to, S.file, "unpack");
 ```
 
 Pairs with only one reading never ask. `S.uint8Array.with(S.to, S.string)` is

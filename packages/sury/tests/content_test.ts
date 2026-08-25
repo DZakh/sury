@@ -40,6 +40,10 @@ test("a payload transfer moves the bytes unchanged", async () => {
   expect(S.parser(S.base64.with(S.to, S.uint8Array))("iVBORw==")).toEqual(png);
   expect(S.encoder(S.base64.with(S.to, S.uint8Array))(png)).toBe("iVBORw==");
   expect(S.parser(S.uint8Array.with(S.to, S.base64))(png)).toBe("iVBORw==");
+  expect(S.parser(S.uint8Array.with(S.to, S.base64url))(png)).toBe("iVBORw");
+  expect(S.encoder(S.uint8Array.with(S.to, S.base64url))("iVBORw")).toEqual(png);
+  expect(S.parser(S.base64.with(S.to, S.base64url))("iVBORw==")).toBe("iVBORw");
+  expect(S.encoder(S.base64.with(S.to, S.base64url))("iVBORw")).toBe("iVBORw==");
 
   const file = new File([png], "a.png");
   expect(await S.asyncParser(S.file.with(S.to, S.uint8Array))(file)).toEqual(png);
@@ -102,6 +106,9 @@ test("the content slots pick a reading, and reverse trades them", async () => {
   expect(S.parser(bytesAreAValue)(png)).toBe(`"iVBORw=="`);
   expect(S.encoder(bytesAreAValue)(`"iVBORw=="`)).toEqual(png);
 
+  expect(S.parser(S.uint8Array.with(S.to, S.jsonString, "pack"))(png)).toBe(`"iVBORw=="`);
+  expect(S.encoder(S.uint8Array.with(S.to, S.jsonString, "pack"))(`"iVBORw=="`)).toEqual(png);
+
   const intoAFile = S.jsonString.with(S.to, S.file, { decode: "unpack", encode: "pack" });
   expect(new Uint8Array(await S.parser(intoAFile)(`"iVBORw=="`).arrayBuffer())).toEqual(png);
   expect(await S.asyncEncoder(intoAFile)(new File([png], "a.png"))).toBe(`"iVBORw=="`);
@@ -114,6 +121,9 @@ test("a reading is only offered where there are two", () => {
   // Both sides store bytes as base64, so the link is a transfer and there is
   // nothing for a reading to pick.
   expect(() => S.base64.with(S.to, S.uint8Array, readings)).toThrow(
+    "Can't pick a reading for this link",
+  );
+  expect(() => S.uint8Array.with(S.to, S.base64url, readings)).toThrow(
     "Can't pick a reading for this link",
   );
   expect(() => S.blob.with(S.to, S.file, readings)).toThrow(

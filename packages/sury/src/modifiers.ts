@@ -291,7 +291,7 @@ export const codecTo = (
               input,
               `Ambiguous conversion from ${inputExpression(mut)} to ${inputExpression(
                 target,
-              )}. Use S.to(from, to, {decode: "unpack" | "pack", encode: ...})`,
+              )}. Use S.to(from, to, "unpack" | "pack")`,
             )
         : (input: Val) => B_unsupportedDecode(input, mut, target)
       : U;

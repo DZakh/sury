@@ -442,6 +442,6 @@ test("Picks a reading for a content link the way the ambiguity report says to", 
 
   t->U.assertThrowsMessage(
     () => "aGk="->S.parseOrThrow(~to=S.base64->S.to(S.jsonString))->ignore,
-    `Ambiguous conversion from base64 to JSON string. Use S.to(from, to, {decode: "unpack" | "pack", encode: ...})`,
+    `Ambiguous conversion from base64 to JSON string. Use S.to(from, to, "unpack" | "pack")`,
   )
 })

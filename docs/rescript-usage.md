@@ -250,6 +250,7 @@ S.duration // Duration
 S.jsonPointer // JSON Pointer
 S.relativeJsonPointer // Relative JSON Pointer
 S.base64 // Base64, standard alphabet with canonical padding
+S.base64url // Base64url, URL-safe alphabet, no padding
 ```
 
 Each survives a round trip through `S.toJSONSchema` and `S.fromJSONSchema`.
