@@ -14,8 +14,6 @@ import {
   booleanTag,
   copySchema,
   defsPath,
-  flagNone,
-  flagUnsafeHas,
   getOrRethrow,
   inputExpression,
   type Internal,
@@ -36,25 +34,30 @@ import {
   refTag,
   stringTag,
   SuryError,
-  tagFlagArray,
-  tagFlagObject,
   tagFlags,
-  tagFlagUnion,
   U,
   undefinedTag,
-  unknown,
+  unknown
 } from "./base";
-import { json } from "./advanced/json";
-import { recursiveDecoder } from "./advanced/recursive";
-import { B_operationArg } from "./builder";
+import {
+ json
+} from "./advanced/json";
+import {
+ recursiveDecoder
+} from "./advanced/recursive";
+import {
+ B_operationArg
+} from "./builder";
 import {
   array,
   arrayDecoder,
   dict,
   objectDecoder,
-  option,
+  option
 } from "./composites";
-import { schemaFactory } from "./factory";
+import {
+ schemaFactory
+} from "./factory";
 import {
   meta,
   Metadata_get,
@@ -62,11 +65,24 @@ import {
   Metadata_set,
   Option_getOr,
   deepStrict,
-  refineInput,
+  refineInput
 } from "./modifiers";
-import { __setStandardJSONSchemaConverter, assertOrThrow } from "./operations";
-import { never_, parse, reverse } from "./parse";
-import { bool, float, integer, Literal_parse, string } from "./primitives";
+import {
+ __setStandardJSONSchemaConverter,
+ assertOrThrow
+} from "./operations";
+import {
+ never_,
+ parse,
+ reverse
+} from "./parse";
+import {
+ bool,
+ float,
+ integer,
+ Literal_parse,
+ string
+} from "./primitives";
 import {
   base64,
   duration,
@@ -96,7 +112,7 @@ import {
   uri,
   uriReference,
   uriTemplate,
-  uuid,
+  uuid
 } from "./refinements";
 
 /**
@@ -247,23 +263,19 @@ export type JsonSchemaTarget = "draft-07" | "draft-2020-12" | "openapi-3.0" | (s
 // Compared on every emit branch that differs by dialect; naming it once keeps
 // the literal out of the bundle at each of those sites.
 const draft202012 = "draft-2020-12";
-const draft07Uri = "http://json-schema.org/draft-07/schema#";
-const draft2020Uri = "https://json-schema.org/draft/2020-12/schema";
 
 export type StandardJsonSchemaOptions = {
   target: JsonSchemaTarget;
   libraryOptions?: Record<string, unknown>;
 };
 
-// encodeToJsonSchema / internalToJSONSchema / internalToJSONSchemaBase below
-// are mutually recursive, so they're declared as standalone top-level
-// functions rather than nested closures.
+// internalToJSONSchema / internalToJSONSchemaBase are mutually recursive, so
+// they're standalone rather than nested closures.
 
 const jsonSchemaMetadataId: string = /* @__PURE__ */ Metadata_Id_internal("JSONSchema");
 
-const jsonSchemaMerge = (a: JSONSchemaT, b: JSONSchemaT): JSONSchemaT => {
-  return Object.assign({}, a, b);
-}
+const jsonSchemaMerge = (a: JSONSchemaT, b: JSONSchemaT): JSONSchemaT =>
+  Object.assign({}, a, b);
 
 const isAnyJSONSchema = (definition: JSONSchemaDefinition | undefined): boolean =>
   definition === true || (!!definition && Object.keys(definition).length === 0);
@@ -310,51 +322,14 @@ const applyMetadataOverlay = (
       }
     }
   }
-  if (schema.description !== U) {
-    jsonSchema.description = schema.description;
+  for (const k of ["description", "title", "deprecated", "examples"] as const) {
+    if (schema[k] !== U) (jsonSchema as Record<string, unknown>)[k] = schema[k];
   }
-  if (schema.title !== U) {
-    jsonSchema.title = schema.title;
-  }
-  if (schema.deprecated !== U) {
-    jsonSchema.deprecated = schema.deprecated;
-  }
-  if (schema.examples !== U) {
-    // If a schema is Jsonable, then examples are Jsonable too.
-    jsonSchema.examples = schema.examples;
-  }
-  if (schema["$defs"] !== U) {
-    Object.assign(defs, schema["$defs"]);
-  }
+  if (schema["$defs"] !== U) Object.assign(defs, schema["$defs"]);
   const metadataRawSchema = Metadata_get(schema, jsonSchemaMetadataId) as
     | JSONSchemaT
     | undefined;
-  if (metadataRawSchema !== U) {
-    Object.assign(jsonSchema, metadataRawSchema);
-  }
-}
-
-const encodeToJsonSchema = (
-  schema: Internal,
-  path: Path,
-  defs: Record<string, Internal>,
-  parent: Internal,
-  target: JsonSchemaTarget
-): JSONSchemaT | undefined => {
-  const schemaInternal = schema;
-  const reversed = reverse(schemaInternal);
-  const input = B_operationArg(unknown, reversed, flagNone, U);
-  try {
-    const output = parse(input);
-    // The parse produces a val whose .schema reflects the
-    // JSON-compatible transformed structure.
-    return internalToJSONSchema(output.s, path, defs, parent, target);
-  } catch (exn) {
-    getOrRethrow(exn);
-
-    // Parse failed — caller falls through to normal tag-based logic.
-    return U;
-  }
+  if (metadataRawSchema !== U) Object.assign(jsonSchema, metadataRawSchema);
 }
 
 const internalToJSONSchema = (
@@ -364,7 +339,6 @@ const internalToJSONSchema = (
   parent: Internal,
   target: JsonSchemaTarget
 ): JSONSchemaT => {
-  const schemaInternal = schema;
   // When a schema has `.to`, we can try to encode-reverse it to get a more
   // precise JSON schema (e.g. `format: "date-time"` for `S.string->S.to(S.date)`).
   // For a user-applied `.to` on a union (no `parser`) the encode-reverse output
@@ -374,20 +348,30 @@ const internalToJSONSchema = (
   // Option.getOrWith, ...) where the union's anyOf is the input format we want
   // to keep describing. Object/array still need their nested item metadata, so
   // they keep using the base path.
-  const tagFlag = tagFlags[schemaInternal.type]!;
+  const tagFlag = tagFlags[schema.type]!;
   const hasUserTo =
-    !!schemaInternal.to &&
-    !flagUnsafeHas(tagFlag, (tagFlagObject | tagFlagArray)) &&
-    !(flagUnsafeHas(tagFlag, tagFlagUnion) && !!schemaInternal.parser);
-  const encoded = hasUserTo
-    ? encodeToJsonSchema(schema, path, defs, parent, target)
-    : U;
-  if (encoded !== U) {
-    applyMetadataOverlay(encoded, schema, path, defs, target);
-    return encoded;
-  } else {
-    return internalToJSONSchemaBase(schema, path, defs, parent, target);
+    !!schema.to &&
+    !(tagFlag & (64 | 128)) &&
+    !((tagFlag & 256) && !!schema.parser);
+  if (hasUserTo) {
+    let encoded: JSONSchemaT | undefined;
+    try {
+      encoded = internalToJSONSchema(
+        parse(B_operationArg(unknown, reverse(schema), 0, U)).s,
+        path,
+        defs,
+        parent,
+        target
+      );
+    } catch (exn) {
+      getOrRethrow(exn);
+    }
+    if (encoded !== U) {
+      applyMetadataOverlay(encoded, schema, path, defs, target);
+      return encoded;
+    }
   }
+  return internalToJSONSchemaBase(schema, path, defs, parent, target);
 }
 
 const internalToJSONSchemaBase = (
@@ -398,13 +382,11 @@ const internalToJSONSchemaBase = (
   target: JsonSchemaTarget
 ): JSONSchemaT => {
   const jsonSchema: JSONSchemaT = {};
+  const js = (s: Internal, p: Path) => internalToJSONSchema(s, p, defs, schema, target);
+  const dyn = pathConcat(path, pathDynamic);
   // OpenAPI 3.0 has no `const`; describe a single allowed value with `enum`.
   const setConstOrEnum = (value: unknown) => {
-    if (target === openApi30) {
-      jsonSchema.enum = [value];
-    } else {
-      jsonSchema.const = value;
-    }
+    target === openApi30 ? (jsonSchema.enum = [value]) : (jsonSchema.const = value);
   };
   const tag = schema.type;
   if (tag === stringTag) {
@@ -424,26 +406,13 @@ const internalToJSONSchemaBase = (
       // own instead.
       jsonSchema.contentMediaType = "application/json";
     } else if (format === "base64") {
-      if (target === openApi30) {
-        jsonSchema.format = "byte";
-      } else {
-        jsonSchema.contentEncoding = "base64";
-      }
+      target === openApi30 ? (jsonSchema.format = "byte") : (jsonSchema.contentEncoding = "base64");
     }
-    if (schema.minLength !== U) {
-      jsonSchema.minLength = schema.minLength;
-    }
-    if (schema.maxLength !== U) {
-      jsonSchema.maxLength = schema.maxLength;
-    }
-    if (schema.pattern !== U) {
-      jsonSchema.pattern = schema.pattern.source;
-    }
-    if (const_ !== U) {
-      setConstOrEnum(const_);
-    }
+    if (schema.minLength !== U) jsonSchema.minLength = schema.minLength;
+    if (schema.maxLength !== U) jsonSchema.maxLength = schema.maxLength;
+    if (schema.pattern !== U) jsonSchema.pattern = schema.pattern.source;
+    if (const_ !== U) setConstOrEnum(const_);
   } else if (tag === numberTag) {
-    const format = schema.format;
     const const_ = schema.const as number | undefined;
     // A bigint schema never reaches here (it fails as non-JSON first), so the
     // `number | bigint` bound fields are always numbers by this point. The
@@ -455,16 +424,10 @@ const internalToJSONSchemaBase = (
     // int32 and port carry their range as bound fields, so nothing
     // format-specific is left to emit here — and a user bound that superseded
     // one of them has already cleared it.
-    jsonSchema.type = format !== U ? "integer" : "number";
-    if (schema.multipleOf !== U) {
-      jsonSchema.multipleOf = schema.multipleOf as number;
-    }
-    if (minimum !== U) {
-      jsonSchema.minimum = minimum;
-    }
-    if (maximum !== U) {
-      jsonSchema.maximum = maximum;
-    }
+    jsonSchema.type = schema.format !== U ? "integer" : "number";
+    if (schema.multipleOf !== U) jsonSchema.multipleOf = schema.multipleOf as number;
+    if (minimum !== U) jsonSchema.minimum = minimum;
+    if (maximum !== U) jsonSchema.maximum = maximum;
     // draft-06 made exclusive bounds independent numeric keywords; draft-04 —
     // which OpenAPI 3.0 follows — spells them as booleans modifying
     // minimum/maximum.
@@ -472,55 +435,30 @@ const internalToJSONSchemaBase = (
       if (target === openApi30) {
         jsonSchema.minimum = exclusiveMinimum;
         jsonSchema.exclusiveMinimum = true;
-      } else {
-        jsonSchema.exclusiveMinimum = exclusiveMinimum;
-      }
+      } else jsonSchema.exclusiveMinimum = exclusiveMinimum;
     }
     if (exclusiveMaximum !== U) {
       if (target === openApi30) {
         jsonSchema.maximum = exclusiveMaximum;
         jsonSchema.exclusiveMaximum = true;
-      } else {
-        jsonSchema.exclusiveMaximum = exclusiveMaximum;
-      }
+      } else jsonSchema.exclusiveMaximum = exclusiveMaximum;
     }
-    if (const_ !== U) {
-      setConstOrEnum(const_);
-    }
+    if (const_ !== U) setConstOrEnum(const_);
   } else if (tag === booleanTag) {
-    const const_ = schema.const as boolean | undefined;
     jsonSchema.type = "boolean";
-    if (const_ !== U) {
-      setConstOrEnum(const_);
-    }
+    if (schema.const !== U) setConstOrEnum(schema.const);
   } else if (tag === arrayTag) {
     const additionalItems = schema.additionalItems!;
     const items = schema.items!;
     if (items.length === 0 && typeof additionalItems === "object") {
-      jsonSchema.items = internalToJSONSchema(
-        additionalItems,
-        pathConcat(path, pathDynamic),
-        defs,
-        schema,
-        target
-      );
+      jsonSchema.items = js(additionalItems, dyn);
       jsonSchema.type = "array";
-      if (schema.minItems !== U) {
-        jsonSchema.minItems = schema.minItems;
-      }
-      if (schema.maxItems !== U) {
-        jsonSchema.maxItems = schema.maxItems;
-      }
+      if (schema.minItems !== U) jsonSchema.minItems = schema.minItems;
+      if (schema.maxItems !== U) jsonSchema.maxItems = schema.maxItems;
     } else {
-      const itemDefinitions: JSONSchemaT[] = items.map((itemSchema, idx) => {
-        return internalToJSONSchema(
-          itemSchema,
-          pathConcat(path, pathFromLocation(idx.toString())),
-          defs,
-          schema,
-          target
-        );
-      });
+      const itemDefinitions = items.map((item, i) =>
+        js(item, pathConcat(path, pathFromLocation("" + i)))
+      );
       const itemsNumber = itemDefinitions.length;
       let minItems = itemsNumber;
       if (typeof additionalItems === "object") {
@@ -534,94 +472,55 @@ const internalToJSONSchemaBase = (
       if (schema.maxItems !== U || typeof additionalItems !== "object") {
         jsonSchema.maxItems = schema.maxItems ?? itemsNumber;
       }
-      if (target === openApi30) {
-        // OpenAPI 3.0 has no tuple support. Describe a fixed-length array
-        // whose every item matches any of the positional item schemas.
-        jsonSchema.items = { anyOf: itemDefinitions };
-      } else if (target === draft202012) {
-        // draft-2020-12 uses `prefixItems` for positional schemas.
-        jsonSchema.prefixItems = itemDefinitions;
-      } else {
-        // draft-07 (default) uses an `items` array for positional schemas.
-        jsonSchema.items = itemDefinitions;
-      }
+      if (target === draft202012) jsonSchema.prefixItems = itemDefinitions;
+      else jsonSchema.items = target === openApi30 ? { anyOf: itemDefinitions } : itemDefinitions;
       if (typeof additionalItems === "object") {
-        if (additionalItems.type === neverTag) {
-          if (target === draft202012) jsonSchema.items = false;
-          else if (target !== openApi30) jsonSchema.additionalItems = false;
-        } else {
-          const rest = internalToJSONSchema(
-            additionalItems,
-            pathConcat(path, pathDynamic),
-            defs,
-            schema,
-            target
-          );
-          if (Object.keys(rest).length !== 0) {
-            if (target === draft202012) jsonSchema.items = rest;
-            else if (target !== openApi30) jsonSchema.additionalItems = rest;
-          }
+        const rest: JSONSchemaDefinition =
+          additionalItems.type === neverTag ? false : js(additionalItems, dyn);
+        if (rest === false || Object.keys(rest).length) {
+          if (target === draft202012) jsonSchema.items = rest;
+          else if (target !== openApi30) jsonSchema.additionalItems = rest;
         }
       }
     }
   } else if (tag === anyOfTag) {
-    const anyOf = schema.anyOf!;
     const literals: unknown[] = [];
     const items: JSONSchemaT[] = [];
     const seen: Record<string, boolean> = {};
 
-    anyOf.forEach((childSchema) => {
+    schema.anyOf!.forEach((childSchema) => {
       // Filter out undefined to support optional fields — no `else` branch
       // needed, this variant is simply skipped.
       if (
-        !(
-          childSchema.type === undefinedTag &&
-          (parent.type === objectTag ||
-            (parent.type === arrayTag &&
-              typeof parent.additionalItems === "object" &&
-              parent.items!.includes(schema)))
-        )
+        childSchema.type === undefinedTag &&
+        (parent.type === objectTag ||
+          (parent.type === arrayTag &&
+            typeof parent.additionalItems === "object" &&
+            parent.items!.includes(schema)))
       ) {
-        const childJsonSchema = internalToJSONSchema(childSchema, path, defs, schema, target);
-        // Collapse structurally-identical members (e.g. variants coercing to
-        // the same `.to` target) so the union renders as `T`, not `anyOf:[T,T]`.
-        const key = JSON.stringify(childJsonSchema);
-        if (!(key in seen)) {
-          seen[key] = true;
-          items.push(childJsonSchema);
-          if (isLiteral(childSchema)) {
-            literals.push(
-              childSchema.const // If a schema is Jsonable, the const is Jsonable too.
-            );
-          }
-        }
+        return;
+      }
+      const childJsonSchema = js(childSchema, path);
+      // Collapse structurally-identical members (e.g. variants coercing to
+      // the same `.to` target) so the union renders as `T`, not `anyOf:[T,T]`.
+      const key = JSON.stringify(childJsonSchema);
+      if (!(key in seen)) {
+        seen[key] = true;
+        items.push(childJsonSchema);
+        if (isLiteral(childSchema)) literals.push(childSchema.const);
       }
     });
 
     const itemsNumber = items.length;
-
-    if (schema.default !== U) {
-      jsonSchema.default = schema.default;
-    }
+    if (schema.default !== U) jsonSchema.default = schema.default;
 
     // Detect whether a definition is the "null" representation for the
     // current target. Sury models nullable as a union `[X, null]`; for
     // openapi-3.0 the null variant is `{enum:[null]}` (see the Null case),
     // for other targets it is `{type:"null"}`.
-    const isNullDefinition = (definition: JSONSchemaDefinition): boolean => {
-      if (typeof definition !== "boolean") {
-        const t = definition;
-        if (t.type === "null") {
-          return true;
-        } else if (t.enum !== U && t.enum.length === 1 && t.enum[0] === null) {
-          return true;
-        } else {
-          return false;
-        }
-      } else {
-        return false;
-      }
-    };
+    const isNullDefinition = (d: JSONSchemaDefinition): boolean =>
+      typeof d !== "boolean" &&
+      (d.type === "null" || (d.enum !== U && d.enum.length === 1 && d.enum[0] === null));
 
     // TODO: Write a breaking test with itemsNumber === 0
     if (itemsNumber === 1) {
@@ -637,8 +536,7 @@ const internalToJSONSchemaBase = (
       const nullIsFirst = isNullDefinition(items[0]!);
       const nonNull = items[nullIsFirst ? 1 : 0]!;
       if (typeof nonNull !== "boolean") {
-        const nonNullSchema = nonNull;
-        Object.assign(jsonSchema, nonNullSchema);
+        Object.assign(jsonSchema, nonNull);
         jsonSchema.nullable = true;
       } else {
         // `Any`/`Never` non-null variants can't be merged into a single
@@ -653,31 +551,18 @@ const internalToJSONSchemaBase = (
     const additionalItems = schema.additionalItems!;
     const required: string[] = [];
     const jsonProperties: Record<string, JSONSchemaDefinition> = Object.create(null);
-    const propertyKeys = Object.keys(properties);
-    propertyKeys.forEach((key) => {
+    for (const key of Object.keys(properties)) {
       const itemSchema = properties[key]!;
       if (!isOptional(itemSchema)) required.push(key);
-      jsonProperties[key] = internalToJSONSchema(
-        itemSchema,
-        pathConcat(path, pathFromLocation(key)),
-        defs,
-        schema,
-        target
-      );
-    });
+      jsonProperties[key] = js(itemSchema, pathConcat(path, pathFromLocation(key)));
+    }
 
     jsonSchema.type = "object";
     if (Object.keys(jsonProperties).length !== 0 || typeof additionalItems !== "object") {
       jsonSchema.properties = jsonProperties;
     }
     if (typeof additionalItems === "object") {
-      const rest = internalToJSONSchema(
-        additionalItems,
-        pathConcat(path, pathDynamic),
-        defs,
-        schema,
-        target
-      );
+      const rest = js(additionalItems, dyn);
       if (Object.keys(rest).length !== 0) jsonSchema.additionalProperties = rest;
     } else if (additionalItems === "strict") {
       jsonSchema.additionalProperties = false;
@@ -688,12 +573,8 @@ const internalToJSONSchemaBase = (
   } else if (tag === refTag) {
     jsonSchema.$ref = schema["$ref"];
   } else if (tag === nullTag) {
-    if (target === openApi30) {
-      // OpenAPI 3.0 has no `null` type. Use an enum as a workaround.
-      jsonSchema.enum = [null];
-    } else {
-      jsonSchema.type = "null";
-    }
+    // OpenAPI 3.0 has no `null` type. Use an enum as a workaround.
+    target === openApi30 ? (jsonSchema.enum = [null]) : (jsonSchema.type = "null");
   } else if (tag === neverTag) {
     jsonSchema.not = {};
   } else {
@@ -702,7 +583,7 @@ const internalToJSONSchemaBase = (
     // itself, on a schema that has no JSON Schema equivalent — which is what
     // `invalid_operation` describes. The offending schema is named in the
     // reason and located by `path`.
-    const offender = flagUnsafeHas(tagFlags[parent.type]!, tagFlagUnion) ? parent : schema;
+    const offender = (tagFlags[parent.type]! & 256) ? parent : schema;
     throw new SuryError({
       code: "invalid_operation",
       path,
@@ -711,51 +592,23 @@ const internalToJSONSchemaBase = (
   }
 
   applyMetadataOverlay(jsonSchema, schema, path, defs, target);
-
   return jsonSchema;
 }
 
 export type toJSONSchemaOptions = { target?: JsonSchemaTarget };
 
-// Single source of truth for the `target` -> `$schema` URI mapping (mirrors
-// @valibot/to-json-schema). Returns the URI to stamp, or `None` when the target
-// has no `$schema` (openapi-3.0). Raises an `invalid_operation` error for
-// `Unknown` (an unsupported target, e.g. one that arrived as an arbitrary
-// string from JS via the Standard JSON Schema `Options`).
-const targetSchemaUri = (target: JsonSchemaTarget): string | undefined => {
-  switch (target) {
-    case "draft-07":
-      return draft07Uri;
-    case draft202012:
-      return draft2020Uri;
-    // OpenAPI 3.0 has no `$schema` property.
-    case openApi30:
-      return U;
-    default: {
-      const unsupported = target;
-      throw new SuryError({
-        code: "invalid_operation",
-        path: pathEmpty,
-        reason: `Unsupported JSON Schema target: ${unsupported}`,
-      });
-    }
-  }
-}
-
 // @__NO_SIDE_EFFECTS__
 export const toJSONSchema = (schema: Internal, options?: toJSONSchemaOptions): JSONSchemaT => {
-  // Resolve the target and the `$schema` URI to stamp. When no options object is
-  // provided we keep the historical behavior: default to "draft-07" and do NOT
-  // stamp `$schema`. With options, an unsupported target throws up front (even
-  // for openapi-3.0, which stamps no `$schema`).
-  let target: JsonSchemaTarget;
+  // When no options object is provided we keep the historical behavior: default
+  // to "draft-07" and do NOT stamp `$schema`. With options, an unsupported
+  // target throws up front (even for openapi-3.0, which stamps no `$schema`).
+  const target: JsonSchemaTarget =
+    options !== U && options.target !== U ? options.target : "draft-07";
   let schemaUri: string | undefined;
   if (options !== U) {
-    target = options.target !== U ? options.target : "draft-07";
-    schemaUri = targetSchemaUri(target);
-  } else {
-    target = "draft-07";
-    schemaUri = U;
+    if (target === "draft-07") schemaUri = "http://json-schema.org/draft-07/schema#";
+    else if (target === draft202012) schemaUri = "https://json-schema.org/draft/2020-12/schema";
+    else if (target !== openApi30) refError(`Unsupported JSON Schema target: ${target}`);
   }
   // Null prototypes: definitions are named by their author. `__proto__` would
   // set a prototype instead of taking a key, and `toString` would read back as
@@ -775,14 +628,10 @@ export const toJSONSchema = (schema: Internal, options?: toJSONSchemaOptions): J
     const def = defs[name]!;
     jsonSchemDefs[name] = internalToJSONSchema(def, pathEmpty, defs, def, target);
   }
-  if (Object.keys(jsonSchemDefs).length) {
-    jsonSchema.$defs = jsonSchemDefs;
-  }
-  if (schemaUri !== U) {
-    jsonSchema.$schema = schemaUri;
-  }
+  if (Object.keys(jsonSchemDefs).length) jsonSchema.$defs = jsonSchemDefs;
+  if (schemaUri !== U) jsonSchema.$schema = schemaUri;
   return jsonSchema;
-}
+};
 
 // Wiring this inside a function (vs top level) is what makes toJSONSchema/reverse tree-shakeable.
 //
@@ -792,28 +641,22 @@ export const toJSONSchema = (schema: Internal, options?: toJSONSchemaOptions): J
 // `S.reverse` swaps Input <-> Output and `toJSONSchema` returns the input-type
 // schema of whatever it receives.
 export const enableStandardJSONSchema = (): void => {
-  __setStandardJSONSchemaConverter((schema, options, isOutput) => {
-    // The converter just forwards the target; `toJSONSchema` is the single
-    // source of truth for the `$schema` URI mapping and the unsupported-target
-    // throw. Passing an options object (vs none) is what makes `toJSONSchema`
-    // stamp `$schema`, which the Standard JSON Schema spec requires.
-    return toJSONSchema(isOutput ? reverse(schema) : schema, { target: options.target });
-  });
-}
+  __setStandardJSONSchemaConverter((schema, options, isOutput) =>
+    // Passing an options object (vs none) is what makes `toJSONSchema` stamp
+    // `$schema`, which the Standard JSON Schema spec requires.
+    toJSONSchema(isOutput ? reverse(schema) : schema, { target: options.target })
+  );
+};
 
 // @__NO_SIDE_EFFECTS__
 export const extendJSONSchema = (schema: Internal, jsonSchema: JSONSchemaT): Internal => {
-  const existingSchemaExtend = Metadata_get(schema, jsonSchemaMetadataId) as
-    | JSONSchemaT
-    | undefined;
+  const existing = Metadata_get(schema, jsonSchemaMetadataId) as JSONSchemaT | undefined;
   return Metadata_set(
     schema,
     jsonSchemaMetadataId,
-    existingSchemaExtend !== U
-      ? jsonSchemaMerge(existingSchemaExtend, jsonSchema)
-      : jsonSchema
+    existing !== U ? jsonSchemaMerge(existing, jsonSchema) : jsonSchema
   );
-}
+};
 
 // PORT-NOTE: `castAnySchemaToJsonableS` is a bare `Obj.magic` (a pure no-op
 // type re-cast, `schema<'any> => schema<JSON.t>`). It has no runtime body, so
@@ -879,16 +722,10 @@ const stringFormatSchemas = {
 // meaning of `minimum`; draft-06+ make it an independent numeric bound. `true`
 // therefore consumes `minimum` rather than adding a second bound, and the two
 // spellings never both apply.
-const exclusiveBound = (
-  inclusive: number | undefined,
-  exclusive: number | boolean | undefined
-): number | undefined =>
-  exclusive === true ? inclusive : typeof exclusive === "number" ? exclusive : U;
-
-const inclusiveBound = (
-  inclusive: number | undefined,
-  exclusive: number | boolean | undefined
-): number | undefined => (exclusive === true ? U : inclusive);
+const exclusiveBound = (inc?: number, exc?: number | boolean): number | undefined =>
+  exc === true ? inc : typeof exc === "number" ? exc : U;
+const inclusiveBound = (inc?: number, exc?: number | boolean): number | undefined =>
+  exc === true ? U : inc;
 
 // The integer and number branches read the same four keywords the same way,
 // so they share one pass rather than each spelling it out.
@@ -897,18 +734,10 @@ const withNumericBounds = (schema: Internal, jsonSchema: JSONSchemaT): Internal 
   const exMin = exclusiveBound(jsonSchema.minimum, jsonSchema.exclusiveMinimum);
   const max = inclusiveBound(jsonSchema.maximum, jsonSchema.exclusiveMaximum);
   const exMax = exclusiveBound(jsonSchema.maximum, jsonSchema.exclusiveMaximum);
-  if (min !== U) {
-    schema = applyBound(schema, gte, min);
-  }
-  if (exMin !== U) {
-    schema = applyBound(schema, gt, exMin);
-  }
-  if (max !== U) {
-    schema = applyBound(schema, lte, max);
-  }
-  if (exMax !== U) {
-    schema = applyBound(schema, lt, exMax);
-  }
+  if (min !== U) schema = applyBound(schema, gte, min);
+  if (exMin !== U) schema = applyBound(schema, gt, exMin);
+  if (max !== U) schema = applyBound(schema, lte, max);
+  if (exMax !== U) schema = applyBound(schema, lt, exMax);
   // `multipleOf: 1` on an integer schema restates what the format already
   // checks — storing it would emit a keyword the author's document may not
   // have had (the int-schema branches synthesize integer from other spellings).
@@ -916,7 +745,7 @@ const withNumericBounds = (schema: Internal, jsonSchema: JSONSchemaT): Internal 
     schema = applyBound(schema, multipleOf, jsonSchema.multipleOf);
   }
   return schema;
-}
+};
 
 const toIntSchema = (jsonSchema: JSONSchemaT): Internal => withNumericBounds(integer, jsonSchema);
 
@@ -1017,9 +846,6 @@ const B_invalidLengthRange = (
   !Number.isSafeInteger(maximum) ||
   maximum < minimum;
 
-const definitionDefault = (definition: JSONSchemaDefinition): unknown =>
-  typeof definition === "object" ? definition.default : U;
-
 // `default` is an annotation, not an assertion: a document may carry one its own
 // property schema rejects (`{type: "integer", default: ""}` is everywhere in
 // hand-written OpenAPI) and it still has to load. `Option_getOr` panics on that,
@@ -1031,9 +857,7 @@ const withDefault = (property: Internal, defaultValue: unknown): Internal => {
   try {
     return Option_getOr(optional, defaultValue);
   } catch (exn) {
-    if (exn && (exn as { s?: symbol }).s === errorSymbol) {
-      throw exn;
-    }
+    if (exn && (exn as { s?: symbol }).s === errorSymbol) throw exn;
     return extendJSONSchema(optional, { default: defaultValue });
   }
 };
@@ -1053,10 +877,9 @@ const objectSchema = (
   properties: Record<string, Internal>,
   additionalItems: Internal | "strip" | "strict"
 ): Internal => {
-  const children = Object.values(properties);
   const schema = baseSchema(
     objectTag,
-    children.every((child) => !!child.sr) &&
+    Object.values(properties).every((child) => !!child.sr) &&
       (typeof additionalItems === "string" || !!additionalItems.sr),
     objectDecoder
   );
@@ -1067,13 +890,6 @@ const objectSchema = (
   schema.required = Object.keys(properties).filter((key) => !isOptional(properties[key]!));
   schema.properties = properties;
   schema.additionalItems = additionalItems;
-  return schema;
-};
-
-const tupleSchema = (items: Internal[]): Internal => {
-  const schema = baseSchema(arrayTag, items.every((item) => !!item.sr), arrayDecoder);
-  schema.items = items;
-  schema.additionalItems = "strict";
   return schema;
 };
 
@@ -1096,12 +912,10 @@ const applyBound = (
   try {
     return bound(schema, value);
   } catch (exn) {
-    if (exn && (exn as { s?: symbol }).s === errorSymbol) {
-      throw exn;
-    }
+    if (exn && (exn as { s?: symbol }).s === errorSymbol) throw exn;
     return never_;
   }
-}
+};
 
 // What a whole `fromJSONSchema` call shares: `$ref` is a JSON Pointer resolved
 // from the document's root wherever it appears, so the nested calls need the
@@ -1126,20 +940,12 @@ type RefContext = {
   names: Record<string, true>;
 };
 
-const refError = (reason: string): SuryError =>
-  new SuryError({
+const refError = (reason: string): never => {
+  throw new SuryError({
     code: "invalid_operation",
     path: pathEmpty,
     reason,
   });
-
-const B_refSiblingsForDialect = (uri: string | undefined): boolean => {
-  if (uri === U) return false;
-  // JSON Schema only changed `$ref` from a replacement into an applicator in
-  // the two date-named dialect families matched by this alternation.
-  return /^https?:\/\/json-schema\.org\/draft\/20(?:19-09|20-12)\/schema#?$/.test(
-    uri
-  );
 };
 
 const B_compilePattern = (source: string): RegExp => {
@@ -1149,7 +955,7 @@ const B_compilePattern = (source: string): RegExp => {
     try {
       return new RegExp(source);
     } catch {
-      throw refError(`Invalid JSON Schema pattern: ${JSON.stringify(source)}`);
+      return refError(`Invalid JSON Schema pattern: ${JSON.stringify(source)}`);
     }
   }
 };
@@ -1170,13 +976,9 @@ const unescapePointer = (segment: string): string => {
 };
 
 const resolveRef = (ref: string, ctx: RefContext): Internal => {
-  if (ctx.cyc[ref]) {
-    return ctx.ph[ref]!;
-  }
+  if (ctx.cyc[ref]) return ctx.ph[ref]!;
   const built = ctx.built[ref];
-  if (built !== U) {
-    return built;
-  }
+  if (built !== U) return built;
   const placeholder = ctx.ph[ref];
   if (placeholder !== U) {
     ctx.cyc[ref] = true;
@@ -1185,7 +987,7 @@ const resolveRef = (ref: string, ctx: RefContext): Internal => {
 
   const segments = ref.split("/");
   if (segments[0] !== "#") {
-    throw refError(
+    refError(
       `Unsupported JSON Schema $ref: ${ref}. Only JSON Pointers into the same document (#/…) resolve — $id, $anchor and remote refs don't`
     );
   }
@@ -1204,7 +1006,7 @@ const resolveRef = (ref: string, ctx: RefContext): Internal => {
     (typeof target !== "object" && typeof target !== "boolean") ||
     Array.isArray(target)
   ) {
-    throw refError(`Failed to resolve JSON Schema $ref: ${ref}`);
+    refError(`Failed to resolve JSON Schema $ref: ${ref}`);
   }
 
   // The pointer's last segment is the name the document already uses for the
@@ -1234,7 +1036,7 @@ const resolveRef = (ref: string, ctx: RefContext): Internal => {
   // compiling it would recurse forever. Comparing `$ref` rather than identity
   // also catches the placeholder coming back wrapped in a meta copy.
   if ((def as Record<string, unknown>)["$ref"] === refSchema["$ref"]) {
-    throw refError(`Infinite JSON Schema $ref loop: ${ref}`);
+    refError(`Infinite JSON Schema $ref loop: ${ref}`);
   }
   ctx.built[ref] = def;
   if (ctx.cyc[ref]) {
@@ -1251,11 +1053,7 @@ const jsonDefinitionToSchema = (
   definition: JSONSchemaDefinition,
   ctx: RefContext
 ): Internal =>
-  typeof definition !== "boolean"
-    ? fromJSONSchema(definition, ctx)
-    : definition
-      ? json
-      : never_;
+  typeof definition !== "boolean" ? fromJSONSchema(definition, ctx) : definition ? json : never_;
 
 // The compiler reads `$defs` off the schema it is handed, so every schema that
 // gets compiled as a root of its own needs the document's — the outermost one,
@@ -1268,9 +1066,7 @@ const withDefs = (schema: Internal, ctx: RefContext): Internal => {
   const copy = copySchema(schema);
   // `S.json` names itself through a `$defs` of its own, so fold rather than
   // replace — dropping it leaves the compiler with a `$ref` it can't resolve.
-  if (copy["$defs"] !== U) {
-    Object.assign(ctx.defs, copy["$defs"]);
-  }
+  if (copy["$defs"] !== U) Object.assign(ctx.defs, copy["$defs"]);
   copy["$defs"] = ctx.defs;
   return copy;
 };
@@ -1297,62 +1093,77 @@ const assertionToJSONDefinition = (
     if (typeof current === "boolean") return current;
     const ref = current["$ref"];
     if (ref !== U) {
+      const siblings = { ...current };
+      delete siblings["$ref"];
       if (!ctx.cyc[ref]) {
         const target = resolved ?? ctx.built[ref];
-        if (target === U) throw refError(`Failed to resolve JSON Schema $ref: ${ref}`);
+        if (target === U) return refError(`Failed to resolve JSON Schema $ref: ${ref}`);
         const expanded = toJSONSchema(target);
         if (!ctx.refSiblings) return expanded;
-        const siblings = { ...current };
-        delete siblings["$ref"];
         const rewritten = rewrite(siblings);
         return isAnyJSONSchema(rewritten)
           ? expanded
           : jsonSchemaMerge(expanded, { allOf: [rewritten] });
       }
-      const siblingsSchema = { ...current };
-      delete siblingsSchema["$ref"];
-      const siblings = ctx.refSiblings ? rewrite(siblingsSchema) : {};
-      return jsonSchemaMerge(siblings as JSONSchemaT, { $ref: ctx.ph[ref]!["$ref"] });
+      return jsonSchemaMerge(
+        (ctx.refSiblings ? rewrite(siblings) : {}) as JSONSchemaT,
+        { $ref: ctx.ph[ref]!["$ref"] }
+      );
     }
 
     const output: JSONSchemaT = { ...current };
     delete output["$defs"];
     delete output.definitions;
-    const mapRecord = (record: Record<string, JSONSchemaDefinition>) =>
-      Object.fromEntries(Object.entries(record).map(([key, child]) => [key, rewrite(child)]));
-    if (current.properties !== U) output.properties = mapRecord(current.properties);
-    if (current.items !== U)
-      output.items = Array.isArray(current.items)
-        ? current.items.map((child) => rewrite(child))
-        : rewrite(current.items);
-    if (current.prefixItems !== U)
-      output.prefixItems = current.prefixItems.map((child) => rewrite(child));
-    const singleKeywords = [
-      "additionalItems",
-      "if",
-      "then",
-      "else",
-      "not",
-    ] as const;
-    for (let idx = 0; idx < singleKeywords.length; idx++) {
-      const keyword = singleKeywords[idx]!;
-      const child = current[keyword];
-      if (child !== U) output[keyword] = rewrite(child) as never;
+    const rw = (child: JSONSchemaDefinition) => rewrite(child);
+    if (current.properties !== U) {
+      output.properties = Object.fromEntries(
+        Object.entries(current.properties).map(([key, child]) => [key, rw(child)])
+      );
+    }
+    if (current.items !== U) {
+      output.items = Array.isArray(current.items) ? current.items.map(rw) : rw(current.items);
+    }
+    if (current.prefixItems !== U) output.prefixItems = current.prefixItems.map(rw);
+    for (const k of ["additionalItems", "if", "then", "else", "not"] as const) {
+      if (current[k] !== U) output[k] = rw(current[k]!) as never;
     }
     if (current.additionalProperties !== U) {
-      const additionalProperties = rewrite(current.additionalProperties);
+      const additionalProperties = rw(current.additionalProperties);
       if (isAnyJSONSchema(additionalProperties)) delete output.additionalProperties;
       else output.additionalProperties = additionalProperties;
     }
-    const arrayKeywords = ["allOf", "anyOf", "oneOf"] as const;
-    for (let idx = 0; idx < arrayKeywords.length; idx++) {
-      const keyword = arrayKeywords[idx]!;
-      const children = current[keyword];
-      if (children !== U) output[keyword] = children.map((child) => rewrite(child));
+    for (const k of ["allOf", "anyOf", "oneOf"] as const) {
+      if (current[k] !== U) output[k] = current[k]!.map(rw);
     }
     return output;
   };
   return rewrite(definition, schema);
+};
+
+const B_assert = (
+  schema: Internal,
+  test: (data: unknown) => boolean,
+  message: string,
+  overlay: JSONSchemaT
+): Internal => extendJSONSchema(refineInput(schema, test, message), overlay);
+
+const B_layer = (
+  schema: Internal,
+  definitions: JSONSchemaDefinition[],
+  ctx: RefContext,
+  keyword: "allOf" | "anyOf" | "oneOf",
+  test: (schemas: Internal[], data: unknown) => boolean,
+  message: string
+): Internal => {
+  const schemas = definitions.map((d) => asAssertion(d, ctx));
+  return B_assert(
+    schema,
+    (data) => test(schemas, data),
+    message,
+    {
+      [keyword]: definitions.map((d, i) => assertionToJSONDefinition(d, schemas[i]!, ctx)),
+    } as JSONSchemaT
+  );
 };
 
 // @__NO_SIDE_EFFECTS__
@@ -1360,20 +1171,20 @@ export const fromJSONSchema = (
   jsonSchema: JSONSchemaDefinition,
   parentCtx?: RefContext
 ): Internal => {
-  const anySchema = json;
-  if (typeof jsonSchema === "boolean") {
-    return jsonSchema ? anySchema : never_;
-  }
-  const refSiblings =
-    parentCtx === U && B_refSiblingsForDialect(jsonSchema["$schema"]);
+  if (typeof jsonSchema === "boolean") return jsonSchema ? json : never_;
   // Every nested call threads the caller's context; only the outermost one
   // owns the document, and only it publishes the `$defs` collected below.
+  const uri = jsonSchema["$schema"];
   const ctx: RefContext =
     parentCtx !== U
       ? parentCtx
       : {
           root: jsonSchema,
-          refSiblings,
+          // JSON Schema only changed `$ref` from a replacement into an applicator
+          // in the two date-named dialect families matched by this alternation.
+          refSiblings:
+            uri !== U &&
+            /^https?:\/\/json-schema\.org\/draft\/20(?:19-09|20-12)\/schema#?$/.test(uri),
           ph: {},
           built: {},
           cyc: {},
@@ -1384,17 +1195,15 @@ export const fromJSONSchema = (
   for (let i = 0; i < unsupportedKeywords.length; i++) {
     const keyword = unsupportedKeywords[i]!;
     if ((jsonSchema as Record<string, unknown>)[keyword] !== U) {
-      throw new SuryError({
-        code: "invalid_operation",
-        path: pathEmpty,
-        reason: `Unsupported JSON Schema keyword: ${keyword}. Ignoring it would accept data the schema rejects — remove it, or express the constraint with S.refine on the result`,
-      });
+      refError(
+        `Unsupported JSON Schema keyword: ${keyword}. Ignoring it would accept data the schema rejects — remove it, or express the constraint with S.refine on the result`
+      );
     }
   }
 
   // The base type dispatch is mirrored by `JSONSchemaResolve` in
   // src/types/json.d.ts.
-  let schema: Internal;
+  let schema: Internal = json;
   if (jsonSchema["$ref"] !== U) {
     // Draft-07 and OpenAPI 3.0 ignore assertion siblings beside `$ref`;
     // draft-2019-09 and newer apply them. The root `$schema` selects the rule.
@@ -1416,18 +1225,11 @@ export const fromJSONSchema = (
       }
       if (Object.keys(siblingKeywords).length) {
         const siblingSchema = asAssertion(siblingKeywords, ctx);
-        schema = refineInput(
+        schema = B_assert(
           schema,
           (data: unknown) => passesSchema(data, siblingSchema),
-          "Should pass the keywords adjacent to the $ref."
-        );
-        schema = extendJSONSchema(
-          schema,
-          {
-            allOf: [
-              assertionToJSONDefinition(siblingKeywords, siblingSchema, ctx),
-            ],
-          }
+          "Should pass the keywords adjacent to the $ref.",
+          { allOf: [assertionToJSONDefinition(siblingKeywords, siblingSchema, ctx)] }
         );
       }
     }
@@ -1442,7 +1244,7 @@ export const fromJSONSchema = (
       } else {
         schema = dict(
           additional === U || isAnyJSONSchema(additional)
-            ? anySchema
+            ? json
             : jsonDefinitionToSchema(additional, ctx)
         );
         if (required?.length) {
@@ -1458,18 +1260,18 @@ export const fromJSONSchema = (
           const definition = definitions[key]!;
           let property = jsonDefinitionToSchema(definition, ctx);
           if (!required.has(key)) {
-            const defaultValue = definitionDefault(definition);
+            const defaultValue = typeof definition === "object" ? definition.default : U;
             property =
               defaultValue === U ? option(property) : withDefault(property, defaultValue);
           }
           properties[key] = property;
         }
         for (const key of required) {
-          if (!(key in properties)) properties[key] = anySchema;
+          if (!(key in properties)) properties[key] = json;
         }
         schema = objectSchema(properties, additional === false ? "strict" : "strip");
       } else {
-        schema = dict(anySchema);
+        schema = dict(json);
         const propertyKeys = Object.keys(definitions);
         const propertySchemas = propertyKeys.map((key) => {
           const definition = definitions[key]!;
@@ -1558,14 +1360,28 @@ export const fromJSONSchema = (
         schema = never_;
       } else if (minimum === length && maximum === length) {
         pinned = true;
-        schema = tupleSchema(
-          prefixItems.map((definition) => jsonDefinitionToSchema(definition, ctx))
+        const tupleItems = prefixItems.map((definition) =>
+          jsonDefinitionToSchema(definition, ctx)
         );
+        schema = baseSchema(arrayTag, tupleItems.every((item) => !!item.sr), arrayDecoder);
+        schema.items = tupleItems;
+        schema.additionalItems = "strict";
       } else {
         const prefixSchemas = prefixItems.map((definition) => asAssertion(definition, ctx));
         const restSchema = restDefinition === true ? U : asAssertion(restDefinition, ctx);
-        schema = refineInput(
-          array(anySchema),
+        const mapped = prefixItems.map((d, i) =>
+          assertionToJSONDefinition(d, prefixSchemas[i]!, ctx)
+        );
+        const restDef =
+          jsonSchema.prefixItems !== U ? jsonSchema.items : jsonSchema.additionalItems;
+        const tupleKeywords: JSONSchemaT =
+          jsonSchema.prefixItems !== U ? { prefixItems: mapped } : { items: mapped };
+        if (restDef !== U && !Array.isArray(restDef)) {
+          tupleKeywords[jsonSchema.prefixItems !== U ? "items" : "additionalItems"] =
+            assertionToJSONDefinition(restDef, restSchema === U ? json : restSchema, ctx);
+        }
+        schema = B_assert(
+          array(json),
           (data: unknown) => {
             const items = data as unknown[];
             const prefixLength = Math.min(items.length, prefixSchemas.length);
@@ -1579,39 +1395,15 @@ export const fromJSONSchema = (
             }
             return true;
           },
-          "Should pass the positional and additional item schemas."
+          "Should pass the positional and additional item schemas.",
+          tupleKeywords
         );
-        const tupleKeywords: JSONSchemaT = {};
-        if (jsonSchema.prefixItems !== U) {
-          tupleKeywords.prefixItems = prefixItems.map((definition, idx) =>
-            assertionToJSONDefinition(definition, prefixSchemas[idx]!, ctx)
-          );
-          if (jsonSchema.items !== U && !Array.isArray(jsonSchema.items)) {
-            tupleKeywords.items = assertionToJSONDefinition(
-              jsonSchema.items,
-              restSchema === U ? anySchema : restSchema,
-              ctx
-            );
-          }
-        } else {
-          tupleKeywords.items = prefixItems.map((definition, idx) =>
-            assertionToJSONDefinition(definition, prefixSchemas[idx]!, ctx)
-          );
-          if (jsonSchema.additionalItems !== U) {
-            tupleKeywords.additionalItems = assertionToJSONDefinition(
-              jsonSchema.additionalItems,
-              restSchema === U ? anySchema : restSchema,
-              ctx
-            );
-          }
-        }
-        schema = extendJSONSchema(schema, tupleKeywords);
       }
     } else if (jsonSchema.items !== U) {
       const items = jsonSchema.items;
       schema = array(jsonDefinitionToSchema(items as JSONSchemaDefinition, ctx));
     } else {
-      schema = array(anySchema);
+      schema = array(json);
     }
     if (!pinned) {
       const minimum = jsonSchema.minItems;
@@ -1619,12 +1411,8 @@ export const fromJSONSchema = (
       if (B_invalidLengthRange(minimum, maximum)) {
         schema = never_;
       } else {
-        if (minimum) {
-          schema = applyBound(schema, minLength, minimum);
-        }
-        if (maximum !== U) {
-          schema = applyBound(schema, maxLength, maximum);
-        }
+        if (minimum) schema = applyBound(schema, minLength, minimum);
+        if (maximum !== U) schema = applyBound(schema, maxLength, maximum);
       }
     }
   } else if (Array.isArray(jsonSchema.type)) {
@@ -1640,9 +1428,7 @@ export const fromJSONSchema = (
     schema =
       stringFormatSchemas[jsonSchema.format!] ||
       (jsonSchema.contentEncoding === "base64" ? base64 : string);
-    if (jsonSchema.pattern !== U) {
-      schema = pattern(schema, B_compilePattern(jsonSchema.pattern));
-    }
+    if (jsonSchema.pattern !== U) schema = pattern(schema, B_compilePattern(jsonSchema.pattern));
     if (jsonSchema.minLength !== U || jsonSchema.maxLength !== U) {
       const minimum = jsonSchema.minLength;
       const maximum = jsonSchema.maxLength;
@@ -1671,11 +1457,10 @@ export const fromJSONSchema = (
         schema = extendJSONSchema(schema, lengthKeywords);
       }
     }
-  } else if (jsonSchema.type === "integer") {
-    schema = toIntSchema(jsonSchema);
-  } else if (jsonSchema.type === "number" && jsonSchema.format === "int64") {
-    schema = toIntSchema(jsonSchema);
-  } else if (jsonSchema.type === "number" && jsonSchema.multipleOf === 1) {
+  } else if (
+    jsonSchema.type === "integer" ||
+    (jsonSchema.type === "number" && (jsonSchema.format === "int64" || jsonSchema.multipleOf === 1))
+  ) {
     schema = toIntSchema(jsonSchema);
   } else if (jsonSchema.type === "number") {
     schema = withNumericBounds(float, jsonSchema);
@@ -1684,11 +1469,7 @@ export const fromJSONSchema = (
   } else if (jsonSchema.type === "null") {
     schema = schemaFactory(null);
   } else if (jsonSchema.type !== U) {
-    throw new SuryError({
-      code: "invalid_operation",
-      path: pathEmpty,
-      reason: `Unsupported JSON Schema type: ${jsonSchema.type}`,
-    });
+    refError(`Unsupported JSON Schema type: ${jsonSchema.type}`);
   } else {
     const schemas: Internal[] = [];
     let constrained = false;
@@ -1697,40 +1478,36 @@ export const fromJSONSchema = (
       const applies = keywords.some(
         (key) => (jsonSchema as Record<string, unknown>)[key] !== U
       );
-      if (applies) constrained = true;
+      constrained ||= applies;
       schemas.push(
-        fromJSONSchema(
-          applies ? withoutLayeredKeywords(jsonSchema, type) : { type },
-          ctx
-        )
+        fromJSONSchema(applies ? withoutLayeredKeywords(jsonSchema, type) : { type }, ctx)
       );
     }
-    schema = constrained
-      ? union([...schemas, bool, schemaFactory(null)])
-      : anySchema;
+    schema = constrained ? union([...schemas, bool, schemaFactory(null)]) : json;
   }
 
   // `const`/`enum` replace the base with native literals after filtering out
   // values that fail sibling assertions. The resulting runtime only needs the
   // literal checks; re-running the base for every parse would be redundant.
-  if (jsonSchema["$ref"] === U && jsonSchema.enum !== U) {
-    const assertion = withDefs(schema, ctx);
-    const candidates = jsonSchema.enum
-      .filter(
-        (candidate) => schema === anySchema || passesSchema(candidate, assertion)
-      )
-      .map(primitiveToSchema);
-    schema =
-      candidates.length === 0
-        ? never_
-        : candidates.length === 1
-          ? candidates[0]!
-          : union(candidates);
-  }
-  if (jsonSchema["$ref"] === U && jsonSchema.const !== U) {
-    schema = schema === anySchema || passesSchema(jsonSchema.const, withDefs(schema, ctx))
-      ? primitiveToSchema(jsonSchema.const)
-      : never_;
+  if (jsonSchema["$ref"] === U) {
+    if (jsonSchema.enum !== U) {
+      const assertion = withDefs(schema, ctx);
+      const candidates = jsonSchema.enum
+        .filter((candidate) => schema === json || passesSchema(candidate, assertion))
+        .map(primitiveToSchema);
+      schema =
+        candidates.length === 0
+          ? never_
+          : candidates.length === 1
+            ? candidates[0]!
+            : union(candidates);
+    }
+    if (jsonSchema.const !== U) {
+      schema =
+        schema === json || passesSchema(jsonSchema.const, withDefs(schema, ctx))
+          ? primitiveToSchema(jsonSchema.const)
+          : never_;
+    }
   }
 
   // Composition keywords constrain *in addition to* everything above — so they
@@ -1738,103 +1515,89 @@ export const fromJSONSchema = (
   // base nothing has constrained yet: intersecting with "any JSON" is the
   // member itself, so the member compiles natively instead, keeping the union
   // codegen and the per-member error a document with no sibling keywords
-  // deserves. `schema === anySchema` is exactly that test — every other branch
+  // deserves. `schema === json` is exactly that test — every other branch
   // above, and `enum`/`const`, replace it.
   if (jsonSchema.allOf !== U) {
     const definitions = jsonSchema.allOf;
     if (definitions.length !== 0) {
       // Only a lone member: Sury has no intersection to compile two into.
-      if (schema === anySchema && definitions.length === 1) {
-        schema = jsonDefinitionToSchema(definitions[0]!, ctx);
-      } else {
-        const schemas = definitions.map((d) => asAssertion(d, ctx));
-        schema = refineInput(
-          schema,
-          (data: unknown) => schemas.every((s) => passesSchema(data, s)),
-          "Should pass for all schemas of the allOf property."
-        );
-        schema = extendJSONSchema(schema, {
-          allOf: definitions.map((definition, idx) =>
-            assertionToJSONDefinition(definition, schemas[idx]!, ctx)
-          ),
-        });
-      }
+      schema =
+        schema === json && definitions.length === 1
+          ? jsonDefinitionToSchema(definitions[0]!, ctx)
+          : B_layer(
+              schema,
+              definitions,
+              ctx,
+              "allOf",
+              (s, d) => s.every((item) => passesSchema(d, item)),
+              "Should pass for all schemas of the allOf property."
+            );
     }
   }
   if (jsonSchema.anyOf !== U) {
     const definitions = jsonSchema.anyOf;
     if (definitions.length === 0) {
       schema = never_;
-    } else if (schema === anySchema) {
+    } else if (schema === json) {
       const members = definitions.map((d) => jsonDefinitionToSchema(d, ctx));
       schema = members.length === 1 ? members[0]! : union(members);
     } else {
-      const schemas = definitions.map((d) => asAssertion(d, ctx));
-      schema = refineInput(
+      schema = B_layer(
         schema,
-        (data: unknown) => schemas.some((candidate) => passesSchema(data, candidate)),
+        definitions,
+        ctx,
+        "anyOf",
+        (s, d) => s.some((item) => passesSchema(d, item)),
         "Should pass at least one schema according to the anyOf property."
       );
-      schema = extendJSONSchema(schema, {
-        anyOf: definitions.map((definition, idx) =>
-          assertionToJSONDefinition(definition, schemas[idx]!, ctx)
-        ),
-      });
     }
   }
   if (jsonSchema.oneOf !== U) {
     const definitions = jsonSchema.oneOf;
-    if (definitions.length === 0) {
-      schema = never_;
-    } else {
-      const schemas = definitions.map((d) => asAssertion(d, ctx));
-      schema = refineInput(
-        schema,
-        (data: unknown) =>
-          schemas.filter((candidate) => passesSchema(data, candidate)).length === 1,
-        "Should pass exactly one schema according to the oneOf property."
-      );
-      schema = extendJSONSchema(schema, {
-        oneOf: definitions.map((definition, idx) =>
-          assertionToJSONDefinition(definition, schemas[idx]!, ctx)
-        ),
-      });
-    }
+    schema =
+      definitions.length === 0
+        ? never_
+        : B_layer(
+            schema,
+            definitions,
+            ctx,
+            "oneOf",
+            (s, d) => s.filter((item) => passesSchema(d, item)).length === 1,
+            "Should pass exactly one schema according to the oneOf property."
+          );
   }
   if (jsonSchema.not !== U) {
     const notSchema = asAssertion(jsonSchema.not, ctx);
-    schema = refineInput(
+    schema = B_assert(
       schema,
       (data: unknown) => !passesSchema(data, notSchema),
-      "Should NOT be valid against schema in the not property."
+      "Should NOT be valid against schema in the not property.",
+      { not: assertionToJSONDefinition(jsonSchema.not, notSchema, ctx) }
     );
-    schema = extendJSONSchema(schema, {
-      not: assertionToJSONDefinition(jsonSchema.not, notSchema, ctx),
-    });
   }
   if (jsonSchema.if !== U) {
     // `then`/`else` default to "always passes" when absent.
     const ifSchema = asAssertion(jsonSchema.if, ctx);
-    const thenSchema =
-      jsonSchema.then !== U ? asAssertion(jsonSchema.then, ctx) : U;
-    const elseSchema =
-      jsonSchema.else !== U ? asAssertion(jsonSchema.else, ctx) : U;
-    schema = refineInput(
+    const thenSchema = jsonSchema.then !== U ? asAssertion(jsonSchema.then, ctx) : U;
+    const elseSchema = jsonSchema.else !== U ? asAssertion(jsonSchema.else, ctx) : U;
+    const conditionalKeywords: JSONSchemaT = {
+      if: assertionToJSONDefinition(jsonSchema.if, ifSchema, ctx),
+    };
+    if (jsonSchema.then !== U) {
+      conditionalKeywords.then = assertionToJSONDefinition(jsonSchema.then, thenSchema!, ctx);
+    }
+    if (jsonSchema.else !== U) {
+      conditionalKeywords.else = assertionToJSONDefinition(jsonSchema.else, elseSchema!, ctx);
+    }
+    schema = B_assert(
       schema,
       (data: unknown) => {
         const branch = passesSchema(data, ifSchema) ? thenSchema : elseSchema;
         return branch === U || passesSchema(data, branch);
       },
-      "Should pass the if/then/else schema validation."
+      "Should pass the if/then/else schema validation.",
+      conditionalKeywords
     );
-    const conditionalKeywords: JSONSchemaT = {
-      if: assertionToJSONDefinition(jsonSchema.if, ifSchema, ctx),
-    };
-    if (jsonSchema.then !== U)
-      conditionalKeywords.then = assertionToJSONDefinition(jsonSchema.then, thenSchema!, ctx);
-    if (jsonSchema.else !== U)
-      conditionalKeywords.else = assertionToJSONDefinition(jsonSchema.else, elseSchema!, ctx);
-    schema = extendJSONSchema(schema, conditionalKeywords);
   }
 
   // OpenAPI 3.0's `nullable` widens whatever the rest of the document
@@ -1844,7 +1607,7 @@ export const fromJSONSchema = (
   // added to. Mirrored by `JSONSchemaResolve` in src/types/json.d.ts, which
   // likewise unions `null` onto the fully resolved type. Skipped for an
   // unconstrained base, which already admits `null`.
-  if (jsonSchema.nullable && schema !== anySchema) {
+  if (jsonSchema.nullable && schema !== json) {
     schema = null_(schema);
   }
 

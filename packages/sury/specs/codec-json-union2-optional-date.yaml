@@ -13,7 +13,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i["value"];for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v2=(v0["a"]??null);for(;;){let r;if(typeof v2==="string"){try{let v1=new Date((v0["a"]??null));!Number.isNaN(v1.getTime())||e[0](v1);v2=v1;break}catch(x){(r||(r=[])).push(e[1](x))}}if(v2===null){v2=void 0;break}e[2](v2,...(r||[]))}v0={"a":v2,};break}if(typeof v0==="string")break;e[3](v0)}return {"value":v0,}}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i["value"];for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v2=(v0["a"]??null);for(;;){let r;if(typeof v2==="string"){try{let v1=new Date((v0["a"]??null));!Number.isNaN(v1.getTime())||e[0](v1);v2=v1;break}catch(x){(r||(r=[])).push(e[1](x))}}if(v2===null){v2=void 0;break}e[2](v2,...(r||[]))}v0={a:v2};break}if(typeof v0==="string")break;e[3](v0)}return {value:v0}}
     examples:
       object-member-with-date:
         input: '{ value: { a: "2024-01-01T00:00:00.000Z" } }'
@@ -34,7 +34,7 @@ operations:
         error: 'Failed at ["value"]: Expected { a: string | undefined; } | string, received 5'
   decode: eq-to-parse
   encode:
-    expression: i=>{let v0=i["value"];for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=v0["a"];for(;;){if(v1 instanceof e[0]){v1=v0["a"].toISOString();break}if(v1===void 0)break;e[1](v1)}v0={"a":v1,};break}if(typeof v0==="string")break;e[2](v0)}for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v2=v0["a"],v3;(typeof v2==="string"||v2===void 0)||e[3](v2);for(v3 in v0){if(v3!=="a"){e[4](v3)}}let v4={};if(v2!==void 0){v4["a"]=v2}v0=v4;break}if(typeof v0==="string")break;e[5](v0)}return {"value":v0,}}
+    expression: i=>{let v0=i["value"];for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=v0["a"];for(;;){if(v1 instanceof e[0]){v1=v0["a"].toISOString();break}if(v1===void 0)break;e[1](v1)}v0={a:v1};break}if(typeof v0==="string")break;e[2](v0)}for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v2=v0["a"],v3;(typeof v2==="string"||v2===void 0)||e[3](v2);for(v3 in v0){if(v3!=="a"){e[4](v3)}}let v4={};if(v2!==void 0){v4["a"]=v2}v0=v4;break}if(typeof v0==="string")break;e[5](v0)}return {value:v0}}
     examples:
       object-member-with-date:
         input: '{ value: { a: new Date("2024-01-01T00:00:00.000Z") } }'

@@ -21,7 +21,7 @@ import {
   undefinedTag,
   unknown,
   updateOutput,
-  type Val,
+  type Val
 } from "./base";
 import {
   _var,
@@ -33,11 +33,21 @@ import {
   B_invalidOperation,
   B_neverSlot,
   B_next,
-  B_unsupportedDecode,
+  B_unsupportedDecode
 } from "./builder";
-import { getDecoder, getOutputSchema, reverse } from "./parse";
-import { Literal_parse, nullLiteral, unit } from "./primitives";
-import { unionFactory } from "./union";
+import {
+ getDecoder,
+ getOutputSchema,
+ reverse
+} from "./parse";
+import {
+ Literal_parse,
+ nullLiteral,
+ unit
+} from "./primitives";
+import {
+ unionFactory
+} from "./union";
 
 // PORT-NOTE: `module Metadata` → flat `Metadata_*` functions. `Id.t<'metadata>` is a string at
 // runtime; `unionToKey` was `%identity` and is dropped.

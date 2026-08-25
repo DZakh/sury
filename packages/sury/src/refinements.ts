@@ -19,7 +19,7 @@ import {
   SuryError,
   U,
   updateOutput,
-  type Val,
+  type Val
 } from "./base";
 import {
   B_computed,
@@ -28,20 +28,32 @@ import {
   B_failWithErrorMessage,
   B_readOnce,
   B_readsPayload,
-  B_refine,
+  B_refine
 } from "./builder";
-import { definitionToSchema, optionFactory } from "./composites";
-import { codecTo, getMutErrorMessage, internalRefine, nullAsUnit } from "./modifiers";
+import {
+ definitionToSchema,
+ optionFactory
+} from "./composites";
+import {
+ codecTo,
+ getMutErrorMessage,
+ internalRefine,
+ nullAsUnit
+} from "./modifiers";
 import {
   nullLiteral,
   numberDecoder,
   openedText,
   string,
   stringDecoderFn,
-  unit,
+  unit
 } from "./primitives";
-import { getOutputSchema } from "./parse";
-import { unionFactory } from "./union";
+import {
+ getOutputSchema
+} from "./parse";
+import {
+ unionFactory
+} from "./union";
 
 // Re-exports, not `const object = schemaObject` aliases: an alias makes the
 // public name a variable that merely holds the function, and a bundler honors
@@ -969,7 +981,7 @@ export const base64: Internal = /* @__PURE__ */ (() => {
               input,
             )}))`,
             schema,
-          ),
+          )
         )
       // `B_refine` carrying the expected schema, not the bare `stringDecoderFn`
       // result: a string passes through unchanged, and the next link in a chain
@@ -992,7 +1004,7 @@ export const base64: Internal = /* @__PURE__ */ (() => {
           `${B_embed(input, new TextDecoder())}.decode(${B_embed(input, base64ToBytes)}(${B_readOnce(
             input,
           )}))`,
-          openedText(target),
+          openedText(target)
         )
       : input;
 
@@ -1149,12 +1161,12 @@ const iriTest = (schemeOptional: string) => {
 
 export const iri: Internal = /* @__PURE__ */ stringFormat(
   "iri",
-  /* @__PURE__ */ iriTest(""),
+  /* @__PURE__ */ iriTest("")
 );
 
 export const iriReference: Internal = /* @__PURE__ */ stringFormat(
   "iri-reference",
-  /* @__PURE__ */ iriTest("?"),
+  /* @__PURE__ */ iriTest("?")
 );
 
 // RFC 6531 puts almost no constraint on either side beyond the length limits,

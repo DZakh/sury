@@ -7,20 +7,15 @@
 // takes the parts as they are.
 
 import {
-  flagUnionTransformContext,
-  flagUnsafeHas,
   initSchema,
   instanceTag,
   type Internal,
   openApi30,
   panic,
   setContent,
-  tagFlagInstance,
   tagFlags,
-  tagFlagString,
-  tagFlagUnion,
   U,
-  type Val,
+  type Val
 } from "../base";
 import {
   B_computed,
@@ -31,12 +26,21 @@ import {
   B_next,
   B_readOnce,
   B_readsPayload,
-  B_unsupportedDecode,
+  B_unsupportedDecode
 } from "../builder";
 import type { JSONSchemaT } from "../jsonschema";
-import { instanceDecoder } from "../parse";
-import { openedText, string } from "../primitives";
-import { base64, base64ToBytes, bytesToBase64 } from "../refinements";
+import {
+ instanceDecoder
+} from "../parse";
+import {
+ openedText,
+ string
+} from "../primitives";
+import {
+ base64,
+ base64ToBytes,
+ bytesToBase64
+} from "../refinements";
 
 // On a runtime that has no such global there is no schema to be had, so `class`
 // reports that instead of sitting there as `undefined` for its readers to
@@ -86,7 +90,7 @@ const read = (input: Val, call: string, schema: Internal): Val => {
   // convention's: a Sury error is what an enclosing object stamps a path onto,
   // so a rejection under `S.optional(…)` arrives raw where the same field
   // required arrives at `["a"]`. Wrapping it back is what the fall-through was.
-  const failure = input.g.o & flagUnionTransformContext
+  const failure = input.g.o & 4
     ? U
     : B_failWithArg(
         input,
@@ -117,11 +121,11 @@ const binarySchema = (name: string, global: string, nameArg: string): Internal =
       // `B_readOnce` inside each branch that uses it: materializing the var up
       // front left a dead `let vN = …` on the two paths below, which take the
       // value as it stands.
-      const parts = flagUnsafeHas(sourceTagFlag, tagFlagString)
+      const parts = (sourceTagFlag & 2)
         ? source.content === base64
           ? `${B_embed(input, base64ToBytes)}(${B_readOnce(input)})`
           : B_readOnce(input)
-        : flagUnsafeHas(sourceTagFlag, tagFlagInstance) && source.class === Uint8Array
+        : (sourceTagFlag & 8192) && source.class === Uint8Array
           ? B_readOnce(input)
           : U;
       if (parts !== U) {
@@ -130,7 +134,7 @@ const binarySchema = (name: string, global: string, nameArg: string): Internal =
       // `File` extends `Blob`, so a file already satisfies `S.blob` — a widening
       // `instanceDecoder`'s exact-class match refuses. The other direction still
       // does: not every blob is a file.
-      return flagUnsafeHas(sourceTagFlag, tagFlagInstance) &&
+      return (sourceTagFlag & 8192) &&
         (source.class as { prototype?: unknown }).prototype instanceof
           (input.e.class as new () => unknown)
         ? input
@@ -158,10 +162,10 @@ const binarySchema = (name: string, global: string, nameArg: string): Internal =
         // arm's own checks would run against the promise. The axis stops here,
         // the way CONTENT_CODEC_SPEC.md says it stops at every union — a custom
         // coder on the link is what reads a container into a choice of shapes.
-        if (flagUnsafeHas(targetTagFlag, tagFlagUnion)) {
+        if ((targetTagFlag & 256)) {
           return B_unsupportedDecode(input, input.s, target);
         }
-        if (flagUnsafeHas(targetTagFlag, tagFlagInstance)) {
+        if ((targetTagFlag & 8192)) {
           // Bytes are the payload, so a bytes target takes them as they are;
           // any other instance is not this carrier's business.
           return target.class === Uint8Array
@@ -175,12 +179,12 @@ const binarySchema = (name: string, global: string, nameArg: string): Internal =
           return read(
             input,
             `.arrayBuffer().then(b=>${B_embed(input, bytesToBase64)}(new Uint8Array(b)))`,
-            base64,
+            base64
           );
         }
         // A format being opened (rule 3) is handed its own document, so it
         // parses the text instead of escaping it.
-        return flagUnsafeHas(targetTagFlag, tagFlagString)
+        return (targetTagFlag & 2)
           ? read(input, `.text()`, target.content !== U ? openedText(target) : string)
           : input;
       };

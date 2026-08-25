@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.record(S.string).with(S.to, S.schema({ foo: S.string }))"
+  input: "{ [x: string]: string; }"
+  output: "{ foo: string; }"
+  instantiations: 6380
+jsonSchema:
+  input: '{ type: "object", additionalProperties: { type: "string" } }'
+  output: '{ type: "object", properties: { foo: { type: "string" } }, required: ["foo"] }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);for(let v0 in i){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}let v3=i["foo"];if(v3!==void 0){}else{e[1](v3)}return {foo:v3}}
+    examples:
+      missing-key:
+        input: "{}"
+        error: 'Failed at ["foo"]: Expected string, received undefined'
+      present:
+        input: '{ foo: "a" }'
+        output: '{ foo: "a" }'
+  decode:
+    expression: i=>{let v1=i["foo"];if(v1!==void 0){}else{e[0](v1)}return {foo:v1}}
+    examples:
+      missing-key:
+        input: "{}"
+        error: 'Failed at ["foo"]: Expected string, received undefined'
+      present:
+        input: '{ foo: "a" }'
+        output: '{ foo: "a" }'
+  encode:
+    expression: i=>{return {foo:i["foo"]}}
+    examples:
+      present:
+        input: '{ foo: "a" }'
+        output: '{ foo: "a" }'

@@ -23,7 +23,6 @@ import {
   baseSchema,
   type Builder,
   type Check,
-  flagDisableNanNumberValidation,
   functionTag,
   getOrRethrow,
   globalConfig,
@@ -42,27 +41,41 @@ import {
   stringTag,
   U,
   unknown,
-  type Val,
+  type Val
 } from "./base";
 import {
   B_conversion,
   B_embed,
   B_invalidInputBuilder,
   B_invalidOperation,
-  B_neverSlot,
+  B_neverSlot
 } from "./builder";
-import { definitionToSchema, objectDecoder } from "./composites";
+import {
+ definitionToSchema,
+ objectDecoder
+} from "./composites";
 import {
   codecTo,
   internalRefine,
   nullAsUnit,
   Option_getOr,
-  Option_getOrWith,
+  Option_getOrWith
 } from "./modifiers";
-import { assertResult } from "./operations";
-import { getDecoder, getOutputSchema, reverse } from "./parse";
-import { nullLiteral, unit } from "./primitives";
-import { unionFactory } from "./union";
+import {
+ assertResult
+} from "./operations";
+import {
+ getDecoder,
+ getOutputSchema,
+ reverse
+} from "./parse";
+import {
+ nullLiteral,
+ unit
+} from "./primitives";
+import {
+ unionFactory
+} from "./union";
 
 // ── Schema singletons (shared by both surfaces) ──────────────────────────────
 //
@@ -467,7 +480,7 @@ export const global = (override: GlobalConfigOverride): void => {
       : initialOnAdditionalItems;
   globalConfig.f =
     override.disableNanNumberValidation === true
-      ? flagDisableNanNumberValidation
+      ? 2
       : initialDefaultFlag;
 };
 

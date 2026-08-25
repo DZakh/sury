@@ -30,7 +30,7 @@ operations:
         input: '{ id: "a\"b" }'
         output: '"{\"id\":\"a\\\"b\"}"'
   encode:
-    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[1](v0);return {"id":v0["id"],}}
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[1](v0);return {id:v0["id"]}}
     examples:
       takes-the-text-unchecked:
         input: '"{\"id\":\"zz\"}"'

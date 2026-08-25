@@ -5,18 +5,13 @@
 // mentions bytes never ships one.
 
 import {
-  flagUnsafeHas,
   initSchema,
   instanceTag,
   type Internal,
   setContent,
-  tagFlagInstance,
-  tagFlagNever,
   tagFlags,
-  tagFlagString,
-  tagFlagUnknown,
   U,
-  type Val,
+  type Val
 } from "../base";
 import {
   B_computed,
@@ -24,11 +19,20 @@ import {
   B_readOnce,
   B_readsPayload,
   B_refine,
-  B_unsupportedDecode,
+  B_unsupportedDecode
 } from "../builder";
-import { instanceDecoder } from "../parse";
-import { openedText, string } from "../primitives";
-import { base64, base64ToBytes, bytesToBase64 } from "../refinements";
+import {
+ instanceDecoder
+} from "../parse";
+import {
+ openedText,
+ string
+} from "../primitives";
+import {
+ base64,
+ base64ToBytes,
+ bytesToBase64
+} from "../refinements";
 
 // The decoder names `uint8Array` rather than the `init` callback's `s`: it is
 // built before the schema exists, and only ever runs after.
@@ -38,7 +42,7 @@ export const uint8Array: Internal = /* @__PURE__ */ initSchema(
     const source = input.s;
     const sourceTagFlag = tagFlags[source.type]!;
 
-    if (flagUnsafeHas(sourceTagFlag, tagFlagString)) {
+    if ((sourceTagFlag & 2)) {
       const value = B_readOnce(input);
       return B_computed(
         input,
@@ -48,7 +52,7 @@ export const uint8Array: Internal = /* @__PURE__ */ initSchema(
         uint8Array,
       );
     }
-    if (flagUnsafeHas(sourceTagFlag, (tagFlagUnknown | tagFlagInstance))) {
+    if ((sourceTagFlag & (1 | 8192))) {
       return instanceDecoder(input);
     }
     // Without this arm a `S.uint8Array.with(S.to, S.number)` encode handed the
@@ -60,7 +64,7 @@ export const uint8Array: Internal = /* @__PURE__ */ initSchema(
     // `never` is not one of those: nothing reaches it, so there is no
     // conversion to reject — an empty array or dict of them still compiles, the
     // way json.ts and union.ts let one through.
-    return flagUnsafeHas(sourceTagFlag, tagFlagNever)
+    return (sourceTagFlag & 32768)
       ? input
       : B_unsupportedDecode(input, source, input.e);
   },
@@ -70,7 +74,7 @@ export const uint8Array: Internal = /* @__PURE__ */ initSchema(
 
     s.encoder = (input, target) => {
       const targetTagFlag = tagFlags[target.type]!;
-      if (flagUnsafeHas(targetTagFlag, tagFlagInstance)) {
+      if ((targetTagFlag & 8192)) {
         // Another binary carrier holds these very bytes, rather than a
         // rendering of them — leave the value alone and let it take them.
         return input;
@@ -82,20 +86,20 @@ export const uint8Array: Internal = /* @__PURE__ */ initSchema(
         // The `B_refine` wrap is what makes the produced text the subject of
         // the format's own checks, rather than the bytes that went in.
         return B_refine(
-          B_computed(input, `${B_embed(input, bytesToBase64)}(${B_readOnce(input)})`, base64),
+          B_computed(input, `${B_embed(input, bytesToBase64)}(${B_readOnce(input)})`, base64)
         );
       }
       // Anything else that wants a string wants the text the bytes spell —
       // which, for a format being opened (rule 3), is its document. Wrapped
       // like the branch above, so the target's own checks read the text rather
       // than the bytes that produced it.
-      return flagUnsafeHas(targetTagFlag, tagFlagString)
+      return (targetTagFlag & 2)
         ? B_refine(
             B_computed(
               input,
               `${B_embed(input, new TextDecoder())}.decode(${B_readOnce(input)})`,
               target.content !== U ? openedText(target) : string,
-            ),
+            )
           )
         : input;
     };

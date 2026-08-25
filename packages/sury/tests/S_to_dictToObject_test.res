@@ -1,5 +1,13 @@
 open Vitest
 
+test("absent required string fails (does not become the string \"undefined\")", t => {
+  let schema = S.dict(S.string)->S.to(S.schema(s => {"foo": s.matches(S.string)}))
+  t->U.assertThrowsMessage(
+    () => %raw(`{}`)->S.parseOrThrow(~to=schema),
+    `Failed at ["foo"]: Expected string, received undefined`,
+  )
+})
+
 // Tracks support for coercing a `dict<string>` into a structured object whose
 // fields need their own coercion (string -> bigint) and include an optional
 // field (string -> option<float>):
@@ -16,10 +24,7 @@ open Vitest
 // as optional (`option<V>`) when `V` is a concrete type that can't itself be
 // undefined. The existing union coercion then handles a missing key uniformly:
 //   - optional target field  -> absence decodes to None
-//   - required `string` field -> absence stringifies to "undefined" (the
-//     reversibility-locked None <-> "undefined" sentinel; tightening this is a
-//     deferred "tier fix")
-//   - required `bigint` field -> absence errors (no undefined coercion)
+//   - required field (string, bigint, …) -> absence errors
 //
 // Milestone 2 adds the encode direction (object -> dict<string>): objectDecoder
 // now recognises a fixed-property object source feeding a dict target and reuses
@@ -67,26 +72,18 @@ test("[milestone 1] absent required bigint field errors", t => {
   // target can't accept undefined: a missing `bar` (coerced to bigint) errors.
   t->U.assertThrowsMessage(
     () => %raw(`{"foo":"a","zoo":"1.5"}`)->S.parseOrThrow(~to=schema),
-    `Failed at ["bar"]: Expected string | undefined, received undefined
-- At ["bar"]: Can't decode undefined to bigint. Use S.to to define a custom decoder`,
+    `Failed at ["bar"]: Expected bigint, received undefined`,
   )
 })
 
-test(
-  "[milestone 1] absent required string field stringifies to \"undefined\" (deferred tier fix)",
-  t => {
-    let schema = makeSchema()
+test("[milestone 1] absent required string field errors", t => {
+  let schema = makeSchema()
 
-    // A missing `foo` (required string) flows through the option's undefined arm,
-    // which the string coercion turns into the literal "undefined" — the mirror of
-    // the `string -> option` `"undefined" <-> None` sentinel, locked in by
-    // reversibility. Tightening this to an error is a deferred "tier fix".
-    t->Assert.deepEqual(
-      %raw(`{"bar":"7","zoo":"1.5"}`)->S.parseOrThrow(~to=schema),
-      {"foo": "undefined", "bar": 7n, "zoo": Some(1.5)},
-    )
-  },
-)
+  t->U.assertThrowsMessage(
+    () => %raw(`{"bar":"7","zoo":"1.5"}`)->S.parseOrThrow(~to=schema),
+    `Failed at ["foo"]: Expected string, received undefined`,
+  )
+})
 
 test("the literal string \"undefined\" decodes to None (string sentinel)", t => {
   let schema = makeSchema()
@@ -105,7 +102,7 @@ test("[milestone 1] compiled parse code models each dict read as optional", t =>
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[9](i);for(let v0 in i){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}let v3=i["foo"],v5=i["bar"],v7=i["zoo"];for(;;){if(typeof v3==="string")break;if(v3===void 0){v3="undefined";break}e[1](v3)}if(typeof v5==="string"){let v4;try{v4=BigInt(v5)}catch(_){e[2](v5)}v5=v4}else{e[4](v5,e[3])}for(;;){if(typeof v7==="string"){for(;;){let r;try{let v6=+v7;!Number.isNaN(v6)||e[5](v7);v7=v6;break}catch(x){(r||(r=[])).push(e[6](x))}if(v7==="undefined"){v7=void 0;break}e[7](v7,...(r||[]))};break}if(v7===void 0)break;e[8](v7)}return {"foo":v3,"bar":v5,"zoo":v7,}}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[7](i);for(let v0 in i){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}let v3=i["foo"],v4=i["bar"],v6=i["zoo"];if(v3!==void 0){}else{e[1](v3)}if(v4!==void 0){let v5;try{v5=BigInt(v4)}catch(_){e[2](v4)}v4=v5;}else{e[3](v4)}if(v6!==void 0){for(;;){let r;try{let v7=+v6;!Number.isNaN(v7)||e[4](v6);v6=v7;break}catch(x){(r||(r=[])).push(e[5](x))}if(v6==="undefined"){v6=void 0;break}e[6](v6,...(r||[]))}}else{}return {foo:v3,bar:v4,zoo:v6}}`,
   )
 })
 
@@ -134,7 +131,7 @@ test("[milestone 2] compiled encode iterates the source object's fixed keys", t 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{let v0=i["zoo"];for(;;){if(typeof v0==="number"&&!Number.isNaN(v0)){v0=""+i["zoo"];break}if(v0===void 0){v0="undefined";break}e[0](v0)}return {"foo":i["foo"],"bar":""+i["bar"],"zoo":v0,}}`,
+    `i=>{let v0=i["zoo"];for(;;){if(typeof v0==="number"&&!Number.isNaN(v0)){v0=""+i["zoo"];break}if(v0===void 0){v0="undefined";break}e[0](v0)}return {foo:i["foo"],bar:""+i["bar"],zoo:v0}}`,
   )
 })
 

@@ -224,7 +224,7 @@ test("Coerce from object shaped as string to float", t => {
   )
 
   t->Assert.deepEqual(123.->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`{"foo": "123"}`))
-  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return {"foo":""+i,}}`)
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return {foo:""+i}}`)
 })
 
 test("Coerce to literal can be used as tag and automatically embeded on reverse operation", t => {
@@ -233,7 +233,7 @@ test("Coerce to literal can be used as tag and automatically embeded on reverse 
   })
 
   t->Assert.deepEqual(()->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`{"tag": "true"}`))
-  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{i===void 0||e[0](i);return {"tag":"true",}}`)
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{i===void 0||e[0](i);return {tag:"true"}}`)
 
   t->Assert.deepEqual({"tag": "true"}->S.parseOrThrow(~to=schema), ())
   t->U.assertThrowsMessage(
@@ -684,9 +684,9 @@ test("Coerce from JSON to tuple with bigint", t => {
     ~schema,
     ~op=#Parse,
     ~embedded=[],
-    `i=>{Array.isArray(i)||e[4](i);i.length===2||e[3](i);let v0=i["0"],v2=i["1"];typeof v0==="string"||e[0](v0);typeof v2==="string"||e[2](v2);let v1;try{v1=BigInt(v2)}catch(_){e[1](v2)}return [v0,v1,]}`,
+    `i=>{Array.isArray(i)||e[4](i);i.length===2||e[3](i);let v0=i["0"],v2=i["1"];typeof v0==="string"||e[0](v0);typeof v2==="string"||e[2](v2);let v1;try{v1=BigInt(v2)}catch(_){e[1](v2)}return [v0,v1]}`,
   )
-  t->U.assertCompiledCode(~schema, ~op=#Encode, ~embedded=[], `i=>{return [i["0"],""+i["1"],]}`)
+  t->U.assertCompiledCode(~schema, ~op=#Encode, ~embedded=[], `i=>{return [i["0"],""+i["1"]]}`)
 })
 
 // test("Coerce from JSON to object with optional field", t => {

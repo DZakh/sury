@@ -267,7 +267,7 @@ test("Option with transformed unknown", t => {
   )
   t->Assert.deepEqual(None->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
 
-  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{for(;;){i={"field":i,};break;}return i}`)
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{for(;;){i={field:i};break;}return i}`)
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,

@@ -188,7 +188,7 @@ module OuterRecord = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Encode,
-      `i=>{let v0=i["record"];for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)&&v0["BS_PRIVATE_NESTED_SOME_NONE"]===0){v0=null;break}if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=v0["k"];for(;;){if(typeof v1==="number"&&!Number.isNaN(v1)&&v1<=2147483647&&v1>=-2147483648&&v1%1===0)break;if(v1===void 0)break;if(typeof v1==="object"&&v1&&!Array.isArray(v1)&&v1["BS_PRIVATE_NESTED_SOME_NONE"]===0){v1=null;break}e[0](v1)}v0={"k":v1,};break}if(v0===void 0)break;e[1](v0)}return {"record":v0,}}`,
+      `i=>{let v0=i["record"];for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)&&v0["BS_PRIVATE_NESTED_SOME_NONE"]===0){v0=null;break}if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=v0["k"];for(;;){if(typeof v1==="number"&&!Number.isNaN(v1)&&v1<=2147483647&&v1>=-2147483648&&v1%1===0)break;if(v1===void 0)break;if(typeof v1==="object"&&v1&&!Array.isArray(v1)&&v1["BS_PRIVATE_NESTED_SOME_NONE"]===0){v1=null;break}e[0](v1)}v0={k:v1};break}if(v0===void 0)break;e[1](v0)}return {record:v0}}`,
     )
   })
 }

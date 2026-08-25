@@ -10,8 +10,6 @@ import {
   copySchema,
   defsPath,
   type Encoder,
-  flagAsync,
-  flagUnsafeHas,
   initSchema,
   inlinedValueFromString,
   type Internal,
@@ -22,26 +20,13 @@ import {
   setContent,
   stringTag,
   type Tag,
-  tagFlagArray,
-  tagFlagBigint,
-  tagFlagBoolean,
-  tagFlagNaN,
-  tagFlagNull,
-  tagFlagNumber,
-  tagFlagObject,
-  tagFlagRef,
   tagFlags,
-  tagFlagString,
-  tagFlagUndefined,
-  tagFlagUnion,
-  tagFlagUnknown,
   U,
   undefinedTag,
   unknown,
   unknownTag,
   updateOutput,
-  valFlagAsync,
-  type Val,
+  type Val
 } from "../base";
 import {
   _var,
@@ -57,7 +42,7 @@ import {
   B_refine,
   B_unsupportedDecode,
   B_varWithoutAllocation,
-  failInvalidType,
+  failInvalidType
 } from "../builder";
 import {
   arrayDecoder,
@@ -65,9 +50,13 @@ import {
   completeObjectVal,
   dictFactory,
   makeObjectVal,
-  valGet,
+  valGet
 } from "../composites";
-import { getOutputSchema, parse, parseDynamic } from "../parse";
+import {
+ getOutputSchema,
+ parse,
+ parseDynamic
+} from "../parse";
 import {
   bool,
   float,
@@ -75,11 +64,19 @@ import {
   literalDecoder,
   nullLiteral,
   string,
-  stringDecoderFn,
+  stringDecoderFn
 } from "../primitives";
-import { internalRefine } from "../modifiers";
-import { unionDecoder, unionFactory, unionRewriteTo } from "../union";
-import { recursiveDecoder } from "./recursive";
+import {
+ internalRefine
+} from "../modifiers";
+import {
+ unionDecoder,
+ unionFactory,
+ unionRewriteTo
+} from "../union";
+import {
+ recursiveDecoder
+} from "./recursive";
 
 // The one JSON.stringify call shape: space 0/undefined omits the indent
 // argument. Both jsonEncoderFn and the pretty-print fallback go through it so
@@ -97,17 +94,14 @@ export const jsonEncoderFn = (input: Val, target: Internal): Val => {
   const toTagFlag = tagFlags[target.type]!;
 
   if (
-    flagUnsafeHas(
-      toTagFlag,
-      tagFlagString | tagFlagBoolean | tagFlagNumber | tagFlagNull,
-    )
+    (toTagFlag & (2 | 8 | 4 | 32))
   ) {
     return parse(B_refine(input, unknown, U, target));
-  } else if (flagUnsafeHas(toTagFlag, (tagFlagUndefined | tagFlagNaN))) {
+  } else if ((toTagFlag & (16 | 2048))) {
     const jsonExpected = copySchema(nullLiteral);
     jsonExpected.to = target;
     return parse(B_refine(input, unknown, U, jsonExpected));
-  } else if (flagUnsafeHas(toTagFlag, tagFlagArray)) {
+  } else if ((toTagFlag & 128)) {
     // Validate that the input is an array
     // and then update the schema to be an array of json instead of array of unknown
     const jsonExpected = arrayFactory(unknown);
@@ -116,7 +110,7 @@ export const jsonEncoderFn = (input: Val, target: Internal): Val => {
     output.e = target;
     output.io = false;
     return output;
-  } else if (flagUnsafeHas(toTagFlag, tagFlagObject)) {
+  } else if ((toTagFlag & 64)) {
     // Validate that the input is an object
     // and then update the schema to be an object of json instead of object of unknown
     const jsonExpected = dictFactory(unknown);
@@ -125,7 +119,7 @@ export const jsonEncoderFn = (input: Val, target: Internal): Val => {
     output.e = target;
     output.io = false;
     return output;
-  } else if (flagUnsafeHas(toTagFlag, (tagFlagUnion | tagFlagRef))) {
+  } else if ((toTagFlag & (256 | 512))) {
     // A variant that stores a payload is read out of a document exactly like a
     // lone one is (CONTENT_CODEC_SPEC.md rule 2) — but the dispatch works from
     // the target's own variants, so the hop through the stored form has to be
@@ -160,7 +154,7 @@ export const jsonEncoderFn = (input: Val, target: Internal): Val => {
           const stored = copySchema(from);
           stored.to = variant;
           return stored;
-        }),
+        })
       );
       stored.perVariant = true;
       return parse(B_refine(input, unknown, U, stored));
@@ -179,16 +173,13 @@ export const jsonEncoderFn = (input: Val, target: Internal): Val => {
 export const isJsonable = (schema: Internal): boolean => {
   const tagFlag = tagFlags[schema.type]!;
   return (
-    flagUnsafeHas(
-      tagFlag,
-      tagFlagString | tagFlagNumber | tagFlagBoolean | tagFlagNull,
-    ) ||
+    (tagFlag & (2 | 4 | 8 | 32)) !== 0 ||
     schema["$ref"] === json["$ref"] ||
-    (flagUnsafeHas(tagFlag, tagFlagUnion) && schema.anyOf!.every(isJsonable)) ||
-    (flagUnsafeHas(tagFlag, tagFlagArray) &&
+    ((tagFlag & 256) !== 0 && schema.anyOf!.every(isJsonable)) ||
+    ((tagFlag & 128) !== 0 &&
       (typeof schema.additionalItems === "object" ? isJsonable(schema.additionalItems) : true) &&
       schema.items!.every(isJsonable)) ||
-    (flagUnsafeHas(tagFlag, tagFlagObject) &&
+    ((tagFlag & 64) !== 0 &&
       (typeof schema.additionalItems === "object" ? isJsonable(schema.additionalItems) : true) &&
       Object.values(schema.properties!).every(isJsonable))
   );
@@ -211,7 +202,7 @@ const perVariantTo = (
         : updateOutput<Internal>(variant, (mut) => {
             mut.to = target;
           });
-    }),
+    })
   );
   // Already resolved variant by variant, so the union encoder pairs them
   // by position instead of re-matching them by type.
@@ -224,9 +215,9 @@ export const jsonDecoderFn = (input: Val): Val => {
 
   if (isJsonable(input.s)) {
     return input;
-  } else if (flagUnsafeHas(inputTagFlag, (tagFlagUndefined | tagFlagNaN))) {
+  } else if ((inputTagFlag & (16 | 2048))) {
     return B_nextConst(input, nullLiteral);
-  } else if (flagUnsafeHas(inputTagFlag, tagFlagArray)) {
+  } else if ((inputTagFlag & 128)) {
     const expected = baseSchema(arrayTag, false, arrayDecoder);
     expected.items = input.s.items!.map((_) => json);
     expected.additionalItems =
@@ -235,7 +226,7 @@ export const jsonDecoderFn = (input: Val): Val => {
         : input.s.additionalItems;
     expected.to = input.e.to;
     return parse(B_refine(input, U, U, expected));
-  } else if (flagUnsafeHas(inputTagFlag, tagFlagObject)) {
+  } else if ((inputTagFlag & 64)) {
     if (typeof input.s.additionalItems === "object") {
       const expected = dictFactory(json);
       expected.to = input.e.to;
@@ -267,10 +258,10 @@ export const jsonDecoderFn = (input: Val): Val => {
 
       return completeObjectVal(jsonVal);
     }
-  } else if (flagUnsafeHas(inputTagFlag, tagFlagRef)) {
+  } else if ((inputTagFlag & 512)) {
     // FIXME: Should be a unified solution for ref inputs
     return recursiveDecoder(input);
-  } else if (flagUnsafeHas(inputTagFlag, tagFlagUnion)) {
+  } else if ((inputTagFlag & 256)) {
     // Each variant decodes to JSON separately, and an `undefined` one becomes
     // `null` through the branch above — the nullish bridge (CODEC_SPEC.md),
     // which a union reaching the target as a whole already applied. Refusing it
@@ -279,7 +270,7 @@ export const jsonDecoderFn = (input: Val): Val => {
     // never arrives here: the object branch below resolves its own optional
     // properties through `perVariantTo` before recursing.
     return parse(unionRewriteTo(input, input.e));
-  } else if (flagUnsafeHas(inputTagFlag, tagFlagUnknown)) {
+  } else if ((inputTagFlag & 1)) {
     const to = input.e.to!;
     // Whether we can optimize encoding during decoding. Encoding into a
     // concrete type validates implicitly — except a json-format target, whose
@@ -398,13 +389,13 @@ const B_embedJsonStr = (b: Val): string =>
 // escapes and non-finite numbers (-> null) are correct JSON.
 const B_constJsonText = (schema: Internal): string | undefined => {
   const tagFlag = tagFlags[schema.type]!;
-  if (flagUnsafeHas(tagFlag, ((tagFlagUndefined | tagFlagNull) | tagFlagNaN))) {
+  if ((tagFlag & ((16 | 32) | 2048))) {
     return "null";
   } else if (
-    flagUnsafeHas(tagFlag, (tagFlagString | tagFlagNumber) | tagFlagBoolean)
+    (tagFlag & ((2 | 4) | 8))
   ) {
     return JSON.stringify(schema.const)!;
-  } else if (flagUnsafeHas(tagFlag, tagFlagBigint)) {
+  } else if ((tagFlag & 1024)) {
     return `"${schema.const}"`;
   }
   // An instance literal (a Date, a class instance) has no JSON text of its
@@ -552,7 +543,7 @@ export const jsonString = /* @__PURE__ */ (() => {
     // the field's text would emit it as a JSON value, and the encode
     // direction would hand back a parsed object where a string went in.
     if (
-      flagUnsafeHas(tagFlags[cur.type]!, tagFlagString) &&
+      (tagFlags[cur.type]! & 2) &&
       cur.format === "json" &&
       cur.to === U
     ) {
@@ -589,12 +580,12 @@ export const jsonString = /* @__PURE__ */ (() => {
         : `let ${outputVar};if(${inputVar}!==void 0){${validation}${outputVar}=JSON.stringify(${jsonVal.i})}`;
       return { p, g: isArr ? U : outputVar };
     };
-    if (flagUnsafeHas(tagFlags[cur.type]!, tagFlagUnknown)) {
+    if ((tagFlags[cur.type]! & 1)) {
       return guardedJsonPiece();
     }
     // A declared ref (`S.json`, recursive) requires a value — undefined is
     // not JSON — so its validation stays unguarded.
-    if (flagUnsafeHas(tagFlags[cur.type]!, tagFlagRef)) {
+    if ((tagFlags[cur.type]! & 512)) {
       const jsonVal = parse(B_refine(itemVal, U, U, json));
       if (isArr) {
         const p = B_next(
@@ -619,10 +610,7 @@ export const jsonString = /* @__PURE__ */ (() => {
       // guard renders by omission/null.
       if (
         variants.some((variant) =>
-          flagUnsafeHas(
-            tagFlags[getOutputSchema(variant).type]!,
-            tagFlagUnknown | tagFlagRef,
-          ),
+          (tagFlags[getOutputSchema(variant).type]! & (1 | 512))
         )
       ) {
         return guardedJsonPiece();
@@ -639,11 +627,8 @@ export const jsonString = /* @__PURE__ */ (() => {
           if (
             u0 !== u1 &&
             single.to === U &&
-            flagUnsafeHas(
-              tagFlags[single.type]!,
-              (((tagFlagString | tagFlagNumber) | (tagFlagBoolean | tagFlagBigint)) |
-                (tagFlagNull | tagFlagNaN)),
-            )
+            (tagFlags[single.type]! & (((2 | 4) | (8 | 1024)) |
+                (32 | 2048)))
           ) {
             const guard = itemVal.v();
             return { p: parse(B_refine(itemVal, single, U, jsonString)), g: guard };
@@ -654,8 +639,8 @@ export const jsonString = /* @__PURE__ */ (() => {
             B_unionWritable(itemVal),
             U,
             U,
-            perVariantTo(variants, jsonString, () => false),
-          ),
+            perVariantTo(variants, jsonString, () => false)
+          )
         );
         return { p, g: p.v() };
       }
@@ -667,7 +652,7 @@ export const jsonString = /* @__PURE__ */ (() => {
           U,
           U,
           jsonString,
-        ),
+        )
       ),
       g: U,
     };
@@ -760,10 +745,7 @@ export const jsonString = /* @__PURE__ */ (() => {
             !item.has![undefinedTag] &&
             item.to === U &&
             !item.anyOf!.some((variant) =>
-              flagUnsafeHas(
-                tagFlags[getOutputSchema(variant).type]!,
-                tagFlagUnknown | tagFlagRef,
-              ),
+              (tagFlags[getOutputSchema(variant).type]! & (1 | 512))
             )
           ) {
             // One dispatch, not two: parsing straight to `union -> jsonString`
@@ -857,7 +839,7 @@ export const jsonString = /* @__PURE__ */ (() => {
           `if(${guard}!==void 0){${accVar}+=${
             idx !== 0 && !hasDefiniteBefore ? `(${accVar}?",":"")+` : ""
           }${inlinedValueFromString(
-            (idx !== 0 && hasDefiniteBefore ? "," : "") + keyText(idx),
+            (idx !== 0 && hasDefiniteBefore ? "," : "") + keyText(idx)
           )}+${foldStringCoercion(entries[idx]!.p!.i)}}`;
       }
     }
@@ -911,13 +893,13 @@ export const jsonString = /* @__PURE__ */ (() => {
     const inputTagFlag = tagFlags[input.s.type]!;
     const expectedSchema = input.e;
 
-    if (flagUnsafeHas(inputTagFlag, tagFlagUnknown)) {
+    if ((inputTagFlag & 1)) {
       return carriedJsonString(input, expectedSchema);
     } else if (input.s.format === "json") {
       return input;
     } else if (isLiteral(input.s)) {
       return B_next(input, inlineJsonString(input, input.s), expectedSchema);
-    } else if (flagUnsafeHas(inputTagFlag, tagFlagString)) {
+    } else if ((inputTagFlag & 2)) {
       // A carrier opened into this format handed over its document (rule 3), so
       // it is parsed rather than escaped — and checked here, since nothing has
       // read it yet. Every other string is a value, and stays one.
@@ -935,11 +917,11 @@ export const jsonString = /* @__PURE__ */ (() => {
           : `${B_embedJsonStr(input)}(${input.i})`,
         expectedSchema,
       );
-    } else if (flagUnsafeHas(inputTagFlag, tagFlagBoolean)) {
+    } else if ((inputTagFlag & 8)) {
       const output = inputToString(input);
       output.s = expectedSchema;
       return output;
-    } else if (flagUnsafeHas(inputTagFlag, tagFlagNumber)) {
+    } else if ((inputTagFlag & 4)) {
       // JSON has no non-finite numbers: number validation admits Infinity and
       // typed inputs skip it entirely, so an unchecked `""+x` would splice
       // invalid `Infinity`/`NaN` text. Raise instead of JSON.stringify's
@@ -954,14 +936,14 @@ export const jsonString = /* @__PURE__ */ (() => {
         `(Number.isFinite(${inputVar})?""+${inputVar}:${B_embedInvalidInput(input, json)})`,
         expectedSchema,
       );
-    } else if (flagUnsafeHas(inputTagFlag, tagFlagBigint)) {
+    } else if ((inputTagFlag & 1024)) {
       // Same reassociation hazard, with no helper to fall back to.
       return B_next(
         input,
         `"\\""+${accessorRe.test(input.i) ? input.i : `(${input.i})`}+"\\""`,
         expectedSchema,
       );
-    } else if (flagUnsafeHas(inputTagFlag, (tagFlagObject | tagFlagArray))) {
+    } else if ((inputTagFlag & (64 | 128))) {
       const additionalItems = input.s.additionalItems;
       // Pretty-printing and async fields keep the whole-value JSON.stringify
       // path — inlined aggregation supports neither indentation nor promises.
@@ -974,22 +956,19 @@ export const jsonString = /* @__PURE__ */ (() => {
       // which the whole-value call would ignore.
       if (
         (expectedSchema.space !== U && expectedSchema.space !== 0) ||
-        flagUnsafeHas(input.g.o, flagAsync) ||
+        (input.g.o & 1) ||
         // `!uv`: a fused container skipped upstream validation, and the
         // whole-value paths don't validate — only the aggregate loop does.
         (!input.s.uv &&
           !input.s.items?.length &&
           typeof additionalItems === "object" &&
           additionalItems.to === U &&
-          flagUnsafeHas(
-            tagFlags[additionalItems.type]!,
-            (tagFlagString | tagFlagBoolean) | tagFlagNull,
-          ))
+          (tagFlags[additionalItems.type]! & ((2 | 8) | 32)))
       ) {
         const jsonVal = parse(B_refine(input, U, U, json));
         // An async field leaves a promise here, and `JSON.stringify` of one is
         // `{}` — the serialization is what waits, not the caller.
-        if (flagUnsafeHas(jsonVal.f, valFlagAsync)) {
+        if ((jsonVal.f & 1)) {
           const resolvedVar = B_varWithoutAllocation(input.g);
           const output = B_next(
             jsonVal,
@@ -1000,7 +979,7 @@ export const jsonString = /* @__PURE__ */ (() => {
             expectedSchema,
             expectedSchema,
           );
-          output.f |= valFlagAsync;
+          output.f |= 1;
           return output;
         }
         return B_next(

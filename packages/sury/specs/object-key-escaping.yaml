@@ -27,7 +27,7 @@ operations:
         input: '{ "c\\d": "v", "q\"t": 1 }'
         output: '"{\"c\\\\d\":\"v\",\"q\\\"t\":1}"'
   encode:
-    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[3](v0);let v1=v0["c\\d"],v2=v0["q\"t"];typeof v1==="string"||e[1](v1);typeof v2==="number"&&!Number.isNaN(v2)||e[2](v2);return {"c\\d":v1,"q\"t":v2,}}
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[3](v0);let v1=v0["c\\d"],v2=v0["q\"t"];typeof v1==="string"||e[1](v1);typeof v2==="number"&&!Number.isNaN(v2)||e[2](v2);return {"c\\d":v1,"q\"t":v2}}
     examples:
       backslash-and-quote-keys:
         input: '"{\"c\\\\d\":\"v\",\"q\\\"t\":1}"'

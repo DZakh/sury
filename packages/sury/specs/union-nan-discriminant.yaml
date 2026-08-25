@@ -33,7 +33,7 @@ operations:
         input: '{ t: "b", b: 1 }'
         output: '"{\"t\":\"b\",\"b\":1}"'
   encode:
-    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){let v1=v0["t"],v2=v0["a"];v1===null||e[1](v1);typeof v2==="string"||e[2](v2);v0={"t":NaN,"a":v2,};break;}}else{e[4](v0)}return v0}
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){let v1=v0["t"],v2=v0["a"];v1===null||e[1](v1);typeof v2==="string"||e[2](v2);v0={t:NaN,a:v2};break;}}else{e[4](v0)}return v0}
     examples:
       nan-variant:
         input: '"{\"t\":null,\"a\":\"x\"}"'

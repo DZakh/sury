@@ -1931,7 +1931,7 @@ test("Preprocess nested fields", (t) => {
 
   t.expect(fn.toString()).toEqual(
     // The junction seam validates each coder's result against its target.
-    `i=>{i===void 0||e[6](i);let v0;try{v0=e[0]("foo")}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);let v1;try{v1=e[3]("1")}catch(x){e[4](x)}typeof v1==="string"||e[5](v1);return {"nested":{"tag":v0,"numberTag":v1,},}}`,
+    `i=>{i===void 0||e[6](i);let v0;try{v0=e[0]("foo")}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);let v1;try{v1=e[3]("1")}catch(x){e[4](x)}typeof v1==="string"||e[5](v1);return {nested:{tag:v0,numberTag:v1}}}`,
   );
 
   const value = fn(undefined);

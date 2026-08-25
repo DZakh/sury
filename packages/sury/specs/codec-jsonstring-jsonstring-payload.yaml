@@ -16,7 +16,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[3](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0["a"];typeof v1==="string"||e[1](v1);return {"a":v1,}}
+    expression: i=>{typeof i==="string"||e[3](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0["a"];typeof v1==="string"||e[1](v1);return {a:v1}}
     examples:
       one-parse:
         input: '"{\"a\":\"b\"}"'
@@ -25,7 +25,7 @@ operations:
         input: '"nope"'
         error: Expected JSON string, received "nope"
   decode:
-    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0["a"];typeof v1==="string"||e[1](v1);return {"a":v1,}}
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0["a"];typeof v1==="string"||e[1](v1);return {a:v1}}
     examples:
       one-parse:
         input: '"{\"a\":\"b\"}"'

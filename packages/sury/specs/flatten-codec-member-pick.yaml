@@ -13,19 +13,19 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=i["b"];typeof v0==="string"||e[0](v0);let v1;try{v1=e[1]({"b":v0,})}catch(x){e[2](x)}typeof v1==="object"&&v1&&!Array.isArray(v1)||e[4](v1);let v2=v1["b"];typeof v2==="string"||e[3](v2);return {"x":v2,}}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=i["b"];typeof v0==="string"||e[0](v0);let v1;try{v1=e[1]({b:v0})}catch(x){e[2](x)}typeof v1==="object"&&v1&&!Array.isArray(v1)||e[4](v1);let v2=v1["b"];typeof v2==="string"||e[3](v2);return {x:v2}}
     examples:
       reads-through-member-transform:
         input: '{ b: "x" }'
         output: '{ x: "x!" }'
   decode:
-    expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[3](v0);let v1=v0["b"];typeof v1==="string"||e[2](v1);return {"x":v1,}}
+    expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[3](v0);let v1=v0["b"];typeof v1==="string"||e[2](v1);return {x:v1}}
     examples:
       reads-through-member-transform:
         input: '{ b: "x" }'
         output: '{ x: "x!" }'
   encode:
-    expression: i=>{let v0;try{v0=e[0]({"b":i["x"],})}catch(x){e[1](x)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[3](v0);let v1=v0["b"];typeof v1==="string"||e[2](v1);return {"b":v1,}}
+    expression: i=>{let v0;try{v0=e[0]({b:i["x"]})}catch(x){e[1](x)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[3](v0);let v1=v0["b"];typeof v1==="string"||e[2](v1);return {b:v1}}
     examples:
       round-trip:
         input: '{ x: "x!" }'

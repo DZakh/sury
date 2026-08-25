@@ -14,7 +14,7 @@ asyncTest("Parses with wrapping async schema in variant", async t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ParseAsync,
-    `i=>{typeof i==="string"||e[2](i);let v0;try{v0=e[0](i).catch(x=>e[1](x))}catch(x){e[1](x)}return v0.then(v0=>{return {"TAG":"Ok","_0":v0,}})}`,
+    `i=>{typeof i==="string"||e[2](i);let v0;try{v0=e[0](i).catch(x=>e[1](x))}catch(x){e[1](x)}return v0.then(v0=>{return {TAG:"Ok",_0:v0}})}`,
   )
 })
 
@@ -192,7 +192,7 @@ test(
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=i["foo"];typeof v0==="string"||e[0](v0);let v1;try{v1=e[1]({"foo":v0,})}catch(x){e[2](x)}typeof v1==="object"&&v1&&!Array.isArray(v1)||e[4](v1);let v2=v1["faz"];typeof v2==="string"||e[3](v2);return v2}`,
+      `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=i["foo"];typeof v0==="string"||e[0](v0);let v1;try{v1=e[1]({foo:v0})}catch(x){e[2](x)}typeof v1==="object"&&v1&&!Array.isArray(v1)||e[4](v1);let v2=v1["faz"];typeof v2==="string"||e[3](v2);return v2}`,
     )
     t->Assert.deepEqual(
       {
@@ -208,7 +208,7 @@ test("Reverse convert of tagged tuple with destructured literal", t => {
 
   t->Assert.deepEqual(12->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`[true, 12]`))
 
-  let code = `i=>{i===12||e[0](i);return [true,i,]}`
+  let code = `i=>{i===12||e[0](i);return [true,i]}`
   t->U.assertCompiledCode(~schema, ~op=#Encode, code)
   t->U.assertCompiledCode(~schema, ~op=#ReverseParse, code)
 })
@@ -225,11 +225,11 @@ test("Reverse convert of tagged tuple with destructured bool", t => {
     %raw(`[true, "foo",false]`),
   )
 
-  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return [true,"foo",i["0"],]}`)
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return [true,"foo",i["0"]]}`)
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseParse,
-    `i=>{Array.isArray(i)&&i.length===2||e[2](i);let v0=i["0"],v1=i["1"];typeof v0==="boolean"||e[0](v0);v1==="foo"||e[1](v1);return [true,v1,v0,]}`,
+    `i=>{Array.isArray(i)&&i.length===2||e[2](i);let v0=i["0"],v1=i["1"];typeof v0==="boolean"||e[0](v0);v1==="foo"||e[1](v1);return [true,v1,v0]}`,
   )
 })
 
@@ -274,9 +274,9 @@ test("Can destructure object value passed to S.shape", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["foo"],v1=i["bar"];typeof v0==="string"||e[0](v0);typeof v1==="string"||e[1](v1);return {"foo":v0,"bar":v1,}}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["foo"],v1=i["bar"];typeof v0==="string"||e[0](v0);typeof v1==="string"||e[1](v1);return {foo:v0,bar:v1}}`,
   )
-  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return {"foo":i["foo"],"bar":i["bar"],}}`)
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return {foo:i["foo"],bar:i["bar"]}}`)
 })
 
 test("Compiled code snapshot of variant applied to object", t => {
@@ -285,18 +285,18 @@ test("Compiled code snapshot of variant applied to object", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i["foo"];typeof v0==="string"||e[0](v0);return {"TAG":"Ok","_0":v0,}}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i["foo"];typeof v0==="string"||e[0](v0);return {TAG:"Ok",_0:v0}}`,
   )
-  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return {"foo":i["_0"],}}`)
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return {foo:i["_0"]}}`)
 
   let schema = S.object(s => s.field("foo", S.string->S.to(S.bool)))->S.shape(s => Ok(s))
 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v1=i["foo"];typeof v1==="string"||e[1](v1);let v0;(v0=v1==="true")||v1==="false"||e[0](v1);return {"TAG":"Ok","_0":v0,}}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v1=i["foo"];typeof v1==="string"||e[1](v1);let v0;(v0=v1==="true")||v1==="false"||e[0](v1);return {TAG:"Ok",_0:v0}}`,
   )
-  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return {"foo":""+i["_0"],}}`)
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return {foo:""+i["_0"]}}`)
 })
 
 test("Compiled parse code snapshot", t => {
@@ -305,7 +305,7 @@ test("Compiled parse code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="string"||e[0](i);return {"TAG":"Ok","_0":i,}}`,
+    `i=>{typeof i==="string"||e[0](i);return {TAG:"Ok",_0:i}}`,
   )
 })
 
@@ -334,7 +334,7 @@ test(
 
     t->Assert.deepEqual(#foo->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`[true,12]`))
 
-    t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{i==="foo"||e[0](i);return [true,12,]}`)
+    t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{i==="foo"||e[0](i);return [true,12]}`)
   },
 )
 
@@ -351,12 +351,12 @@ test("Works with variant schema used multiple times as a child schema", t => {
   t->U.assertCompiledCode(
     ~schema=appVersionsSchema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["ios"],v1=i["android"];typeof v0==="string"||e[0](v0);typeof v1==="string"||e[1](v1);return {"ios":{"current":i["ios"],"minimum":"1.0",},"android":{"current":i["android"],"minimum":"1.0",},}}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["ios"],v1=i["android"];typeof v0==="string"||e[0](v0);typeof v1==="string"||e[1](v1);return {ios:{current:i["ios"],minimum:"1.0"},android:{current:i["android"],minimum:"1.0"}}}`,
   )
   t->U.assertCompiledCode(
     ~schema=appVersionsSchema,
     ~op=#Encode,
-    `i=>{let v0=i["ios"],v1=i["android"];return {"ios":v0["current"],"android":v1["current"],}}`,
+    `i=>{let v0=i["ios"],v1=i["android"];return {ios:v0["current"],android:v1["current"]}}`,
   )
 
   let rawAppVersions = {

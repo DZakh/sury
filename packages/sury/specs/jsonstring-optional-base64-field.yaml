@@ -12,7 +12,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[6](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[5](v0);let v1=(v0["p"]??null);for(;;){if(typeof v1==="string"){e[1](v1)||e[2](v1);v1.length>1||e[3](v1);break}if(v1===null){v1=void 0;break}e[4](v1)}return {"p":v1,}}
+    expression: i=>{typeof i==="string"||e[6](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[5](v0);let v1=(v0["p"]??null);for(;;){if(typeof v1==="string"){e[1](v1)||e[2](v1);v1.length>1||e[3](v1);break}if(v1===null){v1=void 0;break}e[4](v1)}return {p:v1}}
     examples:
       present:
         input: '"{\"p\":\"aGk=\"}"'
@@ -27,7 +27,7 @@ operations:
         input: '"{\"p\":\"\"}"'
         error: 'Failed at ["p"]: Expected base64.length >= 2, received ""'
   decode:
-    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[5](v0);let v1=(v0["p"]??null);for(;;){if(typeof v1==="string"){e[1](v1)||e[2](v1);v1.length>1||e[3](v1);break}if(v1===null){v1=void 0;break}e[4](v1)}return {"p":v1,}}
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[5](v0);let v1=(v0["p"]??null);for(;;){if(typeof v1==="string"){e[1](v1)||e[2](v1);v1.length>1||e[3](v1);break}if(v1===null){v1=void 0;break}e[4](v1)}return {p:v1}}
     examples:
       present:
         input: '"{\"p\":\"aGk=\"}"'

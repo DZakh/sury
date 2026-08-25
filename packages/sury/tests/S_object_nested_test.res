@@ -10,7 +10,7 @@ test("Object with a single nested field", t => {
     ~op=#Parse,
     `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["nested"];typeof v0==="object"&&v0&&!Array.isArray(v0)||e[1](v0);let v1=v0["foo"];typeof v1==="string"||e[0](v1);return v1}`,
   )
-  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return {"nested":{"foo":i,},}}`)
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return {nested:{foo:i}}}`)
 })
 
 test("Object with a single nested field with S.nullAsOption", t => {
@@ -26,7 +26,7 @@ test("Object with a single nested field with S.nullAsOption", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{for(;;){if(typeof i==="string")break;if(i===void 0){i=null;break}e[0](i)}return {"nested":{"foo":i,},}}`,
+    `i=>{for(;;){if(typeof i==="string")break;if(i===void 0){i=null;break}e[0](i)}return {nested:{foo:i}}}`,
   )
   t->Assert.deepEqual(
     Some("bar")->S.decodeOrThrow(~from=schema, ~to=S.unknown),
@@ -68,7 +68,7 @@ test("Object with a single nested field with S.transform", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="number"&&!Number.isNaN(v0)||e[2](v0);return {"nested":{"foo":v0,},}}`,
+    `i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="number"&&!Number.isNaN(v0)||e[2](v0);return {nested:{foo:v0}}}`,
   )
   t->Assert.deepEqual(
     "123.4"->S.decodeOrThrow(~from=schema, ~to=S.unknown),
@@ -90,12 +90,12 @@ test("Object with a nested tag and optional field", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i["nested"],v3=i["bar"];typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0["tag"],v2=v0["foo"];v1==="value"||e[0](v1);for(;;){if(typeof v2==="string")break;if(v2===void 0){v2="";break}e[1](v2)}typeof v3==="string"||e[3](v3);return {"foo":v2,"bar":v3,}}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i["nested"],v3=i["bar"];typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0["tag"],v2=v0["foo"];v1==="value"||e[0](v1);if(v2===void 0){v2=""}else{typeof v2==="string"||e[1](v2);}typeof v3==="string"||e[3](v3);return {foo:v2,bar:v3}}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{let v0=i["foo"];typeof v0==="string"||e[0](v0);return {"nested":{"tag":"value","foo":v0,},"bar":i["bar"],}}`,
+    `i=>{let v0=i["foo"];typeof v0==="string"||e[0](v0);return {nested:{tag:"value",foo:v0},bar:i["bar"]}}`,
   )
 })
 
@@ -113,12 +113,12 @@ test("Object with a two nested field using the same ctx", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["nested"];typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0["foo"],v2=v0["bar"];typeof v1==="string"||e[0](v1);typeof v2==="string"||e[1](v2);return {"foo":v1,"bar":v2,}}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["nested"];typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0["foo"],v2=v0["bar"];typeof v1==="string"||e[0](v1);typeof v2==="string"||e[1](v2);return {foo:v1,bar:v2}}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{return {"nested":{"foo":i["foo"],"bar":i["bar"],},}}`,
+    `i=>{return {nested:{foo:i["foo"],bar:i["bar"]}}}`,
   )
 })
 
@@ -132,7 +132,7 @@ test("Object with a single nested nested field", t => {
     ~op=#Parse,
     `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["nested"];typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0["deeply"];typeof v1==="object"&&v1&&!Array.isArray(v1)||e[1](v1);let v2=v1["foo"];typeof v2==="string"||e[0](v2);return v2}`,
   )
-  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return {"nested":{"deeply":{"foo":i,},},}}`)
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return {nested:{deeply:{foo:i}}}}`)
 })
 
 test("Object with a two nested field calling s.nested twice", t => {
@@ -148,12 +148,12 @@ test("Object with a two nested field calling s.nested twice", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["nested"];typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0["foo"],v2=v0["bar"];typeof v1==="string"||e[0](v1);typeof v2==="string"||e[1](v2);return {"foo":v1,"bar":v2,}}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["nested"];typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0["foo"],v2=v0["bar"];typeof v1==="string"||e[0](v1);typeof v2==="string"||e[1](v2);return {foo:v1,bar:v2}}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{return {"nested":{"foo":i["foo"],"bar":i["bar"],},}}`,
+    `i=>{return {nested:{foo:i["foo"],bar:i["bar"]}}}`,
   )
 })
 
@@ -174,9 +174,9 @@ test("Object with a flattened nested field", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["nested"];typeof v0==="object"&&v0&&!Array.isArray(v0)||e[1](v0);let v1=v0["foo"];typeof v1==="string"||e[0](v1);return {"foo":v1,}}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["nested"];typeof v0==="object"&&v0&&!Array.isArray(v0)||e[1](v0);let v1=v0["foo"];typeof v1==="string"||e[0](v1);return {foo:v1}}`,
   )
-  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return {"nested":{"foo":i["foo"],},}}`)
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return {nested:{foo:i["foo"]}}}`)
 })
 
 test("Object with a strict flattened nested field", t => {
@@ -196,9 +196,9 @@ test("Object with a strict flattened nested field", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["nested"];typeof v0==="object"&&v0&&!Array.isArray(v0)||e[1](v0);let v1=v0["foo"];typeof v1==="string"||e[0](v1);return {"foo":v1,}}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["nested"];typeof v0==="object"&&v0&&!Array.isArray(v0)||e[1](v0);let v1=v0["foo"];typeof v1==="string"||e[0](v1);return {foo:v1}}`,
   )
-  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return {"nested":{"foo":i["foo"],},}}`)
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return {nested:{foo:i["foo"]}}}`)
 })
 
 test("S.schema object with a deep strict applied to the nested field parent", t => {
@@ -259,7 +259,7 @@ test("Nested preprocessed tags on reverse convert", t => {
   t->U.assertCompiledCode(
     ~op=#Encode,
     ~schema,
-    `i=>{i===void 0||e[6](i);let v0;try{v0=e[0]("value")}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);let v1;try{v1=e[3]("1")}catch(x){e[4](x)}typeof v1==="string"||e[5](v1);return {"nested":{"tag":v0,"intTag":v1,},}}`,
+    `i=>{i===void 0||e[6](i);let v0;try{v0=e[0]("value")}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);let v1;try{v1=e[3]("1")}catch(x){e[4](x)}typeof v1==="string"||e[5](v1);return {nested:{tag:v0,intTag:v1}}}`,
   )
 
   t->U.assertCompiledCode(
@@ -304,12 +304,12 @@ test("S.schema object with a deep strict applied to the nested field parent + re
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i["nested"],v3;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0["foo"],v2;for(;;){if(typeof v1==="string")break;if(v1===void 0){v1=null;break}e[0](v1)}for(v2 in v0){if(v2!=="foo"){e[1](v2)}}for(v3 in i){if(v3!=="nested"){e[3](v3)}}return {"nested":{"foo":v1,},}}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i["nested"],v3;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0["foo"],v2;for(;;){if(typeof v1==="string")break;if(v1===void 0){v1=null;break}e[0](v1)}for(v2 in v0){if(v2!=="foo"){e[1](v2)}}for(v3 in i){if(v3!=="nested"){e[3](v3)}}return {nested:{foo:v1}}}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{let v0=i["nested"];let v1=v0["foo"];for(;;){if(typeof v1==="string")break;if(v1===null){v1=void 0;break}e[0](v1)}return {"nested":{"foo":v1,},}}`,
+    `i=>{let v0=i["nested"];let v1=v0["foo"];for(;;){if(typeof v1==="string")break;if(v1===null){v1=void 0;break}e[0](v1)}return {nested:{foo:v1}}}`,
   )
 })
 
@@ -323,7 +323,7 @@ test("Object with a deep strict applied to the nested field parent", t => {
     ~op=#Parse,
     `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i["nested"],v3;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0["foo"],v2;typeof v1==="string"||e[0](v1);for(v2 in v0){if(v2!=="foo"){e[1](v2)}}for(v3 in i){if(v3!=="nested"){e[3](v3)}}return v1}`,
   )
-  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return {"nested":{"foo":i,},}}`)
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return {nested:{foo:i}}}`)
 })
 
 test("Object with a deep strict applied to the nested field parent + reverse", t => {
@@ -340,9 +340,9 @@ test("Object with a deep strict applied to the nested field parent + reverse", t
     // FIXME: Test for deepStrict applying to flattened nested fields
     // Test deepStrict for reversed schema
     // Test strict & deepStrict for S.shape
-    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["foo"],v1;typeof v0==="string"||e[0](v0);for(v1 in i){if(v1!=="foo"){e[1](v1)}}return {"nested":{"foo":v0,},}}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["foo"],v1;typeof v0==="string"||e[0](v0);for(v1 in i){if(v1!=="foo"){e[1](v1)}}return {nested:{foo:v0}}}`,
   )
-  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{let v0=i["nested"];return {"foo":v0["foo"],}}`)
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{let v0=i["nested"];return {foo:v0["foo"]}}`)
 })
 
 test("Object with nested field together with flatten", t => {
@@ -365,12 +365,12 @@ test("Object with nested field together with flatten", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["nested"];typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0["foo"],v2=v0["bar"];typeof v1==="string"||e[0](v1);typeof v2==="string"||e[1](v2);return {"flattened":{"foo":v1,},"field":v2,}}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["nested"];typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0["foo"],v2=v0["bar"];typeof v1==="string"||e[0](v1);typeof v2==="string"||e[1](v2);return {flattened:{foo:v1},field:v2}}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{let v0=i["flattened"];return {"nested":{"foo":v0["foo"],"bar":i["field"],},}}`,
+    `i=>{let v0=i["flattened"];return {nested:{foo:v0["foo"],bar:i["field"]}}}`,
   )
 })
 
@@ -479,9 +479,9 @@ test("s.nested.flattened does work with S.schema->S.shape to self", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["nested"];typeof v0==="object"&&v0&&!Array.isArray(v0)||e[1](v0);let v1=v0["foo"];typeof v1==="string"||e[0](v1);return {"foo":v1,}}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["nested"];typeof v0==="object"&&v0&&!Array.isArray(v0)||e[1](v0);let v1=v0["foo"];typeof v1==="string"||e[0](v1);return {foo:v1}}`,
   )
-  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return {"nested":{"foo":i["foo"],},}}`)
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return {nested:{foo:i["foo"]}}}`)
 })
 
 test("s.nested.flatten conflicts with s.nested.field", t => {

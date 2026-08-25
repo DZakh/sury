@@ -13,7 +13,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["Outer"],v1=i["X"];typeof v0==="string"||e[0](v0);typeof v1==="string"||e[1](v1);return {"outer":v0,"inner":{"x":v1,},}}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["Outer"],v1=i["X"];typeof v0==="string"||e[0](v0);typeof v1==="string"||e[1](v1);return {outer:v0,inner:{x:v1}}}
     examples:
       both-fields:
         input: '{ Outer: "o", X: "x" }'
@@ -22,13 +22,13 @@ operations:
         input: '{ Outer: "o" }'
         error: 'Failed at ["X"]: Expected string, received undefined'
   decode:
-    expression: i=>{return {"outer":i["Outer"],"inner":{"x":i["X"],},}}
+    expression: i=>{return {outer:i["Outer"],inner:{x:i["X"]}}}
     examples:
       both-fields:
         input: '{ Outer: "o", X: "x" }'
         output: '{ outer: "o", inner: { x: "x" } }'
   encode:
-    expression: i=>{let v0=i["inner"];return {"X":v0["x"],"Outer":i["outer"],}}
+    expression: i=>{let v0=i["inner"];return {X:v0["x"],Outer:i["outer"]}}
     examples:
       round-trip:
         input: '{ outer: "o", inner: { x: "x" } }'
