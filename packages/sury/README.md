@@ -5,7 +5,7 @@
 
 # Sury 🧬
 
-**The fastest schema library for TypeScript, JavaScript and ReScript.**
+**The fastest schema library for TypeScript and ReScript.**
 
 Describe your data once. Sury generates JavaScript specialized for exactly that shape, so parsing, encoding back, and JSON Schema all come from that one definition.
 
