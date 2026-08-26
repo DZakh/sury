@@ -212,19 +212,6 @@ S.reverse(userSchema);
 
 `S.reverse` hands you the backwards schema as a real schema — usable with every operation, not just as an encode shortcut.
 
-Once schemas are stages, layouts that usually need hand-written glue become a single definition. `S.compactColumns` maps columnar arrays — of `S.json` values here — to rows, in both directions:
-
-```ts
-const cityRow = S.schema({ id: S.bigint, city: S.string });
-const rows = S.compactColumns(S.json).with(S.to, S.array(cityRow));
-
-S.parser(rows)([["1", "2"], ["Tbilisi", "Batumi"]]);
-// => [{ id: 1n, city: "Tbilisi" }, { id: 2n, city: "Batumi" }]
-
-S.encoder(rows)([{ id: 1n, city: "Tbilisi" }, { id: 2n, city: "Batumi" }]);
-// => [["1", "2"], ["Tbilisi", "Batumi"]]
-```
-
 ### JSON Schema, in and out
 
 Sury speaks JSON Schema natively — no converter bolted on top. It goes through the [Standard JSON Schema](https://standardschema.dev/json-schema) extension of the [Standard Schema](https://standardschema.dev/) spec, so tools consume it without special-casing Sury.
@@ -311,6 +298,87 @@ const result = S.safe(() => S.parser(playerSchema)(data));
 if (result.success) result.value;
 else result.error;
 ```
+
+## Recipes
+
+Scenarios that usually need a helper library or hand-written glue, as plain schemas.
+
+### Decode a JWT payload
+
+A JWT segment is base64url text holding JSON. Declare the layers and get both directions:
+
+```ts
+const claimsSchema = S.base64url.with(
+  S.to,
+  S.jsonString.with(S.to, S.schema({ sub: S.string, exp: S.number })),
+);
+
+S.parser(claimsSchema)("eyJzdWIiOiJhIiwiZXhwIjoxNzM1Njg2MDAwfQ");
+// => { sub: "a", exp: 1735686000 }
+```
+
+### Read an uploaded config file
+
+A `File`'s content is only readable asynchronously, so the pipeline is async as a whole — and the sync parser refuses at creation instead of failing later:
+
+```ts
+const configSchema = S.file.with(
+  S.to,
+  S.jsonString.with(S.to, S.schema({ theme: S.string })),
+);
+
+await S.asyncParser(configSchema)(new File(['{"theme":"dark"}'], "config.json"));
+// => { theme: "dark" }
+
+S.parser(configSchema);
+// => throws: Invalid async during sync operation
+```
+
+### Type your environment variables
+
+`process.env` is strings; your config isn't. Pipe from `S.record(S.string)` and the coercions are inferred — extra variables pass through untouched:
+
+```ts
+const envSchema = S.record(S.string).with(
+  S.to,
+  S.schema({
+    PORT: S.port,
+    DEBUG: S.string.with(S.to, S.boolean),
+  }),
+);
+
+S.parser(envSchema)(process.env);
+// => { PORT: 8080, DEBUG: true }
+
+S.parser(envSchema)({ PORT: "99999", DEBUG: "true" });
+// => throws S.Error: Failed at ["PORT"]: Expected port, received 99999
+```
+
+### ISO strings ↔ `Date`
+
+```ts
+const at = S.string.with(S.to, S.date);
+
+S.parser(at)("2026-08-26T12:00:00.000Z"); // => Date
+S.encoder(at)(new Date("2026-08-26T12:00:00.000Z")); // => "2026-08-26T12:00:00.000Z"
+```
+
+### Columnar data to rows
+
+`S.compactColumns` maps columnar arrays — of `S.json` values here — to rows, in both directions:
+
+```ts
+const cityRow = S.schema({ id: S.bigint, city: S.string });
+const rows = S.compactColumns(S.json).with(S.to, S.array(cityRow));
+
+S.parser(rows)([["1", "2"], ["Tbilisi", "Batumi"]]);
+// => [{ id: 1n, city: "Tbilisi" }, { id: 2n, city: "Batumi" }]
+
+S.encoder(rows)([{ id: 1n, city: "Tbilisi" }, { id: 2n, city: "Batumi" }]);
+// => [["1", "2"], ["Tbilisi", "Batumi"]]
+```
+
+More building blocks in the [API reference](https://github.com/DZakh/sury/blob/main/docs/js-usage.md).
 
 ## Comparison
 
