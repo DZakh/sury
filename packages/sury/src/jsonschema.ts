@@ -402,8 +402,10 @@ const internalToJSONSchemaBase = (
       target === openApi30
         ? (jsonSchema.format = format === "base64" ? "byte" : format)
         : (jsonSchema.contentEncoding = format);
-    } else if (format === "json" && target !== openApi30) {
-      jsonSchema.contentMediaType = "application/json";
+    } else if (format === "json") {
+      // OpenAPI 3.0 has no `contentMediaType` and no `json` format. Drafts
+      // spell the document as media type, never as `format: "json"`.
+      if (target !== openApi30) jsonSchema.contentMediaType = "application/json";
     } else if (format !== U && format !== "cuid") {
       jsonSchema.format = format;
     }

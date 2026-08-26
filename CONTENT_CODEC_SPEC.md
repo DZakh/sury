@@ -279,9 +279,9 @@ names toon, env, or any other format, which is what keeps each future carrier a
 self-contained file.
 
 `S.fromJSONSchema` pays for the round trip: reading `contentEncoding` back means
-naming `S.base64`, which brings its pattern and its conversions — +704 gzipped
-on that one export, the largest row in `bundleSize.yaml`. Every format costs it
-something; this is the first that carries a codec.
+naming `S.base64` and `S.base64url`, which bring their patterns and conversions.
+That is the largest row in `bundleSize.yaml`. Every format costs it something;
+these are the first that carry a codec.
 
 The keyword is an annotation in both dialects, so a validator that reads it as
 one accepts `"hello world"` under `contentEncoding: "base64"`. Sury reads it as
@@ -290,13 +290,15 @@ back as the validating `S.uuid`, `S.email` and the rest. A round trip through
 `fromJSONSchema` produces the schema the keyword names, not a validator for the
 document it came from.
 
-**The base64 helpers** feature-detect `Uint8Array.prototype.toBase64` /
-`Uint8Array.fromBase64` once at import and embed the chosen function, so
-generated code is a single `e[N](i)` call either way. The fallback bridges
-through `btoa`/`atob` and an intermediate binary string, in 8KB chunks — the
-whole array blows `String.fromCharCode`'s argument limit and a byte at a time is
-several times slower than either. `scenarios.yaml`'s `base64-pack` /
-`base64-unpack` are what that costs a consumer.
+**The base64 helpers** feature-detect native `Uint8Array` methods, then Node
+`Buffer`, then `btoa`/`atob`, inside a `@__PURE__` factory per alphabet so a
+`globalThis.Buffer` read cannot leak into unrelated exports. Generated code is
+a single `e[N](i)` call either way. The atob fallback bridges through an
+intermediate binary string in 8KB chunks. The whole array blows
+`String.fromCharCode`'s argument limit, and a byte at a time is several times
+slower than either. `scenarios.yaml`'s `base64-pack` / `base64-unpack` are what
+that costs a consumer. Carriers pack through a content node that has the format
+refine and `bc` only, so a File bundle does not ship recode or TextEncoder.
 
 ## Breaking changes
 
@@ -323,8 +325,11 @@ ASCII-only fixtures are what hid the corruption above.
 
 | spec | what it pins |
 | --- | --- |
-| `base64`, `uint8array` | the carriers themselves, and `base64`'s `contentEncoding` emit |
-| `codec-uint8array-base64` | the bytes payload transfer |
+| `base64`, `base64url`, `uint8array` | the carriers themselves, and each alphabet's JSON Schema emit |
+| `codec-uint8array-base64`, `codec-uint8array-base64url` | the bytes payload transfer, both alphabets |
+| `codec-base64-base64url` | recode between alphabets |
+| `codec-base64-trim-base64url` | recode after `S.trim`, which copies `content` but not `bc` |
+| `codec-uint8array-jsonstring-pack` | `S.to(from, to, "pack")` as the opposite pair |
 | `codec-base64-string` vs `codec-jsonstring-string` | the payload rule's least guessable pair — widen vs parse |
 | `jsonstring-object-url`, `codec-array-never-jsonstring` | the two shapes that reach jsonString's fallback for a value it can't serialize piecewise |
 | `codec-base64-file` | payload transfer in and out of a binary container |
