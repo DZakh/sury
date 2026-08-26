@@ -38,6 +38,10 @@ test("conservativePct needs unanimity: one dissenting block is enough to report 
   expect(conservativePct(ratios(1.4, 1.3, 1.2, 1.25, 1.35, 1.28, 1.22, 0.99))).toBe(0);
 });
 
+test("conservativePct reports 0 below six blocks, so BLOCKS must stay at 6 or above", () => {
+  expect(conservativePct(ratios(1.4, 1.3, 1.2, 1.1, 1.05))).toBe(0);
+});
+
 // ---- targets ---------------------------------------------------------------
 
 // `[]` for the scenarios: they aren't files, so a run narrowed to one spec
@@ -60,6 +64,23 @@ test("a constant schema contributes no creation targets", () => {
 // One target per outcome carrying every example of it, rather than one target
 // per example: the same coverage for a third of the child processes, and no
 // example has to be elected to represent the rest.
+test("an example with bench true is measured alone, not aggregated with its outcome", () => {
+  const real = targetsFor("union-large-planner").targets.filter((t) => !t.control && t.phase === "run");
+  expect(real.map((t) => t.name)).toEqual([
+    "union-large-planner · parse · accepted-first",
+    "union-large-planner · parse · accepts ×5",
+    "union-large-planner · parse · rejects",
+  ]);
+  expect(real[0]!.exampleNames).toEqual(["accepted-first"]);
+  expect(real[1]!.exampleNames).toEqual([
+    "accepted-late-literal",
+    "structural-discriminator",
+    "class-priority",
+    "deoptimized-fallback",
+    "broad-number",
+  ]);
+});
+
 test("an operation's examples become one target per outcome, carrying all their inputs", () => {
   const real = targetsFor("string").targets.filter((t) => !t.control);
   const accepts = real.find((t) => t.name === "string · parse · accepts ×2")!;

@@ -7,6 +7,10 @@ ts:
 jsonSchema:
   input: '{ type: "integer", minimum: 0, exclusiveMaximum: 80 }'
   output: '{ type: "integer", minimum: 0, exclusiveMaximum: 80 }'
+  targets:
+    openapi-3.0:
+      input: '{ type: "integer", minimum: 0, maximum: 80, exclusiveMaximum: true }'
+      output: '{ type: "integer", minimum: 0, maximum: 80, exclusiveMaximum: true }'
 vs:
   zod:
     _skip: not-applicable

@@ -7,6 +7,10 @@ ts:
 jsonSchema:
   input: '{ default: "bar", anyOf: [{ type: "string" }, { type: "null" }] }'
   output: '{ type: "string" }'
+  targets:
+    openapi-3.0:
+      input: '{ default: "bar", type: "string", nullable: true }'
+      output: '{ type: "string" }'
 vs:
   zod: z.string().nullable().transform((value) => value ?? "bar")
 operations:

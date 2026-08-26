@@ -2060,9 +2060,7 @@ test("Uint8Array", (t) => {
 
   // As an object field: jsonString's fallback asks the field's own schema for
   // the string conversion, since uint8Array only performs it when it is
-  // itself the target. Not a spec — the encode direction's output holds a
-  // Uint8Array, which the spec harness can't write as source (see
-  // CONTRIBUTING.md's Spec Harness Suggestions).
+  // itself the target. The uint8Array spec covers the schema in isolation.
   const withField = S.schema({ payload: S.uint8Array });
   t.expect(
     S.encoder(withField, S.jsonString)({ payload: new TextEncoder().encode("hi") }),

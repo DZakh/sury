@@ -7,6 +7,10 @@ ts:
 jsonSchema:
   input: 'Failed at ["id"]: Expected JSON, received bigint'
   output: '{ type: "string", contentMediaType: "application/json" }'
+  targets:
+    openapi-3.0:
+      input: 'Failed at ["id"]: Expected JSON, received bigint'
+      output: '{ type: "string" }'
 vs:
   zod:
     _skip: not-applicable

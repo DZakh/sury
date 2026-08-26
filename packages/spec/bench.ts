@@ -43,6 +43,11 @@ const WARMUP_BATCHES = 20;
 // blocks of three rounds costs a quarter more than six of four and is an order
 // of magnitude stricter.
 const BLOCKS = 8;
+if (BLOCKS < 6) {
+  throw new Error(
+    `BLOCKS is ${BLOCKS}; ciRank returns -1 below 6 and conservativePct then reports 0 for every target`,
+  );
+}
 const ROUNDS_PER_BLOCK = 2;
 // A whole child process can land in one JIT state and stay there — IC and
 // feedback shapes settle early, after which every block in that process agrees
@@ -283,16 +288,29 @@ export const deriveTargets = (
         const examples = Object.entries(block.examples).filter(
           ([, ex]) => !("output" in ex) === throws,
         );
-        if (examples.length === 0) continue;
+        const split = examples.filter(([, ex]) => ex.bench === true);
+        const rest = examples.filter(([, ex]) => ex.bench !== true);
+        for (const [name, ex] of split) {
+          targets.push({
+            ...base,
+            name: `${id}${SEP}${op}${SEP}${name}`,
+            phase: "run",
+            op,
+            inputSrcs: [stripTypes(ex.input)],
+            exampleNames: [name],
+            throws,
+          });
+        }
+        if (rest.length === 0) continue;
         targets.push({
           ...base,
           name: `${id}${SEP}${op}${SEP}${throws ? "rejects" : "accepts"}${
-            examples.length > 1 ? ` ×${examples.length}` : ""
+            rest.length > 1 ? ` ×${rest.length}` : ""
           }`,
           phase: "run",
           op,
-          inputSrcs: examples.map(([, ex]) => stripTypes(ex.input)),
-          exampleNames: examples.map(([name]) => name),
+          inputSrcs: rest.map(([, ex]) => stripTypes(ex.input)),
+          exampleNames: rest.map(([name]) => name),
           throws,
         });
       }

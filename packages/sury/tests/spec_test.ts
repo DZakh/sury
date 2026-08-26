@@ -100,6 +100,10 @@ test("lintSpecsDir rejects a non-yaml file and a dotted/invalid id", () => {
     "good-id.yaml",
     "notes.txt",
     "bad.dotted.yaml",
+    "url-codec.yaml",
+    "codec.yaml",
+    "flatten-field-codec.yaml",
+    "codec-string-url.yaml",
     "spec.schema.json",
     "bundleSize.yaml",
     "scenarios.yaml",
@@ -108,7 +112,24 @@ test("lintSpecsDir rejects a non-yaml file and a dotted/invalid id", () => {
   expect(errs).toEqual([
     `specs dir: unexpected file "notes.txt" (only *.yaml and spec.schema.json/bundleSize.yaml/scenarios.yaml/scenarios.schema.json allowed)`,
     `specs dir: invalid spec id "bad.dotted" (only letters, digits, and - allowed)`,
+    `specs dir: "url-codec" names a codec spec backwards — use codec-<from>-<to>, not a -codec suffix`,
+    `specs dir: "codec" names a codec spec backwards — use codec-<from>-<to>, not a -codec suffix`,
   ]);
+});
+
+test("jsonstring-object records dialect-gated jsonSchema.targets", () => {
+  const spec = readSpec(listSpecFiles().find((f) => specId(f) === "jsonstring-object")!);
+  expect(spec.jsonSchema.targets?.["draft-2020-12"]?.output).toContain("contentSchema");
+  expect(spec.jsonSchema.targets?.["openapi-3.0"]?.output).not.toContain("contentMediaType");
+});
+
+test("serialize quotes a tab in an error golden instead of writing a raw control", () => {
+  const spec = structuredClone(readSpec(listSpecFiles().find((f) => specId(f) === "string")!));
+  if (spec.operations.parse !== "identity" && !isCreationError(spec.operations.parse))
+    spec.operations.parse.examples.tab = { input: '"x"', error: 'Expected string, received "a\tb"' };
+  const yaml = serialize(spec);
+  expect(yaml).not.toMatch(/\t/);
+  expect(yaml).toContain("\\t");
 });
 
 // The `--write` summary is what a caller reads instead of the golden diff, so

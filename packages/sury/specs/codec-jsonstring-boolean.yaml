@@ -7,6 +7,13 @@ ts:
 jsonSchema:
   input: '{ type: "string", contentMediaType: "application/json" }'
   output: '{ type: "boolean" }'
+  targets:
+    draft-2020-12:
+      input: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "boolean" }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+      output: '{ type: "boolean", $schema: "https://json-schema.org/draft/2020-12/schema" }'
+    openapi-3.0:
+      input: '{ type: "string" }'
+      output: '{ type: "boolean" }'
 vs:
   zod:
     _skip: not-applicable

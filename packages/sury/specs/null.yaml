@@ -7,6 +7,10 @@ ts:
 jsonSchema:
   input: '{ type: "null" }'
   output: '{ type: "null" }'
+  targets:
+    openapi-3.0:
+      input: "{ enum: [null] }"
+      output: "{ enum: [null] }"
 vs:
   zod: z.null()
 operations:

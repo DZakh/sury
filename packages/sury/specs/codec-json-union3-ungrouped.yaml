@@ -8,6 +8,11 @@ jsonSchema:
   input: '{ anyOf: [{ type: "string", const: "123" }, { type: "string" }] }'
   fromInputType: string
   output: Expected JSON, received "123" | bigint | string
+  targets:
+    openapi-3.0:
+      input: '{ anyOf: [{ type: "string", enum: ["123"] }, { type: "string" }] }'
+      fromInputType: string
+      output: Expected JSON, received "123" | bigint | string
 vs:
   zod:
     _skip: not-applicable

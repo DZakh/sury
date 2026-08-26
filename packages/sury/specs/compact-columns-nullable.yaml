@@ -7,6 +7,10 @@ ts:
 jsonSchema:
   input: "Failed at [][]: Expected JSON, received unknown"
   output: '{ items: { type: "object", properties: { id: { type: "string" }, name: { anyOf: [{ type: "string" }, { type: "null" }] }, deleted: { type: "boolean" } }, required: ["id", "name", "deleted"] }, type: "array" }'
+  targets:
+    openapi-3.0:
+      input: "Failed at [][]: Expected JSON, received unknown"
+      output: '{ items: { type: "object", properties: { id: { type: "string" }, name: { type: "string", nullable: true }, deleted: { type: "boolean" } }, required: ["id", "name", "deleted"] }, type: "array" }'
 vs:
   zod:
     _skip: not-applicable

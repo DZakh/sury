@@ -8,6 +8,11 @@ jsonSchema:
   input: '{ type: "object", properties: { type: { type: "number", const: 0 }, nested: { type: "object", properties: { field: { type: "number" } }, required: ["field"] }, id: { type: "string" }, Foo: { type: "string" }, Bar: { default: true, type: "boolean" } }, required: ["type", "nested", "id", "Foo"] }'
   fromInputType: "{ type: 0; nested: { field: number; }; id: string; Foo: string; Bar?: boolean | undefined; }"
   output: '{ type: "object", properties: { nested: { type: "number" }, flattened: { type: "object", properties: { id: { type: "string" } }, required: ["id"] }, foo: { type: "string" }, bar: { type: "boolean" } }, required: ["nested", "flattened", "foo", "bar"] }'
+  targets:
+    openapi-3.0:
+      input: '{ type: "object", properties: { type: { type: "number", enum: [0] }, nested: { type: "object", properties: { field: { type: "number" } }, required: ["field"] }, id: { type: "string" }, Foo: { type: "string" }, Bar: { default: true, type: "boolean" } }, required: ["type", "nested", "id", "Foo"] }'
+      fromInputType: "{ type: 0; nested: { field: number; }; id: string; Foo: string; Bar?: boolean | undefined; }"
+      output: '{ type: "object", properties: { nested: { type: "number" }, flattened: { type: "object", properties: { id: { type: "string" } }, required: ["id"] }, foo: { type: "string" }, bar: { type: "boolean" } }, required: ["nested", "flattened", "foo", "bar"] }'
 vs:
   zod:
     _skip: not-applicable

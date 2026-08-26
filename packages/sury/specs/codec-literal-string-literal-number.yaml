@@ -9,6 +9,10 @@ ts:
 jsonSchema:
   input: '{ type: "string", const: "a" }'
   output: '{ type: "number", const: 42 }'
+  targets:
+    openapi-3.0:
+      input: '{ type: "string", enum: ["a"] }'
+      output: '{ type: "number", enum: [42] }'
 vs:
   zod:
     _skip: not-applicable

@@ -9,6 +9,10 @@ ts:
 jsonSchema:
   input: '{ type: "boolean", const: true }'
   output: '{ type: "boolean", const: true }'
+  targets:
+    openapi-3.0:
+      input: '{ type: "boolean", enum: [true] }'
+      output: '{ type: "boolean", enum: [true] }'
 vs:
   zod: z.literal(true)
 operations:

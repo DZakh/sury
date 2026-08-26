@@ -7,6 +7,10 @@ ts:
 jsonSchema:
   input: '{ anyOf: [{ type: "string", const: "t" }, { type: "string", const: "1" }, { type: "string", const: "f" }, { type: "string", const: "0" }, { type: "string" }] }'
   output: '{ anyOf: [{ type: "boolean", const: true }, { type: "boolean", const: false }, { type: "boolean" }] }'
+  targets:
+    openapi-3.0:
+      input: '{ anyOf: [{ type: "string", enum: ["t"] }, { type: "string", enum: ["1"] }, { type: "string", enum: ["f"] }, { type: "string", enum: ["0"] }, { type: "string" }] }'
+      output: '{ anyOf: [{ type: "boolean", enum: [true] }, { type: "boolean", enum: [false] }, { type: "boolean" }] }'
 vs:
   zod:
     _skip: not-applicable

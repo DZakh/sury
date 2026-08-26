@@ -7,6 +7,10 @@ ts:
 jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "number", exclusiveMinimum: 0 }'
+  targets:
+    openapi-3.0:
+      input: '{ type: "string" }'
+      output: '{ type: "number", minimum: 0, exclusiveMinimum: true }'
 vs:
   zod: 'z.codec(z.string(), z.number().positive(), { decode: (value) => value.length, encode: (value) => "x".repeat(value) })'
 operations:

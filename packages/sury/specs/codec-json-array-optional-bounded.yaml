@@ -11,6 +11,11 @@ jsonSchema:
   input: '{ items: { anyOf: [{ type: "number" }, { type: "null" }] }, type: "array" }'
   fromInputType: (number | null)[]
   output: "Failed at []: Expected JSON, received number <= 1 | undefined"
+  targets:
+    openapi-3.0:
+      input: '{ items: { type: "number", nullable: true }, type: "array" }'
+      fromInputType: (number | null)[]
+      output: "Failed at []: Expected JSON, received number <= 1 | undefined"
 vs:
   zod:
     _skip: not-applicable

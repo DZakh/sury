@@ -12,7 +12,16 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, basename } from "node:path";
 import { fileURLToPath } from "node:url";
-import { Document, parse as parseYaml, parseDocument, stringify as stringifyYaml, isMap, isSeq } from "yaml";
+import {
+  Document,
+  parse as parseYaml,
+  parseDocument,
+  stringify as stringifyYaml,
+  isMap,
+  isSeq,
+  visit,
+  Scalar,
+} from "yaml";
 import { diffLinesUnified } from "@vitest/utils/diff";
 import ts from "typescript";
 import * as S from "../sury/index.mjs";
@@ -24,6 +33,12 @@ import {
   OP_ORDER,
   OP_BLOCK_KEY_ORDER,
   BUNDLE_SIZE_KEY_ORDER,
+  JSON_SCHEMA_KEY_ORDER,
+  JSON_SCHEMA_DOCUMENT_KEY_ORDER,
+  JSON_SCHEMA_TARGET_KEY_ORDER,
+  JSON_SCHEMA_TARGETS,
+  type JsonSchemaDocument,
+  type JsonSchemaTargetName,
   SKIP_REASONS,
   isSkip,
   isZodOverwrite,
@@ -107,10 +122,26 @@ export const lintSkips = (obj: unknown, path: string, out: string[]): void => {
 // has real codegen — and nothing ever runs that codegen until an example does,
 // so an empty map snapshots an expression no test executes.
 export const lintExamples = (spec: Spec, out: string[]): void => {
-  const ops = spec.operations as Record<OpName, Operation>;
+  const ops = spec.operations as Partial<Record<OpName, Operation>> | undefined;
+  if (ops == null) return;
   for (const opName of OP_ORDER) {
     const op = ops[opName];
-    if (typeof op === "string" || isCreationError(op) || Object.keys(op.examples).length) continue;
+    if (op == null) {
+      out.push(
+        `operations.${opName}: missing — a spec must declare parse, decode, and encode ` +
+          "(run `pnpm spec new` to scaffold them, or add the block)",
+      );
+      continue;
+    }
+    if (typeof op === "string" || isCreationError(op)) continue;
+    if (isSkip(op)) {
+      out.push(
+        `operations.${opName}: _skip is not valid on an operation — use identity, eq-to-parse, ` +
+          "a full block with examples, or a creationError",
+      );
+      continue;
+    }
+    if (op.examples && Object.keys(op.examples).length) continue;
     out.push(
       `operations.${opName}: no examples — a compiled op block must run at least one input ` +
         "(add a named entry with just `input`, then `--write` fills the result)",
@@ -142,6 +173,10 @@ export const lintSpecsDir = (names: string[] = readdirSync(SPECS_DIR)): string[]
     const id = name.replace(/\.yaml$/, "");
     if (!VALID_ID_RE.test(id))
       errs.push(`specs dir: invalid spec id ${JSON.stringify(id)} (only letters, digits, and - allowed)`);
+    else if (id === "codec" || /^[a-z0-9]+-codec$/.test(id))
+      errs.push(
+        `specs dir: ${JSON.stringify(id)} names a codec spec backwards — use codec-<from>-<to>, not a -codec suffix`,
+      );
   }
   return errs;
 };
@@ -199,6 +234,7 @@ export const identityViolations = (schema: any, spec: Spec): string[] => {
   const parseCode = "fn" in parseBuilt ? parseBuilt.fn.toString() : undefined;
   for (const opName of OP_ORDER) {
     const op = spec.operations[opName];
+    if (op == null) continue;
     const built = opName === "parse" ? parseBuilt : buildOp(opName, schema);
     // Rejected at operation creation: no compiled form, so the shorthand
     // invariants don't apply. recomputeGoldens records/refreshes the
@@ -248,7 +284,7 @@ export const asyncViolations = (schema: any, spec: Spec): string[] => {
   const out: string[] = [];
   for (const opName of OP_ORDER) {
     const op = spec.operations[opName];
-    if (typeof op === "string" || isCreationError(op)) continue;
+    if (op == null || typeof op === "string" || isCreationError(op)) continue;
     const built = buildOp(opName, schema);
     // Rejected at creation: reported by the creationError golden instead, and
     // an operation that doesn't compile can't be async.
@@ -301,6 +337,52 @@ const deriveJsonSchemaSides = (schema: any): JsonSchemaSides => ({
   output: deriveJsonSchemaSide(() => S.toJSONSchema(S.reverse(schema))),
 });
 
+const withoutDollarSchema = (value: unknown): unknown => {
+  if (value && typeof value === "object" && !Array.isArray(value) && "$schema" in (value as object)) {
+    const rest = { ...(value as Record<string, unknown>) };
+    delete rest.$schema;
+    return rest;
+  }
+  return value;
+};
+
+const jsonSchemaSourceDiffers = (defaultSource: string, targetSource: string): boolean => {
+  if (defaultSource === targetSource) return false;
+  try {
+    return (
+      valueToCode(withoutDollarSchema(evalSchema(defaultSource))) !==
+      valueToCode(withoutDollarSchema(evalSchema(targetSource)))
+    );
+  } catch {
+    return true;
+  }
+};
+
+const deriveJsonSchemaTarget = async (
+  schema: any,
+  schemaTs: string,
+  types: { input: string; output: string },
+  target: JsonSchemaTargetName,
+  defaultSides: JsonSchemaSides,
+): Promise<JsonSchemaDocument | undefined> => {
+  const input = deriveJsonSchemaSide(() => S.toJSONSchema(schema, { target }));
+  const output = deriveJsonSchemaSide(() => S.toJSONSchema(S.reverse(schema), { target }));
+  if (
+    !jsonSchemaSourceDiffers(defaultSides.input.schema, input.schema) &&
+    !jsonSchemaSourceDiffers(defaultSides.output.schema, output.schema)
+  )
+    return undefined;
+  const roundTrip = await deriveRoundTripTypeInfo(schemaTs, input.source, output.source);
+  const inputMatches = roundTrip.inputMatches ?? roundTrip.fromInput === types.input;
+  const outputMatches = roundTrip.outputMatches ?? roundTrip.fromOutput === types.output;
+  return {
+    input: input.schema,
+    ...(roundTrip.fromInput === undefined || inputMatches ? {} : { fromInputType: roundTrip.fromInput }),
+    output: output.schema,
+    ...(roundTrip.fromOutput === undefined || outputMatches ? {} : { fromOutputType: roundTrip.fromOutput }),
+  };
+};
+
 const deriveJsonSchema = async (
   schema: any,
   types: { input: string; output: string },
@@ -309,12 +391,13 @@ const deriveJsonSchema = async (
     "fromInput" | "fromOutput" | "inputMatches" | "outputMatches"
   >,
   sides = deriveJsonSchemaSides(schema),
+  schemaTs?: string,
 ): Promise<Spec["jsonSchema"]> => {
   const inputInferred = combinedInfo.fromInput;
   const outputInferred = combinedInfo.fromOutput;
   const inputMatches = combinedInfo.inputMatches ?? inputInferred === types.input;
   const outputMatches = combinedInfo.outputMatches ?? outputInferred === types.output;
-  return {
+  const doc: Spec["jsonSchema"] = {
     input: sides.input.schema,
     ...(inputInferred === undefined || inputMatches
       ? {}
@@ -324,6 +407,14 @@ const deriveJsonSchema = async (
       ? {}
       : { fromOutputType: outputInferred }),
   };
+  if (schemaTs === undefined) return doc;
+  const targets: NonNullable<Spec["jsonSchema"]["targets"]> = {};
+  for (const target of JSON_SCHEMA_TARGETS) {
+    const block = await deriveJsonSchemaTarget(schema, schemaTs, types, target, sides);
+    if (block) targets[target] = block;
+  }
+  if (JSON_SCHEMA_TARGETS.some((name) => targets[name] !== undefined)) doc.targets = targets;
+  return doc;
 };
 
 // No example inputs needed, so `spec new` can fill this in immediately from `--ts`.
@@ -338,7 +429,7 @@ export const scaffoldJsonSchema = (
     sides.input.source,
     sides.output.source,
   ).then((roundTripInfo) =>
-    deriveJsonSchema(schema, types, roundTripInfo, sides),
+    deriveJsonSchema(schema, types, roundTripInfo, sides, schemaTs),
   );
 };
 
@@ -460,13 +551,22 @@ export const canonicalize = (obj: Spec): Spec => {
     if (isZodOverwrite(o.vs.zod))
       o.vs.zod = order(o.vs.zod as Record<string, unknown>, VS_ZOD_KEY_ORDER as string[]) as typeof o.vs.zod;
   }
-  if (o.jsonSchema)
-    o.jsonSchema = order(o.jsonSchema as Record<string, unknown>, [
-      "input",
-      "fromInputType",
-      "output",
-      "fromOutputType",
-    ]) as Spec["jsonSchema"];
+  if (o.jsonSchema) {
+    o.jsonSchema = order(o.jsonSchema as Record<string, unknown>, JSON_SCHEMA_KEY_ORDER as string[]) as Spec["jsonSchema"];
+    if (o.jsonSchema.targets) {
+      const targets = order(
+        o.jsonSchema.targets as Record<string, unknown>,
+        JSON_SCHEMA_TARGET_KEY_ORDER as string[],
+      ) as NonNullable<Spec["jsonSchema"]["targets"]>;
+      for (const name of JSON_SCHEMA_TARGETS) {
+        const block = targets[name];
+        if (block)
+          targets[name] = order(block as Record<string, unknown>, JSON_SCHEMA_DOCUMENT_KEY_ORDER as string[]) as JsonSchemaDocument;
+      }
+      if (JSON_SCHEMA_TARGETS.some((name) => targets[name] !== undefined)) o.jsonSchema.targets = targets;
+      else delete o.jsonSchema.targets;
+    }
+  }
   if (o.operations) {
     const ops = order(o.operations, OP_ORDER) as Record<OpName, Operation>;
     for (const name of OP_ORDER) if (ops[name]) ops[name] = canonOp(ops[name]);
@@ -562,10 +662,30 @@ export const lintComments = (comments: SpecComments, out: string[]): void => {
     }
 };
 
+const YAML_CONTROL = /[\u0000-\u0008\u0009\u000b\u000c\u000e-\u001f\u007f-\u009f]/;
+const YAML_RAW_CONTROL = /[\u007f-\u009f]/g;
+
 export const serialize = (obj: Spec, comments: SpecComments = NO_COMMENTS): string => {
   const doc = new Document(canonicalize(obj));
   if (comments.size) applyComments(doc, comments);
-  return HEADER + "\n" + doc.toString({ lineWidth: 0 });
+  visit(doc, {
+    Scalar(_key, node) {
+      if (typeof node.value === "string" && YAML_CONTROL.test(node.value))
+        node.type = Scalar.QUOTE_DOUBLE;
+    },
+  });
+  // JSON.stringify (which yaml uses for double-quoted scalars) leaves DEL and
+  // the C1 block raw. Those bytes are what PyYAML and yamllint reject, so
+  // rewrite them as `\u00xx` after stringify — yaml already forced
+  // QUOTE_DOUBLE for that set, so the replacement stays inside quotes.
+  return (
+    HEADER +
+    "\n" +
+    doc.toString({ lineWidth: 0 }).replace(YAML_RAW_CONTROL, (ch) => {
+      const hex = ch.charCodeAt(0).toString(16).padStart(4, "0");
+      return `\\u${hex}`;
+    })
+  );
 };
 
 // ---- golden recomputation --------------------------------------------------
@@ -598,7 +718,12 @@ const valueToCode = (v: unknown, seen: WeakSet<object> = new WeakSet()): string 
   if (v === undefined) return "undefined";
   if (typeof v === "bigint") return `${v}n`;
   if (typeof v === "number") return Object.is(v, -0) ? "-0" : String(v);
-  if (v === null || typeof v === "boolean" || typeof v === "string") return JSON.stringify(v);
+  if (v === null || typeof v === "boolean") return JSON.stringify(v);
+  if (typeof v === "string")
+    return JSON.stringify(v).replace(/[\u007f-\u009f]/g, (ch) => {
+      const hex = ch.charCodeAt(0).toString(16).padStart(4, "0");
+      return `\\u${hex}`;
+    });
   if (typeof v === "symbol") {
     const key = Symbol.keyFor(v);
     if (key === undefined)
@@ -612,6 +737,7 @@ const valueToCode = (v: unknown, seen: WeakSet<object> = new WeakSet()): string 
       if (v instanceof Date) return `new Date(${JSON.stringify(v.toISOString())})`;
       if (v instanceof URL) return `new URL(${JSON.stringify(v.href)})`;
       if (v instanceof RegExp) return v.toString();
+      if (v instanceof Uint8Array) return `new Uint8Array([${[...v].join(", ")}])`;
       if (v instanceof Map) return `new Map(${valueToCode([...v], seen)})`;
       if (v instanceof Set) return `new Set(${valueToCode([...v], seen)})`;
       if (Array.isArray(v)) return `[${v.map((x) => valueToCode(x, seen)).join(", ")}]`;
@@ -679,6 +805,7 @@ export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
     info,
     roundTripInfo,
     jsonSchemaSides,
+    next.ts.schema,
   );
 
   const parseBuilt = buildOp("parse", schema);
@@ -688,6 +815,7 @@ export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
   const ops = next.operations as Record<OpName, Operation>;
   for (const opName of OP_ORDER) {
     const op = next.operations[opName];
+    if (op == null) continue;
     const built = opName === "parse" ? parseBuilt : buildOp(opName, schema);
     if ("creationError" in built) {
       // Rejected at creation — take the canonical creationError form (a block,
@@ -730,6 +858,7 @@ export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
           bench,
         });
       } catch (e) {
+        if (e instanceof Error && e.message.startsWith("cannot represent ")) throw e;
         op.examples[name] = clean({ input: ex.input, error: (e as Error).message, bench });
       }
     }
@@ -844,11 +973,19 @@ export const checkAliases = async (spec: Spec): Promise<string[]> => {
         info,
         roundTripInfo,
         jsonSchemaSides,
+        aliasSrc,
       );
       if (js.input !== spec.jsonSchema.input)
         errs.push(`${label}: jsonSchema.input differs:\n${diffText(spec.jsonSchema.input, js.input)}`);
       if (js.output !== spec.jsonSchema.output)
         errs.push(`${label}: jsonSchema.output differs:\n${diffText(spec.jsonSchema.output, js.output)}`);
+      if (JSON.stringify(js.targets ?? null) !== JSON.stringify(spec.jsonSchema.targets ?? null))
+        errs.push(
+          `${label}: jsonSchema.targets differs:\n${diffText(
+            JSON.stringify(spec.jsonSchema.targets ?? null),
+            JSON.stringify(js.targets ?? null),
+          )}`,
+        );
 
       const aliasParseBuilt = buildOp("parse", aliasSchema);
       const aliasParseCode = "fn" in aliasParseBuilt ? aliasParseBuilt.fn.toString() : undefined;
@@ -1020,7 +1157,7 @@ export const checkSpec = async (
   }
   if (evaluated && !isUsableSchema(schema)) {
     errs.push(`ts.schema evaluated but isn't a Sury schema`);
-  } else if (evaluated) {
+  } else if (v.ok && evaluated && OP_ORDER.every((op) => spec.operations?.[op] != null)) {
     try {
       const violations = identityViolations(schema, spec);
       for (const violation of violations) errs.push(violation);

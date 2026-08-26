@@ -51,7 +51,8 @@ const orSkip = <T extends S.Schema<unknown, unknown>>(schema: T) =>
 // `bench` is reserved for the not-yet-wired performance dimension.
 const inputDescription =
   'Source text for the input, e.g. \'"hello"\'. Hand-written; `spec check --write` fills output/error.';
-const benchDescription = "Reserved for the not-yet-wired performance dimension.";
+const benchDescription =
+  "When true, this example is measured as its own perf target instead of being aggregated with the rest of its outcome.";
 const exampleOutput = S.schema({
   input: S.string.with(S.meta, { description: inputDescription }),
   output: S.string.with(S.meta, {
@@ -211,6 +212,48 @@ const vs = S.schema({
   .with(S.strict)
   .with(S.meta, { description: "Cross-library equivalents, type-checked against this spec." });
 
+export const JSON_SCHEMA_TARGETS = ["draft-2020-12", "openapi-3.0"] as const;
+export type JsonSchemaTargetName = (typeof JSON_SCHEMA_TARGETS)[number];
+
+const jsonSchemaDocument = S.schema({
+  input: S.string.with(S.meta, {
+    description: "S.toJSONSchema(schema), as source text, or its conversion error.",
+  }),
+  fromInputType: S.optional(S.string).with(S.meta, {
+    description:
+      "The type inferred by S.fromJSONSchema(input), only when it differs from ts.input; omit when equal or when input is a conversion error.",
+  }),
+  output: S.string.with(S.meta, {
+    description: "S.toJSONSchema(S.reverse(schema)), as source text, or its conversion error.",
+  }),
+  fromOutputType: S.optional(S.string).with(S.meta, {
+    description:
+      "The type inferred by S.fromJSONSchema(output), only when it differs from ts.output; omit when equal or when output is a conversion error.",
+  }),
+})
+  .with(S.strict)
+  .with(S.meta, {
+    description: "One dialect's toJSONSchema documents for both directions.",
+  });
+export type JsonSchemaDocument = S.Output<typeof jsonSchemaDocument>;
+
+const jsonSchemaTargets = S.schema({
+  "draft-2020-12": S.optional(jsonSchemaDocument).with(S.meta, {
+    description:
+      "Filled only when this dialect's document (ignoring $schema) differs from the default no-options emit.",
+  }),
+  "openapi-3.0": S.optional(jsonSchemaDocument).with(S.meta, {
+    description:
+      "Filled only when this dialect's document (ignoring $schema) differs from the default no-options emit.",
+  }),
+})
+  .with(S.strict)
+  .with(S.meta, {
+    description:
+      "Dialect-gated toJSONSchema output, omitted entirely when every listed target matches the default.",
+  });
+export type JsonSchemaTargets = S.Output<typeof jsonSchemaTargets>;
+
 export const specSchema = S.schema({
   ts,
   jsonSchema: S.schema({
@@ -219,21 +262,25 @@ export const specSchema = S.schema({
     }),
     fromInputType: S.optional(S.string).with(S.meta, {
       description:
-        "The output type inferred by S.fromJSONSchema(input), only when it differs from ts.input; omit when equal or when input is a conversion error.",
+        "The type inferred by S.fromJSONSchema(input), only when it differs from ts.input; omit when equal or when input is a conversion error.",
     }),
     output: S.string.with(S.meta, {
       description: "S.toJSONSchema(S.reverse(schema)), as source text, or its conversion error.",
     }),
     fromOutputType: S.optional(S.string).with(S.meta, {
       description:
-        "The output type inferred by S.fromJSONSchema(output), only when it differs from ts.output; omit when equal or when output is a conversion error.",
+        "The type inferred by S.fromJSONSchema(output), only when it differs from ts.output; omit when equal or when output is a conversion error.",
+    }),
+    targets: S.optional(jsonSchemaTargets).with(S.meta, {
+      description:
+        "Per-dialect documents, only for targets whose emit differs from the default draft-07 (no $schema) document. Filled by `spec check --write`.",
     }),
   })
     .with(S.strict)
     .with(S.meta, {
       description:
         "S.toJSONSchema(schema) for both directions, as one-line source text, plus any divergent " +
-        "output type inferred by S.fromJSONSchema for each generated document. Matching types are " +
+        "type inferred by S.fromJSONSchema for each generated document. Matching types are " +
         "omitted; if a direction can't be represented, no round-trip type is recorded. " +
         "Filled by `spec check --write`.",
     }),
@@ -268,6 +315,23 @@ export const OP_BLOCK_KEY_ORDER = keyOrder<OperationExpression>({
   isAsync: true,
   expression: true,
   examples: true,
+});
+export const JSON_SCHEMA_DOCUMENT_KEY_ORDER = keyOrder<JsonSchemaDocument>({
+  input: true,
+  fromInputType: true,
+  output: true,
+  fromOutputType: true,
+});
+export const JSON_SCHEMA_TARGET_KEY_ORDER = keyOrder<JsonSchemaTargets>({
+  "draft-2020-12": true,
+  "openapi-3.0": true,
+});
+export const JSON_SCHEMA_KEY_ORDER = keyOrder<Spec["jsonSchema"]>({
+  input: true,
+  fromInputType: true,
+  output: true,
+  fromOutputType: true,
+  targets: true,
 });
 
 export const isSkip = (v: unknown): v is Skip => S.is(skip, v);

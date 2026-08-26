@@ -7,6 +7,13 @@ ts:
 jsonSchema:
   input: '{ type: "number" }'
   output: '{ type: "string", contentMediaType: "application/json", pattern: "^\\d+$" }'
+  targets:
+    draft-2020-12:
+      input: '{ type: "number", $schema: "https://json-schema.org/draft/2020-12/schema" }'
+      output: '{ type: "string", contentMediaType: "application/json", pattern: "^\\d+$", contentSchema: { type: "number" }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+    openapi-3.0:
+      input: '{ type: "number" }'
+      output: '{ type: "string", pattern: "^\\d+$" }'
 vs:
   zod:
     _skip: not-applicable

@@ -8,6 +8,11 @@ jsonSchema:
   input: '{ type: "object", properties: { selector: { anyOf: [{ type: "string", const: "*" }, { type: "string" }, { items: { type: "string" }, type: "array" }] } } }'
   output: '{ type: "object", properties: { selector: { anyOf: [{ type: "string" }, { items: { type: "string" }, type: "array" }] } }, additionalProperties: false }'
   fromOutputType: "{ selector?: string | string[] | undefined; }"
+  targets:
+    openapi-3.0:
+      input: '{ type: "object", properties: { selector: { anyOf: [{ type: "string", enum: ["*"] }, { type: "string" }, { items: { type: "string" }, type: "array" }] } } }'
+      output: '{ type: "object", properties: { selector: { anyOf: [{ type: "string" }, { items: { type: "string" }, type: "array" }] } }, additionalProperties: false }'
+      fromOutputType: "{ selector?: string | string[] | undefined; }"
 vs:
   zod:
     _skip: not-applicable

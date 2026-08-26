@@ -7,6 +7,10 @@ ts:
 jsonSchema:
   input: '{ type: "integer", minimum: -2147483648, exclusiveMaximum: 5 }'
   output: '{ type: "integer", minimum: -2147483648, exclusiveMaximum: 5 }'
+  targets:
+    openapi-3.0:
+      input: '{ type: "integer", minimum: -2147483648, maximum: 5, exclusiveMaximum: true }'
+      output: '{ type: "integer", minimum: -2147483648, maximum: 5, exclusiveMaximum: true }'
 vs:
   zod: z.int32().lt(5)
 operations:

@@ -7,6 +7,10 @@ ts:
 jsonSchema:
   input: '{ anyOf: [{ type: "string", const: "a" }, { type: "string" }] }'
   output: '{ anyOf: [{ type: "string", const: "a" }, { type: "string" }] }'
+  targets:
+    openapi-3.0:
+      input: '{ anyOf: [{ type: "string", enum: ["a"] }, { type: "string" }] }'
+      output: '{ anyOf: [{ type: "string", enum: ["a"] }, { type: "string" }] }'
 vs:
   zod: z.union([z.literal("a"), z.literal("a"), z.string()])
 operations:

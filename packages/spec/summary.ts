@@ -135,6 +135,12 @@ const specDeltas = (
         behavior,
       );
     }
+    changed(
+      `${id}.jsonSchema.targets`,
+      JSON.stringify(before.jsonSchema?.targets ?? null),
+      JSON.stringify(after.jsonSchema?.targets ?? null),
+      behavior,
+    );
 
     for (const op of OP_ORDER) {
       const b = before.operations[op];

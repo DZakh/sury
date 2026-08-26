@@ -7,6 +7,13 @@ ts:
 jsonSchema:
   input: '{ items: { type: "object", properties: { id: { type: "number" }, name: { type: "string" } }, required: ["id", "name"] }, type: "array" }'
   output: '{ type: "string", contentMediaType: "application/json" }'
+  targets:
+    draft-2020-12:
+      input: '{ items: { type: "object", properties: { id: { type: "number" }, name: { type: "string" } }, required: ["id", "name"] }, type: "array", $schema: "https://json-schema.org/draft/2020-12/schema" }'
+      output: '{ type: "string", contentMediaType: "application/json", contentSchema: { items: { type: "object", properties: { id: { type: "number" }, name: { type: "string" } }, required: ["id", "name"] }, type: "array" }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+    openapi-3.0:
+      input: '{ items: { type: "object", properties: { id: { type: "number" }, name: { type: "string" } }, required: ["id", "name"] }, type: "array" }'
+      output: '{ type: "string" }'
 vs:
   zod:
     _skip: not-applicable
