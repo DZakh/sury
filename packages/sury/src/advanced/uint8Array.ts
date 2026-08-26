@@ -30,7 +30,7 @@ import {
  string
 } from "../primitives";
 import {
- base64,
+ base64Content,
  bytesTarget
 } from "../refinements";
 
@@ -71,7 +71,7 @@ export const uint8Array: Internal = /* @__PURE__ */ initSchema(
   },
   (s) => {
     s.class = Uint8Array;
-    setContent(s, base64);
+    setContent(s, base64Content);
 
     s.encoder = (input, target) => {
       const targetTagFlag = tagFlags[target.type]!;
@@ -84,7 +84,7 @@ export const uint8Array: Internal = /* @__PURE__ */ initSchema(
       // test comes before the string one because a JSON document is a value
       // position without being string-tagged.
       if (target.content !== U && (target.content.bc || !B_readsPayload(target))) {
-        const { format: asFormat, fromBytes } = bytesTarget(target, base64);
+        const { format: asFormat, fromBytes } = bytesTarget(target, base64Content);
         const code = `${B_embed(input, fromBytes)}(${B_readOnce(input)})`;
         // A var when the next stage still runs (jsonString's escape-free splice
         // needs an identifier). The format singleton itself is done: mark output

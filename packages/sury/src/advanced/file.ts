@@ -37,7 +37,7 @@ import {
  string
 } from "../primitives";
 import {
- base64,
+ base64Content,
  bytesTarget
 } from "../refinements";
 
@@ -153,7 +153,7 @@ const binarySchema = (name: string, global: string, nameArg: string): Internal =
       // landed in Node 18 and `File` in Node 20, and a bare one would throw at
       // import.
       s.class = (globalThis as unknown as Record<string, unknown>)[global];
-      setContent(s, base64);
+      setContent(s, base64Content);
       s.jsonSchema = binaryJSONSchema;
       if (s.class === U) {
         unsupported(s, name);
@@ -179,7 +179,7 @@ const binarySchema = (name: string, global: string, nameArg: string): Internal =
         // anything else after a string wants the text they spell, which is also
         // what a format opened by rule 3 is handed.
         if (target.content !== U && (target.content.bc || !B_readsPayload(target))) {
-          const { format: asFormat, fromBytes } = bytesTarget(target, base64);
+          const { format: asFormat, fromBytes } = bytesTarget(target, base64Content);
           const output = read(
             input,
             `.arrayBuffer().then(${B_embed(input, fromArrayBuffer(fromBytes))})`,

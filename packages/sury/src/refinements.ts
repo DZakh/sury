@@ -5,6 +5,7 @@ import {
   arrayTag,
   bigintTag,
   type Check,
+  copySchema,
   initSchema,
   inputExpression,
   instanceTag,
@@ -1020,12 +1021,10 @@ const codecOf = (s: Internal) =>
 const stdTest = /^[A-Za-z0-9+/]*={0,2}$/;
 const urlTest = /^[A-Za-z0-9_-]*$/;
 
-// `S.base64` / `S.base64url` — bytes stored as text. `content` points at the
-// schema itself: this IS how bytes sit in a document. The two alphabets share
-// a payload kind via `bc`, so a link to another bytes carrier is a
-// plain transfer and a link to a JSON document is not (CONTENT_CODEC_SPEC.md).
+// Content node: format refine + `bc`, no recode/utf8 decoder. Carriers pack
+// through this so a File bundle does not ship TextEncoder or alphabet recode.
 // @__NO_SIDE_EFFECTS__
-const bytesTextFormat = (
+const bytesContent = (
   format: StringFormat,
   test: (value: string) => boolean,
   codec: { toBytes: (text: string) => Uint8Array; fromBytes: (bytes: Uint8Array) => string },
@@ -1033,6 +1032,19 @@ const bytesTextFormat = (
   const schema = stringFormat(format, test, true);
   setContent(schema, schema);
   setBytesCodec(schema, codec);
+  return schema;
+};
+
+// `S.base64` / `S.base64url` — bytes stored as text. `content` points at the
+// schema itself: this IS how bytes sit in a document. The two alphabets share
+// a payload kind via `bc`, so a link to another bytes carrier is a
+// plain transfer and a link to a JSON document is not (CONTENT_CODEC_SPEC.md).
+// @__NO_SIDE_EFFECTS__
+const bytesTextFormat = (
+  content: Internal,
+  codec: { toBytes: (text: string) => Uint8Array; fromBytes: (bytes: Uint8Array) => string },
+): Internal => {
+  const schema = copySchema(content);
 
   const differs = (other: Internal): boolean => B_contentDiffers(other.content, schema);
 
@@ -1086,15 +1098,20 @@ const bytesTextFormat = (
   return schema;
 };
 
-export const base64: Internal = /* @__PURE__ */ bytesTextFormat(
+export const base64Content: Internal = /* @__PURE__ */ bytesContent(
   "base64",
   (value) => typeof value === stringTag && value.length % 4 === 0 && stdTest.test(value),
   stdCodec,
 );
 
+export const base64: Internal = /* @__PURE__ */ bytesTextFormat(base64Content, stdCodec);
+
 export const base64url: Internal = /* @__PURE__ */ bytesTextFormat(
-  "base64url",
-  (value) => typeof value === stringTag && value.length % 4 !== 1 && urlTest.test(value),
+  /* @__PURE__ */ bytesContent(
+    "base64url",
+    (value) => typeof value === stringTag && value.length % 4 !== 1 && urlTest.test(value),
+    urlCodec,
+  ),
   urlCodec,
 );
 
