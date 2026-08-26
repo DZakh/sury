@@ -5,21 +5,14 @@
 
 # Sury 🧬
 
-**The fastest schema with next-gen DX.**
+**The fastest schema library for TypeScript, JavaScript and ReScript.**
 
-Describe your data once. Parse it, validate it, transform it, encode it back, and turn it into JSON Schema — all from that one definition, all compiled into a single function.
+Describe your data once. Sury generates JavaScript specialized for exactly that shape, so parsing, encoding back, and JSON Schema all come from that one definition — at the speed of hand-written code.
 
-- ⚡ **Compiled, not interpreted.** Each schema becomes JavaScript written for exactly its shape — the fastest parsing in the ecosystem ([benchmarks](#comparison)). [See the code →](#see-the-code-it-compiles)
-- 🚀 **Encodes JSON faster than `JSON.stringify`** — and throws on the values `JSON.stringify` silently corrupts. [→](#json-serialization-faster-than-jsonstringify)
-- 🔄 **Every schema reverses.** Decode and encode come from the same definition. [→](#transformations-that-reverse-themselves)
-- 🧩 **Every schema is a pipeline stage.** `S.jsonString.with(S.to, eventSchema)` is a schema like any other. [→](#every-schema-is-a-pipeline-stage)
-- 📄 **JSON Schema in both directions** — paste a document in and TypeScript infers the type, `$ref` and recursion included. No codegen step, no `any`. [→](#json-schema-through-the-standard-interface)
-- 🔍 **Types you can read.** You hover `S.Schema<{foo: string}, {foo: string}>`, not the library's internals. [→](#types-you-can-actually-read)
-- 🔤 **The JSON Schema string format vocabulary** — dates, durations, URIs, IRIs, hostnames, IP addresses and JSON Pointers, built in. [JS](https://github.com/DZakh/sury/blob/main/docs/js-usage.md#string-formats) · [ReScript](https://github.com/DZakh/sury/blob/main/docs/rescript-usage.md#string-formats)
-- 🌳 **Small and tree-shakable** — 7.9 kB min+gzip for a schema and a parser. Async, recursive and custom schemas included.
-- 🟨 **Plain JavaScript, TypeScript and ReScript** — no compiler required.
-
-> Formerly known as **ReScript Schema**. It's plain JavaScript — you don't need the ReScript compiler to use it. ReScript users, see the [ReScript docs](https://github.com/DZakh/sury/blob/main/docs/rescript-usage.md).
+- **Fastest in the ecosystem.** Schemas become generated functions, not interpreted trees — [see the code a schema turns into](#the-code-a-schema-turns-into) and the [benchmarks](#comparison).
+- **One definition, both directions.** Every schema decodes and encodes. JSON encoding is [faster than `JSON.stringify`](#json-serialization-faster-than-jsonstringify), and throws on the values `JSON.stringify` silently corrupts.
+- **JSON Schema in and out.** Generate it for OpenAPI, or paste a document in and get a fully typed schema back — `$ref` and recursion included, no codegen, no `any`.
+- **7.9 kB min+gzip** for a schema and a parser. Tree-shakable, with async, recursive and custom schemas — and the [JSON Schema string formats](https://github.com/DZakh/sury/blob/main/docs/js-usage.md#string-formats) built in.
 
 ## Getting started
 
@@ -49,6 +42,8 @@ The API mirrors TypeScript types, so there's not much new syntax to learn.
 
 **Full API reference:** [JS/TS](https://github.com/DZakh/sury/blob/main/docs/js-usage.md) · [ReScript](https://github.com/DZakh/sury/blob/main/docs/rescript-usage.md) · [PPX](https://github.com/DZakh/sury/blob/main/packages/sury-ppx/README.md)
 
+> Formerly published as **rescript-schema**. Sury is plain JavaScript — the ReScript compiler is not involved — with first-class ReScript bindings on the same package.
+
 ## Why Sury
 
 ### Discriminated unions, decoded straight from a JSON string
@@ -75,7 +70,7 @@ switch (event.type) {
 }
 ```
 
-You write `id: S.bigint` — the type you want to work with. A `bigint` can't exist in JSON, so **Sury** infers the `"42"` → `42n` coercion from the input side of the pipeline, in both directions. No `as const`, no coercion wrappers, no second schema for the wire format.
+You write `id: S.bigint` — the type you want to work with. A `bigint` can't exist in JSON, so Sury infers the `"42"` → `42n` coercion from the input side of the pipeline, in both directions. No `as const`, no coercion wrappers, no second schema for the wire format.
 
 Errors point at the field inside the matched variant, not at the union as a whole:
 
@@ -84,9 +79,9 @@ parseEvent('{"type":"user.renamed","id":"42"}');
 // => throws S.Error: Failed at ["name"]: Expected string, received undefined
 ```
 
-### See the code it compiles
+### The code a schema turns into
 
-`parseEvent` isn't an interpreter walking a schema tree. It's a function **Sury** generated for exactly this shape. The union dispatches on the discriminant, the inferred `bigint` coercion is inlined as a bare `BigInt()` call, and `S.jsonString` → union → fields fuse into one pass:
+`parseEvent` isn't an interpreter walking a schema tree. It's a function Sury generated for exactly this shape. The union dispatches on the discriminant, the inferred `bigint` coercion is inlined as a bare `BigInt()` call, and `S.jsonString` → union → fields fuse into one pass:
 
 ```js
 (i) => {
@@ -119,7 +114,7 @@ parseEvent('{"type":"user.renamed","id":"42"}');
 };
 ```
 
-That's why **Sury** tends to outrun not just other libraries, but hand-rolled validation too.
+That's why Sury tends to outrun not just other libraries, but hand-rolled validation too.
 
 ### JSON serialization faster than `JSON.stringify`
 
@@ -170,9 +165,26 @@ JSON.stringify({ price: Infinity });
 
 Faster than `JSON.stringify`, and 3.5× lighter than fast-json-stringify — 16.4 kB against 56.7 kB, encoder included.
 
-### Transformations that reverse themselves
+### Every schema is a pipeline stage, and every pipeline reverses
 
-Rename fields, coerce types, reshape objects — then get the inverse for free:
+`S.jsonString` above wasn't a special "parse JSON" mode. It's an ordinary schema used as a stage, and so are `S.json`, `S.uint8Array`, `S.date`, and every schema you write. There's no fixed menu of `parseJson` / `parseJsonString` / `convertToJson` functions: you describe the data at each step, and Sury generates the code between the steps.
+
+Stages nest, so any field can be its own pipeline:
+
+```ts
+const apiUser = S.schema({
+  // Arrives as JSON text, parsed and validated as an array of addresses
+  addresses: S.jsonString.with(S.to, S.array(addressSchema)),
+  // Arrives as a string, mapped to a Date
+  createdAt: S.string.with(S.to, S.date),
+  // Element-level transforms work the same way
+  ids: S.array(S.string.with(S.to, S.bigint)),
+});
+```
+
+The whole tree still folds into one generated function, so deep pipelines cost nothing at runtime.
+
+And the whole tree runs backwards, too. Rename fields, coerce types, reshape objects — the inverse comes for free:
 
 ```ts
 const userSchema = S.schema({
@@ -191,26 +203,7 @@ S.encoder(userSchema)({ id: 0n, name: "Dmitry" });
 // => { USER_ID: "0", USER_NAME: "Dmitry" }
 ```
 
-Every schema is reversible. `S.reverse` hands you a real schema with `Input` and `Output` swapped — it works with every operation, not just as an encode shortcut.
-
-### Every schema is a pipeline stage
-
-`S.jsonString` above wasn't a special "parse JSON" mode. It's an ordinary schema used as a stage, and so are `S.json`, `S.uint8Array`, `S.date`, and every schema you write. There's no fixed menu of `parseJson` / `parseJsonString` / `convertToJson` functions: you describe the data at each step, and **Sury** compiles the path between them.
-
-Stages nest, so any field can be its own pipeline:
-
-```ts
-const apiUser = S.schema({
-  // Arrives as JSON text, parsed and validated as an array of addresses
-  addresses: S.jsonString.with(S.to, S.array(addressSchema)),
-  // Arrives as a string, mapped to a Date
-  createdAt: S.string.with(S.to, S.date),
-  // Element-level transforms work the same way
-  ids: S.array(S.string.with(S.to, S.bigint)),
-});
-```
-
-The whole tree still folds into one generated function, so deep pipelines cost nothing at runtime.
+`S.reverse` hands you the backwards schema as a real schema — `Input` and `Output` swapped, usable with every operation, not just as an encode shortcut.
 
 Once schemas are stages, layouts that usually need hand-written glue become a single definition. `S.compactColumns` maps columnar arrays to rows, in both directions:
 
@@ -227,9 +220,9 @@ S.encoder(rows)([{ id: 1n, city: "Tbilisi" }, { id: 2n, city: "Batumi" }]);
 
 ### JSON Schema, through the standard interface
 
-**Sury** speaks JSON Schema natively — no converter bolted on top. It goes through the [Standard JSON Schema](https://standardschema.dev/json-schema) extension of the [Standard Schema](https://standardschema.dev/) spec, so tools consume it without special-casing **Sury**.
+Sury speaks JSON Schema natively — no converter bolted on top. It goes through the [Standard JSON Schema](https://standardschema.dev/json-schema) extension of the [Standard Schema](https://standardschema.dev/) spec, so tools consume it without special-casing Sury.
 
-And because **Sury** tracks Input and Output separately, it describes both sides of a transformation:
+And because Sury tracks Input and Output separately, it describes both sides of a transformation:
 
 ```ts
 S.enableStandardJSONSchema();
@@ -315,24 +308,24 @@ else result.error;
 
 ## Integrations
 
-Use **Sury** anywhere a schema is accepted:
+Use Sury anywhere a schema is accepted:
 
 - [tRPC](https://trpc.io/), [TanStack Form](https://tanstack.com/form), [TanStack Router](https://tanstack.com/router), [Hono](https://hono.dev/), and 19+ more via the [Standard Schema](https://standardschema.dev/) spec
 - Anything that speaks [JSON Schema](https://json-schema.org/), via `S.toJSONSchema` / `S.fromJSONSchema`
 
 ## Used by
 
-- [HyperIndex](https://github.com/enviodev/hyperindex) — Envio's blockchain indexing framework, which uses **Sury** to power native high-performance external calls
+- [HyperIndex](https://github.com/enviodev/hyperindex) — Envio's blockchain indexing framework, which uses Sury to power native high-performance external calls
 - [rescript-rest](https://github.com/DZakh/rescript-rest) — RPC-like client, contract, and server implementation for a pure REST API
 - [rescript-envsafe](https://github.com/DZakh/rescript-envsafe) — makes sure you don't accidentally deploy apps with missing or invalid environment variables
 - [rescript-stripe](https://github.com/enviodev/rescript-stripe) — describe and manage Stripe billing in a declarative way with code
 - Internal form library at [Carla](https://www.carla.se/)
 
-Building something with **Sury**? [Let me know](https://x.com/dzakh_dev) and I'll add it here.
+Building something with Sury? [Let me know](https://x.com/dzakh_dev) and I'll add it here.
 
 ## Comparison
 
-**Sury** is the fastest composable validation library in the ecosystem, because schemas are compiled to specialized code with `new Function` rather than interpreted.
+Sury is the fastest composable validation library in the ecosystem, because schemas are compiled to specialized code with `new Function` rather than interpreted.
 
 It's also small. Instead of a few large classes with many methods, the API and source are built from many small, independent functions, each with a single task. A bundler follows your imports and drops everything you don't use, which can cut the shipped size by up to 2× compared to [Zod](https://github.com/colinhacks/zod). (The approach is borrowed from [Valibot](https://github.com/fabian-hiller/valibot), which pioneered it.)
 
@@ -347,7 +340,7 @@ Measured against `sury@11.0.0-rc.1`, `zod@4.4.3`, `typebox@0.34.52`, `valibot@1.
 | **Parse with the same schema**  | 210,061 ops/ms | 9,367 ops/ms | 158,185 ops/ms (no transforms) | 1,970 ops/ms | 106,520 ops/ms |
 | **Create schema & parse once**  | 99 ops/ms      | 11 ops/ms    | 103 ops/ms (no transforms)     | 315 ops/ms   | 11 ops/ms      |
 
-Independent benchmarks and conformance suites that include **Sury**:
+Independent benchmarks and conformance suites that include Sury:
 
 - [typescript-runtime-type-benchmarks](https://moltar.github.io/typescript-runtime-type-benchmarks/) — throughput across the ecosystem
 - [schemabenchmarks.dev](https://schemabenchmarks.dev/) — per-step breakdown: download, initialization, validation, parsing, Standard Schema, codec
@@ -364,7 +357,7 @@ Independent benchmarks and conformance suites that include **Sury**:
 | **Eval-free**                            | ❌                                       | ⭕ opt-out                                | ⭕ opt-in                 | ✅                                                                    | ⭕ opt-out                |
 | **Ecosystem**                            | ⭐️⭐️                                   | ⭐️⭐️⭐️⭐️⭐️                           | ⭐️⭐️⭐️⭐️⭐️           | ⭐️⭐️⭐️                                                             | ⭐️⭐️                    |
 
-**Sury**'s own ecosystem is young, but implementing Standard Schema means the 32+ libraries that support the spec already work with it today.
+Sury's own ecosystem is young, but implementing Standard Schema means the 32+ libraries that support the spec already work with it today.
 
 ## FAQ
 
@@ -372,7 +365,7 @@ Independent benchmarks and conformance suites that include **Sury**:
 
 Yes — that's where the speed comes from. The approach is battle-tested and has no known security issues. It's also how TypeBox, Zod v4 and ArkType work, and even Cloudflare Workers added support for it.
 
-There's currently no eval-free mode, so **Sury** won't run where dynamic code evaluation is forbidden: pages under a strict CSP without `'unsafe-eval'`, some browser extension contexts, and a few restricted edge runtimes. If that's your environment, [Valibot](https://valibot.dev/) is the honest recommendation today.
+There's currently no eval-free mode, so Sury won't run where dynamic code evaluation is forbidden: pages under a strict CSP without `'unsafe-eval'`, some browser extension contexts, and a few restricted edge runtimes. If that's your environment, [Valibot](https://valibot.dev/) is the honest recommendation today.
 
 ### Why "Sury"?
 
@@ -390,7 +383,7 @@ Bug reports, ideas, and pull requests are all welcome — open an [issue](https:
 
 ## Sponsorship
 
-If you're enjoying **Sury** and want to give back, that would be rad!
+If you're enjoying Sury and want to give back, that would be rad!
 
 The free ways help a lot too: star the repo, write about it, or tell someone who's picking a validation library this week.
 
