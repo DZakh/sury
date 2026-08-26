@@ -90,7 +90,7 @@ export const uint8Array: Internal = /* @__PURE__ */ initSchema(
         // needs an identifier). The format singleton itself is done: mark output
         // so the manufactured text is not re-tested.
         if (target === asFormat) {
-          const output = B_next(input, code, asFormat);
+          const output = B_next(input, code, asFormat, asFormat);
           output.io = true;
           return output;
         }
