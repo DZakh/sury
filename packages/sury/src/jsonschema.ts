@@ -821,8 +821,6 @@ const passesSchema = (data: unknown, schema: Internal): boolean => {
 const isJsonObject = (data: unknown): data is Record<string, unknown> =>
   typeof data === "object" && data !== null && !Array.isArray(data);
 
-// JSON Schema equality: numbers compare mathematically (1 === 1.0), objects
-// ignore key order, and true is not 1. `===` already covers the first.
 const jsonEqual = (a: unknown, b: unknown): boolean => {
   if (a === b) return true;
   if (a === null || b === null || typeof a !== "object" || typeof b !== "object") {
@@ -1299,9 +1297,26 @@ export const fromJSONSchema = (
       // constrain one. Derived so the two can't drift, and built here rather
       // than at module scope — a top-level call is a side effect to esbuild,
       // which then pins both arrays into every export's bundle.
-      const candidates = (["type", "enum", "const", "format", "additionalItems"] as string[]).concat(
-        ...keywordTypes.map(([, keywords]) => keywords)
-      );
+      const candidates = (
+        [
+          "type",
+          "enum",
+          "const",
+          "format",
+          "additionalItems",
+          "uniqueItems",
+          "contains",
+          "minContains",
+          "maxContains",
+          "minProperties",
+          "maxProperties",
+          "propertyNames",
+          "patternProperties",
+          "dependentRequired",
+          "dependentSchemas",
+          "dependencies",
+        ] as string[]
+      ).concat(...keywordTypes.map(([, keywords]) => keywords));
       for (let idx = 0; idx < candidates.length; idx++) {
         const keyword = candidates[idx]!;
         const value = (jsonSchema as Record<string, unknown>)[keyword];
@@ -1797,12 +1812,15 @@ export const fromJSONSchema = (
     const deps = jsonSchema.dependencies;
     const keys = Object.keys(deps);
     const required: [string, string[]][] = [];
-    const schemas: [string, Internal][] = [];
+    const schemas: [string, Internal, JSONSchemaDefinition][] = [];
     for (let i = 0; i < keys.length; i++) {
       const key = keys[i]!;
       const dep = deps[key];
       if (Array.isArray(dep)) required.push([key, dep as string[]]);
-      else schemas.push([key, asAssertion(dep as JSONSchemaDefinition, ctx)]);
+      else {
+        const definition = dep as JSONSchemaDefinition;
+        schemas.push([key, asAssertion(definition, ctx), definition]);
+      }
     }
     schema = refineInput(
       schema,
@@ -1823,7 +1841,15 @@ export const fromJSONSchema = (
       },
       "Should pass the dependencies keyword."
     );
-    schema = extendJSONSchema(schema, { dependencies: deps });
+    const rewritten: Record<string, unknown> = {};
+    for (let i = 0; i < required.length; i++) {
+      rewritten[required[i]![0]] = required[i]![1];
+    }
+    for (let i = 0; i < schemas.length; i++) {
+      const [key, nested, definition] = schemas[i]!;
+      rewritten[key] = assertionToJSONDefinition(definition, nested, ctx);
+    }
+    schema = extendJSONSchema(schema, { dependencies: rewritten });
   }
 
   if (jsonSchema.uniqueItems === true) {

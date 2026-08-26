@@ -52,17 +52,15 @@ question rather than a bug.
 
 Sury is not a JSON Schema validator; the suite measures how faithfully
 `S.fromJSONSchema` reproduces JSON Schema semantics. Unsupported assertion
-keywords fail conversion instead of silently widening the schema. Those
-explicit errors account for most uncovered assertions: `patternProperties`,
-`uniqueItems`, `propertyNames`, `dependentRequired`, `min`/`maxProperties`,
-`contains`, and `unevaluated*` are prominent examples.
+keywords fail conversion instead of silently widening the schema. Remaining
+conversion gaps are `unevaluatedProperties` / `unevaluatedItems`, and anything
+that needs resource or dynamic scope.
 
-Local JSON Pointer `$ref`s resolve, including recursive definitions. Anything
-that needs resource or dynamic scope — `$id`, `$anchor`, `$dynamicRef`, a remote
-URI, or a URN — remains outside the supported reference model and generally
-fails conversion. Both required dialects currently have no non-conversion
-mismatches: every uncovered case fails conversion explicitly rather than
-accepting or rejecting data with the wrong semantics.
+Local JSON Pointer `$ref`s resolve, including recursive definitions. `$id`,
+`$anchor`, `$dynamicRef`, a remote URI, or a URN remain outside the supported
+reference model and generally fail conversion. draft2020-12 has one
+non-conversion mismatch: a custom metaschema with no validation vocabulary
+still validates, because Sury is a codec and does not honor `$vocabulary`.
 
 The goldens are a measurement, not a target — nothing here asserts that 100%
 coverage is the goal.
