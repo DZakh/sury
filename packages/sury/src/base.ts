@@ -14,21 +14,11 @@ export type Encoder = (input: Val, target: Internal) => Val;
 
 export type Flag = number;
 
-export const flagNone: Flag = 0;
-export const flagAsync: Flag = 1;
-export const flagDisableNanNumberValidation: Flag = 2;
-// Compile-time context: a custom transform emitted inside a union case must
-// preserve the original exception so union dispatch can distinguish Sury
-// failures (fall through) from foreign exceptions (escape).
-export const flagUnionTransformContext: Flag = 4;
-// flatten: 64
-
-export const flagUnsafeHas = (acc: Flag, flag: Flag): boolean => {
-  return (acc & flag) !== 0;
-}
-
-export const valFlagNone: Flag = 0;
-export const valFlagAsync: Flag = 1;
+// Bit-flag literals (esbuild does not inline named consts). Compile (`g.o` /
+// op flag): 0 none, 1 async, 2 disableNaN, 4 union-transform-context (custom
+// transform inside a union case preserves the original exception so dispatch
+// can distinguish Sury failures from foreign ones), 64 flatten.
+// Val (`Val.f`): 0 none, 1 async.
 
 // ── path ──────────────────────────────────────────────────────────────────────
 
@@ -41,40 +31,34 @@ export const pathDynamic: Path = "[]";
 // quote itself, `\` (an accidental escape reads as a different string), and
 // both line terminators (a SyntaxError inside new Function).
 const inlineUnsafeRe = /["\\\n\r]/;
-export const inlinedValueFromString = (str: string): string => {
-  return inlineUnsafeRe.test(str) ? JSON.stringify(str) : `"${str}"`;
-}
+export const inlinedValueFromString = (str: string): string =>
+  inlineUnsafeRe.test(str) ? JSON.stringify(str) : `"${str}"`;
 
-export const pathFromInlinedLocation = (inlinedLocation: string): Path => {
-  return `[${inlinedLocation}]`;
-}
+// `{__proto__:x}` is [[SetPrototypeOf]], not a data property. Object keys
+// accept IdentifierName, so reserved words (`default`, `class`) unquote too.
+const jsIdentRe = /^[A-Za-z_$][\w$]*$/;
+export const inlinedObjectKey = (key: string): string =>
+  key === "__proto__"
+    ? '["__proto__"]'
+    : jsIdentRe.test(key)
+      ? key
+      : inlinedValueFromString(key);
 
-// @__NO_SIDE_EFFECTS__
-export const pathFromLocation = (location: string): Path => {
-  return `[${inlinedValueFromString(location)}]`;
-}
-
-// @__NO_SIDE_EFFECTS__
-export const pathToArray = (path: Path): string[] => {
-  return path === "" ? [] : (JSON.parse(path.split(`"]["`).join(`","`)) as string[]);
-}
+export const pathFromInlinedLocation = (inlinedLocation: string): Path => `[${inlinedLocation}]`;
 
 // @__NO_SIDE_EFFECTS__
-export const pathFromArray = (array: string[]): Path => {
-  switch (array.length) {
-    case 0:
-      return "";
-    case 1:
-      return pathFromLocation(array[0]!);
-    default:
-      return array.map(pathFromLocation).join("");
-  }
-}
+export const pathFromLocation = (location: string): Path =>
+  `[${inlinedValueFromString(location)}]`;
 
 // @__NO_SIDE_EFFECTS__
-export const pathConcat = (path: Path, concatedPath: Path): Path => {
-  return path + concatedPath;
-}
+export const pathToArray = (path: Path): string[] =>
+  path === "" ? [] : (JSON.parse(path.split(`"]["`).join(`","`)) as string[]);
+
+// @__NO_SIDE_EFFECTS__
+export const pathFromArray = (array: string[]): Path => array.map(pathFromLocation).join("");
+
+// @__NO_SIDE_EFFECTS__
+export const pathConcat = (path: Path, concatedPath: Path): Path => path + concatedPath;
 
 // ── tags ──────────────────────────────────────────────────────────────────────
 
@@ -120,22 +104,9 @@ export const refTag: Tag = "ref";
 // and may not import upwards.
 export const openApi30 = "openapi-3.0";
 
-export const tagFlagUnknown = 1;
-export const tagFlagString = 2;
-export const tagFlagNumber = 4;
-export const tagFlagBoolean = 8;
-export const tagFlagUndefined = 16;
-export const tagFlagNull = 32;
-export const tagFlagObject = 64;
-export const tagFlagArray = 128;
-export const tagFlagUnion = 256;
-export const tagFlagRef = 512;
-export const tagFlagBigint = 1024;
-export const tagFlagNaN = 2048;
-export const tagFlagFunction = 4096;
-export const tagFlagInstance = 8192;
-export const tagFlagSymbol = 16384;
-export const tagFlagNever = 32768;
+// Tag (`tagFlags`): unknown 1, string 2, number 4, boolean 8, undefined 16,
+// null 32, object 64, array 128, union 256, ref 512, bigint 1024, nan 2048,
+// function 4096, instance 8192, symbol 16384, never 32768.
 export const tagFlags: Record<Tag, number> = {
   [unknownTag]: 1,
   [stringTag]: 2,
@@ -168,11 +139,15 @@ export const itemSymbol = /* @__PURE__ */ Symbol(vendor + ":item");
 export type NumberFormat = "int32" | "port" | "integer";
 // Mirrored by `StringFormat` in index.d.ts, which is the surface TS users see —
 // a name added here without being added there is invisible to them, and a third
-// copy lives in `S.res`. Every member but `json` and `cuid` is a JSON Schema
-// format name verbatim, which is what lets jsonschema.ts pass it through in
-// both directions.
+// copy lives in `S.res`. Every member but `json`, `base64`, `base64url` and
+// `cuid` is a JSON Schema format name verbatim, which is what lets jsonschema.ts
+// pass it through in both directions; the content-family members name a keyword
+// of their own (`contentMediaType`, `contentEncoding`) instead, which
+// jsonschema.ts spells out per dialect.
 export type StringFormat =
   | "json"
+  | "base64"
+  | "base64url"
   | "date-time"
   | "email"
   | "uuid"
@@ -194,6 +169,11 @@ export type StringFormat =
   | "relative-json-pointer";
 export type ArrayFormat = "compactColumns";
 export type Format = NumberFormat | StringFormat | ArrayFormat;
+
+export type BytesCodec = {
+  toBytes: (text: string) => Uint8Array;
+  fromBytes: (bytes: Uint8Array) => string;
+};
 
 export type AdditionalItemsMode = "strip" | "strict";
 
@@ -300,6 +280,32 @@ export type Internal = {
   examples?: unknown[];
   default?: unknown;
   format?: Format;
+  // The content axis (CONTENT_CODEC_SPEC.md): the schema this value's payload
+  // is stored as inside a JSON document — base64 text for bytes, the JSON value
+  // itself for a JSON document. Two schemas that agree on it carry the same
+  // kind of payload, so a link between them is a plain transfer; two that
+  // disagree have two readings of it (store the value, or open it) and the
+  // conversion asks instead of guessing. Absent means the value carries no
+  // payload of its own.
+  // Written only through `setContent` (below), which keeps it non-enumerable.
+  content?: Internal;
+  // Bytes-as-text codec on a format singleton (`S.base64`, `S.base64url`).
+  // Presence is the payload *kind* `B_contentDiffers` uses, so the two alphabets
+  // are one family without importing either format into builder.ts. Always read
+  // Carriers look it up off `content.bc`. Copies of a format keep `bc` so
+  // alphabet recoding still sees it. `S.trim` targets `string`, which has none.
+  // Short: this name is in `B_contentDiffers`, which ships in every export.
+  bc?: BytesCodec;
+  // Which reading of a content link the caller wrote, when they wrote one.
+  // `opens` is the reading of the link that converts INTO this schema — `true`
+  // opens the source and hands its payload over, `false` stores its value —
+  // and `opensBack` the same for the reversed chain, where this schema is the
+  // target instead. `reverse` trades the two, the way it trades
+  // parser/serializer, so each direction's slot lands on the node the other
+  // direction reads it from. Absent means the link's shape decides — see
+  // `B_readsPayload` in builder.ts.
+  opens?: boolean;
+  opensBack?: boolean;
   // jsonString splices this value between bare quotes with no escaping, so
   // every value the schema admits must be free of `"`, `\`, controls and lone
   // surrogates. Set it only where that is proven — a pattern whose range
@@ -497,21 +503,14 @@ export const immutableEmptyObject: Record<string, unknown> = Object.create(null)
 // getter. The `typeof === object` guard keeps primitives (passed by
 // `assert`) from throwing on `in` and reproduces the old falsy-on-primitive
 // result.
-export const isSchemaObject = (obj: unknown): boolean => {
-  return typeof obj === objectTag && obj !== null && "~standard" in (obj as object);
-}
+export const isSchemaObject = (obj: unknown): boolean =>
+  typeof obj === objectTag && obj !== null && "~standard" in (obj as object);
 
 export const constField = "const";
-export const isLiteral = (schema: Internal): boolean => {
-  return constField in schema;
-}
+export const isLiteral = (schema: Internal): boolean => constField in schema;
 
-export const isOptional = (schema: Internal): boolean => {
-  return (
-    schema.type === undefinedTag ||
-    (schema.type === anyOfTag && undefinedTag in schema.has!)
-  );
-}
+export const isOptional = (schema: Internal): boolean =>
+  schema.type === undefinedTag || (schema.type === anyOfTag && undefinedTag in schema.has!);
 
 // The constructor name worth printing, or a falsy value for anything a reader
 // would learn nothing from: a plain object, a null prototype, an anonymous
@@ -531,9 +530,9 @@ const namedConstructor = (unknown: unknown): string | undefined | false => {
 const stringifyLeaf = (unknown: unknown): string => {
   const tagFlag = tagFlags[typeof unknown as Tag]!;
 
-  if (flagUnsafeHas(tagFlag, tagFlagUndefined)) {
+  if ((tagFlag & 16)) {
     return undefinedTag;
-  } else if (flagUnsafeHas(tagFlag, (tagFlagObject | tagFlagFunction))) {
+  } else if ((tagFlag & (64 | 4096))) {
     // A named constructor is the whole diagnostic (Date, Map, Foo); anything
     // else is lowercase `object`, naming the value by type the way `string` and
     // `number` do rather than by its `Object` constructor.
@@ -543,9 +542,9 @@ const stringifyLeaf = (unknown: unknown): string => {
       : Array.isArray(unknown)
         ? `Array(${unknown.length})`
         : namedConstructor(unknown) || objectTag;
-  } else if (flagUnsafeHas(tagFlag, tagFlagString)) {
+  } else if ((tagFlag & 2)) {
     return `"${unknown as string}"`;
-  } else if (flagUnsafeHas(tagFlag, tagFlagBigint)) {
+  } else if ((tagFlag & 1024)) {
     return `${unknown as bigint}n`;
   } else {
     return (unknown as { toString: () => string }).toString();
@@ -572,10 +571,10 @@ export const stringify = (unknown: unknown): string => {
       let body = "";
       for (let idx = 0; idx < items.length; idx++) {
         if (idx === 5) {
-          body = body + ", ...";
+          body += ", ...";
           break;
         }
-        body = body + (idx ? ", " : "") + stringifyLeaf(items[idx]);
+        body += (idx ? ", " : "") + stringifyLeaf(items[idx]);
       }
       return `[${body}]`;
     }
@@ -585,10 +584,10 @@ export const stringify = (unknown: unknown): string => {
       let count = 0;
       for (const key in dict) {
         if (count++ === 5) {
-          body = body + "... ";
+          body += "... ";
           break;
         }
-        body = body + key + ": " + stringifyLeaf(dict[key]) + "; ";
+        body += key + ": " + stringifyLeaf(dict[key]) + "; ";
       }
       return body ? `{ ${body}}` : "{}";
     }
@@ -626,7 +625,7 @@ export const inputExpression = (schema: Internal, skipOverride?: boolean): strin
       const expression = inputExpression(anyOf[idx]!);
       if (!seen.has(expression)) {
         seen.add(expression);
-        body = body + (body ? " | " : "") + expression;
+        body += (body ? " | " : "") + expression;
       }
     }
     return body;
@@ -638,10 +637,10 @@ export const inputExpression = (schema: Internal, skipOverride?: boolean): strin
     const additionalItems = schema.additionalItems;
     let body = "";
     for (const location in properties) {
-      body = body + location + ": " + inputExpression(properties[location]!) + "; ";
+      body += location + ": " + inputExpression(properties[location]!) + "; ";
     }
     if (typeof additionalItems === objectTag) {
-      body = body + "[key: string]: " + inputExpression(additionalItems as Internal) + "; ";
+      body += "[key: string]: " + inputExpression(additionalItems as Internal) + "; ";
     }
     return body ? `{ ${body}}` : "{}";
   } else if (schema.type === arrayTag) {
@@ -659,7 +658,7 @@ export const inputExpression = (schema: Internal, skipOverride?: boolean): strin
     const items = schema.items!;
     let body = "";
     for (let idx = 0; idx < items.length; idx++) {
-      body = body + (idx ? ", " : "") + inputExpression(items[idx]!);
+      body += (idx ? ", " : "") + inputExpression(items[idx]!);
     }
     return `[${body}]`;
   } else if (schema.format) {
@@ -704,7 +703,7 @@ export const reversedKey = "r";
 function SelfReverseSchema(this: Internal): void {}
 const selfReversePrototype: Record<string, unknown> = Object.create(schemaPrototype);
 Object.defineProperty(selfReversePrototype, reversedKey, {
-  get: function (this: Internal) {
+  get() {
     return this;
   },
 });
@@ -737,11 +736,8 @@ Object.defineProperty(SuryError.prototype, "name", { value: "SuryError" });
 Object.defineProperty(SuryError.prototype, "s", { value: s });
 
 export const getOrRethrow = (exn: unknown): SuryErrorRecord => {
-  if (exn && (exn as { s?: symbol }).s === s) {
-    return exn as SuryErrorRecord;
-  } else {
-    throw exn;
-  }
+  if (exn && (exn as { s?: symbol }).s === s) return exn as SuryErrorRecord;
+  throw exn;
 }
 
 // Internal invariant/misuse errors (bad schema construction, not input
@@ -751,9 +747,8 @@ export const panic = (message: string): never => {
   throw new Error(`[Sury] ${message}`);
 }
 
-const formatErrorMessage = (error: SuryErrorRecord): string => {
-  return `${error.path === "" ? "" : `Failed at ${error.path}: `}${error.reason}`;
-}
+const formatErrorMessage = (error: SuryErrorRecord): string =>
+  `${error.path === "" ? "" : `Failed at ${error.path}: `}${error.reason}`;
 
 export const errorClass: unknown = SuryError;
 
@@ -770,7 +765,7 @@ export type GlobalConfigOverride = {
 }
 
 export const initialOnAdditionalItems: AdditionalItemsMode = "strip";
-export const initialDefaultFlag: Flag = valFlagNone;
+export const initialDefaultFlag: Flag = 0;
 export const globalConfig: GlobalConfig = {
   m: formatErrorMessage,
   d: U,
@@ -803,9 +798,7 @@ export const baseSchema = (tag: Tag, selfReverse: boolean, decoder: Builder): In
   return schema;
 }
 
-export const noopDecoder: Builder = (input: Val) => {
-  return input;
-}
+export const noopDecoder: Builder = (input: Val) => input;
 
 // Every built-in singleton schema must be a module-level const initialized by
 // a single `/* @__PURE__ */ initSchema(...)` expression: the module system is
@@ -820,8 +813,7 @@ export const initSchema = (
   init?: (schema: Internal) => void
 ): Internal => {
   const schema = baseSchema(tag, true, decoder);
-  init?.(schema);
-  return schema;
+  return init?.(schema), schema;
 }
 
 // Deliberately NOT the `/* @__PURE__ */` form the other singletons use:
@@ -833,13 +825,31 @@ export const unknown: Internal = baseSchema(unknownTag, true, noopDecoder);
 export const copySchema = (schema: Internal): Internal => {
   const c: Internal = Object.assign(new (Schema as unknown as SchemaClass)(), schema);
   c.seq = seq++;
+  // `content` is non-enumerable, so Object.assign skips it — carried by hand
+  // here, which is also the only place that pays for it.
+  if (schema.content !== U) setContent(c, schema.content);
+  if (schema.bc !== U) setBytesCodec(c, schema.bc);
   return c;
+}
+
+// `S.base64` and `S.json` are their own content, and an enumerable
+// self-reference makes `JSON.stringify(schema)` — and every error that embeds
+// one — throw on a cycle. Non-enumerable everywhere rather than only there, so
+// a carrier and its copies agree on the field count `unionIsTransparent` walks.
+export const setContent = (schema: Internal, content: Internal): void => {
+  valueOptions[valKey] = content;
+  Object.defineProperty(schema, "content", valueOptions as PropertyDescriptor);
+}
+
+export const setBytesCodec = (schema: Internal, codec: BytesCodec): void => {
+  valueOptions[valKey] = codec;
+  Object.defineProperty(schema, "bc", valueOptions as PropertyDescriptor);
 }
 
 export const updateOutput = <TValue>(schema: Internal, fn: (schema: Internal) => void): TValue => {
   const root = copySchema(schema);
   let mut = root;
-  while (mut.to !== U) {
+  while (mut.to) {
     const next = copySchema(mut.to);
     mut.to = next;
     mut = next;
@@ -850,7 +860,7 @@ export const updateOutput = <TValue>(schema: Internal, fn: (schema: Internal) =>
 }
 
 export const setHas = (has: Partial<Record<Tag, boolean>>, tag: Tag): void => {
-  has[flagUnsafeHas(tagFlags[tag]!, tagFlagUnion | tagFlagRef) ? unknownTag : tag] = true;
+  has[(tagFlags[tag]! & (256 | 512)) ? unknownTag : tag] = true;
 }
 
 // The JSON Schema pointer prefix. Shared rather than owned by jsonschema.ts:

@@ -30,7 +30,7 @@ operations:
         input: '{ id: "123e4567-e89b-12d3-a456-426614174000", at: "2026-01-15T10:30:00.000Z", note: "say \"hi\"" }'
         output: '"{\"id\":\"123e4567-e89b-12d3-a456-426614174000\",\"at\":\"2026-01-15T10:30:00.000Z\",\"note\":\"say \\\"hi\\\"\"}"'
   encode:
-    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[8](v0);let v1=v0["id"],v2=v0["at"],v3=v0["note"];typeof v1==="string"||e[3](v1);e[1].test(v1)||e[2](v1);typeof v2==="string"||e[6](v2);e[4].test(v2)||e[5](v2);typeof v3==="string"||e[7](v3);return {"id":v1,"at":v2,"note":v3,}}
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[8](v0);let v1=v0["id"],v2=v0["at"],v3=v0["note"];typeof v1==="string"||e[3](v1);e[1].test(v1)||e[2](v1);typeof v2==="string"||e[6](v2);e[4].test(v2)||e[5](v2);typeof v3==="string"||e[7](v3);return {id:v1,at:v2,note:v3}}
     examples:
       valid:
         input: '"{\"id\":\"123e4567-e89b-12d3-a456-426614174000\",\"at\":\"2026-01-15T10:30:00.000Z\",\"note\":\"ok\"}"'

@@ -13,7 +13,7 @@ vs:
   zod: "z.strictObject({ foo: z.string() })"
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["foo"],v1;typeof v0==="string"||e[0](v0);for(v1 in i){if(v1!=="foo"){e[1](v1)}}return i}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["foo"],v1;typeof v0==="string"||e[0](v0);for(v1 in i)if(v1!=="foo")e[1](v1);return i}
     examples:
       valid:
         input: '{ foo: "bar" }'

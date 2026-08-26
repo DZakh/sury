@@ -127,4 +127,5 @@ is codegen, not semantics). It exits non-zero on `acceptance` /
 changelog against a git commit, not the gate. `--seed=N` widens the search.
 
 `CODEC_SPEC.md` is the normative statement of what conversions are legal,
-built-in and custom alike.
+built-in and custom alike; `CONTENT_CODEC_SPEC.md` covers the carrier/format
+pairs where two built-in readings exist (pack/unpack).

@@ -1,11 +1,10 @@
 import {
   baseSchema,
+  copySchema,
   bigintTag,
   booleanTag,
   type Builder,
   type Check,
-  flagDisableNanNumberValidation,
-  flagUnsafeHas,
   initSchema,
   instanceTag,
   type Internal,
@@ -14,22 +13,14 @@ import {
   nullTag,
   numberTag,
   objectTag,
+  setContent,
   stringTag,
   symbolTag,
   type Tag,
-  tagFlagBigint,
-  tagFlagBoolean,
-  tagFlagNaN,
-  tagFlagNull,
-  tagFlagNumber,
   tagFlags,
-  tagFlagString,
-  tagFlagSymbol,
-  tagFlagUndefined,
-  tagFlagUnknown,
   U,
   undefinedTag,
-  type Val,
+  type Val
 } from "./base";
 import {
   _var,
@@ -41,7 +32,7 @@ import {
   B_refine,
   B_unsupportedDecode,
   B_varWithoutAllocation,
-  failInvalidType,
+  failInvalidType
 } from "./builder";
 
 export const int32FormatValidation = (inputVar: string) => {
@@ -80,48 +71,41 @@ export const instanceofCond = (b: Val, class_: unknown) => (inputVar: string): s
 const typeofCheckCache: Record<string, Check> = {};
 const typeofCheck = (tag: Tag): Check =>
   typeofCheckCache[tag] || (typeofCheckCache[tag] = { c: typeofCond(tag), f: failInvalidType });
-const notNanCheck: Check = { c: (inputVar) => `!${nanCond(inputVar)}`, f: failInvalidType };
-const int32Check: Check = { c: int32FormatValidation, f: failInvalidType };
-const integerCheck: Check = { c: integerFormatValidation, f: failInvalidType };
-// For a source that already carries a number format — integer-valued by the
-// NumberFormat invariant — only int32's range is left to check.
-const int32RangeCheck: Check = {
-  c: (inputVar) => `${inputVar}<=2147483647&&${inputVar}>=-2147483648`,
-  f: failInvalidType,
-};
-const nanCheck: Check = { c: nanCond, f: failInvalidType };
-
-// Reject anything but `tag` when the input is still `unknown` — shared by
-// every primitive decoder's unknown-input branch.
-const B_refineTypeofUnknown = (input: Val, tag: Tag): Val => {
-  return B_refine(input, input.e, [typeofCheck(tag)]);
-}
 
 // Allocate a fresh var and start a new Val from it — shared by every
 // primitive decoder that coerces its input into a differently-typed output.
-const B_nextVar = (input: Val, expected: Internal): Val => {
-  const output = B_next(input, B_varWithoutAllocation(input.g), expected);
+const B_nextVar = (input: Val): Val => {
+  const output = B_next(input, B_varWithoutAllocation(input.g), input.e);
   output.v = _var;
   return output;
 }
 
+// Unknown-typeof or self-or-unsupported. Coerce stays in each decoder so this
+// tail is identical at every call and the type-narrow itself can't drift.
+const B_typeDecode = (input: Val, tag: Tag, inputTagFlag: number): Val =>
+  (inputTagFlag & 1)
+    ? B_refine(input, input.e, [typeofCheck(tag)])
+    : (inputTagFlag & tagFlags[tag]!)
+      ? input
+      : B_unsupportedDecode(input, input.s, input.e);
+
 export const numberDecoder: Builder = (input: Val) => {
   const inputTagFlag = tagFlags[input.s.type]!;
   const expectedFormat = input.e.format;
-  if (flagUnsafeHas(inputTagFlag, tagFlagUnknown)) {
+  if ((inputTagFlag & 1)) {
     const checks: Check[] = [typeofCheck(numberTag)];
     if (expectedFormat === "int32") {
-      checks.push(int32Check);
+      checks.push({ c: int32FormatValidation, f: failInvalidType });
     } else if (expectedFormat === "integer") {
-      checks.push(integerCheck);
+      checks.push({ c: integerFormatValidation, f: failInvalidType });
     } else {
-      if (!flagUnsafeHas(input.g.o, flagDisableNanNumberValidation)) {
-        checks.push(notNanCheck);
+      if (!(input.g.o & 2)) {
+        checks.push({ c: (inputVar) => `${inputVar}===${inputVar}`, f: failInvalidType });
       }
     }
     return B_refine(input, input.e, checks);
-  } else if (flagUnsafeHas(inputTagFlag, tagFlagString)) {
-    const output = B_nextVar(input, input.e);
+  } else if ((inputTagFlag & 2)) {
+    const output = B_nextVar(input);
     // Own the `+input` coercion (decl included) in codeFromPrev so it's
     // non-hoistable: feeding a union dispatch (e.g. str->to(option(int))) can't
     // lift the type-narrow check below above its `let v0=+i`.
@@ -134,29 +118,38 @@ export const numberDecoder: Builder = (input: Val) => {
             ? int32FormatValidation(output.i)
             : expectedFormat === "integer"
               ? integerFormatValidation(output.i)
-              : `!${nanCond(output.i)}`,
+              : `${output.i}===${output.i}`,
         f: failInvalidType,
       },
     ];
     return output;
   } else if (
-    flagUnsafeHas(inputTagFlag, tagFlagNaN) &&
+    (inputTagFlag & 2048) &&
     expectedFormat !== "int32" &&
     expectedFormat !== "integer" &&
-    flagUnsafeHas(input.g.o, flagDisableNanNumberValidation)
+    (input.g.o & 2)
   ) {
     return B_refine(input, input.e);
-  } else if (!flagUnsafeHas(inputTagFlag, tagFlagNumber)) {
-    return B_unsupportedDecode(input, input.s, input.e);
-  } else if (input.s.format !== expectedFormat && expectedFormat === "int32") {
-    return B_refine(input, input.e, [input.s.format === U ? int32Check : int32RangeCheck]);
-  } else if (expectedFormat === "integer" && input.s.format === U) {
-    // Any formatted number source is already integer-valued (the NumberFormat
-    // invariant), so only a bare number still needs the check.
-    return B_refine(input, input.e, [integerCheck]);
-  } else {
-    return input;
+  } else if ((inputTagFlag & 4)) {
+    if (input.s.format !== expectedFormat && expectedFormat === "int32") {
+      // Formatted number sources are already integer-valued (the NumberFormat
+      // invariant); only int32's range is left to check.
+      return B_refine(input, input.e, [
+        input.s.format === U
+          ? { c: int32FormatValidation, f: failInvalidType }
+          : {
+              c: (inputVar) => `${inputVar}<=2147483647&&${inputVar}>=-2147483648`,
+              f: failInvalidType,
+            },
+      ]);
+    }
+    if (expectedFormat === "integer" && input.s.format === U) {
+      // Any formatted number source is already integer-valued (the NumberFormat
+      // invariant), so only a bare number still needs the check.
+      return B_refine(input, input.e, [{ c: integerFormatValidation, f: failInvalidType }]);
+    }
   }
+  return B_typeDecode(input, numberTag, inputTagFlag);
 };
 
 export const float: Internal = /* @__PURE__ */ initSchema(numberTag, numberDecoder);
@@ -185,13 +178,8 @@ export const inputToString = (input: Val): Val => {
 }
 export const stringDecoderFn = (input: Val): Val => {
   const inputTagFlag = tagFlags[input.s.type]!;
-  if (flagUnsafeHas(inputTagFlag, tagFlagUnknown)) {
-    return B_refineTypeofUnknown(input, stringTag);
-  } else if (
-    flagUnsafeHas(
-      inputTagFlag,
-      tagFlagBoolean | tagFlagNumber | tagFlagBigint | tagFlagUndefined | tagFlagNull | tagFlagNaN,
-    ) && isLiteral(input.s)
+  if (
+    (inputTagFlag & (8 | 4 | 1024 | 16 | 32 | 2048)) && isLiteral(input.s)
   ) {
     const const_ = "" + (input.s.const as string);
     // The stringified literal is still a literal, so it wants `literalDecoder`
@@ -203,68 +191,62 @@ export const stringDecoderFn = (input: Val): Val => {
     const schema = baseSchema(stringTag, false, input.s.decoder);
     schema.const = const_;
     return B_next(input, `"${const_}"`, schema);
-  } else if (flagUnsafeHas(inputTagFlag, tagFlagBoolean | tagFlagNumber | tagFlagBigint)) {
-    return inputToString(input);
-  } else if (!flagUnsafeHas(inputTagFlag, tagFlagString)) {
-    return B_unsupportedDecode(input, input.s, input.e);
-  } else {
-    return input;
   }
+  if ((inputTagFlag & (8 | 4 | 1024))) {
+    return inputToString(input);
+  }
+  return B_typeDecode(input, stringTag, inputTagFlag);
 }
 export const string: Internal = /* @__PURE__ */ initSchema(stringTag, stringDecoderFn);
 
+// The text a carrier hands over when it is opened (CONTENT_CODEC_SPEC.md rule
+// 3), carrying what document it claims to be. That marker is what lets the
+// format parse the text instead of escaping it, without every other string
+// being read as a document too — and the text still gets checked, because
+// nothing has looked at it yet.
+// @__NO_SIDE_EFFECTS__
+export const openedText = (format: Internal): Internal => {
+  const opened = copySchema(string);
+  setContent(opened, format.content!);
+  return opened;
+};
+
 export const booleanDecoder: Builder = (input: Val) => {
   const inputTagFlag = tagFlags[input.s.type]!;
-  if (flagUnsafeHas(inputTagFlag, tagFlagUnknown)) {
-    return B_refineTypeofUnknown(input, booleanTag);
-  } else if (flagUnsafeHas(inputTagFlag, tagFlagString)) {
-    const output = B_nextVar(input, input.e);
+  if ((inputTagFlag & 2)) {
+    const output = B_nextVar(input);
     const inputVar = input.v();
     output.cp = `let ${output.i};(${output.i}=${inputVar}==="true")||${inputVar}==="false"||${B_embedInvalidInput(
       input,
     )};`;
     return output;
-  } else if (!flagUnsafeHas(inputTagFlag, tagFlagBoolean)) {
-    return B_unsupportedDecode(input, input.s, input.e);
-  } else {
-    return input;
   }
+  return B_typeDecode(input, booleanTag, inputTagFlag);
 };
 
 export const bool: Internal = /* @__PURE__ */ initSchema(booleanTag, booleanDecoder);
 
 export const bigintDecoder: Builder = (input: Val) => {
   const inputTagFlag = tagFlags[input.s.type]!;
-
-  if (flagUnsafeHas(inputTagFlag, tagFlagUnknown)) {
-    return B_refineTypeofUnknown(input, bigintTag);
-  } // TODO: Skip formats which 100% don't match
-  else if (flagUnsafeHas(inputTagFlag, tagFlagString)) {
-    const output = B_nextVar(input, input.e);
+  // TODO: Skip formats which 100% don't match
+  if ((inputTagFlag & 2)) {
+    const output = B_nextVar(input);
     output.cp = `let ${output.i};try{${output.i}=BigInt(${input.v()})}catch(_){${B_embedInvalidInput(
       input,
     )}}`;
     return output;
-  } else if (flagUnsafeHas(inputTagFlag, tagFlagNumber)) {
-    return B_next(input, `BigInt(${input.i})`, input.e);
-  } else if (!flagUnsafeHas(inputTagFlag, tagFlagBigint)) {
-    return B_unsupportedDecode(input, input.s, input.e);
-  } else {
-    return input;
   }
+  if ((inputTagFlag & 4)) {
+    return B_next(input, `BigInt(${input.i})`, input.e);
+  }
+  return B_typeDecode(input, bigintTag, inputTagFlag);
 };
 
 export const bigint: Internal = /* @__PURE__ */ initSchema(bigintTag, bigintDecoder);
 
 export const symbolDecoder: Builder = (input: Val) => {
   const inputTagFlag = tagFlags[input.s.type]!;
-  if (flagUnsafeHas(inputTagFlag, tagFlagUnknown)) {
-    return B_refineTypeofUnknown(input, symbolTag);
-  } else if (!flagUnsafeHas(inputTagFlag, tagFlagSymbol)) {
-    return B_unsupportedDecode(input, input.s, input.e);
-  } else {
-    return input;
-  }
+  return B_typeDecode(input, symbolTag, inputTagFlag);
 };
 
 export const symbol: Internal = /* @__PURE__ */ initSchema(symbolTag, symbolDecoder);
@@ -283,11 +265,8 @@ export const literalDecoder: Builder = (input: Val) => {
     const schemaTagFlag = tagFlags[expectedSchema.type]!;
 
     if (
-      flagUnsafeHas(tagFlags[input.s.type]!, tagFlagString) &&
-      flagUnsafeHas(
-        schemaTagFlag,
-        tagFlagBoolean | tagFlagNumber | tagFlagBigint | tagFlagUndefined | tagFlagNull | tagFlagNaN,
-      )
+      (tagFlags[input.s.type]! & 2) &&
+      (schemaTagFlag & (8 | 4 | 1024 | 16 | 32 | 2048))
     ) {
       const stringConstSchema = baseSchema(stringTag, false, literalDecoder);
       stringConstSchema.const = "" + (expectedSchema.const as string);
@@ -302,8 +281,8 @@ export const literalDecoder: Builder = (input: Val) => {
       ];
 
       return B_nextConst(stringConstVal, expectedSchema, expectedSchema);
-    } else if (flagUnsafeHas(schemaTagFlag, tagFlagNaN)) {
-      return B_refine(input, expectedSchema, [nanCheck]);
+    } else if ((schemaTagFlag & 2048)) {
+      return B_refine(input, expectedSchema, [{ c: nanCond, f: failInvalidType }]);
     } else {
       return B_refine(input, expectedSchema, [
         {

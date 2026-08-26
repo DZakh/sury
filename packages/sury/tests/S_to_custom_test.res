@@ -36,6 +36,17 @@ asyncTest("Parses with an async decode to another type", async t => {
 test("A never decode rejects the parse operation at creation", t => {
   let schema = S.string->S.to(S.any, ~custom={decode: Never, encode: Sync(value => value)})
 
+  // The target converting on its own is the case a reading exists for, so the
+  // output-seam guard has to let one past: it places no coder to claim a result.
+  let carried = S.uint8Array->S.to(
+    S.jsonString->S.to(S.string),
+    ~custom={decode: Unpack, encode: Pack},
+  )
+  t->Assert.deepEqual(
+    %raw(`new TextEncoder().encode('"hi"')`)->S.parseOrThrow(~to=carried),
+    "hi",
+  )
+
   t->U.assertThrowsMessage(
     () => "Hello world!"->S.parseOrThrow(~to=schema),
     `Can't decode string to unknown. The conversion is marked as never`,
@@ -417,4 +428,20 @@ test("Refines the coder's result, not what went into it", t => {
     ->S.decodeOrThrow(~from=schema, ~to=S.unknown)
     ->ignore
   , `Expected uuid, received "not-a-uuid"`)
+})
+
+test("Picks a reading for a content link the way the ambiguity report says to", t => {
+  // The report names `"pack"`/`"unpack"`, so the binding has to offer them —
+  // without Pack/Unpack the remedy it points at is unwritable from ReScript.
+  let packed = S.base64->S.to(S.jsonString, ~custom={decode: Pack, encode: Unpack})
+  t->Assert.deepEqual("aGk="->S.parseOrThrow(~to=packed), `"aGk="`)
+  t->Assert.deepEqual(`"aGk="`->S.decodeOrThrow(~from=packed, ~to=S.base64), "aGk=")
+
+  let opened = S.base64->S.to(S.jsonString, ~custom={decode: Unpack, encode: Pack})
+  t->Assert.deepEqual(`eyJhIjoxfQ==`->S.parseOrThrow(~to=opened), `{"a":1}`)
+
+  t->U.assertThrowsMessage(
+    () => "aGk="->S.parseOrThrow(~to=S.base64->S.to(S.jsonString))->ignore,
+    `Ambiguous conversion from base64 to JSON string. Use S.to(from, to, "unpack" | "pack")`,
+  )
 })

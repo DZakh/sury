@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.base64
+  input: string
+  output: string
+  instantiations: 254
+jsonSchema:
+  input: '{ type: "string", contentEncoding: "base64" }'
+  output: '{ type: "string", contentEncoding: "base64" }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0](i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"ZGF0YQ=="'
+        output: '"ZGF0YQ=="'
+      empty:
+        input: '""'
+        output: '""'
+      no-padding:
+        input: '"aGk"'
+        error: Expected base64, received "aGk"
+      one-pad:
+        input: '"aGkh"'
+        output: '"aGkh"'
+      binary:
+        input: '"iVBORw=="'
+        output: '"iVBORw=="'
+      stray-char:
+        input: '"ZG!0YQ=="'
+        error: Expected base64, received "ZG!0YQ=="
+      dangling-char:
+        input: '"ZGF0YQ=A"'
+        error: Expected base64, received "ZGF0YQ=A"
+      url-alphabet:
+        input: '"a-b_c=="'
+        error: Expected base64, received "a-b_c=="
+      not-a-string:
+        input: "42"
+        error: Expected base64, received 42
+  decode:
+    expression: i=>{e[0](i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"ZGF0YQ=="'
+        output: '"ZGF0YQ=="'
+  encode:
+    expression: i=>{e[0](i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"ZGF0YQ=="'
+        output: '"ZGF0YQ=="'

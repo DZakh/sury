@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.base64.with(S.to, S.jsonString)
+  input: string
+  output: string
+  instantiations: 5175
+jsonSchema:
+  input: '{ type: "string", contentEncoding: "base64" }'
+  output: '{ type: "string", contentMediaType: "application/json" }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: 'SuryError: Ambiguous conversion from base64 to JSON string. Use S.to(from, to, "unpack" | "pack")'
+  decode: eq-to-parse
+  encode: eq-to-parse

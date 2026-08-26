@@ -11,7 +11,7 @@ vs:
   zod: "z.object({ a: z.boolean() }).optional()"
 operations:
   parse:
-    expression: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i["a"];typeof v0==="boolean"||e[0](v0);i={"a":v0,};break}if(i===void 0)break;e[1](i)}return i}
+    expression: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i["a"];typeof v0==="boolean"||e[0](v0);i={a:v0};break}if(i===void 0)break;e[1](i)}return i}
     examples:
       object:
         input: "{ a: true }"

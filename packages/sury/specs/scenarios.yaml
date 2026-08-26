@@ -60,3 +60,20 @@ encoder-lookup:
     const schema = S.schema({ id: S.string, age: S.number.with(S.to, S.string) });
   # Same, through `reverse` — a second cache on a second schema.
   run: S.encoder(schema)
+
+base64-pack:
+  prepare: |
+    const encode = S.encoder(S.schema({ payload: S.uint8Array }), S.jsonString);
+    const data = { payload: new Uint8Array(1024).fill(137) };
+  # Bytes in a JSON value position. Where the runtime has no
+  # `Uint8Array.prototype.toBase64` the fallback builds an intermediate binary
+  # string per value, so this is the size the packing actually costs.
+  run: encode(data)
+
+base64-unpack:
+  prepare: |
+    const decode = S.decoder(S.jsonString, S.schema({ payload: S.uint8Array }));
+    const data = JSON.stringify({ payload: "aVBORw0KGgoA".repeat(128) });
+  # The other half: the base64 read plus the pattern check that lets it skip a
+  # `try` around `atob`.
+  run: decode(data)

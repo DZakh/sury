@@ -12,7 +12,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{for(;;){let r;if(typeof i==="string"&&i==="apple")break;if(typeof i==="string"){try{let v0;try{v0=e[0](i)}catch(x){e[1](x);e[2](x)}typeof v0==="number"&&!Number.isNaN(v0)||e[3](v0);i=v0;break}catch(x){(r||(r=[])).push(e[4](x))}break}e[5](i,...(r||[]))}return i}
+    expression: i=>{for(;;){let r;if(typeof i==="string"&&i==="apple")break;if(typeof i==="string"){try{let v0;try{v0=e[0](i)}catch(x){e[1](x);e[2](x)}typeof v0==="number"&&v0===v0||e[3](v0);i=v0;break}catch(x){(r||(r=[])).push(e[4](x))}break}e[5](i,...(r||[]))}return i}
     examples:
       literal-claims-its-value:
         input: '"apple"'
@@ -28,7 +28,7 @@ operations:
         error: Expected "apple" | string, received 42
   decode: eq-to-parse
   encode:
-    expression: i=>{for(;;){if(typeof i==="number"&&!Number.isNaN(i)){let v0;try{v0=e[0](i)}catch(x){e[1](x);e[2](x)}typeof v0==="string"||e[3](v0);i=v0;break}if(typeof i==="string")break;e[4](i)}return i}
+    expression: i=>{for(;;){if(typeof i==="number"&&i===i){let v0;try{v0=e[0](i)}catch(x){e[1](x);e[2](x)}typeof v0==="string"||e[3](v0);i=v0;break}if(typeof i==="string")break;e[4](i)}return i}
     examples:
       number-back-to-string:
         input: "42"
