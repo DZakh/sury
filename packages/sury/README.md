@@ -5,14 +5,13 @@
 
 # Sury 🧬
 
-**The fastest schema library for TypeScript and ReScript.**
+**The batteries-included schema library for TypeScript and ReScript.**
 
-Describe your data once. Sury generates JavaScript specialized for exactly that shape, so parsing, encoding back, and JSON Schema all come from that one definition.
+Declare your data once, as a pipeline — wire format on one side, the types you work with on the other. Sury derives the decoder, the encoder, and the JSON Schema from that one declaration, and JIT-specializes each into a function written for exactly your shape.
 
-- **Generated, not interpreted.** Each schema becomes a function built with `new Function` for exactly its shape — [see the code](#the-code-a-schema-turns-into), the [benchmarks](#comparison), and [the tradeoff](#does-it-really-use-new-function).
-- **One definition, both directions.** Every schema decodes and encodes. JSON encoding is [faster than `JSON.stringify`](#json-serialization-faster-than-jsonstringify), and throws on the values `JSON.stringify` silently corrupts.
-- **JSON Schema in and out.** Generate it for OpenAPI, or paste a document in and get a fully typed schema back — `$ref` and recursion included, no codegen, no `any`.
-- **7.9 kB min+gzip** for a schema and a parser. Tree-shakable, with async, recursive and custom schemas — and the [JSON Schema string formats](https://github.com/DZakh/sury/blob/main/docs/js-usage.md#string-formats) built in.
+- **Declarative pipelines, both directions.** `S.jsonString.with(S.to, eventSchema)` decodes in and encodes out — no second schema for the wire format, and [JSON encoding faster than `JSON.stringify`](#json-serialization-faster-than-jsonstringify).
+- **JIT-specialized, not interpreted.** The fastest parsing in the ecosystem — [see the code a schema turns into](#the-code-a-schema-turns-into) and the [benchmarks](#comparison). It runs on `new Function`: [here's why you shouldn't worry](#does-it-really-use-new-function).
+- **Batteries included.** [JSON Schema in and out](#json-schema-in-and-out) — `$ref`, recursion, no codegen, no `any` — plus the [string formats](https://github.com/DZakh/sury/blob/main/docs/js-usage.md#string-formats), async and custom schemas, in 7.9 kB min+gzip for a schema and a parser, tree-shakable.
 
 ## Getting started
 
@@ -28,7 +27,7 @@ const playerSchema = S.schema({
   xp: S.number,
 });
 
-// Generates the function once — call it as many times as you like
+// Create the function once, call it as many times as you like
 const parsePlayer = S.parser(playerSchema);
 
 parsePlayer({ username: "billie", xp: 100 });
@@ -73,7 +72,7 @@ switch (event.type) {
 }
 ```
 
-`S.decoder(from, to)` generates the function that converts between two schemas — `S.parser(schema)` from the previous example is just `S.decoder(S.unknown, schema)`.
+`S.decoder(from, to)` creates the function that converts between two schemas — `S.parser(schema)` from the previous example is just `S.decoder(S.unknown, schema)`.
 
 You write `id: S.bigint` — the type you want to work with. A `bigint` can't exist in JSON, so Sury infers the `"42"` → `42n` coercion from the input side of the pipeline, in both directions. No `as const`, no coercion wrappers, no second schema for the wire format. And the coercion belongs to this chain, not to `S.bigint`: a plain `S.parser(eventSchema)` expects a real `bigint` and rejects `"42"`.
 
@@ -86,7 +85,7 @@ parseEvent('{"type":"user.renamed","id":"42"}');
 
 ### The code a schema turns into
 
-`parseEvent` isn't an interpreter walking a schema tree. It's a function Sury generated for exactly this shape. The union dispatches on the discriminant, the inferred `bigint` coercion is inlined as a bare `BigInt()` call, and `S.jsonString` → union → fields fuse into one pass:
+`parseEvent` isn't an interpreter walking a schema tree. It's a function Sury specialized for exactly this shape. The union dispatches on the discriminant, the inferred `bigint` coercion is inlined as a bare `BigInt()` call, and `S.jsonString` → union → fields fuse into one pass:
 
 ```js
 (i) => {
@@ -172,7 +171,7 @@ Faster than `JSON.stringify`, and 3.5× lighter than fast-json-stringify — 16.
 
 ### Chain schemas into pipelines, get the inverse for free
 
-`S.jsonString` above is an ordinary schema used as a stage — so are `S.json`, `S.uint8Array`, `S.date`, and every schema you write. There's no fixed menu of `parseJson` / `parseJsonString` / `convertToJson` functions: you describe the data at each step, and Sury generates the code between the steps.
+`S.jsonString` above is an ordinary schema used as a stage — so are `S.json`, `S.uint8Array`, `S.date`, and every schema you write. There's no fixed menu of `parseJson` / `parseJsonString` / `convertToJson` functions: you describe the data at each step, and Sury fills in the code between them.
 
 Inside a schema, a stage chains with `schema.with(S.to, target)` — `.with` applies an operation to a schema and returns a new schema. Stages nest, so any field can be its own pipeline:
 
@@ -187,7 +186,7 @@ const apiUser = S.schema({
 });
 ```
 
-The whole tree still folds into one generated function — no per-stage overhead.
+The whole tree still folds into one specialized function — no per-stage overhead.
 
 And the whole tree runs backwards, too. Rename fields with `S.shape`, coerce with `S.to`, and the inverse is derived automatically:
 
@@ -315,7 +314,7 @@ else result.error;
 
 ## Comparison
 
-Sury is the fastest composable validation library in the ecosystem, because schemas are compiled to specialized code with `new Function` rather than interpreted.
+Sury is the fastest composable validation library in the ecosystem, because schemas are JIT-specialized with `new Function` rather than interpreted.
 
 It's also small. Instead of a few large classes with many methods, the API and source are built from many small, independent functions, each with a single task. A bundler follows your imports and drops everything you don't use, which can cut the shipped size by up to 2× compared to [Zod](https://github.com/colinhacks/zod). (The approach is borrowed from [Valibot](https://github.com/fabian-hiller/valibot), which pioneered it.)
 
@@ -378,7 +377,7 @@ There's currently no eval-free mode, so Sury won't run where dynamic code evalua
 
 ### Why "Sury"?
 
-It's short, it's pronounceable, and the 🧬 fits: a schema is the DNA of your data — one definition that everything else is generated from.
+It's short, it's pronounceable, and the 🧬 fits: a schema is the DNA of your data — one definition that everything else is derived from.
 
 ## Resources
 
