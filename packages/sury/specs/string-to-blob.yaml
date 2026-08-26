@@ -25,7 +25,7 @@ operations:
         error: boom
   encode:
     isAsync: true
-    expression: i=>{let v0;try{v0=i.text().catch(x=>e[0](x))}catch(x){e[0](x)}return v0}
+    expression: i=>{let v0;try{v0=i.text().catch(e[0])}catch(x){e[0](x)}return v0}
     examples:
       reads-the-text:
         input: new Blob(["hi"])

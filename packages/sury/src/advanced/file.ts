@@ -20,12 +20,12 @@ import {
 import {
   B_computed,
   B_embed,
-  B_failWithArg,
   B_makeInvalidConversionDetails,
   B_markAsync,
   B_next,
   B_readOnce,
   B_readsPayload,
+  B_throw,
   B_unsupportedDecode
 } from "../builder";
 import type { JSONSchemaT } from "../jsonschema";
@@ -94,18 +94,16 @@ const read = (input: Val, call: string, schema: Internal): Val => {
   // convention's: a Sury error is what an enclosing object stamps a path onto,
   // so a rejection under `S.optional(…)` arrives raw where the same field
   // required arrives at `["a"]`. Wrapping it back is what the fall-through was.
-  const failure = input.g.o & 4
+  const failFn = input.g.o & 4
     ? U
-    : B_failWithArg(
-        input,
-        (cause: unknown) => B_makeInvalidConversionDetails(input, schema, cause),
-        `x`,
-      );
+    : B_embed(input, (cause: unknown) => {
+        B_throw(B_makeInvalidConversionDetails(input, schema, cause));
+      });
   const output = B_computed(
     input,
-    `${B_readOnce(input)}${call}${failure === U ? `` : `.catch(x=>${failure})`}`,
+    `${B_readOnce(input)}${call}${failFn === U ? `` : `.catch(${failFn})`}`,
     schema,
-    failure,
+    failFn === U ? U : `${failFn}(x)`,
   );
   B_markAsync(input, output);
   return output;
