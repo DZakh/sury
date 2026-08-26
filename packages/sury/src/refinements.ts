@@ -1022,6 +1022,16 @@ const recodeText =
   (text: string) =>
     fromBytes(toBytes(text));
 
+const utf8ToFormat = (fromBytes: (bytes: Uint8Array) => string) => {
+  const encode = new TextEncoder();
+  return (text: string) => fromBytes(encode.encode(text));
+};
+
+const formatToUtf8 = (toBytes: (text: string) => Uint8Array) => {
+  const decode = new TextDecoder();
+  return (text: string) => decode.decode(toBytes(text));
+};
+
 // A length check plus one flat scan, rather than the canonical
 // `(?:[A-Za-z0-9+/]{4})*(?:…==|…=)?` — the four-at-a-time group backtracks per
 // quantum and costs about twice as much on a payload-sized string, which is
@@ -1070,9 +1080,7 @@ const bytesTextFormat = (
     if (differs(input.s) && input.s.to !== U) {
       const output = B_next(
         input,
-        `${B_embed(input, codec.fromBytes)}(${B_embed(input, new TextEncoder())}.encode(${B_readOnce(
-          input,
-        )}))`,
+        `${B_embed(input, utf8ToFormat(codec.fromBytes))}(${B_readOnce(input)})`,
         schema,
       );
       output.io = true;
@@ -1095,9 +1103,7 @@ const bytesTextFormat = (
     return differs(target) && B_readsPayload(target)
       ? B_computed(
           input,
-          `${B_embed(input, new TextDecoder())}.decode(${B_embed(input, codec.toBytes)}(${B_readOnce(
-            input,
-          )}))`,
+          `${B_embed(input, formatToUtf8(codec.toBytes))}(${B_readOnce(input)})`,
           openedText(target)
         )
       : input;
