@@ -1119,12 +1119,12 @@ S.encoder(S.schema({ payload: S.uint8Array }), S.jsonString)({
 
 ### A JWT segment
 
-Parse the base64 text as JSON, then as the object.
+JWT segments are base64url. Parse the text as JSON, then as the object.
 
 ```ts
 S.parser(
-  S.base64.with(S.to, S.jsonString.with(S.to, S.schema({ sub: S.string }))),
-)("eyJzdWIiOiJhIn0=");
+  S.base64url.with(S.to, S.jsonString.with(S.to, S.schema({ sub: S.string }))),
+)("eyJzdWIiOiJhIn0");
 // { sub: "a" }
 ```
 

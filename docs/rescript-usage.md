@@ -1257,11 +1257,11 @@ A field of bytes is written as base64. You do not pass Pack or Unpack.
 
 #### A JWT segment
 
-Parse the base64 text as JSON, then as the object.
+JWT segments are base64url. Parse the text as JSON, then as the object.
 
 ```rescript
-"eyJzdWIiOiJhIn0="->S.parseOrThrow(
-  ~to=S.base64->S.to(
+"eyJzdWIiOiJhIn0"->S.parseOrThrow(
+  ~to=S.base64url->S.to(
     S.jsonString->S.to(S.schema(s => {sub: s.matches(S.string)})),
   ),
 )
