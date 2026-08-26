@@ -2058,9 +2058,6 @@ test("Uint8Array", (t) => {
     `i=>{i instanceof e[2]||e[3](i);return e[1](e[0].decode(i))}`,
   );
 
-  // As an object field: jsonString's fallback asks the field's own schema for
-  // the string conversion, since uint8Array only performs it when it is
-  // itself the target. The uint8Array spec covers the schema in isolation.
   const withField = S.schema({ payload: S.uint8Array });
   t.expect(
     S.encoder(withField, S.jsonString)({ payload: new TextEncoder().encode("hi") }),

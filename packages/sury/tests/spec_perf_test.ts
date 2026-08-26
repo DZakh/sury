@@ -61,9 +61,6 @@ test("a constant schema contributes no creation targets", () => {
   ]);
 });
 
-// One target per outcome carrying every example of it, rather than one target
-// per example: the same coverage for a third of the child processes, and no
-// example has to be elected to represent the rest.
 test("an example with bench true is measured alone, not aggregated with its outcome", () => {
   const real = targetsFor("union-large-planner").targets.filter((t) => !t.control && t.phase === "run");
   expect(real.map((t) => t.name)).toEqual([
@@ -81,6 +78,9 @@ test("an example with bench true is measured alone, not aggregated with its outc
   ]);
 });
 
+// One target per outcome carrying every example of it, rather than one target
+// per example: the same coverage for a third of the child processes, and no
+// example has to be elected to represent the rest.
 test("an operation's examples become one target per outcome, carrying all their inputs", () => {
   const real = targetsFor("string").targets.filter((t) => !t.control);
   const accepts = real.find((t) => t.name === "string · parse · accepts ×2")!;

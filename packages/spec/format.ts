@@ -48,7 +48,6 @@ export type Skip = S.Output<typeof skip>;
 const orSkip = <T extends S.Schema<unknown, unknown>>(schema: T) =>
   S.union([schema, skip]);
 
-// `bench` is reserved for the not-yet-wired performance dimension.
 const inputDescription =
   'Source text for the input, e.g. \'"hello"\'. Hand-written; `spec check --write` fills output/error.';
 const benchDescription =
