@@ -25,7 +25,7 @@ operations:
         error: Expected base64, received "!!"
   encode:
     isAsync: true
-    expression: i=>{let v0;try{v0=i.arrayBuffer().then(b=>e[0](new Uint8Array(b))).catch(x=>e[1](x))}catch(x){e[1](x)}return v0}
+    expression: i=>{let v0;try{v0=i.arrayBuffer().then(e[0]).catch(x=>e[1](x))}catch(x){e[1](x)}return v0}
     examples:
       stores-the-bytes:
         input: new File([new Uint8Array([137, 80, 78, 71])], "a.png")

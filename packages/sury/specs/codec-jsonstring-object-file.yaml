@@ -28,7 +28,7 @@ operations:
         error: 'Failed at ["avatar"]: Expected base64, received "!!"'
   encode:
     isAsync: true
-    expression: i=>{let v0=i["avatar"];let v1;try{v1=v0.arrayBuffer().then(b=>e[0](new Uint8Array(b))).catch(x=>e[1](x))}catch(x){e[1](x)}let v3=Promise.all([v1]).then(([v1])=>{return {avatar:v1}});return v3.then(v2=>JSON.stringify(v2))}
+    expression: i=>{let v0=i["avatar"];let v1;try{v1=v0.arrayBuffer().then(e[0]).catch(x=>e[1](x))}catch(x){e[1](x)}let v3=Promise.all([v1]).then(([v1])=>{return {avatar:v1}});return v3.then(v2=>JSON.stringify(v2))}
     examples:
       reads-the-file:
         input: '{ avatar: new File([new Uint8Array([137, 80, 78, 71])], "a.png") }'

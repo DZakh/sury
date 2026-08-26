@@ -69,6 +69,11 @@ const binaryJSONSchema = (_schema: Internal, target: string): JSONSchemaT =>
     ? { format: "binary" }
     : { contentMediaType: "application/octet-stream" };
 
+const asUint8Array = (buf: ArrayBuffer): Uint8Array => new Uint8Array(buf);
+const fromArrayBuffer =
+  (fromBytes: (bytes: Uint8Array) => string) => (buf: ArrayBuffer) =>
+    fromBytes(asUint8Array(buf));
+
 // One promise per read, chained inside the expression rather than left for the
 // parse loop to unwrap: the awaited value is what the target asked for, not the
 // `ArrayBuffer` the platform hands back.
@@ -169,7 +174,7 @@ const binarySchema = (name: string, global: string, nameArg: string): Internal =
           // Bytes are the payload, so a bytes target takes them as they are;
           // any other instance is not this carrier's business.
           return target.class === Uint8Array
-            ? read(input, `.arrayBuffer().then(b=>new Uint8Array(b))`, target)
+            ? read(input, `.arrayBuffer().then(${B_embed(input, asUint8Array)})`, target)
             : input;
         }
         // A value position (or base64 itself) stores the bytes as base64;
@@ -179,7 +184,7 @@ const binarySchema = (name: string, global: string, nameArg: string): Internal =
           const { format: asFormat, fromBytes } = bytesTarget(target, base64);
           const output = read(
             input,
-            `.arrayBuffer().then(b=>${B_embed(input, fromBytes)}(new Uint8Array(b)))`,
+            `.arrayBuffer().then(${B_embed(input, fromArrayBuffer(fromBytes))})`,
             asFormat,
           );
           if (target === asFormat) {
