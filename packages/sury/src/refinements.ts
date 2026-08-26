@@ -1096,6 +1096,7 @@ export const bytesTarget = (
   target: Internal,
   fallback: Internal,
 ): { format: Internal; fromBytes: (bytes: Uint8Array) => string } => {
+  if (target.bc) return { format: target, fromBytes: target.bc.fromBytes };
   const codec = target.content?.bc;
   return {
     format: codec ? target.content! : fallback,

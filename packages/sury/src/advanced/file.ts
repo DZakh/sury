@@ -182,7 +182,10 @@ const binarySchema = (name: string, global: string, nameArg: string): Internal =
             `.arrayBuffer().then(b=>${B_embed(input, fromBytes)}(new Uint8Array(b)))`,
             asFormat,
           );
-          if (target === asFormat) output.io = true;
+          if (target === asFormat) {
+            output.e = asFormat;
+            output.io = true;
+          }
           return output;
         }
         // A format being opened (rule 3) is handed its own document, so it
