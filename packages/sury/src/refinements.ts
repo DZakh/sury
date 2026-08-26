@@ -917,23 +917,6 @@ type MaybeBuffer = {
   };
 };
 
-const native = Uint8Array as unknown as NativeBase64;
-const Buf = (globalThis as MaybeBuffer).Buffer;
-const implKind: 0 | 1 | 2 = /* @__PURE__ */ (() =>
-  native.fromBase64 !== U && native.prototype.toBase64 !== U
-    ? 0
-    : Buf !== U
-      ? 1
-      : 2
-)();
-const implKindUrl: 0 | 1 | 2 = /* @__PURE__ */ (() =>
-  native.fromBase64 !== U && native.prototype.toBase64 !== U
-    ? 0
-    : Buf !== U && Buf.isEncoding !== U && Buf.isEncoding("base64url")
-      ? 1
-      : 2
-)();
-
 const bytesToAtob = (bytes: Uint8Array): string => {
   // In chunks, not one `apply`: the whole array blows the argument limit, and
   // a byte at a time is several times slower than either. The first chunk is
@@ -962,50 +945,66 @@ const atobToBytes = (text: string): Uint8Array => {
   return bytes;
 };
 
-const bytesToBase64: (bytes: Uint8Array) => string = /* @__PURE__ */ (() =>
-  implKind === 0
-    ? (bytes) => (bytes as unknown as { toBase64: () => string }).toBase64()
-    : implKind === 1
-      ? (bytes) => Buf!.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString("base64")
-      : bytesToAtob
-)();
-
+// Detect lives inside these IIFEs, not as module-scope `globalThis.Buffer`.
+// A top-level Buffer read is a getter esbuild will not drop, and would sit in
+// every refinements export the way a hoisted `Blob` did in file.ts.
+//
 // No `try` around `atob`: every route here validates against the format's
 // pattern first, which is the whole reason the format carries one. `noValidation`
 // voids that the way it voids `escapeFree`'s proof — a caller who asserts a
 // value is base64 and is wrong gets the platform's own exception.
-const base64ToBytes: (text: string) => Uint8Array = /* @__PURE__ */ (() =>
-  implKind === 0
-    ? (text) => native.fromBase64!(text)
-    : implKind === 1
-      ? (text) => new Uint8Array(Buf!.from(text, "base64"))
-      : atobToBytes
-)();
+const stdCodec = /* @__PURE__ */ (() => {
+  const n = Uint8Array as unknown as NativeBase64;
+  if (n.fromBase64 !== U && n.prototype.toBase64 !== U) {
+    return {
+      toBytes: (text: string) => n.fromBase64!(text),
+      fromBytes: (bytes: Uint8Array) =>
+        (bytes as unknown as { toBase64: () => string }).toBase64(),
+    };
+  }
+  const Buf = (globalThis as MaybeBuffer).Buffer;
+  if (Buf !== U) {
+    return {
+      toBytes: (text: string) => new Uint8Array(Buf.from(text, "base64")),
+      fromBytes: (bytes: Uint8Array) =>
+        Buf.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString("base64"),
+    };
+  }
+  return { toBytes: atobToBytes, fromBytes: bytesToAtob };
+})();
 
-const urlEncodeOptions = { alphabet: "base64url", omitPadding: true };
-const urlDecodeOptions = { alphabet: "base64url" };
-
-const bytesToBase64url: (bytes: Uint8Array) => string = /* @__PURE__ */ (() =>
-  implKindUrl === 0
-    ? (bytes) =>
-        (bytes as unknown as { toBase64: (options?: { alphabet?: string; omitPadding?: boolean }) => string }).toBase64(
-          urlEncodeOptions,
-        )
-    : implKindUrl === 1
-      ? (bytes) => Buf!.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString("base64url")
-      : (bytes) => bytesToAtob(bytes).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")
-)();
-
-const base64urlToBytes: (text: string) => Uint8Array = /* @__PURE__ */ (() =>
-  implKindUrl === 0
-    ? (text) => native.fromBase64!(text, urlDecodeOptions)
-    : implKindUrl === 1
-      ? (text) => new Uint8Array(Buf!.from(text, "base64url"))
-      : (text) => atobToBytes(text.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((text.length + 3) % 4))
-)();
-
-const stdCodec = { toBytes: base64ToBytes, fromBytes: bytesToBase64 };
-const urlCodec = { toBytes: base64urlToBytes, fromBytes: bytesToBase64url };
+const urlCodec = /* @__PURE__ */ (() => {
+  const n = Uint8Array as unknown as NativeBase64;
+  if (n.fromBase64 !== U && n.prototype.toBase64 !== U) {
+    const encode = { alphabet: "base64url" as const, omitPadding: true };
+    const decode = { alphabet: "base64url" as const };
+    return {
+      toBytes: (text: string) => n.fromBase64!(text, decode),
+      fromBytes: (bytes: Uint8Array) =>
+        (
+          bytes as unknown as {
+            toBase64: (options?: { alphabet?: string; omitPadding?: boolean }) => string;
+          }
+        ).toBase64(encode),
+    };
+  }
+  const Buf = (globalThis as MaybeBuffer).Buffer;
+  if (Buf !== U && Buf.isEncoding !== U && Buf.isEncoding("base64url")) {
+    return {
+      toBytes: (text: string) => new Uint8Array(Buf.from(text, "base64url")),
+      fromBytes: (bytes: Uint8Array) =>
+        Buf.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString("base64url"),
+    };
+  }
+  return {
+    toBytes: (text: string) =>
+      atobToBytes(
+        text.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((text.length + 3) % 4),
+      ),
+    fromBytes: (bytes: Uint8Array) =>
+      bytesToAtob(bytes).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""),
+  };
+})();
 
 // `bc` lives on the format singleton. A trim (or other string) link copies
 // `content` but not `bc`, so recode has to see through that to the alphabet
