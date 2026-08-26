@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.jsonString.with(S.to, S.schema({ note: S.optional(S.string), avatar: S.file }))"
+  input: string
+  output: "{ avatar: File; note?: string | undefined; }"
+  instantiations: 7367
+jsonSchema:
+  input: '{ type: "string", contentMediaType: "application/json" }'
+  output: 'Failed at ["avatar"]: Expected JSON, received File'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[8](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[7](v0);let v1=(v0["note"]??null),v2=v0["avatar"];for(;;){if(typeof v1==="string")break;if(v1===null){v1=void 0;break}e[1](v1)}typeof v2==="string"||e[6](v2);e[4](v2)||e[5](v2);return {note:v1,avatar:new e[3]([e[2](v2)],"")}}
+    examples:
+      not-a-document:
+        input: '"nope"'
+        error: Expected JSON string, received "nope"
+  decode:
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[7](v0);let v1=(v0["note"]??null),v2=v0["avatar"];for(;;){if(typeof v1==="string")break;if(v1===null){v1=void 0;break}e[1](v1)}typeof v2==="string"||e[6](v2);e[4](v2)||e[5](v2);return {note:v1,avatar:new e[3]([e[2](v2)],"")}}
+    examples:
+      not-a-document:
+        input: '"nope"'
+        error: Expected JSON string, received "nope"
+  encode:
+    isAsync: true
+    expression: i=>{let v0=i["avatar"],v3=i["note"];let v1;try{v1=v0.arrayBuffer().then(e[0]).catch(e[1])}catch(x){e[1](x)}let v5=Promise.all([v1]).then(([v1])=>{let v2={avatar:v1};if(v3!==void 0){v2["note"]=v3}return v2});return v5.then(v4=>JSON.stringify(v4))}
+    examples:
+      optional-present:
+        input: '{ note: "hi", avatar: new File([new Uint8Array([137, 80, 78, 71])], "a.png") }'
+        output: '"{\"avatar\":\"iVBORw==\",\"note\":\"hi\"}"'
+      optional-absent:
+        input: '{ avatar: new File([new Uint8Array([137, 80, 78, 71])], "a.png") }'
+        output: '"{\"avatar\":\"iVBORw==\"}"'

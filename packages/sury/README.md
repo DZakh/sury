@@ -16,7 +16,7 @@ Describe your data once. Parse it, validate it, transform it, encode it back, an
 - 📄 **JSON Schema in both directions** — paste a document in and TypeScript infers the type, `$ref` and recursion included. No codegen step, no `any`. [→](#json-schema-through-the-standard-interface)
 - 🔍 **Types you can read.** You hover `S.Schema<{foo: string}, {foo: string}>`, not the library's internals. [→](#types-you-can-actually-read)
 - 🔤 **The JSON Schema string format vocabulary** — dates, durations, URIs, IRIs, hostnames, IP addresses and JSON Pointers, built in. [JS](https://github.com/DZakh/sury/blob/main/docs/js-usage.md#string-formats) · [ReScript](https://github.com/DZakh/sury/blob/main/docs/rescript-usage.md#string-formats)
-- 🌳 **Small and tree-shakable** — 13.3 kB min+gzip for a schema and a parser. Async, recursive and custom schemas included.
+- 🌳 **Small and tree-shakable** — 7.9 kB min+gzip for a schema and a parser. Async, recursive and custom schemas included.
 - 🟨 **Plain JavaScript, TypeScript and ReScript** — no compiler required.
 
 > Formerly known as **ReScript Schema**. It's plain JavaScript — you don't need the ReScript compiler to use it. ReScript users, see the [ReScript docs](https://github.com/DZakh/sury/blob/main/docs/rescript-usage.md).
@@ -343,7 +343,7 @@ Measured against `sury@11.0.0-rc.1`, `zod@4.4.3`, `typebox@0.34.52`, `valibot@1.
 |                                 | Sury           | Zod          | TypeBox                        | Valibot      | ArkType        |
 | ------------------------------- | -------------- | ------------ | ------------------------------ | ------------ | -------------- |
 | **Total size** (min + gzip)     | 31.5 kB        | 65.0 kB      | 31.3 kB                        | 15.3 kB      | 47.2 kB        |
-| **Benchmark size** (min + gzip) | 13.3 kB        | 19.6 kB      | 22.6 kB                        | 1.29 kB      | 47.1 kB        |
+| **Benchmark size** (min + gzip) | 8.0 kB         | 19.6 kB      | 22.6 kB                        | 1.29 kB      | 47.1 kB        |
 | **Parse with the same schema**  | 210,061 ops/ms | 9,367 ops/ms | 158,185 ops/ms (no transforms) | 1,970 ops/ms | 106,520 ops/ms |
 | **Create schema & parse once**  | 99 ops/ms      | 11 ops/ms    | 103 ops/ms (no transforms)     | 315 ops/ms   | 11 ops/ms      |
 

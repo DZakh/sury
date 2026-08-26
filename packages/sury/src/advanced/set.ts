@@ -3,18 +3,13 @@
 import {
   baseSchema,
   type Encoder,
-  flagUnsafeHas,
   inputExpression,
   instanceTag,
   type Internal,
-  tagFlagArray,
-  tagFlagInstance,
   tagFlags,
-  tagFlagUnknown,
   U,
   unknown,
   type Val,
-  valFlagAsync,
 } from "../base";
 import {
   _var,
@@ -49,10 +44,10 @@ const setDecoder = (input: Val): Val => {
   const expected = input.e;
   const item = itemOf(expected);
   const inputTagFlag = tagFlags[input.s.type]!;
-  const isArraySource = flagUnsafeHas(inputTagFlag, tagFlagArray);
+  const isArraySource = !!(inputTagFlag & 128);
 
   let source: Val;
-  if (flagUnsafeHas(inputTagFlag, tagFlagUnknown)) {
+  if ((inputTagFlag & 1)) {
     // Narrowed to `Set<unknown>`, not to `expected`: the items of a Set that
     // only just passed `instanceof` are unvalidated, and claiming the expected
     // item schema here would compile the loop below down to identity.
@@ -64,7 +59,7 @@ const setDecoder = (input: Val): Val => {
     ]);
   } else if (
     isArraySource ||
-    (flagUnsafeHas(inputTagFlag, tagFlagInstance) && input.s.class === expected.class)
+    ((inputTagFlag & 8192) && input.s.class === expected.class)
   ) {
     // Refined even with no checks of its own, as arrayDecoder does: an
     // input-side refine (a size bound, reversed) can only emit before the loop
@@ -85,7 +80,7 @@ const setDecoder = (input: Val): Val => {
   // not copy it into a second one, as a dynamic member read would.
   itemInput.v = _var;
   const itemOutput = parseDynamic(itemInput);
-  const isAsync = flagUnsafeHas(itemOutput.f, valFlagAsync);
+  const isAsync = !!(itemOutput.f & 1);
   const hasTransform = itemOutput.t === true;
   // An array source is a different value, so it is rebuilt even when the items
   // pass through untouched. An async item can't be `add`ed as it arrives, so it
@@ -162,7 +157,7 @@ const setDecoder = (input: Val): Val => {
 };
 
 const setEncoder: Encoder = (input: Val, target: Internal): Val => {
-  if (flagUnsafeHas(tagFlags[target.type]!, tagFlagArray)) {
+  if ((tagFlags[target.type]! & 128)) {
     // The B_refine wrap is what makes the produced array the subject of the
     // target's checks — see the note in advanced/url.ts. The items are left to
     // the target's own decoder, which is what encodes them.

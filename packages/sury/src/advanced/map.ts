@@ -5,18 +5,13 @@ import {
   baseSchema,
   inlinedValueFromString,
   type Encoder,
-  flagUnsafeHas,
   inputExpression,
   instanceTag,
   type Internal,
-  tagFlagArray,
-  tagFlagInstance,
   tagFlags,
-  tagFlagUnknown,
   U,
   unknown,
   type Val,
-  valFlagAsync,
 } from "../base";
 import {
   B_asyncVal,
@@ -69,13 +64,13 @@ const mapExpression = (schema: Internal): string => {
 const mapDecoder = (input: Val): Val => {
   const expected = input.e;
   const inputTagFlag = tagFlags[input.s.type]!;
-  const isArraySource = flagUnsafeHas(inputTagFlag, tagFlagArray);
+  const isArraySource = !!(inputTagFlag & 128);
   // Every source describes its entries the same way — through
   // `additionalItems`, an array's item schema and a Map's entry alike.
   const sourceEntry = entryOf(input.s);
 
   let source: Val;
-  if (flagUnsafeHas(inputTagFlag, tagFlagUnknown)) {
+  if ((inputTagFlag & 1)) {
     // Narrowed to `Map<unknown, unknown>`, not to `expected`: the entries of a
     // Map that only just passed `instanceof` are unvalidated, and claiming the
     // expected schemas here would compile the loop below down to identity.
@@ -90,7 +85,7 @@ const mapDecoder = (input: Val): Val => {
     // here rather than left to the loop: a source of plain numbers would
     // otherwise compile, then read `undefined` out of every item at runtime.
     (isArraySource && sourceEntry !== U && sourceEntry.type === arrayTag) ||
-    (flagUnsafeHas(inputTagFlag, tagFlagInstance) && input.s.class === expected.class)
+    ((inputTagFlag & 8192) && input.s.class === expected.class)
   ) {
     // Refined even with no checks of its own, as arrayDecoder does: an
     // input-side refine (a size bound, reversed) can only emit before the loop
@@ -123,7 +118,7 @@ const mapDecoder = (input: Val): Val => {
   valueScope.prev = keyOutput;
   const valueOutput = parseDynamic(valueScope);
 
-  const isAsync = flagUnsafeHas(keyOutput.f | valueOutput.f, valFlagAsync);
+  const isAsync = !!((keyOutput.f | valueOutput.f) & 1);
   const hasTransform = keyOutput.t === true || valueOutput.t === true;
   // An array source is a different value, so it is rebuilt even when the
   // entries pass through untouched. An async entry can't be `set` as it
@@ -158,7 +153,7 @@ const mapDecoder = (input: Val): Val => {
     }
     // Same prepend B_mergeWithPathPrepend emits for the value — see the note on
     // it. `source.path` is the enclosing path, `location` the entry's key.
-    const key = flagUnsafeHas(keyOutput.f, valFlagAsync)
+    const key = (keyOutput.f & 1)
       ? `${keyOutput.i}.catch(${keyErrorVar}=>{${keyErrorVar}.path=${
           source.path === "" ? "" : `${inlinedValueFromString(source.path)}+`
         }'["'+${location}+'"]'+${keyErrorVar}.path;throw ${keyErrorVar}})`
@@ -203,7 +198,7 @@ const mapDecoder = (input: Val): Val => {
 };
 
 const mapEncoder: Encoder = (input: Val, target: Internal): Val => {
-  if (flagUnsafeHas(tagFlags[target.type]!, tagFlagArray)) {
+  if ((tagFlags[target.type]! & 128)) {
     // The B_refine wrap is what makes the produced array the subject of the
     // target's checks — see the note in advanced/url.ts. The entries are left
     // to the target's own decoder, which is what encodes them.

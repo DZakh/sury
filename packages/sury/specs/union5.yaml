@@ -11,7 +11,7 @@ vs:
   zod: z.union([z.string(), z.number(), z.bigint(), z.boolean(), z.symbol()])
 operations:
   parse:
-    expression: i=>{(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i)||typeof i==="boolean"||typeof i==="bigint"||typeof i==="symbol")||e[0](i);return i}
+    expression: i=>{(typeof i==="string"||typeof i==="number"&&i===i||typeof i==="boolean"||typeof i==="bigint"||typeof i==="symbol")||e[0](i);return i}
     examples:
       valid-bigint:
         input: 5n

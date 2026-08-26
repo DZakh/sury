@@ -15,7 +15,7 @@ vs:
     output: "{ a: boolean; } | null"
 operations:
   parse:
-    expression: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i["a"];typeof v0==="boolean"||e[0](v0);i={"a":v0,};break}if(i===null){i=e[1];break}e[2](i)}return i}
+    expression: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i["a"];typeof v0==="boolean"||e[0](v0);i={a:v0};break}if(i===null){i=e[1];break}e[2](i)}return i}
     examples:
       object:
         input: "{ a: true }"
@@ -31,7 +31,7 @@ operations:
         error: "Expected { a: boolean; } | null, received undefined"
   decode: eq-to-parse
   encode:
-    expression: i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i["a"];typeof v0==="boolean"||e[0](v0);i={"a":v0,}}else{e[1](i)}return i}
+    expression: i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i["a"];typeof v0==="boolean"||e[0](v0);i={a:v0}}else{e[1](i)}return i}
     examples:
       object:
         input: "{ a: true }"

@@ -12,7 +12,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{i instanceof e[5]||e[6](i);let v1=new Map;for(let v0 of i){try{let v4=v0[0];typeof v4==="string"||e[4](v4);e[2].test(v4)||e[3](v4);let v3=new Date(v0[0]);!Number.isNaN(v3.getTime())||e[1](v3);let v2=v0[1];typeof v2==="number"&&!Number.isNaN(v2)||e[0](v2);v1.set(v3,v2);}catch(v5){v5.path='["'+v0[0]+'"]'+v5.path;throw v5}}return v1}
+    expression: i=>{i instanceof e[5]||e[6](i);let v1=new Map;for(let v0 of i){try{let v4=v0[0];typeof v4==="string"||e[4](v4);e[2].test(v4)||e[3](v4);let v3=new Date(v0[0]);!Number.isNaN(v3.getTime())||e[1](v3);let v2=v0[1];typeof v2==="number"&&v2===v2||e[0](v2);v1.set(v3,v2);}catch(v5){v5.path='["'+v0[0]+'"]'+v5.path;throw v5}}return v1}
     examples:
       valid:
         input: new Map([["1970-01-01T00:00:00.000Z", 1]])

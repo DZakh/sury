@@ -13,7 +13,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v1=i["field"];typeof v1==="string"||e[1](v1);let v0=new Date(i["field"]);!Number.isNaN(v0.getTime())||e[0](v0);return {"field":v0,}}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v1=i["field"];typeof v1==="string"||e[1](v1);let v0=new Date(i["field"]);!Number.isNaN(v0.getTime())||e[0](v0);return {field:v0}}
     examples:
       iso-string-becomes-date:
         input: '{ field: "2024-01-01T00:00:00.000Z" }'
@@ -26,7 +26,7 @@ operations:
         error: 'Failed at ["field"]: Expected string, received 5'
   decode: eq-to-parse
   encode:
-    expression: i=>{return {"field":i["field"].toISOString(),}}
+    expression: i=>{return {field:i["field"].toISOString()}}
     examples:
       date-becomes-iso-string:
         input: '{ field: new Date("2024-01-01T00:00:00.000Z") }'

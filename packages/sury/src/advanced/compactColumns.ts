@@ -4,18 +4,16 @@
 import {
   type Builder,
   copySchema,
-  flagUnsafeHas,
+  inlinedObjectKey,
   inlinedValueFromString,
   inputExpression,
   type Internal,
   panic,
   pathFromInlinedLocation,
   tagFlags,
-  tagFlagUnknown,
   U,
   unknown,
-  type Val,
-  valFlagAsync,
+  type Val
 } from "../base";
 import {
   _notVarBeforeValidation,
@@ -28,10 +26,15 @@ import {
   B_refine,
   B_scope,
   B_varWithoutAllocation,
-  failInvalidType,
+  failInvalidType
 } from "../builder";
-import { array, arrayFactory } from "../composites";
-import { parse } from "../parse";
+import {
+ array,
+ arrayFactory
+} from "../composites";
+import {
+ parse
+} from "../parse";
 
 // The column types only exist once `.to` has been applied, so this must stay
 // lazy — until then there are no column names and the schema describes its own
@@ -57,7 +60,7 @@ const compactColumnsExpression = (schema: Internal): string => {
 
 export const compactColumnsDecoder: Builder = (input: Val) => {
   const selfSchema = input.e;
-  const isUnknownInput = flagUnsafeHas(tagFlags[input.s.type]!, tagFlagUnknown);
+  const isUnknownInput = (tagFlags[input.s.type]! & 1);
 
   // Declared source item type from selfSchema (the compactColumns schema);
   // used by both the forward and reverse directions below.
@@ -192,7 +195,7 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
         itemInput.path = pathFromInlinedLocation(inlinedValueFromString(key));
 
         const itemOutput = parse(itemInput);
-        if (flagUnsafeHas(itemOutput.f, valFlagAsync)) {
+        if ((itemOutput.f & 1)) {
           hasAsync = true;
         }
 
@@ -200,14 +203,14 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
         lengthCode = lengthCode + `${inputVar}[${idxStr}].length,`;
         asyncInlines = asyncInlines + `${itemOutput.i},`;
         itemBuildCode =
-          itemBuildCode + `${inlinedValueFromString(key)}:${itemOutput.i},`;
+          itemBuildCode + `${inlinedObjectKey(key)}:${itemOutput.i},`;
       }
 
       let output = B_next(input, outputVar, outputSchema, outputSchema);
       output.v = _var;
       // Row accumulator: declared at the head of its own segment, before the
       // `for` below that fills it.
-      output.cp = `let ${outputVar}=new Array(Math.max(${lengthCode}));`;
+      output.cp = `let ${outputVar}=new Array(Math.max(${lengthCode.slice(0, -1)}));`;
 
       // Wrap the row body in a single try/catch that prepends the row index to
       // any thrown error — giving paths like ["0"]["bar"]. A single wrapper is
@@ -223,11 +226,11 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
           const key = keys[idx]!;
           asyncBuildCode =
             asyncBuildCode +
-            `${inlinedValueFromString(key)}:${rowResultVar}[${idx}],`;
+            `${inlinedObjectKey(key)}:${rowResultVar}[${idx}],`;
         }
-        rowAssign = `${outputVar}[${iteratorVar}]=Promise.all([${asyncInlines}]).then(${rowResultVar}=>({${asyncBuildCode}}));`;
+        rowAssign = `${outputVar}[${iteratorVar}]=Promise.all([${asyncInlines.slice(0, -1)}]).then(${rowResultVar}=>({${asyncBuildCode.slice(0, -1)}}));`;
       } else {
-        rowAssign = `${outputVar}[${iteratorVar}]={${itemBuildCode}};`;
+        rowAssign = `${outputVar}[${iteratorVar}]={${itemBuildCode.slice(0, -1)}};`;
       }
 
       const rowBody = itemParseCode + rowAssign;
@@ -294,7 +297,7 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
       const output = B_next(input, outputVar, outputSchema, outputSchema);
       output.v = _var;
       // Columnar accumulator: declared before the `for` that fills it.
-      output.cp = `let ${outputVar}=[${initialArraysCode}];`;
+      output.cp = `let ${outputVar}=[${initialArraysCode.slice(0, -1)}];`;
       const loopBody = perFieldCode + settingCode;
       let wrappedBody: string;
       if (needsPerFieldTransform && perFieldCode !== "") {

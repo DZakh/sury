@@ -11,7 +11,7 @@ vs:
   zod: "z.object({ tags: z.set(z.string()) })"
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["tags"];v0 instanceof e[1]||e[2](v0);let v2=0;for(let v1 of v0){try{typeof v1==="string"||e[0](v1);v2++;}catch(v3){v3.path="[\"tags\"]"+'["'+v2+'"]'+v3.path;throw v3}}return {"tags":v0,}}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["tags"];v0 instanceof e[1]||e[2](v0);let v2=0;for(let v1 of v0){try{typeof v1==="string"||e[0](v1);v2++;}catch(v3){v3.path="[\"tags\"]"+'["'+v2+'"]'+v3.path;throw v3}}return {tags:v0}}
     examples:
       valid:
         input: '{ tags: new Set(["a"]) }'

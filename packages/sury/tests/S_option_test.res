@@ -146,7 +146,7 @@ test("Applies valFromOption for Some()", t => {
   t->Assert.deepEqual(Some()->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
   t->Assert.deepEqual(None->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
 
-  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{for(;;){if(i===void 0)break;e[0](i)}return i}`)
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{i===void 0||e[0](i);return i}`)
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
@@ -165,7 +165,7 @@ test("Nested option support", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){if(typeof i==="boolean")break;if(i===void 0)break;e[0](i)}return i}`,
+    `i=>{(typeof i==="boolean"||i===void 0)||e[0](i);return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
@@ -192,12 +192,12 @@ test("Triple nested option support", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){if(typeof i==="boolean")break;if(i===void 0)break;e[0](i)}return i}`,
+    `i=>{(typeof i==="boolean"||i===void 0)||e[0](i);return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{for(;;){if(typeof i==="boolean")break;if(i===void 0)break;if(typeof i==="object"&&i&&!Array.isArray(i)&&i["BS_PRIVATE_NESTED_SOME_NONE"]===0){i=void 0;break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i["BS_PRIVATE_NESTED_SOME_NONE"]===1){i=void 0;break}e[0](i)}return i}`,
+    `i=>{for(;;){if(typeof i==="boolean")break;if(i===void 0)break;if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i["BS_PRIVATE_NESTED_SOME_NONE"]===0){i=void 0;break}if(i["BS_PRIVATE_NESTED_SOME_NONE"]===1){i=void 0;break}e[0](i)};break}e[1](i)}return i}`,
   )
 })
 
@@ -267,7 +267,7 @@ test("Option with transformed unknown", t => {
   )
   t->Assert.deepEqual(None->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
 
-  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{for(;;){i={"field":i,};break;}return i}`)
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{for(;;){i={field:i};break;}return i}`)
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,

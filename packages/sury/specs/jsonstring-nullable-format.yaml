@@ -30,7 +30,7 @@ operations:
         input: '{ at: "2026-01-15T10:30:00.000Z" }'
         output: '"{\"at\":\"2026-01-15T10:30:00.000Z\"}"'
   encode:
-    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[4](v0);let v1=v0["at"];for(;;){if(typeof v1==="string"){e[1].test(v1)||e[2](v1);break}if(v1===null)break;e[3](v1)}return {"at":v1,}}
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[4](v0);let v1=v0["at"];for(;;){if(typeof v1==="string"){e[1].test(v1)||e[2](v1);break}if(v1===null)break;e[3](v1)}return {at:v1}}
     examples:
       valid:
         input: '"{\"at\":\"2026-01-15T10:30:00.000Z\"}"'

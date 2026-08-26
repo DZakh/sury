@@ -5,10 +5,12 @@
 // `schema`-prefixed names to avoid colliding with other sections.
 
 import {
+  anyOfTag,
   arrayTag,
   baseSchema,
   type Builder,
   copySchema,
+  getOrRethrow,
   globalConfig,
   immutableEmptyArray,
   inlinedValueFromString,
@@ -16,22 +18,29 @@ import {
   type Internal,
   isLiteral,
   itemSymbol,
+  noopDecoder,
   objectTag,
   panic,
   type Path,
   pathConcat,
   pathEmpty,
   pathFromInlinedLocation,
+  setHas,
   U,
+  undefinedTag,
+  unknown,
   updateOutput,
   type Val,
 } from "./base";
 import {
   _notVarAtParent,
+  _var,
   B_addObjectField,
+  B_inlineConst,
   B_invalidOperation,
   B_markOutput,
   B_merge,
+  B_next,
   B_nextConst,
   B_scope,
 } from "./builder";
@@ -39,15 +48,15 @@ import {
   arrayDecoder,
   completeObjectVal,
   definitionToSchema,
+  makeArrayVal,
   makeObjectVal,
   objectDecoder,
-  optionFactory,
   traverseDefinition,
   valGet,
 } from "./composites";
-import { Option_getOr, type TupleCtx } from "./modifiers";
-import { getOutputSchema, parse, reverse } from "./parse";
-import { unit } from "./primitives";
+import { type TupleCtx } from "./modifiers";
+import { getDecoder, getOutputSchema, parse, reverse } from "./parse";
+import { Literal_parse, unit } from "./primitives";
 import { unionFactory } from "./union";
 
 type ShapedSerializerAcc = {
@@ -79,9 +88,77 @@ const makeTag = (field: (location: string, schema: Internal) => unknown) =>
     field(tag, definitionToSchema(asValue));
   };
 
+// Field-with-default as `if(v===void 0)v=def` plus the item's own decoder —
+// not `union([unit, item])` + Option_getOr. The anyOf/has/undefined shape is
+// what isOptional, JSON Schema (skip the unit arm, emit `default`) and json
+// omit still read; unionDecoder is what would pull the planner into every
+// object export.
+const fieldOrSchema = (schema: Internal, or: unknown): Internal => {
+  const item = getOutputSchema(schema);
+  const mut = baseSchema(anyOfTag, false, noopDecoder);
+  mut.anyOf = [schema, unit];
+  mut.has = { [undefinedTag]: true };
+  setHas(mut.has, schema.type);
+  // A `.to` is what makes reverse start at the item (output is required, not
+  // optional). A serializer on a self-reverse item is what keeps encode
+  // re-checking it — without one, a typed boolean property is trusted and the
+  // check the union compiler used to emit disappears.
+  if (schema.to === U) {
+    const toMut = copySchema(schema);
+    toMut.serializer = (input: Val) => {
+      const itemInput = B_scope(input);
+      itemInput.io = false;
+      itemInput.s = unknown;
+      itemInput.e = schema;
+      return parse(itemInput);
+    };
+    mut.to = toMut;
+  } else {
+    mut.to = schema;
+  }
+  try {
+    (getDecoder(unknown, item) as (input: unknown) => unknown)(or);
+  } catch (exn) {
+    const error = getOrRethrow(exn);
+    panic(
+      `Invalid default for ${inputExpression(mut)}: ${
+        (error as unknown as { message: string })["message"]
+      }`
+    );
+  }
+  try {
+    mut.default = (getDecoder(reverse(schema)) as (input: unknown) => unknown)(or);
+  } catch (_exn) {}
+
+  const parseAs = copySchema(schema);
+  parseAs.expression = () => inputExpression(mut);
+
+  mut.parser = (input: Val) => {
+    const v = input.v();
+    const defCode = B_inlineConst(input, Literal_parse(or));
+    const itemInput = B_scope(input);
+    itemInput.io = false;
+    itemInput.s = unknown;
+    itemInput.e = parseAs;
+    itemInput.u = input.u;
+    const itemOutput = parse(itemInput);
+    const itemCode = B_merge(itemOutput);
+    const assign = itemOutput.i === v ? "" : `${v}=${itemOutput.i};`;
+    const output = B_next(input, v, item, item);
+    output.v = _var;
+    output.io = true;
+    output.cp =
+      itemCode === "" && assign === ""
+        ? `if(${v}===void 0)${v}=${defCode};`
+        : `if(${v}===void 0){${v}=${defCode}}else{${itemCode}${assign}}`;
+    return output;
+  };
+  return mut;
+};
+
 const makeFieldOr = (field: (location: string, schema: Internal) => unknown) =>
   (fieldName: string, schema: Internal, or: unknown): unknown => {
-    return field(fieldName, Option_getOr(optionFactory(schema), or));
+    return field(fieldName, fieldOrSchema(schema, or));
   };
 
 const proxifyShapedSchema = (schema: Internal, from: string[], fromFlattened?: number): unknown => {
@@ -347,7 +424,7 @@ const assembleShapedObject = (
   init?: (output: Val) => void,
   onMissing?: () => void
 ): Val => {
-  const output = makeObjectVal(input, schema);
+  const output = schema.type === arrayTag ? makeArrayVal(input, schema) : makeObjectVal(input, schema);
   output.io = true;
   if (init !== U) {
     init(output);

@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.union([S.schema({ TAG: "One", _0: S.string }), S.schema({ TAG: "Two", _0: S.string }), S.schema({ TAG: "Three", _0: S.schema({ a: S.string, kind: S.union([S.schema("A"), S.schema("B")]) }) }), S.schema({ TAG: "Four", _0: S.string })])'
+  input: '{ TAG: "One"; _0: string; } | { TAG: "Two"; _0: string; } | { TAG: "Three"; _0: { a: string; kind: "A" | "B"; }; } | { TAG: "Four"; _0: string; }'
+  output: '{ TAG: "One"; _0: string; } | { TAG: "Two"; _0: string; } | { TAG: "Three"; _0: { a: string; kind: "A" | "B"; }; } | { TAG: "Four"; _0: string; }'
+  instantiations: 8659
+jsonSchema:
+  input: '{ anyOf: [{ type: "object", properties: { TAG: { type: "string", const: "One" }, _0: { type: "string" } }, required: ["TAG", "_0"] }, { type: "object", properties: { TAG: { type: "string", const: "Two" }, _0: { type: "string" } }, required: ["TAG", "_0"] }, { type: "object", properties: { TAG: { type: "string", const: "Three" }, _0: { type: "object", properties: { a: { type: "string" }, kind: { enum: ["A", "B"] } }, required: ["a", "kind"] } }, required: ["TAG", "_0"] }, { type: "object", properties: { TAG: { type: "string", const: "Four" }, _0: { type: "string" } }, required: ["TAG", "_0"] }] }'
+  output: '{ anyOf: [{ type: "object", properties: { TAG: { type: "string", const: "One" }, _0: { type: "string" } }, required: ["TAG", "_0"] }, { type: "object", properties: { TAG: { type: "string", const: "Two" }, _0: { type: "string" } }, required: ["TAG", "_0"] }, { type: "object", properties: { TAG: { type: "string", const: "Three" }, _0: { type: "object", properties: { a: { type: "string" }, kind: { enum: ["A", "B"] } }, required: ["a", "kind"] } }, required: ["TAG", "_0"] }, { type: "object", properties: { TAG: { type: "string", const: "Four" }, _0: { type: "string" } }, required: ["TAG", "_0"] }] }'
+vs:
+  zod: 'z.discriminatedUnion("TAG", [z.object({ TAG: z.literal("One"), _0: z.string() }), z.object({ TAG: z.literal("Two"), _0: z.string() }), z.object({ TAG: z.literal("Three"), _0: z.object({ a: z.string(), kind: z.union([z.literal("A"), z.literal("B")]) }) }), z.object({ TAG: z.literal("Four"), _0: z.string() })])'
+operations:
+  parse:
+    expression: i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i["TAG"]==="One"){let v0=i["_0"];typeof v0==="string"||e[0](v0);i={TAG:i["TAG"],_0:v0};break}if(i["TAG"]==="Two"){let v1=i["_0"];typeof v1==="string"||e[1](v1);i={TAG:i["TAG"],_0:v1};break}if(i["TAG"]==="Three"){let v2=i["_0"];typeof v2==="object"&&v2&&!Array.isArray(v2)||e[4](v2);let v3=v2["a"],v4=v2["kind"];typeof v3==="string"||e[2](v3);typeof v4==="string"&&(v4==="A"||v4==="B")||e[3](v4);i={TAG:i["TAG"],_0:{a:v3,kind:v4}};break}if(i["TAG"]==="Four"){let v5=i["_0"];typeof v5==="string"||e[5](v5);i={TAG:i["TAG"],_0:v5};break}e[6](i)}}else{e[7](i)}return i}
+    examples:
+      valid-one:
+        input: '{ TAG: "One", _0: "x" }'
+        output: '{ TAG: "One", _0: "x" }'
+      valid-two:
+        input: '{ TAG: "Two", _0: "x" }'
+        output: '{ TAG: "Two", _0: "x" }'
+      valid-three:
+        input: '{ TAG: "Three", _0: { a: "x", kind: "A" } }'
+        output: '{ TAG: "Three", _0: { a: "x", kind: "A" } }'
+      valid-three-b:
+        input: '{ TAG: "Three", _0: { a: "x", kind: "B" } }'
+        output: '{ TAG: "Three", _0: { a: "x", kind: "B" } }'
+      valid-four:
+        input: '{ TAG: "Four", _0: "x" }'
+        output: '{ TAG: "Four", _0: "x" }'
+      unrecognized-tag:
+        input: '{ TAG: "Z", _0: "x" }'
+        error: 'Expected { TAG: "One"; _0: string; } | { TAG: "Two"; _0: string; } | { TAG: "Three"; _0: { a: string; kind: "A" | "B"; }; } | { TAG: "Four"; _0: string; }, received { TAG: "Z"; _0: "x"; }'
+      invalid-one-payload:
+        input: '{ TAG: "One", _0: 1 }'
+        error: 'Failed at ["_0"]: Expected string, received 1'
+      invalid-three-kind:
+        input: '{ TAG: "Three", _0: { a: "x", kind: "C" } }'
+        error: 'Failed at ["_0"]["kind"]: Expected "A" | "B", received "C"'
+      not-object:
+        input: '"x"'
+        error: 'Expected { TAG: "One"; _0: string; } | { TAG: "Two"; _0: string; } | { TAG: "Three"; _0: { a: string; kind: "A" | "B"; }; } | { TAG: "Four"; _0: string; }, received "x"'
+  decode: identity
+  encode: identity

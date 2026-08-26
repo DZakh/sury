@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.file.with(S.to, S.blob)
+  input: File
+  output: Blob
+  instantiations: 5256
+jsonSchema:
+  input: Expected JSON, received File
+  output: Expected JSON, received Blob
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{i instanceof e[0]||e[1](i);return i}
+    examples:
+      a-file-is-a-blob:
+        input: new File(["hi"], "a.txt")
+        output: new File(["hi"], "a.txt")
+      a-blob-is-not-a-file:
+        input: new Blob(["hi"])
+        error: Expected File, received Blob
+      string-is-not-a-file:
+        input: '"hi"'
+        error: Expected File, received "hi"
+  decode: identity
+  encode:
+    creationError: "SuryError: Can't decode Blob to File. Use S.to to define a custom decoder"

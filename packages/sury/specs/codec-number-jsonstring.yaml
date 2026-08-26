@@ -12,7 +12,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="number"&&!Number.isNaN(i)||e[1](i);return (Number.isFinite(i)?""+i:e[0](i))}
+    expression: i=>{typeof i==="number"&&i===i||e[1](i);return (Number.isFinite(i)?""+i:e[0](i))}
     examples:
       valid:
         input: "123"
@@ -30,7 +30,7 @@ operations:
         input: "123.4"
         output: '"123.4"'
   encode:
-    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="number"&&!Number.isNaN(v0)||e[1](v0);return v0}
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="number"&&v0===v0||e[1](v0);return v0}
     examples:
       number-text:
         input: '"123"'

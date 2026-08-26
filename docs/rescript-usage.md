@@ -53,6 +53,7 @@
   - [`file`](#file)
   - [`json`](#json)
   - [`jsonString`](#jsonstring)
+  - [Content](#content)
   - [`meta`](#meta)
   - [`recursive`](#recursive)
 - [Custom schema](#custom-schema)
@@ -251,6 +252,8 @@ S.isoDateTime // UTC timestamp
 S.duration // Duration
 S.jsonPointer // JSON Pointer
 S.relativeJsonPointer // Relative JSON Pointer
+S.base64 // Base64, standard alphabet with canonical padding
+S.base64url // Base64url, URL-safe alphabet, no padding
 ```
 
 Each survives a round trip through `S.toJSONSchema` and `S.fromJSONSchema`.
@@ -1269,6 +1272,82 @@ The `S.jsonString` schema represents JSON string.
 
 There's also `S.jsonStringWithSpace` to configure space in the JSON string during encoding.
 
+### **Content**
+
+Bytes in JSON become base64. They are not mangled as UTF-8.
+
+#### Bytes in a JSON field
+
+A field of bytes is written as base64. You do not pass Pack or Unpack.
+
+```rescript
+{
+  payload: %raw(`new Uint8Array([137, 80, 78, 71])`),
+}->S.decodeOrThrow(
+  ~from=S.schema(s => {payload: s.matches(S.uint8Array)}),
+  ~to=S.jsonString,
+)
+// `{"payload":"iVBORw=="}`
+```
+
+#### A JWT segment
+
+Parse the base64 text as JSON, then as the object.
+
+```rescript
+"eyJzdWIiOiJhIn0="->S.parseOrThrow(
+  ~to=S.base64->S.to(
+    S.jsonString->S.to(S.schema(s => {sub: s.matches(S.string)})),
+  ),
+)
+// {sub: "a"}
+```
+
+#### Switch base64 alphabets
+
+`S.base64url` is URL-safe and has no padding.
+
+```rescript
+S.base64 // standard alphabet, canonical padding
+S.base64url // URL-safe alphabet, no padding
+
+"iVBORw=="->S.parseOrThrow(~to=S.base64->S.to(S.base64url))
+// "iVBORw"
+```
+
+#### The bytes are JSON text
+
+```rescript
+S.uint8Array->S.to(S.jsonString, ~custom={decode: Unpack, encode: Pack})
+// decode unpack, encode pack
+```
+
+#### The JSON string holds the bytes
+
+```rescript
+S.uint8Array->S.to(S.jsonString, ~custom={decode: Pack, encode: Unpack})
+// decode pack, encode unpack
+```
+
+#### If you omit Pack or Unpack
+
+Sury does not guess when both conversions exist.
+
+```rescript
+S.uint8Array->S.to(S.jsonString)
+// Ambiguous conversion from Uint8Array to JSON string.
+// Use S.to(from, to, "unpack" | "pack")
+```
+
+#### UTF-8, the same bytes, parse, or widen
+
+```rescript
+S.uint8Array->S.to(S.string) // UTF-8
+S.base64->S.to(S.uint8Array) // the same bytes
+S.jsonString->S.to(S.string) // parses
+S.base64->S.to(S.string) // widens
+```
+
 ### **`meta`**
 
 `(S.t<'value>, S.meta) => S.t<'value>`
@@ -1493,6 +1572,15 @@ Sync(fn)   // a coder
 Async(fn)  // a coder returning a promise, run with parseAsyncOrThrow
 Auto       // keep the built-in conversion for this direction
 Never      // this direction is impossible, fail when an operation needs it
+Pack       // store this direction's source as a value the target holds
+Unpack     // open this direction's source and hand its payload over
+```
+
+See [Content](#content). A pair is always opposites.
+
+```rescript
+S.uint8Array->S.to(S.jsonString, ~custom={decode: Pack, encode: Unpack})
+// decode pack, encode unpack
 ```
 
 ```rescript

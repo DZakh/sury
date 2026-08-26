@@ -4,10 +4,6 @@ import {
   type Check,
   type ErrorDetails,
   type Flag,
-  flagAsync,
-  flagNone,
-  flagUnionTransformContext,
-  flagUnsafeHas,
   getOrRethrow,
   immutableEmptyArray,
   inlinedValueFromString,
@@ -16,50 +12,35 @@ import {
   isLiteral,
   type InvalidInputDetails,
   type Path,
-  pathConcat,
   pathEmpty,
   pathFromInlinedLocation,
   s,
   stringify,
   SuryError,
   type SuryErrorRecord,
-  tagFlagBigint,
-  tagFlagFunction,
-  tagFlagInstance,
   tagFlags,
-  tagFlagString,
-  tagFlagSymbol,
-  tagFlagUndefined,
   U,
   unknown,
-  type Val,
-  valFlagAsync,
-  valFlagNone,
+  type Val
 } from "./base";
 
 export type Builder = (input: Val) => Val;
 export type Encoder = (input: Val, target: Internal) => Val;
 
-// `_var`/`_bondVar`/`_prevVar`/`_notVarBeforeValidation`/`_notVarAtParent`/
-// `_notVar` and `failInvalidType` are top-level consts (not object methods)
-// because they're compared/stored by reference (`val.v = _var`,
-// `val.v !== _var`, `check.f === failInvalidType`) — a method wrapper would
-// break that identity comparison.
+// `_var`/`_linkVar`/`_notVarBeforeValidation`/`_notVarAtParent`/`_notVar`
+// and `failInvalidType` are top-level consts (not object methods) because
+// they're compared/stored by reference (`val.v = _var`, `val.v !== _var`,
+// `check.f === failInvalidType`) — a method wrapper would break that
+// identity comparison.
 
 export function _var(this: Val): string {
   return this.i;
 }
 
-function _bondVar(this: Val): string {
-  const val = this;
-  const bond = val.b!;
-  return bond.v();
-}
-
-function _prevVar(this: Val): string {
-  const val = this;
-  const prev = val.prev!;
-  return prev.v();
+// B_refine links through `prev`; B_scope through `b` so merge does not walk
+// the source as `prev` (a scope is a new segment over the same value).
+function _linkVar(this: Val): string {
+  return (this.b || this.prev)!.v();
 }
 
 export function _notVarBeforeValidation(this: Val): string {
@@ -85,13 +66,12 @@ export function _notVarAtParent(this: Val): string {
   if (parent.fz) {
     val.v = _var;
     return val.i;
-  } else {
-    const v = B_varWithoutAllocation(val.g);
-    B_hoistDecl(parent, `${v}=${val.i}`);
-    val.v = _var;
-    val.i = v;
-    return v;
   }
+  const v = B_varWithoutAllocation(val.g);
+  B_hoistDecl(parent, `${v}=${val.i}`);
+  val.v = _var;
+  val.i = v;
+  return v;
 }
 
 export function _notVar(this: Val): string {
@@ -114,33 +94,28 @@ export function _notVar(this: Val): string {
     val.v = _var;
     val.i = `(${val.i})`;
     return val.i;
-  } else {
-    const v = B_varWithoutAllocation(val.g);
-    if (val.prev !== U) {
-      // Own the decl in codeFromPrev: a non-empty codeFromPrev is
-      // non-hoistable in `merge`, so a union discriminant reading this var
-      // can't be lifted above its `let` (the str->to(option(int)) bug class).
-      if (val.i === "") {
-        // No inline value yet (assigned by code that already reads this val):
-        // declare ahead of the existing producing code.
-        val.cp = `let ${v};` + val.cp;
-      } else {
-        // Declare-and-assign after it; `v` is fresh, so nothing emitted reads it.
-        val.cp = val.cp + `let ${v}=${val.i};`;
-      }
-    } else {
-      // No prev to anchor to; hoist onto the val itself (its own segment
-      // outlives the materialization).
-      if (val.i === "") {
-        B_hoistDecl(val, v);
-      } else {
-        B_hoistDecl(val, `${v}=${val.i}`);
-      }
-    }
-    val.v = _var;
-    val.i = v;
-    return v;
   }
+  const v = B_varWithoutAllocation(val.g);
+  if (val.prev !== U) {
+    // Own the decl in codeFromPrev: a non-empty codeFromPrev is
+    // non-hoistable in `merge`, so a union discriminant reading this var
+    // can't be lifted above its `let` (the str->to(option(int)) bug class).
+    if (val.i === "") {
+      // No inline value yet (assigned by code that already reads this val):
+      // declare ahead of the existing producing code.
+      val.cp = `let ${v};` + val.cp;
+    } else {
+      // Declare-and-assign after it; `v` is fresh, so nothing emitted reads it.
+      val.cp += `let ${v}=${val.i};`;
+    }
+  } else {
+    // No prev to anchor to; hoist onto the val itself (its own segment
+    // outlives the materialization).
+    B_hoistDecl(val, val.i === "" ? v : `${v}=${val.i}`);
+  }
+  val.v = _var;
+  val.i = v;
+  return v;
 }
 
 export const operationArgVar = "i";
@@ -152,17 +127,12 @@ export const operationArgVar = "i";
 // Check the plain type-narrow uses is what lets the two fuse into one
 // condition instead of two throws.
 export const failInvalidType = (input: Val): (value: unknown) => ErrorDetails => {
-  const expected = input.e;
-  const em = expected.errorMessage;
-  const override =
-    em !== U
-      ? expected.format !== U && em.format !== U
-        ? em.format
-        : em.type !== U
-          ? em.type
-          : em._
-      : U;
-  return B_invalidInputBuilder(U, U, override)(input);
+  const em = input.e.errorMessage;
+  return B_invalidInputBuilder(
+    U,
+    U,
+    em && (input.e.format !== U && em.format !== U ? em.format : em.type !== U ? em.type : em._)
+  )(input);
 }
 
 // Bumps the raise counter: an embedded value is reached through `e[N]`, and
@@ -171,48 +141,28 @@ export const failInvalidType = (input: Val): (value: unknown) => ErrorDetails =>
 // inert ones (a symbol literal compared with `===`), which is the safe
 // direction: union codegen wraps a case in a `try` it turns out not to need,
 // rather than dropping the fallback a raise needed.
-export const B_embed = (b: Val, value: unknown): string => {
-  b.g.t++;
-  return B_embedPure(b, value);
-}
+export const B_embed = (b: Val, value: unknown): string => (b.g.t++, B_embedPure(b, value));
 
 // B_embed for a value generated code can't raise through — a helper that
 // never throws. Skipping the raise counter keeps union codegen from wrapping
 // the case in a `try` it doesn't need, and keeps loop bodies recognizable as
 // throw-free (see B_mergeWithCatch's `pureSince`).
-export const B_embedPure = (b: Val, value: unknown): string => {
-  const e = b.g.e;
-  const l = e.length;
-  e[l] = value;
-  return `e[${l}]`;
-}
+export const B_embedPure = (b: Val, value: unknown): string => `e[${b.g.e.push(value) - 1}]`;
 
 export const B_inlineConst = (b: Val, schema: Internal): string => {
-  const tagFlag = tagFlags[schema.type]!;
-  const const_ = schema.const;
-  if (flagUnsafeHas(tagFlag, tagFlagUndefined)) {
-    return "void 0";
-  } else if (flagUnsafeHas(tagFlag, tagFlagString)) {
-    return inlinedValueFromString(const_ as string);
-  } else if (flagUnsafeHas(tagFlag, tagFlagBigint)) {
-    return (const_ as unknown as string) + "n";
-  } else if (
-    flagUnsafeHas(
-      tagFlag,
-      ((tagFlagSymbol | tagFlagFunction) | tagFlagInstance)
-    )
-  ) {
-    return B_embed(b, schema.const);
-  } else {
-    return const_ as unknown as string;
-  }
+  const tagFlag = tagFlags[schema.type]!, const_ = schema.const;
+  return (tagFlag & 16)
+    ? "void 0"
+    : (tagFlag & 2)
+      ? inlinedValueFromString(const_ as string)
+      : (tagFlag & 1024)
+        ? (const_ as unknown as string) + "n"
+        : (tagFlag & (16384 | 4096 | 8192))
+          ? B_embed(b, schema.const)
+          : const_ as unknown as string;
 }
 
-export const B_varWithoutAllocation = (global: BGlobal): string => {
-  const newCounter = global.v + 1;
-  global.v = newCounter;
-  return `v${newCounter}`;
-}
+export const B_varWithoutAllocation = (g: BGlobal): string => `v${++g.v}`;
 
 // Append a `let` declaration to a still-open owner val, emitted after the
 // owner's checks in `merge`. The owner is the materialized val's immediate
@@ -222,7 +172,7 @@ export const B_varWithoutAllocation = (global: BGlobal): string => {
 // every use, so no separate scope-tree is needed. The owner must be
 // unfinalized; `_notVarAtParent` guards this explicitly.
 export const B_hoistDecl = (owner: Val, decl: string): void => {
-  owner.hd = owner.hd === "" ? decl : owner.hd + "," + decl;
+  owner.hd += (owner.hd && ",") + decl;
 }
 
 
@@ -245,7 +195,7 @@ export const B_operationArg = (
     io: U,
     e: expected,
     prev: U,
-    f: valFlagNone,
+    f: 0,
     d: U,
     fv: U,
     cp: "",
@@ -270,23 +220,19 @@ export const B_throw = (errorDetails: ErrorDetails): never => {
   throw new SuryError(errorDetails);
 }
 
-export const B_unsupportedDecode = (b: Val, from: Internal, target: Internal): never => {
-  return B_throw({
+export const B_unsupportedDecode = (b: Val, from: Internal, target: Internal): never =>
+  B_throw({
     code: "unsupported_decode",
-    from: from,
+    from,
     to: target,
-    reason: `Can't decode ${inputExpression(from)} to ${inputExpression(
-      target
-    )}. Use S.to to define a custom decoder`,
+    reason: `Can't decode ${inputExpression(from)} to ${inputExpression(target)}. Use S.to to define a custom decoder`,
     path: b.path,
   });
-}
 
-export const B_failWithArg = <TArg>(b: Val, fn: (arg: TArg) => ErrorDetails, arg: string): string => {
-  return `${B_embed(b, (arg: TArg) => {
-    B_throw(fn(arg));
+export const B_failWithArg = <TArg>(b: Val, fn: (arg: TArg) => ErrorDetails, arg: string): string =>
+  `${B_embed(b, (a: TArg) => {
+    B_throw(fn(a));
   })}(${arg})`;
-}
 
 // Record a raise that reaches generated code without an embed behind it — the
 // bare `throw` a loop wrapper re-raises a nested error with. Union codegen
@@ -310,38 +256,23 @@ export const B_makeInvalidConversionDetails = (input: Val, to: Internal, cause: 
     // more than once, and prepending onto the instance makes the second parse
     // report `["a"]["a"]`. Nothing to prepend means nothing to copy — `B_throw`
     // rebuilds a SuryError from whichever of the two it gets.
-    return (
-      input.path === pathEmpty
-        ? error
-        : { ...error, path: pathConcat(input.path, error.path) }
-    ) as unknown as ErrorDetails;
-  } else {
-    let reason: string;
-    if (cause instanceof Error) {
-      const text = "" + cause;
-      if (text.startsWith("Error: ")) {
-        reason = text.slice(7);
-      } else {
-        reason = text;
-      }
-    } else {
-      reason = stringify(cause);
-    }
-    return {
-      code: "invalid_conversion",
-      from: input.s,
-      to: to,
-      cause,
-      path: input.path,
-      reason,
-    };
+    return (input.path ? { ...error, path: input.path + error.path } : error) as unknown as ErrorDetails;
   }
-}
-
-// Checks run against `prev.var()`, so the runtime type at check time
-// is `prev.schema`, not the post-narrowing schema on the current val.
-const B_receivedSchema = (val: Val): Internal => {
-  return val.prev !== U ? val.prev.s : val.s;
+  let reason: string;
+  if (cause instanceof Error) {
+    reason = "" + cause;
+    if (reason.startsWith("Error: ")) reason = reason.slice(7);
+  } else {
+    reason = stringify(cause);
+  }
+  return {
+    code: "invalid_conversion",
+    from: input.s,
+    to,
+    cause,
+    path: input.path,
+    reason,
+  };
 }
 
 export const B_makeInvalidInputDetails = (
@@ -352,10 +283,8 @@ export const B_makeInvalidInputDetails = (
   unionErrors?: SuryErrorRecord[],
   reasonOverride?: string
 ): ErrorDetails => {
-  let reasonRef: string;
-  if (reasonOverride !== U) {
-    reasonRef = reasonOverride;
-  } else {
+  let reasonRef = reasonOverride;
+  if (reasonRef === U) {
     const expectedExpression = inputExpression(expected);
     const receivedExpression = stringify(input);
     // `Expected Date, received Date` names the type twice and says nothing: the
@@ -366,31 +295,27 @@ export const B_makeInvalidInputDetails = (
       expectedExpression === receivedExpression ? "invalid " : ""
     }${receivedExpression}`;
   }
-  if (unionErrors !== U) {
-    const caseErrors = unionErrors;
+  if (unionErrors) {
     const seenReasons = new Set<string>();
-    for (let idx = 0; idx < caseErrors.length; idx++) {
-      const caseError = caseErrors[idx]!;
-      const caseReason = caseError.reason.split("\n").join("\n  ");
-      const location = caseError.path === "" ? "" : `At ${caseError.path}: `;
-      const line = `\n- ${location}${caseReason}`;
+    for (let idx = 0; idx < unionErrors.length; idx++) {
+      const caseError = unionErrors[idx]!;
+      const line = `\n- ${caseError.path === "" ? "" : `At ${caseError.path}: `}${caseError.reason.split("\n").join("\n  ")}`;
       if (!seenReasons.has(line)) {
         seenReasons.add(line);
-        reasonRef = reasonRef + line;
+        reasonRef += line;
       }
     }
   }
 
-  const details: InvalidInputDetails = {
+  return {
     code: "invalid_input",
-    expected: expected,
+    expected,
     received,
     path,
     reason: reasonRef,
     unionErrors,
     input,
   };
-  return details;
 }
 
 // Drop-in `check.fail` builder for InvalidInput failures. The returned
@@ -401,77 +326,52 @@ export const B_invalidInputBuilder = (
   expected?: Internal,
   extraPath: Path = pathEmpty,
   reasonOverride?: string
-): (input: Val) => (value: unknown) => ErrorDetails => {
-  return (input: Val) => {
-    const expected_ = expected !== U ? expected : input.e;
-    const received = B_receivedSchema(input);
-    const path = extraPath === pathEmpty ? input.path : pathConcat(input.path, extraPath);
-    return (value: unknown) =>
-      B_makeInvalidInputDetails(expected_, received, path, value, U, reasonOverride);
-  };
-}
-
+): (input: Val) => (value: unknown) => ErrorDetails => (input) => {
+  const path = extraPath ? input.path + extraPath : input.path;
+  return (value) =>
+    B_makeInvalidInputDetails(
+      expected ?? input.e,
+      (input.prev || input).s,
+      path,
+      value,
+      U,
+      reasonOverride,
+    );
+};
 
 export const B_failWithErrorMessage = (
   key: string,
   defaultMessage?: string
-): (input: Val) => (value: unknown) => ErrorDetails => {
-  return (input: Val) => {
-    const em = input.e.errorMessage as Record<string, string | undefined> | undefined;
-    const override = em !== U ? (em[key] !== U ? em[key] : em["_"]) : U;
-    const m = override !== U ? override : defaultMessage;
-    if (m !== U) {
-      return B_invalidInputBuilder(U, U, m)(input);
-    } else {
-      return failInvalidType(input);
-    }
-  };
-}
+): (input: Val) => (value: unknown) => ErrorDetails => (input) => {
+  const em = input.e.errorMessage as Record<string, string | undefined> | undefined;
+  const m = em?.[key] ?? em?.["_"] ?? defaultMessage;
+  return m !== U ? B_invalidInputBuilder(U, U, m)(input) : failInvalidType(input);
+};
 
 // Inline variant: emits the throw expression directly. Used by decoders
 // that splice errors into custom JS (e.g. `catch(_){${embedInvalidInput}}`),
 // not via the `check` pipeline.
-export const B_embedInvalidInput = (input: Val, expected: Internal = input.e): string => {
-  return B_failWithArg(input, B_invalidInputBuilder(expected)(input), input.v());
-}
+export const B_embedInvalidInput = (input: Val, expected: Internal = input.e): string =>
+  B_failWithArg(input, B_invalidInputBuilder(expected)(input), input.v());
 
 // Caller must verify `val.vc` is truthy and `val.expected.noValidation !==
 // true` first — the `!` unwrap below is unchecked. `inputVar` is usually
 // `val.prev.var()`.
 const B_emitChecks = (val: Val, inputVar: string): string => {
   const checks = val.vc!;
-  const len = checks.length;
-  if (len === 1) {
-    const check = checks[0]!;
-    return `${check.c(inputVar)}||${B_failWithArg(val, check.f(val), inputVar)};`;
-  } else {
-    let out = "";
-    let i = 0;
-    while (i < len) {
-      const head = checks[i]!;
-      const fail = head.f;
-      let cond = head.c(inputVar);
-      i = i + 1;
-      // Extend the fused cond while the next check shares this `fail`.
-      while (i < len && checks[i]!.f === fail) {
-        cond = cond + "&&" + checks[i]!.c(inputVar);
-        i = i + 1;
-      }
-      out = out + `${cond}||${B_failWithArg(val, fail(val), inputVar)};`;
+  let out = "", i = 0, len = checks.length;
+  while (i < len) {
+    const head = checks[i]!, fail = head.f;
+    let cond = head.c(inputVar);
+    i++;
+    // Extend the fused cond while the next check shares this `fail`.
+    while (i < len && checks[i]!.f === fail) {
+      cond += "&&" + checks[i]!.c(inputVar);
+      i++;
     }
-    return out;
+    out += `${cond}||${B_failWithArg(val, fail(val), inputVar)};`;
   }
-}
-
-// Whether a val's type-narrow checks can lift into a union dispatch
-// condition without stranding a declaration the lifted check reads:
-// non-transforming vals read the upstream input var (always safe); a
-// transforming val is safe only when its prev is non-transforming (stable
-// input var) and it has no codeFromPrev of its own to leave behind — else
-// the lifted check runs before that producer (the str->to(option(int))
-// "v0 is not defined" bug class).
-export const B_isHoistable = (val: Val): boolean => {
-  return val.t === true ? val.prev!.t !== true && val.cp === "" : true;
+  return out;
 }
 
 // A hoisted type-narrow kept in both forms: `c` routes the value to the next
@@ -492,17 +392,20 @@ export type HoistCond = { c: string; h: Hoist[] }
 // discriminant instead of being emitted; constraint refines still emit inline so
 // their case-specific error message survives.
 export const B_merge = (val: Val, out?: HoistCond): string => {
-  let current: Val | undefined = val;
-  let code = "";
+  let current: Val | undefined = val, code = "";
 
   while (current !== U) {
     const val: Val = current;
     current = val.prev;
-
     let currentCode = "";
 
     if (val.vc) {
-      if (out !== U && B_isHoistable(val)) {
+      // Type-narrows hoist only when they can't strand a decl the lifted
+      // check reads: a transforming val is safe iff prev is non-transforming
+      // (stable input var) and this val has no codeFromPrev of its own —
+      // else the lifted check runs before that producer (the
+      // str->to(option(int)) "v0 is not defined" bug class).
+      if (out && (!val.t || !val.prev!.t && val.cp === "")) {
         const inputVar = current!.v();
         const checks = val.vc;
         let hoisted = "";
@@ -515,8 +418,7 @@ export const B_merge = (val: Val, out?: HoistCond): string => {
             // `noValidation` is intentionally bypassed for the hoisted part —
             // the cond routes between cases, it doesn't reject, so suppressing
             // it would break dispatch.
-            currentCode =
-              currentCode + `${condCode}||${B_failWithArg(val, check.f(val), inputVar)};`;
+            currentCode += `${condCode}||${B_failWithArg(val, check.f(val), inputVar)};`;
           }
         }
         if (hoisted) {
@@ -530,16 +432,11 @@ export const B_merge = (val: Val, out?: HoistCond): string => {
 
     // Hoisted decls land after this val's checks (the old varsAllocation
     // slot).
-    if (val.hd !== "") {
-      currentCode = currentCode + `let ${val.hd};`;
-    }
+    if (val.hd) currentCode += `let ${val.hd};`;
 
     // Now emitted: a later cached-bond materialization can't hoist onto it.
     val.fz = true;
-
-    currentCode = val.cp + currentCode;
-
-    code = currentCode + code;
+    code = val.cp + currentCode + code;
   }
 
   return code;
@@ -550,13 +447,8 @@ export const B_merge = (val: Val, out?: HoistCond): string => {
 // links a derived val's var resolution to its source without eagerly
 // materializing a var. Shared by every "derive a val from a val" builder.
 const B_linkVar = (val: Val, nextVal: Val): void => {
-  const valVar: () => string = val.v.bind(val);
-  val.v = () => {
-    const v = valVar();
-    nextVal.i = v;
-    nextVal.v = _var;
-    return v;
-  };
+  const get = val.v.bind(val);
+  val.v = () => (nextVal.i = get(), nextVal.v = _var, nextVal.i);
 }
 
 export const B_next = (prev: Val, initial: string, schema: Internal, expected: Internal = prev.e): Val => {
@@ -576,7 +468,7 @@ export const B_next = (prev: Val, initial: string, schema: Internal, expected: I
     io: U,
     e: expected,
     prev,
-    f: valFlagNone,
+    f: 0,
     d: U,
     fv: U,
     cp: "",
@@ -599,7 +491,7 @@ export const B_refine = (val: Val, schema: Internal = val.s, checks?: Check[], e
   const nextVal: Val = {
     b: U,
     p: U,
-    v: shouldLink ? _prevVar : _var,
+    v: shouldLink ? _linkVar : _var,
     i: val.i,
     s: schema,
     io: U,
@@ -618,20 +510,14 @@ export const B_refine = (val: Val, schema: Internal = val.s, checks?: Check[], e
     g: val.g,
     o: U,
   };
-  if (shouldLink) {
-    B_linkVar(val, nextVal);
-  }
+  if (shouldLink) B_linkVar(val, nextVal);
   return nextVal;
 }
 
 // Lazy-allocate helper for mutating an existing val (as opposed to
 // building a local array and passing it through `refine`).
 export const B_pushCheck = (val: Val, check: Check): void => {
-  if (val.vc !== U) {
-    val.vc.push(check);
-  } else {
-    val.vc = [check];
-  }
+  (val.vc ??= []).push(check);
 }
 
 // Applies both refiners. Input checks push onto valInput.checks
@@ -643,47 +529,23 @@ export const B_pushCheck = (val: Val, check: Check): void => {
 // decoder that sets isOutput — object, array, tuple, union, recursive — has to
 // call this. Not calling it silently drops the user's S.refine.
 export const B_markOutput = (val: Val, valInput: Val): Val => {
-  let deferredInputChecks: Check[] | undefined;
-  const inputRefiner = valInput.e.inputRefiner;
-  if (inputRefiner !== U) {
-    const checks = inputRefiner(valInput);
-    if (checks.length > 0) {
-      if (valInput.prev !== U) {
-        for (let i = 0; i < checks.length; i++) {
-          B_pushCheck(valInput, checks[i]!);
-        }
-        deferredInputChecks = U;
-      } else {
-        deferredInputChecks = checks;
-      }
-    } else {
-      deferredInputChecks = U;
+  let inC: Check[] | undefined, outC: Check[] | undefined;
+  const ir = valInput.e.inputRefiner;
+  if (ir) {
+    const c = ir(valInput);
+    if (c.length) {
+      if (valInput.prev) (valInput.vc ??= []).push(...c);
+      else inC = c;
     }
-  } else {
-    deferredInputChecks = U;
   }
-
-  let outputChecks: Check[] | undefined;
-  const refiner = val.e.refiner;
-  if (refiner !== U) {
-    const checks = refiner(val);
-    outputChecks = checks.length > 0 ? checks : U;
-  } else {
-    outputChecks = U;
+  const rf = val.e.refiner;
+  if (rf) {
+    const c = rf(val);
+    if (c.length) outC = c;
   }
-
-  let result: Val;
-  if (deferredInputChecks !== U && outputChecks !== U) {
-    result = B_refine(val, U, deferredInputChecks.concat(outputChecks));
-  } else if (deferredInputChecks !== U) {
-    result = B_refine(val, U, deferredInputChecks);
-  } else if (outputChecks !== U) {
-    result = B_refine(val, U, outputChecks);
-  } else {
-    result = val;
-  }
-  result.io = true;
-  return result;
+  val = inC ? B_refine(val, U, outC ? inC.concat(outC) : inC) : outC ? B_refine(val, U, outC) : val;
+  val.io = true;
+  return val;
 }
 
 // Used in union codegen: splice a literal child's checks into the parent
@@ -691,14 +553,13 @@ export const B_markOutput = (val: Val, valInput: Val): Val => {
 // `parent[key]`; `fail` stays shared so lifted checks fuse with the
 // parent's own type guard. No-op if the child has no checks.
 export const B_hoistChildChecks = (parent: Val, child: Val, key: string): void => {
-  if (child.vc) {
+  const checks = child.vc;
+  if (checks) {
     const pathAppend = pathFromInlinedLocation(inlinedValueFromString(key));
-    child.vc!.forEach((check) => {
-      B_pushCheck(parent, {
-        c: (inputVar) => check.c(inputVar + pathAppend),
-        f: check.f,
-      });
-    });
+    for (let i = 0; i < checks.length; i++) {
+      const check = checks[i]!;
+      B_pushCheck(parent, { c: (v) => check.c(v + pathAppend), f: check.f });
+    }
     child.vc = U;
   }
 }
@@ -778,23 +639,64 @@ export const B_iterScope = (
   };
 }
 
-export const B_nextConst = (from: Val, schema: Internal, expected?: Internal): Val => {
-  return B_next(from, B_inlineConst(from, schema), schema, expected);
-}
+export const B_nextConst = (from: Val, schema: Internal, expected?: Internal): Val =>
+  B_next(from, B_inlineConst(from, schema), schema, expected);
+
+// The expression to read a val by when it will be read more than once — the
+// conversion reads it, and whatever the conversion's own result is spliced into
+// may read that. `v()` hands back the var that already stands for the value
+// wherever one does, and hoists one only where the source is an expression
+// nothing has named yet, which is the case a second read would repeat.
+export const B_readOnce = (input: Val): string => input.v();
+
+// A conversion's result, held in a var. The splice that reads it may read it
+// twice (jsonString's escape-free form does), and unlike a property path this is
+// a fresh pass over the whole value — so it is computed once, the way
+// B_conversion computes a custom coder's result once.
+export const B_computed = (
+  input: Val,
+  code: string,
+  schema: Internal,
+  failure?: string,
+): Val => {
+  const outputVar = B_varWithoutAllocation(input.g);
+  const output = B_next(input, outputVar, schema);
+  output.v = _var;
+  // With a `failure`, the whole `B_conversion` shape: a computation that can
+  // throw on a value the operation trusted rather than checked reports it as a
+  // failed conversion instead of escaping as whatever the platform raised.
+  output.cp =
+    failure === U
+      ? `let ${outputVar}=${code};`
+      : `let ${outputVar};try{${outputVar}=${code}}catch(x){${failure}}`;
+  return output;
+};
 
 export const B_asyncVal = (from: Val, initial: string): Val => {
   const v = B_next(from, initial, from.s);
-  v.f = valFlagAsync;
+  v.f = 1; // 1
   return v;
 }
 
+// A val the rest of the pipeline continues from inside a `.then`. Async is
+// declared, not discovered: a sync operation that reaches one is rejected here,
+// where it is written, rather than returning a promise its caller never asked
+// for.
+export const B_markAsync = (input: Val, output: Val): void => {
+  if (!(input.g.o & 1)) { // 1
+    B_throw({
+      code: "invalid_operation",
+      path: pathEmpty,
+      reason: "Invalid async during sync operation",
+    });
+  }
+  output.f |= 1; // 1
+}
+
 export const B_addObjectField = (objectVal: Val, location: string, val: Val): void => {
-  if (objectVal.s.type === arrayTag) {
-    objectVal.s.items!.push(val.s);
-  } else {
-    if (!val.o) {
-      objectVal.s.required!.push(location);
-    }
+  if (objectVal.s.type === arrayTag) objectVal.s.items!.push(val.s);
+  else {
+    if (!val.o) objectVal.s.required!.push(location);
     objectVal.s.properties![location] = val.s;
   }
 
@@ -804,32 +706,28 @@ export const B_addObjectField = (objectVal: Val, location: string, val: Val): vo
   // asyncVal's inline is a Promise.all(...) expression, not a var.
   // This has to happen before val->merge, which finalizes the prev
   // chain and locks the emitted code.
-  if (flagUnsafeHas(val.f, valFlagAsync)) {
-    val.v();
-  }
-  objectVal.cp = objectVal.cp + B_merge(val);
+  if (val.f & 1) val.v(); // 1
+  objectVal.cp += B_merge(val);
   objectVal.d![location] = val;
 }
 
-export const B_addKey = (objVal: Val, key: string, value: Val): string => {
-  return `${objVal.v()}[${key}]=${value.i}`;
-}
+export const B_addKey = (objVal: Val, key: string, value: Val): string =>
+  `${objVal.v()}[${key}]=${value.i}`;
 
 export const B_scope = (val: Val): Val => {
   const shouldLink = val.v !== _var;
 
-  // TODO: Simplify bond
   // Canonical Val field order (see B_operationArg).
   const nextVal: Val = {
     b: val,
     p: U,
-    v: shouldLink ? _bondVar : _var,
+    v: shouldLink ? _linkVar : _var,
     i: val.i,
     s: val.s,
     io: val.io,
     e: val.e,
     prev: U,
-    f: flagNone,
+    f: 0,
     // Shared, not dropped as in B_next: a scope names the same value, so the
     // same field vals describe it.
     d: val.d,
@@ -844,9 +742,7 @@ export const B_scope = (val: Val): Val => {
     g: val.g,
     o: U,
   };
-  if (shouldLink) {
-    B_linkVar(val, nextVal);
-  }
+  if (shouldLink) B_linkVar(val, nextVal);
   return nextVal;
 }
 
@@ -886,21 +782,12 @@ export const B_conversion = (
       target,
     );
     output.v = _var;
-    if (isAsync) {
-      if (!flagUnsafeHas(input.g.o, flagAsync)) {
-        B_throw({
-          code: "invalid_operation",
-          path: pathEmpty,
-          reason: "Invalid async during sync operation",
-        });
-      }
-      output.f |= valFlagAsync;
-    }
+    if (isAsync) B_markAsync(input, output);
     const embeddedFn = B_embed(input, fn);
     // Reuse the input's var when checks already materialized it, instead of
     // re-inlining the source expression twice.
     const inputValue = input.vc ? input.v() : input.i;
-    const unionContext = input.g.o & flagUnionTransformContext;
+    const unionContext = input.g.o & 4; // 4
     if (unionContext && isAsync) {
       output.cp = `let ${outputVar}=${embeddedFn}(${inputValue});`;
       return output;
@@ -914,19 +801,17 @@ export const B_conversion = (
     output.cp = `let ${outputVar};try{${outputVar}=${embeddedFn}(${inputValue})${
       isAsync ? `.catch(x=>${failure})` : ""
     }}catch(x){${rethrow}${failure}}`;
-    return trusted(output);
+    // A val whose result the target's own refiners can attach to. `val.vc`
+    // checks emit at the *pre-transform* slot (`prev.v()` in B_merge), so
+    // leaving them on the coder's own val would validate what went into the
+    // coder instead of what came out — `S.uuid->S.to(userSchema, ~custom=…)`
+    // ran the uuid pattern over the user object. The junction seam never
+    // hits this: its `unknown` source makes the loop compile the target's
+    // decoder, which supplies a val of its own. The trusted seam claims the
+    // target outright, so it has to supply one.
+    return output.s === unknown ? output : B_refine(output);
   };
 };
-
-// A val whose result the target's own refiners can attach to. `val.vc` checks
-// emit at the *pre-transform* slot (`prev.v()` in B_merge), so leaving them on
-// the coder's own val would validate what went into the coder instead of what
-// came out — `S.uuid->S.to(userSchema, ~custom=…)` ran the uuid pattern over
-// the user object. The junction seam never hits this: its `unknown` source
-// makes the loop compile the target's decoder, which supplies a val of its
-// own. The trusted seam claims the target outright, so it has to supply one.
-const trusted = (output: Val): Val =>
-  output.s === unknown ? output : B_refine(output);
 
 // The "never" codec slot. The union planner compares against this reference
 // to find a direction a variant can't take: such a variant accepts nothing
@@ -940,9 +825,43 @@ export const B_neverSlot: Builder = (input: Val) =>
     )}. The conversion is marked as never`,
   );
 
-export const B_invalidOperation = (val: Val, description: string): never => {
-  return B_throw({ code: "invalid_operation", reason: description, path: val.path });
-}
+// CONTENT_CODEC_SPEC.md rules 3 and 4, for the direction a link is written in:
+// two schemas whose payloads disagree (`content`) have two readings of it —
+// store the source's value in the target, or open the source and hand its
+// payload over — and the target naming its own payload with `.to` is what picks
+// the second. Compiling can't tell the two apart, because reversing a chain
+// turns that payload declaration into just another link: the legal
+// `X -> jsonString -> File` and the rejected `jsonString -> File` reach the
+// decoder as the same pair. So the reading is settled where the link is made,
+// and an unreadable one takes a slot that rejects the operation instead.
+// The node a link's content reading comes from: the schema, or the arm that
+// carries one where the schema is a union — which has neither `content` nor
+// `.to` of its own, though linking a carrier to `S.optional(S.jsonString)` puts
+// the same two readings on the table as linking it to `S.jsonString`.
+export const B_contentNode = (schema: Internal): Internal =>
+  (schema.content === U && schema.anyOf?.find((arm) => arm.content !== U)) || schema;
+
+// Half of CONTENT_CODEC_SPEC.md rule 4's question: whether two payloads are of
+// different kinds, which is what puts two readings on the table — store the
+// source's value in the target, or open the source and hand its payload over.
+// The other half, a `.to` on the target picking the second (rule 3), stays with
+// each caller, along with the `B_contentNode` walk that finds a marker on a
+// union arm. Compiling can't tell the two readings apart,
+// because reversing a chain turns a payload declaration into just another link,
+// so the reading is settled where the link is made — and what to say about it
+// differs by where that was, so the message stays with the caller too.
+export const B_contentDiffers = (from?: Internal, to?: Internal): boolean =>
+  from !== U && to !== U && from !== to && !(from.bc && to.bc);
+
+// Which reading of a content link applies: a `"pack"`/`"unpack"` slot the caller
+// wrote wins (rule 1), and otherwise a target that names its own payload is what
+// asks for the source to be opened (rule 3). Read by the carriers, never by the
+// formats — the format side only ever asks whether a `content` marker is there.
+export const B_readsPayload = (target: Internal): boolean =>
+  target.opens ?? target.to !== U;
+
+export const B_invalidOperation = (val: Val, description: string): never =>
+  B_throw({ code: "invalid_operation", reason: description, path: val.path });
 
 const B_mergeWithCatch = (
   val: Val,
@@ -959,22 +878,15 @@ const B_mergeWithCatch = (
   if (
     (valCode === "" || pure) &&
     // FIXME: Instead of this wrap every custom coder in a try/catch
-    !flagUnsafeHas(val.f, valFlagAsync)
+    !(val.f & 1) // 1
   ) {
-    return appendSafe !== U ? valCode + appendSafe() : pure ? "" : valCode;
-  } else {
-    const errorVar = B_varWithoutAllocation(val.g);
-
-    B_markThrow(val);
-    const catchCode = `${catchFn(errorVar)};throw ${errorVar}`;
-
-    if (flagUnsafeHas(val.f, valFlagAsync)) {
-      val.i = `${val.i}.catch(${errorVar}=>{${catchCode}})`;
-    }
-    return `try{${valCode}${
-      appendSafe !== U ? appendSafe() : ""
-    }}catch(${errorVar}){${catchCode}}`;
+    return appendSafe ? valCode + appendSafe() : pure ? "" : valCode;
   }
+  const errorVar = B_varWithoutAllocation(val.g);
+  B_markThrow(val);
+  const catchCode = `${catchFn(errorVar)};throw ${errorVar}`;
+  if (val.f & 1) val.i = `${val.i}.catch(${errorVar}=>{${catchCode}})`;
+  return `try{${valCode}${appendSafe ? appendSafe() : ""}}catch(${errorVar}){${catchCode}}`;
 }
 
 // A container that hands its parent a *promise* has to emit this prepend
@@ -988,21 +900,18 @@ export const B_mergeWithPathPrepend = (
   locationVar?: string,
   appendSafe?: () => string,
   pureSince?: number
-): string => {
-  if (val.path === pathEmpty && locationVar === U) {
-    return B_merge(val);
-  } else {
-    return B_mergeWithCatch(
-      val,
-      (errorVar) =>
-        `${errorVar}.path=${
-          parent.path === "" ? "" : `${inlinedValueFromString(parent.path)}+`
-        }${locationVar !== U ? `'["'+${locationVar}+'"]'+` : ""}${errorVar}.path`,
-      appendSafe,
-      pureSince
-    );
-  }
-}
+): string =>
+  val.path === pathEmpty && locationVar === U
+    ? B_merge(val)
+    : B_mergeWithCatch(
+        val,
+        (errorVar) =>
+          `${errorVar}.path=${parent.path ? `${inlinedValueFromString(parent.path)}+` : ""}${
+            locationVar !== U ? `'["'+${locationVar}+'"]'+` : ""
+          }${errorVar}.path`,
+        appendSafe,
+        pureSince,
+      );
 
 export function noopOperation(i: unknown): unknown {
   return i;

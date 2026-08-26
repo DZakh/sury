@@ -38,6 +38,8 @@ type tag =
 type numberFormat = | @as("int32") Int32 | @as("port") Port | @as("integer") Integer
 type stringFormat =
   | @as("json") JSON
+  | @as("base64") Base64
+  | @as("base64url") Base64url
   | @as("date-time") DateTime
   | @as("email") Email
   | @as("uuid") Uuid
@@ -447,6 +449,8 @@ module Error = {
 @module("sury") external email: t<string> = "email"
 @module("sury") external uuid: t<string> = "uuid"
 @module("sury") external cuid: t<string> = "cuid"
+@module("sury") external base64: t<string> = "base64"
+@module("sury") external base64url: t<string> = "base64url"
 @module("sury") external uri: t<string> = "uri"
 /** An instance of the JS `URL` class. ReScript has no stdlib binding for it,
     so this is an abstract type standing for one. */
@@ -500,6 +504,12 @@ let refine = (schema, refiner, ~error=?, ~path=?) => refine(schema, refiner, {?e
 type conversion<'i, 'o> =
   | @as("auto") Auto
   | @as("never") Never
+  // The two readings of a content link (CONTENT_CODEC_SPEC.md rule 1). They
+  // carry no payload, so they erase to their strings the way Auto/Never do —
+  // and they have to be here, because the ambiguity this axis reports names
+  // them as the remedy.
+  | @as("pack") Pack
+  | @as("unpack") Unpack
   | Sync('i => 'o)
   | Async('i => promise<'o>)
 
