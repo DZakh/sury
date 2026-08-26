@@ -129,8 +129,6 @@ export const optionFactory = (item: Internal, unitSchema: Internal = unit): Inte
 
       if (newAnyOf.length === schemas.length) {
         mutHas[unitSchema.type] = true;
-        // Ahead of the members: reverse encode of None must not enter an
-        // unknown/custom arm (https://github.com/DZakh/sury/issues/347).
         newAnyOf.unshift(unitSchema);
       }
 
