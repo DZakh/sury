@@ -7,9 +7,9 @@
 
 **The fastest schema library for TypeScript, JavaScript and ReScript.**
 
-Describe your data once. Sury generates JavaScript specialized for exactly that shape, so parsing, encoding back, and JSON Schema all come from that one definition — at the speed of hand-written code.
+Describe your data once. Sury generates JavaScript specialized for exactly that shape, so parsing, encoding back, and JSON Schema all come from that one definition.
 
-- **Fastest in the ecosystem.** Schemas become generated functions, not interpreted trees — [see the code a schema turns into](#the-code-a-schema-turns-into) and the [benchmarks](#comparison).
+- **Generated, not interpreted.** Each schema becomes a function built with `new Function` for exactly its shape — [see the code](#the-code-a-schema-turns-into), the [benchmarks](#comparison), and [the tradeoff](#does-it-really-use-new-function).
 - **One definition, both directions.** Every schema decodes and encodes. JSON encoding is [faster than `JSON.stringify`](#json-serialization-faster-than-jsonstringify), and throws on the values `JSON.stringify` silently corrupts.
 - **JSON Schema in and out.** Generate it for OpenAPI, or paste a document in and get a fully typed schema back — `$ref` and recursion included, no codegen, no `any`.
 - **7.9 kB min+gzip** for a schema and a parser. Tree-shakable, with async, recursive and custom schemas — and the [JSON Schema string formats](https://github.com/DZakh/sury/blob/main/docs/js-usage.md#string-formats) built in.
@@ -28,17 +28,20 @@ const playerSchema = S.schema({
   xp: S.number,
 });
 
-S.parser(playerSchema)({ username: "billie", xp: 100 });
+// Generates the function once — call it as many times as you like
+const parsePlayer = S.parser(playerSchema);
+
+parsePlayer({ username: "billie", xp: 100 });
 // => { username: "billie", xp: 100 }
 
-S.parser(playerSchema)({ username: "billie", xp: "not a number" });
+parsePlayer({ username: "billie", xp: "not a number" });
 // => throws S.Error: Failed at ["xp"]: Expected number, received "not a number"
 
 type Player = S.Infer<typeof playerSchema>;
 //   ^? { username: string; xp: number }
 ```
 
-The API mirrors TypeScript types, so there's not much new syntax to learn.
+The API mirrors TypeScript types, so there's not much new syntax to learn. If you'd rather get a result back than catch, there's [`S.safe`](#errors-that-tell-you-where-to-look).
 
 **Full API reference:** [JS/TS](https://github.com/DZakh/sury/blob/main/docs/js-usage.md) · [ReScript](https://github.com/DZakh/sury/blob/main/docs/rescript-usage.md) · [PPX](https://github.com/DZakh/sury/blob/main/packages/sury-ppx/README.md)
 
@@ -70,7 +73,9 @@ switch (event.type) {
 }
 ```
 
-You write `id: S.bigint` — the type you want to work with. A `bigint` can't exist in JSON, so Sury infers the `"42"` → `42n` coercion from the input side of the pipeline, in both directions. No `as const`, no coercion wrappers, no second schema for the wire format.
+`S.decoder(from, to)` generates the function that converts between two schemas — `S.parser(schema)` from the previous example is just `S.decoder(S.unknown, schema)`.
+
+You write `id: S.bigint` — the type you want to work with. A `bigint` can't exist in JSON, so Sury infers the `"42"` → `42n` coercion from the input side of the pipeline, in both directions. No `as const`, no coercion wrappers, no second schema for the wire format. And the coercion belongs to this chain, not to `S.bigint`: a plain `S.parser(eventSchema)` expects a real `bigint` and rejects `"42"`.
 
 Errors point at the field inside the matched variant, not at the union as a whole:
 
@@ -165,11 +170,11 @@ JSON.stringify({ price: Infinity });
 
 Faster than `JSON.stringify`, and 3.5× lighter than fast-json-stringify — 16.4 kB against 56.7 kB, encoder included.
 
-### Every schema is a pipeline stage, and every pipeline reverses
+### Chain schemas into pipelines, get the inverse for free
 
-`S.jsonString` above wasn't a special "parse JSON" mode. It's an ordinary schema used as a stage, and so are `S.json`, `S.uint8Array`, `S.date`, and every schema you write. There's no fixed menu of `parseJson` / `parseJsonString` / `convertToJson` functions: you describe the data at each step, and Sury generates the code between the steps.
+`S.jsonString` above is an ordinary schema used as a stage — so are `S.json`, `S.uint8Array`, `S.date`, and every schema you write. There's no fixed menu of `parseJson` / `parseJsonString` / `convertToJson` functions: you describe the data at each step, and Sury generates the code between the steps.
 
-Stages nest, so any field can be its own pipeline:
+Inside a schema, a stage chains with `schema.with(S.to, target)` — `.with` applies an operation to a schema and returns a new schema. Stages nest, so any field can be its own pipeline:
 
 ```ts
 const apiUser = S.schema({
@@ -182,9 +187,9 @@ const apiUser = S.schema({
 });
 ```
 
-The whole tree still folds into one generated function, so deep pipelines cost nothing at runtime.
+The whole tree still folds into one generated function — no per-stage overhead.
 
-And the whole tree runs backwards, too. Rename fields, coerce types, reshape objects — the inverse comes for free:
+And the whole tree runs backwards, too. Rename fields with `S.shape`, coerce with `S.to`, and the inverse is derived automatically:
 
 ```ts
 const userSchema = S.schema({
@@ -201,11 +206,14 @@ S.parser(userSchema)({ USER_ID: "0", USER_NAME: "Dmitry" });
 
 S.encoder(userSchema)({ id: 0n, name: "Dmitry" });
 // => { USER_ID: "0", USER_NAME: "Dmitry" }
+
+S.reverse(userSchema);
+//? S.Schema<{ id: bigint; name: string }, { USER_ID: string; USER_NAME: string }>
 ```
 
-`S.reverse` hands you the backwards schema as a real schema — `Input` and `Output` swapped, usable with every operation, not just as an encode shortcut.
+`S.reverse` hands you the backwards schema as a real schema — usable with every operation, not just as an encode shortcut.
 
-Once schemas are stages, layouts that usually need hand-written glue become a single definition. `S.compactColumns` maps columnar arrays to rows, in both directions:
+Once schemas are stages, layouts that usually need hand-written glue become a single definition. `S.compactColumns` maps columnar arrays — of `S.json` values here — to rows, in both directions:
 
 ```ts
 const cityRow = S.schema({ id: S.bigint, city: S.string });
@@ -218,13 +226,14 @@ S.encoder(rows)([{ id: 1n, city: "Tbilisi" }, { id: 2n, city: "Batumi" }]);
 // => [["1", "2"], ["Tbilisi", "Batumi"]]
 ```
 
-### JSON Schema, through the standard interface
+### JSON Schema, in and out
 
 Sury speaks JSON Schema natively — no converter bolted on top. It goes through the [Standard JSON Schema](https://standardschema.dev/json-schema) extension of the [Standard Schema](https://standardschema.dev/) spec, so tools consume it without special-casing Sury.
 
 And because Sury tracks Input and Output separately, it describes both sides of a transformation:
 
 ```ts
+// Opt-in, so bundles that don't emit JSON Schema tree-shake it away
 S.enableStandardJSONSchema();
 
 const productSchema = S.schema({
@@ -254,7 +263,7 @@ productSchema["~standard"].jsonSchema.output({ target: "draft-2020-12" });
 
 `"draft-07"`, `"draft-2020-12"` and `"openapi-3.0"` are all supported targets, and `S.toJSONSchema(schema, options)` skips `~standard` if you'd rather.
 
-It reads JSON Schema back in too — the whole document, `$ref` and recursion included, typed as it goes:
+It reads JSON Schema back in too — the whole document, typed as it goes:
 
 ```ts
 const comment = S.fromJSONSchema({
@@ -276,8 +285,6 @@ S.assert(comment, { text: "hi", replies: [{ text: 1 }] });
 // => throws S.Error: Failed at ["replies"]["0"]["text"]: Expected string, received 1
 ```
 
-No codegen step, no `any`: paste a document in, and it's a schema your editor understands.
-
 ### Types you can actually read
 
 Hover any schema and you see the data, not the library's internals:
@@ -287,7 +294,7 @@ S.schema({ foo: S.string });
 //? S.Schema<{ foo: string }, { foo: string }>
 ```
 
-Compare that with `v.ObjectSchema<{readonly foo: v.StringSchema<undefined>}, undefined>`. Both sides are right there, and they read in the direction the data flows — `S.Schema<TInput, TOutput>`. A transformation's two sides are obvious at a glance instead of something you reconstruct in your head.
+Compare that with `v.ObjectSchema<{readonly foo: v.StringSchema<undefined>}, undefined>`. Both sides are right there, and they read in the direction the data flows — `S.Schema<TInput, TOutput>`.
 
 ### Errors that tell you where to look
 
@@ -306,30 +313,13 @@ if (result.success) result.value;
 else result.error;
 ```
 
-## Integrations
-
-Use Sury anywhere a schema is accepted:
-
-- [tRPC](https://trpc.io/), [TanStack Form](https://tanstack.com/form), [TanStack Router](https://tanstack.com/router), [Hono](https://hono.dev/), and 19+ more via the [Standard Schema](https://standardschema.dev/) spec
-- Anything that speaks [JSON Schema](https://json-schema.org/), via `S.toJSONSchema` / `S.fromJSONSchema`
-
-## Used by
-
-- [HyperIndex](https://github.com/enviodev/hyperindex) — Envio's blockchain indexing framework, which uses Sury to power native high-performance external calls
-- [rescript-rest](https://github.com/DZakh/rescript-rest) — RPC-like client, contract, and server implementation for a pure REST API
-- [rescript-envsafe](https://github.com/DZakh/rescript-envsafe) — makes sure you don't accidentally deploy apps with missing or invalid environment variables
-- [rescript-stripe](https://github.com/enviodev/rescript-stripe) — describe and manage Stripe billing in a declarative way with code
-- Internal form library at [Carla](https://www.carla.se/)
-
-Building something with Sury? [Let me know](https://x.com/dzakh_dev) and I'll add it here.
-
 ## Comparison
 
 Sury is the fastest composable validation library in the ecosystem, because schemas are compiled to specialized code with `new Function` rather than interpreted.
 
 It's also small. Instead of a few large classes with many methods, the API and source are built from many small, independent functions, each with a single task. A bundler follows your imports and drops everything you don't use, which can cut the shipped size by up to 2× compared to [Zod](https://github.com/colinhacks/zod). (The approach is borrowed from [Valibot](https://github.com/fabian-hiller/valibot), which pioneered it.)
 
-Measured against `sury@11.0.0-rc.1`, `zod@4.4.3`, `typebox@0.34.52`, `valibot@1.4.2`, `arktype@2.2.3`:
+Measured with [this repo's comparison benchmark](https://github.com/DZakh/sury/tree/main/packages/e2e/src/benchmark) against `sury@11.0.0-rc.1`, `zod@4.4.3`, `typebox@0.34.52`, `valibot@1.4.2`, `arktype@2.2.3`:
 
 ### Size & speed
 
@@ -339,6 +329,8 @@ Measured against `sury@11.0.0-rc.1`, `zod@4.4.3`, `typebox@0.34.52`, `valibot@1.
 | **Benchmark size** (min + gzip) | 8.0 kB         | 19.6 kB      | 22.6 kB                        | 1.29 kB      | 47.1 kB        |
 | **Parse with the same schema**  | 210,061 ops/ms | 9,367 ops/ms | 158,185 ops/ms (no transforms) | 1,970 ops/ms | 106,520 ops/ms |
 | **Create schema & parse once**  | 99 ops/ms      | 11 ops/ms    | 103 ops/ms (no transforms)     | 315 ops/ms   | 11 ops/ms      |
+
+"Total size" is the whole library; "Benchmark size" is what the benchmark's schema and parse pull into a bundle after tree-shaking. The TypeBox numbers come from its compiled validator, which checks the value but doesn't transform or rebuild it.
 
 Independent benchmarks and conformance suites that include Sury:
 
@@ -359,11 +351,28 @@ Independent benchmarks and conformance suites that include Sury:
 
 Sury's own ecosystem is young, but implementing Standard Schema means the 32+ libraries that support the spec already work with it today.
 
+## Integrations
+
+Use Sury anywhere a schema is accepted:
+
+- [tRPC](https://trpc.io/), [TanStack Form](https://tanstack.com/form), [TanStack Router](https://tanstack.com/router), [Hono](https://hono.dev/), and 28+ more via the [Standard Schema](https://standardschema.dev/) spec
+- Anything that speaks [JSON Schema](https://json-schema.org/), via `S.toJSONSchema` / `S.fromJSONSchema`
+
+## Used by
+
+- [HyperIndex](https://github.com/enviodev/hyperindex) — Envio's blockchain indexing framework, which uses Sury to power native high-performance external calls
+- [rescript-rest](https://github.com/DZakh/rescript-rest) — RPC-like client, contract, and server implementation for a pure REST API
+- [rescript-envsafe](https://github.com/DZakh/rescript-envsafe) — makes sure you don't accidentally deploy apps with missing or invalid environment variables
+- [rescript-stripe](https://github.com/enviodev/rescript-stripe) — describe and manage Stripe billing in a declarative way with code
+- Internal form library at [Carla](https://www.carla.se/)
+
+Building something with Sury? [Let me know](https://x.com/dzakh_dev) and I'll add it here.
+
 ## FAQ
 
 ### Does it really use `new Function`?
 
-Yes — that's where the speed comes from. The approach is battle-tested and has no known security issues. It's also how TypeBox, Zod v4 and ArkType work, and even Cloudflare Workers added support for it.
+Yes — that's where the speed comes from. It's also how TypeBox, Zod v4 and ArkType work, and even Cloudflare Workers added support for it.
 
 There's currently no eval-free mode, so Sury won't run where dynamic code evaluation is forbidden: pages under a strict CSP without `'unsafe-eval'`, some browser extension contexts, and a few restricted edge runtimes. If that's your environment, [Valibot](https://valibot.dev/) is the honest recommendation today.
 
