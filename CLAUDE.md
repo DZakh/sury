@@ -3,6 +3,9 @@
 Rules only. How the compiler *currently works* belongs in a comment next to the
 code it constrains — this file can't be kept honest against a refactor.
 
+Process (playbooks, TDD, review, comments, spawn) is pstack. Verification is
+the spec skill. Hot-path TypeScript unsafety is pstack typescript-best-practices.
+
 ## Goals (priority order on conflict)
 
 1. **DX** — intuitive public API and error messages.
@@ -12,22 +15,11 @@ code it constrains — this file can't be kept honest against a refactor.
 Tiebreaker: shortest *generated* code wins over shortest *library* code (runtime
 ships per-schema, library ships once).
 
-## Use the spec skill
+## Spec
 
-Every change under `packages/sury/src` goes through it. Specs snapshot generated
-code, bundle size and type-cost; the printed metric summary is the deliverable.
-Never hand-write a golden.
-
-**Every issue found — bug report, review finding, or one you hit yourself —
-lands as a spec that reproduces it, and stays as the regression test.** No spec,
-not fixed. Add `examples` to the spec that covers the schema, or a new
-`specs/<id>.yaml` when none does. A test file is for what the format genuinely
-can't express (a packaging or tsconfig-level failure); say so in the commit.
-Never a commit message alone.
-
-`spec check` decides what a spec may carry, comments included — it is the rule,
-so there isn't one here. The one thing it can't see is a `FIXME:` that has
-stopped being true; delete those yourself.
+Every change under `packages/sury/src` goes through the spec skill. Never
+hand-write a golden. `spec check` decides what a spec may carry. Delete a
+`FIXME:` that has stopped being true.
 
 ## Layering
 
@@ -55,31 +47,12 @@ base → builder → primitives → parse → union → composites → factory
 ## Writing code
 
 - Keep helpers flat and `B_`-prefixed so each shakes individually.
-- Prefer `const f = () => {}` over `function` — measurably smaller minified.
-- Inline intrinsics (`a | b`, `typeof x`) rather than wrapping them in helpers.
-- Runtime field names on hot objects stay short: property names survive
-  minification, so every character ships. A field that lives on a schema a
-  consumer can print is the exception — spell those out.
-- Write bit-flag literals, not named `const`s — esbuild won't inline them, so the
-  name costs bytes at every use. Document the values in a comment.
 - Every schema must be reversible (Input ↔ Output) unless explicitly opted out.
 - Name anything esbuild emits `index.*`. `S.*` belongs to the ReScript compiler,
   which overwrites whatever sits where its output lands.
 
-## Comments
-
-- Default: no comment.
-- Write one only for a non-obvious *why* — a hidden constraint, a subtle
-  invariant, a bug workaround, behavior that would surprise a reader.
-- Never restate the code. Delete existing comments that fail this test, even in
-  code you're only editing.
-- An invariant that binds *another* module goes on the definition both sides
-  reach, so the person about to break it is looking at it.
-- Repo-wide, not just `packages/sury`.
-- The files in `artifact_test.ts`'s `FILES` ship — they land in a consumer's
-  `node_modules` and editor hover. Comments there answer what the API does; a
-  rule for whoever maintains it goes where only we read it — this file, or the
-  test that enforces it.
+Comments: default none; keep only a non-obvious why. Repo-wide, including files
+you only edit.
 
 ## JSON Schema types
 
