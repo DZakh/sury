@@ -1007,6 +1007,13 @@ const base64urlToBytes: (text: string) => Uint8Array = /* @__PURE__ */ (() =>
 const stdCodec = { toBytes: base64ToBytes, fromBytes: bytesToBase64 };
 const urlCodec = { toBytes: base64urlToBytes, fromBytes: bytesToBase64url };
 
+// `bc` lives on the format singleton. A trim (or other string) link copies
+// `content` but not `bc`, so recode has to see through that to the alphabet
+// the text still is. A bytes carrier also has `content.bc`, but its value is
+// bytes — only a string-tagged source is text we can recode.
+const codecOf = (s: Internal) =>
+  s.bc ?? (s.type === stringTag ? s.content?.bc : U);
+
 // A length check plus one flat scan, rather than the canonical
 // `(?:[A-Za-z0-9+/]{4})*(?:…==|…=)?` — the four-at-a-time group backtracks per
 // quantum and costs about twice as much on a payload-sized string, which is
@@ -1031,7 +1038,7 @@ const bytesTextFormat = (
   const differs = (other: Internal): boolean => B_contentDiffers(other.content, schema);
 
   schema.decoder = (input) => {
-    const src = input.s.bc;
+    const src = codecOf(input.s);
     if (src && src !== codec) {
       const output = B_next(
         input,
@@ -1056,7 +1063,7 @@ const bytesTextFormat = (
   };
 
   schema.encoder = (input, target) => {
-    const dst = target.bc;
+    const dst = codecOf(target);
     if (dst && dst !== codec) {
       const output = B_next(
         input,
