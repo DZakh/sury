@@ -2,7 +2,7 @@
   "name": "sury",
   "version": "11.0.0-rc.2",
   "private": true,
-  "description": "🧬 The fastest schema with next-gen DX",
+  "description": "Compiled schemas. Parse, encode, and JSON Schema from one definition.",
   "keywords": [
     "ReScript",
     "Schema",

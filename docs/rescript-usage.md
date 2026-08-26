@@ -1255,7 +1255,7 @@ A field of bytes is written as base64. You do not pass Pack or Unpack.
 // `{"payload":"iVBORw=="}`
 ```
 
-#### A JWT segment
+#### JSON inside a base64 string
 
 Parse the base64 text as JSON, then as the object.
 

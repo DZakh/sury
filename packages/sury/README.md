@@ -5,21 +5,18 @@
 
 # Sury 🧬
 
-**The fastest schema with next-gen DX.**
+**Compiled schemas. Parse, encode, and JSON Schema from one definition.**
 
-Describe your data once. Parse it, validate it, transform it, encode it back, and turn it into JSON Schema — all from that one definition, all compiled into a single function.
+- **Compiled, not interpreted.** Each schema becomes JavaScript written for exactly its shape ([benchmarks](#comparison)). [See the code →](#json-serialization-faster-than-jsonstringify)
+- **Encodes JSON faster than `JSON.stringify`.** It throws on the values `JSON.stringify` silently corrupts. [→](#json-serialization-faster-than-jsonstringify)
+- **Every schema reverses.** Decode and encode come from the same definition. [→](#transformations-that-reverse-themselves)
+- **Every schema is a pipeline stage.** `S.jsonString.with(S.to, eventSchema)` is a schema like any other. [→](#every-schema-is-a-pipeline-stage)
+- **JSON Schema in both directions.** Paste a document in and TypeScript infers the type, `$ref` and recursion included. No codegen step, no `any`. [→](#json-schema-through-the-standard-interface)
+- **`S.base64` and `S.base64url`.** JSON fields pack as standard base64. Name `S.base64url` for the URL-safe alphabet. [JS](https://github.com/DZakh/sury/blob/main/docs/js-usage.md#content) · [ReScript](https://github.com/DZakh/sury/blob/main/docs/rescript-usage.md#content)
+- **7.9 kB min+gzip** for a schema and a parser. Async, recursive, and custom schemas included.
+- **Plain JavaScript, TypeScript, and ReScript.** No compiler required.
 
-- ⚡ **Compiled, not interpreted.** Each schema becomes JavaScript written for exactly its shape — the fastest parsing in the ecosystem ([benchmarks](#comparison)). [See the code →](#see-the-code-it-compiles)
-- 🚀 **Encodes JSON faster than `JSON.stringify`** — and throws on the values `JSON.stringify` silently corrupts. [→](#json-serialization-faster-than-jsonstringify)
-- 🔄 **Every schema reverses.** Decode and encode come from the same definition. [→](#transformations-that-reverse-themselves)
-- 🧩 **Every schema is a pipeline stage.** `S.jsonString.with(S.to, eventSchema)` is a schema like any other. [→](#every-schema-is-a-pipeline-stage)
-- 📄 **JSON Schema in both directions** — paste a document in and TypeScript infers the type, `$ref` and recursion included. No codegen step, no `any`. [→](#json-schema-through-the-standard-interface)
-- 🔍 **Types you can read.** You hover `S.Schema<{foo: string}, {foo: string}>`, not the library's internals. [→](#types-you-can-actually-read)
-- 🔤 **The JSON Schema string format vocabulary** — dates, durations, URIs, IRIs, hostnames, IP addresses and JSON Pointers, built in. [JS](https://github.com/DZakh/sury/blob/main/docs/js-usage.md#string-formats) · [ReScript](https://github.com/DZakh/sury/blob/main/docs/rescript-usage.md#string-formats)
-- 🌳 **Small and tree-shakable** — 7.9 kB min+gzip for a schema and a parser. Async, recursive and custom schemas included.
-- 🟨 **Plain JavaScript, TypeScript and ReScript** — no compiler required.
-
-> Formerly known as **ReScript Schema**. It's plain JavaScript — you don't need the ReScript compiler to use it. ReScript users, see the [ReScript docs](https://github.com/DZakh/sury/blob/main/docs/rescript-usage.md).
+> Formerly known as **ReScript Schema**. It's plain JavaScript. You don't need the ReScript compiler to use it. ReScript users, see the [ReScript docs](https://github.com/DZakh/sury/blob/main/docs/rescript-usage.md).
 
 ## Getting started
 
@@ -41,11 +38,14 @@ S.parser(playerSchema)({ username: "billie", xp: 100 });
 S.parser(playerSchema)({ username: "billie", xp: "not a number" });
 // => throws S.Error: Failed at ["xp"]: Expected number, received "not a number"
 
+S.encoder(playerSchema, S.jsonString)({ username: "billie", xp: 100 });
+// => '{"username":"billie","xp":100}'
+
 type Player = S.Infer<typeof playerSchema>;
 //   ^? { username: string; xp: number }
 ```
 
-The API mirrors TypeScript types, so there's not much new syntax to learn.
+`S.parser(schema)` is `S.decoder(S.unknown, schema)`.
 
 **Full API reference:** [JS/TS](https://github.com/DZakh/sury/blob/main/docs/js-usage.md) · [ReScript](https://github.com/DZakh/sury/blob/main/docs/rescript-usage.md) · [PPX](https://github.com/DZakh/sury/blob/main/packages/sury-ppx/README.md)
 
@@ -84,43 +84,6 @@ parseEvent('{"type":"user.renamed","id":"42"}');
 // => throws S.Error: Failed at ["name"]: Expected string, received undefined
 ```
 
-### See the code it compiles
-
-`parseEvent` isn't an interpreter walking a schema tree. It's a function **Sury** generated for exactly this shape. The union dispatches on the discriminant, the inferred `bigint` coercion is inlined as a bare `BigInt()` call, and `S.jsonString` → union → fields fuse into one pass:
-
-```js
-(i) => {
-  let v0;
-  try {
-    v0 = JSON.parse(i);
-  } catch (t) {
-    e[0](i);
-  }
-  if (typeof v0 === "object" && v0 && !Array.isArray(v0)) {
-    if (v0["type"] === "user.created") {
-      let v2 = v0["id"];
-      typeof v2 === "string" || e[2](v2);
-      let v1;
-      try {
-        v1 = BigInt(v2);
-      } catch (_) {
-        e[1](v2);
-      }
-      v0 = { type: v0["type"], id: v1 };
-    } else if (v0["type"] === "user.renamed") {
-      // ...one branch per variant, no loop over union members
-    } else {
-      e[8](v0);
-    }
-  } else {
-    e[9](v0);
-  }
-  return v0;
-};
-```
-
-That's why **Sury** tends to outrun not just other libraries, but hand-rolled validation too.
-
 ### JSON serialization faster than `JSON.stringify`
 
 The same `eventSchema` encodes back out. No second definition:
@@ -130,7 +93,7 @@ S.encoder(eventSchema, S.jsonString)({ type: "user.renamed", id: 42n, name: "Dmi
 // => '{"type":"user.renamed","id":"42","name":"Dmitry"}'
 ```
 
-There's no intermediate object and no `JSON.stringify` — the discriminant picks a branch, and the JSON text is baked in:
+There's no intermediate object and no `JSON.stringify`. The discriminant picks a branch, and the JSON text is baked in:
 
 ```js
 (i) => {
@@ -150,10 +113,10 @@ Types `JSON.stringify` refuses are ordinary fields here. Values it silently corr
 ```ts
 const schema = S.schema({ id: S.bigint, payload: S.uint8Array, at: S.date, price: S.number });
 const encode = S.encoder(schema, S.jsonString);
-const bytes = new TextEncoder().encode("hello");
+const bytes = new Uint8Array([137, 80, 78, 71]);
 
 encode({ id: 9007199254740993n, payload: bytes, at: new Date("2026-01-15T10:30:00.000Z"), price: 9.99 });
-// => '{"id":"9007199254740993","payload":"hello","at":"2026-01-15T10:30:00.000Z","price":9.99}'
+// => '{"id":"9007199254740993","payload":"iVBORw==","at":"2026-01-15T10:30:00.000Z","price":9.99}'
 
 encode({ id: 1n, payload: bytes, at: new Date(), price: Infinity });
 // => throws S.Error: Failed at ["price"]: Expected JSON, received Infinity
@@ -168,7 +131,7 @@ JSON.stringify({ price: Infinity });
 | Event feed (50 tagged-union events)          | **5.05 µs** | 7.82 µs          | 20.26 µs            |
 | `bigint` id + binary payload + `Date`        | **1.17 µs** | 1.51 µs          | 1.45 µs             |
 
-Faster than `JSON.stringify`, and 3.5× lighter than fast-json-stringify — 16.4 kB against 56.7 kB, encoder included.
+Faster than `JSON.stringify`, and 3.5× lighter than fast-json-stringify. 16.4 kB against 56.7 kB, encoder included.
 
 ### Transformations that reverse themselves
 
@@ -283,35 +246,7 @@ S.assert(comment, { text: "hi", replies: [{ text: 1 }] });
 // => throws S.Error: Failed at ["replies"]["0"]["text"]: Expected string, received 1
 ```
 
-No codegen step, no `any`: paste a document in, and it's a schema your editor understands.
-
-### Types you can actually read
-
-Hover any schema and you see the data, not the library's internals:
-
-```ts
-S.schema({ foo: S.string });
-//? S.Schema<{ foo: string }, { foo: string }>
-```
-
-Compare that with `v.ObjectSchema<{readonly foo: v.StringSchema<undefined>}, undefined>`. Both sides are right there, and they read in the direction the data flows — `S.Schema<TInput, TOutput>`. A transformation's two sides are obvious at a glance instead of something you reconstruct in your head.
-
-### Errors that tell you where to look
-
-```ts
-S.parser(S.schema({ a: S.array(S.schema({ b: S.string })) }))({
-  a: [{ b: "x" }, { b: 1 }],
-});
-// => throws S.Error: Failed at ["a"]["1"]["b"]: Expected string, received 1
-```
-
-Every error is an `S.Error` (`err instanceof S.Error`). If you'd rather not catch, `S.safe` and `S.safeAsync` wrap any block into a typed result:
-
-```ts
-const result = S.safe(() => S.parser(playerSchema)(data));
-if (result.success) result.value;
-else result.error;
-```
+No codegen step, no `any`. Paste a document in, and it's a schema your editor understands.
 
 ## Integrations
 

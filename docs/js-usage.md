@@ -1117,7 +1117,7 @@ S.encoder(S.schema({ payload: S.uint8Array }), S.jsonString)({
 // {"payload":"iVBORw=="}
 ```
 
-### A JWT segment
+### JSON inside a base64 string
 
 Parse the base64 text as JSON, then as the object.
 
