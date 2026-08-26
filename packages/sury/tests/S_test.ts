@@ -1817,10 +1817,6 @@ test("fromJSONSchema: an unmodelled assertion keyword fails at creation", (t) =>
   t.expect(result.error?.message).toContain("Unsupported JSON Schema keyword: patternProperties");
 
   t.expect(
-    S.safe(() => S.fromJSONSchema({ type: "array", uniqueItems: true })).error?.message,
-  ).toContain("uniqueItems");
-
-  t.expect(
     S.safe(() => S.fromJSONSchema({ $dynamicRef: "#items" })).error?.message,
   ).toContain("$dynamicRef");
 

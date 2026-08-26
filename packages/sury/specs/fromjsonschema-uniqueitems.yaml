@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.fromJSONSchema({ uniqueItems: true })"
+  input: JSON
+  output: JSON
+  instantiations: 593
+jsonSchema:
+  input: "{ uniqueItems: true }"
+  output: "{ uniqueItems: true }"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{e[0](i);e[1](i)||e[2](i);return i}
+    examples:
+      unique-numbers:
+        input: "[1, 2]"
+        output: "[1, 2]"
+      duplicate-numbers:
+        input: "[1, 1]"
+        error: Should have unique items.
+      one-and-true-are-unique:
+        input: "[1, true]"
+        output: "[1, true]"
+      key-order-ignored:
+        input: "[{ a: 1, b: 2 }, { b: 2, a: 1 }]"
+        error: Should have unique items.
+      ignores-object:
+        input: "{ a: 1 }"
+        output: "{ a: 1 }"
+  decode:
+    expression: i=>{e[0](i)||e[1](i);return i}
+    examples:
+      unique-numbers:
+        input: "[1, 2]"
+        output: "[1, 2]"
+  encode:
+    expression: i=>{e[0](i)||e[1](i);return i}
+    examples:
+      unique-numbers:
+        input: "[1, 2]"
+        output: "[1, 2]"

@@ -764,17 +764,7 @@ const toIntSchema = (jsonSchema: JSONSchemaT): Internal => withNumericBounds(int
 const unsupportedKeywords = [
   "$dynamicRef",
   "$recursiveRef",
-  "uniqueItems",
-  "contains",
-  "minContains",
-  "maxContains",
   "patternProperties",
-  "propertyNames",
-  "minProperties",
-  "maxProperties",
-  "dependencies",
-  "dependentSchemas",
-  "dependentRequired",
   "unevaluatedProperties",
   "unevaluatedItems",
 ];
@@ -827,6 +817,45 @@ const passesSchema = (data: unknown, schema: Internal): boolean => {
   } catch {
     return false;
   }
+};
+
+const isJsonObject = (data: unknown): data is Record<string, unknown> =>
+  typeof data === "object" && data !== null && !Array.isArray(data);
+
+// JSON Schema equality: numbers compare mathematically (1 === 1.0), objects
+// ignore key order, and true is not 1. `===` already covers the first.
+const jsonEqual = (a: unknown, b: unknown): boolean => {
+  if (a === b) return true;
+  if (a === null || b === null || typeof a !== "object" || typeof b !== "object") {
+    return false;
+  }
+  if (Array.isArray(a)) {
+    if (!Array.isArray(b) || a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (!jsonEqual(a[i], b[i])) return false;
+    }
+    return true;
+  }
+  if (Array.isArray(b)) return false;
+  const left = a as Record<string, unknown>;
+  const right = b as Record<string, unknown>;
+  const keys = Object.keys(left);
+  if (keys.length !== Object.keys(right).length) return false;
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i]!;
+    if (!Object.hasOwn(right, key) || !jsonEqual(left[key], right[key])) return false;
+  }
+  return true;
+};
+
+const jsonItemsUnique = (items: unknown[]): boolean => {
+  const end = items.length;
+  for (let i = 0; i < end; i++) {
+    for (let j = i + 1; j < end; j++) {
+      if (jsonEqual(items[i], items[j])) return false;
+    }
+  }
+  return true;
 };
 
 const codePointLength = (value: string): number => {
@@ -1128,11 +1157,24 @@ const assertionToJSONDefinition = (
         Object.entries(current.properties).map(([key, child]) => [key, rw(child)])
       );
     }
+    if (current.dependentSchemas !== U) {
+      output.dependentSchemas = Object.fromEntries(
+        Object.entries(current.dependentSchemas).map(([key, child]) => [key, rw(child)])
+      );
+    }
     if (current.items !== U) {
       output.items = Array.isArray(current.items) ? current.items.map(rw) : rw(current.items);
     }
     if (current.prefixItems !== U) output.prefixItems = current.prefixItems.map(rw);
-    for (const k of ["additionalItems", "if", "then", "else", "not"] as const) {
+    for (const k of [
+      "additionalItems",
+      "if",
+      "then",
+      "else",
+      "not",
+      "contains",
+      "propertyNames",
+    ] as const) {
       if (current[k] !== U) output[k] = rw(current[k]!) as never;
     }
     if (current.additionalProperties !== U) {
@@ -1202,20 +1244,11 @@ export const fromJSONSchema = (
 
   for (let i = 0; i < unsupportedKeywords.length; i++) {
     const keyword = unsupportedKeywords[i]!;
-    const value = (jsonSchema as Record<string, unknown>)[keyword];
-    if (value === U) continue;
-    // uniqueItems:false asserts nothing. minContains/maxContains without
-    // contains are ignored by the spec. Throwing on those would reject
-    // documents that every JSON Schema validator accepts as unconstrained.
-    if (keyword === "uniqueItems" && value === false) continue;
-    if (
-      (keyword === "minContains" || keyword === "maxContains") &&
-      jsonSchema.contains === U
-    )
-      continue;
-    refError(
-      `Unsupported JSON Schema keyword: ${keyword}. Ignoring it would accept data the schema rejects — remove it, or express the constraint with S.refine on the result`
-    );
+    if ((jsonSchema as Record<string, unknown>)[keyword] !== U) {
+      refError(
+        `Unsupported JSON Schema keyword: ${keyword}. Ignoring it would accept data the schema rejects — remove it, or express the constraint with S.refine on the result`
+      );
+    }
   }
 
   // The base type dispatch is mirrored by `JSONSchemaResolve` in
@@ -1616,6 +1649,150 @@ export const fromJSONSchema = (
       "Should pass the if/then/else schema validation.",
       conditionalKeywords
     );
+  }
+
+  if (jsonSchema.minProperties !== U || jsonSchema.maxProperties !== U) {
+    const min = jsonSchema.minProperties;
+    const max = jsonSchema.maxProperties;
+    schema = refineInput(
+      schema,
+      (data: unknown) => {
+        if (!isJsonObject(data)) return true;
+        const n = Object.keys(data).length;
+        return (min === U || n >= min) && (max === U || n <= max);
+      },
+      "Should have a property count within the JSON Schema bounds."
+    );
+    const propertyCount: JSONSchemaT = {};
+    if (min !== U) propertyCount.minProperties = min;
+    if (max !== U) propertyCount.maxProperties = max;
+    schema = extendJSONSchema(schema, propertyCount);
+  }
+
+  if (jsonSchema.propertyNames !== U) {
+    const names = asAssertion(jsonSchema.propertyNames, ctx);
+    schema = refineInput(
+      schema,
+      (data: unknown) =>
+        !isJsonObject(data) ||
+        Object.keys(data).every((key) => passesSchema(key, names)),
+      "Should pass the propertyNames schema for every property."
+    );
+    schema = extendJSONSchema(schema, {
+      propertyNames: assertionToJSONDefinition(jsonSchema.propertyNames, names, ctx),
+    });
+  }
+
+  if (jsonSchema.dependentRequired !== U) {
+    const deps = jsonSchema.dependentRequired;
+    const keys = Object.keys(deps);
+    schema = refineInput(
+      schema,
+      (data: unknown) => {
+        if (!isJsonObject(data)) return true;
+        for (let i = 0; i < keys.length; i++) {
+          const key = keys[i]!;
+          if (!Object.hasOwn(data, key)) continue;
+          const required = deps[key]!;
+          for (let j = 0; j < required.length; j++) {
+            if (!Object.hasOwn(data, required[j]!)) return false;
+          }
+        }
+        return true;
+      },
+      "Should contain every dependentRequired property."
+    );
+    schema = extendJSONSchema(schema, { dependentRequired: deps });
+  }
+
+  if (jsonSchema.dependentSchemas !== U) {
+    const deps = jsonSchema.dependentSchemas;
+    const keys = Object.keys(deps);
+    const schemas = keys.map((key) => asAssertion(deps[key]!, ctx));
+    schema = refineInput(
+      schema,
+      (data: unknown) => {
+        if (!isJsonObject(data)) return true;
+        for (let i = 0; i < keys.length; i++) {
+          if (Object.hasOwn(data, keys[i]!) && !passesSchema(data, schemas[i]!)) {
+            return false;
+          }
+        }
+        return true;
+      },
+      "Should pass every dependentSchemas schema."
+    );
+    const rewritten: Record<string, JSONSchemaDefinition> = {};
+    for (let i = 0; i < keys.length; i++) {
+      rewritten[keys[i]!] = assertionToJSONDefinition(deps[keys[i]!]!, schemas[i]!, ctx);
+    }
+    schema = extendJSONSchema(schema, { dependentSchemas: rewritten });
+  }
+
+  if (jsonSchema.dependencies !== U) {
+    const deps = jsonSchema.dependencies;
+    const keys = Object.keys(deps);
+    const required: [string, string[]][] = [];
+    const schemas: [string, Internal][] = [];
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i]!;
+      const dep = deps[key];
+      if (Array.isArray(dep)) required.push([key, dep as string[]]);
+      else schemas.push([key, asAssertion(dep as JSONSchemaDefinition, ctx)]);
+    }
+    schema = refineInput(
+      schema,
+      (data: unknown) => {
+        if (!isJsonObject(data)) return true;
+        for (let i = 0; i < required.length; i++) {
+          const [key, need] = required[i]!;
+          if (!Object.hasOwn(data, key)) continue;
+          for (let j = 0; j < need.length; j++) {
+            if (!Object.hasOwn(data, need[j]!)) return false;
+          }
+        }
+        for (let i = 0; i < schemas.length; i++) {
+          const [key, nested] = schemas[i]!;
+          if (Object.hasOwn(data, key) && !passesSchema(data, nested)) return false;
+        }
+        return true;
+      },
+      "Should pass the dependencies keyword."
+    );
+    schema = extendJSONSchema(schema, { dependencies: deps });
+  }
+
+  if (jsonSchema.uniqueItems === true) {
+    schema = refineInput(
+      schema,
+      (data: unknown) => !Array.isArray(data) || jsonItemsUnique(data),
+      "Should have unique items."
+    );
+    schema = extendJSONSchema(schema, { uniqueItems: true });
+  }
+
+  if (jsonSchema.contains !== U) {
+    const itemSchema = asAssertion(jsonSchema.contains, ctx);
+    const min = jsonSchema.minContains !== U ? jsonSchema.minContains : 1;
+    const max = jsonSchema.maxContains;
+    schema = refineInput(
+      schema,
+      (data: unknown) => {
+        if (!Array.isArray(data)) return true;
+        let n = 0;
+        for (let i = 0; i < data.length; i++) {
+          if (passesSchema(data[i], itemSchema)) n++;
+        }
+        return n >= min && (max === U || n <= max);
+      },
+      "Should satisfy the contains keyword."
+    );
+    const containsKeywords: JSONSchemaT = {
+      contains: assertionToJSONDefinition(jsonSchema.contains, itemSchema, ctx),
+    };
+    if (jsonSchema.minContains !== U) containsKeywords.minContains = jsonSchema.minContains;
+    if (max !== U) containsKeywords.maxContains = max;
+    schema = extendJSONSchema(schema, containsKeywords);
   }
 
   // OpenAPI 3.0's `nullable` widens whatever the rest of the document
