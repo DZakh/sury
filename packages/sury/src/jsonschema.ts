@@ -764,7 +764,6 @@ const toIntSchema = (jsonSchema: JSONSchemaT): Internal => withNumericBounds(int
 const unsupportedKeywords = [
   "$dynamicRef",
   "$recursiveRef",
-  "patternProperties",
   "unevaluatedProperties",
   "unevaluatedItems",
 ];
@@ -1111,6 +1110,36 @@ const withDefs = (schema: Internal, ctx: RefContext): Internal => {
 const asAssertion = (definition: JSONSchemaDefinition, ctx: RefContext): Internal =>
   withDefs(jsonDefinitionToSchema(definition, ctx), ctx);
 
+type PatternProp = { re: RegExp; schema: Internal };
+
+const compilePatternProperties = (
+  patterns: Record<string, JSONSchemaDefinition>,
+  ctx: RefContext
+): PatternProp[] => {
+  const keys = Object.keys(patterns);
+  const compiled: PatternProp[] = [];
+  for (let i = 0; i < keys.length; i++) {
+    const source = keys[i]!;
+    compiled.push({
+      re: B_compilePattern(source),
+      schema: asAssertion(patterns[source]!, ctx),
+    });
+  }
+  return compiled;
+};
+
+const patternMatches = (re: RegExp, key: string): boolean => {
+  re.lastIndex = 0;
+  return re.test(key);
+};
+
+const keyMatchesPattern = (key: string, patterns: PatternProp[]): boolean => {
+  for (let i = 0; i < patterns.length; i++) {
+    if (patternMatches(patterns[i]!.re, key)) return true;
+  }
+  return false;
+};
+
 // The JSON rendering of a definition that only ever runs through
 // `passesSchema` — a keyword whose constraint no Sury schema carries, so
 // `toJSONSchema` of the built schema would return the shape the refinement sits
@@ -1155,6 +1184,11 @@ const assertionToJSONDefinition = (
     if (current.properties !== U) {
       output.properties = Object.fromEntries(
         Object.entries(current.properties).map(([key, child]) => [key, rw(child)])
+      );
+    }
+    if (current.patternProperties !== U) {
+      output.patternProperties = Object.fromEntries(
+        Object.entries(current.patternProperties).map(([key, child]) => [key, rw(child)])
       );
     }
     if (current.dependentSchemas !== U) {
@@ -1285,20 +1319,43 @@ export const fromJSONSchema = (
     }
   } else if (jsonSchema.type === "object") {
     const definitions = jsonSchema.properties;
+    const hasPatterns = jsonSchema.patternProperties !== U;
     if (definitions === U) {
       const additional = jsonSchema.additionalProperties;
       const required = jsonSchema.required;
-      if (additional === false) {
+      if (additional === false && !hasPatterns) {
         // Nothing may appear, so a required key has nowhere to live.
         schema = required?.length ? never_ : objectSchema(Object.create(null), "strict");
       } else {
         schema = dict(
-          additional === U || isAnyJSONSchema(additional)
+          additional === U ||
+            additional === false ||
+            isAnyJSONSchema(additional) ||
+            hasPatterns
             ? json
             : jsonDefinitionToSchema(additional, ctx)
         );
         if (required?.length) {
           schema = extendJSONSchema(withRequired(schema, required), { required });
+        }
+        if (
+          hasPatterns &&
+          additional !== U &&
+          additional !== false &&
+          !isAnyJSONSchema(additional)
+        ) {
+          const extra = asAssertion(additional, ctx);
+          const patterns = compilePatternProperties(jsonSchema.patternProperties!, ctx);
+          schema = refineInput(
+            schema,
+            (data: unknown) =>
+              Object.keys(data as Record<string, unknown>).every(
+                (key) =>
+                  keyMatchesPattern(key, patterns) ||
+                  passesSchema((data as Record<string, unknown>)[key], extra)
+              ),
+            "Should pass the additionalProperties schema."
+          );
         }
       }
     } else {
@@ -1319,7 +1376,10 @@ export const fromJSONSchema = (
         for (const key of required) {
           if (!(key in properties)) properties[key] = json;
         }
-        schema = objectSchema(properties, additional === false ? "strict" : "strip");
+        schema = objectSchema(
+          properties,
+          additional === false && !hasPatterns ? "strict" : "strip"
+        );
       } else {
         schema = dict(json);
         const propertyKeys = Object.keys(definitions);
@@ -1352,13 +1412,17 @@ export const fromJSONSchema = (
           additionalSchema = roundTripAdditional = U;
         }
         if (additionalSchema !== U) {
-          const propertyNames = new Set(propertyKeys);
+          const declaredKeys = new Set(propertyKeys);
+          const patterns = hasPatterns
+            ? compilePatternProperties(jsonSchema.patternProperties!, ctx)
+            : [];
           schema = refineInput(
             schema,
             (data: unknown) =>
               Object.keys(data as Record<string, unknown>).every(
                 (key) =>
-                  propertyNames.has(key) ||
+                  declaredKeys.has(key) ||
+                  keyMatchesPattern(key, patterns) ||
                   passesSchema((data as Record<string, unknown>)[key], additionalSchema)
               ),
             "Should pass the additionalProperties schema."
@@ -1793,6 +1857,56 @@ export const fromJSONSchema = (
     if (jsonSchema.minContains !== U) containsKeywords.minContains = jsonSchema.minContains;
     if (max !== U) containsKeywords.maxContains = max;
     schema = extendJSONSchema(schema, containsKeywords);
+  }
+
+  if (jsonSchema.patternProperties !== U) {
+    const patterns = jsonSchema.patternProperties;
+    const sources = Object.keys(patterns);
+    const compiled = compilePatternProperties(patterns, ctx);
+    schema = refineInput(
+      schema,
+      (data: unknown) => {
+        if (!isJsonObject(data)) return true;
+        const keys = Object.keys(data);
+        for (let i = 0; i < keys.length; i++) {
+          const key = keys[i]!;
+          const value = data[key];
+          for (let j = 0; j < compiled.length; j++) {
+            const pattern = compiled[j]!;
+            if (patternMatches(pattern.re, key) && !passesSchema(value, pattern.schema)) {
+              return false;
+            }
+          }
+        }
+        return true;
+      },
+      "Should pass every matching patternProperties schema."
+    );
+    if (jsonSchema.additionalProperties === false) {
+      const declared = new Set(Object.keys(jsonSchema.properties ?? {}));
+      schema = refineInput(
+        schema,
+        (data: unknown) => {
+          if (!isJsonObject(data)) return true;
+          const keys = Object.keys(data);
+          for (let i = 0; i < keys.length; i++) {
+            const key = keys[i]!;
+            if (!declared.has(key) && !keyMatchesPattern(key, compiled)) return false;
+          }
+          return true;
+        },
+        "Should not have additional properties."
+      );
+    }
+    const rewritten: Record<string, JSONSchemaDefinition> = {};
+    for (let i = 0; i < sources.length; i++) {
+      rewritten[sources[i]!] = assertionToJSONDefinition(
+        patterns[sources[i]!]!,
+        compiled[i]!.schema,
+        ctx
+      );
+    }
+    schema = extendJSONSchema(schema, { patternProperties: rewritten });
   }
 
   // OpenAPI 3.0's `nullable` widens whatever the rest of the document
