@@ -12,7 +12,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[4](i);e[2](i)||e[3](i);return e[0](e[1](i))}
+    expression: i=>{typeof i==="string"||e[3](i);e[1](i)||e[2](i);return e[0](i)}
     examples:
       png:
         input: '"iVBORw=="'
@@ -24,13 +24,13 @@ operations:
         input: '"SGVsbG8="'
         output: '"SGVsbG8"'
   decode:
-    expression: i=>{e[2](i)||e[3](i);return e[0](e[1](i))}
+    expression: i=>{e[1](i)||e[2](i);return e[0](i)}
     examples:
       png:
         input: '"iVBORw=="'
         output: '"iVBORw"'
   encode:
-    expression: i=>{e[2](i)||e[3](i);return e[0](e[1](i))}
+    expression: i=>{e[1](i)||e[2](i);return e[0](i)}
     examples:
       png:
         input: '"iVBORw"'

@@ -12,7 +12,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[6](i);e[4](i)||e[5](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return e[2](e[3](v0))}
+    expression: i=>{typeof i==="string"||e[5](i);e[3](i)||e[4](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return e[2](v0)}
     examples:
       png:
         input: '"iVBORw=="'
@@ -24,13 +24,13 @@ operations:
         input: '"SGVsbG8="'
         output: '"SGVsbG8"'
   decode:
-    expression: i=>{e[4](i)||e[5](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return e[2](e[3](v0))}
+    expression: i=>{e[3](i)||e[4](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return e[2](v0)}
     examples:
       png:
         input: '"iVBORw=="'
         output: '"iVBORw"'
   encode:
-    expression: i=>{e[6](i)||e[7](i);let v0;try{v0=e[2](e[0](e[1](i)))}catch(x){e[3](x)}e[4](v0)||e[5](v0);return v0}
+    expression: i=>{e[5](i)||e[6](i);let v0;try{v0=e[1](e[0](i))}catch(x){e[2](x)}e[3](v0)||e[4](v0);return v0}
     examples:
       png:
         input: '"iVBORw"'
