@@ -21,8 +21,6 @@ operations:
         output: '{ v: "x", next: { v: "y", next: undefined } }'
       wrong-type-at-depth:
         input: '{ v: "x", next: { v: 1 } }'
-        error: |-
-          Failed at ["next"]: Expected __proto__ | undefined, received { v: 1; }
-          - At ["next"]["v"]: Expected string, received 1
+        error: 'Failed at ["next"]["v"]: Expected string, received 1'
   decode: eq-to-parse
   encode: eq-to-parse

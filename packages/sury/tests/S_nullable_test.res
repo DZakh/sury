@@ -8,13 +8,13 @@ test("Correctly parses", t => {
   t->Assert.deepEqual(%raw(`true`)->S.parseOrThrow(~to=schema), Value(true))
   t->U.assertThrowsMessage(
     () => %raw(`"foo"`)->S.parseOrThrow(~to=schema),
-    `Expected boolean | undefined | null, received "foo"`,
+    `Expected undefined | null | boolean, received "foo"`,
   )
 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{(typeof i==="boolean"||i===void 0||i===null)||e[0](i);return i}`,
+    `i=>{(i===void 0||i===null||typeof i==="boolean")||e[0](i);return i}`,
   )
 })
 
@@ -28,7 +28,7 @@ test("Correctly parses transformed", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){if(typeof i==="boolean"){i=""+i;break}if(i===void 0)break;if(i===null)break;e[0](i)}return i}`,
+    `i=>{for(;;){if(i===void 0)break;if(i===null)break;if(typeof i==="boolean"){i=""+i;break}e[0](i)}return i}`,
   )
 })
 
@@ -48,7 +48,7 @@ test("Correctly reverse convert", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{(typeof i==="boolean"||i===void 0||i===null)||e[0](i);return i}`,
+    `i=>{(i===void 0||i===null||typeof i==="boolean")||e[0](i);return i}`,
   )
 })
 
@@ -68,6 +68,6 @@ test("Correctly reverse convert transformed", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{for(;;){if(typeof i==="string"){let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0;break}if(i===void 0)break;if(i===null)break;e[1](i)}return i}`,
+    `i=>{for(;;){if(i===void 0)break;if(i===null)break;if(typeof i==="string"){let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0;break}e[1](i)}return i}`,
   )
 })

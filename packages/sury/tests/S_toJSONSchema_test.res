@@ -40,7 +40,7 @@ test("JSONSchema of S.json transformed to object with bigint and array of option
       "properties": {
         "id": {"type": "string"},
         "data": {},
-        "items": {"type": "array", "items": {"anyOf": [{"type": "number"}, {"type": "null"}]}}
+        "items": {"type": "array", "items": {"anyOf": [{"type": "null"}, {"type": "number"}]}}
       },
       "additionalProperties": false,
       "required": ["id", "data", "items"]
@@ -190,7 +190,7 @@ test("JSONSchema of float with max", t => {
 test("JSONSchema of nullable float", t => {
   t->Assert.deepEqual(
     S.nullAsOption(S.float)->S.toJSONSchema,
-    %raw(`{"anyOf": [{"type": "number"}, {"type": "null"}]}`),
+    %raw(`{"anyOf": [{"type": "null"}, {"type": "number"}]}`),
   )
 })
 
@@ -428,7 +428,7 @@ test("JSONSchema of dict with optional fields", t => {
 test("JSONSchema of dict with optional invalid field", t => {
   t->U.assertThrowsMessage(
     () => S.dict(S.option(S.bigint))->S.toJSONSchema,
-    `Failed at []: Expected JSON, received bigint | undefined`,
+    `Failed at []: Expected JSON, received undefined | bigint`,
   )
 })
 
@@ -544,7 +544,7 @@ test("JSONSchema of object with one optional and one normal field", t => {
 test("JSONSchema of optional root schema", t => {
   t->U.assertThrowsMessage(
     () => S.option(S.string)->S.toJSONSchema,
-    "Expected JSON, received string | undefined",
+    "Expected JSON, received undefined | string",
   )
 })
 
@@ -565,7 +565,7 @@ test("JSONSchema of object with S.option(S.option(_)) field", t => {
 test("JSONSchema of reversed object with S.option(S.option(_)) field", t => {
   t->U.assertThrowsMessage(
     () => S.object(s => s.field("field", S.option(S.option(S.string))))->S.reverse->S.toJSONSchema,
-    `Expected JSON, received string | undefined | { BS_PRIVATE_NESTED_SOME_NONE: 0; }`,
+    `Expected JSON, received undefined | { BS_PRIVATE_NESTED_SOME_NONE: 0; } | string`,
   )
 })
 
@@ -650,8 +650,8 @@ test("Currently Option.getOrWith is not reflected on JSON schema", t => {
     schema->S.toJSONSchema,
     %raw(`{
       "anyOf": [
-        {"type": "boolean"},
-        {"type": "null"}
+        {"type": "null"},
+        {"type": "boolean"}
       ],
     }`),
   )
@@ -687,7 +687,7 @@ test("Transformed schema with an example", t => {
   t->Assert.deepEqual(
     schema->S.toJSONSchema,
     %raw(`{
-      "anyOf": [{"type": "boolean"}, {"type": "null"}],
+      "anyOf": [{"type": "null"}, {"type": "boolean"}],
       "examples": [null],
     }`),
   )
@@ -836,19 +836,19 @@ test("JSONSchema of recursive schema with non-jsonable field", t => {
 test("Fails to create schema for schemas with optional items", t => {
   t->U.assertThrowsMessage(
     () => S.array(S.option(S.string))->S.toJSONSchema,
-    "Failed at []: Expected JSON, received string | undefined",
+    "Failed at []: Expected JSON, received undefined | string",
   )
   t->U.assertThrowsMessage(
     () => S.union([S.option(S.string), S.nullAsOption(S.string)])->S.toJSONSchema,
-    "Expected JSON, received string | undefined | null",
+    "Expected JSON, received undefined | string | null",
   )
   t->U.assertThrowsMessage(
     () => S.tuple1(S.option(S.string))->S.toJSONSchema,
-    `Failed at ["0"]: Expected JSON, received string | undefined`,
+    `Failed at ["0"]: Expected JSON, received undefined | string`,
   )
   t->U.assertThrowsMessage(
     () => S.tuple1(S.array(S.option(S.string)))->S.toJSONSchema,
-    `Failed at ["0"][]: Expected JSON, received string | undefined`,
+    `Failed at ["0"][]: Expected JSON, received undefined | string`,
   )
 })
 

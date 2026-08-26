@@ -91,7 +91,10 @@ const memberAt = (S: Sury, rng: Rng, depth: number): MemberSpec => {
     return { id: "instance(Error)", schema: S.instance(Error) };
   }
   if (roll < 0.28) return leafSchema(S, rng);
-  if (roll < 0.4) return applyWrap(S, rng, leafSchema(S, rng));
+  if (roll < 0.4) {
+    const inner = rng() < 0.35 ? nestedUnion(S, rng, depth + 1) : leafSchema(S, rng);
+    return applyWrap(S, rng, inner);
+  }
   if (roll < 0.55) {
     return taggedKind(S, `k${Math.floor(rng() * 8)}`, leafSchema(S, rng));
   }

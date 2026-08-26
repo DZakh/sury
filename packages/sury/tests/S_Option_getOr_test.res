@@ -51,7 +51,7 @@ test("Fails to parse data with default", t => {
 
   t->U.assertThrowsMessage(
     () => %raw(`"string"`)->S.parseOrThrow(~to=schema),
-    `Expected boolean | undefined, received "string"`,
+    `Expected undefined | boolean, received "string"`,
   )
 })
 
@@ -80,7 +80,7 @@ test("Successfully parses schema with transformation", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){if(typeof i==="number"&&i===i)break;if(i===void 0){i=-123;break}e[0](i)}let v0;try{v0=e[1](i)}catch(x){e[2](x)}for(;;){if(typeof v0==="string")break;if(v0===void 0){v0="not positive";break}e[3](v0)}return v0}`,
+    `i=>{for(;;){if(i===void 0){i=-123;break}if(typeof i==="number"&&i===i)break;e[0](i)}let v0;try{v0=e[1](i)}catch(x){e[2](x)}for(;;){if(v0===void 0){v0="not positive";break}if(typeof v0==="string")break;e[3](v0)}return v0}`,
   )
 })
 
@@ -96,7 +96,7 @@ test("Compiled parse code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){if(typeof i==="boolean")break;if(i===void 0){i=false;break}e[0](i)}return i}`,
+    `i=>{for(;;){if(i===void 0){i=false;break}if(typeof i==="boolean")break;e[0](i)}return i}`,
   )
 })
 
@@ -110,7 +110,7 @@ asyncTest("Compiled async parse code snapshot", async t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ParseAsync,
-    `i=>{for(;;){if(typeof i==="boolean"){let v0=e[0](i);i=v0;break}if(i===void 0){i=false;break}e[1](i)}return Promise.resolve(i)}`,
+    `i=>{for(;;){if(i===void 0){i=false;break}if(typeof i==="boolean"){let v0=e[0](i);i=v0;break}e[1](i)}return Promise.resolve(i)}`,
   )
 
   let schema =
@@ -122,7 +122,7 @@ asyncTest("Compiled async parse code snapshot", async t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ParseAsync,
-    `i=>{for(;;){if(typeof i==="boolean")break;if(i===void 0){i=false;break}e[0](i)}let v0;try{v0=e[1](i).catch(x=>e[2](x))}catch(x){e[2](x)}return v0}`,
+    `i=>{for(;;){if(i===void 0){i=false;break}if(typeof i==="boolean")break;e[0](i)}let v0;try{v0=e[1](i).catch(x=>e[2](x))}catch(x){e[2](x)}return v0}`,
   )
 })
 
@@ -143,7 +143,7 @@ test("Fails to parse invalid value for optional union of literals with default",
 
   t->U.assertThrowsMessage(
     () => %raw(`"d"`)->S.parseOrThrow(~to=schema),
-    `Expected "a" | "b" | "c" | undefined, received "d"`,
+    `Expected undefined | "a" | "b" | "c", received "d"`,
   )
 })
 
@@ -161,7 +161,7 @@ test("Rejects invalid static default at schema construction", t => {
       let _ = S.bool->S.option->S.Option.getOr(%raw(`"not a bool"`))
     },
     ~expectations={
-      message: `[Sury] Invalid default for boolean | undefined: Expected boolean, received "not a bool"`,
+      message: `[Sury] Invalid default for undefined | boolean: Expected boolean, received "not a bool"`,
     },
   )
 })
@@ -186,7 +186,7 @@ test("Rejects array default whose element type doesn't match", t => {
       let _ = S.array(S.string)->S.option->S.Option.getOr(%raw(`[42]`))
     },
     ~expectations={
-      message: `[Sury] Invalid default for string[] | undefined: Failed at ["0"]: Expected string, received 42`,
+      message: `[Sury] Invalid default for undefined | string[]: Failed at ["0"]: Expected string, received 42`,
     },
   )
 })
@@ -210,7 +210,7 @@ test("Rejects object default with field of wrong type", t => {
         ->S.Option.getOr(%raw(`{"a":42}`))
     },
     ~expectations={
-      message: `[Sury] Invalid default for { a: string; } | undefined: Failed at ["a"]: Expected string, received 42`,
+      message: `[Sury] Invalid default for undefined | { a: string; }: Failed at ["a"]: Expected string, received 42`,
     },
   )
 })
@@ -221,7 +221,7 @@ test("Rejects object default with missing required field", t => {
       let _ = S.schema(s => {"a": s.matches(S.string)})->S.option->S.Option.getOr(%raw(`{}`))
     },
     ~expectations={
-      message: `[Sury] Invalid default for { a: string; } | undefined: Failed at ["a"]: Expected string, received undefined`,
+      message: `[Sury] Invalid default for undefined | { a: string; }: Failed at ["a"]: Expected string, received undefined`,
     },
   )
 })
@@ -244,7 +244,7 @@ test("Rejects invalid static default that doesn't match a union member", t => {
         ->S.Option.getOr(%raw(`"d"`))
     },
     ~expectations={
-      message: `[Sury] Invalid default for "a" | "b" | "c" | undefined: Expected "a" | "b" | "c", received "d"`,
+      message: `[Sury] Invalid default for undefined | "a" | "b" | "c": Expected "a" | "b" | "c", received "d"`,
     },
   )
 })
@@ -277,7 +277,7 @@ test("Default on a primary item with S.to runs the transformation on parse and r
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){if(typeof i==="string"){let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](v0);i=v0;break}if(i===void 0){i=e[1];break}e[2](i)}return i}`,
+    `i=>{for(;;){if(i===void 0){i=e[0];break}if(typeof i==="string"){let v0=new Date(i);!Number.isNaN(v0.getTime())||e[1](v0);i=v0;break}e[2](i)}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
@@ -320,7 +320,7 @@ test("getOr default reaches jsonString quoted, not reassociated", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i="\\""+v0+"\\"";break}if(i===void 0){i="\\""+7n+"\\"";break}e[1](i)}return i}`,
+    `i=>{for(;;){if(i===void 0){i="\\""+7n+"\\"";break}if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i="\\""+v0+"\\"";break}e[1](i)}return i}`,
   )
 
   t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), `"7"`)
@@ -355,7 +355,7 @@ test("Multi-member union with transformed members + getOr", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){let r;if(typeof i==="string"){try{let v0=+i;v0===v0||e[0](i);i=v0;break}catch(x){(r||(r=[])).push(e[2](x))}try{let v1;try{v1=BigInt(i)}catch(_){e[1](i)}i=v1;break}catch(x){(r||(r=[])).push(e[2](x))}}if(typeof i==="boolean")break;if(i===void 0){i=true;break}e[3](i,...(r||[]))}return i}`,
+    `i=>{for(;;){let r;if(i===void 0){i=true;break}if(typeof i==="string"){try{let v0=+i;v0===v0||e[0](i);i=v0;break}catch(x){(r||(r=[])).push(e[2](x))}try{let v1;try{v1=BigInt(i)}catch(_){e[1](i)}i=v1;break}catch(x){(r||(r=[])).push(e[2](x))}}if(typeof i==="boolean")break;e[3](i,...(r||[]))}return i}`,
   )
 
   t->U.assertCompiledCode(

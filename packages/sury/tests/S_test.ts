@@ -732,7 +732,7 @@ test("Standard schema", (t) => {
   t.expect(schema["~standard"]["validate"](undefined)).toEqual({
     issues: [
       {
-        message: "Expected string | null, received undefined",
+        message: "Expected null | string, received undefined",
         path: undefined,
       },
     ],

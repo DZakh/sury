@@ -7,13 +7,13 @@ ts:
   output: string | null
   instantiations: 422
 jsonSchema:
-  input: '{ anyOf: [{ type: "string" }, { type: "null" }] }'
-  output: '{ anyOf: [{ type: "string" }, { type: "null" }] }'
+  input: '{ anyOf: [{ type: "null" }, { type: "string" }] }'
+  output: '{ anyOf: [{ type: "null" }, { type: "string" }] }'
 vs:
   zod: z.string().nullable()
 operations:
   parse:
-    expression: i=>{(typeof i==="string"||i===null)||e[0](i);return i}
+    expression: i=>{(i===null||typeof i==="string")||e[0](i);return i}
     examples:
       string:
         input: '"abc"'
@@ -26,9 +26,9 @@ operations:
         output: "null"
       invalid-undefined:
         input: undefined
-        error: Expected string | null, received undefined
+        error: Expected null | string, received undefined
       invalid-type:
         input: "1"
-        error: Expected string | null, received 1
+        error: Expected null | string, received 1
   decode: identity
   encode: identity

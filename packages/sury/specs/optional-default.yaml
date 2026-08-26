@@ -5,13 +5,13 @@ ts:
   output: string
   instantiations: 5255
 jsonSchema:
-  input: Expected JSON, received string | undefined
+  input: Expected JSON, received undefined | string
   output: '{ type: "string" }'
 vs:
   zod: z.string().optional().transform((value) => value ?? "foo")
 operations:
   parse:
-    expression: i=>{for(;;){if(typeof i==="string")break;if(i===void 0){i="foo";break}e[0](i)}return i}
+    expression: i=>{for(;;){if(i===void 0){i="foo";break}if(typeof i==="string")break;e[0](i)}return i}
     examples:
       string:
         input: '"bar"'
@@ -21,7 +21,7 @@ operations:
         output: '"foo"'
       null-is-not-accepted:
         input: "null"
-        error: Expected string | undefined, received null
+        error: Expected undefined | string, received null
   decode: eq-to-parse
   encode:
     expression: i=>{typeof i==="string"||e[0](i);return i}

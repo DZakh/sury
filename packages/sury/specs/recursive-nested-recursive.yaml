@@ -24,8 +24,6 @@ operations:
         output: '{ inner: { v: "a", next: { v: "b", next: undefined } }, next: { inner: { v: "c", next: undefined }, next: undefined } }'
       inner-wrong-type-at-depth:
         input: '{ inner: { v: "a", next: { v: 1 } } }'
-        error: |-
-          Failed at ["inner"]["next"]: Expected Inner | undefined, received { v: 1; }
-          - At ["next"]["v"]: Expected string, received 1
+        error: 'Failed at ["inner"]["next"]["v"]: Expected string, received 1'
   decode: eq-to-parse
   encode: eq-to-parse

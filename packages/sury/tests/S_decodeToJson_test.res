@@ -81,7 +81,7 @@ test("Encodes option schema to JSON", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#EncodeToJson,
-    `i=>{for(;;){if(typeof i==="boolean")break;if(i===void 0){i=null;break}e[0](i)}return i}`,
+    `i=>{for(;;){if(i===void 0){i=null;break}if(typeof i==="boolean")break;e[0](i)}return i}`,
   )
 })
 

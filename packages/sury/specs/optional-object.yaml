@@ -5,13 +5,13 @@ ts:
   output: "{ a?: string | undefined; } | undefined"
   instantiations: 3116
 jsonSchema:
-  input: "Expected JSON, received { a: string | undefined; } | undefined"
-  output: "Expected JSON, received { a: string | undefined; } | undefined"
+  input: "Expected JSON, received undefined | { a: undefined | string; }"
+  output: "Expected JSON, received undefined | { a: undefined | string; }"
 vs:
   zod: "z.object({ a: z.string().optional() }).optional()"
 operations:
   parse:
-    expression: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i["a"];(typeof v0==="string"||v0===void 0)||e[0](v0);i={a:v0};break}if(i===void 0)break;e[1](i)}return i}
+    expression: i=>{for(;;){if(i===void 0)break;if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i["a"];(v0===void 0||typeof v0==="string")||e[0](v0);i={a:v0};break}e[1](i)}return i}
     examples:
       object:
         input: '{ a: "x" }'
@@ -24,15 +24,15 @@ operations:
         output: undefined
       array-is-not-an-object:
         input: "[]"
-        error: "Expected { a: string | undefined; } | undefined, received []"
+        error: "Expected undefined | { a: undefined | string; }, received []"
       array-with-items-is-not-an-object:
         input: '["x"]'
-        error: 'Expected { a: string | undefined; } | undefined, received ["x"]'
+        error: 'Expected undefined | { a: undefined | string; }, received ["x"]'
       null-is-not-an-object:
         input: "null"
-        error: "Expected { a: string | undefined; } | undefined, received null"
+        error: "Expected undefined | { a: undefined | string; }, received null"
       wrong-member-type:
         input: "{ a: 1 }"
-        error: 'Failed at ["a"]: Expected string | undefined, received 1'
+        error: 'Failed at ["a"]: Expected undefined | string, received 1'
   decode: identity
   encode: identity

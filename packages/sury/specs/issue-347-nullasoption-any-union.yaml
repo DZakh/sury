@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: |
+    S.schema({
+      f: S.nullable(S.union([
+        S.json.with(S.to, S.any, {
+          decode: (json: any) => {
+            if (json && typeof json === "object" && "$ref" in json) return { TAG: "Tagged", _0: json["$ref"] }
+            throw Object.assign(new S.Error(), { code: "invalid_operation", path: "", reason: "not tagged" })
+          },
+          encode: (p: any) => {
+            if (p.TAG === "Tagged") return { $ref: p._0 }
+            throw Object.assign(new S.Error(), { code: "invalid_operation", path: "", reason: "not tagged" })
+          },
+        }),
+        S.schema({ name: S.string }).with(S.to, S.any, {
+          decode: (v: any) => ({ TAG: "Plain", _0: v }),
+          encode: (p: any) => {
+            if (p.TAG === "Plain") return p._0
+            throw Object.assign(new S.Error(), { code: "invalid_operation", path: "", reason: "not plain" })
+          },
+        }),
+      ])),
+    }).with(S.to, S.json)
+  input: "{ f: JSON | { name: string; }; }"
+  output: JSON
+  instantiations: 9752
+jsonSchema:
+  input: '{ type: "object", properties: { f: { anyOf: [{ type: "null" }, {}, { type: "object", properties: { name: { type: "string" } }, required: ["name"] }] } }, required: ["f"] }'
+  output: '{ type: "object", properties: { f: { anyOf: [{ type: "null" }, {}] } }, additionalProperties: false, required: ["f"] }'
+  fromOutputType: "{ f: JSON; }"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[14](i);let v0=i["f"];for(;;){let r;if(v0===null)break;try{try{e[0](v0);}catch(v1){v1.path="[\"f\"]"+v1.path;throw v1}let v2;try{v2=e[1](v0)}catch(x){e[2](x);e[3](x)}v0=v2;break}catch(x){(r||(r=[])).push(e[8](x))}if(typeof v0==="object"&&v0&&!Array.isArray(v0)){try{let v3=v0["name"];typeof v3==="string"||e[4](v3);let v4;try{v4=e[5]({name:v3})}catch(x){e[6](x);e[7](x)}v0=v4;break}catch(x){(r||(r=[])).push(e[8](x))}}e[9](v0,...(r||[]))}for(;;){let r;if(v0===null)break;try{try{e[10](v0);}catch(v5){v5.path="[\"f\"]"+v5.path;throw v5};break}catch(x){(r||(r=[])).push(e[12](x))}try{try{e[11](v0);}catch(v6){v6.path="[\"f\"]"+v6.path;throw v6};break}catch(x){(r||(r=[])).push(e[12](x))}e[13](v0,...(r||[]))}return {f:v0}}
+    examples:
+      null-field:
+        input: "{ f: null }"
+        output: "{ f: null }"
+      tagged:
+        input: '{ f: { $ref: "abc" } }'
+        output: '{ f: { TAG: "Tagged", _0: "abc" } }'
+      plain:
+        input: '{ f: { name: "n" } }'
+        output: '{ f: { TAG: "Plain", _0: { name: "n" } } }'
+  decode:
+    expression: i=>{let v0=i["f"];for(;;){let r;if(v0===null)break;try{try{e[0](v0);}catch(v1){v1.path="[\"f\"]"+v1.path;throw v1}let v2;try{v2=e[1](v0)}catch(x){e[2](x);e[3](x)}v0=v2;break}catch(x){(r||(r=[])).push(e[8](x))}if(typeof v0==="object"&&v0&&!Array.isArray(v0)){try{let v3=v0["name"];typeof v3==="string"||e[4](v3);let v4;try{v4=e[5]({name:v3})}catch(x){e[6](x);e[7](x)}v0=v4;break}catch(x){(r||(r=[])).push(e[8](x))}}e[9](v0,...(r||[]))}for(;;){let r;if(v0===null)break;try{try{e[10](v0);}catch(v5){v5.path="[\"f\"]"+v5.path;throw v5};break}catch(x){(r||(r=[])).push(e[12](x))}try{try{e[11](v0);}catch(v6){v6.path="[\"f\"]"+v6.path;throw v6};break}catch(x){(r||(r=[])).push(e[12](x))}e[13](v0,...(r||[]))}return {f:v0}}
+    examples:
+      null-field:
+        input: "{ f: null }"
+        output: "{ f: null }"
+      tagged:
+        input: '{ f: { $ref: "abc" } }'
+        output: '{ f: { TAG: "Tagged", _0: "abc" } }'
+      plain:
+        input: '{ f: { name: "n" } }'
+        output: '{ f: { TAG: "Plain", _0: { name: "n" } } }'
+  encode:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[11](i);let v0=i["f"];for(;;){let r;if(v0===null)break;try{let v1;try{v1=e[0](v0)}catch(x){e[1](x);e[2](x)}try{e[3](v1);}catch(v2){v2.path="[\"f\"]"+v2.path;throw v2}v0=v1;break}catch(x){(r||(r=[])).push(e[9](x))}try{let v3;try{v3=e[4](v0)}catch(x){e[5](x);e[6](x)}typeof v3==="object"&&v3&&!Array.isArray(v3)||e[8](v3);let v4=v3["name"];typeof v4==="string"||e[7](v4);v0={name:v4};break}catch(x){(r||(r=[])).push(e[9](x))}e[10](v0,...(r||[]))}return {f:v0}}
+    examples:
+      null-field:
+        input: "{ f: null }"
+        output: "{ f: null }"
+      tagged:
+        input: '{ f: { TAG: "Tagged", _0: "abc" } }'
+        output: '{ f: { $ref: "abc" } }'
+      plain:
+        input: '{ f: { TAG: "Plain", _0: { name: "n" } } }'
+        output: '{ f: { name: "n" } }'

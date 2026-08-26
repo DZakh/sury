@@ -5,13 +5,13 @@ ts:
   output: '"a" | "b" | null'
   instantiations: 564
 jsonSchema:
-  input: '{ enum: ["a", "b", null] }'
-  output: '{ enum: ["a", "b", null] }'
+  input: '{ enum: [null, "a", "b"] }'
+  output: '{ enum: [null, "a", "b"] }'
 vs:
   zod: z.enum(["a", "b"]).nullable()
 operations:
   parse:
-    expression: i=>{(typeof i==="string"&&(i==="a"||i==="b")||i===null)||e[0](i);return i}
+    expression: i=>{(i===null||typeof i==="string"&&(i==="a"||i==="b"))||e[0](i);return i}
     examples:
       literal-member:
         input: '"a"'
@@ -24,6 +24,6 @@ operations:
         output: "null"
       outside-the-enum:
         input: '"c"'
-        error: Expected "a" | "b" | null, received "c"
+        error: Expected null | "a" | "b", received "c"
   decode: identity
   encode: identity

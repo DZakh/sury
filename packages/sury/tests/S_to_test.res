@@ -53,8 +53,7 @@ test("Coerce from string to option of int (union dispatch over a converted value
   t->Assert.deepEqual("undefined"->S.parseOrThrow(~to=schema), None)
   t->U.assertThrowsMessage(
     () => "1.5"->S.parseOrThrow(~to=schema),
-    `Expected int32 | undefined, received "1.5"
-- Expected int32, received 1.5`,
+    `Expected int32, received 1.5`,
   )
 
   // Regression (v0 is not defined): the union discriminant must not be hoisted
@@ -64,7 +63,7 @@ test("Coerce from string to option of int (union dispatch over a converted value
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="string"||e[4](i);for(;;){let r;try{let v0=+i;v0===v0||e[1](i);v0<=2147483647&&v0>=-2147483648&&v0%1===0||e[0](v0);i=v0;break}catch(x){(r||(r=[])).push(e[2](x))}if(i==="undefined"){i=void 0;break}e[3](i,...(r||[]))}return i}`,
+    `i=>{typeof i==="string"||e[2](i);for(;;){if(i==="undefined"){i=void 0;break}let v0=+i;v0===v0||e[1](i);v0<=2147483647&&v0>=-2147483648&&v0%1===0||e[0](v0);i=v0;break;}return i}`,
   )
 
   t->Assert.deepEqual(Some(123)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"123"`))
@@ -72,7 +71,7 @@ test("Coerce from string to option of int (union dispatch over a converted value
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{for(;;){if(typeof i==="number"&&i===i&&i<=2147483647&&i>=-2147483648&&i%1===0){i=""+i;break}if(i===void 0){i="undefined";break}e[0](i)}return i}`,
+    `i=>{for(;;){if(i===void 0){i="undefined";break}if(typeof i==="number"&&i===i&&i<=2147483647&&i>=-2147483648&&i%1===0){i=""+i;break}e[0](i)}return i}`,
   )
 })
 
@@ -513,12 +512,12 @@ test("Coerce from string to optional bool", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="string"||e[3](i);for(;;){let r;try{let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0;break}catch(x){(r||(r=[])).push(e[1](x))}if(i==="undefined"){i=void 0;break}e[2](i,...(r||[]))}return i}`,
+    `i=>{typeof i==="string"||e[1](i);for(;;){if(i==="undefined"){i=void 0;break}let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0;break;}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{for(;;){if(typeof i==="boolean"){i=""+i;break}if(i===void 0){i="undefined";break}e[0](i)}return i}`,
+    `i=>{for(;;){if(i===void 0){i="undefined";break}if(typeof i==="boolean"){i=""+i;break}e[0](i)}return i}`,
   )
 })
 
@@ -627,7 +626,7 @@ test("Coerce from JSON to optional bigint", t => {
   t->Assert.deepEqual(%raw(`"123"`)->S.parseOrThrow(~to=schema), Some(123n))
   t->U.assertThrowsMessage(() => {
     %raw(`123`)->S.parseOrThrow(~to=schema)
-  }, `Expected bigint | undefined, received 123`)
+  }, `Expected undefined | bigint, received 123`)
   t->Assert.deepEqual(None->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`null`))
   t->Assert.deepEqual(Some(123n)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"123"`))
 
@@ -635,13 +634,13 @@ test("Coerce from JSON to optional bigint", t => {
     ~schema,
     ~embedded=[],
     ~op=#Parse,
-    `i=>{for(;;){if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=v0;break}if(i===null){i=void 0;break}e[1](i)}return i}`,
+    `i=>{for(;;){if(i===null){i=void 0;break}if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=v0;break}e[1](i)}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~embedded=[],
     ~op=#Encode,
-    `i=>{for(;;){if(typeof i==="bigint"){i=""+i;break}if(i===void 0){i=null;break}e[0](i)}return i}`,
+    `i=>{for(;;){if(i===void 0){i=null;break}if(typeof i==="bigint"){i=""+i;break}e[0](i)}return i}`,
   )
 })
 

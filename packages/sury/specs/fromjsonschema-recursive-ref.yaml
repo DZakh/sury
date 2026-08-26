@@ -31,6 +31,6 @@ operations:
         error: 'Failed at ["children"]["0"]["value"]: Expected string, received undefined'
       not-matching-the-ref:
         input: '"any json"'
-        error: 'Expected { value: string; children: node[] | undefined; }, received "any json"'
+        error: 'Expected { value: string; children: undefined | node[]; }, received "any json"'
   decode: eq-to-parse
   encode: eq-to-parse

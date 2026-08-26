@@ -7,13 +7,13 @@ ts:
   output: string | undefined
   instantiations: 422
 jsonSchema:
-  input: Expected JSON, received string | undefined
-  output: Expected JSON, received string | undefined
+  input: Expected JSON, received undefined | string
+  output: Expected JSON, received undefined | string
 vs:
   zod: z.string().optional()
 operations:
   parse:
-    expression: i=>{(typeof i==="string"||i===void 0)||e[0](i);return i}
+    expression: i=>{(i===void 0||typeof i==="string")||e[0](i);return i}
     examples:
       string:
         input: '"foo"'
@@ -23,9 +23,9 @@ operations:
         output: undefined
       null-is-not-accepted:
         input: "null"
-        error: Expected string | undefined, received null
+        error: Expected undefined | string, received null
       invalid-type:
         input: "1"
-        error: Expected string | undefined, received 1
+        error: Expected undefined | string, received 1
   decode: identity
   encode: identity

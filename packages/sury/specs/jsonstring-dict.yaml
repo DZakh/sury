@@ -13,7 +13,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v1="";for(let v0 of Object.keys(i)){try{let v2=i[v0];(typeof v2==="string"||v2===void 0)||e[1](v2);if(v2!==void 0){v1+=(v1?",":"")+e[0](v0)+":"+e[0](v2)}}catch(v3){v3.path='["'+v0+'"]'+v3.path;throw v3}}return "{"+v1+"}"}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v1="";for(let v0 of Object.keys(i)){try{let v2=i[v0];(v2===void 0||typeof v2==="string")||e[1](v2);if(v2!==void 0){v1+=(v1?",":"")+e[0](v0)+":"+e[0](v2)}}catch(v3){v3.path='["'+v0+'"]'+v3.path;throw v3}}return "{"+v1+"}"}
     examples:
       empty:
         input: "{}"
@@ -34,7 +34,7 @@ operations:
         input: '{ a: "1" }'
         output: '"{\"a\":\"1\"}"'
   encode:
-    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v4={};for(let v1 in v0){try{let v2=v0[v1];for(;;){if(typeof v2==="string")break;if(v2===null){v2=void 0;break}e[1](v2)}v4[v1]=v2}catch(v3){v3.path='["'+v1+'"]'+v3.path;throw v3}}return v4}
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v4={};for(let v1 in v0){try{let v2=v0[v1];for(;;){if(v2===null){v2=void 0;break}if(typeof v2==="string")break;e[1](v2)}v4[v1]=v2}catch(v3){v3.path='["'+v1+'"]'+v3.path;throw v3}}return v4}
     examples:
       values:
         input: '"{\"a\":\"1\"}"'

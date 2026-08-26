@@ -5,7 +5,7 @@ ts:
   output: "{ a: boolean; }"
   instantiations: 1303
 jsonSchema:
-  input: '{ default: { a: false }, anyOf: [{ type: "object", properties: { a: { type: "boolean" } }, required: ["a"] }, { type: "null" }] }'
+  input: '{ default: { a: false }, anyOf: [{ type: "null" }, { type: "object", properties: { a: { type: "boolean" } }, required: ["a"] }] }'
   output: '{ type: "object", properties: { a: { type: "boolean" } }, required: ["a"] }'
 vs:
   zod:
@@ -15,7 +15,7 @@ vs:
     output: "{ a: boolean; } | null"
 operations:
   parse:
-    expression: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i["a"];typeof v0==="boolean"||e[0](v0);i={a:v0};break}if(i===null){i=e[1];break}e[2](i)}return i}
+    expression: i=>{for(;;){if(i===null){i=e[0];break}if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i["a"];typeof v0==="boolean"||e[1](v0);i={a:v0};break}e[2](i)}return i}
     examples:
       object:
         input: "{ a: true }"
@@ -28,7 +28,7 @@ operations:
         error: 'Failed at ["a"]: Expected boolean, received "nope"'
       undefined-is-not-null:
         input: undefined
-        error: "Expected { a: boolean; } | null, received undefined"
+        error: "Expected null | { a: boolean; }, received undefined"
   decode: eq-to-parse
   encode:
     expression: i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i["a"];typeof v0==="boolean"||e[0](v0);i={a:v0}}else{e[1](i)}return i}

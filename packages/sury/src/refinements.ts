@@ -73,7 +73,7 @@ export const nullAsOption = (item: Internal): Internal =>
 // `null` is a reserved word in JS/TS binding position, so this is exported
 // as `null_`.
 export const null_ = (item: Internal): Internal =>
-  unionFactory([item, nullLiteral]);
+  unionFactory([nullLiteral, item]);
 
 // =============
 // Built-in refinements
@@ -780,12 +780,12 @@ export const trim = (schema: Internal): Internal => {
 
 // @__NO_SIDE_EFFECTS__
 export const nullable = (definition: unknown): Internal => {
-  return unionFactory([definitionToSchema(definition), unit, nullLiteral]);
+  return unionFactory([unit, nullLiteral, definitionToSchema(definition)]);
 }
 
 // @__NO_SIDE_EFFECTS__
 export const nullableAsOption = (schema: Internal): Internal => {
-  return unionFactory([schema, unit, nullAsUnit]);
+  return unionFactory([unit, nullAsUnit, schema]);
 }
 
 // Anchoring is a call rather than a bare `"^" + p + "$"` because esbuild keeps

@@ -1,8 +1,10 @@
 import { expect, test } from "vitest";
 import * as S from "../index.mjs";
+import { issue347Schema } from "../scripts/unionFuzz/issue347";
 import { issue392Case } from "../scripts/unionFuzz/issue392";
 import { describeOutcome, show } from "../scripts/unionFuzz/outcome";
 import {
+  compiledEncode,
   compiledParse,
   memberEncode,
   memberParse,
@@ -98,6 +100,19 @@ test("issue 392: compiled parse matches member parser and sequential-try referen
     expect(S.encoder(union)(value)).toEqual(value);
     expect(reversed(value)).toEqual(value);
   }
+});
+
+test("issue 347: encode of null through nullable(union of S.to(S.any)) is null, not TypeError", () => {
+  const schema = issue347Schema(S) as S.Schema<unknown, unknown>;
+  const compiled = compiledEncode(S, schema, null);
+  const reference = referenceEncode(S, schema, null);
+  expect(compiled.ok, describeOutcome(compiled)).toBe(true);
+  expect(reference.ok, describeOutcome(reference)).toBe(true);
+  expect(describeOutcome(compiled)).toBe(describeOutcome(reference));
+  const encode = S.encoder(schema);
+  expect(encode(null)).toBe(null);
+  expect(encode({ TAG: "Tagged", _0: "abc" })).toEqual({ $ref: "abc" });
+  expect(encode({ TAG: "Plain", _0: { name: "n" } })).toEqual({ name: "n" });
 });
 
 test("object group after nested optional/null payload still reaches later members", () => {

@@ -1,6 +1,9 @@
 // `S.list` — the ReScript linked-list representation.
 
 import {
+ objectTag,
+ pathEmpty,
+ SuryError,
  type Internal,
  unknown
 } from "../base";
@@ -27,12 +30,25 @@ const listFromArray = (array: unknown[]): RescriptList => {
   return list;
 }
 
-const listToArray = (list: RescriptList): unknown[] => {
+const listToArray = (list: unknown): unknown[] => {
   const array: unknown[] = [];
   let current = list;
   while (current !== 0) {
-    array.push(current.hd);
-    current = current.tl;
+    if (
+      current === null ||
+      typeof current !== objectTag ||
+      !("hd" in (current as object)) ||
+      !("tl" in (current as object))
+    ) {
+      throw new SuryError({
+        code: "invalid_operation",
+        path: pathEmpty,
+        reason: "Expected list",
+      });
+    }
+    const cons = current as { hd: unknown; tl: unknown };
+    array.push(cons.hd);
+    current = cons.tl;
   }
   return array;
 }
@@ -44,6 +60,6 @@ export const list = (schema: unknown): Internal => {
     array(schema),
     unknown,
     B_conversion((array: unknown) => listFromArray(array as unknown[])),
-    B_conversion((list: unknown) => listToArray(list as RescriptList))
+    B_conversion(listToArray)
   );
 }

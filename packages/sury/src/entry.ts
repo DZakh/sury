@@ -411,7 +411,7 @@ export const refine = (
 // @__NO_SIDE_EFFECTS__
 export const optional = (definition: unknown, maybeOr: unknown): Internal => {
   // TODO: maybeOr should be part of the unit schema
-  const schema = unionFactory([definitionToSchema(definition), unit]);
+  const schema = unionFactory([unit, definitionToSchema(definition)]);
   if (maybeOr !== U && typeof maybeOr === functionTag) {
     return Option_getOrWith(schema, maybeOr as () => unknown);
   } else if (maybeOr !== U) {
@@ -426,14 +426,14 @@ export const nullable = (definition: unknown, maybeOr: unknown): Internal => {
   const schema = definitionToSchema(definition);
   // TODO: maybeOr should be part of the unit schema
   if (maybeOr !== U) {
-    const schema2 = unionFactory([schema, nullAsUnit]);
+    const schema2 = unionFactory([nullAsUnit, schema]);
     if (typeof maybeOr === functionTag) {
       return Option_getOrWith(schema2, maybeOr as () => unknown);
     } else {
       return Option_getOr(schema2, maybeOr);
     }
   } else {
-    return unionFactory([schema, nullLiteral]);
+    return unionFactory([nullLiteral, schema]);
   }
 };
 

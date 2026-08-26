@@ -14,9 +14,10 @@ import { existsSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { generateMembers, rngFromSeed } from "./unionFuzz/generate";
+import { issue347Schema } from "./unionFuzz/issue347";
 import { issue392Case } from "./unionFuzz/issue392";
 import { classify, describeOutcome, show } from "./unionFuzz/outcome";
-import { compiledParse } from "./unionFuzz/reference";
+import { compiledEncode, compiledParse } from "./unionFuzz/reference";
 import {
   describeMembers,
   diffsForUnion,
@@ -110,6 +111,31 @@ const main = async (): Promise<void> => {
     reasons: 0,
     message: 0,
   };
+
+  const issue347 = issue347Schema(S);
+  console.log("pinned issue-347");
+  for (const { label, value, encode } of [
+    { label: "null", value: null, encode: true },
+    { label: "Tagged", value: { TAG: "Tagged", _0: "abc" }, encode: true },
+    { label: "Plain", value: { TAG: "Plain", _0: { name: "n" } }, encode: true },
+  ]) {
+    const { diffs, compared } = diffsForValue(S, issue347, value, encode);
+    stats.compared += compared;
+    for (const diff of diffs) {
+      stats.diffs += 1;
+      stats.byClass[diff.class] += 1;
+      printDiff("compiled", `issue-347 ${label}`, diff, shown, budget);
+    }
+    if (!diffs.length) {
+      console.log(`  ${label}: compiled matches reference`);
+    }
+  }
+  const none = compiledEncode(S, issue347, null);
+  if (!none.ok) {
+    stats.diffs += 1;
+    stats.byClass[none.kind === "foreign" ? "exception-kind" : "acceptance"] += 1;
+    console.log(`\n[issue-347/encode] null: ${describeOutcome(none)}`);
+  }
 
   const pinned = issue392Case(S);
   const pinnedUnion = S.union(pinned.members.map((m) => m.schema));

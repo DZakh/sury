@@ -111,7 +111,7 @@ test("Expression of reversed compactColumns schema", t => {
 })
 
 test("Expression of Array schema with optional items", t => {
-  t->Assert.deepEqual(S.array(S.option(S.string))->S.inputExpression, "(string | undefined)[]")
+  t->Assert.deepEqual(S.array(S.option(S.string))->S.inputExpression, "(undefined | string)[]")
 })
 
 test("Expression of Dict schema", t => {
@@ -119,7 +119,7 @@ test("Expression of Dict schema", t => {
 })
 
 test("Expression of Option schema", t => {
-  t->Assert.deepEqual(S.option(S.string)->S.inputExpression, "string | undefined")
+  t->Assert.deepEqual(S.option(S.string)->S.inputExpression, "undefined | string")
 })
 
 test("Expression of Option schema with name", t => {
@@ -130,7 +130,7 @@ test("Expression of Option schema with name", t => {
 })
 
 test("Expression of Null schema", t => {
-  t->Assert.deepEqual(S.nullAsOption(S.string)->S.inputExpression, "string | null")
+  t->Assert.deepEqual(S.nullAsOption(S.string)->S.inputExpression, "null | string")
 })
 
 test("Expression of Union schema", t => {

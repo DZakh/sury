@@ -5,14 +5,14 @@ ts:
   output: boolean | null
   instantiations: 5600
 jsonSchema:
-  input: Expected JSON, received string | undefined
-  output: '{ anyOf: [{ type: "boolean" }, { type: "null" }] }'
+  input: Expected JSON, received undefined | string
+  output: '{ anyOf: [{ type: "null" }, { type: "boolean" }] }'
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    creationError: "SuryError: Invalid operation: can't convert string | undefined to boolean | null — string has no same-type variant on the other side. Use S.to to say what you mean, or S.never to mark a variant unreachable"
+    creationError: "SuryError: Invalid operation: can't convert undefined | string to null | boolean — string has no same-type variant on the other side. Use S.to to say what you mean, or S.never to mark a variant unreachable"
   decode: eq-to-parse
   encode:
-    creationError: "SuryError: Invalid operation: can't convert boolean | null to string | undefined — boolean has no same-type variant on the other side. Use S.to to say what you mean, or S.never to mark a variant unreachable"
+    creationError: "SuryError: Invalid operation: can't convert null | boolean to undefined | string — boolean has no same-type variant on the other side. Use S.to to say what you mean, or S.never to mark a variant unreachable"

@@ -58,11 +58,11 @@ test("Object with embeded transformed schema", t => {
   )
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#Encode),
-    `i=>{let v0=i["zoo"];for(;;){if(typeof v0==="number"&&v0===v0&&v0<=2147483647&&v0>=-2147483648&&v0%1===0)break;if(v0===void 0){v0=null;break}e[0](v0)}return {foo:"bar",zoo:v0}}`,
+    `i=>{let v0=i["zoo"];for(;;){if(v0===void 0){v0=null;break}if(typeof v0==="number"&&v0===v0&&v0<=2147483647&&v0>=-2147483648&&v0%1===0)break;e[0](v0)}return {foo:"bar",zoo:v0}}`,
   )
   t->Assert.is(
     objectSchema->U.getCompiledCodeString(~op=#Encode),
-    `i=>{let v0=i["zoo"];for(;;){if(typeof v0==="number"&&v0===v0&&v0<=2147483647&&v0>=-2147483648&&v0%1===0)break;if(v0===void 0){v0=null;break}e[0](v0)}return {foo:"bar",zoo:v0}}`,
+    `i=>{let v0=i["zoo"];for(;;){if(v0===void 0){v0=null;break}if(typeof v0==="number"&&v0===v0&&v0<=2147483647&&v0>=-2147483648&&v0%1===0)break;e[0](v0)}return {foo:"bar",zoo:v0}}`,
   )
 })
 
@@ -124,11 +124,11 @@ test("Tuple with embeded transformed schema", t => {
   )
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#Encode),
-    `i=>{let v0=i["0"];for(;;){if(typeof v0==="string")break;if(v0===void 0){v0=null;break}e[0](v0)}return [v0,void 0,"bar"]}`,
+    `i=>{let v0=i["0"];for(;;){if(v0===void 0){v0=null;break}if(typeof v0==="string")break;e[0](v0)}return [v0,void 0,"bar"]}`,
   )
   t->Assert.is(
     tupleSchema->U.getCompiledCodeString(~op=#Encode),
-    `i=>{let v0=i["0"];for(;;){if(typeof v0==="string")break;if(v0===void 0){v0=null;break}e[0](v0)}return [v0,void 0,"bar"]}`,
+    `i=>{let v0=i["0"];for(;;){if(v0===void 0){v0=null;break}if(typeof v0==="string")break;e[0](v0)}return [v0,void 0,"bar"]}`,
   )
 })
 
@@ -281,12 +281,12 @@ test("https://github.com/DZakh/sury/issues/131", t => {
   let json = (%raw(`{"weird": true}`): JSON.t)
   t->U.assertThrowsMessage(
     () => json->S.parseOrThrow(~to=testSchema),
-    `Failed at ["foobar"]: Expected (string | undefined)[], received undefined`,
+    `Failed at ["foobar"]: Expected (undefined | string)[], received undefined`,
   )
 
   t->U.assertCompiledCode(
     ~schema=testSchema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["foobar"];Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];(typeof v2==="string"||v2===void 0)||e[0](v2);}catch(v3){v3.path="[\\"foobar\\"]"+\'["\'+v1+\'"]\'+v3.path;throw v3}}return {foobar:v0}}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["foobar"];Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];(v2===void 0||typeof v2==="string")||e[0](v2);}catch(v3){v3.path="[\\"foobar\\"]"+\'["\'+v1+\'"]\'+v3.path;throw v3}}return {foobar:v0}}`,
   )
 })

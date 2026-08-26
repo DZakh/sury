@@ -12,7 +12,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i["count"];(typeof v0==="number"&&v0===v0&&v0%1===0||v0===void 0)||e[0](v0);return {count:v0}}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i["count"];(v0===void 0||typeof v0==="number"&&v0===v0&&v0%1===0)||e[0](v0);return {count:v0}}
     examples:
       value-present:
         input: "{ count: 1 }"
@@ -22,6 +22,6 @@ operations:
         output: "{ count: undefined }"
       wrong-value-type:
         input: '{ count: "1" }'
-        error: 'Failed at ["count"]: Expected integer | undefined, received "1"'
+        error: 'Failed at ["count"]: Expected undefined | integer, received "1"'
   decode: identity
   encode: identity

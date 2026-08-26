@@ -5,14 +5,14 @@ ts:
   output: '"x" | null'
   instantiations: 5910
 jsonSchema:
-  input: Expected JSON, received "x" | undefined
-  output: '{ enum: ["x", null] }'
+  input: Expected JSON, received undefined | "x"
+  output: '{ enum: [null, "x"] }'
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{for(;;){if(typeof i==="string"&&i==="x")break;if(i===void 0){i=null;break}e[0](i)}return i}
+    expression: i=>{for(;;){if(i===void 0){i=null;break}if(typeof i==="string"&&i==="x")break;e[0](i)}return i}
     examples:
       literal:
         input: '"x"'
@@ -22,10 +22,10 @@ operations:
         output: "null"
       invalid:
         input: '"y"'
-        error: Expected "x" | undefined, received "y"
+        error: Expected undefined | "x", received "y"
   decode: eq-to-parse
   encode:
-    expression: i=>{for(;;){if(typeof i==="string"&&i==="x")break;if(i===null){i=void 0;break}e[0](i)}return i}
+    expression: i=>{for(;;){if(i===null){i=void 0;break}if(typeof i==="string"&&i==="x")break;e[0](i)}return i}
     examples:
       literal:
         input: '"x"'

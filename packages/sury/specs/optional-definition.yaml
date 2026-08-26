@@ -5,13 +5,13 @@ ts:
   output: "{ a: boolean; } | undefined"
   instantiations: 1354
 jsonSchema:
-  input: "Expected JSON, received { a: boolean; } | undefined"
-  output: "Expected JSON, received { a: boolean; } | undefined"
+  input: "Expected JSON, received undefined | { a: boolean; }"
+  output: "Expected JSON, received undefined | { a: boolean; }"
 vs:
   zod: "z.object({ a: z.boolean() }).optional()"
 operations:
   parse:
-    expression: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i["a"];typeof v0==="boolean"||e[0](v0);i={a:v0};break}if(i===void 0)break;e[1](i)}return i}
+    expression: i=>{for(;;){if(i===void 0)break;if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i["a"];typeof v0==="boolean"||e[0](v0);i={a:v0};break}e[1](i)}return i}
     examples:
       object:
         input: "{ a: true }"
@@ -24,6 +24,6 @@ operations:
         error: 'Failed at ["a"]: Expected boolean, received 1'
       null-is-not-an-object:
         input: "null"
-        error: "Expected { a: boolean; } | undefined, received null"
+        error: "Expected undefined | { a: boolean; }, received null"
   decode: identity
   encode: identity

@@ -5,13 +5,13 @@ ts:
   output: string | null | undefined
   instantiations: 419
 jsonSchema:
-  input: Expected JSON, received string | undefined | null
-  output: Expected JSON, received string | undefined | null
+  input: Expected JSON, received undefined | null | string
+  output: Expected JSON, received undefined | null | string
 vs:
   zod: z.string().nullish()
 operations:
   parse:
-    expression: i=>{(typeof i==="string"||i===void 0||i===null)||e[0](i);return i}
+    expression: i=>{(i===void 0||i===null||typeof i==="string")||e[0](i);return i}
     examples:
       string:
         input: '"foo"'
@@ -24,6 +24,6 @@ operations:
         output: "null"
       invalid-type:
         input: "1"
-        error: Expected string | undefined | null, received 1
+        error: Expected undefined | null | string, received 1
   decode: identity
   encode: identity

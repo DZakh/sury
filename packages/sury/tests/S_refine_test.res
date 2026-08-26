@@ -87,7 +87,7 @@ module Issue79 = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["myField"];(typeof v0==="string"||v0===void 0||v0===null)||e[0](v0);e[1](v0)||e[2](v0);return v0}`,
+      `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["myField"];(v0===void 0||v0===null||typeof v0==="string")||e[0](v0);e[1](v0)||e[2](v0);return v0}`,
     )
     t->U.assertCompiledCode(
       ~schema,

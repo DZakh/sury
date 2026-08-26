@@ -5,14 +5,14 @@ ts:
   output: string | null | undefined
   instantiations: 6124
 jsonSchema:
-  input: Expected JSON, received string | undefined
+  input: Expected JSON, received undefined | string
   output: Expected JSON, received string | null | undefined
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{(typeof i==="string"||i===void 0)||e[0](i);return i}
+    expression: i=>{(i===void 0||typeof i==="string")||e[0](i);return i}
     examples:
       string:
         input: '"abc"'

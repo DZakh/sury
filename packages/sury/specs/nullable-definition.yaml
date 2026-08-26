@@ -5,13 +5,13 @@ ts:
   output: '"foo" | null'
   instantiations: 435
 jsonSchema:
-  input: '{ enum: ["foo", null] }'
-  output: '{ enum: ["foo", null] }'
+  input: '{ enum: [null, "foo"] }'
+  output: '{ enum: [null, "foo"] }'
 vs:
   zod: z.literal("foo").nullable()
 operations:
   parse:
-    expression: i=>{(typeof i==="string"&&i==="foo"||i===null)||e[0](i);return i}
+    expression: i=>{(i===null||typeof i==="string"&&i==="foo")||e[0](i);return i}
     examples:
       literal:
         input: '"foo"'
@@ -21,9 +21,9 @@ operations:
         output: "null"
       wrong-literal:
         input: '"bar"'
-        error: Expected "foo" | null, received "bar"
+        error: Expected null | "foo", received "bar"
       invalid-undefined:
         input: undefined
-        error: Expected "foo" | null, received undefined
+        error: Expected null | "foo", received undefined
   decode: identity
   encode: identity

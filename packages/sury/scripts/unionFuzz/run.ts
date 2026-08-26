@@ -98,7 +98,7 @@ const memberWitnesses = (
     const w = witnessOf(member);
     if (w !== NO_WITNESS) add(w, true);
   }
-  for (const junk of JUNK) add(junk, false);
+  for (const junk of JUNK) add(junk, junk === null || junk === undefined);
   return values;
 };
 

@@ -6,12 +6,12 @@ ts:
   instantiations: 5434
 jsonSchema:
   input: Expected JSON, received Uint8Array
-  output: Expected JSON, received JSON string | undefined
+  output: Expected JSON, received undefined | JSON string
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    creationError: "SuryError: Can't decode Uint8Array to JSON string | undefined. Use S.to to define a custom decoder"
+    creationError: "SuryError: Can't decode Uint8Array to undefined | JSON string. Use S.to to define a custom decoder"
   decode: eq-to-parse
   encode: eq-to-parse

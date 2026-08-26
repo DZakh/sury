@@ -139,7 +139,7 @@ test("toJSONSchema nullable float draft-07 keeps anyOf with type null", t => {
     S.nullAsOption(S.float)->S.toJSONSchema(~options={target: Draft07}),
     %raw(`{
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "anyOf": [{"type": "number"}, {"type": "null"}]
+      "anyOf": [{"type": "null"}, {"type": "number"}]
     }`),
   )
 })

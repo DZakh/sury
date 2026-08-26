@@ -73,7 +73,7 @@ module CommonWithNested = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Encode,
-      `i=>{let v3={};for(let v0 in i){try{let v1=i[v0];for(;;){if(typeof v1==="string")break;if(v1===void 0){v1=null;break}e[0](v1)}v3[v0]=v1}catch(v2){v2.path=\'["\'+v0+\'"]\'+v2.path;throw v2}}return v3}`,
+      `i=>{let v3={};for(let v0 in i){try{let v1=i[v0];for(;;){if(v1===void 0){v1=null;break}if(typeof v1==="string")break;e[0](v1)}v3[v0]=v1}catch(v2){v2.path=\'["\'+v0+\'"]\'+v2.path;throw v2}}return v3}`,
     )
   })
 
@@ -92,7 +92,7 @@ test("Reverse child schema", t => {
   let schema = S.dict(S.nullAsOption(S.string))
   t->U.assertEqualSchemas(
     schema->S.reverse,
-    S.dict(S.union([S.string->S.castToUnknown, S.nullAsUnit->S.reverse]))->S.castToUnknown,
+    S.dict(S.union([S.nullAsUnit->S.reverse, S.string->S.castToUnknown]))->S.castToUnknown,
   )
 })
 

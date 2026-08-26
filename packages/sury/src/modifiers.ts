@@ -129,14 +129,16 @@ export const optionFactory = (item: Internal, unitSchema: Internal = unit): Inte
 
       if (newAnyOf.length === schemas.length) {
         mutHas[unitSchema.type] = true;
-        newAnyOf.push(unitSchema);
+        // Ahead of the members: reverse encode of None must not enter an
+        // unknown/custom arm (https://github.com/DZakh/sury/issues/347).
+        newAnyOf.unshift(unitSchema);
       }
 
       mut.anyOf = newAnyOf;
       mut.has = mutHas;
     });
   } else {
-    return unionFactory([item, unitSchema]);
+    return unionFactory([unitSchema, item]);
   }
 }
 

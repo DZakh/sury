@@ -234,7 +234,7 @@ test("fromJSONSchema: nullable true", t => {
   // toJSONSchema uses anyOf style for nullable
   t->Assert.deepEqual(
     jsonRoundTrip(js),
-    {anyOf: [Schema({type_: Arrayable.single(#string)}), Schema({type_: Arrayable.single(#null)})]},
+    {anyOf: [Schema({type_: Arrayable.single(#null)}), Schema({type_: Arrayable.single(#string)})]},
   )
 })
 

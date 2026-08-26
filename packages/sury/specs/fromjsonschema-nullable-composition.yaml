@@ -5,14 +5,14 @@ ts:
   output: (string & JSON) | null
   instantiations: 1244
 jsonSchema:
-  input: '{ anyOf: [{ allOf: [{ type: "string" }, { minLength: 2 }] }, { type: "null" }] }'
-  output: '{ anyOf: [{ allOf: [{ type: "string" }, { minLength: 2 }] }, { type: "null" }] }'
+  input: '{ anyOf: [{ type: "null" }, { allOf: [{ type: "string" }, { minLength: 2 }] }] }'
+  output: '{ anyOf: [{ type: "null" }, { allOf: [{ type: "string" }, { minLength: 2 }] }] }'
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{for(;;){let r;try{e[0](i);e[1](i)||e[2](i);break}catch(x){(r||(r=[])).push(e[3](x))}if(i===null)break;e[4](i,...(r||[]))}return i}
+    expression: i=>{for(;;){if(i===null)break;e[0](i);e[1](i)||e[2](i);break;}return i}
     examples:
       passes-both-members:
         input: '"ab"'
@@ -22,13 +22,9 @@ operations:
         output: "null"
       fails-the-second-member:
         input: '"a"'
-        error: |-
-          Expected JSON | null, received "a"
-          - Should pass for all schemas of the allOf property.
+        error: Should pass for all schemas of the allOf property.
       fails-the-first-member:
         input: "1"
-        error: |-
-          Expected JSON | null, received 1
-          - Should pass for all schemas of the allOf property.
+        error: Should pass for all schemas of the allOf property.
   decode: eq-to-parse
   encode: eq-to-parse
