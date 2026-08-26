@@ -1202,11 +1202,20 @@ export const fromJSONSchema = (
 
   for (let i = 0; i < unsupportedKeywords.length; i++) {
     const keyword = unsupportedKeywords[i]!;
-    if ((jsonSchema as Record<string, unknown>)[keyword] !== U) {
-      refError(
-        `Unsupported JSON Schema keyword: ${keyword}. Ignoring it would accept data the schema rejects — remove it, or express the constraint with S.refine on the result`
-      );
-    }
+    const value = (jsonSchema as Record<string, unknown>)[keyword];
+    if (value === U) continue;
+    // uniqueItems:false asserts nothing. minContains/maxContains without
+    // contains are ignored by the spec. Throwing on those would reject
+    // documents that every JSON Schema validator accepts as unconstrained.
+    if (keyword === "uniqueItems" && value === false) continue;
+    if (
+      (keyword === "minContains" || keyword === "maxContains") &&
+      jsonSchema.contains === U
+    )
+      continue;
+    refError(
+      `Unsupported JSON Schema keyword: ${keyword}. Ignoring it would accept data the schema rejects — remove it, or express the constraint with S.refine on the result`
+    );
   }
 
   // The base type dispatch is mirrored by `JSONSchemaResolve` in

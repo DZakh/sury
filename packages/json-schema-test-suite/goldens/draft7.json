@@ -4,17 +4,17 @@
   "dialect": "draft7",
   "summary": {
     "assertions": 927,
-    "passed": 661,
+    "passed": 689,
     "failed": 0,
     "falseAccept": 0,
     "falseReject": 0,
-    "errored": 266,
-    "rate": "71.3%",
-    "assertOpPassed": 661,
-    "assertOpRate": "71.3%",
-    "identityPassed": 365,
-    "identityAssertions": 384,
-    "identityRate": "95.1%",
+    "errored": 238,
+    "rate": "74.3%",
+    "assertOpPassed": 689,
+    "assertOpRate": "74.3%",
+    "identityPassed": 392,
+    "identityAssertions": 411,
+    "identityRate": "95.4%",
     "divergent": 0
   },
   "erroredCases": [
@@ -81,10 +81,7 @@
     "refRemote.json :: $ref to $ref finds location-independent $id",
     "uniqueItems.json :: uniqueItems validation",
     "uniqueItems.json :: uniqueItems with an array of items",
-    "uniqueItems.json :: uniqueItems with an array of items and additionalItems=false",
-    "uniqueItems.json :: uniqueItems=false validation",
-    "uniqueItems.json :: uniqueItems=false with an array of items",
-    "uniqueItems.json :: uniqueItems=false with an array of items and additionalItems=false"
+    "uniqueItems.json :: uniqueItems with an array of items and additionalItems=false"
   ],
   "falseAccepting": [],
   "mutated": [

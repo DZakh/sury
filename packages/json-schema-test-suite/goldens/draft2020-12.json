@@ -4,17 +4,17 @@
   "dialect": "draft2020-12",
   "summary": {
     "assertions": 1299,
-    "passed": 716,
+    "passed": 748,
     "failed": 1,
     "falseAccept": 0,
     "falseReject": 1,
-    "errored": 582,
-    "rate": "55.1%",
-    "assertOpPassed": 716,
-    "assertOpRate": "55.1%",
-    "identityPassed": 411,
-    "identityAssertions": 431,
-    "identityRate": "95.4%",
+    "errored": 550,
+    "rate": "57.6%",
+    "assertOpPassed": 748,
+    "assertOpRate": "57.6%",
+    "identityPassed": 442,
+    "identityAssertions": 462,
+    "identityRate": "95.7%",
     "divergent": 0
   },
   "erroredCases": [
@@ -63,7 +63,6 @@
     "dynamicRef.json :: $dynamicRef points to a boolean schema",
     "dynamicRef.json :: $dynamicRef skips over intermediate resources - direct reference",
     "dynamicRef.json :: $dynamicRef avoids the root of each schema, but scopes are still registered",
-    "maxContains.json :: maxContains without contains is ignored",
     "maxContains.json :: maxContains with contains",
     "maxContains.json :: maxContains with contains, value with a decimal",
     "maxContains.json :: minContains < maxContains",
@@ -71,7 +70,6 @@
     "maxProperties.json :: maxProperties validation",
     "maxProperties.json :: maxProperties validation with a decimal",
     "maxProperties.json :: maxProperties = 0 means the object is empty",
-    "minContains.json :: minContains without contains is ignored",
     "minContains.json :: minContains=1 with contains",
     "minContains.json :: minContains=2 with contains",
     "minContains.json :: minContains=2 with contains with a decimal value",
@@ -202,10 +200,7 @@
     "unevaluatedProperties.json :: Evaluated properties collection needs to consider instance location with additionalProperties",
     "uniqueItems.json :: uniqueItems validation",
     "uniqueItems.json :: uniqueItems with an array of items",
-    "uniqueItems.json :: uniqueItems with an array of items and additionalItems=false",
-    "uniqueItems.json :: uniqueItems=false validation",
-    "uniqueItems.json :: uniqueItems=false with an array of items",
-    "uniqueItems.json :: uniqueItems=false with an array of items and additionalItems=false"
+    "uniqueItems.json :: uniqueItems with an array of items and additionalItems=false"
   ],
   "falseAccepting": [],
   "mutated": [
