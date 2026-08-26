@@ -439,10 +439,8 @@ S.base64url; // Base64url, URL-safe alphabet, no padding
 ```
 
 Each survives a round trip through `S.toJSONSchema` and `S.fromJSONSchema`.
-`S.base64` and `S.base64url` are the ones that aren't JSON Schema *formats*: they
-emit `contentEncoding: "base64"` / `"base64url"` (`format: "byte"` / `"base64url"`
-for OpenAPI 3.0), and they carry a payload, so [Content](#content) has more to
-say about them.
+`S.base64` and `S.base64url` emit `contentEncoding` instead of a JSON Schema
+format. See [Content](#content).
 
 **A format checks syntax, not safety.** Every one is exactly as strict as its
 spec, so a well-formed value passes even when it isn't one you want to accept:
@@ -1106,62 +1104,73 @@ const upload = (f: S.File) => S.parser(S.file)(f);
 
 ## Content
 
-Some values store other data: `S.uint8Array` and `S.base64` store bytes,
-`S.blob`/`S.file` store bytes you read asynchronously, `S.jsonString` stores a
-JSON document. When two of them meet, there are two readings of the same
-conversion — store this value inside that one, or open it and hand the payload
-over — and Sury does not guess.
+Bytes in JSON become base64. They are not mangled as UTF-8.
 
-**A value position stores.** A field or an item is a value in the document, so
-bytes there become base64 rather than mangled text:
+### Bytes in a JSON field
+
+A field of bytes is written as base64. You do not pass pack or unpack.
 
 ```ts
-S.encoder(S.schema({ payload: S.uint8Array }), S.jsonString)({ payload: bytes });
+S.encoder(S.schema({ payload: S.uint8Array }), S.jsonString)({
+  payload: new Uint8Array([137, 80, 78, 71]),
+});
 // {"payload":"iVBORw=="}
-
-// A Blob/File field stores the same way, and reading it is async:
-S.asyncEncoder(S.schema({ avatar: S.file }), S.jsonString)({ avatar });
 ```
 
-**A declared payload opens.** Writing what is inside a format is how you say
-"open it":
+### A JWT segment
+
+Parse the base64 text as JSON, then as the object.
 
 ```ts
-S.file.with(S.to, S.jsonString.with(S.to, configSchema)); // read + parse
-S.base64.with(S.to, S.jsonString.with(S.to, claimsSchema)); // a JWT segment
+S.parser(
+  S.base64.with(S.to, S.jsonString.with(S.to, S.schema({ sub: S.string }))),
+)("eyJzdWIiOiJhIn0=");
+// { sub: "a" }
 ```
 
-**Otherwise Sury asks.** A pair with both readings live is rejected where the
-operation is created, rather than silently picking one:
+### Switch base64 alphabets
+
+`S.base64url` is URL-safe and has no padding.
 
 ```ts
-S.parser(S.uint8Array.with(S.to, S.jsonString));
+S.base64; // standard alphabet, canonical padding
+S.base64url; // URL-safe alphabet, no padding
+
+S.parser(S.base64.with(S.to, S.base64url))("iVBORw==");
+// "iVBORw"
+```
+
+### The bytes are JSON text
+
+```ts
+S.uint8Array.with(S.to, S.jsonString, "unpack");
+// decode unpack, encode pack
+```
+
+### The JSON string holds the bytes
+
+```ts
+S.uint8Array.with(S.to, S.jsonString, "pack");
+// decode pack, encode unpack
+```
+
+### If you omit pack or unpack
+
+Sury does not guess when both conversions exist.
+
+```ts
+S.uint8Array.with(S.to, S.jsonString);
 // Ambiguous conversion from Uint8Array to JSON string.
 // Use S.to(from, to, "unpack" | "pack")
 ```
 
-Say which one you mean with `"pack"` / `"unpack"`. Each names what its own
-direction does to its own source, so the two are always opposites. A bare
-string is the decode reading; encode takes the other:
+### UTF-8, the same bytes, parse, or widen
 
 ```ts
-// the bytes ARE the JSON text
-S.uint8Array.with(S.to, S.jsonString, "unpack");
-// ≡ { decode: "unpack", encode: "pack" }
-
-// base64 inside a JSON string, into a File
-S.jsonString.with(S.to, S.file, "unpack");
-```
-
-Pairs with only one reading never ask. `S.uint8Array.with(S.to, S.string)` is
-UTF-8 either way; `S.base64.with(S.to, S.uint8Array)` and
-`S.file.with(S.to, S.string)` hand over a payload; `S.jsonString.with(S.to, S.json)`
-parses. The contrast worth memorizing is the two string conversions, and it
-follows from what each one carries:
-
-```ts
-S.jsonString.with(S.to, S.string); // parses — a string IS a JSON value
-S.base64.with(S.to, S.string); // widens — a string is NOT bytes
+S.uint8Array.with(S.to, S.string); // UTF-8
+S.base64.with(S.to, S.uint8Array); // the same bytes
+S.jsonString.with(S.to, S.string); // parses
+S.base64.with(S.to, S.string); // widens
 ```
 
 ## Meta
@@ -1573,6 +1582,14 @@ S.encoder(schema)(123); //? "123"
 
 The result of `decode` is validated by the target schema, so a coder that
 returns the wrong thing fails right there instead of leaking a bad value.
+
+Pass `"pack"` or `"unpack"` as the third argument when both conversions exist.
+See [Content](#content).
+
+```ts
+S.uint8Array.with(S.to, S.jsonString, "unpack");
+// decode unpack, encode pack
+```
 
 Besides a function, each direction accepts:
 
