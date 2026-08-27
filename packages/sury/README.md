@@ -118,14 +118,13 @@ S.encoder(userSchema)({ id: 0n, name: "Dmitry" });
 // => { USER_ID: "0", USER_NAME: "Dmitry" }
 ```
 
-A `File`'s content reads asynchronously, so its pipeline is async as a whole - and the sync parser refuses at creation instead of failing later:
+A `File`'s content reads asynchronously, so its pipeline is async as a whole:
 
 ```ts
 const configSchema = S.file.with(S.to, S.jsonString.with(S.to, S.schema({ theme: S.string })));
 
 await S.asyncParser(configSchema)(new File(['{"theme":"dark"}'], "config.json"));
 // => { theme: "dark" }
-S.parser(configSchema); // => throws: Invalid async during sync operation
 ```
 
 `process.env` is strings; your config isn't. Pipe from `S.record(S.string)` and the coercions are inferred:
@@ -143,12 +142,12 @@ S.parser(envSchema)(process.env);
 // => { PORT: 8080, DEBUG: true }
 ```
 
-Layouts that usually need hand-written glue are single definitions - `S.compactColumns` maps columnar arrays to rows, in both directions:
+Some data arrives in awkward layouts. Instead of writing glue code, describe the layout - here `S.compactColumns` turns columnar arrays into rows and back:
 
 ```ts
-const rows = S.compactColumns(S.json).with(S.to, S.array(S.schema({ id: S.bigint, city: S.string })));
+const rows = S.compactColumns(S.json).with(S.to, S.array({ id: S.bigint, city: S.string }));
 
-S.parser(rows)([["1", "2"], ["Tbilisi", "Batumi"]]);
+S.decoder(rows)([["1", "2"], ["Tbilisi", "Batumi"]]);
 // => [{ id: 1n, city: "Tbilisi" }, { id: 2n, city: "Batumi" }]
 S.encoder(rows)([{ id: 1n, city: "Tbilisi" }, { id: 2n, city: "Batumi" }]);
 // => [["1", "2"], ["Tbilisi", "Batumi"]]
@@ -156,19 +155,9 @@ S.encoder(rows)([{ id: 1n, city: "Tbilisi" }, { id: 2n, city: "Batumi" }]);
 
 Wires today: `S.json`, `S.jsonString`, `S.base64`, `S.base64url`, `S.uint8Array`, `S.file` and `S.blob`. Coming next: env, `FormData` and protobuf.
 
-Everything above is JIT-specialized with `new Function` into the functions you'd write by hand - [see the code](#the-code-a-schema-turns-into), the [benchmarks](#comparison), and [why `new Function` is fine](#does-it-really-use-new-function) - and a schema with a parser ships in 7.9 kB min+gzip, tree-shakable, [string formats](https://github.com/DZakh/sury/blob/main/docs/js-usage.md#string-formats) included.
-
-> Formerly published as **rescript-schema**. Sury is plain JavaScript - the ReScript compiler is not involved - with first-class ReScript bindings on the same package.
-
-## Comparison
-
-Sury is the fastest composable validation library in the ecosystem, because schemas are JIT-specialized with `new Function` rather than interpreted.
-
-It's also small. Instead of a few large classes with many methods, the API and source are built from many small, independent functions, each with a single task. A bundler follows your imports and drops everything you don't use, which can cut the shipped size by up to 2× compared to [Zod](https://github.com/colinhacks/zod). (The approach is borrowed from [Valibot](https://github.com/fabian-hiller/valibot), which pioneered it.)
-
 ### The code a schema turns into
 
-`parseEvent` from the tour above isn't an interpreter walking a schema tree. It's a function Sury specialized for exactly that shape: the union dispatches on the discriminant, the inferred `bigint` coercion is inlined as a bare `BigInt()` call, and your `nonEmpty` message is a plain length check - `S.jsonString` -> union -> fields fuse into one pass:
+`parseEvent` from above isn't an interpreter walking a schema tree. It's a function Sury specialized for exactly that shape: the union dispatches on the discriminant, the inferred `bigint` coercion is inlined as a bare `BigInt()` call, and your `nonEmpty` message is a plain length check - `S.jsonString` -> union -> fields fuse into one pass:
 
 ```js
 (i) => {
@@ -207,7 +196,13 @@ It's also small. Instead of a few large classes with many methods, the API and s
 };
 ```
 
-That's why Sury tends to outrun not just other libraries, but hand-rolled validation too.
+That's why Sury tends to outrun not just other libraries, but hand-rolled validation too - see the [benchmarks](#comparison), and [why `new Function` is fine](#does-it-really-use-new-function).
+
+## Comparison
+
+Sury is the fastest composable validation library in the ecosystem, because schemas are JIT-specialized with `new Function` rather than interpreted.
+
+It's also small. Instead of a few large classes with many methods, the API and source are built from many small, independent functions, each with a single task. A bundler follows your imports and drops everything you don't use, which can cut the shipped size by up to 2× compared to [Zod](https://github.com/colinhacks/zod). (The approach is borrowed from [Valibot](https://github.com/fabian-hiller/valibot), which pioneered it.)
 
 ### Encoding vs `JSON.stringify`
 
