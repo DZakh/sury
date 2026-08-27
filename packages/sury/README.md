@@ -20,7 +20,7 @@ npm install sury
 Declare your data model - unions, constraints and metadata in one place. Everything is a normal schema, and hovering one reads `S.Schema<Event>` - not `v.ObjectSchema<{readonly foo: v.StringSchema<undefined>}, undefined>`:
 
 ```ts
-import * as S from "sury"; // Tree-shakable: a schema + parser starts at 7.9 kB gzip
+import * as S from "sury"; // Tree-shakable: a schema + parser starts at 8 kB gzip
 
 const eventSchema = S.union([
   {
@@ -47,7 +47,7 @@ S.encoder(eventSchema, S.jsonString)({ type: "user.deleted", id: 7n, payload: { 
 // => '{"type":"user.deleted","id":"7","payload":{"reason":"spam"}}'
 ```
 
-Errors point into the matched variant with your message, and `S.safe` turns any block into a typed result:
+Errors point into the matched variant, in wire terms - the missing `id` is a missing string - and `S.safe` turns any block into a typed result:
 
 ```ts
 parseEvent('{"type":"user.created","id":"42","tags":[]}');
@@ -58,7 +58,7 @@ if (!result.success) result.error.message;
 // => 'Failed at ["id"]: Expected string, received undefined'
 ```
 
-Swap the wire, keep the model - the same event inside base64url, both directions again:
+Swap the wire, keep the model - the same event inside base64url. A composed pipeline already knows both of its ends, so `S.encoder` and `S.parser` take just the schema:
 
 ```ts
 const b64Event = S.base64url.with(S.to, S.jsonString.with(S.to, eventSchema));
@@ -92,7 +92,7 @@ const emailSchema = S.fromJSONSchema({ type: "string", format: "email" });
 S.parser(emailSchema)("hi@sury.dev"); // => "hi@sury.dev", typed as string
 ```
 
-Recursive schemas reference themselves:
+The same pieces cover what you'd otherwise pull a helper library for. Recursive schemas reference themselves:
 
 ```ts
 type Node = { id: string; children: Node[] };
@@ -157,7 +157,7 @@ Wires today: `S.json`, `S.jsonString`, `S.base64`, `S.base64url`, `S.uint8Array`
 
 ### The code a schema turns into
 
-`parseEvent` from above isn't an interpreter walking a schema tree. It's a function Sury specialized for exactly that shape: the union dispatches on the discriminant, the inferred `bigint` coercion is inlined as a bare `BigInt()` call, and your `nonEmpty` message is a plain length check - `S.jsonString` -> union -> fields fuse into one pass:
+Here's what `parseEvent` from above actually runs - a function specialized for this exact shape: the union dispatches on the discriminant, the `bigint` coercion is inlined as a bare `BigInt()` call, your `nonEmpty` message is a plain length check, and `S.jsonString` -> union -> fields fuse into one pass:
 
 ```js
 (i) => {
@@ -196,13 +196,13 @@ Wires today: `S.json`, `S.jsonString`, `S.base64`, `S.base64url`, `S.uint8Array`
 };
 ```
 
-That's why Sury tends to outrun not just other libraries, but hand-rolled validation too - see the [benchmarks](#comparison), and [why `new Function` is fine](#does-it-really-use-new-function).
+That's why Sury tends to outrun even hand-rolled validation - see the [benchmarks](#comparison), and [why `new Function` is fine](#does-it-really-use-new-function).
 
 ## Comparison
 
-Sury is the fastest composable validation library in the ecosystem, because schemas are JIT-specialized with `new Function` rather than interpreted.
+Sury has the fastest parsing and encoding in the ecosystem - the hot path. Creating a schema and using it once is the one workload where an interpreted library wins a row below.
 
-It's also small. Instead of a few large classes with many methods, the API and source are built from many small, independent functions, each with a single task. A bundler follows your imports and drops everything you don't use, which can cut the shipped size by up to 2× compared to [Zod](https://github.com/colinhacks/zod). (The approach is borrowed from [Valibot](https://github.com/fabian-hiller/valibot), which pioneered it.)
+It's also small. Instead of a few large classes with many methods, the API and source are built from many small, independent functions. A bundler follows your imports and drops everything you don't use, which can cut the shipped size by up to 2× compared to [Zod](https://github.com/colinhacks/zod). (The approach is borrowed from [Valibot](https://github.com/fabian-hiller/valibot), which pioneered it.)
 
 ### Encoding vs `JSON.stringify`
 
@@ -244,11 +244,11 @@ S.encoder(S.schema({ price: S.number }), S.jsonString)({ price: Infinity });
 | Event feed (50 tagged-union events)   | **5.05 µs** | 7.82 µs          | 20.26 µs            |
 | `bigint` id + binary payload + `Date` | **1.17 µs** | 1.51 µs          | 1.45 µs             |
 
-Faster than `JSON.stringify`, and 3.5× lighter than fast-json-stringify - 16.4 kB against 56.7 kB, encoder included.
-
-Measured with [this repo's comparison benchmark](https://github.com/DZakh/sury/tree/main/packages/e2e/src/benchmark) against `sury@11.0.0-rc.1`, `zod@4.4.3`, `typebox@0.34.52`, `valibot@1.4.2`, `arktype@2.2.3`:
+And 3.5× lighter than fast-json-stringify - 16.4 kB against 56.7 kB, encoder included.
 
 ### Size & speed
+
+Measured with [this repo's comparison benchmark](https://github.com/DZakh/sury/tree/main/packages/e2e/src/benchmark) against `sury@11.0.0-rc.1`, `zod@4.4.3`, `typebox@0.34.52`, `valibot@1.4.2`, `arktype@2.2.3`.
 
 |                                 | Sury           | Zod          | TypeBox                        | Valibot      | ArkType        |
 | ------------------------------- | -------------- | ------------ | ------------------------------ | ------------ | -------------- |
@@ -276,8 +276,6 @@ Independent benchmarks and conformance suites that include Sury:
 | **Eval-free**                            | ❌                                       | ⭕ opt-out                                | ⭕ opt-in                 | ✅                                                                    | ⭕ opt-out                |
 | **Ecosystem**                            | ⭐️⭐️                                   | ⭐️⭐️⭐️⭐️⭐️                           | ⭐️⭐️⭐️⭐️⭐️           | ⭐️⭐️⭐️                                                             | ⭐️⭐️                    |
 
-Sury's own ecosystem is young, but implementing Standard Schema means the 32+ libraries that support the spec already work with it today.
-
 ## Integrations
 
 Use Sury anywhere a schema is accepted:
@@ -299,7 +297,7 @@ Building something with Sury? [Let me know](https://x.com/dzakh_dev) and I'll ad
 
 ### Does it really use `new Function`?
 
-Yes - that's where the speed comes from. It's also how TypeBox, Zod v4 and ArkType work. Cloudflare Workers allows `new Function` during Worker startup (the default since compatibility date 2025-06-01), so schemas and operations created at the top level work there.
+Yes - that's part of where the speed comes from; the rest is what gets specialized ([the code a schema turns into](#the-code-a-schema-turns-into)). The same technique is used by TypeBox, Zod v4 and ArkType. Cloudflare Workers allows `new Function` during Worker startup (the default since compatibility date 2025-06-01), so schemas and operations created at the top level work there.
 
 There's currently no eval-free mode, so Sury won't run where dynamic code evaluation is forbidden: pages under a strict CSP without `'unsafe-eval'`, some browser extension contexts, and a few restricted edge runtimes. If that's your environment, [Valibot](https://valibot.dev/) is the honest recommendation today.
 
