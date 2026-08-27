@@ -104,7 +104,7 @@ payload with `.to`, a carrier feeding it unpacks:
 ```ts
 S.file.with(S.to, S.jsonString.with(S.to, configSchema));   // read + parse
 
-S.base64.with(S.to, S.jsonString.with(S.to, claimsSchema)); // a JWT segment
+S.base64url.with(S.to, S.jsonString.with(S.to, claimsSchema)); // a JWT segment
 ```
 
 The check is on the schema shape (a `content` marker plus `.to` present), so it
@@ -336,7 +336,7 @@ ASCII-only fixtures are what hid the corruption above.
 | `codec-uint8array-jsonstring-ambiguous`, `codec-file-jsonstring-ambiguous`, `codec-base64-jsonstring-ambiguous` | rule 4, one per carrier kind |
 | `codec-uint8array-json-unsupported`, `codec-uint8array-optional-jsonstring-unsupported`, `codec-file-optional-email-unsupported` | where the axis stops — `S.json`, a union carrying a payload, and any union at all opposite a container whose read is asynchronous |
 | `codec-file-blob` | the one instance widening the axis makes legal, and the direction that stays an error |
-| `codec-base64-jsonstring-payload` | rule 3, the JWT segment |
+| `codec-base64-jsonstring-payload`, `codec-base64url-jsonstring-payload` | rule 3, both alphabets — the base64url one is the JWT segment |
 | `codec-jsonstring-object-uint8array`, `codec-jsonstring-object-file` | rule 2, both directions |
 | `codec-jsonstring-object-optional-uint8array`, `jsonstring-optional-base64-field` | rule 2 through a union arm — the one that needs a hop to the stored form, and the one that already is it |
 | `codec-jsonstring-object-optional-file`, `codec-jsonstring-dict-file` | the two things an async encode broke: an object's optional fields, and a dict with no keys |
