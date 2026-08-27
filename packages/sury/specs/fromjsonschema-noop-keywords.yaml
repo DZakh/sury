@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.fromJSONSchema({ uniqueItems: false })"
+  aliases:
+    - "S.fromJSONSchema({ minContains: 1 })"
+    - "S.fromJSONSchema({ maxContains: 1 })"
+  input: JSON
+  output: JSON
+  instantiations: 593
+jsonSchema:
+  input: "{}"
+  output: "{}"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{e[0](i);return i}
+    examples:
+      duplicate-items:
+        input: "[1, 1]"
+        output: "[1, 1]"
+      empty-array:
+        input: "[]"
+        output: "[]"
+      object:
+        input: "{ foo: 1 }"
+        output: "{ foo: 1 }"
+      number:
+        input: "1"
+        output: "1"
+      invalid-undefined:
+        input: undefined
+        error: Expected JSON, received undefined
+  decode: identity
+  encode: identity
