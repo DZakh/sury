@@ -17,7 +17,7 @@ npm install sury
 
 ## Why Sury
 
-Describe your data model once - unions, constraints and metadata included. Hover a schema and you can actually read the type: `S.Schema<{ type: "user.created"; id: bigint; ... } | { type: "user.deleted"; ... }>` - while the same model in Valibot reads `v.UnionSchema<[v.ObjectSchema<{ readonly type: v.LiteralSchema<"user.created", undefined>; readonly id: v.BigintSchema<undefined>; readonly tags: v.SchemaWithPipe<...>; }, undefined>, v.ObjectSchema<...>], undefined>`:
+Describe your data model once - unions, constraints and metadata included, with a type you can actually read on hover:
 
 ```ts
 import * as S from "sury"; // Tree-shakable: a schema + parser starts at 8 kB gzip
@@ -247,6 +247,8 @@ And 3.5× lighter than fast-json-stringify - 16.4 kB against 56.7 kB, encoder in
 Sury has the fastest parsing and encoding in the ecosystem - the hot path. Creating a schema and using it once is the one workload where an interpreted library wins a row below.
 
 It's also small. Instead of a few large classes with many methods, the API and source are built from many small, independent functions. A bundler follows your imports and drops everything you don't use, which can cut the shipped size by up to 2× compared to [Zod](https://github.com/colinhacks/zod). (The approach is borrowed from [Valibot](https://github.com/fabian-hiller/valibot), which pioneered it.)
+
+And the types stay readable. Hovering the event schema from [Why Sury](#why-sury) reads `S.Schema<{ type: "user.created"; id: bigint; ... } | { type: "user.deleted"; ... }>` - the same model in Valibot reads `v.UnionSchema<[v.ObjectSchema<{ readonly type: v.LiteralSchema<"user.created", undefined>; readonly id: v.BigintSchema<undefined>; readonly tags: v.SchemaWithPipe<...>; }, undefined>, v.ObjectSchema<...>], undefined>`.
 
 ### Size & speed
 
