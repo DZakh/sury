@@ -15,10 +15,11 @@ npm install sury
 
 ## Why Sury
 
+Declare your data model - unions, constraints and metadata in one place, with types you can read on hover:
+
 ```ts
 import * as S from "sury";
 
-// Declare your data model - unions, constraints and metadata in one place
 const eventSchema = S.union([
   {
     type: "user.created",
@@ -28,48 +29,55 @@ const eventSchema = S.union([
   { type: "user.deleted", id: S.bigint },
 ]).with(S.meta, { description: "User lifecycle event" });
 
-// Types you can read on hover
 type Event = S.Output<typeof eventSchema>;
 //   ^? { type: "user.created"; id: bigint; tags: { name: string }[] }
 //      | { type: "user.deleted"; id: bigint }
+```
 
-// One schema, both directions
+One schema drives both directions - and encoding comes out [faster than `JSON.stringify`](#encoding-vs-jsonstringify):
+
+```ts
 const parseEvent = S.decoder(S.jsonString, eventSchema);
 parseEvent('{"type":"user.created","id":"42","tags":[{"name":"vip"}]}');
 // => { type: "user.created", id: 42n, tags: [{ name: "vip" }] }
 
-// ...and encode back out - faster than JSON.stringify (see Comparison)
 S.encoder(eventSchema, S.jsonString)({ type: "user.deleted", id: 7n });
 // => '{"type":"user.deleted","id":"7"}'
+```
 
-// Errors point into the matched variant, with your message
+Errors point into the matched variant with your message, and `S.safe` turns any block into a typed result:
+
+```ts
 parseEvent('{"type":"user.created","id":"42","tags":[]}');
 // => throws S.Error: Failed at ["tags"]: Add at least one tag
 
-// Rather a result than an exception? S.safe wraps any block
 const result = S.safe(() => parseEvent('{"type":"user.deleted"}'));
 result.success; // => false, with result.error: Failed at ["id"]: ...
+```
 
-// Swap the wire, keep the model: the same event inside base64url
+Swap the wire, keep the model - the same event inside base64url:
+
+```ts
 const b64Event = S.base64url.with(S.to, S.jsonString.with(S.to, eventSchema));
 S.encoder(b64Event)({ type: "user.deleted", id: 7n });
 // => "eyJ0eXBlIjoidXNlci5kZWxldGVkIiwiaWQiOiI3In0"
+```
 
-// Standard Schema: accepted by tRPC, Hono, TanStack and 28+ more
-eventSchema["~standard"].validate({ type: "user.deleted", id: 7n });
-// => { value: { type: "user.deleted", id: 7n } }
+JSON Schema in both directions, and Standard Schema for tRPC, Hono, TanStack and 28+ more:
 
-// JSON Schema out - it describes the wire, so id is { type: "string" }...
+```ts
 S.toJSONSchema(S.json.with(S.to, eventSchema));
 // => { anyOf: [...], description: "User lifecycle event", ... }
+//    with id: { type: "string" } - it describes the wire
 
-// ...and in - fully typed, scored against the official test suite in CI
 const emailSchema = S.fromJSONSchema({ type: "string", format: "email" });
 S.parser(emailSchema)("hi@sury.dev"); // => "hi@sury.dev", typed as string
 
-// Wires today: JSON, JSON string, base64, base64url, Uint8Array, File, Blob
-// Coming next: env, FormData, protobuf
+eventSchema["~standard"].validate({ type: "user.deleted", id: 7n });
+// => { value: { type: "user.deleted", id: 7n } }
 ```
+
+Wires today: `S.json`, `S.jsonString`, `S.base64`, `S.base64url`, `S.uint8Array`, `S.file` and `S.blob`. Coming next: env, `FormData` and protobuf.
 
 Everything above is JIT-specialized with `new Function` into the functions you'd write by hand - [see the code](#the-code-a-schema-turns-into), the [benchmarks](#comparison), and [why `new Function` is fine](#does-it-really-use-new-function) - and a schema with a parser ships in 7.9 kB min+gzip, tree-shakable, [string formats](https://github.com/DZakh/sury/blob/main/docs/js-usage.md#string-formats) included.
 
