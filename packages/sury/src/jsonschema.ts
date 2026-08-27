@@ -1194,6 +1194,13 @@ const assertionToJSONDefinition = (
         Object.entries(current.dependentSchemas).map(([key, child]) => [key, rw(child)])
       );
     }
+    if (current.dependencies !== U) {
+      const rewritten: Record<string, unknown> = {};
+      for (const [key, dep] of Object.entries(current.dependencies)) {
+        rewritten[key] = Array.isArray(dep) ? dep : rw(dep as JSONSchemaDefinition);
+      }
+      output.dependencies = rewritten;
+    }
     if (current.items !== U) {
       output.items = Array.isArray(current.items) ? current.items.map(rw) : rw(current.items);
     }
@@ -1375,7 +1382,7 @@ export const fromJSONSchema = (
       }
     } else {
       const additional = jsonSchema.additionalProperties;
-      if (additional === U || additional === false) {
+      if ((additional === U || additional === false) && !hasPatterns) {
         const properties: Record<string, Internal> = Object.create(null);
         const required = new Set(jsonSchema.required);
         for (const key of Object.keys(definitions)) {
@@ -1391,10 +1398,7 @@ export const fromJSONSchema = (
         for (const key of required) {
           if (!(key in properties)) properties[key] = json;
         }
-        schema = objectSchema(
-          properties,
-          additional === false && !hasPatterns ? "strict" : "strip"
-        );
+        schema = objectSchema(properties, additional === false ? "strict" : "strip");
       } else {
         schema = dict(json);
         const propertyKeys = Object.keys(definitions);
@@ -1417,12 +1421,16 @@ export const fromJSONSchema = (
             ),
           "Should pass every declared property schema."
         );
-        let additionalSchema = isAnyJSONSchema(additional)
-          ? U
-          : asAssertion(additional, ctx);
-        let roundTripAdditional = additionalSchema === U
-          ? U
-          : assertionToJSONDefinition(additional, additionalSchema, ctx);
+        let additionalSchema: Internal | undefined = U;
+        let roundTripAdditional: JSONSchemaDefinition | undefined = U;
+        if (additional !== U && additional !== false && !isAnyJSONSchema(additional)) {
+          additionalSchema = asAssertion(additional, ctx);
+          roundTripAdditional = assertionToJSONDefinition(
+            additional,
+            additionalSchema,
+            ctx
+          );
+        }
         if (roundTripAdditional !== U && isAnyJSONSchema(roundTripAdditional)) {
           additionalSchema = roundTripAdditional = U;
         }
@@ -1453,6 +1461,7 @@ export const fromJSONSchema = (
         };
         if (roundTripAdditional !== U)
           objectKeywords.additionalProperties = roundTripAdditional;
+        else if (additional === false) objectKeywords.additionalProperties = false;
         if (jsonSchema.required !== U) objectKeywords.required = jsonSchema.required;
         schema = extendJSONSchema(schema, objectKeywords);
       }
@@ -1923,6 +1932,7 @@ export const fromJSONSchema = (
         },
         "Should not have additional properties."
       );
+      schema = extendJSONSchema(schema, { additionalProperties: false });
     }
     const rewritten: Record<string, JSONSchemaDefinition> = {};
     for (let i = 0; i < sources.length; i++) {

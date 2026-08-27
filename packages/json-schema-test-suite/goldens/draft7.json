@@ -12,9 +12,9 @@
     "rate": "93.6%",
     "assertOpPassed": 868,
     "assertOpRate": "93.6%",
-    "identityPassed": 498,
+    "identityPassed": 500,
     "identityAssertions": 521,
-    "identityRate": "95.6%",
+    "identityRate": "96.0%",
     "divergent": 0
   },
   "erroredCases": [
@@ -49,8 +49,6 @@
   ],
   "falseAccepting": [],
   "mutated": [
-    "additionalProperties.json :: additionalProperties being false does not allow other properties :: no additional properties is valid",
-    "additionalProperties.json :: additionalProperties being false does not allow other properties :: patternProperties are not additional properties",
     "additionalProperties.json :: additionalProperties are allowed by default :: additional properties are allowed",
     "allOf.json :: allOf with base schema :: valid",
     "anyOf.json :: anyOf complex types :: both anyOf valid (complex)",
