@@ -5,7 +5,7 @@
 
 # Sury 🧬
 
-**The batteries-included schema library for TypeScript and ReScript.**
+**The fastest schema with next-gen DX, for TypeScript and ReScript.**
 
 Declare your data once, as a pipeline - wire format on one side, the types you work with on the other. Sury derives the decoder, the encoder, and the JSON Schema from that one declaration, and JIT-specializes each into a function written for exactly your shape.
 
