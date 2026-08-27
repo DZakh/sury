@@ -18,21 +18,20 @@ npm install sury
 ```ts
 import * as S from "sury";
 
-// Declare your data model - unions, coercions and constraints in one place
+// Declare your data model - unions, constraints and metadata in one place
 const eventSchema = S.union([
   {
     type: "user.created",
-    id: S.string.with(S.to, S.bigint), // "42" on the wire, 42n in your code
+    id: S.bigint, // can't exist in JSON - carried as "42" on the wire
     tags: S.array({ name: S.string }).with(S.nonEmpty, "Add at least one tag"),
   },
-  { type: "user.deleted", id: S.string.with(S.to, S.bigint) },
+  { type: "user.deleted", id: S.bigint },
 ]).with(S.meta, { description: "User lifecycle event" });
 
-// Types you can read, in the direction the data flows
+// Types you can read on hover
 type Event = S.Output<typeof eventSchema>;
 //   ^? { type: "user.created"; id: bigint; tags: { name: string }[] }
 //      | { type: "user.deleted"; id: bigint }
-type EventInput = S.Input<typeof eventSchema>; // the same shape with id: string
 
 // One schema, both directions
 const parseEvent = S.decoder(S.jsonString, eventSchema);
@@ -54,8 +53,8 @@ S.encoder(b64Event)({ type: "user.deleted", id: 7n });
 eventSchema["~standard"].validate({ type: "user.deleted", id: 7n });
 // => { value: { type: "user.deleted", id: 7n } }
 
-// JSON Schema out - describing the wire format, ready for OpenAPI...
-S.toJSONSchema(eventSchema);
+// JSON Schema out - it describes the wire, so id is { type: "string" }...
+S.toJSONSchema(S.json.with(S.to, eventSchema));
 // => { anyOf: [...], description: "User lifecycle event", ... }
 
 // ...and in - fully typed, scored against the official test suite in CI
