@@ -7,7 +7,7 @@
 
 **Next-gen schemas, faster than hand-written code.**
 
-Declare your TypeScript or ReScript data once, as a pipeline - wire format on one side, the types you work with on the other. Sury derives the decoder, the encoder, and the JSON Schema from that one declaration, and JIT-specializes each into a function written for exactly your shape.
+Declare your data model once, in TypeScript or ReScript. Decoders and encoders are pipelines of schemas - a JSON string, base64 or a `File` on one side, the types you work with on the other - each JIT-specialized into a function written for exactly your shape.
 
 - **One schema, both directions.** Decode the wire format in, encode back out - no second schema, no glue code.
 - **Fastest in the ecosystem.** Every schema is JIT-specialized into the function you'd write by hand - [see the code](#the-code-a-schema-turns-into) and the [benchmarks](#comparison). It runs on `new Function` - [why you shouldn't worry](#does-it-really-use-new-function).
