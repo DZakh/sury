@@ -28,7 +28,7 @@ operations:
         error: Expected "apple" | string, received 42
   decode: eq-to-parse
   encode:
-    expression: i=>{for(;;){if(typeof i==="number"&&i===i){let v0;try{v0=e[0](i)}catch(x){e[1](x);e[2](x)}typeof v0==="string"||e[3](v0);i=v0;break}if(typeof i==="string")break;e[4](i)}return i}
+    expression: i=>{for(;;){if(typeof i==="number"&&i===i){let v0;try{v0=e[0](i)}catch(x){e[1](x);e[2](x)}typeof v0==="string"||e[3](v0);i=v0;break;}if(typeof i==="string")break;e[4](i)}return i}
     examples:
       number-back-to-string:
         input: "42"

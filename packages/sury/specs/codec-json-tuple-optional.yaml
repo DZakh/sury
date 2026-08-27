@@ -13,7 +13,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{Array.isArray(i)||e[3](i);i.length===2||e[2](i);let v0=i["0"],v1=i["1"];v0==="B"||e[0](v0);for(;;){if(v1===null){v1=void 0;break}if(typeof v1==="string")break;e[1](v1)}return [v0,v1]}
+    expression: i=>{Array.isArray(i)||e[3](i);i.length===2||e[2](i);let v0=i["0"],v1=i["1"];v0==="B"||e[0](v0);for(;;){if(v1===null){v1=void 0;break;}if(typeof v1==="string")break;e[1](v1)}return [v0,v1]}
     examples:
       item-present:
         input: '["B", "x"]'
@@ -29,7 +29,7 @@ operations:
         error: 'Failed at ["1"]: Expected undefined | string, received 5'
   decode: eq-to-parse
   encode:
-    expression: i=>{let v0=i["1"];for(;;){if(v0===void 0){v0=null;break}if(typeof v0==="string")break;e[0](v0)}return ["B",v0]}
+    expression: i=>{let v0=i["1"];for(;;){if(v0===void 0){v0=null;break;}if(typeof v0==="string")break;e[0](v0)}return ["B",v0]}
     examples:
       item-present:
         input: '["B", "x"]'

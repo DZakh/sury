@@ -12,7 +12,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i["id"],v1=i["role"],v2=i["tags"];typeof v0==="string"||e[0](v0);typeof v1==="string"&&(v1==="admin"||v1==="user")||e[1](v1);for(;;){if(v2===void 0)break;if(Array.isArray(v2)){for(let v3=0;v3<v2.length;++v3){try{let v4=v2[v3];typeof v4==="string"||e[2](v4);}catch(v5){v5.path="[\"tags\"]"+'["'+v3+'"]'+v5.path;throw v5}};break}e[3](v2)}return {id:v0,role:v1,tags:v2}}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i["id"],v1=i["role"],v2=i["tags"];typeof v0==="string"||e[0](v0);typeof v1==="string"&&(v1==="admin"||v1==="user")||e[1](v1);for(;;){if(v2===void 0)break;if(Array.isArray(v2)){for(let v3=0;v3<v2.length;++v3){try{let v4=v2[v3];typeof v4==="string"||e[2](v4);}catch(v5){v5.path="[\"tags\"]"+'["'+v3+'"]'+v5.path;throw v5}};break;}e[3](v2)}return {id:v0,role:v1,tags:v2}}
     examples:
       valid:
         input: '{ id: "1", role: "admin", tags: ["a"] }'

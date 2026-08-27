@@ -41,7 +41,7 @@ operations:
         input: '["\"plain\""]'
         output: '"[\"plain\"]"'
   encode:
-    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}Array.isArray(v0)||e[2](v0);let v5=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];for(;;){if(typeof v2==="object"&&v2&&!Array.isArray(v2)&&v2["kind"]==="a"){let v3=v2["v"];typeof v3==="string"||e[1](v3);v2={kind:v2["kind"],v:v3};break}break;}v5[v1]=v2}catch(v4){v4.path='["'+v1+'"]'+v4.path;throw v4}}return v5}
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}Array.isArray(v0)||e[2](v0);let v5=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];for(;;){if(typeof v2==="object"&&v2&&!Array.isArray(v2)&&v2["kind"]==="a"){let v3=v2["v"];typeof v3==="string"||e[1](v3);v2={kind:v2["kind"],v:v3};break;}break;}v5[v1]=v2}catch(v4){v4.path='["'+v1+'"]'+v4.path;throw v4}}return v5}
     examples:
       matches-variant:
         input: '"[{\"kind\":\"a\",\"v\":\"x\"}]"'

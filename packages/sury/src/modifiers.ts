@@ -101,8 +101,6 @@ export const optionFactory = (item: Internal, unitSchema: Internal = unit): Inte
         let toPush: Internal;
         const schemaOut = getOutputSchema(schema);
         if (schemaOut.type === undefinedTag) {
-          mutHas[unitSchema.type] = true;
-          newAnyOf.push(unitSchema);
           toPush = nestedOption(schema);
         } else if (schemaOut.properties !== U) {
           const properties = schemaOut.properties;
@@ -127,10 +125,8 @@ export const optionFactory = (item: Internal, unitSchema: Internal = unit): Inte
         newAnyOf.push(toPush);
       }
 
-      if (newAnyOf.length === schemas.length) {
-        mutHas[unitSchema.type] = true;
-        newAnyOf.unshift(unitSchema);
-      }
+      mutHas[unitSchema.type] = true;
+      newAnyOf.unshift(unitSchema);
 
       mut.anyOf = newAnyOf;
       mut.has = mutHas;

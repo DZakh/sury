@@ -12,7 +12,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{for(;;){if(i===void 0){i=null;break}if(typeof i==="string"&&i==="x")break;e[0](i)}return i}
+    expression: i=>{for(;;){if(i===void 0){i=null;break;}if(typeof i==="string"&&i==="x")break;e[0](i)}return i}
     examples:
       literal:
         input: '"x"'
@@ -25,7 +25,7 @@ operations:
         error: Expected undefined | "x", received "y"
   decode: eq-to-parse
   encode:
-    expression: i=>{for(;;){if(i===null){i=void 0;break}if(typeof i==="string"&&i==="x")break;e[0](i)}return i}
+    expression: i=>{for(;;){if(i===null){i=void 0;break;}if(typeof i==="string"&&i==="x")break;e[0](i)}return i}
     examples:
       literal:
         input: '"x"'

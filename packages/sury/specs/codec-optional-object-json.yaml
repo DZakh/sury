@@ -13,7 +13,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=i["a"];for(;;){if(v0===void 0)break;if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=v0["s"];(v1===void 0||typeof v1==="string")||e[0](v1);v0={s:v1};break}e[1](v0)}for(;;){if(v0===void 0)break;if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v2=v0["s"],v3;(v2===void 0||typeof v2==="string")||e[2](v2);for(v3 in v0)if(v3!=="s")e[3](v3);let v4={};if(v2!==void 0){v4["s"]=v2}v0=v4;break}e[4](v0)}let v5={};if(v0!==void 0){v5["a"]=v0}return v5}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=i["a"];for(;;){if(v0===void 0)break;if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=v0["s"];(v1===void 0||typeof v1==="string")||e[0](v1);v0={s:v1};break;}e[1](v0)}for(;;){if(v0===void 0)break;if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v2=v0["s"],v3;(v2===void 0||typeof v2==="string")||e[2](v2);for(v3 in v0)if(v3!=="s")e[3](v3);let v4={};if(v2!==void 0){v4["s"]=v2}v0=v4;break;}e[4](v0)}let v5={};if(v0!==void 0){v5["a"]=v0}return v5}
     examples:
       none-omits-the-field:
         input: "{ a: { s: undefined } }"
@@ -25,7 +25,7 @@ operations:
         input: '{ a: { s: "x" } }'
         output: '{ a: { s: "x" } }'
   decode:
-    expression: i=>{let v0=i["a"];for(;;){if(v0===void 0)break;if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=v0["s"];(v1===void 0||typeof v1==="string")||e[0](v1);let v2={};if(v1!==void 0){v2["s"]=v1}v0=v2;break}e[1](v0)}let v3={};if(v0!==void 0){v3["a"]=v0}return v3}
+    expression: i=>{let v0=i["a"];for(;;){if(v0===void 0)break;if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=v0["s"];(v1===void 0||typeof v1==="string")||e[0](v1);let v2={};if(v1!==void 0){v2["s"]=v1}v0=v2;break;}e[1](v0)}let v3={};if(v0!==void 0){v3["a"]=v0}return v3}
     examples:
       none-omits-the-field:
         input: "{ a: { s: undefined } }"
@@ -37,7 +37,7 @@ operations:
         input: '{ a: { s: "x" } }'
         output: '{ a: { s: "x" } }'
   encode:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=(i["a"]??null);for(;;){if(v0===null){v0=void 0;break}if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=(v0["s"]??null);for(;;){if(v1===null){v1=void 0;break}if(typeof v1==="string")break;e[0](v1)}v0={s:v1};break}e[1](v0)}return {a:v0}}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=(i["a"]??null);for(;;){if(v0===null){v0=void 0;break;}if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=(v0["s"]??null);for(;;){if(v1===null){v1=void 0;break;}if(typeof v1==="string")break;e[0](v1)}v0={s:v1};break;}e[1](v0)}return {a:v0}}
     examples:
       omitted-round-trips-to-none:
         input: "{}"

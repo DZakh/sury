@@ -11,7 +11,7 @@ vs:
   zod: z.string().nullable().transform((value) => value ?? "bar")
 operations:
   parse:
-    expression: i=>{for(;;){if(i===null){i="bar";break}if(typeof i==="string")break;e[0](i)}return i}
+    expression: i=>{for(;;){if(i===null){i="bar";break;}if(typeof i==="string")break;e[0](i)}return i}
     examples:
       string:
         input: '"foo"'

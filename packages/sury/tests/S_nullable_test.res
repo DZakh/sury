@@ -28,7 +28,7 @@ test("Correctly parses transformed", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){if(i===void 0)break;if(i===null)break;if(typeof i==="boolean"){i=""+i;break}e[0](i)}return i}`,
+    `i=>{for(;;){if(i===void 0)break;if(i===null)break;if(typeof i==="boolean"){i=""+i;break;}e[0](i)}return i}`,
   )
 })
 
@@ -68,6 +68,6 @@ test("Correctly reverse convert transformed", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{for(;;){if(i===void 0)break;if(i===null)break;if(typeof i==="string"){let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0;break}e[1](i)}return i}`,
+    `i=>{for(;;){if(i===void 0)break;if(i===null)break;if(typeof i==="string"){let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0;break;}e[1](i)}return i}`,
   )
 })

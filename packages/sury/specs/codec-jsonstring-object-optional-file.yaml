@@ -12,13 +12,13 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[8](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[7](v0);let v1=(v0["note"]??null),v2=v0["avatar"];for(;;){if(v1===null){v1=void 0;break}if(typeof v1==="string")break;e[1](v1)}typeof v2==="string"||e[6](v2);e[4](v2)||e[5](v2);return {note:v1,avatar:new e[3]([e[2](v2)],"")}}
+    expression: i=>{typeof i==="string"||e[8](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[7](v0);let v1=(v0["note"]??null),v2=v0["avatar"];for(;;){if(v1===null){v1=void 0;break;}if(typeof v1==="string")break;e[1](v1)}typeof v2==="string"||e[6](v2);e[4](v2)||e[5](v2);return {note:v1,avatar:new e[3]([e[2](v2)],"")}}
     examples:
       not-a-document:
         input: '"nope"'
         error: Expected JSON string, received "nope"
   decode:
-    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[7](v0);let v1=(v0["note"]??null),v2=v0["avatar"];for(;;){if(v1===null){v1=void 0;break}if(typeof v1==="string")break;e[1](v1)}typeof v2==="string"||e[6](v2);e[4](v2)||e[5](v2);return {note:v1,avatar:new e[3]([e[2](v2)],"")}}
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[7](v0);let v1=(v0["note"]??null),v2=v0["avatar"];for(;;){if(v1===null){v1=void 0;break;}if(typeof v1==="string")break;e[1](v1)}typeof v2==="string"||e[6](v2);e[4](v2)||e[5](v2);return {note:v1,avatar:new e[3]([e[2](v2)],"")}}
     examples:
       not-a-document:
         input: '"nope"'

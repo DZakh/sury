@@ -80,7 +80,7 @@ test("Successfully parses schema with transformation", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){if(i===void 0){i=-123;break}if(typeof i==="number"&&i===i)break;e[0](i)}let v0;try{v0=e[1](i)}catch(x){e[2](x)}for(;;){if(v0===void 0){v0="not positive";break}if(typeof v0==="string")break;e[3](v0)}return v0}`,
+    `i=>{for(;;){if(i===void 0){i=-123;break;}if(typeof i==="number"&&i===i)break;e[0](i)}let v0;try{v0=e[1](i)}catch(x){e[2](x)}for(;;){if(v0===void 0){v0="not positive";break;}if(typeof v0==="string")break;e[3](v0)}return v0}`,
   )
 })
 
@@ -96,7 +96,7 @@ test("Compiled parse code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){if(i===void 0){i=false;break}if(typeof i==="boolean")break;e[0](i)}return i}`,
+    `i=>{for(;;){if(i===void 0){i=false;break;}if(typeof i==="boolean")break;e[0](i)}return i}`,
   )
 })
 
@@ -110,7 +110,7 @@ asyncTest("Compiled async parse code snapshot", async t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ParseAsync,
-    `i=>{for(;;){if(i===void 0){i=false;break}if(typeof i==="boolean"){let v0=e[0](i);i=v0;break}e[1](i)}return Promise.resolve(i)}`,
+    `i=>{for(;;){if(i===void 0){i=false;break;}if(typeof i==="boolean"){let v0=e[0](i);i=v0;break;}e[1](i)}return Promise.resolve(i)}`,
   )
 
   let schema =
@@ -122,7 +122,7 @@ asyncTest("Compiled async parse code snapshot", async t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ParseAsync,
-    `i=>{for(;;){if(i===void 0){i=false;break}if(typeof i==="boolean")break;e[0](i)}let v0;try{v0=e[1](i).catch(x=>e[2](x))}catch(x){e[2](x)}return v0}`,
+    `i=>{for(;;){if(i===void 0){i=false;break;}if(typeof i==="boolean")break;e[0](i)}let v0;try{v0=e[1](i).catch(x=>e[2](x))}catch(x){e[2](x)}return v0}`,
   )
 })
 
@@ -277,7 +277,7 @@ test("Default on a primary item with S.to runs the transformation on parse and r
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){if(i===void 0){i=e[0];break}if(typeof i==="string"){let v0=new Date(i);!Number.isNaN(v0.getTime())||e[1](v0);i=v0;break}e[2](i)}return i}`,
+    `i=>{for(;;){if(i===void 0){i=e[0];break;}if(typeof i==="string"){let v0=new Date(i);!Number.isNaN(v0.getTime())||e[1](v0);i=v0;break;}e[2](i)}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
@@ -320,7 +320,7 @@ test("getOr default reaches jsonString quoted, not reassociated", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){if(i===void 0){i="\\""+7n+"\\"";break}if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i="\\""+v0+"\\"";break}e[1](i)}return i}`,
+    `i=>{for(;;){if(i===void 0){i="\\""+7n+"\\"";break;}if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i="\\""+v0+"\\"";break;}e[1](i)}return i}`,
   )
 
   t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), `"7"`)
@@ -355,13 +355,13 @@ test("Multi-member union with transformed members + getOr", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){let r;if(i===void 0){i=true;break}if(typeof i==="string"){try{let v0=+i;v0===v0||e[0](i);i=v0;break}catch(x){(r||(r=[])).push(e[2](x))}try{let v1;try{v1=BigInt(i)}catch(_){e[1](i)}i=v1;break}catch(x){(r||(r=[])).push(e[2](x))}}if(typeof i==="boolean")break;e[3](i,...(r||[]))}return i}`,
+    `i=>{for(;;){let r;if(i===void 0){i=true;break;}if(typeof i==="string"){try{let v0=+i;v0===v0||e[0](i);i=v0;break}catch(x){(r||(r=[])).push(e[2](x))}try{let v1;try{v1=BigInt(i)}catch(_){e[1](i)}i=v1;break}catch(x){(r||(r=[])).push(e[2](x))}}if(typeof i==="boolean")break;e[3](i,...(r||[]))}return i}`,
   )
 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{for(;;){if(typeof i==="number"&&i===i){i=""+i;break}if(typeof i==="bigint"){i=""+i;break}if(typeof i==="boolean")break;e[0](i)}return i}`,
+    `i=>{for(;;){if(typeof i==="number"&&i===i){i=""+i;break;}if(typeof i==="bigint"){i=""+i;break;}if(typeof i==="boolean")break;e[0](i)}return i}`,
   )
 })
 

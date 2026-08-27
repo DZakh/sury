@@ -12,7 +12,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[7](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0["t"]==="a"){let v1=v0["inner"],v4=(v0["note"]??null);typeof v1==="object"&&v1&&!Array.isArray(v1)||e[3](v1);let v3=v1["id"];typeof v3==="string"||e[2](v3);let v2;try{v2=BigInt(v3)}catch(_){e[1](v3)}for(;;){if(v4===null){v4=void 0;break}if(typeof v4==="string")break;e[4](v4)}v0={t:v0["t"],inner:{id:v2},note:v4};break}if(v0["t"]==="b"){v0={t:v0["t"]};break}e[5](v0)}}else{e[6](v0)}return v0}
+    expression: i=>{typeof i==="string"||e[7](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0["t"]==="a"){let v1=v0["inner"],v4=(v0["note"]??null);typeof v1==="object"&&v1&&!Array.isArray(v1)||e[3](v1);let v3=v1["id"];typeof v3==="string"||e[2](v3);let v2;try{v2=BigInt(v3)}catch(_){e[1](v3)}for(;;){if(v4===null){v4=void 0;break;}if(typeof v4==="string")break;e[4](v4)}v0={t:v0["t"],inner:{id:v2},note:v4};break;}if(v0["t"]==="b"){v0={t:v0["t"]};break;}e[5](v0)}}else{e[6](v0)}return v0}
     examples:
       nested-field-coerces:
         input: '"{\"t\":\"a\",\"inner\":{\"id\":\"7\"}}"'
@@ -27,13 +27,13 @@ operations:
         input: '"{\"t\":\"a\",\"inner\":{\"id\":7}}"'
         error: 'Failed at ["inner"]["id"]: Expected string, received 7'
   decode:
-    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0["t"]==="a"){let v1=v0["inner"],v4=(v0["note"]??null);typeof v1==="object"&&v1&&!Array.isArray(v1)||e[3](v1);let v3=v1["id"];typeof v3==="string"||e[2](v3);let v2;try{v2=BigInt(v3)}catch(_){e[1](v3)}for(;;){if(v4===null){v4=void 0;break}if(typeof v4==="string")break;e[4](v4)}v0={t:v0["t"],inner:{id:v2},note:v4};break}if(v0["t"]==="b"){v0={t:v0["t"]};break}e[5](v0)}}else{e[6](v0)}return v0}
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0["t"]==="a"){let v1=v0["inner"],v4=(v0["note"]??null);typeof v1==="object"&&v1&&!Array.isArray(v1)||e[3](v1);let v3=v1["id"];typeof v3==="string"||e[2](v3);let v2;try{v2=BigInt(v3)}catch(_){e[1](v3)}for(;;){if(v4===null){v4=void 0;break;}if(typeof v4==="string")break;e[4](v4)}v0={t:v0["t"],inner:{id:v2},note:v4};break;}if(v0["t"]==="b"){v0={t:v0["t"]};break;}e[5](v0)}}else{e[6](v0)}return v0}
     examples:
       valid:
         input: '"{\"t\":\"b\"}"'
         output: '{ t: "b" }'
   encode:
-    expression: i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i["t"]==="a"){let v0=i["inner"],v1=i["note"];let v2="{\"t\":\"a\",\"inner\":{\"id\":\""+v0["id"]+"\"}";if(v1!==void 0){v2+=",\"note\":"+e[0](v1)}i=v2+"}";break}if(i["t"]==="b"){i="{\"t\":\"b\"}";break}e[1](i)}}else{e[2](i)}return i}
+    expression: i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i["t"]==="a"){let v0=i["inner"],v1=i["note"];let v2="{\"t\":\"a\",\"inner\":{\"id\":\""+v0["id"]+"\"}";if(v1!==void 0){v2+=",\"note\":"+e[0](v1)}i=v2+"}";break;}if(i["t"]==="b"){i="{\"t\":\"b\"}";break;}e[1](i)}}else{e[2](i)}return i}
     examples:
       with-note:
         input: '{ t: "a", inner: { id: 7n }, note: "hi" }'

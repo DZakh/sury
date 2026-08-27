@@ -33,12 +33,12 @@ module Common = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{for(;;){if(i===null){i=void 0;break}if(typeof i==="string")break;e[0](i)}return i}`,
+      `i=>{for(;;){if(i===null){i=void 0;break;}if(typeof i==="string")break;e[0](i)}return i}`,
     )
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Encode,
-      `i=>{for(;;){if(i===void 0){i=null;break}if(typeof i==="string")break;e[0](i)}return i}`,
+      `i=>{for(;;){if(i===void 0){i=null;break;}if(typeof i==="string")break;e[0](i)}return i}`,
     )
   })
 
@@ -50,7 +50,7 @@ module Common = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ParseAsync,
-      `i=>{return Promise.resolve((async(i)=>{for(;;){if(i===null){i=void 0;break}let v0=e[0](i);i=await v0;break;};return i})(i))}`,
+      `i=>{return Promise.resolve((async(i)=>{for(;;){if(i===null){i=void 0;break;}let v0=e[0](i);i=await v0;break;};return i})(i))}`,
     )
   })
 
@@ -129,13 +129,13 @@ test("Serializes Some(None) to null for null nested in option", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){if(i===void 0)break;if(i===null){i={BS_PRIVATE_NESTED_SOME_NONE:0};break}if(typeof i==="boolean")break;e[0](i)}return i}`,
+    `i=>{for(;;){if(i===void 0)break;if(i===null){i={BS_PRIVATE_NESTED_SOME_NONE:0};break;}if(typeof i==="boolean")break;e[0](i)}return i}`,
   )
 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{for(;;){if(i===void 0)break;if(typeof i==="object"&&i&&!Array.isArray(i)&&i["BS_PRIVATE_NESTED_SOME_NONE"]===0){i=null;break}if(typeof i==="boolean")break;e[0](i)}return i}`,
+    `i=>{for(;;){if(i===void 0)break;if(typeof i==="object"&&i&&!Array.isArray(i)&&i["BS_PRIVATE_NESTED_SOME_NONE"]===0){i=null;break;}if(typeof i==="boolean")break;e[0](i)}return i}`,
   )
 })
 
@@ -150,12 +150,12 @@ test("Serializes Some(None) to null for null nested in null", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){if(i===null){i=void 0;break}if(typeof i==="boolean")break;e[0](i)}return i}`,
+    `i=>{for(;;){if(i===null){i=void 0;break;}if(typeof i==="boolean")break;e[0](i)}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{for(;;){if(i===void 0){i=null;break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i["BS_PRIVATE_NESTED_SOME_NONE"]===0){i=null;break}if(typeof i==="boolean")break;e[0](i)}return i}`,
+    `i=>{for(;;){if(i===void 0){i=null;break;}if(typeof i==="object"&&i&&!Array.isArray(i)&&i["BS_PRIVATE_NESTED_SOME_NONE"]===0){i=null;break;}if(typeof i==="boolean")break;e[0](i)}return i}`,
   )
 })
 
@@ -188,7 +188,7 @@ module OuterRecord = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Encode,
-      `i=>{let v0=i["record"];for(;;){if(v0===void 0)break;if(typeof v0==="object"&&v0&&!Array.isArray(v0)&&v0["BS_PRIVATE_NESTED_SOME_NONE"]===0){v0=null;break}if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=v0["k"];for(;;){if(v1===void 0)break;if(typeof v1==="object"&&v1&&!Array.isArray(v1)&&v1["BS_PRIVATE_NESTED_SOME_NONE"]===0){v1=null;break}if(typeof v1==="number"&&v1===v1&&v1<=2147483647&&v1>=-2147483648&&v1%1===0)break;e[0](v1)}v0={k:v1};break}e[1](v0)}return {record:v0}}`,
+      `i=>{let v0=i["record"];for(;;){if(v0===void 0)break;if(typeof v0==="object"&&v0&&!Array.isArray(v0)&&v0["BS_PRIVATE_NESTED_SOME_NONE"]===0){v0=null;break;}if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=v0["k"];for(;;){if(v1===void 0)break;if(typeof v1==="object"&&v1&&!Array.isArray(v1)&&v1["BS_PRIVATE_NESTED_SOME_NONE"]===0){v1=null;break;}if(typeof v1==="number"&&v1===v1&&v1<=2147483647&&v1>=-2147483648&&v1%1===0)break;e[0](v1)}v0={k:v1};break;}e[1](v0)}return {record:v0}}`,
     )
   })
 }

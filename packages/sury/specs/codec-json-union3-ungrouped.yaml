@@ -40,7 +40,7 @@ operations:
         error: Expected "123" | bigint | string, received 123
   decode: eq-to-parse
   encode:
-    expression: i=>{for(;;){if(typeof i==="string"&&i==="123")break;if(typeof i==="string")break;if(typeof i==="bigint"){i=""+i;break}e[0](i)}return i}
+    expression: i=>{for(;;){if(typeof i==="string"&&i==="123")break;if(typeof i==="string")break;if(typeof i==="bigint"){i=""+i;break;}e[0](i)}return i}
     examples:
       bigint:
         input: 123n

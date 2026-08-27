@@ -429,7 +429,7 @@ test("S.json shaped to literal should keep validation", t => {
     ~op=#Parse,
     ~embedded=[("JSON", 0)],
     `i=>{e[0](i);return "foo"}
-JSON: i=>{for(;;){if(typeof i==="string")break;if(typeof i==="boolean")break;if(typeof i==="number"&&i===i&&Number.isFinite(i))break;if(i===null)break;if(typeof i==="object"&&i&&!Array.isArray(i)){for(let v0 in i){try{e[0](i[v0]);}catch(v1){v1.path='["'+v0+'"]'+v1.path;throw v1}};break}if(Array.isArray(i)){for(let v2=0;v2<i.length;++v2){try{e[1](i[v2]);}catch(v3){v3.path='["'+v2+'"]'+v3.path;throw v3}};break}e[2](i)}return i}`,
+JSON: i=>{for(;;){if(typeof i==="string")break;if(typeof i==="boolean")break;if(typeof i==="number"&&i===i&&Number.isFinite(i))break;if(i===null)break;if(typeof i==="object"&&i&&!Array.isArray(i)){for(let v0 in i){try{e[0](i[v0]);}catch(v1){v1.path='["'+v0+'"]'+v1.path;throw v1}};break;}if(Array.isArray(i)){for(let v2=0;v2<i.length;++v2){try{e[1](i[v2]);}catch(v3){v3.path='["'+v2+'"]'+v3.path;throw v3}};break;}e[2](i)}return i}`,
   )
 
   t->Assert.deepEqual("foo"->S.parseOrThrow(~to=schema), "foo")

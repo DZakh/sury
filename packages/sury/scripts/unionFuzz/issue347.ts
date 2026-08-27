@@ -30,3 +30,19 @@ export const issue347Schema = (S: Sury): unknown => {
   });
   return S.nullable(S.union([taggedArm, plainArm]));
 };
+
+export const issue347OptionVoidLastSchema = (S: Sury): unknown => {
+  const taggedArm = S.json.with(S.to, S.any, {
+    decode: (json: any) => {
+      if (json && typeof json === "object" && "$ref" in json) {
+        return { TAG: "Tagged", _0: json.$ref };
+      }
+      fail(S, "not tagged");
+    },
+    encode: (p: any) => {
+      if (p.TAG === "Tagged") return { $ref: p._0 };
+      fail(S, "not tagged");
+    },
+  });
+  return S.$option(S.union([taggedArm, S.void]));
+};

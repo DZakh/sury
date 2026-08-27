@@ -13,7 +13,7 @@ vs:
 operations:
   parse:
     isAsync: true
-    expression: i=>{for(;;){if(typeof i==="string"){let v0=e[0](i);i=v0.then(v0=>{typeof v0==="number"&&v0===v0||e[1](v0);return v0});break}if(typeof i==="number"&&i===i)break;e[2](i)}return Promise.resolve(i)}
+    expression: i=>{for(;;){if(typeof i==="string"){let v0=e[0](i);i=v0.then(v0=>{typeof v0==="number"&&v0===v0||e[1](v0);return v0});break;}if(typeof i==="number"&&i===i)break;e[2](i)}return Promise.resolve(i)}
     examples:
       custom-arm:
         input: '"abc"'

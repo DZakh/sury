@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import * as S from "../index.mjs";
-import { issue347Schema } from "../scripts/unionFuzz/issue347";
+import { issue347OptionVoidLastSchema, issue347Schema } from "../scripts/unionFuzz/issue347";
 import { issue392Case } from "../scripts/unionFuzz/issue392";
 import { describeOutcome, show } from "../scripts/unionFuzz/outcome";
 import {
@@ -113,6 +113,14 @@ test("issue 347: encode of null through nullable(union of S.to(S.any)) is null, 
   expect(encode(null)).toBe(null);
   expect(encode({ TAG: "Tagged", _0: "abc" })).toEqual({ $ref: "abc" });
   expect(encode({ TAG: "Plain", _0: { name: "n" } })).toEqual({ name: "n" });
+});
+
+test("issue 347: option(union(custom, void)) encodes undefined without TypeError", () => {
+  const schema = issue347OptionVoidLastSchema(S) as S.Schema<unknown, unknown>;
+  const compiled = compiledEncode(S, schema, undefined);
+  expect(compiled.ok, describeOutcome(compiled)).toBe(true);
+  expect(S.encoder(schema)(undefined)).toBe(undefined);
+  expect(S.encoder(schema)({ TAG: "Tagged", _0: "abc" })).toEqual({ $ref: "abc" });
 });
 
 test("object group after nested optional/null payload still reaches later members", () => {

@@ -12,7 +12,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[7](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[6](v0);let v1=v0["id"],v2=(v0["meta"]??null);typeof v1==="string"||e[1](v1);for(;;){if(v2===null){v2=void 0;break}if(typeof v2==="string"){let v3;try{v3=JSON.parse(v2)}catch(t){e[2](v2)}typeof v3==="object"&&v3&&!Array.isArray(v3)||e[4](v3);let v4=v3["tag"];typeof v4==="string"||e[3](v4);v2={tag:v4};break}e[5](v2)}return {id:v1,meta:v2}}
+    expression: i=>{typeof i==="string"||e[7](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[6](v0);let v1=v0["id"],v2=(v0["meta"]??null);typeof v1==="string"||e[1](v1);for(;;){if(v2===null){v2=void 0;break;}if(typeof v2==="string"){let v3;try{v3=JSON.parse(v2)}catch(t){e[2](v2)}typeof v3==="object"&&v3&&!Array.isArray(v3)||e[4](v3);let v4=v3["tag"];typeof v4==="string"||e[3](v4);v2={tag:v4};break;}e[5](v2)}return {id:v1,meta:v2}}
     examples:
       # FIXME: encode still splices the nested document in as an object rather
       # than as one of the outer document's strings, so this parse and that
@@ -29,13 +29,13 @@ operations:
         input: '"{\"id\":\"x\"}"'
         output: '{ id: "x", meta: undefined }'
   decode:
-    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[6](v0);let v1=v0["id"],v2=(v0["meta"]??null);typeof v1==="string"||e[1](v1);for(;;){if(v2===null){v2=void 0;break}if(typeof v2==="string"){let v3;try{v3=JSON.parse(v2)}catch(t){e[2](v2)}typeof v3==="object"&&v3&&!Array.isArray(v3)||e[4](v3);let v4=v3["tag"];typeof v4==="string"||e[3](v4);v2={tag:v4};break}e[5](v2)}return {id:v1,meta:v2}}
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[6](v0);let v1=v0["id"],v2=(v0["meta"]??null);typeof v1==="string"||e[1](v1);for(;;){if(v2===null){v2=void 0;break;}if(typeof v2==="string"){let v3;try{v3=JSON.parse(v2)}catch(t){e[2](v2)}typeof v3==="object"&&v3&&!Array.isArray(v3)||e[4](v3);let v4=v3["tag"];typeof v4==="string"||e[3](v4);v2={tag:v4};break;}e[5](v2)}return {id:v1,meta:v2}}
     examples:
       nested-document:
         input: '"{\"id\":\"x\",\"meta\":\"{\\\"tag\\\":\\\"a\\\"}\"}"'
         output: '{ id: "x", meta: { tag: "a" } }'
   encode:
-    expression: i=>{let v0=i["meta"];for(;;){if(v0===void 0)break;if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=v0["tag"];typeof v1==="string"||e[0](v1);v0="{\"tag\":"+e[1](v1)+"}";break}e[2](v0)}let v2="{\"id\":"+e[1](i["id"]);if(v0!==void 0){v2+=",\"meta\":"+v0}return v2+"}"}
+    expression: i=>{let v0=i["meta"];for(;;){if(v0===void 0)break;if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=v0["tag"];typeof v1==="string"||e[0](v1);v0="{\"tag\":"+e[1](v1)+"}";break;}e[2](v0)}let v2="{\"id\":"+e[1](i["id"]);if(v0!==void 0){v2+=",\"meta\":"+v0}return v2+"}"}
     examples:
       nested-document:
         input: '{ id: "x", meta: { tag: "a" } }'

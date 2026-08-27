@@ -12,7 +12,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{for(;;){if(typeof i==="string"&&i==="t"){i=true;break}if(typeof i==="string"&&i==="1"){i=true;break}if(typeof i==="string"&&i==="f"){i=false;break}if(typeof i==="string"&&i==="0"){i=false;break}if(typeof i==="string"){let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0;break}e[1](i)}return i}
+    expression: i=>{for(;;){if(typeof i==="string"&&i==="t"){i=true;break;}if(typeof i==="string"&&i==="1"){i=true;break;}if(typeof i==="string"&&i==="f"){i=false;break;}if(typeof i==="string"&&i==="0"){i=false;break;}if(typeof i==="string"){let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0;break;}e[1](i)}return i}
     examples:
       t-shorthand:
         input: '"t"'
@@ -40,7 +40,7 @@ operations:
         error: Expected "t" | "1" | "f" | "0" | string, received 1
   decode: eq-to-parse
   encode:
-    expression: i=>{for(;;){if(typeof i==="boolean"&&i===true){i="t";break}if(typeof i==="boolean"&&i===false){i="f";break}if(typeof i==="boolean"){i=""+i;break}e[0](i)}return i}
+    expression: i=>{for(;;){if(typeof i==="boolean"&&i===true){i="t";break;}if(typeof i==="boolean"&&i===false){i="f";break;}if(typeof i==="boolean"){i=""+i;break;}e[0](i)}return i}
     examples:
       "true":
         input: "true"

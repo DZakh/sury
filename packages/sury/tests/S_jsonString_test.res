@@ -397,7 +397,7 @@ test("Parses JSON string to option", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="string"||e[2](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}for(;;){if(v0===null){v0=void 0;break}if(typeof v0==="boolean")break;e[1](v0)}return v0}`,
+    `i=>{typeof i==="string"||e[2](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}for(;;){if(v0===null){v0=void 0;break;}if(typeof v0==="boolean")break;e[1](v0)}return v0}`,
   )
 
   t->Assert.deepEqual(None->S.decodeOrThrow(~from=schema, ~to=S.unknown), `null`->Obj.magic)
@@ -406,7 +406,7 @@ test("Parses JSON string to option", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{for(;;){if(i===void 0){i="null";break}if(typeof i==="boolean"){i=""+i;break}e[0](i)}return i}`,
+    `i=>{for(;;){if(i===void 0){i="null";break;}if(typeof i==="boolean"){i=""+i;break;}e[0](i)}return i}`,
   )
 })
 

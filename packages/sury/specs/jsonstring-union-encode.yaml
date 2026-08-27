@@ -12,7 +12,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i["type"]==="user.created"){let v0=i["id"];typeof v0==="bigint"||e[0](v0);i="{\"type\":\"user.created\",\"id\":\""+v0+"\"}";break}if(i["type"]==="user.renamed"){let v1=i["id"],v2=i["name"];typeof v1==="bigint"||e[1](v1);typeof v2==="string"||e[2](v2);i="{\"type\":\"user.renamed\",\"id\":\""+v1+"\",\"name\":"+e[3](v2)+"}";break}e[4](i)}}else{e[5](i)}return i}
+    expression: i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i["type"]==="user.created"){let v0=i["id"];typeof v0==="bigint"||e[0](v0);i="{\"type\":\"user.created\",\"id\":\""+v0+"\"}";break;}if(i["type"]==="user.renamed"){let v1=i["id"],v2=i["name"];typeof v1==="bigint"||e[1](v1);typeof v2==="string"||e[2](v2);i="{\"type\":\"user.renamed\",\"id\":\""+v1+"\",\"name\":"+e[3](v2)+"}";break;}e[4](i)}}else{e[5](i)}return i}
     examples:
       renamed:
         input: '{ type: "user.renamed", id: 42n, name: "Dmitry" }'
@@ -24,7 +24,7 @@ operations:
         input: '{ type: "user.removed", id: 42n }'
         error: 'Expected { type: "user.created"; id: bigint; } | { type: "user.renamed"; id: bigint; name: string; }, received { type: "user.removed"; id: 42n; }'
   decode:
-    expression: i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i["type"]==="user.created"){i="{\"type\":\"user.created\",\"id\":\""+i["id"]+"\"}";break}if(i["type"]==="user.renamed"){i="{\"type\":\"user.renamed\",\"id\":\""+i["id"]+"\",\"name\":"+e[0](i["name"])+"}";break}e[1](i)}}else{e[2](i)}return i}
+    expression: i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i["type"]==="user.created"){i="{\"type\":\"user.created\",\"id\":\""+i["id"]+"\"}";break;}if(i["type"]==="user.renamed"){i="{\"type\":\"user.renamed\",\"id\":\""+i["id"]+"\",\"name\":"+e[0](i["name"])+"}";break;}e[1](i)}}else{e[2](i)}return i}
     examples:
       created:
         input: '{ type: "user.created", id: 42n }'
@@ -33,7 +33,7 @@ operations:
         input: '{ type: "user.renamed", id: 42n, name: "Dmitry" }'
         output: '"{\"type\":\"user.renamed\",\"id\":\"42\",\"name\":\"Dmitry\"}"'
   encode:
-    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0["type"]==="user.created"){let v2=v0["id"];typeof v2==="string"||e[2](v2);let v1;try{v1=BigInt(v2)}catch(_){e[1](v2)}v0={type:v0["type"],id:v1};break}if(v0["type"]==="user.renamed"){let v4=v0["id"],v5=v0["name"];typeof v4==="string"||e[4](v4);let v3;try{v3=BigInt(v4)}catch(_){e[3](v4)}typeof v5==="string"||e[5](v5);v0={type:v0["type"],id:v3,name:v5};break}e[6](v0)}}else{e[7](v0)}return v0}
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0["type"]==="user.created"){let v2=v0["id"];typeof v2==="string"||e[2](v2);let v1;try{v1=BigInt(v2)}catch(_){e[1](v2)}v0={type:v0["type"],id:v1};break;}if(v0["type"]==="user.renamed"){let v4=v0["id"],v5=v0["name"];typeof v4==="string"||e[4](v4);let v3;try{v3=BigInt(v4)}catch(_){e[3](v4)}typeof v5==="string"||e[5](v5);v0={type:v0["type"],id:v3,name:v5};break;}e[6](v0)}}else{e[7](v0)}return v0}
     examples:
       round-trips-coerced-fields:
         input: '"{\"type\":\"user.created\",\"id\":\"42\"}"'

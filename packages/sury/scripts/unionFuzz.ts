@@ -14,7 +14,7 @@ import { existsSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { generateMembers, rngFromSeed } from "./unionFuzz/generate";
-import { issue347Schema } from "./unionFuzz/issue347";
+import { issue347OptionVoidLastSchema, issue347Schema } from "./unionFuzz/issue347";
 import { issue392Case } from "./unionFuzz/issue392";
 import { classify, describeOutcome, show } from "./unionFuzz/outcome";
 import { compiledEncode, compiledParse } from "./unionFuzz/reference";
@@ -135,6 +135,17 @@ const main = async (): Promise<void> => {
     stats.diffs += 1;
     stats.byClass[none.kind === "foreign" ? "exception-kind" : "acceptance"] += 1;
     console.log(`\n[issue-347/encode] null: ${describeOutcome(none)}`);
+  }
+
+  const issue347VoidLast = issue347OptionVoidLastSchema(S);
+  console.log("pinned issue-347 option(union(custom, void))");
+  const noneVoidLast = compiledEncode(S, issue347VoidLast, undefined);
+  if (!noneVoidLast.ok) {
+    stats.diffs += 1;
+    stats.byClass[noneVoidLast.kind === "foreign" ? "exception-kind" : "acceptance"] += 1;
+    console.log(`\n[issue-347/encode] undefined-last: ${describeOutcome(noneVoidLast)}`);
+  } else {
+    console.log("  undefined: compiled encode succeeded");
   }
 
   const pinned = issue392Case(S);

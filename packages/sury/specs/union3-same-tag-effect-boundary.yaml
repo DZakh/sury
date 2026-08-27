@@ -34,7 +34,7 @@ operations:
         error: Expected string.length >= 5 | string | string.length <= 1, received true
   decode: eq-to-parse
   encode:
-    expression: i=>{for(;;){if(typeof i==="string"){for(;;){let r;try{i.length>4||e[0](i);break}catch(x){(r||(r=[])).push(e[2](x))}try{i.length<2||e[1](i);break}catch(x){(r||(r=[])).push(e[2](x))}e[3](i,...(r||[]))};break}if(typeof i==="number"&&i===i){i=""+i;break}e[4](i)}return i}
+    expression: i=>{for(;;){if(typeof i==="string"){for(;;){let r;try{i.length>4||e[0](i);break}catch(x){(r||(r=[])).push(e[2](x))}try{i.length<2||e[1](i);break}catch(x){(r||(r=[])).push(e[2](x))}e[3](i,...(r||[]))};break;}if(typeof i==="number"&&i===i){i=""+i;break;}e[4](i)}return i}
     examples:
       validation-first:
         input: '"alphabet"'

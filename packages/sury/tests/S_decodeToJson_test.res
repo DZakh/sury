@@ -81,7 +81,7 @@ test("Encodes option schema to JSON", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#EncodeToJson,
-    `i=>{for(;;){if(i===void 0){i=null;break}if(typeof i==="boolean")break;e[0](i)}return i}`,
+    `i=>{for(;;){if(i===void 0){i=null;break;}if(typeof i==="boolean")break;e[0](i)}return i}`,
   )
 })
 
@@ -245,7 +245,7 @@ test("Encodes a union of NaN and unknown to JSON", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#EncodeToJson,
-    `i=>{for(;;){if(Number.isNaN(i)){i=null;break}e[0](i);break;}return i}`,
+    `i=>{for(;;){if(Number.isNaN(i)){i=null;break;}e[0](i);break;}return i}`,
   )
 
   t->Assert.deepEqual(%raw(`NaN`)->S.decodeOrThrow(~from=schema, ~to=S.json), JSON.Null)

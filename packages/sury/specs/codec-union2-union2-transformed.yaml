@@ -12,7 +12,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{for(;;){if(typeof i==="number"&&i===i){i=""+i;break}if(typeof i==="string")break;e[0](i)}return i}
+    expression: i=>{for(;;){if(typeof i==="number"&&i===i){i=""+i;break;}if(typeof i==="string")break;e[0](i)}return i}
     examples:
       number-decoded:
         input: "123"

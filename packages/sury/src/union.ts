@@ -257,10 +257,9 @@ const unionEmitChain = (cases: UnionCase[], ctx: UnionCtx): string => {
   let caught = false;
   let exhaustive = false;
 
-  // The case's code with its condition taken as given — the shared shape between
-  // a lone `if(cond){…}` and one arm of a run that tests `cond` once. A `try` arm
-  // hands control to whatever follows it; every other form breaks, which ends its
-  // block and needs no trailing `;`.
+  // The case's code with its condition taken as given. A `try` arm hands
+  // control to whatever follows it; every other form `break`s. Generated ops
+  // have no newlines, so `break` glued to `e[n]` is the identifier `breake`.
   const attempt = (c: UnionCase, idx: number): string => {
     if (c.b === "") return "break";
     // Skip the `;` where the body already ends in one: `;;break` is a wart in
@@ -292,7 +291,7 @@ const unionEmitChain = (cases: UnionCase[], ctx: UnionCtx): string => {
           : ""
       }}`;
     }
-    return `${body}break`;
+    return `${body}break;`;
   };
 
   // The last case that runs whatever reaches it, so `attempt` can tell whether
@@ -329,7 +328,7 @@ const unionEmitChain = (cases: UnionCase[], ctx: UnionCtx): string => {
     } else if (c.c === "") {
       // Nothing left to test: this alternative accepts every value that reaches
       // it, so unless it can fail nothing after it is reachable.
-      code += open ? arm : `${arm};`;
+      code += open ? arm : arm.endsWith(";") ? arm : `${arm};`;
       if (!open) {
         exhaustive = true;
         break;
