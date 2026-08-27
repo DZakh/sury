@@ -7,11 +7,11 @@
 
 **The batteries-included schema library for TypeScript and ReScript.**
 
-Declare your data once, as a pipeline — wire format on one side, the types you work with on the other. Sury derives the decoder, the encoder, and the JSON Schema from that one declaration, and JIT-specializes each into a function written for exactly your shape.
+Declare your data once, as a pipeline - wire format on one side, the types you work with on the other. Sury derives the decoder, the encoder, and the JSON Schema from that one declaration, and JIT-specializes each into a function written for exactly your shape.
 
-- **Declarative pipelines, both directions.** `S.jsonString.with(S.to, eventSchema)` decodes in and encodes out — no second schema for the wire format, and [JSON encoding faster than `JSON.stringify`](#json-serialization-faster-than-jsonstringify).
-- **JIT-specialized, not interpreted.** The fastest parsing in the ecosystem — [see the code a schema turns into](#the-code-a-schema-turns-into) and the [benchmarks](#comparison). It runs on `new Function`: [here's why you shouldn't worry](#does-it-really-use-new-function).
-- **Batteries included.** [JSON Schema in and out](#json-schema-in-and-out) — `$ref`, recursion, no codegen, no `any` — plus the [string formats](https://github.com/DZakh/sury/blob/main/docs/js-usage.md#string-formats), async and custom schemas, in 7.9 kB min+gzip for a schema and a parser, tree-shakable.
+- **One schema, both directions.** Decode the wire format in, encode back out - no second schema, no glue code.
+- **Fastest in the ecosystem.** Every schema is JIT-specialized into the function you'd write by hand - [see the code](#the-code-a-schema-turns-into) and the [benchmarks](#comparison). It runs on `new Function` - [why you shouldn't worry](#does-it-really-use-new-function).
+- **Batteries included.** [JSON Schema in and out](#json-schema-in-and-out), [string formats](https://github.com/DZakh/sury/blob/main/docs/js-usage.md#string-formats), async and custom schemas - all in 7.9 kB min+gzip, tree-shakable.
 
 ## Getting started
 
@@ -27,13 +27,11 @@ const playerSchema = S.schema({
   xp: S.number,
 });
 
-// Create the function once, call it as many times as you like
-const parsePlayer = S.parser(playerSchema);
-
-parsePlayer({ username: "billie", xp: 100 });
+// The operation is cached on the schema - inline calls don't recompile
+S.parser(playerSchema)({ username: "billie", xp: 100 });
 // => { username: "billie", xp: 100 }
 
-parsePlayer({ username: "billie", xp: "not a number" });
+S.parser(playerSchema)({ username: "billie", xp: "not a number" });
 // => throws S.Error: Failed at ["xp"]: Expected number, received "not a number"
 
 type Player = S.Infer<typeof playerSchema>;
@@ -44,7 +42,7 @@ The API mirrors TypeScript types, so there's not much new syntax to learn. If yo
 
 **Full API reference:** [JS/TS](https://github.com/DZakh/sury/blob/main/docs/js-usage.md) · [ReScript](https://github.com/DZakh/sury/blob/main/docs/rescript-usage.md) · [PPX](https://github.com/DZakh/sury/blob/main/packages/sury-ppx/README.md)
 
-> Formerly published as **rescript-schema**. Sury is plain JavaScript — the ReScript compiler is not involved — with first-class ReScript bindings on the same package.
+> Formerly published as **rescript-schema**. Sury is plain JavaScript - the ReScript compiler is not involved - with first-class ReScript bindings on the same package.
 
 ## Why Sury
 
@@ -59,7 +57,7 @@ const eventSchema = S.union([
   { type: "user.deleted", id: S.bigint },
 ]);
 
-// Chain schemas to build a pipeline — no JSON.parse in your own code
+// Chain schemas to build a pipeline - no JSON.parse in your own code
 const parseEvent = S.decoder(S.jsonString, eventSchema);
 
 const event = parseEvent('{"type":"user.renamed","id":"42","name":"Dmitry"}');
@@ -67,14 +65,14 @@ const event = parseEvent('{"type":"user.renamed","id":"42","name":"Dmitry"}');
 
 switch (event.type) {
   case "user.renamed":
-    event.name; // string — TypeScript narrows it for you
+    event.name; // string - TypeScript narrows it for you
     break;
 }
 ```
 
-`S.decoder(from, to)` creates the function that converts between two schemas — `S.parser(schema)` from the previous example is just `S.decoder(S.unknown, schema)`.
+`S.decoder(...schemas)` takes a pipeline of schemas and creates the function that runs it, first to last - `S.parser(schema)` from the previous example is just `S.decoder(S.unknown, schema)`.
 
-You write `id: S.bigint` — the type you want to work with. A `bigint` can't exist in JSON, so Sury infers the `"42"` → `42n` coercion from the input side of the pipeline, in both directions. No `as const`, no coercion wrappers, no second schema for the wire format. And the coercion belongs to this chain, not to `S.bigint`: a plain `S.parser(eventSchema)` expects a real `bigint` and rejects `"42"`.
+You write `id: S.bigint` - the type you want to work with. A `bigint` can't exist in JSON, so Sury infers the `"42"` -> `42n` coercion from the input side of the pipeline, in both directions. No `as const`, no coercion wrappers, no second schema for the wire format. And the coercion belongs to this chain, not to `S.bigint`: a plain `S.parser(eventSchema)` expects a real `bigint` and rejects `"42"`.
 
 Errors point at the field inside the matched variant, not at the union as a whole:
 
@@ -85,7 +83,7 @@ parseEvent('{"type":"user.renamed","id":"42"}');
 
 ### The code a schema turns into
 
-`parseEvent` isn't an interpreter walking a schema tree. It's a function Sury specialized for exactly this shape. The union dispatches on the discriminant, the inferred `bigint` coercion is inlined as a bare `BigInt()` call, and `S.jsonString` → union → fields fuse into one pass:
+`parseEvent` isn't an interpreter walking a schema tree. It's a function Sury specialized for exactly this shape. The union dispatches on the discriminant, the inferred `bigint` coercion is inlined as a bare `BigInt()` call, and `S.jsonString` -> union -> fields fuse into one pass:
 
 ```js
 (i) => {
@@ -129,7 +127,7 @@ S.encoder(eventSchema, S.jsonString)({ type: "user.renamed", id: 42n, name: "Dmi
 // => '{"type":"user.renamed","id":"42","name":"Dmitry"}'
 ```
 
-There's no intermediate object and no `JSON.stringify` — the discriminant picks a branch, and the JSON text is baked in:
+There's no intermediate object and no `JSON.stringify` - the discriminant picks a branch, and the JSON text is baked in:
 
 ```js
 (i) => {
@@ -167,13 +165,13 @@ JSON.stringify({ price: Infinity });
 | Event feed (50 tagged-union events)          | **5.05 µs** | 7.82 µs          | 20.26 µs            |
 | `bigint` id + binary payload + `Date`        | **1.17 µs** | 1.51 µs          | 1.45 µs             |
 
-Faster than `JSON.stringify`, and 3.5× lighter than fast-json-stringify — 16.4 kB against 56.7 kB, encoder included.
+Faster than `JSON.stringify`, and 3.5× lighter than fast-json-stringify - 16.4 kB against 56.7 kB, encoder included.
 
 ### Chain schemas into pipelines, get the inverse for free
 
-`S.jsonString` above is an ordinary schema used as a stage — so are `S.json`, `S.uint8Array`, `S.date`, and every schema you write. There's no fixed menu of `parseJson` / `parseJsonString` / `convertToJson` functions: you describe the data at each step, and Sury fills in the code between them.
+`S.jsonString` above is an ordinary schema used as a stage - so are `S.json`, `S.uint8Array`, `S.date`, and every schema you write. There's no fixed menu of `parseJson` / `parseJsonString` / `convertToJson` functions: you describe the data at each step, and Sury fills in the code between them.
 
-Inside a schema, a stage chains with `schema.with(S.to, target)` — `.with` applies an operation to a schema and returns a new schema. Stages nest, so any field can be its own pipeline:
+Inside a schema, a stage chains with `schema.with(S.to, target)` - `.with` applies an operation to a schema and returns a new schema. Stages nest, so any field can be its own pipeline:
 
 ```ts
 const apiUser = S.schema({
@@ -186,7 +184,7 @@ const apiUser = S.schema({
 });
 ```
 
-The whole tree still folds into one specialized function — no per-stage overhead.
+The whole tree still folds into one specialized function - no per-stage overhead.
 
 And the whole tree runs backwards, too. Rename fields with `S.shape`, coerce with `S.to`, and the inverse is derived automatically:
 
@@ -210,11 +208,11 @@ S.reverse(userSchema);
 //? S.Schema<{ id: bigint; name: string }, { USER_ID: string; USER_NAME: string }>
 ```
 
-`S.reverse` hands you the backwards schema as a real schema — usable with every operation, not just as an encode shortcut.
+`S.reverse` hands you the backwards schema as a real schema - usable with every operation, not just as an encode shortcut.
 
 ### JSON Schema, in and out
 
-Sury speaks JSON Schema natively — no converter bolted on top. It goes through the [Standard JSON Schema](https://standardschema.dev/json-schema) extension of the [Standard Schema](https://standardschema.dev/) spec, so tools consume it without special-casing Sury.
+Sury speaks JSON Schema natively - no converter bolted on top. It goes through the [Standard JSON Schema](https://standardschema.dev/json-schema) extension of the [Standard Schema](https://standardschema.dev/) spec, so tools consume it without special-casing Sury.
 
 And because Sury tracks Input and Output separately, it describes both sides of a transformation:
 
@@ -235,21 +233,21 @@ productSchema["~standard"].jsonSchema.input({ target: "draft-2020-12" });
 //   $schema: "https://json-schema.org/draft/2020-12/schema",
 //   type: "object",
 //   properties: { id: { type: "string" }, price: { type: "string" } },
-//   required: ["id", "price"],                    ↑ the wire format
+//   required: ["id", "price"],                    ^ the wire format
 //   description: "A product in the catalog",
 //   examples: [{ id: "p_1", price: "9.99" }],
 // }
 
 productSchema["~standard"].jsonSchema.output({ target: "draft-2020-12" });
 // { ... properties: { id: { type: "string" }, price: { type: "number" } }, ... }
-//                                                   ↑ what your code receives
+//                                                   ^ what your code receives
 ```
 
 `S.meta` attaches `description`, `title`, `examples` and `deprecated`. Write examples in the Output format you work with (`price: 9.99`). They're emitted in the Input format the wire uses (`price: "9.99"`), so a generated OpenAPI document describes what a client really sends.
 
 `"draft-07"`, `"draft-2020-12"` and `"openapi-3.0"` are all supported targets, and `S.toJSONSchema(schema, options)` skips `~standard` if you'd rather.
 
-It reads JSON Schema back in too — the whole document, typed as it goes:
+It reads JSON Schema back in too - the whole document, typed as it goes:
 
 ```ts
 const comment = S.fromJSONSchema({
@@ -280,7 +278,7 @@ S.schema({ foo: S.string });
 //? S.Schema<{ foo: string }, { foo: string }>
 ```
 
-Compare that with `v.ObjectSchema<{readonly foo: v.StringSchema<undefined>}, undefined>`. Both sides are right there, and they read in the direction the data flows — `S.Schema<TInput, TOutput>`.
+Compare that with `v.ObjectSchema<{readonly foo: v.StringSchema<undefined>}, undefined>`. Both sides are right there, and they read in the direction the data flows - `S.Schema<TInput, TOutput>`.
 
 ### Errors that tell you where to look
 
@@ -319,7 +317,7 @@ S.parser(claimsSchema)("eyJzdWIiOiJhIiwiZXhwIjoxNzM1Njg2MDAwfQ");
 
 ### Read an uploaded config file
 
-A `File`'s content is only readable asynchronously, so the pipeline is async as a whole — and the sync parser refuses at creation instead of failing later:
+A `File`'s content is only readable asynchronously, so the pipeline is async as a whole - and the sync parser refuses at creation instead of failing later:
 
 ```ts
 const configSchema = S.file.with(
@@ -336,7 +334,7 @@ S.parser(configSchema);
 
 ### Type your environment variables
 
-`process.env` is strings; your config isn't. Pipe from `S.record(S.string)` and the coercions are inferred — extra variables pass through untouched:
+`process.env` is strings; your config isn't. Pipe from `S.record(S.string)` and the coercions are inferred - extra variables pass through untouched:
 
 ```ts
 const envSchema = S.record(S.string).with(
@@ -354,7 +352,7 @@ S.parser(envSchema)({ PORT: "99999", DEBUG: "true" });
 // => throws S.Error: Failed at ["PORT"]: Expected port, received 99999
 ```
 
-### ISO strings ↔ `Date`
+### ISO strings <-> `Date`
 
 ```ts
 const at = S.string.with(S.to, S.date);
@@ -365,7 +363,7 @@ S.encoder(at)(new Date("2026-08-26T12:00:00.000Z")); // => "2026-08-26T12:00:00.
 
 ### Columnar data to rows
 
-`S.compactColumns` maps columnar arrays — of `S.json` values here — to rows, in both directions:
+`S.compactColumns` maps columnar arrays - of `S.json` values here - to rows, in both directions:
 
 ```ts
 const cityRow = S.schema({ id: S.bigint, city: S.string });
@@ -401,9 +399,9 @@ Measured with [this repo's comparison benchmark](https://github.com/DZakh/sury/t
 
 Independent benchmarks and conformance suites that include Sury:
 
-- [typescript-runtime-type-benchmarks](https://moltar.github.io/typescript-runtime-type-benchmarks/) — throughput across the ecosystem
-- [schemabenchmarks.dev](https://schemabenchmarks.dev/) — per-step breakdown: download, initialization, validation, parsing, Standard Schema, codec
-- [json-schema-compliance-suite](https://github.com/sinclairzx81/json-schema-compliance-suite) — JSON Schema validation, semantics, and round-trip fidelity
+- [typescript-runtime-type-benchmarks](https://moltar.github.io/typescript-runtime-type-benchmarks/) - throughput across the ecosystem
+- [schemabenchmarks.dev](https://schemabenchmarks.dev/) - per-step breakdown: download, initialization, validation, parsing, Standard Schema, codec
+- [json-schema-compliance-suite](https://github.com/sinclairzx81/json-schema-compliance-suite) - JSON Schema validation, semantics, and round-trip fidelity
 
 ### Features
 
@@ -427,10 +425,10 @@ Use Sury anywhere a schema is accepted:
 
 ## Used by
 
-- [HyperIndex](https://github.com/enviodev/hyperindex) — Envio's blockchain indexing framework, which uses Sury to power native high-performance external calls
-- [rescript-rest](https://github.com/DZakh/rescript-rest) — RPC-like client, contract, and server implementation for a pure REST API
-- [rescript-envsafe](https://github.com/DZakh/rescript-envsafe) — makes sure you don't accidentally deploy apps with missing or invalid environment variables
-- [rescript-stripe](https://github.com/enviodev/rescript-stripe) — describe and manage Stripe billing in a declarative way with code
+- [HyperIndex](https://github.com/enviodev/hyperindex) - Envio's blockchain indexing framework, which uses Sury to power native high-performance external calls
+- [rescript-rest](https://github.com/DZakh/rescript-rest) - RPC-like client, contract, and server implementation for a pure REST API
+- [rescript-envsafe](https://github.com/DZakh/rescript-envsafe) - makes sure you don't accidentally deploy apps with missing or invalid environment variables
+- [rescript-stripe](https://github.com/enviodev/rescript-stripe) - describe and manage Stripe billing in a declarative way with code
 - Internal form library at [Carla](https://www.carla.se/)
 
 Building something with Sury? [Let me know](https://x.com/dzakh_dev) and I'll add it here.
@@ -439,13 +437,13 @@ Building something with Sury? [Let me know](https://x.com/dzakh_dev) and I'll ad
 
 ### Does it really use `new Function`?
 
-Yes — that's where the speed comes from. It's also how TypeBox, Zod v4 and ArkType work, and even Cloudflare Workers added support for it.
+Yes - that's where the speed comes from. It's also how TypeBox, Zod v4 and ArkType work, and even Cloudflare Workers added support for it.
 
 There's currently no eval-free mode, so Sury won't run where dynamic code evaluation is forbidden: pages under a strict CSP without `'unsafe-eval'`, some browser extension contexts, and a few restricted edge runtimes. If that's your environment, [Valibot](https://valibot.dev/) is the honest recommendation today.
 
 ### Why "Sury"?
 
-It's short, it's pronounceable, and the 🧬 fits: a schema is the DNA of your data — one definition that everything else is derived from.
+It's short, it's pronounceable, and the 🧬 fits: a schema is the DNA of your data - one definition that everything else is derived from.
 
 ## Resources
 
@@ -455,7 +453,7 @@ It's short, it's pronounceable, and the 🧬 fits: a schema is the DNA of your d
 
 ## Contributing
 
-Bug reports, ideas, and pull requests are all welcome — open an [issue](https://github.com/DZakh/sury/issues) to get started.
+Bug reports, ideas, and pull requests are all welcome - open an [issue](https://github.com/DZakh/sury/issues) to get started.
 
 ## Sponsorship
 
@@ -468,7 +466,7 @@ If you'd like to donate, GitHub Sponsors isn't available in my country, so **USD
 - ERC20: `0x509fCF7C24A94a776eb92B56B9DA4aA145615529`
 - TRC20: `TFg5hKgkdcrFnPHNgYqfbp9yMyx25uaWrF`
 
-Your sponsorship doesn't go towards anything specific – it's simply a wonderful way to say "thank you" and make me happy. 😁
+Your sponsorship doesn't go towards anything specific - it's simply a wonderful way to say "thank you" and make me happy. 😁
 
 DM me on [X/Twitter](https://x.com/dzakh_dev) if you want to be featured or just to say hi! This would mean so much to me. ✨
 
