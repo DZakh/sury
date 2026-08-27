@@ -5,9 +5,9 @@
 
 # Sury 🧬
 
-**The fastest schema with next-gen DX, for TypeScript and ReScript.**
+**Next-gen schemas, faster than hand-written code.**
 
-Declare your data once, as a pipeline - wire format on one side, the types you work with on the other. Sury derives the decoder, the encoder, and the JSON Schema from that one declaration, and JIT-specializes each into a function written for exactly your shape.
+Declare your TypeScript or ReScript data once, as a pipeline - wire format on one side, the types you work with on the other. Sury derives the decoder, the encoder, and the JSON Schema from that one declaration, and JIT-specializes each into a function written for exactly your shape.
 
 - **One schema, both directions.** Decode the wire format in, encode back out - no second schema, no glue code.
 - **Fastest in the ecosystem.** Every schema is JIT-specialized into the function you'd write by hand - [see the code](#the-code-a-schema-turns-into) and the [benchmarks](#comparison). It runs on `new Function` - [why you shouldn't worry](#does-it-really-use-new-function).
