@@ -13,36 +13,38 @@ Declare your data model once, in TypeScript or ReScript. Decoders and encoders a
 npm install sury
 ```
 
+**API Reference:** [TypeScript](https://github.com/DZakh/sury/blob/main/docs/js-usage.md) | [ReScript](https://github.com/DZakh/sury/blob/main/docs/rescript-usage.md) | [ReScript PPX](https://github.com/DZakh/sury/blob/main/packages/sury-ppx/README.md)
+
 ## Why Sury
 
-Declare your data model - unions, constraints and metadata in one place, with types you can read on hover:
+Declare your data model - unions, constraints and metadata in one place. Everything is a normal schema, and hovering one reads `S.Schema<Event>` - not `v.ObjectSchema<{readonly foo: v.StringSchema<undefined>}, undefined>`:
 
 ```ts
-import * as S from "sury";
+import * as S from "sury"; // Tree-shakable: a schema + parser starts at 7.9 kB gzip
 
 const eventSchema = S.union([
   {
     type: "user.created",
-    id: S.bigint, // can't exist in JSON - carried as "42" on the wire
+    id: S.bigint,
     tags: S.array({ name: S.string }).with(S.nonEmpty, "Add at least one tag"),
   },
-  { type: "user.deleted", id: S.bigint },
+  { type: "user.deleted", id: S.bigint, payload: S.json },
 ]).with(S.meta, { description: "User lifecycle event" });
 
 type Event = S.Output<typeof eventSchema>;
 //   ^? { type: "user.created"; id: bigint; tags: { name: string }[] }
-//      | { type: "user.deleted"; id: bigint }
+//      | { type: "user.deleted"; id: bigint; payload: S.JSON }
 ```
 
-One schema drives both directions - and encoding comes out [faster than `JSON.stringify`](#encoding-vs-jsonstringify):
+One schema drives both directions - and encoding beats `JSON.stringify` ([which lies to you](https://dev.to/dzakh/encode-dont-stringify-how-jsonstringify-lies-to-you-38fk)):
 
 ```ts
 const parseEvent = S.decoder(S.jsonString, eventSchema);
 parseEvent('{"type":"user.created","id":"42","tags":[{"name":"vip"}]}');
 // => { type: "user.created", id: 42n, tags: [{ name: "vip" }] }
 
-S.encoder(eventSchema, S.jsonString)({ type: "user.deleted", id: 7n });
-// => '{"type":"user.deleted","id":"7"}'
+S.encoder(eventSchema, S.jsonString)({ type: "user.deleted", id: 7n, payload: { reason: "spam" } });
+// => '{"type":"user.deleted","id":"7","payload":{"reason":"spam"}}'
 ```
 
 Errors point into the matched variant with your message, and `S.safe` turns any block into a typed result:
@@ -52,77 +54,81 @@ parseEvent('{"type":"user.created","id":"42","tags":[]}');
 // => throws S.Error: Failed at ["tags"]: Add at least one tag
 
 const result = S.safe(() => parseEvent('{"type":"user.deleted"}'));
-result.success; // => false, with result.error: Failed at ["id"]: ...
+if (!result.success) result.error.message;
+// => 'Failed at ["id"]: Expected string, received undefined'
 ```
 
-Swap the wire, keep the model - the same event inside base64url:
+Swap the wire, keep the model - the same event inside base64url, both directions again:
 
 ```ts
 const b64Event = S.base64url.with(S.to, S.jsonString.with(S.to, eventSchema));
-S.encoder(b64Event)({ type: "user.deleted", id: 7n });
-// => "eyJ0eXBlIjoidXNlci5kZWxldGVkIiwiaWQiOiI3In0"
+
+S.encoder(b64Event)({ type: "user.deleted", id: 7n, payload: { reason: "spam" } });
+// => "eyJ0eXBlIjoidXNlci5kZWxldGVkIiwiaWQiOiI3IiwicGF5bG9hZCI6eyJyZWFzb24iOiJzcGFtIn19"
+
+S.parser(b64Event)("eyJ0eXBlIjoidXNlci5kZWxldGVkIiwiaWQiOiI3IiwicGF5bG9hZCI6eyJyZWFzb24iOiJzcGFtIn19");
+// => { type: "user.deleted", id: 7n, payload: { reason: "spam" } }
 ```
 
-JSON Schema in both directions, and Standard Schema for tRPC, Hono, TanStack and 28+ more:
+[Standard Schema](https://standardschema.dev/) plugs the same schema into tRPC, Hono, TanStack and 28+ more, and its Standard JSON Schema extension describes the wire - a model that can't exist in JSON says so, until you give it a wire:
 
 ```ts
-S.toJSONSchema(S.json.with(S.to, eventSchema));
-// => { anyOf: [...], description: "User lifecycle event", ... }
-//    with id: { type: "string" } - it describes the wire
+S.enableStandardJSONSchema(); // Opt-in, so unused JSON Schema code tree-shakes away
 
+eventSchema["~standard"].validate({ type: "user.deleted", id: 7n, payload: null });
+// => { value: { type: "user.deleted", id: 7n, payload: null } }
+
+eventSchema["~standard"].jsonSchema.input({ target: "draft-07" });
+// => throws: Failed at ["id"]: Expected JSON, received bigint
+
+S.json.with(S.to, eventSchema)["~standard"].jsonSchema.input({ target: "draft-07" });
+// => { anyOf: [...], description: "User lifecycle event", ... } - with id: { type: "string" }
+```
+
+JSON Schema reads back in too - fully typed, passing 93% of the official draft-07 test suite, tracked in CI:
+
+```ts
 const emailSchema = S.fromJSONSchema({ type: "string", format: "email" });
 S.parser(emailSchema)("hi@sury.dev"); // => "hi@sury.dev", typed as string
-
-eventSchema["~standard"].validate({ type: "user.deleted", id: 7n });
-// => { value: { type: "user.deleted", id: 7n } }
 ```
 
-Wires today: `S.json`, `S.jsonString`, `S.base64`, `S.base64url`, `S.uint8Array`, `S.file` and `S.blob`. Coming next: env, `FormData` and protobuf.
-
-Everything above is JIT-specialized with `new Function` into the functions you'd write by hand - [see the code](#the-code-a-schema-turns-into), the [benchmarks](#comparison), and [why `new Function` is fine](#does-it-really-use-new-function) - and a schema with a parser ships in 7.9 kB min+gzip, tree-shakable, [string formats](https://github.com/DZakh/sury/blob/main/docs/js-usage.md#string-formats) included.
-
-**Full API reference:** [JS/TS](https://github.com/DZakh/sury/blob/main/docs/js-usage.md) · [ReScript](https://github.com/DZakh/sury/blob/main/docs/rescript-usage.md) · [PPX](https://github.com/DZakh/sury/blob/main/packages/sury-ppx/README.md)
-
-> Formerly published as **rescript-schema**. Sury is plain JavaScript - the ReScript compiler is not involved - with first-class ReScript bindings on the same package.
-
-## Recipes
-
-Scenarios that usually need a helper library or hand-written glue, as plain schemas.
-
-### Decode a JWT payload
-
-A JWT segment is base64url text holding JSON. Declare the layers and get both directions:
+Recursive schemas reference themselves:
 
 ```ts
-const claimsSchema = S.base64url.with(
-  S.to,
-  S.jsonString.with(S.to, S.schema({ sub: S.string, exp: S.number })),
+type Node = { id: string; children: Node[] };
+const nodeSchema = S.recursive<Node>("Node", (nodeSchema) =>
+  S.schema({ id: S.string, children: S.array(nodeSchema) }),
 );
-
-S.parser(claimsSchema)("eyJzdWIiOiJhIiwiZXhwIjoxNzM1Njg2MDAwfQ");
-// => { sub: "a", exp: 1735686000 }
 ```
 
-### Read an uploaded config file
-
-A `File`'s content is only readable asynchronously, so the pipeline is async as a whole - and the sync parser refuses at creation instead of failing later:
+Rename wire fields with `S.shape` - the inverse comes for free:
 
 ```ts
-const configSchema = S.file.with(
-  S.to,
-  S.jsonString.with(S.to, S.schema({ theme: S.string })),
-);
+const userSchema = S.schema({
+  USER_ID: S.string.with(S.to, S.bigint),
+  USER_NAME: S.string,
+}).with(S.shape, (input) => ({
+  id: input.USER_ID,
+  name: input.USER_NAME,
+}));
+
+S.parser(userSchema)({ USER_ID: "0", USER_NAME: "Dmitry" });
+// => { id: 0n, name: "Dmitry" }
+S.encoder(userSchema)({ id: 0n, name: "Dmitry" });
+// => { USER_ID: "0", USER_NAME: "Dmitry" }
+```
+
+A `File`'s content reads asynchronously, so its pipeline is async as a whole - and the sync parser refuses at creation instead of failing later:
+
+```ts
+const configSchema = S.file.with(S.to, S.jsonString.with(S.to, S.schema({ theme: S.string })));
 
 await S.asyncParser(configSchema)(new File(['{"theme":"dark"}'], "config.json"));
 // => { theme: "dark" }
-
-S.parser(configSchema);
-// => throws: Invalid async during sync operation
+S.parser(configSchema); // => throws: Invalid async during sync operation
 ```
 
-### Type your environment variables
-
-`process.env` is strings; your config isn't. Pipe from `S.record(S.string)` and the coercions are inferred - extra variables pass through untouched:
+`process.env` is strings; your config isn't. Pipe from `S.record(S.string)` and the coercions are inferred:
 
 ```ts
 const envSchema = S.record(S.string).with(
@@ -135,36 +141,24 @@ const envSchema = S.record(S.string).with(
 
 S.parser(envSchema)(process.env);
 // => { PORT: 8080, DEBUG: true }
-
-S.parser(envSchema)({ PORT: "99999", DEBUG: "true" });
-// => throws S.Error: Failed at ["PORT"]: Expected port, received 99999
 ```
 
-### ISO strings <-> `Date`
+Layouts that usually need hand-written glue are single definitions - `S.compactColumns` maps columnar arrays to rows, in both directions:
 
 ```ts
-const at = S.string.with(S.to, S.date);
-
-S.parser(at)("2026-08-26T12:00:00.000Z"); // => Date
-S.encoder(at)(new Date("2026-08-26T12:00:00.000Z")); // => "2026-08-26T12:00:00.000Z"
-```
-
-### Columnar data to rows
-
-`S.compactColumns` maps columnar arrays - of `S.json` values here - to rows, in both directions:
-
-```ts
-const cityRow = S.schema({ id: S.bigint, city: S.string });
-const rows = S.compactColumns(S.json).with(S.to, S.array(cityRow));
+const rows = S.compactColumns(S.json).with(S.to, S.array(S.schema({ id: S.bigint, city: S.string })));
 
 S.parser(rows)([["1", "2"], ["Tbilisi", "Batumi"]]);
 // => [{ id: 1n, city: "Tbilisi" }, { id: 2n, city: "Batumi" }]
-
 S.encoder(rows)([{ id: 1n, city: "Tbilisi" }, { id: 2n, city: "Batumi" }]);
 // => [["1", "2"], ["Tbilisi", "Batumi"]]
 ```
 
-More building blocks in the [API reference](https://github.com/DZakh/sury/blob/main/docs/js-usage.md).
+Wires today: `S.json`, `S.jsonString`, `S.base64`, `S.base64url`, `S.uint8Array`, `S.file` and `S.blob`. Coming next: env, `FormData` and protobuf.
+
+Everything above is JIT-specialized with `new Function` into the functions you'd write by hand - [see the code](#the-code-a-schema-turns-into), the [benchmarks](#comparison), and [why `new Function` is fine](#does-it-really-use-new-function) - and a schema with a parser ships in 7.9 kB min+gzip, tree-shakable, [string formats](https://github.com/DZakh/sury/blob/main/docs/js-usage.md#string-formats) included.
+
+> Formerly published as **rescript-schema**. Sury is plain JavaScript - the ReScript compiler is not involved - with first-class ReScript bindings on the same package.
 
 ## Comparison
 
@@ -217,7 +211,7 @@ That's why Sury tends to outrun not just other libraries, but hand-rolled valida
 
 ### Encoding vs `JSON.stringify`
 
-The encoder builds the JSON text directly - no intermediate object, the literal parts baked in:
+The encoder builds the JSON text directly - no intermediate object, the structure baked in as literals, and `JSON.stringify` left only the free-form `payload`:
 
 ```js
 (i) => {
@@ -225,7 +219,12 @@ The encoder builds the JSON text directly - no intermediate object, the literal 
     for (;;) {
       // ...one branch per variant
       if (i["type"] === "user.deleted") {
-        i = '{"type":"user.deleted","id":"' + i["id"] + '"}';
+        let v6 = JSON.stringify(i["payload"]);
+        let v7 = '{"type":"user.deleted","id":"' + i["id"] + '"';
+        if (v6 !== void 0) {
+          v7 += ',"payload":' + v6;
+        }
+        i = v7 + "}";
         break;
       }
     }
@@ -305,7 +304,7 @@ Building something with Sury? [Let me know](https://x.com/dzakh_dev) and I'll ad
 
 ### Does it really use `new Function`?
 
-Yes - that's where the speed comes from. It's also how TypeBox, Zod v4 and ArkType work, and even Cloudflare Workers added support for it.
+Yes - that's where the speed comes from. It's also how TypeBox, Zod v4 and ArkType work. Cloudflare Workers allows `new Function` during Worker startup (the default since compatibility date 2025-06-01), so schemas and operations created at the top level work there.
 
 There's currently no eval-free mode, so Sury won't run where dynamic code evaluation is forbidden: pages under a strict CSP without `'unsafe-eval'`, some browser extension contexts, and a few restricted edge runtimes. If that's your environment, [Valibot](https://valibot.dev/) is the honest recommendation today.
 
