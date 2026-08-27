@@ -49,7 +49,7 @@ exports:
   extendJSONSchema: 4167
   file: 5541
   float: 4459
-  fromJSONSchema: 25932
+  fromJSONSchema: 25933
   global: 4130
   gt: 5291
   gte: 5291
