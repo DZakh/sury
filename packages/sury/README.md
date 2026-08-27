@@ -17,7 +17,7 @@ npm install sury
 
 ## Why Sury
 
-Describe your data model once - unions, constraints and metadata included. Hover a schema and you can actually read the type: `S.Schema<{ type: "user.created"; id: bigint; ... } | { type: "user.deleted"; ... }>`, not `v.ObjectSchema<{readonly foo: v.StringSchema<undefined>}, undefined>`:
+Describe your data model once - unions, constraints and metadata included. Hover a schema and you can actually read the type: `S.Schema<{ type: "user.created"; id: bigint; ... } | { type: "user.deleted"; ... }>` - while the same model in Valibot reads `v.UnionSchema<[v.ObjectSchema<{ readonly type: v.LiteralSchema<"user.created", undefined>; readonly id: v.BigintSchema<undefined>; readonly tags: v.SchemaWithPipe<...>; }, undefined>, v.ObjectSchema<...>], undefined>`:
 
 ```ts
 import * as S from "sury"; // Tree-shakable: a schema + parser starts at 8 kB gzip
