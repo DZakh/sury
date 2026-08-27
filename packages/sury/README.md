@@ -9,12 +9,6 @@
 
 Declare your data model once, in TypeScript or ReScript. Decoders and encoders are pipelines of schemas - a wire schema on one side, the types you work with on the other - each JIT-specialized into a function written for exactly your shape.
 
-- **One schema, both directions.** Decode the wire schema in, encode back out - no second schema, no glue code.
-- **Fastest in the ecosystem.** Every schema is JIT-specialized into the function you'd write by hand - [see the code](#the-code-a-schema-turns-into) and the [benchmarks](#comparison). It runs on `new Function` - [why you shouldn't worry](#does-it-really-use-new-function).
-- **Batteries included.** [JSON Schema in and out](#json-schema-in-and-out), [string formats](https://github.com/DZakh/sury/blob/main/docs/js-usage.md#string-formats), async and custom schemas - all in 7.9 kB min+gzip, tree-shakable.
-
-Wire schemas today: `S.json`, `S.jsonString`, `S.base64`, `S.base64url`, `S.uint8Array`, `S.file` and `S.blob`. Coming next: env, `FormData` and protobuf.
-
 ## Getting started
 
 ```sh
@@ -24,23 +18,55 @@ npm install sury
 ```ts
 import * as S from "sury";
 
-const playerSchema = S.schema({
-  username: S.string,
-  xp: S.number,
-});
+// Declare your data model - unions, coercions and constraints in one place
+const eventSchema = S.union([
+  {
+    type: "user.created",
+    id: S.string.with(S.to, S.bigint), // "42" on the wire, 42n in your code
+    tags: S.array({ name: S.string }).with(S.nonEmpty, "Add at least one tag"),
+  },
+  { type: "user.deleted", id: S.string.with(S.to, S.bigint) },
+]).with(S.meta, { description: "User lifecycle event" });
 
-// The operation is cached on the schema - inline calls don't recompile
-S.parser(playerSchema)({ username: "billie", xp: 100 });
-// => { username: "billie", xp: 100 }
+// Types you can read, in the direction the data flows
+type Event = S.Output<typeof eventSchema>;
+//   ^? { type: "user.created"; id: bigint; tags: { name: string }[] }
+//      | { type: "user.deleted"; id: bigint }
+type EventInput = S.Input<typeof eventSchema>; // the same shape with id: string
 
-S.parser(playerSchema)({ username: "billie", xp: "not a number" });
-// => throws S.Error: Failed at ["xp"]: Expected number, received "not a number"
+// One schema, both directions
+const parseEvent = S.decoder(S.jsonString, eventSchema);
+parseEvent('{"type":"user.created","id":"42","tags":[{"name":"vip"}]}');
+// => { type: "user.created", id: 42n, tags: [{ name: "vip" }] }
+S.encoder(eventSchema, S.jsonString)({ type: "user.deleted", id: 7n });
+// => '{"type":"user.deleted","id":"7"}'
 
-type Player = S.Infer<typeof playerSchema>;
-//   ^? { username: string; xp: number }
+// Errors point into the matched variant, with your message
+parseEvent('{"type":"user.created","id":"42","tags":[]}');
+// => throws S.Error: Failed at ["tags"]: Add at least one tag
+
+// Swap the wire, keep the model: the same event inside base64url
+const b64Event = S.base64url.with(S.to, S.jsonString.with(S.to, eventSchema));
+S.encoder(b64Event)({ type: "user.deleted", id: 7n });
+// => "eyJ0eXBlIjoidXNlci5kZWxldGVkIiwiaWQiOiI3In0"
+
+// Standard Schema: accepted by tRPC, Hono, TanStack and 28+ more
+eventSchema["~standard"].validate({ type: "user.deleted", id: 7n });
+// => { value: { type: "user.deleted", id: 7n } }
+
+// JSON Schema out - describing the wire format, ready for OpenAPI...
+S.toJSONSchema(eventSchema);
+// => { anyOf: [...], description: "User lifecycle event", ... }
+
+// ...and in - fully typed, scored against the official test suite in CI
+const emailSchema = S.fromJSONSchema({ type: "string", format: "email" });
+S.parser(emailSchema)("hi@sury.dev"); // => "hi@sury.dev", typed as string
+
+// Wires today: JSON, JSON string, base64, base64url, Uint8Array, File, Blob
+// Coming next: env, FormData, protobuf
 ```
 
-The API mirrors TypeScript types, so there's not much new syntax to learn. If you'd rather get a result back than catch, there's [`S.safe`](#errors-that-tell-you-where-to-look).
+Everything above is JIT-specialized with `new Function` into the functions you'd write by hand - [see the code](#the-code-a-schema-turns-into), the [benchmarks](#comparison), and [why `new Function` is fine](#does-it-really-use-new-function) - and a schema with a parser ships in 7.9 kB min+gzip, tree-shakable, [string formats](https://github.com/DZakh/sury/blob/main/docs/js-usage.md#string-formats) included. If you'd rather get a result back than catch, there's [`S.safe`](#errors-that-tell-you-where-to-look).
 
 **Full API reference:** [JS/TS](https://github.com/DZakh/sury/blob/main/docs/js-usage.md) · [ReScript](https://github.com/DZakh/sury/blob/main/docs/rescript-usage.md) · [PPX](https://github.com/DZakh/sury/blob/main/packages/sury-ppx/README.md)
 
@@ -294,7 +320,7 @@ S.parser(S.schema({ a: S.array(S.schema({ b: S.string })) }))({
 Every error is an `S.Error` (`err instanceof S.Error`). If you'd rather not catch, `S.safe` and `S.safeAsync` wrap any block into a typed result:
 
 ```ts
-const result = S.safe(() => S.parser(playerSchema)(data));
+const result = S.safe(() => parseEvent(data));
 if (result.success) result.value;
 else result.error;
 ```
