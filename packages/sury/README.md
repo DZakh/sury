@@ -17,7 +17,7 @@ npm install sury
 
 ## Why Sury
 
-Describe your data model once - unions, constraints and metadata included. Hover a schema and you can actually read the type: `S.Schema<Event>`, not `v.ObjectSchema<{readonly foo: v.StringSchema<undefined>}, undefined>`:
+Describe your data model once - unions, constraints and metadata included. Hover a schema and you can actually read the type: `S.Schema<{ type: "user.created"; id: bigint; ... } | { type: "user.deleted"; ... }>`, not `v.ObjectSchema<{readonly foo: v.StringSchema<undefined>}, undefined>`:
 
 ```ts
 import * as S from "sury"; // Tree-shakable: a schema + parser starts at 8 kB gzip
@@ -32,11 +32,11 @@ const eventSchema = S.union([
 ]).with(S.meta, { description: "User lifecycle event" });
 
 type Event = S.Output<typeof eventSchema>;
-//   ^? { type: "user.created"; id: bigint; tags: { name: string }[] }
+//   ^? { type: "user.created"; id: bigint; tags: [{ name: string }, ...{ name: string }[]] }
 //      | { type: "user.deleted"; id: bigint; payload: S.JSON }
 ```
 
-The same schema parses and encodes - no second definition. Encoding is even faster than `JSON.stringify` ([which lies to you](https://dev.to/dzakh/encode-dont-stringify-how-jsonstringify-lies-to-you-38fk)):
+The same schema parses and encodes - no second definition. Encoding is even faster than `JSON.stringify` - read more in [Encode, Don't Stringify: How JSON.stringify Lies to You](https://dev.to/dzakh/encode-dont-stringify-how-jsonstringify-lies-to-you-38fk):
 
 ```ts
 const parseEvent = S.decoder(S.jsonString, eventSchema);
@@ -58,7 +58,7 @@ if (!result.success) result.error.message;
 // => 'Failed at ["id"]: Expected string, received undefined'
 ```
 
-Need a different wire? Wrap the same model in base64url. The pipeline knows both of its ends, so `S.encoder` and `S.parser` take just the schema:
+Need a different wire? Wrap the same model in base64url. The pipeline knows both of its ends, so `S.encoder` and `S.decoder` take just the schema:
 
 ```ts
 const b64Event = S.base64url.with(S.to, S.jsonString.with(S.to, eventSchema));
@@ -66,7 +66,7 @@ const b64Event = S.base64url.with(S.to, S.jsonString.with(S.to, eventSchema));
 S.encoder(b64Event)({ type: "user.deleted", id: 7n, payload: { reason: "spam" } });
 // => "eyJ0eXBlIjoidXNlci5kZWxldGVkIiwiaWQiOiI3IiwicGF5bG9hZCI6eyJyZWFzb24iOiJzcGFtIn19"
 
-S.parser(b64Event)("eyJ0eXBlIjoidXNlci5kZWxldGVkIiwiaWQiOiI3IiwicGF5bG9hZCI6eyJyZWFzb24iOiJzcGFtIn19");
+S.decoder(b64Event)("eyJ0eXBlIjoidXNlci5kZWxldGVkIiwiaWQiOiI3IiwicGF5bG9hZCI6eyJyZWFzb24iOiJzcGFtIn19");
 // => { type: "user.deleted", id: 7n, payload: { reason: "spam" } }
 ```
 
@@ -94,7 +94,7 @@ const emailSchema = S.fromJSONSchema({ type: "string", format: "email" });
 S.parser(emailSchema)("hi@sury.dev"); // => "hi@sury.dev"
 ```
 
-There's also the stuff you'd normally grab one more library for. Recursive schemas:
+Recursive schemas work out of the box:
 
 ```ts
 type Node = { id: string; children: Node[] };
@@ -140,7 +140,7 @@ const envSchema = S.record(S.string).with(
   }),
 );
 
-S.parser(envSchema)(process.env);
+S.decoder(envSchema)(process.env);
 // => { PORT: 8080, DEBUG: true }
 ```
 
@@ -198,7 +198,7 @@ Here's what `parseEvent` from above actually runs - a function specialized for t
 };
 ```
 
-That's why Sury tends to outrun even hand-rolled validation - see the [benchmarks](#comparison) below.
+The encoder gets the same treatment right below - and that's why Sury tends to outrun even hand-rolled validation ([benchmarks](#comparison)).
 
 ### Encoding vs `JSON.stringify`
 
@@ -254,7 +254,7 @@ Measured with [this repo's comparison benchmark](https://github.com/DZakh/sury/t
 
 |                                 | Sury           | Zod          | TypeBox                        | Valibot      | ArkType        |
 | ------------------------------- | -------------- | ------------ | ------------------------------ | ------------ | -------------- |
-| **Total size** (min + gzip)     | 31.5 kB        | 65.0 kB      | 31.3 kB                        | 15.3 kB      | 47.2 kB        |
+| **Total size** (min + gzip)     | 35.2 kB        | 65.0 kB      | 31.3 kB                        | 15.3 kB      | 47.2 kB        |
 | **Benchmark size** (min + gzip) | 8.0 kB         | 19.6 kB      | 22.6 kB                        | 1.29 kB      | 47.1 kB        |
 | **Parse with the same schema**  | 210,061 ops/ms | 9,367 ops/ms | 158,185 ops/ms (no transforms) | 1,970 ops/ms | 106,520 ops/ms |
 | **Create schema & parse once**  | 99 ops/ms      | 11 ops/ms    | 103 ops/ms (no transforms)     | 315 ops/ms   | 11 ops/ms      |
