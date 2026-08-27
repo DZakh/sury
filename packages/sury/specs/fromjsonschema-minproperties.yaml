@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.fromJSONSchema({ minProperties: 1 })"
+  input: JSON
+  output: JSON
+  instantiations: 593
+jsonSchema:
+  input: "{ minProperties: 1 }"
+  output: "{ minProperties: 1 }"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{e[0](i);e[1](i)||e[2](i);return i}
+    examples:
+      two-keys:
+        input: "{ foo: 1, bar: 2 }"
+        output: "{ foo: 1, bar: 2 }"
+      one-key:
+        input: "{ foo: 1 }"
+        output: "{ foo: 1 }"
+      empty-object:
+        input: "{}"
+        error: Should have a property count within the JSON Schema bounds.
+      ignores-array:
+        input: "[]"
+        output: "[]"
+      ignores-string:
+        input: '""'
+        output: '""'
+  decode:
+    expression: i=>{e[0](i)||e[1](i);return i}
+    examples:
+      one-key:
+        input: "{ foo: 1 }"
+        output: "{ foo: 1 }"
+  encode:
+    expression: i=>{e[0](i)||e[1](i);return i}
+    examples:
+      one-key:
+        input: "{ foo: 1 }"
+        output: "{ foo: 1 }"
