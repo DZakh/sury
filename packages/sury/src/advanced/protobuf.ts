@@ -207,6 +207,9 @@ class Reader {
   }
 }
 
+const scratch = /* @__PURE__ */ new Uint8Array(8);
+const scratchView = /* @__PURE__ */ new DataView(scratch.buffer);
+
 class Writer {
   buf = new Uint8Array(64);
   pos = 0;
@@ -239,8 +242,34 @@ class Writer {
     this.buf.set(value, this.pos);
     this.pos += value.length;
   }
-  tag(number: number, wire: number): void {
-    this.varint32(number * 8 + wire);
+  float32(value: number): void {
+    if (Number.isFinite(value) && Math.abs(value) > 3.4028234663852886e38) throw Error("invalid float");
+    scratchView.setFloat32(0, value, true);
+    this.ensure(4);
+    this.buf[this.pos++] = scratch[0]!;
+    this.buf[this.pos++] = scratch[1]!;
+    this.buf[this.pos++] = scratch[2]!;
+    this.buf[this.pos++] = scratch[3]!;
+  }
+  float64(value: number): void {
+    scratchView.setFloat64(0, value, true);
+    this.ensure(8);
+    this.buf.set(scratch, this.pos);
+    this.pos += 8;
+  }
+  bits32(value: number): void {
+    scratchView.setUint32(0, value, true);
+    this.ensure(4);
+    this.buf[this.pos++] = scratch[0]!;
+    this.buf[this.pos++] = scratch[1]!;
+    this.buf[this.pos++] = scratch[2]!;
+    this.buf[this.pos++] = scratch[3]!;
+  }
+  bits64(value: bigint): void {
+    scratchView.setBigUint64(0, value, true);
+    this.ensure(8);
+    this.buf.set(scratch, this.pos);
+    this.pos += 8;
   }
   finish(): Uint8Array {
     return this.buf.slice(0, this.pos);
@@ -394,89 +423,61 @@ const checkedBigint = (value: unknown, min: bigint, max: bigint, type: string): 
   return value;
 };
 
-const writeScalar = (writer: Writer, type: ProtobufType, value: unknown): void => {
-  if (wireType(type) === 0) {
-    if (type === "bool") writer.varint32((value as boolean) ? 1 : 0);
-    else if (type === "int64") writer.varint64(checkedBigint(value, -9223372036854775808n, 9223372036854775807n, type));
-    else if (type === "uint64") writer.varint64(checkedBigint(value, 0n, 18446744073709551615n, type));
-    else if (type === "sint64") {
-      const signed = checkedBigint(value, -9223372036854775808n, 9223372036854775807n, type);
-      writer.varint64((signed << 1n) ^ (signed >> 63n));
-    } else if (type === "sint32") {
-      const signed = checkedNumber(value, -2147483648, 2147483647, type);
-      writer.varint32(((signed << 1) ^ (signed >> 31)) >>> 0);
-    } else if (type === "int32" || type === "enum") {
-      writer.varint64(BigInt(checkedNumber(value, -2147483648, 2147483647, type)));
-    } else writer.varint32(checkedNumber(value, 0, 4294967295, type));
-    return;
-  }
-  if (wireType(type) === 1) {
-    const bytes = new Uint8Array(8);
-    const view = dataView(bytes);
-    if (type === "double") view.setFloat64(0, value as number, true);
-    else {
-      const bigint = type === "sfixed64"
-        ? checkedBigint(value, -9223372036854775808n, 9223372036854775807n, type)
-        : checkedBigint(value, 0n, 18446744073709551615n, type);
-      view.setBigUint64(0, BigInt.asUintN(64, bigint), true);
-    }
-    writer.fixed(bytes);
-    return;
-  }
-  if (wireType(type) === 5) {
-    const bytes = new Uint8Array(4);
-    const view = dataView(bytes);
-    if (type === "float") {
-      const number = value as number;
-      if (Number.isFinite(number) && Math.abs(number) > 3.4028234663852886e38) throw Error("invalid float");
-      view.setFloat32(0, number, true);
-    }
-    else view.setUint32(0, checkedNumber(value, type === "sfixed32" ? -2147483648 : 0, type === "sfixed32" ? 2147483647 : 4294967295, type), true);
-    writer.fixed(bytes);
-    return;
-  }
-  const bytes = type === "string" ? textEncoder.encode(value as string) : value as Uint8Array;
-  writer.varint32(bytes.length);
-  writer.fixed(bytes);
+const writeCall = (type: ProtobufType, w: string, v: string): string => {
+  if (type === "bool") return `${w}.varint32(${v}?1:0)`;
+  if (type === "uint32") return `${w}.varint32(${v}>>>0)`;
+  if (type === "int32" || type === "enum") return `${w}.varint64(BigInt(${v}))`;
+  if (type === "sint32") return `s=${v};${w}.varint32(((s<<1)^(s>>31))>>>0)`;
+  if (type === "int64") return `${w}.varint64(e[2](${v},-9223372036854775808n,9223372036854775807n,"int64"))`;
+  if (type === "uint64") return `${w}.varint64(e[2](${v},0n,18446744073709551615n,"uint64"))`;
+  if (type === "sint64") return `s=e[2](${v},-9223372036854775808n,9223372036854775807n,"sint64");${w}.varint64((s<<1n)^(s>>63n))`;
+  if (type === "fixed32") return `${w}.bits32(e[1](${v},0,4294967295,"fixed32"))`;
+  if (type === "sfixed32") return `${w}.bits32(e[1](${v},-2147483648,2147483647,"sfixed32"))`;
+  if (type === "fixed64") return `${w}.bits64(BigInt.asUintN(64,e[2](${v},0n,18446744073709551615n,"fixed64")))`;
+  if (type === "sfixed64") return `${w}.bits64(BigInt.asUintN(64,e[2](${v},-9223372036854775808n,9223372036854775807n,"sfixed64")))`;
+  if (type === "float") return `${w}.float32(${v})`;
+  if (type === "double") return `${w}.float64(${v})`;
+  if (type === "string") return `b=e[3].encode(${v});${w}.varint32(b.length);${w}.fixed(b)`;
+  return `s=${v};${w}.varint32(s.length);${w}.fixed(s)`;
 };
 
-const isDefault = (field: Field, value: unknown): boolean => {
-  if (field.optional || field.type === "message") return value === U;
-  if (field.type === "string") return value === "";
-  if (field.type === "bytes") return (value as Uint8Array).length === 0;
-  if (field.type === "bool") return value === false;
-  if (field.type === "float" || field.type === "double") return value === 0 && !Object.is(value, -0);
-  return value === 0 || value === 0n;
-};
-
-const encodeFieldValue = (writer: Writer, field: Field, value: unknown): void => {
-  writer.tag(field.number, wireType(field.type));
-  if (field.type === "message") {
-    const bytes = encodeMessage(value as Record<string, unknown>, field.message!);
-    writer.varint32(bytes.length);
-    writer.fixed(bytes);
-  } else writeScalar(writer, field.type, value);
-};
-
-const encodeMessage = (value: Record<string, unknown>, message: Message): Uint8Array => {
-  const writer = new Writer();
+const compileEncode = (message: Message): ((value: Record<string, unknown>) => Uint8Array) => {
+  const extras: unknown[] = [Writer, checkedNumber, checkedBigint, textEncoder];
+  const use = (value: unknown): string => {
+    extras.push(value);
+    return `e[${extras.length - 1}]`;
+  };
+  const body: string[] = ["var w=new e[0]", "var v", "var i", "var n", "var p", "var b", "var s"];
   for (let idx = 0; idx < message.fields.length; idx++) {
     const field = message.fields[idx]!;
-    const fieldValue = value[field.key];
+    const key = JSON.stringify(field.key);
+    const tag = field.number * 8 + wireType(field.type);
+    const packedTag = field.number * 8 + 2;
     if (field.repeated) {
-      const values = fieldValue as unknown[];
-      if (values.length === 0) continue;
+      body.push(`v=value[${key}];n=v.length;if(n){`);
       if (packable[field.type]) {
-        const packed = new Writer();
-        for (let item = 0; item < values.length; item++) writeScalar(packed, field.type, values[item]);
-        const bytes = packed.finish();
-        writer.tag(field.number, 2);
-        writer.varint32(bytes.length);
-        writer.fixed(bytes);
-      } else for (let item = 0; item < values.length; item++) encodeFieldValue(writer, field, values[item]);
-    } else if (!isDefault(field, fieldValue)) encodeFieldValue(writer, field, fieldValue);
+        body.push(`p=new e[0];i=0;while(i<n){${writeCall(field.type, "p", "v[i++]")}}b=p.finish();w.varint32(${packedTag});w.varint32(b.length);w.fixed(b)`);
+      } else if (field.type === "message") {
+        const nested = use(compileEncode(field.message!));
+        body.push(`i=0;while(i<n){b=${nested}(v[i++]);w.varint32(${tag});w.varint32(b.length);w.fixed(b)}`);
+      } else {
+        body.push(`i=0;while(i<n){w.varint32(${tag});${writeCall(field.type, "w", "v[i++]")}}`);
+      }
+      body.push(`}`);
+    } else if (field.type === "message") {
+      const nested = use(compileEncode(field.message!));
+      body.push(`v=value[${key}];if(v!=null){b=${nested}(v);w.varint32(${tag});w.varint32(b.length);w.fixed(b)}`);
+    } else {
+      const live =
+        field.optional ? "v!=null"
+        : field.type === "bytes" ? "v.length"
+        : field.type === "float" || field.type === "double" ? "v||v!==v||Object.is(v,-0)"
+        : "v";
+      body.push(`v=value[${key}];if(${live}){w.varint32(${tag});${writeCall(field.type, "w", "v")}}`);
+    }
   }
-  return writer.finish();
+  body.push("return w.finish()");
+  return (new Function("e", `return function(value){${body.join(";")}}`) as (e: unknown[]) => (value: Record<string, unknown>) => Uint8Array)(extras);
 };
 
 const bridge = (input: Val, target: Internal, fn: (value: unknown) => unknown): Val => {
@@ -493,8 +494,9 @@ const protobufDecoder = (input: Val): Val => {
   const message = compileMessage(input.s);
   if (message === U) return B_unsupportedDecode(input, input.s, input.e);
   const convert = getDecoder(message.schema, message.raw);
+  const encode = compileEncode(message);
   return bridge(input, input.e, (value) =>
-    encodeMessage(convert(value) as Record<string, unknown>, message)
+    encode(convert(value) as Record<string, unknown>)
   );
 };
 
