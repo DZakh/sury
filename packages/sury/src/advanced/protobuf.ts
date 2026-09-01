@@ -493,9 +493,12 @@ const writeTag = (w: string, tag: number): string =>
     ? `${w}.pos<${w}.buf.length?${w}.buf[${w}.pos++]=${tag}:${w}.varint32(${tag})`
     : `${w}.varint32(${tag})`;
 
+const writeVarint32 = (w: string, expr: string): string =>
+  `${expr}<128&&${w}.pos<${w}.buf.length?${w}.buf[${w}.pos++]=${expr}:${w}.varint32(${expr})`;
+
 const writeCall = (type: ProtobufType, w: string, v: string, e: Embeds): string => {
-  if (type === "bool") return `${w}.varint32(${v}?1:0)`;
-  if (type === "uint32") return `${w}.varint32(${v}>>>0)`;
+  if (type === "bool") return `s=${v}?1:0;${w}.pos<${w}.buf.length?${w}.buf[${w}.pos++]=s:${w}.varint32(s)`;
+  if (type === "uint32") return `s=${v}>>>0;${writeVarint32(w, "s")}`;
   if (type === "int32" || type === "enum") return `${w}.varint64(BigInt(${v}))`;
   if (type === "sint32") return `s=${v};${w}.varint32(((s<<1)^(s>>31))>>>0)`;
   if (type === "int64") return `${w}.varint64(${e.big}(${v},-9223372036854775808n,9223372036854775807n,"int64"))`;
@@ -507,8 +510,8 @@ const writeCall = (type: ProtobufType, w: string, v: string, e: Embeds): string 
   if (type === "sfixed64") return `${w}.bits64(BigInt.asUintN(64,${e.big}(${v},-9223372036854775808n,9223372036854775807n,"sfixed64")))`;
   if (type === "float") return `${w}.float32(${v})`;
   if (type === "double") return `${w}.float64(${v})`;
-  if (type === "string") return `b=${e.text}.encode(${v});${w}.varint32(b.length);${w}.fixed(b)`;
-  return `s=${v};${w}.varint32(s.length);${w}.fixed(s)`;
+  if (type === "string") return `b=${e.text}.encode(${v});${writeVarint32(w, "b.length")};${w}.fixed(b)`;
+  return `s=${v};${writeVarint32(w, "s.length")};${w}.fixed(s)`;
 };
 
 const readCall = (type: ProtobufType, r: string, e: Embeds): string => {
@@ -557,7 +560,7 @@ const encodeBody = (msg: Message, e: Embeds, fns: Map<Message, string>, read: (k
     if (field.repeated) {
       let packed = "";
       if (packable[field.type]) {
-        packed = `p=new ${e.writer};j=0;while(j<n){${writeCall(field.type, "p", "v[j++]", e)}}b=p.finish();${writeTag("w", packedTag)};w.varint32(b.length);w.fixed(b)`;
+        packed = `p=new ${e.writer};j=0;while(j<n){${writeCall(field.type, "p", "v[j++]", e)}}b=p.finish();${writeTag("w", packedTag)};${writeVarint32("w", "b.length")};w.fixed(b)`;
       } else if (field.type === "message") {
         const nested = fns.get(field.message!)!;
         packed = `j=0;while(j<n){${writeTag("w", tag)};h=w.begin();${nested}(w,v[j++]);w.end(h)}`;
