@@ -155,7 +155,7 @@ S.encoder(rows)([{ id: 1n, city: "Tbilisi" }, { id: 2n, city: "Batumi" }]);
 // => [["1", "2"], ["Tbilisi", "Batumi"]]
 ```
 
-Wires today: `S.json`, `S.jsonString`, `S.base64`, `S.base64url`, `S.uint8Array`, `S.file` and `S.blob`. Coming next: env, `FormData` and protobuf.
+Wires today: `S.json`, `S.jsonString`, `S.base64`, `S.base64url`, `S.uint8Array`, `S.protobuf`, `S.file` and `S.blob`. Coming next: env and `FormData`.
 
 ### The code a schema turns into
 

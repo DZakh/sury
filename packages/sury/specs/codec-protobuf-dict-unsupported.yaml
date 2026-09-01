@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ map: S.record(S.int32).with(S.protobufField, {number: 1, type: "message"}) }).with(S.to, S.protobuf)'
+  input: "{ map: Record<string, number>; }"
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 6599
+jsonSchema:
+  input: '{ type: "object", properties: { map: { type: "object", additionalProperties: { type: "integer", minimum: -2147483648, maximum: 2147483647 } } }, required: ["map"] }'
+  output: Expected JSON, received Uint8Array
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "SuryError: Can't decode { map: { [key: string]: int32; }; } to Uint8Array. Use S.to to define a custom decoder"
+  decode: eq-to-parse
+  encode:
+    creationError: "SuryError: Can't decode Uint8Array to { map: { [key: string]: int32; }; }. Use S.to to define a custom decoder"

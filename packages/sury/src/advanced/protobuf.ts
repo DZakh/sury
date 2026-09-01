@@ -11,7 +11,7 @@ import {
   undefinedTag,
   type Val,
 } from "../base";
-import { B_embedTransformation, B_refine, B_unsupportedDecode } from "../builder";
+import { B_conversion, B_refine, B_unsupportedDecode } from "../builder";
 import { arrayFactory, objectDecoder } from "../composites";
 import { getDecoder, getOutputSchema, instanceDecoder } from "../parse";
 import { bigint, bool, float, int, integer, string } from "../primitives";
@@ -103,6 +103,7 @@ const compileMessage = (schema: Internal, seen = new Set<Internal>()): Message |
   let output = schema;
   while (output.type !== objectTag && output.to !== U) output = output.to;
   if (output.type !== objectTag || output.properties === U || seen.has(output)) return U;
+  if (typeof output.additionalItems === objectTag) return U;
   seen.add(output);
   const fields: Field[] = [];
   const byNumber: Record<number, Field> = Object.create(null);
@@ -136,9 +137,8 @@ const compileMessage = (schema: Internal, seen = new Set<Internal>()): Message |
     }
     if (repeated) {
       raw = arrayFactory(raw);
-      if (message !== U) normalizedProperty = arrayFactory(message.schema);
-    }
-    else if (!optional) rawRequired.push(key);
+      normalizedProperty = property;
+    } else if (!optional) rawRequired.push(key);
     rawProperties[key] = raw;
     normalizedProperties[key] = normalizedProperty;
     const field: Field = { ...metadata, key, repeated, optional, message };
@@ -160,7 +160,17 @@ const compileMessage = (schema: Internal, seen = new Set<Internal>()): Message |
 class Reader {
   pos = 0;
   constructor(readonly bytes: Uint8Array, readonly limit = bytes.length) {}
-  varint(): bigint {
+  varint32(): number {
+    let value = 0;
+    for (let shift = 0; shift < 35; shift += 7) {
+      if (this.pos >= this.limit) throw Error("truncated varint");
+      const byte = this.bytes[this.pos++]!;
+      value |= (byte & 127) << shift;
+      if (byte < 128) return value >>> 0;
+    }
+    throw Error("varint exceeds 64 bits");
+  }
+  varint64(): bigint {
     let value = 0n;
     for (let shift = 0n; shift < 70n; shift += 7n) {
       if (this.pos >= this.limit) throw Error("truncated varint");
@@ -173,7 +183,7 @@ class Reader {
   }
   tag(): number {
     const start = this.pos;
-    const tag = Number(this.varint());
+    const tag = Number(this.varint64());
     if (this.pos - start > 5 || tag > 4294967295) throw Error("invalid protobuf tag");
     return tag;
   }
@@ -185,8 +195,8 @@ class Reader {
     return value;
   }
   length(): Reader {
-    const length = Number(this.varint());
-    if (!Number.isSafeInteger(length) || this.pos + length > this.limit) throw Error("truncated protobuf field");
+    const length = this.varint32();
+    if (this.pos + length > this.limit) throw Error("truncated protobuf field");
     const reader = new Reader(this.bytes, this.pos + length);
     reader.pos = this.pos;
     this.pos += length;
@@ -195,40 +205,62 @@ class Reader {
 }
 
 class Writer {
-  bytes: number[] = [];
-  varint(value: bigint): void {
+  buf = new Uint8Array(64);
+  pos = 0;
+  ensure(n: number): void {
+    if (this.pos + n <= this.buf.length) return;
+    const next = new Uint8Array(Math.max(this.buf.length * 2, this.pos + n));
+    next.set(this.buf);
+    this.buf = next;
+  }
+  varint32(value: number): void {
+    this.ensure(5);
+    value >>>= 0;
+    while (value > 127) {
+      this.buf[this.pos++] = (value & 127) | 128;
+      value >>>= 7;
+    }
+    this.buf[this.pos++] = value;
+  }
+  varint64(value: bigint): void {
     value = BigInt.asUintN(64, value);
+    this.ensure(10);
     while (value > 127n) {
-      this.bytes.push(Number(value & 127n) | 128);
+      this.buf[this.pos++] = Number(value & 127n) | 128;
       value >>= 7n;
     }
-    this.bytes.push(Number(value));
+    this.buf[this.pos++] = Number(value);
   }
   fixed(value: Uint8Array): void {
-    for (let idx = 0; idx < value.length; idx++) this.bytes.push(value[idx]!);
+    this.ensure(value.length);
+    this.buf.set(value, this.pos);
+    this.pos += value.length;
   }
   tag(number: number, wire: number): void {
-    this.varint(BigInt(number * 8 + wire));
+    this.varint32(number * 8 + wire);
   }
   finish(): Uint8Array {
-    return Uint8Array.from(this.bytes);
+    return this.buf.slice(0, this.pos);
   }
 }
 
 const dataView = (bytes: Uint8Array): DataView => new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-const textDecoder = /* @__PURE__ */ new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
+const textDecoder = /* @__PURE__ */ new TextDecoder("utf-8", { fatal: true });
 const textEncoder = /* @__PURE__ */ new TextEncoder();
 
 const readScalar = (reader: Reader, type: ProtobufType): unknown => {
   if (wireType(type) === 0) {
-    const value = reader.varint();
-    if (type === "bool") return value !== 0n;
-    if (type === "sint32") return Number(BigInt.asIntN(32, (value >> 1n) ^ -(value & 1n)));
-    if (type === "sint64") return BigInt.asIntN(64, (value >> 1n) ^ -(value & 1n));
-    if (type === "int64") return BigInt.asIntN(64, value);
-    if (type === "uint64") return BigInt.asUintN(64, value);
-    if (type === "int32" || type === "enum") return Number(BigInt.asIntN(32, value));
-    return Number(BigInt.asUintN(32, value));
+    if (type === "int64") return BigInt.asIntN(64, reader.varint64());
+    if (type === "uint64") return BigInt.asUintN(64, reader.varint64());
+    if (type === "sint64") {
+      const value = reader.varint64();
+      return BigInt.asIntN(64, (value >> 1n) ^ -(value & 1n));
+    }
+    if (type === "int32" || type === "enum") return Number(BigInt.asIntN(32, reader.varint64()));
+    const value = reader.varint32();
+    if (type === "bool") return value !== 0;
+    if (type === "sint32") return ((value >>> 1) ^ -(value & 1)) | 0;
+    return value >>> 0;
   }
   if (wireType(type) === 1) {
     const bytes = reader.fixed(8);
@@ -246,12 +278,27 @@ const readScalar = (reader: Reader, type: ProtobufType): unknown => {
   }
   const child = reader.length();
   const bytes = child.fixed(child.limit - child.pos);
-  if (type === "string") return textDecoder.decode(bytes);
+  if (type === "string") {
+    const text = textDecoder.decode(bytes);
+    // Node 24 drops a leading U+FEFF even with ignoreBOM: false, and keeps it
+    // with ignoreBOM: true, which is the opposite of WHATWG. Re-attach the BOM
+    // when the bytes still have one and the decoder ate it.
+    if (
+      bytes.length >= 3 &&
+      bytes[0] === 239 &&
+      bytes[1] === 187 &&
+      bytes[2] === 191 &&
+      !text.startsWith("\uFEFF")
+    ) {
+      return "\uFEFF" + text;
+    }
+    return text;
+  }
   return new Uint8Array(bytes);
 };
 
 const skip = (reader: Reader, wire: number, fieldNumber: number, depth: number): void => {
-  if (wire === 0) reader.varint();
+  if (wire === 0) reader.varint64();
   else if (wire === 1) reader.fixed(8);
   else if (wire === 2) {
     const child = reader.length();
@@ -296,8 +343,9 @@ const mergeMessage = (into: Record<string, unknown>, value: Record<string, unkno
   }
 };
 
-const decodeMessage = (reader: Reader, message: Message): Record<string, unknown> => {
-  const output: Record<string, unknown> = {};
+const decodeMessage = (reader: Reader, message: Message, depth = 0): Record<string, unknown> => {
+  if (depth >= 100) throw Error("protobuf message nesting limit exceeded");
+  const output: Record<string, unknown> = Object.create(null);
   for (let idx = 0; idx < message.fields.length; idx++) {
     const field = message.fields[idx]!;
     const value = defaultValue(field);
@@ -322,7 +370,7 @@ const decodeMessage = (reader: Reader, message: Message): Record<string, unknown
     let value: unknown;
     if (field.type === "message") {
       const child = reader.length();
-      value = decodeMessage(child, field.message!);
+      value = decodeMessage(child, field.message!, depth + 1);
       if (child.pos !== child.limit) throw Error("invalid nested protobuf message");
     } else value = readScalar(reader, field.type);
     if (field.repeated) (output[field.key] as unknown[]).push(value);
@@ -345,18 +393,18 @@ const checkedBigint = (value: unknown, min: bigint, max: bigint, type: string): 
 
 const writeScalar = (writer: Writer, type: ProtobufType, value: unknown): void => {
   if (wireType(type) === 0) {
-    if (type === "bool") writer.varint((value as boolean) ? 1n : 0n);
-    else if (type === "int64") writer.varint(checkedBigint(value, -9223372036854775808n, 9223372036854775807n, type));
-    else if (type === "uint64") writer.varint(checkedBigint(value, 0n, 18446744073709551615n, type));
+    if (type === "bool") writer.varint32((value as boolean) ? 1 : 0);
+    else if (type === "int64") writer.varint64(checkedBigint(value, -9223372036854775808n, 9223372036854775807n, type));
+    else if (type === "uint64") writer.varint64(checkedBigint(value, 0n, 18446744073709551615n, type));
     else if (type === "sint64") {
       const signed = checkedBigint(value, -9223372036854775808n, 9223372036854775807n, type);
-      writer.varint((signed << 1n) ^ (signed >> 63n));
+      writer.varint64((signed << 1n) ^ (signed >> 63n));
     } else if (type === "sint32") {
       const signed = checkedNumber(value, -2147483648, 2147483647, type);
-      const bigint = BigInt(signed);
-      writer.varint(BigInt.asUintN(32, (bigint << 1n) ^ (bigint >> 31n)));
-    } else if (type === "int32" || type === "enum") writer.varint(BigInt(checkedNumber(value, -2147483648, 2147483647, type)));
-    else writer.varint(BigInt(checkedNumber(value, 0, 4294967295, type)));
+      writer.varint32(((signed << 1) ^ (signed >> 31)) >>> 0);
+    } else if (type === "int32" || type === "enum") {
+      writer.varint64(BigInt(checkedNumber(value, -2147483648, 2147483647, type)));
+    } else writer.varint32(checkedNumber(value, 0, 4294967295, type));
     return;
   }
   if (wireType(type) === 1) {
@@ -385,7 +433,7 @@ const writeScalar = (writer: Writer, type: ProtobufType, value: unknown): void =
     return;
   }
   const bytes = type === "string" ? textEncoder.encode(value as string) : value as Uint8Array;
-  writer.varint(BigInt(bytes.length));
+  writer.varint32(bytes.length);
   writer.fixed(bytes);
 };
 
@@ -402,7 +450,7 @@ const encodeFieldValue = (writer: Writer, field: Field, value: unknown): void =>
   writer.tag(field.number, wireType(field.type));
   if (field.type === "message") {
     const bytes = encodeMessage(value as Record<string, unknown>, field.message!);
-    writer.varint(BigInt(bytes.length));
+    writer.varint32(bytes.length);
     writer.fixed(bytes);
   } else writeScalar(writer, field.type, value);
 };
@@ -420,7 +468,7 @@ const encodeMessage = (value: Record<string, unknown>, message: Message): Uint8A
         for (let item = 0; item < values.length; item++) writeScalar(packed, field.type, values[item]);
         const bytes = packed.finish();
         writer.tag(field.number, 2);
-        writer.varint(BigInt(bytes.length));
+        writer.varint32(bytes.length);
         writer.fixed(bytes);
       } else for (let item = 0; item < values.length; item++) encodeFieldValue(writer, field, values[item]);
     } else if (!isDefault(field, fieldValue)) encodeFieldValue(writer, field, fieldValue);
@@ -431,7 +479,7 @@ const encodeMessage = (value: Record<string, unknown>, message: Message): Uint8A
 const bridge = (input: Val, target: Internal, fn: (value: unknown) => unknown): Val => {
   const expected = copySchema(input.e);
   expected.to = target;
-  const output = B_embedTransformation(B_refine(input, U, U, expected), fn, false);
+  const output = B_conversion(fn, false, true)(B_refine(input, U, U, expected));
   output.s = target;
   output.e = target;
   return output;

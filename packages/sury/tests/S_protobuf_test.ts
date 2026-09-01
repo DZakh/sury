@@ -163,6 +163,35 @@ test("protobuf requires an adjacent fully annotated object schema", (t) => {
   t.expect(() => S.decoder(S.uint8Array, S.protobuf)).toThrow();
   t.expect(() => S.decoder(S.protobuf, S.string)).toThrow();
   t.expect(() => S.decoder(S.schema({ value: S.int32 }), S.protobuf)).toThrow();
+  t.expect(() =>
+    S.decoder(
+      S.schema({ map: S.record(S.int32).with(S.protobufField, { number: 1, type: "message" }) }),
+      S.protobuf,
+    ),
+  ).toThrow();
+});
+
+test("protobuf keeps a UTF-8 BOM as a string character", (t) => {
+  const Message = S.schema({ value: field(S.string, 1, "string") });
+  const encode = S.decoder(Message, S.protobuf);
+  const decode = S.decoder(S.protobuf, Message);
+  t.expect(decode(encode({ value: "\uFEFFhi" }))).toEqual({ value: "\uFEFFhi" });
+});
+
+test("protobuf stores __proto__ as a data property", (t) => {
+  const Message = S.schema({ ["__proto__"]: field(S.int32, 1, "int32") });
+  const decode = S.decoder(S.protobuf, Message);
+  const result = decode(new Uint8Array([8, 1])) as { ["__proto__"]: number };
+  t.expect(Object.hasOwn(result, "__proto__")).toBe(true);
+  t.expect(result["__proto__"]).toBe(1);
+});
+
+test("protobuf applies array minLength on repeated message fields", (t) => {
+  const Child = S.schema({ n: field(S.int32, 1, "int32") });
+  const Message = S.schema({
+    items: field(S.array(Child).with(S.minLength, 1), 1, "message"),
+  });
+  t.expect(() => S.decoder(S.protobuf, Message)(new Uint8Array())).toThrow();
 });
 
 test("protobufField validates field descriptors", (t) => {

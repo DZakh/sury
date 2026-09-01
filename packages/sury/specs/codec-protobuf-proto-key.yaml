@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({["__proto__"]: S.int32.with(S.protobufField, {number: 1, type: "int32"})}).with(S.to, S.protobuf)'
+  input: "{ __proto__: number; }"
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 6408
+jsonSchema:
+  input: '{ type: "object", properties: { ["__proto__"]: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["__proto__"] }'
+  output: Expected JSON, received Uint8Array
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=(Object.hasOwn(i,"__proto__")?i["__proto__"]:void 0);typeof v0==="number"&&v0<=2147483647&&v0>=-2147483648&&v0%1===0||e[0](v0);let v1;try{v1=e[1]({["__proto__"]:v0})}catch(x){e[2](x)}return v1}
+    examples:
+      proto-key:
+        input: '{ ["__proto__"]: 1 }'
+        output: new Uint8Array([8, 1])
+  decode:
+    expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}
+    examples:
+      proto-key:
+        input: '{ ["__proto__"]: 1 }'
+        output: new Uint8Array([8, 1])
+  encode:
+    expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}
+    examples:
+      proto-key:
+        input: new Uint8Array([8, 1])
+        output: '{ ["__proto__"]: 1 }'

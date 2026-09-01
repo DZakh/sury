@@ -80,6 +80,13 @@ export type Schema<TInput = unknown, TOutput = TInput> = {
     refineCheck: (value: TOutput) => boolean,
     refineOptions?: { error?: string; path?: string[] }
   ): Schema<TInput, TOutput>;
+  with(
+    protobufField: (
+      schema: Schema<unknown, unknown>,
+      field: ProtobufField
+    ) => Schema<unknown, unknown>,
+    field: ProtobufField
+  ): Schema<TInput, TOutput>;
   // This overload is what both S.refine and S.shape resolve to under
   // overload matching — the exact mechanism that routes S.refine calls here
   // instead of the more specific `refine` overload above hasn't been pinned

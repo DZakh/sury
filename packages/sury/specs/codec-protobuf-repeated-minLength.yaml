@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ items: S.array(S.schema({ n: S.int32.with(S.protobufField, {number: 1, type: "int32"}) })).with(S.minLength, 1).with(S.protobufField, {number: 1, type: "message"}) }).with(S.to, S.protobuf)'
+  input: "{ items: [{ n: number; }, ...{ n: number; }[]]; }"
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 9504
+jsonSchema:
+  input: '{ type: "object", properties: { items: { items: { type: "object", properties: { n: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["n"] }, type: "array", minItems: 1 } }, required: ["items"] }'
+  fromInputType: "{ items: { n: number; }[]; }"
+  output: Expected JSON, received Uint8Array
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "SuryError: Can't decode { items: { n: int32; }[]; } to Uint8Array. Use S.to to define a custom decoder"
+  decode:
+    expression: i=>{let v0=i["items"];v0.length>0||e[0](v0);let v3;try{v3=e[1](i)}catch(x){e[2](x)}return v3}
+    examples:
+      empty-items:
+        input: "{ items: [] }"
+        error: 'Failed at ["items"]: Expected { n: int32; }[].length >= 1, received []'
+  encode:
+    expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}let v1=v0["items"];v1.length>0||e[2](v1);return v0}
+    examples:
+      empty-wire:
+        input: new Uint8Array([])
+        error: 'Failed at ["items"]: Expected { n: int32; }[].length >= 1, received []'
