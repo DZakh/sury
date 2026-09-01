@@ -12,19 +12,19 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=(Object.hasOwn(i,"__proto__")?i["__proto__"]:void 0);typeof v0==="number"&&v0<=2147483647&&v0>=-2147483648&&v0%1===0||e[0](v0);let v1;try{v1=e[1]({["__proto__"]:v0})}catch(x){e[2](x)}return v1}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=(Object.hasOwn(i,"__proto__")?i["__proto__"]:void 0);typeof v0==="number"&&v0<=2147483647&&v0>=-2147483648&&v0%1===0||e[0](v0);let v1={["__proto__"]:v0};let v3=new e[1];let v4=function(w,value){var v,i,n,p,b,s,h;v=value["__proto__"];if((v=+v)){w.varint32(8);w.varint64(BigInt(v))}};v4(v3,v1);let v2=v3.finish();return v2}
     examples:
       proto-key:
         input: '{ ["__proto__"]: 1 }'
         output: new Uint8Array([8, 1])
   decode:
-    expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}
+    expression: i=>{let v1=new e[0];let v2=function(w,value){var v,i,n,p,b,s,h;v=value["__proto__"];if((v=+v)){w.varint32(8);w.varint64(BigInt(v))}};v2(v1,i);let v0=v1.finish();return v0}
     examples:
       proto-key:
         input: '{ ["__proto__"]: 1 }'
         output: new Uint8Array([8, 1])
   encode:
-    expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}
+    expression: i=>{let v1=function(r,d){if(d>=100)throw Error("protobuf message nesting limit exceeded");var o=Object.create(null),t,w,n,p,c,v;o["__proto__"]=0;while(r.pos<r.limit){t=r.tag();n=t>>>3;w=t&7;if(!n)throw Error("invalid protobuf field number");switch(n){case 1:if(w===0){o["__proto__"]=Number(BigInt.asIntN(32,r.varint64()));continue}break;}e[1](r,w,n,0)};return o};let v0=v1(new e[0](i),0);return v0}
     examples:
       proto-key:
         input: new Uint8Array([8, 1])

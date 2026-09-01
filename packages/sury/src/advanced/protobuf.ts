@@ -11,9 +11,16 @@ import {
   undefinedTag,
   type Val,
 } from "../base";
-import { B_conversion, B_refine, B_unsupportedDecode } from "../builder";
+import {
+  _var,
+  B_embed,
+  B_embedPure,
+  B_next,
+  B_unsupportedDecode,
+  B_varWithoutAllocation,
+} from "../builder";
 import { arrayFactory, objectDecoder } from "../composites";
-import { getDecoder, getOutputSchema, instanceDecoder } from "../parse";
+import { getOutputSchema, instanceDecoder } from "../parse";
 import { bigint, bool, float, int, integer, string } from "../primitives";
 import type { ProtobufType } from "./protobufField";
 
@@ -23,6 +30,7 @@ type Field = {
   key: string;
   repeated: boolean;
   optional: boolean;
+  wire: number;
   message?: Message;
 };
 
@@ -146,7 +154,7 @@ const compileMessage = (schema: Internal, seen = new Set<Internal>()): Message |
     } else if (!optional) rawRequired.push(key);
     rawProperties[key] = raw;
     normalizedProperties[key] = normalizedProperty;
-    const field: Field = { ...metadata, key, repeated, optional, message };
+    const field: Field = { ...metadata, key, repeated, optional, message, wire: wireType(metadata.type) };
     fields.push(field);
     byNumber[field.number] = field;
   }
@@ -162,16 +170,59 @@ const compileMessage = (schema: Internal, seen = new Set<Internal>()): Message |
   return { fields, byNumber, strict: output.additionalItems === "strict", raw, schema: normalized };
 };
 
+const textDecoder = /* @__PURE__ */ new TextDecoder("utf-8", { fatal: true });
+const textEncoder = /* @__PURE__ */ new TextEncoder();
+
 class Reader {
   pos = 0;
-  constructor(readonly bytes: Uint8Array, readonly limit = bytes.length) {}
+  constructor(readonly buf: Uint8Array, readonly limit = buf.length) {}
   varint32(): number {
-    let value = 0;
-    for (let shift = 0; shift < 35; shift += 7) {
-      if (this.pos >= this.limit) throw Error("truncated varint");
-      const byte = this.bytes[this.pos++]!;
+    const buf = this.buf;
+    let pos = this.pos;
+    if (pos >= this.limit) throw Error("truncated varint");
+    let byte = buf[pos]!;
+    if (byte < 128) {
+      this.pos = pos + 1;
+      return byte;
+    }
+    if (this.limit - pos > 4) {
+      let value = (byte & 127) >>> 0;
+      byte = buf[++pos]!;
+      value = (value | (byte & 127) << 7) >>> 0;
+      if (byte < 128) {
+        this.pos = pos + 1;
+        return value;
+      }
+      byte = buf[++pos]!;
+      value = (value | (byte & 127) << 14) >>> 0;
+      if (byte < 128) {
+        this.pos = pos + 1;
+        return value;
+      }
+      byte = buf[++pos]!;
+      value = (value | (byte & 127) << 21) >>> 0;
+      if (byte < 128) {
+        this.pos = pos + 1;
+        return value;
+      }
+      byte = buf[++pos]!;
+      value = (value | (byte & 15) << 28) >>> 0;
+      if (byte < 128) {
+        this.pos = pos + 1;
+        return value;
+      }
+      throw Error("varint exceeds 64 bits");
+    }
+    let value = byte & 127;
+    pos++;
+    for (let shift = 7; shift < 35; shift += 7) {
+      if (pos >= this.limit) throw Error("truncated varint");
+      byte = buf[pos++]!;
       value |= (byte & 127) << shift;
-      if (byte < 128) return value >>> 0;
+      if (byte < 128) {
+        this.pos = pos;
+        return value >>> 0;
+      }
     }
     throw Error("varint exceeds 64 bits");
   }
@@ -179,7 +230,7 @@ class Reader {
     let value = 0n;
     for (let shift = 0n; shift < 70n; shift += 7n) {
       if (this.pos >= this.limit) throw Error("truncated varint");
-      const byte = this.bytes[this.pos++]!;
+      const byte = this.buf[this.pos++]!;
       if (shift === 63n && byte > 1) throw Error("varint exceeds 64 bits");
       value |= BigInt(byte & 127) << shift;
       if (byte < 128) return value;
@@ -187,6 +238,13 @@ class Reader {
     throw Error("varint exceeds 64 bits");
   }
   tag(): number {
+    if (this.pos < this.limit) {
+      const byte = this.buf[this.pos]!;
+      if (byte < 128) {
+        this.pos++;
+        return byte;
+      }
+    }
     const start = this.pos;
     const tag = Number(this.varint64());
     if (this.pos - start > 5 || tag > 4294967295) throw Error("invalid protobuf tag");
@@ -195,17 +253,39 @@ class Reader {
   fixed(size: number): Uint8Array {
     const end = this.pos + size;
     if (end > this.limit) throw Error("truncated protobuf field");
-    const value = this.bytes.subarray(this.pos, end);
+    const value = this.buf.subarray(this.pos, end);
     this.pos = end;
     return value;
   }
   length(): Reader {
     const length = this.varint32();
     if (this.pos + length > this.limit) throw Error("truncated protobuf field");
-    const reader = new Reader(this.bytes, this.pos + length);
+    const reader = new Reader(this.buf, this.pos + length);
     reader.pos = this.pos;
     this.pos += length;
     return reader;
+  }
+  string(): string {
+    const child = this.length();
+    const bytes = child.fixed(child.limit - child.pos);
+    const text = textDecoder.decode(bytes);
+    // Node 24 drops a leading U+FEFF even with ignoreBOM: false, and keeps it
+    // with ignoreBOM: true, which is the opposite of WHATWG. Re-attach the BOM
+    // when the bytes still have one and the decoder ate it.
+    if (
+      bytes.length >= 3 &&
+      bytes[0] === 239 &&
+      bytes[1] === 187 &&
+      bytes[2] === 191 &&
+      !text.startsWith("\uFEFF")
+    ) {
+      return "\uFEFF" + text;
+    }
+    return text;
+  }
+  bytes(): Uint8Array {
+    const child = this.length();
+    return new Uint8Array(child.fixed(child.limit - child.pos));
   }
 }
 
@@ -276,60 +356,37 @@ class Writer {
   finish(): Uint8Array {
     return this.buf.slice(0, this.pos);
   }
+  begin(): number {
+    this.ensure(5);
+    const hole = this.pos;
+    this.pos += 5;
+    return hole;
+  }
+  end(hole: number): void {
+    const start = hole + 5;
+    const len = this.pos - start;
+    let n = len >>> 0;
+    let used = 1;
+    while (n > 127) {
+      used++;
+      n >>>= 7;
+    }
+    const extra = 5 - used;
+    if (extra) {
+      this.buf.copyWithin(hole + used, start, this.pos);
+      this.pos -= extra;
+    }
+    n = len >>> 0;
+    let p = hole;
+    while (n > 127) {
+      this.buf[p++] = (n & 127) | 128;
+      n >>>= 7;
+    }
+    this.buf[p] = n;
+  }
 }
 
 const dataView = (bytes: Uint8Array): DataView => new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-const textDecoder = /* @__PURE__ */ new TextDecoder("utf-8", { fatal: true });
-const textEncoder = /* @__PURE__ */ new TextEncoder();
-
-const readScalar = (reader: Reader, type: ProtobufType): unknown => {
-  if (wireType(type) === 0) {
-    if (type === "int64") return BigInt.asIntN(64, reader.varint64());
-    if (type === "uint64") return BigInt.asUintN(64, reader.varint64());
-    if (type === "sint64") {
-      const value = reader.varint64();
-      return BigInt.asIntN(64, (value >> 1n) ^ -(value & 1n));
-    }
-    if (type === "int32" || type === "enum") return Number(BigInt.asIntN(32, reader.varint64()));
-    const value = reader.varint32();
-    if (type === "bool") return value !== 0;
-    if (type === "sint32") return ((value >>> 1) ^ -(value & 1)) | 0;
-    return value >>> 0;
-  }
-  if (wireType(type) === 1) {
-    const bytes = reader.fixed(8);
-    const view = dataView(bytes);
-    if (type === "double") return view.getFloat64(0, true);
-    const value = view.getBigUint64(0, true);
-    return type === "sfixed64" ? BigInt.asIntN(64, value) : value;
-  }
-  if (wireType(type) === 5) {
-    const bytes = reader.fixed(4);
-    const view = dataView(bytes);
-    if (type === "float") return view.getFloat32(0, true);
-    const value = view.getUint32(0, true);
-    return type === "sfixed32" ? value | 0 : value;
-  }
-  const child = reader.length();
-  const bytes = child.fixed(child.limit - child.pos);
-  if (type === "string") {
-    const text = textDecoder.decode(bytes);
-    // Node 24 drops a leading U+FEFF even with ignoreBOM: false, and keeps it
-    // with ignoreBOM: true, which is the opposite of WHATWG. Re-attach the BOM
-    // when the bytes still have one and the decoder ate it.
-    if (
-      bytes.length >= 3 &&
-      bytes[0] === 239 &&
-      bytes[1] === 187 &&
-      bytes[2] === 191 &&
-      !text.startsWith("\uFEFF")
-    ) {
-      return "\uFEFF" + text;
-    }
-    return text;
-  }
-  return new Uint8Array(bytes);
-};
 
 const skip = (reader: Reader, wire: number, fieldNumber: number, depth: number): void => {
   if (wire === 0) reader.varint64();
@@ -355,64 +412,28 @@ const skip = (reader: Reader, wire: number, fieldNumber: number, depth: number):
   } else throw Error("invalid protobuf wire type");
 };
 
-const defaultValue = (field: Field): unknown => {
-  if (field.repeated) return [];
-  if (field.optional || field.type === "message") return U;
-  if (field.type === "string") return "";
-  if (field.type === "bytes") return new Uint8Array();
-  if (field.type === "bool") return false;
-  if (field.type.includes("64")) return 0n;
-  return 0;
-};
-
-const mergeMessage = (into: Record<string, unknown>, value: Record<string, unknown>, message: Message): void => {
-  for (let idx = 0; idx < message.fields.length; idx++) {
-    const field = message.fields[idx]!;
-    const next = value[field.key];
+const mergeMessage = (into: Record<string, unknown>, value: Record<string, unknown>): void => {
+  const keys = Object.keys(value);
+  for (let idx = 0; idx < keys.length; idx++) {
+    const key = keys[idx]!;
+    const next = value[key];
     if (next === U) continue;
-    if (field.repeated) (into[field.key] as unknown[]).push(...(next as unknown[]));
-    else if (field.type === "message" && into[field.key] !== U)
-      mergeMessage(into[field.key] as Record<string, unknown>, next as Record<string, unknown>, field.message!);
-    else into[field.key] = next;
+    const prev = into[key];
+    if (Array.isArray(next)) {
+      if (prev === U) into[key] = (next as unknown[]).slice();
+      else (prev as unknown[]).push(...(next as unknown[]));
+    } else if (
+      next !== null &&
+      typeof next === "object" &&
+      !(next instanceof Uint8Array) &&
+      prev !== U &&
+      typeof prev === "object" &&
+      !Array.isArray(prev) &&
+      !(prev instanceof Uint8Array)
+    ) {
+      mergeMessage(prev as Record<string, unknown>, next as Record<string, unknown>);
+    } else into[key] = next;
   }
-};
-
-const decodeMessage = (reader: Reader, message: Message, depth = 0): Record<string, unknown> => {
-  if (depth >= 100) throw Error("protobuf message nesting limit exceeded");
-  const output: Record<string, unknown> = Object.create(null);
-  for (let idx = 0; idx < message.fields.length; idx++) {
-    const field = message.fields[idx]!;
-    const value = defaultValue(field);
-    if (value !== U) output[field.key] = value;
-  }
-  while (reader.pos < reader.limit) {
-    const tag = reader.tag();
-    const number = tag >>> 3;
-    const wire = tag & 7;
-    if (number === 0) throw Error("invalid protobuf field number");
-    const field = message.byNumber[number];
-    if (field === U || (wire !== wireType(field.type) && !(field.repeated && packable[field.type] && wire === 2))) {
-      if (message.strict) throw Error(`unknown protobuf field ${number}`);
-      skip(reader, wire, number, 0);
-      continue;
-    }
-    if (field.repeated && packable[field.type] && wire === 2) {
-      const packed = reader.length();
-      while (packed.pos < packed.limit) (output[field.key] as unknown[]).push(readScalar(packed, field.type));
-      continue;
-    }
-    let value: unknown;
-    if (field.type === "message") {
-      const child = reader.length();
-      value = decodeMessage(child, field.message!, depth + 1);
-      if (child.pos !== child.limit) throw Error("invalid nested protobuf message");
-    } else value = readScalar(reader, field.type);
-    if (field.repeated) (output[field.key] as unknown[]).push(value);
-    else if (field.type === "message" && output[field.key] !== U)
-      mergeMessage(output[field.key] as Record<string, unknown>, value as Record<string, unknown>, field.message!);
-    else output[field.key] = value;
-  }
-  return output;
 };
 
 const checkedNumber = (value: unknown, min: number, max: number, type: string): number => {
@@ -425,92 +446,244 @@ const checkedBigint = (value: unknown, min: bigint, max: bigint, type: string): 
   return value;
 };
 
-const writeCall = (type: ProtobufType, w: string, v: string): string => {
+type Embeds = {
+  writer: string;
+  reader: string;
+  skip: string;
+  view: string;
+  merge: string;
+  text: string;
+  num: string;
+  big: string;
+};
+
+const writeCall = (type: ProtobufType, w: string, v: string, e: Embeds): string => {
   if (type === "bool") return `${w}.varint32(${v}?1:0)`;
   if (type === "uint32") return `${w}.varint32(${v}>>>0)`;
   if (type === "int32" || type === "enum") return `${w}.varint64(BigInt(${v}))`;
   if (type === "sint32") return `s=${v};${w}.varint32(((s<<1)^(s>>31))>>>0)`;
-  if (type === "int64") return `${w}.varint64(e[2](${v},-9223372036854775808n,9223372036854775807n,"int64"))`;
-  if (type === "uint64") return `${w}.varint64(e[2](${v},0n,18446744073709551615n,"uint64"))`;
-  if (type === "sint64") return `s=e[2](${v},-9223372036854775808n,9223372036854775807n,"sint64");${w}.varint64((s<<1n)^(s>>63n))`;
-  if (type === "fixed32") return `${w}.bits32(e[1](${v},0,4294967295,"fixed32"))`;
-  if (type === "sfixed32") return `${w}.bits32(e[1](${v},-2147483648,2147483647,"sfixed32"))`;
-  if (type === "fixed64") return `${w}.bits64(BigInt.asUintN(64,e[2](${v},0n,18446744073709551615n,"fixed64")))`;
-  if (type === "sfixed64") return `${w}.bits64(BigInt.asUintN(64,e[2](${v},-9223372036854775808n,9223372036854775807n,"sfixed64")))`;
+  if (type === "int64") return `${w}.varint64(${e.big}(${v},-9223372036854775808n,9223372036854775807n,"int64"))`;
+  if (type === "uint64") return `${w}.varint64(${e.big}(${v},0n,18446744073709551615n,"uint64"))`;
+  if (type === "sint64") return `s=${e.big}(${v},-9223372036854775808n,9223372036854775807n,"sint64");${w}.varint64((s<<1n)^(s>>63n))`;
+  if (type === "fixed32") return `${w}.bits32(${e.num}(${v},0,4294967295,"fixed32"))`;
+  if (type === "sfixed32") return `${w}.bits32(${e.num}(${v},-2147483648,2147483647,"sfixed32"))`;
+  if (type === "fixed64") return `${w}.bits64(BigInt.asUintN(64,${e.big}(${v},0n,18446744073709551615n,"fixed64")))`;
+  if (type === "sfixed64") return `${w}.bits64(BigInt.asUintN(64,${e.big}(${v},-9223372036854775808n,9223372036854775807n,"sfixed64")))`;
   if (type === "float") return `${w}.float32(${v})`;
   if (type === "double") return `${w}.float64(${v})`;
-  if (type === "string") return `b=e[3].encode(${v});${w}.varint32(b.length);${w}.fixed(b)`;
+  if (type === "string") return `b=${e.text}.encode(${v});${w}.varint32(b.length);${w}.fixed(b)`;
   return `s=${v};${w}.varint32(s.length);${w}.fixed(s)`;
 };
 
-const compileEncode = (message: Message): ((value: Record<string, unknown>) => Uint8Array) => {
-  const extras: unknown[] = [Writer, checkedNumber, checkedBigint, textEncoder];
-  const use = (value: unknown): string => {
-    extras.push(value);
-    return `e[${extras.length - 1}]`;
-  };
-  const body: string[] = ["var w=new e[0]", "var v", "var i", "var n", "var p", "var b", "var s"];
+const readCall = (type: ProtobufType, r: string, e: Embeds): string => {
+  if (type === "bool") return `${r}.varint32()!==0`;
+  if (type === "uint32") return `${r}.varint32()`;
+  if (type === "int32" || type === "enum") return `Number(BigInt.asIntN(32,${r}.varint64()))`;
+  if (type === "sint32") return `((t=${r}.varint32())>>>1^-(t&1))|0`;
+  if (type === "int64") return `BigInt.asIntN(64,${r}.varint64())`;
+  if (type === "uint64") return `BigInt.asUintN(64,${r}.varint64())`;
+  if (type === "sint64") return `(t=${r}.varint64(),BigInt.asIntN(64,(t>>1n)^-(t&1n)))`;
+  if (type === "double") return `${e.view}(${r}.fixed(8)).getFloat64(0,true)`;
+  if (type === "float") return `${e.view}(${r}.fixed(4)).getFloat32(0,true)`;
+  if (type === "fixed64") return `${e.view}(${r}.fixed(8)).getBigUint64(0,true)`;
+  if (type === "sfixed64") return `BigInt.asIntN(64,${e.view}(${r}.fixed(8)).getBigUint64(0,true))`;
+  if (type === "fixed32") return `${e.view}(${r}.fixed(4)).getUint32(0,true)`;
+  if (type === "sfixed32") return `${e.view}(${r}.fixed(4)).getUint32(0,true)|0`;
+  if (type === "string") return `${r}.string()`;
+  return `${r}.bytes()`;
+};
+
+const emitDefault = (field: Field, key: string): string => {
+  if (field.repeated) return `o[${key}]=[]`;
+  if (field.optional || field.type === "message") return "";
+  if (field.type === "string") return `o[${key}]=""`;
+  if (field.type === "bytes") return `o[${key}]=new Uint8Array`;
+  if (field.type === "bool") return `o[${key}]=!1`;
+  if (field.type.includes("64")) return `o[${key}]=0n`;
+  return `o[${key}]=0`;
+};
+
+const emitEncodeFn = (input: Val, message: Message, e: Embeds, fns: Map<Message, string>): string => {
+  const cached = fns.get(message);
+  if (cached !== U) return cached;
+  const name = B_varWithoutAllocation(input.g);
+  fns.set(message, name);
+  const body: string[] = ["var v,i,n,p,b,s,h"];
   for (let idx = 0; idx < message.fields.length; idx++) {
     const field = message.fields[idx]!;
     const key = JSON.stringify(field.key);
-    const tag = field.number * 8 + wireType(field.type);
+    const tag = field.number * 8 + field.wire;
     const packedTag = field.number * 8 + 2;
     if (field.repeated) {
-      body.push(`v=value[${key}];n=v.length;if(n){`);
+      let packed = "";
       if (packable[field.type]) {
-        body.push(`p=new e[0];i=0;while(i<n){${writeCall(field.type, "p", "v[i++]")}}b=p.finish();w.varint32(${packedTag});w.varint32(b.length);w.fixed(b)`);
+        packed = `p=new ${e.writer};i=0;while(i<n){${writeCall(field.type, "p", "v[i++]", e)}}b=p.finish();w.varint32(${packedTag});w.varint32(b.length);w.fixed(b)`;
       } else if (field.type === "message") {
-        const nested = use(compileEncode(field.message!));
-        body.push(`i=0;while(i<n){b=${nested}(v[i++]);w.varint32(${tag});w.varint32(b.length);w.fixed(b)}`);
+        const nested = emitEncodeFn(input, field.message!, e, fns);
+        packed = `i=0;while(i<n){w.varint32(${tag});h=w.begin();${nested}(w,v[i++]);w.end(h)}`;
       } else {
-        body.push(`i=0;while(i<n){w.varint32(${tag});${writeCall(field.type, "w", "v[i++]")}}`);
+        packed = `i=0;while(i<n){w.varint32(${tag});${writeCall(field.type, "w", "v[i++]", e)}}`;
       }
-      body.push(`}`);
+      body.push(`v=value[${key}];n=v.length;if(n){${packed}}`);
     } else if (field.type === "message") {
-      const nested = use(compileEncode(field.message!));
-      body.push(`v=value[${key}];if(v!=null){b=${nested}(v);w.varint32(${tag});w.varint32(b.length);w.fixed(b)}`);
+      const nested = emitEncodeFn(input, field.message!, e, fns);
+      body.push(`v=value[${key}];if(v!=null){w.varint32(${tag});h=w.begin();${nested}(w,v);w.end(h)}`);
     } else {
       const live =
         field.optional ? "v!=null"
         : field.type === "bytes" ? "v.length"
         : field.type === "float" || field.type === "double" ? "v||v!==v||Object.is(v,-0)"
-        : "v";
-      body.push(`v=value[${key}];if(${live}){w.varint32(${tag});${writeCall(field.type, "w", "v")}}`);
+        : field.type === "string" || field.type === "bool" || field.type.includes("64") ? "v"
+        : "(v=+v)";
+      const read = field.type.includes("64") || field.type === "string" || field.type === "bool" || field.type === "bytes" || field.optional || field.type === "float" || field.type === "double"
+        ? `v=value[${key}]`
+        : `v=value[${key}]`;
+      body.push(`${read};if(${live}){w.varint32(${tag});${writeCall(field.type, "w", "v", e)}}`);
     }
   }
-  body.push("return w.finish()");
-  return (new Function("e", `return function(value){${body.join(";")}}`) as (e: unknown[]) => (value: Record<string, unknown>) => Uint8Array)(extras);
+  return name;
 };
 
-const bridge = (input: Val, target: Internal, fn: (value: unknown) => unknown): Val => {
-  const expected = copySchema(input.e);
-  expected.to = target;
-  const output = B_conversion(fn, false, true)(B_refine(input, U, U, expected));
-  output.s = target;
-  output.e = target;
-  return output;
+const finishEncodeFn = (name: string, message: Message, e: Embeds, fns: Map<Message, string>, input: Val): string => {
+  emitEncodeFn(input, message, e, fns);
+  const parts: string[] = [];
+  fns.forEach((fnName, msg) => {
+    const body: string[] = ["var v,i,n,p,b,s,h"];
+    for (let idx = 0; idx < msg.fields.length; idx++) {
+      const field = msg.fields[idx]!;
+      const key = JSON.stringify(field.key);
+      const tag = field.number * 8 + field.wire;
+      const packedTag = field.number * 8 + 2;
+      if (field.repeated) {
+        let packed = "";
+        if (packable[field.type]) {
+          packed = `p=new ${e.writer};i=0;while(i<n){${writeCall(field.type, "p", "v[i++]", e)}}b=p.finish();w.varint32(${packedTag});w.varint32(b.length);w.fixed(b)`;
+        } else if (field.type === "message") {
+          const nested = fns.get(field.message!)!;
+          packed = `i=0;while(i<n){w.varint32(${tag});h=w.begin();${nested}(w,v[i++]);w.end(h)}`;
+        } else {
+          packed = `i=0;while(i<n){w.varint32(${tag});${writeCall(field.type, "w", "v[i++]", e)}}`;
+        }
+        body.push(`v=value[${key}];n=v.length;if(n){${packed}}`);
+      } else if (field.type === "message") {
+        const nested = fns.get(field.message!)!;
+        body.push(`v=value[${key}];if(v!=null){w.varint32(${tag});h=w.begin();${nested}(w,v);w.end(h)}`);
+      } else {
+        const live =
+          field.optional ? "v!=null"
+          : field.type === "bytes" ? "v.length"
+          : field.type === "float" || field.type === "double" ? "v||v!==v||Object.is(v,-0)"
+          : field.type === "string" || field.type === "bool" || field.type.includes("64") ? "v"
+          : "(v=+v)";
+        body.push(`v=value[${key}];if(${live}){w.varint32(${tag});${writeCall(field.type, "w", "v", e)}}`);
+      }
+    }
+    parts.push(`let ${fnName}=function(w,value){${body.join(";")}};`);
+  });
+  return parts.join(";");
+};
+
+const emitDecodeFn = (input: Val, message: Message, e: Embeds, fns: Map<Message, string>): string => {
+  const cached = fns.get(message);
+  if (cached !== U) return cached;
+  const name = B_varWithoutAllocation(input.g);
+  fns.set(message, name);
+  for (let idx = 0; idx < message.fields.length; idx++) {
+    const field = message.fields[idx]!;
+    if (field.message) emitDecodeFn(input, field.message, e, fns);
+  }
+  return name;
+};
+
+const finishDecodeFn = (message: Message, e: Embeds, fns: Map<Message, string>): string => {
+  const parts: string[] = [];
+  fns.forEach((fnName, msg) => {
+    const body: string[] = [
+      "if(d>=100)throw Error(\"protobuf message nesting limit exceeded\")",
+      "var o=Object.create(null),t,w,n,p,c,v",
+    ];
+    for (let idx = 0; idx < msg.fields.length; idx++) {
+      const def = emitDefault(msg.fields[idx]!, JSON.stringify(msg.fields[idx]!.key));
+      if (def) body.push(def);
+    }
+    const cases: string[] = [];
+    for (let idx = 0; idx < msg.fields.length; idx++) {
+      const field = msg.fields[idx]!;
+      const key = JSON.stringify(field.key);
+      const expected = field.wire;
+      let arm = `case ${field.number}:`;
+      if (field.repeated && packable[field.type]) {
+        arm += `if(w===2){p=r.length();while(p.pos<p.limit)o[${key}].push(${readCall(field.type, "p", e)});continue}if(w===${expected}){o[${key}].push(${readCall(field.type, "r", e)});continue}break;`;
+      } else if (field.type === "message") {
+        const nested = fns.get(field.message!)!;
+        arm += `if(w===2){c=r.length();v=${nested}(c,d+1);if(c.pos!==c.limit)throw Error("invalid nested protobuf message");`;
+        arm += field.repeated
+          ? `o[${key}].push(v);continue}break;`
+          : `if(o[${key}]!=null)${e.merge}(o[${key}],v);else o[${key}]=v;continue}break;`;
+      } else if (field.repeated) {
+        arm += `if(w===${expected}){o[${key}].push(${readCall(field.type, "r", e)});continue}break;`;
+      } else {
+        arm += `if(w===${expected}){o[${key}]=${readCall(field.type, "r", e)};continue}break;`;
+      }
+      cases.push(arm);
+    }
+    const miss = msg.strict ? `throw Error("unknown protobuf field "+n)` : `${e.skip}(r,w,n,0)`;
+    body.push(`while(r.pos<r.limit){t=r.tag();n=t>>>3;w=t&7;if(!n)throw Error("invalid protobuf field number");switch(n){${cases.join("")}}${miss}}`);
+    body.push("return o");
+    parts.push(`let ${fnName}=function(r,d){${body.join(";")}};`);
+  });
+  return parts.join(";");
 };
 
 const protobufDecoder = (input: Val): Val => {
   if (input.s.encoder === protobufEncoder) return instanceDecoder(input);
   const message = compileMessage(input.s);
   if (message === U) return B_unsupportedDecode(input, input.s, input.e);
-  const convert = getDecoder(message.schema, message.raw);
-  const encode = compileEncode(message);
-  return bridge(input, input.e, (value) =>
-    encode(convert(value) as Record<string, unknown>)
-  );
+  const e: Embeds = {
+    writer: B_embedPure(input, Writer),
+    reader: "",
+    skip: "",
+    view: "",
+    merge: "",
+    text: B_embedPure(input, textEncoder),
+    num: B_embed(input, checkedNumber),
+    big: B_embed(input, checkedBigint),
+  };
+  const value = input.v();
+  const outVar = B_varWithoutAllocation(input.g);
+  const wVar = B_varWithoutAllocation(input.g);
+  const fns = new Map<Message, string>();
+  const root = emitEncodeFn(input, message, e, fns);
+  const fnsCode = finishEncodeFn(root, message, e, fns, input);
+  const output = B_next(input, outVar, input.e, input.e);
+  output.v = _var;
+  output.cp = `let ${wVar}=new ${e.writer};${fnsCode}${root}(${wVar},${value});let ${outVar}=${wVar}.finish();`;
+  output.io = true;
+  return output;
 };
 
 const protobufEncoder = (input: Val, target: Internal): Val => {
   const message = compileMessage(target);
   if (message === U) return B_unsupportedDecode(input, input.s, target);
-  const convert = getDecoder(message.raw, message.schema);
-  return bridge(
-    input,
-    message.schema,
-    (value) => convert(decodeMessage(new Reader(value as Uint8Array), message)),
-  );
+  const e: Embeds = {
+    writer: "",
+    reader: B_embedPure(input, Reader),
+    skip: B_embed(input, skip),
+    view: B_embedPure(input, dataView),
+    merge: B_embedPure(input, mergeMessage),
+    text: "",
+    num: "",
+    big: "",
+  };
+  const bytes = input.v();
+  const outVar = B_varWithoutAllocation(input.g);
+  const fns = new Map<Message, string>();
+  const root = emitDecodeFn(input, message, e, fns);
+  const fnsCode = finishDecodeFn(message, e, fns);
+  const output = B_next(input, outVar, message.raw, message.schema);
+  output.v = _var;
+  output.cp = `${fnsCode}let ${outVar}=${root}(new ${e.reader}(${bytes}),0);`;
+  return output;
 };
 
 export const protobuf: Internal = /* @__PURE__ */ initSchema(instanceTag, protobufDecoder, (schema) => {

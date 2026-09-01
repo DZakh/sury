@@ -12,19 +12,19 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i["id"],v1=i["name"];typeof v0==="string"||e[0](v0);typeof v1==="string"||e[1](v1);let v2;try{v2=e[2]({id:v0,name:v1})}catch(x){e[3](x)}return v2}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[6](i);let v0=i["id"],v1=i["name"];typeof v0==="string"||e[0](v0);typeof v1==="string"||e[1](v1);let v2={id:v0,name:v1};let v4=new e[2];let v5=function(w,value){var v,i,n,p,b,s,h;v=value["id"];if((v=+v)){w.varint32(8);w.varint32(v>>>0)};v=value["name"];if(v){w.varint32(18);b=e[3].encode(v);w.varint32(b.length);w.fixed(b)}};v5(v4,v2);let v3=v4.finish();return v3}
     examples:
       coercion-and-text:
         input: '{ id: "150", name: "Ada" }'
         output: new Uint8Array([8, 150, 1, 18, 3, 65, 100, 97])
   decode:
-    expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}
+    expression: i=>{let v1=new e[0];let v2=function(w,value){var v,i,n,p,b,s,h;v=value["id"];if((v=+v)){w.varint32(8);w.varint32(v>>>0)};v=value["name"];if(v){w.varint32(18);b=e[1].encode(v);w.varint32(b.length);w.fixed(b)}};v2(v1,i);let v0=v1.finish();return v0}
     examples:
       trusted-object:
         input: '{ id: "0", name: "" }'
         output: new Uint8Array([])
   encode:
-    expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}
+    expression: i=>{let v1=function(r,d){if(d>=100)throw Error("protobuf message nesting limit exceeded");var o=Object.create(null),t,w,n,p,c,v;o["id"]=0;o["name"]="";while(r.pos<r.limit){t=r.tag();n=t>>>3;w=t&7;if(!n)throw Error("invalid protobuf field number");switch(n){case 1:if(w===0){o["id"]=r.varint32();continue}break;case 2:if(w===2){o["name"]=r.string();continue}break;}e[1](r,w,n,0)};return o};let v0=v1(new e[0](i),0);return {id:""+v0["id"],name:v0["name"]}}
     examples:
       wire-value:
         input: new Uint8Array([8, 150, 1, 18, 3, 65, 100, 97])
