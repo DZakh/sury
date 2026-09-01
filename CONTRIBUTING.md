@@ -340,16 +340,14 @@ instead of silently working around it.
   keywords at all — has no golden for the targets it differs on, and lands in
   `S_toJSONSchema_target_test.res` instead. A `jsonSchema.targets` map, or a
   per-spec target override, would keep it with the schema it belongs to.
-- An operation whose output holds a class instance (`S.uint8Array` decoding to
-  `Uint8Array`, `S.blob`/`S.file` to a `Blob`/`File`) can't be specced: the
-  golden writer raises "cannot represent a Uint8Array instance as spec source
-  code", and an op has no way to opt out — `_skip` is accepted under `vs.zod`
-  but crashes the run under `operations.<op>` (`Cannot convert undefined or null
-  to object`). Either teach the writer a constructor call for the common typed
-  arrays and binary containers, or make `_skip` legal on an operation with a
-  reason. It costs a whole direction of the content axis: the `codec-*` specs
-  for `S.uint8Array`, `S.base64`, `S.blob` and `S.file` carry codegen and error
-  cases only, and `tests/content_test.ts` holds the values instead.
+- An operation whose output holds a class instance other than `Uint8Array`
+  (`S.blob`/`S.file` to a `Blob`/`File`) can't be specced: the golden writer
+  raises "cannot represent a File instance as spec source code", and an op
+  has no way to opt out — `_skip` is accepted under `vs.zod` but crashes the
+  run under `operations.<op>` (`Cannot convert undefined or null to object`).
+  Teach the writer a constructor call for those binary containers, or make
+  `_skip` legal on an operation with a reason. `Uint8Array` now writes as
+  `new Uint8Array([…])`. Blob/File still live in `tests/content_test.ts`.
 - An example's `error` is matched verbatim, so one raised by the *platform*
   rather than by Sury pins that engine's wording: `new Blob([Symbol()])` says
   "Cannot convert a Symbol value to a string" on Node 22 and "The argument
