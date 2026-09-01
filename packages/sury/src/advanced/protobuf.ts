@@ -15,7 +15,6 @@ import { B_conversion, B_refine, B_unsupportedDecode } from "../builder";
 import { arrayFactory, objectDecoder } from "../composites";
 import { getDecoder, getOutputSchema, instanceDecoder } from "../parse";
 import { bigint, bool, float, int, integer, string } from "../primitives";
-import { uint8Array } from "./uint8Array";
 import type { ProtobufField, ProtobufType } from "./protobufField";
 
 type Field = ProtobufField & {
@@ -83,9 +82,13 @@ const unwrapOptional = (schema: Internal): [Internal, boolean] => {
   return hasUndefined && value !== U ? [value, true] : [output, false];
 };
 
+const bytesSchema: Internal = /* @__PURE__ */ initSchema(instanceTag, instanceDecoder, (s) => {
+  s.class = Uint8Array;
+});
+
 const scalarSchema = (type: ProtobufType): Internal => {
   if (type === "string") return string;
-  if (type === "bytes") return uint8Array;
+  if (type === "bytes") return bytesSchema;
   if (type === "bool") return bool;
   if (
     type === "int64" ||
