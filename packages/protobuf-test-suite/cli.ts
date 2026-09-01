@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { formatBench, runBench } from "./bench";
+import { formatHillclimb, runHillclimb } from "./hillclimb";
 import {
   type Golden,
   runSuite,
@@ -35,6 +36,7 @@ Commands:
   update     Rewrite goldens/coverage.json from the current run.
   report     Print every case id and its status.
   bench      Time encode/decode against protobufjs.
+  hillclimb  Frozen ruler. Median of 7 on tiny/typical/large vs protobufjs.
 
 protobufjs is the JS implementation that passes Google's official
 conformance suite. google-protobuf does not. Cases include the encoding-guide
@@ -55,6 +57,13 @@ const loadGolden = (): Golden => {
 
 if (cmd === "bench") {
   console.log(formatBench(runBench()));
+  process.exit(0);
+}
+
+if (cmd === "hillclimb") {
+  const score = runHillclimb();
+  console.log(formatHillclimb(score));
+  console.log(JSON.stringify(score));
   process.exit(0);
 }
 
