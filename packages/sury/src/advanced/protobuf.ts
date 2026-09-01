@@ -15,9 +15,11 @@ import { B_conversion, B_refine, B_unsupportedDecode } from "../builder";
 import { arrayFactory, objectDecoder } from "../composites";
 import { getDecoder, getOutputSchema, instanceDecoder } from "../parse";
 import { bigint, bool, float, int, integer, string } from "../primitives";
-import type { ProtobufField, ProtobufType } from "./protobufField";
+import type { ProtobufType } from "./protobufField";
 
-type Field = ProtobufField & {
+type Field = {
+  number: number;
+  type: ProtobufType;
   key: string;
   repeated: boolean;
   optional: boolean;
@@ -59,10 +61,10 @@ const wireType = (type: ProtobufType): number => {
   return 0;
 };
 
-const fieldMetadata = (schema: Internal): ProtobufField | undefined => {
+const fieldMetadata = (schema: Internal): { number: number; type: ProtobufType } | undefined => {
   let current: Internal | undefined = schema;
   while (current !== U) {
-    if (current.pb !== U) return current.pb as ProtobufField;
+    if (current.pb !== U) return current.pb as { number: number; type: ProtobufType };
     current = current.to;
   }
   return U;

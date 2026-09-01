@@ -1,4 +1,18 @@
-import { panic, type Internal, U, updateOutput } from "../base";
+import {
+  anyOfTag,
+  arrayTag,
+  bigintTag,
+  booleanTag,
+  instanceTag,
+  type Internal,
+  numberTag,
+  objectTag,
+  panic,
+  stringTag,
+  U,
+  undefinedTag,
+  updateOutput
+} from "../base";
 
 export type ProtobufType =
   | "double"
@@ -21,7 +35,7 @@ export type ProtobufType =
 
 export type ProtobufField = {
   number: number;
-  type: ProtobufType;
+  type?: ProtobufType;
 };
 
 const protobufTypes: Record<ProtobufType, true> = {
@@ -44,9 +58,48 @@ const protobufTypes: Record<ProtobufType, true> = {
   message: true,
 };
 
+const outputOf = (schema: Internal): Internal => {
+  while (schema.to) schema = schema.to;
+  return schema;
+};
+
+const peel = (schema: Internal): Internal => {
+  let output = outputOf(schema);
+  if (output.type === anyOfTag && output.anyOf !== U) {
+    let value: Internal | undefined = U;
+    let hasUndefined = false;
+    for (let idx = 0; idx < output.anyOf.length; idx++) {
+      const member = outputOf(output.anyOf[idx]!);
+      if (member.type === undefinedTag) hasUndefined = true;
+      else if (value === U) value = member;
+      else return output;
+    }
+    if (hasUndefined && value !== U) output = value;
+  }
+  if (output.type === arrayTag && typeof output.additionalItems === objectTag) {
+    return outputOf(output.additionalItems as Internal);
+  }
+  return output;
+};
+
+const inferType = (schema: Internal): ProtobufType | undefined => {
+  const shape = peel(schema);
+  if (shape.type === stringTag) return "string";
+  if (shape.type === booleanTag) return "bool";
+  if (shape.type === instanceTag && shape.class === Uint8Array) return "bytes";
+  if (shape.type === objectTag) return "message";
+  if (shape.type === bigintTag) return "int64";
+  if (shape.type === numberTag) {
+    if (shape.format === "int32") return "int32";
+    if (shape.format === "integer") return U;
+    return "double";
+  }
+  return U;
+};
+
 // @__NO_SIDE_EFFECTS__
-export const protobufField = (schema: Internal, field: ProtobufField): Internal => {
-  const number = field?.number;
+export const protobufField = (schema: Internal, field: number | ProtobufField): Internal => {
+  const number = typeof field === "number" ? field : field?.number;
   if (
     !Number.isInteger(number) ||
     number < 1 ||
@@ -55,7 +108,8 @@ export const protobufField = (schema: Internal, field: ProtobufField): Internal 
   ) {
     return panic(`S.protobufField requires a legal protobuf field number`);
   }
-  if (!field || protobufTypes[field.type] !== true) {
+  const type = typeof field === "number" || field.type === U ? inferType(schema) : field.type;
+  if (type === U || protobufTypes[type] !== true) {
     return panic(`S.protobufField requires a protobuf type`);
   }
   let current: Internal | undefined = schema;
@@ -66,6 +120,6 @@ export const protobufField = (schema: Internal, field: ProtobufField): Internal 
     current = current.to;
   }
   return updateOutput(schema, (mut) => {
-    mut.pb = { number, type: field.type } satisfies ProtobufField;
+    mut.pb = { number, type } satisfies ProtobufField;
   });
 };

@@ -200,3 +200,27 @@ test("protobufField validates field descriptors", (t) => {
   t.expect(() => field(S.int32, 536870912, "int32")).toThrow();
   t.expect(() => field(S.int32, 1.5, "int32")).toThrow();
 });
+
+test("protobufField infers type from the schema", (t) => {
+  const Child = S.schema({ n: S.int32.with(S.protobufField, 1) });
+  const Message = S.schema({
+    id: S.int32.with(S.protobufField, 1),
+    name: S.string.with(S.protobufField, 2),
+    active: S.boolean.with(S.protobufField, 3),
+    blob: S.uint8Array.with(S.protobufField, 4),
+    nested: Child.with(S.protobufField, 5),
+    zig: S.int32.with(S.protobufField, { number: 6, type: "sint32" }),
+  });
+  const encode = S.decoder(Message, S.protobuf);
+  const decode = S.decoder(S.protobuf, Message);
+  const value = {
+    id: 7,
+    name: "Ada",
+    active: true,
+    blob: new Uint8Array([1]),
+    nested: { n: 2 },
+    zig: -1,
+  };
+  t.expect(decode(encode(value))).toEqual(value);
+  t.expect(() => S.integer.with(S.protobufField, 1)).toThrow("S.protobufField requires a protobuf type");
+});

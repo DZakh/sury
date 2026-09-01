@@ -83,9 +83,9 @@ export type Schema<TInput = unknown, TOutput = TInput> = {
   with(
     protobufField: (
       schema: Schema<unknown, unknown>,
-      field: ProtobufField
+      field: number | ProtobufField
     ) => Schema<unknown, unknown>,
-    field: ProtobufField
+    field: number | ProtobufField
   ): Schema<TInput, TOutput>;
   // This overload is what both S.refine and S.shape resolve to under
   // overload matching — the exact mechanism that routes S.refine calls here
@@ -493,12 +493,12 @@ export type ProtobufType =
 
 export type ProtobufField = {
   number: number;
-  type: ProtobufType;
+  type?: ProtobufType;
 };
 
 export function protobufField<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,
-  field: ProtobufField
+  field: number | ProtobufField
 ): Schema<TInput, TOutput>;
 
 // `Blob` and `File` are ambient globals, from lib.dom or @types/node. Naming

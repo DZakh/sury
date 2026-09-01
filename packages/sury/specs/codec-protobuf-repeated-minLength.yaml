@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ items: S.array(S.schema({ n: S.int32.with(S.protobufField, {number: 1, type: "int32"}) })).with(S.minLength, 1).with(S.protobufField, {number: 1, type: "message"}) }).with(S.to, S.protobuf)'
   input: "{ items: [{ n: number; }, ...{ n: number; }[]]; }"
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 9504
+  instantiations: 9513
 jsonSchema:
   input: '{ type: "object", properties: { items: { items: { type: "object", properties: { n: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["n"] }, type: "array", minItems: 1 } }, required: ["items"] }'
   fromInputType: "{ items: { n: number; }[]; }"
