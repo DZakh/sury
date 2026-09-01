@@ -277,19 +277,23 @@ class Reader {
     return reader;
   }
   string(): string {
-    const child = this.length();
-    const bytes = child.fixed(child.limit - child.pos);
-    const len = bytes.length;
+    const len = this.varint32();
+    const start = this.pos;
+    const end = start + len;
+    if (end > this.limit) throw Error("truncated protobuf field");
+    const buf = this.buf;
+    this.pos = end;
     if (len < 32) {
       let s = "";
-      let i = 0;
-      for (; i < len; i++) {
-        const c = bytes[i]!;
+      let i = start;
+      for (; i < end; i++) {
+        const c = buf[i]!;
         if (c > 127) break;
         s += String.fromCharCode(c);
       }
-      if (i === len) return s;
+      if (i === end) return s;
     }
+    const bytes = buf.subarray(start, end);
     const text = textDecoder.decode(bytes);
     // Node 24 drops a leading U+FEFF even with ignoreBOM: false, and keeps it
     // with ignoreBOM: true, which is the opposite of WHATWG. Re-attach the BOM
@@ -306,8 +310,12 @@ class Reader {
     return text;
   }
   bytes(): Uint8Array {
-    const child = this.length();
-    return new Uint8Array(child.fixed(child.limit - child.pos));
+    const len = this.varint32();
+    const end = this.pos + len;
+    if (end > this.limit) throw Error("truncated protobuf field");
+    const value = new Uint8Array(this.buf.subarray(this.pos, end));
+    this.pos = end;
+    return value;
   }
 }
 
