@@ -12,13 +12,13 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[7](i);let v0=i["id"],v1=i["name"];typeof v0==="string"||e[0](v0);typeof v1==="string"||e[1](v1);let w=e[3].reset(),v,j,n,p,b,s,h;v=v0;if((v=+v)){w.varint32(8);w.varint32(v>>>0)};v=v1;if(v){w.varint32(18);b=e[4].encode(v);w.varint32(b.length);w.fixed(b)};let v2=w.finish();return v2}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[7](i);let v0=i["id"],v1=i["name"];typeof v0==="string"||e[0](v0);typeof v1==="string"||e[1](v1);let w=e[3].reset(),v,j,n,p,b,s,h;v=v0;if((v=+v)){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);w.varint32(v>>>0)};v=v1;if(v){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);b=e[4].encode(v);w.varint32(b.length);w.fixed(b)};let v2=w.finish();return v2}
     examples:
       coercion-and-text:
         input: '{ id: "150", name: "Ada" }'
         output: new Uint8Array([8, 150, 1, 18, 3, 65, 100, 97])
   decode:
-    expression: i=>{let w=e[1].reset(),v,j,n,p,b,s,h;v=i["id"];if((v=+v)){w.varint32(8);w.varint32(v>>>0)};v=i["name"];if(v){w.varint32(18);b=e[2].encode(v);w.varint32(b.length);w.fixed(b)};let v0=w.finish();return v0}
+    expression: i=>{let w=e[1].reset(),v,j,n,p,b,s,h;v=i["id"];if((v=+v)){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);w.varint32(v>>>0)};v=i["name"];if(v){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);b=e[2].encode(v);w.varint32(b.length);w.fixed(b)};let v0=w.finish();return v0}
     examples:
       trusted-object:
         input: '{ id: "0", name: "" }'

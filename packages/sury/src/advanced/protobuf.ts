@@ -477,6 +477,11 @@ type Embeds = {
   big: string;
 };
 
+const writeTag = (w: string, tag: number): string =>
+  tag < 128
+    ? `${w}.pos<${w}.buf.length?${w}.buf[${w}.pos++]=${tag}:${w}.varint32(${tag})`
+    : `${w}.varint32(${tag})`;
+
 const writeCall = (type: ProtobufType, w: string, v: string, e: Embeds): string => {
   if (type === "bool") return `${w}.varint32(${v}?1:0)`;
   if (type === "uint32") return `${w}.varint32(${v}>>>0)`;
@@ -541,19 +546,19 @@ const encodeBody = (msg: Message, e: Embeds, fns: Map<Message, string>, read: (k
     if (field.repeated) {
       let packed = "";
       if (packable[field.type]) {
-        packed = `p=new ${e.writer};j=0;while(j<n){${writeCall(field.type, "p", "v[j++]", e)}}b=p.finish();w.varint32(${packedTag});w.varint32(b.length);w.fixed(b)`;
+        packed = `p=new ${e.writer};j=0;while(j<n){${writeCall(field.type, "p", "v[j++]", e)}}b=p.finish();${writeTag("w", packedTag)};w.varint32(b.length);w.fixed(b)`;
       } else if (field.type === "message") {
         const nested = fns.get(field.message!)!;
-        packed = `j=0;while(j<n){w.varint32(${tag});h=w.begin();${nested}(w,v[j++]);w.end(h)}`;
+        packed = `j=0;while(j<n){${writeTag("w", tag)};h=w.begin();${nested}(w,v[j++]);w.end(h)}`;
       } else {
-        packed = `j=0;while(j<n){w.varint32(${tag});${writeCall(field.type, "w", "v[j++]", e)}}`;
+        packed = `j=0;while(j<n){${writeTag("w", tag)};${writeCall(field.type, "w", "v[j++]", e)}}`;
       }
       body.push(`v=${src};n=v.length;if(n){${packed}}`);
     } else if (field.type === "message") {
       const nested = fns.get(field.message!)!;
-      body.push(`v=${src};if(v!=null){w.varint32(${tag});h=w.begin();${nested}(w,v);w.end(h)}`);
+      body.push(`v=${src};if(v!=null){${writeTag("w", tag)};h=w.begin();${nested}(w,v);w.end(h)}`);
     } else {
-      body.push(`v=${src};if(${fieldLive(field)}){w.varint32(${tag});${writeCall(field.type, "w", "v", e)}}`);
+      body.push(`v=${src};if(${fieldLive(field)}){${writeTag("w", tag)};${writeCall(field.type, "w", "v", e)}}`);
     }
   }
   return body.join(";");
