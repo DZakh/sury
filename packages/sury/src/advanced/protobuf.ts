@@ -279,12 +279,23 @@ class Reader {
   string(): string {
     const child = this.length();
     const bytes = child.fixed(child.limit - child.pos);
+    const len = bytes.length;
+    if (len < 32) {
+      let s = "";
+      let i = 0;
+      for (; i < len; i++) {
+        const c = bytes[i]!;
+        if (c > 127) break;
+        s += String.fromCharCode(c);
+      }
+      if (i === len) return s;
+    }
     const text = textDecoder.decode(bytes);
     // Node 24 drops a leading U+FEFF even with ignoreBOM: false, and keeps it
     // with ignoreBOM: true, which is the opposite of WHATWG. Re-attach the BOM
     // when the bytes still have one and the decoder ate it.
     if (
-      bytes.length >= 3 &&
+      len >= 3 &&
       bytes[0] === 239 &&
       bytes[1] === 187 &&
       bytes[2] === 191 &&
