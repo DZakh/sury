@@ -384,7 +384,13 @@ class Writer {
     }
     this.buf[p] = n;
   }
+  reset(): Writer {
+    this.pos = 0;
+    return this;
+  }
 }
+
+const scratchWriter = /* @__PURE__ */ new Writer();
 
 const dataView = (bytes: Uint8Array): DataView => new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 
@@ -448,6 +454,7 @@ const checkedBigint = (value: unknown, min: bigint, max: bigint, type: string): 
 
 type Embeds = {
   writer: string;
+  wscratch: string;
   reader: string;
   skip: string;
   view: string;
@@ -639,6 +646,7 @@ const protobufDecoder = (input: Val): Val => {
   if (message === U) return B_unsupportedDecode(input, input.s, input.e);
   const e: Embeds = {
     writer: B_embedPure(input, Writer),
+    wscratch: B_embedPure(input, scratchWriter),
     reader: "",
     skip: "",
     view: "",
@@ -659,7 +667,7 @@ const protobufDecoder = (input: Val): Val => {
   const body = encodeBody(message, e, fns, readRoot);
   const output = B_next(input, outVar, input.e, input.e);
   output.v = _var;
-  output.cp = `${nestedCode}let w=new ${e.writer},v,j,n,p,b,s,h;${body};let ${outVar}=w.finish();`;
+  output.cp = `${nestedCode}let w=${e.wscratch}.reset(),v,j,n,p,b,s,h;${body};let ${outVar}=w.finish();`;
   output.io = true;
   return output;
 };
@@ -669,6 +677,7 @@ const protobufEncoder = (input: Val, target: Internal): Val => {
   if (message === U) return B_unsupportedDecode(input, input.s, target);
   const e: Embeds = {
     writer: "",
+    wscratch: "",
     reader: B_embedPure(input, Reader),
     skip: B_embed(input, skip),
     view: B_embedPure(input, dataView),
