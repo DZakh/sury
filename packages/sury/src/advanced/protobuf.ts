@@ -295,9 +295,6 @@ class Reader {
     }
     const bytes = buf.subarray(start, end);
     const text = textDecoder.decode(bytes);
-    // Node 24 drops a leading U+FEFF even with ignoreBOM: false, and keeps it
-    // with ignoreBOM: true, which is the opposite of WHATWG. Re-attach the BOM
-    // when the bytes still have one and the decoder ate it.
     if (
       len >= 3 &&
       bytes[0] === 239 &&
