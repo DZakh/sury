@@ -82,6 +82,19 @@ jobs:
 
       - run: pnpm compliance
 
+  protobuf-compliance:
+    name: Protobuf Test Suite
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.16.0
+          cache: "pnpm"
+      - run: pnpm install
+      - run: pnpm protobuf:compliance
+
   performance:
     name: Performance (PR)
     if: github.event_name == 'pull_request'

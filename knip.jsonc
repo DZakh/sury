@@ -46,6 +46,10 @@
       "entry": ["cli.ts"],
       "project": ["**/*.ts"]
     },
+    "packages/protobuf-test-suite": {
+      "entry": ["cli.ts"],
+      "project": ["**/*.ts"]
+    },
     "packages/e2e": {
       "entry": ["src/**/*.bench.ts", "vitest.config.mjs"],
       "project": ["src/**/*.ts"],

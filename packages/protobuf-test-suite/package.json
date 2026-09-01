@@ -1,0 +1,19 @@
+{
+  "name": "protobuf-test-suite",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Round-trips S.protobuf against protobufjs and holds the score to a committed golden",
+  "scripts": {
+    "compliance": "pnpm --filter=sury build:entry && tsx ./cli.ts"
+  },
+  "dependencies": {
+    "sury": "file:../sury"
+  },
+  "devDependencies": {
+    "@types/node": "20.19.41",
+    "protobufjs": "8.8.0",
+    "tsx": "4.22.4",
+    "typescript": "5.8.3"
+  }
+}
