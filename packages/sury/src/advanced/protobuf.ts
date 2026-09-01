@@ -356,6 +356,28 @@ class Writer {
     this.buf.set(value, this.pos);
     this.pos += value.length;
   }
+  string(v: string): void {
+    const len = v.length;
+    if (len < 32) {
+      let i = 0;
+      for (; i < len; i++) {
+        if (v.charCodeAt(i) > 127) break;
+      }
+      if (i === len) {
+        this.ensure(1 + len);
+        this.buf[this.pos++] = len;
+        for (i = 0; i < len; i++) this.buf[this.pos++] = v.charCodeAt(i);
+        return;
+      }
+    }
+    const b = textEncoder.encode(v);
+    const n = b.length;
+    this.ensure(5 + n);
+    if (n < 128) this.buf[this.pos++] = n;
+    else this.varint32(n);
+    this.buf.set(b, this.pos);
+    this.pos += n;
+  }
   float32(value: number): void {
     if (Number.isFinite(value) && Math.abs(value) > 3.4028234663852886e38) throw Error("invalid float");
     scratchView.setFloat32(0, value, true);
@@ -491,7 +513,6 @@ type Embeds = {
   skip: string;
   view: string;
   merge: string;
-  text: string;
   num: string;
   big: string;
 };
@@ -518,7 +539,7 @@ const writeCall = (type: ProtobufType, w: string, v: string, e: Embeds): string 
   if (type === "sfixed64") return `${w}.bits64(BigInt.asUintN(64,${e.big}(${v},-9223372036854775808n,9223372036854775807n,"sfixed64")))`;
   if (type === "float") return `${w}.float32(${v})`;
   if (type === "double") return `${w}.float64(${v})`;
-  if (type === "string") return `b=${e.text}.encode(${v});${writeVarint32(w, "b.length")};${w}.fixed(b)`;
+  if (type === "string") return `${w}.string(${v})`;
   return `s=${v};${writeVarint32(w, "s.length")};${w}.fixed(s)`;
 };
 
@@ -691,7 +712,6 @@ const protobufDecoder = (input: Val): Val => {
     skip: "",
     view: "",
     merge: "",
-    text: B_embedPure(input, textEncoder),
     num: B_embed(input, checkedNumber),
     big: B_embed(input, checkedBigint),
   };
@@ -722,7 +742,6 @@ const protobufEncoder = (input: Val, target: Internal): Val => {
     skip: B_embed(input, skip),
     view: B_embedPure(input, dataView),
     merge: B_embedPure(input, mergeMessage),
-    text: "",
     num: "",
     big: "",
   };
