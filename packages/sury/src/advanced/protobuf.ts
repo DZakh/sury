@@ -175,7 +175,18 @@ const textEncoder = /* @__PURE__ */ new TextEncoder();
 
 class Reader {
   pos = 0;
-  constructor(readonly buf: Uint8Array, readonly limit = buf.length) {}
+  buf: Uint8Array;
+  limit: number;
+  constructor(buf: Uint8Array, limit = buf.length) {
+    this.buf = buf;
+    this.limit = limit;
+  }
+  reset(buf: Uint8Array): Reader {
+    this.buf = buf;
+    this.pos = 0;
+    this.limit = buf.length;
+    return this;
+  }
   varint32(): number {
     const buf = this.buf;
     let pos = this.pos;
@@ -288,6 +299,8 @@ class Reader {
     return new Uint8Array(child.fixed(child.limit - child.pos));
   }
 }
+
+const scratchReader = /* @__PURE__ */ new Reader(new Uint8Array());
 
 const scratch = /* @__PURE__ */ new Uint8Array(8);
 const scratchView = /* @__PURE__ */ new DataView(scratch.buffer);
@@ -678,7 +691,7 @@ const protobufEncoder = (input: Val, target: Internal): Val => {
   const e: Embeds = {
     writer: "",
     wscratch: "",
-    reader: B_embedPure(input, Reader),
+    reader: B_embedPure(input, scratchReader),
     skip: B_embed(input, skip),
     view: B_embedPure(input, dataView),
     merge: B_embedPure(input, mergeMessage),
@@ -693,7 +706,7 @@ const protobufEncoder = (input: Val, target: Internal): Val => {
   const fnsCode = finishDecodeFn(message, e, fns);
   const output = B_next(input, outVar, message.raw, message.schema);
   output.v = _var;
-  output.cp = `${fnsCode}let ${outVar}=${root}(new ${e.reader}(${bytes}),0);`;
+  output.cp = `${fnsCode}let ${outVar}=${root}(${e.reader}.reset(${bytes}),0);`;
   return output;
 };
 

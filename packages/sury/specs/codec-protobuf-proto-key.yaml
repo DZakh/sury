@@ -24,7 +24,7 @@ operations:
         input: '{ ["__proto__"]: 1 }'
         output: new Uint8Array([8, 1])
   encode:
-    expression: i=>{let v1=function(r,d){if(d>=100)throw Error("protobuf message nesting limit exceeded");var o=Object.create(null),t,w,n,p,c,v;o["__proto__"]=0;while(r.pos<r.limit){t=r.tag();n=t>>>3;w=t&7;if(!n)throw Error("invalid protobuf field number");switch(n){case 1:if(w===0){o["__proto__"]=Number(BigInt.asIntN(32,r.varint64()));continue}break;}e[1](r,w,n,0)};return o};let v0=v1(new e[0](i),0);return v0}
+    expression: i=>{let v1=function(r,d){if(d>=100)throw Error("protobuf message nesting limit exceeded");var o=Object.create(null),t,w,n,p,c,v;o["__proto__"]=0;while(r.pos<r.limit){t=r.tag();n=t>>>3;w=t&7;if(!n)throw Error("invalid protobuf field number");switch(n){case 1:if(w===0){o["__proto__"]=Number(BigInt.asIntN(32,r.varint64()));continue}break;}e[1](r,w,n,0)};return o};let v0=v1(e[0].reset(i),0);return v0}
     examples:
       proto-key:
         input: new Uint8Array([8, 1])
