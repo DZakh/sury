@@ -503,84 +503,63 @@ const emitDefault = (field: Field, key: string): string => {
   return `o[${key}]=0`;
 };
 
+const fieldLive = (field: Field): string =>
+  field.optional ? "v!=null"
+  : field.type === "bytes" ? "v.length"
+  : field.type === "float" || field.type === "double" ? "v||v!==v||Object.is(v,-0)"
+  : field.type === "string" || field.type === "bool" || field.type.includes("64") ? "v"
+  : "(v=+v)";
+
+const encodeBody = (msg: Message, e: Embeds, fns: Map<Message, string>, read: (key: string) => string): string => {
+  const body: string[] = [];
+  for (let idx = 0; idx < msg.fields.length; idx++) {
+    const field = msg.fields[idx]!;
+    const key = field.key;
+    const tag = field.number * 8 + field.wire;
+    const packedTag = field.number * 8 + 2;
+    const src = read(key);
+    if (field.repeated) {
+      let packed = "";
+      if (packable[field.type]) {
+        packed = `p=new ${e.writer};j=0;while(j<n){${writeCall(field.type, "p", "v[j++]", e)}}b=p.finish();w.varint32(${packedTag});w.varint32(b.length);w.fixed(b)`;
+      } else if (field.type === "message") {
+        const nested = fns.get(field.message!)!;
+        packed = `j=0;while(j<n){w.varint32(${tag});h=w.begin();${nested}(w,v[j++]);w.end(h)}`;
+      } else {
+        packed = `j=0;while(j<n){w.varint32(${tag});${writeCall(field.type, "w", "v[j++]", e)}}`;
+      }
+      body.push(`v=${src};n=v.length;if(n){${packed}}`);
+    } else if (field.type === "message") {
+      const nested = fns.get(field.message!)!;
+      body.push(`v=${src};if(v!=null){w.varint32(${tag});h=w.begin();${nested}(w,v);w.end(h)}`);
+    } else {
+      body.push(`v=${src};if(${fieldLive(field)}){w.varint32(${tag});${writeCall(field.type, "w", "v", e)}}`);
+    }
+  }
+  return body.join(";");
+};
+
 const emitEncodeFn = (input: Val, message: Message, e: Embeds, fns: Map<Message, string>): string => {
   const cached = fns.get(message);
   if (cached !== U) return cached;
   const name = B_varWithoutAllocation(input.g);
   fns.set(message, name);
-  const body: string[] = ["var v,i,n,p,b,s,h"];
   for (let idx = 0; idx < message.fields.length; idx++) {
-    const field = message.fields[idx]!;
-    const key = JSON.stringify(field.key);
-    const tag = field.number * 8 + field.wire;
-    const packedTag = field.number * 8 + 2;
-    if (field.repeated) {
-      let packed = "";
-      if (packable[field.type]) {
-        packed = `p=new ${e.writer};i=0;while(i<n){${writeCall(field.type, "p", "v[i++]", e)}}b=p.finish();w.varint32(${packedTag});w.varint32(b.length);w.fixed(b)`;
-      } else if (field.type === "message") {
-        const nested = emitEncodeFn(input, field.message!, e, fns);
-        packed = `i=0;while(i<n){w.varint32(${tag});h=w.begin();${nested}(w,v[i++]);w.end(h)}`;
-      } else {
-        packed = `i=0;while(i<n){w.varint32(${tag});${writeCall(field.type, "w", "v[i++]", e)}}`;
-      }
-      body.push(`v=value[${key}];n=v.length;if(n){${packed}}`);
-    } else if (field.type === "message") {
-      const nested = emitEncodeFn(input, field.message!, e, fns);
-      body.push(`v=value[${key}];if(v!=null){w.varint32(${tag});h=w.begin();${nested}(w,v);w.end(h)}`);
-    } else {
-      const live =
-        field.optional ? "v!=null"
-        : field.type === "bytes" ? "v.length"
-        : field.type === "float" || field.type === "double" ? "v||v!==v||Object.is(v,-0)"
-        : field.type === "string" || field.type === "bool" || field.type.includes("64") ? "v"
-        : "(v=+v)";
-      const read = field.type.includes("64") || field.type === "string" || field.type === "bool" || field.type === "bytes" || field.optional || field.type === "float" || field.type === "double"
-        ? `v=value[${key}]`
-        : `v=value[${key}]`;
-      body.push(`${read};if(${live}){w.varint32(${tag});${writeCall(field.type, "w", "v", e)}}`);
-    }
+    const nested = message.fields[idx]!.message;
+    if (nested) emitEncodeFn(input, nested, e, fns);
   }
   return name;
 };
 
-const finishEncodeFn = (name: string, message: Message, e: Embeds, fns: Map<Message, string>, input: Val): string => {
+const finishEncodeFn = (message: Message, e: Embeds, fns: Map<Message, string>, input: Val): string => {
   emitEncodeFn(input, message, e, fns);
   const parts: string[] = [];
   fns.forEach((fnName, msg) => {
-    const body: string[] = ["var v,i,n,p,b,s,h"];
-    for (let idx = 0; idx < msg.fields.length; idx++) {
-      const field = msg.fields[idx]!;
-      const key = JSON.stringify(field.key);
-      const tag = field.number * 8 + field.wire;
-      const packedTag = field.number * 8 + 2;
-      if (field.repeated) {
-        let packed = "";
-        if (packable[field.type]) {
-          packed = `p=new ${e.writer};i=0;while(i<n){${writeCall(field.type, "p", "v[i++]", e)}}b=p.finish();w.varint32(${packedTag});w.varint32(b.length);w.fixed(b)`;
-        } else if (field.type === "message") {
-          const nested = fns.get(field.message!)!;
-          packed = `i=0;while(i<n){w.varint32(${tag});h=w.begin();${nested}(w,v[i++]);w.end(h)}`;
-        } else {
-          packed = `i=0;while(i<n){w.varint32(${tag});${writeCall(field.type, "w", "v[i++]", e)}}`;
-        }
-        body.push(`v=value[${key}];n=v.length;if(n){${packed}}`);
-      } else if (field.type === "message") {
-        const nested = fns.get(field.message!)!;
-        body.push(`v=value[${key}];if(v!=null){w.varint32(${tag});h=w.begin();${nested}(w,v);w.end(h)}`);
-      } else {
-        const live =
-          field.optional ? "v!=null"
-          : field.type === "bytes" ? "v.length"
-          : field.type === "float" || field.type === "double" ? "v||v!==v||Object.is(v,-0)"
-          : field.type === "string" || field.type === "bool" || field.type.includes("64") ? "v"
-          : "(v=+v)";
-        body.push(`v=value[${key}];if(${live}){w.varint32(${tag});${writeCall(field.type, "w", "v", e)}}`);
-      }
-    }
-    parts.push(`let ${fnName}=function(w,value){${body.join(";")}};`);
+    if (msg === message) return;
+    const fromValue = (key: string) => `value[${JSON.stringify(key)}]`;
+    parts.push(`let ${fnName}=function(w,value){var v,j,n,p,b,s,h;${encodeBody(msg, e, fns, fromValue)}};`);
   });
-  return parts.join(";");
+  return parts.join("");
 };
 
 const emitDecodeFn = (input: Val, message: Message, e: Embeds, fns: Map<Message, string>): string => {
@@ -635,9 +614,28 @@ const finishDecodeFn = (message: Message, e: Embeds, fns: Map<Message, string>):
   return parts.join(";");
 };
 
+const objectSchemaOf = (input: Val): Internal => {
+  if (input.s !== U && input.s.type === objectTag && input.s.properties !== U) return input.s;
+  let prev: Val | undefined = input.prev;
+  while (prev !== U) {
+    if (prev.s !== U && prev.s.type === objectTag && prev.s.properties !== U) return prev.s;
+    prev = prev.prev;
+  }
+  return input.s;
+};
+
+const fieldValsOf = (input: Val): Record<string, Val> | undefined => {
+  let current: Val | undefined = input;
+  while (current !== U) {
+    if (current.d !== U) return current.d;
+    current = current.prev;
+  }
+  return U;
+};
+
 const protobufDecoder = (input: Val): Val => {
   if (input.s.encoder === protobufEncoder) return instanceDecoder(input);
-  const message = compileMessage(input.s);
+  const message = compileMessage(objectSchemaOf(input));
   if (message === U) return B_unsupportedDecode(input, input.s, input.e);
   const e: Embeds = {
     writer: B_embedPure(input, Writer),
@@ -649,15 +647,19 @@ const protobufDecoder = (input: Val): Val => {
     num: B_embed(input, checkedNumber),
     big: B_embed(input, checkedBigint),
   };
-  const value = input.v();
+  const d = fieldValsOf(input);
+  const readRoot = (key: string): string => {
+    const fv = d !== U ? d[key] : U;
+    return fv !== U ? fv.i : `${input.v()}[${JSON.stringify(key)}]`;
+  };
   const outVar = B_varWithoutAllocation(input.g);
-  const wVar = B_varWithoutAllocation(input.g);
   const fns = new Map<Message, string>();
-  const root = emitEncodeFn(input, message, e, fns);
-  const fnsCode = finishEncodeFn(root, message, e, fns, input);
+  emitEncodeFn(input, message, e, fns);
+  const nestedCode = finishEncodeFn(message, e, fns, input);
+  const body = encodeBody(message, e, fns, readRoot);
   const output = B_next(input, outVar, input.e, input.e);
   output.v = _var;
-  output.cp = `let ${wVar}=new ${e.writer};${fnsCode}${root}(${wVar},${value});let ${outVar}=${wVar}.finish();`;
+  output.cp = `${nestedCode}let w=new ${e.writer},v,j,n,p,b,s,h;${body};let ${outVar}=w.finish();`;
   output.io = true;
   return output;
 };

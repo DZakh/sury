@@ -15,7 +15,7 @@ operations:
   parse:
     creationError: "SuryError: Can't decode { items: { n: int32; }[]; } to Uint8Array. Use S.to to define a custom decoder"
   decode:
-    expression: i=>{let v0=i["items"];v0.length>0||e[0](v0);let v4=new e[1];let v5=function(w,value){var v,i,n,p,b,s,h;v=value["items"];n=v.length;if(n){i=0;while(i<n){w.varint32(10);h=w.begin();v6(w,v[i++]);w.end(h)}}};;let v6=function(w,value){var v,i,n,p,b,s,h;v=value["n"];if((v=+v)){w.varint32(8);w.varint64(BigInt(v))}};v5(v4,i);let v3=v4.finish();return v3}
+    expression: i=>{let v0=i["items"];v0.length>0||e[0](v0);let v5=function(w,value){var v,j,n,p,b,s,h;v=value["n"];if((v=+v)){w.varint32(8);w.varint64(BigInt(v))}};let w=new e[1],v,j,n,p,b,s,h;v=v0;n=v.length;if(n){j=0;while(j<n){w.varint32(10);h=w.begin();v5(w,v[j++]);w.end(h)}};let v3=w.finish();return v3}
     examples:
       empty-items:
         input: "{ items: [] }"

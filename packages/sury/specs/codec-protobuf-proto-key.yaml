@@ -12,13 +12,13 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=(Object.hasOwn(i,"__proto__")?i["__proto__"]:void 0);typeof v0==="number"&&v0<=2147483647&&v0>=-2147483648&&v0%1===0||e[0](v0);let v1={["__proto__"]:v0};let v3=new e[1];let v4=function(w,value){var v,i,n,p,b,s,h;v=value["__proto__"];if((v=+v)){w.varint32(8);w.varint64(BigInt(v))}};v4(v3,v1);let v2=v3.finish();return v2}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=(Object.hasOwn(i,"__proto__")?i["__proto__"]:void 0);typeof v0==="number"&&v0<=2147483647&&v0>=-2147483648&&v0%1===0||e[0](v0);let w=new e[1],v,j,n,p,b,s,h;v=v0;if((v=+v)){w.varint32(8);w.varint64(BigInt(v))};let v1=w.finish();return v1}
     examples:
       proto-key:
         input: '{ ["__proto__"]: 1 }'
         output: new Uint8Array([8, 1])
   decode:
-    expression: i=>{let v1=new e[0];let v2=function(w,value){var v,i,n,p,b,s,h;v=value["__proto__"];if((v=+v)){w.varint32(8);w.varint64(BigInt(v))}};v2(v1,i);let v0=v1.finish();return v0}
+    expression: i=>{let w=new e[0],v,j,n,p,b,s,h;v=(Object.hasOwn(i,"__proto__")?i["__proto__"]:void 0);if((v=+v)){w.varint32(8);w.varint64(BigInt(v))};let v0=w.finish();return v0}
     examples:
       proto-key:
         input: '{ ["__proto__"]: 1 }'
