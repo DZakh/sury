@@ -68,9 +68,18 @@ importers:
       '@bufbuild/protobuf':
         specifier: ^2.14.1
         version: 2.14.1
+      '@protobuf-ts/runtime':
+        specifier: ^2.11.1
+        version: 2.11.1
       '@types/node':
         specifier: 20.19.41
         version: 20.19.41
+      esbuild:
+        specifier: 0.28.1
+        version: 0.28.1
+      google-protobuf:
+        specifier: ^4.0.2
+        version: 4.0.2
       pbf:
         specifier: ^5.1.2
         version: 5.1.2
@@ -623,6 +632,9 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@protobuf-ts/runtime@2.11.1':
+    resolution: {integrity: sha512-KuDaT1IfHkugM2pyz+FwiY80ejWrkH1pAtOBOZFuR6SXEFTsnb/jiQWQ1rCIrcKx2BtyxnxW6BWwsVSA/Ie+WQ==}
+
   '@rescript/darwin-arm64@12.2.0':
     resolution: {integrity: sha512-xc3K/J7Ujl1vPiFY2009mRf3kWRlUe/VZyJWprseKxlcEtUQv89ter7r6pY+YFbtYvA/fcaEncL9CVGEdattAg==}
     engines: {node: '>=20.11.0'}
@@ -1037,6 +1049,9 @@ packages:
     resolution: {integrity: sha512-r8hpEjiQEYlF2QU0df3dS+nxxSIreXQS1qRhMJM0Q5NDdR386C7jb7Hwwod8Fgiuex+k0GFjgft18yvxm5XoCQ==}
     engines: {node: '>=12'}
     deprecated: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+
+  google-protobuf@4.0.2:
+    resolution: {integrity: sha512-yD2fqbNgvJPuQwdKJiPdbUcXveNRxgqy070gzsBsCyFJA8Qdj9oxa9xtkddb/JEhcDk0RD5SfGUWg+nhINfMxA==}
 
   graceful-fs@4.2.11:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
@@ -1932,6 +1947,8 @@ snapshots:
   '@oxc-resolver/binding-win32-x64-msvc@11.21.3':
     optional: true
 
+  '@protobuf-ts/runtime@2.11.1': {}
+
   '@rescript/darwin-arm64@12.2.0': {}
 
   '@rescript/darwin-x64@12.2.0':
@@ -2312,6 +2329,8 @@ snapshots:
       inherits: 2.0.4
       minimatch: 5.1.9
       once: 1.4.0
+
+  google-protobuf@4.0.2: {}
 
   graceful-fs@4.2.11: {}
 

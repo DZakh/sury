@@ -166,7 +166,7 @@ type Library = { id: string; codec: (work: Workload, bytes: Uint8Array) => Promi
 const bigintsToLong = (fields: FieldDef[], value: Record<string, unknown>): Record<string, unknown> =>
   toPbjsValue(fields, value);
 
-const libraries: Library[] = [
+export const libraries: Library[] = [
   {
     id: "sury",
     codec: (work, bytes) => {
