@@ -38,6 +38,7 @@ import {
   B_addObjectField,
   B_dynamicScope,
   B_embed,
+  B_embedInvalidInput,
   B_markOutput,
   B_merge,
   B_mergeWithPathPrepend,
@@ -59,6 +60,7 @@ import {
   unsupportedInstance
 } from "../parse";
 import {
+ bool,
  string
 } from "../primitives";
 
@@ -71,6 +73,26 @@ const admitsEmpty = (schema: Internal): boolean =>
   schema.type === anyOfTag
     ? schema.anyOf!.some(admitsEmpty)
     : schema.type === stringTag && (schema.minLength === 0 || schema.const === "");
+
+// A required boolean field can only be a checkbox — nothing else a browser
+// sends is one — so it reads the way a checkbox submits: absent (or the empty
+// value) is `false`, and a present entry is `"on"`, or the `"true"`/`"false"`
+// a hidden input carries. An optional boolean keeps the tri-state, for a form
+// that tells "unchecked" from "not on the page".
+const isCheckbox = (schema: Internal): boolean =>
+  (tagFlags[schema.type]! & 8) !== 0 && schema.const === U;
+
+const readCheckbox = (item: Val, schema: Internal): Val => {
+  const v = item.i;
+  const outputVar = B_varWithoutAllocation(item.g);
+  const output = B_next(item, outputVar, bool, schema);
+  output.v = _var;
+  output.cp = `let ${outputVar};(${outputVar}=${v}==="on"||${v}==="true")||${v}==="false"||${v}===void 0||${B_embedInvalidInput(
+    item,
+    schema,
+  )};`;
+  return B_markOutput(output, item);
+};
 
 // A repeated key is how a form carries an array, and `getAll` is its read —
 // `[]` when the key is absent, never `undefined`.
@@ -130,9 +152,15 @@ const presentArm = (schema: Internal): Internal => {
 
 // `append` takes a string or a blob as it is; every other entry is the string
 // the value converts to, through the same encoders a JSON document uses.
-const appendValue = (val: Val, fdVar: string, keyText: string, fd: Internal): string => {
+// `field` marks the whole field, as opposed to an item or an optional's arm:
+// only there is a boolean the checkbox `readCheckbox` reads, so only there
+// does it write like one — `"on"` when set, nothing otherwise.
+const appendValue = (val: Val, fdVar: string, keyText: string, fd: Internal, field: boolean): string => {
   const schema = val.s;
   const tagFlag = tagFlags[schema.type]!;
+  if (field && isCheckbox(schema)) {
+    return `if(${val.i}){${fdVar}.append(${keyText},"on")}`;
+  }
   if ((tagFlag & 128) && typeof schema.additionalItems === "object" && !schema.items!.length) {
     const arrayVar = val.v();
     const iterVar = B_varWithoutAllocation(val.g);
@@ -145,7 +173,7 @@ const appendValue = (val: Val, fdVar: string, keyText: string, fd: Internal): st
       item,
       val,
       iterVar,
-      () => appendValue(item, fdVar, keyText, fd),
+      () => appendValue(item, fdVar, keyText, fd, false),
       raiseCountBefore,
     );
     return `for(let ${iterVar}=0;${iterVar}<${arrayVar}.length;++${iterVar}){${itemCode}}`;
@@ -159,7 +187,7 @@ const appendValue = (val: Val, fdVar: string, keyText: string, fd: Internal): st
     const detached = B_next(val, inputVar, presentSchema, presentSchema);
     detached.v = _var;
     detached.prev = U;
-    return `if(${inputVar}!==void 0){${appendValue(detached, fdVar, keyText, fd)}}`;
+    return `if(${inputVar}!==void 0){${appendValue(detached, fdVar, keyText, fd, false)}}`;
   }
   if ((tagFlag & 2) || ((tagFlag & 8192) && isBlobClass(schema.class))) {
     return `${fdVar}.append(${keyText},${val.i});`;
@@ -178,7 +206,7 @@ const objectToFormData = (input: Val): Val => {
   const properties = input.s.properties!;
   let code = `let ${fdVar}=new ${B_embed(input, input.e.class)}();`;
   for (const key in properties) {
-    code += appendValue(valGet(input, key), fdVar, inlinedValueFromString(key), input.e);
+    code += appendValue(valGet(input, key), fdVar, inlinedValueFromString(key), input.e, true);
   }
   const output = B_next(input, fdVar, input.e);
   output.v = _var;
@@ -223,6 +251,7 @@ const formDataToObject = (input: Val, target: Internal): Val => {
     const all = readsAll(schema);
     const raw = takesEntry(schema);
     const optionalText = !all && !raw && isOptional(schema);
+    const checkbox = !all && !raw && !optionalText && isCheckbox(schema);
     let expected = schema;
     if (all) {
       expected = presentArm(schema);
@@ -231,7 +260,7 @@ const formDataToObject = (input: Val, target: Internal): Val => {
         expected = copySchema(expected);
         expected.additionalItems = fromText(arrayItem);
       }
-    } else if (!raw && !optionalText) {
+    } else if (!raw && !optionalText && !checkbox) {
       expected = fromText(schema);
     }
     // A field val the way valGet builds one: hung off the parent rather than
@@ -268,7 +297,11 @@ const formDataToObject = (input: Val, target: Internal): Val => {
     // re-read (see _notVarAtParent) would otherwise call it again wherever a
     // derived val copied the expression before the check named the var.
     item.v();
-    B_addObjectField(objectVal, key, optionalText ? readOptionalText(item, schema) : parse(item));
+    B_addObjectField(
+      objectVal,
+      key,
+      optionalText ? readOptionalText(item, schema) : checkbox ? readCheckbox(item, schema) : parse(item),
+    );
   }
   return B_markOutput(completeObjectVal(objectVal), input);
 };

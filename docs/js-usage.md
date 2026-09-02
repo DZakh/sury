@@ -1116,7 +1116,8 @@ const signup = S.formData.with(
   S.schema({
     name: S.string,
     age: S.number, // "42" -> 42
-    newsletter: S.optional(S.boolean), // "true" -> true, absent -> undefined
+    agree: S.boolean, // a checkbox: "on" -> true, absent -> false
+    newsletter: S.optional(S.boolean), // tri-state: "true" -> true, absent -> undefined
     role: S.union(["admin", "user"]),
     tags: S.array(S.string), // every "tags" entry
     avatar: S.file,
@@ -1132,9 +1133,12 @@ S.encoder(signup)({ name: "Ann", age: 42, role: "user", tags: ["a"], avatar, pre
 ```
 
 A field reads its entry as text through the same coercions
-[`S.record(S.string)`](#records) gets, so numbers, booleans, literals, dates
-and `S.url` all work; `S.file` and `S.blob` take the entry as it is, and
-`S.array` reads every entry of the key. Nested objects have no wire form here:
+[`S.record(S.string)`](#records) gets, so numbers, literals, dates and `S.url`
+all work; `S.file` and `S.blob` take the entry as it is, and `S.array` reads
+every entry of the key. A required `S.boolean` is a checkbox, since nothing
+else a browser sends is one: absent reads as `false`, `"on"` (or `"true"`) as
+`true`, and it encodes as `"on"` or no entry. `S.optional(S.boolean)` keeps the
+tri-state for a form that tells "unchecked" from "not on the page". Nested objects have no wire form here:
 send them as a [`S.jsonString`](#advanced-schemas) field instead.
 
 An empty text input submits `""`, and the form reads it as absent: `S.optional`

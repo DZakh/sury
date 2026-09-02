@@ -1231,7 +1231,8 @@ let schema = S.formData->S.to(
 ```
 
 A field reads its entry as text through the same coercions `S.dict(S.string)`
-gets; `S.file` and `S.blob` take the entry as it is. An empty text input reads
+gets; `S.file` and `S.blob` take the entry as it is, and a required `S.bool` is
+a checkbox: absent is `false`, `"on"` is `true`. An empty text input reads
 as absent: `S.option` gets `None`, and a required string rejects it unless the
 field says the empty string is a value with `S.minLength(0)`. The type is
 abstract, since the stdlib has no `FormData` module; a value from a fetch

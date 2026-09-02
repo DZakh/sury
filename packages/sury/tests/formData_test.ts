@@ -43,7 +43,7 @@ test("an encode appends one entry per field, in field order, as text", () => {
   expect(entries(encoded)).toEqual([
     ["name", "Ann"],
     ["age", "42"],
-    ["agree", "true"],
+    ["agree", "on"],
     ["kind", "signup"],
     ["since", "2024-01-01T00:00:00.000Z"],
     ["id", "7"],
@@ -74,6 +74,20 @@ test("an absent optional is no entry, and a default fills the absent one back", 
   expect(S.decoder(schema)(new FormData())).toEqual({ nick: undefined, age: 18 });
   // The empty text input is the absent one.
   expect(S.decoder(schema)(form(["nick", ""], ["age", ""]))).toEqual({ nick: undefined, age: 18 });
+});
+
+test("a required boolean is a checkbox: on or nothing", () => {
+  const schema = S.formData.with(S.to, S.schema({ agree: S.boolean, notify: S.optional(S.boolean) }));
+  expect(entries(S.encoder(schema)({ agree: true, notify: false }))).toEqual([
+    ["agree", "on"],
+    ["notify", "false"],
+  ]);
+  expect(entries(S.encoder(schema)({ agree: false }))).toEqual([]);
+  expect(S.decoder(schema)(S.encoder(schema)({ agree: false, notify: true }))).toEqual({
+    agree: false,
+    notify: true,
+  });
+  expect(S.decoder(schema)(form(["agree", "on"]))).toEqual({ agree: true, notify: undefined });
 });
 
 test("an array is a repeated key, and an empty array is no entry", () => {

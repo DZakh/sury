@@ -508,6 +508,7 @@ export type FormData = typeof globalThis extends {
  * A form submission, converted to and from an object schema with `S.to`. A
  * field reads through the string coercions (`"42"` -> `S.number`), a `S.file`
  * field takes the entry as it is, and `S.array` reads every entry of the key.
+ * A required `S.boolean` is a checkbox: absent is `false`, `"on"` is `true`.
  * An empty text input reads as absent: `S.optional` takes it, a required
  * string rejects it unless it says `S.minLength(0)`. Encoding builds a
  * `FormData` with one `append` per field.

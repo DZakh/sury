@@ -333,8 +333,8 @@ of a form-data story. What they were built to make cheap, roughly in order:
   `S.minLength(0)`, and the reverse is `new FormData()` + one `append` per
   field. Still to do from the original sketch: `S.urlSearchParams` is the same
   code minus files, and `S.queryString` is to it what `S.jsonString` is to
-  `S.json`; `S.accepted` for the checkbox's `"on"`; a `S.record` target
-  (`entries()` into a dict). Two things it walked around rather than fixed,
+  `S.json`; a `S.record` target (`entries()` into a dict). The checkbox needs
+  no `S.accepted`: a required `S.boolean` is derived as one. Two things it walked around rather than fixed,
   each with the spec that pins it: `dict-to-object-optional-string` — the
   union rules reject `string -> string | undefined`, so the env pattern can't
   read an optional string field (the form codec converts the present arm on
