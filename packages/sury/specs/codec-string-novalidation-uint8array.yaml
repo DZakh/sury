@@ -12,7 +12,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{return e[0].encode(i)}
+    expression: i=>{return e[0](i)}
     examples:
       text:
         input: '"€"'

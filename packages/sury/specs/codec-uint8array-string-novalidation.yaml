@@ -27,7 +27,7 @@ operations:
         input: new Uint8Array([226, 130, 172])
         output: '"€"'
   encode:
-    expression: i=>{return e[0].encode(i)}
+    expression: i=>{return e[0](i)}
     examples:
       text:
         input: '"€"'

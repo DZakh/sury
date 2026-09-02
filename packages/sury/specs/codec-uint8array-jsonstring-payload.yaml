@@ -30,7 +30,7 @@ operations:
         input: new Uint8Array([123, 34, 115, 117, 98, 34, 58, 34, 97, 34, 125])
         output: '{ sub: "a" }'
   encode:
-    expression: i=>{let v0="{\"sub\":"+e[0](i["sub"])+"}";return e[1].encode(v0)}
+    expression: i=>{let v0="{\"sub\":"+e[0](i["sub"])+"}";return e[1](v0)}
     examples:
       claims:
         input: '{ sub: "a" }'

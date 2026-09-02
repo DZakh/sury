@@ -31,7 +31,8 @@ import {
 } from "../primitives";
 import {
  base64Content,
- bytesTarget
+ bytesTarget,
+ utf8Bytes
 } from "../refinements";
 
 // The decoder names `uint8Array` rather than the `init` callback's `s`: it is
@@ -49,7 +50,7 @@ export const uint8Array: Internal = /* @__PURE__ */ initSchema(
         input,
         toBytes
           ? `${B_embed(input, toBytes)}(${value})`
-          : `${B_embed(input, new TextEncoder())}.encode(${value})`,
+          : `${B_embed(input, utf8Bytes)}(${value})`,
         uint8Array,
       );
     }
