@@ -13,12 +13,13 @@ import {
   type Val,
 } from "../base";
 import {
+  B_asyncVal,
   B_collectAsync,
+  B_forOf,
   B_iterScope,
   B_markOutput,
   B_mergeWithPathPrepend,
   B_next,
-  B_pathPrependCode,
   B_refine,
   B_varWithoutAllocation,
 } from "../builder";
@@ -29,7 +30,7 @@ import { iterableSource, parse, parseDynamic } from "../parse";
 // and `new Map` consumes — the wire form, and the only place the key and value
 // schemas live.
 const entryFactory = (key: Internal, value: Internal): Internal => {
-  const mut = baseSchema(arrayTag, false, arrayDecoder);
+  const mut = baseSchema(arrayTag, !!(key.sr && value.sr), arrayDecoder);
   mut.items = [key, value];
   mut.additionalItems = "strict";
   return mut;
@@ -37,9 +38,7 @@ const entryFactory = (key: Internal, value: Internal): Internal => {
 
 // The entry hangs off `additionalItems`, where an array's item does, so that
 // `reverse` inverts it (and through it the key and value) without knowing this
-// schema exists — the rendering, the encoder and the entry loop all read it
-// back off the schema they are handed rather than closing over it, which is
-// what makes them follow the schema when it flips.
+// schema exists — see advanced/set.ts.
 //
 // Cross-module invariant: NOT on `items`. That field means "the tuple slots of
 // an array" to everything that pattern-matches a schema — union dispatch reads
@@ -61,24 +60,38 @@ const mapExpression = (schema: Internal): string => {
 const mapDecoder = (input: Val): Val => {
   const expected = input.e;
   const isArraySource = !!(tagFlags[input.s.type]! & 128);
-  // An array converts entry by entry, so its item has to BE an entry. Tested
-  // here rather than left to the loop: a source of plain numbers would
-  // otherwise compile, then read `undefined` out of every item at runtime.
+  const inputEntry = entryOf(input.s);
+  // An array converts entry by entry, so its item has to BE an entry — the
+  // exact `[key, value]` shape, since `new Map` reads two slots and ignores the
+  // rest, and the reverse direction (a tuple with more slots decoded from the
+  // pair) has nothing to fill them with. Tested here rather than left to the
+  // loop: a source of plain numbers would otherwise compile, then read
+  // `undefined` out of every item at runtime.
   const source = iterableSource(
     input,
     unknownMap,
-    isArraySource && entryOf(input.s)?.type === arrayTag,
+    isArraySource &&
+      inputEntry !== U &&
+      inputEntry.items?.length === 2 &&
+      inputEntry.additionalItems === "strict",
   );
 
   const entryVar = B_varWithoutAllocation(source.g);
   const sourceVar = source.v();
-  const location = `${entryVar}[0]`;
   const fromEntry = entryOf(source.s);
   const toEntry = entryOf(expected);
+  const toKey = itemAt(toEntry, 0);
+  // A failing entry is located by its key when the key is what a path is made
+  // of — a string or a number, on a Map that has it as a key already. Anything
+  // else (an object key, a Date, a source array whose own errors count) is
+  // located by its position, as a Set item is.
+  const byKey = !isArraySource && !!(tagFlags[toKey.type]! & (2 | 4));
+  const indexVar = byKey ? "" : B_varWithoutAllocation(source.g);
+  const location = byKey ? `${entryVar}[0]` : indexVar;
 
   const raiseCountBefore = source.g.t;
   const keyOutput = parseDynamic(
-    B_iterScope(source, location, itemAt(fromEntry, 0), itemAt(toEntry, 0)),
+    B_iterScope(source, `${entryVar}[0]`, itemAt(fromEntry, 0), toKey),
   );
   const valueScope = B_iterScope(
     source,
@@ -94,9 +107,6 @@ const mapDecoder = (input: Val): Val => {
 
   const isAsync = !!((keyOutput.f | valueOutput.f) & 1);
   const hasTransform = keyOutput.t === true || valueOutput.t === true;
-  // An array source is a different value, so it is rebuilt even when the
-  // entries pass through untouched. An async entry can't be `set` as it
-  // arrives, so it accumulates into an array that `Promise.all` resolves.
   const rebuild = isArraySource || hasTransform || isAsync;
   // Nothing to do per entry: the wire array already IS the entry list, so the
   // constructor does the whole rebuild and the loop is left to validation.
@@ -111,43 +121,41 @@ const mapDecoder = (input: Val): Val => {
       )
     : B_refine(source, expected);
   const outVar = rebuild && !fromSource ? out.v() : "";
-  // An async key hands its promise to `Promise.all` unwrapped, so the merge's
-  // own wrap (which only ever reaches the val it merges — the value) never
-  // names where it failed.
-  const keyErrorVar = isAsync ? B_varWithoutAllocation(source.g) : "";
+
+  // An async entry is one promise over both halves, so the merge's own catch —
+  // which reaches only the val it is handed — names where either failed. Both
+  // are read into variables here, ahead of the merge that would otherwise
+  // materialize them under other names.
+  const entry = isAsync
+    ? B_asyncVal(valueOutput, `Promise.all([${keyOutput.v()},${valueOutput.v()}])`)
+    : valueOutput;
+  const canThrow = (): boolean => source.g.t !== raiseCountBefore;
   // Lazy: merging an entry can rename the val it produces (materialization)
-  // and can wrap an async one in a `.catch`, both after this is decided.
-  const append = (): string => {
-    if (!isAsync) {
-      return `${outVar}.set(${keyOutput.i},${valueOutput.i});`;
-    }
-    const key = (keyOutput.f & 1)
-      ? `${keyOutput.i}.catch(${keyErrorVar}=>{${B_pathPrependCode(source, location, keyErrorVar)};throw ${keyErrorVar}})`
-      : keyOutput.i;
-    return `${outVar}.push(Promise.all([${key},${valueOutput.i}]));`;
-  };
+  // and wraps an async one in a `.catch`, both after this is decided.
+  const append = (): string =>
+    `${
+      outVar
+        ? `${outVar}.${isAsync ? `push(${entry.i})` : `set(${keyOutput.i},${valueOutput.i})`};`
+        : ""
+    }${!byKey && canThrow() && !isAsync ? `${indexVar}++;` : ""}`;
 
   // The count sampled above tells an entry that can fail — and so needs itself
   // located in the path — from one that can't: a check embeds its failure as it
   // is emitted, a recursive reference embeds its operation as it is built, and
   // the sample precedes both.
-  const body = B_mergeWithPathPrepend(
-    valueOutput,
-    source,
-    location,
-    outVar ? append : U,
-    raiseCountBefore,
+  const body = B_mergeWithPathPrepend(entry, source, location, append, raiseCountBefore);
+  const counted = !byKey && canThrow();
+  B_forOf(
+    out,
+    entryVar,
+    sourceVar,
+    body,
+    counted,
+    indexVar,
+    counted && isAsync ? B_varWithoutAllocation(source.g) : indexVar,
   );
 
-  if (body !== "") {
-    out.cp = out.cp + `for(let ${entryVar} of ${sourceVar}){${body}}`;
-  }
-
-  // `source`, not `input`: an input-side refine or size bound belongs to the
-  // Map that came in, and only a val with a `prev` puts it before the loop —
-  // handed the bare operation arg, B_markOutput defers it past the rebuild and
-  // bounds the result instead (arrayDecoder passes its refined val for the
-  // same reason).
+  // `source`, not `input` — see iterableSource.
   return B_markOutput(isAsync ? B_collectAsync(out, "Map", outSchema) : out, source);
 };
 

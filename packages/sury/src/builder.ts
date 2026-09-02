@@ -607,7 +607,7 @@ export const B_dynamicScope = (from: Val, locationVar: string): Val => {
 }
 
 // B_dynamicScope for a container iterated by value rather than by index: the
-// loop variable IS the item (`for (const v1 of set)`), so there's no location
+// loop variable IS the item (`for (let v1 of set)`), so there's no location
 // to read the item back through and no `additionalItems` to take the schemas
 // from — both sides are passed in. Same fresh-root shape otherwise: no `prev`,
 // so merging the body stops at the loop.
@@ -640,6 +640,30 @@ export const B_iterScope = (
     g: from.g,
     o: U,
   };
+}
+
+// The loop of a container iterated by value, once its body is merged. A body
+// that can fail is located by position: `counterVar` counts the iterations,
+// and an async body — whose failure is read from a `.catch` that outlives the
+// iteration — gets the count copied into a binding of its own, `indexVar`. A
+// sync body advances `indexVar` itself, at its end, so the two are the same
+// var and the count is still the failing position when the throw is caught.
+export const B_forOf = (
+  out: Val,
+  itemVar: string,
+  sourceVar: string,
+  body: string,
+  counted: boolean,
+  indexVar: string,
+  counterVar: string,
+): void => {
+  if (body !== "") {
+    out.cp =
+      out.cp +
+      `${counted ? `let ${counterVar}=0;` : ""}for(let ${itemVar} of ${sourceVar}){${
+        counted && indexVar !== counterVar ? `let ${indexVar}=${counterVar}++;` : ""
+      }${body}}`;
+  }
 }
 
 export const B_nextConst = (from: Val, schema: Internal, expected?: Internal): Val =>
@@ -897,7 +921,10 @@ const B_mergeWithCatch = (
     // FIXME: Instead of this wrap every custom coder in a try/catch
     !(val.f & 1) // 1
   ) {
-    return appendSafe ? valCode + appendSafe() : pure ? "" : valCode;
+    // An append that turns out empty (a counted loop that has nothing to
+    // count) leaves a pure body as dead as no append at all.
+    const appended = appendSafe ? appendSafe() : "";
+    return pure && appended === "" ? "" : valCode + appended;
   }
   const errorVar = B_varWithoutAllocation(val.g);
   B_markThrow(val);
@@ -905,26 +932,6 @@ const B_mergeWithCatch = (
   if (val.f & 1) val.i = `${val.i}.catch(${errorVar}=>{${catchCode}})`;
   return `try{${valCode}${appendSafe ? appendSafe() : ""}}catch(${errorVar}){${catchCode}}`;
 }
-
-// A container that hands its parent a *promise* has to emit this prepend
-// itself — the merge only ever wraps the one val it is given, and an entry made
-// of two vals (advanced/map.ts) has a second promise the wrap never reaches.
-// Kept inline rather than shared with that caller: a helper both reach costs
-// every export that merges anything, for one container's concern.
-// Names where a caught error happened: the enclosing path's static segments,
-// the dynamic location, then whatever the error already carried. Its own
-// export because a container that hands its parent a *promise* has to attach
-// the same prepend itself — the merge only ever wraps the one val it is given,
-// and a Map entry has a second promise (advanced/map.ts) the wrap never reaches.
-export const B_pathPrependCode = (parent: Val, locationVar: string | undefined, errorVar: string): string => {
-  let segments = "";
-  for (let idx = 0; idx < parent.path.length; idx++) {
-    const segment = parent.path[idx]!;
-    segments += `${typeof segment === "string" ? inlinedValueFromString(segment) : segment},`;
-  }
-  if (locationVar !== U) segments += `${locationVar},`;
-  return `${errorVar}.path=[${segments}...${errorVar}.path]`;
-};
 
 export const B_mergeWithPathPrepend = (
   val: Val,
@@ -937,7 +944,17 @@ export const B_mergeWithPathPrepend = (
     ? B_merge(val)
     : B_mergeWithCatch(
         val,
-        (errorVar) => B_pathPrependCode(parent, locationVar, errorVar),
+        (errorVar) => {
+          let segments = "";
+          for (let idx = 0; idx < parent.path.length; idx++) {
+            const segment = parent.path[idx]!;
+            segments += `${typeof segment === "string" ? inlinedValueFromString(segment) : segment},`;
+          }
+          if (locationVar !== U) {
+            segments += `${locationVar},`;
+          }
+          return `${errorVar}.path=[${segments}...${errorVar}.path]`;
+        },
         appendSafe,
         pureSince,
       );

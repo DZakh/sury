@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.map(S.schema({ id: S.number }), S.string)"
+  input: "Map<{ id: number; }, string>"
+  output: "Map<{ id: number; }, string>"
+  instantiations: 2038
+jsonSchema:
+  input: "Expected JSON, received Map<{ id: number; }, string>"
+  output: "Expected JSON, received Map<{ id: number; }, string>"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{i instanceof e[3]||e[4](i);let v4=new Map;let v1=0;for(let v0 of i){try{let v2=v0[0];typeof v2==="object"&&v2&&!Array.isArray(v2)||e[2](v2);let v3=v2["id"];typeof v3==="number"&&v3===v3||e[0](v3);let v5=v0[1];typeof v5==="string"||e[1](v5);v4.set({id:v3},v5);v1++;}catch(v6){v6.path=[v1,...v6.path];throw v6}}return v4}
+    examples:
+      valid:
+        input: 'new Map([[{ id: 1 }, "a"]])'
+        output: 'new Map([[{ id: 1 }, "a"]])'
+      invalid-value-is-located-by-position:
+        input: 'new Map([[{ id: 1 }, "a"], [{ id: 2 }, 3]])'
+        error: "Failed at [1]: Expected string, received 3"
+      invalid-key-is-located-by-position:
+        input: 'new Map([[{ id: "x" }, "a"]])'
+        error: 'Failed at [0].id: Expected number, received "x"'
+  decode: identity
+  encode: identity

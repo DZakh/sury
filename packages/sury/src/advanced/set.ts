@@ -14,6 +14,7 @@ import {
 import {
   _var,
   B_collectAsync,
+  B_forOf,
   B_iterScope,
   B_markOutput,
   B_mergeWithPathPrepend,
@@ -52,9 +53,8 @@ const setDecoder = (input: Val): Val => {
   const itemOutput = parseDynamic(itemInput);
   const isAsync = !!(itemOutput.f & 1);
   const hasTransform = itemOutput.t === true;
-  // An array source is a different value, so it is rebuilt even when the items
-  // pass through untouched. An async item can't be `add`ed as it arrives, so it
-  // accumulates into an array that `Promise.all` resolves.
+  // An async item can't be `add`ed as it arrives, so it accumulates into an
+  // array that `Promise.all` resolves.
   const rebuild = isArraySource || hasTransform || isAsync;
   // Nothing to do per item: the constructor does the whole rebuild, and the
   // loop is left to whatever validation the items still need.
@@ -81,10 +81,6 @@ const setDecoder = (input: Val): Val => {
   // where a recursive reference embeds its operation as it is built — the count
   // is sampled before both, so neither escapes the test.
   const indexVar = B_varWithoutAllocation(source.g);
-  // An async item reads its location from inside a `.catch` closure that
-  // outlives the iteration, so the location it reads has to be a binding the
-  // loop body owns — the counter itself is one binding shared by every
-  // iteration, and by rejection time it holds the final count.
   const counterVar = isAsync ? B_varWithoutAllocation(source.g) : indexVar;
   const canThrow = (): boolean => source.g.t !== raiseCountBefore;
   const body = B_mergeWithPathPrepend(
@@ -94,21 +90,9 @@ const setDecoder = (input: Val): Val => {
     () => `${add()}${canThrow() && !isAsync ? `${indexVar}++;` : ""}`,
     raiseCountBefore,
   );
+  B_forOf(out, itemVar, sourceVar, body, canThrow(), indexVar, counterVar);
 
-  if (body !== "") {
-    const counted = canThrow();
-    out.cp =
-      out.cp +
-      `${counted ? `let ${counterVar}=0;` : ""}for(let ${itemVar} of ${sourceVar}){${
-        counted && isAsync ? `let ${indexVar}=${counterVar}++;` : ""
-      }${body}}`;
-  }
-
-  // `source`, not `input`: an input-side refine or size bound belongs to the
-  // Set that came in, and only a val with a `prev` puts it before the loop —
-  // handed the bare operation arg, B_markOutput defers it past the rebuild and
-  // bounds the result instead (arrayDecoder passes its refined val for the same
-  // reason).
+  // `source`, not `input` — see iterableSource.
   return B_markOutput(isAsync ? B_collectAsync(out, "Set", outSchema) : out, source);
 };
 

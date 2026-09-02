@@ -1035,7 +1035,7 @@ const tagsSchema = S.set(S.string);
 type Tags = S.Infer<typeof tagsSchema>; // Set<string>
 
 S.parser(tagsSchema)(new Set(["a", "b"])); // Set { "a", "b" }
-S.parser(tagsSchema)(new Set(["a", 2])); // throws S.Error: Failed at 1: Expected string, received 2
+S.parser(tagsSchema)(new Set(["a", 2])); // throws S.Error: Failed at [1]: Expected string, received 2
 S.parser(tagsSchema)(["a"]); // throws S.Error: Expected Set<string>, received ["a"]
 ```
 
@@ -1080,8 +1080,10 @@ S.parser(scoresSchema)(new Map([["a", 1]])); // Map { "a" => 1 }
 S.parser(scoresSchema)(new Map([["a", "1"]])); // throws S.Error: Failed at a: Expected number, received "1"
 ```
 
-A failing entry is located by its key. The number of entries is bounded with
-`S.minSize`, `S.maxSize` and `S.size`, as a `Set`'s is.
+A failing entry is located by its key when the key schema is a string or a
+number; any other key (an object, a `Date`) locates it by position instead, as
+a `Set` item is. The number of entries is bounded with `S.minSize`, `S.maxSize`
+and `S.size`, as a `Set`'s is.
 
 Its wire form is an array of `[key, value]` entries:
 

@@ -30,7 +30,7 @@ operations:
         input: new Map([["1970-01-01T00:00:00.000Z", 1]])
         output: new Map([[new Date("1970-01-01T00:00:00.000Z"), 1]])
   encode:
-    expression: i=>{let v1=new Map;for(let v0 of i){try{let v2=v0[0].toISOString();e[0].test(v2)||e[1](v2);v1.set(v2,v0[1]);}catch(v3){v3.path=[v0[0],...v3.path];throw v3}}return v1}
+    expression: i=>{let v2=new Map;let v1=0;for(let v0 of i){try{let v3=v0[0].toISOString();e[0].test(v3)||e[1](v3);v2.set(v3,v0[1]);v1++;}catch(v4){v4.path=[v1,...v4.path];throw v4}}return v2}
     examples:
       valid:
         input: new Map([[new Date("1970-01-01T00:00:00.000Z"), 1]])
