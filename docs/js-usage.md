@@ -59,6 +59,7 @@
   - [`name`](#name)
   - [`inputExpression`](#inputexpression)
   - [`outputExpression`](#outputexpression)
+  - [`pathToText`](#pathtotext)
   - [`toString`](#tostring)
 - [Error handling](#error-handling)
 - [Global config](#global-config)
@@ -99,7 +100,7 @@ Invalid data throws `S.Error`:
 
 ```ts
 S.parser(playerSchema)({ username: "billie", xp: "not a number" });
-// => throws S.Error: Failed at ["xp"]: Expected number, received "not a number"
+// => throws S.Error: Failed at xp: Expected number, received "not a number"
 ```
 
 Use `S.safe` / `S.safeAsync` if you'd rather have a result than an exception — see [Error handling](#error-handling).
@@ -232,7 +233,7 @@ const comment = S.fromJSONSchema({
 // S.Schema<{ text: string; replies?: ...[] | undefined }>
 
 S.assert(comment, { text: "hi", replies: [{ text: 1 }] });
-// Throws S.Error: Failed at ["replies"]["0"]["text"]: Expected string, received 1
+// Throws S.Error: Failed at replies[0].text: Expected string, received 1
 ```
 
 `$defs` and `definitions` pointers are named in the type; one on any other path (`#/components/schemas/Pet`) is validated the same, but typed as `S.JSON`.
@@ -1799,6 +1800,18 @@ S.outputExpression(schema);
 The same expression for the schema's output type.
 
 > 🧠 The format is subject to change
+
+### **`pathToText`**
+
+```ts
+S.pathToText(["user", "tags", 2]);
+// "user.tags[2]"
+
+S.pathToText(["my key"]);
+// '["my key"]'
+```
+
+Renders an error's `path` array the way `error.message` shows it — dots for identifier-safe keys, brackets for indices and anything else. Useful when building your own messages from `error.path` or a Standard Schema issue's `path`.
 
 ### **`toString`**
 

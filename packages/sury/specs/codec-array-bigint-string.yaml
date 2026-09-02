@@ -12,14 +12,14 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{Array.isArray(i)||e[1](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];typeof v1==="bigint"||e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}let v4=new Array(i.length);for(let v3=0;v3<i.length;++v3){v4[v3]=""+i[v3]}return v4}
+    expression: i=>{Array.isArray(i)||e[1](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];typeof v1==="bigint"||e[0](v1);}catch(v2){v2.path=[v0,...v2.path];throw v2}}let v4=new Array(i.length);for(let v3=0;v3<i.length;++v3){v4[v3]=""+i[v3]}return v4}
     examples:
       valid:
         input: "[123n]"
         output: '["123"]'
       not-a-bigint-item:
         input: '["123"]'
-        error: 'Failed at ["0"]: Expected bigint, received "123"'
+        error: 'Failed at [0]: Expected bigint, received "123"'
   decode:
     expression: i=>{let v2=new Array(i.length);for(let v1=0;v1<i.length;++v1){v2[v1]=""+i[v1]}return v2}
     examples:
@@ -27,11 +27,11 @@ operations:
         input: "[123n]"
         output: '["123"]'
   encode:
-    expression: i=>{let v5=new Array(i.length);for(let v1=0;v1<i.length;++v1){try{let v3=i[v1];let v2;try{v2=BigInt(v3)}catch(_){e[0](v3)}v5[v1]=v2}catch(v4){v4.path='["'+v1+'"]'+v4.path;throw v4}}return v5}
+    expression: i=>{let v5=new Array(i.length);for(let v1=0;v1<i.length;++v1){try{let v3=i[v1];let v2;try{v2=BigInt(v3)}catch(_){e[0](v3)}v5[v1]=v2}catch(v4){v4.path=[v1,...v4.path];throw v4}}return v5}
     examples:
       valid:
         input: '["123"]'
         output: "[123n]"
       not-numeric-text:
         input: '["abc"]'
-        error: 'Failed at ["0"]: Expected bigint, received "abc"'
+        error: 'Failed at [0]: Expected bigint, received "abc"'

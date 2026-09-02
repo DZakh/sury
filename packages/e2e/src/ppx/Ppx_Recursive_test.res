@@ -118,7 +118,7 @@ test("Type-level attributes apply to self-references too", t => {
       {"id": "1", "kids": [{"id": "2", "kids": [], "extra": true}]}
       ->S.parseOrThrow(~to=strictNodeSchema)
       ->ignore,
-    `Failed at ["kids"]["0"]: Unrecognized key "extra"`,
+    `Failed at kids[0]: Unrecognized key "extra"`,
   )
 })
 

@@ -19,7 +19,7 @@ operations:
         output: new Uint8Array([8, 1])
       unlisted-rejected:
         input: "{ kind: 7 }"
-        error: 'Failed at ["kind"]: Expected 0 | 1 | 2, received 7'
+        error: "Failed at kind: Expected 0 | 1 | 2, received 7"
   decode:
     expression: i=>{let v0,w;try{w=e[2].acquire();let v,j,n,s,h,a,k,g,c;v=i["kind"];if((v=+v)){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=v;if(s<-2147483648||s>2147483647)e[0](s,-2147483648,2147483647,"enum");s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v=i["maybe"];if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=16:w.varint32(16);s=v;if(s<-2147483648||s>2147483647)e[0](s,-2147483648,2147483647,"enum");s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v0=w.finish()}catch(x){w&&(w.busy=false);e[3](x)}return v0}
     examples:

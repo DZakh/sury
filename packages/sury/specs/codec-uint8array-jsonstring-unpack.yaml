@@ -29,7 +29,7 @@ operations:
         input: new Uint8Array([123, 34, 97, 34, 58, 49, 125])
         output: '"{\"a\":1}"'
   encode:
-    expression: i=>{return e[0].encode(i)}
+    expression: i=>{return e[0](i)}
     examples:
       the-bytes-are-the-document:
         input: '"{\"a\":1}"'

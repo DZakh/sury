@@ -24,10 +24,10 @@ operations:
         output: '"{\"meta\":\"{\\\"x\\\":1}\",\"name\":\"a\"}"'
       invalid-json-field:
         input: '{ meta: "not json", name: "a" }'
-        error: 'Failed at ["meta"]: Expected JSON string, received "not json"'
+        error: 'Failed at meta: Expected JSON string, received "not json"'
       non-string-field:
         input: '{ meta: 1, name: "a" }'
-        error: 'Failed at ["meta"]: Expected JSON string, received 1'
+        error: "Failed at meta: Expected JSON string, received 1"
   decode:
     expression: i=>{return "{\"meta\":"+e[0](i["meta"])+",\"name\":"+e[0](i["name"])+"}"}
     examples:
@@ -42,4 +42,4 @@ operations:
         output: '{ meta: "{\"x\":1}", name: "a" }'
       raw-object-at-json-string-position:
         input: '"{\"meta\":{\"x\":1},\"name\":\"a\"}"'
-        error: 'Failed at ["meta"]: Expected JSON string, received { x: 1; }'
+        error: "Failed at meta: Expected JSON string, received { x: 1; }"

@@ -6,7 +6,7 @@ ts:
   instantiations: 6392
 jsonSchema:
   input: '{ type: "string", contentMediaType: "application/json" }'
-  output: 'Failed at ["payload"]: Expected JSON, received Uint8Array'
+  output: "Failed at payload: Expected JSON, received Uint8Array"
   openapi-3.0:
     input: '{ type: "string" }'
 vs:
@@ -18,7 +18,7 @@ operations:
     examples:
       not-base64:
         input: '"{\"payload\":\"!!\"}"'
-        error: 'Failed at ["payload"]: Expected base64, received "!!"'
+        error: 'Failed at payload: Expected base64, received "!!"'
       non-utf8-bytes:
         input: '"{\"payload\":\"iVBORw==\"}"'
         output: "{ payload: new Uint8Array([137, 80, 78, 71]) }"
@@ -27,7 +27,7 @@ operations:
     examples:
       not-base64:
         input: '"{\"payload\":\"!!\"}"'
-        error: 'Failed at ["payload"]: Expected base64, received "!!"'
+        error: 'Failed at payload: Expected base64, received "!!"'
       non-utf8-bytes:
         input: '"{\"payload\":\"iVBORw==\"}"'
         output: "{ payload: new Uint8Array([137, 80, 78, 71]) }"

@@ -22,7 +22,7 @@ operations:
       wrong-type-at-depth:
         input: '{ v: "x", next: { v: 1 } }'
         error: |-
-          Failed at ["next"]: Expected toString | undefined, received { v: 1; }
-          - At ["next"]["v"]: Expected string, received 1
+          Failed at next: Expected toString | undefined, received { v: 1; }
+          - At next.v: Expected string, received 1
   decode: eq-to-parse
   encode: eq-to-parse

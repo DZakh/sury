@@ -7,7 +7,7 @@ ts:
 jsonSchema:
   input: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string", const: "B" }, { anyOf: [{ type: "string" }, { type: "null" }] }] }'
   fromInputType: '["B", string | null]'
-  output: 'Failed at ["1"]: Expected JSON, received string | undefined'
+  output: "Failed at [1]: Expected JSON, received string | undefined"
   draft-2020-12:
     input: '{ type: "array", minItems: 2, maxItems: 2, prefixItems: [{ type: "string", const: "B" }, { anyOf: [{ type: "string" }, { type: "null" }] }], $schema: "https://json-schema.org/draft/2020-12/schema" }'
   openapi-3.0:
@@ -31,7 +31,7 @@ operations:
         error: Expected ["B", string | undefined], received ["B"]
       wrong-item-type:
         input: '["B", 5]'
-        error: 'Failed at ["1"]: Expected string | undefined, received 5'
+        error: "Failed at [1]: Expected string | undefined, received 5"
   decode: eq-to-parse
   encode:
     expression: i=>{let v0=i["1"];for(;;){if(typeof v0==="string")break;if(v0===void 0){v0=null;break}e[0](v0)}return ["B",v0]}

@@ -22,10 +22,19 @@ export type Flag = number;
 
 // ── path ──────────────────────────────────────────────────────────────────────
 
-export type Path = string;
+// Root-first. Static segments are strings; an index captured from a runtime
+// variable in generated code is a number. "[]" marks "some element" for
+// locations without a concrete value (JSON Schema conversion, dynamic parse).
+//
+// Never mutated: details objects, codegen closures and retained user errors
+// share instances, so every prepend/concat allocates. Never a symbol: every
+// key that becomes a segment comes from `Object.keys` or a generated `for-in`,
+// which skip them — `S.res`'s `propertyKey` and the `~standard` bridge rely on
+// that.
+export type Path = readonly (string | number)[];
 
-export const pathEmpty: Path = "";
-export const pathDynamic: Path = "[]";
+export const pathEmpty: Path = [];
+export const pathDynamic: Path = ["[]"];
 
 // Everything a raw splice into a double-quoted JS literal can't carry: the
 // quote itself, `\` (an accidental escape reads as a different string), and
@@ -44,21 +53,33 @@ export const inlinedObjectKey = (key: string): string =>
       ? key
       : inlinedValueFromString(key);
 
-export const pathFromInlinedLocation = (inlinedLocation: string): Path => `[${inlinedLocation}]`;
-
 // @__NO_SIDE_EFFECTS__
-export const pathFromLocation = (location: string): Path =>
-  `[${inlinedValueFromString(location)}]`;
+export const pathConcat = (path: Path, concatedPath: Path): Path =>
+  path.length ? (concatedPath.length ? path.concat(concatedPath) : path) : concatedPath;
 
+// `user.tags[2]`, `["my key"]`. A non-string segment goes through `String`
+// rather than the regexes: this runs inside the `message` getter, where a
+// throw would mask the error being reported.
 // @__NO_SIDE_EFFECTS__
-export const pathToArray = (path: Path): string[] =>
-  path === "" ? [] : (JSON.parse(path.split(`"]["`).join(`","`)) as string[]);
-
-// @__NO_SIDE_EFFECTS__
-export const pathFromArray = (array: string[]): Path => array.map(pathFromLocation).join("");
-
-// @__NO_SIDE_EFFECTS__
-export const pathConcat = (path: Path, concatedPath: Path): Path => path + concatedPath;
+export const pathToText = (path: Path): string => {
+  let text = "";
+  for (let idx = 0; idx < path.length; idx++) {
+    const segment = path[idx]!;
+    text +=
+      typeof segment !== "string"
+        ? `[${String(segment)}]`
+        : /^\d+$/.test(segment)
+          ? `[${segment}]`
+          : segment === "[]"
+            ? segment
+            : jsIdentRe.test(segment)
+              ? text
+                ? `.${segment}`
+                : segment
+              : `[${inlinedValueFromString(segment)}]`;
+  }
+  return text;
+}
 
 // ── tags ──────────────────────────────────────────────────────────────────────
 
@@ -558,7 +579,7 @@ const stringifyLeaf = (unknown: unknown): string => {
 // Recursing without a limit is what let a cyclic value overflow the stack
 // *inside the error formatter*; stopping at depth 1 keeps that fixed while
 // still showing the shape that actually failed. One level is enough because a
-// nested failure already reports its path (`Failed at ["user"]["id"]`) — the
+// nested failure already reports its path (`Failed at user.id`) — the
 // expansion is for "wrong shape entirely", which is visible at the top.
 //
 // Entries are capped for the same reason depth is: a 40-key input would
@@ -749,7 +770,7 @@ export const panic = (message: string): never => {
 }
 
 const formatErrorMessage = (error: SuryErrorRecord): string =>
-  `${error.path === "" ? "" : `Failed at ${error.path}: `}${error.reason}`;
+  `${error.path.length ? `Failed at ${pathToText(error.path)}: ` : ""}${error.reason}`;
 
 export const errorClass: unknown = SuryError;
 

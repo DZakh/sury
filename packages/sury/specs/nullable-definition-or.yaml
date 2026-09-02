@@ -27,7 +27,7 @@ operations:
         output: "{ a: false }"
       wrong-member-type:
         input: '{ a: "nope" }'
-        error: 'Failed at ["a"]: Expected boolean, received "nope"'
+        error: 'Failed at a: Expected boolean, received "nope"'
       undefined-is-not-null:
         input: undefined
         error: "Expected { a: boolean; } | null, received undefined"

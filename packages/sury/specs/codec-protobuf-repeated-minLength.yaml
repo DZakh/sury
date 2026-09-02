@@ -13,23 +13,23 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[9](i);let v0=i["items"];Array.isArray(v0)||e[3](v0);let v5=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="object"&&v2&&!Array.isArray(v2)||e[1](v2);let v3=v2["n"];typeof v3==="number"&&v3<=2147483647&&v3>=-2147483648&&v3%1===0||e[0](v3);v5[v1]={n:v3}}catch(v4){v4.path="[\"items\"]"+'["'+v1+'"]'+v4.path;throw v4}}v5.length>0||e[2](v5);let v6,w;try{w=e[7].acquire();let v,j,n,s,h,a,k,g,c;v=v5;n=v.length;if(n){j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[4](w,v[j++]);w.end(h)}};v6=w.finish()}catch(x){w&&(w.busy=false);e[8](x)}return v6}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[9](i);let v0=i["items"];Array.isArray(v0)||e[3](v0);let v5=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="object"&&v2&&!Array.isArray(v2)||e[1](v2);let v3=v2["n"];typeof v3==="number"&&v3<=2147483647&&v3>=-2147483648&&v3%1===0||e[0](v3);v5[v1]={n:v3}}catch(v4){v4.path=["items",v1,...v4.path];throw v4}}v5.length>0||e[2](v5);let v6,w;try{w=e[7].acquire();let v,j,n,s,h,a,k,g,c;v=v5;n=v.length;if(n){j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[4](w,v[j++]);w.end(h)}};v6=w.finish()}catch(x){w&&(w.busy=false);e[8](x)}return v6}
     examples:
       one-item:
         input: "{ items: [{ n: 1 }] }"
         output: new Uint8Array([10, 2, 8, 1])
       empty-rejected:
         input: "{ items: [] }"
-        error: 'Failed at ["items"]: Expected { n: int32; }[].length >= 1, received []'
+        error: "Failed at items: Expected { n: int32; }[].length >= 1, received []"
   decode:
     expression: i=>{let v0=i["items"];v0.length>0||e[0](v0);let v3,w;try{w=e[4].acquire();let v,j,n,s,h,a,k,g,c;v=v0;n=v.length;if(n){j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[1](w,v[j++]);w.end(h)}};v3=w.finish()}catch(x){w&&(w.busy=false);e[5](x)}return v3}
     examples:
       empty-items:
         input: "{ items: [] }"
-        error: 'Failed at ["items"]: Expected { n: int32; }[].length >= 1, received []'
+        error: "Failed at items: Expected { n: int32; }[].length >= 1, received []"
   encode:
     expression: i=>{let v0,r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}let v1=v0["items"];v1.length>0||e[3](v1);return v0}
     examples:
       empty-wire:
         input: new Uint8Array([])
-        error: 'Failed at ["items"]: Expected { n: int32; }[].length >= 1, received []'
+        error: "Failed at items: Expected { n: int32; }[].length >= 1, received []"

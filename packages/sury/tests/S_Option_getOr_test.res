@@ -186,7 +186,7 @@ test("Rejects array default whose element type doesn't match", t => {
       let _ = S.array(S.string)->S.option->S.Option.getOr(%raw(`[42]`))
     },
     ~expectations={
-      message: `[Sury] Invalid default for string[] | undefined: Failed at ["0"]: Expected string, received 42`,
+      message: `[Sury] Invalid default for string[] | undefined: Failed at [0]: Expected string, received 42`,
     },
   )
 })
@@ -210,7 +210,7 @@ test("Rejects object default with field of wrong type", t => {
         ->S.Option.getOr(%raw(`{"a":42}`))
     },
     ~expectations={
-      message: `[Sury] Invalid default for { a: string; } | undefined: Failed at ["a"]: Expected string, received 42`,
+      message: `[Sury] Invalid default for { a: string; } | undefined: Failed at a: Expected string, received 42`,
     },
   )
 })
@@ -221,7 +221,7 @@ test("Rejects object default with missing required field", t => {
       let _ = S.schema(s => {"a": s.matches(S.string)})->S.option->S.Option.getOr(%raw(`{}`))
     },
     ~expectations={
-      message: `[Sury] Invalid default for { a: string; } | undefined: Failed at ["a"]: Expected string, received undefined`,
+      message: `[Sury] Invalid default for { a: string; } | undefined: Failed at a: Expected string, received undefined`,
     },
   )
 })

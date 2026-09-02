@@ -5,7 +5,7 @@ ts:
   output: string
   instantiations: 8734
 jsonSchema:
-  input: 'Failed at ["id"]: Expected JSON, received bigint'
+  input: "Failed at id: Expected JSON, received bigint"
   output: '{ type: "string", contentMediaType: "application/json" }'
   openapi-3.0:
     output: '{ type: "string" }'
@@ -42,4 +42,4 @@ operations:
         output: '{ type: "user.created", id: 42n }'
       wrong-wire-type:
         input: '"{\"type\":\"user.created\",\"id\":42}"'
-        error: 'Failed at ["id"]: Expected string, received 42'
+        error: "Failed at id: Expected string, received 42"

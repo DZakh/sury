@@ -36,7 +36,6 @@ import {
   objectTag,
   panic,
   pathEmpty,
-  pathFromArray,
   stringify,
   stringTag,
   U,
@@ -193,7 +192,7 @@ export {
   extendJSONSchema,
   enableStandardJSONSchema,
 } from "./jsonschema";
-export { inputExpression } from "./base";
+export { inputExpression, pathToText } from "./base";
 export { outputExpression } from "./parse";
 
 // ── Public JS/TS API implemented here (argument-shape adapters) ──────────────
@@ -398,8 +397,7 @@ export const refine = (
   refineOptions?: { error?: string; path?: string[] },
 ) => {
   const message = refineOptions?.error ?? "Refinement failed";
-  const extraPath =
-    refineOptions?.path !== U ? pathFromArray(refineOptions.path) : pathEmpty;
+  const extraPath = refineOptions?.path !== U ? refineOptions.path : pathEmpty;
   return internalRefine(schema, (_: Internal) => (input: Val): Check[] => {
     const embeddedCheck = B_embed(input, refineCheck);
     return [
@@ -485,12 +483,6 @@ export const global = (override: GlobalConfigOverride): void => {
 // marks the exports as ReScript-binding internals while staying a valid JS
 // identifier, which is all ReScript externals accept as names.
 
-export {
-  pathToArray as $pathToArray,
-  pathFromArray as $pathFromArray,
-  pathFromLocation as $pathFromLocation,
-  pathConcat as $pathConcat,
-} from "./base";
 export {
   // Async flavor of the public `assert`, which has no public JS equivalent.
   assertAsyncOrThrow as $assertAsyncOrThrow,

@@ -5,7 +5,7 @@ ts:
   output: string
   instantiations: 9840
 jsonSchema:
-  input: 'Failed at ["x"]["1"]: Expected JSON, received string | undefined'
+  input: "Failed at x[1]: Expected JSON, received string | undefined"
   output: '{ type: "string", contentMediaType: "application/json" }'
   openapi-3.0:
     output: '{ type: "string" }'

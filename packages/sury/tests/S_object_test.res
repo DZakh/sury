@@ -22,7 +22,7 @@ test("Fails to parse object with inlinable string field", t => {
 
   t->U.assertThrowsMessage(
     () => %raw(`{field: 123}`)->S.parseOrThrow(~to=schema),
-    `Failed at ["field"]: Expected string, received 123`,
+    `Failed at field: Expected string, received 123`,
   )
 })
 
@@ -37,7 +37,7 @@ test(
 
     t->U.assertThrowsMessage(
       () => %raw(`{field: ["foo"]}`)->S.parseOrThrow(~to=schema),
-      `Failed at ["field"]["0"]: User error`,
+      `Failed at field[0]: User error`,
     )
   },
 )
@@ -61,7 +61,7 @@ test("Fails to parse object with inlinable bool field", t => {
 
   t->U.assertThrowsMessage(
     () => %raw(`{field: 123}`)->S.parseOrThrow(~to=schema),
-    `Failed at ["field"]: Expected boolean, received 123`,
+    `Failed at field: Expected boolean, received 123`,
   )
 })
 
@@ -100,7 +100,7 @@ test("Fails to parse object with inlinable never field", t => {
 
   t->U.assertThrowsMessage(
     () => %raw(`{field: true}`)->S.parseOrThrow(~to=schema),
-    `Failed at ["field"]: Expected never, received true`,
+    `Failed at field: Expected never, received true`,
   )
 })
 
@@ -123,7 +123,7 @@ test("Fails to parse object with inlinable float field", t => {
 
   t->U.assertThrowsMessage(
     () => %raw(`{field: true}`)->S.parseOrThrow(~to=schema),
-    `Failed at ["field"]: Expected number, received true`,
+    `Failed at field: Expected number, received true`,
   )
 })
 
@@ -146,7 +146,7 @@ test("Fails to parse object with inlinable int field", t => {
 
   t->U.assertThrowsMessage(
     () => %raw(`{field: true}`)->S.parseOrThrow(~to=schema),
-    `Failed at ["field"]: Expected int32, received true`,
+    `Failed at field: Expected int32, received true`,
   )
 })
 
@@ -170,7 +170,7 @@ test("Fails to parse object with not inlinable empty object field", t => {
 
   t->U.assertThrowsMessage(
     () => %raw(`{field: true}`)->S.parseOrThrow(~to=schema),
-    `Failed at ["field"]: Expected {}, received true`,
+    `Failed at field: Expected {}, received true`,
   )
 })
 
@@ -200,13 +200,13 @@ test("Error for deeply nested missing field uses path instead of full schema dum
   // Missing field at innermost level
   t->U.assertThrowsMessage(
     () => %raw(`{"g":{"f":{"e":{"d":{"c":{"b":{"wrong":42}}}}}}}`)->S.parseOrThrow(~to=hSchema),
-    `Failed at ["g"]["f"]["e"]["d"]["c"]["b"]["a"]: Expected int32, received undefined`,
+    `Failed at g.f.e.d.c.b.a: Expected int32, received undefined`,
   )
 
   // Missing field one level above innermost
   t->U.assertThrowsMessage(
     () => %raw(`{"g":{"f":{"e":{"d":{"c":{"wrong":{"a":42}}}}}}}`)->S.parseOrThrow(~to=hSchema),
-    `Failed at ["g"]["f"]["e"]["d"]["c"]["b"]: Expected { a: int32; }, received undefined`,
+    `Failed at g.f.e.d.c.b: Expected { a: int32; }, received undefined`,
   )
 })
 
@@ -276,7 +276,7 @@ test("Fails to parse object when transformed field has throws error", t => {
 
   t->U.assertThrowsMessage(
     () => {"field": "bar"}->S.parseOrThrow(~to=schema),
-    `Failed at ["field"]: User error`,
+    `Failed at field: User error`,
   )
 })
 
@@ -292,7 +292,7 @@ test("Shows transformed object field name in error path when fails to parse", t 
 
   t->U.assertThrowsMessage(
     () => {"originalFieldName": "bar"}->S.parseOrThrow(~to=schema),
-    `Failed at ["originalFieldName"]: User error`,
+    `Failed at originalFieldName: User error`,
   )
 })
 
@@ -324,7 +324,7 @@ test("Fails to serializes object when transformed field has throws error", t => 
 
   t->U.assertThrowsMessage(
     () => {"field": "bar"}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
-    `Failed at ["field"]: User error`,
+    `Failed at field: User error`,
   )
 })
 
@@ -340,7 +340,7 @@ test("Shows transformed object field name in error path when fails to serializes
 
   t->U.assertThrowsMessage(
     () => {"transformedFieldName": "bar"}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
-    `Failed at ["transformedFieldName"]: User error`,
+    `Failed at transformedFieldName: User error`,
   )
 })
 
@@ -362,7 +362,7 @@ test("Shows transformed to nested object field name in error path when fails to 
         "transformedFieldName": "bar",
       },
     }->S.decodeOrThrow(~from=schema, ~to=S.unknown)
-  , `Failed at ["v1"]["transformedFieldName"]: User error`)
+  , `Failed at v1.transformedFieldName: User error`)
 })
 
 test("Successfully parses object with optional fields", t => {
@@ -1039,7 +1039,7 @@ test("Object schema parsing checks order", t => {
       %raw(`{tag: "wrong", key: 123, unknownKey: "value", unknownKey2: "value"}`)->S.parseOrThrow(
         ~to=schema,
       ),
-    `Failed at ["tag"]: Expected "value", received "wrong"`,
+    `Failed at tag: Expected "value", received "wrong"`,
   )
   // Field check should be the third
   t->U.assertThrowsMessage(
@@ -1047,7 +1047,7 @@ test("Object schema parsing checks order", t => {
       %raw(`{tag: "value", key: 123, unknownKey: "value", unknownKey2: "value"}`)->S.parseOrThrow(
         ~to=schema,
       ),
-    `Failed at ["key"]: Expected string, received 123`,
+    `Failed at key: Expected string, received 123`,
   )
   // Unknown keys check should be the last
   t->U.assertThrowsMessage(

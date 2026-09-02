@@ -25,7 +25,7 @@ operations:
         output: '{ foo: "bar" }'
       invalid-value:
         input: '{ foo: "baz" }'
-        error: 'Failed at ["foo"]: Expected "bar", received "baz"'
+        error: 'Failed at foo: Expected "bar", received "baz"'
       invalid-type:
         input: "null"
         error: 'Expected { foo: "bar"; }, received null'

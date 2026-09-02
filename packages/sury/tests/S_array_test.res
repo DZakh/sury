@@ -27,7 +27,7 @@ module CommonWithNested = {
 
     t->U.assertThrowsMessage(
       () => nestedInvalidAny->S.parseOrThrow(~to=schema),
-      `Failed at ["1"]: Expected string, received 1`,
+      `Failed at [1]: Expected string, received 1`,
     )
   })
 
@@ -43,7 +43,7 @@ module CommonWithNested = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{Array.isArray(i)||e[1](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path=\'["\'+v0+\'"]\'+v2.path;throw v2}}return i}`,
+      `i=>{Array.isArray(i)||e[1](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path=[v0,...v2.path];throw v2}}return i}`,
     )
   })
 
@@ -55,7 +55,7 @@ module CommonWithNested = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ParseAsync,
-      `i=>{Array.isArray(i)||e[2](i);let v3=new Array(i.length);for(let v0=0;v0<i.length;++v0){try{let v1;try{v1=e[0](i[v0]).catch(x=>e[1](x))}catch(x){e[1](x)}v3[v0]=v1.catch(v2=>{v2.path=\'["\'+v0+\'"]\'+v2.path;throw v2})}catch(v2){v2.path=\'["\'+v0+\'"]\'+v2.path;throw v2}}return Promise.all(v3)}`,
+      `i=>{Array.isArray(i)||e[2](i);let v3=new Array(i.length);for(let v0=0;v0<i.length;++v0){try{let v1;try{v1=e[0](i[v0]).catch(x=>e[1](x))}catch(x){e[1](x)}v3[v0]=v1.catch(v2=>{v2.path=[v0,...v2.path];throw v2})}catch(v2){v2.path=[v0,...v2.path];throw v2}}return Promise.all(v3)}`,
     )
   })
 
@@ -73,7 +73,7 @@ module CommonWithNested = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Encode,
-      `i=>{let v3=new Array(i.length);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];for(;;){if(typeof v1==="string")break;if(v1===void 0){v1=null;break}e[0](v1)}v3[v0]=v1}catch(v2){v2.path=\'["\'+v0+\'"]\'+v2.path;throw v2}}return v3}`,
+      `i=>{let v3=new Array(i.length);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];for(;;){if(typeof v1==="string")break;if(v1===void 0){v1=null;break}e[0](v1)}v3[v0]=v1}catch(v2){v2.path=[v0,...v2.path];throw v2}}return v3}`,
     )
   })
 
@@ -111,7 +111,7 @@ test("Fails to parse matrix", t => {
 
   t->U.assertThrowsMessage(
     () => %raw(`[["a", 1], ["c", "d"]]`)->S.parseOrThrow(~to=schema),
-    `Failed at ["0"]["1"]: Expected string, received 1`,
+    `Failed at [0][1]: Expected string, received 1`,
   )
 })
 

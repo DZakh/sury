@@ -24,7 +24,6 @@ import {
   noopDecoder,
   objectTag,
   pathConcat,
-  pathFromInlinedLocation,
   setHas,
   tagFlags,
   U,
@@ -779,7 +778,7 @@ export const valGet = (parent: Val, location: string): Val => {
       }
     }
 
-    const pathAppend = pathFromInlinedLocation(inlinedValueFromString(location));
+    const accessor = `[${inlinedValueFromString(location)}]`;
 
     // Canonical Val field order (see B_operationArg in builder.ts).
     const item: Val = {
@@ -789,8 +788,8 @@ export const valGet = (parent: Val, location: string): Val => {
       i: isLiteral(schema)
         ? B_inlineConst(parent, schema)
         : parent.s.type === objectTag && location in Object.prototype
-          ? `(Object.hasOwn(${parent.v()},${inlinedValueFromString(location)})?${parent.v()}${pathAppend}:void 0)`
-          : `${parent.v()}${pathAppend}`,
+          ? `(Object.hasOwn(${parent.v()},${inlinedValueFromString(location)})?${parent.v()}${accessor}:void 0)`
+          : `${parent.v()}${accessor}`,
       s: schema,
       io: U,
       e: schema,
@@ -804,7 +803,7 @@ export const valGet = (parent: Val, location: string): Val => {
       vc: U,
       u: U,
       t: U,
-      path: pathConcat(parent.path, pathAppend),
+      path: pathConcat(parent.path, [location]),
       g: parent.g,
       o: U,
     };

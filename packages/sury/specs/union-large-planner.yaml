@@ -5,8 +5,8 @@ ts:
   output: 'string | number | bigint | boolean | symbol | { kind: "number"; value: number; } | { kind: "string"; value: string; } | { kind: "boolean"; value: boolean; } | { kind: "bigint"; value: bigint; } | null | undefined'
   instantiations: 12887
 jsonSchema:
-  input: 'Failed at ["value"]: Expected JSON, received bigint'
-  output: 'Failed at ["value"]: Expected JSON, received bigint'
+  input: "Failed at value: Expected JSON, received bigint"
+  output: "Failed at value: Expected JSON, received bigint"
 vs:
   zod:
     _skip: not-applicable
@@ -36,7 +36,7 @@ operations:
         input: '{ kind: "number", value: "wrong" }'
         error: |-
           Expected "literal-0" | "literal-1" | "literal-2" | "literal-3" | "literal-4" | "literal-5" | "literal-6" | "literal-7" | { kind: "number"; value: number; } | { kind: "string"; value: string; } | { kind: "boolean"; value: boolean; } | { kind: "bigint"; value: bigint; } | Date | Error | TypeError | string.length >= 12 | number | string | number | boolean | bigint | symbol | null | undefined, received { kind: "number"; value: "wrong"; }
-          - At ["value"]: Expected number, received "wrong"
+          - At value: Expected number, received "wrong"
   decode: eq-to-parse
   encode:
     creationError: "SuryError: Encoding is ambiguous when only a decode function is provided. Use S.to(target, {decode, encode})"

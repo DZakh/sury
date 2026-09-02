@@ -37,8 +37,8 @@ operations:
         input: '["t", true]'
         error: |-
           Expected ["t", number] | ["t", string], received ["t", true]
-          - At ["1"]: Expected number, received true
-          - At ["1"]: Expected string, received true
+          - At [1]: Expected number, received true
+          - At [1]: Expected string, received true
       not-an-array-rejected-no-member-reasons:
         input: '"t"'
         error: Expected ["t", number] | ["t", string], received "t"

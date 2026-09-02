@@ -5,7 +5,7 @@ ts:
   output: Uint8Array<ArrayBufferLike>
   instantiations: 8179
 jsonSchema:
-  input: 'Failed at ["i64"]: Expected JSON, received bigint'
+  input: "Failed at i64: Expected JSON, received bigint"
   output: Expected JSON, received Uint8Array
 vs:
   zod:
@@ -19,7 +19,7 @@ operations:
         output: new Uint8Array([8, 1, 21, 0, 0, 192, 63, 29, 255, 255, 255, 255, 34, 1, 1, 40, 1])
       wrong-type:
         input: "{ i64: 1, f: 1.5, fx: 1, b: new Uint8Array([]), on: true }"
-        error: 'Failed at ["i64"]: Expected bigint, received 1'
+        error: "Failed at i64: Expected bigint, received 1"
   decode:
     expression: i=>{let v0,w;try{w=e[2].acquire();let v,j,n,s,h,a,k,g,c;v=i["i64"];if(v){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=e[1](v,-9223372036854775808n,9223372036854775807n,"sint64");w.varint64((s<<1n)^(s>>63n))};v=i["f"];if(v||v!==v||Object.is(v,-0)){w.pos<w.buf.length?w.buf[w.pos++]=21:w.varint32(21);w.float32(v)};v=i["fx"];if(v){w.pos<w.buf.length?w.buf[w.pos++]=29:w.varint32(29);w.bits32(e[0](v,0,4294967295,"fixed32"))};v=i["b"];if(v.length){w.pos<w.buf.length?w.buf[w.pos++]=34:w.varint32(34);w.bytes(v)};v=i["on"];if(v){w.pos<w.buf.length?w.buf[w.pos++]=40:w.varint32(40);s=v?1:0;w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s)};v0=w.finish()}catch(x){w&&(w.busy=false);e[3](x)}return v0}
     examples:

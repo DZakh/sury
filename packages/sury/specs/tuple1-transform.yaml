@@ -25,10 +25,10 @@ operations:
         output: "[123]"
       not-numeric-text:
         input: '["abc"]'
-        error: 'Failed at ["0"]: Expected number, received NaN'
+        error: "Failed at [0]: Expected number, received NaN"
       not-a-string-item:
         input: "[123]"
-        error: 'Failed at ["0"]: Expected string, received 123'
+        error: "Failed at [0]: Expected string, received 123"
   decode:
     expression: i=>{let v0;try{v0=e[0](i["0"])}catch(x){e[1](x)}typeof v0==="number"&&v0===v0||e[2](v0);return [v0]}
     examples:
@@ -36,4 +36,4 @@ operations:
         input: '["123"]'
         output: "[123]"
   encode:
-    creationError: 'SuryError: Failed at ["0"]: Encoding is ambiguous when only a decode function is provided. Use S.to(target, {decode, encode})'
+    creationError: "SuryError: Failed at [0]: Encoding is ambiguous when only a decode function is provided. Use S.to(target, {decode, encode})"

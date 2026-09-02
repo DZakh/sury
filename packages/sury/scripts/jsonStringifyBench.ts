@@ -5,6 +5,13 @@
 // mapping pass a real consumer would need — Sury compiles that mapping into
 // the encoder, so charging it to the competitors is the honest comparison.
 //
+// A second table encodes to UTF-8 bytes, for the consumer who hands a
+// Uint8Array to its sink rather than a string. Sury's row is the compiled
+// `jsonString -> uint8Array` chain; the competitors get `Buffer.from`, the
+// cheapest string-to-bytes primitive Node has (TextEncoder.encode carries
+// ~1µs of allocation per call). A sink that accepts a string — a socket write,
+// `res.end`, `new Response` — encodes natively and is cheaper than either.
+//
 //   pnpm --filter=sury bench:jsonstring
 //
 // Rebuild the library first (`pnpm --filter=sury build:entry`) when comparing
@@ -13,6 +20,10 @@
 
 import fastJson from "fast-json-stringify";
 import * as S from "../index.mjs";
+
+// A Uint8Array target that opens as a JSON document: `S.encoder` reverses it,
+// so the compiled chain is `schema -> jsonString -> uint8Array("pack")`.
+const jsonBytes = S.uint8Array.with(S.to, S.jsonString, "unpack");
 
 const ROUNDS = 7;
 const bench = (fn: () => unknown): number => {
@@ -33,6 +44,7 @@ type Case = {
   stringify: () => string;
   fastJson: () => string;
   sury: () => string;
+  suryBytes: () => Uint8Array;
 };
 
 const cases: Case[] = [];
@@ -61,23 +73,23 @@ const cases: Case[] = [];
     },
     required: ["id", "name", "email", "age", "verified", "score", "role"],
   });
-  const sury = S.encoder(
-    S.schema({
-      id: S.number,
-      name: S.string,
-      email: S.string,
-      age: S.number,
-      verified: S.boolean,
-      score: S.number,
-      role: S.string,
-    }),
-    S.jsonString,
-  );
+  const schema = S.schema({
+    id: S.number,
+    name: S.string,
+    email: S.string,
+    age: S.number,
+    verified: S.boolean,
+    score: S.number,
+    role: S.string,
+  });
+  const sury = S.encoder(schema, S.jsonString);
+  const suryBytes = S.encoder(schema, jsonBytes);
   cases.push({
     name: "API response (user profile, 7 fields)",
     stringify: () => JSON.stringify(data),
     fastJson: () => fj(data),
     sury: () => sury(data),
+    suryBytes: () => suryBytes(data),
   });
 }
 
@@ -100,15 +112,15 @@ const cases: Case[] = [];
       required: ["id", "name", "active"],
     },
   });
-  const sury = S.encoder(
-    S.array(S.schema({ id: S.number, name: S.string, active: S.boolean })),
-    S.jsonString,
-  );
+  const schema = S.array(S.schema({ id: S.number, name: S.string, active: S.boolean }));
+  const sury = S.encoder(schema, S.jsonString);
+  const suryBytes = S.encoder(schema, jsonBytes);
   cases.push({
     name: "List endpoint (100 rows)",
     stringify: () => JSON.stringify(data),
     fastJson: () => fj(data),
     sury: () => sury(data),
+    suryBytes: () => suryBytes(data),
   });
 }
 
@@ -161,23 +173,23 @@ const cases: Case[] = [];
     },
     required: ["events"],
   });
-  const sury = S.encoder(
-    S.schema({
-      events: S.array(
-        S.union([
-          S.schema({ type: "click", x: S.number, y: S.number }),
-          S.schema({ type: "view", path: S.string }),
-          S.schema({ type: "error", message: S.string, code: S.number }),
-        ]),
-      ),
-    }),
-    S.jsonString,
-  );
+  const schema = S.schema({
+    events: S.array(
+      S.union([
+        S.schema({ type: "click", x: S.number, y: S.number }),
+        S.schema({ type: "view", path: S.string }),
+        S.schema({ type: "error", message: S.string, code: S.number }),
+      ]),
+    ),
+  });
+  const sury = S.encoder(schema, S.jsonString);
+  const suryBytes = S.encoder(schema, jsonBytes);
   cases.push({
     name: "Event feed (50 tagged-union events)",
     stringify: () => JSON.stringify(data),
     fastJson: () => fj(data),
     sury: () => sury(data),
+    suryBytes: () => suryBytes(data),
   });
 }
 
@@ -189,12 +201,15 @@ const cases: Case[] = [];
     type: "object",
     additionalProperties: { type: "number" },
   });
-  const sury = S.encoder(S.record(S.number), S.jsonString);
+  const schema = S.record(S.number);
+  const sury = S.encoder(schema, S.jsonString);
+  const suryBytes = S.encoder(schema, jsonBytes);
   cases.push({
     name: "Metrics dict (50 number values)",
     stringify: () => JSON.stringify(data),
     fastJson: () => fj(data),
     sury: () => sury(data),
+    suryBytes: () => suryBytes(data),
   });
 }
 
@@ -206,12 +221,15 @@ const cases: Case[] = [];
     type: "object",
     additionalProperties: { type: "string" },
   });
-  const sury = S.encoder(S.record(S.string), S.jsonString);
+  const schema = S.record(S.string);
+  const sury = S.encoder(schema, S.jsonString);
+  const suryBytes = S.encoder(schema, jsonBytes);
   cases.push({
     name: "Labels dict (50 string values)",
     stringify: () => JSON.stringify(data),
     fastJson: () => fj(data),
     sury: () => sury(data),
+    suryBytes: () => suryBytes(data),
   });
 }
 
@@ -242,20 +260,20 @@ const cases: Case[] = [];
     required: ["id", "payload", "createdAt", "label"],
   });
   // Declared wire-side: string on the JSON side, rich type on the domain side.
-  const sury = S.encoder(
-    S.schema({
-      id: S.to(S.string, S.bigint),
-      payload: S.to(S.string, S.uint8Array),
-      createdAt: S.to(S.string, S.date),
-      label: S.string,
-    }),
-    S.jsonString,
-  );
+  const schema = S.schema({
+    id: S.to(S.string, S.bigint),
+    payload: S.to(S.string, S.uint8Array),
+    createdAt: S.to(S.string, S.date),
+    label: S.string,
+  });
+  const sury = S.encoder(schema, S.jsonString);
+  const suryBytes = S.encoder(schema, jsonBytes);
   cases.push({
     name: "Event: bigint id + binary payload + Date",
     stringify: () => JSON.stringify(map(data)),
     fastJson: () => fj(map(data)),
     sury: () => sury(data),
+    suryBytes: () => suryBytes(data),
   });
 }
 
@@ -279,21 +297,21 @@ const cases: Case[] = [];
     properties: { id: str, at: str, ip: str, who: str, note: str },
     required: ["id", "at", "ip", "who", "note"],
   });
-  const sury = S.encoder(
-    S.schema({
-      id: S.uuid,
-      at: S.isoDateTime,
-      ip: S.ipv4,
-      who: S.email,
-      note: S.string,
-    }),
-    S.jsonString,
-  );
+  const schema = S.schema({
+    id: S.uuid,
+    at: S.isoDateTime,
+    ip: S.ipv4,
+    who: S.email,
+    note: S.string,
+  });
+  const sury = S.encoder(schema, S.jsonString);
+  const suryBytes = S.encoder(schema, jsonBytes);
   cases.push({
     name: "Audit row (uuid + timestamp + ip + email)",
     stringify: () => JSON.stringify(data),
     fastJson: () => fj(data),
     sury: () => sury(data),
+    suryBytes: () => suryBytes(data),
   });
 }
 
@@ -313,6 +331,24 @@ const main = () => {
     }
     rows.push([c.name, fmt(bench(c.sury)), fmt(bench(c.stringify)), fmt(bench(c.fastJson))]);
   }
+  printTable(rows);
+
+  const byteRows: string[][] = [
+    ["Encode to JSON bytes", "Sury", "JSON.stringify + Buffer.from", "fast-json-stringify + Buffer.from"],
+  ];
+  for (const c of cases) {
+    const stringify = () => Buffer.from(c.stringify());
+    const fastJson = () => Buffer.from(c.fastJson());
+    if (Buffer.compare(Buffer.from(c.suryBytes()), stringify()) !== 0) {
+      throw new Error(`${c.name}: Sury bytes differ\n${Buffer.from(c.suryBytes())}\n${stringify()}`);
+    }
+    byteRows.push([c.name, fmt(bench(c.suryBytes)), fmt(bench(stringify)), fmt(bench(fastJson))]);
+  }
+  console.log();
+  printTable(byteRows);
+};
+
+const printTable = (rows: string[][]): void => {
   const widths = rows[0]!.map((_, i) => Math.max(...rows.map((r) => r[i]!.length)));
   for (const r of rows) {
     console.log(r.map((cell, i) => cell.padEnd(widths[i]!)).join("  "));

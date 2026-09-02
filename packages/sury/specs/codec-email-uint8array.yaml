@@ -12,7 +12,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[3](i);e[1].test(i)||e[2](i);return e[0].encode(i)}
+    expression: i=>{typeof i==="string"||e[3](i);e[1].test(i)||e[2](i);return e[0](i)}
     examples:
       valid:
         input: '"a@b.co"'
@@ -21,7 +21,7 @@ operations:
         input: '"nope"'
         error: Expected email, received "nope"
   decode:
-    expression: i=>{e[1].test(i)||e[2](i);return e[0].encode(i)}
+    expression: i=>{e[1].test(i)||e[2](i);return e[0](i)}
     examples:
       valid:
         input: '"a@b.co"'

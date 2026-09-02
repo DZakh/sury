@@ -51,11 +51,11 @@ Errors tell you exactly where to look, in wire terms - the missing `id` is a mis
 
 ```ts
 parseEvent('{"type":"user.created","id":"42","tags":[]}');
-// => throws S.Error: Failed at ["tags"]: Add at least one tag
+// => throws S.Error: Failed at tags: Add at least one tag
 
 const result = S.safe(() => parseEvent('{"type":"user.deleted"}'));
 if (!result.success) result.error.message;
-// => 'Failed at ["id"]: Expected string, received undefined'
+// => 'Failed at id: Expected string, received undefined'
 ```
 
 Need a different wire? Wrap the same model in base64url. The pipeline knows both of its ends, so `S.encoder` and `S.decoder` take just the schema:
@@ -79,7 +79,7 @@ eventSchema["~standard"].validate({ type: "user.deleted", id: 7n, payload: null 
 // => { value: { type: "user.deleted", id: 7n, payload: null } }
 
 eventSchema["~standard"].jsonSchema.input({ target: "draft-07" });
-// => throws: Failed at ["id"]: Expected JSON, received bigint
+// => throws: Failed at id: Expected JSON, received bigint
 
 S.json.with(S.to, eventSchema)["~standard"].jsonSchema.input({ target: "draft-07" });
 // => { anyOf: [...], description: "User lifecycle event", ... } - with id: { type: "string" }
@@ -231,7 +231,7 @@ JSON.stringify({ price: Infinity });
 // => '{"price":null}'
 
 S.encoder(S.schema({ price: S.number }), S.jsonString)({ price: Infinity });
-// => throws S.Error: Failed at ["price"]: Expected JSON, received Infinity
+// => throws S.Error: Failed at price: Expected JSON, received Infinity
 ```
 
 | Encode to JSON string                 | **Sury**    | `JSON.stringify` | fast-json-stringify |

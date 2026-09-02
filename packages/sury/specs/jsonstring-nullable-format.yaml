@@ -27,7 +27,7 @@ operations:
         output: '"{\"at\":null}"'
       invalid-format:
         input: '{ at: "yesterday" }'
-        error: 'Failed at ["at"]: Expected UTC date-time'
+        error: "Failed at at: Expected UTC date-time"
   decode:
     expression: i=>{let v0=i["at"];for(;;){if(typeof v0==="string"){e[0].test(v0)||e[1](v0);v0="\""+v0+"\"";break}if(v0===null){v0="null";break}e[2](v0)}return "{\"at\":"+v0+"}"}
     examples:

@@ -19,7 +19,7 @@ operations:
         output: new Uint8Array([10, 2, 8, 1, 18, 2, 8, 7])
       missing-child:
         input: "{}"
-        error: 'Failed at ["child"]: Expected { n: int32; }, received undefined'
+        error: "Failed at child: Expected { n: int32; }, received undefined"
   decode:
     expression: i=>{let v0=i["child"];let v1,w;try{w=e[4].acquire();let v,j,n,s,h,a,k,g,c;v=v0;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[0](w,v);w.end(h)};v=i["maybe"];if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[1](w,v);w.end(h)};v1=w.finish()}catch(x){w&&(w.busy=false);e[5](x)}return v1}
     examples:

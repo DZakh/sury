@@ -7,7 +7,7 @@ ts:
 jsonSchema:
   input: '{ type: "object", properties: { field: { type: "string", format: "date-time" } }, additionalProperties: false, required: ["field"] }'
   fromInputType: "{ field: string; }"
-  output: 'Failed at ["field"]: Expected JSON, received Date'
+  output: "Failed at field: Expected JSON, received Date"
 vs:
   zod:
     _skip: not-applicable
@@ -20,10 +20,10 @@ operations:
         output: '{ field: new Date("2024-01-01T00:00:00.000Z") }'
       not-a-date-text:
         input: '{ field: "nope" }'
-        error: 'Failed at ["field"]: Expected Date, received invalid Date'
+        error: "Failed at field: Expected Date, received invalid Date"
       wrong-type:
         input: "{ field: 5 }"
-        error: 'Failed at ["field"]: Expected string, received 5'
+        error: "Failed at field: Expected string, received 5"
   decode: eq-to-parse
   encode:
     expression: i=>{return {field:i["field"].toISOString()}}
