@@ -12,7 +12,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{for(;;){if(typeof i==="bigint")break;if(typeof i==="number"&&!Number.isNaN(i))break;if(i===null){i=void 0;break}e[0](i)}return i}
+    expression: i=>{for(;;){if(typeof i==="bigint")break;if(typeof i==="number"&&i===i)break;if(i===null){i=void 0;break}e[0](i)}return i}
     examples:
       bigint:
         input: 123n
@@ -25,7 +25,7 @@ operations:
         output: undefined
   decode: eq-to-parse
   encode:
-    expression: i=>{for(;;){if(typeof i==="bigint")break;if(typeof i==="number"&&!Number.isNaN(i))break;if(i===void 0){i=null;break}e[0](i)}return i}
+    expression: i=>{for(;;){if(typeof i==="bigint")break;if(typeof i==="number"&&i===i)break;if(i===void 0){i=null;break}e[0](i)}return i}
     examples:
       undefined-bridges-to-null:
         input: undefined

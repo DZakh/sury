@@ -42,6 +42,7 @@
 - [Instance](#instance)
 - [Blob](#blob)
 - [File](#file)
+- [Content](#content)
 - [Meta](#meta)
 - [Brand](#brand)
 - [Custom schema](#custom-schema)
@@ -78,7 +79,7 @@ npm install sury
 The main building block of **Sury** is a schema — a type definition that exists at runtime.
 
 ```ts
-import * as S from "sury"; // 13.3 kB (min + gzip) for this schema, tree-shaken
+import * as S from "sury"; // 7.9 kB (min + gzip) for this schema, tree-shaken
 
 const playerSchema = S.schema({
   username: S.string,
@@ -393,7 +394,14 @@ S.uint8Array;
 S.uint8Array.with(S.to, S.string);
 // Encodes utf-8 string to Uint8Array
 S.string.with(S.to, S.uint8Array);
+
+// Base64 text, whose payload is bytes
+S.base64;
+// Decodes base64 to the bytes it stores
+S.base64.with(S.to, S.uint8Array);
 ```
+
+See [Content](#content) for what happens when bytes and a JSON document meet.
 
 ## Strings
 
@@ -446,9 +454,13 @@ S.isoDateTime; // UTC timestamp
 S.duration; // Duration
 S.jsonPointer; // JSON Pointer
 S.relativeJsonPointer; // Relative JSON Pointer
+S.base64; // Base64, standard alphabet with canonical padding
+S.base64url; // Base64url, URL-safe alphabet, no padding
 ```
 
 Each survives a round trip through `S.inputJSONSchema` and `S.fromJSONSchema`.
+`S.base64` and `S.base64url` emit `contentEncoding` instead of a JSON Schema
+format. See [Content](#content).
 
 **A format checks syntax, not safety.** Every one is exactly as strict as its
 spec, so a well-formed value passes even when it isn't one you want to accept:
@@ -1110,6 +1122,77 @@ its own:
 const upload = (f: S.File) => S.parser(S.file)(f);
 ```
 
+## Content
+
+Bytes in JSON become base64. They are not mangled as UTF-8.
+
+### Bytes in a JSON field
+
+A field of bytes is written as base64. You do not pass pack or unpack.
+
+```ts
+S.encoder(S.schema({ payload: S.uint8Array }), S.jsonString)({
+  payload: new Uint8Array([137, 80, 78, 71]),
+});
+// {"payload":"iVBORw=="}
+```
+
+### A JWT segment
+
+JWT segments are base64url. Parse the text as JSON, then as the object.
+
+```ts
+S.parser(
+  S.base64url.with(S.to, S.jsonString.with(S.to, S.schema({ sub: S.string }))),
+)("eyJzdWIiOiJhIn0");
+// { sub: "a" }
+```
+
+### Switch base64 alphabets
+
+`S.base64url` is URL-safe and has no padding.
+
+```ts
+S.base64; // standard alphabet, canonical padding
+S.base64url; // URL-safe alphabet, no padding
+
+S.parser(S.base64.with(S.to, S.base64url))("iVBORw==");
+// "iVBORw"
+```
+
+### The bytes are JSON text
+
+```ts
+S.uint8Array.with(S.to, S.jsonString, "unpack");
+// decode unpack, encode pack
+```
+
+### The JSON string holds the bytes
+
+```ts
+S.uint8Array.with(S.to, S.jsonString, "pack");
+// decode pack, encode unpack
+```
+
+### If you omit pack or unpack
+
+Sury does not guess when both conversions exist.
+
+```ts
+S.uint8Array.with(S.to, S.jsonString);
+// Ambiguous conversion from Uint8Array to JSON string.
+// Use S.to(from, to, "unpack" | "pack")
+```
+
+### UTF-8, the same bytes, parse, or widen
+
+```ts
+S.uint8Array.with(S.to, S.string); // UTF-8
+S.base64.with(S.to, S.uint8Array); // the same bytes
+S.jsonString.with(S.to, S.string); // parses
+S.base64.with(S.to, S.string); // widens
+```
+
 ## Meta
 
 Use `S.meta` to add metadata to the resulting schema.
@@ -1417,12 +1500,12 @@ This is literally the same as convert operations applied to the reversed schema.
 
 For some cases you might want to simply check whether a value is valid, without parsing it. For this there are the assert and validator operations:
 
-| Operation     | Interface                                                      | Description                                                                                                                                        |
-| ------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| S.assertInput  | `(Schema<TInput, TOutput>, data: unknown) asserts data is TInput` or `(data: unknown, Schema<TInput, TOutput>) asserts data is TInput`   | Asserts that the value is valid input. Since the operation doesn't return a value, it's 2-3 times faster than `parser` depending on the schema |
-| S.assertOutput | `(Schema<TInput, TOutput>, data: unknown) asserts data is TOutput` or `(data: unknown, Schema<TInput, TOutput>) asserts data is TOutput` | The same assertion against the schema's output type — what `S.encoder` accepts                                                                 |
-| S.inputValidator      | `(Schema<TInput, TOutput>, data: unknown) => data is TInput` or `(data: unknown, Schema<TInput, TOutput>) => data is TInput`             | Returns `true`/`false` whether the value is valid input. Acts as a TypeScript type guard and shares the fast validate-only path with the asserts |
-| S.outputValidator     | `(Schema<TInput, TOutput>, data: unknown) => data is TOutput` or `(data: unknown, Schema<TInput, TOutput>) => data is TOutput`           | The same check against the schema's output type                                                                                                |
+| Operation         | Interface                                                      | Description                                                                                                                                        |
+| ----------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| S.assertInput     | `(Schema<TInput, TOutput>, data: unknown) asserts data is TInput` or `(data: unknown, Schema<TInput, TOutput>) asserts data is TInput`   | Asserts that the value is valid input. Since the operation doesn't return a value, it's 2-3 times faster than `parser` depending on the schema |
+| S.assertOutput    | `(Schema<TInput, TOutput>, data: unknown) asserts data is TOutput` or `(data: unknown, Schema<TInput, TOutput>) asserts data is TOutput` | The same assertion against the schema's output type — what `S.encoder` accepts                                                                 |
+| S.inputValidator  | `(Schema<TInput, TOutput>, data: unknown) => data is TInput` or `(data: unknown, Schema<TInput, TOutput>) => data is TInput`             | Returns `true`/`false` whether the value is valid input. Acts as a TypeScript type guard and shares the fast validate-only path with the asserts |
+| S.outputValidator | `(Schema<TInput, TOutput>, data: unknown) => data is TOutput` or `(data: unknown, Schema<TInput, TOutput>) => data is TOutput`           | The same check against the schema's output type                                                                                                |
 
 They accept their arguments in either order, so `(schema, data)` and `(data, schema)` are equivalent and both narrow the type. There's no "correct" order to memorize — pass the schema and the data in whatever order feels natural, and it just works. This is especially handy for AI assistants, which no longer have to guess the right argument position:
 
@@ -1454,7 +1537,7 @@ const isUser = S.inputValidator(userSchema);
 const users = records.filter(isUser);
 ```
 
-All operations either return the output value or throw an error. For convinient error handling you can use the `S.safe` and `S.safeAsync` helpers, which would catch the error an wrap it into a `Result` type:
+All operations either return the output value or throw an error. For convenient error handling you can use the `S.safe` and `S.safeAsync` helpers, which catch the error and wrap it into a `Result` type:
 
 ```ts
 const result = S.safe(() => S.parser(S.string)(123));
@@ -1579,6 +1662,14 @@ S.encoder(schema)(123); //? "123"
 
 The result of `decode` is validated by the target schema, so a coder that
 returns the wrong thing fails right there instead of leaking a bad value.
+
+Pass `"pack"` or `"unpack"` as the third argument when both conversions exist.
+See [Content](#content).
+
+```ts
+S.uint8Array.with(S.to, S.jsonString, "unpack");
+// decode unpack, encode pack
+```
 
 Besides a function, each direction accepts:
 

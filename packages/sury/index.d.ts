@@ -31,6 +31,8 @@ export type Result<TValue> = SuccessResult<TValue> | FailureResult;
 export type NumberFormat = "int32" | "port" | "integer";
 export type StringFormat =
   | "json"
+  | "base64"
+  | "base64url"
   | "date-time"
   | "email"
   | "uuid"
@@ -62,12 +64,12 @@ export type Schema<TInput = unknown, TOutput = TInput> = {
     to: (
       schema: Schema<unknown, unknown>,
       target: Schema<unknown, unknown>,
-      codecs?: ((value: unknown) => unknown) | Codecs<unknown, unknown>
+      codecs?: ((value: unknown) => unknown) | Codecs<unknown, unknown> | "pack" | "unpack"
     ) => Schema<unknown, unknown>,
     target: SchemaLike<TTargetInput, TTargetOutput>,
     // Coder (not a plain arrow): the shorthand must compare bivariantly for
     // the same reason as the Codecs slots (see the Coder note below).
-    codecs?: Coder<TOutput, TTargetInput> | Codecs<TOutput, TTargetInput>
+    codecs?: Coder<TOutput, TTargetInput> | Codecs<TOutput, TTargetInput> | "pack" | "unpack"
   ): Schema<TInput, TTargetOutput>;
   with(
     refine: (
@@ -524,6 +526,22 @@ export const uuid: Schema<string, string>;
  * @example "cjld2cjxh0000qzrmn831i7rn"
  */
 export const cuid: Schema<string, string>;
+
+/**
+ * Base64 with the standard alphabet and canonical padding. Its payload is bytes,
+ * so `S.to` reads it as such: converting to `S.uint8Array` decodes it, while
+ * converting to `S.string` widens it — a string is not bytes.
+ * @example "ZGF0YQ=="
+ */
+export const base64: Schema<string, string>;
+
+/**
+ * Base64url (RFC 4648 §5): URL-safe alphabet, no padding. Same bytes payload as
+ * {@link base64}; JSON fields still pack as standard base64 unless this schema
+ * is named.
+ * @example "ZGF0YQ"
+ */
+export const base64url: Schema<string, string>;
 
 /**
  * An instance of the JS `URL` class, parsed by the WHATWG URL Standard — the same
@@ -1188,11 +1206,20 @@ type Coder<A, B> = { bivarianceHack(value: A): B }["bivarianceHack"];
  * the built-in conversion, `"never"` for an unreachable direction, or an
  * async coder as `{async}`. Async is declared rather than discovered, because
  * Sury compiles operations ahead of time.
+ *
+ * `"pack"` and `"unpack"` are not coders — they say which of the two built-in
+ * readings a carrier/format pair takes, each naming what its own direction does
+ * to its own source: `"unpack"` opens it and hands the payload on, `"pack"`
+ * stores its value. One direction must be the opposite of the other. A bare
+ * `"pack"` or `"unpack"` as `S.to`'s third argument is the decode reading
+ * with encode set to the opposite.
  */
 export type Conversion<A, B> =
   | Coder<A, B>
   | "auto"
   | "never"
+  | "pack"
+  | "unpack"
   | { async: Coder<A, Promise<B>> };
 
 /**
@@ -1214,7 +1241,7 @@ export function to<
 >(
   schema: SchemaLike<TInput, TOutput>,
   target: SchemaLike<TTargetInput, TTargetOutput>,
-  codecs?: ((value: TOutput) => TTargetInput) | Codecs<TOutput, TTargetInput>
+  codecs?: ((value: TOutput) => TTargetInput) | Codecs<TOutput, TTargetInput> | "pack" | "unpack"
 ): Schema<TInput, TTargetOutput>;
 
 // The dialect the `target` option selects decides the shape of the result, so

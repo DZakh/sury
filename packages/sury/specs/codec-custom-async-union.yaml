@@ -13,7 +13,7 @@ vs:
 operations:
   parse:
     isAsync: true
-    expression: i=>{for(;;){if(typeof i==="string"){let v0=e[0](i);i=v0.then(v0=>{typeof v0==="number"&&!Number.isNaN(v0)||e[1](v0);return v0});break}if(typeof i==="number"&&!Number.isNaN(i))break;e[2](i)}return Promise.resolve(i)}
+    expression: i=>{for(;;){if(typeof i==="string"){let v0=e[0](i);i=v0.then(v0=>{typeof v0==="number"&&v0===v0||e[1](v0);return v0});break}if(typeof i==="number"&&i===i)break;e[2](i)}return Promise.resolve(i)}
     examples:
       custom-arm:
         input: '"abc"'
@@ -23,7 +23,7 @@ operations:
         output: "5"
   decode: eq-to-parse
   encode:
-    expression: i=>{for(;;){let r;if(typeof i==="number"&&!Number.isNaN(i)){try{let v0;try{v0=e[0](i)}catch(x){e[1](x);e[2](x)}typeof v0==="string"||e[3](v0);i=v0;break}catch(x){(r||(r=[])).push(e[4](x))}break}e[5](i,...(r||[]))}return i}
+    expression: i=>{for(;;){let r;if(typeof i==="number"&&i===i){try{let v0;try{v0=e[0](i)}catch(x){e[1](x);e[2](x)}typeof v0==="string"||e[3](v0);i=v0;break}catch(x){(r||(r=[])).push(e[4](x))}break}e[5](i,...(r||[]))}return i}
     examples:
       custom-arm:
         input: "3"

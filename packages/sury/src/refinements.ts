@@ -5,6 +5,7 @@ import {
   arrayTag,
   bigintTag,
   type Check,
+  copySchema,
   initSchema,
   inputExpression,
   instanceTag,
@@ -12,19 +13,51 @@ import {
   numberTag,
   panic,
   pathEmpty,
+  setBytesCodec,
+  setContent,
   stringify,
   type StringFormat,
   stringTag,
   SuryError,
   U,
   updateOutput,
-  type Val,
+  type Val
 } from "./base";
-import { B_conversion, B_embed, B_failWithErrorMessage } from "./builder";
-import { definitionToSchema, optionFactory } from "./composites";
-import { codecTo, getMutErrorMessage, internalRefine, nullAsUnit } from "./modifiers";
-import { nullLiteral, numberDecoder, string, stringDecoderFn, unit } from "./primitives";
-import { unionFactory } from "./union";
+import {
+  B_computed,
+  B_contentDiffers,
+  B_conversion,
+  B_embed,
+  B_failWithErrorMessage,
+  B_next,
+  B_readOnce,
+  B_readsPayload,
+  B_refine
+} from "./builder";
+import {
+ definitionToSchema
+} from "./composites";
+import {
+ codecTo,
+ getMutErrorMessage,
+ internalRefine,
+ nullAsUnit,
+ optionFactory
+} from "./modifiers";
+import {
+  nullLiteral,
+  numberDecoder,
+  openedText,
+  string,
+  stringDecoderFn,
+  unit
+} from "./primitives";
+import {
+ getOutputSchema
+} from "./parse";
+import {
+ unionFactory
+} from "./union";
 
 // Re-exports, not `const object = schemaObject` aliases: an alias makes the
 // public name a variable that merely holds the function, and a bundler honors
@@ -733,7 +766,16 @@ export const pattern = (schema: Internal, re: RegExp, message: string = `Invalid
 // @__NO_SIDE_EFFECTS__
 export const trim = (schema: Internal): Internal => {
   const transformer = B_conversion((value: unknown) => (value as string).trim());
-  return codecTo(schema, string, transformer, transformer);
+  // Trimming does not change what the text *is*: a trimmed base64 payload is
+  // still that payload. The marker has to be carried onto the link's target,
+  // because the next link reads the chain tail — left bare, it would see a
+  // plain string and pack the base64 text itself as bytes.
+  const content = getOutputSchema(schema).content;
+  const root = codecTo(schema, string, transformer, transformer);
+  if (content !== U) {
+    setContent(getOutputSchema(root), content);
+  }
+  return root;
 }
 
 // @__NO_SIDE_EFFECTS__
@@ -773,15 +815,24 @@ const datePattern =
 // hold, on `stringFormat(…)` itself, which is what keeps a format the consumer
 // never imports out of their bundle. `i` is safe for every source passed: the
 // patterns that care about case spell both out.
+// `escFree` (see base.ts) lets jsonString skip escaping for what a pattern
+// accepts, so widening one can emit broken JSON rather than merely admit more
+// strings. Run `pnpm --filter=sury fuzz:escfree` after touching either.
 // @__NO_SIDE_EFFECTS__
 const stringFormat = (
   format: StringFormat,
   test: RegExp | string | ((value: string) => boolean),
+  escFree?: boolean,
   message?: string,
 ): Internal =>
   initSchema(stringTag, stringDecoderFn, (s) => {
     const re = typeof test === "string" ? new RegExp(test, "i") : test;
     s.format = format;
+    // Conditional so an unflagged format carries no key at all: schemas are
+    // printed by consumers, and `escapeFree: undefined` is noise on every one.
+    if (escFree) {
+      s.escapeFree = escFree;
+    }
     s.refiner = (input) => {
       return [
         {
@@ -794,16 +845,23 @@ const stringFormat = (
   });
 
 // UTC-only by choice, which is narrower than the JSON Schema `date-time`
-// format: an RFC 3339 offset like +02:00 is rejected. That fixed Z is also
-// why second 60 can be spelled out here — it is legal only at 23:59:60 in
-// UTC, where `isoTime` has to do the offset arithmetic to know.
+// format: an RFC 3339 offset like +02:00 is rejected. Hence the name — a
+// rejected `+02:00` timestamp IS a date-time, so `Expected date-time` would
+// read as a bug. That fixed Z is also why second 60 can be spelled out here —
+// it is legal only at 23:59:60 in UTC, where `isoTime` has to do the offset
+// arithmetic to know.
 export const isoDateTime: Internal = /* @__PURE__ */ stringFormat(
   "date-time",
   /* @__PURE__ */ anchor(
     datePattern,
     "[Tt](?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d|23:59:60)(?:\\.\\d+)?[Zz]",
   ),
-  "Invalid datetime string! Expected UTC",
+  true,
+  // The lone built-in default: `Expected date-time` would read as a bug, since
+  // a rejected `+02:00` timestamp IS a date-time. Phrased like the generic
+  // failure it replaces, minus the `received` half a message can't carry —
+  // see IDEAS.md.
+  "Expected UTC date-time",
 );
 
 // The range as real bound fields, for the reason int32 carries its own. The
@@ -826,14 +884,262 @@ export const port: Internal = /* @__PURE__ */ initSchema(numberTag, numberDecode
 export const email: Internal = /* @__PURE__ */ stringFormat(
   "email",
   /^(?!\.)(?!.*\.\.)([A-Z0-9_'+\-\.]*)[A-Z0-9_+-]@([A-Z0-9][A-Z0-9\-]*\.)+[A-Z]{2,}$/i,
+  true,
 );
 
 export const uuid: Internal = /* @__PURE__ */ stringFormat(
   "uuid",
   /^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/i,
+  true,
 );
 
 export const cuid: Internal = /* @__PURE__ */ stringFormat("cuid", /^c[^\s-]{8,}$/i);
+
+// Which primitive encodes bytes as text, resolved once at import so generated
+// code is `e[N](i)` either way. Native ES2026 methods, then Node's Buffer
+// (present here where `toBase64` is not), then a latin1 bridge through
+// `btoa`/`atob`. The atob fallbacks walk the value rather than spreading it
+// into `String.fromCharCode`, whose argument limit a large payload blows.
+type NativeBase64 = {
+  fromBase64?: (text: string, options?: { alphabet?: string }) => Uint8Array;
+  prototype: { toBase64?: (options?: { alphabet?: string; omitPadding?: boolean }) => string };
+};
+type MaybeBuffer = {
+  Buffer?: {
+    isEncoding?: (encoding: string) => boolean;
+    from: {
+      (value: string, encoding: string): Uint8Array;
+      (
+        buffer: ArrayBufferLike,
+        byteOffset: number,
+        length: number,
+      ): { toString: (encoding: string) => string };
+    };
+  };
+};
+
+const bytesToAtob = (bytes: Uint8Array): string => {
+  // In chunks, not one `apply`: the whole array blows the argument limit, and
+  // a byte at a time is several times slower than either. The first chunk is
+  // taken before the loop so that a value which isn't bytes fails on `subarray`
+  // the way it fails on the native method, rather than skipping the loop and
+  // encoding as the empty string.
+  let binary = String.fromCharCode.apply(
+    null,
+    bytes.subarray(0, 8192) as unknown as number[],
+  );
+  for (let idx = 8192; idx < bytes.length; idx += 8192) {
+    binary += String.fromCharCode.apply(
+      null,
+      bytes.subarray(idx, idx + 8192) as unknown as number[],
+    );
+  }
+  return btoa(binary);
+};
+
+const atobToBytes = (text: string): Uint8Array => {
+  const binary = atob(text);
+  const bytes = new Uint8Array(binary.length);
+  for (let idx = 0; idx < bytes.length; idx++) {
+    bytes[idx] = binary.charCodeAt(idx);
+  }
+  return bytes;
+};
+
+// Detect lives inside these IIFEs, not as module-scope `globalThis.Buffer`.
+// A top-level Buffer read is a getter esbuild will not drop, and would sit in
+// every refinements export the way a hoisted `Blob` did in file.ts.
+//
+// No `try` around `atob`: every route here validates against the format's
+// pattern first, which is the whole reason the format carries one. `noValidation`
+// voids that the way it voids `escapeFree`'s proof — a caller who asserts a
+// value is base64 and is wrong gets the platform's own exception.
+const stdCodec = /* @__PURE__ */ (() => {
+  const n = Uint8Array as unknown as NativeBase64;
+  if (n.fromBase64 !== U && n.prototype.toBase64 !== U) {
+    return {
+      toBytes: (text: string) => n.fromBase64!(text),
+      fromBytes: (bytes: Uint8Array) =>
+        (bytes as unknown as { toBase64: () => string }).toBase64(),
+    };
+  }
+  const Buf = (globalThis as MaybeBuffer).Buffer;
+  if (Buf !== U) {
+    return {
+      toBytes: (text: string) => new Uint8Array(Buf.from(text, "base64")),
+      fromBytes: (bytes: Uint8Array) =>
+        Buf.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString("base64"),
+    };
+  }
+  return { toBytes: atobToBytes, fromBytes: bytesToAtob };
+})();
+
+const urlCodec = /* @__PURE__ */ (() => {
+  const n = Uint8Array as unknown as NativeBase64;
+  if (n.fromBase64 !== U && n.prototype.toBase64 !== U) {
+    const encode = { alphabet: "base64url" as const, omitPadding: true };
+    const decode = { alphabet: "base64url" as const };
+    return {
+      toBytes: (text: string) => n.fromBase64!(text, decode),
+      fromBytes: (bytes: Uint8Array) =>
+        (
+          bytes as unknown as {
+            toBase64: (options?: { alphabet?: string; omitPadding?: boolean }) => string;
+          }
+        ).toBase64(encode),
+    };
+  }
+  const Buf = (globalThis as MaybeBuffer).Buffer;
+  if (Buf !== U && Buf.isEncoding !== U && Buf.isEncoding("base64url")) {
+    return {
+      toBytes: (text: string) => new Uint8Array(Buf.from(text, "base64url")),
+      fromBytes: (bytes: Uint8Array) =>
+        Buf.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString("base64url"),
+    };
+  }
+  return {
+    toBytes: (text: string) =>
+      atobToBytes(
+        text.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((text.length + 3) % 4),
+      ),
+    fromBytes: (bytes: Uint8Array) =>
+      bytesToAtob(bytes).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""),
+  };
+})();
+
+// `bc` lives on the format singleton. A trim (or other string) link copies
+// `content` but not `bc`, so recode has to see through that to the alphabet
+// the text still is. A bytes carrier also has `content.bc`, but its value is
+// bytes — only a string-tagged source is text we can recode.
+const codecOf = (s: Internal) =>
+  s.bc ?? (s.type === stringTag ? s.content?.bc : U);
+
+const recodeText =
+  (
+    toBytes: (text: string) => Uint8Array,
+    fromBytes: (bytes: Uint8Array) => string,
+  ) =>
+  (text: string) =>
+    fromBytes(toBytes(text));
+
+const utf8ToFormat = (fromBytes: (bytes: Uint8Array) => string) => {
+  const encode = new TextEncoder();
+  return (text: string) => fromBytes(encode.encode(text));
+};
+
+const formatToUtf8 = (toBytes: (text: string) => Uint8Array) => {
+  const decode = new TextDecoder();
+  return (text: string) => decode.decode(toBytes(text));
+};
+
+// A length check plus one flat scan, rather than the canonical
+// `(?:[A-Za-z0-9+/]{4})*(?:…==|…=)?` — the four-at-a-time group backtracks per
+// quantum and costs about twice as much on a payload-sized string, which is
+// the only size that matters here. The two accept exactly the same strings.
+const stdTest = /^[A-Za-z0-9+/]*={0,2}$/;
+const urlTest = /^[A-Za-z0-9_-]*$/;
+
+// Content node: format refine + `bc`, no recode/utf8 decoder. Carriers pack
+// through this so a File bundle does not ship TextEncoder or alphabet recode.
+// @__NO_SIDE_EFFECTS__
+const bytesContent = (
+  format: StringFormat,
+  test: (value: string) => boolean,
+  codec: { toBytes: (text: string) => Uint8Array; fromBytes: (bytes: Uint8Array) => string },
+): Internal => {
+  const schema = stringFormat(format, test, true);
+  setContent(schema, schema);
+  setBytesCodec(schema, codec);
+  return schema;
+};
+
+// `S.base64` / `S.base64url` — bytes stored as text. `content` points at the
+// schema itself: this IS how bytes sit in a document. The two alphabets share
+// a payload kind via `bc`, so a link to another bytes carrier is a
+// plain transfer and a link to a JSON document is not (CONTENT_CODEC_SPEC.md).
+// @__NO_SIDE_EFFECTS__
+const bytesTextFormat = (
+  content: Internal,
+  codec: { toBytes: (text: string) => Uint8Array; fromBytes: (bytes: Uint8Array) => string },
+): Internal => {
+  const schema = copySchema(content);
+
+  const differs = (other: Internal): boolean => B_contentDiffers(other.content, schema);
+
+  schema.decoder = (input) => {
+    const src = codecOf(input.s);
+    if (src && src !== codec) {
+      const output = B_next(
+        input,
+        `${B_embed(input, recodeText(src.toBytes, codec.fromBytes))}(${B_readOnce(input)})`,
+        schema,
+      );
+      output.io = true;
+      return output;
+    }
+    if (differs(input.s) && input.s.to !== U) {
+      const output = B_next(
+        input,
+        `${B_embed(input, utf8ToFormat(codec.fromBytes))}(${B_readOnce(input)})`,
+        schema,
+      );
+      output.io = true;
+      return output;
+    }
+    return B_refine(stringDecoderFn(input), input.e);
+  };
+
+  schema.encoder = (input, target) => {
+    const dst = codecOf(target);
+    if (dst && dst !== codec) {
+      const output = B_next(
+        input,
+        `${B_embed(input, recodeText(codec.toBytes, dst.fromBytes))}(${B_readOnce(input)})`,
+        target,
+      );
+      output.io = true;
+      return output;
+    }
+    return differs(target) && B_readsPayload(target)
+      ? B_computed(
+          input,
+          `${B_embed(input, formatToUtf8(codec.toBytes))}(${B_readOnce(input)})`,
+          openedText(target)
+        )
+      : input;
+  };
+
+  return schema;
+};
+
+export const base64Content: Internal = /* @__PURE__ */ bytesContent(
+  "base64",
+  (value) => typeof value === stringTag && value.length % 4 === 0 && stdTest.test(value),
+  stdCodec,
+);
+
+export const base64: Internal = /* @__PURE__ */ bytesTextFormat(base64Content, stdCodec);
+
+export const base64url: Internal = /* @__PURE__ */ bytesTextFormat(
+  /* @__PURE__ */ bytesContent(
+    "base64url",
+    (value) => typeof value === stringTag && value.length % 4 !== 1 && urlTest.test(value),
+    urlCodec,
+  ),
+  urlCodec,
+);
+
+export const bytesTarget = (
+  target: Internal,
+  fallback: Internal,
+): { format: Internal; fromBytes: (bytes: Uint8Array) => string } => {
+  if (target.bc) return { format: target, fromBytes: target.bc.fromBytes };
+  const codec = target.content?.bc;
+  return {
+    format: codec ? target.content! : fallback,
+    fromBytes: codec?.fromBytes ?? fallback.bc!.fromBytes,
+  };
+};
 
 // RFC 3986 dec-octet, four of them: a leading zero is rejected because some
 // resolvers read `010` as octal, so accepting it would make two readings of the
@@ -882,6 +1188,7 @@ const uriEscapeNonAscii = (value: string): string | undefined => {
 export const isoDate: Internal = /* @__PURE__ */ stringFormat(
   "date",
   /* @__PURE__ */ anchor(datePattern),
+  true,
 );
 
 // RFC 3339 permits second 60 only on a leap-second boundary, which is 23:59:60
@@ -910,6 +1217,7 @@ export const isoTime: Internal = /* @__PURE__ */ stringFormat("time", timeValida
 export const duration: Internal = /* @__PURE__ */ stringFormat(
   "duration",
   /^P(?:\d+W|(?:\d+Y(?:\d+M(?:\d+D)?)?|\d+M(?:\d+D)?|\d+D)(?:T(?:\d+H(?:\d+M(?:\d+S)?)?|\d+M(?:\d+S)?|\d+S))?|T(?:\d+H(?:\d+M(?:\d+S)?)?|\d+M(?:\d+S)?|\d+S))$/,
+  true,
 );
 
 // RFC 1123: 253 chars overall, labels of 1-63 alphanumerics-or-hyphen that
@@ -919,6 +1227,7 @@ export const duration: Internal = /* @__PURE__ */ stringFormat(
 export const hostname: Internal = /* @__PURE__ */ stringFormat(
   "hostname",
   /^(?=.{1,253}$)[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/,
+  true,
 );
 
 // Same label shape as `hostname` over the four Unicode label separators, with
@@ -932,22 +1241,25 @@ export const idnHostname: Internal = /* @__PURE__ */ stringFormat(
 export const ipv4: Internal = /* @__PURE__ */ stringFormat(
   "ipv4",
   /* @__PURE__ */ anchor(ipv4Pattern),
+  true,
 );
 
 export const ipv6: Internal = /* @__PURE__ */ stringFormat(
   "ipv6",
   /* @__PURE__ */ anchor(/* @__PURE__ */ ipv6Pattern()),
+  true,
 );
 
 // The string form of a URI. `S.url` (advanced/url.ts) parses the same syntax
 // into a `URL` instance, but not the same language: RFC 3986 is stricter than
 // the WHATWG URL parser behind `new URL`, which silently percent-encodes
 // characters this rejects — so a value can be a legal URL and not a legal URI.
-export const uri: Internal = /* @__PURE__ */ stringFormat("uri", /* @__PURE__ */ uriPattern(""));
+export const uri: Internal = /* @__PURE__ */ stringFormat("uri", /* @__PURE__ */ uriPattern(""), true);
 
 export const uriReference: Internal = /* @__PURE__ */ stringFormat(
   "uri-reference",
   /* @__PURE__ */ uriPattern("?"),
+  true,
 );
 
 // RFC 6570 `literals` runs out at %x7E and resumes at ucschar (%xA0), so DEL,
@@ -979,12 +1291,12 @@ const iriTest = (schemeOptional: string) => {
 
 export const iri: Internal = /* @__PURE__ */ stringFormat(
   "iri",
-  /* @__PURE__ */ iriTest(""),
+  /* @__PURE__ */ iriTest("")
 );
 
 export const iriReference: Internal = /* @__PURE__ */ stringFormat(
   "iri-reference",
-  /* @__PURE__ */ iriTest("?"),
+  /* @__PURE__ */ iriTest("?")
 );
 
 // RFC 6531 puts almost no constraint on either side beyond the length limits,

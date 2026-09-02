@@ -80,7 +80,7 @@ test("Successfully parses schema with transformation", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){if(typeof i==="number"&&!Number.isNaN(i))break;if(i===void 0){i=-123;break}e[0](i)}let v0;try{v0=e[1](i)}catch(x){e[2](x)}for(;;){if(typeof v0==="string")break;if(v0===void 0){v0="not positive";break}e[3](v0)}return v0}`,
+    `i=>{for(;;){if(typeof i==="number"&&i===i)break;if(i===void 0){i=-123;break}e[0](i)}let v0;try{v0=e[1](i)}catch(x){e[2](x)}for(;;){if(typeof v0==="string")break;if(v0===void 0){v0="not positive";break}e[3](v0)}return v0}`,
   )
 })
 
@@ -309,11 +309,29 @@ test("Appending S.to(S.jsonString) after getOr extends the output chain", t => {
   )
 })
 
+// getOr hands jsonString a bare ternary, and `+` binds tighter than `?:`, so
+// splicing it between quotes unparenthesized reassociated into
+// `("\""+i)===void 0?…` — which dropped the opening quote on BOTH branches and
+// went unnoticed because no test paired a default with a quoted primitive.
+// Spelled here rather than as a spec: `spec new` can't evaluate `$Option_getOr`.
+test("getOr default reaches jsonString quoted, not reassociated", t => {
+  let schema = S.string->S.to(S.bigint)->S.option->S.Option.getOr(7n)->S.to(S.jsonString)
+
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{for(;;){if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i="\\""+v0+"\\"";break}if(i===void 0){i="\\""+7n+"\\"";break}e[1](i)}return i}`,
+  )
+
+  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), `"7"`)
+  t->Assert.deepEqual("123"->S.parseOrThrow(~to=schema), `"123"`)
+})
+
 // A multi-member transforming union + getOr. Each string-coercing branch
 // declares its conversion var (`let v0 = +i` / `let v1 = BigInt(i)`) inside the
 // try block that owns the branch's type check, so a string input dispatches
 // per-branch without ever reading a var before its declaration (the previous
-// codegen emitted `if(!Number.isNaN(v0))` above `let v0 = +i`).
+// codegen emitted `if(v0===v0)` above `let v0 = +i`).
 test("Multi-member union with transformed members + getOr", t => {
   let schema =
     S.union([
@@ -337,13 +355,13 @@ test("Multi-member union with transformed members + getOr", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){let r;if(typeof i==="string"){try{let v0=+i;!Number.isNaN(v0)||e[0](i);i=v0;break}catch(x){(r||(r=[])).push(e[2](x))}try{let v1;try{v1=BigInt(i)}catch(_){e[1](i)}i=v1;break}catch(x){(r||(r=[])).push(e[2](x))}}if(typeof i==="boolean")break;if(i===void 0){i=true;break}e[3](i,...(r||[]))}return i}`,
+    `i=>{for(;;){let r;if(typeof i==="string"){try{let v0=+i;v0===v0||e[0](i);i=v0;break}catch(x){(r||(r=[])).push(e[2](x))}try{let v1;try{v1=BigInt(i)}catch(_){e[1](i)}i=v1;break}catch(x){(r||(r=[])).push(e[2](x))}}if(typeof i==="boolean")break;if(i===void 0){i=true;break}e[3](i,...(r||[]))}return i}`,
   )
 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{for(;;){if(typeof i==="number"&&!Number.isNaN(i)){i=""+i;break}if(typeof i==="bigint"){i=""+i;break}if(typeof i==="boolean")break;e[0](i)}return i}`,
+    `i=>{for(;;){if(typeof i==="number"&&i===i){i=""+i;break}if(typeof i==="bigint"){i=""+i;break}if(typeof i==="boolean")break;e[0](i)}return i}`,
   )
 })
 

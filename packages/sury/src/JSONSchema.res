@@ -139,6 +139,7 @@ type rec t = {
    */
   contentMediaType?: string,
   contentEncoding?: string,
+  contentSchema?: definition,
   /**
    * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-9
    */
@@ -245,6 +246,7 @@ module Mutable = {
    */
     mutable contentMediaType?: string,
     mutable contentEncoding?: string,
+    mutable contentSchema?: definition,
     /**
    * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-9
    */

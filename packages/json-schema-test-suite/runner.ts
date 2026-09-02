@@ -25,7 +25,7 @@ export type DialectResult = {
   falseAccept: number;
   falseReject: number;
   errored: number;
-  // `S.is` score over the same corpus. Tracked alongside the canonical parse
+  // `S.inputValidator` score over the same corpus. Tracked alongside the canonical parse
   // score because the two disagreeing is always a Sury bug, never a JSON
   // Schema gap — that delta is what surfaced the `S.json` assert break.
   assertPassed: number;

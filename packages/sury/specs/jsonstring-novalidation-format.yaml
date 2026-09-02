@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({ id: S.uuid.with(S.noValidation, true) }).with(S.to, S.jsonString)"
+  input: "{ id: string; }"
+  output: string
+  instantiations: 6390
+jsonSchema:
+  input: '{ type: "object", properties: { id: { type: "string", format: "uuid" } }, required: ["id"] }'
+  output: '{ type: "string", contentMediaType: "application/json" }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);return "{\"id\":"+e[0](i["id"])+"}"}
+    examples:
+      valid:
+        input: '{ id: "123e4567-e89b-12d3-a456-426614174000" }'
+        output: '"{\"id\":\"123e4567-e89b-12d3-a456-426614174000\"}"'
+      contract-violated-still-escapes:
+        input: '{ id: "a\"b" }'
+        output: '"{\"id\":\"a\\\"b\"}"'
+  decode:
+    expression: i=>{return "{\"id\":"+e[0](i["id"])+"}"}
+    examples:
+      valid:
+        input: '{ id: "123e4567-e89b-12d3-a456-426614174000" }'
+        output: '"{\"id\":\"123e4567-e89b-12d3-a456-426614174000\"}"'
+      contract-violated-still-escapes:
+        input: '{ id: "a\"b" }'
+        output: '"{\"id\":\"a\\\"b\"}"'
+  encode:
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[1](v0);return {id:v0["id"]}}
+    examples:
+      takes-the-text-unchecked:
+        input: '"{\"id\":\"zz\"}"'
+        output: '{ id: "zz" }'

@@ -6,13 +6,13 @@ ts:
   instantiations: 5548
 jsonSchema:
   input: '{ type: "number" }'
-  output: '{ type: "string", pattern: "^\\d+$" }'
+  output: '{ type: "string", contentMediaType: "application/json", pattern: "^\\d+$" }'
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="number"&&!Number.isNaN(i)||e[3](i);let v0=(Number.isFinite(i)?""+i:e[0](i));e[1].test(v0)||e[2](v0);return v0}
+    expression: i=>{typeof i==="number"&&i===i||e[3](i);let v0=(Number.isFinite(i)?""+i:e[0](i));e[1].test(v0)||e[2](v0);return v0}
     examples:
       valid:
         input: "123"
@@ -30,7 +30,7 @@ operations:
         input: "-5"
         error: Invalid pattern
   encode:
-    expression: i=>{e[0].test(i)||e[3](i);let v0;try{v0=JSON.parse(i)}catch(t){e[1](i)}typeof v0==="number"&&!Number.isNaN(v0)||e[2](v0);return v0}
+    expression: i=>{e[0].test(i)||e[3](i);let v0;try{v0=JSON.parse(i)}catch(t){e[1](i)}typeof v0==="number"&&v0===v0||e[2](v0);return v0}
     examples:
       valid:
         input: '"123"'

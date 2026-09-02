@@ -9,8 +9,7 @@ import {
   type Internal,
   refTag,
   U,
-  type Val,
-  valFlagAsync,
+  type Val
 } from "../base";
 import {
   _var,
@@ -18,9 +17,14 @@ import {
   B_mergeWithPathPrepend,
   B_next,
   B_refine,
-  B_varWithoutAllocation,
+  B_varWithoutAllocation
 } from "../builder";
-import { addOpNode, compileDecoder, findOpNode, removeOpNode } from "../parse";
+import {
+ addOpNode,
+ compileDecoder,
+ findOpNode,
+ removeOpNode
+} from "../parse";
 
 export const recursiveDecoder: Builder = (input) => {
   const expectedSchema = input.e;
@@ -116,7 +120,7 @@ export const recursiveDecoder: Builder = (input) => {
     output.cp = `${outputVar}=${recOperation}(${input.i});`;
 
     if (isAsync) {
-      output.f |= valFlagAsync;
+      output.f |= 1;
     }
   } else {
     // No transform: call for validation but don't capture result
@@ -145,7 +149,9 @@ export const recursive = (name: string, fn: (schema: Internal) => Internal): Int
   // This is for mutual recursion
   const isNestedRec = globalConfig.d !== U;
   if (!isNestedRec) {
-    globalConfig.d = {};
+    // Null prototype: the caller names the definition, so one named `__proto__`
+    // would set this object's prototype instead of taking a key.
+    globalConfig.d = Object.create(null);
   }
   const def = fn(refSchema);
   if (def.name) {

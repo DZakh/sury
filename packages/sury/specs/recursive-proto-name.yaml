@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.recursive("__proto__", (self) => S.schema({ v: S.string, next: S.optional(self) }))'
+  input: unknown
+  output: unknown
+  instantiations: 9071
+jsonSchema:
+  input: '{ $ref: "#/$defs/__proto__", $defs: { ["__proto__"]: { type: "object", properties: { v: { type: "string" }, next: { $ref: "#/$defs/__proto__" } }, required: ["v"] } } }'
+  fromInputType: "{ v: string; next?: ... | undefined; }"
+  output: '{ $ref: "#/$defs/__proto__", $defs: { ["__proto__"]: { type: "object", properties: { v: { type: "string" }, next: { $ref: "#/$defs/__proto__" } }, required: ["v"] } } }'
+  fromOutputType: "{ v: string; next?: ... | undefined; }"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{let v0;v0=e[0](i);return v0}
+    examples:
+      chain:
+        input: '{ v: "x", next: { v: "y" } }'
+        output: '{ v: "x", next: { v: "y", next: undefined } }'
+      wrong-type-at-depth:
+        input: '{ v: "x", next: { v: 1 } }'
+        error: |-
+          Failed at ["next"]: Expected __proto__ | undefined, received { v: 1; }
+          - At ["next"]["v"]: Expected string, received 1
+  decode: eq-to-parse
+  encode: eq-to-parse

@@ -330,7 +330,7 @@ test("Rejects unknown codec slot values at schema creation", (t) => {
 
   // The rejection names the direction the caller got wrong, not the pair.
   t.expect(codec({ decode: 1, encode: "auto" })).toThrow(
-    '[Sury] Invalid decode 1. Expected a function, "auto", "never" or {async: fn}',
+    '[Sury] Invalid decode 1. Expected a function, "auto", "never", "pack", "unpack" or {async: fn}',
   );
   t.expect(codec({ decode: "auto", encode: 1 })).toThrow("[Sury] Invalid encode 1.");
   // {async} is strict: extra keys are a misuse, not something to guess about.
@@ -1921,12 +1921,8 @@ test("fromJSONSchema: oneOf counts matches, `not` and if/then/else layer on", (t
 test("fromJSONSchema: an unmodelled assertion keyword fails at creation", (t) => {
   // Ignoring it would widen the schema — the validator would accept data the
   // author wrote the keyword to reject — so this must not silently succeed.
-  const result = S.safe(() => S.fromJSONSchema({ type: "object", patternProperties: {} }));
-  t.expect(result.error?.message).toContain("Unsupported JSON Schema keyword: patternProperties");
-
-  t.expect(
-    S.safe(() => S.fromJSONSchema({ type: "array", uniqueItems: true })).error?.message,
-  ).toContain("uniqueItems");
+  const result = S.safe(() => S.fromJSONSchema({ unevaluatedProperties: false }));
+  t.expect(result.error?.message).toContain("Unsupported JSON Schema keyword: unevaluatedProperties");
 
   t.expect(
     S.safe(() => S.fromJSONSchema({ $dynamicRef: "#items" })).error?.message,
@@ -2039,7 +2035,7 @@ test("Preprocess nested fields", (t) => {
 
   t.expect(fn.toString()).toEqual(
     // The junction seam validates each coder's result against its target.
-    `i=>{i===void 0||e[6](i);let v0;try{v0=e[0]("foo")}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);let v1;try{v1=e[3]("1")}catch(x){e[4](x)}typeof v1==="string"||e[5](v1);return {"nested":{"tag":v0,"numberTag":v1,},}}`,
+    `i=>{i===void 0||e[6](i);let v0;try{v0=e[0]("foo")}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);let v1;try{v1=e[3]("1")}catch(x){e[4](x)}typeof v1==="string"||e[5](v1);return {nested:{tag:v0,numberTag:v1}}}`,
   );
 
   const value = fn(undefined);
@@ -2146,38 +2142,6 @@ test("Overwrite error message", (t) => {
       message: `Failed at ["foo"]: Invalid string`,
     }),
   );
-});
-
-test("Uint8Array", (t) => {
-  let data = new Uint8Array([1, 2, 3]);
-
-  t.expect(S.parser(S.uint8Array)(data)).toEqual(data);
-  t.expect(S.parser(S.uint8Array).toString()).toEqual(
-    `i=>{i instanceof e[0]||e[1](i);return i}`,
-  );
-
-  t.expect(S.decoder(S.string, S.uint8Array, S.jsonString)("data")).toEqual(
-    `"data"`,
-  );
-  t.expect(S.decoder(S.string, S.uint8Array, S.jsonString).toString()).toEqual(
-    `i=>{return e[2](e[1].decode(e[0].encode(i)))}`,
-  );
-  t.expect(S.decoder(S.unknown, S.uint8Array, S.jsonString).toString()).toEqual(
-    `i=>{i instanceof e[2]||e[3](i);return e[1](e[0].decode(i))}`,
-  );
-
-  // As an object field: jsonString's fallback asks the field's own schema for
-  // the string conversion, since uint8Array only performs it when it is
-  // itself the target. Not a spec — the encode direction's output holds a
-  // Uint8Array, which the spec harness can't write as source (see
-  // CONTRIBUTING.md's Spec Harness Suggestions).
-  const withField = S.schema({ payload: S.uint8Array });
-  t.expect(
-    S.encoder(withField, S.jsonString)({ payload: new TextEncoder().encode("hi") }),
-  ).toEqual(`{"payload":"hi"}`);
-  t.expect(S.decoder(S.jsonString, withField)(`{"payload":"hi"}`)).toEqual({
-    payload: new TextEncoder().encode("hi"),
-  });
 });
 
 test("Throwing one retained error instance twice doesn't accumulate the path", (t) => {

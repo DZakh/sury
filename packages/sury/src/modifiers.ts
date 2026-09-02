@@ -3,36 +3,148 @@
 // Distinct from `operations.ts`, which compiles a schema into a callable.
 
 import {
+  anyOfTag,
   type AdditionalItems,
+  baseSchema,
   type Builder,
   type Check,
   copySchema,
+  functionTag,
   getOrRethrow,
   inputExpression,
   type Internal,
+  jsonName,
   objectTag,
   panic,
   pathEmpty,
   pathFromArray,
   type SchemaErrorMessage,
+  setHas,
   U,
   undefinedTag,
   unknown,
   updateOutput,
-  type Val,
+  type Val
 } from "./base";
 import {
   _var,
   B_embed,
+  B_contentDiffers,
+  B_contentNode,
   B_inlineConst,
   B_invalidInputBuilder,
+  B_invalidOperation,
   B_neverSlot,
   B_next,
+  B_nextConst,
   B_refine,
+  B_unsupportedDecode,
 } from "./builder";
-import { getDecoder, getOutputSchema, reverse } from "./parse";
-import { Literal_parse, nullLiteral, unit } from "./primitives";
-import { unionFactory } from "./union";
+import {
+  objectDecoder
+} from "./composites";
+import {
+ getDecoder,
+ getOutputSchema,
+ nestedLoc,
+ nestedOptionParser,
+ reverse
+} from "./parse";
+import {
+ Literal_parse,
+ nullLiteral,
+ unit
+} from "./primitives";
+import {
+ unionFactory
+} from "./union";
+
+// Lives here rather than in composites.ts so objectDecoder's module has no
+// static edge to unionFactory. baseSchema, not an object literal: a union
+// member has to carry the schema prototype, where the lazily derived reverse
+// (`schema.r`) lives.
+const nestedNone = (): Internal => {
+  const itemSchema = Literal_parse(0);
+  const properties: Record<string, Internal> = {};
+  properties[nestedLoc] = itemSchema;
+  const mut = baseSchema(objectTag, false, objectDecoder);
+  mut.required = [nestedLoc];
+  mut.properties = properties;
+  mut.additionalItems = "strip";
+  mut.serializer = (input: Val) => {
+    const nextSchema = input.e.to!;
+    return B_nextConst(input, nextSchema, nextSchema);
+  };
+  return mut;
+}
+
+const nestedOption = (item: Internal): Internal => {
+  return updateOutput<Internal>(item, (mut) => {
+    mut.to = nestedNone();
+    mut.parser = nestedOptionParser;
+  });
+}
+
+export const optionFactory = (item: Internal, unitSchema: Internal = unit): Internal => {
+  const out = getOutputSchema(item);
+  if (out.type === undefinedTag) {
+    return unionFactory([unitSchema, nestedOption(item)]);
+  } else if (out.type === anyOfTag) {
+    const anyOf = out.anyOf;
+    const has = out.has;
+    return updateOutput<Internal>(item, (mut) => {
+      const schemas = anyOf!;
+      const mutHas = { ...has! };
+
+      const newAnyOf: Internal[] = [];
+      for (let idx = 0; idx < schemas.length; idx++) {
+        const schema = schemas[idx]!;
+        let toPush: Internal;
+        const schemaOut = getOutputSchema(schema);
+        if (schemaOut.type === undefinedTag) {
+          mutHas[unitSchema.type] = true;
+          newAnyOf.push(unitSchema);
+          toPush = nestedOption(schema);
+        } else if (schemaOut.properties !== U) {
+          const properties = schemaOut.properties;
+          const nestedSchema = properties[nestedLoc];
+          if (nestedSchema !== U) {
+            toPush = updateOutput<Internal>(schema, (mut) => {
+              // copySchema, not a spread: a spread keeps the original's seq,
+              // and two schemas sharing a seq can collide in the seq-keyed
+              // operation caches.
+              const bumped = copySchema(nestedSchema);
+              bumped.const = (nestedSchema.const as number) + 1;
+              const properties: Record<string, Internal> = {};
+              properties[nestedLoc] = bumped;
+              mut.properties = properties;
+            });
+          } else {
+            toPush = schema;
+          }
+        } else {
+          toPush = schema;
+        }
+        newAnyOf.push(toPush);
+      }
+
+      if (newAnyOf.length === schemas.length) {
+        mutHas[unitSchema.type] = true;
+        newAnyOf.push(unitSchema);
+      }
+
+      mut.anyOf = newAnyOf;
+      mut.has = mutHas;
+    });
+  } else {
+    return unionFactory([item, unitSchema]);
+  }
+}
+
+// @__NO_SIDE_EFFECTS__
+export const option = (item: Internal): Internal => {
+  return optionFactory(item, unit);
+}
 
 // PORT-NOTE: `module Metadata` → flat `Metadata_*` functions. `Id.t<'metadata>` is a string at
 // runtime; `unionToKey` was `%identity` and is dropped.
@@ -151,35 +263,84 @@ export const getMutErrorMessage = (mut: Internal): SchemaErrorMessage => {
 // That placement is what makes reversal free: `reverseSwap` trades the two
 // fields, so the encode coder becomes the reversed chain's parser and double
 // reversal restores every slot. Slot semantics (auto/never/async/the JS
-// shorthand) are resolved by the caller into Builders; `U` means no coder,
-// i.e. the built-in conversion.
+// shorthand) are resolved by the caller into Builders; a boolean is a content
+// reading (`true` opens the direction's own source) and rides the schema that
+// direction converts into, which is what makes reversal swap those too. `U`
+// means no slot, i.e. the built-in conversion — or, where `B_contentDiffers`
+// says the pair has two readings, the rejection built below.
 export const codecTo = (
   schema: Internal,
   target: Internal,
-  parserB?: Builder,
-  serializerB?: Builder
+  decode?: Builder | boolean,
+  encode?: Builder | boolean
 ): Internal => {
   const root: Internal = updateOutput(schema, (mut) => {
-    if (serializerB !== U) {
+    // The slot spelling is worth naming here, where the caller has somewhere to
+    // write one — but only for a pair where writing one resolves it. A union
+    // arm's payload and a reading on the union both stop short of the dispatch,
+    // and `S.json` has no opened form of its own, so those say what every
+    // undecodable pair says instead.
+    const ambiguous =
+      B_contentDiffers(B_contentNode(mut).content, B_contentNode(target).content) &&
+      target.to === U
+      ? B_contentNode(mut) === mut &&
+        B_contentNode(target) === target &&
+        mut.name !== jsonName &&
+        target.name !== jsonName
+        ? (input: Val) =>
+            B_invalidOperation(
+              input,
+              `Ambiguous conversion from ${inputExpression(mut)} to ${inputExpression(
+                target,
+              )}. Use S.to(from, to, "unpack" | "pack")`,
+            )
+        : (input: Val) => B_unsupportedDecode(input, mut, target)
+      : U;
+    const opened = typeof decode === "boolean";
+    const parser = typeof decode === functionTag ? (decode as Builder) : opened ? U : ambiguous;
+    const serializer =
+      typeof encode === functionTag
+        ? (encode as Builder)
+        : typeof encode === "boolean"
+          ? U
+          : ambiguous;
+    if (serializer !== U || opened) {
       // copySchema keeps `anyOf` shared by reference with the target, and
-      // unionResolveToUnion recognizes an arm producing the whole target
-      // union by exactly that shared array. A deep copy here would silently
-      // break Option.getOr's default arms.
+      // unionResolveToUnion recognizes an arm producing the whole target union
+      // by exactly that shared array. A deep copy here would silently break
+      // Option.getOr's default arms.
+      //
+      // A link built with either slot therefore owns its tail, which is what
+      // lets `trim` stamp a content marker onto the result without touching the
+      // shared `string` singleton. Stop copying here and it corrupts one.
       const targetMut = copySchema(target);
-      targetMut.serializer = serializerB;
+      if (serializer !== U) {
+        targetMut.serializer = serializer;
+      }
+      if (opened) {
+        targetMut.opens = decode as boolean;
+      }
       mut.to = targetMut;
     } else {
       mut.to = target;
     }
-    if (parserB !== U) {
-      mut.parser = parserB;
+    if (parser !== U) {
+      mut.parser = parser;
+    }
+    if (typeof encode === "boolean") {
+      // `opensBack`, not `opens`: this node is the *source* of the link, and it
+      // may later be some other link's target — where `opens` would then be
+      // read as that link's decode reading. `reverse` moves it across.
+      mut.opensBack = encode;
     }
   });
   // copySchema carries a cached isAsync/hasTransform from the source and a
   // custom slot can change both, so let the next compile re-derive them.
-  // Slotless links keep the fast path: a built-in conversion never turns
-  // async.
-  if (parserB !== U || serializerB !== U) {
+  // Slotless links keep the fast path: a built-in conversion can turn async now
+  // that a container reads its payload, but only where the source itself is
+  // already one, and the cache is read off the link's own head — nothing that
+  // reaches here carries a value for either.
+  if (decode !== U || encode !== U) {
     delete root.isAsync;
     delete root.hasTransform;
   }

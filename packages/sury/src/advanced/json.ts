@@ -10,35 +10,23 @@ import {
   copySchema,
   defsPath,
   type Encoder,
-  flagAsync,
-  flagUnsafeHas,
   initSchema,
   inlinedValueFromString,
   type Internal,
   isLiteral,
+  isOptional,
   jsonName,
   refTag,
+  setContent,
   stringTag,
   type Tag,
-  tagFlagArray,
-  tagFlagBigint,
-  tagFlagBoolean,
-  tagFlagNaN,
-  tagFlagNull,
-  tagFlagNumber,
-  tagFlagObject,
-  tagFlagRef,
   tagFlags,
-  tagFlagString,
-  tagFlagUndefined,
-  tagFlagUnion,
-  tagFlagUnknown,
   U,
   undefinedTag,
   unknown,
   unknownTag,
   updateOutput,
-  type Val,
+  type Val
 } from "../base";
 import {
   _var,
@@ -50,10 +38,11 @@ import {
   B_mergeWithPathPrepend,
   B_next,
   B_nextConst,
+  B_readsPayload,
   B_refine,
   B_unsupportedDecode,
   B_varWithoutAllocation,
-  failInvalidType,
+  failInvalidType
 } from "../builder";
 import {
   arrayDecoder,
@@ -61,9 +50,13 @@ import {
   completeObjectVal,
   dictFactory,
   makeObjectVal,
-  valGet,
+  valGet
 } from "../composites";
-import { getOutputSchema, parse, parseDynamic } from "../parse";
+import {
+ getOutputSchema,
+ parse,
+ parseDynamic
+} from "../parse";
 import {
   bool,
   float,
@@ -71,11 +64,19 @@ import {
   literalDecoder,
   nullLiteral,
   string,
-  stringDecoderFn,
+  stringDecoderFn
 } from "../primitives";
-import { internalRefine } from "../modifiers";
-import { unionDecoder, unionFactory, unionRewriteTo } from "../union";
-import { recursiveDecoder } from "./recursive";
+import {
+ internalRefine
+} from "../modifiers";
+import {
+ unionDecoder,
+ unionFactory,
+ unionRewriteTo
+} from "../union";
+import {
+ recursiveDecoder
+} from "./recursive";
 
 // The one JSON.stringify call shape: space 0/undefined omits the indent
 // argument. Both jsonEncoderFn and the pretty-print fallback go through it so
@@ -93,17 +94,14 @@ export const jsonEncoderFn = (input: Val, target: Internal): Val => {
   const toTagFlag = tagFlags[target.type]!;
 
   if (
-    flagUnsafeHas(
-      toTagFlag,
-      tagFlagString | tagFlagBoolean | tagFlagNumber | tagFlagNull,
-    )
+    (toTagFlag & (2 | 8 | 4 | 32))
   ) {
     return parse(B_refine(input, unknown, U, target));
-  } else if (flagUnsafeHas(toTagFlag, (tagFlagUndefined | tagFlagNaN))) {
+  } else if ((toTagFlag & (16 | 2048))) {
     const jsonExpected = copySchema(nullLiteral);
     jsonExpected.to = target;
     return parse(B_refine(input, unknown, U, jsonExpected));
-  } else if (flagUnsafeHas(toTagFlag, tagFlagArray)) {
+  } else if ((toTagFlag & 128)) {
     // Validate that the input is an array
     // and then update the schema to be an array of json instead of array of unknown
     const jsonExpected = arrayFactory(unknown);
@@ -112,7 +110,7 @@ export const jsonEncoderFn = (input: Val, target: Internal): Val => {
     output.e = target;
     output.io = false;
     return output;
-  } else if (flagUnsafeHas(toTagFlag, tagFlagObject)) {
+  } else if ((toTagFlag & 64)) {
     // Validate that the input is an object
     // and then update the schema to be an object of json instead of object of unknown
     const jsonExpected = dictFactory(unknown);
@@ -121,11 +119,52 @@ export const jsonEncoderFn = (input: Val, target: Internal): Val => {
     output.e = target;
     output.io = false;
     return output;
-  } else if (flagUnsafeHas(toTagFlag, (tagFlagUnion | tagFlagRef))) {
+  } else if ((toTagFlag & (256 | 512))) {
+    // A variant that stores a payload is read out of a document exactly like a
+    // lone one is (CONTENT_CODEC_SPEC.md rule 2) — but the dispatch works from
+    // the target's own variants, so the hop through the stored form has to be
+    // spelled into them. `perVariantTo` does the same on the way out.
+    const anyOf = target.anyOf;
+    // The variant's own head, exactly as the `else` branch below reads the
+    // target's: an arm that already says how it is stored (`S.string.with(S.to,
+    // S.uint8Array)` is text, not base64) keeps saying it. An arm already shaped
+    // like its stored form (`S.base64`, and anything derived from it) needs no
+    // hop — one would re-run the format's own checks and drop whatever the
+    // caller put on the arm — and one storing a JSON value is
+    // left alone too — a document nested in a document is an escaped string,
+    // which `B_narrowJsonSourcedJsonString` already routes, and standing
+    // `S.json` in front of it would match every value and swallow the dispatch.
+    const storedApart = (variant: Internal): Internal | undefined => {
+      const content = variant.content;
+      return content !== U && content !== json && content.type !== variant.type ? content : U;
+    };
+    if (anyOf !== U && anyOf.some((variant) => storedApart(variant) !== U)) {
+      const stored = unionFactory(
+        anyOf.map((variant) => {
+          // `null` for an undefined arm, for the reason the branch above gives:
+          // JSON has no undefined, and objectDecoder has already coalesced the
+          // absent key into one.
+          const from = storedApart(variant) ?? (isOptional(variant) ? nullLiteral : U);
+          if (from === U) {
+            return variant;
+          }
+          // A bare `.to`, not `codecTo`: the pair is this module's own — a
+          // schema and the very content marker it names — so there is no
+          // reading for the content rules to be asked about.
+          const stored = copySchema(from);
+          stored.to = variant;
+          return stored;
+        })
+      );
+      stored.perVariant = true;
+      return parse(B_refine(input, unknown, U, stored));
+    }
     return input;
   } else {
-    // For non-JSON types (bigint, instance, etc.), decode through string
-    const jsonExpected = copySchema(string);
+    // For non-JSON types (bigint, instance, etc.), decode through the schema
+    // the target is stored as — a plain string, unless it carries a payload of
+    // its own and names how a document holds it (bytes as base64).
+    const jsonExpected = copySchema(target.content !== U ? target.content : string);
     jsonExpected.to = target;
     return parse(B_refine(input, unknown, U, jsonExpected));
   }
@@ -134,16 +173,13 @@ export const jsonEncoderFn = (input: Val, target: Internal): Val => {
 export const isJsonable = (schema: Internal): boolean => {
   const tagFlag = tagFlags[schema.type]!;
   return (
-    flagUnsafeHas(
-      tagFlag,
-      tagFlagString | tagFlagNumber | tagFlagBoolean | tagFlagNull,
-    ) ||
+    (tagFlag & (2 | 4 | 8 | 32)) !== 0 ||
     schema["$ref"] === json["$ref"] ||
-    (flagUnsafeHas(tagFlag, tagFlagUnion) && schema.anyOf!.every(isJsonable)) ||
-    (flagUnsafeHas(tagFlag, tagFlagArray) &&
+    ((tagFlag & 256) !== 0 && schema.anyOf!.every(isJsonable)) ||
+    ((tagFlag & 128) !== 0 &&
       (typeof schema.additionalItems === "object" ? isJsonable(schema.additionalItems) : true) &&
       schema.items!.every(isJsonable)) ||
-    (flagUnsafeHas(tagFlag, tagFlagObject) &&
+    ((tagFlag & 64) !== 0 &&
       (typeof schema.additionalItems === "object" ? isJsonable(schema.additionalItems) : true) &&
       Object.values(schema.properties!).every(isJsonable))
   );
@@ -166,7 +202,7 @@ const perVariantTo = (
         : updateOutput<Internal>(variant, (mut) => {
             mut.to = target;
           });
-    }),
+    })
   );
   // Already resolved variant by variant, so the union encoder pairs them
   // by position instead of re-matching them by type.
@@ -179,9 +215,9 @@ export const jsonDecoderFn = (input: Val): Val => {
 
   if (isJsonable(input.s)) {
     return input;
-  } else if (flagUnsafeHas(inputTagFlag, (tagFlagUndefined | tagFlagNaN))) {
+  } else if ((inputTagFlag & (16 | 2048))) {
     return B_nextConst(input, nullLiteral);
-  } else if (flagUnsafeHas(inputTagFlag, tagFlagArray)) {
+  } else if ((inputTagFlag & 128)) {
     const expected = baseSchema(arrayTag, false, arrayDecoder);
     expected.items = input.s.items!.map((_) => json);
     expected.additionalItems =
@@ -190,7 +226,7 @@ export const jsonDecoderFn = (input: Val): Val => {
         : input.s.additionalItems;
     expected.to = input.e.to;
     return parse(B_refine(input, U, U, expected));
-  } else if (flagUnsafeHas(inputTagFlag, tagFlagObject)) {
+  } else if ((inputTagFlag & 64)) {
     if (typeof input.s.additionalItems === "object") {
       const expected = dictFactory(json);
       expected.to = input.e.to;
@@ -222,10 +258,10 @@ export const jsonDecoderFn = (input: Val): Val => {
 
       return completeObjectVal(jsonVal);
     }
-  } else if (flagUnsafeHas(inputTagFlag, tagFlagRef)) {
+  } else if ((inputTagFlag & 512)) {
     // FIXME: Should be a unified solution for ref inputs
     return recursiveDecoder(input);
-  } else if (flagUnsafeHas(inputTagFlag, tagFlagUnion)) {
+  } else if ((inputTagFlag & 256)) {
     // Each variant decodes to JSON separately, and an `undefined` one becomes
     // `null` through the branch above — the nullish bridge (CODEC_SPEC.md),
     // which a union reaching the target as a whole already applied. Refusing it
@@ -234,14 +270,22 @@ export const jsonDecoderFn = (input: Val): Val => {
     // never arrives here: the object branch below resolves its own optional
     // properties through `perVariantTo` before recursing.
     return parse(unionRewriteTo(input, input.e));
-  } else if (flagUnsafeHas(inputTagFlag, tagFlagUnknown)) {
+  } else if ((inputTagFlag & 1)) {
     const to = input.e.to!;
     // Whether we can optimize encoding during decoding. Encoding into a
     // concrete type validates implicitly — except a json-format target, whose
     // JSON.stringify accepts (or silently drops) anything, so it still needs
     // the JSON validation here.
-    // FIXME: should this also check !input.e.refiner, like jsonStringDecoder's preEncode does?
-    const preEncode: boolean = !!to && to.format !== "json" && !input.e.parser;
+    // FIXME: should this also check !input.e.refiner, like `carriedJsonString`'s caller does?
+    // The `undefined` sentinel `S.assertInput` targets is `noValidation` and reads
+    // nothing, so encoding into it asserts nothing either — `S.inputValidator(x, S.json)`
+    // answered true for a function. A `noValidation` document is a different
+    // thing: it still holds the value, and the encode is how it is described.
+    const preEncode: boolean =
+      !!to &&
+      to.format !== "json" &&
+      !(to.noValidation && to.type === undefinedTag) &&
+      !input.e.parser;
     if (preEncode) {
       input.s = json;
       return jsonEncoderFn(input, input.e);
@@ -273,6 +317,7 @@ export const json: Internal = /* @__PURE__ */ initSchema(refTag, jsonDecoderFn, 
   s["$ref"] = jsonRef["$ref"];
   s.name = jsonName;
   s.encoder = jsonEncoderFn;
+  setContent(s, s);
 
   const anyOf = [
     string,
@@ -307,6 +352,20 @@ export const json: Internal = /* @__PURE__ */ initSchema(refTag, jsonDecoderFn, 
   s["$defs"] = defs;
 });
 
+// Anything but a bare accessor needs parenthesizing before it can sit between
+// two `+`: `+` binds tighter than `?:`, so the ternary a `.to` chain with a
+// default hands over reassociates into `("\""+i)===void 0?…` and drops the
+// opening quote on every input.
+//
+// A call *with arguments* stays out, even though it binds no looser than a bare
+// one: `escapeFree` is a property of the values a schema admits, and what a
+// conversion hands over is the value its source was never checked to be — so a
+// packed carrier goes through the helper unless it materialized a var of its
+// own. The zero-argument form is grandfathered, `.toISOString()` among it; see
+// `jsonstring-novalidation-date`, which is what that costs.
+const accessorRe = /^[\w$]+(\.[\w$]+|\[[^\[\]]*\]|\(\))*$/;
+
+
 // Runtime helper embedded into generated jsonString code: the JSON text of a
 // string value. The fast path skips JSON.stringify's escape handling when a
 // regex scan proves no character needs it; thresholds follow
@@ -330,13 +389,13 @@ const B_embedJsonStr = (b: Val): string =>
 // escapes and non-finite numbers (-> null) are correct JSON.
 const B_constJsonText = (schema: Internal): string | undefined => {
   const tagFlag = tagFlags[schema.type]!;
-  if (flagUnsafeHas(tagFlag, ((tagFlagUndefined | tagFlagNull) | tagFlagNaN))) {
+  if ((tagFlag & ((16 | 32) | 2048))) {
     return "null";
   } else if (
-    flagUnsafeHas(tagFlag, (tagFlagString | tagFlagNumber) | tagFlagBoolean)
+    (tagFlag & ((2 | 4) | 8))
   ) {
     return JSON.stringify(schema.const)!;
-  } else if (flagUnsafeHas(tagFlag, tagFlagBigint)) {
+  } else if ((tagFlag & 1024)) {
     return `"${schema.const}"`;
   }
   // An instance literal (a Date, a class instance) has no JSON text of its
@@ -361,6 +420,11 @@ export const jsonString = /* @__PURE__ */ (() => {
 
   const jsonStringEncoder: Encoder = (input, target) => {
     if (target.format !== "json") {
+      if (target.content !== U && target.content !== json && !B_readsPayload(target)) {
+        // The target stores this document rather than being another rendering
+        // of it, so it takes the text as it stands.
+        return input;
+      }
       if (isLiteral(target)) {
         const jsonStringConstSchema = baseSchema(stringTag, true, literalDecoder);
         jsonStringConstSchema.const = constSchemaToJsonStringConst(input, target);
@@ -479,7 +543,7 @@ export const jsonString = /* @__PURE__ */ (() => {
     // the field's text would emit it as a JSON value, and the encode
     // direction would hand back a parsed object where a string went in.
     if (
-      flagUnsafeHas(tagFlags[cur.type]!, tagFlagString) &&
+      (tagFlags[cur.type]! & 2) &&
       cur.format === "json" &&
       cur.to === U
     ) {
@@ -516,12 +580,12 @@ export const jsonString = /* @__PURE__ */ (() => {
         : `let ${outputVar};if(${inputVar}!==void 0){${validation}${outputVar}=JSON.stringify(${jsonVal.i})}`;
       return { p, g: isArr ? U : outputVar };
     };
-    if (flagUnsafeHas(tagFlags[cur.type]!, tagFlagUnknown)) {
+    if ((tagFlags[cur.type]! & 1)) {
       return guardedJsonPiece();
     }
     // A declared ref (`S.json`, recursive) requires a value — undefined is
     // not JSON — so its validation stays unguarded.
-    if (flagUnsafeHas(tagFlags[cur.type]!, tagFlagRef)) {
+    if ((tagFlags[cur.type]! & 512)) {
       const jsonVal = parse(B_refine(itemVal, U, U, json));
       if (isArr) {
         const p = B_next(
@@ -546,10 +610,7 @@ export const jsonString = /* @__PURE__ */ (() => {
       // guard renders by omission/null.
       if (
         variants.some((variant) =>
-          flagUnsafeHas(
-            tagFlags[getOutputSchema(variant).type]!,
-            tagFlagUnknown | tagFlagRef,
-          ),
+          (tagFlags[getOutputSchema(variant).type]! & (1 | 512))
         )
       ) {
         return guardedJsonPiece();
@@ -566,11 +627,8 @@ export const jsonString = /* @__PURE__ */ (() => {
           if (
             u0 !== u1 &&
             single.to === U &&
-            flagUnsafeHas(
-              tagFlags[single.type]!,
-              (((tagFlagString | tagFlagNumber) | (tagFlagBoolean | tagFlagBigint)) |
-                (tagFlagNull | tagFlagNaN)),
-            )
+            (tagFlags[single.type]! & (((2 | 4) | (8 | 1024)) |
+                (32 | 2048)))
           ) {
             const guard = itemVal.v();
             return { p: parse(B_refine(itemVal, single, U, jsonString)), g: guard };
@@ -581,8 +639,8 @@ export const jsonString = /* @__PURE__ */ (() => {
             B_unionWritable(itemVal),
             U,
             U,
-            perVariantTo(variants, jsonString, () => false),
-          ),
+            perVariantTo(variants, jsonString, () => false)
+          )
         );
         return { p, g: p.v() };
       }
@@ -594,7 +652,7 @@ export const jsonString = /* @__PURE__ */ (() => {
           U,
           U,
           jsonString,
-        ),
+        )
       ),
       g: U,
     };
@@ -687,10 +745,7 @@ export const jsonString = /* @__PURE__ */ (() => {
             !item.has![undefinedTag] &&
             item.to === U &&
             !item.anyOf!.some((variant) =>
-              flagUnsafeHas(
-                tagFlags[getOutputSchema(variant).type]!,
-                tagFlagUnknown | tagFlagRef,
-              ),
+              (tagFlags[getOutputSchema(variant).type]! & (1 | 512))
             )
           ) {
             // One dispatch, not two: parsing straight to `union -> jsonString`
@@ -784,7 +839,7 @@ export const jsonString = /* @__PURE__ */ (() => {
           `if(${guard}!==void 0){${accVar}+=${
             idx !== 0 && !hasDefiniteBefore ? `(${accVar}?",":"")+` : ""
           }${inlinedValueFromString(
-            (idx !== 0 && hasDefiniteBefore ? "," : "") + keyText(idx),
+            (idx !== 0 && hasDefiniteBefore ? "," : "") + keyText(idx)
           )}+${foldStringCoercion(entries[idx]!.p!.i)}}`;
       }
     }
@@ -800,45 +855,73 @@ export const jsonString = /* @__PURE__ */ (() => {
     return output;
   };
 
+  // A string that already IS the document, rather than a value to be escaped
+  // into one. The declared payload is decoded straight out of it where nothing
+  // in between needs the intermediate string — encoding into a concrete type
+  // validates the JSON implicitly, so the parse doubles as the check.
+  const carriedJsonString = (input: Val, expectedSchema: Internal): Val => {
+    const to = expectedSchema.to;
+    const stringVal = stringDecoderFn(input);
+    stringVal.s = expectedSchema;
+    stringVal.e = expectedSchema;
+
+    // `S.assertInput`'s `undefined` result sentinel alongside `unknown`: neither
+    // reads the text, so neither can stand in for the parse below.
+    if (
+      to !== U &&
+      to.type !== unknownTag &&
+      !(to.noValidation && to.type === undefinedTag) &&
+      !expectedSchema.parser &&
+      !expectedSchema.refiner
+    ) {
+      const encoded = jsonStringEncoder(stringVal, to);
+      // Unless the target only stores the text: then nothing downstream reads it
+      // as JSON, so the check below is the only thing asserting it is. A target
+      // that carries a document of its own does read it, and adding the check
+      // would parse the same text twice.
+      if (encoded !== stringVal || to.format === "json") {
+        return encoded;
+      }
+    }
+    const stringVar = stringVal.v();
+    const output = B_refine(stringVal, expectedSchema);
+    output.cp = `try{JSON.parse(${stringVar})}catch(t){${B_embedInvalidInput(stringVal)}}`;
+    return output;
+  };
+
   const jsonStringDecoder: Builder = (input) => {
     const inputTagFlag = tagFlags[input.s.type]!;
     const expectedSchema = input.e;
 
-    if (flagUnsafeHas(inputTagFlag, tagFlagUnknown)) {
-      const to = expectedSchema.to!;
-      // Whether we can optimize encoding during decoding
-      const preEncode: boolean =
-        !!to && to.type !== unknownTag && !expectedSchema.parser && !expectedSchema.refiner;
-
-      const stringVal = stringDecoderFn(input);
-      stringVal.s = expectedSchema;
-      stringVal.e = expectedSchema;
-
-      if (preEncode) {
-        return jsonStringEncoder(stringVal, to);
-      } else {
-        const stringVar = stringVal.v();
-        const output = B_refine(stringVal, expectedSchema);
-        output.cp = `try{JSON.parse(${stringVar})}catch(t){${B_embedInvalidInput(
-          stringVal,
-        )}}`;
-        return output;
-      }
+    if ((inputTagFlag & 1)) {
+      return carriedJsonString(input, expectedSchema);
     } else if (input.s.format === "json") {
       return input;
     } else if (isLiteral(input.s)) {
       return B_next(input, inlineJsonString(input, input.s), expectedSchema);
-    } else if (flagUnsafeHas(inputTagFlag, tagFlagString)) {
+    } else if ((inputTagFlag & 2)) {
+      // A carrier opened into this format handed over its document (rule 3), so
+      // it is parsed rather than escaped — and checked here, since nothing has
+      // read it yet. Every other string is a value, and stays one.
+      if (input.s.content !== U && B_readsPayload(expectedSchema)) {
+        return carriedJsonString(input, expectedSchema);
+      }
+      // Two ways `escapeFree`'s proof is void here: `noValidation` drops the
+      // pattern check it rests on, and a `.to` chain carrying a default hands
+      // over `i===void 0?e[2]:i.toISOString()`, whose default branch is the
+      // raw default — a `Date`, not its ISO text. The helper handles both.
       return B_next(
         input,
-        `${B_embedJsonStr(input)}(${input.i})`,
+        input.s.escapeFree && !input.s.noValidation && accessorRe.test(input.i)
+          ? `"\\""+${input.i}+"\\""`
+          : `${B_embedJsonStr(input)}(${input.i})`,
         expectedSchema,
       );
-    } else if (flagUnsafeHas(inputTagFlag, tagFlagBoolean)) {
+    } else if ((inputTagFlag & 8)) {
       const output = inputToString(input);
       output.s = expectedSchema;
       return output;
-    } else if (flagUnsafeHas(inputTagFlag, tagFlagNumber)) {
+    } else if ((inputTagFlag & 4)) {
       // JSON has no non-finite numbers: number validation admits Infinity and
       // typed inputs skip it entirely, so an unchecked `""+x` would splice
       // invalid `Infinity`/`NaN` text. Raise instead of JSON.stringify's
@@ -853,32 +936,52 @@ export const jsonString = /* @__PURE__ */ (() => {
         `(Number.isFinite(${inputVar})?""+${inputVar}:${B_embedInvalidInput(input, json)})`,
         expectedSchema,
       );
-    } else if (flagUnsafeHas(inputTagFlag, tagFlagBigint)) {
-      return B_next(input, `"\\""+${input.i}+"\\""`, expectedSchema);
-    } else if (flagUnsafeHas(inputTagFlag, (tagFlagObject | tagFlagArray))) {
+    } else if ((inputTagFlag & 1024)) {
+      // Same reassociation hazard, with no helper to fall back to.
+      return B_next(
+        input,
+        `"\\""+${accessorRe.test(input.i) ? input.i : `(${input.i})`}+"\\""`,
+        expectedSchema,
+      );
+    } else if ((inputTagFlag & (64 | 128))) {
       const additionalItems = input.s.additionalItems;
       // Pretty-printing and async fields keep the whole-value JSON.stringify
       // path — inlined aggregation supports neither indentation nor promises.
-      // So does a dict whose values JSON.stringify already serializes
-      // byte-identically (strings — nested json-format ones escape as strings
-      // too — booleans, null): a dynamic-key loop built from JS string concat
-      // can't beat the native call. Number values stay compiled — the
+      // So does a dict or array whose dynamic values JSON.stringify already
+      // serializes byte-identically (strings — nested json-format ones escape
+      // as strings too — booleans, null): a per-item loop built from JS string
+      // concat can't beat the native call. Number values stay compiled — the
       // aggregate raises on non-finite where JSON.stringify demotes to null.
+      // `!items.length`: a tuple prefix serializes under its own item schemas,
+      // which the whole-value call would ignore.
       if (
         (expectedSchema.space !== U && expectedSchema.space !== 0) ||
-        flagUnsafeHas(input.g.o, flagAsync) ||
+        (input.g.o & 1) ||
         // `!uv`: a fused container skipped upstream validation, and the
         // whole-value paths don't validate — only the aggregate loop does.
         (!input.s.uv &&
-          input.s.type !== arrayTag &&
+          !input.s.items?.length &&
           typeof additionalItems === "object" &&
           additionalItems.to === U &&
-          flagUnsafeHas(
-            tagFlags[additionalItems.type]!,
-            (tagFlagString | tagFlagBoolean) | tagFlagNull,
-          ))
+          (tagFlags[additionalItems.type]! & ((2 | 8) | 32)))
       ) {
         const jsonVal = parse(B_refine(input, U, U, json));
+        // An async field leaves a promise here, and `JSON.stringify` of one is
+        // `{}` — the serialization is what waits, not the caller.
+        if ((jsonVal.f & 1)) {
+          const resolvedVar = B_varWithoutAllocation(input.g);
+          const output = B_next(
+            jsonVal,
+            `${jsonVal.v()}.then(${resolvedVar}=>${B_stringifyCall(
+              resolvedVar,
+              expectedSchema.space,
+            )})`,
+            expectedSchema,
+            expectedSchema,
+          );
+          output.f |= 1;
+          return output;
+        }
         return B_next(
           jsonVal,
           B_stringifyCall(jsonVal.i, expectedSchema.space),
@@ -896,11 +999,10 @@ export const jsonString = /* @__PURE__ */ (() => {
         input.e = stringTarget;
         return parse(input);
       } catch {
-        // A schema that converts to string only when it is itself the target
-        // (S.uint8Array reads `e.to` to decide, so a bare `string` target
-        // leaves it out of the chain) needs the conversion asked of it
-        // directly: keep the input's own schema and hang the string target
-        // off its `.to`.
+        // A schema with no string form of its own still has one when it is
+        // asked directly — `S.never` is the reachable case, an unreachable item
+        // whose branch compiles away rather than converting anything. Keep its
+        // own schema and hang the string target off its `.to`.
         try {
           const viaSelf = copySchema(input.s);
           viaSelf.to = stringTarget;
@@ -917,6 +1019,7 @@ export const jsonString = /* @__PURE__ */ (() => {
     s.format = "json";
     s.name = `${jsonName} string`;
     s.encoder = jsonStringEncoder;
+    setContent(s, json);
   });
 })();
 

@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({ at: S.nullable(S.isoDateTime) }).with(S.to, S.jsonString)"
+  input: "{ at: string | null; }"
+  output: string
+  instantiations: 6111
+jsonSchema:
+  input: '{ type: "object", properties: { at: { anyOf: [{ type: "string", format: "date-time" }, { type: "null" }] } }, required: ["at"] }'
+  output: '{ type: "string", contentMediaType: "application/json" }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i["at"];for(;;){if(typeof v0==="string"){e[0].test(v0)||e[1](v0);break}if(v0===null)break;e[2](v0)}for(;;){if(typeof v0==="string"){v0="\""+v0+"\"";break}if(v0===null){v0="null";break}e[3](v0)}return "{\"at\":"+v0+"}"}
+    examples:
+      valid:
+        input: '{ at: "2026-01-15T10:30:00.000Z" }'
+        output: '"{\"at\":\"2026-01-15T10:30:00.000Z\"}"'
+      null-variant:
+        input: "{ at: null }"
+        output: '"{\"at\":null}"'
+      invalid-format:
+        input: '{ at: "yesterday" }'
+        error: 'Failed at ["at"]: Expected UTC date-time'
+  decode:
+    expression: i=>{let v0=i["at"];for(;;){if(typeof v0==="string"){e[0].test(v0)||e[1](v0);v0="\""+v0+"\"";break}if(v0===null){v0="null";break}e[2](v0)}return "{\"at\":"+v0+"}"}
+    examples:
+      valid:
+        input: '{ at: "2026-01-15T10:30:00.000Z" }'
+        output: '"{\"at\":\"2026-01-15T10:30:00.000Z\"}"'
+  encode:
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[4](v0);let v1=v0["at"];for(;;){if(typeof v1==="string"){e[1].test(v1)||e[2](v1);break}if(v1===null)break;e[3](v1)}return {at:v1}}
+    examples:
+      valid:
+        input: '"{\"at\":\"2026-01-15T10:30:00.000Z\"}"'
+        output: '{ at: "2026-01-15T10:30:00.000Z" }'

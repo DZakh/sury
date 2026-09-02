@@ -9,7 +9,7 @@ pnpm compliance                                  # check against goldens/ (what 
 pnpm compliance --update                         # re-baseline after a change
 pnpm compliance report draft2020-12              # per-file breakdown
 pnpm compliance report draft7 --failures         # every failing test id
-pnpm compliance report draft7 --divergent        # where S.is disagrees with S.parser
+pnpm compliance report draft7 --divergent        # where S.inputValidator disagrees with S.parser
 pnpm compliance report draft7 --mutated          # valid inputs changed by parsing
 pnpm compliance report draft7 --optional         # include optional/ (formats, bignum, content)
 ```
@@ -30,7 +30,7 @@ assertion: because JSON Schema only validates, parsing must return deeply equal
 data. A schema that throws at conversion or compile time marks its whole case
 as `errored`.
 
-`S.is` is scored over the same corpus in parallel. The two operations
+`S.inputValidator` is scored over the same corpus in parallel. The two operations
 disagreeing is always a Sury bug rather than a JSON Schema gap, so that delta is
 a standing bug detector; the count is tracked in each golden and the ids are
 available via `report --divergent`.
@@ -52,17 +52,15 @@ question rather than a bug.
 
 Sury is not a JSON Schema validator; the suite measures how faithfully
 `S.fromJSONSchema` reproduces JSON Schema semantics. Unsupported assertion
-keywords fail conversion instead of silently widening the schema. Those
-explicit errors account for most uncovered assertions: `patternProperties`,
-`uniqueItems`, `propertyNames`, `dependentRequired`, `min`/`maxProperties`,
-`contains`, and `unevaluated*` are prominent examples.
+keywords fail conversion instead of silently widening the schema. Remaining
+conversion gaps are `unevaluatedProperties` / `unevaluatedItems`, and anything
+that needs resource or dynamic scope.
 
-Local JSON Pointer `$ref`s resolve, including recursive definitions. Anything
-that needs resource or dynamic scope — `$id`, `$anchor`, `$dynamicRef`, a remote
-URI, or a URN — remains outside the supported reference model and generally
-fails conversion. Both required dialects currently have no non-conversion
-mismatches: every uncovered case fails conversion explicitly rather than
-accepting or rejecting data with the wrong semantics.
+Local JSON Pointer `$ref`s resolve, including recursive definitions. `$id`,
+`$anchor`, `$dynamicRef`, a remote URI, or a URN remain outside the supported
+reference model and generally fail conversion. draft2020-12 has one
+non-conversion mismatch: a custom metaschema with no validation vocabulary
+still validates, because Sury is a codec and does not honor `$vocabulary`.
 
 The goldens are a measurement, not a target — nothing here asserts that 100%
 coverage is the goal.

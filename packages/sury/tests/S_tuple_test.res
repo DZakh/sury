@@ -69,7 +69,7 @@ test("Fails to parse tuple with holes", t => {
 test("Successfully serializes tuple with holes", t => {
   let schema = S.tuple(s => (s.item(0, S.string), s.item(2, S.int)))
 
-  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return [i["0"],void 0,i["1"],]}`)
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return [i["0"],void 0,i["1"]]}`)
   t->Assert.deepEqual(
     ("value", 123)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     %raw(`["value",, 123]`),
@@ -88,8 +88,8 @@ test("Reverse convert of tuple schema with single item registered multiple times
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    // `i=>{let v0=i["item1"];if(v0!==i["item2"]){e[0]()}return [v0,]}`,
-    `i=>{return [i["item2"],]}`,
+    // `i=>{let v0=i["item1"];if(v0!==i["item2"]){e[0]()}return [v0]}`,
+    `i=>{return [i["item2"]]}`,
   )
 
   t->Assert.deepEqual(
@@ -241,7 +241,7 @@ module Compiled = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{Array.isArray(i)&&i.length===2||e[2](i);let v0=i["0"],v1=i["1"];typeof v0==="string"||e[0](v0);typeof v1==="boolean"||e[1](v1);return [v0,v1,]}`,
+      `i=>{Array.isArray(i)&&i.length===2||e[2](i);let v0=i["0"],v1=i["1"];typeof v0==="string"||e[0](v0);typeof v1==="boolean"||e[1](v1);return [v0,v1]}`,
     )
   })
 
@@ -257,14 +257,14 @@ module Compiled = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ParseAsync,
-      `i=>{Array.isArray(i)&&i.length===2||e[3](i);let v1=i["1"];let v0;try{v0=e[0](i["0"]).catch(x=>e[1](x))}catch(x){e[1](x)}typeof v1==="boolean"||e[2](v1);return Promise.all([v0,]).then(([v0,])=>{return [v0,v1,]})}`,
+      `i=>{Array.isArray(i)&&i.length===2||e[3](i);let v1=i["1"];let v0;try{v0=e[0](i["0"]).catch(x=>e[1](x))}catch(x){e[1](x)}typeof v1==="boolean"||e[2](v1);return Promise.all([v0]).then(([v0])=>{return [v0,v1]})}`,
     )
   })
 
   test("Compiled serialize code snapshot for simple tuple", t => {
     let schema = S.tuple(s => (s.item(0, S.string), s.item(1, S.bool)))
 
-    t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return [i["0"],i["1"],]}`)
+    t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return [i["0"],i["1"]]}`)
   })
 
   test("Compiled serialize code snapshot for empty tuple", t => {
@@ -289,7 +289,7 @@ module Compiled = {
       t->U.assertCompiledCode(
         ~schema,
         ~op=#Parse,
-        `i=>{Array.isArray(i)&&i.length===3||e[3](i);let v0=i["0"],v1=i["1"],v2=i["2"];v0===0||e[0](v0);typeof v1==="string"||e[1](v1);typeof v2==="boolean"||e[2](v2);return {"foo":v1,"bar":v2,"zoo":1,}}`,
+        `i=>{Array.isArray(i)&&i.length===3||e[3](i);let v0=i["0"],v1=i["1"],v2=i["2"];v0===0||e[0](v0);typeof v1==="string"||e[1](v1);typeof v2==="boolean"||e[2](v2);return {foo:v1,bar:v2,zoo:1}}`,
       )
     },
   )
@@ -306,7 +306,7 @@ module Compiled = {
         }
       })
 
-      t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return [0,i["foo"],i["bar"],]}`)
+      t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return [0,i["foo"],i["bar"]]}`)
     },
   )
 }

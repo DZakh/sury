@@ -13,7 +13,7 @@ vs:
   zod: z.union([z.string(), z.number()])
 operations:
   parse:
-    expression: i=>{(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i))||e[0](i);return i}
+    expression: i=>{(typeof i==="string"||typeof i==="number"&&i===i)||e[0](i);return i}
     examples:
       valid-string:
         input: '"hello"'

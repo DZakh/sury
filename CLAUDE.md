@@ -58,7 +58,8 @@ base → builder → primitives → parse → union → composites → factory
 - Prefer `const f = () => {}` over `function` — measurably smaller minified.
 - Inline intrinsics (`a | b`, `typeof x`) rather than wrapping them in helpers.
 - Runtime field names on hot objects stay short: property names survive
-  minification, so every character ships.
+  minification, so every character ships. A field that lives on a schema a
+  consumer can print is the exception — spell those out.
 - Write bit-flag literals, not named `const`s — esbuild won't inline them, so the
   name costs bytes at every use. Document the values in a comment.
 - Every schema must be reversible (Input ↔ Output) unless explicitly opted out.
@@ -119,16 +120,12 @@ of the keyword set (`JSONSchemaT` in `src/jsonschema.ts`, `JSONSchema.res`).
 ## Changing the union compiler
 
 Which member a value dispatches to is invisible in a golden until someone writes
-the spec for exactly that permutation, so before *and* after any change to
-`src/union.ts`:
-
-```bash
-pnpm --filter=sury fuzz:union --ref=HEAD   # --seed=N to widen the search
-```
-
-It sorts differences into `acceptance` / `exception-kind` (a behavior change —
-exits non-zero) and `reasons` / `message` (error detail, for you to accept or
-reject).
+the spec for exactly that permutation. `pnpm --filter=sury fuzz:union` compares
+the compiler to a sequential try of each variant's own parser/encoder (grouping
+is codegen, not semantics). It exits non-zero on `acceptance` /
+`exception-kind`; `reasons` / `message` are error detail. `--ref` is an optional
+changelog against a git commit, not the gate. `--seed=N` widens the search.
 
 `CODEC_SPEC.md` is the normative statement of what conversions are legal,
-built-in and custom alike.
+built-in and custom alike; `CONTENT_CODEC_SPEC.md` covers the carrier/format
+pairs where two built-in readings exist (pack/unpack).

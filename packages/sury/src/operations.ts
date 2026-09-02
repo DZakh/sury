@@ -3,7 +3,6 @@
 
 import {
   type Flag,
-  flagAsync,
   getOrRethrow,
   globalConfig,
   initSchema,
@@ -20,11 +19,16 @@ import {
   unknown,
   valKey,
   valueOptions,
-  vendor,
+  vendor
 } from "./base";
 import type { JSONSchemaT, StandardJsonSchemaOptions } from "./jsonschema";
-import { getDecoder, reverse } from "./parse";
-import { literalDecoder } from "./primitives";
+import {
+ getDecoder,
+ reverse
+} from "./parse";
+import {
+ literalDecoder
+} from "./primitives";
 
 // PORT-NOTE: StandardSchema/JSONSchema types are ported as loose, type-only
 // aliases (no runtime import allowed here). `JSONSchemaT` stands in for
@@ -181,7 +185,7 @@ export const assertOrThrow = (any: unknown, schema: Internal): void => {
 
 export const assertAsyncOrThrow = (any: unknown, schema: Internal): Promise<void> => {
   return (
-    getDecoder(unknown, schema, assertResult, flagAsync) as (
+    getDecoder(unknown, schema, assertResult, 1) as (
       input: unknown
     ) => Promise<void>
   )(any);

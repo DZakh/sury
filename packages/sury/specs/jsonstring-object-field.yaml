@@ -5,8 +5,8 @@ ts:
   output: string
   instantiations: 5949
 jsonSchema:
-  input: '{ type: "object", properties: { meta: { type: "string" }, name: { type: "string" } }, required: ["meta", "name"] }'
-  output: '{ type: "string" }'
+  input: '{ type: "object", properties: { meta: { type: "string", contentMediaType: "application/json" }, name: { type: "string" } }, required: ["meta", "name"] }'
+  output: '{ type: "string", contentMediaType: "application/json" }'
 vs:
   zod:
     _skip: not-applicable
@@ -30,7 +30,7 @@ operations:
         input: '{ meta: "[1,null]", name: "a" }'
         output: '"{\"meta\":\"[1,null]\",\"name\":\"a\"}"'
   encode:
-    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[4](v0);let v1=v0["meta"],v2=v0["name"];typeof v1==="string"||e[2](v1);try{JSON.parse(v1)}catch(t){e[1](v1)}typeof v2==="string"||e[3](v2);return {"meta":v1,"name":v2,}}
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[4](v0);let v1=v0["meta"],v2=v0["name"];typeof v1==="string"||e[2](v1);try{JSON.parse(v1)}catch(t){e[1](v1)}typeof v2==="string"||e[3](v2);return {meta:v1,name:v2}}
     examples:
       valid:
         input: '"{\"meta\":\"{\\\"x\\\":1}\",\"name\":\"a\"}"'

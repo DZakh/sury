@@ -1,8 +1,8 @@
 {
   "name": "sury",
-  "version": "11.0.0-rc.0",
+  "version": "11.0.0-rc.2",
   "private": true,
-  "description": "🧬 The fastest schema with next-gen DX",
+  "description": "🧬 Next-gen schemas, faster than hand-written code",
   "keywords": [
     "ReScript",
     "Schema",
@@ -53,6 +53,7 @@
     "spec": "pnpm build:entry && tsx ../spec/cli.ts",
     "build:entry": "tsx ./scripts/pack.ts entry-only",
     "fuzz:union": "tsx ./scripts/unionFuzz.ts",
+    "fuzz:escfree": "pnpm build:entry && tsx ./scripts/escFreeFuzz.ts",
     "bench:jsonstring": "pnpm build:entry && tsx ./scripts/jsonStringifyBench.ts",
     "bench:fjs": "pnpm build:entry && tsx ./scripts/fjsBench.ts",
     "build": "pnpm rescript && tsx ./scripts/pack.ts for-publish",

@@ -1,15 +1,11 @@
 // `S.url` — a URI string on the JSON side, a `URL` on ours.
 import {
-  flagUnsafeHas,
   initSchema,
   instanceTag,
   type Internal,
   stringTag,
-  tagFlagInstance,
   tagFlags,
-  tagFlagString,
-  tagFlagUnknown,
-  type Val,
+  type Val
 } from "../base";
 import {
   B_embed,
@@ -17,10 +13,15 @@ import {
   B_pushCheck,
   B_refine,
   B_unsupportedDecode,
-  failInvalidType,
+  failInvalidType
 } from "../builder";
-import { instanceDecoder, parse } from "../parse";
-import { stringDecoderFn } from "../primitives";
+import {
+ instanceDecoder,
+ parse
+} from "../parse";
+import {
+ stringDecoderFn
+} from "../primitives";
 
 // `new URL(…)` throws where `new Date(…)` merely yields an Invalid Date, so
 // the conversion goes through a helper — a thrown TypeError would escape as
@@ -41,6 +42,8 @@ const urlFromString = (value: string) => {
 // stable identity for the seq-keyed operation cache.
 const uriString: Internal = /* @__PURE__ */ initSchema(stringTag, stringDecoderFn, (s) => {
   s.format = "uri";
+  // `urlToUri` percent-encodes everything outside RFC 3986's ASCII repertoire.
+  s.escapeFree = true;
 });
 
 // The decoder names `url` rather than the `init` callback's `s`: it is built
@@ -49,7 +52,7 @@ export const url: Internal = /* @__PURE__ */ initSchema(
   instanceTag,
   (input: Val): Val => {
     const inputTagFlag = tagFlags[input.s.type]!;
-    if (flagUnsafeHas(inputTagFlag, tagFlagString)) {
+    if ((inputTagFlag & 2)) {
       const constructed = B_next(
         input,
         `${B_embed(input, urlFromString)}(${input.i})`,
@@ -67,9 +70,9 @@ export const url: Internal = /* @__PURE__ */ initSchema(
         f: failInvalidType,
       });
       return B_refine(constructed, input.e);
-    } else if (flagUnsafeHas(inputTagFlag, tagFlagUnknown)) {
+    } else if ((inputTagFlag & 1)) {
       return instanceDecoder(input);
-    } else if (flagUnsafeHas(inputTagFlag, tagFlagInstance) && input.s.class === url.class) {
+    } else if ((inputTagFlag & 8192) && input.s.class === url.class) {
       return input;
     } else {
       return B_unsupportedDecode(input, input.s, input.e);
@@ -155,7 +158,7 @@ export const url: Internal = /* @__PURE__ */ initSchema(
     s.class = URL;
     s.encoder = (input, target) => {
       const toTagFlag = tagFlags[target.type]!;
-      if (flagUnsafeHas(toTagFlag, tagFlagString)) {
+      if ((toTagFlag & 2)) {
         // B_refine, not the bare B_next: a check emits against its val's *prev*
         // var, so the target's reversed refiner would test the `URL` this
         // converts from rather than the URI it produces — `new URL("…/a|b")`
@@ -164,8 +167,8 @@ export const url: Internal = /* @__PURE__ */ initSchema(
         // which is what materializes it into the var the check reads.
         return parse(
           B_refine(
-            B_next(input, `${B_embed(input, urlToUri)}(${input.i})`, uriString, target),
-          ),
+            B_next(input, `${B_embed(input, urlToUri)}(${input.i})`, uriString, target)
+          )
         );
       } else {
         return input;

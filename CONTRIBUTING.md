@@ -335,13 +335,50 @@ case the harness *should* have caught or guided better — a missing check, a we
 error message, a strictness gap that let a bad spec through — add a bullet here
 instead of silently working around it.
 
+- `jsonSchema` snapshots one target (the default draft-07), so an emit that is
+  dialect-gated — `contentSchema` is 2019-09+, OpenAPI 3.0 has no content
+  keywords at all — has no golden for the targets it differs on, and lands in
+  `S_toJSONSchema_target_test.res` instead. A `jsonSchema.targets` map, or a
+  per-spec target override, would keep it with the schema it belongs to.
 - An operation whose output holds a class instance (`S.uint8Array` decoding to
-  `Uint8Array`) can't be specced: the golden writer raises "cannot represent a
-  Uint8Array instance as spec source code", and an op has no way to opt out —
-  `_skip` is accepted under `vs.zod` but crashes the run under `operations.<op>`
-  (`Cannot convert undefined or null to object`). Either teach the writer a
-  constructor call for the common typed arrays, or make `_skip` legal on an
-  operation with a reason.
+  `Uint8Array`, `S.blob`/`S.file` to a `Blob`/`File`) can't be specced: the
+  golden writer raises "cannot represent a Uint8Array instance as spec source
+  code", and an op has no way to opt out — `_skip` is accepted under `vs.zod`
+  but crashes the run under `operations.<op>` (`Cannot convert undefined or null
+  to object`). Either teach the writer a constructor call for the common typed
+  arrays and binary containers, or make `_skip` legal on an operation with a
+  reason. It costs a whole direction of the content axis: the `codec-*` specs
+  for `S.uint8Array`, `S.base64`, `S.blob` and `S.file` carry codegen and error
+  cases only, and `tests/content_test.ts` holds the values instead.
+- An example's `error` is matched verbatim, so one raised by the *platform*
+  rather than by Sury pins that engine's wording: `new Blob([Symbol()])` says
+  "Cannot convert a Symbol value to a string" on Node 22 and "The argument
+  'value' is invalid" on Node 24, and the golden passed locally while failing
+  CI. Write such an example so the message is ours — an input whose own
+  `toString` throws — or the check could compare only the error's constructor
+  when the spec says the failure is the platform's.
+- `ts.schema` has to evaluate, so a schema whose *construction* panics — every
+  argument the public API rejects outright, including the `"pack"`/`"unpack"`
+  pairs that don't name two readings — has no spec at all, only a
+  `creationError` for the ones that survive construction and fail at the
+  operation. `tests/content_test.ts` holds those. A `ts.constructionError`
+  beside `creationError` would keep them with the schema they reject.
+- `operations` names `parse`, `decode` and `encode` only, so `S.assertInput` and
+  `S.inputValidator` have no golden anywhere. Both compile through the same builder chain
+  under a different result target, and a change to that target's handling broke
+  every `S.assertInput(…, S.json)` and `S.inputValidator(…, S.jsonString)` call with the whole
+  suite green. An `assert` op block, even one holding just an expression and a
+  pass/throw example, would have caught it; `tests/content_test.ts` holds it
+  instead.
+- A recursive schema the perf harness rebuilds per iteration can fail the
+  `create+compile` phase where every other phase measures it fine —
+  `specs/recursive-proto-name.yaml` raises "Cannot read properties of undefined
+  (reading 'c')" there, and did before the fix that spec exists for, so it is
+  the phase and not the schema. Rebuilding one inside an object schema fails the
+  same way (`loopInput.e.decoder is not a function`), which is why the reserved
+  names are two top-level specs rather than one object holding both. `recursive`
+  keeps its defs in `globalConfig.d` for the duration of a build, so a harness
+  that builds many schemas in one process is the thing that would see it.
 - A golden containing a control character is written as a plain scalar, so
   `specs/ipv4.yaml` carries a literal tab and `specs/uri-template.yaml` a literal
   DEL and C1 byte, all of which the `yaml` package round-trips but PyYAML and
@@ -351,7 +388,7 @@ instead of silently working around it.
   scalar holding a control character. Reference-suite coverage is kept rather
   than trimmed to dodge this — the defect is in the writer.
 - JSON Schema round trips now snapshot the type inferred by
-  `S.fromJSONSchema(S.toJSONSchema(schema))`, but not that second schema's type
+  `S.fromJSONSchema(S.inputJSONSchema(schema))`, but not that second schema's type
   instantiation cost. Tracking the cost would catch regressions in the
   `FromJSONSchema` conditional type, at the expense of making every spec own a
   second TypeScript performance budget.

@@ -5,9 +5,6 @@ import {
   copySchema,
   type Encoder,
   type Flag,
-  flagAsync,
-  flagDisableNanNumberValidation,
-  flagUnsafeHas,
   getOrRethrow,
   globalConfig,
   immutableEmptyArray,
@@ -16,41 +13,29 @@ import {
   instanceTag,
   type Internal,
   isLiteral,
+  jsonName,
   neverTag,
   numberTag,
   objectTag,
   panic,
-  pathConcat,
-  pathDynamic,
-  pathEmpty,
   reversedKey,
   s,
   schemaPrototype,
   setHas,
-  tagFlagArray,
-  tagFlagBigint,
-  tagFlagBoolean,
-  tagFlagInstance,
-  tagFlagNaN,
-  tagFlagNull,
-  tagFlagNumber,
-  tagFlagObject,
   tagFlags,
-  tagFlagString,
-  tagFlagSymbol,
-  tagFlagUndefined,
-  tagFlagUnknown,
   U,
   unknown,
+  undefinedTag,
   unknownTag,
   updateOutput,
   type Val,
-  valFlagAsync,
   valKey,
-  valueOptions,
+  valueOptions
 } from "./base";
 import {
   B_embedInvalidInput,
+  B_contentDiffers,
+  B_contentNode,
   B_inlineConst,
   B_markOutput,
   B_merge,
@@ -61,14 +46,14 @@ import {
   B_unsupportedDecode,
   failInvalidType,
   noopOperation,
-  operationArgVar,
+  operationArgVar
 } from "./builder";
 import {
   instanceofCond,
   isArrayCond,
   nanCond,
   objectTagCond,
-  typeofCond,
+  typeofCond
 } from "./primitives";
 
 export const parse = (input: Val): Val => {
@@ -80,54 +65,36 @@ export const parse = (input: Val): Val => {
     appliedEncoderRef = U;
     const loopInput = result;
 
-    loopCount = loopCount + 1;
+    if (++loopCount > 50) throw new Error("Loop count exceeded 50");
 
-    if (loopCount > 50) {
-      const error = new Error("Loop count exceeded 50");
-      throw error;
-    }
-
-    if (loopInput.e["$defs"]) {
-      if (loopInput.g.d) {
-        Object.assign(loopInput.g.d!, loopInput.e["$defs"]!);
-      } else {
-        loopInput.g.d = loopInput.e["$defs"];
-      }
-    }
+    const defs = loopInput.e["$defs"];
+    if (defs) loopInput.g.d ? Object.assign(loopInput.g.d, defs) : (loopInput.g.d = defs);
 
     if (
-      flagUnsafeHas(
-        loopInput.f,
-        valFlagAsync,
-      ) // FIXME: is the `valFlagAsync` check alone sufficient here, or was
-        // there originally a second condition (dropped during the ReScript
-        // port) that this branch also needs? Unconfirmed — see PR discussion.
+      loopInput.f & 1 // valFlagAsync
+      // FIXME: is the `valFlagAsync` check alone sufficient here, or was
+      // there originally a second condition (dropped during the ReScript
+      // port) that this branch also needs? Unconfirmed — see PR discussion.
     ) {
       const operationInputVar = loopInput.v();
-
       const operationInput = B_scope(loopInput);
       const operationOutput = parse(operationInput);
       const operationCode = B_merge(operationOutput);
-      if (operationInput.i !== operationOutput.i || operationCode !== "") {
-        result = B_next(
-          loopInput,
-          `${operationInputVar}.then(${operationInputVar}=>{${operationCode}return ${operationOutput.i}})`,
-          operationOutput.s,
-          operationOutput.e,
-        );
-      } else {
-        result = B_refine(loopInput, operationOutput.s, U, operationOutput.e);
-      }
-      result.f |= valFlagAsync;
+      result =
+        operationInput.i !== operationOutput.i || operationCode !== ""
+          ? B_next(
+              loopInput,
+              `${operationInputVar}.then(${operationInputVar}=>{${operationCode}return ${operationOutput.i}})`,
+              operationOutput.s,
+              operationOutput.e,
+            )
+          : B_refine(loopInput, operationOutput.s, U, operationOutput.e);
+      result.f |= 1; // 1
       result.io = true;
     } else if (loopInput.io) {
       // It's guaranteed that to is not undefined, because it's checked in the while condition
       const to = loopInput.e.to!;
-      if (loopInput.e.parser !== U) {
-        result = loopInput.e.parser(loopInput);
-      } else {
-        result = B_refine(result, U, U, to);
-      }
+      result = loopInput.e.parser !== U ? loopInput.e.parser(loopInput) : B_refine(result, U, U, to);
     } else {
       const maybeEncoder = loopInput.s.encoder;
       if (
@@ -135,25 +102,24 @@ export const parse = (input: Val): Val => {
         maybeEncoder !== appliedEncoder &&
         loopInput.s !== loopInput.e &&
         loopInput.e.type !== unknownTag &&
-        // A `noValidation` target (S.assert's result sentinel) throws the value
-        // away, so there is nothing for an encoder to re-represent.
-        !loopInput.e.noValidation
+        // A `noValidation` target takes the value as it stands when it is a
+        // whole document (`S.json`, whose parse is the only check it has) or
+        // when the operation discards it anyway (S.assertInput's `undefined` result
+        // sentinel). Every other such target still gets its conversion:
+        // `noValidation` drops the checks, not the re-representation.
+        !(loopInput.e.noValidation && (loopInput.e.name === jsonName || loopInput.e.type === undefinedTag))
       ) {
-        result = maybeEncoder!(loopInput, loopInput.e);
+        result = maybeEncoder(loopInput, loopInput.e);
       }
 
       // If encoder didn't change the value, we can decode it,
       // otherwise let's start the loop from the beginning
-      if (loopInput !== result) {
-        appliedEncoderRef = maybeEncoder!;
-      } else {
+      if (loopInput !== result) appliedEncoderRef = maybeEncoder!;
+      else {
         result = loopInput.e.decoder(loopInput);
-
         // Primitive decoder (no internal transforms): apply refiners here.
         // Advanced decoders set isOutput themselves and own refiner application.
-        if (!result.io) {
-          result = B_markOutput(result, result);
-        }
+        if (!result.io) result = B_markOutput(result, result);
       }
     }
   }
@@ -166,11 +132,7 @@ export const parseDynamic = (input: Val): Val => {
   } catch (exn) {
     const error = getOrRethrow(exn);
     // For the case parent must always be present
-    error.path = pathConcat(
-      input.p !== U ? input.p.path : pathEmpty,
-      pathConcat(pathConcat(input.path, pathDynamic), error.path),
-    );
-
+    error.path = (input.p ? input.p.path : "") + input.path + "[]" + error.path;
     throw error;
   }
 }
@@ -185,37 +147,25 @@ export const compileDecoder = (
 
   const output = parse(input);
   const code = B_merge(output);
-
-  const isAsync = flagUnsafeHas(output.f, valFlagAsync);
+  const isAsync = !!(output.f & 1); // 1
   expected.isAsync = isAsync;
-  const hasTransform = output.t === true;
-  expected.hasTransform = hasTransform;
+  expected.hasTransform = output.t === true;
 
-  if (
-    code === "" &&
-    (output === input || output.i === input.i) &&
-    !flagUnsafeHas(flag, flagAsync)
-  ) {
+  if (code === "" && (output === input || output.i === input.i) && !(flag & 1)) {
     return noopOperation;
-  } else {
-    let inlinedOutput = output.i;
-    if (flagUnsafeHas(flag, flagAsync) && !isAsync && !defs) {
-      inlinedOutput = `Promise.resolve(${inlinedOutput})`;
-    }
-
-    const inlinedFunction = `${operationArgVar}=>{${code}return ${inlinedOutput}}`;
-
-    const fn = new Function("e", "s", `return ${inlinedFunction}`)(input.g.e, s);
-    fn.embedded = input.g.e;
-    return fn;
   }
+  let inlinedOutput = output.i;
+  if ((flag & 1) && !isAsync && !defs) inlinedOutput = `Promise.resolve(${inlinedOutput})`;
+  const fn = new Function("e", "s", `return ${operationArgVar}=>{${code}return ${inlinedOutput}}`)(
+    input.g.e,
+    s,
+  );
+  fn.embedded = input.g.e;
+  return fn;
 }
 export const getOutputSchema = (schema: Internal): Internal => {
-  if (schema.to !== U) {
-    return getOutputSchema(schema.to);
-  } else {
-    return schema;
-  }
+  while (schema.to) schema = schema.to;
+  return schema;
 }
 // The two sides of a schema trade places: what parsed now serializes, what
 // refined the input now refines the output. `delete` rather than `= U` because
@@ -223,16 +173,8 @@ export const getOutputSchema = (schema: Internal): Internal => {
 // present with an undefined value would stop every union from flattening.
 const reverseSwap = (mut: Record<string, unknown>, a: string, b: string): void => {
   const previous = mut[a];
-  if (mut[b] !== U) {
-    mut[a] = mut[b];
-  } else {
-    delete mut[a];
-  }
-  if (previous !== U) {
-    mut[b] = previous;
-  } else {
-    delete mut[b];
-  }
+  mut[b] === U ? delete mut[a] : (mut[a] = mut[b]);
+  previous === U ? delete mut[b] : (mut[b] = previous);
 }
 
 // Null prototype: the keys are user-controlled property names, and assigning
@@ -255,37 +197,33 @@ const reverseDict = (dict: Record<string, Internal>): Record<string, Internal> =
 // effects — a debugger that expands prototype getters computes the reverse
 // and writes the cache; harmless, but not inert.
 Object.defineProperty(schemaPrototype, reversedKey, {
-  get: function (this: Internal): Internal {
+  get(this: Internal): Internal {
     const schema = this;
     let reversedHead: Internal | undefined = U;
     let current: Internal | undefined = schema;
     while (current) {
       const mut = copySchema(current!);
       const next = mut.to;
-      if (reversedHead === U) {
-        delete mut.to;
-      } else {
-        mut.to = reversedHead;
-      }
+      reversedHead ? (mut.to = reversedHead) : delete mut.to;
       const record = mut as unknown as Record<string, unknown>;
       reverseSwap(record, "parser", "serializer");
       reverseSwap(record, "refiner", "inputRefiner");
-      reverseSwap(record, "fromDefault", "default");
-      if (mut.items !== U) {
-        mut.items = mut.items.map(reverse);
-      }
-      if (mut.properties !== U) {
-        mut.properties = reverseDict(mut.properties);
-      }
+      reverseSwap(record, "opens", "opensBack");
+      // Deleted, not parked in a holding field: encode has no absent-input arm,
+      // and double reversal reads the cache below rather than re-deriving, so
+      // nothing needs the old value back.
+      delete record["default"];
+      if (mut.items) mut.items = mut.items.map(reverse);
+      if (mut.properties) mut.properties = reverseDict(mut.properties);
       // Skip tuple
       if (typeof mut.additionalItems === objectTag) {
         mut.additionalItems = reverse(mut.additionalItems as Internal);
       }
-      if (mut.anyOf !== U) {
+      if (mut.anyOf) {
         const anyOf = mut.anyOf;
         const has: Record<string, boolean> = {};
         const newAnyOf: Internal[] = [];
-        for (let idx = 0; idx <= anyOf.length - 1; idx++) {
+        for (let idx = 0; idx < anyOf.length; idx++) {
           const s = anyOf[idx]!;
           const reversed = reverse(s);
           newAnyOf.push(reversed);
@@ -294,9 +232,7 @@ Object.defineProperty(schemaPrototype, reversedKey, {
         mut.has = has;
         mut.anyOf = newAnyOf;
       }
-      if (mut["$defs"] !== U) {
-        mut["$defs"] = reverseDict(mut["$defs"]);
-      }
+      if (mut["$defs"]) mut["$defs"] = reverseDict(mut["$defs"]);
       reversedHead = mut;
       current = next;
     }
@@ -393,11 +329,9 @@ export const findOpNode = (
   f: Flag
 ): OpNode | undefined => {
   let node = (schema as unknown as Record<string, OpNode | undefined>)[memoKey];
-  while (node !== U) {
+  while (node) {
     const a = node.a;
-    if (node.f === f && a.length === 2 && a[0] === s0 && a[1] === s1) {
-      return node;
-    }
+    if (node.f === f && a.length === 2 && a[0] === s0 && a[1] === s1) return node;
     node = node.n;
   }
   return U;
@@ -428,55 +362,60 @@ export function getDecoder(..._args: unknown[]): (from: unknown) => unknown {
         maxSeq = seq;
         cacheTarget = schema;
       }
-      idx = idx + 1;
+      idx++;
     }
   }
 
-  if (cacheTarget === U) {
-    return panic("No schema provided for decoder.");
-  } else {
-    let node = (cacheTarget as unknown as Record<string, OpNode | undefined>)[memoKey];
-    while (node !== U) {
-      const a = node.a;
-      if (node.f === flag && a.length === idx) {
-        let i = idx;
-        while (i-- !== 0 && a[i] === args[i]) {}
-        if (i < 0) {
-          return node.v as (from: unknown) => unknown;
-        }
+  if (cacheTarget === U) return panic("No schema provided for decoder.");
+  let node = (cacheTarget as unknown as Record<string, OpNode | undefined>)[memoKey];
+  while (node) {
+    const a = node.a;
+    if (node.f === flag && a.length === idx) {
+      let i = idx;
+      while (i-- !== 0 && a[i] === args[i]) {}
+      if (i < 0) return node.v as (from: unknown) => unknown;
+    }
+    node = node.n;
+  }
+
+  let schema: Internal = args[idx - 1] as Internal;
+  for (let i = idx - 2; i >= 0; i--) {
+    const to = schema;
+    schema = updateOutput(args[i] as Internal, (mut) => {
+      mut.to = to;
+      // Only this direction: an operation compiles the chain the way it runs
+      // it, so the encode side is a chain of its own, built from the reversed
+      // schemas. Reported as a missing decoder rather than with the slot
+      // spelling `codecTo` offers — this form has nowhere to write one, and a
+      // custom coder is what answers it.
+      if (
+        B_contentDiffers(B_contentNode(mut).content, B_contentNode(to).content) &&
+        to.to === U
+      ) {
+        mut.parser = (input: Val) => B_unsupportedDecode(input, mut, to);
       }
-      node = node.n;
-    }
-
-    let schema: Internal = args[idx - 1] as Internal;
-    for (let i = idx - 2; i >= 0; i--) {
-      const to = schema;
-      schema = updateOutput(args[i] as Internal, (mut) => {
-        mut.to = to;
-      });
-    }
-    const f = compileDecoder(schema, schema, flag!, U) as (from: unknown) => unknown;
-    addOpNode(
-      cacheTarget,
-      immutableEmptyArray.slice.call(args, 0, idx) as Internal[],
-      flag!,
-      f
-    );
-    return f;
+    });
   }
+  const f = compileDecoder(schema, schema, flag!, U) as (from: unknown) => unknown;
+  addOpNode(
+    cacheTarget,
+    immutableEmptyArray.slice.call(args, 0, idx) as Internal[],
+    flag!,
+    f,
+  );
+  return f;
 }
 
 export const nestedLoc = "BS_PRIVATE_NESTED_SOME_NONE";
 
-const neverBuilderFn = (input: Val): Val => {
+export const never_: Internal = /* @__PURE__ */ initSchema(neverTag, (input: Val) => {
   // Carry `never` as the val's own schema, not the input's: nothing gets past
   // this branch, so a union built from its cases' output schemas must not list
   // the input type as something the union can produce.
   const output = B_refine(input, never_, U, never_);
   output.cp = B_embedInvalidInput(input) + ";";
   return output;
-}
-export const never_: Internal = /* @__PURE__ */ initSchema(neverTag, neverBuilderFn);
+});
 
 export const nestedOptionParser: Builder = (input: Val) => {
   const nextSchema = input.e.to!;
@@ -484,24 +423,17 @@ export const nestedOptionParser: Builder = (input: Val) => {
     input,
     `{${nestedLoc}:${getOutputSchema(input.e).properties![nestedLoc]!.const as string}}`,
     nextSchema,
-    nextSchema
+    nextSchema,
   );
 };
 
 export const instanceDecoder: Builder = (input: Val) => {
   const inputTagFlag = tagFlags[input.s.type]!;
-  if (flagUnsafeHas(inputTagFlag, tagFlagUnknown)) {
-    return B_refine(input, input.e, [
-      {
-        c: instanceofCond(input, input.e.class),
-        f: failInvalidType,
-      },
-    ]);
-  } else if (flagUnsafeHas(inputTagFlag, tagFlagInstance) && input.s.class === input.e.class) {
-    return input;
-  } else {
-    return B_unsupportedDecode(input, input.s, input.e);
-  }
+  return (inputTagFlag & 1)
+    ? B_refine(input, input.e, [{ c: instanceofCond(input, input.e.class), f: failInvalidType }])
+    : (inputTagFlag & 8192) && input.s.class === input.e.class
+      ? input
+      : B_unsupportedDecode(input, input.s, input.e);
 };
 
 // @__NO_SIDE_EFFECTS__
@@ -522,34 +454,26 @@ export const instance = (class_: unknown): Internal => {
 // to an object member.
 export const typeCheckCond = (input: Val, schema: Internal, inputVar: string): string => {
   const tagFlag = tagFlags[schema.type]!;
-  if (flagUnsafeHas(tagFlag, tagFlagObject)) {
+  if ((tagFlag & 64)) {
     return `${objectTagCond(inputVar)}&&!${isArrayCond(inputVar)}`;
-  } else if (flagUnsafeHas(tagFlag, tagFlagArray)) {
-    return isArrayCond(inputVar);
-  } else if (flagUnsafeHas(tagFlag, tagFlagInstance)) {
-    return instanceofCond(input, schema.class)(inputVar);
-  } else if (flagUnsafeHas(tagFlag, tagFlagNumber)) {
+  }
+  if ((tagFlag & 128)) return isArrayCond(inputVar);
+  if ((tagFlag & 8192)) return instanceofCond(input, schema.class)(inputVar);
+  if ((tagFlag & 4)) {
     const typeofCheck = typeofCond(numberTag)(inputVar);
-    if (flagUnsafeHas(input.g.o, flagDisableNanNumberValidation)) {
-      return typeofCheck;
-    } else {
-      return `${typeofCheck}&&!${nanCond(inputVar)}`;
-    }
-  } else if (flagUnsafeHas(tagFlag, tagFlagNaN)) {
-    return nanCond(inputVar);
-  } else if (flagUnsafeHas(tagFlag, (tagFlagUndefined | tagFlagNull))) {
+    return (input.g.o & 2)
+      ? typeofCheck
+      : `${typeofCheck}&&${inputVar}===${inputVar}`;
+  }
+  if ((tagFlag & 2048)) return nanCond(inputVar);
+  if ((tagFlag & (16 | 32))) {
     // null/undefined reuse literalDecoder's inline-const form (=== null / void 0)
     return `${inputVar}===${B_inlineConst(input, schema)}`;
-  } else if (
-    flagUnsafeHas(
-      tagFlag,
-      tagFlagString | tagFlagBoolean | tagFlagBigint | tagFlagSymbol
-    )
-  ) {
+  }
+  if ((tagFlag & (2 | 8 | 1024 | 16384))) {
     // literals reuse this typeof check; their per-const check stays in the case body
     return typeofCond(schema.type)(inputVar);
-  } else {
-    // Unreachable: catch-all tags use the `unknown` narrow, never this path.
-    return "";
   }
+  // Unreachable: catch-all tags use the `unknown` narrow, never this path.
+  return "";
 }
