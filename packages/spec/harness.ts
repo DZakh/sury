@@ -303,7 +303,7 @@ export const asyncViolations = (schema: any, spec: Spec): string[] => {
   return out;
 };
 
-// JSON Schema has no representation for bigint or symbol, so `S.toJSONSchema`
+// JSON Schema has no representation for bigint or symbol, so the conversion
 // throws for any schema containing one (at any nesting depth) — a real "this
 // concept doesn't apply" case, not a bug to work around. Recorded per
 // direction (rather than skipping the whole dimension) since the two
@@ -332,8 +332,8 @@ const deriveJsonSchemaSide = (fn: () => unknown): JsonSchemaSide => {
 };
 
 const deriveJsonSchemaSides = (schema: any): JsonSchemaSides => ({
-  input: deriveJsonSchemaSide(() => S.toJSONSchema(schema)),
-  output: deriveJsonSchemaSide(() => S.toJSONSchema(S.reverse(schema))),
+  input: deriveJsonSchemaSide(() => S.inputJSONSchema(schema)),
+  output: deriveJsonSchemaSide(() => S.outputJSONSchema(schema)),
 });
 
 const withoutDollarSchema = (value: unknown): unknown => {
@@ -365,8 +365,8 @@ const deriveJsonSchemaTarget = async (
   defaultSides: JsonSchemaSides,
   defaultTypes: { fromInput?: string; fromOutput?: string },
 ): Promise<JsonSchemaDialect | undefined> => {
-  const input = deriveJsonSchemaSide(() => S.toJSONSchema(schema, { target }));
-  const output = deriveJsonSchemaSide(() => S.toJSONSchema(S.reverse(schema), { target }));
+  const input = deriveJsonSchemaSide(() => S.inputJSONSchema(schema, { target }));
+  const output = deriveJsonSchemaSide(() => S.inputJSONSchema(S.reverse(schema), { target }));
   const inputDiffers = jsonSchemaSourceDiffers(defaultSides.input.schema, input.schema);
   const outputDiffers = jsonSchemaSourceDiffers(defaultSides.output.schema, output.schema);
   if (!inputDiffers && !outputDiffers) return undefined;

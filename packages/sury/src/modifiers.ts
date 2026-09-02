@@ -36,7 +36,8 @@ import {
   B_neverSlot,
   B_next,
   B_nextConst,
-  B_unsupportedDecode
+  B_refine,
+  B_unsupportedDecode,
 } from "./builder";
 import {
   objectDecoder
@@ -437,7 +438,10 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
         // the callback twice.
         output.v = _var;
       }
-      return output;
+      // The same seam B_conversion's `trusted` provides: `vc` checks emit at
+      // the pre-transform slot, so the item's input refiners would run over
+      // the absent value that came in rather than the default that replaced it.
+      return B_refine(output);
     };
     mut.anyOf = anyOf.map((variant) =>
       getOutputSchema(variant).type === undefinedTag

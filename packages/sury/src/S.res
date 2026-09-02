@@ -593,9 +593,15 @@ let asyncDecoder = (~from: t<'from>, ~to) => asyncDecoder(reverse(from), to)
 @module("sury") external decoder1: t<'value> => unknown => 'value = "decoder"
 @module("sury") external asyncDecoder1: t<'value> => unknown => promise<'value> = "asyncDecoder"
 
+// `t<'value>` names the output type, so the output-side constructor is THE
+// constructor here; the input side has no type to hand back.
+@module("sury") external constructor: t<'value> => 'value => 'value = "outputConstructor"
+@module("sury")
+external asyncConstructor: t<'value> => 'value => promise<'value> = "asyncOutputConstructor"
+
 let parseOrThrow = (any, ~to) => parser(~to)(any)
 let parseAsyncOrThrow = (any, ~to) => asyncParser(~to)(any)
-@module("sury") external assertOrThrow: ('any, ~to: t<'value>) => unit = "assert"
+@module("sury") external assertOrThrow: ('any, ~to: t<'value>) => unit = "assertInput"
 @module("sury")
 external assertAsyncOrThrow: ('any, ~to: t<'value>) => promise<unit> = "$assertAsyncOrThrow"
 let decodeOrThrow = (any, ~from, ~to) => decoder(~from, ~to)(any)
@@ -694,9 +700,13 @@ external multipleOf: (t<'value>, 'value, ~message: string=?) => t<'value> = "mul
 external pattern: (t<string>, RegExp.t, ~message: string=?) => t<string> = "pattern"
 @module("sury") external trim: t<string> => t<string> = "trim"
 
-type toJSONSchemaOptions = {target?: StandardSchema.JsonSchema.target}
+type jsonSchemaOptions = {target?: StandardSchema.JsonSchema.target}
 @module("sury")
-external toJSONSchema: (t<'value>, ~options: toJSONSchemaOptions=?) => JSONSchema.t = "toJSONSchema"
+external inputJSONSchema: (t<'value>, ~options: jsonSchemaOptions=?) => JSONSchema.t =
+  "inputJSONSchema"
+@module("sury")
+external outputJSONSchema: (t<'value>, ~options: jsonSchemaOptions=?) => JSONSchema.t =
+  "outputJSONSchema"
 @module("sury")
 external fromJSONSchemaDefinition: JSONSchema.definition => t<JSON.t> = "fromJSONSchema"
 let fromJSONSchema = jsonSchema => fromJSONSchemaDefinition(JSONSchema.Schema(jsonSchema))

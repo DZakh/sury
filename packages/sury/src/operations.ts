@@ -55,7 +55,7 @@ export type StandardProps = {
 // forward-reference workaround but the tree-shaking gate: the `~standard`
 // prototype getter below is always retained, so it must not statically
 // reference the converter or every parser-only bundle would ship the whole
-// toJSONSchema machinery. Only calling the public opt-in pulls it in.
+// JSON Schema machinery. Only calling the public opt-in pulls it in.
 let standardJSONSchemaConverter:
   | ((schema: Internal, options: StandardJsonSchemaOptions, isOutput: boolean) => JSONSchemaT)
   | undefined;

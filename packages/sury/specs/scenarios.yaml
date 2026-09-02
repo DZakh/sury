@@ -28,17 +28,42 @@ standard-schema-validate-invalid:
   # construction it does is part of what a consumer pays on bad input.
   run: schema["~standard"].validate(data)
 
-is:
+input-validator:
   prepare: |
     const schema = S.schema({ id: S.string, age: S.number });
     const data = { id: "u1", age: 30 };
-  run: S.is(schema, data)
+  # A caller that doesn't hoist the validator pays the lookup and a closure
+  # per call; the next scenario is what hoisting it saves.
+  run: S.inputValidator(schema)(data)
 
-assert:
+input-validator-compiled:
+  prepare: |
+    const schema = S.schema({ id: S.string, age: S.number });
+    const validate = S.inputValidator(schema);
+    const data = { id: "u1", age: 30 };
+  run: validate(data)
+
+output-validator:
+  prepare: |
+    const schema = S.schema({ id: S.string, age: S.number.with(S.to, S.string) });
+    const data = { id: "u1", age: "30" };
+  # Same dispatch through `reverse` — a second cache on a second schema.
+  run: S.outputValidator(schema)(data)
+
+assert-input:
   prepare: |
     const schema = S.schema({ id: S.string, age: S.number });
     const data = { id: "u1", age: 30 };
-  run: S.assert(schema, data)
+  run: S.assertInput(schema, data)
+
+output-constructor:
+  prepare: |
+    const schema = S.schema({ id: S.string, age: S.number });
+    const construct = S.outputConstructor(schema);
+    const value = { id: "u1", age: 30 };
+  # What building an entity costs once the operation is compiled: the checks
+  # plus the wrapper that hands the value back.
+  run: construct(value)
 
 parser-lookup:
   prepare: |

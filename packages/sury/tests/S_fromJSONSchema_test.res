@@ -1,11 +1,11 @@
 open Vitest
 open JSONSchema
 
-// Helper for round-trip: S -> toJSONSchema -> fromJSONSchema -> S
-let roundTrip = schema => schema->S.toJSONSchema->S.fromJSONSchema
+// Helper for round-trip: S -> inputJSONSchema -> fromJSONSchema -> S
+let roundTrip = schema => schema->S.inputJSONSchema->S.fromJSONSchema
 
-// Helper for round-trip: JSONSchema -> fromJSONSchema -> toJSONSchema
-let jsonRoundTrip = js => js->S.fromJSONSchema->S.toJSONSchema
+// Helper for round-trip: JSONSchema -> fromJSONSchema -> inputJSONSchema
+let jsonRoundTrip = js => js->S.fromJSONSchema->S.inputJSONSchema
 
 // Helper for parsing
 let parse = (schema, value) => value->S.parseOrThrow(~to=schema)->Obj.magic
@@ -278,10 +278,10 @@ test("fromJSONSchema: string format date-time", t => {
 
 test("Round-trip S.string->S.to(S.date) through toJSONSchema/fromJSONSchema", t => {
   let schema = S.string->S.to(S.date)
-  let js = schema->S.toJSONSchema
+  let js = schema->S.inputJSONSchema
   t->Assert.deepEqual(js, %raw(`{"type": "string", "format": "date-time"}`))
   // fromJSONSchema then toJSONSchema should preserve the format
-  t->Assert.deepEqual(js->S.fromJSONSchema->S.toJSONSchema, js)
+  t->Assert.deepEqual(js->S.fromJSONSchema->S.inputJSONSchema, js)
 })
 
 // All format schemas (including date-time) compose with sibling constraints.
@@ -514,14 +514,14 @@ test("fromJSONSchema: an inlined ref releases its def name for a later cycle", t
   t->Assert.deepEqual((out->Obj.magic)["$defs"]["Node"]["type"], %raw(`"object"`))
 })
 
-// 11. Round-trip S -> toJSONSchema -> fromJSONSchema -> S
+// 11. Round-trip S -> inputJSONSchema -> fromJSONSchema -> S
 
 test("fromJSONSchema: round-trip for string schema", t => {
   let orig = S.string
   let round = roundTrip(orig)
   t->Assert.deepEqual(parse(round, "foo"), "foo")
   t->Assert.throws(() => parse(round, 1))
-  t->Assert.deepEqual(round->S.toJSONSchema, orig->S.toJSONSchema)
+  t->Assert.deepEqual(round->S.inputJSONSchema, orig->S.inputJSONSchema)
 })
 
 test("fromJSONSchema: round-trip for object schema", t => {
@@ -529,5 +529,5 @@ test("fromJSONSchema: round-trip for object schema", t => {
   let round = roundTrip(orig)
   t->Assert.deepEqual(parse(round, {"foo": "bar"}), {"foo": "bar"})
   t->Assert.throws(() => parse(round, {"foo": 1}))
-  t->Assert.deepEqual(round->S.toJSONSchema, orig->S.toJSONSchema)
+  t->Assert.deepEqual(round->S.inputJSONSchema, orig->S.inputJSONSchema)
 })
