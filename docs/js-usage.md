@@ -1194,7 +1194,7 @@ number of zero, an unknown wire type, an unmatched group or a tag wider than
 
 `S.protobuf` passes the binary families of the official conformance suite
 that apply to it and round-trips against protobuf.js; the corpus lives in
-[`packages/protobuf-test-suite`](../packages/protobuf-test-suite). Not covered:
+[`packages/protobuf-test-suite`](https://github.com/DZakh/sury/tree/main/packages/protobuf-test-suite). Not covered:
 extensions, proto2 groups as fields, and keeping unknown fields through a
 round trip.
 
