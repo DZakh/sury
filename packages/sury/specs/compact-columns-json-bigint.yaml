@@ -3,7 +3,7 @@ ts:
   schema: "S.compactColumns(S.json).with(S.to, S.array(S.schema({ id: S.string, amount: S.bigint })))"
   input: JSON[][]
   output: "{ id: string; amount: bigint; }[]"
-  instantiations: 7119
+  instantiations: 7251
 jsonSchema:
   input: '{ items: { items: {}, type: "array" }, type: "array" }'
   output: 'Failed at []["amount"]: Expected JSON, received bigint'

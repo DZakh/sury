@@ -80,12 +80,15 @@ export type Schema<TInput = unknown, TOutput = TInput> = {
     refineCheck: (value: TOutput) => boolean,
     refineOptions?: { error?: string; path?: string[] }
   ): Schema<TInput, TOutput>;
+  // Object form only: a `number | ProtobufField` parameter here is tried by
+  // every `.with` call in a project and costs ~4800 instantiations each. The
+  // number form resolves through the literal `TArg1` overload below.
   with(
     protobufField: (
       schema: Schema<unknown, unknown>,
       field: number | ProtobufField
     ) => Schema<unknown, unknown>,
-    field: number | ProtobufField
+    field: ProtobufField
   ): Schema<TInput, TOutput>;
   // This overload is what both S.refine and S.shape resolve to under
   // overload matching — the exact mechanism that routes S.refine calls here
@@ -494,6 +497,12 @@ export type ProtobufType =
 export type ProtobufField = {
   number: number;
   type?: ProtobufType;
+  /** Encode a repeated scalar expanded (`[packed=false]`) instead of packed. Decoding accepts both. */
+  packed?: boolean;
+  /** Key type of a `map<K, V>` field, for an `S.record` schema. Defaults to `string`. */
+  key?: ProtobufType;
+  /** Name of the `oneof` this field belongs to. Decoding a member clears the others. */
+  oneof?: string;
 };
 
 export function protobufField<TInput, TOutput>(

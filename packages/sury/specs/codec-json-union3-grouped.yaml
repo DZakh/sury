@@ -3,7 +3,7 @@ ts:
   schema: S.json.with(S.to, S.union([S.literal("a"), S.number, S.literal("b")]))
   input: JSON
   output: number | "a" | "b"
-  instantiations: 6703
+  instantiations: 6835
 jsonSchema:
   input: '{ anyOf: [{ type: "string", const: "a" }, { type: "number" }, { type: "string", const: "b" }] }'
   fromInputType: number | "a" | "b"

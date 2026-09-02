@@ -3,7 +3,7 @@ ts:
   schema: 'S.any.with(S.to, S.number, { decode: "auto", encode: (value) => value })'
   input: any
   output: number
-  instantiations: 5304
+  instantiations: 5436
 jsonSchema:
   input: Expected JSON, received unknown
   output: '{ type: "number" }'

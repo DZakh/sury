@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ counts: S.record(S.int32).with(S.protobufField, 1), byId: S.record(S.schema({ name: S.string.with(S.protobufField, 1) })).with(S.protobufField, {number: 2, key: "int64"}) }).with(S.to, S.protobuf)'
+  input: "{ counts: Record<string, number>; byId: Record<string, { name: string; }>; }"
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 9610
+jsonSchema:
+  input: '{ type: "object", properties: { counts: { type: "object", additionalProperties: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, byId: { type: "object", additionalProperties: { type: "object", properties: { name: { type: "string" } }, required: ["name"] } } }, required: ["counts", "byId"] }'
+  output: Expected JSON, received Uint8Array
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    creationError: "SuryError: Can't decode { counts: { [key: string]: int32; }; byId: { [key: string]: { name: string; }; }; } to Uint8Array. Use S.to to define a custom decoder"
+  decode:
+    expression: i=>{let v0=i["counts"],v2=i["byId"];let w=e[3].reset(),v,j,n,s,h,a,k,g,c;v=v0;a=Object.keys(v);n=a.length;j=0;while(j<n){k=a[j++];c=v[k];w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(k);w.pos<w.buf.length?w.buf[w.pos++]=16:w.varint32(16);s=c;s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s);w.end(h)};v=v2;a=Object.keys(v);n=a.length;j=0;while(j<n){k=a[j++];c=v[k];w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();k=BigInt(k);w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);w.varint64(e[2](k,-9223372036854775808n,9223372036854775807n,"int64"));w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);g=w.begin();e[0](w,c);w.end(g);w.end(h)};let v5=w.finish();return v5}
+    examples:
+      entries:
+        input: '{ counts: { a: 1, b: -1 }, byId: { "5": { name: "x" } } }'
+        output: new Uint8Array([10, 5, 10, 1, 97, 16, 1, 10, 14, 10, 1, 98, 16, 255, 255, 255, 255, 255, 255, 255, 255, 255, 1, 18, 7, 8, 5, 18, 3, 10, 1, 120])
+      empty:
+        input: "{ counts: {}, byId: {} }"
+        output: new Uint8Array([])
+      bad-key:
+        input: '{ counts: {}, byId: { x: { name: "" } } }'
+        error: Cannot convert x to a BigInt
+  encode:
+    expression: i=>{let v0=e[0](e[1].reset(i),0);let v1=v0["counts"],v3=v0["byId"];return v0}
+    examples:
+      entry:
+        input: new Uint8Array([10, 5, 10, 1, 97, 16, 1])
+        output: "{ counts: { a: 1 }, byId: {} }"
+      empty-entry:
+        input: new Uint8Array([10, 0])
+        output: '{ counts: { "": 0 }, byId: {} }'
+      int64-key:
+        input: new Uint8Array([18, 6, 8, 5, 18, 2, 10, 0])
+        output: '{ counts: {}, byId: { "5": { name: "" } } }'
+      duplicate-key-last-wins:
+        input: new Uint8Array([10, 5, 10, 1, 97, 16, 1, 10, 5, 10, 1, 97, 16, 2])
+        output: "{ counts: { a: 2 }, byId: {} }"

@@ -3,10 +3,13 @@ import {
   arrayTag,
   baseSchema,
   copySchema,
+  type Encoder,
   initSchema,
   instanceTag,
   type Internal,
+  noopDecoder,
   objectTag,
+  setHas,
   U,
   undefinedTag,
   type Val,
@@ -15,28 +18,35 @@ import {
   _var,
   B_embed,
   B_embedPure,
+  B_merge,
   B_next,
+  B_scope,
   B_unsupportedDecode,
   B_varWithoutAllocation,
 } from "../builder";
-import { arrayFactory, objectDecoder } from "../composites";
-import { getOutputSchema, instanceDecoder } from "../parse";
-import { bigint, bool, float, int, integer, string } from "../primitives";
+import { arrayFactory, dictFactory, objectDecoder } from "../composites";
+import { getOutputSchema, instanceDecoder, parse } from "../parse";
+import { bigint, bool, float, int, integer, string, unit } from "../primitives";
 import type { ProtobufType } from "./protobufField";
+
+type StoredField = { number: number; type: ProtobufType; packed: boolean; key: ProtobufType; oneof?: string };
 
 type Field = {
   number: number;
   type: ProtobufType;
+  packed: boolean;
   key: string;
   repeated: boolean;
   optional: boolean;
   wire: number;
   message?: Message;
+  // Key type of a map field; unset for anything else.
+  map?: ProtobufType;
+  oneof?: string;
 };
 
 type Message = {
   fields: Field[];
-  byNumber: Record<number, Field>;
   strict: boolean;
   raw: Internal;
   schema: Internal;
@@ -69,10 +79,10 @@ const wireType = (type: ProtobufType): number => {
   return 0;
 };
 
-const fieldMetadata = (schema: Internal): { number: number; type: ProtobufType } | undefined => {
+const fieldMetadata = (schema: Internal): StoredField | undefined => {
   let current: Internal | undefined = schema;
   while (current !== U) {
-    if (current.pb !== U) return current.pb as { number: number; type: ProtobufType };
+    if (current.pb !== U) return current.pb as StoredField;
     current = current.to;
   }
   return U;
@@ -112,6 +122,39 @@ const scalarSchema = (type: ProtobufType): Internal => {
   return integer;
 };
 
+// A present nested object converts field-wise into the (non-optional)
+// normalized target and an absent one stays absent. A real `T | undefined`
+// union on either side would make the pipeline re-validate the whole nested
+// object, or refuse the object-to-union conversion outright.
+const optionalMessageEncoder: Encoder = (input, target) => {
+  const v = input.v();
+  const presentIn = B_scope(input);
+  presentIn.io = false;
+  presentIn.s = input.s.anyOf![0]!;
+  presentIn.e = target;
+  presentIn.u = true;
+  const presentOut = parse(presentIn);
+  const body = B_merge(presentOut) + (presentOut.i === v ? "" : `${v}=${presentOut.i};`);
+  const output = B_next(input, v, getOutputSchema(target), target);
+  output.v = _var;
+  output.io = true;
+  output.cp = body === "" ? "" : `if(${v}!==void 0){${body}}`;
+  // Reads the nested parse materialized without converting anything are
+  // not a transform; reporting one would make the parent rebuild itself.
+  if (!presentOut.t) output.t = U;
+  return output;
+};
+
+const optionalMessage = (raw: Internal): Internal => {
+  const mut = baseSchema(anyOfTag, false, noopDecoder);
+  mut.anyOf = [raw, unit];
+  mut.has = { [undefinedTag]: true };
+  setHas(mut.has, raw.type);
+  mut.encoder = optionalMessageEncoder;
+  mut.perVariant = true;
+  return mut;
+};
+
 const compileMessage = (schema: Internal, seen = new Set<Internal>()): Message | undefined => {
   let output = schema;
   while (output.type !== objectTag && output.to !== U) output = output.to;
@@ -119,7 +162,7 @@ const compileMessage = (schema: Internal, seen = new Set<Internal>()): Message |
   if (typeof output.additionalItems === objectTag) return U;
   seen.add(output);
   const fields: Field[] = [];
-  const byNumber: Record<number, Field> = Object.create(null);
+  const numbers = new Set<number>();
   const rawProperties: Record<string, Internal> = Object.create(null);
   const normalizedProperties: Record<string, Internal> = Object.create(null);
   const rawRequired: string[] = [];
@@ -128,13 +171,20 @@ const compileMessage = (schema: Internal, seen = new Set<Internal>()): Message |
     const key = keys[idx]!;
     const property = output.properties[key]!;
     const metadata = fieldMetadata(property);
-    if (metadata === U || byNumber[metadata.number] !== U) return U;
+    if (metadata === U || numbers.has(metadata.number)) return U;
+    numbers.add(metadata.number);
     const [propertyValue, optional] = unwrapOptional(property);
     let shape = getOutputSchema(propertyValue);
+    const container = shape;
     let repeated = false;
+    let map: ProtobufType | undefined;
     if (shape.type === arrayTag && typeof shape.additionalItems === objectTag) {
       if (optional) return U;
       repeated = true;
+      shape = getOutputSchema(shape.additionalItems as Internal);
+    } else if (shape.type === objectTag && typeof shape.additionalItems === objectTag) {
+      if (optional) return U;
+      map = metadata.key;
       shape = getOutputSchema(shape.additionalItems as Internal);
     }
     let message: Message | undefined;
@@ -143,20 +193,38 @@ const compileMessage = (schema: Internal, seen = new Set<Internal>()): Message |
     if (metadata.type === "message") {
       message = compileMessage(shape, new Set(seen));
       if (message === U) return U;
-      raw = message.raw;
+      raw = optional ? optionalMessage(message.raw) : message.raw;
       normalizedProperty = message.schema;
     } else {
       raw = scalarSchema(metadata.type);
     }
-    if (repeated) {
-      raw = arrayFactory(raw);
-      normalizedProperty = property;
+    // A repeated or map message keeps the user's container (its length
+    // checks included) around the normalized nested schema, not the user's:
+    // an optional nested message inside must stay a light wrap.
+    if (repeated || map !== U) {
+      raw = repeated ? arrayFactory(raw) : dictFactory(raw);
+      if (message) {
+        const normalizedContainer = copySchema(container);
+        normalizedContainer.additionalItems = message.schema;
+        delete normalizedContainer.to;
+        normalizedProperty = normalizedContainer;
+      } else normalizedProperty = property;
     } else if (!optional) rawRequired.push(key);
     rawProperties[key] = raw;
     normalizedProperties[key] = normalizedProperty;
-    const field: Field = { ...metadata, key, repeated, optional, message, wire: wireType(metadata.type) };
+    const field: Field = {
+      number: metadata.number,
+      type: metadata.type,
+      packed: metadata.packed,
+      key,
+      repeated,
+      optional,
+      message,
+      map,
+      oneof: metadata.oneof,
+      wire: wireType(metadata.type),
+    };
     fields.push(field);
-    byNumber[field.number] = field;
   }
   fields.sort((a, b) => a.number - b.number);
   const raw = baseSchema(objectTag, false, objectDecoder);
@@ -167,19 +235,31 @@ const compileMessage = (schema: Internal, seen = new Set<Internal>()): Message |
   normalized.properties = normalizedProperties;
   normalized.required = rawRequired;
   delete normalized.to;
-  return { fields, byNumber, strict: output.additionalItems === "strict", raw, schema: normalized };
+  return { fields, strict: output.additionalItems === "strict", raw, schema: normalized };
 };
 
-const textDecoder = /* @__PURE__ */ new TextDecoder("utf-8", { fatal: true });
+const textDecoder = /* @__PURE__ */ new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 const textEncoder = /* @__PURE__ */ new TextEncoder();
 
+// Every `new` here is annotated: esbuild keeps an unannotated constructor
+// call, and with it this whole module, in every consumer's bundle.
+const scratch = /* @__PURE__ */ new Uint8Array(8);
+const scratchView = /* @__PURE__ */ new DataView(scratch.buffer);
+
+const truncated = (): never => {
+  throw Error("truncated protobuf message");
+};
+
+// Every varint reader accepts the full 10-byte form and keeps the bits it
+// has room for: that is what makes `int32` -1 (10 bytes on the wire) and a
+// `uint32` written from a 64-bit value decode the way C++ does.
 class Reader {
   pos = 0;
   buf: Uint8Array;
   limit: number;
-  constructor(buf: Uint8Array, limit = buf.length) {
+  constructor(buf: Uint8Array) {
     this.buf = buf;
-    this.limit = limit;
+    this.limit = buf.length;
   }
   reset(buf: Uint8Array): Reader {
     this.buf = buf;
@@ -189,101 +269,161 @@ class Reader {
   }
   varint32(): number {
     const buf = this.buf;
+    const limit = this.limit;
     let pos = this.pos;
-    if (pos >= this.limit) throw Error("truncated varint");
-    let byte = buf[pos]!;
-    if (byte < 128) {
-      this.pos = pos + 1;
-      return byte;
-    }
-    if (this.limit - pos > 4) {
-      let value = (byte & 127) >>> 0;
-      byte = buf[++pos]!;
-      value = (value | (byte & 127) << 7) >>> 0;
-      if (byte < 128) {
-        this.pos = pos + 1;
-        return value;
-      }
-      byte = buf[++pos]!;
-      value = (value | (byte & 127) << 14) >>> 0;
-      if (byte < 128) {
-        this.pos = pos + 1;
-        return value;
-      }
-      byte = buf[++pos]!;
-      value = (value | (byte & 127) << 21) >>> 0;
-      if (byte < 128) {
-        this.pos = pos + 1;
-        return value;
-      }
-      byte = buf[++pos]!;
-      value = (value | (byte & 15) << 28) >>> 0;
-      if (byte < 128) {
-        this.pos = pos + 1;
-        return value;
-      }
-      throw Error("varint exceeds 64 bits");
-    }
+    if (pos >= limit) truncated();
+    let byte = buf[pos++]!;
     let value = byte & 127;
-    pos++;
-    for (let shift = 7; shift < 35; shift += 7) {
-      if (pos >= this.limit) throw Error("truncated varint");
+    if (byte > 127) {
+      if (pos >= limit) truncated();
+      byte = buf[pos++]!;
+      value |= (byte & 127) << 7;
+      if (byte > 127) {
+        if (pos >= limit) truncated();
+        byte = buf[pos++]!;
+        value |= (byte & 127) << 14;
+        if (byte > 127) {
+          if (pos >= limit) truncated();
+          byte = buf[pos++]!;
+          value |= (byte & 127) << 21;
+          if (byte > 127) {
+            if (pos >= limit) truncated();
+            byte = buf[pos++]!;
+            value |= (byte & 15) << 28;
+            let extra = 5;
+            while (byte > 127) {
+              if (pos >= limit) truncated();
+              if (++extra > 10) throw Error("varint exceeds 10 bytes");
+              byte = buf[pos++]!;
+            }
+          }
+        }
+      }
+    }
+    this.pos = pos;
+    return value >>> 0;
+  }
+  // Unlike a value, a tag is held to 5 bytes and 32 bits: the conformance
+  // suite rejects an overlong tag that a lenient read would accept.
+  tag(): number {
+    const buf = this.buf;
+    const limit = this.limit;
+    let pos = this.pos;
+    let value = 0;
+    let shift = 0;
+    let byte: number;
+    do {
+      if (pos >= limit) truncated();
+      if (shift > 28) throw Error("invalid protobuf tag");
       byte = buf[pos++]!;
       value |= (byte & 127) << shift;
-      if (byte < 128) {
-        this.pos = pos;
-        return value >>> 0;
-      }
-    }
-    throw Error("varint exceeds 64 bits");
+      shift += 7;
+    } while (byte > 127);
+    if (shift > 28 && byte > 15) throw Error("invalid protobuf tag");
+    this.pos = pos;
+    return value >>> 0;
   }
   varint64(): bigint {
-    let value = 0n;
-    for (let shift = 0n; shift < 70n; shift += 7n) {
-      if (this.pos >= this.limit) throw Error("truncated varint");
-      const byte = this.buf[this.pos++]!;
-      if (shift === 63n && byte > 1) throw Error("varint exceeds 64 bits");
-      value |= BigInt(byte & 127) << shift;
-      if (byte < 128) return value;
-    }
-    throw Error("varint exceeds 64 bits");
+    const buf = this.buf;
+    const limit = this.limit;
+    let pos = this.pos;
+    let lo = 0;
+    let hi = 0;
+    let shift = 0;
+    let byte: number;
+    do {
+      if (pos >= limit) truncated();
+      if (shift > 63) throw Error("varint exceeds 10 bytes");
+      byte = buf[pos++]!;
+      if (shift < 28) lo |= (byte & 127) << shift;
+      else if (shift === 28) {
+        lo |= (byte & 15) << 28;
+        hi = (byte & 127) >>> 4;
+      } else hi |= (byte & 127) << (shift - 32);
+      shift += 7;
+    } while (byte > 127);
+    this.pos = pos;
+    return hi === 0 ? BigInt(lo >>> 0) : (BigInt(hi >>> 0) << 32n) | BigInt(lo >>> 0);
   }
-  tag(): number {
-    if (this.pos < this.limit) {
-      const byte = this.buf[this.pos]!;
-      if (byte < 128) {
-        this.pos++;
-        return byte;
-      }
-    }
-    const start = this.pos;
-    const tag = Number(this.varint64());
-    if (this.pos - start > 5 || tag > 4294967295) throw Error("invalid protobuf tag");
-    return tag;
+  bool(): boolean {
+    const buf = this.buf;
+    const limit = this.limit;
+    let pos = this.pos;
+    let set = 0;
+    let byte: number;
+    let count = 0;
+    do {
+      if (pos >= limit) truncated();
+      if (++count > 10) throw Error("varint exceeds 10 bytes");
+      byte = buf[pos++]!;
+      set |= byte & 127;
+    } while (byte > 127);
+    this.pos = pos;
+    return set !== 0;
   }
-  fixed(size: number): Uint8Array {
-    const end = this.pos + size;
-    if (end > this.limit) throw Error("truncated protobuf field");
-    const value = this.buf.subarray(this.pos, end);
-    this.pos = end;
-    return value;
+  u32(): number {
+    const pos = this.pos;
+    if (pos + 4 > this.limit) truncated();
+    const buf = this.buf;
+    this.pos = pos + 4;
+    return (buf[pos]! | (buf[pos + 1]! << 8) | (buf[pos + 2]! << 16) | (buf[pos + 3]! << 24)) >>> 0;
   }
-  length(): Reader {
-    const length = this.varint32();
-    if (this.pos + length > this.limit) throw Error("truncated protobuf field");
-    const reader = new Reader(this.buf, this.pos + length);
-    reader.pos = this.pos;
-    this.pos += length;
-    return reader;
+  f32(): number {
+    const pos = this.pos;
+    if (pos + 4 > this.limit) truncated();
+    const buf = this.buf;
+    scratch[0] = buf[pos]!;
+    scratch[1] = buf[pos + 1]!;
+    scratch[2] = buf[pos + 2]!;
+    scratch[3] = buf[pos + 3]!;
+    this.pos = pos + 4;
+    return scratchView.getFloat32(0, true);
+  }
+  load64(): void {
+    const pos = this.pos;
+    if (pos + 8 > this.limit) truncated();
+    const buf = this.buf;
+    scratch[0] = buf[pos]!;
+    scratch[1] = buf[pos + 1]!;
+    scratch[2] = buf[pos + 2]!;
+    scratch[3] = buf[pos + 3]!;
+    scratch[4] = buf[pos + 4]!;
+    scratch[5] = buf[pos + 5]!;
+    scratch[6] = buf[pos + 6]!;
+    scratch[7] = buf[pos + 7]!;
+    this.pos = pos + 8;
+  }
+  f64(): number {
+    this.load64();
+    return scratchView.getFloat64(0, true);
+  }
+  u64(): bigint {
+    this.load64();
+    return scratchView.getBigUint64(0, true);
+  }
+  i64(): bigint {
+    this.load64();
+    return scratchView.getBigInt64(0, true);
+  }
+  // Enters a length-delimited field: narrows `limit` to it and returns the
+  // outer limit for the caller to restore. Bounds checks against `limit`
+  // are what stop a nested read escaping its field.
+  sub(): number {
+    const len = this.varint32();
+    const end = this.pos + len;
+    if (end > this.limit) truncated();
+    const outer = this.limit;
+    this.limit = end;
+    return outer;
   }
   string(): string {
     const len = this.varint32();
     const start = this.pos;
     const end = start + len;
-    if (end > this.limit) throw Error("truncated protobuf field");
+    if (end > this.limit) truncated();
     const buf = this.buf;
     this.pos = end;
-    if (len < 32) {
+    if (len < 10) {
       let s = "";
       let i = start;
       for (; i < end; i++) {
@@ -293,33 +433,19 @@ class Reader {
       }
       if (i === end) return s;
     }
-    const bytes = buf.subarray(start, end);
-    const text = textDecoder.decode(bytes);
-    if (
-      len >= 3 &&
-      bytes[0] === 239 &&
-      bytes[1] === 187 &&
-      bytes[2] === 191 &&
-      !text.startsWith("\uFEFF")
-    ) {
-      return "\uFEFF" + text;
-    }
-    return text;
+    return textDecoder.decode(buf.subarray(start, end));
   }
   bytes(): Uint8Array {
     const len = this.varint32();
     const end = this.pos + len;
-    if (end > this.limit) throw Error("truncated protobuf field");
-    const value = new Uint8Array(this.buf.subarray(this.pos, end));
+    if (end > this.limit) truncated();
+    const value = this.buf.slice(this.pos, end);
     this.pos = end;
     return value;
   }
 }
 
-const scratchReader = /* @__PURE__ */ new Reader(new Uint8Array());
-
-const scratch = /* @__PURE__ */ new Uint8Array(8);
-const scratchView = /* @__PURE__ */ new DataView(scratch.buffer);
+const scratchReader = /* @__PURE__ */ new Reader(/* @__PURE__ */ new Uint8Array(0));
 
 class Writer {
   buf = new Uint8Array(64);
@@ -332,26 +458,62 @@ class Writer {
   }
   varint32(value: number): void {
     this.ensure(5);
+    const buf = this.buf;
+    let pos = this.pos;
     value >>>= 0;
     while (value > 127) {
-      this.buf[this.pos++] = (value & 127) | 128;
+      buf[pos++] = (value & 127) | 128;
       value >>>= 7;
     }
-    this.buf[this.pos++] = value;
+    buf[pos++] = value;
+    this.pos = pos;
+  }
+  // A negative int32 is sign-extended to 64 bits on the wire: the low 32
+  // bits, then 0xF0-masked byte 5, four 0xFF bytes and a closing 0x01.
+  int32(value: number): void {
+    if (value >= 0) return this.varint32(value);
+    this.ensure(10);
+    const buf = this.buf;
+    let pos = this.pos;
+    buf[pos++] = (value & 127) | 128;
+    buf[pos++] = ((value >>> 7) & 127) | 128;
+    buf[pos++] = ((value >>> 14) & 127) | 128;
+    buf[pos++] = ((value >>> 21) & 127) | 128;
+    buf[pos++] = (value >>> 28) | 240;
+    buf[pos++] = 255;
+    buf[pos++] = 255;
+    buf[pos++] = 255;
+    buf[pos++] = 255;
+    buf[pos++] = 1;
+    this.pos = pos;
   }
   varint64(value: bigint): void {
+    if (value >= 0n && value < 2147483648n) return this.varint32(Number(value));
     value = BigInt.asUintN(64, value);
+    let lo = Number(value & 4294967295n);
+    let hi = Number(value >> 32n);
     this.ensure(10);
-    while (value > 127n) {
-      this.buf[this.pos++] = Number(value & 127n) | 128;
-      value >>= 7n;
+    const buf = this.buf;
+    let pos = this.pos;
+    while (hi) {
+      buf[pos++] = (lo & 127) | 128;
+      lo = ((lo >>> 7) | (hi << 25)) >>> 0;
+      hi >>>= 7;
     }
-    this.buf[this.pos++] = Number(value);
+    while (lo > 127) {
+      buf[pos++] = (lo & 127) | 128;
+      lo >>>= 7;
+    }
+    buf[pos++] = lo;
+    this.pos = pos;
   }
-  fixed(value: Uint8Array): void {
-    this.ensure(value.length);
+  bytes(value: Uint8Array): void {
+    const n = value.length;
+    this.ensure(5 + n);
+    if (n < 128) this.buf[this.pos++] = n;
+    else this.varint32(n);
     this.buf.set(value, this.pos);
-    this.pos += value.length;
+    this.pos += n;
   }
   string(v: string): void {
     const len = v.length;
@@ -362,51 +524,76 @@ class Writer {
       }
       if (i === len) {
         this.ensure(1 + len);
-        this.buf[this.pos++] = len;
-        for (i = 0; i < len; i++) this.buf[this.pos++] = v.charCodeAt(i);
+        const buf = this.buf;
+        let pos = this.pos;
+        buf[pos++] = len;
+        for (i = 0; i < len; i++) buf[pos++] = v.charCodeAt(i);
+        this.pos = pos;
         return;
       }
     }
-    const b = textEncoder.encode(v);
-    const n = b.length;
-    this.ensure(5 + n);
-    if (n < 128) this.buf[this.pos++] = n;
-    else this.varint32(n);
-    this.buf.set(b, this.pos);
+    // The length prefix is written after the text, so the text goes in at
+    // the widest prefix it could need and slides back when it is shorter.
+    const max = len * 3;
+    const width = max < 128 ? 1 : max < 16384 ? 2 : max < 2097152 ? 3 : max < 268435456 ? 4 : 5;
+    this.ensure(width + max);
+    const start = this.pos + width;
+    const n = textEncoder.encodeInto(v, this.buf.subarray(start, start + max)).written;
+    let used = 1;
+    for (let rest = n >>> 7; rest; rest >>>= 7) used++;
+    if (used !== width) this.buf.copyWithin(this.pos + used, start, start + n);
+    this.varint32(n);
     this.pos += n;
   }
   float32(value: number): void {
     if (Number.isFinite(value) && Math.abs(value) > 3.4028234663852886e38) throw Error("invalid float");
     scratchView.setFloat32(0, value, true);
     this.ensure(4);
-    this.buf[this.pos++] = scratch[0]!;
-    this.buf[this.pos++] = scratch[1]!;
-    this.buf[this.pos++] = scratch[2]!;
-    this.buf[this.pos++] = scratch[3]!;
+    const buf = this.buf;
+    const pos = this.pos;
+    buf[pos] = scratch[0]!;
+    buf[pos + 1] = scratch[1]!;
+    buf[pos + 2] = scratch[2]!;
+    buf[pos + 3] = scratch[3]!;
+    this.pos = pos + 4;
   }
   float64(value: number): void {
     scratchView.setFloat64(0, value, true);
-    this.ensure(8);
-    this.buf.set(scratch, this.pos);
-    this.pos += 8;
+    this.store64();
   }
   bits32(value: number): void {
-    scratchView.setUint32(0, value, true);
     this.ensure(4);
-    this.buf[this.pos++] = scratch[0]!;
-    this.buf[this.pos++] = scratch[1]!;
-    this.buf[this.pos++] = scratch[2]!;
-    this.buf[this.pos++] = scratch[3]!;
+    const buf = this.buf;
+    const pos = this.pos;
+    buf[pos] = value & 255;
+    buf[pos + 1] = (value >>> 8) & 255;
+    buf[pos + 2] = (value >>> 16) & 255;
+    buf[pos + 3] = value >>> 24;
+    this.pos = pos + 4;
   }
   bits64(value: bigint): void {
-    scratchView.setBigUint64(0, value, true);
+    scratchView.setBigUint64(0, BigInt.asUintN(64, value), true);
+    this.store64();
+  }
+  store64(): void {
     this.ensure(8);
-    this.buf.set(scratch, this.pos);
-    this.pos += 8;
+    const buf = this.buf;
+    const pos = this.pos;
+    buf[pos] = scratch[0]!;
+    buf[pos + 1] = scratch[1]!;
+    buf[pos + 2] = scratch[2]!;
+    buf[pos + 3] = scratch[3]!;
+    buf[pos + 4] = scratch[4]!;
+    buf[pos + 5] = scratch[5]!;
+    buf[pos + 6] = scratch[6]!;
+    buf[pos + 7] = scratch[7]!;
+    this.pos = pos + 8;
   }
   finish(): Uint8Array {
     return this.buf.slice(0, this.pos);
   }
+  // Opens a length-delimited field with a 5-byte hole for the prefix;
+  // `end` writes the real prefix and slides the payload back over the slack.
   begin(): number {
     this.ensure(5);
     const hole = this.pos;
@@ -416,24 +603,15 @@ class Writer {
   end(hole: number): void {
     const start = hole + 5;
     const len = this.pos - start;
-    let n = len >>> 0;
     let used = 1;
-    while (n > 127) {
-      used++;
-      n >>>= 7;
-    }
-    const extra = 5 - used;
-    if (extra) {
+    for (let rest = len >>> 7; rest; rest >>>= 7) used++;
+    if (used !== 5) {
       this.buf.copyWithin(hole + used, start, this.pos);
-      this.pos -= extra;
+      this.pos -= 5 - used;
     }
-    n = len >>> 0;
-    let p = hole;
-    while (n > 127) {
-      this.buf[p++] = (n & 127) | 128;
-      n >>>= 7;
-    }
-    this.buf[p] = n;
+    this.pos = hole;
+    this.varint32(len);
+    this.pos += len;
   }
   reset(): Writer {
     this.pos = 0;
@@ -443,15 +621,14 @@ class Writer {
 
 const scratchWriter = /* @__PURE__ */ new Writer();
 
-const dataView = (bytes: Uint8Array): DataView => new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-
 const skip = (reader: Reader, wire: number, fieldNumber: number, depth: number): void => {
   if (wire === 0) reader.varint64();
-  else if (wire === 1) reader.fixed(8);
+  else if (wire === 1) reader.load64();
   else if (wire === 2) {
-    const child = reader.length();
-    child.pos = child.limit;
-  } else if (wire === 5) reader.fixed(4);
+    const outer = reader.sub();
+    reader.pos = reader.limit;
+    reader.limit = outer;
+  } else if (wire === 5) reader.u32();
   else if (wire === 3) {
     if (depth >= 100) throw Error("protobuf group nesting limit exceeded");
     while (reader.pos < reader.limit) {
@@ -469,30 +646,6 @@ const skip = (reader: Reader, wire: number, fieldNumber: number, depth: number):
   } else throw Error("invalid protobuf wire type");
 };
 
-const mergeMessage = (into: Record<string, unknown>, value: Record<string, unknown>): void => {
-  const keys = Object.keys(value);
-  for (let idx = 0; idx < keys.length; idx++) {
-    const key = keys[idx]!;
-    const next = value[key];
-    if (next === U) continue;
-    const prev = into[key];
-    if (Array.isArray(next)) {
-      if (prev === U) into[key] = (next as unknown[]).slice();
-      else (prev as unknown[]).push(...(next as unknown[]));
-    } else if (
-      next !== null &&
-      typeof next === "object" &&
-      !(next instanceof Uint8Array) &&
-      prev !== U &&
-      typeof prev === "object" &&
-      !Array.isArray(prev) &&
-      !(prev instanceof Uint8Array)
-    ) {
-      mergeMessage(prev as Record<string, unknown>, next as Record<string, unknown>);
-    } else into[key] = next;
-  }
-};
-
 const checkedNumber = (value: unknown, min: number, max: number, type: string): number => {
   if (typeof value !== "number" || !Number.isInteger(value) || value < min || value > max) throw Error(`invalid ${type}`);
   return value;
@@ -503,69 +656,77 @@ const checkedBigint = (value: unknown, min: bigint, max: bigint, type: string): 
   return value;
 };
 
-type Embeds = {
-  writer: string;
-  wscratch: string;
-  reader: string;
-  skip: string;
-  view: string;
-  merge: string;
-  num: string;
-  big: string;
+const writeTag = (tag: number): string =>
+  tag < 128 ? `w.pos<w.buf.length?w.buf[w.pos++]=${tag}:w.varint32(${tag})` : `w.varint32(${tag})`;
+
+const writeVarint32 = (expr: string): string =>
+  `${expr}<128&&w.pos<w.buf.length?w.buf[w.pos++]=${expr}:w.varint32(${expr})`;
+
+// `num`/`big` name the range checks in scope: closure params inside a
+// hoisted message encoder, `e[N]` embeds in the operation body.
+const writeCall = (type: ProtobufType, v: string, num: string, big: string): string => {
+  if (type === "bool") return `s=${v}?1:0;w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s)`;
+  if (type === "uint32") return `s=${v}>>>0;${writeVarint32("s")}`;
+  if (type === "int32" || type === "enum") return `s=${v};s>=0?${writeVarint32("s")}:w.int32(s)`;
+  if (type === "sint32") return `s=${v};s=((s<<1)^(s>>31))>>>0;${writeVarint32("s")}`;
+  if (type === "int64") return `w.varint64(${big}(${v},-9223372036854775808n,9223372036854775807n,"int64"))`;
+  if (type === "uint64") return `w.varint64(${big}(${v},0n,18446744073709551615n,"uint64"))`;
+  if (type === "sint64") return `s=${big}(${v},-9223372036854775808n,9223372036854775807n,"sint64");w.varint64((s<<1n)^(s>>63n))`;
+  if (type === "fixed32") return `w.bits32(${num}(${v},0,4294967295,"fixed32"))`;
+  if (type === "sfixed32") return `w.bits32(${num}(${v},-2147483648,2147483647,"sfixed32"))`;
+  if (type === "fixed64") return `w.bits64(${big}(${v},0n,18446744073709551615n,"fixed64"))`;
+  if (type === "sfixed64") return `w.bits64(${big}(${v},-9223372036854775808n,9223372036854775807n,"sfixed64"))`;
+  if (type === "float") return `w.float32(${v})`;
+  if (type === "double") return `w.float64(${v})`;
+  if (type === "string") return `w.string(${v})`;
+  return `w.bytes(${v})`;
 };
 
-const writeTag = (w: string, tag: number): string =>
-  tag < 128
-    ? `${w}.pos<${w}.buf.length?${w}.buf[${w}.pos++]=${tag}:${w}.varint32(${tag})`
-    : `${w}.varint32(${tag})`;
-
-const writeVarint32 = (w: string, expr: string): string =>
-  `${expr}<128&&${w}.pos<${w}.buf.length?${w}.buf[${w}.pos++]=${expr}:${w}.varint32(${expr})`;
-
-const writeCall = (type: ProtobufType, w: string, v: string, e: Embeds): string => {
-  if (type === "bool") return `s=${v}?1:0;${w}.pos<${w}.buf.length?${w}.buf[${w}.pos++]=s:${w}.varint32(s)`;
-  if (type === "uint32") return `s=${v}>>>0;${writeVarint32(w, "s")}`;
-  if (type === "int32" || type === "enum") return `${w}.varint64(BigInt(${v}))`;
-  if (type === "sint32") return `s=${v};${w}.varint32(((s<<1)^(s>>31))>>>0)`;
-  if (type === "int64") return `${w}.varint64(${e.big}(${v},-9223372036854775808n,9223372036854775807n,"int64"))`;
-  if (type === "uint64") return `${w}.varint64(${e.big}(${v},0n,18446744073709551615n,"uint64"))`;
-  if (type === "sint64") return `s=${e.big}(${v},-9223372036854775808n,9223372036854775807n,"sint64");${w}.varint64((s<<1n)^(s>>63n))`;
-  if (type === "fixed32") return `${w}.bits32(${e.num}(${v},0,4294967295,"fixed32"))`;
-  if (type === "sfixed32") return `${w}.bits32(${e.num}(${v},-2147483648,2147483647,"sfixed32"))`;
-  if (type === "fixed64") return `${w}.bits64(BigInt.asUintN(64,${e.big}(${v},0n,18446744073709551615n,"fixed64")))`;
-  if (type === "sfixed64") return `${w}.bits64(BigInt.asUintN(64,${e.big}(${v},-9223372036854775808n,9223372036854775807n,"sfixed64")))`;
-  if (type === "float") return `${w}.float32(${v})`;
-  if (type === "double") return `${w}.float64(${v})`;
-  if (type === "string") return `${w}.string(${v})`;
-  return `s=${v};${writeVarint32(w, "s.length")};${w}.fixed(s)`;
+// A one-byte varint is read inline. Not in a packed loop: there the
+// property traffic on `r` costs more than the call it saves.
+const readCall = (type: ProtobufType, packed = false): string => {
+  const varint32 = packed
+    ? "r.varint32()"
+    : "(r.pos<r.limit&&(t=r.buf[r.pos])<128?(r.pos++,t):r.varint32())";
+  if (type === "bool") return "r.bool()";
+  if (type === "uint32") return varint32;
+  if (type === "int32" || type === "enum") return `${varint32}|0`;
+  if (type === "sint32") return `((t=${varint32})>>>1^-(t&1))|0`;
+  if (type === "int64") return "BigInt.asIntN(64,r.varint64())";
+  if (type === "uint64") return "r.varint64()";
+  if (type === "sint64") return "(t=r.varint64(),(t>>1n)^-(t&1n))";
+  if (type === "double") return "r.f64()";
+  if (type === "float") return "r.f32()";
+  if (type === "fixed64") return "r.u64()";
+  if (type === "sfixed64") return "r.i64()";
+  if (type === "fixed32") return "r.u32()";
+  if (type === "sfixed32") return "r.u32()|0";
+  if (type === "string") return "r.string()";
+  return "r.bytes()";
 };
 
-const readCall = (type: ProtobufType, r: string, e: Embeds): string => {
-  if (type === "bool") return `${r}.varint32()!==0`;
-  if (type === "uint32") return `${r}.varint32()`;
-  if (type === "int32" || type === "enum") return `Number(BigInt.asIntN(32,${r}.varint64()))`;
-  if (type === "sint32") return `((t=${r}.varint32())>>>1^-(t&1))|0`;
-  if (type === "int64") return `BigInt.asIntN(64,${r}.varint64())`;
-  if (type === "uint64") return `BigInt.asUintN(64,${r}.varint64())`;
-  if (type === "sint64") return `(t=${r}.varint64(),BigInt.asIntN(64,(t>>1n)^-(t&1n)))`;
-  if (type === "double") return `${e.view}(${r}.fixed(8)).getFloat64(0,true)`;
-  if (type === "float") return `${e.view}(${r}.fixed(4)).getFloat32(0,true)`;
-  if (type === "fixed64") return `${e.view}(${r}.fixed(8)).getBigUint64(0,true)`;
-  if (type === "sfixed64") return `BigInt.asIntN(64,${e.view}(${r}.fixed(8)).getBigUint64(0,true))`;
-  if (type === "fixed32") return `${e.view}(${r}.fixed(4)).getUint32(0,true)`;
-  if (type === "sfixed32") return `${e.view}(${r}.fixed(4)).getUint32(0,true)|0`;
-  if (type === "string") return `${r}.string()`;
-  return `${r}.bytes()`;
+const scalarDefault = (type: ProtobufType): string =>
+  type === "string" ? '""'
+  : type === "bytes" ? "new Uint8Array"
+  : type === "bool" ? "!1"
+  : type.includes("64") ? "0n"
+  : "0";
+
+const emitDefault = (field: Field): string => {
+  if (field.repeated) return "[]";
+  if (field.map !== U) return "{}";
+  if (field.optional || field.type === "message") return "void 0";
+  return scalarDefault(field.type);
 };
 
-const emitDefault = (field: Field, key: string): string => {
-  if (field.repeated) return `o[${key}]=[]`;
-  if (field.optional || field.type === "message") return "";
-  if (field.type === "string") return `o[${key}]=""`;
-  if (field.type === "bytes") return `o[${key}]=new Uint8Array`;
-  if (field.type === "bool") return `o[${key}]=!1`;
-  if (field.type.includes("64")) return `o[${key}]=0n`;
-  return `o[${key}]=0`;
+// A map key travels as a string property name; these convert it to and
+// from the key type on the wire.
+const keyToWire = (type: ProtobufType, num: string): string => {
+  if (type === "string") return "";
+  if (type === "bool") return 'k=k==="true";';
+  if (type === "int32" || type === "sint32" || type === "sfixed32") return `k=${num}(+k,-2147483648,2147483647,"${type} key");`;
+  if (type === "uint32" || type === "fixed32") return `k=${num}(+k,0,4294967295,"${type} key");`;
+  return "k=BigInt(k);";
 };
 
 const fieldLive = (field: Field): string =>
@@ -575,108 +736,146 @@ const fieldLive = (field: Field): string =>
   : field.type === "string" || field.type === "bool" || field.type.includes("64") ? "v"
   : "(v=+v)";
 
-const encodeBody = (msg: Message, e: Embeds, fns: Map<Message, string>, read: (key: string) => string): string => {
+const encodeBody = (
+  msg: Message,
+  fns: Map<Message, string>,
+  read: (key: string) => string,
+  num: string,
+  big: string,
+): string => {
   const body: string[] = [];
   for (let idx = 0; idx < msg.fields.length; idx++) {
     const field = msg.fields[idx]!;
-    const key = field.key;
     const tag = field.number * 8 + field.wire;
-    const packedTag = field.number * 8 + 2;
-    const src = read(key);
-    if (field.repeated) {
-      let packed = "";
-      if (packable[field.type]) {
-        packed = `p=new ${e.writer};j=0;while(j<n){${writeCall(field.type, "p", "v[j++]", e)}}b=p.finish();${writeTag("w", packedTag)};${writeVarint32("w", "b.length")};w.fixed(b)`;
+    const src = read(field.key);
+    if (field.map !== U) {
+      const keyType = field.map;
+      const entryTag = writeTag(field.number * 8 + 2);
+      const keyPart = `${keyToWire(keyType, num)}${writeTag(8 + wireType(keyType))};${writeCall(keyType, "k", num, big)}`;
+      const valuePart = field.type === "message"
+        ? `${writeTag(16 + 2)};g=w.begin();${fns.get(field.message!)!}(w,c);w.end(g)`
+        : `${writeTag(16 + field.wire)};${writeCall(field.type, "c", num, big)}`;
+      body.push(`v=${src};a=Object.keys(v);n=a.length;j=0;while(j<n){k=a[j++];c=v[k];${entryTag};h=w.begin();${keyPart};${valuePart};w.end(h)}`);
+    } else if (field.repeated) {
+      let loop: string;
+      if (packable[field.type] && field.packed) {
+        loop = `${writeTag(field.number * 8 + 2)};h=w.begin();j=0;while(j<n){${writeCall(field.type, "v[j++]", num, big)}}w.end(h)`;
       } else if (field.type === "message") {
-        const nested = fns.get(field.message!)!;
-        packed = `j=0;while(j<n){${writeTag("w", tag)};h=w.begin();${nested}(w,v[j++]);w.end(h)}`;
+        loop = `j=0;while(j<n){${writeTag(tag)};h=w.begin();${fns.get(field.message!)!}(w,v[j++]);w.end(h)}`;
       } else {
-        packed = `j=0;while(j<n){${writeTag("w", tag)};${writeCall(field.type, "w", "v[j++]", e)}}`;
+        loop = `j=0;while(j<n){${writeTag(tag)};${writeCall(field.type, "v[j++]", num, big)}}`;
       }
-      body.push(`v=${src};n=v.length;if(n){${packed}}`);
+      body.push(`v=${src};n=v.length;if(n){${loop}}`);
     } else if (field.type === "message") {
-      const nested = fns.get(field.message!)!;
-      body.push(`v=${src};if(v!=null){${writeTag("w", tag)};h=w.begin();${nested}(w,v);w.end(h)}`);
+      body.push(`v=${src};if(v!=null){${writeTag(tag)};h=w.begin();${fns.get(field.message!)!}(w,v);w.end(h)}`);
     } else {
-      body.push(`v=${src};if(${fieldLive(field)}){${writeTag("w", tag)};${writeCall(field.type, "w", "v", e)}}`);
+      body.push(`v=${src};if(${fieldLive(field)}){${writeTag(tag)};${writeCall(field.type, "v", num, big)}}`);
     }
   }
   return body.join(";");
 };
 
-const emitEncodeFn = (input: Val, message: Message, e: Embeds, fns: Map<Message, string>): string => {
-  const cached = fns.get(message);
-  if (cached !== U) return cached;
-  const name = B_varWithoutAllocation(input.g);
-  fns.set(message, name);
+const nameMessages = (message: Message, fns: Map<Message, string>): void => {
+  if (fns.has(message)) return;
+  fns.set(message, `m${fns.size}`);
   for (let idx = 0; idx < message.fields.length; idx++) {
     const nested = message.fields[idx]!.message;
-    if (nested) emitEncodeFn(input, nested, e, fns);
+    if (nested) nameMessages(nested, fns);
   }
-  return name;
 };
 
-const finishEncodeFn = (message: Message, e: Embeds, fns: Map<Message, string>, input: Val): string => {
-  emitEncodeFn(input, message, e, fns);
-  const parts: string[] = [];
-  fns.forEach((fnName, msg) => {
-    if (msg === message) return;
-    const fromValue = (key: string) => `value[${JSON.stringify(key)}]`;
-    parts.push(`let ${fnName}=function(w,value){var v,j,n,p,b,s,h;${encodeBody(msg, e, fns, fromValue)}};`);
+// Message codecs are built once per operation with `Function` and embedded
+// as values, so the operation body calls a top-level function instead of
+// allocating a closure per call.
+const compileEncoders = (root: Message, fns: Map<Message, string>): Record<string, Function> => {
+  let src = "";
+  fns.forEach((name, msg) => {
+    if (msg === root) return;
+    src += `function ${name}(w,value){var v,j,n,s,h,a,k,g,c;${encodeBody(msg, fns, (key) => `value[${JSON.stringify(key)}]`, "num", "big")}}`;
   });
-  return parts.join("");
+  const names = [...fns.values()].filter((name) => name !== fns.get(root));
+  return new Function("num", "big", `${src}return {${names.join(",")}}`)(checkedNumber, checkedBigint);
 };
 
-const emitDecodeFn = (input: Val, message: Message, e: Embeds, fns: Map<Message, string>): string => {
-  const cached = fns.get(message);
-  if (cached !== U) return cached;
-  const name = B_varWithoutAllocation(input.g);
-  fns.set(message, name);
-  for (let idx = 0; idx < message.fields.length; idx++) {
-    const field = message.fields[idx]!;
-    if (field.message) emitDecodeFn(input, field.message, e, fns);
-  }
-  return name;
-};
-
-const finishDecodeFn = (message: Message, e: Embeds, fns: Map<Message, string>): string => {
-  const parts: string[] = [];
-  fns.forEach((fnName, msg) => {
-    const body: string[] = [
-      "if(d>=100)throw Error(\"protobuf message nesting limit exceeded\")",
-      "var o=Object.create(null),t,w,n,p,c,v",
-    ];
-    for (let idx = 0; idx < msg.fields.length; idx++) {
-      const def = emitDefault(msg.fields[idx]!, JSON.stringify(msg.fields[idx]!.key));
-      if (def) body.push(def);
-    }
-    const cases: string[] = [];
-    for (let idx = 0; idx < msg.fields.length; idx++) {
-      const field = msg.fields[idx]!;
-      const key = JSON.stringify(field.key);
-      const expected = field.wire;
-      let arm = `case ${field.number}:`;
-      if (field.repeated && packable[field.type]) {
-        arm += `if(w===2){p=r.length();while(p.pos<p.limit)o[${key}].push(${readCall(field.type, "p", e)});continue}if(w===${expected}){o[${key}].push(${readCall(field.type, "r", e)});continue}break;`;
-      } else if (field.type === "message") {
-        const nested = fns.get(field.message!)!;
-        arm += `if(w===2){c=r.length();v=${nested}(c,d+1);if(c.pos!==c.limit)throw Error("invalid nested protobuf message");`;
-        arm += field.repeated
-          ? `o[${key}].push(v);continue}break;`
-          : `if(o[${key}]!=null)${e.merge}(o[${key}],v);else o[${key}]=v;continue}break;`;
-      } else if (field.repeated) {
-        arm += `if(w===${expected}){o[${key}].push(${readCall(field.type, "r", e)});continue}break;`;
-      } else {
-        arm += `if(w===${expected}){o[${key}]=${readCall(field.type, "r", e)};continue}break;`;
+// A nested field seen twice merges: the second decode starts from the
+// first's fields (`o`) instead of defaults, so scalars last-win, lists
+// append and messages merge recursively without a separate merge pass.
+const decodeFnSource = (msg: Message, fns: Map<Message, string>): string => {
+  const fields = msg.fields;
+  const locals: string[] = [];
+  const fromPrev: string[] = [];
+  const cases: string[] = [];
+  let literal = "";
+  let optional = "";
+  let fill = "";
+  for (let idx = 0; idx < fields.length; idx++) {
+    const field = fields[idx]!;
+    const local = `f${idx}`;
+    const key = JSON.stringify(field.key);
+    const read = field.key === "__proto__" ? `(Object.hasOwn(o,"__proto__")?o["__proto__"]:void 0)` : `o[${key}]`;
+    locals.push(`${local}=${emitDefault(field)}`);
+    fromPrev.push(`${local}=${read}`);
+    let arm = `case ${field.number}:`;
+    if (field.oneof !== U) {
+      for (let other = 0; other < fields.length; other++) {
+        if (other !== idx && fields[other]!.oneof === field.oneof) arm += `f${other}=void 0;`;
       }
-      cases.push(arm);
     }
-    const miss = msg.strict ? `throw Error("unknown protobuf field "+n)` : `${e.skip}(r,w,n,0)`;
-    body.push(`while(r.pos<r.limit){t=r.tag();n=t>>>3;w=t&7;if(!n)throw Error("invalid protobuf field number");switch(n){${cases.join("")}}${miss}}`);
-    body.push("return o");
-    parts.push(`let ${fnName}=function(r,d){${body.join(";")}};`);
+    if (field.map !== U) {
+      const keyType = field.map;
+      const keyWire = wireType(keyType);
+      const entryLoop = (body: string) =>
+        `while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else t=r.tag();n=t>>>3;w=t&7;if(!n)throw Error("invalid protobuf field number");${body}else skip(r,w,n,0)}`;
+      const readKey = `if(n===1&&w===${keyWire})k=${readCall(keyType)};`;
+      const store = keyType === "string"
+        ? `k==="__proto__"?Object.defineProperty(${local},k,{value:c,enumerable:!0,writable:!0,configurable:!0}):${local}[k]=c`
+        : `${local}[k]=c`;
+      let entry: string;
+      if (field.type === "message") {
+        // The key can follow the value, and a repeated key merges its
+        // messages, so the value is decoded after a first pass finds the key.
+        const nested = fns.get(field.message!)!;
+        entry = `k=${scalarDefault(keyType)};q=r.pos;${entryLoop(readKey)}r.pos=q;c=${local}[k];${entryLoop(`${readKey}else if(n===2&&w===2){g=r.sub();c=${nested}(r,d+1,c);r.limit=g}`)}if(c===void 0){g=r.limit;r.limit=r.pos;c=${nested}(r,d+1);r.limit=g}`;
+      } else {
+        entry = `k=${scalarDefault(keyType)};c=${scalarDefault(field.type)};${entryLoop(`${readKey}else if(n===2&&w===${field.wire})c=${readCall(field.type)};`)}`;
+      }
+      arm += `if(w===2){p=r.sub();${entry};r.limit=p;${store};continue}break;`;
+    } else if (field.type === "message") {
+      const nested = fns.get(field.message!)!;
+      arm += field.repeated
+        ? `if(w===2){p=r.sub();${local}.push(${nested}(r,d+1));r.limit=p;continue}break;`
+        : `if(w===2){p=r.sub();${local}=${nested}(r,d+1,${local});r.limit=p;continue}break;`;
+    } else if (field.repeated && packable[field.type]) {
+      arm += `if(w===2){p=r.sub();while(r.pos<r.limit)${local}.push(${readCall(field.type, true)});r.limit=p;continue}if(w===${field.wire}){${local}.push(${readCall(field.type)});continue}break;`;
+    } else if (field.repeated) {
+      arm += `if(w===${field.wire}){${local}.push(${readCall(field.type)});continue}break;`;
+    } else {
+      arm += `if(w===${field.wire}){${local}=${readCall(field.type)};continue}break;`;
+    }
+    cases.push(arm);
+    if (field.type === "message" && !field.repeated && !field.optional && field.map === U) {
+      // A required message absent on the wire is its default instance, so
+      // the schema's type holds; `S.optional` is how presence is asked for.
+      fill += `if(${local}===void 0){g=r.limit;r.limit=r.pos;${local}=${fns.get(field.message!)!}(r,d+1);r.limit=g}`;
+    }
+    if (field.map === U && field.optional) {
+      optional += field.key === "__proto__"
+        ? `if(${local}!==void 0)o={...o,["__proto__"]:${local}};`
+        : `if(${local}!==void 0)o[${key}]=${local};`;
+    } else literal += `${field.key === "__proto__" ? '["__proto__"]' : key}:${local},`;
+  }
+  const miss = msg.strict ? 'throw Error("unknown protobuf field "+n)' : "skip(r,w,n,0)";
+  const vars = locals.length ? `${locals.join(",")},` : "";
+  const merge = fromPrev.length ? `if(o!==void 0){${fromPrev.join(";")}}` : "";
+  return `function ${fns.get(msg)!}(r,d,o){if(d>=100)throw Error("protobuf message nesting limit exceeded");var ${vars}t,w,n,p,k,c,q,g;${merge}while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else t=r.tag();n=t>>>3;w=t&7;switch(n){case 0:throw Error("invalid protobuf field number");${cases.join("")}}${miss}}${fill}o={${literal.slice(0, -1)}};${optional}return o}`;
+};
+
+const compileDecoder = (root: Message, fns: Map<Message, string>): Function => {
+  let src = "";
+  fns.forEach((_, msg) => {
+    src += decodeFnSource(msg, fns);
   });
-  return parts.join(";");
+  return new Function("skip", `${src}return ${fns.get(root)!}`)(skip);
 };
 
 const objectSchemaOf = (input: Val): Internal => {
@@ -702,29 +901,23 @@ const protobufDecoder = (input: Val): Val => {
   if (input.s.encoder === protobufEncoder) return instanceDecoder(input);
   const message = compileMessage(objectSchemaOf(input));
   if (message === U) return B_unsupportedDecode(input, input.s, input.e);
-  const e: Embeds = {
-    writer: B_embedPure(input, Writer),
-    wscratch: B_embedPure(input, scratchWriter),
-    reader: "",
-    skip: "",
-    view: "",
-    merge: "",
-    num: B_embed(input, checkedNumber),
-    big: B_embed(input, checkedBigint),
-  };
+  const fns = new Map<Message, string>();
+  nameMessages(message, fns);
+  const encoders = compileEncoders(message, fns);
+  const names = new Map<Message, string>();
+  fns.forEach((name, msg) => {
+    names.set(msg, msg === message ? name : B_embedPure(input, encoders[name]));
+  });
   const d = fieldValsOf(input);
   const readRoot = (key: string): string => {
     const fv = d !== U ? d[key] : U;
     return fv !== U ? fv.i : `${input.v()}[${JSON.stringify(key)}]`;
   };
+  const body = encodeBody(message, names, readRoot, B_embed(input, checkedNumber), B_embed(input, checkedBigint));
   const outVar = B_varWithoutAllocation(input.g);
-  const fns = new Map<Message, string>();
-  emitEncodeFn(input, message, e, fns);
-  const nestedCode = finishEncodeFn(message, e, fns, input);
-  const body = encodeBody(message, e, fns, readRoot);
   const output = B_next(input, outVar, input.e, input.e);
   output.v = _var;
-  output.cp = `${nestedCode}let w=${e.wscratch}.reset(),v,j,n,p,b,s,h;${body};let ${outVar}=w.finish();`;
+  output.cp = `let w=${B_embedPure(input, scratchWriter)}.reset(),v,j,n,s,h,a,k,g,c;${body};let ${outVar}=w.finish();`;
   output.io = true;
   return output;
 };
@@ -732,24 +925,13 @@ const protobufDecoder = (input: Val): Val => {
 const protobufEncoder = (input: Val, target: Internal): Val => {
   const message = compileMessage(target);
   if (message === U) return B_unsupportedDecode(input, input.s, target);
-  const e: Embeds = {
-    writer: "",
-    wscratch: "",
-    reader: B_embedPure(input, scratchReader),
-    skip: B_embed(input, skip),
-    view: B_embedPure(input, dataView),
-    merge: B_embedPure(input, mergeMessage),
-    num: "",
-    big: "",
-  };
-  const bytes = input.v();
-  const outVar = B_varWithoutAllocation(input.g);
   const fns = new Map<Message, string>();
-  const root = emitDecodeFn(input, message, e, fns);
-  const fnsCode = finishDecodeFn(message, e, fns);
+  nameMessages(message, fns);
+  const decoder = B_embed(input, compileDecoder(message, fns));
+  const outVar = B_varWithoutAllocation(input.g);
   const output = B_next(input, outVar, message.raw, message.schema);
   output.v = _var;
-  output.cp = `${fnsCode}let ${outVar}=${root}(${e.reader}.reset(${bytes}),0);`;
+  output.cp = `let ${outVar}=${decoder}(${B_embedPure(input, scratchReader)}.reset(${input.v()}),0);`;
   return output;
 };
 

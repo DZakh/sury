@@ -3,7 +3,7 @@ ts:
   schema: S.base64.with(S.to, S.file)
   input: string
   output: File
-  instantiations: 5245
+  instantiations: 5377
 jsonSchema:
   input: '{ type: "string", contentEncoding: "base64", contentMediaType: "application/octet-stream" }'
   output: Expected JSON, received File

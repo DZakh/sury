@@ -3,7 +3,7 @@ ts:
   schema: "S.json.with(S.to, S.schema({ field: S.date }))"
   input: JSON
   output: "{ field: Date; }"
-  instantiations: 6260
+  instantiations: 6392
 jsonSchema:
   input: '{ type: "object", properties: { field: { type: "string", format: "date-time" } }, additionalProperties: false, required: ["field"] }'
   fromInputType: "{ field: string; }"

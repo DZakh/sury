@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ child: S.schema({ n: S.int32.with(S.protobufField, 1) }).with(S.protobufField, 1), maybe: S.optional(S.schema({ id: S.string.with(S.protobufField, {number: 1, type: "uint32"}) })).with(S.protobufField, 2) }).with(S.to, S.protobuf)'
+  input: "{ child: { n: number; }; maybe?: { id: string; } | undefined; }"
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 11146
+jsonSchema:
+  input: '{ type: "object", properties: { child: { type: "object", properties: { n: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["n"] }, maybe: { type: "object", properties: { id: { type: "string" } }, required: ["id"] } }, required: ["child"] }'
+  output: Expected JSON, received Uint8Array
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    creationError: "SuryError: Can't decode { child: { n: int32; }; maybe: { id: string; } | undefined; } to Uint8Array. Use S.to to define a custom decoder"
+  decode:
+    expression: i=>{let v0=i["child"];let w=e[4].reset(),v,j,n,s,h,a,k,g,c;v=v0;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[0](w,v);w.end(h)};v=i["maybe"];if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[1](w,v);w.end(h)};let v1=w.finish();return v1}
+    examples:
+      default-child-still-written:
+        input: "{ child: { n: 0 } }"
+        output: new Uint8Array([10, 0])
+      both:
+        input: '{ child: { n: 1 }, maybe: { id: "7" } }'
+        output: new Uint8Array([10, 2, 8, 1, 18, 2, 8, 7])
+  encode:
+    expression: i=>{let v0=e[0](e[1].reset(i),0);let v1=v0["child"],v2=v0["maybe"];if(v2!==void 0){v2={id:""+v2["id"]};}return {child:v1,maybe:v2}}
+    examples:
+      absent-required-is-default-instance:
+        input: new Uint8Array([])
+        output: "{ child: { n: 0 }, maybe: undefined }"
+      optional-present:
+        input: new Uint8Array([18, 2, 8, 9])
+        output: '{ child: { n: 0 }, maybe: { id: "9" } }'
+      merge-repeated-occurrence:
+        input: new Uint8Array([10, 2, 8, 1, 10, 2, 8, 2])
+        output: "{ child: { n: 2 }, maybe: undefined }"

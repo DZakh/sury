@@ -12,20 +12,35 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[6](i);let v0=i["id"],v1=i["name"];typeof v0==="string"||e[0](v0);typeof v1==="string"||e[1](v1);let w=e[3].reset(),v,j,n,p,b,s,h;v=v0;if((v=+v)){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=v>>>0;s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s)};v=v1;if(v){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);w.string(v)};let v2=w.finish();return v2}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=i["id"],v1=i["name"];typeof v0==="string"||e[0](v0);typeof v1==="string"||e[1](v1);let w=e[4].reset(),v,j,n,s,h,a,k,g,c;v=v0;if((v=+v)){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=v>>>0;s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s)};v=v1;if(v){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);w.string(v)};let v2=w.finish();return v2}
     examples:
       coercion-and-text:
         input: '{ id: "150", name: "Ada" }'
         output: new Uint8Array([8, 150, 1, 18, 3, 65, 100, 97])
   decode:
-    expression: i=>{let w=e[1].reset(),v,j,n,p,b,s,h;v=i["id"];if((v=+v)){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=v>>>0;s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s)};v=i["name"];if(v){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);w.string(v)};let v0=w.finish();return v0}
+    expression: i=>{let w=e[2].reset(),v,j,n,s,h,a,k,g,c;v=i["id"];if((v=+v)){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=v>>>0;s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s)};v=i["name"];if(v){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);w.string(v)};let v0=w.finish();return v0}
     examples:
+      utf8-and-max-uint32:
+        input: '{ id: "4294967295", name: "ä" }'
+        output: new Uint8Array([8, 255, 255, 255, 255, 15, 18, 2, 195, 164])
       trusted-object:
         input: '{ id: "0", name: "" }'
         output: new Uint8Array([])
   encode:
-    expression: i=>{let v1=function(r,d){if(d>=100)throw Error("protobuf message nesting limit exceeded");var o=Object.create(null),t,w,n,p,c,v;o["id"]=0;o["name"]="";while(r.pos<r.limit){t=r.tag();n=t>>>3;w=t&7;if(!n)throw Error("invalid protobuf field number");switch(n){case 1:if(w===0){o["id"]=r.varint32();continue}break;case 2:if(w===2){o["name"]=r.string();continue}break;}e[1](r,w,n,0)};return o};let v0=v1(e[0].reset(i),0);return {id:""+v0["id"],name:v0["name"]}}
+    expression: i=>{let v0=e[0](e[1].reset(i),0);return {id:""+v0["id"],name:v0["name"]}}
     examples:
+      unknown-field-stripped:
+        input: new Uint8Array([16, 7, 8, 1])
+        output: '{ id: "1", name: "" }'
+      truncated:
+        input: new Uint8Array([8])
+        error: truncated protobuf message
+      field-number-zero:
+        input: new Uint8Array([0, 1])
+        error: invalid protobuf field number
+      overlong-tag:
+        input: new Uint8Array([136, 128, 128, 128, 128, 128, 128, 128, 0, 1])
+        error: invalid protobuf tag
       wire-value:
         input: new Uint8Array([8, 150, 1, 18, 3, 65, 100, 97])
         output: '{ id: "150", name: "Ada" }'

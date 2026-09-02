@@ -3,7 +3,7 @@ ts:
   schema: "S.base64url.with(S.to, S.jsonString.with(S.to, S.schema({ sub: S.string })))"
   input: string
   output: "{ sub: string; }"
-  instantiations: 6557
+  instantiations: 6689
 jsonSchema:
   input: '{ type: "string", contentEncoding: "base64url" }'
   output: '{ type: "object", properties: { sub: { type: "string" } }, required: ["sub"] }'

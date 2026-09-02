@@ -3,7 +3,7 @@ ts:
   schema: 'S.object({ selector: S.optional(S.union([S.literal("*"), S.string, S.array(S.string)])) }).with(S.to, S.json)'
   input: "{ selector?: string | string[] | undefined; }"
   output: JSON
-  instantiations: 8213
+  instantiations: 8345
 jsonSchema:
   input: '{ type: "object", properties: { selector: { anyOf: [{ type: "string", const: "*" }, { type: "string" }, { items: { type: "string" }, type: "array" }] } } }'
   output: '{ type: "object", properties: { selector: { anyOf: [{ type: "string" }, { items: { type: "string" }, type: "array" }] } }, additionalProperties: false }'

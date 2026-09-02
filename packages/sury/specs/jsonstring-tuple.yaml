@@ -3,7 +3,7 @@ ts:
   schema: S.schema([S.string, S.number, S.union([S.string, undefined])]).with(S.to, S.jsonString)
   input: "[string, number, string | undefined]"
   output: string
-  instantiations: 6555
+  instantiations: 6687
 jsonSchema:
   input: 'Failed at ["2"]: Expected JSON, received string | undefined'
   output: '{ type: "string", contentMediaType: "application/json" }'

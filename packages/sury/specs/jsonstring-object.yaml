@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({id: S.number, name: S.string, tag: "x", flag: S.boolean}).with(S.to, S.jsonString)'
   input: '{ id: number; name: string; tag: "x"; flag: boolean; }'
   output: string
-  instantiations: 6565
+  instantiations: 6697
 jsonSchema:
   input: '{ type: "object", properties: { id: { type: "number" }, name: { type: "string" }, tag: { type: "string", const: "x" }, flag: { type: "boolean" } }, required: ["id", "name", "tag", "flag"] }'
   output: '{ type: "string", contentMediaType: "application/json" }'

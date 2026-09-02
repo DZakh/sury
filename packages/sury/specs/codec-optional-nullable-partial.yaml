@@ -3,7 +3,7 @@ ts:
   schema: S.optional(S.string).with(S.to, S.nullable(S.boolean))
   input: string | undefined
   output: boolean | null
-  instantiations: 5600
+  instantiations: 5732
 jsonSchema:
   input: Expected JSON, received string | undefined
   output: '{ anyOf: [{ type: "boolean" }, { type: "null" }] }'

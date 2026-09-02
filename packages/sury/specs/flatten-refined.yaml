@@ -3,7 +3,7 @@ ts:
   schema: "S.object((s) => s.flatten(S.schema({ n: S.number.with(S.gte, 3) })))"
   input: "{ [x: string]: unknown; }"
   output: "{ n: number; }"
-  instantiations: 2016
+  instantiations: 2017
 jsonSchema:
   input: '{ type: "object", properties: { n: { type: "number", minimum: 3 } }, required: ["n"] }'
   fromInputType: "{ n: number; }"

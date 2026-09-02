@@ -3,7 +3,7 @@ ts:
   schema: S.string.with(S.to, S.blob)
   input: string
   output: Blob
-  instantiations: 5244
+  instantiations: 5376
 jsonSchema:
   input: '{ type: "string", contentMediaType: "application/octet-stream" }'
   output: Expected JSON, received Blob

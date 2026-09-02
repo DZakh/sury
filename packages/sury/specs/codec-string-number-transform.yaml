@@ -3,7 +3,7 @@ ts:
   schema: 'S.string.with(S.to, S.number, { decode: (string) => { const number = Number(string); if (Number.isNaN(number)) { throw new Error("Invalid number") } return number }, encode: (number) => { if (number < 100) { throw new Error("Number is too small") } return number.toString() } })'
   input: string
   output: number
-  instantiations: 5309
+  instantiations: 5441
 jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "number" }'

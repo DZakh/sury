@@ -3,7 +3,7 @@ ts:
   schema: S.array(S.string).with(S.length, 2)
   input: "[string, string]"
   output: "[string, string]"
-  instantiations: 1079
+  instantiations: 1080
 jsonSchema:
   input: '{ items: { type: "string" }, type: "array", minItems: 2, maxItems: 2 }'
   output: '{ items: { type: "string" }, type: "array", minItems: 2, maxItems: 2 }'

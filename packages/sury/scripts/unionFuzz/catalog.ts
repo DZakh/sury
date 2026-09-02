@@ -140,6 +140,8 @@ export const FUZZ_EXPORTS: Record<string, FuzzExport> = {
   parser: skip("operation, not a schema factory"),
   pattern: modify(["string"], (S, schema) => schema.with(S.pattern, /(?:)/)),
   port: schema((S) => S.port),
+  protobuf: schema((S) => S.protobuf),
+  protobufField: skip("field metadata, does not change parse"),
   record: wrap((S, inner) => S.record(inner)),
   recursive: skip("cyclic schemas; generation is acyclic"),
   refine: modify(["string", "number", "bigint", "boolean", "object", "array"], (S, schema) =>

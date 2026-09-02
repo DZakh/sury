@@ -3,7 +3,7 @@ ts:
   schema: S.string.with(S.optional, "foo")
   input: string | undefined
   output: string
-  instantiations: 5255
+  instantiations: 5388
 jsonSchema:
   input: Expected JSON, received string | undefined
   output: '{ type: "string" }'

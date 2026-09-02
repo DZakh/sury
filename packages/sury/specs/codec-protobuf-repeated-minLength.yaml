@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ items: S.array(S.schema({ n: S.int32.with(S.protobufField, {number: 1, type: "int32"}) })).with(S.minLength, 1).with(S.protobufField, {number: 1, type: "message"}) }).with(S.to, S.protobuf)'
   input: "{ items: [{ n: number; }, ...{ n: number; }[]]; }"
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 9513
+  instantiations: 9504
 jsonSchema:
   input: '{ type: "object", properties: { items: { items: { type: "object", properties: { n: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["n"] }, type: "array", minItems: 1 } }, required: ["items"] }'
   fromInputType: "{ items: { n: number; }[]; }"
@@ -15,13 +15,13 @@ operations:
   parse:
     creationError: "SuryError: Can't decode { items: { n: int32; }[]; } to Uint8Array. Use S.to to define a custom decoder"
   decode:
-    expression: i=>{let v0=i["items"];v0.length>0||e[0](v0);let v5=function(w,value){var v,j,n,p,b,s,h;v=value["n"];if((v=+v)){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);w.varint64(BigInt(v))}};let w=e[2].reset(),v,j,n,p,b,s,h;v=v0;n=v.length;if(n){j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();v5(w,v[j++]);w.end(h)}};let v3=w.finish();return v3}
+    expression: i=>{let v0=i["items"];v0.length>0||e[0](v0);let w=e[4].reset(),v,j,n,s,h,a,k,g,c;v=v0;n=v.length;if(n){j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[1](w,v[j++]);w.end(h)}};let v3=w.finish();return v3}
     examples:
       empty-items:
         input: "{ items: [] }"
         error: 'Failed at ["items"]: Expected { n: int32; }[].length >= 1, received []'
   encode:
-    expression: i=>{let v1=function(r,d){if(d>=100)throw Error("protobuf message nesting limit exceeded");var o=Object.create(null),t,w,n,p,c,v;o["items"]=[];while(r.pos<r.limit){t=r.tag();n=t>>>3;w=t&7;if(!n)throw Error("invalid protobuf field number");switch(n){case 1:if(w===2){c=r.length();v=v2(c,d+1);if(c.pos!==c.limit)throw Error("invalid nested protobuf message");o["items"].push(v);continue}break;}e[1](r,w,n,0)};return o};;let v2=function(r,d){if(d>=100)throw Error("protobuf message nesting limit exceeded");var o=Object.create(null),t,w,n,p,c,v;o["n"]=0;while(r.pos<r.limit){t=r.tag();n=t>>>3;w=t&7;if(!n)throw Error("invalid protobuf field number");switch(n){case 1:if(w===0){o["n"]=Number(BigInt.asIntN(32,r.varint64()));continue}break;}e[1](r,w,n,0)};return o};let v0=v1(e[0].reset(i),0);let v3=v0["items"];v3.length>0||e[4](v3);return v0}
+    expression: i=>{let v0=e[0](e[1].reset(i),0);let v1=v0["items"];v1.length>0||e[2](v1);return v0}
     examples:
       empty-wire:
         input: new Uint8Array([])

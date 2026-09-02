@@ -3,7 +3,7 @@ ts:
   schema: 'S.jsonString.with(S.to, S.schema({ type: "info", value: S.number }).with(S.shape, (msg) => msg.value)).with(S.to, S.jsonString)'
   input: string
   output: string
-  instantiations: 8045
+  instantiations: 8222
 jsonSchema:
   input: '{ type: "string", contentMediaType: "application/json" }'
   output: '{ type: "string", contentMediaType: "application/json" }'

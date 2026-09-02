@@ -36,6 +36,9 @@ export type ProtobufType =
 export type ProtobufField = {
   number: number;
   type?: ProtobufType;
+  packed?: boolean;
+  key?: ProtobufType;
+  oneof?: string;
 };
 
 const protobufTypes: Record<ProtobufType, true> = {
@@ -63,6 +66,26 @@ const outputOf = (schema: Internal): Internal => {
   return schema;
 };
 
+const mapKeyTypes: Partial<Record<ProtobufType, true>> = {
+  int32: true,
+  int64: true,
+  uint32: true,
+  uint64: true,
+  sint32: true,
+  sint64: true,
+  fixed32: true,
+  fixed64: true,
+  sfixed32: true,
+  sfixed64: true,
+  bool: true,
+  string: true,
+};
+
+const isRecord = (schema: Internal): boolean =>
+  schema.type === objectTag && typeof schema.additionalItems === objectTag;
+
+// The shape a field's wire type is inferred from: past `S.optional`, into a
+// repeated field's item or a map's value.
 const peel = (schema: Internal): Internal => {
   let output = outputOf(schema);
   if (output.type === anyOfTag && output.anyOf !== U) {
@@ -76,7 +99,7 @@ const peel = (schema: Internal): Internal => {
     }
     if (hasUndefined && value !== U) output = value;
   }
-  if (output.type === arrayTag && typeof output.additionalItems === objectTag) {
+  if ((output.type === arrayTag || isRecord(output)) && typeof output.additionalItems === objectTag) {
     return outputOf(output.additionalItems as Internal);
   }
   return output;
@@ -112,6 +135,14 @@ export const protobufField = (schema: Internal, field: number | ProtobufField): 
   if (type === U || protobufTypes[type] !== true) {
     return panic(`S.protobufField requires a protobuf type`);
   }
+  const key = typeof field === "number" || field.key === U ? "string" : field.key;
+  if (mapKeyTypes[key] !== true) {
+    return panic(`S.protobufField requires an integral, bool or string map key type`);
+  }
+  const oneof = typeof field === "number" ? U : field.oneof;
+  if (oneof !== U && !(outputOf(schema).type === anyOfTag || peel(schema).type === objectTag)) {
+    return panic(`S.protobufField requires a oneof member to be S.optional or a message`);
+  }
   let current: Internal | undefined = schema;
   while (current !== U) {
     if (current.pb !== U) {
@@ -119,7 +150,8 @@ export const protobufField = (schema: Internal, field: number | ProtobufField): 
     }
     current = current.to;
   }
+  const packed = typeof field === "number" || field.packed !== false;
   return updateOutput(schema, (mut) => {
-    mut.pb = { number, type } satisfies ProtobufField;
+    mut.pb = { number, type, packed, key, oneof } satisfies ProtobufField;
   });
 };
