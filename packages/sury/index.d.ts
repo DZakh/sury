@@ -473,6 +473,12 @@ export const jsonString: Schema<string, string>;
 export const jsonStringWithSpace: (space: number) => Schema<string, string>;
 
 export const uint8Array: Schema<Uint8Array, Uint8Array>;
+/**
+ * An `ArrayBuffer` of its own. Converting bytes to it takes ownership: a view
+ * that covers its whole buffer hands that buffer over, any other view (a
+ * `Buffer` from Node's pool, an `S.protobuf` result) is copied to size.
+ */
+export const arrayBuffer: Schema<ArrayBuffer, ArrayBuffer>;
 export const protobuf: Schema<Uint8Array, Uint8Array>;
 
 export type ProtobufType =

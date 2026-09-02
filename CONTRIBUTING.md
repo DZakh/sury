@@ -329,6 +329,11 @@ schema(data);
 
 ## Spec Harness Suggestions
 
+- `valueToCode` has no case for `ArrayBuffer`, so an example whose result is
+  one (`S.arrayBuffer`, `S.uint8Array.with(S.to, S.arrayBuffer)` encode) can
+  only be a rejecting input; the accepting ones live in
+  `tests/S_arrayBuffer_test.ts`. `new Uint8Array([…]).buffer` would print it.
+
 A running list of strictness or author-guidance features the spec harness
 (`packages/spec`, see the `spec` skill) could add. When working on Sury you hit a
 case the harness *should* have caught or guided better — a missing check, a weak

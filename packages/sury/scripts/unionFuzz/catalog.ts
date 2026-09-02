@@ -49,6 +49,7 @@ export const FUZZ_EXPORTS: Record<string, FuzzExport> = {
   any: schema((S) => S.any),
   anyOf: build(),
   array: wrap((S, inner) => S.array(inner)),
+  arrayBuffer: schema((S) => S.arrayBuffer),
   assert: skip("operation, not a schema factory"),
   asyncDecoder: skip("operation, not a schema factory"),
   asyncEncoder: skip("operation, not a schema factory"),

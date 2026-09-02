@@ -10,6 +10,7 @@ import {
   noopDecoder,
   objectTag,
   setHas,
+  tagFlags,
   U,
   undefinedTag,
   type Val,
@@ -1088,7 +1089,8 @@ const protobufDecoder = (input: Val): Val => {
 
 const protobufEncoder = (input: Val, target: Internal): Val => {
   const message = compileMessage(target);
-  if (message === U) return B_unsupportedDecode(input, input.s, target);
+  // Another instance (`S.arrayBuffer`, say) takes the bytes as they are.
+  if (message === U) return (tagFlags[target.type]! & 8192) ? input : B_unsupportedDecode(input, input.s, target);
   const fns = new Map<Message, string>();
   nameMessages(message, fns);
   const decoder = B_embed(input, compileDecoder(message, fns));

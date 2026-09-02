@@ -381,6 +381,12 @@ S.base64;
 // Decodes base64 to the bytes it stores
 S.base64.with(S.to, S.uint8Array);
 
+// An ArrayBuffer of its own. Bytes convert into it by taking ownership: a
+// view over its whole buffer hands the buffer over, any other view is copied
+// to size. Back to bytes is a view, which allocates nothing.
+S.arrayBuffer;
+S.uint8Array.with(S.to, S.arrayBuffer);
+
 // Protocol Buffers wire format, whose payload is a message
 S.protobuf;
 // Encodes an object with numbered fields to protobuf bytes
@@ -1185,6 +1191,20 @@ S.schema({
   text: S.optional(S.string).with(S.protobufField, { number: 1, oneof: "value" }),
   count: S.optional(S.int32).with(S.protobufField, { number: 2, oneof: "value" }),
 });
+```
+
+**Output memory.** An encoded message is a view over a buffer the encoder
+keeps writing into, the way a Node `Buffer` comes from a pool: `bytes.buffer`
+is larger than `bytes.byteLength` and `bytes.byteOffset` is not zero. Every
+consumer of a `Uint8Array` respects the view. To own the memory — to transfer
+it to a worker, or hand an `ArrayBuffer` to an API that wants one — put
+`S.arrayBuffer` on the wire side of the pipeline; the conversion copies the
+message to size:
+
+```ts
+const Wire = S.arrayBuffer.with(S.to, S.protobuf).with(S.to, User);
+S.encoder(Wire)({ id: 150, name: "Ada", tags: [] }); // ArrayBuffer(12)
+S.decoder(Wire)(buffer); // { id: 150, name: "Ada", tags: [] }
 ```
 
 **Unknown fields** are skipped, groups included, and `S.strict` rejects them.
