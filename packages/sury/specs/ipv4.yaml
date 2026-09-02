@@ -101,7 +101,7 @@ operations:
         error: Expected ipv4, received "192. 168.0.1"
       tab-character-is-invalid:
         input: '"192.168.0.1\t"'
-        error: Expected ipv4, received "192.168.0.1	"
+        error: "Expected ipv4, received \"192.168.0.1\t\""
       additional-content-after-an-embedded-nul-byte:
         input: '"192.168.0.1\u0000.evil.com"'
         error: "Expected ipv4, received \"192.168.0.1\0.evil.com\""

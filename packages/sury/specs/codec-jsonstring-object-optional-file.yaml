@@ -7,6 +7,8 @@ ts:
 jsonSchema:
   input: '{ type: "string", contentMediaType: "application/json" }'
   output: 'Failed at ["avatar"]: Expected JSON, received File'
+  openapi-3.0:
+    input: '{ type: "string" }'
 vs:
   zod:
     _skip: not-applicable

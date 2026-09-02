@@ -7,6 +7,8 @@ ts:
 jsonSchema:
   input: '{ type: "string", contentEncoding: "base64", contentMediaType: "application/octet-stream" }'
   output: Expected JSON, received File
+  openapi-3.0:
+    input: '{ type: "string", format: "byte" }'
 vs:
   zod:
     _skip: not-applicable

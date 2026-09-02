@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.uint8Array.with(S.to, S.optional(S.string))
+  input: Uint8Array<ArrayBufferLike>
+  output: string | undefined
+  instantiations: 5566
+jsonSchema:
+  input: Expected JSON, received Uint8Array
+  output: Expected JSON, received string | undefined
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{i instanceof e[3]||e[4](i);for(;;){let r;try{let v0=e[0].decode(i);i=v0;break}catch(x){(r||(r=[])).push(e[1](x))}if(i===void 0)break;e[2](i,...(r||[]))}return i}
+    examples:
+      base64-legal-ascii:
+        input: new Uint8Array([97, 98, 99, 100])
+        output: '"abcd"'
+      utf8-bytes:
+        input: new Uint8Array([226, 130, 172])
+        output: '"€"'
+  decode:
+    expression: i=>{for(;;){let r;try{let v0=e[0].decode(i);i=v0;break}catch(x){(r||(r=[])).push(e[1](x))}if(i===void 0)break;e[2](i,...(r||[]))}return i}
+    examples:
+      base64-legal-ascii:
+        input: new Uint8Array([97, 98, 99, 100])
+        output: '"abcd"'
+  encode:
+    creationError: "SuryError: Can't decode undefined to Uint8Array. Use S.to to define a custom decoder"

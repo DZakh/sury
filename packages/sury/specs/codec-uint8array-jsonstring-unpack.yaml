@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.uint8Array.with(S.to, S.jsonString, { decode: "unpack", encode: "pack" })'
+  input: Uint8Array<ArrayBufferLike>
+  output: string
+  instantiations: 5430
+jsonSchema:
+  input: Expected JSON, received Uint8Array
+  output: '{ type: "string", contentMediaType: "application/json" }'
+  openapi-3.0:
+    output: '{ type: "string" }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{i instanceof e[2]||e[3](i);let v0=e[0].decode(i);try{JSON.parse(v0)}catch(t){e[1](v0)}return v0}
+    examples:
+      the-bytes-are-the-document:
+        input: new Uint8Array([123, 34, 97, 34, 58, 49, 125])
+        output: '"{\"a\":1}"'
+      not-a-document:
+        input: new Uint8Array([110, 111, 112, 101])
+        error: Expected JSON string, received "nope"
+  decode:
+    expression: i=>{let v0=e[0].decode(i);try{JSON.parse(v0)}catch(t){e[1](v0)}return v0}
+    examples:
+      the-bytes-are-the-document:
+        input: new Uint8Array([123, 34, 97, 34, 58, 49, 125])
+        output: '"{\"a\":1}"'
+  encode:
+    expression: i=>{return e[0].encode(i)}
+    examples:
+      the-bytes-are-the-document:
+        input: '"{\"a\":1}"'
+        output: new Uint8Array([123, 34, 97, 34, 58, 49, 125])
+      takes-the-text-unchecked:
+        input: '"nope"'
+        output: new Uint8Array([110, 111, 112, 101])

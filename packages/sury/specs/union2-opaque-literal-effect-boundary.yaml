@@ -8,6 +8,8 @@ jsonSchema:
   input: '{ enum: ["a", "b"] }'
   output: '{ anyOf: [{ type: "string", const: "a" }, { type: "string", const: "b" }] }'
   fromOutputType: '"a" | "b"'
+  openapi-3.0:
+    output: '{ anyOf: [{ type: "string", enum: ["a"] }, { type: "string", enum: ["b"] }] }'
 vs:
   zod:
     _skip: not-applicable

@@ -7,6 +7,9 @@ ts:
 jsonSchema:
   input: '{ anyOf: [{ type: "string", minLength: 3 }, { type: "string", const: "x" }] }'
   output: '{ anyOf: [{ type: "string", minLength: 3 }, { type: "string", const: "x" }] }'
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "string", minLength: 3 }, { type: "string", enum: ["x"] }] }'
+    output: '{ anyOf: [{ type: "string", minLength: 3 }, { type: "string", enum: ["x"] }] }'
 vs:
   zod: z.union([z.string().min(3), z.literal("x")])
 operations:

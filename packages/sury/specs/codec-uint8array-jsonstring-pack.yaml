@@ -7,6 +7,8 @@ ts:
 jsonSchema:
   input: Expected JSON, received Uint8Array
   output: '{ type: "string", contentMediaType: "application/json" }'
+  openapi-3.0:
+    output: '{ type: "string" }'
 vs:
   zod:
     _skip: not-applicable
@@ -32,3 +34,6 @@ operations:
       not-a-document:
         input: '"iVBORw=="'
         error: Expected JSON string, received "iVBORw=="
+      the-bytes-are-a-value:
+        input: '"\"iVBORw==\""'
+        output: new Uint8Array([137, 80, 78, 71])

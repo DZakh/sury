@@ -7,6 +7,14 @@ ts:
 jsonSchema:
   input: '{ anyOf: [{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string", const: "t" }, { type: "number" }] }, { type: "array", minItems: 2, maxItems: 2, items: [{ type: "string", const: "t" }, { type: "string" }] }] }'
   output: '{ anyOf: [{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string", const: "t" }, { type: "number" }] }, { type: "array", minItems: 2, maxItems: 2, items: [{ type: "string", const: "t" }, { type: "string" }] }] }'
+  draft-2020-12:
+    input: '{ anyOf: [{ type: "array", minItems: 2, maxItems: 2, prefixItems: [{ type: "string", const: "t" }, { type: "number" }] }, { type: "array", minItems: 2, maxItems: 2, prefixItems: [{ type: "string", const: "t" }, { type: "string" }] }], $schema: "https://json-schema.org/draft/2020-12/schema" }'
+    output: '{ anyOf: [{ type: "array", minItems: 2, maxItems: 2, prefixItems: [{ type: "string", const: "t" }, { type: "number" }] }, { type: "array", minItems: 2, maxItems: 2, prefixItems: [{ type: "string", const: "t" }, { type: "string" }] }], $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "array", minItems: 2, maxItems: 2, items: { anyOf: [{ type: "string", enum: ["t"] }, { type: "number" }] } }, { type: "array", minItems: 2, maxItems: 2, items: { anyOf: [{ type: "string", enum: ["t"] }, { type: "string" }] } }] }'
+    fromInputType: '[number | "t", number | "t"] | [string, string]'
+    output: '{ anyOf: [{ type: "array", minItems: 2, maxItems: 2, items: { anyOf: [{ type: "string", enum: ["t"] }, { type: "number" }] } }, { type: "array", minItems: 2, maxItems: 2, items: { anyOf: [{ type: "string", enum: ["t"] }, { type: "string" }] } }] }'
+    fromOutputType: '[number | "t", number | "t"] | [string, string]'
 vs:
   zod: z.union([z.tuple([z.literal("t"), z.number()]), z.tuple([z.literal("t"), z.string()])])
 operations:
