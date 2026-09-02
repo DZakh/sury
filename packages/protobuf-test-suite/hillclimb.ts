@@ -54,7 +54,58 @@ const large: Workload = {
   },
 };
 
-const WORKLOADS = [tiny, typical, large];
+// protobuf.js's own `bench/cases/common` message and payload, so the numbers
+// line up with its published benchmark.
+const common: Workload = {
+  id: "common",
+  fields: [
+    { key: "string", number: 1, type: "string" },
+    { key: "uint32", number: 2, type: "uint32" },
+    {
+      key: "inner",
+      number: 3,
+      type: "message",
+      optional: true,
+      fields: [
+        { key: "int32", number: 1, type: "int32" },
+        {
+          key: "innerInner",
+          number: 2,
+          type: "message",
+          optional: true,
+          fields: [
+            { key: "long", number: 1, type: "int64" },
+            { key: "enum", number: 2, type: "enum" },
+            { key: "sint32", number: 3, type: "sint32" },
+          ],
+        },
+        {
+          key: "outer",
+          number: 3,
+          type: "message",
+          optional: true,
+          fields: [
+            { key: "bool", number: 1, type: "bool", repeated: true },
+            { key: "double", number: 2, type: "double" },
+          ],
+        },
+      ],
+    },
+    { key: "float", number: 4, type: "float" },
+  ],
+  value: {
+    string: "Lorem ipsum dolor sit amet.",
+    uint32: 9000,
+    inner: {
+      int32: 20161110,
+      innerInner: { long: (151234n << 32n) | 1051n, enum: 1, sint32: -42 },
+      outer: { bool: [true, false, false, true, false, false, true], double: 204.8 },
+    },
+    float: 0.25,
+  },
+};
+
+const WORKLOADS = [tiny, typical, large, common];
 
 const timeNs = (fn: () => void): number => {
   for (let i = 0; i < WARMUP; i++) fn();
@@ -87,6 +138,7 @@ export type HillclimbScore = {
   typical: WorkloadScore;
   tiny: WorkloadScore;
   large: WorkloadScore;
+  common: WorkloadScore;
 };
 
 const bundleRow = (name: string): number => {
@@ -146,6 +198,7 @@ export const runHillclimb = (): HillclimbScore => {
     typical: byId["typical"]!,
     tiny: byId["tiny"]!,
     large: byId["large"]!,
+    common: byId["common"]!,
   };
 };
 
@@ -157,6 +210,7 @@ export const formatHillclimb = (score: HillclimbScore): string => {
     row(score.tiny),
     row(score.typical),
     row(score.large),
+    row(score.common),
     `metric typical.geoMean=${score.typical.geoMean.toFixed(3)}`,
   ].join("\n");
 };

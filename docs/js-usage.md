@@ -42,6 +42,7 @@
 - [Instance](#instance)
 - [Blob](#blob)
 - [File](#file)
+- [Protocol Buffers](#protocol-buffers)
 - [Content](#content)
 - [Meta](#meta)
 - [Brand](#brand)
@@ -379,6 +380,11 @@ S.string.with(S.to, S.uint8Array);
 S.base64;
 // Decodes base64 to the bytes it stores
 S.base64.with(S.to, S.uint8Array);
+
+// Protocol Buffers wire format, whose payload is a message
+S.protobuf;
+// Encodes an object with numbered fields to protobuf bytes
+S.schema({ id: S.int32.with(S.protobufField, 1) }).with(S.to, S.protobuf);
 ```
 
 See [Content](#content) for what happens when bytes and a JSON document meet.
@@ -1101,6 +1107,96 @@ its own:
 ```ts
 const upload = (f: S.File) => S.parser(S.file)(f);
 ```
+
+## Protocol Buffers
+
+`S.protobuf` is the [Protocol Buffers](https://protobuf.dev) binary wire
+format. Give every field of an object schema a field number with
+`S.protobufField`, wire the schema to `S.protobuf`, and Sury compiles an
+encoder and a decoder specialized for that message — no `.proto` file, no
+code generation step, and the same schema still validates, infers types and
+converts to JSON Schema.
+
+```ts
+const User = S.schema({
+  id: S.int32.with(S.protobufField, 1),
+  name: S.string.with(S.protobufField, 2),
+  tags: S.array(S.string).with(S.protobufField, 3),
+  score: S.optional(S.number).with(S.protobufField, 4),
+});
+
+const encode = S.encoder(S.protobuf.with(S.to, User));
+const decode = S.decoder(S.protobuf, User);
+
+const bytes = encode({ id: 150, name: "Ada", tags: ["ml"] });
+// Uint8Array [8, 150, 1, 18, 3, 65, 100, 97, 26, 2, 109, 108]
+decode(bytes); // { id: 150, name: "Ada", tags: ["ml"] }
+```
+
+The wire type is inferred from the schema: `S.string` is `string`, `S.boolean`
+is `bool`, `S.uint8Array` is `bytes`, `S.int32` is `int32`, `S.number` is
+`double`, `S.bigint` is `int64`, an object schema is a nested `message`,
+`S.array` is a `repeated` field and `S.record` is a `map`. Pass a descriptor to
+pick any of the fifteen scalar wire types yourself, which also lets the JS
+type differ from the wire type — Sury converts through the schema:
+
+```ts
+S.schema({
+  id: S.string.with(S.protobufField, { number: 1, type: "uint32" }), // "150" ⇄ varint 150
+  delta: S.int32.with(S.protobufField, { number: 2, type: "sint32" }), // zigzag
+  hash: S.bigint.with(S.protobufField, { number: 3, type: "fixed64" }),
+  ratio: S.number.with(S.protobufField, { number: 4, type: "float" }),
+  level: S.int32.with(S.protobufField, { number: 5, type: "enum" }),
+});
+```
+
+`type` is one of `double`, `float`, `int32`, `int64`, `uint32`, `uint64`,
+`sint32`, `sint64`, `fixed32`, `fixed64`, `sfixed32`, `sfixed64`, `bool`,
+`string`, `bytes`, `enum` or `message`. 64-bit integers are `bigint`.
+
+**Presence** follows proto3. A field is written only when it is not its default
+(`0`, `""`, `false`, empty bytes), and an absent field decodes to that default.
+`S.optional` gives a field explicit presence: `0` is written, and an absent
+field stays absent. A required nested message that is absent on the wire
+decodes to its default instance; wrap it in `S.optional` to observe presence.
+
+**Repeated** scalars are written packed and read in either form. A
+`packed: false` descriptor writes them expanded, as `[packed=false]` does.
+Repeated messages append, a nested message seen twice merges, and a scalar
+seen twice keeps the last value.
+
+**Maps** are `S.record` fields. The key travels as the property name and
+defaults to a `string` key; pick another with `key`. `type` describes the
+value:
+
+```ts
+S.schema({
+  counts: S.record(S.int32).with(S.protobufField, 1), // map<string, int32>
+  byId: S.record(User).with(S.protobufField, { number: 2, key: "int64" }), // map<int64, User>
+});
+```
+
+**Oneofs** are optional fields that share a `oneof` name. Decoding a member
+clears the others, so at most one is set. A member keeps explicit presence, so
+its zero value is written:
+
+```ts
+S.schema({
+  text: S.optional(S.string).with(S.protobufField, { number: 1, oneof: "value" }),
+  count: S.optional(S.int32).with(S.protobufField, { number: 2, oneof: "value" }),
+});
+```
+
+**Unknown fields** are skipped, groups included, and `S.strict` rejects them.
+Strings must be valid UTF-8. Malformed input — a truncated field, a field
+number of zero, an unknown wire type, an unmatched group or a tag wider than
+32 bits — throws.
+
+`S.protobuf` passes the binary families of the official conformance suite
+that apply to it and round-trips against protobuf.js; the corpus lives in
+[`packages/protobuf-test-suite`](../packages/protobuf-test-suite). Not covered:
+extensions, proto2 groups as fields, and keeping unknown fields through a
+round trip.
 
 ## Content
 

@@ -56,8 +56,12 @@ const equalValue = (a: unknown, b: unknown): boolean => {
     return a.length === b.length && a.every((item, i) => equalValue(item, b[i]));
   }
   if (typeof a === "object" && typeof b === "object" && a && b && !ArrayBuffer.isView(a) && !ArrayBuffer.isView(b)) {
-    const ak = Object.keys(a).sort();
-    const bk = Object.keys(b).sort();
+    // An absent optional field and one set to `undefined` are the same value
+    // to Sury, which emits the latter when it rebuilds an object.
+    const definedKeys = (o: object) =>
+      Object.keys(o).filter((key) => (o as Record<string, unknown>)[key] !== undefined).sort();
+    const ak = definedKeys(a);
+    const bk = definedKeys(b);
     if (ak.length !== bk.length) return false;
     return ak.every((key, i) => key === bk[i] && equalValue((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key]));
   }
@@ -106,11 +110,26 @@ const runRoundTrip = (id: string, fields: FieldDef[], value: Record<string, unkn
   }
 };
 
-const runDecodeOnly = (id: string, fields: FieldDef[], wire: number[], value: Record<string, unknown>): CaseResult => {
+const show = (value: unknown): string =>
+  JSON.stringify(value, (_, v) => (typeof v === "bigint" ? `${v}n` : v instanceof Uint8Array ? bytesOf(v) : v));
+
+const runDecodeOnly = (
+  id: string,
+  fields: FieldDef[],
+  wire: number[],
+  value: Record<string, unknown>,
+  reencoded?: number[],
+): CaseResult => {
   try {
-    const { decode } = ops(fields);
+    const { encode, decode } = ops(fields);
     const got = decode(new Uint8Array(wire));
-    if (!equalValue(got, value)) return fail(id, `decoded ${JSON.stringify(got)} !== ${JSON.stringify(value)}`);
+    if (!equalValue(got, value)) return fail(id, `decoded ${show(got)} !== ${show(value)}`);
+    if (reencoded) {
+      const back = encode(got);
+      if (!equalBytes(back, new Uint8Array(reencoded))) {
+        return fail(id, `re-encoded ${bytesOf(back)} !== ${reencoded}`);
+      }
+    }
     return pass(id);
   } catch (e) {
     return error(id, (e as Error).message);
@@ -131,7 +150,7 @@ const runReject = (id: string, fields: FieldDef[], wire: number[]): CaseResult =
 export const runSuite = (): SuiteResult => {
   const results: CaseResult[] = [];
   for (const c of roundTripCases) results.push(runRoundTrip(c.id, c.fields, c.value, c.wire));
-  for (const c of decodeOnlyCases) results.push(runDecodeOnly(c.id, c.fields, c.wire, c.value));
+  for (const c of decodeOnlyCases) results.push(runDecodeOnly(c.id, c.fields, c.wire, c.value, c.reencoded));
   for (const c of rejectCases) results.push(runReject(c.id, c.fields, c.wire));
   const passed = results.filter((r) => r.status === "pass").map((r) => r.id);
   const failed = results.filter((r) => r.status === "fail").map((r) => r.id);
