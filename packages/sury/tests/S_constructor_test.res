@@ -8,7 +8,7 @@ test("Constructor validates and hands back the value it was given", t => {
   t->Assert.is(make(user), user)
   t->U.assertThrowsMessage(
     () => make({"id": "1", "email": "nope"}),
-    `Failed at ["email"]: Expected email, received "nope"`,
+    `Failed at email: Expected email, received "nope"`,
   )
 })
 

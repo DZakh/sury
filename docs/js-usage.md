@@ -60,6 +60,7 @@
   - [`name`](#name)
   - [`inputExpression`](#inputexpression)
   - [`outputExpression`](#outputexpression)
+  - [`pathToText`](#pathtotext)
   - [`toString`](#tostring)
 - [Error handling](#error-handling)
 - [Global config](#global-config)
@@ -100,7 +101,7 @@ Invalid data throws `S.Error`:
 
 ```ts
 S.parser(playerSchema)({ username: "billie", xp: "not a number" });
-// => throws S.Error: Failed at ["xp"]: Expected number, received "not a number"
+// => throws S.Error: Failed at xp: Expected number, received "not a number"
 ```
 
 Use `S.safe` / `S.safeAsync` if you'd rather have a result than an exception — see [Error handling](#error-handling).
@@ -251,7 +252,7 @@ const comment = S.fromJSONSchema({
 // S.Schema<{ text: string; replies?: ...[] | undefined }>
 
 S.assertInput(comment, { text: "hi", replies: [{ text: 1 }] });
-// Throws S.Error: Failed at ["replies"]["0"]["text"]: Expected string, received 1
+// Throws S.Error: Failed at replies[0].text: Expected string, received 1
 ```
 
 `$defs` and `definitions` pointers are named in the type; one on any other path (`#/components/schemas/Pet`) is validated the same, but typed as `S.JSON`.
@@ -1535,7 +1536,7 @@ makeUser({ id: "1", email: "billie@example.com" });
 // => returns the very object it was given
 
 makeUser({ id: "1", email: "not-an-address" });
-// throws S.Error: Failed at ["email"]: Expected email, received "not-an-address"
+// throws S.Error: Failed at email: Expected email, received "not-an-address"
 ```
 
 | Operation                 | Interface                                                      | Description                                     |
@@ -1553,7 +1554,7 @@ const eventSchema = S.schema({
 });
 
 S.outputConstructor(eventSchema)({ at: new Date("nope") });
-// throws S.Error: Failed at ["at"]: Expected Date, received invalid Date
+// throws S.Error: Failed at at: Expected Date, received invalid Date
 ```
 
 A branded schema is the one place a constructor takes a *narrower* value than it returns: the brand is what it mints, so it can't also be what it demands.
@@ -1731,6 +1732,18 @@ S.outputExpression(schema);
 The same expression for the schema's output type.
 
 > 🧠 The format is subject to change
+
+### **`pathToText`**
+
+```ts
+S.pathToText(["user", "tags", 2]);
+// "user.tags[2]"
+
+S.pathToText(["my key"]);
+// '["my key"]'
+```
+
+Renders an error's `path` array the way `error.message` shows it — dots for identifier-safe keys, brackets for indices and anything else. Useful when building your own messages from `error.path` or a Standard Schema issue's `path`.
 
 ### **`toString`**
 

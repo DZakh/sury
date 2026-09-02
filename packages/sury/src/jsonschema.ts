@@ -30,7 +30,6 @@ import {
   pathConcat,
   pathDynamic,
   pathEmpty,
-  pathFromLocation,
   refTag,
   stringTag,
   SuryError,
@@ -457,9 +456,7 @@ const internalToJSONSchemaBase = (
       if (schema.minItems !== U) jsonSchema.minItems = schema.minItems;
       if (schema.maxItems !== U) jsonSchema.maxItems = schema.maxItems;
     } else {
-      const itemDefinitions = items.map((item, i) =>
-        js(item, pathConcat(path, pathFromLocation("" + i)))
-      );
+      const itemDefinitions = items.map((item, i) => js(item, pathConcat(path, [i])));
       const itemsNumber = itemDefinitions.length;
       let minItems = itemsNumber;
       if (typeof additionalItems === "object") {
@@ -555,7 +552,7 @@ const internalToJSONSchemaBase = (
     for (const key of Object.keys(properties)) {
       const itemSchema = properties[key]!;
       if (!isOptional(itemSchema)) required.push(key);
-      jsonProperties[key] = js(itemSchema, pathConcat(path, pathFromLocation(key)));
+      jsonProperties[key] = js(itemSchema, pathConcat(path, [key]));
     }
 
     jsonSchema.type = "object";

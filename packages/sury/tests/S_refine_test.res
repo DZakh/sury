@@ -19,7 +19,7 @@ test("Fails with custom path", t => {
 
   t->U.assertThrowsMessage(
     () => %raw(`-12`)->S.parseOrThrow(~to=schema),
-    `Failed at ["confirm"]: Should be positive`,
+    `Failed at confirm: Should be positive`,
   )
 })
 
@@ -120,7 +120,7 @@ test("Refiner application order: type-narrow first, then inputRefiner, then outp
   // Type-narrow on `foo` runs before either refiner.
   t->U.assertThrowsMessage(
     () => %raw(`{"foo": 123}`)->S.parseOrThrow(~to=schema),
-    `Failed at ["foo"]: Expected string, received 123`,
+    `Failed at foo: Expected string, received 123`,
   )
 
   // Type-narrow passes; inputRefiner rejects.

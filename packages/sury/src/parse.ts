@@ -18,6 +18,9 @@ import {
   numberTag,
   objectTag,
   panic,
+  pathConcat,
+  pathDynamic,
+  pathEmpty,
   reversedKey,
   s,
   schemaPrototype,
@@ -132,7 +135,10 @@ export const parseDynamic = (input: Val): Val => {
   } catch (exn) {
     const error = getOrRethrow(exn);
     // For the case parent must always be present
-    error.path = (input.p ? input.p.path : "") + input.path + "[]" + error.path;
+    error.path = pathConcat(
+      input.p ? input.p.path : pathEmpty,
+      pathConcat(pathConcat(input.path, pathDynamic), error.path),
+    );
     throw error;
   }
 }

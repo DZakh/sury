@@ -514,7 +514,7 @@ test("Fails to parse intersected objects with transform", (t) => {
   // }
   // t.is(
   //   result.error.message,
-  //   `Failed at ["baz"]: Expected string, received undefined`
+  //   `Failed at baz: Expected string, received undefined`
   // );
 
   // const value = S.parser(
@@ -545,7 +545,7 @@ test("Object with an S.never field is inferred as a required never property", (t
   t.expect(() => S.parser(schema)({ key: "value" })).toThrow(
     t.expect.objectContaining({
       name: "SuryError",
-      message: `Failed at ["oldKey"]: Expected never, received undefined`,
+      message: `Failed at oldKey: Expected never, received undefined`,
     }),
   );
 });
@@ -1007,7 +1007,7 @@ test("Constructors validate and hand back the value they were given", (t) => {
 
   t.expect(construct(value)).toBe(value);
   t.expect(() => construct({ id: "1", email: "nope" })).toThrow(
-    "Failed at [\"email\"]: Expected email, received \"nope\""
+    "Failed at email: Expected email, received \"nope\""
   );
 });
 
@@ -2084,14 +2084,14 @@ test("Overwrite error message", (t) => {
   ).toThrow(
     t.expect.objectContaining({
       name: "SuryError",
-      message: `Failed at ["foo"]: Invalid string`,
+      message: `Failed at foo: Invalid string`,
     }),
   );
 });
 
 test("Throwing one retained error instance twice doesn't accumulate the path", (t) => {
   // The path a throw is reached through is prepended to the error, so doing it
-  // on the caught instance leaves the second parse reporting `["a"]["a"]`.
+  // on the caught instance leaves the second parse reporting `a.a`.
   // Nothing stops user code from holding one error and throwing it again.
   const retained = S.safe(() => S.parser(S.string)(1)).error!;
   const schema = S.schema({
@@ -2104,12 +2104,12 @@ test("Throwing one retained error instance twice doesn't accumulate the path", (
   for (const _ of [1, 2, 3]) {
     const result = S.safe(() => parse({ a: "x" }));
     t.expect(result.error?.message).toBe(
-      `Failed at ["a"]: Expected string, received 1`,
+      `Failed at a: Expected string, received 1`,
     );
-    t.expect(result.error?.path).toBe(`["a"]`);
+    t.expect(result.error?.path).toEqual(["a"]);
   }
   // The instance user code holds is left as it was caught.
-  t.expect(retained.path).toBe("");
+  t.expect(retained.path).toEqual([]);
 
   // Top level: nothing to prepend, so the error is passed through rather than
   // copied. Still must not pick up a path or mutate what was thrown.
@@ -2119,9 +2119,34 @@ test("Throwing one retained error instance twice doesn't accumulate the path", (
     }),
   );
   for (const _ of [1, 2, 3]) {
-    t.expect(S.safe(() => flat("x")).error?.path).toBe("");
+    t.expect(S.safe(() => flat("x")).error?.path).toEqual([]);
   }
-  t.expect(retained.path).toBe("");
+  t.expect(retained.path).toEqual([]);
+});
+
+test("Formatting a path segment that isn't a string renders instead of throwing", (t) => {
+  // Sury never emits a symbol segment, but `refine`'s `path` is user-supplied
+  // and plain JS callers aren't held to its `string[]` type. `message` is a
+  // getter, so throwing while formatting would swallow the failure being
+  // reported.
+  const path = ["a", Symbol("k")] as unknown as string[];
+  t.expect(() =>
+    S.parser(S.string.with(S.refine, () => false, { error: "bad", path }))("x"),
+  ).toThrow(
+    t.expect.objectContaining({
+      name: "SuryError",
+      message: "Failed at a[Symbol(k)]: bad",
+    }),
+  );
+});
+
+test("pathToText renders a path the way error messages do", (t) => {
+  t.expect(S.pathToText([])).toBe("");
+  t.expect(S.pathToText(["user", "tags", 2, "my key", "3", "[]"])).toBe(
+    'user.tags[2]["my key"][3][]',
+  );
+  const error = S.safe(() => S.parser(S.schema({ a: S.string }))({ a: 1 })).error!;
+  t.expect(error.message).toBe(`Failed at ${S.pathToText(error.path)}: Expected string, received 1`);
 });
 
 test("A contradictory bound pair is rejected where it's written", (t) => {
@@ -2316,10 +2341,10 @@ test("Error messages render through inputExpression, not toString", (t) => {
 
   // No "Schema<…>" wrapper: the message names the type, it does not print the
   // schema object.
-  t.expect(error!.message).toBe('Failed at ["id"]: Expected string, received 1');
+  t.expect(error!.message).toBe('Failed at id: Expected string, received 1');
   t.expect(error!.reason).toBe("Expected string, received 1");
   t.expect(`${error}`).toBe(
-    'SuryError: Failed at ["id"]: Expected string, received 1',
+    'SuryError: Failed at id: Expected string, received 1',
   );
 
   // The schema hanging off the error is where toString does help.

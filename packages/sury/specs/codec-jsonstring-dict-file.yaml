@@ -14,20 +14,20 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[7](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[6](v0);let v4={};for(let v1 in v0){try{let v2=v0[v1];typeof v2==="string"||e[5](v2);e[3](v2)||e[4](v2);v4[v1]=new e[2]([e[1](v2)],"")}catch(v3){v3.path='["'+v1+'"]'+v3.path;throw v3}}return v4}
+    expression: i=>{typeof i==="string"||e[7](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[6](v0);let v4={};for(let v1 in v0){try{let v2=v0[v1];typeof v2==="string"||e[5](v2);e[3](v2)||e[4](v2);v4[v1]=new e[2]([e[1](v2)],"")}catch(v3){v3.path=[v1,...v3.path];throw v3}}return v4}
     examples:
       not-a-document:
         input: '"nope"'
         error: Expected JSON string, received "nope"
   decode:
-    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[6](v0);let v4={};for(let v1 in v0){try{let v2=v0[v1];typeof v2==="string"||e[5](v2);e[3](v2)||e[4](v2);v4[v1]=new e[2]([e[1](v2)],"")}catch(v3){v3.path='["'+v1+'"]'+v3.path;throw v3}}return v4}
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[6](v0);let v4={};for(let v1 in v0){try{let v2=v0[v1];typeof v2==="string"||e[5](v2);e[3](v2)||e[4](v2);v4[v1]=new e[2]([e[1](v2)],"")}catch(v3){v3.path=[v1,...v3.path];throw v3}}return v4}
     examples:
       not-a-document:
         input: '"nope"'
         error: Expected JSON string, received "nope"
   encode:
     isAsync: true
-    expression: i=>{let v5={};for(let v1 in i){try{let v2=i[v1];let v3;try{v3=v2.arrayBuffer().then(e[0]).catch(e[1])}catch(x){e[1](x)}v5[v1]=v3.catch(v4=>{v4.path='["'+v1+'"]'+v4.path;throw v4})}catch(v4){v4.path='["'+v1+'"]'+v4.path;throw v4}}let v11=new Promise((v6,v7)=>{let v9=Object.keys(v5).length;if(!v9){v6(v5)}for(let v1 in v5){v5[v1].then(v8=>{v5[v1]=v8;if(v9--===1){v6(v5)}},v7)}});return v11.then(v10=>JSON.stringify(v10))}
+    expression: i=>{let v5={};for(let v1 in i){try{let v2=i[v1];let v3;try{v3=v2.arrayBuffer().then(e[0]).catch(e[1])}catch(x){e[1](x)}v5[v1]=v3.catch(v4=>{v4.path=[v1,...v4.path];throw v4})}catch(v4){v4.path=[v1,...v4.path];throw v4}}let v11=new Promise((v6,v7)=>{let v9=Object.keys(v5).length;if(!v9){v6(v5)}for(let v1 in v5){v5[v1].then(v8=>{v5[v1]=v8;if(v9--===1){v6(v5)}},v7)}});return v11.then(v10=>JSON.stringify(v10))}
     examples:
       empty:
         input: "{}"

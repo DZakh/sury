@@ -7,7 +7,7 @@ ts:
 jsonSchema:
   input: '{ type: "object", properties: { payload: { type: "string", contentEncoding: "base64" } }, additionalProperties: false, required: ["payload"] }'
   fromInputType: "{ payload: string; }"
-  output: 'Failed at ["payload"]: Expected JSON, received Uint8Array'
+  output: "Failed at payload: Expected JSON, received Uint8Array"
   openapi-3.0:
     input: '{ type: "object", properties: { payload: { type: "string", format: "byte" } }, additionalProperties: false, required: ["payload"] }'
 vs:
@@ -22,10 +22,10 @@ operations:
         output: "{ payload: new Uint8Array([137, 80, 78, 71]) }"
       not-base64:
         input: '{ payload: "!!" }'
-        error: 'Failed at ["payload"]: Expected base64, received "!!"'
+        error: 'Failed at payload: Expected base64, received "!!"'
       missing-payload:
         input: "{}"
-        error: 'Failed at ["payload"]: Expected base64, received undefined'
+        error: "Failed at payload: Expected base64, received undefined"
   decode: eq-to-parse
   encode:
     expression: i=>{let v0=i["payload"];let v1=e[0](v0);return {payload:v1}}

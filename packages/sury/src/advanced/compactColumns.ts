@@ -9,7 +9,6 @@ import {
   inputExpression,
   type Internal,
   panic,
-  pathFromInlinedLocation,
   tagFlags,
   U,
   unknown,
@@ -191,8 +190,7 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
         itemInput.v = _notVarBeforeValidation;
         itemInput.io = false;
 
-        // Path like ["bar"] so validation errors carry the field location.
-        itemInput.path = pathFromInlinedLocation(inlinedValueFromString(key));
+        itemInput.path = [key];
 
         const itemOutput = parse(itemInput);
         if ((itemOutput.f & 1)) {
@@ -213,7 +211,7 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
       output.cp = `let ${outputVar}=new Array(Math.max(${lengthCode.slice(0, -1)}));`;
 
       // Wrap the row body in a single try/catch that prepends the row index to
-      // any thrown error — giving paths like ["0"]["bar"]. A single wrapper is
+      // any thrown error — giving paths like `[0].bar`. A single wrapper is
       // used (rather than per-field) so that `let` variables declared while
       // parsing one field remain in scope for the object construction.
       let rowAssign: string;
@@ -240,7 +238,7 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
       } else {
         const errorVar = B_varWithoutAllocation(input.g);
         B_markThrow(input);
-        wrappedBody = `try{${rowBody}}catch(${errorVar}){${errorVar}.path='["'+${iteratorVar}+'"]'+${errorVar}.path;throw ${errorVar}}`;
+        wrappedBody = `try{${rowBody}}catch(${errorVar}){${errorVar}.path=[${iteratorVar},...${errorVar}.path];throw ${errorVar}}`;
       }
       output.cp =
         output.cp +
@@ -280,7 +278,7 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
           itemInput.e = declaredItemSchema;
           itemInput.v = _notVarBeforeValidation;
           itemInput.io = false;
-          itemInput.path = pathFromInlinedLocation(inlinedValueFromString(key));
+          itemInput.path = [key];
 
           const itemOutput = parse(itemInput);
           perFieldCode = perFieldCode + B_merge(itemOutput);
@@ -303,7 +301,7 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
       if (needsPerFieldTransform && perFieldCode !== "") {
         const errorVar = B_varWithoutAllocation(input.g);
         B_markThrow(input);
-        wrappedBody = `try{${loopBody}}catch(${errorVar}){${errorVar}.path='["'+${iteratorVar}+'"]'+${errorVar}.path;throw ${errorVar}}`;
+        wrappedBody = `try{${loopBody}}catch(${errorVar}){${errorVar}.path=[${iteratorVar},...${errorVar}.path];throw ${errorVar}}`;
       } else {
         wrappedBody = loopBody;
       }

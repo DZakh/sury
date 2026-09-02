@@ -33,6 +33,7 @@ import {
   numberTag,
   objectTag,
   panic,
+  type Path,
   setHas,
   setContent,
   type SuryErrorRecord,
@@ -218,7 +219,7 @@ type UnionCtx = {
 
 const unionFail = (
   schema: Internal,
-  path: string,
+  path: Path,
   input: unknown,
   ...unionErrors: SuryErrorRecord[]
 ): never =>

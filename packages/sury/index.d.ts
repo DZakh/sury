@@ -262,9 +262,11 @@ export type Schema<TInput = unknown, TOutput = TInput> = {
     }
 );
 
-export abstract class Path {
-  protected opaque: unknown;
-} /* simulate opaque types */
+/**
+ * Root-first location of a value: object keys and tuple indices as strings,
+ * array indices as numbers. `"[]"` stands for "some element".
+ */
+export type Path = ReadonlyArray<string | number>;
 
 type BaseError = {
   readonly path: Path;
@@ -1020,6 +1022,11 @@ export function meta<TInput, TOutput>(
 
 export function inputExpression(schema: SchemaLike<unknown, unknown>): string;
 export function outputExpression(schema: SchemaLike<unknown, unknown>): string;
+/**
+ * Renders a path the way an error message shows it: `user.tags[2]`,
+ * `["my key"]`. The same renderer `Error.message` uses.
+ */
+export function pathToText(path: Path): string;
 export function noValidation<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,
   value: boolean

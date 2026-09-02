@@ -21,7 +21,7 @@ operations:
         output: '{ a: "hello" }'
       missing-field:
         input: "{}"
-        error: 'Failed at ["a"]: Expected string, received undefined'
+        error: "Failed at a: Expected string, received undefined"
       not-an-object:
         input: '"nope"'
         error: 'Expected { a: string; }, received "nope"'

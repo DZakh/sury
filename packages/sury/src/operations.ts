@@ -9,7 +9,6 @@ import {
   inputExpression,
   type Internal,
   pathEmpty,
-  pathToArray,
   s,
   schemaPrototype,
   SuryError,
@@ -147,8 +146,7 @@ Object.defineProperty(schemaPrototype, "~standard", {
             issues: [
               {
                 message: error.reason,
-                path:
-                  error.path === pathEmpty ? U : pathToArray(error.path),
+                path: error.path.length ? (error.path as unknown[]) : U,
               },
             ],
           };

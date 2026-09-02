@@ -11,7 +11,7 @@ vs:
   zod: z.array(z.string())
 operations:
   parse:
-    expression: i=>{Array.isArray(i)||e[1](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}return i}
+    expression: i=>{Array.isArray(i)||e[1](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path=[v0,...v2.path];throw v2}}return i}
     examples:
       valid:
         input: '["foo"]'
@@ -21,7 +21,7 @@ operations:
         output: "[]"
       invalid-item:
         input: '["foo", 1]'
-        error: 'Failed at ["1"]: Expected string, received 1'
+        error: "Failed at [1]: Expected string, received 1"
       not-an-array:
         input: '"x"'
         error: Expected string[], received "x"

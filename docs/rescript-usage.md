@@ -1074,7 +1074,7 @@ Checkout the compiled code yourself:
       v1[2][v0] = v3["deleted"];
     } catch (v2) {
       if (v2 && v2.s === s) {
-        v2.path = "" + "[\"'+v0+'\"]" + v2.path;
+        v2.path = [v0, ...v2.path];
       }
       throw v2;
     }
@@ -1796,7 +1796,7 @@ makeUser({id: "1", email: "billie@example.com"})
 // returns the very record it was given
 
 makeUser({id: "1", email: "not-an-address"})
-// throws S.Error: Failed at ["email"]: Expected email, received "not-an-address"
+// throws S.Error: Failed at email: Expected email, received "not-an-address"
 ```
 
 ### **`reverse`**

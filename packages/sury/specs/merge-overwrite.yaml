@@ -22,6 +22,6 @@ operations:
         output: '{ type: "foo", name: "foo", fooCount: 123 }'
       left-tag-is-overwritten:
         input: '{ type: "bar", name: "foo", fooCount: 123 }'
-        error: 'Failed at ["type"]: Expected "foo", received "bar"'
+        error: 'Failed at type: Expected "foo", received "bar"'
   decode: identity
   encode: identity

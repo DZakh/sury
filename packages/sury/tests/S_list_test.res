@@ -27,7 +27,7 @@ module CommonWithNested = {
 
     t->U.assertThrowsMessage(
       () => nestedInvalidAny->S.parseOrThrow(~to=schema),
-      `Failed at ["1"]: Expected string, received 1`,
+      `Failed at [1]: Expected string, received 1`,
     )
   })
 

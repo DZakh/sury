@@ -15,7 +15,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{for(;;){if(typeof i==="string"){e[0](i)||e[1](i);break}if(typeof i==="number"&&i===i)break;if(typeof i==="object"&&i&&!Array.isArray(i)){for(let v0 in i){try{e[2](i[v0]);}catch(v1){v1.path='["'+v0+'"]'+v1.path;throw v1}};break}if(Array.isArray(i)){for(let v2=0;v2<i.length;++v2){try{e[3](i[v2]);}catch(v3){v3.path='["'+v2+'"]'+v3.path;throw v3}};break}if(typeof i==="boolean")break;if(i===null)break;e[4](i)}return i}
+    expression: i=>{for(;;){if(typeof i==="string"){e[0](i)||e[1](i);break}if(typeof i==="number"&&i===i)break;if(typeof i==="object"&&i&&!Array.isArray(i)){for(let v0 in i){try{e[2](i[v0]);}catch(v1){v1.path=[v0,...v1.path];throw v1}};break}if(Array.isArray(i)){for(let v2=0;v2<i.length;++v2){try{e[3](i[v2]);}catch(v3){v3.path=[v2,...v3.path];throw v3}};break}if(typeof i==="boolean")break;if(i===null)break;e[4](i)}return i}
     examples:
       valid-string:
         input: '"ab"'

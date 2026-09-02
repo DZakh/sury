@@ -33,7 +33,7 @@ operations:
         input: new Uint8Array([226, 130, 172])
         output: '"€"'
   encode:
-    expression: i=>{return e[0].encode(i)}
+    expression: i=>{return e[0](i)}
     examples:
       text:
         input: '"€"'
@@ -41,3 +41,6 @@ operations:
       empty:
         input: '""'
         output: new Uint8Array([])
+      astral:
+        input: '"héllo 😀"'
+        output: new Uint8Array([104, 195, 169, 108, 108, 111, 32, 240, 159, 152, 128])

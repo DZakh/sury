@@ -125,7 +125,7 @@ test("a read inside a union arm reports rather than matching a sibling", async (
   // A required field's rejection is a SuryError and takes the path; inside a
   // union it stays raw, which is what keeps it out of the dispatch.
   await expect(S.asyncParser(S.schema({ a: bytes }))({ a: unreadable() })).rejects.toThrow(
-    `Failed at ["a"]: TypeError: read failed`,
+    `Failed at a: TypeError: read failed`,
   );
   await expect(
     S.asyncParser(S.schema({ a: S.optional(bytes) }))({ a: unreadable() }),

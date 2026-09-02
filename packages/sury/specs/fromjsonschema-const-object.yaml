@@ -30,6 +30,6 @@ operations:
         error: Unrecognized key "z"
       different-value-rejected:
         input: '{ kind: "point", coords: [1, 3] }'
-        error: 'Failed at ["coords"]["1"]: Expected 2, received 3'
+        error: "Failed at coords[1]: Expected 2, received 3"
   decode: identity
   encode: identity
