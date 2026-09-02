@@ -7,10 +7,9 @@ ts:
 jsonSchema:
   input: '{ anyOf: [{ type: "string", const: "apple" }, { type: "string" }, { type: "string", const: "banana" }] }'
   output: '{ anyOf: [{ type: "string", const: "apple" }, { type: "string" }, { type: "string", const: "banana" }] }'
-  targets:
-    openapi-3.0:
-      input: '{ anyOf: [{ type: "string", enum: ["apple"] }, { type: "string" }, { type: "string", enum: ["banana"] }] }'
-      output: '{ anyOf: [{ type: "string", enum: ["apple"] }, { type: "string" }, { type: "string", enum: ["banana"] }] }'
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "string", enum: ["apple"] }, { type: "string" }, { type: "string", enum: ["banana"] }] }'
+    output: '{ anyOf: [{ type: "string", enum: ["apple"] }, { type: "string" }, { type: "string", enum: ["banana"] }] }'
 vs:
   zod: z.union([z.literal("apple"), z.string(), z.literal("banana")])
 operations:

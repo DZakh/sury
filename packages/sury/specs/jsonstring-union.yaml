@@ -7,13 +7,11 @@ ts:
 jsonSchema:
   input: '{ anyOf: [{ type: "object", properties: { t: { type: "string", const: "a" }, v: { type: "string" } }, additionalProperties: false, required: ["t", "v"] }, { type: "object", properties: { t: { type: "string", const: "b" }, v: { type: "number" } }, additionalProperties: false, required: ["t", "v"] }] }'
   output: '{ type: "string", contentMediaType: "application/json" }'
-  targets:
-    draft-2020-12:
-      input: '{ anyOf: [{ type: "object", properties: { t: { type: "string", const: "a" }, v: { type: "string" } }, additionalProperties: false, required: ["t", "v"] }, { type: "object", properties: { t: { type: "string", const: "b" }, v: { type: "number" } }, additionalProperties: false, required: ["t", "v"] }], $schema: "https://json-schema.org/draft/2020-12/schema" }'
-      output: '{ type: "string", contentMediaType: "application/json", contentSchema: { anyOf: [{ type: "object", properties: { t: { type: "string", const: "a" }, v: { type: "string" } }, required: ["t", "v"] }, { type: "object", properties: { t: { type: "string", const: "b" }, v: { type: "number" } }, required: ["t", "v"] }] }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
-    openapi-3.0:
-      input: '{ anyOf: [{ type: "object", properties: { t: { type: "string", enum: ["a"] }, v: { type: "string" } }, additionalProperties: false, required: ["t", "v"] }, { type: "object", properties: { t: { type: "string", enum: ["b"] }, v: { type: "number" } }, additionalProperties: false, required: ["t", "v"] }] }'
-      output: '{ type: "string" }'
+  draft-2020-12:
+    output: '{ type: "string", contentMediaType: "application/json", contentSchema: { anyOf: [{ type: "object", properties: { t: { type: "string", const: "a" }, v: { type: "string" } }, required: ["t", "v"] }, { type: "object", properties: { t: { type: "string", const: "b" }, v: { type: "number" } }, required: ["t", "v"] }] }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "object", properties: { t: { type: "string", enum: ["a"] }, v: { type: "string" } }, additionalProperties: false, required: ["t", "v"] }, { type: "object", properties: { t: { type: "string", enum: ["b"] }, v: { type: "number" } }, additionalProperties: false, required: ["t", "v"] }] }'
+    output: '{ type: "string" }'
 vs:
   zod:
     _skip: not-applicable

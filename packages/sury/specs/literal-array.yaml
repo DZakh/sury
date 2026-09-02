@@ -9,15 +9,14 @@ ts:
 jsonSchema:
   input: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string", const: "bar" }, { type: "boolean", const: true }] }'
   output: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string", const: "bar" }, { type: "boolean", const: true }] }'
-  targets:
-    draft-2020-12:
-      input: '{ type: "array", minItems: 2, maxItems: 2, prefixItems: [{ type: "string", const: "bar" }, { type: "boolean", const: true }], $schema: "https://json-schema.org/draft/2020-12/schema" }'
-      output: '{ type: "array", minItems: 2, maxItems: 2, prefixItems: [{ type: "string", const: "bar" }, { type: "boolean", const: true }], $schema: "https://json-schema.org/draft/2020-12/schema" }'
-    openapi-3.0:
-      input: '{ type: "array", minItems: 2, maxItems: 2, items: { anyOf: [{ type: "string", enum: ["bar"] }, { type: "boolean", enum: [true] }] } }'
-      fromInputType: '[true | "bar", true | "bar"]'
-      output: '{ type: "array", minItems: 2, maxItems: 2, items: { anyOf: [{ type: "string", enum: ["bar"] }, { type: "boolean", enum: [true] }] } }'
-      fromOutputType: '[true | "bar", true | "bar"]'
+  draft-2020-12:
+    input: '{ type: "array", minItems: 2, maxItems: 2, prefixItems: [{ type: "string", const: "bar" }, { type: "boolean", const: true }], $schema: "https://json-schema.org/draft/2020-12/schema" }'
+    output: '{ type: "array", minItems: 2, maxItems: 2, prefixItems: [{ type: "string", const: "bar" }, { type: "boolean", const: true }], $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ type: "array", minItems: 2, maxItems: 2, items: { anyOf: [{ type: "string", enum: ["bar"] }, { type: "boolean", enum: [true] }] } }'
+    fromInputType: '[true | "bar", true | "bar"]'
+    output: '{ type: "array", minItems: 2, maxItems: 2, items: { anyOf: [{ type: "string", enum: ["bar"] }, { type: "boolean", enum: [true] }] } }'
+    fromOutputType: '[true | "bar", true | "bar"]'
 vs:
   zod: z.tuple([z.literal("bar"), z.literal(true)])
 operations:

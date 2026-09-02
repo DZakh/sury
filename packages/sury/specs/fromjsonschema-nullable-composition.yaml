@@ -7,10 +7,9 @@ ts:
 jsonSchema:
   input: '{ anyOf: [{ allOf: [{ type: "string" }, { minLength: 2 }] }, { type: "null" }] }'
   output: '{ anyOf: [{ allOf: [{ type: "string" }, { minLength: 2 }] }, { type: "null" }] }'
-  targets:
-    openapi-3.0:
-      input: '{ allOf: [{ type: "string" }, { minLength: 2 }], nullable: true }'
-      output: '{ allOf: [{ type: "string" }, { minLength: 2 }], nullable: true }'
+  openapi-3.0:
+    input: '{ allOf: [{ type: "string" }, { minLength: 2 }], nullable: true }'
+    output: '{ allOf: [{ type: "string" }, { minLength: 2 }], nullable: true }'
 vs:
   zod:
     _skip: not-applicable

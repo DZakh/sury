@@ -117,10 +117,11 @@ test("lintSpecsDir rejects a non-yaml file and a dotted/invalid id", () => {
   ]);
 });
 
-test("jsonstring-object records dialect-gated jsonSchema.targets", () => {
+test("jsonstring-object records dialect jsonSchema fields only when they differ from draft-07", () => {
   const spec = readSpec(listSpecFiles().find((f) => specId(f) === "jsonstring-object")!);
-  expect(spec.jsonSchema.targets?.["draft-2020-12"]?.output).toContain("contentSchema");
-  expect(spec.jsonSchema.targets?.["openapi-3.0"]?.output).not.toContain("contentMediaType");
+  expect(spec.jsonSchema["draft-2020-12"]?.output).toContain("contentSchema");
+  expect(spec.jsonSchema["openapi-3.0"]?.output).not.toContain("contentMediaType");
+  expect(spec.jsonSchema["draft-2020-12"]?.input).toBeUndefined();
 });
 
 test("serialize quotes a tab in an error golden instead of writing a raw control", () => {

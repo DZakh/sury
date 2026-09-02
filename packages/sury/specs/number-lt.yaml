@@ -7,10 +7,9 @@ ts:
 jsonSchema:
   input: '{ type: "number", exclusiveMaximum: 5 }'
   output: '{ type: "number", exclusiveMaximum: 5 }'
-  targets:
-    openapi-3.0:
-      input: '{ type: "number", maximum: 5, exclusiveMaximum: true }'
-      output: '{ type: "number", maximum: 5, exclusiveMaximum: true }'
+  openapi-3.0:
+    input: '{ type: "number", maximum: 5, exclusiveMaximum: true }'
+    output: '{ type: "number", maximum: 5, exclusiveMaximum: true }'
 vs:
   zod: z.number().lt(5)
 operations:

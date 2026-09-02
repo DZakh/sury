@@ -9,10 +9,9 @@ ts:
 jsonSchema:
   input: '{ type: "number", multipleOf: 2, exclusiveMinimum: -50, exclusiveMaximum: 50 }'
   output: '{ type: "number", multipleOf: 2, exclusiveMinimum: -50, exclusiveMaximum: 50 }'
-  targets:
-    openapi-3.0:
-      input: '{ type: "number", multipleOf: 2, minimum: -50, exclusiveMinimum: true, maximum: 50, exclusiveMaximum: true }'
-      output: '{ type: "number", multipleOf: 2, minimum: -50, exclusiveMinimum: true, maximum: 50, exclusiveMaximum: true }'
+  openapi-3.0:
+    input: '{ type: "number", multipleOf: 2, minimum: -50, exclusiveMinimum: true, maximum: 50, exclusiveMaximum: true }'
+    output: '{ type: "number", multipleOf: 2, minimum: -50, exclusiveMinimum: true, maximum: 50, exclusiveMaximum: true }'
 vs:
   zod: z.number().multipleOf(2).gt(-50).lt(50)
 operations:

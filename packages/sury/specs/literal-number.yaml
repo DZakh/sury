@@ -9,10 +9,9 @@ ts:
 jsonSchema:
   input: '{ type: "number", const: 123 }'
   output: '{ type: "number", const: 123 }'
-  targets:
-    openapi-3.0:
-      input: '{ type: "number", enum: [123] }'
-      output: '{ type: "number", enum: [123] }'
+  openapi-3.0:
+    input: '{ type: "number", enum: [123] }'
+    output: '{ type: "number", enum: [123] }'
 vs:
   zod: z.literal(123)
 operations:

@@ -11,10 +11,9 @@ ts:
 jsonSchema:
   input: '{ type: "object", properties: { foo: { type: "string", const: "bar" } }, required: ["foo"] }'
   output: '{ type: "object", properties: { foo: { type: "string", const: "bar" } }, required: ["foo"] }'
-  targets:
-    openapi-3.0:
-      input: '{ type: "object", properties: { foo: { type: "string", enum: ["bar"] } }, required: ["foo"] }'
-      output: '{ type: "object", properties: { foo: { type: "string", enum: ["bar"] } }, required: ["foo"] }'
+  openapi-3.0:
+    input: '{ type: "object", properties: { foo: { type: "string", enum: ["bar"] } }, required: ["foo"] }'
+    output: '{ type: "object", properties: { foo: { type: "string", enum: ["bar"] } }, required: ["foo"] }'
 vs:
   zod: 'z.object({ foo: z.literal("bar") })'
 operations:

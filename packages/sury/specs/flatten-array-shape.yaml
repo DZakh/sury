@@ -8,11 +8,8 @@ jsonSchema:
   input: '{ type: "object", properties: { items: { items: { type: "string" }, type: "array" } }, required: ["items"] }'
   fromInputType: "{ items: string[]; }"
   output: '{ type: "object", properties: { items: { items: { type: "object", properties: { TAG: { type: "string", const: "A" }, _0: { type: "string" } }, required: ["TAG", "_0"] }, type: "array" } }, required: ["items"] }'
-  targets:
-    openapi-3.0:
-      input: '{ type: "object", properties: { items: { items: { type: "string" }, type: "array" } }, required: ["items"] }'
-      fromInputType: "{ items: string[]; }"
-      output: '{ type: "object", properties: { items: { items: { type: "object", properties: { TAG: { type: "string", enum: ["A"] }, _0: { type: "string" } }, required: ["TAG", "_0"] }, type: "array" } }, required: ["items"] }'
+  openapi-3.0:
+    output: '{ type: "object", properties: { items: { items: { type: "object", properties: { TAG: { type: "string", enum: ["A"] }, _0: { type: "string" } }, required: ["TAG", "_0"] }, type: "array" } }, required: ["items"] }'
 vs:
   zod:
     _skip: not-applicable

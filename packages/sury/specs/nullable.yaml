@@ -9,10 +9,9 @@ ts:
 jsonSchema:
   input: '{ anyOf: [{ type: "string" }, { type: "null" }] }'
   output: '{ anyOf: [{ type: "string" }, { type: "null" }] }'
-  targets:
-    openapi-3.0:
-      input: '{ type: "string", nullable: true }'
-      output: '{ type: "string", nullable: true }'
+  openapi-3.0:
+    input: '{ type: "string", nullable: true }'
+    output: '{ type: "string", nullable: true }'
 vs:
   zod: z.string().nullable()
 operations:

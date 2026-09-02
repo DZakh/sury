@@ -7,13 +7,10 @@ ts:
 jsonSchema:
   input: '{ type: "object", properties: { id: { type: "string", format: "uuid" } }, required: ["id"] }'
   output: '{ type: "string", contentMediaType: "application/json" }'
-  targets:
-    draft-2020-12:
-      input: '{ type: "object", properties: { id: { type: "string", format: "uuid" } }, required: ["id"], $schema: "https://json-schema.org/draft/2020-12/schema" }'
-      output: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "object", properties: { id: { type: "string", format: "uuid" } }, required: ["id"] }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
-    openapi-3.0:
-      input: '{ type: "object", properties: { id: { type: "string", format: "uuid" } }, required: ["id"] }'
-      output: '{ type: "string" }'
+  draft-2020-12:
+    output: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "object", properties: { id: { type: "string", format: "uuid" } }, required: ["id"] }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    output: '{ type: "string" }'
 vs:
   zod:
     _skip: not-applicable

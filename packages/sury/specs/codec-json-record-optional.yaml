@@ -9,12 +9,8 @@ jsonSchema:
   fromInputType: "{ [key: string]: boolean | null; }"
   output: '{ type: "object", additionalProperties: { type: "boolean" } }'
   fromOutputType: "{ [key: string]: boolean; }"
-  targets:
-    openapi-3.0:
-      input: '{ type: "object", additionalProperties: { type: "boolean", nullable: true } }'
-      fromInputType: "{ [key: string]: boolean | null; }"
-      output: '{ type: "object", additionalProperties: { type: "boolean" } }'
-      fromOutputType: "{ [key: string]: boolean; }"
+  openapi-3.0:
+    input: '{ type: "object", additionalProperties: { type: "boolean", nullable: true } }'
 vs:
   zod:
     _skip: not-applicable

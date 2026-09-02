@@ -7,10 +7,8 @@ ts:
 jsonSchema:
   input: '{ type: "string", contentMediaType: "application/octet-stream" }'
   output: Expected JSON, received Blob
-  targets:
-    openapi-3.0:
-      input: '{ type: "string", format: "binary" }'
-      output: Expected JSON, received Blob
+  openapi-3.0:
+    input: '{ type: "string", format: "binary" }'
 vs:
   zod:
     _skip: not-applicable

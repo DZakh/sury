@@ -7,13 +7,12 @@ ts:
 jsonSchema:
   input: '{ type: "string", contentMediaType: "application/json" }'
   output: '{ type: "string", contentMediaType: "application/json" }'
-  targets:
-    draft-2020-12:
-      input: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "object", properties: { type: { type: "string", const: "info" }, value: { type: "number" } }, required: ["type", "value"] }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
-      output: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "number" }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
-    openapi-3.0:
-      input: '{ type: "string" }'
-      output: '{ type: "string" }'
+  draft-2020-12:
+    input: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "object", properties: { type: { type: "string", const: "info" }, value: { type: "number" } }, required: ["type", "value"] }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+    output: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "number" }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ type: "string" }'
+    output: '{ type: "string" }'
 vs:
   zod:
     _skip: not-applicable

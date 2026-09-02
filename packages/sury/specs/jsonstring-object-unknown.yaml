@@ -7,10 +7,8 @@ ts:
 jsonSchema:
   input: 'Failed at ["a"]: Expected JSON, received unknown | undefined'
   output: '{ type: "string", contentMediaType: "application/json" }'
-  targets:
-    openapi-3.0:
-      input: 'Failed at ["a"]: Expected JSON, received unknown | undefined'
-      output: '{ type: "string" }'
+  openapi-3.0:
+    output: '{ type: "string" }'
 vs:
   zod:
     _skip: not-applicable

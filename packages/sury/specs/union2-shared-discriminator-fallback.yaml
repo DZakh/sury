@@ -7,10 +7,9 @@ ts:
 jsonSchema:
   input: '{ anyOf: [{ type: "object", properties: { kind: { type: "string", const: "a" }, value: { type: "number", minimum: 2 } }, required: ["kind", "value"] }, { type: "object", properties: { kind: { type: "string", const: "a" }, value: { type: "number", const: 1 } }, required: ["kind", "value"] }] }'
   output: '{ anyOf: [{ type: "object", properties: { kind: { type: "string", const: "a" }, value: { type: "number", minimum: 2 } }, required: ["kind", "value"] }, { type: "object", properties: { kind: { type: "string", const: "a" }, value: { type: "number", const: 1 } }, required: ["kind", "value"] }] }'
-  targets:
-    openapi-3.0:
-      input: '{ anyOf: [{ type: "object", properties: { kind: { type: "string", enum: ["a"] }, value: { type: "number", minimum: 2 } }, required: ["kind", "value"] }, { type: "object", properties: { kind: { type: "string", enum: ["a"] }, value: { type: "number", enum: [1] } }, required: ["kind", "value"] }] }'
-      output: '{ anyOf: [{ type: "object", properties: { kind: { type: "string", enum: ["a"] }, value: { type: "number", minimum: 2 } }, required: ["kind", "value"] }, { type: "object", properties: { kind: { type: "string", enum: ["a"] }, value: { type: "number", enum: [1] } }, required: ["kind", "value"] }] }'
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "object", properties: { kind: { type: "string", enum: ["a"] }, value: { type: "number", minimum: 2 } }, required: ["kind", "value"] }, { type: "object", properties: { kind: { type: "string", enum: ["a"] }, value: { type: "number", enum: [1] } }, required: ["kind", "value"] }] }'
+    output: '{ anyOf: [{ type: "object", properties: { kind: { type: "string", enum: ["a"] }, value: { type: "number", minimum: 2 } }, required: ["kind", "value"] }, { type: "object", properties: { kind: { type: "string", enum: ["a"] }, value: { type: "number", enum: [1] } }, required: ["kind", "value"] }] }'
 vs:
   zod: 'z.union([z.object({ kind: z.literal("a"), value: z.number().min(2) }), z.object({ kind: z.literal("a"), value: z.literal(1) })])'
 operations:

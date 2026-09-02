@@ -7,13 +7,11 @@ ts:
 jsonSchema:
   input: '{ type: "object", properties: { id: { type: "number" }, name: { type: "string" }, tag: { type: "string", const: "x" }, flag: { type: "boolean" } }, required: ["id", "name", "tag", "flag"] }'
   output: '{ type: "string", contentMediaType: "application/json" }'
-  targets:
-    draft-2020-12:
-      input: '{ type: "object", properties: { id: { type: "number" }, name: { type: "string" }, tag: { type: "string", const: "x" }, flag: { type: "boolean" } }, required: ["id", "name", "tag", "flag"], $schema: "https://json-schema.org/draft/2020-12/schema" }'
-      output: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "object", properties: { id: { type: "number" }, name: { type: "string" }, tag: { type: "string", const: "x" }, flag: { type: "boolean" } }, required: ["id", "name", "tag", "flag"] }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
-    openapi-3.0:
-      input: '{ type: "object", properties: { id: { type: "number" }, name: { type: "string" }, tag: { type: "string", enum: ["x"] }, flag: { type: "boolean" } }, required: ["id", "name", "tag", "flag"] }'
-      output: '{ type: "string" }'
+  draft-2020-12:
+    output: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "object", properties: { id: { type: "number" }, name: { type: "string" }, tag: { type: "string", const: "x" }, flag: { type: "boolean" } }, required: ["id", "name", "tag", "flag"] }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ type: "object", properties: { id: { type: "number" }, name: { type: "string" }, tag: { type: "string", enum: ["x"] }, flag: { type: "boolean" } }, required: ["id", "name", "tag", "flag"] }'
+    output: '{ type: "string" }'
 vs:
   zod:
     _skip: not-applicable

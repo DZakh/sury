@@ -34,10 +34,9 @@ import {
   OP_BLOCK_KEY_ORDER,
   BUNDLE_SIZE_KEY_ORDER,
   JSON_SCHEMA_KEY_ORDER,
-  JSON_SCHEMA_DOCUMENT_KEY_ORDER,
-  JSON_SCHEMA_TARGET_KEY_ORDER,
+  JSON_SCHEMA_DIALECT_KEY_ORDER,
   JSON_SCHEMA_TARGETS,
-  type JsonSchemaDocument,
+  type JsonSchemaDialect,
   type JsonSchemaTargetName,
   SKIP_REASONS,
   isSkip,
@@ -364,22 +363,29 @@ const deriveJsonSchemaTarget = async (
   types: { input: string; output: string },
   target: JsonSchemaTargetName,
   defaultSides: JsonSchemaSides,
-): Promise<JsonSchemaDocument | undefined> => {
+  defaultTypes: { fromInput?: string; fromOutput?: string },
+): Promise<JsonSchemaDialect | undefined> => {
   const input = deriveJsonSchemaSide(() => S.toJSONSchema(schema, { target }));
   const output = deriveJsonSchemaSide(() => S.toJSONSchema(S.reverse(schema), { target }));
-  if (
-    !jsonSchemaSourceDiffers(defaultSides.input.schema, input.schema) &&
-    !jsonSchemaSourceDiffers(defaultSides.output.schema, output.schema)
-  )
-    return undefined;
-  const roundTrip = await deriveRoundTripTypeInfo(schemaTs, input.source, output.source);
-  const inputMatches = roundTrip.inputMatches ?? roundTrip.fromInput === types.input;
-  const outputMatches = roundTrip.outputMatches ?? roundTrip.fromOutput === types.output;
+  const inputDiffers = jsonSchemaSourceDiffers(defaultSides.input.schema, input.schema);
+  const outputDiffers = jsonSchemaSourceDiffers(defaultSides.output.schema, output.schema);
+  if (!inputDiffers && !outputDiffers) return undefined;
+  const roundTrip = await deriveRoundTripTypeInfo(
+    schemaTs,
+    inputDiffers ? input.source : undefined,
+    outputDiffers ? output.source : undefined,
+  );
+  const defaultFromInput = defaultTypes.fromInput ?? types.input;
+  const defaultFromOutput = defaultTypes.fromOutput ?? types.output;
   return {
-    input: input.schema,
-    ...(roundTrip.fromInput === undefined || inputMatches ? {} : { fromInputType: roundTrip.fromInput }),
-    output: output.schema,
-    ...(roundTrip.fromOutput === undefined || outputMatches ? {} : { fromOutputType: roundTrip.fromOutput }),
+    ...(inputDiffers ? { input: input.schema } : {}),
+    ...(inputDiffers && roundTrip.fromInput !== undefined && roundTrip.fromInput !== defaultFromInput
+      ? { fromInputType: roundTrip.fromInput }
+      : {}),
+    ...(outputDiffers ? { output: output.schema } : {}),
+    ...(outputDiffers && roundTrip.fromOutput !== undefined && roundTrip.fromOutput !== defaultFromOutput
+      ? { fromOutputType: roundTrip.fromOutput }
+      : {}),
   };
 };
 
@@ -408,12 +414,13 @@ const deriveJsonSchema = async (
       : { fromOutputType: outputInferred }),
   };
   if (schemaTs === undefined) return doc;
-  const targets: NonNullable<Spec["jsonSchema"]["targets"]> = {};
   for (const target of JSON_SCHEMA_TARGETS) {
-    const block = await deriveJsonSchemaTarget(schema, schemaTs, types, target, sides);
-    if (block) targets[target] = block;
+    const block = await deriveJsonSchemaTarget(schema, schemaTs, types, target, sides, {
+      fromInput: inputInferred,
+      fromOutput: outputInferred,
+    });
+    if (block && Object.keys(block).length) doc[target] = block;
   }
-  if (JSON_SCHEMA_TARGETS.some((name) => targets[name] !== undefined)) doc.targets = targets;
   return doc;
 };
 
@@ -525,7 +532,7 @@ const reformatIfEvaluable = (text: string): string => {
 // Individual named examples are never `_skip` — only the enclosing operation
 // block is (the format schema has no `orSkip` on the examples map's values).
 const canonExample = (ex: Example): Example => {
-  const o = order(ex, ["input", "output", "error", "bench"]) as Example;
+  const o = order(ex, ["input", "output", "error"]) as Example;
   o.input = reformatIfEvaluable(o.input);
   if ("output" in o) o.output = reformatIfEvaluable(o.output);
   return o;
@@ -553,18 +560,15 @@ export const canonicalize = (obj: Spec): Spec => {
   }
   if (o.jsonSchema) {
     o.jsonSchema = order(o.jsonSchema as Record<string, unknown>, JSON_SCHEMA_KEY_ORDER as string[]) as Spec["jsonSchema"];
-    if (o.jsonSchema.targets) {
-      const targets = order(
-        o.jsonSchema.targets as Record<string, unknown>,
-        JSON_SCHEMA_TARGET_KEY_ORDER as string[],
-      ) as NonNullable<Spec["jsonSchema"]["targets"]>;
-      for (const name of JSON_SCHEMA_TARGETS) {
-        const block = targets[name];
-        if (block)
-          targets[name] = order(block as Record<string, unknown>, JSON_SCHEMA_DOCUMENT_KEY_ORDER as string[]) as JsonSchemaDocument;
+    for (const name of JSON_SCHEMA_TARGETS) {
+      const block = o.jsonSchema[name];
+      if (!block) {
+        delete o.jsonSchema[name];
+        continue;
       }
-      if (JSON_SCHEMA_TARGETS.some((name) => targets[name] !== undefined)) o.jsonSchema.targets = targets;
-      else delete o.jsonSchema.targets;
+      const ordered = order(block as Record<string, unknown>, JSON_SCHEMA_DIALECT_KEY_ORDER as string[]);
+      if (Object.keys(ordered).length === 0) delete o.jsonSchema[name];
+      else o.jsonSchema[name] = ordered as JsonSchemaDialect;
     }
   }
   if (o.operations) {
@@ -837,7 +841,6 @@ export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
     }
     if (!isSkip(op.expression)) op.expression = fn.toString();
     for (const [name, ex] of Object.entries(op.examples)) {
-      const bench = ex.bench;
       try {
         const value = evalSchema(ex.input);
         // `await` on a sync operation's result is a no-op, so both kinds run
@@ -855,11 +858,10 @@ export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
         op.examples[name] = clean({
           input: ex.input,
           output: out === value ? ex.input : valueToCode(out),
-          bench,
         });
       } catch (e) {
         if (e instanceof Error && e.message.startsWith("cannot represent ")) throw e;
-        op.examples[name] = clean({ input: ex.input, error: (e as Error).message, bench });
+        op.examples[name] = clean({ input: ex.input, error: (e as Error).message });
       }
     }
   }
@@ -979,13 +981,15 @@ export const checkAliases = async (spec: Spec): Promise<string[]> => {
         errs.push(`${label}: jsonSchema.input differs:\n${diffText(spec.jsonSchema.input, js.input)}`);
       if (js.output !== spec.jsonSchema.output)
         errs.push(`${label}: jsonSchema.output differs:\n${diffText(spec.jsonSchema.output, js.output)}`);
-      if (JSON.stringify(js.targets ?? null) !== JSON.stringify(spec.jsonSchema.targets ?? null))
-        errs.push(
-          `${label}: jsonSchema.targets differs:\n${diffText(
-            JSON.stringify(spec.jsonSchema.targets ?? null),
-            JSON.stringify(js.targets ?? null),
-          )}`,
-        );
+      for (const name of JSON_SCHEMA_TARGETS) {
+        if (JSON.stringify(js[name] ?? null) !== JSON.stringify(spec.jsonSchema[name] ?? null))
+          errs.push(
+            `${label}: jsonSchema[${JSON.stringify(name)}] differs:\n${diffText(
+              JSON.stringify(spec.jsonSchema[name] ?? null),
+              JSON.stringify(js[name] ?? null),
+            )}`,
+          );
+      }
 
       const aliasParseBuilt = buildOp("parse", aliasSchema);
       const aliasParseCode = "fn" in aliasParseBuilt ? aliasParseBuilt.fn.toString() : undefined;

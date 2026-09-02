@@ -9,10 +9,9 @@ ts:
 jsonSchema:
   input: '{ type: "string", const: "tuna" }'
   output: '{ type: "string", const: "tuna" }'
-  targets:
-    openapi-3.0:
-      input: '{ type: "string", enum: ["tuna"] }'
-      output: '{ type: "string", enum: ["tuna"] }'
+  openapi-3.0:
+    input: '{ type: "string", enum: ["tuna"] }'
+    output: '{ type: "string", enum: ["tuna"] }'
 vs:
   zod: z.literal("tuna")
 operations:

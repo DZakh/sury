@@ -288,29 +288,16 @@ export const deriveTargets = (
         const examples = Object.entries(block.examples).filter(
           ([, ex]) => !("output" in ex) === throws,
         );
-        const split = examples.filter(([, ex]) => ex.bench === true);
-        const rest = examples.filter(([, ex]) => ex.bench !== true);
-        for (const [name, ex] of split) {
-          targets.push({
-            ...base,
-            name: `${id}${SEP}${op}${SEP}${name}`,
-            phase: "run",
-            op,
-            inputSrcs: [stripTypes(ex.input)],
-            exampleNames: [name],
-            throws,
-          });
-        }
-        if (rest.length === 0) continue;
+        if (examples.length === 0) continue;
         targets.push({
           ...base,
           name: `${id}${SEP}${op}${SEP}${throws ? "rejects" : "accepts"}${
-            rest.length > 1 ? ` ×${rest.length}` : ""
+            examples.length > 1 ? ` ×${examples.length}` : ""
           }`,
           phase: "run",
           op,
-          inputSrcs: rest.map(([, ex]) => stripTypes(ex.input)),
-          exampleNames: rest.map(([name]) => name),
+          inputSrcs: examples.map(([, ex]) => stripTypes(ex.input)),
+          exampleNames: examples.map(([name]) => name),
           throws,
         });
       }

@@ -17,7 +17,6 @@ operations:
       accepted-first:
         input: '"literal-0"'
         output: '"literal-0"'
-        bench: true
       accepted-late-literal:
         input: '"literal-7"'
         output: '"literal-7"'
