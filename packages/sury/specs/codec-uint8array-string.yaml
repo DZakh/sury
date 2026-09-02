@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.uint8Array.with(S.to, S.string)
+  input: Uint8Array<ArrayBufferLike>
+  output: string
+  instantiations: 5233
+jsonSchema:
+  input: Expected JSON, received Uint8Array
+  output: '{ type: "string" }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{i instanceof e[1]||e[2](i);let v0=e[0].decode(i);return v0}
+    examples:
+      utf8-bytes:
+        input: new Uint8Array([226, 130, 172])
+        output: '"€"'
+      lossy-bytes:
+        input: new Uint8Array([137, 80, 78, 71])
+        output: '"�PNG"'
+      empty:
+        input: new Uint8Array([])
+        output: '""'
+      not-bytes:
+        input: '"€"'
+        error: Expected Uint8Array, received "€"
+  decode:
+    expression: i=>{let v0=e[0].decode(i);return v0}
+    examples:
+      utf8-bytes:
+        input: new Uint8Array([226, 130, 172])
+        output: '"€"'
+  encode:
+    expression: i=>{return e[0](i)}
+    examples:
+      text:
+        input: '"€"'
+        output: new Uint8Array([226, 130, 172])
+      empty:
+        input: '""'
+        output: new Uint8Array([])
+      astral:
+        input: '"héllo 😀"'
+        output: new Uint8Array([104, 195, 169, 108, 108, 111, 32, 240, 159, 152, 128])

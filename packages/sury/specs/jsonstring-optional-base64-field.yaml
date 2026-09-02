@@ -7,6 +7,11 @@ ts:
 jsonSchema:
   input: '{ type: "string", contentMediaType: "application/json" }'
   output: '{ type: "object", properties: { p: { type: "string", contentEncoding: "base64", minLength: 2 } } }'
+  draft-2020-12:
+    input: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "object", properties: { p: { type: "string", contentEncoding: "base64", minLength: 2 } } }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ type: "string" }'
+    output: '{ type: "object", properties: { p: { type: "string", format: "byte", minLength: 2 } } }'
 vs:
   zod:
     _skip: not-applicable

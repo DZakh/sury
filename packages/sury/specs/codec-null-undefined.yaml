@@ -7,6 +7,8 @@ ts:
 jsonSchema:
   input: '{ type: "null" }'
   output: Expected JSON, received undefined
+  openapi-3.0:
+    input: "{ enum: [null] }"
 vs:
   zod:
     _skip: not-applicable
