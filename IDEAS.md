@@ -239,16 +239,21 @@ of a form-data story. What they were built to make cheap, roughly in order:
   number family through the validating seam the way literals already are, then
   measure what it costs.
 
-- **A ReScript codec can't target a schema that already converts.**
-  `s1->S.to(s2WithChain, ~custom)` fails at creation with "The target already
-  converts", because `codecs<'from, 'to>` types the coder against `t<'to>`,
-  which is the chain's output, while the value has to be fed to the chain's
-  input. JS has no such limit: its `{decode, encode}` pair lands at the chain
-  head and the whole chain runs after it. So the runtime is already there and
-  only the ReScript type is missing: `t<'value>` names the output, so a chain's
-  input type has no name to write, and `t` stays single-parameter by decision.
-  The error message is the API, and chaining `.to` explicitly says exactly what
-  the fused form would have meant.
+- **A ReScript `Sync`/`Async` coder can't target a schema that already
+  converts.** `s1->S.to(s2WithChain, ~custom={decode: Sync(fn), ...})` fails at
+  creation with "The target already converts", because `codecs<'from, 'to>`
+  types the coder against `t<'to>`, which is the chain's output, while the
+  value has to be fed to the chain's input. The slots that place no coder are
+  exempt — `Auto`, `Never`, and the `Pack`/`Unpack` readings
+  (`tests/S_to_custom_test.res` carries `S.uint8Array->S.to(S.jsonString->S.to(S.string),
+  ~custom={decode: Unpack, encode: Pack})`), the guard is the `outputSeam`
+  branch of `to` in `src/entry.ts`. JS has no such limit: its `{decode,
+  encode}` pair lands at the chain head and the whole chain runs after it. So
+  the runtime is already there and only the ReScript type is missing:
+  `t<'value>` names the output, so a chain's input type has no name to write,
+  and `t` stays single-parameter by decision. The error message is the API,
+  and chaining `.to` explicitly says exactly what the fused form would have
+  meant.
 
 - **A never-slot arm blocks the union's identity shortcut, so encoding a
   default is no longer free.** `unionDecoder` returns the input untouched when
