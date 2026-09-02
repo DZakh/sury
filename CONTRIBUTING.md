@@ -345,7 +345,7 @@ instead of silently working around it.
   keywords at all — has no golden for the targets it differs on, and lands in
   `S_toJSONSchema_target_test.res` instead. A `jsonSchema.targets` map, or a
   per-spec target override, would keep it with the schema it belongs to.
-- An operation whose output holds a class instance other than `Uint8Array`
+- An operation whose output holds an unsupported class instance
   (`S.blob`/`S.file` to a `Blob`/`File`) can't be specced: the golden writer
   raises "cannot represent a File instance as spec source code", and an op
   has no way to opt out — `_skip` is accepted under `vs.zod` but crashes the

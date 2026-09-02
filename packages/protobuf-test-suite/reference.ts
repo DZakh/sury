@@ -103,7 +103,7 @@ export const toPbjsValue = (
   fields: FieldDef[],
   value: Record<string, unknown>,
 ): Record<string, unknown> => {
-  const out: Record<string, unknown> = {};
+  const out: Record<string, unknown> = Object.create(null);
   for (const field of fields) {
     const raw = value[field.key];
     if (raw === undefined) continue;
@@ -132,7 +132,7 @@ const convertField = (field: FieldDef, value: unknown): unknown => {
 };
 
 const walk = (fields: FieldDef[], value: Record<string, unknown>): Record<string, unknown> => {
-  const out: Record<string, unknown> = {};
+  const out: Record<string, unknown> = Object.create(null);
   for (const field of fields) {
     const raw = value[field.key];
     if (raw === undefined || raw === null) {

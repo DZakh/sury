@@ -284,11 +284,16 @@ class Reader {
     this.buf = buf;
     this.limit = buf.length;
   }
-  reset(buf: Uint8Array): Reader {
-    this.buf = buf;
-    this.pos = 0;
-    this.limit = buf.length;
-    return this;
+  busy = false;
+  // Same reentrancy rule as Writer.acquire: a decode started from inside
+  // another gets its own reader. Released by the generated code.
+  acquire(buf: Uint8Array): Reader {
+    const reader = this.busy ? new Reader(buf) : this;
+    reader.busy = true;
+    reader.buf = buf;
+    reader.pos = 0;
+    reader.limit = buf.length;
+    return reader;
   }
   varint32(): number {
     const buf = this.buf;
@@ -709,7 +714,12 @@ class Writer {
     for (let i = 0; i < n; i++) {
       let value = values[i] as number;
       if (kind === 3) value = value ? 1 : 0;
-      else if (kind === 2) value = ((value << 1) ^ (value >> 31)) >>> 0;
+      else if (kind === 0) {
+        if (value < 0 || value > 4294967295) checkedNumber(value, 0, 4294967295, "uint32");
+      } else if (value < -2147483648 || value > 2147483647) {
+        checkedNumber(value, -2147483648, 2147483647, kind === 2 ? "sint32" : "int32");
+      }
+      if (kind === 2) value = ((value << 1) ^ (value >> 31)) >>> 0;
       else if (kind === 1 && value < 0) {
         buf[pos++] = (value & 127) | 128;
         buf[pos++] = ((value >>> 7) & 127) | 128;
@@ -855,6 +865,7 @@ class Writer {
   finish(): Uint8Array {
     const out = this.buf.subarray(this.base, this.pos);
     this.base = this.pos;
+    this.busy = false;
     return out;
   }
   // Opens a length-delimited field with a 5-byte hole for the prefix;
@@ -878,7 +889,13 @@ class Writer {
     this.varint32(len);
     this.pos += len;
   }
-  reset(): Writer {
+  busy = false;
+  // A field getter or a custom coder may run another protobuf encode in
+  // the middle of this one, so a busy scratch writer hands out a fresh one
+  // rather than resetting under the outer call.
+  acquire(): Writer {
+    if (this.busy) return new Writer();
+    this.busy = true;
     if (this.buf.length - this.base < 1024) {
       this.buf = new Uint8Array(8192);
       this.base = 0;
@@ -935,9 +952,9 @@ const writeVarint32 = (expr: string): string =>
 // hoisted message encoder, `e[N]` embeds in the operation body.
 const writeCall = (type: ProtobufType, v: string, num: string, big: string): string => {
   if (type === "bool") return `s=${v}?1:0;w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s)`;
-  if (type === "uint32") return `s=${v}>>>0;${writeVarint32("s")}`;
-  if (type === "int32" || type === "enum") return `s=${v};s>=0?${writeVarint32("s")}:w.int32(s)`;
-  if (type === "sint32") return `s=${v};s=((s<<1)^(s>>31))>>>0;${writeVarint32("s")}`;
+  if (type === "uint32") return `s=${v};if(s<0||s>4294967295)${num}(s,0,4294967295,"uint32");${writeVarint32("s")}`;
+  if (type === "int32" || type === "enum") return `s=${v};if(s<-2147483648||s>2147483647)${num}(s,-2147483648,2147483647,"${type}");s>=0?${writeVarint32("s")}:w.int32(s)`;
+  if (type === "sint32") return `s=${v};if(s<-2147483648||s>2147483647)${num}(s,-2147483648,2147483647,"sint32");s=((s<<1)^(s>>31))>>>0;${writeVarint32("s")}`;
   if (type === "int64") return `w.varint64(${big}(${v},-9223372036854775808n,9223372036854775807n,"int64"))`;
   if (type === "uint64") return `w.varint64(${big}(${v},0n,18446744073709551615n,"uint64"))`;
   if (type === "sint64") return `s=${big}(${v},-9223372036854775808n,9223372036854775807n,"sint64");w.varint64((s<<1n)^(s>>63n))`;
@@ -985,6 +1002,14 @@ const readCall = (type: ProtobufType): string => {
   if (type === "sfixed32") return "r.u32()|0";
   if (type === "string") return "r.string()";
   return "r.bytes()";
+};
+
+// A field named after an Object.prototype member (`constructor`,
+// `toString`, `__proto__`) reads an inherited value when absent; an own-key
+// read keeps it absent.
+const readKey = (obj: string, key: string): string => {
+  const k = JSON.stringify(key);
+  return key in Object.prototype ? `(Object.hasOwn(${obj},${k})?${obj}[${k}]:void 0)` : `${obj}[${k}]`;
 };
 
 const scalarDefault = (type: ProtobufType): string =>
@@ -1082,7 +1107,7 @@ const compileEncoders = (root: Message, fns: Map<Message, string>): Record<strin
   let src = "";
   fns.forEach((name, msg) => {
     if (msg === root) return;
-    src += `function ${name}(w,value){var v,j,n,s,h,a,k,g,c;${encodeBody(msg, fns, (key) => ({ expr: `value[${JSON.stringify(key)}]`, numeric: false }), "num", "big")}}`;
+    src += `function ${name}(w,value){var v,j,n,s,h,a,k,g,c;${encodeBody(msg, fns, (key) => ({ expr: readKey("value", key), numeric: false }), "num", "big")}}`;
   });
   const names = [...fns.values()].filter((name) => name !== fns.get(root));
   return new Function("num", "big", `${src}return {${names.join(",")}}`)(checkedNumber, checkedBigint);
@@ -1103,7 +1128,7 @@ const decodeFnSource = (msg: Message, fns: Map<Message, string>): string => {
     const field = fields[idx]!;
     const local = `f${idx}`;
     const key = JSON.stringify(field.key);
-    const read = field.key === "__proto__" ? `(Object.hasOwn(o,"__proto__")?o["__proto__"]:void 0)` : `o[${key}]`;
+    const read = readKey("o", field.key);
     locals.push(`${local}=${emitDefault(field)}`);
     fromPrev.push(`${local}=${read}`);
     let arm = `case ${field.number}:`;
@@ -1220,24 +1245,24 @@ const protobufDecoder = (input: Val): Val => {
     const fv = d !== U ? d[key] : U;
     return fv !== U
       ? { expr: fv.i, numeric: fv.s.type === numberTag && fv.s.format !== U }
-      : { expr: `${input.v()}[${JSON.stringify(key)}]`, numeric: false };
+      : { expr: readKey(input.v(), key), numeric: false };
   };
   const body = encodeBody(message, names, readRoot, B_embed(input, checkedNumber), B_embed(input, checkedBigint));
   const outVar = B_varWithoutAllocation(input.g);
   const output = B_next(input, outVar, input.e, input.e);
   output.v = _var;
-  output.cp = `let ${outVar};${guarded(input, output, input.e, `let w=${B_embedPure(input, scratchWriter)}.reset(),v,j,n,s,h,a,k,g,c;${body};${outVar}=w.finish()`)}`;
+  output.cp = `let ${outVar},w;${guarded(input, output, input.e, `w=${B_embedPure(input, scratchWriter)}.acquire();let v,j,n,s,h,a,k,g,c;${body};${outVar}=w.finish()`, "w&&(w.busy=false);")}`;
   output.io = true;
   return output;
 };
 
 // A wire or value failure surfaces as a Sury conversion error with the
 // operation's path, the way B_conversion reports a coder's throw.
-const guarded = (input: Val, output: Val, target: Internal, code: string): string => {
+const guarded = (input: Val, output: Val, target: Internal, code: string, release: string): string => {
   const unionContext = input.g.o & 4;
   const rethrow = unionContext ? `${B_embed(input, getOrRethrow)}(x);` : "";
   const failure = B_failWithArg(output, (e: unknown) => B_makeInvalidConversionDetails(input, target, e), "x");
-  return `try{${code}}catch(x){${rethrow}${failure}}`;
+  return `try{${code}}catch(x){${release}${rethrow}${failure}}`;
 };
 
 const protobufEncoder = (input: Val, target: Internal): Val => {
@@ -1250,7 +1275,7 @@ const protobufEncoder = (input: Val, target: Internal): Val => {
   const outVar = B_varWithoutAllocation(input.g);
   const output = B_next(input, outVar, message.raw, message.schema);
   output.v = _var;
-  output.cp = `let ${outVar};${guarded(input, output, target, `${outVar}=${decoder}(${B_embedPure(input, scratchReader)}.reset(${input.v()}),0)`)}`;
+  output.cp = `let ${outVar},r;${guarded(input, output, target, `r=${B_embedPure(input, scratchReader)}.acquire(${input.v()});${outVar}=${decoder}(r,0);r.busy=false`, "r&&(r.busy=false);")}`;
   return output;
 };
 

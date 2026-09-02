@@ -280,6 +280,58 @@ test("protobuf infers enum for a union of integer literals and keeps unknown val
   t.expect(decode(new Uint8Array([8, 7]))).toEqual({ kind: 7, list: [] });
 });
 
+test("protobuf reads nested fields named after Object.prototype members as own properties", (t) => {
+  const Inner = S.schema({
+    constructor: S.optional(S.boolean).with(S.protobufField, 1),
+    toString: S.optional(S.string).with(S.protobufField, 2),
+  });
+  const Message = S.schema({ inner: Inner.with(S.protobufField, 1), items: S.array(Inner).with(S.protobufField, 2) });
+  const encode = S.decoder(Message, S.protobuf);
+  const decode = S.decoder(S.protobuf, Message);
+  // `{}` inherits `constructor`, so TypeScript needs the literal widened.
+  type Inner = S.Output<typeof Inner>;
+  t.expect([...encode({ inner: {} as Inner, items: [{} as Inner] })]).toEqual([10, 0, 18, 0]);
+  t.expect(decode(new Uint8Array([10, 0]))).toEqual({ inner: {}, items: [] });
+  t.expect(decode(encode({ inner: { constructor: true } as Inner, items: [{ toString: "x" } as Inner] }))).toEqual({
+    inner: { constructor: true },
+    items: [{ toString: "x" }],
+  });
+});
+
+test("protobuf rejects 32-bit values outside their range instead of wrapping", (t) => {
+  const Message = S.schema({
+    u: S.integer.with(S.protobufField, { number: 1, type: "uint32" }),
+    i: S.integer.with(S.protobufField, { number: 2, type: "int32" }),
+    packed: S.array(S.integer).with(S.protobufField, { number: 3, type: "uint32" }),
+  });
+  const encode = S.decoder(Message, S.protobuf);
+  t.expect(() => encode({ u: -1, i: 0, packed: [] })).toThrow("invalid uint32");
+  t.expect(() => encode({ u: 4294967296, i: 0, packed: [] })).toThrow("invalid uint32");
+  t.expect(() => encode({ u: 0, i: 2147483648, packed: [] })).toThrow("invalid int32");
+  t.expect(() => encode({ u: 0, i: 0, packed: [-1] })).toThrow("invalid uint32");
+  t.expect([...encode({ u: 4294967295, i: -2147483648, packed: [0] })]).toEqual([
+    8, 255, 255, 255, 255, 15, 16, 128, 128, 128, 128, 248, 255, 255, 255, 255, 1, 26, 1, 0,
+  ]);
+});
+
+test("protobuf encode and decode survive re-entry from a field's own conversion", (t) => {
+  const Inner = S.schema({ n: S.int32.with(S.protobufField, 1) });
+  const innerBytes = S.decoder(Inner, S.protobuf);
+  const innerValue = S.decoder(S.protobuf, Inner);
+  // A bytes field whose JS value is an object encoded with another protobuf codec.
+  const Payload = S.uint8Array.with(S.to, S.schema({ n: S.int32 }), {
+    decode: (bytes) => innerValue(bytes),
+    encode: (value) => innerBytes(value),
+  });
+  const Outer = S.schema({ id: S.int32.with(S.protobufField, 1), payload: Payload.with(S.protobufField, { number: 2, type: "bytes" }) });
+  const encode = S.encoder(S.protobuf.with(S.to, Outer));
+  const decode = S.decoder(S.protobuf.with(S.to, Outer));
+  const bytes = encode({ id: 7, payload: { n: 9 } });
+  t.expect([...bytes]).toEqual([8, 7, 18, 2, 8, 9]);
+  t.expect(decode(bytes)).toEqual({ id: 7, payload: { n: 9 } });
+  t.expect(decode(encode({ id: 1, payload: { n: 2 } }))).toEqual({ id: 1, payload: { n: 2 } });
+});
+
 test("protobuf encode stays valid when a message outgrows the writer's slab", (t) => {
   const Message = S.schema({
     items: S.array(S.schema({ blob: S.uint8Array.with(S.protobufField, 1) })).with(S.protobufField, 1),

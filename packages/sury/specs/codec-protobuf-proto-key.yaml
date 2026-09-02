@@ -12,19 +12,19 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=(Object.hasOwn(i,"__proto__")?i["__proto__"]:void 0);typeof v0==="number"&&v0<=2147483647&&v0>=-2147483648&&v0%1===0||e[0](v0);let v1;try{let w=e[3].reset(),v,j,n,s,h,a,k,g,c;v=v0;if(v){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=v;s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v1=w.finish()}catch(x){e[4](x)}return v1}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=(Object.hasOwn(i,"__proto__")?i["__proto__"]:void 0);typeof v0==="number"&&v0<=2147483647&&v0>=-2147483648&&v0%1===0||e[0](v0);let v1,w;try{w=e[3].acquire();let v,j,n,s,h,a,k,g,c;v=v0;if(v){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=v;if(s<-2147483648||s>2147483647)e[1](s,-2147483648,2147483647,"int32");s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v1=w.finish()}catch(x){w&&(w.busy=false);e[4](x)}return v1}
     examples:
       proto-key:
         input: '{ ["__proto__"]: 1 }'
         output: new Uint8Array([8, 1])
   decode:
-    expression: i=>{let v0;try{let w=e[2].reset(),v,j,n,s,h,a,k,g,c;v=(Object.hasOwn(i,"__proto__")?i["__proto__"]:void 0);if(v){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=v;s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v0=w.finish()}catch(x){e[3](x)}return v0}
+    expression: i=>{let v0,w;try{w=e[2].acquire();let v,j,n,s,h,a,k,g,c;v=(Object.hasOwn(i,"__proto__")?i["__proto__"]:void 0);if(v){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=v;if(s<-2147483648||s>2147483647)e[0](s,-2147483648,2147483647,"int32");s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v0=w.finish()}catch(x){w&&(w.busy=false);e[3](x)}return v0}
     examples:
       proto-key:
         input: '{ ["__proto__"]: 1 }'
         output: new Uint8Array([8, 1])
   encode:
-    expression: i=>{let v0;try{v0=e[0](e[1].reset(i),0)}catch(x){e[2](x)}return v0}
+    expression: i=>{let v0,r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}return v0}
     examples:
       proto-key:
         input: new Uint8Array([8, 1])

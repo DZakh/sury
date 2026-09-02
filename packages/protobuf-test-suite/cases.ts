@@ -1311,6 +1311,15 @@ export const decodeOnlyCases: DecodeOnlyCase[] = [
   ...mapMergeCases,
   ...validDataOneof,
   ...oneofMergeCases,
+  // Decode-only: protobufjs assigns `__proto__` through the setter and
+  // loses the field, so it can't serve as the reference here.
+  {
+    id: "decode/proto-key-field-name",
+    fields: [field("__proto__", 1, "int32"), field("constructor", 2, "bool")],
+    wire: [0x08, 0x05, 0x10, 0x01],
+    value: { ["__proto__"]: 5, constructor: true },
+    reencoded: [0x08, 0x05, 0x10, 0x01],
+  },
   {
     id: "decode/unpacked-repeated-sint32",
     fields: [field("values", 1, "sint32", { repeated: true })],
@@ -1455,7 +1464,7 @@ export const suryMessage = (fields: FieldDef[], seen = new Map<FieldDef[], S.Sch
   if (cached) return cached;
   let schema: S.Schema<unknown, unknown> | undefined;
   const build = () => {
-    const properties: Record<string, S.Schema<unknown, unknown>> = {};
+    const properties: Record<string, S.Schema<unknown, unknown>> = Object.create(null);
     for (const def of fields) {
       let property: S.Schema<unknown, unknown> =
         def.type === "message"
