@@ -13,20 +13,17 @@ import {
   type Val,
 } from "../base";
 import {
-  B_asyncVal,
+  B_collectAsync,
   B_iterScope,
   B_markOutput,
   B_mergeWithPathPrepend,
   B_next,
   B_pathPrependCode,
   B_refine,
-  B_unsupportedDecode,
   B_varWithoutAllocation,
-  failInvalidType,
 } from "../builder";
 import { arrayDecoder, arrayFactory, definitionToSchema } from "../composites";
-import { parse, parseDynamic } from "../parse";
-import { instanceofCond } from "../primitives";
+import { iterableSource, parse, parseDynamic } from "../parse";
 
 // One entry, described as the `[key, value]` tuple that `Array.from` produces
 // and `new Map` consumes — the wire form, and the only place the key and value
@@ -63,38 +60,15 @@ const mapExpression = (schema: Internal): string => {
 
 const mapDecoder = (input: Val): Val => {
   const expected = input.e;
-  const inputTagFlag = tagFlags[input.s.type]!;
-  const isArraySource = !!(inputTagFlag & 128);
-  // Every source describes its entries the same way — through
-  // `additionalItems`, an array's item schema and a Map's entry alike.
-  const sourceEntry = entryOf(input.s);
-
-  let source: Val;
-  if ((inputTagFlag & 1)) {
-    // Narrowed to `Map<unknown, unknown>`, not to `expected`: the entries of a
-    // Map that only just passed `instanceof` are unvalidated, and claiming the
-    // expected schemas here would compile the loop below down to identity.
-    source = B_refine(input, unknownMap, [
-      {
-        c: instanceofCond(input, expected.class),
-        f: failInvalidType,
-      },
-    ]);
-  } else if (
-    // An array converts entry by entry, so its item has to BE an entry. Tested
-    // here rather than left to the loop: a source of plain numbers would
-    // otherwise compile, then read `undefined` out of every item at runtime.
-    (isArraySource && sourceEntry !== U && sourceEntry.type === arrayTag) ||
-    ((inputTagFlag & 8192) && input.s.class === expected.class)
-  ) {
-    // Refined even with no checks of its own, as arrayDecoder does: an
-    // input-side refine (a size bound, reversed) can only emit before the loop
-    // when the val it attaches to has a `prev` — the bare operation arg has
-    // none, and B_markOutput would defer the check past the rebuild.
-    source = B_refine(input);
-  } else {
-    return B_unsupportedDecode(input, input.s, expected);
-  }
+  const isArraySource = !!(tagFlags[input.s.type]! & 128);
+  // An array converts entry by entry, so its item has to BE an entry. Tested
+  // here rather than left to the loop: a source of plain numbers would
+  // otherwise compile, then read `undefined` out of every item at runtime.
+  const source = iterableSource(
+    input,
+    unknownMap,
+    isArraySource && entryOf(input.s)?.type === arrayTag,
+  );
 
   const entryVar = B_varWithoutAllocation(source.g);
   const sourceVar = source.v();
@@ -128,18 +102,14 @@ const mapDecoder = (input: Val): Val => {
   // constructor does the whole rebuild and the loop is left to validation.
   const fromSource = rebuild && !hasTransform && !isAsync;
 
-  let out: Val;
-  let outSchema: Internal | undefined;
-  if (rebuild) {
-    outSchema = mapFactory(keyOutput.s, valueOutput.s);
-    out = B_next(
-      source,
-      fromSource ? `new Map(${sourceVar})` : isAsync ? "[]" : "new Map",
-      isAsync ? arrayFactory(entryOf(outSchema)!) : outSchema,
-    );
-  } else {
-    out = B_refine(source, expected);
-  }
+  const outSchema = mapFactory(keyOutput.s, valueOutput.s);
+  const out = rebuild
+    ? B_next(
+        source,
+        fromSource ? `new Map(${sourceVar})` : isAsync ? "[]" : "new Map",
+        isAsync ? arrayFactory(entryOf(outSchema)!) : outSchema,
+      )
+    : B_refine(source, expected);
   const outVar = rebuild && !fromSource ? out.v() : "";
   // An async key hands its promise to `Promise.all` unwrapped, so the merge's
   // own wrap (which only ever reaches the val it merges — the value) never
@@ -173,24 +143,12 @@ const mapDecoder = (input: Val): Val => {
     out.cp = out.cp + `for(let ${entryVar} of ${sourceVar}){${body}}`;
   }
 
-  let output: Val;
-  if (isAsync) {
-    const resolvedVar = B_varWithoutAllocation(source.g);
-    output = B_asyncVal(
-      out,
-      `Promise.all(${out.i}).then(${resolvedVar}=>new Map(${resolvedVar}))`,
-    );
-    output.s = outSchema!;
-  } else {
-    output = out;
-  }
-
   // `source`, not `input`: an input-side refine or size bound belongs to the
   // Map that came in, and only a val with a `prev` puts it before the loop —
   // handed the bare operation arg, B_markOutput defers it past the rebuild and
   // bounds the result instead (arrayDecoder passes its refined val for the
   // same reason).
-  return B_markOutput(output, source);
+  return B_markOutput(isAsync ? B_collectAsync(out, "Map", outSchema) : out, source);
 };
 
 const mapEncoder: Encoder = (input: Val, target: Internal): Val => {

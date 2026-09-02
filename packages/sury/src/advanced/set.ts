@@ -13,19 +13,16 @@ import {
 } from "../base";
 import {
   _var,
-  B_asyncVal,
+  B_collectAsync,
   B_iterScope,
   B_markOutput,
   B_mergeWithPathPrepend,
   B_next,
   B_refine,
-  B_unsupportedDecode,
   B_varWithoutAllocation,
-  failInvalidType,
 } from "../builder";
 import { arrayFactory, definitionToSchema } from "../composites";
-import { parse, parseDynamic } from "../parse";
-import { instanceofCond } from "../primitives";
+import { iterableSource, parse, parseDynamic } from "../parse";
 
 // The item lives on `additionalItems`, where an array's does, so that
 // `reverse` reverses it without knowing this schema exists — the rendering,
@@ -42,40 +39,13 @@ const setExpression = (schema: Internal): string =>
 
 const setDecoder = (input: Val): Val => {
   const expected = input.e;
-  const item = itemOf(expected);
-  const inputTagFlag = tagFlags[input.s.type]!;
-  const isArraySource = !!(inputTagFlag & 128);
-
-  let source: Val;
-  if ((inputTagFlag & 1)) {
-    // Narrowed to `Set<unknown>`, not to `expected`: the items of a Set that
-    // only just passed `instanceof` are unvalidated, and claiming the expected
-    // item schema here would compile the loop below down to identity.
-    source = B_refine(input, unknownSet, [
-      {
-        c: instanceofCond(input, expected.class),
-        f: failInvalidType,
-      },
-    ]);
-  } else if (
-    isArraySource ||
-    ((inputTagFlag & 8192) && input.s.class === expected.class)
-  ) {
-    // Refined even with no checks of its own, as arrayDecoder does: an
-    // input-side refine (a size bound, reversed) can only emit before the loop
-    // when the val it attaches to has a `prev` — the bare operation arg has
-    // none, and B_markOutput would defer the check past the rebuild.
-    source = B_refine(input);
-  } else {
-    return B_unsupportedDecode(input, input.s, expected);
-  }
-
-  const sourceItem = itemOf(source.s);
+  const isArraySource = !!(tagFlags[input.s.type]! & 128);
+  const source = iterableSource(input, unknownSet, true);
 
   const sourceVar = source.v();
   const itemVar = B_varWithoutAllocation(source.g);
   const raiseCountBefore = source.g.t;
-  const itemInput = B_iterScope(source, itemVar, sourceItem, item);
+  const itemInput = B_iterScope(source, itemVar, itemOf(source.s), itemOf(expected));
   // The item expression is already a variable — the loop's — so reading it must
   // not copy it into a second one, as a dynamic member read would.
   itemInput.v = _var;
@@ -90,16 +60,14 @@ const setDecoder = (input: Val): Val => {
   // loop is left to whatever validation the items still need.
   const fromSource = rebuild && !hasTransform && !isAsync;
 
-  let out: Val;
-  if (rebuild) {
-    out = B_next(
-      source,
-      fromSource ? `new Set(${sourceVar})` : isAsync ? "[]" : "new Set",
-      isAsync ? arrayFactory(itemOutput.s) : setFactory(itemOutput.s),
-    );
-  } else {
-    out = B_refine(source, expected);
-  }
+  const outSchema = setFactory(itemOutput.s);
+  const out = rebuild
+    ? B_next(
+        source,
+        fromSource ? `new Set(${sourceVar})` : isAsync ? "[]" : "new Set",
+        isAsync ? arrayFactory(itemOutput.s) : outSchema,
+      )
+    : B_refine(source, expected);
   const outVar = rebuild && !fromSource ? out.v() : "";
   // Lazy: merging the item can rename the val it produces (materialization) and
   // can wrap an async one in a `.catch`, both after this is decided.
@@ -136,24 +104,12 @@ const setDecoder = (input: Val): Val => {
       }${body}}`;
   }
 
-  let output: Val;
-  if (isAsync) {
-    const resolvedVar = B_varWithoutAllocation(source.g);
-    output = B_asyncVal(
-      out,
-      `Promise.all(${out.i}).then(${resolvedVar}=>new Set(${resolvedVar}))`,
-    );
-    output.s = setFactory(itemOutput.s);
-  } else {
-    output = out;
-  }
-
   // `source`, not `input`: an input-side refine or size bound belongs to the
   // Set that came in, and only a val with a `prev` puts it before the loop —
   // handed the bare operation arg, B_markOutput defers it past the rebuild and
   // bounds the result instead (arrayDecoder passes its refined val for the same
   // reason).
-  return B_markOutput(output, source);
+  return B_markOutput(isAsync ? B_collectAsync(out, "Set", outSchema) : out, source);
 };
 
 const setEncoder: Encoder = (input: Val, target: Internal): Val => {

@@ -681,6 +681,20 @@ export const B_asyncVal = (from: Val, initial: string): Val => {
   return v;
 }
 
+// A collection whose entries arrive as promises: `from` holds them accumulated
+// in an array, and the constructor rebuilds the collection only once they have
+// all settled. `ctor` is the constructor's name, written literally — an embed
+// would cost `e[n]` at every use for what is a global.
+export const B_collectAsync = (from: Val, ctor: string, schema: Internal): Val => {
+  const resolvedVar = B_varWithoutAllocation(from.g);
+  const output = B_asyncVal(
+    from,
+    `Promise.all(${from.i}).then(${resolvedVar}=>new ${ctor}(${resolvedVar}))`,
+  );
+  output.s = schema;
+  return output;
+}
+
 // A val the rest of the pipeline continues from inside a `.then`. Async is
 // declared, not discovered: a sync operation that reaches one is rejected here,
 // where it is written, rather than returning a promise its caller never asked
