@@ -112,8 +112,8 @@ test("lintSpecsDir rejects a non-yaml file and a dotted/invalid id", () => {
   expect(errs).toEqual([
     `specs dir: unexpected file "notes.txt" (only *.yaml and spec.schema.json/bundleSize.yaml/scenarios.yaml/scenarios.schema.json allowed)`,
     `specs dir: invalid spec id "bad.dotted" (only letters, digits, and - allowed)`,
-    `specs dir: "url-codec" names a codec spec backwards — use codec-<from>-<to>, not a -codec suffix`,
-    `specs dir: "codec" names a codec spec backwards — use codec-<from>-<to>, not a -codec suffix`,
+    `specs dir: "url-codec" names a codec spec backwards — use codec-<from>-<to>, not <from>-codec`,
+    `specs dir: "codec" names a codec spec backwards — use codec-<from>-<to>, not <from>-codec`,
   ]);
 });
 

@@ -174,7 +174,7 @@ export const lintSpecsDir = (names: string[] = readdirSync(SPECS_DIR)): string[]
       errs.push(`specs dir: invalid spec id ${JSON.stringify(id)} (only letters, digits, and - allowed)`);
     else if (id === "codec" || /^[a-z0-9]+-codec$/.test(id))
       errs.push(
-        `specs dir: ${JSON.stringify(id)} names a codec spec backwards — use codec-<from>-<to>, not a -codec suffix`,
+        `specs dir: ${JSON.stringify(id)} names a codec spec backwards — use codec-<from>-<to>, not <from>-codec`,
       );
   }
   return errs;
@@ -667,7 +667,10 @@ export const lintComments = (comments: SpecComments, out: string[]): void => {
 };
 
 const YAML_CONTROL = /[\u0000-\u0008\u0009\u000b\u000c\u000e-\u001f\u007f-\u009f]/;
-const YAML_RAW_CONTROL = /[\u007f-\u009f]/g;
+// JSON.stringify (which yaml uses for double-quoted scalars) leaves DEL and
+// the C1 block raw, and those bytes are what PyYAML and yamllint reject.
+const escapeC1 = (text: string): string =>
+  text.replace(/[\u007f-\u009f]/g, (ch) => `\\u${ch.charCodeAt(0).toString(16).padStart(4, "0")}`);
 
 export const serialize = (obj: Spec, comments: SpecComments = NO_COMMENTS): string => {
   const doc = new Document(canonicalize(obj));
@@ -678,18 +681,9 @@ export const serialize = (obj: Spec, comments: SpecComments = NO_COMMENTS): stri
         node.type = Scalar.QUOTE_DOUBLE;
     },
   });
-  // JSON.stringify (which yaml uses for double-quoted scalars) leaves DEL and
-  // the C1 block raw. Those bytes are what PyYAML and yamllint reject, so
-  // rewrite them as `\u00xx` after stringify — yaml already forced
-  // QUOTE_DOUBLE for that set, so the replacement stays inside quotes.
-  return (
-    HEADER +
-    "\n" +
-    doc.toString({ lineWidth: 0 }).replace(YAML_RAW_CONTROL, (ch) => {
-      const hex = ch.charCodeAt(0).toString(16).padStart(4, "0");
-      return `\\u${hex}`;
-    })
-  );
+  // The visit above forced QUOTE_DOUBLE for every scalar holding one of those
+  // bytes, so the escape lands inside quotes.
+  return HEADER + "\n" + escapeC1(doc.toString({ lineWidth: 0 }));
 };
 
 // ---- golden recomputation --------------------------------------------------
@@ -723,11 +717,7 @@ const valueToCode = (v: unknown, seen: WeakSet<object> = new WeakSet()): string 
   if (typeof v === "bigint") return `${v}n`;
   if (typeof v === "number") return Object.is(v, -0) ? "-0" : String(v);
   if (v === null || typeof v === "boolean") return JSON.stringify(v);
-  if (typeof v === "string")
-    return JSON.stringify(v).replace(/[\u007f-\u009f]/g, (ch) => {
-      const hex = ch.charCodeAt(0).toString(16).padStart(4, "0");
-      return `\\u${hex}`;
-    });
+  if (typeof v === "string") return escapeC1(JSON.stringify(v));
   if (typeof v === "symbol") {
     const key = Symbol.keyFor(v);
     if (key === undefined)
@@ -741,7 +731,10 @@ const valueToCode = (v: unknown, seen: WeakSet<object> = new WeakSet()): string 
       if (v instanceof Date) return `new Date(${JSON.stringify(v.toISOString())})`;
       if (v instanceof URL) return `new URL(${JSON.stringify(v.href)})`;
       if (v instanceof RegExp) return v.toString();
-      if (v instanceof Uint8Array) return `new Uint8Array([${[...v].join(", ")}])`;
+      // A subclass (Node's Buffer) would read back as a plain Uint8Array, so it
+      // stays unrepresentable rather than silently narrowed.
+      if (Object.getPrototypeOf(v) === Uint8Array.prototype)
+        return `new Uint8Array([${[...(v as Uint8Array)].join(", ")}])`;
       if (v instanceof Map) return `new Map(${valueToCode([...v], seen)})`;
       if (v instanceof Set) return `new Set(${valueToCode([...v], seen)})`;
       if (Array.isArray(v)) return `[${v.map((x) => valueToCode(x, seen)).join(", ")}]`;
