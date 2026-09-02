@@ -343,7 +343,33 @@ class Reader {
       shift += 7;
     } while (byte > 127);
     this.pos = pos;
-    return hi === 0 ? BigInt(lo >>> 0) : (BigInt(hi >>> 0) << 32n) | BigInt(lo >>> 0);
+    return hi >>> 21 === 0 ? BigInt(hi * 4294967296 + (lo >>> 0)) : (BigInt(hi >>> 0) << 32n) | BigInt(lo >>> 0);
+  }
+  // Signed reading of the same varint: a value within 2^53 either way is
+  // built from one BigInt of a float instead of a shift and an or.
+  int64(): bigint {
+    const buf = this.buf;
+    const limit = this.limit;
+    let pos = this.pos;
+    let lo = 0;
+    let hi = 0;
+    let shift = 0;
+    let byte: number;
+    do {
+      if (pos >= limit) truncated();
+      if (shift > 63) throw Error("varint exceeds 10 bytes");
+      byte = buf[pos++]!;
+      if (shift < 28) lo |= (byte & 127) << shift;
+      else if (shift === 28) {
+        lo |= (byte & 15) << 28;
+        hi = (byte & 127) >>> 4;
+      } else hi |= (byte & 127) << (shift - 32);
+      shift += 7;
+    } while (byte > 127);
+    this.pos = pos;
+    if (hi >>> 21 === 0) return BigInt(hi * 4294967296 + (lo >>> 0));
+    if (hi >>> 21 === 2047) return BigInt(hi * 4294967296 + (lo >>> 0));
+    return BigInt.asIntN(64, (BigInt(hi >>> 0) << 32n) | BigInt(lo >>> 0));
   }
   bool(): boolean {
     const buf = this.buf;
@@ -405,6 +431,78 @@ class Reader {
     this.load64();
     return scratchView.getBigInt64(0, true);
   }
+  // A packed varint field read in one method per kind: the loop keeps `pos`
+  // in a local where generated code would pay a property read and write on
+  // the reader per element, and each kind owns its `push` site so the
+  // arrays it fills stay monomorphic. A multi-byte element takes the
+  // ordinary reader path.
+  u32s(out: number[]): void {
+    const buf = this.buf;
+    const limit = this.limit;
+    let pos = this.pos;
+    while (pos < limit) {
+      const byte = buf[pos]!;
+      if (byte < 128) {
+        pos++;
+        out.push(byte);
+      } else {
+        this.pos = pos;
+        out.push(this.varint32());
+        pos = this.pos;
+      }
+    }
+    this.pos = pos;
+  }
+  i32s(out: number[]): void {
+    const buf = this.buf;
+    const limit = this.limit;
+    let pos = this.pos;
+    while (pos < limit) {
+      const byte = buf[pos]!;
+      if (byte < 128) {
+        pos++;
+        out.push(byte);
+      } else {
+        this.pos = pos;
+        out.push(this.varint32() | 0);
+        pos = this.pos;
+      }
+    }
+    this.pos = pos;
+  }
+  s32s(out: number[]): void {
+    const buf = this.buf;
+    const limit = this.limit;
+    let pos = this.pos;
+    while (pos < limit) {
+      let value = buf[pos]!;
+      if (value < 128) pos++;
+      else {
+        this.pos = pos;
+        value = this.varint32();
+        pos = this.pos;
+      }
+      out.push(((value >>> 1) ^ -(value & 1)) | 0);
+    }
+    this.pos = pos;
+  }
+  bools(out: boolean[]): void {
+    const buf = this.buf;
+    const limit = this.limit;
+    let pos = this.pos;
+    while (pos < limit) {
+      const byte = buf[pos]!;
+      if (byte < 128) {
+        pos++;
+        out.push(byte !== 0);
+      } else {
+        this.pos = pos;
+        out.push(this.bool());
+        pos = this.pos;
+      }
+    }
+    this.pos = pos;
+  }
   // Enters a length-delimited field: narrows `limit` to it and returns the
   // outer limit for the caller to restore. Bounds checks against `limit`
   // are what stop a nested read escaping its field.
@@ -447,14 +545,22 @@ class Reader {
 
 const scratchReader = /* @__PURE__ */ new Reader(/* @__PURE__ */ new Uint8Array(0));
 
+// Messages are written back to back into one slab and handed out as views
+// of it, the way Node's Buffer pool works: a typed array over 64 bytes is
+// allocated off-heap, and that allocation cost more than encoding the
+// message it held. `base` is where the message being written starts.
 class Writer {
-  buf = new Uint8Array(64);
+  buf = new Uint8Array(8192);
   pos = 0;
+  base = 0;
   ensure(n: number): void {
     if (this.pos + n <= this.buf.length) return;
-    const next = new Uint8Array(Math.max(this.buf.length * 2, this.pos + n));
-    next.set(this.buf);
+    const len = this.pos - this.base;
+    const next = new Uint8Array(Math.max(8192, (len + n) * 2));
+    next.set(this.buf.subarray(this.base, this.pos));
     this.buf = next;
+    this.base = 0;
+    this.pos = len;
   }
   varint32(value: number): void {
     this.ensure(5);
@@ -489,9 +595,20 @@ class Writer {
   }
   varint64(value: bigint): void {
     if (value >= 0n && value < 2147483648n) return this.varint32(Number(value));
-    value = BigInt.asUintN(64, value);
-    let lo = Number(value & 4294967295n);
-    let hi = Number(value >> 32n);
+    let lo: number;
+    let hi: number;
+    // Within 2^53 the halves come from float arithmetic; `>>> 0` on the
+    // negative high word is the two's complement the wire wants.
+    if (value >= -9007199254740992n && value <= 9007199254740992n) {
+      const num = Number(value);
+      hi = Math.floor(num / 4294967296);
+      lo = num - hi * 4294967296;
+      hi >>>= 0;
+    } else {
+      value = BigInt.asUintN(64, value);
+      lo = Number(value & 4294967295n);
+      hi = Number(value >> 32n);
+    }
     this.ensure(10);
     const buf = this.buf;
     let pos = this.pos;
@@ -505,6 +622,38 @@ class Writer {
       lo >>>= 7;
     }
     buf[pos++] = lo;
+    this.pos = pos;
+  }
+  // The packed-loop twin of Reader.varints, with the buffer sized once for
+  // the whole field. `kind` is 0 uint32, 1 int32/enum, 2 sint32, 3 bool.
+  varints(values: ArrayLike<number | boolean>, kind: number): void {
+    const n = values.length;
+    this.ensure(n * 10);
+    const buf = this.buf;
+    let pos = this.pos;
+    for (let i = 0; i < n; i++) {
+      let value = values[i] as number;
+      if (kind === 3) value = value ? 1 : 0;
+      else if (kind === 2) value = ((value << 1) ^ (value >> 31)) >>> 0;
+      else if (kind === 1 && value < 0) {
+        buf[pos++] = (value & 127) | 128;
+        buf[pos++] = ((value >>> 7) & 127) | 128;
+        buf[pos++] = ((value >>> 14) & 127) | 128;
+        buf[pos++] = ((value >>> 21) & 127) | 128;
+        buf[pos++] = (value >>> 28) | 240;
+        buf[pos++] = 255;
+        buf[pos++] = 255;
+        buf[pos++] = 255;
+        buf[pos++] = 255;
+        buf[pos++] = 1;
+        continue;
+      } else value >>>= 0;
+      while (value > 127) {
+        buf[pos++] = (value & 127) | 128;
+        value >>>= 7;
+      }
+      buf[pos++] = value;
+    }
     this.pos = pos;
   }
   bytes(value: Uint8Array): void {
@@ -590,7 +739,9 @@ class Writer {
     this.pos = pos + 8;
   }
   finish(): Uint8Array {
-    return this.buf.slice(0, this.pos);
+    const out = this.buf.subarray(this.base, this.pos);
+    this.base = this.pos;
+    return out;
   }
   // Opens a length-delimited field with a 5-byte hole for the prefix;
   // `end` writes the real prefix and slides the payload back over the slack.
@@ -614,7 +765,11 @@ class Writer {
     this.pos += len;
   }
   reset(): Writer {
-    this.pos = 0;
+    if (this.buf.length - this.base < 1024) {
+      this.buf = new Uint8Array(8192);
+      this.base = 0;
+    }
+    this.pos = this.base;
     return this;
   }
 }
@@ -682,17 +837,21 @@ const writeCall = (type: ProtobufType, v: string, num: string, big: string): str
   return `w.bytes(${v})`;
 };
 
-// A one-byte varint is read inline. Not in a packed loop: there the
-// property traffic on `r` costs more than the call it saves.
-const readCall = (type: ProtobufType, packed = false): string => {
-  const varint32 = packed
-    ? "r.varint32()"
-    : "(r.pos<r.limit&&(t=r.buf[r.pos])<128?(r.pos++,t):r.varint32())";
+const varintKind = (type: ProtobufType): number | undefined =>
+  type === "uint32" ? 0
+  : type === "int32" || type === "enum" ? 1
+  : type === "sint32" ? 2
+  : type === "bool" ? 3
+  : U;
+
+// A one-byte varint is read inline.
+const readCall = (type: ProtobufType): string => {
+  const varint32 = "(r.pos<r.limit&&(t=r.buf[r.pos])<128?(r.pos++,t):r.varint32())";
   if (type === "bool") return "r.bool()";
   if (type === "uint32") return varint32;
   if (type === "int32" || type === "enum") return `${varint32}|0`;
   if (type === "sint32") return `((t=${varint32})>>>1^-(t&1))|0`;
-  if (type === "int64") return "BigInt.asIntN(64,r.varint64())";
+  if (type === "int64") return "r.int64()";
   if (type === "uint64") return "r.varint64()";
   if (type === "sint64") return "(t=r.varint64(),(t>>1n)^-(t&1n))";
   if (type === "double") return "r.f64()";
@@ -759,7 +918,8 @@ const encodeBody = (
     } else if (field.repeated) {
       let loop: string;
       if (packable[field.type] && field.packed) {
-        loop = `${writeTag(field.number * 8 + 2)};h=w.begin();j=0;while(j<n){${writeCall(field.type, "v[j++]", num, big)}}w.end(h)`;
+        const kind = varintKind(field.type);
+        loop = `${writeTag(field.number * 8 + 2)};h=w.begin();${kind === U ? `j=0;while(j<n){${writeCall(field.type, "v[j++]", num, big)}}` : `w.varints(v,${kind});`}w.end(h)`;
       } else if (field.type === "message") {
         loop = `j=0;while(j<n){${writeTag(tag)};h=w.begin();${fns.get(field.message!)!}(w,v[j++]);w.end(h)}`;
       } else {
@@ -846,7 +1006,11 @@ const decodeFnSource = (msg: Message, fns: Map<Message, string>): string => {
         ? `if(w===2){p=r.sub();${local}.push(${nested}(r,d+1));r.limit=p;continue}break;`
         : `if(w===2){p=r.sub();${local}=${nested}(r,d+1,${local});r.limit=p;continue}break;`;
     } else if (field.repeated && packable[field.type]) {
-      arm += `if(w===2){p=r.sub();while(r.pos<r.limit)${local}.push(${readCall(field.type, true)});r.limit=p;continue}if(w===${field.wire}){${local}.push(${readCall(field.type)});continue}break;`;
+      const kind = varintKind(field.type);
+      const packedLoop = kind === U
+        ? `while(r.pos<r.limit)${local}.push(${readCall(field.type)})`
+        : `r.${["u32s", "i32s", "s32s", "bools"][kind]}(${local})`;
+      arm += `if(w===2){p=r.sub();${packedLoop};r.limit=p;continue}if(w===${field.wire}){${local}.push(${readCall(field.type)});continue}break;`;
     } else if (field.repeated) {
       arm += `if(w===${field.wire}){${local}.push(${readCall(field.type)});continue}break;`;
     } else {
