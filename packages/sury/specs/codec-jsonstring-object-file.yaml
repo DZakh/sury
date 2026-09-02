@@ -6,7 +6,9 @@ ts:
   instantiations: 6276
 jsonSchema:
   input: '{ type: "string", contentMediaType: "application/json" }'
-  output: 'Failed at ["avatar"]: Expected JSON, received File'
+  output: "Failed at avatar: Expected JSON, received File"
+  openapi-3.0:
+    input: '{ type: "string" }'
 vs:
   zod:
     _skip: not-applicable
@@ -19,13 +21,13 @@ operations:
         error: Expected JSON string, received "nope"
       not-base64:
         input: '"{\"avatar\":\"!!\"}"'
-        error: 'Failed at ["avatar"]: Expected base64, received "!!"'
+        error: 'Failed at avatar: Expected base64, received "!!"'
   decode:
     expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[6](v0);let v1=v0["avatar"];typeof v1==="string"||e[5](v1);e[3](v1)||e[4](v1);return {avatar:new e[2]([e[1](v1)],"")}}
     examples:
       not-base64:
         input: '"{\"avatar\":\"!!\"}"'
-        error: 'Failed at ["avatar"]: Expected base64, received "!!"'
+        error: 'Failed at avatar: Expected base64, received "!!"'
   encode:
     isAsync: true
     expression: i=>{let v0=i["avatar"];let v1;try{v1=v0.arrayBuffer().then(e[0]).catch(e[1])}catch(x){e[1](x)}let v3=Promise.all([v1]).then(([v1])=>{return {avatar:v1}});return v3.then(v2=>JSON.stringify(v2))}

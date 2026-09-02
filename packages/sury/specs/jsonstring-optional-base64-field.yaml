@@ -7,6 +7,11 @@ ts:
 jsonSchema:
   input: '{ type: "string", contentMediaType: "application/json" }'
   output: '{ type: "object", properties: { p: { type: "string", contentEncoding: "base64", minLength: 2 } } }'
+  draft-2020-12:
+    input: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "object", properties: { p: { type: "string", contentEncoding: "base64", minLength: 2 } } }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ type: "string" }'
+    output: '{ type: "object", properties: { p: { type: "string", format: "byte", minLength: 2 } } }'
 vs:
   zod:
     _skip: not-applicable
@@ -22,10 +27,10 @@ operations:
         output: "{ p: undefined }"
       not-base64:
         input: '"{\"p\":\"!!\"}"'
-        error: 'Failed at ["p"]: Expected base64.length >= 2, received "!!"'
+        error: 'Failed at p: Expected base64.length >= 2, received "!!"'
       too-short:
         input: '"{\"p\":\"\"}"'
-        error: 'Failed at ["p"]: Expected base64.length >= 2, received ""'
+        error: 'Failed at p: Expected base64.length >= 2, received ""'
   decode:
     expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[5](v0);let v1=(v0["p"]??null);for(;;){if(typeof v1==="string"){e[1](v1)||e[2](v1);v1.length>1||e[3](v1);break}if(v1===null){v1=void 0;break}e[4](v1)}return {p:v1}}
     examples:

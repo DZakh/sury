@@ -5,7 +5,7 @@ ts:
   output: unknown
   instantiations: 254
 jsonSchema:
-  # FIXME: should be {} (any value), same as S.toJSONSchema(S.json) — see any.yaml.
+  # FIXME: should be {} (any value), same as S.inputJSONSchema(S.json) — see any.yaml.
   input: Expected JSON, received unknown
   output: Expected JSON, received unknown
 vs:

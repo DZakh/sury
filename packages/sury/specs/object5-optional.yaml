@@ -7,8 +7,8 @@ ts:
   output: "{ a: string; c: boolean; e: symbol; b?: number | undefined; d?: bigint | undefined; }"
   instantiations: 3676
 jsonSchema:
-  input: 'Failed at ["d"]: Expected JSON, received bigint | undefined'
-  output: 'Failed at ["d"]: Expected JSON, received bigint | undefined'
+  input: "Failed at d: Expected JSON, received bigint | undefined"
+  output: "Failed at d: Expected JSON, received bigint | undefined"
 vs:
   zod: "z.object({ a: z.string(), b: z.number().optional(), c: z.boolean(), d: z.bigint().optional(), e: z.symbol() })"
 operations:
@@ -29,6 +29,6 @@ operations:
         output: '{ a: "x", b: undefined, c: true, d: undefined, e: Symbol.for("e") }'
       invalid-required:
         input: '{ a: 1, c: true, e: Symbol.for("e") }'
-        error: 'Failed at ["a"]: Expected string, received 1'
+        error: "Failed at a: Expected string, received 1"
   decode: identity
   encode: identity

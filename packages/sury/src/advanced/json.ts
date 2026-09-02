@@ -277,8 +277,8 @@ export const jsonDecoderFn = (input: Val): Val => {
     // JSON.stringify accepts (or silently drops) anything, so it still needs
     // the JSON validation here.
     // FIXME: should this also check !input.e.refiner, like `carriedJsonString`'s caller does?
-    // The `undefined` sentinel `S.assert` targets is `noValidation` and reads
-    // nothing, so encoding into it asserts nothing either — `S.is(x, S.json)`
+    // The `undefined` sentinel `S.assertInput` targets is `noValidation` and reads
+    // nothing, so encoding into it asserts nothing either — `S.inputValidator(S.json)(x)`
     // answered true for a function. A `noValidation` document is a different
     // thing: it still holds the value, and the encode is how it is described.
     const preEncode: boolean =
@@ -865,7 +865,7 @@ export const jsonString = /* @__PURE__ */ (() => {
     stringVal.s = expectedSchema;
     stringVal.e = expectedSchema;
 
-    // `S.assert`'s `undefined` result sentinel alongside `unknown`: neither
+    // `S.assertInput`'s `undefined` result sentinel alongside `unknown`: neither
     // reads the text, so neither can stand in for the parse below.
     if (
       to !== U &&

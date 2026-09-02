@@ -5,8 +5,10 @@ ts:
   output: string
   instantiations: 9620
 jsonSchema:
-  input: 'Failed at ["x"]["1"]: Expected JSON, received string | undefined'
+  input: "Failed at x[1]: Expected JSON, received string | undefined"
   output: '{ type: "string", contentMediaType: "application/json" }'
+  openapi-3.0:
+    output: '{ type: "string" }'
 vs:
   zod:
     _skip: not-applicable

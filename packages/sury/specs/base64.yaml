@@ -7,6 +7,9 @@ ts:
 jsonSchema:
   input: '{ type: "string", contentEncoding: "base64" }'
   output: '{ type: "string", contentEncoding: "base64" }'
+  openapi-3.0:
+    input: '{ type: "string", format: "byte" }'
+    output: '{ type: "string", format: "byte" }'
 vs:
   zod:
     _skip: not-applicable

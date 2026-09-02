@@ -104,7 +104,7 @@ payload with `.to`, a carrier feeding it unpacks:
 ```ts
 S.file.with(S.to, S.jsonString.with(S.to, configSchema));   // read + parse
 
-S.base64.with(S.to, S.jsonString.with(S.to, claimsSchema)); // a JWT segment
+S.base64url.with(S.to, S.jsonString.with(S.to, claimsSchema)); // a JWT segment
 ```
 
 The check is on the schema shape (a `content` marker plus `.to` present), so it
@@ -326,7 +326,7 @@ ASCII-only fixtures are what hid the corruption above.
 | spec | what it pins |
 | --- | --- |
 | `base64`, `base64url`, `uint8array` | the carriers themselves, and each alphabet's JSON Schema emit |
-| `codec-uint8array-base64`, `codec-uint8array-base64url` | the bytes payload transfer, both alphabets |
+| `codec-uint8array-base64`, `codec-uint8array-base64url`, `codec-base64-uint8array` | the bytes payload transfer, both alphabets and both ways round |
 | `codec-base64-base64url` | recode between alphabets |
 | `codec-base64-trim-base64url` | recode after `S.trim`, which copies `content` but not `bc` |
 | `codec-uint8array-jsonstring-pack` | `S.to(from, to, "pack")` as the opposite pair |
@@ -336,7 +336,7 @@ ASCII-only fixtures are what hid the corruption above.
 | `codec-uint8array-jsonstring-ambiguous`, `codec-file-jsonstring-ambiguous`, `codec-base64-jsonstring-ambiguous` | rule 4, one per carrier kind |
 | `codec-uint8array-json-unsupported`, `codec-uint8array-optional-jsonstring-unsupported`, `codec-file-optional-email-unsupported` | where the axis stops — `S.json`, a union carrying a payload, and any union at all opposite a container whose read is asynchronous |
 | `codec-file-blob` | the one instance widening the axis makes legal, and the direction that stays an error |
-| `codec-base64-jsonstring-payload` | rule 3, the JWT segment |
+| `codec-base64-jsonstring-payload`, `codec-base64url-jsonstring-payload` | rule 3, both alphabets — the base64url one is the JWT segment |
 | `codec-jsonstring-object-uint8array`, `codec-jsonstring-object-file` | rule 2, both directions |
 | `codec-jsonstring-object-optional-uint8array`, `jsonstring-optional-base64-field` | rule 2 through a union arm — the one that needs a hop to the stored form, and the one that already is it |
 | `codec-jsonstring-object-optional-file`, `codec-jsonstring-dict-file` | the two things an async encode broke: an object's optional fields, and a dict with no keys |
@@ -349,17 +349,22 @@ ASCII-only fixtures are what hid the corruption above.
 | `string-to-blob` | the conversion that used to be two creation errors |
 | `codec-base64-trim-jsonstring-ambiguous` | the marker surviving a `S.trim` link, so the pair still reports rather than guesses |
 | `jsonstring-novalidation-date`, `jsonstring-novalidation-format` | a `noValidation` field decoded back out of its document, and `jsonstring-novalidation` for the JSON target that still travels as text |
+| `codec-uint8array-string`, `codec-uint8array-string-novalidation`, `codec-string-novalidation-uint8array`, `codec-email-uint8array` | the UTF-8 hop both ways — lossy for bytes that aren't text, and checked by the string target the bytes spell, unless `noValidation` says not to |
+| `codec-uint8array-jsonstring-payload` | rule 3 into a payload the caller reads as bytes |
+| `codec-uint8array-jsonstring-unpack` | the `"unpack"`/`"pack"` spelling whose encode side lands on bytes |
+| `codec-json-object-uint8array` | rule 2 in a JSON value, where the reading is the same as in JSON text |
+| `codec-jsonstring-object-text-uint8array`, `codec-jsonstring-object-optional-text-uint8array` | rule 2 through a field storing the same payload as the source — text stays text, with or without the union arm `S.optional` adds |
+| `codec-uint8array-optional-base64`, `codec-uint8array-optional-string` | a payload arm keeping its marker through the union narrow, and an arm with no payload still taking the text |
+| `codec-base64-trim-uint8array` | the marker surviving a `S.trim` link into bytes |
 
 `tests/content_test.ts` holds the rest, and only because the spec format can't:
-a golden can't hold a `Uint8Array`, `Blob` or `File`, and every compiled
-operation must run an example — so a conversion that only ever produces one has
-no spec to live in. That covers the UTF-8 hop both ways, `S.file` to and from
-bytes and text, rule 3 into a payload the caller reads as bytes, the
-`"unpack"`/`"pack"` spelling whose encode side lands on bytes, rule 2 through a
-union arm storing the same payload as the source, and every round trip whose far
-end is a carrier. It also holds every reading the API rejects
-outright — a pair that agrees on the payload, a side that carries none,
-`S.json`, and two readings naming the same direction — since those panic while
-the schema is being built and `ts.schema` never evaluates. CONTRIBUTING.md's
-Spec Harness Suggestions is where the fix belongs; when it lands, those rows
-move back.
+a golden can't hold a `Blob` or `File`, and every compiled operation must run
+an example — so a conversion that only ever produces one has no spec to live
+in. That covers `S.file` to and from bytes and text, rule 2 with a `File` in
+the value position, rule 3 into a payload read out of a file, and the
+`"unpack"`/`"pack"` spelling whose decode side lands in one. It also holds
+every reading the API rejects outright — a pair that agrees on the payload, a
+side that carries none, `S.json`, and two readings naming the same direction —
+since those panic while the schema is being built and `ts.schema` never
+evaluates. CONTRIBUTING.md's Spec Harness Suggestions is where the fix belongs;
+when it lands, those rows move back.

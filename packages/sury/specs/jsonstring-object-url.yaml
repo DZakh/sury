@@ -5,8 +5,10 @@ ts:
   output: string
   instantiations: 6004
 jsonSchema:
-  input: 'Failed at ["href"]: Expected JSON, received URL'
+  input: "Failed at href: Expected JSON, received URL"
   output: '{ type: "string", contentMediaType: "application/json" }'
+  openapi-3.0:
+    output: '{ type: "string" }'
 vs:
   zod:
     _skip: not-applicable

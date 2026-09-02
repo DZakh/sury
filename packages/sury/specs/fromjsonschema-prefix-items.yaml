@@ -15,7 +15,7 @@ vs:
     output: "[(string | undefined)?, (number | undefined)?]"
 operations:
   parse:
-    expression: i=>{Array.isArray(i)||e[2](i);e[1](i)||e[3](i);for(let v0=0;v0<i.length;++v0){try{e[0](i[v0]);}catch(v1){v1.path='["'+v0+'"]'+v1.path;throw v1}}return i}
+    expression: i=>{Array.isArray(i)||e[2](i);e[1](i)||e[3](i);for(let v0=0;v0<i.length;++v0){try{e[0](i[v0]);}catch(v1){v1.path=[v0,...v1.path];throw v1}}return i}
     examples:
       empty:
         input: "[]"

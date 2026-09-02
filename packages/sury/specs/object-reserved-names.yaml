@@ -20,10 +20,10 @@ operations:
         output: '{ constructor: "hi", hasOwnProperty: 5 }'
       wrong-type:
         input: "{ constructor: 1, hasOwnProperty: 5 }"
-        error: 'Failed at ["constructor"]: Expected string, received 1'
+        error: "Failed at constructor: Expected string, received 1"
       missing-fields:
         input: "{}"
-        error: 'Failed at ["constructor"]: Expected string, received undefined'
+        error: "Failed at constructor: Expected string, received undefined"
       not-an-object:
         input: '"nope"'
         error: 'Expected { constructor: string; hasOwnProperty: number; }, received "nope"'
@@ -32,6 +32,6 @@ operations:
         error: "Expected { constructor: string; hasOwnProperty: number; }, received []"
       class-instance-input:
         input: new Date("1970-01-01T00:00:00.000Z")
-        error: 'Failed at ["constructor"]: Expected string, received undefined'
+        error: "Failed at constructor: Expected string, received undefined"
   decode: identity
   encode: identity

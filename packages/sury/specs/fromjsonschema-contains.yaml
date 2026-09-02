@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.fromJSONSchema({ contains: { const: 1 } })"
+  input: JSON
+  output: JSON
+  instantiations: 593
+jsonSchema:
+  input: "{ contains: { const: 1 } }"
+  output: "{ contains: { const: 1 } }"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{e[0](i);e[1](i)||e[2](i);return i}
+    examples:
+      contains-one:
+        input: "[0, 1, 2]"
+        output: "[0, 1, 2]"
+      missing:
+        input: "[0, 2]"
+        error: Should satisfy the contains keyword.
+      empty-array:
+        input: "[]"
+        error: Should satisfy the contains keyword.
+      ignores-object:
+        input: "{}"
+        output: "{}"
+  decode:
+    expression: i=>{e[0](i)||e[1](i);return i}
+    examples:
+      contains-one:
+        input: "[0, 1, 2]"
+        output: "[0, 1, 2]"
+  encode:
+    expression: i=>{e[0](i)||e[1](i);return i}
+    examples:
+      contains-one:
+        input: "[0, 1, 2]"
+        output: "[0, 1, 2]"

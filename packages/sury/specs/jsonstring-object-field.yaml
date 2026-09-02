@@ -7,6 +7,11 @@ ts:
 jsonSchema:
   input: '{ type: "object", properties: { meta: { type: "string", contentMediaType: "application/json" }, name: { type: "string" } }, required: ["meta", "name"] }'
   output: '{ type: "string", contentMediaType: "application/json" }'
+  draft-2020-12:
+    output: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "object", properties: { meta: { type: "string", contentMediaType: "application/json" }, name: { type: "string" } }, required: ["meta", "name"] }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ type: "object", properties: { meta: { type: "string" }, name: { type: "string" } }, required: ["meta", "name"] }'
+    output: '{ type: "string" }'
 vs:
   zod:
     _skip: not-applicable
@@ -19,10 +24,10 @@ operations:
         output: '"{\"meta\":\"{\\\"x\\\":1}\",\"name\":\"a\"}"'
       invalid-json-field:
         input: '{ meta: "not json", name: "a" }'
-        error: 'Failed at ["meta"]: Expected JSON string, received "not json"'
+        error: 'Failed at meta: Expected JSON string, received "not json"'
       non-string-field:
         input: '{ meta: 1, name: "a" }'
-        error: 'Failed at ["meta"]: Expected JSON string, received 1'
+        error: "Failed at meta: Expected JSON string, received 1"
   decode:
     expression: i=>{return "{\"meta\":"+e[0](i["meta"])+",\"name\":"+e[0](i["name"])+"}"}
     examples:
@@ -37,4 +42,4 @@ operations:
         output: '{ meta: "{\"x\":1}", name: "a" }'
       raw-object-at-json-string-position:
         input: '"{\"meta\":{\"x\":1},\"name\":\"a\"}"'
-        error: 'Failed at ["meta"]: Expected JSON string, received { x: 1; }'
+        error: "Failed at meta: Expected JSON string, received { x: 1; }"

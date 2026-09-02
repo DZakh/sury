@@ -7,6 +7,8 @@ ts:
 jsonSchema:
   input: '{ type: "string", contentMediaType: "application/json" }'
   output: Expected JSON, received File
+  openapi-3.0:
+    input: '{ type: "string", format: "binary" }'
 vs:
   zod:
     _skip: not-applicable

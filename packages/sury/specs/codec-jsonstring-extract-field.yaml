@@ -7,6 +7,12 @@ ts:
 jsonSchema:
   input: '{ type: "string", contentMediaType: "application/json" }'
   output: '{ type: "string", contentMediaType: "application/json" }'
+  draft-2020-12:
+    input: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "object", properties: { type: { type: "string", const: "info" }, value: { type: "number" } }, required: ["type", "value"] }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+    output: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "number" }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ type: "string" }'
+    output: '{ type: "string" }'
 vs:
   zod:
     _skip: not-applicable
@@ -19,7 +25,7 @@ operations:
         output: '"123"'
       invalid-field:
         input: '"{\"type\": \"info\", \"value\": \"123\"}"'
-        error: 'Failed at ["value"]: Expected number, received "123"'
+        error: 'Failed at value: Expected number, received "123"'
   decode:
     expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[4](v0);let v1=v0["type"],v2=v0["value"];v1==="info"||e[1](v1);typeof v2==="number"&&v2===v2||e[2](v2);return (Number.isFinite(v2)?""+v2:e[3](v2))}
     examples:

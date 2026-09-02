@@ -18,6 +18,9 @@ import {
   numberTag,
   objectTag,
   panic,
+  pathConcat,
+  pathDynamic,
+  pathEmpty,
   reversedKey,
   s,
   schemaPrototype,
@@ -104,7 +107,7 @@ export const parse = (input: Val): Val => {
         loopInput.e.type !== unknownTag &&
         // A `noValidation` target takes the value as it stands when it is a
         // whole document (`S.json`, whose parse is the only check it has) or
-        // when the operation discards it anyway (S.assert's `undefined` result
+        // when the operation discards it anyway (S.assertInput's `undefined` result
         // sentinel). Every other such target still gets its conversion:
         // `noValidation` drops the checks, not the re-representation.
         !(loopInput.e.noValidation && (loopInput.e.name === jsonName || loopInput.e.type === undefinedTag))
@@ -132,7 +135,10 @@ export const parseDynamic = (input: Val): Val => {
   } catch (exn) {
     const error = getOrRethrow(exn);
     // For the case parent must always be present
-    error.path = (input.p ? input.p.path : "") + input.path + "[]" + error.path;
+    error.path = pathConcat(
+      input.p ? input.p.path : pathEmpty,
+      pathConcat(pathConcat(input.path, pathDynamic), error.path),
+    );
     throw error;
   }
 }

@@ -7,6 +7,11 @@ ts:
 jsonSchema:
   input: '{ type: "string", contentMediaType: "application/json" }'
   output: '{ type: "object", properties: { f: { type: "string", contentMediaType: "application/json" } } }'
+  draft-2020-12:
+    input: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "object", properties: { f: { type: "string", contentMediaType: "application/json" } } }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ type: "string" }'
+    output: '{ type: "object", properties: { f: { type: "string" } } }'
 vs:
   zod:
     _skip: not-applicable
@@ -30,7 +35,7 @@ operations:
         output: "{ f: undefined }"
       not-a-string:
         input: '"{\"f\":1}"'
-        error: 'Failed at ["f"]: Expected JSON string | undefined, received 1'
+        error: "Failed at f: Expected JSON string | undefined, received 1"
   decode:
     expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[3](v0);let v1=(v0["f"]??null);for(;;){if(typeof v1==="string"){v1=e[1]((v0["f"]??null));break}if(v1===null){v1=void 0;break}e[2](v1)}return {f:v1}}
     examples:

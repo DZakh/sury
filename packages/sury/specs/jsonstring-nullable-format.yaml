@@ -7,6 +7,11 @@ ts:
 jsonSchema:
   input: '{ type: "object", properties: { at: { anyOf: [{ type: "string", format: "date-time" }, { type: "null" }] } }, required: ["at"] }'
   output: '{ type: "string", contentMediaType: "application/json" }'
+  draft-2020-12:
+    output: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "object", properties: { at: { anyOf: [{ type: "string", format: "date-time" }, { type: "null" }] } }, required: ["at"] }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ type: "object", properties: { at: { type: "string", format: "date-time", nullable: true } }, required: ["at"] }'
+    output: '{ type: "string" }'
 vs:
   zod:
     _skip: not-applicable
@@ -22,7 +27,7 @@ operations:
         output: '"{\"at\":null}"'
       invalid-format:
         input: '{ at: "yesterday" }'
-        error: 'Failed at ["at"]: Expected UTC date-time'
+        error: "Failed at at: Expected UTC date-time"
   decode:
     expression: i=>{let v0=i["at"];for(;;){if(typeof v0==="string"){e[0].test(v0)||e[1](v0);v0="\""+v0+"\"";break}if(v0===null){v0="null";break}e[2](v0)}return "{\"at\":"+v0+"}"}
     examples:

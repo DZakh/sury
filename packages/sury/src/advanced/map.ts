@@ -3,7 +3,6 @@
 import {
   arrayTag,
   baseSchema,
-  inlinedValueFromString,
   type Encoder,
   inputExpression,
   instanceTag,
@@ -19,6 +18,7 @@ import {
   B_markOutput,
   B_mergeWithPathPrepend,
   B_next,
+  B_pathPrependCode,
   B_refine,
   B_unsupportedDecode,
   B_varWithoutAllocation,
@@ -151,12 +151,8 @@ const mapDecoder = (input: Val): Val => {
     if (!isAsync) {
       return `${outVar}.set(${keyOutput.i},${valueOutput.i});`;
     }
-    // Same prepend B_mergeWithPathPrepend emits for the value — see the note on
-    // it. `source.path` is the enclosing path, `location` the entry's key.
     const key = (keyOutput.f & 1)
-      ? `${keyOutput.i}.catch(${keyErrorVar}=>{${keyErrorVar}.path=${
-          source.path === "" ? "" : `${inlinedValueFromString(source.path)}+`
-        }'["'+${location}+'"]'+${keyErrorVar}.path;throw ${keyErrorVar}})`
+      ? `${keyOutput.i}.catch(${keyErrorVar}=>{${B_pathPrependCode(source, location, keyErrorVar)};throw ${keyErrorVar}})`
       : keyOutput.i;
     return `${outVar}.push(Promise.all([${key},${valueOutput.i}]));`;
   };

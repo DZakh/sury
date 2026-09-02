@@ -5,8 +5,8 @@ ts:
   output: unknown
   instantiations: 8729
 jsonSchema:
-  input: 'Failed at ["children"]: Expected JSON, received Set<Node>'
-  output: 'Failed at ["children"]: Expected JSON, received Set<Node>'
+  input: "Failed at children: Expected JSON, received Set<Node>"
+  output: "Failed at children: Expected JSON, received Set<Node>"
 vs:
   zod:
     _skip: not-applicable
@@ -19,6 +19,6 @@ operations:
         output: '{ value: "root", children: new Set([{ value: "leaf", children: new Set([]) }]) }'
       wrong-type-at-depth:
         input: '{ value: "root", children: new Set([{ value: 1, children: new Set([]) }]) }'
-        error: 'Failed at ["children"]["0"]["value"]: Expected string, received 1'
+        error: "Failed at children[0].value: Expected string, received 1"
   decode: eq-to-parse
   encode: eq-to-parse

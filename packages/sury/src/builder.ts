@@ -12,8 +12,9 @@ import {
   isLiteral,
   type InvalidInputDetails,
   type Path,
+  pathConcat,
   pathEmpty,
-  pathFromInlinedLocation,
+  pathToText,
   s,
   stringify,
   SuryError,
@@ -254,9 +255,11 @@ export const B_makeInvalidConversionDetails = (input: Val, to: Internal, cause: 
     //
     // Copied rather than mutated: user code may throw one retained instance
     // more than once, and prepending onto the instance makes the second parse
-    // report `["a"]["a"]`. Nothing to prepend means nothing to copy — `B_throw`
+    // report `a.a`. Nothing to prepend means nothing to copy — `B_throw`
     // rebuilds a SuryError from whichever of the two it gets.
-    return (input.path ? { ...error, path: input.path + error.path } : error) as unknown as ErrorDetails;
+    return (
+      input.path.length ? { ...error, path: pathConcat(input.path, error.path) } : error
+    ) as unknown as ErrorDetails;
   }
   let reason: string;
   if (cause instanceof Error) {
@@ -299,7 +302,7 @@ export const B_makeInvalidInputDetails = (
     const seenReasons = new Set<string>();
     for (let idx = 0; idx < unionErrors.length; idx++) {
       const caseError = unionErrors[idx]!;
-      const line = `\n- ${caseError.path === "" ? "" : `At ${caseError.path}: `}${caseError.reason.split("\n").join("\n  ")}`;
+      const line = `\n- ${caseError.path.length ? `At ${pathToText(caseError.path)}: ` : ""}${caseError.reason.split("\n").join("\n  ")}`;
       if (!seenReasons.has(line)) {
         seenReasons.add(line);
         reasonRef += line;
@@ -327,7 +330,7 @@ export const B_invalidInputBuilder = (
   extraPath: Path = pathEmpty,
   reasonOverride?: string
 ): (input: Val) => (value: unknown) => ErrorDetails => (input) => {
-  const path = extraPath ? input.path + extraPath : input.path;
+  const path = pathConcat(input.path, extraPath);
   return (value) =>
     B_makeInvalidInputDetails(
       expected ?? input.e,
@@ -555,10 +558,10 @@ export const B_markOutput = (val: Val, valInput: Val): Val => {
 export const B_hoistChildChecks = (parent: Val, child: Val, key: string): void => {
   const checks = child.vc;
   if (checks) {
-    const pathAppend = pathFromInlinedLocation(inlinedValueFromString(key));
+    const accessor = `[${inlinedValueFromString(key)}]`;
     for (let i = 0; i < checks.length; i++) {
       const check = checks[i]!;
-      B_pushCheck(parent, { c: (v) => check.c(v + pathAppend), f: check.f });
+      B_pushCheck(parent, { c: (v) => check.c(v + accessor), f: check.f });
     }
     child.vc = U;
   }
@@ -894,6 +897,21 @@ const B_mergeWithCatch = (
 // of two vals (advanced/map.ts) has a second promise the wrap never reaches.
 // Kept inline rather than shared with that caller: a helper both reach costs
 // every export that merges anything, for one container's concern.
+// Names where a caught error happened: the enclosing path's static segments,
+// the dynamic location, then whatever the error already carried. Its own
+// export because a container that hands its parent a *promise* has to attach
+// the same prepend itself — the merge only ever wraps the one val it is given,
+// and a Map entry has a second promise (advanced/map.ts) the wrap never reaches.
+export const B_pathPrependCode = (parent: Val, locationVar: string | undefined, errorVar: string): string => {
+  let segments = "";
+  for (let idx = 0; idx < parent.path.length; idx++) {
+    const segment = parent.path[idx]!;
+    segments += `${typeof segment === "string" ? inlinedValueFromString(segment) : segment},`;
+  }
+  if (locationVar !== U) segments += `${locationVar},`;
+  return `${errorVar}.path=[${segments}...${errorVar}.path]`;
+};
+
 export const B_mergeWithPathPrepend = (
   val: Val,
   parent: Val,
@@ -901,14 +919,11 @@ export const B_mergeWithPathPrepend = (
   appendSafe?: () => string,
   pureSince?: number
 ): string =>
-  val.path === pathEmpty && locationVar === U
+  !val.path.length && locationVar === U
     ? B_merge(val)
     : B_mergeWithCatch(
         val,
-        (errorVar) =>
-          `${errorVar}.path=${parent.path ? `${inlinedValueFromString(parent.path)}+` : ""}${
-            locationVar !== U ? `'["'+${locationVar}+'"]'+` : ""
-          }${errorVar}.path`,
+        (errorVar) => B_pathPrependCode(parent, locationVar, errorVar),
         appendSafe,
         pureSince,
       );

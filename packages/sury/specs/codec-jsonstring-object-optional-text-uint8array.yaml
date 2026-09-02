@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.jsonString.with(S.to, S.schema({ a: S.optional(S.string.with(S.to, S.uint8Array)) }))"
+  input: string
+  output: "{ a?: Uint8Array<ArrayBufferLike> | undefined; }"
+  instantiations: 7365
+jsonSchema:
+  input: '{ type: "string", contentMediaType: "application/json" }'
+  output: "Failed at a: Expected JSON, received Uint8Array | undefined"
+  draft-2020-12:
+    input: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "object", properties: { a: { type: "string" } } }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ type: "string" }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[4](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[3](v0);let v1=(v0["a"]??null);for(;;){if(typeof v1==="string"){v1=e[1](v1);break}if(v1===null){v1=void 0;break}e[2](v1)}return {a:v1}}
+    examples:
+      present:
+        input: '"{\"a\":\"€\"}"'
+        output: "{ a: new Uint8Array([226, 130, 172]) }"
+      absent:
+        input: '"{}"'
+        output: "{ a: undefined }"
+  decode:
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[3](v0);let v1=(v0["a"]??null);for(;;){if(typeof v1==="string"){v1=e[1](v1);break}if(v1===null){v1=void 0;break}e[2](v1)}return {a:v1}}
+    examples:
+      present:
+        input: '"{\"a\":\"€\"}"'
+        output: "{ a: new Uint8Array([226, 130, 172]) }"
+  encode:
+    expression: i=>{let v0=i["a"];for(;;){if(v0 instanceof e[1]){let v1=e[0].decode(v0);v0=v1;break}if(v0===void 0)break;e[2](v0)}let v2="";if(v0!==void 0){v2+="\"a\":"+e[3](v0)}return "{"+v2+"}"}
+    examples:
+      present:
+        input: "{ a: new Uint8Array([226, 130, 172]) }"
+        output: '"{\"a\":\"€\"}"'
+      absent:
+        input: "{}"
+        output: '"{}"'

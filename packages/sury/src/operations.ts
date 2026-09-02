@@ -9,7 +9,6 @@ import {
   inputExpression,
   type Internal,
   pathEmpty,
-  pathToArray,
   s,
   schemaPrototype,
   SuryError,
@@ -56,7 +55,7 @@ export type StandardProps = {
 // forward-reference workaround but the tree-shaking gate: the `~standard`
 // prototype getter below is always retained, so it must not statically
 // reference the converter or every parser-only bundle would ship the whole
-// toJSONSchema machinery. Only calling the public opt-in pulls it in.
+// JSON Schema machinery. Only calling the public opt-in pulls it in.
 let standardJSONSchemaConverter:
   | ((schema: Internal, options: StandardJsonSchemaOptions, isOutput: boolean) => JSONSchemaT)
   | undefined;
@@ -147,8 +146,7 @@ Object.defineProperty(schemaPrototype, "~standard", {
             issues: [
               {
                 message: error.reason,
-                path:
-                  error.path === pathEmpty ? U : pathToArray(error.path),
+                path: error.path.length ? (error.path as unknown[]) : U,
               },
             ],
           };

@@ -7,6 +7,9 @@ ts:
 jsonSchema:
   input: '{ type: "object", properties: { type: { type: "string", const: "foo" }, name: { type: "string" }, fooCount: { type: "number" } }, required: ["type", "name", "fooCount"] }'
   output: '{ type: "object", properties: { type: { type: "string", const: "foo" }, name: { type: "string" }, fooCount: { type: "number" } }, required: ["type", "name", "fooCount"] }'
+  openapi-3.0:
+    input: '{ type: "object", properties: { type: { type: "string", enum: ["foo"] }, name: { type: "string" }, fooCount: { type: "number" } }, required: ["type", "name", "fooCount"] }'
+    output: '{ type: "object", properties: { type: { type: "string", enum: ["foo"] }, name: { type: "string" }, fooCount: { type: "number" } }, required: ["type", "name", "fooCount"] }'
 vs:
   zod:
     _skip: not-applicable
@@ -19,6 +22,6 @@ operations:
         output: '{ type: "foo", name: "foo", fooCount: 123 }'
       left-tag-is-overwritten:
         input: '{ type: "bar", name: "foo", fooCount: 123 }'
-        error: 'Failed at ["type"]: Expected "foo", received "bar"'
+        error: 'Failed at type: Expected "foo", received "bar"'
   decode: identity
   encode: identity

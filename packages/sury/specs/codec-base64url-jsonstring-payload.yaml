@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.base64url.with(S.to, S.jsonString.with(S.to, S.schema({ sub: S.string })))"
+  input: string
+  output: "{ sub: string; }"
+  instantiations: 6557
+jsonSchema:
+  input: '{ type: "string", contentEncoding: "base64url" }'
+  output: '{ type: "object", properties: { sub: { type: "string" } }, required: ["sub"] }'
+  openapi-3.0:
+    input: '{ type: "string", format: "base64url" }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[6](i);e[4](i)||e[5](i);let v0=e[0](i);let v1;try{v1=JSON.parse(v0)}catch(t){e[1](v0)}typeof v1==="object"&&v1&&!Array.isArray(v1)||e[3](v1);let v2=v1["sub"];typeof v2==="string"||e[2](v2);return {sub:v2}}
+    examples:
+      jwt-segment:
+        input: '"eyJzdWIiOiJhIn0"'
+        output: '{ sub: "a" }'
+      padded-rejected:
+        input: '"eyJzdWIiOiJhIn0="'
+        error: Expected base64url, received "eyJzdWIiOiJhIn0="
+      not-json:
+        input: '"aGk"'
+        error: Expected JSON string, received "hi"
+  decode:
+    expression: i=>{e[4](i)||e[5](i);let v0=e[0](i);let v1;try{v1=JSON.parse(v0)}catch(t){e[1](v0)}typeof v1==="object"&&v1&&!Array.isArray(v1)||e[3](v1);let v2=v1["sub"];typeof v2==="string"||e[2](v2);return {sub:v2}}
+    examples:
+      jwt-segment:
+        input: '"eyJzdWIiOiJhIn0"'
+        output: '{ sub: "a" }'
+  encode:
+    expression: i=>{let v0="{\"sub\":"+e[0](i["sub"])+"}";return e[1](v0)}
+    examples:
+      jwt-segment:
+        input: '{ sub: "a" }'
+        output: '"eyJzdWIiOiJhIn0"'

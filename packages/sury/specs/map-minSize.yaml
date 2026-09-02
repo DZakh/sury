@@ -11,7 +11,7 @@ vs:
   zod: z.map(z.string(), z.number()).min(1)
 operations:
   parse:
-    expression: i=>{i instanceof e[3]||e[4](i);for(let v0 of i){try{let v2=v0[0];typeof v2==="string"||e[1](v2);let v1=v0[1];typeof v1==="number"&&v1===v1||e[0](v1);}catch(v3){v3.path='["'+v0[0]+'"]'+v3.path;throw v3}}i.size>0||e[2](i);return i}
+    expression: i=>{i instanceof e[3]||e[4](i);for(let v0 of i){try{let v2=v0[0];typeof v2==="string"||e[1](v2);let v1=v0[1];typeof v1==="number"&&v1===v1||e[0](v1);}catch(v3){v3.path=[v0[0],...v3.path];throw v3}}i.size>0||e[2](i);return i}
     examples:
       valid:
         input: new Map([["a", 1]])
@@ -21,7 +21,7 @@ operations:
         error: Expected Map<string, number>.size >= 1, received Map
       invalid-value-beats-the-bound:
         input: new Map([["a", "1"]])
-        error: 'Failed at ["a"]: Expected number, received "1"'
+        error: 'Failed at a: Expected number, received "1"'
   decode:
     expression: i=>{i.size>0||e[0](i);return i}
     examples:
