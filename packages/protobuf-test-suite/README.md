@@ -37,9 +37,12 @@ not in the public API.
 `check` fails on drift in either direction. An improvement lands its golden
 update in the same PR.
 
-`bench` and `hillclimb` print nanoseconds per op against protobufjs's
-reflection codec (`Type#encode(...).finish()` / `Type#decode`), on the same
-bytes and the same values. `hillclimb` adds protobuf.js's own `bench/cases/common`
-message so the numbers compare with its published benchmark. Neither snapshots
-a number. Sury-vs-Sury encode/decode regressions are `spec check --perf`
+`bench` runs Sury against every codec a JS project would reach for —
+protobufjs reflection and `pbjs` static codegen, protobuf-es
+(`@bufbuild/protobuf`) and pbf — on five workloads (tiny, typical, large,
+protobuf.js's `bench/cases/common` message, and a vector-tile shaped message
+dominated by packed geometry), median of 7, on the same bytes and values, each
+library driven the way its README shows. `hillclimb` is the frozen Sury-vs-
+protobufjs ruler the perf commits on this branch quote. Neither snapshots a
+number. Sury-vs-Sury encode/decode regressions are `spec check --perf`
 scenarios `protobuf-encode` and `protobuf-decode`.

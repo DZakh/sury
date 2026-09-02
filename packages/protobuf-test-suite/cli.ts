@@ -35,8 +35,9 @@ Commands:
   check      Recompute and compare against goldens/coverage.json (default).
   update     Rewrite goldens/coverage.json from the current run.
   report     Print every case id and its status.
-  bench      Time encode/decode against protobufjs.
-  hillclimb  Frozen ruler. Median of 7 on tiny/typical/large vs protobufjs.
+  bench      Median of 7 against protobufjs (reflect and static), protobuf-es
+             and pbf on five workloads.
+  hillclimb  Frozen ruler. Median of 7 on tiny/typical/large/common vs protobufjs.
 
 protobufjs is the JS implementation that passes Google's official
 conformance suite. google-protobuf does not. Cases include the encoding-guide
@@ -56,7 +57,7 @@ const loadGolden = (): Golden => {
 };
 
 if (cmd === "bench") {
-  console.log(formatBench(runBench()));
+  console.log(formatBench(await runBench()));
   process.exit(0);
 }
 

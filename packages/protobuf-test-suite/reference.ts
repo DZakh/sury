@@ -33,11 +33,10 @@ const emitMessage = (name: string, fields: FieldDef[]): string => {
   return `${nested.join("\n")}\nmessage ${ident(name)} {\n${body.join("\n")}\n}\n`;
 };
 
-export const protobufjsType = (fields: FieldDef[]): protobuf.Type => {
-  const src = `syntax = "proto3";\n${emitMessage("M", fields)}`;
-  const parsed = protobuf.parse(src);
-  return parsed.root.lookupType("M");
-};
+export const protoSource = (fields: FieldDef[]): string => `syntax = "proto3";\n${emitMessage("M", fields)}`;
+
+export const protobufjsType = (fields: FieldDef[]): protobuf.Type =>
+  protobuf.parse(protoSource(fields)).root.lookupType("M");
 
 const is64 = (type: FieldDef["type"]): boolean =>
   type === "int64" ||

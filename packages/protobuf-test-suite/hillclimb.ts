@@ -1,111 +1,15 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import * as S from "sury";
-import { suryMessage, type FieldDef } from "./cases";
+import { suryMessage } from "./cases";
+import { WORKLOADS as WORKLOADS_ALL, type Workload } from "./bench";
 import { protobufjsType, toPbjsValue } from "./reference";
 
 const SAMPLES = 7;
 const WARMUP = 200;
 const N = 20000;
 
-type Workload = {
-  id: string;
-  fields: FieldDef[];
-  value: Record<string, unknown>;
-};
-
-const tiny: Workload = {
-  id: "tiny",
-  fields: [{ key: "id", number: 1, type: "uint32" }],
-  value: { id: 150 },
-};
-
-const typical: Workload = {
-  id: "typical",
-  fields: [
-    { key: "id", number: 1, type: "uint32" },
-    { key: "name", number: 2, type: "string" },
-    { key: "active", number: 3, type: "bool" },
-    { key: "tags", number: 4, type: "string", repeated: true },
-    { key: "score", number: 5, type: "double", optional: true },
-    { key: "payload", number: 6, type: "bytes", optional: true },
-  ],
-  value: {
-    id: 42,
-    name: "Ada",
-    active: true,
-    tags: ["ml", "fp"],
-    score: 0.5,
-    payload: new Uint8Array([1, 2, 3]),
-  },
-};
-
-const large: Workload = {
-  id: "large",
-  fields: [
-    { key: "id", number: 1, type: "uint32" },
-    { key: "blob", number: 2, type: "string" },
-    { key: "nums", number: 3, type: "sint32", repeated: true },
-  ],
-  value: {
-    id: 1,
-    blob: "x".repeat(1024),
-    nums: Array.from({ length: 256 }, (_, i) => i - 128),
-  },
-};
-
-// protobuf.js's own `bench/cases/common` message and payload, so the numbers
-// line up with its published benchmark.
-const common: Workload = {
-  id: "common",
-  fields: [
-    { key: "string", number: 1, type: "string" },
-    { key: "uint32", number: 2, type: "uint32" },
-    {
-      key: "inner",
-      number: 3,
-      type: "message",
-      optional: true,
-      fields: [
-        { key: "int32", number: 1, type: "int32" },
-        {
-          key: "innerInner",
-          number: 2,
-          type: "message",
-          optional: true,
-          fields: [
-            { key: "long", number: 1, type: "int64" },
-            { key: "enum", number: 2, type: "enum" },
-            { key: "sint32", number: 3, type: "sint32" },
-          ],
-        },
-        {
-          key: "outer",
-          number: 3,
-          type: "message",
-          optional: true,
-          fields: [
-            { key: "bool", number: 1, type: "bool", repeated: true },
-            { key: "double", number: 2, type: "double" },
-          ],
-        },
-      ],
-    },
-    { key: "float", number: 4, type: "float" },
-  ],
-  value: {
-    string: "Lorem ipsum dolor sit amet.",
-    uint32: 9000,
-    inner: {
-      int32: 20161110,
-      innerInner: { long: (151234n << 32n) | 1051n, enum: 1, sint32: -42 },
-      outer: { bool: [true, false, false, true, false, false, true], double: 204.8 },
-    },
-    float: 0.25,
-  },
-};
-
-const WORKLOADS = [tiny, typical, large, common];
+const WORKLOADS = WORKLOADS_ALL.filter((work) => work.id !== "tile");
 
 const timeNs = (fn: () => void): number => {
   for (let i = 0; i < WARMUP; i++) fn();
