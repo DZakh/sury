@@ -68,6 +68,8 @@
   - [`parser` / `asyncParser`](#parser-asyncparser)
   - [`decoder` / `asyncDecoder`](#decoder-asyncdecoder)
   - [`decoder1` / `asyncDecoder1`](#decoder1-asyncdecoder1)
+  - [`constructor` / `asyncConstructor`](#constructor-asyncconstructor)
+  - [`inputValidator` / `outputValidator`](#inputvalidator-outputvalidator)
   - [`reverse`](#reverse)
   - [`to`](#to)
   - [`name`](#name)
@@ -1750,6 +1752,44 @@ let decode = S.decoder1(schema)
 // Output: array<option<string>> (schema output)
 decode(%raw(`["foo", null, "bar"]`))
 // [Some("foo"), None, Some("bar")]
+```
+
+### **`constructor`** / **`asyncConstructor`**
+
+```
+S.constructor: S.t<'value> => 'value => 'value
+S.asyncConstructor: S.t<'value> => 'value => promise<'value>
+```
+
+For a value you built in code rather than received from the wire. Every check the schema carries runs — types, the conversion, refinements — and the value itself comes back, not a decoded copy, so an entity the schema has no way to encode fails at construction rather than at the point it's sent.
+
+```rescript
+let userSchema = S.object(s => {
+  id: s.field("id", S.string),
+  email: s.field("email", S.email),
+})
+let makeUser = S.constructor(userSchema)
+
+makeUser({id: "1", email: "billie@example.com"})
+// returns the very record it was given
+
+makeUser({id: "1", email: "not-an-address"})
+// throws S.Error: Failed at ["email"]: Expected email, received "not-an-address"
+```
+
+### **`inputValidator`** / **`outputValidator`**
+
+```
+S.inputValidator: S.t<'value> => unknown => bool
+S.outputValidator: S.t<'value> => unknown => bool
+```
+
+A compiled check that answers `true`/`false` instead of throwing — `inputValidator` for whether unknown data would parse, `outputValidator` for whether a value is a valid `'value` the schema can encode.
+
+```rescript
+let isUser = S.inputValidator(userSchema)
+
+records->Array.filter(isUser)
 ```
 
 ### **`reverse`**

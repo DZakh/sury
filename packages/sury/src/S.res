@@ -570,6 +570,14 @@ let asyncDecoder = (~from: t<'from>, ~to) => asyncDecoder(reverse(from), to)
 @module("sury") external decoder1: t<'value> => unknown => 'value = "decoder"
 @module("sury") external asyncDecoder1: t<'value> => unknown => promise<'value> = "asyncDecoder"
 
+// `t<'value>` names the output type, so the output-side constructor is THE
+// constructor here; the input side has no type to hand back.
+@module("sury") external constructor: t<'value> => 'value => 'value = "outputConstructor"
+@module("sury")
+external asyncConstructor: t<'value> => 'value => promise<'value> = "asyncOutputConstructor"
+@module("sury") external inputValidator: t<'value> => unknown => bool = "inputValidator"
+@module("sury") external outputValidator: t<'value> => unknown => bool = "outputValidator"
+
 let parseOrThrow = (any, ~to) => parser(~to)(any)
 let parseAsyncOrThrow = (any, ~to) => asyncParser(~to)(any)
 @module("sury") external assertOrThrow: ('any, ~to: t<'value>) => unit = "assertInput"
