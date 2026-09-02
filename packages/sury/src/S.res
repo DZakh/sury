@@ -444,6 +444,11 @@ module Error = {
 // from any other binding unifies with these.
 @module("sury") external blob: t<Js.Blob.t> = "blob"
 @module("sury") external file: t<Js.File.t> = "file"
+// The stdlib has no FormData module, so the type is declared here, abstract:
+// a value from `%raw`, a fetch binding or a form event unifies with it only
+// through a cast, the way an external's own abstract types do.
+type formData
+@module("sury") external formData: t<formData> = "formData"
 @module("sury") external isoDateTime: t<string> = "isoDateTime"
 @module("sury") external port: t<int> = "port"
 @module("sury") external email: t<string> = "email"

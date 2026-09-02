@@ -370,6 +370,12 @@ instead of silently working around it.
   suite green. An `assert` op block, even one holding just an expression and a
   pass/throw example, would have caught it; `tests/content_test.ts` holds it
   instead.
+- A `FormData` result is the instance case above, once more: `S.formData`'s
+  encode always produces one, so every `codec-formdata-*` encode block carries
+  only the failures, and `tests/formData_test.ts` holds the entries. The writer
+  could spell one as the `((f) => (f.append(…), f))(new FormData())` idiom the
+  example inputs already use, and a `File` entry inside it needs the File
+  constructor call from the same bullet.
 - A recursive schema the perf harness rebuilds per iteration can fail the
   `create+compile` phase where every other phase measures it fine —
   `specs/recursive-proto-name.yaml` raises "Cannot read properties of undefined

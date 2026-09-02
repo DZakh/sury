@@ -405,8 +405,11 @@ export const B_merge = (val: Val, out?: HoistCond): string => {
       // (stable input var) and this val has no codeFromPrev of its own —
       // else the lifted check runs before that producer (the
       // str->to(option(int)) "v0 is not defined" bug class).
-      if (out && (!val.t || !val.prev!.t && val.cp === "")) {
-        const inputVar = current!.v();
+      // A val with no `prev` is checked against itself: a scope over a typed
+      // source (a union case's narrow) carries its checks with nothing before
+      // it, and its own var is the value they read.
+      if (out && (!val.t || (current !== U && !current.t && val.cp === ""))) {
+        const inputVar = (current || val).v();
         const checks = val.vc;
         let hoisted = "";
         for (let i = 0; i < checks.length; i++) {
@@ -426,7 +429,7 @@ export const B_merge = (val: Val, out?: HoistCond): string => {
           out.h.unshift({ v: val, i: inputVar, c: hoisted });
         }
       } else if (val.e.noValidation !== true) {
-        currentCode = B_emitChecks(val, current!.v());
+        currentCode = B_emitChecks(val, (current || val).v());
       }
     }
 

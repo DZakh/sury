@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.string.with(S.to, S.union(["admin", "user"]))
+  input: string
+  output: '"admin" | "user"'
+  instantiations: 5766
+jsonSchema:
+  input: '{ enum: ["admin", "user"] }'
+  fromInputType: '"admin" | "user"'
+  output: '{ enum: ["admin", "user"] }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[1](i);(i==="admin"||i==="user")||e[0](i);return i}
+    examples:
+      first-member:
+        input: '"admin"'
+        output: '"admin"'
+      second-member:
+        input: '"user"'
+        output: '"user"'
+      no-member:
+        input: '"guest"'
+        error: Expected "admin" | "user", received "guest"
+      not-a-string:
+        input: "1"
+        error: Expected string, received 1
+  decode:
+    expression: i=>{(i==="admin"||i==="user")||e[0](i);return i}
+    examples:
+      first-member:
+        input: '"admin"'
+        output: '"admin"'
+      no-member:
+        input: '"guest"'
+        error: Expected "admin" | "user", received "guest"
+  encode:
+    expression: i=>{typeof i==="string"&&(i==="admin"||i==="user")||e[0](i);return i}
+    examples:
+      first-member:
+        input: '"admin"'
+        output: '"admin"'
+      no-member:
+        input: '"guest"'
+        error: Expected "admin" | "user", received "guest"

@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.formData.with(S.to, S.schema({ avatar: S.file.with(S.maxSize, 4), cover: S.optional(S.file), raw: S.blob }))"
+  input: FormData
+  output: "{ avatar: File; raw: Blob; cover?: File | undefined; }"
+  instantiations: 8117
+jsonSchema:
+  input: Expected JSON, received FormData
+  output: 'Failed at ["avatar"]: Expected JSON, received File.size <= 4'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{i instanceof e[7]||e[8](i);let v0=i.get("avatar")||void 0,v1=i.get("cover")||void 0,v2=i.get("raw")||void 0;v0 instanceof e[1]||e[2](v0);v0.size<5||e[0](v0);(v1 instanceof e[3]||v1===void 0)||e[4](v1);v2 instanceof e[5]||e[6](v2);return {avatar:v0,cover:v1,raw:v2}}
+    examples:
+      text-where-file:
+        input: ((f) => (f.append("avatar", "x"), f.append("raw", new File(["r"], "r.bin")), f))(new FormData())
+        error: 'Failed at ["avatar"]: Expected File.size <= 4, received "x"'
+      missing-file:
+        input: ((f) => (f.append("raw", new File(["r"], "r.bin")), f))(new FormData())
+        error: 'Failed at ["avatar"]: Expected File.size <= 4, received undefined'
+      too-large:
+        input: ((f) => (f.append("avatar", new File(["12345"], "a.png")), f.append("raw", new File(["r"], "r.bin")), f))(new FormData())
+        error: 'Failed at ["avatar"]: Expected File.size <= 4, received File'
+      text-where-optional-file:
+        input: ((f) => (f.append("avatar", new File(["a"], "a.png")), f.append("cover", "x"), f.append("raw", new File(["r"], "r.bin")), f))(new FormData())
+        error: 'Failed at ["cover"]: Expected File | undefined, received "x"'
+  decode:
+    expression: i=>{let v0=i.get("avatar")||void 0,v1=i.get("cover")||void 0,v2=i.get("raw")||void 0;v0 instanceof e[1]||e[2](v0);v0.size<5||e[0](v0);(v1 instanceof e[3]||v1===void 0)||e[4](v1);v2 instanceof e[5]||e[6](v2);return {avatar:v0,cover:v1,raw:v2}}
+    examples:
+      text-where-file:
+        input: ((f) => (f.append("avatar", "x"), f.append("raw", new File(["r"], "r.bin")), f))(new FormData())
+        error: 'Failed at ["avatar"]: Expected File.size <= 4, received "x"'
+  encode:
+    expression: i=>{let v0=i["avatar"],v2=i["cover"];v0.size<5||e[0](v0);let v1=new e[1]();v1.append("avatar",v0);if(v2!==void 0){v1.append("cover",v2);}v1.append("raw",i["raw"]);return v1}
+    examples:
+      too-large:
+        input: '{ avatar: new File(["12345"], "a.png"), raw: new Blob(["r"]) }'
+        error: 'Failed at ["avatar"]: Expected File.size <= 4, received File'

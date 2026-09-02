@@ -327,22 +327,22 @@ of a form-data story. What they were built to make cheap, roughly in order:
   fail with `invalid_operation`. `advanced/uint8Array.ts` is the shape to copy.
   The payoff is `S.file.with(S.to, S.jsonString.with(S.to, configSchema))` —
   parse an upload into a typed value, and reverse it to *build* the upload.
-- **`S.formData` as a codec, not a preprocessor.** A `FormData` field is
-  `string | File`, so the per-field work is the existing string coercions plus
-  `.get`/`.getAll` extraction; the object rebuild in `advanced/json.ts`
-  (`jsonDecoderFn`, via `makeObjectVal`/`B_addObjectField`) is the pattern.
-  Reversing it emits `new FormData()` + `append` per field, which is what makes
-  this different from VineJS and every other form validator: one schema serves
-  the request handler *and* the `fetch` body. `S.urlSearchParams` is the same
+- **`S.formData` landed** (`advanced/formData.ts`): a field reads through a
+  `string` stage so the env coercions apply, `S.file`/`S.blob` take the entry,
+  `S.array` is `getAll`, `""` reads as absent unless the field says
+  `S.minLength(0)`, and the reverse is `new FormData()` + one `append` per
+  field. Still to do from the original sketch: `S.urlSearchParams` is the same
   code minus files, and `S.queryString` is to it what `S.jsonString` is to
-  `S.json`.
-- **The three HTML-form quirks**, once `S.formData` exists: a checkbox is absent
-  when unchecked and `"on"` when checked (VineJS spells this `vine.accepted()`),
-  an empty text input submits `""` rather than nothing, and repeated keys are
-  how arrays arrive. The first wants a named `S.accepted`; the second belongs to
-  the codec rather than a global flag, since it's a wire quirk; the third is
-  `.getAll`. Bracket notation (`user[name]`) is deliberately out — VineJS leans
-  on `qs` for it too.
+  `S.json`; `S.accepted` for the checkbox's `"on"`; a `S.record` target
+  (`entries()` into a dict). Two things it walked around rather than fixed,
+  each with the spec that pins it: `dict-to-object-optional-string` — the
+  union rules reject `string -> string | undefined`, so the env pattern can't
+  read an optional string field (the form codec converts the present arm on
+  its own instead of going through `missingKeyEncoder`); and a refinement
+  inside `S.optional` is not checked on encode (`S.optional(S.string.with(
+  S.maxLength, 3))` appends `"long"`), which is the union encode path trusting
+  its typed input. A `S.nullable(S.number)` field still dispatches on the text
+  `"null"`, the CODEC_SPEC bridge, which no form ever sends.
 - **`S.mime`** for uploads, next to the size bounds. Wants a JSON Schema emit
   (`contentMediaType`, and `format: "binary"` for the instances) — which is the
   point at which `minSize`/`maxSize` should be revisited, since neither has a

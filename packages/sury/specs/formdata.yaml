@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.formData
+  input: FormData
+  output: FormData
+  instantiations: 265
+jsonSchema:
+  input: Expected JSON, received FormData
+  output: Expected JSON, received FormData
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{i instanceof e[0]||e[1](i);return i}
+    examples:
+      valid:
+        input: new FormData()
+        output: new FormData()
+      plain-object:
+        input: "{}"
+        error: Expected FormData, received {}
+      string:
+        input: '"a=1"'
+        error: Expected FormData, received "a=1"
+      null-value:
+        input: "null"
+        error: Expected FormData, received null
+  decode: identity
+  encode: identity

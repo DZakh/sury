@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.formData.with(S.to, S.union([S.schema({ a: S.string }), S.schema({ b: S.string })]))"
+  input: FormData
+  output: "{ a: string; } | { b: string; }"
+  instantiations: 8536
+jsonSchema:
+  input: Expected JSON, received FormData
+  output: '{ anyOf: [{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }, { type: "object", properties: { b: { type: "string" } }, required: ["b"] }] }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "SuryError: Can't decode FormData to { a: string; } | { b: string; }. Use S.to to define a custom decoder"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{for(;;){let r;if(typeof i==="object"&&i&&!Array.isArray(i)){try{let v0=i["a"];typeof v0==="string"||e[0](v0);let v1=new e[1]();v1.append("a",v0);i=v1;break}catch(x){(r||(r=[])).push(e[4](x))}try{let v2=i["b"];typeof v2==="string"||e[2](v2);let v3=new e[3]();v3.append("b",v2);i=v3;break}catch(x){(r||(r=[])).push(e[4](x))}}e[5](i,...(r||[]))}return i}
+    examples:
+      no-variant-matches:
+        input: "{ c: 1 }"
+        error: |-
+          Expected { a: string; } | { b: string; }, received { c: 1; }
+          - At ["a"]: Expected string, received undefined
+          - At ["b"]: Expected string, received undefined

@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.formData.with(S.to, S.schema({ role: S.union(["admin", "user"]), plan: S.optional(S.union(["free", "pro"])) }))'
+  input: FormData
+  output: '{ role: "admin" | "user"; plan?: "free" | "pro" | undefined; }'
+  instantiations: 8016
+jsonSchema:
+  input: Expected JSON, received FormData
+  output: '{ type: "object", properties: { role: { enum: ["admin", "user"] }, plan: { enum: ["free", "pro"] } }, required: ["role"] }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{i instanceof e[4]||e[5](i);let v0=i.get("role")||void 0,v1=i.get("plan")||void 0;typeof v0==="string"||e[1](v0);(v0==="admin"||v0==="user")||e[0](v0);if(v1!==void 0){typeof v1==="string"||e[3](v1);(v1==="free"||v1==="pro")||e[2](v1);}return {role:v0,plan:v1}}
+    examples:
+      members:
+        input: ((f) => (f.append("role", "admin"), f.append("plan", "pro"), f))(new FormData())
+        output: '{ role: "admin", plan: "pro" }'
+      optional-absent:
+        input: ((f) => (f.append("role", "user"), f))(new FormData())
+        output: '{ role: "user", plan: undefined }'
+      optional-empty:
+        input: ((f) => (f.append("role", "user"), f.append("plan", ""), f))(new FormData())
+        output: '{ role: "user", plan: undefined }'
+      no-member:
+        input: ((f) => (f.append("role", "guest"), f))(new FormData())
+        error: 'Failed at ["role"]: Expected "admin" | "user", received "guest"'
+      optional-no-member:
+        input: ((f) => (f.append("role", "user"), f.append("plan", "trial"), f))(new FormData())
+        error: 'Failed at ["plan"]: Expected "free" | "pro", received "trial"'
+  decode:
+    expression: i=>{let v0=i.get("role")||void 0,v1=i.get("plan")||void 0;typeof v0==="string"||e[1](v0);(v0==="admin"||v0==="user")||e[0](v0);if(v1!==void 0){typeof v1==="string"||e[3](v1);(v1==="free"||v1==="pro")||e[2](v1);}return {role:v0,plan:v1}}
+    examples:
+      members:
+        input: ((f) => (f.append("role", "admin"), f.append("plan", "pro"), f))(new FormData())
+        output: '{ role: "admin", plan: "pro" }'
+  encode:
+    expression: i=>{let v1=i["role"],v2=i["plan"];let v0=new e[0]();typeof v1==="string"&&(v1==="admin"||v1==="user")||e[1](v1);v0.append("role",v1);if(v2!==void 0){typeof v2==="string"&&(v2==="free"||v2==="pro")||e[2](v2);v0.append("plan",v2);}return v0}
+    examples:
+      no-member:
+        input: '{ role: "guest" }'
+        error: 'Failed at ["role"]: Expected "admin" | "user", received "guest"'

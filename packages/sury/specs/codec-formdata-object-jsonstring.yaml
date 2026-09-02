@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.formData.with(S.to, S.schema({ meta: S.jsonString.with(S.to, S.schema({ a: S.number })) }))"
+  input: FormData
+  output: "{ meta: { a: number; }; }"
+  instantiations: 7353
+jsonSchema:
+  input: Expected JSON, received FormData
+  output: '{ type: "object", properties: { meta: { type: "object", properties: { a: { type: "number" } }, required: ["a"] } }, required: ["meta"] }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{i instanceof e[4]||e[5](i);let v0=i.get("meta")||void 0;typeof v0==="string"||e[3](v0);let v1;try{v1=JSON.parse(v0)}catch(t){e[0](v0)}typeof v1==="object"&&v1&&!Array.isArray(v1)||e[2](v1);let v2=v1["a"];typeof v2==="number"&&v2===v2||e[1](v2);return {meta:{a:v2}}}
+    examples:
+      nested-document:
+        input: ((f) => (f.append("meta", "{\"a\":1}"), f))(new FormData())
+        output: "{ meta: { a: 1 } }"
+      not-json:
+        input: ((f) => (f.append("meta", "nope"), f))(new FormData())
+        error: 'Failed at ["meta"]: Expected JSON string, received "nope"'
+      wrong-inner-type:
+        input: ((f) => (f.append("meta", "{\"a\":\"1\"}"), f))(new FormData())
+        error: 'Failed at ["meta"]["a"]: Expected number, received "1"'
+      missing:
+        input: new FormData()
+        error: 'Failed at ["meta"]: Expected JSON string, received undefined'
+  decode:
+    expression: i=>{let v0=i.get("meta")||void 0;typeof v0==="string"||e[3](v0);let v1;try{v1=JSON.parse(v0)}catch(t){e[0](v0)}typeof v1==="object"&&v1&&!Array.isArray(v1)||e[2](v1);let v2=v1["a"];typeof v2==="number"&&v2===v2||e[1](v2);return {meta:{a:v2}}}
+    examples:
+      nested-document:
+        input: ((f) => (f.append("meta", "{\"a\":1}"), f))(new FormData())
+        output: "{ meta: { a: 1 } }"
+  encode:
+    expression: i=>{let v0=i["meta"];let v1=v0["a"];let v2=new e[1]();v2.append("meta","{\"a\":"+(Number.isFinite(v1)?v1:e[0](v1))+"}");return v2}
+    examples:
+      non-finite:
+        input: "{ meta: { a: Infinity } }"
+        error: 'Failed at ["meta"]["a"]: Expected JSON, received Infinity'
