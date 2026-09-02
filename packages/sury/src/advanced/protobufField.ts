@@ -105,8 +105,24 @@ const peel = (schema: Internal): Internal => {
   return output;
 };
 
+// `S.enum([0, 1, 2])` and its optional form: every member a whole-number
+// literal, `undefined` aside.
+const isIntegerEnum = (schema: Internal): boolean => {
+  if (schema.type !== anyOfTag || schema.anyOf === U) return false;
+  let members = 0;
+  for (let idx = 0; idx < schema.anyOf.length; idx++) {
+    const member = outputOf(schema.anyOf[idx]!);
+    if (member.type === undefinedTag) continue;
+    if (member.type !== numberTag || !Number.isInteger(member.const)) return false;
+    members++;
+  }
+  return members > 0;
+};
+
 const inferType = (schema: Internal): ProtobufType | undefined => {
+  if (isIntegerEnum(outputOf(schema))) return "enum";
   const shape = peel(schema);
+  if (isIntegerEnum(shape)) return "enum";
   if (shape.type === stringTag) return "string";
   if (shape.type === booleanTag) return "bool";
   if (shape.type === instanceTag && shape.class === Uint8Array) return "bytes";

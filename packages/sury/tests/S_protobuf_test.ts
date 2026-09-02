@@ -266,6 +266,73 @@ test("protobuf converts nested fields through the schema's own coercions", (t) =
   t.expect(decode(new Uint8Array([18, 2, 8, 9]))).toEqual({ kids: [{ id: "9" }] });
 });
 
+test("protobuf infers enum for a union of integer literals and keeps unknown values", (t) => {
+  const Message = S.schema({
+    kind: S.union([0, 1, 2]).with(S.protobufField, 1),
+    maybe: S.optional(S.union([0, 5])).with(S.protobufField, 2),
+    list: S.array(S.union([-1, 1])).with(S.protobufField, 3),
+  });
+  const encode = S.decoder(Message, S.protobuf);
+  const decode = S.decoder(S.protobuf, Message);
+  t.expect([...encode({ kind: 2, maybe: 0, list: [-1, 1] })]).toEqual([8, 2, 16, 0, 26, 11, 255, 255, 255, 255, 255, 255, 255, 255, 255, 1, 1]);
+  t.expect(decode(encode({ kind: 2, maybe: 0, list: [-1, 1] }))).toEqual({ kind: 2, maybe: 0, list: [-1, 1] });
+  t.expect(decode(new Uint8Array())).toEqual({ kind: 0, list: [] });
+  t.expect(decode(new Uint8Array([8, 7]))).toEqual({ kind: 7, list: [] });
+});
+
+test("protobuf encode stays valid when a message outgrows the writer's slab", (t) => {
+  const Message = S.schema({
+    items: S.array(S.schema({ blob: S.uint8Array.with(S.protobufField, 1) })).with(S.protobufField, 1),
+  });
+  const encode = S.decoder(Message, S.protobuf);
+  const decode = S.decoder(S.protobuf, Message);
+  const value = { items: Array.from({ length: 3 }, (_, i) => ({ blob: new Uint8Array(3000).fill(i + 1) })) };
+  const first = encode(value);
+  for (let i = 0; i < 5; i++) {
+    const bytes = encode(value);
+    t.expect(bytes.length).toBe(first.length);
+    t.expect(decode(bytes)).toEqual(value);
+  }
+  t.expect(decode(first)).toEqual(value);
+});
+
+test("protobuf reports wire and value failures as Sury errors", (t) => {
+  const Message = S.schema({ s: S.string.with(S.protobufField, 1), f: S.number.with(S.protobufField, { number: 2, type: "float" }) });
+  const decode = S.decoder(S.protobuf, Message);
+  const encode = S.decoder(Message, S.protobuf);
+  const invalid = (fn: () => unknown) => {
+    try {
+      fn();
+    } catch (error) {
+      return error as S.Error;
+    }
+    throw new Error("expected a throw");
+  };
+  t.expect(invalid(() => decode(new Uint8Array([10, 1, 255])))).toBeInstanceOf(S.Error);
+  t.expect(invalid(() => decode(new Uint8Array([10, 1, 255]))).code).toBe("invalid_conversion");
+  t.expect(invalid(() => decode(new Uint8Array([10, 1, 255]))).message).toContain("not valid UTF-8");
+  t.expect(invalid(() => decode(new Uint8Array([10]))).message).toContain("truncated protobuf message");
+  t.expect(invalid(() => encode({ s: "", f: 1e40 })).message).toContain("invalid float");
+  const Wrapped = S.schema({ inner: Message.with(S.protobufField, 1) });
+  t.expect(invalid(() => S.decoder(S.protobuf, Wrapped)(new Uint8Array([10, 3, 10, 1, 255]))).code).toBe("invalid_conversion");
+});
+
+test("protobuf names the field that keeps a schema from being a message", (t) => {
+  t.expect(() => S.decoder(S.protobuf, S.schema({ id: S.int32 }))).toThrow('field "id" has no field number');
+  t.expect(() =>
+    S.decoder(S.protobuf, S.schema({ a: S.int32.with(S.protobufField, 1), b: S.int32.with(S.protobufField, 1) })),
+  ).toThrow('field number 1 of "b" is already taken');
+  t.expect(() => S.decoder(S.protobuf, S.schema({ a: S.optional(S.array(S.int32)).with(S.protobufField, 1) }))).toThrow(
+    "can't be optional",
+  );
+  t.expect(() => S.decoder(S.protobuf, S.schema({ a: S.optional(S.record(S.int32)).with(S.protobufField, 1) }))).toThrow(
+    "can't be optional",
+  );
+  t.expect(() =>
+    S.decoder(S.protobuf, S.schema({ a: S.string.with(S.protobufField, { number: 1, type: "message" }) })),
+  ).toThrow("is a message but its schema is not an object");
+});
+
 test("protobuf requires an adjacent fully annotated object schema", (t) => {
   t.expect(() => S.parser(S.protobuf)).toThrow("Can't decode unknown to Uint8Array");
   t.expect(() => S.decoder(S.uint8Array, S.protobuf)).toThrow();

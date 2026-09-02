@@ -4,11 +4,14 @@ import {
   baseSchema,
   copySchema,
   type Encoder,
+  getOrRethrow,
   initSchema,
   instanceTag,
   type Internal,
   noopDecoder,
+  numberTag,
   objectTag,
+  panic,
   setHas,
   tagFlags,
   U,
@@ -19,6 +22,8 @@ import {
   _var,
   B_embed,
   B_embedPure,
+  B_failWithArg,
+  B_makeInvalidConversionDetails,
   B_merge,
   B_next,
   B_scope,
@@ -89,18 +94,31 @@ const fieldMetadata = (schema: Internal): StoredField | undefined => {
   return U;
 };
 
+// Splits `T | undefined` into T and the presence flag. Several members left
+// over (an optional enum) stay a union of their own.
 const unwrapOptional = (schema: Internal): [Internal, boolean] => {
   const output = getOutputSchema(schema);
   if (output.type !== anyOfTag || output.anyOf === U) return [schema, false];
-  let value: Internal | undefined = U;
+  const values: Internal[] = [];
   let hasUndefined = false;
   for (let idx = 0; idx < output.anyOf.length; idx++) {
     const member = output.anyOf[idx]!;
     if (getOutputSchema(member).type === undefinedTag) hasUndefined = true;
-    else if (value === U) value = member;
-    else return [output, false];
+    else values.push(member);
   }
-  return hasUndefined && value !== U ? [value, true] : [output, false];
+  if (!hasUndefined || values.length === 0) return [output, false];
+  return [values.length === 1 ? values[0]! : anyOf(values), true];
+};
+
+// A union as a type descriptor only: the raw and normalized sides share it,
+// so nothing ever converts through it, and the union compiler stays out of
+// the bundle.
+const anyOf = (members: Internal[]): Internal => {
+  const mut = baseSchema(anyOfTag, false, noopDecoder);
+  mut.anyOf = members;
+  mut.has = {};
+  for (let idx = 0; idx < members.length; idx++) setHas(mut.has, members[idx]!.type);
+  return mut;
 };
 
 const bytesSchema: Internal = /* @__PURE__ */ initSchema(instanceTag, instanceDecoder, (s) => {
@@ -172,7 +190,8 @@ const compileMessage = (schema: Internal, seen = new Set<Internal>()): Message |
     const key = keys[idx]!;
     const property = output.properties[key]!;
     const metadata = fieldMetadata(property);
-    if (metadata === U || numbers.has(metadata.number)) return U;
+    if (metadata === U) return panic(`S.protobuf: field "${key}" has no field number. Give it one with S.protobufField`);
+    if (numbers.has(metadata.number)) return panic(`S.protobuf: field number ${metadata.number} of "${key}" is already taken`);
     numbers.add(metadata.number);
     const [propertyValue, optional] = unwrapOptional(property);
     let shape = getOutputSchema(propertyValue);
@@ -180,11 +199,11 @@ const compileMessage = (schema: Internal, seen = new Set<Internal>()): Message |
     let repeated = false;
     let map: ProtobufType | undefined;
     if (shape.type === arrayTag && typeof shape.additionalItems === objectTag) {
-      if (optional) return U;
+      if (optional) return panic(`S.protobuf: repeated field "${key}" can't be optional. An absent list decodes to []`);
       repeated = true;
       shape = getOutputSchema(shape.additionalItems as Internal);
     } else if (shape.type === objectTag && typeof shape.additionalItems === objectTag) {
-      if (optional) return U;
+      if (optional) return panic(`S.protobuf: map field "${key}" can't be optional. An absent map decodes to {}`);
       map = metadata.key;
       shape = getOutputSchema(shape.additionalItems as Internal);
     }
@@ -193,11 +212,14 @@ const compileMessage = (schema: Internal, seen = new Set<Internal>()): Message |
     let normalizedProperty = optional ? propertyValue : property;
     if (metadata.type === "message") {
       message = compileMessage(shape, new Set(seen));
-      if (message === U) return U;
+      if (message === U) return panic(`S.protobuf: field "${key}" is a message but its schema is not an object`);
       raw = optional ? optionalMessage(message.raw) : message.raw;
       normalizedProperty = message.schema;
     } else {
-      raw = scalarSchema(metadata.type);
+      // An enum declared as integer literals keeps its own schema on the raw
+      // side: the wire value lands as is, unknown numbers included, the open
+      // enum proto3 specifies.
+      raw = metadata.type === "enum" && shape.type === anyOfTag ? shape : scalarSchema(metadata.type);
     }
     // A repeated or map message keeps the user's container (its length
     // checks included) around the normalized nested schema, not the user's:
@@ -504,6 +526,43 @@ class Reader {
     }
     this.pos = pos;
   }
+  // Packed fixed-width fields: an aligned span is read through a typed array
+  // over the input, anything else through a DataView, both created once per
+  // field instead of a scratch copy per element. `kind` is 0 double, 1 float,
+  // 2 fixed32, 3 sfixed32, 4 fixed64, 5 sfixed64.
+  fixeds(out: unknown[], kind: number): void {
+    const buf = this.buf;
+    const start = this.pos;
+    const end = this.limit;
+    const size = kind === 1 || kind === 2 || kind === 3 ? 4 : 8;
+    const len = end - start;
+    if (len % size !== 0) truncated();
+    const n = len / size;
+    const offset = buf.byteOffset + start;
+    this.pos = end;
+    if (offset % size === 0) {
+      const view =
+        kind === 0 ? new Float64Array(buf.buffer, offset, n)
+        : kind === 1 ? new Float32Array(buf.buffer, offset, n)
+        : kind === 2 ? new Uint32Array(buf.buffer, offset, n)
+        : kind === 3 ? new Int32Array(buf.buffer, offset, n)
+        : kind === 4 ? new BigUint64Array(buf.buffer, offset, n)
+        : new BigInt64Array(buf.buffer, offset, n);
+      for (let i = 0; i < n; i++) out.push(view[i]);
+      return;
+    }
+    const view = new DataView(buf.buffer, offset, len);
+    for (let i = 0; i < len; i += size) {
+      out.push(
+        kind === 0 ? view.getFloat64(i, true)
+        : kind === 1 ? view.getFloat32(i, true)
+        : kind === 2 ? view.getUint32(i, true)
+        : kind === 3 ? view.getInt32(i, true)
+        : kind === 4 ? view.getBigUint64(i, true)
+        : view.getBigInt64(i, true),
+      );
+    }
+  }
   // Enters a length-delimited field: narrows `limit` to it and returns the
   // outer limit for the caller to restore. Bounds checks against `limit`
   // are what stop a nested read escaping its field.
@@ -522,17 +581,33 @@ class Reader {
     if (end > this.limit) truncated();
     const buf = this.buf;
     this.pos = end;
-    if (len < 10) {
+    // ASCII up to 48 bytes builds the string eight chars a call, which beats
+    // TextDecoder's fixed cost; a byte over 127 hands the span to it.
+    if (len < 48) {
       let s = "";
       let i = start;
-      for (; i < end; i++) {
-        const c = buf[i]!;
-        if (c > 127) break;
-        s += String.fromCharCode(c);
+      let ascii = 0;
+      for (; i + 8 <= end; i += 8) {
+        const a = buf[i]!, b = buf[i + 1]!, c = buf[i + 2]!, d = buf[i + 3]!;
+        const e = buf[i + 4]!, f = buf[i + 5]!, g = buf[i + 6]!, h = buf[i + 7]!;
+        ascii |= a | b | c | d | e | f | g | h;
+        if (ascii > 127) break;
+        s += String.fromCharCode(a, b, c, d, e, f, g, h);
       }
-      if (i === end) return s;
+      if (ascii < 128) {
+        for (; i < end; i++) {
+          const c = buf[i]!;
+          if (c > 127) break;
+          s += String.fromCharCode(c);
+        }
+        if (i === end) return s;
+      }
     }
-    return textDecoder.decode(buf.subarray(start, end));
+    try {
+      return textDecoder.decode(buf.subarray(start, end));
+    } catch {
+      throw Error("protobuf string is not valid UTF-8");
+    }
   }
   bytes(): Uint8Array {
     const len = this.varint32();
@@ -554,14 +629,13 @@ class Writer {
   buf = new Uint8Array(8192);
   pos = 0;
   base = 0;
+  // Growth keeps every position: a length hole a caller holds is an absolute
+  // index, so the buffer is copied from 0 rather than from `base`.
   ensure(n: number): void {
     if (this.pos + n <= this.buf.length) return;
-    const len = this.pos - this.base;
-    const next = new Uint8Array(Math.max(8192, (len + n) * 2));
-    next.set(this.buf.subarray(this.base, this.pos));
+    const next = new Uint8Array(Math.max(this.buf.length * 2, this.pos + n));
+    next.set(this.buf.subarray(0, this.pos));
     this.buf = next;
-    this.base = 0;
-    this.pos = len;
   }
   varint32(value: number): void {
     this.ensure(5);
@@ -656,6 +730,45 @@ class Writer {
       buf[pos++] = value;
     }
     this.pos = pos;
+  }
+  // Packed fixed-width twin of Reader.fixeds: one typed-array `set` when the
+  // slab position is aligned, a DataView loop otherwise.
+  fixeds(values: ArrayLike<number | bigint>, kind: number): void {
+    const n = values.length;
+    const size = kind === 1 || kind === 2 || kind === 3 ? 4 : 8;
+    this.ensure(n * size);
+    const buf = this.buf;
+    const offset = buf.byteOffset + this.pos;
+    if (kind === 1) {
+      for (let i = 0; i < n; i++) {
+        const value = values[i] as number;
+        if (Number.isFinite(value) && Math.abs(value) > 3.4028234663852886e38) throw Error("invalid float");
+      }
+    } else if (kind === 2) for (let i = 0; i < n; i++) checkedNumber(values[i], 0, 4294967295, "fixed32");
+    else if (kind === 3) for (let i = 0; i < n; i++) checkedNumber(values[i], -2147483648, 2147483647, "sfixed32");
+    else if (kind === 4) for (let i = 0; i < n; i++) checkedBigint(values[i], 0n, 18446744073709551615n, "fixed64");
+    else if (kind === 5) for (let i = 0; i < n; i++) checkedBigint(values[i], -9223372036854775808n, 9223372036854775807n, "sfixed64");
+    if (offset % size === 0) {
+      (kind === 0 ? new Float64Array(buf.buffer, offset, n)
+        : kind === 1 ? new Float32Array(buf.buffer, offset, n)
+        : kind === 2 ? new Uint32Array(buf.buffer, offset, n)
+        : kind === 3 ? new Int32Array(buf.buffer, offset, n)
+        : kind === 4 ? new BigUint64Array(buf.buffer, offset, n)
+        : new BigInt64Array(buf.buffer, offset, n)
+      ).set(values as never);
+    } else {
+      const view = new DataView(buf.buffer, offset, n * size);
+      for (let i = 0; i < n; i++) {
+        const value = values[i]!;
+        if (kind === 0) view.setFloat64(i * 8, value as number, true);
+        else if (kind === 1) view.setFloat32(i * 4, value as number, true);
+        else if (kind === 2) view.setUint32(i * 4, value as number, true);
+        else if (kind === 3) view.setInt32(i * 4, value as number, true);
+        else if (kind === 4) view.setBigUint64(i * 8, value as bigint, true);
+        else view.setBigInt64(i * 8, value as bigint, true);
+      }
+    }
+    this.pos += n * size;
   }
   bytes(value: Uint8Array): void {
     const n = value.length;
@@ -838,6 +951,15 @@ const writeCall = (type: ProtobufType, v: string, num: string, big: string): str
   return `w.bytes(${v})`;
 };
 
+const fixedKind = (type: ProtobufType): number | undefined =>
+  type === "double" ? 0
+  : type === "float" ? 1
+  : type === "fixed32" ? 2
+  : type === "sfixed32" ? 3
+  : type === "fixed64" ? 4
+  : type === "sfixed64" ? 5
+  : U;
+
 const varintKind = (type: ProtobufType): number | undefined =>
   type === "uint32" ? 0
   : type === "int32" || type === "enum" ? 1
@@ -889,17 +1011,21 @@ const keyToWire = (type: ProtobufType, num: string): string => {
   return "k=BigInt(k);";
 };
 
-const fieldLive = (field: Field): string =>
+// `numeric`: the value is known to be a number already (a validated field
+// val), so the write skips the coercion a nested encoder's untyped read needs.
+const fieldLive = (field: Field, numeric: boolean): string =>
   field.optional ? "v!=null"
   : field.type === "bytes" ? "v.length"
   : field.type === "float" || field.type === "double" ? "v||v!==v||Object.is(v,-0)"
-  : field.type === "string" || field.type === "bool" || field.type.includes("64") ? "v"
+  : field.type === "string" || field.type === "bool" || field.type.includes("64") || numeric ? "v"
   : "(v=+v)";
+
+type Read = (key: string) => { expr: string; numeric: boolean };
 
 const encodeBody = (
   msg: Message,
   fns: Map<Message, string>,
-  read: (key: string) => string,
+  read: Read,
   num: string,
   big: string,
 ): string => {
@@ -907,7 +1033,7 @@ const encodeBody = (
   for (let idx = 0; idx < msg.fields.length; idx++) {
     const field = msg.fields[idx]!;
     const tag = field.number * 8 + field.wire;
-    const src = read(field.key);
+    const { expr: src, numeric } = read(field.key);
     if (field.map !== U) {
       const keyType = field.map;
       const entryTag = writeTag(field.number * 8 + 2);
@@ -920,7 +1046,11 @@ const encodeBody = (
       let loop: string;
       if (packable[field.type] && field.packed) {
         const kind = varintKind(field.type);
-        loop = `${writeTag(field.number * 8 + 2)};h=w.begin();${kind === U ? `j=0;while(j<n){${writeCall(field.type, "v[j++]", num, big)}}` : `w.varints(v,${kind});`}w.end(h)`;
+        const fixed = fixedKind(field.type);
+        const packed = kind !== U ? `w.varints(v,${kind});`
+          : fixed !== U ? `w.fixeds(v,${fixed});`
+          : `j=0;while(j<n){${writeCall(field.type, "v[j++]", num, big)}}`;
+        loop = `${writeTag(field.number * 8 + 2)};h=w.begin();${packed}w.end(h)`;
       } else if (field.type === "message") {
         loop = `j=0;while(j<n){${writeTag(tag)};h=w.begin();${fns.get(field.message!)!}(w,v[j++]);w.end(h)}`;
       } else {
@@ -930,7 +1060,7 @@ const encodeBody = (
     } else if (field.type === "message") {
       body.push(`v=${src};if(v!=null){${writeTag(tag)};h=w.begin();${fns.get(field.message!)!}(w,v);w.end(h)}`);
     } else {
-      body.push(`v=${src};if(${fieldLive(field)}){${writeTag(tag)};${writeCall(field.type, "v", num, big)}}`);
+      body.push(`v=${src};if(${fieldLive(field, numeric)}){${writeTag(tag)};${writeCall(field.type, "v", num, big)}}`);
     }
   }
   return body.join(";");
@@ -952,7 +1082,7 @@ const compileEncoders = (root: Message, fns: Map<Message, string>): Record<strin
   let src = "";
   fns.forEach((name, msg) => {
     if (msg === root) return;
-    src += `function ${name}(w,value){var v,j,n,s,h,a,k,g,c;${encodeBody(msg, fns, (key) => `value[${JSON.stringify(key)}]`, "num", "big")}}`;
+    src += `function ${name}(w,value){var v,j,n,s,h,a,k,g,c;${encodeBody(msg, fns, (key) => ({ expr: `value[${JSON.stringify(key)}]`, numeric: false }), "num", "big")}}`;
   });
   const names = [...fns.values()].filter((name) => name !== fns.get(root));
   return new Function("num", "big", `${src}return {${names.join(",")}}`)(checkedNumber, checkedBigint);
@@ -1008,9 +1138,10 @@ const decodeFnSource = (msg: Message, fns: Map<Message, string>): string => {
         : `if(w===2){p=r.sub();${local}=${nested}(r,d+1,${local});r.limit=p;continue}break;`;
     } else if (field.repeated && packable[field.type]) {
       const kind = varintKind(field.type);
-      const packedLoop = kind === U
-        ? `while(r.pos<r.limit)${local}.push(${readCall(field.type)})`
-        : `r.${["u32s", "i32s", "s32s", "bools"][kind]}(${local})`;
+      const fixed = fixedKind(field.type);
+      const packedLoop = kind !== U ? `r.${["u32s", "i32s", "s32s", "bools"][kind]}(${local})`
+        : fixed !== U ? `r.fixeds(${local},${fixed})`
+        : `while(r.pos<r.limit)${local}.push(${readCall(field.type)})`;
       arm += `if(w===2){p=r.sub();${packedLoop};r.limit=p;continue}if(w===${field.wire}){${local}.push(${readCall(field.type)});continue}break;`;
     } else if (field.repeated) {
       arm += `if(w===${field.wire}){${local}.push(${readCall(field.type)});continue}break;`;
@@ -1043,12 +1174,23 @@ const compileDecoder = (root: Message, fns: Map<Message, string>): Function => {
   return new Function("skip", `${src}return ${fns.get(root)!}`)(skip);
 };
 
+// The declared object, with the field metadata on its properties. A parsed
+// val's `s` is the object rebuilt from what each field parsed to, and a
+// union field parses to a fresh schema that lost its `pb`, so the expected
+// side of the chain is searched first.
+const isMessageShape = (schema: Internal | undefined): schema is Internal =>
+  schema !== U && schema.type === objectTag && schema.properties !== U;
+
 const objectSchemaOf = (input: Val): Internal => {
-  if (input.s !== U && input.s.type === objectTag && input.s.properties !== U) return input.s;
-  let prev: Val | undefined = input.prev;
-  while (prev !== U) {
-    if (prev.s !== U && prev.s.type === objectTag && prev.s.properties !== U) return prev.s;
-    prev = prev.prev;
+  let current: Val | undefined = input.prev;
+  while (current !== U) {
+    if (isMessageShape(current.e)) return current.e;
+    current = current.prev;
+  }
+  current = input;
+  while (current !== U) {
+    if (isMessageShape(current.s)) return current.s;
+    current = current.prev;
   }
   return input.s;
 };
@@ -1074,17 +1216,28 @@ const protobufDecoder = (input: Val): Val => {
     names.set(msg, msg === message ? name : B_embedPure(input, encoders[name]));
   });
   const d = fieldValsOf(input);
-  const readRoot = (key: string): string => {
+  const readRoot: Read = (key) => {
     const fv = d !== U ? d[key] : U;
-    return fv !== U ? fv.i : `${input.v()}[${JSON.stringify(key)}]`;
+    return fv !== U
+      ? { expr: fv.i, numeric: fv.s.type === numberTag && fv.s.format !== U }
+      : { expr: `${input.v()}[${JSON.stringify(key)}]`, numeric: false };
   };
   const body = encodeBody(message, names, readRoot, B_embed(input, checkedNumber), B_embed(input, checkedBigint));
   const outVar = B_varWithoutAllocation(input.g);
   const output = B_next(input, outVar, input.e, input.e);
   output.v = _var;
-  output.cp = `let w=${B_embedPure(input, scratchWriter)}.reset(),v,j,n,s,h,a,k,g,c;${body};let ${outVar}=w.finish();`;
+  output.cp = `let ${outVar};${guarded(input, output, input.e, `let w=${B_embedPure(input, scratchWriter)}.reset(),v,j,n,s,h,a,k,g,c;${body};${outVar}=w.finish()`)}`;
   output.io = true;
   return output;
+};
+
+// A wire or value failure surfaces as a Sury conversion error with the
+// operation's path, the way B_conversion reports a coder's throw.
+const guarded = (input: Val, output: Val, target: Internal, code: string): string => {
+  const unionContext = input.g.o & 4;
+  const rethrow = unionContext ? `${B_embed(input, getOrRethrow)}(x);` : "";
+  const failure = B_failWithArg(output, (e: unknown) => B_makeInvalidConversionDetails(input, target, e), "x");
+  return `try{${code}}catch(x){${rethrow}${failure}}`;
 };
 
 const protobufEncoder = (input: Val, target: Internal): Val => {
@@ -1097,7 +1250,7 @@ const protobufEncoder = (input: Val, target: Internal): Val => {
   const outVar = B_varWithoutAllocation(input.g);
   const output = B_next(input, outVar, message.raw, message.schema);
   output.v = _var;
-  output.cp = `let ${outVar}=${decoder}(${B_embedPure(input, scratchReader)}.reset(${input.v()}),0);`;
+  output.cp = `let ${outVar};${guarded(input, output, target, `${outVar}=${decoder}(${B_embedPure(input, scratchReader)}.reset(${input.v()}),0)`)}`;
   return output;
 };
 

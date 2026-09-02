@@ -675,6 +675,36 @@ export const repeatedCases: RoundTripCase[] = [
     value: { a: [0n, -1n, 1n, 123456789n] },
   },
   {
+    id: "repeated/packed-double-unaligned",
+    fields: [field("s", 1, "string"), field("a", 2, "double", { repeated: true })],
+    value: { s: "x", a: [0.5, -1.25, 1e300, Number.NaN, -0] },
+  },
+  {
+    id: "repeated/packed-double-aligned",
+    fields: [field("s", 1, "string"), field("a", 2, "double", { repeated: true })],
+    value: { s: "abcd", a: [0.5, -1.25, 1e300] },
+  },
+  {
+    id: "repeated/packed-fixed64-unaligned",
+    fields: [field("s", 1, "string"), field("a", 2, "fixed64", { repeated: true })],
+    value: { s: "x", a: [0n, 1n, 18446744073709551615n] },
+  },
+  {
+    id: "repeated/packed-sfixed64-aligned",
+    fields: [field("s", 1, "string"), field("a", 2, "sfixed64", { repeated: true })],
+    value: { s: "abcd", a: [-1n, 9223372036854775807n, -9223372036854775808n] },
+  },
+  {
+    id: "repeated/packed-float-unaligned",
+    fields: [field("s", 1, "string"), field("a", 2, "float", { repeated: true })],
+    value: { s: "xy", a: [0.5, -1.25, 3.4028234663852886e38] },
+  },
+  {
+    id: "repeated/packed-sfixed32-aligned",
+    fields: [field("a", 1, "sfixed32", { repeated: true })],
+    value: { a: [-1, 2147483647, -2147483648, 0] },
+  },
+  {
     id: "repeated/packed-300-elements",
     fields: [field("a", 1, "int32", { repeated: true })],
     value: { a: Array.from({ length: 300 }, (_, i) => [0, 1, -1, 2147483647, -2147483648, 127, 128, -2][i % 8]!) },
@@ -725,6 +755,17 @@ export const nestedCases: RoundTripCase[] = [
     value: {
       inner: { data: new Uint8Array(Array.from({ length: 300 }, (_, i) => (i * 5) & 255)) },
       tail: new Uint8Array(Array.from({ length: 200 }, (_, j) => (j * 9) & 255)),
+    },
+  },
+  {
+    id: "nested/larger-than-a-slab",
+    fields: [
+      field("items", 1, "message", { repeated: true, fields: [field("blob", 1, "bytes"), field("n", 2, "int32")] }),
+      field("tail", 2, "string"),
+    ],
+    value: {
+      items: Array.from({ length: 4 }, (_, i) => ({ blob: new Uint8Array(3000).fill(i + 1), n: i })),
+      tail: "end",
     },
   },
   {
@@ -953,6 +994,11 @@ const bounds: RejectCase[] = [
     id: "decoder-bounds/packed-fixed32-leftover-byte",
     fields: [field("a", 1, "fixed32", { repeated: true })],
     wire: [0x0a, 5, 0, 0, 0, 0, 0],
+  },
+  {
+    id: "decoder-bounds/packed-fixed64-leftover-bytes",
+    fields: [field("a", 1, "fixed64", { repeated: true })],
+    wire: [0x0a, 12, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4],
   },
   {
     id: "decoder-bounds/packed-double-leftover-byte",

@@ -1141,8 +1141,10 @@ decode(bytes); // { id: 150, name: "Ada", tags: ["ml"] }
 
 The wire type is inferred from the schema: `S.string` is `string`, `S.boolean`
 is `bool`, `S.uint8Array` is `bytes`, `S.int32` is `int32`, `S.number` is
-`double`, `S.bigint` is `int64`, an object schema is a nested `message`,
-`S.array` is a `repeated` field and `S.record` is a `map`. Pass a descriptor to
+`double`, `S.bigint` is `int64`, `S.union([0, 1, 2])` is an `enum`, an object
+schema is a nested `message`, `S.array` is a `repeated` field and `S.record`
+is a `map`. An enum is open, as in proto3: a number the schema doesn't list
+decodes as that number. Pass a descriptor to
 pick any of the fifteen scalar wire types yourself, which also lets the JS
 type differ from the wire type — Sury converts through the schema:
 
@@ -1210,7 +1212,11 @@ S.decoder(Wire)(buffer); // { id: 150, name: "Ada", tags: [] }
 **Unknown fields** are skipped, groups included, and `S.strict` rejects them.
 Strings must be valid UTF-8. Malformed input — a truncated field, a field
 number of zero, an unknown wire type, an unmatched group or a tag wider than
-32 bits — throws.
+32 bits — throws an `S.Error` with code `invalid_conversion` and the wire
+problem as its reason; so does a value the wire type can't hold, such as a
+`float` beyond 32-bit range. A schema that can't be a message — a field
+without a number, two fields sharing one, an optional repeated field — is
+rejected when the operation is built, naming the field.
 
 `S.protobuf` passes the binary families of the official conformance suite
 that apply to it and round-trips against protobuf.js; the corpus lives in

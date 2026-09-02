@@ -6,13 +6,12 @@ ts:
   instantiations: 6599
 jsonSchema:
   input: '{ type: "object", properties: { map: { type: "object", additionalProperties: { type: "integer", minimum: -2147483648, maximum: 2147483647 } } }, required: ["map"] }'
-  output: Expected JSON, received Uint8Array
+  output: '[Sury] S.protobuf: field "map" is a message but its schema is not an object'
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    creationError: "SuryError: Can't decode { map: { [key: string]: int32; }; } to Uint8Array. Use S.to to define a custom decoder"
+    creationError: 'Error: [Sury] S.protobuf: field "map" is a message but its schema is not an object'
   decode: eq-to-parse
-  encode:
-    creationError: "SuryError: Can't decode Uint8Array to { map: { [key: string]: int32; }; }. Use S.to to define a custom decoder"
+  encode: eq-to-parse
