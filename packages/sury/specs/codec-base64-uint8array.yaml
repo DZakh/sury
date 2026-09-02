@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.base64.with(S.to, S.uint8Array)
+  input: string
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 5233
+jsonSchema:
+  input: '{ type: "string", contentEncoding: "base64" }'
+  output: Expected JSON, received Uint8Array
+  openapi-3.0:
+    input: '{ type: "string", format: "byte" }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[3](i);e[1](i)||e[2](i);return e[0](i)}
+    examples:
+      non-utf8-bytes:
+        input: '"iVBORw=="'
+        output: new Uint8Array([137, 80, 78, 71])
+      empty:
+        input: '""'
+        output: new Uint8Array([])
+      one-byte:
+        input: '"/w=="'
+        output: new Uint8Array([255])
+      not-base64:
+        input: '"!!"'
+        error: Expected base64, received "!!"
+      not-a-string:
+        input: "3"
+        error: Expected base64, received 3
+  decode:
+    expression: i=>{e[1](i)||e[2](i);return e[0](i)}
+    examples:
+      non-utf8-bytes:
+        input: '"iVBORw=="'
+        output: new Uint8Array([137, 80, 78, 71])
+  encode:
+    expression: i=>{return e[0](i)}
+    examples:
+      non-utf8-bytes:
+        input: new Uint8Array([137, 80, 78, 71])
+        output: '"iVBORw=="'
+      empty:
+        input: new Uint8Array([])
+        output: '""'

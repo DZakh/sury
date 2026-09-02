@@ -7,6 +7,9 @@ ts:
 jsonSchema:
   input: '{ type: "string", contentMediaType: "application/json" }'
   output: '{ type: "string", contentMediaType: "application/json" }'
+  openapi-3.0:
+    input: '{ type: "string" }'
+    output: '{ type: "string" }'
 vs:
   zod:
     _skip: not-applicable

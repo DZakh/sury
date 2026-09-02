@@ -4,7 +4,16 @@
 // rewritten file. This renders the same information in one place: each tracked
 // metric that regressed or improved (worst first, by percentage), plus the
 // behavior changes that aren't better-or-worse but do need noticing.
-import { OP_ORDER, isSkip, isCreationError, type Spec, type BundleSize, type Example, type Operation } from "./format";
+import {
+  OP_ORDER,
+  JSON_SCHEMA_TARGETS,
+  isSkip,
+  isCreationError,
+  type Spec,
+  type BundleSize,
+  type Example,
+  type Operation,
+} from "./format";
 // Type-only: bench.ts bundles both library versions and forks processes, none
 // of which spec_test.ts (which imports summarize) should pull in.
 import type { Perf } from "./bench";
@@ -132,6 +141,14 @@ const specDeltas = (
         `${id}.jsonSchema.${typeSide}`,
         before.jsonSchema?.[typeSide],
         after.jsonSchema?.[typeSide],
+        behavior,
+      );
+    }
+    for (const name of JSON_SCHEMA_TARGETS) {
+      changed(
+        `${id}.jsonSchema.${name}`,
+        JSON.stringify(before.jsonSchema?.[name] ?? null),
+        JSON.stringify(after.jsonSchema?.[name] ?? null),
         behavior,
       );
     }

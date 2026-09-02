@@ -8,6 +8,8 @@ jsonSchema:
   input: '{ type: "string", const: "undefined" }'
   fromInputType: '"undefined"'
   output: Expected JSON, received undefined
+  openapi-3.0:
+    input: '{ type: "string", enum: ["undefined"] }'
 vs:
   zod:
     _skip: not-applicable
