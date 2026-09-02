@@ -63,6 +63,7 @@
 - [Transforms](#transforms)
   - [`to` with `~custom`](#to-with-custom)
 - [Functions on schema](#functions-on-schema)
+  - [At a glance](#at-a-glance)
   - [Pipelines](#pipelines)
   - [Built-in operations](#built-in-operations)
   - [`parser` / `asyncParser`](#parser-asyncparser)
@@ -163,7 +164,18 @@ let filmSchema = S.object(s => {
 //   "Age": undefined,
 // }
 
-// 5. Convert the schema to a JSON schema
+// 5. Build a value in code, checked by the same schema
+let makeFilm = S.constructor(filmSchema)
+makeFilm({
+  id: 3.,
+  title: "Shorts",
+  tags: [],
+  rating: GeneralAudiences,
+  deprecatedAgeRestriction: None,
+})
+// the record itself, validated
+
+// 6. Convert the schema to a JSON schema
 let filmJSONSchema = filmSchema->S.inputJSONSchema
 ```
 
@@ -1594,6 +1606,17 @@ S.Error.make(
 ```
 
 ## Functions on schema
+
+### At a glance
+
+`S.t<'value>` names the output type, so operations on that side carry no prefix; the ones that look at the input side say so in their name.
+
+|           | Input side                             | Output side                              | Crosses both                                    |
+| --------- | -------------------------------------- | ---------------------------------------- | ----------------------------------------------- |
+| Convert   |                                        |                                          | `parseOrThrow`, `decodeOrThrow`, `parser`, `decoder` |
+| Construct |                                        | `constructor`, `asyncConstructor`        |                                                 |
+| Assert    | `assertOrThrow`                        |                                          |                                                 |
+| Describe  | `inputJSONSchema`, `inputExpression`   | `outputJSONSchema`, `outputExpression`   |                                                 |
 
 ### Pipelines
 

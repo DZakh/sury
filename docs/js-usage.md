@@ -50,10 +50,10 @@
 - [Refinements](#refinements)
   - [`shape`](#shape)
 - [Functions on schema](#functions-on-schema)
+  - [At a glance](#at-a-glance)
   - [Pipelines](#pipelines)
   - [Built-in operations](#built-in-operations)
   - [Constructing entities](#constructing-entities)
-  - [Naming](#naming)
   - [Chaining operations](#chaining-operations)
   - [`reverse`](#reverse)
   - [`to`](#to)
@@ -1219,14 +1219,14 @@ S.inputJSONSchema(documentedStringSchema);
 
 Add a type-only symbol to an existing type so that only values produced by validation satisfy it.
 
-Use `S.brand` to attach a nominal brand to a schema's output. This is a TypeScript-only marker: it does not change runtime behavior. Combine it with `S.refine` (or any validation) so only validated values can acquire the brand.
+Use `S.brand` to attach a nominal brand to a schema's output. This is a TypeScript-only marker: it does not change runtime behavior. Combine it with `S.refine` (or any validation) so only validated values can acquire the brand — parsing mints one from unknown data, and [`S.outputConstructor`](#constructing-entities) from a plain value you already hold.
 
 ```ts
 // Brand a string as a UserId
 const userIdSchema = S.string.with(S.brand, "UserId");
 type UserId = S.Infer<typeof userIdSchema>; // S.Brand<string, "UserId">
 
-const id: UserId = S.parser(userIdSchema)("u_123"); // OK
+const id: UserId = S.outputConstructor(userIdSchema)("u_123"); // OK
 const asString: string = id; // OK: branded value is assignable to string
 // @ts-expect-error - A plain string is not assignable to a branded string
 const notId: UserId = "u_123";
@@ -1243,7 +1243,7 @@ const evenSchema = S.number
 
 type Even = S.Infer<typeof evenSchema>; // S.Brand<number, "even">
 
-const good: Even = S.parser(evenSchema)(2); // OK
+const good: Even = S.outputConstructor(evenSchema)(2); // OK
 // @ts-expect-error - number is not assignable to brand "even"
 const bad: Even = 5;
 ```
@@ -1425,6 +1425,18 @@ S.encoder(circleSchema)({ kind: "circle", radius: 1 }); //? 1
 
 ## Functions on schema
 
+### At a glance
+
+Every operation that looks at one side of a schema says which side in its name. The conversions cross between the sides, so they keep their own names.
+
+|           | Input side                             | Output side                              | Crosses both                     |
+| --------- | -------------------------------------- | ---------------------------------------- | -------------------------------- |
+| Convert   |                                        |                                          | `parser`, `decoder`, `encoder`   |
+| Construct | `inputConstructor`                     | `outputConstructor`                      |                                  |
+| Validate  | `inputValidator`                       | `outputValidator`                        |                                  |
+| Assert    | `assertInput`                          | `assertOutput`                           |                                  |
+| Describe  | `inputJSONSchema`, `inputExpression`   | `outputJSONSchema`, `outputExpression`   |                                  |
+
 ### Pipelines
 
 Conversion targets are schemas, not dedicated functions: `S.json`, `S.jsonString`, `S.unknown`, `S.date`, and `S.uint8Array` are ordinary schemas usable at any position in a chain.
@@ -1465,76 +1477,50 @@ const apiUser = S.schema({
 
 `S.to` is the same compiler as `S.decoder` / `S.encoder`, applied at a single point in a larger schema. The whole tree — top-level operation plus every nested `S.to` — folds into one generated function.
 
-> 🧠 `S.parser` and `S.assertInput` aren't separate primitives — they're just specializations of `S.decoder` with `S.unknown` on the input side. `S.parser(schema)` is `S.decoder(S.unknown, schema)`. `S.assertInput(schema, data)` runs a decoder from `S.unknown` *through* the schema *to* `S.literal(true).with(S.noValidation, true)` — the target is a no-op constant with validation disabled, so the compiler emits the schema's validation but no output-construction code at all. That's why asserting is 2–3× faster than parsing.
+> 🧠 `S.parser` and `S.assertInput` are `S.decoder` with `S.unknown` on the input side. Asserting skips building the output, which is why it's 2–3× faster than parsing.
 
 ### Built-in operations
 
-The library provides a bunch of built-in operations that can be used to parse, convert, and assert values.
+Every compiled operation takes the schema and returns a function: `(schema) => (data) => …`. The asserts are the one exception — TypeScript can only narrow through a direct call.
 
-Parsing means that the input value is validated against the schema and transformed to the expected output type. You can use the following operations to parse values:
+**Parse** — validate unknown data and transform it to the output type:
 
-| Operation      | Interface                                                       | Description                                                   |
-| -------------- | --------------------------------------------------------------- | ------------------------------------------------------------- |
-| S.parser       | `(Schema<TInput, TOutput>) => (data: unknown) => TOutput`          | Parses any value with the schema                              |
-| S.asyncParser  | `(Schema<TInput, TOutput>) => (data: unknown) => Promise<TOutput>` | Parses any value with the schema having async transformations |
+- `S.parser(schema)`: `(data: unknown) => TOutput`
+- `S.asyncParser(schema)`: `(data: unknown) => Promise<TOutput>`
 
-For advanced users you can only transform to the output type without type validations. But be careful, since the input type is not checked:
+**Decode** — transform a value the input type already describes. Type validations are skipped; refinements and transforms still run:
 
-| Operation       | Interface                                                | Description                                                      |
-| --------------- | -------------------------------------------------------- | ---------------------------------------------------------------- |
-| S.decoder       | `(Schema<TInput, TOutput>) => (TInput) => TOutput`           | Converts input value to the output type                          |
-| S.asyncDecoder  | `(Schema<TInput, TOutput>) => (TInput) => Promise<TOutput>`  | Converts input value to the output type with async transforms    |
+- `S.decoder(schema)`: `(data: TInput) => TOutput`
+- `S.asyncDecoder(schema)`: `(data: TInput) => Promise<TOutput>`
 
-Note, that in this case only type validations are skipped. If your schema has refinements or transforms, they will be applied.
+`S.noValidation(schema, true)` turns type validations off for a schema even under a parse.
 
-Also, you can use `S.noValidation(schema, true)` helper to turn off type validations for the schema even when it's used with a parse operation.
+**Encode** — the reverse direction, exactly `S.decoder` applied to `S.reverse(schema)`:
 
-More often than converting input to output, you'll need to perform the reversed operation — encoding. **Sury** has a unique mental model and provides an ability to reverse any schema with `S.reverse` which you can later use with all possible kinds of operations. But for convenience, there's a few helper functions that can be used to convert output values to the initial format:
+- `S.encoder(schema)`: `(data: TOutput) => TInput`
+- `S.asyncEncoder(schema)`: `(data: TOutput) => Promise<TInput>`
 
-| Operation       | Interface                                              | Description                                                           |
-| --------------- | ------------------------------------------------------ | --------------------------------------------------------------------- |
-| S.encoder       | `(Schema<TInput, TOutput>) => (TOutput) => TInput`         | Converts schema value to the input type                               |
-| S.asyncEncoder  | `(Schema<TInput, TOutput>) => (TOutput) => Promise<TInput>`| Converts schema value to the input type with async transformations    |
+**Validate** — a compiled TypeScript type guard that answers instead of throwing:
 
-This is literally the same as convert operations applied to the reversed schema.
-
-For some cases you might want to simply check whether a value is valid, without parsing it. For this there are the assert and validator operations:
-
-| Operation         | Interface                                                      | Description                                                                                                                                        |
-| ----------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| S.assertInput     | `(Schema<TInput, TOutput>, data: unknown) asserts data is TInput` or `(data: unknown, Schema<TInput, TOutput>) asserts data is TInput`   | Asserts that the value is valid input. Since the operation doesn't return a value, it's 2-3 times faster than `parser` depending on the schema |
-| S.assertOutput    | `(Schema<TInput, TOutput>, data: unknown) asserts data is TOutput` or `(data: unknown, Schema<TInput, TOutput>) asserts data is TOutput` | The same assertion against the schema's output type — what `S.encoder` accepts                                                                 |
-| S.inputValidator  | `(Schema<TInput, TOutput>) => (data: unknown) => data is TInput`                                                                          | Compiles a check that returns `true`/`false` whether the value is valid input. Acts as a TypeScript type guard and shares the fast validate-only path with the asserts |
-| S.outputValidator | `(Schema<TInput, TOutput>) => (data: unknown) => data is TOutput`                                                                         | The same check against the schema's output type                                                                                                |
-
-The asserts accept their arguments in either order, so `(schema, data)` and `(data, schema)` are equivalent and both narrow the type. There's no "correct" order to memorize — pass the schema and the data in whatever order feels natural, and it just works. This is especially handy for AI assistants, which no longer have to guess the right argument position:
-
-```ts
-const data: unknown = "abc";
-
-S.assertInput(data, S.string);
-// data is now typed as string
-
-S.assertInput(S.string, data);
-// equivalent
-```
-
-The validators are compiled like every other operation — the schema goes in once, and the function you get back is a TypeScript type guard:
+- `S.inputValidator(schema)`: `(data: unknown) => data is TInput`
+- `S.outputValidator(schema)`: `(data: unknown) => data is TOutput`
 
 ```ts
 const isUser = S.inputValidator(userSchema);
 
 const users = records.filter(isUser);
-
-if (isUser(data)) {
-  // data is now typed as User
-}
 ```
 
-All operations either return the output value or throw an error. For convenient error handling you can use the `S.safe` and `S.safeAsync` helpers, which catch the error and wrap it into a `Result` type:
+**Assert** — validate without building an output, which makes it 2–3× faster than parsing:
+
+- `S.assertInput(schema, data)`: `asserts data is TInput`
+- `S.assertOutput(schema, data)`: `asserts data is TOutput`
+
+Both accept `(schema, data)` and `(data, schema)`, so there's no order to memorize — especially handy for AI assistants:
 
 ```ts
-const result = S.safe(() => S.parser(S.string)(123));
+S.assertInput(data, S.string);
+S.assertInput(S.string, data); // equivalent
 ```
 
 ### Constructing entities
@@ -1580,12 +1566,6 @@ const userId = S.outputConstructor(userIdSchema)("f81d4fae-7dec-11d0-a765-00a0c9
 ```
 
 A branded schema used as a *field* keeps its brand in what the constructor asks for, so only a value that has already been through validation fits.
-
-### Naming
-
-Every operation that looks at one side of a schema says which side in its name — `inputExpression` / `outputExpression`, `inputJSONSchema` / `outputJSONSchema`, `inputValidator` / `outputValidator`, `assertInput` / `assertOutput`, `inputConstructor` / `outputConstructor`.
-
-The conversions keep their own vocabulary, because their whole job is to cross between the two sides rather than describe one: `S.parser` goes from unknown data to the output type, `S.decoder` from input to output, and `S.encoder` back from output to input.
 
 ### Chaining operations
 
