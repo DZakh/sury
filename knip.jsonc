@@ -47,6 +47,8 @@
       "project": ["**/*.ts"]
     },
     "packages/protobuf-test-suite": {
+      // Imported only inside the entry strings bundlesize.ts hands to esbuild.
+      "ignoreDependencies": ["google-protobuf", "@protobuf-ts/runtime"],
       "entry": ["cli.ts"],
       "project": ["**/*.ts"]
     },
