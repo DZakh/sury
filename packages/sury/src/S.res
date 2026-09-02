@@ -575,8 +575,6 @@ let asyncDecoder = (~from: t<'from>, ~to) => asyncDecoder(reverse(from), to)
 @module("sury") external constructor: t<'value> => 'value => 'value = "outputConstructor"
 @module("sury")
 external asyncConstructor: t<'value> => 'value => promise<'value> = "asyncOutputConstructor"
-@module("sury") external inputValidator: t<'value> => unknown => bool = "inputValidator"
-@module("sury") external outputValidator: t<'value> => unknown => bool = "outputValidator"
 
 let parseOrThrow = (any, ~to) => parser(~to)(any)
 let parseAsyncOrThrow = (any, ~to) => asyncParser(~to)(any)

@@ -27,14 +27,3 @@ asyncTest("AsyncConstructor awaits the conversion before handing the value back"
 
   t->Assert.deepEqual(await make(5.), 5.)
 })
-
-test("Validators answer for the side they are named for", t => {
-  let schema = S.string->S.to(S.float)
-  let isInput = S.inputValidator(schema)
-  let isOutput = S.outputValidator(schema)
-
-  t->Assert.is(isInput(%raw(`"1"`)), true)
-  t->Assert.is(isInput(%raw(`1`)), false)
-  t->Assert.is(isOutput(%raw(`1`)), true)
-  t->Assert.is(isOutput(%raw(`"1"`)), false)
-})

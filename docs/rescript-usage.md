@@ -69,7 +69,6 @@
   - [`decoder` / `asyncDecoder`](#decoder-asyncdecoder)
   - [`decoder1` / `asyncDecoder1`](#decoder1-asyncdecoder1)
   - [`constructor` / `asyncConstructor`](#constructor-asyncconstructor)
-  - [`inputValidator` / `outputValidator`](#inputvalidator-outputvalidator)
   - [`reverse`](#reverse)
   - [`to`](#to)
   - [`name`](#name)
@@ -1775,21 +1774,6 @@ makeUser({id: "1", email: "billie@example.com"})
 
 makeUser({id: "1", email: "not-an-address"})
 // throws S.Error: Failed at ["email"]: Expected email, received "not-an-address"
-```
-
-### **`inputValidator`** / **`outputValidator`**
-
-```
-S.inputValidator: S.t<'value> => unknown => bool
-S.outputValidator: S.t<'value> => unknown => bool
-```
-
-A compiled check that answers `true`/`false` instead of throwing — `inputValidator` for whether unknown data would parse, `outputValidator` for whether a value is a valid `'value` the schema can encode.
-
-```rescript
-let isUser = S.inputValidator(userSchema)
-
-records->Array.filter(isUser)
 ```
 
 ### **`reverse`**
