@@ -34,3 +34,6 @@ operations:
       not-a-document:
         input: '"iVBORw=="'
         error: Expected JSON string, received "iVBORw=="
+      the-bytes-are-a-value:
+        input: '"\"iVBORw==\""'
+        output: new Uint8Array([137, 80, 78, 71])

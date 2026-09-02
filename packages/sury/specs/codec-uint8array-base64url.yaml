@@ -37,3 +37,6 @@ operations:
       invalid-base64url:
         input: '"!!"'
         error: Expected base64url, received "!!"
+      non-utf8-bytes:
+        input: '"iVBORw"'
+        output: new Uint8Array([137, 80, 78, 71])

@@ -37,3 +37,9 @@ operations:
       invalid-base64:
         input: '"!!"'
         error: Expected base64, received "!!"
+      non-utf8-bytes:
+        input: '"iVBORw=="'
+        output: new Uint8Array([137, 80, 78, 71])
+      empty:
+        input: '""'
+        output: new Uint8Array([])
