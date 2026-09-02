@@ -1415,14 +1415,14 @@ More often than converting input to output, you'll need to perform the reversed 
 
 This is literally the same as convert operations applied to the reversed schema.
 
-For some cases you might want to simply check whether a value is valid, without parsing it. For this there are the assert and guard operations:
+For some cases you might want to simply check whether a value is valid, without parsing it. For this there are the assert and validator operations:
 
 | Operation     | Interface                                                      | Description                                                                                                                                        |
 | ------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | S.assertInput  | `(Schema<TInput, TOutput>, data: unknown) asserts data is TInput` or `(data: unknown, Schema<TInput, TOutput>) asserts data is TInput`   | Asserts that the value is valid input. Since the operation doesn't return a value, it's 2-3 times faster than `parser` depending on the schema |
 | S.assertOutput | `(Schema<TInput, TOutput>, data: unknown) asserts data is TOutput` or `(data: unknown, Schema<TInput, TOutput>) asserts data is TOutput` | The same assertion against the schema's output type — what `S.encoder` accepts                                                                 |
-| S.isInput      | `(Schema<TInput, TOutput>, data: unknown) => data is TInput` or `(data: unknown, Schema<TInput, TOutput>) => data is TInput`             | Returns `true`/`false` whether the value is valid input. Acts as a TypeScript type guard and shares the fast validate-only path with the asserts |
-| S.isOutput     | `(Schema<TInput, TOutput>, data: unknown) => data is TOutput` or `(data: unknown, Schema<TInput, TOutput>) => data is TOutput`           | The same check against the schema's output type                                                                                                |
+| S.inputValidator      | `(Schema<TInput, TOutput>, data: unknown) => data is TInput` or `(data: unknown, Schema<TInput, TOutput>) => data is TInput`             | Returns `true`/`false` whether the value is valid input. Acts as a TypeScript type guard and shares the fast validate-only path with the asserts |
+| S.outputValidator     | `(Schema<TInput, TOutput>, data: unknown) => data is TOutput` or `(data: unknown, Schema<TInput, TOutput>) => data is TOutput`           | The same check against the schema's output type                                                                                                |
 
 They accept their arguments in either order, so `(schema, data)` and `(data, schema)` are equivalent and both narrow the type. There's no "correct" order to memorize — pass the schema and the data in whatever order feels natural, and it just works. This is especially handy for AI assistants, which no longer have to guess the right argument position:
 
@@ -1430,7 +1430,7 @@ They accept their arguments in either order, so `(schema, data)` and `(data, sch
 const data: unknown = "abc";
 
 // (data, schema) order
-if (S.isInput(data, S.string)) {
+if (S.inputValidator(data, S.string)) {
   // data is now typed as string
 }
 
@@ -1438,7 +1438,7 @@ S.assertInput(data, S.string);
 // data is now typed as string
 
 // (schema, data) order — equivalent
-if (S.isInput(S.string, data)) {
+if (S.inputValidator(S.string, data)) {
   // data is now typed as string
 }
 
@@ -1446,10 +1446,10 @@ S.assertInput(S.string, data);
 // data is now typed as string
 ```
 
-Passing only the schema returns a reusable type guard — the faster choice when you check many values against the same schema:
+Passing only the schema returns a compiled validator — the faster choice when you check many values against the same schema, and still a TypeScript type guard:
 
 ```ts
-const isUser = S.isInput(userSchema);
+const isUser = S.inputValidator(userSchema);
 
 const users = records.filter(isUser);
 ```
@@ -1506,7 +1506,7 @@ A branded schema used as a *field* keeps its brand in what the constructor asks 
 
 ### Naming
 
-Every operation that looks at one side of a schema says which side in its name — `inputExpression` / `outputExpression`, `inputJSONSchema` / `outputJSONSchema`, `isInput` / `isOutput`, `assertInput` / `assertOutput`, `inputConstructor` / `outputConstructor`.
+Every operation that looks at one side of a schema says which side in its name — `inputExpression` / `outputExpression`, `inputJSONSchema` / `outputJSONSchema`, `inputValidator` / `outputValidator`, `assertInput` / `assertOutput`, `inputConstructor` / `outputConstructor`.
 
 The conversions keep their own vocabulary, because their whole job is to cross between the two sides rather than describe one: `S.parser` goes from unknown data to the output type, `S.decoder` from input to output, and `S.encoder` back from output to input.
 

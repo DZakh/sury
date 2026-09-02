@@ -28,27 +28,27 @@ standard-schema-validate-invalid:
   # construction it does is part of what a consumer pays on bad input.
   run: schema["~standard"].validate(data)
 
-is-input:
+input-validator:
   prepare: |
     const schema = S.schema({ id: S.string, age: S.number });
     const data = { id: "u1", age: 30 };
-  run: S.isInput(schema, data)
+  run: S.inputValidator(schema, data)
 
-is-input-guard:
+input-validator-compiled:
   prepare: |
     const schema = S.schema({ id: S.string, age: S.number });
-    const guard = S.isInput(schema);
+    const validate = S.inputValidator(schema);
     const data = { id: "u1", age: 30 };
   # The curried form hoists the operation lookup out of the call, so this is
   # the floor the two-argument form above is measured against.
-  run: guard(data)
+  run: validate(data)
 
-is-output:
+output-validator:
   prepare: |
     const schema = S.schema({ id: S.string, age: S.number.with(S.to, S.string) });
     const data = { id: "u1", age: "30" };
   # Same dispatch through `reverse` — a second cache on a second schema.
-  run: S.isOutput(schema, data)
+  run: S.outputValidator(schema, data)
 
 assert-input:
   prepare: |

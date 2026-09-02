@@ -793,26 +793,26 @@ export function assertOutput<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>
 ): asserts data is TOutput;
 
-export function isInput<TInput, TOutput>(
+export function inputValidator<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>
 ): (data: unknown) => data is TInput;
-export function isInput<TInput, TOutput>(
+export function inputValidator<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,
   data: unknown
 ): data is TInput;
-export function isInput<TInput, TOutput>(
+export function inputValidator<TInput, TOutput>(
   data: unknown,
   schema: SchemaLike<TInput, TOutput>
 ): data is TInput;
 
-export function isOutput<TInput, TOutput>(
+export function outputValidator<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>
 ): (data: unknown) => data is TOutput;
-export function isOutput<TInput, TOutput>(
+export function outputValidator<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,
   data: unknown
 ): data is TOutput;
-export function isOutput<TInput, TOutput>(
+export function outputValidator<TInput, TOutput>(
   data: unknown,
   schema: SchemaLike<TInput, TOutput>
 ): data is TOutput;

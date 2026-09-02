@@ -767,18 +767,18 @@ test("Compiled operations stay per-operation and per-global-config", (t) => {
     t.expect(S.parser(schema)({ a: "1" })).toEqual({ a: 1 });
     t.expect(S.encoder(schema)({ a: 1 })).toEqual({ a: "1" });
     t.expect(S.decoder(schema)({ a: "3" })).toEqual({ a: 3 });
-    t.expect(S.isInput(schema, { a: "1" })).toBe(true);
-    t.expect(S.isInput(schema, { a: 1 })).toBe(false);
+    t.expect(S.inputValidator(schema, { a: "1" })).toBe(true);
+    t.expect(S.inputValidator(schema, { a: 1 })).toBe(false);
     t.expect(schema["~standard"].validate({ a: "2" })).toEqual({
       value: { a: 2 },
     });
   }
 
   // A derived schema must compile its own operation, not inherit the original's.
-  t.expect(S.isInput(S.number, NaN)).toBe(false);
+  t.expect(S.inputValidator(S.number, NaN)).toBe(false);
   const derived = S.number.with(S.meta, { title: "t" });
   t.expect(S.parser(derived)(1)).toBe(1);
-  t.expect(S.isInput(derived, NaN)).toBe(false);
+  t.expect(S.inputValidator(derived, NaN)).toBe(false);
 
   const standard = S.number["~standard"];
   const nanRejected = {
@@ -787,12 +787,12 @@ test("Compiled operations stay per-operation and per-global-config", (t) => {
   t.expect(standard.validate(NaN)).toEqual(nanRejected);
   try {
     S.global({ disableNanNumberValidation: true });
-    t.expect(S.isInput(S.number, NaN)).toBe(true);
+    t.expect(S.inputValidator(S.number, NaN)).toBe(true);
     t.expect(standard.validate(NaN)).toEqual({ value: NaN });
   } finally {
     S.global({});
   }
-  t.expect(S.isInput(S.number, NaN)).toBe(false);
+  t.expect(S.inputValidator(S.number, NaN)).toBe(false);
   t.expect(standard.validate(NaN)).toEqual(nanRejected);
 });
 
@@ -818,31 +818,31 @@ test("A conversion rejected at operation creation throws from validate, on every
   });
 });
 
-// `S.isInput` makes the same split, for the same reason: `false` is an answer about
+// `S.inputValidator` makes the same split, for the same reason: `false` is an answer about
 // the value, and a schema with no compilable operation has no answer to give.
-test("A conversion rejected at operation creation throws from S.isInput, rather than reading as false", (t) => {
+test("A conversion rejected at operation creation throws from S.inputValidator, rather than reading as false", (t) => {
   const rejected = S.boolean.with(S.to, S.number);
   const message = "Can't decode boolean to number. Use S.to to define a custom decoder";
-  t.expect(() => S.isInput(rejected, true)).toThrow(message);
-  t.expect(() => S.isInput(rejected, true)).toThrow(message);
-  t.expect(() => S.isInput(true, rejected)).toThrow(message);
+  t.expect(() => S.inputValidator(rejected, true)).toThrow(message);
+  t.expect(() => S.inputValidator(rejected, true)).toThrow(message);
+  t.expect(() => S.inputValidator(true, rejected)).toThrow(message);
 
   const schema = S.schema({ id: S.string });
-  t.expect(S.isInput(schema, { id: "a" })).toBe(true);
-  t.expect(S.isInput(schema, { id: 1 })).toBe(false);
+  t.expect(S.inputValidator(schema, { id: "a" })).toBe(true);
+  t.expect(S.inputValidator(schema, { id: 1 })).toBe(false);
   // Both arg orders, and the falsy-data guard that keeps `null`/`undefined`
   // out of the schema slot.
-  t.expect(S.isInput({ id: "a" }, schema)).toBe(true);
-  t.expect(S.isInput(schema, null)).toBe(false);
-  t.expect(S.isInput(null, schema)).toBe(false);
-  t.expect(S.isInput(schema, undefined)).toBe(false);
+  t.expect(S.inputValidator({ id: "a" }, schema)).toBe(true);
+  t.expect(S.inputValidator(schema, null)).toBe(false);
+  t.expect(S.inputValidator(null, schema)).toBe(false);
+  t.expect(S.inputValidator(schema, undefined)).toBe(false);
 
   // Only a Sury validation failure becomes `false` — a user refinement that
   // throws something else still propagates.
   const boom = S.string.with(S.refine, () => {
     throw new RangeError("boom");
   });
-  t.expect(() => S.isInput(boom, "x")).toThrow("boom");
+  t.expect(() => S.inputValidator(boom, "x")).toThrow("boom");
 });
 
 // A recursive def marks itself in-progress in the operation cache before
@@ -1060,89 +1060,89 @@ test("Async constructors await the conversion before handing the value back", as
   t.expect(await S.asyncInputConstructor(schema)({ n: "5" })).toEqual({ n: "5" });
 });
 
-test("Is returns a boolean and narrows the type", (t) => {
+test("InputValidator returns a boolean and narrows the type", (t) => {
   const schema = S.string;
 
   const data: unknown = "abc";
-  t.expect(S.isInput(schema, data)).toBe(true);
-  t.expect(S.isInput(schema, 123)).toBe(false);
+  t.expect(S.inputValidator(schema, data)).toBe(true);
+  t.expect(S.inputValidator(schema, 123)).toBe(false);
 
-  if (S.isInput(schema, data)) {
+  if (S.inputValidator(schema, data)) {
     expectTypeOf(data).toEqualTypeOf<string>();
   }
 });
 
-test("Is supports both (schema, data) and (data, schema) arg orders", (t) => {
+test("InputValidator supports both (schema, data) and (data, schema) arg orders", (t) => {
   const schema = S.string;
 
   // (schema, data)
-  t.expect(S.isInput(schema, "abc")).toBe(true);
-  t.expect(S.isInput(schema, 123)).toBe(false);
+  t.expect(S.inputValidator(schema, "abc")).toBe(true);
+  t.expect(S.inputValidator(schema, 123)).toBe(false);
 
   // (data, schema)
-  t.expect(S.isInput("abc", schema)).toBe(true);
-  t.expect(S.isInput(123, schema)).toBe(false);
+  t.expect(S.inputValidator("abc", schema)).toBe(true);
+  t.expect(S.inputValidator(123, schema)).toBe(false);
 
   // Narrowing works in (data, schema) order too
   const data: unknown = "abc";
-  if (S.isInput(data, schema)) {
+  if (S.inputValidator(data, schema)) {
     expectTypeOf(data).toEqualTypeOf<string>();
   }
 });
 
-test("Is works with advanced schemas", (t) => {
+test("InputValidator works with advanced schemas", (t) => {
   const schema = S.schema({ foo: S.string });
 
-  t.expect(S.isInput(schema, { foo: "bar" })).toBe(true);
-  t.expect(S.isInput(schema, { foo: 123 })).toBe(false);
-  t.expect(S.isInput(schema, null)).toBe(false);
+  t.expect(S.inputValidator(schema, { foo: "bar" })).toBe(true);
+  t.expect(S.inputValidator(schema, { foo: 123 })).toBe(false);
+  t.expect(S.inputValidator(schema, null)).toBe(false);
 });
 
-test("Is returns false for null/undefined data in both arg orders", (t) => {
+test("InputValidator returns false for null/undefined data in both arg orders", (t) => {
   const schema = S.string;
 
   // (schema, data)
-  t.expect(S.isInput(schema, null)).toBe(false);
-  t.expect(S.isInput(schema, undefined)).toBe(false);
+  t.expect(S.inputValidator(schema, null)).toBe(false);
+  t.expect(S.inputValidator(schema, undefined)).toBe(false);
 
   // (data, schema) — nullish data must not throw on schema detection
-  t.expect(S.isInput(null, schema)).toBe(false);
-  t.expect(S.isInput(undefined, schema)).toBe(false);
+  t.expect(S.inputValidator(null, schema)).toBe(false);
+  t.expect(S.inputValidator(undefined, schema)).toBe(false);
 });
 
-test("Is returns a reusable guard when given only a schema", (t) => {
-  const guard = S.isInput(S.string);
+test("InputValidator returns a compiled validator when given only a schema", (t) => {
+  const validate = S.inputValidator(S.string);
 
-  t.expect(guard("abc")).toBe(true);
-  t.expect(guard(123)).toBe(false);
+  t.expect(validate("abc")).toBe(true);
+  t.expect(validate(123)).toBe(false);
 
   const data: unknown = "abc";
-  if (guard(data)) {
+  if (validate(data)) {
     expectTypeOf(data).toEqualTypeOf<string>();
   }
 });
 
 // Arity, not an `undefined` check, is what separates the curried form — a
 // schema that accepts undefined must still be able to ask about it.
-test("Is tells the curried form apart from a check against undefined", (t) => {
-  t.expect(S.isInput(S.optional(S.string), undefined)).toBe(true);
-  t.expect(typeof S.isInput(S.optional(S.string))).toBe("function");
+test("InputValidator tells the curried form apart from a check against undefined", (t) => {
+  t.expect(S.inputValidator(S.optional(S.string), undefined)).toBe(true);
+  t.expect(typeof S.inputValidator(S.optional(S.string))).toBe("function");
 });
 
-test("IsOutput checks the output side", (t) => {
+test("OutputValidator checks the output side", (t) => {
   const schema = S.string.with(S.to, S.number, { decode: Number, encode: String });
 
-  t.expect(S.isOutput(schema, 123)).toBe(true);
-  t.expect(S.isOutput(schema, "123")).toBe(false);
+  t.expect(S.outputValidator(schema, 123)).toBe(true);
+  t.expect(S.outputValidator(schema, "123")).toBe(false);
   // The input side is the other question, and answers it the other way.
-  t.expect(S.isInput(schema, "123")).toBe(true);
+  t.expect(S.inputValidator(schema, "123")).toBe(true);
 
   // Both arg orders and the curried form, as on the input side.
-  t.expect(S.isOutput(123, schema)).toBe(true);
-  t.expect(S.isOutput(schema)(123)).toBe(true);
+  t.expect(S.outputValidator(123, schema)).toBe(true);
+  t.expect(S.outputValidator(schema)(123)).toBe(true);
 
   const data: unknown = 123;
-  if (S.isOutput(schema, data)) {
+  if (S.outputValidator(schema, data)) {
     expectTypeOf(data).toEqualTypeOf<number>();
   }
 });
