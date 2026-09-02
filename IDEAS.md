@@ -658,7 +658,7 @@ s.fn(s.arg(0, S.string))
 
 ## Articles
 
-- Write an article about creating an AI-friendly JS library (how the API design, type overloads like `S.is`/`S.assert` accepting both arg orders, and error messages make Sury easy for both humans and LLMs to use)
+- Write an article about creating an AI-friendly JS library (how the API design, type overloads like `S.assertInput` accepting both arg orders, and error messages make Sury easy for both humans and LLMs to use)
 
 ```
 

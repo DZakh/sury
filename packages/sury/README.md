@@ -120,6 +120,24 @@ S.encoder(userSchema)({ id: 0n, name: "Dmitry" });
 // => { USER_ID: "0", USER_NAME: "Dmitry" }
 ```
 
+The other side of the wire is yours too. A constructor checks a value you built in code - refinements included, and whether the schema can encode it - and hands back the very object it was given. For a branded schema, it's how the brand gets minted:
+
+```ts
+const makeEvent = S.outputConstructor(eventSchema);
+
+makeEvent({ type: "user.deleted", id: 7n, payload: { reason: "spam" } });
+// => the object you passed in, checked
+
+makeEvent({ type: "user.created", id: 7n, tags: [] });
+// => throws S.Error: Failed at tags: Add at least one tag
+
+const userIdSchema = S.uuid.with(S.brand, "UserId");
+const userId = S.outputConstructor(userIdSchema)("f81d4fae-7dec-11d0-a765-00a0c91e6bf6");
+//? S.Brand<string, "UserId">
+```
+
+Every operation that looks at one side of a schema says which side in its name - `S.outputConstructor` and `S.inputValidator`, `S.inputJSONSchema` for the wire and `S.outputJSONSchema` for your types.
+
 Reading a `File` is asynchronous, so a pipeline that starts from one becomes async too:
 
 ```ts
@@ -274,7 +292,8 @@ Independent benchmarks and conformance suites that include Sury:
 |                                          | Sury                                     | Zod                                       | TypeBox                   | Valibot                                                               | ArkType                   |
 | ---------------------------------------- | ---------------------------------------- | ----------------------------------------- | ------------------------- | --------------------------------------------------------------------- | ------------------------- |
 | **Inferred TS type** (what you hover)    | `S.Schema<{foo: string}, {foo: string}>` | `z.ZodObject<{foo: z.ZodString}, $strip>` | `TObject<{foo: TString}>` | `v.ObjectSchema<{readonly foo: v.StringSchema<undefined>}, undefined>` | `Type<{foo: string}, {}>` |
-| **JSON Schema**                          | `S.toJSONSchema` + `S.fromJSONSchema`    | `z.toJSONSchema`                          | 👑                        | `@valibot/to-json-schema`                                             | `myType.toJsonSchema()`   |
+| **JSON Schema**                          | both directions + `S.fromJSONSchema`     | `z.toJSONSchema`                          | 👑                        | `@valibot/to-json-schema`                                             | `myType.toJsonSchema()`   |
+| **Validated constructor** (from your types) | ✅                                    | ❌                                        | ⭕ unvalidated            | ❌                                                                    | ❌                        |
 | **Standard Schema**                      | ✅                                       | ✅                                        | ❌                        | ✅                                                                    | ✅                        |
 | **Codegen-free** (doesn't need compiler) | ✅                                       | ✅                                        | ✅                        | ✅                                                                    | ✅                        |
 | **Eval-free**                            | ❌                                       | ⭕ opt-out                                | ⭕ opt-in                 | ✅                                                                    | ⭕ opt-out                |
@@ -285,7 +304,7 @@ Independent benchmarks and conformance suites that include Sury:
 Use Sury anywhere a schema is accepted:
 
 - [tRPC](https://trpc.io/), [TanStack Form](https://tanstack.com/form), [TanStack Router](https://tanstack.com/router), [Hono](https://hono.dev/), and 28+ more via the [Standard Schema](https://standardschema.dev/) spec
-- Anything that speaks [JSON Schema](https://json-schema.org/), via `S.toJSONSchema` / `S.fromJSONSchema`
+- Anything that speaks [JSON Schema](https://json-schema.org/), via `S.inputJSONSchema` / `S.fromJSONSchema`
 
 ## Used by
 

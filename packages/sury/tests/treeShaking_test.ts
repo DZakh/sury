@@ -18,8 +18,8 @@ const source = readFileSync(new URL("../index.mjs", import.meta.url), "utf8");
 // Exports whose whole point is the effect, so a bundler must never drop a call
 // to them even when the result is unused.
 const EFFECTFUL: Record<string, string> = {
-  assert: "throws on invalid input — the call IS the assertion",
-  is: "wraps assert",
+  assertInput: "throws on invalid input — the call IS the assertion",
+  assertOutput: "throws on invalid input — the call IS the assertion",
   safe: "runs the callback it's given",
   safeAsync: "runs the callback it's given",
   global: "mutates the global config",

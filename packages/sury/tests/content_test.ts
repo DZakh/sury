@@ -87,25 +87,25 @@ test("a declared payload opens the carrier feeding it", async () => {
   expect(await S.encoder(config)({ sub: "a" }).text()).toBe(`{"sub":"a"}`);
 });
 
-// `S.assert` and `S.is` compile through the same builder chain as the codecs
+// `S.assertInput` and `S.inputValidator` compile through the same builder chain as the codecs
 // above, against a result target that discards the value — and the spec format
 // has no op block for either, so this is the only place the pair is pinned (see
 // CONTRIBUTING.md's Spec Harness Suggestions).
 test("a document still asserts, where nothing is re-represented at all", () => {
-  expect(S.assert(`"hi"`, S.jsonString)).toBe(undefined);
-  expect(S.assert({ a: 1 }, S.json)).toBe(undefined);
-  expect(S.assert("hi", S.string.with(S.to, S.jsonString))).toBe(undefined);
-  expect(S.is({ a: 1 }, S.json)).toBe(true);
-  expect(S.is(`{"a":1}`, S.jsonString)).toBe(true);
-  expect(S.is(42, S.jsonString)).toBe(false);
+  expect(S.assertInput(`"hi"`, S.jsonString)).toBe(undefined);
+  expect(S.assertInput({ a: 1 }, S.json)).toBe(undefined);
+  expect(S.assertInput("hi", S.string.with(S.to, S.jsonString))).toBe(undefined);
+  expect(S.inputValidator(S.json)({ a: 1 })).toBe(true);
+  expect(S.inputValidator(S.jsonString)(`{"a":1}`)).toBe(true);
+  expect(S.inputValidator(S.jsonString)(42)).toBe(false);
 
   // The other half: the result target discards the value, so it cannot stand in
   // for the parse that says the text is a document.
-  expect(S.is("nope", S.jsonString)).toBe(false);
-  expect(() => S.assert("nope", S.jsonString)).toThrow(
+  expect(S.inputValidator(S.jsonString)("nope")).toBe(false);
+  expect(() => S.assertInput("nope", S.jsonString)).toThrow(
     `Expected JSON string, received "nope"`,
   );
-  expect(S.is(function () {}, S.json)).toBe(false);
+  expect(S.inputValidator(S.json)(function () {})).toBe(false);
 });
 
 test("a read that fails is not a case that didn't match", async () => {

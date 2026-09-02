@@ -357,10 +357,10 @@ instead of silently working around it.
   `creationError` for the ones that survive construction and fail at the
   operation. `tests/content_test.ts` holds those. A `ts.constructionError`
   beside `creationError` would keep them with the schema they reject.
-- `operations` names `parse`, `decode` and `encode` only, so `S.assert` and
-  `S.is` have no golden anywhere. Both compile through the same builder chain
+- `operations` names `parse`, `decode` and `encode` only, so `S.assertInput` and
+  `S.inputValidator` have no golden anywhere. Both compile through the same builder chain
   under a different result target, and a change to that target's handling broke
-  every `S.assert(…, S.json)` and `S.is(…, S.jsonString)` call with the whole
+  every `S.assertInput(…, S.json)` and `S.inputValidator(S.jsonString)(…)` call with the whole
   suite green. An `assert` op block, even one holding just an expression and a
   pass/throw example, would have caught it; `tests/content_test.ts` holds it
   instead.

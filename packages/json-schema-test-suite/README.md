@@ -9,7 +9,7 @@ pnpm compliance                                  # check against goldens/ (what 
 pnpm compliance --update                         # re-baseline after a change
 pnpm compliance report draft2020-12              # per-file breakdown
 pnpm compliance report draft7 --failures         # every failing test id
-pnpm compliance report draft7 --divergent        # where S.is disagrees with S.parser
+pnpm compliance report draft7 --divergent        # where S.inputValidator disagrees with S.parser
 pnpm compliance report draft7 --mutated          # valid inputs changed by parsing
 pnpm compliance report draft7 --optional         # include optional/ (formats, bignum, content)
 ```
@@ -30,7 +30,7 @@ assertion: because JSON Schema only validates, parsing must return deeply equal
 data. A schema that throws at conversion or compile time marks its whole case
 as `errored`.
 
-`S.is` is scored over the same corpus in parallel. The two operations
+`S.inputValidator` is scored over the same corpus in parallel. The two operations
 disagreeing is always a Sury bug rather than a JSON Schema gap, so that delta is
 a standing bug detector; the count is tracked in each golden and the ids are
 available via `report --divergent`.

@@ -238,14 +238,14 @@ export const specSchema = S.schema({
   ts,
   jsonSchema: S.schema({
     input: S.string.with(S.meta, {
-      description: "S.toJSONSchema(schema), as source text, or its conversion error.",
+      description: "S.inputJSONSchema(schema), as source text, or its conversion error.",
     }),
     fromInputType: S.optional(S.string).with(S.meta, {
       description:
         "The type inferred by S.fromJSONSchema(input), only when it differs from ts.input; omit when equal or when input is a conversion error.",
     }),
     output: S.string.with(S.meta, {
-      description: "S.toJSONSchema(S.reverse(schema)), as source text, or its conversion error.",
+      description: "S.outputJSONSchema(schema), as source text, or its conversion error.",
     }),
     fromOutputType: S.optional(S.string).with(S.meta, {
       description:
@@ -261,8 +261,8 @@ export const specSchema = S.schema({
     .with(S.strict)
     .with(S.meta, {
       description:
-        "S.toJSONSchema(schema) for both directions, as one-line source text, plus any divergent " +
-        "type inferred by S.fromJSONSchema for each generated document. Matching types are " +
+        "The JSON Schema of both directions, as one-line source text, plus any divergent " +
+        "output type inferred by S.fromJSONSchema for each generated document. Matching types are " +
         "omitted; if a direction can't be represented, no round-trip type is recorded. " +
         "Dialect keys record only the fields that differ from this default after ignoring $schema. " +
         "Filled by `spec check --write`.",

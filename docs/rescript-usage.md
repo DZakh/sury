@@ -63,11 +63,13 @@
 - [Transforms](#transforms)
   - [`to` with `~custom`](#to-with-custom)
 - [Functions on schema](#functions-on-schema)
+  - [At a glance](#at-a-glance)
   - [Pipelines](#pipelines)
   - [Built-in operations](#built-in-operations)
   - [`parser` / `asyncParser`](#parser-asyncparser)
   - [`decoder` / `asyncDecoder`](#decoder-asyncdecoder)
   - [`decoder1` / `asyncDecoder1`](#decoder1-asyncdecoder1)
+  - [`constructor` / `asyncConstructor`](#constructor-asyncconstructor)
   - [`reverse`](#reverse)
   - [`to`](#to)
   - [`name`](#name)
@@ -162,8 +164,19 @@ let filmSchema = S.object(s => {
 //   "Age": undefined,
 // }
 
-// 5. Convert the schema to a JSON schema
-let filmJSONSchema = filmSchema->S.toJSONSchema
+// 5. Build a value in code, checked by the same schema
+let makeFilm = S.constructor(filmSchema)
+makeFilm({
+  id: 3.,
+  title: "Shorts",
+  tags: [],
+  rating: GeneralAudiences,
+  deprecatedAgeRestriction: None,
+})
+// the record itself, validated
+
+// 6. Convert the schema to a JSON schema
+let filmJSONSchema = filmSchema->S.inputJSONSchema
 ```
 
 > 🧠 Schemas compile to JavaScript via `eval`. Print the type they describe with [`inputExpression`](#inputexpression).
@@ -254,7 +267,7 @@ S.base64 // Base64, standard alphabet with canonical padding
 S.base64url // Base64url, URL-safe alphabet, no padding
 ```
 
-Each survives a round trip through `S.toJSONSchema` and `S.fromJSONSchema`.
+Each survives a round trip through `S.inputJSONSchema` and `S.fromJSONSchema`.
 
 **A format checks syntax, not safety.** Every one is exactly as strict as its
 spec, so a well-formed value passes even when it isn't one you want to accept:
@@ -1329,12 +1342,14 @@ let documentedStringSchema = S.string
 This can be useful for documenting fields, generating JSON, etc.
 
 ```rescript
-schema->S.toJSONSchema
+schema->S.inputJSONSchema
 // {
 //   "type": "string",
 //   "description": "A useful bit of text, if you know what to do with it."
 // }
 ```
+
+`S.outputJSONSchema` describes the other side — what the schema produces rather than what it accepts.
 
 ### **`recursive`**
 
@@ -1592,6 +1607,17 @@ S.Error.make(
 
 ## Functions on schema
 
+### At a glance
+
+`S.t<'value>` names the output type, so operations on that side carry no prefix; the ones that look at the input side say so in their name.
+
+|           | Input side                             | Output side                              | Crosses both                                    |
+| --------- | -------------------------------------- | ---------------------------------------- | ----------------------------------------------- |
+| Convert   |                                        |                                          | `parseOrThrow`, `decodeOrThrow`, `parser`, `decoder` |
+| Construct |                                        | `constructor`, `asyncConstructor`        |                                                 |
+| Assert    | `assertOrThrow`                        |                                          |                                                 |
+| Describe  | `inputJSONSchema`, `inputExpression`   | `outputJSONSchema`, `outputExpression`   |                                                 |
+
 ### Pipelines
 
 Conversion targets are schemas, not dedicated functions: `S.json`, `S.jsonString`, `S.unknown`, `S.date`, and `S.uint8Array` are ordinary schemas usable at any position in a chain. Describe the shape of the data at each stage with `~from` and `~to`, and Sury compiles the whole pipeline into a single function via `new Function`.
@@ -1750,6 +1776,29 @@ decode(%raw(`["foo", null, "bar"]`))
 // [Some("foo"), None, Some("bar")]
 ```
 
+### **`constructor`** / **`asyncConstructor`**
+
+```
+S.constructor: S.t<'value> => 'value => 'value
+S.asyncConstructor: S.t<'value> => 'value => promise<'value>
+```
+
+For a value you built in code rather than received from the wire. Every check the schema carries runs — types, the conversion, refinements — and the value itself comes back, not a decoded copy, so an entity the schema has no way to encode fails at construction rather than at the point it's sent.
+
+```rescript
+let userSchema = S.object(s => {
+  id: s.field("id", S.string),
+  email: s.field("email", S.email),
+})
+let makeUser = S.constructor(userSchema)
+
+makeUser({id: "1", email: "billie@example.com"})
+// returns the very record it was given
+
+makeUser({id: "1", email: "not-an-address"})
+// throws S.Error: Failed at email: Expected email, received "not-an-address"
+```
+
 ### **`reverse`**
 
 `(S.t<'value>) => S.t<'value>`
@@ -1887,7 +1936,7 @@ let standard = (S.string->S.untag).standard
 
 standard.validate("abc") // {value: "abc"}
 
-S.enableStandardJSONSchema() // Once, to opt into jsonSchema (keeps toJSONSchema tree-shakeable otherwise)
+S.enableStandardJSONSchema() // Once, to opt into jsonSchema (keeps the conversion tree-shakeable otherwise)
 (standard.jsonSchema->Option.getUnsafe).input({target: StandardSchema.JsonSchema.Draft07})
 // {type: "string", $schema: "http://json-schema.org/draft-07/schema#"}
 ```
