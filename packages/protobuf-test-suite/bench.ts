@@ -240,10 +240,10 @@ const libraries: Library[] = [
 export type Cell = { library: string; encodeNs: number; decodeNs: number };
 export type BenchRow = { id: string; bytes: number; cells: Cell[] };
 
-const median = (xs: number[]): number => {
-  const s = [...xs].sort((a, b) => a - b);
-  return s[(s.length - 1) >> 1]!;
-};
+// Best of the samples rather than the median: the larger workloads allocate
+// enough that a sample landing on a GC pause reads 2x, and which library
+// pays it is luck of the draw.
+const best = (xs: number[]): number => Math.min(...xs);
 
 const timeNs = (fn: () => unknown, n: number): number => {
   for (let i = 0; i < Math.min(n, 500); i++) fn();
@@ -259,7 +259,7 @@ export const runBench = async (samples = 7): Promise<BenchRow[]> => {
     const bytes = S.decoder(schema, S.protobuf)(work.value);
     // Bigger messages get fewer iterations so every workload takes roughly
     // the same wall time per sample.
-    const n = Math.max(2000, Math.round(400000 / (bytes.length + 20)));
+    const n = Math.max(3000, Math.round(600000 / (bytes.length + 20)));
     const cells: Cell[] = [];
     for (const library of libraries) {
       const codec = await library.codec(work, bytes);
@@ -269,7 +269,7 @@ export const runBench = async (samples = 7): Promise<BenchRow[]> => {
         encodeNs.push(timeNs(codec.encode, n));
         decodeNs.push(timeNs(codec.decode, n));
       }
-      cells.push({ library: library.id, encodeNs: median(encodeNs), decodeNs: median(decodeNs) });
+      cells.push({ library: library.id, encodeNs: best(encodeNs), decodeNs: best(decodeNs) });
     }
     rows.push({ id: work.id, bytes: bytes.length, cells });
   }

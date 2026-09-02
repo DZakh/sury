@@ -41,7 +41,7 @@ update in the same PR.
 protobufjs reflection and `pbjs` static codegen, protobuf-es
 (`@bufbuild/protobuf`) and pbf — on five workloads (tiny, typical, large,
 protobuf.js's `bench/cases/common` message, and a vector-tile shaped message
-dominated by packed geometry), median of 7, on the same bytes and values, each
+dominated by packed geometry), best of 7 samples, on the same bytes and values, each
 library driven the way its README shows. `hillclimb` is the frozen Sury-vs-
 protobufjs ruler the perf commits on this branch quote. Neither snapshots a
 number. Sury-vs-Sury encode/decode regressions are `spec check --perf`

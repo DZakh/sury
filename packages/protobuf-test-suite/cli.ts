@@ -35,7 +35,7 @@ Commands:
   check      Recompute and compare against goldens/coverage.json (default).
   update     Rewrite goldens/coverage.json from the current run.
   report     Print every case id and its status.
-  bench      Median of 7 against protobufjs (reflect and static), protobuf-es
+  bench      Best of 7 samples against protobufjs (reflect and static), protobuf-es
              and pbf on five workloads.
   hillclimb  Frozen ruler. Median of 7 on tiny/typical/large/common vs protobufjs.
 
