@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.string.with(S.to, S.uint8Array).with(S.to, S.base64)
+  input: string
+  output: string
+  instantiations: 5380
+jsonSchema:
+  input: '{ type: "string" }'
+  output: '{ type: "string", contentEncoding: "base64" }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);let v0=e[0](i);return e[1](v0)}
+    examples:
+      ascii:
+        input: '"hello"'
+        output: '"aGVsbG8="'
+      multi-byte:
+        input: '"héllo 😀"'
+        output: '"aMOpbGxvIPCfmIA="'
+      empty:
+        input: '""'
+        output: '""'
+      not-a-string:
+        input: "3"
+        error: Expected string, received 3
+  decode:
+    expression: i=>{let v0=e[0](i);return e[1](v0)}
+    examples:
+      multi-byte:
+        input: '"héllo 😀"'
+        output: '"aMOpbGxvIPCfmIA="'
+  encode:
+    expression: i=>{e[2](i)||e[3](i);let v0=e[0](i);let v1=e[1].decode(v0);return v1}
+    examples:
+      multi-byte:
+        input: '"aMOpbGxvIPCfmIA="'
+        output: '"héllo 😀"'
+      not-base64:
+        input: '"héllo"'
+        error: Expected base64, received "héllo"

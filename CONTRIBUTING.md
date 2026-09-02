@@ -335,6 +335,12 @@ case the harness *should* have caught or guided better — a missing check, a we
 error message, a strictness gap that let a bad spec through — add a bullet here
 instead of silently working around it.
 
+- `valueToCode` has no case for a typed array, so an operation whose output is
+  a `Uint8Array` (`S.string.with(S.to, S.uint8Array)`) can't carry an example
+  with an output, and an op with no representable example can't exist at all —
+  only a chain that turns the bytes back into text
+  (`codec-string-uint8array-base64`) is golden-able. A `new Uint8Array([…])`
+  printer is the missing piece.
 - `jsonSchema` snapshots one target (the default draft-07), so an emit that is
   dialect-gated — `contentSchema` is 2019-09+, OpenAPI 3.0 has no content
   keywords at all — has no golden for the targets it differs on, and lands in
