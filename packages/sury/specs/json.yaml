@@ -37,7 +37,7 @@ operations:
         error: Expected JSON, received Infinity
       invalid-nested-non-finite:
         input: "{ a: Infinity }"
-        error: 'Failed at ["a"]: Expected JSON, received Infinity'
+        error: "Failed at a: Expected JSON, received Infinity"
       invalid-function:
         input: () => {}
         error: Expected JSON, received Function

@@ -95,7 +95,7 @@ test("Fails to parse object with missing field that marked as null", t => {
 
   t->U.assertThrowsMessage(
     () => %raw(`{}`)->S.parseOrThrow(~to=schema),
-    `Failed at ["nullableField"]: Expected string | null, received undefined`,
+    `Failed at nullableField: Expected string | null, received undefined`,
   )
 })
 

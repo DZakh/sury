@@ -25,10 +25,10 @@ operations:
         output: "{ x: 1, y: -4 }"
       wrong-tag:
         input: '["dot", 1, -4]'
-        error: 'Failed at ["0"]: Expected "point", received "dot"'
+        error: 'Failed at [0]: Expected "point", received "dot"'
       not-an-int32:
         input: '["point", 1.5, -4]'
-        error: 'Failed at ["1"]: Expected int32, received 1.5'
+        error: "Failed at [1]: Expected int32, received 1.5"
   decode:
     expression: i=>{return {x:i["1"],y:i["2"]}}
     examples:

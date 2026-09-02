@@ -62,7 +62,7 @@ test("Fails to parse tuple with holes", t => {
 
   t->U.assertThrowsMessage(
     () => %raw(`["value", "smth", 123]`)->S.parseOrThrow(~to=schema),
-    `Failed at ["1"]: Expected undefined, received "smth"`,
+    `Failed at [1]: Expected undefined, received "smth"`,
   )
 })
 
@@ -116,7 +116,7 @@ test(`Fails to serialize tuple with discriminant "Never"`, t => {
 
   t->U.assertThrowsMessage(
     () => "bar"->S.decodeOrThrow(~from=schema, ~to=S.unknown),
-    `Missing input for never at ["0"]`,
+    `Missing input for never at [0]`,
   )
 })
 
@@ -136,7 +136,7 @@ test(`Fails to serialize tuple with discriminant "Never" inside of an object (te
 
   t->U.assertThrowsMessage(
     () => {"foo": "bar"}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
-    `Failed at ["foo"]: Missing input for never at ["0"]`,
+    `Failed at foo: Missing input for never at [0]`,
   )
 })
 
@@ -164,7 +164,7 @@ test("Fails to serialize tuple transformed to variant", t => {
 
   t->U.assertThrowsMessage(
     () => Error("foo")->S.parseOrThrow(~to=schema->S.reverse),
-    `Failed at ["TAG"]: Expected "Ok", received "Error"`,
+    `Failed at TAG: Expected "Ok", received "Error"`,
   )
 })
 
@@ -211,12 +211,12 @@ test("Tuple schema parsing checks order", t => {
   // Tag check should be the third
   t->U.assertThrowsMessage(
     () => %raw(`["value", "wrong"]`)->S.parseOrThrow(~to=schema),
-    `Failed at ["1"]: Expected "value", received "wrong"`,
+    `Failed at [1]: Expected "value", received "wrong"`,
   )
   // Field check should be the last
   t->U.assertThrowsMessage(
     () => %raw(`[1, "value"]`)->S.parseOrThrow(~to=schema),
-    `Failed at ["0"]: Expected string, received 1`,
+    `Failed at [0]: Expected string, received 1`,
   )
   // Parses valid
   t->Assert.deepEqual(

@@ -5,8 +5,8 @@ ts:
   output: "{ a: string; b: number; c: boolean; d: bigint; e: symbol; f: string; g: number; h: boolean; i: bigint; j: symbol; }"
   instantiations: 2331
 jsonSchema:
-  input: 'Failed at ["d"]: Expected JSON, received bigint'
-  output: 'Failed at ["d"]: Expected JSON, received bigint'
+  input: "Failed at d: Expected JSON, received bigint"
+  output: "Failed at d: Expected JSON, received bigint"
 vs:
   zod: "z.object({ a: z.string(), b: z.number(), c: z.boolean(), d: z.bigint(), e: z.symbol(), f: z.string(), g: z.number(), h: z.boolean(), i: z.bigint(), j: z.symbol() })"
 operations:
@@ -18,6 +18,6 @@ operations:
         output: '{ a: "x", b: 1, c: true, d: 5n, e: Symbol.for("e"), f: "y", g: 2, h: false, i: 6n, j: Symbol.for("j") }'
       invalid-symbol:
         input: '{ a: "x", b: 1, c: true, d: 5n, e: Symbol.for("e"), f: "y", g: 2, h: false, i: 6n, j: "not a symbol" }'
-        error: 'Failed at ["j"]: Expected symbol, received "not a symbol"'
+        error: 'Failed at j: Expected symbol, received "not a symbol"'
   decode: identity
   encode: identity

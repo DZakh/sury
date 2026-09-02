@@ -830,7 +830,7 @@ test("JSONSchema of recursive schema with non-jsonable field", t => {
       },
     )
     schema->S.toJSONSchema
-  }, `Failed at ["Id"]: Expected JSON, received bigint`)
+  }, `Failed at Id: Expected JSON, received bigint`)
 })
 
 test("Fails to create schema for schemas with optional items", t => {
@@ -844,18 +844,18 @@ test("Fails to create schema for schemas with optional items", t => {
   )
   t->U.assertThrowsMessage(
     () => S.tuple1(S.option(S.string))->S.toJSONSchema,
-    `Failed at ["0"]: Expected JSON, received string | undefined`,
+    `Failed at [0]: Expected JSON, received string | undefined`,
   )
   t->U.assertThrowsMessage(
     () => S.tuple1(S.array(S.option(S.string)))->S.toJSONSchema,
-    `Failed at ["0"][]: Expected JSON, received string | undefined`,
+    `Failed at [0][]: Expected JSON, received string | undefined`,
   )
 })
 
 test("JSONSchema error of nested object has path", t => {
   t->U.assertThrowsMessage(
     () => S.object(s => s.nested("nested").field("field", S.bigint))->S.toJSONSchema,
-    `Failed at ["nested"]["field"]: Expected JSON, received bigint`,
+    `Failed at nested.field: Expected JSON, received bigint`,
   )
 })
 

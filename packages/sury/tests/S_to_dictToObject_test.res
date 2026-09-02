@@ -4,7 +4,7 @@ test("absent required string fails (does not become the string \"undefined\")", 
   let schema = S.dict(S.string)->S.to(S.schema(s => {"foo": s.matches(S.string)}))
   t->U.assertThrowsMessage(
     () => %raw(`{}`)->S.parseOrThrow(~to=schema),
-    `Failed at ["foo"]: Expected string, received undefined`,
+    `Failed at foo: Expected string, received undefined`,
   )
 })
 
@@ -72,7 +72,7 @@ test("[milestone 1] absent required bigint field errors", t => {
   // target can't accept undefined: a missing `bar` (coerced to bigint) errors.
   t->U.assertThrowsMessage(
     () => %raw(`{"foo":"a","zoo":"1.5"}`)->S.parseOrThrow(~to=schema),
-    `Failed at ["bar"]: Expected bigint, received undefined`,
+    `Failed at bar: Expected bigint, received undefined`,
   )
 })
 
@@ -81,7 +81,7 @@ test("[milestone 1] absent required string field errors", t => {
 
   t->U.assertThrowsMessage(
     () => %raw(`{"bar":"7","zoo":"1.5"}`)->S.parseOrThrow(~to=schema),
-    `Failed at ["foo"]: Expected string, received undefined`,
+    `Failed at foo: Expected string, received undefined`,
   )
 })
 
@@ -102,7 +102,7 @@ test("[milestone 1] compiled parse code models each dict read as optional", t =>
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[7](i);for(let v0 in i){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}let v3=i["foo"],v4=i["bar"],v6=i["zoo"];v3!==void 0||e[1](v3);if(v4!==void 0){let v5;try{v5=BigInt(v4)}catch(_){e[2](v4)}v4=v5;}else{e[3](v4)}if(v6!==void 0){for(;;){let r;try{let v7=+v6;v7===v7||e[4](v6);v6=v7;break}catch(x){(r||(r=[])).push(e[5](x))}if(v6==="undefined"){v6=void 0;break}e[6](v6,...(r||[]))}}return {foo:v3,bar:v4,zoo:v6}}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[7](i);for(let v0 in i){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path=[v0,...v2.path];throw v2}}let v3=i["foo"],v4=i["bar"],v6=i["zoo"];v3!==void 0||e[1](v3);if(v4!==void 0){let v5;try{v5=BigInt(v4)}catch(_){e[2](v4)}v4=v5;}else{e[3](v4)}if(v6!==void 0){for(;;){let r;try{let v7=+v6;v7===v7||e[4](v6);v6=v7;break}catch(x){(r||(r=[])).push(e[5](x))}if(v6==="undefined"){v6=void 0;break}e[6](v6,...(r||[]))}}return {foo:v3,bar:v4,zoo:v6}}`,
   )
 })
 

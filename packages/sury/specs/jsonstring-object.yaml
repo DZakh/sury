@@ -30,16 +30,16 @@ operations:
         output: '"{\"id\":1,\"name\":\"emoji 😀\",\"tag\":\"x\",\"flag\":true}"'
       wrong-literal:
         input: '{ id: 1, name: "a", tag: "y", flag: true }'
-        error: 'Failed at ["tag"]: Expected "x", received "y"'
+        error: 'Failed at tag: Expected "x", received "y"'
       missing-field:
         input: '{ id: 1, name: "a", tag: "x" }'
-        error: 'Failed at ["flag"]: Expected boolean, received undefined'
+        error: "Failed at flag: Expected boolean, received undefined"
       negative-zero:
         input: '{ id: -0, name: "a", tag: "x", flag: true }'
         output: '"{\"id\":0,\"name\":\"a\",\"tag\":\"x\",\"flag\":true}"'
       non-finite:
         input: '{ id: Infinity, name: "a", tag: "x", flag: true }'
-        error: 'Failed at ["id"]: Expected JSON, received Infinity'
+        error: "Failed at id: Expected JSON, received Infinity"
   decode:
     expression: i=>{let v0=i["id"];return "{\"id\":"+(Number.isFinite(v0)?v0:e[0](v0))+",\"name\":"+e[1](i["name"])+",\"tag\":\"x\",\"flag\":"+i["flag"]+"}"}
     examples:

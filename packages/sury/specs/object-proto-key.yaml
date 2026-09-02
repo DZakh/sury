@@ -22,7 +22,7 @@ operations:
         error: "Expected { __proto__: string; }, received []"
       missing-field:
         input: "{}"
-        error: 'Failed at ["__proto__"]: Expected string, received undefined'
+        error: "Failed at __proto__: Expected string, received undefined"
       present-key:
         input: '{ ["__proto__"]: "x" }'
         output: '{ ["__proto__"]: "x" }'

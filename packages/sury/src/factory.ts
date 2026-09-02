@@ -24,7 +24,7 @@ import {
   type Path,
   pathConcat,
   pathEmpty,
-  pathFromInlinedLocation,
+  pathToText,
   setHas,
   U,
   undefinedTag,
@@ -450,7 +450,7 @@ const assembleShapedObject = (
   } else {
     panic(
       `Don't know where the value is coming from: ${inputExpression(schema)}` +
-        (input.path === "" ? "" : ` at ${input.path}`)
+        (input.path.length ? ` at ${pathToText(input.path)}` : "")
     );
   }
   return completeObjectVal(output);
@@ -604,12 +604,11 @@ const getShapedSerializerOutput = (
       // PORT-NOTE: the source shadows `path` here; renamed to `path2` (TS
       // can't redeclare a parameter in the same scope).
       const path2 =
-        targetSchema.from !== U
-          ? path + targetSchema.from.map((item) => `["${item}"]`).join("")
-          : path;
+        targetSchema.from !== U ? pathConcat(path, targetSchema.from) : path;
       return B_invalidOperation(
         input,
-        `Missing input for ${inputExpression(targetSchema)}` + (path2 === "" ? "" : ` at ${path2}`)
+        `Missing input for ${inputExpression(targetSchema)}` +
+          (path2.length ? ` at ${pathToText(path2)}` : "")
       );
     };
 
@@ -626,7 +625,7 @@ const getShapedSerializerOutput = (
           input,
           acc !== U && acc.properties !== U ? acc.properties[location] : U,
           childSchema,
-          pathConcat(path, pathFromInlinedLocation(inlinedValueFromString(location)))
+          pathConcat(path, [location])
         ),
       (v) => {
         v.e = resolvedTargetSchema;

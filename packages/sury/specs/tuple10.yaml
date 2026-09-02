@@ -5,8 +5,8 @@ ts:
   output: "[string, number, boolean, bigint, symbol, string, number, boolean, bigint, symbol]"
   instantiations: 2282
 jsonSchema:
-  input: 'Failed at ["3"]: Expected JSON, received bigint'
-  output: 'Failed at ["3"]: Expected JSON, received bigint'
+  input: "Failed at [3]: Expected JSON, received bigint"
+  output: "Failed at [3]: Expected JSON, received bigint"
 vs:
   zod: z.tuple([z.string(), z.number(), z.boolean(), z.bigint(), z.symbol(), z.string(), z.number(), z.boolean(), z.bigint(), z.symbol()])
 operations:
@@ -18,6 +18,6 @@ operations:
         output: '["x", 1, true, 5n, Symbol.for("e"), "y", 2, false, 6n, Symbol.for("j")]'
       invalid-item:
         input: '["x", 1, true, 5n, Symbol.for("e"), "y", 2, false, 6n, "not a symbol"]'
-        error: 'Failed at ["9"]: Expected symbol, received "not a symbol"'
+        error: 'Failed at [9]: Expected symbol, received "not a symbol"'
   decode: identity
   encode: identity

@@ -21,7 +21,7 @@ operations:
         output: undefined
       wrong-member-type:
         input: "{ a: 1 }"
-        error: 'Failed at ["a"]: Expected boolean, received 1'
+        error: "Failed at a: Expected boolean, received 1"
       null-is-not-an-object:
         input: "null"
         error: "Expected { a: boolean; } | undefined, received null"
