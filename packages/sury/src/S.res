@@ -4,17 +4,14 @@
 type never
 
 module Path = {
-  type t
+  // Standard Schema's `PropertyKey` minus `symbol`, which Sury never emits.
+  @unboxed
+  type propertyKey = String(string) | Number(float)
+  type t = array<propertyKey>
 
-  external toString: t => string = "%identity"
-
-  let empty: t = %raw(`""`)
-  let dynamic: t = %raw(`"[]"`)
-
-  @module("sury") external toArray: t => array<string> = "$pathToArray"
-  @module("sury") external fromArray: array<string> => t = "$pathFromArray"
-  @module("sury") external fromLocation: string => t = "$pathFromLocation"
-  @module("sury") external concat: (t, t) => t = "$pathConcat"
+  let empty: t = []
+  external fromArray: array<string> => t = "%identity"
+  @module("sury") external toText: t => string = "pathToText"
 }
 
 type tag =

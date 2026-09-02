@@ -17,7 +17,6 @@ import {
   objectTag,
   panic,
   pathEmpty,
-  pathFromArray,
   type SchemaErrorMessage,
   setHas,
   U,
@@ -207,7 +206,7 @@ export const refine = (
   path?: string[]
 ): Internal => {
   const message = error !== U ? error : "Refinement failed";
-  const extraPath = path !== U ? pathFromArray(path) : pathEmpty;
+  const extraPath = path !== U ? path : pathEmpty;
   return internalRefine(schema, (_) => (input) => {
     const embeddedCheck = B_embed(input, refineCheck);
     return [

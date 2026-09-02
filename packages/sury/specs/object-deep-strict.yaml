@@ -18,7 +18,7 @@ operations:
         output: '{ foo: { a: "bar" } }'
       nested-excess-field:
         input: '{ foo: { a: "bar", b: true } }'
-        error: 'Failed at ["foo"]: Unrecognized key "b"'
+        error: 'Failed at foo: Unrecognized key "b"'
   decode:
     expression: i=>{let v0=i["foo"];return i}
     examples:

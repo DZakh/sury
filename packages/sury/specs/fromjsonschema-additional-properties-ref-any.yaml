@@ -12,7 +12,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);e[1](i)||e[3](i);for(let v0 in i){try{e[0](i[v0]);}catch(v1){v1.path='["'+v0+'"]'+v1.path;throw v1}}return i}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);e[1](i)||e[3](i);for(let v0 in i){try{e[0](i[v0]);}catch(v1){v1.path=[v0,...v1.path];throw v1}}return i}
     examples:
       declared-and-extra:
         input: '{ value: "ok", extra: { nested: true } }'
@@ -22,7 +22,7 @@ operations:
         error: Should pass every declared property schema.
       non-json-extra:
         input: "{ extra: undefined }"
-        error: 'Failed at ["extra"]: Expected JSON, received undefined'
+        error: "Failed at extra: Expected JSON, received undefined"
   decode:
     expression: i=>{e[0](i)||e[1](i);return i}
     examples:

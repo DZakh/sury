@@ -20,7 +20,7 @@ operations:
         output: '{ outer: "o", inner: { x: "x" } }'
       missing-flattened-field:
         input: '{ Outer: "o" }'
-        error: 'Failed at ["X"]: Expected string, received undefined'
+        error: "Failed at X: Expected string, received undefined"
   decode:
     expression: i=>{return {outer:i["Outer"],inner:{x:i["X"]}}}
     examples:

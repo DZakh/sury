@@ -16,26 +16,26 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{Array.isArray(i)||e[2](i);let v1="";for(let v0=0;v0<i.length;++v0){try{let v2=i[v0];e[0](v2);e[1](v2);v1+=(v0?",":"")+v2}catch(v3){v3.path='["'+v0+'"]'+v3.path;throw v3}}return "["+v1+"]"}
+    expression: i=>{Array.isArray(i)||e[2](i);let v1="";for(let v0=0;v0<i.length;++v0){try{let v2=i[v0];e[0](v2);e[1](v2);v1+=(v0?",":"")+v2}catch(v3){v3.path=[v0,...v3.path];throw v3}}return "["+v1+"]"}
     examples:
       empty:
         input: "[]"
         output: '"[]"'
       any-item:
         input: "[1]"
-        error: 'Failed at ["0"]: Expected never, received 1'
+        error: "Failed at [0]: Expected never, received 1"
   decode:
-    expression: i=>{for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}let v4="";for(let v3=0;v3<i.length;++v3){try{let v5=i[v3];e[1](v5);e[2](v5);v4+=(v3?",":"")+v5}catch(v6){v6.path='["'+v3+'"]'+v6.path;throw v6}}return "["+v4+"]"}
+    expression: i=>{for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];e[0](v1);}catch(v2){v2.path=[v0,...v2.path];throw v2}}let v4="";for(let v3=0;v3<i.length;++v3){try{let v5=i[v3];e[1](v5);e[2](v5);v4+=(v3?",":"")+v5}catch(v6){v6.path=[v3,...v6.path];throw v6}}return "["+v4+"]"}
     examples:
       empty:
         input: "[]"
         output: '"[]"'
   encode:
-    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}Array.isArray(v0)||e[3](v0);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"||e[2](v2);e[1](v2);}catch(v3){v3.path='["'+v1+'"]'+v3.path;throw v3}}return v0}
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}Array.isArray(v0)||e[3](v0);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"||e[2](v2);e[1](v2);}catch(v3){v3.path=[v1,...v3.path];throw v3}}return v0}
     examples:
       empty:
         input: '"[]"'
         output: "[]"
       any-item:
         input: '"[1]"'
-        error: 'Failed at ["0"]: Expected string, received 1'
+        error: "Failed at [0]: Expected string, received 1"

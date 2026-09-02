@@ -19,7 +19,7 @@ operations:
         output: '{ sub: "a" }'
       missing-sub:
         input: new Uint8Array([123, 125])
-        error: 'Failed at ["sub"]: Expected string, received undefined'
+        error: "Failed at sub: Expected string, received undefined"
       not-a-document:
         input: new Uint8Array([110, 111, 112, 101])
         error: Expected JSON string, received "nope"

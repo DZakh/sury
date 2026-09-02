@@ -5,8 +5,8 @@ ts:
   output: "{ a: string; b: number; c: boolean; d: bigint; e: symbol; }"
   instantiations: 4702
 jsonSchema:
-  input: 'Failed at ["d"]: Expected JSON, received bigint'
-  output: 'Failed at ["d"]: Expected JSON, received bigint'
+  input: "Failed at d: Expected JSON, received bigint"
+  output: "Failed at d: Expected JSON, received bigint"
 vs:
   zod: "z.object({ a: z.string(), b: z.number(), c: z.boolean() }).extend({ d: z.bigint(), e: z.symbol() })"
 operations:
@@ -18,7 +18,7 @@ operations:
         output: '{ a: "x", b: 1, c: true, d: 5n, e: Symbol.for("e") }'
       invalid-merged-field:
         input: '{ a: "x", b: 1, c: true, d: "not bigint", e: Symbol.for("e") }'
-        error: 'Failed at ["d"]: Expected bigint, received "not bigint"'
+        error: 'Failed at d: Expected bigint, received "not bigint"'
       not-an-object:
         input: '"nope"'
         error: 'Expected { a: string; b: number; c: boolean; d: bigint; e: symbol; }, received "nope"'

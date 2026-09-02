@@ -5,7 +5,7 @@ ts:
   output: string
   instantiations: 6912
 jsonSchema:
-  input: 'Failed at ["a"]: Expected JSON, received unknown | undefined'
+  input: "Failed at a: Expected JSON, received unknown | undefined"
   output: '{ type: "string", contentMediaType: "application/json" }'
   openapi-3.0:
     output: '{ type: "string" }'
@@ -14,7 +14,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["b"],v1=i["a"];typeof v0==="string"||e[0](v0);let v3;if(v1!==void 0){try{e[1](v1);}catch(v2){v2.path="[\"a\"]"+v2.path;throw v2}v3=JSON.stringify(v1)}let v4="";if(v3!==void 0){v4+="\"a\":"+v3}v4+=(v4?",":"")+"\"b\":"+e[2](v0);return "{"+v4+"}"}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["b"],v1=i["a"];typeof v0==="string"||e[0](v0);let v3;if(v1!==void 0){try{e[1](v1);}catch(v2){v2.path=["a",...v2.path];throw v2}v3=JSON.stringify(v1)}let v4="";if(v3!==void 0){v4+="\"a\":"+v3}v4+=(v4?",":"")+"\"b\":"+e[2](v0);return "{"+v4+"}"}
     examples:
       object-value:
         input: '{ a: { x: 1 }, b: "B" }'
@@ -26,7 +26,7 @@ operations:
         input: '{ a: "s", b: "B" }'
         output: '"{\"a\":\"s\",\"b\":\"B\"}"'
   decode:
-    expression: i=>{let v0=i["a"];let v2;if(v0!==void 0){try{e[0](v0);}catch(v1){v1.path="[\"a\"]"+v1.path;throw v1}v2=JSON.stringify(v0)}let v3="";if(v2!==void 0){v3+="\"a\":"+v2}v3+=(v3?",":"")+"\"b\":"+e[1](i["b"]);return "{"+v3+"}"}
+    expression: i=>{let v0=i["a"];let v2;if(v0!==void 0){try{e[0](v0);}catch(v1){v1.path=["a",...v1.path];throw v1}v2=JSON.stringify(v0)}let v3="";if(v2!==void 0){v3+="\"a\":"+v2}v3+=(v3?",":"")+"\"b\":"+e[1](i["b"]);return "{"+v3+"}"}
     examples:
       object-value:
         input: '{ a: { x: 1 }, b: "B" }'

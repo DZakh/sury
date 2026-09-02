@@ -33,6 +33,6 @@ operations:
         error: "Expected { a: string | undefined; } | undefined, received null"
       wrong-member-type:
         input: "{ a: 1 }"
-        error: 'Failed at ["a"]: Expected string | undefined, received 1'
+        error: "Failed at a: Expected string | undefined, received 1"
   decode: identity
   encode: identity

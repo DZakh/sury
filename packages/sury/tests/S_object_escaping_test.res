@@ -295,7 +295,7 @@ test("Fails with a proper error path for a field named after an Object.prototype
 
   t->U.assertThrowsMessage(
     () => %raw(`{"constructor": 1}`)->S.parseOrThrow(~to=schema),
-    `Failed at ["constructor"]: Expected string, received 1`,
+    `Failed at constructor: Expected string, received 1`,
   )
 })
 

@@ -25,7 +25,7 @@ operations:
         output: '{ nested: 123, flattened: { id: "id" }, foo: "bar", bar: false }'
       missing-tag:
         input: '{ nested: { field: 123 }, id: "id", Foo: "bar" }'
-        error: 'Failed at ["type"]: Expected 0, received undefined'
+        error: "Failed at type: Expected 0, received undefined"
   decode:
     expression: i=>{let v0=i["nested"],v1=i["Bar"];if(v1===void 0){v1=true}else{typeof v1==="boolean"||e[0](v1);}return {nested:v0["field"],flattened:{id:i["id"]},foo:i["Foo"],bar:v1}}
     examples:

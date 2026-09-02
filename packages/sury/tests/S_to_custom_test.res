@@ -95,7 +95,7 @@ test("Uses the path from S.Error.throw called in the custom decode", t => {
 
   t->U.assertThrowsMessage(
     () => ["Hello world!"]->S.parseOrThrow(~to=schema),
-    `Failed at ["0"]["a"]["b"]: User error`,
+    `Failed at [0].a.b: User error`,
   )
 })
 
@@ -124,7 +124,7 @@ test("Uses the path from S.Error.throw called in the custom encode", t => {
 
   t->U.assertThrowsMessage(
     () => ["Hello world!"]->S.decodeOrThrow(~from=schema, ~to=S.json),
-    `Failed at ["0"]["a"]["b"]: User error`,
+    `Failed at [0].a.b: User error`,
   )
 })
 
@@ -136,7 +136,7 @@ test("All errors thrown in operation context are caught and wrapped in SuryError
 
   t->U.assertThrowsMessage(
     () => {["Hello world!"]->S.parseOrThrow(~to=schema)},
-    `Failed at ["0"]: Application crashed`,
+    `Failed at [0]: Application crashed`,
   )
   switch ["Hello world!"]->S.parseOrThrow(~to=schema) {
   | _ => t->Assert.fail("Didn't throw")
@@ -155,7 +155,7 @@ test("Operation context catches ReScript exceptions as they are", t => {
 
   t->U.assertThrowsMessage(
     () => {["Hello world!"]->S.parseOrThrow(~to=schema)},
-    `Failed at ["0"]: { RE_EXN_ID: "U.Test"; Error: Error; }`,
+    `Failed at [0]: { RE_EXN_ID: "U.Test"; Error: Error; }`,
   )
 })
 

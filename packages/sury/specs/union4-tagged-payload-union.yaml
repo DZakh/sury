@@ -36,10 +36,10 @@ operations:
         error: 'Expected { TAG: "One"; _0: string; } | { TAG: "Two"; _0: string; } | { TAG: "Three"; _0: { a: string; kind: "A" | "B"; }; } | { TAG: "Four"; _0: string; }, received { TAG: "Z"; _0: "x"; }'
       invalid-one-payload:
         input: '{ TAG: "One", _0: 1 }'
-        error: 'Failed at ["_0"]: Expected string, received 1'
+        error: "Failed at _0: Expected string, received 1"
       invalid-three-kind:
         input: '{ TAG: "Three", _0: { a: "x", kind: "C" } }'
-        error: 'Failed at ["_0"]["kind"]: Expected "A" | "B", received "C"'
+        error: 'Failed at _0.kind: Expected "A" | "B", received "C"'
       not-object:
         input: '"x"'
         error: 'Expected { TAG: "One"; _0: string; } | { TAG: "Two"; _0: string; } | { TAG: "Three"; _0: { a: string; kind: "A" | "B"; }; } | { TAG: "Four"; _0: string; }, received "x"'

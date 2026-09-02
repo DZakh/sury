@@ -19,6 +19,6 @@ operations:
         output: '{ value: "ok" }'
       invalid:
         input: "{ value: 1 }"
-        error: 'Failed at ["value"]: Expected string, received 1'
+        error: "Failed at value: Expected string, received 1"
   decode: identity
   encode: identity

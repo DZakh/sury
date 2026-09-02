@@ -6,7 +6,7 @@ ts:
   instantiations: 7365
 jsonSchema:
   input: '{ type: "string", contentMediaType: "application/json" }'
-  output: 'Failed at ["a"]: Expected JSON, received Uint8Array | undefined'
+  output: "Failed at a: Expected JSON, received Uint8Array | undefined"
   draft-2020-12:
     input: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "object", properties: { a: { type: "string" } } }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
   openapi-3.0:
