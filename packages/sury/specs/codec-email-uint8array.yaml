@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.email.with(S.to, S.uint8Array)
+  input: string
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 5233
+jsonSchema:
+  input: '{ type: "string" }'
+  output: Expected JSON, received Uint8Array
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[3](i);e[1].test(i)||e[2](i);return e[0].encode(i)}
+    examples:
+      valid:
+        input: '"a@b.co"'
+        output: new Uint8Array([97, 64, 98, 46, 99, 111])
+      invalid:
+        input: '"nope"'
+        error: Expected email, received "nope"
+  decode:
+    expression: i=>{e[1].test(i)||e[2](i);return e[0].encode(i)}
+    examples:
+      valid:
+        input: '"a@b.co"'
+        output: new Uint8Array([97, 64, 98, 46, 99, 111])
+  encode:
+    expression: i=>{let v0=e[0].decode(i);e[1].test(v0)||e[2](v0);return v0}
+    examples:
+      valid:
+        input: new Uint8Array([97, 64, 98, 46, 99, 111])
+        output: '"a@b.co"'
+      invalid:
+        input: new Uint8Array([110, 111, 112, 101])
+        error: Expected email, received "nope"

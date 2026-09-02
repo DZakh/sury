@@ -7,6 +7,8 @@ ts:
 jsonSchema:
   input: Expected JSON, received string | undefined
   output: '{ anyOf: [{ type: "boolean" }, { type: "null" }] }'
+  openapi-3.0:
+    output: '{ type: "boolean", nullable: true }'
 vs:
   zod:
     _skip: not-applicable
