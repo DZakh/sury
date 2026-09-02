@@ -1504,37 +1504,31 @@ For some cases you might want to simply check whether a value is valid, without 
 | ----------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | S.assertInput     | `(Schema<TInput, TOutput>, data: unknown) asserts data is TInput` or `(data: unknown, Schema<TInput, TOutput>) asserts data is TInput`   | Asserts that the value is valid input. Since the operation doesn't return a value, it's 2-3 times faster than `parser` depending on the schema |
 | S.assertOutput    | `(Schema<TInput, TOutput>, data: unknown) asserts data is TOutput` or `(data: unknown, Schema<TInput, TOutput>) asserts data is TOutput` | The same assertion against the schema's output type — what `S.encoder` accepts                                                                 |
-| S.inputValidator  | `(Schema<TInput, TOutput>, data: unknown) => data is TInput` or `(data: unknown, Schema<TInput, TOutput>) => data is TInput`             | Returns `true`/`false` whether the value is valid input. Acts as a TypeScript type guard and shares the fast validate-only path with the asserts |
-| S.outputValidator | `(Schema<TInput, TOutput>, data: unknown) => data is TOutput` or `(data: unknown, Schema<TInput, TOutput>) => data is TOutput`           | The same check against the schema's output type                                                                                                |
+| S.inputValidator  | `(Schema<TInput, TOutput>) => (data: unknown) => data is TInput`                                                                          | Compiles a check that returns `true`/`false` whether the value is valid input. Acts as a TypeScript type guard and shares the fast validate-only path with the asserts |
+| S.outputValidator | `(Schema<TInput, TOutput>) => (data: unknown) => data is TOutput`                                                                         | The same check against the schema's output type                                                                                                |
 
-They accept their arguments in either order, so `(schema, data)` and `(data, schema)` are equivalent and both narrow the type. There's no "correct" order to memorize — pass the schema and the data in whatever order feels natural, and it just works. This is especially handy for AI assistants, which no longer have to guess the right argument position:
+The asserts accept their arguments in either order, so `(schema, data)` and `(data, schema)` are equivalent and both narrow the type. There's no "correct" order to memorize — pass the schema and the data in whatever order feels natural, and it just works. This is especially handy for AI assistants, which no longer have to guess the right argument position:
 
 ```ts
 const data: unknown = "abc";
 
-// (data, schema) order
-if (S.inputValidator(data, S.string)) {
-  // data is now typed as string
-}
-
 S.assertInput(data, S.string);
 // data is now typed as string
 
-// (schema, data) order — equivalent
-if (S.inputValidator(S.string, data)) {
-  // data is now typed as string
-}
-
 S.assertInput(S.string, data);
-// data is now typed as string
+// equivalent
 ```
 
-Passing only the schema returns a compiled validator — the faster choice when you check many values against the same schema, and still a TypeScript type guard:
+The validators are compiled like every other operation — the schema goes in once, and the function you get back is a TypeScript type guard:
 
 ```ts
 const isUser = S.inputValidator(userSchema);
 
 const users = records.filter(isUser);
+
+if (isUser(data)) {
+  // data is now typed as User
+}
 ```
 
 All operations either return the output value or throw an error. For convenient error handling you can use the `S.safe` and `S.safeAsync` helpers, which catch the error and wrap it into a `Result` type:

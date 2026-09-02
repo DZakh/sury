@@ -366,7 +366,7 @@ instead of silently working around it.
 - `operations` names `parse`, `decode` and `encode` only, so `S.assertInput` and
   `S.inputValidator` have no golden anywhere. Both compile through the same builder chain
   under a different result target, and a change to that target's handling broke
-  every `S.assertInput(…, S.json)` and `S.inputValidator(…, S.jsonString)` call with the whole
+  every `S.assertInput(…, S.json)` and `S.inputValidator(S.jsonString)(…)` call with the whole
   suite green. An `assert` op block, even one holding just an expression and a
   pass/throw example, would have caught it; `tests/content_test.ts` holds it
   instead.

@@ -223,10 +223,10 @@ export const asyncEncoder = (a: unknown, ...rest: unknown[]) =>
     ? getDecoder(...([a, ...rest] as Internal[]).map(reverse), 1)
     : getDecoder(reverse(a as Internal), 1);
 
-// The assert and validator operations accept both `(schema, data)` and
-// `(data, schema)`, told apart by the Standard Schema marker. The truthiness
-// guard keeps falsy data from throwing on the marker access, routing it to the
-// data slot so validation fails with a proper Sury error.
+// The asserts accept both `(schema, data)` and `(data, schema)`, told apart
+// by the Standard Schema marker. The truthiness guard keeps falsy data from
+// throwing on the marker access, routing it to the data slot so validation
+// fails with a proper Sury error.
 export const assertInput = (a: unknown, b: unknown): unknown => {
   const aIsSchema = !!a && isSchemaObject(a);
   const schema = (aIsSchema ? a : b) as Internal;
@@ -250,32 +250,20 @@ const validatorRun = (operation: (data: unknown) => unknown, data: unknown): boo
   }
 };
 
-// Two flat helpers rather than one closure-returning helper: the curried form
-// pays for its closure once, and the direct form must not allocate at all.
-const validator = (schema: Internal, data: unknown, curried: boolean): unknown => {
-  // Compiled outside the try: a conversion rejected at operation creation
-  // means the schema can't check any value, so it throws rather than reading
-  // as `false` — the same split `~standard.validate` makes.
+const validator = (schema: Internal): ((data: unknown) => boolean) => {
+  // Compiled outside the returned closure: a conversion rejected at operation
+  // creation means the schema can't check any value, so creating the validator
+  // throws rather than every answer reading as `false` — the same split
+  // `~standard.validate` makes.
   const operation = getDecoder(unknown, schema, assertResult) as (data: unknown) => unknown;
-  return curried ? (data: unknown) => validatorRun(operation, data) : validatorRun(operation, data);
+  return (data) => validatorRun(operation, data);
 };
 
-// `function` rather than an arrow: `arguments.length` is the only thing that
-// separates the curried form from `(schema, undefined)`, which is a real
-// question for every schema that accepts undefined.
-export const inputValidator = function (a: unknown, b: unknown): unknown {
-  const aIsSchema = !!a && isSchemaObject(a);
-  return validator((aIsSchema ? a : b) as Internal, aIsSchema ? b : a, arguments.length === 1);
-};
+// @__NO_SIDE_EFFECTS__
+export const inputValidator = (schema: Internal) => validator(schema);
 
-export const outputValidator = function (a: unknown, b: unknown): unknown {
-  const aIsSchema = !!a && isSchemaObject(a);
-  return validator(
-    reverse((aIsSchema ? a : b) as Internal),
-    aIsSchema ? b : a,
-    arguments.length === 1
-  );
-};
+// @__NO_SIDE_EFFECTS__
+export const outputValidator = (schema: Internal) => validator(reverse(schema));
 
 // The compiled operation is `assert`'s: the value runs the whole pipeline —
 // type checks, conversion, refinements — and the result is dropped, so what

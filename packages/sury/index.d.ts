@@ -814,26 +814,10 @@ export function assertOutput<TInput, TOutput>(
 export function inputValidator<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>
 ): (data: unknown) => data is TInput;
-export function inputValidator<TInput, TOutput>(
-  schema: SchemaLike<TInput, TOutput>,
-  data: unknown
-): data is TInput;
-export function inputValidator<TInput, TOutput>(
-  data: unknown,
-  schema: SchemaLike<TInput, TOutput>
-): data is TInput;
 
 export function outputValidator<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>
 ): (data: unknown) => data is TOutput;
-export function outputValidator<TInput, TOutput>(
-  schema: SchemaLike<TInput, TOutput>,
-  data: unknown
-): data is TOutput;
-export function outputValidator<TInput, TOutput>(
-  data: unknown,
-  schema: SchemaLike<TInput, TOutput>
-): data is TOutput;
 
 /**
  * The value a constructor accepts for a branded schema: the brand is what the

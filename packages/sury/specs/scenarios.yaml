@@ -32,15 +32,15 @@ input-validator:
   prepare: |
     const schema = S.schema({ id: S.string, age: S.number });
     const data = { id: "u1", age: 30 };
-  run: S.inputValidator(schema, data)
+  # A caller that doesn't hoist the validator pays the lookup and a closure
+  # per call; the next scenario is what hoisting it saves.
+  run: S.inputValidator(schema)(data)
 
 input-validator-compiled:
   prepare: |
     const schema = S.schema({ id: S.string, age: S.number });
     const validate = S.inputValidator(schema);
     const data = { id: "u1", age: 30 };
-  # The curried form hoists the operation lookup out of the call, so this is
-  # the floor the two-argument form above is measured against.
   run: validate(data)
 
 output-validator:
@@ -48,7 +48,7 @@ output-validator:
     const schema = S.schema({ id: S.string, age: S.number.with(S.to, S.string) });
     const data = { id: "u1", age: "30" };
   # Same dispatch through `reverse` — a second cache on a second schema.
-  run: S.outputValidator(schema, data)
+  run: S.outputValidator(schema)(data)
 
 assert-input:
   prepare: |

@@ -131,7 +131,7 @@ export const runDialect = (
           parseValid = true;
         } catch {}
         const assertValid = attempt(() => {
-          if (!S.inputValidator(structuredClone(test.data), schema as never)) throw new Error("invalid");
+          if (!S.inputValidator(schema as never)(structuredClone(test.data))) throw new Error("invalid");
         });
 
         if (parseValid === test.valid) {

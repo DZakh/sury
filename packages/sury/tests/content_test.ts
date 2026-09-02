@@ -191,17 +191,17 @@ test("a document still asserts, where nothing is re-represented at all", () => {
   expect(S.assertInput(`"hi"`, S.jsonString)).toBe(undefined);
   expect(S.assertInput({ a: 1 }, S.json)).toBe(undefined);
   expect(S.assertInput("hi", S.string.with(S.to, S.jsonString))).toBe(undefined);
-  expect(S.inputValidator({ a: 1 }, S.json)).toBe(true);
-  expect(S.inputValidator(`{"a":1}`, S.jsonString)).toBe(true);
-  expect(S.inputValidator(42, S.jsonString)).toBe(false);
+  expect(S.inputValidator(S.json)({ a: 1 })).toBe(true);
+  expect(S.inputValidator(S.jsonString)(`{"a":1}`)).toBe(true);
+  expect(S.inputValidator(S.jsonString)(42)).toBe(false);
 
   // The other half: the result target discards the value, so it cannot stand in
   // for the parse that says the text is a document.
-  expect(S.inputValidator("nope", S.jsonString)).toBe(false);
+  expect(S.inputValidator(S.jsonString)("nope")).toBe(false);
   expect(() => S.assertInput("nope", S.jsonString)).toThrow(
     `Expected JSON string, received "nope"`,
   );
-  expect(S.inputValidator(function () {}, S.json)).toBe(false);
+  expect(S.inputValidator(S.json)(function () {})).toBe(false);
 });
 
 test("a read that fails is not a case that didn't match", async () => {

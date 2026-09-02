@@ -20,8 +20,6 @@ const source = readFileSync(new URL("../index.mjs", import.meta.url), "utf8");
 const EFFECTFUL: Record<string, string> = {
   assertInput: "throws on invalid input — the call IS the assertion",
   assertOutput: "throws on invalid input — the call IS the assertion",
-  inputValidator: "wraps assert",
-  outputValidator: "wraps assert",
   safe: "runs the callback it's given",
   safeAsync: "runs the callback it's given",
   global: "mutates the global config",
