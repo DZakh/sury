@@ -11,7 +11,7 @@ vs:
   zod: z.number().gte(5).gte(1, "MY MESSAGE")
 operations:
   parse:
-    expression: i=>{typeof i==="number"&&!Number.isNaN(i)||e[1](i);i>=5||e[0](i);return i}
+    expression: i=>{typeof i==="number"&&i===i||e[1](i);i>=5||e[0](i);return i}
     examples:
       at-the-surviving-bound:
         input: "5"

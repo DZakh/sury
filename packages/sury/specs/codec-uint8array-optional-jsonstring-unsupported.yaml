@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.uint8Array.with(S.to, S.optional(S.jsonString))
+  input: Uint8Array<ArrayBufferLike>
+  output: string | undefined
+  instantiations: 5434
+jsonSchema:
+  input: Expected JSON, received Uint8Array
+  output: Expected JSON, received JSON string | undefined
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "SuryError: Can't decode Uint8Array to JSON string | undefined. Use S.to to define a custom decoder"
+  decode: eq-to-parse
+  encode: eq-to-parse

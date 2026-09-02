@@ -35,7 +35,7 @@ operations:
         input: '{ b: "B" }'
         output: '"{\"b\":\"B\"}"'
   encode:
-    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0["b"];typeof v1==="string"||e[1](v1);return {"a":(v0["a"]??null),"b":v1,}}
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0["b"];typeof v1==="string"||e[1](v1);return {a:(v0["a"]??null),b:v1}}
     examples:
       object-value:
         input: '"{\"a\":{\"x\":1},\"b\":\"B\"}"'

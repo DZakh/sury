@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.base64.with(S.trim).with(S.to, S.base64url)
+  input: string
+  output: string
+  instantiations: 5409
+jsonSchema:
+  input: '{ type: "string", contentEncoding: "base64" }'
+  output: '{ type: "string", contentEncoding: "base64url" }'
+  openapi-3.0:
+    input: '{ type: "string", format: "byte" }'
+    output: '{ type: "string", format: "base64url" }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[5](i);e[3](i)||e[4](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return e[2](v0)}
+    examples:
+      png:
+        input: '"iVBORw=="'
+        output: '"iVBORw"'
+      empty:
+        input: '""'
+        output: '""'
+      already-url-safe:
+        input: '"SGVsbG8="'
+        output: '"SGVsbG8"'
+  decode:
+    expression: i=>{e[3](i)||e[4](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return e[2](v0)}
+    examples:
+      png:
+        input: '"iVBORw=="'
+        output: '"iVBORw"'
+  encode:
+    expression: i=>{e[5](i)||e[6](i);let v0;try{v0=e[1](e[0](i))}catch(x){e[2](x)}e[3](v0)||e[4](v0);return v0}
+    examples:
+      png:
+        input: '"iVBORw"'
+        output: '"iVBORw=="'

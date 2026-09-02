@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.base64url
+  input: string
+  output: string
+  instantiations: 254
+jsonSchema:
+  input: '{ type: "string", contentEncoding: "base64url" }'
+  output: '{ type: "string", contentEncoding: "base64url" }'
+  openapi-3.0:
+    input: '{ type: "string", format: "base64url" }'
+    output: '{ type: "string", format: "base64url" }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0](i)||e[1](i);return i}
+    examples:
+      valid-unpadded:
+        input: '"SGVsbG8"'
+        output: '"SGVsbG8"'
+      valid-whole-quantum:
+        input: '"SGVsbG8h"'
+        output: '"SGVsbG8h"'
+      valid-url-alphabet:
+        input: '"SG-k_w"'
+        output: '"SG-k_w"'
+      empty:
+        input: '""'
+        output: '""'
+      padding-rejected:
+        input: '"SGVsbG8="'
+        error: Expected base64url, received "SGVsbG8="
+      standard-alphabet-rejected:
+        input: '"SG+k/w"'
+        error: Expected base64url, received "SG+k/w"
+      length-1-mod-4-rejected:
+        input: '"A"'
+        error: Expected base64url, received "A"
+      not-a-string:
+        input: "42"
+        error: Expected base64url, received 42
+  decode:
+    expression: i=>{e[0](i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"SG-k_w"'
+        output: '"SG-k_w"'
+  encode:
+    expression: i=>{e[0](i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"SG-k_w"'
+        output: '"SG-k_w"'

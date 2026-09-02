@@ -15,7 +15,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["items"];Array.isArray(v0)||e[1](v0);let v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"||e[0](v2);v4[v1]={"TAG":"A","_0":v0[v1],}}catch(v3){v3.path="[\"items\"]"+'["'+v1+'"]'+v3.path;throw v3}}return {"items":v4,}}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["items"];Array.isArray(v0)||e[1](v0);let v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"||e[0](v2);v4[v1]={TAG:"A",_0:v0[v1]}}catch(v3){v3.path="[\"items\"]"+'["'+v1+'"]'+v3.path;throw v3}}return {items:v4}}
     examples:
       shapes-each-item:
         input: '{ items: ["a", "b"] }'
@@ -27,13 +27,13 @@ operations:
         input: "{ items: [1] }"
         error: 'Failed at ["items"]["0"]: Expected string, received 1'
   decode:
-    expression: i=>{let v0=i["items"];let v2=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){v2[v1]={"TAG":"A","_0":v0[v1],}}return {"items":v2,}}
+    expression: i=>{let v0=i["items"];let v2=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){v2[v1]={TAG:"A",_0:v0[v1]}}return {items:v2}}
     examples:
       shapes-each-item:
         input: '{ items: ["a", "b"] }'
         output: '{ items: [{ TAG: "A", _0: "a" }, { TAG: "A", _0: "b" }] }'
   encode:
-    expression: i=>{let v0=i["items"];let v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];v4[v1]=v2["_0"]}catch(v3){v3.path="[\"items\"]"+'["'+v1+'"]'+v3.path;throw v3}}return {"items":v4,}}
+    expression: i=>{let v0=i["items"];let v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];v4[v1]=v2["_0"]}catch(v3){v3.path="[\"items\"]"+'["'+v1+'"]'+v3.path;throw v3}}return {items:v4}}
     examples:
       round-trip:
         input: '{ items: [{ TAG: "A", _0: "a" }] }'

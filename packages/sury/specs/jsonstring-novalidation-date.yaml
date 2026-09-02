@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({ d: S.date.with(S.noValidation, true) }).with(S.to, S.jsonString)"
+  input: "{ d: Date; }"
+  output: string
+  instantiations: 6453
+jsonSchema:
+  input: 'Failed at ["d"]: Expected JSON, received Date'
+  output: '{ type: "string", contentMediaType: "application/json" }'
+  openapi-3.0:
+    output: '{ type: "string" }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[0](i);return "{\"d\":\""+i["d"].toISOString()+"\"}"}
+    examples:
+      # FIXME: `noValidation` voids `escapeFree`'s proof, and the raw-splice
+      # guard can't see it: the flag sits on the `S.date` node while the value
+      # spliced is `dateTimeString`, which the conversion produced. So a value
+      # that isn't a date and returns a quote emits broken JSON rather than
+      # merely over-escaped JSON. Predates the content axis — `accessorRe` has
+      # always admitted a zero-argument call.
+      real-date:
+        input: '{ d: new Date("1970-01-01T00:00:00.000Z") }'
+        output: '"{\"d\":\"1970-01-01T00:00:00.000Z\"}"'
+      not-a-date:
+        input: '{ d: { toISOString: () => "a\"b" } }'
+        output: '"{\"d\":\"a\"b\"}"'
+  decode:
+    expression: i=>{return "{\"d\":\""+i["d"].toISOString()+"\"}"}
+    examples:
+      real-date:
+        input: '{ d: new Date("1970-01-01T00:00:00.000Z") }'
+        output: '"{\"d\":\"1970-01-01T00:00:00.000Z\"}"'
+  encode:
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0["d"];typeof v1==="string"||e[1](v1);return {d:new Date(v0["d"])}}
+    examples:
+      reads-the-date-back:
+        input: '"{\"d\":\"1970-01-01T00:00:00.000Z\"}"'
+        output: '{ d: new Date("1970-01-01T00:00:00.000Z") }'

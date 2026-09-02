@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.uint8Array.with(S.to, S.base64url)
+  input: Uint8Array<ArrayBufferLike>
+  output: string
+  instantiations: 5233
+jsonSchema:
+  input: Expected JSON, received Uint8Array
+  output: '{ type: "string", contentEncoding: "base64url" }'
+  openapi-3.0:
+    output: '{ type: "string", format: "base64url" }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{i instanceof e[1]||e[2](i);return e[0](i)}
+    examples:
+      non-utf8-bytes:
+        input: new Uint8Array([137, 80, 78, 71])
+        output: '"iVBORw"'
+      empty:
+        input: new Uint8Array([])
+        output: '""'
+      one-byte:
+        input: new Uint8Array([255])
+        output: '"_w"'
+  decode:
+    expression: i=>{return e[0](i)}
+    examples:
+      non-utf8-bytes:
+        input: new Uint8Array([137, 80, 78, 71])
+        output: '"iVBORw"'
+  encode:
+    expression: i=>{e[1](i)||e[2](i);return e[0](i)}
+    examples:
+      invalid-base64url:
+        input: '"!!"'
+        error: Expected base64url, received "!!"

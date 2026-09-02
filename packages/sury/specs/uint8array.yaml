@@ -20,8 +20,17 @@ operations:
       valid:
         input: new Uint8Array([1, 2, 3])
         output: new Uint8Array([1, 2, 3])
-      invalid-type:
-        input: '"hi"'
-        error: Expected Uint8Array, received "hi"
+      empty:
+        input: new Uint8Array([])
+        output: new Uint8Array([])
+      non-ascii:
+        input: new Uint8Array([137, 80, 78, 71])
+        output: new Uint8Array([137, 80, 78, 71])
+      string-is-not-bytes:
+        input: '"abc"'
+        error: Expected Uint8Array, received "abc"
+      array-is-not-bytes:
+        input: "3"
+        error: Expected Uint8Array, received 3
   decode: identity
   encode: identity

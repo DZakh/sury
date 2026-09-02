@@ -53,6 +53,8 @@ export const FUZZ_EXPORTS: Record<string, FuzzExport> = {
   asyncDecoder: skip("operation, not a schema factory"),
   asyncEncoder: skip("operation, not a schema factory"),
   asyncParser: skip("operation, not a schema factory"),
+  base64: schema((S) => S.base64),
+  base64url: schema((S) => S.base64url),
   bigint: schema((S) => S.bigint),
   blob: schema((S) => S.blob),
   bool: schema((S) => S.bool),

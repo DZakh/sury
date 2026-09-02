@@ -14,7 +14,7 @@ vs:
   zod: 'z.discriminatedUnion("TAG", [z.object({ TAG: z.literal("One"), _0: z.string() }), z.object({ TAG: z.literal("Two"), _0: z.string() }), z.object({ TAG: z.literal("Three"), _0: z.object({ a: z.string(), kind: z.union([z.literal("A"), z.literal("B")]) }) }), z.object({ TAG: z.literal("Four"), _0: z.string() })])'
 operations:
   parse:
-    expression: i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i["TAG"]==="One"){let v0=i["_0"];typeof v0==="string"||e[0](v0);i={"TAG":i["TAG"],"_0":v0,};break}if(i["TAG"]==="Two"){let v1=i["_0"];typeof v1==="string"||e[1](v1);i={"TAG":i["TAG"],"_0":v1,};break}if(i["TAG"]==="Three"){let v2=i["_0"];typeof v2==="object"&&v2&&!Array.isArray(v2)||e[4](v2);let v3=v2["a"],v4=v2["kind"];typeof v3==="string"||e[2](v3);typeof v4==="string"&&(v4==="A"||v4==="B")||e[3](v4);i={"TAG":i["TAG"],"_0":{"a":v3,"kind":v4,},};break}if(i["TAG"]==="Four"){let v5=i["_0"];typeof v5==="string"||e[5](v5);i={"TAG":i["TAG"],"_0":v5,};break}e[6](i)}}else{e[7](i)}return i}
+    expression: i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i["TAG"]==="One"){let v0=i["_0"];typeof v0==="string"||e[0](v0);i={TAG:i["TAG"],_0:v0};break}if(i["TAG"]==="Two"){let v1=i["_0"];typeof v1==="string"||e[1](v1);i={TAG:i["TAG"],_0:v1};break}if(i["TAG"]==="Three"){let v2=i["_0"];typeof v2==="object"&&v2&&!Array.isArray(v2)||e[4](v2);let v3=v2["a"],v4=v2["kind"];typeof v3==="string"||e[2](v3);typeof v4==="string"&&(v4==="A"||v4==="B")||e[3](v4);i={TAG:i["TAG"],_0:{a:v3,kind:v4}};break}if(i["TAG"]==="Four"){let v5=i["_0"];typeof v5==="string"||e[5](v5);i={TAG:i["TAG"],_0:v5};break}e[6](i)}}else{e[7](i)}return i}
     examples:
       valid-one:
         input: '{ TAG: "One", _0: "x" }'

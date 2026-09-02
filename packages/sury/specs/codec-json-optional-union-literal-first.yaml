@@ -59,7 +59,7 @@ operations:
         input: "{ selector: 1 }"
         error: 'Failed at ["selector"]: Expected "*" | string | string[] | undefined, received 1'
   encode:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=(i["selector"]??null);for(;;){if(typeof v0==="string")break;if(Array.isArray(v0)){for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"||e[0](v2);}catch(v3){v3.path="[\"selector\"]"+'["'+v1+'"]'+v3.path;throw v3}};break}if(v0===null){v0=void 0;break}e[1](v0)}return {"selector":v0,}}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=(i["selector"]??null);for(;;){if(typeof v0==="string")break;if(Array.isArray(v0)){for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"||e[0](v2);}catch(v3){v3.path="[\"selector\"]"+'["'+v1+'"]'+v3.path;throw v3}};break}if(v0===null){v0=void 0;break}e[1](v0)}return {selector:v0}}
     examples:
       leading-literal:
         input: '{ selector: "*" }'

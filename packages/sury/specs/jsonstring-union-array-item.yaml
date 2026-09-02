@@ -17,7 +17,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{Array.isArray(i)||e[6](i);let v1="";for(let v0=0;v0<i.length;++v0){try{let v2=i[v0];if(typeof v2==="object"&&v2&&!Array.isArray(v2)){for(;;){if(v2["type"]==="click"){let v3=v2["x"];typeof v3==="number"&&!Number.isNaN(v3)||e[0](v3);v2="{\"type\":\"click\",\"x\":"+(Number.isFinite(v3)?v3:e[1](v3))+"}";break}if(v2["type"]==="view"){let v4=v2["path"];typeof v4==="string"||e[2](v4);v2="{\"type\":\"view\",\"path\":"+e[3](v4)+"}";break}e[4](v2)}}else{e[5](v2)}v1+=(v0?",":"")+v2}catch(v5){v5.path='["'+v0+'"]'+v5.path;throw v5}}return "["+v1+"]"}
+    expression: i=>{Array.isArray(i)||e[6](i);let v1="";for(let v0=0;v0<i.length;++v0){try{let v2=i[v0];if(typeof v2==="object"&&v2&&!Array.isArray(v2)){for(;;){if(v2["type"]==="click"){let v3=v2["x"];typeof v3==="number"&&v3===v3||e[0](v3);v2="{\"type\":\"click\",\"x\":"+(Number.isFinite(v3)?v3:e[1](v3))+"}";break}if(v2["type"]==="view"){let v4=v2["path"];typeof v4==="string"||e[2](v4);v2="{\"type\":\"view\",\"path\":"+e[3](v4)+"}";break}e[4](v2)}}else{e[5](v2)}v1+=(v0?",":"")+v2}catch(v5){v5.path='["'+v0+'"]'+v5.path;throw v5}}return "["+v1+"]"}
     examples:
       mixed:
         input: '[{ type: "click", x: 1 }, { type: "view", path: "/a" }]'
@@ -47,7 +47,7 @@ operations:
         input: '[{ type: "click", x: Infinity }]'
         error: 'Failed at ["0"]["x"]: Expected JSON, received Infinity'
   encode:
-    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}Array.isArray(v0)||e[5](v0);let v6=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];if(typeof v2==="object"&&v2&&!Array.isArray(v2)){for(;;){if(v2["type"]==="click"){let v3=v2["x"];typeof v3==="number"&&!Number.isNaN(v3)||e[1](v3);v2={"type":v2["type"],"x":v3,};break}if(v2["type"]==="view"){let v4=v2["path"];typeof v4==="string"||e[2](v4);v2={"type":v2["type"],"path":v4,};break}e[3](v2)}}else{e[4](v2)}v6[v1]=v2}catch(v5){v5.path='["'+v1+'"]'+v5.path;throw v5}}return v6}
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}Array.isArray(v0)||e[5](v0);let v6=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];if(typeof v2==="object"&&v2&&!Array.isArray(v2)){for(;;){if(v2["type"]==="click"){let v3=v2["x"];typeof v3==="number"&&v3===v3||e[1](v3);v2={type:v2["type"],x:v3};break}if(v2["type"]==="view"){let v4=v2["path"];typeof v4==="string"||e[2](v4);v2={type:v2["type"],path:v4};break}e[3](v2)}}else{e[4](v2)}v6[v1]=v2}catch(v5){v5.path='["'+v1+'"]'+v5.path;throw v5}}return v6}
     examples:
       mixed:
         input: '"[{\"type\":\"click\",\"x\":1},{\"type\":\"view\",\"path\":\"/a\"}]"'

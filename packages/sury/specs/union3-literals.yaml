@@ -11,7 +11,7 @@ vs:
   zod: z.union([z.literal("foo"), z.literal(123), z.literal(true)])
 operations:
   parse:
-    expression: i=>{(typeof i==="string"&&i==="foo"||typeof i==="number"&&!Number.isNaN(i)&&i===123||typeof i==="boolean"&&i===true)||e[0](i);return i}
+    expression: i=>{(typeof i==="string"&&i==="foo"||typeof i==="number"&&i===i&&i===123||typeof i==="boolean"&&i===true)||e[0](i);return i}
     examples:
       string:
         input: '"foo"'

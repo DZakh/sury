@@ -12,7 +12,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i["value"];typeof v0==="string"||e[0](v0);return {"value":v0,}}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i["value"];typeof v0==="string"||e[0](v0);return {value:v0}}
     examples:
       valid:
         input: '{ value: "ok" }'

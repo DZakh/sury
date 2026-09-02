@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({ v: S.base64.with(S.noValidation, true) }).with(S.to, S.jsonString)"
+  input: "{ v: string; }"
+  output: string
+  instantiations: 6390
+jsonSchema:
+  input: '{ type: "object", properties: { v: { type: "string", contentEncoding: "base64" } }, required: ["v"] }'
+  output: '{ type: "string", contentMediaType: "application/json" }'
+  draft-2020-12:
+    output: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "object", properties: { v: { type: "string", contentEncoding: "base64" } }, required: ["v"] }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ type: "object", properties: { v: { type: "string", format: "byte" } }, required: ["v"] }'
+    output: '{ type: "string" }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);return "{\"v\":"+e[0](i["v"])+"}"}
+    examples:
+      escape-free:
+        input: '{ v: "iVBORw==" }'
+        output: '"{\"v\":\"iVBORw==\"}"'
+      needs-escaping:
+        input: '{ v: "a\"b" }'
+        output: '"{\"v\":\"a\\\"b\"}"'
+  decode:
+    expression: i=>{return "{\"v\":"+e[0](i["v"])+"}"}
+    examples:
+      escape-free:
+        input: '{ v: "iVBORw==" }'
+        output: '"{\"v\":\"iVBORw==\"}"'
+  encode:
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[1](v0);return {v:v0["v"]}}
+    examples:
+      takes-the-text-unchecked:
+        input: '"{\"v\":\"zz\"}"'
+        output: '{ v: "zz" }'

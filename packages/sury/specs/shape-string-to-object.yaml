@@ -12,7 +12,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[0](i);return {"foo":i,}}
+    expression: i=>{typeof i==="string"||e[0](i);return {foo:i}}
     examples:
       valid:
         input: '"bar"'
@@ -21,7 +21,7 @@ operations:
         input: "1"
         error: Expected string, received 1
   decode:
-    expression: i=>{return {"foo":i,}}
+    expression: i=>{return {foo:i}}
     examples:
       valid:
         input: '"bar"'

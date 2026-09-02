@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.fromJSONSchema({ allOf: [{ dependencies: { bar: { "$ref": "#/$defs/needFoo" } } }], "$defs": { needFoo: { required: ["foo"] } } })'
+  input: JSON
+  output: JSON
+  instantiations: 830
+jsonSchema:
+  input: '{ dependencies: { bar: { anyOf: [{ type: "string" }, { type: "number" }, { type: "object", required: ["foo"] }, { items: {}, type: "array" }, { type: "boolean" }, { type: "null" }] } } }'
+  output: '{ dependencies: { bar: { anyOf: [{ type: "string" }, { type: "number" }, { type: "object", required: ["foo"] }, { items: {}, type: "array" }, { type: "boolean" }, { type: "null" }] } } }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{e[0](i);e[1](i)||e[2](i);return i}
+    examples:
+      neither:
+        input: "{}"
+        output: "{}"
+      with-dependency:
+        input: "{ foo: 1, bar: 2 }"
+        output: "{ foo: 1, bar: 2 }"
+      missing-foo:
+        input: "{ bar: 2 }"
+        error: Should pass the dependencies keyword.
+  decode:
+    expression: i=>{e[0](i)||e[1](i);return i}
+    examples:
+      neither:
+        input: "{}"
+        output: "{}"
+  encode:
+    expression: i=>{e[0](i)||e[1](i);return i}
+    examples:
+      neither:
+        input: "{}"
+        output: "{}"
