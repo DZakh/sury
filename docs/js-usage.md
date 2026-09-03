@@ -1230,6 +1230,53 @@ S.encoder(Wire)({ id: 150, name: "Ada", tags: [] }); // ArrayBuffer(12)
 S.decoder(Wire)(buffer); // { id: 150, name: "Ada", tags: [] }
 ```
 
+**Generating a `.proto`.** `S.toProto` prints the proto3 source for a message
+schema, so a Sury schema can be the source of truth other languages build
+from, and `buf breaking` can guard it in CI; with a `package` and camelCase
+keys it passes `buf lint`'s defaults too. A schema's `name`
+meta names its message; without one the field key does, and camelCase keys
+print snake_case, which generators map back to lowerCamel (an acronym
+flattens: `userID` comes back as `userId`). `description` becomes a comment
+and `deprecated` the option: meta a schema carried before `S.protobufField`
+numbered it belongs to the message or enum it declares, meta set after to the
+field.
+
+```ts
+const Address = S.schema({
+  street: S.string.with(S.protobufField, 1),
+}).with(S.meta, { name: "Address" });
+const User = S.schema({
+  id: S.int32.with(S.protobufField, 1),
+  homeAddress: S.optional(Address).with(S.protobufField, 2),
+  kind: S.union([0, 1, 2]).with(S.protobufField, { number: 3, type: "enum" }),
+}).with(S.meta, { name: "User" });
+
+S.toProto(User, { package: "acme.v1" });
+// syntax = "proto3";
+//
+// package acme.v1;
+//
+// message User {
+//   enum Kind {
+//     KIND_UNSPECIFIED = 0;
+//     KIND_1 = 1;
+//     KIND_2 = 2;
+//   }
+//
+//   int32 id = 1;
+//   optional Address home_address = 2;
+//   Kind kind = 3;
+// }
+//
+// message Address {
+//   string street = 1;
+// }
+```
+
+The zero member prints as `KIND_UNSPECIFIED`, and an enum built from
+literals that lack `0` gets one prepended, since proto3 requires a zero member
+that the schema itself rejects.
+
 **Unknown fields** are skipped, groups included, and `S.strict` rejects them.
 Strings must be valid UTF-8. Malformed input — a truncated field, a field
 number of zero, an unknown wire type, an unmatched group or a tag wider than

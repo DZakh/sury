@@ -1,4 +1,5 @@
 import protobuf from "protobufjs";
+import * as S from "sury";
 import type { FieldDef } from "./cases";
 
 const ident = (name: string): string => name.replace(/[^A-Za-z0-9_]/g, "_");
@@ -9,6 +10,8 @@ const pbjsTypeName = (field: FieldDef, parent: string): string => {
   return field.type;
 };
 
+// Written from the case's own field table, so it stays a reference
+// independent of the codec; `printedProtobufjsType` is Sury's printer.
 const emitMessage = (name: string, fields: FieldDef[]): string => {
   const nested = fields
     .filter((field) => field.type === "message")
@@ -35,6 +38,9 @@ const emitMessage = (name: string, fields: FieldDef[]): string => {
 
 export const protoSource = (fields: FieldDef[]): string => `syntax = "proto3";\n${emitMessage("M", fields)}`;
 
+export const printedProtobufjsType = (schema: S.Schema<unknown, unknown>): protobuf.Type =>
+  protobuf.parse(S.toProto(schema, { name: "M" })).root.lookupType("M");
+
 export const protobufjsType = (fields: FieldDef[]): protobuf.Type =>
   protobuf.parse(protoSource(fields)).root.lookupType("M");
 
@@ -56,6 +62,8 @@ const defaultOf = (type: FieldDef["type"]): unknown => {
 
 const asBytes = (value: unknown): Uint8Array => {
   if (value instanceof Uint8Array) return value;
+  // A missing map value's default: protobufjs materializes empty bytes as [].
+  if (Array.isArray(value)) return Uint8Array.from(value as number[]);
   if (ArrayBuffer.isView(value)) {
     const view = value as ArrayBufferView;
     return new Uint8Array(view.buffer, view.byteOffset, view.byteLength);
@@ -146,13 +154,17 @@ const walk = (fields: FieldDef[], value: Record<string, unknown>): Record<string
   return out;
 };
 
-export const encodeProtobufjs = (fields: FieldDef[], value: Record<string, unknown>): Uint8Array => {
-  const type = protobufjsType(fields);
-  return type.encode(toPbjsValue(fields, value)).finish();
-};
+export const encodeProtobufjs = (
+  fields: FieldDef[],
+  value: Record<string, unknown>,
+  type = protobufjsType(fields),
+): Uint8Array => type.encode(toPbjsValue(fields, value)).finish();
 
-export const decodeProtobufjs = (fields: FieldDef[], bytes: Uint8Array): Record<string, unknown> => {
-  const type = protobufjsType(fields);
+export const decodeProtobufjs = (
+  fields: FieldDef[],
+  bytes: Uint8Array,
+  type = protobufjsType(fields),
+): Record<string, unknown> => {
   const raw = type.toObject(type.decode(bytes), {
     longs: String,
     bytes: Uint8Array,

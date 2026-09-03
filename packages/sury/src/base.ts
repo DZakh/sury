@@ -374,6 +374,10 @@ export type Internal = {
   pattern?: RegExp;
   errorMessage?: SchemaErrorMessage;
   space?: number;
+  // Marks `S.protobuf`: `toProto` finds it on a chain by this rather than by
+  // the codec's encoder, which would drag the codec into a `toProto`-only
+  // bundle.
+  w?: true;
   pb?: unknown;
   // Compile-time only, set on a per-operation schema copy by the container
   // decoders' jsonString fusion (B_fuseIntoJsonString in composites.ts): the

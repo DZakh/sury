@@ -488,6 +488,26 @@ export const uint8Array: Schema<Uint8Array, Uint8Array>;
 export const arrayBuffer: Schema<ArrayBuffer, ArrayBuffer>;
 export const protobuf: Schema<Uint8Array, Uint8Array>;
 
+/**
+ * The proto3 source describing the wire `S.protobuf` speaks for a message
+ * schema: every field with its number and wire type, `optional`, `repeated`,
+ * `map<K, V>`, `oneof` blocks, nested messages and enums. A schema's `name`
+ * meta names its message, otherwise the field key does; camelCase keys print
+ * snake_case, which generators map back to lowerCamel (an acronym flattens:
+ * `userID` comes back as `userId`). `description` prints as a comment and
+ * `deprecated` as the option: meta a schema carried before `S.protobufField`
+ * numbered it belongs to the message or enum it declares, meta set after to
+ * the field.
+ *
+ * An enum's zero member prints as `<NAME>_UNSPECIFIED`, and one is prepended
+ * to an enum whose literals lack `0`, which proto3 requires and the schema
+ * itself rejects.
+ */
+export function toProto<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>,
+  options?: { name?: string; package?: string }
+): string;
+
 export type ProtobufType =
   | "double"
   | "float"

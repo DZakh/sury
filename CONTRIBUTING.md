@@ -329,6 +329,9 @@ schema(data);
 
 ## Spec Harness Suggestions
 
+- There is no operation for source text: `S.toProto` returns a `.proto` file,
+  so its output is snapshotted in `tests/S_toProto_test.ts` rather than a spec.
+  A `proto` operation next to `jsonSchema` would keep it with the schema.
 - `valueToCode` has no case for `ArrayBuffer`, so an example whose result is
   one (`S.arrayBuffer`, `S.uint8Array.with(S.to, S.arrayBuffer)` encode) can
   only be a rejecting input; the accepting ones live in

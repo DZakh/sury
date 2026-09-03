@@ -170,6 +170,7 @@ export const FUZZ_EXPORTS: Record<string, FuzzExport> = {
       encode: "auto",
     }),
   ),
+  toProto: skip(".proto source export, not a schema factory"),
   trim: modify(["string"], (S, schema) => schema.with(S.trim)),
   tuple: build(),
   uint8Array: schema((S) => S.uint8Array),

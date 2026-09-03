@@ -24,6 +24,13 @@ let Flag = {
 
 let $$Error = {};
 
+function toProto(schema, name, $$package) {
+  return Sury.toProto(schema, {
+    name: name,
+    package: $$package
+  });
+}
+
 function protobufField(schema, number, type_) {
   return Sury.protobufField(schema, {
     number: number,
@@ -127,6 +134,7 @@ export {
   Exn,
   Flag,
   $$Error,
+  toProto,
   protobufField,
   refine,
   to,

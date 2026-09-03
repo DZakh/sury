@@ -451,3 +451,32 @@ test("protobufField infers type from the schema", (t) => {
   t.expect(decode(encode(value))).toEqual(value);
   t.expect(() => S.integer.with(S.protobufField, 1)).toThrow("S.protobufField requires a protobuf type");
 });
+
+test("protobufField rejects a repeated or map oneof member and a non-integer enum", (t) => {
+  t.expect(() => S.array(S.int32).with(S.protobufField, { number: 1, oneof: "v" })).toThrow(
+    "[Sury] S.protobufField requires a oneof member to be singular, not repeated or a map",
+  );
+  t.expect(() => S.record(S.int32).with(S.protobufField, { number: 1, oneof: "v" })).toThrow(
+    "[Sury] S.protobufField requires a oneof member to be singular, not repeated or a map",
+  );
+  // A union that isn't optional is a required field, which a oneof arm can't be.
+  t.expect(() => S.union([1, 2]).with(S.protobufField, { number: 1, oneof: "v" })).toThrow(
+    "[Sury] S.protobufField requires a oneof member to be S.optional or a message",
+  );
+  S.optional(S.union([1, 2])).with(S.protobufField, { number: 1, oneof: "v" });
+  t.expect(() => S.optional(S.int32, 3).with(S.protobufField, { number: 1, oneof: "v" })).toThrow(
+    "[Sury] S.protobufField requires a oneof member without a default",
+  );
+  for (const bad of [S.union([1, 2.5, "x"]), S.optional(S.union([1, "x"])), S.union([1, 2 ** 40]), S.literal(2.5), S.literal("a"), S.literal(3), S.union([3]), S.string, S.boolean]) {
+    t.expect(() => bad.with(S.protobufField, { number: 1, type: "enum" })).toThrow(
+      "[Sury] S.protobufField requires an enum to be a number schema or a union of int32 literals",
+    );
+  }
+  for (const ok of [S.int32, S.integer, S.number, S.union([0, 1]), S.optional(S.union([0, 1]), 0)]) {
+    ok.with(S.protobufField, { number: 1, type: "enum" });
+  }
+});
+
+
+
+

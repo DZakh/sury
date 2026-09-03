@@ -8,7 +8,7 @@ import {
   suryMessage,
   type FieldDef,
 } from "./cases";
-import { decodeProtobufjs, encodeProtobufjs } from "./reference";
+import { decodeProtobufjs, encodeProtobufjs, printedProtobufjsType } from "./reference";
 
 export type CaseResult = {
   id: string;
@@ -78,12 +78,32 @@ const ops = (fields: FieldDef[]) => {
 };
 
 const fail = (id: string, detail: string): CaseResult => ({ id, status: "fail", detail });
+
+// `S.toProto` of the case's schema, parsed by protobufjs, must speak the same
+// wire as the reference `.proto` written from the field table.
+const printedAgrees = (
+  schema: S.Schema<unknown, unknown>,
+  fields: FieldDef[],
+  bytes: Uint8Array,
+  referenceDecoded: Record<string, unknown>,
+  value?: Record<string, unknown>,
+  referenceBytes?: Uint8Array,
+): string | undefined => {
+  const printed = printedProtobufjsType(schema);
+  if (!equalValue(decodeProtobufjs(fields, bytes, printed), referenceDecoded)) {
+    return "protobufjs decodes the printed .proto differently from the reference";
+  }
+  if (value && !equalBytes(encodeProtobufjs(fields, value, printed), referenceBytes!)) {
+    return "protobufjs encodes the printed .proto differently from the reference";
+  }
+  return undefined;
+};
 const pass = (id: string): CaseResult => ({ id, status: "pass" });
 const error = (id: string, detail: string): CaseResult => ({ id, status: "error", detail });
 
 const runRoundTrip = (id: string, fields: FieldDef[], value: Record<string, unknown>, wire?: number[]): CaseResult => {
   try {
-    const { encode, decode } = ops(fields);
+    const { schema, encode, decode } = ops(fields);
     const suryBytes = encode(value);
     const pbjsBytes = encodeProtobufjs(fields, value);
     if (wire && !equalBytes(suryBytes, new Uint8Array(wire))) {
@@ -104,6 +124,8 @@ const runRoundTrip = (id: string, fields: FieldDef[], value: Record<string, unkn
     if (!equalValue(pbjsBack, value)) {
       return fail(id, `protobufjs decode of sury bytes mismatch`);
     }
+    const printed = printedAgrees(schema, fields, suryBytes, pbjsBack, value, pbjsBytes);
+    if (printed) return fail(id, printed);
     return pass(id);
   } catch (e) {
     return error(id, (e as Error).message);
@@ -121,7 +143,7 @@ const runDecodeOnly = (
   reencoded?: number[],
 ): CaseResult => {
   try {
-    const { encode, decode } = ops(fields);
+    const { schema, encode, decode } = ops(fields);
     const got = decode(new Uint8Array(wire));
     if (!equalValue(got, value)) return fail(id, `decoded ${show(got)} !== ${show(value)}`);
     if (reencoded) {
@@ -130,6 +152,9 @@ const runDecodeOnly = (
         return fail(id, `re-encoded ${bytesOf(back)} !== ${reencoded}`);
       }
     }
+    const bytes = new Uint8Array(wire);
+    const printed = printedAgrees(schema, fields, bytes, decodeProtobufjs(fields, bytes));
+    if (printed) return fail(id, printed);
     return pass(id);
   } catch (e) {
     return error(id, (e as Error).message);

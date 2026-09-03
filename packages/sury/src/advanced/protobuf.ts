@@ -12,10 +12,12 @@ import {
   numberTag,
   objectTag,
   panic,
+  refTag,
   setHas,
   tagFlags,
   U,
   undefinedTag,
+  unknown,
   type Val,
 } from "../base";
 import {
@@ -31,11 +33,9 @@ import {
   B_varWithoutAllocation,
 } from "../builder";
 import { arrayFactory, dictFactory, objectDecoder } from "../composites";
-import { getOutputSchema, instanceDecoder, parse } from "../parse";
+import { getOutputSchema, instanceDecoder, optionalMembers, parse } from "../parse";
 import { bigint, bool, float, int, integer, string, unit } from "../primitives";
-import type { ProtobufType } from "./protobufField";
-
-type StoredField = { number: number; type: ProtobufType; packed: boolean; key: ProtobufType; oneof?: string };
+import type { ProtobufType, StoredField } from "./protobufField";
 
 type Field = {
   number: number;
@@ -56,6 +56,26 @@ type Message = {
   strict: boolean;
   raw: Internal;
   schema: Internal;
+};
+
+// The object a schema's chain starts with: what the wire speaks, the rest of
+// the chain running on the value after.
+const firstObject = (schema: Internal): Internal | undefined => {
+  let current: Internal | undefined = schema;
+  while (current !== U && current.type !== objectTag) current = current.to;
+  return current;
+};
+
+// The object the wire speaks for a schema `toProto` is given: beside
+// `S.protobuf` when the chain reaches it (`A.with(S.to, B).with(S.to,
+// S.protobuf)` converts to B before the wire), else the chain's first.
+const wireObject = (schema: Internal): Internal | undefined => {
+  let last: Internal | undefined = U;
+  for (let current: Internal | undefined = schema; current !== U; current = current.to) {
+    if (current.w) return last || firstObject(current.to!);
+    if (current.type === objectTag) last = current;
+  }
+  return firstObject(schema);
 };
 
 const packable: Record<ProtobufType, boolean> = {
@@ -94,20 +114,16 @@ const fieldMetadata = (schema: Internal): StoredField | undefined => {
   return U;
 };
 
-// Splits `T | undefined` into T and the presence flag. Several members left
-// over (an optional enum) stay a union of their own.
-const unwrapOptional = (schema: Internal): [Internal, boolean] => {
+// Splits `T | undefined` into T, the presence flag, and the arm that
+// supplies a default on absence, if any. Several members left over (an
+// optional enum) become a union of their own.
+const unwrapOptional = (schema: Internal): [Internal, boolean, Internal | undefined] => {
   const output = getOutputSchema(schema);
-  if (output.type !== anyOfTag || output.anyOf === U) return [schema, false];
-  const values: Internal[] = [];
-  let hasUndefined = false;
-  for (let idx = 0; idx < output.anyOf.length; idx++) {
-    const member = output.anyOf[idx]!;
-    if (getOutputSchema(member).type === undefinedTag) hasUndefined = true;
-    else values.push(member);
-  }
-  if (!hasUndefined || values.length === 0) return [output, false];
-  return [values.length === 1 ? values[0]! : anyOf(values), true];
+  if (output.type !== anyOfTag || output.anyOf === U) return [schema, false, U];
+  const [values, hasUndefined] = optionalMembers(output);
+  if (!hasUndefined || values.length === 0) return [output, false, U];
+  const absent = output.anyOf.find((member) => member.type === undefinedTag && member.to !== U);
+  return [values.length === 1 ? values[0]! : anyOf(values), true, absent];
 };
 
 // A union as a type descriptor only: the raw and normalized sides share it,
@@ -141,29 +157,46 @@ const scalarSchema = (type: ProtobufType): Internal => {
   return integer;
 };
 
-// A present nested object converts field-wise into the (non-optional)
-// normalized target and an absent one stays absent. A real `T | undefined`
-// union on either side would make the pipeline re-validate the whole nested
-// object, or refuse the object-to-union conversion outright.
-const optionalMessageEncoder: Encoder = (input, target) => {
-  const v = input.v();
+// Parses the present variant of `input` into `target`: the code, the
+// expression it leaves the value in, and whether it transformed the value.
+// Nothing is materialized, so a parse with nothing to do costs nothing.
+const presentParse = (input: Val, source: Internal, target: Internal): [string, string, boolean] => {
   const presentIn = B_scope(input);
   presentIn.io = false;
-  presentIn.s = input.s.anyOf![0]!;
+  presentIn.s = source;
   presentIn.e = target;
   presentIn.u = true;
   const presentOut = parse(presentIn);
-  const body = B_merge(presentOut) + (presentOut.i === v ? "" : `${v}=${presentOut.i};`);
+  return [B_merge(presentOut), presentOut.i, !!presentOut.t];
+};
+
+const optionalMessageEncoder: Encoder = (input, target) => {
+  const source = input.s.anyOf![0]!;
+  // Probed first, so a present side with nothing to do materializes no var;
+  // one with work is generated again against the var it then assigns.
+  const [probe, probeResult, transformed] = presentParse(input, source, target);
+  if (probe === "" && probeResult === input.i && !transformed) {
+    const output = B_next(input, input.i, getOutputSchema(target), target);
+    output.t = U;
+    return output;
+  }
+  const v = input.v();
+  const [code, result] = presentParse(input, source, target);
+  const body = code + (result === v ? "" : `${v}=${result};`);
   const output = B_next(input, v, getOutputSchema(target), target);
   output.v = _var;
   output.io = true;
   output.cp = body === "" ? "" : `if(${v}!==void 0){${body}}`;
   // Reads the nested parse materialized without converting anything are
   // not a transform; reporting one would make the parent rebuild itself.
-  if (!presentOut.t) output.t = U;
+  if (!transformed) output.t = U;
   return output;
 };
 
+// A present nested object converts field-wise into the (non-optional)
+// normalized target and an absent one stays absent. A real `T | undefined`
+// union on either side would make the pipeline re-validate the whole nested
+// object, or refuse the object-to-union conversion outright.
 const optionalMessage = (raw: Internal): Internal => {
   const mut = baseSchema(anyOfTag, false, noopDecoder);
   mut.anyOf = [raw, unit];
@@ -174,10 +207,35 @@ const optionalMessage = (raw: Internal): Internal => {
   return mut;
 };
 
+// `S.optional(T, default)`: the raw side is `T | undefined` whose encoder
+// parses a present value into `present` and an absent one through the
+// union's default arm, so the decoded value is never re-validated and an
+// enum stays open.
+const defaultedOptional = (raw: Internal, present: Internal, absent: Internal): Internal => {
+  const mut = optionalMessage(raw);
+  mut.encoder = (input, target) => {
+    const v = input.v();
+    const [code, result] = presentParse(input, raw, present);
+    const body = code + (result === v ? "" : `${v}=${result};`);
+    const absentIn = B_scope(input);
+    absentIn.io = false;
+    absentIn.s = unit;
+    absentIn.e = absent;
+    absentIn.u = true;
+    const absentOut = parse(absentIn);
+    const supply = `${B_merge(absentOut)}${v}=${absentOut.i};`;
+    const output = B_next(input, v, getOutputSchema(target), target);
+    output.v = _var;
+    output.io = true;
+    output.cp = body === "" ? `if(${v}===void 0){${supply}}` : `if(${v}!==void 0){${body}}else{${supply}}`;
+    return output;
+  };
+  return mut;
+};
+
 const compileMessage = (schema: Internal, seen = new Set<Internal>()): Message | undefined => {
-  let output = schema;
-  while (output.type !== objectTag && output.to !== U) output = output.to;
-  if (output.type !== objectTag || output.properties === U || seen.has(output)) return U;
+  const output = firstObject(schema);
+  if (output === U || output.properties === U || seen.has(output)) return U;
   if (typeof output.additionalItems === objectTag) return U;
   seen.add(output);
   const fields: Field[] = [];
@@ -193,7 +251,7 @@ const compileMessage = (schema: Internal, seen = new Set<Internal>()): Message |
     if (metadata === U) return panic(`S.protobuf: field "${key}" has no field number. Give it one with S.protobufField`);
     if (numbers.has(metadata.number)) return panic(`S.protobuf: field number ${metadata.number} of "${key}" is already taken`);
     numbers.add(metadata.number);
-    const [propertyValue, optional] = unwrapOptional(property);
+    const [propertyValue, optional, absent] = unwrapOptional(property);
     let shape = getOutputSchema(propertyValue);
     const container = shape;
     let repeated = false;
@@ -211,9 +269,15 @@ const compileMessage = (schema: Internal, seen = new Set<Internal>()): Message |
     let raw: Internal;
     let normalizedProperty = optional ? propertyValue : property;
     if (metadata.type === "message") {
-      message = compileMessage(shape, new Set(seen));
+      const first = firstObject(repeated || map !== U ? (container.additionalItems as Internal) : propertyValue);
+      message = first === U ? U : compileMessage(first, new Set(seen));
       if (message === U) return panic(`S.protobuf: field "${key}" is a message but its schema is not an object`);
-      raw = optional ? optionalMessage(message.raw) : message.raw;
+      // A nested value converts field by field, output to output, so a chain
+      // past the object has nothing to run it: only the root's does.
+      if (getOutputSchema(first!) !== first) {
+        return panic(`S.protobuf: field "${key}" is a message that converts further with S.to, which a nested field can't`);
+      }
+      raw = optional && absent === U ? optionalMessage(message.raw) : message.raw;
       normalizedProperty = message.schema;
     } else {
       // An enum declared as integer literals keeps its own schema on the raw
@@ -224,6 +288,14 @@ const compileMessage = (schema: Internal, seen = new Set<Internal>()): Message |
     // A repeated or map message keeps the user's container (its length
     // checks included) around the normalized nested schema, not the user's:
     // an optional nested message inside must stay a light wrap.
+    if (absent !== U) {
+      raw = defaultedOptional(raw, message ? message.schema : getOutputSchema(propertyValue), absent);
+      normalizedProperty = property;
+    } else if (optional && message === U && raw !== getOutputSchema(propertyValue)) {
+      // A literal or refined scalar has a check to run, which only a present
+      // value can pass.
+      raw = optionalMessage(raw);
+    }
     if (repeated || map !== U) {
       raw = repeated ? arrayFactory(raw) : dictFactory(raw);
       if (message) {
@@ -1276,10 +1348,432 @@ const protobufEncoder = (input: Val, target: Internal): Val => {
   const output = B_next(input, outVar, message.raw, message.schema);
   output.v = _var;
   output.cp = `let ${outVar},r;${guarded(input, output, target, `r=${B_embedPure(input, scratchReader)}.acquire(${input.v()});${outVar}=${decoder}(r,0);r.busy=false`, "r&&(r.busy=false);")}`;
-  return output;
+  const object = firstObject(target)!;
+  if (getOutputSchema(object) === object) return output;
+  // A chain past the object runs on the decoded value once it is in the
+  // object's shape (the wire's coercions applied), parsed whole as the
+  // chain's input. Not field-wise from the normalized schema: the union
+  // compiler refuses `T` into the input's `T | undefined` for an optional
+  // field, so a chained root pays a second check, and a literal enum is
+  // closed there.
+  const normIn = B_scope(output);
+  normIn.io = false;
+  normIn.s = message.raw;
+  normIn.e = message.schema;
+  normIn.u = true;
+  const normOut = parse(normIn);
+  const chainIn = B_scope(normOut);
+  chainIn.io = false;
+  chainIn.s = unknown;
+  chainIn.e = target;
+  chainIn.u = true;
+  // The normalized parse's field vals would be read as the input's.
+  chainIn.d = U;
+  const chainOut = parse(chainIn);
+  const chained = B_next(output, chainOut.i, getOutputSchema(target), getOutputSchema(target));
+  chained.cp = B_merge(normOut) + B_merge(chainOut);
+  chained.io = true;
+  return chained;
 };
 
 export const protobuf: Internal = /* @__PURE__ */ initSchema(instanceTag, protobufDecoder, (schema) => {
   schema.class = Uint8Array;
   schema.encoder = protobufEncoder;
+  schema.w = true;
 });
+
+type ProtoOptions = { name?: string; package?: string };
+
+// A printed line, or the comment lines a declaration settles once every use
+// of it is known.
+type Line = string | (() => string[]);
+
+// A field with the user's property and its value schema past optional,
+// repeated and map wrapping: what names, comments and enum members print from.
+type Use = { field: Field; schema: Internal; shape: Internal; stored: StoredField };
+
+// The meta each use says its type has: a direct use's is what the schema
+// carried when it was numbered, a use through `S.optional`, `S.array` or
+// `S.record` reaches the declaration and reads it there.
+type Meta = { description?: string; deprecated?: boolean };
+type TypeDecl = { metas: Meta[] };
+
+type Proto = {
+  top: Line[][];
+  names: Map<unknown, string>;
+  decls: Map<unknown, TypeDecl>;
+  // The top-level names: protoc resolves a reference innermost-first, so a
+  // nested name may not repeat one, while siblings under different parents
+  // may share theirs.
+  used: Set<string>;
+  // Value names of the top-level enums: enum values live in the scope that
+  // holds the enum, beside its fields and other enums' values.
+  members: Set<string>;
+  ids: Map<object, number>;
+  uses: Map<Message, Use[]>;
+};
+
+const usesOf = (proto: Proto, message: Message, object: Internal): Use[] => {
+  let uses = proto.uses.get(message);
+  if (uses === U) {
+    uses = message.fields.map((field) => {
+      const schema = object.properties![field.key]!;
+      let value = unwrapOptional(schema)[0];
+      if (field.repeated || field.map !== U) value = getOutputSchema(value).additionalItems as Internal;
+      // A message field speaks its chain's first object.
+      const shape = field.message !== U ? firstObject(value)! : getOutputSchema(value);
+      return { field, schema, shape, stored: fieldMetadata(schema)! };
+    });
+    proto.uses.set(message, uses);
+  }
+  return uses;
+};
+
+const snakeCase = (name: string): string =>
+  name.replace(/([A-Z])([A-Z][a-z])/g, "$1_$2").replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
+
+// A camelCase key prints snake_case, which every generator turns back into the
+// same lowerCamel property. Anything else is made an identifier verbatim.
+const protoFieldName = (key: string): string =>
+  /^[a-z][a-zA-Z0-9]*$/.test(key) ? snakeCase(key) : key.replace(/[^A-Za-z0-9_]/g, "_").replace(/^(?=[0-9])/, "_") || "_";
+
+const protoTypeName = (name: string): string =>
+  (
+    protoFieldName(name)
+      .split("_")
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join("") || "Type"
+  ).replace(/^(?=[0-9])/, "_");
+
+const uniqueName = (name: string, used: Set<string>, taken?: (name: string) => boolean): string => {
+  let candidate = name;
+  for (let n = 2; used.has(candidate) || taken?.(candidate); n++) candidate = name + n;
+  used.add(candidate);
+  return candidate;
+};
+
+// The members of an enum shape, a union of integer literals.
+const enumValues = (shape: Internal, values = new Set<number>()): number[] => {
+  for (let idx = 0; idx < shape.anyOf!.length; idx++) {
+    const member = getOutputSchema(shape.anyOf![idx]!);
+    if (member.type === numberTag) values.add(member.const as number);
+    else if (member.type === anyOfTag) enumValues(member, values);
+  }
+  return [...values].sort((a, b) => a - b);
+};
+
+const isEnumShape = ({ field, shape }: Use): boolean => field.type === "enum" && shape.type === anyOfTag;
+
+// What a field's message or enum is the same type as. `.with` copies a schema
+// but shares its properties, so a message is its properties object, or that
+// and its name once renamed into another type. A named enum is one type
+// wherever its name and members recur; an unnamed one belongs to its field,
+// so the next field's identical members stay separate and can diverge without
+// a breaking change.
+const messageKey = (proto: Proto, properties: object, name: string | undefined): unknown => {
+  if (!name) return properties;
+  let id = proto.ids.get(properties);
+  if (id === U) proto.ids.set(properties, (id = proto.ids.size));
+  return `${id}:${name}`;
+};
+
+const typeKey = (proto: Proto, use: Use): unknown => {
+  const { field, shape } = use;
+  const name = nameOf(use);
+  if (field.message !== U) return messageKey(proto, shape.properties!, name);
+  if (!isEnumShape(use)) return U;
+  return name ? `${name}:${enumValues(shape).join(",")}` : field;
+};
+
+// The meta a schema carries down its `.to` chain to the object it produces:
+// `S.meta` writes to the schema it is called on, so meta set after a `.to`
+// sits above the shape.
+const chainMeta = (schema: Internal, shape: Internal): Meta & { name?: string } => {
+  const meta: Meta & { name?: string } = {};
+  for (let current: Internal | undefined = schema; current !== U; current = current.to) {
+    if (meta.name === U) meta.name = current.name;
+    if (meta.description === U) meta.description = current.description;
+    if (meta.deprecated === U) meta.deprecated = current.deprecated;
+    if (current === shape) break;
+  }
+  return meta;
+};
+
+// The schema a wrapper holds the type's declaration as, when the field's
+// schema reaches the declaration through `S.optional`, `S.array` or
+// `S.record` rather than being a copy of it.
+const declaredThrough = ({ schema, shape }: Use): Internal | undefined => {
+  const output = getOutputSchema(schema);
+  if (output === shape) return U;
+  const [members, hasUndefined] = optionalMembers(output);
+  const member = hasUndefined ? (members.length === 1 ? members[0] : U) : (output.additionalItems as Internal | undefined);
+  if (member === U || typeof member !== objectTag) return U;
+  for (let current: Internal | undefined = member; current !== U; current = current.to) if (current === shape) return member;
+  return U;
+};
+
+// The name a use gives its type: down the chain of its own schema for a
+// direct use, of the wrapped declaration otherwise.
+const nameOf = (use: Use): string | undefined => chainMeta(declaredThrough(use) || use.schema, use.shape).name;
+
+const useType = (decl: TypeDecl, use: Use): void => {
+  decl.metas.push(chainMeta(declaredThrough(use) || use.stored.m, use.shape));
+};
+
+// The value most of the uses that carry one agree on, the first on a tie;
+// what a field carries beyond it prints on the field, so nothing is lost.
+const typeMeta = <TKey extends keyof Meta>(decl: TypeDecl, key: TKey): Meta[TKey] => {
+  const counts = new Map<Meta[TKey], number>();
+  let best: Meta[TKey] = U;
+  let bestCount = 0;
+  for (const meta of decl.metas) {
+    const value = meta[key];
+    if (value === U) continue;
+    const count = (counts.get(value) || 0) + 1;
+    counts.set(value, count);
+    if (count > bestCount) (best = value), (bestCount = count);
+  }
+  return best;
+};
+
+// A field's own meta: what its schema carries, or the declaration it wraps,
+// beyond the type's.
+const fieldMeta = <TKey extends keyof Meta>(use: Use, decl: TypeDecl | undefined, key: TKey): Meta[TKey] => {
+  const own = use.schema[key] !== U ? use.schema[key] : use.shape[key];
+  return decl !== U && own === typeMeta(decl, key) ? U : own;
+};
+
+const commentLines = (text: string | undefined, indent: string): string[] => {
+  const trimmed = text ? text.replace(/\s+$/, "") : "";
+  return trimmed
+    ? trimmed.split("\n").map((line) => {
+        const content = line.replace(/\s+$/, "");
+        return `${indent}//${content ? ` ${content}` : ""}`;
+      })
+    : [];
+};
+
+const deprecatedLine = (decl: TypeDecl, indent: string): string[] =>
+  typeMeta(decl, "deprecated") ? [`${indent}  option deprecated = true;`] : [];
+
+// Named types claim their names before anything prints, so an unnamed type
+// nested earlier can't take a name a schema asked for, and a copy used
+// without the name still prints under it.
+const reserveNames = (proto: Proto, message: Message, object: Internal, seen: Set<unknown>): void => {
+  if (seen.has(object.properties)) return;
+  seen.add(object.properties);
+  for (const use of usesOf(proto, message, object)) {
+    const key = typeKey(proto, use);
+    const name = key !== U ? nameOf(use) : U;
+    if (name && !proto.names.has(key)) proto.names.set(key, uniqueName(protoTypeName(name), proto.used));
+    if (use.field.message !== U) reserveNames(proto, use.field.message, use.shape, seen);
+  }
+};
+
+// Declares the message or enum a field refers to: a named schema goes to the
+// top level and an unnamed one nests inside the message that first used it.
+// Returns the name the field refers to it by.
+const declareType = (
+  proto: Proto,
+  key: unknown,
+  use: Use,
+  parent: string,
+  indent: string,
+  nested: Line[],
+  scope: Set<string>,
+  fieldNames: Map<string, string>,
+  members: Set<string>,
+  body: (decl: TypeDecl, name: string, indent: string, members: Set<string>) => Line[]
+): string => {
+  let decl = proto.decls.get(key);
+  if (decl !== U) {
+    useType(decl, use);
+    return proto.names.get(key)!;
+  }
+  const reserved = proto.names.get(key);
+  decl = { metas: [] };
+  useType(decl, use);
+  proto.decls.set(key, decl);
+  if (reserved !== U) {
+    proto.top.push(body(decl, reserved, "", proto.members));
+    return reserved;
+  }
+  // Fields and nested types share a message's scope.
+  const typeName = uniqueName(protoTypeName(use.field.key), scope, (n) => proto.used.has(n) || fieldNames.has(n));
+  const qualified = `${parent}.${typeName}`;
+  proto.names.set(key, qualified);
+  nested.push(...body(decl, typeName, `${indent}  `, members));
+  return qualified;
+};
+
+const enumBody = (
+  decl: TypeDecl,
+  shape: Internal,
+  name: string,
+  indent: string,
+  members: Set<string>,
+  taken: (name: string) => boolean
+): Line[] => {
+  const values = enumValues(shape);
+  // proto3 requires the first member to be zero, and buf lint the suffix.
+  const entries: [string, number][] = [["UNSPECIFIED", 0]];
+  for (const value of values) if (value !== 0) entries.push([value < 0 ? `MINUS_${-value}` : `${value}`, value]);
+  const base = snakeCase(name).toUpperCase();
+  let prefix = base;
+  for (let n = 2; entries.some(([v]) => members.has(`${prefix}_${v}`) || taken(`${prefix}_${v}`)); n++) prefix = base + n;
+  const lines: Line[] = [
+    () => commentLines(typeMeta(decl, "description"), indent),
+    `${indent}enum ${name} {`,
+    () => deprecatedLine(decl, indent),
+  ];
+  for (const [suffix, value] of entries) {
+    const member = `${prefix}_${suffix}`;
+    members.add(member);
+    lines.push(`${indent}  ${member} = ${value};`);
+  }
+  lines.push(`${indent}}`);
+  return lines;
+};
+
+const messageBody = (
+  proto: Proto,
+  decl: TypeDecl,
+  message: Message,
+  object: Internal,
+  name: string,
+  qualified: string,
+  indent: string
+): Line[] => {
+  const nested: Line[] = [];
+  const entries: (string | Line[])[] = [];
+  const oneofs = new Map<string, Line[]>();
+  const fieldNames = new Map<string, string>();
+  const jsonNames = new Map<string, string>();
+  const scope = new Set<string>();
+  const members = new Set<string>();
+  // protoc keeps fields apart by their default JSON name, an underscore
+  // capitalizing what follows, so `a_b` and `aB` are one field to it (protoc
+  // 22 and later; the 3.x line also folded case); a oneof's name only has to
+  // be a symbol of its own.
+  const claim = (printed: string, key: string, json = printed): void => {
+    const taken = fieldNames.get(printed) ?? jsonNames.get(json);
+    if (taken !== U) {
+      return panic(`S.toProto: "${taken}" and "${key}" of ${qualified} collide as "${json}"`);
+    }
+    jsonNames.set(json, key);
+    fieldNames.set(printed, key);
+  };
+  const printedNames = new Map<Field, string>();
+  const oneofNames = new Map<string, string>();
+  for (const field of message.fields) {
+    const printed = protoFieldName(field.key);
+    printedNames.set(field, printed);
+    claim(printed, field.key, printed.replace(/_+(.)?/g, (_, next: string | undefined) => (next ? next.toUpperCase() : "")));
+  }
+  for (const field of message.fields) {
+    if (field.oneof !== U && !oneofs.has(field.oneof)) {
+      oneofs.set(field.oneof, []);
+      const printed = protoFieldName(field.oneof);
+      oneofNames.set(field.oneof, printed);
+      // Symbol only: protoc doesn't give a oneof a JSON name.
+      const taken = fieldNames.get(printed);
+      if (taken !== U) return panic(`S.toProto: "${taken}" and oneof "${field.oneof}" of ${qualified} collide as "${printed}"`);
+      fieldNames.set(printed, `oneof ${field.oneof}`);
+    }
+  }
+  for (const use of usesOf(proto, message, object)) {
+    const { field } = use;
+    const key = typeKey(proto, use);
+    let type: string;
+    if (field.message !== U) {
+      type = declareType(proto, key, use, qualified, indent, nested, scope, fieldNames, members, (fieldDecl, typeName, inner) =>
+        messageBody(proto, fieldDecl, field.message!, use.shape, typeName, proto.names.get(key)!, inner)
+      );
+    } else if (key !== U) {
+      type = declareType(proto, key, use, qualified, indent, nested, scope, fieldNames, members, (fieldDecl, typeName, inner, values) =>
+        enumBody(fieldDecl, use.shape, typeName, inner, values, values === members ? (n) => fieldNames.has(n) : (n) => proto.used.has(n))
+      );
+    } else type = field.type === "enum" ? "int32" : field.type;
+    // A type nested in this message is referred to by its local name.
+    if (type.startsWith(`${qualified}.`) && !type.includes(".", qualified.length + 1)) {
+      type = type.slice(qualified.length + 1);
+    }
+    const fieldDecl = proto.decls.get(key);
+    const inner = field.oneof === U ? `${indent}  ` : `${indent}    `;
+    const fieldName = printedNames.get(field)!;
+    const line = (): string[] => {
+      const options: string[] = [];
+      if (field.repeated && !field.packed && packable[field.type]) options.push("packed = false");
+      if (fieldMeta(use, fieldDecl, "deprecated")) options.push("deprecated = true");
+      const suffix = options.length ? ` [${options.join(", ")}]` : "";
+      const rule =
+        field.oneof !== U ? "" : field.map !== U ? `map<${field.map}, ` : field.repeated ? "repeated " : field.optional ? "optional " : "";
+      const close = field.map !== U ? ">" : "";
+      return [...commentLines(fieldMeta(use, fieldDecl, "description"), inner), `${inner}${rule}${type}${close} ${fieldName} = ${field.number}${suffix};`];
+    };
+    if (field.oneof !== U) {
+      const oneof = oneofs.get(field.oneof)!;
+      if (!oneof.length) entries.push(field.oneof);
+      oneof.push(line);
+    } else entries.push([line]);
+  }
+  const lines: Line[] = [
+    () => commentLines(typeMeta(decl, "description"), indent),
+    `${indent}message ${name} {`,
+    () => deprecatedLine(decl, indent),
+  ];
+  if (nested.length) lines.push(...nested, "");
+  for (const entry of entries) {
+    if (typeof entry === "string") {
+      lines.push(`${indent}  oneof ${oneofNames.get(entry)} {`, ...oneofs.get(entry)!, `${indent}  }`);
+    } else lines.push(...entry);
+  }
+  lines.push(`${indent}}`);
+  return lines;
+};
+
+const render = (lines: Line[]): string =>
+  lines.flatMap((line) => (typeof line === "string" ? line : line())).join("\n");
+
+// @__NO_SIDE_EFFECTS__
+export const toProto = (schema: Internal, options?: ProtoOptions): string => {
+  if (options?.package && !/^[A-Za-z_]\w*(\.[A-Za-z_]\w*)*$/.test(options.package)) {
+    return panic(`S.toProto: "${options.package}" is not a package name`);
+  }
+  if (options?.name && !/^[A-Za-z_]\w*$/.test(options.name)) {
+    return panic(`S.toProto: "${options.name}" is not a message name`);
+  }
+  const wire = wireObject(schema);
+  const message = wire === U ? U : compileMessage(wire);
+  if (message === U) {
+    return panic(
+      getOutputSchema(schema).type === refTag
+        ? "S.toProto: a recursive message can't be printed, as S.protobuf can't encode one"
+        : "S.toProto: the schema is not an object"
+    );
+  }
+  const output = wire!;
+  const rootMeta = chainMeta(schema, output);
+  const proto: Proto = {
+    top: [],
+    names: new Map(),
+    decls: new Map(),
+    used: new Set(),
+    members: new Set(),
+    ids: new Map(),
+    uses: new Map(),
+  };
+  const decl: TypeDecl = { metas: [rootMeta] };
+  const key = messageKey(proto, output.properties!, rootMeta.name);
+  proto.decls.set(key, decl);
+  // A root named by the caller or its meta claims first; the default yields
+  // to whatever the fields named.
+  const given = options?.name || (rootMeta.name && protoTypeName(rootMeta.name));
+  if (given) proto.names.set(key, uniqueName(given, proto.used));
+  reserveNames(proto, message, output, new Set());
+  const name = proto.names.get(key) || uniqueName("Message", proto.used);
+  proto.names.set(key, name);
+  const root = messageBody(proto, decl, message, output, name, name, "");
+  const header = `syntax = "proto3";\n${options?.package ? `\npackage ${options.package};\n` : ""}`;
+  return `${header}\n${[root, ...proto.top].map(render).join("\n\n")}\n`;
+};
