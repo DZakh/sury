@@ -1656,15 +1656,17 @@ let apiUserSchema = S.schema(s =>
 
 ### Built-in operations
 
-Every operation follows one grammar: `[compile]<Verb>[Async][OrThrow]`. The bare name returns a `result<'value, S.error>`, the `OrThrow` name throws `S.Exn`, and the `compile` prefix returns the operation as a function to call repeatedly — the fastest way to run one schema many times.
+Every operation follows one grammar: the bare name returns a `result`, the `OrThrow` name throws `S.Exn`, and the `compile` prefix returns the operation as a function to call repeatedly — the fastest way to run one schema many times.
 
-| Verb        | One-shot                                | Compiled                                          | Async forms                                        |
-| ----------- | --------------------------------------- | ------------------------------------------------- | -------------------------------------------------- |
-| **parse**   | `parse`, `parseOrThrow`                 | `compileParse`, `compileParseOrThrow`             | `parseAsync`, `parseAsyncOrThrow`, `compileParseAsync`, `compileParseAsyncOrThrow` |
-| **convert** | `convert`, `convertOrThrow`             | `compileConvert`, `compileConvertOrThrow`         | `convertAsync`, `convertAsyncOrThrow`, `compileConvertAsync`, `compileConvertAsyncOrThrow` |
-| **assert**  | `assertOrThrow`                         |                                                   | `assertAsyncOrThrow`                               |
-| **validate**| `validate`                              | `compileValidate`                                 |                                                    |
-| **make**    | `make`, `makeOrThrow`                   | `compileMake`, `compileMakeOrThrow`               | `makeAsync`, `makeAsyncOrThrow`, `compileMakeAsync`, `compileMakeAsyncOrThrow` |
+Only the throwing operations compile. A compiled operation is for the hot path, where the `result` allocation per call is the cost you are avoiding; wrap the compiled function yourself if you want a `result` there. `validate` is the exception, since its answer is already a bool.
+
+| Verb         | One-shot                     | Compiled                     | Async                                                  |
+| ------------ | ---------------------------- | ---------------------------- | ------------------------------------------------------ |
+| **parse**    | `parse`, `parseOrThrow`      | `compileParseOrThrow`        | `parseAsync`, `parseAsyncOrThrow`, `compileParseAsyncOrThrow`     |
+| **convert**  | `convert`, `convertOrThrow`  | `compileConvertOrThrow`      | `convertAsync`, `convertAsyncOrThrow`, `compileConvertAsyncOrThrow` |
+| **assert**   | `assertOrThrow`              |                              | `assertAsyncOrThrow`                                   |
+| **validate** | `validate`                   | `compileValidate`            |                                                        |
+| **make**     | `make`, `makeOrThrow`        | `compileMakeOrThrow`         | `makeAsync`, `makeAsyncOrThrow`, `compileMakeAsyncOrThrow`        |
 
 **Parsing** validates the input value against the schema and transforms it to the expected output type:
 

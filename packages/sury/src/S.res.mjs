@@ -54,16 +54,6 @@ function to(from, target, custom) {
   }
 }
 
-function compileParse(to) {
-  let fn = Sury.parser(to);
-  return any => Sury.$safe(() => fn(any));
-}
-
-function compileParseAsync(to) {
-  let fn = Sury.asyncParser(to);
-  return any => Sury.$safeAsync(() => fn(any));
-}
-
 function compileConvertOrThrow(from, via, to) {
   if (via !== undefined) {
     return Sury.encoder(from, via, to);
@@ -78,26 +68,6 @@ function compileConvertAsyncOrThrow(from, via, to) {
   } else {
     return Sury.asyncEncoder(from, to);
   }
-}
-
-function compileConvert(from, via, to) {
-  let fn = compileConvertOrThrow(from, via, to);
-  return any => Sury.$safe(() => fn(any));
-}
-
-function compileConvertAsync(from, via, to) {
-  let fn = compileConvertAsyncOrThrow(from, via, to);
-  return any => Sury.$safeAsync(() => fn(any));
-}
-
-function compileMake(schema) {
-  let fn = Sury.outputConstructor(schema);
-  return value => Sury.$safe(() => fn(value));
-}
-
-function compileMakeAsync(schema) {
-  let fn = Sury.asyncOutputConstructor(schema);
-  return value => Sury.$safeAsync(() => fn(value));
 }
 
 function parseOrThrow(any, to) {
@@ -196,14 +166,8 @@ export {
   $$Error,
   refine,
   to,
-  compileParse,
-  compileParseAsync,
   compileConvertOrThrow,
   compileConvertAsyncOrThrow,
-  compileConvert,
-  compileConvertAsync,
-  compileMake,
-  compileMakeAsync,
   parseOrThrow,
   parseAsyncOrThrow,
   parse,

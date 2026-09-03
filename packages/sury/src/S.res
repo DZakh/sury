@@ -580,14 +580,6 @@ let to = (from, target, ~custom=?) =>
 @module("sury") external compileParseOrThrow: (~to: t<'value>) => 'any => 'value = "parser"
 @module("sury")
 external compileParseAsyncOrThrow: (~to: t<'value>) => 'any => promise<'value> = "asyncParser"
-let compileParse = (~to) => {
-  let fn = compileParseOrThrow(~to)
-  any => safe(() => fn(any))
-}
-let compileParseAsync = (~to) => {
-  let fn = compileParseAsyncOrThrow(~to)
-  any => safeAsync(() => fn(any))
-}
 
 let compileConvertOrThrow = (~from, ~via=?, ~to) =>
   switch via {
@@ -599,14 +591,6 @@ let compileConvertAsyncOrThrow = (~from, ~via=?, ~to) =>
   | None => asyncEncoder2(from, to)
   | Some(via) => asyncEncoder3(from, castToUnknown(via), to)
   }
-let compileConvert = (~from, ~via=?, ~to) => {
-  let fn = compileConvertOrThrow(~from, ~via?, ~to)
-  any => safe(() => fn(any))
-}
-let compileConvertAsync = (~from, ~via=?, ~to) => {
-  let fn = compileConvertAsyncOrThrow(~from, ~via?, ~to)
-  any => safeAsync(() => fn(any))
-}
 
 // The compiled assert with a boolean answer. `assert` is a ReScript keyword,
 // so the non-throwing assert is spelled `validate`.
@@ -619,14 +603,6 @@ external compileMakeOrThrow: (~schema: t<'value>) => 'value => 'value = "outputC
 @module("sury")
 external compileMakeAsyncOrThrow: (~schema: t<'value>) => 'value => promise<'value> =
   "asyncOutputConstructor"
-let compileMake = (~schema) => {
-  let fn = compileMakeOrThrow(~schema)
-  value => safe(() => fn(value))
-}
-let compileMakeAsync = (~schema) => {
-  let fn = compileMakeAsyncOrThrow(~schema)
-  value => safeAsync(() => fn(value))
-}
 
 let parseOrThrow = (any, ~to) => compileParseOrThrow(~to)(any)
 let parseAsyncOrThrow = (any, ~to) => compileParseAsyncOrThrow(~to)(any)
@@ -648,7 +624,6 @@ let make = (value, ~schema) => safe(() => makeOrThrow(value, ~schema))
 let makeAsync = (value, ~schema) => safeAsync(() => makeAsyncOrThrow(value, ~schema))
 
 @module("sury") external recursive: (string, t<'value> => t<'value>) => t<'value> = "recursive"
-
 
 @module("sury") external inputExpression: t<'value> => string = "inputExpression"
 
