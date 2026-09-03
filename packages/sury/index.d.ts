@@ -71,64 +71,38 @@ export type Schema<TInput = unknown, TOutput = TInput> = {
     // the same reason as the Codecs slots (see the Coder note below).
     codecs?: Coder<TOutput, TTargetInput> | Codecs<TOutput, TTargetInput> | "pack" | "unpack"
   ): Schema<TInput, TTargetOutput>;
-  with(
-    refine: (
-      schema: Schema<unknown, unknown>,
-      refineCheck: (value: unknown) => boolean,
-      refineOptions?: { error?: string; path?: string[] }
-    ) => Schema<unknown, unknown>,
-    refineCheck: (value: TOutput) => boolean,
-    refineOptions?: { error?: string; path?: string[] }
-  ): Schema<TInput, TOutput>;
-  // This overload is what both S.refine and S.shape resolve to under
-  // overload matching — the exact mechanism that routes S.refine calls here
-  // instead of the more specific `refine` overload above hasn't been pinned
-  // down. Treat it as load-bearing for both call sites and verify against
-  // S_refine_test.res / S_shape_test.res before changing its shape.
-  //
-  // FIXME: it also swallows every other `.with(fn, callback)`, since a
-  // function argument matches nothing more specific first. `.with(S.optional,
-  // () => …)` infers TShape as the callback's return type and loses the absent
-  // case, so the lazy default has to be called directly to type correctly.
+  // `S.shape`, and any modifier whose callback decides the output type.
+  // Naming the callback here is what types its parameter as `TOutput`. The
+  // required third parameter excludes `S.optional`/`S.nullable`: a lazy
+  // default `() => value` is not a shaper, and the trailing `_?: never` they
+  // declare is what fails this overload so they resolve below instead.
   with<TShape>(
     fn: (
       schema: Schema<unknown, unknown>,
-      callback: ((value: unknown) => unknown) | undefined
+      callback: (value: unknown) => unknown,
+      _: unknown
     ) => Schema<unknown, unknown>,
-    callback: ((value: TOutput) => TShape) | undefined
+    callback: (value: TOutput) => TShape
   ): Schema<TInput, TShape>;
+  // No argument and one argument each get a dedicated overload: TypeScript
+  // resolves them far cheaper than the rest-tuple form below.
   with<TNextInput, TNextOutput>(
     fn: (schema: Schema<TInput, TOutput>) => SchemaLike<TNextInput, TNextOutput>
   ): Schema<TNextInput, TNextOutput>;
-  // Constraining TArg1 to string | number makes a literal arg1 infer its
-  // literal type instead of widening — `.with(S.brand, "myId")` needs the
-  // string literal for nominal typing, `.with(S.length, 2)` the number
-  // literal for its tuple-typed result. One overload for both: a second
-  // overload would be attempted (and instantiated) by every `.with` call
-  // that falls through to the general case, taxing schemas that never pass
-  // a literal. The next overload covers the general arg1 case.
-  with<TNextInput, TNextOutput, TArg1 extends string | number>(
-    fn: (
-      schema: Schema<TInput, TOutput>,
-      arg1: TArg1
-    ) => SchemaLike<TNextInput, TNextOutput>,
+  // Accepts any value while keeping a literal literal, so `.with(S.brand,
+  // "myId")` brands with `"myId"` and `.with(S.length, 2)` infers a 2-tuple.
+  // The `SchemaLike` return is required: with a plain type parameter as the
+  // result, generic modifiers stop matching this overload.
+  with<TNextInput, TNextOutput, TArg1 extends {} | null | undefined>(
+    fn: (schema: Schema<TInput, TOutput>, arg1: TArg1) => SchemaLike<TNextInput, TNextOutput>,
     arg1: TArg1
   ): Schema<TNextInput, TNextOutput>;
-  with<TNextInput, TNextOutput, TArg1>(
-    fn: (
-      schema: Schema<TInput, TOutput>,
-      arg1: TArg1
-    ) => SchemaLike<TNextInput, TNextOutput>,
-    arg1: TArg1
-  ): Schema<TNextInput, TNextOutput>;
-  with<TNextInput, TNextOutput, TArg1, TArg2>(
-    fn: (
-      schema: Schema<TInput, TOutput>,
-      arg1: TArg1,
-      arg2: TArg2
-    ) => SchemaLike<TNextInput, TNextOutput>,
-    arg1: TArg1,
-    arg2: TArg2
+  // Two or more arguments. A rest tuple rather than one type parameter per
+  // argument: TypeScript infers it from `fn`'s parameters, which is what keeps
+  // `value` typed in `.with(S.refine, (value) => …, { error })`.
+  with<TNextInput, TNextOutput, TArgs extends readonly unknown[]>(
+    fn: (schema: Schema<TInput, TOutput>, ...args: TArgs) => SchemaLike<TNextInput, TNextOutput>,
+    ...args: TArgs
   ): Schema<TNextInput, TNextOutput>;
 
   /**
@@ -864,7 +838,8 @@ export function optional<
 >(
   schema: SchemaLike<TInput, TOutput> | TDef,
   or?: (() => TOr) | TOr,
-  // To make .with work
+  // Never passed: fails `with`'s callback overload, so a lazy default is
+  // not typed as a shaper.
   _?: never
 ): Schema<
   TInput | undefined,
@@ -879,7 +854,8 @@ export function nullable<
 >(
   schema: SchemaLike<TInput, TOutput> | TDef,
   or?: (() => TOr) | TOr,
-  // To make .with work
+  // Never passed: fails `with`'s callback overload, so a lazy default is
+  // not typed as a shaper.
   _?: never
 ): Schema<TInput | null, TOr extends null ? TOutput | null : TOutput>;
 
@@ -1030,7 +1006,7 @@ export function refine<TInput, TOutput>(
   refineCheck: (value: TOutput) => boolean,
   refineOptions?: {
     error?: string;
-    path?: string[];
+    path?: Path;
   }
 ): Schema<TInput, TOutput>;
 

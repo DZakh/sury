@@ -36,6 +36,7 @@ import {
   objectTag,
   panic,
   pathEmpty,
+  type Path,
   stringify,
   stringTag,
   U,
@@ -431,7 +432,7 @@ export const to = (schema: Internal, target: Internal, custom?: unknown) => {
 export const refine = (
   schema: Internal,
   refineCheck: (value: unknown) => boolean,
-  refineOptions?: { error?: string; path?: string[] },
+  refineOptions?: { error?: string; path?: Path },
 ) => {
   const message = refineOptions?.error ?? "Refinement failed";
   const extraPath = refineOptions?.path !== U ? refineOptions.path : pathEmpty;
