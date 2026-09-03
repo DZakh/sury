@@ -63,9 +63,6 @@ base → builder → primitives → parse → union → composites → factory
 - Write bit-flag literals, not named `const`s — esbuild won't inline them, so the
   name costs bytes at every use. Document the values in a comment.
 - Every schema must be reversible (Input ↔ Output) unless explicitly opted out.
-- `Schema.with` gets an overload per *shape* of call, not per arity. Every
-  `.with` call pays for each overload it reaches past, and the specs'
-  `ts.instantiations` is the gate — measure a subset before adding one.
 - Name anything esbuild emits `index.*`. `S.*` belongs to the ReScript compiler,
   which overwrites whatever sits where its output lands.
 
