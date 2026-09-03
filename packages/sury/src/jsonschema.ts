@@ -28,6 +28,7 @@ import {
   openApi30,
   type Path,
   pathConcat,
+  requiredKeys,
   pathDynamic,
   pathEmpty,
   refTag,
@@ -923,7 +924,7 @@ const objectSchema = (
   // non-optional properties in declaration order, not the document's `required`
   // set — which is the same list only once each absent key has been wrapped in
   // `option`, and in a different order.
-  schema.required = Object.keys(properties).filter((key) => !isOptional(properties[key]!));
+  schema.required = requiredKeys(properties);
   schema.properties = properties;
   schema.additionalItems = additionalItems;
   return schema;

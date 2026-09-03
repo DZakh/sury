@@ -36,6 +36,7 @@ import {
   objectTag,
   panic,
   pathEmpty,
+  requiredKeys,
   stringify,
   stringTag,
   U,
@@ -496,8 +497,7 @@ export const merge = (s1: Internal, s2: Internal): Internal => {
 
   const mut = baseSchema(objectTag, false, objectDecoder);
 
-  // TODO: Merge to required fields
-  mut.required = Object.keys(properties);
+  mut.required = requiredKeys(properties);
   mut.properties = properties;
   mut.additionalItems = s1.additionalItems;
   return mut;

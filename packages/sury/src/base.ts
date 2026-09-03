@@ -533,6 +533,12 @@ export const isLiteral = (schema: Internal): boolean => constField in schema;
 export const isOptional = (schema: Internal): boolean =>
   schema.type === undefinedTag || (schema.type === anyOfTag && undefinedTag in schema.has!);
 
+// Nothing at runtime reads `required` — codegen asks each property whether it
+// admits `undefined` — so it exists for the consumer who prints the schema, and
+// has to agree with the JSON Schema `required` that consumer would get.
+export const requiredKeys = (properties: Record<string, Internal>): string[] =>
+  Object.keys(properties).filter((key) => !isOptional(properties[key]!));
+
 // The constructor name worth printing, or a falsy value for anything a reader
 // would learn nothing from: a plain object, a null prototype, an anonymous
 // class (whose `name` is the empty string). Both callers below key off exactly

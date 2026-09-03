@@ -2521,3 +2521,14 @@ test("Schema introspection tags survive on coerced and instance schemas", (t) =>
   const setSchema = S.instance(Set);
   t.expect(setSchema.type === "instance" && setSchema.class === Set).toBe(true);
 });
+
+// `required` on a schema is what a consumer printing it reads; the spec
+// format snapshots JSON Schema and codegen, not the schema object itself.
+test("required lists only the keys that don't admit undefined", (t) => {
+  const required = (schema: S.Schema<unknown>) => schema.type === "object" ? schema.required : undefined;
+  const first = S.schema({ a: S.string, b: S.optional(S.string) });
+  const second = S.object((s) => ({ c: s.field("c", S.string), d: s.field("d", S.optional(S.string)) }));
+  t.expect(required(first)).toEqual(["a"]);
+  t.expect(required(second)).toEqual(["c"]);
+  t.expect(required(S.merge(first, S.schema({ e: S.nullish(S.number), f: S.number })))).toEqual(["a", "f"]);
+});

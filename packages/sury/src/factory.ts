@@ -25,6 +25,7 @@ import {
   pathConcat,
   pathEmpty,
   pathToText,
+  requiredKeys,
   setHas,
   U,
   undefinedTag,
@@ -346,7 +347,7 @@ export const schemaObject = (
   const definition = definer(ctx);
 
   const mut = baseSchema(objectTag, false, objectDecoder);
-  mut.required = Object.keys(properties);
+  mut.required = requiredKeys(properties);
   mut.properties = properties;
   mut.additionalItems = globalConfig.a;
   mut.parser = shapedParser;

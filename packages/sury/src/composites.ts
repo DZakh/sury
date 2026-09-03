@@ -19,6 +19,7 @@ import {
   type Internal,
   isLiteral,
   isOptional,
+  requiredKeys,
   isSchemaObject,
   jsonName,
   noopDecoder,
@@ -671,8 +672,8 @@ export const traverseDefinition = (
             node[location] = traverseDefinition(node[location], onNode);
           }
           const mut = baseSchema(objectTag, false, objectDecoder);
-          mut.required = fieldNames;
           mut.properties = node as Record<string, Internal>;
+          mut.required = requiredKeys(mut.properties);
           mut.additionalItems = globalConfig.a;
           return mut;
         }

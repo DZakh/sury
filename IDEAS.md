@@ -288,16 +288,7 @@ of a form-data story. What they were built to make cheap, roughly in order:
 
 ### Pre-existing bugs surfaced by the TS-migration review (ported faithfully, fix separately)
 
-- **`required` on an object schema is not what its name says, and no two
-  producers agree.** `S.schema`, `S.object`, `S.shape` and `S.merge` set it to
-  every declared key, optional or not (`S.schema({a: S.optional(S.string)}).required`
-  is `["a"]`); `fromJSONSchema` alone filters to the non-optional keys, and the
-  comment at that producer (`src/jsonschema.ts`) claims the others already do.
-  Parse, inferred types and the emitted JSON Schema are all right
-  (`specs/merge-optional.yaml`) — the emitter recomputes from the properties —
-  so only the introspected field lies, and it is public: the `Schema` type
-  publishes `required?: string[]` on the object variant. `S.merge` has two
-  more docs drifts: it inherits `additionalItems` from its *first* argument
+- **`S.merge` has two docs drifts.** It inherits `additionalItems` from its *first* argument
   where `docs/js-usage.md` says the second, and the docs say shared keys throw
   where `specs/merge-overwrite.yaml` pins that the second schema's field wins.
 - **ReDoS risk in `fromJSONSchema` patterns.** `new RegExp(jsonSchema.pattern)`
