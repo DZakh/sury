@@ -26,7 +26,7 @@ operations:
         error: "Failed at field: Expected string, received 5"
   decode: eq-to-parse
   encode:
-    expression: i=>{let v0=i["field"];!Number.isNaN(v0.getTime())||e[0](v0);return {field:i["field"].toISOString()}}
+    expression: i=>{let v1=i["field"];let v0;try{v0=v1.toISOString()}catch(_){e[0](v1)}return {field:v0}}
     examples:
       date-becomes-iso-string:
         input: '{ field: new Date("2024-01-01T00:00:00.000Z") }'

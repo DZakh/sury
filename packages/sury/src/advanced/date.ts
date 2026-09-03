@@ -9,9 +9,12 @@ import {
   type Val
 } from "../base";
 import {
+ _var,
+ B_embedInvalidInput,
  B_next,
  B_refine,
  B_unsupportedDecode,
+ B_varWithoutAllocation,
  failInvalidType
 } from "../builder";
 import {
@@ -22,13 +25,13 @@ import {
  stringDecoderFn
 } from "../primitives";
 
-export const invalidDateRefine = (input: Val, expected: Internal = input.e): Val => {
-  return B_refine(input, expected, [
+export const invalidDateRefine = (input: Val): Val => {
+  return B_refine(input, input.e, [
     {
       c: (inputVar) => `!Number.isNaN(${inputVar}.getTime())`,
       f: failInvalidType,
     },
-  ], expected);
+  ]);
 }
 
 // The `toISOString()` result, described once. It outlives the encoder call: it
@@ -69,21 +72,29 @@ export const date: Internal = /* @__PURE__ */ initSchema(
     s.encoder = (input, target) => {
       const toTagFlag = tagFlags[target.type]!;
       if ((toTagFlag & 2)) {
-        // See the note in advanced/url.ts: the B_refine wrap is what makes the
-        // produced string the subject of the target's checks. Without it
-        // `S.isoDateTime.with(S.to, S.date)` tests the datetime regex against the
-        // `Date`, which stringifies to "Wed Jan 01 2020 …" and never matches.
         // `toISOString()` throws a bare RangeError on an invalid Date, which
-        // carries no path and never matches `S.Raised` — so validate first.
-        // The check belongs to the Date node (`input.s`), not the string
-        // target: that names `Date` in the error and lets its `noValidation`
-        // drop the check.
-        const checked = invalidDateRefine(input, input.s);
-        return parse(
-          B_refine(
-            B_next(checked, `${checked.i}.toISOString()`, dateTimeString, target)
-          )
-        );
+        // carries no path and never matches `S.Raised` — so the throw is
+        // caught and reported against the Date node (`input.s`), which names
+        // `Date` in the error. A try/catch costs a valid Date nothing, where a
+        // `getTime()` check would run on every encode.
+        // The B_refine wrap is what makes the produced string the subject of
+        // the target's checks (see the note in advanced/url.ts). Without it
+        // `S.isoDateTime.with(S.to, S.date)` tests the datetime regex against
+        // the `Date`, which stringifies to "Wed Jan 01 2020 …" and never
+        // matches.
+        // `noValidation` on the Date is the promise it is valid, so the raw
+        // call stays.
+        if (input.s.noValidation) {
+          return parse(B_refine(B_next(input, `${input.i}.toISOString()`, dateTimeString, target)));
+        }
+        const outputVar = B_varWithoutAllocation(input.g);
+        const output = B_next(input, outputVar, dateTimeString, target);
+        output.v = _var;
+        output.cp = `let ${outputVar};try{${outputVar}=${input.v()}.toISOString()}catch(_){${B_embedInvalidInput(
+          input,
+          input.s,
+        )}}`;
+        return parse(B_refine(output));
       } else {
         return input;
       }
