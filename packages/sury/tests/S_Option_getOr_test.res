@@ -282,7 +282,7 @@ test("Default on a primary item with S.to runs the transformation on parse and r
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{if(i instanceof e[0]){i=i.toISOString()}else{e[1](i)}return i}`,
+    `i=>{if(i instanceof e[0]&&!Number.isNaN(i.getTime())){i=i.toISOString()}else{e[1](i)}return i}`,
   )
 })
 

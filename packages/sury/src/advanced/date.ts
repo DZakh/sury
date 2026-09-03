@@ -22,13 +22,13 @@ import {
  stringDecoderFn
 } from "../primitives";
 
-export const invalidDateRefine = (input: Val): Val => {
-  return B_refine(input, input.e, [
+export const invalidDateRefine = (input: Val, expected: Internal = input.e): Val => {
+  return B_refine(input, expected, [
     {
       c: (inputVar) => `!Number.isNaN(${inputVar}.getTime())`,
       f: failInvalidType,
     },
-  ]);
+  ], expected);
 }
 
 // The `toISOString()` result, described once. It outlives the encoder call: it
@@ -73,9 +73,15 @@ export const date: Internal = /* @__PURE__ */ initSchema(
         // produced string the subject of the target's checks. Without it
         // `S.isoDateTime.with(S.to, S.date)` tests the datetime regex against the
         // `Date`, which stringifies to "Wed Jan 01 2020 …" and never matches.
+        // `toISOString()` throws a bare RangeError on an invalid Date, which
+        // carries no path and never matches `S.Raised` — so validate first.
+        // The check belongs to the Date node (`input.s`), not the string
+        // target: that names `Date` in the error and lets its `noValidation`
+        // drop the check.
+        const checked = invalidDateRefine(input, input.s);
         return parse(
           B_refine(
-            B_next(input, `${input.i}.toISOString()`, dateTimeString, target)
+            B_next(checked, `${checked.i}.toISOString()`, dateTimeString, target)
           )
         );
       } else {

@@ -27,17 +27,11 @@ operations:
         input: '"2020-01-01T00:00:00.000Z"'
         output: new Date("2020-01-01T00:00:00.000Z")
   encode:
-    expression: i=>{let v0=i.toISOString();e[0].test(v0)||e[1](v0);return v0}
+    expression: i=>{!Number.isNaN(i.getTime())||e[2](i);let v0=i.toISOString();e[0].test(v0)||e[1](v0);return v0}
     examples:
       valid:
         input: new Date("2020-01-01T00:00:00.000Z")
         output: '"2020-01-01T00:00:00.000Z"'
-      # FIXME: `Invalid time value` is the raw RangeError from toISOString, not a
-      # SuryError — it carries no path and does not match `catch { S.Raised }`,
-      # so an invalid Date inside an object encodes to an exception the caller
-      # cannot attribute. `S.url` guards the same hazard by routing the throwing
-      # call through a helper (see urlFromString in advanced/url.ts); `S.date`
-      # has no such guard on the encode side.
-      an-invalid-date-cannot-be-serialized:
+      an-invalid-date-is-rejected:
         input: new Date(NaN)
-        error: Invalid time value
+        error: Expected Date, received invalid Date
