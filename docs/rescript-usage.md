@@ -1001,7 +1001,7 @@ S.union([S.string->S.castToUnknown, S.float->S.castToUnknown])->S.to(
     S.bool->S.castToUnknown,
   ]),
 )
-// Invalid operation: … boolean has no same-type variant on the other side.
+// Invalid operation: ... boolean has no same-type variant on the other side.
 S.option(S.string)->S.to(S.null(S.bool)) // ❌ string doesn't match boolean
 S.option(S.string)->S.to(S.null(S.string->S.to(S.bool))) // ✅
 ```
@@ -1336,7 +1336,7 @@ Use `S.meta` to add a metadata to the resulting schema.
 let documentedStringSchema = S.string
   ->S.meta({description: "A useful bit of text, if you know what to do with it."})
 
-(documentedStringSchema->S.untag).description // A useful bit of text…
+(documentedStringSchema->S.untag).description // A useful bit of text...
 ```
 
 This can be useful for documenting fields, generating JSON, etc.
@@ -1590,7 +1590,7 @@ A coder fails by throwing, and the path it was reached through is prepended:
 // Can't convert string to int
 ```
 
-Any exception works, a ReScript one (`throw(Failure("…"))`) included, but only
+Any exception works, a ReScript one (`throw(Failure("..."))`) included, but only
 a JS error carries a message, so anything else is reported by its structure.
 To name a path or the schemas involved, build the error and throw that:
 
