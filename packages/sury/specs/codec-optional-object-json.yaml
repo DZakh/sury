@@ -3,7 +3,7 @@ ts:
   schema: "S.schema({ a: S.optional(S.schema({ s: S.optional(S.string) })) }).with(S.to, S.json)"
   input: "{ a?: { s?: string | undefined; } | undefined; }"
   output: JSON
-  instantiations: 9403
+  instantiations: 8589
 jsonSchema:
   input: '{ type: "object", properties: { a: { type: "object", properties: { s: { type: "string" } } } } }'
   output: '{ type: "object", properties: { a: { type: "object", properties: { s: { type: "string" } }, additionalProperties: false } }, additionalProperties: false }'

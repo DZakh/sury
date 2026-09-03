@@ -3,7 +3,7 @@ ts:
   schema: S.email.with(S.to, S.string)
   input: string
   output: string
-  instantiations: 5175
+  instantiations: 4361
 jsonSchema:
   input: '{ type: "string", format: "email" }'
   output: '{ type: "string", format: "email" }'
