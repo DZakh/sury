@@ -1656,9 +1656,11 @@ let apiUserSchema = S.schema(s =>
 
 ### Built-in operations
 
-Every operation follows one grammar: the bare name returns a `result`, the `OrThrow` name throws `S.Exn`, and the `compile` prefix returns the operation as a function to call repeatedly — the fastest way to run one schema many times.
+Every operation is named `[compile]` + verb + `[Async]` + `[OrThrow]`.
 
-Only the throwing operations compile. A compiled operation is for the hot path, where the `result` allocation per call is the cost you are avoiding; wrap the compiled function yourself if you want a `result` there. `validate` is the exception, since its answer is already a bool.
+`parse`, `convert` and `make` come in both flavors: the bare name returns a `result<'value, S.error>`, and the `OrThrow` name throws `S.Exn`. Asserting has only the throwing form, `assertOrThrow`. `validate` is the non-throwing counterpart to it and answers with a `bool` rather than a `result`, since there is no value to hand back either way.
+
+The `compile` prefix returns the operation as a function to call repeatedly — the fastest way to run one schema many times. Only the throwing operations compile: a compiled operation is for the hot path, where the `result` allocation per call is the cost you are avoiding, so wrap the compiled function yourself if you want a `result` there. `compileValidate` is the exception, since its answer is already a bool.
 
 | Verb         | One-shot                     | Compiled                     | Async                                                  |
 | ------------ | ---------------------------- | ---------------------------- | ------------------------------------------------------ |
