@@ -3,7 +3,7 @@ ts:
   schema: "S.compactColumns(S.unknown).with(S.to, S.array(S.schema({ id: S.number, name: S.string })))"
   input: unknown[][]
   output: "{ id: number; name: string; }[]"
-  instantiations: 7061
+  instantiations: 6247
 jsonSchema:
   input: "Failed at [][]: Expected JSON, received unknown"
   output: '{ items: { type: "object", properties: { id: { type: "number" }, name: { type: "string" } }, required: ["id", "name"] }, type: "array" }'

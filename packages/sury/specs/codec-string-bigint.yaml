@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.string.with(S.to, S.bigint)
+  input: string
+  output: bigint
+  instantiations: 4419
+jsonSchema:
+  input: '{ type: "string" }'
+  output: Expected JSON, received bigint
+vs:
+  zod: z.string().transform((value) => BigInt(value))
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[1](i);let v0;try{v0=BigInt(i)}catch(_){e[0](i)}v0||i.trim()||e[0](i);return v0}
+    examples:
+      integer:
+        input: '"123"'
+        output: 123n
+      zero:
+        input: '"0"'
+        output: 0n
+      negative:
+        input: '"-5"'
+        output: -5n
+      padded:
+        input: '" 12 "'
+        output: 12n
+      not-an-integer-text:
+        input: '"abc"'
+        error: Expected bigint, received "abc"
+      decimal:
+        input: '"1.5"'
+        error: Expected bigint, received "1.5"
+      empty-string:
+        input: '""'
+        error: Expected bigint, received ""
+      whitespace-string:
+        input: '"   "'
+        error: Expected bigint, received "   "
+      not-a-string:
+        input: "123"
+        error: Expected string, received 123
+  decode:
+    expression: i=>{let v0;try{v0=BigInt(i)}catch(_){e[0](i)}v0||i.trim()||e[0](i);return v0}
+    examples:
+      valid:
+        input: '"123"'
+        output: 123n
+  encode:
+    expression: i=>{return ""+i}
+    examples:
+      valid:
+        input: 123n
+        output: '"123"'

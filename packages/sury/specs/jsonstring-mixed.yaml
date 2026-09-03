@@ -3,7 +3,7 @@ ts:
   schema: "S.schema({u: S.unknown, j: S.json, big: S.bigint, d: S.date}).with(S.to, S.jsonString)"
   input: "{ j: JSON; big: bigint; d: Date; u?: unknown; }"
   output: string
-  instantiations: 7488
+  instantiations: 6674
 jsonSchema:
   input: "Failed at u: Expected JSON, received unknown"
   output: '{ type: "string", contentMediaType: "application/json" }'
@@ -32,7 +32,7 @@ operations:
         input: '{ u: { any: [1] }, j: ["j", null], big: 1n, d: new Date("1970-01-01T00:00:00.000Z") }'
         output: '"{\"u\":{\"any\":[1]},\"j\":[\"j\",null],\"big\":\"1\",\"d\":\"1970-01-01T00:00:00.000Z\"}"'
   encode:
-    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[5](v0);let v2=v0["big"],v4=v0["d"];typeof v2==="string"||e[2](v2);let v1;try{v1=BigInt(v2)}catch(_){e[1](v2)}typeof v4==="string"||e[4](v4);let v3=new Date(v0["d"]);!Number.isNaN(v3.getTime())||e[3](v3);return {u:v0["u"],j:v0["j"],big:v1,d:v3}}
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[5](v0);let v2=v0["big"],v4=v0["d"];typeof v2==="string"||e[2](v2);let v1;try{v1=BigInt(v2)}catch(_){e[1](v2)}v1||v2.trim()||e[1](v2);typeof v4==="string"||e[4](v4);let v3=new Date(v0["d"]);!Number.isNaN(v3.getTime())||e[3](v3);return {u:v0["u"],j:v0["j"],big:v1,d:v3}}
     examples:
       valid:
         input: '"{\"u\":{\"any\":[1]},\"j\":[\"j\",null],\"big\":\"1\",\"d\":\"1970-01-01T00:00:00.000Z\"}"'

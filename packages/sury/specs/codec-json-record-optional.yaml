@@ -3,7 +3,7 @@ ts:
   schema: S.json.with(S.to, S.record(S.optional(S.boolean)))
   input: JSON
   output: "{ [x: string]: boolean | undefined; }"
-  instantiations: 5642
+  instantiations: 4828
 jsonSchema:
   input: '{ type: "object", additionalProperties: { anyOf: [{ type: "boolean" }, { type: "null" }] } }'
   fromInputType: "{ [key: string]: boolean | null; }"
