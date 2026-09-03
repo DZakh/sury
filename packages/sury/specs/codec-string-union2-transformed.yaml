@@ -12,7 +12,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[2](i);for(;;){let r;try{let v0=+i;v0===v0||e[0](i);i=v0;break}catch(x){(r||(r=[])).push(e[1](x))}break;}return i}
+    expression: i=>{typeof i==="string"||e[2](i);for(;;){let r;try{let v0=+i;v0===v0&&(v0||i.trim())||e[0](i);i=v0;break}catch(x){(r||(r=[])).push(e[1](x))}break;}return i}
     examples:
       decodes-to-number:
         input: '"123"'
@@ -24,7 +24,7 @@ operations:
         input: '"1.5"'
         output: "1.5"
   decode:
-    expression: i=>{for(;;){let r;try{let v0=+i;v0===v0||e[0](i);i=v0;break}catch(x){(r||(r=[])).push(e[1](x))}break;}return i}
+    expression: i=>{for(;;){let r;try{let v0=+i;v0===v0&&(v0||i.trim())||e[0](i);i=v0;break}catch(x){(r||(r=[])).push(e[1](x))}break;}return i}
     examples:
       decodes-to-number:
         input: '"123"'
@@ -32,14 +32,12 @@ operations:
       falls-back-to-string:
         input: '"abc"'
         output: '"abc"'
-      # FIXME: `+i` decodes blank strings to 0 — "" and "   " should fall back to
-      # the S.string member, as "abc" does, not become a number.
       empty-string:
         input: '""'
-        output: "0"
+        output: '""'
       whitespace-string:
         input: '"   "'
-        output: "0"
+        output: '"   "'
       hex-string:
         input: '"0x10"'
         output: "16"
