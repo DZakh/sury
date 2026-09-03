@@ -984,6 +984,27 @@ test("Assert supports both (schema, data) and (data, schema) arg orders", (t) =>
   t.expect(() => S.assertInput(123, schema)).toThrow();
 });
 
+test("AsyncAssertInput and AsyncAssertOutput reject instead of throwing, in either arg order", async (t) => {
+  const schema = S.string.with(S.to, S.number, {
+    decode: { async: async (s: string) => Number(s) },
+    encode: String,
+  });
+
+  await S.asyncAssertInput(schema, "123");
+  await S.asyncAssertInput("123", schema);
+  await S.asyncAssertOutput(schema, 123);
+  await S.asyncAssertOutput(123, schema);
+
+  // Like every async operation, a failure in the synchronous type check
+  // throws before a promise exists; `await` inside an async caller sees both.
+  await t
+    .expect(async () => await S.asyncAssertInput(schema, 123))
+    .rejects.toThrow("Expected string, received 123");
+  await t
+    .expect(async () => await S.asyncAssertOutput(schema, "123"))
+    .rejects.toThrow('Expected number, received "123"');
+});
+
 test("AssertOutput asserts against the output side", (t) => {
   const schema = S.string.with(S.to, S.number, { decode: Number, encode: String });
 

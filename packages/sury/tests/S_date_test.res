@@ -83,7 +83,7 @@ test("Successfully reverse converts string-to-date schema", t => {
 test("Successfully converts Date to string with S.to", t => {
   let schema = S.date->S.to(S.string)
   let date = Date.fromString("2024-01-01T00:00:00.000Z")
-  t->Assert.deepEqual(S.compileConvert1OrThrow(~to=schema)(date->Obj.magic), "2024-01-01T00:00:00.000Z"->Obj.magic)
+  t->Assert.deepEqual(S.compileParseOrThrow(~to=schema)(date->Obj.magic), "2024-01-01T00:00:00.000Z"->Obj.magic)
 })
 
 test("Successfully reverse converts date-to-string schema", t => {

@@ -41,26 +41,21 @@ test("Immitate assert returning true with S.to and literal", t => {
   t->assertCode(fn, `i=>{typeof i==="string"||e[0](i);return true}`)
 })
 
-test("compileAssertOrThrow emits validation only", t => {
-  let fn = S.compileAssertOrThrow(~to=S.string)
-  t->U.assertCompiledCode(~schema=S.string, ~op=#Assert, `i=>{typeof i==="string"||e[0](i);return void 0}`)
-  t->Assert.deepEqual(fn("abc"), ())
-  t->U.assertThrowsMessage(() => fn(%raw(`1`)), `Expected string, received 1`)
-})
-
-test("compileConvert3OrThrow chains through the middle schema", t => {
+test("compileConvertOrThrow with ~via chains through the middle schema", t => {
   let schema = S.object(s => s.field("n", S.int))
-  let fn = S.compileConvert3OrThrow(~from=S.jsonString, ~through=S.json, ~to=schema)
+  let fn = S.compileConvertOrThrow(~from=S.jsonString, ~via=S.json, ~to=schema)
   t->Assert.deepEqual(fn(`{"n":1}`), 1)
-  t->Assert.deepEqual(`{"n":2}`->S.convert3OrThrow(~from=S.jsonString, ~through=S.json, ~to=schema), 2)
+  t->Assert.deepEqual(`{"n":2}`->S.convertOrThrow(~from=S.jsonString, ~via=S.json, ~to=schema), 2)
+  t->U.assertThrowsMessage(
+    () => `{"n":"x"}`->S.convertOrThrow(~from=S.jsonString, ~via=S.json, ~to=schema),
+    `Failed at n: Expected int32, received "x"`,
+  )
 })
 
-test("convert1OrThrow goes from a schema's input to its output", t => {
-  let schema = S.string->S.to(S.float)
-  t->Assert.deepEqual(%raw(`"1.5"`)->S.convert1OrThrow(~to=schema), 1.5)
-})
-
-asyncTest("compileAssertAsyncOrThrow resolves to unit", async t => {
-  let fn = S.compileAssertAsyncOrThrow(~to=S.string)
-  t->Assert.deepEqual(await fn("abc"), ())
+test("validate and compileValidate answer with a bool", t => {
+  t->Assert.deepEqual("abc"->S.validate(~to=S.string), true)
+  t->Assert.deepEqual(%raw(`1`)->S.validate(~to=S.string), false)
+  let isString = S.compileValidate(~to=S.string)
+  t->Assert.deepEqual(isString("abc"), true)
+  t->Assert.deepEqual(isString(%raw(`1`)), false)
 })

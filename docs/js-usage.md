@@ -1435,7 +1435,7 @@ Every operation that looks at one side of a schema says which side in its name. 
 | Convert   |                                        |                                          | `parser`, `decoder`, `encoder`   |
 | Construct | `inputConstructor`                     | `outputConstructor`                      |                                  |
 | Validate  | `inputValidator`                       | `outputValidator`                        |                                  |
-| Assert    | `assertInput`                          | `assertOutput`                           |                                  |
+| Assert    | `assertInput`, `asyncAssertInput`      | `assertOutput`, `asyncAssertOutput`      |                                  |
 | Describe  | `inputJSONSchema`, `inputExpression`   | `outputJSONSchema`, `outputExpression`   |                                  |
 
 ### Pipelines

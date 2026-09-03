@@ -181,14 +181,6 @@ export const assertOrThrow = (any: unknown, schema: Internal): void => {
   (getDecoder(unknown, schema, assertResult) as (input: unknown) => unknown)(any);
 }
 
-export const assertAsyncOrThrow = (any: unknown, schema: Internal): Promise<void> => {
-  return (
-    getDecoder(unknown, schema, assertResult, 1) as (
-      input: unknown
-    ) => Promise<void>
-  )(any);
-}
-
 export type JsResult<TValue> =
   | { success: true; value: TValue }
   | { success: false; error: SuryErrorRecord };

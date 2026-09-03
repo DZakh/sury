@@ -555,60 +555,112 @@ let to = (from, target, ~custom=?) =>
 
 @module("sury") external reverse: t<'value> => t<unknown> = "reverse"
 
+%%private(
+  // The public JS `decoder` compiles from a schema's Input space; the ReScript
+  // flavor converts FROM a schema's Output space, so `from` is reversed first.
+  // Arity-specific bindings, since a labeled optional `~via` can't spread.
+  @module("sury") external decoder2: (t<unknown>, t<'to>) => 'any => 'to = "decoder"
+  @module("sury")
+  external decoder3: (t<unknown>, t<unknown>, t<'to>) => 'any => 'to = "decoder"
+  @module("sury")
+  external asyncDecoder2: (t<unknown>, t<'to>) => 'any => promise<'to> = "asyncDecoder"
+  @module("sury")
+  external asyncDecoder3: (t<unknown>, t<unknown>, t<'to>) => 'any => promise<'to> =
+    "asyncDecoder"
+
+  // Only a Sury failure becomes `Error`; anything else propagates, the way
+  // the JS `safe` rethrows what isn't a Sury error.
+  let safe = (fn): result<'value, error> =>
+    try Ok(fn()) catch {
+    | Exn(error) => Error(error)
+    }
+  // A compiled async operation throws synchronously when the input fails
+  // its type check before anything is awaited, so the call sits inside the
+  // `try` as well.
+  let safeAsync = (fn: unit => promise<'value>): promise<result<'value, error>> =>
+    try {
+      fn()
+      ->Promise.then(value => Promise.resolve(Ok(value)))
+      ->Promise.catch(exn =>
+        switch exn {
+        | Exn(error) => Promise.resolve(Error(error))
+        | _ => throw(exn)
+        }
+      )
+    } catch {
+    | Exn(error) => Promise.resolve(Error(error))
+    }
+)
+
 @module("sury") external compileParseOrThrow: (~to: t<'value>) => 'any => 'value = "parser"
 @module("sury")
 external compileParseAsyncOrThrow: (~to: t<'value>) => 'any => promise<'value> = "asyncParser"
-// The public JS `decoder` compiles from a schema's Input space; the ReScript
-// flavor converts FROM a schema's Output space, so reverse `from` first.
-@module("sury") external decoder: (t<unknown>, t<'to>) => 'from => 'to = "decoder"
-@module("sury")
-external asyncDecoder: (t<unknown>, t<'to>) => 'from => promise<'to> = "asyncDecoder"
-let compileConvertOrThrow = (~from: t<'from>, ~to) => decoder(reverse(from), to)
-let compileConvertAsyncOrThrow = (~from: t<'from>, ~to) => asyncDecoder(reverse(from), to)
-// Single-schema (Input -> Output) flavors — the public JS `decoder` /
-// `asyncDecoder` called with one argument. The input is the schema's Input
-// type, which ReScript can't name, hence `unknown`.
-@module("sury") external compileConvert1OrThrow: (~to: t<'value>) => unknown => 'value = "decoder"
-@module("sury")
-external compileConvert1AsyncOrThrow: (~to: t<'value>) => unknown => promise<'value> =
-  "asyncDecoder"
-@module("sury")
-external decoder3: (t<unknown>, t<unknown>, t<'to>) => 'from => 'to = "decoder"
-@module("sury")
-external asyncDecoder3: (t<unknown>, t<unknown>, t<'to>) => 'from => promise<'to> = "asyncDecoder"
-let compileConvert3OrThrow = (~from: t<'from>, ~through, ~to) =>
-  decoder3(reverse(from), castToUnknown(through), to)
-let compileConvert3AsyncOrThrow = (~from: t<'from>, ~through, ~to) =>
-  asyncDecoder3(reverse(from), castToUnknown(through), to)
-// The chain the JS `assertInput` builds: the schema's checks run, but the
-// `undefined` target with validation off makes the compiler emit no
-// output-construction code.
-let compileAssertOrThrow = (~to: t<'value>): ('any => unit) =>
-  decoder3(unknown, castToUnknown(to), literal()->noValidation(true))->Obj.magic
-let compileAssertAsyncOrThrow = (~to: t<'value>): ('any => promise<unit>) =>
-  asyncDecoder3(unknown, castToUnknown(to), literal()->noValidation(true))->Obj.magic
+let compileParse = (~to) => {
+  let fn = compileParseOrThrow(~to)
+  any => safe(() => fn(any))
+}
+let compileParseAsync = (~to) => {
+  let fn = compileParseAsyncOrThrow(~to)
+  any => safeAsync(() => fn(any))
+}
+
+let compileConvertOrThrow = (~from: t<'from>, ~via=?, ~to) =>
+  switch via {
+  | None => decoder2(reverse(from), to)
+  | Some(via) => decoder3(reverse(from), castToUnknown(via), to)
+  }
+let compileConvertAsyncOrThrow = (~from: t<'from>, ~via=?, ~to) =>
+  switch via {
+  | None => asyncDecoder2(reverse(from), to)
+  | Some(via) => asyncDecoder3(reverse(from), castToUnknown(via), to)
+  }
+let compileConvert = (~from, ~via=?, ~to) => {
+  let fn = compileConvertOrThrow(~from, ~via?, ~to)
+  any => safe(() => fn(any))
+}
+let compileConvertAsync = (~from, ~via=?, ~to) => {
+  let fn = compileConvertAsyncOrThrow(~from, ~via?, ~to)
+  any => safeAsync(() => fn(any))
+}
+
+// The compiled assert with a boolean answer. `assert` is a ReScript keyword,
+// so the non-throwing assert is spelled `validate`.
+@module("sury") external compileValidate: (~to: t<'value>) => 'any => bool = "inputValidator"
+
 // `t<'value>` names the output type, so the output-side constructor is THE
 // constructor here; the input side has no type to hand back.
-@module("sury") external compileMakeOrThrow: (~schema: t<'value>) => 'value => 'value = "outputConstructor"
+@module("sury")
+external compileMakeOrThrow: (~schema: t<'value>) => 'value => 'value = "outputConstructor"
 @module("sury")
 external compileMakeAsyncOrThrow: (~schema: t<'value>) => 'value => promise<'value> =
   "asyncOutputConstructor"
+let compileMake = (~schema) => {
+  let fn = compileMakeOrThrow(~schema)
+  value => safe(() => fn(value))
+}
+let compileMakeAsync = (~schema) => {
+  let fn = compileMakeAsyncOrThrow(~schema)
+  value => safeAsync(() => fn(value))
+}
 
 let parseOrThrow = (any, ~to) => compileParseOrThrow(~to)(any)
 let parseAsyncOrThrow = (any, ~to) => compileParseAsyncOrThrow(~to)(any)
+let parse = (any, ~to) => safe(() => parseOrThrow(any, ~to))
+let parseAsync = (any, ~to) => safeAsync(() => parseAsyncOrThrow(any, ~to))
 @module("sury") external assertOrThrow: ('any, ~to: t<'value>) => unit = "assertInput"
 @module("sury")
-external assertAsyncOrThrow: ('any, ~to: t<'value>) => promise<unit> = "$assertAsyncOrThrow"
-let convertOrThrow = (any, ~from, ~to) => compileConvertOrThrow(~from, ~to)(any)
-let convertAsyncOrThrow = (any, ~from, ~to) => compileConvertAsyncOrThrow(~from, ~to)(any)
-let convert1OrThrow = (any, ~to) => compileConvert1OrThrow(~to)(any)
-let convert1AsyncOrThrow = (any, ~to) => compileConvert1AsyncOrThrow(~to)(any)
-let convert3OrThrow = (any, ~from, ~through, ~to) =>
-  compileConvert3OrThrow(~from, ~through, ~to)(any)
-let convert3AsyncOrThrow = (any, ~from, ~through, ~to) =>
-  compileConvert3AsyncOrThrow(~from, ~through, ~to)(any)
+external assertAsyncOrThrow: ('any, ~to: t<'value>) => promise<unit> = "asyncAssertInput"
+let validate = (any, ~to) => compileValidate(~to)(any)
+let convertOrThrow = (any, ~from, ~via=?, ~to) => compileConvertOrThrow(~from, ~via?, ~to)(any)
+let convertAsyncOrThrow = (any, ~from, ~via=?, ~to) =>
+  compileConvertAsyncOrThrow(~from, ~via?, ~to)(any)
+let convert = (any, ~from, ~via=?, ~to) => safe(() => convertOrThrow(any, ~from, ~via?, ~to))
+let convertAsync = (any, ~from, ~via=?, ~to) =>
+  safeAsync(() => convertAsyncOrThrow(any, ~from, ~via?, ~to))
 let makeOrThrow = (value, ~schema) => compileMakeOrThrow(~schema)(value)
 let makeAsyncOrThrow = (value, ~schema) => compileMakeAsyncOrThrow(~schema)(value)
+let make = (value, ~schema) => safe(() => makeOrThrow(value, ~schema))
+let makeAsync = (value, ~schema) => safeAsync(() => makeAsyncOrThrow(value, ~schema))
 
 @module("sury") external recursive: (string, t<'value> => t<'value>) => t<'value> = "recursive"
 

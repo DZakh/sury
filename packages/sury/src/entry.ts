@@ -238,6 +238,18 @@ export const assertOutput = (a: unknown, b: unknown): unknown => {
   return getDecoder(unknown, schema, assertResult)(aIsSchema ? b : a);
 };
 
+export const asyncAssertInput = (a: unknown, b: unknown): unknown => {
+  const aIsSchema = !!a && isSchemaObject(a);
+  const schema = (aIsSchema ? a : b) as Internal;
+  return getDecoder(unknown, schema, assertResult, 1)(aIsSchema ? b : a);
+};
+
+export const asyncAssertOutput = (a: unknown, b: unknown): unknown => {
+  const aIsSchema = !!a && isSchemaObject(a);
+  const schema = reverse((aIsSchema ? a : b) as Internal);
+  return getDecoder(unknown, schema, assertResult, 1)(aIsSchema ? b : a);
+};
+
 const validatorRun = (operation: (data: unknown) => unknown, data: unknown): boolean => {
   try {
     operation(data);
@@ -523,10 +535,6 @@ export const global = (override: GlobalConfigOverride): void => {
 // marks the exports as ReScript-binding internals while staying a valid JS
 // identifier, which is all ReScript externals accept as names.
 
-export {
-  // Async flavor of the public `assert`, which has no public JS equivalent.
-  assertAsyncOrThrow as $assertAsyncOrThrow,
-} from "./operations";
 export {
   Option_getOr as $Option_getOr,
   Option_getOrWith as $Option_getOrWith,

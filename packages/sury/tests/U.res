@@ -109,7 +109,7 @@ let getCompiledCodeString = (
       let fn = S.compileConvertAsyncOrThrow(~from=schema->S.reverse, ~to=S.unknown)
       fn->magic
     | #Assert =>
-      let fn = S.compileAssertOrThrow(~to=schema)
+      let fn = S.compileConvertOrThrow(~from=S.unknown, ~to=schema->S.to(S.literal()->S.noValidation(true)))
       fn->magic
     | #ReverseParse => {
         let fn = S.compileConvertOrThrow(~from=S.unknown, ~to=schema->S.reverse)
