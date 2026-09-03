@@ -3,7 +3,7 @@ ts:
   schema: "S.jsonString.with(S.to, S.schema({ avatar: S.file }))"
   input: string
   output: "{ avatar: File; }"
-  instantiations: 6276
+  instantiations: 5462
 jsonSchema:
   input: '{ type: "string", contentMediaType: "application/json" }'
   output: "Failed at avatar: Expected JSON, received File"

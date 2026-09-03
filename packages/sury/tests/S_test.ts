@@ -633,8 +633,6 @@ test("Successfully parses undefined using the default value from callback", (t) 
   t.expect(value).toEqual("foo");
   t.expect(schema.default).toEqual(undefined);
 
-  //FIXME: This is broken
-  // @ts-expect-error
   expectSchemaType(schema).toBe<string | undefined, string>();
 });
 

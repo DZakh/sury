@@ -3,7 +3,7 @@ ts:
   schema: S.array(S.never).with(S.to, S.jsonString)
   input: never[]
   output: string
-  instantiations: 5398
+  instantiations: 4584
 jsonSchema:
   input: '{ items: { not: {} }, type: "array" }'
   output: '{ type: "string", contentMediaType: "application/json" }'

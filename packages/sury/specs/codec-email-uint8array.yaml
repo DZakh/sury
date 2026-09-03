@@ -3,7 +3,7 @@ ts:
   schema: S.email.with(S.to, S.uint8Array)
   input: string
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 5233
+  instantiations: 4419
 jsonSchema:
   input: '{ type: "string" }'
   output: Expected JSON, received Uint8Array
