@@ -45,7 +45,7 @@
   field-val inline strings lazy, a cross-cutting builder change.
 - **`S.isoDateTime` deserves a real error, and probably a different name.** It
   is UTC-only, so it rejects `2026-01-15T10:30:00+02:00` — a string that plainly
-  IS an RFC 3339 date-time. `Expected date-time, received "…+02:00"` therefore
+  IS an RFC 3339 date-time. `Expected date-time, received "...+02:00"` therefore
   reads as a bug in Sury rather than a constraint, which is why this schema
   carries the codebase's only built-in `stringFormat` message. That message is a
   poor patch: a custom message replaces the whole reason, so it drops the

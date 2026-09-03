@@ -209,20 +209,17 @@ export const asyncParser = (...args: unknown[]) => getDecoder(unknown, ...args, 
 // @__NO_SIDE_EFFECTS__
 export const asyncDecoder = (...args: unknown[]) => getDecoder(...args, 1);
 
-// The 1-schema branch dodges a per-call allocation: `.map` builds a fresh
-// array every call, which spreading a rest param does not. Chained (2+)
-// schemas keep the generic map.
+// Only the first schema is reversed: `S.encoder(a, ...rest)` starts from a's
+// Output and then runs the rest of the chain forward, so a pipeline after the
+// reversed schema is written the same way as in `S.decoder`. Compare
+// `S.decoder(S.reverse(a), ...rest)`, which is its exact spelling.
 // @__NO_SIDE_EFFECTS__
 export const encoder = (a: unknown, ...rest: unknown[]) =>
-  rest.length
-    ? getDecoder(...([a, ...rest] as Internal[]).map(reverse))
-    : getDecoder(reverse(a as Internal));
+  getDecoder(reverse(a as Internal), ...rest);
 
 // @__NO_SIDE_EFFECTS__
 export const asyncEncoder = (a: unknown, ...rest: unknown[]) =>
-  rest.length
-    ? getDecoder(...([a, ...rest] as Internal[]).map(reverse), 1)
-    : getDecoder(reverse(a as Internal), 1);
+  getDecoder(reverse(a as Internal), ...rest, 1);
 
 // The asserts accept both `(schema, data)` and `(data, schema)`, told apart
 // by the Standard Schema marker. The truthiness guard keeps falsy data from
