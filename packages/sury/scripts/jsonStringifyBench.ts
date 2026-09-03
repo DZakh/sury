@@ -21,9 +21,8 @@
 import fastJson from "fast-json-stringify";
 import * as S from "../index.mjs";
 
-// A Uint8Array target that opens as a JSON document: `S.encoder` reverses it,
-// so the compiled chain is `schema -> jsonString -> uint8Array("pack")`.
-const jsonBytes = S.uint8Array.with(S.to, S.jsonString, "unpack");
+// The compiled chain is `schema -> jsonString -> uint8Array("pack")`.
+const jsonBytes = S.jsonString.with(S.to, S.uint8Array, "pack");
 
 const ROUNDS = 7;
 const bench = (fn: () => unknown): number => {
@@ -83,7 +82,7 @@ const cases: Case[] = [];
     role: S.string,
   });
   const sury = S.encoder(schema, S.jsonString);
-  const suryBytes = S.encoder(schema, S.reverse(jsonBytes));
+  const suryBytes = S.encoder(schema, jsonBytes);
   cases.push({
     name: "API response (user profile, 7 fields)",
     stringify: () => JSON.stringify(data),
@@ -114,7 +113,7 @@ const cases: Case[] = [];
   });
   const schema = S.array(S.schema({ id: S.number, name: S.string, active: S.boolean }));
   const sury = S.encoder(schema, S.jsonString);
-  const suryBytes = S.encoder(schema, S.reverse(jsonBytes));
+  const suryBytes = S.encoder(schema, jsonBytes);
   cases.push({
     name: "List endpoint (100 rows)",
     stringify: () => JSON.stringify(data),
@@ -183,7 +182,7 @@ const cases: Case[] = [];
     ),
   });
   const sury = S.encoder(schema, S.jsonString);
-  const suryBytes = S.encoder(schema, S.reverse(jsonBytes));
+  const suryBytes = S.encoder(schema, jsonBytes);
   cases.push({
     name: "Event feed (50 tagged-union events)",
     stringify: () => JSON.stringify(data),
@@ -203,7 +202,7 @@ const cases: Case[] = [];
   });
   const schema = S.record(S.number);
   const sury = S.encoder(schema, S.jsonString);
-  const suryBytes = S.encoder(schema, S.reverse(jsonBytes));
+  const suryBytes = S.encoder(schema, jsonBytes);
   cases.push({
     name: "Metrics dict (50 number values)",
     stringify: () => JSON.stringify(data),
@@ -223,7 +222,7 @@ const cases: Case[] = [];
   });
   const schema = S.record(S.string);
   const sury = S.encoder(schema, S.jsonString);
-  const suryBytes = S.encoder(schema, S.reverse(jsonBytes));
+  const suryBytes = S.encoder(schema, jsonBytes);
   cases.push({
     name: "Labels dict (50 string values)",
     stringify: () => JSON.stringify(data),
@@ -267,7 +266,7 @@ const cases: Case[] = [];
     label: S.string,
   });
   const sury = S.encoder(schema, S.jsonString);
-  const suryBytes = S.encoder(schema, S.reverse(jsonBytes));
+  const suryBytes = S.encoder(schema, jsonBytes);
   cases.push({
     name: "Event: bigint id + binary payload + Date",
     stringify: () => JSON.stringify(map(data)),
@@ -305,7 +304,7 @@ const cases: Case[] = [];
     note: S.string,
   });
   const sury = S.encoder(schema, S.jsonString);
-  const suryBytes = S.encoder(schema, S.reverse(jsonBytes));
+  const suryBytes = S.encoder(schema, jsonBytes);
   cases.push({
     name: "Audit row (uuid + timestamp + ip + email)",
     stringify: () => JSON.stringify(data),
