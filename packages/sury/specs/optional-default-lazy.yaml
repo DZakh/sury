@@ -1,9 +1,9 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: S.string.with(S.optional, "foo")
+  schema: S.string.with(S.optional, () => "foo")
   input: string | undefined
   output: string
-  instantiations: 4571
+  instantiations: 4705
 jsonSchema:
   input: Expected JSON, received string | undefined
   output: '{ type: "string" }'
@@ -11,7 +11,7 @@ vs:
   zod: z.string().optional().transform((value) => value ?? "foo")
 operations:
   parse:
-    expression: i=>{for(;;){if(typeof i==="string")break;if(i===void 0){i="foo";break}e[0](i)}return i}
+    expression: i=>{for(;;){if(typeof i==="string")break;if(i===void 0){i=e[0]();break}e[1](i)}return i}
     examples:
       string:
         input: '"bar"'

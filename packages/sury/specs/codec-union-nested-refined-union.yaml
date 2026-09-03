@@ -3,7 +3,7 @@ ts:
   schema: 'S.union([S.union([S.string, S.number]).with(S.refine, (value) => value !== "", { error: "Expected a non-empty value" }), S.boolean])'
   input: string | number | boolean
   output: string | number | boolean
-  instantiations: 6745
+  instantiations: 2333
 jsonSchema:
   input: '{ anyOf: [{ anyOf: [{ type: "string" }, { type: "number" }] }, { type: "boolean" }] }'
   output: '{ anyOf: [{ anyOf: [{ type: "string" }, { type: "number" }] }, { type: "boolean" }] }'

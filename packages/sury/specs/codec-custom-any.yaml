@@ -3,7 +3,7 @@ ts:
   schema: "S.string.with(S.to, S.any, { decode: (value) => value.length, encode: (value) => String(value) })"
   input: string
   output: any
-  instantiations: 5441
+  instantiations: 4628
 jsonSchema:
   input: '{ type: "string" }'
   output: Expected JSON, received unknown

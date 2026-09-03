@@ -3,7 +3,7 @@ ts:
   schema: S.uint8Array.with(S.to, S.optional(S.base64))
   input: Uint8Array<ArrayBufferLike>
   output: string | undefined
-  instantiations: 5566
+  instantiations: 4753
 jsonSchema:
   input: Expected JSON, received Uint8Array
   output: Expected JSON, received base64 | undefined

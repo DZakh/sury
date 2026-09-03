@@ -3,7 +3,7 @@ ts:
   schema: S.union([S.bigint, S.number, null]).with(S.to, S.union([S.bigint, S.number, undefined]))
   input: number | bigint | null
   output: number | bigint | undefined
-  instantiations: 6612
+  instantiations: 5799
 jsonSchema:
   input: Expected JSON, received bigint | number | null
   output: Expected JSON, received bigint | number | undefined

@@ -1519,7 +1519,7 @@ const shortStringSchema = S.string.with(S.refine, (value) => value.length <= 255
 
 #### Custom error path
 
-When refining an object schema, you can use the `path` option to attach the error to a specific field:
+When refining an object schema, you can use the `path` option to attach the error to a specific field. It is the same array `error.path` carries: strings for keys and numbers for array indices, so `["items", 0]` reports `Failed at items[0]`:
 
 ```ts
 const passwordFormSchema = S.schema({

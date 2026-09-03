@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({id: S.string.with(S.protobufField, {number: 1, type: "uint32"}), name: S.string.with(S.protobufField, {number: 2, type: "string"})}).with(S.to, S.protobuf)'
   input: "{ id: string; name: string; }"
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 6423
+  instantiations: 5577
 jsonSchema:
   input: '{ type: "object", properties: { id: { type: "string" }, name: { type: "string" } }, required: ["id", "name"] }'
   output: Expected JSON, received Uint8Array

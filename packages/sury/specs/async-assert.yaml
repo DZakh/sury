@@ -3,7 +3,7 @@ ts:
   schema: 'S.string.with(S.to, S.string, { decode: { async: async (value) => { if (value === "bad") { throw new Error("rejected") } return value } }, encode: "auto" })'
   input: string
   output: string
-  instantiations: 5397
+  instantiations: 4584
 jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "string" }'

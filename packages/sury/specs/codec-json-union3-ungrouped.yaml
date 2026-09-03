@@ -3,7 +3,7 @@ ts:
   schema: S.json.with(S.to, S.union(["123", S.bigint, S.string]))
   input: JSON
   output: string | bigint
-  instantiations: 6454
+  instantiations: 5641
 jsonSchema:
   input: '{ anyOf: [{ type: "string", const: "123" }, { type: "string" }] }'
   fromInputType: string

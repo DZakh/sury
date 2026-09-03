@@ -3,7 +3,7 @@ ts:
   schema: "S.jsonStringWithSpace(2).with(S.to, S.schema({ foo: [1, S.number] }))"
   input: string
   output: "{ foo: [1, number]; }"
-  instantiations: 6765
+  instantiations: 5952
 jsonSchema:
   input: '{ type: "string", contentMediaType: "application/json" }'
   output: '{ type: "object", properties: { foo: { type: "array", minItems: 2, maxItems: 2, items: [{ type: "number", const: 1 }, { type: "number" }] } }, required: ["foo"] }'

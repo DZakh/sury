@@ -3,7 +3,7 @@ ts:
   schema: S.isoDateTime.with(S.to, S.date)
   input: string
   output: Date
-  instantiations: 5365
+  instantiations: 4552
 jsonSchema:
   input: '{ type: "string", format: "date-time" }'
   output: Expected JSON, received Date

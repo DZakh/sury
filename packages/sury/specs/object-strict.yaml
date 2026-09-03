@@ -5,7 +5,7 @@ ts:
     - "S.strict(S.schema({ foo: S.string }))"
   input: "{ foo: string; }"
   output: "{ foo: string; }"
-  instantiations: 1548
+  instantiations: 1546
 jsonSchema:
   input: '{ type: "object", properties: { foo: { type: "string" } }, additionalProperties: false, required: ["foo"] }'
   output: '{ type: "object", properties: { foo: { type: "string" } }, additionalProperties: false, required: ["foo"] }'

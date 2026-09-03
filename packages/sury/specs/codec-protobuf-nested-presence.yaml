@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ child: S.schema({ n: S.int32.with(S.protobufField, 1) }).with(S.protobufField, 1), maybe: S.optional(S.schema({ id: S.string.with(S.protobufField, {number: 1, type: "uint32"}) })).with(S.protobufField, 2) }).with(S.to, S.protobuf)'
   input: "{ child: { n: number; }; maybe?: { id: string; } | undefined; }"
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 11146
+  instantiations: 10195
 jsonSchema:
   input: '{ type: "object", properties: { child: { type: "object", properties: { n: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["n"] }, maybe: { type: "object", properties: { id: { type: "string" } }, required: ["id"] } }, required: ["child"] }'
   output: Expected JSON, received Uint8Array

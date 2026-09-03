@@ -3,7 +3,7 @@ ts:
   schema: 'S.protobuf.with(S.to, S.schema({ n: S.optional(S.int32, 5).with(S.protobufField, 1), flag: S.optional(S.union([0, 1]), 1).with(S.protobufField, {number: 2, type: "enum"}), addr: S.optional(S.schema({ street: S.string.with(S.protobufField, 1) }), { street: "dflt" }).with(S.protobufField, 3) }))'
   input: Uint8Array<ArrayBufferLike>
   output: "{ n: number; flag: 0 | 1; addr: { street: string; }; }"
-  instantiations: 10666
+  instantiations: 9715
 jsonSchema:
   input: Expected JSON, received Uint8Array
   output: '{ type: "object", properties: { n: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, flag: { anyOf: [{ type: "number", const: 0 }, { type: "number", const: 1 }, { enum: [0, 1] }] }, addr: { type: "object", properties: { street: { type: "string" } }, required: ["street"] } }, required: ["n", "flag", "addr"] }'

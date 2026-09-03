@@ -3,7 +3,7 @@ ts:
   schema: S.base64.with(S.trim).with(S.to, S.uint8Array)
   input: string
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 5641
+  instantiations: 4826
 jsonSchema:
   input: '{ type: "string", contentEncoding: "base64" }'
   output: Expected JSON, received Uint8Array

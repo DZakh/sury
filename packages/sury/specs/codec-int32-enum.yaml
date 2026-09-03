@@ -3,7 +3,7 @@ ts:
   schema: S.int32.with(S.to, S.union([0, 1]))
   input: number
   output: 0 | 1
-  instantiations: 5853
+  instantiations: 5040
 jsonSchema:
   input: '{ type: "integer", minimum: -2147483648, maximum: 2147483647 }'
   output: Cannot read properties of undefined (reading 'v')

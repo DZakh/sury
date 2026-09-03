@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ i64: S.bigint.with(S.protobufField, {number: 1, type: "sint64"}), f: S.number.with(S.protobufField, {number: 2, type: "float"}), fx: S.integer.with(S.protobufField, {number: 3, type: "fixed32"}), b: S.uint8Array.with(S.protobufField, 4), on: S.boolean.with(S.protobufField, 5) }).with(S.to, S.protobuf)'
   input: "{ i64: bigint; f: number; fx: number; b: Uint8Array<ArrayBufferLike>; on: boolean; }"
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 8179
+  instantiations: 7230
 jsonSchema:
   input: "Failed at i64: Expected JSON, received bigint"
   output: Expected JSON, received Uint8Array

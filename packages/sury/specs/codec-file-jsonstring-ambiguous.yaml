@@ -3,7 +3,7 @@ ts:
   schema: S.file.with(S.to, S.jsonString)
   input: File
   output: string
-  instantiations: 5377
+  instantiations: 4564
 jsonSchema:
   input: Expected JSON, received File
   output: '{ type: "string", contentMediaType: "application/json" }'

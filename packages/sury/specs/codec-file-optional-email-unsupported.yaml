@@ -3,7 +3,7 @@ ts:
   schema: S.file.with(S.to, S.optional(S.email))
   input: File
   output: string | undefined
-  instantiations: 5578
+  instantiations: 4765
 jsonSchema:
   input: Expected JSON, received File
   output: Expected JSON, received email | undefined

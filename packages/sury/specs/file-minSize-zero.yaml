@@ -3,7 +3,7 @@ ts:
   schema: S.file.with(S.minSize, 0)
   input: File
   output: File
-  instantiations: 600
+  instantiations: 596
 jsonSchema:
   input: Expected JSON, received File
   output: Expected JSON, received File

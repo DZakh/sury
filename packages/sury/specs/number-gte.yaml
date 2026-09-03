@@ -3,7 +3,7 @@ ts:
   schema: S.number.with(S.gte, 5)
   input: number
   output: number
-  instantiations: 583
+  instantiations: 579
 jsonSchema:
   input: '{ type: "number", minimum: 5 }'
   output: '{ type: "number", minimum: 5 }'

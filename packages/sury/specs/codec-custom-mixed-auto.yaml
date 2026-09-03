@@ -3,7 +3,7 @@ ts:
   schema: 'S.string.with(S.to, S.string, { decode: (value) => value.trim(), encode: "auto" })'
   input: string
   output: string
-  instantiations: 5377
+  instantiations: 4564
 jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "string" }'
