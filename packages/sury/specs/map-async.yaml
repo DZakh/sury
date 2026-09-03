@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.map(S.string.with(S.to, S.string, { decode: { async: async (value) => { if (value === "bad") { throw new Error("rejected key") } return value } }, encode: "auto" }), S.string.with(S.to, S.string, { decode: { async: async (value) => { if (value === "bad") { throw new Error("rejected") } return value } }, encode: "auto" }))'
+  input: Map<string, string>
+  output: Map<string, string>
+  instantiations: 5783
+jsonSchema:
+  input: Expected JSON, received Map<string, string>
+  output: Expected JSON, received Map<string, string>
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    isAsync: true
+    expression: i=>{i instanceof e[8]||e[9](i);let v5=[];for(let v0 of i){try{let v2=v0[0];typeof v2==="string"||e[7](v2);let v1;try{v1=e[0](v2).catch(x=>e[1](x))}catch(x){e[1](x)}let v6=v1.then(v1=>{typeof v1==="string"||e[2](v1);return v1});let v4=v0[1];typeof v4==="string"||e[6](v4);let v3;try{v3=e[3](v4).catch(x=>e[4](x))}catch(x){e[4](x)}let v7=v3.then(v3=>{typeof v3==="string"||e[5](v3);return v3});v5.push(Promise.all([v6,v7]).catch(v8=>{v8.path=[v0[0],...v8.path];throw v8}));}catch(v8){v8.path=[v0[0],...v8.path];throw v8}}return Promise.all(v5).then(v9=>new Map(v9))}
+    examples:
+      valid:
+        input: new Map([["k", "a"]])
+        output: new Map([["k", "a"]])
+      rejected-value-is-located-by-its-key:
+        input: new Map([["k", "bad"]])
+        error: "Failed at k: rejected"
+      rejected-key:
+        input: new Map([["bad", "a"]])
+        error: "Failed at bad: rejected key"
+  decode:
+    isAsync: true
+    expression: i=>{let v3=[];for(let v0 of i){try{let v1;try{v1=e[0](v0[0]).catch(x=>e[1](x))}catch(x){e[1](x)}let v4=v1.then(v1=>{typeof v1==="string"||e[2](v1);return v1});let v2;try{v2=e[3](v0[1]).catch(x=>e[4](x))}catch(x){e[4](x)}let v5=v2.then(v2=>{typeof v2==="string"||e[5](v2);return v2});v3.push(Promise.all([v4,v5]).catch(v6=>{v6.path=[v0[0],...v6.path];throw v6}));}catch(v6){v6.path=[v0[0],...v6.path];throw v6}}return Promise.all(v3).then(v7=>new Map(v7))}
+    examples:
+      valid:
+        input: new Map([["k", "a"]])
+        output: new Map([["k", "a"]])
+  encode: identity

@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.recursive("Node", (nodeSchema) => S.schema({ value: S.string, children: S.set(nodeSchema) }))'
+  input: unknown
+  output: unknown
+  instantiations: 8729
+jsonSchema:
+  input: "Failed at children: Expected JSON, received Set<Node>"
+  output: "Failed at children: Expected JSON, received Set<Node>"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{let v0;v0=e[0](i);return v0}
+    examples:
+      tree:
+        input: '{ value: "root", children: new Set([{ value: "leaf", children: new Set([]) }]) }'
+        output: '{ value: "root", children: new Set([{ value: "leaf", children: new Set([]) }]) }'
+      wrong-type-at-depth:
+        input: '{ value: "root", children: new Set([{ value: 1, children: new Set([]) }]) }'
+        error: "Failed at children[0].value: Expected string, received 1"
+  decode: eq-to-parse
+  encode: eq-to-parse

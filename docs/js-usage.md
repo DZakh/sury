@@ -37,6 +37,8 @@
   - [Discriminated unions](#discriminated-unions)
   - [Converting to / from a union](#converting-to-from-a-union)
 - [Records](#records)
+- [Sets](#sets)
+- [Maps](#maps)
 - [Date](#date)
 - [ISO DateTime](#iso-datetime)
 - [Instance](#instance)
@@ -1023,6 +1025,79 @@ type NumberCache = S.Infer<typeof numberCacheSchema>;
 // => { [k: string]: number }
 ```
 
+## Sets
+
+`S.set(itemSchema)` validates a `Set` and every item in it:
+
+```ts
+const tagsSchema = S.set(S.string);
+
+type Tags = S.Infer<typeof tagsSchema>; // Set<string>
+
+S.parser(tagsSchema)(new Set(["a", "b"])); // Set { "a", "b" }
+S.parser(tagsSchema)(new Set(["a", 2])); // throws S.Error: Failed at [1]: Expected string, received 2
+S.parser(tagsSchema)(["a"]); // throws S.Error: Expected Set<string>, received ["a"]
+```
+
+A failing item is located by its position, which is its insertion order.
+
+The number of items is bounded with `S.minSize`, `S.maxSize` and `S.size`:
+
+```ts
+S.set(S.string).with(S.minSize, 1); // rejects an empty Set
+```
+
+A `Set` is not JSON, so the wire form is an array — `S.to` decodes one into a
+`Set`, and the same schema reversed encodes it back:
+
+```ts
+const schema = S.array(S.string).with(S.to, S.set(S.string));
+
+S.parser(schema)(["a", "a", "b"]); // Set { "a", "b" }
+S.encoder(schema)(new Set(["a", "b"])); // ["a", "b"]
+```
+
+Items are converted along the way, so a codec on the item works in both
+directions:
+
+```ts
+const schema = S.array(S.isoDateTime.with(S.to, S.date)).with(S.to, S.set(S.date));
+
+S.parser(schema)(["2020-01-01T00:00:00.000Z"]); // Set { Date }
+S.encoder(schema)(new Set([new Date("2020-01-01T00:00:00.000Z")])); // ["2020-01-01T00:00:00.000Z"]
+```
+
+## Maps
+
+`S.map(keySchema, valueSchema)` validates a `Map`, both keys and values:
+
+```ts
+const scoresSchema = S.map(S.string, S.number);
+
+type Scores = S.Infer<typeof scoresSchema>; // Map<string, number>
+
+S.parser(scoresSchema)(new Map([["a", 1]])); // Map { "a" => 1 }
+S.parser(scoresSchema)(new Map([["a", "1"]])); // throws S.Error: Failed at a: Expected number, received "1"
+```
+
+A failing entry is located by its key when the key schema is a string or a
+number (a key that fails that check is reported as it is); any other key (an
+object, a `Date`, a union) locates it by position instead, as a `Set` item is,
+and so does an entry converted from an array. The number of entries is bounded
+with `S.minSize`, `S.maxSize` and `S.size`, as a `Set`'s is.
+
+Its wire form is an array of `[key, value]` entries:
+
+```ts
+const schema = S.array(S.tuple([S.string, S.number])).with(
+  S.to,
+  S.map(S.string, S.number)
+);
+
+S.parser(schema)([["a", 1]]); // Map { "a" => 1 }
+S.encoder(schema)(new Map([["a", 1]])); // [["a", 1]]
+```
+
 ## Date
 
 `S.date` validates that the input is a `Date` instance and rejects Invalid Date.
@@ -1291,6 +1366,9 @@ S.parser(numberSetSchema)(new Set([1, 2, 3])); // passes
 S.parser(numberSetSchema)(new Set([1, 2, "3"])); // throws S.Error: At item 3 - Expected number, received "3"
 S.parser(numberSetSchema)([1, 2, 3]); // throws S.Error: Expected Set<number>, received [1, 2, 3]
 ```
+
+> A `Set` is only the example here — [`S.set`](#sets) is built in, and validates
+> items without a parser call per item.
 
 ## Recursive schemas
 

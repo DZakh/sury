@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.array(S.tuple([S.string, S.number, S.boolean])).with(S.to, S.map(S.string, S.number))
+  input: "[string, number, boolean][]"
+  output: Map<string, number>
+  instantiations: 7337
+jsonSchema:
+  input: '{ items: { type: "array", minItems: 3, maxItems: 3, items: [{ type: "string" }, { type: "number" }, { type: "boolean" }] }, type: "array" }'
+  output: Expected JSON, received Map<string, number>
+  draft-2020-12:
+    input: '{ items: { type: "array", minItems: 3, maxItems: 3, prefixItems: [{ type: "string" }, { type: "number" }, { type: "boolean" }] }, type: "array", $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ items: { type: "array", minItems: 3, maxItems: 3, items: { anyOf: [{ type: "string" }, { type: "number" }, { type: "boolean" }] } }, type: "array" }'
+    fromInputType: "[string | number | boolean, string | number | boolean, string | number | boolean][]"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "SuryError: Can't decode [string, number, boolean][] to Map<string, number>. Use S.to to define a custom decoder"
+  decode: eq-to-parse
+  encode:
+    creationError: "SuryError: Failed at []: Can't decode [string, number] to [string, number, boolean]. Use S.to to define a custom decoder"

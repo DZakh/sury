@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.array(S.tuple([S.string, S.number])).with(S.to, S.map(S.string, S.number))
+  input: "[string, number][]"
+  output: Map<string, number>
+  instantiations: 6911
+jsonSchema:
+  input: '{ items: { type: "array", minItems: 2, maxItems: 2, items: [{ type: "string" }, { type: "number" }] }, type: "array" }'
+  output: Expected JSON, received Map<string, number>
+  draft-2020-12:
+    input: '{ items: { type: "array", minItems: 2, maxItems: 2, prefixItems: [{ type: "string" }, { type: "number" }] }, type: "array", $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ items: { type: "array", minItems: 2, maxItems: 2, items: { anyOf: [{ type: "string" }, { type: "number" }] } }, type: "array" }'
+    fromInputType: "[string | number, string | number][]"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{Array.isArray(i)||e[3](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];Array.isArray(v1)&&v1.length===2||e[2](v1);let v2=v1["0"],v3=v1["1"];typeof v2==="string"||e[0](v2);typeof v3==="number"&&v3===v3||e[1](v3);}catch(v4){v4.path=[v0,...v4.path];throw v4}}return new Map(i)}
+    examples:
+      valid:
+        input: '[["a", 1], ["b", 2]]'
+        output: new Map([["a", 1], ["b", 2]])
+      empty:
+        input: "[]"
+        output: new Map([])
+      later-entry-wins:
+        input: '[["a", 1], ["a", 2]]'
+        output: new Map([["a", 2]])
+      invalid-value:
+        input: '[["a", "1"]]'
+        error: 'Failed at [0][1]: Expected number, received "1"'
+      not-an-array:
+        input: new Map([["a", 1]])
+        error: Expected [string, number][], received Map
+  decode:
+    expression: i=>{return new Map(i)}
+    examples:
+      valid:
+        input: '[["a", 1]]'
+        output: new Map([["a", 1]])
+  encode:
+    expression: i=>{let v1=Array.from(i);return v1}
+    examples:
+      valid:
+        input: new Map([["a", 1]])
+        output: '[["a", 1]]'

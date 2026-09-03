@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.array(S.tuple([S.string, S.number])).with(S.to, S.map(S.isoDateTime.with(S.to, S.date), S.number))
+  input: "[string, number][]"
+  output: Map<Date, number>
+  instantiations: 7327
+jsonSchema:
+  input: '{ items: { type: "array", minItems: 2, maxItems: 2, items: [{ type: "string" }, { type: "number" }] }, type: "array" }'
+  output: Expected JSON, received Map<Date, number>
+  draft-2020-12:
+    input: '{ items: { type: "array", minItems: 2, maxItems: 2, prefixItems: [{ type: "string" }, { type: "number" }] }, type: "array", $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ items: { type: "array", minItems: 2, maxItems: 2, items: { anyOf: [{ type: "string" }, { type: "number" }] } }, type: "array" }'
+    fromInputType: "[string | number, string | number][]"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{Array.isArray(i)||e[6](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];Array.isArray(v1)&&v1.length===2||e[2](v1);let v2=v1["0"],v3=v1["1"];typeof v2==="string"||e[0](v2);typeof v3==="number"&&v3===v3||e[1](v3);}catch(v4){v4.path=[v0,...v4.path];throw v4}}let v7=new Map;let v6=0;for(let v5 of i){try{let v9=v5[0];e[4].test(v9)||e[5](v9);let v8=new Date(v5[0]);!Number.isNaN(v8.getTime())||e[3](v8);v7.set(v8,v5[1]);v6++;}catch(v10){v10.path=[v6,...v10.path];throw v10}}return v7}
+    examples:
+      valid:
+        input: '[["2020-01-01T00:00:00.000Z", 1]]'
+        output: new Map([[new Date("2020-01-01T00:00:00.000Z"), 1]])
+      invalid-key-is-located-by-position:
+        input: '[["2020-01-01T00:00:00.000Z", 1], ["nope", 2]]'
+        error: "Failed at [1]: Expected UTC date-time"
+  decode:
+    expression: i=>{let v4=new Map;let v3=0;for(let v2 of i){try{let v6=v2[0];e[1].test(v6)||e[2](v6);let v5=new Date(v2[0]);!Number.isNaN(v5.getTime())||e[0](v5);v4.set(v5,v2[1]);v3++;}catch(v7){v7.path=[v3,...v7.path];throw v7}}return v4}
+    examples:
+      valid:
+        input: '[["2020-01-01T00:00:00.000Z", 1]]'
+        output: new Map([[new Date("2020-01-01T00:00:00.000Z"), 1]])
+  encode:
+    expression: i=>{let v2=new Map;let v1=0;for(let v0 of i){try{let v3=v0[0].toISOString();e[0].test(v3)||e[1](v3);v2.set(v3,v0[1]);v1++;}catch(v4){v4.path=[v1,...v4.path];throw v4}}let v5=Array.from(v2);return v5}
+    examples:
+      valid:
+        input: new Map([[new Date("2020-01-01T00:00:00.000Z"), 1]])
+        output: '[["2020-01-01T00:00:00.000Z", 1]]'

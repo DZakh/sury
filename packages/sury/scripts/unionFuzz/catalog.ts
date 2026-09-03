@@ -115,6 +115,7 @@ export const FUZZ_EXPORTS: Record<string, FuzzExport> = {
   lte: modify(["number", "bigint"], (S, schema) =>
     schema.with(S.lte, schema.type === "bigint" ? 100n : 100),
   ),
+  map: wrap((S, inner) => S.map(S.string, inner)),
   maxLength: modify(["string", "array"], (S, schema) =>
     schema.with(S.maxLength, 32),
   ),
@@ -155,6 +156,7 @@ export const FUZZ_EXPORTS: Record<string, FuzzExport> = {
   safe: skip("operation, not a schema factory"),
   safeAsync: skip("operation, not a schema factory"),
   schema: build(),
+  set: wrap((S, inner) => S.set(inner)),
   shape: skip("output reshape; not a union-member combinator"),
   size: modify(["instance"], (S, schema) => schema.with(S.size, 1)),
   strict: modify(["object"], (S, schema) => S.strict(schema)),

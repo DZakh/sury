@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({ tags: S.set(S.string) })"
+  input: "{ tags: Set<string>; }"
+  output: "{ tags: Set<string>; }"
+  instantiations: 1368
+jsonSchema:
+  input: "Failed at tags: Expected JSON, received Set<string>"
+  output: "Failed at tags: Expected JSON, received Set<string>"
+vs:
+  zod: "z.object({ tags: z.set(z.string()) })"
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["tags"];v0 instanceof e[1]||e[2](v0);let v2=0;for(let v1 of v0){try{typeof v1==="string"||e[0](v1);v2++;}catch(v3){v3.path=["tags",v2,...v3.path];throw v3}}return {tags:v0}}
+    examples:
+      valid:
+        input: '{ tags: new Set(["a"]) }'
+        output: '{ tags: new Set(["a"]) }'
+      invalid-item-is-located-in-the-set:
+        input: '{ tags: new Set(["a", 2]) }'
+        error: "Failed at tags[1]: Expected string, received 2"
+  decode:
+    expression: i=>{let v0=i["tags"];return i}
+    examples:
+      valid:
+        input: '{ tags: new Set(["a"]) }'
+        output: '{ tags: new Set(["a"]) }'
+  encode:
+    expression: i=>{let v0=i["tags"];return i}
+    examples:
+      valid:
+        input: '{ tags: new Set(["a"]) }'
+        output: '{ tags: new Set(["a"]) }'

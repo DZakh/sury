@@ -174,13 +174,12 @@ S.reverse(S.schema({
 `S.blob`/`S.file` and `S.minSize`/`S.maxSize`/`S.size` landed as the first step
 of a form-data story. What they were built to make cheap, roughly in order:
 
-- **Widen `S.minSize` to the other containers.** The runtime already accepts any
-  instance whose prototype carries a `.size`, so `S.instance(Set)` and
-  `S.instance(Map)` work today (`specs/set-minSize.yaml` is the coverage that
-  proves it, and exists because a `Set` is the only `.size` carrier the spec
-  harness can serialize). What's missing is schemas of their own: `S.set(item)`
-  and `S.map(key, value)` would make the bounds discoverable rather than
-  reachable only through `S.instance`.
+- ~~**Widen `S.minSize` to the other containers.**~~ Done: `S.set(item)` and
+  `S.map(key, value)` are instance schemas of their own, so the bounds are
+  discoverable rather than reachable only through `S.instance`. What is still
+  open is a JSON Schema emit for either — both are unrepresentable today, where
+  a `Set` could plausibly emit `{ type: "array", uniqueItems: true }` for its
+  wire form, and a `Map` `{ type: "array", items: { … } }` for its entries.
 - **Objects, under `minProperties`/`maxProperties`.** The one container whose
   size is neither `.length` nor `.size`: the check would be
   `Object.keys(i).length`, which allocates — worth a spec snapshot so the cost

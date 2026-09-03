@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.array(S.string.with(S.to, S.string, { decode: { async: async (value) => { if (value === "bad") { throw new Error("rejected") } return value } }, encode: "auto" }))'
+  input: string[]
+  output: string[]
+  instantiations: 5620
+jsonSchema:
+  input: '{ items: { type: "string" }, type: "array" }'
+  output: '{ items: { type: "string" }, type: "array" }'
+vs:
+  zod: z.array(z.string().refine(async (value) => value !== "bad"))
+operations:
+  parse:
+    isAsync: true
+    expression: i=>{Array.isArray(i)||e[4](i);let v4=new Array(i.length);for(let v0=0;v0<i.length;++v0){try{let v2=i[v0];typeof v2==="string"||e[3](v2);let v1;try{v1=e[0](v2).catch(x=>e[1](x))}catch(x){e[1](x)}v4[v0]=v1.then(v1=>{typeof v1==="string"||e[2](v1);return v1}).catch(v3=>{v3.path=[v0,...v3.path];throw v3})}catch(v3){v3.path=[v0,...v3.path];throw v3}}return Promise.all(v4)}
+    examples:
+      valid:
+        input: '["a", "b"]'
+        output: '["a", "b"]'
+      rejected-item-is-located:
+        input: '["a", "bad"]'
+        error: "Failed at [1]: rejected"
+  decode:
+    isAsync: true
+    expression: i=>{let v3=new Array(i.length);for(let v0=0;v0<i.length;++v0){try{let v1;try{v1=e[0](i[v0]).catch(x=>e[1](x))}catch(x){e[1](x)}v3[v0]=v1.then(v1=>{typeof v1==="string"||e[2](v1);return v1}).catch(v2=>{v2.path=[v0,...v2.path];throw v2})}catch(v2){v2.path=[v0,...v2.path];throw v2}}return Promise.all(v3)}
+    examples:
+      valid:
+        input: '["a"]'
+        output: '["a"]'
+  encode: identity

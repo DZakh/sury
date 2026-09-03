@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.map(S.string, S.number)
+  input: Map<string, number>
+  output: Map<string, number>
+  instantiations: 557
+jsonSchema:
+  input: Expected JSON, received Map<string, number>
+  output: Expected JSON, received Map<string, number>
+vs:
+  zod: z.map(z.string(), z.number())
+operations:
+  parse:
+    expression: i=>{i instanceof e[2]||e[3](i);for(let v0 of i){try{let v2=v0[0];typeof v2==="string"||e[1](v2);let v1=v0[1];typeof v1==="number"&&v1===v1||e[0](v1);}catch(v3){v3.path=[v0[0],...v3.path];throw v3}}return i}
+    examples:
+      valid:
+        input: new Map([["a", 1]])
+        output: new Map([["a", 1]])
+      empty:
+        input: new Map([])
+        output: new Map([])
+      invalid-value:
+        input: new Map([["a", "1"]])
+        error: 'Failed at a: Expected number, received "1"'
+      invalid-key:
+        input: new Map([[1, 1]])
+        error: "Failed at [1]: Expected string, received 1"
+      set-is-not-a-map:
+        input: new Set(["a"])
+        error: Expected Map<string, number>, received Set
+      entries-array-is-not-a-map:
+        input: '[["a", 1]]'
+        error: Expected Map<string, number>, received [Array(2)]
+      null-is-not-a-map:
+        input: "null"
+        error: Expected Map<string, number>, received null
+  decode: identity
+  encode: identity

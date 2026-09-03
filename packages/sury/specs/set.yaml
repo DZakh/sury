@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.set(S.string)
+  input: Set<string>
+  output: Set<string>
+  instantiations: 419
+jsonSchema:
+  input: Expected JSON, received Set<string>
+  output: Expected JSON, received Set<string>
+vs:
+  zod: z.set(z.string())
+operations:
+  parse:
+    expression: i=>{i instanceof e[1]||e[2](i);let v1=0;for(let v0 of i){try{typeof v0==="string"||e[0](v0);v1++;}catch(v2){v2.path=[v1,...v2.path];throw v2}}return i}
+    examples:
+      valid:
+        input: new Set(["foo"])
+        output: new Set(["foo"])
+      empty:
+        input: new Set([])
+        output: new Set([])
+      invalid-item:
+        input: new Set(["foo", 1])
+        error: "Failed at [1]: Expected string, received 1"
+      array-is-not-a-set:
+        input: '["foo"]'
+        error: Expected Set<string>, received ["foo"]
+      map-is-not-a-set:
+        input: new Map([["foo", "bar"]])
+        error: Expected Set<string>, received Map
+      null-is-not-a-set:
+        input: "null"
+        error: Expected Set<string>, received null
+  decode: identity
+  encode: identity
