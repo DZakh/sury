@@ -1021,7 +1021,7 @@ export function refine<TInput, TOutput>(
   refineCheck: (value: TOutput) => boolean,
   refineOptions?: {
     error?: string;
-    path?: string[];
+    path?: Path;
   }
 ): Schema<TInput, TOutput>;
 
