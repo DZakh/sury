@@ -71,14 +71,11 @@ export type Schema<TInput = unknown, TOutput = TInput> = {
     // the same reason as the Codecs slots (see the Coder note below).
     codecs?: Coder<TOutput, TTargetInput> | Codecs<TOutput, TTargetInput> | "pack" | "unpack"
   ): Schema<TInput, TTargetOutput>;
-  // A modifier whose callback decides the output type — `S.shape`'s shaper.
-  // The callback has to sit in parameter position for the arrow to be
-  // contextually typed with `TOutput`; through the rest-tuple overload below
-  // it would be inferred before the arrow is checked and its parameter would
-  // land as `unknown`. The required third parameter is the discriminator that
-  // keeps `S.optional`/`S.nullable` out: their lazy default `() => TOr` would
-  // otherwise match `callback` and lose the absent case, so both declare a
-  // trailing `_?: never` that this `unknown` cannot satisfy.
+  // The callback sits in parameter position so the arrow is contextually
+  // typed with `TOutput`; through the rest-tuple overload it would be
+  // inferred before the arrow is checked. The required third parameter keeps
+  // `S.optional`/`S.nullable` out — their lazy default `() => TOr` would match
+  // `callback` and lose the absent case — via the `_?: never` both declare.
   with<TShape>(
     fn: (
       schema: Schema<unknown, unknown>,
@@ -87,29 +84,22 @@ export type Schema<TInput = unknown, TOutput = TInput> = {
     ) => Schema<unknown, unknown>,
     callback: (value: TOutput) => TShape
   ): Schema<TInput, TShape>;
-  // The two common arities get their own overload; routing either through the
-  // rest-tuple one below measured ~2 500 instantiations more per call, which
-  // is most of a simple schema's whole type cost. Every overload here is paid
-  // by each `.with` call that reaches past it, so no further arity is spelled
-  // out — two or more arguments share the rest-tuple overload.
+  // Zero and one argument have their own overloads: the rest tuple below
+  // costs a simple schema most of its type budget per call (CLAUDE.md).
   with<TNextInput, TNextOutput>(
     fn: (schema: Schema<TInput, TOutput>) => SchemaLike<TNextInput, TNextOutput>
   ): Schema<TNextInput, TNextOutput>;
-  // The constraint keeps a literal argument literal — `.with(S.brand, "myId")`
-  // needs the string literal for nominal typing, `.with(S.length, 2)` the
-  // number literal for its tuple-typed result — and `{} | null | undefined`
-  // is every value, so nothing falls through on it. The structured return is
-  // load-bearing: with a bare result type parameter the constraint stops the
+  // The constraint is every value, spelled so a literal stays literal —
+  // `.with(S.brand, "myId")`, `.with(S.length, 2)`. With a bare result type
+  // parameter instead of the structured return, the constraint stops this
   // overload matching a generic modifier at all.
   with<TNextInput, TNextOutput, TArg1 extends {} | null | undefined>(
     fn: (schema: Schema<TInput, TOutput>, arg1: TArg1) => SchemaLike<TNextInput, TNextOutput>,
     arg1: TArg1
   ): Schema<TNextInput, TNextOutput>;
-  // `s.with(fn, ...args)` is `fn(s, ...args)`, typed as such. A rest tuple
-  // rather than `(fn, arg1, arg2)`: the tuple is inferred from `fn`'s own
-  // parameter list first, which is what keeps a callback argument
-  // contextually typed — `.with(S.refine, (v) => …, { error })` gets `v` from
-  // `refine`'s signature, where a per-position type parameter left it `any`.
+  // A rest tuple, not `(fn, arg1, arg2)`: it is inferred from `fn`'s own
+  // parameter list first, which is what keeps `v` typed in
+  // `.with(S.refine, (v) => …, { error })`.
   with<TNextInput, TNextOutput, TArgs extends readonly unknown[]>(
     fn: (schema: Schema<TInput, TOutput>, ...args: TArgs) => SchemaLike<TNextInput, TNextOutput>,
     ...args: TArgs
@@ -855,7 +845,7 @@ export function optional<
 >(
   schema: SchemaLike<TInput, TOutput> | TDef,
   or?: (() => TOr) | TOr,
-  // Keeps the lazy form off `with`'s callback overload — see the note there.
+  // Keeps the lazy form off `with`'s callback overload.
   _?: never
 ): Schema<
   TInput | undefined,
@@ -870,7 +860,7 @@ export function nullable<
 >(
   schema: SchemaLike<TInput, TOutput> | TDef,
   or?: (() => TOr) | TOr,
-  // Keeps the lazy form off `with`'s callback overload — see the note there.
+  // Keeps the lazy form off `with`'s callback overload.
   _?: never
 ): Schema<TInput | null, TOr extends null ? TOutput | null : TOutput>;
 
