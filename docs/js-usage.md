@@ -1443,7 +1443,7 @@ Every operation that looks at one side of a schema says which side in its name. 
 Conversion targets are schemas, not dedicated functions: `S.json`, `S.jsonString`, `S.unknown`, `S.date`, and `S.uint8Array` are ordinary schemas usable at any position in a chain.
 
 - **`S.decoder(from, …intermediate, to)`** — compile a forward pipeline from one schema to another.
-- **`S.encoder(from, …intermediate, to)`** — compile the reverse pipeline.
+- **`S.encoder(from, …intermediate, to)`** — the same pipeline, starting from the reverse of `from`. Only the first schema is reversed; the rest run forward exactly as in `S.decoder`, so `S.encoder(a, b)` is `S.decoder(S.reverse(a), b)`.
 
 Each call fuses the whole chain into a single function generated via `new Function`.
 
@@ -1570,7 +1570,7 @@ A branded schema used as a *field* keeps its brand in what the constructor asks 
 
 ### Chaining operations
 
-`S.decoder` and `S.encoder` accept multiple schemas to build a single fused pipeline. The first schema is the input side and the last is the output side; intermediate schemas act as stages.
+`S.decoder` and `S.encoder` accept multiple schemas to build a single fused pipeline. The first schema is the input side and the last is the output side; intermediate schemas act as stages. `S.encoder` reverses only the first schema — it starts from that schema's Output and feeds the rest of the chain forward, so a stage placed after it is written the same way in both directions.
 
 ```ts
 // Decode a JSON string into your domain type in one pass
@@ -1580,6 +1580,10 @@ parseJsonString('{"id":"1","name":"John"}');
 // Encode your domain type to a JSON string in one pass
 const stringifyUser = S.encoder(userSchema, S.jsonString);
 stringifyUser({ id: "1", name: "John" });
+
+// Only the first schema is reversed; later stages run forward, as in S.decoder.
+S.encoder(S.number, S.string.with(S.to, S.number))(1); //? 1
+S.decoder(S.reverse(S.number), S.string.with(S.to, S.number))(1); //? 1 — the same pipeline
 ```
 
 ### **`reverse`**

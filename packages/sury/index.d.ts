@@ -340,13 +340,6 @@ type ExtractLastOutput<TSchemas extends readonly SchemaLike<any, any>[]> =
     ? TSingleOutput
     : never;
 
-type ExtractLastInput<TSchemas extends readonly SchemaLike<any, any>[]> =
-  TSchemas extends readonly [...any[], SchemaLike<infer TLastInput, any>]
-    ? TLastInput
-    : TSchemas extends readonly [SchemaLike<infer TSingleInput, any>]
-    ? TSingleInput
-    : never;
-
 // Match the `~standard` marker instead of the full `Schema<…>` shape for the
 // same instantiation-cost reason as `Output<T>` above.
 // `-readonly` undoes the `readonly` that a `const T` call site (schema/union)
@@ -772,28 +765,28 @@ export function asyncDecoder<
 export function encoder<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>
 ): (data: TOutput) => TInput;
-export function encoder<TInput, TOutput>(
+export function encoder<TOutput, TTarget>(
   from: SchemaLike<unknown, TOutput>,
-  target: SchemaLike<TInput, unknown>
-): (data: TOutput) => TInput;
+  target: SchemaLike<unknown, TTarget>
+): (data: TOutput) => TTarget;
 export function encoder<
   TSchemas extends readonly [SchemaLike<any, any>, ...SchemaLike<any, any>[]]
 >(
   ...schemas: TSchemas
-): (data: ExtractFirstOutput<TSchemas>) => ExtractLastInput<TSchemas>;
+): (data: ExtractFirstOutput<TSchemas>) => ExtractLastOutput<TSchemas>;
 
 export function asyncEncoder<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>
 ): (data: TOutput) => Promise<TInput>;
-export function asyncEncoder<TInput, TOutput>(
+export function asyncEncoder<TOutput, TTarget>(
   from: SchemaLike<unknown, TOutput>,
-  target: SchemaLike<TInput, unknown>
-): (data: TOutput) => Promise<TInput>;
+  target: SchemaLike<unknown, TTarget>
+): (data: TOutput) => Promise<TTarget>;
 export function asyncEncoder<
   TSchemas extends readonly [SchemaLike<any, any>, ...SchemaLike<any, any>[]]
 >(
   ...schemas: TSchemas
-): (data: ExtractFirstOutput<TSchemas>) => Promise<ExtractLastInput<TSchemas>>;
+): (data: ExtractFirstOutput<TSchemas>) => Promise<ExtractLastOutput<TSchemas>>;
 
 export function assertInput<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,

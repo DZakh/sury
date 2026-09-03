@@ -1941,6 +1941,16 @@ test("Compile types", async (t) => {
   t.expect(fn7("hello")).toEqual(`"hello"`);
   t.expect(fn7(undefined)).toEqual("null");
 
+  // Only the first schema is reversed; the target runs forward from its Input.
+  const stringToNumber = S.string.with(S.to, S.number);
+  const fn8 = S.encoder(S.number, stringToNumber);
+  expectTypeOf(fn8).toEqualTypeOf<(input: number) => number>();
+  t.expect(fn8(1)).toEqual(1);
+  t.expect(S.encoder(S.reverse(stringToNumber), stringToNumber)("1")).toEqual(1);
+  const fn9 = S.asyncEncoder(S.number, stringToNumber);
+  expectTypeOf(fn9).toEqualTypeOf<(input: number) => Promise<number>>();
+  t.expect(await fn9(1)).toEqual(1);
+
   // FIXME:
   // const fn8 = S.compile(schema, "Output", "Assert", "Sync", true);
   // expectTypeOf(fn8).toEqualTypeOf<(input: string | undefined) => void>();
