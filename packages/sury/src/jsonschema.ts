@@ -350,12 +350,20 @@ const internalToJSONSchema = (
   // they keep using the base path.
   const tagFlag = tagFlags[schema.type]!;
   const to = schema.to;
-  // A string converted to a string with no document of its own (`S.email` to
+  // A string converted to a string carrying the same content (`S.email` to
   // `S.string`, or back) is the same text checked both ways, so it is the two
   // nodes' own descriptions overlaid. The encode-reverse below can't tell:
   // the identity conversion leaves the reversed node, `.to` and all, as the
-  // parse output, and reversing that hands back the one being reversed.
-  if (to !== U && (tagFlag & 2) && (tagFlags[to.type]! & 2) && to.to === U) {
+  // parse output, and reversing that hands back the one being reversed. A
+  // content boundary (`S.base64` to `S.jsonString`) is a repacking, not the
+  // same text, and keeps the reverse.
+  if (
+    to !== U &&
+    (tagFlag & 2) &&
+    (tagFlags[to.type]! & 2) &&
+    to.to === U &&
+    to.content === schema.content
+  ) {
     return jsonSchemaMerge(
       internalToJSONSchemaBase(to, path, defs, parent, target),
       internalToJSONSchemaBase(schema, path, defs, parent, target)

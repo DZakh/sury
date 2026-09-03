@@ -6,12 +6,11 @@ ts:
   instantiations: 4361
 jsonSchema:
   input: '{ type: "string", contentMediaType: "application/json" }'
-  output: '{ type: "string", contentMediaType: "application/json" }'
+  output: '{ type: "string" }'
   draft-2020-12:
     input: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "string" }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
   openapi-3.0:
     input: '{ type: "string" }'
-    output: '{ type: "string" }'
 vs:
   zod:
     _skip: not-applicable
