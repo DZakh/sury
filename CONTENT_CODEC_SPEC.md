@@ -199,7 +199,7 @@ string; a `Blob` input has no document, and keeps saying so.
 | `S.base64url` | `contentEncoding: "base64url"` | `format: "base64url"` |
 | `S.jsonString.with(S.to, X)` | `contentMediaType: "application/json"`, plus `contentSchema: <X>` in 2020-12 | bare string |
 | `S.string.with(S.to, S.blob)` | `contentMediaType: "application/octet-stream"` | `format: "binary"` |
-| `S.jsonString.with(S.to, S.file, {decode: "unpack", …})` | `contentMediaType: "application/json"` | `format: "binary"` |
+| `S.jsonString.with(S.to, S.file, {decode: "unpack", ...})` | `contentMediaType: "application/json"` | `format: "binary"` |
 | `S.base64.with(S.to, S.file)` | both of the above | `format: "byte"` |
 
 A carrier's own emit fills only what the string hasn't already said about

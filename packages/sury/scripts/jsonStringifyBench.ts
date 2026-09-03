@@ -21,9 +21,8 @@
 import fastJson from "fast-json-stringify";
 import * as S from "../index.mjs";
 
-// A Uint8Array target that opens as a JSON document: `S.encoder` reverses it,
-// so the compiled chain is `schema -> jsonString -> uint8Array("pack")`.
-const jsonBytes = S.uint8Array.with(S.to, S.jsonString, "unpack");
+// The compiled chain is `schema -> jsonString -> uint8Array("pack")`.
+const jsonBytes = S.jsonString.with(S.to, S.uint8Array, "pack");
 
 const ROUNDS = 7;
 const bench = (fn: () => unknown): number => {
