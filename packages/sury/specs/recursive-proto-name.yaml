@@ -3,7 +3,7 @@ ts:
   schema: 'S.recursive("__proto__", (self) => S.schema({ v: S.string, next: S.optional(self) }))'
   input: unknown
   output: unknown
-  instantiations: 9071
+  instantiations: 7709
 jsonSchema:
   input: '{ $ref: "#/$defs/__proto__", $defs: { ["__proto__"]: { type: "object", properties: { v: { type: "string" }, next: { $ref: "#/$defs/__proto__" } }, required: ["v"] } } }'
   fromInputType: "{ v: string; next?: ... | undefined; }"

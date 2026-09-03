@@ -3,7 +3,7 @@ ts:
   schema: 'S.array(S.union([S.schema({kind: "a", v: S.string}), S.unknown])).with(S.to, S.jsonString)'
   input: unknown[]
   output: string
-  instantiations: 7312
+  instantiations: 6498
 jsonSchema:
   input: 'Failed at []: Expected JSON, received { kind: "a"; v: string; } | unknown'
   output: '{ type: "string", contentMediaType: "application/json" }'

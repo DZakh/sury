@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ items: S.array(S.string) }).with(S.refine, () => false, { error: "User error", path: ["items", 0] })'
+  input: "{ items: string[]; }"
+  output: "{ items: string[]; }"
+  instantiations: 1838
+jsonSchema:
+  input: '{ type: "object", properties: { items: { items: { type: "string" }, type: "array" } }, required: ["items"] }'
+  output: '{ type: "object", properties: { items: { items: { type: "string" }, type: "array" } }, required: ["items"] }'
+vs:
+  zod: 'z.object({ items: z.array(z.string()) }).refine(() => false, { message: "User error", path: ["items", 0] })'
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i["items"];Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"||e[0](v2);}catch(v3){v3.path=["items",v1,...v3.path];throw v3}}let v4={items:v0};e[2](v4)||e[3](v4);return v4}
+    examples:
+      always-fails-at-index:
+        input: '{ items: ["a"] }'
+        error: "Failed at items[0]: User error"
+  decode:
+    expression: i=>{let v0=i["items"];e[0](i)||e[1](i);return i}
+    examples:
+      always-fails-at-index:
+        input: '{ items: ["a"] }'
+        error: "Failed at items[0]: User error"
+  encode:
+    expression: i=>{e[0](i)||e[1](i);let v0=i["items"];return i}
+    examples:
+      always-fails-at-index:
+        input: '{ items: ["a"] }'
+        error: "Failed at items[0]: User error"

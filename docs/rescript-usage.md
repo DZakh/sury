@@ -1470,7 +1470,7 @@ S.parseOrThrow(%raw(`[1, 2, 3]`), ~to=intSetSchema) // throws S.Error: Expected 
 
 ### **`refine`**
 
-`(S.t<'value>, 'value => bool, ~error: string=?, ~path: array<string>=?) => S.t<'value>`
+`(S.t<'value>, 'value => bool, ~error: string=?, ~path: S.Path.t=?) => S.t<'value>`
 
 ```rescript
 let positiveNumberSchema = S.int->S.refine(value => value > 0)
@@ -1491,7 +1491,7 @@ let shortStringSchema = S.string->S.refine(
 
 #### Custom error path
 
-When refining an object schema, you can use the `~path` labeled argument to attach the error to a specific field:
+When refining an object schema, you can use the `~path` labeled argument to attach the error to a specific field. It is an `S.Path.t`, the same array `error.path` carries: `String` segments for keys and `Number` ones for array indices, so `[String("items"), Number(0.)]` reports `Failed at items[0]`:
 
 ```rescript
 let passwordFormSchema = S.object(s => {
@@ -1500,7 +1500,7 @@ let passwordFormSchema = S.object(s => {
 })->S.refine(
   data => data["password"] === data["confirm"],
   ~error="Passwords don't match",
-  ~path=["confirm"],
+  ~path=S.Path.fromArray(["confirm"]),
 )
 ```
 
