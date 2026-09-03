@@ -110,7 +110,7 @@ test("[milestone 2] encodes the object back into a dict of strings", t => {
   let schema = makeSchema()
 
   t->Assert.deepEqual(
-    {"foo": "a", "bar": 123n, "zoo": Some(1.5)}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    {"foo": "a", "bar": 123n, "zoo": Some(1.5)}->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`{"foo":"a","bar":"123","zoo":"1.5"}`),
   )
 })

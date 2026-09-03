@@ -22,7 +22,7 @@ test("Successfully serializes valid value", t => {
   let schema = S.cuid
 
   t->Assert.deepEqual(
-    "ckopqwooh000001la8mbi2im9"->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    "ckopqwooh000001la8mbi2im9"->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`"ckopqwooh000001la8mbi2im9"`),
   )
 })
@@ -31,7 +31,7 @@ test("Fails to serialize invalid value", t => {
   let schema = S.cuid
 
   t->U.assertThrowsMessage(
-    () => "cifjhdsfhsd-invalid-cuid"->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    () => "cifjhdsfhsd-invalid-cuid"->S.convertOrThrow(~from=schema, ~to=S.unknown),
     `Expected cuid, received "cifjhdsfhsd-invalid-cuid"`,
   )
 })

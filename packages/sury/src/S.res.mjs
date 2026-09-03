@@ -54,12 +54,28 @@ function to(from, target, custom) {
   }
 }
 
-function decoder(from, to) {
+function compileConvertOrThrow(from, to) {
   return Sury.decoder(Sury.reverse(from), to);
 }
 
-function asyncDecoder(from, to) {
+function compileConvertAsyncOrThrow(from, to) {
   return Sury.asyncDecoder(Sury.reverse(from), to);
+}
+
+function compileConvert3OrThrow(from, through, to) {
+  return Sury.decoder(Sury.reverse(from), through, to);
+}
+
+function compileConvert3AsyncOrThrow(from, through, to) {
+  return Sury.asyncDecoder(Sury.reverse(from), through, to);
+}
+
+function compileAssertOrThrow(to) {
+  return Sury.decoder(Sury.unknown, to, Sury.noValidation(Sury.literal(), true));
+}
+
+function compileAssertAsyncOrThrow(to) {
+  return Sury.asyncDecoder(Sury.unknown, to, Sury.noValidation(Sury.literal(), true));
 }
 
 function parseOrThrow(any, to) {
@@ -70,12 +86,36 @@ function parseAsyncOrThrow(any, to) {
   return Sury.asyncParser(to)(any);
 }
 
-function decodeOrThrow(any, from, to) {
+function convertOrThrow(any, from, to) {
   return Sury.decoder(Sury.reverse(from), to)(any);
 }
 
-function decodeAsyncOrThrow(any, from, to) {
+function convertAsyncOrThrow(any, from, to) {
   return Sury.asyncDecoder(Sury.reverse(from), to)(any);
+}
+
+function convert1OrThrow(any, to) {
+  return Sury.decoder(to)(any);
+}
+
+function convert1AsyncOrThrow(any, to) {
+  return Sury.asyncDecoder(to)(any);
+}
+
+function convert3OrThrow(any, from, through, to) {
+  return compileConvert3OrThrow(from, through, to)(any);
+}
+
+function convert3AsyncOrThrow(any, from, through, to) {
+  return compileConvert3AsyncOrThrow(from, through, to)(any);
+}
+
+function makeOrThrow(value, schema) {
+  return Sury.outputConstructor(schema)(value);
+}
+
+function makeAsyncOrThrow(value, schema) {
+  return Sury.asyncOutputConstructor(schema)(value);
 }
 
 let Schema = {};
@@ -122,12 +162,22 @@ export {
   $$Error,
   refine,
   to,
-  decoder,
-  asyncDecoder,
+  compileConvertOrThrow,
+  compileConvertAsyncOrThrow,
+  compileConvert3OrThrow,
+  compileConvert3AsyncOrThrow,
+  compileAssertOrThrow,
+  compileAssertAsyncOrThrow,
   parseOrThrow,
   parseAsyncOrThrow,
-  decodeOrThrow,
-  decodeAsyncOrThrow,
+  convertOrThrow,
+  convertAsyncOrThrow,
+  convert1OrThrow,
+  convert1AsyncOrThrow,
+  convert3OrThrow,
+  convert3AsyncOrThrow,
+  makeOrThrow,
+  makeAsyncOrThrow,
   Schema,
   $$Object,
   Tuple,

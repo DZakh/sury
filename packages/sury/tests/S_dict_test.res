@@ -16,7 +16,7 @@ module CommonWithNested = {
   test("Successfully serializes", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.decodeOrThrow(~from=schema, ~to=S.unknown), any)
+    t->Assert.deepEqual(value->S.convertOrThrow(~from=schema, ~to=S.unknown), any)
   })
 
   test("Fails to parse", t => {
@@ -109,7 +109,7 @@ test("Applies operation for each item on serializing", t => {
   let schema = S.dict(S.jsonString->S.to(S.int))
 
   t->Assert.deepEqual(
-    Dict.fromArray([("a", 1), ("b", 2)])->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    Dict.fromArray([("a", 1), ("b", 2)])->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`{
         "a": "1",
         "b": "2",
@@ -121,7 +121,7 @@ test("Fails to serialize dict item", t => {
   let schema = S.dict(S.string->S.refine(_ => false, ~error="User error"))
 
   t->U.assertThrowsMessage(
-    () => Dict.fromArray([("a", "aa"), ("b", "bb")])->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    () => Dict.fromArray([("a", "aa"), ("b", "bb")])->S.convertOrThrow(~from=schema, ~to=S.unknown),
     `Failed at a: User error`,
   )
 })

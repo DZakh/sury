@@ -66,10 +66,11 @@
   - [At a glance](#at-a-glance)
   - [Pipelines](#pipelines)
   - [Built-in operations](#built-in-operations)
-  - [`parser` / `asyncParser`](#parser-asyncparser)
-  - [`decoder` / `asyncDecoder`](#decoder-asyncdecoder)
-  - [`decoder1` / `asyncDecoder1`](#decoder1-asyncdecoder1)
-  - [`constructor` / `asyncConstructor`](#constructor-asyncconstructor)
+  - [`compileParseOrThrow` / `compileParseAsyncOrThrow`](#compileparseorthrow-compileparseasyncorthrow)
+  - [`compileConvertOrThrow` / `compileConvertAsyncOrThrow`](#compileconvertorthrow-compileconvertasyncorthrow)
+  - [`compileConvert1OrThrow` / `compileConvert3OrThrow`](#compileconvert1orthrow-compileconvert3orthrow)
+  - [`compileAssertOrThrow` / `compileAssertAsyncOrThrow`](#compileassertorthrow-compileassertasyncorthrow)
+  - [`compileMakeOrThrow` / `compileMakeAsyncOrThrow`](#compilemakeorthrow-compilemakeasyncorthrow)
   - [`reverse`](#reverse)
   - [`to`](#to)
   - [`name`](#name)
@@ -155,7 +156,7 @@ let filmSchema = S.object(s => {
   title: "Sad & sed",
   rating: ParentalStronglyCautioned,
   deprecatedAgeRestriction: None,
-}->S.decodeOrThrow(~from=filmSchema, ~to=S.unknown)
+}->S.convertOrThrow(~from=filmSchema, ~to=S.unknown)
 // {
 //   "Id": 2,
 //   "Title": "Sad & sed",
@@ -165,7 +166,7 @@ let filmSchema = S.object(s => {
 // }
 
 // 5. Build a value in code, checked by the same schema
-let makeFilm = S.constructor(filmSchema)
+let makeFilm = S.compileMakeOrThrow(~schema=filmSchema)
 makeFilm({
   id: 3.,
   title: "Shorts",
@@ -543,7 +544,7 @@ let pointSchema = S.object(s => {
 
 // It can be used both for parsing and encoding
 {"x": 1, "y": -4}->S.parseOrThrow(~to=pointSchema)
-{x: 1, y: -4}->S.decodeOrThrow(~from=pointSchema, ~to=S.unknown)
+{x: 1, y: -4}->S.convertOrThrow(~from=pointSchema, ~to=S.unknown)
 ```
 
 The `object` schema represents an object value, that can be transformed into any ReScript value. Here are some examples:
@@ -566,7 +567,7 @@ let schema = S.object(s => {
   "USER_NAME": "John",
 }->S.parseOrThrow(~to=schema)
 // {id: 1, name: "John"}
-{id: 1, name: "John"}->S.decodeOrThrow(~from=schema, ~to=S.unknown)
+{id: 1, name: "John"}->S.convertOrThrow(~from=schema, ~to=S.unknown)
 // {"USER_ID": 1, "USER_NAME": "John"}
 ```
 
@@ -593,7 +594,7 @@ let schema = S.object(s => (s.field("USER_ID", S.int), s.field("USER_NAME", S.st
 The same schema also works for encoding:
 
 ```rescript
-(1, "John")->S.decodeOrThrow(~from=schema, ~to=S.unknown)
+(1, "John")->S.convertOrThrow(~from=schema, ~to=S.unknown)
 // {"USER_ID":1,"USER_NAME":"John"}
 ```
 
@@ -634,7 +635,7 @@ let schema = S.schema(s => Circle({
 You can use the schema for parsing as well as encoding:
 
 ```rescript
-Circle({radius: 1})->S.decodeOrThrow(~from=schema, ~to=S.unknown)
+Circle({radius: 1})->S.convertOrThrow(~from=schema, ~to=S.unknown)
 // {
 //   "kind": "circle",
 //   "radius": 1,
@@ -819,7 +820,7 @@ let schema = S.float->S.shape(radius => Circle({radius: radius}))
 The same schema also works for encoding:
 
 ```rescript
-Circle({radius: 1})->S.decodeOrThrow(~from=schema, ~to=S.unknown)
+Circle({radius: 1})->S.convertOrThrow(~from=schema, ~to=S.unknown)
 // 1
 ```
 
@@ -875,7 +876,7 @@ let shapeSchema = S.union([
 ```
 
 ```rescript
-Square({x: 2.})->S.decodeOrThrow(~from=shapeSchema, ~to=S.unknown)
+Square({x: 2.})->S.convertOrThrow(~from=shapeSchema, ~to=S.unknown)
 // {
 //   "kind": "square",
 //   "x": 2,
@@ -1047,7 +1048,7 @@ let schema = S.compactColumns(S.schema(s => {
   deleted: s.matches(S.bool),
 }))
 
-[{id: "0", name: Some("Hello"), deleted: false}, {id: "1", name: None, deleted: true}]->S.decodeOrThrow(~from=schema, ~to=S.unknown)
+[{id: "0", name: Some("Hello"), deleted: false}, {id: "1", name: None, deleted: true}]->S.convertOrThrow(~from=schema, ~to=S.unknown)
 // [["0", "1"], ["Hello", null], [false, true]]
 ```
 
@@ -1106,7 +1107,7 @@ let pointSchema = S.tuple(s => {
 
 // It can be used both for parsing and encoding
 ["point", 1, -4]->S.parseOrThrow(~to=pointSchema)
-{ x: 1, y: -4 }->S.decodeOrThrow(~from=pointSchema, ~to=S.unknown)
+{ x: 1, y: -4 }->S.convertOrThrow(~from=pointSchema, ~to=S.unknown)
 ```
 
 The `S.tuple` schema represents that a data is an array of a specific length with values each of a specific type.
@@ -1164,7 +1165,7 @@ let schema = S.string->S.to(S.date)
 "2024-01-01T00:00:00.000Z"->S.parseOrThrow(~to=schema) // Date
 
 // Encode Date to ISO string
-Date.fromString("2024-01-01T00:00:00.000Z")->S.decodeOrThrow(~from=schema, ~to=S.unknown) // "2024-01-01T00:00:00.000Z"
+Date.fromString("2024-01-01T00:00:00.000Z")->S.convertOrThrow(~from=schema, ~to=S.unknown) // "2024-01-01T00:00:00.000Z"
 ```
 
 ### **`isoDateTime`**
@@ -1261,7 +1262,7 @@ A field of bytes is written as base64. You do not pass Pack or Unpack.
 ```rescript
 {
   payload: %raw(`new Uint8Array([137, 80, 78, 71])`),
-}->S.decodeOrThrow(
+}->S.convertOrThrow(
   ~from=S.schema(s => {payload: s.matches(S.uint8Array)}),
   ~to=S.jsonString,
 )
@@ -1391,7 +1392,7 @@ The same schema works for encoding:
 {
   id: "1",
   children: [{id: "2", children: []}, {id: "3", children: [{id: "4", children: []}]}],
-}->S.decodeOrThrow(~from=nodeSchema, ~to=S.unknown)
+}->S.convertOrThrow(~from=nodeSchema, ~to=S.unknown)
 // {
 //   "Id": "1",
 //   "Children": [
@@ -1586,7 +1587,7 @@ types the output, and exports to JSON Schema.
 A coder fails by throwing, and the path it was reached through is prepended:
 
 ```rescript
-"abc"->S.decodeOrThrow(~from=S.int->intToString, ~to=S.unknown)
+"abc"->S.convertOrThrow(~from=S.int->intToString, ~to=S.unknown)
 // Can't convert string to int
 ```
 
@@ -1627,14 +1628,14 @@ Conversion targets are schemas, not dedicated functions: `S.json`, `S.jsonString
 data->S.parseOrThrow(~to=userSchema)
 
 // Parse a JSON string, then validate.
-rawString->S.decodeOrThrow(~from=S.jsonString, ~to=userSchema)
+rawString->S.convertOrThrow(~from=S.jsonString, ~to=userSchema)
 
 // Encode a domain value all the way out to a JSON string.
-user->S.decodeOrThrow(~from=userSchema, ~to=S.jsonString)
+user->S.convertOrThrow(~from=userSchema, ~to=S.jsonString)
 
 // Pre-compile pipelines once, call them many times.
-let parseJsonUser = S.decoder(~from=S.jsonString, ~to=userSchema)
-let stringifyUser = S.decoder(~from=userSchema, ~to=S.jsonString)
+let parseJsonUser = S.compileConvertOrThrow(~from=S.jsonString, ~to=userSchema)
+let stringifyUser = S.compileConvertOrThrow(~from=userSchema, ~to=S.jsonString)
 ```
 
 The **same pipeline idea works inside schemas** via [`S.to`](#to). A field, an array element, a tuple slot — any nested schema can be its own multi-stage chain:
@@ -1654,9 +1655,9 @@ let apiUserSchema = S.schema(s =>
 )
 ```
 
-`S.to` is the same compiler as `S.decoder` and `S.decodeOrThrow`, just used at a single point in a larger schema. The whole tree — top-level operation plus every nested `S.to` — still folds into one generated function, so deep pipelines stay free of runtime overhead.
+`S.to` is the same compiler as `S.compileConvertOrThrow` and `S.convertOrThrow`, just used at a single point in a larger schema. The whole tree — top-level operation plus every nested `S.to` — still folds into one generated function, so deep pipelines stay free of runtime overhead.
 
-> 🧠 `S.parseOrThrow` and `S.assertOrThrow` aren't separate primitives — they're just specializations of `S.decodeOrThrow` with `S.unknown` on the input side. `data->S.parseOrThrow(~to=schema)` is `data->S.decodeOrThrow(~from=S.unknown, ~to=schema)`. `data->S.assertOrThrow(~to=schema)` runs a decoder from `S.unknown` through the schema to `S.literal(true)->S.noValidation(true)` — the target is a no-op constant with validation disabled, so the compiler emits the schema's validation but no output-construction code at all. That's why `assertOrThrow` is 2–3× faster than `parseOrThrow`.
+> 🧠 `S.parseOrThrow` and `S.assertOrThrow` aren't separate primitives — they're just specializations of `S.convertOrThrow` with `S.unknown` on the input side. `data->S.parseOrThrow(~to=schema)` is `data->S.convertOrThrow(~from=S.unknown, ~to=schema)`. `data->S.assertOrThrow(~to=schema)` runs a decoder from `S.unknown` through the schema to `S.literal(true)->S.noValidation(true)` — the target is a no-op constant with validation disabled, so the compiler emits the schema's validation but no output-construction code at all. That's why `assertOrThrow` is 2–3× faster than `parseOrThrow`.
 
 ### Built-in operations
 
@@ -1669,33 +1670,37 @@ The library provides a bunch of built-in operations that can be used to parse, d
 | S.parseOrThrow      | `('any, ~to: S.t<'value>) => 'value`                | Parses any value with the schema                              |
 | S.parseAsyncOrThrow | `('any, ~to: S.t<'value>) => promise<'value>`       | Parses any value with the schema having async transformations |
 
-**Decoding** transforms between schemas without input validation. Be careful, since the input type is not checked:
+**Converting** transforms between schemas without input validation. Be careful, since the input type is not checked:
 
-| Operation              | Interface                                                              | Description                                          |
-| ---------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------- |
-| S.decodeOrThrow        | `('from, ~from: S.t<'from>, ~to: S.t<'to>) => 'to`                   | Decodes a value from one schema to another           |
-| S.decodeAsyncOrThrow   | `('from, ~from: S.t<'from>, ~to: S.t<'to>) => promise<'to>`          | Async version of decodeOrThrow                       |
+| Operation             | Interface                                                    | Description                                  |
+| --------------------- | ------------------------------------------------------------ | -------------------------------------------- |
+| S.convertOrThrow      | `('from, ~from: S.t<'from>, ~to: S.t<'to>) => 'to`          | Converts a value from one schema to another  |
+| S.convertAsyncOrThrow | `('from, ~from: S.t<'from>, ~to: S.t<'to>) => promise<'to>` | Async version of convertOrThrow              |
+| S.convert1OrThrow     | `(unknown, ~to: S.t<'value>) => 'value`                      | Converts from a schema's input type to its output type, with no input validation |
+| S.convert3OrThrow     | `('from, ~from: S.t<'from>, ~through: S.t<'mid>, ~to: S.t<'to>) => 'to` | Converts through an intermediate schema |
 
-Common decode patterns:
+Both `convert1OrThrow` and `convert3OrThrow` have `...AsyncOrThrow` versions.
+
+Common convert patterns:
 
 ```rescript
 // Parse JSON value
-data->S.decodeOrThrow(~from=S.json, ~to=schema)
+data->S.convertOrThrow(~from=S.json, ~to=schema)
 
 // Parse JSON string
-data->S.decodeOrThrow(~from=S.jsonString, ~to=schema)
+data->S.convertOrThrow(~from=S.jsonString, ~to=schema)
 
 // Encode to unknown
-data->S.decodeOrThrow(~from=schema, ~to=S.unknown)
+data->S.convertOrThrow(~from=schema, ~to=S.unknown)
 
 // Encode to JSON
-data->S.decodeOrThrow(~from=schema, ~to=S.json)
+data->S.convertOrThrow(~from=schema, ~to=S.json)
 
 // Encode to JSON string
-data->S.decodeOrThrow(~from=schema, ~to=S.jsonString)
+data->S.convertOrThrow(~from=schema, ~to=S.jsonString)
 
 // Encode to JSON string with space
-data->S.decodeOrThrow(~from=schema, ~to=S.jsonStringWithSpace(2))
+data->S.convertOrThrow(~from=schema, ~to=S.jsonStringWithSpace(2))
 ```
 
 Also, you can use `S.noValidation` helper to turn off type validations for the schema even when it's used with a parse operation.
@@ -1707,6 +1712,13 @@ Also, you can use `S.noValidation` helper to turn off type validations for the s
 | S.assertOrThrow      | `('any, ~to: S.t<'value>) => ()`                    | Asserts that the input value is valid. Since the operation doesn't return a value, it's 2-3 times faster than `parseOrThrow` depending on the schema |
 | S.assertAsyncOrThrow | `('any, ~to: S.t<'value>) => promise<()>`            | Async version of assertOrThrow                                                                                                                       |
 
+**Making** checks a value you built in code rather than received from the wire, and hands the same value back:
+
+| Operation          | Interface                                              | Description                                                        |
+| ------------------ | ------------------------------------------------------ | ------------------------------------------------------------------ |
+| S.makeOrThrow      | `('value, ~schema: S.t<'value>) => 'value`             | Runs every check the schema carries and returns the value it was given |
+| S.makeAsyncOrThrow | `('value, ~schema: S.t<'value>) => promise<'value>`    | Async version of makeOrThrow                                       |
+
 All operations either return the output value or throw an exception which you can catch with `try/catch` block:
 
 ```rescript
@@ -1715,72 +1727,93 @@ try true->S.parseOrThrow(~to=schema) catch {
 }
 ```
 
-### **`parser`** / **`asyncParser`**
+### **`compileParseOrThrow`** / **`compileParseAsyncOrThrow`**
 
 ```
-S.parser: (~through: array<S.t<unknown>>=?, ~to: S.t<'value>) => 'any => 'value
-S.asyncParser: (~through: array<S.t<unknown>>=?, ~to: S.t<'value>) => 'any => promise<'value>
+S.compileParseOrThrow: (~to: S.t<'value>) => 'any => 'value
+S.compileParseAsyncOrThrow: (~to: S.t<'value>) => 'any => promise<'value>
 ```
 
-Returns a compiled parse function that validates input and transforms it to the schema's output type. This is the most performant way to parse values repeatedly. Use `~through` to chain intermediate schemas.
+Returns a compiled parse function that validates input and transforms it to the schema's output type. This is the most performant way to parse values repeatedly.
 
 ```rescript
-let parse = S.parser(~to=S.string)
+let parse = S.compileParseOrThrow(~to=S.string)
 
 parse("Hello world!")
 // "Hello world!"
 
 // Async version for schemas with async transformations
-let parseAsync = S.asyncParser(~to=schemaWithAsyncTransform)
+let parseAsync = S.compileParseAsyncOrThrow(~to=schemaWithAsyncTransform)
 ```
 
-### **`decoder`** / **`asyncDecoder`**
+### **`compileConvertOrThrow`** / **`compileConvertAsyncOrThrow`**
 
 ```
-S.decoder: (~from: S.t<'from>, ~through: array<S.t<unknown>>=?, ~to: S.t<'to>) => 'from => 'to
-S.asyncDecoder: (~from: S.t<'from>, ~through: array<S.t<unknown>>=?, ~to: S.t<'to>) => 'from => promise<'to>
+S.compileConvertOrThrow: (~from: S.t<'from>, ~to: S.t<'to>) => 'from => 'to
+S.compileConvertAsyncOrThrow: (~from: S.t<'from>, ~to: S.t<'to>) => 'from => promise<'to>
 ```
 
-Returns a compiled decode function that transforms values from one schema to another. Use `~through` to chain intermediate schemas.
+Returns a compiled convert function that transforms values from one schema to another.
 
 ```rescript
 // Compile an encoder
-let encode = S.decoder(~from=schema, ~to=S.unknown)
+let encode = S.compileConvertOrThrow(~from=schema, ~to=S.unknown)
 
 // Compile a JSON decoder
-let decodeJson = S.decoder(~from=S.json, ~to=schema)
+let decodeJson = S.compileConvertOrThrow(~from=S.json, ~to=schema)
 
 // Compile a JSON string encoder
-let toJsonString = S.decoder(~from=schema, ~to=S.jsonString)
+let toJsonString = S.compileConvertOrThrow(~from=schema, ~to=S.jsonString)
 
 // Compile an async decoder
-let decodeAsync = S.asyncDecoder(~from=S.json, ~to=schema)
+let decodeAsync = S.compileConvertAsyncOrThrow(~from=S.json, ~to=schema)
 ```
 
-### **`decoder1`** / **`asyncDecoder1`**
+### **`compileConvert1OrThrow`** / **`compileConvert3OrThrow`**
 
 ```
-S.decoder1: S.t<'value> => unknown => 'value
-S.asyncDecoder1: S.t<'value> => unknown => promise<'value>
+S.compileConvert1OrThrow: (~to: S.t<'value>) => unknown => 'value
+S.compileConvert1AsyncOrThrow: (~to: S.t<'value>) => unknown => promise<'value>
+S.compileConvert3OrThrow: (~from: S.t<'from>, ~through: S.t<'mid>, ~to: S.t<'to>) => 'from => 'to
+S.compileConvert3AsyncOrThrow: (~from: S.t<'from>, ~through: S.t<'mid>, ~to: S.t<'to>) => 'from => promise<'to>
 ```
 
-Returns a compiled decode function for a single schema, transforming from the schema's input type to its output type. This is useful for schemas with internal transformations.
+The single-schema form converts from the schema's input type to its output type. The input isn't validated and ReScript can't name it, so it is `unknown`. The three-schema form runs the value through an intermediate schema on the way.
 
 ```rescript
 let schema = S.array(S.nullAsOption(S.string))
-let decode = S.decoder1(schema)
+let decode = S.compileConvert1OrThrow(~to=schema)
 
-// Input: array<Js.nullable<string>> (schema input)
-// Output: array<option<string>> (schema output)
 decode(%raw(`["foo", null, "bar"]`))
 // [Some("foo"), None, Some("bar")]
+
+let parseJsonUser = S.compileConvert3OrThrow(~from=S.jsonString, ~through=S.json, ~to=userSchema)
 ```
 
-### **`constructor`** / **`asyncConstructor`**
+### **`compileAssertOrThrow`** / **`compileAssertAsyncOrThrow`**
 
 ```
-S.constructor: S.t<'value> => 'value => 'value
-S.asyncConstructor: S.t<'value> => 'value => promise<'value>
+S.compileAssertOrThrow: (~to: S.t<'value>) => 'any => ()
+S.compileAssertAsyncOrThrow: (~to: S.t<'value>) => 'any => promise<()>
+```
+
+Returns a compiled assert function. It runs the schema's validation but emits no output-construction code, which is what makes it 2-3 times faster than a compiled parse.
+
+```rescript
+let assertUser = S.compileAssertOrThrow(~to=userSchema)
+
+assertUser(%raw(`{"id": "1", "email": "billie@example.com"}`))
+// ()
+
+assertUser(%raw(`{"id": 1}`))
+// throws S.Error
+```
+
+### **`compileMakeOrThrow`** / **`compileMakeAsyncOrThrow`**
+
+```
+S.compileMakeOrThrow: (~schema: S.t<'value>) => 'value => 'value
+S.compileMakeAsyncOrThrow: (~schema: S.t<'value>) => 'value => promise<'value>
 ```
 
 For a value you built in code rather than received from the wire. Every check the schema carries runs — types, the conversion, refinements — and the value itself comes back, not a decoded copy, so an entity the schema has no way to encode fails at construction rather than at the point it's sent.
@@ -1790,7 +1823,7 @@ let userSchema = S.object(s => {
   id: s.field("id", S.string),
   email: s.field("email", S.email),
 })
-let makeUser = S.constructor(userSchema)
+let makeUser = S.compileMakeOrThrow(~schema=userSchema)
 
 makeUser({id: "1", email: "billie@example.com"})
 // returns the very record it was given
@@ -1838,7 +1871,7 @@ let schema = S.string->S.to(S.float)
 "abc"->S.parseOrThrow(~to=schema) //? throws: Expected number, received "abc"
 
 // Reverse works correctly as well 🔥
-123.->S.decodeOrThrow(~from=schema, ~to=S.unknown) //? "123"
+123.->S.convertOrThrow(~from=schema, ~to=S.unknown) //? "123"
 ```
 
 ### **`name`**

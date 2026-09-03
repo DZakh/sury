@@ -42,7 +42,7 @@ test("Successfully serializes valid value", t => {
   let schema = S.isoDateTime
 
   t->Assert.deepEqual(
-    "2020-01-01T00:00:00.123Z"->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    "2020-01-01T00:00:00.123Z"->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`"2020-01-01T00:00:00.123Z"`),
   )
 })

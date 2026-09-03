@@ -39,11 +39,11 @@ test("Successfully serializes nested option with default value", t => {
   // it was parsed from; the default arm itself is never-encode, so it yields
   // instead of failing the whole operation like the old S.transform wiring.
   t->Assert.deepEqual(
-    Some(Some(Some(Some(None))))->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    Some(Some(Some(Some(None))))->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`undefined`),
   )
-  t->Assert.deepEqual(Some(None)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
-  t->Assert.deepEqual(None->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
+  t->Assert.deepEqual(Some(None)->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
+  t->Assert.deepEqual(None->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
 })
 
 test("Fails to parse data with default", t => {
@@ -87,7 +87,7 @@ test("Successfully parses schema with transformation", t => {
 test("Successfully serializes schema with transformation", t => {
   let schema = S.string->S.trim->S.option->S.Option.getOr("default")
 
-  t->Assert.deepEqual(" abc"->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"abc"`))
+  t->Assert.deepEqual(" abc"->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`"abc"`))
 })
 
 test("Compiled parse code snapshot", t => {
@@ -152,7 +152,7 @@ test("Successfully serializes optional union of literals with default", t => {
   let schema =
     S.union([S.literal("a"), S.literal("b"), S.literal("c")])->S.option->S.Option.getOr("a")
 
-  t->Assert.deepEqual("b"->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"b"`))
+  t->Assert.deepEqual("b"->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`"b"`))
 })
 
 test("Rejects invalid static default at schema construction", t => {
@@ -266,11 +266,11 @@ test("Default on a primary item with S.to runs the transformation on parse and r
   t->Assert.deepEqual("2024-06-15T12:30:45.123Z"->S.parseOrThrow(~to=schema), otherDate)
 
   t->Assert.deepEqual(
-    defaultDate->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    defaultDate->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`"2024-01-01T00:00:00.000Z"`),
   )
   t->Assert.deepEqual(
-    otherDate->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    otherDate->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`"2024-06-15T12:30:45.123Z"`),
   )
 
@@ -304,7 +304,7 @@ test("Appending S.to(S.jsonString) after getOr extends the output chain", t => {
   )
 
   t->Assert.deepEqual(
-    `"2024-01-01T00:00:00.000Z"`->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    `"2024-01-01T00:00:00.000Z"`->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`"2024-01-01T00:00:00.000Z"`),
   )
 })
@@ -348,9 +348,9 @@ test("Multi-member union with transformed members + getOr", t => {
   // Parsing a string used to throw ReferenceError (v0 read before declaration).
   t->Assert.deepEqual("42"->S.parseOrThrow(~to=schema), %raw(`42`))
 
-  t->Assert.deepEqual(%raw(`42`)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"42"`))
-  t->Assert.deepEqual(%raw(`1n`)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"1"`))
-  t->Assert.deepEqual(%raw(`true`)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`true`))
+  t->Assert.deepEqual(%raw(`42`)->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`"42"`))
+  t->Assert.deepEqual(%raw(`1n`)->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`"1"`))
+  t->Assert.deepEqual(%raw(`true`)->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`true`))
 
   t->U.assertCompiledCode(
     ~schema,

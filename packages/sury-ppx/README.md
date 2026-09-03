@@ -91,7 +91,7 @@ let filmSchema = S.object(s => {
   title: "Sad & sed",
   rating: ParentalStronglyCautioned,
   deprecatedAgeRestriction: None,
-}->S.decodeOrThrow(~from=filmSchema, ~to=S.unknown)
+}->S.convertOrThrow(~from=filmSchema, ~to=S.unknown)
 // Ok(%raw(`{
 //   "Id": 2,
 //   "Title": "Sad & sed",

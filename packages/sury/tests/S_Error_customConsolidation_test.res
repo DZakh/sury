@@ -105,7 +105,7 @@ test("S.transform serializer ctx.fail produces InvalidInput with custom reason",
       encode: Sync(str => str === "" ? U.fail("empty not allowed") : str),
     },
   )
-  switch ""->S.decodeOrThrow(~from=schema, ~to=S.unknown) {
+  switch ""->S.convertOrThrow(~from=schema, ~to=S.unknown) {
   | _ => t->Assert.fail("Should have thrown")
   | exception S.Exn(error) =>
     switch error->S.Error.classify {

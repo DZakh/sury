@@ -26,9 +26,9 @@ test("Fails with custom path", t => {
 test("Successfully refines on serializing", t => {
   let schema = S.int->S.refine(value => value >= 0, ~error="Should be positive")
 
-  t->Assert.deepEqual(12->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw("12"))
+  t->Assert.deepEqual(12->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw("12"))
   t->U.assertThrowsMessage(
-    () => -12->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    () => -12->S.convertOrThrow(~from=schema, ~to=S.unknown),
     `Should be positive`,
   )
 })

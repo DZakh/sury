@@ -551,39 +551,67 @@ let to = (from, target, ~custom=?) =>
     )
   }
 
+@module("sury") external noValidation: (t<'value>, bool) => t<'value> = "noValidation"
+
 @module("sury") external reverse: t<'value> => t<unknown> = "reverse"
 
-@module("sury") external parser: (~to: t<'value>) => 'any => 'value = "parser"
-@module("sury") external asyncParser: (~to: t<'value>) => 'any => promise<'value> = "asyncParser"
+@module("sury") external compileParseOrThrow: (~to: t<'value>) => 'any => 'value = "parser"
+@module("sury")
+external compileParseAsyncOrThrow: (~to: t<'value>) => 'any => promise<'value> = "asyncParser"
 // The public JS `decoder` compiles from a schema's Input space; the ReScript
-// flavor decodes FROM a schema's Output space, so reverse `from` first.
+// flavor converts FROM a schema's Output space, so reverse `from` first.
 @module("sury") external decoder: (t<unknown>, t<'to>) => 'from => 'to = "decoder"
 @module("sury")
 external asyncDecoder: (t<unknown>, t<'to>) => 'from => promise<'to> = "asyncDecoder"
-let decoder = (~from: t<'from>, ~to) => decoder(reverse(from), to)
-let asyncDecoder = (~from: t<'from>, ~to) => asyncDecoder(reverse(from), to)
+let compileConvertOrThrow = (~from: t<'from>, ~to) => decoder(reverse(from), to)
+let compileConvertAsyncOrThrow = (~from: t<'from>, ~to) => asyncDecoder(reverse(from), to)
 // Single-schema (Input -> Output) flavors — the public JS `decoder` /
-// `asyncDecoder` called with one argument.
-@module("sury") external decoder1: t<'value> => unknown => 'value = "decoder"
-@module("sury") external asyncDecoder1: t<'value> => unknown => promise<'value> = "asyncDecoder"
-
+// `asyncDecoder` called with one argument. The input is the schema's Input
+// type, which ReScript can't name, hence `unknown`.
+@module("sury") external compileConvert1OrThrow: (~to: t<'value>) => unknown => 'value = "decoder"
+@module("sury")
+external compileConvert1AsyncOrThrow: (~to: t<'value>) => unknown => promise<'value> =
+  "asyncDecoder"
+@module("sury")
+external decoder3: (t<unknown>, t<unknown>, t<'to>) => 'from => 'to = "decoder"
+@module("sury")
+external asyncDecoder3: (t<unknown>, t<unknown>, t<'to>) => 'from => promise<'to> = "asyncDecoder"
+let compileConvert3OrThrow = (~from: t<'from>, ~through, ~to) =>
+  decoder3(reverse(from), castToUnknown(through), to)
+let compileConvert3AsyncOrThrow = (~from: t<'from>, ~through, ~to) =>
+  asyncDecoder3(reverse(from), castToUnknown(through), to)
+// The chain the JS `assertInput` builds: the schema's checks run, but the
+// `undefined` target with validation off makes the compiler emit no
+// output-construction code.
+let compileAssertOrThrow = (~to: t<'value>): ('any => unit) =>
+  decoder3(unknown, castToUnknown(to), literal()->noValidation(true))->Obj.magic
+let compileAssertAsyncOrThrow = (~to: t<'value>): ('any => promise<unit>) =>
+  asyncDecoder3(unknown, castToUnknown(to), literal()->noValidation(true))->Obj.magic
 // `t<'value>` names the output type, so the output-side constructor is THE
 // constructor here; the input side has no type to hand back.
-@module("sury") external constructor: t<'value> => 'value => 'value = "outputConstructor"
+@module("sury") external compileMakeOrThrow: (~schema: t<'value>) => 'value => 'value = "outputConstructor"
 @module("sury")
-external asyncConstructor: t<'value> => 'value => promise<'value> = "asyncOutputConstructor"
+external compileMakeAsyncOrThrow: (~schema: t<'value>) => 'value => promise<'value> =
+  "asyncOutputConstructor"
 
-let parseOrThrow = (any, ~to) => parser(~to)(any)
-let parseAsyncOrThrow = (any, ~to) => asyncParser(~to)(any)
+let parseOrThrow = (any, ~to) => compileParseOrThrow(~to)(any)
+let parseAsyncOrThrow = (any, ~to) => compileParseAsyncOrThrow(~to)(any)
 @module("sury") external assertOrThrow: ('any, ~to: t<'value>) => unit = "assertInput"
 @module("sury")
 external assertAsyncOrThrow: ('any, ~to: t<'value>) => promise<unit> = "$assertAsyncOrThrow"
-let decodeOrThrow = (any, ~from, ~to) => decoder(~from, ~to)(any)
-let decodeAsyncOrThrow = (any, ~from, ~to) => asyncDecoder(~from, ~to)(any)
+let convertOrThrow = (any, ~from, ~to) => compileConvertOrThrow(~from, ~to)(any)
+let convertAsyncOrThrow = (any, ~from, ~to) => compileConvertAsyncOrThrow(~from, ~to)(any)
+let convert1OrThrow = (any, ~to) => compileConvert1OrThrow(~to)(any)
+let convert1AsyncOrThrow = (any, ~to) => compileConvert1AsyncOrThrow(~to)(any)
+let convert3OrThrow = (any, ~from, ~through, ~to) =>
+  compileConvert3OrThrow(~from, ~through, ~to)(any)
+let convert3AsyncOrThrow = (any, ~from, ~through, ~to) =>
+  compileConvert3AsyncOrThrow(~from, ~through, ~to)(any)
+let makeOrThrow = (value, ~schema) => compileMakeOrThrow(~schema)(value)
+let makeAsyncOrThrow = (value, ~schema) => compileMakeAsyncOrThrow(~schema)(value)
 
 @module("sury") external recursive: (string, t<'value> => t<'value>) => t<'value> = "recursive"
 
-@module("sury") external noValidation: (t<'value>, bool) => t<'value> = "noValidation"
 
 @module("sury") external inputExpression: t<'value> => string = "inputExpression"
 
