@@ -38,6 +38,8 @@ export const FUZZ_EXPORTS: Record<string, FuzzExport> = {
   $nullableAsOption: skip(RESCRIPT_BINDING),
   $option: skip(RESCRIPT_BINDING),
   $schema: skip(RESCRIPT_BINDING),
+  $safe: skip(RESCRIPT_BINDING),
+  $safeAsync: skip(RESCRIPT_BINDING),
   $setExnId: skip(RESCRIPT_BINDING),
   $unit: skip(RESCRIPT_BINDING),
   Error: skip("exception class, not a schema factory"),

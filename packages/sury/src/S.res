@@ -568,28 +568,12 @@ let to = (from, target, ~custom=?) =>
   external asyncDecoder3: (t<unknown>, t<unknown>, t<'to>) => 'any => promise<'to> =
     "asyncDecoder"
 
-  // Only a Sury failure becomes `Error`; anything else propagates, the way
-  // the JS `safe` rethrows what isn't a Sury error.
-  let safe = (fn): result<'value, error> =>
-    try Ok(fn()) catch {
-    | Exn(error) => Error(error)
-    }
-  // A compiled async operation throws synchronously when the input fails
-  // its type check before anything is awaited, so the call sits inside the
-  // `try` as well.
-  let safeAsync = (fn: unit => promise<'value>): promise<result<'value, error>> =>
-    try {
-      fn()
-      ->Promise.then(value => Promise.resolve(Ok(value)))
-      ->Promise.catch(exn =>
-        switch exn {
-        | Exn(error) => Promise.resolve(Error(error))
-        | _ => throw(exn)
-        }
-      )
-    } catch {
-    | Exn(error) => Promise.resolve(Error(error))
-    }
+  // Only a Sury failure becomes `Error`; anything else propagates. Bound
+  // rather than written here: a ReScript `catch` compiles to
+  // `internalToException` and the async form pulls in the stdlib Promise.
+  @module("sury") external safe: (unit => 'value) => result<'value, error> = "$safe"
+  @module("sury")
+  external safeAsync: (unit => promise<'value>) => promise<result<'value, error>> = "$safeAsync"
 )
 
 @module("sury") external compileParseOrThrow: (~to: t<'value>) => 'any => 'value = "parser"

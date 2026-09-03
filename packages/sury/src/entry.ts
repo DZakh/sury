@@ -535,6 +535,7 @@ export const global = (override: GlobalConfigOverride): void => {
 // marks the exports as ReScript-binding internals while staying a valid JS
 // identifier, which is all ReScript externals accept as names.
 
+export { safeResult as $safe, safeAsyncResult as $safeAsync } from "./operations";
 export {
   Option_getOr as $Option_getOr,
   Option_getOrWith as $Option_getOrWith,
