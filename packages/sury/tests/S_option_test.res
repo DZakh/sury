@@ -37,6 +37,7 @@ module Common = {
     )
   })
 
+  // Undefined check should be first ?
   test("Compiled async parse code snapshot", t => {
     let schema = S.option(
       S.unknown->S.to(S.any, ~custom={decode: Async(i => Promise.resolve(i)), encode: Never}),
@@ -45,7 +46,7 @@ module Common = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ParseAsync,
-      `i=>{return Promise.resolve((async(i)=>{for(;;){if(i===void 0)break;let v0=e[0](i);i=await v0;break;};return i})(i))}`,
+      `i=>{return Promise.resolve((async(i)=>{for(;;){let r;try{let v0=e[0](i);i=await v0;break}catch(x){(r||(r=[])).push(e[1](x))}if(i===void 0)break;e[2](i,...(r||[]))};return i})(i))}`,
     )
   })
 
@@ -266,11 +267,7 @@ test("Option with transformed unknown", t => {
   )
   t->Assert.deepEqual(None->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
 
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#Parse,
-    `i=>{for(;;){if(i===void 0)break;i={field:i};break;}return i}`,
-  )
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{for(;;){i={field:i};break;}return i}`)
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,

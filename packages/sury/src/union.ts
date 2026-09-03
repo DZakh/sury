@@ -719,27 +719,6 @@ const unionAnalyze = (
   return out;
 };
 
-// An `undefined` or `null` member that hands its value back is tried before
-// any earlier member whose source is `unknown`. Such a member accepts every
-// value, so the sentinel would otherwise reach its custom coder — the one
-// value that coder was never written for (#347). Only an object property can
-// express "absent" at all, and `S.optional` appends the sentinel after the
-// wrapped union, so declaration order can't say the sentinel comes first.
-const unionHoistSentinels = (members: UnionMember[]): UnionMember[] => {
-  let at = -1;
-  for (let i = 0; i < members.length; i++) {
-    const member = members[i]!;
-    const tag = tagFlags[member.s.type]!;
-    if (at < 0) {
-      if (member.m && (tag & 1)) at = i;
-    } else if (member.e < 2 && (tag & (16 | 32))) {
-      members.splice(i, 1);
-      members.splice(at++, 0, member);
-    }
-  }
-  return members;
-};
-
 const unionPlan = (members: UnionMember[]): UnionGroup[] => {
   const sequence: (UnionBucket | UnionGroup)[] = [];
   const active: (UnionBucket | undefined)[] = [];
@@ -1387,7 +1366,7 @@ export const unionDecoder: Builder = (input: Val) => {
   return unionEmit(
     input,
     self,
-    unionPlan(unionHoistSentinels(unionAnalyze(unionMask(source, 2, nan), flags, sourceTag, variants, source, nan))),
+    unionPlan(unionAnalyze(unionMask(source, 2, nan), flags, sourceTag, variants, source, nan)),
     toPerCase,
     trustedSelf
   );

@@ -94,7 +94,7 @@ test("Ensures parsing order with unknown schema", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){let r;if(typeof i==="string"){try{i.length===2||e[0](i);break}catch(x){(r||(r=[])).push(e[4](x))}}if(typeof i==="boolean")break;try{let v0;try{v0=e[1](i)}catch(x){e[2](x);e[3](x)}i=v0;break}catch(x){(r||(r=[])).push(e[4](x))}if(typeof i==="number"&&i===i)break;if(typeof i==="bigint")break;e[5](i,...(r||[]))}return i}`,
+    `i=>{for(;;){let r;if(typeof i==="string"){try{i.length===2||e[0](i);break}catch(x){(r||(r=[])).push(e[3](x))}}if(typeof i==="boolean")break;try{let v0;try{v0=e[1](i)}catch(x){e[2](x)}i=v0;break}catch(x){(r||(r=[])).push(e[3](x))}if(typeof i==="number"&&i===i)break;if(typeof i==="bigint")break;e[4](i,...(r||[]))}return i}`,
   )
 })
 
@@ -448,12 +448,12 @@ test("Successfully serializes unboxed variant", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){let r;if(typeof i==="string"){try{let v0;try{v0=e[0](i)}catch(x){e[1](x);e[2](x)}i=v0;break}catch(x){(r||(r=[])).push(e[3](x))}break}e[4](i,...(r||[]))}return i}`,
+    `i=>{for(;;){let r;if(typeof i==="string"){try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}i=v0;break}catch(x){(r||(r=[])).push(e[2](x))}break}e[3](i,...(r||[]))}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{for(;;){let r;try{let v0;try{v0=e[0](i)}catch(x){e[1](x);e[2](x)}typeof v0==="string"||e[3](v0);i=v0;break}catch(x){(r||(r=[])).push(e[4](x))}if(typeof i==="string")break;e[5](i,...(r||[]))}return i}`,
+    `i=>{for(;;){let r;try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);i=v0;break}catch(x){(r||(r=[])).push(e[3](x))}if(typeof i==="string")break;e[4](i,...(r||[]))}return i}`,
   )
 
   // The same, but toString schema is the first
@@ -468,7 +468,7 @@ test("Successfully serializes unboxed variant", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){if(typeof i==="string")break;e[3](i)}return i}`,
+    `i=>{for(;;){if(typeof i==="string")break;e[2](i)}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,

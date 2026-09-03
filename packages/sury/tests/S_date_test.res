@@ -295,6 +295,6 @@ test("Encodes a nullable optional Timestamp whose input is string | number (issu
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{for(;;){if(i instanceof e[4]){for(;;){i=i.toISOString();break;};break}if(i===void 0)break;e[5](i)}return i}`,
+    `i=>{for(;;){if(i instanceof e[3]){for(;;){i=i.toISOString();break;};break}if(i===void 0)break;e[4](i)}return i}`,
   )
 })
