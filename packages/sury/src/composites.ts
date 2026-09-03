@@ -19,7 +19,6 @@ import {
   type Internal,
   isLiteral,
   isOptional,
-  requiredKeys,
   isSchemaObject,
   jsonName,
   noopDecoder,
@@ -667,13 +666,16 @@ export const traverseDefinition = (
           const node = definition as Record<string, unknown>;
           const fieldNames = Object.keys(node);
           const length = fieldNames.length;
+          const required: string[] = [];
           for (let idx = 0; idx < length; idx++) {
             const location = fieldNames[idx]!;
-            node[location] = traverseDefinition(node[location], onNode);
+            const item = traverseDefinition(node[location], onNode);
+            node[location] = item;
+            if (!isOptional(item)) required.push(location);
           }
           const mut = baseSchema(objectTag, false, objectDecoder);
           mut.properties = node as Record<string, Internal>;
-          mut.required = requiredKeys(mut.properties);
+          mut.required = required;
           mut.additionalItems = globalConfig.a;
           return mut;
         }

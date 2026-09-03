@@ -2529,4 +2529,12 @@ test("required lists only the keys that don't admit undefined", (t) => {
   t.expect(required(first)).toEqual(["a"]);
   t.expect(required(second)).toEqual(["c"]);
   t.expect(required(S.merge(first, S.schema({ e: S.nullish(S.number), f: S.number })))).toEqual(["a", "f"]);
+  // A key the second schema redeclares keeps its slot and takes the second's say.
+  t.expect(required(S.merge(first, S.schema({ b: S.string, a: S.optional(S.string) })))).toEqual(["b"]);
+  const nested = S.schema({ n: { b: S.optional(S.string), c: S.string } });
+  t.expect(nested.type === "object" ? required(nested.properties["n"]!) : undefined).toEqual(["c"]);
+  const viaContext = S.object((s) => ({ c: s.nested("n").field("c", S.string), d: s.nested("n").field("d", S.optional(S.string)) }));
+  t.expect(viaContext.type === "object" ? required(viaContext.properties["n"]!) : undefined).toEqual(["c"]);
+  const flattened = S.object((s) => ({ inner: s.flatten(S.schema({ e: S.optional(S.string), f: S.string })), g: s.field("g", S.optional(S.string)) }));
+  t.expect(required(flattened)).toEqual(["f"]);
 });

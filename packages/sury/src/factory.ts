@@ -25,7 +25,7 @@ import {
   pathConcat,
   pathEmpty,
   pathToText,
-  requiredKeys,
+  isOptional,
   setHas,
   U,
   undefinedTag,
@@ -241,7 +241,7 @@ function schemaNested(this: AdvancedObjectCtx & Record<string, unknown>, fieldNa
       if (fieldName in properties) {
         panic(`The field ${inlinedLocation} defined twice`);
       }
-      required.push(fieldName);
+      if (!isOptional(schema)) required.push(fieldName);
       properties[fieldName] = schema;
       return proxifyShapedSchema(
         schema,
@@ -298,6 +298,7 @@ export const schemaObject = (
   }
   let flattened: Internal[] | undefined = U;
   const properties = Object.create(null) as Record<string, Internal>;
+  const required: string[] = [];
 
   const flatten = (schema: Internal): unknown => {
     if (schema.type === objectTag) {
@@ -312,6 +313,7 @@ export const schemaObject = (
         } else if (existing !== U) {
           panic(`The field "${key}" defined twice with incompatible schemas`);
         } else {
+          if (!isOptional(flattenedSchema)) required.push(key);
           properties[key] = flattenedSchema;
         }
       }
@@ -326,6 +328,7 @@ export const schemaObject = (
     if (fieldName in properties) {
       panic(`The field "${fieldName}" defined twice with incompatible schemas`);
     }
+    if (!isOptional(schema)) required.push(fieldName);
     properties[fieldName] = schema;
     return proxifyShapedSchema(schema, [fieldName]);
   };
@@ -347,7 +350,7 @@ export const schemaObject = (
   const definition = definer(ctx);
 
   const mut = baseSchema(objectTag, false, objectDecoder);
-  mut.required = requiredKeys(properties);
+  mut.required = required;
   mut.properties = properties;
   mut.additionalItems = globalConfig.a;
   mut.parser = shapedParser;

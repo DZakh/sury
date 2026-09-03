@@ -30,6 +30,7 @@ import {
   initialDefaultFlag,
   initialOnAdditionalItems,
   inputExpression,
+  isOptional,
   type Internal,
   jsonName,
   isSchemaObject,
@@ -37,7 +38,6 @@ import {
   panic,
   pathEmpty,
   type Path,
-  requiredKeys,
   stringify,
   stringTag,
   U,
@@ -498,7 +498,10 @@ export const merge = (s1: Internal, s2: Internal): Internal => {
 
   const mut = baseSchema(objectTag, false, objectDecoder);
 
-  mut.required = requiredKeys(properties);
+  // The merged key order is the spread's, and a key the second schema
+  // redeclares is its to say required or not — one pass over the result
+  // answers both, where splicing the two `required` lists would not.
+  mut.required = Object.keys(properties).filter((key) => !isOptional(properties[key]!));
   mut.properties = properties;
   mut.additionalItems = s1.additionalItems;
   return mut;

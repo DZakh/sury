@@ -28,7 +28,6 @@ import {
   openApi30,
   type Path,
   pathConcat,
-  requiredKeys,
   pathDynamic,
   pathEmpty,
   refTag,
@@ -548,12 +547,11 @@ const internalToJSONSchemaBase = (
   } else if (tag === objectTag) {
     const properties = schema.properties!;
     const additionalItems = schema.additionalItems!;
-    const required: string[] = [];
+    // `S.record` declares no `required` at all.
+    const required = schema.required;
     const jsonProperties: Record<string, JSONSchemaDefinition> = Object.create(null);
     for (const key of Object.keys(properties)) {
-      const itemSchema = properties[key]!;
-      if (!isOptional(itemSchema)) required.push(key);
-      jsonProperties[key] = js(itemSchema, pathConcat(path, [key]));
+      jsonProperties[key] = js(properties[key]!, pathConcat(path, [key]));
     }
 
     jsonSchema.type = "object";
@@ -566,7 +564,7 @@ const internalToJSONSchemaBase = (
     } else if (additionalItems === "strict") {
       jsonSchema.additionalProperties = false;
     }
-    if (required.length !== 0) jsonSchema.required = required;
+    if (required !== U && required.length !== 0) jsonSchema.required = required.slice();
   } else if (tag === refTag && schema["$ref"] === `${defsPath}${jsonName}`) {
     // S.json → empty {}
   } else if (tag === refTag) {
@@ -924,7 +922,7 @@ const objectSchema = (
   // non-optional properties in declaration order, not the document's `required`
   // set — which is the same list only once each absent key has been wrapped in
   // `option`, and in a different order.
-  schema.required = requiredKeys(properties);
+  schema.required = Object.keys(properties).filter((key) => !isOptional(properties[key]!));
   schema.properties = properties;
   schema.additionalItems = additionalItems;
   return schema;
