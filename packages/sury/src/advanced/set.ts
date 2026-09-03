@@ -76,8 +76,8 @@ const setDecoder = (input: Val): Val => {
 
   // A Set item has no key to be located by, so a failing one is located by its
   // position — well defined, since iteration follows insertion order. The
-  // counter is only worth keeping when the body can fail, which the merge's
-  // `pureSince` sample tells.
+  // counter is only worth keeping when the body can fail — B_mergeWithCatch's
+  // `pureSince`.
   const indexVar = B_varWithoutAllocation(source.g);
   const counterVar = isAsync ? B_varWithoutAllocation(source.g) : indexVar;
   const canThrow = (): boolean => source.g.t !== raiseCountBefore;

@@ -1081,9 +1081,10 @@ S.parser(scoresSchema)(new Map([["a", "1"]])); // throws S.Error: Failed at a: E
 ```
 
 A failing entry is located by its key when the key schema is a string or a
-number; any other key (an object, a `Date`, a union) locates it by position
-instead, as a `Set` item is, and so does an entry converted from an array. The number of entries is bounded with `S.minSize`, `S.maxSize`
-and `S.size`, as a `Set`'s is.
+number (a key that fails that check is reported as it is); any other key (an
+object, a `Date`, a union) locates it by position instead, as a `Set` item is,
+and so does an entry converted from an array. The number of entries is bounded
+with `S.minSize`, `S.maxSize` and `S.size`, as a `Set`'s is.
 
 Its wire form is an array of `[key, value]` entries:
 

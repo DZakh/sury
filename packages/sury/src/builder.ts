@@ -523,10 +523,10 @@ export const B_pushCheck = (val: Val, check: Check): void => {
   (val.vc ??= []).push(check);
 }
 
-// Applies both refiners. Input checks push onto valInput.checks
-// (emit at pre-transform slot); output checks wrap val via refine.
-// When valInput.prev is None, input checks fold into the output
-// wrap so emit has a prev.var(). Sets isOutput on the result.
+// Applies both refiners. Input checks push onto `valInput.vc` (emitted at the
+// pre-transform slot); output checks wrap `val` in a refine, or in a `.then`
+// when it is a promise. When `valInput` has no `prev`, input checks fold into
+// the output wrap so emit has a `prev.v()`. Sets `io` on the result.
 //
 // The parse loop applies refiners itself only for primitive decoders, so every
 // decoder that sets isOutput — object, array, tuple, union, recursive — has to
@@ -553,7 +553,9 @@ export const B_markOutput = (val: Val, valInput: Val): Val => {
       // own continuation is over by the time parse wraps what follows it in a
       // `.then`, so the checks get one of their own, over the settled value.
       const settledVar = B_varWithoutAllocation(val.g);
-      const code = B_emitChecks(B_refine(val, U, checks), settledVar);
+      // A copy rather than a refine: a refine would relink `val.v` to a val
+      // that is thrown away.
+      const code = B_emitChecks({ ...val, vc: checks }, settledVar);
       val = B_next(val, `${val.i}.then(${settledVar}=>{${code}return ${settledVar}})`, val.s);
       val.f = 1; // 1
     } else {
@@ -928,17 +930,15 @@ const B_mergeWithCatch = (
   // nothing merged can throw, so the catch wrapper is dead. Sampled before the
   // build, since both ways a body comes to throw happen after it — a check
   // embeds its failure as it is emitted, a recursive reference embeds its
-  // operation as it is built. Without an append
-  // the code itself is dead too — an untransformed, unfailable body is only
-  // orphaned `let`s — and dropping it lets the caller skip its loop entirely.
+  // operation as it is built. With nothing to append, the code itself is dead
+  // too — an untransformed, unfailable body is only orphaned `let`s — and
+  // dropping it lets the caller skip its loop entirely.
   const pure = pureSince !== U && val.g.t === pureSince;
   if (
     (valCode === "" || pure) &&
     // FIXME: Instead of this wrap every custom coder in a try/catch
     !(val.f & 1) // 1
   ) {
-    // An append that turns out empty (a counted loop that has nothing to
-    // count) leaves a pure body as dead as no append at all.
     const appended = appendSafe ? appendSafe() : "";
     return pure && appended === "" ? "" : valCode + appended;
   }

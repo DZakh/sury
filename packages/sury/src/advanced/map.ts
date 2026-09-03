@@ -30,7 +30,7 @@ import { iterableSource, parse, parseDynamic } from "../parse";
 // and `new Map` consumes — the wire form, and the only place the key and value
 // schemas live.
 const entryFactory = (key: Internal, value: Internal): Internal => {
-  const mut = baseSchema(arrayTag, !!(key.sr && value.sr), arrayDecoder);
+  const mut = baseSchema(arrayTag, false, arrayDecoder);
   mut.items = [key, value];
   mut.additionalItems = "strict";
   return mut;
@@ -84,7 +84,8 @@ const mapDecoder = (input: Val): Val => {
   // A failing entry is located by its key when the key is what a path is made
   // of — a string or a number, on a Map that has it as a key already. Anything
   // else (an object key, a Date, a source array whose own errors count) is
-  // located by its position, as a Set item is.
+  // located by its position, as a Set item is. Decided by the schema, so a key
+  // that fails to be the string it should be is still what the error reports.
   const byKey = !isArraySource && !!(tagFlags[toKey.type]! & (2 | 4));
   const indexVar = byKey ? "" : B_varWithoutAllocation(source.g);
   const location = byKey ? `${entryVar}[0]` : indexVar;
@@ -123,9 +124,10 @@ const mapDecoder = (input: Val): Val => {
   const outVar = rebuild && !fromSource ? out.v() : "";
 
   // An async entry is one promise over both halves, so the merge's own catch —
-  // which reaches only the val it is handed — names where either failed. Both
-  // are read into variables here, ahead of the merge that would otherwise
-  // materialize them under other names.
+  // which reaches only the val it is handed — names where either failed. Its
+  // expression is fixed here, before the merge, and the merge renames a half
+  // when a check materializes it (`v0[1]` becomes `let v5=v0[1]`), so both are
+  // read as variables now, which is the name the merge will use.
   const entry = isAsync
     ? B_asyncVal(valueOutput, `Promise.all([${keyOutput.v()},${valueOutput.v()}])`)
     : valueOutput;
