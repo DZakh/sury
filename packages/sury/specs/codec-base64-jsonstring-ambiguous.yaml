@@ -5,13 +5,13 @@ ts:
   output: string
   instantiations: 5175
 jsonSchema:
-  input: '{ type: "string", contentEncoding: "base64" }'
-  output: '{ type: "string", contentMediaType: "application/json" }'
+  input: '{ type: "string", contentMediaType: "application/json", contentEncoding: "base64" }'
+  output: '{ type: "string", contentEncoding: "base64", contentMediaType: "application/json" }'
   draft-2020-12:
-    output: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "string", contentEncoding: "base64" }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+    output: '{ type: "string", contentEncoding: "base64", contentMediaType: "application/json", contentSchema: { type: "string", contentEncoding: "base64" }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
   openapi-3.0:
     input: '{ type: "string", format: "byte" }'
-    output: '{ type: "string" }'
+    output: '{ type: "string", format: "byte" }'
 vs:
   zod:
     _skip: not-applicable

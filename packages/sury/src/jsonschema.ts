@@ -349,6 +349,18 @@ const internalToJSONSchema = (
   // to keep describing. Object/array still need their nested item metadata, so
   // they keep using the base path.
   const tagFlag = tagFlags[schema.type]!;
+  const to = schema.to;
+  // A string converted to a string with no document of its own (`S.email` to
+  // `S.string`, or back) is the same text checked both ways, so it is the two
+  // nodes' own descriptions overlaid. The encode-reverse below can't tell:
+  // the identity conversion leaves the reversed node, `.to` and all, as the
+  // parse output, and reversing that hands back the one being reversed.
+  if (to !== U && (tagFlag & 2) && (tagFlags[to.type]! & 2) && to.to === U) {
+    return jsonSchemaMerge(
+      internalToJSONSchemaBase(to, path, defs, parent, target),
+      internalToJSONSchemaBase(schema, path, defs, parent, target)
+    );
+  }
   const hasUserTo =
     !!schema.to &&
     !(tagFlag & (64 | 128)) &&
