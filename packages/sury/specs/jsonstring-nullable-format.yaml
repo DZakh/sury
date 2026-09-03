@@ -3,7 +3,7 @@ ts:
   schema: "S.schema({ at: S.nullable(S.isoDateTime) }).with(S.to, S.jsonString)"
   input: "{ at: string | null; }"
   output: string
-  instantiations: 6111
+  instantiations: 5297
 jsonSchema:
   input: '{ type: "object", properties: { at: { anyOf: [{ type: "string", format: "date-time" }, { type: "null" }] } }, required: ["at"] }'
   output: '{ type: "string", contentMediaType: "application/json" }'

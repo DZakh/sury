@@ -3,7 +3,7 @@ ts:
   schema: S.bigint.with(S.lte, 5n)
   input: bigint
   output: bigint
-  instantiations: 601
+  instantiations: 578
 jsonSchema:
   input: Expected JSON, received bigint <= 5n
   output: Expected JSON, received bigint <= 5n

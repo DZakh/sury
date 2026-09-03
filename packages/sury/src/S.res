@@ -489,7 +489,7 @@ type url
 
 // The public JS `refine` takes an options object; build it here from the
 // ReScript labeled args.
-type refineOptions = {error?: string, path?: array<string>}
+type refineOptions = {error?: string, path?: Path.t}
 @module("sury")
 external refine: (t<'value>, 'value => bool, refineOptions) => t<'value> = "refine"
 let refine = (schema, refiner, ~error=?, ~path=?) => refine(schema, refiner, {?error, ?path})

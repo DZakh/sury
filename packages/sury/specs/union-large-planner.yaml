@@ -3,7 +3,7 @@ ts:
   schema: 'S.union(["literal-0", "literal-1", "literal-2", "literal-3", "literal-4", "literal-5", "literal-6", "literal-7", { kind: "number", value: S.number }, { kind: "string", value: S.string }, { kind: "boolean", value: S.boolean }, { kind: "bigint", value: S.bigint }, S.instance(Date).with(S.to, S.string, () => "date"), S.instance(Error).with(S.to, S.string, () => "error"), S.instance(TypeError).with(S.to, S.string, () => "type-error"), S.union([S.string.with(S.minLength, 12), S.number]).with(S.refine, () => false, { error: "opaque member rejected" }), S.string, S.number, S.boolean, S.bigint, S.symbol, null, undefined])'
   input: 'string | number | bigint | boolean | symbol | Date | Error | { kind: "number"; value: number; } | { kind: "string"; value: string; } | { kind: "boolean"; value: boolean; } | { kind: "bigint"; value: bigint; } | null | undefined'
   output: 'string | number | bigint | boolean | symbol | { kind: "number"; value: number; } | { kind: "string"; value: string; } | { kind: "boolean"; value: boolean; } | { kind: "bigint"; value: bigint; } | null | undefined'
-  instantiations: 12754
+  instantiations: 12158
 jsonSchema:
   input: "Failed at value: Expected JSON, received bigint"
   output: "Failed at value: Expected JSON, received bigint"
