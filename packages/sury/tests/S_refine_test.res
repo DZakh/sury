@@ -15,7 +15,7 @@ test("Fails with default error message", t => {
 })
 
 test("Fails with custom path", t => {
-  let schema = S.int->S.refine(value => value >= 0, ~error="Should be positive", ~path=["confirm"])
+  let schema = S.int->S.refine(value => value >= 0, ~error="Should be positive", ~path=S.Path.fromArray(["confirm"]))
 
   t->U.assertThrowsMessage(
     () => %raw(`-12`)->S.parseOrThrow(~to=schema),

@@ -3,7 +3,7 @@ ts:
   schema: S.json.with(S.to, S.schema(["B", S.optional(S.string)]))
   input: JSON
   output: '["B", string | undefined]'
-  instantiations: 6131
+  instantiations: 5317
 jsonSchema:
   input: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string", const: "B" }, { anyOf: [{ type: "string" }, { type: "null" }] }] }'
   fromInputType: '["B", string | null]'
