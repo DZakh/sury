@@ -263,7 +263,7 @@ To also have TypeScript check the schema document itself, annotate it with `sati
 
 A schema read from a file or an API needs no cast: a non-literal argument — `unknown`, `S.JSON`, or one of the dialect types — falls back to `S.Schema<S.JSON, S.JSON>`, so pair it with `S.to` when you need a narrower type.
 
-> 🧠 **Sury**'s internal representation is itself JSON Schema-shaped, so a schema is readable as-is: `S.schema("Hello world!")` logs `{ type: "string", const: "Hello world!", … }`.
+> 🧠 **Sury**'s internal representation is itself JSON Schema-shaped, so a schema is readable as-is: `S.schema("Hello world!")` logs `{ type: "string", const: "Hello world!", ... }`.
 
 ### Standard Schema
 
@@ -992,7 +992,7 @@ a member with no same-type counterpart has nowhere to go:
 
 ```ts
 S.union([S.string, S.number]).with(S.to, S.union([S.number, S.string, S.boolean]));
-// Invalid operation: … boolean has no same-type variant on the other side.
+// Invalid operation: ... boolean has no same-type variant on the other side.
 S.optional(S.string).with(S.to, S.nullable(S.boolean)); // ❌ string doesn't match boolean
 S.optional(S.string).with(S.to, S.nullable(S.string.with(S.to, S.boolean))); // ✅
 ```
@@ -1203,7 +1203,7 @@ const documentedStringSchema = S.string.with(S.meta, {
   description: "A useful bit of text, if you know what to do with it.",
 });
 
-documentedStringSchema.description; // A useful bit of text…
+documentedStringSchema.description; // A useful bit of text...
 ```
 
 This can be useful for documenting fields, generating JSON, etc.
@@ -1350,7 +1350,7 @@ const shortStringSchema = S.string.with(S.refine, (value) => value.length <= 255
 
 #### Custom error path
 
-When refining an object schema, you can use the `path` option to attach the error to a specific field:
+When refining an object schema, you can use the `path` option to attach the error to a specific field. It is the same array `error.path` carries: strings for keys and numbers for array indices, so `["items", 0]` reports `Failed at items[0]`:
 
 ```ts
 const passwordFormSchema = S.schema({
@@ -1442,8 +1442,8 @@ Every operation that looks at one side of a schema says which side in its name. 
 
 Conversion targets are schemas, not dedicated functions: `S.json`, `S.jsonString`, `S.unknown`, `S.date`, and `S.uint8Array` are ordinary schemas usable at any position in a chain.
 
-- **`S.decoder(from, …intermediate, to)`** — compile a forward pipeline from one schema to another.
-- **`S.encoder(from, …intermediate, to)`** — compile the reverse pipeline.
+- **`S.decoder(from, ...intermediate, to)`** — compile a forward pipeline from one schema to another.
+- **`S.encoder(from, ...intermediate, to)`** — the same, starting from the reverse of `from`. Only the first schema is reversed: `S.encoder(a, b)` is `S.decoder(S.reverse(a), b)`.
 
 Each call fuses the whole chain into a single function generated via `new Function`.
 
@@ -1482,7 +1482,7 @@ const apiUser = S.schema({
 
 ### Built-in operations
 
-Every compiled operation takes the schema and returns a function: `(schema) => (data) => …`. The asserts are the one exception — TypeScript can only narrow through a direct call.
+Every compiled operation takes the schema and returns a function: `(schema) => (data) => ...`. The asserts are the one exception — TypeScript can only narrow through a direct call.
 
 **Parse** — validate unknown data and transform it to the output type:
 
@@ -1570,7 +1570,7 @@ A branded schema used as a *field* keeps its brand in what the constructor asks 
 
 ### Chaining operations
 
-`S.decoder` and `S.encoder` accept multiple schemas to build a single fused pipeline. The first schema is the input side and the last is the output side; intermediate schemas act as stages.
+`S.decoder` and `S.encoder` accept multiple schemas to build a single fused pipeline. The first schema is the input side and the last is the output side; intermediate schemas act as stages. `S.encoder` reverses only the first schema.
 
 ```ts
 // Decode a JSON string into your domain type in one pass
@@ -1580,6 +1580,9 @@ parseJsonString('{"id":"1","name":"John"}');
 // Encode your domain type to a JSON string in one pass
 const stringifyUser = S.encoder(userSchema, S.jsonString);
 stringifyUser({ id: "1", name: "John" });
+
+// Later stages run forward, as in S.decoder
+S.encoder(S.number, S.string.with(S.to, S.number))(1); //? 1
 ```
 
 ### **`reverse`**

@@ -997,7 +997,7 @@ S.union([S.string->S.castToUnknown, S.float->S.castToUnknown])->S.to(
     S.bool->S.castToUnknown,
   ]),
 )
-// Invalid operation: … boolean has no same-type variant on the other side.
+// Invalid operation: ... boolean has no same-type variant on the other side.
 S.option(S.string)->S.to(S.null(S.bool)) // ❌ string doesn't match boolean
 S.option(S.string)->S.to(S.null(S.string->S.to(S.bool))) // ✅
 ```
@@ -1332,7 +1332,7 @@ Use `S.meta` to add a metadata to the resulting schema.
 let documentedStringSchema = S.string
   ->S.meta({description: "A useful bit of text, if you know what to do with it."})
 
-(documentedStringSchema->S.untag).description // A useful bit of text…
+(documentedStringSchema->S.untag).description // A useful bit of text...
 ```
 
 This can be useful for documenting fields, generating JSON, etc.
@@ -1466,7 +1466,7 @@ S.parseOrThrow(%raw(`[1, 2, 3]`), ~to=intSetSchema) // throws S.Error: Expected 
 
 ### **`refine`**
 
-`(S.t<'value>, 'value => bool, ~error: string=?, ~path: array<string>=?) => S.t<'value>`
+`(S.t<'value>, 'value => bool, ~error: string=?, ~path: S.Path.t=?) => S.t<'value>`
 
 ```rescript
 let positiveNumberSchema = S.int->S.refine(value => value > 0)
@@ -1487,7 +1487,7 @@ let shortStringSchema = S.string->S.refine(
 
 #### Custom error path
 
-When refining an object schema, you can use the `~path` labeled argument to attach the error to a specific field:
+When refining an object schema, you can use the `~path` labeled argument to attach the error to a specific field. It is an `S.Path.t`, the same array `error.path` carries: `String` segments for keys and `Number` ones for array indices, so `[String("items"), Number(0.)]` reports `Failed at items[0]`:
 
 ```rescript
 let passwordFormSchema = S.object(s => {
@@ -1496,7 +1496,7 @@ let passwordFormSchema = S.object(s => {
 })->S.refine(
   data => data["password"] === data["confirm"],
   ~error="Passwords don't match",
-  ~path=["confirm"],
+  ~path=S.Path.fromArray(["confirm"]),
 )
 ```
 
@@ -1586,7 +1586,7 @@ A coder fails by throwing, and the path it was reached through is prepended:
 // Can't convert string to int
 ```
 
-Any exception works, a ReScript one (`throw(Failure("…"))`) included, but only
+Any exception works, a ReScript one (`throw(Failure("..."))`) included, but only
 a JS error carries a message, so anything else is reported by its structure.
 To name a path or the schemas involved, build the error and throw that:
 

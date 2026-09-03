@@ -66,17 +66,17 @@ function compileParseAsync(to) {
 
 function compileConvertOrThrow(from, via, to) {
   if (via !== undefined) {
-    return Sury.decoder(Sury.reverse(from), via, to);
+    return Sury.encoder(from, via, to);
   } else {
-    return Sury.decoder(Sury.reverse(from), to);
+    return Sury.encoder(from, to);
   }
 }
 
 function compileConvertAsyncOrThrow(from, via, to) {
   if (via !== undefined) {
-    return Sury.asyncDecoder(Sury.reverse(from), via, to);
+    return Sury.asyncEncoder(from, via, to);
   } else {
-    return Sury.asyncDecoder(Sury.reverse(from), to);
+    return Sury.asyncEncoder(from, to);
   }
 }
 

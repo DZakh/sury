@@ -3,7 +3,7 @@ ts:
   schema: S.string.with(S.to, S.schema(undefined))
   input: string
   output: undefined
-  instantiations: 5604
+  instantiations: 4790
 jsonSchema:
   input: '{ type: "string", const: "undefined" }'
   fromInputType: '"undefined"'

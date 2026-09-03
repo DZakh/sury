@@ -3,7 +3,7 @@ ts:
   schema: 'S.jsonString.with(S.to, S.union([S.tuple(s => [s.item(0, S.bigint), s.item(1, S.string)]), S.schema({t: "x", id: S.bigint})]))'
   input: string
   output: '(string | bigint)[] | { t: "x"; id: bigint; }'
-  instantiations: 7899
+  instantiations: 7085
 jsonSchema:
   input: '{ type: "string", contentMediaType: "application/json" }'
   output: "Failed at [0]: Expected JSON, received bigint"
@@ -14,7 +14,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[7](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}for(;;){if(Array.isArray(v0)&&v0.length===2){let v2=v0["0"],v3=v0["1"];typeof v2==="string"||e[2](v2);let v1;try{v1=BigInt(v2)}catch(_){e[1](v2)}typeof v3==="string"||e[3](v3);v0=[v1,v3];break}if(typeof v0==="object"&&v0&&!Array.isArray(v0)&&v0["t"]==="x"){let v5=v0["id"];typeof v5==="string"||e[5](v5);let v4;try{v4=BigInt(v5)}catch(_){e[4](v5)}v0={t:v0["t"],id:v4};break}e[6](v0)}return v0}
+    expression: i=>{typeof i==="string"||e[7](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}for(;;){if(Array.isArray(v0)&&v0.length===2){let v2=v0["0"],v3=v0["1"];typeof v2==="string"||e[2](v2);let v1;try{v1=BigInt(v2)}catch(_){e[1](v2)}v1||v2.trim()||e[1](v2);typeof v3==="string"||e[3](v3);v0=[v1,v3];break}if(typeof v0==="object"&&v0&&!Array.isArray(v0)&&v0["t"]==="x"){let v5=v0["id"];typeof v5==="string"||e[5](v5);let v4;try{v4=BigInt(v5)}catch(_){e[4](v5)}v4||v5.trim()||e[4](v5);v0={t:v0["t"],id:v4};break}e[6](v0)}return v0}
     examples:
       tuple-variant-coerces:
         input: '"[\"42\",\"a\"]"'
@@ -26,7 +26,7 @@ operations:
         input: '"[42,\"a\"]"'
         error: "Failed at [0]: Expected string, received 42"
   decode:
-    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}for(;;){if(Array.isArray(v0)&&v0.length===2){let v2=v0["0"],v3=v0["1"];typeof v2==="string"||e[2](v2);let v1;try{v1=BigInt(v2)}catch(_){e[1](v2)}typeof v3==="string"||e[3](v3);v0=[v1,v3];break}if(typeof v0==="object"&&v0&&!Array.isArray(v0)&&v0["t"]==="x"){let v5=v0["id"];typeof v5==="string"||e[5](v5);let v4;try{v4=BigInt(v5)}catch(_){e[4](v5)}v0={t:v0["t"],id:v4};break}e[6](v0)}return v0}
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}for(;;){if(Array.isArray(v0)&&v0.length===2){let v2=v0["0"],v3=v0["1"];typeof v2==="string"||e[2](v2);let v1;try{v1=BigInt(v2)}catch(_){e[1](v2)}v1||v2.trim()||e[1](v2);typeof v3==="string"||e[3](v3);v0=[v1,v3];break}if(typeof v0==="object"&&v0&&!Array.isArray(v0)&&v0["t"]==="x"){let v5=v0["id"];typeof v5==="string"||e[5](v5);let v4;try{v4=BigInt(v5)}catch(_){e[4](v5)}v4||v5.trim()||e[4](v5);v0={t:v0["t"],id:v4};break}e[6](v0)}return v0}
     examples:
       valid:
         input: '"[\"42\",\"a\"]"'

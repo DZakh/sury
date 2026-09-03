@@ -489,7 +489,7 @@ type url
 
 // The public JS `refine` takes an options object; build it here from the
 // ReScript labeled args.
-type refineOptions = {error?: string, path?: array<string>}
+type refineOptions = {error?: string, path?: Path.t}
 @module("sury")
 external refine: (t<'value>, 'value => bool, refineOptions) => t<'value> = "refine"
 let refine = (schema, refiner, ~error=?, ~path=?) => refine(schema, refiner, {?error, ?path})
@@ -556,17 +556,18 @@ let to = (from, target, ~custom=?) =>
 @module("sury") external reverse: t<'value> => t<unknown> = "reverse"
 
 %%private(
-  // The public JS `decoder` compiles from a schema's Input space; the ReScript
-  // flavor converts FROM a schema's Output space, so `from` is reversed first.
-  // Arity-specific bindings, since a labeled optional `~via` can't spread.
-  @module("sury") external decoder2: (t<unknown>, t<'to>) => 'any => 'to = "decoder"
+  // The ReScript convert runs FROM a schema's Output space, which is exactly
+  // what the JS `encoder` compiles: it reverses its first schema only and
+  // runs the rest of the chain forward. Arity-specific bindings, since a
+  // labeled optional `~via` can't spread into a rest param.
+  @module("sury") external encoder2: (t<'from>, t<'to>) => 'from => 'to = "encoder"
   @module("sury")
-  external decoder3: (t<unknown>, t<unknown>, t<'to>) => 'any => 'to = "decoder"
+  external encoder3: (t<'from>, t<unknown>, t<'to>) => 'from => 'to = "encoder"
   @module("sury")
-  external asyncDecoder2: (t<unknown>, t<'to>) => 'any => promise<'to> = "asyncDecoder"
+  external asyncEncoder2: (t<'from>, t<'to>) => 'from => promise<'to> = "asyncEncoder"
   @module("sury")
-  external asyncDecoder3: (t<unknown>, t<unknown>, t<'to>) => 'any => promise<'to> =
-    "asyncDecoder"
+  external asyncEncoder3: (t<'from>, t<unknown>, t<'to>) => 'from => promise<'to> =
+    "asyncEncoder"
 
   // Only a Sury failure becomes `Error`; anything else propagates. Bound
   // rather than written here: a ReScript `catch` compiles to
@@ -588,15 +589,15 @@ let compileParseAsync = (~to) => {
   any => safeAsync(() => fn(any))
 }
 
-let compileConvertOrThrow = (~from: t<'from>, ~via=?, ~to) =>
+let compileConvertOrThrow = (~from, ~via=?, ~to) =>
   switch via {
-  | None => decoder2(reverse(from), to)
-  | Some(via) => decoder3(reverse(from), castToUnknown(via), to)
+  | None => encoder2(from, to)
+  | Some(via) => encoder3(from, castToUnknown(via), to)
   }
-let compileConvertAsyncOrThrow = (~from: t<'from>, ~via=?, ~to) =>
+let compileConvertAsyncOrThrow = (~from, ~via=?, ~to) =>
   switch via {
-  | None => asyncDecoder2(reverse(from), to)
-  | Some(via) => asyncDecoder3(reverse(from), castToUnknown(via), to)
+  | None => asyncEncoder2(from, to)
+  | Some(via) => asyncEncoder3(from, castToUnknown(via), to)
   }
 let compileConvert = (~from, ~via=?, ~to) => {
   let fn = compileConvertOrThrow(~from, ~via?, ~to)

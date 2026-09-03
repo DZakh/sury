@@ -320,7 +320,7 @@ test("getOr default reaches jsonString quoted, not reassociated", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i="\\""+v0+"\\"";break}if(i===void 0){i="\\""+7n+"\\"";break}e[1](i)}return i}`,
+    `i=>{for(;;){if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}v0||i.trim()||e[0](i);i="\\""+v0+"\\"";break}if(i===void 0){i="\\""+7n+"\\"";break}e[1](i)}return i}`,
   )
 
   t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), `"7"`)
@@ -355,7 +355,7 @@ test("Multi-member union with transformed members + getOr", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){let r;if(typeof i==="string"){try{let v0=+i;v0===v0||e[0](i);i=v0;break}catch(x){(r||(r=[])).push(e[2](x))}try{let v1;try{v1=BigInt(i)}catch(_){e[1](i)}i=v1;break}catch(x){(r||(r=[])).push(e[2](x))}}if(typeof i==="boolean")break;if(i===void 0){i=true;break}e[3](i,...(r||[]))}return i}`,
+    `i=>{for(;;){let r;if(typeof i==="string"){try{let v0=+i;v0===v0&&(v0||i.trim())||e[0](i);i=v0;break}catch(x){(r||(r=[])).push(e[2](x))}try{let v1;try{v1=BigInt(i)}catch(_){e[1](i)}v1||i.trim()||e[1](i);i=v1;break}catch(x){(r||(r=[])).push(e[2](x))}}if(typeof i==="boolean")break;if(i===void 0){i=true;break}e[3](i,...(r||[]))}return i}`,
   )
 
   t->U.assertCompiledCode(
