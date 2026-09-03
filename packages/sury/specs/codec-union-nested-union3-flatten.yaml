@@ -3,7 +3,7 @@ ts:
   schema: S.union([S.string, S.union([S.number, S.boolean])]).with(S.to, S.union([S.boolean, S.number, S.string]))
   input: string | number | boolean
   output: string | number | boolean
-  instantiations: 7035
+  instantiations: 6221
 jsonSchema:
   input: '{ anyOf: [{ type: "boolean" }, { type: "number" }, { type: "string" }] }'
   output: '{ anyOf: [{ type: "string" }, { type: "number" }, { type: "boolean" }] }'

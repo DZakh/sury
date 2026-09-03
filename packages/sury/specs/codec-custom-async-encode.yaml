@@ -3,7 +3,7 @@ ts:
   schema: 'S.string.with(S.to, S.number, { decode: (value) => value.length, encode: { async: (value) => Promise.resolve("x".repeat(value)) } })'
   input: string
   output: number
-  instantiations: 5365
+  instantiations: 4551
 jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "number" }'
