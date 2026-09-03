@@ -139,10 +139,6 @@ const mapDecoder = (input: Val): Val => {
         : ""
     }${!byKey && canThrow() && !isAsync ? `${indexVar}++;` : ""}`;
 
-  // The count sampled above tells an entry that can fail — and so needs itself
-  // located in the path — from one that can't: a check embeds its failure as it
-  // is emitted, a recursive reference embeds its operation as it is built, and
-  // the sample precedes both.
   const body = B_mergeWithPathPrepend(entry, source, location, append, raiseCountBefore);
   const counted = !byKey && canThrow();
   B_forOf(
@@ -161,9 +157,7 @@ const mapDecoder = (input: Val): Val => {
 
 const mapEncoder: Encoder = (input: Val, target: Internal): Val => {
   if ((tagFlags[target.type]! & 128)) {
-    // The B_refine wrap is what makes the produced array the subject of the
-    // target's checks — see the note in advanced/url.ts. The entries are left
-    // to the target's own decoder, which is what encodes them.
+    // See setEncoder.
     return parse(
       B_refine(
         B_next(

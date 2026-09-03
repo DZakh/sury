@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.array(S.string.with(S.to, S.string, { decode: { async: async (value) => value }, encode: "auto" })).with(S.minLength, 2)'
+  input: "[string, string, ...string[]]"
+  output: "[string, string, ...string[]]"
+  instantiations: 6299
+jsonSchema:
+  input: '{ items: { type: "string" }, type: "array", minItems: 2 }'
+  fromInputType: string[]
+  output: '{ items: { type: "string" }, type: "array", minItems: 2 }'
+  fromOutputType: string[]
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    isAsync: true
+    expression: i=>{Array.isArray(i)||e[5](i);let v4=new Array(i.length);for(let v0=0;v0<i.length;++v0){try{let v2=i[v0];typeof v2==="string"||e[3](v2);let v1;try{v1=e[0](v2).catch(x=>e[1](x))}catch(x){e[1](x)}v4[v0]=v1.then(v1=>{typeof v1==="string"||e[2](v1);return v1}).catch(v3=>{v3.path=[v0,...v3.path];throw v3})}catch(v3){v3.path=[v0,...v3.path];throw v3}}return Promise.all(v4).then(v5=>{v5.length>1||e[4](v5);return v5})}
+    examples:
+      valid:
+        input: '["a", "b"]'
+        output: '["a", "b"]'
+      too-short-after-resolving:
+        input: '["a"]'
+        error: Expected string[].length >= 2, received ["a"]
+  decode:
+    isAsync: true
+    expression: i=>{let v3=new Array(i.length);for(let v0=0;v0<i.length;++v0){try{let v1;try{v1=e[0](i[v0]).catch(x=>e[1](x))}catch(x){e[1](x)}v3[v0]=v1.then(v1=>{typeof v1==="string"||e[2](v1);return v1}).catch(v2=>{v2.path=[v0,...v2.path];throw v2})}catch(v2){v2.path=[v0,...v2.path];throw v2}}return Promise.all(v3).then(v4=>{v4.length>1||e[3](v4);return v4})}
+    examples:
+      valid:
+        input: '["a", "b"]'
+        output: '["a", "b"]'
+  encode:
+    expression: i=>{i.length>1||e[0](i);return i}
+    examples:
+      valid:
+        input: '["a", "b"]'
+        output: '["a", "b"]'

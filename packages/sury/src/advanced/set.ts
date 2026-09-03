@@ -76,10 +76,8 @@ const setDecoder = (input: Val): Val => {
 
   // A Set item has no key to be located by, so a failing one is located by its
   // position — well defined, since iteration follows insertion order. The
-  // counter is only worth keeping when the body can actually fail, which is
-  // only known after the merge: a check embeds its failure as it is emitted,
-  // where a recursive reference embeds its operation as it is built — the count
-  // is sampled before both, so neither escapes the test.
+  // counter is only worth keeping when the body can fail, which the merge's
+  // `pureSince` sample tells.
   const indexVar = B_varWithoutAllocation(source.g);
   const counterVar = isAsync ? B_varWithoutAllocation(source.g) : indexVar;
   const canThrow = (): boolean => source.g.t !== raiseCountBefore;

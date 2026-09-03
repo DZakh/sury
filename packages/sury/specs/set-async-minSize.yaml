@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.set(S.string.with(S.to, S.string, { decode: { async: async (value) => value }, encode: "auto" })).with(S.minSize, 2)'
+  input: Set<string>
+  output: Set<string>
+  instantiations: 5922
+jsonSchema:
+  input: Expected JSON, received Set<string>.size >= 2
+  output: Expected JSON, received Set<string>.size >= 2
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    isAsync: true
+    expression: i=>{i instanceof e[5]||e[6](i);let v2=[];let v4=0;for(let v0 of i){let v3=v4++;try{typeof v0==="string"||e[3](v0);let v1;try{v1=e[0](v0).catch(x=>e[1](x))}catch(x){e[1](x)}v2.push(v1.then(v1=>{typeof v1==="string"||e[2](v1);return v1}).catch(v5=>{v5.path=[v3,...v5.path];throw v5}));}catch(v5){v5.path=[v3,...v5.path];throw v5}}return Promise.all(v2).then(v6=>new Set(v6)).then(v7=>{v7.size>1||e[4](v7);return v7})}
+    examples:
+      valid:
+        input: new Set(["a", "b"])
+        output: new Set(["a", "b"])
+      too-small-after-resolving:
+        input: new Set(["a"])
+        error: Expected Set<string>.size >= 2, received Set
+  decode:
+    isAsync: true
+    expression: i=>{let v2=[];let v4=0;for(let v0 of i){let v3=v4++;try{let v1;try{v1=e[0](v0).catch(x=>e[1](x))}catch(x){e[1](x)}v2.push(v1.then(v1=>{typeof v1==="string"||e[2](v1);return v1}).catch(v5=>{v5.path=[v3,...v5.path];throw v5}));}catch(v5){v5.path=[v3,...v5.path];throw v5}}return Promise.all(v2).then(v6=>new Set(v6)).then(v7=>{v7.size>1||e[3](v7);return v7})}
+    examples:
+      valid:
+        input: new Set(["a", "b"])
+        output: new Set(["a", "b"])
+  encode:
+    expression: i=>{i.size>1||e[0](i);return i}
+    examples:
+      valid:
+        input: new Set(["a", "b"])
+        output: new Set(["a", "b"])
+      too-small:
+        input: new Set(["a"])
+        error: Expected Set<string>.size >= 2, received Set

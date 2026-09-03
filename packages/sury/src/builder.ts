@@ -546,7 +546,20 @@ export const B_markOutput = (val: Val, valInput: Val): Val => {
     const c = rf(val);
     if (c.length) outC = c;
   }
-  val = inC ? B_refine(val, U, outC ? inC.concat(outC) : inC) : outC ? B_refine(val, U, outC) : val;
+  const checks = inC ? (outC ? inC.concat(outC) : inC) : outC;
+  if (checks) {
+    if (val.f & 1) { // 1
+      // A bound on a promise's `.size` is a bound on nothing: the decoder's
+      // own continuation is over by the time parse wraps what follows it in a
+      // `.then`, so the checks get one of their own, over the settled value.
+      const settledVar = B_varWithoutAllocation(val.g);
+      const code = B_emitChecks(B_refine(val, U, checks), settledVar);
+      val = B_next(val, `${val.i}.then(${settledVar}=>{${code}return ${settledVar}})`, val.s);
+      val.f = 1; // 1
+    } else {
+      val = B_refine(val, U, checks);
+    }
+  }
   val.io = true;
   return val;
 }
@@ -912,7 +925,10 @@ const B_mergeWithCatch = (
 ): string => {
   const valCode = B_merge(val);
   // `pureSince` is the raise counter before the val was built: unchanged means
-  // nothing merged can throw, so the catch wrapper is dead. Without an append
+  // nothing merged can throw, so the catch wrapper is dead. Sampled before the
+  // build, since both ways a body comes to throw happen after it — a check
+  // embeds its failure as it is emitted, a recursive reference embeds its
+  // operation as it is built. Without an append
   // the code itself is dead too — an untransformed, unfailable body is only
   // orphaned `let`s — and dropping it lets the caller skip its loop entirely.
   const pure = pureSince !== U && val.g.t === pureSince;
