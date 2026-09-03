@@ -108,12 +108,12 @@ of the keyword set (`JSONSchemaT` in `src/jsonschema.ts`, `JSONSchema.res`).
 - **Never publish a factory through an alias** (`export const object = schemaObject`):
   the annotation counts only on the declaration that *is* the function. Re-export
   instead — `export { schemaObject as object } from "./factory"`.
-- `schema.with(S.meta, …)` is a method call on an opaque receiver and can never
-  be dropped; the functional `S.meta(schema, …)` is equivalent and does shake.
+- `schema.with(S.meta, ...)` is a method call on an opaque receiver and can never
+  be dropped; the functional `S.meta(schema, ...)` is equivalent and does shake.
 - `package.json`'s `sideEffects` is a list, not `false`: the ReScript entries
   carry a top-level call registering the exception identity, and a blanket
   `false` drops it while keeping the bindings, after which
-  `try { … } catch { S.Raised }` stops matching.
+  `try { ... } catch { S.Raised }` stops matching.
 
 `tests/treeShaking_test.ts` guards the first two; `bundleSize.yaml` can't.
 
