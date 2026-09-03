@@ -15,7 +15,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{for(;;){let r;if(typeof i==="string"&&i==="123")break;if(typeof i==="string"){try{let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=v0;break}catch(x){(r||(r=[])).push(e[1](x))}break}e[2](i,...(r||[]))}return i}
+    expression: i=>{for(;;){let r;if(typeof i==="string"&&i==="123")break;if(typeof i==="string"){try{let v0;try{v0=BigInt(i)}catch(_){e[0](i)}v0||i.trim()||e[0](i);i=v0;break}catch(x){(r||(r=[])).push(e[1](x))}break}e[2](i,...(r||[]))}return i}
     examples:
       literal-member:
         input: '"123"'
@@ -26,14 +26,12 @@ operations:
       catchall-string:
         input: '"abc"'
         output: '"abc"'
-      # FIXME: BigInt("") is 0n and BigInt("   ") is 0n, so blank strings decode to a
-      # bigint instead of falling back to the S.string member.
       empty-string:
         input: '""'
-        output: 0n
+        output: '""'
       whitespace-string:
         input: '"   "'
-        output: 0n
+        output: '"   "'
       no-double-decoding:
         input: "true"
         error: Expected "123" | bigint | string, received true

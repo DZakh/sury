@@ -25,7 +25,7 @@ operations:
         output: '"1.5"'
   decode: eq-to-parse
   encode:
-    expression: i=>{for(;;){let r;if(typeof i==="string"){try{let v0=+i;v0===v0||e[0](i);i=v0;break}catch(x){(r||(r=[])).push(e[1](x))}break}e[2](i,...(r||[]))}return i}
+    expression: i=>{for(;;){let r;if(typeof i==="string"){try{let v0=+i;v0===v0&&(v0||i.trim())||e[0](i);i=v0;break}catch(x){(r||(r=[])).push(e[1](x))}break}e[2](i,...(r||[]))}return i}
     examples:
       numeric-string:
         input: '"123"'
