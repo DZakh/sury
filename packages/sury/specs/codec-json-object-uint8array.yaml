@@ -3,7 +3,7 @@ ts:
   schema: "S.json.with(S.to, S.schema({ payload: S.uint8Array }))"
   input: JSON
   output: "{ payload: Uint8Array<ArrayBufferLike>; }"
-  instantiations: 6260
+  instantiations: 5446
 jsonSchema:
   input: '{ type: "object", properties: { payload: { type: "string", contentEncoding: "base64" } }, additionalProperties: false, required: ["payload"] }'
   fromInputType: "{ payload: string; }"
