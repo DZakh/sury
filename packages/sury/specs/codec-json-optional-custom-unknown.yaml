@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({ f: S.optional(S.json.with(S.to, S.unknown, { decode: (json) => json, encode: (value) => (value as { tag: string }).tag })) })"
+  input: "{ f?: JSON | undefined; }"
+  output: "{ f?: unknown; }"
+  instantiations: 7550
+jsonSchema:
+  input: '{ type: "object", properties: { f: {} } }'
+  output: "Failed at f: Expected JSON, received unknown | undefined"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[6](i);let v2=i["f"];for(;;){let r;try{try{e[0](i["f"]);}catch(v0){v0.path=["f",...v0.path];throw v0}let v1;try{v1=e[1](i["f"])}catch(x){e[2](x);e[3](x)}v2=v1;break}catch(x){(r||(r=[])).push(e[4](x))}if(v2===void 0)break;e[5](v2,...(r||[]))}return {f:v2}}
+    examples:
+      present:
+        input: '{ f: { tag: "x" } }'
+        output: '{ f: { tag: "x" } }'
+      absent:
+        input: "{}"
+        output: "{ f: undefined }"
+      explicit-undefined:
+        input: "{ f: undefined }"
+        output: "{ f: undefined }"
+  decode:
+    expression: i=>{let v2=i["f"];for(;;){let r;try{try{e[0](i["f"]);}catch(v0){v0.path=["f",...v0.path];throw v0}let v1;try{v1=e[1](i["f"])}catch(x){e[2](x);e[3](x)}v2=v1;break}catch(x){(r||(r=[])).push(e[4](x))}if(v2===void 0)break;e[5](v2,...(r||[]))}return {f:v2}}
+    examples:
+      present:
+        input: '{ f: { tag: "x" } }'
+        output: '{ f: { tag: "x" } }'
+      absent:
+        input: "{}"
+        output: "{ f: undefined }"
+  encode:
+    expression: i=>{let v0=i["f"];for(;;){if(v0===void 0)break;let v1;try{v1=e[0](v0)}catch(x){e[1](x);e[2](x)}try{e[3](v1);}catch(v2){v2.path=["f",...v2.path];throw v2}v0=v1;break;}return {f:v0}}
+    examples:
+      present:
+        input: '{ f: { tag: "x" } }'
+        output: '{ f: "x" }'
+      absent:
+        input: "{}"
+        output: "{ f: undefined }"
+      explicit-undefined:
+        input: "{ f: undefined }"
+        output: "{ f: undefined }"
+      null-reaches-the-coder:
+        input: "{ f: null }"
+        error: Cannot read properties of null (reading 'tag')
