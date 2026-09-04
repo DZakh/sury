@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({ kind: S.union([0, 1, 2]).with(S.protobufField, 1), maybe: S.optional(S.union([0, 5])).with(S.protobufField, 2) }).with(S.to, S.protobuf)"
+  input: "{ kind: 0 | 1 | 2; maybe?: 0 | 5 | undefined; }"
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 7764
+jsonSchema:
+  input: '{ type: "object", properties: { kind: { enum: [0, 1, 2] }, maybe: { enum: [0, 5] } }, required: ["kind"] }'
+  output: Expected JSON, received Uint8Array
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[6](i);let v0=i["kind"],v1=i["maybe"];typeof v0==="number"&&v0===v0&&(v0===0||v0===1||v0===2)||e[0](v0);(typeof v1==="number"&&v1===v1&&(v1===0||v1===5)||v1===void 0)||e[1](v1);let v2,w;try{w=e[4].acquire();let v,j,n,s,h,a,k,g,c;v=v0;if((v=+v)){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=v;if(s<-2147483648||s>2147483647)e[2](s,-2147483648,2147483647,"enum");s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v=v1;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=16:w.varint32(16);s=v;if(s<-2147483648||s>2147483647)e[2](s,-2147483648,2147483647,"enum");s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v2=w.finish()}catch(x){w&&(w.busy=false);e[5](x)}return v2}
+    examples:
+      listed:
+        input: "{ kind: 1 }"
+        output: new Uint8Array([8, 1])
+      unlisted-rejected:
+        input: "{ kind: 7 }"
+        error: "Failed at kind: Expected 0 | 1 | 2, received 7"
+  decode:
+    expression: i=>{let v0,w;try{w=e[2].acquire();let v,j,n,s,h,a,k,g,c;v=i["kind"];if((v=+v)){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=v;if(s<-2147483648||s>2147483647)e[0](s,-2147483648,2147483647,"enum");s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v=i["maybe"];if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=16:w.varint32(16);s=v;if(s<-2147483648||s>2147483647)e[0](s,-2147483648,2147483647,"enum");s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v0=w.finish()}catch(x){w&&(w.busy=false);e[3](x)}return v0}
+    examples:
+      values:
+        input: "{ kind: 2, maybe: 0 }"
+        output: new Uint8Array([8, 2, 16, 0])
+      defaults:
+        input: "{ kind: 0 }"
+        output: new Uint8Array([])
+  encode:
+    expression: i=>{let v0,r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}return v0}
+    examples:
+      unlisted-value-kept:
+        input: new Uint8Array([8, 7])
+        output: "{ kind: 7 }"
+      optional-zero:
+        input: new Uint8Array([16, 0])
+        output: "{ kind: 0, maybe: 0 }"

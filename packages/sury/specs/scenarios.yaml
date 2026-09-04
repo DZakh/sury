@@ -102,3 +102,25 @@ base64-unpack:
   # The other half: the base64 read plus the pattern check that lets it skip a
   # `try` around `atob`.
   run: decode(data)
+
+protobuf-encode:
+  prepare: |
+    const Message = S.schema({
+      id: S.string.with(S.protobufField, { number: 1, type: "uint32" }),
+      name: S.string.with(S.protobufField, { number: 2, type: "string" }),
+      tags: S.array(S.int32).with(S.protobufField, { number: 3, type: "sint32" }),
+    })
+    const encode = S.decoder(Message, S.protobuf)
+    const data = { id: "150", name: "Ada", tags: [-1, 0, 2] }
+  run: encode(data)
+
+protobuf-decode:
+  prepare: |
+    const Message = S.schema({
+      id: S.string.with(S.protobufField, { number: 1, type: "uint32" }),
+      name: S.string.with(S.protobufField, { number: 2, type: "string" }),
+      tags: S.array(S.int32).with(S.protobufField, { number: 3, type: "sint32" }),
+    })
+    const decode = S.decoder(S.protobuf, Message)
+    const bytes = new Uint8Array([8, 150, 1, 18, 3, 65, 100, 97, 26, 3, 1, 0, 4])
+  run: decode(bytes)

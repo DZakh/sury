@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.arrayBuffer
+  input: ArrayBuffer
+  output: ArrayBuffer
+  instantiations: 254
+jsonSchema:
+  input: Expected JSON, received ArrayBuffer
+  output: Expected JSON, received ArrayBuffer
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{i instanceof e[0]||e[1](i);return i}
+    examples:
+      view-rejected:
+        input: new Uint8Array([1])
+        error: Expected ArrayBuffer, received Uint8Array
+      string-rejected:
+        input: '"x"'
+        error: Expected ArrayBuffer, received "x"
+  decode: identity
+  encode: identity

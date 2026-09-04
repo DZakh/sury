@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({ one: S.literal(1).with(S.protobufField, 1), kind: S.union([1, 2]).with(S.protobufField, 2), maybe: S.optional(S.literal(1)).with(S.protobufField, 3) }).with(S.to, S.protobuf)"
+  input: "{ one: 1; kind: 1 | 2; maybe?: 1 | undefined; }"
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 8216
+jsonSchema:
+  input: '{ type: "object", properties: { one: { type: "number", const: 1 }, kind: { enum: [1, 2] }, maybe: { type: "number", const: 1 } }, required: ["one", "kind"] }'
+  output: Expected JSON, received Uint8Array
+  openapi-3.0:
+    input: '{ type: "object", properties: { one: { type: "number", enum: [1] }, kind: { enum: [1, 2] }, maybe: { type: "number", enum: [1] } }, required: ["one", "kind"] }'
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[7](i);let v0=i["one"],v1=i["kind"],v2=i["maybe"];v0===1||e[0](v0);typeof v1==="number"&&v1===v1&&(v1===1||v1===2)||e[1](v1);(typeof v2==="number"&&v2===v2&&v2===1||v2===void 0)||e[2](v2);let v3,w;try{w=e[5].acquire();let v,j,n,s,h,a,k,g,c;v=v0;if(v||v!==v||Object.is(v,-0)){w.pos<w.buf.length?w.buf[w.pos++]=9:w.varint32(9);w.float64(v)};v=v1;if((v=+v)){w.pos<w.buf.length?w.buf[w.pos++]=16:w.varint32(16);s=v;if(s<-2147483648||s>2147483647)e[3](s,-2147483648,2147483647,"enum");s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v=v2;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=25:w.varint32(25);w.float64(v)};v3=w.finish()}catch(x){w&&(w.busy=false);e[6](x)}return v3}
+    examples:
+      values:
+        input: "{ one: 1, kind: 2 }"
+        output: new Uint8Array([9, 0, 0, 0, 0, 0, 0, 240, 63, 16, 2])
+      wrong-literal:
+        input: "{ one: 2, kind: 2 }"
+        error: "Failed at one: Expected 1, received 2"
+  decode:
+    expression: i=>{let v0,w;try{w=e[2].acquire();let v,j,n,s,h,a,k,g,c;v=1;if(v||v!==v||Object.is(v,-0)){w.pos<w.buf.length?w.buf[w.pos++]=9:w.varint32(9);w.float64(v)};v=i["kind"];if((v=+v)){w.pos<w.buf.length?w.buf[w.pos++]=16:w.varint32(16);s=v;if(s<-2147483648||s>2147483647)e[0](s,-2147483648,2147483647,"enum");s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v=i["maybe"];if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=25:w.varint32(25);w.float64(v)};v0=w.finish()}catch(x){w&&(w.busy=false);e[3](x)}return v0}
+    examples:
+      values:
+        input: "{ one: 1, kind: 2 }"
+        output: new Uint8Array([9, 0, 0, 0, 0, 0, 0, 240, 63, 16, 2])
+  encode:
+    expression: i=>{let v0,r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}let v1=v0["one"],v2=v0["maybe"];v1===1||e[3](v1);if(v2!==void 0){v2===1||e[5](v2);}return v0}
+    examples:
+      values:
+        input: new Uint8Array([9, 0, 0, 0, 0, 0, 0, 240, 63, 16, 2])
+        output: "{ one: 1, kind: 2 }"

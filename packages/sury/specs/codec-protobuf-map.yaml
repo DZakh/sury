@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ counts: S.record(S.int32).with(S.protobufField, 1), byId: S.record(S.schema({ name: S.string.with(S.protobufField, 1) })).with(S.protobufField, {number: 2, key: "int64"}) }).with(S.to, S.protobuf)'
+  input: "{ counts: Record<string, number>; byId: Record<string, { name: string; }>; }"
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 8694
+jsonSchema:
+  input: '{ type: "object", properties: { counts: { type: "object", additionalProperties: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, byId: { type: "object", additionalProperties: { type: "object", properties: { name: { type: "string" } }, required: ["name"] } } }, required: ["counts", "byId"] }'
+  output: Expected JSON, received Uint8Array
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[10](i);let v0=i["counts"],v4=i["byId"];typeof v0==="object"&&v0&&!Array.isArray(v0)||e[1](v0);for(let v1 in v0){try{let v2=v0[v1];typeof v2==="number"&&v2<=2147483647&&v2>=-2147483648&&v2%1===0||e[0](v2);}catch(v3){v3.path=["counts",v1,...v3.path];throw v3}}typeof v4==="object"&&v4&&!Array.isArray(v4)||e[4](v4);let v9={};for(let v5 in v4){try{let v6=v4[v5];typeof v6==="object"&&v6&&!Array.isArray(v6)||e[3](v6);let v7=v6["name"];typeof v7==="string"||e[2](v7);v9[v5]={name:v7}}catch(v8){v8.path=["byId",v5,...v8.path];throw v8}}let v10,w;try{w=e[8].acquire();let v,j,n,s,h,a,k,g,c;v=v0;a=Object.keys(v);n=a.length;j=0;while(j<n){k=a[j++];c=v[k];w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(k);w.pos<w.buf.length?w.buf[w.pos++]=16:w.varint32(16);s=c;if(s<-2147483648||s>2147483647)e[6](s,-2147483648,2147483647,"int32");s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s);w.end(h)};v=v9;a=Object.keys(v);n=a.length;j=0;while(j<n){k=a[j++];c=v[k];w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();k=BigInt(k);w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);w.varint64(e[7](k,-9223372036854775808n,9223372036854775807n,"int64"));w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);g=w.begin();e[5](w,c);w.end(g);w.end(h)};v10=w.finish()}catch(x){w&&(w.busy=false);e[9](x)}return v10}
+    examples:
+      entries:
+        input: '{ counts: { a: 1 }, byId: { "5": { name: "x" } } }'
+        output: new Uint8Array([10, 5, 10, 1, 97, 16, 1, 18, 7, 8, 5, 18, 3, 10, 1, 120])
+      not-a-record:
+        input: "{ counts: [], byId: {} }"
+        error: "Failed at counts: Expected { [key: string]: int32; }, received []"
+  decode:
+    expression: i=>{let v0=i["counts"],v2=i["byId"];let v5,w;try{w=e[3].acquire();let v,j,n,s,h,a,k,g,c;v=v0;a=Object.keys(v);n=a.length;j=0;while(j<n){k=a[j++];c=v[k];w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(k);w.pos<w.buf.length?w.buf[w.pos++]=16:w.varint32(16);s=c;if(s<-2147483648||s>2147483647)e[1](s,-2147483648,2147483647,"int32");s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s);w.end(h)};v=v2;a=Object.keys(v);n=a.length;j=0;while(j<n){k=a[j++];c=v[k];w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();k=BigInt(k);w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);w.varint64(e[2](k,-9223372036854775808n,9223372036854775807n,"int64"));w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);g=w.begin();e[0](w,c);w.end(g);w.end(h)};v5=w.finish()}catch(x){w&&(w.busy=false);e[4](x)}return v5}
+    examples:
+      entries:
+        input: '{ counts: { a: 1, b: -1 }, byId: { "5": { name: "x" } } }'
+        output: new Uint8Array([10, 5, 10, 1, 97, 16, 1, 10, 14, 10, 1, 98, 16, 255, 255, 255, 255, 255, 255, 255, 255, 255, 1, 18, 7, 8, 5, 18, 3, 10, 1, 120])
+      empty:
+        input: "{ counts: {}, byId: {} }"
+        output: new Uint8Array([])
+      bad-key:
+        input: '{ counts: {}, byId: { x: { name: "" } } }'
+        error: "SyntaxError: Cannot convert x to a BigInt"
+  encode:
+    expression: i=>{let v0,r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}let v1=v0["counts"],v3=v0["byId"];return v0}
+    examples:
+      entry:
+        input: new Uint8Array([10, 5, 10, 1, 97, 16, 1])
+        output: "{ counts: { a: 1 }, byId: {} }"
+      empty-entry:
+        input: new Uint8Array([10, 0])
+        output: '{ counts: { "": 0 }, byId: {} }'
+      int64-key:
+        input: new Uint8Array([18, 6, 8, 5, 18, 2, 10, 0])
+        output: '{ counts: {}, byId: { "5": { name: "" } } }'
+      duplicate-key-last-wins:
+        input: new Uint8Array([10, 5, 10, 1, 97, 16, 1, 10, 5, 10, 1, 97, 16, 2])
+        output: "{ counts: { a: 2 }, byId: {} }"

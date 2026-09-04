@@ -24,6 +24,20 @@ let Flag = {
 
 let $$Error = {};
 
+function toProto(schema, name, $$package) {
+  return Sury.toProto(schema, {
+    name: name,
+    package: $$package
+  });
+}
+
+function protobufField(schema, number, type_) {
+  return Sury.protobufField(schema, {
+    number: number,
+    type: type_
+  });
+}
+
 function refine(schema, refiner, error, path) {
   return Sury.refine(schema, refiner, {
     error: error,
@@ -164,6 +178,8 @@ export {
   Exn,
   Flag,
   $$Error,
+  toProto,
+  protobufField,
   refine,
   to,
   compileConvertOrThrow,

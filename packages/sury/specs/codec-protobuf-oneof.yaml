@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ text: S.optional(S.string).with(S.protobufField, {number: 1, oneof: "value"}), count: S.optional(S.int32).with(S.protobufField, {number: 2, oneof: "value"}), flag: S.boolean.with(S.protobufField, 3) }).with(S.to, S.protobuf)'
+  input: "{ flag: boolean; text?: string | undefined; count?: number | undefined; }"
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 7648
+jsonSchema:
+  input: '{ type: "object", properties: { text: { type: "string" }, count: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, flag: { type: "boolean" } }, required: ["flag"] }'
+  output: Expected JSON, received Uint8Array
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[7](i);let v0=i["text"],v1=i["count"],v2=i["flag"];(typeof v0==="string"||v0===void 0)||e[0](v0);(typeof v1==="number"&&v1===v1&&v1<=2147483647&&v1>=-2147483648&&v1%1===0||v1===void 0)||e[1](v1);typeof v2==="boolean"||e[2](v2);let v3,w;try{w=e[5].acquire();let v,j,n,s,h,a,k,g,c;v=v0;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(v)};v=v1;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=16:w.varint32(16);s=v;if(s<-2147483648||s>2147483647)e[3](s,-2147483648,2147483647,"int32");s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v=v2;if(v){w.pos<w.buf.length?w.buf[w.pos++]=24:w.varint32(24);s=v?1:0;w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s)};v3=w.finish()}catch(x){w&&(w.busy=false);e[6](x)}return v3}
+    examples:
+      text:
+        input: '{ flag: true, text: "a" }'
+        output: new Uint8Array([10, 1, 97, 24, 1])
+      wrong-type:
+        input: "{ flag: 1 }"
+        error: "Failed at flag: Expected boolean, received 1"
+  decode:
+    expression: i=>{let v0,w;try{w=e[2].acquire();let v,j,n,s,h,a,k,g,c;v=i["text"];if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(v)};v=i["count"];if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=16:w.varint32(16);s=v;if(s<-2147483648||s>2147483647)e[0](s,-2147483648,2147483647,"int32");s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v=i["flag"];if(v){w.pos<w.buf.length?w.buf[w.pos++]=24:w.varint32(24);s=v?1:0;w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s)};v0=w.finish()}catch(x){w&&(w.busy=false);e[3](x)}return v0}
+    examples:
+      text:
+        input: '{ flag: true, text: "a" }'
+        output: new Uint8Array([10, 1, 97, 24, 1])
+      zero-member:
+        input: "{ flag: false, count: 0 }"
+        output: new Uint8Array([16, 0])
+      none:
+        input: "{ flag: false }"
+        output: new Uint8Array([])
+  encode:
+    expression: i=>{let v0,r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}return v0}
+    examples:
+      last-member-wins:
+        input: new Uint8Array([10, 1, 97, 16, 1])
+        output: "{ flag: false, count: 1 }"
+      zero-member:
+        input: new Uint8Array([16, 0])
+        output: "{ flag: false, count: 0 }"

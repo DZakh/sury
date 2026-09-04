@@ -329,12 +329,25 @@ schema(data);
 
 ## Spec Harness Suggestions
 
+- There is no operation for source text: `S.toProto` returns a `.proto` file,
+  so its output is snapshotted in `tests/S_toProto_test.ts` rather than a spec.
+  A `proto` operation next to `jsonSchema` would keep it with the schema.
+- `valueToCode` has no case for `ArrayBuffer`, so an example whose result is
+  one (`S.arrayBuffer`, `S.uint8Array.with(S.to, S.arrayBuffer)` encode) can
+  only be a rejecting input; the accepting ones live in
+  `tests/S_arrayBuffer_test.ts`. `new Uint8Array([…]).buffer` would print it.
+
 A running list of strictness or author-guidance features the spec harness
 (`packages/spec`, see the `spec` skill) could add. When working on Sury you hit a
 case the harness *should* have caught or guided better — a missing check, a weak
 error message, a strictness gap that let a bad spec through — add a bullet here
 instead of silently working around it.
 
+- `jsonSchema` snapshots one target (the default draft-07), so an emit that is
+  dialect-gated — `contentSchema` is 2019-09+, OpenAPI 3.0 has no content
+  keywords at all — has no golden for the targets it differs on, and lands in
+  `S_toJSONSchema_target_test.res` instead. A `jsonSchema.targets` map, or a
+  per-spec target override, would keep it with the schema it belongs to.
 - An operation whose output holds a `Blob` or `File` (`S.blob`/`S.file`
   decoding, or the reverse of any conversion into them) can't be specced: the
   golden writer raises "cannot represent a Blob instance as spec source code",

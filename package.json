@@ -6,6 +6,7 @@
     "res": "pnpm --filter=sury exec rescript watch",
     "spec": "tsx packages/spec/cli.ts",
     "compliance": "pnpm --filter=sury build:entry && tsx packages/json-schema-test-suite/cli.ts",
+    "protobuf:compliance": "pnpm --filter=sury build:entry && tsx packages/protobuf-test-suite/cli.ts",
     "test": "pnpm --filter=sury test && pnpm --filter=e2e test",
     "build": "pnpm --filter=sury build",
     "benchmark:comparison": "pnpm --filter=e2e benchmark:comparison",

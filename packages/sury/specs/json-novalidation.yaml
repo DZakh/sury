@@ -3,7 +3,7 @@ ts:
   schema: S.json.with(S.noValidation, true)
   input: JSON
   output: JSON
-  instantiations: 577
+  instantiations: 578
 jsonSchema:
   input: "{}"
   output: "{}"

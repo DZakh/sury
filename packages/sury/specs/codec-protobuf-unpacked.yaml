@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ ids: S.array(S.integer).with(S.protobufField, {number: 1, type: "uint32", packed: false}) }).with(S.to, S.protobuf)'
+  input: "{ ids: number[]; }"
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 5728
+jsonSchema:
+  input: '{ type: "object", properties: { ids: { items: { type: "integer" }, type: "array" } }, required: ["ids"] }'
+  output: Expected JSON, received Uint8Array
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[6](i);let v0=i["ids"];Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="number"&&v2%1===0||e[0](v2);}catch(v3){v3.path=["ids",v1,...v3.path];throw v3}}let v4,w;try{w=e[4].acquire();let v,j,n,s,h,a,k,g,c;v=v0;n=v.length;if(n){j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=v[j++];if(s<0||s>4294967295)e[2](s,0,4294967295,"uint32");s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s)}};v4=w.finish()}catch(x){w&&(w.busy=false);e[5](x)}return v4}
+    examples:
+      expanded:
+        input: "{ ids: [1, 2, 3] }"
+        output: new Uint8Array([8, 1, 8, 2, 8, 3])
+      not-integers:
+        input: "{ ids: [1.5] }"
+        error: "Failed at ids[0]: Expected integer, received 1.5"
+  decode:
+    expression: i=>{let v0=i["ids"];let v2,w;try{w=e[2].acquire();let v,j,n,s,h,a,k,g,c;v=v0;n=v.length;if(n){j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=v[j++];if(s<0||s>4294967295)e[0](s,0,4294967295,"uint32");s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s)}};v2=w.finish()}catch(x){w&&(w.busy=false);e[3](x)}return v2}
+    examples:
+      expanded:
+        input: "{ ids: [1, 2, 3] }"
+        output: new Uint8Array([8, 1, 8, 2, 8, 3])
+      empty:
+        input: "{ ids: [] }"
+        output: new Uint8Array([])
+  encode:
+    expression: i=>{let v0,r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}let v1=v0["ids"];return v0}
+    examples:
+      expanded:
+        input: new Uint8Array([8, 1, 8, 2, 8, 3])
+        output: "{ ids: [1, 2, 3] }"
+      packed-input:
+        input: new Uint8Array([10, 3, 1, 2, 3])
+        output: "{ ids: [1, 2, 3] }"

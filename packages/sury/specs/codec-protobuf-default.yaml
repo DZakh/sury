@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.protobuf.with(S.to, S.schema({ n: S.optional(S.int32, 5).with(S.protobufField, 1), flag: S.optional(S.union([0, 1]), 1).with(S.protobufField, {number: 2, type: "enum"}), addr: S.optional(S.schema({ street: S.string.with(S.protobufField, 1) }), { street: "dflt" }).with(S.protobufField, 3) }))'
+  input: Uint8Array<ArrayBufferLike>
+  output: "{ n: number; flag: 0 | 1; addr: { street: string; }; }"
+  instantiations: 9715
+jsonSchema:
+  input: Expected JSON, received Uint8Array
+  output: '{ type: "object", properties: { n: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, flag: { anyOf: [{ type: "number", const: 0 }, { type: "number", const: 1 }, { enum: [0, 1] }] }, addr: { type: "object", properties: { street: { type: "string" } }, required: ["street"] } }, required: ["n", "flag", "addr"] }'
+  openapi-3.0:
+    output: '{ type: "object", properties: { n: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, flag: { anyOf: [{ type: "number", enum: [0] }, { type: "number", enum: [1] }, { enum: [0, 1] }] }, addr: { type: "object", properties: { street: { type: "string" } }, required: ["street"] } }, required: ["n", "flag", "addr"] }'
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{let v0,w;try{w=e[3].acquire();let v,j,n,s,h,a,k,g,c;v=i["n"];if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=v;if(s<-2147483648||s>2147483647)e[1](s,-2147483648,2147483647,"int32");s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v=i["flag"];if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=16:w.varint32(16);s=v;if(s<-2147483648||s>2147483647)e[1](s,-2147483648,2147483647,"enum");s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v=i["addr"];if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=26:w.varint32(26);h=w.begin();e[0](w,v);w.end(h)};v0=w.finish()}catch(x){w&&(w.busy=false);e[4](x)}let v1,r;try{r=e[6].acquire(v0);v1=e[5](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[7](x)}let v2=v1["n"],v3=v1["flag"],v4=v1["addr"];if(v2===void 0){v2=5;}if(v3===void 0){v3=1;}if(v4===void 0){v4=e[8];}return {n:v2,flag:v3,addr:v4}}
+    examples:
+      absent:
+        input: new Uint8Array([])
+        output: '{ n: 5, flag: 1, addr: { street: "dflt" } }'
+  decode:
+    expression: i=>{let v0,r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}let v1=v0["n"],v2=v0["flag"],v3=v0["addr"];if(v1===void 0){v1=5;}if(v2===void 0){v2=1;}if(v3===void 0){v3=e[3];}return {n:v1,flag:v2,addr:v3}}
+    examples:
+      absent:
+        input: new Uint8Array([])
+        output: '{ n: 5, flag: 1, addr: { street: "dflt" } }'
+      zeros:
+        input: new Uint8Array([8, 0, 16, 0, 26, 0])
+        output: '{ n: 0, flag: 0, addr: { street: "" } }'
+      open-enum:
+        input: new Uint8Array([16, 7])
+        output: '{ n: 5, flag: 7, addr: { street: "dflt" } }'
+  encode:
+    expression: i=>{let v0=i["n"],v1=i["flag"],v2=i["addr"];typeof v0==="number"&&v0===v0&&v0<=2147483647&&v0>=-2147483648&&v0%1===0||e[0](v0);typeof v1==="number"&&v1===v1&&(v1===0||v1===1)||e[1](v1);if(typeof v2==="object"&&v2&&!Array.isArray(v2)){let v3=v2["street"];typeof v3==="string"||e[2](v3);v2={street:v3}}else{e[3](v2)}let v4,w;try{w=e[7].acquire();let v,j,n,s,h,a,k,g,c;v=v0;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=v;if(s<-2147483648||s>2147483647)e[5](s,-2147483648,2147483647,"int32");s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v=v1;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=16:w.varint32(16);s=v;if(s<-2147483648||s>2147483647)e[5](s,-2147483648,2147483647,"enum");s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v=v2;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=26:w.varint32(26);h=w.begin();e[4](w,v);w.end(h)};v4=w.finish()}catch(x){w&&(w.busy=false);e[8](x)}return v4}
+    examples:
+      zeros:
+        input: '{ n: 0, flag: 0, addr: { street: "" } }'
+        output: new Uint8Array([8, 0, 16, 0, 26, 0])
+      values:
+        input: '{ n: 5, flag: 1, addr: { street: "x" } }'
+        output: new Uint8Array([8, 5, 16, 1, 26, 3, 10, 1, 120])

@@ -72,6 +72,25 @@ type stringFormat =
   | @as("http-url") HttpUrl
 type arrayFormat = | @as("compactColumns") CompactColumns
 
+type protobufType =
+  | @as("double") Double
+  | @as("float") Float
+  | @as("int32") Int32
+  | @as("int64") Int64
+  | @as("uint32") Uint32
+  | @as("uint64") Uint64
+  | @as("sint32") Sint32
+  | @as("sint64") Sint64
+  | @as("fixed32") Fixed32
+  | @as("fixed64") Fixed64
+  | @as("sfixed32") Sfixed32
+  | @as("sfixed64") Sfixed64
+  | @as("bool") Bool
+  | @as("string") String
+  | @as("bytes") Bytes
+  | @as("enum") Enum
+  | @as("message") Message
+
 type format = | ...numberFormat | ...stringFormat | ...arrayFormat
 
 @unboxed
@@ -459,6 +478,11 @@ type json = JSON.t
 @module("sury") external jsonString: t<jsonString> = "jsonString"
 @module("sury") external jsonStringWithSpace: int => t<jsonString> = "jsonStringWithSpace"
 @module("sury") external uint8Array: t<Uint8Array.t> = "uint8Array"
+@module("sury") external arrayBuffer: t<ArrayBuffer.t> = "arrayBuffer"
+@module("sury") external protobuf: t<Uint8Array.t> = "protobuf"
+type protoOptions = {name?: string, package?: string}
+@module("sury") external toProto_: (t<'value>, protoOptions) => string = "toProto"
+let toProto = (schema, ~name=?, ~package=?) => toProto_(schema, {?name, ?package})
 // `Js.Blob.t`/`Js.File.t` rather than a pair of abstract types declared here:
 // the stdlib has no Blob or File module, and these two are the compiler's own
 // builtin abstract types — the ones untagged variants match on — so a value
@@ -562,6 +586,11 @@ type url
 @module("sury") external enum: array<'value> => t<'value> = "enum"
 
 @module("sury") external meta: (t<'value>, meta<'value>) => t<'value> = "meta"
+
+type protobufFieldOptions = {number: int, @as("type") type_: protobufType}
+@module("sury")
+external protobufField_: (t<'value>, protobufFieldOptions) => t<'value> = "protobufField"
+let protobufField = (schema, ~number, ~type_) => protobufField_(schema, {number, type_})
 
 // The public JS `refine` takes an options object; build it here from the
 // ReScript labeled args.

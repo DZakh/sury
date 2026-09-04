@@ -3,7 +3,7 @@ ts:
   schema: "S.schema({ f: S.optional(S.json.with(S.to, S.unknown, { decode: (json) => json, encode: (value) => (value as { tag: string }).tag })) })"
   input: "{ f?: JSON | undefined; }"
   output: "{ f?: unknown; }"
-  instantiations: 6705
+  instantiations: 6838
 jsonSchema:
   input: '{ type: "object", properties: { f: {} } }'
   output: "Failed at f: Expected JSON, received unknown | undefined"

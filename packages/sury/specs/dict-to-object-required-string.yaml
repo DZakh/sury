@@ -3,7 +3,7 @@ ts:
   schema: "S.record(S.string).with(S.to, S.schema({ foo: S.string }))"
   input: "{ [x: string]: string; }"
   output: "{ foo: string; }"
-  instantiations: 5566
+  instantiations: 5699
 jsonSchema:
   input: '{ type: "object", additionalProperties: { type: "string" } }'
   output: '{ type: "object", properties: { foo: { type: "string" } }, required: ["foo"] }'

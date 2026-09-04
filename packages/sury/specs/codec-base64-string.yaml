@@ -3,7 +3,7 @@ ts:
   schema: S.base64.with(S.to, S.string)
   input: string
   output: string
-  instantiations: 4361
+  instantiations: 4494
 jsonSchema:
   input: '{ type: "string", contentEncoding: "base64" }'
   output: '{ type: "string", contentEncoding: "base64" }'

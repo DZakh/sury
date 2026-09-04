@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.arrayBuffer.with(S.to, S.uint8Array)
+  input: ArrayBuffer
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 4552
+jsonSchema:
+  input: Expected JSON, received ArrayBuffer
+  output: Expected JSON, received Uint8Array
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{i instanceof e[0]||e[1](i);let v0=new Uint8Array(i);return v0}
+    examples:
+      bytes-rejected:
+        input: new Uint8Array([1])
+        error: Expected ArrayBuffer, received Uint8Array
+  decode:
+    expression: i=>{let v0=new Uint8Array(i);return v0}
+    examples:
+      buffer-to-view:
+        input: new Uint8Array([1, 2]).buffer
+        output: new Uint8Array([1, 2])
+  encode:
+    expression: i=>{return e[0](i)}
+    examples:
+      number-rejected:
+        input: "1"
+        error: view.slice is not a function

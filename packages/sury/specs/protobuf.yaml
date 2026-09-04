@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.protobuf
+  input: Uint8Array<ArrayBufferLike>
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 254
+jsonSchema:
+  input: Expected JSON, received Uint8Array
+  output: Expected JSON, received Uint8Array
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "SuryError: Can't decode unknown to Uint8Array. Use S.to to define a custom decoder"
+  decode: identity
+  encode: identity

@@ -3,7 +3,7 @@ ts:
   schema: "S.schema({[\"c\\\\d\"]: S.string, ['q\"t']: S.number}).with(S.to, S.jsonString)"
   input: '{ "c\\d": string; "q\"t": number; }'
   output: string
-  instantiations: 5385
+  instantiations: 5518
 jsonSchema:
   input: '{ type: "object", properties: { "c\\d": { type: "string" }, "q\"t": { type: "number" } }, required: ["c\\d", "q\"t"] }'
   output: '{ type: "string", contentMediaType: "application/json" }'

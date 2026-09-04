@@ -3,7 +3,7 @@ ts:
   schema: "S.union([S.string.with(S.to, S.any, { decode: (value) => value.length, encode: (value) => String(value) }), S.boolean])"
   input: string | boolean
   output: any
-  instantiations: 5332
+  instantiations: 5465
 jsonSchema:
   input: '{ anyOf: [{ type: "string" }, { type: "boolean" }] }'
   output: Expected JSON, received unknown | boolean

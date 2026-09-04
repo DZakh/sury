@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ f: S.schema({ b: S.string }).with(S.to, S.schema({ b: S.string }), { decode: (v) => ({ b: v.b + "!" }), encode: (v) => ({ b: v.b.slice(0, -1) }) }) }).with(S.shape, (v) => ({ z: v.f.b }))'
   input: "{ f: { b: string; }; }"
   output: "{ z: string; }"
-  instantiations: 7061
+  instantiations: 7195
 jsonSchema:
   input: '{ type: "object", properties: { f: { type: "object", properties: { b: { type: "string" } }, required: ["b"] } }, required: ["f"] }'
   output: '{ type: "object", properties: { z: { type: "string" } }, required: ["z"] }'

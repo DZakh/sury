@@ -3,7 +3,7 @@ ts:
   schema: S.json.with(S.to, S.array(S.optional(S.number.with(S.lte, 1))))
   input: JSON
   output: (number | undefined)[]
-  instantiations: 5347
+  instantiations: 5481
 # FIXME: jsonSchema.input drops the item's `maximum: 1` — a variant converted
 # through `.to(json)` reports the target's type without the source's refinements.
 # The generated code still enforces the bound, in both directions.

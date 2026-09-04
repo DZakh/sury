@@ -3,7 +3,7 @@ ts:
   schema: S.uint8Array.with(S.to, S.jsonString)
   input: Uint8Array<ArrayBufferLike>
   output: string
-  instantiations: 4419
+  instantiations: 4552
 jsonSchema:
   input: Expected JSON, received Uint8Array
   output: '{ type: "string", contentMediaType: "application/json" }'

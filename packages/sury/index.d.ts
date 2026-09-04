@@ -85,6 +85,16 @@ export type Schema<TInput = unknown, TOutput = TInput> = {
     // the same reason as the Codecs slots (see the Coder note below).
     codecs?: Coder<TOutput, TTargetInput> | Codecs<TOutput, TTargetInput> | "pack" | "unpack"
   ): Schema<TInput, TTargetOutput>;
+  // Object form only: a `number | ProtobufField` parameter here is tried by
+  // every `.with` call in a project and costs ~4800 instantiations each. The
+  // number form resolves through the literal `TArg1` overload below.
+  with(
+    protobufField: (
+      schema: Schema<unknown, unknown>,
+      field: number | ProtobufField
+    ) => Schema<unknown, unknown>,
+    field: ProtobufField
+  ): Schema<TInput, TOutput>;
   // `S.shape`, and any modifier whose callback decides the output type.
   // Naming the callback here is what types its parameter as `TOutput`. The
   // required third parameter excludes `S.optional`/`S.nullable`: a lazy
@@ -451,6 +461,68 @@ export const jsonString: Schema<string, string>;
 export const jsonStringWithSpace: (space: number) => Schema<string, string>;
 
 export const uint8Array: Schema<Uint8Array, Uint8Array>;
+/**
+ * An `ArrayBuffer` of its own. Converting bytes to it takes ownership: a view
+ * that covers its whole buffer hands that buffer over, any other view (a
+ * `Buffer` from Node's pool, an `S.protobuf` result) is copied to size.
+ */
+export const arrayBuffer: Schema<ArrayBuffer, ArrayBuffer>;
+export const protobuf: Schema<Uint8Array, Uint8Array>;
+
+/**
+ * The proto3 source describing the wire `S.protobuf` speaks for a message
+ * schema: every field with its number and wire type, `optional`, `repeated`,
+ * `map<K, V>`, `oneof` blocks, nested messages and enums. A schema's `name`
+ * meta names its message, otherwise the field key does; camelCase keys print
+ * snake_case, which generators map back to lowerCamel (an acronym flattens:
+ * `userID` comes back as `userId`). `description` prints as a comment and
+ * `deprecated` as the option: meta a schema carried before `S.protobufField`
+ * numbered it belongs to the message or enum it declares, meta set after to
+ * the field.
+ *
+ * An enum's zero member prints as `<NAME>_UNSPECIFIED`, and one is prepended
+ * to an enum whose literals lack `0`, which proto3 requires and the schema
+ * itself rejects.
+ */
+export function toProto<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>,
+  options?: { name?: string; package?: string }
+): string;
+
+export type ProtobufType =
+  | "double"
+  | "float"
+  | "int32"
+  | "int64"
+  | "uint32"
+  | "uint64"
+  | "sint32"
+  | "sint64"
+  | "fixed32"
+  | "fixed64"
+  | "sfixed32"
+  | "sfixed64"
+  | "bool"
+  | "string"
+  | "bytes"
+  | "enum"
+  | "message";
+
+export type ProtobufField = {
+  number: number;
+  type?: ProtobufType;
+  /** Encode a repeated scalar expanded (`[packed=false]`) instead of packed. Decoding accepts both. */
+  packed?: boolean;
+  /** Key type of a `map<K, V>` field, for an `S.record` schema. Defaults to `string`. */
+  key?: ProtobufType;
+  /** Name of the `oneof` this field belongs to. Decoding a member clears the others. */
+  oneof?: string;
+};
+
+export function protobufField<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>,
+  field: number | ProtobufField
+): Schema<TInput, TOutput>;
 
 // `Blob` and `File` are ambient globals, from lib.dom or @types/node. Naming
 // them bare fails to typecheck for a consumer who has neither — including one
