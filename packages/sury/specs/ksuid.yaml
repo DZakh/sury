@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.ksuid
+  input: string
+  output: string
+  instantiations: 254
+jsonSchema:
+  input: '{ type: "string", pattern: "^[A-Za-z0-9]{27}$" }'
+  output: '{ type: "string", pattern: "^[A-Za-z0-9]{27}$" }'
+vs:
+  zod: z.ksuid()
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"0ujtsYcgvSTl8PAuAdqWYSMnLOv"'
+        output: '"0ujtsYcgvSTl8PAuAdqWYSMnLOv"'
+      one-character-short:
+        input: '"0ujtsYcgvSTl8PAuAdqWYSMnLO"'
+        error: Expected ksuid, received "0ujtsYcgvSTl8PAuAdqWYSMnLO"
+      one-character-long:
+        input: '"0ujtsYcgvSTl8PAuAdqWYSMnLOvv"'
+        error: Expected ksuid, received "0ujtsYcgvSTl8PAuAdqWYSMnLOvv"
+      hyphenated:
+        input: '"0ujtsYcgvSTl8PAuAdqWYSMnL-v"'
+        error: Expected ksuid, received "0ujtsYcgvSTl8PAuAdqWYSMnL-v"
+      empty:
+        input: '""'
+        error: Expected ksuid, received ""
+      not-a-string:
+        input: "42"
+        error: Expected ksuid, received 42
+  decode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"0ujtsYcgvSTl8PAuAdqWYSMnLOv"'
+        output: '"0ujtsYcgvSTl8PAuAdqWYSMnLOv"'
+      invalid:
+        input: '"0ujtsYcgvSTl8PAuAdqWYSMnLO"'
+        error: Expected ksuid, received "0ujtsYcgvSTl8PAuAdqWYSMnLO"
+  encode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"0ujtsYcgvSTl8PAuAdqWYSMnLOv"'
+        output: '"0ujtsYcgvSTl8PAuAdqWYSMnLOv"'
+      invalid:
+        input: '"0ujtsYcgvSTl8PAuAdqWYSMnLO"'
+        error: Expected ksuid, received "0ujtsYcgvSTl8PAuAdqWYSMnLO"

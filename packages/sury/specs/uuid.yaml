@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.uuid
+  input: string
+  output: string
+  instantiations: 254
+jsonSchema:
+  input: '{ type: "string", format: "uuid" }'
+  output: '{ type: "string", format: "uuid" }'
+vs:
+  zod: z.guid()
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"123e4567-e89b-12d3-a456-426614174000"'
+        output: '"123e4567-e89b-12d3-a456-426614174000"'
+      version-7:
+        input: '"019122ba-bb79-75ef-9a97-190f1effbb54"'
+        output: '"019122ba-bb79-75ef-9a97-190f1effbb54"'
+      nil:
+        input: '"00000000-0000-0000-0000-000000000000"'
+        output: '"00000000-0000-0000-0000-000000000000"'
+      max:
+        input: '"ffffffff-ffff-ffff-ffff-ffffffffffff"'
+        output: '"ffffffff-ffff-ffff-ffff-ffffffffffff"'
+      uppercase:
+        input: '"123E4567-E89B-12D3-A456-426614174000"'
+        output: '"123E4567-E89B-12D3-A456-426614174000"'
+      unhyphenated:
+        input: '"123e4567e89b12d3a456426614174000"'
+        error: Expected uuid, received "123e4567e89b12d3a456426614174000"
+      truncated:
+        input: '"123e4567"'
+        error: Expected uuid, received "123e4567"
+      non-hex-character:
+        input: '"123e4567-e89b-12d3-a456-42661417400g"'
+        error: Expected uuid, received "123e4567-e89b-12d3-a456-42661417400g"
+      empty:
+        input: '""'
+        error: Expected uuid, received ""
+      not-a-string:
+        input: "42"
+        error: Expected uuid, received 42
+  decode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"123e4567-e89b-12d3-a456-426614174000"'
+        output: '"123e4567-e89b-12d3-a456-426614174000"'
+      invalid:
+        input: '"123e4567e89b12d3a456426614174000"'
+        error: Expected uuid, received "123e4567e89b12d3a456426614174000"
+  encode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"123e4567-e89b-12d3-a456-426614174000"'
+        output: '"123e4567-e89b-12d3-a456-426614174000"'
+      invalid:
+        input: '"123e4567e89b12d3a456426614174000"'
+        error: Expected uuid, received "123e4567e89b12d3a456426614174000"

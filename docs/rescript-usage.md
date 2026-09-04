@@ -242,9 +242,21 @@ The JSON Schema string format vocabulary, as standalone schemas:
 ```rescript
 S.email // Email address
 S.idnEmail // Internationalized email address
-S.uuid // UUID
+S.uuid // UUID, any version
+S.uuidv4 // UUIDv4 — random
+S.uuidv6 // UUIDv6 — reordered time
+S.uuidv7 // UUIDv7 — Unix time, sorts by creation
 S.cuid // CUID
+S.cuid2 // CUID2
+S.ulid // ULID
+S.ksuid // KSUID
+S.xid // XID
+S.nanoid // Nano ID alphabet
+S.e164 // E.164 phone number
+S.mac // MAC address, EUI-48 or EUI-64
+S.hex // Hexadecimal digits
 S.uri // URI — a scheme is required
+S.httpUrl // URI with the scheme pinned to http or https
 S.uriReference // URI or relative reference
 S.uriTemplate // URI Template
 S.iri // IRI — a URI with Unicode allowed
@@ -253,6 +265,8 @@ S.hostname // Host name
 S.idnHostname // Internationalized host name
 S.ipv4 // IPv4 address
 S.ipv6 // IPv6 address
+S.cidrv4 // IPv4 CIDR block
+S.cidrv6 // IPv6 CIDR block
 S.isoDate // Calendar date
 S.isoTime // Time of day
 S.isoDateTime // UTC timestamp
@@ -263,7 +277,12 @@ S.base64 // Base64, standard alphabet with canonical padding
 S.base64url // Base64url, URL-safe alphabet, no padding
 ```
 
-Each survives a round trip through `S.inputJSONSchema` and `S.fromJSONSchema`.
+Each survives a round trip through `S.inputJSONSchema` and `S.fromJSONSchema`,
+though not all of them as a name. A format the JSON Schema vocabulary has no
+keyword for publishes its own regex as `pattern` instead, so what round-trips is
+the behavior. `S.cidrv6` is the one format with neither spelling — its address
+grammar is case-insensitive and a JSON Schema `pattern` carries no flags, so it
+emits a plain `string` and widens on the way back in.
 
 Parsing with a format gives you back a value of that format's own type, not a
 plain `string`:

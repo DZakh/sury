@@ -63,9 +63,11 @@ let rec generateConstrSchemaExpression {Location.txt = identifier; loc}
      as a schema, so `S.email` resolves to itself rather than to the
      `S.emailSchema` the generic `Ldot` case below would build. *)
   | Ldot (Lident "S", ("integer" | "date" | "json" | "jsonString" | "blob"
-     | "file" | "isoDateTime" | "port" | "email" | "uuid" | "cuid"
-     | "base64" | "base64url" | "uri" | "url" | "isoDate" | "isoTime"
-     | "duration" | "hostname" | "idnHostname" | "ipv4" | "ipv6"
+     | "file" | "isoDateTime" | "port" | "email" | "uuid" | "uuidv4"
+     | "uuidv6" | "uuidv7" | "cuid" | "cuid2" | "ulid" | "ksuid" | "xid"
+     | "nanoid" | "e164" | "mac" | "hex" | "base64" | "base64url" | "uri"
+     | "httpUrl" | "url" | "isoDate" | "isoTime" | "duration" | "hostname"
+     | "idnHostname" | "ipv4" | "ipv6" | "cidrv4" | "cidrv6"
      | "uriReference" | "uriTemplate" | "iri" | "iriReference" | "idnEmail"
      | "jsonPointer" | "relativeJsonPointer")) as schema_ident, _ ->
     Exp.ident (mknoloc schema_ident)

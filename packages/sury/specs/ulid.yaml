@@ -1,0 +1,69 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.ulid
+  input: string
+  output: string
+  instantiations: 254
+jsonSchema:
+  input: '{ type: "string", pattern: "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$" }'
+  output: '{ type: "string", pattern: "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$" }'
+vs:
+  zod: z.ulid()
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"01ARZ3NDEKTSV4RRFFQ69G5FAV"'
+        output: '"01ARZ3NDEKTSV4RRFFQ69G5FAV"'
+      lowercase:
+        input: '"01arz3ndektsv4rrffq69g5fav"'
+        output: '"01arz3ndektsv4rrffq69g5fav"'
+      maximum-timestamp:
+        input: '"7ZZZZZZZZZZZZZZZZZZZZZZZZZ"'
+        output: '"7ZZZZZZZZZZZZZZZZZZZZZZZZZ"'
+      timestamp-out-of-range:
+        input: '"8ZZZZZZZZZZZZZZZZZZZZZZZZZ"'
+        error: Expected ulid, received "8ZZZZZZZZZZZZZZZZZZZZZZZZZ"
+      excluded-letter-i:
+        input: '"01ARZ3NDEKTSV4RRFFQ69G5FAI"'
+        error: Expected ulid, received "01ARZ3NDEKTSV4RRFFQ69G5FAI"
+      excluded-letter-l:
+        input: '"01ARZ3NDEKTSV4RRFFQ69G5FAL"'
+        error: Expected ulid, received "01ARZ3NDEKTSV4RRFFQ69G5FAL"
+      excluded-letter-o:
+        input: '"01ARZ3NDEKTSV4RRFFQ69G5FAO"'
+        error: Expected ulid, received "01ARZ3NDEKTSV4RRFFQ69G5FAO"
+      excluded-letter-u:
+        input: '"01ARZ3NDEKTSV4RRFFQ69G5FAU"'
+        error: Expected ulid, received "01ARZ3NDEKTSV4RRFFQ69G5FAU"
+      one-character-short:
+        input: '"01ARZ3NDEKTSV4RRFFQ69G5FA"'
+        error: Expected ulid, received "01ARZ3NDEKTSV4RRFFQ69G5FA"
+      one-character-long:
+        input: '"01ARZ3NDEKTSV4RRFFQ69G5FAVV"'
+        error: Expected ulid, received "01ARZ3NDEKTSV4RRFFQ69G5FAVV"
+      empty:
+        input: '""'
+        error: Expected ulid, received ""
+      not-a-string:
+        input: "42"
+        error: Expected ulid, received 42
+  decode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"01ARZ3NDEKTSV4RRFFQ69G5FAV"'
+        output: '"01ARZ3NDEKTSV4RRFFQ69G5FAV"'
+      invalid:
+        input: '"8ZZZZZZZZZZZZZZZZZZZZZZZZZ"'
+        error: Expected ulid, received "8ZZZZZZZZZZZZZZZZZZZZZZZZZ"
+  encode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"01ARZ3NDEKTSV4RRFFQ69G5FAV"'
+        output: '"01ARZ3NDEKTSV4RRFFQ69G5FAV"'
+      invalid:
+        input: '"8ZZZZZZZZZZZZZZZZZZZZZZZZZ"'
+        error: Expected ulid, received "8ZZZZZZZZZZZZZZZZZZZZZZZZZ"

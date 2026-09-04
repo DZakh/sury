@@ -51,3 +51,32 @@ test("S.pattern and S.trim apply to a format schema", t => {
   // this only pins that the widened `S.trim` accepts a format schema at all.
   t->Assert.deepEqual("a@b.com"->S.parseOrThrow(~to=S.email->S.trim), S.Email("a@b.com"))
 })
+
+test("Version-pinned uuids are distinct types from the loose one", t => {
+  // `S.uuidv7`'s value satisfies `S.uuid`'s regex, but not its type — which is
+  // the point: a function taking a v7 key can't be handed a v1.
+  let toV7 = (id: S.uuidv7) => id
+
+  t->Assert.deepEqual(
+    toV7("0192f0e1-2b3c-7d4e-8b7a-1f2e3d4c5b6a"->S.parseOrThrow(~to=S.uuidv7)),
+    Uuidv7("0192f0e1-2b3c-7d4e-8b7a-1f2e3d4c5b6a"),
+  )
+  t->U.assertThrowsMessage(
+    () => "0192f0e1-2b3c-4d4e-8b7a-1f2e3d4c5b6a"->S.parseOrThrow(~to=S.uuidv7),
+    `Expected uuidv7, received "0192f0e1-2b3c-4d4e-8b7a-1f2e3d4c5b6a"`,
+  )
+})
+
+test("A format with no length of its own composes with S.length", t => {
+  let schema = S.nanoid->S.length(21)
+
+  t->Assert.deepEqual(
+    "V1StGXR8_Z5jdHi6B-myT"->S.parseOrThrow(~to=schema),
+    Nanoid("V1StGXR8_Z5jdHi6B-myT"),
+  )
+  // The bound reads off the format's own name, not `string`.
+  t->U.assertThrowsMessage(
+    () => "abc"->S.parseOrThrow(~to=schema),
+    `Expected nanoid.length == 21, received "abc"`,
+  )
+})

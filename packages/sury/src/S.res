@@ -56,6 +56,20 @@ type stringFormat =
   | @as("idn-email") IdnEmail
   | @as("json-pointer") JsonPointer
   | @as("relative-json-pointer") RelativeJsonPointer
+  | @as("cuid2") Cuid2
+  | @as("ulid") Ulid
+  | @as("ksuid") Ksuid
+  | @as("xid") Xid
+  | @as("nanoid") Nanoid
+  | @as("uuidv4") Uuidv4
+  | @as("uuidv6") Uuidv6
+  | @as("uuidv7") Uuidv7
+  | @as("e164") E164
+  | @as("mac") Mac
+  | @as("hex") Hex
+  | @as("cidrv4") Cidrv4
+  | @as("cidrv6") Cidrv6
+  | @as("http-url") HttpUrl
 type arrayFormat = | @as("compactColumns") CompactColumns
 
 type format = | ...numberFormat | ...stringFormat | ...arrayFormat
@@ -461,14 +475,38 @@ type file = Js.File.t
 @module("sury") external email: t<email> = "email"
 @unboxed type uuid = Uuid(string)
 @module("sury") external uuid: t<uuid> = "uuid"
+@unboxed type uuidv4 = Uuidv4(string)
+@module("sury") external uuidv4: t<uuidv4> = "uuidv4"
+@unboxed type uuidv6 = Uuidv6(string)
+@module("sury") external uuidv6: t<uuidv6> = "uuidv6"
+@unboxed type uuidv7 = Uuidv7(string)
+@module("sury") external uuidv7: t<uuidv7> = "uuidv7"
 @unboxed type cuid = Cuid(string)
 @module("sury") external cuid: t<cuid> = "cuid"
+@unboxed type cuid2 = Cuid2(string)
+@module("sury") external cuid2: t<cuid2> = "cuid2"
+@unboxed type ulid = Ulid(string)
+@module("sury") external ulid: t<ulid> = "ulid"
+@unboxed type ksuid = Ksuid(string)
+@module("sury") external ksuid: t<ksuid> = "ksuid"
+@unboxed type xid = Xid(string)
+@module("sury") external xid: t<xid> = "xid"
+@unboxed type nanoid = Nanoid(string)
+@module("sury") external nanoid: t<nanoid> = "nanoid"
+@unboxed type e164 = E164(string)
+@module("sury") external e164: t<e164> = "e164"
+@unboxed type mac = Mac(string)
+@module("sury") external mac: t<mac> = "mac"
+@unboxed type hex = Hex(string)
+@module("sury") external hex: t<hex> = "hex"
 @unboxed type base64 = Base64(string)
 @module("sury") external base64: t<base64> = "base64"
 @unboxed type base64url = Base64url(string)
 @module("sury") external base64url: t<base64url> = "base64url"
 @unboxed type uri = Uri(string)
 @module("sury") external uri: t<uri> = "uri"
+@unboxed type httpUrl = HttpUrl(string)
+@module("sury") external httpUrl: t<httpUrl> = "httpUrl"
 /** An instance of the JS `URL` class. ReScript has no stdlib binding for it,
     so this is an abstract type standing for one. */
 type url
@@ -487,6 +525,10 @@ type url
 @module("sury") external ipv4: t<ipv4> = "ipv4"
 @unboxed type ipv6 = Ipv6(string)
 @module("sury") external ipv6: t<ipv6> = "ipv6"
+@unboxed type cidrv4 = Cidrv4(string)
+@module("sury") external cidrv4: t<cidrv4> = "cidrv4"
+@unboxed type cidrv6 = Cidrv6(string)
+@module("sury") external cidrv6: t<cidrv6> = "cidrv6"
 @unboxed type uriReference = UriReference(string)
 @module("sury") external uriReference: t<uriReference> = "uriReference"
 @unboxed type uriTemplate = UriTemplate(string)

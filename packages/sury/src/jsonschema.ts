@@ -394,6 +394,38 @@ const internalToJSONSchema = (
   return internalToJSONSchemaBase(schema, path, defs, parent, target);
 }
 
+// String formats with no JSON Schema keyword of their own name, mapped to what
+// is emitted in its place. `uuidv*` and `http-url` narrow a format that does
+// exist, so they keep it and let their `pattern` carry the rest; the others
+// have no keyword at all and travel as `pattern` alone. Either way the
+// constraint round-trips as behavior rather than as a name, which is why none
+// of them needs an entry in `stringFormatSchemas` below.
+//
+// `cidrv6` is the one member with no `pattern` to fall back on (see
+// refinements.ts), so it emits a bare string and round-trips widened.
+//
+// Null-prototype for the reason `stringFormatSchemas` is: the lookup key is a
+// format name, and `"constructor"` against a plain literal resolves up the
+// chain to a function, which `if (name)` would then emit as a format.
+const jsonSchemaFormat = {
+  __proto__: null,
+  cuid: "",
+  cuid2: "",
+  ulid: "",
+  ksuid: "",
+  xid: "",
+  nanoid: "",
+  e164: "",
+  mac: "",
+  hex: "",
+  cidrv4: "",
+  cidrv6: "",
+  uuidv4: "uuid",
+  uuidv6: "uuid",
+  uuidv7: "uuid",
+  "http-url": "uri",
+} as unknown as Record<string, string | undefined>;
+
 const internalToJSONSchemaBase = (
   schema: Internal,
   path: Path,
@@ -414,8 +446,8 @@ const internalToJSONSchemaBase = (
     const format = schema.format;
     jsonSchema.type = "string";
     // String formats store the JSON Schema name verbatim, so they pass
-    // through. Only `cuid` and the content formats have no JSON Schema format
-    // of that name — a denylist costs less than an allowlist of the rest, and
+    // through. The content formats and the `jsonSchemaFormat` family are the
+    // exceptions — a denylist costs less than an allowlist of the rest, and
     // stays flat as formats are added.
     if (format === "base64" || format === "base64url") {
       target === openApi30
@@ -425,8 +457,10 @@ const internalToJSONSchemaBase = (
       // OpenAPI 3.0 has no `contentMediaType` and no `json` format. Drafts
       // spell the document as media type, never as `format: "json"`.
       if (target !== openApi30) jsonSchema.contentMediaType = "application/json";
-    } else if (format !== U && format !== "cuid") {
-      jsonSchema.format = format;
+    } else if (format !== U) {
+      const alias = jsonSchemaFormat[format];
+      const name = alias === U ? format : alias;
+      if (name) jsonSchema.format = name;
     }
     if (schema.minLength !== U) jsonSchema.minLength = schema.minLength;
     if (schema.maxLength !== U) jsonSchema.maxLength = schema.maxLength;
@@ -707,11 +741,14 @@ const primitiveToSchema = (primitive: unknown): Internal =>
       deepStrict(schemaFactory(JSON.parse(JSON.stringify(primitive))))
     : Literal_parse(primitive);
 
-// The inverse of the format pass-through in inputJSONSchema. Every format Sury can
-// emit has to round-trip back to the schema that emitted it, so a format added
-// on one side without the other is a reversibility bug. A record rather than a
-// branch chain: reaching fromJSONSchema at all means wanting the whole
-// vocabulary, so there is nothing here for a bundler to drop anyway.
+// The inverse of the format pass-through in inputJSONSchema. Every format name
+// Sury can emit has to round-trip back to the schema that emitted it, so a
+// format added on one side without the other is a reversibility bug — with the
+// `jsonSchemaFormat` family the one exception, since what it emits is the
+// pattern beside the name (or instead of it) and that reads back on its own. A
+// record rather than a branch chain: reaching fromJSONSchema at all means
+// wanting the whole vocabulary, so there is nothing here for a bundler to drop
+// anyway.
 //
 // Null-prototype because the key is attacker-controlled: `format: "constructor"`
 // against a plain literal resolves up the chain to a truthy function, which then

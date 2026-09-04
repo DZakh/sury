@@ -51,7 +51,21 @@ export type StringFormat =
   | "iri-reference"
   | "idn-email"
   | "json-pointer"
-  | "relative-json-pointer";
+  | "relative-json-pointer"
+  | "cuid2"
+  | "ulid"
+  | "ksuid"
+  | "xid"
+  | "nanoid"
+  | "uuidv4"
+  | "uuidv6"
+  | "uuidv7"
+  | "e164"
+  | "mac"
+  | "hex"
+  | "cidrv4"
+  | "cidrv6"
+  | "http-url";
 export type ArrayFormat = "compactColumns";
 export type Format = NumberFormat | StringFormat | ArrayFormat;
 
@@ -491,10 +505,107 @@ export const email: Schema<string, string>;
 export const uuid: Schema<string, string>;
 
 /**
- * CUID. Not a JSON Schema format, so a plain `string` is emitted for it.
+ * UUIDv4, the random one — the version and variant nibbles are pinned.
+ * the emitted JSON Schema carries `format: "uuid"` plus the `pattern` that pins them.
+ * @example "9b2f4f0e-6a1e-4c3b-8b7a-1f2e3d4c5b6a"
+ */
+export const uuidv4: Schema<string, string>;
+
+/**
+ * UUIDv6, the reordered-time one — the version and variant nibbles are pinned.
+ * @example "1ef21d2f-1207-6ea0-8b7a-1f2e3d4c5b6a"
+ */
+export const uuidv6: Schema<string, string>;
+
+/**
+ * UUIDv7, the Unix-time one that sorts by creation — the version and variant
+ * nibbles are pinned. The usual choice for a database key.
+ * @example "0192f0e1-2b3c-7d4e-8b7a-1f2e3d4c5b6a"
+ */
+export const uuidv7: Schema<string, string>;
+
+/**
+ * CUID: `c` followed by at least six more base36 characters. Not a JSON Schema
+ * format, so the emitted JSON Schema carries the equivalent `pattern` instead.
  * @example "cjld2cjxh0000qzrmn831i7rn"
  */
 export const cuid: Schema<string, string>;
+
+/**
+ * CUID2: base36, starting with a letter, any length. Deliberately weak — the
+ * length is a generator setting, so compose `S.length` when you know it.
+ * @example "tz4a98xxat96iws9zmbrgj3a"
+ */
+export const cuid2: Schema<string, string>;
+
+/**
+ * ULID: 26 characters of Crockford base32, sortable by creation time. The first
+ * character is capped at `7`, above which the timestamp is out of range.
+ * @example "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+ */
+export const ulid: Schema<string, string>;
+
+/**
+ * KSUID: 27 alphanumeric characters, sortable by creation time.
+ * @example "0ujtsYcgvSTl8PAuAdqWYSMnLOv"
+ */
+export const ksuid: Schema<string, string>;
+
+/**
+ * XID: 20 characters of base32hex, sortable by creation time.
+ * @example "9m4e2mr0ui3e8a215n4g"
+ */
+export const xid: Schema<string, string>;
+
+/**
+ * Nano ID alphabet — URL-safe base64 characters, any length, since the length is
+ * a generator setting rather than part of the format. Compose `S.length` for the
+ * generator you use: `S.nanoid.with(S.length, 21)` is the default one.
+ * @example "V1StGXR8_Z5jdHi6B-myT"
+ */
+export const nanoid: Schema<string, string>;
+
+/**
+ * E.164 phone number — a leading `+`, then 7 to 15 digits, no separators.
+ * @example "+14155552671"
+ */
+export const e164: Schema<string, string>;
+
+/**
+ * MAC address, EUI-48 or EUI-64, colon- hyphen- or dot-separated. The separator
+ * has to be consistent across the address.
+ * @example "00:1b:44:11:3a:b7"
+ */
+export const mac: Schema<string, string>;
+
+/**
+ * Hexadecimal digits, at least one, either case. A syntax check on text — for a
+ * byte payload use `S.uint8Array` or `S.base64`.
+ * @example "deadBEEF"
+ */
+export const hex: Schema<string, string>;
+
+/**
+ * IPv4 CIDR block — an `S.ipv4` address and a prefix length of 0 to 32.
+ * @example "192.168.0.0/16"
+ */
+export const cidrv4: Schema<string, string>;
+
+/**
+ * IPv6 CIDR block — an `S.ipv6` address and a prefix length of 0 to 128. The one
+ * format whose constraint the emitted JSON Schema cannot express, so it emits a plain
+ * `string`.
+ * @example "2001:db8::/32"
+ */
+export const cidrv6: Schema<string, string>;
+
+/**
+ * The `S.uri` grammar with the scheme pinned to `http` or `https`. RFC 3986, so
+ * it is stricter than the WHATWG parser behind `S.url` — a value can be a legal
+ * URL and not a legal URI.
+ * @example "https://example.com/dashboard"
+ */
+export const httpUrl: Schema<string, string>;
 
 /**
  * Base64 with the standard alphabet and canonical padding. Its payload is bytes,

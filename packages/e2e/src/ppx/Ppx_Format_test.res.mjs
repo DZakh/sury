@@ -60,6 +60,59 @@ Vitest$1.test("Record of formats", t => {
   }, undefined);
 });
 
+let identifiersSchema = Sury.$schema(s => ({
+  key: s.m(Sury.uuidv7),
+  legacyKey: s.m(Sury.uuid),
+  slug: s.m(Sury.cuid2),
+  event: s.m(Sury.ulid),
+  trace: s.m(Sury.xid),
+  token: s.m(Sury.nanoid)
+}));
+
+Vitest$1.test("Record of id formats", t => U.assertEqualSchemas(t, identifiersSchema, Sury.$schema(s => ({
+  key: s.m(Sury.uuidv7),
+  legacyKey: s.m(Sury.uuid),
+  slug: s.m(Sury.cuid2),
+  event: s.m(Sury.ulid),
+  trace: s.m(Sury.xid),
+  token: s.m(Sury.nanoid)
+})), undefined));
+
+let hostSchema = Sury.$schema(s => ({
+  block: s.m(Sury.cidrv4),
+  address: s.m(Sury.ipv4),
+  hardware: s.m(Sury.mac),
+  homepage: s.m(Sury.httpUrl),
+  phone: s.m(Sury.e164),
+  digest: s.m(Sury.hex)
+}));
+
+Vitest$1.test("Record of network formats", t => {
+  U.assertEqualSchemas(t, hostSchema, Sury.$schema(s => ({
+    block: s.m(Sury.cidrv4),
+    address: s.m(Sury.ipv4),
+    hardware: s.m(Sury.mac),
+    homepage: s.m(Sury.httpUrl),
+    phone: s.m(Sury.e164),
+    digest: s.m(Sury.hex)
+  })), undefined);
+  Vitest.Assert.deepEqual(t, S.parseOrThrow({
+      block: "192.168.0.0/16",
+      address: "192.168.0.1",
+      hardware: "00:1b:44:11:3a:b7",
+      homepage: "https://example.com",
+      phone: "+14155552671",
+      digest: "deadbeef"
+    }, hostSchema), {
+    block: "192.168.0.0/16",
+    address: "192.168.0.1",
+    hardware: "00:1b:44:11:3a:b7",
+    homepage: "https://example.com",
+    phone: "+14155552671",
+    digest: "deadbeef"
+  }, undefined);
+});
+
 export {
   myEmailSchema,
   myPortSchema,
@@ -70,5 +123,7 @@ export {
   myBlobSchema,
   myNonEmptyTagsSchema,
   userSchema,
+  identifiersSchema,
+  hostSchema,
 }
 /* myEmailSchema Not a pure module */
