@@ -37,7 +37,22 @@ jobs:
         run: ../../scripts/assert-no-drift.sh '*.res.mjs'
         working-directory: packages/sury
 
+      # `coverage` below typechecks only what vitest is pointed at
+      # (tests/**/*_test.ts). This covers src/ and scripts/ too — the fuzzers
+      # live in scripts/ and reach the library through its public entry, so
+      # without this a renamed export leaves them calling a name that no longer
+      # exists and nothing says so until someone runs them by hand.
+      - run: pnpm typecheck
+        working-directory: packages/sury
+
       - run: pnpm coverage
+        working-directory: packages/sury
+
+      # Guards the `escapeFree` flag, which switches jsonString to splicing a
+      # value between bare quotes with no escaping — so a format flagged wrongly
+      # emits syntactically broken JSON. That claim is a property of each
+      # format's regex, and nothing else in the suite checks it. Roughly 90s.
+      - run: pnpm fuzz:escfree
         working-directory: packages/sury
 
       # artifact_test.ts checks jsr.json against package.json; only JSR itself
