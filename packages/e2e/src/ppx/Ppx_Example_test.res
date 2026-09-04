@@ -44,10 +44,12 @@ test("Main example", t => {
   )
 })
 
+let myCustomSchema = S.string->S.maxLength(5)
+
 @schema
-type matches = @s.matches(S.string->S.maxLength(5)) string
+type matches = @s.matches(myCustomSchema) string
 test("@s.matches", t => {
-  t->assertEqualSchemas(matchesSchema, S.string->S.maxLength(5))
+  t->assertEqualSchemas(matchesSchema, myCustomSchema)
 })
 
 @schema
