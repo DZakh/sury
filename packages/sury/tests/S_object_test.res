@@ -86,7 +86,7 @@ test("Successfully serializes object with unknown field (Noop operation)", t => 
   )
 
   t->Assert.deepEqual(
-    %raw(`{field: new Date("2015-12-12")}`)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    %raw(`{field: new Date("2015-12-12")}`)->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`{field: new Date("2015-12-12")}`),
   )
 })
@@ -218,7 +218,7 @@ test("Successfully serializes object with single field", t => {
   )
 
   t->Assert.deepEqual(
-    {"field": "bar"}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    {"field": "bar"}->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`{field: "bar"}`),
   )
 })
@@ -246,7 +246,7 @@ test("Successfully serializes object with multiple fields", t => {
   )
 
   t->Assert.deepEqual(
-    {"boo": "bar", "zoo": "jee"}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    {"boo": "bar", "zoo": "jee"}->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`{boo: "bar", zoo: "jee"}`),
   )
 })
@@ -307,7 +307,7 @@ test("Successfully serializes object with transformed field", t => {
   )
 
   t->Assert.deepEqual(
-    {"string": "bar"}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    {"string": "bar"}->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`{"string": "barfield"}`),
   )
 })
@@ -323,7 +323,7 @@ test("Fails to serializes object when transformed field has throws error", t => 
   )
 
   t->U.assertThrowsMessage(
-    () => {"field": "bar"}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    () => {"field": "bar"}->S.convertOrThrow(~from=schema, ~to=S.unknown),
     `Failed at field: User error`,
   )
 })
@@ -339,7 +339,7 @@ test("Shows transformed object field name in error path when fails to serializes
   )
 
   t->U.assertThrowsMessage(
-    () => {"transformedFieldName": "bar"}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    () => {"transformedFieldName": "bar"}->S.convertOrThrow(~from=schema, ~to=S.unknown),
     `Failed at transformedFieldName: User error`,
   )
 })
@@ -361,7 +361,7 @@ test("Shows transformed to nested object field name in error path when fails to 
       "v1": {
         "transformedFieldName": "bar",
       },
-    }->S.decodeOrThrow(~from=schema, ~to=S.unknown)
+    }->S.convertOrThrow(~from=schema, ~to=S.unknown)
   , `Failed at v1.transformedFieldName: User error`)
 })
 
@@ -388,7 +388,7 @@ test("Successfully serializes object with optional fields", t => {
   )
 
   t->Assert.deepEqual(
-    {"boo": Some("bar"), "zoo": None}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    {"boo": Some("bar"), "zoo": None}->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`{boo: "bar", zoo: undefined}`),
   )
 })
@@ -416,7 +416,7 @@ test("Successfully serializes object with optional fields with default", t => {
   )
 
   t->Assert.deepEqual(
-    {"boo": "bar", "zoo": "baz"}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    {"boo": "bar", "zoo": "baz"}->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`{boo: "bar", zoo: "baz"}`),
   )
 })
@@ -450,7 +450,7 @@ test("Successfully serializes object with optional fields using (?)", t => {
   })
 
   t->Assert.deepEqual(
-    {mode: 1}->S.decodeOrThrow(~from=optionsSchema, ~to=S.unknown),
+    {mode: 1}->S.convertOrThrow(~from=optionsSchema, ~to=S.unknown),
     %raw(`{mode: 1, fast: undefined}`),
   )
 })
@@ -480,7 +480,7 @@ test("Successfully serializes object with mapped field", t => {
   )
 
   t->Assert.deepEqual(
-    {"name": "Dmitry", "email": "dzakh.dev@gmail.com", "age": 21}->S.decodeOrThrow(
+    {"name": "Dmitry", "email": "dzakh.dev@gmail.com", "age": 21}->S.convertOrThrow(
       ~from=schema,
       ~to=S.unknown,
     ),
@@ -498,7 +498,7 @@ test("Successfully serializes object transformed to tuple", t => {
   let schema = S.object(s => (s.field("boo", S.int), s.field("zoo", S.int)))
 
   t->Assert.deepEqual(
-    (1, 2)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    (1, 2)->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`{boo: 1, zoo: 2}`),
   )
 })
@@ -530,7 +530,7 @@ test("Successfully serializes object transformed to nested object", t => {
   )
 
   t->Assert.deepEqual(
-    {"v1": {"boo": 1, "zoo": 2}}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    {"v1": {"boo": 1, "zoo": 2}}->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`{boo: 1, zoo: 2}`),
   )
 })
@@ -553,7 +553,7 @@ test("Successfully serializes object transformed to nested tuple", t => {
   )
 
   t->Assert.deepEqual(
-    {"v1": (1, 2)}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    {"v1": (1, 2)}->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`{boo: 1, zoo: 2}`),
   )
 })
@@ -567,7 +567,7 @@ test("Successfully parses object with only one field returned from transformer",
 test("Successfully serializes object with only one field returned from transformer", t => {
   let schema = S.object(s => s.field("field", S.bool))
 
-  t->Assert.deepEqual(true->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`{"field": true}`))
+  t->Assert.deepEqual(true->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`{"field": true}`))
 })
 
 test("Successfully parses object transformed to the one with hardcoded fields", t => {
@@ -599,7 +599,7 @@ test("Successfully serializes object transformed to the one with hardcoded field
     {
       "hardcoded": false,
       "field": true,
-    }->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    }->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`{"field": true}`),
   )
 })
@@ -614,7 +614,7 @@ test("Successfully serializes object transformed to variant", t => {
   let schema = S.object(s => #VARIANT(s.field("field", S.bool)))
 
   t->Assert.deepEqual(
-    #VARIANT(true)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    #VARIANT(true)->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`{"field": true}`),
   )
 })
@@ -752,7 +752,7 @@ module BenchmarkWithSObject = {
     let schema = makeSchema()
 
     t->Assert.deepEqual(
-      makeTestObject()->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+      makeTestObject()->S.convertOrThrow(~from=schema, ~to=S.unknown),
       makeTestObject(),
     )
 
@@ -875,7 +875,7 @@ module Benchmark = {
     let schema = makeSchema()
 
     t->Assert.deepEqual(
-      makeTestObject()->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+      makeTestObject()->S.convertOrThrow(~from=schema, ~to=S.unknown),
       makeTestObject(),
     )
 
@@ -896,7 +896,7 @@ test("Successfully parses object and serializes it back to the initial data", t 
   )
 
   t->Assert.deepEqual(
-    any->S.parseOrThrow(~to=schema)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    any->S.parseOrThrow(~to=schema)->S.convertOrThrow(~from=schema, ~to=S.unknown),
     any,
   )
 })
@@ -964,14 +964,14 @@ test("Reverse convert of object schema with single field registered multiple tim
   )
 
   t->Assert.deepEqual(
-    {"field1": "foo", "field2": "foo", "field3": "foo"}->S.decodeOrThrow(
+    {"field1": "foo", "field2": "foo", "field3": "foo"}->S.convertOrThrow(
       ~from=schema,
       ~to=S.unknown,
     ),
     %raw(`{"field": "foo"}`),
   )
   // t->U.assertThrows(
-  //   () => {"field1": "foo", "field2": "foo", "field3": "foz"}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+  //   () => {"field1": "foo", "field2": "foo", "field3": "foz"}->S.convertOrThrow(~from=schema, ~to=S.unknown),
   //   {
   //     code: InvalidOperation({
   //       description: `Another source has conflicting data for the field ["field"]`,
@@ -1010,7 +1010,7 @@ test("Can destructure fields of simple nested objects", t => {
   )
 
   t->Assert.deepEqual(
-    {"baz": "bar", "foz": "foo"}->S.decodeOrThrow(~from=schema, ~to=S.json),
+    {"baz": "bar", "foz": "foo"}->S.convertOrThrow(~from=schema, ~to=S.json),
     %raw(`{"nested": {"foo": "foo", "bar": "bar"}}`),
   )
   t->U.assertCompiledCode(
@@ -1251,7 +1251,7 @@ test(
     let value = appVersions->S.parseOrThrow(~to=appVersionsSchema)
     t->Assert.deepEqual(value, appVersions)
 
-    let data = appVersions->S.decodeOrThrow(~from=appVersionsSchema, ~to=S.json)
+    let data = appVersions->S.convertOrThrow(~from=appVersionsSchema, ~to=S.json)
     t->Assert.deepEqual(data, appVersions->Obj.magic)
   },
 )

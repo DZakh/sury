@@ -780,6 +780,29 @@ export function assertOutput<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>
 ): asserts data is TOutput;
 
+/**
+ * Async flavor of `assertInput` for schemas with async transformations. The
+ * promise rejects with a Sury error on invalid input; TypeScript can't express
+ * an async type predicate, so no narrowing happens.
+ */
+export function asyncAssertInput<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>,
+  data: unknown
+): Promise<void>;
+export function asyncAssertInput<TInput, TOutput>(
+  data: unknown,
+  schema: SchemaLike<TInput, TOutput>
+): Promise<void>;
+
+export function asyncAssertOutput<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>,
+  data: unknown
+): Promise<void>;
+export function asyncAssertOutput<TInput, TOutput>(
+  data: unknown,
+  schema: SchemaLike<TInput, TOutput>
+): Promise<void>;
+
 export function inputValidator<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>
 ): (data: unknown) => data is TInput;

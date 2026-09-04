@@ -20,11 +20,14 @@ const source = readFileSync(new URL("../index.mjs", import.meta.url), "utf8");
 const EFFECTFUL: Record<string, string> = {
   assertInput: "throws on invalid input — the call IS the assertion",
   assertOutput: "throws on invalid input — the call IS the assertion",
+  asyncAssertInput: "rejects on invalid input — the call IS the assertion",
+  asyncAssertOutput: "rejects on invalid input — the call IS the assertion",
   safe: "runs the callback it's given",
   safeAsync: "runs the callback it's given",
   global: "mutates the global config",
   enableStandardJSONSchema: "registers the converter singleton",
-  $assertAsyncOrThrow: "throws on invalid input",
+  $safe: "runs the callback it's given",
+  $safeAsync: "runs the callback it's given",
   $setExnId: "mutates the ReScript exception identity",
   Error: "a class, not a factory",
 };

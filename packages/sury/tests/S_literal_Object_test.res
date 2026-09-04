@@ -27,7 +27,7 @@ module Common = {
     let schema = factory()
 
     t->Assert.deepEqual(
-      value->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+      value->S.convertOrThrow(~from=schema, ~to=S.unknown),
       value->U.castAnyToUnknown,
     )
   })
@@ -36,7 +36,7 @@ module Common = {
     let schema = factory()
 
     t->Assert.is(
-      invalid->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+      invalid->S.convertOrThrow(~from=schema, ~to=S.unknown),
       invalid,
       ~message=`Convert operation doesn't validate anything and assumes a valid input`,
     )
@@ -111,7 +111,7 @@ module EmptyDict = {
     let schema = factory()
 
     t->Assert.deepEqual(
-      value->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+      value->S.convertOrThrow(~from=schema, ~to=S.unknown),
       value->U.castAnyToUnknown,
     )
   })
@@ -119,7 +119,7 @@ module EmptyDict = {
   test("Ignores extra fields during conversion of empty object literal", t => {
     let schema = factory()
 
-    t->Assert.is(invalid->S.decodeOrThrow(~from=schema, ~to=S.unknown), invalid->Obj.magic)
+    t->Assert.is(invalid->S.convertOrThrow(~from=schema, ~to=S.unknown), invalid->Obj.magic)
   })
 
   test("Compiled parse code snapshot of empty dict literal schema", t => {
