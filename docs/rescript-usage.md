@@ -192,7 +192,7 @@ The obvious ones, at a glance:
 | `S.string` | `S.t<string>` | [refinements ↓](#string) |
 | `S.bool` | `S.t<bool>` | |
 | `S.int` | `S.t<int>` | [refinements ↓](#int) |
-| `S.integer` | `S.t<float>` | integer without `int`'s range [↓](#int) |
+| `S.integer` | `S.t<S.integer>` | integer without `int`'s range [↓](#int) |
 | `S.float` | `S.t<float>` | [refinements ↓](#float) |
 | `S.bigint` | `S.t<bigint>` | |
 | `S.symbol` | `S.t<Symbol.t>` | |
@@ -312,7 +312,7 @@ Two worth knowing before you pick one:
 
 - **`S.url` is not `S.uri`.** `S.url` is an instance of the JS `URL` class, the
   way `S.date` is a `Date` — use it when you want the parsed object and its
-  `.host` / `.pathname`. `S.uri` validates a string and leaves it a string.
+  `.host` / `.pathname`. `S.uri` only validates the text.
 - **`S.uriReference` is usually the one you want for a link field.** `S.uri`
   requires a scheme, so it rejects `/dashboard`.
 
@@ -388,11 +388,11 @@ S.int->S.gte(3000000000)
 // int32 >= 3000000000 contradicts int32 <= 2147483647
 ```
 
-`S.integer` is an integer without that range, typed `S.t<float>` since one can
-exceed ReScript's `int`:
+`S.integer` is an integer without that range. It has its own type,
+`Integer(float)`, since one can exceed ReScript's `int`:
 
 ```rescript
-S.integer->S.gte(5.) // Expected integer >= 5
+S.integer->S.gte(Integer(5.)) // Expected integer >= 5
 ```
 
 ### **`float`**
@@ -1164,7 +1164,7 @@ The `dict` schema represents a dictionary of data of a specific type.
 
 ### **`date`**
 
-`S.t<Js.Date.t>`
+`S.t<S.date>`
 
 ```rescript
 let schema = S.date
@@ -1191,12 +1191,12 @@ Date.fromString("2024-01-01T00:00:00.000Z")->S.convertOrThrow(~from=schema, ~to=
 
 ### **`isoDateTime`**
 
-`S.t<string>`
+`S.t<S.isoDateTime>`
 
 ```rescript
 let schema = S.isoDateTime
 
-"2020-01-01T00:00:00Z"->S.parseOrThrow(~to=schema) // "2020-01-01T00:00:00Z"
+"2020-01-01T00:00:00Z"->S.parseOrThrow(~to=schema) // IsoDateTime("2020-01-01T00:00:00Z")
 "not-a-date"->S.parseOrThrow(~to=schema) // throws
 ```
 
@@ -1214,7 +1214,7 @@ The `S.instance` schema represents an instance of a class. Requires some type ca
 
 ### **`blob`**
 
-`S.t<Js.Blob.t>`
+`S.t<S.blob>`
 
 ```rescript
 S.blob // Expected Blob
@@ -1232,7 +1232,7 @@ S.blob->S.maxSize(1_000_000, ~message="Too large")
 
 ### **`file`**
 
-`S.t<Js.File.t>`
+`S.t<S.file>`
 
 ```rescript
 let schema = S.file->S.maxSize(1_000_000)
@@ -1259,7 +1259,7 @@ The `S.json` schema represents a data that is compatible with JSON.
 
 ### **`jsonString`**
 
-`S.t<string>`
+`S.t<S.jsonString>`
 
 ```rescript
 let schema = S.jsonString->S.to(S.int)
