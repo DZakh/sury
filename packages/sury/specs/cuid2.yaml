@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.cuid2
+  input: string
+  output: string
+  instantiations: 254
+jsonSchema:
+  input: '{ type: "string", pattern: "^[a-z][0-9a-z]*$" }'
+  output: '{ type: "string", pattern: "^[a-z][0-9a-z]*$" }'
+vs:
+  zod: z.cuid2()
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"tz4a98xxat96iws9zmbrgj3a"'
+        output: '"tz4a98xxat96iws9zmbrgj3a"'
+      single-letter:
+        input: '"a"'
+        output: '"a"'
+      digit-first:
+        input: '"9abc"'
+        error: Expected cuid2, received "9abc"
+      uppercase:
+        input: '"TZ4A98"'
+        error: Expected cuid2, received "TZ4A98"
+      hyphenated:
+        input: '"tz4a-98"'
+        error: Expected cuid2, received "tz4a-98"
+      empty:
+        input: '""'
+        error: Expected cuid2, received ""
+      not-a-string:
+        input: "42"
+        error: Expected cuid2, received 42
+  decode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"tz4a98xxat96iws9zmbrgj3a"'
+        output: '"tz4a98xxat96iws9zmbrgj3a"'
+      invalid:
+        input: '"9abc"'
+        error: Expected cuid2, received "9abc"
+  encode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"tz4a98xxat96iws9zmbrgj3a"'
+        output: '"tz4a98xxat96iws9zmbrgj3a"'
+      invalid:
+        input: '"9abc"'
+        error: Expected cuid2, received "9abc"

@@ -844,6 +844,31 @@ const stringFormat = (
     };
   });
 
+// A format outside the JSON Schema vocabulary has no keyword a consumer could
+// enforce, so it publishes its own regex as `pattern` — that is what makes it
+// survive toJSONSchema/fromJSONSchema as behavior rather than as a name it
+// would lose. No second check is emitted: `pattern` is read as a field by
+// jsonschema.ts and nothing else, so the format's one test still does the work.
+//
+// The regex must mean the same thing with no flags, because `pattern` travels
+// as `.source` and an `i` would be dropped on the way out — leaving an emitted
+// schema that rejects strings this one accepts. Hence a source string compiles
+// flagless here, where `stringFormat` would apply `i`, and every RegExp passed
+// in spells both cases out. `cidrv6` is the one format that can't (it reuses
+// the `i`-flagged `ipv6Pattern`), so it stays on `stringFormat` and emits no
+// pattern at all.
+// @__NO_SIDE_EFFECTS__
+const patternFormat = (
+  format: StringFormat,
+  source: RegExp | string,
+  escFree?: boolean,
+): Internal => {
+  const re = typeof source === stringTag ? new RegExp(source as string) : (source as RegExp);
+  const schema = stringFormat(format, re, escFree);
+  schema.pattern = re;
+  return schema;
+};
+
 // UTC-only by choice, which is narrower than the JSON Schema `date-time`
 // format: an RFC 3339 offset like +02:00 is rejected. Hence the name — a
 // rejected `+02:00` timestamp IS a date-time, so `Expected date-time` would
@@ -887,13 +912,35 @@ export const email: Internal = /* @__PURE__ */ stringFormat(
   true,
 );
 
+// The loose RFC 4122 shape, which is what the JSON Schema `uuid` format names —
+// any hex in the version and variant nibbles. `S.uuidv4` / `S.uuidv6` /
+// `S.uuidv7` pin those.
 export const uuid: Internal = /* @__PURE__ */ stringFormat(
   "uuid",
-  /^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/i,
+  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/,
   true,
 );
 
-export const cuid: Internal = /* @__PURE__ */ stringFormat("cuid", /^c[^\s-]{8,}$/i);
+// Only the version and variant nibbles differ, so the three share a source
+// rather than three near-identical literals — which is also what lets them
+// compile flagless for `patternFormat`. Each call needs its own `@__PURE__`:
+// esbuild keeps an argument it cannot prove pure, and keeping the argument
+// keeps the call it sits in — which is what makes an unused format ship.
+const uuidPattern = (version: string): string =>
+  "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-" +
+  version +
+  "[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$";
+
+export const uuidv4: Internal = /* @__PURE__ */ patternFormat("uuidv4", /* @__PURE__ */ uuidPattern("4"), true);
+export const uuidv6: Internal = /* @__PURE__ */ patternFormat("uuidv6", /* @__PURE__ */ uuidPattern("6"), true);
+export const uuidv7: Internal = /* @__PURE__ */ patternFormat("uuidv7", /* @__PURE__ */ uuidPattern("7"), true);
+
+// A cuid is `c` followed by base36, which the previous `[^\s-]` accepted far
+// more than: `c!!!!!!!!` passed. cuid2 drops the prefix and the fixed length —
+// it is any base36 string starting with a letter, so it is the weakest format
+// here and a length bound is usually worth composing onto it.
+export const cuid: Internal = /* @__PURE__ */ patternFormat("cuid", /^[cC][0-9a-z]{6,}$/, true);
+export const cuid2: Internal = /* @__PURE__ */ patternFormat("cuid2", /^[a-z][0-9a-z]*$/, true);
 
 // Which primitive encodes bytes as text, resolved once at import so generated
 // code is `e[N](i)` either way. Native ES2026 methods, then Node's Buffer
@@ -1166,8 +1213,8 @@ const ipv6Pattern = (): string =>
 // does before the test. The hier-part is optional on both sides because
 // RFC 3986 admits path-empty, which is what makes `mailto:` and `about:` URIs.
 // @__NO_SIDE_EFFECTS__
-const uriPattern = (schemeOptional: string): string =>
-  "^(?:[a-z][a-z0-9+\\-.]*:)" + schemeOptional + "(?:\\/\\/(?:(?:[a-z0-9\\-._~!$&'()*+,;=:]|%[0-9a-f]{2})*@)?(?:\\[(?:" + ipv6Pattern() + "|[Vv][0-9a-f]+\\.[a-z0-9\\-._~!$&'()*+,;=:]+)\\]|" + ipv4Pattern + "|(?:[a-z0-9\\-._~!$&'()*+,;=]|%[0-9a-f]{2})*)(?::\\d*)?(?:\\/(?:[a-z0-9\\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*|\\/(?:(?:[a-z0-9\\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})+(?:\\/(?:[a-z0-9\\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*)?|(?:[a-z0-9\\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})+(?:\\/(?:[a-z0-9\\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*)?(?:\\?(?:[a-z0-9\\-._~!$&'()*+,;=:@/?]|%[0-9a-f]{2})*)?(?:#(?:[a-z0-9\\-._~!$&'()*+,;=:@/?]|%[0-9a-f]{2})*)?$";
+const uriPattern = (schemeOptional: string, scheme?: string): string =>
+  "^(?:" + (scheme || "[a-z][a-z0-9+\\-.]*") + ":)" + schemeOptional + "(?:\\/\\/(?:(?:[a-z0-9\\-._~!$&'()*+,;=:]|%[0-9a-f]{2})*@)?(?:\\[(?:" + ipv6Pattern() + "|[Vv][0-9a-f]+\\.[a-z0-9\\-._~!$&'()*+,;=:]+)\\]|" + ipv4Pattern + "|(?:[a-z0-9\\-._~!$&'()*+,;=]|%[0-9a-f]{2})*)(?::\\d*)?(?:\\/(?:[a-z0-9\\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*|\\/(?:(?:[a-z0-9\\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})+(?:\\/(?:[a-z0-9\\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*)?|(?:[a-z0-9\\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})+(?:\\/(?:[a-z0-9\\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*)?(?:\\?(?:[a-z0-9\\-._~!$&'()*+,;=:@/?]|%[0-9a-f]{2})*)?(?:#(?:[a-z0-9\\-._~!$&'()*+,;=:@/?]|%[0-9a-f]{2})*)?$";
 
 // The `u` flag is load-bearing: without it the class matches a surrogate pair
 // one half at a time and `encodeURIComponent` throws URIError on the lone half,
@@ -1314,4 +1361,68 @@ export const jsonPointer: Internal = /* @__PURE__ */ stringFormat(
 export const relativeJsonPointer: Internal = /* @__PURE__ */ stringFormat(
   "relative-json-pointer",
   /^(?:0|[1-9]\d*)(?:#|(?:\/(?:[^~/]|~0|~1)*)*)$/,
+);
+
+// The `uri` grammar with the scheme pinned, so it stays one test rather than a
+// format check plus a scheme check. `pattern` publishes only the extra
+// constraint over `uri`, which is the format jsonschema.ts emits in place of
+// this name: the two keywords together are exactly this schema, where the
+// format alone would widen back to any scheme on the way in. Spelled out per
+// character because a published pattern loses its flags — see `patternFormat`.
+//
+// Not the same language as Zod's `httpUrl` or as `S.url`, both of which run the
+// WHATWG parser: this is RFC 3986, the stricter grammar `S.uri` accepts.
+export const httpUrl: Internal = /* @__PURE__ */ (() => {
+  const schema = stringFormat("http-url", uriPattern("", "https?"), true);
+  schema.pattern = /^[hH][tT][tT][pP][sS]?:/;
+  return schema;
+})();
+
+// Sortable, monotonic ids. `ulid` is Crockford base32 and its first character
+// caps the timestamp at the year 10889, so anything above `7` is out of range.
+export const ulid: Internal = /* @__PURE__ */ patternFormat(
+  "ulid",
+  /^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$/,
+  true,
+);
+
+export const ksuid: Internal = /* @__PURE__ */ patternFormat("ksuid", /^[A-Za-z0-9]{27}$/, true);
+
+export const xid: Internal = /* @__PURE__ */ patternFormat("xid", /^[0-9a-vA-V]{20}$/, true);
+
+// Length is a generator setting, not part of the alphabet, so this checks the
+// alphabet and leaves the count to `S.length` — `S.nanoid.with(S.length, 21)`
+// for the default generator. Both halves ride into the emitted JSON Schema.
+export const nanoid: Internal = /* @__PURE__ */ patternFormat("nanoid", /^[A-Za-z0-9_-]+$/, true);
+
+export const e164: Internal = /* @__PURE__ */ patternFormat("e164", /^\+[1-9]\d{6,14}$/, true);
+
+export const hex: Internal = /* @__PURE__ */ patternFormat("hex", /^[0-9a-fA-F]+$/, true);
+
+// EUI-48 and EUI-64 across the three separator conventions. The separator is
+// fixed per alternative rather than a `[:-]` class, which would accept
+// `00:11-22:33:44:55`.
+export const mac: Internal = /* @__PURE__ */ patternFormat(
+  "mac",
+  /^(?:(?:[0-9a-fA-F]{2}:){5}(?:(?:[0-9a-fA-F]{2}:){2})?[0-9a-fA-F]{2}|(?:[0-9a-fA-F]{2}-){5}(?:(?:[0-9a-fA-F]{2}-){2})?[0-9a-fA-F]{2}|(?:[0-9a-fA-F]{4}\.){2}(?:[0-9a-fA-F]{4}\.)?[0-9a-fA-F]{4}|(?:[0-9a-fA-F]{4}:){3}[0-9a-fA-F]{4})$/,
+  true,
+);
+
+// The address grammars are the ones `S.ipv4` and `S.ipv6` use, so a CIDR block
+// and a bare address can never disagree about what an address is.
+export const cidrv4: Internal = /* @__PURE__ */ patternFormat(
+  "cidrv4",
+  /* @__PURE__ */ anchor(ipv4Pattern, "\\/(?:3[0-2]|[12]?\\d)"),
+  true,
+);
+
+// The lone format with no published `pattern`: `ipv6Pattern` writes hex as
+// `[0-9a-f]` and leans on the `i` flag, which a published pattern would drop —
+// emitting a schema that rejects `FE80::/10`. Spelling the class out both ways
+// would grow the pattern for every `S.ipv6` and `S.uri` user to serve this one
+// export, so it emits a bare string instead (see `jsonSchemaFormat`).
+export const cidrv6: Internal = /* @__PURE__ */ stringFormat(
+  "cidrv6",
+  /* @__PURE__ */ anchor(/* @__PURE__ */ ipv6Pattern(), "\\/(?:12[0-8]|1[01]\\d|[1-9]?\\d)"),
+  true,
 );

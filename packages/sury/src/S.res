@@ -59,6 +59,20 @@ type stringFormat =
   | @as("idn-email") IdnEmail
   | @as("json-pointer") JsonPointer
   | @as("relative-json-pointer") RelativeJsonPointer
+  | @as("cuid2") Cuid2
+  | @as("ulid") Ulid
+  | @as("ksuid") Ksuid
+  | @as("xid") Xid
+  | @as("nanoid") Nanoid
+  | @as("uuidv4") Uuidv4
+  | @as("uuidv6") Uuidv6
+  | @as("uuidv7") Uuidv7
+  | @as("e164") E164
+  | @as("mac") Mac
+  | @as("hex") Hex
+  | @as("cidrv4") Cidrv4
+  | @as("cidrv6") Cidrv6
+  | @as("http-url") HttpUrl
 type arrayFormat = | @as("compactColumns") CompactColumns
 
 type format = | ...numberFormat | ...stringFormat | ...arrayFormat
@@ -448,7 +462,21 @@ module Error = {
 @module("sury") external port: t<int> = "port"
 @module("sury") external email: t<string> = "email"
 @module("sury") external uuid: t<string> = "uuid"
+@module("sury") external uuidv4: t<string> = "uuidv4"
+@module("sury") external uuidv6: t<string> = "uuidv6"
+@module("sury") external uuidv7: t<string> = "uuidv7"
 @module("sury") external cuid: t<string> = "cuid"
+@module("sury") external cuid2: t<string> = "cuid2"
+@module("sury") external ulid: t<string> = "ulid"
+@module("sury") external ksuid: t<string> = "ksuid"
+@module("sury") external xid: t<string> = "xid"
+@module("sury") external nanoid: t<string> = "nanoid"
+@module("sury") external e164: t<string> = "e164"
+@module("sury") external mac: t<string> = "mac"
+@module("sury") external hex: t<string> = "hex"
+@module("sury") external cidrv4: t<string> = "cidrv4"
+@module("sury") external cidrv6: t<string> = "cidrv6"
+@module("sury") external httpUrl: t<string> = "httpUrl"
 @module("sury") external base64: t<string> = "base64"
 @module("sury") external base64url: t<string> = "base64url"
 @module("sury") external uri: t<string> = "uri"

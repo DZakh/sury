@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.uuidv6
+  input: string
+  output: string
+  instantiations: 254
+jsonSchema:
+  input: '{ type: "string", format: "uuid", pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-6[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$" }'
+  output: '{ type: "string", format: "uuid", pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-6[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$" }'
+vs:
+  zod: z.uuidv6()
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"1ef21d2f-1207-6ea0-8b7a-1f2e3d4c5b6a"'
+        output: '"1ef21d2f-1207-6ea0-8b7a-1f2e3d4c5b6a"'
+      version-7:
+        input: '"1ef21d2f-1207-7ea0-8b7a-1f2e3d4c5b6a"'
+        error: Expected uuidv6, received "1ef21d2f-1207-7ea0-8b7a-1f2e3d4c5b6a"
+      variant-out-of-range:
+        input: '"1ef21d2f-1207-6ea0-cb7a-1f2e3d4c5b6a"'
+        error: Expected uuidv6, received "1ef21d2f-1207-6ea0-cb7a-1f2e3d4c5b6a"
+      empty:
+        input: '""'
+        error: Expected uuidv6, received ""
+      not-a-string:
+        input: "42"
+        error: Expected uuidv6, received 42
+  decode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"1ef21d2f-1207-6ea0-8b7a-1f2e3d4c5b6a"'
+        output: '"1ef21d2f-1207-6ea0-8b7a-1f2e3d4c5b6a"'
+      invalid:
+        input: '"1ef21d2f-1207-7ea0-8b7a-1f2e3d4c5b6a"'
+        error: Expected uuidv6, received "1ef21d2f-1207-7ea0-8b7a-1f2e3d4c5b6a"
+  encode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"1ef21d2f-1207-6ea0-8b7a-1f2e3d4c5b6a"'
+        output: '"1ef21d2f-1207-6ea0-8b7a-1f2e3d4c5b6a"'
+      invalid:
+        input: '"1ef21d2f-1207-7ea0-8b7a-1f2e3d4c5b6a"'
+        error: Expected uuidv6, received "1ef21d2f-1207-7ea0-8b7a-1f2e3d4c5b6a"

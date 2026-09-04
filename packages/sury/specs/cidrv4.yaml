@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.cidrv4
+  input: string
+  output: string
+  instantiations: 254
+jsonSchema:
+  input: '{ type: "string", pattern: "^(?:(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\.){3}(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\/(?:3[0-2]|[12]?\\d)$" }'
+  output: '{ type: "string", pattern: "^(?:(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\.){3}(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\/(?:3[0-2]|[12]?\\d)$" }'
+vs:
+  zod: z.cidrv4()
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"192.168.0.0/16"'
+        output: '"192.168.0.0/16"'
+      prefix-zero:
+        input: '"0.0.0.0/0"'
+        output: '"0.0.0.0/0"'
+      prefix-maximum:
+        input: '"255.255.255.255/32"'
+        output: '"255.255.255.255/32"'
+      prefix-out-of-range:
+        input: '"192.168.0.0/33"'
+        error: Expected cidrv4, received "192.168.0.0/33"
+      prefix-with-leading-zero:
+        input: '"192.168.0.0/05"'
+        error: Expected cidrv4, received "192.168.0.0/05"
+      missing-prefix:
+        input: '"192.168.0.0"'
+        error: Expected cidrv4, received "192.168.0.0"
+      octet-out-of-range:
+        input: '"256.0.0.0/8"'
+        error: Expected cidrv4, received "256.0.0.0/8"
+      ipv6-block:
+        input: '"2001:db8::/32"'
+        error: Expected cidrv4, received "2001:db8::/32"
+      empty:
+        input: '""'
+        error: Expected cidrv4, received ""
+      not-a-string:
+        input: "42"
+        error: Expected cidrv4, received 42
+  decode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"192.168.0.0/16"'
+        output: '"192.168.0.0/16"'
+      invalid:
+        input: '"192.168.0.0/33"'
+        error: Expected cidrv4, received "192.168.0.0/33"
+  encode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"192.168.0.0/16"'
+        output: '"192.168.0.0/16"'
+      invalid:
+        input: '"192.168.0.0/33"'
+        error: Expected cidrv4, received "192.168.0.0/33"

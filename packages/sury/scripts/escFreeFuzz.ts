@@ -56,6 +56,22 @@ const SEEDS: Record<string, string[]> = {
   uri: ["https://example.com/a?b=c#d", "mailto:a@b.co", "urn:isbn:0451450523"],
   "uri-reference": ["/a/b?c#d", "https://example.com", "//host/path", "?q", "#f", ""],
   base64: ["ZGF0YQ==", "aGkh", "iVBORw==", ""],
+  base64url: ["ZGF0YQ", "aGkh", "a-b_", ""],
+  cuid: ["ckopqwooh000001la8mbi2im9", "c123456", "C1234567"],
+  cuid2: ["tz4a98xxat96iws9zmbrgj3a", "a", "z0"],
+  ulid: ["01ARZ3NDEKTSV4RRFFQ69G5FAV", "01arz3ndektsv4rrffq69g5fav", "7ZZZZZZZZZZZZZZZZZZZZZZZZZ"],
+  ksuid: ["0ujtsYcgvSTl8PAuAdqWYSMnLOv", "aaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+  xid: ["9m4e2mr0ui3e8a215n4g", "9M4E2MR0UI3E8A215N4G"],
+  nanoid: ["V1StGXR8_Z5jdHi6B-myT", "_-_-_", "a"],
+  uuidv4: ["9b2f4f0e-6a1e-4c3b-8b7a-1f2e3d4c5b6a", "9b2f4f0e-6a1e-4c3b-Bb7a-1f2e3d4c5b6a"],
+  uuidv6: ["1ef21d2f-1207-6ea0-8b7a-1f2e3d4c5b6a"],
+  uuidv7: ["0192f0e1-2b3c-7d4e-8b7a-1f2e3d4c5b6a"],
+  e164: ["+14155552671", "+1234567", "+123456789012345"],
+  mac: ["00:1b:44:11:3a:b7", "00-1b-44-11-3a-b7", "001b.4411.3ab7", "001b:4411:3ab7:c8d9"],
+  hex: ["deadBEEF", "0", "abc"],
+  cidrv4: ["192.168.0.0/16", "0.0.0.0/0", "255.255.255.255/32"],
+  cidrv6: ["2001:db8::/32", "::/0", "FE80::/10"],
+  "http-url": ["https://example.com/a?b=c#d", "http://example.com", "HTTP://EXAMPLE.COM"],
 };
 
 type Schema = { format?: string; type?: string; content?: unknown };

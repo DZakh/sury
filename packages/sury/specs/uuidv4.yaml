@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.uuidv4
+  input: string
+  output: string
+  instantiations: 254
+jsonSchema:
+  input: '{ type: "string", format: "uuid", pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$" }'
+  output: '{ type: "string", format: "uuid", pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$" }'
+vs:
+  zod: z.uuidv4()
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"9b2f4f0e-6a1e-4c3b-8b7a-1f2e3d4c5b6a"'
+        output: '"9b2f4f0e-6a1e-4c3b-8b7a-1f2e3d4c5b6a"'
+      variant-9:
+        input: '"9b2f4f0e-6a1e-4c3b-9b7a-1f2e3d4c5b6a"'
+        output: '"9b2f4f0e-6a1e-4c3b-9b7a-1f2e3d4c5b6a"'
+      variant-b-uppercase:
+        input: '"9b2f4f0e-6a1e-4c3b-Bb7a-1f2e3d4c5b6a"'
+        output: '"9b2f4f0e-6a1e-4c3b-Bb7a-1f2e3d4c5b6a"'
+      version-7:
+        input: '"9b2f4f0e-6a1e-7c3b-8b7a-1f2e3d4c5b6a"'
+        error: Expected uuidv4, received "9b2f4f0e-6a1e-7c3b-8b7a-1f2e3d4c5b6a"
+      variant-out-of-range:
+        input: '"9b2f4f0e-6a1e-4c3b-cb7a-1f2e3d4c5b6a"'
+        error: Expected uuidv4, received "9b2f4f0e-6a1e-4c3b-cb7a-1f2e3d4c5b6a"
+      nil:
+        input: '"00000000-0000-0000-0000-000000000000"'
+        error: Expected uuidv4, received "00000000-0000-0000-0000-000000000000"
+      empty:
+        input: '""'
+        error: Expected uuidv4, received ""
+      not-a-string:
+        input: "42"
+        error: Expected uuidv4, received 42
+  decode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"9b2f4f0e-6a1e-4c3b-8b7a-1f2e3d4c5b6a"'
+        output: '"9b2f4f0e-6a1e-4c3b-8b7a-1f2e3d4c5b6a"'
+      invalid:
+        input: '"9b2f4f0e-6a1e-7c3b-8b7a-1f2e3d4c5b6a"'
+        error: Expected uuidv4, received "9b2f4f0e-6a1e-7c3b-8b7a-1f2e3d4c5b6a"
+  encode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"9b2f4f0e-6a1e-4c3b-8b7a-1f2e3d4c5b6a"'
+        output: '"9b2f4f0e-6a1e-4c3b-8b7a-1f2e3d4c5b6a"'
+      invalid:
+        input: '"9b2f4f0e-6a1e-7c3b-8b7a-1f2e3d4c5b6a"'
+        error: Expected uuidv4, received "9b2f4f0e-6a1e-7c3b-8b7a-1f2e3d4c5b6a"
