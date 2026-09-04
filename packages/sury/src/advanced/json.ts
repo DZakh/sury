@@ -905,8 +905,8 @@ export const jsonString = /* @__PURE__ */ (() => {
       // read it yet. A source already claiming this payload (a union narrow) is
       // the same unverified text. Every other string is a value, and stays one.
       if (
-        input.s.content !== U &&
-        (input.s.content === expectedSchema.content || B_readsPayload(expectedSchema))
+        input.s.content === json ||
+        (input.s.content !== U && B_readsPayload(expectedSchema))
       ) {
         return carriedJsonString(input, expectedSchema);
       }

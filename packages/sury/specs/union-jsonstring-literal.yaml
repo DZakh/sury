@@ -15,7 +15,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{if(typeof i==="string"){for(;;){let r;try{try{JSON.parse(i)}catch(t){e[0](i)};break}catch(x){(r||(r=[])).push(e[1](x))}if(i==="\"x\""){i="x";break}e[2](i,...(r||[]))}}else{e[3](i)}return i}
+    expression: i=>{if(typeof i==="string"){for(;;){let r;try{try{JSON.parse(i)}catch(t){e[0](i)};break}catch(x){(r||(r=[])).push(e[1](x))}if(i==="x")break;e[2](i,...(r||[]))}}else{e[3](i)}return i}
     examples:
       json-number:
         input: '"1"'
@@ -43,8 +43,6 @@ operations:
           - Expected JSON string, received ""
       the-literal:
         input: '"x"'
-        error: |-
-          Expected JSON string | "x", received "x"
-          - Expected JSON string, received "x"
+        output: '"x"'
   decode: identity
   encode: identity

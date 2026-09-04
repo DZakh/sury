@@ -15,26 +15,26 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{if(typeof i==="string"){for(;;){if(i==="x")break;i=e[0](i);break;}}else{e[1](i)}return i}
+    expression: i=>{if(typeof i==="string"){for(;;){if(i==="x")break;try{JSON.parse(i)}catch(t){e[0](i)};break;}}else{e[1](i)}return i}
     examples:
       json-number:
         input: '"1"'
-        output: '"\"1\""'
+        output: '"1"'
       json-string:
         input: '"\"x\""'
-        output: '"\"\\\"x\\\"\""'
+        output: '"\"x\""'
       json-object:
         input: '"{\"a\":1}"'
-        output: '"\"{\\\"a\\\":1}\""'
+        output: '"{\"a\":1}"'
       not-json-at-all:
         input: '"a"'
-        output: '"\"a\""'
+        error: Expected JSON string, received "a"
       unterminated-object:
         input: '"{"'
-        output: '"\"{\""'
+        error: Expected JSON string, received "{"
       empty:
         input: '""'
-        output: '"\"\""'
+        error: Expected JSON string, received ""
       the-literal:
         input: '"x"'
         output: '"x"'

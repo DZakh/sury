@@ -28,7 +28,6 @@ import {
   isLiteral,
   nanTag,
   neverTag,
-  stringTag,
   nullTag,
   numberTag,
   objectTag,
@@ -357,10 +356,16 @@ const unionOr = (cs: UnionCase[]): string => {
 
 // ── Group narrows ────────────────────────────────────────────────────────────
 
-// A minimal schema standing in as the variant's runtime type, shared by every
-// variant in the group. Built without a per-type factory reference so unused
-// type decoders still tree-shake out of a union-using bundle — and
-// `S.optional`/`S.nullable` are unions.
+// A minimal schema standing in as the variant's runtime type. Built without a
+// per-type factory reference so unused type decoders still tree-shake out of
+// a union-using bundle — and `S.optional`/`S.nullable` are unions.
+//
+// One per member, not per group: besides the runtime tag it carries what the
+// member claims about a value of that tag (`content`, its encoder, a string
+// format), and a sibling parsing from it would inherit the claim — a `uuid`
+// next to `jsonString` was `JSON.parse`d before its own test. The group's
+// narrow is its head member's, and `unionEmit` re-labels the narrowed value
+// with each member's own before the member parses it.
 const unionNarrowSchema = (schema: Internal): Internal => {
   const tagFlag = tagFlags[schema.type]!;
   const container = 64 | 128;
@@ -403,6 +408,15 @@ const unionNarrowSchema = (schema: Internal): Internal => {
   } else if (tagFlag & (32 | 16 | 2048)) {
     // null/undefined/nan stay literals so the case body passes through.
     narrow.const = schema.const;
+  } else if (tagFlag & 2 && schema.format !== U && schema.format !== "json") {
+    // The member's `format` (which toJSONSchema reads), `escapeFree` and
+    // `noValidation` ride on the narrow: the case appends the member's format
+    // check, so the escape-free splice holds inside it. Not `format: "json"` —
+    // jsonString reads that as "already JSON text" (see fieldPiece), where the
+    // bare `content` marker says "claims JSON, unchecked".
+    narrow.format = schema.format;
+    narrow.escapeFree = schema.escapeFree;
+    narrow.noValidation = schema.noValidation;
   }
   return narrow;
 };
@@ -494,13 +508,13 @@ type UnionMember = {
   k: unknown;
   r: number;
   d?: UnionDiscriminator;
+  n: Internal;
 };
 
 type UnionGroup = {
   m: number;
   a: UnionMember[];
   f: number;
-  n?: Internal;
   // Planner-only. `p` is the specificity tier the group flattens at — the tier of
   // the member that opened it. `o` is whether it can still absorb a later member.
   p: number;
@@ -710,6 +724,7 @@ const unionAnalyze = (
             ? 1
             : 2,
       k: tag & 8192 ? s.class : s.type,
+      n: unionNarrowSchema(s),
       r: tag & (64 | 8192)
         ? 64 | 8192
         : tag & numberish
@@ -937,25 +952,6 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
     ) {
       group.f |= 8 | 2;
     }
-    if (group.a.length !== 1 || !(group.f & 16)) {
-      group.n = unionNarrowSchema(head.s);
-      // A single-member string group carries its member's `format` (which
-      // toJSONSchema reads), `escapeFree` and `noValidation` onto the narrow:
-      // the group emit appends the member's format check, so the escape-free
-      // splice holds inside the case. A multi-member group can't — one narrow
-      // stands in for every member — and `format: "json"` must not, since
-      // jsonString reads that as "already JSON text" (see fieldPiece).
-      if (
-        group.a.length === 1 &&
-        head.s.format !== U &&
-        head.s.format !== "json" &&
-        group.n.type === stringTag
-      ) {
-        group.n.format = head.s.format;
-        group.n.escapeFree = head.s.escapeFree;
-        group.n.noValidation = head.s.noValidation;
-      }
-    }
     if (route !== ~0 && (group.m & ~route) === 0) {
       if (key === false) {
         later[route] = false;
@@ -1040,6 +1036,12 @@ const unionEmit = (
     caseInput.t = source.t;
     caseInput.io = false;
     caseInput.e = member.s;
+    // A value proven to be the group's runtime tag is re-labelled with this
+    // member's own narrow, so its claims (not the head's) are what it parses
+    // from. Only when the source still is the group narrow: a typed source
+    // passes through it unchanged, and an object group may have restored the
+    // source's own variant (below) — both stay.
+    if (source.s === target.e) caseInput.s = member.n;
     // Trusted source + a field discriminant to dispatch on: the case converts
     // from its own variant instead of re-validating from unknown — what makes
     // `decode` skip member validation the way a typed object does. Restricted
@@ -1126,9 +1128,10 @@ const unionEmit = (
     }
 
     const mark = input.g.t;
+    const groupNarrow = group.a[0]!.n;
     const narrowInput = B_scope(input);
     narrowInput.io = false;
-    narrowInput.e = group.n!;
+    narrowInput.e = groupNarrow;
     const narrow = parse(narrowInput);
     // The narrow proves the group's runtime tag, but its minimal schema
     // forgets what the source guarantees about that tag's CONTENT — a `S.json`
@@ -1138,11 +1141,11 @@ const unionEmit = (
     // it instead of validating the already-converted shape
     // (specs/jsonstring-union-encode.yaml). Direct single-member cases keep
     // `input.s` and never lose it.
-    if (tagFlags[group.n!.type]! & (64 | 128)) {
+    if (tagFlags[groupNarrow.type]! & (64 | 128)) {
       const resolved = unionRefDef(input.s);
       const sourceVariant =
         resolved !== U && resolved.anyOf !== U
-          ? resolved.anyOf.find((v) => v.type === group.n!.type)
+          ? resolved.anyOf.find((v) => v.type === groupNarrow.type)
           : U;
       if (sourceVariant !== U) narrow.s = sourceVariant;
     }

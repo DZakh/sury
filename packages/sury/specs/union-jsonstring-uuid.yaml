@@ -15,7 +15,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{if(typeof i==="string"){for(;;){let r;try{try{JSON.parse(i)}catch(t){e[0](i)};break}catch(x){(r||(r=[])).push(e[5](x))}try{let v0;try{v0=JSON.parse(i)}catch(t){e[1](i)}typeof v0==="string"||e[4](v0);e[2].test(v0)||e[3](v0);i=v0;break}catch(x){(r||(r=[])).push(e[5](x))}e[6](i,...(r||[]))}}else{e[7](i)}return i}
+    expression: i=>{if(typeof i==="string"){for(;;){let r;try{try{JSON.parse(i)}catch(t){e[0](i)};break}catch(x){(r||(r=[])).push(e[3](x))}try{e[1].test(i)||e[2](i);break}catch(x){(r||(r=[])).push(e[3](x))}e[4](i,...(r||[]))}}else{e[5](i)}return i}
     examples:
       json-number:
         input: '"1"'
@@ -31,24 +31,21 @@ operations:
         error: |-
           Expected JSON string | uuid, received "a"
           - Expected JSON string, received "a"
-          - Expected string, received "a"
+          - Expected uuid, received "a"
       unterminated-object:
         input: '"{"'
         error: |-
           Expected JSON string | uuid, received "{"
           - Expected JSON string, received "{"
-          - Expected string, received "{"
+          - Expected uuid, received "{"
       empty:
         input: '""'
         error: |-
           Expected JSON string | uuid, received ""
           - Expected JSON string, received ""
-          - Expected string, received ""
+          - Expected uuid, received ""
       uuid:
         input: '"123e4567-e89b-12d3-a456-426614174000"'
-        error: |-
-          Expected JSON string | uuid, received "123e4567-e89b-12d3-a456-426614174000"
-          - Expected JSON string, received "123e4567-e89b-12d3-a456-426614174000"
-          - Expected string, received "123e4567-e89b-12d3-a456-426614174000"
+        output: '"123e4567-e89b-12d3-a456-426614174000"'
   decode: identity
   encode: identity
