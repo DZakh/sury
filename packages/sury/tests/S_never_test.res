@@ -14,7 +14,7 @@ module Common = {
     let schema = factory()
 
     t->U.assertThrowsMessage(
-      () => any->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+      () => any->S.convertOrThrow(~from=schema, ~to=S.unknown),
       `Expected never, received true`,
     )
   })
@@ -49,7 +49,7 @@ module ObjectField = {
 
     t->U.assertThrowsMessage(
       () => %raw(`{"key":"value"}`)->S.parseOrThrow(~to=schema),
-      `Failed at ["oldKey"]: Expected never, received undefined`,
+      `Failed at oldKey: Expected never, received undefined`,
     )
   })
 

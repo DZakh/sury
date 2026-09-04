@@ -15,11 +15,11 @@ operations:
     expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
     examples:
       a-del-character-is-not-a-literal:
-        input: "\"\""
-        error: "Expected uri-template, received \"\""
+        input: '"\u007f"'
+        error: "Expected uri-template, received \"\u007f\""
       a-c1-control-is-not-a-literal:
-        input: "\"\""
-        error: "Expected uri-template, received \"\""
+        input: '"\u009f"'
+        error: "Expected uri-template, received \"\u009f\""
       an-unpaired-surrogate-is-not-a-literal:
         input: '"\ud800"'
         error: "Expected uri-template, received \"\ud800\""

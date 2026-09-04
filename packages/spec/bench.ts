@@ -43,6 +43,11 @@ const WARMUP_BATCHES = 20;
 // blocks of three rounds costs a quarter more than six of four and is an order
 // of magnitude stricter.
 const BLOCKS = 8;
+if (BLOCKS < 6) {
+  throw new Error(
+    `BLOCKS is ${BLOCKS}; ciRank returns -1 below 6 and conservativePct then reports 0 for every target`,
+  );
+}
 const ROUNDS_PER_BLOCK = 2;
 // A whole child process can land in one JIT state and stay there — IC and
 // feedback shapes settle early, after which every block in that process agrees

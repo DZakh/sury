@@ -29,7 +29,7 @@ test("Object with a single nested field with S.nullAsOption", t => {
     `i=>{for(;;){if(typeof i==="string")break;if(i===void 0){i=null;break}e[0](i)}return {nested:{foo:i}}}`,
   )
   t->Assert.deepEqual(
-    Some("bar")->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    Some("bar")->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`{"nested":{"foo":"bar"}}`),
   )
 })
@@ -71,7 +71,7 @@ test("Object with a single nested field with S.transform", t => {
     `i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="number"&&v0===v0||e[2](v0);return {nested:{foo:v0}}}`,
   )
   t->Assert.deepEqual(
-    "123.4"->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    "123.4"->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`{"nested":{"foo":123.4}}`),
   )
 })
@@ -226,7 +226,7 @@ test("Nested tags on reverse convert", t => {
   })
 
   t->Assert.deepEqual(
-    ()->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    ()->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`{"nested":{"tag":"value"}}`),
   )
 })
@@ -269,7 +269,7 @@ test("Nested preprocessed tags on reverse convert", t => {
   )
 
   t->Assert.deepEqual(
-    ()->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    ()->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`{"nested":{"tag":"_value", "intTag":"_1"}}`),
   )
 
@@ -279,11 +279,11 @@ test("Nested preprocessed tags on reverse convert", t => {
   )
   t->U.assertThrowsMessage(
     () => %raw(`{"nested":{"tag":"_foo", "intTag":"_1"}}`)->S.parseOrThrow(~to=schema),
-    `Failed at ["nested"]["tag"]: Expected "value", received "foo"`,
+    `Failed at nested.tag: Expected "value", received "foo"`,
   )
   t->U.assertThrowsMessage(
     () => %raw(`{"nested":{"tag":"_value", "intTag":"_2"}}`)->S.parseOrThrow(~to=schema),
-    `Failed at ["nested"]["intTag"]: Expected "1", received "2"`,
+    `Failed at nested.intTag: Expected "1", received "2"`,
   )
 })
 

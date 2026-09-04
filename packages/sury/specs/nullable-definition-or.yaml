@@ -7,6 +7,8 @@ ts:
 jsonSchema:
   input: '{ default: { a: false }, anyOf: [{ type: "object", properties: { a: { type: "boolean" } }, required: ["a"] }, { type: "null" }] }'
   output: '{ type: "object", properties: { a: { type: "boolean" } }, required: ["a"] }'
+  openapi-3.0:
+    input: '{ default: { a: false }, type: "object", properties: { a: { type: "boolean" } }, required: ["a"], nullable: true }'
 vs:
   zod:
     schema: "z.object({ a: z.boolean() }).nullable().default({ a: false })"
@@ -25,7 +27,7 @@ operations:
         output: "{ a: false }"
       wrong-member-type:
         input: '{ a: "nope" }'
-        error: 'Failed at ["a"]: Expected boolean, received "nope"'
+        error: 'Failed at a: Expected boolean, received "nope"'
       undefined-is-not-null:
         input: undefined
         error: "Expected { a: boolean; } | null, received undefined"

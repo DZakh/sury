@@ -16,7 +16,7 @@ module CommonWithNested = {
   test("Successfully serializes", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.decodeOrThrow(~from=schema, ~to=S.unknown), any)
+    t->Assert.deepEqual(value->S.convertOrThrow(~from=schema, ~to=S.unknown), any)
   })
 
   test("Fails to parse", t => {
@@ -33,7 +33,7 @@ module CommonWithNested = {
 
     t->U.assertThrowsMessage(
       () => nestedInvalidAny->S.parseOrThrow(~to=schema),
-      `Failed at ["key2"]: Expected string, received true`,
+      `Failed at key2: Expected string, received true`,
     )
   })
 
@@ -43,7 +43,7 @@ module CommonWithNested = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);for(let v0 in i){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path=\'["\'+v0+\'"]\'+v2.path;throw v2}}return i}`,
+      `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);for(let v0 in i){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path=[v0,...v2.path];throw v2}}return i}`,
     )
   })
 
@@ -55,7 +55,7 @@ module CommonWithNested = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ParseAsync,
-      `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v3={};for(let v0 in i){try{let v1;try{v1=e[0](i[v0]).catch(x=>e[1](x))}catch(x){e[1](x)}v3[v0]=v1.catch(v2=>{v2.path=\'["\'+v0+\'"]\'+v2.path;throw v2})}catch(v2){v2.path=\'["\'+v0+\'"]\'+v2.path;throw v2}}return new Promise((v4,v5)=>{let v7=Object.keys(v3).length;if(!v7){v4(v3)}for(let v0 in v3){v3[v0].then(v6=>{v3[v0]=v6;if(v7--===1){v4(v3)}},v5)}})}`,
+      `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v3={};for(let v0 in i){try{let v1;try{v1=e[0](i[v0]).catch(x=>e[1](x))}catch(x){e[1](x)}v3[v0]=v1.catch(v2=>{v2.path=[v0,...v2.path];throw v2})}catch(v2){v2.path=[v0,...v2.path];throw v2}}return new Promise((v4,v5)=>{let v7=Object.keys(v3).length;if(!v7){v4(v3)}for(let v0 in v3){v3[v0].then(v6=>{v3[v0]=v6;if(v7--===1){v4(v3)}},v5)}})}`,
     )
   })
 
@@ -73,7 +73,7 @@ module CommonWithNested = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Encode,
-      `i=>{let v3={};for(let v0 in i){try{let v1=i[v0];for(;;){if(typeof v1==="string")break;if(v1===void 0){v1=null;break}e[0](v1)}v3[v0]=v1}catch(v2){v2.path=\'["\'+v0+\'"]\'+v2.path;throw v2}}return v3}`,
+      `i=>{let v3={};for(let v0 in i){try{let v1=i[v0];for(;;){if(typeof v1==="string")break;if(v1===void 0){v1=null;break}e[0](v1)}v3[v0]=v1}catch(v2){v2.path=[v0,...v2.path];throw v2}}return v3}`,
     )
   })
 
@@ -109,7 +109,7 @@ test("Applies operation for each item on serializing", t => {
   let schema = S.dict(S.jsonString->S.to(S.int))
 
   t->Assert.deepEqual(
-    Dict.fromArray([("a", 1), ("b", 2)])->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    Dict.fromArray([("a", 1), ("b", 2)])->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`{
         "a": "1",
         "b": "2",
@@ -121,8 +121,8 @@ test("Fails to serialize dict item", t => {
   let schema = S.dict(S.string->S.refine(_ => false, ~error="User error"))
 
   t->U.assertThrowsMessage(
-    () => Dict.fromArray([("a", "aa"), ("b", "bb")])->S.decodeOrThrow(~from=schema, ~to=S.unknown),
-    `Failed at ["a"]: User error`,
+    () => Dict.fromArray([("a", "aa"), ("b", "bb")])->S.convertOrThrow(~from=schema, ~to=S.unknown),
+    `Failed at a: User error`,
   )
 })
 

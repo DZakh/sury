@@ -3,7 +3,7 @@ open Vitest
 test("Successfully parses", t => {
   let schema = S.bool
 
-  t->Assert.deepEqual(true->S.decodeOrThrow(~from=schema, ~to=S.jsonString), "true")
+  t->Assert.deepEqual(true->S.convertOrThrow(~from=schema, ~to=S.jsonString), S.JsonString("true"))
 })
 
 test("Successfully parses object", t => {
@@ -18,8 +18,8 @@ test("Successfully parses object", t => {
     {
       "id": "0",
       "isDeleted": true,
-    }->S.decodeOrThrow(~from=schema, ~to=S.jsonString),
-    `{"id":"0","isDeleted":true}`,
+    }->S.convertOrThrow(~from=schema, ~to=S.jsonString),
+    S.JsonString(`{"id":"0","isDeleted":true}`),
   )
 })
 
@@ -35,11 +35,11 @@ test("Successfully parses object with space", t => {
     {
       "id": "0",
       "isDeleted": true,
-    }->S.decodeOrThrow(~from=schema, ~to=S.jsonStringWithSpace(2)),
-    `{
+    }->S.convertOrThrow(~from=schema, ~to=S.jsonStringWithSpace(2)),
+    S.JsonString(`{
   "id": "0",
   "isDeleted": true
-}`,
+}`),
   )
 })
 
@@ -47,10 +47,10 @@ test("unknown <-> json string expects unknown to be a json string", t => {
   let schema = S.unknown
 
   t->U.assertThrowsMessage(
-    () => Obj.magic(123)->S.decodeOrThrow(~from=S.unknown, ~to=S.jsonString),
+    () => Obj.magic(123)->S.convertOrThrow(~from=S.unknown, ~to=S.jsonString),
     "Expected JSON string, received 123",
   )
-  t->Assert.deepEqual(Obj.magic("123")->S.decodeOrThrow(~from=S.unknown, ~to=S.jsonString), "123")
+  t->Assert.deepEqual(Obj.magic("123")->S.convertOrThrow(~from=S.unknown, ~to=S.jsonString), S.JsonString("123"))
   t->U.assertCompiledCode(~schema, ~op=#EncodeToJson, `i=>{e[0](i);return i}`)
 })
 
@@ -73,22 +73,22 @@ test("Encodes object with a union of objects field to JSON string", t => {
 
   // The union at the top level worked before the fix
   t->Assert.deepEqual(
-    %raw(`{type: "a", s: undefined}`)->S.decodeOrThrow(~from=xSchema, ~to=S.jsonString),
-    `{"type":"a"}`,
+    %raw(`{type: "a", s: undefined}`)->S.convertOrThrow(~from=xSchema, ~to=S.jsonString),
+    S.JsonString(`{"type":"a"}`),
   )
   // While nested in an object it used to fail with:
   // Can't decode { s: string | undefined; type: "a"; } | { v: int32; type: "b"; } to JSON
   t->Assert.deepEqual(
-    %raw(`{x: {type: "a", s: undefined}}`)->S.decodeOrThrow(~from=testSchema, ~to=S.jsonString),
-    `{"x":{"type":"a"}}`,
+    %raw(`{x: {type: "a", s: undefined}}`)->S.convertOrThrow(~from=testSchema, ~to=S.jsonString),
+    S.JsonString(`{"x":{"type":"a"}}`),
   )
   t->Assert.deepEqual(
-    %raw(`{x: {type: "a", s: "hi"}}`)->S.decodeOrThrow(~from=testSchema, ~to=S.jsonString),
-    `{"x":{"type":"a","s":"hi"}}`,
+    %raw(`{x: {type: "a", s: "hi"}}`)->S.convertOrThrow(~from=testSchema, ~to=S.jsonString),
+    S.JsonString(`{"x":{"type":"a","s":"hi"}}`),
   )
   t->Assert.deepEqual(
-    %raw(`{x: {type: "b", v: 1}}`)->S.decodeOrThrow(~from=testSchema, ~to=S.jsonString),
-    `{"x":{"type":"b","v":1}}`,
+    %raw(`{x: {type: "b", v: 1}}`)->S.convertOrThrow(~from=testSchema, ~to=S.jsonString),
+    S.JsonString(`{"x":{"type":"b","v":1}}`),
   )
 })
 
@@ -97,7 +97,7 @@ test("Encodes object with a union of objects field to JSON string", t => {
 // original report builds each variant with `s.tag` + `s.flatten` (the
 // pattern sury-ppx generates for `A(s.flatten(aSchema))`). That construction
 // used to fail to encode to JSON once nested inside another object with:
-// `Failed at ["x"]["s"]: Expected JSON, received undefined`.
+// `Failed at x.s: Expected JSON, received undefined`.
 //
 // Root cause: nested, the field converts in two steps — a JSON-unaware plain
 // encode of the union (which keeps the undefined "s" key), then a per-variant
@@ -139,14 +139,14 @@ let flattenedContainerSchema: S.t<flattenedContainer> = S.schema(s => {
 test("Encodes object with a union of flattened tagged objects field to JSON string", t => {
   // Works at the top level
   t->Assert.deepEqual(
-    FlattenedA({s: None})->S.decodeOrThrow(~from=flattenedXSchema, ~to=S.jsonString),
-    `{"type":"a"}`,
+    FlattenedA({s: None})->S.convertOrThrow(~from=flattenedXSchema, ~to=S.jsonString),
+    S.JsonString(`{"type":"a"}`),
   )
 
   // Regression: used to fail once nested inside another object
   t->Assert.deepEqual(
-    {x: FlattenedA({s: None})}->S.decodeOrThrow(~from=flattenedContainerSchema, ~to=S.jsonString),
-    `{"x":{"type":"a"}}`,
+    {x: FlattenedA({s: None})}->S.convertOrThrow(~from=flattenedContainerSchema, ~to=S.jsonString),
+    S.JsonString(`{"x":{"type":"a"}}`),
   )
 })
 
@@ -157,18 +157,18 @@ test("Encodes an array of flattened tagged union values to JSON string", t => {
   let arraySchema = S.array(flattenedXSchema)
 
   t->Assert.deepEqual(
-    [FlattenedA({s: None}), FlattenedB({v: 1})]->S.decodeOrThrow(
+    [FlattenedA({s: None}), FlattenedB({v: 1})]->S.convertOrThrow(
       ~from=arraySchema,
       ~to=S.jsonString,
     ),
-    `[{"type":"a"},{"v":1,"type":"b"}]`,
+    S.JsonString(`[{"type":"a"},{"v":1,"type":"b"}]`),
   )
 
   // Nested inside an object, matching the object regression above
   let containerSchema = S.schema(s => {"items": s.matches(arraySchema)})
   t->Assert.deepEqual(
-    {"items": [FlattenedA({s: None})]}->S.decodeOrThrow(~from=containerSchema, ~to=S.jsonString),
-    `{"items":[{"type":"a"}]}`,
+    {"items": [FlattenedA({s: None})]}->S.convertOrThrow(~from=containerSchema, ~to=S.jsonString),
+    S.JsonString(`{"items":[{"type":"a"}]}`),
   )
 })
 
@@ -176,7 +176,7 @@ test("Encodes a tuple of a flattened tagged union value to JSON string", t => {
   let tupleSchema = S.tuple1(flattenedXSchema)
 
   t->Assert.deepEqual(
-    FlattenedA({s: None})->S.decodeOrThrow(~from=tupleSchema, ~to=S.jsonString),
-    `[{"type":"a"}]`,
+    FlattenedA({s: None})->S.convertOrThrow(~from=tupleSchema, ~to=S.jsonString),
+    S.JsonString(`[{"type":"a"}]`),
   )
 })

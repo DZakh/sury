@@ -3,10 +3,14 @@ ts:
   schema: "S.schema({[\"c\\\\d\"]: S.string, ['q\"t']: S.number}).with(S.to, S.jsonString)"
   input: '{ "c\\d": string; "q\"t": number; }'
   output: string
-  instantiations: 6199
+  instantiations: 5385
 jsonSchema:
   input: '{ type: "object", properties: { "c\\d": { type: "string" }, "q\"t": { type: "number" } }, required: ["c\\d", "q\"t"] }'
   output: '{ type: "string", contentMediaType: "application/json" }'
+  draft-2020-12:
+    output: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "object", properties: { "c\\d": { type: "string" }, "q\"t": { type: "number" } }, required: ["c\\d", "q\"t"] }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    output: '{ type: "string" }'
 vs:
   zod:
     _skip: not-applicable

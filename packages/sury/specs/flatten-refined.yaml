@@ -3,7 +3,7 @@ ts:
   schema: "S.object((s) => s.flatten(S.schema({ n: S.number.with(S.gte, 3) })))"
   input: "{ [x: string]: unknown; }"
   output: "{ n: number; }"
-  instantiations: 2016
+  instantiations: 1960
 jsonSchema:
   input: '{ type: "object", properties: { n: { type: "number", minimum: 3 } }, required: ["n"] }'
   fromInputType: "{ n: number; }"
@@ -20,7 +20,7 @@ operations:
         output: "{ n: 3 }"
       below-bound:
         input: "{ n: 2 }"
-        error: 'Failed at ["n"]: Expected number >= 3, received 2'
+        error: "Failed at n: Expected number >= 3, received 2"
   decode:
     expression: i=>{let v0=i["n"];v0>=3||e[0](v0);return {n:v0}}
     examples:
@@ -35,4 +35,4 @@ operations:
         output: "{ n: 3 }"
       below-bound:
         input: "{ n: 2 }"
-        error: 'Failed at ["n"]: Expected number >= 3, received 2'
+        error: "Failed at n: Expected number >= 3, received 2"

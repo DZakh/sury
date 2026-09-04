@@ -38,9 +38,13 @@ Vitest.test("Main example", t => U.assertEqualSchemas(t, filmSchema, Sury.$schem
   }))
 })), undefined));
 
-let matchesSchema = Sury.uri;
+let myCustomSchema = Sury.maxLength(Sury.string, 5);
 
-Vitest.test("@s.matches", t => U.assertEqualSchemas(t, matchesSchema, Sury.uri, undefined));
+Vitest.test("@s.matches", t => U.assertEqualSchemas(t, myCustomSchema, myCustomSchema, undefined));
+
+let urlSchema = Sury.url;
+
+Vitest.test("Format schema as a type", t => U.assertEqualSchemas(t, urlSchema, Sury.url, undefined));
 
 let defaultSchema = Sury.$Option_getOr(Sury.$option(Sury.string), "Unknown");
 
@@ -84,10 +88,14 @@ Vitest.test("@s.description", t => U.assertEqualSchemas(t, describeSchema, Sury.
   description: "A useful bit of text, if you know what to do with it."
 }), undefined));
 
+let matchesSchema = myCustomSchema;
+
 export {
   ratingSchema,
   filmSchema,
+  myCustomSchema,
   matchesSchema,
+  urlSchema,
   defaultSchema,
   defaultWithSchema,
   nullSchema,

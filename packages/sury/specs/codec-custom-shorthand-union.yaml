@@ -3,7 +3,7 @@ ts:
   schema: S.union([S.string.with(S.to, S.number, (value) => Number(value)), S.number])
   input: string | number
   output: number
-  instantiations: 6072
+  instantiations: 5227
 jsonSchema:
   input: '{ anyOf: [{ type: "string" }, { type: "number" }] }'
   output: '{ type: "number" }'
@@ -12,7 +12,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{for(;;){if(typeof i==="string"){let v0;try{v0=e[0](i)}catch(x){e[1](x);e[2](x)}typeof v0==="number"&&v0===v0||e[3](v0);i=v0;break}if(typeof i==="number"&&i===i)break;e[4](i)}return i}
+    expression: i=>{for(;;){if(typeof i==="string"){let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="number"&&v0===v0||e[2](v0);i=v0;break}if(typeof i==="number"&&i===i)break;e[3](i)}return i}
     examples:
       custom-arm:
         input: '"12"'

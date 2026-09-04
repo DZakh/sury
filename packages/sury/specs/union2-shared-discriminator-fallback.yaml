@@ -3,10 +3,13 @@ ts:
   schema: 'S.union([S.schema({ kind: S.schema("a"), value: S.number.with(S.gte, 2) }), S.schema({ kind: S.schema("a"), value: S.schema(1) })])'
   input: '{ kind: "a"; value: number; } | { kind: "a"; value: 1; }'
   output: '{ kind: "a"; value: number; } | { kind: "a"; value: 1; }'
-  instantiations: 4960
+  instantiations: 4904
 jsonSchema:
   input: '{ anyOf: [{ type: "object", properties: { kind: { type: "string", const: "a" }, value: { type: "number", minimum: 2 } }, required: ["kind", "value"] }, { type: "object", properties: { kind: { type: "string", const: "a" }, value: { type: "number", const: 1 } }, required: ["kind", "value"] }] }'
   output: '{ anyOf: [{ type: "object", properties: { kind: { type: "string", const: "a" }, value: { type: "number", minimum: 2 } }, required: ["kind", "value"] }, { type: "object", properties: { kind: { type: "string", const: "a" }, value: { type: "number", const: 1 } }, required: ["kind", "value"] }] }'
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "object", properties: { kind: { type: "string", enum: ["a"] }, value: { type: "number", minimum: 2 } }, required: ["kind", "value"] }, { type: "object", properties: { kind: { type: "string", enum: ["a"] }, value: { type: "number", enum: [1] } }, required: ["kind", "value"] }] }'
+    output: '{ anyOf: [{ type: "object", properties: { kind: { type: "string", enum: ["a"] }, value: { type: "number", minimum: 2 } }, required: ["kind", "value"] }, { type: "object", properties: { kind: { type: "string", enum: ["a"] }, value: { type: "number", enum: [1] } }, required: ["kind", "value"] }] }'
 vs:
   zod: 'z.union([z.object({ kind: z.literal("a"), value: z.number().min(2) }), z.object({ kind: z.literal("a"), value: z.literal(1) })])'
 operations:
@@ -23,6 +26,6 @@ operations:
         input: '{ kind: "a", value: 0 }'
         error: |-
           Expected { kind: "a"; value: number >= 2; } | { kind: "a"; value: 1; }, received { kind: "a"; value: 0; }
-          - At ["value"]: Expected number >= 2, received 0
+          - At value: Expected number >= 2, received 0
   decode: identity
   encode: identity

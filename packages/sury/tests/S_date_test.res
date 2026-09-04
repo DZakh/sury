@@ -33,7 +33,7 @@ test("Fails to parse Invalid Date", t => {
 
 test("Successfully reverse converts", t => {
   let date = Date.fromString("2024-01-01T00:00:00Z")
-  t->Assert.deepEqual(date->S.decodeOrThrow(~from=S.date, ~to=S.unknown), date->Obj.magic)
+  t->Assert.deepEqual(date->S.convertOrThrow(~from=S.date, ~to=S.unknown), date->Obj.magic)
 })
 
 test("Schema has instance tag and Date class", t => {
@@ -73,7 +73,7 @@ test("Successfully reverse converts string-to-date schema", t => {
   let schema = S.string->S.to(S.date)
   let date = Date.fromString("2024-01-01T00:00:00.000Z")
   t->Assert.deepEqual(
-    date->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    date->S.convertOrThrow(~from=schema, ~to=S.unknown),
     "2024-01-01T00:00:00.000Z"->Obj.magic,
   )
 })
@@ -83,13 +83,13 @@ test("Successfully reverse converts string-to-date schema", t => {
 test("Successfully converts Date to string with S.to", t => {
   let schema = S.date->S.to(S.string)
   let date = Date.fromString("2024-01-01T00:00:00.000Z")
-  t->Assert.deepEqual(S.decoder1(schema)(date->Obj.magic), "2024-01-01T00:00:00.000Z"->Obj.magic)
+  t->Assert.deepEqual(S.compileParseOrThrow(~to=schema)(date->Obj.magic), "2024-01-01T00:00:00.000Z"->Obj.magic)
 })
 
 test("Successfully reverse converts date-to-string schema", t => {
   let schema = S.date->S.to(S.string)
   t->Assert.deepEqual(
-    "2024-01-01T00:00:00.000Z"->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    "2024-01-01T00:00:00.000Z"->S.convertOrThrow(~from=schema, ~to=S.unknown),
     Date.fromString("2024-01-01T00:00:00.000Z")->Obj.magic,
   )
 })
@@ -98,7 +98,7 @@ test("Successfully reverse converts date-to-string schema", t => {
 
 test("Successfully decodes JSON string to Date", t => {
   let date = Date.fromString("2024-01-01T00:00:00.000Z")
-  let decoder = S.decoder(~from=S.json, ~to=S.date)
+  let decoder = S.compileConvertOrThrow(~from=S.json, ~to=S.date)
   t->Assert.deepEqual(decoder(JSON.Encode.string("2024-01-01T00:00:00.000Z")), date)
 })
 
@@ -109,17 +109,17 @@ test("Successfully decodes JSON object with date field", t => {
     }
   )
   let date = Date.fromString("2024-01-01T00:00:00.000Z")
-  let decoder = S.decoder(~from=S.json, ~to=dateSchema)
+  let decoder = S.compileConvertOrThrow(~from=S.json, ~to=dateSchema)
   t->Assert.deepEqual(decoder(%raw(`{"field":"2024-01-01T00:00:00.000Z"}`)), {"field": date})
 })
 
 test("Fails to decode non-string JSON value to Date", t => {
-  let decoder = S.decoder(~from=S.json, ~to=S.date)
+  let decoder = S.compileConvertOrThrow(~from=S.json, ~to=S.date)
   t->U.assertThrowsMessage(() => decoder(%raw(`123`)), `Expected string, received 123`)
 })
 
 test("Fails to decode invalid date string from JSON", t => {
-  let decoder = S.decoder(~from=S.json, ~to=S.date)
+  let decoder = S.compileConvertOrThrow(~from=S.json, ~to=S.date)
   t->U.assertThrowsMessage(
     () => decoder(JSON.Encode.string("invalid")),
     `Expected Date, received invalid Date`,
@@ -134,14 +134,14 @@ test("Successfully decodes JSON string to Date via jsonString", t => {
   )
   let date = Date.fromString("2024-01-01T00:00:00.000Z")
   t->Assert.deepEqual(
-    `{"field":"2024-01-01T00:00:00.000Z"}`->S.decodeOrThrow(~from=S.jsonString, ~to=dateSchema),
+    S.JsonString(`{"field":"2024-01-01T00:00:00.000Z"}`)->S.convertOrThrow(~from=S.jsonString, ~to=dateSchema),
     {"field": date},
   )
 })
 
 test("Successfully decodes JSON array of dates", t => {
   let schema = S.array(S.date)
-  let decoder = S.decoder(~from=S.json, ~to=schema)
+  let decoder = S.compileConvertOrThrow(~from=S.json, ~to=schema)
   let d1 = Date.fromString("2024-01-01T00:00:00.000Z")
   let d2 = Date.fromString("2024-06-15T12:30:45.123Z")
   t->Assert.deepEqual(
@@ -157,8 +157,8 @@ test("Successfully round-trips date through JSON", t => {
     }
   )
   let date = Date.fromString("2024-06-15T12:30:45.123Z")
-  let toJson = S.decoder(~from=dateSchema, ~to=S.json)
-  let fromJson = S.decoder(~from=S.json, ~to=dateSchema)
+  let toJson = S.compileConvertOrThrow(~from=dateSchema, ~to=S.json)
+  let fromJson = S.compileConvertOrThrow(~from=S.json, ~to=dateSchema)
   t->Assert.deepEqual(fromJson(toJson({"field": date})), {"field": date})
 })
 
@@ -187,14 +187,14 @@ test("Reverse converts nullableAsOption string-to-date schema", t => {
   )
 
   t->Assert.deepEqual(
-    Some(date)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    Some(date)->S.convertOrThrow(~from=schema, ~to=S.unknown),
     "2024-01-01T00:00:00.000Z"->Obj.magic,
   )
-  t->Assert.deepEqual(None->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
+  t->Assert.deepEqual(None->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{for(;;){if(i instanceof e[0]){i=i.toISOString();break}if(i===void 0)break;e[1](i)}return i}`,
+    `i=>{for(;;){if(i instanceof e[1]){let v0;try{v0=i.toISOString()}catch(_){e[0](i)}i=v0;break}if(i===void 0)break;e[2](i)}return i}`,
   )
 })
 
@@ -202,15 +202,15 @@ test("Reverse converts nullable string-to-date schema", t => {
   let schema = S.nullable(Timestamp.schema)
   let date = Date.fromString("2024-01-01T00:00:00.000Z")
 
-  t->Assert.deepEqual(Nullable.Null->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`null`))
+  t->Assert.deepEqual(Nullable.Null->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`null`))
   t->Assert.deepEqual(
-    Nullable.Value(date)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    Nullable.Value(date)->S.convertOrThrow(~from=schema, ~to=S.unknown),
     "2024-01-01T00:00:00.000Z"->Obj.magic,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{for(;;){if(i instanceof e[0]){i=i.toISOString();break}if(i===void 0)break;if(i===null)break;e[1](i)}return i}`,
+    `i=>{for(;;){if(i instanceof e[1]){let v0;try{v0=i.toISOString()}catch(_){e[0](i)}i=v0;break}if(i===void 0)break;if(i===null)break;e[2](i)}return i}`,
   )
 })
 
@@ -248,7 +248,7 @@ test("Reverse converts deeply nested records/array sharing a nullable Timestamp 
     "items": [{"createdAt": Some(date)}],
   }
   t->Assert.deepEqual(
-    value->S.decodeOrThrow(~from=parentSchema, ~to=S.unknown),
+    value->S.convertOrThrow(~from=parentSchema, ~to=S.unknown),
     %raw(`{createdAt: "2024-01-01T00:00:00.000Z", items: [{createdAt: "2024-01-01T00:00:00.000Z"}]}`),
   )
 })
@@ -289,12 +289,12 @@ test("Encodes a nullable optional Timestamp whose input is string | number (issu
   t->Assert.deepEqual(%raw(`1704067200000`)->S.parseOrThrow(~to=schema), Some(date))
 
   t->Assert.deepEqual(
-    Some(date)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    Some(date)->S.convertOrThrow(~from=schema, ~to=S.unknown),
     "2024-01-01T00:00:00.000Z"->Obj.magic,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{for(;;){if(i instanceof e[4]){for(;;){i=i.toISOString();break;};break}if(i===void 0)break;e[5](i)}return i}`,
+    `i=>{for(;;){if(i instanceof e[6]){for(;;){let r;try{let v0;try{v0=i.toISOString()}catch(_){e[0](i)}i=v0;break}catch(x){(r||(r=[])).push(e[4](x))}try{let v1;try{v1=e[1](i)}catch(x){e[2](x)}typeof v1==="number"&&v1===v1||e[3](v1);i=v1;break}catch(x){(r||(r=[])).push(e[4](x))}e[5](i,...(r||[]))};break}if(i===void 0)break;e[7](i)}return i}`,
   )
 })

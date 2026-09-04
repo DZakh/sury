@@ -109,16 +109,20 @@ export const numberDecoder: Builder = (input: Val) => {
     // Own the `+input` coercion (decl included) in codeFromPrev so it's
     // non-hoistable: feeding a union dispatch (e.g. str->to(option(int))) can't
     // lift the type-narrow check below above its `let v0=+i`.
-    output.cp = `let ${output.i}=+${input.v()};`;
+    const inputVar = input.v();
+    output.cp = `let ${output.i}=+${inputVar};`;
 
     output.vc = [
       {
+        // `+""` and `+"   "` are 0, so a zero result also has to show a digit.
         c: (_inputVar) =>
-          expectedFormat === "int32"
-            ? int32FormatValidation(output.i)
-            : expectedFormat === "integer"
-              ? integerFormatValidation(output.i)
-              : `${output.i}===${output.i}`,
+          `${
+            expectedFormat === "int32"
+              ? int32FormatValidation(output.i)
+              : expectedFormat === "integer"
+                ? integerFormatValidation(output.i)
+                : `${output.i}===${output.i}`
+          }&&(${output.i}||${inputVar}.trim())`,
         f: failInvalidType,
       },
     ];
@@ -231,9 +235,11 @@ export const bigintDecoder: Builder = (input: Val) => {
   // TODO: Skip formats which 100% don't match
   if ((inputTagFlag & 2)) {
     const output = B_nextVar(input);
-    output.cp = `let ${output.i};try{${output.i}=BigInt(${input.v()})}catch(_){${B_embedInvalidInput(
-      input,
-    )}}`;
+    const inputVar = input.v();
+    const fail = B_embedInvalidInput(input);
+    // `BigInt("")` and `BigInt("   ")` are 0n, so a zero result also has to
+    // show a digit.
+    output.cp = `let ${output.i};try{${output.i}=BigInt(${inputVar})}catch(_){${fail}}${output.i}||${inputVar}.trim()||${fail};`;
     return output;
   }
   if ((inputTagFlag & 4)) {

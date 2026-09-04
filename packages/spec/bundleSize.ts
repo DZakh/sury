@@ -7,7 +7,7 @@
 // entry symbols is the union of their graphs — so no composite measurement can
 // grow without at least one export row growing too. Per-export rows attribute
 // a regression to the module that caused it, and cover surface no schema
-// expression reaches at all (`toJSONSchema`, `fromJSONSchema`).
+// expression reaches at all (`inputJSONSchema`, `fromJSONSchema`).
 //
 // The bare `sury` specifier is aliased to the dev source so tree-shaking and
 // size reflect exactly what's under test, not a stale published snapshot.

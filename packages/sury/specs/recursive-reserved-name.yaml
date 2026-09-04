@@ -3,7 +3,7 @@ ts:
   schema: 'S.recursive("toString", (self) => S.schema({ v: S.string, next: S.optional(self) }))'
   input: unknown
   output: unknown
-  instantiations: 9071
+  instantiations: 7709
 jsonSchema:
   input: '{ $ref: "#/$defs/toString", $defs: { toString: { type: "object", properties: { v: { type: "string" }, next: { $ref: "#/$defs/toString" } }, required: ["v"] } } }'
   fromInputType: "{ v: string; next?: ... | undefined; }"
@@ -22,7 +22,7 @@ operations:
       wrong-type-at-depth:
         input: '{ v: "x", next: { v: 1 } }'
         error: |-
-          Failed at ["next"]: Expected toString | undefined, received { v: 1; }
-          - At ["next"]["v"]: Expected string, received 1
+          Failed at next: Expected toString | undefined, received { v: 1; }
+          - At next.v: Expected string, received 1
   decode: eq-to-parse
   encode: eq-to-parse

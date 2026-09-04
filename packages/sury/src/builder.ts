@@ -4,7 +4,6 @@ import {
   type Check,
   type ErrorDetails,
   type Flag,
-  getOrRethrow,
   immutableEmptyArray,
   inlinedValueFromString,
   inputExpression,
@@ -12,8 +11,9 @@ import {
   isLiteral,
   type InvalidInputDetails,
   type Path,
+  pathConcat,
   pathEmpty,
-  pathFromInlinedLocation,
+  pathToText,
   s,
   stringify,
   SuryError,
@@ -254,9 +254,11 @@ export const B_makeInvalidConversionDetails = (input: Val, to: Internal, cause: 
     //
     // Copied rather than mutated: user code may throw one retained instance
     // more than once, and prepending onto the instance makes the second parse
-    // report `["a"]["a"]`. Nothing to prepend means nothing to copy — `B_throw`
+    // report `a.a`. Nothing to prepend means nothing to copy — `B_throw`
     // rebuilds a SuryError from whichever of the two it gets.
-    return (input.path ? { ...error, path: input.path + error.path } : error) as unknown as ErrorDetails;
+    return (
+      input.path.length ? { ...error, path: pathConcat(input.path, error.path) } : error
+    ) as unknown as ErrorDetails;
   }
   let reason: string;
   if (cause instanceof Error) {
@@ -299,7 +301,7 @@ export const B_makeInvalidInputDetails = (
     const seenReasons = new Set<string>();
     for (let idx = 0; idx < unionErrors.length; idx++) {
       const caseError = unionErrors[idx]!;
-      const line = `\n- ${caseError.path === "" ? "" : `At ${caseError.path}: `}${caseError.reason.split("\n").join("\n  ")}`;
+      const line = `\n- ${caseError.path.length ? `At ${pathToText(caseError.path)}: ` : ""}${caseError.reason.split("\n").join("\n  ")}`;
       if (!seenReasons.has(line)) {
         seenReasons.add(line);
         reasonRef += line;
@@ -327,7 +329,7 @@ export const B_invalidInputBuilder = (
   extraPath: Path = pathEmpty,
   reasonOverride?: string
 ): (input: Val) => (value: unknown) => ErrorDetails => (input) => {
-  const path = extraPath ? input.path + extraPath : input.path;
+  const path = pathConcat(input.path, extraPath);
   return (value) =>
     B_makeInvalidInputDetails(
       expected ?? input.e,
@@ -555,10 +557,10 @@ export const B_markOutput = (val: Val, valInput: Val): Val => {
 export const B_hoistChildChecks = (parent: Val, child: Val, key: string): void => {
   const checks = child.vc;
   if (checks) {
-    const pathAppend = pathFromInlinedLocation(inlinedValueFromString(key));
+    const accessor = `[${inlinedValueFromString(key)}]`;
     for (let i = 0; i < checks.length; i++) {
       const check = checks[i]!;
-      B_pushCheck(parent, { c: (v) => check.c(v + pathAppend), f: check.f });
+      B_pushCheck(parent, { c: (v) => check.c(v + accessor), f: check.f });
     }
     child.vc = U;
   }
@@ -756,7 +758,12 @@ export const B_conversion = (
       output.cp = `let ${outputVar}=${embeddedFn}(${inputValue});`;
       return output;
     }
-    const rethrow = unionContext ? `${B_embed(input, getOrRethrow)}(x);` : "";
+    // Whatever the coder throws — a `SuryError` it raised on purpose or a
+    // TypeError it hit on a value it was never written for — is that
+    // conversion failing, so in a union it is what hands the value to the
+    // next case rather than aborting the operation (#347). The foreign
+    // errors that do escape a union are a refiner's or a getter's, which
+    // never enter this try.
     const failure = B_failWithArg(
       output,
       (e: unknown) => B_makeInvalidConversionDetails(input, target, e),
@@ -764,7 +771,7 @@ export const B_conversion = (
     );
     output.cp = `let ${outputVar};try{${outputVar}=${embeddedFn}(${inputValue})${
       isAsync ? `.catch(x=>${failure})` : ""
-    }}catch(x){${rethrow}${failure}}`;
+    }}catch(x){${failure}}`;
     // A val whose result the target's own refiners can attach to. `val.vc`
     // checks emit at the *pre-transform* slot (`prev.v()` in B_merge), so
     // leaving them on the coder's own val would validate what went into the
@@ -860,14 +867,21 @@ export const B_mergeWithPathPrepend = (
   appendSafe?: () => string,
   pureSince?: number
 ): string =>
-  val.path === pathEmpty && locationVar === U
+  !val.path.length && locationVar === U
     ? B_merge(val)
     : B_mergeWithCatch(
         val,
-        (errorVar) =>
-          `${errorVar}.path=${parent.path ? `${inlinedValueFromString(parent.path)}+` : ""}${
-            locationVar !== U ? `'["'+${locationVar}+'"]'+` : ""
-          }${errorVar}.path`,
+        (errorVar) => {
+          let segments = "";
+          for (let idx = 0; idx < parent.path.length; idx++) {
+            const segment = parent.path[idx]!;
+            segments += `${typeof segment === "string" ? inlinedValueFromString(segment) : segment},`;
+          }
+          if (locationVar !== U) {
+            segments += `${locationVar},`;
+          }
+          return `${errorVar}.path=[${segments}...${errorVar}.path]`;
+        },
         appendSafe,
         pureSince,
       );

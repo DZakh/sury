@@ -3,10 +3,12 @@ ts:
   schema: 'S.union([S.schema({t: NaN, a: S.string}), S.schema({t: "b", b: S.number})]).with(S.to, S.jsonString)'
   input: '{ t: number; a: string; } | { t: "b"; b: number; }'
   output: string
-  instantiations: 8595
+  instantiations: 7781
 jsonSchema:
-  input: 'Failed at ["t"]: Expected JSON, received NaN'
+  input: "Failed at t: Expected JSON, received NaN"
   output: '{ type: "string", contentMediaType: "application/json" }'
+  openapi-3.0:
+    output: '{ type: "string" }'
 vs:
   zod:
     _skip: not-applicable

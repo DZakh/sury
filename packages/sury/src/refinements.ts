@@ -846,7 +846,7 @@ const stringFormat = (
 
 // A format outside the JSON Schema vocabulary has no keyword a consumer could
 // enforce, so it publishes its own regex as `pattern` — that is what makes it
-// survive toJSONSchema/fromJSONSchema as behavior rather than as a name it
+// survive inputJSONSchema/fromJSONSchema as behavior rather than as a name it
 // would lose. No second check is emitted: `pattern` is read as a field by
 // jsonschema.ts and nothing else, so the format's one test still does the work.
 //
@@ -1069,10 +1069,28 @@ const recodeText =
   (text: string) =>
     fromBytes(toBytes(text));
 
-const utf8ToFormat = (fromBytes: (bytes: Uint8Array) => string) => {
+// Text to UTF-8 bytes. Node's `TextEncoder.encode` allocates a fresh
+// ArrayBuffer per call — ~0.9µs fixed, on v22 and v24 alike — where
+// `Buffer.from` serves small strings from its pool in ~80ns and is 5x faster
+// at 4KB. Bun has Buffer too but there the ratio is the reverse, so it keeps
+// the encoder. The view is what makes the pool pay off: copying into a fresh
+// Uint8Array costs the allocation back. Its `.buffer` is therefore the pooled
+// slab, exactly as a `Buffer.from` result's is.
+export const utf8Bytes: (text: string) => Uint8Array = /* @__PURE__ */ (() => {
+  const Buf = (globalThis as MaybeBuffer).Buffer;
+  if (Buf !== U && (globalThis as { Bun?: unknown }).Bun === U) {
+    return (text) => {
+      const bytes = Buf.from(text, "utf8");
+      return new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.length);
+    };
+  }
   const encode = new TextEncoder();
-  return (text: string) => fromBytes(encode.encode(text));
-};
+  return (text) => encode.encode(text);
+})();
+
+const utf8ToFormat =
+  (fromBytes: (bytes: Uint8Array) => string) => (text: string) =>
+    fromBytes(utf8Bytes(text));
 
 const formatToUtf8 = (toBytes: (text: string) => Uint8Array) => {
   const decode = new TextDecoder();

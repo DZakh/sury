@@ -7,6 +7,14 @@ ts:
 jsonSchema:
   input: '{ type: "object", properties: { kind: { type: "string", const: "point" }, coords: { type: "array", minItems: 2, maxItems: 2, items: [{ type: "number", const: 1 }, { type: "number", const: 2 }] } }, additionalProperties: false, required: ["kind", "coords"] }'
   output: '{ type: "object", properties: { kind: { type: "string", const: "point" }, coords: { type: "array", minItems: 2, maxItems: 2, items: [{ type: "number", const: 1 }, { type: "number", const: 2 }] } }, additionalProperties: false, required: ["kind", "coords"] }'
+  draft-2020-12:
+    input: '{ type: "object", properties: { kind: { type: "string", const: "point" }, coords: { type: "array", minItems: 2, maxItems: 2, prefixItems: [{ type: "number", const: 1 }, { type: "number", const: 2 }] } }, additionalProperties: false, required: ["kind", "coords"], $schema: "https://json-schema.org/draft/2020-12/schema" }'
+    output: '{ type: "object", properties: { kind: { type: "string", const: "point" }, coords: { type: "array", minItems: 2, maxItems: 2, prefixItems: [{ type: "number", const: 1 }, { type: "number", const: 2 }] } }, additionalProperties: false, required: ["kind", "coords"], $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ type: "object", properties: { kind: { type: "string", enum: ["point"] }, coords: { type: "array", minItems: 2, maxItems: 2, items: { anyOf: [{ type: "number", enum: [1] }, { type: "number", enum: [2] }] } } }, additionalProperties: false, required: ["kind", "coords"] }'
+    fromInputType: '{ kind: "point"; coords: [1 | 2, 1 | 2]; }'
+    output: '{ type: "object", properties: { kind: { type: "string", enum: ["point"] }, coords: { type: "array", minItems: 2, maxItems: 2, items: { anyOf: [{ type: "number", enum: [1] }, { type: "number", enum: [2] }] } } }, additionalProperties: false, required: ["kind", "coords"] }'
+    fromOutputType: '{ kind: "point"; coords: [1 | 2, 1 | 2]; }'
 vs:
   zod:
     _skip: not-applicable
@@ -22,6 +30,6 @@ operations:
         error: Unrecognized key "z"
       different-value-rejected:
         input: '{ kind: "point", coords: [1, 3] }'
-        error: 'Failed at ["coords"]["1"]: Expected 2, received 3'
+        error: "Failed at coords[1]: Expected 2, received 3"
   decode: identity
   encode: identity

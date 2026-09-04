@@ -180,10 +180,10 @@ test("Record schema with @s.null on optional field", t => {
   )
   t->assertThrowsMessage(
     () => %raw(`{}`)->S.parseOrThrow(~to=recordWithOptionalNullFieldSchema),
-    `Failed at ["foo"]: Expected string | null, received undefined`,
+    `Failed at foo: Expected string | null, received undefined`,
   )
   t->Assert.deepEqual(
-    ({foo: ?None}: recordWithOptionalNullField)->S.decodeOrThrow(
+    ({foo: ?None}: recordWithOptionalNullField)->S.convertOrThrow(
       ~from=recordWithOptionalNullFieldSchema,
       ~to=S.unknown,
     ),

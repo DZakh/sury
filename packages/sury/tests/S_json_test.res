@@ -5,7 +5,7 @@ test("Supports String", t => {
   let data = JSON.Encode.string("Foo")
 
   t->Assert.deepEqual(data->S.parseOrThrow(~to=schema), data)
-  t->Assert.deepEqual(data->S.decodeOrThrow(~from=schema, ~to=S.json), data)
+  t->Assert.deepEqual(data->S.convertOrThrow(~from=schema, ~to=S.json), data)
 })
 
 test("Supports Number", t => {
@@ -13,7 +13,7 @@ test("Supports Number", t => {
   let data = JSON.Encode.float(123.)
 
   t->Assert.deepEqual(data->S.parseOrThrow(~to=schema), data)
-  t->Assert.deepEqual(data->S.decodeOrThrow(~from=schema, ~to=S.json), data)
+  t->Assert.deepEqual(data->S.convertOrThrow(~from=schema, ~to=S.json), data)
 })
 
 test("Supports Bool", t => {
@@ -21,7 +21,7 @@ test("Supports Bool", t => {
   let data = JSON.Encode.bool(true)
 
   t->Assert.deepEqual(data->S.parseOrThrow(~to=schema), data)
-  t->Assert.deepEqual(data->S.decodeOrThrow(~from=schema, ~to=S.json), data)
+  t->Assert.deepEqual(data->S.convertOrThrow(~from=schema, ~to=S.json), data)
 })
 
 test("Supports Null", t => {
@@ -29,7 +29,7 @@ test("Supports Null", t => {
   let data = JSON.Encode.null
 
   t->Assert.deepEqual(data->S.parseOrThrow(~to=schema), data)
-  t->Assert.deepEqual(data->S.decodeOrThrow(~from=schema, ~to=S.json), data)
+  t->Assert.deepEqual(data->S.convertOrThrow(~from=schema, ~to=S.json), data)
 })
 
 test("Supports Array", t => {
@@ -37,7 +37,7 @@ test("Supports Array", t => {
   let data = JSON.Encode.array([JSON.Encode.string("foo"), JSON.Encode.null])
 
   t->Assert.deepEqual(data->S.parseOrThrow(~to=schema), data)
-  t->Assert.deepEqual(data->S.decodeOrThrow(~from=schema, ~to=S.json), data)
+  t->Assert.deepEqual(data->S.convertOrThrow(~from=schema, ~to=S.json), data)
 })
 
 test("Supports Object", t => {
@@ -47,7 +47,7 @@ test("Supports Object", t => {
   )
 
   t->Assert.deepEqual(data->S.parseOrThrow(~to=schema), data)
-  t->Assert.deepEqual(data->S.decodeOrThrow(~from=schema, ~to=S.json), data)
+  t->Assert.deepEqual(data->S.convertOrThrow(~from=schema, ~to=S.json), data)
 })
 
 test("Fails to parse Object field", t => {
@@ -58,7 +58,7 @@ test("Fails to parse Object field", t => {
 
   t->U.assertThrowsMessage(
     () => data->S.parseOrThrow(~to=schema),
-    `Failed at ["bar"]: Expected JSON, received undefined`,
+    `Failed at bar: Expected JSON, received undefined`,
   )
 })
 
@@ -68,7 +68,7 @@ test("Fails to parse matrix field", t => {
 
   t->U.assertThrowsMessage(
     () => data->S.parseOrThrow(~to=schema),
-    `Failed at ["1"]["0"]: Expected JSON, received undefined`,
+    `Failed at [1][0]: Expected JSON, received undefined`,
   )
 })
 
@@ -89,7 +89,7 @@ test("Fails to parse undefined", t => {
 })
 
 let jsonParseCode = `i=>{e[0](i);return i}
-JSON: i=>{for(;;){if(typeof i==="string")break;if(typeof i==="boolean")break;if(typeof i==="number"&&i===i&&Number.isFinite(i))break;if(i===null)break;if(typeof i==="object"&&i&&!Array.isArray(i)){for(let v0 in i){try{e[0](i[v0]);}catch(v1){v1.path='["'+v0+'"]'+v1.path;throw v1}};break}if(Array.isArray(i)){for(let v2=0;v2<i.length;++v2){try{e[1](i[v2]);}catch(v3){v3.path='["'+v2+'"]'+v3.path;throw v3}};break}e[2](i)}return i}`
+JSON: i=>{for(;;){if(typeof i==="string")break;if(typeof i==="boolean")break;if(typeof i==="number"&&i===i&&Number.isFinite(i))break;if(i===null)break;if(typeof i==="object"&&i&&!Array.isArray(i)){for(let v0 in i){try{e[0](i[v0]);}catch(v1){v1.path=[v0,...v1.path];throw v1}};break}if(Array.isArray(i)){for(let v2=0;v2<i.length;++v2){try{e[1](i[v2]);}catch(v3){v3.path=[v2,...v3.path];throw v3}};break}e[2](i)}return i}`
 test("Compiled parse code snapshot", t => {
   let schema = S.json
 

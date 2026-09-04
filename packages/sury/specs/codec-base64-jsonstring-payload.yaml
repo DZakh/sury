@@ -3,10 +3,12 @@ ts:
   schema: "S.base64.with(S.to, S.jsonString.with(S.to, S.schema({ sub: S.string })))"
   input: string
   output: "{ sub: string; }"
-  instantiations: 6557
+  instantiations: 5712
 jsonSchema:
   input: '{ type: "string", contentEncoding: "base64" }'
   output: '{ type: "object", properties: { sub: { type: "string" } }, required: ["sub"] }'
+  openapi-3.0:
+    input: '{ type: "string", format: "byte" }'
 vs:
   zod:
     _skip: not-applicable

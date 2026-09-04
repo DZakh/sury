@@ -44,10 +44,18 @@ test("Main example", t => {
   )
 })
 
+let myCustomSchema = S.string->S.maxLength(5)
+
 @schema
-type matches = @s.matches(S.uri) string
+type matches = @s.matches(myCustomSchema) string
 test("@s.matches", t => {
-  t->assertEqualSchemas(matchesSchema, S.uri)
+  t->assertEqualSchemas(matchesSchema, myCustomSchema)
+})
+
+@schema
+type url = S.url
+test("Format schema as a type", t => {
+  t->assertEqualSchemas(urlSchema, S.url)
 })
 
 @schema

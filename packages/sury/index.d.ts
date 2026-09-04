@@ -85,59 +85,38 @@ export type Schema<TInput = unknown, TOutput = TInput> = {
     // the same reason as the Codecs slots (see the Coder note below).
     codecs?: Coder<TOutput, TTargetInput> | Codecs<TOutput, TTargetInput> | "pack" | "unpack"
   ): Schema<TInput, TTargetOutput>;
-  with(
-    refine: (
-      schema: Schema<unknown, unknown>,
-      refineCheck: (value: unknown) => boolean,
-      refineOptions?: { error?: string; path?: string[] }
-    ) => Schema<unknown, unknown>,
-    refineCheck: (value: TOutput) => boolean,
-    refineOptions?: { error?: string; path?: string[] }
-  ): Schema<TInput, TOutput>;
-  // This overload is what both S.refine and S.shape resolve to under
-  // overload matching — the exact mechanism that routes S.refine calls here
-  // instead of the more specific `refine` overload above hasn't been pinned
-  // down. Treat it as load-bearing for both call sites and verify against
-  // S_refine_test.res / S_shape_test.res before changing its shape.
+  // `S.shape`, and any modifier whose callback decides the output type.
+  // Naming the callback here is what types its parameter as `TOutput`. The
+  // required third parameter excludes `S.optional`/`S.nullable`: a lazy
+  // default `() => value` is not a shaper, and the trailing `_?: never` they
+  // declare is what fails this overload so they resolve below instead.
   with<TShape>(
     fn: (
       schema: Schema<unknown, unknown>,
-      callback: ((value: unknown) => unknown) | undefined
+      callback: (value: unknown) => unknown,
+      _: unknown
     ) => Schema<unknown, unknown>,
-    callback: ((value: TOutput) => TShape) | undefined
+    callback: (value: TOutput) => TShape
   ): Schema<TInput, TShape>;
+  // No argument and one argument each get a dedicated overload: TypeScript
+  // resolves them far cheaper than the rest-tuple form below.
   with<TNextInput, TNextOutput>(
     fn: (schema: Schema<TInput, TOutput>) => SchemaLike<TNextInput, TNextOutput>
   ): Schema<TNextInput, TNextOutput>;
-  // Constraining TArg1 to string | number makes a literal arg1 infer its
-  // literal type instead of widening — `.with(S.brand, "myId")` needs the
-  // string literal for nominal typing, `.with(S.length, 2)` the number
-  // literal for its tuple-typed result. One overload for both: a second
-  // overload would be attempted (and instantiated) by every `.with` call
-  // that falls through to the general case, taxing schemas that never pass
-  // a literal. The next overload covers the general arg1 case.
-  with<TNextInput, TNextOutput, TArg1 extends string | number>(
-    fn: (
-      schema: Schema<TInput, TOutput>,
-      arg1: TArg1
-    ) => SchemaLike<TNextInput, TNextOutput>,
+  // Accepts any value while keeping a literal literal, so `.with(S.brand,
+  // "myId")` brands with `"myId"` and `.with(S.length, 2)` infers a 2-tuple.
+  // The `SchemaLike` return is required: with a plain type parameter as the
+  // result, generic modifiers stop matching this overload.
+  with<TNextInput, TNextOutput, TArg1 extends {} | null | undefined>(
+    fn: (schema: Schema<TInput, TOutput>, arg1: TArg1) => SchemaLike<TNextInput, TNextOutput>,
     arg1: TArg1
   ): Schema<TNextInput, TNextOutput>;
-  with<TNextInput, TNextOutput, TArg1>(
-    fn: (
-      schema: Schema<TInput, TOutput>,
-      arg1: TArg1
-    ) => SchemaLike<TNextInput, TNextOutput>,
-    arg1: TArg1
-  ): Schema<TNextInput, TNextOutput>;
-  with<TNextInput, TNextOutput, TArg1, TArg2>(
-    fn: (
-      schema: Schema<TInput, TOutput>,
-      arg1: TArg1,
-      arg2: TArg2
-    ) => SchemaLike<TNextInput, TNextOutput>,
-    arg1: TArg1,
-    arg2: TArg2
+  // Two or more arguments. A rest tuple rather than one type parameter per
+  // argument: TypeScript infers it from `fn`'s parameters, which is what keeps
+  // `value` typed in `.with(S.refine, (value) => …, { error })`.
+  with<TNextInput, TNextOutput, TArgs extends readonly unknown[]>(
+    fn: (schema: Schema<TInput, TOutput>, ...args: TArgs) => SchemaLike<TNextInput, TNextOutput>,
+    ...args: TArgs
   ): Schema<TNextInput, TNextOutput>;
 
   /**
@@ -271,9 +250,11 @@ export type Schema<TInput = unknown, TOutput = TInput> = {
     }
 );
 
-export abstract class Path {
-  protected opaque: unknown;
-} /* simulate opaque types */
+/**
+ * Root-first location of a value: object keys and tuple indices as strings,
+ * array indices as numbers. `"[]"` stands for "some element".
+ */
+export type Path = ReadonlyArray<string | number>;
 
 type BaseError = {
   readonly path: Path;
@@ -345,13 +326,6 @@ type ExtractLastOutput<TSchemas extends readonly SchemaLike<any, any>[]> =
     ? TLastOutput
     : TSchemas extends readonly [SchemaLike<any, infer TSingleOutput>]
     ? TSingleOutput
-    : never;
-
-type ExtractLastInput<TSchemas extends readonly SchemaLike<any, any>[]> =
-  TSchemas extends readonly [...any[], SchemaLike<infer TLastInput, any>]
-    ? TLastInput
-    : TSchemas extends readonly [SchemaLike<infer TSingleInput, any>]
-    ? TSingleInput
     : never;
 
 // Match the `~standard` marker instead of the full `Schema<…>` shape for the
@@ -532,7 +506,7 @@ export const uuid: Schema<string, string>;
 
 /**
  * UUIDv4, the random one — the version and variant nibbles are pinned.
- * `toJSONSchema` emits `format: "uuid"` plus the `pattern` that pins them.
+ * the emitted JSON Schema carries `format: "uuid"` plus the `pattern` that pins them.
  * @example "9b2f4f0e-6a1e-4c3b-8b7a-1f2e3d4c5b6a"
  */
 export const uuidv4: Schema<string, string>;
@@ -552,7 +526,7 @@ export const uuidv7: Schema<string, string>;
 
 /**
  * CUID: `c` followed by at least six more base36 characters. Not a JSON Schema
- * format, so `toJSONSchema` emits the equivalent `pattern` instead.
+ * format, so the emitted JSON Schema carries the equivalent `pattern` instead.
  * @example "cjld2cjxh0000qzrmn831i7rn"
  */
 export const cuid: Schema<string, string>;
@@ -619,7 +593,7 @@ export const cidrv4: Schema<string, string>;
 
 /**
  * IPv6 CIDR block — an `S.ipv6` address and a prefix length of 0 to 128. The one
- * format whose constraint `toJSONSchema` cannot express, so it emits a plain
+ * format whose constraint the emitted JSON Schema cannot express, so it emits a plain
  * `string`.
  * @example "2001:db8::/32"
  */
@@ -876,46 +850,101 @@ export function asyncDecoder<
 export function encoder<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>
 ): (data: TOutput) => TInput;
-export function encoder<TInput, TOutput>(
+export function encoder<TOutput, TTarget>(
   from: SchemaLike<unknown, TOutput>,
-  target: SchemaLike<TInput, unknown>
-): (data: TOutput) => TInput;
+  target: SchemaLike<unknown, TTarget>
+): (data: TOutput) => TTarget;
 export function encoder<
   TSchemas extends readonly [SchemaLike<any, any>, ...SchemaLike<any, any>[]]
 >(
   ...schemas: TSchemas
-): (data: ExtractFirstOutput<TSchemas>) => ExtractLastInput<TSchemas>;
+): (data: ExtractFirstOutput<TSchemas>) => ExtractLastOutput<TSchemas>;
 
 export function asyncEncoder<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>
 ): (data: TOutput) => Promise<TInput>;
-export function asyncEncoder<TInput, TOutput>(
+export function asyncEncoder<TOutput, TTarget>(
   from: SchemaLike<unknown, TOutput>,
-  target: SchemaLike<TInput, unknown>
-): (data: TOutput) => Promise<TInput>;
+  target: SchemaLike<unknown, TTarget>
+): (data: TOutput) => Promise<TTarget>;
 export function asyncEncoder<
   TSchemas extends readonly [SchemaLike<any, any>, ...SchemaLike<any, any>[]]
 >(
   ...schemas: TSchemas
-): (data: ExtractFirstOutput<TSchemas>) => Promise<ExtractLastInput<TSchemas>>;
+): (data: ExtractFirstOutput<TSchemas>) => Promise<ExtractLastOutput<TSchemas>>;
 
-export function assert<TInput, TOutput>(
+export function assertInput<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,
   data: unknown
 ): asserts data is TInput;
-export function assert<TInput, TOutput>(
+export function assertInput<TInput, TOutput>(
   data: unknown,
   schema: SchemaLike<TInput, TOutput>
 ): asserts data is TInput;
 
-export function is<TInput, TOutput>(
+export function assertOutput<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,
   data: unknown
-): data is TInput;
-export function is<TInput, TOutput>(
+): asserts data is TOutput;
+export function assertOutput<TInput, TOutput>(
   data: unknown,
   schema: SchemaLike<TInput, TOutput>
-): data is TInput;
+): asserts data is TOutput;
+
+/**
+ * Async flavor of `assertInput` for schemas with async transformations. The
+ * promise rejects with a Sury error on invalid input; TypeScript can't express
+ * an async type predicate, so no narrowing happens.
+ */
+export function asyncAssertInput<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>,
+  data: unknown
+): Promise<void>;
+export function asyncAssertInput<TInput, TOutput>(
+  data: unknown,
+  schema: SchemaLike<TInput, TOutput>
+): Promise<void>;
+
+export function asyncAssertOutput<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>,
+  data: unknown
+): Promise<void>;
+export function asyncAssertOutput<TInput, TOutput>(
+  data: unknown,
+  schema: SchemaLike<TInput, TOutput>
+): Promise<void>;
+
+export function inputValidator<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>
+): (data: unknown) => data is TInput;
+
+export function outputValidator<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>
+): (data: unknown) => data is TOutput;
+
+/**
+ * The value a constructor accepts for a branded schema: the brand is what the
+ * constructor mints, so it can't also be what it demands.
+ */
+type Unbranded<T> = T extends { readonly [" brand"]: [infer TValue, string] }
+  ? TValue
+  : T;
+
+export function inputConstructor<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>
+): (value: Unbranded<TInput>) => TInput;
+
+export function asyncInputConstructor<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>
+): (value: Unbranded<TInput>) => Promise<TInput>;
+
+export function outputConstructor<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>
+): (value: Unbranded<TOutput>) => TOutput;
+
+export function asyncOutputConstructor<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>
+): (value: Unbranded<TOutput>) => Promise<TOutput>;
 
 export function tuple<TInput extends unknown[], TOutput>(
   definer: (s: {
@@ -943,7 +972,8 @@ export function optional<
 >(
   schema: SchemaLike<TInput, TOutput> | TDef,
   or?: (() => TOr) | TOr,
-  // To make .with work
+  // Never passed: fails `with`'s callback overload, so a lazy default is
+  // not typed as a shaper.
   _?: never
 ): Schema<
   TInput | undefined,
@@ -958,7 +988,8 @@ export function nullable<
 >(
   schema: SchemaLike<TInput, TOutput> | TDef,
   or?: (() => TOr) | TOr,
-  // To make .with work
+  // Never passed: fails `with`'s callback overload, so a lazy default is
+  // not typed as a shaper.
   _?: never
 ): Schema<TInput | null, TOr extends null ? TOutput | null : TOutput>;
 
@@ -1094,6 +1125,11 @@ export function meta<TInput, TOutput>(
 
 export function inputExpression(schema: SchemaLike<unknown, unknown>): string;
 export function outputExpression(schema: SchemaLike<unknown, unknown>): string;
+/**
+ * Renders a path the way an error message shows it: `user.tags[2]`,
+ * `["my key"]`. The same renderer `Error.message` uses.
+ */
+export function pathToText(path: Path): string;
 export function noValidation<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,
   value: boolean
@@ -1104,7 +1140,7 @@ export function refine<TInput, TOutput>(
   refineCheck: (value: TOutput) => boolean,
   refineOptions?: {
     error?: string;
-    path?: string[];
+    path?: Path;
   }
 ): Schema<TInput, TOutput>;
 
@@ -1306,22 +1342,42 @@ export function to<
 // each one gets its own overload. Falling back to the widest type for a
 // non-literal target is what keeps a caller holding `target` in a variable
 // compiling.
-export function toJSONSchema<TInput, TOutput>(
+export function inputJSONSchema<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>
 ): JSONSchema7;
-export function toJSONSchema<TInput, TOutput>(
+export function inputJSONSchema<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,
   options: { target?: "draft-07" }
 ): JSONSchema7;
-export function toJSONSchema<TInput, TOutput>(
+export function inputJSONSchema<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,
   options: { target: "draft-2020-12" }
 ): JSONSchema2020;
-export function toJSONSchema<TInput, TOutput>(
+export function inputJSONSchema<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,
   options: { target: "openapi-3.0" }
 ): OpenAPISchema30;
-export function toJSONSchema<TInput, TOutput>(
+export function inputJSONSchema<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>,
+  options: { target: StandardJSONSchemaV1.Target }
+): JSONSchema;
+
+export function outputJSONSchema<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>
+): JSONSchema7;
+export function outputJSONSchema<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>,
+  options: { target?: "draft-07" }
+): JSONSchema7;
+export function outputJSONSchema<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>,
+  options: { target: "draft-2020-12" }
+): JSONSchema2020;
+export function outputJSONSchema<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>,
+  options: { target: "openapi-3.0" }
+): OpenAPISchema30;
+export function outputJSONSchema<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,
   options: { target: StandardJSONSchemaV1.Target }
 ): JSONSchema;

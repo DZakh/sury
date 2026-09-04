@@ -1,36 +1,36 @@
 open Vitest
 
 test("Successfully reverse converts jsonable schemas", t => {
-  t->Assert.deepEqual(true->S.decodeOrThrow(~from=S.bool, ~to=S.json), true->JSON.Encode.bool)
+  t->Assert.deepEqual(true->S.convertOrThrow(~from=S.bool, ~to=S.json), true->JSON.Encode.bool)
   t->Assert.deepEqual(
-    true->S.decodeOrThrow(~from=S.literal(true), ~to=S.json),
+    true->S.convertOrThrow(~from=S.literal(true), ~to=S.json),
     true->JSON.Encode.bool,
   )
-  t->Assert.deepEqual("abc"->S.decodeOrThrow(~from=S.string, ~to=S.json), "abc"->JSON.Encode.string)
+  t->Assert.deepEqual("abc"->S.convertOrThrow(~from=S.string, ~to=S.json), "abc"->JSON.Encode.string)
   t->Assert.deepEqual(
-    "abc"->S.decodeOrThrow(~from=S.literal("abc"), ~to=S.json),
+    "abc"->S.convertOrThrow(~from=S.literal("abc"), ~to=S.json),
     "abc"->JSON.Encode.string,
   )
-  t->Assert.deepEqual(123->S.decodeOrThrow(~from=S.int, ~to=S.json), 123.->JSON.Encode.float)
+  t->Assert.deepEqual(123->S.convertOrThrow(~from=S.int, ~to=S.json), 123.->JSON.Encode.float)
   t->Assert.deepEqual(
-    123->S.decodeOrThrow(~from=S.literal(123), ~to=S.json),
+    123->S.convertOrThrow(~from=S.literal(123), ~to=S.json),
     123.->JSON.Encode.float,
   )
-  t->Assert.deepEqual(123.->S.decodeOrThrow(~from=S.float, ~to=S.json), 123.->JSON.Encode.float)
+  t->Assert.deepEqual(123.->S.convertOrThrow(~from=S.float, ~to=S.json), 123.->JSON.Encode.float)
   t->Assert.deepEqual(
-    123.->S.decodeOrThrow(~from=S.literal(123.), ~to=S.json),
+    123.->S.convertOrThrow(~from=S.literal(123.), ~to=S.json),
     123.->JSON.Encode.float,
   )
   t->Assert.deepEqual(
-    (true, "foo", 123)->S.decodeOrThrow(~from=S.literal((true, "foo", 123)), ~to=S.json),
+    (true, "foo", 123)->S.convertOrThrow(~from=S.literal((true, "foo", 123)), ~to=S.json),
     JSON.Encode.array([JSON.Encode.bool(true), JSON.Encode.string("foo"), JSON.Encode.float(123.)]),
   )
   t->Assert.deepEqual(
-    {"foo": true}->S.decodeOrThrow(~from=S.literal({"foo": true}), ~to=S.json),
+    {"foo": true}->S.convertOrThrow(~from=S.literal({"foo": true}), ~to=S.json),
     JSON.Encode.object(Dict.fromArray([("foo", JSON.Encode.bool(true))])),
   )
   t->Assert.deepEqual(
-    {"foo": (true, "foo", 123)}->S.decodeOrThrow(
+    {"foo": (true, "foo", 123)}->S.convertOrThrow(
       ~from=S.literal({"foo": (true, "foo", 123)}),
       ~to=S.json,
     ),
@@ -48,36 +48,36 @@ test("Successfully reverse converts jsonable schemas", t => {
     ),
   )
   t->Assert.deepEqual(
-    None->S.decodeOrThrow(~from=S.nullAsOption(S.bool), ~to=S.json),
+    None->S.convertOrThrow(~from=S.nullAsOption(S.bool), ~to=S.json),
     JSON.Encode.null,
   )
   t->Assert.deepEqual(
-    JSON.Encode.null->S.decodeOrThrow(~from=S.literal(JSON.Encode.null), ~to=S.json),
+    JSON.Encode.null->S.convertOrThrow(~from=S.literal(JSON.Encode.null), ~to=S.json),
     JSON.Encode.null,
   )
-  t->Assert.deepEqual([]->S.decodeOrThrow(~from=S.array(S.bool), ~to=S.json), JSON.Encode.array([]))
+  t->Assert.deepEqual([]->S.convertOrThrow(~from=S.array(S.bool), ~to=S.json), JSON.Encode.array([]))
   t->Assert.deepEqual(
-    Dict.make()->S.decodeOrThrow(~from=S.dict(S.bool), ~to=S.json),
+    Dict.make()->S.convertOrThrow(~from=S.dict(S.bool), ~to=S.json),
     JSON.Encode.object(Dict.make()),
   )
   t->Assert.deepEqual(
-    true->S.decodeOrThrow(~from=S.object(s => s.field("foo", S.bool)), ~to=S.json),
+    true->S.convertOrThrow(~from=S.object(s => s.field("foo", S.bool)), ~to=S.json),
     JSON.Encode.object(Dict.fromArray([("foo", JSON.Encode.bool(true))])),
   )
   t->Assert.deepEqual(
-    true->S.decodeOrThrow(~from=S.tuple1(S.bool), ~to=S.json),
+    true->S.convertOrThrow(~from=S.tuple1(S.bool), ~to=S.json),
     JSON.Encode.array([JSON.Encode.bool(true)]),
   )
   t->Assert.deepEqual(
-    "foo"->S.decodeOrThrow(~from=S.union([S.literal("foo"), S.literal("bar")]), ~to=S.json),
+    "foo"->S.convertOrThrow(~from=S.union([S.literal("foo"), S.literal("bar")]), ~to=S.json),
     JSON.Encode.string("foo"),
   )
 })
 
 test("Encodes option schema to JSON", t => {
   let schema = S.option(S.bool)
-  t->Assert.deepEqual(None->S.decodeOrThrow(~from=schema, ~to=S.json), JSON.Encode.null)
-  t->Assert.deepEqual(Some(true)->S.decodeOrThrow(~from=schema, ~to=S.json), JSON.Encode.bool(true))
+  t->Assert.deepEqual(None->S.convertOrThrow(~from=schema, ~to=S.json), JSON.Encode.null)
+  t->Assert.deepEqual(Some(true)->S.convertOrThrow(~from=schema, ~to=S.json), JSON.Encode.bool(true))
   t->U.assertCompiledCode(
     ~schema,
     ~op=#EncodeToJson,
@@ -91,7 +91,7 @@ test("Allows to convert to JSON with option as an object field", t => {
       "foo": s.matches(S.option(S.bool)),
     }
   )
-  t->Assert.deepEqual({"foo": None}->S.decodeOrThrow(~from=schema, ~to=S.json), %raw(`{}`))
+  t->Assert.deepEqual({"foo": None}->S.convertOrThrow(~from=schema, ~to=S.json), %raw(`{}`))
 })
 
 test("Allows to convert to JSON with optional S.json as an object field", t => {
@@ -100,7 +100,7 @@ test("Allows to convert to JSON with optional S.json as an object field", t => {
       "foo": s.matches(S.option(S.json)),
     }
   )
-  t->Assert.deepEqual({"foo": None}->S.decodeOrThrow(~from=schema, ~to=S.json), %raw(`{}`))
+  t->Assert.deepEqual({"foo": None}->S.convertOrThrow(~from=schema, ~to=S.json), %raw(`{}`))
 })
 
 // An array item, a tuple slot and a dict value have no way to be absent, so
@@ -110,7 +110,7 @@ test("Converts optional array items to JSON null", t => {
   let schema = S.array(S.option(S.bool))
 
   t->Assert.deepEqual(
-    [None, Some(true)]->S.decodeOrThrow(~from=schema, ~to=S.json),
+    [None, Some(true)]->S.convertOrThrow(~from=schema, ~to=S.json),
     JSON.Encode.array([JSON.Null, JSON.Encode.bool(true)]),
   )
 })
@@ -119,7 +119,7 @@ test("Converts an optional tuple item to JSON null", t => {
   let schema = S.tuple1(S.option(S.bool))
 
   t->Assert.deepEqual(
-    None->S.decodeOrThrow(~from=schema, ~to=S.json),
+    None->S.convertOrThrow(~from=schema, ~to=S.json),
     JSON.Encode.array([JSON.Null]),
   )
 })
@@ -128,21 +128,21 @@ test("Converts an optional dict value to JSON null", t => {
   let schema = S.dict(S.option(S.bool))
 
   t->Assert.deepEqual(
-    dict{"foo": None}->S.decodeOrThrow(~from=schema, ~to=S.json),
+    dict{"foo": None}->S.convertOrThrow(~from=schema, ~to=S.json),
     JSON.Encode.object(Dict.fromArray([("foo", JSON.Null)])),
   )
 })
 
 test("Encodes undefined to JSON as null", t => {
   let schema = S.literal()
-  t->Assert.deepEqual(()->S.decodeOrThrow(~from=schema, ~to=S.json), JSON.Null)
+  t->Assert.deepEqual(()->S.convertOrThrow(~from=schema, ~to=S.json), JSON.Null)
 })
 
 test("Fails to encode Function to JSON", t => {
   let fn = () => ()
   let schema = S.literal(fn)
   t->U.assertThrowsMessage(
-    () => fn->S.decodeOrThrow(~from=schema, ~to=S.json),
+    () => fn->S.convertOrThrow(~from=schema, ~to=S.json),
     `Can't decode Function to JSON. Use S.to to define a custom decoder`,
   )
 })
@@ -152,12 +152,12 @@ test("Fails to encode Error literal to JSON", t => {
   let schema = S.literal(error)
 
   t->U.assertThrowsMessage(
-    () => error->S.decodeOrThrow(~from=schema, ~to=S.json),
+    () => error->S.convertOrThrow(~from=schema, ~to=S.json),
     `Can't decode Error to JSON. Use S.to to define a custom decoder`,
   )
-  t->Assert.is(error->S.decodeOrThrow(~from=schema, ~to=S.unknown), error)
+  t->Assert.is(error->S.convertOrThrow(~from=schema, ~to=S.unknown), error)
   t->U.assertThrowsMessage(
-    () => %raw(`new Error("foo")`)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    () => %raw(`new Error("foo")`)->S.convertOrThrow(~from=schema, ~to=S.unknown),
     `Expected Error, received invalid Error`,
   )
 })
@@ -166,7 +166,7 @@ test("Fails to encode Symbol to JSON", t => {
   let symbol = %raw(`Symbol()`)
   let schema = S.literal(symbol)
   t->U.assertThrowsMessage(
-    () => symbol->S.decodeOrThrow(~from=schema, ~to=S.json),
+    () => symbol->S.convertOrThrow(~from=schema, ~to=S.json),
     `Can't decode Symbol() to JSON. Use S.to to define a custom decoder`,
   )
 })
@@ -175,46 +175,46 @@ test("Encodes object literal with bigint to JSON", t => {
   let dict = %raw(`{"foo": 123n}`)
   let schema = S.literal(dict)
   t->Assert.deepEqual(
-    dict->S.decodeOrThrow(~from=schema, ~to=S.json),
+    dict->S.convertOrThrow(~from=schema, ~to=S.json),
     JSON.Object(dict{"foo": JSON.String("123")}),
   )
 })
 
 test("Encodes NaN to JSON", t => {
   let schema = S.literal(%raw(`NaN`))
-  t->Assert.deepEqual(%raw(`NaN`)->S.decodeOrThrow(~from=schema, ~to=S.json), JSON.Null)
+  t->Assert.deepEqual(%raw(`NaN`)->S.convertOrThrow(~from=schema, ~to=S.json), JSON.Null)
   t->U.assertThrowsMessage(
-    () => ()->S.decodeOrThrow(~from=schema, ~to=S.json),
+    () => ()->S.convertOrThrow(~from=schema, ~to=S.json),
     `Expected NaN, received undefined`,
   )
 })
 
 test("Fails to encode Never to JSON", t => {
   t->U.assertThrowsMessage(
-    () => Obj.magic(123)->S.decodeOrThrow(~from=S.never, ~to=S.json),
+    () => Obj.magic(123)->S.convertOrThrow(~from=S.never, ~to=S.json),
     `Expected never, received 123`,
   )
 })
 
 test("Encodes object with unknown schema to JSON", t => {
   t->Assert.deepEqual(
-    Obj.magic(true)->S.decodeOrThrow(~from=S.object(s => s.field("foo", S.unknown)), ~to=S.json),
+    Obj.magic(true)->S.convertOrThrow(~from=S.object(s => s.field("foo", S.unknown)), ~to=S.json),
     JSON.Object(dict{"foo": JSON.Boolean(true)}),
   )
   t->U.assertThrowsMessage(
     () =>
-      Obj.magic(123n)->S.decodeOrThrow(~from=S.object(s => s.field("foo", S.unknown)), ~to=S.json),
+      Obj.magic(123n)->S.convertOrThrow(~from=S.object(s => s.field("foo", S.unknown)), ~to=S.json),
     `Expected JSON, received 123n`,
   )
 })
 
 test("Encodes tuple with unknown item to JSON", t => {
   t->Assert.deepEqual(
-    Obj.magic(true)->S.decodeOrThrow(~from=S.tuple1(S.unknown), ~to=S.json),
+    Obj.magic(true)->S.convertOrThrow(~from=S.tuple1(S.unknown), ~to=S.json),
     JSON.Array([JSON.Boolean(true)]),
   )
   t->U.assertThrowsMessage(
-    () => Obj.magic(123n)->S.decodeOrThrow(~from=S.tuple1(S.unknown), ~to=S.json),
+    () => Obj.magic(123n)->S.convertOrThrow(~from=S.tuple1(S.unknown), ~to=S.json),
     `Expected JSON, received 123n`,
   )
 })
@@ -222,13 +222,13 @@ test("Encodes tuple with unknown item to JSON", t => {
 test("Encodes a union to JSON when at least one item is not JSON-able", t => {
   let schema = S.union([S.string, S.unknown->(U.magic: S.t<unknown> => S.t<string>)])
 
-  t->Assert.deepEqual("foo"->S.decodeOrThrow(~from=schema, ~to=S.json), JSON.Encode.string("foo"))
+  t->Assert.deepEqual("foo"->S.convertOrThrow(~from=schema, ~to=S.json), JSON.Encode.string("foo"))
   t->Assert.deepEqual(
-    %raw(`true`)->S.decodeOrThrow(~from=schema, ~to=S.json),
+    %raw(`true`)->S.convertOrThrow(~from=schema, ~to=S.json),
     JSON.Encode.bool(true),
   )
   t->U.assertThrowsMessage(
-    () => %raw(`123n`)->S.decodeOrThrow(~from=schema, ~to=S.json),
+    () => %raw(`123n`)->S.convertOrThrow(~from=schema, ~to=S.json),
     `Expected JSON, received 123n`,
   )
 
@@ -248,13 +248,13 @@ test("Encodes a union of NaN and unknown to JSON", t => {
     `i=>{for(;;){if(Number.isNaN(i)){i=null;break}e[0](i);break;}return i}`,
   )
 
-  t->Assert.deepEqual(%raw(`NaN`)->S.decodeOrThrow(~from=schema, ~to=S.json), JSON.Null)
+  t->Assert.deepEqual(%raw(`NaN`)->S.convertOrThrow(~from=schema, ~to=S.json), JSON.Null)
   t->Assert.deepEqual(
-    %raw(`"bar"`)->S.decodeOrThrow(~from=schema, ~to=S.json),
+    %raw(`"bar"`)->S.convertOrThrow(~from=schema, ~to=S.json),
     JSON.Encode.string("bar"),
   )
   t->U.assertThrowsMessage(
-    () => %raw(`123n`)->S.decodeOrThrow(~from=schema, ~to=S.json),
+    () => %raw(`123n`)->S.convertOrThrow(~from=schema, ~to=S.json),
     `Expected JSON, received 123n`,
   )
 })
@@ -361,17 +361,17 @@ module SerializesDeepRecursive = {
     t->U.assertCompiledCode(
       ~schema=bodySchema,
       ~op=#Encode,
-      `i=>{let v0;try{v0=e[0](i["condition"]);}catch(v1){v1.path="[\\"condition\\"]"+v1.path;throw v1}return {condition:v0}}`,
+      `i=>{let v0;try{v0=e[0](i["condition"]);}catch(v1){v1.path=["condition",...v1.path];throw v1}return {condition:v0}}`,
     )
     // Note: Can be optimized to not recursively validate JSON values a second time
     t->U.assertCompiledCode(
       ~schema=bodySchema,
       ~op=#EncodeToJson,
-      `i=>{let v0;try{v0=e[0](i["condition"]);}catch(v1){v1.path="[\\"condition\\"]"+v1.path;throw v1}try{e[1](v0);}catch(v2){v2.path="[\\"condition\\"]"+v2.path;throw v2}return {condition:v0}}`,
+      `i=>{let v0;try{v0=e[0](i["condition"]);}catch(v1){v1.path=["condition",...v1.path];throw v1}try{e[1](v0);}catch(v2){v2.path=["condition",...v2.path];throw v2}return {condition:v0}}`,
     )
 
     t->Assert.deepEqual(
-      {condition: condition}->S.decodeOrThrow(~from=bodySchema, ~to=S.json),
+      {condition: condition}->S.convertOrThrow(~from=bodySchema, ~to=S.json),
       {
         "condition": conditionJSON,
       }->U.magic,
@@ -389,11 +389,11 @@ test("Allows to convert union with NaN variant to JSON (NaN becomes null)", t =>
   )
 
   t->Assert.deepEqual(
-    %raw(`{n: NaN}`)->S.decodeOrThrow(~from=schema, ~to=S.json),
+    %raw(`{n: NaN}`)->S.convertOrThrow(~from=schema, ~to=S.json),
     %raw(`{n: null}`),
   )
   t->Assert.deepEqual(
-    %raw(`{n: "hi"}`)->S.decodeOrThrow(~from=schema, ~to=S.json),
+    %raw(`{n: "hi"}`)->S.convertOrThrow(~from=schema, ~to=S.json),
     %raw(`{n: "hi"}`),
   )
 })

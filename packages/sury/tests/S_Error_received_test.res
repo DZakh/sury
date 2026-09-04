@@ -88,7 +88,7 @@ test("InvalidInput error has correct received schema for nested field type misma
 // Cases where received is a specific type (not unknown)
 
 test("InvalidInput error reports number as received when float fails int32 format check", t => {
-  switch 1.5->S.decodeOrThrow(~from=S.float, ~to=S.int) {
+  switch 1.5->S.convertOrThrow(~from=S.float, ~to=S.int) {
   | _ => t->Assert.fail("Should have thrown")
   | exception S.Exn(error) =>
     switch error->S.Error.classify {
@@ -103,7 +103,7 @@ test("InvalidInput error reports number as received when float fails int32 forma
 test(
   "InvalidInput error reports string as received when string-to-number coercion produces NaN",
   t => {
-    switch "abc"->S.decodeOrThrow(~from=S.string, ~to=S.float) {
+    switch "abc"->S.convertOrThrow(~from=S.string, ~to=S.float) {
     | _ => t->Assert.fail("Should have thrown")
     | exception S.Exn(error) =>
       switch error->S.Error.classify {
@@ -117,7 +117,7 @@ test(
 )
 
 test("InvalidInput error reports string as received when string doesn't match literal", t => {
-  switch "wrong"->S.decodeOrThrow(~from=S.string, ~to=S.literal("apple")) {
+  switch "wrong"->S.convertOrThrow(~from=S.string, ~to=S.literal("apple")) {
   | _ => t->Assert.fail("Should have thrown")
   | exception S.Exn(error) =>
     switch error->S.Error.classify {

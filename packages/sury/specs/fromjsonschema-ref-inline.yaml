@@ -19,13 +19,13 @@ operations:
         output: "{ from: { x: 0, y: 0 }, to: { x: 1, y: 2 } }"
       missing-a-coordinate:
         input: "{ from: { x: 0 }, to: { x: 1, y: 2 } }"
-        error: 'Failed at ["from"]["y"]: Expected number, received undefined'
+        error: "Failed at from.y: Expected number, received undefined"
       wrong-coordinate-type:
         input: '{ from: { x: 0, y: 0 }, to: { x: 1, y: "2" } }'
-        error: 'Failed at ["to"]["y"]: Expected number, received "2"'
+        error: 'Failed at to.y: Expected number, received "2"'
       missing-a-point:
         input: "{ from: { x: 0, y: 0 } }"
-        error: 'Failed at ["to"]: Expected { x: number; y: number; }, received undefined'
+        error: "Failed at to: Expected { x: number; y: number; }, received undefined"
   decode:
     expression: i=>{let v0=i["from"],v1=i["to"];return i}
     examples:

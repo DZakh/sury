@@ -3,10 +3,13 @@ ts:
   schema: S.base64.with(S.trim).with(S.to, S.base64url)
   input: string
   output: string
-  instantiations: 5409
+  instantiations: 4593
 jsonSchema:
   input: '{ type: "string", contentEncoding: "base64" }'
   output: '{ type: "string", contentEncoding: "base64url" }'
+  openapi-3.0:
+    input: '{ type: "string", format: "byte" }'
+    output: '{ type: "string", format: "base64url" }'
 vs:
   zod:
     _skip: not-applicable

@@ -3,10 +3,13 @@ ts:
   schema: S.port.with(S.gt, 80)
   input: number
   output: number
-  instantiations: 582
+  instantiations: 578
 jsonSchema:
   input: '{ type: "integer", maximum: 65535, exclusiveMinimum: 80 }'
   output: '{ type: "integer", maximum: 65535, exclusiveMinimum: 80 }'
+  openapi-3.0:
+    input: '{ type: "integer", maximum: 65535, minimum: 80, exclusiveMinimum: true }'
+    output: '{ type: "integer", maximum: 65535, minimum: 80, exclusiveMinimum: true }'
 vs:
   zod:
     _skip: not-applicable

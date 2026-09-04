@@ -25,7 +25,7 @@ test("Keeps operation of the error passed to S.Error.throw", t => {
 
   t->U.assertThrowsMessage(
     () => ["Hello world!"]->S.parseOrThrow(~to=schema),
-    `Failed at ["0"]["a"]["b"]: User error`,
+    `Failed at [0].a.b: User error`,
   )
 })
 
@@ -49,7 +49,7 @@ test("Prepends the field path to a thrown error", t => {
 
   t->U.assertThrowsMessage(
     () => {"field": "Hello world!"}->S.parseOrThrow(~to=schema),
-    `Failed at ["field"]["a"]["b"]: User error`,
+    `Failed at field.a.b: User error`,
   )
 })
 
@@ -71,6 +71,6 @@ test("Prepends the field and item path to a thrown error inside an array", t => 
 
   t->U.assertThrowsMessage(
     () => {"field": ["Hello world!"]}->S.parseOrThrow(~to=schema),
-    `Failed at ["field"]["0"]["a"]["b"]: User error`,
+    `Failed at field[0].a.b: User error`,
   )
 })

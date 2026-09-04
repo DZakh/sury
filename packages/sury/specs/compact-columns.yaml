@@ -3,7 +3,7 @@ ts:
   schema: "S.compactColumns(S.unknown).with(S.to, S.array(S.schema({ id: S.number, name: S.string })))"
   input: unknown[][]
   output: "{ id: number; name: string; }[]"
-  instantiations: 7061
+  instantiations: 6247
 jsonSchema:
   input: "Failed at [][]: Expected JSON, received unknown"
   output: '{ items: { type: "object", properties: { id: { type: "number" }, name: { type: "string" } }, required: ["id", "name"] }, type: "array" }'
@@ -12,7 +12,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{Array.isArray(i)&&i.length===2&&Array.isArray(i[0])&&Array.isArray(i[1])||e[2](i);let v1=new Array(Math.max(i[0].length,i[1].length));for(let v0=0;v0<v1.length;++v0){try{let v2=i[0][v0];typeof v2==="number"&&v2===v2||e[0](v2);let v3=i[1][v0];typeof v3==="string"||e[1](v3);v1[v0]={id:v2,name:v3};}catch(v4){v4.path='["'+v0+'"]'+v4.path;throw v4}}return v1}
+    expression: i=>{Array.isArray(i)&&i.length===2&&Array.isArray(i[0])&&Array.isArray(i[1])||e[2](i);let v1=new Array(Math.max(i[0].length,i[1].length));for(let v0=0;v0<v1.length;++v0){try{let v2=i[0][v0];typeof v2==="number"&&v2===v2||e[0](v2);let v3=i[1][v0];typeof v3==="string"||e[1](v3);v1[v0]={id:v2,name:v3};}catch(v4){v4.path=[v0,...v4.path];throw v4}}return v1}
     examples:
       valid:
         input: '[[1, 2], ["a", "b"]]'
@@ -22,10 +22,10 @@ operations:
         output: "[]"
       ragged-columns:
         input: '[[1, 2], ["a"]]'
-        error: 'Failed at ["1"]["name"]: Expected string, received undefined'
+        error: "Failed at [1].name: Expected string, received undefined"
       invalid-column-value:
         input: '[["not a number"], ["a"]]'
-        error: 'Failed at ["0"]["id"]: Expected number, received "not a number"'
+        error: 'Failed at [0].id: Expected number, received "not a number"'
       not-columnar:
         input: '"nope"'
         error: Expected [number[], string[]], received "nope"
@@ -33,14 +33,14 @@ operations:
         input: "[[1, 2]]"
         error: Expected [number[], string[]], received [Array(2)]
   decode:
-    expression: i=>{let v1=new Array(Math.max(i[0].length,i[1].length));for(let v0=0;v0<v1.length;++v0){try{let v2=i[0][v0];typeof v2==="number"&&v2===v2||e[0](v2);let v3=i[1][v0];typeof v3==="string"||e[1](v3);v1[v0]={id:v2,name:v3};}catch(v4){v4.path='["'+v0+'"]'+v4.path;throw v4}}return v1}
+    expression: i=>{let v1=new Array(Math.max(i[0].length,i[1].length));for(let v0=0;v0<v1.length;++v0){try{let v2=i[0][v0];typeof v2==="number"&&v2===v2||e[0](v2);let v3=i[1][v0];typeof v3==="string"||e[1](v3);v1[v0]={id:v2,name:v3};}catch(v4){v4.path=[v0,...v4.path];throw v4}}return v1}
     examples:
       valid:
         input: '[[1, 2], ["a", "b"]]'
         output: '[{ id: 1, name: "a" }, { id: 2, name: "b" }]'
       invalid-column-value:
         input: '[["not a number"], ["a"]]'
-        error: 'Failed at ["0"]["id"]: Expected number, received "not a number"'
+        error: 'Failed at [0].id: Expected number, received "not a number"'
   encode:
     expression: i=>{let v3=[new Array(i.length),new Array(i.length)];for(let v2=0;v2<i.length;++v2){v3[0][v2]=i[v2]["id"];v3[1][v2]=i[v2]["name"];}return v3}
     examples:

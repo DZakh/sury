@@ -10,7 +10,7 @@ test("Parses with a custom decode to the same type and a validating Auto encode"
   t->Assert.deepEqual("  Hello world!"->S.parseOrThrow(~to=schema), "Hello world!")
   // Auto encode is the built-in string -> string validating pass-through.
   t->Assert.deepEqual(
-    "Hello world!"->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    "Hello world!"->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`"Hello world!"`),
   )
 })
@@ -58,7 +58,7 @@ test("A never encode rejects the encode operation at creation", t => {
 
   t->Assert.deepEqual("Hello world!"->S.parseOrThrow(~to=schema), %raw(`"Hello world!"`))
   t->U.assertThrowsMessage(
-    () => "Hello world!"->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    () => "Hello world!"->S.convertOrThrow(~from=schema, ~to=S.unknown),
     `Can't decode unknown to string. The conversion is marked as never`,
   )
 })
@@ -95,7 +95,7 @@ test("Uses the path from S.Error.throw called in the custom decode", t => {
 
   t->U.assertThrowsMessage(
     () => ["Hello world!"]->S.parseOrThrow(~to=schema),
-    `Failed at ["0"]["a"]["b"]: User error`,
+    `Failed at [0].a.b: User error`,
   )
 })
 
@@ -123,8 +123,8 @@ test("Uses the path from S.Error.throw called in the custom encode", t => {
   )
 
   t->U.assertThrowsMessage(
-    () => ["Hello world!"]->S.decodeOrThrow(~from=schema, ~to=S.json),
-    `Failed at ["0"]["a"]["b"]: User error`,
+    () => ["Hello world!"]->S.convertOrThrow(~from=schema, ~to=S.json),
+    `Failed at [0].a.b: User error`,
   )
 })
 
@@ -136,7 +136,7 @@ test("All errors thrown in operation context are caught and wrapped in SuryError
 
   t->U.assertThrowsMessage(
     () => {["Hello world!"]->S.parseOrThrow(~to=schema)},
-    `Failed at ["0"]: Application crashed`,
+    `Failed at [0]: Application crashed`,
   )
   switch ["Hello world!"]->S.parseOrThrow(~to=schema) {
   | _ => t->Assert.fail("Didn't throw")
@@ -155,7 +155,7 @@ test("Operation context catches ReScript exceptions as they are", t => {
 
   t->U.assertThrowsMessage(
     () => {["Hello world!"]->S.parseOrThrow(~to=schema)},
-    `Failed at ["0"]: { RE_EXN_ID: "U.Test"; Error: Error; }`,
+    `Failed at [0]: { RE_EXN_ID: "U.Test"; Error: Error; }`,
   )
 })
 
@@ -163,7 +163,7 @@ test("Successfully serializes with a custom encode to the same type", t => {
   let schema = S.string->S.to(S.any, ~custom={decode: Never, encode: Sync(String.trim)})
 
   t->Assert.deepEqual(
-    "  Hello world!"->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    "  Hello world!"->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`"Hello world!"`),
   )
 })
@@ -172,7 +172,7 @@ test("Successfully serializes with a custom encode to another type", t => {
   let schema =
     S.float->S.to(S.any, ~custom={decode: Never, encode: Sync(value => value->Int.toFloat)})
 
-  t->Assert.deepEqual(123->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`123`))
+  t->Assert.deepEqual(123->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`123`))
 })
 
 test("Fails to serialize when user throws error in a custom encode", t => {
@@ -180,7 +180,7 @@ test("Fails to serialize when user throws error in a custom encode", t => {
     S.string->S.to(S.any, ~custom={decode: Never, encode: Sync(_ => U.fail("User error"))})
 
   t->U.assertThrowsMessage(
-    () => "Hello world!"->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    () => "Hello world!"->S.convertOrThrow(~from=schema, ~to=S.unknown),
     `User error`,
   )
 })
@@ -201,7 +201,7 @@ test("Custom encodes applied in the right order when serializing", t => {
     ->S.to(S.any, ~custom={decode: Never, encode: Sync(_ => U.fail("Second transform"))})
 
   t->U.assertThrowsMessage(
-    () => 123->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    () => 123->S.convertOrThrow(~from=schema, ~to=S.unknown),
     `Second transform`,
   )
 })
@@ -216,7 +216,7 @@ test("Successfully parses a custom codec pair and serializes back to the initial
     )
 
   t->Assert.deepEqual(
-    any->S.parseOrThrow(~to=schema)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    any->S.parseOrThrow(~to=schema)->S.convertOrThrow(~from=schema, ~to=S.unknown),
     any,
   )
 })
@@ -241,7 +241,7 @@ test("Successfully serializes with the codec-less S.to(S.any)", t => {
   let schema = S.string->S.to(S.any)
 
   t->Assert.deepEqual(
-    "Hello world!"->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    "Hello world!"->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`"Hello world!"`),
   )
 })
@@ -281,10 +281,10 @@ asyncTest("An async encode compiles through the reversed chain", async t => {
   // Async-ness is discovered by catching the sync operation's rejection —
   // there is no S.isAsync probe.
   t->U.assertThrowsMessage(
-    () => "abc"->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    () => "abc"->S.convertOrThrow(~from=schema, ~to=S.unknown),
     `Invalid async during sync operation`,
   )
-  t->Assert.deepEqual(await "abc"->S.decodeAsyncOrThrow(~from=schema, ~to=S.unknown), %raw(`"abc"`))
+  t->Assert.deepEqual(await "abc"->S.convertAsyncOrThrow(~from=schema, ~to=S.unknown), %raw(`"abc"`))
 })
 
 asyncTest("Can apply other actions after async decode", t => {
@@ -406,8 +406,8 @@ test("Refines the coder's result, not what went into it", t => {
   let schema = S.uuid->S.to(
     userSchema,
     ~custom={
-      decode: Sync(id => {"id": id, "name": "John"}),
-      encode: Sync(user => user["id"]),
+      decode: Sync(id => {"id": (id :> string), "name": "John"}),
+      encode: Sync(user => S.Uuid(user["id"])),
     },
   )
 
@@ -417,7 +417,7 @@ test("Refines the coder's result, not what went into it", t => {
     `i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}e[2].test(v0)||e[3](v0);return v0}`,
   )
   t->Assert.deepEqual(
-    {"id": "6d8d3a9a-1e0a-4f6a-9a4a-0f2d3f4a5b6c", "name": "John"}->S.decodeOrThrow(
+    {"id": "6d8d3a9a-1e0a-4f6a-9a4a-0f2d3f4a5b6c", "name": "John"}->S.convertOrThrow(
       ~from=schema,
       ~to=S.unknown,
     ),
@@ -425,7 +425,7 @@ test("Refines the coder's result, not what went into it", t => {
   )
   t->U.assertThrowsMessage(() =>
     {"id": "not-a-uuid", "name": "John"}
-    ->S.decodeOrThrow(~from=schema, ~to=S.unknown)
+    ->S.convertOrThrow(~from=schema, ~to=S.unknown)
     ->ignore
   , `Expected uuid, received "not-a-uuid"`)
 })
@@ -434,11 +434,14 @@ test("Picks a reading for a content link the way the ambiguity report says to", 
   // The report names `"pack"`/`"unpack"`, so the binding has to offer them —
   // without Pack/Unpack the remedy it points at is unwritable from ReScript.
   let packed = S.base64->S.to(S.jsonString, ~custom={decode: Pack, encode: Unpack})
-  t->Assert.deepEqual("aGk="->S.parseOrThrow(~to=packed), `"aGk="`)
-  t->Assert.deepEqual(`"aGk="`->S.decodeOrThrow(~from=packed, ~to=S.base64), "aGk=")
+  t->Assert.deepEqual("aGk="->S.parseOrThrow(~to=packed), S.JsonString(`"aGk="`))
+  t->Assert.deepEqual(
+  S.JsonString(`"aGk="`)->S.convertOrThrow(~from=packed, ~to=S.base64),
+  S.Base64("aGk="),
+)
 
   let opened = S.base64->S.to(S.jsonString, ~custom={decode: Unpack, encode: Pack})
-  t->Assert.deepEqual(`eyJhIjoxfQ==`->S.parseOrThrow(~to=opened), `{"a":1}`)
+  t->Assert.deepEqual(`eyJhIjoxfQ==`->S.parseOrThrow(~to=opened), S.JsonString(`{"a":1}`))
 
   t->U.assertThrowsMessage(
     () => "aGk="->S.parseOrThrow(~to=S.base64->S.to(S.jsonString))->ignore,

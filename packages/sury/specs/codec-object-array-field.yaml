@@ -3,7 +3,7 @@ ts:
   schema: "S.schema({ x: S.array(S.string) }).with(S.to, S.schema({ x: S.array(S.string) }), { decode: (v) => v, encode: (v) => v })"
   input: "{ x: string[]; }"
   output: "{ x: string[]; }"
-  instantiations: 6989
+  instantiations: 6175
 jsonSchema:
   input: '{ type: "object", properties: { x: { items: { type: "string" }, type: "array" } }, required: ["x"] }'
   output: '{ type: "object", properties: { x: { items: { type: "string" }, type: "array" } }, required: ["x"] }'
@@ -15,19 +15,19 @@ operations:
   # (`let v0=i["x"]`) and never read it — the coder takes the object whole, and
   # the array decoder materializes a var before finding it has no loop to emit.
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[7](i);let v0=i["x"];Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"||e[0](v2);}catch(v3){v3.path="[\"x\"]"+'["'+v1+'"]'+v3.path;throw v3}}let v4;try{v4=e[2]({x:v0})}catch(x){e[3](x)}typeof v4==="object"&&v4&&!Array.isArray(v4)||e[6](v4);let v5=v4["x"];Array.isArray(v5)||e[5](v5);for(let v6=0;v6<v5.length;++v6){try{let v7=v5[v6];typeof v7==="string"||e[4](v7);}catch(v8){v8.path="[\"x\"]"+'["'+v6+'"]'+v8.path;throw v8}}return {x:v5}}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[7](i);let v0=i["x"];Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"||e[0](v2);}catch(v3){v3.path=["x",v1,...v3.path];throw v3}}let v4;try{v4=e[2]({x:v0})}catch(x){e[3](x)}typeof v4==="object"&&v4&&!Array.isArray(v4)||e[6](v4);let v5=v4["x"];Array.isArray(v5)||e[5](v5);for(let v6=0;v6<v5.length;++v6){try{let v7=v5[v6];typeof v7==="string"||e[4](v7);}catch(v8){v8.path=["x",v6,...v8.path];throw v8}}return {x:v5}}
     examples:
       round-trip:
         input: '{ x: ["a"] }'
         output: '{ x: ["a"] }'
   decode:
-    expression: i=>{let v0=i["x"];let v2;try{v2=e[0](i)}catch(x){e[1](x)}typeof v2==="object"&&v2&&!Array.isArray(v2)||e[4](v2);let v3=v2["x"];Array.isArray(v3)||e[3](v3);for(let v4=0;v4<v3.length;++v4){try{let v5=v3[v4];typeof v5==="string"||e[2](v5);}catch(v6){v6.path="[\"x\"]"+'["'+v4+'"]'+v6.path;throw v6}}return {x:v3}}
+    expression: i=>{let v0=i["x"];let v2;try{v2=e[0](i)}catch(x){e[1](x)}typeof v2==="object"&&v2&&!Array.isArray(v2)||e[4](v2);let v3=v2["x"];Array.isArray(v3)||e[3](v3);for(let v4=0;v4<v3.length;++v4){try{let v5=v3[v4];typeof v5==="string"||e[2](v5);}catch(v6){v6.path=["x",v4,...v6.path];throw v6}}return {x:v3}}
     examples:
       round-trip:
         input: '{ x: ["a"] }'
         output: '{ x: ["a"] }'
   encode:
-    expression: i=>{let v0=i["x"];let v2;try{v2=e[0](i)}catch(x){e[1](x)}typeof v2==="object"&&v2&&!Array.isArray(v2)||e[4](v2);let v3=v2["x"];Array.isArray(v3)||e[3](v3);for(let v4=0;v4<v3.length;++v4){try{let v5=v3[v4];typeof v5==="string"||e[2](v5);}catch(v6){v6.path="[\"x\"]"+'["'+v4+'"]'+v6.path;throw v6}}return {x:v3}}
+    expression: i=>{let v0=i["x"];let v2;try{v2=e[0](i)}catch(x){e[1](x)}typeof v2==="object"&&v2&&!Array.isArray(v2)||e[4](v2);let v3=v2["x"];Array.isArray(v3)||e[3](v3);for(let v4=0;v4<v3.length;++v4){try{let v5=v3[v4];typeof v5==="string"||e[2](v5);}catch(v6){v6.path=["x",v4,...v6.path];throw v6}}return {x:v3}}
     examples:
       round-trip:
         input: '{ x: ["a"] }'

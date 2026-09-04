@@ -3,7 +3,7 @@ ts:
   schema: '((Inner) => S.recursive("Outer", (outer) => S.schema({ inner: Inner, next: S.optional(outer) })))(S.recursive("Inner", (inner) => S.schema({ v: S.string, next: S.optional(inner) })))'
   input: unknown
   output: unknown
-  instantiations: 11176
+  instantiations: 9528
 jsonSchema:
   input: '{ $ref: "#/$defs/Outer", $defs: { Outer: { type: "object", properties: { inner: { $ref: "#/$defs/Inner" }, next: { $ref: "#/$defs/Outer" } }, required: ["inner"] }, Inner: { type: "object", properties: { v: { type: "string" }, next: { $ref: "#/$defs/Inner" } }, required: ["v"] } } }'
   fromInputType: "{ inner: { v: string; next?: ... | undefined; }; next?: ... | undefined; }"
@@ -25,7 +25,7 @@ operations:
       inner-wrong-type-at-depth:
         input: '{ inner: { v: "a", next: { v: 1 } } }'
         error: |-
-          Failed at ["inner"]["next"]: Expected Inner | undefined, received { v: 1; }
-          - At ["next"]["v"]: Expected string, received 1
+          Failed at inner.next: Expected Inner | undefined, received { v: 1; }
+          - At next.v: Expected string, received 1
   decode: eq-to-parse
   encode: eq-to-parse

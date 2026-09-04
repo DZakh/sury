@@ -3,10 +3,15 @@ ts:
   schema: S.base64.with(S.trim).with(S.to, S.jsonString)
   input: string
   output: string
-  instantiations: 5409
+  instantiations: 4593
 jsonSchema:
   input: '{ type: "string", contentEncoding: "base64" }'
   output: '{ type: "string", contentMediaType: "application/json" }'
+  draft-2020-12:
+    output: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "string", contentEncoding: "base64" }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ type: "string", format: "byte" }'
+    output: '{ type: "string" }'
 vs:
   zod:
     _skip: not-applicable

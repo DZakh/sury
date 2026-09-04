@@ -4,17 +4,16 @@ import * as S from "../src/S.res.mjs";
 import * as Sury from "sury";
 import * as Vitest from "./Vitest.res.mjs";
 import * as Stdlib_Dict from "@rescript/runtime/lib/es6/Stdlib_Dict.js";
-import * as Primitive_option from "@rescript/runtime/lib/es6/Primitive_option.js";
 import * as Primitive_exceptions from "@rescript/runtime/lib/es6/Primitive_exceptions.js";
 
-let noopOpCode = S.decoder(Sury.unknown, Sury.unknown).toString();
+let noopOpCode = S.compileConvertOrThrow(Sury.unknown, undefined, Sury.unknown).toString();
 
 function throwError(error) {
   throw error;
 }
 
 function fail(message, pathOpt) {
-  let path = pathOpt !== undefined ? Primitive_option.valFromOption(pathOpt) : S.Path.empty;
+  let path = pathOpt !== undefined ? pathOpt : S.Path.empty;
   throw new Sury.Error({
     code: "invalid_input",
     path: path,
@@ -96,23 +95,23 @@ async function asyncAssertThrowsMessage(t, cb, errorMessage, message) {
 function getCompiledCodeString(schema, op, embedded) {
   let toFn = schema => {
     if (op === "Parse") {
-      return S.decoder(Sury.unknown, schema);
+      return S.compileConvertOrThrow(Sury.unknown, undefined, schema);
     } else if (op === "EncodeToJson") {
-      return S.decoder(schema, Sury.json);
+      return S.compileConvertOrThrow(schema, undefined, Sury.json);
     } else if (op === "Convert") {
-      return S.decoder(Sury.reverse(schema), Sury.unknown);
+      return S.compileConvertOrThrow(Sury.reverse(schema), undefined, Sury.unknown);
     } else if (op === "Assert") {
-      return S.decoder(Sury.unknown, S.to(schema, Sury.noValidation(Sury.literal(), true), undefined));
+      return S.compileConvertOrThrow(Sury.unknown, undefined, S.to(schema, Sury.noValidation(Sury.literal(), true), undefined));
     } else if (op === "EncodeAsync") {
-      return S.asyncDecoder(schema, Sury.unknown);
+      return S.compileConvertAsyncOrThrow(schema, undefined, Sury.unknown);
     } else if (op === "ReverseParse") {
-      return S.decoder(Sury.unknown, Sury.reverse(schema));
+      return S.compileConvertOrThrow(Sury.unknown, undefined, Sury.reverse(schema));
     } else if (op === "ConvertAsync") {
-      return S.asyncDecoder(Sury.reverse(schema), Sury.unknown);
+      return S.compileConvertAsyncOrThrow(Sury.reverse(schema), undefined, Sury.unknown);
     } else if (op === "Encode") {
-      return S.decoder(schema, Sury.unknown);
+      return S.compileConvertOrThrow(schema, undefined, Sury.unknown);
     } else {
-      return S.asyncDecoder(Sury.unknown, schema);
+      return S.compileConvertAsyncOrThrow(Sury.unknown, undefined, schema);
     }
   };
   let fn = toFn(schema);
@@ -184,7 +183,7 @@ function assertCompiledCodeIsNoop(t, schema, op, message) {
 }
 
 function assertReverseParsesBack(t, schema, value) {
-  Vitest.Assert.unsafeDeepEqual(t, S.parseOrThrow(S.decodeOrThrow(value, schema, Sury.unknown), schema), value, undefined);
+  Vitest.Assert.unsafeDeepEqual(t, S.parseOrThrow(S.convertOrThrow(value, schema, undefined, Sury.unknown), schema), value, undefined);
 }
 
 function assertReverseReversesBack(t, schema) {

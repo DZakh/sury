@@ -3,11 +3,13 @@ ts:
   schema: 'S.json.with(S.to, S.schema({ value: S.union([S.schema({ type: "B", value: S.optional(S.string.with(S.to, S.date)) }), S.schema({ type: "C", value: S.optional(S.string.with(S.to, S.date)) })]) }))'
   input: JSON
   output: '{ value: { type: "B"; value?: Date | undefined; } | { type: "C"; value?: Date | undefined; }; }'
-  instantiations: 14197
+  instantiations: 13352
 jsonSchema:
   input: '{ type: "object", properties: { value: { anyOf: [{ type: "object", properties: { type: { type: "string", const: "B" }, value: { type: "string", format: "date-time" } }, additionalProperties: false, required: ["type"] }, { type: "object", properties: { type: { type: "string", const: "C" }, value: { type: "string", format: "date-time" } }, additionalProperties: false, required: ["type"] }] } }, additionalProperties: false, required: ["value"] }'
   fromInputType: '{ value: { type: "B"; value?: string | undefined; } | { type: "C"; value?: string | undefined; }; }'
-  output: 'Failed at ["value"]["value"]: Expected JSON, received Date | undefined'
+  output: "Failed at value.value: Expected JSON, received Date | undefined"
+  openapi-3.0:
+    input: '{ type: "object", properties: { value: { anyOf: [{ type: "object", properties: { type: { type: "string", enum: ["B"] }, value: { type: "string", format: "date-time" } }, additionalProperties: false, required: ["type"] }, { type: "object", properties: { type: { type: "string", enum: ["C"] }, value: { type: "string", format: "date-time" } }, additionalProperties: false, required: ["type"] }] } }, additionalProperties: false, required: ["value"] }'
 vs:
   zod:
     _skip: not-applicable
@@ -23,15 +25,15 @@ operations:
         output: '{ value: { type: "C", value: undefined } }'
       unknown-tag:
         input: '{ value: { type: "D" } }'
-        error: 'Failed at ["value"]: Expected { type: "B"; value: string | undefined; } | { type: "C"; value: string | undefined; }, received { type: "D"; }'
+        error: 'Failed at value: Expected { type: "B"; value: string | undefined; } | { type: "C"; value: string | undefined; }, received { type: "D"; }'
       invalid-date-text:
         input: '{ value: { type: "B", value: "nope" } }'
         error: |-
-          Failed at ["value"]["value"]: Expected string | undefined, received "nope"
-          - At ["value"]["value"]: Expected Date, received invalid Date
+          Failed at value.value: Expected string | undefined, received "nope"
+          - At value.value: Expected Date, received invalid Date
   decode: eq-to-parse
   encode:
-    expression: i=>{let v0=i["value"];if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0["type"]==="B"){let v1=v0["value"];for(;;){if(v1 instanceof e[0]){v1=v0["value"].toISOString();break}if(v1===void 0)break;e[1](v1)}v0={type:"B",value:v1};break}if(v0["type"]==="C"){let v2=v0["value"];for(;;){if(v2 instanceof e[2]){v2=v0["value"].toISOString();break}if(v2===void 0)break;e[3](v2)}v0={type:"C",value:v2};break}e[4](v0)}}else{e[5](v0)}if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0["type"]==="B"){let v4=v0["value"];let v3={type:"B"};if(v4!==void 0){v3["value"]=v4}v0=v3;break}if(v0["type"]==="C"){let v6=v0["value"];let v5={type:"C"};if(v6!==void 0){v5["value"]=v6}v0=v5;break}e[6](v0)}}else{e[7](v0)}return {value:v0}}
+    expression: i=>{let v0=i["value"];if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0["type"]==="B"){let v2=v0["value"];for(;;){if(v2 instanceof e[1]){let v1;try{v1=v2.toISOString()}catch(_){e[0](v2)}v2=v1;break}if(v2===void 0)break;e[2](v2)}v0={type:"B",value:v2};break}if(v0["type"]==="C"){let v4=v0["value"];for(;;){if(v4 instanceof e[4]){let v3;try{v3=v4.toISOString()}catch(_){e[3](v4)}v4=v3;break}if(v4===void 0)break;e[5](v4)}v0={type:"C",value:v4};break}e[6](v0)}}else{e[7](v0)}if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0["type"]==="B"){let v6=v0["value"];let v5={type:"B"};if(v6!==void 0){v5["value"]=v6}v0=v5;break}if(v0["type"]==="C"){let v8=v0["value"];let v7={type:"C"};if(v8!==void 0){v7["value"]=v8}v0=v7;break}e[8](v0)}}else{e[9](v0)}return {value:v0}}
     examples:
       b-with-date:
         input: '{ value: { type: "B", value: new Date("2024-01-01T00:00:00.000Z") } }'

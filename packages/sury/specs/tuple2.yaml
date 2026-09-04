@@ -9,6 +9,14 @@ ts:
 jsonSchema:
   input: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string", const: "bar" }, { type: "number" }] }'
   output: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string", const: "bar" }, { type: "number" }] }'
+  draft-2020-12:
+    input: '{ type: "array", minItems: 2, maxItems: 2, prefixItems: [{ type: "string", const: "bar" }, { type: "number" }], $schema: "https://json-schema.org/draft/2020-12/schema" }'
+    output: '{ type: "array", minItems: 2, maxItems: 2, prefixItems: [{ type: "string", const: "bar" }, { type: "number" }], $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ type: "array", minItems: 2, maxItems: 2, items: { anyOf: [{ type: "string", enum: ["bar"] }, { type: "number" }] } }'
+    fromInputType: '[number | "bar", number | "bar"]'
+    output: '{ type: "array", minItems: 2, maxItems: 2, items: { anyOf: [{ type: "string", enum: ["bar"] }, { type: "number" }] } }'
+    fromOutputType: '[number | "bar", number | "bar"]'
 vs:
   zod: z.tuple([z.literal("bar"), z.number()])
 operations:
@@ -23,9 +31,9 @@ operations:
         error: Expected ["bar", number], received ["bar"]
       invalid-literal:
         input: '["baz", 42]'
-        error: 'Failed at ["0"]: Expected "bar", received "baz"'
+        error: 'Failed at [0]: Expected "bar", received "baz"'
       invalid-item:
         input: '["bar", "not a number"]'
-        error: 'Failed at ["1"]: Expected number, received "not a number"'
+        error: 'Failed at [1]: Expected number, received "not a number"'
   decode: identity
   encode: identity

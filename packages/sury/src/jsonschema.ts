@@ -30,7 +30,6 @@ import {
   pathConcat,
   pathDynamic,
   pathEmpty,
-  pathFromLocation,
   refTag,
   stringTag,
   SuryError,
@@ -146,7 +145,7 @@ export type JSONSchemaDefinition = JSONSchemaT | boolean;
  * Every JSON Schema keyword the converters read or write, across all supported
  * dialects. The same set is spelled out in JSONSchema.res (the ReScript-facing
  * type) and in src/types/jsonschema.d.ts (the JS-facing `JSONSchema`, which also
- * splits per dialect for `toJSONSchema`'s result). A keyword added to one
+ * splits per dialect for `inputJSONSchema`'s result). A keyword added to one
  * belongs in all three.
  *
  * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01
@@ -350,6 +349,26 @@ const internalToJSONSchema = (
   // to keep describing. Object/array still need their nested item metadata, so
   // they keep using the base path.
   const tagFlag = tagFlags[schema.type]!;
+  const to = schema.to;
+  // A string converted to a string carrying the same content (`S.email` to
+  // `S.string`, or back) is the same text checked both ways, so it is the two
+  // nodes' own descriptions overlaid. The encode-reverse below can't tell:
+  // the identity conversion leaves the reversed node, `.to` and all, as the
+  // parse output, and reversing that hands back the one being reversed. A
+  // content boundary (`S.base64` to `S.jsonString`) is a repacking, not the
+  // same text, and keeps the reverse.
+  if (
+    to !== U &&
+    (tagFlag & 2) &&
+    (tagFlags[to.type]! & 2) &&
+    to.to === U &&
+    to.content === schema.content
+  ) {
+    return jsonSchemaMerge(
+      internalToJSONSchemaBase(to, path, defs, parent, target),
+      internalToJSONSchemaBase(schema, path, defs, parent, target)
+    );
+  }
   const hasUserTo =
     !!schema.to &&
     !(tagFlag & (64 | 128)) &&
@@ -491,9 +510,7 @@ const internalToJSONSchemaBase = (
       if (schema.minItems !== U) jsonSchema.minItems = schema.minItems;
       if (schema.maxItems !== U) jsonSchema.maxItems = schema.maxItems;
     } else {
-      const itemDefinitions = items.map((item, i) =>
-        js(item, pathConcat(path, pathFromLocation("" + i)))
-      );
+      const itemDefinitions = items.map((item, i) => js(item, pathConcat(path, [i])));
       const itemsNumber = itemDefinitions.length;
       let minItems = itemsNumber;
       if (typeof additionalItems === "object") {
@@ -589,7 +606,7 @@ const internalToJSONSchemaBase = (
     for (const key of Object.keys(properties)) {
       const itemSchema = properties[key]!;
       if (!isOptional(itemSchema)) required.push(key);
-      jsonProperties[key] = js(itemSchema, pathConcat(path, pathFromLocation(key)));
+      jsonProperties[key] = js(itemSchema, pathConcat(path, [key]));
     }
 
     jsonSchema.type = "object";
@@ -630,10 +647,10 @@ const internalToJSONSchemaBase = (
   return jsonSchema;
 }
 
-export type toJSONSchemaOptions = { target?: JsonSchemaTarget };
+export type JSONSchemaOptions = { target?: JsonSchemaTarget };
 
 // @__NO_SIDE_EFFECTS__
-export const toJSONSchema = (schema: Internal, options?: toJSONSchemaOptions): JSONSchemaT => {
+export const inputJSONSchema = (schema: Internal, options?: JSONSchemaOptions): JSONSchemaT => {
   // When no options object is provided we keep the historical behavior: default
   // to "draft-07" and do NOT stamp `$schema`. With options, an unsupported
   // target throws up front (even for openapi-3.0, which stamps no `$schema`).
@@ -668,18 +685,23 @@ export const toJSONSchema = (schema: Internal, options?: toJSONSchemaOptions): J
   return jsonSchema;
 };
 
-// Wiring this inside a function (vs top level) is what makes toJSONSchema/reverse tree-shakeable.
+// `S.reverse` swaps Input <-> Output, and the conversion always describes the
+// input type of what it receives.
+// @__NO_SIDE_EFFECTS__
+export const outputJSONSchema = (schema: Internal, options?: JSONSchemaOptions): JSONSchemaT =>
+  inputJSONSchema(reverse(schema), options);
+
+// Wiring this inside a function (vs top level) is what makes the converter and
+// `reverse` tree-shakeable.
 //
 // Mirrors @valibot/to-json-schema's `toStandardJsonSchema`: the `target` option
 // selects the JSON Schema dialect (and the stamped `$schema` URI), and an
-// unsupported target throws. `output` converts the reversed schema, since
-// `S.reverse` swaps Input <-> Output and `toJSONSchema` returns the input-type
-// schema of whatever it receives.
+// unsupported target throws.
 export const enableStandardJSONSchema = (): void => {
   __setStandardJSONSchemaConverter((schema, options, isOutput) =>
-    // Passing an options object (vs none) is what makes `toJSONSchema` stamp
+    // Passing an options object (vs none) is what makes the conversion stamp
     // `$schema`, which the Standard JSON Schema spec requires.
-    toJSONSchema(isOutput ? reverse(schema) : schema, { target: options.target })
+    (isOutput ? outputJSONSchema : inputJSONSchema)(schema, { target: options.target })
   );
 };
 
@@ -719,7 +741,7 @@ const primitiveToSchema = (primitive: unknown): Internal =>
       deepStrict(schemaFactory(JSON.parse(JSON.stringify(primitive))))
     : Literal_parse(primitive);
 
-// The inverse of the format pass-through in toJSONSchema. Every format name
+// The inverse of the format pass-through in inputJSONSchema. Every format name
 // Sury can emit has to round-trip back to the schema that emitted it, so a
 // format added on one side without the other is a reversibility bug — with the
 // `jsonSchemaFormat` family the one exception, since what it emits is the
@@ -1081,10 +1103,10 @@ const resolveRef = (ref: string, ctx: RefContext): Internal => {
   }
 
   // The pointer's last segment is the name the document already uses for the
-  // definition, so a round-trip through toJSONSchema keeps it. `#` points at
+  // definition, so a JSON Schema round-trip keeps it. `#` points at
   // the document itself and has no segment to take. `/`, `~` and `%` can't
   // keep: recursiveDecoder slices the raw suffix off `$ref`, so they'd come
-  // back out of toJSONSchema as a pointer that resolves to a different key.
+  // back out as a pointer that resolves to a different key.
   const base =
     ref === "#"
       ? "Root"
@@ -1177,7 +1199,7 @@ const keyMatchesPattern = (key: string, patterns: PatternProp[]): boolean => {
 
 // The JSON rendering of a definition that only ever runs through
 // `passesSchema` — a keyword whose constraint no Sury schema carries, so
-// `toJSONSchema` of the built schema would return the shape the refinement sits
+// The JSON Schema of the built schema would return the shape the refinement sits
 // on, not the keyword. The document's own text is the rendering, with one
 // rewrite it can't skip: a `$ref` whose target turned out finite was inlined
 // and has no `$defs` entry left to point at, so it expands here. Only a `$ref`
@@ -1199,7 +1221,7 @@ const assertionToJSONDefinition = (
       if (!ctx.cyc[ref]) {
         const target = resolved ?? ctx.built[ref];
         if (target === U) return refError(`Failed to resolve JSON Schema $ref: ${ref}`);
-        const expanded = toJSONSchema(target);
+        const expanded = inputJSONSchema(target);
         if (!ctx.refSiblings) return expanded;
         const rewritten = rewrite(siblings);
         return isAnyJSONSchema(rewritten)

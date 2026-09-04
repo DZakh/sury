@@ -3,7 +3,7 @@ ts:
   schema: 'S.union([S.string.with(S.to, S.number, { decode: { async: (value) => Promise.resolve(value.length) }, encode: (value) => "x".repeat(value) }), S.number])'
   input: string | number
   output: number
-  instantiations: 6173
+  instantiations: 5328
 jsonSchema:
   input: '{ anyOf: [{ type: "string" }, { type: "number" }] }'
   output: '{ type: "number" }'
@@ -23,7 +23,7 @@ operations:
         output: "5"
   decode: eq-to-parse
   encode:
-    expression: i=>{for(;;){let r;if(typeof i==="number"&&i===i){try{let v0;try{v0=e[0](i)}catch(x){e[1](x);e[2](x)}typeof v0==="string"||e[3](v0);i=v0;break}catch(x){(r||(r=[])).push(e[4](x))}break}e[5](i,...(r||[]))}return i}
+    expression: i=>{for(;;){let r;if(typeof i==="number"&&i===i){try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);i=v0;break}catch(x){(r||(r=[])).push(e[3](x))}break}e[4](i,...(r||[]))}return i}
     examples:
       custom-arm:
         input: "3"
