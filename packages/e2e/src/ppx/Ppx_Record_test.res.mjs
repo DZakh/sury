@@ -146,7 +146,7 @@ Vitest$1.test("Record schema with @s.null on optional field", t => {
     foo: "bar"
   }, undefined);
   U.assertThrowsMessage(t, () => S.parseOrThrow({}, recordWithOptionalNullFieldSchema), `Failed at foo: Expected string | null, received undefined`, undefined);
-  Vitest.Assert.deepEqual(t, S.decodeOrThrow({}, recordWithOptionalNullFieldSchema, Sury.unknown), {"foo":null}, undefined);
+  Vitest.Assert.deepEqual(t, S.convertOrThrow({}, recordWithOptionalNullFieldSchema, undefined, Sury.unknown), {"foo":null}, undefined);
 });
 
 Vitest$1.test("@s.strict on root record type", t => U.assertEqualSchemas(t, strictRecordSchema, Sury.strict(Sury.$schema(s => ({

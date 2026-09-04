@@ -49,7 +49,7 @@ test("Override works on serialization path too", t => {
   let schema = S.email->S.meta({errorMessage: {format: "Bad email"}})
 
   t->U.assertThrowsMessage(
-    () => "invalid"->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    () => "invalid"->S.convertOrThrow(~from=schema, ~to=S.unknown),
     `Bad email`,
   )
 })
