@@ -265,35 +265,31 @@ S.base64url // Base64url, URL-safe alphabet, no padding
 
 Each survives a round trip through `S.inputJSONSchema` and `S.fromJSONSchema`.
 
-Every format schema has its own type, so a format survives in the type system
-instead of collapsing back into `string`:
+Parsing with a format gives you back a value of that format's own type, not a
+plain `string`:
 
 ```rescript
-@unboxed type email = Email(string) // S.email : S.t<S.email>
-
-let email = "dzakh.dev@gmail.com"->S.parseOrThrow(~to=S.email) // Email("dzakh.dev@gmail.com")
+let email = "dzakh.dev@gmail.com"->S.parseOrThrow(~to=S.email)
+// Email("dzakh.dev@gmail.com")
 ```
 
-The constructor is erased at runtime — the value is the string it wraps — and
-the coercion operator takes you back to the payload without one:
+That way a function asking for an `S.email` can't be handed just any string —
+or a `S.uuid`. To get the string back, coerce it:
 
 ```rescript
-let asString = (email :> string)
+(email :> string) // "dzakh.dev@gmail.com"
 ```
 
-`S.integer`, `S.port` and `S.jsonString` work the same way (`Integer(float)`,
-`Port(int)`, `JsonString(string)`), and `S.nonEmpty` wraps whatever it
-constrains:
+Nothing happens at runtime: `Email("a@b.com")` *is* `"a@b.com"` in the compiled
+JS, so there's no wrapping cost and no unwrapping when the value crosses over to
+JS.
+
+`S.integer`, `S.port` and `S.jsonString` behave the same way, and `S.nonEmpty`
+marks whatever it constrains:
 
 ```rescript
-@unboxed type nonEmpty<'value> = NonEmpty('value)
-
 S.array(S.string)->S.nonEmpty // S.t<S.nonEmpty<array<string>>>
 ```
-
-Two schemas of different formats no longer unify, which is the point — an
-`S.email` can't be passed where an `S.uuid` is expected — but it also means a
-union of two formats needs one common value type to hold its members.
 
 **A format checks syntax, not safety.** Every one is exactly as strict as its
 spec, so a well-formed value passes even when it isn't one you want to accept:

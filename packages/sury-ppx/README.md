@@ -169,8 +169,7 @@ with `S.recursive`.
 
 ### Format types
 
-Every format schema is named identically as a type and as a schema, so the type
-resolves to the matching schema — no `@s.matches` needed:
+Write a format as the field's type and you get its schema — no `@s.matches`:
 
 ```rescript
 @schema
@@ -190,9 +189,9 @@ let userSchema = S.schema(s => {
 })
 ```
 
-This covers every string format, `S.integer`, `S.port`, `S.jsonString`,
-`S.nonEmpty<'value>`, and the `S.url`, `S.date`, `S.json`, `S.blob` and
-`S.file` aliases.
+Works for every [string format](/docs/rescript-usage.md#string-formats), plus
+`S.integer`, `S.port`, `S.jsonString`, `S.nonEmpty<'value>`, `S.url`, `S.date`,
+`S.json`, `S.blob` and `S.file`.
 
 ### `@s.matches(S.t<'value>)`
 
