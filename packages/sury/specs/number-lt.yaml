@@ -3,10 +3,13 @@ ts:
   schema: S.number.with(S.lt, 5)
   input: number
   output: number
-  instantiations: 582
+  instantiations: 578
 jsonSchema:
   input: '{ type: "number", exclusiveMaximum: 5 }'
   output: '{ type: "number", exclusiveMaximum: 5 }'
+  openapi-3.0:
+    input: '{ type: "number", maximum: 5, exclusiveMaximum: true }'
+    output: '{ type: "number", maximum: 5, exclusiveMaximum: true }'
 vs:
   zod: z.number().lt(5)
 operations:

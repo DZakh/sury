@@ -1,22 +1,22 @@
 open Vitest
 
 test("JSONSchema of bool schema", t => {
-  t->Assert.deepEqual(S.bool->S.toJSONSchema, %raw(`{"type": "boolean"}`))
+  t->Assert.deepEqual(S.bool->S.inputJSONSchema, %raw(`{"type": "boolean"}`))
 })
 
 test("JSONSchema of string schema", t => {
-  t->Assert.deepEqual(S.string->S.toJSONSchema, %raw(`{"type": "string"}`))
+  t->Assert.deepEqual(S.string->S.inputJSONSchema, %raw(`{"type": "string"}`))
 })
 
 test("JSONSchema of int schema", t => {
   t->Assert.deepEqual(
-    S.int->S.toJSONSchema,
+    S.int->S.inputJSONSchema,
     %raw(`{"type": "integer", "minimum": -2147483648, "maximum": 2147483647}`),
   )
 })
 
 test("JSONSchema of float schema", t => {
-  t->Assert.deepEqual(S.float->S.toJSONSchema, %raw(`{"type": "number"}`))
+  t->Assert.deepEqual(S.float->S.inputJSONSchema, %raw(`{"type": "number"}`))
 })
 
 test("JSONSchema of S.json transformed to object with bigint and array of optional items", t => {
@@ -34,7 +34,7 @@ test("JSONSchema of S.json transformed to object with bigint and array of option
   // `.to(json)` reports the target's type without the source's refinements.
   // See specs/codec-json-array-optional-bounded.yaml.
   t->Assert.deepEqual(
-    S.json->S.to(nonJsonableSchema)->S.toJSONSchema,
+    S.json->S.to(nonJsonableSchema)->S.inputJSONSchema,
     %raw(`{
       "type": "object",
       "properties": {
@@ -49,12 +49,12 @@ test("JSONSchema of S.json transformed to object with bigint and array of option
 })
 
 test("JSONSchema of email schema", t => {
-  t->Assert.deepEqual(S.email->S.toJSONSchema, %raw(`{"type": "string", "format": "email"}`))
+  t->Assert.deepEqual(S.email->S.inputJSONSchema, %raw(`{"type": "string", "format": "email"}`))
 })
 
 test("JSONSchema of uri schema", t => {
   t->Assert.deepEqual(
-    S.uri->S.toJSONSchema,
+    S.uri->S.inputJSONSchema,
     %raw(`{"type": "string", "format": "uri"}`),
     ~message="The format should be uri for uri schema",
   )
@@ -62,7 +62,7 @@ test("JSONSchema of uri schema", t => {
 
 test("JSONSchema of S.string->S.to(S.url)", t => {
   t->Assert.deepEqual(
-    S.string->S.to(S.url)->S.toJSONSchema,
+    S.string->S.to(S.url)->S.inputJSONSchema,
     %raw(`{"type": "string", "format": "uri"}`),
     ~message="A URL instance describes itself as a uri string",
   )
@@ -70,28 +70,28 @@ test("JSONSchema of S.string->S.to(S.url)", t => {
 
 test("JSONSchema of S.string->S.to(S.date)", t => {
   t->Assert.deepEqual(
-    S.string->S.to(S.date)->S.toJSONSchema,
+    S.string->S.to(S.date)->S.inputJSONSchema,
     %raw(`{"type": "string", "format": "date-time"}`),
   )
 })
 
 test("JSONSchema of S.string->S.to(S.date) with description", t => {
   t->Assert.deepEqual(
-    S.string->S.to(S.date)->S.meta({description: "A date"})->S.toJSONSchema,
+    S.string->S.to(S.date)->S.meta({description: "A date"})->S.inputJSONSchema,
     %raw(`{"type": "string", "format": "date-time", "description": "A date"}`),
   )
 })
 
 test("JSONSchema of S.string with description converted to S.date", t => {
   t->Assert.deepEqual(
-    S.string->S.meta({description: "A date"})->S.to(S.date)->S.toJSONSchema,
+    S.string->S.meta({description: "A date"})->S.to(S.date)->S.inputJSONSchema,
     %raw(`{"type": "string", "format": "date-time", "description": "A date"}`),
   )
 })
 
 test("JSONSchema of S.isoDateTime", t => {
   t->Assert.deepEqual(
-    S.isoDateTime->S.toJSONSchema,
+    S.isoDateTime->S.inputJSONSchema,
     %raw(`{"type": "string", "format": "date-time"}`),
   )
 })
@@ -100,7 +100,7 @@ test("JSONSchema of object with transformed field preserves field metadata", t =
   t->Assert.deepEqual(
     S.object(s =>
       s.field("birthDate", S.string->S.meta({description: "Birth date"})->S.to(S.date))
-    )->S.toJSONSchema,
+    )->S.inputJSONSchema,
     %raw(`{
       "type": "object",
       "properties": {
@@ -112,65 +112,65 @@ test("JSONSchema of object with transformed field preserves field metadata", t =
 })
 
 test("JSONSchema of cuid schema", t => {
-  t->Assert.deepEqual(S.cuid->S.toJSONSchema, %raw(`{"type": "string"}`))
+  t->Assert.deepEqual(S.cuid->S.inputJSONSchema, %raw(`{"type": "string"}`))
 })
 
 test("JSONSchema of uuid schema", t => {
-  t->Assert.deepEqual(S.uuid->S.toJSONSchema, %raw(`{"type": "string", "format": "uuid"}`))
+  t->Assert.deepEqual(S.uuid->S.inputJSONSchema, %raw(`{"type": "string", "format": "uuid"}`))
 })
 
 test("JSONSchema of pattern schema", t => {
   t->Assert.deepEqual(
-    S.string->S.pattern(/abc/g)->S.toJSONSchema,
+    S.string->S.pattern(/abc/g)->S.inputJSONSchema,
     %raw(`{"type": "string","pattern": "abc"}`),
   )
 })
 
 test("JSONSchema of string with min", t => {
   t->Assert.deepEqual(
-    S.string->S.minLength(1)->S.toJSONSchema,
+    S.string->S.minLength(1)->S.inputJSONSchema,
     %raw(`{"type": "string", "minLength": 1}`),
   )
 })
 
 test("JSONSchema of string with max", t => {
   t->Assert.deepEqual(
-    S.string->S.maxLength(1)->S.toJSONSchema,
+    S.string->S.maxLength(1)->S.inputJSONSchema,
     %raw(`{"type": "string", "maxLength": 1}`),
   )
 })
 
 test("JSONSchema of string with length", t => {
   t->Assert.deepEqual(
-    S.string->S.length(1)->S.toJSONSchema,
+    S.string->S.length(1)->S.inputJSONSchema,
     %raw(`{"type": "string", "minLength": 1, "maxLength": 1}`),
   )
 })
 
 test("JSONSchema of string with both min and max", t => {
   t->Assert.deepEqual(
-    S.string->S.minLength(1)->S.maxLength(4)->S.toJSONSchema,
+    S.string->S.minLength(1)->S.maxLength(4)->S.inputJSONSchema,
     %raw(`{"type": "string", "minLength": 1, "maxLength": 4}`),
   )
 })
 
 test("JSONSchema of int with min", t => {
   t->Assert.deepEqual(
-    S.int->S.gte(1)->S.toJSONSchema,
+    S.int->S.gte(1)->S.inputJSONSchema,
     %raw(`{"type": "integer", "minimum": 1, "maximum": 2147483647}`),
   )
 })
 
 test("JSONSchema of int with max", t => {
   t->Assert.deepEqual(
-    S.int->S.lte(1)->S.toJSONSchema,
+    S.int->S.lte(1)->S.inputJSONSchema,
     %raw(`{"type": "integer", "minimum": -2147483648, "maximum": 1}`),
   )
 })
 
 test("JSONSchema of port", t => {
   t->Assert.deepEqual(
-    S.port->S.toJSONSchema,
+    S.port->S.inputJSONSchema,
     %raw(`{
       "type": "integer",
       "minimum": 0,
@@ -180,42 +180,42 @@ test("JSONSchema of port", t => {
 })
 
 test("JSONSchema of float with min", t => {
-  t->Assert.deepEqual(S.float->S.gte(1.)->S.toJSONSchema, %raw(`{"type": "number", "minimum": 1}`))
+  t->Assert.deepEqual(S.float->S.gte(1.)->S.inputJSONSchema, %raw(`{"type": "number", "minimum": 1}`))
 })
 
 test("JSONSchema of float with max", t => {
-  t->Assert.deepEqual(S.float->S.lte(1.)->S.toJSONSchema, %raw(`{"type": "number", "maximum": 1}`))
+  t->Assert.deepEqual(S.float->S.lte(1.)->S.inputJSONSchema, %raw(`{"type": "number", "maximum": 1}`))
 })
 
 test("JSONSchema of nullable float", t => {
   t->Assert.deepEqual(
-    S.nullAsOption(S.float)->S.toJSONSchema,
+    S.nullAsOption(S.float)->S.inputJSONSchema,
     %raw(`{"anyOf": [{"type": "number"}, {"type": "null"}]}`),
   )
 })
 
 test("JSONSchema of never", t => {
-  t->Assert.deepEqual(S.never->S.toJSONSchema, %raw(`{"not": {}}`))
+  t->Assert.deepEqual(S.never->S.inputJSONSchema, %raw(`{"not": {}}`))
 })
 
 test("JSONSchema of true", t => {
-  t->Assert.deepEqual(S.literal(true)->S.toJSONSchema, %raw(`{"type": "boolean", "const": true}`))
+  t->Assert.deepEqual(S.literal(true)->S.inputJSONSchema, %raw(`{"type": "boolean", "const": true}`))
 })
 
 test("JSONSchema of false", t => {
-  t->Assert.deepEqual(S.literal(false)->S.toJSONSchema, %raw(`{"type": "boolean", "const": false}`))
+  t->Assert.deepEqual(S.literal(false)->S.inputJSONSchema, %raw(`{"type": "boolean", "const": false}`))
 })
 
 test("JSONSchema of string literal", t => {
   t->Assert.deepEqual(
-    S.literal("Hello World!")->S.toJSONSchema,
+    S.literal("Hello World!")->S.inputJSONSchema,
     %raw(`{"type": "string", "const": "Hello World!"}`),
   )
 })
 
 test("JSONSchema of object literal", t => {
   t->Assert.deepEqual(
-    S.literal({"received": true})->S.toJSONSchema,
+    S.literal({"received": true})->S.inputJSONSchema,
     %raw(`{
         "type": "object",
         "properties": {
@@ -230,23 +230,23 @@ test("JSONSchema of object literal", t => {
 })
 
 test("JSONSchema of number literal", t => {
-  t->Assert.deepEqual(S.literal(123)->S.toJSONSchema, %raw(`{"type": "number", "const": 123}`))
+  t->Assert.deepEqual(S.literal(123)->S.inputJSONSchema, %raw(`{"type": "number", "const": 123}`))
 })
 
 test("JSONSchema of null", t => {
-  t->Assert.deepEqual(S.literal(%raw(`null`))->S.toJSONSchema, %raw(`{"type": "null"}`))
+  t->Assert.deepEqual(S.literal(%raw(`null`))->S.inputJSONSchema, %raw(`{"type": "null"}`))
 })
 
 test("JSONSchema of undefined", t => {
   t->U.assertThrowsMessage(
-    () => S.literal(%raw(`undefined`))->S.toJSONSchema,
+    () => S.literal(%raw(`undefined`))->S.inputJSONSchema,
     `Expected JSON, received undefined`,
   )
 })
 
 test("JSONSchema of NaN", t => {
   t->U.assertThrowsMessage(
-    () => S.literal(%raw(`NaN`))->S.toJSONSchema,
+    () => S.literal(%raw(`NaN`))->S.inputJSONSchema,
     `Expected JSON, received NaN`,
   )
 })
@@ -257,7 +257,7 @@ test("JSONSchema of NaN", t => {
 // rejecting a *value* stays `InvalidInput`.
 test("JSONSchema of a non-JSON schema is an InvalidOperation, not an InvalidInput", t => {
   t->Assert.deepEqual(
-    switch S.object(s => s.field("a", S.bigint))->S.toJSONSchema {
+    switch S.object(s => s.field("a", S.bigint))->S.inputJSONSchema {
     | _ => None
     | exception S.Exn(error) =>
       switch error->S.Error.classify {
@@ -285,7 +285,7 @@ test("JSONSchema of a non-JSON schema is an InvalidOperation, not an InvalidInpu
 
 test("JSONSchema of tuple", t => {
   t->Assert.deepEqual(
-    S.tuple2(S.string, S.bool)->S.toJSONSchema,
+    S.tuple2(S.string, S.bool)->S.inputJSONSchema,
     %raw(`{
       "type": "array",
       "minItems": 2,
@@ -302,7 +302,7 @@ test("JSONSchema of object of literals schema", t => {
         "foo": "bar",
         "zoo": 123,
       }
-    )->S.toJSONSchema,
+    )->S.inputJSONSchema,
     %raw(`{
       "type": "object",
       "properties": {
@@ -322,7 +322,7 @@ test("JSONSchema of object of literals schema", t => {
 
 test("JSONSchema of enum", t => {
   t->Assert.deepEqual(
-    S.enum(["Yes", "No"])->S.toJSONSchema,
+    S.enum(["Yes", "No"])->S.inputJSONSchema,
     %raw(`{
       "enum": ["Yes", "No"],
     }`),
@@ -331,7 +331,7 @@ test("JSONSchema of enum", t => {
 
 test("JSONSchema of union", t => {
   t->Assert.deepEqual(
-    S.union([S.literal("Yes"), S.string])->S.toJSONSchema,
+    S.union([S.literal("Yes"), S.string])->S.inputJSONSchema,
     %raw(`{
       "anyOf": [
         {
@@ -348,22 +348,22 @@ test("JSONSchema of union", t => {
 
 test("JSONSchema of union narrowed by .to: union([string, bigint])->to(string)", t => {
   // string matches the target and bigint doesn't, so the conversion itself is
-  // rejected — S.toJSONSchema falls back to describing the union's own input.
+  // rejected — S.inputJSONSchema falls back to describing the union's own input.
   let schema = S.union([S.string->S.castToUnknown, S.bigint->S.castToUnknown])->S.to(S.string)
   t->U.assertThrowsMessage(
-    () => schema->S.toJSONSchema->ignore,
+    () => schema->S.inputJSONSchema->ignore,
     `Expected JSON, received string | bigint`,
   )
 
   // Spelled out per member, the bigint arm converts and the JSON Schema narrows.
   let explicit =
     S.union([S.string->S.castToUnknown, S.bigint->S.to(S.string)->S.castToUnknown])->S.to(S.string)
-  t->Assert.deepEqual(explicit->S.toJSONSchema, %raw(`{"type": "string"}`))
+  t->Assert.deepEqual(explicit->S.inputJSONSchema, %raw(`{"type": "string"}`))
 })
 
 test("JSONSchema of string array", t => {
   t->Assert.deepEqual(
-    S.array(S.string)->S.toJSONSchema,
+    S.array(S.string)->S.inputJSONSchema,
     %raw(`{
       "type": "array",
       "items": {"type": "string"},
@@ -373,7 +373,7 @@ test("JSONSchema of string array", t => {
 
 test("JSONSchema of array with min length", t => {
   t->Assert.deepEqual(
-    S.array(S.string)->S.minLength(1)->S.toJSONSchema,
+    S.array(S.string)->S.minLength(1)->S.inputJSONSchema,
     %raw(`{
       "type": "array",
       "items": {"type": "string"},
@@ -384,7 +384,7 @@ test("JSONSchema of array with min length", t => {
 
 test("JSONSchema of array with max length", t => {
   t->Assert.deepEqual(
-    S.array(S.string)->S.maxLength(1)->S.toJSONSchema,
+    S.array(S.string)->S.maxLength(1)->S.inputJSONSchema,
     %raw(`{
       "type": "array",
       "items": {"type": "string"},
@@ -395,7 +395,7 @@ test("JSONSchema of array with max length", t => {
 
 test("JSONSchema of array with fixed length", t => {
   t->Assert.deepEqual(
-    S.array(S.string)->S.length(1)->S.toJSONSchema,
+    S.array(S.string)->S.length(1)->S.inputJSONSchema,
     %raw(`{
       "type": "array",
       "items": {"type": "string"},
@@ -407,7 +407,7 @@ test("JSONSchema of array with fixed length", t => {
 
 test("JSONSchema of string dict", t => {
   t->Assert.deepEqual(
-    S.dict(S.string)->S.toJSONSchema,
+    S.dict(S.string)->S.inputJSONSchema,
     %raw(`{
       "type": "object",
       "additionalProperties": {"type": "string"},
@@ -417,7 +417,7 @@ test("JSONSchema of string dict", t => {
 
 test("JSONSchema of dict with optional fields", t => {
   t->Assert.deepEqual(
-    S.dict(S.option(S.string))->S.toJSONSchema,
+    S.dict(S.option(S.string))->S.inputJSONSchema,
     %raw(`{
       "type": "object",
       "additionalProperties": {"type": "string"},
@@ -427,14 +427,14 @@ test("JSONSchema of dict with optional fields", t => {
 
 test("JSONSchema of dict with optional invalid field", t => {
   t->U.assertThrowsMessage(
-    () => S.dict(S.option(S.bigint))->S.toJSONSchema,
+    () => S.dict(S.option(S.bigint))->S.inputJSONSchema,
     `Failed at []: Expected JSON, received bigint | undefined`,
   )
 })
 
 test("JSONSchema of object with single string field", t => {
   t->Assert.deepEqual(
-    S.object(s => s.field("field", S.string))->S.toJSONSchema,
+    S.object(s => s.field("field", S.string))->S.inputJSONSchema,
     %raw(`{
       "type": "object",
       "properties": {"field": {"type": "string"}},
@@ -445,7 +445,7 @@ test("JSONSchema of object with single string field", t => {
 
 test("JSONSchema of object with strict mode", t => {
   t->Assert.deepEqual(
-    S.object(s => s.field("field", S.string))->S.strict->S.toJSONSchema,
+    S.object(s => s.field("field", S.string))->S.strict->S.inputJSONSchema,
     %raw(`{
       "type": "object",
       "properties": {"field": {"type": "string"}},
@@ -457,7 +457,7 @@ test("JSONSchema of object with strict mode", t => {
 
 test("JSONSchema of object with optional field", t => {
   t->Assert.deepEqual(
-    S.object(s => s.field("field", S.option(S.string)))->S.toJSONSchema,
+    S.object(s => s.field("field", S.option(S.string)))->S.inputJSONSchema,
     %raw(`{
       "type": "object",
       "properties": {"field": {"type": "string"}},
@@ -469,7 +469,7 @@ test("JSONSchema of object with deprecated field", t => {
   t->Assert.deepEqual(
     S.object(s =>
       s.field("field", S.string->S.meta({description: "Use another field", deprecated: true}))
-    )->S.toJSONSchema,
+    )->S.inputJSONSchema,
     %raw(`{
       "type": "object",
       "properties": {"field": {
@@ -484,7 +484,7 @@ test("JSONSchema of object with deprecated field", t => {
 
 test("JSONSchema with title", t => {
   t->Assert.deepEqual(
-    S.string->S.meta({title: "My field"})->S.toJSONSchema,
+    S.string->S.meta({title: "My field"})->S.inputJSONSchema,
     %raw(`{"title": "My field", "type": "string"}`),
   )
 })
@@ -494,7 +494,7 @@ test("Deprecated message overrides existing description", t => {
     S.string
     ->S.meta({description: "Previous description"})
     ->S.meta({description: "Use another field", deprecated: true})
-    ->S.toJSONSchema,
+    ->S.inputJSONSchema,
     %raw(`{
       "type": "string",
       "deprecated": true,
@@ -507,7 +507,7 @@ test("JSONSchema of nested object", t => {
   t->Assert.deepEqual(
     S.object(s =>
       s.field("objectWithOneStringField", S.object(s => s.field("Field", S.string)))
-    )->S.toJSONSchema,
+    )->S.inputJSONSchema,
     %raw(`{
       "type": "object",
       "properties": {
@@ -527,7 +527,7 @@ test("JSONSchema of object with one optional and one normal field", t => {
     S.object(s => (
       s.field("field", S.string),
       s.field("optionalField", S.option(S.string)),
-    ))->S.toJSONSchema,
+    ))->S.inputJSONSchema,
     %raw(`{
       "type": "object",
       "properties": {
@@ -543,14 +543,14 @@ test("JSONSchema of object with one optional and one normal field", t => {
 
 test("JSONSchema of optional root schema", t => {
   t->U.assertThrowsMessage(
-    () => S.option(S.string)->S.toJSONSchema,
+    () => S.option(S.string)->S.inputJSONSchema,
     "Expected JSON, received string | undefined",
   )
 })
 
 test("JSONSchema of object with S.option(S.option(_)) field", t => {
   t->Assert.deepEqual(
-    S.object(s => s.field("field", S.option(S.option(S.string))))->S.toJSONSchema,
+    S.object(s => s.field("field", S.option(S.option(S.string))))->S.inputJSONSchema,
     %raw(`{
       "type": "object",
       "properties": {
@@ -564,7 +564,7 @@ test("JSONSchema of object with S.option(S.option(_)) field", t => {
 
 test("JSONSchema of reversed object with S.option(S.option(_)) field", t => {
   t->U.assertThrowsMessage(
-    () => S.object(s => s.field("field", S.option(S.option(S.string))))->S.reverse->S.toJSONSchema,
+    () => S.object(s => s.field("field", S.option(S.option(S.string))))->S.reverse->S.inputJSONSchema,
     `Expected JSON, received string | undefined | { BS_PRIVATE_NESTED_SOME_NONE: 0; }`,
   )
 })
@@ -595,7 +595,7 @@ test(
     )
 
     t->Assert.deepEqual(
-      schema->S.toJSONSchema,
+      schema->S.inputJSONSchema,
       %raw(`{
         "type": "object",
         "properties": {"field": {"type": "boolean"}}, // No 'default: true' here, but that's fine
@@ -635,7 +635,7 @@ test("Transformed schema schema uses default with correct type", t => {
   )
 
   t->Assert.deepEqual(
-    schema->S.toJSONSchema,
+    schema->S.inputJSONSchema,
     %raw(`{
       "type": "object",
       "properties": {"field": {"default": true, "type": "boolean"}},
@@ -647,7 +647,7 @@ test("Currently Option.getOrWith is not reflected on JSON schema", t => {
   let schema = S.nullAsOption(S.bool)->S.Option.getOrWith(() => true)
 
   t->Assert.deepEqual(
-    schema->S.toJSONSchema,
+    schema->S.inputJSONSchema,
     %raw(`{
       "anyOf": [
         {"type": "boolean"},
@@ -661,7 +661,7 @@ test("Primitive schema schema with additional raw schema", t => {
   let schema = S.bool->S.meta({description: "foo"})
 
   t->Assert.deepEqual(
-    schema->S.toJSONSchema,
+    schema->S.inputJSONSchema,
     %raw(`{
       "type": "boolean",
       "description": "foo",
@@ -673,7 +673,7 @@ test("Primitive schema with an example", t => {
   let schema = S.bool->S.meta({examples: [true]})
 
   t->Assert.deepEqual(
-    schema->S.toJSONSchema,
+    schema->S.inputJSONSchema,
     %raw(`{
       "type": "boolean",
       "examples": [true],
@@ -685,7 +685,7 @@ test("Transformed schema with an example", t => {
   let schema = S.nullAsOption(S.bool)->S.meta({examples: [None]})
 
   t->Assert.deepEqual(
-    schema->S.toJSONSchema,
+    schema->S.inputJSONSchema,
     %raw(`{
       "anyOf": [{"type": "boolean"}, {"type": "null"}],
       "examples": [null],
@@ -697,7 +697,7 @@ test("Multiple examples", t => {
   let schema = S.string->S.meta({examples: ["Hi", "It's me"]})
 
   t->Assert.deepEqual(
-    schema->S.toJSONSchema,
+    schema->S.inputJSONSchema,
     %raw(`{
       "type": "string",
       "examples": ["Hi", "It's me"],
@@ -712,7 +712,7 @@ test("Multiple additional raw schemas are merged together", t => {
     ->S.extendJSONSchema({deprecated: true})
 
   t->Assert.deepEqual(
-    schema->S.toJSONSchema,
+    schema->S.inputJSONSchema,
     %raw(`{
       "type": "boolean",
       "deprecated": true,
@@ -727,7 +727,7 @@ test("Additional raw schema works with optional fields", t => {
   )
 
   t->Assert.deepEqual(
-    schema->S.toJSONSchema,
+    schema->S.inputJSONSchema,
     %raw(`{
       "type": "object",
       "properties": {
@@ -738,12 +738,12 @@ test("Additional raw schema works with optional fields", t => {
 })
 
 test("JSONSchema of unknown schema", t => {
-  t->U.assertThrowsMessage(() => S.unknown->S.toJSONSchema, `Expected JSON, received unknown`)
+  t->U.assertThrowsMessage(() => S.unknown->S.inputJSONSchema, `Expected JSON, received unknown`)
 })
 
 test("JSON schema doesn't affect final schema", t => {
   let schema = S.json
-  t->Assert.deepEqual(schema->S.toJSONSchema, %raw(`{}`))
+  t->Assert.deepEqual(schema->S.inputJSONSchema, %raw(`{}`))
 })
 
 test("JSONSchema of recursive schema", t => {
@@ -758,7 +758,7 @@ test("JSONSchema of recursive schema", t => {
   })
 
   t->Assert.deepEqual(
-    schema->S.toJSONSchema,
+    schema->S.inputJSONSchema,
     %raw(`{
       $defs: {
         Node: {
@@ -796,7 +796,7 @@ test("JSONSchema of nested recursive schema", t => {
   )
 
   t->Assert.deepEqual(
-    schema->S.toJSONSchema,
+    schema->S.inputJSONSchema,
     %raw(`{
       type: 'object',
       properties: { node: { '$ref': '#/$defs/Node' } },
@@ -829,33 +829,33 @@ test("JSONSchema of recursive schema with non-jsonable field", t => {
         )
       },
     )
-    schema->S.toJSONSchema
-  }, `Failed at ["Id"]: Expected JSON, received bigint`)
+    schema->S.inputJSONSchema
+  }, `Failed at Id: Expected JSON, received bigint`)
 })
 
 test("Fails to create schema for schemas with optional items", t => {
   t->U.assertThrowsMessage(
-    () => S.array(S.option(S.string))->S.toJSONSchema,
+    () => S.array(S.option(S.string))->S.inputJSONSchema,
     "Failed at []: Expected JSON, received string | undefined",
   )
   t->U.assertThrowsMessage(
-    () => S.union([S.option(S.string), S.nullAsOption(S.string)])->S.toJSONSchema,
+    () => S.union([S.option(S.string), S.nullAsOption(S.string)])->S.inputJSONSchema,
     "Expected JSON, received string | undefined | null",
   )
   t->U.assertThrowsMessage(
-    () => S.tuple1(S.option(S.string))->S.toJSONSchema,
-    `Failed at ["0"]: Expected JSON, received string | undefined`,
+    () => S.tuple1(S.option(S.string))->S.inputJSONSchema,
+    `Failed at [0]: Expected JSON, received string | undefined`,
   )
   t->U.assertThrowsMessage(
-    () => S.tuple1(S.array(S.option(S.string)))->S.toJSONSchema,
-    `Failed at ["0"][]: Expected JSON, received string | undefined`,
+    () => S.tuple1(S.array(S.option(S.string)))->S.inputJSONSchema,
+    `Failed at [0][]: Expected JSON, received string | undefined`,
   )
 })
 
 test("JSONSchema error of nested object has path", t => {
   t->U.assertThrowsMessage(
-    () => S.object(s => s.nested("nested").field("field", S.bigint))->S.toJSONSchema,
-    `Failed at ["nested"]["field"]: Expected JSON, received bigint`,
+    () => S.object(s => s.nested("nested").field("field", S.bigint))->S.inputJSONSchema,
+    `Failed at nested.field: Expected JSON, received bigint`,
   )
 })
 
@@ -894,7 +894,7 @@ module Example = {
     })
 
     t->Assert.deepEqual(
-      filmSchema->S.toJSONSchema,
+      filmSchema->S.inputJSONSchema,
       %raw(`{
         type: "object",
         properties: {

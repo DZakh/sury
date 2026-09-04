@@ -24,7 +24,7 @@ module Common = {
   test("Successfully serializes", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.decodeOrThrow(~from=schema, ~to=S.unknown), any)
+    t->Assert.deepEqual(value->S.convertOrThrow(~from=schema, ~to=S.unknown), any)
   })
 
   test("Compiled code snapshot", t => {
@@ -95,7 +95,7 @@ test("Fails to parse object with missing field that marked as null", t => {
 
   t->U.assertThrowsMessage(
     () => %raw(`{}`)->S.parseOrThrow(~to=schema),
-    `Failed at ["nullableField"]: Expected string | null, received undefined`,
+    `Failed at nullableField: Expected string | null, received undefined`,
   )
 })
 
@@ -112,7 +112,7 @@ test("Successfully parses null and serializes it back for deprecated nullable sc
   let schema = S.nullAsOption(S.bool)->S.meta({description: "Deprecated", deprecated: true})
 
   t->Assert.deepEqual(
-    %raw(`null`)->S.parseOrThrow(~to=schema)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    %raw(`null`)->S.parseOrThrow(~to=schema)->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`null`),
   )
 })
@@ -123,8 +123,8 @@ test("Serializes Some(None) to null for null nested in option", t => {
   t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(~to=schema), Some(None))
   t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), None)
 
-  t->Assert.deepEqual(Some(None)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`null`))
-  t->Assert.deepEqual(None->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
+  t->Assert.deepEqual(Some(None)->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`null`))
+  t->Assert.deepEqual(None->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
 
   t->U.assertCompiledCode(
     ~schema,
@@ -144,8 +144,8 @@ test("Serializes Some(None) to null for null nested in null", t => {
 
   t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(~to=schema), None)
 
-  t->Assert.deepEqual(Some(None)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`null`))
-  t->Assert.deepEqual(None->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`null`))
+  t->Assert.deepEqual(Some(None)->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`null`))
+  t->Assert.deepEqual(None->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`null`))
 
   t->U.assertCompiledCode(
     ~schema,
@@ -180,10 +180,10 @@ module OuterRecord = {
 
     t->Assert.deepEqual(record, %raw(`{ record: { BS_PRIVATE_NESTED_SOME_NONE: 0 } }`))
     t->Assert.deepEqual(
-      record->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+      record->S.convertOrThrow(~from=schema, ~to=S.unknown),
       %raw(`{ record: null }`),
     )
-    t->Assert.deepEqual(record->S.decodeOrThrow(~from=schema, ~to=S.jsonString), `{"record":null}`)
+    t->Assert.deepEqual(record->S.convertOrThrow(~from=schema, ~to=S.jsonString), `{"record":null}`)
 
     t->U.assertCompiledCode(
       ~schema,

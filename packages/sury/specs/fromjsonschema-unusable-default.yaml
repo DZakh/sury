@@ -22,6 +22,6 @@ operations:
         output: "{ count: undefined }"
       wrong-value-type:
         input: '{ count: "1" }'
-        error: 'Failed at ["count"]: Expected integer | undefined, received "1"'
+        error: 'Failed at count: Expected integer | undefined, received "1"'
   decode: identity
   encode: identity

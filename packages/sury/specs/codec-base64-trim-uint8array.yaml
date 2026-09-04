@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.base64.with(S.trim).with(S.to, S.uint8Array)
+  input: string
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 4693
+jsonSchema:
+  input: '{ type: "string", contentEncoding: "base64" }'
+  output: Expected JSON, received Uint8Array
+  openapi-3.0:
+    input: '{ type: "string", format: "byte" }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[5](i);e[3](i)||e[4](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return e[2](v0)}
+    examples:
+      padded:
+        input: '" 4oKs "'
+        error: Expected base64, received " 4oKs "
+      bare:
+        input: '"4oKs"'
+        output: new Uint8Array([226, 130, 172])
+      not-base64:
+        input: '"!!"'
+        error: Expected base64, received "!!"
+  decode:
+    expression: i=>{e[3](i)||e[4](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return e[2](v0)}
+    examples:
+      padded:
+        input: '" 4oKs "'
+        error: Expected base64, received " 4oKs "
+      bare:
+        input: '"4oKs"'
+        output: new Uint8Array([226, 130, 172])
+  encode:
+    expression: i=>{let v0=e[0](i);let v1;try{v1=e[1](v0)}catch(x){e[2](x)}e[3](v1)||e[4](v1);return v1}
+    examples:
+      utf8-bytes:
+        input: new Uint8Array([226, 130, 172])
+        output: '"4oKs"'

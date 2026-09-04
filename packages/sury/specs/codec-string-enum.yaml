@@ -3,7 +3,7 @@ ts:
   schema: S.string.with(S.to, S.union(["admin", "user"]))
   input: string
   output: '"admin" | "user"'
-  instantiations: 5766
+  instantiations: 4952
 jsonSchema:
   input: '{ enum: ["admin", "user"] }'
   fromInputType: '"admin" | "user"'

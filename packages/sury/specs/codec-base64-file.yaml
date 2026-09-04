@@ -3,10 +3,12 @@ ts:
   schema: S.base64.with(S.to, S.file)
   input: string
   output: File
-  instantiations: 5245
+  instantiations: 4431
 jsonSchema:
   input: '{ type: "string", contentEncoding: "base64", contentMediaType: "application/octet-stream" }'
   output: Expected JSON, received File
+  openapi-3.0:
+    input: '{ type: "string", format: "byte" }'
 vs:
   zod:
     _skip: not-applicable

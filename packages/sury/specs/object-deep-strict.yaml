@@ -3,7 +3,7 @@ ts:
   schema: "S.schema({ foo: { a: S.string } }).with(S.deepStrict)"
   input: "{ foo: { a: string; }; }"
   output: "{ foo: { a: string; }; }"
-  instantiations: 1708
+  instantiations: 1706
 jsonSchema:
   input: '{ type: "object", properties: { foo: { type: "object", properties: { a: { type: "string" } }, additionalProperties: false, required: ["a"] } }, additionalProperties: false, required: ["foo"] }'
   output: '{ type: "object", properties: { foo: { type: "object", properties: { a: { type: "string" } }, additionalProperties: false, required: ["a"] } }, additionalProperties: false, required: ["foo"] }'
@@ -18,7 +18,7 @@ operations:
         output: '{ foo: { a: "bar" } }'
       nested-excess-field:
         input: '{ foo: { a: "bar", b: true } }'
-        error: 'Failed at ["foo"]: Unrecognized key "b"'
+        error: 'Failed at foo: Unrecognized key "b"'
   decode:
     expression: i=>{let v0=i["foo"];return i}
     examples:

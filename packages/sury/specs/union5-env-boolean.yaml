@@ -3,10 +3,13 @@ ts:
   schema: S.union([S.schema("t").with(S.to, S.schema(true)).with(S.to, S.boolean), S.schema("1").with(S.to, S.schema(true)).with(S.to, S.boolean), S.schema("f").with(S.to, S.schema(false)).with(S.to, S.boolean), S.schema("0").with(S.to, S.schema(false)).with(S.to, S.boolean), S.string.with(S.to, S.boolean)])
   input: string
   output: boolean
-  instantiations: 9475
+  instantiations: 8506
 jsonSchema:
   input: '{ anyOf: [{ type: "string", const: "t" }, { type: "string", const: "1" }, { type: "string", const: "f" }, { type: "string", const: "0" }, { type: "string" }] }'
   output: '{ anyOf: [{ type: "boolean", const: true }, { type: "boolean", const: false }, { type: "boolean" }] }'
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "string", enum: ["t"] }, { type: "string", enum: ["1"] }, { type: "string", enum: ["f"] }, { type: "string", enum: ["0"] }, { type: "string" }] }'
+    output: '{ anyOf: [{ type: "boolean", enum: [true] }, { type: "boolean", enum: [false] }, { type: "boolean" }] }'
 vs:
   zod:
     _skip: not-applicable

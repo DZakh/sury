@@ -518,7 +518,7 @@ Vitest$1.test("Type-level attributes apply to self-references too", t => U.asser
         extra: true
       }]
   }, strictNodeSchema);
-}, `Failed at ["kids"]["0"]: Unrecognized key "extra"`, undefined));
+}, `Failed at kids[0]: Unrecognized key "extra"`, undefined));
 
 let matchesSelfSchema = Sury.recursive("matchesSelf", matchesSelfSchema => Sury.$schema(s => ({
   id: s.m(Sury.string),

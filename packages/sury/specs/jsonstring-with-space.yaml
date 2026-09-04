@@ -3,10 +3,17 @@ ts:
   schema: "S.jsonStringWithSpace(2).with(S.to, S.schema({ foo: [1, S.number] }))"
   input: string
   output: "{ foo: [1, number]; }"
-  instantiations: 6633
+  instantiations: 5819
 jsonSchema:
   input: '{ type: "string", contentMediaType: "application/json" }'
   output: '{ type: "object", properties: { foo: { type: "array", minItems: 2, maxItems: 2, items: [{ type: "number", const: 1 }, { type: "number" }] } }, required: ["foo"] }'
+  draft-2020-12:
+    input: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "object", properties: { foo: { type: "array", minItems: 2, maxItems: 2, prefixItems: [{ type: "number", const: 1 }, { type: "number" }] } }, required: ["foo"] }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+    output: '{ type: "object", properties: { foo: { type: "array", minItems: 2, maxItems: 2, prefixItems: [{ type: "number", const: 1 }, { type: "number" }] } }, required: ["foo"], $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ type: "string" }'
+    output: '{ type: "object", properties: { foo: { type: "array", minItems: 2, maxItems: 2, items: { anyOf: [{ type: "number", enum: [1] }, { type: "number" }] } } }, required: ["foo"] }'
+    fromOutputType: "{ foo: [number, number]; }"
 vs:
   zod:
     _skip: not-applicable

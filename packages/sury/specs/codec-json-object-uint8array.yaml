@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.json.with(S.to, S.schema({ payload: S.uint8Array }))"
+  input: JSON
+  output: "{ payload: Uint8Array<ArrayBufferLike>; }"
+  instantiations: 5446
+jsonSchema:
+  input: '{ type: "object", properties: { payload: { type: "string", contentEncoding: "base64" } }, additionalProperties: false, required: ["payload"] }'
+  fromInputType: "{ payload: string; }"
+  output: "Failed at payload: Expected JSON, received Uint8Array"
+  openapi-3.0:
+    input: '{ type: "object", properties: { payload: { type: "string", format: "byte" } }, additionalProperties: false, required: ["payload"] }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i["payload"];typeof v0==="string"||e[3](v0);e[1](v0)||e[2](v0);return {payload:e[0](v0)}}
+    examples:
+      base64-value:
+        input: '{ payload: "iVBORw==" }'
+        output: "{ payload: new Uint8Array([137, 80, 78, 71]) }"
+      not-base64:
+        input: '{ payload: "!!" }'
+        error: 'Failed at payload: Expected base64, received "!!"'
+      missing-payload:
+        input: "{}"
+        error: "Failed at payload: Expected base64, received undefined"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{let v0=i["payload"];let v1=e[0](v0);return {payload:v1}}
+    examples:
+      base64-value:
+        input: "{ payload: new Uint8Array([137, 80, 78, 71]) }"
+        output: '{ payload: "iVBORw==" }'
+      empty:
+        input: "{ payload: new Uint8Array([]) }"
+        output: '{ payload: "" }'

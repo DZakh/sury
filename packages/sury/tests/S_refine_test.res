@@ -15,20 +15,20 @@ test("Fails with default error message", t => {
 })
 
 test("Fails with custom path", t => {
-  let schema = S.int->S.refine(value => value >= 0, ~error="Should be positive", ~path=["confirm"])
+  let schema = S.int->S.refine(value => value >= 0, ~error="Should be positive", ~path=S.Path.fromArray(["confirm"]))
 
   t->U.assertThrowsMessage(
     () => %raw(`-12`)->S.parseOrThrow(~to=schema),
-    `Failed at ["confirm"]: Should be positive`,
+    `Failed at confirm: Should be positive`,
   )
 })
 
 test("Successfully refines on serializing", t => {
   let schema = S.int->S.refine(value => value >= 0, ~error="Should be positive")
 
-  t->Assert.deepEqual(12->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw("12"))
+  t->Assert.deepEqual(12->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw("12"))
   t->U.assertThrowsMessage(
-    () => -12->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    () => -12->S.convertOrThrow(~from=schema, ~to=S.unknown),
     `Should be positive`,
   )
 })
@@ -120,7 +120,7 @@ test("Refiner application order: type-narrow first, then inputRefiner, then outp
   // Type-narrow on `foo` runs before either refiner.
   t->U.assertThrowsMessage(
     () => %raw(`{"foo": 123}`)->S.parseOrThrow(~to=schema),
-    `Failed at ["foo"]: Expected string, received 123`,
+    `Failed at foo: Expected string, received 123`,
   )
 
   // Type-narrow passes; inputRefiner rejects.

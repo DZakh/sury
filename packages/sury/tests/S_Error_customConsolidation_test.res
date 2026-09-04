@@ -68,14 +68,28 @@ test("S.refine with ~error produces InvalidInput with custom reason", t => {
 })
 
 test("S.refine with ~error and ~path applies path correctly", t => {
-  let schema = S.string->S.refine(_ => false, ~error="bad", ~path=["a", "b"])
+  let schema = S.string->S.refine(_ => false, ~error="bad", ~path=S.Path.fromArray(["a", "b"]))
   switch "hi"->S.parseOrThrow(~to=schema) {
   | _ => t->Assert.fail("Should have thrown")
   | exception S.Exn(error) =>
     switch error->S.Error.classify {
     | InvalidInput({reason, path}) =>
       t->Assert.is(reason, "bad", ~message="reason")
-      t->Assert.is(path->S.Path.toString, `["a"]["b"]`, ~message="path")
+      t->Assert.is(path->S.Path.toText, "a.b", ~message="path")
+    | _ => t->Assert.fail("Expected InvalidInput error")
+    }
+  }
+})
+
+test("S.refine ~path takes an array index as a number segment", t => {
+  let schema = S.string->S.refine(_ => false, ~error="bad", ~path=[String("items"), Number(0.)])
+  switch "hi"->S.parseOrThrow(~to=schema) {
+  | _ => t->Assert.fail("Should have thrown")
+  | exception S.Exn(error) =>
+    switch error->S.Error.classify {
+    | InvalidInput({path}) =>
+      t->Assert.deepEqual(path, [String("items"), Number(0.)], ~message="segments keep their kind")
+      t->Assert.is(path->S.Path.toText, "items[0]", ~message="path")
     | _ => t->Assert.fail("Expected InvalidInput error")
     }
   }
@@ -105,7 +119,7 @@ test("S.transform serializer ctx.fail produces InvalidInput with custom reason",
       encode: Sync(str => str === "" ? U.fail("empty not allowed") : str),
     },
   )
-  switch ""->S.decodeOrThrow(~from=schema, ~to=S.unknown) {
+  switch ""->S.convertOrThrow(~from=schema, ~to=S.unknown) {
   | _ => t->Assert.fail("Should have thrown")
   | exception S.Exn(error) =>
     switch error->S.Error.classify {
@@ -134,7 +148,7 @@ test("ctx.fail with ~path is concatenated to current location", t => {
     switch error->S.Error.classify {
     | InvalidInput({reason, path}) =>
       t->Assert.is(reason, "oops", ~message="reason")
-      t->Assert.is(path->S.Path.toString, `["field"]["nested"]`, ~message="path")
+      t->Assert.is(path->S.Path.toText, "field.nested", ~message="path")
     | _ => t->Assert.fail("Expected InvalidInput error")
     }
   }

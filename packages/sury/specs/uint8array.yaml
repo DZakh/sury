@@ -9,7 +9,10 @@ jsonSchema:
   output: Expected JSON, received Uint8Array
 vs:
   zod:
-    _skip: not-applicable
+    schema: z.instanceof(Uint8Array)
+    divergence: Zod pins `Uint8Array<ArrayBuffer>`; Sury infers `Uint8Array<ArrayBufferLike>`.
+    input: Uint8Array<ArrayBuffer>
+    output: Uint8Array<ArrayBuffer>
 operations:
   parse:
     expression: i=>{i instanceof e[0]||e[1](i);return i}

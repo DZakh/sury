@@ -3,10 +3,12 @@ ts:
   schema: "S.schema({ d: S.date.with(S.noValidation, true) }).with(S.to, S.jsonString)"
   input: "{ d: Date; }"
   output: string
-  instantiations: 6453
+  instantiations: 5585
 jsonSchema:
-  input: 'Failed at ["d"]: Expected JSON, received Date'
+  input: "Failed at d: Expected JSON, received Date"
   output: '{ type: "string", contentMediaType: "application/json" }'
+  openapi-3.0:
+    output: '{ type: "string" }'
 vs:
   zod:
     _skip: not-applicable

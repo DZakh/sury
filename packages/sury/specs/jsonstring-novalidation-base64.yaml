@@ -3,10 +3,15 @@ ts:
   schema: "S.schema({ v: S.base64.with(S.noValidation, true) }).with(S.to, S.jsonString)"
   input: "{ v: string; }"
   output: string
-  instantiations: 6390
+  instantiations: 5522
 jsonSchema:
   input: '{ type: "object", properties: { v: { type: "string", contentEncoding: "base64" } }, required: ["v"] }'
   output: '{ type: "string", contentMediaType: "application/json" }'
+  draft-2020-12:
+    output: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "object", properties: { v: { type: "string", contentEncoding: "base64" } }, required: ["v"] }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ type: "object", properties: { v: { type: "string", format: "byte" } }, required: ["v"] }'
+    output: '{ type: "string" }'
 vs:
   zod:
     _skip: not-applicable

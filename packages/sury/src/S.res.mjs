@@ -3,13 +3,10 @@
 import * as Sury from "sury";
 import * as Primitive_exceptions from "@rescript/runtime/lib/es6/Primitive_exceptions.js";
 
-let empty = "";
-
-let dynamic = "[]";
+let empty = [];
 
 let Path = {
-  empty: empty,
-  dynamic: dynamic
+  empty: empty
 };
 
 let Exn = /* @__PURE__ */Primitive_exceptions.create("S.Exn");
@@ -57,12 +54,20 @@ function to(from, target, custom) {
   }
 }
 
-function decoder(from, to) {
-  return Sury.decoder(Sury.reverse(from), to);
+function compileConvertOrThrow(from, via, to) {
+  if (via !== undefined) {
+    return Sury.encoder(from, via, to);
+  } else {
+    return Sury.encoder(from, to);
+  }
 }
 
-function asyncDecoder(from, to) {
-  return Sury.asyncDecoder(Sury.reverse(from), to);
+function compileConvertAsyncOrThrow(from, via, to) {
+  if (via !== undefined) {
+    return Sury.asyncEncoder(from, via, to);
+  } else {
+    return Sury.asyncEncoder(from, to);
+  }
 }
 
 function parseOrThrow(any, to) {
@@ -73,12 +78,48 @@ function parseAsyncOrThrow(any, to) {
   return Sury.asyncParser(to)(any);
 }
 
-function decodeOrThrow(any, from, to) {
-  return Sury.decoder(Sury.reverse(from), to)(any);
+function parse(any, to) {
+  return Sury.$safe(() => Sury.parser(to)(any));
 }
 
-function decodeAsyncOrThrow(any, from, to) {
-  return Sury.asyncDecoder(Sury.reverse(from), to)(any);
+function parseAsync(any, to) {
+  return Sury.$safeAsync(() => Sury.asyncParser(to)(any));
+}
+
+function validate(any, to) {
+  return Sury.inputValidator(to)(any);
+}
+
+function convertOrThrow(any, from, via, to) {
+  return compileConvertOrThrow(from, via, to)(any);
+}
+
+function convertAsyncOrThrow(any, from, via, to) {
+  return compileConvertAsyncOrThrow(from, via, to)(any);
+}
+
+function convert(any, from, via, to) {
+  return Sury.$safe(() => convertOrThrow(any, from, via, to));
+}
+
+function convertAsync(any, from, via, to) {
+  return Sury.$safeAsync(() => convertAsyncOrThrow(any, from, via, to));
+}
+
+function makeOrThrow(value, schema) {
+  return Sury.outputConstructor(schema)(value);
+}
+
+function makeAsyncOrThrow(value, schema) {
+  return Sury.asyncOutputConstructor(schema)(value);
+}
+
+function make(value, schema) {
+  return Sury.$safe(() => Sury.outputConstructor(schema)(value));
+}
+
+function makeAsync(value, schema) {
+  return Sury.$safeAsync(() => Sury.asyncOutputConstructor(schema)(value));
 }
 
 let Schema = {};
@@ -125,12 +166,21 @@ export {
   $$Error,
   refine,
   to,
-  decoder,
-  asyncDecoder,
+  compileConvertOrThrow,
+  compileConvertAsyncOrThrow,
   parseOrThrow,
   parseAsyncOrThrow,
-  decodeOrThrow,
-  decodeAsyncOrThrow,
+  parse,
+  parseAsync,
+  validate,
+  convertOrThrow,
+  convertAsyncOrThrow,
+  convert,
+  convertAsync,
+  makeOrThrow,
+  makeAsyncOrThrow,
+  make,
+  makeAsync,
   Schema,
   $$Object,
   Tuple,

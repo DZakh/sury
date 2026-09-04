@@ -28,7 +28,7 @@ test("Successfully serializing object with quotes in a field name", t => {
   )
 
   t->Assert.deepEqual(
-    {"field": "bar"}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    {"field": "bar"}->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`{"\"\'\`": "bar"}`),
   )
 })
@@ -51,7 +51,7 @@ test("Successfully serializes object transformed to object with quotes in a fiel
   )
 
   t->Assert.deepEqual(
-    {"\"\'\`": "bar"}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    {"\"\'\`": "bar"}->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`{"field": "bar"}`),
   )
 })
@@ -82,7 +82,7 @@ test("Successfully serializes object with discriminant which has quotes as the f
   })
 
   t->Assert.deepEqual(
-    {"field": "bar"}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    {"field": "bar"}->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`{
         "\"\'\`": null,
         "field": "bar",
@@ -118,7 +118,7 @@ test(
     })
 
     t->Assert.deepEqual(
-      {"field": "bar"}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+      {"field": "bar"}->S.convertOrThrow(~from=schema, ~to=S.unknown),
       %raw(`{
           "kind": "\"\'\`",
           "field": "bar",
@@ -161,7 +161,7 @@ test(
       {
         "\"\'\`": "hardcoded",
         "field": "bar",
-      }->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+      }->S.convertOrThrow(~from=schema, ~to=S.unknown),
       %raw(`{"field": "bar"}`),
     )
   },
@@ -201,7 +201,7 @@ test(
       {
         "hardcoded": "\"\'\`",
         "field": "bar",
-      }->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+      }->S.convertOrThrow(~from=schema, ~to=S.unknown),
       %raw(`{"field": "bar"}`),
     )
   },
@@ -228,7 +228,7 @@ test("Has proper error path when fails to serialize object with quotes in a fiel
   )
 
   t->U.assertThrowsMessage(
-    () => Dict.fromArray([("\"'", "bar")])->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    () => Dict.fromArray([("\"'", "bar")])->S.convertOrThrow(~from=schema, ~to=S.unknown),
     `Failed at ["\\"'\`"]: User error`,
   )
 })
@@ -281,7 +281,7 @@ test("Successfully serializes object with field names that shadow Object.prototy
     {
       "constructor": "a",
       "hasOwnProperty": 1.,
-    }->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    }->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`{constructor: "a", hasOwnProperty: 1}`),
   )
 })
@@ -295,7 +295,7 @@ test("Fails with a proper error path for a field named after an Object.prototype
 
   t->U.assertThrowsMessage(
     () => %raw(`{"constructor": 1}`)->S.parseOrThrow(~to=schema),
-    `Failed at ["constructor"]: Expected string, received 1`,
+    `Failed at constructor: Expected string, received 1`,
   )
 })
 

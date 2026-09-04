@@ -5,10 +5,13 @@ ts:
     - S.literal("a").with(S.to, S.literal(42))
   input: '"a"'
   output: "42"
-  instantiations: 5719
+  instantiations: 4905
 jsonSchema:
   input: '{ type: "string", const: "a" }'
   output: '{ type: "number", const: 42 }'
+  openapi-3.0:
+    input: '{ type: "string", enum: ["a"] }'
+    output: '{ type: "number", enum: [42] }'
 vs:
   zod:
     _skip: not-applicable

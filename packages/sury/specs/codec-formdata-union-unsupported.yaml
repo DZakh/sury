@@ -3,7 +3,7 @@ ts:
   schema: "S.formData.with(S.to, S.union([S.schema({ a: S.string }), S.schema({ b: S.string })]))"
   input: FormData
   output: "{ a: string; } | { b: string; }"
-  instantiations: 8536
+  instantiations: 7722
 jsonSchema:
   input: Expected JSON, received FormData
   output: '{ anyOf: [{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }, { type: "object", properties: { b: { type: "string" } }, required: ["b"] }] }'
@@ -21,5 +21,5 @@ operations:
         input: "{ c: 1 }"
         error: |-
           Expected { a: string; } | { b: string; }, received { c: 1; }
-          - At ["a"]: Expected string, received undefined
-          - At ["b"]: Expected string, received undefined
+          - At a: Expected string, received undefined
+          - At b: Expected string, received undefined

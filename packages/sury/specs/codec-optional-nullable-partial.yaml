@@ -3,10 +3,12 @@ ts:
   schema: S.optional(S.string).with(S.to, S.nullable(S.boolean))
   input: string | undefined
   output: boolean | null
-  instantiations: 5600
+  instantiations: 4786
 jsonSchema:
   input: Expected JSON, received string | undefined
   output: '{ anyOf: [{ type: "boolean" }, { type: "null" }] }'
+  openapi-3.0:
+    output: '{ type: "boolean", nullable: true }'
 vs:
   zod:
     _skip: not-applicable

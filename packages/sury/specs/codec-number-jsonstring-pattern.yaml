@@ -3,10 +3,14 @@ ts:
   schema: S.number.with(S.to, S.jsonString).with(S.pattern, /^\d+$/)
   input: number
   output: string
-  instantiations: 5548
+  instantiations: 4711
 jsonSchema:
   input: '{ type: "number" }'
   output: '{ type: "string", contentMediaType: "application/json", pattern: "^\\d+$" }'
+  draft-2020-12:
+    output: '{ type: "string", contentMediaType: "application/json", pattern: "^\\d+$", contentSchema: { type: "number" }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    output: '{ type: "string", pattern: "^\\d+$" }'
 vs:
   zod:
     _skip: not-applicable

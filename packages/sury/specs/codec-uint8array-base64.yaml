@@ -3,10 +3,12 @@ ts:
   schema: S.uint8Array.with(S.to, S.base64)
   input: Uint8Array<ArrayBufferLike>
   output: string
-  instantiations: 5233
+  instantiations: 4419
 jsonSchema:
   input: Expected JSON, received Uint8Array
   output: '{ type: "string", contentEncoding: "base64" }'
+  openapi-3.0:
+    output: '{ type: "string", format: "byte" }'
 vs:
   zod:
     _skip: not-applicable
@@ -35,3 +37,9 @@ operations:
       invalid-base64:
         input: '"!!"'
         error: Expected base64, received "!!"
+      non-utf8-bytes:
+        input: '"iVBORw=="'
+        output: new Uint8Array([137, 80, 78, 71])
+      empty:
+        input: '""'
+        output: new Uint8Array([])

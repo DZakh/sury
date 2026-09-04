@@ -3,10 +3,14 @@ ts:
   schema: "S.schema({ id: S.uuid.with(S.noValidation, true) }).with(S.to, S.jsonString)"
   input: "{ id: string; }"
   output: string
-  instantiations: 6390
+  instantiations: 5522
 jsonSchema:
   input: '{ type: "object", properties: { id: { type: "string", format: "uuid" } }, required: ["id"] }'
   output: '{ type: "string", contentMediaType: "application/json" }'
+  draft-2020-12:
+    output: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "object", properties: { id: { type: "string", format: "uuid" } }, required: ["id"] }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    output: '{ type: "string" }'
 vs:
   zod:
     _skip: not-applicable

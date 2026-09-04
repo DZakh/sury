@@ -8,6 +8,11 @@ jsonSchema:
   input: '{ type: "array", minItems: 3, maxItems: 3, items: [{ type: "string", const: "point" }, { type: "integer", minimum: -2147483648, maximum: 2147483647 }, { type: "integer", minimum: -2147483648, maximum: 2147483647 }] }'
   fromInputType: '["point", number, number]'
   output: '{ type: "object", properties: { x: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, y: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["x", "y"] }'
+  draft-2020-12:
+    input: '{ type: "array", minItems: 3, maxItems: 3, prefixItems: [{ type: "string", const: "point" }, { type: "integer", minimum: -2147483648, maximum: 2147483647 }, { type: "integer", minimum: -2147483648, maximum: 2147483647 }], $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ type: "array", minItems: 3, maxItems: 3, items: { anyOf: [{ type: "string", enum: ["point"] }, { type: "integer", minimum: -2147483648, maximum: 2147483647 }, { type: "integer", minimum: -2147483648, maximum: 2147483647 }] } }'
+    fromInputType: '[number | "point", number | "point", number | "point"]'
 vs:
   zod:
     _skip: not-applicable
@@ -20,10 +25,10 @@ operations:
         output: "{ x: 1, y: -4 }"
       wrong-tag:
         input: '["dot", 1, -4]'
-        error: 'Failed at ["0"]: Expected "point", received "dot"'
+        error: 'Failed at [0]: Expected "point", received "dot"'
       not-an-int32:
         input: '["point", 1.5, -4]'
-        error: 'Failed at ["1"]: Expected int32, received 1.5'
+        error: "Failed at [1]: Expected int32, received 1.5"
   decode:
     expression: i=>{return {x:i["1"],y:i["2"]}}
     examples:

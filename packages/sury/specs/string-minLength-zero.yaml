@@ -3,7 +3,7 @@ ts:
   schema: S.string.with(S.minLength, 0)
   input: string
   output: string
-  instantiations: 793
+  instantiations: 789
 jsonSchema:
   input: '{ type: "string", minLength: 0 }'
   output: '{ type: "string", minLength: 0 }'

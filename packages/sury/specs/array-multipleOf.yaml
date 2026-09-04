@@ -3,7 +3,7 @@ ts:
   schema: S.array(S.number.with(S.multipleOf, 2))
   input: number[]
   output: number[]
-  instantiations: 1097
+  instantiations: 1041
 jsonSchema:
   input: '{ items: { type: "number", multipleOf: 2 }, type: "array" }'
   output: '{ items: { type: "number", multipleOf: 2 }, type: "array" }'
@@ -11,7 +11,7 @@ vs:
   zod: z.array(z.number().multipleOf(2))
 operations:
   parse:
-    expression: i=>{Array.isArray(i)||e[2](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];typeof v1==="number"&&v1===v1||e[1](v1);v1%2===0||e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}return i}
+    expression: i=>{Array.isArray(i)||e[2](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];typeof v1==="number"&&v1===v1||e[1](v1);v1%2===0||e[0](v1);}catch(v2){v2.path=[v0,...v2.path];throw v2}}return i}
     examples:
       valid:
         input: "[2, 4]"
@@ -21,25 +21,25 @@ operations:
         output: "[]"
       invalid-item:
         input: "[2, 3]"
-        error: 'Failed at ["1"]: Expected number % 2, received 3'
+        error: "Failed at [1]: Expected number % 2, received 3"
       invalid-not-array:
         input: '"abc"'
         error: Expected (number % 2)[], received "abc"
   decode:
-    expression: i=>{for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];v1%2===0||e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}return i}
+    expression: i=>{for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];v1%2===0||e[0](v1);}catch(v2){v2.path=[v0,...v2.path];throw v2}}return i}
     examples:
       valid:
         input: "[2, 4]"
         output: "[2, 4]"
       invalid-item:
         input: "[3]"
-        error: 'Failed at ["0"]: Expected number % 2, received 3'
+        error: "Failed at [0]: Expected number % 2, received 3"
   encode:
-    expression: i=>{for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];v1%2===0||e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}return i}
+    expression: i=>{for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];v1%2===0||e[0](v1);}catch(v2){v2.path=[v0,...v2.path];throw v2}}return i}
     examples:
       valid:
         input: "[2, 4]"
         output: "[2, 4]"
       invalid-item:
         input: "[3]"
-        error: 'Failed at ["0"]: Expected number % 2, received 3'
+        error: "Failed at [0]: Expected number % 2, received 3"

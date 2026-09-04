@@ -3,10 +3,13 @@ ts:
   schema: 'S.union([S.schema("apple"), S.string.with(S.to, S.number, { decode: Number, encode: String }), S.string])'
   input: string
   output: string | number
-  instantiations: 6672
+  instantiations: 5827
 jsonSchema:
   input: '{ anyOf: [{ type: "string", const: "apple" }, { type: "string" }] }'
   output: '{ anyOf: [{ type: "string", const: "apple" }, { type: "number" }, { type: "string" }] }'
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "string", enum: ["apple"] }, { type: "string" }] }'
+    output: '{ anyOf: [{ type: "string", enum: ["apple"] }, { type: "number" }, { type: "string" }] }'
 vs:
   zod:
     _skip: not-applicable

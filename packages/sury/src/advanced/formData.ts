@@ -21,7 +21,6 @@ import {
   type Internal,
   isOptional,
   pathConcat,
-  pathFromInlinedLocation,
   setHas,
   stringTag,
   type Tag,
@@ -289,7 +288,7 @@ const formDataToObject = (input: Val, target: Internal): Val => {
       vc: U,
       u: U,
       t: true,
-      path: pathConcat(input.path, pathFromInlinedLocation(keyText)),
+      path: pathConcat(input.path, [key]),
       g: input.g,
       o: U,
     };

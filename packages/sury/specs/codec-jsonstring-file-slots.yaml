@@ -3,10 +3,12 @@ ts:
   schema: 'S.jsonString.with(S.to, S.file, { decode: "unpack", encode: "pack" })'
   input: string
   output: File
-  instantiations: 5310
+  instantiations: 4496
 jsonSchema:
   input: '{ type: "string", contentMediaType: "application/json" }'
   output: Expected JSON, received File
+  openapi-3.0:
+    input: '{ type: "string", format: "binary" }'
 vs:
   zod:
     _skip: not-applicable

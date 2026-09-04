@@ -245,7 +245,7 @@ test("jsonSchema round-trip types are required when they diverge from the schema
         jsonSchema.fromOutputType: omitted, but S.fromJSONSchema(jsonSchema.output) infers "string[]" !== ts.output "[string, string, ...string[]]" — add \`fromOutputType\`.
         goldens stale — run \`pnpm spec check array-minLength --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
     @@ -6,7 +6,9 @@
-        instantiations: 1125
+        instantiations: 1121
       jsonSchema:
         input: '{ items: { type: "string" }, type: "array", minItems: 2 }'
     +   fromInputType: string[]
@@ -338,7 +338,7 @@ test("identity claimed but the operation doesn't actually compile to identity", 
         input: string
         output: string
     -   instantiations: 254
-    +   instantiations: 793
+    +   instantiations: 789
       jsonSchema:
     -   input: '{ type: "string" }'
     -   output: '{ type: "string" }'
@@ -420,7 +420,7 @@ test("eq-to-parse claimed but the operation doesn't actually compile to the same
     -   instantiations: 254
     +   input: string
     +   output: string
-    +   instantiations: 793
+    +   instantiations: 789
       jsonSchema:
     -   input: "{ not: {} }"
     -   output: "{ not: {} }"
@@ -548,6 +548,49 @@ test("format validation failure (wrong type for a required field)", async () => 
       "stderr": "✗ string
         schema: Failed at ["ts"]["schema"]: Expected string, received 42
         ts.schema evaluated but isn't a Sury schema",
+      "stdout": "",
+    }
+  `);
+});
+
+test("an unrepresentable example output fails the check instead of becoming an error golden", async () => {
+  const spec = mutate((s) => {
+    s.ts.schema =
+      'S.string.with(S.to, S.unknown, { decode: () => Object.assign(Object.create({}), { x: 1 }), encode: () => "x" })';
+    s.ts.output = "unknown";
+    s.vs.zod = { _skip: "not-applicable" };
+  });
+  const result = await runCheck("string", serialize(spec));
+  expect(result.stdout).toBe("");
+  expect(result.stderr).toContain("cannot represent a Object instance as spec source code");
+  expect(result.stderr).not.toMatch(/error: cannot represent/);
+});
+
+test("operations block omits an op the schema supports", async () => {
+  const spec = mutate((s) => {
+    delete (s.operations as Partial<Spec["operations"]>).encode;
+  });
+  await expect(runCheck("string", serialize(spec))).resolves.toMatchInlineSnapshot(`
+    {
+      "stderr": "✗ string
+        schema: Failed at ["operations"]["encode"]: Expected "identity" | "eq-to-parse" | { isAsync: true | undefined; expression: string | { _skip: string; }; examples: { [key: string]: { input: string; output: string; } | { input: string; error: string; }; }; } | { creationError: string; }, received undefined
+        operations.encode: missing — a spec must declare parse, decode, and encode (run \`pnpm spec new\` to scaffold them, or add the block)",
+      "stdout": "",
+    }
+  `);
+});
+
+test("_skip on an operation is rejected with a guiding message", async () => {
+  const spec = mutate((s) => {
+    (s.operations as Record<string, unknown>).parse = { _skip: "not-applicable" };
+  });
+  await expect(runCheck("string", serialize(spec))).resolves.toMatchInlineSnapshot(`
+    {
+      "stderr": "✗ string
+        schema: Failed at ["operations"]["parse"]: Expected "identity" | { isAsync: true | undefined; expression: string | { _skip: string; }; examples: { [key: string]: { input: string; output: string; } | { input: string; error: string; }; }; } | { creationError: string; }, received { _skip: "not-applicable"; }
+    - At ["operations"]["parse"]["expression"]: Expected string | { _skip: string; }, received undefined
+    - At ["operations"]["parse"]["creationError"]: Expected string, received undefined
+        operations.parse: _skip is not valid on an operation — use identity, eq-to-parse, a full block with examples, or a creationError",
       "stdout": "",
     }
   `);

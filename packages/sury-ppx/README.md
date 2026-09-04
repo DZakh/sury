@@ -91,7 +91,7 @@ let filmSchema = S.object(s => {
   title: "Sad & sed",
   rating: ParentalStronglyCautioned,
   deprecatedAgeRestriction: None,
-}->S.decodeOrThrow(~from=filmSchema, ~to=S.unknown)
+}->S.convertOrThrow(~from=filmSchema, ~to=S.unknown)
 // Ok(%raw(`{
 //   "Id": 2,
 //   "Title": "Sad & sed",
@@ -102,7 +102,7 @@ let filmSchema = S.object(s => {
 
 // 5. Use schema as a building block for other tools
 // For example, create a JSON schema and use it for OpenAPI generation
-let filmJSONSchema = filmSchema->S.toJSONSchema
+let filmJSONSchema = filmSchema->S.inputJSONSchema
 ```
 
 > 🧠 Read more about schema usage in the _[ReScript Schema for ReScript users](/docs/rescript-usage.md)_ documentation.
@@ -308,7 +308,7 @@ let schema = S.string->S.meta({description: "A useful bit of text, if you know w
 The metadata is picked up by JSON Schema generation:
 
 ```rescript
-schema->S.toJSONSchema
+schema->S.inputJSONSchema
 // {
 //   "type": "string",
 //   "description": "A useful bit of text, if you know what to do with it."

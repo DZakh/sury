@@ -3,7 +3,7 @@ ts:
   schema: 'S.formData.with(S.to, S.schema({ role: S.union(["admin", "user"]), plan: S.optional(S.union(["free", "pro"])) }))'
   input: FormData
   output: '{ role: "admin" | "user"; plan?: "free" | "pro" | undefined; }'
-  instantiations: 8016
+  instantiations: 7202
 jsonSchema:
   input: Expected JSON, received FormData
   output: '{ type: "object", properties: { role: { enum: ["admin", "user"] }, plan: { enum: ["free", "pro"] } }, required: ["role"] }'
@@ -25,10 +25,10 @@ operations:
         output: '{ role: "user", plan: undefined }'
       no-member:
         input: ((f) => (f.append("role", "guest"), f))(new FormData())
-        error: 'Failed at ["role"]: Expected "admin" | "user", received "guest"'
+        error: 'Failed at role: Expected "admin" | "user", received "guest"'
       optional-no-member:
         input: ((f) => (f.append("role", "user"), f.append("plan", "trial"), f))(new FormData())
-        error: 'Failed at ["plan"]: Expected "free" | "pro", received "trial"'
+        error: 'Failed at plan: Expected "free" | "pro", received "trial"'
   decode:
     expression: i=>{let v0=i.get("role")||void 0,v1=i.get("plan")||void 0;typeof v0==="string"||e[1](v0);(v0==="admin"||v0==="user")||e[0](v0);if(v1!==void 0){typeof v1==="string"||e[3](v1);(v1==="free"||v1==="pro")||e[2](v1);}return {role:v0,plan:v1}}
     examples:
@@ -40,4 +40,4 @@ operations:
     examples:
       no-member:
         input: '{ role: "guest" }'
-        error: 'Failed at ["role"]: Expected "admin" | "user", received "guest"'
+        error: 'Failed at role: Expected "admin" | "user", received "guest"'

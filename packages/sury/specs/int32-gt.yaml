@@ -3,10 +3,13 @@ ts:
   schema: S.int32.with(S.gt, 5)
   input: number
   output: number
-  instantiations: 582
+  instantiations: 578
 jsonSchema:
   input: '{ type: "integer", maximum: 2147483647, exclusiveMinimum: 5 }'
   output: '{ type: "integer", maximum: 2147483647, exclusiveMinimum: 5 }'
+  openapi-3.0:
+    input: '{ type: "integer", maximum: 2147483647, minimum: 5, exclusiveMinimum: true }'
+    output: '{ type: "integer", maximum: 2147483647, minimum: 5, exclusiveMinimum: true }'
 vs:
   zod: z.int32().gt(5)
 operations:

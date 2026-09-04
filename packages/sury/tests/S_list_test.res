@@ -27,14 +27,14 @@ module CommonWithNested = {
 
     t->U.assertThrowsMessage(
       () => nestedInvalidAny->S.parseOrThrow(~to=schema),
-      `Failed at ["1"]: Expected string, received 1`,
+      `Failed at [1]: Expected string, received 1`,
     )
   })
 
   test("Successfully serializes", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.decodeOrThrow(~from=schema, ~to=S.unknown), any)
+    t->Assert.deepEqual(value->S.convertOrThrow(~from=schema, ~to=S.unknown), any)
   })
 }
 

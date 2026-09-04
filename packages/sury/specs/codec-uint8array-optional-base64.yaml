@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.uint8Array.with(S.to, S.optional(S.base64))
+  input: Uint8Array<ArrayBufferLike>
+  output: string | undefined
+  instantiations: 4620
+jsonSchema:
+  input: Expected JSON, received Uint8Array
+  output: Expected JSON, received base64 | undefined
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{i instanceof e[5]||e[6](i);for(;;){let r;try{let v0=e[0](i);e[1](v0)||e[2](v0);i=v0;break}catch(x){(r||(r=[])).push(e[3](x))}if(i===void 0)break;e[4](i,...(r||[]))}return i}
+    examples:
+      base64-legal-ascii:
+        input: new Uint8Array([97, 98, 99, 100])
+        output: '"YWJjZA=="'
+      non-utf8-bytes:
+        input: new Uint8Array([137, 80, 78, 71])
+        output: '"iVBORw=="'
+      empty:
+        input: new Uint8Array([])
+        output: '""'
+  decode:
+    expression: i=>{for(;;){let r;try{let v0=e[0](i);e[1](v0)||e[2](v0);i=v0;break}catch(x){(r||(r=[])).push(e[3](x))}if(i===void 0)break;e[4](i,...(r||[]))}return i}
+    examples:
+      base64-legal-ascii:
+        input: new Uint8Array([97, 98, 99, 100])
+        output: '"YWJjZA=="'
+  encode:
+    creationError: "SuryError: Can't decode undefined to Uint8Array. Use S.to to define a custom decoder"

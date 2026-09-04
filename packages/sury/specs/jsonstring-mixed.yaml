@@ -3,34 +3,36 @@ ts:
   schema: "S.schema({u: S.unknown, j: S.json, big: S.bigint, d: S.date}).with(S.to, S.jsonString)"
   input: "{ j: JSON; big: bigint; d: Date; u?: unknown; }"
   output: string
-  instantiations: 7488
+  instantiations: 6674
 jsonSchema:
-  input: 'Failed at ["u"]: Expected JSON, received unknown'
+  input: "Failed at u: Expected JSON, received unknown"
   output: '{ type: "string", contentMediaType: "application/json" }'
+  openapi-3.0:
+    output: '{ type: "string" }'
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[6](i);let v1=i["big"],v2=i["d"],v3=i["u"];try{e[0](i["j"]);}catch(v0){v0.path="[\"j\"]"+v0.path;throw v0}typeof v1==="bigint"||e[1](v1);v2 instanceof e[3]||e[4](v2);!Number.isNaN(v2.getTime())||e[2](v2);let v5;if(v3!==void 0){try{e[5](v3);}catch(v4){v4.path="[\"u\"]"+v4.path;throw v4}v5=JSON.stringify(v3)}let v6=JSON.stringify(i["j"]);let v7="";if(v5!==void 0){v7+="\"u\":"+v5}if(v6!==void 0){v7+=(v7?",":"")+"\"j\":"+v6}v7+=(v7?",":"")+"\"big\":\""+v1+"\",\"d\":\""+v2.toISOString()+"\"";return "{"+v7+"}"}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[6](i);let v1=i["big"],v2=i["d"],v3=i["u"];try{e[0](i["j"]);}catch(v0){v0.path=["j",...v0.path];throw v0}typeof v1==="bigint"||e[1](v1);v2 instanceof e[3]||e[4](v2);!Number.isNaN(v2.getTime())||e[2](v2);let v5;if(v3!==void 0){try{e[5](v3);}catch(v4){v4.path=["u",...v4.path];throw v4}v5=JSON.stringify(v3)}let v6=JSON.stringify(i["j"]);let v7="";if(v5!==void 0){v7+="\"u\":"+v5}if(v6!==void 0){v7+=(v7?",":"")+"\"j\":"+v6}v7+=(v7?",":"")+"\"big\":\""+v1+"\",\"d\":\""+v2.toISOString()+"\"";return "{"+v7+"}"}
     examples:
       valid:
         input: '{ u: { any: [1] }, j: ["j", null], big: 1n, d: new Date("1970-01-01T00:00:00.000Z") }'
         output: '"{\"u\":{\"any\":[1]},\"j\":[\"j\",null],\"big\":\"1\",\"d\":\"1970-01-01T00:00:00.000Z\"}"'
       non-jsonable-unknown:
         input: '{ u: () => {}, j: 1, big: 1n, d: new Date("1970-01-01T00:00:00.000Z") }'
-        error: 'Failed at ["u"]: Expected JSON, received Function'
+        error: "Failed at u: Expected JSON, received Function"
       tojson-undefined-omitted:
         input: '{ u: new (class { toJSON() {} })(), j: 1, big: 1n, d: new Date("1970-01-01T00:00:00.000Z") }'
         output: '"{\"j\":1,\"big\":\"1\",\"d\":\"1970-01-01T00:00:00.000Z\"}"'
   decode:
-    expression: i=>{let v0=i["u"];let v2;if(v0!==void 0){try{e[0](v0);}catch(v1){v1.path="[\"u\"]"+v1.path;throw v1}v2=JSON.stringify(v0)}let v3=JSON.stringify(i["j"]);let v4="";if(v2!==void 0){v4+="\"u\":"+v2}if(v3!==void 0){v4+=(v4?",":"")+"\"j\":"+v3}v4+=(v4?",":"")+"\"big\":\""+i["big"]+"\",\"d\":\""+i["d"].toISOString()+"\"";return "{"+v4+"}"}
+    expression: i=>{let v0=i["u"];let v2;if(v0!==void 0){try{e[0](v0);}catch(v1){v1.path=["u",...v1.path];throw v1}v2=JSON.stringify(v0)}let v3=JSON.stringify(i["j"]);let v4="";if(v2!==void 0){v4+="\"u\":"+v2}if(v3!==void 0){v4+=(v4?",":"")+"\"j\":"+v3}v4+=(v4?",":"")+"\"big\":\""+i["big"]+"\",\"d\":\""+i["d"].toISOString()+"\"";return "{"+v4+"}"}
     examples:
       valid:
         input: '{ u: { any: [1] }, j: ["j", null], big: 1n, d: new Date("1970-01-01T00:00:00.000Z") }'
         output: '"{\"u\":{\"any\":[1]},\"j\":[\"j\",null],\"big\":\"1\",\"d\":\"1970-01-01T00:00:00.000Z\"}"'
   encode:
-    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[5](v0);let v2=v0["big"],v4=v0["d"];typeof v2==="string"||e[2](v2);let v1;try{v1=BigInt(v2)}catch(_){e[1](v2)}typeof v4==="string"||e[4](v4);let v3=new Date(v0["d"]);!Number.isNaN(v3.getTime())||e[3](v3);return {u:v0["u"],j:v0["j"],big:v1,d:v3}}
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[5](v0);let v2=v0["big"],v4=v0["d"];typeof v2==="string"||e[2](v2);let v1;try{v1=BigInt(v2)}catch(_){e[1](v2)}v1||v2.trim()||e[1](v2);typeof v4==="string"||e[4](v4);let v3=new Date(v0["d"]);!Number.isNaN(v3.getTime())||e[3](v3);return {u:v0["u"],j:v0["j"],big:v1,d:v3}}
     examples:
       valid:
         input: '"{\"u\":{\"any\":[1]},\"j\":[\"j\",null],\"big\":\"1\",\"d\":\"1970-01-01T00:00:00.000Z\"}"'

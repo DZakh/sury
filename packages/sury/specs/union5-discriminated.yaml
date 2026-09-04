@@ -7,8 +7,8 @@ ts:
   output: '{ kind: "a"; a: string; } | { kind: "b"; b: number; } | { kind: "c"; c: boolean; } | { kind: "d"; d: bigint; } | { kind: "e"; e: symbol; }'
   instantiations: 4876
 jsonSchema:
-  input: 'Failed at ["d"]: Expected JSON, received bigint'
-  output: 'Failed at ["d"]: Expected JSON, received bigint'
+  input: "Failed at d: Expected JSON, received bigint"
+  output: "Failed at d: Expected JSON, received bigint"
 vs:
   zod: 'z.discriminatedUnion("kind", [z.object({ kind: z.literal("a"), a: z.string() }), z.object({ kind: z.literal("b"), b: z.number() }), z.object({ kind: z.literal("c"), c: z.boolean() }), z.object({ kind: z.literal("d"), d: z.bigint() }), z.object({ kind: z.literal("e"), e: z.symbol() })])'
 operations:
@@ -26,6 +26,6 @@ operations:
         error: 'Expected { kind: "a"; a: string; } | { kind: "b"; b: number; } | { kind: "c"; c: boolean; } | { kind: "d"; d: bigint; } | { kind: "e"; e: symbol; }, received { kind: "z"; a: "hello"; }'
       invalid-member-shape:
         input: '{ kind: "a", a: 42 }'
-        error: 'Failed at ["a"]: Expected string, received 42'
+        error: "Failed at a: Expected string, received 42"
   decode: identity
   encode: identity

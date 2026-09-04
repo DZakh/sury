@@ -19,7 +19,7 @@ test("Successfully serializes valid value", t => {
   let schema = S.email
 
   t->Assert.deepEqual(
-    "dzakh.dev@gmail.com"->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    "dzakh.dev@gmail.com"->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`"dzakh.dev@gmail.com"`),
   )
 })
@@ -28,7 +28,7 @@ test("Fails to serialize invalid value", t => {
   let schema = S.email
 
   t->U.assertThrowsMessage(
-    () => "dzakh.dev"->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    () => "dzakh.dev"->S.convertOrThrow(~from=schema, ~to=S.unknown),
     `Expected email, received "dzakh.dev"`,
   )
 })

@@ -56,7 +56,7 @@ test("Rejects at creation when every variant's encode is never", t => {
   ])
 
   t->U.assertThrowsMessage(
-    () => %raw(`null`)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    () => %raw(`null`)->S.convertOrThrow(~from=schema, ~to=S.unknown),
     `Every variant of unknown is marked as never`,
   )
 })
@@ -138,7 +138,7 @@ test(
     // way back from #unknown to a string. That's an error in the encode operation
     // itself, raised once when it's created rather than per value.
     t->U.assertThrowsMessage(
-      () => #hyper->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+      () => #hyper->S.convertOrThrow(~from=schema, ~to=S.unknown),
       `Missing input for string`,
     )
   },
@@ -150,7 +150,7 @@ test("A never-encode variant yields to its siblings when reversed", t => {
     S.string->S.to(S.any, ~custom={decode: Sync(_ => #apple), encode: Never}),
   ])
 
-  t->Assert.deepEqual(#apple->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"apple"`))
+  t->Assert.deepEqual(#apple->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`"apple"`))
 })
 
 module Advanced = {
@@ -248,7 +248,7 @@ module Advanced = {
 
     t->U.assertThrowsMessage(
       () => data->S.parseOrThrow(~to=schema),
-      `Failed at ["field"]: Expected { kind: "circle"; radius: number; } | { kind: "square"; x: number; } | { kind: "triangle"; x: number; y: number; }, received { kind: "oval"; x: 2; y: 3; }`,
+      `Failed at field: Expected { kind: "circle"; radius: number; } | { kind: "square"; x: number; } | { kind: "triangle"; x: number; y: number; }, received { kind: "oval"; x: 2; y: 3; }`,
     )
   })
 
@@ -278,14 +278,14 @@ module Advanced = {
     let v = Triangle({x: 2., y: 3.})
 
     t->U.assertThrowsMessage(
-      () => v->S.decodeOrThrow(~from=incompleteSchema, ~to=S.unknown),
+      () => v->S.convertOrThrow(~from=incompleteSchema, ~to=S.unknown),
       `Expected { TAG: "Circle"; radius: number; } | { TAG: "Square"; x: number; }, received { TAG: "Triangle"; x: 2; y: 3; }`,
     )
   })
 
   test("Successfully serializes Circle shape", t => {
     t->Assert.deepEqual(
-      Circle({radius: 1.})->S.decodeOrThrow(~from=shapeSchema, ~to=S.unknown),
+      Circle({radius: 1.})->S.convertOrThrow(~from=shapeSchema, ~to=S.unknown),
       %raw(`{
           "kind": "circle",
           "radius": 1,
@@ -295,7 +295,7 @@ module Advanced = {
 
   test("Successfully serializes Square shape", t => {
     t->Assert.deepEqual(
-      Square({x: 2.})->S.decodeOrThrow(~from=shapeSchema, ~to=S.unknown),
+      Square({x: 2.})->S.convertOrThrow(~from=shapeSchema, ~to=S.unknown),
       %raw(`{
         "kind": "square",
         "x": 2,
@@ -305,7 +305,7 @@ module Advanced = {
 
   test("Successfully serializes Triangle shape", t => {
     t->Assert.deepEqual(
-      Triangle({x: 2., y: 3.})->S.decodeOrThrow(~from=shapeSchema, ~to=S.unknown),
+      Triangle({x: 2., y: 3.})->S.convertOrThrow(~from=shapeSchema, ~to=S.unknown),
       %raw(`{
         "kind": "triangle",
         "x": 2,
@@ -382,7 +382,7 @@ test("Array stays disjoint from object even if it's later in the union", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i["foo"];typeof v0==="string"||e[0](v0);i=[v0];break}if(Array.isArray(i)){for(let v1=0;v1<i.length;++v1){try{let v2=i[v1];typeof v2==="string"||e[1](v2);}catch(v3){v3.path='["'+v1+'"]'+v3.path;throw v3}};break}e[2](i)}return i}`,
+    `i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i["foo"];typeof v0==="string"||e[0](v0);i=[v0];break}if(Array.isArray(i)){for(let v1=0;v1<i.length;++v1){try{let v2=i[v1];typeof v2==="string"||e[1](v2);}catch(v3){v3.path=[v1,...v3.path];throw v3}};break}e[2](i)}return i}`,
   )
 })
 
@@ -442,8 +442,8 @@ test("Successfully serializes unboxed variant", t => {
 
   t->Assert.deepEqual("123"->S.parseOrThrow(~to=schema), Int(123))
   t->Assert.deepEqual("abc"->S.parseOrThrow(~to=schema), String("abc"))
-  t->Assert.deepEqual(String("abc")->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"abc"`))
-  t->Assert.deepEqual(Int(123)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"123"`))
+  t->Assert.deepEqual(String("abc")->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`"abc"`))
+  t->Assert.deepEqual(Int(123)->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`"123"`))
 
   t->U.assertCompiledCode(
     ~schema,
@@ -462,8 +462,8 @@ test("Successfully serializes unboxed variant", t => {
   let schema = S.union([toString, toInt])
 
   t->Assert.deepEqual("123"->S.parseOrThrow(~to=schema), String("123"))
-  t->Assert.deepEqual(String("abc")->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"abc"`))
-  t->Assert.deepEqual(Int(123)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"123"`))
+  t->Assert.deepEqual(String("abc")->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`"abc"`))
+  t->Assert.deepEqual(Int(123)->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`"123"`))
 
   t->U.assertCompiledCode(
     ~schema,
@@ -551,7 +551,7 @@ test("Union with nested variant", t => {
       "foo": {
         "tag": #Null(None),
       },
-    }->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    }->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`{"foo":{"tag":{"NAME":"Null","VAL":null}}}`),
   )
 
@@ -589,7 +589,7 @@ test("Compiled serialize code snapshot of objects returning literal fields", t =
     S.object(s => s.field("bar", S.literal(1))),
   ])
 
-  t->Assert.deepEqual(1->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`{"bar":1}`))
+  t->Assert.deepEqual(1->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`{"bar":1}`))
 
   t->U.assertCompiledCode(
     ~schema,
@@ -700,7 +700,7 @@ module CrazyUnion = {
       ~op=#Parse,
       ~embedded=[("Crazy", 0)],
       `i=>{let v0;v0=e[0](i);return v0}
-Crazy: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i["type"]==="A"){let v0=i["nested"];Array.isArray(v0)||e[1](v0);let v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){try{let v2;v2=e[0](v0[v1]);v4[v1]=v2}catch(v3){v3.path="[\\"nested\\"]"+'["'+v1+'"]'+v3.path;throw v3}}i={TAG:"A",_0:v4};break}if(i["type"]==="Z"){let v5=i["nested"];Array.isArray(v5)||e[3](v5);let v9=new Array(v5.length);for(let v6=0;v6<v5.length;++v6){try{let v7;v7=e[2](v5[v6]);v9[v6]=v7}catch(v8){v8.path="[\\"nested\\"]"+'["'+v6+'"]'+v8.path;throw v8}}i={TAG:"Z",_0:v9};break}e[4](i)};break}if(typeof i==="string"&&(i==="B"||i==="C"||i==="D"||i==="E"||i==="F"||i==="G"||i==="H"||i==="I"||i==="J"||i==="K"||i==="L"||i==="M"||i==="N"||i==="O"||i==="P"||i==="Q"||i==="R"||i==="S"||i==="T"||i==="U"||i==="V"||i==="W"||i==="X"||i==="Y"))break;e[5](i)}return i}`,
+Crazy: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i["type"]==="A"){let v0=i["nested"];Array.isArray(v0)||e[1](v0);let v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){try{let v2;v2=e[0](v0[v1]);v4[v1]=v2}catch(v3){v3.path=["nested",v1,...v3.path];throw v3}}i={TAG:"A",_0:v4};break}if(i["type"]==="Z"){let v5=i["nested"];Array.isArray(v5)||e[3](v5);let v9=new Array(v5.length);for(let v6=0;v6<v5.length;++v6){try{let v7;v7=e[2](v5[v6]);v9[v6]=v7}catch(v8){v8.path=["nested",v6,...v8.path];throw v8}}i={TAG:"Z",_0:v9};break}e[4](i)};break}if(typeof i==="string"&&(i==="B"||i==="C"||i==="D"||i==="E"||i==="F"||i==="G"||i==="H"||i==="I"||i==="J"||i==="K"||i==="L"||i==="M"||i==="N"||i==="O"||i==="P"||i==="Q"||i==="R"||i==="S"||i==="T"||i==="U"||i==="V"||i==="W"||i==="X"||i==="Y"))break;e[5](i)}return i}`,
     )
   })
 
@@ -708,7 +708,7 @@ Crazy: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i["t
     S.global({})
     let reversed = schema->S.reverse
     let code = `i=>{let v0;v0=e[0](i);return v0}
-Crazy: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i["TAG"]==="A"){let v0=i["_0"];let v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){try{let v2;v2=e[0](v0[v1]);v4[v1]=v2}catch(v3){v3.path="[\\"_0\\"]"+'["'+v1+'"]'+v3.path;throw v3}}i={type:"A",nested:v4};break}if(i["TAG"]==="Z"){let v5=i["_0"];let v9=new Array(v5.length);for(let v6=0;v6<v5.length;++v6){try{let v7;v7=e[1](v5[v6]);v9[v6]=v7}catch(v8){v8.path="[\\"_0\\"]"+'["'+v6+'"]'+v8.path;throw v8}}i={type:"Z",nested:v9};break}e[2](i)};break}if(typeof i==="string"&&(i==="B"||i==="C"||i==="D"||i==="E"||i==="F"||i==="G"||i==="H"||i==="I"||i==="J"||i==="K"||i==="L"||i==="M"||i==="N"||i==="O"||i==="P"||i==="Q"||i==="R"||i==="S"||i==="T"||i==="U"||i==="V"||i==="W"||i==="X"||i==="Y"))break;e[3](i)}return i}`
+Crazy: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i["TAG"]==="A"){let v0=i["_0"];let v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){try{let v2;v2=e[0](v0[v1]);v4[v1]=v2}catch(v3){v3.path=["_0",v1,...v3.path];throw v3}}i={type:"A",nested:v4};break}if(i["TAG"]==="Z"){let v5=i["_0"];let v9=new Array(v5.length);for(let v6=0;v6<v5.length;++v6){try{let v7;v7=e[1](v5[v6]);v9[v6]=v7}catch(v8){v8.path=["_0",v6,...v8.path];throw v8}}i={type:"Z",nested:v9};break}e[2](i)};break}if(typeof i==="string"&&(i==="B"||i==="C"||i==="D"||i==="E"||i==="F"||i==="G"||i==="H"||i==="I"||i==="J"||i==="K"||i==="L"||i==="M"||i==="N"||i==="O"||i==="P"||i==="Q"||i==="R"||i==="S"||i==="T"||i==="U"||i==="V"||i==="W"||i==="X"||i==="Y"))break;e[3](i)}return i}`
     t->U.assertCompiledCode(~schema=reversed, ~op=#Convert, code, ~embedded=[("Crazy", 0)])
     // There was an issue with reverse when it doesn't return the same code on second run
     t->U.assertCompiledCode(~schema=reversed, ~op=#Convert, code, ~embedded=[("Crazy", 0)])
@@ -771,7 +771,7 @@ test("json-rpc response", t => {
   t->U.assertCompiledCode(
     ~schema=getLogsResponseSchema,
     ~op=#Parse,
-    `i=>{for(;;){let r;if(typeof i==="object"&&i&&!Array.isArray(i)){try{let v0=i["result"];Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"||e[0](v2);}catch(v3){v3.path="[\\"result\\"]"+'["'+v1+'"]'+v3.path;throw v3}}i={TAG:"Ok",_0:v0};break}catch(x){(r||(r=[])).push(e[5](x))}try{let v4=i["error"];if(typeof v4==="object"&&v4&&!Array.isArray(v4)){for(;;){if(v4["message"]==="NotFound"){v4="LogsNotFound";break}if(v4["message"]==="Invalid"){let v5=v4["data"];typeof v5==="string"||e[2](v5);v4={NAME:"InvalidData",VAL:v5};break}e[3](v4)}}else{e[4](v4)}i={TAG:"Error",_0:v4};break}catch(x){(r||(r=[])).push(e[5](x))}}e[6](i,...(r||[]))}return i}`,
+    `i=>{for(;;){let r;if(typeof i==="object"&&i&&!Array.isArray(i)){try{let v0=i["result"];Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"||e[0](v2);}catch(v3){v3.path=["result",v1,...v3.path];throw v3}}i={TAG:"Ok",_0:v0};break}catch(x){(r||(r=[])).push(e[5](x))}try{let v4=i["error"];if(typeof v4==="object"&&v4&&!Array.isArray(v4)){for(;;){if(v4["message"]==="NotFound"){v4="LogsNotFound";break}if(v4["message"]==="Invalid"){let v5=v4["data"];typeof v5==="string"||e[2](v5);v4={NAME:"InvalidData",VAL:v5};break}e[3](v4)}}else{e[4](v4)}i={TAG:"Error",_0:v4};break}catch(x){(r||(r=[])).push(e[5](x))}}e[6](i,...(r||[]))}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema=getLogsResponseSchema,
@@ -783,19 +783,19 @@ test("json-rpc response", t => {
   // that each per-discriminant arm closes with its own exhaustive check.
   t->U.assertThrowsMessage(
     () =>
-      %raw(`{TAG:"Error",_0:"BogusVariant"}`)->S.decodeOrThrow(
+      %raw(`{TAG:"Error",_0:"BogusVariant"}`)->S.convertOrThrow(
         ~from=getLogsResponseSchema,
         ~to=S.unknown,
       ),
-    `Failed at ["_0"]: Expected "LogsNotFound" | { NAME: "InvalidData"; VAL: string; }, received "BogusVariant"`,
+    `Failed at _0: Expected "LogsNotFound" | { NAME: "InvalidData"; VAL: string; }, received "BogusVariant"`,
   )
   t->U.assertThrowsMessage(
     () =>
-      %raw(`{TAG:"Error",_0:{NAME:"BogusObj"}}`)->S.decodeOrThrow(
+      %raw(`{TAG:"Error",_0:{NAME:"BogusObj"}}`)->S.convertOrThrow(
         ~from=getLogsResponseSchema,
         ~to=S.unknown,
       ),
-    `Failed at ["_0"]: Expected "LogsNotFound" | { NAME: "InvalidData"; VAL: string; }, received { NAME: "BogusObj"; }`,
+    `Failed at _0: Expected "LogsNotFound" | { NAME: "InvalidData"; VAL: string; }, received { NAME: "BogusObj"; }`,
   )
 })
 
@@ -828,7 +828,7 @@ test("Issue https://github.com/DZakh/rescript-schema/issues/101", t => {
     #response({
       "collectionName": "foo",
       "response": "accepted",
-    })->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    })->S.convertOrThrow(~from=schema, ~to=S.unknown),
     #response({
       "collectionName": "foo",
       "response": "accepted",
@@ -882,8 +882,8 @@ test("Objects with the same discriminant", t => {
   t->U.assertThrowsMessage(
     () => %raw(`{"type":"A","value":1}`)->S.parseOrThrow(~to=schema),
     `Expected { type: "A"; value: "foo" | "bar"; } | { type: "A"; value: string; }, received { type: "A"; value: 1; }
-- At ["value"]: Expected "foo" | "bar", received 1
-- At ["value"]: Expected string, received 1`,
+- At value: Expected "foo" | "bar", received 1
+- At value: Expected string, received 1`,
   )
 
   t->U.assertCompiledCode(
@@ -945,7 +945,7 @@ module CknittelBugReport = {
       },
     }
     t->Assert.deepEqual(
-      B(x)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+      B(x)->S.convertOrThrow(~from=schema, ~to=S.unknown),
       %raw(`{"payload":{"b":42}}`),
     )
     let x = {
@@ -954,7 +954,7 @@ module CknittelBugReport = {
       },
     }
     t->Assert.deepEqual(
-      A(x)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+      A(x)->S.convertOrThrow(~from=schema, ~to=S.unknown),
       %raw(`{"payload":{"a":"foo"}}`),
     )
   })

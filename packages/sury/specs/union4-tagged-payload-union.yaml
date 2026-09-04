@@ -7,6 +7,9 @@ ts:
 jsonSchema:
   input: '{ anyOf: [{ type: "object", properties: { TAG: { type: "string", const: "One" }, _0: { type: "string" } }, required: ["TAG", "_0"] }, { type: "object", properties: { TAG: { type: "string", const: "Two" }, _0: { type: "string" } }, required: ["TAG", "_0"] }, { type: "object", properties: { TAG: { type: "string", const: "Three" }, _0: { type: "object", properties: { a: { type: "string" }, kind: { enum: ["A", "B"] } }, required: ["a", "kind"] } }, required: ["TAG", "_0"] }, { type: "object", properties: { TAG: { type: "string", const: "Four" }, _0: { type: "string" } }, required: ["TAG", "_0"] }] }'
   output: '{ anyOf: [{ type: "object", properties: { TAG: { type: "string", const: "One" }, _0: { type: "string" } }, required: ["TAG", "_0"] }, { type: "object", properties: { TAG: { type: "string", const: "Two" }, _0: { type: "string" } }, required: ["TAG", "_0"] }, { type: "object", properties: { TAG: { type: "string", const: "Three" }, _0: { type: "object", properties: { a: { type: "string" }, kind: { enum: ["A", "B"] } }, required: ["a", "kind"] } }, required: ["TAG", "_0"] }, { type: "object", properties: { TAG: { type: "string", const: "Four" }, _0: { type: "string" } }, required: ["TAG", "_0"] }] }'
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "object", properties: { TAG: { type: "string", enum: ["One"] }, _0: { type: "string" } }, required: ["TAG", "_0"] }, { type: "object", properties: { TAG: { type: "string", enum: ["Two"] }, _0: { type: "string" } }, required: ["TAG", "_0"] }, { type: "object", properties: { TAG: { type: "string", enum: ["Three"] }, _0: { type: "object", properties: { a: { type: "string" }, kind: { enum: ["A", "B"] } }, required: ["a", "kind"] } }, required: ["TAG", "_0"] }, { type: "object", properties: { TAG: { type: "string", enum: ["Four"] }, _0: { type: "string" } }, required: ["TAG", "_0"] }] }'
+    output: '{ anyOf: [{ type: "object", properties: { TAG: { type: "string", enum: ["One"] }, _0: { type: "string" } }, required: ["TAG", "_0"] }, { type: "object", properties: { TAG: { type: "string", enum: ["Two"] }, _0: { type: "string" } }, required: ["TAG", "_0"] }, { type: "object", properties: { TAG: { type: "string", enum: ["Three"] }, _0: { type: "object", properties: { a: { type: "string" }, kind: { enum: ["A", "B"] } }, required: ["a", "kind"] } }, required: ["TAG", "_0"] }, { type: "object", properties: { TAG: { type: "string", enum: ["Four"] }, _0: { type: "string" } }, required: ["TAG", "_0"] }] }'
 vs:
   zod: 'z.discriminatedUnion("TAG", [z.object({ TAG: z.literal("One"), _0: z.string() }), z.object({ TAG: z.literal("Two"), _0: z.string() }), z.object({ TAG: z.literal("Three"), _0: z.object({ a: z.string(), kind: z.union([z.literal("A"), z.literal("B")]) }) }), z.object({ TAG: z.literal("Four"), _0: z.string() })])'
 operations:
@@ -33,10 +36,10 @@ operations:
         error: 'Expected { TAG: "One"; _0: string; } | { TAG: "Two"; _0: string; } | { TAG: "Three"; _0: { a: string; kind: "A" | "B"; }; } | { TAG: "Four"; _0: string; }, received { TAG: "Z"; _0: "x"; }'
       invalid-one-payload:
         input: '{ TAG: "One", _0: 1 }'
-        error: 'Failed at ["_0"]: Expected string, received 1'
+        error: "Failed at _0: Expected string, received 1"
       invalid-three-kind:
         input: '{ TAG: "Three", _0: { a: "x", kind: "C" } }'
-        error: 'Failed at ["_0"]["kind"]: Expected "A" | "B", received "C"'
+        error: 'Failed at _0.kind: Expected "A" | "B", received "C"'
       not-object:
         input: '"x"'
         error: 'Expected { TAG: "One"; _0: string; } | { TAG: "Two"; _0: string; } | { TAG: "Three"; _0: { a: string; kind: "A" | "B"; }; } | { TAG: "Four"; _0: string; }, received "x"'

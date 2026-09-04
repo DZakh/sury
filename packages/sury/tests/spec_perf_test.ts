@@ -38,6 +38,10 @@ test("conservativePct needs unanimity: one dissenting block is enough to report 
   expect(conservativePct(ratios(1.4, 1.3, 1.2, 1.25, 1.35, 1.28, 1.22, 0.99))).toBe(0);
 });
 
+test("conservativePct reports 0 below six blocks, so BLOCKS must stay at 6 or above", () => {
+  expect(conservativePct(ratios(1.4, 1.3, 1.2, 1.1, 1.05))).toBe(0);
+});
+
 // ---- targets ---------------------------------------------------------------
 
 // `[]` for the scenarios: they aren't files, so a run narrowed to one spec

@@ -3,7 +3,7 @@ ts:
   schema: "S.record(S.string).with(S.to, S.schema({ a: S.optional(S.string) }))"
   input: "{ [x: string]: string; }"
   output: "{ a?: string | undefined; }"
-  instantiations: 7156
+  instantiations: 6342
 jsonSchema:
   input: '{ type: "object", additionalProperties: { type: "string" } }'
   output: '{ type: "object", properties: { a: { type: "string" } } }'
@@ -12,7 +12,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    creationError: "SuryError: Failed at [\"a\"]: Invalid operation: can't convert string to string | undefined — string has the same type as the source and the others don't. Use S.to to say what you mean, or S.never to mark a variant unreachable"
+    creationError: "SuryError: Failed at a: Invalid operation: can't convert string to string | undefined — string has the same type as the source and the others don't. Use S.to to say what you mean, or S.never to mark a variant unreachable"
   decode: eq-to-parse
   encode:
-    creationError: "SuryError: Failed at [\"a\"]: Invalid operation: can't convert string | undefined to string — string has the same type as the target and the others don't. Use S.to to say what you mean, or S.never to mark a variant unreachable"
+    creationError: "SuryError: Failed at a: Invalid operation: can't convert string | undefined to string — string has the same type as the target and the others don't. Use S.to to say what you mean, or S.never to mark a variant unreachable"
