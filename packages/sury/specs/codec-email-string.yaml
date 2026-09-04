@@ -5,13 +5,8 @@ ts:
   output: string
   instantiations: 4361
 jsonSchema:
-  # FIXME: widening a string format overflows the stack —
-  # `internalToJSONSchema` encode-reverses a schema that has `.to`, and the
-  # reversed `S.string.with(S.to, S.email)` hands back one that still does, so
-  # the two call each other forever. `S.base64` escapes it only because its
-  # decoder re-schemas the val it passes through (codec-base64-string).
-  input: Maximum call stack size exceeded
-  output: Maximum call stack size exceeded
+  input: '{ type: "string", format: "email" }'
+  output: '{ type: "string", format: "email" }'
 vs:
   zod:
     _skip: not-applicable
