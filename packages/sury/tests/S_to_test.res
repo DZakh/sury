@@ -1095,7 +1095,7 @@ test("Tier 3 fallback for unknown source — transform on unknown variant still 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){if(typeof i==="string")break;let v0;try{v0=e[0](i)}catch(x){e[1](x);e[2](x)}i=v0;break;}return i}`,
+    `i=>{for(;;){if(typeof i==="string")break;let v0;try{v0=e[0](i)}catch(x){e[1](x)}i=v0;break;}return i}`,
   )
 })
 

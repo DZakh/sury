@@ -282,7 +282,7 @@ test("Default on a primary item with S.to runs the transformation on parse and r
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{if(i instanceof e[0]){i=i.toISOString()}else{e[1](i)}return i}`,
+    `i=>{if(i instanceof e[1]){let v0;try{v0=i.toISOString()}catch(_){e[0](i)}i=v0}else{e[2](i)}return i}`,
   )
 })
 

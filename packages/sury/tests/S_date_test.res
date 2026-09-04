@@ -194,7 +194,7 @@ test("Reverse converts nullableAsOption string-to-date schema", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{for(;;){if(i instanceof e[0]){i=i.toISOString();break}if(i===void 0)break;e[1](i)}return i}`,
+    `i=>{for(;;){if(i instanceof e[1]){let v0;try{v0=i.toISOString()}catch(_){e[0](i)}i=v0;break}if(i===void 0)break;e[2](i)}return i}`,
   )
 })
 
@@ -210,7 +210,7 @@ test("Reverse converts nullable string-to-date schema", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{for(;;){if(i instanceof e[0]){i=i.toISOString();break}if(i===void 0)break;if(i===null)break;e[1](i)}return i}`,
+    `i=>{for(;;){if(i instanceof e[1]){let v0;try{v0=i.toISOString()}catch(_){e[0](i)}i=v0;break}if(i===void 0)break;if(i===null)break;e[2](i)}return i}`,
   )
 })
 
@@ -295,6 +295,6 @@ test("Encodes a nullable optional Timestamp whose input is string | number (issu
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{for(;;){if(i instanceof e[4]){for(;;){i=i.toISOString();break;};break}if(i===void 0)break;e[5](i)}return i}`,
+    `i=>{for(;;){if(i instanceof e[6]){for(;;){let r;try{let v0;try{v0=i.toISOString()}catch(_){e[0](i)}i=v0;break}catch(x){(r||(r=[])).push(e[4](x))}try{let v1;try{v1=e[1](i)}catch(x){e[2](x)}typeof v1==="number"&&v1===v1||e[3](v1);i=v1;break}catch(x){(r||(r=[])).push(e[4](x))}e[5](i,...(r||[]))};break}if(i===void 0)break;e[7](i)}return i}`,
   )
 })
