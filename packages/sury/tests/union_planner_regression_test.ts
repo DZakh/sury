@@ -123,28 +123,28 @@ test("factory normalization preserves duplicate effects and nested metadata", (t
   );
 });
 
-test("custom decoder foreign errors escape while Sury errors fall through", (t) => {
+// Whatever a custom coder throws is that conversion failing — a coder hit by
+// a value it was never written for throws a TypeError (#347) — so it hands
+// the value to the next case. A refiner's foreign error still escapes (see
+// the nested-union test below).
+test("custom decoder errors, foreign or Sury, fall through to the next case", (t) => {
   const foreign = new RangeError("custom decoder failed");
+  const throwing = S.to(S.string, S.string, {
+    decode: () => {
+      throw foreign;
+    },
+    encode: (value) => value,
+  });
   let foreignFallbackCalls = 0;
   const foreignSchema = S.union([
-    S.to(S.string, S.string, {
-      decode: () => {
-        throw foreign;
-      },
-      encode: (value) => value,
-    }),
+    throwing,
     S.string.with(S.refine, () => {
       foreignFallbackCalls++;
       return true;
     }),
   ]);
-  try {
-    S.parser(foreignSchema)("value");
-    t.expect.fail("the foreign exception should escape");
-  } catch (error) {
-    t.expect(error).toBe(foreign);
-  }
-  t.expect(foreignFallbackCalls).toBe(0);
+  t.expect(S.parser(foreignSchema)("value")).toBe("value");
+  t.expect(foreignFallbackCalls).toBe(1);
 
   let nestedFallbackCalls = 0;
   const nestedForeignSchema = S.union([
@@ -158,13 +158,17 @@ test("custom decoder foreign errors escape while Sury errors fall through", (t) 
       return true;
     }),
   ]);
+  t.expect(S.parser(nestedForeignSchema)({ value: "nested" })).toEqual({});
+  t.expect(nestedFallbackCalls).toBe(1);
+
+  // With no case left to take the value, the union's error names the cause.
   try {
-    S.parser(nestedForeignSchema)({ value: "nested" });
-    t.expect.fail("the nested foreign exception should escape");
+    S.parser(S.union([throwing, S.number]))("value");
+    t.expect.fail("the union should fail");
   } catch (error) {
-    t.expect(error).toBe(foreign);
+    t.expect(error).toBeInstanceOf(S.Error);
+    t.expect((error as Error).message).toContain("custom decoder failed");
   }
-  t.expect(nestedFallbackCalls).toBe(0);
 
   let suryFallbackCalls = 0;
   const surySchema = S.union([
@@ -364,7 +368,7 @@ test("nested and recursive union deoptimization terminates and falls through", (
   t.expect(() => parse({ value: "invalid" })).toThrow(S.Error);
 });
 
-test("recursive transform exceptions keep their identity across compile order", (t) => {
+test("recursive transform exceptions fall through across compile order", (t) => {
   type RecursiveValue = string | RecursiveValue[];
 
   const verify = (name: string, unionFirst: boolean) => {
@@ -393,13 +397,15 @@ test("recursive transform exceptions keep their identity across compile order", 
     const parse = parseUnion || S.parser(outer);
 
     t.expect(parseStandalone("safe")).toBe("safe");
+    t.expect(parse("explode")).toBe("explode");
+    t.expect(fallbackCalls).toBe(1);
     try {
-      parse("explode");
-      t.expect.fail("the recursive foreign exception should escape");
+      parseStandalone("explode");
+      t.expect.fail("the recursive union should fail");
     } catch (error) {
-      t.expect(error).toBe(foreign);
+      t.expect(error).toBeInstanceOf(S.Error);
+      t.expect((error as Error).message).toContain(foreign.message);
     }
-    t.expect(fallbackCalls).toBe(0);
   };
 
   verify("PlannerRecursiveStandaloneFirst", false);

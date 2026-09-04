@@ -4,7 +4,6 @@ import {
   type Check,
   type ErrorDetails,
   type Flag,
-  getOrRethrow,
   immutableEmptyArray,
   inlinedValueFromString,
   inputExpression,
@@ -759,7 +758,12 @@ export const B_conversion = (
       output.cp = `let ${outputVar}=${embeddedFn}(${inputValue});`;
       return output;
     }
-    const rethrow = unionContext ? `${B_embed(input, getOrRethrow)}(x);` : "";
+    // Whatever the coder throws — a `SuryError` it raised on purpose or a
+    // TypeError it hit on a value it was never written for — is that
+    // conversion failing, so in a union it is what hands the value to the
+    // next case rather than aborting the operation (#347). The foreign
+    // errors that do escape a union are a refiner's or a getter's, which
+    // never enter this try.
     const failure = B_failWithArg(
       output,
       (e: unknown) => B_makeInvalidConversionDetails(input, target, e),
@@ -767,7 +771,7 @@ export const B_conversion = (
     );
     output.cp = `let ${outputVar};try{${outputVar}=${embeddedFn}(${inputValue})${
       isAsync ? `.catch(x=>${failure})` : ""
-    }}catch(x){${rethrow}${failure}}`;
+    }}catch(x){${failure}}`;
     // A val whose result the target's own refiners can attach to. `val.vc`
     // checks emit at the *pre-transform* slot (`prev.v()` in B_merge), so
     // leaving them on the coder's own val would validate what went into the
