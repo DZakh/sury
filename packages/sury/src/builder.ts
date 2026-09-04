@@ -408,9 +408,14 @@ export const B_merge = (val: Val, out?: HoistCond): string => {
       // (stable input var) and this val has no codeFromPrev of its own —
       // else the lifted check runs before that producer (the
       // str->to(option(int)) "v0 is not defined" bug class).
-      // A val with no `prev` is checked against itself: a scope over a typed
-      // source (a union case's narrow) carries its checks with nothing before
-      // it, and its own var is the value they read.
+      // A val with no `prev` is checked against itself. A union case's narrow
+      // is a `B_scope`, which links through `b` rather than `prev`, so a case
+      // over a source that is itself the operation argument (`S.string.with(
+      // S.to, S.union([…]))`) leaves the checks with nothing before them —
+      // and the scope names the same value, so its own var is what they read.
+      // Sound only because such a val's `v` is already a resolved var; the
+      // vals that reach here are scopes and operation arguments, never a
+      // pending `_notVar` whose `let` this would then emit too late.
       if (out && (!val.t || (current !== U && !current.t && val.cp === ""))) {
         const inputVar = (current || val).v();
         const checks = val.vc;

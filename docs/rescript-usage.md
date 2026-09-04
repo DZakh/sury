@@ -1203,9 +1203,7 @@ S.blob->S.maxSize(1_000_000, ~message="Too large")
 `S.instance` schema with a `.size`, counting entries rather than bytes.
 
 > Strings and arrays use `S.minLength`/`S.maxLength`/`S.length` instead.
-> A lower bound of `0` is dropped, except a string's `S.minLength(0)`, which
-> [`S.formData`](#formdata) reads as admitting the empty entry; a negative one
-> is an error.
+> A lower bound of `0` is dropped; a negative one is an error.
 
 ### **`file`**
 
@@ -1240,10 +1238,12 @@ let schema = S.formData->S.to(
 ```
 
 A field reads its entry as text through the same coercions `S.dict(S.string)`
-gets; `S.file` and `S.blob` take the entry as it is, and a required `S.bool` is
-a checkbox: absent is `false`, `"on"` is `true`. An empty text input reads
-as absent: `S.option` gets `None`, and a required string rejects it unless the
-field says the empty string is a value with `S.minLength(0)`. The type is
+gets; `S.file` and `S.blob` take the entry as it is, and a `S.bool` is a
+checkbox: absent is `false`, `"on"` is `true`, and an encode writes `"on"` or
+`"false"`. An empty text input reads as
+absent for an optional field, and is handed to the target as `""` for a
+required one — so `S.string` takes it and `S.string->S.nonEmpty` rejects it in
+its own words. The type is
 abstract, since the stdlib has no `FormData` module; a value from a fetch
 binding is cast to it.
 

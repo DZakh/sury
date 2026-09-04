@@ -5,8 +5,8 @@ ts:
   output: string
   instantiations: 789
 jsonSchema:
-  input: '{ type: "string", minLength: 0 }'
-  output: '{ type: "string", minLength: 0 }'
+  input: '{ type: "string" }'
+  output: '{ type: "string" }'
 vs:
   zod: z.string().min(0)
 operations:

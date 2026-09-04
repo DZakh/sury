@@ -1,31 +1,37 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: "S.formData.with(S.to, S.schema({ tags: S.array(S.string.with(S.nonEmpty)), ids: S.array(S.number), extra: S.optional(S.array(S.string)) }))"
+  schema: 'S.formData.with(S.to, S.schema({ tags: S.array(S.string.with(S.nonEmpty)), ids: S.array(S.number), extra: S.optional(S.array(S.string)), sizes: S.optional(S.array(S.string), ["m"]) }))'
   input: FormData
-  output: "{ tags: string[]; ids: number[]; extra?: string[] | undefined; }"
-  instantiations: 7710
+  output: "{ tags: string[]; ids: number[]; sizes: string[]; extra?: string[] | undefined; }"
+  instantiations: 8146
 jsonSchema:
   input: Expected JSON, received FormData
-  output: '{ type: "object", properties: { tags: { items: { type: "string", minLength: 1 }, type: "array" }, ids: { items: { type: "number" }, type: "array" }, extra: { items: { type: "string" }, type: "array" } }, required: ["tags", "ids"] }'
+  output: '{ type: "object", properties: { tags: { items: { type: "string", minLength: 1 }, type: "array" }, ids: { items: { type: "number" }, type: "array" }, extra: { items: { type: "string" }, type: "array" }, sizes: { items: { type: "string" }, type: "array" } }, required: ["tags", "ids", "sizes"] }'
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{i instanceof e[5]||e[6](i);let v0=i.getAll("tags"),v4=i.getAll("ids"),v10=i.getAll("extra");for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"||e[1](v2);v2.length>0||e[0](v2);}catch(v3){v3.path=["tags",v1,...v3.path];throw v3}}let v9=new Array(v4.length);for(let v5=0;v5<v4.length;++v5){try{let v7=v4[v5];typeof v7==="string"||e[3](v7);let v6=+v7;v6===v6&&(v6||v7.trim())||e[2](v7);v9[v5]=v6}catch(v8){v8.path=["ids",v5,...v8.path];throw v8}}for(let v11=0;v11<v10.length;++v11){try{let v12=v10[v11];typeof v12==="string"||e[4](v12);}catch(v13){v13.path=["extra",v11,...v13.path];throw v13}}return {tags:v0,ids:v9,extra:v10}}
+    expression: i=>{i instanceof e[7]||e[8](i);let v0=i.getAll("tags"),v4=i.getAll("ids"),v11=i.getAll("extra"),v10=v11.length?v11:void 0,v16=i.getAll("sizes"),v15=v16.length?v16:void 0;for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"||e[1](v2);v2.length>0||e[0](v2);}catch(v3){v3.path=["tags",v1,...v3.path];throw v3}}let v9=new Array(v4.length);for(let v5=0;v5<v4.length;++v5){try{let v7=v4[v5];typeof v7==="string"||e[3](v7);let v6=+v7;v6===v6&&(v6||v7.trim())||e[2](v7);v9[v5]=v6}catch(v8){v8.path=["ids",v5,...v8.path];throw v8}}if(v10!==void 0){for(let v12=0;v12<v10.length;++v12){try{let v13=v10[v12];typeof v13==="string"||e[4](v13);}catch(v14){v14.path=["extra",v12,...v14.path];throw v14}}}if(v15!==void 0){for(let v17=0;v17<v15.length;++v17){try{let v18=v15[v17];typeof v18==="string"||e[5](v18);}catch(v19){v19.path=["sizes",v17,...v19.path];throw v19}}}else{v15=e[6];}return {tags:v0,ids:v9,extra:v10,sizes:v15}}
     examples:
       repeated-keys:
         input: ((f) => (f.append("tags", "a"), f.append("tags", "b"), f.append("ids", "1"), f.append("ids", "2"), f.append("extra", "x"), f))(new FormData())
-        output: '{ tags: ["a", "b"], ids: [1, 2], extra: ["x"] }'
+        output: '{ tags: ["a", "b"], ids: [1, 2], extra: ["x"], sizes: ["m"] }'
       no-entries:
         input: new FormData()
-        output: "{ tags: [], ids: [], extra: [] }"
+        output: '{ tags: [], ids: [], extra: undefined, sizes: ["m"] }'
+      defaulted-list-absent:
+        input: ((f) => (f.append("tags", "a"), f))(new FormData())
+        output: '{ tags: ["a"], ids: [], extra: undefined, sizes: ["m"] }'
+      defaulted-list-present:
+        input: ((f) => (f.append("tags", "a"), f.append("sizes", "s"), f.append("sizes", "l"), f))(new FormData())
+        output: '{ tags: ["a"], ids: [], extra: undefined, sizes: ["s", "l"] }'
       not-a-number:
         input: ((f) => (f.append("ids", "1"), f.append("ids", "x"), f))(new FormData())
         error: 'Failed at ids[1]: Expected number, received "x"'
       empty-item-stays:
         input: ((f) => (f.append("extra", ""), f))(new FormData())
-        output: '{ tags: [], ids: [], extra: [""] }'
+        output: '{ tags: [], ids: [], extra: [""], sizes: ["m"] }'
       empty-item-refined:
         input: ((f) => (f.append("tags", ""), f))(new FormData())
         error: 'Failed at tags[0]: Expected string.length >= 1, received ""'
@@ -33,13 +39,13 @@ operations:
         input: ((f) => (f.append("tags", new File(["a"], "a.txt")), f))(new FormData())
         error: "Failed at tags[0]: Expected string.length >= 1, received File"
   decode:
-    expression: i=>{let v0=i.getAll("tags"),v4=i.getAll("ids"),v10=i.getAll("extra");for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"||e[1](v2);v2.length>0||e[0](v2);}catch(v3){v3.path=["tags",v1,...v3.path];throw v3}}let v9=new Array(v4.length);for(let v5=0;v5<v4.length;++v5){try{let v7=v4[v5];typeof v7==="string"||e[3](v7);let v6=+v7;v6===v6&&(v6||v7.trim())||e[2](v7);v9[v5]=v6}catch(v8){v8.path=["ids",v5,...v8.path];throw v8}}for(let v11=0;v11<v10.length;++v11){try{let v12=v10[v11];typeof v12==="string"||e[4](v12);}catch(v13){v13.path=["extra",v11,...v13.path];throw v13}}return {tags:v0,ids:v9,extra:v10}}
+    expression: i=>{let v0=i.getAll("tags"),v4=i.getAll("ids"),v11=i.getAll("extra"),v10=v11.length?v11:void 0,v16=i.getAll("sizes"),v15=v16.length?v16:void 0;for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"||e[1](v2);v2.length>0||e[0](v2);}catch(v3){v3.path=["tags",v1,...v3.path];throw v3}}let v9=new Array(v4.length);for(let v5=0;v5<v4.length;++v5){try{let v7=v4[v5];typeof v7==="string"||e[3](v7);let v6=+v7;v6===v6&&(v6||v7.trim())||e[2](v7);v9[v5]=v6}catch(v8){v8.path=["ids",v5,...v8.path];throw v8}}if(v10!==void 0){for(let v12=0;v12<v10.length;++v12){try{let v13=v10[v12];typeof v13==="string"||e[4](v13);}catch(v14){v14.path=["extra",v12,...v14.path];throw v14}}}if(v15!==void 0){for(let v17=0;v17<v15.length;++v17){try{let v18=v15[v17];typeof v18==="string"||e[5](v18);}catch(v19){v19.path=["sizes",v17,...v19.path];throw v19}}}else{v15=e[6];}return {tags:v0,ids:v9,extra:v10,sizes:v15}}
     examples:
       repeated-keys:
         input: ((f) => (f.append("tags", "a"), f.append("tags", "b"), f.append("ids", "1"), f.append("ids", "2"), f.append("extra", "x"), f))(new FormData())
-        output: '{ tags: ["a", "b"], ids: [1, 2], extra: ["x"] }'
+        output: '{ tags: ["a", "b"], ids: [1, 2], extra: ["x"], sizes: ["m"] }'
   encode:
-    expression: i=>{let v0=i["tags"],v4=i["ids"],v9=i["extra"];for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];v2.length>0||e[0](v2);}catch(v3){v3.path=["tags",v1,...v3.path];throw v3}}let v6=new e[1]();for(let v7=0;v7<v0.length;++v7){v6.append("tags",v0[v7]);}for(let v8=0;v8<v4.length;++v8){v6.append("ids",""+v4[v8]);}if(v9!==void 0){for(let v10=0;v10<v9.length;++v10){v6.append("extra",v9[v10]);}}return v6}
+    expression: i=>{let v0=i["tags"],v4=i["ids"],v6=i["sizes"],v13=i["extra"];for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];v2.length>0||e[0](v2);}catch(v3){v3.path=["tags",v1,...v3.path];throw v3}}if(Array.isArray(v6)){for(let v7=0;v7<v6.length;++v7){try{let v8=v6[v7];typeof v8==="string"||e[1](v8);}catch(v9){v9.path=["sizes",v7,...v9.path];throw v9}}}else{e[2](v6)}let v10=new e[3]();for(let v11=0;v11<v0.length;++v11){v10.append("tags",v0[v11]);}for(let v12=0;v12<v4.length;++v12){v10.append("ids",""+v4[v12]);}if(v13!==void 0){for(let v14=0;v14<v13.length;++v14){v10.append("extra",v13[v14]);}}for(let v15=0;v15<v6.length;++v15){v10.append("sizes",v6[v15]);}return v10}
     examples:
       empty-item-refined:
         input: '{ tags: [""], ids: [] }'

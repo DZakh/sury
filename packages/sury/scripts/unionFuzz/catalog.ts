@@ -79,6 +79,7 @@ export const FUZZ_EXPORTS: Record<string, FuzzExport> = {
   extendJSONSchema: skip("JSON Schema document helper, not a schema factory"),
   file: schema((S) => S.file),
   float: schema((S) => S.float),
+  formData: schema((S) => S.formData),
   fromJSONSchema: skip("JSON Schema import, not a generation primitive"),
   global: skip("mutates global config"),
   gt: modify(["number", "bigint"], (S, schema) =>

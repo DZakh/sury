@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.formData.with(S.to, S.schema({ n: S.nullable(S.number) }))"
+  input: FormData
+  output: "{ n: number | null; }"
+  instantiations: 5623
+jsonSchema:
+  input: Expected JSON, received FormData
+  output: '{ type: "object", properties: { n: { anyOf: [{ type: "number" }, { type: "null" }] } }, required: ["n"] }'
+  openapi-3.0:
+    output: '{ type: "object", properties: { n: { type: "number", nullable: true } }, required: ["n"] }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{i instanceof e[4]||e[5](i);let v0=i.get("n")??void 0;typeof v0==="string"||e[3](v0);for(;;){let r;try{let v1=+v0;v1===v1&&(v1||v0.trim())||e[0](v0);v0=v1;break}catch(x){(r||(r=[])).push(e[1](x))}if(v0==="null"){v0=null;break}e[2](v0,...(r||[]))}return {n:v0}}
+    examples:
+      number:
+        input: ((f) => (f.append("n", "1"), f))(new FormData())
+        output: "{ n: 1 }"
+      the-text-null:
+        input: ((f) => (f.append("n", "null"), f))(new FormData())
+        output: "{ n: null }"
+      absent:
+        input: new FormData()
+        error: "Failed at n: Expected string, received undefined"
+  decode:
+    expression: i=>{let v0=i.get("n")??void 0;typeof v0==="string"||e[3](v0);for(;;){let r;try{let v1=+v0;v1===v1&&(v1||v0.trim())||e[0](v0);v0=v1;break}catch(x){(r||(r=[])).push(e[1](x))}if(v0==="null"){v0=null;break}e[2](v0,...(r||[]))}return {n:v0}}
+    examples:
+      number:
+        input: ((f) => (f.append("n", "1"), f))(new FormData())
+        output: "{ n: 1 }"
+  encode:
+    expression: i=>{let v1=i["n"];let v0=new e[0]();for(;;){if(typeof v1==="number"&&v1===v1){v1=""+i["n"];break}if(v1===null){v1="null";break}e[1](v1)}v0.append("n",v1);return v0}
+    examples:
+      not-a-member:
+        input: '{ n: "x" }'
+        error: 'Failed at n: Expected number | null, received "x"'

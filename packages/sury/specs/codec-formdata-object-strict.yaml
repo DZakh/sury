@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.formData.with(S.to, S.schema({ a: S.string.with(S.nonEmpty) }).with(S.strict))"
+  input: FormData
+  output: "{ a: string; }"
+  instantiations: 6147
+jsonSchema:
+  input: Expected JSON, received FormData
+  output: '{ type: "object", properties: { a: { type: "string", minLength: 1 } }, additionalProperties: false, required: ["a"] }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{i instanceof e[3]||e[4](i);let v0=i.get("a")??void 0;typeof v0==="string"||e[1](v0);v0.length>0||e[0](v0);for(const v1 of i.keys())if(v1!=="a")e[2](v1);return {a:v0}}
+    examples:
+      declared-only:
+        input: ((f) => (f.append("a", "x"), f))(new FormData())
+        output: '{ a: "x" }'
+      extra-key:
+        input: ((f) => (f.append("a", "x"), f.append("b", "y"), f))(new FormData())
+        error: Unrecognized key "b"
+      repeated-extra-key:
+        input: ((f) => (f.append("a", "x"), f.append("b", "y"), f.append("b", "z"), f))(new FormData())
+        error: Unrecognized key "b"
+  decode:
+    expression: i=>{let v0=i.get("a")??void 0;typeof v0==="string"||e[1](v0);v0.length>0||e[0](v0);for(const v1 of i.keys())if(v1!=="a")e[2](v1);return {a:v0}}
+    examples:
+      extra-key:
+        input: ((f) => (f.append("a", "x"), f.append("b", "y"), f))(new FormData())
+        error: Unrecognized key "b"
+  encode:
+    expression: i=>{let v0=i["a"];v0.length>0||e[0](v0);let v1=new e[1]();v1.append("a",v0);return v1}
+    examples:
+      empty-is-not-nonempty:
+        input: '{ a: "" }'
+        error: 'Failed at a: Expected string.length >= 1, received ""'

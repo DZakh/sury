@@ -196,20 +196,21 @@ of a form-data story. What they were built to make cheap, roughly in order:
   parse an upload into a typed value, and reverse it to *build* the upload.
 - **`S.formData` landed** (`advanced/formData.ts`): a field reads through a
   `string` stage so the env coercions apply, `S.file`/`S.blob` take the entry,
-  `S.array` is `getAll`, `""` reads as absent unless the field says
-  `S.minLength(0)`, and the reverse is `new FormData()` + one `append` per
-  field. Still to do from the original sketch: `S.urlSearchParams` is the same
-  code minus files, and `S.queryString` is to it what `S.jsonString` is to
-  `S.json`; a `S.record` target (`entries()` into a dict). The checkbox needs
-  no `S.accepted`: a required `S.boolean` is derived as one. Two things it walked around rather than fixed,
-  each with the spec that pins it: `dict-to-object-optional-string` — the
-  union rules reject `string -> string | undefined`, so the env pattern can't
-  read an optional string field (the form codec converts the present arm on
-  its own instead of going through `missingKeyEncoder`); and a refinement
-  inside `S.optional` is not checked on encode (`S.optional(S.string.with(
-  S.maxLength, 3))` appends `"long"`), which is the union encode path trusting
-  its typed input. A `S.nullable(S.number)` field still dispatches on the text
-  `"null"`, the CODEC_SPEC bridge, which no form ever sends.
+  `S.array` is `getAll`, a boolean is a checkbox, `""` is absent for an optional
+  field and the target's own business for a required one, and the reverse is
+  `new FormData()` + one `append` per field. Still to do from the original
+  sketch: `S.urlSearchParams` is the same code minus files, and `S.queryString`
+  is to it what `S.jsonString` is to `S.json`; a `S.record` target
+  (`entries()` into a dict); and bracket notation, which stays out. Two gaps it
+  works around rather than fixes, each with the spec that pins it:
+  `dict-to-object-optional-string` — the union rules reject
+  `string -> string | undefined`, so the env pattern still can't read an
+  optional string field, where the form codec converts the present arm on its
+  own; and `codec-formdata-object-nullable`, where a `S.nullable` field only
+  reads the literal text `"null"`, which no form sends. A refinement inside
+  `S.optional` is still unchecked on encode — the union encode path trusting
+  its typed input, which a plain object target does too — pinned in
+  `tests/formData_test.ts` because the value it produces is a `FormData`.
 - **`S.mime`** for uploads, next to the size bounds. Wants a JSON Schema emit
   (`contentMediaType`, and `format: "binary"` for the instances) — which is the
   point at which `minSize`/`maxSize` should be revisited, since neither has a

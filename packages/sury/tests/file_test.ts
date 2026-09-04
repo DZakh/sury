@@ -1,23 +1,6 @@
-import { execFileSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
 import { expect, test } from "vitest";
 import * as S from "sury";
-
-// `S.blob`/`S.file` bind their class at import, so the runtime-missing case
-// can only be observed in a process that never had the global — which is why
-// this is a test and not a spec.
-const withoutGlobal = (name: string, body: string): string =>
-  execFileSync(
-    process.execPath,
-    [
-      "--input-type=module",
-      "-e",
-      `delete globalThis.${name};
-       const S = await import(${JSON.stringify(fileURLToPath(new URL("../index.mjs", import.meta.url)))});
-       ${body}`,
-    ],
-    { encoding: "utf8" }
-  ).trim();
+import { withoutGlobal } from "./withoutGlobal";
 
 test("every route into a schema the runtime can't support says so", () => {
   // `class` is the one thing all of them read — the decoder's `instanceof`,

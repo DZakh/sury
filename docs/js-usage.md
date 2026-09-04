@@ -1097,9 +1097,7 @@ S.instance(Set).with(S.minSize, 1); // Expected Set.size >= 1
 ```
 
 > Strings and arrays use `S.minLength`/`S.maxLength`/`S.length` instead.
-> A lower bound of `0` is dropped, except a string's `S.minLength(0)`, which
-> [`S.formData`](#formdata) reads as admitting the empty entry; a negative one
-> is an error.
+> A lower bound of `0` is dropped; a negative one is an error.
 
 ## File
 
@@ -1156,26 +1154,46 @@ S.encoder(signup)({ name: "Ann", age: 42, role: "user", tags: ["a"], avatar, pre
 A field reads its entry as text through the same coercions
 [`S.record(S.string)`](#records) gets, so numbers, literals, dates and `S.url`
 all work; `S.file` and `S.blob` take the entry as it is, and `S.array` reads
-every entry of the key. A required `S.boolean` is a checkbox, since nothing
-else a browser sends is one: absent reads as `false`, `"on"` (or `"true"`) as
-`true`, and it encodes as `"on"` or no entry. `S.optional(S.boolean)` keeps the
-tri-state for a form that tells "unchecked" from "not on the page". Nested objects have no wire form here:
-send them as a [`S.jsonString`](#advanced-schemas) field instead.
+every entry of the key — including `S.array(S.file)`, for a multi-file input.
+Nested objects have no wire form here: send them as a
+[`S.jsonString`](#advanced-schemas) field instead.
 
-An empty text input submits `""`, and the form reads it as absent: `S.optional`
-gets `undefined`, a default applies, and a required string rejects it — unless
-the field says the empty string is a value with `S.minLength(0)`:
+A `S.boolean` is a checkbox, since nothing else a browser sends is one, and it
+stays one however you wrap it. Absent reads as `false`, `"on"` and `"true"` as
+`true`. `S.optional(S.boolean)` keeps the tri-state for a form that tells
+"unchecked" from "not on the page":
+
+```ts
+S.formData.with(
+  S.to,
+  S.schema({
+    agree: S.boolean, // "on" -> true, absent -> false
+    terms: S.optional(S.boolean, false), // the same, with the default spelled out
+    notify: S.optional(S.boolean), // tri-state: absent -> undefined
+  }),
+);
+```
+
+Encoding writes `"on"` for a checked box and `"false"` for an unchecked one,
+rather than omitting it the way a browser does — that is what lets `false`
+survive a field's own default on the way back in.
+
+An empty text input submits `""`, and the field's own schema decides what that
+means. An optional field reads it as absent, so `S.optional` gets `undefined`
+and a default applies. A required field is handed the `""` unchanged, and the
+target answers for itself:
 
 ```ts
 const schema = S.formData.with(
   S.to,
-  S.schema({ nick: S.optional(S.string), bio: S.string.with(S.minLength, 0) }),
+  S.schema({
+    nick: S.optional(S.string), // "" -> undefined
+    tier: S.optional(S.number, 1), // "" -> 1, the default
+    bio: S.string, // "" -> "", a string is a string
+    name: S.string.with(S.nonEmpty), // "" -> Expected string.length >= 1
+    age: S.number, // "" -> Expected number
+  }),
 );
-
-const form = new FormData();
-form.append("nick", "");
-form.append("bio", "");
-S.decoder(schema)(form); // => { nick: undefined, bio: "" }
 ```
 
 Both directions are sync: nothing reads a file's bytes. `S.FormData` is

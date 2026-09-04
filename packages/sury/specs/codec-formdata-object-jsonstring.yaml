@@ -12,7 +12,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{i instanceof e[4]||e[5](i);let v0=i.get("meta")||void 0;typeof v0==="string"||e[3](v0);let v1;try{v1=JSON.parse(v0)}catch(t){e[0](v0)}typeof v1==="object"&&v1&&!Array.isArray(v1)||e[2](v1);let v2=v1["a"];typeof v2==="number"&&v2===v2||e[1](v2);return {meta:{a:v2}}}
+    expression: i=>{i instanceof e[4]||e[5](i);let v0=i.get("meta")??void 0;typeof v0==="string"||e[3](v0);let v1;try{v1=JSON.parse(v0)}catch(t){e[0](v0)}typeof v1==="object"&&v1&&!Array.isArray(v1)||e[2](v1);let v2=v1["a"];typeof v2==="number"&&v2===v2||e[1](v2);return {meta:{a:v2}}}
     examples:
       nested-document:
         input: ((f) => (f.append("meta", "{\"a\":1}"), f))(new FormData())
@@ -27,7 +27,7 @@ operations:
         input: new FormData()
         error: "Failed at meta: Expected JSON string, received undefined"
   decode:
-    expression: i=>{let v0=i.get("meta")||void 0;typeof v0==="string"||e[3](v0);let v1;try{v1=JSON.parse(v0)}catch(t){e[0](v0)}typeof v1==="object"&&v1&&!Array.isArray(v1)||e[2](v1);let v2=v1["a"];typeof v2==="number"&&v2===v2||e[1](v2);return {meta:{a:v2}}}
+    expression: i=>{let v0=i.get("meta")??void 0;typeof v0==="string"||e[3](v0);let v1;try{v1=JSON.parse(v0)}catch(t){e[0](v0)}typeof v1==="object"&&v1&&!Array.isArray(v1)||e[2](v1);let v2=v1["a"];typeof v2==="number"&&v2===v2||e[1](v2);return {meta:{a:v2}}}
     examples:
       nested-document:
         input: ((f) => (f.append("meta", "{\"a\":1}"), f))(new FormData())

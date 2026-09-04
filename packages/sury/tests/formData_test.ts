@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "vitest";
 import * as S from "sury";
+import { withoutGlobalRoutes } from "./withoutGlobal";
 
 // The value side of `S.formData`, for what the spec format can't write down: a
 // golden can't hold a `FormData` (see CONTRIBUTING.md's Spec Harness
@@ -76,18 +77,23 @@ test("an absent optional is no entry, and a default fills the absent one back", 
   expect(S.decoder(schema)(form(["nick", ""], ["age", ""]))).toEqual({ nick: undefined, age: 18 });
 });
 
-test("a required boolean is a checkbox: on or nothing", () => {
+test("a boolean is a checkbox: on when set, false written out", () => {
   const schema = S.formData.with(S.to, S.schema({ agree: S.boolean, notify: S.optional(S.boolean) }));
   expect(entries(S.encoder(schema)({ agree: true, notify: false }))).toEqual([
     ["agree", "on"],
     ["notify", "false"],
   ]);
-  expect(entries(S.encoder(schema)({ agree: false }))).toEqual([]);
+  // A browser omits an unchecked box; Sury writes it, so a value survives its
+  // own default on the way back (see appendValue).
+  expect(entries(S.encoder(schema)({ agree: false }))).toEqual([["agree", "false"]]);
   expect(S.decoder(schema)(S.encoder(schema)({ agree: false, notify: true }))).toEqual({
     agree: false,
     notify: true,
   });
+  // What a browser submits still reads: "on" for a checked box, nothing for an
+  // unchecked one.
   expect(S.decoder(schema)(form(["agree", "on"]))).toEqual({ agree: true, notify: undefined });
+  expect(S.decoder(schema)(new FormData())).toEqual({ agree: false, notify: undefined });
 });
 
 test("an array is a repeated key, and an empty array is no entry", () => {
@@ -127,6 +133,74 @@ test("a file travels as itself, name included, and a blob becomes a file", async
   expect(decoded.raw).toBe(sentRaw);
 });
 
+test("a multi-file input is an array of entries, both ways", () => {
+  const schema = S.formData.with(S.to, S.schema({ files: S.array(S.file) }));
+  const a = new File(["a"], "a.png");
+  const b = new File(["b"], "b.png");
+  expect(entries(S.encoder(schema)({ files: [a, b] }))).toEqual([
+    ["files", a],
+    ["files", b],
+  ]);
+  expect(S.decoder(schema)(form(["files", a], ["files", b]))).toEqual({ files: [a, b] });
+  expect(S.decoder(schema)(new FormData())).toEqual({ files: [] });
+  expect(() => S.decoder(schema)(form(["files", "x"]))).toThrow(
+    "Failed at files[0]: Expected File, received \"x\"",
+  );
+});
+
+test("an array of optional items encodes without leaking a declaration", () => {
+  // The item's own `let` used to land after the loop body that reads it, so
+  // the compiled encoder threw `ReferenceError` on its first item.
+  const schema = S.formData.with(S.to, S.schema({ m: S.array(S.optional(S.string)) }));
+  expect(entries(S.encoder(schema)({ m: ["a", undefined, "b"] }))).toEqual([
+    ["m", "a"],
+    ["m", "b"],
+  ]);
+  const nested = S.formData.with(S.to, S.schema({ n: S.array(S.array(S.string)) }));
+  expect(entries(S.encoder(nested)({ n: [["a", "b"], ["c"]] }))).toEqual([
+    ["n", "a"],
+    ["n", "b"],
+    ["n", "c"],
+  ]);
+});
+
+test("a checkbox round-trips however the field is wrapped", () => {
+  // `S.optional(S.boolean, false)` is the natural spelling of "checkbox,
+  // default unchecked": its encode writes `"on"`, so its decode has to read it.
+  for (const [name, schema, checked, unchecked] of [
+    ["required", S.boolean, true, false],
+    ["optional", S.optional(S.boolean), true, false],
+    ["defaulted false", S.optional(S.boolean, false), true, false],
+    ["defaulted true", S.optional(S.boolean, true), true, false],
+  ] as const) {
+    const s = S.formData.with(S.to, S.schema({ a: schema }));
+    for (const value of [checked, unchecked]) {
+      expect(S.decoder(s)(S.encoder(s)({ a: value })), `${name} ${value}`).toEqual({ a: value });
+    }
+    // What a browser actually submits for a checked and an unchecked box.
+    expect(S.decoder(s)(form(["a", "on"])), name).toEqual({ a: true });
+  }
+  expect(S.decoder(S.formData.with(S.to, S.schema({ a: S.boolean })))(new FormData())).toEqual({
+    a: false,
+  });
+});
+
+test("FIXME: a refinement inside S.optional is not checked on encode", () => {
+  // Not this codec's doing — the union encode path trusts its typed input, and
+  // a plain object target has the same hole. Pinned so the fix shows up here.
+  const schema = S.formData.with(
+    S.to,
+    S.schema({ nick: S.optional(S.string.with(S.maxLength, 3)) }),
+  );
+  const encoded = S.encoder(schema)({ nick: "long" });
+  expect(entries(encoded)).toEqual([["nick", "long"]]);
+  expect(() => S.decoder(schema)(encoded)).toThrow(
+    'Failed at nick: Expected string.length <= 3, received "long"',
+  );
+  expect(() => S.encoder(S.schema({ nick: S.optional(S.string.with(S.maxLength, 3)) }))({ nick: "long" }))
+    .not.toThrow();
+});
+
 test("a nested document is a JSON text field, both ways", () => {
   const schema = S.formData.with(
     S.to,
@@ -151,31 +225,16 @@ test("the reverse is spelled the same as jsonString's", () => {
   ]);
 });
 
-// `S.formData` binds its class at import, like `S.file`, so the
-// runtime-missing case can only be observed in a process that never had the
-// global.
-const withoutGlobal = (body: string): string =>
-  execFileSync(
-    process.execPath,
-    [
-      "--input-type=module",
-      "-e",
-      `delete globalThis.FormData;
-       const S = await import(${JSON.stringify(fileURLToPath(new URL("../index.mjs", import.meta.url)))});
-       ${body}`,
-    ],
-    { encoding: "utf8" },
-  ).trim();
-
 test("a runtime without FormData says so on every route into the schema", () => {
   const message = "[Sury] S.formData is not supported in this runtime";
-  for (const route of [
-    `S.parser(S.formData)`,
-    `S.inputExpression(S.formData)`,
-    `S.encoder(S.schema({ a: S.string }), S.formData)`,
-    `S.decoder(S.formData, S.schema({ a: S.string }))`,
-  ]) {
-    expect(withoutGlobal(`try { ${route} } catch (e) { console.log(e.message) }`), route).toBe(message);
-  }
-  expect(withoutGlobal(`console.log(typeof S.parser(S.file))`)).toBe("function");
+  expect(
+    withoutGlobalRoutes("FormData", [
+      `S.parser(S.formData)`,
+      `S.inputExpression(S.formData)`,
+      `S.encoder(S.schema({ a: S.string }), S.formData)`,
+      `S.decoder(S.formData, S.schema({ a: S.string }))`,
+      // And the sibling the runtime does have is untouched.
+      `typeof S.parser(S.file)`,
+    ]),
+  ).toEqual([message, message, message, message, "ok:function"]);
 });
