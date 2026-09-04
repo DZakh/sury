@@ -5,12 +5,12 @@ ts:
   output: "{ a: string; }"
   instantiations: 5845
 jsonSchema:
-  # FIXME: `encodeToJsonSchema` reverses and parses to learn the input's shape,
-  # and a document carrying a document hands it back a node of the same shape,
-  # so it recurses until the stack goes. Predates the content axis — identical
-  # on main — but this work is what makes a nested payload something to write.
-  input: Maximum call stack size exceeded
+  input: '{ type: "string", contentMediaType: "application/json" }'
   output: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'
+  draft-2020-12:
+    input: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "string", contentMediaType: "application/json", contentSchema: { type: "object", properties: { a: { type: "string" } }, required: ["a"] } }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ type: "string" }'
 vs:
   zod:
     _skip: not-applicable

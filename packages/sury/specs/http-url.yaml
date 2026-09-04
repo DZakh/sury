@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.httpUrl
+  input: string
+  output: string
+  instantiations: 254
+jsonSchema:
+  input: '{ type: "string", format: "uri", pattern: "^[hH][tT][tT][pP][sS]?:" }'
+  output: '{ type: "string", format: "uri", pattern: "^[hH][tT][tT][pP][sS]?:" }'
+vs:
+  zod: z.httpUrl()
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    examples:
+      https:
+        input: '"https://example.com/dashboard"'
+        output: '"https://example.com/dashboard"'
+      http:
+        input: '"http://example.com"'
+        output: '"http://example.com"'
+      uppercase-scheme:
+        input: '"HTTP://EXAMPLE.COM"'
+        output: '"HTTP://EXAMPLE.COM"'
+      query-and-fragment:
+        input: '"https://example.com/a?b=c#d"'
+        output: '"https://example.com/a?b=c#d"'
+      percent-encoded-space:
+        input: '"https://example.com/a%20b"'
+        output: '"https://example.com/a%20b"'
+      other-scheme:
+        input: '"ftp://example.com"'
+        error: Expected http-url, received "ftp://example.com"
+      javascript-scheme:
+        input: '"javascript:alert(1)"'
+        error: Expected http-url, received "javascript:alert(1)"
+      relative-reference:
+        input: '"/dashboard"'
+        error: Expected http-url, received "/dashboard"
+      unencoded-space:
+        input: '"https://example.com/a b"'
+        error: Expected http-url, received "https://example.com/a b"
+      empty:
+        input: '""'
+        error: Expected http-url, received ""
+      not-a-string:
+        input: "42"
+        error: Expected http-url, received 42
+  decode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"https://example.com/dashboard"'
+        output: '"https://example.com/dashboard"'
+      invalid:
+        input: '"ftp://example.com"'
+        error: Expected http-url, received "ftp://example.com"
+  encode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"https://example.com/dashboard"'
+        output: '"https://example.com/dashboard"'
+      invalid:
+        input: '"ftp://example.com"'
+        error: Expected http-url, received "ftp://example.com"

@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.cuid
+  input: string
+  output: string
+  instantiations: 254
+jsonSchema:
+  input: '{ type: "string", pattern: "^[cC][0-9a-z]{6,}$" }'
+  output: '{ type: "string", pattern: "^[cC][0-9a-z]{6,}$" }'
+vs:
+  zod: z.cuid()
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"ckopqwooh000001la8mbi2im9"'
+        output: '"ckopqwooh000001la8mbi2im9"'
+      uppercase-prefix:
+        input: '"C1234567"'
+        output: '"C1234567"'
+      minimum-length:
+        input: '"c123456"'
+        output: '"c123456"'
+      one-character-short:
+        input: '"c12345"'
+        error: Expected cuid, received "c12345"
+      uppercase-body:
+        input: '"cABCDEFG"'
+        error: Expected cuid, received "cABCDEFG"
+      hyphenated:
+        input: '"cifjhdsfhsd-invalid-cuid"'
+        error: Expected cuid, received "cifjhdsfhsd-invalid-cuid"
+      punctuation-body:
+        input: '"c!!!!!!!!"'
+        error: Expected cuid, received "c!!!!!!!!"
+      missing-prefix:
+        input: '"1kopqwooh000001la8mbi2im9"'
+        error: Expected cuid, received "1kopqwooh000001la8mbi2im9"
+      empty:
+        input: '""'
+        error: Expected cuid, received ""
+      not-a-string:
+        input: "42"
+        error: Expected cuid, received 42
+  decode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"ckopqwooh000001la8mbi2im9"'
+        output: '"ckopqwooh000001la8mbi2im9"'
+      invalid:
+        input: '"cifjhdsfhsd-invalid-cuid"'
+        error: Expected cuid, received "cifjhdsfhsd-invalid-cuid"
+  encode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"ckopqwooh000001la8mbi2im9"'
+        output: '"ckopqwooh000001la8mbi2im9"'
+      invalid:
+        input: '"cifjhdsfhsd-invalid-cuid"'
+        error: Expected cuid, received "cifjhdsfhsd-invalid-cuid"

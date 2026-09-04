@@ -25,17 +25,17 @@ test("Union of tagged objects wrapped in S.option as a matches field", t => {
   )
 
   t->Assert.deepEqual(
-    %raw("{}")->S.decodeOrThrow(~from=S.json, ~to=schema),
+    %raw("{}")->S.convertOrThrow(~from=S.json, ~to=schema),
     %raw(`{"foo": undefined}`),
   )
 
   t->Assert.deepEqual(
-    %raw(`{"foo": null}`)->S.decodeOrThrow(~from=S.json, ~to=schema),
+    %raw(`{"foo": null}`)->S.convertOrThrow(~from=S.json, ~to=schema),
     %raw(`{"foo": undefined}`),
   )
 
   t->Assert.deepEqual(
-    %raw(`{"foo": {"type": "a"}}`)->S.decodeOrThrow(~from=S.json, ~to=schema),
+    %raw(`{"foo": {"type": "a"}}`)->S.convertOrThrow(~from=S.json, ~to=schema),
     %raw(`{"foo": true}`),
   )
 })

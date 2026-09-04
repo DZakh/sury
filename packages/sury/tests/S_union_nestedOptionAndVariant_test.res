@@ -49,7 +49,7 @@ test("Reverse-encode of {nested:{opt?}, variant:union} compiles", t => {
   // Just compiling the decoder is enough to reproduce the crash.
   let value = %raw(`{"nested":{"opt":"v"},"variant":{"TAG":"A","x":"hello"}}`)
   t->Assert.deepEqual(
-    value->S.decodeOrThrow(~from=outerSchema->S.reverse, ~to=S.json),
+    value->S.convertOrThrow(~from=outerSchema->S.reverse, ~to=S.json),
     %raw(`{"nested":{"opt":"v"},"variant":{"TAG":"A","x":"hello"}}`),
   )
 })

@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.mac
+  input: string
+  output: string
+  instantiations: 254
+jsonSchema:
+  input: '{ type: "string", pattern: "^(?:(?:[0-9a-fA-F]{2}:){5}(?:(?:[0-9a-fA-F]{2}:){2})?[0-9a-fA-F]{2}|(?:[0-9a-fA-F]{2}-){5}(?:(?:[0-9a-fA-F]{2}-){2})?[0-9a-fA-F]{2}|(?:[0-9a-fA-F]{4}\\.){2}(?:[0-9a-fA-F]{4}\\.)?[0-9a-fA-F]{4}|(?:[0-9a-fA-F]{4}:){3}[0-9a-fA-F]{4})$" }'
+  output: '{ type: "string", pattern: "^(?:(?:[0-9a-fA-F]{2}:){5}(?:(?:[0-9a-fA-F]{2}:){2})?[0-9a-fA-F]{2}|(?:[0-9a-fA-F]{2}-){5}(?:(?:[0-9a-fA-F]{2}-){2})?[0-9a-fA-F]{2}|(?:[0-9a-fA-F]{4}\\.){2}(?:[0-9a-fA-F]{4}\\.)?[0-9a-fA-F]{4}|(?:[0-9a-fA-F]{4}:){3}[0-9a-fA-F]{4})$" }'
+vs:
+  zod: z.mac()
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    examples:
+      eui-48-colon:
+        input: '"00:1b:44:11:3a:b7"'
+        output: '"00:1b:44:11:3a:b7"'
+      eui-48-hyphen:
+        input: '"00-1b-44-11-3a-b7"'
+        output: '"00-1b-44-11-3a-b7"'
+      eui-48-dotted:
+        input: '"001b.4411.3ab7"'
+        output: '"001b.4411.3ab7"'
+      eui-64-colon:
+        input: '"00:1b:44:11:3a:b7:c8:d9"'
+        output: '"00:1b:44:11:3a:b7:c8:d9"'
+      eui-64-hyphen:
+        input: '"00-1b-44-11-3a-b7-c8-d9"'
+        output: '"00-1b-44-11-3a-b7-c8-d9"'
+      eui-64-dotted:
+        input: '"001b.4411.3ab7.c8d9"'
+        output: '"001b.4411.3ab7.c8d9"'
+      eui-64-colon-quad:
+        input: '"001b:4411:3ab7:c8d9"'
+        output: '"001b:4411:3ab7:c8d9"'
+      uppercase:
+        input: '"00:1B:44:11:3A:B7"'
+        output: '"00:1B:44:11:3A:B7"'
+      mixed-separators:
+        input: '"00:1b-44:11:3a:b7"'
+        error: Expected mac, received "00:1b-44:11:3a:b7"
+      seven-octets:
+        input: '"00:1b:44:11:3a:b7:c8"'
+        error: Expected mac, received "00:1b:44:11:3a:b7:c8"
+      five-octets:
+        input: '"00:1b:44:11:3a"'
+        error: Expected mac, received "00:1b:44:11:3a"
+      no-separator:
+        input: '"001b44113ab7"'
+        error: Expected mac, received "001b44113ab7"
+      empty:
+        input: '""'
+        error: Expected mac, received ""
+      not-a-string:
+        input: "42"
+        error: Expected mac, received 42
+  decode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"00:1b:44:11:3a:b7"'
+        output: '"00:1b:44:11:3a:b7"'
+      invalid:
+        input: '"00:1b-44:11:3a:b7"'
+        error: Expected mac, received "00:1b-44:11:3a:b7"
+  encode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"00:1b:44:11:3a:b7"'
+        output: '"00:1b:44:11:3a:b7"'
+      invalid:
+        input: '"00:1b-44:11:3a:b7"'
+        error: Expected mac, received "00:1b-44:11:3a:b7"

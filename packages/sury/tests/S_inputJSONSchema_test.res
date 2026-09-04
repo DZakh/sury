@@ -111,12 +111,36 @@ test("JSONSchema of object with transformed field preserves field metadata", t =
   )
 })
 
+// A format outside the JSON Schema vocabulary publishes its own regex as
+// `pattern`, so what round-trips is the behavior rather than the name.
 test("JSONSchema of cuid schema", t => {
-  t->Assert.deepEqual(S.cuid->S.inputJSONSchema, %raw(`{"type": "string"}`))
+  t->Assert.deepEqual(
+    S.cuid->S.inputJSONSchema,
+    %raw(`{"type": "string", "pattern": "^[cC][0-9a-z]{6,}$"}`),
+  )
 })
 
 test("JSONSchema of uuid schema", t => {
   t->Assert.deepEqual(S.uuid->S.inputJSONSchema, %raw(`{"type": "string", "format": "uuid"}`))
+})
+
+// A version-pinned UUID narrows a format that does exist, so it keeps the name
+// and lets the pattern carry the version.
+test("JSONSchema of uuidv7 schema", t => {
+  t->Assert.deepEqual(
+    S.uuidv7->S.inputJSONSchema,
+    %raw(`{
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"
+    }`),
+  )
+})
+
+// `cidrv6` reuses the case-insensitive `ipv6` grammar, and a JSON Schema
+// pattern carries no flags — so it is the one format with neither spelling.
+test("JSONSchema of cidrv6 schema", t => {
+  t->Assert.deepEqual(S.cidrv6->S.inputJSONSchema, %raw(`{"type": "string"}`))
 })
 
 test("JSONSchema of pattern schema", t => {

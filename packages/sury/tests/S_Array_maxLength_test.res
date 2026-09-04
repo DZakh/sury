@@ -19,15 +19,15 @@ test("Fails to parse invalid data", t => {
 test("Successfully serializes valid value", t => {
   let schema = S.array(S.int)->S.maxLength(1)
 
-  t->Assert.deepEqual([1]->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`[1]`))
-  t->Assert.deepEqual([]->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`[]`))
+  t->Assert.deepEqual([1]->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`[1]`))
+  t->Assert.deepEqual([]->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`[]`))
 })
 
 test("Fails to serialize invalid value", t => {
   let schema = S.array(S.int)->S.maxLength(1)
 
   t->U.assertThrowsMessage(
-    () => [1, 2, 3, 4]->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    () => [1, 2, 3, 4]->S.convertOrThrow(~from=schema, ~to=S.unknown),
     `Expected int32[].length <= 1, received [1, 2, 3, 4]`,
   )
 })

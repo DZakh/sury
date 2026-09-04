@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.xid
+  input: string
+  output: string
+  instantiations: 254
+jsonSchema:
+  input: '{ type: "string", pattern: "^[0-9a-vA-V]{20}$" }'
+  output: '{ type: "string", pattern: "^[0-9a-vA-V]{20}$" }'
+vs:
+  zod: z.xid()
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"9m4e2mr0ui3e8a215n4g"'
+        output: '"9m4e2mr0ui3e8a215n4g"'
+      uppercase:
+        input: '"9M4E2MR0UI3E8A215N4G"'
+        output: '"9M4E2MR0UI3E8A215N4G"'
+      out-of-alphabet:
+        input: '"9m4e2mr0ui3e8a215n4w"'
+        error: Expected xid, received "9m4e2mr0ui3e8a215n4w"
+      one-character-short:
+        input: '"9m4e2mr0ui3e8a215n4"'
+        error: Expected xid, received "9m4e2mr0ui3e8a215n4"
+      one-character-long:
+        input: '"9m4e2mr0ui3e8a215n4gg"'
+        error: Expected xid, received "9m4e2mr0ui3e8a215n4gg"
+      empty:
+        input: '""'
+        error: Expected xid, received ""
+      not-a-string:
+        input: "42"
+        error: Expected xid, received 42
+  decode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"9m4e2mr0ui3e8a215n4g"'
+        output: '"9m4e2mr0ui3e8a215n4g"'
+      invalid:
+        input: '"9m4e2mr0ui3e8a215n4w"'
+        error: Expected xid, received "9m4e2mr0ui3e8a215n4w"
+  encode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"9m4e2mr0ui3e8a215n4g"'
+        output: '"9m4e2mr0ui3e8a215n4g"'
+      invalid:
+        input: '"9m4e2mr0ui3e8a215n4w"'
+        error: Expected xid, received "9m4e2mr0ui3e8a215n4w"

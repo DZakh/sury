@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.hex
+  input: string
+  output: string
+  instantiations: 254
+jsonSchema:
+  input: '{ type: "string", pattern: "^[0-9a-fA-F]+$" }'
+  output: '{ type: "string", pattern: "^[0-9a-fA-F]+$" }'
+vs:
+  zod: z.hex()
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"deadBEEF"'
+        output: '"deadBEEF"'
+      single-digit:
+        input: '"0"'
+        output: '"0"'
+      odd-length:
+        input: '"abc"'
+        output: '"abc"'
+      non-hex-letter:
+        input: '"xyz"'
+        error: Expected hex, received "xyz"
+      with-0x-prefix:
+        input: '"0xdead"'
+        error: Expected hex, received "0xdead"
+      empty:
+        input: '""'
+        error: Expected hex, received ""
+      not-a-string:
+        input: "42"
+        error: Expected hex, received 42
+  decode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"deadBEEF"'
+        output: '"deadBEEF"'
+      invalid:
+        input: '"xyz"'
+        error: Expected hex, received "xyz"
+  encode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"deadBEEF"'
+        output: '"deadBEEF"'
+      invalid:
+        input: '"xyz"'
+        error: Expected hex, received "xyz"

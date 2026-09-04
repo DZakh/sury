@@ -377,6 +377,16 @@ instead of silently working around it.
   suite green. An `assert` op block, even one holding just an expression and a
   pass/throw example, would have caught it; `tests/content_test.ts` holds it
   instead.
+- A spec for a *new* export is timed against a baseline that doesn't have it.
+  The expression evaluates to `undefined` there, `S.parser(undefined)` compiles
+  to `noopOperation`, and the real validator is then reported as thousands of
+  percent slower than a function that returns its input — PR #420 added 14
+  formats and got 17 such rows, every one of them bogus. The harness already
+  knows how to say `new:` (the same spec's `decode`/`encode` targets are listed
+  that way), so `parse` could take the same path when the baseline expression
+  is `undefined`, rather than comparing against a no-op. The accompanying
+  `behavior changed — baseline accepted it, now rejected` lines have the same
+  cause: a no-op accepts every input, valid or not.
 
 ## License
 

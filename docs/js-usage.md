@@ -450,9 +450,23 @@ The JSON Schema string format vocabulary, as standalone schemas:
 ```ts
 S.email; // Email address
 S.idnEmail; // Internationalized email address
-S.uuid; // UUID
+S.uuid; // UUID, any version
+S.uuidv4; // UUIDv4 — random
+S.uuidv6; // UUIDv6 — reordered time
+S.uuidv7; // UUIDv7 — Unix time, sorts by creation
 S.cuid; // CUID
+S.cuid2; // CUID2
+S.ulid; // ULID
+S.ksuid; // KSUID
+S.xid; // XID
+S.nanoid; // Nano ID alphabet
+S.e164; // E.164 phone number
+S.mac; // MAC address, EUI-48 or EUI-64
+S.hex; // Hexadecimal digits
+S.cidrv4; // IPv4 CIDR block
+S.cidrv6; // IPv6 CIDR block
 S.uri; // URI — a scheme is required
+S.httpUrl; // URI with the scheme pinned to http or https
 S.uriReference; // URI or relative reference
 S.uriTemplate; // URI Template
 S.iri; // IRI — a URI with Unicode allowed
@@ -471,9 +485,30 @@ S.base64; // Base64, standard alphabet with canonical padding
 S.base64url; // Base64url, URL-safe alphabet, no padding
 ```
 
-Each survives a round trip through `S.inputJSONSchema` and `S.fromJSONSchema`.
-`S.base64` and `S.base64url` emit `contentEncoding` instead of a JSON Schema
-format. See [Content](#content).
+Each survives a round trip through `S.inputJSONSchema` and `S.fromJSONSchema`,
+though not all of them as a name. A format the JSON Schema vocabulary has no
+keyword for publishes its own regex as `pattern` instead, so what round-trips is
+the behavior:
+
+```ts
+S.inputJSONSchema(S.ulid); // { type: "string", pattern: "^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$" }
+S.inputJSONSchema(S.uuidv7); // { type: "string", format: "uuid", pattern: "…-7[0-9a-fA-F]{3}-…" }
+S.inputJSONSchema(S.httpUrl); // { type: "string", format: "uri", pattern: "^[hH][tT][tT][pP][sS]?:" }
+```
+
+`S.base64` and `S.base64url` emit `contentEncoding` instead. See
+[Content](#content). `S.cidrv6` is the one format with neither spelling — its
+address grammar is case-insensitive and a JSON Schema `pattern` carries no
+flags, so it emits a plain `string` and widens on the way back in.
+
+Three carry no length of their own, because the length is a property of the
+generator rather than of the format. Compose one when you know it:
+
+```ts
+S.nanoid.with(S.length, 21); // the default Nano ID generator
+S.cuid2.with(S.length, 24);
+S.hex.with(S.length, 64); // a SHA-256 digest
+```
 
 **A format checks syntax, not safety.** Every one is exactly as strict as its
 spec, so a well-formed value passes even when it isn't one you want to accept:
@@ -492,13 +527,16 @@ const httpsOnly = S.uri.with(S.pattern, /^https:\/\//);
 // { type: "string", format: "uri", pattern: "^https:\\/\\/" }
 ```
 
-Two worth knowing before you pick one:
+Three worth knowing before you pick one:
 
 - **`S.url` is not `S.uri`.** `S.url` is an instance of the JS `URL` class, the
   way `S.date` is a `Date` — use it when you want the parsed object and its
   `.host` / `.pathname`. `S.uri` validates a string and leaves it a string.
 - **`S.uriReference` is usually the one you want for a link field.** `S.uri`
   requires a scheme, so it rejects `/dashboard`.
+- **`S.httpUrl` is `S.uri` with the scheme pinned** to `http` or `https`, in one
+  check. It still rejects `javascript:` and `data:`, but it is not a safety
+  check either — `https://169.254.169.254/` passes.
 
 To make the *type* record that a value was validated, [brand it](#brand).
 
@@ -1604,7 +1642,7 @@ Every operation that looks at one side of a schema says which side in its name. 
 | Convert   |                                        |                                          | `parser`, `decoder`, `encoder`   |
 | Construct | `inputConstructor`                     | `outputConstructor`                      |                                  |
 | Validate  | `inputValidator`                       | `outputValidator`                        |                                  |
-| Assert    | `assertInput`                          | `assertOutput`                           |                                  |
+| Assert    | `assertInput`, `asyncAssertInput`      | `assertOutput`, `asyncAssertOutput`      |                                  |
 | Describe  | `inputJSONSchema`, `inputExpression`   | `outputJSONSchema`, `outputExpression`   |                                  |
 
 ### Pipelines

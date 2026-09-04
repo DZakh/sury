@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.e164
+  input: string
+  output: string
+  instantiations: 254
+jsonSchema:
+  input: '{ type: "string", pattern: "^\\+[1-9]\\d{6,14}$" }'
+  output: '{ type: "string", pattern: "^\\+[1-9]\\d{6,14}$" }'
+vs:
+  zod: z.e164()
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"+14155552671"'
+        output: '"+14155552671"'
+      minimum-digits:
+        input: '"+1234567"'
+        output: '"+1234567"'
+      maximum-digits:
+        input: '"+123456789012345"'
+        output: '"+123456789012345"'
+      one-digit-too-many:
+        input: '"+1234567890123456"'
+        error: Expected e164, received "+1234567890123456"
+      one-digit-too-few:
+        input: '"+123456"'
+        error: Expected e164, received "+123456"
+      missing-plus:
+        input: '"14155552671"'
+        error: Expected e164, received "14155552671"
+      leading-zero:
+        input: '"+0415555267"'
+        error: Expected e164, received "+0415555267"
+      with-separators:
+        input: '"+1 415 555 2671"'
+        error: Expected e164, received "+1 415 555 2671"
+      empty:
+        input: '""'
+        error: Expected e164, received ""
+      not-a-string:
+        input: "42"
+        error: Expected e164, received 42
+  decode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"+14155552671"'
+        output: '"+14155552671"'
+      invalid:
+        input: '"14155552671"'
+        error: Expected e164, received "14155552671"
+  encode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"+14155552671"'
+        output: '"+14155552671"'
+      invalid:
+        input: '"14155552671"'
+        error: Expected e164, received "14155552671"

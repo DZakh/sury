@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.union([S.jsonString, S.schema({ kind: "k0" })])'
+  input: 'string | { kind: "k0"; }'
+  output: 'string | { kind: "k0"; }'
+  instantiations: 2476
+jsonSchema:
+  input: '{ anyOf: [{ type: "string", contentMediaType: "application/json" }, { type: "object", properties: { kind: { type: "string", const: "k0" } }, required: ["kind"] }] }'
+  output: '{ anyOf: [{ type: "string", contentMediaType: "application/json" }, { type: "object", properties: { kind: { type: "string", const: "k0" } }, required: ["kind"] }] }'
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "string" }, { type: "object", properties: { kind: { type: "string", enum: ["k0"] } }, required: ["kind"] }] }'
+    output: '{ anyOf: [{ type: "string" }, { type: "object", properties: { kind: { type: "string", enum: ["k0"] } }, required: ["kind"] }] }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    # FIXME: the union drops jsonString's JSON-validity check. Standalone,
+    # `S.jsonString` emits `try{JSON.parse(i)}catch(t){e[0](i)}`; here the
+    # string arm is only `typeof i==="string"`, so `"a"` — not JSON — is
+    # accepted and returned unchanged. Found by `pnpm fuzz:union`, which
+    # reports it as an `acceptance` diff against a sequential try of each
+    # variant. The goldens below record the wrong behavior so the fix has a
+    # before/after; they are not the contract.
+    expression: i=>{for(;;){if(typeof i==="string"){i=e[0](i);break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i["kind"]==="k0"){i={kind:i["kind"]};break}e[1](i)}return i}
+    examples:
+      json-number:
+        input: '"1"'
+        output: '"\"1\""'
+      json-string:
+        input: '"\"x\""'
+        output: '"\"\\\"x\\\"\""'
+      not-json-at-all:
+        input: '"a"'
+        output: '"\"a\""'
+      unterminated-object:
+        input: '"{"'
+        output: '"\"{\""'
+      empty:
+        input: '""'
+        output: '"\"\""'
+      the-object-variant:
+        input: '{ kind: "k0" }'
+        output: '{ kind: "k0" }'
+  decode: identity
+  encode: identity

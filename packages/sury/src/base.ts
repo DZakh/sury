@@ -160,11 +160,16 @@ export const itemSymbol = /* @__PURE__ */ Symbol(vendor + ":item");
 export type NumberFormat = "int32" | "port" | "integer";
 // Mirrored by `StringFormat` in index.d.ts, which is the surface TS users see —
 // a name added here without being added there is invisible to them, and a third
-// copy lives in `S.res`. Every member but `json`, `base64`, `base64url` and
-// `cuid` is a JSON Schema format name verbatim, which is what lets jsonschema.ts
-// pass it through in both directions; the content-family members name a keyword
-// of their own (`contentMediaType`, `contentEncoding`) instead, which
-// jsonschema.ts spells out per dialect.
+// copy lives in `S.res`. The name is also what `inputExpression` renders, so it
+// is the word every error message about the schema says.
+//
+// Members fall in three groups. Most are a JSON Schema format name verbatim,
+// which is what lets jsonschema.ts pass them through in both directions. The
+// content family (`json`, `base64`, `base64url`) names a keyword of its own
+// (`contentMediaType`, `contentEncoding`) instead, which jsonschema.ts spells
+// out per dialect. The rest have no JSON Schema keyword of that name and travel
+// as `pattern`, listed in `jsonSchemaFormat` there — a member added here without
+// an entry in that list emits a `format` no validator knows.
 export type StringFormat =
   | "json"
   | "base64"
@@ -187,7 +192,21 @@ export type StringFormat =
   | "iri-reference"
   | "idn-email"
   | "json-pointer"
-  | "relative-json-pointer";
+  | "relative-json-pointer"
+  | "cuid2"
+  | "ulid"
+  | "ksuid"
+  | "xid"
+  | "nanoid"
+  | "uuidv4"
+  | "uuidv6"
+  | "uuidv7"
+  | "e164"
+  | "mac"
+  | "hex"
+  | "cidrv4"
+  | "cidrv6"
+  | "http-url";
 export type ArrayFormat = "compactColumns";
 export type Format = NumberFormat | StringFormat | ArrayFormat;
 

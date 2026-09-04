@@ -214,7 +214,7 @@ test("Expression of renamed schema", t => {
     `i=>{if(i===void 0){i=null}else{e[0](i)}return i}`,
   )
   t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{if(i===void 0){i=null}else{e[0](i)}return i}`)
-  t->Assert.deepEqual(None->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`null`))
+  t->Assert.deepEqual(None->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`null`))
   t->U.assertThrowsMessage(
     () => %raw(`"smth"`)->S.parseOrThrow(~to=schema->S.reverse),
     `Expected Ethers.BigInt, received "smth"`,

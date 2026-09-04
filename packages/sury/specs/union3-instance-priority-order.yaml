@@ -12,7 +12,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{for(;;){let r;if(i instanceof e[4]){try{let v0;try{v0=e[0](i)}catch(x){e[1](x);e[2](x)}typeof v0==="string"||e[3](v0);i=v0;break}catch(x){(r||(r=[])).push(e[11](x))}}if(i instanceof e[9]){try{let v1;try{v1=e[5](i)}catch(x){e[6](x);e[7](x)}typeof v1==="string"||e[8](v1);i=v1;break}catch(x){(r||(r=[])).push(e[11](x))}}if(typeof i==="object"&&i&&!Array.isArray(i)){try{let v2=i["x"];typeof v2==="string"||e[10](v2);i={x:v2};break}catch(x){(r||(r=[])).push(e[11](x))}}e[12](i,...(r||[]))}return i}
+    expression: i=>{for(;;){let r;if(i instanceof e[3]){try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);i=v0;break}catch(x){(r||(r=[])).push(e[9](x))}}if(i instanceof e[7]){try{let v1;try{v1=e[4](i)}catch(x){e[5](x)}typeof v1==="string"||e[6](v1);i=v1;break}catch(x){(r||(r=[])).push(e[9](x))}}if(typeof i==="object"&&i&&!Array.isArray(i)){try{let v2=i["x"];typeof v2==="string"||e[8](v2);i={x:v2};break}catch(x){(r||(r=[])).push(e[9](x))}}e[10](i,...(r||[]))}return i}
     examples:
       object-member:
         input: '{ x: "ok" }'

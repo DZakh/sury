@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.nanoid
+  input: string
+  output: string
+  instantiations: 254
+jsonSchema:
+  input: '{ type: "string", pattern: "^[A-Za-z0-9_-]+$" }'
+  output: '{ type: "string", pattern: "^[A-Za-z0-9_-]+$" }'
+vs:
+  zod: z.nanoid()
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"V1StGXR8_Z5jdHi6B-myT"'
+        output: '"V1StGXR8_Z5jdHi6B-myT"'
+      shorter-than-the-default-generator:
+        input: '"abc"'
+        output: '"abc"'
+      url-safe-punctuation-only:
+        input: '"_-_-_"'
+        output: '"_-_-_"'
+      standard-base64-alphabet:
+        input: '"a+b/c"'
+        error: Expected nanoid, received "a+b/c"
+      with-a-space:
+        input: '"has space"'
+        error: Expected nanoid, received "has space"
+      empty:
+        input: '""'
+        error: Expected nanoid, received ""
+      not-a-string:
+        input: "42"
+        error: Expected nanoid, received 42
+  decode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"V1StGXR8_Z5jdHi6B-myT"'
+        output: '"V1StGXR8_Z5jdHi6B-myT"'
+      invalid:
+        input: '"has space"'
+        error: Expected nanoid, received "has space"
+  encode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"V1StGXR8_Z5jdHi6B-myT"'
+        output: '"V1StGXR8_Z5jdHi6B-myT"'
+      invalid:
+        input: '"has space"'
+        error: Expected nanoid, received "has space"

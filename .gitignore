@@ -10,6 +10,7 @@ coverage
 .tsimp
 tsconfig.tsbuildinfo
 _opam/
+_build/
 .attest
 packages/sury/index.mjs
 packages/json-schema-test-suite/.suite

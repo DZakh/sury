@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.cidrv6
+  input: string
+  output: string
+  instantiations: 254
+jsonSchema:
+  input: '{ type: "string" }'
+  output: '{ type: "string" }'
+vs:
+  zod: z.cidrv6()
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"2001:db8::/32"'
+        output: '"2001:db8::/32"'
+      uppercase:
+        input: '"FE80::/10"'
+        output: '"FE80::/10"'
+      prefix-zero:
+        input: '"::/0"'
+        output: '"::/0"'
+      prefix-maximum:
+        input: '"2001:db8::/128"'
+        output: '"2001:db8::/128"'
+      prefix-out-of-range:
+        input: '"2001:db8::/129"'
+        error: Expected cidrv6, received "2001:db8::/129"
+      missing-prefix:
+        input: '"2001:db8::"'
+        error: Expected cidrv6, received "2001:db8::"
+      ipv4-block:
+        input: '"192.168.0.0/16"'
+        error: Expected cidrv6, received "192.168.0.0/16"
+      empty:
+        input: '""'
+        error: Expected cidrv6, received ""
+      not-a-string:
+        input: "42"
+        error: Expected cidrv6, received 42
+  decode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"2001:db8::/32"'
+        output: '"2001:db8::/32"'
+      invalid:
+        input: '"2001:db8::/129"'
+        error: Expected cidrv6, received "2001:db8::/129"
+  encode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"2001:db8::/32"'
+        output: '"2001:db8::/32"'
+      invalid:
+        input: '"2001:db8::/129"'
+        error: Expected cidrv6, received "2001:db8::/129"
