@@ -12,7 +12,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{i instanceof e[7]||e[8](i);let v0=i.get("avatar")??void 0,v1=i.get("cover")||void 0,v2=i.get("raw")??void 0;v0 instanceof e[1]||e[2](v0);v0.size<5||e[0](v0);(v1 instanceof e[3]||v1===void 0)||e[4](v1);v2 instanceof e[5]||e[6](v2);return {avatar:v0,cover:v1,raw:v2}}
+    expression: i=>{i instanceof e[7]||e[8](i);let v0=(v1=i.get("avatar"))&&v1.name===""&&!v1.size?void 0:v1??void 0,v2=(v3=i.get("cover"))&&v3.name===""&&!v3.size?void 0:v3??void 0,v4=(v5=i.get("raw"))&&v5.name===""&&!v5.size?void 0:v5??void 0;v0 instanceof e[1]||e[2](v0);v0.size<5||e[0](v0);(v2 instanceof e[3]||v2===void 0)||e[4](v2);v4 instanceof e[5]||e[6](v4);return {avatar:v0,cover:v2,raw:v4}}
     examples:
       text-where-file:
         input: ((f) => (f.append("avatar", "x"), f.append("raw", new File(["r"], "r.bin")), f))(new FormData())
@@ -27,7 +27,7 @@ operations:
         input: ((f) => (f.append("avatar", new File(["a"], "a.png")), f.append("cover", "x"), f.append("raw", new File(["r"], "r.bin")), f))(new FormData())
         error: 'Failed at cover: Expected File | undefined, received "x"'
   decode:
-    expression: i=>{let v0=i.get("avatar")??void 0,v1=i.get("cover")||void 0,v2=i.get("raw")??void 0;v0 instanceof e[1]||e[2](v0);v0.size<5||e[0](v0);(v1 instanceof e[3]||v1===void 0)||e[4](v1);v2 instanceof e[5]||e[6](v2);return {avatar:v0,cover:v1,raw:v2}}
+    expression: i=>{let v0=(v1=i.get("avatar"))&&v1.name===""&&!v1.size?void 0:v1??void 0,v2=(v3=i.get("cover"))&&v3.name===""&&!v3.size?void 0:v3??void 0,v4=(v5=i.get("raw"))&&v5.name===""&&!v5.size?void 0:v5??void 0;v0 instanceof e[1]||e[2](v0);v0.size<5||e[0](v0);(v2 instanceof e[3]||v2===void 0)||e[4](v2);v4 instanceof e[5]||e[6](v4);return {avatar:v0,cover:v2,raw:v4}}
     examples:
       text-where-file:
         input: ((f) => (f.append("avatar", "x"), f.append("raw", new File(["r"], "r.bin")), f))(new FormData())

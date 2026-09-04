@@ -1196,6 +1196,10 @@ const schema = S.formData.with(
 );
 ```
 
+A file input with nothing chosen still submits — the HTML Standard has it
+append an empty, unnamed `File` — so that sentinel reads as absent rather than
+as an upload, and a required `S.file` reports a missing file.
+
 Both directions are sync: nothing reads a file's bytes. `S.FormData` is
 exported as a type for projects with neither `lib.dom` nor `@types/node`, like
 [`S.File`](#file).

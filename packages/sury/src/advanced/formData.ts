@@ -348,14 +348,26 @@ const formDataToObject = (input: Val, target: Internal): Val => {
       const allVar = B_varWithoutAllocation(input.g);
       B_hoistDecl(input, `${allVar}=${inputVar}.getAll(${keyText})`);
       B_hoistDecl(input, `${readVar}=${allVar}.length?${allVar}:void 0`);
+    } else if (list) {
+      B_hoistDecl(input, `${readVar}=${inputVar}.getAll(${keyText})`);
+    } else if (takesEntry(field.present)) {
+      // A file input with nothing chosen still submits: the HTML Standard's
+      // entry list gets "a new File object with an empty name,
+      // application/octet-stream as type, and an empty body". That sentinel is
+      // not an upload, so it reads as absent — a required field then reports a
+      // missing file rather than accepting an empty one. A string entry falls
+      // through the guard untouched (`"".name` is undefined).
+      const entryVar = B_varWithoutAllocation(input.g);
+      B_hoistDecl(
+        input,
+        `${readVar}=(${entryVar}=${inputVar}.get(${keyText}))&&${entryVar}.name===""&&!${entryVar}.size?void 0:${entryVar}??void 0`,
+      );
     } else {
       B_hoistDecl(
         input,
-        list
-          ? `${readVar}=${inputVar}.getAll(${keyText})`
-          : `${readVar}=${inputVar}.get(${keyText})${
-              field.optional || field.checkbox ? "||" : "??"
-            }void 0`,
+        `${readVar}=${inputVar}.get(${keyText})${
+          field.optional || field.checkbox ? "||" : "??"
+        }void 0`,
       );
     }
 
