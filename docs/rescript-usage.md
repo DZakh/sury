@@ -1239,8 +1239,8 @@ let schema = S.formData->S.to(
 
 A field reads its entry as text through the same coercions `S.dict(S.string)`
 gets; `S.file` and `S.blob` take the entry as it is, and a `S.bool` is a
-checkbox: absent is `false`, `"on"` is `true`, and an encode writes `"on"` or
-`"false"`. An empty text input reads as
+checkbox: absent is `false`, `"on"`/`"true"`/`"1"` is `true`, `"false"`/`"0"`
+is `false`, and an encode omits an unchecked box the way a browser does. An empty text input reads as
 absent for an optional field, and is handed to the target as `""` for a
 required one — so `S.string` takes it and `S.string->S.nonEmpty` rejects it in
 its own words. The type is

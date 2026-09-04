@@ -77,23 +77,46 @@ test("an absent optional is no entry, and a default fills the absent one back", 
   expect(S.decoder(schema)(form(["nick", ""], ["age", ""]))).toEqual({ nick: undefined, age: 18 });
 });
 
-test("a boolean is a checkbox: on when set, false written out", () => {
+test("a boolean is a checkbox: on when set, nothing when not", () => {
   const schema = S.formData.with(S.to, S.schema({ agree: S.boolean, notify: S.optional(S.boolean) }));
+  // An unchecked box sends nothing, which is all the entry list says about
+  // `false` — so that is what an encode writes.
+  expect(entries(S.encoder(schema)({ agree: false }))).toEqual([]);
   expect(entries(S.encoder(schema)({ agree: true, notify: false }))).toEqual([
     ["agree", "on"],
+    // A tri-state is the one thing the wire cannot express, so `false` is
+    // spelled out there to keep it apart from absent.
     ["notify", "false"],
   ]);
-  // A browser omits an unchecked box; Sury writes it, so a value survives its
-  // own default on the way back (see appendValue).
-  expect(entries(S.encoder(schema)({ agree: false }))).toEqual([["agree", "false"]]);
   expect(S.decoder(schema)(S.encoder(schema)({ agree: false, notify: true }))).toEqual({
     agree: false,
     notify: true,
   });
-  // What a browser submits still reads: "on" for a checked box, nothing for an
-  // unchecked one.
   expect(S.decoder(schema)(form(["agree", "on"]))).toEqual({ agree: true, notify: undefined });
   expect(S.decoder(schema)(new FormData())).toEqual({ agree: false, notify: undefined });
+});
+
+test("a checkbox reads the entries a form can carry, and only those", () => {
+  const schema = S.formData.with(S.to, S.schema({ a: S.boolean }));
+  // "on" is what a checked box submits; the rest are the hidden-input
+  // spellings, matching VineJS's accepted set.
+  for (const [entry, value] of [
+    ["on", true],
+    ["true", true],
+    ["1", true],
+    ["false", false],
+    ["0", false],
+    // A checked box whose value is "" is indistinguishable from an unchecked
+    // one on this wire.
+    ["", false],
+  ] as const) {
+    expect(S.decoder(schema)(form(["a", entry])), entry).toEqual({ a: value });
+  }
+  // Anything else is a checkbox with a `value` attribute, which is a string
+  // the schema should name rather than a boolean the codec guesses at.
+  expect(() => S.decoder(schema)(form(["a", "yes"]))).toThrow(
+    'Failed at a: Expected boolean, received "yes"',
+  );
 });
 
 test("an array is a repeated key, and an empty array is no entry", () => {
@@ -165,24 +188,29 @@ test("an array of optional items encodes without leaking a declaration", () => {
 });
 
 test("a checkbox round-trips however the field is wrapped", () => {
-  // `S.optional(S.boolean, false)` is the natural spelling of "checkbox,
-  // default unchecked": its encode writes `"on"`, so its decode has to read it.
-  for (const [name, schema, checked, unchecked] of [
-    ["required", S.boolean, true, false],
-    ["optional", S.optional(S.boolean), true, false],
-    ["defaulted false", S.optional(S.boolean, false), true, false],
-    ["defaulted true", S.optional(S.boolean, true), true, false],
+  for (const [name, schema] of [
+    ["required", S.boolean],
+    ["optional", S.optional(S.boolean)],
+    ["defaulted false", S.optional(S.boolean, false)],
   ] as const) {
     const s = S.formData.with(S.to, S.schema({ a: schema }));
-    for (const value of [checked, unchecked]) {
+    for (const value of [true, false]) {
       expect(S.decoder(s)(S.encoder(s)({ a: value })), `${name} ${value}`).toEqual({ a: value });
     }
     // What a browser actually submits for a checked and an unchecked box.
     expect(S.decoder(s)(form(["a", "on"])), name).toEqual({ a: true });
+    expect(S.decoder(s)(new FormData()), name).toEqual({ a: name === "optional" ? undefined : false });
   }
-  expect(S.decoder(S.formData.with(S.to, S.schema({ a: S.boolean })))(new FormData())).toEqual({
-    a: false,
-  });
+});
+
+test("a checkbox defaulting to true cannot round-trip, because the wire disagrees", () => {
+  // An absent checkbox entry means unchecked, so a default of `true` states
+  // something the wire never says. The encode omits `false` like a browser
+  // does, and the decode then applies that default. Documented rather than
+  // worked around: the schema is what contradicts the medium.
+  const schema = S.formData.with(S.to, S.schema({ a: S.optional(S.boolean, true) }));
+  expect(entries(S.encoder(schema)({ a: false }))).toEqual([]);
+  expect(S.decoder(schema)(S.encoder(schema)({ a: false }))).toEqual({ a: true });
 });
 
 test("FIXME: a refinement inside S.optional is not checked on encode", () => {

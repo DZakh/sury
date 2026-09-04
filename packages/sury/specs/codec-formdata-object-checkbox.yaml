@@ -12,7 +12,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{i instanceof e[7]||e[8](i);let v0=i.get("agree")||void 0,v2=i.get("notify")||void 0,v4=i.get("seen")||void 0,v6=i.get("asText")||void 0,v8=i.get("age")??void 0;let v1;(v1=v0==="on"||v0==="true")||v0==="false"||v0===void 0||e[0](v0);let v3;if(v2!==void 0){(v3=v2==="on"||v2==="true")||v2==="false"||e[1](v2)}let v5;if(v4!==void 0){(v5=v4==="on"||v4==="true")||v4==="false"||e[2](v4)}else{v5=false;}let v7;(v7=v6==="on"||v6==="true")||v6==="false"||v6===void 0||e[3](v6);typeof v8==="string"||e[6](v8);let v9=+v8;v9===v9&&(v9||v8.trim())||e[5](v8);v9>=18||e[4](v9);return {agree:v1,notify:v3,seen:v5,asText:""+v7,age:v9}}
+    expression: i=>{i instanceof e[7]||e[8](i);let v0=i.get("agree")||void 0,v2=i.get("notify")||void 0,v4=i.get("seen")||void 0,v6=i.get("asText")||void 0,v8=i.get("age")??void 0;let v1;(v1=v0==="on"||v0==="true"||v0==="1")||v0==="false"||v0==="0"||v0===void 0||e[0](v0);let v3;if(v2!==void 0){(v3=v2==="on"||v2==="true"||v2==="1")||v2==="false"||v2==="0"||e[1](v2)}let v5;if(v4!==void 0){(v5=v4==="on"||v4==="true"||v4==="1")||v4==="false"||v4==="0"||e[2](v4)}else{v5=false;}let v7;(v7=v6==="on"||v6==="true"||v6==="1")||v6==="false"||v6==="0"||v6===void 0||e[3](v6);typeof v8==="string"||e[6](v8);let v9=+v8;v9===v9&&(v9||v8.trim())||e[5](v8);v9>=18||e[4](v9);return {agree:v1,notify:v3,seen:v5,asText:""+v7,age:v9}}
     examples:
       checked:
         input: ((f) => (f.append("agree", "on"), f.append("age", "42"), f))(new FormData())
@@ -23,6 +23,12 @@ operations:
       defaulted-on:
         input: ((f) => (f.append("seen", "on"), f.append("age", "42"), f))(new FormData())
         output: '{ agree: false, notify: undefined, seen: true, asText: "false", age: 42 }'
+      one-is-checked:
+        input: ((f) => (f.append("agree", "1"), f.append("age", "42"), f))(new FormData())
+        output: '{ agree: true, notify: undefined, seen: false, asText: "false", age: 42 }'
+      zero-is-unchecked:
+        input: ((f) => (f.append("agree", "0"), f.append("age", "42"), f))(new FormData())
+        output: '{ agree: false, notify: undefined, seen: false, asText: "false", age: 42 }'
       unchecked:
         input: ((f) => (f.append("age", "42"), f))(new FormData())
         output: '{ agree: false, notify: undefined, seen: false, asText: "false", age: 42 }'
@@ -51,7 +57,7 @@ operations:
         input: ((f) => (f.append("notify", "on"), f.append("age", "42"), f))(new FormData())
         output: '{ agree: false, notify: true, seen: false, asText: "false", age: 42 }'
   decode:
-    expression: i=>{let v0=i.get("agree")||void 0,v2=i.get("notify")||void 0,v4=i.get("seen")||void 0,v6=i.get("asText")||void 0,v8=i.get("age")??void 0;let v1;(v1=v0==="on"||v0==="true")||v0==="false"||v0===void 0||e[0](v0);let v3;if(v2!==void 0){(v3=v2==="on"||v2==="true")||v2==="false"||e[1](v2)}let v5;if(v4!==void 0){(v5=v4==="on"||v4==="true")||v4==="false"||e[2](v4)}else{v5=false;}let v7;(v7=v6==="on"||v6==="true")||v6==="false"||v6===void 0||e[3](v6);typeof v8==="string"||e[6](v8);let v9=+v8;v9===v9&&(v9||v8.trim())||e[5](v8);v9>=18||e[4](v9);return {agree:v1,notify:v3,seen:v5,asText:""+v7,age:v9}}
+    expression: i=>{let v0=i.get("agree")||void 0,v2=i.get("notify")||void 0,v4=i.get("seen")||void 0,v6=i.get("asText")||void 0,v8=i.get("age")??void 0;let v1;(v1=v0==="on"||v0==="true"||v0==="1")||v0==="false"||v0==="0"||v0===void 0||e[0](v0);let v3;if(v2!==void 0){(v3=v2==="on"||v2==="true"||v2==="1")||v2==="false"||v2==="0"||e[1](v2)}let v5;if(v4!==void 0){(v5=v4==="on"||v4==="true"||v4==="1")||v4==="false"||v4==="0"||e[2](v4)}else{v5=false;}let v7;(v7=v6==="on"||v6==="true"||v6==="1")||v6==="false"||v6==="0"||v6===void 0||e[3](v6);typeof v8==="string"||e[6](v8);let v9=+v8;v9===v9&&(v9||v8.trim())||e[5](v8);v9>=18||e[4](v9);return {agree:v1,notify:v3,seen:v5,asText:""+v7,age:v9}}
     examples:
       checked:
         input: ((f) => (f.append("agree", "on"), f.append("age", "42"), f))(new FormData())
@@ -62,8 +68,14 @@ operations:
       defaulted-on:
         input: ((f) => (f.append("seen", "on"), f.append("age", "42"), f))(new FormData())
         output: '{ agree: false, notify: undefined, seen: true, asText: "false", age: 42 }'
+      one-is-checked:
+        input: ((f) => (f.append("agree", "1"), f.append("age", "42"), f))(new FormData())
+        output: '{ agree: true, notify: undefined, seen: false, asText: "false", age: 42 }'
+      zero-is-unchecked:
+        input: ((f) => (f.append("agree", "0"), f.append("age", "42"), f))(new FormData())
+        output: '{ agree: false, notify: undefined, seen: false, asText: "false", age: 42 }'
   encode:
-    expression: i=>{let v0=i["seen"],v2=i["asText"],v3=i["age"];typeof v0==="boolean"||e[0](v0);let v1;(v1=v2==="true")||v2==="false"||e[1](v2);v3>=18||e[2](v3);let v4=new e[3]();v4.append("agree",i["agree"]?"on":"false");if(i["notify"]!==void 0){v4.append("notify",i["notify"]?"on":"false")}v4.append("seen",v0?"on":"false");v4.append("asText",v1?"on":"false");v4.append("age",""+v3);return v4}
+    expression: i=>{let v0=i["seen"],v2=i["asText"],v3=i["age"];typeof v0==="boolean"||e[0](v0);let v1;(v1=v2==="true")||v2==="false"||e[1](v2);v3>=18||e[2](v3);let v4=new e[3]();if(i["agree"]){v4.append("agree","on")}if(i["notify"]!==void 0){v4.append("notify",i["notify"]?"on":"false")}if(v0){v4.append("seen","on")}if(v1){v4.append("asText","on")}v4.append("age",""+v3);return v4}
     examples:
       too-young:
         input: "{ agree: true, age: 7 }"

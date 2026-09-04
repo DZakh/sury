@@ -223,7 +223,11 @@ const readOptional = (
 const readCheckbox = (item: Val, field: Field, schema: Internal): Val => {
   const v = item.i;
   const outputVar = B_varWithoutAllocation(item.g);
-  const read = `(${outputVar}=${v}==="on"||${v}==="true")||${v}==="false"||`;
+  // `"on"` is the entry a checked box with no `value` attribute submits; the
+  // rest are the hidden-input spellings, and match what VineJS accepts. A
+  // checkbox carrying any other `value` is not a boolean — the schema names
+  // that value instead of the codec guessing at it.
+  const read = `(${outputVar}=${v}==="on"||${v}==="true"||${v}==="1")||${v}==="false"||${v}==="0"||`;
   const fail = B_embedInvalidInput(item, schema);
   return assembled(
     item,
@@ -250,16 +254,16 @@ const appendValue = (val: Val, fdVar: string, keyText: string): string => {
   const schema = val.s;
   const tagFlag = tagFlags[schema.type]!;
   if (isCheckbox(schema)) {
-    // `false` is written out rather than omitted, even though a browser omits
-    // an unchecked box: a default resolves before the encode sees the field
-    // (`S.optional(S.boolean, true)` arrives as a plain boolean), so omitting
-    // would hand that default back on the way in and lose the value. Only the
-    // body Sury writes is more explicit than a browser's — the decode still
-    // reads a real submission, where absent is `false`.
-    const append = `${fdVar}.append(${keyText},${val.i}?"on":"false")`;
+    // An unchecked box sends nothing, which is the whole of what the entry
+    // list says about `false`, so that is what is written. A tri-state is the
+    // one case the platform cannot express — absent and unchecked are the same
+    // wire — so there `false` is spelled out to keep the third value apart.
+    // `S.optional(S.boolean, true)` therefore cannot round-trip: its `false`
+    // omits, and an absent entry is its default. That default contradicts the
+    // wire, where a missing checkbox means unchecked.
     return (tagFlag & 256) && schema.has![undefinedTag]
-      ? `if(${val.i}!==void 0){${append}}`
-      : `${append};`;
+      ? `if(${val.i}!==void 0){${fdVar}.append(${keyText},${val.i}?"on":"false")}`
+      : `if(${val.i}){${fdVar}.append(${keyText},"on")}`;
   }
   const item = listItem(schema);
   if (item !== U) {

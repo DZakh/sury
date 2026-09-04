@@ -1174,9 +1174,13 @@ S.formData.with(
 );
 ```
 
-Encoding writes `"on"` for a checked box and `"false"` for an unchecked one,
-rather than omitting it the way a browser does — that is what lets `false`
-survive a field's own default on the way back in.
+Reading accepts `"on"`, `"true"` and `"1"` as checked, `"false"` and `"0"` as
+unchecked, and nothing else — a box carrying any other `value` is a string the
+schema should name. Encoding omits an unchecked box, exactly as a browser does.
+`S.optional(S.boolean)` is the exception: absent and unchecked are the same
+wire, so its `false` is written out to keep the third state apart. For the same
+reason `S.optional(S.boolean, true)` cannot round-trip — a missing checkbox
+entry means unchecked, so that default states something a form never says.
 
 An empty text input submits `""`, and the field's own schema decides what that
 means. An optional field reads it as absent, so `S.optional` gets `undefined`
