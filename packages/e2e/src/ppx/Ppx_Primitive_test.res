@@ -128,9 +128,9 @@ test("Big tuple schema", t => {
 })
 
 @schema
-type myCustomString = @s.matches(S.email) S.email
+type myCustomString = @s.matches(S.string->S.trim) string
 test("Custom string schema", t => {
-  t->assertEqualSchemas(myCustomStringSchema, S.email)
+  t->assertEqualSchemas(myCustomStringSchema, S.string->S.trim)
 })
 
 @schema
@@ -140,9 +140,9 @@ test("Custom litaral string schema", t => {
 })
 
 @schema
-type myCustomOptionalString = option<@s.matches(S.email) S.email>
+type myCustomOptionalString = option<@s.matches(S.string->S.trim) string>
 test("Custom optional string schema", t => {
-  t->assertEqualSchemas(myCustomOptionalStringSchema, S.email->S.option)
+  t->assertEqualSchemas(myCustomOptionalStringSchema, S.string->S.trim->S.option)
 })
 
 // @schema
