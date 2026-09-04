@@ -442,6 +442,25 @@ export const instanceDecoder: Builder = (input: Val) => {
       : B_unsupportedDecode(input, input.s, input.e);
 };
 
+// On a runtime that has no such global there is no schema to be had, so `class`
+// reports that instead of sitting there as `undefined` for its readers to
+// dereference. Every route into the schema goes through `class` — the decoder's
+// `instanceof`, the rendering and the JSON Schema emit via `.name`, and
+// `copySchema`'s `Object.assign` for `.with(…)` and `reverse` — so all of them
+// answer with this one sentence rather than a TypeError, or worse, a schema
+// that builds and fails later — converting a schema that only decodes to one
+// included, since the encode-reverse copies the target to get there.
+//
+// Enumerable, so the `Object.assign` copy is one of the routes it covers.
+// `console.log` still works: `util.inspect` shows an accessor rather than
+// invoking it.
+export const unsupportedInstance = (s: Internal, name: string): void => {
+  Object.defineProperty(s, "class", {
+    enumerable: true,
+    get: () => panic(`S.${name} is not supported in this runtime`),
+  });
+};
+
 // @__NO_SIDE_EFFECTS__
 export const instance = (class_: unknown): Internal => {
   const mut = baseSchema(instanceTag, true, instanceDecoder);

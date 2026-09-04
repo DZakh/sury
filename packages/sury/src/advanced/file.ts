@@ -11,7 +11,6 @@ import {
   instanceTag,
   type Internal,
   openApi30,
-  panic,
   setContent,
   tagFlags,
   U,
@@ -30,7 +29,8 @@ import {
 } from "../builder";
 import type { JSONSchemaT } from "../jsonschema";
 import {
- instanceDecoder
+ instanceDecoder,
+ unsupportedInstance
 } from "../parse";
 import {
  openedText,
@@ -40,25 +40,6 @@ import {
  base64Content,
  bytesTarget
 } from "../refinements";
-
-// On a runtime that has no such global there is no schema to be had, so `class`
-// reports that instead of sitting there as `undefined` for its readers to
-// dereference. Every route into the schema goes through `class` — the decoder's
-// `instanceof`, the rendering and the JSON Schema emit via `.name`, and
-// `copySchema`'s `Object.assign` for `.with(…)` and `reverse` — so all of them
-// answer with this one sentence rather than a TypeError, or worse, a schema
-// that builds and fails later — converting a schema that only decodes to one
-// included, since the encode-reverse copies the target to get there.
-//
-// Enumerable, so the `Object.assign` copy is one of the routes it covers.
-// `console.log` still works: `util.inspect` shows an accessor rather than
-// invoking it.
-const unsupported = (s: Internal, name: string): void => {
-  Object.defineProperty(s, "class", {
-    enumerable: true,
-    get: () => panic(`S.${name} is not supported in this runtime`),
-  });
-};
 
 // No `type`: octets have none, so the carrier that decodes to a blob is the
 // side with a type to give and this only says what it carries. `minSize` and
@@ -156,7 +137,7 @@ const binarySchema = (name: string, global: string, nameArg: string): Internal =
       setContent(s, base64Content);
       s.jsonSchema = binaryJSONSchema;
       if (s.class === U) {
-        unsupported(s, name);
+        unsupportedInstance(s, name);
       }
 
       s.encoder = (input, target) => {

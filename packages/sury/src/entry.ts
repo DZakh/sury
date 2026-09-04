@@ -104,6 +104,7 @@ export { uint8Array } from "./advanced/uint8Array";
 export { date } from "./advanced/date";
 export { url } from "./advanced/url";
 export { blob, file } from "./advanced/file";
+export { formData } from "./advanced/formData";
 export {
   isoDateTime,
   port,

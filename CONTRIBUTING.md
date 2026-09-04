@@ -335,15 +335,19 @@ case the harness *should* have caught or guided better — a missing check, a we
 error message, a strictness gap that let a bad spec through — add a bullet here
 instead of silently working around it.
 
-- An operation whose output holds a `Blob` or `File` (`S.blob`/`S.file`
-  decoding, or the reverse of any conversion into them) can't be specced: the
-  golden writer raises "cannot represent a Blob instance as spec source code",
-  and an op has no way to opt out. `Uint8Array` is written as a constructor
-  call, but a binary container's bytes are only readable asynchronously, so the
-  writer would have to await the example before rendering it. It costs a whole
-  direction of the content axis: the `codec-*` specs for `S.blob` and `S.file`
-  carry codegen and error cases only, and `tests/content_test.ts` holds the
-  values instead.
+- An operation whose output holds a `Blob`, `File` or `FormData` (`S.blob`/
+  `S.file` decoding, `S.formData` encoding, or the reverse of any conversion
+  into them) can't be specced: the golden writer raises "cannot represent a Blob
+  instance as spec source code", and an op has no way to opt out. `Uint8Array`
+  is written as a constructor call, but a binary container's bytes are only
+  readable asynchronously, so the writer would have to await the example before
+  rendering it. A `FormData` needs no await — the `((f) => (f.append(…), f))(new
+  FormData())` idiom the `codec-formdata-*` example *inputs* already use is what
+  the writer would emit — but a `File` entry inside one lands back on the first
+  problem. It costs a whole direction of the content axis: the `codec-*` specs
+  for `S.blob`, `S.file` and `S.formData` carry codegen and error cases only,
+  and `tests/content_test.ts` and `tests/formData_test.ts` hold the values
+  instead.
 - An example's `error` is matched verbatim, so one raised by the *platform*
   rather than by Sury pins that engine's wording: `new Blob([Symbol()])` says
   "Cannot convert a Symbol value to a string" on Node 22 and "The argument

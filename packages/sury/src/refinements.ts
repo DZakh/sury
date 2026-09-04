@@ -214,7 +214,8 @@ const withBounds = (schema: Internal, base: string): string => {
     return `${subject} ${exMax !== U ? "<" : "<="} ${lit(high!)}`;
   }
   if (high === U) {
-    return `${subject} ${exMin !== U ? ">" : ">="} ${lit(low)}`;
+    // The recorded-but-checkless zero (see narrowsSize) has nothing to say.
+    return sized && low === 0 ? base : `${subject} ${exMin !== U ? ">" : ">="} ${lit(low)}`;
   }
   return exMin === U && exMax === U && low === high
     ? `${subject} == ${lit(low)}`
@@ -295,7 +296,7 @@ const boundsRefiner = (input: Val): Check[] => {
         f: B_failWithErrorMessage(minKey),
       });
     } else {
-      if (min !== U) {
+      if (min) {
         checks.push({
           c: (inputVar) => `${inputVar}${member}>${min - 1}`,
           f: B_failWithErrorMessage(minKey),
@@ -446,6 +447,12 @@ const narrowsUpper = (schema: Internal, value: number | bigint, exclusive: boole
 // it also keeps the advertised JSON Schema honest, since `minLength: 0` is the
 // keyword's own default. `S.length(0)` is unaffected — it pins both sides and
 // takes neither path.
+//
+// A string's `minLength(0)` is the one exception: it is recorded, still with
+// no check behind it (boundsRefiner skips a zero lower length), because it is
+// how a field says the empty string is a value — `S.formData` reads `""` as
+// absent unless the field's schema carries it (admitsEmpty in
+// advanced/formData.ts).
 const narrowsSize = (current: number | undefined, value: number, upper: boolean): boolean =>
   upper ? current === U || value < current : value > (current ?? 0);
 
@@ -640,7 +647,10 @@ export const minLength = (schema: Internal, length: number, maybeMessage?: strin
   assertLengthBound("minLength", schema, length);
   assertSize(schema, length, false);
   const key = sizeKey(schema, false);
-  if (!narrowsSize(schema[key], length, false)) {
+  if (
+    !narrowsSize(schema[key], length, false) &&
+    !(length === 0 && schema.type === stringTag && schema[key] === U)
+  ) {
     return carryMessage(schema, (schema.bounds ?? 0) & 1 ? key : U, maybeMessage);
   }
   return updateBounds(schema, (mut: Internal) => {

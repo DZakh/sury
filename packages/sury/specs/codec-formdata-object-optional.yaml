@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.formData.with(S.to, S.schema({ nick: S.optional(S.string.with(S.maxLength, 3)), age: S.optional(S.number, 18), bio: S.string.with(S.minLength, 0), note: S.optional(S.string.with(S.minLength, 0)) }))"
+  input: FormData
+  output: "{ age: number; bio: string; nick?: string | undefined; note?: string | undefined; }"
+  instantiations: 8029
+jsonSchema:
+  input: Expected JSON, received FormData
+  output: '{ type: "object", properties: { nick: { type: "string", maxLength: 3 }, age: { type: "number" }, bio: { type: "string", minLength: 0 }, note: { type: "string", minLength: 0 } }, required: ["age", "bio"] }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{i instanceof e[6]||e[7](i);let v0=i.get("nick")||void 0,v1=i.get("age")||void 0,v3=i.get("bio")??void 0,v4=i.get("note")??void 0;if(v0!==void 0){typeof v0==="string"||e[1](v0);v0.length<4||e[0](v0);}if(v1!==void 0){typeof v1==="string"||e[3](v1);let v2=+v1;v2===v2&&(v2||v1.trim())||e[2](v1);v1=v2;}else{v1=18;}typeof v3==="string"||e[4](v3);if(v4!==void 0){typeof v4==="string"||e[5](v4);}return {nick:v0,age:v1,bio:v3,note:v4}}
+    examples:
+      all-present:
+        input: ((f) => (f.append("nick", "nn"), f.append("age", "42"), f.append("bio", "hi"), f.append("note", "n"), f))(new FormData())
+        output: '{ nick: "nn", age: 42, bio: "hi", note: "n" }'
+      all-empty:
+        input: ((f) => (f.append("nick", ""), f.append("age", ""), f.append("bio", ""), f.append("note", ""), f))(new FormData())
+        output: '{ nick: undefined, age: 18, bio: "", note: "" }'
+      all-absent:
+        input: ((f) => (f.append("bio", "hi"), f))(new FormData())
+        output: '{ nick: undefined, age: 18, bio: "hi", note: undefined }'
+      empty-required:
+        input: ((f) => (f.append("nick", "nn"), f.append("age", "42"), f.append("note", "n"), f))(new FormData())
+        error: "Failed at bio: Expected string, received undefined"
+      not-a-number:
+        input: ((f) => (f.append("age", "x"), f.append("bio", "hi"), f))(new FormData())
+        error: 'Failed at age: Expected number, received "x"'
+      too-long:
+        input: ((f) => (f.append("nick", "long"), f.append("bio", "hi"), f))(new FormData())
+        error: 'Failed at nick: Expected string.length <= 3, received "long"'
+      file-where-text:
+        input: ((f) => (f.append("nick", new File(["nn"], "a.txt")), f.append("bio", "hi"), f))(new FormData())
+        error: "Failed at nick: Expected string.length <= 3, received File"
+  decode:
+    expression: i=>{let v0=i.get("nick")||void 0,v1=i.get("age")||void 0,v3=i.get("bio")??void 0,v4=i.get("note")??void 0;if(v0!==void 0){typeof v0==="string"||e[1](v0);v0.length<4||e[0](v0);}if(v1!==void 0){typeof v1==="string"||e[3](v1);let v2=+v1;v2===v2&&(v2||v1.trim())||e[2](v1);v1=v2;}else{v1=18;}typeof v3==="string"||e[4](v3);if(v4!==void 0){typeof v4==="string"||e[5](v4);}return {nick:v0,age:v1,bio:v3,note:v4}}
+    examples:
+      all-empty:
+        input: ((f) => (f.append("nick", ""), f.append("age", ""), f.append("bio", ""), f.append("note", ""), f))(new FormData())
+        output: '{ nick: undefined, age: 18, bio: "", note: "" }'
+  encode:
+    expression: i=>{let v0=i["age"],v2=i["nick"],v3=i["note"];typeof v0==="number"&&v0===v0||e[0](v0);let v1=new e[1]();if(v2!==void 0){v1.append("nick",v2);}v1.append("age",""+v0);v1.append("bio",i["bio"]);if(v3!==void 0){v1.append("note",v3);}return v1}
+    examples:
+      missing-defaulted:
+        input: '{ nick: "n", bio: "hi" }'
+        error: "Failed at age: Expected number, received undefined"

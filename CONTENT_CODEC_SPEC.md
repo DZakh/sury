@@ -174,7 +174,11 @@ S.base64.with(S.to, S.string);      // identity — a string is NOT bytes
 | `S.base64` | bytes | sync | sync |
 | `S.base64url` | bytes | sync | sync |
 | `S.jsonString` (future: toon, env) | a JSON value | sync | sync |
-| future: `S.formData`, protobuf | a record / a message | sync | sync |
+| future: protobuf | a message | sync | sync |
+
+`S.formData` is not a carrier on this axis: a form has no JSON document form
+and no format opens into one, so a link to it has one reading or none, and a
+`FormData` in a JSON position has no document, the way a `Blob` has none.
 
 Packing bytes into a JSON position always produces base64. Packing a `File`
 loses its name — the reverse builds `new File([content], "")`; a name option

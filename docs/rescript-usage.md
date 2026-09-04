@@ -49,6 +49,7 @@
   - [`instance`](#instance)
   - [`blob`](#blob)
   - [`file`](#file)
+  - [`formData`](#formdata)
   - [`json`](#json)
   - [`jsonString`](#jsonstring)
   - [Content](#content)
@@ -1202,7 +1203,9 @@ S.blob->S.maxSize(1_000_000, ~message="Too large")
 `S.instance` schema with a `.size`, counting entries rather than bytes.
 
 > Strings and arrays use `S.minLength`/`S.maxLength`/`S.length` instead.
-> A lower bound of `0` is dropped; a negative one is an error.
+> A lower bound of `0` is dropped, except a string's `S.minLength(0)`, which
+> [`S.formData`](#formdata) reads as admitting the empty entry; a negative one
+> is an error.
 
 ### **`file`**
 
@@ -1217,6 +1220,32 @@ let schema = S.file->S.maxSize(1_000_000)
 
 A `File` is a `Blob`, so it also satisfies [`S.blob`](#blob) — not the other way
 round. It takes the same size bounds.
+
+### **`formData`**
+
+`S.t<S.formData>`
+
+```rescript
+let schema = S.formData->S.to(
+  S.schema(s => {
+    name: s.field("name", S.string),
+    age: s.field("age", S.int), // "42" -> 42
+    tags: s.field("tags", S.array(S.string)), // every "tags" entry
+    avatar: s.field("avatar", S.file),
+  }),
+)
+
+%raw(`new FormData()`)->S.parseOrThrow(~to=schema) // throws - Failed at ["name"]: Expected string, received undefined
+{name: "Ann", age: 42, tags: ["a"], avatar}->S.reverseConvertOrThrow(~from=schema) // a FormData with one append per field
+```
+
+A field reads its entry as text through the same coercions `S.dict(S.string)`
+gets; `S.file` and `S.blob` take the entry as it is, and a required `S.bool` is
+a checkbox: absent is `false`, `"on"` is `true`. An empty text input reads
+as absent: `S.option` gets `None`, and a required string rejects it unless the
+field says the empty string is a value with `S.minLength(0)`. The type is
+abstract, since the stdlib has no `FormData` module; a value from a fetch
+binding is cast to it.
 
 ### **`json`**
 

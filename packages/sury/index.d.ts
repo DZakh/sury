@@ -467,6 +467,29 @@ export const blob: Schema<Blob, Blob>;
 
 export const file: Schema<File, File>;
 
+/** The runtime's `FormData`, or a structural stand-in. See {@link Blob}. */
+export type FormData = typeof globalThis extends {
+  FormData: abstract new (...args: never) => infer T;
+}
+  ? T
+  : {
+      append(name: string, value: string | Blob): void;
+      get(name: string): string | File | null;
+      getAll(name: string): (string | File)[];
+    };
+
+/**
+ * A form submission, converted to and from an object schema with `S.to`. A
+ * field reads through the string coercions (`"42"` -> `S.number`), a `S.file`
+ * field takes the entry as it is, and `S.array` reads every entry of the key.
+ * A required `S.boolean` is a checkbox: absent is `false`, `"on"` is `true`.
+ * An empty text input reads as absent: `S.optional` takes it, a required
+ * string rejects it unless it says `S.minLength(0)`. Encoding builds a
+ * `FormData` with one `append` per field.
+ * @example S.formData.with(S.to, S.schema({ name: S.string, age: S.number, avatar: S.file }))
+ */
+export const formData: Schema<FormData, FormData>;
+
 /**
  * RFC 3339 timestamp, **UTC only** — an offset like `+02:00` is rejected, which
  * is narrower than the JSON Schema `date-time` format it emits.

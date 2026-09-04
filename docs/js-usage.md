@@ -42,6 +42,7 @@
 - [Instance](#instance)
 - [Blob](#blob)
 - [File](#file)
+- [FormData](#formdata)
 - [Content](#content)
 - [Meta](#meta)
 - [Brand](#brand)
@@ -1096,7 +1097,9 @@ S.instance(Set).with(S.minSize, 1); // Expected Set.size >= 1
 ```
 
 > Strings and arrays use `S.minLength`/`S.maxLength`/`S.length` instead.
-> A lower bound of `0` is dropped; a negative one is an error.
+> A lower bound of `0` is dropped, except a string's `S.minLength(0)`, which
+> [`S.formData`](#formdata) reads as admitting the empty entry; a negative one
+> is an error.
 
 ## File
 
@@ -1122,6 +1125,62 @@ its own:
 ```ts
 const upload = (f: S.File) => S.parser(S.file)(f);
 ```
+
+## FormData
+
+`S.formData` validates a `FormData`. Convert it to an object schema with `S.to`
+and one schema serves both the request handler and the `fetch` body:
+
+```ts
+const signup = S.formData.with(
+  S.to,
+  S.schema({
+    name: S.string,
+    age: S.number, // "42" -> 42
+    agree: S.boolean, // a checkbox: "on" -> true, absent -> false
+    newsletter: S.optional(S.boolean), // tri-state: "true" -> true, absent -> undefined
+    role: S.union(["admin", "user"]),
+    tags: S.array(S.string), // every "tags" entry
+    avatar: S.file,
+    prefs: S.jsonString.with(S.to, S.schema({ theme: S.string })), // a JSON text field
+  }),
+);
+
+S.decoder(signup)(await request.formData());
+// => { name: "Ann", age: 42, role: "user", tags: ["a", "b"], avatar: File, prefs: { theme: "dark" } }
+
+S.encoder(signup)({ name: "Ann", age: 42, role: "user", tags: ["a"], avatar, prefs: { theme: "dark" } });
+// => a FormData with one append per field, ready for fetch(url, { body })
+```
+
+A field reads its entry as text through the same coercions
+[`S.record(S.string)`](#records) gets, so numbers, literals, dates and `S.url`
+all work; `S.file` and `S.blob` take the entry as it is, and `S.array` reads
+every entry of the key. A required `S.boolean` is a checkbox, since nothing
+else a browser sends is one: absent reads as `false`, `"on"` (or `"true"`) as
+`true`, and it encodes as `"on"` or no entry. `S.optional(S.boolean)` keeps the
+tri-state for a form that tells "unchecked" from "not on the page". Nested objects have no wire form here:
+send them as a [`S.jsonString`](#advanced-schemas) field instead.
+
+An empty text input submits `""`, and the form reads it as absent: `S.optional`
+gets `undefined`, a default applies, and a required string rejects it — unless
+the field says the empty string is a value with `S.minLength(0)`:
+
+```ts
+const schema = S.formData.with(
+  S.to,
+  S.schema({ nick: S.optional(S.string), bio: S.string.with(S.minLength, 0) }),
+);
+
+const form = new FormData();
+form.append("nick", "");
+form.append("bio", "");
+S.decoder(schema)(form); // => { nick: undefined, bio: "" }
+```
+
+Both directions are sync: nothing reads a file's bytes. `S.FormData` is
+exported as a type for projects with neither `lib.dom` nor `@types/node`, like
+[`S.File`](#file).
 
 ## Content
 
