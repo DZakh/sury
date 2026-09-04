@@ -303,13 +303,13 @@ test("Coerce from string to int32", t => {
 test("Coerce from string to port", t => {
   let schema = S.string->S.to(S.port)
 
-  t->Assert.deepEqual("10"->S.parseOrThrow(~to=schema), 10)
+  t->Assert.deepEqual("10"->S.parseOrThrow(~to=schema), S.Port(10))
   t->U.assertThrowsMessage(
     () => "2147483648"->S.parseOrThrow(~to=schema),
     `Expected port, received 2147483648`,
   )
   t->U.assertThrowsMessage(() => "10.2"->S.parseOrThrow(~to=schema), `Expected port, received 10.2`)
-  t->Assert.deepEqual(10->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`"10"`))
+  t->Assert.deepEqual(S.Port(10)->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`"10"`))
 
   t->U.assertCompiledCode(
     ~schema,

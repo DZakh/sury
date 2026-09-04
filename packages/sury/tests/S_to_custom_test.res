@@ -406,8 +406,8 @@ test("Refines the coder's result, not what went into it", t => {
   let schema = S.uuid->S.to(
     userSchema,
     ~custom={
-      decode: Sync(id => {"id": id, "name": "John"}),
-      encode: Sync(user => user["id"]),
+      decode: Sync(id => {"id": (id :> string), "name": "John"}),
+      encode: Sync(user => S.Uuid(user["id"])),
     },
   )
 
@@ -434,11 +434,14 @@ test("Picks a reading for a content link the way the ambiguity report says to", 
   // The report names `"pack"`/`"unpack"`, so the binding has to offer them —
   // without Pack/Unpack the remedy it points at is unwritable from ReScript.
   let packed = S.base64->S.to(S.jsonString, ~custom={decode: Pack, encode: Unpack})
-  t->Assert.deepEqual("aGk="->S.parseOrThrow(~to=packed), `"aGk="`)
-  t->Assert.deepEqual(`"aGk="`->S.convertOrThrow(~from=packed, ~to=S.base64), "aGk=")
+  t->Assert.deepEqual("aGk="->S.parseOrThrow(~to=packed), S.JsonString(`"aGk="`))
+  t->Assert.deepEqual(
+  S.JsonString(`"aGk="`)->S.convertOrThrow(~from=packed, ~to=S.base64),
+  S.Base64("aGk="),
+)
 
   let opened = S.base64->S.to(S.jsonString, ~custom={decode: Unpack, encode: Pack})
-  t->Assert.deepEqual(`eyJhIjoxfQ==`->S.parseOrThrow(~to=opened), `{"a":1}`)
+  t->Assert.deepEqual(`eyJhIjoxfQ==`->S.parseOrThrow(~to=opened), S.JsonString(`{"a":1}`))
 
   t->U.assertThrowsMessage(
     () => "aGk="->S.parseOrThrow(~to=S.base64->S.to(S.jsonString))->ignore,

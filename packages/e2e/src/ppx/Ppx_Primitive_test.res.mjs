@@ -106,21 +106,23 @@ Vitest.test("Big tuple schema", t => U.assertEqualSchemas(t, myBigTupleSchema, S
   s.m(Sury.bool)
 ]), undefined));
 
-let myCustomStringSchema = Sury.email;
+let myCustomSchema = Sury.trim(Sury.string);
 
-Vitest.test("Custom string schema", t => U.assertEqualSchemas(t, myCustomStringSchema, Sury.email, undefined));
+Vitest.test("Custom string schema", t => U.assertEqualSchemas(t, myCustomSchema, myCustomSchema, undefined));
 
 let myCustomLiteralStringSchema = Sury.literal("123");
 
 Vitest.test("Custom litaral string schema", t => U.assertEqualSchemas(t, myCustomLiteralStringSchema, Sury.literal("123"), undefined));
 
-let myCustomOptionalStringSchema = Sury.$option(Sury.email);
+let myCustomOptionalStringSchema = Sury.$option(myCustomSchema);
 
-Vitest.test("Custom optional string schema", t => U.assertEqualSchemas(t, myCustomOptionalStringSchema, Sury.$option(Sury.email), undefined));
+Vitest.test("Custom optional string schema", t => U.assertEqualSchemas(t, myCustomOptionalStringSchema, Sury.$option(myCustomSchema), undefined));
 
 let myNullOfStringSchema = Sury.$nullAsOption(Sury.string);
 
 Vitest.test("Null of string schema", t => U.assertEqualSchemas(t, myNullOfStringSchema, Sury.$nullAsOption(Sury.string), undefined));
+
+let myCustomStringSchema = myCustomSchema;
 
 export {
   myStringSchema,
@@ -141,6 +143,7 @@ export {
   myJsonFromCoreSchema,
   myTupleSchema,
   myBigTupleSchema,
+  myCustomSchema,
   myCustomStringSchema,
   myCustomLiteralStringSchema,
   myCustomOptionalStringSchema,

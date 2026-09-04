@@ -3,14 +3,17 @@ open Vitest
 test("Successfully parses valid data", t => {
   let schema = S.isoDateTime
 
-  t->Assert.deepEqual("2020-01-01T00:00:00Z"->S.parseOrThrow(~to=schema), "2020-01-01T00:00:00Z")
+  t->Assert.deepEqual(
+    "2020-01-01T00:00:00Z"->S.parseOrThrow(~to=schema),
+    S.IsoDateTime("2020-01-01T00:00:00Z"),
+  )
   t->Assert.deepEqual(
     "2020-01-01T00:00:00.123Z"->S.parseOrThrow(~to=schema),
-    "2020-01-01T00:00:00.123Z",
+    S.IsoDateTime("2020-01-01T00:00:00.123Z"),
   )
   t->Assert.deepEqual(
     "2020-01-01T00:00:00.123456Z"->S.parseOrThrow(~to=schema),
-    "2020-01-01T00:00:00.123456Z",
+    S.IsoDateTime("2020-01-01T00:00:00.123456Z"),
   )
 
   t->U.assertCompiledCode(
@@ -42,7 +45,7 @@ test("Successfully serializes valid value", t => {
   let schema = S.isoDateTime
 
   t->Assert.deepEqual(
-    "2020-01-01T00:00:00.123Z"->S.convertOrThrow(~from=schema, ~to=S.unknown),
+    S.IsoDateTime("2020-01-01T00:00:00.123Z")->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`"2020-01-01T00:00:00.123Z"`),
   )
 })

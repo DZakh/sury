@@ -44,10 +44,10 @@ test("Immitate assert returning true with S.to and literal", t => {
 test("compileConvertOrThrow with ~via chains through the middle schema", t => {
   let schema = S.object(s => s.field("n", S.int))
   let fn = S.compileConvertOrThrow(~from=S.jsonString, ~via=S.json, ~to=schema)
-  t->Assert.deepEqual(fn(`{"n":1}`), 1)
-  t->Assert.deepEqual(`{"n":2}`->S.convertOrThrow(~from=S.jsonString, ~via=S.json, ~to=schema), 2)
+  t->Assert.deepEqual(fn(S.JsonString(`{"n":1}`)), 1)
+  t->Assert.deepEqual(S.JsonString(`{"n":2}`)->S.convertOrThrow(~from=S.jsonString, ~via=S.json, ~to=schema), 2)
   t->U.assertThrowsMessage(
-    () => `{"n":"x"}`->S.convertOrThrow(~from=S.jsonString, ~via=S.json, ~to=schema),
+    () => S.JsonString(`{"n":"x"}`)->S.convertOrThrow(~from=S.jsonString, ~via=S.json, ~to=schema),
     `Failed at n: Expected int32, received "x"`,
   )
 })

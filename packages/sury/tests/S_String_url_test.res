@@ -7,7 +7,7 @@ open Vitest
 test("Successfully parses valid data", t => {
   let schema = S.uri
 
-  t->Assert.deepEqual("http://dzakh.dev"->S.parseOrThrow(~to=schema), "http://dzakh.dev")
+  t->Assert.deepEqual("http://dzakh.dev"->S.parseOrThrow(~to=schema), S.Uri("http://dzakh.dev"))
 })
 
 test("Fails to parse invalid data", t => {
@@ -32,7 +32,7 @@ test("Successfully serializes valid value", t => {
   let schema = S.uri
 
   t->Assert.deepEqual(
-    "http://dzakh.dev"->S.convertOrThrow(~from=schema, ~to=S.unknown),
+    S.Uri("http://dzakh.dev")->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`"http://dzakh.dev"`),
   )
 })
@@ -41,7 +41,7 @@ test("Fails to serialize invalid value", t => {
   let schema = S.uri
 
   t->U.assertThrowsMessage(
-    () => "cifjhdsfhsd"->S.convertOrThrow(~from=schema, ~to=S.unknown),
+    () => S.Uri("cifjhdsfhsd")->S.convertOrThrow(~from=schema, ~to=S.unknown),
     `Expected uri, received "cifjhdsfhsd"`,
   )
 })

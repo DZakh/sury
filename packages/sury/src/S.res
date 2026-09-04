@@ -423,50 +423,84 @@ module Error = {
 @module("sury") external string: t<string> = "string"
 @module("sury") external bool: t<bool> = "bool"
 @module("sury") external int: t<int> = "int"
-// `t<float>`, not `t<int>`: ReScript's `int` is int32, and a JS integer
-// (JSON Schema's unbounded `integer`) can exceed that range.
-@module("sury") external integer: t<float> = "integer"
+// Every format schema carries its own `@unboxed` type, so a format survives in
+// the type system instead of collapsing back into `string`/`float`. Unboxed
+// means the constructor is erased at runtime — the value is the payload, and
+// the JS side never sees the difference.
+// `float`, not `int`: ReScript's `int` is int32, and a JS integer (JSON
+// Schema's unbounded `integer`) can exceed that range.
+@unboxed type integer = Integer(float)
+@module("sury") external integer: t<integer> = "integer"
 @module("sury") external float: t<float> = "float"
 @module("sury") external bigint: t<bigint> = "bigint"
 @module("sury") external symbol: t<Symbol.t> = "symbol"
 @module("sury") external nan: t<float> = "nan"
-@module("sury") external date: t<Date.t> = "date"
-@module("sury") external json: t<JSON.t> = "json"
-@module("sury") external jsonString: t<string> = "jsonString"
-@module("sury") external jsonStringWithSpace: int => t<string> = "jsonStringWithSpace"
+/** The stdlib `Date.t`, aliased so every schema's value type is reachable as
+    `S.<name>` — including from the ppx, which resolves those names. */
+type date = Date.t
+@module("sury") external date: t<date> = "date"
+type json = JSON.t
+@module("sury") external json: t<json> = "json"
+@unboxed type jsonString = JsonString(string)
+@module("sury") external jsonString: t<jsonString> = "jsonString"
+@module("sury") external jsonStringWithSpace: int => t<jsonString> = "jsonStringWithSpace"
 @module("sury") external uint8Array: t<Uint8Array.t> = "uint8Array"
 // `Js.Blob.t`/`Js.File.t` rather than a pair of abstract types declared here:
 // the stdlib has no Blob or File module, and these two are the compiler's own
 // builtin abstract types — the ones untagged variants match on — so a value
 // from any other binding unifies with these.
-@module("sury") external blob: t<Js.Blob.t> = "blob"
-@module("sury") external file: t<Js.File.t> = "file"
-@module("sury") external isoDateTime: t<string> = "isoDateTime"
-@module("sury") external port: t<int> = "port"
-@module("sury") external email: t<string> = "email"
-@module("sury") external uuid: t<string> = "uuid"
-@module("sury") external cuid: t<string> = "cuid"
-@module("sury") external base64: t<string> = "base64"
-@module("sury") external base64url: t<string> = "base64url"
-@module("sury") external uri: t<string> = "uri"
+type blob = Js.Blob.t
+@module("sury") external blob: t<blob> = "blob"
+type file = Js.File.t
+@module("sury") external file: t<file> = "file"
+@unboxed type isoDateTime = IsoDateTime(string)
+@module("sury") external isoDateTime: t<isoDateTime> = "isoDateTime"
+@unboxed type port = Port(int)
+@module("sury") external port: t<port> = "port"
+@unboxed type email = Email(string)
+@module("sury") external email: t<email> = "email"
+@unboxed type uuid = Uuid(string)
+@module("sury") external uuid: t<uuid> = "uuid"
+@unboxed type cuid = Cuid(string)
+@module("sury") external cuid: t<cuid> = "cuid"
+@unboxed type base64 = Base64(string)
+@module("sury") external base64: t<base64> = "base64"
+@unboxed type base64url = Base64url(string)
+@module("sury") external base64url: t<base64url> = "base64url"
+@unboxed type uri = Uri(string)
+@module("sury") external uri: t<uri> = "uri"
 /** An instance of the JS `URL` class. ReScript has no stdlib binding for it,
     so this is an abstract type standing for one. */
 type url
 @module("sury") external url: t<url> = "url"
-@module("sury") external isoDate: t<string> = "isoDate"
-@module("sury") external isoTime: t<string> = "isoTime"
-@module("sury") external duration: t<string> = "duration"
-@module("sury") external hostname: t<string> = "hostname"
-@module("sury") external idnHostname: t<string> = "idnHostname"
-@module("sury") external ipv4: t<string> = "ipv4"
-@module("sury") external ipv6: t<string> = "ipv6"
-@module("sury") external uriReference: t<string> = "uriReference"
-@module("sury") external uriTemplate: t<string> = "uriTemplate"
-@module("sury") external iri: t<string> = "iri"
-@module("sury") external iriReference: t<string> = "iriReference"
-@module("sury") external idnEmail: t<string> = "idnEmail"
-@module("sury") external jsonPointer: t<string> = "jsonPointer"
-@module("sury") external relativeJsonPointer: t<string> = "relativeJsonPointer"
+@unboxed type isoDate = IsoDate(string)
+@module("sury") external isoDate: t<isoDate> = "isoDate"
+@unboxed type isoTime = IsoTime(string)
+@module("sury") external isoTime: t<isoTime> = "isoTime"
+@unboxed type duration = Duration(string)
+@module("sury") external duration: t<duration> = "duration"
+@unboxed type hostname = Hostname(string)
+@module("sury") external hostname: t<hostname> = "hostname"
+@unboxed type idnHostname = IdnHostname(string)
+@module("sury") external idnHostname: t<idnHostname> = "idnHostname"
+@unboxed type ipv4 = Ipv4(string)
+@module("sury") external ipv4: t<ipv4> = "ipv4"
+@unboxed type ipv6 = Ipv6(string)
+@module("sury") external ipv6: t<ipv6> = "ipv6"
+@unboxed type uriReference = UriReference(string)
+@module("sury") external uriReference: t<uriReference> = "uriReference"
+@unboxed type uriTemplate = UriTemplate(string)
+@module("sury") external uriTemplate: t<uriTemplate> = "uriTemplate"
+@unboxed type iri = Iri(string)
+@module("sury") external iri: t<iri> = "iri"
+@unboxed type iriReference = IriReference(string)
+@module("sury") external iriReference: t<iriReference> = "iriReference"
+@unboxed type idnEmail = IdnEmail(string)
+@module("sury") external idnEmail: t<idnEmail> = "idnEmail"
+@unboxed type jsonPointer = JsonPointer(string)
+@module("sury") external jsonPointer: t<jsonPointer> = "jsonPointer"
+@unboxed type relativeJsonPointer = RelativeJsonPointer(string)
+@module("sury") external relativeJsonPointer: t<relativeJsonPointer> = "relativeJsonPointer"
 
 @module("sury") external literal: 'value => t<'value> = "literal"
 @module("sury") external array: t<'value> => t<array<'value>> = "array"
@@ -704,15 +738,19 @@ external multipleOf: (t<'value>, 'value, ~message: string=?) => t<'value> = "mul
 @module("sury") external minLength: (t<'value>, int, ~message: string=?) => t<'value> = "minLength"
 @module("sury") external maxLength: (t<'value>, int, ~message: string=?) => t<'value> = "maxLength"
 @module("sury") external length: (t<'value>, int, ~message: string=?) => t<'value> = "length"
-@module("sury") external nonEmpty: (t<'value>, ~message: string=?) => t<'value> = "nonEmpty"
+@unboxed type nonEmpty<'value> = NonEmpty('value)
+@module("sury")
+external nonEmpty: (t<'value>, ~message: string=?) => t<nonEmpty<'value>> = "nonEmpty"
 
 @module("sury") external minSize: (t<'value>, int, ~message: string=?) => t<'value> = "minSize"
 @module("sury") external maxSize: (t<'value>, int, ~message: string=?) => t<'value> = "maxSize"
 @module("sury") external size: (t<'value>, int, ~message: string=?) => t<'value> = "size"
 
+// `t<'value>` rather than `t<string>` so the format types and `nonEmpty` stay
+// chainable; like gt/gte above, this admits nonsense the JS side has to catch.
 @module("sury")
-external pattern: (t<string>, RegExp.t, ~message: string=?) => t<string> = "pattern"
-@module("sury") external trim: t<string> => t<string> = "trim"
+external pattern: (t<'value>, RegExp.t, ~message: string=?) => t<'value> = "pattern"
+@module("sury") external trim: t<'value> => t<'value> = "trim"
 
 type jsonSchemaOptions = {target?: StandardSchema.JsonSchema.target}
 @module("sury")

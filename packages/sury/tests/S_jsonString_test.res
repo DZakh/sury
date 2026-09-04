@@ -3,7 +3,7 @@ open Vitest
 test("Parses JSON string without transformation", t => {
   let schema = S.jsonString
 
-  t->Assert.deepEqual(`"Foo"`->S.parseOrThrow(~to=schema), `"Foo"`)
+  t->Assert.deepEqual(`"Foo"`->S.parseOrThrow(~to=schema), S.JsonString(`"Foo"`))
   t->U.assertThrowsMessage(
     () => `Foo`->S.parseOrThrow(~to=schema),
     `Expected JSON string, received "Foo"`,
@@ -464,7 +464,7 @@ test("Compiled async parse code snapshot", t => {
 })
 
 test("Can apply refinement to JSON string", t => {
-  let schema = S.jsonString->S.refine(v => v === "123", ~error="Expected 123")
+  let schema = S.jsonString->S.refine(v => (v :> string) === "123", ~error="Expected 123")
 
   t->U.assertThrowsMessage(() => `124`->S.parseOrThrow(~to=schema), `Expected 123`)
   t->U.assertCompiledCode(
@@ -477,7 +477,7 @@ test("Can apply refinement to JSON string", t => {
 test("Can apply refinement to JSON string with S.to after", t => {
   let schema =
     S.jsonString
-    ->S.refine(v => v === "123", ~error="Expected 123")
+    ->S.refine(v => (v :> string) === "123", ~error="Expected 123")
     ->S.to(S.int)
 
   t->U.assertThrowsMessage(() => `124`->S.parseOrThrow(~to=schema), `Expected 123`)
@@ -490,7 +490,7 @@ test("Can apply refinement to JSON string with S.to after", t => {
 })
 
 test("Can apply refinement to JSON string with S.to before", t => {
-  let schema = S.int->S.to(S.jsonString->S.refine(v => v === "123", ~error="Expected 123"))
+  let schema = S.int->S.to(S.jsonString->S.refine(v => (v :> string) === "123", ~error="Expected 123"))
 
   t->U.assertThrowsMessage(() => 124->S.parseOrThrow(~to=schema), `Expected 123`)
   t->U.assertCompiledCode(

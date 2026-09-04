@@ -232,9 +232,9 @@ test("Refiner runs on S.json", t => {
 })
 
 test("Refiner runs on S.jsonString", t => {
-  let schema = S.jsonString->S.refine(s => String.length(s) < 10, ~error="JsonString refine fail")
+  let schema = S.jsonString->S.refine(s => String.length((s :> string)) < 10, ~error="JsonString refine fail")
 
-  t->Assert.deepEqual(`1`->S.parseOrThrow(~to=schema), `1`)
+  t->Assert.deepEqual(`1`->S.parseOrThrow(~to=schema), S.JsonString(`1`))
   t->U.assertThrowsMessage(
     () => `{"a":1,"b":2}`->S.parseOrThrow(~to=schema),
     `JsonString refine fail`,
@@ -330,7 +330,7 @@ test("inputRefiner runs on reversed S.json", t => {
 test("inputRefiner runs on reversed S.jsonString", t => {
   let schema =
     S.jsonString
-    ->S.refine(s => String.length(s) < 10, ~error="JsonString input refine fail")
+    ->S.refine(s => String.length((s :> string)) < 10, ~error="JsonString input refine fail")
     ->S.reverse
 
   t->Assert.deepEqual(`1`->S.parseOrThrow(~to=schema), `1`->Obj.magic)
