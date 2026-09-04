@@ -3,11 +3,11 @@ open Vitest
 test("Constructor validates and hands back the value it was given", t => {
   let schema = S.object(s => {"id": s.field("id", S.string), "email": s.field("email", S.email)})
   let make = S.compileMakeOrThrow(~schema=schema)
-  let user = {"id": "1", "email": "a@b.com"}
+  let user = {"id": "1", "email": S.Email("a@b.com")}
 
   t->Assert.is(make(user), user)
   t->U.assertThrowsMessage(
-    () => make({"id": "1", "email": "nope"}),
+    () => make({"id": "1", "email": S.Email("nope")}),
     `Failed at email: Expected email, received "nope"`,
   )
 })

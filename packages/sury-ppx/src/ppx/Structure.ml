@@ -59,6 +59,18 @@ let rec generateConstrSchemaExpression {Location.txt = identifier; loc}
   | Lident "unit", _ -> [%expr S.unit]
   | Lident "unknown", _ -> [%expr S.unknown]
   | Ldot (Lident "S", "never"), _ -> [%expr S.never]
+  (* The format schemas and stdlib aliases are named identically as a type and
+     as a schema, so `S.email` resolves to itself rather than to the
+     `S.emailSchema` the generic `Ldot` case below would build. *)
+  | Ldot (Lident "S", ("integer" | "date" | "json" | "jsonString" | "blob"
+     | "file" | "isoDateTime" | "port" | "email" | "uuid" | "cuid"
+     | "base64" | "base64url" | "uri" | "url" | "isoDate" | "isoTime"
+     | "duration" | "hostname" | "idnHostname" | "ipv4" | "ipv6"
+     | "uriReference" | "uriTemplate" | "iri" | "iriReference" | "idnEmail"
+     | "jsonPointer" | "relativeJsonPointer")) as schema_ident, _ ->
+    Exp.ident (mknoloc schema_ident)
+  | Ldot (Lident "S", "nonEmpty"), [item_type] ->
+    [%expr S.nonEmpty [%e generateCoreTypeSchemaExpression item_type]]
   | Ldot (Ldot (Lident "Js", "Json"), "t"), _ | Ldot (Lident "JSON", "t"), _ ->
     [%expr S.json]
   | Lident "array", [item_type] ->

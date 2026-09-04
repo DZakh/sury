@@ -134,7 +134,7 @@ test("Successfully decodes JSON string to Date via jsonString", t => {
   )
   let date = Date.fromString("2024-01-01T00:00:00.000Z")
   t->Assert.deepEqual(
-    `{"field":"2024-01-01T00:00:00.000Z"}`->S.convertOrThrow(~from=S.jsonString, ~to=dateSchema),
+    S.JsonString(`{"field":"2024-01-01T00:00:00.000Z"}`)->S.convertOrThrow(~from=S.jsonString, ~to=dateSchema),
     {"field": date},
   )
 })

@@ -18,9 +18,9 @@ asyncTest("parseAsync returns a promise of a result", async t => {
 })
 
 test("convert returns a result", t => {
-  t->Assert.deepEqual(`"a"`->S.convert(~from=S.jsonString, ~via=S.json, ~to=S.string), Ok("a"))
+  t->Assert.deepEqual(S.JsonString(`"a"`)->S.convert(~from=S.jsonString, ~via=S.json, ~to=S.string), Ok("a"))
   t->Assert.deepEqual(1.5->S.convert(~from=schema, ~to=S.string), Ok("1.5"))
-  t->Assert.deepEqual(`1`->S.convert(~from=S.jsonString, ~to=S.string)->Result.isError, true)
+  t->Assert.deepEqual(S.JsonString(`1`)->S.convert(~from=S.jsonString, ~to=S.string)->Result.isError, true)
 })
 
 asyncTest("convertAsync returns a promise of a result", async t => {

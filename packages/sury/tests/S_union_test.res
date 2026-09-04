@@ -849,7 +849,10 @@ test("Regression https://github.com/DZakh/sury/issues/121", t => {
 })
 
 test("Union of strings with different refinements", t => {
-  let schema = S.union([S.email, S.uri])
+  // The format types are nominal, so the members need one common value type.
+  // `Obj.magic` rather than `S.shape`: a real conversion would show up in the
+  // compiled code this test pins.
+  let schema: S.t<string> = S.union([S.email->Obj.magic, S.uri->Obj.magic])
 
   t->U.assertThrowsMessage(
     () => %raw(`"123"`)->S.parseOrThrow(~to=schema),

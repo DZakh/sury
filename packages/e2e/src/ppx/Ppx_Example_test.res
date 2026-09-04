@@ -45,7 +45,7 @@ test("Main example", t => {
 })
 
 @schema
-type matches = @s.matches(S.uri) string
+type matches = @s.matches(S.uri) S.uri
 test("@s.matches", t => {
   t->assertEqualSchemas(matchesSchema, S.uri)
 })

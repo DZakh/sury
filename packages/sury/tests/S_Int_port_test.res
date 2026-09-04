@@ -3,7 +3,7 @@ open Vitest
 test("Successfully parses valid data", t => {
   let schema = S.port
 
-  t->Assert.deepEqual(8080->S.parseOrThrow(~to=schema), 8080)
+  t->Assert.deepEqual(8080->S.parseOrThrow(~to=schema), S.Port(8080))
 })
 
 test("Fails to parse invalid data", t => {
@@ -15,14 +15,14 @@ test("Fails to parse invalid data", t => {
 test("Successfully serializes valid value", t => {
   let schema = S.port
 
-  t->Assert.deepEqual(8080->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`8080`))
+  t->Assert.deepEqual(S.Port(8080)->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`8080`))
 })
 
 test("Fails to serialize invalid value", t => {
   let schema = S.port
 
   t->U.assertThrowsMessage(
-    () => -80->S.convertOrThrow(~from=schema, ~to=S.unknown),
+    () => S.Port(-80)->S.convertOrThrow(~from=schema, ~to=S.unknown),
     `Expected port, received -80`,
   )
 })

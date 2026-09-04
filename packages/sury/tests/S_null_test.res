@@ -183,7 +183,7 @@ module OuterRecord = {
       record->S.convertOrThrow(~from=schema, ~to=S.unknown),
       %raw(`{ record: null }`),
     )
-    t->Assert.deepEqual(record->S.convertOrThrow(~from=schema, ~to=S.jsonString), `{"record":null}`)
+    t->Assert.deepEqual(record->S.convertOrThrow(~from=schema, ~to=S.jsonString), S.JsonString(`{"record":null}`))
 
     t->U.assertCompiledCode(
       ~schema,

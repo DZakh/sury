@@ -24,13 +24,13 @@ test("Nested nullable option encodes to JSON string (issue shape)", t => {
   let outerSchema = makeNullableSchemas()
   t->Assert.deepEqual(
     {a: Some({s: None})}->S.convertOrThrow(~from=outerSchema, ~to=S.jsonString),
-    `{"a":{}}`,
+    S.JsonString(`{"a":{}}`),
   )
   t->Assert.deepEqual(
     {a: Some({s: Some("x")})}->S.convertOrThrow(~from=outerSchema, ~to=S.jsonString),
-    `{"a":{"s":"x"}}`,
+    S.JsonString(`{"a":{"s":"x"}}`),
   )
-  t->Assert.deepEqual({a: None}->S.convertOrThrow(~from=outerSchema, ~to=S.jsonString), `{}`)
+  t->Assert.deepEqual({a: None}->S.convertOrThrow(~from=outerSchema, ~to=S.jsonString), S.JsonString(`{}`))
 })
 
 test("Nested nullable option round-trips through S.json", t => {

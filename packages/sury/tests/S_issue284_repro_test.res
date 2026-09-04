@@ -177,7 +177,7 @@ test("Encode array(nullAsOption) to jsonString", t => {
   let schema = S.array(S.string->S.nullAsOption)
   t->Assert.deepEqual(
     [None, Some("x")]->S.convertOrThrow(~from=schema, ~to=S.jsonString),
-    `[null,"x"]`,
+    S.JsonString(`[null,"x"]`),
   )
 })
 
