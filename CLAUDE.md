@@ -103,8 +103,8 @@ of the keyword set (`JSONSchemaT` in `src/jsonschema.ts`, `JSONSchema.res`).
 
 - Every public pure factory carries `// @__NO_SIDE_EFFECTS__` on the line above
   its declaration — except exports whose point *is* the effect (`assert`, `is`,
-  `safe`, `safeAsync`, `global`, `enableStandardJSONSchema`,
-  `$assertAsyncOrThrow`, `$setExnId`).
+  `safe`, `safeAsync`, `asyncAssertInput`, `asyncAssertOutput`, `global`,
+  `enableStandardJSONSchema`, `$setExnId`).
 - **Never publish a factory through an alias** (`export const object = schemaObject`):
   the annotation counts only on the declaration that *is* the function. Re-export
   instead — `export { schemaObject as object } from "./factory"`.

@@ -31,7 +31,7 @@ test("Successfully serializes valid value", t => {
   let schema = S.uuid
 
   t->Assert.deepEqual(
-    "123e4567-e89b-12d3-a456-426614174000"->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    "123e4567-e89b-12d3-a456-426614174000"->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`"123e4567-e89b-12d3-a456-426614174000"`),
   )
 })
@@ -40,7 +40,7 @@ test("Fails to serialize invalid value", t => {
   let schema = S.uuid
 
   t->U.assertThrowsMessage(
-    () => "123e4567"->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    () => "123e4567"->S.convertOrThrow(~from=schema, ~to=S.unknown),
     `Expected uuid, received "123e4567"`,
   )
 })

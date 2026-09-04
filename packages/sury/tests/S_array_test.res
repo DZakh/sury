@@ -34,7 +34,7 @@ module CommonWithNested = {
   test("Successfully serializes", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.decodeOrThrow(~from=schema, ~to=S.unknown), any)
+    t->Assert.deepEqual(value->S.convertOrThrow(~from=schema, ~to=S.unknown), any)
   })
 
   test("Compiled parse code snapshot", t => {

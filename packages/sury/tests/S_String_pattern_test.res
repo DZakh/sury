@@ -33,14 +33,14 @@ test("Fails to parse invalid data", t => {
 test("Successfully serializes valid value", t => {
   let schema = S.string->S.pattern(/[0-9]/)
 
-  t->Assert.deepEqual("123"->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"123"`))
+  t->Assert.deepEqual("123"->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`"123"`))
 })
 
 test("Fails to serialize invalid value", t => {
   let schema = S.string->S.pattern(/[0-9]/)
 
   t->U.assertThrowsMessage(
-    () => "abc"->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    () => "abc"->S.convertOrThrow(~from=schema, ~to=S.unknown),
     `Invalid pattern`,
   )
 })
