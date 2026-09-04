@@ -181,14 +181,6 @@ export const assertOrThrow = (any: unknown, schema: Internal): void => {
   (getDecoder(unknown, schema, assertResult) as (input: unknown) => unknown)(any);
 }
 
-export const assertAsyncOrThrow = (any: unknown, schema: Internal): Promise<void> => {
-  return (
-    getDecoder(unknown, schema, assertResult, 1) as (
-      input: unknown
-    ) => Promise<void>
-  )(any);
-}
-
 export type JsResult<TValue> =
   | { success: true; value: TValue }
   | { success: false; error: SuryErrorRecord };
@@ -211,6 +203,37 @@ export const safe = <TValue>(fn: () => TValue): JsResult<TValue> => {
     return wrapExnToFailure(exn);
   }
 }
+
+// ReScript's `result<'value, S.error>` runtime shape. The Sury marker check
+// replaces the `catch { | S.Exn(e) => }` the binding would otherwise compile
+// to, which drags `internalToException` and the stdlib Promise into S.res.mjs.
+type ResResult<TValue> = { TAG: "Ok"; _0: TValue } | { TAG: "Error"; _0: SuryErrorRecord };
+
+const wrapExnToResError = (exn: unknown): ResResult<never> => {
+  if (exn && (exn as { s?: symbol }).s === s) {
+    return { TAG: "Error", _0: exn as unknown as SuryErrorRecord };
+  } else {
+    throw exn;
+  }
+};
+
+export const safeResult = <TValue>(fn: () => TValue): ResResult<TValue> => {
+  try {
+    return { TAG: "Ok", _0: fn() };
+  } catch (exn) {
+    return wrapExnToResError(exn);
+  }
+};
+
+export const safeAsyncResult = <TValue>(
+  fn: () => Promise<TValue>
+): Promise<ResResult<TValue>> => {
+  try {
+    return fn().then((value): ResResult<TValue> => ({ TAG: "Ok", _0: value }), wrapExnToResError);
+  } catch (exn) {
+    return Promise.resolve(wrapExnToResError(exn));
+  }
+};
 
 export const safeAsync = <TValue>(fn: () => Promise<TValue>): Promise<JsResult<TValue>> => {
   try {

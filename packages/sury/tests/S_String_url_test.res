@@ -32,7 +32,7 @@ test("Successfully serializes valid value", t => {
   let schema = S.uri
 
   t->Assert.deepEqual(
-    "http://dzakh.dev"->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    "http://dzakh.dev"->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`"http://dzakh.dev"`),
   )
 })
@@ -41,7 +41,7 @@ test("Fails to serialize invalid value", t => {
   let schema = S.uri
 
   t->U.assertThrowsMessage(
-    () => "cifjhdsfhsd"->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    () => "cifjhdsfhsd"->S.convertOrThrow(~from=schema, ~to=S.unknown),
     `Expected uri, received "cifjhdsfhsd"`,
   )
 })
@@ -101,7 +101,7 @@ test("Encodes a URL back to a uri string", t => {
   let value = %raw(`new URL("http://dzakh.dev/")`)
 
   t->Assert.deepEqual(
-    value->S.decodeOrThrow(~from=S.url, ~to=S.string),
+    value->S.convertOrThrow(~from=S.url, ~to=S.string),
     %raw(`"http://dzakh.dev/"`),
   )
 })

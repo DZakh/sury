@@ -29,7 +29,7 @@ test("Successfully parses and reverse converts a simple object with compactColum
   )
 
   t->Assert.deepEqual(
-    %raw(`[{"foo": "a", "bar": 0}, {"foo": "b", "bar": 1}]`)->S.decodeOrThrow(
+    %raw(`[{"foo": "a", "bar": 0}, {"foo": "b", "bar": 1}]`)->S.convertOrThrow(
       ~from=schema,
       ~to=S.unknown,
     ),
@@ -66,7 +66,7 @@ test("Transforms nullable fields", t => {
   )
 
   t->Assert.deepEqual(
-    %raw(`[{"foo": "a", "bar": 0}, {"foo": "b", "bar": undefined}]`)->S.decodeOrThrow(
+    %raw(`[{"foo": "a", "bar": 0}, {"foo": "b", "bar": undefined}]`)->S.convertOrThrow(
       ~from=schema,
       ~to=S.unknown,
     ),
@@ -103,7 +103,7 @@ test("Case with missing item at the end", t => {
   )
 
   t->Assert.deepEqual(
-    %raw(`[{"foo": "a", "bar": true}, {"foo": "b", "bar": true}, {"foo": undefined, "bar": false}]`)->S.decodeOrThrow(
+    %raw(`[{"foo": "a", "bar": true}, {"foo": "b", "bar": true}, {"foo": undefined, "bar": false}]`)->S.convertOrThrow(
       ~from=schema,
       ~to=S.unknown,
     ),
@@ -161,7 +161,7 @@ test("Typed input schema (non-unknown inputSchema branch)", t => {
   )
 
   t->Assert.deepEqual(
-    %raw(`[{"foo": "a", "bar": "c"}, {"foo": "b", "bar": "d"}]`)->S.decodeOrThrow(
+    %raw(`[{"foo": "a", "bar": "c"}, {"foo": "b", "bar": "d"}]`)->S.convertOrThrow(
       ~from=schema,
       ~to=S.unknown,
     ),
@@ -268,7 +268,7 @@ test("Nullable field (null | undefined)", t => {
   )
 
   t->Assert.deepEqual(
-    %raw(`[{"foo": "a", "bar": 0}, {"foo": null, "bar": 1}]`)->S.decodeOrThrow(
+    %raw(`[{"foo": "a", "bar": 0}, {"foo": null, "bar": 1}]`)->S.convertOrThrow(
       ~from=schema,
       ~to=S.unknown,
     ),
@@ -296,7 +296,7 @@ test("More than 2 fields", t => {
   )
 
   t->Assert.deepEqual(
-    %raw(`[{"a": "x", "b": 1, "c": true, "d": 1.5}, {"a": "y", "b": 2, "c": false, "d": 2.5}]`)->S.decodeOrThrow(
+    %raw(`[{"a": "x", "b": 1, "c": true, "d": 1.5}, {"a": "y", "b": 2, "c": false, "d": 2.5}]`)->S.convertOrThrow(
       ~from=schema,
       ~to=S.unknown,
     ),
@@ -321,7 +321,7 @@ test("Single-field object", t => {
   )
 
   t->Assert.deepEqual(
-    %raw(`[{"only": "a"}, {"only": "b"}, {"only": "c"}]`)->S.decodeOrThrow(
+    %raw(`[{"only": "a"}, {"only": "b"}, {"only": "c"}]`)->S.convertOrThrow(
       ~from=schema,
       ~to=S.unknown,
     ),
@@ -386,7 +386,7 @@ test("decodeToJson with nullable field", t => {
 
   let value = %raw(`[{"foo": "a", "bar": 0}, {"foo": "b", "bar": undefined}]`)
   t->Assert.deepEqual(
-    value->S.decodeOrThrow(~from=schema, ~to=S.json),
+    value->S.convertOrThrow(~from=schema, ~to=S.json),
     %raw(`[["a", "b"], [0, null]]`),
   )
 })
@@ -405,7 +405,7 @@ test("Roundtrip: parse -> encode -> parse", t => {
 
   let columnar = %raw(`[["a", "b", "c"], [0, null, 2]]`)
   let rows = columnar->S.parseOrThrow(~to=schema)
-  let roundtripped = rows->S.decodeOrThrow(~from=schema, ~to=S.unknown)->S.parseOrThrow(~to=schema)
+  let roundtripped = rows->S.convertOrThrow(~from=schema, ~to=S.unknown)->S.parseOrThrow(~to=schema)
   t->Assert.deepEqual(rows, roundtripped)
 })
 
@@ -422,7 +422,7 @@ test("decodeToJson validates non-JSON-able unknown field values", t => {
 
   // JSON-compatible values round-trip through the columnar form unchanged.
   t->Assert.deepEqual(
-    %raw(`[{"foo": "hello"}, {"foo": 42}]`)->S.decodeOrThrow(~from=schema, ~to=S.json),
+    %raw(`[{"foo": "hello"}, {"foo": 42}]`)->S.convertOrThrow(~from=schema, ~to=S.json),
     %raw(`[["hello", 42]]`),
   )
 
@@ -431,7 +431,7 @@ test("decodeToJson validates non-JSON-able unknown field values", t => {
   // at column 0, row 0 of the columnar output (i.e. the "foo" value of the
   // first row).
   t->U.assertThrowsMessage(
-    () => %raw(`[{"foo": 123n}]`)->S.decodeOrThrow(~from=schema, ~to=S.json),
+    () => %raw(`[{"foo": 123n}]`)->S.convertOrThrow(~from=schema, ~to=S.json),
     `Failed at [0][0]: Expected JSON, received 123n`,
   )
 })
@@ -458,7 +458,7 @@ test("Json source with bigint field converts string↔bigint", t => {
 
   // Reverse: bigint values are converted back to strings for json
   t->Assert.deepEqual(
-    %raw(`[{"id": "0", "amount": 12345678901234567890n}, {"id": "1", "amount": 98765432109876543210n}]`)->S.decodeOrThrow(
+    %raw(`[{"id": "0", "amount": 12345678901234567890n}, {"id": "1", "amount": 98765432109876543210n}]`)->S.convertOrThrow(
       ~from=schema,
       ~to=S.unknown,
     ),
@@ -480,6 +480,6 @@ test("Json source roundtrip with bigint", t => {
 
   let columnar = %raw(`[["0", "1"], ["12345678901234567890", "98765432109876543210"]]`)
   let rows = columnar->S.parseOrThrow(~to=schema)
-  let roundtripped = rows->S.decodeOrThrow(~from=schema, ~to=S.unknown)->S.parseOrThrow(~to=schema)
+  let roundtripped = rows->S.convertOrThrow(~from=schema, ~to=S.unknown)->S.parseOrThrow(~to=schema)
   t->Assert.deepEqual(rows, roundtripped)
 })

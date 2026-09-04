@@ -110,7 +110,7 @@ Node: i=>{let v0=i["children"];let v4=new Array(v0.length);for(let v1=0;v1<v0.le
     {
       id: "1",
       children: [{id: "2", children: []}, {id: "3", children: [{id: "4", children: []}]}],
-    }->S.decodeOrThrow(~from=nodeSchema, ~to=S.unknown),
+    }->S.convertOrThrow(~from=nodeSchema, ~to=S.unknown),
     %raw(`{
         "Id": "1",
         "Children": [
@@ -257,7 +257,7 @@ test("Fails to serialise nested recursive object", t => {
     {
       id: "1",
       children: [{id: "2", children: []}, {id: "3", children: [{id: "4", children: []}]}],
-    }->S.decodeOrThrow(~from=nodeSchema, ~to=S.unknown)
+    }->S.convertOrThrow(~from=nodeSchema, ~to=S.unknown)
   , `Failed at children[1].children[0].id: Invalid id`)
 })
 
@@ -316,7 +316,7 @@ Node: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="object"&&v0&&!Arra
           {id: "node_2", children: []},
           {id: "node_3", children: [{id: "node_4", children: []}]},
         ],
-      }->S.decodeOrThrow(~from=nodeSchema, ~to=S.unknown),
+      }->S.convertOrThrow(~from=nodeSchema, ~to=S.unknown),
       {
         "Id": "1",
         "Children": [
@@ -372,7 +372,7 @@ test("Recursively transforms nested objects when added transform to the placehol
         {id: "child_2", children: []},
         {id: "child_3", children: [{id: "child_4", children: []}]},
       ],
-    }->S.decodeOrThrow(~from=nodeSchema, ~to=S.unknown),
+    }->S.convertOrThrow(~from=nodeSchema, ~to=S.unknown),
     {
       "Id": "1",
       "Children": [
@@ -417,7 +417,7 @@ test("Shallowly transforms object when added transform to the S.recursive result
     {
       id: "parent_1",
       children: [{id: "2", children: []}, {id: "3", children: [{id: "4", children: []}]}],
-    }->S.decodeOrThrow(~from=nodeSchema, ~to=S.unknown),
+    }->S.convertOrThrow(~from=nodeSchema, ~to=S.unknown),
     {
       "Id": "1",
       "Children": [

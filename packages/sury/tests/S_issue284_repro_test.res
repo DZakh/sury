@@ -39,7 +39,7 @@ let countItemLoops = (fn: 'a => 'b): int => {
 test(
   "Encode array(nullAsOption) to a non-JSON null-accepting target compiles a single item loop",
   t => {
-    let fn = S.decoder(~from=S.array(S.string->S.nullAsOption), ~to=S.array(S.null(S.string)))
+    let fn = S.compileConvertOrThrow(~from=S.array(S.string->S.nullAsOption), ~to=S.array(S.null(S.string)))
     t->Assert.is(fn->countItemLoops, 1)
     t->Assert.deepEqual(fn([None, Some("x")]), %raw(`[null, "x"]`))
   },
@@ -47,19 +47,19 @@ test(
 
 test("Encode array(nullAsOption) to JSON", t => {
   // Guards a compile-time "Can't decode string | undefined to JSON"
-  let fn = S.decoder(~from=S.array(S.string->S.nullAsOption), ~to=S.json)
+  let fn = S.compileConvertOrThrow(~from=S.array(S.string->S.nullAsOption), ~to=S.json)
   t->Assert.is(fn->countItemLoops, 1)
   t->Assert.deepEqual(fn([None, Some("x")]), %raw(`[null, "x"]`))
 })
 
 test("Encode dict(nullAsOption) to JSON (objectDecoder dict branch)", t => {
   // Guards a compile-time "Can't decode string | undefined to JSON"
-  let fn = S.decoder(~from=S.dict(S.string->S.nullAsOption), ~to=S.json)
+  let fn = S.compileConvertOrThrow(~from=S.dict(S.string->S.nullAsOption), ~to=S.json)
   t->Assert.deepEqual(fn(%raw(`{a: undefined, b: "x"}`)), %raw(`{a: null, b: "x"}`))
 })
 
 test("Encode array(multi-variant union with nullAsOption field) to JSON in a single pass", t => {
-  let fn = S.decoder(~from=S.array(makeUnionSchema()), ~to=S.json)
+  let fn = S.compileConvertOrThrow(~from=S.array(makeUnionSchema()), ~to=S.json)
   t->Assert.is(fn->countItemLoops, 1)
 
   let input: array<resourceInfo> = [
@@ -89,7 +89,7 @@ test(
     let many = {
       resources: [{name: "r", resourceInfo: StorageKeys({partitionKey: "id", sortKey: None})}],
     }
-    let encoded = many->S.decodeOrThrow(~from=wrapperSchema, ~to=S.json)
+    let encoded = many->S.convertOrThrow(~from=wrapperSchema, ~to=S.json)
     t->Assert.deepEqual(
       encoded,
       %raw(`{resources: [{name: "r", resourceInfo: {TAG: "StorageKeys", partitionKey: "id", sortKey: null}}]}`),
@@ -119,7 +119,7 @@ let makeShapedUnion = () =>
 test("S.object-style variant union (ppx shape) in an object encodes to JSON", t => {
   let schema = S.schema(s => {"u": s.matches(makeShapedUnion())})
   let value = {"u": StorageKeys({partitionKey: "id", sortKey: None})}
-  let encoded = value->S.decodeOrThrow(~from=schema, ~to=S.json)
+  let encoded = value->S.convertOrThrow(~from=schema, ~to=S.json)
   t->Assert.deepEqual(encoded, %raw(`{u: {TAG: "StorageKeys", partitionKey: "id", sortKey: null}}`))
   t->Assert.deepEqual(encoded->S.parseOrThrow(~to=schema), value)
 })
@@ -127,7 +127,7 @@ test("S.object-style variant union (ppx shape) in an object encodes to JSON", t 
 test("S.object-style variant union (ppx shape) in array in object round-trips through JSON", t => {
   let wrapper = S.schema(s => {"resources": s.matches(S.array(makeShapedUnion()))})
   let value = {"resources": [StorageKeys({partitionKey: "id", sortKey: None})]}
-  let encoded = value->S.decodeOrThrow(~from=wrapper, ~to=S.json)
+  let encoded = value->S.convertOrThrow(~from=wrapper, ~to=S.json)
   t->Assert.deepEqual(
     encoded,
     %raw(`{resources: [{TAG: "StorageKeys", partitionKey: "id", sortKey: null}]}`),
@@ -147,7 +147,7 @@ test("Parse with .to(S.json) after array of coercing items doesn't leak non-JSON
 test("Encode nested arrays of nullAsOption to JSON", t => {
   let schema = S.array(S.array(S.string->S.nullAsOption))
   t->Assert.deepEqual(
-    [[None, Some("x")]]->S.decodeOrThrow(~from=schema, ~to=S.json),
+    [[None, Some("x")]]->S.convertOrThrow(~from=schema, ~to=S.json),
     %raw(`[[null, "x"]]`),
   )
 })
@@ -155,7 +155,7 @@ test("Encode nested arrays of nullAsOption to JSON", t => {
 test("Encode array(dict(nullAsOption)) to JSON", t => {
   let schema = S.array(S.dict(S.string->S.nullAsOption))
   t->Assert.deepEqual(
-    [dict{"a": None, "b": Some("x")}]->S.decodeOrThrow(~from=schema, ~to=S.json),
+    [dict{"a": None, "b": Some("x")}]->S.convertOrThrow(~from=schema, ~to=S.json),
     %raw(`[{a: null, b: "x"}]`),
   )
 })
@@ -167,16 +167,16 @@ test("Encode union of array(nullAsOption) and string to JSON", t => {
     S.string->S.castToUnknown,
   ])
   t->Assert.deepEqual(
-    %raw(`[undefined, "x"]`)->S.decodeOrThrow(~from=schema, ~to=S.json),
+    %raw(`[undefined, "x"]`)->S.convertOrThrow(~from=schema, ~to=S.json),
     %raw(`[null, "x"]`),
   )
-  t->Assert.deepEqual(%raw(`"plain"`)->S.decodeOrThrow(~from=schema, ~to=S.json), %raw(`"plain"`))
+  t->Assert.deepEqual(%raw(`"plain"`)->S.convertOrThrow(~from=schema, ~to=S.json), %raw(`"plain"`))
 })
 
 test("Encode array(nullAsOption) to jsonString", t => {
   let schema = S.array(S.string->S.nullAsOption)
   t->Assert.deepEqual(
-    [None, Some("x")]->S.decodeOrThrow(~from=schema, ~to=S.jsonString),
+    [None, Some("x")]->S.convertOrThrow(~from=schema, ~to=S.jsonString),
     `[null,"x"]`,
   )
 })
@@ -184,7 +184,7 @@ test("Encode array(nullAsOption) to jsonString", t => {
 test("Encode list(nullAsOption) to JSON", t => {
   let schema = S.list(S.string->S.nullAsOption)
   t->Assert.deepEqual(
-    list{None, Some("x")}->S.decodeOrThrow(~from=schema, ~to=S.json),
+    list{None, Some("x")}->S.convertOrThrow(~from=schema, ~to=S.json),
     %raw(`[null, "x"]`),
   )
 })
@@ -192,7 +192,7 @@ test("Encode list(nullAsOption) to JSON", t => {
 test("Encode refined array(nullAsOption) to JSON", t => {
   let schema = S.array(S.string->S.nullAsOption)->S.maxLength(3)
   t->Assert.deepEqual(
-    [None, Some("x")]->S.decodeOrThrow(~from=schema, ~to=S.json),
+    [None, Some("x")]->S.convertOrThrow(~from=schema, ~to=S.json),
     %raw(`[null, "x"]`),
   )
 })
@@ -201,7 +201,7 @@ test("Encode refined array(nullAsOption) to JSON", t => {
 
 test("Encode tuple2(string, nullAsOption) to JSON (static-items control)", t => {
   let schema = S.tuple2(S.string, S.string->S.nullAsOption)
-  t->Assert.deepEqual(("a", None)->S.decodeOrThrow(~from=schema, ~to=S.json), %raw(`["a", null]`))
+  t->Assert.deepEqual(("a", None)->S.convertOrThrow(~from=schema, ~to=S.json), %raw(`["a", null]`))
 })
 
 test("Encode recursive tree with array(nullAsOption-bearing nodes) to JSON (control)", t => {
@@ -219,7 +219,7 @@ test("Encode recursive tree with array(nullAsOption-bearing nodes) to JSON (cont
     "children": [{"value": Some("x"), "children": []}],
   }
   t->Assert.deepEqual(
-    tree->S.decodeOrThrow(~from=nodeSchema, ~to=S.json),
+    tree->S.convertOrThrow(~from=nodeSchema, ~to=S.json),
     %raw(`{value: null, children: [{value: "x", children: []}]}`),
   )
 })

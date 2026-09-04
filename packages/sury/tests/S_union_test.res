@@ -56,7 +56,7 @@ test("Rejects at creation when every variant's encode is never", t => {
   ])
 
   t->U.assertThrowsMessage(
-    () => %raw(`null`)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    () => %raw(`null`)->S.convertOrThrow(~from=schema, ~to=S.unknown),
     `Every variant of unknown is marked as never`,
   )
 })
@@ -138,7 +138,7 @@ test(
     // way back from #unknown to a string. That's an error in the encode operation
     // itself, raised once when it's created rather than per value.
     t->U.assertThrowsMessage(
-      () => #hyper->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+      () => #hyper->S.convertOrThrow(~from=schema, ~to=S.unknown),
       `Missing input for string`,
     )
   },
@@ -150,7 +150,7 @@ test("A never-encode variant yields to its siblings when reversed", t => {
     S.string->S.to(S.any, ~custom={decode: Sync(_ => #apple), encode: Never}),
   ])
 
-  t->Assert.deepEqual(#apple->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"apple"`))
+  t->Assert.deepEqual(#apple->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`"apple"`))
 })
 
 module Advanced = {
@@ -278,14 +278,14 @@ module Advanced = {
     let v = Triangle({x: 2., y: 3.})
 
     t->U.assertThrowsMessage(
-      () => v->S.decodeOrThrow(~from=incompleteSchema, ~to=S.unknown),
+      () => v->S.convertOrThrow(~from=incompleteSchema, ~to=S.unknown),
       `Expected { TAG: "Circle"; radius: number; } | { TAG: "Square"; x: number; }, received { TAG: "Triangle"; x: 2; y: 3; }`,
     )
   })
 
   test("Successfully serializes Circle shape", t => {
     t->Assert.deepEqual(
-      Circle({radius: 1.})->S.decodeOrThrow(~from=shapeSchema, ~to=S.unknown),
+      Circle({radius: 1.})->S.convertOrThrow(~from=shapeSchema, ~to=S.unknown),
       %raw(`{
           "kind": "circle",
           "radius": 1,
@@ -295,7 +295,7 @@ module Advanced = {
 
   test("Successfully serializes Square shape", t => {
     t->Assert.deepEqual(
-      Square({x: 2.})->S.decodeOrThrow(~from=shapeSchema, ~to=S.unknown),
+      Square({x: 2.})->S.convertOrThrow(~from=shapeSchema, ~to=S.unknown),
       %raw(`{
         "kind": "square",
         "x": 2,
@@ -305,7 +305,7 @@ module Advanced = {
 
   test("Successfully serializes Triangle shape", t => {
     t->Assert.deepEqual(
-      Triangle({x: 2., y: 3.})->S.decodeOrThrow(~from=shapeSchema, ~to=S.unknown),
+      Triangle({x: 2., y: 3.})->S.convertOrThrow(~from=shapeSchema, ~to=S.unknown),
       %raw(`{
         "kind": "triangle",
         "x": 2,
@@ -442,8 +442,8 @@ test("Successfully serializes unboxed variant", t => {
 
   t->Assert.deepEqual("123"->S.parseOrThrow(~to=schema), Int(123))
   t->Assert.deepEqual("abc"->S.parseOrThrow(~to=schema), String("abc"))
-  t->Assert.deepEqual(String("abc")->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"abc"`))
-  t->Assert.deepEqual(Int(123)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"123"`))
+  t->Assert.deepEqual(String("abc")->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`"abc"`))
+  t->Assert.deepEqual(Int(123)->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`"123"`))
 
   t->U.assertCompiledCode(
     ~schema,
@@ -462,8 +462,8 @@ test("Successfully serializes unboxed variant", t => {
   let schema = S.union([toString, toInt])
 
   t->Assert.deepEqual("123"->S.parseOrThrow(~to=schema), String("123"))
-  t->Assert.deepEqual(String("abc")->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"abc"`))
-  t->Assert.deepEqual(Int(123)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"123"`))
+  t->Assert.deepEqual(String("abc")->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`"abc"`))
+  t->Assert.deepEqual(Int(123)->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`"123"`))
 
   t->U.assertCompiledCode(
     ~schema,
@@ -551,7 +551,7 @@ test("Union with nested variant", t => {
       "foo": {
         "tag": #Null(None),
       },
-    }->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    }->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`{"foo":{"tag":{"NAME":"Null","VAL":null}}}`),
   )
 
@@ -589,7 +589,7 @@ test("Compiled serialize code snapshot of objects returning literal fields", t =
     S.object(s => s.field("bar", S.literal(1))),
   ])
 
-  t->Assert.deepEqual(1->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`{"bar":1}`))
+  t->Assert.deepEqual(1->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`{"bar":1}`))
 
   t->U.assertCompiledCode(
     ~schema,
@@ -783,7 +783,7 @@ test("json-rpc response", t => {
   // that each per-discriminant arm closes with its own exhaustive check.
   t->U.assertThrowsMessage(
     () =>
-      %raw(`{TAG:"Error",_0:"BogusVariant"}`)->S.decodeOrThrow(
+      %raw(`{TAG:"Error",_0:"BogusVariant"}`)->S.convertOrThrow(
         ~from=getLogsResponseSchema,
         ~to=S.unknown,
       ),
@@ -791,7 +791,7 @@ test("json-rpc response", t => {
   )
   t->U.assertThrowsMessage(
     () =>
-      %raw(`{TAG:"Error",_0:{NAME:"BogusObj"}}`)->S.decodeOrThrow(
+      %raw(`{TAG:"Error",_0:{NAME:"BogusObj"}}`)->S.convertOrThrow(
         ~from=getLogsResponseSchema,
         ~to=S.unknown,
       ),
@@ -828,7 +828,7 @@ test("Issue https://github.com/DZakh/rescript-schema/issues/101", t => {
     #response({
       "collectionName": "foo",
       "response": "accepted",
-    })->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    })->S.convertOrThrow(~from=schema, ~to=S.unknown),
     #response({
       "collectionName": "foo",
       "response": "accepted",
@@ -945,7 +945,7 @@ module CknittelBugReport = {
       },
     }
     t->Assert.deepEqual(
-      B(x)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+      B(x)->S.convertOrThrow(~from=schema, ~to=S.unknown),
       %raw(`{"payload":{"b":42}}`),
     )
     let x = {
@@ -954,7 +954,7 @@ module CknittelBugReport = {
       },
     }
     t->Assert.deepEqual(
-      A(x)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+      A(x)->S.convertOrThrow(~from=schema, ~to=S.unknown),
       %raw(`{"payload":{"a":"foo"}}`),
     )
   })

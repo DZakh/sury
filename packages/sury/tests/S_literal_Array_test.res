@@ -24,7 +24,7 @@ module Common = {
     let schema = factory()
 
     t->Assert.deepEqual(
-      value->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+      value->S.convertOrThrow(~from=schema, ~to=S.unknown),
       value->U.castAnyToUnknown,
     )
   })
@@ -33,7 +33,7 @@ module Common = {
     let schema = factory()
 
     t->Assert.is(
-      invalid->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+      invalid->S.convertOrThrow(~from=schema, ~to=S.unknown),
       invalid,
       ~message="Convert operation doesn't validate anything and assumes a valid input",
     )
@@ -116,7 +116,7 @@ module EmptyArray = {
     let schema = factory()
 
     t->Assert.deepEqual(
-      value->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+      value->S.convertOrThrow(~from=schema, ~to=S.unknown),
       value->U.castAnyToUnknown,
     )
   })
@@ -125,7 +125,7 @@ module EmptyArray = {
     let schema = factory()
 
     t->Assert.deepEqual(
-      invalid->S.decodeOrThrow(~from=schema->S.strict, ~to=S.unknown),
+      invalid->S.convertOrThrow(~from=schema->S.strict, ~to=S.unknown),
       invalid->Obj.magic,
     )
   })
