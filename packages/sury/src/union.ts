@@ -257,12 +257,17 @@ const unionEmitChain = (cases: UnionCase[], ctx: UnionCtx): string => {
   let code = "";
   let caught = false;
   let exhaustive = false;
+  // Whether the arm just emitted ended in a `try` that hands control onward
+  // rather than a `break`. Set by `attempt`, not read off the arm's first
+  // character: a body that itself opens with `try{JSON.parse` is a closed arm.
+  let open = false;
 
   // The case's code with its condition taken as given — the shared shape between
   // a lone `if(cond){…}` and one arm of a run that tests `cond` once. A `try` arm
   // hands control to whatever follows it; every other form breaks, which ends its
   // block and needs no trailing `;`.
   const attempt = (c: UnionCase, idx: number): string => {
+    open = false;
     if (c.b === "") return "break";
     // Skip the `;` where the body already ends in one: `;;break` is a wart in
     // every golden it reaches.
@@ -271,7 +276,7 @@ const unionEmitChain = (cases: UnionCase[], ctx: UnionCtx): string => {
     // could still accept the value or an earlier one is already relying on the
     // chain to carry its failure forward.
     if ((c.f & 1) && ((c.f & 8) || caught)) {
-      caught = true;
+      caught = open = true;
       const record =
         c.f & 4
           ? `x=${ctx.r()}(x);if(x.expected===${ctx.s()}){x=x.unionErrors;x&&(r||(r=[])).push(...x)}else{(r||(r=[])).push(x)}`
@@ -303,10 +308,8 @@ const unionEmitChain = (cases: UnionCase[], ctx: UnionCtx): string => {
     if (cases[idx]!.c === "") unconditional = idx;
   }
 
-  // The condition of the case just emitted, and whether its block is still open
-  // — i.e. ended in a `try` that hands control onward rather than a `break`.
+  // The condition of the case just emitted.
   let last = "";
-  let open = false;
 
   for (let idx = 0; idx < cases.length; idx++) {
     const c = cases[idx]!;
@@ -322,7 +325,6 @@ const unionEmitChain = (cases: UnionCase[], ctx: UnionCtx): string => {
     if (shared && !open) continue;
 
     const arm = attempt(c, idx);
-    open = arm[0] === "t"; /* `try` */
     last = c.c;
 
     if (shared) {

@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({ f: S.optional(S.jsonString) })"
+  input: "{ f?: string | undefined; }"
+  output: "{ f?: string | undefined; }"
+  instantiations: 2251
+jsonSchema:
+  input: '{ type: "object", properties: { f: { type: "string", contentMediaType: "application/json" } } }'
+  output: '{ type: "object", properties: { f: { type: "string", contentMediaType: "application/json" } } }'
+  openapi-3.0:
+    input: '{ type: "object", properties: { f: { type: "string" } } }'
+    output: '{ type: "object", properties: { f: { type: "string" } } }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["f"];for(;;){if(typeof v0==="string"){try{JSON.parse(v0)}catch(t){e[0](v0)};break}if(v0===void 0)break;e[1](v0)}return {f:v0}}
+    examples:
+      json-number:
+        input: '{ f: "1" }'
+        output: '{ f: "1" }'
+      json-string:
+        input: '{ f: "\"x\"" }'
+        output: '{ f: "\"x\"" }'
+      json-object:
+        input: '{ f: "{\"a\":1}" }'
+        output: '{ f: "{\"a\":1}" }'
+      not-json-at-all:
+        input: '{ f: "a" }'
+        error: 'Failed at f: Expected JSON string, received "a"'
+      unterminated-object:
+        input: '{ f: "{" }'
+        error: 'Failed at f: Expected JSON string, received "{"'
+      empty:
+        input: '{ f: "" }'
+        error: 'Failed at f: Expected JSON string, received ""'
+      absent:
+        input: "{}"
+        output: "{ f: undefined }"
+  decode: identity
+  encode: identity

@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union([S.jsonString.with(S.minLength, 3), S.number])
+  input: string | number
+  output: string | number
+  instantiations: 1705
+jsonSchema:
+  input: '{ anyOf: [{ type: "string", contentMediaType: "application/json", minLength: 3 }, { type: "number" }] }'
+  output: '{ anyOf: [{ type: "string", contentMediaType: "application/json", minLength: 3 }, { type: "number" }] }'
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "string", minLength: 3 }, { type: "number" }] }'
+    output: '{ anyOf: [{ type: "string", minLength: 3 }, { type: "number" }] }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{for(;;){if(typeof i==="string"){try{JSON.parse(i)}catch(t){e[0](i)}i.length>2||e[1](i);break}if(typeof i==="number"&&i===i)break;e[2](i)}return i}
+    examples:
+      json-number:
+        input: '"1"'
+        error: Expected JSON string, received "1"
+      json-string:
+        input: '"\"x\""'
+        output: '"\"x\""'
+      json-object:
+        input: '"{\"a\":1}"'
+        output: '"{\"a\":1}"'
+      not-json-at-all:
+        input: '"a"'
+        error: Expected JSON string, received "a"
+      unterminated-object:
+        input: '"{"'
+        error: Expected JSON string, received "{"
+      empty:
+        input: '""'
+        error: Expected JSON string, received ""
+      short-json:
+        input: '"12"'
+        error: Expected JSON string, received "12"
+      number:
+        input: "1"
+        output: "1"
+  decode: identity
+  encode: identity

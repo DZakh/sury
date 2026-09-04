@@ -308,6 +308,11 @@ export type Internal = {
   // disagree have two readings of it (store the value, or open it) and the
   // conversion asks instead of guessing. Absent means the value carries no
   // payload of its own.
+  // On a string source it is a claim, and `format` is its verification: a
+  // carrier's opened text (`openedText`) and a union's per-member narrow both
+  // carry the marker without the format, and a decoder handed that pair must
+  // check the text, never escape it as a value — `S.jsonString` inside
+  // `S.optional` used to serialize `"a"` to `"\"a\""` for exactly that reason.
   // Written only through `setContent` (below), which keeps it non-enumerable.
   content?: Internal;
   // Bytes-as-text codec on a format singleton (`S.base64`, `S.base64url`).

@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union([S.jsonString, S.uuid])
+  input: string
+  output: string
+  instantiations: 629
+jsonSchema:
+  input: '{ anyOf: [{ type: "string", contentMediaType: "application/json" }, { type: "string", format: "uuid" }] }'
+  output: '{ anyOf: [{ type: "string", contentMediaType: "application/json" }, { type: "string", format: "uuid" }] }'
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "string" }, { type: "string", format: "uuid" }] }'
+    output: '{ anyOf: [{ type: "string" }, { type: "string", format: "uuid" }] }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{if(typeof i==="string"){for(;;){let r;try{try{JSON.parse(i)}catch(t){e[0](i)};break}catch(x){(r||(r=[])).push(e[5](x))}try{let v0;try{v0=JSON.parse(i)}catch(t){e[1](i)}typeof v0==="string"||e[4](v0);e[2].test(v0)||e[3](v0);i=v0;break}catch(x){(r||(r=[])).push(e[5](x))}e[6](i,...(r||[]))}}else{e[7](i)}return i}
+    examples:
+      json-number:
+        input: '"1"'
+        output: '"1"'
+      json-string:
+        input: '"\"x\""'
+        output: '"\"x\""'
+      json-object:
+        input: '"{\"a\":1}"'
+        output: '"{\"a\":1}"'
+      not-json-at-all:
+        input: '"a"'
+        error: |-
+          Expected JSON string | uuid, received "a"
+          - Expected JSON string, received "a"
+          - Expected string, received "a"
+      unterminated-object:
+        input: '"{"'
+        error: |-
+          Expected JSON string | uuid, received "{"
+          - Expected JSON string, received "{"
+          - Expected string, received "{"
+      empty:
+        input: '""'
+        error: |-
+          Expected JSON string | uuid, received ""
+          - Expected JSON string, received ""
+          - Expected string, received ""
+      uuid:
+        input: '"123e4567-e89b-12d3-a456-426614174000"'
+        error: |-
+          Expected JSON string | uuid, received "123e4567-e89b-12d3-a456-426614174000"
+          - Expected JSON string, received "123e4567-e89b-12d3-a456-426614174000"
+          - Expected string, received "123e4567-e89b-12d3-a456-426614174000"
+  decode: identity
+  encode: identity

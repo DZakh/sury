@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union([S.uuid, S.jsonString])
+  input: string
+  output: string
+  instantiations: 629
+jsonSchema:
+  input: '{ anyOf: [{ type: "string", format: "uuid" }, { type: "string", contentMediaType: "application/json" }] }'
+  output: '{ anyOf: [{ type: "string", format: "uuid" }, { type: "string", contentMediaType: "application/json" }] }'
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "string", format: "uuid" }, { type: "string" }] }'
+    output: '{ anyOf: [{ type: "string", format: "uuid" }, { type: "string" }] }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{if(typeof i==="string"){for(;;){let r;try{e[0].test(i)||e[1](i);break}catch(x){(r||(r=[])).push(e[3](x))}i=e[2](i);break;}}else{e[4](i)}return i}
+    examples:
+      json-number:
+        input: '"1"'
+        output: '"\"1\""'
+      json-string:
+        input: '"\"x\""'
+        output: '"\"\\\"x\\\"\""'
+      json-object:
+        input: '"{\"a\":1}"'
+        output: '"\"{\\\"a\\\":1}\""'
+      not-json-at-all:
+        input: '"a"'
+        output: '"\"a\""'
+      unterminated-object:
+        input: '"{"'
+        output: '"\"{\""'
+      empty:
+        input: '""'
+        output: '"\"\""'
+      uuid:
+        input: '"123e4567-e89b-12d3-a456-426614174000"'
+        output: '"123e4567-e89b-12d3-a456-426614174000"'
+  decode: identity
+  encode: identity

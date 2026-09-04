@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.optional(S.jsonString)
+  input: string | undefined
+  output: string | undefined
+  instantiations: 422
+jsonSchema:
+  input: Expected JSON, received JSON string | undefined
+  output: Expected JSON, received JSON string | undefined
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{for(;;){if(typeof i==="string"){try{JSON.parse(i)}catch(t){e[0](i)};break}if(i===void 0)break;e[1](i)}return i}
+    examples:
+      json-number:
+        input: '"1"'
+        output: '"1"'
+      json-string:
+        input: '"\"x\""'
+        output: '"\"x\""'
+      json-object:
+        input: '"{\"a\":1}"'
+        output: '"{\"a\":1}"'
+      not-json-at-all:
+        input: '"a"'
+        error: Expected JSON string, received "a"
+      unterminated-object:
+        input: '"{"'
+        error: Expected JSON string, received "{"
+      empty:
+        input: '""'
+        error: Expected JSON string, received ""
+      undefined:
+        input: undefined
+        output: undefined
+      number:
+        input: "1"
+        error: Expected JSON string | undefined, received 1
+  decode: identity
+  encode: identity

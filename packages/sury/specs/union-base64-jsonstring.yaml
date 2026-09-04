@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union([S.base64, S.jsonString])
+  input: string
+  output: string
+  instantiations: 629
+jsonSchema:
+  input: '{ anyOf: [{ type: "string", contentEncoding: "base64" }, { type: "string", contentMediaType: "application/json" }] }'
+  output: '{ anyOf: [{ type: "string", contentEncoding: "base64" }, { type: "string", contentMediaType: "application/json" }] }'
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "string", format: "byte" }, { type: "string" }] }'
+    output: '{ anyOf: [{ type: "string", format: "byte" }, { type: "string" }] }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{if(typeof i==="string"){for(;;){let r;try{e[0](i)||e[1](i);break}catch(x){(r||(r=[])).push(e[3](x))}i=e[2](i);break;}}else{e[4](i)}return i}
+    examples:
+      json-number:
+        input: '"1"'
+        output: '"\"1\""'
+      json-string:
+        input: '"\"x\""'
+        output: '"\"\\\"x\\\"\""'
+      json-object:
+        input: '"{\"a\":1}"'
+        output: '"\"{\\\"a\\\":1}\""'
+      not-json-at-all:
+        input: '"a"'
+        output: '"\"a\""'
+      unterminated-object:
+        input: '"{"'
+        output: '"\"{\""'
+      empty:
+        input: '""'
+        output: '""'
+      base64:
+        input: '"aGk="'
+        output: '"aGk="'
+      json-that-is-also-base64:
+        input: '"1234"'
+        output: '"1234"'
+  decode: identity
+  encode: identity

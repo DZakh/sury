@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union([S.jsonString, S.literal("x")])
+  input: string
+  output: string
+  instantiations: 1044
+jsonSchema:
+  input: '{ anyOf: [{ type: "string", contentMediaType: "application/json" }, { type: "string", const: "x" }] }'
+  output: '{ anyOf: [{ type: "string", contentMediaType: "application/json" }, { type: "string", const: "x" }] }'
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "string" }, { type: "string", enum: ["x"] }] }'
+    output: '{ anyOf: [{ type: "string" }, { type: "string", enum: ["x"] }] }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{if(typeof i==="string"){for(;;){let r;try{try{JSON.parse(i)}catch(t){e[0](i)};break}catch(x){(r||(r=[])).push(e[1](x))}if(i==="\"x\""){i="x";break}e[2](i,...(r||[]))}}else{e[3](i)}return i}
+    examples:
+      json-number:
+        input: '"1"'
+        output: '"1"'
+      json-string:
+        input: '"\"x\""'
+        output: '"\"x\""'
+      json-object:
+        input: '"{\"a\":1}"'
+        output: '"{\"a\":1}"'
+      not-json-at-all:
+        input: '"a"'
+        error: |-
+          Expected JSON string | "x", received "a"
+          - Expected JSON string, received "a"
+      unterminated-object:
+        input: '"{"'
+        error: |-
+          Expected JSON string | "x", received "{"
+          - Expected JSON string, received "{"
+      empty:
+        input: '""'
+        error: |-
+          Expected JSON string | "x", received ""
+          - Expected JSON string, received ""
+      the-literal:
+        input: '"x"'
+        error: |-
+          Expected JSON string | "x", received "x"
+          - Expected JSON string, received "x"
+  decode: identity
+  encode: identity

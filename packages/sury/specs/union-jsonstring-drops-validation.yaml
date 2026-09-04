@@ -15,30 +15,26 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    # FIXME: the union drops jsonString's JSON-validity check. Standalone,
-    # `S.jsonString` emits `try{JSON.parse(i)}catch(t){e[0](i)}`; here the
-    # string arm is only `typeof i==="string"`, so `"a"` — not JSON — is
-    # accepted and returned unchanged. Found by `pnpm fuzz:union`, which
-    # reports it as an `acceptance` diff against a sequential try of each
-    # variant. The goldens below record the wrong behavior so the fix has a
-    # before/after; they are not the contract.
-    expression: i=>{for(;;){if(typeof i==="string"){i=e[0](i);break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i["kind"]==="k0"){i={kind:i["kind"]};break}e[1](i)}return i}
+    expression: i=>{for(;;){if(typeof i==="string"){try{JSON.parse(i)}catch(t){e[0](i)};break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i["kind"]==="k0"){i={kind:i["kind"]};break}e[1](i)}return i}
     examples:
       json-number:
         input: '"1"'
-        output: '"\"1\""'
+        output: '"1"'
       json-string:
         input: '"\"x\""'
-        output: '"\"\\\"x\\\"\""'
+        output: '"\"x\""'
       not-json-at-all:
         input: '"a"'
-        output: '"\"a\""'
+        error: Expected JSON string, received "a"
       unterminated-object:
         input: '"{"'
-        output: '"\"{\""'
+        error: Expected JSON string, received "{"
       empty:
         input: '""'
-        output: '"\"\""'
+        error: Expected JSON string, received ""
+      json-object:
+        input: '"{\"a\":1}"'
+        output: '"{\"a\":1}"'
       the-object-variant:
         input: '{ kind: "k0" }'
         output: '{ kind: "k0" }'

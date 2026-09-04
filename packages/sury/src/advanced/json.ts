@@ -902,8 +902,12 @@ export const jsonString = /* @__PURE__ */ (() => {
     } else if ((inputTagFlag & 2)) {
       // A carrier opened into this format handed over its document (rule 3), so
       // it is parsed rather than escaped — and checked here, since nothing has
-      // read it yet. Every other string is a value, and stays one.
-      if (input.s.content !== U && B_readsPayload(expectedSchema)) {
+      // read it yet. A source already claiming this payload (a union narrow) is
+      // the same unverified text. Every other string is a value, and stays one.
+      if (
+        input.s.content !== U &&
+        (input.s.content === expectedSchema.content || B_readsPayload(expectedSchema))
+      ) {
         return carriedJsonString(input, expectedSchema);
       }
       // Two ways `escapeFree`'s proof is void here: `noValidation` drops the
