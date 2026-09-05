@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ f: S.union(["a", "b"]) }).with(S.to, S.jsonString)'
+  input: '{ f: "a" | "b"; }'
+  output: string
+  instantiations: 5483
+jsonSchema:
+  input: '{ type: "object", properties: { f: { enum: ["a", "b"] } }, required: ["f"] }'
+  output: '{ type: "string", contentMediaType: "application/json" }'
+  draft-2020-12:
+    output: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "object", properties: { f: { enum: ["a", "b"] } }, required: ["f"] }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    output: '{ type: "string" }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i["f"];typeof v0==="string"&&(v0==="a"||v0==="b")||e[0](v0);return "{\"f\":\""+v0+"\"}"}
+    examples:
+      a:
+        input: '{ f: "a" }'
+        output: '"{\"f\":\"a\"}"'
+      not-a-member:
+        input: '{ f: "c" }'
+        error: 'Failed at f: Expected "a" | "b", received "c"'
+  decode:
+    expression: i=>{return "{\"f\":\""+i["f"]+"\"}"}
+    examples:
+      b:
+        input: '{ f: "b" }'
+        output: '"{\"f\":\"b\"}"'
+  encode:
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0["f"];typeof v1==="string"&&(v1==="a"||v1==="b")||e[1](v1);return {f:v1}}
+    examples:
+      a:
+        input: '"{\"f\":\"a\"}"'
+        output: '{ f: "a" }'
+      not-a-member:
+        input: '"{\"f\":\"c\"}"'
+        error: 'Failed at f: Expected "a" | "b", received "c"'

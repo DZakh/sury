@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ f: S.optional(S.union(["a", "b"])) }).with(S.to, S.jsonString)'
+  input: '{ f?: "a" | "b" | undefined; }'
+  output: string
+  instantiations: 6405
+jsonSchema:
+  input: '{ type: "object", properties: { f: { enum: ["a", "b"] } } }'
+  output: '{ type: "string", contentMediaType: "application/json" }'
+  draft-2020-12:
+    output: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "object", properties: { f: { enum: ["a", "b"] } } }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    output: '{ type: "string" }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i["f"];(typeof v0==="string"&&(v0==="a"||v0==="b")||v0===void 0)||e[0](v0);let v1="";if(v0!==void 0){v1+="\"f\":\""+v0+"\""}return "{"+v1+"}"}
+    examples:
+      a:
+        input: '{ f: "a" }'
+        output: '"{\"f\":\"a\"}"'
+      absent:
+        input: "{}"
+        output: '"{}"'
+      not-a-member:
+        input: '{ f: "c" }'
+        error: 'Failed at f: Expected "a" | "b" | undefined, received "c"'
+  decode:
+    expression: i=>{let v0=i["f"];let v1="";if(v0!==void 0){v1+="\"f\":\""+v0+"\""}return "{"+v1+"}"}
+    examples:
+      absent:
+        input: "{}"
+        output: '"{}"'
+  encode:
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=(v0["f"]??null);for(;;){if(typeof v1==="string"&&(v1==="a"||v1==="b"))break;if(v1===null){v1=void 0;break}e[1](v1)}return {f:v1}}
+    examples:
+      a:
+        input: '"{\"f\":\"a\"}"'
+        output: '{ f: "a" }'
+      absent:
+        input: '"{}"'
+        output: "{ f: undefined }"

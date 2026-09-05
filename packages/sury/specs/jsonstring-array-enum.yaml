@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.array(S.union(["a", "b"])).with(S.to, S.jsonString)
+  input: ("a" | "b")[]
+  output: string
+  instantiations: 5117
+jsonSchema:
+  input: '{ items: { enum: ["a", "b"] }, type: "array" }'
+  output: '{ type: "string", contentMediaType: "application/json" }'
+  draft-2020-12:
+    output: '{ type: "string", contentMediaType: "application/json", contentSchema: { items: { enum: ["a", "b"] }, type: "array" }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    output: '{ type: "string" }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{Array.isArray(i)||e[1](i);let v1="";for(let v0=0;v0<i.length;++v0){try{let v2=i[v0];typeof v2==="string"&&(v2==="a"||v2==="b")||e[0](v2);v1+=(v0?",":"")+"\""+v2+"\""}catch(v3){v3.path=[v0,...v3.path];throw v3}}return "["+v1+"]"}
+    examples:
+      mixed:
+        input: '["a", "b"]'
+        output: '"[\"a\",\"b\"]"'
+      empty:
+        input: "[]"
+        output: '"[]"'
+      not-a-member:
+        input: '["c"]'
+        error: 'Failed at [0]: Expected "a" | "b", received "c"'
+  decode:
+    expression: i=>{let v2="";for(let v1=0;v1<i.length;++v1){v2+=(v1?",":"")+"\""+i[v1]+"\""}return "["+v2+"]"}
+    examples:
+      mixed:
+        input: '["a", "b"]'
+        output: '"[\"a\",\"b\"]"'
+  encode:
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}Array.isArray(v0)||e[2](v0);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"&&(v2==="a"||v2==="b")||e[1](v2);}catch(v3){v3.path=[v1,...v3.path];throw v3}}return v0}
+    examples:
+      mixed:
+        input: '"[\"a\",\"b\"]"'
+        output: '["a", "b"]'
+      not-a-member:
+        input: '"[\"c\"]"'
+        error: 'Failed at [0]: Expected "a" | "b", received "c"'

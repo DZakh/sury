@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.tuple([S.union(["a", "b"]), S.number]).with(S.to, S.jsonString)
+  input: '["a" | "b", number]'
+  output: string
+  instantiations: 5810
+jsonSchema:
+  input: '{ type: "array", minItems: 2, maxItems: 2, items: [{ enum: ["a", "b"] }, { type: "number" }] }'
+  output: '{ type: "string", contentMediaType: "application/json" }'
+  draft-2020-12:
+    input: '{ type: "array", minItems: 2, maxItems: 2, prefixItems: [{ enum: ["a", "b"] }, { type: "number" }], $schema: "https://json-schema.org/draft/2020-12/schema" }'
+    output: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "array", minItems: 2, maxItems: 2, prefixItems: [{ enum: ["a", "b"] }, { type: "number" }] }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ type: "array", minItems: 2, maxItems: 2, items: { anyOf: [{ enum: ["a", "b"] }, { type: "number" }] } }'
+    fromInputType: '[number | "a" | "b", number | "a" | "b"]'
+    output: '{ type: "string" }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{Array.isArray(i)&&i.length===2||e[3](i);let v0=i["0"],v1=i["1"];typeof v0==="string"&&(v0==="a"||v0==="b")||e[0](v0);typeof v1==="number"&&v1===v1||e[1](v1);return "[\""+v0+"\","+(Number.isFinite(v1)?v1:e[2](v1))+"]"}
+    examples:
+      a:
+        input: '["a", 1]'
+        output: '"[\"a\",1]"'
+      not-a-member:
+        input: '["c", 1]'
+        error: 'Failed at [0]: Expected "a" | "b", received "c"'
+  decode:
+    expression: i=>{let v0=i["1"];return "[\""+i["0"]+"\","+(Number.isFinite(v0)?v0:e[0](v0))+"]"}
+    examples:
+      b:
+        input: '["b", 2]'
+        output: '"[\"b\",2]"'
+  encode:
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}Array.isArray(v0)||e[4](v0);v0.length===2||e[3](v0);let v1=v0["0"],v2=v0["1"];typeof v1==="string"&&(v1==="a"||v1==="b")||e[1](v1);typeof v2==="number"&&v2===v2||e[2](v2);return v0}
+    examples:
+      a:
+        input: '"[\"a\",1]"'
+        output: '["a", 1]'

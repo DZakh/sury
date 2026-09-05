@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ f: S.union(["a\"b", "c"]) }).with(S.to, S.jsonString)'
+  input: '{ f: "a\"b" | "c"; }'
+  output: string
+  instantiations: 5483
+jsonSchema:
+  input: '{ type: "object", properties: { f: { enum: ["a\"b", "c"] } }, required: ["f"] }'
+  output: '{ type: "string", contentMediaType: "application/json" }'
+  draft-2020-12:
+    output: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "object", properties: { f: { enum: ["a\"b", "c"] } }, required: ["f"] }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    output: '{ type: "string" }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["f"];typeof v0==="string"&&(v0==="a\"b"||v0==="c")||e[0](v0);if(typeof v0==="string"){for(;;){if(v0==="a\"b"){v0="\"a\\\"b\"";break}if(v0==="c"){v0="\"c\"";break}e[1](v0)}}else{e[2](v0)}return "{\"f\":"+v0+"}"}
+    examples:
+      quoted:
+        input: '{ f: "a\"b" }'
+        output: '"{\"f\":\"a\\\"b\"}"'
+      plain:
+        input: '{ f: "c" }'
+        output: '"{\"f\":\"c\"}"'
+  decode:
+    expression: i=>{let v0=i["f"];if(typeof v0==="string"){for(;;){if(v0==="a\"b"){v0="\"a\\\"b\"";break}if(v0==="c"){v0="\"c\"";break}e[0](v0)}}else{e[1](v0)}return "{\"f\":"+v0+"}"}
+    examples:
+      quoted:
+        input: '{ f: "a\"b" }'
+        output: '"{\"f\":\"a\\\"b\"}"'
+  encode:
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0["f"];typeof v1==="string"&&(v1==="a\"b"||v1==="c")||e[1](v1);return {f:v1}}
+    examples:
+      quoted:
+        input: '"{\"f\":\"a\\\"b\"}"'
+        output: '{ f: "a\"b" }'

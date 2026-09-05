@@ -409,16 +409,6 @@ const B_constJsonText = (schema: Internal): string | undefined => {
 };
 
 export const jsonString = /* @__PURE__ */ (() => {
-  // The target every piece of an aggregated document renders into (built at
-  // the end, once the schema it copies exists). It is `jsonString` in every
-  // reading but one: a json-format string source is a nested document, which
-  // sits inside the outer one as an escaped string value — matching
-  // JSON.stringify of the same object — where the top-level conversion is the
-  // identity. Unions reach it per variant (`perVariantTo` appends it by
-  // position), so a jsonString variant next to a number is never the
-  // "same type as the target" ambiguity a top-level conversion would be.
-  let jsonPiece: Internal;
-
   const inlineJsonString = (input: Val, schema: Internal): string => {
     const text = B_constJsonText(schema);
     return text !== U
@@ -465,6 +455,30 @@ export const jsonString = /* @__PURE__ */ (() => {
       return input;
     }
   };
+
+  const initJsonString = (s: Internal): void => {
+    s.format = "json";
+    s.name = `${jsonName} string`;
+    s.encoder = jsonStringEncoder;
+    setContent(s, json);
+  };
+
+  // The target every piece of an aggregated document renders into. It is
+  // `jsonString` in every reading but one: a json-format string source is a
+  // nested document, which sits inside the outer one as an escaped string
+  // value — matching JSON.stringify of the same object — where the top-level
+  // conversion is the identity. Unions reach it per variant (`perVariantTo`
+  // appends it by position), so a jsonString variant next to a number is
+  // never the "same type as the target" ambiguity a top-level conversion
+  // would be.
+  const jsonPiece: Internal = initSchema(
+    stringTag,
+    (input) =>
+      input.s.format === "json"
+        ? B_next(input, `${B_embedJsonStr(input)}(${input.i})`, jsonPiece, jsonPiece)
+        : jsonStringDecoder(input),
+    initJsonString,
+  );
 
   // `""+x` folds away when the piece lands after an already-string part of a
   // concatenation, which is where every piece lands. The number piece nests
@@ -542,6 +556,23 @@ export const jsonString = /* @__PURE__ */ (() => {
     return local;
   };
 
+  // An enum — string literals none of which needs escaping — renders as the
+  // validated value between bare quotes (the string branch's escape-free
+  // splice, with `bareString` standing in for the union), instead of a
+  // dispatch that maps each literal to its own quoted text. An undefined
+  // variant is fine where the piece is guarded (an object field) and not
+  // where it must become null.
+  const isBareEnum = (variants: Internal[], guarded: boolean): boolean =>
+    variants.every((variant) => {
+      const variantOutput = getOutputSchema(variant);
+      const c = variantOutput.const;
+      return c === U
+        ? guarded && variantOutput.type === undefinedTag
+        : typeof c === stringTag && JSON.stringify(c) === `"${c}"`;
+    });
+  const bareString = copySchema(string);
+  bareString.escapeFree = true;
+
   // A serialization piece: `p` produces the JSON text, `g` (when set) is the
   // var to test against void 0 — an undefined-able value renders by omission,
   // matching JSON.stringify. Tuple items (`isArr`) render undefined as null
@@ -609,7 +640,11 @@ export const jsonString = /* @__PURE__ */ (() => {
       ) {
         return guardedJsonPiece();
       }
-      const optional = !isArr && cur.has![undefinedTag];
+      const optional = !isArr && !!cur.has![undefinedTag];
+      if (isBareEnum(variants, optional)) {
+        const guard = optional ? itemVal.v() : U;
+        return { p: parse(B_refine(itemVal, bareString, U, jsonPiece)), g: guard };
+      }
       if (optional && variants.length === 2) {
         // The two-variant `X | undefined` shape skips the union dispatch
         // entirely when X stays a pure expression: the `!== void 0` guard IS
@@ -733,7 +768,8 @@ export const jsonString = /* @__PURE__ */ (() => {
             item.to === U &&
             !item.anyOf!.some((variant) =>
               (tagFlags[getOutputSchema(variant).type]! & (1 | 512))
-            )
+            ) &&
+            !isBareEnum(item.anyOf!, false)
           ) {
             // One dispatch, not two: parsing straight to `union -> jsonString`
             // makes each case validate its fields and emit text in the same
@@ -1005,18 +1041,7 @@ export const jsonString = /* @__PURE__ */ (() => {
     }
   };
 
-  const schema = initSchema(stringTag, jsonStringDecoder, (s) => {
-    s.format = "json";
-    s.name = `${jsonName} string`;
-    s.encoder = jsonStringEncoder;
-    setContent(s, json);
-  });
-  jsonPiece = copySchema(schema);
-  jsonPiece.decoder = (input) =>
-    input.s.format === "json"
-      ? B_next(input, `${B_embedJsonStr(input)}(${input.i})`, schema, schema)
-      : jsonStringDecoder(input);
-  return schema;
+  return initSchema(stringTag, jsonStringDecoder, initJsonString);
 })();
 
 // @__NO_SIDE_EFFECTS__

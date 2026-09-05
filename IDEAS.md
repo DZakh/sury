@@ -86,6 +86,24 @@ S.reverse(S.schema({
 })->S.refine(value => value.foo > 0))
 ```
 
+- **Validate and render a union-typed field in one dispatch.** Serializing
+  an object into `S.jsonString` runs every union-typed field twice: the object
+  decoder dispatches to validate it (and rebuilds a nested object), then the
+  aggregate's `fieldPiece` dispatches again to render it through `jsonPiece`.
+  An enum field now skips the second pass (bare-quote splice of the validated
+  value), but an optional object, a discriminated union or a `string | number`
+  field still pays both loops. Arrays and dicts already fuse (`uv`,
+  `B_fuseIntoJsonString`): the container decoder defers item validation and the
+  aggregate parses each item from unknown straight into `union.to(jsonPiece)`.
+  The object version is the same idea per field — the object decoder leaves a
+  union-typed field unparsed when its `.to` is a non-pretty, sync json-format
+  string, and the aggregate parses it from unknown into `perVariantTo(…,
+  jsonPiece)` — but `jsonPiece` lives in advanced/json.ts, below which
+  composites.ts sits, so the skip needs a marker the aggregate reads
+  (`uv`-style) rather than the target itself. Guard it the way arrays are:
+  not when the object carries a refiner (it would read unvalidated fields),
+  not under strict/flatten shapes the aggregate does not reproduce.
+
 ### TS operation functions
 
 - Make `foo->S.to(S.unknown)` stricter ??
