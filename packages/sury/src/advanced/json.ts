@@ -16,6 +16,7 @@ import {
   isLiteral,
   isOptional,
   jsonName,
+  objectTag,
   refTag,
   setContent,
   stringTag,
@@ -461,6 +462,32 @@ export const jsonString = /* @__PURE__ */ (() => {
     s.name = `${jsonName} string`;
     s.encoder = jsonStringEncoder;
     setContent(s, json);
+    // Only an unknown-typed source has validation pending — a typed source
+    // (decode direction) has nothing to fuse, and marking it would make the
+    // aggregate re-validate trusted input. A pretty-printed or async document
+    // goes through JSON.stringify whole. Dynamic items JSON.stringify already
+    // serializes byte-identically (strings, booleans, null) stay on the
+    // whole-value path, where a per-item loop can't beat the native call. A
+    // fixed container is left to the aggregate unless it carries a refiner
+    // (it would read unvalidated fields) or a tuple's rest item, whose fixed
+    // slots and loop the aggregate validates separately.
+    s.fz = (input, container, item) => {
+      if (
+        input.s.additionalItems === unknown &&
+        !s.space &&
+        !(input.g.o & 1) &&
+        (item !== U
+          ? !(item.to === U && (tagFlags[item.type]! & ((2 | 8) | 32)))
+          : container.refiner === U &&
+            container.inputRefiner === U &&
+            typeof container.additionalItems !== objectTag)
+      ) {
+        const marked = copySchema(container);
+        marked.uv = true;
+        return marked;
+      }
+      return U;
+    };
   };
 
   // The target every piece of an aggregated document renders into. It is
@@ -543,7 +570,9 @@ export const jsonString = /* @__PURE__ */ (() => {
   // A nested field's var can resolve to the source property access itself
   // (finalized parent — see _notVarAtParent), where that write would mutate
   // the caller's object and break idempotence. Copy into a local first; a
-  // val already backed by a plain identifier passes through untouched.
+  // val already backed by a plain identifier passes through untouched. A raw
+  // fused field takes the same local so its checks and its splice read the
+  // property once.
   const B_unionWritable = (itemVal: Val): Val => {
     const inputVar = itemVal.v();
     if (/^[\w$]+$/.test(inputVar)) {
@@ -561,7 +590,8 @@ export const jsonString = /* @__PURE__ */ (() => {
   // splice, with `bareString` standing in for the union), instead of a
   // dispatch that maps each literal to its own quoted text. An undefined
   // variant is fine where the piece is guarded (an object field) and not
-  // where it must become null.
+  // where it must become null. Fixed fields only: in a dynamic loop the
+  // two quote concats per item cost more than the dispatch's constants.
   const isBareEnum = (variants: Internal[], guarded: boolean): boolean =>
     variants.every((variant) => {
       const variantOutput = getOutputSchema(variant);
@@ -578,8 +608,22 @@ export const jsonString = /* @__PURE__ */ (() => {
   // matching JSON.stringify. Tuple items (`isArr`) render undefined as null
   // instead (also matching JSON.stringify), so they convert as a whole and
   // never guard.
-  const fieldPiece = (itemVal: Val, isArr: boolean): { p: Val; g: string | undefined } => {
-    const cur = itemVal.s;
+  // `declared` is the field's schema when the container was fused
+  // (`fz`, installed above) and the value arrives unvalidated: a
+  // dispatching shape validates inside the same pass that renders it, and a
+  // shape rendered off the validated value validates first. `loop` marks a
+  // dynamic item, where the bare enum splice loses to the dispatch.
+  const fieldPiece = (
+    itemVal: Val,
+    isArr: boolean,
+    declared?: Internal,
+    loop?: boolean,
+  ): { p: Val; g: string | undefined } => {
+    const cur = declared || itemVal.s;
+    // `noValidation` is the one declared shape that reads the field once.
+    if (declared !== U && !declared.noValidation) itemVal = B_unionWritable(itemVal);
+    const validated = (): Val =>
+      declared !== U ? parse(B_refine(itemVal, U, U, declared)) : itemVal;
     // Values jsonString itself can't decode piecewise (unknown, refs) validate
     // through `json` and stringify at runtime — the coverage the old
     // whole-value `json` + JSON.stringify path had, scoped to the one subtree
@@ -590,7 +634,7 @@ export const jsonString = /* @__PURE__ */ (() => {
     // the field val, landing guarded inside the piece's own code.
     // JSON.stringify can still yield undefined on a guarded value (a toJSON
     // returning it); the outputVar guard/`??"null"` keeps that contract too.
-    const guardedJsonPiece = (): { p: Val; g: string | undefined } => {
+    const guardedJsonPiece = (itemVal: Val): { p: Val; g: string | undefined } => {
       const inputVar = itemVal.v();
       const detached = B_next(itemVal, inputVar, unknown, json);
       detached.v = _var;
@@ -606,7 +650,7 @@ export const jsonString = /* @__PURE__ */ (() => {
       return { p, g: isArr ? U : outputVar };
     };
     if ((tagFlags[cur.type]! & 1)) {
-      return guardedJsonPiece();
+      return guardedJsonPiece(itemVal);
     }
     // A declared ref (`S.json`, recursive) requires a value — undefined is
     // not JSON — so its validation stays unguarded.
@@ -627,7 +671,7 @@ export const jsonString = /* @__PURE__ */ (() => {
       p.cp = `let ${outputVar}=JSON.stringify(${jsonVal.i});`;
       return { p, g: outputVar };
     }
-    if (cur.type === anyOfTag) {
+    if (cur.type === anyOfTag && cur.to === U) {
       const variants = cur.anyOf!;
       // unknown/ref variants can't serialize piecewise (jsonStringDecoder's
       // unknown branch treats its input as the JSON text) — take the guarded
@@ -638,12 +682,13 @@ export const jsonString = /* @__PURE__ */ (() => {
           (tagFlags[getOutputSchema(variant).type]! & (1 | 512))
         )
       ) {
-        return guardedJsonPiece();
+        return guardedJsonPiece(validated());
       }
       const optional = !isArr && !!cur.has![undefinedTag];
-      if (isBareEnum(variants, optional)) {
-        const guard = optional ? itemVal.v() : U;
-        return { p: parse(B_refine(itemVal, bareString, U, jsonPiece)), g: guard };
+      if (!loop && isBareEnum(variants, optional)) {
+        const v = validated();
+        const guard = optional ? v.v() : U;
+        return { p: parse(B_refine(v, bareString, U, jsonPiece)), g: guard };
       }
       if (optional && variants.length === 2) {
         // The two-variant `X | undefined` shape skips the union dispatch
@@ -659,8 +704,9 @@ export const jsonString = /* @__PURE__ */ (() => {
           (tagFlags[single.type]! & (((2 | 4) | (8 | 1024)) |
               (32 | 2048)))
         ) {
-          const guard = itemVal.v();
-          return { p: parse(B_refine(itemVal, single, U, jsonPiece)), g: guard };
+          const v = validated();
+          const guard = v.v();
+          return { p: parse(B_refine(v, single, U, jsonPiece)), g: guard };
         }
       }
       // A field keeps its undefined variants (omission); a tuple item converts
@@ -677,7 +723,21 @@ export const jsonString = /* @__PURE__ */ (() => {
       );
       return { p, g: optional ? p.v() : U };
     }
-    return { p: parse(B_refine(itemVal, U, U, jsonPiece)), g: U };
+    return {
+      p: parse(
+        B_refine(
+          itemVal,
+          U,
+          U,
+          declared !== U
+            ? updateOutput<Internal>(declared, (mut) => {
+                mut.to = jsonPiece;
+              })
+            : jsonPiece,
+        )
+      ),
+      g: U,
+    };
   };
 
   const jsonStringAggregate = (input: Val, expectedSchema: Internal): Val => {
@@ -701,14 +761,20 @@ export const jsonString = /* @__PURE__ */ (() => {
     for (let idx = 0; idx < fixedLen; idx++) {
       const location = isArr ? "" + idx : keys![idx]!;
       const fieldSchema = isArr ? items![idx]! : schema.properties![location]!;
+      const itemVal = valGet(input, location);
+      // A fused container's field is raw unless its decoder validated it (a
+      // union member's literal) — told apart by the val's type, not the
+      // schema's, so the decoder may keep any subset.
+      const declared = schema.uv && (tagFlags[itemVal.s.type]! & 1) ? fieldSchema : U;
       if (isLiteral(fieldSchema) && fieldSchema.to === U) {
         const text = B_constJsonText(fieldSchema);
         if (text !== U) {
+          if (declared !== U) code = code + B_merge(parse(B_refine(itemVal, U, U, declared)));
           entries.push({ t: text });
           continue;
         }
       }
-      const { p, g } = fieldPiece(valGet(input, location), isArr);
+      const { p, g } = fieldPiece(itemVal, isArr, declared);
       if (g !== U) {
         hasOpt = true;
       }
@@ -755,7 +821,7 @@ export const jsonString = /* @__PURE__ */ (() => {
         const raiseCountBefore = input.g.t;
         const itemInput = B_dynamicScope(input, iterVar);
         itemInput.e = itemInput.s;
-        // A fused container (see B_fuseIntoJsonString in composites.ts)
+        // A fused container (see `fz` in initJsonString and base.ts)
         // skipped its validation loop — re-parse each item from unknown so
         // the checks land inside this loop instead of a second walk.
         let piece: { p: Val; g: string | undefined } | undefined = U;
@@ -768,8 +834,7 @@ export const jsonString = /* @__PURE__ */ (() => {
             item.to === U &&
             !item.anyOf!.some((variant) =>
               (tagFlags[getOutputSchema(variant).type]! & (1 | 512))
-            ) &&
-            !isBareEnum(item.anyOf!, false)
+            )
           ) {
             // One dispatch, not two: parsing straight to `union -> jsonString`
             // makes each case validate its fields and emit text in the same
@@ -779,7 +844,7 @@ export const jsonString = /* @__PURE__ */ (() => {
             piece = { p: parseDynamic(itemInput), g: U };
           }
         }
-        const { p, g } = piece !== U ? piece : fieldPiece(parseDynamic(itemInput), isArr);
+        const { p, g } = piece !== U ? piece : fieldPiece(parseDynamic(itemInput), isArr, U, true);
         const appendCode = isArr
           ? `${dynAcc}+=${
               fixedLen ? `","` : `(${iterVar}?",":"")`

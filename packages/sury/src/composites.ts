@@ -72,39 +72,17 @@ import {
 const isItemSchema = (x: AdditionalItems | undefined): x is Internal =>
   x !== U && typeof x !== "string";
 
-// A `.to` continuation into non-pretty jsonString serializes dynamic items in
-// its own loop (jsonStringAggregate in advanced/json.ts) and re-parses each
-// item from unknown when the incoming val carries `uv` — so the validation
-// loop here would walk the container a second time (and rebuild transformed
-// items) for nothing. Skip it and hand the container over unvalidated. Item
-// types the aggregate serializes via native JSON.stringify (its fallback:
-// bare strings/booleans/null) must stay validated here — the aggregate
-// mirrors that by never taking the fallback on a `uv` val.
-const B_fuseIntoJsonString = (
-  input: Val,
-  expectedSchema: Internal,
-  item: Internal,
-): Val | undefined => {
+// A `.to` target that builds its document piecewise (jsonString) can take a
+// container raw: its `fz` hook (installed in advanced/json.ts) hands back the
+// container schema marked `uv` when validation can be left to the aggregate,
+// which does it inside the same pass that renders. For a dynamic container
+// (`item` given) that is the whole item loop; for a fixed one every field is
+// left raw except a union member's literals, whose discriminant has to be
+// hoisted from here. Only the target knows when, so this side just asks, and
+// a bundle without jsonString ships no decision.
+const B_fused = (input: Val, expectedSchema: Internal, item?: Internal): Internal | undefined => {
   const to = expectedSchema.to;
-  if (
-    // Only an unknown-typed source has validation pending — a typed source
-    // (decode direction) has nothing to fuse, and marking it would make the
-    // aggregate re-validate trusted input.
-    input.s.additionalItems === unknown &&
-    to !== U &&
-    to.format === "json" &&
-    !to.space &&
-    !(input.g.o & 1) &&
-    !(
-      item.to === U &&
-      (tagFlags[item.type]! & ((2 | 8) | 32))
-    )
-  ) {
-    const marked = copySchema(expectedSchema);
-    marked.uv = true;
-    return B_refine(input, marked);
-  }
-  return U;
+  return to !== U && to.fz !== U ? to.fz(input, expectedSchema, item) : U;
 };
 
 // The wire form of a nested json-format string is an escaped string value, not
@@ -314,9 +292,9 @@ export const arrayDecoder = (unknownInput: Val): Val => {
       if (expectedLength === 0) {
         // Plain-array fusion only: fixed tuple slots are read by the aggregate
         // outside its dynamic loop, so they must stay validated here.
-        const fused = B_fuseIntoJsonString(input, expectedSchema, itemSchema);
+        const fused = B_fused(input, expectedSchema, itemSchema);
         if (fused !== U) {
-          return B_markOutput(fused, input);
+          return B_markOutput(B_refine(input, fused), input);
         }
       }
       const inputVar = input.v();
@@ -354,19 +332,16 @@ export const arrayDecoder = (unknownInput: Val): Val => {
     }
   } else {
     const objectVal = makeArrayVal(input, expectedSchema);
-    let shouldRecreateInput: boolean;
-    {
-      const ai = expectedSchema.additionalItems;
-      // Since we have a check validating the exact properties existence
-      if (ai === "strict") {
-        shouldRecreateInput = false;
-      } else if (ai === "strip") {
-        const inputAi = input.s.additionalItems;
-        shouldRecreateInput = isItemSchema(inputAi) ? true : input.s.items!.length !== expectedLength;
-      } else {
-        shouldRecreateInput = true;
-      }
-    }
+    const fused = B_fused(input, expectedSchema);
+    const ai = expectedSchema.additionalItems;
+    // A fused tuple is read slot by slot off this val, so a rebuilt array
+    // would go unread; strict has a check validating the exact length.
+    let shouldRecreateInput =
+      fused === U &&
+      ai !== "strict" &&
+      (ai !== "strip" ||
+        isItemSchema(input.s.additionalItems) ||
+        input.s.items!.length !== expectedLength);
 
     for (let idx = 0; idx < expectedLength; idx++) {
       const schema = expectedItems[idx]!;
@@ -375,6 +350,10 @@ export const arrayDecoder = (unknownInput: Val): Val => {
       itemInput.e = schema;
       itemInput.io = false;
       itemInput.u = isUnion; // We want to control validation on the decoder side
+      if (fused !== U && !(isUnion && isLiteral(schema))) {
+        B_addObjectField(objectVal, key, itemInput);
+        continue;
+      }
       B_narrowJsonSourcedJsonString(itemInput);
       const itemOutput = parse(itemInput);
 
@@ -396,7 +375,7 @@ export const arrayDecoder = (unknownInput: Val): Val => {
       // Same stale-schema class as #284/#252: carry expectedSchema, not
       // input.schema (which may be a minimal union dispatch narrow), so a
       // pending `.to(json)` conversion routes through the fixed-items path
-      const o = B_refine(input, expectedSchema);
+      const o = B_refine(input, fused || expectedSchema);
       o.cp = objectVal.cp;
       o.d = objectVal.d;
       output = o;
@@ -457,9 +436,9 @@ export const objectDecoder = (unknownInput: Val): Val => {
   if (dictItem !== U && dictItem === unknown) {
     output = input;
   } else if (dictItem !== U && sourceIsDict) {
-    const fused = B_fuseIntoJsonString(input, expectedSchema, dictItem);
+    const fused = B_fused(input, expectedSchema, dictItem);
     if (fused !== U) {
-      return B_markOutput(fused, input);
+      return B_markOutput(B_refine(input, fused), input);
     }
     const inputVar = input.v();
     const keyVar = B_varWithoutAllocation(input.g);
@@ -527,7 +506,9 @@ export const objectDecoder = (unknownInput: Val): Val => {
 
     const objectVal = makeObjectVal(input, expectedSchema);
     const ai = expectedSchema.additionalItems;
+    const fused = B_fused(input, expectedSchema);
     let shouldRecreateInput =
+      fused === U &&
       ai !== "strict" &&
       (ai !== "strip" || sourceIsDict || Object.keys(input.s.properties!).length !== keysCount);
 
@@ -555,6 +536,10 @@ export const objectDecoder = (unknownInput: Val): Val => {
       itemInput.u = isUnion; // We want to control validation on the decoder side
       if (isJsonParent && schema.type === anyOfTag && schema.has![undefinedTag]) {
         itemInput.i = `(${itemInput.i}??null)`;
+      }
+      if (fused !== U && !(isUnion && isLiteral(schema))) {
+        B_addObjectField(objectVal, key, itemInput);
+        continue;
       }
       B_narrowJsonSourcedJsonString(itemInput);
 
@@ -601,7 +586,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
       // union dispatch narrow ({properties:{}, additionalItems: unknown}).
       // Keeping the narrow mis-routed a pending `.to(json)` conversion
       // into the dict path, which rejects undefined optional fields (#252)
-      const o = B_refine(input, expectedSchema);
+      const o = B_refine(input, fused || expectedSchema);
       o.cp = objectVal.cp;
       o.d = objectVal.d;
       output = o;

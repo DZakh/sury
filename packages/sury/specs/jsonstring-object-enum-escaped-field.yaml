@@ -16,7 +16,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["f"];typeof v0==="string"&&(v0==="a\"b"||v0==="c")||e[0](v0);if(typeof v0==="string"){for(;;){if(v0==="a\"b"){v0="\"a\\\"b\"";break}if(v0==="c"){v0="\"c\"";break}e[1](v0)}}else{e[2](v0)}return "{\"f\":"+v0+"}"}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["f"];if(typeof v0==="string"){for(;;){if(v0==="a\"b"){v0="\"a\\\"b\"";break}if(v0==="c"){v0="\"c\"";break}e[0](v0)}}else{e[1](v0)}return "{\"f\":"+v0+"}"}
     examples:
       quoted:
         input: '{ f: "a\"b" }'

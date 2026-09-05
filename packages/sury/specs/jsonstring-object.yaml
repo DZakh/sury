@@ -17,7 +17,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[6](i);let v0=i["id"],v1=i["name"],v2=i["tag"],v3=i["flag"];typeof v0==="number"&&v0===v0||e[0](v0);typeof v1==="string"||e[1](v1);v2==="x"||e[2](v2);typeof v3==="boolean"||e[3](v3);return "{\"id\":"+(Number.isFinite(v0)?v0:e[4](v0))+",\"name\":"+e[5](v1)+",\"tag\":\"x\",\"flag\":"+v3+"}"}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[6](i);let v0=i["id"],v1=i["name"],v2=i["tag"],v3=i["flag"];typeof v0==="number"&&v0===v0||e[1](v0);typeof v1==="string"||e[3](v1);v2==="x"||e[4](v2);typeof v3==="boolean"||e[5](v3);return "{\"id\":"+(Number.isFinite(v0)?v0:e[0](v0))+",\"name\":"+e[2](v1)+",\"tag\":\"x\",\"flag\":"+v3+"}"}
     examples:
       valid:
         input: '{ id: 1, name: "hello", tag: "x", flag: true }'

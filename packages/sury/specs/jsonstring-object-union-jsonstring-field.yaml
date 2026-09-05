@@ -17,7 +17,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[6](i);let v0=i["f"];for(;;){if(typeof v0==="string"){try{JSON.parse(v0)}catch(t){e[0](v0)};break}if(typeof v0==="number"&&v0===v0)break;e[1](v0)}for(;;){if(typeof v0==="string"){try{JSON.parse(v0)}catch(t){e[2](v0)}v0=e[3](v0);break}if(typeof v0==="number"&&v0===v0){v0=(Number.isFinite(v0)?""+v0:e[4](v0));break}e[5](v0)}return "{\"f\":"+v0+"}"}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i["f"];for(;;){if(typeof v0==="string"){try{JSON.parse(v0)}catch(t){e[0](v0)}v0=e[1](v0);break}if(typeof v0==="number"&&v0===v0){v0=(Number.isFinite(v0)?""+v0:e[2](v0));break}e[3](v0)}return "{\"f\":"+v0+"}"}
     examples:
       nested-document:
         input: '{ f: "{\"a\":1}" }'

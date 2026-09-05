@@ -14,7 +14,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{Array.isArray(i)&&i.length===1||e[5](i);let v0=i["0"];for(;;){if(typeof v0==="string"){try{JSON.parse(v0)}catch(t){e[0](v0)};break}if(v0===void 0)break;e[1](v0)}for(;;){if(typeof v0==="string"){try{JSON.parse(v0)}catch(t){e[2](v0)}v0=e[3](v0);break}if(v0===void 0){v0="null";break}e[4](v0)}return "["+v0+"]"}
+    expression: i=>{Array.isArray(i)&&i.length===1||e[3](i);let v0=i["0"];for(;;){if(typeof v0==="string"){try{JSON.parse(v0)}catch(t){e[0](v0)}v0=e[1](v0);break}if(v0===void 0){v0="null";break}e[2](v0)}return "["+v0+"]"}
     examples:
       nested-document:
         input: '["{}"]'

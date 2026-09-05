@@ -14,7 +14,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i["type"]==="user.created"){let v0=i["id"];typeof v0==="bigint"||e[0](v0);i="{\"type\":\"user.created\",\"id\":\""+v0+"\"}";break}if(i["type"]==="user.renamed"){let v1=i["id"],v2=i["name"];typeof v1==="bigint"||e[1](v1);typeof v2==="string"||e[2](v2);i="{\"type\":\"user.renamed\",\"id\":\""+v1+"\",\"name\":"+e[3](v2)+"}";break}e[4](i)}}else{e[5](i)}return i}
+    expression: i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i["type"]==="user.created"){let v0=i["id"];typeof v0==="bigint"||e[0](v0);i="{\"type\":\"user.created\",\"id\":\""+v0+"\"}";break}if(i["type"]==="user.renamed"){let v1=i["id"],v2=i["name"];typeof v1==="bigint"||e[1](v1);typeof v2==="string"||e[3](v2);i="{\"type\":\"user.renamed\",\"id\":\""+v1+"\",\"name\":"+e[2](v2)+"}";break}e[4](i)}}else{e[5](i)}return i}
     examples:
       renamed:
         input: '{ type: "user.renamed", id: 42n, name: "Dmitry" }'
