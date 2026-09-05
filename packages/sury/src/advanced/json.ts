@@ -755,7 +755,7 @@ export const jsonString = /* @__PURE__ */ (() => {
     const fixedLen = isArr ? items!.length : keys!.length;
 
     let code = "";
-    const entries: { t?: string; p?: Val; g?: string }[] = [];
+    const entries: { p: Val; g?: string }[] = [];
     let hasOpt = false;
 
     for (let idx = 0; idx < fixedLen; idx++) {
@@ -765,16 +765,11 @@ export const jsonString = /* @__PURE__ */ (() => {
       // A fused container's field is raw unless its decoder validated it (a
       // union member's literal) — told apart by the val's type, not the
       // schema's, so the decoder may keep any subset.
-      const declared = schema.uv && (tagFlags[itemVal.s.type]! & 1) ? fieldSchema : U;
-      if (isLiteral(fieldSchema) && fieldSchema.to === U) {
-        const text = B_constJsonText(fieldSchema);
-        if (text !== U) {
-          if (declared !== U) code = code + B_merge(parse(B_refine(itemVal, U, U, declared)));
-          entries.push({ t: text });
-          continue;
-        }
-      }
-      const { p, g } = fieldPiece(itemVal, isArr, declared);
+      const { p, g } = fieldPiece(
+        itemVal,
+        isArr,
+        schema.uv && (tagFlags[itemVal.s.type]! & 1) ? fieldSchema : U,
+      );
       if (g !== U) {
         hasOpt = true;
       }
@@ -800,12 +795,7 @@ export const jsonString = /* @__PURE__ */ (() => {
       isArr ? "" : JSON.stringify(keys![idx]) + ":";
     const emitEntry = (idx: number, comma: string): void => {
       chunk = chunk + comma + keyText(idx);
-      const entry = entries[idx]!;
-      if (entry.t !== U) {
-        chunk = chunk + entry.t;
-      } else {
-        push(entry.p!.i);
-      }
+      push(entries[idx]!.p.i);
     };
 
     // A dynamic item implies no optional fixed pieces: a dict has no fixed
@@ -926,7 +916,7 @@ export const jsonString = /* @__PURE__ */ (() => {
             idx !== 0 && !hasDefiniteBefore ? `(${accVar}?",":"")+` : ""
           }${inlinedValueFromString(
             (idx !== 0 && hasDefiniteBefore ? "," : "") + keyText(idx)
-          )}+${foldStringCoercion(entries[idx]!.p!.i)}}`;
+          )}+${foldStringCoercion(entries[idx]!.p.i)}}`;
       }
     }
     flushRun();
