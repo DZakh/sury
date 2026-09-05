@@ -21,6 +21,9 @@ operations:
       a:
         input: '{ f: "a" }'
         output: '"{\"f\":\"a\"}"'
+      b:
+        input: '{ f: "b" }'
+        output: '"{\"f\":\"b\"}"'
       not-a-member:
         input: '{ f: "c" }'
         error: 'Failed at f: Expected "a" | "b", received "c"'

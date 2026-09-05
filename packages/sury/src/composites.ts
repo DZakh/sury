@@ -72,6 +72,34 @@ import {
 const isItemSchema = (x: AdditionalItems | undefined): x is Internal =>
   x !== U && typeof x !== "string";
 
+// The strict scan: every own or inherited enumerable key that is not one of
+// `keys` raises `unrecognized_keys`. `decl` is `let ` when the caller has not
+// hoisted `keyVar` itself.
+export const B_unrecognizedKeys = (
+  input: Val,
+  keys: string[],
+  keyVar: string,
+  decl: string,
+): string => {
+  const fail = B_failWithArg(
+    input,
+    (excessFieldName: string) =>
+      ({
+        code: "unrecognized_keys",
+        path: input.path,
+        reason: `Unrecognized key "${excessFieldName}"`,
+        keys: [excessFieldName],
+      }) as ErrorDetails,
+    keyVar,
+  );
+  let cond = "";
+  for (let idx = 0; idx < keys.length; idx++) {
+    if (idx) cond += "&&";
+    cond += `${keyVar}!==${inlinedValueFromString(keys[idx]!)}`;
+  }
+  return `for(${decl}${keyVar} in ${input.v()})` + (cond ? `if(${cond})` : "") + fail + ";";
+};
+
 // A `.to` target that builds its document piecewise (jsonString) can take a
 // container raw: its `fz` hook (installed in advanced/json.ts) hands back the
 // container schema marked `uv` when validation can be left to the aggregate,
@@ -555,27 +583,13 @@ export const objectDecoder = (unknownInput: Val): Val => {
       }
     }
 
-    if (ai === "strict" && isItemSchema(inputAdditionalItems)) {
+    // A fused object's scan is emitted by the aggregate, after the field
+    // checks it now owns, so an unknown key is still reported after a wrong
+    // field the way it is here.
+    if (ai === "strict" && isItemSchema(inputAdditionalItems) && fused === U) {
       const keyVar = B_varWithoutAllocation(objectVal.g);
       B_hoistDecl(input, keyVar);
-      const fail = B_failWithArg(
-        input,
-        (excessFieldName: string) =>
-          ({
-            code: "unrecognized_keys",
-            path: objectVal.path,
-            reason: `Unrecognized key "${excessFieldName}"`,
-            keys: [excessFieldName],
-          }) as ErrorDetails,
-        keyVar,
-      );
-      let cond = "";
-      for (let idx = 0; idx < keysCount; idx++) {
-        if (idx) cond += "&&";
-        cond += `${keyVar}!==${inlinedValueFromString(keys[idx]!)}`;
-      }
-      objectVal.cp +=
-        `for(${keyVar} in ${input.v()})` + (cond ? `if(${cond})` : "") + fail + ";";
+      objectVal.cp += B_unrecognizedKeys(input, keys, keyVar, "");
     }
 
     if (shouldRecreateInput) {

@@ -48,6 +48,7 @@ import {
 import {
   arrayDecoder,
   arrayFactory,
+  B_unrecognizedKeys,
   completeObjectVal,
   dictFactory,
   makeObjectVal,
@@ -775,6 +776,10 @@ export const jsonString = /* @__PURE__ */ (() => {
       }
       code = code + B_merge(p);
       entries.push({ p, g });
+    }
+    // A fused strict object's scan (see objectDecoder), after its fields.
+    if (schema.uv && schema.additionalItems === "strict" && !isArr) {
+      code = code + B_unrecognizedKeys(input, keys!, B_varWithoutAllocation(input.g), "let ");
     }
 
     // JS-expression accumulator: alternating raw JSON text chunks and pieces.
