@@ -21,6 +21,9 @@ operations:
       valid:
         input: '{ f: "a", n: 1 }'
         output: '"{\"f\":\"a\",\"n\":1}"'
+      other-member:
+        input: '{ f: "b", n: 2 }'
+        output: '"{\"f\":\"b\",\"n\":2}"'
       unknown-key:
         input: '{ f: "a", n: 1, x: 2 }'
         error: Unrecognized key "x"
