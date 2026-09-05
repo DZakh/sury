@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.jsonString.with(S.to, S.jsonString)
+  input: string
+  output: string
+  instantiations: 4361
+jsonSchema:
+  input: '{ type: "string", contentMediaType: "application/json" }'
+  output: '{ type: "string", contentMediaType: "application/json" }'
+  openapi-3.0:
+    input: '{ type: "string" }'
+    output: '{ type: "string" }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[1](i);try{JSON.parse(i)}catch(t){e[0](i)}return i}
+    examples:
+      json-object:
+        input: '"{}"'
+        output: '"{}"'
+      not-json:
+        input: '"a"'
+        error: Expected JSON string, received "a"
+      empty:
+        input: '""'
+        error: Expected JSON string, received ""
+  decode: identity
+  encode: identity

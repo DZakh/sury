@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.tuple([S.optional(S.jsonString)]).with(S.to, S.jsonString)
+  input: "[string | undefined]"
+  output: string
+  instantiations: 5061
+jsonSchema:
+  input: "Failed at [0]: Expected JSON, received JSON string | undefined"
+  output: '{ type: "string", contentMediaType: "application/json" }'
+  openapi-3.0:
+    output: '{ type: "string" }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{Array.isArray(i)&&i.length===1||e[5](i);let v0=i["0"];for(;;){if(typeof v0==="string"){try{JSON.parse(v0)}catch(t){e[0](v0)};break}if(v0===void 0)break;e[1](v0)}for(;;){if(typeof v0==="string"){try{JSON.parse(v0)}catch(t){e[2](v0)}v0=e[3](v0);break}if(v0===void 0){v0="null";break}e[4](v0)}return "["+v0+"]"}
+    examples:
+      nested-document:
+        input: '["{}"]'
+        output: '"[\"{}\"]"'
+      undefined-is-null:
+        input: "[undefined]"
+        output: '"[null]"'
+      not-json:
+        input: '["a"]'
+        error: 'Failed at [0]: Expected JSON string, received "a"'
+  decode:
+    expression: i=>{let v0=i["0"];for(;;){if(typeof v0==="string"){try{JSON.parse(v0)}catch(t){e[0](v0)}v0=e[1](v0);break}if(v0===void 0){v0="null";break}e[2](v0)}return "["+v0+"]"}
+    examples:
+      nested-document:
+        input: '["{}"]'
+        output: '"[\"{}\"]"'
+      undefined-is-null:
+        input: "[undefined]"
+        output: '"[null]"'
+  encode:
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}Array.isArray(v0)||e[4](v0);v0.length===1||e[3](v0);let v1=v0["0"];for(;;){if(typeof v1==="string"){try{JSON.parse(v1)}catch(t){e[1](v1)};break}if(v1===null){v1=void 0;break}e[2](v1)}return [v1]}
+    examples:
+      nested-document:
+        input: '"[\"{}\"]"'
+        output: '["{}"]'
+      null-is-absent:
+        input: '"[null]"'
+        output: "[undefined]"
+      not-json:
+        input: '"[\"a\"]"'
+        error: 'Failed at [0]: Expected JSON string, received "a"'

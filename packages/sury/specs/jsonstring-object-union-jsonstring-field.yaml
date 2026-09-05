@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({ f: S.union([S.jsonString, S.number]) }).with(S.to, S.jsonString)"
+  input: "{ f: string | number; }"
+  output: string
+  instantiations: 5872
+jsonSchema:
+  input: '{ type: "object", properties: { f: { anyOf: [{ type: "string", contentMediaType: "application/json" }, { type: "number" }] } }, required: ["f"] }'
+  output: '{ type: "string", contentMediaType: "application/json" }'
+  draft-2020-12:
+    output: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "object", properties: { f: { anyOf: [{ type: "string", contentMediaType: "application/json" }, { type: "number" }] } }, required: ["f"] }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ type: "object", properties: { f: { anyOf: [{ type: "string" }, { type: "number" }] } }, required: ["f"] }'
+    output: '{ type: "string" }'
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[6](i);let v0=i["f"];for(;;){if(typeof v0==="string"){try{JSON.parse(v0)}catch(t){e[0](v0)};break}if(typeof v0==="number"&&v0===v0)break;e[1](v0)}for(;;){if(typeof v0==="string"){try{JSON.parse(v0)}catch(t){e[2](v0)}v0=e[3](v0);break}if(typeof v0==="number"&&v0===v0){v0=(Number.isFinite(v0)?""+v0:e[4](v0));break}e[5](v0)}return "{\"f\":"+v0+"}"}
+    examples:
+      nested-document:
+        input: '{ f: "{\"a\":1}" }'
+        output: '"{\"f\":\"{\\\"a\\\":1}\"}"'
+      number:
+        input: "{ f: 1 }"
+        output: '"{\"f\":1}"'
+      not-json:
+        input: '{ f: "a" }'
+        error: 'Failed at f: Expected JSON string, received "a"'
+      infinity:
+        input: "{ f: Infinity }"
+        error: "Failed at f: Expected JSON, received Infinity"
+  decode:
+    expression: i=>{let v0=i["f"];for(;;){if(typeof v0==="string"){try{JSON.parse(v0)}catch(t){e[0](v0)}v0=e[1](v0);break}if(typeof v0==="number"&&v0===v0){v0=(Number.isFinite(v0)?""+v0:e[2](v0));break}e[3](v0)}return "{\"f\":"+v0+"}"}
+    examples:
+      nested-document:
+        input: '{ f: "{\"a\":1}" }'
+        output: '"{\"f\":\"{\\\"a\\\":1}\"}"'
+      number:
+        input: "{ f: 1 }"
+        output: '"{\"f\":1}"'
+  encode:
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[3](v0);let v1=v0["f"];for(;;){if(typeof v1==="string"){try{JSON.parse(v1)}catch(t){e[1](v1)};break}if(typeof v1==="number"&&v1===v1)break;e[2](v1)}return {f:v1}}
+    examples:
+      nested-document:
+        input: '"{\"f\":\"{\\\"a\\\":1}\"}"'
+        output: '{ f: "{\"a\":1}" }'
+      number:
+        input: '"{\"f\":1}"'
+        output: "{ f: 1 }"
+      not-json:
+        input: '"{\"f\":\"a\"}"'
+        error: 'Failed at f: Expected JSON string, received "a"'

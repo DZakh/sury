@@ -185,24 +185,23 @@ export const isJsonable = (schema: Internal): boolean => {
   );
 }
 
-// Per-variant conversion instead of a generic `undefined | X` check: an
-// undefined variant stays undefined so the object rebuild omits the field,
-// while the rest get `.to(target)` appended and keep converting recursively
-// (#311). `keep` names the variant outputs that already convert as-is.
+// Per-variant conversion instead of a generic `undefined | X` check: the
+// variants `keep` names stay as they are (an undefined one, so the object
+// rebuild omits the field — #311), the rest get `.to(target)` appended and
+// keep converting recursively.
 const perVariantTo = (
   variants: Internal[],
   target: Internal,
   keep: (variantOutput: Internal) => boolean,
 ): Internal => {
   const mapped = unionFactory(
-    variants.map((variant) => {
-      const variantOutput = getOutputSchema(variant);
-      return variantOutput.type === undefinedTag || keep(variantOutput)
+    variants.map((variant) =>
+      keep(getOutputSchema(variant))
         ? variant
         : updateOutput<Internal>(variant, (mut) => {
             mut.to = target;
-          });
-    })
+          })
+    )
   );
   // Already resolved variant by variant, so the union encoder pairs them
   // by position instead of re-matching them by type.
@@ -246,7 +245,11 @@ export const jsonDecoderFn = (input: Val): Val => {
         itemVal.io = false;
 
         if (itemVal.s.type === anyOfTag && itemVal.s.has![undefinedTag]) {
-          itemVal.e = perVariantTo(itemVal.s.anyOf!, json, isJsonable);
+          itemVal.e = perVariantTo(
+            itemVal.s.anyOf!,
+            json,
+            (variantOutput) => variantOutput.type === undefinedTag || isJsonable(variantOutput),
+          );
           const itemOutput = parse(itemVal);
           itemOutput.o = true;
           B_addObjectField(jsonVal, key, itemOutput);
@@ -406,6 +409,16 @@ const B_constJsonText = (schema: Internal): string | undefined => {
 };
 
 export const jsonString = /* @__PURE__ */ (() => {
+  // The target every piece of an aggregated document renders into (built at
+  // the end, once the schema it copies exists). It is `jsonString` in every
+  // reading but one: a json-format string source is a nested document, which
+  // sits inside the outer one as an escaped string value — matching
+  // JSON.stringify of the same object — where the top-level conversion is the
+  // identity. Unions reach it per variant (`perVariantTo` appends it by
+  // position), so a jsonString variant next to a number is never the
+  // "same type as the target" ambiguity a top-level conversion would be.
+  let jsonPiece: Internal;
+
   const inlineJsonString = (input: Val, schema: Internal): string => {
     const text = B_constJsonText(schema);
     return text !== U
@@ -536,25 +549,6 @@ export const jsonString = /* @__PURE__ */ (() => {
   // never guard.
   const fieldPiece = (itemVal: Val, isArr: boolean): { p: Val; g: string | undefined } => {
     const cur = itemVal.s;
-    // A nested json-format string stays an escaped string value inside the
-    // outer document — matching JSON.stringify of the same object. Only the
-    // top-level jsonString -> jsonString conversion is the identity
-    // (jsonStringDecoder's format branch), so bypass it here: raw-splicing
-    // the field's text would emit it as a JSON value, and the encode
-    // direction would hand back a parsed object where a string went in.
-    if (
-      (tagFlags[cur.type]! & 2) &&
-      cur.format === "json" &&
-      cur.to === U
-    ) {
-      const p = B_next(
-        itemVal,
-        `${B_embedJsonStr(itemVal)}(${itemVal.i})`,
-        jsonString,
-        jsonString,
-      );
-      return { p, g: U };
-    }
     // Values jsonString itself can't decode piecewise (unknown, refs) validate
     // through `json` and stringify at runtime — the coverage the old
     // whole-value `json` + JSON.stringify path had, scoped to the one subtree
@@ -602,12 +596,12 @@ export const jsonString = /* @__PURE__ */ (() => {
       p.cp = `let ${outputVar}=JSON.stringify(${jsonVal.i});`;
       return { p, g: outputVar };
     }
-    if (cur.type === anyOfTag && cur.has![undefinedTag]) {
+    if (cur.type === anyOfTag) {
       const variants = cur.anyOf!;
       // unknown/ref variants can't serialize piecewise (jsonStringDecoder's
       // unknown branch treats its input as the JSON text) — take the guarded
-      // validate-and-stringify path: the union admits undefined, which the
-      // guard renders by omission/null.
+      // validate-and-stringify path, which renders an undefined value by
+      // omission/null.
       if (
         variants.some((variant) =>
           (tagFlags[getOutputSchema(variant).type]! & (1 | 512))
@@ -615,47 +609,40 @@ export const jsonString = /* @__PURE__ */ (() => {
       ) {
         return guardedJsonPiece();
       }
-      if (!isArr) {
-        if (variants.length === 2) {
-          // The two-variant `X | undefined` shape skips the union dispatch
-          // entirely when X stays a pure expression: the `!== void 0` guard IS
-          // the dispatch. Restricted to primitive X so the piece can't own
-          // statements that would then run unguarded.
-          const u0 = getOutputSchema(variants[0]!).type === undefinedTag;
-          const u1 = getOutputSchema(variants[1]!).type === undefinedTag;
-          const single = variants[u0 ? 1 : 0]!;
-          if (
-            u0 !== u1 &&
-            single.to === U &&
-            (tagFlags[single.type]! & (((2 | 4) | (8 | 1024)) |
-                (32 | 2048)))
-          ) {
-            const guard = itemVal.v();
-            return { p: parse(B_refine(itemVal, single, U, jsonString)), g: guard };
-          }
+      const optional = !isArr && cur.has![undefinedTag];
+      if (optional && variants.length === 2) {
+        // The two-variant `X | undefined` shape skips the union dispatch
+        // entirely when X stays a pure expression: the `!== void 0` guard IS
+        // the dispatch. Restricted to primitive X so the piece can't own
+        // statements that would then run unguarded.
+        const u0 = getOutputSchema(variants[0]!).type === undefinedTag;
+        const u1 = getOutputSchema(variants[1]!).type === undefinedTag;
+        const single = variants[u0 ? 1 : 0]!;
+        if (
+          u0 !== u1 &&
+          single.to === U &&
+          (tagFlags[single.type]! & (((2 | 4) | (8 | 1024)) |
+              (32 | 2048)))
+        ) {
+          const guard = itemVal.v();
+          return { p: parse(B_refine(itemVal, single, U, jsonPiece)), g: guard };
         }
-        const p = parse(
-          B_refine(
-            B_unionWritable(itemVal),
-            U,
-            U,
-            perVariantTo(variants, jsonString, () => false)
-          )
-        );
-        return { p, g: p.v() };
       }
-    }
-    return {
-      p: parse(
+      // A field keeps its undefined variants (omission); a tuple item converts
+      // them too, since jsonPiece renders undefined as null.
+      const p = parse(
         B_refine(
-          cur.type === anyOfTag ? B_unionWritable(itemVal) : itemVal,
+          B_unionWritable(itemVal),
           U,
           U,
-          jsonString,
+          perVariantTo(variants, jsonPiece, (variantOutput) =>
+            !isArr && variantOutput.type === undefinedTag
+          ),
         )
-      ),
-      g: U,
-    };
+      );
+      return { p, g: optional ? p.v() : U };
+    }
+    return { p: parse(B_refine(itemVal, U, U, jsonPiece)), g: U };
   };
 
   const jsonStringAggregate = (input: Val, expectedSchema: Internal): Val => {
@@ -752,9 +739,7 @@ export const jsonString = /* @__PURE__ */ (() => {
             // makes each case validate its fields and emit text in the same
             // branch, where resolving the union first would rebuild the item
             // and then re-dispatch on it to serialize.
-            itemInput.e = updateOutput<Internal>(item, (mut) => {
-              mut.to = jsonString;
-            });
+            itemInput.e = perVariantTo(item.anyOf!, jsonPiece, () => false);
             piece = { p: parseDynamic(itemInput), g: U };
           }
         }
@@ -876,10 +861,11 @@ export const jsonString = /* @__PURE__ */ (() => {
     ) {
       const encoded = jsonStringEncoder(stringVal, to);
       // Unless the target only stores the text: then nothing downstream reads it
-      // as JSON, so the check below is the only thing asserting it is. A target
-      // that carries a document of its own does read it, and adding the check
-      // would parse the same text twice.
-      if (encoded !== stringVal || to.format === "json") {
+      // as JSON, so the check below is the only thing asserting it is. A
+      // document target that goes on to read its own payload does, and adding
+      // the check would parse the same text twice — one that stops there (a
+      // bare jsonString, or a jsonPiece about to escape it) reads nothing.
+      if (encoded !== stringVal || (to.format === "json" && B_readsPayload(to))) {
         return encoded;
       }
     }
@@ -1019,12 +1005,18 @@ export const jsonString = /* @__PURE__ */ (() => {
     }
   };
 
-  return initSchema(stringTag, jsonStringDecoder, (s) => {
+  const schema = initSchema(stringTag, jsonStringDecoder, (s) => {
     s.format = "json";
     s.name = `${jsonName} string`;
     s.encoder = jsonStringEncoder;
     setContent(s, json);
   });
+  jsonPiece = copySchema(schema);
+  jsonPiece.decoder = (input) =>
+    input.s.format === "json"
+      ? B_next(input, `${B_embedJsonStr(input)}(${input.i})`, schema, schema)
+      : jsonStringDecoder(input);
+  return schema;
 })();
 
 // @__NO_SIDE_EFFECTS__
