@@ -177,20 +177,23 @@ export const convertTextEntry = (
 ): Val => {
   const present = isAbsent(target) ? presentArm(target) : target;
   // Same split as a form field: a required `S.string` must choose, an
-  // optional/nullable one reads `""` as absent. `self` is the no-blank
-  // converter so the present arm does not re-enter this check.
-  if (blank && isAbsent(target) && !admitsBlank(present)) {
+  // optional/nullable one reads `""` as absent - unless its present arm keeps
+  // the blank entry, and then only a missing one is. Either way the arm runs
+  // behind the test, never on the entry that is not there. `self` is the
+  // no-blank converter so the present arm does not re-enter this check.
+  if (blank && isAbsent(target)) {
+    const folds = !admitsBlank(present);
     // Chained, not scoped: a parse checked the text on `input`, and only a
     // `prev` walk emits it.
     const item = B_next(input, input.i, self, target);
     item.v = _var;
     // The form loop does `||void 0` before this wrap. Env fields are already
     // in the object, so `""` would otherwise survive an optional with no else.
-    if (isOptional(target) && absentArm(target).to === U) {
+    if (folds && isOptional(target) && absentArm(target).to === U) {
       item.cp = `${item.i}=${item.i}||void 0;`;
       rebinds(item);
     }
-    return readWrapped(item, target, present, true);
+    return readWrapped(item, target, present, folds);
   }
   if (blank && !decidesBlank(target)) {
     B_invalidOperation(

@@ -1,13 +1,14 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: S.env.with(S.to, S.boolean)
+  schema: S.env.with(S.to, S.boolean).with(S.to, S.optional(S.boolean))
   input: string | undefined
-  output: boolean
-  instantiations: 4419
+  output: boolean | undefined
+  instantiations: 4767
 jsonSchema:
   input: '{ type: "string" }'
   fromInputType: string
   output: '{ type: "boolean" }'
+  fromOutputType: boolean
 isEqual: strictEqual
 vs:
   zod:
@@ -19,18 +20,6 @@ operations:
       "true":
         input: '"true"'
         output: "true"
-      "false":
-        input: '"false"'
-        output: "false"
-      on:
-        input: '"on"'
-        error: Expected boolean, received "on"
-      yes:
-        input: '"yes"'
-        error: Expected boolean, received "yes"
-      one:
-        input: '"1"'
-        error: Expected boolean, received "1"
       blank:
         input: '""'
         error: Expected boolean, received ""
@@ -44,11 +33,11 @@ operations:
         input: '"true"'
         output: "true"
   encode:
-    expression: i=>{return ""+i}
+    expression: i=>{if(typeof i==="boolean"){i=""+i}else{e[0](i)}return i}
     examples:
       "true":
         input: "true"
         output: '"true"'
-      "false":
-        input: "false"
-        output: '"false"'
+      unset:
+        input: undefined
+        error: Expected boolean, received undefined

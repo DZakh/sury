@@ -163,6 +163,15 @@ S.parseOrThrow(S.json.with(S.to, S.optional(S.string)))(null); // undefined - JS
 S.parseOrThrow(S.env.with(S.to, S.optional(S.string)))(""); // undefined - `""` is an unset var
 ```
 
+The arm meets the link it is written after, not the head of the chain, so a
+carrier reached through a conversion is a different schema:
+
+```ts
+S.parseOrThrow(S.env.with(S.to, S.boolean).with(S.to, S.optional(S.boolean)))(undefined);
+// throws - the arm meets S.boolean. Write S.env.with(S.to, S.optional(S.boolean))
+// to read the unset var as undefined
+```
+
 ## Rule 3: union → non-union
 
 The mirror of rule 2: every source variant gets its own built-in decoder to the

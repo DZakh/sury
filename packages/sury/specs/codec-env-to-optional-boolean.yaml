@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.env.with(S.to, S.optional(S.boolean))
+  input: string | undefined
+  output: boolean | undefined
+  instantiations: 4620
+jsonSchema:
+  input: '{ type: "string" }'
+  fromInputType: string
+  output: Expected JSON, received boolean | undefined
+isEqual: strictEqual
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{(typeof i==="string"||i===void 0)||e[1](i);i=i||void 0;if(i){let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0;}return i}
+    examples:
+      "true":
+        input: '"true"'
+        output: "true"
+      "false":
+        input: '"false"'
+        output: "false"
+      blank:
+        input: '""'
+        output: undefined
+      unset:
+        input: undefined
+        output: undefined
+      yes:
+        input: '"yes"'
+        error: Expected boolean, received "yes"
+      number:
+        input: "1"
+        error: Expected env, received 1
+  decode:
+    expression: i=>{i=i||void 0;if(i){let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0;}return i}
+    examples:
+      "true":
+        input: '"true"'
+        output: "true"
+      blank:
+        input: '""'
+        output: undefined
+      unset:
+        input: undefined
+        output: undefined
+  encode:
+    expression: i=>{for(;;){if(typeof i==="boolean"){i=""+i;break}if(i===void 0)break;e[0](i)}return i}
+    examples:
+      "true":
+        input: "true"
+        output: '"true"'
+      "false":
+        input: "false"
+        output: '"false"'
+      unset:
+        input: undefined
+        output: undefined
