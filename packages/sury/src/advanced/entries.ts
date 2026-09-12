@@ -31,6 +31,7 @@ import {
   operationArgVar
 } from "../builder";
 import {
+  getCarrierSchema,
   parse
 } from "../parse";
 import {
@@ -175,22 +176,29 @@ export const convertTextEntry = (
   self: Internal,
   blank?: boolean,
 ): Val => {
-  const present = isAbsent(target) ? presentArm(target) : target;
+  // A chain decides by what it ends in: `S.env.with(S.to, S.boolean)` linked on
+  // to `S.optional(S.boolean)` is the same read as the direct one, so the
+  // absent entry skips every link between and the present one runs them all.
+  const out = getCarrierSchema(target);
+  const present = out !== target ? target : isAbsent(target) ? presentArm(target) : target;
   // Same split as a form field: a required `S.string` must choose, an
-  // optional/nullable one reads `""` as absent. `self` is the no-blank
-  // converter so the present arm does not re-enter this check.
-  if (blank && isAbsent(target) && !admitsBlank(present)) {
+  // optional/nullable one reads `""` as absent - unless its present arm keeps
+  // the blank entry, and then only a missing one is absent. Either way the
+  // present arm runs behind the test, never on the value that is not there.
+  // `self` is the no-blank converter so it does not re-enter this check.
+  if (blank && isAbsent(out)) {
+    const folds = !admitsBlank(present);
     // Chained, not scoped: a parse checked the text on `input`, and only a
     // `prev` walk emits it.
     const item = B_next(input, input.i, self, target);
     item.v = _var;
     // The form loop does `||void 0` before this wrap. Env fields are already
     // in the object, so `""` would otherwise survive an optional with no else.
-    if (isOptional(target) && absentArm(target).to === U) {
+    if (folds && isOptional(out) && absentArm(out).to === U) {
       item.cp = `${item.i}=${item.i}||void 0;`;
       rebinds(item);
     }
-    return readWrapped(item, target, present, true);
+    return readWrapped(item, out, present, folds);
   }
   if (blank && !decidesBlank(target)) {
     B_invalidOperation(

@@ -34,6 +34,9 @@ operations:
       blank:
         input: '""'
         error: Expected boolean, received ""
+      unset:
+        input: undefined
+        error: Expected boolean, received undefined
   decode:
     expression: i=>{let v0;(v0=i==="true")||i==="false"||e[0](i);return v0}
     examples:

@@ -163,6 +163,15 @@ S.parseOrThrow(S.json.with(S.to, S.optional(S.string)))(null); // undefined - JS
 S.parseOrThrow(S.env.with(S.to, S.optional(S.string)))(""); // undefined - `""` is an unset var
 ```
 
+A link onto a chain reads the whole chain, so the arm belongs to the carrier at
+its far end rather than to the conversion it was written after:
+
+```ts
+S.env.with(S.to, S.boolean).with(S.to, S.optional(S.boolean));
+// the same read as S.env.with(S.to, S.optional(S.boolean)):
+// "true" -> true, unset or "" -> undefined
+```
+
 ## Rule 3: union → non-union
 
 The mirror of rule 2: every source variant gets its own built-in decoder to the
@@ -213,6 +222,7 @@ S.optional(S.number).with(S.to, S.string); // ✅ 12 -> "12", undefined rejected
 S.optional(S.string).with(S.to, S.string); // ✅ string -> string, undefined rejected
 S.optional(S.string).with(S.to, S.json); // ✅ undefined -> null, JSON holds it
 S.optional(S.string).with(S.to, S.env); // ✅ undefined -> undefined, an unset var
+S.optional(S.boolean).with(S.to, S.boolean.with(S.to, S.env)); // ✅ undefined -> an unset var, past the link
 S.env.with(S.to, S.string.with(S.minLength, 0)); // ✅ string -> string, undefined rejected
 ```
 

@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.env.with(S.to, S.optional(S.string.with(S.minLength, 0).with(S.maxLength, 5)))
+  input: string | undefined
+  output: string | undefined
+  instantiations: 5512
+jsonSchema:
+  input: '{ type: "string" }'
+  fromInputType: string
+  output: Expected JSON, received string.length <= 5 | undefined
+isEqual: strictEqual
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{(typeof i==="string"||i===void 0)||e[1](i);if(i!==void 0){i.length<6||e[0](i);}return i}
+    examples:
+      short:
+        input: '"ab"'
+        output: '"ab"'
+      blank:
+        input: '""'
+        output: '""'
+      unset:
+        input: undefined
+        output: undefined
+      too-long:
+        input: '"abcdef"'
+        error: Expected string.length <= 5, received "abcdef"
+  decode:
+    expression: i=>{if(i!==void 0){i.length<6||e[0](i);}return i}
+    examples:
+      short:
+        input: '"ab"'
+        output: '"ab"'
+      blank:
+        input: '""'
+        output: '""'
+      unset:
+        input: undefined
+        output: undefined
+  encode:
+    expression: i=>{for(;;){if(typeof i==="string"){i.length<6||e[0](i);break}if(i===void 0)break;e[1](i)}return i}
+    examples:
+      short:
+        input: '"ab"'
+        output: '"ab"'
+      unset:
+        input: undefined
+        output: undefined

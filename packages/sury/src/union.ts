@@ -65,7 +65,7 @@ import {
   type HoistCond,
   operationArgVar,
 } from "./builder";
-import { nestedLoc, never_, parse, typeCheckCond } from "./parse";
+import { getCarrierSchema, nestedLoc, never_, parse, typeCheckCond } from "./parse";
 
 // ── Type identity ────────────────────────────────────────────────────────────
 
@@ -586,26 +586,28 @@ const unionDiscriminator = (schema: Internal): UnionDiscriminator | undefined =>
 
 // ── Rejections ───────────────────────────────────────────────────────────────
 
+// A place for a `null`/`undefined`: `unknown`, a nullish type, a union, a
+// recursive ref (`S.json` among them), an env var (unset, or `""`) or a JSON
+// document string - the same test composites.ts makes for an optional field
+// encoded into a dict.
+const unionHolds = (schema: Internal): boolean =>
+  !!(tagFlags[schema.type]! & (1 | 16 | 32 | 256 | 512)) ||
+  schema.format === "json" ||
+  schema.format === "env";
+
 // Rules 2 and 3, exception - nullish arm. Opposite a schema with no place for
 // the value, a bare `null`/`undefined` variant is dropped: it neither makes
 // the pair ambiguous nor converts (never `"undefined"` text), and the value is
-// rejected - `S.optional(X)` meets a single T as X -> T. A place for it:
-// `unknown`, a nullish type, a union, a recursive ref (`S.json` among them),
-// an env var (unset, or `""`) or a JSON document string - the same test
-// composites.ts makes for an optional field encoded into a dict. Compared on
-// the side the other schema meets: output under rule 3, input under rule 2. A
-// list that would empty is kept whole: two literals, not a wrapper.
+// rejected - `S.optional(X)` meets a single T as X -> T. Compared on the side
+// the other schema meets: output under rule 3, input under rule 2, and a
+// target decides by the end of its chain, where a kept arm lands. A list that
+// would empty is kept whole: two literals, not a wrapper.
 const unionDropNullish = (
   variants: Internal[],
   other: Internal | undefined,
   outputSide: boolean
 ): Internal[] => {
-  if (
-    other === U ||
-    tagFlags[other.type]! & (1 | 16 | 32 | 256 | 512) ||
-    other.format === "json" ||
-    other.format === "env"
-  ) {
+  if (other === U || unionHolds(other) || (outputSide && unionHolds(getCarrierSchema(other)))) {
     return variants;
   }
   const kept = variants.filter(
@@ -1575,14 +1577,22 @@ const unionResolve = (
   if (unionIsTransparent(target)) {
     return unionResolveToUnion(input, source, variants, target);
   }
+  // A nullish arm the target itself has no place for lands at the end of its
+  // chain instead of being dropped: an absent value has nothing for the links
+  // between to convert. `S.env.with(S.to, S.boolean)` linked on to
+  // `S.optional(S.boolean)` writes the unset var, the same as the direct link.
+  const end = getCarrierSchema(target);
+  const bypass = !unionHolds(target) && unionHolds(end);
+  const skips = (variant: Internal): boolean =>
+    bypass && !!(tagFlags[unionOutput(variant).type]! & (16 | 32));
   // Rule 3 - every source variant gets its own built-in decoder to the target.
   // Two targets are never ambiguous: `unknown`, the top type, which decodes
   // nothing; and a `noValidation` target (S.assertInputOrThrow's result sentinel), which
   if (!(tagFlags[target.type]! & 1) && !target.noValidation) {
-    unionCheckPartial(input, source, target, variants, true);
+    unionCheckPartial(input, source, target, variants.filter((variant) => !skips(variant)), true);
   }
   return variants.map((variant) =>
-    unionOutput(variant).type === neverTag ? U : target
+    unionOutput(variant).type === neverTag ? U : skips(variant) ? end : target
   );
 };
 
