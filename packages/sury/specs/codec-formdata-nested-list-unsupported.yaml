@@ -3,7 +3,7 @@ ts:
   schema: "S.formData.with(S.to, S.schema({ rows: S.array(S.array(S.string)) }))"
   input: FormData
   output: "{ rows: string[][]; }"
-  instantiations: 5773
+  instantiations: 5906
 jsonSchema:
   input: Expected JSON, received FormData
   output: '{ type: "object", properties: { rows: { items: { items: { type: "string" }, type: "array" }, type: "array" } }, required: ["rows"] }'

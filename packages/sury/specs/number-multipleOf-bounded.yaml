@@ -5,7 +5,7 @@ ts:
     - S.number.with(S.gt, -50).with(S.lt, 50).with(S.multipleOf, 2)
   input: number
   output: number
-  instantiations: 948
+  instantiations: 949
 jsonSchema:
   input: '{ type: "number", multipleOf: 2, exclusiveMinimum: -50, exclusiveMaximum: 50 }'
   output: '{ type: "number", multipleOf: 2, exclusiveMinimum: -50, exclusiveMaximum: 50 }'

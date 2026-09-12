@@ -3,7 +3,7 @@ ts:
   schema: "S.urlSearchParams.with(S.to, S.schema({ tags: S.array(S.optional(S.string)) }))"
   input: URLSearchParams
   output: "{ tags: (string | undefined)[]; }"
-  instantiations: 5821
+  instantiations: 5954
 jsonSchema:
   input: Expected JSON, received URLSearchParams
   output: "Failed at tags[]: Expected JSON, received string | undefined"

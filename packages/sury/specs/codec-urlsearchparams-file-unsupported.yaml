@@ -3,7 +3,7 @@ ts:
   schema: "S.urlSearchParams.with(S.to, S.schema({ f: S.file }))"
   input: URLSearchParams
   output: "{ f: File; }"
-  instantiations: 5475
+  instantiations: 5608
 jsonSchema:
   input: Expected JSON, received URLSearchParams
   output: "Failed at f: Expected JSON, received File"

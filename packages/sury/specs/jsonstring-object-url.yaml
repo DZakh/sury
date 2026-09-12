@@ -3,7 +3,7 @@ ts:
   schema: "S.schema({ href: S.url }).with(S.to, S.jsonString)"
   input: "{ href: URL; }"
   output: string
-  instantiations: 5190
+  instantiations: 5323
 jsonSchema:
   input: "Failed at href: Expected JSON, received URL"
   output: '{ type: "string", contentMediaType: "application/json" }'

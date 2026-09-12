@@ -3,7 +3,7 @@ ts:
   schema: "S.formData.with(S.to, S.schema({ agree: S.boolean, notify: S.optional(S.boolean), mailing: S.nullable(S.boolean), seen: S.optional(S.boolean, false), asText: S.boolean.with(S.to, S.string), age: S.number.with(S.gte, 18) }))"
   input: FormData
   output: "{ agree: boolean; mailing: boolean | null; seen: boolean; asText: string; age: number; notify?: boolean | undefined; }"
-  instantiations: 8670
+  instantiations: 8804
 jsonSchema:
   input: Expected JSON, received FormData
   output: '{ type: "object", properties: { agree: { type: "boolean" }, notify: { type: "boolean" }, mailing: { anyOf: [{ type: "boolean" }, { type: "null" }] }, seen: { type: "boolean" }, asText: { type: "string" }, age: { type: "number", minimum: 18 } }, required: ["agree", "mailing", "seen", "asText", "age"] }'

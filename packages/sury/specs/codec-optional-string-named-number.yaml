@@ -3,7 +3,7 @@ ts:
   schema: 'S.optional(S.string).with(S.meta, { name: "Env" }).with(S.to, S.number)'
   input: string | undefined
   output: number
-  instantiations: 5189
+  instantiations: 5323
 jsonSchema:
   input: '{ type: "string" }'
   fromInputType: string

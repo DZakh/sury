@@ -5,7 +5,7 @@ ts:
     - S.to(S.string, S.number)
   input: string
   output: number
-  instantiations: 4419
+  instantiations: 4552
 jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "number" }'

@@ -3,7 +3,7 @@ ts:
   schema: S.tuple([S.optional(S.jsonString)]).with(S.to, S.jsonString)
   input: "[string | undefined]"
   output: string
-  instantiations: 5061
+  instantiations: 5194
 jsonSchema:
   input: "Failed at [0]: Expected JSON, received JSON string | undefined"
   output: '{ type: "string", contentMediaType: "application/json" }'

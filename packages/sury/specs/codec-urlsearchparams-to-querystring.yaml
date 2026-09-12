@@ -3,7 +3,7 @@ ts:
   schema: S.urlSearchParams.with(S.to, S.queryString)
   input: URLSearchParams
   output: string
-  instantiations: 4432
+  instantiations: 4565
 jsonSchema:
   input: Expected JSON, received URLSearchParams
   output: '{ type: "string" }'

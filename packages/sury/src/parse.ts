@@ -1,4 +1,5 @@
 import {
+  anyOfTag,
   baseSchema,
   type Builder,
   configurableValueOptions,
@@ -361,6 +362,23 @@ export type OpNode = {
   // recursive compile adds them to is not one it has to stay off.
   t?: boolean;
   y?: boolean;
+};
+
+// Splits a `T | undefined` union into the members left and whether
+// `undefined` was among them; any other schema is the one member. The
+// `undefined` of `S.optional(T, default)` has the default behind it, and
+// counts: the value may be absent, and absence produces the default.
+export const optionalMembers = (output: Internal): [Internal[], boolean] => {
+  const members: Internal[] = [];
+  let hasUndefined = false;
+  if (output.type === anyOfTag && output.anyOf !== U) {
+    for (let idx = 0; idx < output.anyOf.length; idx++) {
+      const member = output.anyOf[idx]!;
+      if (member.type === undefinedTag || getOutputSchema(member).type === undefinedTag) hasUndefined = true;
+      else members.push(member);
+    }
+  } else members.push(output);
+  return [members, hasUndefined];
 };
 const memoKey = "c";
 

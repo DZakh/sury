@@ -3,7 +3,7 @@ ts:
   schema: S.string.with(S.to, S.uint8Array).with(S.to, S.jsonString)
   input: string
   output: string
-  instantiations: 4566
+  instantiations: 4699
 jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "string", contentMediaType: "application/json" }'

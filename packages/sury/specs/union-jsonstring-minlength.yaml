@@ -3,7 +3,7 @@ ts:
   schema: S.union([S.jsonString.with(S.minLength, 3), S.number])
   input: string | number
   output: string | number
-  instantiations: 1705
+  instantiations: 1706
 jsonSchema:
   input: '{ anyOf: [{ type: "string", contentMediaType: "application/json", minLength: 3 }, { type: "number" }] }'
   output: '{ anyOf: [{ type: "string", contentMediaType: "application/json", minLength: 3 }, { type: "number" }] }'

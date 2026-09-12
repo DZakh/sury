@@ -3,7 +3,7 @@ ts:
   schema: 'S.object((s) => ({ f: s.flatten(S.schema({ b: S.string.with(S.to, S.number, { decode: (v) => +v, encode: (v) => "" + v }) })), o: s.field("O", S.string) }))'
   input: "{ [x: string]: unknown; }"
   output: "{ f: { b: number; }; o: string; }"
-  instantiations: 5683
+  instantiations: 5816
 jsonSchema:
   input: '{ type: "object", properties: { b: { type: "string" }, O: { type: "string" } }, required: ["b", "O"] }'
   fromInputType: "{ b: string; O: string; }"

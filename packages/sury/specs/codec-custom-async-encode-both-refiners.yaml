@@ -3,7 +3,7 @@ ts:
   schema: 'S.reverse(S.string.with(S.refine, (value) => value !== "0", { error: "Expected a non-zero text" })).with(S.to, S.number, { decode: (value) => +value, encode: { async: (value) => Promise.resolve("" + value) } }).with(S.refine, (value) => value < 10, { error: "Expected less than 10" })'
   input: string
   output: number
-  instantiations: 5730
+  instantiations: 5863
 jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "number" }'

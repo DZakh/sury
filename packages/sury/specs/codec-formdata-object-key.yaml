@@ -3,7 +3,7 @@ ts:
   schema: 'S.formData.with(S.to, S.schema({ ["__proto__"]: S.string.with(S.nonEmpty), "a[b]": S.number, "": S.string.with(S.minLength, 0) }))'
   input: FormData
   output: '{ __proto__: string; "a[b]": number; "": string; }'
-  instantiations: 6655
+  instantiations: 6789
 jsonSchema:
   input: Expected JSON, received FormData
   output: '{ type: "object", properties: { ["__proto__"]: { type: "string", minLength: 1 }, "a[b]": { type: "number" }, "": { type: "string", minLength: 0 } }, required: ["__proto__", "a[b]", ""] }'

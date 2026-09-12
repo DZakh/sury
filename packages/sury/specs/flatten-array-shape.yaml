@@ -3,7 +3,7 @@ ts:
   schema: 'S.object((s) => s.flatten(S.schema({ items: S.array(S.string.with(S.shape, (v) => ({ TAG: "A" as const, _0: v }))) })))'
   input: "{ [x: string]: unknown; }"
   output: '{ items: { TAG: "A"; _0: string; }[]; }'
-  instantiations: 6055
+  instantiations: 6189
 jsonSchema:
   input: '{ type: "object", properties: { items: { items: { type: "string" }, type: "array" } }, required: ["items"] }'
   fromInputType: "{ items: string[]; }"

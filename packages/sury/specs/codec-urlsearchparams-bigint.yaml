@@ -3,7 +3,7 @@ ts:
   schema: "S.urlSearchParams.with(S.to, S.schema({ n: S.bigint }))"
   input: URLSearchParams
   output: "{ n: bigint; }"
-  instantiations: 5459
+  instantiations: 5592
 jsonSchema:
   input: Expected JSON, received URLSearchParams
   output: "Failed at n: Expected JSON, received bigint"

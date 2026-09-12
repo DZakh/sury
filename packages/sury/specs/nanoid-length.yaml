@@ -3,7 +3,7 @@ ts:
   schema: S.nanoid.with(S.length, 21)
   input: string
   output: string
-  instantiations: 807
+  instantiations: 808
 jsonSchema:
   input: '{ type: "string", minLength: 21, maxLength: 21, pattern: "^[A-Za-z0-9_-]+$" }'
   output: '{ type: "string", minLength: 21, maxLength: 21, pattern: "^[A-Za-z0-9_-]+$" }'

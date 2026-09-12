@@ -3,7 +3,7 @@ ts:
   schema: "S.record(S.env).with(S.to, S.schema({ name: S.string.with(S.nonEmpty), bio: S.string.with(S.minLength, 0) }))"
   input: "{ [x: string]: string | undefined; }"
   output: "{ name: string; bio: string; }"
-  instantiations: 6558
+  instantiations: 6692
 jsonSchema:
   input: '{ type: "object", additionalProperties: { type: "string" } }'
   fromInputType: "{ [key: string]: string; }"

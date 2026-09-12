@@ -3,7 +3,7 @@ ts:
   schema: S.env.with(S.to, S.bigint)
   input: string | undefined
   output: bigint
-  instantiations: 4419
+  instantiations: 4552
 jsonSchema:
   input: '{ type: "string" }'
   fromInputType: string

@@ -3,7 +3,7 @@ ts:
   schema: 'S.formData.with(S.to, S.schema({ a: S.optional(S.schema("")), b: S.nullable(S.union(["", "x"])), c: S.nullable(S.union(["", S.number])) }))'
   input: FormData
   output: '{ b: "" | "x" | null; c: number | "" | null; a?: "" | undefined; }'
-  instantiations: 8065
+  instantiations: 8198
 jsonSchema:
   input: Expected JSON, received FormData
   output: '{ type: "object", properties: { a: { type: "string", const: "" }, b: { enum: ["", "x", null] }, c: { anyOf: [{ type: "string", const: "" }, { type: "number" }, { type: "null" }] } }, required: ["b", "c"] }'

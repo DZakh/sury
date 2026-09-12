@@ -3,7 +3,7 @@ ts:
   schema: "S.queryString.with(S.to, S.schema({ meta: S.jsonString.with(S.to, S.schema({ a: S.number })) }))"
   input: string
   output: "{ meta: { a: number; }; }"
-  instantiations: 6436
+  instantiations: 6569
 jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "object", properties: { meta: { type: "object", properties: { a: { type: "number" } }, required: ["a"] } }, required: ["meta"] }'

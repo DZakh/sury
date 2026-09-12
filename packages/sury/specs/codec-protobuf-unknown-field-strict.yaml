@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.protobuf.with(S.to, S.schema({ value: S.int32.with(S.protobufField, 1) }).with(S.strict))"
+  input: Uint8Array<ArrayBufferLike>
+  output: "{ value: number; }"
+  instantiations: 6200
+jsonSchema:
+  input: Expected JSON, received Uint8Array
+  output: '{ type: "object", properties: { value: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, additionalProperties: false, required: ["value"] }'
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+  output: (a,b)=>a===b||a.value===b.value
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{i instanceof e[3]||e[4](i);let v0,r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}return v0}
+    examples:
+      unknown-varint-rejected:
+        input: new Uint8Array([8, 1, 16, 2])
+        error: unknown protobuf field 2
+  decode:
+    expression: i=>{let v0,r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}return v0}
+    examples:
+      known-only:
+        input: new Uint8Array([8, 1])
+        output: "{ value: 1 }"
+      unknown-varint-rejected:
+        input: new Uint8Array([8, 1, 16, 2])
+        error: unknown protobuf field 2
+      unknown-length-delimited-rejected:
+        input: new Uint8Array([8, 1, 18, 1, 9])
+        error: unknown protobuf field 2
+      known-number-wrong-wire-type-rejected:
+        input: new Uint8Array([10, 1, 99, 8, 1])
+        error: unknown protobuf field 1 at value (field 1, wire type 2)
+  encode:
+    expression: i=>{let v0,w;try{w=e[2].acquire();let v,j,n,s,h,a,k,g,c;v=i.value;if(v){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=v;if(s<-2147483648||s>2147483647)e[0](s,-2147483648,2147483647,"int32");s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v0=w.finish()}catch(x){w&&(w.busy=false);e[3](x)}return v0}
+    examples:
+      known-field:
+        input: "{ value: 2 }"
+        output: new Uint8Array([8, 2])

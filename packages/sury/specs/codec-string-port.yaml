@@ -3,7 +3,7 @@ ts:
   schema: S.string.with(S.to, S.port)
   input: string
   output: number
-  instantiations: 4419
+  instantiations: 4552
 jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "integer", minimum: 0, maximum: 65535 }'

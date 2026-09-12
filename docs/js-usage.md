@@ -50,6 +50,7 @@
 - [Env](#env)
 - [URLSearchParams](#urlsearchparams)
 - [Query string](#query-string)
+- [Protocol Buffers](#protocol-buffers)
 - [Content](#content)
 - [Meta](#meta)
 - [Brand](#brand)
@@ -435,6 +436,17 @@ S.string.with(S.to, S.uint8Array);
 S.base64;
 // Decodes base64 to the bytes it stores
 S.base64.with(S.to, S.uint8Array);
+
+// An ArrayBuffer of its own. Bytes convert into it by taking ownership: a
+// view over its whole buffer hands the buffer over, any other view is copied
+// to size. Back to bytes is a view, which allocates nothing.
+S.arrayBuffer;
+S.uint8Array.with(S.to, S.arrayBuffer);
+
+// Protocol Buffers wire format, whose payload is a message
+S.protobuf;
+// Encodes an object with numbered fields to protobuf bytes
+S.schema({ id: S.int32.with(S.protobufField, 1) }).with(S.to, S.protobuf);
 ```
 
 See [Content](#content) for what happens when bytes and a JSON document meet.
@@ -1395,6 +1407,266 @@ const search = S.queryString.with(
 S.decodeOrThrow("q=hi&page=2", search);
 S.encodeOrThrow({ q: "hi", page: 2 }, search);
 ```
+
+## Protocol Buffers
+
+> **Experimental.** The whole protobuf surface - `S.protobuf`,
+> `S.protobufField`, `S.toProtoOrThrow`, `S.arrayBuffer` and the field option
+> shape - ships experimental in its first release. The wire format is frozen
+> by the spec and the compliance suite holds it there; the API around it is
+> not, and may be renamed or reshaped without a major version. Pin an exact
+> version if that matters to you.
+
+`S.protobuf` is the [Protocol Buffers](https://protobuf.dev) binary wire
+format. Give every field of an object schema a field number with
+`S.protobufField`, wire the schema to `S.protobuf`, and Sury compiles an
+encoder and a decoder specialized for that message: no `.proto` file, no
+code generation step, and the same schema still validates, infers types and
+converts to JSON Schema.
+
+```ts
+const User = S.schema({
+  id: S.int32.with(S.protobufField, 1),
+  name: S.string.with(S.protobufField, 2),
+  tags: S.array(S.string).with(S.protobufField, 3),
+  score: S.optional(S.number).with(S.protobufField, 4),
+});
+
+const encode = S.encodeOrThrow(S.protobuf.with(S.to, User));
+const decode = S.decodeOrThrow(S.protobuf, User);
+
+const bytes = encode({ id: 150, name: "Ada", tags: ["ml"] });
+// Uint8Array [8, 150, 1, 18, 3, 65, 100, 97, 26, 2, 109, 108]
+decode(bytes); // { id: 150, name: "Ada", tags: ["ml"] }
+```
+
+The wire type is inferred from the schema: `S.string` is `string`, `S.boolean`
+is `bool`, `S.uint8Array` is `bytes`, `S.int32` is `int32`, `S.number` is
+`double`, `S.bigint` is `int64`, `S.union([0, 1, 2])` is an `enum`, an object
+schema is a nested `message`, `S.array` is a `repeated` field and `S.record`
+is a `map`. An enum is open, as in proto3: a number the schema doesn't list
+decodes as that number. Pass a descriptor to
+pick any of the fifteen scalar wire types yourself, which also lets the JS
+type differ from the wire type, since Sury converts through the schema:
+
+```ts
+S.schema({
+  id: S.string.with(S.protobufField, { number: 1, type: "uint32" }), // "150" ⇄ varint 150
+  delta: S.int32.with(S.protobufField, { number: 2, type: "sint32" }), // zigzag
+  hash: S.bigint.with(S.protobufField, { number: 3, type: "fixed64" }),
+  ratio: S.number.with(S.protobufField, { number: 4, type: "float" }),
+  level: S.int32.with(S.protobufField, { number: 5, type: "enum" }),
+});
+```
+
+`type` is one of `double`, `float`, `int32`, `int64`, `uint32`, `uint64`,
+`sint32`, `sint64`, `fixed32`, `fixed64`, `sfixed32`, `sfixed64`, `bool`,
+`string`, `bytes`, `enum` or `message`. 64-bit integers are `bigint`.
+
+**Presence** follows proto3. A field is written only when it is not its default
+(`0`, `""`, `false`, empty bytes), and an absent field decodes to that default.
+`S.optional` gives a field explicit presence: `0` is written, and an absent
+field stays absent. A required nested message that is absent on the wire
+decodes to its default instance; wrap it in `S.optional` to observe presence.
+
+**Repeated** scalars are written packed and read in either form. A
+`packed: false` descriptor writes them expanded, as `[packed=false]` does.
+Repeated messages append, a nested message seen twice merges, and a scalar
+seen twice keeps the last value.
+
+**Maps** are `S.record` fields. The key travels as the property name and
+defaults to a `string` key; pick another with `key`. `type` describes the
+value:
+
+```ts
+S.schema({
+  counts: S.record(S.int32).with(S.protobufField, 1), // map<string, int32>
+  byId: S.record(User).with(S.protobufField, { number: 2, key: "int64" }), // map<int64, User>
+});
+```
+
+**Oneofs** are optional fields that share a `oneof` name. Decoding a member
+clears the others, so at most one is set. A member keeps explicit presence, so
+its zero value is written:
+
+```ts
+S.schema({
+  text: S.optional(S.string).with(S.protobufField, { number: 1, oneof: "value" }),
+  count: S.optional(S.int32).with(S.protobufField, { number: 2, oneof: "value" }),
+});
+```
+
+**Output memory.** An encoded message is a view over a buffer the encoder
+keeps writing into, the way a Node `Buffer` comes from a pool: `bytes.buffer`
+is larger than `bytes.byteLength` and `bytes.byteOffset` is not zero. Every
+consumer of a `Uint8Array` respects the view. To own the memory, to transfer
+it to a worker or hand an `ArrayBuffer` to an API that wants one, put
+`S.arrayBuffer` on the wire side of the pipeline; the conversion copies the
+message to size:
+
+```ts
+const Wire = S.arrayBuffer.with(S.to, S.protobuf).with(S.to, User);
+S.encodeOrThrow(Wire)({ id: 150, name: "Ada", tags: [] }); // ArrayBuffer(12)
+S.decodeOrThrow(Wire)(buffer); // { id: 150, name: "Ada", tags: [] }
+```
+
+**Generating a `.proto`.** `S.toProtoOrThrow` prints the proto3 source for a message
+schema, so a Sury schema can be the source of truth other languages build
+from, and `buf breaking` can guard it in CI; with a `package` and camelCase
+keys it passes `buf lint`'s defaults too. A schema's `name`
+meta names its message; without one the field key does, and camelCase keys
+print snake_case, which generators map back to lowerCamel (an acronym
+flattens: `userID` comes back as `userId`). `description` becomes a comment
+and `deprecated` the option: meta a schema carried before `S.protobufField`
+numbered it belongs to the message or enum it declares, meta set after to the
+field.
+
+```ts
+const Address = S.schema({
+  street: S.string.with(S.protobufField, 1),
+}).with(S.meta, { name: "Address" });
+const User = S.schema({
+  id: S.int32.with(S.protobufField, 1),
+  homeAddress: S.optional(Address).with(S.protobufField, 2),
+  kind: S.union([0, 1, 2]).with(S.protobufField, { number: 3, type: "enum" }),
+}).with(S.meta, { name: "User" });
+
+S.toProtoOrThrow(User, { package: "acme.v1" });
+// syntax = "proto3";
+//
+// package acme.v1;
+//
+// message User {
+//   enum Kind {
+//     KIND_UNSPECIFIED = 0;
+//     KIND_1 = 1;
+//     KIND_2 = 2;
+//   }
+//
+//   int32 id = 1;
+//   optional Address home_address = 2;
+//   Kind kind = 3;
+// }
+//
+// message Address {
+//   string street = 1;
+// }
+```
+
+The zero member prints as `KIND_UNSPECIFIED`, and an enum built from
+literals that lack `0` gets one prepended, since proto3 requires a zero member
+that the schema itself rejects.
+
+**Unknown fields** are skipped, the way every proto3 reader skips them: a
+field number the schema does not claim is stepped over whatever its wire type
+(varint, 64-bit, length-delimited, group or 32-bit), and so is a *known*
+number arriving under a wire type its field cannot hold. That is what lets a
+sender add a field without breaking you. They are skipped, not kept: decode
+then encode writes back only the fields the schema declares, so a message that
+round-trips through Sury loses whatever it carried that you did not describe.
+Put `S.strict` on the message to reject an unknown field instead of skipping
+it, which is worth having on an internal wire where an unexpected number means
+a version skew you would rather hear about.
+
+Strings must be valid UTF-8. Malformed input, such as a truncated field, a field
+number of zero, an unknown wire type, an unmatched group or a tag wider than
+32 bits, throws an `S.Error` with code `invalid_conversion` and the wire
+problem as its reason; so does a value the wire type can't hold, such as a
+`float` beyond 32-bit range.
+
+A wire failure names where it hit, the way an object parse error names a
+path: the field it was reading, its number, and the wire type the bytes
+claimed, with each enclosing message in front of it.
+
+```ts
+const Account = S.schema({
+  id: S.int32.with(S.protobufField, 1),
+  addr: S.optional(S.schema({ street: S.string.with(S.protobufField, 1) })).with(S.protobufField, 2),
+});
+
+S.decodeOrThrow(S.protobuf, Account)(new Uint8Array([8, 1, 18, 3, 10, 1, 255]));
+// => S.Error: protobuf string is not valid UTF-8 at addr.street (field 1, wire type 2)
+```
+
+A failure with no field to name keeps its own text: a field number the
+message does not declare says so itself, and bytes that are not a tag at all
+were never a field.
+
+A schema that can't be a message, whether a field without a number, two fields
+sharing one or an optional repeated field, is rejected when the operation is
+built, naming the field.
+
+#### Speed
+
+One run of `pnpm protobuf:compliance bench`, best of 7 samples, each library
+driven the way its README shows. The harness is in
+[`packages/protobuf-test-suite`](https://github.com/DZakh/sury/tree/main/packages/protobuf-test-suite);
+`bench.ts` holds the five message shapes and their values, so nothing here is a
+number without a shape behind it.
+
+```
+node v22.22.2 · linux x64 · sury 11.0.0 · protobufjs 8.8.0 · protobuf-es 2.14.1 · pbf 5.1.2
+
+tiny (3 bytes)
+  sury                 encode      48 ns  1.00x   decode      21 ns  1.00x
+  protobufjs reflect   encode     222 ns  4.63x   decode      60 ns  2.92x
+  protobufjs static    encode     213 ns  4.45x   decode      39 ns  1.91x
+  protobuf-es          encode     759 ns  15.82x   decode     311 ns  15.08x
+  pbf                  encode     587 ns  12.24x   decode     167 ns  8.12x
+typical (31 bytes)
+  sury                 encode     179 ns  1.00x   decode     265 ns  1.00x
+  protobufjs reflect   encode     529 ns  2.95x   decode     310 ns  1.17x
+  protobufjs static    encode     520 ns  2.90x   decode     276 ns  1.04x
+  protobuf-es          encode     869 ns  4.85x   decode    1292 ns  4.88x
+  pbf                  encode    1302 ns  7.27x   decode     370 ns  1.40x
+large (1416 bytes)
+  sury                 encode    1981 ns  1.00x   decode    2856 ns  1.00x
+  protobufjs reflect   encode    3481 ns  1.76x   decode    3334 ns  1.17x
+  protobufjs static    encode    3504 ns  1.77x   decode    3219 ns  1.13x
+  protobuf-es          encode    7802 ns  3.94x   decode    4430 ns  1.55x
+  pbf                  encode    7226 ns  3.65x   decode    3010 ns  1.05x
+common (79 bytes)
+  sury                 encode     635 ns  1.00x   decode     409 ns  1.00x
+  protobufjs reflect   encode    1633 ns  2.57x   decode     554 ns  1.35x
+  protobufjs static    encode    1569 ns  2.47x   decode     614 ns  1.50x
+  protobuf-es          encode    2025 ns  3.19x   decode    1719 ns  4.20x
+  pbf                  encode    1286 ns  2.03x   decode     573 ns  1.40x
+tile (3028 bytes)
+  sury                 encode   17501 ns  1.03x   decode   13524 ns  1.00x
+  protobufjs reflect   encode   36540 ns  2.15x   decode   22753 ns  1.68x
+  protobufjs static    encode   36847 ns  2.17x   decode   18268 ns  1.35x
+  protobuf-es          encode   52486 ns  3.09x   decode   36110 ns  2.67x
+  pbf                  encode   16969 ns  1.00x   decode   13851 ns  1.02x
+```
+
+The shapes: **tiny** is one `uint32`. **typical** is an id, a name, a bool, a
+repeated string, an optional double and optional bytes. **large** is a 1 KiB
+string beside 256 packed `sint32`. **common** is protobuf.js's own
+`bench/cases/common` message, three levels of nesting. **tile** is a Mapbox
+vector tile: packed geometry dominates.
+
+Read it as a shape, not as a score. Encode is where the compiled writer pays
+off and the ratios hold across runs - 2.5-4.6x protobufjs on the small and
+nested shapes, 1.8x on the large one. Decode is closer, 1.0-2.9x, and on
+**tile** pbf is the one to beat: it matches decode and leads encode, because a
+tile is almost entirely packed varints and that is what pbf is for. Sury's own
+`tile` decode is the least stable number here, moving between roughly 13 and
+19 µs run to run; everything else lands within a few percent. Run the command on your own
+machine and your own message before you plan around any of it.
+
+`S.protobuf` runs against Google's own `conformance_test_runner`, which
+generates its cases inside the binary: **692 of the 698 binary proto3 cases**,
+with the six named and explained in
+[`packages/protobuf-conformance/failing_tests.txt`](https://github.com/DZakh/sury/tree/main/packages/protobuf-conformance/failing_tests.txt)
+- four need recursive messages, two need unknown fields to survive a round
+trip. ProtoJSON, text format and the proto2 message types are not attempted.
+
+Beside it, a corpus of our own in
+[`packages/protobuf-test-suite`](https://github.com/DZakh/sury/tree/main/packages/protobuf-test-suite),
+where every case round-trips against two independent implementations:
+protobuf.js, and protobuf-es over both the reference `.proto` and the one
+`S.toProtoOrThrow` prints. Not covered by either: extensions, proto2 groups as
+fields, and retaining unknown fields through a round trip (see above).
 
 ## Content
 

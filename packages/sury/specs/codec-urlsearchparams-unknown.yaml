@@ -3,7 +3,7 @@ ts:
   schema: "S.urlSearchParams.with(S.to, S.schema({ a: S.unknown }))"
   input: URLSearchParams
   output: "{ a?: unknown; }"
-  instantiations: 6011
+  instantiations: 6144
 jsonSchema:
   input: Expected JSON, received URLSearchParams
   output: '{ type: "object", properties: { a: {} }, required: ["a"] }'

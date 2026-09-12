@@ -3,7 +3,7 @@ ts:
   schema: S.optional(S.literal("x")).with(S.to, S.nullable(S.literal("x")))
   input: '"x" | undefined'
   output: '"x" | null'
-  instantiations: 5096
+  instantiations: 5229
 jsonSchema:
   input: Expected JSON, received "x" | undefined
   output: '{ enum: ["x", null] }'

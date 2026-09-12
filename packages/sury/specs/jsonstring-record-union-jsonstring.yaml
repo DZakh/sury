@@ -3,7 +3,7 @@ ts:
   schema: S.record(S.union([S.jsonString, S.number])).with(S.to, S.jsonString)
   input: "{ [x: string]: string | number; }"
   output: string
-  instantiations: 5516
+  instantiations: 5649
 jsonSchema:
   input: '{ type: "object", additionalProperties: { anyOf: [{ type: "string", contentMediaType: "application/json" }, { type: "number" }] } }'
   output: '{ type: "string", contentMediaType: "application/json" }'

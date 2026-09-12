@@ -1,0 +1,20 @@
+{
+  "name": "protobuf-conformance-suite",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Runs Google's protobuf conformance suite against S.protobuf and snapshots the score",
+  "scripts": {
+    "conformance": "pnpm --filter=sury build:entry && tsx ./cli.ts"
+  },
+  "dependencies": {
+    "sury": "file:../sury"
+  },
+  "devDependencies": {
+    "@types/node": "20.19.41",
+    "protobuf-conformance": "33.6.0",
+    "protocol-buffers-schema": "^3.6.1",
+    "tsx": "4.22.4",
+    "typescript": "5.8.3"
+  }
+}

@@ -3,7 +3,7 @@ ts:
   schema: "S.queryString.with(S.to, S.schema({ f: S.file }))"
   input: string
   output: "{ f: File; }"
-  instantiations: 5462
+  instantiations: 5595
 jsonSchema:
   input: '{ type: "string" }'
   output: "Failed at f: Expected JSON, received File"

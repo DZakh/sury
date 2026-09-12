@@ -3,7 +3,7 @@ ts:
   schema: "S.schema({ x: S.array(S.string) }).with(S.to, S.schema({ x: S.array(S.string) }), { decode: (v) => v, encode: (v) => v })"
   input: "{ x: string[]; }"
   output: "{ x: string[]; }"
-  instantiations: 6175
+  instantiations: 6308
 jsonSchema:
   input: '{ type: "object", properties: { x: { items: { type: "string" }, type: "array" } }, required: ["x"] }'
   output: '{ type: "object", properties: { x: { items: { type: "string" }, type: "array" } }, required: ["x"] }'

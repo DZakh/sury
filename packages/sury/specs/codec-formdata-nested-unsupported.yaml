@@ -3,7 +3,7 @@ ts:
   schema: "S.formData.with(S.to, S.schema({ user: S.schema({ name: S.string }) }))"
   input: FormData
   output: "{ user: { name: string; }; }"
-  instantiations: 6364
+  instantiations: 6497
 jsonSchema:
   input: Expected JSON, received FormData
   output: '{ type: "object", properties: { user: { type: "object", properties: { name: { type: "string" } }, required: ["name"] } }, required: ["user"] }'

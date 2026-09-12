@@ -1,0 +1,5 @@
+{
+  "$comment": "Pinned upstream revision. Bumping this is a deliberate PR - re-run `pnpm conformance update` in the same commit so the golden diff shows what the new tests changed.",
+  "repository": "https://github.com/bufbuild/protobuf-conformance.git",
+  "commit": "faec7c97e35b7db71c8456c62472164c930af180"
+}

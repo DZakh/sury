@@ -3,7 +3,7 @@ ts:
   schema: 'S.queryString.with(S.to, S.schema({ role: S.union(["admin", "user"]), plan: S.optional(S.union(["free", "pro"])) }))'
   input: string
   output: '{ role: "admin" | "user"; plan?: "free" | "pro" | undefined; }'
-  instantiations: 7191
+  instantiations: 7324
 jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "object", properties: { role: { enum: ["admin", "user"] }, plan: { enum: ["free", "pro"] } }, required: ["role"] }'

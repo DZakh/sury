@@ -6,7 +6,7 @@ ts:
     - S.schemaOf<Date>()(S.string.with(S.to, S.date))
   input: string
   output: Date
-  instantiations: 4419
+  instantiations: 4552
 jsonSchema:
   input: '{ type: "string", format: "date-time" }'
   output: Expected JSON, received Date

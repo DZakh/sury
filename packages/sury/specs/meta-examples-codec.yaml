@@ -3,7 +3,7 @@ ts:
   schema: "S.string.with(S.to, S.number).with(S.meta, { examples: [42] })"
   input: string
   output: number
-  instantiations: 5029
+  instantiations: 5163
 jsonSchema:
   input: '{ type: "string", examples: ["42"] }'
   output: '{ type: "number", examples: [42] }'

@@ -3,7 +3,7 @@ ts:
   schema: "S.urlSearchParams.with(S.to, S.schema({ s: S.nullable(S.string), n: S.nullable(S.number) }))"
   input: URLSearchParams
   output: "{ s: string | null; n: number | null; }"
-  instantiations: 6012
+  instantiations: 6145
 jsonSchema:
   input: Expected JSON, received URLSearchParams
   output: '{ type: "object", properties: { s: { anyOf: [{ type: "string" }, { type: "null" }] }, n: { anyOf: [{ type: "number" }, { type: "null" }] } }, required: ["s", "n"] }'

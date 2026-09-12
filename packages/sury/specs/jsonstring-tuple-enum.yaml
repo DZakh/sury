@@ -3,7 +3,7 @@ ts:
   schema: S.tuple([S.union(["a", "b"]), S.number]).with(S.to, S.jsonString)
   input: '["a" | "b", number]'
   output: string
-  instantiations: 5810
+  instantiations: 5943
 jsonSchema:
   input: '{ type: "array", minItems: 2, maxItems: 2, items: [{ enum: ["a", "b"] }, { type: "number" }] }'
   output: '{ type: "string", contentMediaType: "application/json" }'

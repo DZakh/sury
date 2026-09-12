@@ -3,7 +3,7 @@ ts:
   schema: "S.queryString.with(S.to, S.schema({ q: S.string }))"
   input: string
   output: "{ q: string; }"
-  instantiations: 5425
+  instantiations: 5558
 jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "object", properties: { q: { type: "string" } }, required: ["q"] }'

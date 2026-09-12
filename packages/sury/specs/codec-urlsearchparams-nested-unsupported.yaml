@@ -3,7 +3,7 @@ ts:
   schema: "S.urlSearchParams.with(S.to, S.schema({ user: S.schema({ name: S.string }) }))"
   input: URLSearchParams
   output: "{ user: { name: string; }; }"
-  instantiations: 6366
+  instantiations: 6499
 jsonSchema:
   input: Expected JSON, received URLSearchParams
   output: '{ type: "object", properties: { user: { type: "object", properties: { name: { type: "string" } }, required: ["name"] } }, required: ["user"] }'

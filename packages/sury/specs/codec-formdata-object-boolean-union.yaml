@@ -3,7 +3,7 @@ ts:
   schema: "S.formData.with(S.to, S.schema({ a: S.union([S.boolean, S.number]) }))"
   input: FormData
   output: "{ a: number | boolean; }"
-  instantiations: 6208
+  instantiations: 6341
 jsonSchema:
   input: Expected JSON, received FormData
   output: '{ type: "object", properties: { a: { anyOf: [{ type: "boolean" }, { type: "number" }] } }, required: ["a"] }'

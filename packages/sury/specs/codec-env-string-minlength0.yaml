@@ -3,7 +3,7 @@ ts:
   schema: S.env.with(S.to, S.string.with(S.minLength, 0))
   input: string | undefined
   output: string
-  instantiations: 5128
+  instantiations: 5262
 jsonSchema:
   input: '{ type: "string", minLength: 0 }'
   fromInputType: string

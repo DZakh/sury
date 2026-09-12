@@ -436,6 +436,12 @@ export type Internal = {
   pattern?: RegExp;
   errorMessage?: SchemaErrorMessage;
   space?: number;
+  // Marks `S.protobuf`: `toProtoOrThrow` finds it on a chain by this rather
+  // than by the codec's encoder, which would drag the codec into a
+  // `toProtoOrThrow`-only bundle.
+  protobufWire?: true;
+  // What `S.protobufField` stored (`StoredField` in advanced/protobufField.ts).
+  protobufField?: unknown;
   // Compile-time only, set on a per-operation schema copy by `fz` below: the
   // container's dynamic items, or a fixed container's non-literal fields, are
   // typed but UNVALIDATED - the decoder skipped them because

@@ -3,7 +3,7 @@ ts:
   schema: "S.formData.with(S.to, S.schema({ tags: S.array(S.optional(S.string)) }))"
   input: FormData
   output: "{ tags: (string | undefined)[]; }"
-  instantiations: 5819
+  instantiations: 5952
 jsonSchema:
   input: Expected JSON, received FormData
   output: "Failed at tags[]: Expected JSON, received string | undefined"

@@ -3,7 +3,7 @@ ts:
   schema: "S.schema({ d: S.date.with(S.noValidation, true) }).with(S.to, S.jsonString)"
   input: "{ d: Date; }"
   output: string
-  instantiations: 5585
+  instantiations: 5719
 jsonSchema:
   input: "Failed at d: Expected JSON, received Date"
   output: '{ type: "string", contentMediaType: "application/json" }'

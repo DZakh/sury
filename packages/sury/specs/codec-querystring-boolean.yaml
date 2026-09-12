@@ -3,7 +3,7 @@ ts:
   schema: "S.queryString.with(S.to, S.schema({ debug: S.boolean, flag: S.optional(S.boolean) }))"
   input: string
   output: "{ debug: boolean; flag?: boolean | undefined; }"
-  instantiations: 6500
+  instantiations: 6633
 jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "object", properties: { debug: { type: "boolean" }, flag: { type: "boolean" } }, required: ["debug"] }'

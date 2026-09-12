@@ -3,7 +3,7 @@ ts:
   schema: 'S.formData.with(S.to, S.schema({ n: S.nullable(S.number, 5), s: S.nullable(S.string.with(S.nonEmpty), "d") }))'
   input: FormData
   output: "{ n: number; s: string; }"
-  instantiations: 6527
+  instantiations: 6660
 jsonSchema:
   input: Expected JSON, received FormData
   output: '{ type: "object", properties: { n: { type: "number" }, s: { type: "string", minLength: 1 } }, required: ["n", "s"] }'

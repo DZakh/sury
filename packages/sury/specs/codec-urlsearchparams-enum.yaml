@@ -3,7 +3,7 @@ ts:
   schema: 'S.urlSearchParams.with(S.to, S.schema({ role: S.union(["admin", "user"]), plan: S.optional(S.union(["free", "pro"])) }))'
   input: URLSearchParams
   output: '{ role: "admin" | "user"; plan?: "free" | "pro" | undefined; }'
-  instantiations: 7204
+  instantiations: 7337
 jsonSchema:
   input: Expected JSON, received URLSearchParams
   output: '{ type: "object", properties: { role: { enum: ["admin", "user"] }, plan: { enum: ["free", "pro"] } }, required: ["role"] }'

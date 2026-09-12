@@ -3,7 +3,7 @@ ts:
   schema: S.string.with(S.to, S.string.with(S.pattern, /^a$/))
   input: string
   output: string
-  instantiations: 4817
+  instantiations: 4951
 jsonSchema:
   input: '{ type: "string", pattern: "^a$" }'
   output: '{ type: "string", pattern: "^a$" }'

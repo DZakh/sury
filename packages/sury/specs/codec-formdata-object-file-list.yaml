@@ -3,7 +3,7 @@ ts:
   schema: "S.formData.with(S.to, S.schema({ docs: S.optional(S.array(S.file)), attachments: S.array(S.file), note: S.string.with(S.minLength, 0) }))"
   input: FormData
   output: "{ attachments: File[]; note: string; docs?: File[] | undefined; }"
-  instantiations: 7701
+  instantiations: 7835
 jsonSchema:
   input: Expected JSON, received FormData
   output: "Failed at docs[]: Expected JSON, received File"

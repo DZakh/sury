@@ -1,0 +1,26 @@
+{
+  "name": "benchmarks",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Generates docs/benchmarks/*.md: bundle size, features, performance and conformance per wire",
+  "scripts": {
+    "benchmarks": "pnpm --filter=sury build:entry && tsx ./cli.ts"
+  },
+  "dependencies": {
+    "protobuf-test-suite": "workspace:*",
+    "sury": "file:../sury"
+  },
+  "devDependencies": {
+    "@sinclair/typebox": "0.34.52",
+    "@types/node": "20.19.41",
+    "ajv": "8.20.0",
+    "arktype": "2.2.3",
+    "esbuild": "0.28.1",
+    "fast-json-stringify": "^7.0.1",
+    "tsx": "4.22.4",
+    "typescript": "5.8.3",
+    "valibot": "1.4.2",
+    "zod": "4.4.3"
+  }
+}

@@ -3,7 +3,7 @@ ts:
   schema: 'S.formData.with(S.to, S.schema({ tags: S.array(S.string.with(S.nonEmpty)), ids: S.array(S.number), picks: S.array(S.union(["a", "b"])), extra: S.optional(S.array(S.string)) }))'
   input: FormData
   output: '{ tags: string[]; ids: number[]; picks: ("a" | "b")[]; extra?: string[] | undefined; }'
-  instantiations: 8634
+  instantiations: 8767
 jsonSchema:
   input: Expected JSON, received FormData
   output: '{ type: "object", properties: { tags: { items: { type: "string", minLength: 1 }, type: "array" }, ids: { items: { type: "number" }, type: "array" }, picks: { items: { enum: ["a", "b"] }, type: "array" }, extra: { items: { type: "string" }, type: "array" } }, required: ["tags", "ids", "picks"] }'

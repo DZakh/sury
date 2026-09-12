@@ -3,7 +3,7 @@ ts:
   schema: "S.record(S.env).with(S.to, S.schema({ NAME: S.nullable(S.string), PORT: S.nullable(S.port) }))"
   input: "{ [x: string]: string | undefined; }"
   output: "{ NAME: string | null; PORT: number | null; }"
-  instantiations: 6177
+  instantiations: 6310
 jsonSchema:
   input: '{ type: "object", additionalProperties: { type: "string" } }'
   fromInputType: "{ [key: string]: string; }"

@@ -3,7 +3,7 @@ ts:
   schema: "S.formData.with(S.to, S.schema({ name: S.string.with(S.nonEmpty), nothing: S.void, none: S.schema(null) }))"
   input: FormData
   output: "{ name: string; none: null; nothing?: void | undefined; }"
-  instantiations: 7248
+  instantiations: 7381
 jsonSchema:
   input: Expected JSON, received FormData
   output: "Failed at nothing: Expected JSON, received void"

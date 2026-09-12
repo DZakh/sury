@@ -3,7 +3,7 @@ ts:
   schema: "S.record(S.env).with(S.to, S.schema({ PORT: S.port, DEBUG: S.boolean, NAME: S.optional(S.string) }))"
   input: "{ [x: string]: string | undefined; }"
   output: "{ PORT: number; DEBUG: boolean; NAME?: string | undefined; }"
-  instantiations: 7021
+  instantiations: 7154
 jsonSchema:
   input: '{ type: "object", additionalProperties: { type: "string" } }'
   fromInputType: "{ [key: string]: string; }"

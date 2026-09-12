@@ -3,7 +3,7 @@ ts:
   schema: 'S.formData.with(S.to, S.schema({ role: S.union(["admin", "user"]), plan: S.optional(S.union(["free", "pro"])) }))'
   input: FormData
   output: '{ role: "admin" | "user"; plan?: "free" | "pro" | undefined; }'
-  instantiations: 7202
+  instantiations: 7335
 jsonSchema:
   input: Expected JSON, received FormData
   output: '{ type: "object", properties: { role: { enum: ["admin", "user"] }, plan: { enum: ["free", "pro"] } }, required: ["role"] }'

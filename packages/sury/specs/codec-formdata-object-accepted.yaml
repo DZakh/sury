@@ -3,7 +3,7 @@ ts:
   schema: "S.formData.with(S.to, S.schema({ terms: S.schema(true), picks: S.array(S.string).with(S.nonEmpty), maybe: S.nullable(S.boolean) }))"
   input: FormData
   output: "{ terms: true; picks: [string, ...string[]]; maybe: boolean | null; }"
-  instantiations: 6895
+  instantiations: 7028
 jsonSchema:
   input: Expected JSON, received FormData
   output: '{ type: "object", properties: { terms: { type: "boolean", const: true }, picks: { items: { type: "string" }, type: "array", minItems: 1 }, maybe: { anyOf: [{ type: "boolean" }, { type: "null" }] } }, required: ["terms", "picks", "maybe"] }'

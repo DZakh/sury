@@ -3,7 +3,7 @@ ts:
   schema: S.env.with(S.to, S.union(["development", "production"]))
   input: string | undefined
   output: '"development" | "production"'
-  instantiations: 4952
+  instantiations: 5085
 jsonSchema:
   input: '{ type: "string" }'
   fromInputType: string

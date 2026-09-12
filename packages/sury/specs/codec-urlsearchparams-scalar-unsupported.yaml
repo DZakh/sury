@@ -3,7 +3,7 @@ ts:
   schema: S.urlSearchParams.with(S.to, S.number)
   input: URLSearchParams
   output: number
-  instantiations: 4432
+  instantiations: 4565
 jsonSchema:
   input: Expected JSON, received URLSearchParams
   output: '{ type: "number" }'

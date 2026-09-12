@@ -3,7 +3,7 @@ ts:
   schema: "S.queryString.with(S.to, S.schema({ at: S.date }))"
   input: string
   output: "{ at: Date; }"
-  instantiations: 5450
+  instantiations: 5583
 jsonSchema:
   input: '{ type: "string" }'
   output: "Failed at at: Expected JSON, received Date"

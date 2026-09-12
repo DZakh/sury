@@ -137,7 +137,14 @@ async function pack(): Promise<void> {
     fs.cpSync(path.join(projectPath, p), path.join(artifactsPath, p), { recursive: true });
   }
   for (const p of repoRootPaths) {
-    fs.cpSync(path.join(repoRootPath, p), path.join(artifactsPath, p), { recursive: true });
+    fs.cpSync(path.join(repoRootPath, p), path.join(artifactsPath, p), {
+      recursive: true,
+      // `docs/benchmarks` is generated for the repo's readers and is mostly
+      // tables of other libraries' numbers. It would land in every consumer's
+      // node_modules without answering a question they have about the API, so
+      // only the two usage guides ship.
+      filter: (source) => path.basename(source) !== "benchmarks",
+    });
   }
 
   execaSync("pnpm", ["rescript"], { cwd: artifactsPath, stdio: "inherit" });

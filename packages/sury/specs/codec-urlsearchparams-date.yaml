@@ -3,7 +3,7 @@ ts:
   schema: "S.urlSearchParams.with(S.to, S.schema({ at: S.date }))"
   input: URLSearchParams
   output: "{ at: Date; }"
-  instantiations: 5463
+  instantiations: 5596
 jsonSchema:
   input: Expected JSON, received URLSearchParams
   output: "Failed at at: Expected JSON, received Date"

@@ -3,7 +3,7 @@ ts:
   schema: "S.formData.with(S.to, S.schema({ a: S.union([S.string, S.number]) }))"
   input: FormData
   output: "{ a: string | number; }"
-  instantiations: 6208
+  instantiations: 6341
 jsonSchema:
   input: Expected JSON, received FormData
   output: '{ type: "object", properties: { a: { anyOf: [{ type: "string" }, { type: "number" }] } }, required: ["a"] }'
