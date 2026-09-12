@@ -231,20 +231,6 @@ export const getOutputSchema = (schema: Internal): Internal => {
   while (schema.to) schema = schema.to;
   return schema;
 }
-
-// What a chain ends up holding, asked by the schemas that read a chained
-// target as a whole: an absent value has nothing for the links between to
-// convert, so it lands here. The tail an operation appends is not part of the
-// chain the author wrote - `S.unknown` is the target of a convert, the
-// `noValidation` sentinel the one an assert decodes to - and a schema that
-// answered differently under those would answer differently per operation.
-export const getCarrierSchema = (schema: Internal): Internal => {
-  while (schema.to && schema.to.noValidation !== true && schema.to.type !== unknownTag) {
-    schema = schema.to;
-  }
-  return schema;
-}
-
 // The two sides of a schema trade places: what parsed now serializes, what
 // refined the input now refines the output. `delete` rather than `= U` because
 // `unionIsTransparent` (union.ts) counts a schema's keys, and a key left

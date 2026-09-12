@@ -6,20 +6,15 @@
 
 import { type Check, initSchema, stringTag, tagFlags, U, type Internal, type Val } from "../base";
 import { B_next, B_refine, B_unsupportedDecode, failInvalidType } from "../builder";
-import { getCarrierSchema } from "../parse";
 import { string, typeofCond } from "../primitives";
 import { convertTextEntry, isAbsent } from "./entries";
 
 const definedCheck: Check = { c: (inputVar) => `${inputVar}!==void 0`, f: failInvalidType };
 
 // A text target has no place for the unset var: an absent one reads it as its
-// absent arm, a coercion or a jsonString rejects it itself. A chain decides by
-// what it ends in - the links between convert the text, and the unset var
-// reaches none of them.
-const rejectsUnset = (target: Internal): boolean => {
-  const out = getCarrierSchema(target);
-  return (tagFlags[out.type]! & 2) !== 0 && out.format !== "json" && !isAbsent(out);
-};
+// absent arm, a coercion or a jsonString rejects it itself.
+const rejectsUnset = (target: Internal): boolean =>
+  (tagFlags[target.type]! & 2) !== 0 && target.format !== "json" && !isAbsent(target);
 
 // Walks the chain and the scopes it was taken from: a union case scopes the
 // group's narrow, whose check became the case condition.
