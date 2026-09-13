@@ -271,6 +271,9 @@ const userSchema = S.schema({
 S.encodeOrThrow(userSchema, S.protobuf, { id: 150, name: "Ada", tags: ["ml"] });
 // => Uint8Array [8, 150, 1, 18, 3, 65, 100, 97, 26, 2, 109, 108]
 
+S.decodeOrThrow(S.protobuf, userSchema, bytes);
+// => { id: 150, name: "Ada", tags: ["ml"] }
+
 S.toProtoOrThrow(userSchema, { package: "acme.v1" }); // hand the other side its .proto
 // => message User {
 //      int32 id = 1;
@@ -366,7 +369,7 @@ And 3.2× lighter than fast-json-stringify - 18.0 kB against 56.9 kB, encoder in
 
 ## Comparison
 
-Sury has the fastest parsing and encoding in the ecosystem - the hot path. Creating a schema and using it once is the one workload where an interpreted library wins a row below.
+Sury has the fastest parsing and encoding in the ecosystem - the hot path. Creating a schema and using it once is the one workload where an interpreted library wins.
 
 It's also small. Instead of a few large classes with many methods, the API and source are built from many small, independent functions. A bundler follows your imports and drops everything you don't use, which can cut the shipped size by up to 2× compared to [Zod](https://github.com/colinhacks/zod). (The approach is borrowed from [Valibot](https://github.com/fabian-hiller/valibot), which pioneered it.)
 
@@ -374,18 +377,11 @@ And the types stay readable. Hovering the event schema from [Why Sury](#why-sury
 
 ### Size & speed
 
-Measured with [this repo's comparison benchmark](https://github.com/DZakh/sury/tree/main/packages/e2e/src/benchmark) against `sury@11.0.0`, `zod@4.4.3`, `typebox@0.34.52`, `valibot@1.4.2`, `arktype@2.2.3`.
+The numbers live on their own pages, one per wire Sury speaks, each with bundle size, a feature table where every cell is a call run against that library, throughput and conformance scores:
 
-The table below is a snapshot. [Benchmarks: Schema](https://github.com/DZakh/sury/blob/main/docs/benchmarks/schema.md) is regenerated on every push to main, and carries the bundle sizes, the feature probes and the Standard Schema conformance beside these numbers.
+**Benchmarks:** [Schema](https://github.com/DZakh/sury/blob/main/docs/benchmarks/schema.md) | [JSON Encoding](https://github.com/DZakh/sury/blob/main/docs/benchmarks/jsonString.md) | [JSON Schema](https://github.com/DZakh/sury/blob/main/docs/benchmarks/jsonSchema.md) | [Protobuf](https://github.com/DZakh/sury/blob/main/docs/benchmarks/protobuf.md)
 
-|                                 | Sury           | Zod          | TypeBox                        | Valibot      | ArkType        |
-| ------------------------------- | -------------- | ------------ | ------------------------------ | ------------ | -------------- |
-| **Total size** (min + gzip)     | 43.4 kB        | 64.7 kB      | 31.2 kB                        | 15.2 kB      | 47.1 kB        |
-| **Benchmark size** (min + gzip) | 8.7 kB         | 19.6 kB      | 22.6 kB                        | 1.29 kB      | 47.0 kB        |
-| **Parse with the same schema**  | 210,061 ops/ms | 9,367 ops/ms | 158,185 ops/ms (no transforms) | 1,970 ops/ms | 106,520 ops/ms |
-| **Create schema & parse once**  | 99 ops/ms      | 11 ops/ms    | 103 ops/ms (no transforms)     | 315 ops/ms   | 11 ops/ms      |
-
-"Benchmark size" is what actually ships after tree-shaking for the benchmarked schema. The TypeBox numbers are validation-only - it doesn't run the transforms.
+They are regenerated on every push to main and remeasured on every pull request, against `zod@4.4.3`, `typebox@0.34.52`, `valibot@1.4.2`, `arktype@2.2.3`, `protobufjs@8.8.0`, `protobuf-es@2.14.1` and `pbf@5.1.2`. A page that stops matching a fresh measurement fails CI, which is the part a table pasted here could never do.
 
 Independent benchmarks and conformance suites that include Sury:
 
