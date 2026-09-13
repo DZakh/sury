@@ -1,0 +1,27 @@
+# Conformance cases S.protobuf is expected to fail, with the reason. Each one
+# is a limitation this PR documents, not a bug waiting to be filed.
+#
+# A case that starts failing and is not listed here fails the CI job.
+# `pnpm conformance report` names every failure; `pnpm conformance update`
+# re-baselines the score once a line is added or removed here.
+
+# --- recursive messages ---------------------------------------------------
+# `TestAllTypesProto3.NestedMessage.corecursive` is TestAllTypesProto3 itself.
+# S.protobuf compiles a message by walking its schema, and a cycle has no
+# bottom to build from, so the field is left undeclared and rides through as an
+# unknown field - which S.protobuf skips rather than keeps, so it is gone from
+# the re-encoded output. Same reason `Struct`, `Value` and `ListValue` are
+# undeclared in testMessages.ts.
+Recommended.Proto3.ProtobufInput.ValidDataOneofBinary.MESSAGE.Merge.ProtobufOutput
+Required.Proto3.ProtobufInput.RepeatedScalarMessageMerge.ProtobufOutput
+Required.Proto3.ProtobufInput.ValidDataMap.STRING.MESSAGE.MergeValue.ProtobufOutput
+Required.Proto3.ProtobufInput.ValidDataOneof.MESSAGE.Merge.ProtobufOutput
+
+# --- unknown fields are not retained --------------------------------------
+# S.protobuf skips an unknown field, the way every proto3 reader does, but does
+# not keep it to write back: a decode followed by an encode emits only the
+# fields the schema declares. These two cases require the round trip to
+# preserve one. Documented in docs/js-usage.md under "Unknown fields", and
+# listed as not covered in the compliance golden.
+Required.Proto3.ProtobufInput.UnknownOrdering.ProtobufOutput
+Required.Proto3.ProtobufInput.UnknownVarint.ProtobufOutput

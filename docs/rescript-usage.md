@@ -56,6 +56,7 @@
   - [`json`](#json)
   - [`jsonString`](#jsonstring)
   - [Content](#content)
+  - [Protocol Buffers](#protocol-buffers)
   - [`meta`](#meta)
   - [`recursive`](#recursive)
 - [Custom schema](#custom-schema)
@@ -1473,6 +1474,166 @@ S.base64->S.to(S.uint8Array) // the same bytes
 S.jsonString->S.to(S.string) // parses
 S.base64->S.to(S.string) // widens
 ```
+
+### **Protocol Buffers**
+
+`S.protobuf` is the [Protocol Buffers](https://protobuf.dev) binary wire
+format. Number every field of a message with `S.protobufField`, convert to
+`S.protobuf`, and you have an encoder and a decoder for that message. No
+`.proto` file, no code generation step, and the schema still parses, infers
+types and converts to JSON Schema.
+
+```rescript
+type address = {street: string}
+type user = {id: int, name: string, tags: array<string>, home: option<address>, kind: int}
+
+let addressSchema = S.schema(s => {street: s.matches(S.string->S.protobufField(1))})
+
+let userSchema = S.schema(s => {
+  id: s.matches(S.int->S.protobufField(1)),
+  name: s.matches(S.string->S.protobufField(2)),
+  tags: s.matches(S.array(S.string)->S.protobufField(3)),
+  home: s.matches(S.option(addressSchema)->S.protobufField(4)),
+  kind: s.matches(S.enum([1, 2])->S.protobufField(5, ~type_=#enum)),
+})->S.meta({name: "User"})
+
+let value = {id: 150, name: "Ada", tags: ["ml"], home: Some({street: "Main"}), kind: 2}
+
+let bytes = value->S.convertOrThrow(~from=userSchema, ~to=S.protobuf) // 22 bytes
+bytes->S.convertOrThrow(~from=S.protobuf, ~to=userSchema) // back to `value`
+```
+
+Hoist the operation when you run it more than once, the way you would any
+other:
+
+```rescript
+let decode = S.compileConvertOrThrow(~from=S.protobuf, ~to=userSchema)
+```
+
+`S.protobuf->S.to(userSchema)` is the same codec as one schema, so it parses
+straight from an `unknown` - the bytes are checked to be a `Uint8Array` before
+anything is read:
+
+```rescript
+body->S.parseOrThrow(~to=S.protobuf->S.to(userSchema))
+```
+
+#### Build a message with `S.schema`, not `S.object`
+
+`S.object` names JS fields and builds a ReScript value out of them, which is a
+conversion: the message is the thing on the far side of it, and a *nested*
+message field has nowhere to put one.
+
+```rescript
+S.object(s => {street: s.field("street", S.string->S.protobufField(1))})
+// as a field of another message, throws: field "home" is a message that
+// converts further with S.to, which a nested field can't
+```
+
+`S.schema` matches the record's own fields, so the message is the schema
+itself and nests freely. Use `S.object` only for a root message, where the
+conversion has somewhere to go.
+
+#### The wire type
+
+It is inferred from the schema: `S.string` is `string`, `S.bool` is `bool`,
+`S.uint8Array` is `bytes`, `S.int` is `int32`, `S.float` is `double`,
+`S.bigint` is `int64`, `S.enum` of ints is an `enum`, a message schema is a
+nested `message`, `S.array` is `repeated` and `S.dict` is a `map`. Pass
+`~type_` to pick any of the fifteen scalar types yourself, which also lets the
+ReScript type differ from the wire type - Sury converts through the schema.
+
+```rescript
+S.string->S.protobufField(1, ~type_=#uint32) // "150" <=> varint 150
+S.int->S.protobufField(2, ~type_=#sint32) // zigzag
+S.bigint->S.protobufField(3, ~type_=#fixed64)
+S.float->S.protobufField(4, ~type_=#float)
+```
+
+The rest of `S.protobufField` is protobuf's own vocabulary. `~key` is the K of
+a `map<K, V>` for an `S.dict` field, `string` unless you say otherwise;
+`~packed=false` writes a repeated scalar expanded, a tag per item, where the
+default packs them into one run (decoding accepts both); `~oneof` puts the
+field in a `oneof` block, where at most one member is ever set: decoding one
+clears the others, and encoding a value with two of them set is refused.
+
+```rescript
+S.dict(S.string)->S.protobufField(5, ~key=#int64)
+S.array(S.int)->S.protobufField(6, ~packed=false)
+S.option(S.string)->S.protobufField(7, ~oneof="choice")
+```
+
+#### Unknown fields
+
+Skipped, the way every proto3 reader skips them, which is what lets a sender
+add a field without breaking you. Skipped, not kept: a decode followed by an
+encode writes back only the fields the schema declares. `S.strict` on the
+message rejects an unknown field instead, which is worth having on an internal
+wire where an unexpected number means a version skew you would rather hear
+about.
+
+A wire failure names where it hit, the way an object parse error names a path:
+the field, its number, and the wire type the bytes claimed, with each
+enclosing message in front of it.
+
+```rescript
+%raw(`new Uint8Array([8, 1, 34, 3, 10, 1, 255])`)->S.convertOrThrow(
+  ~from=S.protobuf,
+  ~to=userSchema,
+)
+// throws: protobuf string is not valid UTF-8 at home.street (field 1, wire type 2)
+```
+
+#### `toProtoOrThrow`
+
+`(S.t<'value>, ~name: string=?, ~package: string=?) => string`
+
+The proto3 source describing the wire a message schema speaks, for the other
+side of the connection. A schema's `name` meta names the message, otherwise
+`~name` does, otherwise it is `Message`. camelCase field names print
+snake_case, because that is proto3's style guide and what `buf lint` checks;
+the wire is unaffected, since a field is its number, and every generator turns
+the name back into the one its own language would use.
+
+```rescript
+userSchema->S.toProtoOrThrow(~package="acme.v1")
+```
+
+```proto
+syntax = "proto3";
+
+package acme.v1;
+
+message User {
+  message Home {
+    string street = 1;
+  }
+  enum Kind {
+    KIND_UNSPECIFIED = 0;
+    KIND_1 = 1;
+    KIND_2 = 2;
+  }
+
+  int32 id = 1;
+  string name = 2;
+  repeated string tags = 3;
+  optional Home home = 4;
+  Kind kind = 5;
+}
+```
+
+`description` meta prints as a comment and `deprecated` as the option. An
+enum's zero member prints as `<NAME>_UNSPECIFIED`, and one is prepended to an
+enum whose values lack `0`, which proto3 requires and the schema itself
+rejects. It throws on anything that cannot be a message: a field with no
+number, two fields sharing one, a recursive message, a schema that is not an
+object.
+
+See [Protocol Buffers in the JS guide](./js-usage.md#protocol-buffers) for the
+wire-level detail the two languages share, including what the conformance
+suite covers, and
+[Benchmarks: Protobuf](https://github.com/DZakh/sury/blob/main/docs/benchmarks/protobuf.md)
+for the measured numbers.
 
 ### **`meta`**
 

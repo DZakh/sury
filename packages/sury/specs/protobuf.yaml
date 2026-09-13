@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.protobuf
+  input: Uint8Array<ArrayBufferLike>
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 254
+jsonSchema:
+  input: Expected JSON, received Uint8Array
+  output: Expected JSON, received Uint8Array
+isEqual: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{i instanceof e[0]||e[1](i);return i}
+    examples:
+      bytes:
+        input: new Uint8Array([8, 150, 1])
+        output: new Uint8Array([8, 150, 1])
+      empty:
+        input: new Uint8Array([])
+        output: new Uint8Array([])
+      string-is-not-bytes:
+        input: '"hi"'
+        error: Expected Uint8Array, received "hi"
+  decode: identity
+  encode: identity

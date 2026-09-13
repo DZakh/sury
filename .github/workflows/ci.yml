@@ -123,6 +123,91 @@ jobs:
 
       - run: pnpm compliance
 
+  protobuf-compliance:
+    name: Protobuf - Conformance & Test Suite
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.16.0
+          cache: "pnpm"
+      - run: pnpm install
+
+      # Our own corpus: fast, readable, and checked against two reference
+      # implementations. It says what broke.
+      - name: Protobuf test suite
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm protobuf:compliance | tee compliance.txt
+          echo "### $(tail -n 1 compliance.txt)" >> "$GITHUB_STEP_SUMMARY"
+
+      # Google's own conformance runner, which generates its cases inside the
+      # binary - the one that says whether we are right. Pinned corpus, cached
+      # by the commit it is pinned to.
+      - name: Restore conformance corpus
+        uses: actions/cache@v4
+        with:
+          path: packages/protobuf-conformance/.upstream
+          key: protobuf-conformance-${{ hashFiles('packages/protobuf-conformance/conformance-ref.json') }}
+
+      - name: Protobuf conformance suite
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm protobuf:conformance | tee conformance.txt
+          echo "### $(tail -n 1 conformance.txt)" >> "$GITHUB_STEP_SUMMARY"
+
+  # The four pages under docs/benchmarks/ are generated, and this is what keeps
+  # them true. Three of their four sections are the same on any machine, so a
+  # pull request checks them and fails on a page that no longer matches a fresh
+  # measurement. The fourth is timings, which move with the runner, so they are
+  # remeasured and republished on main rather than gated - a benchmark page
+  # nobody regenerates is worse than no page.
+  benchmarks:
+    name: Benchmarks
+    runs-on: ubuntu-24.04
+    permissions:
+      # Writing is only reached on the main branch, where the regenerated pages
+      # are committed back.
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The push below needs the token this leaves behind.
+          persist-credentials: true
+      - uses: pnpm/action-setup@v2
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.16.0
+          cache: "pnpm"
+      - run: pnpm install
+
+      - name: Pages match a fresh measurement
+        if: github.event_name == 'pull_request'
+        run: pnpm benchmarks
+
+      - name: Remeasure and republish
+        if: github.event_name != 'pull_request'
+        run: pnpm benchmarks --write
+
+      # `[skip ci]` because the push would otherwise start this workflow again,
+      # which would produce another set of timings, and so on.
+      - name: Commit the regenerated pages
+        if: github.event_name != 'pull_request'
+        run: |
+          if git diff --quiet -- docs/benchmarks packages/benchmarks/goldens; then
+            echo "nothing moved"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/benchmarks packages/benchmarks/goldens
+          git commit -m "docs: regenerate the benchmark pages [skip ci]"
+          git push origin HEAD:${GITHUB_REF_NAME}
+
   performance:
     name: Performance (PR)
     if: github.event_name == 'pull_request'

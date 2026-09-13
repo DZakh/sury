@@ -191,8 +191,14 @@ npm run test -- --watch
 
 ## Make comparison
 
-For the cross-library comparison table in the README, bundle each library on
-https://bundlejs.com/ with the recipes below.
+`pnpm benchmarks --write` regenerates `docs/benchmarks/*.md`, which is where the
+measured cross-library numbers live: bundle size, feature probes, timings and
+conformance, for schemas, JSON encoding, JSON Schema and protobuf. CI runs the
+check on every pull request and republishes the pages on every push to main, so
+a number there is never older than the last merge. Reach for it first.
+
+The recipes below are for the README's own snapshot table, which is bundled on
+https://bundlejs.com/ so the figures are comparable with what that site reports.
 
 A release is measured before it is on npm, so Sury's own cells come from the
 local build instead: bundle the same recipe with esbuild (`bundle`, `minify`,
@@ -377,6 +383,21 @@ instead of silently working around it.
   generated cases, would make the changelog trustworthy. The gate itself is
   unaffected - it only counts `acceptance`/`exception-kind` from the
   compiled-vs-reference run.
+
+- There is no operation for source text: `S.toProtoOrThrow` returns a `.proto` file,
+  so its output is snapshotted in `tests/S_toProto_test.ts` rather than a spec.
+  A `proto` operation next to `jsonSchema` would keep it with the schema.
+
+- `valueToCode` has no case for `ArrayBuffer`, so an example whose result is
+  one (`S.arrayBuffer`, `S.uint8Array.with(S.to, S.arrayBuffer)` encode) can
+  only be a rejecting input; the accepting ones live in
+  `tests/S_arrayBuffer_test.ts`. `new Uint8Array([...]).buffer` would print it.
+
+- `jsonSchema` snapshots one target (the default draft-07), so an emit that is
+  dialect-gated - `contentSchema` is 2019-09+, OpenAPI 3.0 has no content
+  keywords at all - has no golden for the targets it differs on, and lands in
+  `S_inputJSONSchema_target_test.res` instead. A `jsonSchema.targets` map, or a
+  per-spec target override, would keep it with the schema it belongs to.
 
 - A spec for a *new* export is timed against a baseline that doesn't have it.
   The expression evaluates to `undefined` there, `S.parseOrThrow(undefined)` compiles

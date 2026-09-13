@@ -251,6 +251,12 @@ describeArtifact("artifact", () => {
     // `type exn += private Exn(error)`: a constructor, and the one name the doc
     // reaches through `S.` that no declaration form above spells.
     add(/^\s*type\s+\w+\s*\+=\s*(?:private\s+)?(\w+)/gm);
+    // Variant constructors (`| @as("sint32") Sint32`), which a doc reaches
+    // through `S.` exactly like a value - `S.protobufField(~type_=S.Sint32)`.
+    add(/^\s*\|\s*(?:@as\([^)]*\)\s*)?([A-Z]\w*)/gm);
+    // The single-constructor form, which has no leading bar
+    // (`@unboxed type jsonString = JsonString(string)`).
+    add(/^\s*(?:type|and)\s+\w+\s*=\s*([A-Z]\w*)\(/gm);
 
     const unknown = new Set<string>();
     for (const [, name] of read("docs/rescript-usage.md").matchAll(

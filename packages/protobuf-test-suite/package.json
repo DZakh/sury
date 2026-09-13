@@ -1,0 +1,27 @@
+{
+  "name": "protobuf-test-suite",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Round-trips S.protobuf against protobufjs and holds the score to a committed golden",
+  "scripts": {
+    "compliance": "pnpm --filter=sury build:entry && tsx ./cli.ts",
+    "compare": "pnpm --filter=sury build:entry && node --expose-gc --import tsx ./cli.ts compare"
+  },
+  "dependencies": {
+    "sury": "file:../sury"
+  },
+  "devDependencies": {
+    "@bufbuild/protobuf": "^2.14.1",
+    "@protobuf-ts/runtime": "^2.11.1",
+    "@types/node": "20.19.41",
+    "esbuild": "0.28.1",
+    "google-protobuf": "^4.0.2",
+    "pbf": "^5.1.2",
+    "protobufjs": "8.8.0",
+    "protobufjs-cli": "^2.7.0",
+    "protocol-buffers-schema": "^3.6.1",
+    "tsx": "4.22.4",
+    "typescript": "5.8.3"
+  }
+}

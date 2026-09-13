@@ -479,6 +479,45 @@ s.fn(s.arg(0, S.string))
   `json-schema-to-ts` gets the `allOf`-sibling variant wrong - pin whatever
   behavior lands in a spec.
 
+## Recursive protobuf messages
+
+`S.protobuf` rejects a message that refers to itself, directly or through
+another message. It costs four cases of the conformance suite
+(`NestedMessage.corecursive` is `TestAllTypesProto3` itself, so the field is
+left undeclared and rides through as an unknown field), and it is why
+`Struct`, `Value` and `ListValue` - the three recursive well-known types - are
+undeclared in `packages/protobuf-conformance/testMessages.ts`. Outside the
+suite it is the shape of every tree and every linked list.
+
+A spike got the encode direction compiling and found what the rest needs, so
+this is a scoped piece of work rather than an open question:
+
+- `inferType` (protobufField.ts) has no case for `refTag`, which is what a
+  recursive schema is until it is resolved. One line: a ref can only be a
+  message on the wire.
+- `firstObject` has to dereference. The `$defs` map lives on the root schema
+  alone, so it threads down through `compileMessage`. The decode direction is
+  the awkward one: it reaches the object through `objectSchemaOf(input)`,
+  which has no root to read `$defs` from.
+- `compileMessage` ties the cycle by caching on the object it is compiling and
+  allocating `raw`/`schema` before the field loop instead of after, so a field
+  can refer to the message that contains it. This part worked as written.
+- The encode path splices the *root* message's body inline rather than
+  emitting it as a function, so a self-reference has no callee - the spike got
+  as far as `ReferenceError: m0 is not defined`. A recursive root has to be
+  emitted as a function and called.
+- Not reached, and the reason this is not a small change: `message.schema` is
+  the decode's output schema, and tying the cycle makes it a *cyclic object*.
+  The rest of the library expects recursion spelled as `refTag` + `$defs` -
+  the JSON Schema emit and the equality compiler both walk that schema and
+  neither would terminate. Either the normalized side keeps the user's own ref
+  schema for a recursive field, or the compiler learns to emit ref-shaped
+  normalized schemas.
+
+Unknown-field *retention* is the other conformance gap (two cases) and is not
+this: it is a deliberate decision, documented under "Unknown fields" in
+`docs/js-usage.md`.
+
 ## Articles
 
 - Write an article about creating an AI-friendly JS library (how the API design, type overloads like `S.assertInputOrThrow` accepting both arg orders, and error messages make Sury easy for both humans and LLMs to use)

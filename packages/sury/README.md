@@ -21,13 +21,15 @@ await S.encodeAsPromiseOrReject(signupsFileSchema)(signups);
 // => a File, from the same declaration - input and return strictly typed
 ```
 
-Wires today: `S.json`, `S.jsonString`, `S.formData`, `S.env`, `S.urlSearchParams`, `S.queryString`, `S.base64`, `S.base64url`, `S.uint8Array`, `S.file` and `S.blob`. Coming next: `S.request`, `S.response`, `S.protobuf`, `S.capnp`, `S.rkyv`, `S.toon`.
+Wires today: `S.json`, `S.jsonString`, `S.formData`, `S.env`, `S.urlSearchParams`, `S.queryString`, `S.base64`, `S.base64url`, `S.uint8Array`, `S.protobuf`, `S.file` and `S.blob`. Coming next: `S.request`, `S.response`, `S.capnp`, `S.rkyv`, `S.toon`.
 
 ```sh
 npm install sury
 ```
 
 **API Reference:** [TypeScript](https://github.com/DZakh/sury/blob/main/docs/js-usage.md) | [ReScript](https://github.com/DZakh/sury/blob/main/docs/rescript-usage.md) | [ReScript PPX](https://github.com/DZakh/sury/blob/main/packages/sury-ppx/README.md)
+
+**Benchmarks:** [Schema](https://github.com/DZakh/sury/blob/main/docs/benchmarks/schema.md) | [JSON Encoding](https://github.com/DZakh/sury/blob/main/docs/benchmarks/jsonString.md) | [JSON Schema](https://github.com/DZakh/sury/blob/main/docs/benchmarks/jsonSchema.md) | [Protobuf](https://github.com/DZakh/sury/blob/main/docs/benchmarks/protobuf.md)
 
 ## Sponsors
 
@@ -257,6 +259,29 @@ S.encodeOrThrow(signup)(value);
 // => a FormData with one append per field, ready for fetch(url, { body })
 ```
 
+Protocol Buffers need no `.proto` file and no code generation step. Number the fields, name `S.protobuf` as the other side, and the same schema still parses, infers types and converts to JSON Schema:
+
+```ts
+const userSchema = S.schema({
+  id: S.int32.with(S.protobufField, 1),
+  name: S.string.with(S.protobufField, 2),
+  tags: S.array(S.string).with(S.protobufField, 3),
+}).with(S.meta, { name: "User" });
+
+S.encodeOrThrow(userSchema, S.protobuf, { id: 150, name: "Ada", tags: ["ml"] });
+// => Uint8Array [8, 150, 1, 18, 3, 65, 100, 97, 26, 2, 109, 108]
+
+S.decodeOrThrow(S.protobuf, userSchema, bytes);
+// => { id: 150, name: "Ada", tags: ["ml"] }
+
+S.toProtoOrThrow(userSchema, { package: "acme.v1" }); // hand the other side its .proto
+// => message User {
+//      int32 id = 1;
+//      string name = 2;
+//      repeated string tags = 3;
+//    }
+```
+
 ### The code a schema turns into
 
 Here's what `parseEvent` from above actually runs - a function specialized for this exact shape: the union dispatches on the discriminant, the `bigint` coercion is inlined as a bare `BigInt()` call, your `nonEmpty` message is a plain length check, and `S.jsonString` -> union -> fields fuse into one pass:
@@ -344,7 +369,7 @@ And 3.2× lighter than fast-json-stringify - 18.0 kB against 56.9 kB, encoder in
 
 ## Comparison
 
-Sury has the fastest parsing and encoding in the ecosystem - the hot path. Creating a schema and using it once is the one workload where an interpreted library wins a row below.
+Sury has the fastest parsing and encoding in the ecosystem - the hot path. Creating a schema and using it once is the one workload where an interpreted library wins.
 
 It's also small. Instead of a few large classes with many methods, the API and source are built from many small, independent functions. A bundler follows your imports and drops everything you don't use, which can cut the shipped size by up to 2× compared to [Zod](https://github.com/colinhacks/zod). (The approach is borrowed from [Valibot](https://github.com/fabian-hiller/valibot), which pioneered it.)
 
@@ -352,16 +377,11 @@ And the types stay readable. Hovering the event schema from [Why Sury](#why-sury
 
 ### Size & speed
 
-Measured with [this repo's comparison benchmark](https://github.com/DZakh/sury/tree/main/packages/e2e/src/benchmark) against `sury@11.0.0`, `zod@4.4.3`, `typebox@0.34.52`, `valibot@1.4.2`, `arktype@2.2.3`.
+The numbers live on their own pages, one per wire Sury speaks, each with bundle size, a feature table where every cell is a call run against that library, throughput and conformance scores:
 
-|                                 | Sury           | Zod          | TypeBox                        | Valibot      | ArkType        |
-| ------------------------------- | -------------- | ------------ | ------------------------------ | ------------ | -------------- |
-| **Total size** (min + gzip)     | 43.4 kB        | 64.7 kB      | 31.2 kB                        | 15.2 kB      | 47.1 kB        |
-| **Benchmark size** (min + gzip) | 8.7 kB         | 19.6 kB      | 22.6 kB                        | 1.29 kB      | 47.0 kB        |
-| **Parse with the same schema**  | 210,061 ops/ms | 9,367 ops/ms | 158,185 ops/ms (no transforms) | 1,970 ops/ms | 106,520 ops/ms |
-| **Create schema & parse once**  | 99 ops/ms      | 11 ops/ms    | 103 ops/ms (no transforms)     | 315 ops/ms   | 11 ops/ms      |
+**Benchmarks:** [Schema](https://github.com/DZakh/sury/blob/main/docs/benchmarks/schema.md) | [JSON Encoding](https://github.com/DZakh/sury/blob/main/docs/benchmarks/jsonString.md) | [JSON Schema](https://github.com/DZakh/sury/blob/main/docs/benchmarks/jsonSchema.md) | [Protobuf](https://github.com/DZakh/sury/blob/main/docs/benchmarks/protobuf.md)
 
-"Benchmark size" is what actually ships after tree-shaking for the benchmarked schema. The TypeBox numbers are validation-only - it doesn't run the transforms.
+They are regenerated on every push to main and remeasured on every pull request, against `zod@4.4.3`, `typebox@0.34.52`, `valibot@1.4.2`, `arktype@2.2.3`, `protobufjs@8.8.0`, `protobuf-es@2.14.1` and `pbf@5.1.2`. A page that stops matching a fresh measurement fails CI, which is the part a table pasted here could never do.
 
 Independent benchmarks and conformance suites that include Sury:
 
