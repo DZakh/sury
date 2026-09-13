@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import type { Topic } from "./table";
 
-export type Golden = { $comment: string; machine: string } & Topic;
+export type Golden = { $comment: string } & Topic;
 
 const GOLDENS = fileURLToPath(new URL("./goldens/", import.meta.url));
 

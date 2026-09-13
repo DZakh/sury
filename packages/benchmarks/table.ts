@@ -44,7 +44,11 @@ export type Topic = {
   versions: string[];
   bundleSize: Table;
   features: Table;
-  performance: Table;
+  // Timings are not part of the page: they move with the runner, so main
+  // remeasures them into the chart the page embeds (see `chart.ts`). What a
+  // reader still needs in the markdown is the prose that says what was
+  // measured, which is authored rather than measured.
+  performanceNote: string;
   conformance: Table;
 };
 

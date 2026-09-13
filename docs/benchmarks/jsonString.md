@@ -31,16 +31,14 @@ Measured against sury 11.0.0, fast-json-stringify 7.0.1.
 
 ## Performance
 
-|  | Sury | `JSON.stringify` | fast-json-stringify |
-| --- | ---: | ---: | ---: |
-| API response<br><sub>a user profile, 7 flat fields</sub> | **243 ns** | 441 ns | 277 ns |
-| List endpoint<br><sub>100 rows of the same three fields</sub> | **9.74 µs** | 10.94 µs | 10.59 µs |
-| Event feed<br><sub>50 events across a three-member tagged union</sub> | **3.39 µs** | 5.41 µs | 17.57 µs |
-| Types JSON has no word for<br><sub>a `bigint` id, a `Uint8Array` payload and a `Date`, mapping included</sub> | **1.34 µs** | 1.46 µs | 1.46 µs |
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/DZakh/sury/benchmarks/jsonString-performance-dark.svg">
+  <img alt="JSON Encoding timings, one bar per library, remeasured on every push to main" src="https://raw.githubusercontent.com/DZakh/sury/benchmarks/jsonString-performance.svg">
+</picture>
 
 <sub>Median of seven rounds per cell. Every row ends with the same text, so the only difference is what each library had to do to get there.</sub>
 
-<sub>Timed on node 22.22.2 · linux x64. Rerun on every push to main, so a row moves with the runner as well as with the code.</sub>
+<sub>Remeasured on every push to main and republished as the chart above, so a bar moves with the runner as well as with the code.</sub>
 
 ## Conformance
 

@@ -32,14 +32,14 @@ Measured against sury 11.0.0, zod 4.4.3, @sinclair/typebox 0.34.52, valibot 1.4.
 
 ## Performance
 
-|  | Sury | Zod | TypeBox | Valibot | ArkType |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Parse with a schema you already have<br><sub>ops/ms, the hot path a request pays</sub> | 106,440 | 5,379 | **107,684** | 1,057 | 42,911 |
-| Build the schema and parse once<br><sub>ops/ms, what a short-lived script or a cold start pays</sub> | 38.2 | 5.18 | **2,077** | 140 | 7.27 |
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/DZakh/sury/benchmarks/schema-performance-dark.svg">
+  <img alt="Schema timings, one bar per library, remeasured on every push to main" src="https://raw.githubusercontent.com/DZakh/sury/benchmarks/schema-performance.svg">
+</picture>
 
-<sub>Higher is better. Median of seven rounds. TypeBox is validation only: it checks the value and returns a boolean rather than producing an output, and its second row uses the interpreted `Value.Check` because compiling per call is not what anyone does. Sury, Zod and Valibot return the parsed value; ArkType throws or returns it.</sub>
+<sub>Median of seven rounds. TypeBox is validation only: it checks the value and returns a boolean rather than producing an output, and its second row uses the interpreted `Value.Check` because compiling per call is not what anyone does. Sury, Zod and Valibot return the parsed value; ArkType throws or returns it.</sub>
 
-<sub>Timed on node 22.22.2 · linux x64. Rerun on every push to main, so a row moves with the runner as well as with the code.</sub>
+<sub>Remeasured on every push to main and republished as the chart above, so a bar moves with the runner as well as with the code.</sub>
 
 ## Conformance
 

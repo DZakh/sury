@@ -33,22 +33,14 @@ Measured against sury 11.0.0, protobufjs 8.8.0, protobuf-es 2.14.1, pbf 5.1.2.
 
 ## Performance
 
-|  | Sury | protobufjs (reflect) | protobufjs (static) | protobuf-es | pbf |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| tiny · encode<br><sub>3 bytes on the wire</sub> | **48 ns** | 195 ns | 187 ns | 616 ns | 463 ns |
-| tiny · decode | **26 ns** | 60 ns | 39 ns | 273 ns | 119 ns |
-| typical · encode<br><sub>31 bytes on the wire</sub> | **193 ns** | 538 ns | 503 ns | 813 ns | 1.08 µs |
-| typical · decode | **207 ns** | 297 ns | 248 ns | 1.53 µs | 329 ns |
-| large · encode<br><sub>1416 bytes on the wire</sub> | **1.95 µs** | 3.45 µs | 3.36 µs | 7.72 µs | 7.33 µs |
-| large · decode | **2.53 µs** | 3.07 µs | 3.01 µs | 4.47 µs | 2.93 µs |
-| common · encode<br><sub>79 bytes on the wire</sub> | **641 ns** | 1.59 µs | 1.51 µs | 2.10 µs | 1.60 µs |
-| common · decode | **416 ns** | 535 ns | 631 ns | 2.01 µs | 572 ns |
-| tile · encode<br><sub>3028 bytes on the wire</sub> | **17.58 µs** | 35.48 µs | 35.16 µs | 55.48 µs | 17.63 µs |
-| tile · decode | **12.82 µs** | 22.21 µs | 17.34 µs | 50.90 µs | 15.21 µs |
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/DZakh/sury/benchmarks/protobuf-performance-dark.svg">
+  <img alt="Protobuf timings, one bar per library, remeasured on every push to main" src="https://raw.githubusercontent.com/DZakh/sury/benchmarks/protobuf-performance.svg">
+</picture>
 
 <sub>Best of seven samples per cell, since a sample landing on a GC pause reads double and which library pays it is luck of the draw. `tiny` and `typical` are this suite's own shapes, `common` is protobuf.js's own benchmark message, and `tile` is a Mapbox vector tile: almost entirely packed varints, which is what pbf is built for.</sub>
 
-<sub>Timed on node 22.22.2 · linux x64. Rerun on every push to main, so a row moves with the runner as well as with the code.</sub>
+<sub>Remeasured on every push to main and republished as the chart above, so a bar moves with the runner as well as with the code.</sub>
 
 ## Conformance
 

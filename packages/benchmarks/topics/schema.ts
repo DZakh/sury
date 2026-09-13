@@ -315,7 +315,6 @@ const performance = (): Table => {
         best: "high",
       },
     ],
-    note: "<sub>Higher is better. Median of seven rounds. TypeBox is validation only: it checks the value and returns a boolean rather than producing an output, and its second row uses the interpreted `Value.Check` because compiling per call is not what anyone does. Sury, Zod and Valibot return the parsed value; ArkType throws or returns it.</sub>",
   };
 };
 
@@ -378,6 +377,7 @@ export const schema: Source = {
   blurb:
     "Describing a shape, checking a value against it, and getting a TypeScript type out of it: the job every one of these libraries is for. Sury compiles the schema into a function, which is why the parse row reads the way it does.",
   versions: () => versionsOf(["sury", "zod", "@sinclair/typebox", "valibot", "arktype"]),
+  performanceNote: "<sub>Median of seven rounds. TypeBox is validation only: it checks the value and returns a boolean rather than producing an output, and its second row uses the interpreted `Value.Check` because compiling per call is not what anyone does. Sury, Zod and Valibot return the parsed value; ArkType throws or returns it.</sub>",
   bundleSize,
   features: () => Promise.resolve(features()),
   conformance: () => Promise.resolve(conformance()),
