@@ -105,12 +105,13 @@ const newCtx = (): Ctx => ({
   stack: [],
 });
 
-// A `$ref` stands for its definition. A ref the compiler built carries it; one
-// `S.recursive` built names it, on the outermost ref's `$defs` and on a nested
-// one's own, so a walk collects them as it passes.
+// A `$ref` stands for its definition. `S.recursive` puts every definition on
+// the outermost ref's `$defs`, and a nested one on its own, so a walk collects
+// them as it passes. Only the refs the user built are walked - the standins
+// `recurse` makes are handed to `parse`, never resolved again here.
 const deref = (ref: Internal, ctx: Ctx): Internal | undefined => {
   if (ref["$defs"] !== U) Object.assign(ctx.defs, ref["$defs"]);
-  const def = ref.definition || ctx.defs[ref["$ref"]!.slice(defsPath.length)];
+  const def = ctx.defs[ref["$ref"]!.slice(defsPath.length)];
   if (def !== U) {
     ctx.names.set(def, ref.name);
     ctx.dec = ref.decoder;
@@ -338,14 +339,14 @@ const refinedAs = (from: Internal, standin: Internal): Internal => {
 // The pair a field refers a recursive message by. Both sides need one: the raw
 // object the wire decoder fills still converts into the value the schema
 // declares - a default supplied, a refinement checked - and a plain object on
-// either side would be an endless tree. Each names its definition by carrying
-// it, which is assigned once the message finishes building.
+// either side would be an endless tree. Each carries the definition it stands
+// for, assigned once the message finishes building; `$ref` and `name` are for
+// reading, so two messages `S.recursive` gave one name stay two definitions
+// here whatever they say.
 //
 // Built rather than copied from the user's ref: that one may carry a chain, a
 // refinement or meta of its own, all of which belong to the one place the user
-// put them and not to every node of the tree. `$ref` is for reading, the way a
-// name is: two messages `S.recursive` gave one name stay two definitions here
-// whatever it says.
+// put them and not to every node of the tree.
 const recurse = (message: Message, ctx: Ctx): [Internal, Internal] => {
   if (message.rec === U) {
     ctx.rec = true;
@@ -529,15 +530,17 @@ const compileRoot = (schema: Internal): Message | undefined => {
   const message = compileMessage(schema, ctx);
   if (message !== U) {
     if (ctx.rec) rejectEndless(ctx);
-    // A recursive root's own schemas are what its refs name, so the operation
-    // walks copies of those refs rather than the definitions themselves.
-    message.top = message.rec
-      ? [copySchema(message.rec[0]), copySchema(message.rec[1])]
-      : [message.raw, message.schema];
+    // A recursive root is handed to the operation as its own standins, not as
+    // the definitions they stand for: the standins compile to one memoized
+    // call that every reference under them already shares, where the
+    // definitions would inline the root a second time.
+    const [wire, value] = message.rec || [message.raw, message.schema];
     // A refinement on the schema handed in sits on the ref, which no definition
     // under it carries; the value schema the operation ends at is where the
-    // non-recursive root has always carried one.
-    message.top[1] = refinedAs(schema, message.top[1]);
+    // non-recursive root has always carried one. `refinedAs` copies to add it,
+    // which is what keeps it off `rec` - every reference under the root is that
+    // same pair, and the root's own refinement is not theirs to run.
+    message.top = [wire, refinedAs(schema, value)];
   }
   return message;
 };
