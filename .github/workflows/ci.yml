@@ -161,17 +161,19 @@ jobs:
           echo "### $(tail -n 1 conformance.txt)" >> "$GITHUB_STEP_SUMMARY"
 
   # The four pages under docs/benchmarks/ are generated, and this is what keeps
-  # them true. Three of their four sections are the same on any machine, so a
-  # pull request checks them and fails on a page that no longer matches a fresh
-  # measurement. The fourth is timings, which move with the runner, so they are
-  # remeasured and republished on main rather than gated - a benchmark page
-  # nobody regenerates is worse than no page.
+  # them true. Three of their four sections are the same on any machine, so
+  # every run checks them and fails on a page that no longer matches a fresh
+  # measurement. The fourth is timings, which move with the runner: those are
+  # not committed anywhere, but remeasured on main into the charts the pages
+  # embed. A benchmark page nobody regenerates is worse than no page, and main
+  # is protected, so the numbers that have to be rewritten by a bot live on a
+  # branch of their own instead.
   benchmarks:
     name: Benchmarks
     runs-on: ubuntu-24.04
     permissions:
-      # Writing is only reached on the main branch, where the regenerated pages
-      # are committed back.
+      # Writing is only reached on the main branch, and only to the `benchmarks`
+      # branch the charts are published to.
       contents: write
     steps:
       - uses: actions/checkout@v4
@@ -186,27 +188,19 @@ jobs:
       - run: pnpm install
 
       - name: Pages match a fresh measurement
-        if: github.event_name == 'pull_request'
         run: pnpm benchmarks
 
-      - name: Remeasure and republish
-        if: github.event_name != 'pull_request'
-        run: pnpm benchmarks --write
-
-      # `[skip ci]` because the push would otherwise start this workflow again,
-      # which would produce another set of timings, and so on.
-      - name: Commit the regenerated pages
-        if: github.event_name != 'pull_request'
-        run: |
-          if git diff --quiet -- docs/benchmarks packages/benchmarks/goldens; then
-            echo "nothing moved"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/benchmarks packages/benchmarks/goldens
-          git commit -m "docs: regenerate the benchmark pages [skip ci]"
-          git push origin HEAD:${GITHUB_REF_NAME}
+      # On the ref rather than the event: `benchmarks` is one branch every page
+      # reads, and a dispatch or a v*-patch push is a non-pull-request event
+      # too, so either would replace main's timings with a measurement of code
+      # that is not on main.
+      #
+      # Pushing a branch rather than a commit to main is what keeps this off the
+      # protected-branch rule, and the branch carries nothing this workflow runs
+      # on, so there is no `[skip ci]` to remember.
+      - name: Publish the timings
+        if: github.ref == 'refs/heads/main'
+        run: pnpm benchmarks --publish
 
   performance:
     name: Performance (PR)

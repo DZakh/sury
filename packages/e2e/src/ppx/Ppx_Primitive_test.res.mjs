@@ -65,9 +65,9 @@ let mySetOfStringSchema = Sury.set(Sury.string);
 
 Vitest.test("Set of string schema", t => U.assertEqualSchemas(t, mySetOfStringSchema, Sury.set(Sury.string), undefined));
 
-let myMapOfStringToIntSchema = Sury.map(Sury.string, Sury.int);
+let myMapOfStringToIntSchema = Sury.map(Sury.string, Sury.int32);
 
-Vitest.test("Map of string to int schema", t => U.assertEqualSchemas(t, myMapOfStringToIntSchema, Sury.map(Sury.string, Sury.int), undefined));
+Vitest.test("Map of string to int schema", t => U.assertEqualSchemas(t, myMapOfStringToIntSchema, Sury.map(Sury.string, Sury.int32), undefined));
 
 let myJsonSchema = Sury.json;
 

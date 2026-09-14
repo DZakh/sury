@@ -193,9 +193,10 @@ npm run test -- --watch
 
 `pnpm benchmarks --write` regenerates `docs/benchmarks/*.md`, which is where the
 measured cross-library numbers live: bundle size, feature probes, timings and
-conformance, for schemas, JSON encoding, JSON Schema and protobuf. CI runs the
-check on every pull request and republishes the pages on every push to main, so
-a number there is never older than the last merge. Reach for it first.
+conformance, for schemas, JSON encoding, JSON Schema and protobuf. CI checks the
+pages on every run. The timings are the exception: they move with the runner, so
+they are never committed, and every push to main remeasures them into the charts
+the pages embed. Reach for it first.
 
 The recipes below are for the README's own snapshot table, which is bundled on
 https://bundlejs.com/ so the figures are comparable with what that site reports.

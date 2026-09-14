@@ -17,3 +17,6 @@ packages/json-schema-test-suite/.suite
 packages/spec/.bench-cache
 spec-perf.txt
 spec-perf-comment.md
+
+# Timing charts, published to the `benchmarks` branch rather than committed.
+packages/benchmarks/.charts/

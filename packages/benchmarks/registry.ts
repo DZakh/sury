@@ -12,6 +12,7 @@ export type Source = {
   label: string;
   blurb: string;
   versions: () => string[];
+  performanceNote: string;
   bundleSize: () => Promise<Table>;
   features: () => Promise<Table>;
   conformance: () => Promise<Table>;
