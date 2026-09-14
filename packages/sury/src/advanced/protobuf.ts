@@ -310,15 +310,15 @@ const defaultedOptional = (raw: Internal, present: Internal, absent: Internal): 
   return mut;
 };
 
+// Whether the operation's definition namespace already holds this name.
+const held = (ctx: Ctx, key: string): boolean =>
+  ctx.out[key] !== U || ctx.defs[key] !== U || (ctx.taken !== U && ctx.taken[key] !== U);
+
 // The pair a field refers a recursive message by. Both sides need one: the raw
 // object the wire decoder fills still converts into the value the schema
 // declares - a default supplied, a refinement checked - and a plain object on
 // either side would be an endless tree. The definitions they name are
 // registered once the message finishes building.
-// Whether the operation's definition namespace already holds this name.
-const held = (ctx: Ctx, key: string): boolean =>
-  ctx.out[key] !== U || ctx.defs[key] !== U || (ctx.taken !== U && ctx.taken[key] !== U);
-
 const recurse = (message: Message, ctx: Ctx): [Internal, Internal] => {
   if (message.rec === U) {
     ctx.rec = true;
