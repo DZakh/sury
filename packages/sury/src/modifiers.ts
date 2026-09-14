@@ -413,9 +413,13 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
         // the definition being built would read the default as that definition,
         // find the same absent field in it, and read its default, without end.
         // No finite value is one, which is also why the check below cannot
-        // compile against it: the definition does not exist yet.
+        // compile against it: the definition does not exist yet. That is what
+        // a name the record has not reached means, and only for a ref carrying
+        // no definitions of its own - one that does is a finished schema being
+        // used here, and names its own.
         if (
           outputSchema.type === refTag &&
+          outputSchema["$defs"] === U &&
           building !== U &&
           building[outputSchema["$ref"]!.slice(defsPath.length)] === U
         ) {
@@ -447,7 +451,7 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
       // They ride on the copy it compiles against, and `parse` merges them for
       // the whole operation, so a ref inside a union resolves too.
       let checkItem = item;
-      if (building !== U) {
+      if (building !== U && item["$defs"] === U) {
         checkItem = copySchema(item);
         checkItem["$defs"] = building;
       }

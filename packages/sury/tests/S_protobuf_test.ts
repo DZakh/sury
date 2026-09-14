@@ -563,4 +563,12 @@ test("A default on the definition being built is refused, where one beside it is
     }),
   );
   t.expect(S.parseOrThrow(tree, { v: 1 })).toEqual({ v: 1, leaf: { n: 5 } });
+
+  // And a definition finished before the definer even ran, which carries its
+  // own and is only being used here.
+  const done = S.recursive("Done", (self) => S.schema({ n: S.int32, kid: S.optional(self) }));
+  const holder = S.recursive("Holder", (self) =>
+    S.schema({ done: S.optional(done, { n: 7 }), kid: S.optional(self) }),
+  );
+  t.expect(S.parseOrThrow(holder, {})).toEqual({ done: { n: 7 } });
 });
