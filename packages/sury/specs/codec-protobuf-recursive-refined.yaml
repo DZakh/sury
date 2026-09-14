@@ -5,7 +5,7 @@ ts:
   output: Uint8Array<ArrayBufferLike>
   instantiations: 8709
 jsonSchema:
-  input: '{ $ref: "#/$defs/Node", $defs: { Node: { type: "object", properties: { v: { type: "string" }, kids: { items: { $ref: "#/$defs/Node" }, type: "array" } }, required: ["v", "kids"] } } }'
+  input: '{ $ref: "#/$defs/pb:Node", $defs: { "pb:Node:wire": { type: "object", properties: { v: { type: "string" }, kids: { items: { $ref: "#/$defs/pb:Node:wire" }, type: "array" } }, required: ["v", "kids"] }, "pb:Node": { type: "object", properties: { v: { type: "string" }, kids: { items: { $ref: "#/$defs/pb:Node" }, type: "array" } }, required: ["v", "kids"] }, Node: { type: "object", properties: { v: { type: "string" }, kids: { items: { $ref: "#/$defs/Node" }, type: "array" } }, required: ["v", "kids"] } } }'
   fromInputType: "{ v: string; kids: ...[]; }"
   output: Expected JSON, received Uint8Array
 isEqual:
@@ -31,7 +31,7 @@ operations:
         input: '{ v: "ok", kids: [{ v: "bad", kids: [] }] }'
         output: new Uint8Array([10, 2, 111, 107, 18, 5, 10, 3, 98, 97, 100])
   encode:
-    expression: i=>{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}e[3](v0);let v1;v1=e[4](v0);e[5](v0)||e[6](v0);return v1}
+    expression: i=>{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}e[3](v0);e[4](v0)||e[5](v0);return v0}
     examples:
       nested-bad-is-not-the-root:
         input: new Uint8Array([10, 2, 111, 107, 18, 5, 10, 3, 98, 97, 100])
