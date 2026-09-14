@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.array(S.union([S.schema({ f: S.string }), S.number]).with(S.refine, (value) => value !== 0, { error: "Expected a non-zero item" })).with(S.to, S.jsonString)'
+  input: "(number | { f: string; })[]"
+  output: string
+  instantiations: 7739
+jsonSchema:
+  input: '{ items: { anyOf: [{ type: "object", properties: { f: { type: "string" } }, required: ["f"] }, { type: "number" }] }, type: "array" }'
+  output: '{ type: "string", contentMediaType: "application/json" }'
+  draft-2020-12:
+    output: '{ type: "string", contentMediaType: "application/json", contentSchema: { items: { anyOf: [{ type: "object", properties: { f: { type: "string" } }, required: ["f"] }, { type: "number" }] }, type: "array" }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    output: '{ type: "string" }'
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(!!(typeof a[i]==="object"&&a[i]&&!Array.isArray(a[i])?typeof b[i]==="object"&&b[i]&&!Array.isArray(b[i])&&a[i].f===b[i].f:typeof b[i]==="number"&&b[i]==b[i]&&a[i]===b[i])))return false;return true}
+  output: strictEqual
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{Array.isArray(i)||e[9](i);let v1="";for(let v0=0;v0<i.length;++v0){try{let v2=i[v0];for(;;){if(typeof v2==="object"&&v2&&!Array.isArray(v2)){let v3=v2.f;typeof v3==="string"||e[0](v3);v2={f:v3};break}if(typeof v2==="number"&&v2==v2)break;e[1](v2)}e[2](v2)||e[8](v2);for(;;){if(typeof v2==="object"&&v2&&!Array.isArray(v2)){let v4=v2.f;typeof v4==="string"||e[4](v4);for(let v5 in v2)if(v5!=="f")e[5](v5);v2="{\"f\":"+e[3](v4)+"}";break}if(typeof v2==="number"&&v2==v2){v2=(Number.isFinite(v2)?""+v2:e[6](v2));break}e[7](v2)}v1+=(v0?",":"")+v2}catch(v6){v6.path=[v0,...v6.path];throw v6}}return "["+v1+"]"}
+    examples:
+      members:
+        input: '[{ f: "a" }, 1]'
+        output: '"[{\"f\":\"a\"},1]"'
+      refiner-rejects:
+        input: "[0]"
+        error: "Failed at [0]: Expected a non-zero item"
+      not-a-member:
+        input: "[true]"
+        error: "Failed at [0]: Expected { f: string; } | number, received true"
+  decode:
+    expression: i=>{let v1="";for(let v0=0;v0<i.length;++v0){try{let v2=i[v0];e[0](v2)||e[5](v2);for(;;){if(typeof v2==="object"&&v2&&!Array.isArray(v2)){let v3=v2.f;typeof v3==="string"||e[2](v3);v2="{\"f\":"+e[1](v3)+"}";break}if(typeof v2==="number"&&v2==v2){v2=(Number.isFinite(v2)?""+v2:e[3](v2));break}e[4](v2)}v1+=(v0?",":"")+v2}catch(v4){v4.path=[v0,...v4.path];throw v4}}return "["+v1+"]"}
+    examples:
+      members:
+        input: '[{ f: "a" }, 1]'
+        output: '"[{\"f\":\"a\"},1]"'
+      refiner-rejects:
+        input: "[0]"
+        error: "Failed at [0]: Expected a non-zero item"
+      not-a-member:
+        input: "[true]"
+        error: "Failed at [0]: Expected { f: string; } | number, received true"
+  encode:
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}Array.isArray(v0)||e[5](v0);let v5=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];e[3](v2)||e[4](v2);for(;;){if(typeof v2==="object"&&v2&&!Array.isArray(v2)){let v3=v2.f;typeof v3==="string"||e[1](v3);v2={f:v3};break}if(typeof v2==="number"&&v2==v2)break;e[2](v2)}v5[v1]=v2}catch(v4){v4.path=[v1,...v4.path];throw v4}}return v5}
+    examples:
+      members:
+        input: '"[{\"f\":\"a\"},1]"'
+        output: '[{ f: "a" }, 1]'
+      refiner-rejects:
+        input: '"[0]"'
+        error: "Failed at [0]: Expected a non-zero item"

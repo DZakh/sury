@@ -443,12 +443,14 @@ export type Internal = {
   // What `S.protobufField` stored (`StoredField` in advanced/protobufField.ts).
   protobufField?: unknown;
   // Compile-time only, set on a per-operation schema copy by `fz` below: the
-  // container's dynamic items, or a fixed container's non-literal fields, are
-  // typed but UNVALIDATED - the decoder skipped them because
-  // jsonStringAggregate parses each from unknown inside its own serialize
-  // pass. Carried on the schema (not the val) so it survives the parse loop's
-  // per-segment B_refine.
-  uv?: boolean;
+  // container's decoder left its contents to jsonStringAggregate, which walks
+  // them once inside its own serialize pass. 1 the contents are UNVALIDATED -
+  // the aggregate parses each from unknown; 2 they are typed, and it parses
+  // each from the type it claims, so a trusted source is not re-checked. Both
+  // mean the decoder emitted no walk, which is what the whole-value
+  // JSON.stringify paths must not assume. Carried on the schema (not the val)
+  // so it survives the parse loop's per-segment B_refine.
+  uv?: number;
   // On a target that builds its document piecewise (`S.jsonString`): asked by
   // a container decoder (`B_fused` in composites.ts) whose `.to` it is, with
   // the dynamic item for an array or dict, and answers the container's schema

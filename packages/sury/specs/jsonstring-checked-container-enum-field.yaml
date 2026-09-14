@@ -31,11 +31,8 @@ operations:
       empty:
         input: "[]"
         error: 'Expected { f: "a" | "b"; }[].length >= 1, received []'
-  # FIXME: the item refiner runs twice per item here, once in a loop of its own
-  # and again in the render loop - parse runs it once. Predates the enum check
-  # below it and is unrelated to it.
   decode:
-    expression: i=>{for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];e[0](v1)||e[1](v1);}catch(v2){v2.path=[v0,...v2.path];throw v2}}i.length>0||e[5](i);let v4="";for(let v3=0;v3<i.length;++v3){try{let v5=i[v3];let v6=v5.f;e[2](v5)||e[4](v5);typeof v6==="string"&&(v6==="a"||v6==="b")||e[3](v6);v4+=(v3?",":"")+"{\"f\":\""+v6+"\"}"}catch(v7){v7.path=[v3,...v7.path];throw v7}}return "["+v4+"]"}
+    expression: i=>{i.length>0||e[3](i);let v1="";for(let v0=0;v0<i.length;++v0){try{let v2=i[v0];let v3=v2.f;e[0](v2)||e[2](v2);typeof v3==="string"&&(v3==="a"||v3==="b")||e[1](v3);v1+=(v0?",":"")+"{\"f\":\""+v3+"\"}"}catch(v4){v4.path=[v0,...v4.path];throw v4}}return "["+v1+"]"}
     examples:
       in-contract:
         input: '[{ f: "a" }]'

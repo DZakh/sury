@@ -454,10 +454,15 @@ export const jsonString = /* @__PURE__ */ (() => {
     s.name = `${jsonName} string`;
     s.encoder = jsonStringEncoder;
     setContent(s, json);
-    // Only an unknown-typed source has validation pending - a typed source
-    // (decode direction) has nothing to fuse, and marking it would make the
-    // aggregate re-validate trusted input. A pretty-printed document goes
-    // through JSON.stringify whole. Fusion is a sync-operation optimization:
+    // A fixed container is fused only out of an unknown-typed source, which is
+    // the one with validation pending: a typed source (decode direction) has
+    // nothing there to fuse, and marking it would make the aggregate
+    // re-validate trusted input. A dynamic item is fused either way - whatever
+    // its decode still owes on a typed source (a refiner, anywhere inside it)
+    // makes the decoder emit a loop of its own, and the aggregate then walks
+    // the same values a second time to render them. `uv` says which reading
+    // the aggregate gets. A pretty-printed document goes through
+    // JSON.stringify whole. Fusion is a sync-operation optimization:
     // the aggregate compiles the raw fields itself, so a field's async codec
     // would leave a promise in the concat, and whether one will is unknowable
     // before the fields are compiled - an operation permitting async (`g.o &
@@ -471,19 +476,20 @@ export const jsonString = /* @__PURE__ */ (() => {
     // `container.to`, not `s`: `jsonStringWithSpace` copies this hook with
     // the schema, and a pretty document goes through JSON.stringify whole.
     s.fz = (input, container, item) => {
+      const raw = input.s.additionalItems === unknown;
       if (
-        input.s.additionalItems === unknown &&
         container &&
         !container.to!.space &&
         !(input.g.o & 1) &&
         (item !== U
           ? !(item.to === U && (tagFlags[item.type]! & ((2 | 8) | 32)))
-          : container.refiner === U &&
+          : raw &&
+            container.refiner === U &&
             container.inputRefiner === U &&
             typeof container.additionalItems !== objectTag)
       ) {
         const marked = copySchema(container);
-        marked.uv = true;
+        marked.uv = raw ? 1 : 2;
         return marked;
       }
       return U;
@@ -794,7 +800,7 @@ export const jsonString = /* @__PURE__ */ (() => {
       const { p, g } = fieldPiece(
         itemVal,
         isArr,
-        schema.uv && (tagFlags[itemVal.s.type]! & 1) ? fieldSchema : U,
+        schema.uv! & 1 && (tagFlags[itemVal.s.type]! & 1) ? fieldSchema : U,
         U,
         // What the container's decoder made of this field: a val still
         // carrying no `prev` is the accessor `valGet` synthesized, so the
@@ -812,7 +818,7 @@ export const jsonString = /* @__PURE__ */ (() => {
       entries.push({ p, g });
     }
     // A fused strict object's scan (see objectDecoder), after its fields.
-    if (schema.uv && schema.additionalItems === "strict" && !isArr) {
+    if (schema.uv! & 1 && schema.additionalItems === "strict" && !isArr) {
       code += B_unrecognizedKeys(input, keys!, B_varWithoutAllocation(input.g), "let ");
     }
 
@@ -850,17 +856,22 @@ export const jsonString = /* @__PURE__ */ (() => {
         const raiseCountBefore = input.g.t;
         const itemInput = B_dynamicScope(input, iterVar);
         itemInput.e = itemInput.s;
-        // A fused container (see `fz` in initJsonString and base.ts)
-        // skipped its validation loop - re-parse each item from unknown so
-        // the checks land inside this loop instead of a second walk.
+        // A fused container (see `fz` in initJsonString and base.ts) emitted
+        // no loop of its own, so this one owes whatever its items still do:
+        // every check when they arrive raw (1), and only what a typed value
+        // still owes - a refiner - when they arrive typed (2).
         let piece: { p: Val; g: string | undefined } | undefined = U;
-        if (schema.uv) {
+        if (schema.uv! & 1) {
           const item = itemInput.s;
           itemInput.s = unknown;
           if (
             item.type === anyOfTag &&
             !item.has![undefinedTag] &&
             item.to === U &&
+            // The target is built from the variants, so the union's own
+            // refiners have nowhere to ride and were silently dropped.
+            item.refiner === U &&
+            item.inputRefiner === U &&
             !item.anyOf!.some((variant) =>
               (tagFlags[getOutputSchema(variant).type]! & (1 | 512))
             )
