@@ -3,6 +3,7 @@ import {
   arrayTag,
   baseSchema,
   copySchema,
+  defsPath,
   type Encoder,
   getOrRethrow,
   initSchema,
@@ -54,28 +55,87 @@ type Field = {
 type Message = {
   fields: Field[];
   strict: boolean;
+  // The field this message was reached by was a required singular one, which
+  // is what a cycle of them needs for the panic in `compileMessage`.
+  hard: boolean;
+  // The object the message was compiled from, which every reader of a message
+  // needs beside it: the printer names its fields from it, and a chain past it
+  // is what a nested field can't run.
+  object: Internal;
   raw: Internal;
   schema: Internal;
+  // The ref the message was reached through, which carries the name
+  // `S.recursive` gave it; the `[wire, value]` refs a field refers to this
+  // message by once a field under it referred back, which keeps both schemas
+  // finite; and, on the root, the pair the operation itself walks.
+  ref?: Internal;
+  rec?: [Internal, Internal];
+  top?: [Internal, Internal];
+};
+
+type Defs = Record<string, Internal>;
+
+// One compile of a message tree. `defs` are the definitions `S.recursive` left
+// on the refs walked so far, `out` the ones this compile synthesizes for the
+// messages that turned out recursive, and `messages` the message per object, so
+// a message used twice compiles once and a cycle closes on the one it started.
+type Ctx = {
+  defs: Defs;
+  out: Defs;
+  // The ref an object was reached by, which is a property of the object rather
+  // than of the walk that found it: the printer names a message by the
+  // definition name, and a copy of the ref is what a recursive field refers to
+  // - so `S.recursive`'s decoder reaches the wire only through the schema the
+  // user built with it, and never ships to a consumer who has no cycle.
+  refs: Map<Internal, Internal>;
+  messages: Map<Internal, Message>;
+  rec: boolean;
+  // The messages currently building. A field whose message is on it closes a
+  // cycle, and `hard` on each says the field it was reached by was a required
+  // singular one.
+  stack: Message[];
+};
+
+const newCtx = (): Ctx => ({
+  defs: Object.create(null),
+  out: Object.create(null),
+  refs: new Map(),
+  messages: new Map(),
+  rec: false,
+  stack: [],
+});
+
+// A `$ref` stands for its definition. `S.recursive` puts every definition on
+// the outermost ref's `$defs`, and a nested one on its own, so a walk collects
+// them as it passes.
+const deref = (ref: Internal, ctx: Ctx): Internal | undefined => {
+  if (ref["$defs"] !== U) Object.assign(ctx.defs, ref["$defs"]);
+  const def = ctx.defs[ref["$ref"]!.slice(defsPath.length)];
+  if (def !== U) ctx.refs.set(def, ref);
+  return def;
 };
 
 // The object a schema's chain starts with: what the wire speaks, the rest of
-// the chain running on the value after.
-const firstObject = (schema: Internal): Internal | undefined => {
+// the chain running on the value after. A `$ref` stands for its definition,
+// `S.recursive` being the only way a message contains itself.
+const firstObject = (schema: Internal, ctx: Ctx): Internal | undefined => {
   let current: Internal | undefined = schema;
-  while (current !== U && current.type !== objectTag) current = current.to;
+  while (current !== U && current.type !== objectTag) {
+    current = current.type === refTag ? deref(current, ctx) : current.to;
+  }
   return current;
 };
 
 // The object the wire speaks for a schema `toProtoOrThrow` is given: beside
 // `S.protobuf` when the chain reaches it (`A.with(S.to, B).with(S.to,
 // S.protobuf)` converts to B before the wire), else the chain's first.
-const wireObject = (schema: Internal): Internal | undefined => {
+const wireObject = (schema: Internal, ctx: Ctx): Internal | undefined => {
   let last: Internal | undefined = U;
   for (let current: Internal | undefined = schema; current !== U; current = current.to) {
-    if (current.protobufWire) return last || firstObject(current.to!);
+    if (current.protobufWire) return last || firstObject(current.to!, ctx);
     if (current.type === objectTag) last = current;
   }
-  return firstObject(schema);
+  return firstObject(schema, ctx);
 };
 
 const packable: Record<ProtobufType, boolean> = {
@@ -233,11 +293,56 @@ const defaultedOptional = (raw: Internal, present: Internal, absent: Internal): 
   return mut;
 };
 
-const compileMessage = (schema: Internal, seen = new Set<Internal>()): Message | undefined => {
-  const output = firstObject(schema);
-  if (output === U || output.properties === U || seen.has(output)) return U;
+// The pair a field refers a recursive message by. Both sides need one: the raw
+// object the wire decoder fills still converts into the value the schema
+// declares - a default supplied, a refinement checked - and a plain object on
+// either side would be an endless tree. The definitions they name are
+// registered once the message finishes building, under keys of our own so they
+// can't displace the user's in the operation's `$defs`.
+const recurse = (message: Message, ctx: Ctx): [Internal, Internal] => {
+  if (message.rec === U) {
+    ctx.rec = true;
+    const id = message.ref!["$ref"]!.slice(defsPath.length);
+    const [wire, value] = (message.rec = [`pb:${id}:wire`, `pb:${id}`].map((key) => {
+      const ref = copySchema(ctx.refs.get(message.object)!);
+      ref["$ref"] = defsPath + key;
+      // The definitions are this compile's; the user's ride on the schema the
+      // copy came from, where they would shadow ours.
+      delete ref["$defs"];
+      return ref;
+    }) as [Internal, Internal]);
+    // `S.recursive`'s decoder converts from the source it is handed, and a ref
+    // is opaque to every decoder below it - so the wire ref, which is only ever
+    // a source, names its definition here instead. Wrapping rather than
+    // teaching the engine to resolve any ref source: that would make a schema
+    // converting to `S.json` read its definition too, and plan from a union
+    // where it now plans from an opaque value.
+    const inner = value.decoder;
+    value.decoder = (input) => {
+      if (input.s["$ref"] === wire["$ref"]) input.s = message.raw;
+      return inner(input);
+    };
+  }
+  return message.rec;
+};
+
+const compileMessage = (schema: Internal, ctx: Ctx, hard = false): Message | undefined => {
+  const output = firstObject(schema, ctx);
+  if (output === U || output.properties === U) return U;
   if (typeof output.additionalItems === objectTag) return U;
-  seen.add(output);
+  const built = ctx.messages.get(output);
+  if (built !== U) return built;
+  const msg: Message = {
+    fields: [],
+    strict: output.additionalItems === "strict",
+    object: output,
+    raw: output,
+    schema: output,
+    ref: ctx.refs.get(output),
+    hard,
+  };
+  ctx.messages.set(output, msg);
+  ctx.stack.push(msg);
   const fields: Field[] = [];
   const numbers = new Set<number>();
   const rawProperties: Record<string, Internal> = Object.create(null);
@@ -266,19 +371,35 @@ const compileMessage = (schema: Internal, seen = new Set<Internal>()): Message |
       shape = getOutputSchema(shape.additionalItems as Internal);
     }
     let message: Message | undefined;
+    // The nested message's value schema: the object it normalizes to, or the
+    // ref standing in for it where this field closes a cycle.
+    let messageValue: Internal | undefined;
     let raw: Internal;
     let normalizedProperty = optional ? propertyValue : property;
     if (metadata.type === "message") {
-      const first = firstObject(repeated || map !== U ? (container.additionalItems as Internal) : propertyValue);
-      message = first === U ? U : compileMessage(first, new Set(seen));
+      // A message absent on the wire decodes to its default instance, so only a
+      // required singular field builds one unasked - and a cycle of them builds
+      // forever.
+      const singular = !repeated && map === U && !optional;
+      message = compileMessage(repeated || map !== U ? (container.additionalItems as Internal) : propertyValue, ctx, singular);
       if (message === U) return panic(`S.protobuf: field "${key}" is a message but its schema is not an object`);
       // A nested value converts field by field, output to output, so a chain
       // past the object has nothing to run it: only the root's does.
-      if (getOutputSchema(first!) !== first) {
+      if (getOutputSchema(message.object) !== message.object) {
         return panic(`S.protobuf: field "${key}" is a message that converts further with S.to, which a nested field can't`);
       }
-      raw = optional && absent === U ? optionalMessage(message.raw) : message.raw;
-      normalizedProperty = message.schema;
+      const depth = ctx.stack.indexOf(message);
+      if (depth !== -1) {
+        if (singular && ctx.stack.every((on, at) => at <= depth || on.hard)) {
+          return panic(`S.protobuf: field "${key}" makes "${message.ref!.name}" hold itself with no way to end. Make it optional or repeated`);
+        }
+        [raw, messageValue] = recurse(message, ctx);
+      } else {
+        raw = message.raw;
+        messageValue = message.schema;
+      }
+      normalizedProperty = messageValue;
+      if (optional && absent === U) raw = optionalMessage(raw);
     } else {
       // An enum declared as integer literals keeps its own schema on the raw
       // side: the wire value lands as is, unknown numbers included, the open
@@ -289,7 +410,7 @@ const compileMessage = (schema: Internal, seen = new Set<Internal>()): Message |
     // checks included) around the normalized nested schema, not the user's:
     // an optional nested message inside must stay a light wrap.
     if (absent !== U) {
-      raw = defaultedOptional(raw, message ? message.schema : getOutputSchema(propertyValue), absent);
+      raw = defaultedOptional(raw, message ? messageValue! : getOutputSchema(propertyValue), absent);
       normalizedProperty = property;
     } else if (optional && message === U && raw !== getOutputSchema(propertyValue)) {
       // A literal or refined scalar has a check to run, which only a present
@@ -300,7 +421,7 @@ const compileMessage = (schema: Internal, seen = new Set<Internal>()): Message |
       raw = repeated ? arrayFactory(raw) : dictFactory(raw);
       if (message) {
         const normalizedContainer = copySchema(container);
-        normalizedContainer.additionalItems = message.schema;
+        normalizedContainer.additionalItems = messageValue!;
         delete normalizedContainer.to;
         normalizedProperty = normalizedContainer;
       } else normalizedProperty = property;
@@ -330,7 +451,38 @@ const compileMessage = (schema: Internal, seen = new Set<Internal>()): Message |
   normalized.properties = normalizedProperties;
   normalized.required = rawRequired;
   delete normalized.to;
-  return { fields, strict: output.additionalItems === "strict", raw, schema: normalized };
+  msg.fields = fields;
+  msg.raw = raw;
+  msg.schema = normalized;
+  if (msg.rec !== U) {
+    ctx.out[msg.rec[0]["$ref"]!.slice(defsPath.length)] = raw;
+    ctx.out[msg.rec[1]["$ref"]!.slice(defsPath.length)] = normalized;
+  }
+  ctx.stack.pop();
+  return msg;
+};
+
+// The root of one compile. The definitions the recursive messages under it were
+// given ride on the schemas the operation walks, which is where `parse` picks
+// them up.
+const compileRoot = (schema: Internal): Message | undefined => {
+  const ctx = newCtx();
+  const message = compileMessage(schema, ctx);
+  if (message !== U) {
+    // A recursive root's own schemas are definitions the rest of the compile
+    // names, so the operation walks copies of the refs instead. Only those
+    // outermost copies carry the definitions, the way `S.recursive` builds one:
+    // a ref that both carries `$defs` and appears inside them is a cycle for
+    // everything that walks a schema, `S.reverse` included.
+    message.top = message.rec
+      ? [copySchema(message.rec[0]), copySchema(message.rec[1])]
+      : [message.raw, message.schema];
+    if (ctx.rec) {
+      message.top[0]["$defs"] = ctx.out;
+      message.top[1]["$defs"] = ctx.out;
+    }
+  }
+  return message;
 };
 
 const textDecoder = /* @__PURE__ */ new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
@@ -1030,8 +1182,11 @@ const wireFrame = (e: unknown, msg: Message, number: number, wire: number): neve
   const err = e as WireError;
   const field = msg.fields.find((f) => f.number === number);
   if (field !== U) {
-    err.wireAt = err.wireAt === U
-      ? `${field.key} (field ${number}, wire type ${wire})`
+    err.wireAt =
+      err.wireAt === U ? `${field.key} (field ${number}, wire type ${wire})`
+      // A message nested deep enough to fail names the fields around it; the
+      // dozens in between say nothing a reader can act on.
+      : err.wireAt.length > 120 ? (err.wireAt[0] === "\u2026" ? err.wireAt : `\u2026.${err.wireAt}`)
       : `${field.key}.${err.wireAt}`;
     err.message = `${(err.wireWhat ??= err.message)} at ${err.wireAt}`;
   }
@@ -1243,11 +1398,16 @@ const nameMessages = (message: Message, fns: Map<Message, string>): void => {
 // allocating a closure per call.
 const compileEncoders = (root: Message, fns: Map<Message, string>): Record<string, Function> => {
   let src = "";
+  const names: string[] = [];
+  // The root's fields are read from the vals the operation already has, so its
+  // body is inlined there rather than called; it needs a function of its own
+  // only where a field under it refers back to it.
+  const inlined = root.rec === U;
   fns.forEach((name, msg) => {
-    if (msg === root) return;
+    if (msg === root && inlined) return;
+    names.push(name);
     src += `function ${name}(w,value){var v,j,n,s,h,a,k,g,c,o;${encodeBody(msg, fns, (key) => ({ expr: readKey("value", key), numeric: false }), "num", "big", "oneof")}}`;
   });
-  const names = [...fns.values()].filter((name) => name !== fns.get(root));
   return new Function("num", "big", "oneof", `${src}return {${names.join(",")}}`)(checkedNumber, checkedBigint, oneofConflict);
 };
 
@@ -1344,8 +1504,10 @@ const compileDecoder = (root: Message, fns: Map<Message, string>): Function => {
 // val's `s` is the object rebuilt from what each field parsed to, and a
 // union field parses to a fresh schema that lost its `pb`, so the expected
 // side of the chain is searched first.
+// A ref counts: a recursive message speaks its definition, and a chain through
+// one puts the ref where the object would otherwise sit.
 const isMessageShape = (schema: Internal | undefined): schema is Internal =>
-  schema !== U && schema.type === objectTag && schema.properties !== U;
+  schema !== U && (schema.type === refTag || (schema.type === objectTag && schema.properties !== U));
 
 const objectSchemaOf = (input: Val): Internal => {
   let current: Val | undefined = input.prev;
@@ -1376,14 +1538,15 @@ const protobufDecoder = (input: Val): Val => {
   // other, so it validates as one instead of planning a message it has no
   // value for.
   if (input.s.encoder === protobufEncoder || tagFlags[input.s.type]! & 1) return instanceDecoder(input);
-  const message = compileMessage(objectSchemaOf(input));
+  const message = compileRoot(objectSchemaOf(input));
   if (message === U) return B_unsupportedDecode(input, input.s, input.e);
   const fns = new Map<Message, string>();
   nameMessages(message, fns);
   const encoders = compileEncoders(message, fns);
   const names = new Map<Message, string>();
   fns.forEach((name, msg) => {
-    names.set(msg, msg === message ? name : B_embedPure(input, encoders[name]));
+    const fn = encoders[name];
+    names.set(msg, fn === U ? name : B_embedPure(input, fn));
   });
   const d = fieldValsOf(input);
   const readRoot: Read = (key) => {
@@ -1411,18 +1574,20 @@ const guarded = (input: Val, output: Val, target: Internal, code: string, releas
 };
 
 const protobufEncoder = (input: Val, target: Internal): Val => {
-  const message = compileMessage(target);
+  const message = compileRoot(target);
   // Another instance (`S.arrayBuffer`, say) takes the bytes as they are.
   if (message === U) return (tagFlags[target.type]! & 8192) ? input : B_unsupportedDecode(input, input.s, target);
   const fns = new Map<Message, string>();
   nameMessages(message, fns);
   const decoder = B_embed(input, compileDecoder(message, fns));
   const outVar = B_varWithoutAllocation(input.g);
-  const output = B_next(input, outVar, message.raw, message.schema);
+  const output = B_next(input, outVar, message.top![0], message.top![1]);
   output.v = _var;
   output.cp = `let ${outVar},r;${guarded(input, output, target, `r=${B_embedPure(input, scratchReader)}.acquire(${input.v()});${outVar}=${decoder}(r,0);r.busy=false`, "r&&(r.busy=false);")}`;
-  const object = firstObject(target)!;
-  if (getOutputSchema(object) === object) return output;
+  // Whatever runs after the wire object: a `.to` on the target - which is where
+  // a ref carries it, the definition it names having none - or one on the
+  // object the walk ended at.
+  if (getOutputSchema(target) === target && message.object.to === U) return output;
   // A chain past the object runs on the decoded value once it is in the
   // object's shape (the wire's coercions applied), parsed whole as the
   // chain's input. Not field-wise from the normalized schema: the union
@@ -1431,8 +1596,8 @@ const protobufEncoder = (input: Val, target: Internal): Val => {
   // closed there.
   const normIn = B_scope(output);
   normIn.io = false;
-  normIn.s = message.raw;
-  normIn.e = message.schema;
+  normIn.s = message.top![0];
+  normIn.e = message.top![1];
   normIn.u = true;
   const normOut = parse(normIn);
   const chainIn = B_scope(normOut);
@@ -1486,15 +1651,14 @@ type Proto = {
   uses: Map<Message, Use[]>;
 };
 
-const usesOf = (proto: Proto, message: Message, object: Internal): Use[] => {
+const usesOf = (proto: Proto, message: Message): Use[] => {
   let uses = proto.uses.get(message);
   if (uses === U) {
     uses = message.fields.map((field) => {
-      const schema = object.properties![field.key]!;
+      const schema = message.object.properties![field.key]!;
       let value = unwrapOptional(schema)[0];
       if (field.repeated || field.map !== U) value = getOutputSchema(value).additionalItems as Internal;
-      // A message field speaks its chain's first object.
-      const shape = field.message !== U ? firstObject(value)! : getOutputSchema(value);
+      const shape = field.message !== U ? field.message.object : getOutputSchema(value);
       return { field, schema, shape, stored: fieldMetadata(schema)! };
     });
     proto.uses.set(message, uses);
@@ -1586,8 +1750,12 @@ const declaredThrough = ({ schema, shape }: Use): Internal | undefined => {
 };
 
 // The name a use gives its type: down the chain of its own schema for a
-// direct use, of the wrapped declaration otherwise.
-const nameOf = (use: Use): string | undefined => chainMeta(declaredThrough(use) || use.schema, use.shape).name;
+// direct use, of the wrapped declaration otherwise. A `$ref` breaks the chain,
+// so a message `S.recursive` named falls back to that name - which is what
+// makes a self-reference key to the message it points back at.
+const nameOf = (use: Use): string | undefined =>
+  chainMeta(declaredThrough(use) || use.schema, use.shape).name ??
+  (use.field.message && use.field.message.ref && use.field.message.ref.name);
 
 const useType = (decl: TypeDecl, use: Use): void => {
   decl.metas.push(chainMeta(declaredThrough(use) || use.stored.numberedAs, use.shape));
@@ -1632,14 +1800,14 @@ const deprecatedLine = (decl: TypeDecl, indent: string): string[] =>
 // Named types claim their names before anything prints, so an unnamed type
 // nested earlier can't take a name a schema asked for, and a copy used
 // without the name still prints under it.
-const reserveNames = (proto: Proto, message: Message, object: Internal, seen: Set<unknown>): void => {
-  if (seen.has(object.properties)) return;
-  seen.add(object.properties);
-  for (const use of usesOf(proto, message, object)) {
+const reserveNames = (proto: Proto, message: Message, seen: Set<unknown>): void => {
+  if (seen.has(message.object.properties)) return;
+  seen.add(message.object.properties);
+  for (const use of usesOf(proto, message)) {
     const key = typeKey(proto, use);
     const name = key !== U ? nameOf(use) : U;
     if (name && !proto.names.has(key)) proto.names.set(key, uniqueName(protoTypeName(name), proto.used));
-    if (use.field.message !== U) reserveNames(proto, use.field.message, use.shape, seen);
+    if (use.field.message !== U) reserveNames(proto, use.field.message, seen);
   }
 };
 
@@ -1712,7 +1880,6 @@ const messageBody = (
   proto: Proto,
   decl: TypeDecl,
   message: Message,
-  object: Internal,
   name: string,
   qualified: string,
   indent: string
@@ -1754,13 +1921,13 @@ const messageBody = (
       fieldNames.set(printed, `oneof ${field.oneof}`);
     }
   }
-  for (const use of usesOf(proto, message, object)) {
+  for (const use of usesOf(proto, message)) {
     const { field } = use;
     const key = typeKey(proto, use);
     let type: string;
     if (field.message !== U) {
       type = declareType(proto, key, use, qualified, indent, nested, scope, fieldNames, members, (fieldDecl, typeName, inner) =>
-        messageBody(proto, fieldDecl, field.message!, use.shape, typeName, proto.names.get(key)!, inner)
+        messageBody(proto, fieldDecl, field.message!, typeName, proto.names.get(key)!, inner)
       );
     } else if (key !== U) {
       type = declareType(proto, key, use, qualified, indent, nested, scope, fieldNames, members, (fieldDecl, typeName, inner, values) =>
@@ -1816,16 +1983,11 @@ export const toProtoOrThrow = (schema: Internal, options?: ProtoOptions): string
   if (options?.name && !/^[A-Za-z_]\w*$/.test(options.name)) {
     return panic(`S.toProtoOrThrow: "${options.name}" is not a message name`);
   }
-  const wire = wireObject(schema);
-  const message = wire === U ? U : compileMessage(wire);
-  if (message === U) {
-    return panic(
-      getOutputSchema(schema).type === refTag
-        ? "S.toProtoOrThrow: a recursive message can't be printed, as S.protobuf can't encode one"
-        : "S.toProtoOrThrow: the schema is not an object"
-    );
-  }
-  const output = wire!;
+  const ctx = newCtx();
+  const wire = wireObject(schema, ctx);
+  const message = wire === U ? U : compileMessage(wire, ctx);
+  if (message === U) return panic("S.toProtoOrThrow: the schema is not an object");
+  const output = message.object;
   const rootMeta = chainMeta(schema, output);
   const proto: Proto = {
     top: [],
@@ -1843,10 +2005,10 @@ export const toProtoOrThrow = (schema: Internal, options?: ProtoOptions): string
   // to whatever the fields named.
   const given = options?.name || (rootMeta.name && protoTypeName(rootMeta.name));
   if (given) proto.names.set(key, uniqueName(given, proto.used));
-  reserveNames(proto, message, output, new Set());
+  reserveNames(proto, message, new Set());
   const name = proto.names.get(key) || uniqueName("Message", proto.used);
   proto.names.set(key, name);
-  const root = messageBody(proto, decl, message, output, name, name, "");
+  const root = messageBody(proto, decl, message, name, name, "");
   const header = `syntax = "proto3";\n${options?.package ? `\npackage ${options.package};\n` : ""}`;
   return `${header}\n${[root, ...proto.top].map(render).join("\n\n")}\n`;
 };

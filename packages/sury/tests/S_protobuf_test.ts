@@ -483,3 +483,67 @@ test("protobufField rejects a repeated or map oneof member and a non-integer enu
 
 
 
+
+// The spec format snapshots what an operation does, not what compiling one
+// leaves behind on an unrelated schema, so this lives here.
+test("Compiling two independent recursive schemas leaves neither holding the other's definitions", (t) => {
+  const a = S.recursive<{ v: string; next?: unknown }>("A", (self) =>
+    S.schema({ v: S.string, next: S.optional(self) }),
+  );
+  const b = S.recursive<{ n: number; next?: unknown }>("B", (self) =>
+    S.schema({ n: S.int32, next: S.optional(self) }),
+  );
+  S.parseOrThrow(S.schema({ a, b }), { a: { v: "x" }, b: { n: 1 } });
+  t.expect(S.toInputJSONSchemaOrThrow(a)).toEqual({
+    $ref: "#/$defs/A",
+    $defs: {
+      A: {
+        type: "object",
+        properties: { v: { type: "string" }, next: { $ref: "#/$defs/A" } },
+        required: ["v"],
+      },
+    },
+  });
+});
+
+test("A recursive message prints as itself", (t) => {
+  const node = S.recursive<{ name: string; kids: unknown[] }>("DescriptorProto", (self) =>
+    S.schema({
+      name: S.string.with(S.protobufField, 1),
+      kids: S.array(self).with(S.protobufField, 2),
+    }),
+  );
+  t.expect(S.toProtoOrThrow(node)).toBe(
+    `syntax = "proto3";
+
+message DescriptorProto {
+  string name = 1;
+  repeated DescriptorProto kids = 2;
+}
+`,
+  );
+});
+
+test("Mutually recursive messages each print once, under their own name", (t) => {
+  const branch = S.recursive<{ leaf?: unknown; n: number }>("Branch", (self) =>
+    S.schema({
+      leaf: S.optional(
+        S.recursive("Leaf", () => S.schema({ kids: S.array(self).with(S.protobufField, 1) })),
+      ).with(S.protobufField, 1),
+      n: S.int32.with(S.protobufField, 2),
+    }),
+  );
+  t.expect(S.toProtoOrThrow(branch)).toBe(
+    `syntax = "proto3";
+
+message Branch {
+  optional Leaf leaf = 1;
+  int32 n = 2;
+}
+
+message Leaf {
+  repeated Branch kids = 1;
+}
+`,
+  );
+});

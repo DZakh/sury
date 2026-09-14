@@ -121,11 +121,11 @@ test("toProtoOrThrow rejects what the wire rejects, with the same message", (t) 
   t.expect(() => S.toProtoOrThrow(S.string)).toThrow("[Sury] S.toProtoOrThrow: the schema is not an object");
   t.expect(() =>
     S.toProtoOrThrow(
-      S.recursive("Node", (self) =>
-        S.schema({ v: S.int32.with(S.protobufField, 1), next: S.optional(self).with(S.protobufField, { number: 2, type: "message" }) }),
-      ),
+      S.recursive("Endless", (self) => S.schema({ me: self.with(S.protobufField, 1) })),
     ),
-  ).toThrow("[Sury] S.toProtoOrThrow: a recursive message can't be printed, as S.protobuf can't encode one");
+  ).toThrow(
+    '[Sury] S.protobuf: field "me" makes "Endless" hold itself with no way to end. Make it optional or repeated',
+  );
   t.expect(() => S.toProtoOrThrow(S.schema({ a: S.string }))).toThrow(
     '[Sury] S.protobuf: field "a" has no field number. Give it one with S.protobufField',
   );

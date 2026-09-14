@@ -138,7 +138,6 @@ const upstream = (): string => {
 // S.protobuf cannot express it. Anything else missing is a corpus bump
 // outrunning the schema, which is the whole reason the commit is pinned.
 const UNDECLARED: Record<number, string> = {
-  27: "recursive_message: TestAllTypesProto3 itself; S.protobuf has no recursive messages",
   304: "optional_struct: Struct/Value/ListValue are mutually recursive",
   306: "optional_value: as above",
   316: "repeated_value: as above",

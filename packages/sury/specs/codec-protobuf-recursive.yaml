@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.recursive("Node", (node) => S.schema({ name: S.string.with(S.protobufField, 1), kids: S.array(node).with(S.protobufField, 2) })).with(S.to, S.protobuf)'
+  input: unknown
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 8451
+jsonSchema:
+  input: '{ $ref: "#/$defs/pb:Node", $defs: { "pb:Node:wire": { type: "object", properties: { name: { type: "string" }, kids: { items: { $ref: "#/$defs/pb:Node:wire" }, type: "array" } }, required: ["name", "kids"] }, "pb:Node": { type: "object", properties: { name: { type: "string" }, kids: { items: { $ref: "#/$defs/pb:Node" }, type: "array" } }, required: ["name", "kids"] }, Node: { type: "object", properties: { name: { type: "string" }, kids: { items: { $ref: "#/$defs/Node" }, type: "array" } }, required: ["name", "kids"] } } }'
+  fromInputType: "{ name: string; kids: ...[]; }"
+  output: Expected JSON, received Uint8Array
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{let v0;v0=e[0](i);let v1,w;try{w=e[5].acquire();let v,j,n,s,h,a,k,g,c,o;v=v0["name"];if(v){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(v)};v=v0["kids"];n=v.length;if(n){j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[1](w,v[j++]);w.end(h)}};v1=w.finish()}catch(x){w&&(w.busy=false);e[6](x)}return v1}
+    examples:
+      leaf:
+        input: '{ name: "a", kids: [] }'
+        output: new Uint8Array([10, 1, 97])
+      tree:
+        input: '{ name: "a", kids: [{ name: "b", kids: [{ name: "c", kids: [] }] }] }'
+        output: new Uint8Array([10, 1, 97, 18, 8, 10, 1, 98, 18, 3, 10, 1, 99])
+  decode:
+    expression: i=>{e[0](i);let v0,w;try{w=e[5].acquire();let v,j,n,s,h,a,k,g,c,o;v=i["name"];if(v){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(v)};v=i["kids"];n=v.length;if(n){j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[1](w,v[j++]);w.end(h)}};v0=w.finish()}catch(x){w&&(w.busy=false);e[6](x)}return v0}
+    examples:
+      tree:
+        input: '{ name: "a", kids: [{ name: "b", kids: [] }] }'
+        output: new Uint8Array([10, 1, 97, 18, 3, 10, 1, 98])
+  encode:
+    expression: i=>{let v0,r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}e[3](v0);return v0}
+    examples:
+      leaf:
+        input: new Uint8Array([10, 1, 97])
+        output: '{ name: "a", kids: [] }'
+      tree:
+        input: new Uint8Array([10, 1, 97, 18, 8, 10, 1, 98, 18, 3, 10, 1, 99])
+        output: '{ name: "a", kids: [{ name: "b", kids: [{ name: "c", kids: [] }] }] }'
+      truncated-nested:
+        input: new Uint8Array([10, 1, 97, 18, 10, 10, 1, 98])
+        error: truncated protobuf message at kids (field 2, wire type 2)
+      empty-message:
+        input: new Uint8Array([])
+        output: '{ name: "", kids: [] }'

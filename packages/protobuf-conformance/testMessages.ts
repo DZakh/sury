@@ -47,13 +47,6 @@ const map = <TIn, TOut>(
 // number, so an `int32` with an `enum` wire type is the whole of it.
 const enm = (n: number) => f(S.int32, n, "enum");
 
-export const nestedMessage = S.schema({
-  a: i32(1),
-  // `corecursive` is TestAllTypesProto3 - a cycle S.protobuf cannot express, so
-  // it stays undeclared and rides through as an unknown field. Named in the
-  // failure list.
-});
-
 export const foreignMessage = S.schema({ c: i32(1) });
 
 // The google.protobuf wrappers are ordinary one-field messages on the wire.
@@ -77,7 +70,15 @@ const fieldMask = S.schema({ paths: rep(S.string, 1) });
 // the binary suite needs.
 const any = S.schema({ type_url: str(1), value: byt(2) });
 
-export const testAllTypesProto3 = S.schema({
+// `corecursive` and `recursive_message` are TestAllTypesProto3 itself, so the
+// message is its own definition and `NestedMessage` is declared inside it,
+// where the self-reference is in scope.
+export const testAllTypesProto3: S.Schema<unknown, unknown> = S.recursive("TestAllTypesProto3", (self) => {
+const nestedMessage = S.recursive("NestedMessage", () => S.schema({
+  a: i32(1),
+  corecursive: S.optional(self).with(S.protobufField, 2),
+}));
+return S.schema({
   optional_int32: i32(1),
   optional_int64: i64(2),
   optional_uint32: u32(3, "uint32"),
@@ -104,8 +105,7 @@ export const testAllTypesProto3 = S.schema({
   optional_string_piece: str(24),
   optional_cord: str(25),
 
-  // recursive_message = 27 is TestAllTypesProto3 itself. Undeclared, so it
-  // reads as an unknown field; see the failure list.
+  recursive_message: S.optional(self).with(S.protobufField, 27),
 
   repeated_int32: rep(S.int32, 31),
   repeated_int64: rep(S.bigint, 32),
@@ -245,4 +245,5 @@ export const testAllTypesProto3 = S.schema({
   field__Name16: i32(416),
   field_name17__: i32(417),
   Field_name18__: i32(418),
+});
 });

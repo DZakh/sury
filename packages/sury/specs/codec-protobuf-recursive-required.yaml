@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.recursive("Endless", (endless) => S.schema({ me: endless.with(S.protobufField, 1) })).with(S.to, S.protobuf)'
+  input: unknown
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 7836
+jsonSchema:
+  input: '[Sury] S.protobuf: field "me" makes "Endless" hold itself with no way to end. Make it optional or repeated'
+  output: '[Sury] S.protobuf: field "me" makes "Endless" hold itself with no way to end. Make it optional or repeated'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    creationError: 'Error: [Sury] S.protobuf: field "me" makes "Endless" hold itself with no way to end. Make it optional or repeated'
+  decode: eq-to-parse
+  encode: eq-to-parse

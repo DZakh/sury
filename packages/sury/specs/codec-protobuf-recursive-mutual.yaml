@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.recursive("Branch", (branch) => S.schema({ leaf: S.optional(S.recursive("Leaf", () => S.schema({ kids: S.array(branch).with(S.protobufField, 1) }))).with(S.protobufField, 1), n: S.int32.with(S.protobufField, 2) })).with(S.to, S.protobuf)'
+  input: unknown
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 10860
+jsonSchema:
+  input: '{ $ref: "#/$defs/pb:Branch", $defs: { "pb:Branch:wire": { type: "object", properties: { leaf: { type: "object", properties: { kids: { items: { $ref: "#/$defs/pb:Branch:wire" }, type: "array" } }, required: ["kids"] }, n: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["n"] }, "pb:Branch": { type: "object", properties: { leaf: { type: "object", properties: { kids: { items: { $ref: "#/$defs/pb:Branch" }, type: "array" } }, required: ["kids"] }, n: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["leaf", "n"] }, Leaf: { type: "object", properties: { kids: { items: { $ref: "#/$defs/Branch" }, type: "array" } }, required: ["kids"] }, Branch: { type: "object", properties: { leaf: { $ref: "#/$defs/Leaf" }, n: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["n"] } } }'
+  fromInputType: "{ leaf: { kids: ...[]; }; n: number; }"
+  output: Expected JSON, received Uint8Array
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{let v0;v0=e[0](i);let v1,w;try{w=e[6].acquire();let v,j,n,s,h,a,k,g,c,o;v=v0["leaf"];if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[2](w,v);w.end(h)};v=v0["n"];if((v=+v)){w.pos<w.buf.length?w.buf[w.pos++]=16:w.varint32(16);s=v;if(s<-2147483648||s>2147483647)e[3](s,-2147483648,2147483647,"int32");s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v1=w.finish()}catch(x){w&&(w.busy=false);e[7](x)}return v1}
+    examples:
+      bare:
+        input: "{ leaf: undefined, n: 3 }"
+        output: new Uint8Array([16, 3])
+      through-leaf:
+        input: "{ leaf: { kids: [{ leaf: undefined, n: 9 }] }, n: 1 }"
+        output: new Uint8Array([10, 4, 10, 2, 16, 9, 16, 1])
+  decode: eq-to-parse
+  encode:
+    expression: i=>{let v0,r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}e[3](v0);return v0}
+    examples:
+      bare:
+        input: new Uint8Array([16, 3])
+        output: "{ n: 3 }"
+      through-leaf:
+        input: new Uint8Array([10, 4, 10, 2, 16, 9, 16, 1])
+        output: "{ n: 1, leaf: { kids: [{ n: 9 }] } }"
