@@ -5,7 +5,7 @@ ts:
   output: Uint8Array<ArrayBufferLike>
   instantiations: 8493
 jsonSchema:
-  input: '{ $ref: "#/$defs/pb:Dir", $defs: { "pb:Dir:wire": { type: "object", properties: { entries: { type: "object", additionalProperties: { $ref: "#/$defs/pb:Dir:wire" } }, size: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["entries", "size"] }, "pb:Dir": { type: "object", properties: { entries: { type: "object", additionalProperties: { $ref: "#/$defs/pb:Dir" } }, size: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["entries", "size"] }, Dir: { type: "object", properties: { entries: { type: "object", additionalProperties: { $ref: "#/$defs/Dir" } }, size: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["entries", "size"] } } }'
+  input: '{ $ref: "#/$defs/Dir", $defs: { Dir: { type: "object", properties: { entries: { type: "object", additionalProperties: { $ref: "#/$defs/Dir" } }, size: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["entries", "size"] } } }'
   fromInputType: "{ entries: { [key: string]: ...; }; size: number; }"
   output: Expected JSON, received Uint8Array
 isEqual:

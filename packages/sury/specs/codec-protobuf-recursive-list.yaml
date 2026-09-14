@@ -5,8 +5,8 @@ ts:
   output: Uint8Array<ArrayBufferLike>
   instantiations: 8655
 jsonSchema:
-  input: '{ $ref: "#/$defs/pb:Item", $defs: { "pb:Item:wire": { type: "object", properties: { v: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, next: { $ref: "#/$defs/pb:Item:wire" } }, required: ["v"] }, "pb:Item": { type: "object", properties: { v: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, next: { $ref: "#/$defs/pb:Item" } }, required: ["v", "next"] }, Item: { type: "object", properties: { v: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, next: { $ref: "#/$defs/Item" } }, required: ["v"] } } }'
-  fromInputType: "{ v: number; next: ...; }"
+  input: '{ $ref: "#/$defs/Item", $defs: { Item: { type: "object", properties: { v: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, next: { $ref: "#/$defs/Item" } }, required: ["v"] } } }'
+  fromInputType: "{ v: number; next?: ... | undefined; }"
   output: Expected JSON, received Uint8Array
 isEqual:
   input: (a,b)=>a===b||e[0](a,b)
@@ -18,21 +18,9 @@ operations:
   parse:
     expression: i=>{let v0;v0=e[0](i);let v1;{let w;try{w=e[5].acquire();let v,j,n,s,h,a,k,g,c,o;v=v0["v"];if((v=+v)){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=v;if(s<-2147483648||s>2147483647)e[2](s,-2147483648,2147483647,"int32");s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v=v0["next"];if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[1](w,v);w.end(h)};v1=w.finish()}catch(x){w&&(w.busy=false);e[6](x)}}return v1}
     examples:
-      # FIXME: the document a recursive codec publishes marks an optional
-      # message field required. Optionality lives in the object's own
-      # `required` list, which is right here ("v" alone), but the renderer
-      # recomputes it from each property, and a nested message's property is
-      # the bare `$ref` - the union that would say `| undefined` is what the
-      # wire side carries instead. The wire definition above it does say
-      # `["v"]`; only the value one, which is what the document points at for a
-      # recursive codec, does not. A flat message renders from the wire side
-      # and is right.
       omitted-tail:
         input: "{ v: 1 }"
         output: new Uint8Array([8, 1])
-        divergence:
-          reason: an optional message field is marked required in the value definition
-          ajv: "input: data must have required property 'next'"
       one:
         input: "{ v: 1, next: undefined }"
         output: new Uint8Array([8, 1])

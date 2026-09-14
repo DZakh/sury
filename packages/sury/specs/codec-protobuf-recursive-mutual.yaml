@@ -5,8 +5,8 @@ ts:
   output: Uint8Array<ArrayBufferLike>
   instantiations: 10860
 jsonSchema:
-  input: '{ $ref: "#/$defs/pb:Branch", $defs: { "pb:Branch:wire": { type: "object", properties: { leaf: { type: "object", properties: { kids: { items: { $ref: "#/$defs/pb:Branch:wire" }, type: "array" } }, required: ["kids"] }, n: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["n"] }, "pb:Branch": { type: "object", properties: { leaf: { type: "object", properties: { kids: { items: { $ref: "#/$defs/pb:Branch" }, type: "array" } }, required: ["kids"] }, n: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["leaf", "n"] }, Leaf: { type: "object", properties: { kids: { items: { $ref: "#/$defs/Branch" }, type: "array" } }, required: ["kids"] }, Branch: { type: "object", properties: { leaf: { $ref: "#/$defs/Leaf" }, n: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["n"] } } }'
-  fromInputType: "{ leaf: { kids: ...[]; }; n: number; }"
+  input: '{ $ref: "#/$defs/Branch", $defs: { Leaf: { type: "object", properties: { kids: { items: { $ref: "#/$defs/Branch" }, type: "array" } }, required: ["kids"] }, Branch: { type: "object", properties: { leaf: { $ref: "#/$defs/Leaf" }, n: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["n"] } } }'
+  fromInputType: "{ n: number; leaf?: { kids: ...[]; } | undefined; }"
   output: Expected JSON, received Uint8Array
 isEqual:
   input: (a,b)=>a===b||e[0](a,b)

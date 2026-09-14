@@ -5,8 +5,8 @@ ts:
   output: Uint8Array<ArrayBufferLike>
   instantiations: 9163
 jsonSchema:
-  input: '{ $ref: "#/$defs/pb:Node", $defs: { "pb:Node:wire": { type: "object", properties: { v: { type: "string" }, kid: { $ref: "#/$defs/pb:Node:wire" } }, required: ["v"] }, "pb:Node": { type: "object", properties: { v: { type: "string" }, kid: { $ref: "#/$defs/pb:Node" } }, required: ["v", "kid"] }, Node: { type: "object", properties: { v: { type: "string" }, kid: { $ref: "#/$defs/Node" } }, required: ["v"] } } }'
-  fromInputType: "{ v: string; kid: ...; }"
+  input: '{ $ref: "#/$defs/Node", $defs: { Node: { type: "object", properties: { v: { type: "string" }, kid: { $ref: "#/$defs/Node" } }, required: ["v"] } } }'
+  fromInputType: "{ v: string; kid?: ... | undefined; }"
   output: Expected JSON, received Uint8Array
 isEqual:
   input: (a,b)=>a===b||e[0](a,b)
@@ -28,11 +28,11 @@ operations:
           - At kid: no bad
   decode: eq-to-parse
   encode:
-    expression: i=>{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}e[3](v0);return v0}
+    expression: i=>{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v1;v1=e[3](v0);return v1}
     examples:
       ok:
         input: new Uint8Array([10, 2, 111, 107, 18, 6, 10, 4, 102, 105, 110, 101])
-        output: '{ v: "ok", kid: { v: "fine" } }'
+        output: '{ v: "ok", kid: { v: "fine", kid: undefined } }'
       bad-kid:
         input: new Uint8Array([10, 2, 111, 107, 18, 5, 10, 3, 98, 97, 100])
         error: "Failed at kid: no bad"

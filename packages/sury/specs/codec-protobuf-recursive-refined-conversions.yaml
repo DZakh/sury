@@ -5,8 +5,8 @@ ts:
   output: Uint8Array<ArrayBufferLike>
   instantiations: 10836
 jsonSchema:
-  input: '{ $ref: "#/$defs/pb:N", $defs: { "pb:N:wire": { type: "object", properties: { v: { type: "string" }, e: { enum: [0, 1] }, s: { type: "string" }, kid: { $ref: "#/$defs/pb:N:wire" } }, required: ["v", "e", "s"] }, "pb:N": { type: "object", properties: { v: { type: "string" }, e: { enum: [0, 1] }, s: { type: "string" }, kid: { $ref: "#/$defs/pb:N" } }, required: ["v", "e", "s", "kid"] }, N: { type: "object", properties: { v: { type: "string" }, e: { enum: [0, 1] }, s: { default: "def", type: "string" }, kid: { $ref: "#/$defs/N" } }, required: ["v", "e"] } } }'
-  fromInputType: "{ v: string; e: 0 | 1; s: string; kid: ...; }"
+  input: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "string" }, e: { enum: [0, 1] }, s: { default: "def", type: "string" }, kid: { $ref: "#/$defs/N" } }, required: ["v", "e"] } } }'
+  fromInputType: "{ v: string; e: 0 | 1; s?: string | undefined; kid?: ... | undefined; }"
   output: Expected JSON, received Uint8Array
 isEqual:
   input: (a,b)=>a===b||e[0](a,b)

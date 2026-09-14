@@ -76,12 +76,10 @@ type Message = {
 type Defs = Record<string, Internal>;
 
 // One compile of a message tree. `defs` are the definitions `S.recursive` left
-// on the refs walked so far, `out` the ones this compile synthesizes for the
-// messages that turned out recursive, and `messages` the message per object, so
-// a message used twice compiles once and a cycle closes on the one it started.
+// on the refs walked so far, and `messages` the message per object, so a message
+// used twice compiles once and a cycle closes on the one it started.
 type Ctx = {
   defs: Defs;
-  out: Defs;
   // The name an object was reached under. Kept per object rather than as the
   // last one a walk passed, because the walk that resolves an object and the one
   // that compiles it need not be the same: `toProtoOrThrow` finds the wire
@@ -93,9 +91,6 @@ type Ctx = {
   // a ref is resolved, which a cycle cannot happen without.
   dec?: Builder;
   messages: Map<Internal, Message>;
-  // The definition names the operation already holds, which our own must step
-  // past: one namespace serves the whole operation, and the user named theirs.
-  taken?: Defs;
   rec: boolean;
   // The messages currently building: a field whose message is on it closes a
   // cycle.
@@ -104,19 +99,18 @@ type Ctx = {
 
 const newCtx = (): Ctx => ({
   defs: Object.create(null),
-  out: Object.create(null),
   names: new Map(),
   messages: new Map(),
   rec: false,
   stack: [],
 });
 
-// A `$ref` stands for its definition. `S.recursive` puts every definition on
-// the outermost ref's `$defs`, and a nested one on its own, so a walk collects
-// them as it passes.
+// A `$ref` stands for its definition. A ref the compiler built carries it; one
+// `S.recursive` built names it, on the outermost ref's `$defs` and on a nested
+// one's own, so a walk collects them as it passes.
 const deref = (ref: Internal, ctx: Ctx): Internal | undefined => {
   if (ref["$defs"] !== U) Object.assign(ctx.defs, ref["$defs"]);
-  const def = ctx.defs[ref["$ref"]!.slice(defsPath.length)];
+  const def = ref.definition || ctx.defs[ref["$ref"]!.slice(defsPath.length)];
   if (def !== U) {
     ctx.names.set(def, ref.name);
     ctx.dec = ref.decoder;
@@ -341,48 +335,27 @@ const refinedAs = (from: Internal, standin: Internal): Internal => {
   return mut;
 };
 
-// Whether the operation's definition namespace already holds this name.
-const held = (ctx: Ctx, key: string): boolean =>
-  ctx.out[key] !== U || ctx.defs[key] !== U || (ctx.taken !== U && ctx.taken[key] !== U);
-
 // The pair a field refers a recursive message by. Both sides need one: the raw
 // object the wire decoder fills still converts into the value the schema
 // declares - a default supplied, a refinement checked - and a plain object on
-// either side would be an endless tree. The definitions they name are
-// registered once the message finishes building.
+// either side would be an endless tree. Each names its definition by carrying
+// it, which is assigned once the message finishes building.
+//
+// Built rather than copied from the user's ref: that one may carry a chain, a
+// refinement or meta of its own, all of which belong to the one place the user
+// put them and not to every node of the tree. `$ref` is for reading, the way a
+// name is: two messages `S.recursive` gave one name stay two definitions here
+// whatever it says.
 const recurse = (message: Message, ctx: Ctx): [Internal, Internal] => {
   if (message.rec === U) {
     ctx.rec = true;
-    // Stepped past every name the operation already holds, so two messages
-    // `S.recursive` gave one name stay two definitions and neither displaces a
-    // definition of the user's. Derived from the name rather than a counter, so
-    // that what a golden records is the same on every run.
-    const base = `pb:${message.name}`;
-    let key = base;
-    for (let n = 2; held(ctx, key) || held(ctx, `${key}:wire`); n++) key = `${base}:${n}`;
-    // Claimed against the next message to ask, which the real definitions
-    // replace once this one is built - they do not exist yet.
-    ctx.out[key] = ctx.out[`${key}:wire`] = message.raw;
-    // Built rather than copied from the user's ref: that one may carry a chain,
-    // a refinement or meta of its own, all of which belong to the one place the
-    // user put them and not to every node of the tree.
-    const [wire, value] = (message.rec = [`${key}:wire`, key].map((named) => {
-      const ref = baseSchema(refTag, false, ctx.dec!);
-      ref["$ref"] = defsPath + named;
-      ref.name = message.name;
-      return ref;
-    }) as [Internal, Internal]);
-    // `S.recursive`'s decoder converts from the source it is handed, and a ref
-    // is opaque to every decoder below it - so the wire ref, which is only ever
-    // a source, names its definition here instead. Wrapping rather than
-    // teaching the engine to resolve any ref source: that would make a schema
-    // converting to `S.json` read its definition too, and plan from a union
-    // where it now plans from an opaque value.
-    const inner = value.decoder;
-    value.decoder = (input) => {
-      if (input.s["$ref"] === wire["$ref"]) input.s = message.raw;
-      return inner(input);
+    const ref = (): Internal => {
+      const standin = baseSchema(refTag, false, ctx.dec!);
+      standin["$ref"] = defsPath + message.name;
+      standin.name = message.name;
+      return standin;
     };
+    message.rec = [ref(), ref()];
   }
   return message.rec;
 };
@@ -543,27 +516,21 @@ const compileMessage = (schema: Internal, ctx: Ctx): Message | undefined => {
   msg.raw = raw;
   msg.schema = normalized;
   if (msg.rec !== U) {
-    ctx.out[msg.rec[0]["$ref"]!.slice(defsPath.length)] = raw;
-    ctx.out[msg.rec[1]["$ref"]!.slice(defsPath.length)] = normalized;
+    msg.rec[0].definition = raw;
+    msg.rec[1].definition = normalized;
   }
   ctx.stack.pop();
   return msg;
 };
 
-// The root of one compile. The definitions the recursive messages under it were
-// given ride on the schemas the operation walks, which is where `parse` picks
-// them up.
-const compileRoot = (schema: Internal, taken?: Defs): Message | undefined => {
+// The root of one compile.
+const compileRoot = (schema: Internal): Message | undefined => {
   const ctx = newCtx();
-  ctx.taken = taken;
   const message = compileMessage(schema, ctx);
   if (message !== U) {
     if (ctx.rec) rejectEndless(ctx);
-    // A recursive root's own schemas are definitions the rest of the compile
-    // names, so the operation walks copies of the refs instead. Only those
-    // outermost copies carry the definitions, the way `S.recursive` builds one:
-    // a ref that both carries `$defs` and appears inside them is a cycle for
-    // everything that walks a schema, `S.reverse` included.
+    // A recursive root's own schemas are what its refs name, so the operation
+    // walks copies of those refs rather than the definitions themselves.
     message.top = message.rec
       ? [copySchema(message.rec[0]), copySchema(message.rec[1])]
       : [message.raw, message.schema];
@@ -571,10 +538,6 @@ const compileRoot = (schema: Internal, taken?: Defs): Message | undefined => {
     // under it carries; the value schema the operation ends at is where the
     // non-recursive root has always carried one.
     message.top[1] = refinedAs(schema, message.top[1]);
-    if (ctx.rec) {
-      message.top[0]["$defs"] = ctx.out;
-      message.top[1]["$defs"] = ctx.out;
-    }
   }
   return message;
 };
@@ -1638,7 +1601,7 @@ const protobufDecoder = (input: Val): Val => {
   // other, so it validates as one instead of planning a message it has no
   // value for.
   if (input.s.encoder === protobufEncoder || tagFlags[input.s.type]! & 1) return instanceDecoder(input);
-  const message = compileRoot(objectSchemaOf(input), input.g.d);
+  const message = compileRoot(objectSchemaOf(input));
   if (message === U) return B_unsupportedDecode(input, input.s, input.e);
   const fns = new Map<Message, string>();
   nameMessages(message, fns);
@@ -1677,7 +1640,7 @@ const guarded = (input: Val, output: Val, target: Internal, code: string, releas
 };
 
 const protobufEncoder = (input: Val, target: Internal): Val => {
-  const message = compileRoot(target, input.g.d);
+  const message = compileRoot(target);
   // Another instance (`S.arrayBuffer`, say) takes the bytes as they are.
   if (message === U) return (tagFlags[target.type]! & 8192) ? input : B_unsupportedDecode(input, input.s, target);
   const fns = new Map<Message, string>();

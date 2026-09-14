@@ -466,6 +466,13 @@ export type Internal = {
   tr?: boolean;
   "$ref"?: string;
   "$defs"?: Record<string, Internal>;
+  // The definition a ref resolves to, for a ref no document publishes: the
+  // `$defs` of one operation are a single record keyed by the names their
+  // author chose, so a ref built by the compiler cannot ask for a name without
+  // risking one. Two `S.recursive` schemas may share a name, and a name is
+  // forgeable besides. A ref that carries this resolves by it and never reads
+  // the record.
+  definition?: Internal;
   // `S.json` and every copy of one: the marker that answers "is this the whole
   // document rather than a rendering of one", which several structural
   // decisions turn on. Nothing already on the schema answers it. Identity and

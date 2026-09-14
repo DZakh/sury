@@ -5,7 +5,7 @@ ts:
   output: Uint8Array<ArrayBufferLike>
   instantiations: 8709
 jsonSchema:
-  input: '{ $ref: "#/$defs/pb:Node", $defs: { "pb:Node:wire": { type: "object", properties: { v: { type: "string" }, kids: { items: { $ref: "#/$defs/pb:Node:wire" }, type: "array" } }, required: ["v", "kids"] }, "pb:Node": { type: "object", properties: { v: { type: "string" }, kids: { items: { $ref: "#/$defs/pb:Node" }, type: "array" } }, required: ["v", "kids"] }, Node: { type: "object", properties: { v: { type: "string" }, kids: { items: { $ref: "#/$defs/Node" }, type: "array" } }, required: ["v", "kids"] } } }'
+  input: '{ $ref: "#/$defs/Node", $defs: { Node: { type: "object", properties: { v: { type: "string" }, kids: { items: { $ref: "#/$defs/Node" }, type: "array" } }, required: ["v", "kids"] } } }'
   fromInputType: "{ v: string; kids: ...[]; }"
   output: Expected JSON, received Uint8Array
 isEqual:

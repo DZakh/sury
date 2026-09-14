@@ -5,8 +5,8 @@ ts:
   output: Uint8Array<ArrayBufferLike>
   instantiations: 9243
 jsonSchema:
-  input: '{ $ref: "#/$defs/pb:Expr", $defs: { "pb:Expr:wire": { type: "object", properties: { lit: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, neg: { $ref: "#/$defs/pb:Expr:wire" } }, required: ["lit"] }, "pb:Expr": { type: "object", properties: { lit: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, neg: { $ref: "#/$defs/pb:Expr" } }, required: ["lit", "neg"] }, Expr: { type: "object", properties: { lit: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, neg: { $ref: "#/$defs/Expr" } } } } }'
-  fromInputType: "{ lit: number; neg: ...; }"
+  input: '{ $ref: "#/$defs/Expr", $defs: { Expr: { type: "object", properties: { lit: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, neg: { $ref: "#/$defs/Expr" } } } } }'
+  fromInputType: "{ lit?: number | undefined; neg?: ... | undefined; }"
   output: Expected JSON, received Uint8Array
 isEqual:
   input: (a,b)=>a===b||e[0](a,b)
