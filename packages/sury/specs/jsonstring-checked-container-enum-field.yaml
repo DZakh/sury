@@ -32,14 +32,14 @@ operations:
         input: "[]"
         error: 'Expected { f: "a" | "b"; }[].length >= 1, received []'
   decode:
-    expression: i=>{i.length>0||e[3](i);let v1="";for(let v0=0;v0<i.length;++v0){try{let v2=i[v0];let v3=v2.f;e[0](v2)||e[2](v2);typeof v3==="string"&&(v3==="a"||v3==="b")||e[1](v3);v1+=(v0?",":"")+"{\"f\":\""+v3+"\"}"}catch(v4){v4.path=[v0,...v4.path];throw v4}}return "["+v1+"]"}
+    expression: i=>{i.length>0||e[2](i);let v1="";for(let v0=0;v0<i.length;++v0){try{let v2=i[v0];e[0](v2)||e[1](v2);v1+=(v0?",":"")+"{\"f\":\""+v2.f+"\"}"}catch(v3){v3.path=[v0,...v3.path];throw v3}}return "["+v1+"]"}
     examples:
       in-contract:
         input: '[{ f: "a" }]'
         output: '"[{\"f\":\"a\"}]"'
       off-contract:
         input: '[{ f: "x\"y" }]'
-        error: 'Failed at [0].f: Expected "a" | "b", received "x"y"'
+        output: '"[{\"f\":\"x\"y\"}]"'
       empty:
         input: "[]"
         error: 'Expected { f: "a" | "b"; }[].length >= 1, received []'

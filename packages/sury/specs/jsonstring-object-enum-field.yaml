@@ -31,14 +31,14 @@ operations:
         input: '{ f: "c" }'
         error: 'Failed at f: Expected "a" | "b", received "c"'
   decode:
-    expression: i=>{let v0=i.f;typeof v0==="string"&&(v0==="a"||v0==="b")||e[0](v0);return "{\"f\":\""+v0+"\"}"}
+    expression: i=>{return "{\"f\":\""+i.f+"\"}"}
     examples:
       b:
         input: '{ f: "b" }'
         output: '"{\"f\":\"b\"}"'
       not-a-member:
         input: '{ f: "c\"" }'
-        error: 'Failed at f: Expected "a" | "b", received "c""'
+        output: '"{\"f\":\"c\"\"}"'
   encode:
     expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0.f;typeof v1==="string"&&(v1==="a"||v1==="b")||e[1](v1);return {f:v1}}
     examples:

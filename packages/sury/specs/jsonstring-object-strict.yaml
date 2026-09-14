@@ -34,7 +34,7 @@ operations:
         input: '{ f: "c", n: 1, x: 2 }'
         error: 'Failed at f: Expected "a" | "b", received "c"'
   decode:
-    expression: i=>{let v0=i.f,v1=i.n;typeof v0==="string"&&(v0==="a"||v0==="b")||e[0](v0);return "{\"f\":\""+v0+"\",\"n\":"+(Number.isFinite(v1)?v1:e[1](v1))+"}"}
+    expression: i=>{let v0=i.n;return "{\"f\":\""+i.f+"\",\"n\":"+(Number.isFinite(v0)?v0:e[0](v0))+"}"}
     examples:
       valid:
         input: '{ f: "b", n: 2 }'

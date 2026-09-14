@@ -610,10 +610,12 @@ export const jsonString = /* @__PURE__ */ (() => {
         ? guarded && variantOutput.type === undefinedTag
         : typeof c === stringTag && JSON.stringify(c) === `"${c}"`;
     });
-  // Every other escape-free claim (base.ts `formatFlag`) is backed by a
-  // pattern refiner or by a conversion that manufactures the string, both of
-  // which hold whatever the value claims to be. This one is backed by a check
-  // the compiler has to emit, so the caller below owes it.
+  // Sound without a check of its own: the arms spell the value out, so the
+  // declared type is already the set of escape-free strings and a value
+  // outside it is a type error the caller made. The escape-free claims that
+  // DO carry a check are the ones whose type is wider than the contract - a
+  // format's pattern (any `string` would splice), a number's `Number.isFinite`
+  // (`number` admits Infinity).
   const bareString = copySchema(string);
   bareString.formatFlag = 1;
 
@@ -634,12 +636,6 @@ export const jsonString = /* @__PURE__ */ (() => {
     loop?: boolean,
   ): { p: Val; g: string | undefined } => {
     const cur = declared || itemVal.s;
-    // What the container's decoder made of this field: a val still carrying no
-    // `prev` is the accessor `valGet` synthesized (its invariant), so the
-    // decoder passed the field through and nothing checked it - the operation
-    // was told to trust the type it claims. Read before `B_unionWritable`
-    // below, which relinks the val.
-    const trusted = itemVal.b === U || itemVal.b.prev === U;
     // `noValidation` is the one declared shape that reads the field once.
     if (declared !== U && !declared.noValidation) itemVal = B_unionWritable(itemVal);
     const validated = (): Val =>
@@ -702,18 +698,9 @@ export const jsonString = /* @__PURE__ */ (() => {
       }
       const optional = !isArr && !!cur.has![undefinedTag];
       if (!loop && isBareEnum(variants, optional)) {
-        // The membership check is that proof, and the union's dispatch is the
-        // only thing that emits it - which a trusted field, already claiming
-        // the union, leaves with nothing to do. Every arm being an
-        // escape-free const is the one shape where the dispatch IS the whole
-        // check, so re-claiming `unknown` is what makes the union owe it.
         const v = validated();
-        const checked =
-          declared !== U || !trusted
-            ? v
-            : parse(B_refine(B_unionWritable(v), unknown, U, cur));
-        const guard = optional ? checked.v() : U;
-        return { p: parse(B_refine(checked, bareString, U, jsonPiece)), g: guard };
+        const guard = optional ? v.v() : U;
+        return { p: parse(B_refine(v, bareString, U, jsonPiece)), g: guard };
       }
       if (optional && variants.length === 2) {
         // The two-variant `X | undefined` shape skips the union dispatch

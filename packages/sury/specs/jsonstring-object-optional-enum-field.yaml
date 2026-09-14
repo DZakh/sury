@@ -31,7 +31,7 @@ operations:
         input: '{ f: "c" }'
         error: 'Failed at f: Expected "a" | "b" | undefined, received "c"'
   decode:
-    expression: i=>{let v0=i.f;(typeof v0==="string"&&(v0==="a"||v0==="b")||v0===void 0)||e[0](v0);let v1="";if(v0!==void 0){v1+="\"f\":\""+v0+"\""}return "{"+v1+"}"}
+    expression: i=>{let v0=i.f;let v1="";if(v0!==void 0){v1+="\"f\":\""+v0+"\""}return "{"+v1+"}"}
     examples:
       absent:
         input: "{}"
