@@ -17,7 +17,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{i instanceof e[9]||e[10](i);let v0=e[0](i),v1=v0.get("agree"),v3=v0.get("notify")||void 0,v5=v0.get("mailing"),v7=v0.get("seen"),v9=v0.get("asText"),v11=v0.get("age");let v2=v1==="on"||v1==="true"||(v1==="false"||!v1?false:e[1](v1));if(v3){let v4=v3==="on"||v3==="true"||(v3==="false"||!v3?false:e[2](v3));v3=v4;}if(v5){let v6=v5==="on"||v5==="true"||(v5==="false"||!v5?false:e[3](v5));v5=v6;}else{v5=null}if(v7){let v8=v7==="on"||v7==="true"||(v7==="false"||!v7?false:e[4](v7));v7=v8;}else{v7=false;}let v10=v9==="on"||v9==="true"||(v9==="false"||!v9?false:e[5](v9));typeof v11==="string"||e[6](v11);let v12=+v11;v12==v12&&(v12||v11.trim())||e[8](v11);v12>=18||e[7](v12);return {agree:v2,notify:v3,mailing:v5,seen:v7,asText:""+v10,age:v12}}
+    expression: i=>{try{i instanceof e[9]||e[10](i);let v0=e[0](i),v1=v0.get("agree"),v3=v0.get("notify")||void 0,v5=v0.get("mailing"),v7=v0.get("seen"),v9=v0.get("asText"),v11=v0.get("age");let v2=v1==="on"||v1==="true"||(v1==="false"||!v1?false:e[1](v1));if(v3){let v4=v3==="on"||v3==="true"||(v3==="false"||!v3?false:e[2](v3));v3=v4;}if(v5){let v6=v5==="on"||v5==="true"||(v5==="false"||!v5?false:e[3](v5));v5=v6;}else{v5=null}if(v7){let v8=v7==="on"||v7==="true"||(v7==="false"||!v7?false:e[4](v7));v7=v8;}else{v7=false;}let v10=v9==="on"||v9==="true"||(v9==="false"||!v9?false:e[5](v9));typeof v11==="string"||e[6](v11);let v12=+v11;v12==v12&&(v12||v11.trim())||e[8](v11);v12>=18||e[7](v12);return {agree:v2,notify:v3,mailing:v5,seen:v7,asText:""+v10,age:v12}}catch(v13){e[11](v13)}}
     examples:
       checked:
         input: ((f) => (f.append("agree", "on"), f.append("age", "42"), f))(new FormData())
@@ -59,7 +59,7 @@ operations:
         input: ((f) => (f.append("notify", "on"), f.append("age", "42"), f))(new FormData())
         output: '{ agree: false, notify: true, mailing: null, seen: false, asText: "false", age: 42 }'
   decode:
-    expression: i=>{let v0=e[0](i),v1=v0.get("agree"),v3=v0.get("notify")||void 0,v5=v0.get("mailing"),v7=v0.get("seen"),v9=v0.get("asText"),v11=v0.get("age");let v2=v1==="on"||v1==="true"||(v1==="false"||!v1?false:e[1](v1));if(v3){let v4=v3==="on"||v3==="true"||(v3==="false"||!v3?false:e[2](v3));v3=v4;}if(v5){let v6=v5==="on"||v5==="true"||(v5==="false"||!v5?false:e[3](v5));v5=v6;}else{v5=null}if(v7){let v8=v7==="on"||v7==="true"||(v7==="false"||!v7?false:e[4](v7));v7=v8;}else{v7=false;}let v10=v9==="on"||v9==="true"||(v9==="false"||!v9?false:e[5](v9));typeof v11==="string"||e[6](v11);let v12=+v11;v12==v12&&(v12||v11.trim())||e[8](v11);v12>=18||e[7](v12);return {agree:v2,notify:v3,mailing:v5,seen:v7,asText:""+v10,age:v12}}
+    expression: i=>{try{let v0=e[0](i),v1=v0.get("agree"),v3=v0.get("notify")||void 0,v5=v0.get("mailing"),v7=v0.get("seen"),v9=v0.get("asText"),v11=v0.get("age");let v2=v1==="on"||v1==="true"||(v1==="false"||!v1?false:e[1](v1));if(v3){let v4=v3==="on"||v3==="true"||(v3==="false"||!v3?false:e[2](v3));v3=v4;}if(v5){let v6=v5==="on"||v5==="true"||(v5==="false"||!v5?false:e[3](v5));v5=v6;}else{v5=null}if(v7){let v8=v7==="on"||v7==="true"||(v7==="false"||!v7?false:e[4](v7));v7=v8;}else{v7=false;}let v10=v9==="on"||v9==="true"||(v9==="false"||!v9?false:e[5](v9));typeof v11==="string"||e[6](v11);let v12=+v11;v12==v12&&(v12||v11.trim())||e[8](v11);v12>=18||e[7](v12);return {agree:v2,notify:v3,mailing:v5,seen:v7,asText:""+v10,age:v12}}catch(v13){e[9](v13)}}
     examples:
       checked:
         input: ((f) => (f.append("agree", "on"), f.append("age", "42"), f))(new FormData())
@@ -77,7 +77,7 @@ operations:
         input: ((f) => (f.append("agree", "0"), f.append("age", "42"), f))(new FormData())
         error: 'Failed at agree: Expected boolean, received "0"'
   encode:
-    expression: i=>{let v0=i.seen,v2=i.asText,v3=i.age;typeof v0==="boolean"||e[0](v0);let v1;(v1=v2==="true")||v2==="false"||e[1](v2);v3>=18||e[2](v3);let v4=new e[3]();if(i.agree){v4.append("agree","on")}if(i.notify!=null){v4.append("notify",i.notify?"on":"false")}if(i.mailing!=null){v4.append("mailing",i.mailing?"on":"false")}if(v0){v4.append("seen","on")}if(v1){v4.append("asText","on")}v4.append("age",""+v3);return v4}
+    expression: i=>{try{let v0=i.seen,v2=i.asText,v3=i.age;typeof v0==="boolean"||e[0](v0);let v1;(v1=v2==="true")||v2==="false"||e[1](v2);v3>=18||e[2](v3);let v4=new e[3]();if(i.agree){v4.append("agree","on")}if(i.notify!=null){v4.append("notify",i.notify?"on":"false")}if(i.mailing!=null){v4.append("mailing",i.mailing?"on":"false")}if(v0){v4.append("seen","on")}if(v1){v4.append("asText","on")}v4.append("age",""+v3);return v4}catch(v5){e[4](v5)}}
     examples:
       built:
         input: '{ agree: true, notify: false, mailing: null, seen: false, asText: "true", age: 42 }'

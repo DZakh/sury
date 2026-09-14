@@ -994,6 +994,7 @@ external extendJSONSchema: (t<'value>, JSONSchema.t) => t<'value> = "extendJSONS
 type globalConfigOverride = {
   defaultAdditionalItems?: additionalItemsMode,
   disableNanNumberValidation?: bool,
+  errorStackTrace?: bool,
 }
 
 @module("sury") external global: globalConfigOverride => unit = "global"

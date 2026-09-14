@@ -312,7 +312,7 @@ test("Compiled parse code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="number"&&i<=2147483647&&i>=-2147483648&&i%1==0||e[2](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}`,
+    `i=>{try{typeof i==="number"&&i<=2147483647&&i>=-2147483648&&i%1==0||e[2](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[3](v1)}}`,
   )
 })
 
@@ -328,7 +328,7 @@ test("Compiled async parse code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ParseAsync,
-    `i=>{try{typeof i==="number"&&i<=2147483647&&i>=-2147483648&&i%1==0||e[2](i);let v0;try{v0=e[0](i).catch(x=>e[1](x))}catch(x){e[1](x)}return v0}catch(v1){return Promise.reject(v1)}}`,
+    `i=>{try{try{typeof i==="number"&&i<=2147483647&&i>=-2147483648&&i%1==0||e[2](i);let v0;try{v0=e[0](i).catch(x=>e[1](x))}catch(x){e[1](x)}return v0}catch(v1){e[3](v1)}}catch(v2){return Promise.reject(v2)}}`,
   )
 })
 
@@ -344,7 +344,7 @@ test("Compiled serialize code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}`,
+    `i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[2](v1)}}`,
   )
 })
 
@@ -369,7 +369,7 @@ test("Compiled serialize code snapshot with two custom codecs", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}let v1;try{v1=e[2](v0)}catch(x){e[3](x)}return v1}`,
+    `i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}let v1;try{v1=e[2](v0)}catch(x){e[3](x)}return v1}catch(v2){e[4](v2)}}`,
   )
 })
 
@@ -414,7 +414,7 @@ test("Refines the coder's result, not what went into it", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}e[2].test(v0)||e[3](v0);return v0}`,
+    `i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}e[2].test(v0)||e[3](v0);return v0}catch(v1){e[4](v1)}}`,
   )
   t->Assert.deepEqual(
     {"id": "6d8d3a9a-1e0a-4f6a-9a4a-0f2d3f4a5b6c", "name": "John"}->S.convertOrThrow(

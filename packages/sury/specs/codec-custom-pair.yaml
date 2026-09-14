@@ -14,7 +14,7 @@ vs:
   zod: 'z.codec(z.string(), z.number().positive(), { decode: (value) => value.length, encode: (value) => "x".repeat(value) })'
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[4](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="number"&&v0==v0||e[3](v0);v0>0||e[2](v0);return v0}
+    expression: i=>{try{typeof i==="string"||e[4](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="number"&&v0==v0||e[3](v0);v0>0||e[2](v0);return v0}catch(v1){e[5](v1)}}
     examples:
       valid:
         input: '"abc"'
@@ -26,13 +26,13 @@ operations:
         input: "123"
         error: Expected string, received 123
   decode:
-    expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="number"&&v0==v0||e[3](v0);v0>0||e[2](v0);return v0}
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="number"&&v0==v0||e[3](v0);v0>0||e[2](v0);return v0}catch(v1){e[4](v1)}}
     examples:
       valid:
         input: '"abc"'
         output: "3"
   encode:
-    expression: i=>{i>0||e[3](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);return v0}
+    expression: i=>{try{i>0||e[3](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);return v0}catch(v1){e[4](v1)}}
     examples:
       round-trip:
         input: "3"

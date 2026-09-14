@@ -1647,7 +1647,7 @@ test("Parse to literal with no validation to emulate assert", async (t) => {
   expectTypeOf(fn).toEqualTypeOf<(data: unknown) => true>();
   t.expect(fn({ foo: "bar" })).toEqual(true);
   t.expect(fn.toString()).toEqual(
-    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.foo;typeof v0==="string"||e[0](v0);return true}`,
+    `i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.foo;typeof v0==="string"||e[0](v0);return true}catch(v1){e[2](v1)}}`,
   );
 });
 
@@ -2366,7 +2366,7 @@ test("Preprocess nested fields", (t) => {
 
   t.expect(fn.toString()).toEqual(
     // The junction seam validates each coder's result against its target.
-    `i=>{i===void 0||e[6](i);let v0;try{v0=e[0]("foo")}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);let v1;try{v1=e[3]("1")}catch(x){e[4](x)}typeof v1==="string"||e[5](v1);return {nested:{tag:v0,numberTag:v1}}}`,
+    `i=>{try{i===void 0||e[6](i);let v0;try{v0=e[0]("foo")}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);let v1;try{v1=e[3]("1")}catch(x){e[4](x)}typeof v1==="string"||e[5](v1);return {nested:{tag:v0,numberTag:v1}}}catch(v2){e[7](v2)}}`,
   );
 
   const value = fn(undefined);

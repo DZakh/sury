@@ -15,7 +15,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{i instanceof e[7]||e[8](i);let v0=e[0](i),v1=e[1](v0.get("docs")),v5=e[1](v0.get("attachments")),v9=v0.get("note");for(let v2=0;v2<v1.length;++v2){try{let v3=v1[v2];v3 instanceof e[2]||e[3](v3);}catch(v4){v4.path=["docs",v2,...v4.path];throw v4}}for(let v6=0;v6<v5.length;++v6){try{let v7=v5[v6];v7 instanceof e[4]||e[5](v7);}catch(v8){v8.path=["attachments",v6,...v8.path];throw v8}}typeof v9==="string"||e[6](v9);return {docs:v1,attachments:v5,note:v9}}
+    expression: i=>{try{i instanceof e[7]||e[8](i);let v0=e[0](i),v1=e[1](v0.get("docs")),v5=e[1](v0.get("attachments")),v9=v0.get("note");for(let v2=0;v2<v1.length;++v2){try{let v3=v1[v2];v3 instanceof e[2]||e[3](v3);}catch(v4){v4.path=["docs",v2,...v4.path];throw v4}}for(let v6=0;v6<v5.length;++v6){try{let v7=v5[v6];v7 instanceof e[4]||e[5](v7);}catch(v8){v8.path=["attachments",v6,...v8.path];throw v8}}typeof v9==="string"||e[6](v9);return {docs:v1,attachments:v5,note:v9}}catch(v10){e[9](v10)}}
     examples:
       nothing-chosen:
         input: '((f) => (f.append("docs", new File([], "", { type: "application/octet-stream" })), f.append("attachments", new File([], "", { type: "application/octet-stream" })), f.append("note", ""), f))(new FormData())'
@@ -24,7 +24,7 @@ operations:
         input: ((f) => (f.append("docs", new File(["a"], "a.txt")), f.append("attachments", new File(["b"], "b.txt")), f.append("attachments", new File(["c"], "c.txt")), f.append("note", "n"), f))(new FormData())
         output: '{ docs: [new File(["a"], "a.txt")], attachments: [new File(["b"], "b.txt"), new File(["c"], "c.txt")], note: "n" }'
   decode:
-    expression: i=>{let v0=e[0](i),v1=e[1](v0.get("docs")),v5=e[1](v0.get("attachments")),v9=v0.get("note");for(let v2=0;v2<v1.length;++v2){try{let v3=v1[v2];v3 instanceof e[2]||e[3](v3);}catch(v4){v4.path=["docs",v2,...v4.path];throw v4}}for(let v6=0;v6<v5.length;++v6){try{let v7=v5[v6];v7 instanceof e[4]||e[5](v7);}catch(v8){v8.path=["attachments",v6,...v8.path];throw v8}}typeof v9==="string"||e[6](v9);return {docs:v1,attachments:v5,note:v9}}
+    expression: i=>{try{let v0=e[0](i),v1=e[1](v0.get("docs")),v5=e[1](v0.get("attachments")),v9=v0.get("note");for(let v2=0;v2<v1.length;++v2){try{let v3=v1[v2];v3 instanceof e[2]||e[3](v3);}catch(v4){v4.path=["docs",v2,...v4.path];throw v4}}for(let v6=0;v6<v5.length;++v6){try{let v7=v5[v6];v7 instanceof e[4]||e[5](v7);}catch(v8){v8.path=["attachments",v6,...v8.path];throw v8}}typeof v9==="string"||e[6](v9);return {docs:v1,attachments:v5,note:v9}}catch(v10){e[7](v10)}}
     examples:
       nothing-chosen:
         input: '((f) => (f.append("attachments", new File([], "", { type: "application/octet-stream" })), f.append("note", ""), f))(new FormData())'
@@ -33,7 +33,7 @@ operations:
         input: ((f) => (f.append("attachments", "x"), f.append("note", ""), f))(new FormData())
         error: 'Failed at attachments[0]: Expected File, received "x"'
   encode:
-    expression: i=>{let v0=i.attachments,v3=i.docs;let v2=new e[0]();if(v3!=null){for(let v4=0;v4<v3.length;++v4){v2.append("docs",v3[v4]);}}for(let v5=0;v5<v0.length;++v5){v2.append("attachments",v0[v5]);}v2.append("note",i.note);return v2}
+    expression: i=>{try{let v0=i.attachments,v3=i.docs;let v2=new e[0]();if(v3!=null){for(let v4=0;v4<v3.length;++v4){v2.append("docs",v3[v4]);}}for(let v5=0;v5<v0.length;++v5){v2.append("attachments",v0[v5]);}v2.append("note",i.note);return v2}catch(v6){e[1](v6)}}
     examples:
       empty-lists:
         input: '{ docs: [], attachments: [], note: "" }'

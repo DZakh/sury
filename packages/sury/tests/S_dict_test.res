@@ -43,7 +43,7 @@ module CommonWithNested = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);for(let v0 in i){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path=[v0,...v2.path];throw v2}}return i}`,
+      `i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);for(let v0 in i){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path=[v0,...v2.path];throw v2}}return i}catch(v3){e[2](v3)}}`,
     )
   })
 
@@ -55,7 +55,7 @@ module CommonWithNested = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ParseAsync,
-      `i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v3={};for(let v0 in i){try{let v1;try{v1=e[0](i[v0]).catch(x=>e[1](x))}catch(x){e[1](x)}v3[v0]=v1.catch(v2=>{v2.path=[v0,...v2.path];throw v2})}catch(v2){v2.path=[v0,...v2.path];throw v2}}return new Promise((v4,v5)=>{let v7=Object.keys(v3).length;if(!v7){v4(v3)}for(let v0 in v3){v3[v0].then(v6=>{v3[v0]=v6;if(v7--===1){v4(v3)}},v5)}})}catch(v8){return Promise.reject(v8)}}`,
+      `i=>{try{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v3={};for(let v0 in i){try{let v1;try{v1=e[0](i[v0]).catch(x=>e[1](x))}catch(x){e[1](x)}v3[v0]=v1.catch(v2=>{v2.path=[v0,...v2.path];throw v2})}catch(v2){v2.path=[v0,...v2.path];throw v2}}return new Promise((v4,v5)=>{let v7=Object.keys(v3).length;if(!v7){v4(v3)}for(let v0 in v3){v3[v0].then(v6=>{v3[v0]=v6;if(v7--===1){v4(v3)}},v5)}})}catch(v8){e[3](v8)}}catch(v9){return Promise.reject(v9)}}`,
     )
   })
 
@@ -73,7 +73,7 @@ module CommonWithNested = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Encode,
-      `i=>{let v3={};for(let v0 in i){try{let v1=i[v0];for(;;){if(typeof v1==="string")break;if(v1===void 0){v1=null;break}e[0](v1)}v3[v0]=v1}catch(v2){v2.path=[v0,...v2.path];throw v2}}return v3}`,
+      `i=>{try{let v3={};for(let v0 in i){try{let v1=i[v0];for(;;){if(typeof v1==="string")break;if(v1===void 0){v1=null;break}e[0](v1)}v3[v0]=v1}catch(v2){v2.path=[v0,...v2.path];throw v2}}return v3}catch(v4){e[1](v4)}}`,
     )
   })
 

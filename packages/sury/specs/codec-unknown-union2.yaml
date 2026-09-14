@@ -16,7 +16,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{(typeof i==="bigint"||typeof i==="string")||e[0](i);return i}
+    expression: i=>{try{(typeof i==="bigint"||typeof i==="string")||e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
       bigint:
         input: 123n

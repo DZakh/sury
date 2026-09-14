@@ -12,7 +12,7 @@ vs:
   zod: z.ipv6()
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}catch(v0){e[3](v0)}}
     examples:
       a-valid-ipv6-address:
         input: '"::1"'
@@ -120,7 +120,7 @@ operations:
         input: '"1:2::192.16৪.0.1"'
         error: Expected ipv6, received "1:2::192.16৪.0.1"
   decode:
-    expression: i=>{e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{e[0].test(i)||e[1](i);return i}catch(v0){e[2](v0)}}
     examples:
       valid:
         input: '"::1"'
@@ -129,7 +129,7 @@ operations:
         input: '"12345::"'
         error: Expected ipv6, received "12345::"
   encode:
-    expression: i=>{e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{e[0].test(i)||e[1](i);return i}catch(v0){e[2](v0)}}
     examples:
       valid:
         input: '"::1"'

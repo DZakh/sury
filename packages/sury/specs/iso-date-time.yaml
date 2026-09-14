@@ -12,7 +12,7 @@ vs:
   zod: "z.iso.datetime({ offset: true })"
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[2](i);e[0](i)||e[1](i);return i}
+    expression: i=>{try{typeof i==="string"||e[2](i);e[0](i)||e[1](i);return i}catch(v0){e[3](v0)}}
     examples:
       utc:
         input: '"2020-01-01T00:00:00.123Z"'
@@ -42,7 +42,7 @@ operations:
         input: '"not-a-date"'
         error: Expected date-time, received "not-a-date"
   decode:
-    expression: i=>{e[0](i)||e[1](i);return i}
+    expression: i=>{try{e[0](i)||e[1](i);return i}catch(v0){e[2](v0)}}
     examples:
       utc:
         input: '"2020-01-01T00:00:00.123Z"'
@@ -66,7 +66,7 @@ operations:
         input: '"not-a-date"'
         error: Expected date-time, received "not-a-date"
   encode:
-    expression: i=>{e[0](i)||e[1](i);return i}
+    expression: i=>{try{e[0](i)||e[1](i);return i}catch(v0){e[2](v0)}}
     examples:
       utc:
         input: '"2020-01-01T00:00:00.123Z"'

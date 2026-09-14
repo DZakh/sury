@@ -2821,6 +2821,13 @@ export type AdditionalItemsMode = "strip" | "strict";
 export type GlobalConfigOverride = {
   defaultAdditionalItems?: AdditionalItemsMode;
   disableNanNumberValidation?: boolean;
+  /**
+   * Whether a thrown `S.Error` carries a stack. Default `true`. Set it to
+   * `false` and a failure that escapes `parseOrThrow` costs what one handed
+   * back by `parseAsResult` does; the error still reads the same, it just
+   * won't say where the parse was called from.
+   */
+  errorStackTrace?: boolean;
 };
 
 export function global(globalConfigOverride: GlobalConfigOverride): void;

@@ -15,7 +15,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[1](i);return new e[0](i)}
+    expression: i=>{try{typeof i==="string"||e[1](i);return new e[0](i)}catch(v0){e[2](v0)}}
     examples:
       valid:
         input: '"q=hi&page=2"'
@@ -24,7 +24,7 @@ operations:
         input: '""'
         output: new URLSearchParams()
   decode:
-    expression: i=>{return new e[0](i)}
+    expression: i=>{try{return new e[0](i)}catch(v0){e[1](v0)}}
     examples:
       valid:
         input: '"q=hi&page=2"'

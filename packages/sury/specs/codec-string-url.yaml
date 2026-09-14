@@ -15,7 +15,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[2](i);let v0=e[0](i);v0||e[1](i);return v0}
+    expression: i=>{try{typeof i==="string"||e[2](i);let v0=e[0](i);v0||e[1](i);return v0}catch(v1){e[3](v1)}}
     examples:
       valid:
         input: '"http://dzakh.dev/"'
@@ -36,7 +36,7 @@ operations:
         input: '"http://"'
         error: Expected URL, received "http://"
   decode:
-    expression: i=>{let v0=e[0](i);v0||e[1](i);return v0}
+    expression: i=>{try{let v0=e[0](i);v0||e[1](i);return v0}catch(v1){e[2](v1)}}
     examples:
       valid:
         input: '"http://dzakh.dev/"'
@@ -51,7 +51,7 @@ operations:
         input: '"http://"'
         error: Expected URL, received "http://"
   encode:
-    expression: i=>{return e[0](i)}
+    expression: i=>{try{return e[0](i)}catch(v0){e[1](v0)}}
     examples:
       valid:
         input: new URL("http://dzakh.dev/")

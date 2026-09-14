@@ -16,7 +16,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="number"&&i==i||e[2](i);i>=0&&i<65536&&i%1==0||e[0](i);i>80||e[1](i);return i}
+    expression: i=>{try{typeof i==="number"&&i==i||e[2](i);i>=0&&i<65536&&i%1==0||e[0](i);i>80||e[1](i);return i}catch(v0){e[3](v0)}}
     examples:
       above:
         input: "81"
@@ -34,7 +34,7 @@ operations:
         input: '"81"'
         error: Expected port > 80, received "81"
   decode:
-    expression: i=>{i>=0&&i<65536&&i%1==0||e[0](i);i>80||e[1](i);return i}
+    expression: i=>{try{i>=0&&i<65536&&i%1==0||e[0](i);i>80||e[1](i);return i}catch(v0){e[2](v0)}}
     examples:
       above:
         input: "81"
@@ -46,7 +46,7 @@ operations:
         input: "79"
         error: Expected port > 80, received 79
   encode:
-    expression: i=>{i>=0&&i<65536&&i%1==0||e[0](i);i>80||e[1](i);return i}
+    expression: i=>{try{i>=0&&i<65536&&i%1==0||e[0](i);i>80||e[1](i);return i}catch(v0){e[2](v0)}}
     examples:
       above:
         input: "81"

@@ -18,7 +18,7 @@ operations:
     creationError: "SuryError: Can't decode URLSearchParams -> { q: string; } with S.strict. A query carries keys no schema declares, so use S.strip"
   decode: eq-to-parse
   encode:
-    expression: i=>{let v0=new e[0]();v0.append("q",i.q);return v0.toString()}
+    expression: i=>{try{let v0=new e[0]();v0.append("q",i.q);return v0.toString()}catch(v1){e[1](v1)}}
     examples:
       extra-key:
         input: '{ q: "hi", other: "x" }'

@@ -15,7 +15,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);for(let v0 in i){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path=[v0,...v2.path];throw v2}}let v3=i.foo;v3!==void 0||e[1](v3);return {foo:v3}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);for(let v0 in i){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path=[v0,...v2.path];throw v2}}let v3=i.foo;v3!==void 0||e[1](v3);return {foo:v3}}catch(v4){e[3](v4)}}
     examples:
       missing-key:
         input: "{}"
@@ -24,7 +24,7 @@ operations:
         input: '{ foo: "a" }'
         output: '{ foo: "a" }'
   decode:
-    expression: i=>{let v1=i.foo;v1!==void 0||e[0](v1);return {foo:v1}}
+    expression: i=>{try{let v1=i.foo;v1!==void 0||e[0](v1);return {foo:v1}}catch(v2){e[1](v2)}}
     examples:
       missing-key:
         input: "{}"

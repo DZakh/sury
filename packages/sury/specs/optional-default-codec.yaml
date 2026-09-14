@@ -13,7 +13,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v1=i.n;for(;;){if(typeof v1==="string"){let v0=+v1;v0==v0&&(v0||v1.trim())||e[0](v1);v1=v0;break}if(v1===void 0){v1=5;break}e[1](v1)}return {n:v1}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v1=i.n;for(;;){if(typeof v1==="string"){let v0=+v1;v0==v0&&(v0||v1.trim())||e[0](v1);v1=v0;break}if(v1===void 0){v1=5;break}e[1](v1)}return {n:v1}}catch(v2){e[3](v2)}}
     examples:
       present:
         input: '{ n: "7" }'
@@ -22,7 +22,7 @@ operations:
         input: "{}"
         output: "{ n: 5 }"
   decode:
-    expression: i=>{let v1=i.n;for(;;){if(typeof v1==="string"){let v0=+v1;v0==v0&&(v0||v1.trim())||e[0](v1);v1=v0;break}if(v1===void 0){v1=5;break}e[1](v1)}return {n:v1}}
+    expression: i=>{try{let v1=i.n;for(;;){if(typeof v1==="string"){let v0=+v1;v0==v0&&(v0||v1.trim())||e[0](v1);v1=v0;break}if(v1===void 0){v1=5;break}e[1](v1)}return {n:v1}}catch(v2){e[2](v2)}}
     examples:
       present:
         input: '{ n: "7" }'
@@ -31,7 +31,7 @@ operations:
         input: "{}"
         output: "{ n: 5 }"
   encode:
-    expression: i=>{let v0=i.n;if(typeof v0==="number"&&v0==v0){v0=""+i.n}else{e[0](v0)}return {n:v0}}
+    expression: i=>{try{let v0=i.n;if(typeof v0==="number"&&v0==v0){v0=""+i.n}else{e[0](v0)}return {n:v0}}catch(v1){e[1](v1)}}
     examples:
       number:
         input: "{ n: 7 }"

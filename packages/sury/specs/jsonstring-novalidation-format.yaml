@@ -19,7 +19,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);return "{\"id\":"+e[0](i.id)+"}"}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);return "{\"id\":"+e[0](i.id)+"}"}catch(v0){e[2](v0)}}
     examples:
       valid:
         input: '{ id: "123e4567-e89b-12d3-a456-426614174000" }'
@@ -37,7 +37,7 @@ operations:
         input: '{ id: "a\"b" }'
         output: '"{\"id\":\"a\\\"b\"}"'
   encode:
-    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[1](v0);return {id:v0.id}}
+    expression: i=>{try{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[1](v0);return {id:v0.id}}catch(v1){e[2](v1)}}
     examples:
       takes-the-text-unchecked:
         input: '"{\"id\":\"zz\"}"'

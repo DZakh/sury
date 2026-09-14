@@ -17,7 +17,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{i instanceof e[1]||e[2](i);return e[0](i)}
+    expression: i=>{try{i instanceof e[1]||e[2](i);return e[0](i)}catch(v0){e[3](v0)}}
     examples:
       non-utf8-bytes:
         input: new Uint8Array([137, 80, 78, 71])
@@ -29,13 +29,13 @@ operations:
         input: new Uint8Array([255])
         output: '"_w"'
   decode:
-    expression: i=>{return e[0](i)}
+    expression: i=>{try{return e[0](i)}catch(v0){e[1](v0)}}
     examples:
       non-utf8-bytes:
         input: new Uint8Array([137, 80, 78, 71])
         output: '"iVBORw"'
   encode:
-    expression: i=>{e[1](i)||e[2](i);return e[0](i)}
+    expression: i=>{try{e[1](i)||e[2](i);return e[0](i)}catch(v0){e[3](v0)}}
     examples:
       invalid-base64url:
         input: '"!!"'

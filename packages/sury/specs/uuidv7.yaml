@@ -12,7 +12,7 @@ vs:
   zod: z.uuidv7()
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}catch(v0){e[3](v0)}}
     examples:
       valid:
         input: '"0192f0e1-2b3c-7d4e-8b7a-1f2e3d4c5b6a"'
@@ -30,7 +30,7 @@ operations:
         input: "42"
         error: Expected uuidv7, received 42
   decode:
-    expression: i=>{e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{e[0].test(i)||e[1](i);return i}catch(v0){e[2](v0)}}
     examples:
       valid:
         input: '"0192f0e1-2b3c-7d4e-8b7a-1f2e3d4c5b6a"'
@@ -39,7 +39,7 @@ operations:
         input: '"0192f0e1-2b3c-4d4e-8b7a-1f2e3d4c5b6a"'
         error: Expected uuidv7, received "0192f0e1-2b3c-4d4e-8b7a-1f2e3d4c5b6a"
   encode:
-    expression: i=>{e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{e[0].test(i)||e[1](i);return i}catch(v0){e[2](v0)}}
     examples:
       valid:
         input: '"0192f0e1-2b3c-7d4e-8b7a-1f2e3d4c5b6a"'

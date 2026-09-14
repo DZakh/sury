@@ -15,7 +15,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{for(;;){if(typeof i==="number"&&i==i){e[0](i);break}if(typeof i==="string")break;e[1](i)}return i}
+    expression: i=>{try{for(;;){if(typeof i==="number"&&i==i){e[0](i);break}if(typeof i==="string")break;e[1](i)}return i}catch(v0){e[2](v0)}}
     examples:
       rejected-number:
         input: "42"

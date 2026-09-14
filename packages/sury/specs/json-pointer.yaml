@@ -13,7 +13,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}catch(v0){e[3](v0)}}
     examples:
       a-valid-json-pointer:
         input: '"/foo/bar~0/baz~1/%a"'
@@ -118,7 +118,7 @@ operations:
         input: '"/foo\u0000bar\n\tbaz"'
         output: '"/foo\u0000bar\n\tbaz"'
   decode:
-    expression: i=>{e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{e[0].test(i)||e[1](i);return i}catch(v0){e[2](v0)}}
     examples:
       valid:
         input: '"/foo/bar~0/baz~1/%a"'
@@ -127,7 +127,7 @@ operations:
         input: '"/foo/bar~"'
         error: Expected json-pointer, received "/foo/bar~"
   encode:
-    expression: i=>{e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{e[0].test(i)||e[1](i);return i}catch(v0){e[2](v0)}}
     examples:
       valid:
         input: '"/foo/bar~0/baz~1/%a"'

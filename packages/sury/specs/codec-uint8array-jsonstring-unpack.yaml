@@ -17,7 +17,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{i instanceof e[2]||e[3](i);let v0=e[0].decode(i);try{JSON.parse(v0)}catch(t){e[1](v0)}return v0}
+    expression: i=>{try{i instanceof e[2]||e[3](i);let v0=e[0].decode(i);try{JSON.parse(v0)}catch(t){e[1](v0)}return v0}catch(v1){e[4](v1)}}
     examples:
       the-bytes-are-the-document:
         input: new Uint8Array([123, 34, 97, 34, 58, 49, 125])
@@ -26,13 +26,13 @@ operations:
         input: new Uint8Array([110, 111, 112, 101])
         error: Expected JSON string, received "nope"
   decode:
-    expression: i=>{let v0=e[0].decode(i);try{JSON.parse(v0)}catch(t){e[1](v0)}return v0}
+    expression: i=>{try{let v0=e[0].decode(i);try{JSON.parse(v0)}catch(t){e[1](v0)}return v0}catch(v1){e[2](v1)}}
     examples:
       the-bytes-are-the-document:
         input: new Uint8Array([123, 34, 97, 34, 58, 49, 125])
         output: '"{\"a\":1}"'
   encode:
-    expression: i=>{return e[0](i)}
+    expression: i=>{try{return e[0](i)}catch(v0){e[1](v0)}}
     examples:
       the-bytes-are-the-document:
         input: '"{\"a\":1}"'

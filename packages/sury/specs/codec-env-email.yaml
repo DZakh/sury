@@ -14,7 +14,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}catch(v0){e[3](v0)}}
     examples:
       valid:
         input: '"a@b.co"'
@@ -26,7 +26,7 @@ operations:
         input: '""'
         error: Expected email, received ""
   decode:
-    expression: i=>{i!==void 0||e[2](i);e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{i!==void 0||e[2](i);e[0].test(i)||e[1](i);return i}catch(v0){e[3](v0)}}
     examples:
       unset:
         input: undefined
@@ -35,7 +35,7 @@ operations:
         input: '"a@b.co"'
         output: '"a@b.co"'
   encode:
-    expression: i=>{e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{e[0].test(i)||e[1](i);return i}catch(v0){e[2](v0)}}
     examples:
       valid:
         input: '"a@b.co"'

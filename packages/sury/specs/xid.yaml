@@ -12,7 +12,7 @@ vs:
   zod: z.xid()
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}catch(v0){e[3](v0)}}
     examples:
       valid:
         input: '"9m4e2mr0ui3e8a215n4g"'
@@ -36,7 +36,7 @@ operations:
         input: "42"
         error: Expected xid, received 42
   decode:
-    expression: i=>{e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{e[0].test(i)||e[1](i);return i}catch(v0){e[2](v0)}}
     examples:
       valid:
         input: '"9m4e2mr0ui3e8a215n4g"'
@@ -45,7 +45,7 @@ operations:
         input: '"9m4e2mr0ui3e8a215n4w"'
         error: Expected xid, received "9m4e2mr0ui3e8a215n4w"
   encode:
-    expression: i=>{e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{e[0].test(i)||e[1](i);return i}catch(v0){e[2](v0)}}
     examples:
       valid:
         input: '"9m4e2mr0ui3e8a215n4g"'

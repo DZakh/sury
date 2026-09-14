@@ -12,7 +12,7 @@ vs:
   zod: z.iso.date()
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}catch(v0){e[3](v0)}}
     examples:
       a-valid-date-string:
         input: '"1963-06-19"'
@@ -222,7 +222,7 @@ operations:
         input: '"2020-01--01"'
         error: Expected date, received "2020-01--01"
   decode:
-    expression: i=>{e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{e[0].test(i)||e[1](i);return i}catch(v0){e[2](v0)}}
     examples:
       valid:
         input: '"1963-06-19"'
@@ -231,7 +231,7 @@ operations:
         input: '"2020-01-32"'
         error: Expected date, received "2020-01-32"
   encode:
-    expression: i=>{e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{e[0].test(i)||e[1](i);return i}catch(v0){e[2](v0)}}
     examples:
       valid:
         input: '"1963-06-19"'

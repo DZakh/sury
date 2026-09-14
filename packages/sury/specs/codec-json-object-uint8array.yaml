@@ -18,7 +18,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i.payload;typeof v0==="string"||e[3](v0);e[1](v0)||e[2](v0);return {payload:e[0](v0)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i.payload;typeof v0==="string"||e[3](v0);e[1](v0)||e[2](v0);return {payload:e[0](v0)}}catch(v1){e[5](v1)}}
     examples:
       base64-value:
         input: '{ payload: "iVBORw==" }'
@@ -31,7 +31,7 @@ operations:
         error: "Failed at payload: Expected base64, received undefined"
   decode: eq-to-parse
   encode:
-    expression: i=>{let v0=i.payload;let v1=e[0](v0);return {payload:v1}}
+    expression: i=>{try{let v0=i.payload;let v1=e[0](v0);return {payload:v1}}catch(v2){e[1](v2)}}
     examples:
       base64-value:
         input: "{ payload: new Uint8Array([137, 80, 78, 71]) }"

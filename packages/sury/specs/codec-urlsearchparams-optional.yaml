@@ -15,7 +15,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{i instanceof e[6]||e[7](i);let v0=e[0](i),v1=v0.get("nick")||void 0,v2=v0.get("page"),v4=v0.get("q");if(v1){typeof v1==="string"||e[2](v1);v1.length<4||e[1](v1);}if(v2){typeof v2==="string"||e[3](v2);let v3=+v2;v3==v3&&(v3||v2.trim())||e[4](v2);v2=v3;}else{v2=1;}typeof v4==="string"||e[5](v4);return {nick:v1,page:v2,q:v4}}
+    expression: i=>{try{i instanceof e[6]||e[7](i);let v0=e[0](i),v1=v0.get("nick")||void 0,v2=v0.get("page"),v4=v0.get("q");if(v1){typeof v1==="string"||e[2](v1);v1.length<4||e[1](v1);}if(v2){typeof v2==="string"||e[3](v2);let v3=+v2;v3==v3&&(v3||v2.trim())||e[4](v2);v2=v3;}else{v2=1;}typeof v4==="string"||e[5](v4);return {nick:v1,page:v2,q:v4}}catch(v5){e[8](v5)}}
     examples:
       all-present:
         input: ((p) => (p.append("nick", "nn"), p.append("page", "2"), p.append("q", "hi"), p))(new URLSearchParams())
@@ -33,13 +33,13 @@ operations:
         input: ((p) => (p.append("page", "x"), p.append("q", ""), p))(new URLSearchParams())
         error: 'Failed at page: Expected number, received "x"'
   decode:
-    expression: i=>{let v0=e[0](i),v1=v0.get("nick")||void 0,v2=v0.get("page"),v4=v0.get("q");if(v1){typeof v1==="string"||e[2](v1);v1.length<4||e[1](v1);}if(v2){typeof v2==="string"||e[3](v2);let v3=+v2;v3==v3&&(v3||v2.trim())||e[4](v2);v2=v3;}else{v2=1;}typeof v4==="string"||e[5](v4);return {nick:v1,page:v2,q:v4}}
+    expression: i=>{try{let v0=e[0](i),v1=v0.get("nick")||void 0,v2=v0.get("page"),v4=v0.get("q");if(v1){typeof v1==="string"||e[2](v1);v1.length<4||e[1](v1);}if(v2){typeof v2==="string"||e[3](v2);let v3=+v2;v3==v3&&(v3||v2.trim())||e[4](v2);v2=v3;}else{v2=1;}typeof v4==="string"||e[5](v4);return {nick:v1,page:v2,q:v4}}catch(v5){e[6](v5)}}
     examples:
       all-present:
         input: ((p) => (p.append("nick", "nn"), p.append("page", "2"), p.append("q", "hi"), p))(new URLSearchParams())
         output: '{ nick: "nn", page: 2, q: "hi" }'
   encode:
-    expression: i=>{let v0=i.page,v2=i.nick;typeof v0==="number"&&v0==v0||e[0](v0);let v1=new e[1]();if(v2!=null){v1.append("nick",v2);}v1.append("page",""+v0);v1.append("q",i.q);return v1}
+    expression: i=>{try{let v0=i.page,v2=i.nick;typeof v0==="number"&&v0==v0||e[0](v0);let v1=new e[1]();if(v2!=null){v1.append("nick",v2);}v1.append("page",""+v0);v1.append("q",i.q);return v1}catch(v3){e[2](v3)}}
     examples:
       built:
         input: '{ nick: "nn", page: 2, q: "hi" }'

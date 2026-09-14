@@ -12,7 +12,7 @@ vs:
   zod: z.guid()
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}catch(v0){e[3](v0)}}
     examples:
       valid:
         input: '"123e4567-e89b-12d3-a456-426614174000"'
@@ -45,7 +45,7 @@ operations:
         input: "42"
         error: Expected uuid, received 42
   decode:
-    expression: i=>{e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{e[0].test(i)||e[1](i);return i}catch(v0){e[2](v0)}}
     examples:
       valid:
         input: '"123e4567-e89b-12d3-a456-426614174000"'
@@ -54,7 +54,7 @@ operations:
         input: '"123e4567e89b12d3a456426614174000"'
         error: Expected uuid, received "123e4567e89b12d3a456426614174000"
   encode:
-    expression: i=>{e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{e[0].test(i)||e[1](i);return i}catch(v0){e[2](v0)}}
     examples:
       valid:
         input: '"123e4567-e89b-12d3-a456-426614174000"'

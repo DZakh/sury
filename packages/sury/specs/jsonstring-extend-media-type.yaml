@@ -13,7 +13,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[1](i);try{JSON.parse(i)}catch(t){e[0](i)}return i}
+    expression: i=>{try{typeof i==="string"||e[1](i);try{JSON.parse(i)}catch(t){e[0](i)}return i}catch(v0){e[2](v0)}}
     examples:
       valid-json-object-text:
         input: '"{\"type\":\"Point\"}"'

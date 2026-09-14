@@ -12,7 +12,7 @@ vs:
   zod: z.hostname()
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}catch(v0){e[3](v0)}}
     examples:
       a-valid-host-name:
         input: '"www.example.com"'
@@ -123,7 +123,7 @@ operations:
         input: '"xn--hello-txk"'
         output: '"xn--hello-txk"'
   decode:
-    expression: i=>{e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{e[0].test(i)||e[1](i);return i}catch(v0){e[2](v0)}}
     examples:
       valid:
         input: '"www.example.com"'
@@ -132,7 +132,7 @@ operations:
         input: '""'
         error: Expected hostname, received ""
   encode:
-    expression: i=>{e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{e[0].test(i)||e[1](i);return i}catch(v0){e[2](v0)}}
     examples:
       valid:
         input: '"www.example.com"'

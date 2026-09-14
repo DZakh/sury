@@ -19,7 +19,7 @@ operations:
     creationError: 'SuryError: Failed at a: Ambiguous "" for string. Should a blank input be rejected, kept, or read as absent? Choose with S.nonEmpty, S.minLength(0), or S.optional'
   decode: eq-to-parse
   encode:
-    expression: i=>{let v0=i.n;v0>=18||e[0](v0);return {a:i.a,n:""+v0}}
+    expression: i=>{try{let v0=i.n;v0>=18||e[0](v0);return {a:i.a,n:""+v0}}catch(v1){e[1](v1)}}
     examples:
       too-young:
         input: '{ a: "x", n: 7 }'

@@ -18,7 +18,7 @@ operations:
     creationError: "SuryError: Can't decode URLSearchParams -> { q: string.length >= 1; } with S.strict. A query carries keys no schema declares, so use S.strip"
   decode: eq-to-parse
   encode:
-    expression: i=>{let v0=i.q;v0.length>0||e[0](v0);let v1=new e[1]();v1.append("q",v0);return v1}
+    expression: i=>{try{let v0=i.q;v0.length>0||e[0](v0);let v1=new e[1]();v1.append("q",v0);return v1}catch(v2){e[2](v2)}}
     examples:
       blank-q:
         input: '{ q: "" }'

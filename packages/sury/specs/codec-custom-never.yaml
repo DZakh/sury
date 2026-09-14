@@ -16,7 +16,7 @@ operations:
     creationError: "SuryError: Nothing decodes string -> number. It is marked with S.never"
   decode: eq-to-parse
   encode:
-    expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);return v0}
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);return v0}catch(v1){e[3](v1)}}
     examples:
       valid:
         input: "123"

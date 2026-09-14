@@ -16,7 +16,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[5](i);e[3](i)||e[4](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return e[2](v0)}
+    expression: i=>{try{typeof i==="string"||e[5](i);e[3](i)||e[4](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return e[2](v0)}catch(v1){e[6](v1)}}
     examples:
       png:
         input: '"iVBORw=="'
@@ -28,13 +28,13 @@ operations:
         input: '"SGVsbG8="'
         output: '"SGVsbG8"'
   decode:
-    expression: i=>{e[3](i)||e[4](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return e[2](v0)}
+    expression: i=>{try{e[3](i)||e[4](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return e[2](v0)}catch(v1){e[5](v1)}}
     examples:
       png:
         input: '"iVBORw=="'
         output: '"iVBORw"'
   encode:
-    expression: i=>{e[5](i)||e[6](i);let v0;try{v0=e[1](e[0](i))}catch(x){e[2](x)}e[3](v0)||e[4](v0);return v0}
+    expression: i=>{try{e[5](i)||e[6](i);let v0;try{v0=e[1](e[0](i))}catch(x){e[2](x)}e[3](v0)||e[4](v0);return v0}catch(v1){e[7](v1)}}
     examples:
       png:
         input: '"iVBORw"'

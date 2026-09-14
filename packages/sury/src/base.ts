@@ -19,7 +19,9 @@ export type Flag = number;
 // Compile semantics (`g.o` / op flag), 127 and below - what the generated code
 // itself does: 0 none, 1 async, 2 disableNaN, 4 union-transform-context (custom
 // transform inside a union case preserves the original exception so dispatch
-// can distinguish Sury failures from foreign ones), 64 flatten.
+// can distinguish Sury failures from foreign ones), 16 skip the throw
+// boundary's stack capture (`S.global({ errorStackTrace: false })`), 64
+// flatten.
 //
 // Return modes, 128 and above - what the operation hands back, read only by the
 // operation tail (parse.ts, operations.ts): 128 JS Result
@@ -522,6 +524,11 @@ export type BGlobal = {
   // @as("js") - the operation's asJsonString embed accessor, cached by
   // B_embedJsonStr (advanced/json.ts) on first use.
   js?: string;
+  // @as("f") - the compiled operation, stored by `compileDecoder` once it
+  // exists. The throw boundary's stack capture cuts the trace at it, and the
+  // emitter that needs it runs first, so it is read through this rather than
+  // closed over.
+  f?: unknown;
 }
 
 // Adjacent checks sharing `fail` by reference equality are fused with `&&`
@@ -846,6 +853,9 @@ export const __setExnId = (id: unknown): void => {
   exnId = id;
 }
 
+// The public `S.Error`: what a refiner constructs to throw a failure of its
+// own, so `super()` gives it a stack the way any hand-written throw has one.
+// The library never builds a failure this way - see `toError`.
 export class SuryError extends Error {
   constructor(params: ErrorDetails | Record<string, unknown>) {
     super();
@@ -861,8 +871,73 @@ export class SuryError extends Error {
     return exnId;
   }
 }
-Object.defineProperty(SuryError.prototype, "name", { value: "SuryError" });
-Object.defineProperty(SuryError.prototype, "s", { value: s });
+const errorPrototype = SuryError.prototype;
+Object.defineProperty(errorPrototype, "name", { value: "SuryError" });
+Object.defineProperty(errorPrototype, "s", { value: s });
+
+// A failure is a record first and an exception second. Capturing a stack is
+// what `new SuryError` spends nearly all of its time on, and most failures
+// never reach a throw anyone sees: a union tries each member and discards the
+// losers, a Result outcome hands the record back, `is*` reads only that one
+// exists. So the library reparents the details object it has already built and
+// leaves `stack` unset. The operation tail (`throwTail`) attaches one on the
+// single path where a failure does escape as an exception, which is also where
+// it can attach a better one - the caller's frame on top rather than the
+// library's.
+// Idempotent, and that is load-bearing rather than tidy: `B_throw` is handed a
+// user's own error back when there is no path to prepend, and reparenting an
+// instance someone else built and retained would rewrite it in place - a
+// no-op for a SuryError, but a subclass would lose its identity for good.
+export const toError = (details: ErrorDetails | Record<string, unknown>): SuryErrorRecord =>
+  ((details as { s?: symbol }).s === s
+    ? details
+    : Object.setPrototypeOf(details, errorPrototype)) as SuryErrorRecord;
+
+// `reason` is rendered on demand. It costs an `inputExpression` walk over the
+// expected schema and a `stringify` of the received value, and it is also what
+// puts a megabyte of request body inside an error message - all for a string
+// nothing reads until someone asks for `message`. Every code other than
+// `invalid_input` writes an own `reason` (it has the words in hand), and so
+// does an `errorMessage` override; an own property shadows this getter.
+Object.defineProperty(errorPrototype, "reason", {
+  configurable: true,
+  // `new S.Error({ reason })` assigns through the prototype, and an accessor
+  // with no setter makes that a TypeError rather than an error carrying the
+  // reason it was handed. Writing an own property is what an explicit reason
+  // means anyway - it shadows the renderer below from then on.
+  set(this: SuryErrorRecord, reason: string) {
+    Object.defineProperty(this, "reason", {
+      value: reason,
+      configurable: true,
+      enumerable: true,
+      writable: true,
+    });
+  },
+  get(this: SuryErrorRecord): string {
+    const expectedExpression = inputExpression(this.expected as Internal);
+    const receivedExpression = stringify(this.input);
+    // `Expected Date, received Date` names the type twice and says nothing: the
+    // type is right and the value is not (an Invalid Date, an Error carrying the
+    // wrong payload). Saying `received invalid Date` is the only part of the
+    // message that carries information in that case.
+    let reason = `Expected ${expectedExpression}, received ${
+      expectedExpression === receivedExpression ? "invalid " : ""
+    }${receivedExpression}`;
+    const unionErrors = this.unionErrors as SuryErrorRecord[] | undefined;
+    if (unionErrors) {
+      const seenReasons = new Set<string>();
+      for (let idx = 0; idx < unionErrors.length; idx++) {
+        const caseError = unionErrors[idx]!;
+        const line = `\n- ${caseError.path.length ? `At ${pathToText(caseError.path)}: ` : ""}${caseError.reason.split("\n").join("\n  ")}`;
+        if (!seenReasons.has(line)) {
+          seenReasons.add(line);
+          reason += line;
+        }
+      }
+    }
+    return reason;
+  },
+});
 
 export const getOrRethrow = (exn: unknown): SuryErrorRecord => {
   if (exn && (exn as { s?: symbol }).s === s) return exn as SuryErrorRecord;
@@ -882,7 +957,6 @@ const formatErrorMessage = (error: SuryErrorRecord): string =>
 export const errorClass: unknown = SuryError;
 
 export type GlobalConfig = {
-  m: (error: SuryErrorRecord) => string; // messageFormatter
   d?: Record<string, Internal>; // defsAccumulator
   a: AdditionalItems; // defaultAdditionalItems
   f: Flag; // defaultFlag
@@ -891,12 +965,12 @@ export type GlobalConfig = {
 export type GlobalConfigOverride = {
   defaultAdditionalItems?: AdditionalItemsMode;
   disableNanNumberValidation?: boolean;
+  errorStackTrace?: boolean;
 }
 
 export const initialOnAdditionalItems: AdditionalItemsMode = "strip";
 export const initialDefaultFlag: Flag = 0;
 export const globalConfig: GlobalConfig = {
-  m: formatErrorMessage,
   d: U,
   a: initialOnAdditionalItems,
   f: initialDefaultFlag,

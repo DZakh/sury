@@ -12,7 +12,7 @@ vs:
   zod: z.int().gte(5)
 operations:
   parse:
-    expression: i=>{typeof i==="number"&&i%1==0||e[1](i);i>=5||e[0](i);return i}
+    expression: i=>{try{typeof i==="number"&&i%1==0||e[1](i);i>=5||e[0](i);return i}catch(v0){e[2](v0)}}
     examples:
       above:
         input: "6"
@@ -33,7 +33,7 @@ operations:
         input: NaN
         error: Expected integer >= 5, received NaN
   decode:
-    expression: i=>{i>=5||e[0](i);return i}
+    expression: i=>{try{i>=5||e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
       above:
         input: "6"
@@ -42,7 +42,7 @@ operations:
         input: "4"
         error: Expected integer >= 5, received 4
   encode:
-    expression: i=>{i>=5||e[0](i);return i}
+    expression: i=>{try{i>=5||e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
       above:
         input: "6"

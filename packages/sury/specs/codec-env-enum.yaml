@@ -14,7 +14,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{(typeof i==="string"||i===void 0)||e[1](i);(i==="development"||i==="production")||e[0](i);return i}
+    expression: i=>{try{(typeof i==="string"||i===void 0)||e[1](i);(i==="development"||i==="production")||e[0](i);return i}catch(v0){e[2](v0)}}
     examples:
       development:
         input: '"development"'
@@ -29,13 +29,13 @@ operations:
         input: '""'
         error: Expected "development" | "production", received ""
   decode:
-    expression: i=>{(i==="development"||i==="production")||e[0](i);return i}
+    expression: i=>{try{(i==="development"||i==="production")||e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
       development:
         input: '"development"'
         output: '"development"'
   encode:
-    expression: i=>{typeof i==="string"&&(i==="development"||i==="production")||e[0](i);return i}
+    expression: i=>{try{typeof i==="string"&&(i==="development"||i==="production")||e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
       development:
         input: '"development"'

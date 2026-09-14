@@ -12,7 +12,7 @@ vs:
   zod: z.ipv4()
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}catch(v0){e[3](v0)}}
     examples:
       a-valid-ip-address:
         input: '"192.168.0.1"'
@@ -113,7 +113,7 @@ operations:
         input: '"192.168.0.256"'
         error: Expected ipv4, received "192.168.0.256"
   decode:
-    expression: i=>{e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{e[0].test(i)||e[1](i);return i}catch(v0){e[2](v0)}}
     examples:
       valid:
         input: '"192.168.0.1"'
@@ -122,7 +122,7 @@ operations:
         input: '"127.0.0.0.1"'
         error: Expected ipv4, received "127.0.0.0.1"
   encode:
-    expression: i=>{e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{e[0].test(i)||e[1](i);return i}catch(v0){e[2](v0)}}
     examples:
       valid:
         input: '"192.168.0.1"'

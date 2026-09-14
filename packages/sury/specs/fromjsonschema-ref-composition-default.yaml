@@ -13,7 +13,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[2](i);e[0](i)||e[3](i);e[1](i)||e[4](i);return i}
+    expression: i=>{try{typeof i==="string"||e[2](i);e[0](i)||e[3](i);e[1](i)||e[4](i);return i}catch(v0){e[5](v0)}}
     examples:
       valid:
         input: '"ok"'
@@ -28,13 +28,13 @@ operations:
         input: "1"
         error: Expected string, received 1
   decode:
-    expression: i=>{e[0](i)||e[2](i);e[1](i)||e[3](i);return i}
+    expression: i=>{try{e[0](i)||e[2](i);e[1](i)||e[3](i);return i}catch(v0){e[4](v0)}}
     examples:
       valid:
         input: '"ok"'
         output: '"ok"'
   encode:
-    expression: i=>{e[0](i)||e[2](i);e[1](i)||e[3](i);return i}
+    expression: i=>{try{e[0](i)||e[2](i);e[1](i)||e[3](i);return i}catch(v0){e[4](v0)}}
     examples:
       valid:
         input: '"ok"'

@@ -15,7 +15,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[3](i);e[1].test(i)||e[2](i);return e[0](i)}
+    expression: i=>{try{typeof i==="string"||e[3](i);e[1].test(i)||e[2](i);return e[0](i)}catch(v0){e[4](v0)}}
     examples:
       valid:
         input: '"a@b.co"'
@@ -24,13 +24,13 @@ operations:
         input: '"nope"'
         error: Expected email, received "nope"
   decode:
-    expression: i=>{e[1].test(i)||e[2](i);return e[0](i)}
+    expression: i=>{try{e[1].test(i)||e[2](i);return e[0](i)}catch(v0){e[3](v0)}}
     examples:
       valid:
         input: '"a@b.co"'
         output: new Uint8Array([97, 64, 98, 46, 99, 111])
   encode:
-    expression: i=>{let v0=e[0].decode(i);e[1].test(v0)||e[2](v0);return v0}
+    expression: i=>{try{let v0=e[0].decode(i);e[1].test(v0)||e[2](v0);return v0}catch(v1){e[3](v1)}}
     examples:
       valid:
         input: new Uint8Array([97, 64, 98, 46, 99, 111])

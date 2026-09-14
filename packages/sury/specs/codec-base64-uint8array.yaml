@@ -17,7 +17,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[3](i);e[1](i)||e[2](i);return e[0](i)}
+    expression: i=>{try{typeof i==="string"||e[3](i);e[1](i)||e[2](i);return e[0](i)}catch(v0){e[4](v0)}}
     examples:
       non-utf8-bytes:
         input: '"iVBORw=="'
@@ -35,13 +35,13 @@ operations:
         input: "3"
         error: Expected base64, received 3
   decode:
-    expression: i=>{e[1](i)||e[2](i);return e[0](i)}
+    expression: i=>{try{e[1](i)||e[2](i);return e[0](i)}catch(v0){e[3](v0)}}
     examples:
       non-utf8-bytes:
         input: '"iVBORw=="'
         output: new Uint8Array([137, 80, 78, 71])
   encode:
-    expression: i=>{return e[0](i)}
+    expression: i=>{try{return e[0](i)}catch(v0){e[1](v0)}}
     examples:
       non-utf8-bytes:
         input: new Uint8Array([137, 80, 78, 71])

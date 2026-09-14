@@ -14,7 +14,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[1](i);let v0=+i;v0==v0&&(v0||i.trim())||e[0](i);i=v0;return i}
+    expression: i=>{try{typeof i==="string"||e[1](i);let v0=+i;v0==v0&&(v0||i.trim())||e[0](i);i=v0;return i}catch(v1){e[2](v1)}}
     examples:
       decodes:
         input: '"12"'
@@ -26,13 +26,13 @@ operations:
         input: '"abc"'
         error: Expected number, received "abc"
   decode:
-    expression: i=>{let v0=+i;v0==v0&&(v0||i.trim())||e[0](i);i=v0;return i}
+    expression: i=>{try{let v0=+i;v0==v0&&(v0||i.trim())||e[0](i);i=v0;return i}catch(v1){e[1](v1)}}
     examples:
       decodes:
         input: '"12"'
         output: "12"
   encode:
-    expression: i=>{if(typeof i==="number"&&i==i){i=""+i}else{e[0](i)}return i}
+    expression: i=>{try{if(typeof i==="number"&&i==i){i=""+i}else{e[0](i)}return i}catch(v0){e[1](v0)}}
     examples:
       number:
         input: "12"

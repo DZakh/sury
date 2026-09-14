@@ -14,11 +14,10 @@ import {
   type Path,
   pathConcat,
   pathEmpty,
-  pathToText,
   s,
   stringify,
-  SuryError,
   type SuryErrorRecord,
+  toError,
   tagFlags,
   U,
   unknown,
@@ -218,7 +217,7 @@ export const B_operationArg = (
 }
 
 export const B_throw = (errorDetails: ErrorDetails): never => {
-  throw new SuryError(errorDetails);
+  throw toError(errorDetails);
 }
 
 export const B_unsupportedDecode = (b: Val, from: Internal, target: Internal): never =>
@@ -268,7 +267,8 @@ export const B_makeInvalidConversionDetails = (input: Val, to: Internal, cause: 
     // Copied rather than mutated: user code may throw one retained instance
     // more than once, and prepending onto the instance makes the second parse
     // report `a.a`. Nothing to prepend means nothing to copy - `B_throw`
-    // rebuilds a SuryError from whichever of the two it gets.
+    // reparents whichever of the two it gets, and reparenting the instance to
+    // the prototype it already has changes nothing, its stack included.
     return (
       input.path.length ? { ...error, path: pathConcat(input.path, error.path) } : error
     ) as unknown as ErrorDetails;
@@ -290,11 +290,15 @@ export const B_errorOf = (input: Val): ((e: unknown) => SuryErrorRecord) => {
   return (e) =>
     e && (e as { s?: symbol }).s === s
       ? (e as SuryErrorRecord)
-      : (new SuryError(B_foreignDetails(input, to, e)) as unknown as SuryErrorRecord);
+      : toError(B_foreignDetails(input, to, e));
 };
 
 export const B_embedErrorOf = (input: Val): string => B_embedPure(input, B_errorOf(input));
 
+// The ingredients, not the sentence: `reason` is a prototype getter that
+// renders them on demand (base.ts). An override is a string already in hand, so
+// it is written as an own property - which shadows the getter. Written only
+// when there is one: an own `reason` of `undefined` would shadow it too.
 export const B_makeInvalidInputDetails = (
   expected: Internal,
   received: Internal,
@@ -303,39 +307,16 @@ export const B_makeInvalidInputDetails = (
   unionErrors?: SuryErrorRecord[],
   reasonOverride?: string
 ): ErrorDetails => {
-  let reasonRef = reasonOverride;
-  if (reasonRef === U) {
-    const expectedExpression = inputExpression(expected);
-    const receivedExpression = stringify(input);
-    // `Expected Date, received Date` names the type twice and says nothing: the
-    // type is right and the value is not (an Invalid Date, an Error carrying the
-    // wrong payload). Saying `received invalid Date` is the only part of the
-    // message that carries information in that case.
-    reasonRef = `Expected ${expectedExpression}, received ${
-      expectedExpression === receivedExpression ? "invalid " : ""
-    }${receivedExpression}`;
-  }
-  if (unionErrors) {
-    const seenReasons = new Set<string>();
-    for (let idx = 0; idx < unionErrors.length; idx++) {
-      const caseError = unionErrors[idx]!;
-      const line = `\n- ${caseError.path.length ? `At ${pathToText(caseError.path)}: ` : ""}${caseError.reason.split("\n").join("\n  ")}`;
-      if (!seenReasons.has(line)) {
-        seenReasons.add(line);
-        reasonRef += line;
-      }
-    }
-  }
-
-  return {
+  const details = {
     code: "invalid_input",
     expected,
     received,
     path,
-    reason: reasonRef,
     unionErrors,
     input,
-  };
+  } as unknown as ErrorDetails;
+  if (reasonOverride !== U) details.reason = reasonOverride;
+  return details;
 }
 
 // Drop-in `check.fail` builder for InvalidInput failures. The returned

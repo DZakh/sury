@@ -15,14 +15,14 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{return e[0](i)}
+    expression: i=>{try{return e[0](i)}catch(v0){e[1](v0)}}
     examples:
       text:
         input: '"€"'
         output: new Uint8Array([226, 130, 172])
   decode: eq-to-parse
   encode:
-    expression: i=>{let v0=e[0].decode(i);return v0}
+    expression: i=>{try{let v0=e[0].decode(i);return v0}catch(v1){e[1](v1)}}
     examples:
       utf8-bytes:
         input: new Uint8Array([226, 130, 172])

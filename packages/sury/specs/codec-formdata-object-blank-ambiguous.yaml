@@ -18,7 +18,7 @@ operations:
     creationError: 'SuryError: Failed at a: Ambiguous "" for string. Should a blank input be rejected, kept, or read as absent? Choose with S.nonEmpty, S.minLength(0), or S.optional'
   decode: eq-to-parse
   encode:
-    expression: i=>{let v0=i.n;v0>=18||e[0](v0);let v1=new e[1]();v1.append("a",i.a);v1.append("n",""+v0);return v1}
+    expression: i=>{try{let v0=i.n;v0>=18||e[0](v0);let v1=new e[1]();v1.append("a",i.a);v1.append("n",""+v0);return v1}catch(v2){e[2](v2)}}
     examples:
       built:
         input: '{ a: "x", n: 42 }'

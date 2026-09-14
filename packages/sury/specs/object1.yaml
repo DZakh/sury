@@ -15,7 +15,7 @@ vs:
   zod: "z.object({ a: z.string() })"
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.a;typeof v0==="string"||e[0](v0);return {a:v0}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.a;typeof v0==="string"||e[0](v0);return {a:v0}}catch(v1){e[2](v1)}}
     examples:
       valid:
         input: '{ a: "hello" }'

@@ -14,7 +14,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[1](i);(i==="a"||i==="b")||e[0](i);return i}
+    expression: i=>{try{typeof i==="string"||e[1](i);(i==="a"||i==="b")||e[0](i);return i}catch(v0){e[2](v0)}}
     examples:
       first:
         input: '"a"'
@@ -32,13 +32,13 @@ operations:
         input: "0"
         error: Expected string, received 0
   decode:
-    expression: i=>{(i==="a"||i==="b")||e[0](i);return i}
+    expression: i=>{try{(i==="a"||i==="b")||e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
       valid:
         input: '"b"'
         output: '"b"'
   encode:
-    expression: i=>{typeof i==="string"&&(i==="a"||i==="b")||e[0](i);return i}
+    expression: i=>{try{typeof i==="string"&&(i==="a"||i==="b")||e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
       valid:
         input: '"a"'

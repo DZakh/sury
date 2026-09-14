@@ -12,7 +12,7 @@ vs:
   zod: z.mac()
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}catch(v0){e[3](v0)}}
     examples:
       eui-48-colon:
         input: '"00:1b:44:11:3a:b7"'
@@ -75,7 +75,7 @@ operations:
         input: "42"
         error: Expected mac, received 42
   decode:
-    expression: i=>{e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{e[0].test(i)||e[1](i);return i}catch(v0){e[2](v0)}}
     examples:
       valid:
         input: '"00:1b:44:11:3a:b7"'
@@ -84,7 +84,7 @@ operations:
         input: '"00:1b-44:11:3a:b7"'
         error: Expected mac, received "00:1b-44:11:3a:b7"
   encode:
-    expression: i=>{e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{e[0].test(i)||e[1](i);return i}catch(v0){e[2](v0)}}
     examples:
       valid:
         input: '"00:1b:44:11:3a:b7"'

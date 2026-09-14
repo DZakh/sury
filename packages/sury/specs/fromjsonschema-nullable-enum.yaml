@@ -12,7 +12,7 @@ vs:
   zod: z.enum(["a", "b"]).nullable()
 operations:
   parse:
-    expression: i=>{(typeof i==="string"&&(i==="a"||i==="b")||i===null)||e[0](i);return i}
+    expression: i=>{try{(typeof i==="string"&&(i==="a"||i==="b")||i===null)||e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
       literal-member:
         input: '"a"'

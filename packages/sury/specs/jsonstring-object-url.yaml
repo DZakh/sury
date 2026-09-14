@@ -17,7 +17,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i.href;v0 instanceof e[2]||e[3](v0);return "{\"href\":"+e[1](e[0](v0))+"}"}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i.href;v0 instanceof e[2]||e[3](v0);return "{\"href\":"+e[1](e[0](v0))+"}"}catch(v1){e[5](v1)}}
     examples:
       plain:
         input: '{ href: new URL("https://example.com/a?b=c#d") }'
@@ -26,13 +26,13 @@ operations:
         input: '{ href: new URL("https://example.com/%22x") }'
         output: '"{\"href\":\"https://example.com/%22x\"}"'
   decode:
-    expression: i=>{return "{\"href\":"+e[1](e[0](i.href))+"}"}
+    expression: i=>{try{return "{\"href\":"+e[1](e[0](i.href))+"}"}catch(v0){e[2](v0)}}
     examples:
       plain:
         input: '{ href: new URL("https://example.com/a?b=c#d") }'
         output: '"{\"href\":\"https://example.com/a?b=c#d\"}"'
   encode:
-    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[4](v0);let v2=v0.href;typeof v2==="string"||e[3](v2);let v1=e[1](v0.href);v1||e[2](v2);return {href:v1}}
+    expression: i=>{try{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[4](v0);let v2=v0.href;typeof v2==="string"||e[3](v2);let v1=e[1](v0.href);v1||e[2](v2);return {href:v1}}catch(v3){e[5](v3)}}
     examples:
       plain:
         input: '"{\"href\":\"https://example.com/a?b=c#d\"}"'

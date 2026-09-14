@@ -18,7 +18,7 @@ vs:
     output: string[]
 operations:
   parse:
-    expression: i=>{Array.isArray(i)||e[2](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path=[v0,...v2.path];throw v2}}i.length>0||e[1](i);return i}
+    expression: i=>{try{Array.isArray(i)||e[2](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path=[v0,...v2.path];throw v2}}i.length>0||e[1](i);return i}catch(v3){e[3](v3)}}
     examples:
       at-the-length:
         input: '["a", "b"]'
@@ -36,7 +36,7 @@ operations:
         input: '"ab"'
         error: Expected string[].length >= 1, received "ab"
   decode:
-    expression: i=>{i.length>0||e[0](i);return i}
+    expression: i=>{try{i.length>0||e[0](i);return i}catch(v1){e[1](v1)}}
     examples:
       at-the-length:
         input: '["a", "b"]'
@@ -48,7 +48,7 @@ operations:
         input: "[]"
         error: Expected string[].length >= 1, received []
   encode:
-    expression: i=>{i.length>0||e[0](i);return i}
+    expression: i=>{try{i.length>0||e[0](i);return i}catch(v1){e[1](v1)}}
     examples:
       at-the-length:
         input: '["a", "b"]'

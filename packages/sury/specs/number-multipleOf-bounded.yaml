@@ -17,7 +17,7 @@ vs:
   zod: z.number().multipleOf(2).gt(-50).lt(50)
 operations:
   parse:
-    expression: i=>{typeof i==="number"&&i==i||e[3](i);i>-50||e[0](i);i<50||e[1](i);i%2==0||e[2](i);return i}
+    expression: i=>{try{typeof i==="number"&&i==i||e[3](i);i>-50||e[0](i);i<50||e[1](i);i%2==0||e[2](i);return i}catch(v0){e[4](v0)}}
     examples:
       valid:
         input: "4"
@@ -38,7 +38,7 @@ operations:
         input: "-52"
         error: Expected -50 < (number % 2) < 50, received -52
   decode:
-    expression: i=>{i>-50||e[0](i);i<50||e[1](i);i%2==0||e[2](i);return i}
+    expression: i=>{try{i>-50||e[0](i);i<50||e[1](i);i%2==0||e[2](i);return i}catch(v0){e[3](v0)}}
     examples:
       valid:
         input: "4"
@@ -47,7 +47,7 @@ operations:
         input: "3"
         error: Expected -50 < (number % 2) < 50, received 3
   encode:
-    expression: i=>{i>-50||e[0](i);i<50||e[1](i);i%2==0||e[2](i);return i}
+    expression: i=>{try{i>-50||e[0](i);i<50||e[1](i);i%2==0||e[2](i);return i}catch(v0){e[3](v0)}}
     examples:
       valid:
         input: "4"

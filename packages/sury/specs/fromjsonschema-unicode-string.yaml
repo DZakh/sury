@@ -12,7 +12,7 @@ vs:
   zod: z.string()
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[3](i);i.length===2||e[1](i);e[0].test(i)||e[2](i);return i}
+    expression: i=>{try{typeof i==="string"||e[3](i);i.length===2||e[1](i);e[0].test(i)||e[2](i);return i}catch(v0){e[4](v0)}}
     examples:
       bmp-letters:
         input: '"éa"'
@@ -36,13 +36,13 @@ operations:
           reason: the equivalent is a plain z.string(), the only spelling zod has for this document, so it accepts every value the refinements reject
           zod: '"éab"'
   decode:
-    expression: i=>{i.length===2||e[1](i);e[0].test(i)||e[2](i);return i}
+    expression: i=>{try{i.length===2||e[1](i);e[0].test(i)||e[2](i);return i}catch(v0){e[3](v0)}}
     examples:
       astral-letters:
         input: '"𐐀𐐁"'
         error: Expected string.length == 2, received "𐐀𐐁"
   encode:
-    expression: i=>{i.length===2||e[1](i);e[0].test(i)||e[2](i);return i}
+    expression: i=>{try{i.length===2||e[1](i);e[0].test(i)||e[2](i);return i}catch(v0){e[3](v0)}}
     examples:
       astral-letters:
         input: '"𐐀𐐁"'

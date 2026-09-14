@@ -16,7 +16,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{i instanceof e[3]||e[4](i);let v0=e[0](i),v1=v0.get("a"),v2=v0.get("b")||void 0;Array.isArray(v1)&&e[1](v1);Array.isArray(v2)&&e[2](v2);return {a:v1,b:v2}}
+    expression: i=>{try{i instanceof e[3]||e[4](i);let v0=e[0](i),v1=v0.get("a"),v2=v0.get("b")||void 0;Array.isArray(v1)&&e[1](v1);Array.isArray(v2)&&e[2](v2);return {a:v1,b:v2}}catch(v3){e[5](v3)}}
     examples:
       text-present-and-optional-absent:
         input: ((f) => (f.append("a", "x"), f))(new FormData())
@@ -25,7 +25,7 @@ operations:
         input: ((f) => (f.append("a", new File(["hi"], "a.txt")), f))(new FormData())
         output: '{ a: new File(["hi"], "a.txt"), b: undefined }'
   decode:
-    expression: i=>{let v0=e[0](i),v1=v0.get("a"),v2=v0.get("b")||void 0;Array.isArray(v1)&&e[1](v1);Array.isArray(v2)&&e[2](v2);return {a:v1,b:v2}}
+    expression: i=>{try{let v0=e[0](i),v1=v0.get("a"),v2=v0.get("b")||void 0;Array.isArray(v1)&&e[1](v1);Array.isArray(v2)&&e[2](v2);return {a:v1,b:v2}}catch(v3){e[3](v3)}}
     examples:
       repeated-key:
         input: ((f) => (f.append("a", "x"), f.append("a", "y"), f))(new FormData())
@@ -34,7 +34,7 @@ operations:
         input: ((f) => (f.append("a", "x"), f.append("b", "y"), f))(new FormData())
         output: '{ a: "x", b: "y" }'
   encode:
-    expression: i=>{let v1=i.a,v2=i.b;let v0=new e[0]();if(v1!=null){typeof v1==="string"||v1 instanceof e[1]||e[2](v1);v0.append("a",v1);}if(v2!=null){typeof v2==="string"||v2 instanceof e[3]||e[4](v2);v0.append("b",v2);}return v0}
+    expression: i=>{try{let v1=i.a,v2=i.b;let v0=new e[0]();if(v1!=null){typeof v1==="string"||v1 instanceof e[1]||e[2](v1);v0.append("a",v1);}if(v2!=null){typeof v2==="string"||v2 instanceof e[3]||e[4](v2);v0.append("b",v2);}return v0}catch(v3){e[5](v3)}}
     examples:
       text:
         input: '{ a: "x", b: undefined }'

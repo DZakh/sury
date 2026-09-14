@@ -12,7 +12,7 @@ vs:
   zod: z.string().min(5)
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[3](i);e[0].test(i)||e[1](i);i.length>4||e[2](i);return i}
+    expression: i=>{try{typeof i==="string"||e[3](i);e[0].test(i)||e[1](i);i.length>4||e[2](i);return i}catch(v0){e[4](v0)}}
     examples:
       astral-local-part:
         input: '"😀😀@x.y"'
@@ -24,7 +24,7 @@ operations:
         input: '"a@b"'
         error: Expected idn-email.length >= 5, received "a@b"
   decode:
-    expression: i=>{e[0].test(i)||e[1](i);i.length>4||e[2](i);return i}
+    expression: i=>{try{e[0].test(i)||e[1](i);i.length>4||e[2](i);return i}catch(v0){e[3](v0)}}
     examples:
       astral-local-part:
         input: '"😀😀@x.y"'
@@ -36,7 +36,7 @@ operations:
         input: '"a@b"'
         error: Expected idn-email.length >= 5, received "a@b"
   encode:
-    expression: i=>{e[0].test(i)||e[1](i);i.length>4||e[2](i);return i}
+    expression: i=>{try{e[0].test(i)||e[1](i);i.length>4||e[2](i);return i}catch(v0){e[3](v0)}}
     examples:
       astral-local-part:
         input: '"😀😀@x.y"'

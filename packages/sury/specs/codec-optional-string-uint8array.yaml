@@ -16,7 +16,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{if(typeof i==="string"){i=e[0](i)}else{e[1](i)}return i}
+    expression: i=>{try{if(typeof i==="string"){i=e[0](i)}else{e[1](i)}return i}catch(v0){e[2](v0)}}
     examples:
       text:
         input: '"hi"'
@@ -26,7 +26,7 @@ operations:
         error: Expected string, received undefined
   decode: eq-to-parse
   encode:
-    expression: i=>{let v0=e[0].decode(i);i=v0;return i}
+    expression: i=>{try{let v0=e[0].decode(i);i=v0;return i}catch(v1){e[1](v1)}}
     examples:
       bytes-back:
         input: new Uint8Array([104, 105])

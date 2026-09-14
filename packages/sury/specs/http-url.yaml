@@ -12,7 +12,7 @@ vs:
   zod: z.httpUrl()
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}catch(v0){e[3](v0)}}
     examples:
       https:
         input: '"https://example.com/dashboard"'
@@ -51,7 +51,7 @@ operations:
         input: "42"
         error: Expected http-url, received 42
   decode:
-    expression: i=>{e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{e[0].test(i)||e[1](i);return i}catch(v0){e[2](v0)}}
     examples:
       valid:
         input: '"https://example.com/dashboard"'
@@ -60,7 +60,7 @@ operations:
         input: '"ftp://example.com"'
         error: Expected http-url, received "ftp://example.com"
   encode:
-    expression: i=>{e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{e[0].test(i)||e[1](i);return i}catch(v0){e[2](v0)}}
     examples:
       valid:
         input: '"https://example.com/dashboard"'

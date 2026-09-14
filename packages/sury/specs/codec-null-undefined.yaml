@@ -15,7 +15,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{i===null||e[0](i);return void 0}
+    expression: i=>{try{i===null||e[0](i);return void 0}catch(v0){e[1](v0)}}
     examples:
       valid:
         input: "null"
@@ -25,7 +25,7 @@ operations:
         error: Expected null, received "abc"
   decode: eq-to-parse
   encode:
-    expression: i=>{i===void 0||e[0](i);return null}
+    expression: i=>{try{i===void 0||e[0](i);return null}catch(v0){e[1](v0)}}
     examples:
       valid:
         input: undefined

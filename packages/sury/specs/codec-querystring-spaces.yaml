@@ -18,7 +18,7 @@ operations:
     creationError: 'SuryError: Failed at q: Ambiguous "" for string. Should a blank input be rejected, kept, or read as absent? Choose with S.nonEmpty, S.minLength(0), or S.optional'
   decode: eq-to-parse
   encode:
-    expression: i=>{let v0=new e[0]();v0.append("q",i.q);return v0.toString()}
+    expression: i=>{try{let v0=new e[0]();v0.append("q",i.q);return v0.toString()}catch(v1){e[1](v1)}}
     examples:
       space:
         input: '{ q: "hello world" }'

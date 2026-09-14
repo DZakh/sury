@@ -14,7 +14,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{(typeof i==="string"||i===void 0)||e[1](i);i=i||void 0;if(i){let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0;}return i}
+    expression: i=>{try{(typeof i==="string"||i===void 0)||e[1](i);i=i||void 0;if(i){let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0;}return i}catch(v1){e[2](v1)}}
     examples:
       "true":
         input: '"true"'
@@ -35,7 +35,7 @@ operations:
         input: "1"
         error: Expected env, received 1
   decode:
-    expression: i=>{i=i||void 0;if(i){let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0;}return i}
+    expression: i=>{try{i=i||void 0;if(i){let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0;}return i}catch(v1){e[1](v1)}}
     examples:
       "true":
         input: '"true"'
@@ -47,7 +47,7 @@ operations:
         input: undefined
         output: undefined
   encode:
-    expression: i=>{for(;;){if(typeof i==="boolean"){i=""+i;break}if(i===void 0)break;e[0](i)}return i}
+    expression: i=>{try{for(;;){if(typeof i==="boolean"){i=""+i;break}if(i===void 0)break;e[0](i)}return i}catch(v0){e[1](v0)}}
     examples:
       "true":
         input: "true"

@@ -14,7 +14,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{(typeof i==="string"||i===void 0)||e[0](i);i=i||void 0;return i}
+    expression: i=>{try{(typeof i==="string"||i===void 0)||e[0](i);i=i||void 0;return i}catch(v0){e[1](v0)}}
     examples:
       set:
         input: '"x"'
@@ -38,7 +38,7 @@ operations:
         input: '""'
         output: undefined
   encode:
-    expression: i=>{(typeof i==="string"||i===void 0)||e[0](i);return i}
+    expression: i=>{try{(typeof i==="string"||i===void 0)||e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
       set:
         input: '"x"'

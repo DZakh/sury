@@ -13,7 +13,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{i instanceof e[1]||e[2](i);i.size>4||e[0](i);return i}
+    expression: i=>{try{i instanceof e[1]||e[2](i);i.size>4||e[0](i);return i}catch(v0){e[3](v0)}}
     examples:
       at-the-surviving-size:
         input: new Set([1, 2, 3, 4, 5])
@@ -25,7 +25,7 @@ operations:
         input: new Set([])
         error: MY MESSAGE
   decode:
-    expression: i=>{i.size>4||e[0](i);return i}
+    expression: i=>{try{i.size>4||e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
       at-the-surviving-size:
         input: new Set([1, 2, 3, 4, 5])
@@ -34,7 +34,7 @@ operations:
         input: new Set([1])
         error: MY MESSAGE
   encode:
-    expression: i=>{i.size>4||e[0](i);return i}
+    expression: i=>{try{i.size>4||e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
       at-the-surviving-size:
         input: new Set([1, 2, 3, 4, 5])

@@ -223,3 +223,37 @@ protobuf-decode:
     const decode = S.decodeOrThrow(S.protobuf, Message)
     const bytes = new Uint8Array([8, 150, 1, 18, 3, 65, 100, 97, 26, 3, 1, 0, 4])
   run: decode(bytes)
+
+parse-or-throw-invalid:
+  prepare: |
+    const schema = S.schema({ id: S.string, age: S.number });
+    const parse = S.parseOrThrow(schema);
+    const data = { id: "u1", age: "30" };
+  # The one outcome where a failure really becomes an exception, so the one
+  # that pays for a stack. Everything else - a Result, a union trying its next
+  # member - gets a record with no stack at all.
+  run: (() => { try { return parse(data) } catch (error) { return error } })()
+
+parse-or-throw-invalid-message:
+  prepare: |
+    const schema = S.schema({ id: S.string, age: S.number });
+    const parse = S.parseOrThrow(schema);
+    const data = { id: "u1", age: "30" };
+  # Same failure, with the message read. `reason` is rendered here rather than
+  # at the throw, so this is the half a caller that only logs the error pays
+  # and the one above does not.
+  run: (() => { try { return parse(data) } catch (error) { return error.message } })()
+
+union-dispatch-fallback:
+  prepare: |
+    const schema = S.union([
+      S.schema({ kind: S.literal("a"), a: S.string }),
+      S.schema({ kind: S.literal("b"), b: S.number }),
+      S.schema({ kind: S.literal("c"), c: S.boolean }),
+    ]);
+    const parse = S.parseAsResult(schema);
+    const data = { kind: "d" };
+  # A union is where a failure is control flow: every member that rejects the
+  # value builds an error nobody ever throws at a user, and the consolidated
+  # one reads each member's reason.
+  run: parse(data)

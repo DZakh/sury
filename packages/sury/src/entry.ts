@@ -454,10 +454,14 @@ export const global = (override: GlobalConfigOverride): void => {
     override.defaultAdditionalItems !== U
       ? override.defaultAdditionalItems
       : initialOnAdditionalItems;
+  // 2 disableNaN · 16 skip the throw boundary's stack capture (base.ts). The
+  // flag rides every operation's memo key, so a `global` call between two
+  // parses of the same schema recompiles rather than leaving the old code in
+  // place.
   globalConfig.f =
-    override.disableNanNumberValidation === true
-      ? 2
-      : initialDefaultFlag;
+    initialDefaultFlag |
+    (override.disableNanNumberValidation === true ? 2 : 0) |
+    (override.errorStackTrace === false ? 16 : 0);
 };
 
 // ── ReScript binding surface (extra names, not part of index.d.ts) ───────────
