@@ -305,18 +305,18 @@ And 3.2× lighter than fast-json-stringify - 18.0 kB against 56.9 kB, encoder in
 
 ## Comparison
 
-Sury shines in a lot of different aspects, so each of them gets a comparison page of its own. Every page names the exact versions it measured, and CI remeasures it on every pull request - a page that stops matching fails the build, which is the part a table pasted here could never do:
+Sury shines in a lot of different aspects, so each of them gets a comparison page of its own:
 
-- [Schema](https://github.com/DZakh/sury/blob/main/docs/benchmarks/schema.md) - the everyday job: describe a shape, check a value against it, read the type on hover. Against Zod, TypeBox, Valibot and ArkType.
-- [JSON Encoding](https://github.com/DZakh/sury/blob/main/docs/benchmarks/jsonString.md) - turning a value into JSON text and reading it back. Against `JSON.stringify` and fast-json-stringify.
-- [JSON Schema](https://github.com/DZakh/sury/blob/main/docs/benchmarks/jsonSchema.md) - emitting JSON Schema and reading somebody else's back. Against Zod, TypeBox, ArkType and Ajv.
-- [Protobuf](https://github.com/DZakh/sury/blob/main/docs/benchmarks/protobuf.md) - the Protocol Buffers wire, with no `.proto` file and no codegen step. Against protobufjs, protobuf-es and pbf.
+- [Schema](https://github.com/DZakh/sury/blob/main/docs/benchmarks/schema.md) - describe a shape, check a value against it, read the type on hover. Against Zod, TypeBox, Valibot and ArkType.
+- [JSON Encoding](https://github.com/DZakh/sury/blob/main/docs/benchmarks/jsonString.md) - turn a value into JSON text and read it back. Against `JSON.stringify` and fast-json-stringify.
+- [JSON Schema](https://github.com/DZakh/sury/blob/main/docs/benchmarks/jsonSchema.md) - emit JSON Schema, and read somebody else's back. Against Zod, TypeBox, ArkType and Ajv.
+- [Protobuf](https://github.com/DZakh/sury/blob/main/docs/benchmarks/protobuf.md) - the Protocol Buffers wire, without a `.proto` file or a codegen step. Against protobufjs, protobuf-es and pbf.
 
-Don't take my word for it. Sury is measured by other people too, on their machines and their workloads:
+Don't take my word for it. Sury is measured by other people too:
 
-- [typescript-runtime-type-benchmarks](https://moltar.github.io/typescript-runtime-type-benchmarks/) - the ecosystem's throughput board: the same object, every library, one chart
-- [schemabenchmarks.dev](https://schemabenchmarks.dev/) - step by step, so you can see where the time goes: download, initialization, validation, parsing, Standard Schema, codec
-- [json-schema-compliance-suite](https://github.com/sinclairzx81/json-schema-compliance-suite) - how much of JSON Schema a library actually gets right, not how much it claims
+- [typescript-runtime-type-benchmarks](https://moltar.github.io/typescript-runtime-type-benchmarks/) - every library in the ecosystem on the same object, in one chart
+- [schemabenchmarks.dev](https://schemabenchmarks.dev/) - where the time goes, step by step: download, initialization, validation, parsing, Standard Schema, codec
+- [json-schema-compliance-suite](https://github.com/sinclairzx81/json-schema-compliance-suite) - how much of JSON Schema a library actually gets right
 
 ## Integrations
 
