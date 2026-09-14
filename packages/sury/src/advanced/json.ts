@@ -768,16 +768,6 @@ export const jsonString = /* @__PURE__ */ (() => {
     const items = isArr ? schema.items! : U;
     const fixedLen = isArr ? items!.length : keys!.length;
 
-    // Whether this container's shape rests on a check the operation emitted.
-    // The decode direction is told the input already IS the schema, so it
-    // validates nothing and every field arrives claiming its type with
-    // nothing behind the claim - which is what the bare-enum splice in
-    // `fieldPiece` needs and cannot get from a type.
-    let trusted = true;
-    for (let v: Val | undefined = input; v !== U && trusted; v = v.prev || v.p) {
-      trusted = v.vc === U;
-    }
-
     let code = "";
     const entries: { p: Val; g?: string }[] = [];
     let hasOpt = false;
@@ -806,7 +796,11 @@ export const jsonString = /* @__PURE__ */ (() => {
         isArr,
         schema.uv && (tagFlags[itemVal.s.type]! & 1) ? fieldSchema : U,
         U,
-        trusted,
+        // What the container's decoder made of this field: a val still
+        // carrying no `prev` is the accessor `valGet` synthesized, so the
+        // decoder passed the field through untouched and nothing validated
+        // it - the operation was told to trust its declared type.
+        itemVal.b === U || itemVal.b.prev === U,
       );
       if (g !== U) {
         hasOpt = true;
