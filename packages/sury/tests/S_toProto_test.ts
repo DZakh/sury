@@ -563,3 +563,25 @@ message Node {
   t.expect(S.toProtoOrThrow(node)).toBe(expected);
   t.expect(S.toProtoOrThrow(node.with(S.to, S.protobuf))).toBe(expected);
 });
+
+test("toProtoOrThrow prints what the wire speaks, and refuses what the wire refuses", (t) => {
+  const message = S.schema({ a: S.string.with(S.protobufField, 1) });
+  const printed = `syntax = "proto3";
+
+message Message {
+  string a = 1;
+}
+`;
+  // `S.unknown` between the message and the wire changes neither side.
+  const viaUnknown = message.with(S.to, S.unknown).with(S.to, S.protobuf);
+  t.expect(S.parseOrThrow(viaUnknown, { a: "x" })).toEqual(new Uint8Array([10, 1, 120]));
+  t.expect(S.toProtoOrThrow(viaUnknown)).toBe(printed);
+
+  // `S.json` is a message to neither: its definition is a union, and the codec
+  // refuses the chain, so the printer must not hand back a `.proto` for it.
+  const viaJson = message.with(S.to, S.json, { decode: (o) => o, encode: (x) => x });
+  t.expect(() => S.parseOrThrow(viaJson.with(S.to, S.protobuf), { a: "x" })).toThrow();
+  t.expect(() => S.toProtoOrThrow(viaJson.with(S.to, S.protobuf))).toThrow(
+    "[Sury] S.toProtoOrThrow: the schema is not an object",
+  );
+});
