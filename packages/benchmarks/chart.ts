@@ -8,7 +8,7 @@
 // Nothing outside the file may be referenced. The reader's browser renders it
 // inside an `<img>`, where an external font or stylesheet never loads and a
 // script never runs.
-import { type Format, type Row, type Table, formatCell, winners } from "./table";
+import { type Row, type Table, formatCell, winners } from "./table";
 
 // How the machine that timed a run is named on the chart it produced.
 export const provenance = (): string =>
@@ -54,13 +54,6 @@ const escape = (text: string): string =>
 const text = (x: number, y: number, content: string, fill: string, size: number, extra = ""): string =>
   `<text x="${x.toFixed(1)}" y="${y}" fill="${fill}" font-size="${size}"${extra}>${escape(content)}</text>`;
 
-// What a bar's length stands for. A duration is drawn as its own reciprocal,
-// which is the throughput printed in the same label: at 116x between the
-// fastest library and the slowest, drawing the duration itself leaves the
-// winner a sliver and spends the chart's ink on the worst result. Every other
-// format is drawn as the number it is.
-const weight = (value: number, format: Format | undefined): number => (format === "ns" ? 1 / value : value);
-
 // Square where it leaves the baseline, round where the measurement ends.
 const bar = (x: number, y: number, length: number, fill: string): string => {
   const r = BAR / 2;
@@ -73,7 +66,7 @@ const group = (row: Row, columns: string[], theme: Theme, gutter: number, barAre
   const note = row.note === undefined ? "" : `<tspan fill="${theme.muted}"> · ${escape(row.note)}</tspan>`;
   out.push(`<text x="${PAD}" y="${top + 11}" font-size="12">${label}${note}</text>`);
 
-  const numbers = row.cells.map((cell) => (typeof cell === "number" ? weight(cell, row.format) : null));
+  const numbers = row.cells.map((cell) => (typeof cell === "number" ? cell : null));
   const defined = numbers.filter((n): n is number => n !== null);
   const max = defined.length === 0 ? 0 : Math.max(...defined);
   const won = winners(row);
@@ -87,9 +80,10 @@ const group = (row: Row, columns: string[], theme: Theme, gutter: number, barAre
     const value = numbers[index];
     let end = barX;
     if (value !== null && value !== undefined && max > 0) {
-      // A value two orders off the best is a sliver, which is the honest
-      // reading. The floor is the round end's own radius, below which the mark
-      // stops looking like a bar at all.
+      // A bar is the number in its own label, so on a page of durations the
+      // winner is the short one and a library two orders off it is a sliver.
+      // The floor is the round end's own radius, below which the mark stops
+      // looking like a bar at all.
       const length = Math.max(BAR / 2, (value / max) * barArea);
       out.push(bar(barX, bandTop + (BAND - BAR) / 2, length, won[index] ? theme.emphasis : theme.context));
       end = barX + length;
@@ -116,14 +110,13 @@ export const renderChart = (table: Table, mode: "light" | "dark", timedOn?: stri
     y += HEADER + table.columns.length * BAND + GROUP_GAP;
   }
   const height = y - GROUP_GAP + FOOT;
-  // What the bars mean, in the one sentence a reader needs before reading them.
-  // A chart whose rows disagree on a direction gets no claim rather than a
-  // wrong one.
-  const directions = new Set(table.rows.map((row) => (row.format === "ns" ? "ns" : row.best)));
+  // Which way to read a bar, in the one sentence a reader needs before reading
+  // any of them. A chart whose rows disagree on a direction gets no claim
+  // rather than a wrong one.
+  const directions = new Set(table.rows.map((row) => row.best));
   const direction = directions.size === 1 ? [...directions][0] : undefined;
   const footer = [
-    direction === "ns" ? "Longer is faster" : direction === "low" ? "Lower is better" : undefined,
-    direction === "high" ? "Higher is better" : undefined,
+    direction === undefined ? undefined : `${direction === "low" ? "Lower" : "Higher"} is better`,
     timedOn === undefined ? undefined : `Timed on ${timedOn}`,
   ]
     .filter((part) => part !== undefined)
