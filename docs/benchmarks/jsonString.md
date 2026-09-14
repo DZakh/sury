@@ -12,7 +12,7 @@ Measured against sury 11.0.0, fast-json-stringify 7.0.1.
 
 |  | Sury | `JSON.stringify` | fast-json-stringify |
 | --- | ---: | ---: | ---: |
-| Encode | 18.0 kB | **0 B** | 57.2 kB |
+| Encode | 18.1 kB | **0 B** | 57.2 kB |
 | Encode and decode<br><sub>the same schema read back, checked against itself</sub> | 18.1 kB | **0 B** | n/a |
 
 <sub>The API response schema above, bundled with esbuild, minified and gzipped. `JSON.stringify` is 0 because it is in the runtime already, and `JSON.parse` with it. What neither gives you is a schema, so the second row compares a checked read against an unchecked one.</sub>

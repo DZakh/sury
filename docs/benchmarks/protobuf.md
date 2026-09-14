@@ -12,7 +12,7 @@ Measured against sury 11.0.0, protobufjs 8.8.0, protobuf-es 2.14.1, pbf 5.1.2.
 
 |  | Sury | protobufjs (reflect) | protobufjs (static) | protobuf-es | pbf |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Encode and decode | 23.5 kB | 34.9 kB | 13.6 kB | 17.9 kB | **2.80 kB** |
+| Encode and decode | 23.6 kB | 34.9 kB | 13.6 kB | 17.9 kB | **2.80 kB** |
 | Decode only<br><sub>what a client that never sends the message gets back from tree-shaking</sub> | 23.5 kB | n/a | 13.6 kB | 15.5 kB | **1.41 kB** |
 
 <sub>One six-field message's codec, bundled with esbuild, minified and gzipped. protobufjs's reflection path parses the `.proto` at runtime, so it has no decode-only build. Runtimes that carry no message of their own: google-protobuf 42.1 kB, @protobuf-ts/runtime 9.7 kB.</sub>
