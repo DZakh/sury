@@ -48,7 +48,7 @@ type typeName = [
 type version = string
 
 /**
- * A JSON Schema of any dialect Sury understands — draft-06 through
+ * A JSON Schema of any dialect Sury understands - draft-06 through
  * draft-2020-12, plus the OpenAPI 3.0 `nullable` extension (OpenAPI.res aliases
  * this as its schema object).
  *

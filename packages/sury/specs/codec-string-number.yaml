@@ -5,15 +5,16 @@ ts:
     - S.to(S.string, S.number)
   input: string
   output: number
-  instantiations: 5233
+  instantiations: 4419
 jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "number" }'
+isEqual: strictEqual
 vs:
   zod: z.string().transform((value) => Number(value))
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[1](i);let v0=+i;v0===v0||e[0](i);return v0}
+    expression: i=>{typeof i==="string"||e[1](i);let v0=+i;v0==v0&&(v0||i.trim())||e[0](i);return v0}
     examples:
       integer:
         input: '"123"'
@@ -24,11 +25,35 @@ operations:
       not-a-number-text:
         input: '"abc"'
         error: Expected number, received "abc"
+        divergence:
+          reason: the equivalent is a bare transform with nothing validating its result, and Number("") is 0 while Number("abc") is NaN
+          zod: NaN
+      zero:
+        input: '"0"'
+        output: "0"
+      negative-zero:
+        input: '"-0"'
+        output: "-0"
+      padded:
+        input: '" 12 "'
+        output: "12"
+      empty-string:
+        input: '""'
+        error: Expected number, received ""
+        divergence:
+          reason: the equivalent is a bare transform with nothing validating its result, and Number("") is 0 while Number("abc") is NaN
+          zod: "0"
+      whitespace-string:
+        input: '"   "'
+        error: Expected number, received "   "
+        divergence:
+          reason: the equivalent is a bare transform with nothing validating its result, and Number("") is 0 while Number("abc") is NaN
+          zod: "0"
       not-a-string:
         input: "123"
         error: Expected string, received 123
   decode:
-    expression: i=>{let v0=+i;v0===v0||e[0](i);return v0}
+    expression: i=>{let v0=+i;v0==v0&&(v0||i.trim())||e[0](i);return v0}
     examples:
       valid:
         input: '"123"'

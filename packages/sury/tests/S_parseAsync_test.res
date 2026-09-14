@@ -326,7 +326,7 @@ let invalidAsyncRefine = S.to(
 //       "k1": 1,
 //       "k2": 2,
 //     }
-//     ->S.parseAsyncOrThrow(~to=schema)
+//     ->S.parseAsPromiseOrReject(~to=schema)
 //     ->ignore
 
 //     t->Assert.deepEqual(actionCounter.contents, 2)
@@ -436,7 +436,7 @@ let invalidAsyncRefine = S.to(
 //       }),
 //     )
 
-//     [1, 2]->S.parseAsyncOrThrow(~to=schema)->ignore
+//     [1, 2]->S.parseAsPromiseOrReject(~to=schema)->ignore
 
 //     t->Assert.deepEqual(actionCounter.contents, 2)
 //   })
@@ -484,7 +484,7 @@ module Union = {
     let schema = S.union([S.literal(2)->validAsyncRefine, S.literal(2), S.literal(3)])
 
     // An async member can't be dropped from the dispatch to make a sync parser
-    // work — the operation itself is the problem, so it's raised once.
+    // work - the operation itself is the problem, so it's raised once.
     t->U.assertThrowsMessage(
       () => 2->S.parseOrThrow(~to=schema),
       "Invalid async during sync operation",
@@ -556,7 +556,7 @@ module Union = {
       ),
     ])
 
-    2->S.parseAsyncOrThrow(~to=schema)->ignore
+    2->S.parseAsPromiseOrReject(~to=schema)->ignore
 
     t->Assert.deepEqual(actionCounter.contents, 1)
   })
@@ -602,7 +602,7 @@ module Union = {
 //       }),
 //     )
 
-//     [1, 2]->S.parseAsyncOrThrow(~to=schema)->ignore
+//     [1, 2]->S.parseAsPromiseOrReject(~to=schema)->ignore
 
 //     t->Assert.deepEqual(actionCounter.contents, 2)
 //   })
@@ -681,7 +681,7 @@ module Union = {
 //       }),
 //     )
 
-//     {"k1": 1, "k2": 2}->S.parseAsyncOrThrow(~to=schema)->ignore
+//     {"k1": 1, "k2": 2}->S.parseAsPromiseOrReject(~to=schema)->ignore
 
 //     t->Assert.deepEqual(actionCounter.contents, 2)
 //   })

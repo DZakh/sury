@@ -1,4 +1,4 @@
-// Modifiers: everything that takes a schema and returns a changed schema —
+// Modifiers: everything that takes a schema and returns a changed schema -
 // refinements' machinery, transforms, metadata, object modes and defaults.
 // Distinct from `operations.ts`, which compiles a schema into a callable.
 
@@ -8,12 +8,13 @@ import {
   baseSchema,
   type Builder,
   type Check,
+  configurableValueOptions,
   copySchema,
+  copyTo,
   functionTag,
   getOrRethrow,
   inputExpression,
   type Internal,
-  jsonName,
   objectTag,
   panic,
   pathEmpty,
@@ -23,7 +24,9 @@ import {
   undefinedTag,
   unknown,
   updateOutput,
-  type Val
+  type Val,
+  valKey,
+  type Path,
 } from "./base";
 import {
   _var,
@@ -38,12 +41,14 @@ import {
   B_nextConst,
   B_refine,
   B_unsupportedDecode,
+  B_throw,
+  B_makeInvalidConversionDetails,
 } from "./builder";
 import {
   objectDecoder
 } from "./composites";
 import {
- getDecoder,
+ getOp,
  getOutputSchema,
  nestedLoc,
  nestedOptionParser,
@@ -145,8 +150,6 @@ export const option = (item: Internal): Internal => {
   return optionFactory(item, unit);
 }
 
-// PORT-NOTE: `module Metadata` → flat `Metadata_*` functions. `Id.t<'metadata>` is a string at
-// runtime; `unionToKey` was `%identity` and is dropped.
 export type MetadataId = string;
 
 // @__NO_SIDE_EFFECTS__
@@ -173,12 +176,9 @@ export const Metadata_set = (schema: Internal, id: MetadataId, metadata: unknown
 // @__NO_SIDE_EFFECTS__
 export const noValidation = (schema: Internal, value: boolean): Internal => {
   const mut = copySchema(schema);
-
-  // TODO: Test for discriminant literal
-  // TODO: Better test reverse
   mut.noValidation = value;
   return mut;
-}
+};
 
 export const internalRefine = (
   schema: Internal,
@@ -204,12 +204,23 @@ export const refine = (
   schema: Internal,
   refineCheck: (value: unknown) => boolean,
   error?: string,
-  path?: string[]
+  path?: Path
 ): Internal => {
   const message = error !== U ? error : "Refinement failed";
   const extraPath = path !== U ? path : pathEmpty;
   return internalRefine(schema, (_) => (input) => {
-    const embeddedCheck = B_embed(input, refineCheck);
+    // Whatever the check throws is that refinement failing, the same way a
+    // coder's throw is its conversion failing (`B_conversion`): a `TypeError` it
+    // hit on a value it was never written for is not a bug in the caller's
+    // `.catch`. Wrapped in the embedded function rather than in a generated
+    // `try`, which would catch the refinement's own failure raise too.
+    const embeddedCheck = B_embed(input, (value: unknown) => {
+      try {
+        return refineCheck(value);
+      } catch (cause) {
+        B_throw(B_makeInvalidConversionDetails(input, input.s, cause));
+      }
+    });
     return [
       {
         c: (inputVar) => `${embeddedCheck}(${inputVar})`,
@@ -221,7 +232,7 @@ export const refine = (
 
 // `refine`, but on the schema's Input rather than its assembled Output. A JSON
 // Schema composition keyword (`allOf`, `not`, …) asserts about the data as
-// given, and an object schema strips unknown keys on the way out — an output
+// given, and an object schema strips unknown keys on the way out - an output
 // refiner would judge `{a}` where the document said `{a, b}`.
 export const refineInput = (
   schema: Internal,
@@ -263,10 +274,9 @@ export const getMutErrorMessage = (mut: Internal): SchemaErrorMessage => {
 // fields, so the encode coder becomes the reversed chain's parser and double
 // reversal restores every slot. Slot semantics (auto/never/async/the JS
 // shorthand) are resolved by the caller into Builders; a boolean is a content
-// reading (`true` opens the direction's own source) and rides the schema that
-// direction converts into, which is what makes reversal swap those too. `U`
-// means no slot, i.e. the built-in conversion — or, where `B_contentDiffers`
-// says the pair has two readings, the rejection built below.
+// reading (`true` opens the source) and rides the target as `opens`, the one
+// reading a link has. `U` means no slot, i.e. the built-in conversion - and
+// whether that exists is the payload schemas' question, asked while compiling.
 export const codecTo = (
   schema: Internal,
   target: Internal,
@@ -274,44 +284,17 @@ export const codecTo = (
   encode?: Builder | boolean
 ): Internal => {
   const root: Internal = updateOutput(schema, (mut) => {
-    // The slot spelling is worth naming here, where the caller has somewhere to
-    // write one — but only for a pair where writing one resolves it. A union
-    // arm's payload and a reading on the union both stop short of the dispatch,
-    // and `S.json` has no opened form of its own, so those say what every
-    // undecodable pair says instead.
-    const ambiguous =
-      B_contentDiffers(B_contentNode(mut).content, B_contentNode(target).content) &&
-      target.to === U
-      ? B_contentNode(mut) === mut &&
-        B_contentNode(target) === target &&
-        mut.name !== jsonName &&
-        target.name !== jsonName
-        ? (input: Val) =>
-            B_invalidOperation(
-              input,
-              `Ambiguous conversion from ${inputExpression(mut)} to ${inputExpression(
-                target,
-              )}. Use S.to(from, to, "unpack" | "pack")`,
-            )
-        : (input: Val) => B_unsupportedDecode(input, mut, target)
-      : U;
     const opened = typeof decode === "boolean";
-    const parser = typeof decode === functionTag ? (decode as Builder) : opened ? U : ambiguous;
-    const serializer =
-      typeof encode === functionTag
-        ? (encode as Builder)
-        : typeof encode === "boolean"
-          ? U
-          : ambiguous;
+    const parser = typeof decode === functionTag ? (decode as Builder) : U;
+    const serializer = typeof encode === functionTag ? (encode as Builder) : U;
     if (serializer !== U || opened) {
       // copySchema keeps `anyOf` shared by reference with the target, and
       // unionResolveToUnion recognizes an arm producing the whole target union
       // by exactly that shared array. A deep copy here would silently break
       // Option.getOr's default arms.
       //
-      // A link built with either slot therefore owns its tail, which is what
-      // lets `trim` stamp a content marker onto the result without touching the
-      // shared `string` singleton. Stop copying here and it corrupts one.
+      // A link built with either slot owns its tail: the slot lands on this
+      // copy, never on a target the caller may link to again.
       const targetMut = copySchema(target);
       if (serializer !== U) {
         targetMut.serializer = serializer;
@@ -323,41 +306,82 @@ export const codecTo = (
     } else {
       mut.to = target;
     }
+    // CONTENT_CODEC_SPEC.md rule 3, written down the moment it becomes true: a
+    // payload that gains a `.to` names what it holds, so the link into it opens
+    // its source. Materialized here rather than read off `.to !== U` by the
+    // payload schemas, because `reverse` re-points `.to` and would lose it,
+    // while it carries `opens` across.
+    if (mut.content !== U && mut.opens === U) mut.opens = true;
     if (parser !== U) {
       mut.parser = parser;
     }
-    if (typeof encode === "boolean") {
-      // `opensBack`, not `opens`: this node is the *source* of the link, and it
-      // may later be some other link's target — where `opens` would then be
-      // read as that link's decode reading. `reverse` moves it across.
-      mut.opensBack = encode;
-    }
   });
-  // copySchema carries a cached isAsync/hasTransform from the source and a
-  // custom slot can change both, so let the next compile re-derive them.
-  // Slotless links keep the fast path: a built-in conversion can turn async now
-  // that a container reads its payload, but only where the source itself is
-  // already one, and the cache is read off the link's own head — nothing that
-  // reaches here carries a value for either.
-  if (decode !== U || encode !== U) {
-    delete root.isAsync;
-    delete root.hasTransform;
+  return root;
+};
+
+type LinkNode = {
+  s: Internal;
+  t: Internal;
+  k: unknown; // the `S.to` reading this link was written with
+  r: Internal;
+  n: LinkNode | undefined;
+};
+const linkKey = "l";
+
+// A slotless link is a pure function of its two arguments, so the chain it
+// builds is shared rather than rebuilt: written inline in a hot path -
+// `S.parseOrThrow(S.jsonString.with(S.to, userSchema))(body)`, once per request
+// - a fresh chain is also a fresh operation-cache target, so the schema
+// recompiled every call. 7.2us against 293ns. Sound only because a compiled
+// operation no longer writes anything back onto the schema it compiled
+// (`OpNode`).
+//
+// Kept apart from `codecTo` so the three callers that always pass slots -
+// `trim`, `list`, `Option_getOr` - carry none of it: each reshapes its own
+// result afterwards, so none could be interned anyway, and sharing one function
+// made them pay up to 60 gzipped bytes for a cache they never reach.
+//
+// `reading` joins the key, because it is bounded by construction: absent or one
+// of two strings, so three entries per pair. A coder object or an inline
+// function is fresh every call and would add a node it can never hit again - on
+// a pair of singletons, which never dies.
+//
+// The node goes on the newer of the pair, non-enumerable, exactly as
+// `addOpNode` stores an operation: `seq` is monotonic, so it lands on the
+// argument that dies first and a long-lived schema paired with throwaways keeps
+// nothing alive.
+// @__NO_SIDE_EFFECTS__
+export const linkTo = (
+  schema: Internal,
+  target: Internal,
+  reading?: unknown,
+  decode?: boolean,
+  encode?: boolean
+): Internal => {
+  const store = schema.seq! > target.seq! ? schema : target;
+  let node = (store as unknown as Record<string, LinkNode | undefined>)[linkKey];
+  while (node) {
+    if (node.s === schema && node.t === target && node.k === reading) return node.r;
+    node = node.n;
   }
+  const root = codecTo(schema, target, decode, encode);
+  const created: LinkNode = {
+    s: schema,
+    t: target,
+    k: reading,
+    r: root,
+    n: (store as unknown as Record<string, LinkNode | undefined>)[linkKey],
+  };
+  (configurableValueOptions as Record<string, unknown>)[valKey] = created;
+  Object.defineProperty(store, linkKey, configurableValueOptions as PropertyDescriptor);
   return root;
 };
 
 // Not initSchema: that would stamp the self-reverse marker, and this codec's
-// reverse (unit -> null) must stay lazily derived — copySchema drops
-// nullLiteral's non-enumerable `r` on purpose.
-export const nullAsUnit: Internal = /* @__PURE__ */ (() => {
-  // PORT-NOTE: local `s` renamed to `schema` — `s` is the module-level error
-  // identity symbol in this file.
-  const schema = copySchema(nullLiteral);
-  schema.to = unit;
-  return schema;
-})();
+// reverse (unit -> null) must stay lazily derived — copySchema drops it.
+export const nullAsUnit: Internal = /* @__PURE__ */ copyTo(nullLiteral, unit);
 
-// A default is either an eager value or a lazily-called callback — used only
+// A default is either an eager value or a lazily-called callback - used only
 // within this module, never exposed to callers.
 export type OptionDefault =
   | { type: "value"; value: unknown }
@@ -400,7 +424,7 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
       const v = default_.value;
       // Full unknown -> item decode so primitive item types still get type-checked.
       try {
-        (getDecoder(unknown, item) as (input: unknown) => unknown)(v);
+        (getOp(0, 2, unknown, item) as (input: unknown) => unknown)(v);
       } catch (exn) {
         const error = getOrRethrow(exn);
         panic(
@@ -415,7 +439,7 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
       // encode makes it uncomputable, so skip it rather than throw: metadata
       // is not a value operation.
       try {
-        mut.default = (getDecoder(reverse(originalItem)) as (input: unknown) => unknown)(v);
+        mut.default = (getOp(0, 1, reverse(originalItem)) as (input: unknown) => unknown)(v);
       } catch (_exn) {}
     }
 
@@ -458,10 +482,8 @@ export const Option_getOr = (schema: Internal, defaultValue: unknown): Internal 
 export const Option_getOrWith = (schema: Internal, defaultCb: () => unknown): Internal =>
   Option_getWithDefault(schema, { type: "callback", callback: defaultCb });
 
-// PORT-NOTE: `Object.s` (the object ctx record) → `ObjectCtx`; field names are
-// the runtime names from `@as` (`f` for `field`, others unchanged).
 export type ObjectCtx = {
-  // @as("f") — field
+  // @as("f") - field
   f: (location: string, schema: Internal) => unknown;
   fieldOr: (location: string, schema: Internal, or: unknown) => unknown;
   tag: (location: string, value: unknown) => void;
@@ -480,7 +502,7 @@ export const Object_setAdditionalItems = (
     currentAdditionalItems !== additionalItems &&
     typeof currentAdditionalItems !== objectTag;
   // A deep pass still has to descend through a level that already carries the
-  // mode — a tuple is strict from the start, and its object items are not.
+  // mode - a tuple is strict from the start, and its object items are not.
   // When nothing changes anywhere in the subtree, return the same object:
   // a repeated call stays identity-stable, so the operation cache (keyed on
   // the schema object) keeps hitting.
@@ -537,11 +559,6 @@ export const deepStrict = (schema: Internal): Internal => {
   return Object_setAdditionalItems(schema, "strict", true);
 }
 
-export type TupleCtx = {
-  item: (idx: number, schema: Internal) => unknown;
-  tag: (idx: number, value: unknown) => void;
-};
-
 export type Meta<TValue> = {
   name?: string;
   title?: string;
@@ -551,7 +568,6 @@ export type Meta<TValue> = {
   errorMessage?: SchemaErrorMessage;
 };
 
-// TODO: Better test reverse
 // @__NO_SIDE_EFFECTS__
 export const meta = <TValue>(schema: Internal, data: Meta<TValue>): Internal => {
   const mut = copySchema(schema);
@@ -583,11 +599,14 @@ export const meta = <TValue>(schema: Internal, data: Meta<TValue>): Internal => 
     if (data.examples.length === 0) {
       delete mut.examples;
     } else {
-      // A never or async encode makes the input-form examples uncomputable,
-      // so skip them rather than throw. Only the operation-level rejection is
-      // absorbed; a per-value failure still names the author's bad example.
+      // A full parse through the reversed schema: the example is checked as an
+      // output value and stored in its input form. A never or async encode
+      // makes that uncomputable, so it is skipped rather than thrown; a
+      // per-value failure still names the author's bad example.
       try {
-        mut.examples = data.examples.map(getDecoder(reverse(schema)));
+        mut.examples = data.examples.map(
+          getOp(0, 2, unknown, reverse(schema)) as (input: unknown) => unknown,
+        );
       } catch (exn) {
         if ((getOrRethrow(exn) as unknown as { code: string }).code !== "invalid_operation") {
           throw exn;

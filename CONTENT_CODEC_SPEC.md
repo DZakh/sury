@@ -20,7 +20,7 @@ S.uint8Array.with(S.to, S.jsonString);
 // unpack: UTF-8 + JSON.parse                    the bytes ARE the document
 ```
 
-Both are useful. Today the pair silently does a third, broken thing — UTF-8
+Both are useful. Today the pair silently does a third, broken thing - UTF-8
 escape, which corrupts any byte outside ASCII (`[137, 80, 78, 71]` → `"�PNG"` →
 decodes back as different bytes, no error at either end).
 
@@ -34,8 +34,8 @@ type Conversion<A, B> = Coder<A, B> | "auto" | "never" | "pack" | "unpack" | { a
 
 Each names what its direction does to its own source:
 
-- `"unpack"` — open the source, hand its payload to the target.
-- `"pack"` — store the source's value inside the target.
+- `"unpack"` - open the source, hand its payload to the target.
+- `"pack"` - store the source's value inside the target.
 
 ```ts
 // the bytes ARE the JSON text, rather than a value stored in one
@@ -48,19 +48,19 @@ S.jsonString.with(S.to, S.file, { decode: "unpack", encode: "pack" });
 
 A slot picks a reading; it does not invent a conversion. What the opened payload
 then converts to is still whatever the rules below give, so a target that no
-built-in conversion reaches is still rejected — reading a `File` into an object
+built-in conversion reaches is still rejected - reading a `File` into an object
 schema needs the format that turns its text into one
 (`S.file.with(S.to, S.jsonString.with(S.to, configSchema))`, rule 3), not a slot.
 
-Mixing with `"never"`, coders and `{async}` follows `CODEC_SPEC.md` — each of
+Mixing with `"never"`, coders and `{async}` follows `CODEC_SPEC.md` - each of
 those answers for its own direction. `"auto"` does not: it leaves that direction
 asking the question the reading just answered, so a reading has to be paired
 with its opposite. `"unpack"` opposite `"unpack"` (or `"pack"` opposite `"pack"`)
-is rejected for the mirror reason — opening in both directions leaves no side
+is rejected for the mirror reason - opening in both directions leaves no side
 holding the payload.
 
 A bare `"pack"` or `"unpack"` as the third argument names the decode reading
-and takes the opposite on encode — readings must come as a pair, so one word
+and takes the opposite on encode - readings must come as a pair, so one word
 is enough. A bare function still means decode-only (custom rule 3).
 
 ```ts
@@ -74,17 +74,17 @@ See above. Everything below is what happens when no slot is written.
 
 ## Rule 2: a value position packs
 
-A field or array item is a value in the document — nothing asks it to be a
+A field or array item is a value in the document - nothing asks it to be a
 document of its own:
 
 ```ts
-S.encoder(S.schema({ payload: S.uint8Array }), S.jsonString)({ payload: bytes });
+S.encodeOrThrow(S.schema({ payload: S.uint8Array }), S.jsonString)({ payload: bytes });
 // {"payload":"ZGF0YQ=="}                      base64, not mangled UTF-8
 ```
 
 A `Blob`/`File` field packs the same way, which makes that **encode async** (a
-Blob's bytes are only readable asynchronously) — `S.asyncEncoder`, and the sync
-`S.encoder` fails at creation like any other async operation.
+Blob's bytes are only readable asynchronously) - `S.encodeAsPromiseOrReject`, and the sync
+`S.encodeOrThrow` fails at creation like any other async operation.
 
 A field that should hold a *nested* document says so, and rule 3 takes over:
 
@@ -111,12 +111,16 @@ The check is on the schema shape (a `content` marker plus `.to` present), so it
 is local and stable: new built-in conversions in later versions can never
 retract it.
 
-**The payload goes inside, not after.** Each link settles when it is written, so
-`S.file.with(S.to, S.jsonString).with(S.to, configSchema)` is rule 4 on its first
-link — at that point nothing has said what the JSON string carries, and the
-second link can't reach back, because reversal would have lost the distinction
-anyway (see the implementation notes). Write the payload inside the format, or
-say which reading you meant with a slot.
+Both spellings say it. Nesting the payload inside the format, as above, or
+chaining it after:
+
+```ts
+S.file.with(S.to, S.jsonString).with(S.to, configSchema);   // the same schema
+```
+
+The first link is rule 4 on its own - nothing has said yet what the JSON string
+carries - and the second link is what settles it. Nothing is decided until the
+schema is compiled, so a link is judged with the whole chain in view.
 
 ## Rule 4: otherwise, error
 
@@ -124,7 +128,7 @@ say which reading you meant with a slot.
 S.file.with(S.to, S.jsonString);        // which reading?
 ```
 
-Where no slot would resolve it either — a union, or `S.json` — the pair says it
+Where no slot would resolve it either - a union, or `S.json` - the pair says it
 has no decoder instead of naming a spelling that wouldn't work:
 
 ```ts
@@ -136,7 +140,7 @@ Both fail at **operation creation** (like every conversion error), one message
 built from the same pieces the existing unsupported-conversion error uses:
 
 ```
-Ambiguous conversion from File to JSON string. Use S.to(from, to, "unpack" | "pack")
+Ambiguous File -> JSON string. Should the bytes be packed or unpacked? Choose with S.to and "pack" or "unpack"
 ```
 
 There are no per-carrier defaults. When both readings are live, the library
@@ -148,21 +152,21 @@ These skip the rules entirely:
 
 ```ts
 S.jsonString.with(S.to, S.jsonString);   // identity (same schema)
-S.email.with(S.to, S.string);            // widen — a constraint format has no payload
-S.base64.with(S.to, S.string);           // widen — its payload is bytes, not a string
-S.base64.with(S.to, S.uint8Array);       // payload transfer — one reading
+S.email.with(S.to, S.string);            // widen - a constraint format has no payload
+S.base64.with(S.to, S.string);           // widen - its payload is bytes, not a string
+S.base64.with(S.to, S.uint8Array);       // payload transfer - one reading
 S.file.with(S.to, S.string);             // payload transfer (text read, async)
-S.uint8Array.with(S.to, S.string);       // UTF-8 — pack and unpack produce the SAME code
-S.jsonString.with(S.to, userSchema);     // parse — a plain type can't be packed into
-S.number.with(S.to, S.jsonString);       // pack — a number has nothing to open
+S.uint8Array.with(S.to, S.string);       // UTF-8 - pack and unpack produce the SAME code
+S.jsonString.with(S.to, userSchema);     // parse - a plain type can't be packed into
+S.number.with(S.to, S.jsonString);       // pack - a number has nothing to open
 ```
 
 The two-string contrast is the one thing to memorize, and it follows from the
 payloads:
 
 ```ts
-S.jsonString.with(S.to, S.string);  // parses — a string IS a JSON value
-S.base64.with(S.to, S.string);      // identity — a string is NOT bytes
+S.jsonString.with(S.to, S.string);  // parses - a string IS a JSON value
+S.base64.with(S.to, S.string);      // identity - a string is NOT bytes
 ```
 
 ## Carriers
@@ -174,10 +178,14 @@ S.base64.with(S.to, S.string);      // identity — a string is NOT bytes
 | `S.base64` | bytes | sync | sync |
 | `S.base64url` | bytes | sync | sync |
 | `S.jsonString` (future: toon, env) | a JSON value | sync | sync |
-| future: `S.formData`, protobuf | a record / a message | sync | sync |
+| future: protobuf | a message | sync | sync |
+
+`S.formData` is not a carrier on this axis: a form has no JSON document form
+and no format opens into one, so a link to it has one reading or none, and a
+`FormData` in a JSON position has no document, the way a `Blob` has none.
 
 Packing bytes into a JSON position always produces base64. Packing a `File`
-loses its name — the reverse builds `new File([content], "")`; a name option
+loses its name - the reverse builds `new File([content], "")`; a name option
 belongs on `S.file` itself, not on a slot.
 
 ## Reversal
@@ -189,7 +197,7 @@ a `File` unpack is an async decode, its reverse an async encode.
 
 ## JSON Schema
 
-Derived from the link — nothing declared twice. `toJSONSchema` describes a
+Derived from the link - nothing declared twice. `toJSONSchema` describes a
 schema's *input*, so the annotations land on whichever side of a link is the
 string; a `Blob` input has no document, and keeps saying so.
 
@@ -199,13 +207,13 @@ string; a `Blob` input has no document, and keeps saying so.
 | `S.base64url` | `contentEncoding: "base64url"` | `format: "base64url"` |
 | `S.jsonString.with(S.to, X)` | `contentMediaType: "application/json"`, plus `contentSchema: <X>` in 2020-12 | bare string |
 | `S.string.with(S.to, S.blob)` | `contentMediaType: "application/octet-stream"` | `format: "binary"` |
-| `S.jsonString.with(S.to, S.file, {decode: "unpack", …})` | `contentMediaType: "application/json"` | `format: "binary"` |
+| `S.jsonString.with(S.to, S.file, {decode: "unpack", ...})` | `contentMediaType: "application/json"` | `format: "binary"` |
 | `S.base64.with(S.to, S.file)` | both of the above | `format: "byte"` |
 
 A carrier's own emit fills only what the string hasn't already said about
 itself, which is why the last two rows keep the encoding they are written in
 rather than the medium they end in. The base64 rows round-trip through
-`fromJSONSchema`, from either spelling; a `contentMediaType` does not yet, and
+`fromJSONSchemaOrThrow`, from either spelling; a `contentMediaType` does not yet, and
 comes back as a plain string. The
 `contentSchema` emit is gated on a json-format source, so a base64 segment
 carrying a document annotates the encoding it is stored in and stops there.
@@ -215,11 +223,11 @@ nor `.to` of its own, and neither an arm's payload declaration nor a reading
 written on the union reaches the dispatch; `S.json` is the document rather than
 a rendering of one, so neither reading of a link to it is built. Both are read
 far enough to know the pair is not a plain transfer, and then rejected as having
-no decoder — which a custom coder still answers. Rule 2 is the exception on both
+no decoder - which a custom coder still answers. Rule 2 is the exception on both
 counts, and only because `jsonEncoderFn` rewrites the arms itself and reads
 `content` for the shape a document stores its target as.
 
-**Not yet:** a packed bytes field has no document form — `S.toJSONSchema` of
+**Not yet:** a packed bytes field has no document form - `S.toJSONSchema` of
 `S.schema({payload: S.uint8Array})` reports `Expected JSON, received Uint8Array`
 rather than describing the base64 string the field becomes. That follows the
 existing rule that a carrier has no document of its own (`S.blob` answers the
@@ -232,27 +240,37 @@ schema fields carry it:
 
 | field | meaning |
 | --- | --- |
-| `content` | the schema this value's payload is stored as inside a JSON document — `S.base64` for every bytes carrier, `S.json` for `S.jsonString` and `S.json` itself. Absent means the value carries no payload. |
-| `opens` | the reading a `"pack"`/`"unpack"` slot wrote, on the schema that direction converts *into* — so `reverse`, which copies node by node, carries each direction's slot with it. |
+| `content` | the schema this value's payload is stored as inside a JSON document - `S.base64` for every bytes carrier, `S.json` for `S.jsonString` and `S.json` itself. Absent means the value carries no payload. |
+| `opens` | the reading of the link into this schema, whatever settled it: a slot, a payload gaining its `.to` (rule 3), or the document piece a field is stored into (rule 2). One per link; `reverse`, which copies node by node, writes each node's from its forward successor's, negated. |
 
 Two schemas that agree on `content` carry the same kind of payload, so a link
 between them is a plain transfer; two that disagree have both readings live, and
-`B_readsPayload` answers which one applies: the slot if there is one, otherwise
-the target naming its own payload with `.to` (rule 3).
+`opens` says which applies. Every way a reading gets settled writes it: a slot
+(rule 1), a document field's position (rule 2, in `fieldPiece`), and a payload
+gaining a `.to` (rule 3) - the last written at the two places a `.to` link is
+made, `codecTo` and `compileChain`, the moment it becomes true. Materialized
+rather than read off `.to !== U`, because reversing a chain re-points `.to` and
+would lose it, while `reverse` carries `opens` across like any other slot: the
+legal `X -> jsonString -> File` and the rejected `jsonString -> File` reach the
+decoder as the same pair, and only the slot tells them apart.
 
-`B_contentDiffers` asks rule 4's question at the two places a `.to` link is made
-— `codecTo` for a written `S.to`, `getDecoder` for an operation given its own
-target — and the empty direction takes a slot that rejects the operation. It
-cannot be left to compile time, because reversing a chain turns the target's
-payload declaration into just another link: the legal `X -> jsonString -> File`
-and the rejected `jsonString -> File` reach the decoder as the same pair.
+Rule 4 is then asked while compiling, by the schemas that declare a payload -
+`json`, `jsonString`, `base64`, `uint8Array`, `file` - each in its own decoder
+and encoder, and by a union carrying its `.to` into one, before it splits the
+link per arm (`B_rejectUnsettled`). A link between two payloads of different
+kinds with no reading on either end is the error; a bundle that ships none of
+those schemas ships none of this, and `S.to` is a link and nothing more. The
+link is found from the parse loop's own step rather than from the val's source
+type: a union case parses its arm from the type narrow and a bytes read from
+text types its result as the format singleton, so the source there is a schema
+with no `.to` at all.
 
-What the rejection *says* is the caller's, not the question's. `codecTo` names
-the slots, because the caller has somewhere to write one; `getDecoder`'s form
-has nowhere, so it reports the pair as having no decoder — which a coder still
-answers. And `codecTo` says the same for a pair no slot resolves: a union arm's
-payload and a reading written on the union both stop short of the dispatch, and
-`S.json` has no opened form of its own.
+What the rejection *says* comes from the pair. Two renderings name the slots,
+since a slot is what settles them; a pair no slot resolves - a union arm's
+payload, a reading written on the union, either side being `S.json`, which has
+no opened form of its own - reports the pair as having no decoder, which a
+coder still answers. The operation form (`S.decodeOrThrow(a, b, c)`) gets the
+same message as the written `S.to`: it is the same chain.
 
 Everything else is the two markers being read where a decision already happened:
 rule 2 is the carrier's `encoder` being handed a content-format target,
@@ -262,32 +280,32 @@ target as instead of assuming `string`, and the nested-jsonString fix is
 declares a payload. No new `Val` fields, no compile-loop cost, nothing in
 generated code a hand-written converter wouldn't contain.
 
-The one price is the universal path: `getDecoder` is in every bundle, so
+The one price is the universal path: `getOp` is in every bundle, so
 `B_contentDiffers` is too, and `copySchema` and `reverse` each carry a line for
 the two markers. About 180 gzipped bytes on every export (`bundleSize.yaml`,
-where the smallest go 4136 → 4315) — the question and one closure; the messages
+where the smallest go 4136 → 4315) - the question and one closure; the messages
 ride with the callers, and so does the union walk `B_contentNode` does, which is
 why only `codecTo` pays for it. That buys a creation-time gate on conversions
 that otherwise corrupt data silently.
 
-**Conversions live on the carrier, not the format** — the existing `S.date`
+**Conversions live on the carrier, not the format** - the existing `S.date`
 pattern. `S.uint8Array`'s encoder owns base64; `S.file`'s owns `.text()` /
 `.arrayBuffer()`; `S.base64` owns opening itself into text. So `S.jsonString`
 never references a base64 helper, and a bundle that never mentions bytes never
-ships one. The format side checks only the generic `content` marker — it never
+ships one. The format side checks only the generic `content` marker - it never
 names toon, env, or any other format, which is what keeps each future carrier a
 self-contained file.
 
-`S.fromJSONSchema` pays for the round trip: reading `contentEncoding` back means
+`S.fromJSONSchemaOrThrow` pays for the round trip: reading `contentEncoding` back means
 naming `S.base64` and `S.base64url`, which bring their patterns and conversions.
 That is the largest row in `bundleSize.yaml`. Every format costs it something;
 these are the first that carry a codec.
 
 The keyword is an annotation in both dialects, so a validator that reads it as
 one accepts `"hello world"` under `contentEncoding: "base64"`. Sury reads it as
-a schema, because `format` — an annotation on the same terms — has always come
+a schema, because `format` - an annotation on the same terms - has always come
 back as the validating `S.uuid`, `S.email` and the rest. A round trip through
-`fromJSONSchema` produces the schema the keyword names, not a validator for the
+`fromJSONSchemaOrThrow` produces the schema the keyword names, not a validator for the
 document it came from.
 
 **The base64 helpers** feature-detect native `Uint8Array` methods, then Node
@@ -304,22 +322,22 @@ refine and `bc` only, so a File bundle does not ship recode or TextEncoder.
 
 | today | after |
 | --- | --- |
-| `S.uint8Array.with(S.to, S.jsonString)` — UTF-8 escape (corrupts non-ASCII) | rule 4 error |
-| `{payload: S.uint8Array}` in a JSON document — corrupts | base64 |
-| `S.encoder(S.uint8Array.with(S.to, S.number))(42)` — returns `42` typed as `Uint8Array` | error (the decoder's missing fall-through, a standalone soundness fix) |
-| `S.optional(S.string).with(S.to, S.uint8Array)` — the `undefined` arm passed through as bytes | error, which `CODEC_SPEC.md`'s rule 3 already said: a variant with no decoder rejects the operation |
-| `S.base64.with(S.trim).with(S.to, S.uint8Array)` — packed the base64 *text* as bytes | the payload, same as untrimmed: a refinement that only reshapes the text carries the marker |
-| a `S.jsonString.with(S.to, X)` field of a decoded document — re-escaped its own text, then failed against X | parsed (rule 3) |
-| a `noValidation` field of a JSON document — `Can't decode JSON to Date` | decoded: `noValidation` drops the checks, not the conversion. Only `S.json` itself still travels as text, since its parse *is* its check |
-| every `Blob`/`File` conversion — creation error | its payload conversions work, and the rest asks. `S.file.with(S.to, S.blob)` widens; the other way round is still an error, because not every blob is a file |
-| — | a union target of a `Blob`/`File` stays an error, where a `S.uint8Array` one works: a union picks its variant before the read resolves, so the arm's checks would run against the promise |
+| `S.uint8Array.with(S.to, S.jsonString)` - UTF-8 escape (corrupts non-ASCII) | rule 4 error |
+| `{payload: S.uint8Array}` in a JSON document - corrupts | base64 |
+| `S.encodeOrThrow(S.uint8Array.with(S.to, S.number))(42)` - returns `42` typed as `Uint8Array` | error (the decoder's missing fall-through, a standalone soundness fix) |
+| `S.optional(S.string).with(S.to, S.uint8Array)` - the `undefined` arm passed through as bytes | the text packs, `undefined` is rejected: `CODEC_SPEC.md`'s nullish-arm exception to rule 3 |
+| `S.base64.with(S.trim).with(S.to, S.uint8Array)` - packed the base64 *text* as bytes | the payload, same as untrimmed: a refinement that only reshapes the text carries the marker |
+| a `S.jsonString.with(S.to, X)` field of a decoded document - re-escaped its own text, then failed against X | parsed (rule 3) |
+| a `noValidation` field of a JSON document - `Can't decode JSON to Date` | decoded: `noValidation` drops the checks, not the conversion. Only `S.json` itself still travels as text, since its parse *is* its check |
+| every `Blob`/`File` conversion - creation error | its payload conversions work, and the rest asks. `S.file.with(S.to, S.blob)` widens; the other way round is still an error, because not every blob is a file |
+| - | a union target of a `Blob`/`File` stays an error, where a `S.uint8Array` one works: a union picks its variant before the read resolves, so the arm's checks would run against the promise |
 
 All land together. After this release, changes only turn errors into working
 code.
 
 ## Spec coverage
 
-One spec per **carrier kind × direction**, plus one per format's own codec —
+One spec per **carrier kind × direction**, plus one per format's own codec -
 never per pair. Bytes carriers use non-ASCII fixtures in both directions;
 ASCII-only fixtures are what hid the corruption above.
 
@@ -330,41 +348,45 @@ ASCII-only fixtures are what hid the corruption above.
 | `codec-base64-base64url` | recode between alphabets |
 | `codec-base64-trim-base64url` | recode after `S.trim`, which copies `content` but not `bc` |
 | `codec-uint8array-jsonstring-pack` | `S.to(from, to, "pack")` as the opposite pair |
-| `codec-base64-string` vs `codec-jsonstring-string` | the payload rule's least guessable pair — widen vs parse |
+| `codec-base64-string` vs `codec-jsonstring-string` | the payload rule's least guessable pair - widen vs parse |
 | `jsonstring-object-url`, `codec-array-never-jsonstring` | the two shapes that reach jsonString's fallback for a value it can't serialize piecewise |
 | `codec-base64-file` | payload transfer in and out of a binary container |
 | `codec-uint8array-jsonstring-ambiguous`, `codec-file-jsonstring-ambiguous`, `codec-base64-jsonstring-ambiguous` | rule 4, one per carrier kind |
-| `codec-uint8array-json-unsupported`, `codec-uint8array-optional-jsonstring-unsupported`, `codec-file-optional-email-unsupported` | where the axis stops — `S.json`, a union carrying a payload, and any union at all opposite a container whose read is asynchronous |
+| `codec-uint8array-json-unsupported`, `codec-uint8array-optional-jsonstring-unsupported` | where the axis stops - `S.json`, and a union carrying a payload |
+| `codec-file-optional-email` | a nullish arm is no choice for an asynchronous read to make: `S.file` reads into `S.optional(S.email)` as into `S.email`, and `None` is rejected in both directions |
 | `codec-file-blob` | the one instance widening the axis makes legal, and the direction that stays an error |
-| `codec-base64-jsonstring-payload`, `codec-base64url-jsonstring-payload` | rule 3, both alphabets — the base64url one is the JWT segment |
+| `codec-base64-jsonstring-payload`, `codec-base64url-jsonstring-payload` | rule 3, both alphabets - the base64url one is the JWT segment |
 | `codec-jsonstring-object-uint8array`, `codec-jsonstring-object-file` | rule 2, both directions |
-| `codec-jsonstring-object-optional-uint8array`, `jsonstring-optional-base64-field` | rule 2 through a union arm — the one that needs a hop to the stored form, and the one that already is it |
+| `codec-jsonstring-object-optional-uint8array`, `jsonstring-optional-base64-field` | rule 2 through a union arm - the one that needs a hop to the stored form, and the one that already is it |
 | `codec-jsonstring-object-optional-file`, `codec-jsonstring-dict-file` | the two things an async encode broke: an object's optional fields, and a dict with no keys |
 | `jsonstring-novalidation-base64` | `noValidation` voids the raw-splice proof for a content format too |
 | `codec-jsonstring-object-jsonstring`, `codec-jsonstring-jsonstring-payload` | the nested-document field, and the document that carries one directly |
 | `codec-email-string`, `codec-jsonstring-object-optional-jsonstring`, `jsonstring-optional-jsonstring-field`, `jsonstring-novalidation-date` | bugs this work turned up and didn't cause, each carrying a `FIXME` that says so |
 | `codec-uint8array-jsonstring-packed`, `codec-jsonstring-file-slots` | rule 1, both spellings of the pair |
-| `codec-uint8array-number-unsupported`, `codec-optional-string-uint8array-unsupported` | the decoder fall-through the soundness fix added, standalone and through a union arm |
+| `codec-uint8array-number-unsupported` | the decoder fall-through the soundness fix added |
+| `codec-optional-string-uint8array`, `codec-uint8array-optional-string`, `codec-uint8array-optional-base64` | a nullish arm beside a payload: the text converts, the arm is dropped in both directions |
 | `codec-array-never-uint8array` | the one source the fall-through has to keep letting through: nothing reaches a `never`, so there is no conversion to reject |
 | `string-to-blob` | the conversion that used to be two creation errors |
 | `codec-base64-trim-jsonstring-ambiguous` | the marker surviving a `S.trim` link, so the pair still reports rather than guesses |
 | `jsonstring-novalidation-date`, `jsonstring-novalidation-format` | a `noValidation` field decoded back out of its document, and `jsonstring-novalidation` for the JSON target that still travels as text |
-| `codec-uint8array-string`, `codec-uint8array-string-novalidation`, `codec-string-novalidation-uint8array`, `codec-email-uint8array` | the UTF-8 hop both ways — lossy for bytes that aren't text, and checked by the string target the bytes spell, unless `noValidation` says not to |
+| `codec-uint8array-string`, `codec-uint8array-string-novalidation`, `codec-string-novalidation-uint8array`, `codec-email-uint8array` | the UTF-8 hop both ways - lossy for bytes that aren't text, and checked by the string target the bytes spell, unless `noValidation` says not to |
 | `codec-uint8array-jsonstring-payload` | rule 3 into a payload the caller reads as bytes |
 | `codec-uint8array-jsonstring-unpack` | the `"unpack"`/`"pack"` spelling whose encode side lands on bytes |
 | `codec-json-object-uint8array` | rule 2 in a JSON value, where the reading is the same as in JSON text |
-| `codec-jsonstring-object-text-uint8array`, `codec-jsonstring-object-optional-text-uint8array` | rule 2 through a field storing the same payload as the source — text stays text, with or without the union arm `S.optional` adds |
+| `codec-jsonstring-object-text-uint8array`, `codec-jsonstring-object-optional-text-uint8array` | rule 2 through a field storing the same payload as the source - text stays text, with or without the union arm `S.optional` adds |
 | `codec-uint8array-optional-base64`, `codec-uint8array-optional-string` | a payload arm keeping its marker through the union narrow, and an arm with no payload still taking the text |
 | `codec-base64-trim-uint8array` | the marker surviving a `S.trim` link into bytes |
+| `string-to-file`, `file-to-string`, `file-to-uint8array`, `file-to-jsonstring-object` | a `File` to and from text, bytes, and a JSON document it carries |
+| `union-file-read-fail`, `object-file-read-fail`, `object-optional-file-read-fail` | a `File` whose read rejects: a union does not treat that as a miss, a required field takes the path, an optional field stays the raw exception |
 
 `tests/content_test.ts` holds the rest, and only because the spec format can't:
 a golden can't hold a `Blob` or `File`, and every compiled operation must run
-an example — so a conversion that only ever produces one has no spec to live
+an example - so a conversion that only ever produces one has no spec to live
 in. That covers `S.file` to and from bytes and text, rule 2 with a `File` in
 the value position, rule 3 into a payload read out of a file, and the
 `"unpack"`/`"pack"` spelling whose decode side lands in one. It also holds
-every reading the API rejects outright — a pair that agrees on the payload, a
-side that carries none, `S.json`, and two readings naming the same direction —
+every reading the API rejects outright - a pair that agrees on the payload, a
+side that carries none, `S.json`, and two readings naming the same direction -
 since those panic while the schema is being built and `ts.schema` never
 evaluates. CONTRIBUTING.md's Spec Harness Suggestions is where the fix belongs;
 when it lands, those rows move back.

@@ -3,10 +3,11 @@ ts:
   schema: S.instance(Set).with(S.maxSize, 5, "MAX").with(S.size, 3)
   input: Set<unknown>
   output: Set<unknown>
-  instantiations: 2898
+  instantiations: 2896
 jsonSchema:
   input: Expected JSON, received Set.size == 3
   output: Expected JSON, received Set.size == 3
+isEqual: (a,b)=>a===b||e[0](a,b)
 vs:
   zod:
     _skip: not-applicable

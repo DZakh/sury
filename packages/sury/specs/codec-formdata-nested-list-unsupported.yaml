@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.formData.with(S.to, S.schema({ rows: S.array(S.array(S.string)) }))"
+  input: FormData
+  output: "{ rows: string[][]; }"
+  instantiations: 5773
+jsonSchema:
+  input: Expected JSON, received FormData
+  output: '{ type: "object", properties: { rows: { items: { items: { type: "string" }, type: "array" }, type: "array" } }, required: ["rows"] }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||e[0](a.rows,b.rows)
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "SuryError: Failed at rows: Can't decode form field -> string[][]. A repeated key is flat"
+  decode: eq-to-parse
+  encode: eq-to-parse

@@ -3,12 +3,15 @@ ts:
   schema: S.jsonString.with(S.to, S.record(S.file))
   input: string
   output: "{ [x: string]: File; }"
-  instantiations: 5458
+  instantiations: 4644
 jsonSchema:
   input: '{ type: "string", contentMediaType: "application/json" }'
   output: "Failed at []: Expected JSON, received File"
   openapi-3.0:
     input: '{ type: "string" }'
+isEqual:
+  input: strictEqual
+  output: (a,b)=>{if(a===b)return true;let n=0;for(const k in a){if(!(k in b)||!(a[k]===b[k]))return false;n++}for(const k in b)n--;return !n}
 vs:
   zod:
     _skip: not-applicable
@@ -27,7 +30,7 @@ operations:
         error: Expected JSON string, received "nope"
   encode:
     isAsync: true
-    expression: i=>{let v5={};for(let v1 in i){try{let v2=i[v1];let v3;try{v3=v2.arrayBuffer().then(e[0]).catch(e[1])}catch(x){e[1](x)}v5[v1]=v3.catch(v4=>{v4.path=[v1,...v4.path];throw v4})}catch(v4){v4.path=[v1,...v4.path];throw v4}}let v11=new Promise((v6,v7)=>{let v9=Object.keys(v5).length;if(!v9){v6(v5)}for(let v1 in v5){v5[v1].then(v8=>{v5[v1]=v8;if(v9--===1){v6(v5)}},v7)}});return v11.then(v10=>JSON.stringify(v10))}
+    expression: i=>{try{let v2=[];for(let v1 of Object.keys(i)){try{let v3=i[v1];let v4;try{v4=v3.arrayBuffer().then(e[1]).catch(e[2])}catch(x){e[2](x)}v2.push(v4.then(v4=>{return "\""+v4+"\""}).catch(v6=>{v6.path=[v1,...v6.path];throw v6}).then(v5=>e[0](v1)+":"+v5))}catch(v6){v6.path=[v1,...v6.path];throw v6}}let v8=Promise.all(v2).then(v7=>v7.join(","));return v8.then(v8=>"{"+v8+"}")}catch(v9){return Promise.reject(v9)}}
     examples:
       empty:
         input: "{}"

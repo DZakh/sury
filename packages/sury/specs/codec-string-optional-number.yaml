@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.string.with(S.to, S.optional(S.number))
+  input: string
+  output: number | undefined
+  instantiations: 4620
+jsonSchema:
+  input: '{ type: "string" }'
+  output: '{ type: "number" }'
+  fromOutputType: number
+isEqual: strictEqual
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[1](i);let v0=+i;v0==v0&&(v0||i.trim())||e[0](i);i=v0;return i}
+    examples:
+      decodes:
+        input: '"12"'
+        output: "12"
+      undefined-text-is-rejected:
+        input: '"undefined"'
+        error: Expected number, received "undefined"
+      not-a-number:
+        input: '"abc"'
+        error: Expected number, received "abc"
+  decode:
+    expression: i=>{let v0=+i;v0==v0&&(v0||i.trim())||e[0](i);i=v0;return i}
+    examples:
+      decodes:
+        input: '"12"'
+        output: "12"
+  encode:
+    expression: i=>{if(typeof i==="number"&&i==i){i=""+i}else{e[0](i)}return i}
+    examples:
+      number:
+        input: "12"
+        output: '"12"'

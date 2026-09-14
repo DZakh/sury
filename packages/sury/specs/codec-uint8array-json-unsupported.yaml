@@ -3,15 +3,19 @@ ts:
   schema: S.uint8Array.with(S.to, S.json)
   input: Uint8Array<ArrayBufferLike>
   output: JSON
-  instantiations: 5233
+  instantiations: 4419
 jsonSchema:
   input: Expected JSON, received Uint8Array
   output: "{}"
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+  output: (a,b)=>a===b||e[0](a,b)
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    creationError: "SuryError: Can't decode Uint8Array to JSON. Use S.to to define a custom decoder"
+    creationError: "SuryError: Can't decode Uint8Array -> JSON. Define custom codec with S.to"
   decode: eq-to-parse
-  encode: eq-to-parse
+  encode:
+    creationError: "SuryError: Can't decode JSON -> Uint8Array. Define custom codec with S.to"

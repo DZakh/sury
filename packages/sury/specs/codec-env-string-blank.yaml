@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.record(S.env).with(S.to, S.schema({ name: S.string.with(S.nonEmpty), bio: S.string.with(S.minLength, 0) }))"
+  input: "{ [x: string]: string | undefined; }"
+  output: "{ name: string; bio: string; }"
+  instantiations: 6558
+jsonSchema:
+  input: '{ type: "object", additionalProperties: { type: "string" } }'
+  fromInputType: "{ [key: string]: string; }"
+  output: '{ type: "object", properties: { name: { type: "string", minLength: 1 }, bio: { type: "string", minLength: 0 } }, required: ["name", "bio"] }'
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=0;for(const k in a){if(!(k in b)||!(a[k]===b[k]))return false;n++}for(const k in b)n--;return !n}
+  output: (a,b)=>a===b||a.name===b.name&&a.bio===b.bio
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);for(let v0 in i){try{let v1=i[v0];(typeof v1==="string"||v1===void 0)||e[0](v1);}catch(v2){v2.path=[v0,...v2.path];throw v2}}let v3=i.name,v4=i.bio;if(v3!==void 0){v3.length>0||e[1](v3);}else{e[2](v3)}v4!==void 0||e[3](v4);return {name:v3,bio:v4}}
+    examples:
+      both-present:
+        input: '{ name: "Ann", bio: "hi" }'
+        output: '{ name: "Ann", bio: "hi" }'
+      blank-name:
+        input: '{ name: "", bio: "hi" }'
+        error: 'Failed at name: Expected string.length >= 1, received ""'
+      blank-bio:
+        input: '{ name: "Ann", bio: "" }'
+        output: '{ name: "Ann", bio: "" }'
+  decode:
+    expression: i=>{let v1=i.name,v2=i.bio;if(v1!==void 0){v1.length>0||e[0](v1);}else{e[1](v1)}v2!==void 0||e[2](v2);return {name:v1,bio:v2}}
+    examples:
+      both-present:
+        input: '{ name: "Ann", bio: "hi" }'
+        output: '{ name: "Ann", bio: "hi" }'
+  encode:
+    expression: i=>{let v0=i.name;v0.length>0||e[0](v0);return {name:v0,bio:i.bio}}
+    examples:
+      built:
+        input: '{ name: "Ann", bio: "hi" }'
+        output: '{ name: "Ann", bio: "hi" }'

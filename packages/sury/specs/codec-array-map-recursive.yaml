@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.recursive("Node", (node) => S.array(S.tuple([S.string, node])).with(S.to, S.map(S.string, node)))
+  input: unknown
+  output: unknown
+  instantiations: 8895
+jsonSchema:
+  input: '{ $ref: "#/$defs/Node", $defs: { Node: { items: { type: "array", minItems: 2, maxItems: 2, items: [{ type: "string" }, { $ref: "#/$defs/Node" }] }, type: "array" } } }'
+  fromInputType: "[string, [string, [string, [string, [string, [string, [string, [string, [string, [string, [string, ...][]][]][]][]][]][]][]][]][]][]][]"
+  output: Expected JSON, received Map<string, Node>
+  draft-2020-12:
+    input: '{ $ref: "#/$defs/Node", $defs: { Node: { items: { type: "array", minItems: 2, maxItems: 2, prefixItems: [{ type: "string" }, { $ref: "#/$defs/Node" }] }, type: "array" } }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ $ref: "#/$defs/Node", $defs: { Node: { items: { type: "array", minItems: 2, maxItems: 2, items: { anyOf: [{ type: "string" }, { $ref: "#/$defs/Node" }] } }, type: "array" } } }'
+    fromInputType: "[string | [string | [string | [string | [string | [string | [string | [string | [string | [string | [string | ..., string | ...][], string | [...][]][], string | [...][]][], string | [...][]][], string | [...][]][], string | [...][]][], string | [...][]][], string | [...][]][], string | [...][]][], string | [...][]]..."
+isEqual: (a,b)=>a===b||e[0](a,b)
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{let v0;v0=e[0](i);return v0}
+    examples:
+      nested:
+        input: '[["a", [["b", []]]]]'
+        output: new Map([["a", new Map([["b", new Map([])]])]])
+      wrong-type-at-depth:
+        input: '[["a", [[1, []]]]]'
+        error: "Failed at [0][1][0][0]: Expected string, received 1"
+  decode: eq-to-parse
+  encode: eq-to-parse

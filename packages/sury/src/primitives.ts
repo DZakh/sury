@@ -23,33 +23,30 @@ import {
   type Val
 } from "./base";
 import {
-  _var,
   B_embed,
   B_embedInvalidInput,
   B_inlineConst,
   B_next,
   B_nextConst,
+  B_nextVar,
   B_refine,
   B_unsupportedDecode,
-  B_varWithoutAllocation,
   failInvalidType
 } from "./builder";
 
-export const int32FormatValidation = (inputVar: string) => {
-  return `${inputVar}<=2147483647&&${inputVar}>=-2147483648&&${inputVar}%1===0`;
-};
+export const int32FormatValidation = (inputVar: string) =>
+  `${inputVar}<=2147483647&&${inputVar}>=-2147483648&&${inputVar}%1==0`;
 
-// `%1===0` is NaN (falsy) for NaN and ±Infinity, so one check covers "is a
+// `%1==0` is NaN (falsy) for NaN and ±Infinity, so one check covers "is a
 // finite mathematical integer" with no separate NaN validation.
-export const integerFormatValidation = (inputVar: string) => {
-  return `${inputVar}%1===0`;
-};
+export const integerFormatValidation = (inputVar: string) =>
+  `${inputVar}%1==0`;
 
 // Atomic type-narrow conditions, shared by the type decoders and the union
 // dispatch (`typeCheckCond`) so the two can't drift. Memoized per tag: the
 // returned closure depends only on `tag`, and this is called all over the
 // primitive decoders and union dispatch, so caching stops a fresh closure
-// being allocated on every decode (a large share of codegen GC — see the
+// being allocated on every decode (a large share of codegen GC - see the
 // GC-dominated compile profile).
 const typeofCondCache: Record<string, (inputVar: string) => string> = {};
 export const typeofCond = (tag: Tag): ((inputVar: string) => string) =>
@@ -58,9 +55,13 @@ export const typeofCond = (tag: Tag): ((inputVar: string) => string) =>
 export const nanCond = (inputVar: string): string => `Number.isNaN(${inputVar})`;
 export const isArrayCond = (inputVar: string): string => `Array.isArray(${inputVar})`;
 export const objectTagCond = (inputVar: string): string =>
-  `${typeofCond(objectTag)(inputVar)}&&${inputVar}`;
+  `${typeofCond(objectTag)(inputVar)}&&${inputVar}&&!${isArrayCond(inputVar)}`;
+export const numberTagCond = (inputVar: string, allowNaN: boolean): string => {
+  const t = typeofCond(numberTag)(inputVar);
+  return allowNaN ? t : `${t}&&${inputVar}==${inputVar}`;
+};
 // `class` is a reserved word in TS, so the parameter is named `class_`.
-export const instanceofCond = (b: Val, class_: unknown) => (inputVar: string): string =>
+export const instanceofCond = (b: Val, class_: unknown, inputVar: string): string =>
   `${inputVar} instanceof ${B_embed(b, class_)}`;
 
 // Shared, immutable per-tag type-narrow Check objects. A Check's c/f are only
@@ -72,13 +73,6 @@ const typeofCheckCache: Record<string, Check> = {};
 const typeofCheck = (tag: Tag): Check =>
   typeofCheckCache[tag] || (typeofCheckCache[tag] = { c: typeofCond(tag), f: failInvalidType });
 
-// Allocate a fresh var and start a new Val from it — shared by every
-// primitive decoder that coerces its input into a differently-typed output.
-const B_nextVar = (input: Val): Val => {
-  const output = B_next(input, B_varWithoutAllocation(input.g), input.e);
-  output.v = _var;
-  return output;
-}
 
 // Unknown-typeof or self-or-unsupported. Coerce stays in each decoder so this
 // tail is identical at every call and the type-narrow itself can't drift.
@@ -93,32 +87,35 @@ export const numberDecoder: Builder = (input: Val) => {
   const inputTagFlag = tagFlags[input.s.type]!;
   const expectedFormat = input.e.format;
   if ((inputTagFlag & 1)) {
-    const checks: Check[] = [typeofCheck(numberTag)];
     if (expectedFormat === "int32") {
-      checks.push({ c: int32FormatValidation, f: failInvalidType });
-    } else if (expectedFormat === "integer") {
-      checks.push({ c: integerFormatValidation, f: failInvalidType });
-    } else {
-      if (!(input.g.o & 2)) {
-        checks.push({ c: (inputVar) => `${inputVar}===${inputVar}`, f: failInvalidType });
-      }
+      return B_refine(input, input.e, [typeofCheck(numberTag), { c: int32FormatValidation, f: failInvalidType }]);
     }
-    return B_refine(input, input.e, checks);
+    if (expectedFormat === "integer") {
+      return B_refine(input, input.e, [typeofCheck(numberTag), { c: integerFormatValidation, f: failInvalidType }]);
+    }
+    return B_refine(input, input.e, [{
+      c: (v) => numberTagCond(v, !!(input.g.o & 2)),
+      f: failInvalidType,
+    }]);
   } else if ((inputTagFlag & 2)) {
     const output = B_nextVar(input);
     // Own the `+input` coercion (decl included) in codeFromPrev so it's
     // non-hoistable: feeding a union dispatch (e.g. str->to(option(int))) can't
     // lift the type-narrow check below above its `let v0=+i`.
-    output.cp = `let ${output.i}=+${input.v()};`;
+    const inputVar = input.v();
+    output.cp = `let ${output.i}=+${inputVar};`;
 
     output.vc = [
       {
+        // `+""` and `+"   "` are 0, so a zero result also has to show a digit.
         c: (_inputVar) =>
-          expectedFormat === "int32"
-            ? int32FormatValidation(output.i)
-            : expectedFormat === "integer"
-              ? integerFormatValidation(output.i)
-              : `${output.i}===${output.i}`,
+          `${
+            expectedFormat === "int32"
+              ? int32FormatValidation(output.i)
+              : expectedFormat === "integer"
+                ? integerFormatValidation(output.i)
+                : `${output.i}==${output.i}`
+          }&&(${output.i}||${inputVar}.trim())`,
         f: failInvalidType,
       },
     ];
@@ -164,7 +161,7 @@ export const int: Internal = /* @__PURE__ */ initSchema(numberTag, numberDecoder
 });
 
 // JSON Schema's unbounded `integer`: any number with no fractional part, with
-// none of int32's range. Carries no bound fields — there is no range to
+// none of int32's range. Carries no bound fields - there is no range to
 // advertise or for a user bound to contradict.
 export const integer: Internal = /* @__PURE__ */ initSchema(numberTag, numberDecoder, (s) => {
   s.format = "integer";
@@ -173,9 +170,8 @@ export const integer: Internal = /* @__PURE__ */ initSchema(numberTag, numberDec
 // inputToString/stringDecoderFn/string are mutually recursive (stringDecoderFn
 // falls back to inputToString, which builds its output schema via `string`)
 // and so are kept together.
-export const inputToString = (input: Val): Val => {
-  return B_next(input, `""+${input.i}`, string);
-}
+export const inputToString = (input: Val, schema: Internal = string): Val =>
+  B_next(input, `""+${input.i}`, schema);
 export const stringDecoderFn = (input: Val): Val => {
   const inputTagFlag = tagFlags[input.s.type]!;
   if (
@@ -183,7 +179,7 @@ export const stringDecoderFn = (input: Val): Val => {
   ) {
     const const_ = "" + (input.s.const as string);
     // The stringified literal is still a literal, so it wants `literalDecoder`
-    // — taken off the source rather than imported, the way unionNarrowSchema
+    // - taken off the source rather than imported, the way unionNarrowSchema
     // avoids naming a decoder. `isLiteral(input.s)` above is what guarantees
     // this is that decoder, and reaching this branch at all requires a literal
     // schema in the bundle: naming it statically would instead ship it to every
@@ -193,16 +189,18 @@ export const stringDecoderFn = (input: Val): Val => {
     return B_next(input, `"${const_}"`, schema);
   }
   if ((inputTagFlag & (8 | 4 | 1024))) {
-    return inputToString(input);
+    // The declared schema, not the bare `string`: a bound on the tail has to
+    // reach the document that describes what the coercion produced.
+    return inputToString(input, input.e);
   }
   return B_typeDecode(input, stringTag, inputTagFlag);
-}
+};
 export const string: Internal = /* @__PURE__ */ initSchema(stringTag, stringDecoderFn);
 
 // The text a carrier hands over when it is opened (CONTENT_CODEC_SPEC.md rule
 // 3), carrying what document it claims to be. That marker is what lets the
 // format parse the text instead of escaping it, without every other string
-// being read as a document too — and the text still gets checked, because
+// being read as a document too - and the text still gets checked, because
 // nothing has looked at it yet.
 // @__NO_SIDE_EFFECTS__
 export const openedText = (format: Internal): Internal => {
@@ -231,9 +229,11 @@ export const bigintDecoder: Builder = (input: Val) => {
   // TODO: Skip formats which 100% don't match
   if ((inputTagFlag & 2)) {
     const output = B_nextVar(input);
-    output.cp = `let ${output.i};try{${output.i}=BigInt(${input.v()})}catch(_){${B_embedInvalidInput(
-      input,
-    )}}`;
+    const inputVar = input.v();
+    const fail = B_embedInvalidInput(input);
+    // `BigInt("")` and `BigInt("   ")` are 0n, so a zero result also has to
+    // show a digit.
+    output.cp = `let ${output.i};try{${output.i}=BigInt(${inputVar})}catch(_){${fail}}${output.i}||${inputVar}.trim()||${fail};`;
     return output;
   }
   if ((inputTagFlag & 4)) {
@@ -244,12 +244,9 @@ export const bigintDecoder: Builder = (input: Val) => {
 
 export const bigint: Internal = /* @__PURE__ */ initSchema(bigintTag, bigintDecoder);
 
-export const symbolDecoder: Builder = (input: Val) => {
-  const inputTagFlag = tagFlags[input.s.type]!;
-  return B_typeDecode(input, symbolTag, inputTagFlag);
-};
-
-export const symbol: Internal = /* @__PURE__ */ initSchema(symbolTag, symbolDecoder);
+export const symbol: Internal = /* @__PURE__ */ initSchema(symbolTag, (input: Val) =>
+  B_typeDecode(input, symbolTag, tagFlags[input.s.type]!),
+);
 
 export const literalDecoder: Builder = (input: Val) => {
   const expectedSchema = input.e;

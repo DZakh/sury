@@ -24,7 +24,7 @@ module Common = {
   test("Successfully serializes", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.decodeOrThrow(~from=schema, ~to=S.unknown), any)
+    t->Assert.deepEqual(value->S.convertOrThrow(~from=schema, ~to=S.unknown), any)
   })
 
   test("Compiled code snapshot", t => {
@@ -50,7 +50,7 @@ module Common = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ParseAsync,
-      `i=>{return Promise.resolve((async(i)=>{for(;;){let r;try{let v0=e[0](i);i=await v0;break}catch(x){(r||(r=[])).push(e[1](x))}if(i===null){i=void 0;break}e[2](i,...(r||[]))};return i})(i))}`,
+      `i=>{try{return Promise.resolve((async(i)=>{for(;;){let r;try{let v0=e[0](i);i=await v0;break}catch(x){(r||(r=[])).push(e[1](x))}if(i===null){i=void 0;break}e[2](i,...(r||[]))};return i})(i))}catch(v1){return Promise.reject(v1)}}`,
     )
   })
 
@@ -112,7 +112,7 @@ test("Successfully parses null and serializes it back for deprecated nullable sc
   let schema = S.nullAsOption(S.bool)->S.meta({description: "Deprecated", deprecated: true})
 
   t->Assert.deepEqual(
-    %raw(`null`)->S.parseOrThrow(~to=schema)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    %raw(`null`)->S.parseOrThrow(~to=schema)->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`null`),
   )
 })
@@ -123,8 +123,8 @@ test("Serializes Some(None) to null for null nested in option", t => {
   t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(~to=schema), Some(None))
   t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), None)
 
-  t->Assert.deepEqual(Some(None)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`null`))
-  t->Assert.deepEqual(None->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
+  t->Assert.deepEqual(Some(None)->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`null`))
+  t->Assert.deepEqual(None->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
 
   t->U.assertCompiledCode(
     ~schema,
@@ -135,7 +135,7 @@ test("Serializes Some(None) to null for null nested in option", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{for(;;){if(typeof i==="boolean")break;if(i===void 0)break;if(typeof i==="object"&&i&&!Array.isArray(i)&&i["BS_PRIVATE_NESTED_SOME_NONE"]===0){i=null;break}e[0](i)}return i}`,
+    `i=>{for(;;){if(typeof i==="boolean")break;if(i===void 0)break;if(typeof i==="object"&&i&&!Array.isArray(i)&&i.BS_PRIVATE_NESTED_SOME_NONE===0){i=null;break}e[0](i)}return i}`,
   )
 })
 
@@ -144,8 +144,8 @@ test("Serializes Some(None) to null for null nested in null", t => {
 
   t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(~to=schema), None)
 
-  t->Assert.deepEqual(Some(None)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`null`))
-  t->Assert.deepEqual(None->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`null`))
+  t->Assert.deepEqual(Some(None)->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`null`))
+  t->Assert.deepEqual(None->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`null`))
 
   t->U.assertCompiledCode(
     ~schema,
@@ -155,7 +155,7 @@ test("Serializes Some(None) to null for null nested in null", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{for(;;){if(typeof i==="boolean")break;if(i===void 0){i=null;break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i["BS_PRIVATE_NESTED_SOME_NONE"]===0){i=null;break}e[0](i)}return i}`,
+    `i=>{for(;;){if(typeof i==="boolean")break;if(i===void 0){i=null;break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i.BS_PRIVATE_NESTED_SOME_NONE===0){i=null;break}e[0](i)}return i}`,
   )
 })
 
@@ -180,15 +180,15 @@ module OuterRecord = {
 
     t->Assert.deepEqual(record, %raw(`{ record: { BS_PRIVATE_NESTED_SOME_NONE: 0 } }`))
     t->Assert.deepEqual(
-      record->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+      record->S.convertOrThrow(~from=schema, ~to=S.unknown),
       %raw(`{ record: null }`),
     )
-    t->Assert.deepEqual(record->S.decodeOrThrow(~from=schema, ~to=S.jsonString), `{"record":null}`)
+    t->Assert.deepEqual(record->S.convertOrThrow(~from=schema, ~to=S.jsonString), S.JsonString(`{"record":null}`))
 
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Encode,
-      `i=>{let v0=i["record"];for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)&&v0["BS_PRIVATE_NESTED_SOME_NONE"]===0){v0=null;break}if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=v0["k"];for(;;){if(typeof v1==="number"&&v1===v1&&v1<=2147483647&&v1>=-2147483648&&v1%1===0)break;if(v1===void 0)break;if(typeof v1==="object"&&v1&&!Array.isArray(v1)&&v1["BS_PRIVATE_NESTED_SOME_NONE"]===0){v1=null;break}e[0](v1)}v0={k:v1};break}if(v0===void 0)break;e[1](v0)}return {record:v0}}`,
+      `i=>{let v0=i.record;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)&&v0.BS_PRIVATE_NESTED_SOME_NONE===0){v0=null;break}if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=v0.k;for(;;){if(typeof v1==="number"&&v1==v1&&v1<=2147483647&&v1>=-2147483648&&v1%1==0)break;if(v1===void 0)break;if(typeof v1==="object"&&v1&&!Array.isArray(v1)&&v1.BS_PRIVATE_NESTED_SOME_NONE===0){v1=null;break}e[0](v1)}v0={k:v1};break}if(v0===void 0)break;e[1](v0)}return {record:v0}}`,
     )
   })
 }

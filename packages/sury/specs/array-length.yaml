@@ -3,14 +3,15 @@ ts:
   schema: S.array(S.string).with(S.length, 2)
   input: "[string, string]"
   output: "[string, string]"
-  instantiations: 1079
+  instantiations: 1075
 jsonSchema:
   input: '{ items: { type: "string" }, type: "array", minItems: 2, maxItems: 2 }'
   output: '{ items: { type: "string" }, type: "array", minItems: 2, maxItems: 2 }'
+isEqual: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
 vs:
   zod:
     schema: z.array(z.string()).length(2)
-    divergence: A literal length pins arity in the Sury type — `S.length(2)` on an array admits exactly `[string, string]` — where Zod keeps the unbounded `string[]`.
+    divergence: A literal length pins arity in the Sury type - `S.length(2)` on an array admits exactly `[string, string]` - where Zod keeps the unbounded `string[]`.
     input: string[]
     output: string[]
 operations:

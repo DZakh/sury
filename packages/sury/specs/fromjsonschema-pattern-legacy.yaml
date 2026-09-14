@@ -1,12 +1,13 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: 'S.fromJSONSchema({ type: "string", pattern: "^\\d{3}\\-\\d{4}$" })'
+  schema: 'S.fromJSONSchemaOrThrow({ type: "string", pattern: "^\\d{3}\\-\\d{4}$" })'
   input: string
   output: string
   instantiations: 508
 jsonSchema:
   input: '{ type: "string", pattern: "^\\d{3}\\-\\d{4}$" }'
   output: '{ type: "string", pattern: "^\\d{3}\\-\\d{4}$" }'
+isEqual: strictEqual
 vs:
   zod: z.string().regex(/^\d{3}\-\d{4}$/)
 operations:

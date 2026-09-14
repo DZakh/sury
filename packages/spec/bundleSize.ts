@@ -1,13 +1,13 @@
 // Bundle+minify+gzip every public export of the dev entry (index.mjs) in
-// isolation, for `bundleSize.yaml` — the whole-package size ratchet.
+// isolation, for `bundleSize.yaml` - the whole-package size ratchet.
 //
 // One row per export, rather than per schema: a schema's bundle cost is the
 // cost of the exports it reaches plus the byte cost of its own source literal
 // (the author's text, not library code), and bundle reachability from several
-// entry symbols is the union of their graphs — so no composite measurement can
+// entry symbols is the union of their graphs - so no composite measurement can
 // grow without at least one export row growing too. Per-export rows attribute
 // a regression to the module that caused it, and cover surface no schema
-// expression reaches at all (`inputJSONSchema`, `fromJSONSchema`).
+// expression reaches at all (`toInputJSONSchemaOrThrow`, `fromJSONSchemaOrThrow`).
 //
 // The bare `sury` specifier is aliased to the dev source so tree-shaking and
 // size reflect exactly what's under test, not a stale published snapshot.
@@ -22,7 +22,7 @@ const SURY_ENTRY = path.join(SURY_ROOT, "index.mjs");
 
 const NAMESPACE = "bundle-size-entry";
 
-// A member read on a namespace import — the shape real consumer code takes.
+// A member read on a namespace import - the shape real consumer code takes.
 // esbuild folds the literal key, so this tree-shakes exactly like `S.foo`
 // while also handling names that are reserved words (`S["void"]`).
 const exportEntry = (name: string): string =>
@@ -38,7 +38,7 @@ export const deriveBundleSize = async (): Promise<BundleSize> => {
   const entries = [...names.map(exportEntry), TOTAL_ENTRY];
 
   // Every entry point in ONE esbuild invocation (with `splitting` off, each
-  // output is an independent bundle) so the source graph is parsed once —
+  // output is an independent bundle) so the source graph is parsed once -
   // ~5x faster than a build() per export, byte-for-byte identical output.
   const virtual: Plugin = {
     name: NAMESPACE,
@@ -55,7 +55,7 @@ export const deriveBundleSize = async (): Promise<BundleSize> => {
   const result = await build({
     entryPoints: entries.map((_, i) => ({ in: `${NAMESPACE}:${i}`, out: String(i) })),
     // Nothing is written (write: false), but esbuild needs an outdir to name
-    // multiple outputs — the index in that name is how sizes map back.
+    // multiple outputs - the index in that name is how sizes map back.
     outdir: "out",
     absWorkingDir: SURY_ROOT,
     plugins: [virtual],
@@ -68,12 +68,12 @@ export const deriveBundleSize = async (): Promise<BundleSize> => {
     write: false,
     alias: { sury: SURY_ENTRY },
     // Silences esbuild's warning that package.json orders the "types" export
-    // condition after "import"/"require" — unrelated to size. `build` still
+    // condition after "import"/"require" - unrelated to size. `build` still
     // rejects on real errors regardless of logLevel.
     logLevel: "silent",
   });
 
-  // Recorded exactly — no tolerance band. A band (formerly ±1%, on the removed
+  // Recorded exactly - no tolerance band. A band (formerly ±1%, on the removed
   // per-spec dimension) let consistent sub-1% drift accumulate against stale
   // goldens and misattributed the whole delta to whichever change finally
   // crossed the line. A toolchain bump now re-records every row at once, which

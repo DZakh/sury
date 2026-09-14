@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.urlSearchParams.with(S.to, S.schema({ q: S.string.with(S.nonEmpty) }).with(S.strict))"
+  input: URLSearchParams
+  output: "{ q: string; }"
+  instantiations: 6149
+jsonSchema:
+  input: Expected JSON, received URLSearchParams
+  output: '{ type: "object", properties: { q: { type: "string", minLength: 1 } }, additionalProperties: false, required: ["q"] }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||a.q===b.q
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "SuryError: Can't decode URLSearchParams -> { q: string.length >= 1; } with S.strict. A query carries keys no schema declares, so use S.strip"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{let v0=i.q;v0.length>0||e[0](v0);let v1=new e[1]();v1.append("q",v0);return v1}
+    examples:
+      blank-q:
+        input: '{ q: "" }'
+        error: 'Failed at q: Expected string.length >= 1, received ""'

@@ -7,6 +7,7 @@ ts:
 jsonSchema:
   input: Expected JSON, received NaN
   output: Expected JSON, received NaN
+isEqual: alwaysEqual
 vs:
   zod: z.nan()
 operations:

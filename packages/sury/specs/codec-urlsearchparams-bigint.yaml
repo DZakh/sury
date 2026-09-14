@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.urlSearchParams.with(S.to, S.schema({ n: S.bigint }))"
+  input: URLSearchParams
+  output: "{ n: bigint; }"
+  instantiations: 5459
+jsonSchema:
+  input: Expected JSON, received URLSearchParams
+  output: "Failed at n: Expected JSON, received bigint"
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||a.n===b.n
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{i instanceof e[3]||e[4](i);let v0=e[0](i),v1=v0.get("n");typeof v1==="string"||e[1](v1);let v2;try{v2=BigInt(v1)}catch(_){e[2](v1)}v2||v1.trim()||e[2](v1);return {n:v2}}
+    examples:
+      valid:
+        input: ((p) => (p.append("n", "42"), p))(new URLSearchParams())
+        output: "{ n: 42n }"
+      blank:
+        input: ((p) => (p.append("n", ""), p))(new URLSearchParams())
+        error: 'Failed at n: Expected bigint, received ""'
+      not-a-bigint:
+        input: ((p) => (p.append("n", "x"), p))(new URLSearchParams())
+        error: 'Failed at n: Expected bigint, received "x"'
+  decode:
+    expression: i=>{let v0=e[0](i),v1=v0.get("n");typeof v1==="string"||e[1](v1);let v2;try{v2=BigInt(v1)}catch(_){e[2](v1)}v2||v1.trim()||e[2](v1);return {n:v2}}
+    examples:
+      valid:
+        input: ((p) => (p.append("n", "42"), p))(new URLSearchParams())
+        output: "{ n: 42n }"
+  encode:
+    expression: i=>{let v0=new e[0]();v0.append("n",""+i.n);return v0}
+    examples:
+      valid:
+        input: "{ n: 42n }"
+        output: ((p) => (p.append("n", "42"), p))(new URLSearchParams())

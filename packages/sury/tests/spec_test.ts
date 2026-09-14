@@ -1,9 +1,11 @@
 // Tests for the spec harness (packages/spec). There is no code-generation
-// step — this file IS the test: it dynamically loops over every spec at
+// step - this file IS the test: it dynamically loops over every spec at
 // run time and calls straight into the harness, so example execution and
 // jsonSchema/instantiations drift are exercised (and covered) by this real
 // Vitest run, same as any hand-written test.
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { test, expect, describe, vi } from "vitest";
 import {
   SCHEMA_PATH,
@@ -11,15 +13,7 @@ import {
   specId,
   readSpec,
   serialize,
-  recomputeGoldens,
-  evalSchema,
-  identityViolations,
-  asyncViolations,
-  checkAliases,
-  collectComments,
-  lintComments,
-  lintExamples,
-  lintSkips,
+  checkSpec,
   lintSpecsDir,
   checkBundleSize,
   checkScenarios,
@@ -43,6 +37,20 @@ test("there is at least one spec", () => {
   expect(specs.length).toBeGreaterThan(0);
 });
 
+// Every golden in this file is computed from index.mjs, the bundle pack.ts
+// builds out of src/. `pnpm test` and `pnpm coverage` rebuild it first, but a
+// bare `vitest run` does not - and against a stale bundle the whole suite
+// passes on code nobody is editing, which is the one failure a golden cannot
+// show as a diff.
+test("index.mjs is not older than src/ (run `pnpm build:entry`)", () => {
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  const built = statSync(join(root, "index.mjs")).mtimeMs;
+  const newer = readdirSync(join(root, "src"), { recursive: true, encoding: "utf8" })
+    .filter((file) => file.endsWith(".ts"))
+    .filter((file) => statSync(join(root, "src", file)).mtimeMs > built);
+  expect(newer, `changed since index.mjs was built: ${newer.join(", ")}`).toEqual([]);
+});
+
 // Otherwise only `pnpm spec check` (which CI doesn't run) would notice a
 // format change whose spec.schema.json wasn't re-emitted.
 test("spec.schema.json is fresh (run `pnpm spec schema`)", () => {
@@ -53,7 +61,7 @@ test("scenarios.schema.json is fresh (run `pnpm spec schema`)", () => {
   expect(readFileSync(SCENARIOS_SCHEMA_PATH, "utf8")).toBe(scenariosSchemaJson());
 });
 
-// Scenarios have no goldens, so nothing else would ever execute them — a
+// Scenarios have no goldens, so nothing else would ever execute them - a
 // broken one would only show up in a perf run, as an indistinguishable "new".
 test("scenarios.yaml is valid and every scenario runs (run `pnpm spec check`)", () => {
   const errs = checkScenarios();
@@ -67,7 +75,7 @@ test("there is at least one scenario", () => {
 test("checkScenarios reports a bad shape, a colliding id, and one that throws", () => {
   expect(checkScenarios("standard: { run: 1 }", [])[0]).toMatch(/^schema: /);
   expect(
-    checkScenarios(["string:", "  run: S.parser(S.string)"].join("\n"), ["string"]),
+    checkScenarios(["string:", "  run: S.parseOrThrow(S.string)"].join("\n"), ["string"]),
   ).toEqual(["string: id collides with a spec of the same name"]);
   expect(
     checkScenarios(["broken:", "  run: S.parse(S.string)"].join("\n"), [])[0],
@@ -76,7 +84,7 @@ test("checkScenarios reports a bad shape, a colliding id, and one that throws", 
   // inline its whole setup into the measured expression.
   expect(
     checkScenarios(
-      ["ok:", "  prepare: const schema = S.string", "  run: S.parser(schema)"].join("\n"),
+      ["ok:", "  prepare: const schema = S.string", "  run: S.parseOrThrow(schema)"].join("\n"),
       [],
     ),
   ).toEqual([]);
@@ -85,6 +93,21 @@ test("checkScenarios reports a bad shape, a colliding id, and one that throws", 
 // Same reasoning as the spec.schema.json freshness test above: CI runs
 // `pnpm test`, not `pnpm spec check`, so without this the bundle-size ratchet
 // would only bite on a manual run.
+// buildScenarioRunner executes a scenario once while constructing it, so
+// reporting this one without skipping it would still reconfigure the shared
+// library for every scenario and spec after it - the exact thing the rule
+// exists to prevent. Reported by CodeRabbit on #434.
+test("a scenario that calls S.global is reported and never run", () => {
+  const errs = checkScenarios(
+    ["bad:", "  run: S.global({}) ?? S.parseOrThrow(S.string)"].join("\n"),
+    [],
+  );
+  expect(errs).toEqual([
+    "bad: run calls S.global - it sets process-wide configuration that every spec and " +
+      "scenario in the run then compiles against",
+  ]);
+});
+
 test("bundleSize.yaml is fresh (run `pnpm spec check --write`)", async () => {
   const { errs } = await checkBundleSize();
   expect(errs, errs.join("\n")).toEqual([]);
@@ -112,8 +135,8 @@ test("lintSpecsDir rejects a non-yaml file and a dotted/invalid id", () => {
   expect(errs).toEqual([
     `specs dir: unexpected file "notes.txt" (only *.yaml and spec.schema.json/bundleSize.yaml/scenarios.yaml/scenarios.schema.json allowed)`,
     `specs dir: invalid spec id "bad.dotted" (only letters, digits, and - allowed)`,
-    `specs dir: "url-codec" names a codec spec backwards — use codec-<from>-<to>, not <from>-codec`,
-    `specs dir: "codec" names a codec spec backwards — use codec-<from>-<to>, not <from>-codec`,
+    `specs dir: "url-codec" names a codec spec backwards - use codec-<from>-<to>, not <from>-codec`,
+    `specs dir: "codec" names a codec spec backwards - use codec-<from>-<to>, not <from>-codec`,
   ]);
 });
 
@@ -213,74 +236,30 @@ test("summarize renders creation-error flips and message drift", () => {
     ),
   ).toMatchInlineSnapshot(`
     "bundleSize:
-      first recorded — 0 exports, total 20000
+      first recorded - 0 exports, total 20000
     behavior changed:
       string.parse  compiled → creationError SuryError: Can't decode string to number
-      codec-bool-number-unsupported.parse.creationError  SuryError: Can't decode boolean to number. Use S.to to define a custom decoder → SuryError: some new wording"
+      codec-bool-number-unsupported.parse.creationError  SuryError: Can't decode boolean -> number. Define custom codec with S.to → SuryError: some new wording"
   `);
 });
 
-describe.each(specs)("spec: $id", ({ file }) => {
-  const spec = readSpec(file);
-
-  test("is valid against the format schema", () => {
-    const v = validate(spec);
-    expect(v.ok, v.ok ? "" : v.error).toBe(true);
-  });
-
-  test("is in canonical form (run `pnpm spec format`)", () => {
+// One call to the function `pnpm spec check` itself runs, rather than a
+// hand-kept list of the checks it makes. The list drifted: the operation
+// matrix, `vs.zod`, and the jsonSchema round-trip type rules were checked by
+// nothing but a manual run, so a divergence in any of them reached main with
+// the whole suite green. There is one answer to "what is wrong with this
+// spec", and this is where CI asks for it.
+describe.each(specs)("spec: $id", ({ id, file }) => {
+  test("passes `pnpm spec check`", async () => {
     const raw = readFileSync(file, "utf8");
-    expect(raw).toBe(serialize(spec, collectComments(raw)));
-  });
-
-  test("every comment is a `FIXME:` (run `pnpm spec check`)", () => {
-    const errs: string[] = [];
-    lintComments(collectComments(readFileSync(file, "utf8")), errs);
-    expect(errs, errs.join("\n")).toEqual([]);
-  });
-
-  // Only checkSpec (the pnpm spec check gate) runs these two — nothing else
-  // in `pnpm test`/CI did, so a spec's identity marker or _skip reason could
-  // drift with no test ever catching it. Same checks `spec check` makes,
-  // just run here too so they're part of the coverage CI actually gates on.
-  test("has no identity-invariant violations (run `pnpm spec check`)", () => {
-    const schema = evalSchema(spec.ts.schema);
-    const violations = identityViolations(schema, spec);
-    expect(violations, violations.join("\n")).toEqual([]);
-  });
-
-  test("every `isAsync` marker matches the schema (run `pnpm spec check`)", () => {
-    const violations = asyncViolations(evalSchema(spec.ts.schema), spec);
-    expect(violations, violations.join("\n")).toEqual([]);
-  });
-
-  test("every _skip reason is valid (run `pnpm spec check`)", () => {
-    const errs: string[] = [];
-    lintSkips(spec, "", errs);
-    expect(errs, errs.join("\n")).toEqual([]);
-  });
-
-  test("every compiled op block has examples (run `pnpm spec check`)", () => {
-    const errs: string[] = [];
-    lintExamples(spec, errs);
-    expect(errs, errs.join("\n")).toEqual([]);
-  });
-
-  test("goldens match live behavior (run `pnpm spec check --write`)", async () => {
-    expect(serialize(await recomputeGoldens(spec))).toBe(serialize(spec));
-  });
-
-  // Only checkSpec runs this too — same reasoning as the identity-invariant
-  // test above: a drifting `ts.aliases` entry should fail `pnpm test`, not
-  // just the occasional manual `pnpm spec check`.
-  test("aliases (if any) are equivalent to the schema (run `pnpm spec check`)", async () => {
-    const errs = await checkAliases(spec);
+    const errs = await checkSpec(id, readSpec(file), raw);
     expect(errs, errs.join("\n")).toEqual([]);
   });
 });
 
+
 test("the format is defined as a Sury schema (closed world)", () => {
-  // Unknown keys are rejected — the closed-world guarantee (via published sury).
+  // Unknown keys are rejected - the closed-world guarantee (via published sury).
   expect(validate({}).ok).toBe(false);
   const ok = readSpec(listSpecFiles()[0]!);
   const bad = validate({ ...ok, bogus: 1 });

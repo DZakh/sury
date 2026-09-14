@@ -5,8 +5,8 @@
 // Cases and inputs are read from the installed fast-json-stringify's
 // benchmark/bench.js (its `benchmarks` array), so the comparison uses their
 // schemas verbatim rather than ones picked to flatter Sury. Each case builds
-// both serializers from the same JSON Schema document — fjs via its factory,
-// Sury via `S.fromJSONSchema(...)` + `S.encoder(schema, S.jsonString)` — and
+// both serializers from the same JSON Schema document - fjs via its factory,
+// Sury via `S.fromJSONSchemaOrThrow(...)` + `S.encodeOrThrow(schema, S.jsonString)` - and
 // times them in the same process with tinybench, the harness fjs uses.
 //
 // A case Sury can't build, or where the two disagree on output, is reported
@@ -39,7 +39,7 @@ const benchmarks: { name: string; schema: any; input: unknown }[] = new Function
 // silently benchmarks zero cases and prints an empty table.
 if (!Array.isArray(benchmarks) || benchmarks.length === 0) {
   throw new Error(
-    `Could not extract \`benchmarks\` from ${benchPath} — fast-json-stringify's benchmark layout changed.`,
+    `Could not extract \`benchmarks\` from ${benchPath} - fast-json-stringify's benchmark layout changed.`,
   );
 }
 
@@ -64,7 +64,7 @@ for (const b of benchmarks) {
   }
   let suryFn: ((v: unknown) => string) | undefined;
   try {
-    suryFn = S.encoder(S.fromJSONSchema(b.schema) as any, S.jsonString) as any;
+    suryFn = S.encodeOrThrow(S.fromJSONSchemaOrThrow(b.schema) as any, S.jsonString) as any;
   } catch (e) {
     note = note || `unsupported: ${(e as Error).message.split("\n")[0]}`;
   }
@@ -135,9 +135,9 @@ for (const b of benchmarks) {
       | { hz?: number; throughput?: { mean: number } }
       | undefined;
     const v = r?.throughput?.mean ?? r?.hz;
-    return v === undefined ? "—" : Math.round(v).toLocaleString("en-US");
+    return v === undefined ? "-" : Math.round(v).toLocaleString("en-US");
   };
-  rows.push({ name, fjs: hz("fjs"), sury: suryFn ? hz("sury") : "—", note });
+  rows.push({ name, fjs: hz("fjs"), sury: suryFn ? hz("sury") : "-", note });
 }
 
   const cols: [keyof Row, string][] = [

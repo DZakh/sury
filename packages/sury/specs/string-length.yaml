@@ -3,10 +3,11 @@ ts:
   schema: S.string.with(S.length, 2)
   input: string
   output: string
-  instantiations: 811
+  instantiations: 807
 jsonSchema:
   input: '{ type: "string", minLength: 2, maxLength: 2 }'
   output: '{ type: "string", minLength: 2, maxLength: 2 }'
+isEqual: strictEqual
 vs:
   zod: z.string().length(2)
 operations:
@@ -16,6 +17,18 @@ operations:
       at-the-length:
         input: '"ab"'
         output: '"ab"'
+      two-emojis:
+        input: '"😀😀"'
+        error: Expected string.length == 2, received "😀😀"
+      emoji:
+        input: '"😀"'
+        output: '"😀"'
+        divergence:
+          reason: minLength counts code points and S.length counts JS characters, so the emoji is one short of the document's bound
+          ajv: "input: data must NOT have fewer than 2 characters; output: data must NOT have fewer than 2 characters"
+      zwj-sequence:
+        input: '"👨‍👩"'
+        error: Expected string.length == 2, received "👨‍👩"
       longer:
         input: '"abc"'
         error: Expected string.length == 2, received "abc"
@@ -37,6 +50,15 @@ operations:
       at-the-length:
         input: '"ab"'
         output: '"ab"'
+      two-emojis:
+        input: '"😀😀"'
+        error: Expected string.length == 2, received "😀😀"
+      emoji:
+        input: '"😀"'
+        output: '"😀"'
+      zwj-sequence:
+        input: '"👨‍👩"'
+        error: Expected string.length == 2, received "👨‍👩"
       shorter:
         input: '"a"'
         error: Expected string.length == 2, received "a"
@@ -49,6 +71,15 @@ operations:
       at-the-length:
         input: '"ab"'
         output: '"ab"'
+      two-emojis:
+        input: '"😀😀"'
+        error: Expected string.length == 2, received "😀😀"
+      emoji:
+        input: '"😀"'
+        output: '"😀"'
+      zwj-sequence:
+        input: '"👨‍👩"'
+        error: Expected string.length == 2, received "👨‍👩"
       shorter:
         input: '"a"'
         error: Expected string.length == 2, received "a"

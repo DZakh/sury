@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.string.with(S.to, S.email)
+  input: string
+  output: string
+  instantiations: 4361
+jsonSchema:
+  input: '{ type: "string", format: "email" }'
+  output: '{ type: "string", format: "email" }'
+isEqual: strictEqual
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"a@b.co"'
+        output: '"a@b.co"'
+      padded:
+        input: '" a@b.co "'
+        error: Expected email, received " a@b.co "
+      not-an-email:
+        input: '"nope"'
+        error: Expected email, received "nope"
+      not-a-string:
+        input: "0"
+        error: Expected string, received 0
+  decode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"a@b.co"'
+        output: '"a@b.co"'
+  encode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"a@b.co"'
+        output: '"a@b.co"'

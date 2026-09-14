@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.urlSearchParams.with(S.to, S.schema({ s: S.nullable(S.string), n: S.nullable(S.number) }))"
+  input: URLSearchParams
+  output: "{ s: string | null; n: number | null; }"
+  instantiations: 6012
+jsonSchema:
+  input: Expected JSON, received URLSearchParams
+  output: '{ type: "object", properties: { s: { anyOf: [{ type: "string" }, { type: "null" }] }, n: { anyOf: [{ type: "number" }, { type: "null" }] } }, required: ["s", "n"] }'
+  openapi-3.0:
+    output: '{ type: "object", properties: { s: { type: "string", nullable: true }, n: { type: "number", nullable: true } }, required: ["s", "n"] }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||a.s===b.s&&a.n===b.n
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{i instanceof e[4]||e[5](i);let v0=e[0](i),v1=v0.get("s"),v2=v0.get("n");if(v1){typeof v1==="string"||e[1](v1);}else{v1=null}if(v2){typeof v2==="string"||e[2](v2);let v3=+v2;v3==v3&&(v3||v2.trim())||e[3](v2);v2=v3;}else{v2=null}return {s:v1,n:v2}}
+    examples:
+      present:
+        input: ((p) => (p.append("s", "x"), p.append("n", "1"), p))(new URLSearchParams())
+        output: '{ s: "x", n: 1 }'
+      blank-is-null:
+        input: ((p) => (p.append("s", ""), p.append("n", ""), p))(new URLSearchParams())
+        output: "{ s: null, n: null }"
+      absent-is-null:
+        input: new URLSearchParams()
+        output: "{ s: null, n: null }"
+      the-text-null:
+        input: ((p) => (p.append("n", "null"), p))(new URLSearchParams())
+        error: 'Failed at n: Expected number, received "null"'
+  decode:
+    expression: i=>{let v0=e[0](i),v1=v0.get("s"),v2=v0.get("n");if(v1){typeof v1==="string"||e[1](v1);}else{v1=null}if(v2){typeof v2==="string"||e[2](v2);let v3=+v2;v3==v3&&(v3||v2.trim())||e[3](v2);v2=v3;}else{v2=null}return {s:v1,n:v2}}
+    examples:
+      present:
+        input: ((p) => (p.append("s", "x"), p.append("n", "1"), p))(new URLSearchParams())
+        output: '{ s: "x", n: 1 }'
+  encode:
+    expression: i=>{let v1=i.s,v2=i.n;let v0=new e[0]();if(v1!=null){v0.append("s",v1);}if(v2!=null){v0.append("n",""+v2);}return v0}
+    examples:
+      built:
+        input: '{ s: "x", n: 1 }'
+        output: ((p) => (p.append("s", "x"), p.append("n", "1"), p))(new URLSearchParams())
+      nulls:
+        input: "{ s: null, n: null }"
+        output: new URLSearchParams()

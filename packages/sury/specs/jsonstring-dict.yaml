@@ -3,7 +3,7 @@ ts:
   schema: S.record(S.optional(S.string)).with(S.to, S.jsonString)
   input: "{ [x: string]: string | undefined; }"
   output: string
-  instantiations: 5556
+  instantiations: 4742
 jsonSchema:
   input: '{ type: "object", additionalProperties: { type: "string" } }'
   fromInputType: "{ [key: string]: string; }"
@@ -12,6 +12,9 @@ jsonSchema:
     output: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "object", additionalProperties: { type: "string" } }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
   openapi-3.0:
     output: '{ type: "string" }'
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=0;for(const k in a){if(!(k in b)||!(a[k]===b[k]))return false;n++}for(const k in b)n--;return !n}
+  output: strictEqual
 vs:
   zod:
     _skip: not-applicable

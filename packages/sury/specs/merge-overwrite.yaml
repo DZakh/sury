@@ -10,12 +10,13 @@ jsonSchema:
   openapi-3.0:
     input: '{ type: "object", properties: { type: { type: "string", enum: ["foo"] }, name: { type: "string" }, fooCount: { type: "number" } }, required: ["type", "name", "fooCount"] }'
     output: '{ type: "object", properties: { type: { type: "string", enum: ["foo"] }, name: { type: "string" }, fooCount: { type: "number" } }, required: ["type", "name", "fooCount"] }'
+isEqual: (a,b)=>a===b||a.name===b.name&&a.fooCount===b.fooCount
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["type"],v1=i["name"],v2=i["fooCount"];v0==="foo"||e[0](v0);typeof v1==="string"||e[1](v1);typeof v2==="number"&&v2===v2||e[2](v2);return {type:v0,name:v1,fooCount:v2}}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i.type,v1=i.name,v2=i.fooCount;v0==="foo"||e[0](v0);typeof v1==="string"||e[1](v1);typeof v2==="number"&&v2==v2||e[2](v2);return {type:v0,name:v1,fooCount:v2}}
     examples:
       valid:
         input: '{ type: "foo", name: "foo", fooCount: 123 }'

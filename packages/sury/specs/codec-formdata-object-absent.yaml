@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.formData.with(S.to, S.schema({ name: S.string.with(S.nonEmpty), nothing: S.void, none: S.schema(null) }))"
+  input: FormData
+  output: "{ name: string; none: null; nothing?: void | undefined; }"
+  instantiations: 7248
+jsonSchema:
+  input: Expected JSON, received FormData
+  output: "Failed at nothing: Expected JSON, received void"
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||a.name===b.name
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{i instanceof e[5]||e[6](i);let v0=e[0](i),v1=v0.get("name"),v2=v0.get("nothing")||void 0,v3=v0.get("none");typeof v1==="string"||e[2](v1);v1.length>0||e[1](v1);if(v2){v2===void 0||e[3](v2);}if(v3){v3===null||e[4](v3);}else{v3=null}return {name:v1,nothing:v2,none:v3}}
+    examples:
+      nothing-on-the-wire:
+        input: ((f) => (f.append("name", "n"), f))(new FormData())
+        output: '{ name: "n", nothing: undefined, none: null }'
+      an-entry-for-a-field-that-has-none:
+        input: ((f) => (f.append("name", "n"), f.append("none", "null"), f))(new FormData())
+        error: 'Failed at none: Expected null, received "null"'
+  decode:
+    expression: i=>{let v0=e[0](i),v1=v0.get("name"),v2=v0.get("nothing")||void 0,v3=v0.get("none");typeof v1==="string"||e[2](v1);v1.length>0||e[1](v1);if(v2){v2===void 0||e[3](v2);}if(v3){v3===null||e[4](v3);}else{v3=null}return {name:v1,nothing:v2,none:v3}}
+    examples:
+      nothing-on-the-wire:
+        input: ((f) => (f.append("name", "n"), f))(new FormData())
+        output: '{ name: "n", nothing: undefined, none: null }'
+  encode:
+    expression: i=>{let v0=i.name;v0.length>0||e[0](v0);let v1=new e[1]();v1.append("name",v0);return v1}
+    examples:
+      writes-only-what-the-wire-carries:
+        input: '{ name: "n", none: null }'
+        output: ((f) => (f.append("name", "n"), f))(new FormData())

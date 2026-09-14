@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.queryString.with(S.to, S.number)
+  input: string
+  output: number
+  instantiations: 4419
+jsonSchema:
+  input: '{ type: "string" }'
+  output: '{ type: "number" }'
+isEqual: strictEqual
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "SuryError: Can't decode query string -> number. Define custom codec with S.to"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{return ""+i}
+    examples:
+      valid:
+        input: "42"
+        output: '"42"'

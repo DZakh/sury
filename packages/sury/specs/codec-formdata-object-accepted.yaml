@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.formData.with(S.to, S.schema({ terms: S.schema(true), picks: S.array(S.string).with(S.nonEmpty), maybe: S.nullable(S.boolean) }))"
+  input: FormData
+  output: "{ terms: true; picks: [string, ...string[]]; maybe: boolean | null; }"
+  instantiations: 6895
+jsonSchema:
+  input: Expected JSON, received FormData
+  output: '{ type: "object", properties: { terms: { type: "boolean", const: true }, picks: { items: { type: "string" }, type: "array", minItems: 1 }, maybe: { anyOf: [{ type: "boolean" }, { type: "null" }] } }, required: ["terms", "picks", "maybe"] }'
+  fromOutputType: "{ terms: true; picks: string[]; maybe: boolean | null; }"
+  openapi-3.0:
+    output: '{ type: "object", properties: { terms: { type: "boolean", enum: [true] }, picks: { items: { type: "string" }, type: "array", minItems: 1 }, maybe: { type: "boolean", nullable: true } }, required: ["terms", "picks", "maybe"] }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||e[0](a.picks,b.picks)&&a.maybe===b.maybe
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{i instanceof e[6]||e[7](i);let v0=e[0](i),v1=v0.get("terms"),v2=e[2](v0.get("picks")),v6=v0.get("maybe");v1==="on"||v1==="true"||e[1](v1);for(let v3=0;v3<v2.length;++v3){try{let v4=v2[v3];typeof v4==="string"||e[3](v4);}catch(v5){v5.path=["picks",v3,...v5.path];throw v5}}v2.length>0||e[4](v2);if(v6){let v7=v6==="on"||v6==="true"||(v6==="false"||!v6?false:e[5](v6));v6=v7;}else{v6=null}return {terms:true,picks:v2,maybe:v6}}
+    examples:
+      checked:
+        input: ((f) => (f.append("terms", "on"), f.append("picks", "a"), f.append("picks", "b"), f.append("maybe", "on"), f))(new FormData())
+        output: '{ terms: true, picks: ["a", "b"], maybe: true }'
+      unchecked-terms:
+        input: ((f) => (f.append("picks", "a"), f))(new FormData())
+        error: "Failed at terms: Expected true, received undefined"
+      absent-nullable-checkbox:
+        input: ((f) => (f.append("terms", "on"), f.append("picks", "a"), f))(new FormData())
+        output: '{ terms: true, picks: ["a"], maybe: null }'
+  decode:
+    expression: i=>{let v0=e[0](i),v1=v0.get("terms"),v2=e[2](v0.get("picks")),v6=v0.get("maybe");v1==="on"||v1==="true"||e[1](v1);for(let v3=0;v3<v2.length;++v3){try{let v4=v2[v3];typeof v4==="string"||e[3](v4);}catch(v5){v5.path=["picks",v3,...v5.path];throw v5}}v2.length>0||e[4](v2);if(v6){let v7=v6==="on"||v6==="true"||(v6==="false"||!v6?false:e[5](v6));v6=v7;}else{v6=null}return {terms:true,picks:v2,maybe:v6}}
+    examples:
+      checked:
+        input: ((f) => (f.append("terms", "on"), f.append("picks", "a"), f))(new FormData())
+        output: '{ terms: true, picks: ["a"], maybe: null }'
+  encode:
+    expression: i=>{let v0=i.picks;v0.length>0||e[0](v0);let v2=new e[1]();v2.append("terms","on");for(let v3=0;v3<v0.length;++v3){v2.append("picks",v0[v3]);}if(i.maybe!=null){v2.append("maybe",i.maybe?"on":"false")}return v2}
+    examples:
+      built:
+        input: '{ terms: true, picks: ["a", "b"], maybe: null }'
+        output: ((f) => (f.append("terms", "on"), f.append("picks", "a"), f.append("picks", "b"), f))(new FormData())
+      no-picks:
+        input: "{ terms: true, picks: [], maybe: null }"
+        error: "Failed at picks: Expected string[].length >= 1, received []"

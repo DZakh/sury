@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.queryString.with(S.to, S.schema({ q: S.string.with(S.nonEmpty), tags: S.array(S.string) }))"
+  input: string
+  output: "{ q: string; tags: string[]; }"
+  instantiations: 6239
+jsonSchema:
+  input: '{ type: "string" }'
+  output: '{ type: "object", properties: { q: { type: "string", minLength: 1 }, tags: { items: { type: "string" }, type: "array" } }, required: ["q", "tags"] }'
+isEqual:
+  input: strictEqual
+  output: (a,b)=>a===b||a.q===b.q&&e[0](a.tags,b.tags)
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[6](i);let v0=e[1](new e[0](i)),v1=v0.get("q"),v2=e[4](v0.get("tags"));typeof v1==="string"||e[3](v1);v1.length>0||e[2](v1);for(let v3=0;v3<v2.length;++v3){try{let v4=v2[v3];typeof v4==="string"||e[5](v4);}catch(v5){v5.path=["tags",v3,...v5.path];throw v5}}return {q:v1,tags:v2}}
+    examples:
+      repeated:
+        input: '"q=hi&tags=a&tags=b"'
+        output: '{ q: "hi", tags: ["a", "b"] }'
+      no-tags:
+        input: '"q=hi"'
+        output: '{ q: "hi", tags: [] }'
+      extra-key:
+        input: '"q=hi&other=x"'
+        output: '{ q: "hi", tags: [] }'
+      repeated-scalar:
+        input: '"q=a&q=b"'
+        error: 'Failed at q: Expected string.length >= 1, received ["a", "b"]'
+  decode:
+    expression: i=>{let v0=e[1](new e[0](i)),v1=v0.get("q"),v2=e[4](v0.get("tags"));typeof v1==="string"||e[3](v1);v1.length>0||e[2](v1);for(let v3=0;v3<v2.length;++v3){try{let v4=v2[v3];typeof v4==="string"||e[5](v4);}catch(v5){v5.path=["tags",v3,...v5.path];throw v5}}return {q:v1,tags:v2}}
+    examples:
+      repeated:
+        input: '"q=hi&tags=a&tags=b"'
+        output: '{ q: "hi", tags: ["a", "b"] }'
+  encode:
+    expression: i=>{let v0=i.q,v1=i.tags;v0.length>0||e[0](v0);let v3=new e[1]();v3.append("q",v0);for(let v4=0;v4<v1.length;++v4){v3.append("tags",v1[v4]);}return v3.toString()}
+    examples:
+      repeated:
+        input: '{ q: "hi", tags: ["a", "b"] }'
+        output: '"q=hi&tags=a&tags=b"'
+      no-tags:
+        input: '{ q: "hi", tags: [] }'
+        output: '"q=hi"'

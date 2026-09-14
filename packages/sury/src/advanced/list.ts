@@ -1,4 +1,4 @@
-// `S.list` — the ReScript linked-list representation.
+// `S.list` - the ReScript linked-list representation.
 
 import {
  type Internal,
@@ -14,9 +14,8 @@ import {
  codecTo
 } from "../modifiers";
 
-// PORT-NOTE: ReScript list runtime (v12): empty list = `0`, cons cell =
-// `{hd, tl}`. These two helpers replicate Stdlib List.fromArray / List.toArray
-// exactly for that representation.
+// Empty list is `0`; a cons cell is `{hd, tl}`. fromArray / toArray match
+// Stdlib List for that representation.
 type RescriptList = 0 | { hd: unknown; tl: RescriptList };
 
 const listFromArray = (array: unknown[]): RescriptList => {

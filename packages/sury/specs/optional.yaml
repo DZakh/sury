@@ -9,6 +9,7 @@ ts:
 jsonSchema:
   input: Expected JSON, received string | undefined
   output: Expected JSON, received string | undefined
+isEqual: strictEqual
 vs:
   zod: z.string().optional()
 operations:

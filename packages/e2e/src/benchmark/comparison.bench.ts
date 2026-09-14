@@ -5,7 +5,7 @@
 //
 // Deliberately not in CI: the other four libraries only move when their
 // versions are bumped, so a per-PR run spends its time watching for
-// regressions in somebody else's code. These are the README's numbers — run
+// regressions in somebody else's code. These are the README's numbers - run
 // them when the README needs them, or when a dependency is upgraded. Sury's
 // own regressions are caught by `spec check --perf`, which measures every spec
 // against the same library built from another git ref.
@@ -54,9 +54,9 @@ const surySchema = S.schema({
     bool: S.boolean,
   },
 });
-// S.parser returns the compiled parse fn — the hot path users pay per call,
+// S.parseOrThrow returns the compiled parse fn - the hot path users pay per call,
 // equivalent to a pre-built `zodSchema.parse` / compiled TypeBox check.
-const suryParse = S.parser(surySchema);
+const suryParse = S.parseOrThrow(surySchema);
 
 const zodSchema = z.object({
   number: z.number(),
@@ -153,7 +153,7 @@ const TypeBoxUnion = Type.Union([
 // Value.Decode(TypeBoxUnion, "123")
 // TypeBox@0.34.33 x 2,205,614 ops/sec ±26.92% (68 runs sampled)
 
-const suryUnionParse = S.parser(SuryUnion);
+const suryUnionParse = S.parseOrThrow(SuryUnion);
 
 describe("create", () => {
   bench("create: Sury", () => {
@@ -270,7 +270,7 @@ describe("create + parse", () => {
         bool: S.boolean,
       },
     });
-    S.parser(schema)(data);
+    S.parseOrThrow(schema)(data);
   });
   bench("create + parse: Zod", () => {
     const schema = z.object({

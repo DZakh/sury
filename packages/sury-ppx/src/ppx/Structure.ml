@@ -3,7 +3,7 @@ open Parsetree
 open Ast_helper
 open Util
 
-(* Every branch here must keep the schema's value type equal to ~value_type —
+(* Every branch here must keep the schema's value type equal to ~value_type -
    @s.with pins against it, so a branch that widened or narrowed the value would
    make that pin reject valid code. *)
 let applySchemaAttribute ~loc ~value_type schema_expr
@@ -59,6 +59,21 @@ let rec generateConstrSchemaExpression {Location.txt = identifier; loc}
   | Lident "unit", _ -> [%expr S.unit]
   | Lident "unknown", _ -> [%expr S.unknown]
   | Ldot (Lident "S", "never"), _ -> [%expr S.never]
+  (* The format schemas and stdlib aliases are named identically as a type and
+     as a schema, so `S.email` resolves to itself rather than to the
+     `S.emailSchema` the generic `Ldot` case below would build. *)
+  | Ldot (Lident "S", ("integer" | "date" | "json" | "jsonString" | "blob" | "formData"
+     | "file" | "env" | "urlSearchParams" | "queryString"
+     | "isoDateTime" | "utcDateTime" | "port" | "email" | "uuid" | "uuidv4"
+     | "uuidv6" | "uuidv7" | "cuid" | "cuid2" | "ulid" | "ksuid" | "xid"
+     | "nanoid" | "e164" | "mac" | "hex" | "base64" | "base64url" | "uri"
+     | "httpUrl" | "url" | "isoDate" | "isoTime" | "duration" | "hostname"
+     | "idnHostname" | "ipv4" | "ipv6" | "cidrv4" | "cidrv6"
+     | "uriReference" | "uriTemplate" | "iri" | "iriReference" | "idnEmail"
+     | "jsonPointer" | "relativeJsonPointer")) as schema_ident, _ ->
+    Exp.ident (mknoloc schema_ident)
+  | Ldot (Lident "S", "nonEmpty"), [item_type] ->
+    [%expr S.nonEmpty [%e generateCoreTypeSchemaExpression item_type]]
   | Ldot (Ldot (Lident "Js", "Json"), "t"), _ | Ldot (Lident "JSON", "t"), _ ->
     [%expr S.json]
   | Lident "array", [item_type] ->
@@ -497,7 +512,7 @@ let generateSchemaValueBinding type_name ptype_params schema_expr =
       "Parametrized types with more than one type parameter are not supported yet"
 
 (* Applies type-level @s.* attributes inside the body, so a recursive wrapper
-   registers the transformed schema — the one self-references resolve to —
+   registers the transformed schema - the one self-references resolve to -
    rather than the bare one. *)
 let generateDeclarationSchemaExpression type_declaration =
   let {ptype_attributes; ptype_name = {txt = type_name}; ptype_loc; ptype_params}
@@ -524,7 +539,7 @@ let mapTypeDeclaration type_declaration =
   else []
 
 (* The placeholder is bound under the exact name a self-reference compiles to,
-   so recursion resolves by shadowing — including hand-written references in
+   so recursion resolves by shadowing - including hand-written references in
    @s.matches payloads. *)
 let wrapRecursive {ptype_name = {txt = type_name}; ptype_loc} body =
   let param_pat =
@@ -563,7 +578,7 @@ let referencedMembers members expr =
   !found
 
 (* Only the outermost S.recursive call carries $defs, so each entry point of a
-   mutual group re-expands the whole group inside its own callback — nested
+   mutual group re-expands the whole group inside its own callback - nested
    calls register into the shared $defs. One expansion per entry point is the
    cost. *)
 let mapRecursiveTypeDeclarations decls =
@@ -584,7 +599,7 @@ let mapRecursiveTypeDeclarations decls =
       |> List.map (fun name -> (name, referencedMembers members (bodyOf name)))
     in
     let directDeps name = List.assoc name directDepsByName in
-    (* Transitive deps of `name`, not crossing `blocked` members — a reference
+    (* Transitive deps of `name`, not crossing `blocked` members - a reference
        to a member already bound in scope forces no expansion behind it. *)
     let reachableAvoiding blocked name =
       let rec collect visited = function
@@ -625,7 +640,7 @@ let mapRecursiveTypeDeclarations decls =
                                List.mem dep group || List.mem dep emitted)))
         in
         match ready with
-        (* Unreachable — groups are collapsed cycles, so the rest is a DAG.
+        (* Unreachable - groups are collapsed cycles, so the rest is a DAG.
            Fail loudly rather than emit unresolvable bindings. *)
         | [] ->
           fail (declOf (List.hd (List.hd remaining))).ptype_loc
@@ -655,7 +670,7 @@ let mapRecursiveTypeDeclarations decls =
     in
     let rec expand ~group ~in_scope name =
       let in_scope = name :: in_scope in
-      (* Only direct deps get a binding — an indirect one is bound by the
+      (* Only direct deps get a binding - an indirect one is bound by the
          expansion that references it; here it would be an unused `let`. *)
       let deps =
         directDeps name

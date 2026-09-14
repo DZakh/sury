@@ -7,6 +7,7 @@ ts:
 jsonSchema:
   input: '{ type: "string", format: "time" }'
   output: '{ type: "string", format: "time" }'
+isEqual: strictEqual
 vs:
   zod: z.iso.time()
 operations:
@@ -16,6 +17,9 @@ operations:
       a-valid-time-string:
         input: '"08:30:06Z"'
         output: '"08:30:06Z"'
+        divergence:
+          reason: z.iso.time() reads a local time, so it rejects an offset and a leap second and takes a bare hh:mm:ss; S.isoTime is the other way round
+          zod: Invalid ISO time
       invalid-time-string-with-extra-leading-zeros:
         input: '"008:030:006Z"'
         error: Expected time, received "008:030:006Z"
@@ -28,6 +32,9 @@ operations:
       a-valid-time-string-with-leap-second-zulu:
         input: '"23:59:60Z"'
         output: '"23:59:60Z"'
+        divergence:
+          reason: z.iso.time() reads a local time, so it rejects an offset and a leap second and takes a bare hh:mm:ss; S.isoTime is the other way round
+          zod: Invalid ISO time
       invalid-leap-second-zulu-wrong-hour:
         input: '"22:59:60Z"'
         error: Expected time, received "22:59:60Z"
@@ -37,6 +44,9 @@ operations:
       valid-leap-second-zero-time-offset:
         input: '"23:59:60+00:00"'
         output: '"23:59:60+00:00"'
+        divergence:
+          reason: z.iso.time() reads a local time, so it rejects an offset and a leap second and takes a bare hh:mm:ss; S.isoTime is the other way round
+          zod: Invalid ISO time
       invalid-leap-second-zero-time-offset-wrong-hour:
         input: '"22:59:60+00:00"'
         error: Expected time, received "22:59:60+00:00"
@@ -46,9 +56,15 @@ operations:
       valid-leap-second-positive-time-offset:
         input: '"01:29:60+01:30"'
         output: '"01:29:60+01:30"'
+        divergence:
+          reason: z.iso.time() reads a local time, so it rejects an offset and a leap second and takes a bare hh:mm:ss; S.isoTime is the other way round
+          zod: Invalid ISO time
       valid-leap-second-large-positive-time-offset:
         input: '"23:29:60+23:30"'
         output: '"23:29:60+23:30"'
+        divergence:
+          reason: z.iso.time() reads a local time, so it rejects an offset and a leap second and takes a bare hh:mm:ss; S.isoTime is the other way round
+          zod: Invalid ISO time
       invalid-leap-second-positive-time-offset-wrong-hour:
         input: '"23:59:60+01:00"'
         error: Expected time, received "23:59:60+01:00"
@@ -58,9 +74,15 @@ operations:
       valid-leap-second-negative-time-offset:
         input: '"15:59:60-08:00"'
         output: '"15:59:60-08:00"'
+        divergence:
+          reason: z.iso.time() reads a local time, so it rejects an offset and a leap second and takes a bare hh:mm:ss; S.isoTime is the other way round
+          zod: Invalid ISO time
       valid-leap-second-large-negative-time-offset:
         input: '"00:29:60-23:30"'
         output: '"00:29:60-23:30"'
+        divergence:
+          reason: z.iso.time() reads a local time, so it rejects an offset and a leap second and takes a bare hh:mm:ss; S.isoTime is the other way round
+          zod: Invalid ISO time
       invalid-leap-second-negative-time-offset-wrong-hour:
         input: '"23:59:60-01:00"'
         error: Expected time, received "23:59:60-01:00"
@@ -70,24 +92,42 @@ operations:
       a-valid-time-string-with-second-fraction:
         input: '"23:20:50.52Z"'
         output: '"23:20:50.52Z"'
+        divergence:
+          reason: z.iso.time() reads a local time, so it rejects an offset and a leap second and takes a bare hh:mm:ss; S.isoTime is the other way round
+          zod: Invalid ISO time
       a-valid-time-string-with-precise-second-fraction:
         input: '"08:30:06.283185Z"'
         output: '"08:30:06.283185Z"'
+        divergence:
+          reason: z.iso.time() reads a local time, so it rejects an offset and a leap second and takes a bare hh:mm:ss; S.isoTime is the other way round
+          zod: Invalid ISO time
       a-valid-time-string-with-plus-offset:
         input: '"08:30:06+00:20"'
         output: '"08:30:06+00:20"'
+        divergence:
+          reason: z.iso.time() reads a local time, so it rejects an offset and a leap second and takes a bare hh:mm:ss; S.isoTime is the other way round
+          zod: Invalid ISO time
       a-valid-time-string-with-minus-offset:
         input: '"08:30:06-08:00"'
         output: '"08:30:06-08:00"'
+        divergence:
+          reason: z.iso.time() reads a local time, so it rejects an offset and a leap second and takes a bare hh:mm:ss; S.isoTime is the other way round
+          zod: Invalid ISO time
       time-with-unknown-local-offset-is-valid:
         input: '"12:34:56-00:00"'
         output: '"12:34:56-00:00"'
+        divergence:
+          reason: z.iso.time() reads a local time, so it rejects an offset and a leap second and takes a bare hh:mm:ss; S.isoTime is the other way round
+          zod: Invalid ISO time
       hour-minute-in-time-offset-must-be-two:
         input: '"08:30:06-8:000"'
         error: Expected time, received "08:30:06-8:000"
       a-valid-time-string-with-case-insensitive-z:
         input: '"08:30:06z"'
         output: '"08:30:06z"'
+        divergence:
+          reason: z.iso.time() reads a local time, so it rejects an offset and a leap second and takes a bare hh:mm:ss; S.isoTime is the other way round
+          zod: Invalid ISO time
       an-invalid-time-string-with-invalid-hour:
         input: '"24:00:00Z"'
         error: Expected time, received "24:00:00Z"
@@ -97,12 +137,6 @@ operations:
       an-invalid-time-string-with-invalid-second:
         input: '"00:00:61Z"'
         error: Expected time, received "00:00:61Z"
-      an-invalid-time-string-with-invalid-leap-second:
-        input: '"22:59:60Z"'
-        error: Expected time, received "22:59:60Z"
-      an-invalid-time-string-with-invalid-leap-second-2:
-        input: '"23:58:60Z"'
-        error: Expected time, received "23:58:60Z"
       an-invalid-time-string-with-invalid-time-numoffset:
         input: '"01:02:03+24:00"'
         error: Expected time, received "01:02:03+24:00"
@@ -121,9 +155,15 @@ operations:
       no-time-offset:
         input: '"12:00:00"'
         error: Expected time, received "12:00:00"
+        divergence:
+          reason: z.iso.time() reads a local time, so it rejects an offset and a leap second and takes a bare hh:mm:ss; S.isoTime is the other way round
+          zod: '"12:00:00"'
       no-time-offset-with-second-fraction:
         input: '"12:00:00.52"'
         error: Expected time, received "12:00:00.52"
+        divergence:
+          reason: z.iso.time() reads a local time, so it rejects an offset and a leap second and takes a bare hh:mm:ss; S.isoTime is the other way round
+          zod: '"12:00:00.52"'
       invalid-non-ascii-a-bengali-2:
         input: '"1২:00:00Z"'
         error: Expected time, received "1২:00:00Z"

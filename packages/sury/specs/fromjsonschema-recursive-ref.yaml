@@ -1,12 +1,13 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: 'S.fromJSONSchema({ $ref: "#/$defs/node", $defs: { node: { type: "object", properties: { value: { type: "string" }, children: { type: "array", items: { $ref: "#/$defs/node" } } }, required: ["value"] } } })'
+  schema: 'S.fromJSONSchemaOrThrow({ $ref: "#/$defs/node", $defs: { node: { type: "object", properties: { value: { type: "string" }, children: { type: "array", items: { $ref: "#/$defs/node" } } }, required: ["value"] } } })'
   input: "{ value: string; children?: ...[] | undefined; }"
   output: "{ value: string; children?: ...[] | undefined; }"
   instantiations: 3712
 jsonSchema:
   input: '{ $ref: "#/$defs/node", $defs: { node: { type: "object", properties: { value: { type: "string" }, children: { items: { $ref: "#/$defs/node" }, type: "array" } }, required: ["value"] } } }'
   output: '{ $ref: "#/$defs/node", $defs: { node: { type: "object", properties: { value: { type: "string" }, children: { items: { $ref: "#/$defs/node" }, type: "array" } }, required: ["value"] } } }'
+isEqual: (a,b)=>a===b||e[0](a,b)
 vs:
   zod:
     _skip: not-applicable

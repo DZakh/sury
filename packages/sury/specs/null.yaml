@@ -10,6 +10,7 @@ jsonSchema:
   openapi-3.0:
     input: "{ enum: [null] }"
     output: "{ enum: [null] }"
+isEqual: alwaysEqual
 vs:
   zod: z.null()
 operations:

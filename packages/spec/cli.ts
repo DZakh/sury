@@ -1,5 +1,5 @@
 #!/usr/bin/env tsx
-// `spec` — the AI-first test-spec harness (see the `spec` skill).
+// `spec` - the AI-first test-spec harness (see the `spec` skill).
 //
 // Infra (format validity, spec.schema.json) runs on published sury; golden
 // execution runs on the dev source. See format.ts / harness.ts. Full usage: HELP below.
@@ -25,6 +25,8 @@ import {
   recomputeGoldens,
   evalSchema,
   identityViolations,
+  buildOps,
+  deriveIsEqual,
   scaffoldJsonSchema,
   scaffoldOperations,
   deriveTypeInfo,
@@ -35,17 +37,17 @@ import { red, green, formatFailure } from "./report";
 import { summarize, renderPerformance, type SpecChange, type BundleSizeChange } from "./summary";
 import { runPerf } from "./bench";
 
-// A script, not a library — nothing here is exported. Importing it (instead
+// A script, not a library - nothing here is exported. Importing it (instead
 // of report.ts/harness.ts, which hold the testable logic) would silently run
 // no CLI command, so fail loudly instead of doing nothing.
 if (fileURLToPath(import.meta.url) !== process.argv[1])
-  throw new Error("cli.ts is a script, not a library — import from report.ts or harness.ts instead");
+  throw new Error("cli.ts is a script, not a library - import from report.ts or harness.ts instead");
 
 const args = process.argv.slice(2);
 const cmd = args[0];
 const rest = args.slice(1);
 
-// An id names a spec file or a scenario (not a file — they live in
+// An id names a spec file or a scenario (not a file - they live in
 // scenarios.yaml), so naming only spec ids selects no scenarios and vice
 // versa. `scenarios` undefined = unnarrowed run = all of them.
 const resolveIds = (ids: string[]): { files: string[]; scenarios?: string[] } => {
@@ -63,9 +65,9 @@ const resolveIds = (ids: string[]): { files: string[]; scenarios?: string[] } =>
     // Sit in the specs dir but aren't specs, so they would otherwise be
     // validated as one.
     if (file === BUNDLE_SIZE_PATH)
-      fail(`${id} isn't a spec — bundleSize.yaml is checked by a full \`spec check\` (no [id…])`);
+      fail(`${id} isn't a spec - bundleSize.yaml is checked by a full \`spec check\` (no [id…])`);
     if (file === SCENARIOS_PATH)
-      fail(`${id} isn't a spec — name the scenario you want, or omit [id…] to run every one`);
+      fail(`${id} isn't a spec - name the scenario you want, or omit [id…] to run every one`);
     if (!existsSync(file)) fail(`no such spec or scenario: ${id} (expected ${file})`);
     files.push(file);
   }
@@ -77,7 +79,7 @@ const resolveIds = (ids: string[]): { files: string[]; scenarios?: string[] } =>
 const targets = (ids: string[] = rest): string[] => {
   const { files, scenarios } = resolveIds(ids);
   if (scenarios?.length)
-    fail(`${scenarios.join(", ")}: a scenario, not a spec — only \`spec check\` runs scenarios`);
+    fail(`${scenarios.join(", ")}: a scenario, not a spec - only \`spec check\` runs scenarios`);
   return files;
 };
 
@@ -86,7 +88,7 @@ function fail(msg: string): never {
   process.exit(1);
 }
 
-const HELP = `spec — the AI-first Sury test-spec harness (see the \`spec\` skill)
+const HELP = `spec - the AI-first Sury test-spec harness (see the \`spec\` skill)
 
 Usage: spec <command> [args]
 
@@ -101,21 +103,21 @@ Commands:
       by default. --write persists whatever's safely fixable, then prints
       what moved (instantiations, generated-code length, bundle size,
       behavior) ranked by percentage; a format-invalid spec or a live
-      identity mismatch needs a fix first — resolve it, then re-run.
+      identity mismatch needs a fix first - resolve it, then re-run.
       bundleSize.yaml is whole-package, so only a full run (no [id…])
       checks or rewrites it.
 
       Also measures schema creation, creation+compilation, every example,
       and every scenario in scenarios.yaml (a consumer-level call, where
       the dispatch around a compiled operation is inside the timing),
-      against the same library built from a git ref — reported as a
+      against the same library built from a git ref - reported as a
       relative delta, never as a stored number, and never affecting the
       exit code. --perf=skip drops it (the fast loop); --perf=only runs
       it alone. --against defaults to the PR base under CI, else the
       merge-base with main. Narrow with [id…] while editing one schema.
 
   format [id…]
-      Rewrite to canonical form only — no golden recompute.
+      Rewrite to canonical form only - no golden recompute.
 
   schema
       Re-emit spec.schema.json and scenarios.schema.json from format.ts.
@@ -154,7 +156,7 @@ const cmdFormat = (): void => {
   }
 };
 
-// Both --id/--ts required — there's nothing sensible to scaffold without a
+// Both --id/--ts required - there's nothing sensible to scaffold without a
 // schema, and deriving jsonSchema/operations from it up front is the whole
 // point of `new`.
 const parseNewArgs = (argv: string[]): { id: string; ts: string } => {
@@ -167,7 +169,7 @@ const parseNewArgs = (argv: string[]): { id: string; ts: string } => {
       flags[a.slice(2)] = val;
       i++;
     } else {
-      fail(`unknown argument ${JSON.stringify(a)} — usage: spec new --id <id> --ts <schema-ts-source>`);
+      fail(`unknown argument ${JSON.stringify(a)} - usage: spec new --id <id> --ts <schema-ts-source>`);
     }
   }
   const id = flags.id;
@@ -182,7 +184,7 @@ const cmdNew = async (): Promise<void> => {
   // Overwriting would clobber the one thing the harness can't regenerate:
   // hand-authored example inputs.
   if (existsSync(file))
-    fail(`spec ${id} already exists (${file}) — edit it directly, or delete it first to re-scaffold`);
+    fail(`spec ${id} already exists (${file}) - edit it directly, or delete it first to re-scaffold`);
   let schema: any;
   try {
     schema = evalSchema(ts);
@@ -191,7 +193,7 @@ const cmdNew = async (): Promise<void> => {
   }
   const typeInfo = await deriveTypeInfo(ts);
   // scaffoldJsonSchema tolerates a schema it can't represent (records the
-  // thrown message instead), but scaffoldOperations has no such fallback — a
+  // thrown message instead), but scaffoldOperations has no such fallback - a
   // --ts that evaluates without throwing to something that isn't a usable
   // schema (e.g. a typo like "S.strng" evaluating to undefined) throws a raw
   // internal Sury error here instead of this tool's own guiding message.
@@ -209,7 +211,8 @@ const cmdNew = async (): Promise<void> => {
       instantiations: typeInfo.instantiations,
     },
     jsonSchema: await scaffoldJsonSchema(schema, typeInfo, ts),
-    // `vs` is a required dimension but can't be derived — scaffold a `todo`
+    isEqual: deriveIsEqual(schema),
+    // `vs` is a required dimension but can't be derived - scaffold a `todo`
     // skip (a placeholder, not a claim of no-equivalent) and prompt the author
     // (below) to replace it with the real Zod equivalent.
     vs: { zod: { _skip: "todo(#…)" } },
@@ -242,7 +245,7 @@ const parseCheckArgs = (argv: string[]): { write: boolean; perf: PerfMode; again
       if (value === undefined) fail("--against requires a value");
       against = value;
     } else if (a.startsWith("--")) {
-      fail(`unknown flag ${JSON.stringify(a)} — see \`spec help\``);
+      fail(`unknown flag ${JSON.stringify(a)} - see \`spec help\``);
     } else ids.push(a);
   }
   return { write, perf, against, ids };
@@ -273,19 +276,20 @@ const measurePerf = async (
 const cmdCheck = async (): Promise<void> => {
   const { write, perf, against, ids } = parseCheckArgs(rest);
   let failed = 0;
+  const failOne = (name: string, details: string[]): void => {
+    failed++;
+    console.error(formatFailure(name, details));
+  };
 
   // Ahead of the --perf=only split: a malformed scenario is a target the perf
-  // half cannot build — deriveTargets would surface it as an unattributed
-  // TypeError out of the TypeScript scanner — so it fails both paths here.
+  // half cannot build - deriveTargets would surface it as an unattributed
+  // TypeError out of the TypeScript scanner - so it fails both paths here.
   // Only on an unnarrowed run, like bundleSize.yaml below: scenarios are
   // whole-file state a narrowed run has nothing to say about, and executing
   // every one would tax the tight `spec check <id>` loop. CI and spec_test.ts
   // run unnarrowed, so that gate still holds.
   const scenarioErrs = ids.length ? [] : checkScenarios();
-  if (scenarioErrs.length) {
-    failed++;
-    console.error(formatFailure("scenarios.yaml", scenarioErrs));
-  }
+  if (scenarioErrs.length) failOne("scenarios.yaml", scenarioErrs);
 
   // Splits the run in two for CI, where the goldens gate and the (advisory,
   // comment-posting) perf report want different jobs and different exit
@@ -297,38 +301,32 @@ const cmdCheck = async (): Promise<void> => {
   }
 
   // bundleSize.yaml measures the package's whole export surface, so it isn't a
-  // spec and a narrowed run has nothing to say about it — reporting it stale
+  // spec and a narrowed run has nothing to say about it - reporting it stale
   // there would point at a fix (`--write`) the same invocation can't perform.
   // The full run (what CI and spec_test.ts do) is the gate. Kicked off first so
   // its esbuild build overlaps the sync work that follows.
   const bundleSizePromise = ids.length ? null : checkBundleSize();
 
   // Existence and freshness are checked as two separate facts, not one
-  // `existsSync && readFileSync(...) !== schemaJson()` expression — that
+  // `existsSync && readFileSync(...) !== schemaJson()` expression - that
   // would short-circuit to "no failure" for a deleted spec.schema.json
   // instead of reporting it missing.
   for (const [path, emit] of EMITTED_SCHEMAS) {
     const exists = existsSync(path);
     if (exists && readFileSync(path, "utf8") === emit()) continue;
-    failed++;
-    console.error(
-      formatFailure(basename(path), [
-        exists ? "stale — run `pnpm spec schema`" : "missing — run `pnpm spec schema`",
-      ]),
-    );
+    failOne(basename(path), [
+      exists ? "stale - run `pnpm spec schema`" : "missing - run `pnpm spec schema`",
+    ]);
   }
 
   const dirErrs = lintSpecsDir();
-  if (dirErrs.length) {
-    failed++;
-    console.error(formatFailure("specs dir", dirErrs));
-  }
+  if (dirErrs.length) failOne("specs dir", dirErrs);
 
   let bundleSizeChange: BundleSizeChange | undefined;
   const bundleSize = await bundleSizePromise;
   if (bundleSize?.errs.length) {
     // Fully derived, so --write resolves anything the measurement could
-    // produce — there's no author-owned part needing a manual fix first, as a
+    // produce - there's no author-owned part needing a manual fix first, as a
     // spec's goldens can have. A failed measurement has no `fresh` to write,
     // and still reports.
     if (write && bundleSize.fresh !== undefined) {
@@ -336,8 +334,7 @@ const cmdCheck = async (): Promise<void> => {
       console.log("wrote bundleSize.yaml");
       bundleSizeChange = { before: bundleSize.before, after: bundleSize.after! };
     } else {
-      failed++;
-      console.error(formatFailure("bundleSize.yaml", bundleSize.errs));
+      failOne("bundleSize.yaml", bundleSize.errs);
     }
   }
 
@@ -352,33 +349,41 @@ const cmdCheck = async (): Promise<void> => {
       let knownFresh: string | undefined;
       let change: SpecChange | undefined;
 
+      const persist = (next: Spec): void => {
+        knownFresh = serialize(next, collectComments(raw));
+        if (knownFresh === raw) return;
+        writeFileSync(file, knownFresh);
+        change = { id, before: obj, after: next };
+        raw = knownFresh;
+        obj = readSpec(file);
+        console.log(`wrote ${id}`);
+      };
+
       if (write) {
         let schema: any;
         let evaluated = false;
         try {
           schema = evalSchema(obj.ts.schema);
           evaluated = true;
-        } catch {
-          // fall through — checkSpec below reports the real problem
+        } catch (e) {
+          if (obj.ts.constructionError !== undefined) {
+            persist({
+              ...obj,
+              ts: { ...obj.ts, constructionError: (e as Error).message },
+            });
+          }
         }
-        // `evaluated`, not `schema` truthiness — ts.schema could evaluate to
+        // `evaluated`, not `schema` truthiness - ts.schema could evaluate to
         // a legitimately falsy value (e.g. `0`).
         if (evaluated) {
           try {
-            if (identityViolations(schema, obj).length === 0) {
-              const recomputed = await recomputeGoldens(obj);
-              knownFresh = serialize(recomputed, collectComments(raw));
-              if (knownFresh !== raw) {
-                writeFileSync(file, knownFresh);
-                change = { id, before: obj, after: recomputed };
-                raw = knownFresh;
-                obj = readSpec(file);
-                console.log(`wrote ${id}`);
-              }
+            const compiled = buildOps(schema);
+            if (identityViolations(schema, obj, compiled).length === 0) {
+              persist(await recomputeGoldens(obj, compiled));
             }
           } catch {
             knownFresh = undefined;
-            // Not a usable schema, or some other execution failure — skip
+            // Not a usable schema, or some other execution failure - skip
             // the write either way; checkSpec below reports the real problem.
           }
         }
@@ -390,15 +395,11 @@ const cmdCheck = async (): Promise<void> => {
   );
 
   for (const { id, errs } of results) {
-    if (errs.length) {
-      failed++;
-      console.error(formatFailure(id, errs));
-    } else {
-      console.log(green(`✓ ${id}`));
-    }
+    if (errs.length) failOne(id, errs);
+    else console.log(green(`✓ ${id}`));
   }
 
-  // What moved, ranked — so the metrics ratchet can be read off the run itself
+  // What moved, ranked - so the metrics ratchet can be read off the run itself
   // instead of by opening every file that was rewritten.
   const summary = summarize(
     results.flatMap((r) => (r.change ? [r.change] : [])),
@@ -407,7 +408,7 @@ const cmdCheck = async (): Promise<void> => {
   if (summary) console.log(`\n${summary}`);
 
   // After the goldens, so the report reads bottom-up as "what changed, then
-  // what it cost". Runs even when a check failed — a stale golden doesn't make
+  // what it cost". Runs even when a check failed - a stale golden doesn't make
   // the timing less interesting.
   if (perf === "with") await measurePerf(selected.files, against, selected.scenarios);
 
@@ -415,7 +416,7 @@ const cmdCheck = async (): Promise<void> => {
 };
 
 // Wrapped in an async function (instead of top-level await) since this
-// project's shared tsconfig.json targets module: ES2020 — too old for
+// project's shared tsconfig.json targets module: ES2020 - too old for
 // top-level await.
 async function main() {
   switch (cmd) {

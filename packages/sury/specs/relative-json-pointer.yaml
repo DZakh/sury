@@ -7,6 +7,7 @@ ts:
 jsonSchema:
   input: '{ type: "string", format: "relative-json-pointer" }'
   output: '{ type: "string", format: "relative-json-pointer" }'
+isEqual: strictEqual
 vs:
   zod:
     _skip: not-applicable

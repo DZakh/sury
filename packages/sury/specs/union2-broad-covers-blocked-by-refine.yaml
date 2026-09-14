@@ -3,10 +3,11 @@ ts:
   schema: S.union([S.string.with(S.minLength, 3), S.string])
   input: string
   output: string
-  instantiations: 1418
+  instantiations: 1362
 jsonSchema:
   input: '{ anyOf: [{ type: "string", minLength: 3 }, { type: "string" }] }'
   output: '{ anyOf: [{ type: "string", minLength: 3 }, { type: "string" }] }'
+isEqual: strictEqual
 vs:
   zod: z.union([z.string().min(3), z.string()])
 operations:

@@ -3,10 +3,11 @@ ts:
   schema: S.string.with(S.minLength, 0)
   input: string
   output: string
-  instantiations: 793
+  instantiations: 789
 jsonSchema:
-  input: '{ type: "string" }'
-  output: '{ type: "string" }'
+  input: '{ type: "string", minLength: 0 }'
+  output: '{ type: "string", minLength: 0 }'
+isEqual: strictEqual
 vs:
   zod: z.string().min(0)
 operations:

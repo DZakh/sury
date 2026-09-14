@@ -28,7 +28,7 @@ test("Returns the first default value, but can get the last one as well", t => {
     ->S.Option.getOr("not positive")
 
   // The getOr union carries the default itself (no `.to = item` link any
-  // more) — the chain is getOr union -> unknown (the codec target) -> the
+  // more) - the chain is getOr union -> unknown (the codec target) -> the
   // second getOr union with its own default.
   t->Assert.deepEqual((schema->S.untag).tag, AnyOf)
   t->Assert.deepEqual((schema->S.untag).default, Some(123.->U.magic))

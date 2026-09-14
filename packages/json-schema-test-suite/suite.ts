@@ -1,7 +1,7 @@
 // Vendors the upstream test suite at the revision pinned in suite-ref.json.
 //
 // A git submodule would tax every clone and CI checkout with `--recursive`,
-// and the `@json-schema-org/tests` npm mirror is archived and lags upstream —
+// and the `@json-schema-org/tests` npm mirror is archived and lags upstream -
 // so fetch the one pinned commit into a gitignored dir instead. GitHub serves
 // `fetch --depth 1 <sha>`, which makes this exact-by-construction: no tag or
 // branch can move under us.

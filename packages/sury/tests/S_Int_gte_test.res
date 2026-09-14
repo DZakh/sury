@@ -16,15 +16,15 @@ test("Fails to parse invalid data", t => {
 test("Successfully serializes valid value", t => {
   let schema = S.int->S.gte(1)
 
-  t->Assert.deepEqual(1->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`1`))
-  t->Assert.deepEqual(1234->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`1234`))
+  t->Assert.deepEqual(1->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`1`))
+  t->Assert.deepEqual(1234->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`1234`))
 })
 
 test("Fails to serialize invalid value", t => {
   let schema = S.int->S.gte(1)
 
   t->U.assertThrowsMessage(
-    () => 0->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    () => 0->S.convertOrThrow(~from=schema, ~to=S.unknown),
     `Expected int32 >= 1, received 0`,
   )
 })

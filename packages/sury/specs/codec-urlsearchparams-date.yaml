@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.urlSearchParams.with(S.to, S.schema({ at: S.date }))"
+  input: URLSearchParams
+  output: "{ at: Date; }"
+  instantiations: 5463
+jsonSchema:
+  input: Expected JSON, received URLSearchParams
+  output: "Failed at at: Expected JSON, received Date"
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||+a.at===+b.at
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{i instanceof e[3]||e[4](i);let v0=e[0](i),v1=v0.get("at");typeof v1==="string"||e[1](v1);let v2=new Date(v1);!Number.isNaN(v2.getTime())||e[2](v2);return {at:v2}}
+    examples:
+      valid:
+        input: ((p) => (p.append("at", "2024-01-01T00:00:00.000Z"), p))(new URLSearchParams())
+        output: '{ at: new Date("2024-01-01T00:00:00.000Z") }'
+      invalid:
+        input: ((p) => (p.append("at", "nope"), p))(new URLSearchParams())
+        error: "Failed at at: Expected Date, received invalid Date"
+      missing:
+        input: new URLSearchParams()
+        error: "Failed at at: Expected Date, received undefined"
+  decode:
+    expression: i=>{let v0=e[0](i),v1=v0.get("at");typeof v1==="string"||e[1](v1);let v2=new Date(v1);!Number.isNaN(v2.getTime())||e[2](v2);return {at:v2}}
+    examples:
+      valid:
+        input: ((p) => (p.append("at", "2024-01-01T00:00:00.000Z"), p))(new URLSearchParams())
+        output: '{ at: new Date("2024-01-01T00:00:00.000Z") }'
+  encode:
+    expression: i=>{let v2=i.at;let v0=new e[0]();let v1;try{v1=v2.toISOString()}catch(_){e[1](v2)}v0.append("at",v1);return v0}
+    examples:
+      valid:
+        input: '{ at: new Date("2024-01-01T00:00:00.000Z") }'
+        output: ((p) => (p.append("at", "2024-01-01T00:00:00.000Z"), p))(new URLSearchParams())

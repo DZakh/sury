@@ -3,7 +3,7 @@ ts:
   schema: "S.schema({ v: S.base64.with(S.noValidation, true) }).with(S.to, S.jsonString)"
   input: "{ v: string; }"
   output: string
-  instantiations: 6390
+  instantiations: 5522
 jsonSchema:
   input: '{ type: "object", properties: { v: { type: "string", contentEncoding: "base64" } }, required: ["v"] }'
   output: '{ type: "string", contentMediaType: "application/json" }'
@@ -12,12 +12,15 @@ jsonSchema:
   openapi-3.0:
     input: '{ type: "object", properties: { v: { type: "string", format: "byte" } }, required: ["v"] }'
     output: '{ type: "string" }'
+isEqual:
+  input: (a,b)=>a===b||a.v===b.v
+  output: strictEqual
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);return "{\"v\":"+e[0](i["v"])+"}"}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);return "{\"v\":"+e[0](i.v)+"}"}
     examples:
       escape-free:
         input: '{ v: "iVBORw==" }'
@@ -26,13 +29,13 @@ operations:
         input: '{ v: "a\"b" }'
         output: '"{\"v\":\"a\\\"b\"}"'
   decode:
-    expression: i=>{return "{\"v\":"+e[0](i["v"])+"}"}
+    expression: i=>{return "{\"v\":"+e[0](i.v)+"}"}
     examples:
       escape-free:
         input: '{ v: "iVBORw==" }'
         output: '"{\"v\":\"iVBORw==\"}"'
   encode:
-    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[1](v0);return {v:v0["v"]}}
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[1](v0);return {v:v0.v}}
     examples:
       takes-the-text-unchecked:
         input: '"{\"v\":\"zz\"}"'

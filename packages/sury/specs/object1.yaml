@@ -10,11 +10,12 @@ ts:
 jsonSchema:
   input: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'
   output: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'
+isEqual: (a,b)=>a===b||a.a===b.a
 vs:
   zod: "z.object({ a: z.string() })"
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i["a"];typeof v0==="string"||e[0](v0);return {a:v0}}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.a;typeof v0==="string"||e[0](v0);return {a:v0}}
     examples:
       valid:
         input: '{ a: "hello" }'

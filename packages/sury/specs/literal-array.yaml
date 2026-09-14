@@ -17,11 +17,12 @@ jsonSchema:
     fromInputType: '[true | "bar", true | "bar"]'
     output: '{ type: "array", minItems: 2, maxItems: 2, items: { anyOf: [{ type: "string", enum: ["bar"] }, { type: "boolean", enum: [true] }] } }'
     fromOutputType: '[true | "bar", true | "bar"]'
+isEqual: alwaysEqual
 vs:
   zod: z.tuple([z.literal("bar"), z.literal(true)])
 operations:
   parse:
-    expression: i=>{Array.isArray(i)&&i.length===2||e[2](i);let v0=i["0"],v1=i["1"];v0==="bar"||e[0](v0);v1===true||e[1](v1);return i}
+    expression: i=>{Array.isArray(i)&&i.length===2||e[2](i);let v0=i[0],v1=i[1];v0==="bar"||e[0](v0);v1===true||e[1](v1);return i}
     examples:
       valid:
         input: '["bar", true]'

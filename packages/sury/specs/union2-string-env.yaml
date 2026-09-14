@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union([S.string.with(S.minLength, 3), S.env])
+  input: string | undefined
+  output: string | undefined
+  instantiations: 1612
+jsonSchema:
+  input: '{ anyOf: [{ type: "string", minLength: 3 }, { type: "string" }] }'
+  fromInputType: string
+  output: '{ anyOf: [{ type: "string", minLength: 3 }, { type: "string" }] }'
+  fromOutputType: string
+isEqual: strictEqual
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{for(;;){let r;if(typeof i==="string"){try{i.length>2||e[0](i);break}catch(x){(r||(r=[])).push(e[1](x))}}if((typeof i==="string"||i===void 0))break;e[2](i,...(r||[]))}return i}
+    examples:
+      long:
+        input: '"abc"'
+        output: '"abc"'
+      short:
+        input: '"ab"'
+        output: '"ab"'
+      unset:
+        input: undefined
+        output: undefined
+      number:
+        input: "1"
+        error: Expected string.length >= 3 | env, received 1
+  decode: identity
+  encode: identity

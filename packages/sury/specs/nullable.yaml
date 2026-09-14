@@ -12,6 +12,7 @@ jsonSchema:
   openapi-3.0:
     input: '{ type: "string", nullable: true }'
     output: '{ type: "string", nullable: true }'
+isEqual: strictEqual
 vs:
   zod: z.string().nullable()
 operations:

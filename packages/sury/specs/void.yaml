@@ -7,6 +7,7 @@ ts:
 jsonSchema:
   input: Expected JSON, received void
   output: Expected JSON, received void
+isEqual: alwaysEqual
 vs:
   zod: z.void()
 operations:

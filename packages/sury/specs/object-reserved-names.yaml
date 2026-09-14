@@ -9,11 +9,12 @@ ts:
 jsonSchema:
   input: '{ type: "object", properties: { constructor: { type: "string" }, hasOwnProperty: { type: "number" } }, required: ["constructor", "hasOwnProperty"] }'
   output: '{ type: "object", properties: { constructor: { type: "string" }, hasOwnProperty: { type: "number" } }, required: ["constructor", "hasOwnProperty"] }'
+isEqual: (a,b)=>a===b||a.constructor===b.constructor&&a.hasOwnProperty===b.hasOwnProperty
 vs:
   zod: "z.object({ constructor: z.string(), hasOwnProperty: z.number() })"
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=(Object.hasOwn(i,"constructor")?i["constructor"]:void 0),v1=(Object.hasOwn(i,"hasOwnProperty")?i["hasOwnProperty"]:void 0);typeof v0==="string"||e[0](v0);typeof v1==="number"&&v1===v1||e[1](v1);return {constructor:v0,hasOwnProperty:v1}}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=(Object.hasOwn(i,"constructor")?i.constructor:void 0),v1=(Object.hasOwn(i,"hasOwnProperty")?i.hasOwnProperty:void 0);typeof v0==="string"||e[0](v0);typeof v1==="number"&&v1==v1||e[1](v1);return {constructor:v0,hasOwnProperty:v1}}
     examples:
       valid:
         input: '{ constructor: "hi", hasOwnProperty: 5 }'

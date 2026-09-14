@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.queryString.with(S.to, S.schema({ n: S.union([S.number, S.string]) }))"
+  input: string
+  output: "{ n: string | number; }"
+  instantiations: 6176
+jsonSchema:
+  input: '{ type: "string" }'
+  output: '{ type: "object", properties: { n: { anyOf: [{ type: "number" }, { type: "string" }] } }, required: ["n"] }'
+isEqual:
+  input: strictEqual
+  output: (a,b)=>a===b||a.n===b.n
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: 'SuryError: Failed at n: Ambiguous "" for number | string. Should a blank input be rejected, kept, or read as absent? Choose with S.nonEmpty, S.minLength(0), or S.optional'
+  decode: eq-to-parse
+  encode:
+    creationError: "SuryError: Failed at n: Ambiguous number | string -> string. Should number be decoded or ignored? Choose with S.to for number -> string, or S.never -> number"

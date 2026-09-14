@@ -1,12 +1,13 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: "S.fromJSONSchema({ uniqueItems: true })"
+  schema: "S.fromJSONSchemaOrThrow({ uniqueItems: true })"
   input: JSON
   output: JSON
   instantiations: 593
 jsonSchema:
   input: "{ uniqueItems: true }"
   output: "{ uniqueItems: true }"
+isEqual: (a,b)=>a===b||e[0](a,b)
 vs:
   zod:
     _skip: not-applicable

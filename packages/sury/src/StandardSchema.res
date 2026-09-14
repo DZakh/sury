@@ -10,7 +10,7 @@ module Issue = {
   // A single element of `StandardSchemaV1.Issue.path`: `PropertyKey |
   // PathSegment`. `PropertyKey` is `string | number | symbol`, but ReScript's
   // unboxed variants can't disambiguate a `symbol` case, so it's omitted here
-  // (Sury never emits symbol path keys).
+  // (Sury's codegen never emits one; only a refine's user-written `path` can).
   // FIXME: Add a `Symbol(Symbol.t)` case when ReScript supports symbols in
   // `@unboxed` variants.
   // Each variant is unboxed, so at runtime this is just the underlying
@@ -45,6 +45,14 @@ module Result = {
 
   external success: success<'output> => t<'output> = "%identity"
   external failure: failure => t<'output> = "%identity"
+
+  // What `validate` answers: the spec lets a library return a promise, which
+  // Sury does for a schema with an async codec and never otherwise. Untagged,
+  // so the runtime value is the result object or the promise itself. Same shape
+  // as `S.promisableResult`, over this module's own `t` rather than the
+  // stdlib's `result` - the spec defines its own success/failure object.
+  @unboxed
+  type promisable<'output> = Sync(t<'output>) | Async(promise<t<'output>>)
 
   let classify = (t: t<'output>): result<success<'output>, failure> =>
     if %raw(`t.issues`) {
@@ -91,7 +99,7 @@ module JsonSchema = {
 type props<'input, 'output> = {
   version: int,
   vendor: string,
-  validate: 'any. 'any => Result.t<'output>,
+  validate: 'any. 'any => Result.promisable<'output>,
   jsonSchema?: JsonSchema.converter,
 }
 

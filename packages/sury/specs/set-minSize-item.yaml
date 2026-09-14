@@ -3,10 +3,11 @@ ts:
   schema: S.set(S.string).with(S.minSize, 2)
   input: Set<string>
   output: Set<string>
-  instantiations: 748
+  instantiations: 744
 jsonSchema:
   input: Expected JSON, received Set<string>.size >= 2
   output: Expected JSON, received Set<string>.size >= 2
+isEqual: (a,b)=>a===b||e[0](a,b)
 vs:
   zod: z.set(z.string()).min(2)
 operations:

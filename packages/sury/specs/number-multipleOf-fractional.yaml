@@ -3,15 +3,16 @@ ts:
   schema: S.number.with(S.multipleOf, 0.1)
   input: number
   output: number
-  instantiations: 582
+  instantiations: 578
 jsonSchema:
   input: '{ type: "number", multipleOf: 0.1 }'
   output: '{ type: "number", multipleOf: 0.1 }'
+isEqual: strictEqual
 vs:
   zod: z.number().multipleOf(0.1)
 operations:
   parse:
-    expression: i=>{typeof i==="number"&&i===i||e[2](i);e[0](i)||e[1](i);return i}
+    expression: i=>{typeof i==="number"&&i==i||e[2](i);e[0](i)||e[1](i);return i}
     examples:
       valid:
         input: "0.2"
@@ -22,9 +23,15 @@ operations:
       valid-remainder-near-the-divisor:
         input: "0.3"
         output: "0.3"
+        divergence:
+          reason: multipleOf divides exactly, and the IEEE-754 remainder S.multipleOf takes is not zero for these
+          ajv: "input: data must be multiple of 0.1; output: data must be multiple of 0.1"
       valid-negative:
         input: "-0.7"
         output: "-0.7"
+        divergence:
+          reason: multipleOf divides exactly, and the IEEE-754 remainder S.multipleOf takes is not zero for these
+          ajv: "input: data must be multiple of 0.1; output: data must be multiple of 0.1"
       valid-zero:
         input: "0"
         output: "0"

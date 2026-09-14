@@ -8,35 +8,37 @@ let schema = Sury.string;
 
 Vitest.test("Creates schema with the name schema from t type", t => U.assertEqualSchemas(t, schema, Sury.string, undefined));
 
-let fooSchema = Sury.int;
+let fooSchema = Sury.int32;
 
-Vitest.test("Creates schema with the type name and schema at the for non t types", t => U.assertEqualSchemas(t, fooSchema, Sury.int, undefined));
+Vitest.test("Creates schema with the type name and schema at the for non t types", t => U.assertEqualSchemas(t, fooSchema, Sury.int32, undefined));
 
 let reusedTypesSchema = Sury.$schema(s => [
   s.m(schema),
   s.m(fooSchema),
-  s.m(Sury.bool),
-  s.m(Sury.float)
+  s.m(Sury.boolean),
+  s.m(Sury.number)
 ]);
 
 Vitest.test("Can reuse schemas from other types", t => U.assertEqualSchemas(t, reusedTypesSchema, Sury.$schema(s => [
   s.m(schema),
   s.m(fooSchema),
-  s.m(Sury.bool),
-  s.m(Sury.float)
+  s.m(Sury.boolean),
+  s.m(Sury.number)
 ]), undefined));
 
 let stringWithDefaultSchema = Sury.$Option_getOr(Sury.$option(Sury.string), "Foo");
 
 Vitest.test("Creates schema with default", t => U.assertEqualSchemas(t, stringWithDefaultSchema, Sury.$Option_getOr(Sury.$option(Sury.string), "Foo"), undefined));
 
-let stringWithDefaultAndMatchesSchema = Sury.$Option_getOr(Sury.$option(Sury.uri), "https://example.com");
+let myCustomSchema = Sury.trim(Sury.string);
 
-Vitest.test("Creates schema with default using @s.matches", t => U.assertEqualSchemas(t, stringWithDefaultAndMatchesSchema, Sury.$Option_getOr(Sury.$option(Sury.uri), "https://example.com"), undefined));
+let stringWithDefaultAndMatchesSchema = Sury.$Option_getOr(Sury.$option(myCustomSchema), "https://example.com");
 
-let stringWithDefaultNullAndMatchesSchema = Sury.$Option_getOr(Sury.$nullAsOption(Sury.uri), "https://example.com");
+Vitest.test("Creates schema with default using @s.matches", t => U.assertEqualSchemas(t, stringWithDefaultAndMatchesSchema, Sury.$Option_getOr(Sury.$option(myCustomSchema), "https://example.com"), undefined));
 
-Vitest.test("Creates schema with default null using @s.matches", t => U.assertEqualSchemas(t, stringWithDefaultNullAndMatchesSchema, Sury.$Option_getOr(Sury.$nullAsOption(Sury.uri), "https://example.com"), undefined));
+let stringWithDefaultNullAndMatchesSchema = Sury.$Option_getOr(Sury.$nullAsOption(myCustomSchema), "https://example.com");
+
+Vitest.test("Creates schema with default null using @s.matches", t => U.assertEqualSchemas(t, stringWithDefaultNullAndMatchesSchema, Sury.$Option_getOr(Sury.$nullAsOption(myCustomSchema), "https://example.com"), undefined));
 
 let ignoredNullWithMatchesSchema = Sury.$option(Sury.string);
 
@@ -52,14 +54,14 @@ Vitest.test("Applies multiple @s.with transforms in order of appearance", t => U
 
 let userWithWithSchema = Sury.meta(Sury.$schema(s => ({
   name: s.m(Sury.length(Sury.string, 2)),
-  age: s.m(Sury.gte(Sury.int, 18))
+  age: s.m(Sury.gte(Sury.int32, 18))
 })), {
   description: "A user"
 });
 
 Vitest.test("Applies @s.with on type declaration and on fields of different types", t => U.assertEqualSchemas(t, userWithWithSchema, Sury.meta(Sury.$schema(s => ({
   name: s.m(Sury.length(Sury.string, 2)),
-  age: s.m(Sury.gte(Sury.int, 18))
+  age: s.m(Sury.gte(Sury.int32, 18))
 })), {
   description: "A user"
 }), undefined));
@@ -72,9 +74,9 @@ let stringWithWithAndDefaultSchema = Sury.$Option_getOr(Sury.$option(Sury.trim(S
 
 Vitest.test("Combines @s.with written before @s.default", t => U.assertEqualSchemas(t, stringWithWithAndDefaultSchema, Sury.$Option_getOr(Sury.$option(Sury.trim(Sury.string)), "Foo"), undefined));
 
-let intWithWithPlaceholderSchema = Sury.lte(Sury.gte(Sury.int, 1), 5);
+let intWithWithPlaceholderSchema = Sury.lte(Sury.gte(Sury.int32, 1), 5);
 
-Vitest.test("Applies @s.with with partial application placeholder", t => U.assertEqualSchemas(t, intWithWithPlaceholderSchema, Sury.lte(Sury.gte(Sury.int, 1), 5), undefined));
+Vitest.test("Applies @s.with with partial application placeholder", t => U.assertEqualSchemas(t, intWithWithPlaceholderSchema, Sury.lte(Sury.gte(Sury.int32, 1), 5), undefined));
 
 let recordWithOptionalWithFieldSchema = Sury.$schema(s => ({
   maybe: s.m(Sury.$option(Sury.trim(Sury.string)))

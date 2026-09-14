@@ -91,11 +91,11 @@ test("issue 392: compiled parse matches member parser and sequential-try referen
   const junk = compiledParse(S, union, { TAG: "Z", _0: "x" });
   expect(junk.ok).toBe(false);
 
-  const parser = S.parser(union);
-  const reversed = S.parser(S.reverse(union));
+  const parser = S.parseOrThrow(union);
+  const reversed = S.parseOrThrow(S.reverse(union));
   for (const { value } of allWitnesses) {
     expect(parser(value)).toEqual(value);
-    expect(S.encoder(union)(value)).toEqual(value);
+    expect(S.encodeOrThrow(union)(value)).toEqual(value);
     expect(reversed(value)).toEqual(value);
   }
 });
@@ -120,13 +120,13 @@ test("object group after nested optional/null payload still reaches later member
     }),
     S.schema({ TAG: "Four", _0: S.string }),
   ]);
-  expect(S.parser(optionalUnion)(four)).toEqual(four);
-  expect(S.parser(nullUnion)(four)).toEqual(four);
-  expect(S.parser(optionalUnion)({ TAG: "Three", _0: { a: "x" } })).toEqual({
+  expect(S.parseOrThrow(optionalUnion)(four)).toEqual(four);
+  expect(S.parseOrThrow(nullUnion)(four)).toEqual(four);
+  expect(S.parseOrThrow(optionalUnion)({ TAG: "Three", _0: { a: "x" } })).toEqual({
     TAG: "Three",
     _0: { a: "x" },
   });
   expect(
-    S.parser(nullUnion)({ TAG: "Three", _0: { a: "x", extra: null } }),
+    S.parseOrThrow(nullUnion)({ TAG: "Three", _0: { a: "x", extra: null } }),
   ).toEqual({ TAG: "Three", _0: { a: "x", extra: null } });
 });

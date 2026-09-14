@@ -5,7 +5,7 @@
     "properties": {
       "prepare": {
         "type": "string",
-        "description": "Statements run once per library version before measuring, with `S` in scope; their bindings are in scope for `run`. Build the schema and the input here — only `run` is timed."
+        "description": "Statements run once per library version before measuring, with `S` in scope; their bindings are in scope for `run`. Build the schema and the input here - only `run` is timed."
       },
       "run": {
         "type": "string",

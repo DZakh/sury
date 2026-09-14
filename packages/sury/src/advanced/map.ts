@@ -1,4 +1,4 @@
-// `S.map` — a `Map` on our side, an array of entries on the wire.
+// `S.map`: a `Map` on our side, an array of entries on the wire.
 
 import {
   arrayTag,
@@ -27,8 +27,8 @@ import { arrayDecoder, arrayFactory, definitionToSchema } from "../composites";
 import { iterableSource, parse, parseDynamic } from "../parse";
 
 // One entry, described as the `[key, value]` tuple that `Array.from` produces
-// and `new Map` consumes — the wire form, and the only place the key and value
-// schemas live.
+// and `new Map` consumes. That is the wire form, and the only place the key
+// and value schemas live.
 const entryFactory = (key: Internal, value: Internal): Internal => {
   const mut = baseSchema(arrayTag, false, arrayDecoder);
   mut.items = [key, value];
@@ -38,10 +38,10 @@ const entryFactory = (key: Internal, value: Internal): Internal => {
 
 // The entry hangs off `additionalItems`, where an array's item does, so that
 // `reverse` inverts it (and through it the key and value) without knowing this
-// schema exists — see advanced/set.ts.
+// schema exists: see advanced/set.ts.
 //
 // Cross-module invariant: NOT on `items`. That field means "the tuple slots of
-// an array" to everything that pattern-matches a schema — union dispatch reads
+// an array" to everything that pattern-matches a schema. Union dispatch reads
 // it as `properties || items`, and a Map whose key/value sat there made two Map
 // members of a union look like one 2-tuple case, silently dropping the second.
 const entryOf = (schema: Internal | undefined): Internal | undefined => {
@@ -61,10 +61,10 @@ const mapDecoder = (input: Val): Val => {
   const expected = input.e;
   const isArraySource = !!(tagFlags[input.s.type]! & 128);
   const inputEntry = entryOf(input.s);
-  // An array converts entry by entry, so its item has to BE an entry — the
-  // exact `[key, value]` shape, since `new Map` reads two slots and ignores the
-  // rest, and the reverse direction (a tuple with more slots decoded from the
-  // pair) has nothing to fill them with. Tested here rather than left to the
+  // An array converts entry by entry, so its item has to BE an entry, in the
+  // exact `[key, value]` shape: `new Map` reads two slots and ignores the rest,
+  // and the reverse direction (a tuple with more slots decoded from the pair)
+  // has nothing to fill them with. Tested here rather than left to the
   // loop: a source of plain numbers would otherwise compile, then read
   // `undefined` out of every item at runtime.
   const source = iterableSource(
@@ -82,7 +82,7 @@ const mapDecoder = (input: Val): Val => {
   const toEntry = entryOf(expected);
   const toKey = itemAt(toEntry, 0);
   // A failing entry is located by its key when the key is what a path is made
-  // of — a string or a number, on a Map that has it as a key already. Anything
+  // of, a string or a number, on a Map that has it as a key already. Anything
   // else (an object key, a Date, a source array whose own errors count) is
   // located by its position, as a Set item is. Decided by the schema, so a key
   // that fails to be the string it should be is still what the error reports.
@@ -123,8 +123,8 @@ const mapDecoder = (input: Val): Val => {
     : B_refine(source, expected);
   const outVar = rebuild && !fromSource ? out.v() : "";
 
-  // An async entry is one promise over both halves, so the merge's own catch —
-  // which reaches only the val it is handed — names where either failed. Its
+  // An async entry is one promise over both halves, so the merge's own catch,
+  // which reaches only the val it is handed, names where either failed. Its
   // expression is fixed here, before the merge, and the merge renames a half
   // when a check materializes it (`v0[1]` becomes `let v5=v0[1]`), so both are
   // read as variables now, which is the name the merge will use.
@@ -153,7 +153,7 @@ const mapDecoder = (input: Val): Val => {
     counted && isAsync ? B_varWithoutAllocation(source.g) : indexVar,
   );
 
-  // `source`, not `input` — see iterableSource.
+  // `source`, not `input`: see iterableSource.
   return B_markOutput(isAsync ? B_collectAsync(out, "Map", outSchema) : out, source);
 };
 

@@ -3,10 +3,13 @@ ts:
   schema: "S.string.with(S.to, S.any, { decode: (value) => value.length, encode: (value) => String(value) })"
   input: string
   output: any
-  instantiations: 5309
+  instantiations: 4495
 jsonSchema:
   input: '{ type: "string" }'
-  output: Expected JSON, received unknown
+  output: "{}"
+isEqual:
+  input: strictEqual
+  output: (a,b)=>a===b||e[0](a,b)
 vs:
   zod:
     _skip: not-applicable

@@ -1,12 +1,13 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: 'S.fromJSONSchema({ patternProperties: { "f.*o": { type: "integer" } } })'
+  schema: 'S.fromJSONSchemaOrThrow({ patternProperties: { "f.*o": { type: "integer" } } })'
   input: JSON
   output: JSON
   instantiations: 593
 jsonSchema:
   input: '{ patternProperties: { "f.*o": { type: "integer" } } }'
   output: '{ patternProperties: { "f.*o": { type: "integer" } } }'
+isEqual: (a,b)=>a===b||e[0](a,b)
 vs:
   zod:
     _skip: not-applicable

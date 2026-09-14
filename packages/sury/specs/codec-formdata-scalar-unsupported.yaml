@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.formData.with(S.to, S.number)
+  input: FormData
+  output: number
+  instantiations: 4430
+jsonSchema:
+  input: Expected JSON, received FormData
+  output: '{ type: "number" }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: strictEqual
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "SuryError: Can't decode FormData -> number. Define custom codec with S.to"
+  decode: eq-to-parse
+  encode:
+    creationError: "SuryError: Can't decode number -> FormData. Define custom codec with S.to"

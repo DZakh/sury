@@ -113,6 +113,10 @@ const memberAt = (S: Sury, rng: Rng, depth: number): MemberSpec => {
   return nestedUnion(S, rng, depth);
 };
 
+// One schema from the same grammar the union members come from, for a fuzzer
+// whose subject is a schema rather than a union of them (`fuzz:eq`).
+export const generateSchema = (S: Sury, rng: Rng): MemberSpec => memberAt(S, rng, 0);
+
 export const groupingBarrierMembers = (S: Sury): MemberSpec[] => [
   taggedRescript(S, "One", { id: "string", schema: S.string }),
   taggedRescript(S, "Two", { id: "string", schema: S.string }),

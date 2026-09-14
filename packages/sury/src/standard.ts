@@ -1,0 +1,154 @@
+// The interop surface hung off the schema prototype: `toString` and the
+// Standard Schema `~standard` props. Split from operations.ts because both
+// installers are top-level side effects - a module that reaches this one
+// carries them, and an operation must not drag the Standard Schema machinery
+// in with it.
+
+import {
+  type Flag,
+  globalConfig,
+  inputExpression,
+  type Internal,
+  pathEmpty,
+  schemaPrototype,
+  SuryError,
+  U,
+  unknown,
+  valKey,
+  valueOptions,
+  vendor
+} from "./base";
+import type { JSONSchemaT, StandardJsonSchemaOptions } from "./jsonschema";
+import {
+ getOp,
+ reverse
+} from "./parse";
+// Type-only: a value import would pull jsonschema.ts into every `~standard` getter.
+export type StandardIssue = {
+  message: string;
+  path?: unknown[];
+};
+export type StandardResult = {
+  value?: unknown;
+  issues?: StandardIssue[];
+};
+export type StandardProps = {
+  version: number;
+  vendor: string;
+  validate: (input: unknown) => StandardResult | Promise<StandardResult>;
+  jsonSchema?: {
+    input: (options: StandardJsonSchemaOptions) => JSONSchemaT;
+    output: (options: StandardJsonSchemaOptions) => JSONSchemaT;
+  };
+};
+
+// The Standard JSON Schema converter, installed by enableStandardJSONSchema
+// (jsonschema.ts). A plain mutable module binding - the indirection is NOT a
+// forward-reference workaround but the tree-shaking gate: the `~standard`
+// prototype getter below is always retained, so it must not statically
+// reference the converter or every parser-only bundle would ship the whole
+// JSON Schema machinery. Only calling the public opt-in pulls it in.
+let standardJSONSchemaConverter:
+  | ((schema: Internal, options: StandardJsonSchemaOptions, isOutput: boolean) => JSONSchemaT)
+  | undefined;
+export const __setStandardJSONSchemaConverter = (
+  fn: (schema: Internal, options: StandardJsonSchemaOptions, isOutput: boolean) => JSONSchemaT
+): void => {
+  standardJSONSchemaConverter = fn;
+};
+
+export const getStandardJSONSchema = (
+  schema: Internal,
+  options: StandardJsonSchemaOptions,
+  isOutput: boolean
+): JSONSchemaT => {
+  if (standardJSONSchemaConverter) {
+    return standardJSONSchemaConverter(schema, options, isOutput);
+  } else {
+    throw new SuryError({
+      code: "invalid_operation",
+      path: pathEmpty,
+      reason:
+        "~standard.jsonSchema requires S.enableStandardJSONSchema() to be called first",
+    });
+  }
+}
+
+// Mirrors the declared `Schema<TInput, TOutput>`, so a logged schema reads the
+// way its type does - input first, as the type parameters are ordered.
+// Collapsed to one parameter when the sides match, because the point is a
+// readable log line, not a literal type.
+//
+// A prototype method can never be tree-shaken, so this puts `reverse` in every
+// consumer's bundle whether or not they ever print a schema - an accepted cost,
+// recorded across bundleSize.yaml. Walking the `.to` chain instead would be
+// cheaper and wrong: the output of `{ a: string -> int32 }` is `{ a: int32; }`,
+// which only a recursive reversal produces.
+// Deliberately not also registered as Node's `nodejs.util.inspect.custom`:
+// `console.log(schema)` keeps showing the internal shape, which is what someone
+// logging a schema is usually trying to see. Ask for the expression explicitly
+// with `${schema}` or `String(schema)`.
+Object.defineProperty(schemaPrototype, "toString", {
+  value: function (this: Internal): string {
+    const input = inputExpression(this);
+    const output = inputExpression(reverse(this));
+    return `Schema<${input === output ? input : `${input}, ${output}`}>`;
+  },
+});
+
+// A lazy prototype getter (not an eager per-schema property - that would put
+// 2 allocations + 4 closures on the baseSchema hot path for a feature most
+// schemas never use), cached on first access: Standard Schema consumers read
+// `schema["~standard"].validate` per validation call, so an uncached getter
+// re-allocates the whole props object per request. The cache is written as a
+// NON-enumerable own property (valueOptions descriptor) on purpose -
+// copySchema's Object.assign copies enumerable own props, and the cached
+// object closes over THIS schema, so an enumerable cache would leak onto
+// derived schemas and validate against the wrong one; non-enumerable means
+// copies lazily re-derive their own.
+Object.defineProperty(schemaPrototype, "~standard", {
+  get: function (this: Internal) {
+    const schema = this;
+    // The operation lives in the closure: the Standard Schema contract is a
+    // per-call `schema["~standard"].validate(input)`, so the getOp lookup
+    // can't be hoisted by the consumer and would outweigh the decode.
+    // `globalConfig.f` is getOp's flag source, so re-reading it is the whole
+    // invalidation condition.
+    let opFlag: Flag | undefined = U;
+    let validateOp: (input: unknown) => StandardResult | Promise<StandardResult>;
+    const standard: StandardProps = {
+      version: 1,
+      vendor,
+      validate: (input: unknown): StandardResult | Promise<StandardResult> => {
+        // The Standard Schema result is compiled straight into the operation
+        // (mode bit 1024), promisable (512) so one compile answers for both a
+        // sync and an async schema: no `try` on the valid path, no
+        // sync-compile / catch / recompile-async dance, and no second object
+        // to translate one result shape into the other.
+        //
+        // Outside any guard on purpose: a conversion rejected at operation
+        // creation fails for every input - a schema bug for the developer, not
+        // an `issues` entry for whoever is filling in the form. It throws on
+        // every call, since `opFlag` commits only once there is an
+        // operation.
+        if (opFlag !== globalConfig.f) {
+          validateOp = getOp(1 | 512 | 1024, 2, unknown, schema) as typeof validateOp;
+          opFlag = globalConfig.f;
+        }
+        return validateOp(input);
+      },
+      // Standard JSON Schema spec: https://standardschema.dev/json-schema
+      // `input` returns the JSON Schema of the schema's input type,
+      // `output` the JSON Schema of its output type. The `$schema` URI is
+      // stamped according to `options.target`; an unsupported target throws.
+      // Throws before enableStandardJSONSchema is called.
+      jsonSchema: {
+        input: (options) => getStandardJSONSchema(schema, options, false),
+        output: (options) => getStandardJSONSchema(schema, options, true),
+      },
+    };
+    valueOptions[valKey] = standard;
+    Object.defineProperty(schema, "~standard", valueOptions as PropertyDescriptor);
+    return standard;
+  },
+});

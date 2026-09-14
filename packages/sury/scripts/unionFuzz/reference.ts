@@ -14,7 +14,7 @@ const isTransparentUnion = (schema: Schema): boolean => {
   if (schema.type !== "anyOf") return false;
   let fields = 0;
   for (const key in schema) {
-    if (key !== "isAsync" && key !== "hasTransform") fields++;
+    if (key !== "ia" && key !== "ht") fields++;
   }
   return fields === 6;
 };
@@ -47,7 +47,7 @@ const tryEachParser = (
   for (const member of variants) {
     let fn: (value: unknown) => unknown;
     try {
-      fn = S.parser(member);
+      fn = S.parseOrThrow(member);
     } catch (error) {
       return outcomeOf(S, () => {
         throw error;
@@ -86,7 +86,7 @@ export const referenceEncode = (
   unionSchema: unknown,
   input: unknown,
 ): Outcome => {
-  // Encode is parse of the reverse. Sequential `S.encoder(member)` is not an
+  // Encode is parse of the reverse. Sequential `S.encodeOrThrow(member)` is not an
   // oracle: identity member encoders skip the type check and accept anything.
   try {
     return referenceParse(S, S.reverse(unionSchema), input);
@@ -103,7 +103,7 @@ export const compiledParse = (
   input: unknown,
 ): Outcome =>
   outcomeOf(S, () => {
-    const fn = S.parser(unionSchema);
+    const fn = S.parseOrThrow(unionSchema);
     return fn(input);
   });
 
@@ -113,7 +113,7 @@ export const compiledEncode = (
   input: unknown,
 ): Outcome =>
   outcomeOf(S, () => {
-    const fn = S.encoder(unionSchema);
+    const fn = S.encodeOrThrow(unionSchema);
     return fn(input);
   });
 
@@ -123,7 +123,7 @@ export const memberParse = (
   input: unknown,
 ): Outcome =>
   outcomeOf(S, () => {
-    const fn = S.parser(member);
+    const fn = S.parseOrThrow(member);
     return fn(input);
   });
 
@@ -133,6 +133,6 @@ export const memberEncode = (
   input: unknown,
 ): Outcome =>
   outcomeOf(S, () => {
-    const fn = S.encoder(member);
+    const fn = S.encodeOrThrow(member);
     return fn(input);
   });

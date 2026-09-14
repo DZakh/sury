@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.urlSearchParams.with(S.to, S.schema({ a: S.unknown }))"
+  input: URLSearchParams
+  output: "{ a?: unknown; }"
+  instantiations: 6011
+jsonSchema:
+  input: Expected JSON, received URLSearchParams
+  output: '{ type: "object", properties: { a: {} }, required: ["a"] }'
+  fromOutputType: "{ a: JSON; }"
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||e[0](a.a,b.a)
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{i instanceof e[2]||e[3](i);let v0=e[0](i),v1=v0.get("a");Array.isArray(v1)&&e[1](v1);return {a:v1}}
+    examples:
+      text:
+        input: ((p) => (p.append("a", "x"), p))(new URLSearchParams())
+        output: '{ a: "x" }'
+      repeated-key:
+        input: ((p) => (p.append("a", "x"), p.append("a", "y"), p))(new URLSearchParams())
+        error: 'Failed at a: Expected search param, received ["x", "y"]'
+  decode:
+    expression: i=>{let v0=e[0](i),v1=v0.get("a");Array.isArray(v1)&&e[1](v1);return {a:v1}}
+    examples:
+      repeated-key:
+        input: ((p) => (p.append("a", "x"), p.append("a", "y"), p))(new URLSearchParams())
+        error: 'Failed at a: Expected search param, received ["x", "y"]'
+  encode:
+    expression: i=>{let v1=i.a;let v0=new e[0]();if(v1!=null){typeof v1==="string"||e[1](v1);v0.append("a",v1);}return v0}
+    examples:
+      text:
+        input: '{ a: "x" }'
+        output: ((p) => (p.append("a", "x"), p))(new URLSearchParams())

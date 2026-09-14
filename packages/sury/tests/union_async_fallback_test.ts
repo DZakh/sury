@@ -29,7 +29,7 @@ const rejectingAsyncMember = (message: string) =>
 
 test("disjoint async exact literals keep the allocation-free dispatch path", async (t) => {
   let calls = 0;
-  const parser = S.asyncParser(
+  const parser = S.parseAsPromiseOrReject(
     S.union([
       S.schema(0).with(asyncAssert, async () => {
         calls++;
@@ -48,7 +48,7 @@ test("a Promise rejection containing a Sury error falls through", async (t) => {
   let fallbackCalls = 0;
   const schema = S.union([
     S.string.with(asyncAssert, async () => {
-      S.parser(S.number)("not a number");
+      S.parseOrThrow(S.number)("not a number");
     }),
     S.string.with(S.refine, () => {
       fallbackCalls++;
@@ -56,7 +56,7 @@ test("a Promise rejection containing a Sury error falls through", async (t) => {
     }),
   ]);
 
-  await t.expect(S.asyncParser(schema)("value")).resolves.toBe("value");
+  await t.expect(S.parseAsPromiseOrReject(schema)("value")).resolves.toBe("value");
   t.expect(fallbackCalls).toBe(1);
 });
 
@@ -70,7 +70,7 @@ test("an async Sury rejection falls through to an overlapping member", async (t)
     }),
   ]);
 
-  await t.expect(S.asyncParser(schema)("value")).resolves.toBe("value");
+  await t.expect(S.parseAsPromiseOrReject(schema)("value")).resolves.toBe("value");
   t.expect(fallbackCalls).toBe(1);
 });
 
@@ -88,7 +88,7 @@ test("same-literal async members await and fall through inside one group", async
     }),
   ]);
 
-  await t.expect(S.asyncParser(schema)("value")).resolves.toBe("value");
+  await t.expect(S.parseAsPromiseOrReject(schema)("value")).resolves.toBe("value");
   t.expect(firstCalls).toBe(1);
   t.expect(secondCalls).toBe(1);
 });
@@ -104,13 +104,13 @@ test("an accepted async first match does not evaluate a same-tier fallback", asy
     }),
   ]);
 
-  await t.expect(S.asyncParser(schema)("value")).resolves.toBe("value");
+  await t.expect(S.parseAsPromiseOrReject(schema)("value")).resolves.toBe("value");
   t.expect(calls).toEqual(["first"]);
 });
 
 test("SameValueZero exact literals remain overlapping", async (t) => {
   let fallbackCalls = 0;
-  const parser = S.asyncParser(
+  const parser = S.parseAsPromiseOrReject(
     S.union([
       S.schema(-0)
         .with(asyncAssert, async () => {})
@@ -134,7 +134,7 @@ test("cross-group semantic discriminators preserve overlap and disjointness", as
       kind: S.schema("same"),
       value: S.string,
     }).with(asyncAssert, async () => {
-      S.parser(S.number)("not a number");
+      S.parseOrThrow(S.number)("not a number");
     }),
     S.schema({
       kind: S.schema("same"),
@@ -146,11 +146,11 @@ test("cross-group semantic discriminators preserve overlap and disjointness", as
   ]);
   const sameValue = { kind: "same" as const, value: "value" };
 
-  await t.expect(S.asyncParser(sameKind)(sameValue)).resolves.toEqual(sameValue);
+  await t.expect(S.parseAsPromiseOrReject(sameKind)(sameValue)).resolves.toEqual(sameValue);
   t.expect(sameFallbackCalls).toBe(1);
 
   let disjointFirstCalls = 0;
-  const disjoint = S.asyncParser(
+  const disjoint = S.parseAsPromiseOrReject(
     S.union([
       S.schema({
         kind: S.schema("first"),
@@ -174,7 +174,7 @@ test("cross-group semantic discriminators preserve overlap and disjointness", as
 test("distinct symbol identities are disjoint", async (t) => {
   const first = Symbol("same description");
   const second = Symbol("same description");
-  const parser = S.asyncParser(
+  const parser = S.parseAsPromiseOrReject(
     S.union([
       S.schema(first).with(asyncAssert, async () => {}),
       S.schema(second),
@@ -188,7 +188,7 @@ test("distinct symbol identities are disjoint", async (t) => {
 
 test("a broad intervening member remains an overlap barrier", async (t) => {
   let fallbackCalls = 0;
-  const parser = S.asyncParser(
+  const parser = S.parseAsPromiseOrReject(
     S.union([
       S.schema(0)
         .with(asyncAssert, async () => {})
@@ -208,7 +208,7 @@ test("a broad intervening member remains an overlap barrier", async (t) => {
 
 test("a non-bucketed deoptimized member remains an overlap barrier", async (t) => {
   let fallbackCalls = 0;
-  const parser = S.asyncParser(
+  const parser = S.parseAsPromiseOrReject(
     S.union([
       S.schema(0)
         .with(asyncAssert, async () => {})
@@ -227,7 +227,7 @@ test("a non-bucketed deoptimized member remains an overlap barrier", async (t) =
 });
 
 test("async all-reject errors remain flat and source ordered", async (t) => {
-  const parse = S.asyncParser(
+  const parse = S.parseAsPromiseOrReject(
     S.union([
       rejectingAsyncMember("first async rejection"),
       rejectingAsyncMember("second async rejection"),
@@ -266,7 +266,7 @@ test("an async foreign rejection escapes without trying a fallback", async (t) =
     }),
   ]);
 
-  await t.expect(S.asyncParser(schema)("value")).rejects.toBe(foreignError);
+  await t.expect(S.parseAsPromiseOrReject(schema)("value")).rejects.toBe(foreignError);
   t.expect(fallbackCalls).toBe(0);
 });
 
@@ -283,7 +283,7 @@ test("an async object member can reject into a same-discriminator fallback", asy
   ]);
   const input = { kind: "nested", value: "value" };
 
-  await t.expect(S.asyncParser(schema)(input)).resolves.toEqual(input);
+  await t.expect(S.parseAsPromiseOrReject(schema)(input)).resolves.toEqual(input);
 });
 
 test("a nested async foreign rejection keeps identity and skips object fallback", async (t) => {
@@ -306,7 +306,7 @@ test("a nested async foreign rejection keeps identity and skips object fallback"
   ]);
 
   await t
-    .expect(S.asyncParser(schema)({ kind: "nested", value: "value" }))
+    .expect(S.parseAsPromiseOrReject(schema)({ kind: "nested", value: "value" }))
     .rejects.toBe(foreignError);
   t.expect(fallbackCalls).toBe(0);
 });
@@ -320,5 +320,5 @@ test("a nested async union falls through before its containing object resolves",
   });
   const input = { payload: "value" };
 
-  await t.expect(S.asyncParser(schema)(input)).resolves.toEqual(input);
+  await t.expect(S.parseAsPromiseOrReject(schema)(input)).resolves.toEqual(input);
 });

@@ -51,9 +51,14 @@
   - [`instance`](#instance)
   - [`blob`](#blob)
   - [`file`](#file)
+  - [`formData`](#formdata)
+  - [`env`](#env)
+  - [`urlSearchParams`](#urlsearchparams)
+  - [`queryString`](#querystring)
   - [`json`](#json)
   - [`jsonString`](#jsonstring)
   - [Content](#content)
+  - [Protocol Buffers](#protocol-buffers)
   - [`meta`](#meta)
   - [`recursive`](#recursive)
 - [Custom schema](#custom-schema)
@@ -68,15 +73,11 @@
   - [At a glance](#at-a-glance)
   - [Pipelines](#pipelines)
   - [Built-in operations](#built-in-operations)
-  - [`parser` / `asyncParser`](#parser-asyncparser)
-  - [`decoder` / `asyncDecoder`](#decoder-asyncdecoder)
-  - [`decoder1` / `asyncDecoder1`](#decoder1-asyncdecoder1)
-  - [`constructor` / `asyncConstructor`](#constructor-asyncconstructor)
   - [`reverse`](#reverse)
   - [`to`](#to)
   - [`name`](#name)
-  - [`inputExpression`](#inputexpression)
-  - [`outputExpression`](#outputexpression)
+  - [`toInputExpression`](#toinputexpression)
+  - [`toOutputExpression`](#tooutputexpression)
   - [`toString`](#tostring)
   - [`noValidation`](#novalidation)
 - [Standard Schema](#standard-schema)
@@ -157,7 +158,7 @@ let filmSchema = S.object(s => {
   title: "Sad & sed",
   rating: ParentalStronglyCautioned,
   deprecatedAgeRestriction: None,
-}->S.decodeOrThrow(~from=filmSchema, ~to=S.unknown)
+}->S.convertOrThrow(~from=filmSchema, ~to=S.unknown)
 // {
 //   "Id": 2,
 //   "Title": "Sad & sed",
@@ -167,7 +168,7 @@ let filmSchema = S.object(s => {
 // }
 
 // 5. Build a value in code, checked by the same schema
-let makeFilm = S.constructor(filmSchema)
+let makeFilm = S.compileMakeOrThrow(~schema=filmSchema)
 makeFilm({
   id: 3.,
   title: "Shorts",
@@ -178,10 +179,10 @@ makeFilm({
 // the record itself, validated
 
 // 6. Convert the schema to a JSON schema
-let filmJSONSchema = filmSchema->S.inputJSONSchema
+let filmJSONSchema = filmSchema->S.toInputJSONSchemaOrThrow
 ```
 
-> 🧠 Schemas compile to JavaScript via `eval`. Print the type they describe with [`inputExpression`](#inputexpression).
+> 🧠 Schemas compile to JavaScript via `eval`. Print the type they describe with [`toInputExpression`](#toinputexpression).
 
 ## Real-world examples
 
@@ -198,7 +199,7 @@ The obvious ones, at a glance:
 | `S.string` | `S.t<string>` | [refinements ↓](#string) |
 | `S.bool` | `S.t<bool>` | |
 | `S.int` | `S.t<int>` | [refinements ↓](#int) |
-| `S.integer` | `S.t<float>` | integer without `int`'s range [↓](#int) |
+| `S.integer` | `S.t<S.integer>` | integer without `int`'s range [↓](#int) |
 | `S.float` | `S.t<float>` | [refinements ↓](#float) |
 | `S.bigint` | `S.t<bigint>` | |
 | `S.symbol` | `S.t<Symbol.t>` | |
@@ -235,9 +236,9 @@ S.string->S.pattern(%re(`/[0-9]/`)) // Invalid pattern
 S.string->S.trim // trim whitespaces
 ```
 
-For format-specific validation, use the standalone schemas — see [String formats](#string-formats) below.
+For format-specific validation, use the standalone schemas - see [String formats](#string-formats) below.
 
-> For ISO 8601 UTC datetime strings use the dedicated standalone `S.isoDateTime` schema — see [ISO datetimes](#iso-datetimes) below.
+> For RFC 3339 datetime strings use the dedicated standalone `S.isoDateTime` schema, or `S.utcDateTime` when only `Z` is acceptable - see [ISO datetimes](#iso-datetimes) below.
 
 > ⚠️ Validating email addresses is nearly impossible with just code. Different clients and servers accept different things and many diverge from the various specs defining "valid" emails. The ONLY real way to validate an email address is to send a verification email to it and check that the user got it. With that in mind, Sury picks a relatively simple regex that does not cover all cases.
 
@@ -248,20 +249,35 @@ The JSON Schema string format vocabulary, as standalone schemas:
 ```rescript
 S.email // Email address
 S.idnEmail // Internationalized email address
-S.uuid // UUID
+S.uuid // UUID, any version
+S.uuidv4 // UUIDv4 - random
+S.uuidv6 // UUIDv6 - reordered time
+S.uuidv7 // UUIDv7 - Unix time, sorts by creation
 S.cuid // CUID
-S.uri // URI — a scheme is required
+S.cuid2 // CUID2
+S.ulid // ULID
+S.ksuid // KSUID
+S.xid // XID
+S.nanoid // Nano ID alphabet
+S.e164 // E.164 phone number
+S.mac // MAC address, EUI-48 or EUI-64
+S.hex // Hexadecimal digits
+S.uri // URI - a scheme is required
+S.httpUrl // URI with the scheme pinned to http or https
 S.uriReference // URI or relative reference
 S.uriTemplate // URI Template
-S.iri // IRI — a URI with Unicode allowed
+S.iri // IRI - a URI with Unicode allowed
 S.iriReference // IRI or relative reference
 S.hostname // Host name
 S.idnHostname // Internationalized host name
 S.ipv4 // IPv4 address
 S.ipv6 // IPv6 address
+S.cidrv4 // IPv4 CIDR block
+S.cidrv6 // IPv6 CIDR block
 S.isoDate // Calendar date
 S.isoTime // Time of day
-S.isoDateTime // UTC timestamp
+S.isoDateTime // Timestamp, Z or offset
+S.utcDateTime // Timestamp, Z only
 S.duration // Duration
 S.jsonPointer // JSON Pointer
 S.relativeJsonPointer // Relative JSON Pointer
@@ -269,15 +285,46 @@ S.base64 // Base64, standard alphabet with canonical padding
 S.base64url // Base64url, URL-safe alphabet, no padding
 ```
 
-Each survives a round trip through `S.inputJSONSchema` and `S.fromJSONSchema`.
+Each survives a round trip through `S.toInputJSONSchemaOrThrow` and `S.fromJSONSchemaOrThrow`,
+though not all of them as a name. A format the JSON Schema vocabulary has no
+keyword for publishes its own regex as `pattern` instead, so what round-trips is
+the behavior. `S.cidrv6` is the one format with neither spelling - its address
+grammar is case-insensitive and a JSON Schema `pattern` carries no flags, so it
+emits a plain `string` and widens on the way back in.
+
+Parsing with a format gives you back a value of that format's own type, not a
+plain `string`:
+
+```rescript
+let email = "dzakh.dev@gmail.com"->S.parseOrThrow(~to=S.email)
+// Email("dzakh.dev@gmail.com")
+```
+
+That way a function asking for an `S.email` can't be handed just any string -
+or a `S.uuid`. To get the string back, coerce it:
+
+```rescript
+(email :> string) // "dzakh.dev@gmail.com"
+```
+
+Nothing happens at runtime: `Email("a@b.com")` *is* `"a@b.com"` in the compiled
+JS, so there's no wrapping cost and no unwrapping when the value crosses over to
+JS.
+
+`S.integer`, `S.port` and `S.jsonString` behave the same way, and `S.nonEmpty`
+marks whatever it constrains:
+
+```rescript
+S.array(S.string)->S.nonEmpty // S.t<S.nonEmpty<array<string>>>
+```
 
 **A format checks syntax, not safety.** Every one is exactly as strict as its
 spec, so a well-formed value passes even when it isn't one you want to accept:
 
 ```rescript
-"javascript:alert(1)"->S.assertOrThrow(~to=S.uri) // passes — a valid URI
-"169.254.169.254"->S.assertOrThrow(~to=S.hostname) // passes — a valid host name
-"//evil.com"->S.assertOrThrow(~to=S.uriReference) // passes — a valid reference
+"javascript:alert(1)"->S.assertInputOrThrow(~schema=S.uri) // passes - a valid URI
+"169.254.169.254"->S.assertInputOrThrow(~schema=S.hostname) // passes - a valid host name
+"//evil.com"->S.assertInputOrThrow(~schema=S.uriReference) // passes - a valid reference
 ```
 
 When you want a security decision rather than a syntax check, compose one. The
@@ -291,8 +338,8 @@ let httpsOnly = S.uri->S.pattern(%re(`/^https:\/\//`))
 Two worth knowing before you pick one:
 
 - **`S.url` is not `S.uri`.** `S.url` is an instance of the JS `URL` class, the
-  way `S.date` is a `Date` — use it when you want the parsed object and its
-  `.host` / `.pathname`. `S.uri` validates a string and leaves it a string.
+  way `S.date` is a `Date` - use it when you want the parsed object and its
+  `.host` / `.pathname`. `S.uri` only validates the text.
 - **`S.uriReference` is usually the one you want for a link field.** `S.uri`
   requires a scheme, so it rejects `/dashboard`.
 
@@ -323,16 +370,15 @@ Available fields: `format`, `type_`, `minimum`, `maximum`, `minLength`, `maxLeng
 
 #### ISO datetimes
 
-`S.isoDateTime` is a **standalone** string schema (`S.t<string>`) that validates ISO 8601 UTC datetime strings: no timezone offsets allowed, with arbitrary sub-second decimal precision.
+`S.isoDateTime` is a **standalone** string schema (`S.t<S.isoDateTime>`) that validates RFC 3339 datetime strings, exactly what the JSON Schema `date-time` format means: a `Z` or a timezone offset, with arbitrary sub-second decimal precision. `S.utcDateTime` is the same grammar with only `Z` allowed.
 
 ```rescript
-let schema = S.isoDateTime
-// schema has the type S.t<string>
+"2020-01-01T00:00:00Z"->S.parseOrThrow(~to=S.isoDateTime) // pass
+"2020-01-01T00:00:00.123456Z"->S.parseOrThrow(~to=S.isoDateTime) // pass (arbitrary precision)
+"2020-01-01T00:00:00+02:00"->S.parseOrThrow(~to=S.isoDateTime) // pass
 
-"2020-01-01T00:00:00Z"->S.parseOrThrow(~to=schema) // pass
-"2020-01-01T00:00:00.123Z"->S.parseOrThrow(~to=schema) // pass
-"2020-01-01T00:00:00.123456Z"->S.parseOrThrow(~to=schema) // pass (arbitrary precision)
-"2020-01-01T00:00:00+02:00"->S.parseOrThrow(~to=schema) // fail (no offsets allowed)
+"2020-01-01T00:00:00Z"->S.parseOrThrow(~to=S.utcDateTime) // pass
+"2020-01-01T00:00:00+02:00"->S.parseOrThrow(~to=S.utcDateTime) // throws: Expected UTC date-time, received "2020-01-01T00:00:00+02:00"
 ```
 
 To decode an ISO datetime string into a `Date.t`, combine it with `S.to(S.date)`:
@@ -368,11 +414,11 @@ S.int->S.gte(3000000000)
 // int32 >= 3000000000 contradicts int32 <= 2147483647
 ```
 
-`S.integer` is an integer without that range, typed `S.t<float>` since one can
-exceed ReScript's `int`:
+`S.integer` is an integer without that range. It has its own type,
+`Integer(float)`, since one can exceed ReScript's `int`:
 
 ```rescript
-S.integer->S.gte(5.) // Expected integer >= 5
+S.integer->S.gte(Integer(5.)) // Expected integer >= 5
 ```
 
 ### **`float`**
@@ -545,7 +591,7 @@ let pointSchema = S.object(s => {
 
 // It can be used both for parsing and encoding
 {"x": 1, "y": -4}->S.parseOrThrow(~to=pointSchema)
-{x: 1, y: -4}->S.decodeOrThrow(~from=pointSchema, ~to=S.unknown)
+{x: 1, y: -4}->S.convertOrThrow(~from=pointSchema, ~to=S.unknown)
 ```
 
 The `object` schema represents an object value, that can be transformed into any ReScript value. Here are some examples:
@@ -568,7 +614,7 @@ let schema = S.object(s => {
   "USER_NAME": "John",
 }->S.parseOrThrow(~to=schema)
 // {id: 1, name: "John"}
-{id: 1, name: "John"}->S.decodeOrThrow(~from=schema, ~to=S.unknown)
+{id: 1, name: "John"}->S.convertOrThrow(~from=schema, ~to=S.unknown)
 // {"USER_ID": 1, "USER_NAME": "John"}
 ```
 
@@ -595,7 +641,7 @@ let schema = S.object(s => (s.field("USER_ID", S.int), s.field("USER_NAME", S.st
 The same schema also works for encoding:
 
 ```rescript
-(1, "John")->S.decodeOrThrow(~from=schema, ~to=S.unknown)
+(1, "John")->S.convertOrThrow(~from=schema, ~to=S.unknown)
 // {"USER_ID":1,"USER_NAME":"John"}
 ```
 
@@ -636,7 +682,7 @@ let schema = S.schema(s => Circle({
 You can use the schema for parsing as well as encoding:
 
 ```rescript
-Circle({radius: 1})->S.decodeOrThrow(~from=schema, ~to=S.unknown)
+Circle({radius: 1})->S.convertOrThrow(~from=schema, ~to=S.unknown)
 // {
 //   "kind": "circle",
 //   "radius": 1,
@@ -821,7 +867,7 @@ let schema = S.float->S.shape(radius => Circle({radius: radius}))
 The same schema also works for encoding:
 
 ```rescript
-Circle({radius: 1})->S.decodeOrThrow(~from=schema, ~to=S.unknown)
+Circle({radius: 1})->S.convertOrThrow(~from=schema, ~to=S.unknown)
 // 1
 ```
 
@@ -833,7 +879,7 @@ An union represents a logical OR relationship. You can apply this concept to you
 
 On validation, the `S.union` schema returns the result of the first item that was successfully validated.
 
-> 🧠 Members are matched in the order they are passed to `S.union` — the first one that fits the value wins.
+> 🧠 Members are matched in the order they are passed to `S.union` - the first one that fits the value wins.
 
 It's also available as `S.anyOf`, matching the JSON Schema keyword it maps to.
 
@@ -877,7 +923,7 @@ let shapeSchema = S.union([
 ```
 
 ```rescript
-Square({x: 2.})->S.decodeOrThrow(~from=shapeSchema, ~to=S.unknown)
+Square({x: 2.})->S.convertOrThrow(~from=shapeSchema, ~to=S.unknown)
 // {
 //   "kind": "square",
 //   "x": 2,
@@ -918,18 +964,18 @@ first one that accepts the value wins:
 ```rescript
 let schema = S.json->S.to(S.union([S.bigint->S.castToUnknown, S.string->S.castToUnknown]))
 
-"123"->S.parseOrThrow(~to=schema) // 123n — the bigint member comes first
-"abc"->S.parseOrThrow(~to=schema) // "abc" — not a valid bigint, so the string member takes it
-true->S.parseOrThrow(~to=schema) // raises — no member accepts a bool
+"123"->S.parseOrThrow(~to=schema) // 123n - the bigint member comes first
+"abc"->S.parseOrThrow(~to=schema) // "abc" - not a valid bigint, so the string member takes it
+true->S.parseOrThrow(~to=schema) // raises - no member accepts a bool
 ```
 
 Notice that `true` wasn't converted to `"true"`, even though bool → string is
 a supported conversion. A value is only converted into a member type the
 source can't produce itself: JSON has no bigints, so strings are offered to
-`S.bigint` — but JSON already has strings, so the `S.string` member only
+`S.bigint` - but JSON already has strings, so the `S.string` member only
 accepts actual strings.
 
-**Union → single type.** The mirror image — each member converts to the target
+**Union → single type.** The mirror image - each member converts to the target
 the same way it would with a direct `S.to`:
 
 ```rescript
@@ -940,8 +986,16 @@ let schema =
 true->S.parseOrThrow(~to=schema) // "true"
 ```
 
+`S.option` or `S.null` is a wider type, not a value to convert. `S.option(x)`
+meeting a single type works as `x` would and raises on `None`:
+`S.option(S.float)->S.to(S.string)` writes `12.` as `"12"` and never `None` as
+`"undefined"`, and `S.option(S.string)->S.to(S.string)` is `string -> string`.
+The same holds the other way round: a single type converted into `S.option(x)`
+never produces `None`, and a string never reads `"undefined"` as one. `S.json`,
+which holds the value, is the exception and keeps converting it as `null`.
+
 **Union → union.** Values pass through to the member of the same type on the
-other side — nothing is converted, so every member needs a counterpart. The one
+other side - nothing is converted, so every member needs a counterpart. The one
 exception: with no counterpart of its own, `S.option`'s `undefined` may pair
 with `S.null`'s `null` on the other side, and vice versa:
 
@@ -958,24 +1012,24 @@ Good to know:
   member, and `S.json` won't match `S.string`.
 - Nested unions are treated as one flat union: `S.union([S.string,
   S.union([S.float, S.bool])])` has three members.
-- When a value fails a member — wrong type, failed refinement, or an error
-  raised inside it — the next member gets a try. Only when all members fail
+- When a value fails a member - wrong type, failed refinement, or an error
+  raised inside it - the next member gets a try. Only when all members fail
   does the union raise, listing each member's reason.
 
 #### When a conversion is rejected
 
 Some conversions have more than one reasonable meaning, and some have none.
-Rather than guess, Sury rejects those with an `Invalid operation` error right
-at the operation compilation — not later, on each value — and the error
-suggests a rewrite that says what you mean.
+Rather than guess, Sury rejects those right at the operation compilation -
+not later, on each value - and the error suggests a rewrite that says what
+you mean.
 
-**Ambiguous.** Given `"123"` — should it stay a string, or become a float?
+**Ambiguous.** Given `"123"` - should it stay a string, or become a float?
 Both readings are sensible, so Sury makes you pick:
 
 ```rescript
 S.string->S.to(S.union([S.float->S.castToUnknown, S.string->S.castToUnknown]))
-// Invalid operation: can't convert string to number | string — string has the same
-// type as the source and the others don't.
+// Ambiguous string -> number | string. Should number be decoded or ignored?
+// Choose with S.to for string -> number, or S.never -> number
 
 // Convert to a float when possible, keep the string otherwise:
 let asFloat = S.string->S.to(
@@ -1003,7 +1057,8 @@ S.union([S.string->S.castToUnknown, S.float->S.castToUnknown])->S.to(
     S.bool->S.castToUnknown,
   ]),
 )
-// Invalid operation: … boolean has no same-type variant on the other side.
+// Ambiguous string | number -> number | string | boolean. Should boolean be decoded
+// or ignored? Choose with S.to for string -> boolean, or S.never -> boolean
 S.option(S.string)->S.to(S.null(S.bool)) // ❌ string doesn't match boolean
 S.option(S.string)->S.to(S.null(S.string->S.to(S.bool))) // ✅
 ```
@@ -1082,11 +1137,11 @@ let schema = S.compactColumns(S.schema(s => {
   deleted: s.matches(S.bool),
 }))
 
-[{id: "0", name: Some("Hello"), deleted: false}, {id: "1", name: None, deleted: true}]->S.decodeOrThrow(~from=schema, ~to=S.unknown)
+[{id: "0", name: Some("Hello"), deleted: false}, {id: "1", name: None, deleted: true}]->S.convertOrThrow(~from=schema, ~to=S.unknown)
 // [["0", "1"], ["Hello", null], [false, true]]
 ```
 
-It flattens a nested array of objects into arrays of values by field — the layout described in [Boosting Postgres INSERT Performance by 2x With UNNEST](https://www.timescale.com/blog/boosting-postgres-insert-performance).
+It flattens a nested array of objects into arrays of values by field - the layout described in [Boosting Postgres INSERT Performance by 2x With UNNEST](https://www.timescale.com/blog/boosting-postgres-insert-performance).
 
 <details>
 
@@ -1100,13 +1155,13 @@ Checkout the compiled code yourself:
   for (let v0 = 0; v0 < i.length; ++v0) {
     let v3 = i[v0];
     try {
-      let v4 = v3["name"];
+      let v4 = v3.name;
       if (v4 === void 0) {
         v4 = null;
       }
-      v1[0][v0] = v3["id"];
+      v1[0][v0] = v3.id;
       v1[1][v0] = v4;
-      v1[2][v0] = v3["deleted"];
+      v1[2][v0] = v3.deleted;
     } catch (v2) {
       if (v2 && v2.s === s) {
         v2.path = [v0, ...v2.path];
@@ -1141,7 +1196,7 @@ let pointSchema = S.tuple(s => {
 
 // It can be used both for parsing and encoding
 ["point", 1, -4]->S.parseOrThrow(~to=pointSchema)
-{ x: 1, y: -4 }->S.decodeOrThrow(~from=pointSchema, ~to=S.unknown)
+{ x: 1, y: -4 }->S.convertOrThrow(~from=pointSchema, ~to=S.unknown)
 ```
 
 The `S.tuple` schema represents that a data is an array of a specific length with values each of a specific type.
@@ -1177,7 +1232,7 @@ The `dict` schema represents a dictionary of data of a specific type.
 
 ### **`date`**
 
-`S.t<Js.Date.t>`
+`S.t<S.date>`
 
 ```rescript
 let schema = S.date
@@ -1199,21 +1254,21 @@ let schema = S.string->S.to(S.date)
 "2024-01-01T00:00:00.000Z"->S.parseOrThrow(~to=schema) // Date
 
 // Encode Date to ISO string
-Date.fromString("2024-01-01T00:00:00.000Z")->S.decodeOrThrow(~from=schema, ~to=S.unknown) // "2024-01-01T00:00:00.000Z"
+Date.fromString("2024-01-01T00:00:00.000Z")->S.convertOrThrow(~from=schema, ~to=S.unknown) // "2024-01-01T00:00:00.000Z"
 ```
 
 ### **`isoDateTime`**
 
-`S.t<string>`
+`S.t<S.isoDateTime>`
 
 ```rescript
 let schema = S.isoDateTime
 
-"2020-01-01T00:00:00Z"->S.parseOrThrow(~to=schema) // "2020-01-01T00:00:00Z"
+"2020-01-01T00:00:00Z"->S.parseOrThrow(~to=schema) // IsoDateTime("2020-01-01T00:00:00Z")
 "not-a-date"->S.parseOrThrow(~to=schema) // throws
 ```
 
-Standalone string schema that validates ISO 8601 UTC datetime strings. See also [ISO datetimes](#iso-datetimes) under Strings for more details and examples.
+Standalone string schema that validates RFC 3339 datetime strings; `S.utcDateTime` (`S.t<S.utcDateTime>`) allows only `Z`. See also [ISO datetimes](#iso-datetimes) under Strings for more details and examples.
 
 ### **`instance`**
 
@@ -1227,7 +1282,7 @@ The `S.instance` schema represents an instance of a class. Requires some type ca
 
 ### **`blob`**
 
-`S.t<Js.Blob.t>`
+`S.t<S.blob>`
 
 ```rescript
 S.blob // Expected Blob
@@ -1245,7 +1300,7 @@ S.blob->S.maxSize(1_000_000, ~message="Too large")
 
 ### **`file`**
 
-`S.t<Js.File.t>`
+`S.t<S.file>`
 
 ```rescript
 let schema = S.file->S.maxSize(1_000_000)
@@ -1254,8 +1309,102 @@ let schema = S.file->S.maxSize(1_000_000)
 %raw(`new Blob(["hi"])`)->S.parseOrThrow(~to=schema) // throws - Expected File, received Blob
 ```
 
-A `File` is a `Blob`, so it also satisfies [`S.blob`](#blob) — not the other way
+A `File` is a `Blob`, so it also satisfies [`S.blob`](#blob) - not the other way
 round. It takes the same size bounds.
+
+### **`formData`**
+
+`S.t<S.formData>`
+
+```rescript
+let schema = S.formData->S.to(
+  S.schema(s => {
+    name: s.field("name", S.string->S.nonEmpty),
+    age: s.field("age", S.int), // "42" -> 42
+    agree: s.field("agree", S.literal(true)), // a checkbox that has to be ticked
+    notify: s.field("notify", S.bool), // "on" -> true, absent -> false
+    tags: s.field("tags", S.array(S.string)), // every "tags" entry
+    avatar: s.field("avatar", S.file),
+  }),
+)
+
+%raw(`new FormData()`)->S.parseOrThrow(~to=schema) // throws - Failed at name: Expected string.length >= 1, received undefined
+{
+  name: "Ada",
+  age: 42,
+  agree: true,
+  notify: false,
+  tags: ["ts"],
+  avatar: %raw(`new File([], "a.txt")`),
+}->S.convertOrThrow(~from=schema, ~to=S.unknown) // a FormData with one append per field
+```
+
+A field reads its entry as text through the same coercions `S.dict(S.string)`
+gets; `S.file` and `S.blob` take the entry as it is, and an encode omits an
+unchecked box the way a browser does. A required, non-nullable string must say
+what a blank entry means - `S.string->S.nonEmpty`, `S.string->S.minLength(0)`
+or `S.option` - or the operation fails to build. The type is abstract,
+since the stdlib has no `FormData` module; a value from a fetch binding is cast
+to it.
+
+### **`env`**
+
+`S.t<S.env>`
+
+```rescript
+@val external env: dict<S.env> = "process.env"
+
+let envSchema = S.schema(s => {
+  port: s.field("PORT", S.port),
+  debug: s.field("DEBUG", S.bool),
+  name: s.field("NAME", S.null(S.string)),
+})
+
+env->S.convertOrThrow(~from=S.dict(S.env), ~to=envSchema)
+```
+
+A single var is the same coercion. `env->Dict.get("PORT")` may be `None`, so
+the source is `S.option(S.env)`. Converting to `S.port` reads the string and
+rejects a missing var:
+
+```rescript
+env->Dict.get("PORT")->S.convertOrThrow(~from=S.option(S.env), ~to=S.port)
+```
+
+A missing key or empty string on a record field is absent (`S.option`) or null
+(`S.null`). A required `S.string` must choose `S.nonEmpty` or `S.minLength(0)`.
+Nested objects fail as unsupported.
+
+### **`urlSearchParams`**
+
+`S.t<S.urlSearchParams>`
+
+```rescript
+let schema = S.urlSearchParams->S.to(
+  S.schema(s => {
+    q: s.field("q", S.string->S.nonEmpty),
+    page: s.field("page", S.option(S.int)),
+    tags: s.field("tags", S.array(S.string)),
+  }),
+)
+```
+
+Same field coercions as [`formData`](#formdata), without files.
+
+### **`queryString`**
+
+`S.t<S.queryString>`
+
+```rescript
+let schema = S.queryString->S.to(
+  S.schema(s => {
+    q: s.field("q", S.string->S.nonEmpty),
+    page: s.field("page", S.option(S.int)),
+  }),
+)
+
+"q=hi&page=2"->S.parseOrThrow(~to=schema)
+```
 
 ### **`json`**
 
@@ -1272,7 +1421,7 @@ The `S.json` schema represents a data that is compatible with JSON.
 
 ### **`jsonString`**
 
-`S.t<string>`
+`S.t<S.jsonString>`
 
 ```rescript
 let schema = S.jsonString->S.to(S.int)
@@ -1296,7 +1445,7 @@ A field of bytes is written as base64. You do not pass Pack or Unpack.
 ```rescript
 {
   payload: %raw(`new Uint8Array([137, 80, 78, 71])`),
-}->S.decodeOrThrow(
+}->S.convertOrThrow(
   ~from=S.schema(s => {payload: s.matches(S.uint8Array)}),
   ~to=S.jsonString,
 )
@@ -1347,9 +1496,9 @@ S.uint8Array->S.to(S.jsonString, ~custom={decode: Pack, encode: Unpack})
 Sury does not guess when both conversions exist.
 
 ```rescript
-S.uint8Array->S.to(S.jsonString)
-// Ambiguous conversion from Uint8Array to JSON string.
-// Use S.to(from, to, "unpack" | "pack")
+bytes->S.parseOrThrow(~to=S.uint8Array->S.to(S.jsonString))
+// throws: Ambiguous Uint8Array -> JSON string. Should the bytes be packed or
+// unpacked? Choose with S.to and "pack" or "unpack"
 ```
 
 #### UTF-8, the same bytes, parse, or widen
@@ -1361,6 +1510,166 @@ S.jsonString->S.to(S.string) // parses
 S.base64->S.to(S.string) // widens
 ```
 
+### **Protocol Buffers**
+
+`S.protobuf` is the [Protocol Buffers](https://protobuf.dev) binary wire
+format. Number every field of a message with `S.protobufField`, convert to
+`S.protobuf`, and you have an encoder and a decoder for that message. No
+`.proto` file, no code generation step, and the schema still parses, infers
+types and converts to JSON Schema.
+
+```rescript
+type address = {street: string}
+type user = {id: int, name: string, tags: array<string>, home: option<address>, kind: int}
+
+let addressSchema = S.schema(s => {street: s.matches(S.string->S.protobufField(1))})
+
+let userSchema = S.schema(s => {
+  id: s.matches(S.int->S.protobufField(1)),
+  name: s.matches(S.string->S.protobufField(2)),
+  tags: s.matches(S.array(S.string)->S.protobufField(3)),
+  home: s.matches(S.option(addressSchema)->S.protobufField(4)),
+  kind: s.matches(S.enum([1, 2])->S.protobufField(5, ~type_=#enum)),
+})->S.meta({name: "User"})
+
+let value = {id: 150, name: "Ada", tags: ["ml"], home: Some({street: "Main"}), kind: 2}
+
+let bytes = value->S.convertOrThrow(~from=userSchema, ~to=S.protobuf) // 22 bytes
+bytes->S.convertOrThrow(~from=S.protobuf, ~to=userSchema) // back to `value`
+```
+
+Hoist the operation when you run it more than once, the way you would any
+other:
+
+```rescript
+let decode = S.compileConvertOrThrow(~from=S.protobuf, ~to=userSchema)
+```
+
+`S.protobuf->S.to(userSchema)` is the same codec as one schema, so it parses
+straight from an `unknown` - the bytes are checked to be a `Uint8Array` before
+anything is read:
+
+```rescript
+body->S.parseOrThrow(~to=S.protobuf->S.to(userSchema))
+```
+
+#### Build a message with `S.schema`, not `S.object`
+
+`S.object` names JS fields and builds a ReScript value out of them, which is a
+conversion: the message is the thing on the far side of it, and a *nested*
+message field has nowhere to put one.
+
+```rescript
+S.object(s => {street: s.field("street", S.string->S.protobufField(1))})
+// as a field of another message, throws: field "home" is a message that
+// converts further with S.to, which a nested field can't
+```
+
+`S.schema` matches the record's own fields, so the message is the schema
+itself and nests freely. Use `S.object` only for a root message, where the
+conversion has somewhere to go.
+
+#### The wire type
+
+It is inferred from the schema: `S.string` is `string`, `S.bool` is `bool`,
+`S.uint8Array` is `bytes`, `S.int` is `int32`, `S.float` is `double`,
+`S.bigint` is `int64`, `S.enum` of ints is an `enum`, a message schema is a
+nested `message`, `S.array` is `repeated` and `S.dict` is a `map`. Pass
+`~type_` to pick any of the fifteen scalar types yourself, which also lets the
+ReScript type differ from the wire type - Sury converts through the schema.
+
+```rescript
+S.string->S.protobufField(1, ~type_=#uint32) // "150" <=> varint 150
+S.int->S.protobufField(2, ~type_=#sint32) // zigzag
+S.bigint->S.protobufField(3, ~type_=#fixed64)
+S.float->S.protobufField(4, ~type_=#float)
+```
+
+The rest of `S.protobufField` is protobuf's own vocabulary. `~key` is the K of
+a `map<K, V>` for an `S.dict` field, `string` unless you say otherwise;
+`~packed=false` writes a repeated scalar expanded, a tag per item, where the
+default packs them into one run (decoding accepts both); `~oneof` puts the
+field in a `oneof` block, where at most one member is ever set: decoding one
+clears the others, and encoding a value with two of them set is refused.
+
+```rescript
+S.dict(S.string)->S.protobufField(5, ~key=#int64)
+S.array(S.int)->S.protobufField(6, ~packed=false)
+S.option(S.string)->S.protobufField(7, ~oneof="choice")
+```
+
+#### Unknown fields
+
+Skipped, the way every proto3 reader skips them, which is what lets a sender
+add a field without breaking you. Skipped, not kept: a decode followed by an
+encode writes back only the fields the schema declares. `S.strict` on the
+message rejects an unknown field instead, which is worth having on an internal
+wire where an unexpected number means a version skew you would rather hear
+about.
+
+A wire failure names where it hit, the way an object parse error names a path:
+the field, its number, and the wire type the bytes claimed, with each
+enclosing message in front of it.
+
+```rescript
+%raw(`new Uint8Array([8, 1, 34, 3, 10, 1, 255])`)->S.convertOrThrow(
+  ~from=S.protobuf,
+  ~to=userSchema,
+)
+// throws: protobuf string is not valid UTF-8 at home.street (field 1, wire type 2)
+```
+
+#### `toProtoOrThrow`
+
+`(S.t<'value>, ~name: string=?, ~package: string=?) => string`
+
+The proto3 source describing the wire a message schema speaks, for the other
+side of the connection. A schema's `name` meta names the message, otherwise
+`~name` does, otherwise it is `Message`. camelCase field names print
+snake_case, because that is proto3's style guide and what `buf lint` checks;
+the wire is unaffected, since a field is its number, and every generator turns
+the name back into the one its own language would use.
+
+```rescript
+userSchema->S.toProtoOrThrow(~package="acme.v1")
+```
+
+```proto
+syntax = "proto3";
+
+package acme.v1;
+
+message User {
+  message Home {
+    string street = 1;
+  }
+  enum Kind {
+    KIND_UNSPECIFIED = 0;
+    KIND_1 = 1;
+    KIND_2 = 2;
+  }
+
+  int32 id = 1;
+  string name = 2;
+  repeated string tags = 3;
+  optional Home home = 4;
+  Kind kind = 5;
+}
+```
+
+`description` meta prints as a comment and `deprecated` as the option. An
+enum's zero member prints as `<NAME>_UNSPECIFIED`, and one is prepended to an
+enum whose values lack `0`, which proto3 requires and the schema itself
+rejects. It throws on anything that cannot be a message: a field with no
+number, two fields sharing one, a recursive message, a schema that is not an
+object.
+
+See [Protocol Buffers in the JS guide](./js-usage.md#protocol-buffers) for the
+wire-level detail the two languages share, including what the conformance
+suite covers, and
+[Benchmarks: Protobuf](https://github.com/DZakh/sury/blob/main/docs/benchmarks/protobuf.md)
+for the measured numbers.
+
 ### **`meta`**
 
 `(S.t<'value>, S.meta) => S.t<'value>`
@@ -1371,20 +1680,22 @@ Use `S.meta` to add a metadata to the resulting schema.
 let documentedStringSchema = S.string
   ->S.meta({description: "A useful bit of text, if you know what to do with it."})
 
-(documentedStringSchema->S.untag).description // A useful bit of text…
+(documentedStringSchema->S.untag).description // A useful bit of text...
 ```
 
 This can be useful for documenting fields, generating JSON, etc.
 
 ```rescript
-schema->S.inputJSONSchema
+documentedStringSchema->S.toInputJSONSchemaOrThrow
 // {
 //   "type": "string",
 //   "description": "A useful bit of text, if you know what to do with it."
 // }
 ```
 
-`S.outputJSONSchema` describes the other side — what the schema produces rather than what it accepts.
+`S.toOutputJSONSchemaOrThrow` describes the other side - what the schema produces rather than what it accepts.
+
+A type JSON has no way to describe - a `bigint`, a `Date` - throws on the side it appears, whichever direction that is.
 
 ### **`recursive`**
 
@@ -1426,7 +1737,7 @@ The same schema works for encoding:
 {
   id: "1",
   children: [{id: "2", children: []}, {id: "3", children: [{id: "4", children: []}]}],
-}->S.decodeOrThrow(~from=nodeSchema, ~to=S.unknown)
+}->S.convertOrThrow(~from=nodeSchema, ~to=S.unknown)
 // {
 //   "Id": "1",
 //   "Children": [
@@ -1436,7 +1747,7 @@ The same schema works for encoding:
 // }
 ```
 
-You can also use asynchronous parser:
+You can also use an asynchronous codec:
 
 ```rescript
 let paramsSchema = S.schema(s => {name: s.matches(S.string)})
@@ -1470,7 +1781,7 @@ let mySet = itemSchema => {
   ->S.to(
     // The escape hatch earns its keep here: no schema carries `Set.t<'item>`,
     // and `S.any` is what lets `mySet` return `S.t<Set.t<'item>>`. Reach for a
-    // real target everywhere it exists — see `to` with `~custom`.
+    // real target everywhere it exists - see `to` with `~custom`.
     S.any,
     ~custom={
       decode: Sync(
@@ -1489,7 +1800,7 @@ let mySet = itemSchema => {
       encode: Never,
     },
   )
-  ->S.meta({name: `Set.t<${S.inputExpression(itemSchema)}>`})
+  ->S.meta({name: `Set.t<${S.toInputExpression(itemSchema)}>`})
 }
 
 let intSetSchema = mySet(S.int)
@@ -1501,11 +1812,11 @@ S.parseOrThrow(%raw(`[1, 2, 3]`), ~to=intSetSchema) // throws S.Error: Expected 
 
 ## Refinements
 
-**Sury** lets you provide custom validation logic via refinements. Refinements let you define checks that are not expressible in the type system alone — for example, checking that a number is positive or that a string is a valid email address.
+**Sury** lets you provide custom validation logic via refinements. Refinements let you define checks that are not expressible in the type system alone - for example, checking that a number is positive or that a string is a valid email address.
 
 ### **`refine`**
 
-`(S.t<'value>, 'value => bool, ~error: string=?, ~path: array<string>=?) => S.t<'value>`
+`(S.t<'value>, 'value => bool, ~error: string=?, ~path: S.Path.t=?) => S.t<'value>`
 
 ```rescript
 let positiveNumberSchema = S.int->S.refine(value => value > 0)
@@ -1526,7 +1837,7 @@ let shortStringSchema = S.string->S.refine(
 
 #### Custom error path
 
-When refining an object schema, you can use the `~path` labeled argument to attach the error to a specific field:
+When refining an object schema, you can use the `~path` labeled argument to attach the error to a specific field. It is an `S.Path.t`, the same array `error.path` carries: `String` segments for keys and `Number` ones for array indices, so `[String("items"), Number(0.)]` reports `Failed at items[0]`:
 
 ```rescript
 let passwordFormSchema = S.object(s => {
@@ -1535,7 +1846,7 @@ let passwordFormSchema = S.object(s => {
 })->S.refine(
   data => data["password"] === data["confirm"],
   ~error="Passwords don't match",
-  ~path=["confirm"],
+  ~path=S.Path.fromArray(["confirm"]),
 )
 ```
 
@@ -1584,7 +1895,7 @@ Each direction is one of:
 
 ```rescript
 Sync(fn)   // a coder
-Async(fn)  // a coder returning a promise, run with parseAsyncOrThrow
+Async(fn)  // a coder returning a promise, run with parseAsPromiseOrReject
 Auto       // keep the built-in conversion for this direction
 Never      // this direction is impossible, fail when an operation needs it
 Pack       // store this direction's source as a value the target holds
@@ -1615,17 +1926,17 @@ Describe what you decode into. The target is what validates the coder's result,
 types the output, and exports to JSON Schema.
 
 > 🧠 `S.any` accepts anything, so it checks nothing about what a coder returns.
-> It's the escape hatch for a value no schema can describe — reach for it last,
+> It's the escape hatch for a value no schema can describe - reach for it last,
 > not first.
 
 A coder fails by throwing, and the path it was reached through is prepended:
 
 ```rescript
-"abc"->S.decodeOrThrow(~from=S.int->intToString, ~to=S.unknown)
+"abc"->S.convertOrThrow(~from=S.int->intToString, ~to=S.unknown)
 // Can't convert string to int
 ```
 
-Any exception works, a ReScript one (`throw(Failure("…"))`) included, but only
+Any exception works, a ReScript one (`throw(Failure("..."))`) included, but only
 a JS error carries a message, so anything else is reported by its structure.
 To name a path or the schemas involved, build the error and throw that:
 
@@ -1646,12 +1957,14 @@ S.Error.make(
 
 `S.t<'value>` names the output type, so operations on that side carry no prefix; the ones that look at the input side say so in their name.
 
-|           | Input side                             | Output side                              | Crosses both                                    |
-| --------- | -------------------------------------- | ---------------------------------------- | ----------------------------------------------- |
-| Convert   |                                        |                                          | `parseOrThrow`, `decodeOrThrow`, `parser`, `decoder` |
-| Construct |                                        | `constructor`, `asyncConstructor`        |                                                 |
-| Assert    | `assertOrThrow`                        |                                          |                                                 |
-| Describe  | `inputJSONSchema`, `inputExpression`   | `outputJSONSchema`, `outputExpression`   |                                                 |
+|          | Input side                                           | Output side                                            | Crosses both         |
+| -------- | ---------------------------------------------------- | ------------------------------------------------------ | -------------------- |
+| Convert  |                                                      |                                                        | `parse*`, `convert*` |
+| Make     |                                                      | `make*`                                                |                      |
+| Validate | `isInput`                                            | `isOutput`                                             |                      |
+| Compare  |                                                      | `isEqual`                                              |                      |
+| Assert   | `assertInputOrThrow`, `assertInputAsPromiseOrReject` | `assertOutputOrThrow`, `assertOutputAsPromiseOrReject` |                      |
+| Describe | `toInputJSONSchemaOrThrow`, `toInputExpression`      | `toOutputJSONSchemaOrThrow`, `toOutputExpression`      |                      |
 
 ### Pipelines
 
@@ -1662,17 +1975,17 @@ Conversion targets are schemas, not dedicated functions: `S.json`, `S.jsonString
 data->S.parseOrThrow(~to=userSchema)
 
 // Parse a JSON string, then validate.
-rawString->S.decodeOrThrow(~from=S.jsonString, ~to=userSchema)
+rawString->S.convertOrThrow(~from=S.jsonString, ~to=userSchema)
 
 // Encode a domain value all the way out to a JSON string.
-user->S.decodeOrThrow(~from=userSchema, ~to=S.jsonString)
+user->S.convertOrThrow(~from=userSchema, ~to=S.jsonString)
 
 // Pre-compile pipelines once, call them many times.
-let parseJsonUser = S.decoder(~from=S.jsonString, ~to=userSchema)
-let stringifyUser = S.decoder(~from=userSchema, ~to=S.jsonString)
+let parseJsonUser = S.compileConvertOrThrow(~from=S.jsonString, ~to=userSchema)
+let stringifyUser = S.compileConvertOrThrow(~from=userSchema, ~to=S.jsonString)
 ```
 
-The **same pipeline idea works inside schemas** via [`S.to`](#to). A field, an array element, a tuple slot — any nested schema can be its own multi-stage chain:
+The **same pipeline idea works inside schemas** via [`S.to`](#to). A field, an array element, a tuple slot - any nested schema can be its own multi-stage chain:
 
 ```rescript
 let apiUserSchema = S.schema(s =>
@@ -1689,150 +2002,166 @@ let apiUserSchema = S.schema(s =>
 )
 ```
 
-`S.to` is the same compiler as `S.decoder` and `S.decodeOrThrow`, just used at a single point in a larger schema. The whole tree — top-level operation plus every nested `S.to` — still folds into one generated function, so deep pipelines stay free of runtime overhead.
+`S.to` is the same compiler as `S.compileConvertOrThrow` and `S.convertOrThrow`, just used at a single point in a larger schema. The whole tree - top-level operation plus every nested `S.to` - still folds into one generated function, so deep pipelines stay free of runtime overhead.
 
-> 🧠 `S.parseOrThrow` and `S.assertOrThrow` aren't separate primitives — they're just specializations of `S.decodeOrThrow` with `S.unknown` on the input side. `data->S.parseOrThrow(~to=schema)` is `data->S.decodeOrThrow(~from=S.unknown, ~to=schema)`. `data->S.assertOrThrow(~to=schema)` runs a decoder from `S.unknown` through the schema to `S.literal(true)->S.noValidation(true)` — the target is a no-op constant with validation disabled, so the compiler emits the schema's validation but no output-construction code at all. That's why `assertOrThrow` is 2–3× faster than `parseOrThrow`.
+> 🧠 `S.parseOrThrow` and `S.assertInputOrThrow` aren't separate primitives - they're just specializations of `S.convertOrThrow` with `S.unknown` on the input side. `data->S.parseOrThrow(~to=schema)` is `data->S.convertOrThrow(~from=S.unknown, ~to=schema)`. `data->S.assertInputOrThrow(~schema)` runs a decoder from `S.unknown` through the schema to `S.literal()->S.noValidation(true)` - the target is a no-op constant with validation disabled, so the compiler emits the schema's validation but no output-construction code at all. That's why `assertInputOrThrow` is 2-3× faster than `parseOrThrow`.
 
 ### Built-in operations
 
-The library provides a bunch of built-in operations that can be used to parse, decode, and assert values.
+Every operation is named `[compile]` + verb + outcome, and the names match the JS ones apart from two deliberate divergences: `S.t<'value>` names the **output** type, so what JS spells `encode*` is `convert*` here, and what it spells `makeOutput*` is just `make*`.
+
+`parse`, `convert` and `make` each take four outcomes:
+
+| Suffix | Returns |
+| --- | --- |
+| `OrThrow` | `'value` - throws `S.Exn` |
+| `AsResult` | `result<'value, S.error>` |
+| `AsPromiseOrReject` | `promise<'value>` - rejects, never throws synchronously |
+| `AsResultPromise` | `promise<result<'value, S.error>>` |
+
+The result outcomes are compiled, not wrapped: ReScript's `result` is a second tail the same compiler emits, so nothing pays for a closure per call.
+
+Asserting has the two throwing outcomes, `assertInputOrThrow` and `assertInputAsPromiseOrReject` (plus their `Output` twins). `isInput` / `isOutput` are the non-throwing counterparts and answer with a `bool` rather than a `result`, since there is no value to hand back either way - `assert` is a ReScript keyword, which is why the boolean form is spelled `is*`.
+
+ReScript has no overloads, so where the JS surface reads the call shape at runtime, the binding names it: the `compile*` form is the data-last one, and the bare name takes the data first. Both are bindings over the same JS function, so neither pays for the other.
+
+The `compile` prefix returns the operation as a function to call repeatedly - the fastest way to run one schema many times. Every outcome has one except `assert*`, which has nothing to hand back and so nothing to keep.
+
+`parse*` and `convert*` take `~to` (and `~from`/`~via`): they convert a value into that target. `assert*`, `is*` and `make*` take `~schema` instead - the value is checked against it and either handed back as it stands or answered about, never converted into it.
+
+There is no promisable outcome here, though the JS surface has one (`parseAsPromisableResult`): telling `result` from `promise<result>` needs a runtime probe that ReScript's untagged variants can't express over a variant payload, and a boxed `Sync | Async` would cost the allocation the outcome exists to avoid.
+
+| Verb        | Throws                                             | Result                                             |
+| ----------- | -------------------------------------------------- | -------------------------------------------------- |
+| **parse**   | `parseOrThrow`, `parseAsPromiseOrReject`           | `parseAsResult`, `parseAsResultPromise`            |
+| **convert** | `convertOrThrow`, `convertAsPromiseOrReject`       | `convertAsResult`, `convertAsResultPromise`        |
+| **make**    | `makeOrThrow`, `makeAsPromiseOrReject`             | `makeAsResult`, `makeAsResultPromise`              |
+| **assert**  | `assertInputOrThrow`, `assertInputAsPromiseOrReject` (and the `Output` twins) | |
+| **is**      | | `isInput`, `isOutput` - a `bool`, not a `result` |
+
+Each has a `compile`-prefixed data-last form - `compileParseOrThrow`, `compileConvertAsResult`, `compileIsOutput`, and so on - apart from `assert*`.
 
 **Parsing** validates the input value against the schema and transforms it to the expected output type:
 
-| Operation           | Interface                                            | Description                                                   |
-| ------------------- | ---------------------------------------------------- | ------------------------------------------------------------- |
-| S.parseOrThrow      | `('any, ~to: S.t<'value>) => 'value`                | Parses any value with the schema                              |
-| S.parseAsyncOrThrow | `('any, ~to: S.t<'value>) => promise<'value>`       | Parses any value with the schema having async transformations |
-
-**Decoding** transforms between schemas without input validation. Be careful, since the input type is not checked:
-
-| Operation              | Interface                                                              | Description                                          |
-| ---------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------- |
-| S.decodeOrThrow        | `('from, ~from: S.t<'from>, ~to: S.t<'to>) => 'to`                   | Decodes a value from one schema to another           |
-| S.decodeAsyncOrThrow   | `('from, ~from: S.t<'from>, ~to: S.t<'to>) => promise<'to>`          | Async version of decodeOrThrow                       |
-
-Common decode patterns:
-
-```rescript
-// Parse JSON value
-data->S.decodeOrThrow(~from=S.json, ~to=schema)
-
-// Parse JSON string
-data->S.decodeOrThrow(~from=S.jsonString, ~to=schema)
-
-// Encode to unknown
-data->S.decodeOrThrow(~from=schema, ~to=S.unknown)
-
-// Encode to JSON
-data->S.decodeOrThrow(~from=schema, ~to=S.json)
-
-// Encode to JSON string
-data->S.decodeOrThrow(~from=schema, ~to=S.jsonString)
-
-// Encode to JSON string with space
-data->S.decodeOrThrow(~from=schema, ~to=S.jsonStringWithSpace(2))
+```
+S.parseOrThrow: ('any, ~to: S.t<'value>) => 'value
+S.parseAsResult: ('any, ~to: S.t<'value>) => result<'value, S.error>
+S.parseAsPromiseOrReject: ('any, ~to: S.t<'value>) => promise<'value>
+S.parseAsResultPromise: ('any, ~to: S.t<'value>) => promise<result<'value, S.error>>
+S.compileParseOrThrow: (~to: S.t<'value>) => 'any => 'value
+S.compileParseAsResult: (~to: S.t<'value>) => 'any => result<'value, S.error>
+S.compileParseAsPromiseOrReject: (~to: S.t<'value>) => 'any => promise<'value>
+S.compileParseAsResultPromise: (~to: S.t<'value>) => 'any => promise<result<'value, S.error>>
 ```
 
-Also, you can use `S.noValidation` helper to turn off type validations for the schema even when it's used with a parse operation.
-
-**Asserting** validates the input value without returning a transformed result:
-
-| Operation            | Interface                                            | Description                                                                                                                                          |
-| -------------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| S.assertOrThrow      | `('any, ~to: S.t<'value>) => ()`                    | Asserts that the input value is valid. Since the operation doesn't return a value, it's 2-3 times faster than `parseOrThrow` depending on the schema |
-| S.assertAsyncOrThrow | `('any, ~to: S.t<'value>) => promise<()>`            | Async version of assertOrThrow                                                                                                                       |
-
-All operations either return the output value or throw an exception which you can catch with `try/catch` block:
-
 ```rescript
-try true->S.parseOrThrow(~to=schema) catch {
-| S.Error(error) => Console.log(error.message)
+let parse = S.compileParseOrThrow(~to=S.string)
+parse("Hello world!") // "Hello world!"
+
+switch data->S.parseAsResult(~to=schema) {
+| Ok(value) => Console.log(value)
+| Error(error) => Console.log(error.message)
 }
 ```
 
-### **`parser`** / **`asyncParser`**
+**Converting** transforms a value from one schema's output type to another's. The input isn't validated - `~from` is trusted, and the type is derived from it. Pass `~via` to route through an intermediate schema:
 
 ```
-S.parser: (~through: array<S.t<unknown>>=?, ~to: S.t<'value>) => 'any => 'value
-S.asyncParser: (~through: array<S.t<unknown>>=?, ~to: S.t<'value>) => 'any => promise<'value>
+S.convertOrThrow: ('from, ~from: S.t<'from>, ~via: S.t<'via>=?, ~to: S.t<'to>) => 'to
+S.convertAsResult: ('from, ~from: S.t<'from>, ~via: S.t<'via>=?, ~to: S.t<'to>) => result<'to, S.error>
+S.convertAsPromiseOrReject: ('from, ~from: S.t<'from>, ~via: S.t<'via>=?, ~to: S.t<'to>) => promise<'to>
+S.convertAsResultPromise: ('from, ~from: S.t<'from>, ~via: S.t<'via>=?, ~to: S.t<'to>) => promise<result<'to, S.error>>
+S.compileConvertOrThrow: (~from: S.t<'from>, ~via: S.t<'via>=?, ~to: S.t<'to>) => 'from => 'to
 ```
-
-Returns a compiled parse function that validates input and transforms it to the schema's output type. This is the most performant way to parse values repeatedly. Use `~through` to chain intermediate schemas.
 
 ```rescript
-let parse = S.parser(~to=S.string)
+// Parse JSON value
+data->S.convertOrThrow(~from=S.json, ~to=schema)
 
-parse("Hello world!")
-// "Hello world!"
+// Parse JSON string
+data->S.convertOrThrow(~from=S.jsonString, ~to=schema)
 
-// Async version for schemas with async transformations
-let parseAsync = S.asyncParser(~to=schemaWithAsyncTransform)
+// Parse JSON string, validating it as JSON on the way
+data->S.convertOrThrow(~from=S.jsonString, ~via=S.json, ~to=schema)
+
+// Encode to unknown
+data->S.convertOrThrow(~from=schema, ~to=S.unknown)
+
+// Encode to JSON string with space
+data->S.convertOrThrow(~from=schema, ~to=S.jsonStringWithSpace(2))
+
+// Compile once, run many times
+let toJsonString = S.compileConvertOrThrow(~from=schema, ~to=S.jsonString)
 ```
 
-### **`decoder`** / **`asyncDecoder`**
+`~via` runs that schema's own validation, so `~via=S.json` rejects a JSON string that parses to something `S.json` doesn't accept.
+
+Also, you can use `S.noValidation` helper to turn off type validations for the schema even when it's used with a parse operation.
+
+**Asserting** validates the input value without returning a transformed result. Since no output is constructed, it's 2-3 times faster than `parseOrThrow` depending on the schema:
 
 ```
-S.decoder: (~from: S.t<'from>, ~through: array<S.t<unknown>>=?, ~to: S.t<'to>) => 'from => 'to
-S.asyncDecoder: (~from: S.t<'from>, ~through: array<S.t<unknown>>=?, ~to: S.t<'to>) => 'from => promise<'to>
+S.assertInputOrThrow: ('any, ~schema: S.t<'value>) => ()
+S.assertInputAsPromiseOrReject: ('any, ~schema: S.t<'value>) => promise<()>
+S.assertOutputOrThrow: ('any, ~schema: S.t<'value>) => ()
+S.assertOutputAsPromiseOrReject: ('any, ~schema: S.t<'value>) => promise<()>
 ```
 
-Returns a compiled decode function that transforms values from one schema to another. Use `~through` to chain intermediate schemas.
+**Validating** is the non-throwing assert, spelled `is*` (see above) - and with the JS name comes the direction, which is a free parameter here:
+
+```
+S.isInput: ('any, ~schema: S.t<'value>) => bool
+S.isOutput: ('any, ~schema: S.t<'value>) => bool
+S.compileIsInput: (~schema: S.t<'value>) => 'any => bool
+S.compileIsOutput: (~schema: S.t<'value>) => 'any => bool
+```
+
+**Comparing** answers whether two values of the schema's type are the same value, by the schema's own structure: fields and elements by their own schemas, a `Date` by its time, a variant by the case each value lands in, and a literal not at all. Both values are assumed to have the type already, so nothing is validated. `S.t<'value>` names the output type, so this is the JS `isEqualOutput`:
+
+```
+S.isEqual: ('value, 'value, ~schema: S.t<'value>) => bool
+S.compileIsEqual: (~schema: S.t<'value>) => ('value, 'value) => bool
+```
 
 ```rescript
-// Compile an encoder
-let encode = S.decoder(~from=schema, ~to=S.unknown)
+let isSameFilm = S.compileIsEqual(~schema=filmSchema)
 
-// Compile a JSON decoder
-let decodeJson = S.decoder(~from=S.json, ~to=schema)
-
-// Compile a JSON string encoder
-let toJsonString = S.decoder(~from=schema, ~to=S.jsonString)
-
-// Compile an async decoder
-let decodeAsync = S.asyncDecoder(~from=S.json, ~to=schema)
+isSameFilm(a, b)
 ```
 
-### **`decoder1`** / **`asyncDecoder1`**
+**Making** checks a value you built in code rather than received from the wire. Every check the schema carries runs - types, the conversion, refinements - and the value itself comes back, not a decoded copy, so an entity the schema has no way to encode fails at construction rather than at the point it's sent. `S.t<'value>` names the output type, so this is the JS `makeOutputOrThrow`:
 
 ```
-S.decoder1: S.t<'value> => unknown => 'value
-S.asyncDecoder1: S.t<'value> => unknown => promise<'value>
+S.makeOrThrow: ('value, ~schema: S.t<'value>) => 'value
+S.makeAsResult: ('value, ~schema: S.t<'value>) => result<'value, S.error>
+S.makeAsPromiseOrReject: ('value, ~schema: S.t<'value>) => promise<'value>
+S.makeAsResultPromise: ('value, ~schema: S.t<'value>) => promise<result<'value, S.error>>
+S.compileMakeOrThrow: (~schema: S.t<'value>) => 'value => 'value
 ```
-
-Returns a compiled decode function for a single schema, transforming from the schema's input type to its output type. This is useful for schemas with internal transformations.
-
-```rescript
-let schema = S.array(S.nullAsOption(S.string))
-let decode = S.decoder1(schema)
-
-// Input: array<Js.nullable<string>> (schema input)
-// Output: array<option<string>> (schema output)
-decode(%raw(`["foo", null, "bar"]`))
-// [Some("foo"), None, Some("bar")]
-```
-
-### **`constructor`** / **`asyncConstructor`**
-
-```
-S.constructor: S.t<'value> => 'value => 'value
-S.asyncConstructor: S.t<'value> => 'value => promise<'value>
-```
-
-For a value you built in code rather than received from the wire. Every check the schema carries runs — types, the conversion, refinements — and the value itself comes back, not a decoded copy, so an entity the schema has no way to encode fails at construction rather than at the point it's sent.
 
 ```rescript
 let userSchema = S.object(s => {
   id: s.field("id", S.string),
   email: s.field("email", S.email),
 })
-let makeUser = S.constructor(userSchema)
+let makeUser = S.compileMakeOrThrow(~schema=userSchema)
 
 makeUser({id: "1", email: "billie@example.com"})
 // returns the very record it was given
 
 makeUser({id: "1", email: "not-an-address"})
-// throws S.Error: Failed at email: Expected email, received "not-an-address"
+// throws S.Exn: Failed at email: Expected email, received "not-an-address"
 ```
+
+The `OrThrow` operations throw an exception which you can catch with `try/catch` block:
+
+```rescript
+try true->S.parseOrThrow(~to=schema) catch {
+| S.Exn(error) => Console.log(error.message)
+}
+```
+
+The bare names give the same failure as a `result`. Every failure of the value becomes `Error` - a refine or coder that throws is wrapped as `InvalidConversion` with the exception as its `cause`. Use `S.Error.classify` to match on the error's details.
 
 ### **`reverse`**
 
@@ -1873,7 +2202,7 @@ let schema = S.string->S.to(S.float)
 "abc"->S.parseOrThrow(~to=schema) //? throws: Expected number, received "abc"
 
 // Reverse works correctly as well 🔥
-123.->S.decodeOrThrow(~from=schema, ~to=S.unknown) //? "123"
+123.->S.convertOrThrow(~from=schema, ~to=S.unknown) //? "123"
 ```
 
 ### **`name`**
@@ -1886,15 +2215,15 @@ let schema = S.literal({"abc": 123})->S.meta({name: "Abc"})
 
 Used internally for readable error messages.
 
-### **`inputExpression`**
+### **`toInputExpression`**
 
 `(S.t<'value>) => string`
 
 ```rescript
-S.literal({"abc": 123})->S.inputExpression
+S.literal({"abc": 123})->S.toInputExpression
 // "{ "abc": 123 }"
 
-S.string->S.meta({name: "Address"})->S.inputExpression
+S.string->S.meta({name: "Address"})->S.toInputExpression
 // "Address"
 ```
 
@@ -1902,17 +2231,17 @@ Used internally for readable error messages.
 
 > 🧠 The format is subject to change
 
-### **`outputExpression`**
+### **`toOutputExpression`**
 
 `(S.t<'value>) => string`
 
 ```rescript
 let schema = S.string->S.to(S.int)
 
-schema->S.inputExpression
+schema->S.toInputExpression
 // "string"
 
-schema->S.outputExpression
+schema->S.toOutputExpression
 // "int32"
 ```
 
@@ -1932,7 +2261,7 @@ The same expression for the schema's output type.
 // "Schema<string, int32>"
 ```
 
-Both sides at once, in the order the type declares them — `Schema<TInput, TOutput>` — with the second parameter dropped when the two sides match.
+Both sides at once, in the order the type declares them - `Schema<TInput, TOutput>` - with the second parameter dropped when the two sides match.
 
 `Console.log(schema)` deliberately still shows the internal schema shape, which is usually what you want when you're inspecting one. Call `toString` when you want the expression.
 
@@ -1969,7 +2298,7 @@ Every schema implements the [Standard Schema](https://standardschema.dev/) spec 
 ```rescript
 let standard = (S.string->S.untag).standard
 
-standard.validate("abc") // {value: "abc"}
+standard.validate("abc") // Sync({value: "abc"}); Async(promise) for a schema with an async codec
 
 S.enableStandardJSONSchema() // Once, to opt into jsonSchema (keeps the conversion tree-shakeable otherwise)
 (standard.jsonSchema->Option.getUnsafe).input({target: StandardSchema.JsonSchema.Draft07})

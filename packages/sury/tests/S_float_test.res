@@ -24,7 +24,7 @@ module Common = {
   test("Successfully serializes", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.decodeOrThrow(~from=schema, ~to=S.unknown), any)
+    t->Assert.deepEqual(value->S.convertOrThrow(~from=schema, ~to=S.unknown), any)
   })
 
   test("Compiled parse code snapshot", t => {
@@ -33,7 +33,7 @@ module Common = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{typeof i==="number"&&i===i||e[0](i);return i}`,
+      `i=>{typeof i==="number"&&i==i||e[0](i);return i}`,
     )
   })
 

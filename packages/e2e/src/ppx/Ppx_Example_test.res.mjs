@@ -12,18 +12,18 @@ let ratingSchema = Sury.union([
 ]);
 
 let filmSchema = Sury.$schema(s => ({
-  Id: s.m(Sury.float),
+  Id: s.m(Sury.number),
   Title: s.m(Sury.string),
   Tags: s.m(Sury.$Option_getOr(Sury.$option(Sury.array(Sury.string)), [])),
   Rating: s.m(ratingSchema),
-  Age: s.m(Sury.meta(Sury.$option(Sury.int), {
+  Age: s.m(Sury.meta(Sury.$option(Sury.int32), {
     description: "Use rating instead",
     deprecated: true
   }))
 }));
 
 Vitest.test("Main example", t => U.assertEqualSchemas(t, filmSchema, Sury.$schema(s => ({
-  Id: s.m(Sury.float),
+  Id: s.m(Sury.number),
   Title: s.m(Sury.string),
   Tags: s.m(Sury.$Option_getOr(Sury.$option(Sury.array(Sury.string)), [])),
   Rating: s.m(Sury.union([
@@ -32,15 +32,19 @@ Vitest.test("Main example", t => U.assertEqualSchemas(t, filmSchema, Sury.$schem
     Sury.literal("PG13"),
     Sury.literal("R")
   ])),
-  Age: s.m(Sury.meta(Sury.$option(Sury.int), {
+  Age: s.m(Sury.meta(Sury.$option(Sury.int32), {
     description: "Use rating instead",
     deprecated: true
   }))
 })), undefined));
 
-let matchesSchema = Sury.uri;
+let myCustomSchema = Sury.maxLength(Sury.string, 5);
 
-Vitest.test("@s.matches", t => U.assertEqualSchemas(t, matchesSchema, Sury.uri, undefined));
+Vitest.test("@s.matches", t => U.assertEqualSchemas(t, myCustomSchema, myCustomSchema, undefined));
+
+let urlSchema = Sury.url;
+
+Vitest.test("Format schema as a type", t => U.assertEqualSchemas(t, urlSchema, Sury.url, undefined));
 
 let defaultSchema = Sury.$Option_getOr(Sury.$option(Sury.string), "Unknown");
 
@@ -84,10 +88,14 @@ Vitest.test("@s.description", t => U.assertEqualSchemas(t, describeSchema, Sury.
   description: "A useful bit of text, if you know what to do with it."
 }), undefined));
 
+let matchesSchema = myCustomSchema;
+
 export {
   ratingSchema,
   filmSchema,
+  myCustomSchema,
   matchesSchema,
+  urlSchema,
   defaultSchema,
   defaultWithSchema,
   nullSchema,

@@ -3,24 +3,25 @@ ts:
   schema: 'S.string.with(S.to, S.number, { decode: { async: (value) => Promise.resolve(value.length) }, encode: (value) => "x".repeat(value) })'
   input: string
   output: number
-  instantiations: 5367
+  instantiations: 4553
 jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "number" }'
+isEqual: strictEqual
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
     isAsync: true
-    expression: i=>{typeof i==="string"||e[3](i);let v0;try{v0=e[0](i).catch(x=>e[1](x))}catch(x){e[1](x)}return v0.then(v0=>{typeof v0==="number"&&v0===v0||e[2](v0);return v0})}
+    expression: i=>{try{typeof i==="string"||e[3](i);let v0;try{v0=e[0](i).catch(x=>e[1](x))}catch(x){e[1](x)}return v0.then(v0=>{typeof v0==="number"&&v0==v0||e[2](v0);return v0})}catch(v1){return Promise.reject(v1)}}
     examples:
       valid:
         input: '"abc"'
         output: "3"
   decode:
     isAsync: true
-    expression: i=>{let v0;try{v0=e[0](i).catch(x=>e[1](x))}catch(x){e[1](x)}return v0.then(v0=>{typeof v0==="number"&&v0===v0||e[2](v0);return v0})}
+    expression: i=>{try{let v0;try{v0=e[0](i).catch(x=>e[1](x))}catch(x){e[1](x)}return v0.then(v0=>{typeof v0==="number"&&v0==v0||e[2](v0);return v0})}catch(v1){return Promise.reject(v1)}}
     examples:
       valid:
         input: '"abc"'

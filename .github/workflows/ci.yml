@@ -30,14 +30,55 @@ jobs:
       # The *.res.mjs beside each *.res are compiled output, checked in because
       # they ship in the published package. Every job that needs them rebuilds
       # them first, so a commit that forgot to regenerate passes the whole suite
-      # while the file in git says something else — the drift is only ever read
+      # while the file in git says something else - the drift is only ever read
       # by a consumer installing from npm. The build above just regenerated
       # them; anything that moved was stale in the commit.
       - name: Compiled ReScript matches its source
         run: ../../scripts/assert-no-drift.sh '*.res.mjs'
         working-directory: packages/sury
 
+      # `coverage` below typechecks only what vitest is pointed at
+      # (tests/**/*_test.ts). This covers src/ and scripts/ too - the fuzzers
+      # live in scripts/ and reach the library through its public entry, so
+      # without this a renamed export leaves them calling a name that no longer
+      # exists and nothing says so until someone runs them by hand.
+      - run: pnpm typecheck
+        working-directory: packages/sury
+
       - run: pnpm coverage
+        working-directory: packages/sury
+
+      # Guards the `escapeFree` flag, which switches jsonString to splicing a
+      # value between bare quotes with no escaping - so a format flagged wrongly
+      # emits syntactically broken JSON. That claim is a property of each
+      # format's regex, and nothing else in the suite checks it. Roughly 90s.
+      - run: pnpm fuzz:escfree
+        working-directory: packages/sury
+
+      # The only check that the union compiler's dispatch matches a sequential
+      # try of each member (CLAUDE.md, "Changing the union compiler"). Fixed
+      # seed so a red run reproduces locally with the same command.
+      - run: pnpm fuzz:union --seed=1
+        working-directory: packages/sury
+
+      # A spec pins the comparator's code and its answers for the values that
+      # spec writes down, and says nothing about the branch no spec reaches
+      # (CLAUDE.md, "Changing the equality compiler"). Seeds, not cases, are
+      # what widen this one: the schema grammar branches on every draw, so a
+      # sweep of short streams reaches what one long stream does not - the last
+      # bug it found showed at seed 24 in 1500 cases and never at seed 1 in
+      # 150000. Fixed range so a red run reproduces locally. Under 10s.
+      - run: pnpm fuzz:eq --seeds=40 --cases=1500
+        working-directory: packages/sury
+
+      # A form field's reading depends on its wrapper as much as its type, and
+      # a spec covers one schema (CLAUDE.md, "Changing the form codec"). This
+      # crosses the two and checks what a golden cannot: that a field works in
+      # both directions or neither, that an encode leaves its input alone, that
+      # a value survives an encode and the decode of it, and that every entry
+      # list a client could send is either rejected or read as a value the
+      # schema itself accepts. Exhaustive, so no seed. Seconds.
+      - run: pnpm fuzz:formdata
         working-directory: packages/sury
 
       # artifact_test.ts checks jsr.json against package.json; only JSR itself
@@ -72,7 +113,7 @@ jobs:
 
       # Fetches the pinned upstream revision (see suite-ref.json) and fails if
       # the score drifts from packages/json-schema-test-suite/goldens/ in
-      # either direction — a fix that improves coverage is expected to land the
+      # either direction - a fix that improves coverage is expected to land the
       # regenerated golden alongside it.
       - name: Restore suite checkout
         uses: actions/cache@v4
@@ -81,6 +122,91 @@ jobs:
           key: json-schema-test-suite-${{ hashFiles('packages/json-schema-test-suite/suite-ref.json') }}
 
       - run: pnpm compliance
+
+  protobuf-compliance:
+    name: Protobuf - Conformance & Test Suite
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.16.0
+          cache: "pnpm"
+      - run: pnpm install
+
+      # Our own corpus: fast, readable, and checked against two reference
+      # implementations. It says what broke.
+      - name: Protobuf test suite
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm protobuf:compliance | tee compliance.txt
+          echo "### $(tail -n 1 compliance.txt)" >> "$GITHUB_STEP_SUMMARY"
+
+      # Google's own conformance runner, which generates its cases inside the
+      # binary - the one that says whether we are right. Pinned corpus, cached
+      # by the commit it is pinned to.
+      - name: Restore conformance corpus
+        uses: actions/cache@v4
+        with:
+          path: packages/protobuf-conformance/.upstream
+          key: protobuf-conformance-${{ hashFiles('packages/protobuf-conformance/conformance-ref.json') }}
+
+      - name: Protobuf conformance suite
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm protobuf:conformance | tee conformance.txt
+          echo "### $(tail -n 1 conformance.txt)" >> "$GITHUB_STEP_SUMMARY"
+
+  # The four pages under docs/benchmarks/ are generated, and this is what keeps
+  # them true. Three of their four sections are the same on any machine, so a
+  # pull request checks them and fails on a page that no longer matches a fresh
+  # measurement. The fourth is timings, which move with the runner, so they are
+  # remeasured and republished on main rather than gated - a benchmark page
+  # nobody regenerates is worse than no page.
+  benchmarks:
+    name: Benchmarks
+    runs-on: ubuntu-24.04
+    permissions:
+      # Writing is only reached on the main branch, where the regenerated pages
+      # are committed back.
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The push below needs the token this leaves behind.
+          persist-credentials: true
+      - uses: pnpm/action-setup@v2
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.16.0
+          cache: "pnpm"
+      - run: pnpm install
+
+      - name: Pages match a fresh measurement
+        if: github.event_name == 'pull_request'
+        run: pnpm benchmarks
+
+      - name: Remeasure and republish
+        if: github.event_name != 'pull_request'
+        run: pnpm benchmarks --write
+
+      # `[skip ci]` because the push would otherwise start this workflow again,
+      # which would produce another set of timings, and so on.
+      - name: Commit the regenerated pages
+        if: github.event_name != 'pull_request'
+        run: |
+          if git diff --quiet -- docs/benchmarks packages/benchmarks/goldens; then
+            echo "nothing moved"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/benchmarks packages/benchmarks/goldens
+          git commit -m "docs: regenerate the benchmark pages [skip ci]"
+          git push origin HEAD:${GITHUB_REF_NAME}
 
   performance:
     name: Performance (PR)
@@ -107,7 +233,7 @@ jobs:
       - run: pnpm install
 
       # Every spec measured against the same library built from the PR's base
-      # branch — schema creation, creation+compilation, and each example. Both
+      # branch - schema creation, creation+compilation, and each example. Both
       # versions run interleaved in one process, so a shared runner's noise hits
       # them equally and cancels in the ratio. Advisory: a regression never
       # fails the job (a failed *measurement* still does).
@@ -126,7 +252,7 @@ jobs:
         run: npx tsx packages/spec/perfComment.ts spec-perf.txt spec-perf-comment.md
         env:
           ARTIFACT_URL: ${{ steps.spec-perf-artifact.outputs.artifact-url }}
-          # The PR's head, not GITHUB_SHA — on a pull_request event that's the
+          # The PR's head, not GITHUB_SHA - on a pull_request event that's the
           # ephemeral merge commit, which names nothing a reader can go look at.
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
 
@@ -152,7 +278,7 @@ jobs:
 
   # The `performance` job above only ever compares a PR against its own base, so
   # a change small enough to sit under the noise floor leaves no trace anywhere
-  # — and twenty of them in a row still leave none. This measures main against
+  # - and twenty of them in a row still leave none. This measures main against
   # the last release instead, where that same drift has had time to add up to
   # something the floor can see. Reported to the run summary, not gated: the
   # answer to a real drift is a fix, not a red main.
@@ -309,7 +435,7 @@ jobs:
 
       # Same guard as the sury job, for the ppx-generated output. This one is
       # never published, but it is the only readable record of what the ppx
-      # emits, and the step above regenerates it before asserting on it — so a
+      # emits, and the step above regenerates it before asserting on it - so a
       # stale commit here is invisible in every other signal.
       - name: Compiled ReScript matches its source
         run: ../../scripts/assert-no-drift.sh '*.res.mjs'

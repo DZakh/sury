@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.string.with(S.to, S.optional(S.string))
+  input: string
+  output: string | undefined
+  instantiations: 4599
+jsonSchema:
+  input: '{ type: "string" }'
+  output: '{ type: "string" }'
+  fromOutputType: string
+isEqual: strictEqual
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[0](i);return i}
+    examples:
+      string:
+        input: '"abc"'
+        output: '"abc"'
+      undefined-is-rejected:
+        input: undefined
+        error: Expected string, received undefined
+  decode: identity
+  encode: eq-to-parse

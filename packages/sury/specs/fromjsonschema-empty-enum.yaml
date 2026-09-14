@@ -1,12 +1,13 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: "S.fromJSONSchema({ enum: [] })"
+  schema: "S.fromJSONSchemaOrThrow({ enum: [] })"
   input: never
   output: never
   instantiations: 630
 jsonSchema:
   input: "{ not: {} }"
   output: "{ not: {} }"
+isEqual: (a,b)=>a===b||e[0](a,b)
 vs:
   zod: z.never()
 operations:

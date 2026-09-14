@@ -7,6 +7,7 @@ ts:
 jsonSchema:
   input: '{ type: "string", format: "uri" }'
   output: '{ type: "string", format: "uri" }'
+isEqual: strictEqual
 vs:
   zod: z.url()
 operations:
@@ -88,48 +89,93 @@ operations:
       invalid-userinfo:
         input: '"https://[@example.org/test.txt"'
         error: Expected uri, received "https://[@example.org/test.txt"
+        divergence:
+          reason: z.url() parses with the WHATWG URL algorithm and S.uri follows RFC 3986, so each is strict where the other is not
+          zod: '"https://[@example.org/test.txt"'
       unescaped-non-us-ascii-characters:
         input: '"https://example.org/foobar®.txt"'
         error: Expected uri, received "https://example.org/foobar®.txt"
+        divergence:
+          reason: z.url() parses with the WHATWG URL algorithm and S.uri follows RFC 3986, so each is strict where the other is not
+          zod: '"https://example.org/foobar®.txt"'
       invalid-backslash-character:
         input: '"https://example.org/foobar\\.txt"'
         error: Expected uri, received "https://example.org/foobar\.txt"
+        divergence:
+          reason: z.url() parses with the WHATWG URL algorithm and S.uri follows RFC 3986, so each is strict where the other is not
+          zod: '"https://example.org/foobar\\.txt"'
       invalid-character:
         input: '"https://example.org/foobar\".txt"'
         error: Expected uri, received "https://example.org/foobar".txt"
+        divergence:
+          reason: z.url() parses with the WHATWG URL algorithm and S.uri follows RFC 3986, so each is strict where the other is not
+          zod: '"https://example.org/foobar\".txt"'
       invalid-characters:
         input: '"https://example.org/foobar<>.txt"'
         error: Expected uri, received "https://example.org/foobar<>.txt"
+        divergence:
+          reason: z.url() parses with the WHATWG URL algorithm and S.uri follows RFC 3986, so each is strict where the other is not
+          zod: '"https://example.org/foobar<>.txt"'
       invalid-characters-2:
         input: '"https://example.org/foobar{}.txt"'
         error: Expected uri, received "https://example.org/foobar{}.txt"
+        divergence:
+          reason: z.url() parses with the WHATWG URL algorithm and S.uri follows RFC 3986, so each is strict where the other is not
+          zod: '"https://example.org/foobar{}.txt"'
       invalid-character-2:
         input: '"https://example.org/foobar^.txt"'
         error: Expected uri, received "https://example.org/foobar^.txt"
+        divergence:
+          reason: z.url() parses with the WHATWG URL algorithm and S.uri follows RFC 3986, so each is strict where the other is not
+          zod: '"https://example.org/foobar^.txt"'
       invalid-character-3:
         input: '"https://example.org/foobar`.txt"'
         error: Expected uri, received "https://example.org/foobar`.txt"
+        divergence:
+          reason: z.url() parses with the WHATWG URL algorithm and S.uri follows RFC 3986, so each is strict where the other is not
+          zod: '"https://example.org/foobar`.txt"'
       invalid-space-character:
         input: '"https://example.org/foo bar.txt"'
         error: Expected uri, received "https://example.org/foo bar.txt"
+        divergence:
+          reason: z.url() parses with the WHATWG URL algorithm and S.uri follows RFC 3986, so each is strict where the other is not
+          zod: '"https://example.org/foo bar.txt"'
       invalid-character-4:
         input: '"https://example.org/foobar|.txt"'
         error: Expected uri, received "https://example.org/foobar|.txt"
+        divergence:
+          reason: z.url() parses with the WHATWG URL algorithm and S.uri follows RFC 3986, so each is strict where the other is not
+          zod: '"https://example.org/foobar|.txt"'
       uri-with-leading-zero-ipv4-is-structurally-valid:
         input: '"http://087.10.0.1/"'
         output: '"http://087.10.0.1/"'
+        divergence:
+          reason: z.url() parses with the WHATWG URL algorithm and S.uri follows RFC 3986, so each is strict where the other is not
+          zod: Invalid URL
       uri-with-out-of-bounds-ipv4-is-structurally:
         input: '"http://999.999.999.999/"'
         output: '"http://999.999.999.999/"'
+        divergence:
+          reason: z.url() parses with the WHATWG URL algorithm and S.uri follows RFC 3986, so each is strict where the other is not
+          zod: Invalid URL
       invalid-percent-encoding-with-non-hex-digits:
         input: '"http://example.com/%6G"'
         error: Expected uri, received "http://example.com/%6G"
+        divergence:
+          reason: z.url() parses with the WHATWG URL algorithm and S.uri follows RFC 3986, so each is strict where the other is not
+          zod: '"http://example.com/%6G"'
       incomplete-percent-encoding-triplet:
         input: '"http://example.com/%A"'
         error: Expected uri, received "http://example.com/%A"
+        divergence:
+          reason: z.url() parses with the WHATWG URL algorithm and S.uri follows RFC 3986, so each is strict where the other is not
+          zod: '"http://example.com/%A"'
       lone-percent-sign-is-invalid:
         input: '"http://example.com/%"'
         error: Expected uri, received "http://example.com/%"
+        divergence:
+          reason: z.url() parses with the WHATWG URL algorithm and S.uri follows RFC 3986, so each is strict where the other is not
+          zod: '"http://example.com/%"'
       scheme-must-start-with-a-letter:
         input: '"1http://example.com"'
         error: Expected uri, received "1http://example.com"

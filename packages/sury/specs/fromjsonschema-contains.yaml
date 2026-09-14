@@ -1,12 +1,13 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: "S.fromJSONSchema({ contains: { const: 1 } })"
+  schema: "S.fromJSONSchemaOrThrow({ contains: { const: 1 } })"
   input: JSON
   output: JSON
   instantiations: 593
 jsonSchema:
   input: "{ contains: { const: 1 } }"
   output: "{ contains: { const: 1 } }"
+isEqual: (a,b)=>a===b||e[0](a,b)
 vs:
   zod:
     _skip: not-applicable

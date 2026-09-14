@@ -14,28 +14,26 @@
 // their own.
 //
 // Built by scripts/pack.ts into index.mjs (the publish step additionally
-// emits a CJS index.js into the artifact for the require condition). The extra
+// emits a CJS index.jsonSchema into the artifact for the require condition). The extra
 // ReScript-binding exports ($-prefixed) are invisible to TS users
 // (index.d.ts is the curated surface) and tree-shake when unused like any
 // other export.
 
+import { schemaFactory } from "./factory";
 import {
   baseSchema,
   type Builder,
-  type Check,
   functionTag,
-  getOrRethrow,
   globalConfig,
   type GlobalConfigOverride,
   initialDefaultFlag,
   initialOnAdditionalItems,
   inputExpression,
+  isOptional,
   type Internal,
-  jsonName,
-  isSchemaObject,
   objectTag,
   panic,
-  pathEmpty,
+  type Path,
   stringify,
   stringTag,
   U,
@@ -45,8 +43,6 @@ import {
 import {
   B_contentDiffers,
   B_conversion,
-  B_embed,
-  B_invalidInputBuilder,
   B_invalidOperation,
   B_neverSlot
 } from "./builder";
@@ -56,16 +52,13 @@ import {
 } from "./composites";
 import {
   codecTo,
-  internalRefine,
+  linkTo,
   nullAsUnit,
   Option_getOr,
-  Option_getOrWith
+  Option_getOrWith,
+  refine as refineCore,
 } from "./modifiers";
 import {
- assertResult
-} from "./operations";
-import {
- getDecoder,
  getOutputSchema,
  reverse
 } from "./parse";
@@ -85,12 +78,9 @@ import {
 export {
   string,
   bool as boolean,
-  bool,
   int as int32,
-  int,
   integer,
   float as number,
-  float,
   bigint,
   symbol,
   nan,
@@ -100,15 +90,36 @@ export {
 export { never_ as never } from "./parse";
 export { json, jsonString } from "./advanced/json";
 export { uint8Array } from "./advanced/uint8Array";
+export { arrayBuffer } from "./advanced/arrayBuffer";
+export { protobuf, toProtoOrThrow } from "./advanced/protobuf";
+export { protobufField } from "./advanced/protobufField";
 export { date } from "./advanced/date";
 export { url } from "./advanced/url";
 export { blob, file } from "./advanced/file";
+export { formData } from "./advanced/formData";
+export { env } from "./advanced/env";
+export { urlSearchParams, queryString } from "./advanced/urlSearchParams";
 export {
   isoDateTime,
+  utcDateTime,
   port,
   email,
   uuid,
+  uuidv4,
+  uuidv6,
+  uuidv7,
   cuid,
+  cuid2,
+  ulid,
+  ksuid,
+  xid,
+  nanoid,
+  e164,
+  mac,
+  hex,
+  cidrv4,
+  cidrv6,
+  httpUrl,
   base64,
   base64url,
   uri,
@@ -137,7 +148,7 @@ export {
 
 // ── Public JS/TS API (names match index.d.ts) ────────────────────────────────
 
-export { getDecoder as decoder, reverse, instance } from "./parse";
+export { reverse, instance } from "./parse";
 export { schemaFactory as schema, schemaFactory as literal, enum } from "./factory";
 export {
   recursive,
@@ -150,12 +161,45 @@ export {
   noValidation,
 } from "./modifiers";
 export {
-  safe,
-  safeAsync,
+  parseOrThrow,
+  parseAsResult,
+  parseAsPromiseOrReject,
+  parseAsResultPromise,
+  parseAsPromisableResult,
+  decodeOrThrow,
+  decodeAsResult,
+  decodeAsPromiseOrReject,
+  decodeAsResultPromise,
+  decodeAsPromisableResult,
+  encodeOrThrow,
+  encodeAsResult,
+  encodeAsPromiseOrReject,
+  encodeAsResultPromise,
+  encodeAsPromisableResult,
+  makeInputOrThrow,
+  makeInputAsResult,
+  makeInputAsPromiseOrReject,
+  makeInputAsResultPromise,
+  makeInputAsPromisableResult,
+  makeOutputOrThrow,
+  makeOutputAsResult,
+  makeOutputAsPromiseOrReject,
+  makeOutputAsResultPromise,
+  makeOutputAsPromisableResult,
+  isInput,
+  isOutput,
+  isInputAsPromise,
+  isOutputAsPromise,
+  isEqualInput,
+  isEqualOutput,
+  assertInputOrThrow,
+  assertOutputOrThrow,
+  assertInputAsPromiseOrReject,
+  assertOutputAsPromiseOrReject,
 } from "./operations";
-export { array, dict, dict as record } from "./composites";
+export { array, dict as record } from "./composites";
 export { schemaObject as object, schemaShape as shape, schemaTuple as tuple } from "./factory";
-// `nullish` accepts null | undefined (the 3-member union) — distinct from
+// `nullish` accepts null | undefined (the 3-member union) - distinct from
 // `nullable` below, which handles null only.
 export { nullable as nullish } from "./refinements";
 export {
@@ -186,112 +230,22 @@ export { list } from "./advanced/list";
 export { set } from "./advanced/set";
 export { map } from "./advanced/map";
 export {
-  inputJSONSchema,
-  outputJSONSchema,
-  fromJSONSchema,
+  inputJSONSchema as toInputJSONSchemaOrThrow,
+  outputJSONSchema as toOutputJSONSchemaOrThrow,
+  fromJSONSchema as fromJSONSchemaOrThrow,
   extendJSONSchema,
   enableStandardJSONSchema,
 } from "./jsonschema";
-export { inputExpression, pathToText } from "./base";
-export { outputExpression } from "./parse";
+export { inputExpression as toInputExpression, pathToText } from "./base";
+export { outputExpression as toOutputExpression } from "./parse";
 
 // ── Public JS/TS API implemented here (argument-shape adapters) ──────────────
 
-// Spreading the own rest param straight through (`getDecoder(unknown,
-// ...args)`) is a shape engines already optimize — an arity fast path here
-// measured nothing, so these stay generic.
+// Curried so the definition's type is inferred at the second call, which is
+// what index.d.ts compares against the type argument. The type argument is
+// erased, so the first call has nothing to do but hand back the factory.
 // @__NO_SIDE_EFFECTS__
-export const parser = (...args: unknown[]) => getDecoder(unknown, ...args);
-
-// @__NO_SIDE_EFFECTS__
-export const asyncParser = (...args: unknown[]) => getDecoder(unknown, ...args, 1);
-
-// @__NO_SIDE_EFFECTS__
-export const asyncDecoder = (...args: unknown[]) => getDecoder(...args, 1);
-
-// The 1-schema branch dodges a per-call allocation: `.map` builds a fresh
-// array every call, which spreading a rest param does not. Chained (2+)
-// schemas keep the generic map.
-// @__NO_SIDE_EFFECTS__
-export const encoder = (a: unknown, ...rest: unknown[]) =>
-  rest.length
-    ? getDecoder(...([a, ...rest] as Internal[]).map(reverse))
-    : getDecoder(reverse(a as Internal));
-
-// @__NO_SIDE_EFFECTS__
-export const asyncEncoder = (a: unknown, ...rest: unknown[]) =>
-  rest.length
-    ? getDecoder(...([a, ...rest] as Internal[]).map(reverse), 1)
-    : getDecoder(reverse(a as Internal), 1);
-
-// The asserts accept both `(schema, data)` and `(data, schema)`, told apart
-// by the Standard Schema marker. The truthiness guard keeps falsy data from
-// throwing on the marker access, routing it to the data slot so validation
-// fails with a proper Sury error.
-export const assertInput = (a: unknown, b: unknown): unknown => {
-  const aIsSchema = !!a && isSchemaObject(a);
-  const schema = (aIsSchema ? a : b) as Internal;
-  return getDecoder(unknown, schema, assertResult)(aIsSchema ? b : a);
-};
-
-export const assertOutput = (a: unknown, b: unknown): unknown => {
-  const aIsSchema = !!a && isSchemaObject(a);
-  const schema = reverse((aIsSchema ? a : b) as Internal);
-  return getDecoder(unknown, schema, assertResult)(aIsSchema ? b : a);
-};
-
-const validatorRun = (operation: (data: unknown) => unknown, data: unknown): boolean => {
-  try {
-    operation(data);
-    return true;
-  } catch (exn) {
-    // Rethrow anything that isn't a Sury validation failure.
-    getOrRethrow(exn);
-    return false;
-  }
-};
-
-const validator = (schema: Internal): ((data: unknown) => boolean) => {
-  // Compiled outside the returned closure: a conversion rejected at operation
-  // creation means the schema can't check any value, so creating the validator
-  // throws rather than every answer reading as `false` — the same split
-  // `~standard.validate` makes.
-  const operation = getDecoder(unknown, schema, assertResult) as (data: unknown) => unknown;
-  return (data) => validatorRun(operation, data);
-};
-
-// @__NO_SIDE_EFFECTS__
-export const inputValidator = (schema: Internal) => validator(schema);
-
-// @__NO_SIDE_EFFECTS__
-export const outputValidator = (schema: Internal) => validator(reverse(schema));
-
-// The compiled operation is `assert`'s: the value runs the whole pipeline —
-// type checks, conversion, refinements — and the result is dropped, so what
-// comes back is the value handed in rather than a decoded clone of it.
-const construct = (schema: Internal): ((data: unknown) => unknown) => {
-  const operation = getDecoder(unknown, schema, assertResult) as (data: unknown) => unknown;
-  return (data) => (operation(data), data);
-};
-
-const constructAsync = (schema: Internal): ((data: unknown) => Promise<unknown>) => {
-  const operation = getDecoder(unknown, schema, assertResult, 1) as (
-    data: unknown
-  ) => Promise<unknown>;
-  return (data) => operation(data).then(() => data);
-};
-
-// @__NO_SIDE_EFFECTS__
-export const inputConstructor = (schema: Internal) => construct(schema);
-
-// @__NO_SIDE_EFFECTS__
-export const outputConstructor = (schema: Internal) => construct(reverse(schema));
-
-// @__NO_SIDE_EFFECTS__
-export const asyncInputConstructor = (schema: Internal) => constructAsync(schema);
-
-// @__NO_SIDE_EFFECTS__
-export const asyncOutputConstructor = (schema: Internal) => constructAsync(reverse(schema));
+export const schemaOf = () => schemaFactory;
 
 // @__NO_SIDE_EFFECTS__
 export const union = (values: unknown[]) => unionFactory(values.map(definitionToSchema));
@@ -303,11 +257,13 @@ export { union as anyOf };
 // at operation creation, and unlike the never slot it stays a hard error
 // inside a union too: skipping the variant silently would commit to a
 // semantics the caller never chose.
-const ambiguousEncode: Builder = (input: Val) =>
-  B_invalidOperation(
-    input,
-    "Encoding is ambiguous when only a decode function is provided. Use S.to(target, {decode, encode})",
-  );
+const ambiguousEncode =
+  (from: Internal, to: Internal): Builder =>
+  (input: Val) =>
+    B_invalidOperation(
+      input,
+      `Ambiguous encode for ${inputExpression(from)} -> ${inputExpression(to)}. Only decode is defined. Add encode to S.to as a function, "auto" or "never"`,
+    );
 
 // One codec slot resolved. `"auto"` (and an omitted argument)
 // is `undefined`, which every caller reads as "no coder, use the built-in
@@ -318,7 +274,7 @@ const ambiguousEncode: Builder = (input: Val) =>
 // they got wrong rather than the pair. `"pack"`/`"unpack"` are the odd pair out:
 // they are not coders but a choice between a content link's two readings
 // (CONTENT_CODEC_SPEC.md rule 1), so they resolve to a boolean that rides the
-// link itself — `true` opens the direction's own source, `false` stores it.
+// link itself - `true` opens the direction's own source, `false` stores it.
 const conversionBuilder = (
   name: string,
   slot: unknown,
@@ -347,7 +303,7 @@ const conversionBuilder = (
 // @__NO_SIDE_EFFECTS__
 export const to = (schema: Internal, target: Internal, custom?: unknown) => {
   // A misspelled export arrives as `undefined`, which used to link to nothing
-  // and hand back the source unchanged — the conversion silently absent.
+  // and hand back the source unchanged - the conversion silently absent.
   if (!target) {
     return panic(`Expected a schema to convert to`);
   }
@@ -359,7 +315,7 @@ export const to = (schema: Internal, target: Internal, custom?: unknown) => {
     encode = custom === "pack";
   } else if (typeof custom === functionTag) {
     decode = B_conversion(custom as (value: unknown) => unknown, false, true);
-    encode = ambiguousEncode;
+    encode = ambiguousEncode(target, schema);
   } else if (custom) {
     const codecs = custom as Record<string, unknown>;
     // Two spellings, one per seam, never mixed: `{decode, encode}` is the
@@ -375,7 +331,7 @@ export const to = (schema: Internal, target: Internal, custom?: unknown) => {
       return panic(`Expected {decode, encode}. Use "auto" for the built-in conversion`);
     }
     // `S.any` is this very `unknown` schema under a second name, and its
-    // ReScript type is `t<'any>` — a variable that unifies with whatever the
+    // ReScript type is `t<'any>` - a variable that unifies with whatever the
     // coder returns, so the seam against it carries nothing to trust. Same
     // carve-out B_conversion makes for a literal target, one level up: the
     // untrustworthy side can be either end of the pair, and only `to` sees
@@ -384,8 +340,8 @@ export const to = (schema: Internal, target: Internal, custom?: unknown) => {
     decode = conversionBuilder("decode", decodeSlot, !outputSeam);
     encode = conversionBuilder("encode", encodeSlot, !outputSeam);
     // Each reading names what its direction does to its own source, so the two
-    // directions can't both open (or both store) — there would be no side of
-    // the link left holding the payload — and a reading opposite the built-in
+    // directions can't both open (or both store) - there would be no side of
+    // the link left holding the payload - and a reading opposite the built-in
     // conversion leaves that side still asking the question the reading just
     // answered. A coder opposite one is fine: it answers for itself.
   }
@@ -398,15 +354,15 @@ export const to = (schema: Internal, target: Internal, custom?: unknown) => {
       from.content === U ||
       target.content === U ||
       !B_contentDiffers(from.content, target.content) ||
-      from.name === jsonName ||
-      target.name === jsonName
+      from.isJson ||
+      target.isJson
     ) {
       return panic(`Can't pick a reading for this link. Use {decode, encode} coders instead`);
     }
   }
   // Chaining a schema to itself would append a second copy of its own chain,
   // re-decoding the value it just produced. Resolving the slots first is what
-  // makes the all-"auto" spelling behave exactly like the coder-less one — and
+  // makes the all-"auto" spelling behave exactly like the coder-less one - and
   // a reading is the same: there is nothing to pick between when both sides are
   // the same schema.
   if (schema === target && typeof decode !== functionTag && typeof encode !== functionTag) {
@@ -417,7 +373,7 @@ export const to = (schema: Internal, target: Internal, custom?: unknown) => {
   // junction seam feeds the target's chain instead, so it stays legal, as do
   // the slots that place no coder.
   // A reading is exempt with `B_neverSlot`: neither places a coder, so neither
-  // claims the target's result — the very case a reading exists for is a target
+  // claims the target's result - the very case a reading exists for is a target
   // that converts on its own.
   if (
     outputSeam &&
@@ -429,31 +385,24 @@ export const to = (schema: Internal, target: Internal, custom?: unknown) => {
       `The target already converts. Chain S.to instead of passing a custom codec`,
     );
   }
-  return codecTo(schema, target, decode, encode);
+  // Interned when the third argument is bounded by construction - absent, or
+  // one of the two reading strings. A coder is not: `{decode, encode}` and an
+  // inline function are fresh objects, so keying on them would miss every time
+  // and grow the list without bound.
+  return custom === U || typeof custom === stringTag
+    ? linkTo(schema, target, custom, decode as boolean, encode as boolean)
+    : codecTo(schema, target, decode, encode);
 };
 
 // @__NO_SIDE_EFFECTS__
 export const refine = (
   schema: Internal,
   refineCheck: (value: unknown) => boolean,
-  refineOptions?: { error?: string; path?: string[] },
-) => {
-  const message = refineOptions?.error ?? "Refinement failed";
-  const extraPath = refineOptions?.path !== U ? refineOptions.path : pathEmpty;
-  return internalRefine(schema, (_: Internal) => (input: Val): Check[] => {
-    const embeddedCheck = B_embed(input, refineCheck);
-    return [
-      {
-        c: (inputVar: string) => `${embeddedCheck}(${inputVar})`,
-        f: B_invalidInputBuilder(U, extraPath, message),
-      },
-    ];
-  });
-};
+  refineOptions?: { error?: string; path?: Path },
+) => refineCore(schema, refineCheck, refineOptions?.error, refineOptions?.path);
 
 // @__NO_SIDE_EFFECTS__
 export const optional = (definition: unknown, maybeOr: unknown): Internal => {
-  // TODO: maybeOr should be part of the unit schema
   const schema = unionFactory([definitionToSchema(definition), unit]);
   if (maybeOr !== U && typeof maybeOr === functionTag) {
     return Option_getOrWith(schema, maybeOr as () => unknown);
@@ -467,7 +416,6 @@ export const optional = (definition: unknown, maybeOr: unknown): Internal => {
 // @__NO_SIDE_EFFECTS__
 export const nullable = (definition: unknown, maybeOr: unknown): Internal => {
   const schema = definitionToSchema(definition);
-  // TODO: maybeOr should be part of the unit schema
   if (maybeOr !== U) {
     const schema2 = unionFactory([schema, nullAsUnit]);
     if (typeof maybeOr === functionTag) {
@@ -489,24 +437,20 @@ const isMergeable = (s: Internal): boolean =>
 // @__NO_SIDE_EFFECTS__
 export const merge = (s1: Internal, s2: Internal): Internal => {
   if (!isMergeable(s1) || !isMergeable(s2)) {
-    // Recomputed, not cached — this path throws, and the temp measured larger.
+    // Recomputed, not cached - this path throws, and the temp measured larger.
     const bad = isMergeable(s1) ? s2 : s1;
-    // TODO: Can theoretically support the transformed case
     return panic(`Can't merge ${bad.to ? "transformed " : ""}${inputExpression(bad)}`);
   }
   const properties = { ...s1.properties!, ...s2.properties! };
 
   const mut = baseSchema(objectTag, false, objectDecoder);
-
-  // TODO: Merge to required fields
-  mut.required = Object.keys(properties);
+  mut.required = Object.keys(properties).filter((k) => !isOptional(properties[k]!));
   mut.properties = properties;
   mut.additionalItems = s1.additionalItems;
   return mut;
 };
 
-// PORT-NOTE: kept the source's `global` name — legal as a module-scoped
-// export even though Node types declare a `global` var.
+// A module export named `global` is legal; Node's `var global` is a different binding.
 export const global = (override: GlobalConfigOverride): void => {
   globalConfig.a =
     override.defaultAdditionalItems !== U
@@ -526,8 +470,12 @@ export const global = (override: GlobalConfigOverride): void => {
 // identifier, which is all ReScript externals accept as names.
 
 export {
-  // Async flavor of the public `assert`, which has no public JS equivalent.
-  assertAsyncOrThrow as $assertAsyncOrThrow,
+  $parseAsResult,
+  $parseAsResultPromise,
+  $encodeAsResult,
+  $encodeAsResultPromise,
+  $makeAsResult,
+  $makeAsResultPromise,
 } from "./operations";
 export {
   Option_getOr as $Option_getOr,

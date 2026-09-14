@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union([S.uint8Array, S.string]).with(S.to, S.jsonString)
+  input: string | Uint8Array<ArrayBufferLike>
+  output: string
+  instantiations: 5079
+jsonSchema:
+  input: Expected JSON, received Uint8Array | string
+  output: '{ type: "string", contentMediaType: "application/json" }'
+  openapi-3.0:
+    output: '{ type: "string" }'
+isEqual:
+  input: (a,b)=>a===b||(a instanceof e[0]?b instanceof e[0]&&e[1](a,b):typeof b==="string"&&a===b)
+  output: strictEqual
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "SuryError: Can't decode Uint8Array | string -> JSON string. Define custom codec with S.to"
+  decode: eq-to-parse
+  encode:
+    creationError: "SuryError: Can't decode JSON string -> Uint8Array | string. Define custom codec with S.to"

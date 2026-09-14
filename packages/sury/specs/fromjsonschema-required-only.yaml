@@ -1,12 +1,13 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: 'S.fromJSONSchema({ type: "object", required: ["a"] })'
+  schema: 'S.fromJSONSchemaOrThrow({ type: "object", required: ["a"] })'
   input: "{ [key: string]: JSON; } & { a: JSON; }"
   output: "{ [key: string]: JSON; } & { a: JSON; }"
   instantiations: 1165
 jsonSchema:
   input: '{ type: "object", required: ["a"] }'
   output: '{ type: "object", required: ["a"] }'
+isEqual: (a,b)=>{if(a===b)return true;let n=0;for(const k in a){if(!(k in b)||!(e[0](a[k],b[k])))return false;n++}for(const k in b)n--;return !n}
 vs:
   zod:
     _skip: not-applicable

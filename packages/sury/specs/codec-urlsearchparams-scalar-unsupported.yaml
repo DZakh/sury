@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.urlSearchParams.with(S.to, S.number)
+  input: URLSearchParams
+  output: number
+  instantiations: 4432
+jsonSchema:
+  input: Expected JSON, received URLSearchParams
+  output: '{ type: "number" }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: strictEqual
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "SuryError: Can't decode URLSearchParams -> number. Define custom codec with S.to"
+  decode: eq-to-parse
+  encode:
+    creationError: "SuryError: Can't decode number -> URLSearchParams. Define custom codec with S.to"

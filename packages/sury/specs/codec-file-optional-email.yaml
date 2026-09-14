@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.file.with(S.to, S.optional(S.email))
+  input: File
+  output: string | undefined
+  instantiations: 4632
+jsonSchema:
+  input: Expected JSON, received File
+  output: Expected JSON, received email | undefined
+isEqual: strictEqual
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    isAsync: true
+    expression: i=>{try{i instanceof e[3]||e[4](i);let v0;try{v0=i.text().catch(e[0])}catch(x){e[0](x)}return v0.then(v0=>{e[1].test(v0)||e[2](v0);return v0})}catch(v1){return Promise.reject(v1)}}
+    examples:
+      email:
+        input: new File(["a@b.co"], "")
+        output: '"a@b.co"'
+      not-an-email:
+        input: new File(["nope"], "")
+        error: Expected email, received "nope"
+  decode:
+    isAsync: true
+    expression: i=>{try{let v0;try{v0=i.text().catch(e[0])}catch(x){e[0](x)}return v0.then(v0=>{e[1].test(v0)||e[2](v0);return v0})}catch(v1){return Promise.reject(v1)}}
+    examples:
+      email:
+        input: new File(["a@b.co"], "")
+        output: '"a@b.co"'
+  encode:
+    expression: i=>{if(typeof i==="string"){e[1].test(i)||e[2](i);i=new e[0]([i],"")}else{e[3](i)}return i}
+    examples:
+      email:
+        input: '"a@b.co"'
+        output: new File(["a@b.co"], "")
+      not-an-email:
+        input: '"nope"'
+        error: Expected email, received "nope"

@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.record(S.env).with(S.to, S.schema({ PORT: S.port, DEBUG: S.boolean, NAME: S.optional(S.string) }))"
+  input: "{ [x: string]: string | undefined; }"
+  output: "{ PORT: number; DEBUG: boolean; NAME?: string | undefined; }"
+  instantiations: 7021
+jsonSchema:
+  input: '{ type: "object", additionalProperties: { type: "string" } }'
+  fromInputType: "{ [key: string]: string; }"
+  output: '{ type: "object", properties: { PORT: { type: "integer", minimum: 0, maximum: 65535 }, DEBUG: { type: "boolean" }, NAME: { type: "string" } }, required: ["PORT", "DEBUG"] }'
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=0;for(const k in a){if(!(k in b)||!(a[k]===b[k]))return false;n++}for(const k in b)n--;return !n}
+  output: (a,b)=>a===b||a.PORT===b.PORT&&a.DEBUG===b.DEBUG&&a.NAME===b.NAME
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[6](i);for(let v0 in i){try{let v1=i[v0];(typeof v1==="string"||v1===void 0)||e[0](v1);}catch(v2){v2.path=[v0,...v2.path];throw v2}}let v3=i.PORT,v5=i.DEBUG,v7=i.NAME;if(v3!==void 0){let v4=+v3;v4==v4&&(v4||v3.trim())||e[2](v3);v4>=0&&v4<65536&&v4%1==0||e[1](v4);v3=v4;}else{e[3](v3)}if(v5!==void 0){let v6;(v6=v5==="true")||v5==="false"||e[4](v5);v5=v6;}else{e[5](v5)}if(v7!==void 0){v7=v7||void 0;}return {PORT:v3,DEBUG:v5,NAME:v7}}
+    examples:
+      valid:
+        input: '{ PORT: "8080", DEBUG: "true", NAME: "Ann" }'
+        output: '{ PORT: 8080, DEBUG: true, NAME: "Ann" }'
+      missing-optional:
+        input: '{ PORT: "8080", DEBUG: "false" }'
+        output: "{ PORT: 8080, DEBUG: false, NAME: undefined }"
+      empty-name:
+        input: '{ PORT: "8080", DEBUG: "true", NAME: "" }'
+        output: "{ PORT: 8080, DEBUG: true, NAME: undefined }"
+      missing-required:
+        input: '{ DEBUG: "true" }'
+        error: "Failed at PORT: Expected port, received undefined"
+      bad-boolean:
+        input: '{ PORT: "8080", DEBUG: "yes" }'
+        error: 'Failed at DEBUG: Expected boolean, received "yes"'
+      extra-keys:
+        input: '{ PORT: "8080", DEBUG: "true", PATH: "/bin" }'
+        output: "{ PORT: 8080, DEBUG: true, NAME: undefined }"
+  decode:
+    expression: i=>{let v1=i.PORT,v3=i.DEBUG,v5=i.NAME;if(v1!==void 0){let v2=+v1;v2==v2&&(v2||v1.trim())||e[1](v1);v2>=0&&v2<65536&&v2%1==0||e[0](v2);v1=v2;}else{e[2](v1)}if(v3!==void 0){let v4;(v4=v3==="true")||v3==="false"||e[3](v3);v3=v4;}else{e[4](v3)}if(v5!==void 0){v5=v5||void 0;}return {PORT:v1,DEBUG:v3,NAME:v5}}
+    examples:
+      valid:
+        input: '{ PORT: "8080", DEBUG: "true", NAME: "Ann" }'
+        output: '{ PORT: 8080, DEBUG: true, NAME: "Ann" }'
+  encode:
+    expression: i=>{let v0=i.PORT,v1=i.NAME;v0>=0&&v0<65536&&v0%1==0||e[0](v0);(typeof v1==="string"||v1===void 0)||e[1](v1);let v2={PORT:""+v0,DEBUG:""+i.DEBUG};if(v1!==void 0){v2.NAME=v1}return v2}
+    examples:
+      built:
+        input: '{ PORT: 8080, DEBUG: true, NAME: "Ann" }'
+        output: '{ PORT: "8080", DEBUG: "true", NAME: "Ann" }'
+      omit-optional:
+        input: "{ PORT: 8080, DEBUG: false }"
+        output: '{ PORT: "8080", DEBUG: "false" }'

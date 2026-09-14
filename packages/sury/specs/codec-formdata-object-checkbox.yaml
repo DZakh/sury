@@ -1,0 +1,90 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.formData.with(S.to, S.schema({ agree: S.boolean, notify: S.optional(S.boolean), mailing: S.nullable(S.boolean), seen: S.optional(S.boolean, false), asText: S.boolean.with(S.to, S.string), age: S.number.with(S.gte, 18) }))"
+  input: FormData
+  output: "{ agree: boolean; mailing: boolean | null; seen: boolean; asText: string; age: number; notify?: boolean | undefined; }"
+  instantiations: 8670
+jsonSchema:
+  input: Expected JSON, received FormData
+  output: '{ type: "object", properties: { agree: { type: "boolean" }, notify: { type: "boolean" }, mailing: { anyOf: [{ type: "boolean" }, { type: "null" }] }, seen: { type: "boolean" }, asText: { type: "string" }, age: { type: "number", minimum: 18 } }, required: ["agree", "mailing", "seen", "asText", "age"] }'
+  openapi-3.0:
+    output: '{ type: "object", properties: { agree: { type: "boolean" }, notify: { type: "boolean" }, mailing: { type: "boolean", nullable: true }, seen: { type: "boolean" }, asText: { type: "string" }, age: { type: "number", minimum: 18 } }, required: ["agree", "mailing", "seen", "asText", "age"] }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||a.agree===b.agree&&a.notify===b.notify&&a.mailing===b.mailing&&a.seen===b.seen&&a.asText===b.asText&&a.age===b.age
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{i instanceof e[9]||e[10](i);let v0=e[0](i),v1=v0.get("agree"),v3=v0.get("notify")||void 0,v5=v0.get("mailing"),v7=v0.get("seen"),v9=v0.get("asText"),v11=v0.get("age");let v2=v1==="on"||v1==="true"||(v1==="false"||!v1?false:e[1](v1));if(v3){let v4=v3==="on"||v3==="true"||(v3==="false"||!v3?false:e[2](v3));v3=v4;}if(v5){let v6=v5==="on"||v5==="true"||(v5==="false"||!v5?false:e[3](v5));v5=v6;}else{v5=null}if(v7){let v8=v7==="on"||v7==="true"||(v7==="false"||!v7?false:e[4](v7));v7=v8;}else{v7=false;}let v10=v9==="on"||v9==="true"||(v9==="false"||!v9?false:e[5](v9));typeof v11==="string"||e[6](v11);let v12=+v11;v12==v12&&(v12||v11.trim())||e[8](v11);v12>=18||e[7](v12);return {agree:v2,notify:v3,mailing:v5,seen:v7,asText:""+v10,age:v12}}
+    examples:
+      checked:
+        input: ((f) => (f.append("agree", "on"), f.append("age", "42"), f))(new FormData())
+        output: '{ agree: true, notify: undefined, mailing: null, seen: false, asText: "false", age: 42 }'
+      every-checkbox-absent:
+        input: ((f) => (f.append("age", "42"), f))(new FormData())
+        output: '{ agree: false, notify: undefined, mailing: null, seen: false, asText: "false", age: 42 }'
+      defaulted-on:
+        input: ((f) => (f.append("seen", "on"), f.append("age", "42"), f))(new FormData())
+        output: '{ agree: false, notify: undefined, mailing: null, seen: true, asText: "false", age: 42 }'
+      one-is-rejected:
+        input: ((f) => (f.append("agree", "1"), f.append("age", "42"), f))(new FormData())
+        error: 'Failed at agree: Expected boolean, received "1"'
+      zero-is-rejected:
+        input: ((f) => (f.append("agree", "0"), f.append("age", "42"), f))(new FormData())
+        error: 'Failed at agree: Expected boolean, received "0"'
+      empty-value:
+        input: ((f) => (f.append("agree", ""), f.append("age", "42"), f))(new FormData())
+        output: '{ agree: false, notify: undefined, mailing: null, seen: false, asText: "false", age: 42 }'
+      hidden-true:
+        input: ((f) => (f.append("agree", "true"), f.append("age", "42"), f))(new FormData())
+        output: '{ agree: true, notify: undefined, mailing: null, seen: false, asText: "false", age: 42 }'
+      hidden-false:
+        input: ((f) => (f.append("agree", "false"), f.append("age", "42"), f))(new FormData())
+        output: '{ agree: false, notify: undefined, mailing: null, seen: false, asText: "false", age: 42 }'
+      not-a-boolean:
+        input: ((f) => (f.append("agree", "yes"), f.append("age", "42"), f))(new FormData())
+        error: 'Failed at agree: Expected boolean, received "yes"'
+      file-where-checkbox:
+        input: ((f) => (f.append("agree", new File(["on"], "a.txt")), f.append("age", "42"), f))(new FormData())
+        error: "Failed at agree: Expected boolean, received File"
+      tri-state-false:
+        input: ((f) => (f.append("notify", "false"), f.append("age", "42"), f))(new FormData())
+        output: '{ agree: false, notify: false, mailing: null, seen: false, asText: "false", age: 42 }'
+      nullable-false:
+        input: ((f) => (f.append("mailing", "false"), f.append("age", "42"), f))(new FormData())
+        output: '{ agree: false, notify: undefined, mailing: false, seen: false, asText: "false", age: 42 }'
+      tri-state-on-is-not-a-boolean:
+        input: ((f) => (f.append("notify", "on"), f.append("age", "42"), f))(new FormData())
+        output: '{ agree: false, notify: true, mailing: null, seen: false, asText: "false", age: 42 }'
+  decode:
+    expression: i=>{let v0=e[0](i),v1=v0.get("agree"),v3=v0.get("notify")||void 0,v5=v0.get("mailing"),v7=v0.get("seen"),v9=v0.get("asText"),v11=v0.get("age");let v2=v1==="on"||v1==="true"||(v1==="false"||!v1?false:e[1](v1));if(v3){let v4=v3==="on"||v3==="true"||(v3==="false"||!v3?false:e[2](v3));v3=v4;}if(v5){let v6=v5==="on"||v5==="true"||(v5==="false"||!v5?false:e[3](v5));v5=v6;}else{v5=null}if(v7){let v8=v7==="on"||v7==="true"||(v7==="false"||!v7?false:e[4](v7));v7=v8;}else{v7=false;}let v10=v9==="on"||v9==="true"||(v9==="false"||!v9?false:e[5](v9));typeof v11==="string"||e[6](v11);let v12=+v11;v12==v12&&(v12||v11.trim())||e[8](v11);v12>=18||e[7](v12);return {agree:v2,notify:v3,mailing:v5,seen:v7,asText:""+v10,age:v12}}
+    examples:
+      checked:
+        input: ((f) => (f.append("agree", "on"), f.append("age", "42"), f))(new FormData())
+        output: '{ agree: true, notify: undefined, mailing: null, seen: false, asText: "false", age: 42 }'
+      defaulted-absent:
+        input: ((f) => (f.append("age", "42"), f))(new FormData())
+        output: '{ agree: false, notify: undefined, mailing: null, seen: false, asText: "false", age: 42 }'
+      defaulted-on:
+        input: ((f) => (f.append("seen", "on"), f.append("age", "42"), f))(new FormData())
+        output: '{ agree: false, notify: undefined, mailing: null, seen: true, asText: "false", age: 42 }'
+      one-is-rejected:
+        input: ((f) => (f.append("agree", "1"), f.append("age", "42"), f))(new FormData())
+        error: 'Failed at agree: Expected boolean, received "1"'
+      zero-is-rejected:
+        input: ((f) => (f.append("agree", "0"), f.append("age", "42"), f))(new FormData())
+        error: 'Failed at agree: Expected boolean, received "0"'
+  encode:
+    expression: i=>{let v0=i.seen,v2=i.asText,v3=i.age;typeof v0==="boolean"||e[0](v0);let v1;(v1=v2==="true")||v2==="false"||e[1](v2);v3>=18||e[2](v3);let v4=new e[3]();if(i.agree){v4.append("agree","on")}if(i.notify!=null){v4.append("notify",i.notify?"on":"false")}if(i.mailing!=null){v4.append("mailing",i.mailing?"on":"false")}if(v0){v4.append("seen","on")}if(v1){v4.append("asText","on")}v4.append("age",""+v3);return v4}
+    examples:
+      built:
+        input: '{ agree: true, notify: false, mailing: null, seen: false, asText: "true", age: 42 }'
+        output: ((f) => (f.append("agree", "on"), f.append("notify", "false"), f.append("asText", "on"), f.append("age", "42"), f))(new FormData())
+      nullable-false-is-spelled-out:
+        input: '{ agree: true, notify: undefined, mailing: false, seen: false, asText: "true", age: 42 }'
+        output: ((f) => (f.append("agree", "on"), f.append("mailing", "false"), f.append("asText", "on"), f.append("age", "42"), f))(new FormData())
+      too-young:
+        input: '{ agree: true, notify: false, mailing: null, seen: false, asText: "true", age: 7 }'
+        error: "Failed at age: Expected number >= 18, received 7"

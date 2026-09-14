@@ -1,21 +1,21 @@
 // Derives TypeScript type strings (`ts.input`/`ts.output`) and the type-
 // instantiation count (`ts.instantiations`) for a schema expression, directly
-// via @typescript/vfs + the TypeScript compiler API — NOT @ark/attest.
+// via @typescript/vfs + the TypeScript compiler API - NOT @ark/attest.
 //
 // @ark/attest's own instantiation-counting (bench/type.js + cache/utils.js)
 // already works this way internally: an isolated @typescript/vfs environment,
 // diffed against a baseline via the real (if undocumented)
 // `program.getInstantiationCount()`. What makes attest itself slow for our
-// purposes is `setup()`'s separate, unrelated `analyzeProjectAssertions()` —
+// purposes is `setup()`'s separate, unrelated `analyzeProjectAssertions()` -
 // a full-project scan for pre-written `attest()`/`bench()` calls, built to
 // support hardcoded-expected-value assertions across a whole test suite. We
 // don't need that: we want a fresh value for an arbitrary expression on
 // demand, so this module vendors just the isolated-environment +
 // instantiation-delta + typeToString logic.
 //
-// Measured: ~1s cold (first schema in a process — dominated by loading
+// Measured: ~1s cold (first schema in a process - dominated by loading
 // lib.d.ts + index.d.ts), ~50-200ms warm (every subsequent schema in the same
-// process, since the environment is memoized) — versus attest's ~15s (which
+// process, since the environment is memoized) - versus attest's ~15s (which
 // is dominated by its whole-project assertion scan, unrelated to this cost).
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
@@ -29,11 +29,11 @@ const IMPORT_LINE = `import * as S from "./index.mjs";\n`;
 
 // `env`/`baselineCount`/PROBE_FILE are process-wide mutable state shared
 // across concurrent deriveTypeInfo calls (cli.ts runs specs through
-// Promise.all). Safe only because `check()` below has no `await` — each call
+// Promise.all). Safe only because `check()` below has no `await` - each call
 // mutates PROBE_FILE and reads the result back synchronously before another
 // can interleave. If `check()` ever gains an await (e.g. an async
 // LanguageService API), concurrent calls could cross-contaminate each
-// other's PROBE_FILE content — would need a mutex/queue at that point.
+// other's PROBE_FILE content - would need a mutex/queue at that point.
 let env: tsvfs.VirtualTypeScriptEnvironment | undefined;
 let baselineCount: number | undefined;
 
@@ -55,7 +55,7 @@ const check = (text: string) => {
   else e.createFile(PROBE_FILE, text);
   const program = e.languageService.getProgram()!;
   const file = program.getSourceFile(PROBE_FILE)!;
-  // Force type checking — merely constructing the program doesn't instantiate
+  // Force type checking - merely constructing the program doesn't instantiate
   // the generics; getInstantiationCount() only reflects work actually done.
   // Diagnostics are collected (not just triggered) so deriveTypeInfo can
   // surface *why* if the probe below ever fails to resolve a type.
@@ -106,7 +106,7 @@ export type TypeInfo = {
 
 // Derives {input, output} type strings and the instantiation count
 // contributed by declaring `schemaTs` and extracting S.Output<>/S.Input<>
-// from it — the realistic combined per-schema cost, not the isolated cost of
+// from it - the realistic combined per-schema cost, not the isolated cost of
 // either half alone.
 //
 // The count carries a fixed per-builder-kind dispatch cost on top of per-field
@@ -114,7 +114,7 @@ export type TypeInfo = {
 // measures far lower than any `S.schema({...})` call regardless of field count.
 // A jump for one kind of schema and not another is a real signal, not noise.
 //
-// Promise-returning only so callers can await it uniformly — the TS
+// Promise-returning only so callers can await it uniformly - the TS
 // Program/checker calls inside are inherently synchronous (no async variant of
 // the compiler API exists), so nothing here parallelizes.
 export const deriveTypeInfo = async (schemaTs: string): Promise<TypeInfo> => {
@@ -132,12 +132,12 @@ export const deriveTypeInfo = async (schemaTs: string): Promise<TypeInfo> => {
     const msg = diagnosticsText(diagnostics);
     throw new Error(
       `deriveTypeInfo: could not resolve __Output/__Input for \`${schemaTs}\`` +
-        (msg ? `:\n${msg}` : " (no compiler diagnostics — schema didn't produce the expected type alias)"),
+        (msg ? `:\n${msg}` : " (no compiler diagnostics - schema didn't produce the expected type alias)"),
     );
   }
   // Aliases resolving is not the same as the schema typechecking. An excess
   // argument still infers a schema, so a spec written against a removed
-  // signature keeps producing goldens — with the argument silently dropped at
+  // signature keeps producing goldens - with the argument silently dropped at
   // runtime, which is how the codec specs lost their encode direction.
   if (diagnostics.length) {
     throw new Error(
@@ -162,12 +162,12 @@ export const deriveRoundTripTypeInfo = async (
     `type __Output = S.Output<typeof __schema>;\n` +
     (inputSource === undefined
       ? ""
-      : `const __inputSchema = S.fromJSONSchema(${inputSource});\n` +
+      : `const __inputSchema = S.fromJSONSchemaOrThrow(${inputSource});\n` +
         `type __FromInput = S.Input<typeof __inputSchema>;\n` +
         `type __InputMatches = [__Input] extends [__FromInput] ? [__FromInput] extends [__Input] ? true : false : false;\n`) +
     (outputSource === undefined
       ? ""
-      : `const __outputSchema = S.fromJSONSchema(${outputSource});\n` +
+      : `const __outputSchema = S.fromJSONSchemaOrThrow(${outputSource});\n` +
         `type __FromOutput = S.Output<typeof __outputSchema>;\n` +
         `type __OutputMatches = [__Output] extends [__FromOutput] ? [__FromOutput] extends [__Output] ? true : false : false;\n`);
   const { program, file, diagnostics } = check(withExpr);
@@ -193,13 +193,13 @@ export const deriveRoundTripTypeInfo = async (
 
 // The inferred input/output type strings of a `vs` cross-library schema, read
 // through the Standard Schema (`~standard`) interface rather than any one
-// library's own `Infer*` helper — so the same probe works for every
+// library's own `Infer*` helper - so the same probe works for every
 // Standard-Schema vendor (Zod today, Valibot/ArkType tomorrow) and reads the
 // value's *published* type contract, exactly what a downstream user gets.
 // Printed with the same InTypeAlias formatting as `deriveTypeInfo`, so the
 // caller can compare the two strings directly for equality. `importLine`
 // brings the vendor into scope (e.g. `import * as z from "zod";`). No
-// instantiation count — only Sury's own schema owns that golden.
+// instantiation count - only Sury's own schema owns that golden.
 export const deriveVsTypeInfo = async (
   importLine: string,
   expr: string,
@@ -215,7 +215,7 @@ export const deriveVsTypeInfo = async (
     const msg = diagnosticsText(diagnostics);
     throw new Error(
       `deriveVsTypeInfo: could not resolve __Output/__Input for \`${expr}\`` +
-        (msg ? `:\n${msg}` : " (no compiler diagnostics — is it a Standard Schema value with a `~standard` prop?)"),
+        (msg ? `:\n${msg}` : " (no compiler diagnostics - is it a Standard Schema value with a `~standard` prop?)"),
     );
   }
   return { input, output };

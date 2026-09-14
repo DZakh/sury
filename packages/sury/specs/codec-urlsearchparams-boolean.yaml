@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.urlSearchParams.with(S.to, S.schema({ debug: S.boolean, flag: S.optional(S.boolean) }))"
+  input: URLSearchParams
+  output: "{ debug: boolean; flag?: boolean | undefined; }"
+  instantiations: 6513
+jsonSchema:
+  input: Expected JSON, received URLSearchParams
+  output: '{ type: "object", properties: { debug: { type: "boolean" }, flag: { type: "boolean" } }, required: ["debug"] }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||a.debug===b.debug&&a.flag===b.flag
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{i instanceof e[5]||e[6](i);let v0=e[0](i),v1=v0.get("debug"),v3=v0.get("flag")||void 0;typeof v1==="string"||e[1](v1);let v2;(v2=v1==="true")||v1==="false"||e[2](v1);if(v3){typeof v3==="string"||e[3](v3);let v4;(v4=v3==="true")||v3==="false"||e[4](v3);v3=v4;}return {debug:v2,flag:v3}}
+    examples:
+      true-false:
+        input: ((p) => (p.append("debug", "true"), p.append("flag", "false"), p))(new URLSearchParams())
+        output: "{ debug: true, flag: false }"
+      on-is-not-true:
+        input: ((p) => (p.append("debug", "on"), p))(new URLSearchParams())
+        error: 'Failed at debug: Expected boolean, received "on"'
+      missing-required:
+        input: new URLSearchParams()
+        error: "Failed at debug: Expected boolean, received undefined"
+      optional-absent:
+        input: ((p) => (p.append("debug", "false"), p))(new URLSearchParams())
+        output: "{ debug: false, flag: undefined }"
+      optional-empty:
+        input: ((p) => (p.append("debug", "false"), p.append("flag", ""), p))(new URLSearchParams())
+        output: "{ debug: false, flag: undefined }"
+  decode:
+    expression: i=>{let v0=e[0](i),v1=v0.get("debug"),v3=v0.get("flag")||void 0;typeof v1==="string"||e[1](v1);let v2;(v2=v1==="true")||v1==="false"||e[2](v1);if(v3){typeof v3==="string"||e[3](v3);let v4;(v4=v3==="true")||v3==="false"||e[4](v3);v3=v4;}return {debug:v2,flag:v3}}
+    examples:
+      true-false:
+        input: ((p) => (p.append("debug", "true"), p.append("flag", "false"), p))(new URLSearchParams())
+        output: "{ debug: true, flag: false }"
+  encode:
+    expression: i=>{let v1=i.flag;let v0=new e[0]();v0.append("debug",""+i.debug);if(v1!=null){v0.append("flag",""+v1);}return v0}
+    examples:
+      built:
+        input: "{ debug: true, flag: false }"
+        output: ((p) => (p.append("debug", "true"), p.append("flag", "false"), p))(new URLSearchParams())
+      omit-optional:
+        input: "{ debug: false }"
+        output: ((p) => (p.append("debug", "false"), p))(new URLSearchParams())

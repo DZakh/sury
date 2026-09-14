@@ -7,6 +7,7 @@ ts:
 jsonSchema:
   input: Expected JSON, received Foo
   output: Expected JSON, received Foo
+isEqual: strictEqual
 vs:
   zod: z.union([z.instanceof(class Foo { a = 1 }), z.instanceof(class Foo { b = 2 })])
 operations:

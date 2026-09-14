@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.string.with(S.to, S.union([1, 2]))
+  input: string
+  output: 1 | 2
+  instantiations: 4907
+jsonSchema:
+  input: '{ enum: ["1", "2"] }'
+  fromInputType: '"1" | "2"'
+  output: "{ enum: [1, 2] }"
+isEqual: strictEqual
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[1](i);for(;;){if(i==="1"){i=1;break}if(i==="2"){i=2;break}e[0](i)}return i}
+    examples:
+      one:
+        input: '"1"'
+        output: "1"
+      two:
+        input: '"2"'
+        output: "2"
+      decimal:
+        input: '"1.0"'
+        error: Expected 1 | 2, received "1.0"
+      padded:
+        input: '" 1"'
+        error: Expected 1 | 2, received " 1"
+      other:
+        input: '"3"'
+        error: Expected 1 | 2, received "3"
+  decode:
+    expression: i=>{for(;;){if(i==="1"){i=1;break}if(i==="2"){i=2;break}e[0](i)}return i}
+    examples:
+      one:
+        input: '"1"'
+        output: "1"
+      decimal:
+        input: '"1.0"'
+        error: Expected 1 | 2, received "1.0"
+  encode:
+    expression: i=>{for(;;){if(typeof i==="number"&&i==i&&i===1){i="1";break}if(typeof i==="number"&&i==i&&i===2){i="2";break}e[0](i)}return i}
+    examples:
+      two:
+        input: "2"
+        output: '"2"'
+      other:
+        input: "3"
+        error: Expected 1 | 2, received 3

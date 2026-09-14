@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.env.with(S.to, S.optional(S.string.with(S.minLength, 0), "dev"))
+  input: string | undefined
+  output: string
+  instantiations: 5331
+jsonSchema:
+  input: '{ type: "string" }'
+  fromInputType: string
+  output: '{ type: "string", minLength: 0 }'
+isEqual: strictEqual
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{(typeof i==="string"||i===void 0)||e[0](i);if(i===void 0){i="dev";}return i}
+    examples:
+      set:
+        input: '"x"'
+        output: '"x"'
+      blank:
+        input: '""'
+        output: '""'
+      unset:
+        input: undefined
+        output: '"dev"'
+  decode:
+    expression: i=>{if(i===void 0){i="dev";}return i}
+    examples:
+      set:
+        input: '"x"'
+        output: '"x"'
+      unset:
+        input: undefined
+        output: '"dev"'
+  encode:
+    expression: i=>{typeof i==="string"||e[0](i);return i}
+    examples:
+      set:
+        input: '"x"'
+        output: '"x"'

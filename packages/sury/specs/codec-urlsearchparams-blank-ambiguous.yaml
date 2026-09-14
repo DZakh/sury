@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.urlSearchParams.with(S.to, S.schema({ q: S.string, n: S.number.with(S.gte, 18) }))"
+  input: URLSearchParams
+  output: "{ q: string; n: number; }"
+  instantiations: 6130
+jsonSchema:
+  input: Expected JSON, received URLSearchParams
+  output: '{ type: "object", properties: { q: { type: "string" }, n: { type: "number", minimum: 18 } }, required: ["q", "n"] }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||a.q===b.q&&a.n===b.n
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: 'SuryError: Failed at q: Ambiguous "" for string. Should a blank input be rejected, kept, or read as absent? Choose with S.nonEmpty, S.minLength(0), or S.optional'
+  decode: eq-to-parse
+  encode:
+    expression: i=>{let v0=i.n;v0>=18||e[0](v0);let v1=new e[1]();v1.append("q",i.q);v1.append("n",""+v0);return v1}
+    examples:
+      too-young:
+        input: '{ q: "x", n: 7 }'
+        error: "Failed at n: Expected number >= 18, received 7"

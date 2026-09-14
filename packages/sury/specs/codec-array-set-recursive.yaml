@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.recursive("Node", (node) => S.array(node).with(S.to, S.set(node)))
+  input: unknown
+  output: unknown
+  instantiations: 6842
+jsonSchema:
+  input: '{ $ref: "#/$defs/Node", $defs: { Node: { items: { $ref: "#/$defs/Node" }, type: "array" } } }'
+  fromInputType: ...[][][][][][][][][][][]
+  output: Expected JSON, received Set<Node>
+isEqual: (a,b)=>a===b||e[0](a,b)
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{let v0;v0=e[0](i);return v0}
+    examples:
+      empty:
+        input: "[]"
+        output: new Set([])
+      one-level-deep:
+        input: "[[]]"
+        output: new Set([new Set([])])
+      two-levels-deep:
+        input: "[[], [[]]]"
+        output: new Set([new Set([]), new Set([new Set([])])])
+      wrong-type-at-depth:
+        input: "[[1]]"
+        error: "Failed at [0][0]: Expected Node[], received 1"
+  decode: eq-to-parse
+  encode: eq-to-parse

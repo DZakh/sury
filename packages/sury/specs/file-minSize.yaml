@@ -3,10 +3,11 @@ ts:
   schema: S.file.with(S.minSize, 3)
   input: File
   output: File
-  instantiations: 599
+  instantiations: 595
 jsonSchema:
   input: Expected JSON, received File.size >= 3
   output: Expected JSON, received File.size >= 3
+isEqual: strictEqual
 vs:
   zod: z.file().min(3)
 operations:
@@ -27,7 +28,7 @@ operations:
         error: Expected File.size >= 3, received Blob
       # FIXME: a bound is the only refinement that rewrites the schema's type
       # expression, so it is the only one that shows up when the *type* check
-      # is what failed — the size is named when nothing got far enough to have
+      # is what failed - the size is named when nothing got far enough to have
       # one. Tracked against the length family in specs/string-minLength.yaml;
       # the fix covers both.
       wrong-type:

@@ -1,15 +1,16 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: "S.fromJSONSchema({ anyOf: [] })"
+  schema: "S.fromJSONSchemaOrThrow({ anyOf: [] })"
   aliases:
-    - "S.fromJSONSchema({ oneOf: [] })"
-    - "S.fromJSONSchema({ type: [] })"
+    - "S.fromJSONSchemaOrThrow({ oneOf: [] })"
+    - "S.fromJSONSchemaOrThrow({ type: [] })"
   input: never
   output: never
   instantiations: 611
 jsonSchema:
   input: "{ not: {} }"
   output: "{ not: {} }"
+isEqual: (a,b)=>a===b||e[0](a,b)
 vs:
   zod:
     _skip: not-applicable

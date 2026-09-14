@@ -3,22 +3,29 @@ ts:
   schema: S.union([S.string, S.number]).with(S.to, S.union([S.number, S.string]))
   input: string | number
   output: string | number
-  instantiations: 6324
+  instantiations: 5510
 jsonSchema:
   input: '{ anyOf: [{ type: "number" }, { type: "string" }] }'
   output: '{ anyOf: [{ type: "string" }, { type: "number" }] }'
+isEqual: strictEqual
 vs:
   zod: z.union([z.string(), z.number()])
 operations:
   parse:
-    expression: i=>{(typeof i==="string"||typeof i==="number"&&i===i)||e[0](i);return i}
+    expression: i=>{(typeof i==="string"||typeof i==="number"&&i==i)||e[0](i);return i}
     examples:
       string-never-coerced:
         input: '"123"'
         output: '"123"'
+        divergence:
+          reason: the checks compile the reverse direction, which this codec leaves ambiguous, so they raise on the schema instead of answering about the value
+          check: Ambiguous string -> number | string. Should number be decoded or ignored? Choose with S.to for string -> number, or S.never -> number
       number:
         input: "123"
         output: "123"
+        divergence:
+          reason: the checks compile the reverse direction, which this codec leaves ambiguous, so they raise on the schema instead of answering about the value
+          check: Ambiguous string -> number | string. Should number be decoded or ignored? Choose with S.to for string -> number, or S.never -> number
       invalid:
         input: "true"
         error: Expected string | number, received true
@@ -28,9 +35,12 @@ operations:
       negative-zero:
         input: "-0"
         output: "-0"
+        divergence:
+          reason: the checks compile the reverse direction, which this codec leaves ambiguous, so they raise on the schema instead of answering about the value
+          check: Ambiguous string -> number | string. Should number be decoded or ignored? Choose with S.to for string -> number, or S.never -> number
   decode: eq-to-parse
   encode:
-    expression: i=>{(typeof i==="number"&&i===i||typeof i==="string")||e[0](i);return i}
+    expression: i=>{(typeof i==="number"&&i==i||typeof i==="string")||e[0](i);return i}
     examples:
       string:
         input: '"123"'

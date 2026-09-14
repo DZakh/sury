@@ -1,18 +1,19 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: 'S.fromJSONSchema({ type: "object", properties: { count: { type: "integer", default: "" } } })'
+  schema: 'S.fromJSONSchemaOrThrow({ type: "object", properties: { count: { type: "integer", default: "" } } })'
   input: "{ count?: number | undefined; }"
   output: "{ count?: number | undefined; }"
   instantiations: 3299
 jsonSchema:
   input: '{ type: "object", properties: { count: { type: "integer", default: "" } } }'
   output: '{ type: "object", properties: { count: { type: "integer", default: "" } } }'
+isEqual: (a,b)=>a===b||a.count===b.count
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i["count"];(typeof v0==="number"&&v0===v0&&v0%1===0||v0===void 0)||e[0](v0);return {count:v0}}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.count;(typeof v0==="number"&&v0==v0&&v0%1==0||v0===void 0)||e[0](v0);return {count:v0}}
     examples:
       value-present:
         input: "{ count: 1 }"

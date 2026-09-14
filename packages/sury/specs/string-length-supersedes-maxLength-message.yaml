@@ -3,10 +3,11 @@ ts:
   schema: S.string.with(S.maxLength, 5, "MAX").with(S.length, 3)
   input: string
   output: string
-  instantiations: 1125
+  instantiations: 1123
 jsonSchema:
   input: '{ type: "string", minLength: 3, maxLength: 3 }'
   output: '{ type: "string", minLength: 3, maxLength: 3 }'
+isEqual: strictEqual
 vs:
   zod: z.string().max(5, "MAX").length(3)
 operations:

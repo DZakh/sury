@@ -29,12 +29,12 @@ This section describes the internal architecture of Sury to help with understand
 The internal representation of a type schema, containing:
 
 - `tag`: Type identifier (e.g., `stringTag`, `objectTag`, `arrayTag`)
-- `decoder`: Builder function for input validation (type checking)
-- `encoder`: Builder function for converting from different schema types
-- `parser`: Builder function for transformations after decoding (used by `S.shape`, `S.to`)
-- `serializer`: Builder function for reverse transformations
-- `inputRefiner`: User validations run on the typed input, before the decoder
-- `refiner`: User validations run on the assembled output, after the decoder (`S.reverse` swaps `inputRefiner` ↔ `refiner`)
+- `dc` (decoder): Builder function for input validation (type checking)
+- `en` (encoder): Builder function for converting from different schema types
+- `pr` (parser): Builder function for transformations after decoding (used by `S.shape`, `S.to`)
+- `sz` (serializer): Builder function for reverse transformations
+- `ir` (inputRefiner): User validations run on the typed input, before the decoder
+- `rf` (refiner): User validations run on the assembled output, after the decoder (`S.reverse` swaps `ir` ↔ `rf`)
 - `to`: Target schema for transformations (set by `S.shape`, `S.to`)
 - `from`: Path array indicating where this value comes from in shaped schemas
 - `properties`: For object schemas, a dict of field name to schema
@@ -42,7 +42,7 @@ The internal representation of a type schema, containing:
 
 #### Builder
 
-A builder is a plain function with signature `(input: Val) => Val`. The schema being built is available as `input.e` (`expected` — there is no separate self-schema parameter). Builders generate JavaScript code at compile time by manipulating `val` objects:
+A builder is a plain function with signature `(input: Val) => Val`. The schema being built is available as `input.e` (`expected` - there is no separate self-schema parameter). Builders generate JavaScript code at compile time by manipulating `val` objects:
 
 ```ts
 const myBuilder = (input: Val): Val =>
@@ -56,15 +56,15 @@ Encoders take an extra `target` argument (the schema being coerced into): `(inpu
 
 A compilation-time representation of a value being processed. Key fields:
 
-- `inline`: The generated code expression (e.g., `i["foo"]`, `v0`)
+- `inline`: The generated code expression (e.g., `i.foo`, `v0`)
 - `var()`: Function to allocate/retrieve a variable name (use when value is referenced multiple times)
 - `schema`: The schema of the current value
 - `expected`: The schema we're trying to parse/convert into
 - `prev`: Link to the previous val in the transform chain (walked by `merge`)
 - `codeFromPrev`: Generated statements that produce this val from `prev`, including the `let` declaration of its own value. A non-empty `codeFromPrev` makes the val non-hoistable in `merge`, so a union discriminant can't be lifted above a `let` it reads.
-- `hoistedDecls`: `let` declarations hoisted *onto this val* by a descendant whose own segment was already emitted (a field read on its parent, a loop accumulator before its `for`). Populated with `B.hoistDecl(owner, decl)` and emitted by `merge` right after this val's checks — no callback mutating an unrelated val.
+- `hoistedDecls`: `let` declarations hoisted *onto this val* by a descendant whose own segment was already emitted (a field read on its parent, a loop accumulator before its `for`). Populated with `B.hoistDecl(owner, decl)` and emitted by `merge` right after this val's checks - no callback mutating an unrelated val.
 - `finalized`: set by `merge` once a val's code is emitted; a late cached-bond materialization re-reads inline instead of hoisting onto it (#240)
-- `checks`: `array<check>` of type-narrows and user refiners. A check whose `fail === B.failInvalidType` is a type-narrow that doubles as a union dispatch discriminant. (Invariant: absent iff no checks — never stored as `Some([])`.)
+- `checks`: `array<check>` of type-narrows and user refiners. A check whose `fail === B.failInvalidType` is a type-narrow that doubles as a union dispatch discriminant. (Invariant: absent iff no checks - never stored as `Some([])`.)
 - `isOutput`: `Some(true)` once refiners have run; advanced decoders (object/array/tuple/union/recursive) set it themselves
 - `global`: Shared compilation context containing:
   - `embeded`: Array of embedded values (functions, constants) accessible as `e[n]`
@@ -81,7 +81,7 @@ Input Schema
      │
      ▼
 ┌──────────────────────────────────────────────────────────────┐
-│  parse(val) loop — one iteration                             │
+│  parse(val) loop - one iteration                             │
 │                                                              │
 │  if async flag:                                              │
 │     - continue the chain inside `.then(...)`                 │
@@ -91,11 +91,11 @@ Input Schema
 │       or `refine` onto `.to` (default encoder coercion)      │
 │                                                              │
 │  else (not yet decoded):                                     │
-│     1. Encoder — if `schema !== expected` and an encoder     │
+│     1. Encoder - if `schema !== expected` and an encoder     │
 │        exists, coerce between schema types                   │
-│     2. Decoder — otherwise narrow to the schema type         │
+│     2. Decoder - otherwise narrow to the schema type         │
 │        (e.g. `typeof === "string"`) and push `checks`        │
-│     3. markOutput — for primitive decoders, apply            │
+│     3. markOutput - for primitive decoders, apply            │
 │        `inputRefiner`/`refiner` and set `isOutput`           │
 │        (advanced decoders own this themselves)               │
 └──────────────────────────────────────────────────────────────┘
@@ -114,7 +114,7 @@ For `S.object(s => s.field("foo", S.string))` the generated parse function is:
 ```javascript
 i => {
   typeof i === "object" && i || e[1](i); // object validation
-  let v0 = i["foo"];                     // field access
+  let v0 = i.foo;                        // field access
   typeof v0 === "string" || e[0](v0);    // string validation
   return v0;                             // return parsed value
 };
@@ -129,12 +129,12 @@ Checks emit as `cond || e[n](x);` (throw when the condition is false), not as
 
 ### Key Functions
 
-- `parse(val)`: Main compilation loop — encoder → decoder → markOutput → follow `.to`, until the val is fully decoded
+- `parse(val)`: Main compilation loop - encoder → decoder → markOutput → follow `.to`, until the val is fully decoded
 - `B_merge(val, hoistCond?)`: Walks the `.prev` chain into a code string. With `hoistCond` (union codegen) it lifts type-narrow checks into a dispatch condition; a val with non-empty `codeFromPrev` stays non-hoistable so its `let` travels with the check
 - `B_next(prev, code, schema, expected)`: Creates the next val one step down the transform chain
 - `B_refine(val, schema?, checks?)`: Clones a val to attach `checks` while preserving the var-allocation link
 - `B_hoistDecl(owner, decl)`: Attaches a `let` declaration to a still-open owner val (prev/parent/self) that dominates and outlives the materialized value, replacing the old `allocate` side-channel
-- `B_markOutput(val, valInput)`: Applies `inputRefiner`/`refiner` and marks the val as output
+- `B_markOutput(val, valInput)`: Applies `ir`/`rf` and marks the val as output
 - `B_embed(val, value)`: Embeds a runtime value (function, object) and returns a reference like `e[0]`
 
 ### Shaped Schemas (S.shape, S.object with definer)
@@ -191,17 +191,30 @@ npm run test -- --watch
 
 ## Make comparison
 
-For the cross-library comparison table in the README, bundle each library on
-https://bundlejs.com/ with the recipes below.
+`pnpm benchmarks --write` regenerates `docs/benchmarks/*.md`, which is where the
+measured cross-library numbers live: bundle size, feature probes, timings and
+conformance, for schemas, JSON encoding, JSON Schema and protobuf. CI runs the
+check on every pull request and republishes the pages on every push to main, so
+a number there is never older than the last merge. Reach for it first.
+
+The recipes below are for the README's own snapshot table, which is bundled on
+https://bundlejs.com/ so the figures are comparable with what that site reports.
+
+A release is measured before it is on npm, so Sury's own cells come from the
+local build instead: bundle the same recipe with esbuild (`bundle`, `minify`,
+`treeShaking`, `format: esm`, `target: esnext`, `platform: browser`) and gzip
+the output - that reproduces bundlejs within 0.6% on a published version, and
+the total agrees with `specs/bundleSize.yaml`. Re-check against bundlejs once
+the release is published.
 
 `sury`
 
 ```ts
-export * as S from "sury@11.0.0-rc.1";
+export * as S from "sury@11.0.0";
 ```
 
 ```ts
-import * as S from "sury@11.0.0-rc.1";
+import * as S from "sury@11.0.0";
 
 const schema = S.schema({
   number: S.number,
@@ -216,7 +229,7 @@ const schema = S.schema({
     bool: S.boolean,
   },
 });
-S.parser(schema)(data);
+S.parseOrThrow(schema)(data);
 ```
 
 valibot
@@ -331,39 +344,133 @@ schema(data);
 
 A running list of strictness or author-guidance features the spec harness
 (`packages/spec`, see the `spec` skill) could add. When working on Sury you hit a
-case the harness *should* have caught or guided better — a missing check, a weak
-error message, a strictness gap that let a bad spec through — add a bullet here
+case the harness *should* have caught or guided better - a missing check, a weak
+error message, a strictness gap that let a bad spec through - add a bullet here
 instead of silently working around it.
 
-- An operation whose output holds a `Blob` or `File` (`S.blob`/`S.file`
-  decoding, or the reverse of any conversion into them) can't be specced: the
-  golden writer raises "cannot represent a Blob instance as spec source code",
-  and an op has no way to opt out. `Uint8Array` is written as a constructor
-  call, but a binary container's bytes are only readable asynchronously, so the
-  writer would have to await the example before rendering it. It costs a whole
-  direction of the content axis: the `codec-*` specs for `S.blob` and `S.file`
-  carry codegen and error cases only, and `tests/content_test.ts` holds the
-  values instead.
-- An example's `error` is matched verbatim, so one raised by the *platform*
-  rather than by Sury pins that engine's wording: `new Blob([Symbol()])` says
-  "Cannot convert a Symbol value to a string" on Node 22 and "The argument
-  'value' is invalid" on Node 24, and the golden passed locally while failing
-  CI. Write such an example so the message is ours — an input whose own
-  `toString` throws — or the check could compare only the error's constructor
-  when the spec says the failure is the platform's.
-- `ts.schema` has to evaluate, so a schema whose *construction* panics — every
-  argument the public API rejects outright, including the `"pack"`/`"unpack"`
-  pairs that don't name two readings — has no spec at all, only a
-  `creationError` for the ones that survive construction and fail at the
-  operation. `tests/content_test.ts` holds those. A `ts.constructionError`
-  beside `creationError` would keep them with the schema they reject.
-- `operations` names `parse`, `decode` and `encode` only, so `S.assertInput` and
-  `S.inputValidator` have no golden anywhere. Both compile through the same builder chain
-  under a different result target, and a change to that target's handling broke
-  every `S.assertInput(…, S.json)` and `S.inputValidator(S.jsonString)(…)` call with the whole
-  suite green. An `assert` op block, even one holding just an expression and a
-  pass/throw example, would have caught it; `tests/content_test.ts` holds it
-  instead.
+- An example's `error` is matched verbatim, and `errorConstructor` is the
+  opt-out for a message that belongs to the platform rather than to Sury.
+  Nothing points an author at it: the failure is a golden that passed locally
+  and differs on the CI runner's Node, and the diff names the wording without
+  saying whose it is. The class prefix a foreign throw now carries is the
+  signal to key on - a mismatch on an `error` golden whose two sides share a
+  class could say "this message is the platform's; record `errorConstructor`
+  instead".
+
+- `operations` has an `assert` and an `is` slot and no spec fills either, so
+  `S.assertInputOrThrow` and `S.isInput` still have no golden anywhere. Both
+  compile through the same builder chain under a different result target, and a
+  change to that target's handling broke every `S.assertInputOrThrow(..., S.json)`
+  and `S.isInput(S.jsonString)(...)` call with the whole suite green. One block,
+  holding just an expression and a pass/throw example, would have caught it;
+  `tests/content_test.ts` holds it instead.
+
+- `operations` names one schema's `parse`/`decode`/`encode`, so a **pipeline**
+  - `S.decodeOrThrow(a, b, c)`, the multi-schema form `docs/js-usage.md`
+  documents - has no golden anywhere. It is not a niche path:
+  `S.decodeOrThrow(base64, jsonString, string)` emits byte for byte what
+  `S.base64.with(S.to, S.jsonString).with(S.to, S.string)` does, through a
+  fold of its own (`compileChain`), and nothing pins that the two agree.
+  A `ts.pipeline` beside `ts.schema`, taking the argument list, would cover it.
+
+- `eq-to-parse` and `identity` compare an operation's generated SOURCE, and two
+  directions of a recursive codec compile to the same source while embedding
+  different operations: `S.recursive("Node", n => S.array(n).with(S.to,
+  S.set(n)))` emits `i=>{let v0;v0=e[0](i);return v0}` for parse and for encode,
+  where one `e[0]` builds Sets out of arrays and the other arrays out of Sets.
+  The shorthand is then mandatory (an expression plus examples is rejected as a
+  duplicate) and it drops the examples, so the encode direction of every
+  recursive codec has no runtime coverage anywhere. Comparing the embedded
+  operations too, or letting `eq-to-parse` carry examples of its own, would
+  close it.
+
+- Three structural-equality oracles have to agree and nothing checks that they
+  do: `deepEqual` in `src/eq.ts`, `structural` in `scripts/eqFuzz.ts`, and
+  `structurallyEqual` in `packages/spec/harness.ts`. Each is the other's
+  reference - the fuzzer holds the emit to its walk, and the harness calls a
+  disagreement with its own walk a finding - so a value kind missing from one is
+  invisible until a schema produces it, and then reports as the comparator being
+  wrong rather than the oracle being silent. Adding a built-in container means
+  teaching all three (`S.map` did, after `S.formData` and `S.set` did before
+  it); one shared module, or a fixture of pairs all three must answer alike,
+  would make the coupling fail loudly instead.
+
+- `fuzz:union --ref=<commit>` reports 3 `acceptance` diffs on the pinned
+  `issue-392` case even when the working tree *is* that commit, so the
+  changelog cannot be read as a signal without running it on an unchanged tree
+  first. The pinned case builds its member schemas with the working library and
+  hands them to `baseline.union(...)`, so two library instances share one set of
+  schema objects and each writes its own per-compile fields onto them. Building
+  the members with each library separately, the way `diffsForUnion` does for the
+  generated cases, would make the changelog trustworthy. The gate itself is
+  unaffected - it only counts `acceptance`/`exception-kind` from the
+  compiled-vs-reference run.
+
+- There is no operation for source text: `S.toProtoOrThrow` returns a `.proto` file,
+  so its output is snapshotted in `tests/S_toProto_test.ts` rather than a spec.
+  A `proto` operation next to `jsonSchema` would keep it with the schema.
+
+- `valueToCode` has no case for `ArrayBuffer`, so an example whose result is
+  one (`S.arrayBuffer`, `S.uint8Array.with(S.to, S.arrayBuffer)` encode) can
+  only be a rejecting input; the accepting ones live in
+  `tests/S_arrayBuffer_test.ts`. `new Uint8Array([...]).buffer` would print it.
+
+- `jsonSchema` snapshots one target (the default draft-07), so an emit that is
+  dialect-gated - `contentSchema` is 2019-09+, OpenAPI 3.0 has no content
+  keywords at all - has no golden for the targets it differs on, and lands in
+  `S_inputJSONSchema_target_test.res` instead. A `jsonSchema.targets` map, or a
+  per-spec target override, would keep it with the schema it belongs to.
+
+- A spec for a *new* export is timed against a baseline that doesn't have it.
+  The expression evaluates to `undefined` there, `S.parseOrThrow(undefined)` compiles
+  to `noopOperation`, and the real validator is then reported as thousands of
+  percent slower than a function that returns its input - PR #420 added 14
+  formats and got 17 such rows, every one of them bogus. The harness already
+  knows how to say `new:` (the same spec's `decode`/`encode` targets are listed
+  that way), so `parse` could take the same path when the baseline expression
+  is `undefined`, rather than comparing against a no-op. The accompanying
+  `behavior changed - baseline accepted it, now rejected` lines have the same
+  cause: a no-op accepts every input, valid or not.
+
+- What decides whether a `divergence` exists at all is accept-or-reject, so an
+  example both libraries accept records nothing, and a value difference there is
+  invisible. Once one exists its `zod` answer is a golden like any other - a
+  changed value is reported against the one it replaced - but an author who
+  notices the difference first and records it is told `divergence.zod agrees
+  with parse - remove it`. Comparing that answer against the example's own
+  `output` is what would close it, and would turn every coercion difference into
+  a finding; the reason it is not done today is noise, not principle, and now
+  that the answers are recorded the size of that noise is measurable first.
+
+- `divergence.ajv` gates only the direction that is a promise: a document that
+  rejects what the parser accepts. The other direction is deliberately unasked,
+  because JSON Schema is allowed to describe a wider set (a refinement has no
+  keyword) - but that also means a document far wider than the parser, one that
+  accepts everything, passes silently. A count of how many *rejected* examples
+  each document turns away would rank the specs where it has drifted furthest
+  without ever failing one.
+
+- Only the default draft-07 emit is validated against the examples. The
+  `draft-2020-12` and `openapi-3.0` blocks record just the fields that differ
+  from it, so there is no whole document to hand a validator - reassembling one
+  by merging the sparse block over the default would extend the same check to
+  both dialects, and those are the targets a consumer is most likely to publish.
+
+- The `vs` dimension names Zod alone. `checkZodExamples` reads it through
+  Standard Schema (`~standard`), not a Zod API, so a `vs.valibot` or
+  `vs.arktype` would need only the import line and a key in the format - the
+  cross-check itself would work unchanged.
+
+- Nothing measures which *branch* of a generated operation an example reaches.
+  Every failure path calls an embedded function (`e[0](i)`), so wrapping the
+  embed array with counters during a recompute would give per-operation branch
+  coverage for free, and an uncovered failure site is exactly the check no
+  example exercises.
+
+- `checkAliases` compares `fn.toString()`, but a compiled operation also carries
+  the `embedded` array every `e[k]` in that text indexes into. Two schemas whose
+  code is identical and whose embeds differ (a different refinement closure, a
+  different error message) read as equivalent.
 
 ## License
 

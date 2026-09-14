@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.formData.with(S.to, S.schema({ avatar: S.file.with(S.maxSize, 4), cover: S.optional(S.file), logo: S.nullable(S.file), raw: S.blob }))"
+  input: FormData
+  output: "{ avatar: File; logo: File | null; raw: Blob; cover?: File | undefined; }"
+  instantiations: 7698
+jsonSchema:
+  input: Expected JSON, received FormData
+  output: "Failed at avatar: Expected JSON, received File.size <= 4"
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||a.avatar===b.avatar&&a.cover===b.cover&&a.logo===b.logo&&a.raw===b.raw
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{i instanceof e[10]||e[11](i);let v0=e[0](i),v1=v0.get("avatar"),v2=v0.get("cover")||void 0,v3=v0.get("logo"),v4=v0.get("raw");v1 instanceof e[2]||e[3](v1);v1.size<5||e[1](v1);if(v2){v2 instanceof e[4]||e[5](v2);}if(v3){v3 instanceof e[6]||e[7](v3);}else{v3=null}v4 instanceof e[8]||e[9](v4);return {avatar:v1,cover:v2,logo:v3,raw:v4}}
+    examples:
+      text-where-file:
+        input: ((f) => (f.append("avatar", "x"), f.append("raw", new File(["r"], "r.bin")), f))(new FormData())
+        error: 'Failed at avatar: Expected File.size <= 4, received "x"'
+      missing-file:
+        input: ((f) => (f.append("raw", new File(["r"], "r.bin")), f))(new FormData())
+        error: "Failed at avatar: Expected File.size <= 4, received undefined"
+      too-large:
+        input: ((f) => (f.append("avatar", new File(["12345"], "a.png")), f.append("raw", new File(["r"], "r.bin")), f))(new FormData())
+        error: "Failed at avatar: Expected File.size <= 4, received File"
+      unchosen-file-inputs:
+        input: '((f) => (f.append("avatar", new File(["a"], "a.png")), f.append("cover", new File([], "", { type: "application/octet-stream" })), f.append("logo", new File([], "", { type: "application/octet-stream" })), f.append("raw", new File(["r"], "r.bin")), f))(new FormData())'
+        output: '{ avatar: new File(["a"], "a.png"), cover: undefined, logo: null, raw: new File(["r"], "r.bin") }'
+      text-where-optional-file:
+        input: ((f) => (f.append("avatar", new File(["a"], "a.png")), f.append("cover", "x"), f.append("raw", new File(["r"], "r.bin")), f))(new FormData())
+        error: 'Failed at cover: Expected File, received "x"'
+  decode:
+    expression: i=>{let v0=e[0](i),v1=v0.get("avatar"),v2=v0.get("cover")||void 0,v3=v0.get("logo"),v4=v0.get("raw");v1 instanceof e[2]||e[3](v1);v1.size<5||e[1](v1);if(v2){v2 instanceof e[4]||e[5](v2);}if(v3){v3 instanceof e[6]||e[7](v3);}else{v3=null}v4 instanceof e[8]||e[9](v4);return {avatar:v1,cover:v2,logo:v3,raw:v4}}
+    examples:
+      text-where-file:
+        input: ((f) => (f.append("avatar", "x"), f.append("raw", new File(["r"], "r.bin")), f))(new FormData())
+        error: 'Failed at avatar: Expected File.size <= 4, received "x"'
+  encode:
+    expression: i=>{let v0=i.avatar,v2=i.cover,v3=i.logo;v0.size<5||e[0](v0);let v1=new e[1]();v1.append("avatar",v0);if(v2!=null){v1.append("cover",v2);}if(v3!=null){v1.append("logo",v3);}v1.append("raw",i.raw);return v1}
+    examples:
+      built:
+        input: '{ avatar: new File(["ok"], "a.png", { type: "image/png" }), cover: new File(["c"], "c.png"), logo: new File(["l"], "l.png"), raw: new Blob(["r"]) }'
+        output: '((f) => (f.append("avatar", new File(["ok"], "a.png", { type: "image/png" })), f.append("cover", new File(["c"], "c.png")), f.append("logo", new File(["l"], "l.png")), f.append("raw", new File(["r"], "blob")), f))(new FormData())'
+      no-optional-and-no-nullable:
+        input: '{ avatar: new File(["ok"], "a.png"), logo: null, raw: new Blob(["r"]) }'
+        output: ((f) => (f.append("avatar", new File(["ok"], "a.png")), f.append("raw", new File(["r"], "blob")), f))(new FormData())
+      too-large:
+        input: '{ avatar: new File(["12345"], "a.png"), logo: null, raw: new Blob(["r"]) }'
+        error: "Failed at avatar: Expected File.size <= 4, received File"

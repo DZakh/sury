@@ -7,6 +7,7 @@ ts:
 jsonSchema:
   input: Expected JSON, received Set<string>
   output: Expected JSON, received Set<string>
+isEqual: (a,b)=>a===b||e[0](a,b)
 vs:
   zod: z.set(z.string())
 operations:

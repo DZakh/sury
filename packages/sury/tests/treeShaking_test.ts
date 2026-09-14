@@ -2,7 +2,7 @@
 //
 // They are what lets a consumer's bundler drop schemas it never uses: without
 // one, `export const adminSchema = S.schema({…})` in a shared module is an
-// unanalyzable call, so it — and every part of Sury it reaches — survives into
+// unanalyzable call, so it - and every part of Sury it reaches - survives into
 // a page that only imports `userSchema`.
 //
 // bundleSize.yaml can't catch a lost annotation: it measures with esbuild,
@@ -17,22 +17,65 @@ const source = readFileSync(new URL("../index.mjs", import.meta.url), "utf8");
 
 // Exports whose whole point is the effect, so a bundler must never drop a call
 // to them even when the result is unused.
+// Every dual operation (§ operations.ts), with no exceptions: the rule is the
+// family, not the member. `isEqual*` would qualify to be annotated - it neither
+// validates nor runs a user transform or refinement - and deliberately is not,
+// because one annotated member turns a rule anyone can check into a property
+// each new operation has to be checked against.
+// The immediate call forms execute, and
+// a validation-only call discards its result, which an annotated pure call
+// would let esbuild drop - silently deleting the validation.
 const EFFECTFUL: Record<string, string> = {
-  assertInput: "throws on invalid input — the call IS the assertion",
-  assertOutput: "throws on invalid input — the call IS the assertion",
-  safe: "runs the callback it's given",
-  safeAsync: "runs the callback it's given",
+  $parseAsResult: "the immediate call forms validate",
+  $parseAsResultPromise: "the immediate call forms validate",
+  $encodeAsResult: "the immediate call forms validate",
+  $encodeAsResultPromise: "the immediate call forms validate",
+  $makeAsResult: "the immediate call forms validate",
+  $makeAsResultPromise: "the immediate call forms validate",
+  parseOrThrow: "the immediate call forms validate",
+  parseAsResult: "the immediate call forms validate",
+  parseAsPromiseOrReject: "the immediate call forms validate",
+  parseAsResultPromise: "the immediate call forms validate",
+  parseAsPromisableResult: "the immediate call forms validate",
+  decodeOrThrow: "the immediate call forms validate",
+  decodeAsResult: "the immediate call forms validate",
+  decodeAsPromiseOrReject: "the immediate call forms validate",
+  decodeAsResultPromise: "the immediate call forms validate",
+  decodeAsPromisableResult: "the immediate call forms validate",
+  encodeOrThrow: "the immediate call forms validate",
+  encodeAsResult: "the immediate call forms validate",
+  encodeAsPromiseOrReject: "the immediate call forms validate",
+  encodeAsResultPromise: "the immediate call forms validate",
+  encodeAsPromisableResult: "the immediate call forms validate",
+  makeInputOrThrow: "the immediate call forms validate",
+  makeInputAsResult: "the immediate call forms validate",
+  makeInputAsPromiseOrReject: "the immediate call forms validate",
+  makeInputAsResultPromise: "the immediate call forms validate",
+  makeInputAsPromisableResult: "the immediate call forms validate",
+  makeOutputOrThrow: "the immediate call forms validate",
+  makeOutputAsResult: "the immediate call forms validate",
+  makeOutputAsPromiseOrReject: "the immediate call forms validate",
+  makeOutputAsResultPromise: "the immediate call forms validate",
+  makeOutputAsPromisableResult: "the immediate call forms validate",
+  isInput: "the immediate call forms validate",
+  isOutput: "the immediate call forms validate",
+  isInputAsPromise: "the immediate call forms validate",
+  isOutputAsPromise: "the immediate call forms validate",
+  isEqualInput: "an operation, and operations are not annotated",
+  isEqualOutput: "an operation, and operations are not annotated",
+  assertInputOrThrow: "the immediate call forms validate",
+  assertOutputOrThrow: "the immediate call forms validate",
+  assertInputAsPromiseOrReject: "the immediate call forms validate",
+  assertOutputAsPromiseOrReject: "the immediate call forms validate",
   global: "mutates the global config",
   enableStandardJSONSchema: "registers the converter singleton",
-  $assertAsyncOrThrow: "throws on invalid input",
   $setExnId: "mutates the ReScript exception identity",
   Error: "a class, not a factory",
 };
 
 // Public name -> the local binding it resolves to in the bundle. Read off the
 // emitted `export { … }` block rather than assumed: `enum` is emitted as
-// `enum_`, `record` and `dict` share one binding, and an added alias would
-// otherwise go unchecked.
+// `enum_`, and an added alias would otherwise go unchecked.
 const exportedLocals = (): Map<string, string> => {
   const block = /\nexport \{([^}]*)\};?\s*$/.exec(source);
   expect(block, "index.mjs should end with an export block").not.toBe(null);
@@ -83,4 +126,17 @@ test("no public name is an alias of another binding", () => {
       new RegExp(`^var ${local.replace(/\$/g, "\\$")} = [A-Za-z_$][\\w$]*;$`, "m").test(source),
     );
   expect(aliases).toEqual([]);
+});
+
+// A property write at module scope (`schema.encoder = …`) is a statement, not
+// a declaration, so no annotation covers it: esbuild keeps the write and with
+// it the schema and everything its value reaches - in every bundle, whether or
+// not the schema is imported. A schema built by `initSchema` sets its hooks
+// inside the initializer callback instead.
+test("no module-scope property write on a schema", () => {
+  const writes = source
+    .split("\n")
+    .filter((line) => /^[A-Za-z_$][\w$]*\.[\w$]+ = /.test(line))
+    .filter((line) => !line.includes(".prototype = "));
+  expect(writes).toEqual([]);
 });

@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.utcDateTime
+  input: string
+  output: string
+  instantiations: 254
+jsonSchema:
+  input: '{ type: "string", format: "date-time", pattern: "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|02-(?:0[1-9]|1\\d|2[0-8])))[Tt](?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d|23:59:60)(?:\\.\\d+)?[Zz]$" }'
+  output: '{ type: "string", format: "date-time", pattern: "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|02-(?:0[1-9]|1\\d|2[0-8])))[Tt](?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d|23:59:60)(?:\\.\\d+)?[Zz]$" }'
+isEqual: strictEqual
+vs:
+  zod: z.iso.datetime()
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    examples:
+      utc:
+        input: '"2020-01-01T00:00:00.123Z"'
+        output: '"2020-01-01T00:00:00.123Z"'
+      offset-rejected:
+        input: '"2020-01-01T00:00:00+02:00"'
+        error: Expected UTC date-time, received "2020-01-01T00:00:00+02:00"
+  decode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      utc:
+        input: '"2020-01-01T00:00:00.123Z"'
+        output: '"2020-01-01T00:00:00.123Z"'
+      offset-rejected:
+        input: '"2020-01-01T00:00:00+02:00"'
+        error: Expected UTC date-time, received "2020-01-01T00:00:00+02:00"
+  encode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      utc:
+        input: '"2020-01-01T00:00:00.123Z"'
+        output: '"2020-01-01T00:00:00.123Z"'
+      offset-rejected:
+        input: '"2020-01-01T00:00:00+02:00"'
+        error: Expected UTC date-time, received "2020-01-01T00:00:00+02:00"

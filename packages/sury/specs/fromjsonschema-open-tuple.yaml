@@ -1,12 +1,13 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: 'S.fromJSONSchema({ type: "array", items: [{ type: "string" }, { type: "number" }], additionalItems: { type: "boolean" } })'
+  schema: 'S.fromJSONSchemaOrThrow({ type: "array", items: [{ type: "string" }, { type: "number" }], additionalItems: { type: "boolean" } })'
   input: "[(string | undefined)?, (number | undefined)?, ...boolean[]]"
   output: "[(string | undefined)?, (number | undefined)?, ...boolean[]]"
   instantiations: 1165
 jsonSchema:
   input: '{ items: [{ type: "string" }, { type: "number" }], type: "array", additionalItems: { type: "boolean" } }'
   output: '{ items: [{ type: "string" }, { type: "number" }], type: "array", additionalItems: { type: "boolean" } }'
+isEqual: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(e[0](a[i],b[i])))return false;return true}
 vs:
   zod: z.tuple([z.string().optional(), z.number().optional()]).rest(z.boolean())
 operations:

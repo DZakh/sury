@@ -3,18 +3,19 @@ ts:
   schema: S.optional(S.string).with(S.to, S.nullable(S.boolean))
   input: string | undefined
   output: boolean | null
-  instantiations: 5600
+  instantiations: 4786
 jsonSchema:
   input: Expected JSON, received string | undefined
   output: '{ anyOf: [{ type: "boolean" }, { type: "null" }] }'
   openapi-3.0:
     output: '{ type: "boolean", nullable: true }'
+isEqual: strictEqual
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    creationError: "SuryError: Invalid operation: can't convert string | undefined to boolean | null — string has no same-type variant on the other side. Use S.to to say what you mean, or S.never to mark a variant unreachable"
+    creationError: "SuryError: Ambiguous string | undefined -> boolean | null. Should string be decoded or ignored? Choose with S.to for string -> boolean, or S.never -> string"
   decode: eq-to-parse
   encode:
-    creationError: "SuryError: Invalid operation: can't convert boolean | null to string | undefined — boolean has no same-type variant on the other side. Use S.to to say what you mean, or S.never to mark a variant unreachable"
+    creationError: "SuryError: Ambiguous boolean | null -> string | undefined. Should boolean be decoded or ignored? Choose with S.to for boolean -> string, or S.never -> boolean"

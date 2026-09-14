@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.env.with(S.to, S.bigint)
+  input: string | undefined
+  output: bigint
+  instantiations: 4419
+jsonSchema:
+  input: '{ type: "string" }'
+  fromInputType: string
+  output: Expected JSON, received bigint
+isEqual: strictEqual
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{(typeof i==="string"||i===void 0)||e[1](i);let v0;try{v0=BigInt(i)}catch(_){e[0](i)}v0||i.trim()||e[0](i);return v0}
+    examples:
+      valid:
+        input: '"42"'
+        output: 42n
+      blank:
+        input: '""'
+        error: Expected bigint, received ""
+      not-a-bigint:
+        input: '"x"'
+        error: Expected bigint, received "x"
+  decode:
+    expression: i=>{let v0;try{v0=BigInt(i)}catch(_){e[0](i)}v0||i.trim()||e[0](i);return v0}
+    examples:
+      valid:
+        input: '"42"'
+        output: 42n
+  encode:
+    expression: i=>{return ""+i}
+    examples:
+      valid:
+        input: 42n
+        output: '"42"'

@@ -1,4 +1,4 @@
-// Evaluates the suite against `S.fromJSONSchema` and reduces it to the shape
+// Evaluates the suite against `S.fromJSONSchemaOrThrow` and reduces it to the shape
 // that gets snapshotted into goldens/.
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
@@ -21,13 +21,13 @@ export type DialectResult = {
   assertions: number;
   passed: number;
   failed: number;
-  // Split of `failed` by direction — see the push sites below.
+  // Split of `failed` by direction - see the push sites below.
   falseAccept: number;
   falseReject: number;
   errored: number;
-  // `S.inputValidator` score over the same corpus. Tracked alongside the canonical parse
+  // `S.isInput` score over the same corpus. Tracked alongside the canonical parse
   // score because the two disagreeing is always a Sury bug, never a JSON
-  // Schema gap — that delta is what surfaced the `S.json` assert break.
+  // Schema gap - that delta is what surfaced the `S.json` assert break.
   assertPassed: number;
   identityAssertions: number;
   identityPassed: number;
@@ -58,7 +58,7 @@ const optionalFilesIn = (dir: string): string[] => {
 };
 
 // Test ids are the human-readable descriptions upstream already writes, joined
-// by " :: " — they survive a suite bump far better than file offsets would,
+// by " :: " - they survive a suite bump far better than file offsets would,
 // which is what keeps a golden diff readable.
 const caseId = (file: string, testCase: SuiteCase): string => `${file} :: ${testCase.description}`;
 const testId = (file: string, testCase: SuiteCase, test: SuiteTest): string =>
@@ -115,8 +115,8 @@ export const runDialect = (
       let parse: (data: unknown) => unknown;
       let schema: unknown;
       try {
-        schema = S.fromJSONSchema(testCase.schema as never);
-        parse = S.parser(schema as never) as (data: unknown) => unknown;
+        schema = S.fromJSONSchemaOrThrow(testCase.schema as never);
+        parse = S.parseOrThrow(schema as never) as (data: unknown) => unknown;
       } catch {
         result.errored += testCase.tests.length;
         result.erroredCases.push(caseId(file, testCase));
@@ -131,7 +131,7 @@ export const runDialect = (
           parseValid = true;
         } catch {}
         const assertValid = attempt(() => {
-          if (!S.inputValidator(schema as never)(structuredClone(test.data))) throw new Error("invalid");
+          if (!S.isInput(schema as never)(structuredClone(test.data))) throw new Error("invalid");
         });
 
         if (parseValid === test.valid) {

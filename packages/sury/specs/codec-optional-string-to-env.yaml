@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.optional(S.string).with(S.to, S.env)
+  input: string | undefined
+  output: string | undefined
+  instantiations: 4550
+jsonSchema:
+  input: Expected JSON, received string | undefined
+  output: '{ type: "string" }'
+  fromOutputType: string
+isEqual: strictEqual
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{(typeof i==="string"||i===void 0)||e[0](i);return i}
+    examples:
+      set:
+        input: '"x"'
+        output: '"x"'
+      unset:
+        input: undefined
+        output: undefined
+      number:
+        input: "1"
+        error: Expected string | undefined, received 1
+  decode: eq-to-parse
+  encode:
+    expression: i=>{i=i||void 0;return i}
+    examples:
+      set:
+        input: '"x"'
+        output: '"x"'
+      blank:
+        input: '""'
+        output: undefined

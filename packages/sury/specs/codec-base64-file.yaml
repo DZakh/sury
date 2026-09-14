@@ -3,12 +3,13 @@ ts:
   schema: S.base64.with(S.to, S.file)
   input: string
   output: File
-  instantiations: 5245
+  instantiations: 4431
 jsonSchema:
   input: '{ type: "string", contentEncoding: "base64", contentMediaType: "application/octet-stream" }'
   output: Expected JSON, received File
   openapi-3.0:
     input: '{ type: "string", format: "byte" }'
+isEqual: strictEqual
 vs:
   zod:
     _skip: not-applicable
@@ -16,18 +17,24 @@ operations:
   parse:
     expression: i=>{typeof i==="string"||e[4](i);e[2](i)||e[3](i);return new e[1]([e[0](i)],"")}
     examples:
+      the-bytes:
+        input: '"aGk="'
+        output: new File(["hi"], "")
       not-base64:
         input: '"!!"'
         error: Expected base64, received "!!"
   decode:
     expression: i=>{e[2](i)||e[3](i);return new e[1]([e[0](i)],"")}
     examples:
+      the-bytes:
+        input: '"aGk="'
+        output: new File(["hi"], "")
       not-base64:
         input: '"!!"'
         error: Expected base64, received "!!"
   encode:
     isAsync: true
-    expression: i=>{let v0;try{v0=i.arrayBuffer().then(e[0]).catch(e[1])}catch(x){e[1](x)}return v0}
+    expression: i=>{try{let v0;try{v0=i.arrayBuffer().then(e[0]).catch(e[1])}catch(x){e[1](x)}return v0}catch(v1){return Promise.reject(v1)}}
     examples:
       stores-the-bytes:
         input: new File([new Uint8Array([137, 80, 78, 71])], "a.png")

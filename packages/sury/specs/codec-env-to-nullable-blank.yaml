@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.env.with(S.to, S.nullable(S.string.with(S.minLength, 0)))
+  input: string | undefined
+  output: string | null
+  instantiations: 5365
+jsonSchema:
+  input: '{ type: "string" }'
+  fromInputType: string
+  output: '{ anyOf: [{ type: "string", minLength: 0 }, { type: "null" }] }'
+  openapi-3.0:
+    output: '{ type: "string", minLength: 0, nullable: true }'
+isEqual: strictEqual
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{(typeof i==="string"||i===void 0)||e[0](i);if(i===void 0){i=null}return i}
+    examples:
+      set:
+        input: '"x"'
+        output: '"x"'
+      blank:
+        input: '""'
+        output: '""'
+      unset:
+        input: undefined
+        output: "null"
+  decode:
+    expression: i=>{if(i===void 0){i=null}return i}
+    examples:
+      set:
+        input: '"x"'
+        output: '"x"'
+      unset:
+        input: undefined
+        output: "null"
+  encode:
+    expression: i=>{for(;;){if(typeof i==="string")break;if(i===null){i=void 0;break}e[0](i)}return i}
+    examples:
+      set:
+        input: '"x"'
+        output: '"x"'
+      absent:
+        input: "null"
+        output: undefined

@@ -1,0 +1,70 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.formData.with(S.to, S.schema({ name: S.string.with(S.nonEmpty), age: S.number.with(S.gte, 18), agree: S.boolean, kind: "signup", since: S.date }))'
+  input: FormData
+  output: '{ name: string; age: number; agree: boolean; kind: "signup"; since: Date; }'
+  instantiations: 7235
+jsonSchema:
+  input: Expected JSON, received FormData
+  output: "Failed at since: Expected JSON, received Date"
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||a.name===b.name&&a.age===b.age&&a.agree===b.agree&&+a.since===+b.since
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{i instanceof e[10]||e[11](i);let v0=e[0](i),v1=v0.get("name"),v2=v0.get("age"),v4=v0.get("agree"),v6=v0.get("kind"),v7=v0.get("since");typeof v1==="string"||e[2](v1);v1.length>0||e[1](v1);typeof v2==="string"||e[3](v2);let v3=+v2;v3==v3&&(v3||v2.trim())||e[5](v2);v3>=18||e[4](v3);let v5=v4==="on"||v4==="true"||(v4==="false"||!v4?false:e[6](v4));v6==="signup"||e[7](v6);typeof v7==="string"||e[8](v7);let v8=new Date(v7);!Number.isNaN(v8.getTime())||e[9](v8);return {name:v1,age:v3,agree:v5,kind:v6,since:v8}}
+    examples:
+      a-key-sent-twice:
+        input: ((f) => (f.append("name", "first"), f.append("name", "second"), f.append("age", "42"), f.append("agree", "on"), f.append("kind", "signup"), f.append("since", "2026-01-01"), f))(new FormData())
+        error: 'Failed at name: Expected string.length >= 1, received ["first", "second"]'
+      a-file-where-text-belongs:
+        input: ((f) => (f.append("name", "n"), f.append("age", "42"), f.append("agree", "on"), f.append("kind", "signup"), f.append("since", new File(["x"], "d.txt")), f))(new FormData())
+        error: "Failed at since: Expected Date, received File"
+      valid:
+        input: ((f) => (f.append("name", "Ann"), f.append("age", "42"), f.append("agree", "on"), f.append("kind", "signup"), f.append("since", "2024-01-01T00:00:00.000Z"), f))(new FormData())
+        output: '{ name: "Ann", age: 42, agree: true, kind: "signup", since: new Date("2024-01-01T00:00:00.000Z") }'
+      blank-name-rejected:
+        input: ((f) => (f.append("name", ""), f.append("age", "42"), f.append("agree", "on"), f.append("kind", "signup"), f.append("since", "2024-01-01T00:00:00.000Z"), f))(new FormData())
+        error: 'Failed at name: Expected string.length >= 1, received ""'
+      missing-field:
+        input: ((f) => (f.append("name", "Ann"), f.append("agree", "on"), f.append("kind", "signup"), f.append("since", "2024-01-01T00:00:00.000Z"), f))(new FormData())
+        error: "Failed at age: Expected number >= 18, received undefined"
+      not-a-number:
+        input: ((f) => (f.append("name", "Ann"), f.append("age", "x"), f.append("agree", "on"), f.append("kind", "signup"), f.append("since", "2024-01-01T00:00:00.000Z"), f))(new FormData())
+        error: 'Failed at age: Expected number >= 18, received "x"'
+      too-young:
+        input: ((f) => (f.append("name", "Ann"), f.append("age", "7"), f.append("agree", "on"), f.append("kind", "signup"), f.append("since", "2024-01-01T00:00:00.000Z"), f))(new FormData())
+        error: "Failed at age: Expected number >= 18, received 7"
+      not-a-boolean:
+        input: ((f) => (f.append("name", "Ann"), f.append("age", "42"), f.append("agree", "yes"), f.append("kind", "signup"), f.append("since", "2024-01-01T00:00:00.000Z"), f))(new FormData())
+        error: 'Failed at agree: Expected boolean, received "yes"'
+      wrong-literal:
+        input: ((f) => (f.append("name", "Ann"), f.append("age", "42"), f.append("agree", "on"), f.append("kind", "login"), f.append("since", "2024-01-01T00:00:00.000Z"), f))(new FormData())
+        error: 'Failed at kind: Expected "signup", received "login"'
+      not-a-date:
+        input: ((f) => (f.append("name", "Ann"), f.append("age", "42"), f.append("agree", "on"), f.append("kind", "signup"), f.append("since", "nope"), f))(new FormData())
+        error: "Failed at since: Expected Date, received invalid Date"
+      not-a-form:
+        input: '{ name: "Ann" }'
+        error: 'Expected FormData, received { name: "Ann"; }'
+  decode:
+    expression: i=>{let v0=e[0](i),v1=v0.get("name"),v2=v0.get("age"),v4=v0.get("agree"),v6=v0.get("kind"),v7=v0.get("since");typeof v1==="string"||e[2](v1);v1.length>0||e[1](v1);typeof v2==="string"||e[3](v2);let v3=+v2;v3==v3&&(v3||v2.trim())||e[5](v2);v3>=18||e[4](v3);let v5=v4==="on"||v4==="true"||(v4==="false"||!v4?false:e[6](v4));v6==="signup"||e[7](v6);typeof v7==="string"||e[8](v7);let v8=new Date(v7);!Number.isNaN(v8.getTime())||e[9](v8);return {name:v1,age:v3,agree:v5,kind:v6,since:v8}}
+    examples:
+      valid:
+        input: ((f) => (f.append("name", "Ann"), f.append("age", "42"), f.append("agree", "on"), f.append("kind", "signup"), f.append("since", "2024-01-01T00:00:00.000Z"), f))(new FormData())
+        output: '{ name: "Ann", age: 42, agree: true, kind: "signup", since: new Date("2024-01-01T00:00:00.000Z") }'
+      blank-name-rejected:
+        input: ((f) => (f.append("name", ""), f.append("age", "42"), f.append("agree", "on"), f.append("kind", "signup"), f.append("since", "2024-01-01T00:00:00.000Z"), f))(new FormData())
+        error: 'Failed at name: Expected string.length >= 1, received ""'
+  encode:
+    expression: i=>{let v0=i.name,v1=i.age,v4=i.since;v0.length>0||e[0](v0);v1>=18||e[1](v1);let v2=new e[2]();v2.append("name",v0);v2.append("age",""+v1);if(i.agree){v2.append("agree","on")}v2.append("kind","signup");let v3;try{v3=v4.toISOString()}catch(_){e[3](v4)}v2.append("since",v3);return v2}
+    examples:
+      built:
+        input: '{ name: "Ann", age: 42, agree: true, kind: "signup", since: new Date("2024-01-01T00:00:00.000Z") }'
+        output: ((f) => (f.append("name", "Ann"), f.append("age", "42"), f.append("agree", "on"), f.append("kind", "signup"), f.append("since", "2024-01-01T00:00:00.000Z"), f))(new FormData())
+      too-young:
+        input: '{ name: "Ann", age: 7, agree: true, kind: "signup", since: new Date("2024-01-01T00:00:00.000Z") }'
+        error: "Failed at age: Expected number >= 18, received 7"

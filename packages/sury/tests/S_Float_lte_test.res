@@ -19,15 +19,15 @@ test("Fails to parse invalid data", t => {
 test("Successfully serializes valid value", t => {
   let schema = S.float->S.lte(1.)
 
-  t->Assert.deepEqual(1.->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`1`))
-  t->Assert.deepEqual(-1.->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`-1`))
+  t->Assert.deepEqual(1.->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`1`))
+  t->Assert.deepEqual(-1.->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`-1`))
 })
 
 test("Fails to serialize invalid value", t => {
   let schema = S.float->S.lte(1.)
 
   t->U.assertThrowsMessage(
-    () => 1234.->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    () => 1234.->S.convertOrThrow(~from=schema, ~to=S.unknown),
     `Expected number <= 1, received 1234`,
   )
 })
@@ -56,6 +56,6 @@ test("Compiled parse code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="number"&&i===i||e[1](i);i<=1||e[0](i);return i}`,
+    `i=>{typeof i==="number"&&i==i||e[1](i);i<=1||e[0](i);return i}`,
   )
 })

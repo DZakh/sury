@@ -12,6 +12,7 @@ jsonSchema:
   openapi-3.0:
     input: '{ type: "boolean", enum: [true] }'
     output: '{ type: "boolean", enum: [true] }'
+isEqual: alwaysEqual
 vs:
   zod: z.literal(true)
 operations:

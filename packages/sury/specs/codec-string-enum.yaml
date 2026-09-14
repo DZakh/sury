@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.string.with(S.to, S.union(["a", "b"]))
+  input: string
+  output: '"a" | "b"'
+  instantiations: 4952
+jsonSchema:
+  input: '{ enum: ["a", "b"] }'
+  fromInputType: '"a" | "b"'
+  output: '{ enum: ["a", "b"] }'
+isEqual: strictEqual
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[1](i);(i==="a"||i==="b")||e[0](i);return i}
+    examples:
+      first:
+        input: '"a"'
+        output: '"a"'
+      second:
+        input: '"b"'
+        output: '"b"'
+      padded:
+        input: '" a "'
+        error: Expected "a" | "b", received " a "
+      other-text:
+        input: '"c"'
+        error: Expected "a" | "b", received "c"
+      not-a-string:
+        input: "0"
+        error: Expected string, received 0
+  decode:
+    expression: i=>{(i==="a"||i==="b")||e[0](i);return i}
+    examples:
+      valid:
+        input: '"b"'
+        output: '"b"'
+  encode:
+    expression: i=>{typeof i==="string"&&(i==="a"||i==="b")||e[0](i);return i}
+    examples:
+      valid:
+        input: '"a"'
+        output: '"a"'

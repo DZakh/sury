@@ -7,10 +7,11 @@ ts:
 jsonSchema:
   input: "{ type: \"object\", properties: { \"\\\"\": { type: \"string\" }, \"'\": { type: \"string\" }, \"`\": { type: \"string\" } }, required: [\"\\\"\", \"'\", \"`\"] }"
   output: "{ type: \"object\", properties: { \"\\\"\": { type: \"string\" }, \"'\": { type: \"string\" }, \"`\": { type: \"string\" } }, required: [\"\\\"\", \"'\", \"`\"] }"
+isEqual: (a,b)=>a===b||a["\""]===b["\""]&&a["'"]===b["'"]&&a["`"]===b["`"]
 vs:
   zod:
     schema: "z.object({ '\"': z.string(), \"'\": z.string(), \"`\": z.string() })"
-    divergence: Same structural type — Zod's printer single-quotes the `"` key where Sury's escapes it inside double quotes.
+    divergence: Same structural type - Zod's printer single-quotes the `"` key where Sury's escapes it inside double quotes.
     input: "{ '\"': string; \"'\": string; \"`\": string; }"
     output: "{ '\"': string; \"'\": string; \"`\": string; }"
 operations:

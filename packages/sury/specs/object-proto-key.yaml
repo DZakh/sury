@@ -7,6 +7,7 @@ ts:
 jsonSchema:
   input: '{ type: "object", properties: { ["__proto__"]: { type: "string" } }, required: ["__proto__"] }'
   output: '{ type: "object", properties: { ["__proto__"]: { type: "string" } }, required: ["__proto__"] }'
+isEqual: (a,b)=>a===b||a["__proto__"]===b["__proto__"]
 vs:
   zod:
     _skip: not-applicable

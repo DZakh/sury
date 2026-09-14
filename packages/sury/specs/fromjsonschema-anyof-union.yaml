@@ -1,17 +1,18 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: 'S.fromJSONSchema({ anyOf: [{ type: "string" }, { type: "number" }] })'
+  schema: 'S.fromJSONSchemaOrThrow({ anyOf: [{ type: "string" }, { type: "number" }] })'
   input: string | number
   output: string | number
   instantiations: 939
 jsonSchema:
   input: '{ anyOf: [{ type: "string" }, { type: "number" }] }'
   output: '{ anyOf: [{ type: "string" }, { type: "number" }] }'
+isEqual: strictEqual
 vs:
   zod: z.union([z.string(), z.number()])
 operations:
   parse:
-    expression: i=>{(typeof i==="string"||typeof i==="number"&&i===i)||e[0](i);return i}
+    expression: i=>{(typeof i==="string"||typeof i==="number"&&i==i)||e[0](i);return i}
     examples:
       string-member:
         input: '"a"'

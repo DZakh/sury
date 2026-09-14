@@ -1,7 +1,7 @@
 // A consumer installs this package and ReScript execs the binary directly, so
 // every slice has to run on a machine that has nothing on it but the OS. Only
 // the linux slices get that for free (`--profile static`); on macOS OCaml 5.1+
-// links libzstd into anything that uses compiler-libs — ppxlib does — and the
+// links libzstd into anything that uses compiler-libs - ppxlib does - and the
 // path it records is the build runner's Homebrew prefix. 11.0.0-rc.1 shipped a
 // macOS binary wanting /usr/local/opt/zstd/lib/libzstd.1.dylib, which no
 // consumer has; nothing in the pipeline could see it, because a load command is
@@ -15,7 +15,7 @@ import { join } from "node:path";
 
 // This list is spelled four times: here, `files` in package.json, `install.cjs`
 // and the `bin` fallback script. Keeping the other three honest is this file's
-// job — every name below must reach the tarball, executable, built for the
+// job - every name below must reach the tarball, executable, built for the
 // architecture claimed.
 const BINARIES = {
   "ppx-linux.exe": { format: "elf", arch: "x86-64" },
@@ -204,7 +204,7 @@ for (const [file, expected] of Object.entries(BINARIES)) {
   try {
     buf = readFileSync(path);
   } catch {
-    fail(`${file}: missing — the pack step moves one artifact per build slice`);
+    fail(`${file}: missing - the pack step moves one artifact per build slice`);
     continue;
   }
 
@@ -224,7 +224,7 @@ for (const [file, expected] of Object.entries(BINARIES)) {
           ? inspectMacho(buf)
           : inspectPe(buf);
   } catch (error) {
-    fail(`${file}: not a readable ${expected.format} image — ${error}`);
+    fail(`${file}: not a readable ${expected.format} image - ${error}`);
     continue;
   }
 
@@ -258,7 +258,7 @@ if (!tarball) {
       });
   } catch (error) {
     // An empty listing would report all eight entries as missing and bury this.
-    fail(`${tarball}: cannot be read — ${error}`);
+    fail(`${tarball}: cannot be read - ${error}`);
   }
   const entries = listing;
   if (entries) {
@@ -266,7 +266,7 @@ if (!tarball) {
       const entry = entries.find((e) => e.file === file);
       if (!entry) {
         fail(
-          `${file}: missing from the tarball — add it to package.json "files"`,
+          `${file}: missing from the tarball - add it to package.json "files"`,
         );
       } else if (
         EXECUTABLE_IN_TARBALL.includes(file) &&

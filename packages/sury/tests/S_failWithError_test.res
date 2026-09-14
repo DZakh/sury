@@ -29,7 +29,7 @@ test("Keeps operation of the error passed to S.Error.throw", t => {
   )
 })
 
-// These two used to fail from the transformer body — outside any parser —
+// These two used to fail from the transformer body - outside any parser -
 // through the effect ctx's `fail`, which baked the whole path in at build time.
 // That ctx is gone: a transform fails by throwing from the parser it runs in,
 // and the path it was reached through is prepended to the one the error names.

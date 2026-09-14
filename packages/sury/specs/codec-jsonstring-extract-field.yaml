@@ -3,7 +3,7 @@ ts:
   schema: 'S.jsonString.with(S.to, S.schema({ type: "info", value: S.number }).with(S.shape, (msg) => msg.value)).with(S.to, S.jsonString)'
   input: string
   output: string
-  instantiations: 8045
+  instantiations: 5546
 jsonSchema:
   input: '{ type: "string", contentMediaType: "application/json" }'
   output: '{ type: "string", contentMediaType: "application/json" }'
@@ -13,12 +13,13 @@ jsonSchema:
   openapi-3.0:
     input: '{ type: "string" }'
     output: '{ type: "string" }'
+isEqual: strictEqual
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[5](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[4](v0);let v1=v0["type"],v2=v0["value"];v1==="info"||e[1](v1);typeof v2==="number"&&v2===v2||e[2](v2);return (Number.isFinite(v2)?""+v2:e[3](v2))}
+    expression: i=>{typeof i==="string"||e[5](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[4](v0);let v1=v0.type,v2=v0.value;v1==="info"||e[1](v1);typeof v2==="number"&&v2==v2||e[2](v2);return (Number.isFinite(v2)?""+v2:e[3](v2))}
     examples:
       extracts-the-field:
         input: '"{\"type\": \"info\", \"value\": 123}"'
@@ -27,13 +28,13 @@ operations:
         input: '"{\"type\": \"info\", \"value\": \"123\"}"'
         error: 'Failed at value: Expected number, received "123"'
   decode:
-    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[4](v0);let v1=v0["type"],v2=v0["value"];v1==="info"||e[1](v1);typeof v2==="number"&&v2===v2||e[2](v2);return (Number.isFinite(v2)?""+v2:e[3](v2))}
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[4](v0);let v1=v0.type,v2=v0.value;v1==="info"||e[1](v1);typeof v2==="number"&&v2==v2||e[2](v2);return (Number.isFinite(v2)?""+v2:e[3](v2))}
     examples:
       extracts-the-field:
         input: '"{\"type\": \"info\", \"value\": 123}"'
         output: '"123"'
   encode:
-    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="number"&&v0===v0||e[2](v0);return "{\"type\":\"info\",\"value\":"+(Number.isFinite(v0)?v0:e[1](v0))+"}"}
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="number"&&v0==v0||e[2](v0);return "{\"type\":\"info\",\"value\":"+(Number.isFinite(v0)?v0:e[1](v0))+"}"}
     examples:
       rebuilds-the-envelope:
         input: '"123"'

@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.formData.with(S.to, S.schema({ a: S.optional(S.array(S.string), ["m"]) }))'
+  input: FormData
+  output: "{ a: string[]; }"
+  instantiations: 5974
+jsonSchema:
+  input: Expected JSON, received FormData
+  output: '{ type: "object", properties: { a: { items: { type: "string" }, type: "array" } }, required: ["a"] }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||e[0](a.a,b.a)
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "SuryError: Failed at a: Can't decode form field -> string[] with a default. No entries is the empty list, so the default is never read"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{let v0=i.a;if(Array.isArray(v0)){for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"||e[0](v2);}catch(v3){v3.path=["a",v1,...v3.path];throw v3}}}else{e[1](v0)}let v4=new e[2]();for(let v5=0;v5<v0.length;++v5){v4.append("a",v0[v5]);}return v4}
+    examples:
+      built:
+        input: '{ a: ["m"] }'
+        output: ((f) => (f.append("a", "m"), f))(new FormData())

@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.queryString.with(S.to, S.schema({ f: S.file }))"
+  input: string
+  output: "{ f: File; }"
+  instantiations: 5462
+jsonSchema:
+  input: '{ type: "string" }'
+  output: "Failed at f: Expected JSON, received File"
+isEqual:
+  input: strictEqual
+  output: (a,b)=>a===b||a.f===b.f
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "SuryError: Failed at f: Can't decode search param -> File. Define custom codec with S.to"
+  decode: eq-to-parse
+  encode:
+    creationError: "SuryError: Failed at f: Can't decode File -> URLSearchParams. Define custom codec with S.to"

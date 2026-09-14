@@ -3,10 +3,11 @@ ts:
   schema: S.union([S.string.with(S.minLength, 4), S.string.with(S.maxLength, 1), S.string.with(S.length, 2)])
   input: string
   output: string
-  instantiations: 2050
+  instantiations: 1994
 jsonSchema:
   input: '{ anyOf: [{ type: "string", minLength: 4 }, { type: "string", maxLength: 1 }, { type: "string", minLength: 2, maxLength: 2 }] }'
   output: '{ anyOf: [{ type: "string", minLength: 4 }, { type: "string", maxLength: 1 }, { type: "string", minLength: 2, maxLength: 2 }] }'
+isEqual: strictEqual
 vs:
   zod: z.union([z.string().min(4), z.string().max(1), z.string().length(2)])
 operations:

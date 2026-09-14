@@ -3,10 +3,11 @@ ts:
   schema: S.instance(class Chunk { size = 4 }).with(S.minSize, 4)
   input: Chunk
   output: Chunk
-  instantiations: 619
+  instantiations: 615
 jsonSchema:
   input: Expected JSON, received Chunk.size >= 4
   output: Expected JSON, received Chunk.size >= 4
+isEqual: strictEqual
 vs:
   zod:
     _skip: not-applicable

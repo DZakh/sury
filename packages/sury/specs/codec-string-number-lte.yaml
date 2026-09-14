@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.string.with(S.to, S.number).with(S.lte, 100)
+  input: string
+  output: number
+  instantiations: 4716
+jsonSchema:
+  input: '{ type: "string" }'
+  output: '{ type: "number", maximum: 100 }'
+isEqual: strictEqual
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);let v0=+i;v0==v0&&(v0||i.trim())||e[1](i);v0<=100||e[0](v0);return v0}
+    examples:
+      in-range:
+        input: '"50"'
+        output: "50"
+      out-of-range:
+        input: '"150"'
+        error: Expected number <= 100, received 150
+  decode:
+    expression: i=>{let v0=+i;v0==v0&&(v0||i.trim())||e[1](i);v0<=100||e[0](v0);return v0}
+    examples:
+      in-range:
+        input: '"50"'
+        output: "50"
+  encode:
+    expression: i=>{i<=100||e[0](i);return ""+i}
+    examples:
+      in-range:
+        input: "50"
+        output: '"50"'
+      out-of-range:
+        input: "150"
+        error: Expected number <= 100, received 150

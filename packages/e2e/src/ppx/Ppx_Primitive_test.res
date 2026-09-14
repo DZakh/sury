@@ -78,7 +78,7 @@ test("Dict of string schema", t => {
 @schema
 type myDictOfStringFromJs = Js.Dict.t<string>
 test("Dict of string schema from Js", t => {
-  t->assertEqualSchemas(myDictOfStringSchema, S.dict(S.string))
+  t->assertEqualSchemas(myDictOfStringFromJsSchema, S.dict(S.string))
 })
 
 @schema
@@ -139,10 +139,12 @@ test("Big tuple schema", t => {
   )
 })
 
+let myCustomSchema = S.string->S.trim
+
 @schema
-type myCustomString = @s.matches(S.email) string
+type myCustomString = @s.matches(myCustomSchema) string
 test("Custom string schema", t => {
-  t->assertEqualSchemas(myCustomStringSchema, S.email)
+  t->assertEqualSchemas(myCustomStringSchema, myCustomSchema)
 })
 
 @schema
@@ -152,9 +154,9 @@ test("Custom litaral string schema", t => {
 })
 
 @schema
-type myCustomOptionalString = option<@s.matches(S.email) string>
+type myCustomOptionalString = option<@s.matches(myCustomSchema) string>
 test("Custom optional string schema", t => {
-  t->assertEqualSchemas(myCustomOptionalStringSchema, S.email->S.option)
+  t->assertEqualSchemas(myCustomOptionalStringSchema, myCustomSchema->S.option)
 })
 
 // @schema

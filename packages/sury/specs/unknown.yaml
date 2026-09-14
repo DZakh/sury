@@ -5,9 +5,12 @@ ts:
   output: unknown
   instantiations: 254
 jsonSchema:
-  # FIXME: should be {} (any value), same as S.inputJSONSchema(S.json) — see any.yaml.
-  input: Expected JSON, received unknown
-  output: Expected JSON, received unknown
+  # FIXME: should be {} (any value), same as S.toInputJSONSchemaOrThrow(S.json) - see any.yaml.
+  input: "{}"
+  fromInputType: JSON
+  output: "{}"
+  fromOutputType: JSON
+isEqual: (a,b)=>a===b||e[0](a,b)
 vs:
   zod: z.unknown()
 operations:

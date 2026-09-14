@@ -7,6 +7,9 @@ ts:
 jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "object", properties: { foo: { type: "string" } }, required: ["foo"] }'
+isEqual:
+  input: strictEqual
+  output: (a,b)=>a===b||a.foo===b.foo
 vs:
   zod:
     _skip: not-applicable
@@ -27,7 +30,7 @@ operations:
         input: '"bar"'
         output: '{ foo: "bar" }'
   encode:
-    expression: i=>{return i["foo"]}
+    expression: i=>{return i.foo}
     examples:
       round-trip:
         input: '{ foo: "bar" }'

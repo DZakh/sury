@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.nanoid.with(S.length, 21)
+  input: string
+  output: string
+  instantiations: 807
+jsonSchema:
+  input: '{ type: "string", minLength: 21, maxLength: 21, pattern: "^[A-Za-z0-9_-]+$" }'
+  output: '{ type: "string", minLength: 21, maxLength: 21, pattern: "^[A-Za-z0-9_-]+$" }'
+isEqual: strictEqual
+vs:
+  zod: z.nanoid().length(21)
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[3](i);e[0].test(i)||e[1](i);i.length===21||e[2](i);return i}
+    examples:
+      default-generator:
+        input: '"V1StGXR8_Z5jdHi6B-myT"'
+        output: '"V1StGXR8_Z5jdHi6B-myT"'
+      shorter:
+        input: '"abc"'
+        error: Expected nanoid.length == 21, received "abc"
+  decode:
+    expression: i=>{e[0].test(i)||e[1](i);i.length===21||e[2](i);return i}
+    examples:
+      default-generator:
+        input: '"V1StGXR8_Z5jdHi6B-myT"'
+        output: '"V1StGXR8_Z5jdHi6B-myT"'
+      shorter:
+        input: '"abc"'
+        error: Expected nanoid.length == 21, received "abc"
+  encode:
+    expression: i=>{e[0].test(i)||e[1](i);i.length===21||e[2](i);return i}
+    examples:
+      default-generator:
+        input: '"V1StGXR8_Z5jdHi6B-myT"'
+        output: '"V1StGXR8_Z5jdHi6B-myT"'
+      shorter:
+        input: '"abc"'
+        error: Expected nanoid.length == 21, received "abc"

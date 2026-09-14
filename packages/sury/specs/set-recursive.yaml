@@ -3,10 +3,11 @@ ts:
   schema: 'S.recursive("Node", (nodeSchema) => S.schema({ value: S.string, children: S.set(nodeSchema) }))'
   input: unknown
   output: unknown
-  instantiations: 8729
+  instantiations: 7382
 jsonSchema:
   input: "Failed at children: Expected JSON, received Set<Node>"
   output: "Failed at children: Expected JSON, received Set<Node>"
+isEqual: (a,b)=>a===b||e[0](a,b)
 vs:
   zod:
     _skip: not-applicable
@@ -20,5 +21,15 @@ operations:
       wrong-type-at-depth:
         input: '{ value: "root", children: new Set([{ value: 1, children: new Set([]) }]) }'
         error: "Failed at children[0].value: Expected string, received 1"
-  decode: eq-to-parse
-  encode: eq-to-parse
+  decode:
+    expression: i=>{e[0](i);return i}
+    examples:
+      tree:
+        input: '{ value: "root", children: new Set([{ value: "leaf", children: new Set([]) }]) }'
+        output: '{ value: "root", children: new Set([{ value: "leaf", children: new Set([]) }]) }'
+  encode:
+    expression: i=>{e[0](i);return i}
+    examples:
+      tree:
+        input: '{ value: "root", children: new Set([{ value: "leaf", children: new Set([]) }]) }'
+        output: '{ value: "root", children: new Set([{ value: "leaf", children: new Set([]) }]) }'

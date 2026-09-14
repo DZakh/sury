@@ -1,12 +1,18 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: 'S.fromJSONSchema({ type: "array", prefixItems: [{ type: "object", properties: { value: { type: "string", default: "fallback" } } }], items: false })'
+  schema: 'S.fromJSONSchemaOrThrow({ type: "array", prefixItems: [{ type: "object", properties: { value: { type: "string", default: "fallback" } } }], items: false })'
   input: "[({ value?: string | undefined; } | undefined)?, ...never[]]"
   output: "[({ value?: string | undefined; } | undefined)?, ...never[]]"
   instantiations: 3125
 jsonSchema:
+  # FIXME: the default target is draft-07, where `prefixItems` means nothing and
+  # `items: false` forbids every item - so this document rejects every non-empty
+  # array the schema itself accepts (the `divergence` entries below). The two
+  # keywords are carried over from the source document rather than re-emitted
+  # for the target, the way S.tuple's positional items are.
   input: '{ items: false, type: "array", prefixItems: [{ type: "object", properties: { value: { type: "string", default: "fallback" } } }] }'
   output: '{ items: false, type: "array", prefixItems: [{ type: "object", properties: { value: { type: "string", default: "fallback" } } }] }'
+isEqual: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(e[0](a[i],b[i])))return false;return true}
 vs:
   zod:
     _skip: not-applicable
@@ -20,9 +26,15 @@ operations:
       present-empty-object:
         input: "[{}]"
         output: "[{}]"
+        divergence:
+          reason: "the default draft-07 target has no prefixItems, so the emitted `items: false` rejects every non-empty array the schema accepts"
+          ajv: "input: data/0 boolean schema is false; output: data/0 boolean schema is false"
       present-value:
         input: '[{ value: "set" }]'
         output: '[{ value: "set" }]'
+        divergence:
+          reason: "the default draft-07 target has no prefixItems, so the emitted `items: false` rejects every non-empty array the schema accepts"
+          ajv: "input: data/0 boolean schema is false; output: data/0 boolean schema is false"
       invalid-present-value:
         input: "[{ value: 1 }]"
         error: Should pass the positional and additional item schemas.

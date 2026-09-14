@@ -1,4 +1,4 @@
-// `S.set` — a `Set` on our side, an array on the wire.
+// `S.set`: a `Set` on our side, an array on the wire.
 
 import {
   baseSchema,
@@ -26,7 +26,7 @@ import { arrayFactory, definitionToSchema } from "../composites";
 import { iterableSource, parse, parseDynamic } from "../parse";
 
 // The item lives on `additionalItems`, where an array's does, so that
-// `reverse` reverses it without knowing this schema exists — the rendering,
+// `reverse` reverses it without knowing this schema exists. The rendering,
 // the encoder and the item loop all read it back off the schema they are
 // handed rather than closing over it, which is what makes them follow the
 // schema when it flips.
@@ -47,8 +47,8 @@ const setDecoder = (input: Val): Val => {
   const itemVar = B_varWithoutAllocation(source.g);
   const raiseCountBefore = source.g.t;
   const itemInput = B_iterScope(source, itemVar, itemOf(source.s), itemOf(expected));
-  // The item expression is already a variable — the loop's — so reading it must
-  // not copy it into a second one, as a dynamic member read would.
+  // The item expression is already a variable, the loop's, so reading it must
+  // not copy it into a second one the way a dynamic member read would.
   itemInput.v = _var;
   const itemOutput = parseDynamic(itemInput);
   const isAsync = !!(itemOutput.f & 1);
@@ -75,9 +75,9 @@ const setDecoder = (input: Val): Val => {
     outVar ? `${outVar}.${isAsync ? "push" : "add"}(${itemOutput.i});` : "";
 
   // A Set item has no key to be located by, so a failing one is located by its
-  // position — well defined, since iteration follows insertion order. The
-  // counter is only worth keeping when the body can fail — B_mergeWithCatch's
-  // `pureSince`.
+  // position, which is well defined since iteration follows insertion order.
+  // The counter is only worth keeping when the body can fail, which is what
+  // B_mergeWithCatch's `pureSince` answers.
   const indexVar = B_varWithoutAllocation(source.g);
   const counterVar = isAsync ? B_varWithoutAllocation(source.g) : indexVar;
   const canThrow = (): boolean => source.g.t !== raiseCountBefore;
@@ -90,14 +90,14 @@ const setDecoder = (input: Val): Val => {
   );
   B_forOf(out, itemVar, sourceVar, body, canThrow(), indexVar, counterVar);
 
-  // `source`, not `input` — see iterableSource.
+  // `source`, not `input`: see iterableSource.
   return B_markOutput(isAsync ? B_collectAsync(out, "Set", outSchema) : out, source);
 };
 
 const setEncoder: Encoder = (input: Val, target: Internal): Val => {
   if ((tagFlags[target.type]! & 128)) {
     // The B_refine wrap is what makes the produced array the subject of the
-    // target's checks — see the note in advanced/url.ts. The items are left to
+    // target's checks, as the note in advanced/url.ts explains. The items are left to
     // the target's own decoder, which is what encodes them.
     return parse(
       B_refine(

@@ -1,5 +1,5 @@
 // The base layer: the data model (`Internal`, `Val`, `Check`), the schema
-// object and its prototype, tags, flags and paths — merged into one module
+// object and its prototype, tags, flags and paths - merged into one module
 // because they are mutually dependent by nature and splitting them bought
 // nothing but import churn. Nothing here imports from another module in the
 // package: base is the bottom of the layering, so every other module can reach
@@ -14,10 +14,37 @@ export type Encoder = (input: Val, target: Internal) => Val;
 
 export type Flag = number;
 
-// Bit-flag literals (esbuild does not inline named consts). Compile (`g.o` /
-// op flag): 0 none, 1 async, 2 disableNaN, 4 union-transform-context (custom
+// Bit-flag literals (esbuild does not inline named consts).
+//
+// Compile semantics (`g.o` / op flag), 127 and below - what the generated code
+// itself does: 0 none, 1 async, 2 disableNaN, 4 union-transform-context (custom
 // transform inside a union case preserves the original exception so dispatch
 // can distinguish Sury failures from foreign ones), 64 flatten.
+//
+// Return modes, 128 and above - what the operation hands back, read only by the
+// operation tail (parse.ts, operations.ts): 128 JS Result
+// (`{success, value, error}`), 256 ReScript Result (`{TAG, _0}`), 512
+// promisable (1 without lifting a synchronous result into a promise), 1024
+// Standard Schema (`{value}` / `{issues}`), 2048 yield the operation's input
+// rather than its output (`makeInput`/`makeOutput`), 4096 answer a boolean
+// (`isInput`/`isOutput`).
+//
+// Bit 1 permits async, it does not assert it: codegen may read `g.o & 1` as
+// "a promise MAY appear here" (json.ts declines to fuse), never as "one will".
+// An async operation also rejects rather than throwing when its value fails
+// before the first await - decided by the operation tail (operations.ts), from
+// whether the compile is nested, not by a flag of its own.
+//
+// The split at 128 is load-bearing: a nested operation compiled inside another
+// (recursive.ts) masks with `& 127`, because generated code consumes its result
+// and a return mode inherited from the outer operation would have the inner one
+// answering `false` - or a Result object - into the middle of a value.
+// 8192 is recursive.ts's memo-key bit for such a nested async node, which no
+// operation flag ever carries.
+//
+// The modes ride the op flag the operation memo keys on, which is what makes
+// each of them compile and cache as its own operation and leaves the throw
+// path's generated code untouched.
 // Val (`Val.f`): 0 none, 1 async.
 
 // ── path ──────────────────────────────────────────────────────────────────────
@@ -27,11 +54,10 @@ export type Flag = number;
 // locations without a concrete value (JSON Schema conversion, dynamic parse).
 //
 // Never mutated: details objects, codegen closures and retained user errors
-// share instances, so every prepend/concat allocates. Never a symbol: every
-// key that becomes a segment comes from `Object.keys` or a generated `for-in`,
-// which skip them — `S.res`'s `propertyKey` and the `~standard` bridge rely on
-// that.
-export type Path = readonly (string | number)[];
+// share instances, so every prepend/concat allocates. A symbol only ever
+// arrives from a user-written `path` (`S.refine`): every key codegen turns into
+// a segment comes from `Object.keys` or a generated `for-in`, which skip them.
+export type Path = readonly (string | number | symbol)[];
 
 export const pathEmpty: Path = [];
 export const pathDynamic: Path = ["[]"];
@@ -52,6 +78,16 @@ export const inlinedObjectKey = (key: string): string =>
     : jsIdentRe.test(key)
       ? key
       : inlinedValueFromString(key);
+
+// Property access: `i.id`, `i["my key"]`, `i["__proto__"]`. Digit-only keys
+// stay quoted unless `numeric`: `obj[00]` is `obj[0]` in sloppy `new Function`,
+// and an object key `"00"` is not `"0"`. Array index sites pass `numeric`.
+export const inlinedProperty = (obj: string, key: string, numeric?: boolean): string =>
+  numeric && /^\d+$/.test(key)
+    ? `${obj}[${key}]`
+    : key === "__proto__" || !jsIdentRe.test(key)
+      ? `${obj}[${inlinedValueFromString(key)}]`
+      : `${obj}.${key}`;
 
 // @__NO_SIDE_EFFECTS__
 export const pathConcat = (path: Path, concatedPath: Path): Path =>
@@ -155,16 +191,21 @@ export const s = /* @__PURE__ */ Symbol(vendor);
 // Internal symbol to identify the item proxy (see the makeObjectVal Proxy use).
 export const itemSymbol = /* @__PURE__ */ Symbol(vendor + ":item");
 
-// Every number format describes integer-valued numbers — numberDecoder skips
+// Every number format describes integer-valued numbers - numberDecoder skips
 // the "integer" check for any formatted source on that invariant.
 export type NumberFormat = "int32" | "port" | "integer";
-// Mirrored by `StringFormat` in index.d.ts, which is the surface TS users see —
+// Mirrored by `StringFormat` in index.d.ts, which is the surface TS users see -
 // a name added here without being added there is invisible to them, and a third
-// copy lives in `S.res`. Every member but `json`, `base64`, `base64url` and
-// `cuid` is a JSON Schema format name verbatim, which is what lets jsonschema.ts
-// pass it through in both directions; the content-family members name a keyword
-// of their own (`contentMediaType`, `contentEncoding`) instead, which
-// jsonschema.ts spells out per dialect.
+// copy lives in `S.res`. The name is also what `inputExpression` renders, so it
+// is the word every error message about the schema says.
+//
+// Members fall in three groups. Most are a JSON Schema format name verbatim,
+// which is what lets jsonschema.ts pass them through in both directions. The
+// content family (`json`, `base64`, `base64url`) names a keyword of its own
+// (`contentMediaType`, `contentEncoding`) instead, which jsonschema.ts spells
+// out per dialect. The rest have no JSON Schema keyword of that name and travel
+// as `pattern`, listed in `jsonSchemaFormat` there - a member added here without
+// an entry in that list emits a `format` no validator knows.
 export type StringFormat =
   | "json"
   | "base64"
@@ -187,7 +228,23 @@ export type StringFormat =
   | "iri-reference"
   | "idn-email"
   | "json-pointer"
-  | "relative-json-pointer";
+  | "relative-json-pointer"
+  | "cuid2"
+  | "ulid"
+  | "ksuid"
+  | "xid"
+  | "nanoid"
+  | "uuidv4"
+  | "uuidv6"
+  | "uuidv7"
+  | "e164"
+  | "mac"
+  | "hex"
+  | "cidrv4"
+  | "cidrv6"
+  | "http-url"
+  | "env"
+  | "queryString";
 export type ArrayFormat = "compactColumns";
 export type Format = NumberFormat | StringFormat | ArrayFormat;
 
@@ -227,18 +284,18 @@ export type InvalidConversionDetails = {
   to: Internal;
   cause?: unknown;
 }
-export type UnrecognizedKeysDetails = {
-  code: "unrecognized_keys";
+export type UnrecognizedKeyDetails = {
+  code: "unrecognized_key";
   path: Path;
   reason: string;
-  keys: string[];
+  key: string;
 }
 export type ErrorDetails =
   | InvalidInputDetails
   | InvalidOperationDetails
   | UnsupportedDecodeDetails
   | InvalidConversionDetails
-  | UnrecognizedKeysDetails;
+  | UnrecognizedKeyDetails;
 
 export type SuryErrorRecord = Record<string, unknown> & {
   message: string;
@@ -269,22 +326,17 @@ export type SchemaErrorMessage = {
 
 export type Internal = {
   type: Tag;
-  // A serial number for the schema, used for caching operations.
+  // Used as the operation-cache key.
   seq?: number;
   // Builder for transforming to the "to" schema. If missing, should apply
   // coercion logic.
   parser?: Builder;
   // A field on the "to" schema, to turn it into "parser", when reversing.
   serializer?: Builder;
-  // Logic for built-in decoding to the schema type.
   decoder: Builder;
-  // Logic for built-in encoding from the schema type.
   encoder?: Encoder;
-  // Custom validations on input (before decoder).
   inputRefiner?: (input: Val) => Check[];
-  // Custom validations on output (after decoder).
   refiner?: (input: Val) => Check[];
-  // A schema we transform to.
   to?: Internal;
   // When transforming with changing shape, store from which path it came
   // from. For S.object, S.tuple, and S.shape.
@@ -302,47 +354,57 @@ export type Internal = {
   default?: unknown;
   format?: Format;
   // The content axis (CONTENT_CODEC_SPEC.md): the schema this value's payload
-  // is stored as inside a JSON document — base64 text for bytes, the JSON value
+  // is stored as inside a JSON document - base64 text for bytes, the JSON value
   // itself for a JSON document. Two schemas that agree on it carry the same
   // kind of payload, so a link between them is a plain transfer; two that
   // disagree have two readings of it (store the value, or open it) and the
   // conversion asks instead of guessing. Absent means the value carries no
   // payload of its own.
+  // On a string source it is a claim, and `format` is its verification: a
+  // carrier's opened text (`openedText`) and a union's per-member narrow both
+  // carry the marker without the format, and a decoder handed that pair must
+  // check the text, never escape it as a value - `S.jsonString` inside
+  // `S.optional` used to serialize `"a"` to `"\"a\""` for exactly that reason.
   // Written only through `setContent` (below), which keeps it non-enumerable.
   content?: Internal;
   // Bytes-as-text codec on a format singleton (`S.base64`, `S.base64url`).
   // Presence is the payload *kind* `B_contentDiffers` uses, so the two alphabets
-  // are one family without importing either format into builder.ts. Always read
-  // Carriers look it up off `content.bc`. Copies of a format keep `bc` so
-  // alphabet recoding still sees it. `S.trim` targets `string`, which has none.
-  // Short: this name is in `B_contentDiffers`, which ships in every export.
+  // are one family without importing either format into builder.ts - which holds
+  // only while both sides of that comparison are content markers: a format's own
+  // schema also carries `bc`, so passing one there reads as "same kind" against
+  // any bytes marker. Carriers look it up off `content.bc`. Copies of a format
+  // keep `bc` so alphabet recoding still sees it, `S.trim`'s tail included.
   bc?: BytesCodec;
-  // Which reading of a content link the caller wrote, when they wrote one.
-  // `opens` is the reading of the link that converts INTO this schema — `true`
-  // opens the source and hands its payload over, `false` stores its value —
-  // and `opensBack` the same for the reversed chain, where this schema is the
-  // target instead. `reverse` trades the two, the way it trades
-  // parser/serializer, so each direction's slot lands on the node the other
-  // direction reads it from. Absent means the link's shape decides — see
-  // `B_readsPayload` in builder.ts.
+  // The reading of the content link that converts INTO this schema
+  // (CONTENT_CODEC_SPEC.md): `true` opens the source and hands its payload
+  // over, `false` stores its value. One field for one link: the encode
+  // reading is its negation, so `reverse` writes each node's from its forward
+  // successor's rather than carrying a second slot.
+  // Written by a slot the caller gave (rule 1), by a payload gaining a `.to`
+  // (rule 3, materialized by `codecTo` and `compileChain` the moment it
+  // becomes true, since `reverse` re-points `.to` and would lose it), and by
+  // the document piece a field is stored into (rule 2, `jsonPiece`). Absent on
+  // a link between two payloads of different kinds is therefore rule 4, and
+  // the payload schemas reject it while compiling (`B_rejectUnsettled`).
   opens?: boolean;
-  opensBack?: boolean;
-  // jsonString splices this value between bare quotes with no escaping, so
-  // every value the schema admits must be free of `"`, `\`, controls and lone
-  // surrogates. Set it only where that is proven — a pattern whose range
-  // excludes them, or a conversion that manufactures the string — and re-run
+  // Properties of every value a string schema admits, which let generated code
+  // skip work: 1 escape-free (no `"`, `\`, controls or lone surrogates, so
+  // jsonString splices it between bare quotes with no escaping). Set the bit
+  // only where that is proven - a pattern whose range excludes the characters,
+  // or a conversion that manufactures the string - and re-run
   // `pnpm --filter=sury fuzz:escfree`, because getting it wrong emits broken
   // JSON rather than merely over-escaped JSON. `noValidation` voids the proof;
-  // the read site handles that.
-  escapeFree?: boolean;
+  // the read sites handle that.
+  formatFlag?: number;
   has?: Partial<Record<Tag, boolean>>;
   anyOf?: Internal[];
   additionalItems?: AdditionalItems;
   items?: Internal[];
   required?: string[];
   properties?: Record<string, Internal>;
+
   noValidation?: boolean;
-  // Sury's own "this read may be absent" union — a dict value read by a fixed
+  // Sury's own "this read may be absent" union - a dict value read by a fixed
   // key, modelled as `V | undefined`. The conversion rules (2-4) don't apply to
   // it: it isn't a user-written widening whose intent could be ambiguous, so
   // each variant converts to whatever the target is, and a variant with no
@@ -350,7 +412,7 @@ export type Internal = {
   perVariant?: boolean;
   // Which bounds the caller actually wrote. int32 and port put their own
   // range in the fields below, so the values can't tell a caller's bound from
-  // a format's — this can, and only the bound constructors ever set it.
+  // a format's - this can, and only the bound constructors ever set it.
   // 1 lower inclusive · 2 upper inclusive · 4 lower exclusive · 8 upper
   // exclusive. A schema bounds exactly one of its value, its length or its
   // size, so one pair of bits covers minimum/minLength/minItems/minSize alike.
@@ -358,7 +420,7 @@ export type Internal = {
   minimum?: number | bigint;
   maximum?: number | bigint;
   // S.gt/S.lt always land here and S.gte/S.lte always land on
-  // minimum/maximum, whatever the numeric type — the bound a schema reports
+  // minimum/maximum, whatever the numeric type - the bound a schema reports
   // is the one its author wrote, not an equivalent rewritten form.
   exclusiveMinimum?: number | bigint;
   exclusiveMaximum?: number | bigint;
@@ -374,36 +436,52 @@ export type Internal = {
   pattern?: RegExp;
   errorMessage?: SchemaErrorMessage;
   space?: number;
-  // Compile-time only, set on a per-operation schema copy by the container
-  // decoders' jsonString fusion (B_fuseIntoJsonString in composites.ts): the
-  // container's dynamic items are typed but UNVALIDATED — the validation loop
-  // was skipped because jsonStringAggregate re-parses each item from unknown
-  // inside its own serialize loop. Carried on the schema (not the val) so it
-  // survives the parse loop's per-segment B_refine.
+  // Marks `S.protobuf`: `toProtoOrThrow` finds it on a chain by this rather
+  // than by the codec's encoder, which would drag the codec into a
+  // `toProtoOrThrow`-only bundle.
+  protobufWire?: true;
+  // What `S.protobufField` stored (`StoredField` in advanced/protobufField.ts).
+  protobufField?: unknown;
+  // Compile-time only, set on a per-operation schema copy by `fz` below: the
+  // container's dynamic items, or a fixed container's non-literal fields, are
+  // typed but UNVALIDATED - the decoder skipped them because
+  // jsonStringAggregate parses each from unknown inside its own serialize
+  // pass. Carried on the schema (not the val) so it survives the parse loop's
+  // per-segment B_refine.
   uv?: boolean;
+  // On a target that builds its document piecewise (`S.jsonString`): asked by
+  // a container decoder (`B_fused` in composites.ts) whose `.to` it is, with
+  // the dynamic item for an array or dict, and answers the container's schema
+  // marked `uv` when the aggregate may validate it, or undefined to validate
+  // here as usual. Lives on the target so a bundle without it ships nothing
+  // of the decision.
+  fz?: (input: Val, container: Internal, item?: Internal) => Internal | undefined;
   // Compile-time only, and `unionRewrite` (union.ts) is the ONLY producer: this
   // union's variants were rewritten from the variants of the union the value
   // was already typed as, so a dispatched case may convert from its own variant
   // instead of re-validating it. Spelling it `true` anywhere else licenses
-  // skipping checks the value never passed — the rewrite is what makes it true,
+  // skipping checks the value never passed - the rewrite is what makes it true,
   // because it drops the val's source to `unknown` and would otherwise lose the
   // guarantee the source union carried.
   tr?: boolean;
   "$ref"?: string;
   "$defs"?: Record<string, Internal>;
-  // Written by compileDecoder onto the schema it compiled against, read back by
-  // `S.recursive`: a recursive definition compiles optimistically, and these
-  // two are what its inner circular references assume and what the fixpoint
-  // compares to decide whether to recompile. Absent means "this schema has not
-  // been compiled against yet", which is why `codecTo` deletes rather than
-  // clears them. Nothing derives them without compiling, so there is no probe
-  // to ask a schema whether it is async — an operation reports that by
-  // rejecting.
-  isAsync?: boolean;
-  hasTransform?: boolean;
+  // `S.json` and every copy of one: the marker that answers "is this the whole
+  // document rather than a rendering of one", which several structural
+  // decisions turn on. Nothing already on the schema answers it. Identity and
+  // `content === schema` both fail because a chain node that IS json is a
+  // `copySchema` of it; `name` and `$ref` are forgeable, since
+  // `S.recursive("JSON", …)` builds the same `$ref`; and the decoder's
+  // identity, which would need no field at all, is unreachable from `parse`,
+  // `composites` and `modifiers` - all three read this and all three sit above
+  // `advanced/json`, whose `S.json` is built at module init from `dictFactory`,
+  // so inverting that import leaves the factory in TDZ.
+  // Enumerable, so `Object.assign` carries it onto a copy; nothing public
+  // writes it.
+  isJson?: boolean;
   "~standard"?: unknown;
   // Overrides how inputExpression renders this schema. Only for a schema whose
-  // expression its tag can't produce — compactColumns, whose columns live on
+  // expression its tag can't produce - compactColumns, whose columns live on
   // the `.to` target. Everything structural is rendered by inputExpression
   // itself, so setting this is the exception, not the pattern.
   expression?: (schema: Internal) => string;
@@ -417,27 +495,31 @@ export type Internal = {
   // The reversed (Input ↔ Output swapped) schema. Always readable: `this` via
   // the self-reverse prototype getter, otherwise computed and cached by the
   // general prototype getter (parse.ts). Reading it on a plain schema COMPUTES
-  // the reverse — probe `sr` instead when only self-reverseness is asked.
+  // the reverse - probe `sr` instead when only self-reverseness is asked.
   r?: Internal;
-  // Set on the self-reverse prototype only — the cheap "reverses to itself"
+  // Set on the self-reverse prototype only - the cheap "reverses to itself"
   // probe (see selfReversePrototype below).
   sr?: boolean;
 }
 
 export type BGlobal = {
-  // @as("v") — varCounter
+  // @as("v") - varCounter
   v: number;
-  // @as("o") — flag
+  // @as("o") - flag
   o: number;
-  // @as("e") — embeded
+  // @as("e") - embeded
   e: unknown[];
-  // @as("d") — defs
+  // @as("d") - defs
   d?: Record<string, Internal>;
-  // @as("t") — throwCounter. Bumped by every helper that emits a raise into
+  // @as("t") - throwCounter. Bumped by every helper that emits a raise into
   // generated code, so a builder can bracket a stretch of emission and learn
   // whether what it produced can throw. Read the difference, never the value.
   t: number;
-  // @as("js") — the operation's asJsonString embed accessor, cached by
+  // @as("r") - set by the one builder that assigns to the operation's own
+  // parameter (union dispatch), so a `make*` tail knows the parameter no
+  // longer holds the value it was given.
+  r?: boolean;
+  // @as("js") - the operation's asJsonString embed accessor, cached by
   // B_embedJsonStr (advanced/json.ts) on first use.
   js?: string;
 }
@@ -446,67 +528,67 @@ export type BGlobal = {
 // in `emitChecks`, so pass the same helper (e.g. failInvalidType) to every
 // check on a val if you want them to emit as one `||`-throw line.
 export type Check = {
-  // @as("c") — cond
+  // @as("c") - cond
   c: (inputVar: string) => string;
-  // @as("f") — fail
+  // @as("f") - fail
   f: (input: Val) => (value: unknown) => ErrorDetails;
 }
 
 export type Val = {
   // We might have the same value, but different instances of the val
-  // object. Use the bond field, to connect the var call. @as("b") — bond
+  // object. Use the bond field, to connect the var call. @as("b") - bond
   b?: Val;
-  // @as("p") — parent
+  // @as("p") - parent
   p?: Val;
-  // @as("v") — var
+  // @as("v") - var
   v: () => string;
-  // @as("i") — inline
+  // @as("i") - inline
   i: string;
-  // The schema of the value that is being parsed. @as("s") — schema
+  // The schema of the value that is being parsed. @as("s") - schema
   s: Internal;
   // Whether the val is at output part of expected schema. Needed for
   // schemas like S.array(S.nullAsOption) where child schemas might be
-  // transformed. @as("io") — isOutput
+  // transformed. @as("io") - isOutput
   io?: boolean;
-  // The schema of the value that we expect to parse into. @as("e") — expected
+  // The schema of the value that we expect to parse into. @as("e") - expected
   e: Internal;
   prev?: Val;
-  // @as("f") — flag
+  // @as("f") - flag
   f: Flag;
-  // @as("d") — vals
+  // @as("d") - vals
   d?: Record<string, Val>;
-  // @as("fv") — flattenedVals
+  // @as("fv") - flattenedVals
   fv?: Val[];
-  // @as("cp") — codeFromPrev
+  // @as("cp") - codeFromPrev
   cp: string;
   // Comma-joined `let` declarations hoisted onto this val by descendants
   // that couldn't own them. Emitted after this val's checks in `merge` (the
-  // old varsAllocation slot). @as("hd") — hoistedDecls
+  // old varsAllocation slot). @as("hd") - hoistedDecls
   hd: string;
   // Set by `merge` once this val's code is emitted, so a later cached-bond
   // materialization re-reads inline instead of hoisting onto it (#240).
-  // @as("fz") — finalized
+  // @as("fz") - finalized
   fz?: boolean;
   // Invariant: absent iff no checks. Never stored as `[]` so callers can
   // test presence with a plain truthy check instead of length.
-  // @as("vc") — checks
+  // @as("vc") - checks
   vc?: Check[];
-  // @as("u") — isUnion
+  // @as("u") - isUnion
   u?: boolean;
   // Whether the chain starting from the root prev has a transformation.
-  // @as("t") — hasTransform
+  // @as("t") - hasTransform
   t?: boolean;
   path: Path;
-  // @as("g") — global
+  // @as("g") - global
   g: BGlobal;
   // This is to mark an object field as optional. Fields like this should be
-  // skipped when the value is undefined. @as("o") — optional
+  // skipped when the value is undefined. @as("o") - optional
   o?: boolean;
 }
 
 // Shared `undefined` for every value-position use across the implementation:
 // a bare `undefined` minifies to `void 0` (6 chars), this const to 1. Never
-// interpolate it into generated-code strings — emitted JS text keeps literal
+// interpolate it into generated-code strings - emitted JS text keeps literal
 // `void 0`.
 export const U = undefined;
 
@@ -527,8 +609,7 @@ export const immutableEmptyObject: Record<string, unknown> = Object.create(null)
 export const isSchemaObject = (obj: unknown): boolean =>
   typeof obj === objectTag && obj !== null && "~standard" in (obj as object);
 
-export const constField = "const";
-export const isLiteral = (schema: Internal): boolean => constField in schema;
+export const isLiteral = (schema: Internal): boolean => "const" in schema;
 
 export const isOptional = (schema: Internal): boolean =>
   schema.type === undefinedTag || (schema.type === anyOfTag && undefinedTag in schema.has!);
@@ -536,8 +617,8 @@ export const isOptional = (schema: Internal): boolean =>
 // The constructor name worth printing, or a falsy value for anything a reader
 // would learn nothing from: a plain object, a null prototype, an anonymous
 // class (whose `name` is the empty string). Both callers below key off exactly
-// this distinction — one to name the value, the other to decide whether to look
-// inside it — so the `Object` comparison is written once.
+// this distinction - one to name the value, the other to decide whether to look
+// inside it - so the `Object` comparison is written once.
 // Throws on null; both callers exclude it first.
 const namedConstructor = (unknown: unknown): string | undefined | false => {
   const ctor = (Object.getPrototypeOf(unknown) as { constructor?: { name?: string } } | null)
@@ -578,7 +659,7 @@ const stringifyLeaf = (unknown: unknown): string => {
 // Recursing without a limit is what let a cyclic value overflow the stack
 // *inside the error formatter*; stopping at depth 1 keeps that fixed while
 // still showing the shape that actually failed. One level is enough because a
-// nested failure already reports its path (`Failed at user.id`) — the
+// nested failure already reports its path (`Failed at user.id`) - the
 // expansion is for "wrong shape entirely", which is visible at the top.
 //
 // Entries are capped for the same reason depth is: a 40-key input would
@@ -622,7 +703,7 @@ export const stringify = (unknown: unknown): string => {
 //
 // `skipOverride` renders the shape an override would have replaced. It exists
 // for an override that wraps its own schema's rendering rather than replacing
-// it — a bound, the only one today (`setBoundExpression` in refinements.ts) —
+// it - a bound, the only one today (`setBoundExpression` in refinements.ts) -
 // which has to ask for the base rendering of the very schema whose `expression`
 // is mid-call, and would recurse forever without this.
 // @__NO_SIDE_EFFECTS__
@@ -637,7 +718,7 @@ export const inputExpression = (schema: Internal, skipOverride?: boolean): strin
     // Repeated members remain significant to decoding (the same effectful schema
     // may intentionally run more than once), but not to the expression. Deduping
     // on rendered text rather than identity means members which genuinely differ
-    // but render alike — two distinct classes both named Foo — collapse, so this
+    // but render alike - two distinct classes both named Foo - collapse, so this
     // is not a member count.
     const anyOf = schema.anyOf;
     const seen = new Set<string>();
@@ -693,7 +774,11 @@ export const inputExpression = (schema: Internal, skipOverride?: boolean): strin
 
 // ── schema ────────────────────────────────────────────────────────────────────
 
-export function Schema(this: Internal): void {}
+export const Schema = function (this: Internal): void {};
+// One of exactly two schema prototypes, both rooted at `Object.create(null)`.
+// `isOwnSchema` (below) recognises a Sury schema by identity against these two,
+// which is what keeps operation dispatch from reading a payload as a schema -
+// adding a third prototype breaks every operation's argument dispatch.
 export const schemaPrototype: Record<string, unknown> = Object.create(null);
 // A plain (non-enumerable) method, not a getter returning a closure: the
 // getter form allocated a fresh arrow on every `.with` access, and `.with` is
@@ -710,7 +795,7 @@ Schema.prototype = schemaPrototype;
 // A self-reversing schema answers `reversed` from this prototype getter
 // instead of an own property: the per-instance defineProperty cost an order
 // of magnitude more than everything else baseSchema does. Object.assign never
-// copies the getter, so a derived schema (copySchema) recomputes its reverse —
+// copies the getter, so a derived schema (copySchema) recomputes its reverse -
 // correct, since a copy made to be modified no longer reverses to itself.
 // No setter, so a plain `schema.reversed = …` throws: the cache is only ever
 // written with defineProperty (parse.ts).
@@ -721,7 +806,8 @@ Schema.prototype = schemaPrototype;
 // "r", not "reversed": internal-only (S.reverse is the public API), and short
 // field names on hot objects survive minification (CLAUDE.md).
 export const reversedKey = "r";
-function SelfReverseSchema(this: Internal): void {}
+const SelfReverseSchema = function (this: Internal): void {};
+// The second (and last) schema prototype — see `isOwnSchema`.
 const selfReversePrototype: Record<string, unknown> = Object.create(schemaPrototype);
 Object.defineProperty(selfReversePrototype, reversedKey, {
   get() {
@@ -730,6 +816,28 @@ Object.defineProperty(selfReversePrototype, reversedKey, {
 });
 Object.defineProperty(selfReversePrototype, "sr", { value: true });
 SelfReverseSchema.prototype = selfReversePrototype;
+
+// The dispatch predicate: is this argument one of OUR schemas?
+//
+// Distinct from `isSchemaObject` above on purpose. That one duck-types on the
+// Standard Schema marker, which is right where foreign Standard Schemas are
+// legitimate (definition parsing) and wrong wherever an argument slot holds
+// either a schema or untrusted data: `{"~standard":1}` from a JSON body would
+// be read as the schema. Only the two prototypes above are Sury schemas, and
+// both are `Object.create(null)`-rooted, so no plain object and no
+// `JSON.parse` result can match - `JSON.parse` makes `__proto__` an own
+// property, never a prototype.
+// The `typeof` guard is for the data argument: `Object.getPrototypeOf` of a
+// primitive boxes it, which is most of an immediate call's dispatch cost.
+export const isOwnSchema = (value: unknown): boolean => {
+  const proto = typeof value === objectTag && value && Object.getPrototypeOf(value);
+  return proto === schemaPrototype || proto === selfReversePrototype;
+};
+
+// What every operation says when no argument in a schema slot is one. Shared so
+// the sentence exists once: a foreign Standard Schema handed to an operation
+// gets this rather than being silently read as the data to validate.
+export const panicNotSchema = (): never => panic("Expected a Sury schema");
 
 let seq = 1;
 
@@ -762,7 +870,7 @@ export const getOrRethrow = (exn: unknown): SuryErrorRecord => {
 }
 
 // Internal invariant/misuse errors (bad schema construction, not input
-// validation) — intentionally a plain Error, not SuryError: there's no
+// validation) - intentionally a plain Error, not SuryError: there's no
 // ErrorDetails shape (code/path/reason) to attach at these call sites.
 export const panic = (message: string): never => {
   throw new Error(`[Sury] ${message}`);
@@ -817,14 +925,14 @@ export const baseSchema = (tag: Tag, selfReverse: boolean, decoder: Builder): In
   schema.seq = seq++;
   schema.decoder = decoder;
   return schema;
-}
+};
 
 export const noopDecoder: Builder = (input: Val) => input;
 
 // Every built-in singleton schema must be a module-level const initialized by
 // a single `/* @__PURE__ */ initSchema(...)` expression: the module system is
 // what guarantees one instance per schema (the compiled-decoder cache in
-// getDecoder is keyed by `seq` and stored on the instance, so a fresh copy
+// getOp is keyed by `seq` and stored on the instance, so a fresh copy
 // per use would recompile every time), and the single pure expression is what
 // lets a consumer's bundler drop the unused ones.
 // @__NO_SIDE_EFFECTS__
@@ -846,16 +954,22 @@ export const unknown: Internal = baseSchema(unknownTag, true, noopDecoder);
 export const copySchema = (schema: Internal): Internal => {
   const c: Internal = Object.assign(new (Schema as unknown as SchemaClass)(), schema);
   c.seq = seq++;
-  // `content` is non-enumerable, so Object.assign skips it — carried by hand
+  // `content` is non-enumerable, so Object.assign skips it - carried by hand
   // here, which is also the only place that pays for it.
   if (schema.content !== U) setContent(c, schema.content);
   if (schema.bc !== U) setBytesCodec(c, schema.bc);
   return c;
-}
+};
+
+export const copyTo = (from: Internal, to: Internal): Internal => {
+  const mut = copySchema(from);
+  mut.to = to;
+  return mut;
+};
 
 // `S.base64` and `S.json` are their own content, and an enumerable
-// self-reference makes `JSON.stringify(schema)` — and every error that embeds
-// one — throw on a cycle. Non-enumerable everywhere rather than only there, so
+// self-reference makes `JSON.stringify(schema)` - and every error that embeds
+// one - throw on a cycle. Non-enumerable everywhere rather than only there, so
 // a carrier and its copies agree on the field count `unionIsTransparent` walks.
 export const setContent = (schema: Internal, content: Internal): void => {
   valueOptions[valKey] = content;

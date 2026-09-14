@@ -3,10 +3,11 @@ ts:
   schema: S.file.with(S.to, S.blob)
   input: File
   output: Blob
-  instantiations: 5256
+  instantiations: 4442
 jsonSchema:
   input: Expected JSON, received File
   output: Expected JSON, received Blob
+isEqual: strictEqual
 vs:
   zod:
     _skip: not-applicable
@@ -25,4 +26,4 @@ operations:
         error: Expected File, received "hi"
   decode: identity
   encode:
-    creationError: "SuryError: Can't decode Blob to File. Use S.to to define a custom decoder"
+    creationError: "SuryError: Can't decode Blob -> File. Define custom codec with S.to"

@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.optional(S.union([S.string, S.number])).with(S.to, S.string)
+  input: string | number | undefined
+  output: string
+  instantiations: 5504
+jsonSchema:
+  input: Expected JSON, received string | number | undefined
+  output: '{ type: "string" }'
+isEqual: strictEqual
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "SuryError: Ambiguous string | number | undefined -> string. Should number be decoded or ignored? Choose with S.to for number -> string, or S.never -> number"
+  decode: eq-to-parse
+  encode:
+    creationError: "SuryError: Ambiguous string -> string | number | undefined. Should number be decoded or ignored? Choose with S.to for string -> number, or S.never -> number"

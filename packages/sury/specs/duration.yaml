@@ -7,6 +7,7 @@ ts:
 jsonSchema:
   input: '{ type: "string", format: "duration" }'
   output: '{ type: "string", format: "duration" }'
+isEqual: strictEqual
 vs:
   zod: z.iso.duration()
 operations:
@@ -82,9 +83,6 @@ operations:
       time-components-only:
         input: '"PT1H2M3S"'
         output: '"PT1H2M3S"'
-      month-and-day:
-        input: '"P1M2D"'
-        output: '"P1M2D"'
       hour-and-minute:
         input: '"PT1H30M"'
         output: '"PT1H30M"'
@@ -94,6 +92,9 @@ operations:
       fractional-duration-is-not-allowed-by-rfc-3339:
         input: '"PT0.5S"'
         error: Expected duration, received "PT0.5S"
+        divergence:
+          reason: z.iso.duration() takes ISO 8601 durations that RFC 3339's grammar forbids
+          zod: '"PT0.5S"'
       leading-whitespace-is-invalid:
         input: '" P1D"'
         error: Expected duration, received " P1D"
@@ -109,6 +110,9 @@ operations:
       years-and-days-cannot-appear-without-months:
         input: '"P1Y2D"'
         error: Expected duration, received "P1Y2D"
+        divergence:
+          reason: z.iso.duration() takes ISO 8601 durations that RFC 3339's grammar forbids
+          zod: '"P1Y2D"'
       months-and-days-can-appear-without-years:
         input: '"P1M2D"'
         output: '"P1M2D"'
@@ -118,6 +122,9 @@ operations:
       hours-and-seconds-cannot-appear-without-minutes:
         input: '"PT1H2S"'
         error: Expected duration, received "PT1H2S"
+        divergence:
+          reason: z.iso.duration() takes ISO 8601 durations that RFC 3339's grammar forbids
+          zod: '"PT1H2S"'
       minutes-and-seconds-can-appear-without-hour:
         input: '"PT1M2S"'
         output: '"PT1M2S"'

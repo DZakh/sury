@@ -1,7 +1,7 @@
 // The perf dimension's OUTPUT, not its measurement: what `spec check` prints
 // once numbers exist, and the rules that decide which numbers get printed at
 // all. Everything here is a pure function fed synthetic ratios, so the suite
-// never runs a benchmark — a real run forks a process per target and is far too
+// never runs a benchmark - a real run forks a process per target and is far too
 // slow (and, being wall-clock, far too machine-dependent) to assert on.
 //
 // The statistics are the part worth pinning down: conservativePct is the single
@@ -9,7 +9,7 @@
 // commit message, so its behaviour is asserted directly rather than inferred
 // from a rendered report.
 import { test, expect } from "vitest";
-import { conservativePct, deriveTargets, type Perf } from "../../spec/bench";
+import { conservativePct, deriveTargets, requireSchema, type Perf } from "../../spec/bench";
 import { renderPerformance } from "../../spec/summary";
 import { renderComment } from "../../spec/perfComment";
 import { listSpecFiles, readScenarios, specId } from "../../spec/harness";
@@ -17,7 +17,7 @@ import { listSpecFiles, readScenarios, specId } from "../../spec/harness";
 const ratios = (...xs: number[]) => xs;
 
 test("conservativePct reports nothing when the blocks disagree on direction", () => {
-  // Eight blocks straddling 1.0 — the interval contains "no change", so there
+  // Eight blocks straddling 1.0 - the interval contains "no change", so there
   // is no evidence of one however large the individual samples are.
   expect(conservativePct(ratios(0.7, 1.4, 0.9, 1.3, 0.8, 1.2, 0.95, 1.1))).toBe(0);
 });
@@ -42,6 +42,12 @@ test("conservativePct reports 0 below six blocks, so BLOCKS must stay at 6 or ab
   expect(conservativePct(ratios(1.4, 1.3, 1.2, 1.1, 1.05))).toBe(0);
 });
 
+test("requireSchema throws on a missing export so the baseline reports it as new", () => {
+  expect(() => requireSchema(undefined)).toThrow("schema expression is not a Sury schema");
+  expect(() => requireSchema(null)).toThrow("schema expression is not a Sury schema");
+  expect(requireSchema({})).toEqual({});
+});
+
 // ---- targets ---------------------------------------------------------------
 
 // `[]` for the scenarios: they aren't files, so a run narrowed to one spec
@@ -51,7 +57,7 @@ const targetsFor = (id: string) =>
 
 test("a constant schema contributes no creation targets", () => {
   // `S.string` is a module-level constant, so there is nothing to construct and
-  // its compiled operation is cached on the singleton — measuring either would
+  // its compiled operation is cached on the singleton - measuring either would
   // time the cache, not the library.
   const { targets, skippedConstants } = targetsFor("string");
   expect(skippedConstants).toBe(1);
@@ -68,7 +74,7 @@ test("an operation's examples become one target per outcome, carrying all their 
   const real = targetsFor("string").targets.filter((t) => !t.control);
   const accepts = real.find((t) => t.name === "string · parse · accepts ×2")!;
   const rejects = real.find((t) => t.name === "string · parse · rejects ×2")!;
-  // Every example is still measured — none was dropped to get the target count
+  // Every example is still measured - none was dropped to get the target count
   // down, which is the whole point of aggregating rather than sampling.
   expect(accepts.inputSrcs).toEqual(['("hello")', '("")']);
   expect(rejects.inputSrcs!.length).toBe(2);
@@ -93,7 +99,7 @@ test("a factory schema contributes creation and compilation targets alongside ev
 });
 
 // A scenario carries its own setup and expression instead of a schema, and is
-// selected by name — the one target kind that comes from scenarios.yaml rather
+// selected by name - the one target kind that comes from scenarios.yaml rather
 // than from a spec file.
 test("a scenario contributes one target built from its own prepare and run", () => {
   const { targets } = deriveTargets([], ["standard-schema-validate"]);
@@ -107,7 +113,7 @@ test("a scenario contributes one target built from its own prepare and run", () 
 });
 
 // Compiling an async operation is ordinary sync work and is measured (with the
-// async builder, the only one that accepts the schema); running one can't be —
+// async builder, the only one that accepts the schema); running one can't be -
 // a batch loop only starts the promises. The skipped examples are counted so
 // the report doesn't read as if they were timed and found unchanged.
 test("an async op contributes its compilation target but none of its examples", () => {
@@ -133,7 +139,7 @@ test("scenarios are selected by name, so narrowing to a spec picks up none of th
 });
 
 // The unnarrowed case, which is what CI and a bare `pnpm spec check` run: no
-// scenario argument at all has to mean every scenario, not none — the same
+// scenario argument at all has to mean every scenario, not none - the same
 // omission that means every spec.
 test("omitting the scenario selection runs all of them", () => {
   const real = deriveTargets([], undefined).targets.filter((t) => !t.control);
@@ -225,9 +231,9 @@ test("renderPerformance says so plainly when nothing cleared the floor", () => {
 
 test("renderPerformance names the direction, since the sign alone doesn't", () => {
   // `benchChild` measures current/baseline, so a ratio above 1 means the
-  // current side took longer. Positive is therefore a regression — the same
+  // current side took longer. Positive is therefore a regression - the same
   // direction as the bundleSize and instantiations sections, where growth is
-  // the bad way — but nothing about "+12.4%" says so on its own.
+  // the bad way - but nothing about "+12.4%" says so on its own.
   const out = renderPerformance(
     perf([row("slower · create", "create", 12.4), row("faster · create", "create", -9.9)]),
   );
@@ -238,7 +244,7 @@ test("renderPerformance names the direction, since the sign alone doesn't", () =
 
 test("renderPerformance reports an accept/reject flip as behavior, not as a timing", () => {
   // Timing a returned value against a thrown error reports the correctness fix
-  // that started rejecting the input as several hundred times "slower" — which
+  // that started rejecting the input as several hundred times "slower" - which
   // is how `optional-object · parse · array-is-not-an-object` landed in a PR
   // comment at +78548%.
   const out = renderPerformance(
@@ -249,7 +255,7 @@ test("renderPerformance reports an accept/reject flip as behavior, not as a timi
     }),
   );
   expect(out).toContain(
-    "behavior changed, not timed — optional-object · parse · array-is-not-an-object: baseline accepted it, now rejected",
+    "behavior changed, not timed - optional-object · parse · array-is-not-an-object: baseline accepted it, now rejected",
   );
   expect(out).not.toContain("%slower");
 });
@@ -268,7 +274,7 @@ test("renderPerformance surfaces a measurement failure without pretending it was
 
 // Built by `renderPerformance` rather than spelled by hand: `renderComment`
 // parses that exact output, so a hand-written fixture lets the two drift
-// silently — which is how the direction word reached the terminal while the PR
+// silently - which is how the direction word reached the terminal while the PR
 // comment still rendered a bare, ambiguous percentage.
 const report = (rows: Perf["changed"]) => renderPerformance(perf(rows));
 
@@ -289,7 +295,7 @@ test("renderComment builds a table, links the full report, and names the head it
   expect(out).toContain("+% slower than baseline, -% faster");
   expect(out).toContain("[Full report ↗](https://x/artifact)");
   // One comment per push, so a reader scrolling a long PR needs each to say
-  // which head produced it — the other sha in the header is the baseline.
+  // which head produced it - the other sha in the header is the baseline.
   expect(out).toContain("`83f943b` vs `93999e3`");
 });
 
@@ -300,6 +306,56 @@ test("renderComment omits the head when it wasn't given one", () => {
   expect(out).toContain("### Performance drift since last release");
   expect(out).toContain("`93999e3` (merge-base with main)");
   expect(out).not.toContain(" vs `93999e3`");
+});
+
+// The verdict is the line a reader scrolling a PR actually reads, so it has to
+// answer "did this change cost anything" without them counting table rows.
+test("renderComment leads with what moved and how much was measured", () => {
+  const out = renderComment(
+    report([
+      row("object10 · create", "create", 12.4),
+      row("union2 · create", "create", 3.9),
+      row("union2 · parse · nested", "run", -6.1),
+    ]),
+  );
+  expect(out).toContain("**2 slower, 1 faster** of 140 timed targets");
+});
+
+// One list sorted worst-first truncates from the improving end, so a change
+// with more regressions than the table holds showed none of what it sped up.
+test("renderComment tables regressions and improvements separately", () => {
+  const rows = [
+    ...Array.from({ length: 12 }, (_, i) => row(`slow-${i} · create`, "create", 20 - i)),
+    row("quick · create", "create", -14.2),
+  ];
+  const out = renderComment(report(rows));
+  expect(out).toContain("**Slower**");
+  expect(out).toContain("**Faster**");
+  expect(out).toContain("| `quick · create` | -14.2% faster |");
+  expect(out.indexOf("**Slower**")).toBeLessThan(out.indexOf("**Faster**"));
+  // Each table truncates on its own, so the improvement survives regardless of
+  // how many regressions sit above it.
+  expect(out).toContain("…and 2 more.");
+});
+
+// A target the run could not time is a result about this change. As a `<sub>`
+// footnote next to the node version it read as boilerplate.
+test("renderComment surfaces untimed targets above the tables, not in the small print", () => {
+  const out = renderComment(
+    renderPerformance(
+      perf([row("object10 · create", "create", 12.4)], {
+        errors: [{ name: "union5 · create", error: "boom" }],
+        outcomeChanged: [
+          { name: "optional-object · parse · array-is-not-an-object", note: "baseline accepted it, now rejected" },
+        ],
+      }),
+    ),
+  );
+  expect(out).toContain("**Not timed**");
+  expect(out).toContain("- behavior changed, not timed - optional-object · parse · array-is-not-an-object");
+  expect(out).toContain("- could not measure union5 · create: boom");
+  expect(out.indexOf("**Not timed**")).toBeLessThan(out.indexOf("**Slower**"));
+  expect(out).not.toContain("<sub>could not measure");
 });
 
 test("renderComment carries every footer line the CLI emits", () => {
@@ -318,7 +374,7 @@ test("renderComment carries every footer line the CLI emits", () => {
   );
   expect(out).toContain("new: merge · parse · sparse");
   expect(out).toContain("could not measure union5 · create: boom");
-  expect(out).toContain("behavior changed, not timed — optional-object · parse · array-is-not-an-object");
+  expect(out).toContain("behavior changed, not timed - optional-object · parse · array-is-not-an-object");
   expect(out).toContain("advisory only");
   expect(out).toContain("node 24.16.0");
 });
@@ -336,8 +392,8 @@ test("renderComment truncates to the worst rows and says how many it dropped", (
 
 test("renderComment still posts when nothing changed, so a missing comment means a broken job", () => {
   const out = renderComment(report([]));
-  expect(out).toContain("No significant changes.");
-  // Still a whole comment, header and footer included — a clean run is a
+  expect(out).toContain("**No significant changes**");
+  // Still a whole comment, header and footer included - a clean run is a
   // result, not an empty one.
   expect(out).toContain("`93999e3` (merge-base with main)");
   expect(out).toContain("137 unchanged");

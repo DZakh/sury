@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.union([S.schema({ x: S.string }), S.date])"
+  input: "{ x: string; } | Date"
+  output: "{ x: string; } | Date"
+  instantiations: 2631
+jsonSchema:
+  input: "Expected JSON, received { x: string; } | Date"
+  output: "Expected JSON, received { x: string; } | Date"
+isEqual: (a,b)=>a===b||!!(typeof a==="object"&&a&&!Array.isArray(a)&&!(a instanceof e[0])?typeof b==="object"&&b&&!Array.isArray(b)&&!(b instanceof e[0])&&a.x===b.x:b instanceof e[0]&&+a===+b)
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{for(;;){if(i instanceof e[0])break;if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i.x;typeof v0==="string"||e[1](v0);i={x:v0};break}e[2](i)}return i}
+    examples:
+      object:
+        input: '{ x: "a" }'
+        output: '{ x: "a" }'
+      other-object:
+        input: '{ x: "b" }'
+        output: '{ x: "b" }'
+      date:
+        input: new Date("1970-01-01T00:00:00.000Z")
+        output: new Date("1970-01-01T00:00:00.000Z")
+      later-date:
+        input: new Date("2020-01-01T00:00:00.000Z")
+        output: new Date("2020-01-01T00:00:00.000Z")
+      neither:
+        input: "42"
+        error: "Expected { x: string; } | Date, received 42"
+  decode: identity
+  encode: identity

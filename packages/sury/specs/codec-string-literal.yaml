@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.string.with(S.to, S.literal("a"))
+  input: string
+  output: '"a"'
+  instantiations: 4777
+jsonSchema:
+  input: '{ type: "string", const: "a" }'
+  fromInputType: '"a"'
+  output: '{ type: "string", const: "a" }'
+  openapi-3.0:
+    input: '{ type: "string", enum: ["a"] }'
+    output: '{ type: "string", enum: ["a"] }'
+isEqual:
+  input: strictEqual
+  output: alwaysEqual
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[1](i);i==="a"||e[0](i);return i}
+    examples:
+      valid:
+        input: '"a"'
+        output: '"a"'
+      padded:
+        input: '" a "'
+        error: Expected "a", received " a "
+      other-text:
+        input: '"b"'
+        error: Expected "a", received "b"
+      not-a-string:
+        input: "0"
+        error: Expected string, received 0
+  decode:
+    expression: i=>{i==="a"||e[0](i);return i}
+    examples:
+      valid:
+        input: '"a"'
+        output: '"a"'
+  encode:
+    expression: i=>{i==="a"||e[0](i);return i}
+    examples:
+      valid:
+        input: '"a"'
+        output: '"a"'

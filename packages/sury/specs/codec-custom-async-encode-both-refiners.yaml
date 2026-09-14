@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.reverse(S.string.with(S.refine, (value) => value !== "0", { error: "Expected a non-zero text" })).with(S.to, S.number, { decode: (value) => +value, encode: { async: (value) => Promise.resolve("" + value) } }).with(S.refine, (value) => value < 10, { error: "Expected less than 10" })'
+  input: string
+  output: number
+  instantiations: 5730
+jsonSchema:
+  input: '{ type: "string" }'
+  output: '{ type: "number" }'
+isEqual: strictEqual
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[6](i);e[0](i)||e[7](i);let v0;try{v0=e[1](i)}catch(x){e[2](x)}typeof v0==="number"&&v0==v0||e[5](v0);e[3](v0)||e[4](v0);return v0}
+    examples:
+      passes:
+        input: '"5"'
+        output: "5"
+      input-refined:
+        input: '"0"'
+        error: Expected a non-zero text
+      output-refined:
+        input: '"12"'
+        error: Expected less than 10
+  decode:
+    expression: i=>{e[0](i)||e[6](i);let v0;try{v0=e[1](i)}catch(x){e[2](x)}typeof v0==="number"&&v0==v0||e[5](v0);e[3](v0)||e[4](v0);return v0}
+    examples:
+      passes:
+        input: '"5"'
+        output: "5"
+  encode:
+    isAsync: true
+    expression: i=>{try{e[0](i)||e[6](i);let v0;try{v0=e[1](i).catch(x=>e[2](x))}catch(x){e[2](x)}return v0.then(v0=>{typeof v0==="string"||e[5](v0);e[3](v0)||e[4](v0);return v0})}catch(v1){return Promise.reject(v1)}}
+    examples:
+      passes:
+        input: "5"
+        output: '"5"'
+      input-refined-before-the-await:
+        input: "12"
+        error: Expected less than 10
+      output-refined-after-the-await:
+        input: "0"
+        error: Expected a non-zero text

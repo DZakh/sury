@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.formData.with(S.to, S.schema({ ["__proto__"]: S.string.with(S.nonEmpty), "a[b]": S.number, "": S.string.with(S.minLength, 0) }))'
+  input: FormData
+  output: '{ __proto__: string; "a[b]": number; "": string; }'
+  instantiations: 6655
+jsonSchema:
+  input: Expected JSON, received FormData
+  output: '{ type: "object", properties: { ["__proto__"]: { type: "string", minLength: 1 }, "a[b]": { type: "number" }, "": { type: "string", minLength: 0 } }, required: ["__proto__", "a[b]", ""] }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||a["__proto__"]===b["__proto__"]&&a["a[b]"]===b["a[b]"]&&a[""]===b[""]
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{i instanceof e[6]||e[7](i);let v0=e[0](i),v1=v0.get("__proto__"),v2=v0.get("a[b]"),v4=v0.get("");typeof v1==="string"||e[2](v1);v1.length>0||e[1](v1);typeof v2==="string"||e[3](v2);let v3=+v2;v3==v3&&(v3||v2.trim())||e[4](v2);typeof v4==="string"||e[5](v4);return {["__proto__"]:v1,"a[b]":v3,"":v4}}
+    examples:
+      keys-are-data:
+        input: ((f) => (f.append("__proto__", "v"), f.append("a[b]", "1"), f.append("", "x"), f))(new FormData())
+        output: '{ ["__proto__"]: "v", "a[b]": 1, "": "x" }'
+  decode:
+    expression: i=>{let v0=e[0](i),v1=v0.get("__proto__"),v2=v0.get("a[b]"),v4=v0.get("");typeof v1==="string"||e[2](v1);v1.length>0||e[1](v1);typeof v2==="string"||e[3](v2);let v3=+v2;v3==v3&&(v3||v2.trim())||e[4](v2);typeof v4==="string"||e[5](v4);return {["__proto__"]:v1,"a[b]":v3,"":v4}}
+    examples:
+      keys-are-data:
+        input: ((f) => (f.append("__proto__", "v"), f.append("a[b]", "1"), f.append("", "x"), f))(new FormData())
+        output: '{ ["__proto__"]: "v", "a[b]": 1, "": "x" }'
+  encode:
+    expression: i=>{let v0=(Object.hasOwn(i,"__proto__")?i["__proto__"]:void 0);v0.length>0||e[0](v0);let v1=new e[1]();v1.append("__proto__",v0);v1.append("a[b]",""+i["a[b]"]);v1.append("",i[""]);return v1}
+    examples:
+      keys-are-data:
+        input: '{ ["__proto__"]: "v", "a[b]": 1, "": "x" }'
+        output: ((f) => (f.append("__proto__", "v"), f.append("a[b]", "1"), f.append("", "x"), f))(new FormData())

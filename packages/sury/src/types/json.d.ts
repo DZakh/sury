@@ -1,9 +1,9 @@
 // The JSON data type, and the type a JSON Schema literal describes.
 //
-// `FromJSONSchema` is what gives `S.fromJSONSchema` its inferred result. It
-// resolves a schema written inline; anything it cannot read statically — a
+// `FromJSONSchema` is what gives `S.fromJSONSchemaOrThrow` its inferred result.
+// It resolves a schema written inline; anything it cannot read statically - a
 // value typed `unknown`, `JSON`, or one of the dialect interfaces in
-// ./jsonschema.d.ts — resolves to `JSON`, so a schema loaded at runtime keeps
+// ./jsonschema.d.ts - resolves to `JSON`, so a schema loaded at runtime keeps
 // working without a cast.
 
 /**
@@ -17,7 +17,7 @@ export type JSON =
   | { [key: string]: JSON }
   | JSON[];
 
-// A private copy of index.d.ts's `Flatten` — a non-exported type can't cross a
+// A private copy of index.d.ts's `Flatten` - a non-exported type can't cross a
 // file, and exporting one would put `S.Flatten` in the public API.
 type Flatten<T> = T extends object ? { [K in keyof T]: T[K] } : T;
 
@@ -41,8 +41,8 @@ type JSONSchemaRef<R, D, M extends boolean> = [JSONSchemaRefName<R>] extends [ne
   ? JSONSchemaResolve<D[JSONSchemaRefName<R>], D, M>
   : JSON;
 
-// The `string extends K` guard catches a `required` widened to `string[]` —
-// e.g. by a `satisfies S.JSONSchema` annotation on the argument — where
+// The `string extends K` guard catches a `required` widened to `string[]` -
+// e.g. by a `satisfies S.JSONSchema` annotation on the argument - where
 // treating every key as required would type the result narrower than the
 // runtime. Widened means unknowable, so no key is marked required.
 type JSONSchemaRequiredKeys<S> = S extends { required: ReadonlyArray<infer K extends string> }
@@ -648,7 +648,7 @@ type JSONSchemaOutputPositionalArray<
       ? JSONSchemaTuple<S, P, I, D, M>
       : I extends false
         ? // Min >= the prefix and nothing may follow it, so the tuple compiles
-          // natively at exactly the prefix length — or not at all.
+          // natively at exactly the prefix length - or not at all.
           JSONSchemaEqual<Min, P["length"]> extends true
           ? JSONSchemaOutputTuple<S, P, I, D, M>
           : never
@@ -825,10 +825,10 @@ type JSONSchemaHasDefault<S, D, A extends unknown[] = []> = A["length"] extends 
 
 /**
  * The type a JSON Schema literal describes, as inferred by
- * `S.fromJSONSchema`. Resolves local `$ref` pointers (`#/$defs/…`,
+ * `S.fromJSONSchemaOrThrow`. Resolves local `$ref` pointers (`#/$defs/…`,
  * `#/definitions/…`) against the root schema, including recursive and
  * mutually recursive ones. A `$ref` on any other path (`#/components/schemas/…`)
- * is validated the same, but resolves to `S.JSON` here — as does a non-literal
+ * is validated the same, but resolves to `S.JSON` here - as does a non-literal
  * schema (`unknown`, `S.JSON`, a dialect interface).
  */
 export type FromJSONSchema<T> = unknown extends T

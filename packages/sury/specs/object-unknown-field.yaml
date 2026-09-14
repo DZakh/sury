@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({ v: S.unknown })"
+  input: "{ v?: unknown; }"
+  output: "{ v?: unknown; }"
+  instantiations: 2085
+jsonSchema:
+  input: '{ type: "object", properties: { v: {} }, required: ["v"] }'
+  fromInputType: "{ v: JSON; }"
+  output: '{ type: "object", properties: { v: {} }, required: ["v"] }'
+  fromOutputType: "{ v: JSON; }"
+isEqual: (a,b)=>a===b||e[0](a.v,b.v)
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[0](i);return {v:i.v}}
+    examples:
+      value:
+        input: "{ v: { x: 1 } }"
+        output: "{ v: { x: 1 } }"
+      key-set:
+        input: "{ v: { a: undefined } }"
+        output: "{ v: { a: undefined } }"
+      other-key-set:
+        input: "{ v: { b: undefined } }"
+        output: "{ v: { b: undefined } }"
+      not-an-object:
+        input: "42"
+        error: "Expected { v: unknown; }, received 42"
+  decode: identity
+  encode: identity

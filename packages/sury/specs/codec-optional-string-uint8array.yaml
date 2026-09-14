@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.optional(S.string).with(S.to, S.uint8Array)
+  input: string | undefined
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 4587
+jsonSchema:
+  input: '{ type: "string" }'
+  fromInputType: string
+  output: Expected JSON, received Uint8Array
+isEqual:
+  input: strictEqual
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{if(typeof i==="string"){i=e[0](i)}else{e[1](i)}return i}
+    examples:
+      text:
+        input: '"hi"'
+        output: new Uint8Array([104, 105])
+      undefined-is-rejected:
+        input: undefined
+        error: Expected string, received undefined
+  decode: eq-to-parse
+  encode:
+    expression: i=>{let v0=e[0].decode(i);i=v0;return i}
+    examples:
+      bytes-back:
+        input: new Uint8Array([104, 105])
+        output: '"hi"'

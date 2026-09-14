@@ -1,5 +1,5 @@
 // An object/array val (`makeObjectVal`'s result) reuses the plain `Val`
-// shape — there's no separate "object val" type.
+// shape - there's no separate "object val" type.
 
 import {
   anyOfTag,
@@ -14,22 +14,24 @@ import {
   immutableEmptyArray,
   immutableEmptyObject,
   inlinedObjectKey,
+  inlinedProperty,
   inlinedValueFromString,
   instanceTag,
   type Internal,
   isLiteral,
   isOptional,
   isSchemaObject,
-  jsonName,
   noopDecoder,
   objectTag,
   pathConcat,
   setHas,
+  stringify,
   tagFlags,
   U,
   undefinedTag,
   unknown,
   unknownTag,
+  updateOutput,
   type Val
 } from "./base";
 import {
@@ -49,6 +51,7 @@ import {
   B_merge,
   B_mergeWithPathPrepend,
   B_next,
+  B_nextVarOutput,
   B_refine,
   B_scope,
   B_unsupportedDecode,
@@ -72,50 +75,57 @@ import {
 const isItemSchema = (x: AdditionalItems | undefined): x is Internal =>
   x !== U && typeof x !== "string";
 
-// A `.to` continuation into non-pretty jsonString serializes dynamic items in
-// its own loop (jsonStringAggregate in advanced/json.ts) and re-parses each
-// item from unknown when the incoming val carries `uv` — so the validation
-// loop here would walk the container a second time (and rebuild transformed
-// items) for nothing. Skip it and hand the container over unvalidated. Item
-// types the aggregate serializes via native JSON.stringify (its fallback:
-// bare strings/booleans/null) must stay validated here — the aggregate
-// mirrors that by never taking the fallback on a `uv` val.
-const B_fuseIntoJsonString = (
+// The strict scan: the first own or inherited enumerable key that is not one
+// of `keys` raises `unrecognized_key`. One key per error, so a collect-all
+// mode reports several errors rather than one carrying a list. `decl` is
+// `let ` when the caller has not hoisted `keyVar` itself.
+export const B_unrecognizedKeys = (
   input: Val,
-  expectedSchema: Internal,
-  item: Internal,
-): Val | undefined => {
-  const to = expectedSchema.to;
-  if (
-    // Only an unknown-typed source has validation pending — a typed source
-    // (decode direction) has nothing to fuse, and marking it would make the
-    // aggregate re-validate trusted input.
-    input.s.additionalItems === unknown &&
-    to !== U &&
-    to.format === "json" &&
-    !to.space &&
-    !(input.g.o & 1) &&
-    !(
-      item.to === U &&
-      (tagFlags[item.type]! & ((2 | 8) | 32))
-    )
-  ) {
-    const marked = copySchema(expectedSchema);
-    marked.uv = true;
-    return B_refine(input, marked);
+  keys: string[],
+  keyVar: string,
+  decl: string,
+): string => {
+  const fail = B_failWithArg(
+    input,
+    (key: string) =>
+      ({
+        code: "unrecognized_key",
+        path: input.path,
+        reason: `Unrecognized key ${stringify(key)}`,
+        key,
+      }) as ErrorDetails,
+    keyVar,
+  );
+  let cond = "";
+  for (let idx = 0; idx < keys.length; idx++) {
+    if (idx) cond += "&&";
+    cond += `${keyVar}!==${inlinedValueFromString(keys[idx]!)}`;
   }
-  return U;
+  return `for(${decl}${keyVar} in ${input.v()})` + (cond ? `if(${cond})` : "") + fail + ";";
+};
+
+// A `.to` target that builds its document piecewise (jsonString) can take a
+// container raw: its `fz` hook (installed in advanced/json.ts) hands back the
+// container schema marked `uv` when validation can be left to the aggregate,
+// which does it inside the same pass that renders. For a dynamic container
+// (`item` given) that is the whole item loop; for a fixed one every field is
+// left raw except a union member's literals, whose discriminant has to be
+// hoisted from here. Only the target knows when, so this side just asks, and
+// a bundle without jsonString ships no decision.
+const B_fused = (input: Val, expectedSchema: Internal, item?: Internal): Internal | undefined => {
+  const to = expectedSchema.to;
+  return to !== U && to.fz !== U ? to.fz(input, expectedSchema, item) : U;
 };
 
 // The wire form of a nested json-format string is an escaped string value, not
 // raw JSON text (see fieldPiece in advanced/json.ts). So a JSON-sourced item (a
-// JSON.parse result typed `json`) converting to one holds the document itself —
+// JSON.parse result typed `json`) converting to one holds the document itself -
 // narrowing the source to `unknown` routes it to jsonString's own decoder
 // instead of json's serialize encoder, which would re-stringify and double-wrap
 // on encode, and would hand a declared payload (CONTENT_CODEC_SPEC.md rule 3)
 // the text it had just escaped instead of parsing it.
 const B_narrowJsonSourcedJsonString = (itemInput: Val): void => {
-  if (itemInput.s.name === jsonName && itemInput.e.format === "json") {
+  if (itemInput.s.isJson && itemInput.e.format === "json") {
     itemInput.s = unknown;
   }
 };
@@ -143,7 +153,7 @@ const B_makeContainerVal = (prev: Val, schema: Internal): Val => ({
   o: U,
 });
 
-export const makeObjectVal = (prev: Val, _schema?: Internal): Val =>
+export const makeObjectVal = (prev: Val): Val =>
   B_makeContainerVal(prev, {
     type: objectTag,
     required: [],
@@ -152,7 +162,7 @@ export const makeObjectVal = (prev: Val, _schema?: Internal): Val =>
     decoder: objectDecoder,
   } as Internal);
 
-export const makeArrayVal = (prev: Val, _schema?: Internal): Val =>
+export const makeArrayVal = (prev: Val): Val =>
   B_makeContainerVal(prev, {
     type: arrayTag,
     items: [],
@@ -171,7 +181,7 @@ export const completeObjectVal = (objectVal: Val): Val => {
     const key = keys[idx]!;
     const val = objectVal.d![key]!;
     if ((val.f & 1)) {
-      promiseAllContent = promiseAllContent + val.i + ",";
+      promiseAllContent += val.i + ",";
     }
     if (val.o) {
       const existingFn = optionalSettingCode as ((objectVar: string) => string) | undefined;
@@ -180,7 +190,7 @@ export const completeObjectVal = (objectVal: Val): Val => {
           (existingFn === U ? "" : existingFn(objectVar)) +
           (key === "__proto__"
             ? `if(${val.v()}!==void 0){${objectVar}={...${objectVar},["__proto__"]:${val.i}}}`
-            : `if(${val.v()}!==void 0){${objectVar}[${inlinedValueFromString(key)}]=${val.i}}`)
+            : `if(${val.v()}!==void 0){${inlinedProperty(objectVar, key, isArray)}=${val.i}}`)
         );
       };
     } else {
@@ -193,13 +203,9 @@ export const completeObjectVal = (objectVal: Val): Val => {
 
   objectVal.i = isArray ? "[" + inline.slice(0, -1) + "]" : "{" + inline.slice(0, -1) + "}";
 
-  // FIXME: Test whether re-asserting `additionalItems = "strict"` here is
-  // needed, now that the object's properties are already fully assembled.
-  const valWithRequired = objectVal;
-
   if (promiseAllContent) {
     promiseAllContent = promiseAllContent.slice(0, -1);
-    const operationInput = B_scope(valWithRequired);
+    const operationInput = B_scope(objectVal);
     operationInput.io = true;
     const operationOutput = parse(operationInput);
     let operationCode = B_merge(operationOutput);
@@ -217,28 +223,28 @@ export const completeObjectVal = (objectVal: Val): Val => {
     }
 
     if (operationCode === "" && promiseAllContent === result) {
-      valWithRequired.i = result;
+      objectVal.i = result;
     } else {
-      valWithRequired.i = `Promise.all([${promiseAllContent}]).then(([${promiseAllContent}])=>{${operationCode}return ${result}})`;
+      objectVal.i = `Promise.all([${promiseAllContent}]).then(([${promiseAllContent}])=>{${operationCode}return ${result}})`;
     }
-    valWithRequired.f |= 1;
-    valWithRequired.s = operationOutput.s;
-    valWithRequired.e = operationOutput.e;
-    valWithRequired.io = true;
-    return valWithRequired;
+    objectVal.f |= 1;
+    objectVal.s = operationOutput.s;
+    objectVal.e = operationOutput.e;
+    objectVal.io = true;
+    return objectVal;
   } else {
     if (optionalSettingCode === U) {
-      return valWithRequired;
+      return objectVal;
     } else {
-      const code = optionalSettingCode(valWithRequired.v());
-      const output = B_refine(valWithRequired);
+      const code = optionalSettingCode(objectVal.v());
+      const output = B_refine(objectVal);
       output.cp = output.cp + code;
       return output;
     }
   }
 }
 // `S.json` builds its members before operations.ts installs the `~standard`
-// marker, so `array` would misread them as instance literals — init-time and
+// marker, so `array` would misread them as instance literals - init-time and
 // codegen callers take this one.
 export const arrayFactory = (item: Internal): Internal => {
   const mut = baseSchema(arrayTag, !!item.sr, arrayDecoder);
@@ -295,11 +301,7 @@ export const arrayDecoder = (unknownInput: Val): Val => {
     // Apply refine also when there are no checks,
     // so literals for union cases don't mutate input
     // FIXME: This should be removed and validation attached to output instead
-    if (checks.length > 0) {
-      input = B_refine(unknownInput, schema, checks);
-    } else {
-      input = B_refine(unknownInput, schema);
-    }
+    input = B_refine(unknownInput, schema, checks.length ? checks : U);
   } else {
     input = B_unsupportedDecode(unknownInput, unknownInput.s, expectedSchema);
   }
@@ -314,9 +316,9 @@ export const arrayDecoder = (unknownInput: Val): Val => {
       if (expectedLength === 0) {
         // Plain-array fusion only: fixed tuple slots are read by the aggregate
         // outside its dynamic loop, so they must stay validated here.
-        const fused = B_fuseIntoJsonString(input, expectedSchema, itemSchema);
+        const fused = B_fused(input, expectedSchema, itemSchema);
         if (fused !== U) {
-          return B_markOutput(fused, input);
+          return B_markOutput(B_refine(input, fused), input);
         }
       }
       const inputVar = input.v();
@@ -328,7 +330,7 @@ export const arrayDecoder = (unknownInput: Val): Val => {
       const itemOutput = parseDynamic(itemInput);
       const hasTransform = itemOutput.t!;
       const output2 = hasTransform
-        ? // The next `.to` segment decodes from this schema — item-output, not expectedSchema (#284)
+        ? // The next `.to` segment decodes from this schema - item-output, not expectedSchema (#284)
           B_next(input, `new Array(${inputVar}.length)`, arrayFactory(itemOutput.s))
         : B_refine(input, expectedSchema);
 
@@ -353,20 +355,17 @@ export const arrayDecoder = (unknownInput: Val): Val => {
       }
     }
   } else {
-    const objectVal = makeArrayVal(input, expectedSchema);
-    let shouldRecreateInput: boolean;
-    {
-      const ai = expectedSchema.additionalItems;
-      // Since we have a check validating the exact properties existence
-      if (ai === "strict") {
-        shouldRecreateInput = false;
-      } else if (ai === "strip") {
-        const inputAi = input.s.additionalItems;
-        shouldRecreateInput = isItemSchema(inputAi) ? true : input.s.items!.length !== expectedLength;
-      } else {
-        shouldRecreateInput = true;
-      }
-    }
+    const objectVal = makeArrayVal(input);
+    const fused = B_fused(input, expectedSchema);
+    const ai = expectedSchema.additionalItems;
+    // A fused tuple is read slot by slot off this val, so a rebuilt array
+    // would go unread; strict has a check validating the exact length.
+    let shouldRecreateInput =
+      fused === U &&
+      ai !== "strict" &&
+      (ai !== "strip" ||
+        isItemSchema(input.s.additionalItems) ||
+        input.s.items!.length !== expectedLength);
 
     for (let idx = 0; idx < expectedLength; idx++) {
       const schema = expectedItems[idx]!;
@@ -375,6 +374,10 @@ export const arrayDecoder = (unknownInput: Val): Val => {
       itemInput.e = schema;
       itemInput.io = false;
       itemInput.u = isUnion; // We want to control validation on the decoder side
+      if (fused !== U && !(isUnion && isLiteral(schema))) {
+        B_addObjectField(objectVal, key, itemInput);
+        continue;
+      }
       B_narrowJsonSourcedJsonString(itemInput);
       const itemOutput = parse(itemInput);
 
@@ -396,7 +399,7 @@ export const arrayDecoder = (unknownInput: Val): Val => {
       // Same stale-schema class as #284/#252: carry expectedSchema, not
       // input.schema (which may be a minimal union dispatch narrow), so a
       // pending `.to(json)` conversion routes through the fixed-items path
-      const o = B_refine(input, expectedSchema);
+      const o = B_refine(input, fused || expectedSchema);
       o.cp = objectVal.cp;
       o.d = objectVal.d;
       output = o;
@@ -405,11 +408,11 @@ export const arrayDecoder = (unknownInput: Val): Val => {
   return B_markOutput(output, input);
 }
 // Shared, immutable: B_refine wraps it in a fresh array. Must match
-// typeCheckCond's object tag — strip could skip `!Array.isArray` (it
+// typeCheckCond's object tag - strip could skip `!Array.isArray` (it
 // rebuilds, so an array would decode to `{}`) but that widens the union
 // acceptance mask.
 const objectTypeCheck: Check = {
-  c: (inputVar) => `${objectTagCond(inputVar)}&&!${isArrayCond(inputVar)}`,
+  c: objectTagCond,
   f: failInvalidType,
 };
 
@@ -457,9 +460,9 @@ export const objectDecoder = (unknownInput: Val): Val => {
   if (dictItem !== U && dictItem === unknown) {
     output = input;
   } else if (dictItem !== U && sourceIsDict) {
-    const fused = B_fuseIntoJsonString(input, expectedSchema, dictItem);
+    const fused = B_fused(input, expectedSchema, dictItem);
     if (fused !== U) {
-      return B_markOutput(fused, input);
+      return B_markOutput(B_refine(input, fused), input);
     }
     const inputVar = input.v();
     const keyVar = B_varWithoutAllocation(input.g);
@@ -470,7 +473,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
 
     const hasTransform = itemOutput.t!;
     const output2 = hasTransform
-      ? // The next `.to` segment decodes from this schema — item-output, not expectedSchema (#284)
+      ? // The next `.to` segment decodes from this schema - item-output, not expectedSchema (#284)
         B_next(input, "{}", dictFactory(itemOutput.s))
       : B_refine(input, expectedSchema);
 
@@ -507,16 +510,40 @@ export const objectDecoder = (unknownInput: Val): Val => {
     // the SOURCE's keys, coercing every value to the dict's value schema.
     // `completeObjectVal` drops a field that is still optional after coercion.
     // (A dict source took the dynamic branch above, so the source is an object.)
-    const objectVal = makeObjectVal(input, expectedSchema);
+    const objectVal = makeObjectVal(input);
     const keys = Object.keys(input.s.properties!);
     for (let idx = 0; idx < keys.length; idx++) {
       const key = keys[idx]!;
       const itemInput = valGet(input, key);
-      itemInput.e = itemSchema;
+      const source = itemInput.s;
+      // An optional source field into a value with no place for `undefined`
+      // (the test union.ts's nullish-arm exception makes) converts per variant
+      // with the arm kept, so `None` leaves the key out instead of failing.
+      const absent =
+        source.type === anyOfTag &&
+        source.has![undefinedTag] &&
+        !(tagFlags[itemSchema.type]! & (1 | 16 | 32 | 256 | 512)) &&
+        itemSchema.format !== "json";
+      if (absent) {
+        const target = copySchema(source);
+        target.anyOf = source.anyOf!.map((variant) =>
+          variant.type === undefinedTag
+            ? variant
+            : updateOutput<Internal>(variant, (mut) => {
+                mut.to = itemSchema;
+              })
+        );
+        target.perVariant = true;
+        itemInput.e = target;
+      } else {
+        itemInput.e = itemSchema;
+      }
       itemInput.io = false;
       itemInput.u = isUnion;
       B_narrowJsonSourcedJsonString(itemInput);
-      B_addObjectField(objectVal, key, parse(itemInput));
+      const itemOutput = parse(itemInput);
+      if (absent) itemOutput.o = true;
+      B_addObjectField(objectVal, key, itemOutput);
     }
     output = completeObjectVal(objectVal);
   } else {
@@ -525,25 +552,32 @@ export const objectDecoder = (unknownInput: Val): Val => {
     const keys = Object.keys(properties);
     const keysCount = keys.length;
 
-    const objectVal = makeObjectVal(input, expectedSchema);
+    const objectVal = makeObjectVal(input);
     const ai = expectedSchema.additionalItems;
+    const fused = B_fused(input, expectedSchema);
     let shouldRecreateInput =
+      fused === U &&
       ai !== "strict" &&
       (ai !== "strip" || sourceIsDict || Object.keys(input.s.properties!).length !== keysCount);
 
-    // FIXME: hack — detect "JSON-sourced object" via additionalItems=json
-    // (set by jsonEncoderFn) and patch the field read inline to coalesce
-    // `??null`. The proper fix is for the JSON pipeline to treat missing
-    // object keys as the option's empty sentinel, instead of leaving
-    // objectDecoder to sniff the source and rewrite codegen by hand:
+    // A JSON-sourced object (`additionalItems` is json, set by jsonEncoderFn)
+    // coalesces its field reads with `??null`, because:
     //   - jsonEncoderFn rewrites the option arm from `v===void 0` to
-    //     `v===null` because JSON has no undefined,
-    //   - but `i[key]` for a missing key returns undefined, so the
-    //     rewritten arm rejects `{}` for `{foo: option<...>}`.
-    // Detection is fragile (string-compares the schema name) and only
-    // covers the union-with-undefined shape; fold this into a shared
-    // JSON option representation post-release.
-    const isJsonParent = isItemSchema(inputAdditionalItems) && inputAdditionalItems.name === jsonName;
+    //     `v===null`, JSON having no undefined,
+    //   - but `i[key]` for a missing key returns undefined, so the rewritten
+    //     arm would reject `{}` for `{foo: option<...>}`.
+    // FIXME: a shared JSON option representation would remove the sniff - an arm
+    // that accepts both spellings of empty, so nothing has to patch the read.
+    // Two things stand in the way:
+    //   - adding an `undefined` arm beside the `null` one makes ENCODE
+    //     ambiguous, since both produce the same output and only `null` is
+    //     writable to a document - which is why this rewrites rather than adds;
+    //   - loosening the arm's own narrow to `== null` instead means widening
+    //     what `typeCheckCond` emits for a tag, and a union group's shared
+    //     narrow stands in for its members' checks (see the cross-module
+    //     contract on `typeCheckCond`), so a case would start accepting more
+    //     than its acceptance mask claims.
+    const isJsonParent = isItemSchema(inputAdditionalItems) && inputAdditionalItems.isJson;
 
     for (let idx = 0; idx < keysCount; idx++) {
       const key = keys[idx]!;
@@ -552,9 +586,13 @@ export const objectDecoder = (unknownInput: Val): Val => {
       const itemInput = valGet(input, key);
       itemInput.e = schema;
       itemInput.io = false;
-      itemInput.u = isUnion; // We want to control validation on the decoder side
+      itemInput.u = isUnion;
       if (isJsonParent && schema.type === anyOfTag && schema.has![undefinedTag]) {
         itemInput.i = `(${itemInput.i}??null)`;
+      }
+      if (fused !== U && !(isUnion && isLiteral(schema))) {
+        B_addObjectField(objectVal, key, itemInput);
+        continue;
       }
       B_narrowJsonSourcedJsonString(itemInput);
 
@@ -570,38 +608,24 @@ export const objectDecoder = (unknownInput: Val): Val => {
       }
     }
 
-    if (ai === "strict" && isItemSchema(inputAdditionalItems)) {
+    // A fused object's scan is emitted by the aggregate, after the field
+    // checks it now owns, so an unknown key is still reported after a wrong
+    // field the way it is here.
+    if (ai === "strict" && isItemSchema(inputAdditionalItems) && fused === U) {
       const keyVar = B_varWithoutAllocation(objectVal.g);
       B_hoistDecl(input, keyVar);
-      const fail = B_failWithArg(
-        input,
-        (excessFieldName: string) =>
-          ({
-            code: "unrecognized_keys",
-            path: objectVal.path,
-            reason: `Unrecognized key "${excessFieldName}"`,
-            keys: [excessFieldName],
-          }) as ErrorDetails,
-        keyVar,
-      );
-      let cond = "";
-      for (let idx = 0; idx < keysCount; idx++) {
-        if (idx) cond += "&&";
-        cond += `${keyVar}!==${inlinedValueFromString(keys[idx]!)}`;
-      }
-      objectVal.cp +=
-        `for(${keyVar} in ${input.v()})` + (cond ? `if(${cond})` : "") + fail + ";";
+      objectVal.cp += B_unrecognizedKeys(input, keys, keyVar, "");
     }
 
     if (shouldRecreateInput) {
       output = completeObjectVal(objectVal);
     } else {
-      // The value was just validated against expectedSchema — carry it as
+      // The value was just validated against expectedSchema - carry it as
       // the val's schema instead of input.schema, which may be a minimal
       // union dispatch narrow ({properties:{}, additionalItems: unknown}).
       // Keeping the narrow mis-routed a pending `.to(json)` conversion
       // into the dict path, which rejects undefined optional fields (#252)
-      const o = B_refine(input, expectedSchema);
+      const o = B_refine(input, fused || expectedSchema);
       o.cp = objectVal.cp;
       o.d = objectVal.d;
       output = o;
@@ -623,6 +647,7 @@ export const dict = (item: unknown): Internal => dictFactory(definitionToSchema(
 // An already-built schema is the overwhelmingly common argument, so it exits
 // here instead of paying traverseDefinition's typeof/null checks on top of the
 // ones isSchemaObject just made.
+// @__NO_SIDE_EFFECTS__
 export const definitionToSchema = (definition: unknown): Internal =>
   isSchemaObject(definition)
     ? (definition as Internal)
@@ -653,7 +678,7 @@ export const traverseDefinition = (
       } else {
         // A prototype other than Object.prototype (or null, e.g. Object.create(null))
         // means `definition` is a genuine class instance (Date, RegExp, a user
-        // class, ...) to match as a literal — not a plain-record description.
+        // class, ...) to match as a literal - not a plain-record description.
         // Checking definition["constructor"] instead would misclassify any plain
         // record that happens to declare an own field named "constructor".
         const proto = Object.getPrototypeOf(definition);
@@ -686,7 +711,7 @@ export const traverseDefinition = (
 // Dict-missing-key as `T | undefined` without unionFactory, so valGet does
 // not put the union compiler on the objectDecoder/arrayDecoder SCC. A missing
 // key against an optional target stays absent (None); against a required
-// target it fails — not the string `"undefined"`.
+// target it fails - not the string `"undefined"`.
 const missingKeyEncoder: Encoder = (input, target) => {
   const item = input.s.anyOf![0]!;
   const v = input.v();
@@ -702,10 +727,7 @@ const missingKeyEncoder: Encoder = (input, target) => {
 
   // Optional field: leave `undefined` as-is (None). Required field: reject.
   const absentCode = isOptional(target) ? "" : B_embedInvalidInput(input, target);
-
-  const output = B_next(input, v, getOutputSchema(target), target);
-  output.v = _var;
-  output.io = true;
+  const output = B_nextVarOutput(input, v, getOutputSchema(target), target);
   const presentBody = presentCode + presentAssign;
   output.cp =
     presentBody === ""
@@ -728,17 +750,8 @@ const wrapDictMissingKeyLight = (s: Internal): Internal => {
   return mut;
 };
 
-const wrapMissingDictKey = wrapDictMissingKeyLight;
-
 export const valGet = (parent: Val, location: string): Val => {
-  let vals: Record<string, Val>;
-  if (parent.d !== U) {
-    vals = parent.d;
-  } else {
-    const d: Record<string, Val> = Object.create(null);
-    parent.d = d;
-    vals = d;
-  }
+  const vals: Record<string, Val> = (parent.d ??= Object.create(null));
 
   const existing = vals[location];
   if (existing !== U) {
@@ -760,7 +773,7 @@ export const valGet = (parent: Val, location: string): Val => {
         // A `dict<V>` read by a fixed key may be absent (dicts have no required
         // keys), so model it as `option<V>` and let the union coercion handle a
         // missing key uniformly. Scoped to dict parents (objectTag) with a
-        // concrete value type — array->tuple rest reads (arrayTag) and
+        // concrete value type - array->tuple rest reads (arrayTag) and
         // json/unknown values read as-is. Light T|undefined wrap (not
         // optionFactory) so this decoder SCC does not statically retain union.
         if (
@@ -769,7 +782,7 @@ export const valGet = (parent: Val, location: string): Val => {
           !(tagFlags[s.type]! & 512) &&
           !isOptional(s)
         ) {
-          schema = wrapMissingDictKey(s);
+          schema = wrapDictMissingKeyLight(s);
         } else {
           schema = s;
         }
@@ -778,7 +791,11 @@ export const valGet = (parent: Val, location: string): Val => {
       }
     }
 
-    const accessor = `[${inlinedValueFromString(location)}]`;
+    const accessor = inlinedProperty(
+      "",
+      location,
+      parent.s.type === arrayTag,
+    );
 
     // Canonical Val field order (see B_operationArg in builder.ts).
     const item: Val = {

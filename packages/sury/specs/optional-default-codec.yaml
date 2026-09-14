@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({ n: S.optional(S.string.with(S.to, S.number), 5) })"
+  input: "{ n?: string | undefined; }"
+  output: "{ n: number; }"
+  instantiations: 6151
+jsonSchema:
+  input: '{ type: "object", properties: { n: { default: "5", type: "string" } } }'
+  output: '{ type: "object", properties: { n: { type: "number" } }, required: ["n"] }'
+isEqual: (a,b)=>a===b||a.n===b.n
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v1=i.n;for(;;){if(typeof v1==="string"){let v0=+v1;v0==v0&&(v0||v1.trim())||e[0](v1);v1=v0;break}if(v1===void 0){v1=5;break}e[1](v1)}return {n:v1}}
+    examples:
+      present:
+        input: '{ n: "7" }'
+        output: "{ n: 7 }"
+      absent-takes-the-default:
+        input: "{}"
+        output: "{ n: 5 }"
+  decode:
+    expression: i=>{let v1=i.n;for(;;){if(typeof v1==="string"){let v0=+v1;v0==v0&&(v0||v1.trim())||e[0](v1);v1=v0;break}if(v1===void 0){v1=5;break}e[1](v1)}return {n:v1}}
+    examples:
+      present:
+        input: '{ n: "7" }'
+        output: "{ n: 7 }"
+      absent-takes-the-default:
+        input: "{}"
+        output: "{ n: 5 }"
+  encode:
+    expression: i=>{let v0=i.n;if(typeof v0==="number"&&v0==v0){v0=""+i.n}else{e[0](v0)}return {n:v0}}
+    examples:
+      number:
+        input: "{ n: 7 }"
+        output: '{ n: "7" }'

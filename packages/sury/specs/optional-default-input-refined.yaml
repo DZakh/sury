@@ -3,10 +3,11 @@ ts:
   schema: S.optional(S.reverse(S.string.with(S.minLength, 2)), "xx")
   input: string | undefined
   output: string
-  instantiations: 1435
+  instantiations: 1379
 jsonSchema:
   input: Expected JSON, received string.length >= 2 | undefined
   output: '{ type: "string", minLength: 2 }'
+isEqual: strictEqual
 vs:
   zod:
     _skip: not-applicable

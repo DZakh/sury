@@ -1,6 +1,6 @@
 // Guards the shape of the published package. `pnpm build` assembles ./artifacts
 // and publishing happens from there, so the directory listing below is the
-// deliverable — anything that appears in it without appearing here is something
+// deliverable - anything that appears in it without appearing here is something
 // a consumer would download by accident.
 
 import { execFileSync } from "node:child_process";
@@ -79,11 +79,11 @@ const prose = (markdown: string): string => {
 const RELATIVE_LINK = /]\((?!\w+:)([^)#\s]+)[^)]*\)/g;
 
 // `pnpm test` packs first, so artifacts/ is there for the normal run. The skip
-// covers a bare `vitest run` — but in CI a missing artifacts/ means the build
+// covers a bare `vitest run` - but in CI a missing artifacts/ means the build
 // step was dropped or reordered, and a silent skip there would retire this
 // whole guard without anyone noticing.
 if (process.env.CI && !existsSync(artifactsPath)) {
-  throw new Error("artifacts/ is missing in CI — run `pnpm build` before the tests");
+  throw new Error("artifacts/ is missing in CI - run `pnpm build` before the tests");
 }
 const describeArtifact = existsSync(artifactsPath) ? describe : describe.skip;
 
@@ -102,7 +102,7 @@ const DECLARATION =
   /^export\s+(?:declare\s+)?(?:abstract\s+)?(?:type|interface|class|const|let|var|function|namespace|enum)\s+([A-Za-z_$][\w$]*)/gm;
 const REEXPORT = /^export\s+\*\s+from\s+["'](\.[^"']+)["']/gm;
 
-// Every type name the entry publishes, following `export * from` — a name is no
+// Every type name the entry publishes, following `export * from` - a name is no
 // less public for being declared in a module the entry only re-exports, and
 // scanning index.d.ts alone would quietly stop checking every type that moves
 // out of it. Paths are the TS convention of importing a `.js` that resolves to
@@ -144,7 +144,7 @@ describeArtifact("artifact", () => {
 
   // A bare `Blob`/`File` in index.d.ts once made the whole package fail to
   // typecheck for a consumer whose tsconfig has neither lib.dom nor
-  // @types/node — including consumers who never touch those schemas. The
+  // @types/node - including consumers who never touch those schemas. The
   // failure is a property of the consumer's compiler options, so no spec can
   // express it; this compiles a minimal consumer with the globals withheld.
   test("declarations compile without lib.dom or @types/node", () => {
@@ -193,7 +193,7 @@ describeArtifact("artifact", () => {
     for (const file of PUBLISHED_FILES.filter((f) => f.endsWith(".md"))) {
       for (const [, target] of prose(read(file)).matchAll(RELATIVE_LINK)) {
         const resolved = path.resolve(path.dirname(path.join(artifactsPath, file)), target!);
-        // A directory "resolves" too, but no doc means to link one — npm and
+        // A directory "resolves" too, but no doc means to link one - npm and
         // GitHub render nothing useful for it.
         if (!existsSync(resolved) || !statSync(resolved).isFile()) {
           dangling.push(`${file} -> ${target}`);
@@ -215,10 +215,9 @@ describeArtifact("artifact", () => {
     }
   });
 
-  // Removed API lives on in prose long after the code is gone. The ReScript
-  // reference is checked by eye — its `S.` names are a different module.
-  // Unlike the link checks this scans the raw markdown, code fences included:
-  // the samples are exactly where stale API names live.
+  // Removed API lives on in prose long after the code is gone. Unlike the link
+  // checks these scan the raw markdown, code fences included: the samples are
+  // exactly where stale API names live.
   test("the JS docs name only API that exists", () => {
     const api = new Set(Object.keys(requireCjsEntry()));
     for (const name of declaredTypeNames("index.d.ts")) {
@@ -226,9 +225,44 @@ describeArtifact("artifact", () => {
     }
     const unknown = new Set<string>();
     for (const file of ["README.md", "docs/js-usage.md"]) {
-      for (const [, name] of read(file).matchAll(/\bS\.([A-Za-z_][A-Za-z0-9_]*)/g)) {
+      // The README's "Coming next:" sentence names API that doesn't exist yet
+      // on purpose; nothing else in the docs may.
+      const text = read(file).replace(/Coming next:[^\n]*/, "");
+      for (const [, name] of text.matchAll(/\bS\.([A-Za-z_][A-Za-z0-9_]*)/g)) {
         if (!api.has(name!)) unknown.add(`${file} -> S.${name}`);
       }
+    }
+    expect([...unknown]).toEqual([]);
+  });
+
+  // The same, for the ReScript reference - its `S.` names are a different
+  // module, so they are read off the binding file rather than the JS entry.
+  // A JS-only operation named in that doc goes unprefixed for the same reason.
+  test("the ReScript docs name only API that exists", () => {
+    const source = read("src/S.res");
+    const api = new Set<string>();
+    const add = (re: RegExp): void => {
+      for (const [, name] of source.matchAll(re)) api.add(name!);
+    };
+    add(/\bexternal\s+(\w+)\s*:/g);
+    add(/^\s*(?:%%private\(\s*)?let\s+(?:rec\s+)?(\w+)/gm);
+    add(/^\s*module\s+(\w+)/gm);
+    add(/^\s*(?:type|and)\s+(?:rec\s+)?(\w+)/gm);
+    // `type exn += private Exn(error)`: a constructor, and the one name the doc
+    // reaches through `S.` that no declaration form above spells.
+    add(/^\s*type\s+\w+\s*\+=\s*(?:private\s+)?(\w+)/gm);
+    // Variant constructors (`| @as("sint32") Sint32`), which a doc reaches
+    // through `S.` exactly like a value - `S.protobufField(~type_=S.Sint32)`.
+    add(/^\s*\|\s*(?:@as\([^)]*\)\s*)?([A-Z]\w*)/gm);
+    // The single-constructor form, which has no leading bar
+    // (`@unboxed type jsonString = JsonString(string)`).
+    add(/^\s*(?:type|and)\s+\w+\s*=\s*([A-Z]\w*)\(/gm);
+
+    const unknown = new Set<string>();
+    for (const [, name] of read("docs/rescript-usage.md").matchAll(
+      /\bS\.([A-Za-z_][A-Za-z0-9_]*)/g
+    )) {
+      if (!api.has(name!)) unknown.add(`S.${name}`);
     }
     expect([...unknown]).toEqual([]);
   });
@@ -249,7 +283,7 @@ describeArtifact("artifact", () => {
     expect(pkg.scripts).toBeUndefined();
     expect(pkg.devDependencies).toBeUndefined();
     // TypeScript only honors "types" when it comes first in its condition, and
-    // each entry format needs declarations of its own flavor — the package is
+    // each entry format needs declarations of its own flavor - the package is
     // commonjs, so index.d.ts typing the ESM entry would misreport its format.
     expect(pkg.exports["."]).toEqual({
       import: { types: "./index.d.mts", default: "./index.mjs" },
@@ -263,7 +297,7 @@ describeArtifact("artifact", () => {
 
   // artifacts/ is gitignored, so JSR's default is to publish nothing and the
   // exclude list is all `!` re-includes. package.json rides along (`!package.json`),
-  // so every file its fields point at has to ride along too — npm's file list
+  // so every file its fields point at has to ride along too - npm's file list
   // (pinned above) says nothing about JSR's.
   test("JSR includes every file package.json points at", () => {
     const included = readJson("jsr.json")
@@ -298,7 +332,7 @@ describeArtifact("artifact", () => {
   test("both entries expose the public API", async () => {
     const esm = await import(pathToFileURL(path.join(artifactsPath, "index.mjs")).href);
     for (const entry of [requireCjsEntry(), esm]) {
-      expect(entry.parser(entry.schema({ xp: entry.number }))({ xp: 1 })).toEqual({ xp: 1 });
+      expect(entry.parseOrThrow(entry.schema({ xp: entry.number }), { xp: 1 })).toEqual({ xp: 1 });
       expect(typeof entry.object).toBe("function");
     }
   });

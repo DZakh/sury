@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.record(S.env).with(S.to, S.schema({ tags: S.array(S.string) }))"
+  input: "{ [x: string]: string | undefined; }"
+  output: "{ tags: string[]; }"
+  instantiations: 5790
+jsonSchema:
+  input: '{ type: "object", additionalProperties: { type: "string" } }'
+  fromInputType: "{ [key: string]: string; }"
+  output: '{ type: "object", properties: { tags: { items: { type: "string" }, type: "array" } }, required: ["tags"] }'
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=0;for(const k in a){if(!(k in b)||!(a[k]===b[k]))return false;n++}for(const k in b)n--;return !n}
+  output: (a,b)=>a===b||e[0](a.tags,b.tags)
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "SuryError: Failed at tags: Can't decode env -> string[]. Define custom codec with S.to"
+  decode: eq-to-parse
+  encode:
+    creationError: "SuryError: Failed at tags: Can't decode string[] -> env. Define custom codec with S.to"

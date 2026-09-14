@@ -2,13 +2,13 @@
 //
 // Nothing here is snapshotted. A "baseline" is the library itself, bundled
 // from a git ref, so there is no number to commit, go stale, or be quietly
-// edited to make a regression disappear — the only thing recorded anywhere is
+// edited to make a regression disappear - the only thing recorded anywhere is
 // the ref you compared against. Both versions are then measured in one process,
 // interleaved (see benchChild.ts), and only their ratio is reported, which is
 // what makes the result mean something on a laptop under load or a shared CI
 // runner.
 //
-// Every run measures a few control pairs — the baseline against itself — and
+// Every run measures a few control pairs - the baseline against itself - and
 // reports the largest delta they produce as that run's noise floor. So a report
 // states its own confidence instead of needing a separate calibration command,
 // and nothing below that floor is shown.
@@ -28,7 +28,7 @@ const SURY_SRC = "packages/sury/src";
 
 // Long enough that the two clock reads bracketing a batch are noise rather
 // than signal: ~25ns each against a 500µs batch is under 0.01%, which leaves
-// no reason to pay for a longer one — and batches are the bulk of a run.
+// no reason to pay for a longer one - and batches are the bulk of a run.
 const BATCH_TARGET_NS = 500_000;
 // Half the cores for the screening pass, so processes overlap without every
 // one fighting for a core. A two-core CI runner falls back to serial.
@@ -37,7 +37,7 @@ const WARMUP_BATCHES = 20;
 // Confidence comes from the BLOCK count, not the round count: the interval
 // spans every block, so a delta is reported only when all of them independently
 // agree on its direction. If block ratios were pure noise that happens with
-// probability 2^(1-BLOCKS) — ~3% at six blocks, which over ~150 targets is a
+// probability 2^(1-BLOCKS) - ~3% at six blocks, which over ~150 targets is a
 // handful of false positives every run, and ~0.2% at ten. Rounds within a block
 // only sharpen its minimum, so blocks are the cheaper place to spend: ten
 // blocks of three rounds costs a quarter more than six of four and is an order
@@ -49,7 +49,7 @@ if (BLOCKS < 6) {
   );
 }
 const ROUNDS_PER_BLOCK = 2;
-// A whole child process can land in one JIT state and stay there — IC and
+// A whole child process can land in one JIT state and stay there - IC and
 // feedback shapes settle early, after which every block in that process agrees
 // with itself. The identical build has measured "unchanged" and "−44%" against
 // the same baseline in back-to-back runs, each individually "confirmed", so
@@ -64,7 +64,7 @@ const CONFIRM_PROCESSES = 2;
 // floor would either drown creation's noise in run's quiet or suppress genuine
 // run regressions to accommodate creation.
 const CONTROLS_PER_PHASE = 6;
-// Nothing below this is reported even on a perfectly quiet machine — at some
+// Nothing below this is reported even on a perfectly quiet machine - at some
 // point a real but sub-noise delta is not actionable, and listing it trains
 // the reader to ignore the section.
 const MIN_FLOOR_PCT = 3;
@@ -77,7 +77,7 @@ export type Target = {
   specId: string;
   phase: Phase;
   op?: OpName;
-  /** Build the operation with the async builder — the only way an async schema compiles. */
+  /** Build the operation with the async builder - the only way an async schema compiles. */
   isAsync?: boolean;
   /** Type-stripped already: the child has no TypeScript to strip it with. */
   schemaSrc?: string;
@@ -85,7 +85,7 @@ export type Target = {
   inputSrcs?: string[];
   /** Parallel to `inputSrcs`, so a changed outcome can name the example. */
   exampleNames?: string[];
-  /** `scenario` phase only — same type-stripped contract as schemaSrc. */
+  /** `scenario` phase only - same type-stripped contract as schemaSrc. */
   prepareSrc?: string;
   runSrc?: string;
   throws: boolean;
@@ -107,7 +107,7 @@ export type ChildResult =
   | { name: string; unsupported: string }
   | { name: string; error: string }
   // The two sides disagree on whether the input is accepted, so there is no
-  // like-for-like timing to report — only the behavior change itself.
+  // like-for-like timing to report - only the behavior change itself.
   | { name: string; outcomeChanged: string };
 
 export type PerfResult = { name: string; phase: Phase; pct: number; median: number; batch: number };
@@ -122,7 +122,7 @@ export type Perf = {
   skippedConstants: number;
   skippedAsync: number;
   errors: { name: string; error: string }[];
-  // Targets whose accept/reject outcome moved. Not timings — a behavior change
+  // Targets whose accept/reject outcome moved. Not timings - a behavior change
   // that a percentage would misreport as an enormous slowdown.
   outcomeChanged: { name: string; note: string }[];
   meta: string;
@@ -136,7 +136,7 @@ const git = (...args: string[]): string =>
 const gitLine = (...args: string[]): string => git(...args).trim();
 
 // Explicit `--against` wins; otherwise CI compares against the PR's base and a
-// local run against the point the branch left main — the anchor that stays put
+// local run against the point the branch left main - the anchor that stays put
 // for a whole change, so every measurement in a session shares one "before".
 export const resolveBaseline = (against?: string): { sha: string; label: string } => {
   const resolve = (rev: string, label: string) => {
@@ -144,7 +144,7 @@ export const resolveBaseline = (against?: string): { sha: string; label: string 
       return { sha: gitLine("rev-parse", rev), label };
     } catch {
       throw new Error(
-        `could not resolve baseline ${JSON.stringify(rev)} — pass --against <ref>` +
+        `could not resolve baseline ${JSON.stringify(rev)} - pass --against <ref>` +
           (process.env.CI ? " (CI checkouts are shallow by default; fetch-depth: 0 is needed)" : ""),
       );
     }
@@ -181,7 +181,7 @@ const bundleEntry = (root: string, entry: string, outfile: string): Promise<unkn
   });
 
 // Sury has no runtime dependencies, so a checkout of `src` at any ref bundles
-// standalone — no worktree, no install.
+// standalone - no worktree, no install.
 const materializeBaseline = async (sha: string): Promise<string> => {
   const out = join(CACHE, `${sha}.mjs`);
   if (existsSync(out)) return out;
@@ -206,6 +206,16 @@ const buildChild = (): Promise<unknown> =>
     target: "node20",
     logLevel: "silent",
   });
+
+// A missing export on the baseline (`S.xid` before it existed) evaluates to
+// `undefined` without throwing. `parseOrThrow(undefined)` then compiles to
+// `noopOperation`, and the real validator looks thousands of percent slower
+// than a function that returns its input. Throw here so `measure` reports
+// `unsupported` → `new:`, the same path a missing builder already takes.
+export const requireSchema = (schema: unknown): unknown => {
+  if (schema == null) throw new Error("schema expression is not a Sury schema");
+  return schema;
+};
 
 // ---- targets ---------------------------------------------------------------
 
@@ -247,7 +257,7 @@ export const deriveTargets = (
       constant = isConstantSchema(spec.ts.schema);
       schemaSrc = stripTypes(spec.ts.schema);
     } catch {
-      // Not evaluable — `check`'s golden pass reports that properly; there is
+      // Not evaluable - `check`'s golden pass reports that properly; there is
       // nothing useful to measure here.
       continue;
     }
@@ -258,7 +268,7 @@ export const deriveTargets = (
 
     for (const op of OP_ORDER) {
       const block = spec.operations[op];
-      if (typeof block === "string") continue;
+      if (block == null || typeof block === "string") continue;
       // Rejected at operation creation: there is no compiled operation to time
       // and no examples to run. Timing how fast it throws would measure error
       // construction, not the schema.
@@ -269,14 +279,14 @@ export const deriveTargets = (
       // Compiling an async operation is ordinary synchronous work (above), but
       // running one is not: the batch loop can only start the promises, so the
       // resolution it is supposed to be timing lands in microtasks after the
-      // clock is read. Counted, not silently dropped — the report says how many.
+      // clock is read. Counted, not silently dropped - the report says how many.
       if (isAsync) {
         skippedAsync += Object.keys(block.examples).length;
         continue;
       }
       // One target per outcome, its batch iterating every example of that
       // outcome, rather than one target per example. Same coverage at a third
-      // of the child processes — and no example has to be elected the
+      // of the child processes - and no example has to be elected the
       // representative, which nothing can do well: the first example is within
       // 5% of its group's cheapest 66% of the time, and the longest input is
       // the priciest only 42% of the time.
@@ -331,7 +341,7 @@ const choose = (n: number, k: number): number => {
 // [r₍ₖ₊₁₎, r₍n₋ₖ₎] covers the median ratio with ≥95% confidence. Distribution-free
 // on purpose: creation targets allocate hard enough that a GC spike lands in
 // some round of every run, and that would drag a mean-and-stddev interval.
-// At the six blocks this runs, k is 0 — the interval is the full range, so
+// At the six blocks this runs, k is 0 - the interval is the full range, so
 // every block has to land on the same side of 1 for anything to be reported.
 const ciRank = (n: number): number => {
   const total = 2 ** n;
@@ -393,7 +403,7 @@ export const runPerf = async (
     roundsPerBlock: ROUNDS_PER_BLOCK,
   });
 
-  // Progress is a redrawn line, so it's for a terminal only — in CI (where the
+  // Progress is a redrawn line, so it's for a terminal only - in CI (where the
   // run is captured into an artifact) it would be one line per target.
   const progress = (text: string) => process.stderr.isTTY && process.stderr.write(text);
 
@@ -402,7 +412,7 @@ export const runPerf = async (
       // Deliberately no NODE_COMPILE_CACHE here. It saves ~9ms of the ~70ms
       // startup, but the two bundles are byte-identical, so the second import
       // deserializes the first one's cached bytecode instead of compiling its
-      // own — and the sides then enter measurement in different states. Trying
+      // own - and the sides then enter measurement in different states. Trying
       // it produced reproducible, direction-consistent phantoms up to 37% (the
       // same targets, to a tenth of a percent, run after run).
       const child = spawn(process.execPath, ["--expose-gc", childPath], { stdio: ["pipe", "pipe", "inherit"] });
@@ -454,7 +464,7 @@ export const runPerf = async (
   };
 
   // Screening runs in parallel. Contention makes it noisier, but noise only
-  // widens an interval — it can hide a regression, never invent one — and
+  // widens an interval - it can hide a regression, never invent one - and
   // everything that survives is re-measured serially below. The bar here is
   // deliberately the loosest one, since a false candidate costs a second and a
   // missed one is gone for good.

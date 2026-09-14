@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.queryString.with(S.to, S.schema({ q: S.string }).with(S.strict))"
+  input: string
+  output: "{ q: string; }"
+  instantiations: 5639
+jsonSchema:
+  input: '{ type: "string" }'
+  output: '{ type: "object", properties: { q: { type: "string" } }, additionalProperties: false, required: ["q"] }'
+isEqual:
+  input: strictEqual
+  output: (a,b)=>a===b||a.q===b.q
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "SuryError: Can't decode URLSearchParams -> { q: string; } with S.strict. A query carries keys no schema declares, so use S.strip"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{let v0=new e[0]();v0.append("q",i.q);return v0.toString()}
+    examples:
+      extra-key:
+        input: '{ q: "hi", other: "x" }'
+        output: '"q=hi"'
+      only-declared:
+        input: '{ q: "hi" }'
+        output: '"q=hi"'

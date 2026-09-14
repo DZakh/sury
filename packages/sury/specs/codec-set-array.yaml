@@ -3,10 +3,13 @@ ts:
   schema: S.set(S.string).with(S.to, S.array(S.string))
   input: Set<string>
   output: string[]
-  instantiations: 5536
+  instantiations: 4722
 jsonSchema:
   input: Expected JSON, received Set<string>
   output: '{ items: { type: "string" }, type: "array" }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
 vs:
   zod:
     _skip: not-applicable

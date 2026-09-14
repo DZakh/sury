@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.formData.with(S.to, S.schema({ a: S.string }).with(S.strict))"
+  input: FormData
+  output: "{ a: string; }"
+  instantiations: 5671
+jsonSchema:
+  input: Expected JSON, received FormData
+  output: '{ type: "object", properties: { a: { type: "string" } }, additionalProperties: false, required: ["a"] }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||a.a===b.a
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "SuryError: Can't decode FormData -> { a: string; } with S.strict. A browser adds entries no schema declares, so use S.strip"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{let v0=new e[0]();v0.append("a",i.a);return v0}
+    examples:
+      built:
+        input: '{ a: "x" }'
+        output: ((f) => (f.append("a", "x"), f))(new FormData())

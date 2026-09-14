@@ -9,7 +9,7 @@ open Vitest
 @schema
 type wrapper<'a> = {value: 'a}
 
-test("Parametrized record with single type param — int", t => {
+test("Parametrized record with single type param - int", t => {
   let schema = wrapperSchema(S.int)
   t->Assert.deepEqual(
     %raw(`{"value": 42}`)->S.parseOrThrow(~to=schema),
@@ -17,7 +17,7 @@ test("Parametrized record with single type param — int", t => {
   )
 })
 
-test("Parametrized record with single type param — string", t => {
+test("Parametrized record with single type param - string", t => {
   let schema = wrapperSchema(S.string)
   t->Assert.deepEqual(
     %raw(`{"value": "hello"}`)->S.parseOrThrow(~to=schema),

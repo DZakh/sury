@@ -5,9 +5,23 @@
 
 # Sury 🧬
 
-**Next-gen schemas, faster than hand-written code.**
+**Schema for everything - faster than hand-written code.**
 
-Declare your data model once, in TypeScript or ReScript. Decoders and encoders are pipelines of schemas - a wire schema on one side, the types you work with on the other - each JIT-specialized into a function written for exactly your shape.
+Declare your data once, in TypeScript or ReScript. The wires it travels are schemas too, and they chain:
+
+```ts
+const signupSchema = S.schema({ id: S.bigint, email: S.email, avatar: S.blob });
+type Signup = S.Infer<typeof signupSchema>;
+
+const signupsFileSchema = S.file.with(S.to, S.jsonString).with(S.to, S.array(signupSchema));
+
+await S.decodeAsPromiseOrReject(signupsFileSchema)(file);
+// => [{ id: 7n, email: "a@b.co", avatar: Blob }], the avatar rode as base64
+await S.encodeAsPromiseOrReject(signupsFileSchema)(signups);
+// => a File, from the same declaration - input and return strictly typed
+```
+
+Wires today: `S.json`, `S.jsonString`, `S.formData`, `S.env`, `S.urlSearchParams`, `S.queryString`, `S.base64`, `S.base64url`, `S.uint8Array`, `S.protobuf`, `S.file` and `S.blob`. Coming next: `S.request`, `S.response`, `S.capnp`, `S.rkyv`, `S.toon`.
 
 ```sh
 npm install sury
@@ -15,12 +29,31 @@ npm install sury
 
 **API Reference:** [TypeScript](https://github.com/DZakh/sury/blob/main/docs/js-usage.md) | [ReScript](https://github.com/DZakh/sury/blob/main/docs/rescript-usage.md) | [ReScript PPX](https://github.com/DZakh/sury/blob/main/packages/sury-ppx/README.md)
 
+**Benchmarks:** [Schema](https://github.com/DZakh/sury/blob/main/docs/benchmarks/schema.md) | [JSON Encoding](https://github.com/DZakh/sury/blob/main/docs/benchmarks/jsonString.md) | [JSON Schema](https://github.com/DZakh/sury/blob/main/docs/benchmarks/jsonSchema.md) | [Protobuf](https://github.com/DZakh/sury/blob/main/docs/benchmarks/protobuf.md)
+
+## Sponsors
+
+Sury's sponsors, who make the time to build it possible:
+
+<p>
+  <a href="https://rescript-association.org/"><img alt="ReScript Association" height="30" src="https://raw.githubusercontent.com/DZakh/sury/main/assets/sponsors/rescript-association.png"></a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://envio.dev/"><img alt="Envio" height="26" src="https://raw.githubusercontent.com/DZakh/sury/main/assets/sponsors/envio.png"></a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://www.carla.se/"><picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/DZakh/sury/main/assets/sponsors/carla-dark.png">
+    <img alt="Carla" height="28" src="https://raw.githubusercontent.com/DZakh/sury/main/assets/sponsors/carla.png">
+  </picture></a>
+</p>
+
+> If you want to support the development of the project, [DM me on X](https://x.com/dzakh_dev) and get your logo here as a gratitude.
+
 ## Why Sury
 
 Describe your data model once - unions, constraints and metadata included, with a type you can actually read on hover:
 
 ```ts
-import * as S from "sury"; // Tree-shakable: a schema + parser starts at 8 kB gzip
+import * as S from "sury"; // Tree-shakable: a schema + parse operation starts at 8.6 kB gzip
 
 const eventSchema = S.union([
   {
@@ -39,34 +72,48 @@ type Event = S.Output<typeof eventSchema>;
 The same schema parses and encodes - no second definition. Encoding is even faster than `JSON.stringify` - read more in [Encode, Don't Stringify: How JSON.stringify Lies to You](https://dev.to/dzakh/encode-dont-stringify-how-jsonstringify-lies-to-you-38fk):
 
 ```ts
-const parseEvent = S.decoder(S.jsonString, eventSchema);
+const parseEvent = S.decodeOrThrow(S.jsonString, eventSchema);
 parseEvent('{"type":"user.created","id":"42","tags":[{"name":"vip"}]}');
 // => { type: "user.created", id: 42n, tags: [{ name: "vip" }] }
 
-S.encoder(eventSchema, S.jsonString)({ type: "user.deleted", id: 7n, payload: { reason: "spam" } });
+S.encodeOrThrow(eventSchema, S.jsonString, { type: "user.deleted", id: 7n, payload: { reason: "spam" } });
 // => '{"type":"user.deleted","id":"7","payload":{"reason":"spam"}}'
 ```
 
-Errors tell you exactly where to look, in wire terms - the missing `id` is a missing string. Prefer a result over an exception? Wrap the call in `S.safe`:
+Errors tell you exactly where to look, in wire terms - the missing `id` is a missing string:
 
 ```ts
+parseEvent('{"type":"user.deleted"}');
+// => throws S.Error: Failed at id: Expected string, received undefined
+
 parseEvent('{"type":"user.created","id":"42","tags":[]}');
 // => throws S.Error: Failed at tags: Add at least one tag
-
-const result = S.safe(() => parseEvent('{"type":"user.deleted"}'));
-if (!result.success) result.error.message;
-// => 'Failed at id: Expected string, received undefined'
 ```
 
-Need a different wire? Wrap the same model in base64url. The pipeline knows both of its ends, so `S.encoder` and `S.decoder` take just the schema:
+All possible ways to run your schema, with a decision required where safety matters - perfect to navigate and review agentic code:
+
+```ts
+S.parseOrThrow(eventSchema, input); // => Event, or throws S.Error
+S.parseAsResult(eventSchema, input); // => { success: true, value } | { success: false, error }
+S.parseAsPromiseOrReject(eventSchema, input); // => Promise<Event>, rejects with S.Error
+S.parseAsResultPromise(eventSchema, input); // => Promise<Result<Event>>
+S.parseAsPromisableResult(eventSchema, input); // => Result<Event> for a sync schema, Promise<Result<Event>> for an async one
+
+S.parseAsResult(input, eventSchema); // Data first works too
+S.parseAsResult(S.jsonString, eventSchema, input); // A pipeline of up to three schemas
+const safeParseEvent = S.parseAsResult(eventSchema); // Schema alone compiles the operation beforehand
+safeParseEvent(input);
+```
+
+Need a different wire? Wrap the same model in base64url. The pipeline knows both of its ends, so `S.encodeOrThrow` and `S.decodeOrThrow` take just the schema:
 
 ```ts
 const b64Event = S.base64url.with(S.to, S.jsonString.with(S.to, eventSchema));
 
-S.encoder(b64Event)({ type: "user.deleted", id: 7n, payload: { reason: "spam" } });
+S.encodeOrThrow(b64Event, { type: "user.deleted", id: 7n, payload: { reason: "spam" } });
 // => "eyJ0eXBlIjoidXNlci5kZWxldGVkIiwiaWQiOiI3IiwicGF5bG9hZCI6eyJyZWFzb24iOiJzcGFtIn19"
 
-S.decoder(b64Event)("eyJ0eXBlIjoidXNlci5kZWxldGVkIiwiaWQiOiI3IiwicGF5bG9hZCI6eyJyZWFzb24iOiJzcGFtIn19");
+S.decodeOrThrow(b64Event, "eyJ0eXBlIjoidXNlci5kZWxldGVkIiwiaWQiOiI3IiwicGF5bG9hZCI6eyJyZWFzb24iOiJzcGFtIn19");
 // => { type: "user.deleted", id: 7n, payload: { reason: "spam" } }
 ```
 
@@ -88,10 +135,10 @@ S.json.with(S.to, eventSchema)["~standard"].jsonSchema.input({ target: "draft-07
 You can go the other way too: feed JSON Schema in and get a typed Sury schema back. 93% of the official draft-07 test suite passes in CI:
 
 ```ts
-const emailSchema = S.fromJSONSchema({ type: "string", format: "email" });
+const emailSchema = S.fromJSONSchemaOrThrow({ type: "string", format: "email" });
 //? S.Schema<string, string>
 
-S.parser(emailSchema)("hi@sury.dev"); // => "hi@sury.dev"
+S.parseOrThrow(emailSchema, "hi@sury.dev"); // => "hi@sury.dev"
 ```
 
 Recursive schemas work out of the box:
@@ -114,16 +161,16 @@ const userSchema = S.schema({
   name: input.USER_NAME,
 }));
 
-S.parser(userSchema)({ USER_ID: "0", USER_NAME: "Dmitry" });
+S.parseOrThrow(userSchema, { USER_ID: "0", USER_NAME: "Dmitry" });
 // => { id: 0n, name: "Dmitry" }
-S.encoder(userSchema)({ id: 0n, name: "Dmitry" });
+S.encodeOrThrow(userSchema, { id: 0n, name: "Dmitry" });
 // => { USER_ID: "0", USER_NAME: "Dmitry" }
 ```
 
 The other side of the wire is yours too. A constructor checks a value you built in code - refinements included, and whether the schema can encode it - and hands back the very object it was given. For a branded schema, it's how the brand gets minted:
 
 ```ts
-const makeEvent = S.outputConstructor(eventSchema);
+const makeEvent = S.makeOutputOrThrow(eventSchema);
 
 makeEvent({ type: "user.deleted", id: 7n, payload: { reason: "spam" } });
 // => the object you passed in, checked
@@ -132,34 +179,48 @@ makeEvent({ type: "user.created", id: 7n, tags: [] });
 // => throws S.Error: Failed at tags: Add at least one tag
 
 const userIdSchema = S.uuid.with(S.brand, "UserId");
-const userId = S.outputConstructor(userIdSchema)("f81d4fae-7dec-11d0-a765-00a0c91e6bf6");
+const userId = S.makeOutputOrThrow(userIdSchema, "f81d4fae-7dec-11d0-a765-00a0c91e6bf6");
 //? S.Brand<string, "UserId">
 ```
 
-Every operation that looks at one side of a schema says which side in its name - `S.outputConstructor` and `S.inputValidator`, `S.inputJSONSchema` for the wire and `S.outputJSONSchema` for your types.
+The same schema lets you compare your values, fast and safe:
+
+```ts
+const sessionSchema = S.schema({ kind: "session", id: S.string, startedAt: S.date });
+
+S.isEqualOutput(
+  sessionSchema,
+  { kind: "session", id: "s1", startedAt: new Date("2026-01-01") },
+  { kind: "session", id: "s1", startedAt: new Date("2026-01-01") },
+);
+// => true, two Date objects for the same instant
+
+const isSameSession = S.isEqualOutput(sessionSchema);
+//? (a, b) => a === b || (a.id === b.id && +a.startedAt === +b.startedAt)
+```
+
+Every operation that looks at one side of a schema says which side in its name - `S.makeOutputOrThrow` and `S.isInput`, `S.toInputJSONSchemaOrThrow` for the wire and `S.toOutputJSONSchemaOrThrow` for your types.
 
 Reading a `File` is asynchronous, so a pipeline that starts from one becomes async too:
 
 ```ts
 const configSchema = S.file.with(S.to, S.jsonString.with(S.to, S.schema({ theme: S.string })));
 
-await S.asyncParser(configSchema)(new File(['{"theme":"dark"}'], "config.json"));
+await S.parseAsPromiseOrReject(configSchema, new File(['{"theme":"dark"}'], "config.json"));
 // => { theme: "dark" }
 ```
 
-`process.env` is strings; your config isn't. Pipe from `S.record(S.string)` and the coercions are inferred:
+No need for a separate library to decode your env vars:
 
 ```ts
-const envSchema = S.record(S.string).with(
-  S.to,
-  S.schema({
-    PORT: S.port,
-    DEBUG: S.string.with(S.to, S.boolean),
-  }),
-);
+const envSchema = S.schema({
+  PORT: S.port,
+  DEBUG: S.boolean,
+  NAME: S.nullable(S.string),
+});
 
-S.decoder(envSchema)(process.env);
-// => { PORT: 8080, DEBUG: true }
+S.decodeOrThrow(process.env, S.record(S.env), envSchema);
+// { PORT: "8080", DEBUG: "true" } => { PORT: 8080, DEBUG: true, NAME: null }
 ```
 
 Some data arrives in awkward layouts - like the columnar arrays that [boost Postgres INSERT performance by 2x](https://www.timescale.com/blog/boosting-postgres-insert-performance). Describe the layout instead of writing glue code, and `S.compactColumns` turns columns into rows and back:
@@ -167,13 +228,59 @@ Some data arrives in awkward layouts - like the columnar arrays that [boost Post
 ```ts
 const rows = S.compactColumns(S.json).with(S.to, S.array({ id: S.bigint, city: S.string }));
 
-S.decoder(rows)([["1", "2"], ["Tbilisi", "Batumi"]]);
+S.decodeOrThrow(rows, [["1", "2"], ["Tbilisi", "Batumi"]]);
 // => [{ id: 1n, city: "Tbilisi" }, { id: 2n, city: "Batumi" }]
-S.encoder(rows)([{ id: 1n, city: "Tbilisi" }, { id: 2n, city: "Batumi" }]);
+S.encodeOrThrow(rows, [{ id: 1n, city: "Tbilisi" }, { id: 2n, city: "Batumi" }]);
 // => [["1", "2"], ["Tbilisi", "Batumi"]]
 ```
 
-Wires today: `S.json`, `S.jsonString`, `S.base64`, `S.base64url`, `S.uint8Array`, `S.file` and `S.blob`. Coming next: env, `FormData` and protobuf.
+A form submission is strings, files and missing checkboxes. `S.formData` reads it as what you declared, and builds the body you post back:
+
+```ts
+const signup = S.formData.with(
+  S.to,
+  S.schema({
+    name: S.string.with(S.nonEmpty),
+    age: S.number, // "42" -> 42
+    agree: true, // a checkbox that has to be ticked
+    newsletter: S.optional(S.boolean), // tri-state: absent -> undefined
+    role: S.union(["admin", "user"]),
+    tags: S.array(S.string), // every "tags" entry
+    avatar: S.file,
+    prefs: S.jsonString.with(S.to, S.schema({ theme: S.string })),
+  }),
+);
+
+S.decodeOrThrow(signup)(await request.formData());
+// => { name: "Ann", age: 42, agree: true, newsletter: undefined, role: "user",
+//      tags: ["a", "b"], avatar: File, prefs: { theme: "dark" } }
+
+S.encodeOrThrow(signup)(value);
+// => a FormData with one append per field, ready for fetch(url, { body })
+```
+
+Protocol Buffers need no `.proto` file and no code generation step. Number the fields, name `S.protobuf` as the other side, and the same schema still parses, infers types and converts to JSON Schema:
+
+```ts
+const userSchema = S.schema({
+  id: S.int32.with(S.protobufField, 1),
+  name: S.string.with(S.protobufField, 2),
+  tags: S.array(S.string).with(S.protobufField, 3),
+}).with(S.meta, { name: "User" });
+
+S.encodeOrThrow(userSchema, S.protobuf, { id: 150, name: "Ada", tags: ["ml"] });
+// => Uint8Array [8, 150, 1, 18, 3, 65, 100, 97, 26, 2, 109, 108]
+
+S.decodeOrThrow(S.protobuf, userSchema, bytes);
+// => { id: 150, name: "Ada", tags: ["ml"] }
+
+S.toProtoOrThrow(userSchema, { package: "acme.v1" }); // hand the other side its .proto
+// => message User {
+//      int32 id = 1;
+//      string name = 2;
+//      repeated string tags = 3;
+//    }
+```
 
 ### The code a schema turns into
 
@@ -189,8 +296,8 @@ Here's what `parseEvent` from above actually runs - a function specialized for t
   }
   if (typeof v0 === "object" && v0 && !Array.isArray(v0)) {
     for (;;) {
-      if (v0["type"] === "user.created") {
-        let v2 = v0["id"], v3 = v0["tags"];
+      if (v0.type === "user.created") {
+        let v2 = v0.id, v3 = v0.tags;
         typeof v2 === "string" || e[2](v2);
         let v1;
         try {
@@ -201,10 +308,10 @@ Here's what `parseEvent` from above actually runs - a function specialized for t
         Array.isArray(v3) || e[6](v3);
         // ...validates each tag, tracking the error path
         v8.length > 0 || e[5](v8); // e[5] throws your nonEmpty message
-        v0 = { type: v0["type"], id: v1, tags: v8 };
+        v0 = { type: v0.type, id: v1, tags: v8 };
         break;
       }
-      if (v0["type"] === "user.deleted") {
+      if (v0.type === "user.deleted") {
         // ...one branch per variant, no loop over union members
       }
       e[9](v0);
@@ -227,9 +334,9 @@ The encoder builds the JSON text directly - no intermediate object, the structur
   if (typeof i === "object" && i && !Array.isArray(i)) {
     for (;;) {
       // ...one branch per variant
-      if (i["type"] === "user.deleted") {
-        let v6 = JSON.stringify(i["payload"]);
-        let v7 = '{"type":"user.deleted","id":"' + i["id"] + '"';
+      if (i.type === "user.deleted") {
+        let v6 = JSON.stringify(i.payload);
+        let v7 = '{"type":"user.deleted","id":"' + i.id + '"';
         if (v6 !== void 0) {
           v7 += ',"payload":' + v6;
         }
@@ -248,7 +355,7 @@ And the values `JSON.stringify` silently corrupts throw instead:
 JSON.stringify({ price: Infinity });
 // => '{"price":null}'
 
-S.encoder(S.schema({ price: S.number }), S.jsonString)({ price: Infinity });
+S.encodeOrThrow(S.schema({ price: S.number }), S.jsonString, { price: Infinity });
 // => throws S.Error: Failed at price: Expected JSON, received Infinity
 ```
 
@@ -258,11 +365,11 @@ S.encoder(S.schema({ price: S.number }), S.jsonString)({ price: Infinity });
 | Event feed (50 tagged-union events)   | **5.05 µs** | 7.82 µs          | 20.26 µs            |
 | `bigint` id + binary payload + `Date` | **1.17 µs** | 1.51 µs          | 1.45 µs             |
 
-And 3.5× lighter than fast-json-stringify - 16.4 kB against 56.7 kB, encoder included.
+And 3.2× lighter than fast-json-stringify - 18.0 kB against 56.9 kB, encoder included.
 
 ## Comparison
 
-Sury has the fastest parsing and encoding in the ecosystem - the hot path. Creating a schema and using it once is the one workload where an interpreted library wins a row below.
+Sury has the fastest parsing and encoding in the ecosystem - the hot path. Creating a schema and using it once is the one workload where an interpreted library wins.
 
 It's also small. Instead of a few large classes with many methods, the API and source are built from many small, independent functions. A bundler follows your imports and drops everything you don't use, which can cut the shipped size by up to 2× compared to [Zod](https://github.com/colinhacks/zod). (The approach is borrowed from [Valibot](https://github.com/fabian-hiller/valibot), which pioneered it.)
 
@@ -270,16 +377,11 @@ And the types stay readable. Hovering the event schema from [Why Sury](#why-sury
 
 ### Size & speed
 
-Measured with [this repo's comparison benchmark](https://github.com/DZakh/sury/tree/main/packages/e2e/src/benchmark) against `sury@11.0.0-rc.1`, `zod@4.4.3`, `typebox@0.34.52`, `valibot@1.4.2`, `arktype@2.2.3`.
+The numbers live on their own pages, one per wire Sury speaks, each with bundle size, a feature table where every cell is a call run against that library, throughput and conformance scores:
 
-|                                 | Sury           | Zod          | TypeBox                        | Valibot      | ArkType        |
-| ------------------------------- | -------------- | ------------ | ------------------------------ | ------------ | -------------- |
-| **Total size** (min + gzip)     | 35.2 kB        | 65.0 kB      | 31.3 kB                        | 15.3 kB      | 47.2 kB        |
-| **Benchmark size** (min + gzip) | 8.0 kB         | 19.6 kB      | 22.6 kB                        | 1.29 kB      | 47.1 kB        |
-| **Parse with the same schema**  | 210,061 ops/ms | 9,367 ops/ms | 158,185 ops/ms (no transforms) | 1,970 ops/ms | 106,520 ops/ms |
-| **Create schema & parse once**  | 99 ops/ms      | 11 ops/ms    | 103 ops/ms (no transforms)     | 315 ops/ms   | 11 ops/ms      |
+**Benchmarks:** [Schema](https://github.com/DZakh/sury/blob/main/docs/benchmarks/schema.md) | [JSON Encoding](https://github.com/DZakh/sury/blob/main/docs/benchmarks/jsonString.md) | [JSON Schema](https://github.com/DZakh/sury/blob/main/docs/benchmarks/jsonSchema.md) | [Protobuf](https://github.com/DZakh/sury/blob/main/docs/benchmarks/protobuf.md)
 
-"Benchmark size" is what actually ships after tree-shaking for the benchmarked schema. The TypeBox numbers are validation-only - it doesn't run the transforms.
+They are regenerated on every push to main and remeasured on every pull request, against `zod@4.4.3`, `typebox@0.34.52`, `valibot@1.4.2`, `arktype@2.2.3`, `protobufjs@8.8.0`, `protobuf-es@2.14.1` and `pbf@5.1.2`. A page that stops matching a fresh measurement fails CI, which is the part a table pasted here could never do.
 
 Independent benchmarks and conformance suites that include Sury:
 
@@ -292,8 +394,9 @@ Independent benchmarks and conformance suites that include Sury:
 |                                          | Sury                                     | Zod                                       | TypeBox                   | Valibot                                                               | ArkType                   |
 | ---------------------------------------- | ---------------------------------------- | ----------------------------------------- | ------------------------- | --------------------------------------------------------------------- | ------------------------- |
 | **Inferred TS type** (what you hover)    | `S.Schema<{foo: string}, {foo: string}>` | `z.ZodObject<{foo: z.ZodString}, $strip>` | `TObject<{foo: TString}>` | `v.ObjectSchema<{readonly foo: v.StringSchema<undefined>}, undefined>` | `Type<{foo: string}, {}>` |
-| **JSON Schema**                          | both directions + `S.fromJSONSchema`     | `z.toJSONSchema`                          | 👑                        | `@valibot/to-json-schema`                                             | `myType.toJsonSchema()`   |
+| **JSON Schema**                          | both directions + `S.fromJSONSchemaOrThrow`     | `z.toJSONSchema`                          | 👑                        | `@valibot/to-json-schema`                                             | `myType.toJsonSchema()`   |
 | **Validated constructor** (from your types) | ✅                                    | ❌                                        | ⭕ unvalidated            | ❌                                                                    | ❌                        |
+| **Compiled equality** (from your schema) | ✅                                       | ❌                                        | ⭕ interpreted            | ❌                                                                    | ❌                        |
 | **Standard Schema**                      | ✅                                       | ✅                                        | ❌                        | ✅                                                                    | ✅                        |
 | **Codegen-free** (doesn't need compiler) | ✅                                       | ✅                                        | ✅                        | ✅                                                                    | ✅                        |
 | **Eval-free**                            | ❌                                       | ⭕ opt-out                                | ⭕ opt-in                 | ✅                                                                    | ⭕ opt-out                |
@@ -304,7 +407,7 @@ Independent benchmarks and conformance suites that include Sury:
 Use Sury anywhere a schema is accepted:
 
 - [tRPC](https://trpc.io/), [TanStack Form](https://tanstack.com/form), [TanStack Router](https://tanstack.com/router), [Hono](https://hono.dev/), and 28+ more via the [Standard Schema](https://standardschema.dev/) spec
-- Anything that speaks [JSON Schema](https://json-schema.org/), via `S.inputJSONSchema` / `S.fromJSONSchema`
+- Anything that speaks [JSON Schema](https://json-schema.org/), via `S.toInputJSONSchemaOrThrow` / `S.fromJSONSchemaOrThrow`
 
 ## Used by
 
@@ -337,21 +440,6 @@ It's short, it's pronounceable, and the 🧬 fits: a schema is the DNA of your d
 ## Contributing
 
 Bug reports, ideas, and pull requests are all welcome - open an [issue](https://github.com/DZakh/sury/issues) to get started.
-
-## Sponsorship
-
-If you're enjoying Sury and want to give back, that would be rad!
-
-The free ways help a lot too: star the repo, write about it, or tell someone who's picking a validation library this week.
-
-If you'd like to donate, GitHub Sponsors isn't available in my country, so **USDT** is the easiest route:
-
-- ERC20: `0x509fCF7C24A94a776eb92B56B9DA4aA145615529`
-- TRC20: `TFg5hKgkdcrFnPHNgYqfbp9yMyx25uaWrF`
-
-Your sponsorship doesn't go towards anything specific - it's simply a wonderful way to say "thank you" and make me happy. 😁
-
-DM me on [X/Twitter](https://x.com/dzakh_dev) if you want to be featured or just to say hi! This would mean so much to me. ✨
 
 ## License
 

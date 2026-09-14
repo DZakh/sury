@@ -10,6 +10,7 @@ jsonSchema:
   openapi-3.0:
     input: '{ anyOf: [{ type: "string", enum: ["apple"] }, { type: "string" }, { type: "string", enum: ["banana"] }] }'
     output: '{ anyOf: [{ type: "string", enum: ["apple"] }, { type: "string" }, { type: "string", enum: ["banana"] }] }'
+isEqual: strictEqual
 vs:
   zod: z.union([z.literal("apple"), z.string(), z.literal("banana")])
 operations:

@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.formData.with(S.to, S.schema({ n: S.nullable(S.number, 5), s: S.nullable(S.string.with(S.nonEmpty), "d") }))'
+  input: FormData
+  output: "{ n: number; s: string; }"
+  instantiations: 6527
+jsonSchema:
+  input: Expected JSON, received FormData
+  output: '{ type: "object", properties: { n: { type: "number" }, s: { type: "string", minLength: 1 } }, required: ["n", "s"] }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||a.n===b.n&&a.s===b.s
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{i instanceof e[6]||e[7](i);let v0=e[0](i),v1=v0.get("n"),v3=v0.get("s");if(v1){typeof v1==="string"||e[1](v1);let v2=+v1;v2==v2&&(v2||v1.trim())||e[2](v1);v1=v2;}else{v1=5;}if(v3){typeof v3==="string"||e[4](v3);v3.length>0||e[3](v3);}else{"d".length>0||e[5]("d");v3="d";}return {n:v1,s:v3}}
+    examples:
+      absent-is-default:
+        input: new FormData()
+        output: '{ n: 5, s: "d" }'
+      blank-is-default:
+        input: ((f) => (f.append("n", ""), f.append("s", ""), f))(new FormData())
+        output: '{ n: 5, s: "d" }'
+  decode:
+    expression: i=>{let v0=e[0](i),v1=v0.get("n"),v3=v0.get("s");if(v1){typeof v1==="string"||e[1](v1);let v2=+v1;v2==v2&&(v2||v1.trim())||e[2](v1);v1=v2;}else{v1=5;}if(v3){typeof v3==="string"||e[4](v3);v3.length>0||e[3](v3);}else{"d".length>0||e[5]("d");v3="d";}return {n:v1,s:v3}}
+    examples:
+      absent-is-default:
+        input: new FormData()
+        output: '{ n: 5, s: "d" }'
+      present:
+        input: ((f) => (f.append("n", "1"), f.append("s", "x"), f))(new FormData())
+        output: '{ n: 1, s: "x" }'
+  encode:
+    expression: i=>{let v0=i.n,v1=i.s;typeof v0==="number"&&v0==v0||e[0](v0);if(typeof v1==="string"){v1.length>0||e[1](v1);}else{e[2](v1)}let v2=new e[3]();v2.append("n",""+v0);v2.append("s",v1);return v2}
+    examples:
+      null-is-invalid:
+        input: "{ n: null, s: null }"
+        error: "Failed at n: Expected number, received null"
+      built:
+        input: '{ n: 1, s: "x" }'
+        output: ((f) => (f.append("n", "1"), f.append("s", "x"), f))(new FormData())

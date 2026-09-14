@@ -135,7 +135,7 @@ module Async = {
 }
 
 // ============================================================================
-// Expect (testContext-scoped — use `t.expect(...)` from inside a test)
+// Expect (testContext-scoped - use `t.expect(...)` from inside a test)
 // ============================================================================
 
 @send @scope("expect")

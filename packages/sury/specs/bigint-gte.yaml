@@ -3,10 +3,11 @@ ts:
   schema: S.bigint.with(S.gte, 5n)
   input: bigint
   output: bigint
-  instantiations: 601
+  instantiations: 578
 jsonSchema:
   input: Expected JSON, received bigint >= 5n
   output: Expected JSON, received bigint >= 5n
+isEqual: strictEqual
 vs:
   zod: z.bigint().gte(5n)
 operations:

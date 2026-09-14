@@ -1,12 +1,13 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: 'S.fromJSONSchema({ type: "string", pattern: "^\\a$" })'
+  schema: 'S.fromJSONSchemaOrThrow({ type: "string", pattern: "^\\a$" })'
   input: string
   output: string
   instantiations: 508
 jsonSchema:
   input: '{ type: "string", pattern: "^\\a$" }'
   output: '{ type: "string", pattern: "^\\a$" }'
+isEqual: strictEqual
 vs:
   zod:
     _skip: not-applicable

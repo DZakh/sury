@@ -3,16 +3,20 @@ ts:
   schema: S.uint8Array.with(S.to, S.optional(S.string))
   input: Uint8Array<ArrayBufferLike>
   output: string | undefined
-  instantiations: 5434
+  instantiations: 4620
 jsonSchema:
   input: Expected JSON, received Uint8Array
-  output: Expected JSON, received string | undefined
+  output: '{ type: "string" }'
+  fromOutputType: string
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+  output: strictEqual
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{i instanceof e[3]||e[4](i);for(;;){let r;try{let v0=e[0].decode(i);i=v0;break}catch(x){(r||(r=[])).push(e[1](x))}if(i===void 0)break;e[2](i,...(r||[]))}return i}
+    expression: i=>{i instanceof e[1]||e[2](i);let v0=e[0].decode(i);i=v0;return i}
     examples:
       base64-legal-ascii:
         input: new Uint8Array([97, 98, 99, 100])
@@ -21,10 +25,14 @@ operations:
         input: new Uint8Array([226, 130, 172])
         output: '"€"'
   decode:
-    expression: i=>{for(;;){let r;try{let v0=e[0].decode(i);i=v0;break}catch(x){(r||(r=[])).push(e[1](x))}if(i===void 0)break;e[2](i,...(r||[]))}return i}
+    expression: i=>{let v0=e[0].decode(i);i=v0;return i}
     examples:
       base64-legal-ascii:
         input: new Uint8Array([97, 98, 99, 100])
         output: '"abcd"'
   encode:
-    creationError: "SuryError: Can't decode undefined to Uint8Array. Use S.to to define a custom decoder"
+    expression: i=>{if(typeof i==="string"){i=e[0](i)}else{e[1](i)}return i}
+    examples:
+      text:
+        input: '"abcd"'
+        output: new Uint8Array([97, 98, 99, 100])

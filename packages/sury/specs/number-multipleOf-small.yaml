@@ -3,15 +3,16 @@ ts:
   schema: S.number.with(S.multipleOf, 0.0001)
   input: number
   output: number
-  instantiations: 582
+  instantiations: 578
 jsonSchema:
   input: '{ type: "number", multipleOf: 0.0001 }'
   output: '{ type: "number", multipleOf: 0.0001 }'
+isEqual: strictEqual
 vs:
   zod: z.number().multipleOf(0.0001)
 operations:
   parse:
-    expression: i=>{typeof i==="number"&&i===i||e[2](i);e[0](i)||e[1](i);return i}
+    expression: i=>{typeof i==="number"&&i==i||e[2](i);e[0](i)||e[1](i);return i}
     examples:
       valid:
         input: "0.0075"

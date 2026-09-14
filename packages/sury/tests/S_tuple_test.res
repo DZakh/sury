@@ -40,7 +40,7 @@ module Tuple0 = {
   test("Successfully serializes", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.decodeOrThrow(~from=schema, ~to=S.unknown), any)
+    t->Assert.deepEqual(value->S.convertOrThrow(~from=schema, ~to=S.unknown), any)
   })
 }
 
@@ -69,9 +69,9 @@ test("Fails to parse tuple with holes", t => {
 test("Successfully serializes tuple with holes", t => {
   let schema = S.tuple(s => (s.item(0, S.string), s.item(2, S.int)))
 
-  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return [i["0"],void 0,i["1"]]}`)
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return [i[0],void 0,i[1]]}`)
   t->Assert.deepEqual(
-    ("value", 123)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    ("value", 123)->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`["value",, 123]`),
   )
 })
@@ -88,16 +88,16 @@ test("Reverse convert of tuple schema with single item registered multiple times
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    // `i=>{let v0=i["item1"];if(v0!==i["item2"]){e[0]()}return [v0]}`,
-    `i=>{return [i["item2"]]}`,
+    // `i=>{let v0=i.item1;if(v0!==i.item2){e[0]()}return [v0]}`,
+    `i=>{return [i.item2]}`,
   )
 
   t->Assert.deepEqual(
-    {"item1": "foo", "item2": "foo"}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    {"item1": "foo", "item2": "foo"}->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`["foo"]`),
   )
   // t->U.assertThrows(
-  //   () => {"item1": "foo", "item2": "foz"}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+  //   () => {"item1": "foo", "item2": "foz"}->S.convertOrThrow(~from=schema, ~to=S.unknown),
   //   {
   //     code: InvalidOperation({
   //       description: `Another source has conflicting data for the field ["0"]`,
@@ -115,7 +115,7 @@ test(`Fails to serialize tuple with discriminant "Never"`, t => {
   })
 
   t->U.assertThrowsMessage(
-    () => "bar"->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    () => "bar"->S.convertOrThrow(~from=schema, ~to=S.unknown),
     `Missing input for never at [0]`,
   )
 })
@@ -135,7 +135,7 @@ test(`Fails to serialize tuple with discriminant "Never" inside of an object (te
   )
 
   t->U.assertThrowsMessage(
-    () => {"foo": "bar"}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    () => {"foo": "bar"}->S.convertOrThrow(~from=schema, ~to=S.unknown),
     `Failed at foo: Missing input for never at [0]`,
   )
 })
@@ -149,7 +149,7 @@ test("Successfully parses tuple transformed to variant", t => {
 test("Successfully serializes tuple transformed to variant", t => {
   let schema = S.tuple(s => #VARIANT(s.item(0, S.bool)))
 
-  t->Assert.deepEqual(#VARIANT(true)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`[true]`))
+  t->Assert.deepEqual(#VARIANT(true)->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`[true]`))
 })
 
 test("Fails to serialize tuple transformed to variant", t => {
@@ -157,7 +157,7 @@ test("Fails to serialize tuple transformed to variant", t => {
 
   let invalid = Error("foo")
   t->Assert.deepEqual(
-    invalid->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    invalid->S.convertOrThrow(~from=schema, ~to=S.unknown),
     %raw(`["foo"]`),
     ~message=`Convert operation doesn't perform exhaustiveness check`,
   )
@@ -231,7 +231,7 @@ test("Works correctly with not-modified object item", t => {
   let schema = S.tuple1(S.object(s => s.field("foo", S.string)))
 
   t->Assert.deepEqual(%raw(`[{"foo": "bar"}]`)->S.parseOrThrow(~to=schema), "bar")
-  t->Assert.deepEqual("bar"->S.decodeOrThrow(~from=schema, ~to=S.json), %raw(`[{"foo": "bar"}]`))
+  t->Assert.deepEqual("bar"->S.convertOrThrow(~from=schema, ~to=S.json), %raw(`[{"foo": "bar"}]`))
 })
 
 module Compiled = {
@@ -241,7 +241,7 @@ module Compiled = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{Array.isArray(i)&&i.length===2||e[2](i);let v0=i["0"],v1=i["1"];typeof v0==="string"||e[0](v0);typeof v1==="boolean"||e[1](v1);return [v0,v1]}`,
+      `i=>{Array.isArray(i)&&i.length===2||e[2](i);let v0=i[0],v1=i[1];typeof v0==="string"||e[0](v0);typeof v1==="boolean"||e[1](v1);return [v0,v1]}`,
     )
   })
 
@@ -257,14 +257,14 @@ module Compiled = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ParseAsync,
-      `i=>{Array.isArray(i)&&i.length===2||e[3](i);let v1=i["1"];let v0;try{v0=e[0](i["0"]).catch(x=>e[1](x))}catch(x){e[1](x)}typeof v1==="boolean"||e[2](v1);return Promise.all([v0]).then(([v0])=>{return [v0,v1]})}`,
+      `i=>{try{Array.isArray(i)&&i.length===2||e[3](i);let v1=i[1];let v0;try{v0=e[0](i[0]).catch(x=>e[1](x))}catch(x){e[1](x)}typeof v1==="boolean"||e[2](v1);return Promise.all([v0]).then(([v0])=>{return [v0,v1]})}catch(v2){return Promise.reject(v2)}}`,
     )
   })
 
   test("Compiled serialize code snapshot for simple tuple", t => {
     let schema = S.tuple(s => (s.item(0, S.string), s.item(1, S.bool)))
 
-    t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return [i["0"],i["1"]]}`)
+    t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return [i[0],i[1]]}`)
   })
 
   test("Compiled serialize code snapshot for empty tuple", t => {
@@ -289,7 +289,7 @@ module Compiled = {
       t->U.assertCompiledCode(
         ~schema,
         ~op=#Parse,
-        `i=>{Array.isArray(i)&&i.length===3||e[3](i);let v0=i["0"],v1=i["1"],v2=i["2"];v0===0||e[0](v0);typeof v1==="string"||e[1](v1);typeof v2==="boolean"||e[2](v2);return {foo:v1,bar:v2,zoo:1}}`,
+        `i=>{Array.isArray(i)&&i.length===3||e[3](i);let v0=i[0],v1=i[1],v2=i[2];v0===0||e[0](v0);typeof v1==="string"||e[1](v1);typeof v2==="boolean"||e[2](v2);return {foo:v1,bar:v2,zoo:1}}`,
       )
     },
   )
@@ -306,7 +306,7 @@ module Compiled = {
         }
       })
 
-      t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return [0,i["foo"],i["bar"]]}`)
+      t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return [0,i.foo,i.bar]}`)
     },
   )
 }
@@ -338,7 +338,7 @@ test("Works with tuple schema used multiple times as a child schema", t => {
   let value = rawAppVersions->S.parseOrThrow(~to=appVersionsSchema)
   t->Assert.deepEqual(value, appVersions)
 
-  let data = appVersions->S.decodeOrThrow(~from=appVersionsSchema, ~to=S.json)
+  let data = appVersions->S.convertOrThrow(~from=appVersionsSchema, ~to=S.json)
   t->Assert.deepEqual(data, rawAppVersions->Obj.magic)
 })
 

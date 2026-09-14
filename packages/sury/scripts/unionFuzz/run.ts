@@ -66,7 +66,7 @@ export const diffsForValue = (
   if (encode && parse.compiled.ok && parse.reference.ok && !parseDiff) {
     let output: unknown = input;
     try {
-      output = S.parser(unionSchema)(input);
+      output = S.parseOrThrow(unionSchema)(input);
     } catch {
       output = input;
     }

@@ -1,4 +1,4 @@
-// `S.union` — the factory, the decoder that dispatches a value to one member,
+// `S.union` - the factory, the decoder that dispatches a value to one member,
 // and the encoder that converts a union into another schema. `CODEC_SPEC.md`
 // states which conversions are legal.
 //
@@ -15,6 +15,7 @@
 
 import {
   anyOfTag,
+  copySchema,
   baseSchema,
   type Builder,
   type Check,
@@ -22,13 +23,12 @@ import {
   getOrRethrow,
   immutableEmptyArray,
   immutableEmptyObject,
-  inlinedValueFromString,
+  inlinedProperty,
   inputExpression,
   type Internal,
   isLiteral,
   nanTag,
   neverTag,
-  stringTag,
   nullTag,
   numberTag,
   objectTag,
@@ -51,16 +51,19 @@ import {
   B_embed,
   B_inlineConst,
   B_invalidOperation,
+  B_unsupportedDecode,
   B_neverSlot,
   B_makeInvalidInputDetails,
   B_markOutput,
   B_merge,
   B_pushCheck,
   B_refine,
+  B_rejectUnsettled,
   B_scope,
   B_throw,
   failInvalidType,
-  type HoistCond
+  type HoistCond,
+  operationArgVar,
 } from "./builder";
 import { nestedLoc, never_, parse, typeCheckCond } from "./parse";
 
@@ -111,18 +114,25 @@ const unionNeverLink = (schema: Internal): boolean => {
 // own; otherwise it stays one opaque variant that matches by reference.
 //
 // "Nothing of its own" is a field count, not a list of interesting fields, so an
-// unknown field reads as "carries something" and keeps the union whole — the
+// unknown field reads as "carries something" and keeps the union whole - the
 // conservative direction. The 6 are exactly what `unionFactory` sets: `type` and
-// `seq` from `baseSchema`, then `anyOf`, `decoder`, `encoder`, `has`. `isAsync`
-// and `hasTransform` are excluded because the parse loop writes them onto a live
-// schema in place. Changing `unionFactory`'s field set without changing this
-// count stops every union from flattening, which the nested-union goldens catch.
+// `seq` from `baseSchema`, then `anyOf`, `decoder`, `encoder`, `has`. Changing
+// `unionFactory`'s field set without changing this count stops every union from
+// flattening, which the nested-union goldens catch. Nothing may write an
+// enumerable field onto a live schema - which is why a compiled operation's
+// `isAsync`/`hasTransform` live on its cache node instead of on its target.
+//
+// The count cannot be replaced by a marker `unionFactory` stamps. This asks
+// whether a union carries anything of its OWN, which has to stay true of a
+// copy: a reversed union is `copySchema`d node by node and still carries
+// exactly these 6, so it is transparent and must remain so. A marker answers
+// provenance instead - and a non-enumerable one (the only kind that would not
+// itself change the count) is dropped by `copySchema`, which would make every
+// reversed union opaque.
 const unionIsTransparent = (schema: Internal): boolean => {
   if (schema.type !== anyOfTag) return false;
   let fields = 0;
-  for (const key in schema) {
-    if (key !== "isAsync" && key !== "hasTransform") fields++;
-  }
+  for (const _key in schema) fields++;
   return fields === 6;
 };
 
@@ -194,8 +204,8 @@ const unionIsNoop = (schema: Internal): boolean => {
 // ── Emission ─────────────────────────────────────────────────────────────────
 
 // One emitted alternative. `c` selects it, `b` runs it, `q` is its dispatch cond
-// in mergeable form. `th` — the body can throw; `ft` — a later alternative could
-// still accept a value this one fails on; `df` — it accepts with no code and
+// in mergeable form. `th` - the body can throw; `ft` - a later alternative could
+// still accept a value this one fails on; `df` - it accepts with no code and
 // nothing later would do anything different with the same value, so its
 // condition can be deferred into the chain's final acceptance test.
 type UnionCase = {
@@ -250,19 +260,24 @@ const unionEmitChain = (cases: UnionCase[], ctx: UnionCtx): string => {
     if (c.b === "") {
       return `if(!(${c.c})){${ctx.f("")}}`;
     }
-    if (c.c === "") return c.b + ";";
+    if (c.c === "") return c.b.endsWith(";") ? c.b : c.b + ";";
     return `if(${c.c}){${c.b}}else{${ctx.f("")}}`;
   }
 
   let code = "";
   let caught = false;
   let exhaustive = false;
+  // Whether the arm just emitted ended in a `try` that hands control onward
+  // rather than a `break`. Set by `attempt`, not read off the arm's first
+  // character: a body that itself opens with `try{JSON.parse` is a closed arm.
+  let open = false;
 
-  // The case's code with its condition taken as given — the shared shape between
+  // The case's code with its condition taken as given - the shared shape between
   // a lone `if(cond){…}` and one arm of a run that tests `cond` once. A `try` arm
   // hands control to whatever follows it; every other form breaks, which ends its
   // block and needs no trailing `;`.
   const attempt = (c: UnionCase, idx: number): string => {
+    open = false;
     if (c.b === "") return "break";
     // Skip the `;` where the body already ends in one: `;;break` is a wart in
     // every golden it reaches.
@@ -271,20 +286,20 @@ const unionEmitChain = (cases: UnionCase[], ctx: UnionCtx): string => {
     // could still accept the value or an earlier one is already relying on the
     // chain to carry its failure forward.
     if ((c.f & 1) && ((c.f & 8) || caught)) {
-      caught = true;
+      caught = open = true;
       const record =
         c.f & 4
           ? `x=${ctx.r()}(x);if(x.expected===${ctx.s()}){x=x.unionErrors;x&&(r||(r=[])).push(...x)}else{(r||(r=[])).push(x)}`
           : `(r||(r=[])).push(${ctx.r()}(x))`;
-      // A terminal case — one only present because an *earlier* one needs the
-      // chain to carry its failure — records and lets control reach the chain's
+      // A terminal case - one only present because an *earlier* one needs the
+      // chain to carry its failure - records and lets control reach the chain's
       // own fail, so the error keeps its "Expected A | B | C" framing. Every case
       // after it is guarded by a condition the value has already been proven not
       // to satisfy, so reaching them costs a few false tests.
       //
       // Unless one of them has no condition at all: that one would run, fail on a
       // type it was never offered, and add a reason the value could never have
-      // matched — 4.7x on a 24-member union. Only then is the fail worth inlining
+      // matched - 4.7x on a 24-member union. Only then is the fail worth inlining
       // here, because a second spread call site in a `catch` is not free: it cost
       // 6x on the small instance-dispatch schemas when emitted unconditionally.
       return `try{${body}break}catch(x){${record}${
@@ -303,15 +318,13 @@ const unionEmitChain = (cases: UnionCase[], ctx: UnionCtx): string => {
     if (cases[idx]!.c === "") unconditional = idx;
   }
 
-  // The condition of the case just emitted, and whether its block is still open
-  // — i.e. ended in a `try` that hands control onward rather than a `break`.
+  // The condition of the case just emitted.
   let last = "";
-  let open = false;
 
   for (let idx = 0; idx < cases.length; idx++) {
     const c = cases[idx]!;
-    // Members that narrow the same way — two variants of one tuple shape, two
-    // objects behind the same discriminant — share the test. Only the case
+    // Members that narrow the same way - two variants of one tuple shape, two
+    // objects behind the same discriminant - share the test. Only the case
     // *immediately* before qualifies: a case in between with a different
     // condition could accept a value these two also accept, and pulling the
     // later one back past it would change which member wins.
@@ -322,7 +335,6 @@ const unionEmitChain = (cases: UnionCase[], ctx: UnionCtx): string => {
     if (shared && !open) continue;
 
     const arm = attempt(c, idx);
-    open = arm[0] === "t"; /* `try` */
     last = c.c;
 
     if (shared) {
@@ -355,15 +367,21 @@ const unionOr = (cs: UnionCase[]): string => {
 
 // ── Group narrows ────────────────────────────────────────────────────────────
 
-// A minimal schema standing in as the variant's runtime type, shared by every
-// variant in the group. Built without a per-type factory reference so unused
-// type decoders still tree-shake out of a union-using bundle — and
-// `S.optional`/`S.nullable` are unions.
+// A minimal schema standing in as the variant's runtime type. Built without a
+// per-type factory reference so unused type decoders still tree-shake out of
+// a union-using bundle - and `S.optional`/`S.nullable` are unions.
+//
+// One per member, not per group: besides the runtime tag it carries what the
+// member claims about a value of that tag (`content`, its encoder, a string
+// format), and a sibling parsing from it would inherit the claim - a `uuid`
+// next to `jsonString` was `JSON.parse`d before its own test. The group's
+// narrow is its head member's, and `unionEmit` re-labels the narrowed value
+// with each member's own before the member parses it.
 const unionNarrowSchema = (schema: Internal): Internal => {
   const tagFlag = tagFlags[schema.type]!;
   const container = 64 | 128;
   // The decoder closes over `narrow` itself. Passing it to the constructor is
-  // still fine — nothing calls it until the schema is fully built.
+  // still fine - nothing calls it until the schema is fully built.
   // This schema is only used by effect-compatible validation groups. It owns
   // the runtime tag check, never a member's conversion.
   const narrow: Internal = baseSchema(schema.type, false, (input: Val) => {
@@ -380,11 +398,23 @@ const unionNarrowSchema = (schema: Internal): Internal => {
         ? B_refine(input, input.e)
         : input;
     }
+    // A coerced literal is narrowed by the literal itself, which reads its
+    // const off the expected schema - the narrow carries none - so a string
+    // source dispatches on `"1"` exactly as it does for the literal alone.
+    // The expected is handed over for that call only: the case compiles from
+    // what this produced, and would re-check the const against a narrow it
+    // took for the source.
+    if (isLiteral(schema) && tagFlag & (4 | 8 | 1024)) {
+      input.e = schema;
+      const output = schema.decoder(input);
+      input.e = narrow;
+      return output;
+    }
     return schema.decoder(input);
   });
   narrow.encoder = schema.encoder;
   // With the encoder, its marker: the narrow is what a carrier's encoder is
-  // handed for this arm, and without it the arm reads as carrying no payload —
+  // handed for this arm, and without it the arm reads as carrying no payload -
   // bytes reaching a `S.base64` variant UTF-8-decoded instead of packing.
   if (schema.content !== U) {
     setContent(narrow, schema.content);
@@ -401,13 +431,22 @@ const unionNarrowSchema = (schema: Internal): Internal => {
   } else if (tagFlag & (32 | 16 | 2048)) {
     // null/undefined/nan stay literals so the case body passes through.
     narrow.const = schema.const;
+  } else if (tagFlag & 2 && schema.format !== U && schema.format !== "json") {
+    // The member's `format` (which toJSONSchema reads), `formatFlag` and
+    // `noValidation` ride on the narrow: the case appends the member's format
+    // check, so the escape-free splice holds inside it. Not `format: "json"` -
+    // jsonString reads that as "already JSON text" (see fieldPiece), where the
+    // bare `content` marker says "claims JSON, unchecked".
+    narrow.format = schema.format;
+    narrow.formatFlag = schema.formatFlag;
+    narrow.noValidation = schema.noValidation;
   }
   return narrow;
 };
 
 // Tag bits don't partition runtime values: every instance passes the object
 // narrow, so two such cases are only provably disjoint after widening each to
-// everything its narrow could also let through. Arrays and NaN need no widening —
+// everything its narrow could also let through. Arrays and NaN need no widening -
 // the object and number narrows exclude them explicitly.
 const unionWiden = (tagFlag: number, nan: number): number =>
   tagFlag | (tagFlag & (64 | 8192) ? 64 | 8192 : tagFlag & tagFlags[numberTag]! ? nan : 0);
@@ -444,17 +483,17 @@ const unionMask = (schema: Internal, mode: number, nan: number): number => {
 
 // A member's effect (`UnionMember.e`), as a literal because naming these five
 // costs ~40 bundle bytes that esbuild will not inline. The scale is ordered, and
-// two cuts in it carry the planner. `e < 2` — "changes nothing about the value" —
+// two cuts in it carry the planner. `e < 2` - "changes nothing about the value" -
 // is what lets members share a group, since order among them is unobservable.
 // `e === 0` is stronger: total for its type, which is what lets one member cover
 // another outright.
 //
-//   0 identity   — accepts every value of its type and passes it straight
+//   0 identity   - accepts every value of its type and passes it straight
 //                  through, so it is the only effect that can cover a member.
-//   1 validation — checks the value but does not change it.
-//   2 coercion   — converts, so it cannot share a group with a pass-through.
-//   3 rejection  — output is `never`; executable, but accepts nothing.
-//   4 opaque     — a boundary (ref, nested union, function, custom parser) the
+//   1 validation - checks the value but does not change it.
+//   2 coercion   - converts, so it cannot share a group with a pass-through.
+//   3 rejection  - output is `never`; executable, but accepts nothing.
+//   4 opaque     - a boundary (ref, nested union, function, custom parser) the
 //                  analysis will not look inside.
 
 // Member low bits record Sury throws (1), foreign throws (2), and opacity (4).
@@ -465,14 +504,14 @@ const unionMask = (schema: Internal, mode: number, nan: number): number => {
 // `UnionGroup`, and are deliberately left as literals (naming them costs ~30
 // bundle bytes because they don't get inlined):
 //
-//   case 1  — the emitted body can raise, read off throw tracking (`g.t`).
-//   case 2  — the body yields a promise the dispatch must await before it can
+//   case 1  - the emitted body can raise, read off throw tracking (`g.t`).
+//   case 2  - the body yields a promise the dispatch must await before it can
 //             tell whether the member matched.
-//   case 4  — the body is a nested chain, so its failure arrives as the
+//   case 4  - the body is a nested chain, so its failure arrives as the
 //             synthetic "none of these matched" wrapper, not a member's error.
-//   group 2 — some value reaching this group could still be accepted by a later
+//   group 2 - some value reaching this group could still be accepted by a later
 //             one, so a failure here has to be caught rather than raised.
-//   group 32 — later same runtime type; emit ANDs this group's discriminants
+//   group 32 - later same runtime type; emit ANDs this group's discriminants
 //             into the outer condition so a disjoint TAG is not eaten (#392).
 //
 // Bits 8 (falls) and 16 (direct dispatch) mean the same on both.
@@ -492,14 +531,14 @@ type UnionMember = {
   k: unknown;
   r: number;
   d?: UnionDiscriminator;
+  n: Internal;
 };
 
 type UnionGroup = {
   m: number;
   a: UnionMember[];
   f: number;
-  n?: Internal;
-  // Planner-only. `p` is the specificity tier the group flattens at — the tier of
+  // Planner-only. `p` is the specificity tier the group flattens at - the tier of
   // the member that opened it. `o` is whether it can still absorb a later member.
   p: number;
   o: boolean;
@@ -547,7 +586,35 @@ const unionDiscriminator = (schema: Internal): UnionDiscriminator | undefined =>
 
 // ── Rejections ───────────────────────────────────────────────────────────────
 
-// A source matching some but not all variants by type is ambiguous — Sury can't
+// Rules 2 and 3, exception - nullish arm. Opposite a schema with no place for
+// the value, a bare `null`/`undefined` variant is dropped: it neither makes
+// the pair ambiguous nor converts (never `"undefined"` text), and the value is
+// rejected - `S.optional(X)` meets a single T as X -> T. A place for it:
+// `unknown`, a nullish type, a union, a recursive ref (`S.json` among them),
+// an env var (unset, or `""`) or a JSON document string - the same test
+// composites.ts makes for an optional field encoded into a dict. Compared on
+// the side the other schema meets: output under rule 3, input under rule 2. A
+// list that would empty is kept whole: two literals, not a wrapper.
+const unionDropNullish = (
+  variants: Internal[],
+  other: Internal | undefined,
+  outputSide: boolean
+): Internal[] => {
+  if (
+    other === U ||
+    tagFlags[other.type]! & (1 | 16 | 32 | 256 | 512) ||
+    other.format === "json" ||
+    other.format === "env"
+  ) {
+    return variants;
+  }
+  const kept = variants.filter(
+    (variant) => !(tagFlags[(outputSide ? unionOutput(variant) : variant).type]! & (16 | 32))
+  );
+  return kept.length ? kept : variants;
+};
+
+// A source matching some but not all variants by type is ambiguous - Sury can't
 // tell a pass-through from a decoding attempt. Reject where the operation is
 // written, naming the spellings that resolve it.
 const unionCheckPartial = (
@@ -558,13 +625,13 @@ const unionCheckPartial = (
   // against: its input under rule 2 (the union is the target), its output under
   // rule 3 (the union is the source).
   variants: Internal[],
-  // What the unmatched side is called in the message — the union sits opposite
+  // What the unmatched side is called in the message - the union sits opposite
   // it, so this is also which of source/target `variants` belongs to.
   outputSide: boolean
 ): void => {
   const other = outputSide ? target : source;
   let matched: Internal | undefined = U;
-  let unmatched = false;
+  let unmatched: Internal | undefined = U;
   for (let idx = 0; idx < variants.length; idx++) {
     const variant = variants[idx]!;
     const match = outputSide ? unionOutput(variant) : variant;
@@ -574,38 +641,36 @@ const unionCheckPartial = (
       continue;
     }
     if (unionSameType(other, match)) matched ||= variant;
-    else unmatched = true;
+    else unmatched ||= variant;
   }
-  if (matched !== U && unmatched) {
-    unionInvalid(
-      input,
-      source,
-      target,
-      `${inputExpression(matched!)} has the same type as the ${outputSide ? "target" : "source"} and the others don't`
-    );
+  if (matched !== U && unmatched !== U) {
+    unionInvalid(input, source, target, unmatched, outputSide);
   }
 };
 
-const unionUncovered = (
+// A member a conversion could pair the open one with: the first that is not a
+// sentinel, any being as good a spelling as another.
+const unionPeer = (schema: Internal): Internal =>
+  schema.anyOf?.find((variant) => !(tagFlags[variant.type]! & (16 | 32 | 32768))) || schema;
+
+// The pair, the member the pair leaves open, and the two ways to close it:
+// convert it from (or to) the other side, or declare it never there.
+const unionInvalid = (
   input: Val,
   source: Internal,
   target: Internal,
-  variant: Internal
-): never =>
-  unionInvalid(
+  member: Internal,
+  onSource: boolean,
+): never => {
+  const it = inputExpression(member);
+  const conversion = onSource
+    ? `${it} -> ${inputExpression(unionPeer(target))}`
+    : `${inputExpression(unionPeer(source))} -> ${it}`;
+  return B_invalidOperation(
     input,
-    source,
-    target,
-    `${inputExpression(variant)} has no same-type variant on the other side`
+    `Ambiguous ${inputExpression(source)} -> ${inputExpression(target)}. Should ${it} be decoded or ignored? Choose with S.to for ${conversion}, or S.never -> ${it}`,
   );
-
-const unionInvalid = (input: Val, from: Internal, to: Internal, why: string): never =>
-  B_invalidOperation(
-    input,
-    `Invalid operation: can't convert ${inputExpression(from)} to ${inputExpression(
-      to
-    )} — ${why}. Use S.to to say what you mean, or S.never to mark a variant unreachable`
-  );
+};
 
 // ── Normalize → Analyze → Plan → Emit ────────────────────────────────────────
 
@@ -682,7 +747,7 @@ const unionAnalyze = (
                   : // Reached only by coercion. Every built-in cross-tag
                     // coercion parses a string (`BigInt`, `Number`, `new Date`),
                     // so a source that can produce one is assumed to be coerced
-                    // through it — narrow enough to keep the case out of an
+                    // through it - narrow enough to keep the case out of an
                     // unnecessary fallback. With no string in the source that
                     // guess describes nothing, and claiming too little would let
                     // the dispatch raise where a later member should have run,
@@ -707,7 +772,10 @@ const unionAnalyze = (
           : d !== U
             ? 1
             : 2,
-      k: tag & 8192 ? s.class : s.type,
+      // An env var is `string | undefined`, so it never shares a string
+      // group's `typeof` dispatch.
+      k: tag & 8192 ? s.class : s.format === "env" ? s.format : s.type,
+      n: unionNarrowSchema(s),
       r: tag & (64 | 8192)
         ? 64 | 8192
         : tag & numberish
@@ -724,8 +792,8 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
   const active: (UnionBucket | undefined)[] = [];
   const priority: (UnionBucket | undefined)[] = [];
 
-  // `total` — types some member accepts *totally*: effect 0 takes every value its
-  // type narrow admits and hands it back untouched. `effects` — types some member
+  // `total` - types some member accepts *totally*: effect 0 takes every value its
+  // type narrow admits and hands it back untouched. `effects` - types some member
   // that changes the value accepts.
   let total = 0;
   let effects = 0;
@@ -748,7 +816,7 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
     //
     // Two things make a member observable despite passing its value through:
     //
-    //   - It can raise a *foreign* error (`f & 2`) — a user refiner, a getter.
+    //   - It can raise a *foreign* error (`f & 2`) - a getter the walk can't see.
     //     That escapes the union rather than reading as "this one didn't match",
     //     so running it is the observable part, not what it returns.
     //   - A member that *does* change the value accepts one of the same types. It
@@ -756,7 +824,7 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
     //     whatever runs next: `S.literal(-0) | string-from-number | number`
     //     decodes 0 to `-0` only because the literal claims it first.
     //
-    // Only validating members are dropped, never a total one — two total members
+    // Only validating members are dropped, never a total one - two total members
     // for a type would each read as covered by the other and both vanish. Nothing
     // is lost by keeping them: they share a group, and `unionEmit` collapses their
     // empty conditions into the one narrow anyway.
@@ -771,7 +839,7 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
       member.r !== ~0 &&
       (member.m & ~member.r) === 0;
     // Field discriminants prove members don't compete, so payload opacity
-    // must not exclude them — that stranded later TAGs behind a type-narrow
+    // must not exclude them - that stranded later TAGs behind a type-narrow
     // miss (#392). Coercing literals stay ungrouped: a later same-type
     // catch-all would wrap them in try/catch longer than sequential checks.
     const compatible =
@@ -786,16 +854,16 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
     // One walk of the bucket settles everything positional about this member:
     // which group it joins, whether a broad group is already placed, and which
     // other groups it closes. Closing on a bucket the split below then abandons
-    // is harmless — that bucket leaves `active`, so nothing can join it again.
+    // is harmless - that bucket leaves `active`, so nothing can join it again.
     //
     // A member joins a group that is still open, holds the same runtime type, and
-    // sits on the same side of the pass-through boundary — unless both carry
+    // sits on the same side of the pass-through boundary - unless both carry
     // the same discriminant key, in which case they never compete and the
     // effect cut would only strand a later TAG behind this group's type
     // narrow (#392). Tier is deliberately *not* part of the test: tiers order
     // groups by specificity, and specificity between two members of one type
     // that both hand the value back is unobservable, so they belong under one
-    // narrow. Tier 0 is the exception — it holds what must be tried first (an
+    // narrow. Tier 0 is the exception - it holds what must be tried first (an
     // exact NaN, a nested object), and folding one into a broader group would
     // bury it behind that group's own members.
     let open: UnionGroup | undefined = U;
@@ -839,7 +907,7 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
     }
 
     // Flattening would hoist a discriminated member ahead of a broad one already
-    // in this bucket, changing which member a value reaches — so it starts a
+    // in this bucket, changing which member a value reaches - so it starts a
     // bucket of its own instead. Unless it joins that member's own group, where
     // the two are ordered against each other by the chain rather than by tier.
     if (bucket !== U && open === U && member.p === 1 && broad) {
@@ -935,25 +1003,6 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
     ) {
       group.f |= 8 | 2;
     }
-    if (group.a.length !== 1 || !(group.f & 16)) {
-      group.n = unionNarrowSchema(head.s);
-      // A single-member string group carries its member's `format` (which
-      // toJSONSchema reads), `escapeFree` and `noValidation` onto the narrow:
-      // the group emit appends the member's format check, so the escape-free
-      // splice holds inside the case. A multi-member group can't — one narrow
-      // stands in for every member — and `format: "json"` must not, since
-      // jsonString reads that as "already JSON text" (see fieldPiece).
-      if (
-        group.a.length === 1 &&
-        head.s.format !== U &&
-        head.s.format !== "json" &&
-        group.n.type === stringTag
-      ) {
-        group.n.format = head.s.format;
-        group.n.escapeFree = head.s.escapeFree;
-        group.n.noValidation = head.s.noValidation;
-      }
-    }
     if (route !== ~0 && (group.m & ~route) === 0) {
       if (key === false) {
         later[route] = false;
@@ -982,6 +1031,8 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
 const unionEmit = (
   input: Val,
   self: Internal,
+  // What a failure names - `self` less any arm the conversion dropped.
+  expectedSchema: Internal,
   plan: UnionGroup[],
   toPerCase: Internal | undefined,
   trustedSelf?: boolean
@@ -989,7 +1040,7 @@ const unionEmit = (
   const initialInline = input.i;
   let output = B_refine(input);
   // An async case only has to be awaited so that its rejection can be caught and
-  // the value handed to a later group — which is exactly where a group is marked
+  // the value handed to a later group - which is exactly where a group is marked
   // for fallback. With no fallback anywhere, the sole async case's promise is
   // returned unawaited, saving the async wrapper.
   const awaitAsync = plan.some((group) => group.f & 2);
@@ -999,9 +1050,9 @@ const unionEmit = (
   let expected = "";
   const ctx: UnionCtx = {
     f: (caught) =>
-      `${B_embed(input, unionFail.bind(U, self, input.path))}(${input.v()}${salvaged}${caught})`,
+      `${B_embed(input, unionFail.bind(U, expectedSchema, input.path))}(${input.v()}${salvaged}${caught})`,
     r: () => rethrow || (rethrow = B_embed(input, getOrRethrow)),
-    s: () => expected || (expected = B_embed(input, self)),
+    s: () => expected || (expected = B_embed(input, expectedSchema)),
   };
   // Trusting a case's discriminant requires it to actually discriminate:
   // unique among every member's (two ReScript variants can share their first
@@ -1010,7 +1061,7 @@ const unionEmit = (
   // half is what makes "the value passed the union" mean "the value matches
   // this variant": in `S.union([{kind: "a", v: S.string}, S.unknown])`,
   // `{kind: "a", v: 1}` is accepted by `unknown`, and the `kind` discriminant
-  // then routes it to the first case — which must still check `v`. Comparing
+  // then routes it to the first case - which must still check `v`. Comparing
   // acceptance masks rather than type keys is what catches the broad member;
   // `unknown` keys itself `"unknown"` and would otherwise look disjoint from
   // every object.
@@ -1038,8 +1089,14 @@ const unionEmit = (
     caseInput.t = source.t;
     caseInput.io = false;
     caseInput.e = member.s;
+    // A value proven to be the group's runtime tag is re-labelled with this
+    // member's own narrow, so its claims (not the head's) are what it parses
+    // from. Only when the source still is the group narrow: a typed source
+    // passes through it unchanged, and an object group may have restored the
+    // source's own variant (below) - both stay.
+    if (source.s === target.e) caseInput.s = member.n;
     // Trusted source + a field discriminant to dispatch on: the case converts
-    // from its own variant instead of re-validating from unknown — what makes
+    // from its own variant instead of re-validating from unknown - what makes
     // `decode` skip member validation the way a typed object does. Restricted
     // to field-discriminated members (a literal or scalar member's validation
     // check IS its dispatch condition) that can't fall through (a falling
@@ -1071,7 +1128,7 @@ const unionEmit = (
     const cond: HoistCond = { c: "", h: [] };
     // Hoist the type narrow even when the member can fall through. A value the
     // narrow rejects could never have been accepted by this member, so skipping
-    // it with `if(cond)` reaches the next member exactly like catching would —
+    // it with `if(cond)` reaches the next member exactly like catching would -
     // but without re-emitting the narrow as a statement, without the try/catch
     // when nothing deeper can fail, and without recording a "reason" for a
     // member the value was never plausibly an instance of.
@@ -1083,6 +1140,9 @@ const unionEmit = (
       const itemVar = target.v();
       if (async || caseOut.i !== itemVar) {
         body += `${itemVar}=${async && awaitAsync ? "await " : ""}${caseOut.i}`;
+        // The one assignment into the operation's own parameter; `make*`
+        // reads this to know the parameter is no longer the value it was given.
+        if (itemVar === operationArgVar) input.g.r = true;
       }
     }
     if (trustedD !== U) {
@@ -1093,7 +1153,7 @@ const unionEmit = (
       // `===` can't match a NaN discriminant (`x===NaN` is always false), which
       // made the member unreachable and rejected a value it declares. The
       // hoisted-check path this replaces used the same NaN-aware form.
-      const dRead = `${source.v()}[${inlinedValueFromString(trustedD[0])}]`;
+      const dRead = inlinedProperty(source.v(), trustedD[0]);
       const dCond =
         dSchema.type === nanTag
           ? `Number.isNaN(${dRead})`
@@ -1124,23 +1184,24 @@ const unionEmit = (
     }
 
     const mark = input.g.t;
+    const groupNarrow = group.a[0]!.n;
     const narrowInput = B_scope(input);
     narrowInput.io = false;
-    narrowInput.e = group.n!;
+    narrowInput.e = groupNarrow;
     const narrow = parse(narrowInput);
     // The narrow proves the group's runtime tag, but its minimal schema
-    // forgets what the source guarantees about that tag's CONTENT — a `S.json`
+    // forgets what the source guarantees about that tag's CONTENT - a `S.json`
     // source's object is a dict of json whose fields still need converting (a
     // bigint field arrives as its string form). Restore the source's own
     // same-tag variant as the case input, so a structured case converts from
     // it instead of validating the already-converted shape
     // (specs/jsonstring-union-encode.yaml). Direct single-member cases keep
     // `input.s` and never lose it.
-    if (tagFlags[group.n!.type]! & (64 | 128)) {
+    if (tagFlags[groupNarrow.type]! & (64 | 128)) {
       const resolved = unionRefDef(input.s);
       const sourceVariant =
         resolved !== U && resolved.anyOf !== U
-          ? resolved.anyOf.find((v) => v.type === group.n!.type)
+          ? resolved.anyOf.find((v) => v.type === groupNarrow.type)
           : U;
       if (sourceVariant !== U) narrow.s = sourceVariant;
     }
@@ -1160,9 +1221,13 @@ const unionEmit = (
     if (inner.every((c) => c.b === "")) {
       if (!inner.some((c) => c.c === "")) {
         const fused = unionOr(inner);
-        B_pushCheck(narrow, { c: () => fused, f: failInvalidType });
+        // A refine, not a push onto `narrow`: when the source already has the
+        // group's tag the narrow is the bare scope, and a check on a val with
+        // no `prev` has nothing to read its input from.
+        body = B_merge(B_refine(narrow, narrow.s, [{ c: () => fused, f: failInvalidType }]), cond);
+      } else {
+        body = B_merge(narrow, cond);
       }
-      body = B_merge(narrow, cond);
     } else {
       const narrowCode = B_merge(narrow, cond);
       const only = inner.length === 1 ? inner[0]! : U;
@@ -1208,7 +1273,7 @@ const unionEmit = (
   if (pure) {
     const fused = unionOr(cases);
     output = B_refine(
-      B_refine(output, output.s, [{ c: () => fused, f: failInvalidType }], self)
+      B_refine(output, output.s, [{ c: () => fused, f: failInvalidType }], expectedSchema)
     );
   } else if (!noop) {
     const dispatch = unionEmitChain(cases, ctx);
@@ -1255,7 +1320,7 @@ export const unionDecoder: Builder = (input: Val) => {
   const self = input.e;
   // The union's own `.to` chain, applied per case during decoding. None when a
   // custom parser owns the conversion, or when the target is the `noValidation`
-  // sentinel `S.assertInput` appends: fusing that into every case replaces each
+  // sentinel `S.assertInputOrThrow` appends: fusing that into every case replaces each
   // member's own check with the sentinel's, which silently breaks dispatch.
   // Left alone, it converts the union's assembled output once instead.
   const toPerCase =
@@ -1287,14 +1352,14 @@ export const unionDecoder: Builder = (input: Val) => {
   const initialTagFlag = tagFlags[input.s.type]!;
   // A source typed as this very union was already validated against it (the
   // parse direction reaches here as `unknown`), so a case the discriminant
-  // selects can trust its variant's fields the way a typed object does —
+  // selects can trust its variant's fields the way a typed object does -
   // re-validating them is what made `decode` compile the same code as
   // `parse`. The widening below still runs: dispatch needs the runtime
   // narrows, since the value's variant is only known at runtime.
   // `self.tr` is the same guarantee arriving second-hand: `unionRewrite`
   // already performed this widening on a union-typed source, so the val no
   // longer names it. Without that, a union serialized as an array item or
-  // object field — which reaches the target through `unionEncoder` — would
+  // object field - which reaches the target through `unionEncoder` - would
   // re-validate every field inside the container's loop.
   const trustedSelf = input.s === self || self.tr;
   if (
@@ -1309,11 +1374,20 @@ export const unionDecoder: Builder = (input: Val) => {
   if (variants.every(unionNeverLink)) {
     B_invalidOperation(
       input,
-      `Every variant of ${inputExpression(self)} is marked as never`
+      `Nothing decodes ${inputExpression(self)}. Every member is S.never`
     );
   }
 
   const source = input.s;
+  variants = unionDropNullish(unionDropNullish(variants, source, false), toPerCase, true);
+  // A dropped arm leaves the error naming what is left: `S.optional(S.string)`
+  // rejecting `undefined` says "Expected string". A copy, so a name or message
+  // set on the union still wins.
+  let expected = self;
+  if (variants !== self.anyOf) {
+    expected = copySchema(self);
+    expected.anyOf = variants;
+  }
   const nan = input.g.o & 2 ? 2048 : 0;
   let flags = 0;
   const sourceLiteral = isLiteral(source);
@@ -1327,22 +1401,27 @@ export const unionDecoder: Builder = (input: Val) => {
   const sourceTag = tagFlags[source.type]!;
   // A source that can hold anything constrains nothing, so it can't prove two
   // cases disjoint.
-  // Rule 2 — matching some but not all target variants is ambiguous: pass the
+  // Rule 2 - matching some but not all target variants is ambiguous: pass the
   // value through to the matching one, or attempt decoding in definition order?
   // Two sources are never ambiguous: `unknown`, which may already be any of the
   // variant types (so nothing is coerced either way), and a const the target
-  // spells out exactly — that variant takes the value as it is, and no other
+  // spells out exactly - that variant takes the value as it is, and no other
   // variant can produce it.
   if (!(sourceTag & 1) && !(flags & 1)) {
     unionCheckPartial(input, source, self, variants, false);
   }
 
   // A union carrying its own `.to` converts per variant, so rules 3 and 4 have
-  // to resolve the target before it's fused into the cases — appending the whole
+  // to resolve the target before it's fused into the cases - appending the whole
   // target union instead would re-enter as an ambiguous rule-2 conversion. The
   // union's own refiners ride along on each variant for the same reason: there
   // is no single pre-conversion output val left to attach them to.
   if (toPerCase !== U) {
+    // A union arm has nowhere to take a reading, so a link the union carries
+    // into a payload of another kind is rejected whole, before the arms could
+    // each meet the target as a pair a slot would settle. Ahead of the target
+    // owning the dispatch, so `S.json` is named against the union too.
+    B_rejectUnsettled(input, toPerCase, self);
     const perCase = unionTargetOwns(toPerCase)
       ? variants.map((v) => (unionOutput(v).type === neverTag ? U : toPerCase))
       : unionResolve(input, self, variants, toPerCase);
@@ -1366,6 +1445,7 @@ export const unionDecoder: Builder = (input: Val) => {
   return unionEmit(
     input,
     self,
+    expected,
     unionPlan(unionAnalyze(unionMask(source, 2, nan), flags, sourceTag, variants, source, nan)),
     toPerCase,
     trustedSelf
@@ -1373,7 +1453,7 @@ export const unionDecoder: Builder = (input: Val) => {
 };
 
 // Calls each source refiner at most once so its predicate is embedded once and
-// every case references the same `e[N]` — `B_embed` is append-only, so a
+// every case references the same `e[N]` - `B_embed` is append-only, so a
 // per-case call would duplicate it.
 const unionRefinerAttacher = (self: Internal): ((mut: Internal) => void) => {
   const cached: (Check[] | undefined)[] = [];
@@ -1398,9 +1478,9 @@ const unionRefinerAttacher = (self: Internal): ((mut: Internal) => void) => {
 // dispatches over the variants and each one converts independently.
 export const unionRewrite = (
   input: Val,
+  variants: Internal[],
   map: (variant: Internal, idx: number) => Internal
 ): Val => {
-  const variants = input.s.anyOf!;
   const anyOf: Internal[] = [];
   const has: Partial<Record<Tag, boolean>> = {};
   for (let idx = 0; idx < variants.length; idx++) {
@@ -1414,7 +1494,7 @@ export const unionRewrite = (
   mut.encoder = unionEncoder;
   mut.perVariant = input.s.perVariant;
   // The variants above were mapped from `input.s`'s, so the value is already
-  // known to satisfy one of them — a fact the `unknown` below throws away. See
+  // known to satisfy one of them - a fact the `unknown` below throws away. See
   // `tr` in base.ts: this is the only place allowed to claim it.
   mut.tr = true;
   return B_refine(input, unknown, U, mut);
@@ -1423,7 +1503,7 @@ export const unionRewrite = (
 // Appends `.to(target)` to every source variant. A variant already ending in
 // `never` stays as it is: it's an explicit rejection, not a path to convert.
 export const unionRewriteTo = (input: Val, target: Internal): Val =>
-  unionRewrite(input, (variant) =>
+  unionRewrite(input, input.s.anyOf!, (variant) =>
     unionOutput(variant).type === neverTag
       ? variant
       : updateOutput<Internal>(variant, (mut) => {
@@ -1432,9 +1512,9 @@ export const unionRewriteTo = (input: Val, target: Internal): Val =>
   );
 
 
-// Whether the union should hand itself to the target untouched — recursive
+// Whether the union should hand itself to the target untouched - recursive
 // schemas and `S.json` decode a union source per variant on their own, and a
-// `noValidation` target (`S.assertInput`'s result sentinel) discards the value, so
+// `noValidation` target (`S.assertInputOrThrow`'s result sentinel) discards the value, so
 // converting each member into it would replace every member's check with the
 // sentinel's.
 const unionTargetOwns = (target: Internal) =>
@@ -1443,29 +1523,30 @@ const unionTargetOwns = (target: Internal) =>
   (target.type === anyOfTag && target.anyOf!.some((v) => tagFlags[v.type]! & 512));
 
 // Applied by the parse loop when a union-typed val meets a different expected
-// schema — rules 3 and 4.
+// schema - rules 3 and 4.
 export const unionEncoder: Encoder = (input: Val, target: Internal) => {
+  B_rejectUnsettled(input, target, input.s);
   if (unionTargetOwns(target)) return input;
-  const variants = input.s.anyOf!;
+  const variants = unionDropNullish(input.s.anyOf!, target, true);
   if (target.perVariant && target.anyOf!.length === variants.length) {
     // An already-resolved per-variant mapping (the JSON encoder builds one for an
     // object field): each target variant *is* its source variant plus whatever
     // the caller appended, so it replaces the variant instead of chaining onto
-    // it — chaining would run the variant's own pipeline twice.
+    // it - chaining would run the variant's own pipeline twice.
     const targets = target.anyOf!;
     return targets.every((tv, idx) => tv === variants[idx])
       ? input
-      : unionRewrite(input, (_variant, idx) => targets[idx]!);
+      : unionRewrite(input, variants, (_variant, idx) => targets[idx]!);
   }
   const resolved = unionResolve(input, input.s, variants, target);
   if (resolved.every((to) => to === U)) {
-    // Nothing to convert — hand the union straight to the target's own decoder,
+    // Nothing to convert - hand the union straight to the target's own decoder,
     // which can then skip re-checking what this union already guarantees.
     // Rewriting would drop the input's type down to `unknown` and force a full
     // re-validation (a second item loop over an array, #284).
     return input;
   }
-  return unionRewrite(input, (variant, idx) => {
+  return unionRewrite(input, variants, (variant, idx) => {
     const to = resolved[idx];
     return to === U
       ? variant
@@ -1478,7 +1559,7 @@ export const unionEncoder: Encoder = (input: Val, target: Internal) => {
 const unionOpposite = (schema: Internal): Tag | undefined =>
   schema.type === undefinedTag ? nullTag : schema.type === nullTag ? undefinedTag : U;
 
-// Per source variant, the target to append — or `U` for a pass-through, where
+// Per source variant, the target to append - or `U` for a pass-through, where
 // the type check the dispatch already emits is the whole conversion. This is
 // where rules 3 and 4 are decided, shared by the encoder and by a union that
 // carries its own `.to`.
@@ -1494,10 +1575,9 @@ const unionResolve = (
   if (unionIsTransparent(target)) {
     return unionResolveToUnion(input, source, variants, target);
   }
-  // Rule 3 — every source variant gets its own built-in decoder to the target.
+  // Rule 3 - every source variant gets its own built-in decoder to the target.
   // Two targets are never ambiguous: `unknown`, the top type, which decodes
-  // nothing; and a `noValidation` target (S.assertInput's result sentinel), which
-  // discards the value entirely.
+  // nothing; and a `noValidation` target (S.assertInputOrThrow's result sentinel), which
   if (!(tagFlags[target.type]! & 1) && !target.noValidation) {
     unionCheckPartial(input, source, target, variants, true);
   }
@@ -1506,7 +1586,7 @@ const unionResolve = (
   );
 };
 
-// Rule 4 — no coercion: values pass through to the same-type target variant. The
+// Rule 4 - no coercion: values pass through to the same-type target variant. The
 // two unions must cover each other, with `null`/`undefined` allowed to bridge to
 // the opposite nullish variant on the other side.
 const unionResolveToUnion = (
@@ -1550,8 +1630,8 @@ const unionResolveToUnion = (
       matches[s] = sameTyped[0]!;
     } else if (sameTyped.length > 1) {
       // "Same type" is tag-level, so several target variants can share it. For a
-      // structured variant that's too coarse to pick by definition order — every
-      // object shape is `object` — so a candidate that *is* this variant's own
+      // structured variant that's too coarse to pick by definition order - every
+      // object shape is `object` - so a candidate that *is* this variant's own
       // output takes it as the pass-through rule 4 describes. Otherwise hand the
       // value to all the candidates and let their own dispatch (and fallback)
       // sort it out.
@@ -1576,7 +1656,7 @@ const unionResolveToUnion = (
       );
     }
     if (matches[s] === U) {
-      unionUncovered(input, source, target, sourceOut);
+      unionInvalid(input, source, target, sourceOut, true);
     }
   }
   for (let t = 0; t < targets.length; t++) {
@@ -1592,7 +1672,7 @@ const unionResolveToUnion = (
         unionOutput(targetVariant).type === neverTag ||
         !(sourceNullish & tagFlags[opposite]!))
     ) {
-      unionUncovered(input, source, target, targetVariant);
+      unionInvalid(input, source, target, targetVariant, false);
     }
   }
 
@@ -1603,7 +1683,7 @@ const unionResolveToUnion = (
     // same type, no transformation, refinement or nested structure left to
     // check, so the type check the dispatch already emits is the whole
     // conversion. Appending it anyway would re-decode the value into a schema
-    // it already satisfies — and leave the case's output val describing a
+    // it already satisfies - and leave the case's output val describing a
     // `.to` that has already run. A target const narrows the source; only a
     // target that constrains nothing (or exactly the same value) is a
     // pass-through.

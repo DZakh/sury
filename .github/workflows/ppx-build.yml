@@ -31,7 +31,7 @@ jobs:
 
       # ocaml-option-no-compression configures the compiler --without-zstd.
       # Without it, OCaml 5.1+ links libzstd into everything that uses
-      # compiler-libs — ppxlib does — and records the path it was found at. On a
+      # compiler-libs - ppxlib does - and records the path it was found at. On a
       # macOS runner that is a Homebrew prefix, so the published binary asks a
       # consumer's machine for a dylib it has no reason to have (11.0.0-rc.1
       # shipped exactly that). The compression only affects reading compressed

@@ -3,7 +3,7 @@ open Vitest
 // Read the real toString() instead of hardcoding it, so coverage/instrumentation
 // tooling that rewrites function source (and would otherwise change the literal
 // output) can't desync this from the actual generated code.
-let noopOpCode: string = (S.decoder(~from=S.unknown, ~to=S.unknown)->Obj.magic)["toString"]()
+let noopOpCode: string = (S.compileConvertOrThrow(~from=S.unknown, ~to=S.unknown)->Obj.magic)["toString"]()
 
 external magic: 'a => 'b = "%identity"
 external castAnyToUnknown: 'any => unknown = "%identity"
@@ -12,7 +12,7 @@ external castUnknownToAny: unknown => 'any = "%identity"
 let throwError = (error: S.error) => throw(error->Obj.magic)
 
 // Stands in for the removed transform effect ctx's `fail`. A transform now
-// fails by throwing, and this is that throw with the boilerplate named once —
+// fails by throwing, and this is that throw with the boilerplate named once -
 // the same shape a caller writes, kept here so the tests read as assertions
 // rather than as error construction.
 let fail = (message, ~path=S.Path.empty) =>
@@ -78,6 +78,17 @@ let asyncAssertThrowsMessage = async (t, cb, errorMessage, ~message=?) => {
   }
 }
 
+// The operation a def compiled to, read off the def's own memo (OpNode in
+// parse.ts: `c` is the node list, `a` the schema arguments, `v` the function).
+// A def is only ever compiled nested - cold, it has no `$defs` to resolve - so
+// the node is the one place its code exists. Newest first, so the most recent
+// operation's nested node answers.
+let defOperationCode: S.t<'a> => option<string> = %raw(`(def) => {
+  for (let node = def.c; node; node = node.n) {
+    if (node.a.length === 2 && node.a[1] === def && node.v) return node.v.toString()
+  }
+}`)
+
 let getCompiledCodeString = (
   schema,
   ~op: [
@@ -97,34 +108,34 @@ let getCompiledCodeString = (
   let toFn = schema =>
     switch op {
     | #Parse =>
-      let fn = S.decoder(~from=S.unknown, ~to=schema)
+      let fn = S.compileConvertOrThrow(~from=S.unknown, ~to=schema)
       fn->magic
     | #ParseAsync =>
-      let fn = S.asyncDecoder(~from=S.unknown, ~to=schema)
+      let fn = S.compileConvertAsPromiseOrReject(~from=S.unknown, ~to=schema)
       fn->magic
     | #Convert =>
-      let fn = S.decoder(~from=schema->S.reverse, ~to=S.unknown)
+      let fn = S.compileConvertOrThrow(~from=schema->S.reverse, ~to=S.unknown)
       fn->magic
     | #ConvertAsync =>
-      let fn = S.asyncDecoder(~from=schema->S.reverse, ~to=S.unknown)
+      let fn = S.compileConvertAsPromiseOrReject(~from=schema->S.reverse, ~to=S.unknown)
       fn->magic
     | #Assert =>
-      let fn = S.decoder(~from=S.unknown, ~to=schema->S.to(S.literal()->S.noValidation(true)))
+      let fn = S.compileConvertOrThrow(~from=S.unknown, ~to=schema->S.to(S.literal()->S.noValidation(true)))
       fn->magic
     | #ReverseParse => {
-        let fn = S.decoder(~from=S.unknown, ~to=schema->S.reverse)
+        let fn = S.compileConvertOrThrow(~from=S.unknown, ~to=schema->S.reverse)
         fn->magic
       }
     | #Encode => {
-        let fn = S.decoder(~from=schema, ~to=S.unknown)
+        let fn = S.compileConvertOrThrow(~from=schema, ~to=S.unknown)
         fn->magic
       }
     | #EncodeAsync => {
-        let fn = S.asyncDecoder(~from=schema, ~to=S.unknown)
+        let fn = S.compileConvertAsPromiseOrReject(~from=schema, ~to=S.unknown)
         fn->magic
       }
     | #EncodeToJson => {
-        let fn = S.decoder(~from=schema, ~to=S.json)
+        let fn = S.compileConvertOrThrow(~from=schema, ~to=S.json)
         fn->magic
       }
     }
@@ -141,11 +152,9 @@ let getCompiledCodeString = (
     switch (schema->S.untag).defs {
     | Some(defs) if code.contents !== noopOpCode =>
       defs->Dict.forEachWithKey((schema, key) =>
-        try {
-          let defFn = schema->toFn
-          code := code.contents ++ "\n" ++ `${key}: ${defFn["toString"]()}`
-        } catch {
-        | _exn => ()
+        switch schema->defOperationCode {
+        | Some(defCode) => code := code.contents ++ "\n" ++ `${key}: ${defCode}`
+        | None => ()
         }
       )
     | _ => ()
@@ -163,8 +172,8 @@ let rec cleanUpSchema = schema => {
   ->Array.forEach(((key, value)) => {
     switch key {
     | "output"
-    | "isAsync"
-    | "hasTransform"
+    | "ia"
+    | "ht"
     | "seq" => ()
     // ditemToItem leftovers FIXME:
     | "k" | "p" | "of" | "r" => ()
@@ -206,7 +215,7 @@ let assertEqualSchemas: (
 let assertReverseParsesBack = (t, schema: S.t<'value>, value: 'value) => {
   t->Assert.unsafeDeepEqual(
     value
-    ->S.decodeOrThrow(~from=schema, ~to=S.unknown)
+    ->S.convertOrThrow(~from=schema, ~to=S.unknown)
     ->S.parseOrThrow(~to=schema),
     value,
   )

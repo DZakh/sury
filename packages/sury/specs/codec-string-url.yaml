@@ -3,10 +3,13 @@ ts:
   schema: S.string.with(S.to, S.url)
   input: string
   output: URL
-  instantiations: 5244
+  instantiations: 4430
 jsonSchema:
   input: '{ type: "string", format: "uri" }'
   output: Expected JSON, received URL
+isEqual:
+  input: strictEqual
+  output: (a,b)=>a===b||a.href===b.href
 vs:
   zod:
     _skip: not-applicable
@@ -20,6 +23,9 @@ operations:
       valid-normalizes:
         input: '"HTTP://Example.ORG:80/a/../b"'
         output: new URL("http://example.org/b")
+      padded:
+        input: '" http://dzakh.dev/ "'
+        output: new URL("http://dzakh.dev/")
       invalid-no-scheme:
         input: '"cifjhdsfhsd"'
         error: Expected URL, received "cifjhdsfhsd"

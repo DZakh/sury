@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.fromJSONSchemaOrThrow({ properties: { bar: { type: "integer" } }, required: ["bar"], allOf: [{ properties: { foo: { type: "string" } }, required: ["foo"] }] })'
+  input: JSON
+  output: JSON
+  instantiations: 897
+jsonSchema:
+  input: '{ anyOf: [{ type: "string" }, { type: "number" }, { type: "object", properties: { bar: { type: "integer" } }, required: ["bar"] }, { items: {}, type: "array" }, { type: "boolean" }, { type: "null" }], allOf: [{ properties: { foo: { type: "string" } }, required: ["foo"] }] }'
+  fromInputType: "string | number | boolean | { bar: number; } | JSON[] | null"
+  output: '{ anyOf: [{ type: "string" }, { type: "number" }, { type: "object", properties: { bar: { type: "integer" } }, required: ["bar"] }, { items: {}, type: "array" }, { type: "boolean" }, { type: "null" }], allOf: [{ properties: { foo: { type: "string" } }, required: ["foo"] }] }'
+  fromOutputType: "string | number | boolean | { bar: number; } | JSON[] | null"
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "string" }, { type: "number" }, { type: "object", properties: { bar: { type: "integer" } }, required: ["bar"] }, { items: {}, type: "array" }, { type: "boolean" }, { enum: [null] }], allOf: [{ properties: { foo: { type: "string" } }, required: ["foo"] }] }'
+    output: '{ anyOf: [{ type: "string" }, { type: "number" }, { type: "object", properties: { bar: { type: "integer" } }, required: ["bar"] }, { items: {}, type: "array" }, { type: "boolean" }, { enum: [null] }], allOf: [{ properties: { foo: { type: "string" } }, required: ["foo"] }] }'
+isEqual: (a,b)=>a===b||!!(typeof a==="string"?typeof b==="string"&&a===b:typeof a==="number"&&a==a?typeof b==="number"&&b==b&&a===b:typeof a==="object"&&a&&!Array.isArray(a)?typeof b==="object"&&b&&!Array.isArray(b)&&a.bar===b.bar:Array.isArray(a)?Array.isArray(b)&&e[0](a,b):typeof a==="boolean"?typeof b==="boolean"&&a===b:b===null)
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{e[3](i)||e[4](i);for(;;){if(typeof i==="string")break;if(typeof i==="number"&&i==i)break;if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i.bar;typeof v0==="number"&&v0%1==0||e[0](v0);i={bar:v0};break}if(Array.isArray(i)){for(let v1=0;v1<i.length;++v1){try{e[1](i[v1]);}catch(v2){v2.path=[v1,...v2.path];throw v2}};break}if(typeof i==="boolean")break;if(i===null)break;e[2](i)}return i}
+    examples:
+      # FIXME: the same strip the encode block below describes, seen from the
+      # other side - the object arm drops `foo`, so what parse returns fails the
+      # `allOf` that its own jsonSchema.output still requires.
+      base-and-allof-satisfied:
+        input: '{ foo: "quux", bar: 2 }'
+        output: "{ bar: 2 }"
+        divergence:
+          reason: the object arm strips `foo` before the allOf refinement reads it, so what parse returns fails the document parse itself publishes
+          ajv: "output: data must have required property 'foo'"
+      allof-unsatisfied:
+        input: "{ bar: 2 }"
+        error: Should pass for all schemas of the allOf property.
+      base-unsatisfied:
+        input: '{ foo: "quux" }'
+        error: "Failed at bar: Expected integer, received undefined"
+  decode: eq-to-parse
+  encode:
+    # FIXME: the value `parse` returns cannot be encoded back - the object arm
+    # strips `foo` before the allOf refinement reads it, so no input satisfies
+    # both. Unchanged from before the input-refiner fix, which only moved the
+    # decode-direction checks.
+    expression: i=>{for(;;){if(typeof i==="string")break;if(typeof i==="number"&&i==i)break;if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i.bar;typeof v0==="number"&&v0%1==0||e[0](v0);i={bar:v0};break}if(Array.isArray(i)){for(let v1=0;v1<i.length;++v1){try{e[1](i[v1]);}catch(v2){v2.path=[v1,...v2.path];throw v2}};break}if(typeof i==="boolean")break;if(i===null)break;e[2](i)}e[3](i)||e[4](i);return i}
+    examples:
+      base-and-allof-satisfied:
+        input: '{ foo: "quux", bar: 2 }'
+        error: Should pass for all schemas of the allOf property.

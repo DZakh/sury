@@ -7,11 +7,12 @@ ts:
 jsonSchema:
   input: '{ type: "number" }'
   output: '{ type: "number" }'
+isEqual: strictEqual
 vs:
   zod: z.number()
 operations:
   parse:
-    expression: i=>{typeof i==="number"&&i===i||e[0](i);return i}
+    expression: i=>{typeof i==="number"&&i==i||e[0](i);return i}
     examples:
       valid:
         input: "42.5"
@@ -25,9 +26,15 @@ operations:
       valid-infinity:
         input: Infinity
         output: Infinity
+        divergence:
+          reason: z.number() rejects the non-finite numbers; S.number takes them
+          zod: "Invalid input: expected number, received number"
       valid-negative-infinity:
         input: -Infinity
         output: -Infinity
+        divergence:
+          reason: z.number() rejects the non-finite numbers; S.number takes them
+          zod: "Invalid input: expected number, received number"
       invalid-nan:
         input: NaN
         error: Expected number, received NaN

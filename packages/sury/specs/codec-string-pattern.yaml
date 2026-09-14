@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.string.with(S.to, S.string.with(S.pattern, /^a$/))
+  input: string
+  output: string
+  instantiations: 4817
+jsonSchema:
+  input: '{ type: "string", pattern: "^a$" }'
+  output: '{ type: "string", pattern: "^a$" }'
+isEqual: strictEqual
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"a"'
+        output: '"a"'
+      padded:
+        input: '" a "'
+        error: Invalid pattern
+      other-text:
+        input: '"b"'
+        error: Invalid pattern
+      not-a-string:
+        input: "0"
+        error: Expected string, received 0
+  decode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"a"'
+        output: '"a"'
+  encode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"a"'
+        output: '"a"'

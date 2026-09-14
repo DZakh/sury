@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.optional(S.env).with(S.to, S.port)
+  input: string | undefined
+  output: number
+  instantiations: 4587
+jsonSchema:
+  input: '{ type: "string" }'
+  fromInputType: string
+  output: '{ type: "integer", minimum: 0, maximum: 65535 }'
+isEqual: strictEqual
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{if((typeof i==="string"||i===void 0)){let v0=+i;v0==v0&&(v0||i.trim())||e[1](i);v0>=0&&v0<65536&&v0%1==0||e[0](v0);i=v0}else{e[2](i)}return i}
+    examples:
+      valid:
+        input: '"8080"'
+        output: "8080"
+      missing:
+        input: undefined
+        error: Expected port, received undefined
+      blank:
+        input: '""'
+        error: Expected port, received ""
+      not-a-number:
+        input: '"x"'
+        error: Expected port, received "x"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{i>=0&&i<65536&&i%1==0||e[0](i);i=""+i;return i}
+    examples:
+      valid:
+        input: "8080"
+        output: '"8080"'
+      too-big:
+        input: "70000"
+        error: Expected port, received 70000

@@ -3,10 +3,11 @@ ts:
   schema: S.file.with(S.minSize, 2).with(S.maxSize, 10)
   input: File
   output: File
-  instantiations: 785
+  instantiations: 781
 jsonSchema:
   input: Expected JSON, received 2 <= File.size <= 10
   output: Expected JSON, received 2 <= File.size <= 10
+isEqual: strictEqual
 vs:
   zod: z.file().min(2).max(10)
 operations:

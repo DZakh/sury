@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.record(S.env).with(S.to, S.schema({ NAME: S.nullable(S.string), PORT: S.nullable(S.port) }))"
+  input: "{ [x: string]: string | undefined; }"
+  output: "{ NAME: string | null; PORT: number | null; }"
+  instantiations: 6177
+jsonSchema:
+  input: '{ type: "object", additionalProperties: { type: "string" } }'
+  fromInputType: "{ [key: string]: string; }"
+  output: '{ type: "object", properties: { NAME: { anyOf: [{ type: "string" }, { type: "null" }] }, PORT: { anyOf: [{ type: "integer", minimum: 0, maximum: 65535 }, { type: "null" }] } }, required: ["NAME", "PORT"] }'
+  openapi-3.0:
+    output: '{ type: "object", properties: { NAME: { type: "string", nullable: true }, PORT: { type: "integer", minimum: 0, maximum: 65535, nullable: true } }, required: ["NAME", "PORT"] }'
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=0;for(const k in a){if(!(k in b)||!(a[k]===b[k]))return false;n++}for(const k in b)n--;return !n}
+  output: (a,b)=>a===b||a.NAME===b.NAME&&a.PORT===b.PORT
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);for(let v0 in i){try{let v1=i[v0];(typeof v1==="string"||v1===void 0)||e[0](v1);}catch(v2){v2.path=[v0,...v2.path];throw v2}}let v3=i.NAME,v4=i.PORT;if(v3!==void 0){if(!v3){v3=null}}else{e[1](v3)}if(v4!==void 0){if(v4){let v5=+v4;v5==v5&&(v5||v4.trim())||e[3](v4);v5>=0&&v5<65536&&v5%1==0||e[2](v5);v4=v5;}else{v4=null}}else{e[4](v4)}return {NAME:v3,PORT:v4}}
+    examples:
+      present:
+        input: '{ NAME: "Ann", PORT: "8080" }'
+        output: '{ NAME: "Ann", PORT: 8080 }'
+      missing:
+        input: "{}"
+        error: "Failed at NAME: Expected string | null, received undefined"
+      empty-string:
+        input: '{ NAME: "", PORT: "" }'
+        output: "{ NAME: null, PORT: null }"
+  decode:
+    expression: i=>{let v1=i.NAME,v2=i.PORT;if(v1!==void 0){if(!v1){v1=null}}else{e[0](v1)}if(v2!==void 0){if(v2){let v3=+v2;v3==v3&&(v3||v2.trim())||e[2](v2);v3>=0&&v3<65536&&v3%1==0||e[1](v3);v2=v3;}else{v2=null}}else{e[3](v2)}return {NAME:v1,PORT:v2}}
+    examples:
+      present:
+        input: '{ NAME: "Ann", PORT: "8080" }'
+        output: '{ NAME: "Ann", PORT: 8080 }'
+  encode:
+    expression: i=>{let v0=i.NAME,v1=i.PORT;for(;;){if(typeof v0==="string")break;if(v0===null){v0=void 0;break}e[0](v0)}for(;;){if(typeof v1==="number"&&v1==v1){v1>=0&&v1<65536&&v1%1==0||e[1](v1);v1=""+i.PORT;break}if(v1===null){v1=void 0;break}e[2](v1)}return {NAME:v0,PORT:v1}}
+    examples:
+      present:
+        input: '{ NAME: "Ann", PORT: 8080 }'
+        output: '{ NAME: "Ann", PORT: "8080" }'
+      nulls:
+        input: "{ NAME: null, PORT: null }"
+        output: "{ NAME: undefined, PORT: undefined }"

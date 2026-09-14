@@ -7,11 +7,12 @@ ts:
 jsonSchema:
   input: Expected JSON, received 1 | undefined | null
   output: Expected JSON, received 1 | undefined | null
+isEqual: strictEqual
 vs:
   zod: z.literal(1).nullish()
 operations:
   parse:
-    expression: i=>{(typeof i==="number"&&i===i&&i===1||i===void 0||i===null)||e[0](i);return i}
+    expression: i=>{(typeof i==="number"&&i==i&&i===1||i===void 0||i===null)||e[0](i);return i}
     examples:
       literal:
         input: "1"

@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.union([S.jsonString, S.schema({ kind: "k0" })])'
+  input: 'string | { kind: "k0"; }'
+  output: 'string | { kind: "k0"; }'
+  instantiations: 2476
+jsonSchema:
+  input: '{ anyOf: [{ type: "string", contentMediaType: "application/json" }, { type: "object", properties: { kind: { type: "string", const: "k0" } }, required: ["kind"] }] }'
+  output: '{ anyOf: [{ type: "string", contentMediaType: "application/json" }, { type: "object", properties: { kind: { type: "string", const: "k0" } }, required: ["kind"] }] }'
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "string" }, { type: "object", properties: { kind: { type: "string", enum: ["k0"] } }, required: ["kind"] }] }'
+    output: '{ anyOf: [{ type: "string" }, { type: "object", properties: { kind: { type: "string", enum: ["k0"] } }, required: ["kind"] }] }'
+isEqual: (a,b)=>a===b||!!(typeof a==="string"?typeof b==="string"&&a===b:typeof b==="object"&&b&&!Array.isArray(b))
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{for(;;){if(typeof i==="string"){try{JSON.parse(i)}catch(t){e[0](i)};break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i.kind==="k0"){i={kind:i.kind};break}e[1](i)}return i}
+    examples:
+      json-number:
+        input: '"1"'
+        output: '"1"'
+      json-string:
+        input: '"\"x\""'
+        output: '"\"x\""'
+      not-json-at-all:
+        input: '"a"'
+        error: Expected JSON string, received "a"
+      unterminated-object:
+        input: '"{"'
+        error: Expected JSON string, received "{"
+      empty:
+        input: '""'
+        error: Expected JSON string, received ""
+      json-object:
+        input: '"{\"a\":1}"'
+        output: '"{\"a\":1}"'
+      the-object-variant:
+        input: '{ kind: "k0" }'
+        output: '{ kind: "k0" }'
+  decode: identity
+  encode: identity

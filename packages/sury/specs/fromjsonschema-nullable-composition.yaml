@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: 'S.fromJSONSchema({ nullable: true, allOf: [{ type: "string" }, { minLength: 2 }] })'
+  schema: 'S.fromJSONSchemaOrThrow({ nullable: true, allOf: [{ type: "string" }, { minLength: 2 }] })'
   input: (string & JSON) | null
   output: (string & JSON) | null
   instantiations: 1244
@@ -10,6 +10,7 @@ jsonSchema:
   openapi-3.0:
     input: '{ allOf: [{ type: "string" }, { minLength: 2 }], nullable: true }'
     output: '{ allOf: [{ type: "string" }, { minLength: 2 }], nullable: true }'
+isEqual: (a,b)=>a===b||e[0](a,b)
 vs:
   zod:
     _skip: not-applicable

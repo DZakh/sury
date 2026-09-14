@@ -3,12 +3,13 @@ ts:
   schema: S.string.with(S.to, S.blob)
   input: string
   output: Blob
-  instantiations: 5244
+  instantiations: 4430
 jsonSchema:
   input: '{ type: "string", contentMediaType: "application/octet-stream" }'
   output: Expected JSON, received Blob
   openapi-3.0:
     input: '{ type: "string", format: "binary" }'
+isEqual: strictEqual
 vs:
   zod:
     _skip: not-applicable
@@ -16,18 +17,24 @@ operations:
   parse:
     expression: i=>{typeof i==="string"||e[1](i);return new e[0]([i])}
     examples:
+      the-text:
+        input: '"hi"'
+        output: new Blob(["hi"])
       not-a-string:
         input: "42"
         error: Expected string, received 42
   decode:
     expression: i=>{return new e[0]([i])}
     examples:
+      the-text:
+        input: '"hi"'
+        output: new Blob(["hi"])
       not-a-part:
         input: '{ toString: () => { throw new Error("boom") } }'
-        error: boom
+        error: "Error: boom"
   encode:
     isAsync: true
-    expression: i=>{let v0;try{v0=i.text().catch(e[0])}catch(x){e[0](x)}return v0}
+    expression: i=>{try{let v0;try{v0=i.text().catch(e[0])}catch(x){e[0](x)}return v0}catch(v1){return Promise.reject(v1)}}
     examples:
       reads-the-text:
         input: new Blob(["hi"])

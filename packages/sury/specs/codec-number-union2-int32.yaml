@@ -3,16 +3,17 @@ ts:
   schema: S.number.with(S.to, S.union([S.int32, S.string]))
   input: number
   output: string | number
-  instantiations: 6187
+  instantiations: 5373
 jsonSchema:
   input: '{ anyOf: [{ type: "integer", minimum: -2147483648, maximum: 2147483647 }, { type: "number" }] }'
   output: '{ anyOf: [{ type: "integer", minimum: -2147483648, maximum: 2147483647 }, { type: "string" }] }'
+isEqual: strictEqual
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="number"&&i===i||e[0](i);for(;;){if(i<=2147483647&&i>=-2147483648&&i%1===0)break;i=""+i;break;}return i}
+    expression: i=>{typeof i==="number"&&i==i||e[0](i);for(;;){if(i<=2147483647&&i>=-2147483648&&i%1==0)break;i=""+i;break;}return i}
     examples:
       int32:
         input: "123"
@@ -33,7 +34,7 @@ operations:
         input: '"123"'
         error: Expected number, received "123"
   decode:
-    expression: i=>{for(;;){if(i<=2147483647&&i>=-2147483648&&i%1===0)break;i=""+i;break;}return i}
+    expression: i=>{for(;;){if(i<=2147483647&&i>=-2147483648&&i%1==0)break;i=""+i;break;}return i}
     examples:
       int32:
         input: "123"
@@ -42,7 +43,7 @@ operations:
         input: "1.5"
         output: '"1.5"'
   encode:
-    expression: i=>{for(;;){if(typeof i==="number"&&i===i&&i<=2147483647&&i>=-2147483648&&i%1===0)break;if(typeof i==="string"){let v0=+i;v0===v0||e[0](i);i=v0;break}e[1](i)}return i}
+    expression: i=>{for(;;){if(typeof i==="number"&&i==i&&i<=2147483647&&i>=-2147483648&&i%1==0)break;if(typeof i==="string"){let v0=+i;v0==v0&&(v0||i.trim())||e[0](i);i=v0;break}e[1](i)}return i}
     examples:
       int32-number:
         input: "123"

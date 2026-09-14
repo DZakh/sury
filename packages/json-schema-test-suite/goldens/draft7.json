@@ -4,16 +4,16 @@
   "dialect": "draft7",
   "summary": {
     "assertions": 927,
-    "passed": 868,
-    "failed": 0,
-    "falseAccept": 0,
-    "falseReject": 0,
+    "passed": 866,
+    "failed": 2,
+    "falseAccept": 1,
+    "falseReject": 1,
     "errored": 59,
-    "rate": "93.6%",
-    "assertOpPassed": 868,
-    "assertOpRate": "93.6%",
-    "identityPassed": 500,
-    "identityAssertions": 521,
+    "rate": "93.4%",
+    "assertOpPassed": 866,
+    "assertOpRate": "93.4%",
+    "identityPassed": 499,
+    "identityAssertions": 520,
     "identityRate": "96.0%",
     "divergent": 0
   },
@@ -47,7 +47,9 @@
     "refRemote.json :: retrieved nested refs resolve relative to their URI not $id",
     "refRemote.json :: $ref to $ref finds location-independent $id"
   ],
-  "falseAccepting": [],
+  "falseAccepting": [
+    "minLength.json :: minLength validation :: one grapheme is not long enough"
+  ],
   "mutated": [
     "additionalProperties.json :: additionalProperties are allowed by default :: additional properties are allowed",
     "allOf.json :: allOf with base schema :: valid",
@@ -71,5 +73,8 @@
     "required.json :: required default validation :: not required by default",
     "required.json :: required with empty array :: property not required"
   ],
-  "failing": []
+  "failing": [
+    "maxLength.json :: maxLength validation :: two graphemes is long enough",
+    "minLength.json :: minLength validation :: one grapheme is not long enough"
+  ]
 }

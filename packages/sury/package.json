@@ -1,8 +1,8 @@
 {
   "name": "sury",
-  "version": "11.0.0-rc.2",
+  "version": "11.0.0",
   "private": true,
-  "description": "🧬 Next-gen schemas, faster than hand-written code",
+  "description": "🧬 Schema for everything - faster than hand-written code",
   "keywords": [
     "ReScript",
     "Schema",
@@ -52,6 +52,8 @@
     "coverage": "pnpm build:entry && vitest run --coverage",
     "spec": "pnpm build:entry && tsx ../spec/cli.ts",
     "build:entry": "tsx ./scripts/pack.ts entry-only",
+    "fuzz:eq": "tsx ./scripts/eqFuzz.ts",
+    "fuzz:formdata": "tsx ./scripts/formDataFuzz.ts",
     "fuzz:union": "tsx ./scripts/unionFuzz.ts",
     "fuzz:escfree": "pnpm build:entry && tsx ./scripts/escFreeFuzz.ts",
     "bench:jsonstring": "pnpm build:entry && tsx ./scripts/jsonStringifyBench.ts",
@@ -59,7 +61,7 @@
     "build": "pnpm rescript && tsx ./scripts/pack.ts for-publish",
     "res": "pnpm build:entry && rescript watch",
     "test": "pnpm build && vitest run",
-    "typecheck": "vitest run --typecheck.only",
+    "typecheck": "tsc --noEmit -p tsconfig.json && vitest run --typecheck.only",
     "lint:stdlib": "rescript-stdlib-vendorer lint --ignore-path=src",
     "prepublishOnly": "node -e \"console.error('Publish from ./artifacts (pnpm build), not the dev package.'); process.exit(1)\""
   },

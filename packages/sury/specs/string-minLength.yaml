@@ -3,10 +3,11 @@ ts:
   schema: S.string.with(S.minLength, 2)
   input: string
   output: string
-  instantiations: 793
+  instantiations: 789
 jsonSchema:
   input: '{ type: "string", minLength: 2 }'
   output: '{ type: "string", minLength: 2 }'
+isEqual: strictEqual
 vs:
   zod: z.string().min(2)
 operations:
@@ -16,6 +17,18 @@ operations:
       at-the-length:
         input: '"ab"'
         output: '"ab"'
+      two-emojis:
+        input: '"😀😀"'
+        output: '"😀😀"'
+      emoji:
+        input: '"😀"'
+        output: '"😀"'
+        divergence:
+          reason: minLength counts code points and S.minLength counts JS characters, so the emoji is one short of the document's bound
+          ajv: "input: data must NOT have fewer than 2 characters; output: data must NOT have fewer than 2 characters"
+      lone-surrogate-pair-halves:
+        input: '"\ud83d\ud83d"'
+        output: '"\ud83d\ud83d"'
       longer:
         input: '"abc"'
         output: '"abc"'
@@ -40,6 +53,15 @@ operations:
       at-the-length:
         input: '"ab"'
         output: '"ab"'
+      two-emojis:
+        input: '"😀😀"'
+        output: '"😀😀"'
+      emoji:
+        input: '"😀"'
+        output: '"😀"'
+      lone-surrogate-pair-halves:
+        input: '"\ud83d\ud83d"'
+        output: '"\ud83d\ud83d"'
       shorter:
         input: '"a"'
         error: Expected string.length >= 2, received "a"
@@ -52,6 +74,15 @@ operations:
       at-the-length:
         input: '"ab"'
         output: '"ab"'
+      two-emojis:
+        input: '"😀😀"'
+        output: '"😀😀"'
+      emoji:
+        input: '"😀"'
+        output: '"😀"'
+      lone-surrogate-pair-halves:
+        input: '"\ud83d\ud83d"'
+        output: '"\ud83d\ud83d"'
       shorter:
         input: '"a"'
         error: Expected string.length >= 2, received "a"

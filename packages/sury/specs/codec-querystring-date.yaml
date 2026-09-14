@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.queryString.with(S.to, S.schema({ at: S.date }))"
+  input: string
+  output: "{ at: Date; }"
+  instantiations: 5450
+jsonSchema:
+  input: '{ type: "string" }'
+  output: "Failed at at: Expected JSON, received Date"
+isEqual:
+  input: strictEqual
+  output: (a,b)=>a===b||+a.at===+b.at
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[4](i);let v0=e[1](new e[0](i)),v1=v0.get("at");typeof v1==="string"||e[2](v1);let v2=new Date(v1);!Number.isNaN(v2.getTime())||e[3](v2);return {at:v2}}
+    examples:
+      valid:
+        input: '"at=2024-01-01T00:00:00.000Z"'
+        output: '{ at: new Date("2024-01-01T00:00:00.000Z") }'
+      invalid:
+        input: '"at=nope"'
+        error: "Failed at at: Expected Date, received invalid Date"
+      missing:
+        input: '""'
+        error: "Failed at at: Expected Date, received undefined"
+  decode:
+    expression: i=>{let v0=e[1](new e[0](i)),v1=v0.get("at");typeof v1==="string"||e[2](v1);let v2=new Date(v1);!Number.isNaN(v2.getTime())||e[3](v2);return {at:v2}}
+    examples:
+      valid:
+        input: '"at=2024-01-01T00:00:00.000Z"'
+        output: '{ at: new Date("2024-01-01T00:00:00.000Z") }'
+  encode:
+    expression: i=>{let v2=i.at;let v0=new e[0]();let v1;try{v1=v2.toISOString()}catch(_){e[1](v2)}v0.append("at",v1);return v0.toString()}
+    examples:
+      valid:
+        input: '{ at: new Date("2024-01-01T00:00:00.000Z") }'
+        output: '"at=2024-01-01T00%3A00%3A00.000Z"'

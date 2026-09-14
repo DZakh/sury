@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({ a: S.optional(S.string).with(S.to, S.string) })"
+  input: "{ a?: string | undefined; }"
+  output: "{ a: string; }"
+  instantiations: 6049
+jsonSchema:
+  input: '{ type: "object", properties: { a: { type: "string" } } }'
+  output: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'
+isEqual: (a,b)=>a===b||a.a===b.a
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.a;typeof v0==="string"||e[0](v0);return {a:v0}}
+    examples:
+      present:
+        input: '{ a: "x" }'
+        output: '{ a: "x" }'
+      absent:
+        input: "{}"
+        error: "Failed at a: Expected string, received undefined"
+      undefined-is-rejected:
+        input: "{ a: undefined }"
+        error: "Failed at a: Expected string, received undefined"
+  decode:
+    expression: i=>{let v0=i.a;typeof v0==="string"||e[0](v0);return i}
+    examples:
+      present:
+        input: '{ a: "x" }'
+        output: '{ a: "x" }'
+  encode: identity

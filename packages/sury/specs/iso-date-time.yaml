@@ -1,0 +1,91 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.isoDateTime
+  input: string
+  output: string
+  instantiations: 254
+jsonSchema:
+  input: '{ type: "string", format: "date-time" }'
+  output: '{ type: "string", format: "date-time" }'
+isEqual: strictEqual
+vs:
+  zod: "z.iso.datetime({ offset: true })"
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0](i)||e[1](i);return i}
+    examples:
+      utc:
+        input: '"2020-01-01T00:00:00.123Z"'
+        output: '"2020-01-01T00:00:00.123Z"'
+      offset:
+        input: '"2020-01-01T00:00:00+02:00"'
+        output: '"2020-01-01T00:00:00+02:00"'
+      leap-second:
+        input: '"2016-12-31T23:59:60Z"'
+        output: '"2016-12-31T23:59:60Z"'
+        divergence:
+          reason: z.iso.datetime() has no leap second; S.isoDateTime takes :60
+          zod: Invalid ISO datetime
+      leap-second-under-offset:
+        input: '"1998-12-31T15:59:60.123-08:00"'
+        output: '"1998-12-31T15:59:60.123-08:00"'
+        divergence:
+          reason: z.iso.datetime() has no leap second; S.isoDateTime takes :60
+          zod: Invalid ISO datetime
+      leap-second-off-the-utc-boundary:
+        input: '"2016-12-31T23:59:60+01:00"'
+        error: Expected date-time, received "2016-12-31T23:59:60+01:00"
+      no-zone:
+        input: '"2020-01-01T00:00:00"'
+        error: Expected date-time, received "2020-01-01T00:00:00"
+      not-a-date:
+        input: '"not-a-date"'
+        error: Expected date-time, received "not-a-date"
+  decode:
+    expression: i=>{e[0](i)||e[1](i);return i}
+    examples:
+      utc:
+        input: '"2020-01-01T00:00:00.123Z"'
+        output: '"2020-01-01T00:00:00.123Z"'
+      offset:
+        input: '"2020-01-01T00:00:00+02:00"'
+        output: '"2020-01-01T00:00:00+02:00"'
+      leap-second:
+        input: '"2016-12-31T23:59:60Z"'
+        output: '"2016-12-31T23:59:60Z"'
+      leap-second-under-offset:
+        input: '"1998-12-31T15:59:60.123-08:00"'
+        output: '"1998-12-31T15:59:60.123-08:00"'
+      leap-second-off-the-utc-boundary:
+        input: '"2016-12-31T23:59:60+01:00"'
+        error: Expected date-time, received "2016-12-31T23:59:60+01:00"
+      no-zone:
+        input: '"2020-01-01T00:00:00"'
+        error: Expected date-time, received "2020-01-01T00:00:00"
+      not-a-date:
+        input: '"not-a-date"'
+        error: Expected date-time, received "not-a-date"
+  encode:
+    expression: i=>{e[0](i)||e[1](i);return i}
+    examples:
+      utc:
+        input: '"2020-01-01T00:00:00.123Z"'
+        output: '"2020-01-01T00:00:00.123Z"'
+      offset:
+        input: '"2020-01-01T00:00:00+02:00"'
+        output: '"2020-01-01T00:00:00+02:00"'
+      leap-second:
+        input: '"2016-12-31T23:59:60Z"'
+        output: '"2016-12-31T23:59:60Z"'
+      leap-second-under-offset:
+        input: '"1998-12-31T15:59:60.123-08:00"'
+        output: '"1998-12-31T15:59:60.123-08:00"'
+      leap-second-off-the-utc-boundary:
+        input: '"2016-12-31T23:59:60+01:00"'
+        error: Expected date-time, received "2016-12-31T23:59:60+01:00"
+      no-zone:
+        input: '"2020-01-01T00:00:00"'
+        error: Expected date-time, received "2020-01-01T00:00:00"
+      not-a-date:
+        input: '"not-a-date"'
+        error: Expected date-time, received "not-a-date"

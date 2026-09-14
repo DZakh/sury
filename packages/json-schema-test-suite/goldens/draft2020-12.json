@@ -4,16 +4,16 @@
   "dialect": "draft2020-12",
   "summary": {
     "assertions": 1299,
-    "passed": 976,
-    "failed": 1,
-    "falseAccept": 0,
-    "falseReject": 1,
+    "passed": 974,
+    "failed": 3,
+    "falseAccept": 1,
+    "falseReject": 2,
     "errored": 322,
-    "rate": "75.1%",
-    "assertOpPassed": 976,
-    "assertOpRate": "75.1%",
-    "identityPassed": 573,
-    "identityAssertions": 595,
+    "rate": "75.0%",
+    "assertOpPassed": 974,
+    "assertOpRate": "75.0%",
+    "identityPassed": 572,
+    "identityAssertions": 594,
     "identityRate": "96.3%",
     "divergent": 0
   },
@@ -151,7 +151,9 @@
     "unevaluatedProperties.json :: Evaluated properties collection needs to consider instance location with patternProperties",
     "unevaluatedProperties.json :: Evaluated properties collection needs to consider instance location with additionalProperties"
   ],
-  "falseAccepting": [],
+  "falseAccepting": [
+    "minLength.json :: minLength validation :: one grapheme is not long enough"
+  ],
   "mutated": [
     "additionalProperties.json :: additionalProperties are allowed by default :: additional properties are allowed",
     "allOf.json :: allOf with base schema :: valid",
@@ -177,6 +179,8 @@
     "vocabulary.json :: schema that uses custom metaschema with with no validation vocabulary :: no validation: valid number"
   ],
   "failing": [
+    "maxLength.json :: maxLength validation :: two graphemes is long enough",
+    "minLength.json :: minLength validation :: one grapheme is not long enough",
     "vocabulary.json :: schema that uses custom metaschema with with no validation vocabulary :: no validation: invalid number, but it still validates"
   ]
 }

@@ -3,16 +3,17 @@ ts:
   schema: S.boolean.with(S.to, S.union([S.string, S.symbol]))
   input: boolean
   output: string | symbol
-  instantiations: 6208
+  instantiations: 5394
 jsonSchema:
   input: '{ type: "boolean" }'
   output: Expected JSON, received string | symbol
+isEqual: strictEqual
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    creationError: "SuryError: Can't decode boolean to symbol. Use S.to to define a custom decoder"
+    creationError: "SuryError: Can't decode boolean -> symbol. Define custom codec with S.to"
   decode: eq-to-parse
   encode:
-    creationError: "SuryError: Can't decode symbol to boolean. Use S.to to define a custom decoder"
+    creationError: "SuryError: Can't decode symbol -> boolean. Define custom codec with S.to"

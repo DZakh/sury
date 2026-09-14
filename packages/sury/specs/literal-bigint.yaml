@@ -9,6 +9,7 @@ ts:
 jsonSchema:
   input: Expected JSON, received 123n
   output: Expected JSON, received 123n
+isEqual: alwaysEqual
 vs:
   zod: z.literal(123n)
 operations:

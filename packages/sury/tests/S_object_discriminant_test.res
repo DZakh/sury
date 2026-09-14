@@ -112,7 +112,7 @@ module Positive = {
     ),
   ]->Array.forEach(testData => {
     test(
-      `Successfully parses object with discriminant "${testData.discriminantSchema->S.inputExpression}"${testData.testNamePostfix}`,
+      `Successfully parses object with discriminant "${testData.discriminantSchema->S.toInputExpression}"${testData.testNamePostfix}`,
       t => {
         let schema = S.object(
           s => {
@@ -134,7 +134,7 @@ module Positive = {
     )
 
     test(
-      `Successfully serializes object with discriminant "${testData.discriminantSchema->S.inputExpression}"${testData.testNamePostfix}`,
+      `Successfully serializes object with discriminant "${testData.discriminantSchema->S.toInputExpression}"${testData.testNamePostfix}`,
       t => {
         let schema = S.object(
           s => {
@@ -146,7 +146,7 @@ module Positive = {
         )
 
         t->Assert.deepEqual(
-          {"field": "bar"}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+          {"field": "bar"}->S.convertOrThrow(~from=schema, ~to=S.unknown),
           {
             "discriminant": testData.discriminantData,
             "field": "bar",
@@ -172,7 +172,7 @@ module Negative = {
       ~discriminantData: 'any,
       ~description as maybeDescription=?,
       ~path=S.Path.empty,
-      ~missingInputExpression=discriminantSchema->S.inputExpression,
+      ~missingInputExpression=discriminantSchema->S.toInputExpression,
     ) => {
       discriminantSchema: discriminantSchema->Obj.magic,
       discriminantData: discriminantData->Obj.magic,
@@ -215,7 +215,7 @@ module Negative = {
     ),
   ]->Array.forEach(testData => {
     test(
-      `Successfully parses object with discriminant that we don't know how to serialize "${testData.discriminantSchema->S.inputExpression}"${testData.testNamePostfix}`,
+      `Successfully parses object with discriminant that we don't know how to serialize "${testData.discriminantSchema->S.toInputExpression}"${testData.testNamePostfix}`,
       t => {
         let schema = S.object(
           s => {
@@ -237,7 +237,7 @@ module Negative = {
     )
 
     test(
-      `Fails to serialize object with discriminant that we don't know how to serialize "${testData.discriminantSchema->S.inputExpression}"${testData.testNamePostfix}`,
+      `Fails to serialize object with discriminant that we don't know how to serialize "${testData.discriminantSchema->S.toInputExpression}"${testData.testNamePostfix}`,
       t => {
         let schema = S.object(
           s => {
@@ -249,7 +249,7 @@ module Negative = {
         )
 
         t->U.assertThrowsMessage(
-          () => {"field": "bar"}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+          () => {"field": "bar"}->S.convertOrThrow(~from=schema, ~to=S.unknown),
           `Missing input for ${testData.missingInputExpression} at ${S.Path.fromArray(["discriminant"])->Array.concat(testData.path)->S.Path.toText}`,
         )
       },
@@ -289,7 +289,7 @@ module NestedNegative = {
       })
 
       t->U.assertThrowsMessage(
-        () => {"field": "bar"}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+        () => {"field": "bar"}->S.convertOrThrow(~from=schema, ~to=S.unknown),
         `Missing input for boolean at discriminant.nestedField`,
       )
     },
@@ -337,7 +337,7 @@ test(`Fails to serialize object with discriminant "Never"`, t => {
   })
 
   t->U.assertThrowsMessage(
-    () => {"field": "bar"}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    () => {"field": "bar"}->S.convertOrThrow(~from=schema, ~to=S.unknown),
     `Missing input for never at discriminant`,
   )
 })

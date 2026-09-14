@@ -3,18 +3,21 @@ ts:
   schema: "S.jsonString.with(S.to, S.schema({ payload: S.optional(S.uint8Array) }))"
   input: string
   output: "{ payload?: Uint8Array<ArrayBufferLike> | undefined; }"
-  instantiations: 7036
+  instantiations: 6222
 jsonSchema:
   input: '{ type: "string", contentMediaType: "application/json" }'
   output: "Failed at payload: Expected JSON, received Uint8Array | undefined"
   openapi-3.0:
     input: '{ type: "string" }'
+isEqual:
+  input: strictEqual
+  output: (a,b)=>a===b||(a.payload===void 0?b.payload===void 0:b.payload!==void 0&&e[1](a.payload,b.payload))
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[6](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[5](v0);let v1=(v0["payload"]??null);for(;;){if(typeof v1==="string"){e[2](v1)||e[3](v1);v1=e[1](v1);break}if(v1===null){v1=void 0;break}e[4](v1)}return {payload:v1}}
+    expression: i=>{typeof i==="string"||e[6](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[5](v0);let v1=(v0.payload??null);for(;;){if(typeof v1==="string"){e[2](v1)||e[3](v1);v1=e[1](v1);break}if(v1===null){v1=void 0;break}e[4](v1)}return {payload:v1}}
     examples:
       not-base64:
         input: '"{\"payload\":\"!!\"}"'
@@ -26,7 +29,7 @@ operations:
         input: '"{\"payload\":\"iVBORw==\"}"'
         output: "{ payload: new Uint8Array([137, 80, 78, 71]) }"
   decode:
-    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[5](v0);let v1=(v0["payload"]??null);for(;;){if(typeof v1==="string"){e[2](v1)||e[3](v1);v1=e[1](v1);break}if(v1===null){v1=void 0;break}e[4](v1)}return {payload:v1}}
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[5](v0);let v1=(v0.payload??null);for(;;){if(typeof v1==="string"){e[2](v1)||e[3](v1);v1=e[1](v1);break}if(v1===null){v1=void 0;break}e[4](v1)}return {payload:v1}}
     examples:
       not-base64:
         input: '"{\"payload\":\"!!\"}"'
@@ -35,7 +38,7 @@ operations:
         input: '"{\"payload\":\"iVBORw==\"}"'
         output: "{ payload: new Uint8Array([137, 80, 78, 71]) }"
   encode:
-    expression: i=>{let v0=i["payload"];for(;;){if(v0 instanceof e[1]){let v1=e[0](v0);v0="\""+v1+"\"";break}if(v0===void 0)break;e[2](v0)}let v2="";if(v0!==void 0){v2+="\"payload\":"+v0}return "{"+v2+"}"}
+    expression: i=>{let v0=i.payload;for(;;){if(v0 instanceof e[1]){let v1=e[0](v0);v0="\""+v1+"\"";break}if(v0===void 0)break;e[2](v0)}let v2="";if(v0!==void 0){v2+="\"payload\":"+v0}return "{"+v2+"}"}
     examples:
       base64-value:
         input: "{ payload: new Uint8Array([137, 80, 78, 71]) }"

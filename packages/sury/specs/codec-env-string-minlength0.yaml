@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.env.with(S.to, S.string.with(S.minLength, 0))
+  input: string | undefined
+  output: string
+  instantiations: 5128
+jsonSchema:
+  input: '{ type: "string", minLength: 0 }'
+  fromInputType: string
+  output: '{ type: "string", minLength: 0 }'
+isEqual: strictEqual
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[0](i);return i}
+    examples:
+      set:
+        input: '"hi"'
+        output: '"hi"'
+      blank:
+        input: '""'
+        output: '""'
+      unset:
+        input: undefined
+        error: Expected env, received undefined
+      number:
+        input: "1"
+        error: Expected env, received 1
+  decode:
+    expression: i=>{i!==void 0||e[0](i);return i}
+    examples:
+      set:
+        input: '"hi"'
+        output: '"hi"'
+      blank:
+        input: '""'
+        output: '""'
+      unset:
+        input: undefined
+        error: Expected string, received undefined
+  encode: identity

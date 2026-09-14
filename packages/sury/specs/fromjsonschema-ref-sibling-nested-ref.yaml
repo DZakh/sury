@@ -1,12 +1,13 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: 'S.fromJSONSchema({ "$schema": "https://json-schema.org/draft/2020-12/schema", "$ref": "#/$defs/base", type: "object", properties: { child: { "$ref": "#/$defs/leaf" } }, required: ["child"], additionalProperties: true, "$defs": { base: { type: "object", additionalProperties: true }, leaf: { type: "string" } } })'
+  schema: 'S.fromJSONSchemaOrThrow({ "$schema": "https://json-schema.org/draft/2020-12/schema", "$ref": "#/$defs/base", type: "object", properties: { child: { "$ref": "#/$defs/leaf" } }, required: ["child"], additionalProperties: true, "$defs": { base: { type: "object", additionalProperties: true }, leaf: { type: "string" } } })'
   input: "{ [key: string]: JSON; } & { child: string; }"
   output: "{ [key: string]: JSON; } & { child: string; }"
   instantiations: 3289
 jsonSchema:
   input: '{ type: "object", allOf: [{ type: "object", properties: { child: { type: "string" } }, required: ["child"] }] }'
   output: '{ type: "object", allOf: [{ type: "object", properties: { child: { type: "string" } }, required: ["child"] }] }'
+isEqual: (a,b)=>{if(a===b)return true;let n=0;for(const k in a){if(!(k in b)||!(e[0](a[k],b[k])))return false;n++}for(const k in b)n--;return !n}
 vs:
   zod:
     _skip: not-applicable

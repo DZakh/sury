@@ -48,7 +48,7 @@ test("Fails to parse data with default", t => {
 test("Successfully serializes schema with transformation", t => {
   let schema = S.string->S.trim->S.option->S.Option.getOrWith(() => "default")
 
-  t->Assert.deepEqual(" abc"->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"abc"`))
+  t->Assert.deepEqual(" abc"->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`"abc"`))
 })
 
 test("Compiled parse code snapshot", t => {
@@ -71,14 +71,14 @@ test("Compiled async parse code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ParseAsync,
-    `i=>{for(;;){if(typeof i==="boolean"){let v0=e[0](i);i=v0;break}if(i===void 0){i=e[1]();break}e[2](i)}return Promise.resolve(i)}`,
+    `i=>{try{for(;;){if(typeof i==="boolean"){let v0=e[0](i);i=v0;break}if(i===void 0){i=e[1]();break}e[2](i)}return Promise.resolve(i)}catch(v1){return Promise.reject(v1)}}`,
   )
 })
 
 test("Compiled serialize code snapshot", t => {
   let schema = S.bool->S.option->S.Option.getOrWith(() => false)
 
-  // The reversed union validates the value like any other typed decode — the
+  // The reversed union validates the value like any other typed decode - the
   // old noop relied on Option_getWithDefault's noopDecoder hack.
   t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{typeof i==="boolean"||e[0](i);return i}`)
 })

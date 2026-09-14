@@ -3,16 +3,19 @@ ts:
   schema: S.union([S.number, S.string]).with(S.to, S.union([S.number.with(S.to, S.never), S.string]))
   input: string | number
   output: string
-  instantiations: 6870
+  instantiations: 6025
 jsonSchema:
   input: '{ anyOf: [{ type: "number" }, { type: "string" }] }'
   output: '{ type: "string" }'
+isEqual:
+  input: strictEqual
+  output: (a,b)=>a===b||e[0](a,b)
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{for(;;){if(typeof i==="number"&&i===i){e[0](i);break}if(typeof i==="string")break;e[1](i)}return i}
+    expression: i=>{for(;;){if(typeof i==="number"&&i==i){e[0](i);break}if(typeof i==="string")break;e[1](i)}return i}
     examples:
       rejected-number:
         input: "42"
@@ -20,6 +23,9 @@ operations:
       preserved-string:
         input: '"ok"'
         output: '"ok"'
+        divergence:
+          reason: the checks compile the reverse direction, which this codec leaves ambiguous, so they raise on the schema instead of answering about the value
+          check: Ambiguous number -> number | string. Should string be decoded or ignored? Choose with S.to for number -> string, or S.never -> string
   decode: eq-to-parse
   encode:
-    creationError: "SuryError: Invalid operation: can't convert never | string to number | string — number has no same-type variant on the other side. Use S.to to say what you mean, or S.never to mark a variant unreachable"
+    creationError: "SuryError: Ambiguous never | string -> number | string. Should number be decoded or ignored? Choose with S.to for string -> number, or S.never -> number"

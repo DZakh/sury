@@ -3,10 +3,11 @@ ts:
   schema: S.json.with(S.noValidation, true)
   input: JSON
   output: JSON
-  instantiations: 600
+  instantiations: 577
 jsonSchema:
   input: "{}"
   output: "{}"
+isEqual: (a,b)=>a===b||e[0](a,b)
 vs:
   zod:
     _skip: not-applicable

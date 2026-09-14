@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.record(S.string).with(S.to, S.schema({ a: S.optional(S.string) }))"
+  input: "{ [x: string]: string; }"
+  output: "{ a?: string | undefined; }"
+  instantiations: 6342
+jsonSchema:
+  input: '{ type: "object", additionalProperties: { type: "string" } }'
+  output: '{ type: "object", properties: { a: { type: "string" } } }'
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=0;for(const k in a){if(!(k in b)||!(a[k]===b[k]))return false;n++}for(const k in b)n--;return !n}
+  output: (a,b)=>a===b||a.a===b.a
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);for(let v0 in i){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path=[v0,...v2.path];throw v2}}let v3=i.a;return {a:v3}}
+    examples:
+      present:
+        input: '{ a: "x" }'
+        output: '{ a: "x" }'
+      absent:
+        input: "{}"
+        output: "{ a: undefined }"
+      not-a-string:
+        input: "{ a: 1 }"
+        error: "Failed at a: Expected string, received 1"
+  decode:
+    expression: i=>{let v1=i.a;return {a:v1}}
+    examples:
+      present:
+        input: '{ a: "x" }'
+        output: '{ a: "x" }'
+  encode:
+    expression: i=>{let v0=i.a;(typeof v0==="string"||v0===void 0)||e[0](v0);let v1={};if(v0!==void 0){v1.a=v0}return v1}
+    examples:
+      present:
+        input: '{ a: "x" }'
+        output: '{ a: "x" }'
+      absent-leaves-the-key-out:
+        input: "{ a: undefined }"
+        output: "{}"

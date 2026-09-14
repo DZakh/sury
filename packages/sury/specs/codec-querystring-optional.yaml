@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.queryString.with(S.to, S.schema({ nick: S.optional(S.string.with(S.maxLength, 3)), page: S.optional(S.number, 1), q: S.string.with(S.minLength, 0) }))"
+  input: string
+  output: "{ page: number; q: string; nick?: string | undefined; }"
+  instantiations: 7789
+jsonSchema:
+  input: '{ type: "string" }'
+  output: '{ type: "object", properties: { nick: { type: "string", maxLength: 3 }, page: { type: "number" }, q: { type: "string", minLength: 0 } }, required: ["page", "q"] }'
+isEqual:
+  input: strictEqual
+  output: (a,b)=>a===b||a.nick===b.nick&&a.page===b.page&&a.q===b.q
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[7](i);let v0=e[1](new e[0](i)),v1=v0.get("nick")||void 0,v2=v0.get("page"),v4=v0.get("q");if(v1){typeof v1==="string"||e[3](v1);v1.length<4||e[2](v1);}if(v2){typeof v2==="string"||e[4](v2);let v3=+v2;v3==v3&&(v3||v2.trim())||e[5](v2);v2=v3;}else{v2=1;}typeof v4==="string"||e[6](v4);return {nick:v1,page:v2,q:v4}}
+    examples:
+      all-present:
+        input: '"nick=nn&page=2&q=hi"'
+        output: '{ nick: "nn", page: 2, q: "hi" }'
+      all-empty:
+        input: '"nick=&page=&q="'
+        output: '{ nick: undefined, page: 1, q: "" }'
+      all-absent:
+        input: '""'
+        error: "Failed at q: Expected string, received undefined"
+      too-long:
+        input: '"nick=long&q="'
+        error: 'Failed at nick: Expected string.length <= 3, received "long"'
+  decode:
+    expression: i=>{let v0=e[1](new e[0](i)),v1=v0.get("nick")||void 0,v2=v0.get("page"),v4=v0.get("q");if(v1){typeof v1==="string"||e[3](v1);v1.length<4||e[2](v1);}if(v2){typeof v2==="string"||e[4](v2);let v3=+v2;v3==v3&&(v3||v2.trim())||e[5](v2);v2=v3;}else{v2=1;}typeof v4==="string"||e[6](v4);return {nick:v1,page:v2,q:v4}}
+    examples:
+      all-present:
+        input: '"nick=nn&page=2&q=hi"'
+        output: '{ nick: "nn", page: 2, q: "hi" }'
+  encode:
+    expression: i=>{let v0=i.page,v2=i.nick;typeof v0==="number"&&v0==v0||e[0](v0);let v1=new e[1]();if(v2!=null){v1.append("nick",v2);}v1.append("page",""+v0);v1.append("q",i.q);return v1.toString()}
+    examples:
+      built:
+        input: '{ nick: "nn", page: 2, q: "hi" }'
+        output: '"nick=nn&page=2&q=hi"'
+      defaulted:
+        input: '{ q: "" }'
+        error: "Failed at page: Expected number, received undefined"

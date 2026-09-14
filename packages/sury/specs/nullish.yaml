@@ -7,6 +7,7 @@ ts:
 jsonSchema:
   input: Expected JSON, received string | undefined | null
   output: Expected JSON, received string | undefined | null
+isEqual: strictEqual
 vs:
   zod: z.string().nullish()
 operations:

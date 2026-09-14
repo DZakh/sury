@@ -3,10 +3,11 @@ ts:
   schema: S.uri.with(S.pattern, /^https:\/\//)
   input: string
   output: string
-  instantiations: 596
+  instantiations: 573
 jsonSchema:
   input: '{ type: "string", format: "uri", pattern: "^https:\\/\\/" }'
   output: '{ type: "string", format: "uri", pattern: "^https:\\/\\/" }'
+isEqual: strictEqual
 vs:
   zod: z.url().regex(/^https:\/\//)
 operations:

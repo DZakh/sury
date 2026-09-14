@@ -3,10 +3,11 @@ ts:
   schema: S.blob.with(S.size, 2)
   input: Blob
   output: Blob
-  instantiations: 596
+  instantiations: 592
 jsonSchema:
   input: Expected JSON, received Blob.size == 2
   output: Expected JSON, received Blob.size == 2
+isEqual: strictEqual
 vs:
   zod:
     _skip: not-applicable

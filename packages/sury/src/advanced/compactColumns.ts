@@ -1,11 +1,12 @@
-// `S.compactColumns` — a row-of-objects schema read from column arrays, which
+// `S.compactColumns` - a row-of-objects schema read from column arrays, which
 // is why it owns a decoder of its own rather than composing existing ones.
 
 import {
   type Builder,
   copySchema,
+  copyTo,
   inlinedObjectKey,
-  inlinedValueFromString,
+  inlinedProperty,
   inputExpression,
   type Internal,
   panic,
@@ -16,12 +17,12 @@ import {
 } from "../base";
 import {
   _notVarBeforeValidation,
-  _var,
   B_asyncVal,
   B_markOutput,
   B_markThrow,
   B_merge,
   B_next,
+  B_nextVar,
   B_refine,
   B_scope,
   B_varWithoutAllocation,
@@ -36,12 +37,12 @@ import {
 } from "../parse";
 
 // The column types only exist once `.to` has been applied, so this must stay
-// lazy — until then there are no column names and the schema describes its own
+// lazy - until then there are no column names and the schema describes its own
 // `array(array(item))` shape as `item[][]`.
 //
 // Columns are read where compactColumnsDecoder's forward direction reads them:
 // on the `.to` array's item schema. Reading `to.properties` instead described
-// `.to(objectSchema)` — a shape the decoder rejects outright — while the
+// `.to(objectSchema)` - a shape the decoder rejects outright - while the
 // supported `.to(S.array(objectSchema))` fell through to a bare `unknown[][]`.
 const compactColumnsExpression = (schema: Internal): string => {
   const to = schema.to;
@@ -52,7 +53,7 @@ const compactColumnsExpression = (schema: Internal): string => {
   }
   let body = "";
   for (const key in props) {
-    body = body + (body ? ", " : "") + inputExpression(props[key]!) + "[]";
+    body += (body ? ", " : "") + inputExpression(props[key]!) + "[]";
   }
   return `[${body}]`;
 }
@@ -68,31 +69,15 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
 
   // Find the object schema whose properties define the columns.
   // Forward (columnar → rows): props come from selfSchema.to.additionalItems.
-  // Reverse (rows → columnar): props come from input.schema.additionalItems (the
+  // Reverse (rows → columnar): props come from input.s.additionalItems (the
   // object schema left over after the preceding parse pipeline step).
-  let forwardProps: Record<string, Internal> | undefined;
-  if (
-    selfSchema.to !== U &&
-    typeof selfSchema.to.additionalItems === "object"
-  ) {
-    forwardProps = (selfSchema.to.additionalItems as Internal).properties;
-  } else {
-    forwardProps = U;
-  }
+  const propsOf = (s: Internal | undefined): Record<string, Internal> | undefined =>
+    s !== U && typeof s.additionalItems === "object"
+      ? (s.additionalItems as Internal).properties
+      : U;
+  const forwardProps = propsOf(selfSchema.to);
   const isForwardDirection = forwardProps !== U;
-  let maybeProperties: Record<string, Internal> | undefined;
-  if (isForwardDirection) {
-    maybeProperties = forwardProps;
-  } else {
-    if (
-      input.s.additionalItems !== U &&
-      typeof input.s.additionalItems === "object"
-    ) {
-      maybeProperties = (input.s.additionalItems as Internal).properties;
-    } else {
-      maybeProperties = U;
-    }
-  }
+  const maybeProperties = isForwardDirection ? forwardProps : propsOf(input.s);
 
   if (!maybeProperties) {
     return panic("S.compactColumns expects .to(S.array(objectSchema))");
@@ -102,7 +87,7 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
     const keysLen = keys.length;
 
     // Forward: output already matches selfSchema.to, reuse it so
-    // markOutput picks up its refiner. selfSchema.to is Some here —
+    // markOutput picks up its refiner. selfSchema.to is Some here -
     // isForwardDirection reads through it above.
     // Reverse: runtime shape differs (array of arrays of unknown),
     // so build fresh and propagate .to for downstream steps.
@@ -134,8 +119,8 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
           {
             c: (inputVar: string) => {
               let check = `Array.isArray(${inputVar})&&${inputVar}.length===${keysLen}`;
-              for (let idx = 0; idx <= keysLen - 1; ++idx) {
-                check = check + `&&Array.isArray(${inputVar}[${idx}])`;
+              for (let idx = 0; idx < keysLen; ++idx) {
+                check += `&&Array.isArray(${inputVar}[${idx}])`;
               }
               return check;
             },
@@ -146,7 +131,6 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
 
       const inputVar = input.v();
       const iteratorVar = B_varWithoutAllocation(input.g);
-      const outputVar = B_varWithoutAllocation(input.g);
 
       // Actual runtime item type: unknown for top-level parser, or
       // the typed source when the caller passed already-typed data.
@@ -163,7 +147,7 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
       let itemParseCode = "";
       let asyncInlines = "";
       let hasAsync = false;
-      for (let idx = 0; idx <= keysLen - 1; ++idx) {
+      for (let idx = 0; idx < keysLen; ++idx) {
         const key = keys[idx]!;
         const idxStr = `${idx}`;
         const rawValueCode = `${inputVar}[${idxStr}][${iteratorVar}]`;
@@ -174,14 +158,10 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
         // (e.g. runtime=unknown, declared=json), chain through the
         // declared type first so parse validates the value matches
         // the source schema before converting to the field type.
-        let itemExpected: Internal;
-        if (declaredItemSchema !== runtimeItemSchema) {
-          const chained = copySchema(declaredItemSchema);
-          chained.to = fieldSchema;
-          itemExpected = chained;
-        } else {
-          itemExpected = fieldSchema;
-        }
+        const itemExpected =
+          declaredItemSchema !== runtimeItemSchema
+            ? copyTo(declaredItemSchema, fieldSchema)
+            : fieldSchema;
 
         const itemInput = B_scope(input);
         itemInput.i = rawValueCode;
@@ -197,21 +177,20 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
           hasAsync = true;
         }
 
-        itemParseCode = itemParseCode + B_merge(itemOutput);
-        lengthCode = lengthCode + `${inputVar}[${idxStr}].length,`;
-        asyncInlines = asyncInlines + `${itemOutput.i},`;
-        itemBuildCode =
-          itemBuildCode + `${inlinedObjectKey(key)}:${itemOutput.i},`;
+        itemParseCode += B_merge(itemOutput);
+        lengthCode += `${inputVar}[${idxStr}].length,`;
+        asyncInlines += `${itemOutput.i},`;
+        itemBuildCode += `${inlinedObjectKey(key)}:${itemOutput.i},`;
       }
 
-      let output = B_next(input, outputVar, outputSchema, outputSchema);
-      output.v = _var;
+      let output = B_nextVar(input, outputSchema);
+      const outputVar = output.i;
       // Row accumulator: declared at the head of its own segment, before the
       // `for` below that fills it.
       output.cp = `let ${outputVar}=new Array(Math.max(${lengthCode.slice(0, -1)}));`;
 
       // Wrap the row body in a single try/catch that prepends the row index to
-      // any thrown error — giving paths like `[0].bar`. A single wrapper is
+      // any thrown error - giving paths like `[0].bar`. A single wrapper is
       // used (rather than per-field) so that `let` variables declared while
       // parsing one field remain in scope for the object construction.
       let rowAssign: string;
@@ -220,11 +199,9 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
         // via Promise.all, and the final output is Promise.all of all row promises.
         const rowResultVar = B_varWithoutAllocation(input.g);
         let asyncBuildCode = "";
-        for (let idx = 0; idx <= keysLen - 1; ++idx) {
+        for (let idx = 0; idx < keysLen; ++idx) {
           const key = keys[idx]!;
-          asyncBuildCode =
-            asyncBuildCode +
-            `${inlinedObjectKey(key)}:${rowResultVar}[${idx}],`;
+          asyncBuildCode += `${inlinedObjectKey(key)}:${rowResultVar}[${idx}],`;
         }
         rowAssign = `${outputVar}[${iteratorVar}]=Promise.all([${asyncInlines.slice(0, -1)}]).then(${rowResultVar}=>({${asyncBuildCode.slice(0, -1)}}));`;
       } else {
@@ -257,20 +234,21 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
       // (e.g. bigint→string for json compatibility).
       const inputVar = input.v();
       const iteratorVar = B_varWithoutAllocation(input.g);
-      const outputVar = B_varWithoutAllocation(input.g);
+      const output = B_nextVar(input, outputSchema);
+      const outputVar = output.i;
 
       const needsPerFieldTransform = declaredItemSchema !== unknown;
 
       let initialArraysCode = "";
       let settingCode = "";
       let perFieldCode = "";
-      for (let idx = 0; idx <= keysLen - 1; ++idx) {
+      for (let idx = 0; idx < keysLen; ++idx) {
         const key = keys[idx]!;
-        initialArraysCode = initialArraysCode + `new Array(${inputVar}.length),`;
+        initialArraysCode += `new Array(${inputVar}.length),`;
 
         if (needsPerFieldTransform) {
           const fieldSchema = properties[key]!;
-          const rawValueCode = `${inputVar}[${iteratorVar}][${inlinedValueFromString(key)}]`;
+          const rawValueCode = inlinedProperty(`${inputVar}[${iteratorVar}]`, key);
 
           const itemInput = B_scope(input);
           itemInput.i = rawValueCode;
@@ -281,19 +259,14 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
           itemInput.path = [key];
 
           const itemOutput = parse(itemInput);
-          perFieldCode = perFieldCode + B_merge(itemOutput);
-          settingCode =
-            settingCode +
-            `${outputVar}[${idx}][${iteratorVar}]=${itemOutput.i};`;
+          perFieldCode += B_merge(itemOutput);
+          settingCode += `${outputVar}[${idx}][${iteratorVar}]=${itemOutput.i};`;
         } else {
-          settingCode =
-            settingCode +
-            `${outputVar}[${idx}][${iteratorVar}]=${inputVar}[${iteratorVar}][${inlinedValueFromString(key)}];`;
+          settingCode +=
+            `${outputVar}[${idx}][${iteratorVar}]=${inlinedProperty(`${inputVar}[${iteratorVar}]`, key)};`;
         }
       }
 
-      const output = B_next(input, outputVar, outputSchema, outputSchema);
-      output.v = _var;
       // Columnar accumulator: declared before the `for` that fills it.
       output.cp = `let ${outputVar}=[${initialArraysCode.slice(0, -1)}];`;
       const loopBody = perFieldCode + settingCode;

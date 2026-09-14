@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.string.with(S.refine, () => false, { error: "User error", path: [Symbol("tag")] })'
+  input: string
+  output: string
+  instantiations: 664
+jsonSchema:
+  input: '{ type: "string" }'
+  output: '{ type: "string" }'
+isEqual: strictEqual
+vs:
+  zod: 'z.string().refine(() => false, { message: "User error", path: [Symbol("tag")] })'
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0](i)||e[1](i);return i}
+    examples:
+      always-fails-at-symbol-path:
+        input: '"123"'
+        error: "Failed at [Symbol(tag)]: User error"
+  decode:
+    expression: i=>{e[0](i)||e[1](i);return i}
+    examples:
+      always-fails-at-symbol-path:
+        input: '"123"'
+        error: "Failed at [Symbol(tag)]: User error"
+  encode:
+    expression: i=>{e[0](i)||e[1](i);return i}
+    examples:
+      always-fails-at-symbol-path:
+        input: '"123"'
+        error: "Failed at [Symbol(tag)]: User error"

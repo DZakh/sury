@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.optional(S.string).with(S.meta, { name: "Env" }).with(S.to, S.number)'
+  input: string | undefined
+  output: number
+  instantiations: 5189
+jsonSchema:
+  input: '{ type: "string" }'
+  fromInputType: string
+  output: '{ type: "number" }'
+isEqual: strictEqual
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{if(typeof i==="string"){let v0=+i;v0==v0&&(v0||i.trim())||e[0](i);i=v0}else{e[1](i)}return i}
+    examples:
+      decodes:
+        input: '"12"'
+        output: "12"
+      undefined-is-rejected-under-the-name:
+        input: undefined
+        error: Expected Env, received undefined
+  decode: eq-to-parse
+  encode:
+    expression: i=>{i=""+i;return i}
+    examples:
+      number:
+        input: "12"
+        output: '"12"'

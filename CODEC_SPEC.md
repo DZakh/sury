@@ -1,26 +1,26 @@
 # Codec spec
 
-Spec for the codec implementation — how a conversion (`S.to`, or the implicit one
+Spec for the codec implementation - how a conversion (`S.to`, or the implicit one
 created by reversing a schema) picks what to decode into what.
 
 **Implemented.** `src/union.ts` is the union factory, decoder and encoder
 these rules describe; `docs/js-usage.md` and `docs/rescript-usage.md` carry the
 user-facing version under "Converting to / from a union". The
 `packages/sury/specs/codec-*.yaml` specs snapshot the behavior, and their
-`FIXME: Codec next expects:` notes they used to carry are gone — every row
+`FIXME: Codec next expects:` notes they used to carry are gone - every row
 now matches.
 
 ## Shared definitions
 
-> Two schemas have the **same type** when their type tags match — including the
+> Two schemas have the **same type** when their type tags match - including the
 > class for instances and the format for formatted primitives, where relevant.
 > `S.int32` and `S.number` are different types, and so are `S.json` and
-> `S.string` — even though every JSON string would validate against `S.string`.
-> A schema with no tag of its own to compare — a recursive schema, or a union
-> treated as a normal schema (below) — has the same type as another only when
+> `S.string` - even though every JSON string would validate against `S.string`.
+> A schema with no tag of its own to compare - a recursive schema, or a union
+> treated as a normal schema (below) - has the same type as another only when
 > the two are strictly equal, i.e. the same schema reference.
 
-- **Checks run at operation creation time**, against the **derived** types — the
+- **Checks run at operation creation time**, against the **derived** types - the
   actual schema at that point in the pipeline, which may be narrower than the
   originally defined one (an upstream transformation can refine it). Reversing a
   schema doesn't re-run the checks: it reverses the already-resolved per-variant
@@ -28,12 +28,12 @@ now matches.
 - **Nested unions are flattened** before the rules apply:
   `S.union([S.string, S.union([S.number, S.boolean])])` acts as a three-variant
   union. The exception is a union carrying its own format, transformation, or
-  refinement — it's treated as a normal (non-union) schema on its side of the
+  refinement - it's treated as a normal (non-union) schema on its side of the
   conversion, so it type-matches by strict equality: the same union reference on
   the other side matches, an identically written one does not.
-- **`S.never` marks an unreachable path.** `S.never` variants — including
+- **`S.never` marks an unreachable path.** `S.never` variants - including
   transformed ones like `S.never.with(S.to, S.number)`, which match by their
-  `never` input — are ignored by type matching: they never trigger the
+  `never` input - are ignored by type matching: they never trigger the
   exceptions below and don't count toward rule 4's coverage.
 
 ## Rule 1: non-union → non-union
@@ -45,7 +45,7 @@ S.string.with(S.to, S.schema(undefined)); // "undefined" <-> undefined
 S.schema(null).with(S.to, S.schema(undefined)); // null <-> undefined
 ```
 
-Which pairs have a built-in decoder is out of scope here — literal-to-literal
+Which pairs have a built-in decoder is out of scope here - literal-to-literal
 conversion in particular keeps whatever it does today
 (`codec-literal-string-literal-number`, `codec-literal-array-literal-string`).
 These rules only decide which schemas that decoder is asked about.
@@ -58,9 +58,9 @@ in definition order:
 ```ts
 const schema = S.json.with(S.to, S.union([S.bigint, S.string]));
 
-S.parser(schema)("123"); // 123n — the bigint variant comes first
-S.parser(schema)("abc"); // "abc" — bigint decoding fails, string accepts
-S.parser(schema)(true); // throws — no implicit double decoding (true -> "true" -> ...)
+S.parseOrThrow(schema)("123"); // 123n - the bigint variant comes first
+S.parseOrThrow(schema)("abc"); // "abc" - bigint decoding fails, string accepts
+S.parseOrThrow(schema)(true); // throws - no implicit double decoding (true -> "true" -> ...)
 ```
 
 `S.json` is not the exact `string` type, so string inputs still go through
@@ -72,9 +72,9 @@ a differently-tagged variant sitting between two same-tag ones keeps its turn.
 ```ts
 const schema = S.json.with(S.to, S.union(["123", S.bigint, S.string]));
 
-S.parser(schema)("123"); // "123" — the literal matches first and stays a string
-S.parser(schema)("124"); // 124n — the literal fails, the bigint variant decodes
-S.parser(schema)("abc"); // "abc" — bigint decoding fails, the catch-all string accepts
+S.parseOrThrow(schema)("123"); // "123" - the literal matches first and stays a string
+S.parseOrThrow(schema)("124"); // 124n - the literal fails, the bigint variant decodes
+S.parseOrThrow(schema)("abc"); // "abc" - bigint decoding fails, the catch-all string accepts
 ```
 
 **Built-in decoding fills gaps, it doesn't re-type what the source already
@@ -87,13 +87,13 @@ no way to produce. `bigint` is not a JSON tag, so a JSON string is offered to
 ```ts
 const schema = S.json.with(S.to, S.union([S.literal("a"), S.number, S.literal("b")]));
 
-S.parser(schema)("b"); // "b" — "a" fails, "b" matches
-S.parser(schema)("5"); // throws — S.number takes JSON numbers as they are, it doesn't decode "5"
-S.parser(schema)("c"); // throws — no variant accepts
+S.parseOrThrow(schema)("b"); // "b" - "a" fails, "b" matches
+S.parseOrThrow(schema)("5"); // throws - S.number takes JSON numbers as they are, it doesn't decode "5"
+S.parseOrThrow(schema)("c"); // throws - no variant accepts
 ```
 
 **Grouping is codegen, not semantics.** Emitting same-tag variants under one
-shared type check — `typeof i==="string"&&(i==="a"||i==="b")` — is an
+shared type check - `typeof i==="string"&&(i==="a"||i==="b")` - is an
 optimization, allowed exactly while it can't change which variant wins. Hoisting
 `"a"` and `"b"` past `S.number` above is legal: neither literal can take a value
 `S.number` would have taken. Hoisting `"123"` and the catch-all `S.string` past
@@ -101,10 +101,10 @@ optimization, allowed exactly while it can't change which variant wins. Hoisting
 the shortcut isn't available, each check stays in its own definition slot and
 the repeated `typeof` is reused from a var.
 
-`S.unknown` is a normal type here — it only matches another `unknown`. But an
+`S.unknown` is a normal type here - it only matches another `unknown`. But an
 `unknown` value may already *be* any of the variant types, so the
 no-re-typing rule leaves no gap to fill: built-in decoding never steps in,
-and the conversion is pure validation — every variant checked by its type,
+and the conversion is pure validation - every variant checked by its type,
 in definition order, values narrowed but never re-typed. Nothing is coerced
 either way, so an `unknown` source is never ambiguous and never triggers the
 partial-match rejection below.
@@ -124,7 +124,7 @@ S.schema("x").with(S.to, S.union([S.string.with(S.minLength, 3), S.schema("x")])
 // the refinement rejects, then the literal fallback accepts "x"
 ```
 
-**Exception — partial type match.** If the source has the same type as *some but
+**Exception - partial type match.** If the source has the same type as *some but
 not all* target variants, the operation is rejected when it's created. Sury
 can't tell whether you want a pass-through for the matching variant, decoding
 attempts in definition order, or simply widened the type with no decoding
@@ -132,7 +132,7 @@ intent:
 
 ```ts
 S.string.with(S.to, S.union([S.number, S.string]));
-// Invalid operation: for "123" — keep "123" or decode to 123?
+// Invalid operation: for "123" - keep "123" or decode to 123?
 ```
 
 Say what you mean with an explicit variant:
@@ -145,17 +145,31 @@ S.string.with(S.to, S.union([S.string.with(S.to, S.number), S.string]));
 S.string.with(S.to, S.union([S.never.with(S.to, S.number), S.string]));
 ```
 
-The same applies to widening into optional or nullable targets:
+The `Invalid operation` error suggests these rewrites.
+
+**Exception - nullish arm.** A `null` or `undefined` target variant opposite a
+single source that can't hold the value is a widened type, not a decoding: the
+arm is dropped, so it neither makes the operation ambiguous nor is ever
+produced, and the reverse rejects the value. A string in particular never reads
+the text `"undefined"` as it. Only a carrier keeps the arm: `unknown`, `S.json`
+and a `S.jsonString` document (as `null`), `S.env` (an unset var), a
+recursive schema.
 
 ```ts
-S.string.with(S.to, S.optional(S.string));
-// Invalid operation: for "undefined" — keep the string or decode to undefined?
-
-// Widen without decoding — the undefined variant is unreachable:
-S.string.with(S.to, S.union([S.string, S.never.with(S.to, S.schema(undefined))]));
+S.parseOrThrow(S.string.with(S.to, S.optional(S.number)))("undefined");
+// throws - Expected number, received "undefined"
+S.parseOrThrow(S.string.with(S.to, S.optional(S.string)))("abc"); // "abc" - the arm is unreachable
+S.parseOrThrow(S.json.with(S.to, S.optional(S.string)))(null); // undefined - JSON holds it
+S.parseOrThrow(S.env.with(S.to, S.optional(S.string)))(""); // undefined - `""` is an unset var
 ```
 
-The `Invalid operation` error suggests these rewrites.
+The arm meets the link it is written after, not the head of the chain:
+
+```ts
+S.parseOrThrow(S.env.with(S.to, S.boolean).with(S.to, S.optional(S.boolean)))(undefined);
+// throws - the arm meets S.boolean, which has no place for an unset var.
+// S.env.with(S.to, S.optional(S.boolean)) reads it as undefined
+```
 
 ## Rule 3: union → non-union
 
@@ -165,19 +179,19 @@ target, dispatched in definition order:
 ```ts
 const schema = S.union([S.bigint, S.string]).with(S.to, S.json);
 
-S.parser(schema)(123n); // "123"
-S.parser(schema)("123"); // "123"
-S.parser(schema)("abc"); // "abc"
+S.parseOrThrow(schema)(123n); // "123"
+S.parseOrThrow(schema)("123"); // "123"
+S.parseOrThrow(schema)("abc"); // "abc"
 ```
 
-**Exception — partial type match.** If the target has the same type as some but
+**Exception - partial type match.** If the target has the same type as some but
 not all source variants, the operation is rejected. Sury can't tell whether the
 non-matching variants should decode to the target or be rejected as failed
 cases:
 
 ```ts
 S.union([S.number, S.string]).with(S.to, S.string);
-// Invalid operation: for 123 — decode to "123" or fail as a non-matching case?
+// Invalid operation: for 123 - decode to "123" or fail as a non-matching case?
 ```
 
 Say what you mean with an explicit target union:
@@ -192,9 +206,30 @@ S.union([S.number, S.string]).with(S.to, S.union([S.number.with(S.to, S.never), 
 
 The `Invalid operation` error suggests these rewrites.
 
+**Exception - nullish arm.** The mirror of rule 2's: a `null` or `undefined`
+source variant opposite a single target that can't hold the value is dropped
+rather than converted, and the value is rejected naming what is left.
+`S.optional(X).with(S.to, T)` and `S.nullable(X).with(S.to, T)` read as
+`X -> T` over a wider input type:
+
+```ts
+const schema = S.optional(S.string).with(S.to, S.number);
+
+S.parseOrThrow(schema)("12"); // 12
+S.parseOrThrow(schema)(undefined); // throws - Expected string, received undefined
+S.optional(S.number).with(S.to, S.string); // ✅ 12 -> "12", undefined rejected, never "undefined"
+S.optional(S.string).with(S.to, S.string); // ✅ string -> string, undefined rejected
+S.optional(S.string).with(S.to, S.json); // ✅ undefined -> null, JSON holds it
+S.optional(S.string).with(S.to, S.env); // ✅ undefined -> undefined, an unset var
+S.env.with(S.to, S.string.with(S.minLength, 0)); // ✅ string -> string, undefined rejected
+```
+
+Only the arm is dropped, so a union another member leaves ambiguous is still
+rejected (`codec-optional-union2-string-partial`).
+
 ## Rule 4: union → union
 
-No coercion — values pass through to the same-type target variant. The two
+No coercion - values pass through to the same-type target variant. The two
 unions must cover each other: every source variant needs at least one same-type
 target variant, and every target variant needs at least one same-type source
 variant. Otherwise the operation is rejected:
@@ -207,7 +242,7 @@ S.union([S.string, S.number, S.bigint]).with(S.to, S.union([S.json, S.bigint]));
 ```
 
 A transformed source variant matches by its output type, and a transformed
-target variant by its input type — so per-variant conversion is always available
+target variant by its input type - so per-variant conversion is always available
 explicitly:
 
 ```ts
@@ -215,8 +250,8 @@ S.optional(S.string).with(S.to, S.nullable(S.boolean)); // ❌ string doesn't ma
 S.optional(S.string).with(S.to, S.nullable(S.string.with(S.to, S.boolean))); // ✅
 ```
 
-**Exception — nullish bridge.** A `null` or `undefined` variant left unmatched
-by type may match the opposite nullish variant on the other side — even one that
+**Exception - nullish bridge.** A `null` or `undefined` variant left unmatched
+by type may match the opposite nullish variant on the other side - even one that
 already has a same-type match. At runtime the same-type target wins; the bridge
 only kicks in when there is none:
 
@@ -226,7 +261,7 @@ S.optional(S.literal("x")).with(S.to, S.nullable(S.literal("x"))); // ✅ "x" ma
 S.optional(S.string).with(S.to, S.union([S.string, null, undefined])); // ✅ undefined -> undefined (same type wins); reverse maps null -> undefined
 ```
 
-**Worked example** — `S.union([S.bigint, S.number, null]).with(S.to, S.union([S.bigint, S.number, undefined]))`:
+**Worked example** - `S.union([S.bigint, S.number, null]).with(S.to, S.union([S.bigint, S.number, undefined]))`:
 
 Forward:
 
@@ -234,32 +269,32 @@ Forward:
 - `123.12` → `123.12` (number passes through)
 - `null` → `undefined` (nullish bridge)
 
-Reverse (via `S.encoder`):
+Reverse (via `S.encodeOrThrow`):
 
 - `undefined` → `null` (nullish bridge)
 - `123n` → `123n`, `123.12` → `123.12` (pass through)
 
-Union conversion always performs exhaustive validation — every variant is
+Union conversion always performs exhaustive validation - every variant is
 checked, so transformed unions stay consistent across decode and encode.
 
 ## Failure hands the value to the next variant
 
-Any *validation* failure of a variant — a discriminant miss, a refinement
-failure, or a `S.Error` raised anywhere inside its body — passes the value to the
+Any *validation* failure of a variant - a discriminant miss, a refinement
+failure, or a `S.Error` raised anywhere inside its body - passes the value to the
 next variant. Only when none is left does the union throw, aggregating the
 per-variant reasons under one error. This is the uniform rule for plain
 validation unions and for every conversion rule above.
 
-A variant that throws something that isn't a Sury error propagates it instead.
-That exception is a bug in the code that raised it — a `TypeError` from a
-predicate that assumed the wrong type, say — not a statement about whether the
-value matches, and treating it as "try the next variant" would let a later
-catch-all turn the bug into a silently successful parse:
+A variant's own code throwing - a coder, or a refinement predicate that hit a
+`TypeError` on a value it was never written for - is that variant failing, and
+passes the value on like any other failure. What propagates instead is an
+exception nothing in the schema owns: a getter on the input, say. That one is a
+bug in the value's environment, not a statement about whether the value
+matches, so it surfaces rather than being tried past:
 
 ```ts
-S.union([S.string.with(S.refine, (v) => v.trim().length > 0), S.string]);
-// a non-string never reaches the predicate — but if one did, the TypeError
-// surfaces rather than falling through to the catch-all
+S.union([S.string.with(S.refine, (v) => { throw new TypeError("x") }), S.string]);
+// the predicate's throw fails the first variant; the catch-all takes the value
 ```
 
 Two consequences:
@@ -270,15 +305,15 @@ Two consequences:
   `S.union([S.string.with(S.minLength, 3), S.number, S.string])` accepts `"ab"` through
   the catch-all.
 - Where no later variant could accept a value that entered this one (disjoint
-  types, disjoint literal discriminants — the discriminated-union shape), the
+  types, disjoint literal discriminants - the discriminated-union shape), the
   fall-through is dead code. The variant throws its own precise error instead
   (`Failed at ["a"]: Expected string, received 42`), which keeps happy paths free
   of `try`/`catch` and sharpens the message.
 
 ## No built-in decoder for a variant
 
-A pair with no built-in decoder is rejected when the operation is created —
-`Can't decode boolean to number. Use S.to to define a custom decoder`. Being one
+A pair with no built-in decoder is rejected when the operation is created -
+`Can't decode boolean -> number. Define custom codec with S.to`. Being one
 variant of a union changes nothing about that: if any variant's decoder can't be
 built, the whole operation is rejected, under every rule above.
 
@@ -299,7 +334,7 @@ and a conversion with no decodable variant at all never compiles into an
 operation that throws for every input. The error belongs to the operation, so it
 is raised once, where the operation is written.
 
-`S.never` remains the way to say a path is deliberately unreachable — it is
+`S.never` remains the way to say a path is deliberately unreachable - it is
 ignored by variant matching, so it never triggers this rejection:
 
 ```ts
@@ -313,7 +348,7 @@ at a time. Every rule above still decides which schemas the conversion is asked
 about; only the conversion itself changes.
 
 Each direction takes a function, `"auto"` (keep the built-in decoder),
-`"never"`, or `{async: fn}`. Async is declared, not discovered — an async slot
+`"never"`, or `{async: fn}`. Async is declared, not discovered - an async slot
 compiles only into an async operation, and the sync one is rejected when it's
 created (`codec-custom-async-decode`, `codec-custom-async-encode`).
 
@@ -334,13 +369,13 @@ the result lands at the target's *output* and only the output-side refinements
 run. Two things are carved back out, because the type they rest on isn't a
 proof. A literal, since a type says `string` and never the string `"a"`, so a
 `const` is checked whatever the value claims to be. And `S.any` on either side
-— its `t<'any>` is a variable that unifies with whatever the coder returns, so
+- its `t<'any>` is a variable that unifies with whatever the coder returns, so
 a pair written against it goes through the junction like the JS one. Because
 the trusting seam skips the target's own conversion, it rejects a target that
 converts (`The target already converts`); chain `S.to` instead.
 
 **A single function is a decode-only shorthand**, and the encode direction is
-then rejected when the operation is created — not skipped, and not skipped
+then rejected when the operation is created - not skipped, and not skipped
 inside a union either, since yielding the variant would commit to a semantics
 the caller never wrote (`codec-custom-shorthand`, `codec-custom-shorthand-union`).
 
@@ -349,7 +384,7 @@ path. In that direction the variant is ignored by the rules above exactly like
 `S.never`: inside a union it yields to its siblings, standalone it rejects the
 operation, and a union whose every variant yields is rejected as well
 (`codec-custom-never`, `codec-custom-never-union`). That single-direction reach
-is what `S.optional(schema, default)` is built from — the default arm decodes
+is what `S.optional(schema, default)` is built from - the default arm decodes
 `undefined` and takes the never slot on encode.
 
 ## Spec coverage
@@ -359,25 +394,34 @@ changed when the implementation landed:
 
 | Spec                                 | Rule | Behavior                                                             |
 | ------------------------------------ | ---- | -------------------------------------------------------------------- |
-| `codec-union-nested-refined-union`    | —    | a union with its own refinement isn't flattened, and it still refines |
-| `codec-bool-union2-unsupported`       | —    | rejected — no `boolean -> symbol` decoder                            |
-| `codec-bool-union2-all-unsupported`   | —    | rejected — no decoder for either member                              |
-| `codec-union2-string-unsupported`     | —    | rejected — no `symbol -> string` decoder                             |
+| `codec-union-nested-refined-union`    | -    | a union with its own refinement isn't flattened, and it still refines |
+| `codec-bool-union2-unsupported`       | -    | rejected - no `boolean -> symbol` decoder                            |
+| `codec-bool-union2-all-unsupported`   | -    | rejected - no decoder for either member                              |
+| `codec-union2-string-unsupported`     | -    | rejected - no `symbol -> string` decoder                             |
 | `codec-json-union2`                   | 2    | non-bigint string falls back to the `S.string` member                |
 | `codec-json-union3-ungrouped`         | 2    | `"123"` matches the literal, `"124"` reaches the `S.bigint` member    |
 | `codec-number-union2-int32`           | 2    | compiles: int32 first, string next                                   |
-| `codec-string-optional-partial`       | 2    | rejected — partial type match                                        |
-| `codec-string-union2-partial`         | 2    | rejected — partial type match                                        |
-| `codec-union2-string-partial`         | 3    | rejected — partial type match                                        |
-| `codec-optional-nullable-partial`     | 4    | rejected — `string` has no same-type target member                   |
-| `codec-union2-union3-extra-target`    | 4    | rejected — `boolean` has no source member                            |
-| `codec-union3-union2-extra-source`    | 4    | rejected — `boolean` has no target member                            |
-| `codec-union3-union2-json`            | 4    | rejected — `json` is not the exact `string`/`number` type             |
-| `codec-union-refined-fallback`         | —    | new: a refined member falls through to a same-type catch-all          |
-| `union2-refine-throws`                 | —    | new: a foreign exception propagates instead of matching the catch-all |
-| `optional-object`                      | —    | new: an array is not an object, in the `X \| undefined` dispatch too   |
-| `union2-object-number`                 | —    | new: the same, for an object member sharing a union with another tag  |
-| `object1`, `object5-optional`          | —    | an array is not an object at the top level either, in every mode      |
+| `codec-string-optional`              | 2    | nullish arm - `undefined` is never produced, and rejected on encode  |
+| `codec-string-optional-number`       | 2    | nullish arm - `"undefined"` text is rejected, `"12"` decodes to `12` |
+| `codec-optional-string-string`       | 3    | nullish arm - `undefined` rejected as `Expected string`              |
+| `codec-optional-number-string`       | 3    | nullish arm - `undefined` is not written as text                     |
+| `codec-optional-string-number`       | 3    | nullish arm - `X -> T` decodes, `undefined` rejected                 |
+| `codec-optional-string-uint8array`   | 3    | nullish arm - the text packs, `undefined` rejected                   |
+| `codec-file-optional-email`          | 2    | nullish arm - a file reads into `email`, not into a choice           |
+| `codec-nullable-string-string`, `codec-nullish-string-string` | 3 | nullish arm - `null` the same way                        |
+| `codec-object-optional-string-string`| 3    | nullish arm - an optional field required on output, `Failed at a`   |
+| `codec-optional-union2-string-partial` | 3  | nullish arm dropped, still rejected - `number` is the partial match  |
+| `codec-string-union2-partial`         | 2    | rejected - partial type match                                        |
+| `codec-union2-string-partial`         | 3    | rejected - partial type match                                        |
+| `codec-optional-nullable-partial`     | 4    | rejected - `string` has no same-type target member                   |
+| `codec-union2-union3-extra-target`    | 4    | rejected - `boolean` has no source member                            |
+| `codec-union3-union2-extra-source`    | 4    | rejected - `boolean` has no target member                            |
+| `codec-union3-union2-json`            | 4    | rejected - `json` is not the exact `string`/`number` type             |
+| `codec-union-refined-fallback`         | -    | new: a refined member falls through to a same-type catch-all          |
+| `union2-refine-throws`                 | -    | new: a throwing refine fails its variant, so the catch-all matches    |
+| `optional-object`                      | -    | new: an array is not an object, in the `X \| undefined` dispatch too   |
+| `union2-object-number`                 | -    | new: the same, for an object member sharing a union with another tag  |
+| `object1`, `object5-optional`          | -    | an array is not an object at the top level either, in every mode      |
 
 The already-conformant rows kept their behavior; several lost dead code the old
 implementation emitted (a `try/catch` around a body that can't throw, an `else if`

@@ -7,6 +7,7 @@ ts:
 jsonSchema:
   input: Expected JSON, received bigint
   output: Expected JSON, received bigint
+isEqual: strictEqual
 vs:
   zod: z.bigint()
 operations:

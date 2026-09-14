@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: '(() => { try { S.recursive("Bad", () => { throw new Error("boom"); }); } catch {} return S.recursive("Ok", (self) => S.schema({ v: S.string, next: S.optional(self) })); })()'
+  input: unknown
+  output: unknown
+  instantiations: 7711
+jsonSchema:
+  input: '{ $ref: "#/$defs/Ok", $defs: { Ok: { type: "object", properties: { v: { type: "string" }, next: { $ref: "#/$defs/Ok" } }, required: ["v"] } } }'
+  fromInputType: "{ v: string; next?: ... | undefined; }"
+  output: '{ $ref: "#/$defs/Ok", $defs: { Ok: { type: "object", properties: { v: { type: "string" }, next: { $ref: "#/$defs/Ok" } }, required: ["v"] } } }'
+  fromOutputType: "{ v: string; next?: ... | undefined; }"
+isEqual: (a,b)=>a===b||e[0](a,b)
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{let v0;v0=e[0](i);return v0}
+    examples:
+      chain:
+        input: '{ v: "x", next: { v: "y" } }'
+        output: '{ v: "x", next: { v: "y", next: undefined } }'
+  decode: eq-to-parse
+  encode: eq-to-parse

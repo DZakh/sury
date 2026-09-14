@@ -3,7 +3,7 @@ ts:
   schema: "S.schema({ id: S.uuid.with(S.noValidation, true) }).with(S.to, S.jsonString)"
   input: "{ id: string; }"
   output: string
-  instantiations: 6390
+  instantiations: 5522
 jsonSchema:
   input: '{ type: "object", properties: { id: { type: "string", format: "uuid" } }, required: ["id"] }'
   output: '{ type: "string", contentMediaType: "application/json" }'
@@ -11,12 +11,15 @@ jsonSchema:
     output: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "object", properties: { id: { type: "string", format: "uuid" } }, required: ["id"] }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
   openapi-3.0:
     output: '{ type: "string" }'
+isEqual:
+  input: (a,b)=>a===b||a.id===b.id
+  output: strictEqual
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);return "{\"id\":"+e[0](i["id"])+"}"}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);return "{\"id\":"+e[0](i.id)+"}"}
     examples:
       valid:
         input: '{ id: "123e4567-e89b-12d3-a456-426614174000" }'
@@ -25,7 +28,7 @@ operations:
         input: '{ id: "a\"b" }'
         output: '"{\"id\":\"a\\\"b\"}"'
   decode:
-    expression: i=>{return "{\"id\":"+e[0](i["id"])+"}"}
+    expression: i=>{return "{\"id\":"+e[0](i.id)+"}"}
     examples:
       valid:
         input: '{ id: "123e4567-e89b-12d3-a456-426614174000" }'
@@ -34,7 +37,7 @@ operations:
         input: '{ id: "a\"b" }'
         output: '"{\"id\":\"a\\\"b\"}"'
   encode:
-    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[1](v0);return {id:v0["id"]}}
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[1](v0);return {id:v0.id}}
     examples:
       takes-the-text-unchecked:
         input: '"{\"id\":\"zz\"}"'

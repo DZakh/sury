@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.urlSearchParams.with(S.to, S.schema({ role: S.union(["admin", "user"]), plan: S.optional(S.union(["free", "pro"])) }))'
+  input: URLSearchParams
+  output: '{ role: "admin" | "user"; plan?: "free" | "pro" | undefined; }'
+  instantiations: 7204
+jsonSchema:
+  input: Expected JSON, received URLSearchParams
+  output: '{ type: "object", properties: { role: { enum: ["admin", "user"] }, plan: { enum: ["free", "pro"] } }, required: ["role"] }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||a.role===b.role&&a.plan===b.plan
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{i instanceof e[5]||e[6](i);let v0=e[0](i),v1=v0.get("role"),v2=v0.get("plan")||void 0;typeof v1==="string"||e[1](v1);(v1==="admin"||v1==="user")||e[2](v1);if(v2){typeof v2==="string"||e[3](v2);(v2==="free"||v2==="pro")||e[4](v2);}return {role:v1,plan:v2}}
+    examples:
+      members:
+        input: ((p) => (p.append("role", "admin"), p.append("plan", "pro"), p))(new URLSearchParams())
+        output: '{ role: "admin", plan: "pro" }'
+      optional-absent:
+        input: ((p) => (p.append("role", "user"), p))(new URLSearchParams())
+        output: '{ role: "user", plan: undefined }'
+      optional-empty:
+        input: ((p) => (p.append("role", "user"), p.append("plan", ""), p))(new URLSearchParams())
+        output: '{ role: "user", plan: undefined }'
+      no-member:
+        input: ((p) => (p.append("role", "guest"), p))(new URLSearchParams())
+        error: 'Failed at role: Expected "admin" | "user", received "guest"'
+  decode:
+    expression: i=>{let v0=e[0](i),v1=v0.get("role"),v2=v0.get("plan")||void 0;typeof v1==="string"||e[1](v1);(v1==="admin"||v1==="user")||e[2](v1);if(v2){typeof v2==="string"||e[3](v2);(v2==="free"||v2==="pro")||e[4](v2);}return {role:v1,plan:v2}}
+    examples:
+      members:
+        input: ((p) => (p.append("role", "admin"), p.append("plan", "pro"), p))(new URLSearchParams())
+        output: '{ role: "admin", plan: "pro" }'
+  encode:
+    expression: i=>{let v2=i.plan;let v0=new e[0]();let v1=i.role;typeof v1==="string"&&(v1==="admin"||v1==="user")||e[1](v1);v0.append("role",v1);if(v2!=null){let v3=v2;typeof v3==="string"&&(v3==="free"||v3==="pro")||e[2](v3);v0.append("plan",v3);}return v0}
+    examples:
+      built:
+        input: '{ role: "admin", plan: "pro" }'
+        output: ((p) => (p.append("role", "admin"), p.append("plan", "pro"), p))(new URLSearchParams())
+      no-member:
+        input: '{ role: "guest" }'
+        error: 'Failed at role: Expected "admin" | "user", received "guest"'

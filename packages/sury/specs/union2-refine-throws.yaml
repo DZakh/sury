@@ -3,19 +3,23 @@ ts:
   schema: S.union([S.string.with(S.refine, (v) => { throw new TypeError("predicate blew up") }), S.string])
   input: string
   output: string
-  instantiations: 5603
+  instantiations: 4978
 jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "string" }'
+isEqual: strictEqual
 vs:
   zod: z.union([z.string().refine((v) => { throw new TypeError("predicate blew up") }), z.string()])
 operations:
   parse:
     expression: i=>{if(typeof i==="string"){for(;;){let r;try{e[0](i)||e[1](i);break}catch(x){(r||(r=[])).push(e[2](x))}break;}}else{e[3](i)}return i}
     examples:
-      foreign-error-propagates-instead-of-matching-the-catch-all:
+      a-throwing-refine-fails-its-case-so-the-catch-all-matches:
         input: '"x"'
-        error: predicate blew up
+        output: '"x"'
+        divergence:
+          reason: a throwing predicate escapes zod; S.union reads it as its own case failing, so the catch-all matches
+          zod: "TypeError: predicate blew up"
       wrong-type-still-reports-the-union:
         input: "1"
         error: Expected string, received 1

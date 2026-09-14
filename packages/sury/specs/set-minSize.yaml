@@ -3,10 +3,11 @@ ts:
   schema: S.instance(Set).with(S.minSize, 2)
   input: Set<unknown>
   output: Set<unknown>
-  instantiations: 2582
+  instantiations: 2578
 jsonSchema:
   input: Expected JSON, received Set.size >= 2
   output: Expected JSON, received Set.size >= 2
+isEqual: (a,b)=>a===b||e[0](a,b)
 vs:
   zod:
     _skip: not-applicable

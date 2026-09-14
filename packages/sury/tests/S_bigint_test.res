@@ -24,18 +24,18 @@ module Common = {
   test("Decodes to Json", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.decodeOrThrow(~from=schema, ~to=S.json), "123"->Obj.magic)
+    t->Assert.deepEqual(value->S.convertOrThrow(~from=schema, ~to=S.json), "123"->Obj.magic)
   })
 
   test("BigInt name", t => {
     let schema = factory()
-    t->Assert.is(schema->S.inputExpression, "bigint")
+    t->Assert.is(schema->S.toInputExpression, "bigint")
   })
 
   test("Successfully serializes", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.decodeOrThrow(~from=schema, ~to=S.unknown), any)
+    t->Assert.deepEqual(value->S.convertOrThrow(~from=schema, ~to=S.unknown), any)
   })
 
   test("Compiled parse code snapshot", t => {

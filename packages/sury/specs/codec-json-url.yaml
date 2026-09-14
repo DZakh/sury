@@ -3,11 +3,14 @@ ts:
   schema: S.json.with(S.to, S.url)
   input: JSON
   output: URL
-  instantiations: 5244
+  instantiations: 4430
 jsonSchema:
   input: '{ type: "string", format: "uri" }'
   fromInputType: string
   output: Expected JSON, received URL
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||a.href===b.href
 vs:
   zod:
     _skip: not-applicable

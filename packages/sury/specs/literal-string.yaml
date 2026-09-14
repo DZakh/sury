@@ -12,6 +12,7 @@ jsonSchema:
   openapi-3.0:
     input: '{ type: "string", enum: ["tuna"] }'
     output: '{ type: "string", enum: ["tuna"] }'
+isEqual: alwaysEqual
 vs:
   zod: z.literal("tuna")
 operations:

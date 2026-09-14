@@ -7,6 +7,7 @@ ts:
 jsonSchema:
   input: '{ enum: ["foo", null] }'
   output: '{ enum: ["foo", null] }'
+isEqual: strictEqual
 vs:
   zod: z.literal("foo").nullable()
 operations:

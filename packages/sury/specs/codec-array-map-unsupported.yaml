@@ -3,16 +3,19 @@ ts:
   schema: S.array(S.number).with(S.to, S.map(S.string, S.number))
   input: number[]
   output: Map<string, number>
-  instantiations: 5674
+  instantiations: 4860
 jsonSchema:
   input: '{ items: { type: "number" }, type: "array" }'
   output: Expected JSON, received Map<string, number>
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+  output: (a,b)=>a===b||e[0](a,b)
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    creationError: "SuryError: Can't decode number[] to Map<string, number>. Use S.to to define a custom decoder"
+    creationError: "SuryError: Can't decode number[] -> Map<string, number>. Define custom codec with S.to"
   decode: eq-to-parse
   encode:
-    creationError: "SuryError: Failed at []: Can't decode [string, number] to number. Use S.to to define a custom decoder"
+    creationError: "SuryError: Failed at []: Can't decode [string, number] -> number. Define custom codec with S.to"

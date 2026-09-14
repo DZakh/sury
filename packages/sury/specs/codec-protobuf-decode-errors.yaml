@@ -1,0 +1,70 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.protobuf.with(S.to, S.schema({ id: S.int32.with(S.protobufField, 1), name: S.string.with(S.protobufField, 2), addr: S.optional(S.schema({ street: S.string.with(S.protobufField, 1) })).with(S.protobufField, 3), tags: S.array(S.string).with(S.protobufField, 4), ratio: S.number.with(S.protobufField, { number: 5, type: "float" }) }))'
+  input: Uint8Array<ArrayBufferLike>
+  output: "{ id: number; name: string; tags: string[]; ratio: number; addr?: { street: string; } | undefined; }"
+  instantiations: 10226
+jsonSchema:
+  input: Expected JSON, received Uint8Array
+  output: '{ type: "object", properties: { id: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, name: { type: "string" }, addr: { type: "object", properties: { street: { type: "string" } }, required: ["street"] }, tags: { items: { type: "string" }, type: "array" }, ratio: { type: "number" } }, required: ["id", "name", "tags", "ratio"] }'
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+  output: (a,b)=>a===b||a.id===b.id&&a.name===b.name&&(a.addr===void 0?b.addr===void 0:b.addr!==void 0&&a.addr.street===b.addr.street)&&e[0](a.tags,b.tags)&&a.ratio===b.ratio
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{i instanceof e[3]||e[4](i);let v0,r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}let v1=v0.addr,v3=v0.tags;let v2=v1;return v0}
+    examples:
+      invalid-utf8-nested:
+        input: new Uint8Array([8, 1, 18, 1, 120, 26, 3, 10, 1, 255])
+        error: protobuf string is not valid UTF-8 at addr.street (field 1, wire type 2)
+  decode:
+    expression: i=>{let v0,r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}let v1=v0.addr,v3=v0.tags;let v2=v1;return v0}
+    examples:
+      valid:
+        input: new Uint8Array([8, 1, 18, 1, 120, 45, 0, 0, 128, 63])
+        output: '{ id: 1, name: "x", tags: [], ratio: 1 }'
+      empty:
+        input: new Uint8Array([])
+        output: '{ id: 0, name: "", tags: [], ratio: 0 }'
+      not-a-uint8array:
+        input: new ArrayBuffer(4) as never
+        error: protobuf message is not a Uint8Array
+      array-of-bytes:
+        input: "[8, 1]"
+        error: protobuf message is not a Uint8Array
+      truncated-length-delimited:
+        input: new Uint8Array([8, 1, 18, 5, 104, 105])
+        error: truncated protobuf message at name (field 2, wire type 2)
+      truncated-fixed32:
+        input: new Uint8Array([8, 1, 18, 1, 120, 45, 0, 0])
+        error: truncated protobuf message at ratio (field 5, wire type 5)
+      invalid-utf8-nested:
+        input: new Uint8Array([8, 1, 18, 1, 120, 26, 3, 10, 1, 255])
+        error: protobuf string is not valid UTF-8 at addr.street (field 1, wire type 2)
+      invalid-wire-type:
+        input: new Uint8Array([8, 1, 18, 1, 120, 39])
+        error: invalid protobuf wire type at tags (field 4, wire type 7)
+      field-number-zero:
+        input: new Uint8Array([8, 1, 18, 1, 120, 0])
+        error: invalid protobuf field number
+      varint-too-long:
+        input: new Uint8Array([8, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 1])
+        error: varint exceeds 10 bytes at id (field 1, wire type 0)
+      tag-not-readable:
+        input: new Uint8Array([255, 255, 255, 255, 255])
+        error: truncated protobuf message
+      unmatched-end-group:
+        input: new Uint8Array([8, 1, 60])
+        error: unmatched protobuf end group
+  encode:
+    expression: i=>{let v0=i.tags;let v2,w;try{w=e[4].acquire();let v,j,n,s,h,a,k,g,c,o;v=i.id;if(v){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=v;if(s<-2147483648||s>2147483647)e[1](s,-2147483648,2147483647,"int32");s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v=i.name;if(v){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);w.string(v)};v=i.addr;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=26:w.varint32(26);h=w.begin();e[0](w,v);w.end(h)};v=v0;n=v.length;if(n){j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=34:w.varint32(34);w.string(v[j++])}};v=i.ratio;if(v||v!==v||Object.is(v,-0)){w.pos<w.buf.length?w.buf[w.pos++]=45:w.varint32(45);w.float32(v)};v2=w.finish()}catch(x){w&&(w.busy=false);e[5](x)}return v2}
+    examples:
+      float-beyond-32-bit-range:
+        input: '{ id: 1, name: "x", tags: [], ratio: 1e+39 }'
+        error: invalid float
+      int32-beyond-range:
+        input: '{ id: 1000000000000, name: "x", tags: [], ratio: 1 }'
+        error: invalid int32

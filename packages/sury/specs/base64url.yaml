@@ -10,6 +10,7 @@ jsonSchema:
   openapi-3.0:
     input: '{ type: "string", format: "base64url" }'
     output: '{ type: "string", format: "base64url" }'
+isEqual: strictEqual
 vs:
   zod:
     _skip: not-applicable

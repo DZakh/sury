@@ -3,12 +3,16 @@ ts:
   schema: S.string.with(S.to, S.date)
   aliases:
     - S.to(S.string, S.date)
+    - S.schemaOf<Date>()(S.string.with(S.to, S.date))
   input: string
   output: Date
-  instantiations: 5233
+  instantiations: 4419
 jsonSchema:
   input: '{ type: "string", format: "date-time" }'
   output: Expected JSON, received Date
+isEqual:
+  input: strictEqual
+  output: (a,b)=>a===b||+a===+b
 vs:
   zod:
     _skip: not-applicable
@@ -19,6 +23,9 @@ operations:
       valid:
         input: '"2024-01-01T00:00:00.000Z"'
         output: new Date("2024-01-01T00:00:00.000Z")
+      padded:
+        input: '" 2024-01-01T00:00:00.000Z "'
+        error: Expected Date, received invalid Date
       not-a-date-text:
         input: '"nope"'
         error: Expected Date, received invalid Date
@@ -32,7 +39,7 @@ operations:
         input: '"2024-01-01T00:00:00.000Z"'
         output: new Date("2024-01-01T00:00:00.000Z")
   encode:
-    expression: i=>{return i.toISOString()}
+    expression: i=>{let v0;try{v0=i.toISOString()}catch(_){e[0](i)}return v0}
     examples:
       valid:
         input: new Date("2024-01-01T00:00:00.000Z")

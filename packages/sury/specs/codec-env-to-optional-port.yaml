@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.env.with(S.to, S.optional(S.port))
+  input: string | undefined
+  output: number | undefined
+  instantiations: 4620
+jsonSchema:
+  input: '{ type: "string" }'
+  fromInputType: string
+  output: Expected JSON, received port | undefined
+isEqual: strictEqual
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{(typeof i==="string"||i===void 0)||e[2](i);i=i||void 0;if(i){let v0=+i;v0==v0&&(v0||i.trim())||e[1](i);v0>=0&&v0<65536&&v0%1==0||e[0](v0);i=v0;}return i}
+    examples:
+      valid:
+        input: '"8080"'
+        output: "8080"
+      blank:
+        input: '""'
+        output: undefined
+      not-a-number:
+        input: '"x"'
+        error: Expected port, received "x"
+      boolean:
+        input: "true"
+        error: Expected env, received true
+  decode:
+    expression: i=>{i=i||void 0;if(i){let v0=+i;v0==v0&&(v0||i.trim())||e[1](i);v0>=0&&v0<65536&&v0%1==0||e[0](v0);i=v0;}return i}
+    examples:
+      valid:
+        input: '"8080"'
+        output: "8080"
+      blank:
+        input: '""'
+        output: undefined
+  encode:
+    expression: i=>{for(;;){if(typeof i==="number"&&i==i){i>=0&&i<65536&&i%1==0||e[0](i);i=""+i;break}if(i===void 0)break;e[1](i)}return i}
+    examples:
+      valid:
+        input: "8080"
+        output: '"8080"'
+      absent:
+        input: undefined
+        output: undefined

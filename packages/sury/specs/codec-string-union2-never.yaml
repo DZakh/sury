@@ -3,11 +3,12 @@ ts:
   schema: S.string.with(S.to, S.union([S.never.with(S.to, S.number), S.string]))
   input: string
   output: string | number
-  instantiations: 6507
+  instantiations: 5662
 jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "string" }'
   fromOutputType: string
+isEqual: strictEqual
 vs:
   zod:
     _skip: not-applicable
@@ -23,7 +24,7 @@ operations:
         output: '"abc"'
   decode: identity
   encode:
-    expression: i=>{for(;;){if(typeof i==="number"&&i===i){e[0](i);break}if(typeof i==="string")break;e[1](i)}return i}
+    expression: i=>{for(;;){if(typeof i==="number"&&i==i){e[0](i);break}if(typeof i==="string")break;e[1](i)}return i}
     examples:
       string:
         input: '"abc"'

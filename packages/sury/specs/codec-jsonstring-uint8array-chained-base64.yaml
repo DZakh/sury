@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.jsonString.with(S.to, S.uint8Array).with(S.to, S.base64)
+  input: string
+  output: string
+  instantiations: 4566
+jsonSchema:
+  input: '{ type: "string", contentMediaType: "application/json" }'
+  output: '{ type: "string", contentEncoding: "base64" }'
+  openapi-3.0:
+    input: '{ type: "string" }'
+    output: '{ type: "string", format: "byte" }'
+isEqual: strictEqual
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[6](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="string"||e[5](v0);e[3](v0)||e[4](v0);let v1=e[1](v0);return e[2](v1)}
+    examples:
+      opens-the-document:
+        input: '"\"AQ==\""'
+        output: '"AQ=="'
+      not-base64-inside:
+        input: '"\"hi\""'
+        error: Expected base64, received "hi"
+  decode:
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="string"||e[5](v0);e[3](v0)||e[4](v0);let v1=e[1](v0);return e[2](v1)}
+    examples:
+      opens-the-document:
+        input: '"\"AQ==\""'
+        output: '"AQ=="'
+  encode:
+    expression: i=>{e[2](i)||e[3](i);let v0=e[0](i);let v1=e[1](v0);return "\""+v1+"\""}
+    examples:
+      writes-the-document:
+        input: '"AQ=="'
+        output: '"\"AQ==\""'

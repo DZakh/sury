@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.queryString.with(S.to, S.schema({ q: S.string }))"
+  input: string
+  output: "{ q: string; }"
+  instantiations: 5425
+jsonSchema:
+  input: '{ type: "string" }'
+  output: '{ type: "object", properties: { q: { type: "string" } }, required: ["q"] }'
+isEqual:
+  input: strictEqual
+  output: (a,b)=>a===b||a.q===b.q
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: 'SuryError: Failed at q: Ambiguous "" for string. Should a blank input be rejected, kept, or read as absent? Choose with S.nonEmpty, S.minLength(0), or S.optional'
+  decode: eq-to-parse
+  encode:
+    expression: i=>{let v0=new e[0]();v0.append("q",i.q);return v0.toString()}
+    examples:
+      space:
+        input: '{ q: "hello world" }'
+        output: '"q=hello+world"'
+      unicode:
+        input: '{ q: "✓" }'
+        output: '"q=%E2%9C%93"'

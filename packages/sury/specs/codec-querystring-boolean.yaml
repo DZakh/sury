@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.queryString.with(S.to, S.schema({ debug: S.boolean, flag: S.optional(S.boolean) }))"
+  input: string
+  output: "{ debug: boolean; flag?: boolean | undefined; }"
+  instantiations: 6500
+jsonSchema:
+  input: '{ type: "string" }'
+  output: '{ type: "object", properties: { debug: { type: "boolean" }, flag: { type: "boolean" } }, required: ["debug"] }'
+isEqual:
+  input: strictEqual
+  output: (a,b)=>a===b||a.debug===b.debug&&a.flag===b.flag
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[6](i);let v0=e[1](new e[0](i)),v1=v0.get("debug"),v3=v0.get("flag")||void 0;typeof v1==="string"||e[2](v1);let v2;(v2=v1==="true")||v1==="false"||e[3](v1);if(v3){typeof v3==="string"||e[4](v3);let v4;(v4=v3==="true")||v3==="false"||e[5](v3);v3=v4;}return {debug:v2,flag:v3}}
+    examples:
+      true-false:
+        input: '"debug=true&flag=false"'
+        output: "{ debug: true, flag: false }"
+      on-is-not-true:
+        input: '"debug=on"'
+        error: 'Failed at debug: Expected boolean, received "on"'
+      missing-required:
+        input: '""'
+        error: "Failed at debug: Expected boolean, received undefined"
+      optional-absent:
+        input: '"debug=false"'
+        output: "{ debug: false, flag: undefined }"
+      optional-empty:
+        input: '"debug=false&flag="'
+        output: "{ debug: false, flag: undefined }"
+  decode:
+    expression: i=>{let v0=e[1](new e[0](i)),v1=v0.get("debug"),v3=v0.get("flag")||void 0;typeof v1==="string"||e[2](v1);let v2;(v2=v1==="true")||v1==="false"||e[3](v1);if(v3){typeof v3==="string"||e[4](v3);let v4;(v4=v3==="true")||v3==="false"||e[5](v3);v3=v4;}return {debug:v2,flag:v3}}
+    examples:
+      true-false:
+        input: '"debug=true&flag=false"'
+        output: "{ debug: true, flag: false }"
+  encode:
+    expression: i=>{let v1=i.flag;let v0=new e[0]();v0.append("debug",""+i.debug);if(v1!=null){v0.append("flag",""+v1);}return v0.toString()}
+    examples:
+      built:
+        input: "{ debug: true, flag: false }"
+        output: '"debug=true&flag=false"'
+      omit-optional:
+        input: "{ debug: false }"
+        output: '"debug=false"'

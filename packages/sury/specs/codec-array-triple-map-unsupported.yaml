@@ -3,7 +3,7 @@ ts:
   schema: S.array(S.tuple([S.string, S.number, S.boolean])).with(S.to, S.map(S.string, S.number))
   input: "[string, number, boolean][]"
   output: Map<string, number>
-  instantiations: 7337
+  instantiations: 6523
 jsonSchema:
   input: '{ items: { type: "array", minItems: 3, maxItems: 3, items: [{ type: "string" }, { type: "number" }, { type: "boolean" }] }, type: "array" }'
   output: Expected JSON, received Map<string, number>
@@ -12,12 +12,15 @@ jsonSchema:
   openapi-3.0:
     input: '{ items: { type: "array", minItems: 3, maxItems: 3, items: { anyOf: [{ type: "string" }, { type: "number" }, { type: "boolean" }] } }, type: "array" }'
     fromInputType: "[string | number | boolean, string | number | boolean, string | number | boolean][]"
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i][0]===b[i][0]&&a[i][1]===b[i][1]&&a[i][2]===b[i][2]))return false;return true}
+  output: (a,b)=>a===b||e[0](a,b)
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    creationError: "SuryError: Can't decode [string, number, boolean][] to Map<string, number>. Use S.to to define a custom decoder"
+    creationError: "SuryError: Can't decode [string, number, boolean][] -> Map<string, number>. Define custom codec with S.to"
   decode: eq-to-parse
   encode:
-    creationError: "SuryError: Failed at []: Can't decode [string, number] to [string, number, boolean]. Use S.to to define a custom decoder"
+    creationError: "SuryError: Failed at []: Can't decode [string, number] -> [string, number, boolean]. Define custom codec with S.to"

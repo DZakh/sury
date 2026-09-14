@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.optional(S.env).with(S.to, S.string)
+  input: string | undefined
+  output: string
+  instantiations: 4587
+jsonSchema:
+  input: '{ type: "string" }'
+  fromInputType: string
+  output: '{ type: "string" }'
+isEqual: strictEqual
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: 'SuryError: Ambiguous "" for string. Should a blank input be rejected, kept, or read as absent? Choose with S.nonEmpty, S.minLength(0), or S.optional'
+  decode: eq-to-parse
+  encode: identity

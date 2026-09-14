@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.env.with(S.to, S.boolean).with(S.to, S.optional(S.boolean))
+  input: string | undefined
+  output: boolean | undefined
+  instantiations: 4767
+jsonSchema:
+  input: '{ type: "string" }'
+  fromInputType: string
+  output: '{ type: "boolean" }'
+  fromOutputType: boolean
+isEqual: strictEqual
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{(typeof i==="string"||i===void 0)||e[1](i);let v0;(v0=i==="true")||i==="false"||e[0](i);return v0}
+    examples:
+      "true":
+        input: '"true"'
+        output: "true"
+      blank:
+        input: '""'
+        error: Expected boolean, received ""
+      unset:
+        input: undefined
+        error: Expected boolean, received undefined
+  decode:
+    expression: i=>{let v0;(v0=i==="true")||i==="false"||e[0](i);return v0}
+    examples:
+      "true":
+        input: '"true"'
+        output: "true"
+  encode:
+    expression: i=>{if(typeof i==="boolean"){i=""+i}else{e[0](i)}return i}
+    examples:
+      "true":
+        input: "true"
+        output: '"true"'
+      unset:
+        input: undefined
+        error: Expected boolean, received undefined

@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.formData.with(S.to, S.schema({ tags: S.array(S.string.with(S.nonEmpty)), ids: S.array(S.number), picks: S.array(S.union(["a", "b"])), extra: S.optional(S.array(S.string)) }))'
+  input: FormData
+  output: '{ tags: string[]; ids: number[]; picks: ("a" | "b")[]; extra?: string[] | undefined; }'
+  instantiations: 8634
+jsonSchema:
+  input: Expected JSON, received FormData
+  output: '{ type: "object", properties: { tags: { items: { type: "string", minLength: 1 }, type: "array" }, ids: { items: { type: "number" }, type: "array" }, picks: { items: { enum: ["a", "b"] }, type: "array" }, extra: { items: { type: "string" }, type: "array" } }, required: ["tags", "ids", "picks"] }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||e[0](a.tags,b.tags)&&e[1](a.ids,b.ids)&&e[2](a.picks,b.picks)&&(a.extra===void 0?b.extra===void 0:b.extra!==void 0&&e[3](a.extra,b.extra))
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{i instanceof e[9]||e[10](i);let v0=e[0](i),v1=e[1](v0.get("tags")),v5=e[1](v0.get("ids")),v11=e[1](v0.get("picks")),v16=e[1](v0.get("extra"));for(let v2=0;v2<v1.length;++v2){try{let v3=v1[v2];typeof v3==="string"||e[3](v3);v3.length>0||e[2](v3);}catch(v4){v4.path=["tags",v2,...v4.path];throw v4}}let v10=new Array(v5.length);for(let v6=0;v6<v5.length;++v6){try{let v7=v5[v6];typeof v5[v6]==="string"||e[4](v7);let v8=+v5[v6];v8==v8&&(v8||v5[v6].trim())||e[5](v5[v6]);v10[v6]=v8}catch(v9){v9.path=["ids",v6,...v9.path];throw v9}}let v15=new Array(v11.length);for(let v12=0;v12<v11.length;++v12){try{let v13=v11[v12];typeof v11[v12]==="string"||e[6](v13);(v11[v12]==="a"||v11[v12]==="b")||e[7](v11[v12]);v15[v12]=v11[v12]}catch(v14){v14.path=["picks",v12,...v14.path];throw v14}}for(let v17=0;v17<v16.length;++v17){try{let v18=v16[v17];typeof v18==="string"||e[8](v18);}catch(v19){v19.path=["extra",v17,...v19.path];throw v19}}return {tags:v1,ids:v10,picks:v15,extra:v16}}
+    examples:
+      repeated-keys:
+        input: ((f) => (f.append("tags", "a"), f.append("tags", "b"), f.append("picks", "a"), f.append("ids", "1"), f.append("ids", "2"), f.append("extra", "x"), f))(new FormData())
+        output: '{ tags: ["a", "b"], ids: [1, 2], picks: ["a"], extra: ["x"] }'
+      no-entries:
+        input: new FormData()
+        output: "{ tags: [], ids: [], picks: [], extra: [] }"
+      not-a-number:
+        input: ((f) => (f.append("ids", "1"), f.append("ids", "x"), f))(new FormData())
+        error: 'Failed at ids[1]: Expected number, received "x"'
+      empty-item-stays:
+        input: ((f) => (f.append("extra", ""), f))(new FormData())
+        output: '{ tags: [], ids: [], picks: [], extra: [""] }'
+      empty-item-refined:
+        input: ((f) => (f.append("tags", ""), f))(new FormData())
+        error: 'Failed at tags[0]: Expected string.length >= 1, received ""'
+      file-where-text:
+        input: ((f) => (f.append("tags", new File(["a"], "a.txt")), f))(new FormData())
+        error: "Failed at tags[0]: Expected string.length >= 1, received File"
+  decode:
+    expression: i=>{let v0=e[0](i),v1=e[1](v0.get("tags")),v5=e[1](v0.get("ids")),v11=e[1](v0.get("picks")),v16=e[1](v0.get("extra"));for(let v2=0;v2<v1.length;++v2){try{let v3=v1[v2];typeof v3==="string"||e[3](v3);v3.length>0||e[2](v3);}catch(v4){v4.path=["tags",v2,...v4.path];throw v4}}let v10=new Array(v5.length);for(let v6=0;v6<v5.length;++v6){try{let v7=v5[v6];typeof v5[v6]==="string"||e[4](v7);let v8=+v5[v6];v8==v8&&(v8||v5[v6].trim())||e[5](v5[v6]);v10[v6]=v8}catch(v9){v9.path=["ids",v6,...v9.path];throw v9}}let v15=new Array(v11.length);for(let v12=0;v12<v11.length;++v12){try{let v13=v11[v12];typeof v11[v12]==="string"||e[6](v13);(v11[v12]==="a"||v11[v12]==="b")||e[7](v11[v12]);v15[v12]=v11[v12]}catch(v14){v14.path=["picks",v12,...v14.path];throw v14}}for(let v17=0;v17<v16.length;++v17){try{let v18=v16[v17];typeof v18==="string"||e[8](v18);}catch(v19){v19.path=["extra",v17,...v19.path];throw v19}}return {tags:v1,ids:v10,picks:v15,extra:v16}}
+    examples:
+      repeated-keys:
+        input: ((f) => (f.append("tags", "a"), f.append("tags", "b"), f.append("picks", "a"), f.append("ids", "1"), f.append("ids", "2"), f.append("extra", "x"), f))(new FormData())
+        output: '{ tags: ["a", "b"], ids: [1, 2], picks: ["a"], extra: ["x"] }'
+  encode:
+    expression: i=>{let v0=i.tags,v4=i.ids,v6=i.picks,v13=i.extra;for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];v2.length>0||e[0](v2);}catch(v3){v3.path=["tags",v1,...v3.path];throw v3}}let v8=new e[1]();for(let v9=0;v9<v0.length;++v9){v8.append("tags",v0[v9]);}for(let v10=0;v10<v4.length;++v10){v8.append("ids",""+v4[v10]);}for(let v11=0;v11<v6.length;++v11){let v12=v6[v11];typeof v12==="string"&&(v12==="a"||v12==="b")||e[2](v12);v8.append("picks",v12);}if(v13!=null){for(let v14=0;v14<v13.length;++v14){v8.append("extra",v13[v14]);}}return v8}
+    examples:
+      built:
+        input: '{ tags: ["a", "b"], ids: [1, 2], picks: ["a"], extra: undefined }'
+        output: ((f) => (f.append("tags", "a"), f.append("tags", "b"), f.append("ids", "1"), f.append("ids", "2"), f.append("picks", "a"), f))(new FormData())
+      built-same-names:
+        input: '{ tags: ["b", "a"], ids: [1, 2], picks: ["a"], extra: undefined }'
+        output: ((f) => (f.append("tags", "b"), f.append("tags", "a"), f.append("ids", "1"), f.append("ids", "2"), f.append("picks", "a"), f))(new FormData())
+      empty-item-refined:
+        input: '{ tags: [""], ids: [] }'
+        error: 'Failed at tags[0]: Expected string.length >= 1, received ""'

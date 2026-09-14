@@ -10,8 +10,8 @@ test("InvalidInput error has correct received schema for unknown-to-string type 
   | exception S.Exn(error) =>
     switch error->S.Error.classify {
     | InvalidInput({expected, received}) =>
-      t->Assert.is(expected->S.inputExpression, "string", ~message="expected schema")
-      t->Assert.is(received->S.inputExpression, "unknown", ~message="received schema")
+      t->Assert.is(expected->S.toInputExpression, "string", ~message="expected schema")
+      t->Assert.is(received->S.toInputExpression, "unknown", ~message="received schema")
     | _ => t->Assert.fail("Expected InvalidInput error")
     }
   }
@@ -23,8 +23,8 @@ test("InvalidInput error has correct received schema for unknown-to-float type m
   | exception S.Exn(error) =>
     switch error->S.Error.classify {
     | InvalidInput({expected, received}) =>
-      t->Assert.is(expected->S.inputExpression, "number", ~message="expected schema")
-      t->Assert.is(received->S.inputExpression, "unknown", ~message="received schema")
+      t->Assert.is(expected->S.toInputExpression, "number", ~message="expected schema")
+      t->Assert.is(received->S.toInputExpression, "unknown", ~message="received schema")
     | _ => t->Assert.fail("Expected InvalidInput error")
     }
   }
@@ -36,8 +36,8 @@ test("InvalidInput error has correct received schema for unknown-to-bool type mi
   | exception S.Exn(error) =>
     switch error->S.Error.classify {
     | InvalidInput({expected, received}) =>
-      t->Assert.is(expected->S.inputExpression, "boolean", ~message="expected schema")
-      t->Assert.is(received->S.inputExpression, "unknown", ~message="received schema")
+      t->Assert.is(expected->S.toInputExpression, "boolean", ~message="expected schema")
+      t->Assert.is(received->S.toInputExpression, "unknown", ~message="received schema")
     | _ => t->Assert.fail("Expected InvalidInput error")
     }
   }
@@ -49,7 +49,7 @@ test("InvalidInput error has correct received schema for unknown-to-object type 
   | exception S.Exn(error) =>
     switch error->S.Error.classify {
     | InvalidInput({expected: _, received}) =>
-      t->Assert.is(received->S.inputExpression, "unknown", ~message="received schema")
+      t->Assert.is(received->S.toInputExpression, "unknown", ~message="received schema")
     | _ => t->Assert.fail("Expected InvalidInput error")
     }
   }
@@ -62,8 +62,8 @@ test("InvalidInput error received differs from expected (not equal)", t => {
     switch error->S.Error.classify {
     | InvalidInput({expected, received}) =>
       t->Assert.notDeepEqual(
-        expected->S.inputExpression,
-        received->S.inputExpression,
+        expected->S.toInputExpression,
+        received->S.toInputExpression,
         ~message="received should differ from expected",
       )
     | _ => t->Assert.fail("Expected InvalidInput error")
@@ -78,8 +78,8 @@ test("InvalidInput error has correct received schema for nested field type misma
   | exception S.Exn(error) =>
     switch error->S.Error.classify {
     | InvalidInput({expected, received}) =>
-      t->Assert.is(expected->S.inputExpression, "number", ~message="expected schema")
-      t->Assert.is(received->S.inputExpression, "unknown", ~message="received schema")
+      t->Assert.is(expected->S.toInputExpression, "number", ~message="expected schema")
+      t->Assert.is(received->S.toInputExpression, "unknown", ~message="received schema")
     | _ => t->Assert.fail("Expected InvalidInput error")
     }
   }
@@ -88,13 +88,13 @@ test("InvalidInput error has correct received schema for nested field type misma
 // Cases where received is a specific type (not unknown)
 
 test("InvalidInput error reports number as received when float fails int32 format check", t => {
-  switch 1.5->S.decodeOrThrow(~from=S.float, ~to=S.int) {
+  switch 1.5->S.convertOrThrow(~from=S.float, ~to=S.int) {
   | _ => t->Assert.fail("Should have thrown")
   | exception S.Exn(error) =>
     switch error->S.Error.classify {
     | InvalidInput({expected, received}) =>
-      t->Assert.is(expected->S.inputExpression, "int32", ~message="expected schema")
-      t->Assert.is(received->S.inputExpression, "number", ~message="received schema")
+      t->Assert.is(expected->S.toInputExpression, "int32", ~message="expected schema")
+      t->Assert.is(received->S.toInputExpression, "number", ~message="received schema")
     | _ => t->Assert.fail("Expected InvalidInput error")
     }
   }
@@ -103,13 +103,13 @@ test("InvalidInput error reports number as received when float fails int32 forma
 test(
   "InvalidInput error reports string as received when string-to-number coercion produces NaN",
   t => {
-    switch "abc"->S.decodeOrThrow(~from=S.string, ~to=S.float) {
+    switch "abc"->S.convertOrThrow(~from=S.string, ~to=S.float) {
     | _ => t->Assert.fail("Should have thrown")
     | exception S.Exn(error) =>
       switch error->S.Error.classify {
       | InvalidInput({expected, received}) =>
-        t->Assert.is(expected->S.inputExpression, "number", ~message="expected schema")
-        t->Assert.is(received->S.inputExpression, "string", ~message="received schema")
+        t->Assert.is(expected->S.toInputExpression, "number", ~message="expected schema")
+        t->Assert.is(received->S.toInputExpression, "string", ~message="received schema")
       | _ => t->Assert.fail("Expected InvalidInput error")
       }
     }
@@ -117,13 +117,13 @@ test(
 )
 
 test("InvalidInput error reports string as received when string doesn't match literal", t => {
-  switch "wrong"->S.decodeOrThrow(~from=S.string, ~to=S.literal("apple")) {
+  switch "wrong"->S.convertOrThrow(~from=S.string, ~to=S.literal("apple")) {
   | _ => t->Assert.fail("Should have thrown")
   | exception S.Exn(error) =>
     switch error->S.Error.classify {
     | InvalidInput({expected, received}) =>
-      t->Assert.is(expected->S.inputExpression, `"apple"`, ~message="expected schema")
-      t->Assert.is(received->S.inputExpression, "string", ~message="received schema")
+      t->Assert.is(expected->S.toInputExpression, `"apple"`, ~message="expected schema")
+      t->Assert.is(received->S.toInputExpression, "string", ~message="received schema")
     | _ => t->Assert.fail("Expected InvalidInput error")
     }
   }

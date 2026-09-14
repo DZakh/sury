@@ -3,15 +3,16 @@ ts:
   schema: S.string.with(S.length, 2).with(S.length, 2, "MY MESSAGE")
   input: string
   output: string
-  instantiations: 1087
+  instantiations: 1085
 jsonSchema:
   input: '{ type: "string", minLength: 2, maxLength: 2 }'
   output: '{ type: "string", minLength: 2, maxLength: 2 }'
+isEqual: strictEqual
 vs:
   zod: z.string().length(2).length(2, "MY MESSAGE")
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[2](i);i.length>1||e[0](i);i.length<3||e[1](i);return i}
+    expression: i=>{typeof i==="string"||e[1](i);i.length===2||e[0](i);return i}
     examples:
       at-the-length:
         input: '"ab"'
@@ -21,25 +22,25 @@ operations:
         error: MY MESSAGE
       too-long:
         input: '"abc"'
-        error: Expected string.length == 2, received "abc"
+        error: MY MESSAGE
       empty:
         input: '""'
         error: MY MESSAGE
   decode:
-    expression: i=>{i.length>1||e[0](i);i.length<3||e[1](i);return i}
+    expression: i=>{i.length===2||e[0](i);return i}
     examples:
       at-the-length:
         input: '"ab"'
         output: '"ab"'
       too-long:
         input: '"abc"'
-        error: Expected string.length == 2, received "abc"
+        error: MY MESSAGE
   encode:
-    expression: i=>{i.length>1||e[0](i);i.length<3||e[1](i);return i}
+    expression: i=>{i.length===2||e[0](i);return i}
     examples:
       at-the-length:
         input: '"ab"'
         output: '"ab"'
       too-long:
         input: '"abc"'
-        error: Expected string.length == 2, received "abc"
+        error: MY MESSAGE

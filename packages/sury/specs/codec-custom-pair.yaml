@@ -3,17 +3,18 @@ ts:
   schema: 'S.string.with(S.to, S.number.with(S.gt, 0), { decode: (value) => value.length, encode: (value) => "x".repeat(value) })'
   input: string
   output: number
-  instantiations: 5842
+  instantiations: 4993
 jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "number", exclusiveMinimum: 0 }'
   openapi-3.0:
     output: '{ type: "number", minimum: 0, exclusiveMinimum: true }'
+isEqual: strictEqual
 vs:
   zod: 'z.codec(z.string(), z.number().positive(), { decode: (value) => value.length, encode: (value) => "x".repeat(value) })'
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[4](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="number"&&v0===v0||e[3](v0);v0>0||e[2](v0);return v0}
+    expression: i=>{typeof i==="string"||e[4](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="number"&&v0==v0||e[3](v0);v0>0||e[2](v0);return v0}
     examples:
       valid:
         input: '"abc"'
@@ -25,7 +26,7 @@ operations:
         input: "123"
         error: Expected string, received 123
   decode:
-    expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="number"&&v0===v0||e[3](v0);v0>0||e[2](v0);return v0}
+    expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="number"&&v0==v0||e[3](v0);v0>0||e[2](v0);return v0}
     examples:
       valid:
         input: '"abc"'

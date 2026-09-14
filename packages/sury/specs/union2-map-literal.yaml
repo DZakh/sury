@@ -7,6 +7,7 @@ ts:
 jsonSchema:
   input: Expected JSON, received Map<string, 1> | Map<string, 2>
   output: Expected JSON, received Map<string, 1> | Map<string, 2>
+isEqual: (a,b)=>a===b||(a instanceof e[0]?b instanceof e[0]&&e[2](a,b):b instanceof e[1]&&e[2](a,b))
 vs:
   zod:
     _skip: not-applicable

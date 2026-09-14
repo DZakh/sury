@@ -3,7 +3,7 @@ ts:
   schema: S.json.with(S.to, S.record(S.optional(S.boolean)))
   input: JSON
   output: "{ [x: string]: boolean | undefined; }"
-  instantiations: 5642
+  instantiations: 4828
 jsonSchema:
   input: '{ type: "object", additionalProperties: { anyOf: [{ type: "boolean" }, { type: "null" }] } }'
   fromInputType: "{ [key: string]: boolean | null; }"
@@ -11,6 +11,9 @@ jsonSchema:
   fromOutputType: "{ [key: string]: boolean; }"
   openapi-3.0:
     input: '{ type: "object", additionalProperties: { type: "boolean", nullable: true } }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>{if(a===b)return true;let n=0;for(const k in a){if(!(k in b)||!(a[k]===b[k]))return false;n++}for(const k in b)n--;return !n}
 vs:
   zod:
     _skip: not-applicable

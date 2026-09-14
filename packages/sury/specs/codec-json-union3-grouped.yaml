@@ -3,7 +3,7 @@ ts:
   schema: S.json.with(S.to, S.union([S.literal("a"), S.number, S.literal("b")]))
   input: JSON
   output: number | "a" | "b"
-  instantiations: 6703
+  instantiations: 5889
 jsonSchema:
   input: '{ anyOf: [{ type: "string", const: "a" }, { type: "number" }, { type: "string", const: "b" }] }'
   fromInputType: number | "a" | "b"
@@ -11,12 +11,15 @@ jsonSchema:
   openapi-3.0:
     input: '{ anyOf: [{ type: "string", enum: ["a"] }, { type: "number" }, { type: "string", enum: ["b"] }] }'
     output: '{ anyOf: [{ type: "string", enum: ["a"] }, { type: "number" }, { type: "string", enum: ["b"] }] }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: strictEqual
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{(typeof i==="string"&&(i==="a"||i==="b")||typeof i==="number"&&i===i)||e[0](i);return i}
+    expression: i=>{(typeof i==="string"&&(i==="a"||i==="b")||typeof i==="number"&&i==i)||e[0](i);return i}
     examples:
       first-literal:
         input: '"a"'

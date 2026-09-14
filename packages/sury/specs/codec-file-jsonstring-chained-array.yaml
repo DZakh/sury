@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.file.with(S.to, S.jsonString).with(S.to, S.array(S.schema({ id: S.bigint, email: S.email })))"
+  input: File
+  output: "{ id: bigint; email: string; }[]"
+  instantiations: 6295
+jsonSchema:
+  input: Expected JSON, received File
+  output: "Failed at [].id: Expected JSON, received bigint"
+isEqual:
+  input: strictEqual
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i].id===b[i].id&&a[i].email===b[i].email))return false;return true}
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    isAsync: true
+    expression: i=>{try{i instanceof e[9]||e[10](i);let v0;try{v0=i.text().catch(e[0])}catch(x){e[0](x)}return v0.then(v0=>{let v1;try{v1=JSON.parse(v0)}catch(t){e[1](v0)}Array.isArray(v1)||e[8](v1);let v8=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){try{let v3=v1[v2];typeof v3==="object"&&v3&&!Array.isArray(v3)||e[7](v3);let v5=v3.id,v6=v3.email;typeof v5==="string"||e[3](v5);let v4;try{v4=BigInt(v5)}catch(_){e[2](v5)}v4||v5.trim()||e[2](v5);typeof v6==="string"||e[6](v6);e[4].test(v6)||e[5](v6);v8[v2]={id:v4,email:v6}}catch(v7){v7.path=[v2,...v7.path];throw v7}}return v8})}catch(v9){return Promise.reject(v9)}}
+    examples:
+      reads-the-file:
+        input: new File(['[{"id":"7","email":"a@b.co"}]'], "signups.json")
+        output: '[{ id: 7n, email: "a@b.co" }]'
+  decode:
+    isAsync: true
+    expression: i=>{try{let v0;try{v0=i.text().catch(e[0])}catch(x){e[0](x)}return v0.then(v0=>{let v1;try{v1=JSON.parse(v0)}catch(t){e[1](v0)}Array.isArray(v1)||e[8](v1);let v8=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){try{let v3=v1[v2];typeof v3==="object"&&v3&&!Array.isArray(v3)||e[7](v3);let v5=v3.id,v6=v3.email;typeof v5==="string"||e[3](v5);let v4;try{v4=BigInt(v5)}catch(_){e[2](v5)}v4||v5.trim()||e[2](v5);typeof v6==="string"||e[6](v6);e[4].test(v6)||e[5](v6);v8[v2]={id:v4,email:v6}}catch(v7){v7.path=[v2,...v7.path];throw v7}}return v8})}catch(v9){return Promise.reject(v9)}}
+    examples:
+      reads-the-file:
+        input: new File(['[{"id":"7","email":"a@b.co"}]'], "signups.json")
+        output: '[{ id: 7n, email: "a@b.co" }]'
+  encode:
+    expression: i=>{for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];let v2=v1.email;e[0].test(v2)||e[1](v2);}catch(v3){v3.path=[v0,...v3.path];throw v3}}let v5="";for(let v4=0;v4<i.length;++v4){try{let v6=i[v4];let v7=v6.email;e[2].test(v7)||e[3](v7);v5+=(v4?",":"")+"{\"id\":\""+v6.id+"\",\"email\":\""+v7+"\"}"}catch(v8){v8.path=[v4,...v8.path];throw v8}}let v9="["+v5+"]";return new e[4]([v9],"")}
+    examples:
+      writes-a-file:
+        input: '[{ id: 7n, email: "a@b.co" }]'
+        output: new File(["[{\"id\":\"7\",\"email\":\"a@b.co\"}]"], "")

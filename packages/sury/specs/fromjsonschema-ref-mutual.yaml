@@ -1,12 +1,13 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: 'S.fromJSONSchema({ $ref: "#/$defs/Tree", $defs: { Tree: { type: "object", properties: { value: { type: "string" }, fork: { $ref: "#/$defs/Fork" } }, required: ["value"] }, Fork: { type: "object", properties: { left: { $ref: "#/$defs/Tree" }, right: { $ref: "#/$defs/Tree" } }, required: ["left", "right"] } } })'
+  schema: 'S.fromJSONSchemaOrThrow({ $ref: "#/$defs/Tree", $defs: { Tree: { type: "object", properties: { value: { type: "string" }, fork: { $ref: "#/$defs/Fork" } }, required: ["value"] }, Fork: { type: "object", properties: { left: { $ref: "#/$defs/Tree" }, right: { $ref: "#/$defs/Tree" } }, required: ["left", "right"] } } })'
   input: "{ value: string; fork?: { left: ...; right: ...; } | undefined; }"
   output: "{ value: string; fork?: { left: ...; right: ...; } | undefined; }"
   instantiations: 3859
 jsonSchema:
   input: '{ $ref: "#/$defs/Tree", $defs: { Tree: { type: "object", properties: { value: { type: "string" }, fork: { type: "object", properties: { left: { $ref: "#/$defs/Tree" }, right: { $ref: "#/$defs/Tree" } }, required: ["left", "right"] } }, required: ["value"] } } }'
   output: '{ $ref: "#/$defs/Tree", $defs: { Tree: { type: "object", properties: { value: { type: "string" }, fork: { type: "object", properties: { left: { $ref: "#/$defs/Tree" }, right: { $ref: "#/$defs/Tree" } }, required: ["left", "right"] } }, required: ["value"] } } }'
+isEqual: (a,b)=>a===b||e[0](a,b)
 vs:
   zod:
     _skip: not-applicable

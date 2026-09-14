@@ -5,11 +5,9 @@ ts:
   output: any
   instantiations: 254
 jsonSchema:
-  # FIXME: "any value" is the one thing JSON Schema represents trivially ({} or
-  # true), and S.inputJSONSchema(S.json) already returns {} — both directions
-  # should too instead of throwing. The message also mislabels S.any as unknown.
-  input: Expected JSON, received unknown
-  output: Expected JSON, received unknown
+  input: "{}"
+  output: "{}"
+isEqual: (a,b)=>a===b||e[0](a,b)
 vs:
   zod: z.any()
 operations:

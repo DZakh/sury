@@ -3,7 +3,7 @@ ts:
   schema: S.array(S.never).with(S.to, S.jsonString)
   input: never[]
   output: string
-  instantiations: 5398
+  instantiations: 4584
 jsonSchema:
   input: '{ items: { not: {} }, type: "array" }'
   output: '{ type: "string", contentMediaType: "application/json" }'
@@ -11,6 +11,9 @@ jsonSchema:
     output: '{ type: "string", contentMediaType: "application/json", contentSchema: { items: { not: {} }, type: "array" }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
   openapi-3.0:
     output: '{ type: "string" }'
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(e[0](a[i],b[i])))return false;return true}
+  output: strictEqual
 vs:
   zod:
     _skip: not-applicable

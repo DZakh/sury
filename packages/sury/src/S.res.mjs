@@ -24,6 +24,23 @@ let Flag = {
 
 let $$Error = {};
 
+function toProtoOrThrow(schema, name, $$package) {
+  return Sury.toProtoOrThrow(schema, {
+    name: name,
+    package: $$package
+  });
+}
+
+function protobufField(schema, number, type_, packed, key, oneof) {
+  return Sury.protobufField(schema, {
+    number: number,
+    type: type_,
+    packed: packed,
+    key: key,
+    oneof: oneof
+  });
+}
+
 function refine(schema, refiner, error, path) {
   return Sury.refine(schema, refiner, {
     error: error,
@@ -54,28 +71,68 @@ function to(from, target, custom) {
   }
 }
 
-function decoder(from, to) {
-  return Sury.decoder(Sury.reverse(from), to);
+function compileConvertOrThrow(from, via, to) {
+  if (via !== undefined) {
+    return Sury.encodeOrThrow(from, via, to);
+  } else {
+    return Sury.encodeOrThrow(from, to);
+  }
 }
 
-function asyncDecoder(from, to) {
-  return Sury.asyncDecoder(Sury.reverse(from), to);
+function compileConvertAsPromiseOrReject(from, via, to) {
+  if (via !== undefined) {
+    return Sury.encodeAsPromiseOrReject(from, via, to);
+  } else {
+    return Sury.encodeAsPromiseOrReject(from, to);
+  }
 }
 
-function parseOrThrow(any, to) {
-  return Sury.parser(to)(any);
+function compileConvertAsResult(from, via, to) {
+  if (via !== undefined) {
+    return Sury.$encodeAsResult(from, via, to);
+  } else {
+    return Sury.$encodeAsResult(from, to);
+  }
 }
 
-function parseAsyncOrThrow(any, to) {
-  return Sury.asyncParser(to)(any);
+function compileConvertAsResultPromise(from, via, to) {
+  if (via !== undefined) {
+    return Sury.$encodeAsResultPromise(from, via, to);
+  } else {
+    return Sury.$encodeAsResultPromise(from, to);
+  }
 }
 
-function decodeOrThrow(any, from, to) {
-  return Sury.decoder(Sury.reverse(from), to)(any);
+function convertOrThrow(any, from, via, to) {
+  if (via !== undefined) {
+    return Sury.encodeOrThrow(any, from, via, to);
+  } else {
+    return Sury.encodeOrThrow(any, from, to);
+  }
 }
 
-function decodeAsyncOrThrow(any, from, to) {
-  return Sury.asyncDecoder(Sury.reverse(from), to)(any);
+function convertAsPromiseOrReject(any, from, via, to) {
+  if (via !== undefined) {
+    return Sury.encodeAsPromiseOrReject(any, from, via, to);
+  } else {
+    return Sury.encodeAsPromiseOrReject(any, from, to);
+  }
+}
+
+function convertAsResult(any, from, via, to) {
+  if (via !== undefined) {
+    return Sury.$encodeAsResult(any, from, via, to);
+  } else {
+    return Sury.$encodeAsResult(any, from, to);
+  }
+}
+
+function convertAsResultPromise(any, from, via, to) {
+  if (via !== undefined) {
+    return Sury.$encodeAsResultPromise(any, from, via, to);
+  } else {
+    return Sury.$encodeAsResultPromise(any, from, to);
+  }
 }
 
 let Schema = {};
@@ -111,8 +168,8 @@ let Metadata = {
   Id: Id
 };
 
-function fromJSONSchema(jsonSchema) {
-  return Sury.fromJSONSchema(jsonSchema);
+function fromJSONSchemaOrThrow(jsonSchema) {
+  return Sury.fromJSONSchemaOrThrow(jsonSchema);
 }
 
 export {
@@ -120,14 +177,18 @@ export {
   Exn,
   Flag,
   $$Error,
+  toProtoOrThrow,
+  protobufField,
   refine,
   to,
-  decoder,
-  asyncDecoder,
-  parseOrThrow,
-  parseAsyncOrThrow,
-  decodeOrThrow,
-  decodeAsyncOrThrow,
+  compileConvertOrThrow,
+  compileConvertAsPromiseOrReject,
+  compileConvertAsResult,
+  compileConvertAsResultPromise,
+  convertOrThrow,
+  convertAsPromiseOrReject,
+  convertAsResult,
+  convertAsResultPromise,
   Schema,
   $$Object,
   Tuple,
@@ -136,6 +197,6 @@ export {
   tuple3,
   Option,
   Metadata,
-  fromJSONSchema,
+  fromJSONSchemaOrThrow,
 }
 /*  Not a pure module */

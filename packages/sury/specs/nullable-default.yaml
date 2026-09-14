@@ -9,6 +9,7 @@ jsonSchema:
   output: '{ type: "string" }'
   openapi-3.0:
     input: '{ default: "bar", type: "string", nullable: true }'
+isEqual: strictEqual
 vs:
   zod: z.string().nullable().transform((value) => value ?? "bar")
 operations:

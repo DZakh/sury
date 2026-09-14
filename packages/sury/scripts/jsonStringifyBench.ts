@@ -1,16 +1,16 @@
 // Competitor benchmark behind the README's "JSON serialization" table:
 // JSON.stringify vs fast-json-stringify vs a prepared
-// `S.encoder(schema, S.jsonString)`. Where the competitors can't represent a
+// `S.encodeOrThrow(schema, S.jsonString)`. Where the competitors can't represent a
 // type (bigint, Uint8Array, Date), their timed loop includes the hand-written
-// mapping pass a real consumer would need — Sury compiles that mapping into
+// mapping pass a real consumer would need - Sury compiles that mapping into
 // the encoder, so charging it to the competitors is the honest comparison.
 //
 // A second table encodes to UTF-8 bytes, for the consumer who hands a
 // Uint8Array to its sink rather than a string. Sury's row is the compiled
 // `jsonString -> uint8Array` chain; the competitors get `Buffer.from`, the
 // cheapest string-to-bytes primitive Node has (TextEncoder.encode carries
-// ~1µs of allocation per call). A sink that accepts a string — a socket write,
-// `res.end`, `new Response` — encodes natively and is cheaper than either.
+// ~1µs of allocation per call). A sink that accepts a string - a socket write,
+// `res.end`, `new Response` - encodes natively and is cheaper than either.
 //
 //   pnpm --filter=sury bench:jsonstring
 //
@@ -21,9 +21,8 @@
 import fastJson from "fast-json-stringify";
 import * as S from "../index.mjs";
 
-// A Uint8Array target that opens as a JSON document: `S.encoder` reverses it,
-// so the compiled chain is `schema -> jsonString -> uint8Array("pack")`.
-const jsonBytes = S.uint8Array.with(S.to, S.jsonString, "unpack");
+// The compiled chain is `schema -> jsonString -> uint8Array("pack")`.
+const jsonBytes = S.jsonString.with(S.to, S.uint8Array, "pack");
 
 const ROUNDS = 7;
 const bench = (fn: () => unknown): number => {
@@ -82,8 +81,8 @@ const cases: Case[] = [];
     score: S.number,
     role: S.string,
   });
-  const sury = S.encoder(schema, S.jsonString);
-  const suryBytes = S.encoder(schema, jsonBytes);
+  const sury = S.encodeOrThrow(schema, S.jsonString);
+  const suryBytes = S.encodeOrThrow(schema, jsonBytes);
   cases.push({
     name: "API response (user profile, 7 fields)",
     stringify: () => JSON.stringify(data),
@@ -113,8 +112,8 @@ const cases: Case[] = [];
     },
   });
   const schema = S.array(S.schema({ id: S.number, name: S.string, active: S.boolean }));
-  const sury = S.encoder(schema, S.jsonString);
-  const suryBytes = S.encoder(schema, jsonBytes);
+  const sury = S.encodeOrThrow(schema, S.jsonString);
+  const suryBytes = S.encodeOrThrow(schema, jsonBytes);
   cases.push({
     name: "List endpoint (100 rows)",
     stringify: () => JSON.stringify(data),
@@ -182,8 +181,8 @@ const cases: Case[] = [];
       ]),
     ),
   });
-  const sury = S.encoder(schema, S.jsonString);
-  const suryBytes = S.encoder(schema, jsonBytes);
+  const sury = S.encodeOrThrow(schema, S.jsonString);
+  const suryBytes = S.encodeOrThrow(schema, jsonBytes);
   cases.push({
     name: "Event feed (50 tagged-union events)",
     stringify: () => JSON.stringify(data),
@@ -202,8 +201,8 @@ const cases: Case[] = [];
     additionalProperties: { type: "number" },
   });
   const schema = S.record(S.number);
-  const sury = S.encoder(schema, S.jsonString);
-  const suryBytes = S.encoder(schema, jsonBytes);
+  const sury = S.encodeOrThrow(schema, S.jsonString);
+  const suryBytes = S.encodeOrThrow(schema, jsonBytes);
   cases.push({
     name: "Metrics dict (50 number values)",
     stringify: () => JSON.stringify(data),
@@ -222,8 +221,8 @@ const cases: Case[] = [];
     additionalProperties: { type: "string" },
   });
   const schema = S.record(S.string);
-  const sury = S.encoder(schema, S.jsonString);
-  const suryBytes = S.encoder(schema, jsonBytes);
+  const sury = S.encodeOrThrow(schema, S.jsonString);
+  const suryBytes = S.encodeOrThrow(schema, jsonBytes);
   cases.push({
     name: "Labels dict (50 string values)",
     stringify: () => JSON.stringify(data),
@@ -242,7 +241,7 @@ const cases: Case[] = [];
     label: "event",
   };
   // JSON.stringify throws on bigint and mangles Uint8Array, and
-  // fast-json-stringify expects pre-mapped strings — both pay a mapping pass.
+  // fast-json-stringify expects pre-mapped strings - both pay a mapping pass.
   const map = (d: typeof data) => ({
     id: d.id.toString(),
     payload: Buffer.from(d.payload).toString(),
@@ -266,8 +265,8 @@ const cases: Case[] = [];
     createdAt: S.to(S.string, S.date),
     label: S.string,
   });
-  const sury = S.encoder(schema, S.jsonString);
-  const suryBytes = S.encoder(schema, jsonBytes);
+  const sury = S.encodeOrThrow(schema, S.jsonString);
+  const suryBytes = S.encodeOrThrow(schema, jsonBytes);
   cases.push({
     name: "Event: bigint id + binary payload + Date",
     stringify: () => JSON.stringify(map(data)),
@@ -280,7 +279,7 @@ const cases: Case[] = [];
 // ── Formatted strings (uuid, timestamp, ip, email) ───────────────────────────
 // The shape an audit log or an event envelope actually has. Sury splices a
 // value whose format admits no escapable character straight between quotes
-// (the `escapeFree` field in base.ts) — and still runs each format's pattern
+// (`formatFlag` bit 1 in base.ts) - and still runs each format's pattern
 // check first, which the competitors don't, so this charges Sury for
 // validation they skip.
 {
@@ -304,8 +303,8 @@ const cases: Case[] = [];
     who: S.email,
     note: S.string,
   });
-  const sury = S.encoder(schema, S.jsonString);
-  const suryBytes = S.encoder(schema, jsonBytes);
+  const sury = S.encodeOrThrow(schema, S.jsonString);
+  const suryBytes = S.encodeOrThrow(schema, jsonBytes);
   cases.push({
     name: "Audit row (uuid + timestamp + ip + email)",
     stringify: () => JSON.stringify(data),

@@ -7,6 +7,7 @@ ts:
 jsonSchema:
   input: '{ type: "object", additionalProperties: { type: "string" } }'
   output: '{ type: "object", additionalProperties: { type: "string" } }'
+isEqual: (a,b)=>{if(a===b)return true;let n=0;for(const k in a){if(!(k in b)||!(a[k]===b[k]))return false;n++}for(const k in b)n--;return !n}
 vs:
   zod: z.record(z.string(), z.string())
 operations:
@@ -16,7 +17,7 @@ operations:
       valid:
         input: '{ a: "x", b: "y" }'
         output: '{ a: "x", b: "y" }'
-      # FIXME: S.record takes no key schema, so keys are never validated — the
+      # FIXME: S.record takes no key schema, so keys are never validated - the
       # key type is assumed to be string. Zod's equivalent takes one
       # (z.record(z.string(), z.string())), which is why `vs.zod` above has to
       # spell the key side out.
@@ -27,11 +28,14 @@ operations:
         input: "{}"
         output: "{}"
       # FIXME: the `for (let v0 in i)` loop skips symbol keys entirely, so a
-      # value under one is never reached, whatever the value schema says — 123
+      # value under one is never reached, whatever the value schema says - 123
       # passes through a record of strings unvalidated and unstripped.
       symbol-keyed-value-is-not-validated:
         input: '{ [Symbol.for("k")]: 123 }'
         output: '{ [Symbol.for("k")]: 123 }'
+        divergence:
+          reason: zod validates a record's symbol keys; S.record reads its string keys only
+          zod: Invalid key in record
       invalid-value:
         input: "{ a: 1 }"
         error: "Failed at a: Expected string, received 1"

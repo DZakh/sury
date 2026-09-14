@@ -3,10 +3,14 @@ ts:
   schema: S.to(S.array(S.string), S.array(S.unknown)).with(S.length, 2)
   input: string[]
   output: "[unknown, unknown]"
-  instantiations: 1418
+  instantiations: 1414
 jsonSchema:
   input: '{ items: { type: "string" }, type: "array" }'
-  output: "Failed at []: Expected JSON, received unknown"
+  output: '{ items: {}, type: "array", minItems: 2, maxItems: 2 }'
+  fromOutputType: "[JSON, JSON]"
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(e[0](a[i],b[i])))return false;return true}
 vs:
   zod:
     _skip: not-applicable

@@ -1,12 +1,13 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: 'S.fromJSONSchema({ type: "string", minLength: 100, maxLength: 50 })'
+  schema: 'S.fromJSONSchemaOrThrow({ type: "string", minLength: 100, maxLength: 50 })'
   input: never
   output: never
   instantiations: 828
 jsonSchema:
   input: "{ not: {} }"
   output: "{ not: {} }"
+isEqual: (a,b)=>a===b||e[0](a,b)
 vs:
   zod:
     _skip: not-applicable

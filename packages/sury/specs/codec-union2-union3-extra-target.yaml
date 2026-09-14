@@ -3,16 +3,17 @@ ts:
   schema: S.union([S.string, S.number]).with(S.to, S.union([S.number, S.string, S.boolean]))
   input: string | number
   output: string | number | boolean
-  instantiations: 6664
+  instantiations: 5850
 jsonSchema:
   input: '{ anyOf: [{ type: "string" }, { type: "number" }] }'
   output: '{ anyOf: [{ type: "number" }, { type: "string" }, { type: "boolean" }] }'
+isEqual: strictEqual
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    creationError: "SuryError: Invalid operation: can't convert string | number to number | string | boolean — boolean has no same-type variant on the other side. Use S.to to say what you mean, or S.never to mark a variant unreachable"
+    creationError: "SuryError: Ambiguous string | number -> number | string | boolean. Should boolean be decoded or ignored? Choose with S.to for string -> boolean, or S.never -> boolean"
   decode: eq-to-parse
   encode:
-    creationError: "SuryError: Invalid operation: can't convert number | string | boolean to string | number — boolean has no same-type variant on the other side. Use S.to to say what you mean, or S.never to mark a variant unreachable"
+    creationError: "SuryError: Ambiguous number | string | boolean -> string | number. Should boolean be decoded or ignored? Choose with S.to for boolean -> string, or S.never -> boolean"

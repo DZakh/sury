@@ -3,10 +3,11 @@ ts:
   schema: S.string.with(S.maxLength, 2)
   input: string
   output: string
-  instantiations: 581
+  instantiations: 577
 jsonSchema:
   input: '{ type: "string", maxLength: 2 }'
   output: '{ type: "string", maxLength: 2 }'
+isEqual: strictEqual
 vs:
   zod: z.string().max(2)
 operations:
@@ -16,6 +17,15 @@ operations:
       at-the-length:
         input: '"ab"'
         output: '"ab"'
+      two-emojis:
+        input: '"😀😀"'
+        error: Expected string.length <= 2, received "😀😀"
+      three-emojis:
+        input: '"😀😀😀"'
+        error: Expected string.length <= 2, received "😀😀😀"
+      emoji-and-letter:
+        input: '"😀a"'
+        error: Expected string.length <= 2, received "😀a"
       longer:
         input: '"abc"'
         error: Expected string.length <= 2, received "abc"
@@ -37,6 +47,15 @@ operations:
       at-the-length:
         input: '"ab"'
         output: '"ab"'
+      two-emojis:
+        input: '"😀😀"'
+        error: Expected string.length <= 2, received "😀😀"
+      three-emojis:
+        input: '"😀😀😀"'
+        error: Expected string.length <= 2, received "😀😀😀"
+      emoji-and-letter:
+        input: '"😀a"'
+        error: Expected string.length <= 2, received "😀a"
       shorter:
         input: '"a"'
         output: '"a"'
@@ -49,6 +68,15 @@ operations:
       at-the-length:
         input: '"ab"'
         output: '"ab"'
+      two-emojis:
+        input: '"😀😀"'
+        error: Expected string.length <= 2, received "😀😀"
+      three-emojis:
+        input: '"😀😀😀"'
+        error: Expected string.length <= 2, received "😀😀😀"
+      emoji-and-letter:
+        input: '"😀a"'
+        error: Expected string.length <= 2, received "😀a"
       shorter:
         input: '"a"'
         output: '"a"'

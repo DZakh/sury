@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.queryString.with(S.to, S.urlSearchParams)
+  input: string
+  output: URLSearchParams
+  instantiations: 4432
+jsonSchema:
+  input: '{ type: "string" }'
+  output: Expected JSON, received URLSearchParams
+isEqual:
+  input: strictEqual
+  output: (a,b)=>a===b||e[0](a,b)
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[1](i);return new e[0](i)}
+    examples:
+      valid:
+        input: '"q=hi&page=2"'
+        output: ((p) => (p.append("q", "hi"), p.append("page", "2"), p))(new URLSearchParams())
+      empty:
+        input: '""'
+        output: new URLSearchParams()
+  decode:
+    expression: i=>{return new e[0](i)}
+    examples:
+      valid:
+        input: '"q=hi&page=2"'
+        output: ((p) => (p.append("q", "hi"), p.append("page", "2"), p))(new URLSearchParams())
+  encode:
+    expression: i=>{return i.toString()}
+    examples:
+      valid:
+        input: ((p) => (p.append("q", "hi"), p.append("page", "2"), p))(new URLSearchParams())
+        output: '"q=hi&page=2"'
+      empty:
+        input: new URLSearchParams()
+        output: '""'

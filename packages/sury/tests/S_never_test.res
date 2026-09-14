@@ -14,7 +14,7 @@ module Common = {
     let schema = factory()
 
     t->U.assertThrowsMessage(
-      () => any->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+      () => any->S.convertOrThrow(~from=schema, ~to=S.unknown),
       `Expected never, received true`,
     )
   })

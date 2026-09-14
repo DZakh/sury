@@ -1,15 +1,16 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: "S.fromJSONSchema({ uniqueItems: false })"
+  schema: "S.fromJSONSchemaOrThrow({ uniqueItems: false })"
   aliases:
-    - "S.fromJSONSchema({ minContains: 1 })"
-    - "S.fromJSONSchema({ maxContains: 1 })"
+    - "S.fromJSONSchemaOrThrow({ minContains: 1 })"
+    - "S.fromJSONSchemaOrThrow({ maxContains: 1 })"
   input: JSON
   output: JSON
   instantiations: 593
 jsonSchema:
   input: "{}"
   output: "{}"
+isEqual: (a,b)=>a===b||e[0](a,b)
 vs:
   zod:
     _skip: not-applicable

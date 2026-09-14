@@ -20,7 +20,7 @@ test("Works for literals", t => {
 // KNOWN BUG: `noValidation` on a union case silently breaks dispatch.
 //
 // `literalDecoder` short-circuits when `expectedSchema.noValidation` is set
-// (Sury.res:2001) and emits no check at all — so there's nothing for the
+// (Sury.res:2001) and emits no check at all - so there's nothing for the
 // union discriminant hoister to lift, and that case becomes a catch-all
 // that swallows every input ahead of subsequent cases.
 //
@@ -34,7 +34,7 @@ test("Union dispatch still works when a case has noValidation", t => {
   let schema = S.union([S.literal("a")->S.noValidation(true), S.literal("b")])
 
   t->Assert.deepEqual("a"->S.parseOrThrow(~to=schema), "a")
-  // BUG: returns "a" instead of "b" — first case becomes catch-all.
+  // BUG: returns "a" instead of "b" - first case becomes catch-all.
   t->Assert.deepEqual("b"->S.parseOrThrow(~to=schema), "b")
   t->U.assertThrowsMessage(
     () => "c"->S.parseOrThrow(~to=schema),

@@ -3,12 +3,15 @@ ts:
   schema: S.uint8Array.with(S.to, S.base64url)
   input: Uint8Array<ArrayBufferLike>
   output: string
-  instantiations: 5233
+  instantiations: 4419
 jsonSchema:
   input: Expected JSON, received Uint8Array
   output: '{ type: "string", contentEncoding: "base64url" }'
   openapi-3.0:
     output: '{ type: "string", format: "base64url" }'
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+  output: strictEqual
 vs:
   zod:
     _skip: not-applicable

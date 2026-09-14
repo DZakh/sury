@@ -2,7 +2,7 @@
 // of them satisfies, and one type per target the JSON Schema conversion can emit.
 //
 // A per-target type describes what Sury emits for that target, which is not
-// always what the dialect's spec alone would suggest — `$defs` comes out on
+// always what the dialect's spec alone would suggest - `$defs` comes out on
 // every target, and `examples` on OpenAPI 3.0. Such deviations are noted on the
 // fields themselves.
 
@@ -71,12 +71,12 @@ export interface OpenAPIExternalDocs {
 export type JSONSchemaDefinition = JSONSchema | boolean;
 
 /**
- * A JSON Schema of any dialect Sury understands — draft-04 through draft-2020-12,
+ * A JSON Schema of any dialect Sury understands - draft-04 through draft-2020-12,
  * custom metaschema identifiers, plus the OpenAPI 3.0 `nullable` extension.
  *
  * This is the type to author against (`{ ... } satisfies S.JSONSchema`) and what
  * `extendJSONSchema` accepts. It carries every keyword of every supported
- * dialect, including a few `fromJSONSchema` cannot model and rejects when it
+ * dialect, including a few `fromJSONSchemaOrThrow` cannot model and rejects when it
  * builds the schema.
  *
  * Draft-04 and unknown metaschemas use legacy `$ref` sibling semantics. Nested
@@ -173,7 +173,7 @@ export interface JSONSchema {
 export type JSONSchema7Definition = JSONSchema7 | boolean;
 
 /**
- * JSON Schema draft-07 — what `inputJSONSchema` emits by default.
+ * JSON Schema draft-07 - what `toInputJSONSchemaOrThrow` emits by default.
  *
  * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01
  */
@@ -244,7 +244,7 @@ export interface JSONSchema7 {
 export type JSONSchema2020Definition = JSONSchema2020 | boolean;
 
 /**
- * JSON Schema draft-2020-12 — `inputJSONSchema(schema, { target: "draft-2020-12" })`.
+ * JSON Schema draft-2020-12 - `toInputJSONSchemaOrThrow(schema, { target: "draft-2020-12" })`.
  *
  * @see https://json-schema.org/draft/2020-12/schema
  */
@@ -278,7 +278,7 @@ export interface JSONSchema2020 {
 
   /** Positional schemas; `items` then constrains the elements after them. */
   prefixItems?: JSONSchema2020Definition[] | undefined;
-  /** A single schema — the draft-07 array form became `prefixItems`. */
+  /** A single schema - the draft-07 array form became `prefixItems`. */
   items?: JSONSchema2020Definition | undefined;
   unevaluatedItems?: JSONSchema2020Definition | undefined;
   maxItems?: number | undefined;
@@ -318,11 +318,11 @@ export interface JSONSchema2020 {
   [vendorExtension: `x-${string}`]: unknown;
 }
 
-/** OpenAPI 3.0 has no boolean form for subschemas — only `additionalProperties` takes one. */
+/** OpenAPI 3.0 has no boolean form for subschemas - only `additionalProperties` takes one. */
 export type OpenAPISchema30Definition = OpenAPISchema30;
 
 /**
- * The OpenAPI 3.0 Schema Object — `inputJSONSchema(schema, { target: "openapi-3.0" })`.
+ * The OpenAPI 3.0 Schema Object - `toInputJSONSchemaOrThrow(schema, { target: "openapi-3.0" })`.
  *
  * A restricted, partly divergent draft-04: no `const`, no `null` type name, no
  * tuples, no `if`/`then`/`else`, and `nullable` in place of a union with null.
@@ -336,7 +336,7 @@ export interface OpenAPISchema30 {
   // recursive references carries it here too.
   $defs?: { [key: string]: OpenAPISchema30Definition } | undefined;
 
-  /** A single name — OpenAPI 3.0 has no type arrays, and no `"null"`. */
+  /** A single name - OpenAPI 3.0 has no type arrays, and no `"null"`. */
   type?: OpenAPISchema30TypeName | undefined;
   enum?: JSONSchemaValue[] | undefined;
 

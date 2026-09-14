@@ -7,6 +7,7 @@ ts:
 jsonSchema:
   input: '{ type: "string", format: "uri-template" }'
   output: '{ type: "string", format: "uri-template" }'
+isEqual: strictEqual
 vs:
   zod:
     _skip: not-applicable

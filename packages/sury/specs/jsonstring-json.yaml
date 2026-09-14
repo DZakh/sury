@@ -3,12 +3,15 @@ ts:
   schema: S.json.with(S.to, S.jsonString)
   input: JSON
   output: string
-  instantiations: 5233
+  instantiations: 4419
 jsonSchema:
   input: "{}"
   output: '{ type: "string", contentMediaType: "application/json" }'
   openapi-3.0:
     output: '{ type: "string" }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: strictEqual
 vs:
   zod:
     _skip: not-applicable

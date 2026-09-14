@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.formData.with(S.to, S.schema({ a: S.unknown, b: S.optional(S.unknown) }))"
+  input: FormData
+  output: "{ a?: unknown; b?: unknown; }"
+  instantiations: 6224
+jsonSchema:
+  input: Expected JSON, received FormData
+  output: '{ type: "object", properties: { a: {}, b: {} }, required: ["a"] }'
+  fromOutputType: "{ a: JSON; b?: JSON | undefined; }"
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||e[0](a.a,b.a)&&e[0](a.b,b.b)
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{i instanceof e[3]||e[4](i);let v0=e[0](i),v1=v0.get("a"),v2=v0.get("b")||void 0;Array.isArray(v1)&&e[1](v1);Array.isArray(v2)&&e[2](v2);return {a:v1,b:v2}}
+    examples:
+      text-present-and-optional-absent:
+        input: ((f) => (f.append("a", "x"), f))(new FormData())
+        output: '{ a: "x", b: undefined }'
+      file:
+        input: ((f) => (f.append("a", new File(["hi"], "a.txt")), f))(new FormData())
+        output: '{ a: new File(["hi"], "a.txt"), b: undefined }'
+  decode:
+    expression: i=>{let v0=e[0](i),v1=v0.get("a"),v2=v0.get("b")||void 0;Array.isArray(v1)&&e[1](v1);Array.isArray(v2)&&e[2](v2);return {a:v1,b:v2}}
+    examples:
+      repeated-key:
+        input: ((f) => (f.append("a", "x"), f.append("a", "y"), f))(new FormData())
+        error: 'Failed at a: Expected form field, received ["x", "y"]'
+      text:
+        input: ((f) => (f.append("a", "x"), f.append("b", "y"), f))(new FormData())
+        output: '{ a: "x", b: "y" }'
+  encode:
+    expression: i=>{let v1=i.a,v2=i.b;let v0=new e[0]();if(v1!=null){typeof v1==="string"||v1 instanceof e[1]||e[2](v1);v0.append("a",v1);}if(v2!=null){typeof v2==="string"||v2 instanceof e[3]||e[4](v2);v0.append("b",v2);}return v0}
+    examples:
+      text:
+        input: '{ a: "x", b: undefined }'
+        output: ((f) => (f.append("a", "x"), f))(new FormData())
+      file:
+        input: '{ a: new Blob(["hi"]) }'
+        output: ((f) => (f.append("a", new File(["hi"], "blob")), f))(new FormData())
+      object-is-rejected:
+        input: "{ a: { x: 1 } }"
+        error: "Failed at a: Expected form field, received { x: 1; }"
+      undefined-is-omitted:
+        input: "{ a: undefined }"
+        output: new FormData()
+      number-is-rejected:
+        input: '{ a: 5, b: "y" }'
+        error: "Failed at a: Expected form field, received 5"

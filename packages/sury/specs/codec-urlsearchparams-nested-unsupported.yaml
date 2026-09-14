@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.urlSearchParams.with(S.to, S.schema({ user: S.schema({ name: S.string }) }))"
+  input: URLSearchParams
+  output: "{ user: { name: string; }; }"
+  instantiations: 6366
+jsonSchema:
+  input: Expected JSON, received URLSearchParams
+  output: '{ type: "object", properties: { user: { type: "object", properties: { name: { type: "string" } }, required: ["name"] } }, required: ["user"] }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||a.user.name===b.user.name
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "SuryError: Failed at user: Can't decode search param -> { name: string; }. Define custom codec with S.to"
+  decode: eq-to-parse
+  encode:
+    creationError: "SuryError: Failed at user: Can't decode { name: string; } -> URLSearchParams. Define custom codec with S.to"

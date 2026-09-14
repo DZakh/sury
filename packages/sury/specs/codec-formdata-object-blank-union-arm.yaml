@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.formData.with(S.to, S.schema({ a: S.union([S.string, S.number]) }))"
+  input: FormData
+  output: "{ a: string | number; }"
+  instantiations: 6208
+jsonSchema:
+  input: Expected JSON, received FormData
+  output: '{ type: "object", properties: { a: { anyOf: [{ type: "string" }, { type: "number" }] } }, required: ["a"] }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||a.a===b.a
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: 'SuryError: Failed at a: Ambiguous "" for string | number. Should a blank input be rejected, kept, or read as absent? Choose with S.nonEmpty, S.minLength(0), or S.optional'
+  decode: eq-to-parse
+  encode:
+    creationError: "SuryError: Failed at a: Ambiguous string | number -> string. Should number be decoded or ignored? Choose with S.to for number -> string, or S.never -> number"

@@ -7,6 +7,7 @@ ts:
 jsonSchema:
   input: Expected JSON, received Uint8Array
   output: Expected JSON, received Uint8Array
+isEqual: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
 vs:
   zod:
     schema: z.instanceof(Uint8Array)

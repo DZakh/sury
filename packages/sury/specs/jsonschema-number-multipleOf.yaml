@@ -1,18 +1,19 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: 'S.fromJSONSchema({ type: "number", multipleOf: 2.5 })'
+  schema: 'S.fromJSONSchemaOrThrow({ type: "number", multipleOf: 2.5 })'
   input: number
   output: number
   instantiations: 524
 jsonSchema:
   input: '{ type: "number", multipleOf: 2.5 }'
   output: '{ type: "number", multipleOf: 2.5 }'
+isEqual: strictEqual
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="number"&&i===i||e[2](i);e[0](i)||e[1](i);return i}
+    expression: i=>{typeof i==="number"&&i==i||e[2](i);e[0](i)||e[1](i);return i}
     examples:
       valid:
         input: "5"
