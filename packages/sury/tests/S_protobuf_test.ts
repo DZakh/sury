@@ -543,3 +543,24 @@ message Leaf {
 `,
   );
 });
+
+// A schema that throws while it is being built has nowhere to be pinned in the
+// spec format, which needs a schema before it can record anything.
+test("A default on the definition being built is refused, where one beside it is not", (t) => {
+  t.expect(() =>
+    S.recursive("Endless", (self) => S.schema({ v: S.int32, kid: S.optional(self, { v: 0 }) })),
+  ).toThrow(
+    "[Sury] Can't set default for Endless | undefined: the default is read as Endless, which would need a default of its own",
+  );
+
+  // The same shape one step away: the default is read as a definition that is
+  // finished, so it holds a finite value and the schema builds.
+  const tree = S.recursive("Tree", (self) =>
+    S.schema({
+      v: S.int32,
+      leaf: S.optional(S.recursive("Leaf", () => S.schema({ n: S.int32 })), { n: 5 }),
+      kid: S.optional(self),
+    }),
+  );
+  t.expect(S.parseOrThrow(tree, { v: 1 })).toEqual({ v: 1, leaf: { n: 5 } });
+});

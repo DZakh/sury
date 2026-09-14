@@ -29,6 +29,9 @@ operations:
       trusted-object:
         input: '{ id: "0", name: "" }'
         output: new Uint8Array([])
+      name-is-not-a-string:
+        input: '{ id: "0", name: 5 }'
+        error: invalid string
   encode:
     expression: i=>{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}return {id:""+v0.id,name:v0.name}}
     examples:

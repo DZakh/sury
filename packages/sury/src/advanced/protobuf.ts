@@ -1112,6 +1112,12 @@ class Writer {
     this.pos += n;
   }
   string(v: string): void {
+    // The only write that would otherwise fail deep inside, as a length
+    // arithmetic that ends in `RangeError: offset is out of bounds`. Every
+    // other type either writes something or is refused by name, and encode
+    // takes the value the schema already describes, so this is the one place
+    // where a value that is not one leaves no trace of what it was.
+    if (typeof v !== "string") throw Error("invalid string");
     const len = v.length;
     if (len < 32) {
       let i = 0;

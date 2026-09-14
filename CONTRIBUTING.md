@@ -351,11 +351,12 @@ instead of silently working around it.
 
 - A spec has no way to record a schema that throws while it is being *built*.
   `creationError` covers a throw from compiling an operation, but `--ts did not
-  evaluate` is the end of the road for a schema whose construction throws -
-  `S.recursive("N", (n) => S.schema({ kid: S.optional(n, null) }))` is one,
-  because the default is checked against a definition that does not exist yet.
-  Behaviour like that is left with nowhere to be pinned, so it stays a surprise.
-  A `constructionError` beside `creationError` would hold it.
+  evaluate` is the end of the road for a schema whose construction throws, and
+  a construction that throws on purpose is a contract like any other:
+  `S.recursive("N", (n) => S.schema({ kid: S.optional(n, x) }))` is refused
+  there, because the default would be read as `N` and need a default of its
+  own. Rules like that are left with nowhere to be pinned but a test. A
+  `constructionError` beside `creationError` would hold them.
 
 - A spec records what an operation does, never what compiling it leaves behind
   on a schema that is not the subject. The parse loop used to adopt the first
