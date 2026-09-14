@@ -149,9 +149,10 @@ const wireObject = (schema: Internal, ctx: Ctx): Internal | undefined => {
   for (let current: Internal | undefined = schema; current !== U; current = current.to) {
     if (current.protobufWire) return last || firstObject(current.to!, ctx);
     // A ref counts as the object it names, a recursive message reaching the
-    // wire as one; a ref that names no object - `S.json` - counts as nothing.
-    const object = current.type === refTag ? firstObject(current, ctx) : current.type === objectTag ? current : U;
-    if (object !== U) last = object;
+    // wire as one. Anything that is no message at all - `S.json`, whose
+    // definition is a union - clears what came before it rather than being
+    // stepped over, so the printer refuses the chains the wire refuses.
+    last = current.type === refTag ? firstObject(current, ctx) : current.type === objectTag ? current : U;
   }
   return firstObject(schema, ctx);
 };

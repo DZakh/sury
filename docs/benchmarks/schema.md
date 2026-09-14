@@ -34,8 +34,8 @@ Measured against sury 11.0.0, zod 4.4.3, @sinclair/typebox 0.34.52, valibot 1.4.
 
 |  | Sury | Zod | TypeBox | Valibot | ArkType |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Parse with a schema you already have<br><sub>ops/ms, the hot path a request pays</sub> | 82,040 | 4,867 | **114,865** | 1,078 | 47,946 |
-| Build the schema and parse once<br><sub>ops/ms, what a short-lived script or a cold start pays</sub> | 36.5 | 4.66 | **2,133** | 139 | 6.78 |
+| Parse with a schema you already have<br><sub>ops/ms, the hot path a request pays</sub> | 102,958 | 5,087 | **105,400** | 1,054 | 41,602 |
+| Build the schema and parse once<br><sub>ops/ms, what a short-lived script or a cold start pays</sub> | 32.7 | 5.07 | **2,231** | 145 | 6.52 |
 
 <sub>Higher is better. Median of seven rounds. TypeBox is validation only: it checks the value and returns a boolean rather than producing an output, and its second row uses the interpreted `Value.Check` because compiling per call is not what anyone does. Sury, Zod and Valibot return the parsed value; ArkType throws or returns it.</sub>
 

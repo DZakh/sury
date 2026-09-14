@@ -105,9 +105,9 @@
         "label": "API response",
         "note": "a user profile, 7 flat fields",
         "cells": [
-          236.8596339280559,
-          442.34168176719305,
-          280.6959286961974
+          239.7263862981177,
+          448.7449471676276,
+          284.7260477272429
         ],
         "format": "ns",
         "best": "low"
@@ -116,9 +116,9 @@
         "label": "List endpoint",
         "note": "100 rows of the same three fields",
         "cells": [
-          10560.314482029598,
-          11045.993070362474,
-          10949.341170038273
+          10711.314593980693,
+          11119.207128446536,
+          11134.59265442404
         ],
         "format": "ns",
         "best": "low"
@@ -127,9 +127,9 @@
         "label": "Event feed",
         "note": "50 events across a three-member tagged union",
         "cells": [
-          3428.4332328427026,
-          5455.894429708223,
-          17043.889276373146
+          3455.822578036552,
+          5511.4749055585535,
+          17414.48432055749
         ],
         "format": "ns",
         "best": "low"
@@ -138,9 +138,9 @@
         "label": "Types JSON has no word for",
         "note": "a `bigint` id, a `Uint8Array` payload and a `Date`, mapping included",
         "cells": [
-          1280.102580199636,
-          1432.3711241633657,
-          1412.8948119942884
+          1366.3598516880245,
+          1493.7739365485845,
+          1421.4047652615254
         ],
         "format": "ns",
         "best": "low"

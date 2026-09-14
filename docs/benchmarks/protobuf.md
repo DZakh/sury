@@ -35,16 +35,16 @@ Measured against sury 11.0.0, protobufjs 8.8.0, protobuf-es 2.14.1, pbf 5.1.2.
 
 |  | Sury | protobufjs (reflect) | protobufjs (static) | protobuf-es | pbf |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| tiny · encode<br><sub>3 bytes on the wire</sub> | **53 ns** | 196 ns | 181 ns | 598 ns | 438 ns |
-| tiny · decode | **22 ns** | 39 ns | 39 ns | 286 ns | 151 ns |
-| typical · encode<br><sub>31 bytes on the wire</sub> | **193 ns** | 574 ns | 577 ns | 822 ns | 1.04 µs |
-| typical · decode | **228 ns** | 325 ns | 282 ns | 1.67 µs | 482 ns |
-| large · encode<br><sub>1416 bytes on the wire</sub> | **2.04 µs** | 4.67 µs | 3.56 µs | 8.04 µs | 7.63 µs |
-| large · decode | **2.69 µs** | 2.86 µs | 3.13 µs | 5.23 µs | 3.25 µs |
-| common · encode<br><sub>79 bytes on the wire</sub> | **656 ns** | 1.75 µs | 1.69 µs | 2.18 µs | 1.49 µs |
-| common · decode | **424 ns** | 580 ns | 624 ns | 2.43 µs | 627 ns |
-| tile · encode<br><sub>3028 bytes on the wire</sub> | 17.36 µs | 35.08 µs | 34.39 µs | 57.37 µs | **16.76 µs** |
-| tile · decode | **13.35 µs** | 22.77 µs | 17.37 µs | 50.82 µs | 13.66 µs |
+| tiny · encode<br><sub>3 bytes on the wire</sub> | **49 ns** | 199 ns | 186 ns | 560 ns | 595 ns |
+| tiny · decode | **24 ns** | 58 ns | 39 ns | 271 ns | 97 ns |
+| typical · encode<br><sub>31 bytes on the wire</sub> | **194 ns** | 571 ns | 537 ns | 958 ns | 1.42 µs |
+| typical · decode | **232 ns** | 299 ns | 277 ns | 1.36 µs | 330 ns |
+| large · encode<br><sub>1416 bytes on the wire</sub> | **2.03 µs** | 4.24 µs | 3.27 µs | 7.79 µs | 7.40 µs |
+| large · decode | **2.83 µs** | 2.86 µs | 2.94 µs | 4.97 µs | 3.09 µs |
+| common · encode<br><sub>79 bytes on the wire</sub> | **636 ns** | 1.58 µs | 1.64 µs | 2.02 µs | 1.46 µs |
+| common · decode | **448 ns** | 579 ns | 633 ns | 1.95 µs | 570 ns |
+| tile · encode<br><sub>3028 bytes on the wire</sub> | 17.28 µs | 34.75 µs | 34.07 µs | 52.64 µs | **17.22 µs** |
+| tile · decode | **13.37 µs** | 23.23 µs | 17.79 µs | 55.46 µs | 17.88 µs |
 
 <sub>Best of seven samples per cell, since a sample landing on a GC pause reads double and which library pays it is luck of the draw. `tiny` and `typical` are this suite's own shapes, `common` is protobuf.js's own benchmark message, and `tile` is a Mapbox vector tile: almost entirely packed varints, which is what pbf is built for.</sub>
 

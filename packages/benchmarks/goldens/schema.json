@@ -38,7 +38,7 @@
         "label": "Everything the library exports",
         "note": "the ceiling, for an app that ends up using all of it",
         "cells": [
-          54779,
+          54775,
           65989,
           31148,
           15101,
@@ -141,11 +141,11 @@
         "label": "Parse with a schema you already have",
         "note": "ops/ms, the hot path a request pays",
         "cells": [
-          82039.62684905801,
-          4866.679213991345,
-          114864.88886645372,
-          1078.095511120667,
-          47945.54796991682
+          102958.21304072566,
+          5087.086808855641,
+          105400.17257170254,
+          1053.9491572965685,
+          41602.49137434829
         ],
         "format": "opsPerMs",
         "best": "high"
@@ -154,11 +154,11 @@
         "label": "Build the schema and parse once",
         "note": "ops/ms, what a short-lived script or a cold start pays",
         "cells": [
-          36.50945779329608,
-          4.659852787608281,
-          2132.954295195455,
-          138.55686823359895,
-          6.779752210361934
+          32.65466063643934,
+          5.070417553347486,
+          2230.858179106366,
+          144.81284322870246,
+          6.521035340607565
         ],
         "format": "opsPerMs",
         "best": "high"

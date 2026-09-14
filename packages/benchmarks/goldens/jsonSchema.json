@@ -37,7 +37,7 @@
         "label": "Check values against a published document",
         "note": "the JSON Schema is the input, not the output",
         "cells": [
-          26967,
+          26968,
           64655,
           null,
           null,
@@ -138,10 +138,10 @@
       {
         "label": "Emit the JSON Schema",
         "cells": [
-          2182.1292183948244,
-          8985.292627770239,
+          2410.744686109738,
+          8874.323529411764,
           null,
-          548.4065029353528,
+          608.6184576712452,
           null
         ],
         "format": "ns",
@@ -151,11 +151,11 @@
         "label": "Build a checker from the document",
         "note": "paid once per document, at startup",
         "cells": [
-          20201.924904942967,
-          77131.96,
+          21698.067,
+          79618.48,
           null,
           null,
-          803107.664
+          799604.383
         ],
         "format": "ns",
         "best": "low"
@@ -164,11 +164,11 @@
         "label": "Check one value with it",
         "note": "paid per request, which is the row that matters",
         "cells": [
-          12.319300824547176,
-          181.04800983265577,
+          16.231699364164992,
+          214.48706259628383,
           null,
           null,
-          19.42548734571524
+          19.807004671939232
         ],
         "format": "ns",
         "best": "low"
