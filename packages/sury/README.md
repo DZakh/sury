@@ -102,7 +102,7 @@ S.parseAsPromisableResult(eventSchema, input); // => Result<Event> for a sync sc
 
 S.parseAsResult(input, eventSchema); // Data first works too
 S.parseAsResult(S.jsonString, eventSchema, input); // A pipeline of up to three schemas
-const safeParseEvent = S.parseAsResult(eventSchema); // Schema alone prepares the operation upfront
+const safeParseEvent = S.parseAsResult(eventSchema); // Schema alone compiles the operation beforehand
 safeParseEvent(input);
 ```
 
@@ -196,7 +196,8 @@ S.isEqualOutput(
 );
 // => true, two Date objects for the same instant
 
-const isSameSession = S.isEqualOutput(sessionSchema); // or take the comparator on its own
+const isSameSession = S.isEqualOutput(sessionSchema);
+//? (a, b) => a === b || (a.id === b.id && +a.startedAt === +b.startedAt)
 ```
 
 Every operation that looks at one side of a schema says which side in its name - `S.makeOutputOrThrow` and `S.isInput`, `S.toInputJSONSchemaOrThrow` for the wire and `S.toOutputJSONSchemaOrThrow` for your types.
@@ -282,9 +283,74 @@ S.toProtoOrThrow(userSchema, { package: "acme.v1" }); // hand the other side its
 //    }
 ```
 
+### The code a schema turns into
+
+Here's what `parseEvent` from above actually runs - a function specialized for this exact shape: the union dispatches on the discriminant, the `bigint` coercion is inlined as a bare `BigInt()` call, your `nonEmpty` message is a plain length check, and `S.jsonString` -> union -> fields fuse into one pass:
+
+```js
+(i) => {
+  let v0;
+  try {
+    v0 = JSON.parse(i);
+  } catch (t) {
+    e[0](i);
+  }
+  if (typeof v0 === "object" && v0 && !Array.isArray(v0)) {
+    for (;;) {
+      if (v0.type === "user.created") {
+        let v2 = v0.id, v3 = v0.tags;
+        typeof v2 === "string" || e[2](v2);
+        let v1;
+        try {
+          v1 = BigInt(v2);
+        } catch (_) {
+          e[1](v2);
+        }
+        Array.isArray(v3) || e[6](v3);
+        // ...validates each tag, tracking the error path
+        v8.length > 0 || e[5](v8); // e[5] throws your nonEmpty message
+        v0 = { type: v0.type, id: v1, tags: v8 };
+        break;
+      }
+      if (v0.type === "user.deleted") {
+        // ...one branch per variant, no loop over union members
+      }
+      e[9](v0);
+    }
+  } else {
+    e[10](v0);
+  }
+  return v0;
+};
+```
+
+The encoder gets the same treatment right below - and that's why Sury tends to outrun even hand-rolled validation ([benchmarks](#comparison)).
+
 ### Encoding vs `JSON.stringify`
 
-`JSON.stringify` silently corrupts the values it has no answer for. Encoding through the schema throws instead:
+The encoder builds the JSON text directly - no intermediate object, the structure baked in as literals, and `JSON.stringify` left only the free-form `payload`:
+
+```js
+(i) => {
+  if (typeof i === "object" && i && !Array.isArray(i)) {
+    for (;;) {
+      // ...one branch per variant
+      if (i.type === "user.deleted") {
+        let v6 = JSON.stringify(i.payload);
+        let v7 = '{"type":"user.deleted","id":"' + i.id + '"';
+        if (v6 !== void 0) {
+          v7 += ',"payload":' + v6;
+        }
+        i = v7 + "}";
+        break;
+      }
+    }
+  }
+  return i;
+};
+```
+
+And the values `JSON.stringify` silently corrupts throw instead:
 
 ```ts
 JSON.stringify({ price: Infinity });
@@ -293,8 +359,6 @@ JSON.stringify({ price: Infinity });
 S.encodeOrThrow(S.schema({ price: S.number }), S.jsonString, { price: Infinity });
 // => throws S.Error: Failed at price: Expected JSON, received Infinity
 ```
-
-It's faster, too:
 
 | Encode to JSON string                 | **Sury**    | `JSON.stringify` | fast-json-stringify |
 | ------------------------------------- | ----------- | ---------------- | ------------------- |
@@ -341,7 +405,7 @@ Building something with Sury? [Let me know](https://x.com/dzakh_dev) and I'll ad
 
 ### Is `new Function` safe to use?
 
-Yes. It's the same technique TypeBox, Zod v4 and ArkType use, and it's where much of the speed comes from - it's why Sury tends to outrun even hand-rolled validation ([benchmarks](#comparison)). Cloudflare Workers allows `new Function` during Worker startup (the default since compatibility date 2025-06-01), so schemas and operations created at the top level work there.
+Yes. It's the same technique TypeBox, Zod v4 and ArkType use, and it's where much of the speed comes from ([the code a schema turns into](#the-code-a-schema-turns-into)). Cloudflare Workers allows `new Function` during Worker startup (the default since compatibility date 2025-06-01), so schemas and operations created at the top level work there.
 
 There's currently no eval-free mode, so Sury won't run where dynamic code evaluation is forbidden: pages under a strict CSP without `'unsafe-eval'`, some browser extension contexts, and a few restricted edge runtimes. If that's your environment, [Valibot](https://valibot.dev/) is the honest recommendation today.
 
