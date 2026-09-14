@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="296" viewBox="0 0 720 296" font-family='system-ui, -apple-system, "Segoe UI", sans-serif' role="img">
+<desc>API response: Sury 212 ns (4,721 ops/ms), `JSON.stringify` 404 ns (2,473 ops/ms), fast-json-stringify 214 ns (4,668 ops/ms). List endpoint: Sury 8.83 µs (113 ops/ms), `JSON.stringify` 11.15 µs (89.7 ops/ms), fast-json-stringify 8.91 µs (112 ops/ms). Event feed: Sury 2.91 µs (344 ops/ms), `JSON.stringify` 5.49 µs (182 ops/ms), fast-json-stringify 11.17 µs (89.6 ops/ms). Types JSON has no word for: Sury 1.03 µs (968 ops/ms), `JSON.stringify` 1.13 µs (887 ops/ms), fast-json-stringify 1.07 µs (931 ops/ms)</desc>
+<text x="4" y="17" font-size="12"><tspan font-weight="600" fill="#0b0b0b">API response</tspan><tspan fill="#898781"> · a user profile, 7 flat fields</tspan></text>
+<text x="131.2" y="33.5" fill="#52514e" font-size="11" text-anchor="end">Sury</text>
+<path d="M139.21999999999997 26.5h218.8a3.5 3.5 0 0 1 0 7H139.21999999999997z" fill="#2a78d6"/>
+<text x="367.6" y="33.5" fill="#52514e" font-size="11" font-weight="600">212 ns (4,721 ops/ms)</text>
+<text x="131.2" y="47.5" fill="#52514e" font-size="11" text-anchor="end">`JSON.stringify`</text>
+<path d="M139.21999999999997 40.5h420.9a3.5 3.5 0 0 1 0 7H139.21999999999997z" fill="#898781"/>
+<text x="569.6" y="47.5" fill="#52514e" font-size="11" font-weight="600">404 ns (2,473 ops/ms)</text>
+<text x="131.2" y="61.5" fill="#52514e" font-size="11" text-anchor="end">fast-json-stringify</text>
+<path d="M139.21999999999997 54.5h221.4a3.5 3.5 0 0 1 0 7H139.21999999999997z" fill="#898781"/>
+<text x="370.1" y="61.5" fill="#52514e" font-size="11" font-weight="600">214 ns (4,668 ops/ms)</text>
+<text x="4" y="86" font-size="12"><tspan font-weight="600" fill="#0b0b0b">List endpoint</tspan><tspan fill="#898781"> · 100 rows of the same three fields</tspan></text>
+<text x="131.2" y="102.5" fill="#52514e" font-size="11" text-anchor="end">Sury</text>
+<path d="M139.21999999999997 95.5h332.8a3.5 3.5 0 0 1 0 7H139.21999999999997z" fill="#2a78d6"/>
+<text x="481.5" y="102.5" fill="#52514e" font-size="11" font-weight="600">8.83 µs (113 ops/ms)</text>
+<text x="131.2" y="116.5" fill="#52514e" font-size="11" text-anchor="end">`JSON.stringify`</text>
+<path d="M139.21999999999997 109.5h420.9a3.5 3.5 0 0 1 0 7H139.21999999999997z" fill="#898781"/>
+<text x="569.6" y="116.5" fill="#52514e" font-size="11" font-weight="600">11.15 µs (89.7 ops/ms)</text>
+<text x="131.2" y="130.5" fill="#52514e" font-size="11" text-anchor="end">fast-json-stringify</text>
+<path d="M139.21999999999997 123.5h335.8a3.5 3.5 0 0 1 0 7H139.21999999999997z" fill="#898781"/>
+<text x="484.5" y="130.5" fill="#52514e" font-size="11" font-weight="600">8.91 µs (112 ops/ms)</text>
+<text x="4" y="155" font-size="12"><tspan font-weight="600" fill="#0b0b0b">Event feed</tspan><tspan fill="#898781"> · 50 events across a three-member tagged union</tspan></text>
+<text x="131.2" y="171.5" fill="#52514e" font-size="11" text-anchor="end">Sury</text>
+<path d="M139.21999999999997 164.5h107.1a3.5 3.5 0 0 1 0 7H139.21999999999997z" fill="#2a78d6"/>
+<text x="255.8" y="171.5" fill="#52514e" font-size="11" font-weight="600">2.91 µs (344 ops/ms)</text>
+<text x="131.2" y="185.5" fill="#52514e" font-size="11" text-anchor="end">`JSON.stringify`</text>
+<path d="M139.21999999999997 178.5h205.0a3.5 3.5 0 0 1 0 7H139.21999999999997z" fill="#898781"/>
+<text x="353.7" y="185.5" fill="#52514e" font-size="11" font-weight="600">5.49 µs (182 ops/ms)</text>
+<text x="131.2" y="199.5" fill="#52514e" font-size="11" text-anchor="end">fast-json-stringify</text>
+<path d="M139.21999999999997 192.5h420.9a3.5 3.5 0 0 1 0 7H139.21999999999997z" fill="#898781"/>
+<text x="569.6" y="199.5" fill="#52514e" font-size="11" font-weight="600">11.17 µs (89.6 ops/ms)</text>
+<text x="4" y="224" font-size="12"><tspan font-weight="600" fill="#0b0b0b">Types JSON has no word for</tspan><tspan fill="#898781"> · a `bigint` id, a `Uint8Array` payload and a `Date`, mapping included</tspan></text>
+<text x="131.2" y="240.5" fill="#52514e" font-size="11" text-anchor="end">Sury</text>
+<path d="M139.21999999999997 233.5h385.3a3.5 3.5 0 0 1 0 7H139.21999999999997z" fill="#2a78d6"/>
+<text x="534.0" y="240.5" fill="#52514e" font-size="11" font-weight="600">1.03 µs (968 ops/ms)</text>
+<text x="131.2" y="254.5" fill="#52514e" font-size="11" text-anchor="end">`JSON.stringify`</text>
+<path d="M139.21999999999997 247.5h420.9a3.5 3.5 0 0 1 0 7H139.21999999999997z" fill="#898781"/>
+<text x="569.6" y="254.5" fill="#52514e" font-size="11" font-weight="600">1.13 µs (887 ops/ms)</text>
+<text x="131.2" y="268.5" fill="#52514e" font-size="11" text-anchor="end">fast-json-stringify</text>
+<path d="M139.21999999999997 261.5h400.7a3.5 3.5 0 0 1 0 7H139.21999999999997z" fill="#898781"/>
+<text x="549.4" y="268.5" fill="#52514e" font-size="11" font-weight="600">1.07 µs (931 ops/ms)</text>
+<text x="4.0" y="288" fill="#898781" font-size="10">Lower is better · Timed on node 24.16.0 · linux x64 · 2026-09-14</text>
+</svg>

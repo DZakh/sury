@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="158" viewBox="0 0 720 158" font-family='system-ui, -apple-system, "Segoe UI", sans-serif' role="img">
+<desc>Encode: Sury 18.1 kB, `JSON.stringify` 0 B, fast-json-stringify 57.2 kB. Encode and decode: Sury 18.1 kB, `JSON.stringify` 0 B, fast-json-stringify n/a</desc>
+<text x="4" y="17" font-size="12"><tspan font-weight="600" fill="#ffffff">Encode</tspan></text>
+<text x="131.2" y="33.5" fill="#c3c2b7" font-size="11" text-anchor="end">Sury</text>
+<path d="M139.21999999999997 26.5h160.7a3.5 3.5 0 0 1 0 7H139.21999999999997z" fill="#898781"/>
+<text x="309.4" y="33.5" fill="#c3c2b7" font-size="11" font-weight="600">18.1 kB</text>
+<text x="131.2" y="47.5" fill="#c3c2b7" font-size="11" text-anchor="end">`JSON.stringify`</text>
+<path d="M139.21999999999997 40.5h0.0a3.5 3.5 0 0 1 0 7H139.21999999999997z" fill="#3987e5"/>
+<text x="148.7" y="47.5" fill="#c3c2b7" font-size="11" font-weight="600">0 B</text>
+<text x="131.2" y="61.5" fill="#c3c2b7" font-size="11" text-anchor="end">fast-json-stringify</text>
+<path d="M139.21999999999997 54.5h516.6a3.5 3.5 0 0 1 0 7H139.21999999999997z" fill="#898781"/>
+<text x="665.3" y="61.5" fill="#c3c2b7" font-size="11" font-weight="600">57.2 kB</text>
+<text x="4" y="86" font-size="12"><tspan font-weight="600" fill="#ffffff">Encode and decode</tspan><tspan fill="#898781"> · the same schema read back, checked against itself</tspan></text>
+<text x="131.2" y="102.5" fill="#c3c2b7" font-size="11" text-anchor="end">Sury</text>
+<path d="M139.21999999999997 95.5h516.6a3.5 3.5 0 0 1 0 7H139.21999999999997z" fill="#898781"/>
+<text x="665.3" y="102.5" fill="#c3c2b7" font-size="11" font-weight="600">18.1 kB</text>
+<text x="131.2" y="116.5" fill="#c3c2b7" font-size="11" text-anchor="end">`JSON.stringify`</text>
+<path d="M139.21999999999997 109.5h0.0a3.5 3.5 0 0 1 0 7H139.21999999999997z" fill="#3987e5"/>
+<text x="148.7" y="116.5" fill="#c3c2b7" font-size="11" font-weight="600">0 B</text>
+<text x="131.2" y="130.5" fill="#c3c2b7" font-size="11" text-anchor="end">fast-json-stringify</text>
+<text x="145.2" y="130.5" fill="#c3c2b7" font-size="11" font-weight="600">n/a</text>
+<text x="4.0" y="150" fill="#898781" font-size="10">Lower is better</text>
+</svg>

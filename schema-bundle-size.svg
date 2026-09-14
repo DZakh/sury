@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="214" viewBox="0 0 720 214" font-family='system-ui, -apple-system, "Segoe UI", sans-serif' role="img">
+<desc>What this schema ships: Sury 8.73 kB, Zod 64.7 kB, TypeBox 22.6 kB, Valibot 1.30 kB, ArkType 47.8 kB. Everything the library exports: Sury 54.0 kB, Zod 66.0 kB, TypeBox 31.1 kB, Valibot 15.1 kB, ArkType 47.9 kB</desc>
+<text x="4" y="17" font-size="12"><tspan font-weight="600" fill="#0b0b0b">What this schema ships</tspan><tspan fill="#898781"> · the seven fields above, after tree-shaking</tspan></text>
+<text x="76.0" y="33.5" fill="#52514e" font-size="11" text-anchor="end">Sury</text>
+<path d="M84 26.5h74.1a3.5 3.5 0 0 1 0 7H84z" fill="#898781"/>
+<text x="167.6" y="33.5" fill="#52514e" font-size="11" font-weight="600">8.73 kB</text>
+<text x="76.0" y="47.5" fill="#52514e" font-size="11" text-anchor="end">Zod</text>
+<path d="M84 40.5h571.8a3.5 3.5 0 0 1 0 7H84z" fill="#898781"/>
+<text x="665.3" y="47.5" fill="#52514e" font-size="11" font-weight="600">64.7 kB</text>
+<text x="76.0" y="61.5" fill="#52514e" font-size="11" text-anchor="end">TypeBox</text>
+<path d="M84 54.5h197.2a3.5 3.5 0 0 1 0 7H84z" fill="#898781"/>
+<text x="290.7" y="61.5" fill="#52514e" font-size="11" font-weight="600">22.6 kB</text>
+<text x="76.0" y="75.5" fill="#52514e" font-size="11" text-anchor="end">Valibot</text>
+<path d="M84 68.5h8.1a3.5 3.5 0 0 1 0 7H84z" fill="#2a78d6"/>
+<text x="101.6" y="75.5" fill="#52514e" font-size="11" font-weight="600">1.30 kB</text>
+<text x="76.0" y="89.5" fill="#52514e" font-size="11" text-anchor="end">ArkType</text>
+<path d="M84 82.5h421.4a3.5 3.5 0 0 1 0 7H84z" fill="#898781"/>
+<text x="514.9" y="89.5" fill="#52514e" font-size="11" font-weight="600">47.8 kB</text>
+<text x="4" y="114" font-size="12"><tspan font-weight="600" fill="#0b0b0b">Everything the library exports</tspan><tspan fill="#898781"> · the ceiling, for an app that ends up using all of it</tspan></text>
+<text x="76.0" y="130.5" fill="#52514e" font-size="11" text-anchor="end">Sury</text>
+<path d="M84 123.5h467.3a3.5 3.5 0 0 1 0 7H84z" fill="#898781"/>
+<text x="560.8" y="130.5" fill="#52514e" font-size="11" font-weight="600">54.0 kB</text>
+<text x="76.0" y="144.5" fill="#52514e" font-size="11" text-anchor="end">Zod</text>
+<path d="M84 137.5h571.8a3.5 3.5 0 0 1 0 7H84z" fill="#898781"/>
+<text x="665.3" y="144.5" fill="#52514e" font-size="11" font-weight="600">66.0 kB</text>
+<text x="76.0" y="158.5" fill="#52514e" font-size="11" text-anchor="end">TypeBox</text>
+<path d="M84 151.5h268.1a3.5 3.5 0 0 1 0 7H84z" fill="#898781"/>
+<text x="361.6" y="158.5" fill="#52514e" font-size="11" font-weight="600">31.1 kB</text>
+<text x="76.0" y="172.5" fill="#52514e" font-size="11" text-anchor="end">Valibot</text>
+<path d="M84 165.5h128.2a3.5 3.5 0 0 1 0 7H84z" fill="#2a78d6"/>
+<text x="221.7" y="172.5" fill="#52514e" font-size="11" font-weight="600">15.1 kB</text>
+<text x="76.0" y="186.5" fill="#52514e" font-size="11" text-anchor="end">ArkType</text>
+<path d="M84 179.5h413.9a3.5 3.5 0 0 1 0 7H84z" fill="#898781"/>
+<text x="507.4" y="186.5" fill="#52514e" font-size="11" font-weight="600">47.9 kB</text>
+<text x="4.0" y="206" fill="#898781" font-size="10">Lower is better</text>
+</svg>

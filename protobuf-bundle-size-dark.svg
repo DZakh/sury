@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="214" viewBox="0 0 720 214" font-family='system-ui, -apple-system, "Segoe UI", sans-serif' role="img">
+<desc>Encode and decode: Sury 23.5 kB, protobufjs (reflect) 34.9 kB, protobufjs (static) 13.6 kB, protobuf-es 17.9 kB, pbf 2.80 kB. Decode only: Sury 23.5 kB, protobufjs (reflect) n/a, protobufjs (static) 13.6 kB, protobuf-es 15.5 kB, pbf 1.41 kB</desc>
+<text x="4" y="17" font-size="12"><tspan font-weight="600" fill="#ffffff">Encode and decode</tspan></text>
+<text x="137.6" y="33.5" fill="#c3c2b7" font-size="11" text-anchor="end">Sury</text>
+<path d="M145.6 26.5h342.9a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="498.0" y="33.5" fill="#c3c2b7" font-size="11" font-weight="600">23.5 kB</text>
+<text x="137.6" y="47.5" fill="#c3c2b7" font-size="11" text-anchor="end">protobufjs (reflect)</text>
+<path d="M145.6 40.5h510.2a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="665.3" y="47.5" fill="#c3c2b7" font-size="11" font-weight="600">34.9 kB</text>
+<text x="137.6" y="61.5" fill="#c3c2b7" font-size="11" text-anchor="end">protobufjs (static)</text>
+<path d="M145.6 54.5h196.2a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="351.3" y="61.5" fill="#c3c2b7" font-size="11" font-weight="600">13.6 kB</text>
+<text x="137.6" y="75.5" fill="#c3c2b7" font-size="11" text-anchor="end">protobuf-es</text>
+<path d="M145.6 68.5h260.5a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="415.6" y="75.5" fill="#c3c2b7" font-size="11" font-weight="600">17.9 kB</text>
+<text x="137.6" y="89.5" fill="#c3c2b7" font-size="11" text-anchor="end">pbf</text>
+<path d="M145.6 82.5h37.6a3.5 3.5 0 0 1 0 7H145.6z" fill="#3987e5"/>
+<text x="192.7" y="89.5" fill="#c3c2b7" font-size="11" font-weight="600">2.80 kB</text>
+<text x="4" y="114" font-size="12"><tspan font-weight="600" fill="#ffffff">Decode only</tspan><tspan fill="#898781"> · what a client that never sends the message gets back from tree-shaking</tspan></text>
+<text x="137.6" y="130.5" fill="#c3c2b7" font-size="11" text-anchor="end">Sury</text>
+<path d="M145.6 123.5h510.2a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="665.3" y="130.5" fill="#c3c2b7" font-size="11" font-weight="600">23.5 kB</text>
+<text x="137.6" y="144.5" fill="#c3c2b7" font-size="11" text-anchor="end">protobufjs (reflect)</text>
+<text x="151.6" y="144.5" fill="#c3c2b7" font-size="11" font-weight="600">n/a</text>
+<text x="137.6" y="158.5" fill="#c3c2b7" font-size="11" text-anchor="end">protobufjs (static)</text>
+<path d="M145.6 151.5h292.5a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="447.6" y="158.5" fill="#c3c2b7" font-size="11" font-weight="600">13.6 kB</text>
+<text x="137.6" y="172.5" fill="#c3c2b7" font-size="11" text-anchor="end">protobuf-es</text>
+<path d="M145.6 165.5h334.1a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="489.2" y="172.5" fill="#c3c2b7" font-size="11" font-weight="600">15.5 kB</text>
+<text x="137.6" y="186.5" fill="#c3c2b7" font-size="11" text-anchor="end">pbf</text>
+<path d="M145.6 179.5h27.3a3.5 3.5 0 0 1 0 7H145.6z" fill="#3987e5"/>
+<text x="182.4" y="186.5" fill="#c3c2b7" font-size="11" font-weight="600">1.41 kB</text>
+<text x="4.0" y="206" fill="#898781" font-size="10">Lower is better</text>
+</svg>
