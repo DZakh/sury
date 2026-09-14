@@ -97,8 +97,8 @@ const setDecoder = (input: Val): Val => {
 const setEncoder: Encoder = (input: Val, target: Internal): Val => {
   if ((tagFlags[target.type]! & 128)) {
     // The B_refine wrap is what makes the produced array the subject of the
-    // target's checks, as the note in advanced/url.ts explains. The items are left to
-    // the target's own decoder, which is what encodes them.
+    // target's checks, as the note in advanced/url.ts explains. The items are
+    // left to the target's own decoder, which is what encodes them.
     return parse(
       B_refine(
         B_next(input, `Array.from(${input.i})`, arrayFactory(itemOf(input.s)), target),
