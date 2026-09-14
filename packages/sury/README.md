@@ -433,6 +433,9 @@ It's short, it's pronounceable, and the 🧬 fits: a schema is the DNA of your d
 
 ## Resources
 
+- Standard JSON Schema vs JSON Schema ([Dev.to](https://dev.to/dzakh/standard-json-schema-vs-json-schema-54fc))
+- Encode, Don't Stringify: How JSON.stringify Lies to You ([Dev.to](https://dev.to/dzakh/encode-dont-stringify-how-jsonstringify-lies-to-you-38fk))
+- Making my TypeScript types 15.7x faster ([Dev.to](https://dev.to/dzakh/making-my-typescript-types-157x-faster-4gcg))
 - Welcome Sury - The fastest schema with next-gen DX ([Dev.to](https://dev.to/dzakh/welcome-sury-the-fastest-schema-with-next-gen-dx-5gl4))
 - ReScript Schema unique features ([Dev.to](https://dev.to/dzakh/javascript-schema-library-from-the-future-5420))
 - Building and consuming REST API in ReScript with rescript-rest and Fastify ([YouTube](https://youtu.be/37FY6a-zY20?si=72zT8Gecs5vmDPlD))
