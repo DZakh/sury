@@ -34,10 +34,10 @@ Measured against sury 11.0.0, zod 4.4.3, @sinclair/typebox 0.34.52, valibot 1.4.
 
 ## Bundle size
 
-|  | Sury | Zod | TypeBox | Valibot | ArkType |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| What this schema ships<br><sub>the seven fields above, after tree-shaking</sub> | 8.73 kB | 64.7 kB | 22.6 kB | **1.30 kB** | 47.8 kB |
-| Everything the library exports<br><sub>the ceiling, for an app that ends up using all of it</sub> | 54.0 kB | 66.0 kB | 31.1 kB | **15.1 kB** | 47.9 kB |
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/DZakh/sury/benchmarks/schema-bundle-size-dark.svg">
+  <img alt="Schema bundle size, one bar per library" src="https://raw.githubusercontent.com/DZakh/sury/benchmarks/schema-bundle-size.svg">
+</picture>
 
 <sub>Bundled with esbuild, minified and gzipped. The first row is the one a consumer pays: Sury and Valibot are built from many small functions a bundler can drop individually, so the gap between the two rows is most of the library. The second row is each library's main entry, plus the compiler and value entries for TypeBox, which is where the row above gets `TypeCompiler`.</sub>
 

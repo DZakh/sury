@@ -97,15 +97,19 @@ const measure = async (source: Source): Promise<Golden> => {
   };
 };
 
-const chartsFor = (id: string, performance: Table): Map<string, string> => {
+const chartsFor = (id: string, performance: Table, bundleSize: Table): Map<string, string> => {
+  // Only the timings carry the machine that produced them. Bundle size is bytes
+  // out of esbuild and reads the same wherever it ran.
   const machine = provenance();
   const rendered = new Map([
-    [`${id}-performance.svg`, renderChart(performance, machine, "light")],
-    [`${id}-performance-dark.svg`, renderChart(performance, machine, "dark")],
+    [`${id}-performance.svg`, renderChart(performance, "light", machine)],
+    [`${id}-performance-dark.svg`, renderChart(performance, "dark", machine)],
+    [`${id}-bundle-size.svg`, renderChart(bundleSize, "light")],
+    [`${id}-bundle-size-dark.svg`, renderChart(bundleSize, "dark")],
   ]);
   mkdirSync(CHARTS, { recursive: true });
   for (const [name, svg] of rendered) writeFileSync(path.join(CHARTS, name), svg);
-  console.log(`${green("timed")} ${id}`);
+  console.log(`${green("charted")} ${id}`);
   return rendered;
 };
 
@@ -123,7 +127,8 @@ async function main() {
   if (timings && !write) {
     const rendered = new Map<string, string>();
     for (const source of sources) {
-      for (const [name, svg] of chartsFor(source.id, await source.performance())) rendered.set(name, svg);
+      const charts = chartsFor(source.id, await source.performance(), await source.bundleSize());
+      for (const [name, svg] of charts) rendered.set(name, svg);
     }
     if (publishing) publish(rendered);
     return;
@@ -140,7 +145,7 @@ async function main() {
       writeGolden(fresh);
       writeFileSync(pagePath, page);
       console.log(`${green("wrote")} docs/benchmarks/${source.id}.md`);
-      chartsFor(source.id, await source.performance());
+      chartsFor(source.id, await source.performance(), fresh.bundleSize);
       continue;
     }
 

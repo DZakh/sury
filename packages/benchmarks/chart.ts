@@ -101,7 +101,7 @@ const group = (row: Row, columns: string[], theme: Theme, gutter: number, barAre
   return out.join("\n");
 };
 
-export const renderChart = (table: Table, machine: string, mode: "light" | "dark"): string => {
+export const renderChart = (table: Table, mode: "light" | "dark", timedOn?: string): string => {
   const theme = THEMES[mode];
   const gutter = Math.min(220, Math.max(80, ...table.columns.map((c) => textWidth(c, 11) + 14)));
   const valueWidth = Math.max(
@@ -117,19 +117,22 @@ export const renderChart = (table: Table, machine: string, mode: "light" | "dark
   }
   const height = y - GROUP_GAP + FOOT;
   // What the bars mean, in the one sentence a reader needs before reading them.
-  // A page whose rows disagree on a direction gets no claim rather than a wrong
-  // one.
+  // A chart whose rows disagree on a direction gets no claim rather than a
+  // wrong one.
   const directions = new Set(table.rows.map((row) => (row.format === "ns" ? "ns" : row.best)));
   const direction = directions.size === 1 ? [...directions][0] : undefined;
-  const better =
-    direction === undefined
-      ? ""
-      : `${direction === "ns" ? "Longer is faster" : direction === "low" ? "Lower is better" : "Higher is better"} · `;
+  const footer = [
+    direction === "ns" ? "Longer is faster" : direction === "low" ? "Lower is better" : undefined,
+    direction === "high" ? "Higher is better" : undefined,
+    timedOn === undefined ? undefined : `Timed on ${timedOn}`,
+  ]
+    .filter((part) => part !== undefined)
+    .join(" · ");
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${height}" viewBox="0 0 ${WIDTH} ${height}" font-family='${FONT}' role="img">
 <desc>${escape(table.rows.map((r) => `${r.label}: ${table.columns.map((c, i) => `${c} ${formatCell(r.cells[i]!, r.format)}`).join(", ")}`).join(". "))}</desc>
 ${groups.join("\n")}
-${text(PAD, height - 8, `${better}Timed on ${machine}`, theme.muted, 10)}
+${text(PAD, height - 8, footer, theme.muted, 10)}
 </svg>
 `;
 };

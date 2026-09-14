@@ -22,11 +22,19 @@ Three of the four sections are the same on any machine:
   where one does not.
 
 The fourth, **performance**, moves with the runner, so it is not committed at
-all. It renders to `.charts/<topic>-performance.svg` and a dark cut beside it,
-and a push to main runs `--publish`, which puts those files on the `benchmarks`
-branch. The pages embed them from there by URL, so a page carries a current
-timing without anything rewriting its markdown. Run `--write` or `--charts` to
-look at a chart before pushing.
+all.
+
+Bundle size and performance are the two sections that are magnitudes across the
+same libraries, so both are drawn rather than tabulated:
+`.charts/<topic>-bundle-size.svg`, `.charts/<topic>-performance.svg` and a dark
+cut of each. A push to main runs `--publish`, which puts those files on the
+`benchmarks` branch, and the pages embed them from there by URL - so a page
+carries a current chart without anything rewriting its markdown. Run `--write`
+or `--charts` to look at one before pushing.
+
+Drawing bundle size does not take it out of the golden. It is the same on any
+machine, so the numbers stay committed and stay gated, and only the rendering is
+published. The timings are the only measurement that is not written down.
 
 `--publish` pushes the charts it just rendered rather than whatever is in
 `.charts/`, and refuses `--only`: the branch is replaced whole, so a set missing

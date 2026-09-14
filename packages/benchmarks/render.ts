@@ -5,21 +5,23 @@
 // remeasured, and the page still has to come out byte-identical.
 import { type Row, type Table, type Topic, formatCell, winners } from "./table";
 
-// Where main republishes the timing charts. A protected branch is what the
-// bot cannot push to, so the numbers that have to be remeasured live on a
-// branch of their own and the page reaches them by URL, which lets this
-// markdown stay the same from one measurement to the next.
+// Where main republishes the charts. A protected branch is what the bot cannot
+// push to, so a rendered measurement lives on a branch of its own and the page
+// reaches it by URL, which lets this markdown stay the same from one
+// measurement to the next. The numbers themselves are still in the golden for
+// every section a machine cannot influence, which is what a pull request reads
+// and what the check gates.
 const CHARTS = "https://raw.githubusercontent.com/DZakh/sury/benchmarks";
 
 // GitHub picks the cut by the theme the reader is on, and proxies both through
 // its image cache, so a chart can lag the run that produced it by a few
 // minutes. The `alt` is what a reader gets where the image does not load, so it
 // says which numbers are missing rather than naming the picture.
-const chart = (topic: Topic): string =>
+const chart = (topic: Topic, section: "performance" | "bundle-size", alt: string): string =>
   [
     "<picture>",
-    `  <source media="(prefers-color-scheme: dark)" srcset="${CHARTS}/${topic.id}-performance-dark.svg">`,
-    `  <img alt="${topic.label} timings, one bar per library, remeasured on every push to main" src="${CHARTS}/${topic.id}-performance.svg">`,
+    `  <source media="(prefers-color-scheme: dark)" srcset="${CHARTS}/${topic.id}-${section}-dark.svg">`,
+    `  <img alt="${topic.label} ${alt}" src="${CHARTS}/${topic.id}-${section}.svg">`,
     "</picture>",
   ].join("\n");
 
@@ -67,7 +69,7 @@ export const renderPage = (topic: Topic, all: { id: string; label: string }[]): 
     "",
     "## Performance",
     "",
-    chart(topic),
+    chart(topic, "performance", "timings, one bar per library, remeasured on every push to main"),
     "",
     topic.performanceNote,
     "",
@@ -75,7 +77,9 @@ export const renderPage = (topic: Topic, all: { id: string; label: string }[]): 
     "",
     "## Bundle size",
     "",
-    renderTable(topic.bundleSize),
+    chart(topic, "bundle-size", "bundle size, one bar per library"),
+    "",
+    topic.bundleSize.note ?? "",
     "",
     "## Conformance",
     "",
