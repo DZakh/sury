@@ -798,9 +798,10 @@ export const valGet = (parent: Val, location: string): Val => {
     );
 
     // No `prev`, and a decoder that validates the field replaces it with a val
-    // that has one - which is how a reader of the parent's `d` tells a field
-    // this operation checked from one it was told to trust (jsonStringAggregate
-    // reads it to decide whether an enum field still owes its membership check).
+    // that has one - which is how a later reader tells a field this operation
+    // checked from one it was told to trust (`fieldPiece` in advanced/json.ts
+    // reads it to decide whether an enum field still owes its membership
+    // check).
     // Canonical Val field order (see B_operationArg in builder.ts).
     const item: Val = {
       b: U,

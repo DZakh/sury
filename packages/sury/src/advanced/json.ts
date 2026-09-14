@@ -610,6 +610,10 @@ export const jsonString = /* @__PURE__ */ (() => {
         ? guarded && variantOutput.type === undefinedTag
         : typeof c === stringTag && JSON.stringify(c) === `"${c}"`;
     });
+  // Every other escape-free claim (base.ts `formatFlag`) is backed by a
+  // pattern refiner or by a conversion that manufactures the string, both of
+  // which hold whatever the value claims to be. This one is backed by a check
+  // the compiler has to emit, so the caller below owes it.
   const bareString = copySchema(string);
   bareString.formatFlag = 1;
 
@@ -623,16 +627,19 @@ export const jsonString = /* @__PURE__ */ (() => {
   // dispatching shape validates inside the same pass that renders it, and a
   // shape rendered off the validated value validates first. `loop` marks a
   // dynamic item, where the bare enum splice loses to the dispatch.
-  // `trusted` says the container's decoder validated nothing, so the val
-  // arrives claiming its schema with no check behind that claim.
   const fieldPiece = (
     itemVal: Val,
     isArr: boolean,
     declared?: Internal,
     loop?: boolean,
-    trusted?: boolean,
   ): { p: Val; g: string | undefined } => {
     const cur = declared || itemVal.s;
+    // What the container's decoder made of this field: a val still carrying no
+    // `prev` is the accessor `valGet` synthesized (its invariant), so the
+    // decoder passed the field through and nothing checked it - the operation
+    // was told to trust the type it claims. Read before `B_unionWritable`
+    // below, which relinks the val.
+    const trusted = itemVal.b === U || itemVal.b.prev === U;
     // `noValidation` is the one declared shape that reads the field once.
     if (declared !== U && !declared.noValidation) itemVal = B_unionWritable(itemVal);
     const validated = (): Val =>
@@ -695,13 +702,11 @@ export const jsonString = /* @__PURE__ */ (() => {
       }
       const optional = !isArr && !!cur.has![undefinedTag];
       if (!loop && isBareEnum(variants, optional)) {
-        // Membership is what proves this splice escape-free, so it survives a
-        // trusted source the way a format's pattern check does (see
-        // jsonStringDecoder's string branch). A trusted field arrives already
-        // claiming the union, which leaves the dispatch nothing to emit -
-        // every arm being an escape-free const is the one shape whose check
-        // is entirely the dispatch's. Re-claiming `unknown` is what makes the
-        // union owe it again.
+        // The membership check is that proof, and the union's dispatch is the
+        // only thing that emits it - which a trusted field, already claiming
+        // the union, leaves with nothing to do. Every arm being an
+        // escape-free const is the one shape where the dispatch IS the whole
+        // check, so re-claiming `unknown` is what makes the union owe it.
         const v = validated();
         const checked =
           declared !== U || !trusted
@@ -801,12 +806,6 @@ export const jsonString = /* @__PURE__ */ (() => {
         itemVal,
         isArr,
         schema.uv! & 1 && (tagFlags[itemVal.s.type]! & 1) ? fieldSchema : U,
-        U,
-        // What the container's decoder made of this field: a val still
-        // carrying no `prev` is the accessor `valGet` synthesized, so the
-        // decoder passed the field through untouched and nothing validated
-        // it - the operation was told to trust its declared type.
-        itemVal.b === U || itemVal.b.prev === U,
       );
       if (g !== U) {
         hasOpt = true;
