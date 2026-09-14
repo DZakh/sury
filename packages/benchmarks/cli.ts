@@ -44,7 +44,8 @@ Usage: pnpm benchmarks [--write | --charts] [--only=<topic>]
   --write        Remeasure the same three, rewrite the goldens and the pages,
                  and time the benchmarks into the charts as well.
   --charts       Time the benchmarks into packages/benchmarks/.charts and touch
-                 nothing else. What main runs before publishing them.
+                 nothing else. What main runs before publishing them, so it
+                 covers every topic and refuses --only.
   --only=<topic> Restrict to one topic: ${SOURCES.map((s) => s.id).join(", ")}.
 `;
 
@@ -58,6 +59,10 @@ const charts = args.includes("--charts");
 const only = args.find((a) => a.startsWith("--only="))?.slice("--only=".length);
 const unknown = args.find((a) => a !== "--write" && a !== "--charts" && !a.startsWith("--only="));
 if (unknown !== undefined) fail(`unknown argument ${unknown}\n\n${HELP}`);
+// The charts are published as the whole of the `benchmarks` branch, so a run
+// that rendered one topic would take the other three off it and break the pages
+// that embed them. `--write --only=<topic>` is the way to look at one.
+if (charts && only !== undefined) fail("--charts covers every topic and cannot be combined with --only");
 
 const sources = only === undefined ? SOURCES : SOURCES.filter((s) => s.id === only);
 if (sources.length === 0) fail(`unknown topic ${only}. Known: ${SOURCES.map((s) => s.id).join(", ")}`);

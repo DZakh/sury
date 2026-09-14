@@ -8,15 +8,6 @@
 
 Measured against sury 11.0.0, protobufjs 8.8.0, protobuf-es 2.14.1, pbf 5.1.2.
 
-## Bundle size
-
-|  | Sury | protobufjs (reflect) | protobufjs (static) | protobuf-es | pbf |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Encode and decode | 23.5 kB | 34.9 kB | 13.6 kB | 17.9 kB | **2.80 kB** |
-| Decode only<br><sub>what a client that never sends the message gets back from tree-shaking</sub> | 23.5 kB | n/a | 13.6 kB | 15.5 kB | **1.41 kB** |
-
-<sub>One six-field message's codec, bundled with esbuild, minified and gzipped. protobufjs's reflection path parses the `.proto` at runtime, so it has no decode-only build. Runtimes that carry no message of their own: google-protobuf 42.1 kB, @protobuf-ts/runtime 9.7 kB.</sub>
-
 ## Features
 
 |  | Sury | protobufjs | protobuf-es | pbf |
@@ -41,6 +32,15 @@ Measured against sury 11.0.0, protobufjs 8.8.0, protobuf-es 2.14.1, pbf 5.1.2.
 <sub>Best of seven samples per cell, since a sample landing on a GC pause reads double and which library pays it is luck of the draw. `tiny` and `typical` are this suite's own shapes, `common` is protobuf.js's own benchmark message, and `tile` is a Mapbox vector tile: almost entirely packed varints, which is what pbf is built for.</sub>
 
 <sub>Remeasured on every push to main and republished as the chart above, so a bar moves with the runner as well as with the code.</sub>
+
+## Bundle size
+
+|  | Sury | protobufjs (reflect) | protobufjs (static) | protobuf-es | pbf |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Encode and decode | 23.5 kB | 34.9 kB | 13.6 kB | 17.9 kB | **2.80 kB** |
+| Decode only<br><sub>what a client that never sends the message gets back from tree-shaking</sub> | 23.5 kB | n/a | 13.6 kB | 15.5 kB | **1.41 kB** |
+
+<sub>One six-field message's codec, bundled with esbuild, minified and gzipped. protobufjs's reflection path parses the `.proto` at runtime, so it has no decode-only build. Runtimes that carry no message of their own: google-protobuf 42.1 kB, @protobuf-ts/runtime 9.7 kB.</sub>
 
 ## Conformance
 

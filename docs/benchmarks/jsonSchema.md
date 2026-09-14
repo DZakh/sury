@@ -8,15 +8,6 @@ Sury converts in both directions: a schema you wrote becomes a JSON Schema for t
 
 Measured against sury 11.0.0, zod 4.4.3, @sinclair/typebox 0.34.52, arktype 2.2.3, ajv 8.20.0.
 
-## Bundle size
-
-|  | Sury | Zod | TypeBox | ArkType | Ajv |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Emit a JSON Schema | **10.1 kB** | 64.6 kB | 11.9 kB | 47.7 kB | n/a |
-| Check values against a published document<br><sub>the JSON Schema is the input, not the output</sub> | **27.0 kB** | 64.7 kB | n/a | n/a | 36.4 kB |
-
-<sub>The three-field schema above, bundled with esbuild, minified and gzipped. A TypeBox schema is a JSON Schema already, which is why its emit row is the smallest and why it has no row below it: `Value.Check` only understands TypeBox's own objects, not a document from elsewhere.</sub>
-
 ## Features
 
 |  | Sury | Zod | TypeBox | ArkType | Ajv |
@@ -40,6 +31,15 @@ Measured against sury 11.0.0, zod 4.4.3, @sinclair/typebox 0.34.52, arktype 2.2.
 <sub>Median of seven rounds per cell. Sury and Zod return the checked value, Ajv returns a boolean and leaves the value alone, so the last row is not quite the same work - it is the closest thing each library offers to the same job. TypeBox schemas are JSON Schema already, so there is nothing to time in the first row, and neither it nor ArkType reads a document written elsewhere.</sub>
 
 <sub>Remeasured on every push to main and republished as the chart above, so a bar moves with the runner as well as with the code.</sub>
+
+## Bundle size
+
+|  | Sury | Zod | TypeBox | ArkType | Ajv |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Emit a JSON Schema | **10.1 kB** | 64.6 kB | 11.9 kB | 47.7 kB | n/a |
+| Check values against a published document<br><sub>the JSON Schema is the input, not the output</sub> | **27.0 kB** | 64.7 kB | n/a | n/a | 36.4 kB |
+
+<sub>The three-field schema above, bundled with esbuild, minified and gzipped. A TypeBox schema is a JSON Schema already, which is why its emit row is the smallest and why it has no row below it: `Value.Check` only understands TypeBox's own objects, not a document from elsewhere.</sub>
 
 ## Conformance
 

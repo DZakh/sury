@@ -190,15 +190,19 @@ jobs:
       - name: Pages match a fresh measurement
         run: pnpm benchmarks
 
+      # On the ref rather than the event: `benchmarks` is one branch every
+      # page reads, and a dispatch or a v*-patch push is a non-pull-request
+      # event too, so either would replace main's timings with a measurement of
+      # code that is not on main.
       - name: Time the benchmarks
-        if: github.event_name != 'pull_request'
+        if: github.ref == 'refs/heads/main'
         run: pnpm benchmarks --charts
 
       # Pushing a branch rather than a commit to main is what keeps this off the
       # protected-branch rule, and the branch carries nothing this workflow
       # runs on, so there is no `[skip ci]` to remember.
       - name: Publish the charts
-        if: github.event_name != 'pull_request'
+        if: github.ref == 'refs/heads/main'
         run: scripts/publish-charts.sh
 
   performance:
