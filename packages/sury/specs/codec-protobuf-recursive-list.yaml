@@ -16,7 +16,7 @@ vs:
     _skip: todo(#…)
 operations:
   parse:
-    expression: i=>{let v0;v0=e[0](i);let v1,w;try{w=e[5].acquire();let v,j,n,s,h,a,k,g,c,o;v=v0["v"];if((v=+v)){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=v;if(s<-2147483648||s>2147483647)e[2](s,-2147483648,2147483647,"int32");s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v=v0["next"];if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[1](w,v);w.end(h)};v1=w.finish()}catch(x){w&&(w.busy=false);e[6](x)}return v1}
+    expression: i=>{let v0;v0=e[0](i);let v1;{let w;try{w=e[5].acquire();let v,j,n,s,h,a,k,g,c,o;v=v0["v"];if((v=+v)){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=v;if(s<-2147483648||s>2147483647)e[2](s,-2147483648,2147483647,"int32");s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v=v0["next"];if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[1](w,v);w.end(h)};v1=w.finish()}catch(x){w&&(w.busy=false);e[6](x)}}return v1}
     examples:
       one:
         input: "{ v: 1, next: undefined }"
@@ -26,7 +26,7 @@ operations:
         output: new Uint8Array([8, 1, 18, 2, 8, 2])
   decode: eq-to-parse
   encode:
-    expression: i=>{let v0,r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}e[3](v0);return v0}
+    expression: i=>{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}e[3](v0);return v0}
     examples:
       absent-tail:
         input: new Uint8Array([8, 1])

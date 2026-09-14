@@ -1611,7 +1611,10 @@ const protobufDecoder = (input: Val): Val => {
   const outVar = B_varWithoutAllocation(input.g);
   const output = B_next(input, outVar, input.e, input.e);
   output.v = _var;
-  output.cp = `let ${outVar},w;${guarded(input, output, input.e, `w=${B_embedPure(input, scratchWriter)}.acquire();let v,j,n,s,h,a,k,g,c,o;${body};${outVar}=w.finish()`, "w&&(w.busy=false);")}`;
+  // Braced: the borrowed writer keeps the short name that ships on every field
+  // write, and a second `S.protobuf` in the same operation - two of them in one
+  // object - declares its own rather than colliding with this one.
+  output.cp = `let ${outVar};{let w;${guarded(input, output, input.e, `w=${B_embedPure(input, scratchWriter)}.acquire();let v,j,n,s,h,a,k,g,c,o;${body};${outVar}=w.finish()`, "w&&(w.busy=false);")}}`;
   output.io = true;
   return output;
 };
@@ -1635,7 +1638,8 @@ const protobufEncoder = (input: Val, target: Internal): Val => {
   const outVar = B_varWithoutAllocation(input.g);
   const output = B_next(input, outVar, message.top![0], message.top![1]);
   output.v = _var;
-  output.cp = `let ${outVar},r;${guarded(input, output, target, `r=${B_embedPure(input, scratchReader)}.acquire(${input.v()});${outVar}=${decoder}(r,0);r.busy=false`, "r&&(r.busy=false);")}`;
+  // Braced, for the reader, as the writer above.
+  output.cp = `let ${outVar};{let r;${guarded(input, output, target, `r=${B_embedPure(input, scratchReader)}.acquire(${input.v()});${outVar}=${decoder}(r,0);r.busy=false`, "r&&(r.busy=false);")}}`;
   // Whatever runs after the wire object: a `.to` on the target - which is where
   // a ref carries it, the definition it names having none - or one on the
   // object the walk ended at. A refinement on a recursive root counts too: it
