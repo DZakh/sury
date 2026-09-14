@@ -480,10 +480,6 @@ test("protobufField rejects a repeated or map oneof member and a non-integer enu
   }
 });
 
-
-
-
-
 // The spec format snapshots what an operation does, not what compiling one
 // leaves behind on an unrelated schema, so this lives here.
 test("Compiling two independent recursive schemas leaves neither holding the other's definitions", (t) => {

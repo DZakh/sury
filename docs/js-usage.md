@@ -1523,8 +1523,10 @@ S.toProtoOrThrow(DescriptorProto);
 ```
 
 The name you give `S.recursive` is the name the message prints under. Decoding
-stops at 100 levels of nesting, the depth protoc's own readers stop at, so a
-crafted message cannot exhaust the stack.
+stops at 100 levels of nesting, the limit Google's own implementations use, so
+a crafted message cannot exhaust the stack. Encoding has no such limit, the way
+those implementations don't either, so a value nested deeper than that writes
+bytes no conformant reader will take back - Sury's own included.
 
 What a message may not do is hold itself in a *required singular* field: a
 message absent from the wire decodes to its default instance, so such a field

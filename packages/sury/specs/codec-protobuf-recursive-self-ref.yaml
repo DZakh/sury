@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ x: S.recursive("Loop", (loop) => loop).with(S.protobufField, { number: 1, type: "message" }) }).with(S.to, S.protobuf)'
+  input: "{ x?: unknown; }"
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 6361
+jsonSchema:
+  input: '{ type: "object", properties: { x: { $ref: "#/$defs/Loop" } }, required: ["x"], $defs: { Loop: { $ref: "#/$defs/Loop" } } }'
+  fromInputType: "{ x: any; }"
+  output: "[Sury] S.protobuf: a $ref resolves to itself, so it names no message"
+isEqual:
+  input: (a,b)=>a===b||e[0](a.x,b.x)
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    creationError: "Error: [Sury] S.protobuf: a $ref resolves to itself, so it names no message"
+  decode: eq-to-parse
+  encode: eq-to-parse

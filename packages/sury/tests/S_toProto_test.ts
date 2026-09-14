@@ -545,3 +545,21 @@ test("toProtoOrThrow prints a lone integer literal as the number it infers", (t)
   const Message = S.schema({ one: S.literal(1).with(S.protobufField, 1), kind: S.union([1, 2]).with(S.protobufField, 2) });
   t.expect(S.toProtoOrThrow(Message)).toContain("  double one = 1;\n  Kind kind = 2;");
 });
+
+test("toProtoOrThrow prints a recursive message held as its codec", (t) => {
+  const node = S.recursive<{ v: string; kids: unknown[] }>("Node", (self) =>
+    S.schema({
+      v: S.string.with(S.protobufField, 1),
+      kids: S.array(self).with(S.protobufField, 2),
+    }),
+  );
+  const expected = `syntax = "proto3";
+
+message Node {
+  string v = 1;
+  repeated Node kids = 2;
+}
+`;
+  t.expect(S.toProtoOrThrow(node)).toBe(expected);
+  t.expect(S.toProtoOrThrow(node.with(S.to, S.protobuf))).toBe(expected);
+});
