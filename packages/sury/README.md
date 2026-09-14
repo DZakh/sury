@@ -94,7 +94,7 @@ All possible ways to run your schema, with a decision required where safety matt
 
 ```ts
 S.parseOrThrow(eventSchema, input); // => Event, or throws S.Error
-S.parseAsResult(eventSchema, input); // => { success: true, value } | { success: false, error }
+S.parseAsResult(eventSchema, input); // => { success: true, value } | { success: false, error, issues } - also a Standard Schema result
 S.parseAsPromiseOrReject(eventSchema, input); // => Promise<Event>, rejects with S.Error
 S.parseAsResultPromise(eventSchema, input); // => Promise<Result<Event>>
 S.parseAsPromisableResult(eventSchema, input); // => Result<Event> for a sync schema, Promise<Result<Event>> for an async one

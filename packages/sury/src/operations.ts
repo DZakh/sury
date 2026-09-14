@@ -19,11 +19,15 @@ import {
   isOwnSchema,
   panic,
   panicNotSchema,
+  standardIssues,
   U,
-  undefinedTag
+  undefinedTag,
+  type Val
 } from "./base";
 import {
  B_embedErrorOf,
+ B_embedPure,
+ B_errorOf,
  B_varWithoutAllocation,
  operationArgVar
 } from "./builder";
@@ -65,20 +69,35 @@ export const assertResult: Internal = /* @__PURE__ */ initSchema(undefinedTag, l
 // consumer's `.success`/`.value` reads stay monomorphic. It is also what makes
 // `const { value, error } = result` narrow on the TS side (the `?: undefined`
 // sibling fields in `Result`): one decision, both halves.
+//
+// `issues` is the fourth of those keys: a JS Result IS a Standard Schema
+// result, so `S.parseAsResult(schema, data)` can be handed to anything that
+// reads one without a translation step. `standardIssues` (base.ts) is the same
+// builder `~standard.validate` uses, so the two never drift.
 const okResult = (flag: Flag, value: string): string =>
   flag & 256
     ? `{TAG:"Ok",_0:${value}}`
     : flag & 128
-      ? `{success:true,value:${value},error:void 0}`
+      ? `{success:true,value:${value},error:void 0,issues:void 0}`
       : value;
 // The bare `false` is `is`'s answer; nothing else reaches this without a
 // Result shape to fill.
-const errResult = (flag: Flag, e: string): string =>
-  flag & 256
-    ? `{TAG:"Error",_0:${e}}`
-    : flag & 128
-      ? `{success:false,value:void 0,error:${e}}`
-      : "false";
+//
+// The JS failure is built by an embedded function rather than spelled out
+// inline: `issues` reads the error three times, and naming it would cost a
+// generated `let`. Shorter generated code wins over shorter library code
+// (CONTRIBUTING.md), and the tail is still compiled rather than wrapped - the
+// `try` elision above is untouched and there is no second object translating
+// one result shape into another.
+const errResult = (input: Val, flag: Flag, errVar: string): string => {
+  if (flag & 256) return `{TAG:"Error",_0:${B_embedErrorOf(input)}(${errVar})}`;
+  if (!(flag & 128)) return "false";
+  const errorOf = B_errorOf(input);
+  return `${B_embedPure(input, (e: unknown) => {
+    const error = errorOf(e);
+    return { success: false, value: U, error, issues: standardIssues(error) };
+  })}(${errVar})`;
+};
 
 const operationTail: Tail = (input, code, out, isAsync, flag, hasDefs) => {
   // 2048 (`makeInput`/`makeOutput`) hands back the value it was given. The
@@ -133,7 +152,7 @@ const operationTail: Tail = (input, code, out, isAsync, flag, hasDefs) => {
   const success = okResult(flag, flag & 4096 ? "true" : flag & 2048 ? value : valueVar);
   // Every failure comes back as a SuryError (`B_errorOf`), so the Result's
   // `error` is one shape; `is` only needs the fact of it.
-  const failure = errResult(flag, flag & 4096 ? "" : `${B_embedErrorOf(input)}(${errVar})`);
+  const failure = errResult(input, flag, errVar);
   const body = isAsync
     ? // Inlined into the promise chain the operation already builds, rather
       // than wrapped around it.

@@ -24,6 +24,7 @@ import {
   s,
   schemaPrototype,
   setHas,
+  standardIssues,
   tagFlags,
   U,
   unknown,
@@ -173,15 +174,10 @@ export type Tail = (
 // behind the hook (operations.ts).
 export const throwTail: Tail = (input, code, out, isAsync, flag, hasDefs) => {
   if (flag & 1024) {
-    // `path` is omitted at the root, which is what Standard Schema consumers
-    // expect. Built by an embedded function rather than inline: the failure
-    // path reads the error three times, and the same closure serves the
-    // sync catch and the promise's rejection handler.
+    // Built by an embedded function rather than inline: one closure serves
+    // both the sync catch and the promise's rejection handler.
     const errorOf = B_errorOf(input);
-    const issues = B_embedPure(input, (e: unknown) => {
-      const error = errorOf(e);
-      return { issues: [{ message: error.reason, path: error.path.length ? error.path : U }] };
-    });
+    const issues = B_embedPure(input, (e: unknown) => ({ issues: standardIssues(errorOf(e)) }));
     const v = isAsync ? B_varWithoutAllocation(input.g) : "";
     const body = isAsync
       ? `${code}return ${out}.then(${v}=>({value:${v}}),${issues})`

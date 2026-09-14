@@ -864,6 +864,20 @@ export class SuryError extends Error {
 Object.defineProperty(SuryError.prototype, "name", { value: "SuryError" });
 Object.defineProperty(SuryError.prototype, "s", { value: s });
 
+// The Standard Schema failure payload, built from a Sury error. Lives here
+// because two tails reach it by name: `~standard.validate` (parse.ts) and the
+// JS `Result` (operations.ts), whose `issues` is what makes a Result usable
+// wherever a Standard Schema result is - one answer, whichever produced it.
+//
+// `message` is the error's `reason` rather than its formatted `message`: the
+// location travels in `path`, and a consumer that renders both would say it
+// twice. `path` is omitted at the root, which is what those consumers expect.
+export const standardIssues = (
+  error: SuryErrorRecord
+): { message: string; path?: Path }[] => [
+  { message: error.reason, path: error.path.length ? error.path : U },
+];
+
 export const getOrRethrow = (exn: unknown): SuryErrorRecord => {
   if (exn && (exn as { s?: symbol }).s === s) return exn as SuryErrorRecord;
   throw exn;

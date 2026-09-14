@@ -313,6 +313,13 @@ schema["~standard"].validate({ name: 1 });
 
 A schema with an async codec answers with a promise of the same result, as the spec allows; every other schema answers synchronously.
 
+The `AsResult` outcomes answer in this shape too - `S.parseAsResult(schema, data)` carries `issues` beside its `success`/`value`/`error`, so a Sury `Result` is a Standard Schema result and needs no translation on the way to one:
+
+```ts
+S.parseAsResult(schema, { name: 1 }).issues;
+// [{ message: "Expected string, received 1", path: ["name"] }]
+```
+
 The `~standard` property also implements the [Standard JSON Schema](https://standardschema.dev/json-schema) spec, exposing a `jsonSchema` converter for the schema's input and output types. Call `S.enableStandardJSONSchema()` once to enable it:
 
 ```ts
@@ -1961,7 +1968,7 @@ A suffix names the failure mechanism only when the return type doesn't reveal it
 | Suffix | Returns | |
 | --- | --- | --- |
 | `OrThrow` | `TOutput` | throws `S.Error` |
-| `AsResult` | `S.Result<TOutput>` | `{ success, value, error }` |
+| `AsResult` | `S.Result<TOutput>` | `{ success, value, error, issues }` |
 | `AsPromiseOrReject` | `Promise<TOutput>` | rejects with `S.Error` - never throws synchronously |
 | `AsResultPromise` | `Promise<S.Result<TOutput>>` | |
 | `AsPromisableResult` | `S.Result<TOutput> \| Promise<S.Result<TOutput>>` | follows the schema's own shape |
@@ -1982,10 +1989,20 @@ The `Result` is compiled into the operation rather than wrapped around it, which
 
 ```ts
 S.parseAsResult(S.schema({ id: S.unknown }).with(S.noValidation, true)).toString();
-// => (i) => { return { success: true, value: { id: i.id }, error: void 0 } }
+// => (i) => { return { success: true, value: { id: i.id }, error: void 0, issues: void 0 } }
 ```
 
 Both branches of a `Result` carry the same keys in the same order, so `const { value, error } = result` narrows and a consumer's `.success` read stays monomorphic.
+
+A `Result` is also a [Standard Schema](#standard-schema) result, so it goes straight to anything that reads one:
+
+```ts
+const result = S.parseAsResult(S.string, 42);
+result.error;  // S.Error
+result.issues; // [{ message: "Expected string, received 42" }]
+```
+
+The `issues` are the ones `schema["~standard"].validate(42)` reports for the same value.
 
 Every failure of the value comes back in the outcome's own shape, exceptions included: a refine or coder that throws is wrapped as `invalid_conversion` with the exception as its `cause`, and so is anything else the value raises on its way through (a getter, say). Only a defect - a schema wired wrong, which fails for every input - throws out of every outcome, at the point the operation is created.
 
@@ -2416,7 +2433,8 @@ const asyncResult = await S.parseAsResultPromise(S.boolean, data);
 
 `error` is a `S.DataError` - `invalid_input`, `unrecognized_key` or
 `invalid_conversion`, all failures **of this value**, reportable to whoever
-supplied it.
+supplied it. The same failure is also on `result.issues`, in the Standard Schema
+shape - `message` without the path prefix, and the `path` beside it.
 
 A `S.DefectError` - `invalid_operation` or `unsupported_decode` - is never a
 result. A schema wired wrong fails for every input, so it is the developer's

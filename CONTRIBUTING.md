@@ -358,6 +358,14 @@ instead of silently working around it.
   class could say "this message is the platform's; record `errorConstructor`
   instead".
 
+- A Result-shaped outcome is read for `success`, `value` and `error.message`
+  and nothing else, so its `issues` - the half that makes a Result a Standard
+  Schema result - is unchecked across the whole corpus. The harness already
+  holds both sides: it could put every `error` golden to `~standard.validate`
+  for the same value and require the two to report the same issue, which is
+  the property `standardIssues` exists to keep. `tests/operations_test.ts`
+  holds it for two schemas instead.
+
 - `operations` has an `assert` and an `is` slot and no spec fills either, so
   `S.assertInputOrThrow` and `S.isInput` still have no golden anywhere. Both
   compile through the same builder chain under a different result target, and a
