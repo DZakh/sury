@@ -55,9 +55,6 @@ type Field = {
 type Message = {
   fields: Field[];
   strict: boolean;
-  // The field this message was reached by was a required singular one, which
-  // is what a cycle of them needs for the panic in `compileMessage`.
-  hard: boolean;
   // The object the message was compiled from, which every reader of a message
   // needs beside it: the printer names its fields from it, and a chain past it
   // is what a nested field can't run.
@@ -90,9 +87,8 @@ type Ctx = {
   refs: Map<Internal, Internal>;
   messages: Map<Internal, Message>;
   rec: boolean;
-  // The messages currently building. A field whose message is on it closes a
-  // cycle, and `hard` on each says the field it was reached by was a required
-  // singular one.
+  // The messages currently building: a field whose message is on it closes a
+  // cycle.
   stack: Message[];
 };
 
@@ -304,11 +300,13 @@ const recurse = (message: Message, ctx: Ctx): [Internal, Internal] => {
     ctx.rec = true;
     const id = message.ref!["$ref"]!.slice(defsPath.length);
     const [wire, value] = (message.rec = [`pb:${id}:wire`, `pb:${id}`].map((key) => {
-      const ref = copySchema(ctx.refs.get(message.object)!);
+      const ref = copySchema(message.ref!);
       ref["$ref"] = defsPath + key;
-      // The definitions are this compile's; the user's ride on the schema the
-      // copy came from, where they would shadow ours.
+      // Only the ref itself is wanted. The definitions are this compile's,
+      // where the user's would shadow ours, and a chain on the ref the copy
+      // came from is the root's to run once - not every nested value's.
       delete ref["$defs"];
+      delete ref.to;
       return ref;
     }) as [Internal, Internal]);
     // `S.recursive`'s decoder converts from the source it is handed, and a ref
@@ -326,7 +324,25 @@ const recurse = (message: Message, ctx: Ctx): [Internal, Internal] => {
   return message.rec;
 };
 
-const compileMessage = (schema: Internal, ctx: Ctx, hard = false): Message | undefined => {
+// A message absent from the wire decodes to its default instance, so a required
+// singular message field builds one unasked - and a cycle of such fields builds
+// one forever, which is also a type no finite value has. Walked after the tree
+// is built rather than while: a message compiles once however many fields reach
+// it, so the edge that closes the cycle need not be the one that compiled it.
+const rejectEndless = (message: Message, path: Set<Message>): void => {
+  path.add(message);
+  for (const field of message.fields) {
+    const nested = field.message;
+    if (nested === U || field.repeated || field.optional || field.map !== U) continue;
+    if (path.has(nested)) {
+      panic(`S.protobuf: field "${field.key}" makes "${nested.ref!.name}" hold itself with no way to end. Make it optional or repeated`);
+    }
+    rejectEndless(nested, path);
+  }
+  path.delete(message);
+};
+
+const compileMessage = (schema: Internal, ctx: Ctx): Message | undefined => {
   const output = firstObject(schema, ctx);
   if (output === U || output.properties === U) return U;
   if (typeof output.additionalItems === objectTag) return U;
@@ -339,7 +355,6 @@ const compileMessage = (schema: Internal, ctx: Ctx, hard = false): Message | und
     raw: output,
     schema: output,
     ref: ctx.refs.get(output),
-    hard,
   };
   ctx.messages.set(output, msg);
   ctx.stack.push(msg);
@@ -377,22 +392,14 @@ const compileMessage = (schema: Internal, ctx: Ctx, hard = false): Message | und
     let raw: Internal;
     let normalizedProperty = optional ? propertyValue : property;
     if (metadata.type === "message") {
-      // A message absent on the wire decodes to its default instance, so only a
-      // required singular field builds one unasked - and a cycle of them builds
-      // forever.
-      const singular = !repeated && map === U && !optional;
-      message = compileMessage(repeated || map !== U ? (container.additionalItems as Internal) : propertyValue, ctx, singular);
+      message = compileMessage(repeated || map !== U ? (container.additionalItems as Internal) : propertyValue, ctx);
       if (message === U) return panic(`S.protobuf: field "${key}" is a message but its schema is not an object`);
       // A nested value converts field by field, output to output, so a chain
       // past the object has nothing to run it: only the root's does.
       if (getOutputSchema(message.object) !== message.object) {
         return panic(`S.protobuf: field "${key}" is a message that converts further with S.to, which a nested field can't`);
       }
-      const depth = ctx.stack.indexOf(message);
-      if (depth !== -1) {
-        if (singular && ctx.stack.every((on, at) => at <= depth || on.hard)) {
-          return panic(`S.protobuf: field "${key}" makes "${message.ref!.name}" hold itself with no way to end. Make it optional or repeated`);
-        }
+      if (ctx.stack.includes(message)) {
         [raw, messageValue] = recurse(message, ctx);
       } else {
         raw = message.raw;
@@ -469,6 +476,7 @@ const compileRoot = (schema: Internal): Message | undefined => {
   const ctx = newCtx();
   const message = compileMessage(schema, ctx);
   if (message !== U) {
+    rejectEndless(message, new Set());
     // A recursive root's own schemas are definitions the rest of the compile
     // names, so the operation walks copies of the refs instead. Only those
     // outermost copies carry the definitions, the way `S.recursive` builds one:
@@ -1987,6 +1995,7 @@ export const toProtoOrThrow = (schema: Internal, options?: ProtoOptions): string
   const wire = wireObject(schema, ctx);
   const message = wire === U ? U : compileMessage(wire, ctx);
   if (message === U) return panic("S.toProtoOrThrow: the schema is not an object");
+  rejectEndless(message, new Set());
   const output = message.object;
   const rootMeta = chainMeta(schema, output);
   const proto: Proto = {
