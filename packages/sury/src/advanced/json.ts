@@ -855,7 +855,10 @@ export const jsonString = /* @__PURE__ */ (() => {
             !item.has![undefinedTag] &&
             item.to === U &&
             // The target is built from the variants, so the union's own
-            // refiners have nowhere to ride and were silently dropped.
+            // refiners have nowhere to ride: carrying them onto the rebuilt
+            // union runs them on the text a case just produced, not on the
+            // value, and a `value !== 0` refiner then accepts `0`. A union
+            // that carries one gives up this shortcut instead.
             item.refiner === U &&
             item.inputRefiner === U &&
             !item.anyOf!.some((variant) =>
