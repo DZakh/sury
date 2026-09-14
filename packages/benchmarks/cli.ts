@@ -6,14 +6,15 @@
 // out of esbuild, features are probes that either pass or do not, and
 // conformance is a score read from a suite's own golden. Those are committed,
 // and checked on every run. Performance is the exception - a shared runner's
-// timings move with the runner - so it is never committed at all: `--charts`
-// remeasures it into the SVGs the pages embed, and main publishes those to a
+// timings move with the runner - so it is never committed at all: it is
+// remeasured into the SVGs the pages embed, and `--publish` puts those on a
 // branch of their own.
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { type Golden, readGolden, writeGolden } from "./golden";
 import { provenance, renderChart } from "./chart";
+import { publish } from "./publish";
 import { renderPage } from "./render";
 import type { Table, Topic } from "./table";
 import { SOURCES, type Source } from "./registry";
@@ -25,6 +26,9 @@ if (fileURLToPath(import.meta.url) !== process.argv[1]) {
 const DOCS = fileURLToPath(new URL("../../docs/benchmarks/", import.meta.url));
 // Not committed, and not read by anything in the repo: `scripts/publish-charts.sh`
 // is what takes these to the branch the pages embed them from.
+// Not committed, and nothing reads it back: `publish` is handed the charts that
+// were rendered, not a directory to scan. This is where a contributor looks at
+// one, and where a CI run leaves what it pushed.
 const CHARTS = fileURLToPath(new URL("./.charts/", import.meta.url));
 
 const red = (s: string): string => (process.stderr.isTTY ? `\x1b[31m${s}\x1b[0m` : s);
@@ -37,15 +41,16 @@ const fail: (msg: string) => never = (msg) => {
 
 const HELP = `benchmarks - generates docs/benchmarks/*.md
 
-Usage: pnpm benchmarks [--write | --charts] [--only=<topic>]
+Usage: pnpm benchmarks [--write | --charts | --publish] [--only=<topic>]
 
   (no flags)     Remeasure bundle size, features and conformance, re-render the
                  pages from the committed goldens, and fail on any difference.
   --write        Remeasure the same three, rewrite the goldens and the pages,
                  and time the benchmarks into the charts as well.
   --charts       Time the benchmarks into packages/benchmarks/.charts and touch
-                 nothing else. What main runs before publishing them, so it
-                 covers every topic and refuses --only.
+                 nothing else.
+  --publish      The same, then push the charts to the \`benchmarks\` branch the
+                 pages embed them from. What main runs.
   --only=<topic> Restrict to one topic: ${SOURCES.map((s) => s.id).join(", ")}.
 `;
 
@@ -55,14 +60,17 @@ if (args.includes("--help") || args.includes("-h")) {
   process.exit(0);
 }
 const write = args.includes("--write");
-const charts = args.includes("--charts");
+const publishing = args.includes("--publish");
+const timings = publishing || args.includes("--charts");
 const only = args.find((a) => a.startsWith("--only="))?.slice("--only=".length);
-const unknown = args.find((a) => a !== "--write" && a !== "--charts" && !a.startsWith("--only="));
+const unknown = args.find(
+  (a) => a !== "--write" && a !== "--charts" && a !== "--publish" && !a.startsWith("--only="),
+);
 if (unknown !== undefined) fail(`unknown argument ${unknown}\n\n${HELP}`);
-// The charts are published as the whole of the `benchmarks` branch, so a run
-// that rendered one topic would take the other three off it and break the pages
-// that embed them. `--write --only=<topic>` is the way to look at one.
-if (charts && only !== undefined) fail("--charts covers every topic and cannot be combined with --only");
+// A publish replaces the whole of the `benchmarks` branch, so a run that
+// rendered one topic would take the other three off it and break the pages that
+// embed them. `--write --only=<topic>` is the way to look at one chart.
+if (publishing && only !== undefined) fail("--publish covers every topic and cannot be combined with --only");
 
 const sources = only === undefined ? SOURCES : SOURCES.filter((s) => s.id === only);
 if (sources.length === 0) fail(`unknown topic ${only}. Known: ${SOURCES.map((s) => s.id).join(", ")}`);
@@ -89,14 +97,16 @@ const measure = async (source: Source): Promise<Golden> => {
   };
 };
 
-const writeCharts = (id: string, performance: Table): void => {
-  mkdirSync(CHARTS, { recursive: true });
+const chartsFor = (id: string, performance: Table): Map<string, string> => {
   const machine = provenance();
-  for (const mode of ["light", "dark"] as const) {
-    const suffix = mode === "light" ? "" : "-dark";
-    writeFileSync(path.join(CHARTS, `${id}-performance${suffix}.svg`), renderChart(performance, machine, mode));
-  }
+  const rendered = new Map([
+    [`${id}-performance.svg`, renderChart(performance, machine, "light")],
+    [`${id}-performance-dark.svg`, renderChart(performance, machine, "dark")],
+  ]);
+  mkdirSync(CHARTS, { recursive: true });
+  for (const [name, svg] of rendered) writeFileSync(path.join(CHARTS, name), svg);
   console.log(`${green("timed")} ${id}`);
+  return rendered;
 };
 
 // Names the section that moved, not just the topic: the whole point of
@@ -110,8 +120,12 @@ const drifted = (fresh: Golden, previous: Golden): string[] =>
 // Wrapped in an async function rather than top-level await: the shared
 // tsconfig.json targets module ES2020, which is too old for it.
 async function main() {
-  if (charts && !write) {
-    for (const source of sources) writeCharts(source.id, await source.performance());
+  if (timings && !write) {
+    const rendered = new Map<string, string>();
+    for (const source of sources) {
+      for (const [name, svg] of chartsFor(source.id, await source.performance())) rendered.set(name, svg);
+    }
+    if (publishing) publish(rendered);
     return;
   }
 
@@ -126,7 +140,7 @@ async function main() {
       writeGolden(fresh);
       writeFileSync(pagePath, page);
       console.log(`${green("wrote")} docs/benchmarks/${source.id}.md`);
-      writeCharts(source.id, await source.performance());
+      chartsFor(source.id, await source.performance());
       continue;
     }
 
