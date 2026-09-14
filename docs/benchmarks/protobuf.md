@@ -8,15 +8,6 @@
 
 Measured against sury 11.0.0, protobufjs 8.8.0, protobuf-es 2.14.1, pbf 5.1.2.
 
-## Bundle size
-
-|  | Sury | protobufjs (reflect) | protobufjs (static) | protobuf-es | pbf |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Encode and decode | 24.3 kB | 34.9 kB | 13.6 kB | 17.9 kB | **2.80 kB** |
-| Decode only<br><sub>what a client that never sends the message gets back from tree-shaking</sub> | 24.3 kB | n/a | 13.6 kB | 15.5 kB | **1.41 kB** |
-
-<sub>One six-field message's codec, bundled with esbuild, minified and gzipped. protobufjs's reflection path parses the `.proto` at runtime, so it has no decode-only build. Runtimes that carry no message of their own: google-protobuf 42.1 kB, @protobuf-ts/runtime 9.7 kB.</sub>
-
 ## Features
 
 |  | Sury | protobufjs | protobuf-es | pbf |
@@ -33,28 +24,29 @@ Measured against sury 11.0.0, protobufjs 8.8.0, protobuf-es 2.14.1, pbf 5.1.2.
 
 ## Performance
 
-|  | Sury | protobufjs (reflect) | protobufjs (static) | protobuf-es | pbf |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| tiny · encode<br><sub>3 bytes on the wire</sub> | **49 ns** | 199 ns | 186 ns | 560 ns | 595 ns |
-| tiny · decode | **24 ns** | 58 ns | 39 ns | 271 ns | 97 ns |
-| typical · encode<br><sub>31 bytes on the wire</sub> | **194 ns** | 571 ns | 537 ns | 958 ns | 1.42 µs |
-| typical · decode | **232 ns** | 299 ns | 277 ns | 1.36 µs | 330 ns |
-| large · encode<br><sub>1416 bytes on the wire</sub> | **2.03 µs** | 4.24 µs | 3.27 µs | 7.79 µs | 7.40 µs |
-| large · decode | **2.83 µs** | 2.86 µs | 2.94 µs | 4.97 µs | 3.09 µs |
-| common · encode<br><sub>79 bytes on the wire</sub> | **636 ns** | 1.58 µs | 1.64 µs | 2.02 µs | 1.46 µs |
-| common · decode | **448 ns** | 579 ns | 633 ns | 1.95 µs | 570 ns |
-| tile · encode<br><sub>3028 bytes on the wire</sub> | 17.28 µs | 34.75 µs | 34.07 µs | 52.64 µs | **17.22 µs** |
-| tile · decode | **13.37 µs** | 23.23 µs | 17.79 µs | 55.46 µs | 17.88 µs |
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/DZakh/sury/benchmarks/protobuf-performance-dark.svg">
+  <img alt="Protobuf timings, one bar per library, remeasured on every push to main" src="https://raw.githubusercontent.com/DZakh/sury/benchmarks/protobuf-performance.svg">
+</picture>
 
 <sub>Best of seven samples per cell, since a sample landing on a GC pause reads double and which library pays it is luck of the draw. `tiny` and `typical` are this suite's own shapes, `common` is protobuf.js's own benchmark message, and `tile` is a Mapbox vector tile: almost entirely packed varints, which is what pbf is built for.</sub>
 
-<sub>Timed on node 22.22.2 · linux x64. Rerun on every push to main, so a row moves with the runner as well as with the code.</sub>
+<sub>Remeasured on every push to main and republished as the chart above, so a bar moves with the runner as well as with the code.</sub>
+
+## Bundle size
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/DZakh/sury/benchmarks/protobuf-bundle-size-dark.svg">
+  <img alt="Protobuf bundle size, one bar per library" src="https://raw.githubusercontent.com/DZakh/sury/benchmarks/protobuf-bundle-size.svg">
+</picture>
+
+<sub>One six-field message's codec, bundled with esbuild, minified and gzipped. protobufjs's reflection path parses the `.proto` at runtime, so it has no decode-only build. Runtimes that carry no message of their own: google-protobuf 42.1 kB, @protobuf-ts/runtime 9.7 kB.</sub>
 
 ## Conformance
 
 |  | Cases | Passed | Rate |
 | --- | ---: | ---: | ---: |
-| Google's `conformance_test_runner`, binary proto3<br><sub>3 known failures, each named with its reason in `failing_tests.txt`</sub> | 698 | 695 | 99.6% |
+| Google's `conformance_test_runner`, binary proto3<br><sub>6 known failures, each named with its reason in `failing_tests.txt`</sub> | 698 | 692 | 99.1% |
 | This repo's corpus, against protobufjs and protobuf-es<br><sub>every round trip checked against two independent implementations</sub> | 650 | 650 | 100.0% |
 
 <sub>Google's runner generates its cases inside the binary rather than reading them from a file, so nothing here can drift from upstream; the corpus is pinned at `faec7c97e35b` and the runner at 33.6.0. Its other 2515 cases are ProtoJSON, text format and proto2 messages, none of which `S.protobuf` claims.</sub>
