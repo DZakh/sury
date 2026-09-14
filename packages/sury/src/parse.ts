@@ -204,16 +204,15 @@ export const throwTail: Tail = (input, code, out, isAsync, flag, hasDefs) => {
   // the frame to cut at, which is the operation itself: the caller's line ends
   // up on top instead of five frames of library.
   //
-  // Only where something can raise at all (`g.t`), never for a nested compile
-  // (recursive.ts), whose throw is generated code's own business and is caught
-  // and re-raised by the operation around it. 16 is
-  // `S.global({ errorStackTrace: false })`.
+  // Only where something can raise at all (`g.t`), and never for a nested
+  // compile (recursive.ts), whose throw is generated code's own business and is
+  // caught and re-raised by the operation around it.
   //
   // The sync phase only. A failure an async operation reaches after its first
   // await rejects with no stack, because by then there is no stack worth
   // taking: the caller's frames are gone and what a capture in the rejection
   // handler produces is the header line and nothing else.
-  if (!input.g.t || hasDefs || flag & 16) return body;
+  if (!input.g.t || hasDefs) return body;
   const g = input.g;
   const e = B_varWithoutAllocation(g);
   return `try{${body}}catch(${e}){${B_embedPure(input, (thrown: SuryErrorRecord): never => {

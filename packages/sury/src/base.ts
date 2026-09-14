@@ -19,9 +19,7 @@ export type Flag = number;
 // Compile semantics (`g.o` / op flag), 127 and below - what the generated code
 // itself does: 0 none, 1 async, 2 disableNaN, 4 union-transform-context (custom
 // transform inside a union case preserves the original exception so dispatch
-// can distinguish Sury failures from foreign ones), 16 skip the throw
-// boundary's stack capture (`S.global({ errorStackTrace: false })`), 64
-// flatten.
+// can distinguish Sury failures from foreign ones), 64 flatten.
 //
 // Return modes, 128 and above - what the operation hands back, read only by the
 // operation tail (parse.ts, operations.ts): 128 JS Result
@@ -965,7 +963,6 @@ export type GlobalConfig = {
 export type GlobalConfigOverride = {
   defaultAdditionalItems?: AdditionalItemsMode;
   disableNanNumberValidation?: boolean;
-  errorStackTrace?: boolean;
 }
 
 export const initialOnAdditionalItems: AdditionalItemsMode = "strip";

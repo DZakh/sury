@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from "vitest";
+import { expect, test } from "vitest";
 import * as S from "sury";
 
 // Where a failure gets a stack, and where it deliberately has none. A spec
@@ -8,8 +8,6 @@ import * as S from "sury";
 
 const user = S.schema({ id: S.string });
 const invalid = { id: 1 };
-
-afterEach(() => S.global({}));
 
 test("an error handed back rather than thrown carries no stack", () => {
   const result = S.parseAsResult(user, invalid);
@@ -57,27 +55,6 @@ test("a stack the thrower already chose is left alone", () => {
     expect((error as Error).stack).toContain("errorStack_test.ts");
     expect((error as Error).stack!.split("\n")[1]).toContain("errorStack_test.ts");
   }
-});
-
-test("errorStackTrace: false takes the capture and its try back out", () => {
-  S.global({ errorStackTrace: false });
-  expect(S.parseOrThrow(S.string).toString()).toBe(
-    `i=>{typeof i==="string"||e[0](i);return i}`,
-  );
-  try {
-    S.parseOrThrow(user, invalid);
-    expect.unreachable();
-  } catch (error) {
-    expect("stack" in (error as object)).toBe(false);
-    expect((error as Error).message).toBe("Failed at id: Expected string, received 1");
-  }
-
-  // The flag rides the operation memo key, so turning it back on recompiles
-  // rather than leaving the stack-free code in place.
-  S.global({});
-  expect(S.parseOrThrow(S.string).toString()).toBe(
-    `i=>{try{typeof i==="string"||e[0](i);return i}catch(v0){e[1](v0)}}`,
-  );
 });
 
 test("reason is rendered when it is read, not when the error is built", () => {

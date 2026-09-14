@@ -83,7 +83,6 @@
 - [Global config](#global-config)
   - [`defaultAdditionalItems`](#defaultadditionalitems)
   - [`disableNanNumberValidation`](#disablenannumbervalidation)
-  - [`errorStackTrace`](#errorstacktrace)
 
 ## Install
 
@@ -2313,23 +2312,3 @@ S.global({
   disableNanNumberValidation: true,
 })
 ```
-
-### `errorStackTrace`
-
-`errorStackTrace` controls whether a raised `S.Exn` carries a stack. The default is `true`, and the stack starts at the line that called the operation:
-
-```rescript
-S.parseOrThrow(42->Obj.magic, S.string)
-// SuryError: Expected string, received 42
-//     at handler (Server.res:12:3)
-```
-
-Set it to `false` where a failure is expected often enough that catching it is part of the flow. The error reads the same, it just won't say where the parse was called from:
-
-```rescript
-S.global({
-  errorStackTrace: false,
-})
-```
-
-An error handed back rather than raised - `S.parseAsResult`, `S.isInput`, Standard Schema - never carries a stack, whatever this is set to.
