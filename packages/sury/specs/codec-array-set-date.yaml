@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.array(S.isoDateTime.with(S.to, S.date)).with(S.to, S.set(S.date))
+  input: string[]
+  output: Set<Date>
+  instantiations: 5081
+jsonSchema:
+  input: '{ items: { type: "string", format: "date-time" }, type: "array" }'
+  output: Expected JSON, received Set<Date>
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+  output: (a,b)=>a===b||e[0](a,b)
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{Array.isArray(i)||e[4](i);let v4=new Array(i.length);for(let v0=0;v0<i.length;++v0){try{let v2=i[v0];typeof v2==="string"||e[3](v2);e[1](v2)||e[2](v2);let v1=new Date(i[v0]);!Number.isNaN(v1.getTime())||e[0](v1);v4[v0]=v1}catch(v3){v3.path=[v0,...v3.path];throw v3}}return new Set(v4)}
+    examples:
+      valid:
+        input: '["1970-01-01T00:00:00.000Z"]'
+        output: new Set([new Date("1970-01-01T00:00:00.000Z")])
+      invalid-item:
+        input: '["not-a-date"]'
+        error: 'Failed at [0]: Expected date-time, received "not-a-date"'
+  decode:
+    expression: i=>{let v4=new Array(i.length);for(let v0=0;v0<i.length;++v0){try{let v2=i[v0];e[1](v2)||e[2](v2);let v1=new Date(i[v0]);!Number.isNaN(v1.getTime())||e[0](v1);v4[v0]=v1}catch(v3){v3.path=[v0,...v3.path];throw v3}}return new Set(v4)}
+    examples:
+      valid:
+        input: '["1970-01-01T00:00:00.000Z"]'
+        output: new Set([new Date("1970-01-01T00:00:00.000Z")])
+  encode:
+    expression: i=>{let v2=Array.from(i);let v7=new Array(v2.length);for(let v3=0;v3<v2.length;++v3){try{let v5=v2[v3];let v4;try{v4=v5.toISOString()}catch(_){e[0](v5)}e[1](v4)||e[2](v4);v7[v3]=v4}catch(v6){v6.path=[v3,...v6.path];throw v6}}return v7}
+    examples:
+      valid:
+        input: new Set([new Date("1970-01-01T00:00:00.000Z")])
+        output: '["1970-01-01T00:00:00.000Z"]'

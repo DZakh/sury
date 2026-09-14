@@ -2261,13 +2261,32 @@ const structurallyEqual = (a: unknown, b: unknown): boolean => {
   // The built-ins whose value is their content rather than their identity.
   if (proto === Date.prototype) return +(a as Date) === +(b as Date);
   if (proto === URL.prototype) return `${a}` === `${b}`;
-  // A Set by its members, which it already holds by SameValueZero; FormData
-  // and URLSearchParams by their entries in order, since a name handed out
-  // twice is two of them.
-  if (proto === Set.prototype) {
-    const as = a as Set<unknown>;
-    const bs = b as Set<unknown>;
-    return as.size === bs.size && [...as].every((v) => bs.has(v));
+  // A Set by its members and a Map by its entries, matched rather than read in
+  // order: both hold their content by identity, so one value can sit on the two
+  // sides under different identities, and a match is spent because two members
+  // one side calls distinct can both equal a single one of the other's. Mirrors
+  // `deepEqual` in src/eq.ts. FormData and URLSearchParams are read by their
+  // entries IN order, since a name handed out twice is two of them.
+  if (proto === Set.prototype || proto === Map.prototype) {
+    const isMap = proto === Map.prototype;
+    const as = a as Set<unknown> & Map<unknown, unknown>;
+    const bs = b as Set<unknown> & Map<unknown, unknown>;
+    if (as.size !== bs.size) return false;
+    const settled = (side: typeof as, entry: unknown): boolean => {
+      if (!isMap) return side.has(entry);
+      const pair = entry as [unknown, unknown];
+      return side.has(pair[0]) && structurallyEqual(side.get(pair[0]), pair[1]);
+    };
+    const rest = [...as].filter((entry) => !settled(bs, entry));
+    if (!rest.length) return true;
+    const left = [...bs].filter((entry) => !settled(as, entry));
+    for (const entry of rest) {
+      let i = left.length;
+      while (i--) if (structurallyEqual(entry, left[i])) break;
+      if (i < 0) return false;
+      left.splice(i, 1);
+    }
+    return true;
   }
   if (proto === FormData.prototype || proto === URLSearchParams.prototype) {
     const be = [...(b as FormData | URLSearchParams)];

@@ -227,6 +227,8 @@ export {
 } from "./modifiers";
 export { jsonStringWithSpace } from "./advanced/json";
 export { list } from "./advanced/list";
+export { set } from "./advanced/set";
+export { map } from "./advanced/map";
 export {
   inputJSONSchema as toInputJSONSchemaOrThrow,
   outputJSONSchema as toOutputJSONSchemaOrThrow,

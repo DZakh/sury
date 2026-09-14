@@ -71,10 +71,29 @@ const structural = (a: unknown, b: unknown): boolean => {
   }
   if (proto === Date.prototype) return +(a as Date) === +(b as Date);
   if (proto === URL.prototype) return `${a}` === `${b}`;
-  if (proto === Set.prototype) {
-    const as = a as Set<unknown>;
-    const bs = b as Set<unknown>;
-    return as.size === bs.size && [...as].every((v) => bs.has(v));
+  // A Set by its members and a Map by its entries, matched rather than read in
+  // order, since both key their content by identity. See eq.ts's deepEqual,
+  // which this mirrors.
+  if (proto === Set.prototype || proto === Map.prototype) {
+    const isMap = proto === Map.prototype;
+    const as = a as Set<unknown> & Map<unknown, unknown>;
+    const bs = b as Set<unknown> & Map<unknown, unknown>;
+    if (as.size !== bs.size) return false;
+    const settled = (side: typeof as, entry: unknown): boolean => {
+      if (!isMap) return side.has(entry);
+      const pair = entry as [unknown, unknown];
+      return side.has(pair[0]) && structural(side.get(pair[0]), pair[1]);
+    };
+    const rest = [...as].filter((entry) => !settled(bs, entry));
+    if (!rest.length) return true;
+    const left = [...bs].filter((entry) => !settled(as, entry));
+    for (const entry of rest) {
+      let i = left.length;
+      while (i--) if (structural(entry, left[i])) break;
+      if (i < 0) return false;
+      left.splice(i, 1);
+    }
+    return true;
   }
   if (typeof FormData !== "undefined" && proto === FormData.prototype) {
     const ae = [...(a as FormData)];

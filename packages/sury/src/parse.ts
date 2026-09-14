@@ -544,6 +544,24 @@ export const instanceDecoder: Builder = (input: Val) => {
       : B_unsupportedDecode(input, input.s, input.e);
 };
 
+// The source a decoder iterates entry by entry (Set, Map). Unknown is narrowed
+// to `unknownSelf`, the class with its entries unvalidated, not to `input.e`,
+// whose entry schemas would compile the loop down to identity. An accepted
+// array or a same-class instance is refined even with no checks of its own: an
+// input-side refine (a size bound, reversed) can only emit before the loop
+// when the val it attaches to has a `prev`. The bare operation arg has none,
+// and B_markOutput would defer the check past the rebuild.
+export const iterableSource = (input: Val, unknownSelf: Internal, acceptsArray: boolean): Val => {
+  const inputTagFlag = tagFlags[input.s.type]!;
+  return (inputTagFlag & 1)
+    ? B_refine(input, unknownSelf, [
+        { c: (v) => instanceofCond(input, input.e.class, v), f: failInvalidType },
+      ])
+    : (acceptsArray && (inputTagFlag & 128)) || ((inputTagFlag & 8192) && input.s.class === input.e.class)
+      ? B_refine(input)
+      : B_unsupportedDecode(input, input.s, input.e);
+};
+
 // On a runtime that has no such global there is no schema to be had, so `class`
 // reports that instead of sitting there as `undefined` for its readers to
 // dereference. Every route into the schema goes through `class` - the decoder's

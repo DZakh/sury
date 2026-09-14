@@ -374,6 +374,28 @@ instead of silently working around it.
   fold of its own (`compileChain`), and nothing pins that the two agree.
   A `ts.pipeline` beside `ts.schema`, taking the argument list, would cover it.
 
+- `eq-to-parse` and `identity` compare an operation's generated SOURCE, and two
+  directions of a recursive codec compile to the same source while embedding
+  different operations: `S.recursive("Node", n => S.array(n).with(S.to,
+  S.set(n)))` emits `i=>{let v0;v0=e[0](i);return v0}` for parse and for encode,
+  where one `e[0]` builds Sets out of arrays and the other arrays out of Sets.
+  The shorthand is then mandatory (an expression plus examples is rejected as a
+  duplicate) and it drops the examples, so the encode direction of every
+  recursive codec has no runtime coverage anywhere. Comparing the embedded
+  operations too, or letting `eq-to-parse` carry examples of its own, would
+  close it.
+
+- Three structural-equality oracles have to agree and nothing checks that they
+  do: `deepEqual` in `src/eq.ts`, `structural` in `scripts/eqFuzz.ts`, and
+  `structurallyEqual` in `packages/spec/harness.ts`. Each is the other's
+  reference - the fuzzer holds the emit to its walk, and the harness calls a
+  disagreement with its own walk a finding - so a value kind missing from one is
+  invisible until a schema produces it, and then reports as the comparator being
+  wrong rather than the oracle being silent. Adding a built-in container means
+  teaching all three (`S.map` did, after `S.formData` and `S.set` did before
+  it); one shared module, or a fixture of pairs all three must answer alike,
+  would make the coupling fail loudly instead.
+
 - `fuzz:union --ref=<commit>` reports 3 `acceptance` diffs on the pinned
   `issue-392` case even when the working tree *is* that commit, so the
   changelog cannot be read as a signal without running it on an unchanged tree

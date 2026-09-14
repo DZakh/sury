@@ -88,6 +88,18 @@ test("Dict of string schema from Core", t => {
 })
 
 @schema
+type mySetOfString = Set.t<string>
+test("Set of string schema", t => {
+  t->assertEqualSchemas(mySetOfStringSchema, S.set(S.string))
+})
+
+@schema
+type myMapOfStringToInt = Map.t<string, int>
+test("Map of string to int schema", t => {
+  t->assertEqualSchemas(myMapOfStringToIntSchema, S.map(S.string, S.int))
+})
+
+@schema
 type myJson = Js.Json.t
 test("Json schema", t => {
   t->assertEqualSchemas(myJsonSchema, S.json)

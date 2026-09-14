@@ -542,12 +542,12 @@ export const B_pushCheck = (val: Val, check: Check): void => {
   (val.vc ??= []).push(check);
 }
 
-// Applies both refiners. Output checks wrap `val` via refine; input checks push
-// onto `valInput.vc`, which emits ahead of the decoder body - they have to read
-// what the decoder was *handed*. A schema that narrows leaves nothing else to
-// read it from: a union assigns its result over the operation argument, so an
-// `allOf` refinement placed after it looks for keys the object arm just
-// stripped. Sets isOutput on the result.
+// Applies both refiners. Output checks wrap `val` via refine, or via a `.then`
+// when it is a promise; input checks push onto `valInput.vc`, which emits ahead
+// of the decoder body - they have to read what the decoder was *handed*. A
+// schema that narrows leaves nothing else to read it from: a union assigns its
+// result over the operation argument, so an `allOf` refinement placed after it
+// looks for keys the object arm just stripped. Sets isOutput on the result.
 //
 // The parse loop applies refiners itself only for primitive decoders, so every
 // decoder that sets isOutput - object, array, tuple, union, recursive - has to
@@ -630,6 +630,66 @@ export const B_dynamicScope = (from: Val, locationVar: string): Val => {
   };
 }
 
+// B_dynamicScope for a container iterated by value rather than by index: the
+// loop variable IS the item (`for (let v1 of set)`), so there's no location
+// to read the item back through and no `additionalItems` to take the schemas
+// from — both sides are passed in. Same fresh-root shape otherwise: no `prev`,
+// so merging the body stops at the loop.
+export const B_iterScope = (
+  from: Val,
+  inline: string,
+  schema: Internal,
+  expected: Internal
+): Val => {
+  // Canonical Val field order (see B_operationArg).
+  return {
+    b: U,
+    p: from,
+    v: _notVarBeforeValidation,
+    i: inline,
+    s: schema,
+    io: U,
+    e: expected,
+    prev: U,
+    f: from.f,
+    d: U,
+    fv: U,
+    cp: "",
+    hd: "",
+    fz: U,
+    vc: U,
+    u: U,
+    t: U,
+    path: pathEmpty,
+    g: from.g,
+    o: U,
+  };
+}
+
+// The loop of a container iterated by value, once its body is merged. A body
+// that can fail is located by position: `counterVar` counts the iterations,
+// and an async body — whose failure is read from a `.catch` that outlives the
+// iteration — gets the count copied into a binding of its own, `indexVar`. A
+// sync body advances `indexVar` itself, at its end, so the two are the same
+// var and the count is still the failing position when the throw is caught.
+export const B_forOf = (
+  out: Val,
+  itemVar: string,
+  sourceVar: string,
+  body: string,
+  counted: boolean,
+  indexVar: string,
+  counterVar: string,
+): void => {
+  if (body !== "") {
+    out.cp =
+      out.cp +
+      `${counted ? `let ${counterVar}=0;` : ""}for(let ${itemVar} of ${sourceVar}){${
+        counted && indexVar !== counterVar ? `let ${indexVar}=${counterVar}++;` : ""
+      }${body}}`;
+  }
+}
+
 export const B_nextConst = (from: Val, schema: Internal, expected?: Internal): Val =>
   B_next(from, B_inlineConst(from, schema), schema, expected);
 
@@ -681,6 +741,20 @@ export const B_asyncVal = (from: Val, initial: string): Val => {
   const v = B_next(from, initial, from.s);
   v.f = 1; // 1
   return v;
+}
+
+// A collection whose entries arrive as promises: `from` holds them accumulated
+// in an array, and the constructor rebuilds the collection only once they have
+// all settled. `ctor` is the constructor's name, written literally — an embed
+// would cost `e[n]` at every use for what is a global.
+export const B_collectAsync = (from: Val, ctor: string, schema: Internal): Val => {
+  const resolvedVar = B_varWithoutAllocation(from.g);
+  const output = B_asyncVal(
+    from,
+    `Promise.all(${from.i}).then(${resolvedVar}=>new ${ctor}(${resolvedVar}))`,
+  );
+  output.s = schema;
+  return output;
 }
 
 // A val the rest of the pipeline continues from inside a `.then`. Async is
@@ -895,12 +969,17 @@ const B_mergeWithCatch = (
 ): string => {
   const valCode = B_merge(val);
   // `pureSince` is the raise counter before the val was built: unchanged means
-  // nothing merged can throw, so the catch wrapper is dead. Without an append
-  // the code itself is dead too - an untransformed, unfailable body is only
-  // orphaned `let`s - and dropping it lets the caller skip its loop entirely.
+  // nothing merged can throw, so the catch wrapper is dead. Sampled before the
+  // build, since both ways a body comes to throw happen after it - a check
+  // embeds its failure as it is emitted, a recursive reference embeds its
+  // operation as it is built. With nothing to append, the code itself is dead
+  // too - an untransformed, unfailable body is only orphaned `let`s - and
+  // dropping it lets the caller skip its loop entirely. An append that turns
+  // out empty (a counted loop with nothing to count) is nothing to append.
   const pure = pureSince !== U && val.g.t === pureSince;
   if ((valCode === "" || pure) && !(val.f & 1)) {
-    return appendSafe ? valCode + appendSafe() : pure ? "" : valCode;
+    const appended = appendSafe ? appendSafe() : "";
+    return pure && appended === "" ? "" : valCode + appended;
   }
   const errorVar = B_varWithoutAllocation(val.g);
   B_markThrow(val);

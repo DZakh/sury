@@ -13,6 +13,7 @@ import {
 } from "../base";
 import {
   B_embed,
+  B_invalidOperation,
   B_mergeWithPathPrepend,
   B_nextVar,
   B_refine
@@ -21,6 +22,7 @@ import {
  addOpNode,
  compileDecoder,
  findOpNode,
+ getOutputSchema,
  removeOpNode
 } from "../parse";
 
@@ -28,10 +30,32 @@ export const recursiveDecoder: Builder = (input) => {
   const expectedSchema = input.e;
 
   const schemaRef = expectedSchema["$ref"]!;
-  const defs = input.g.d!;
+  const defs = input.g.d;
   // Ignore #/$defs/
   const identifier = schemaRef.slice(8);
-  const def = defs[identifier]!;
+  // A ref whose definition this compilation was never handed. The JSON Schema
+  // emit reaches one: it compiles a reversed SUB-schema to see what the output
+  // side serializes to, and the `$defs` hangs off the root that sub-schema was
+  // cut out of. Raised rather than left to read `undefined`, because the caller
+  // there already swallows a Sury error and falls back to describing the value
+  // it could not represent - which a TypeError escaped, taking the diagnostic
+  // with it.
+  const def =
+    defs?.[identifier] ?? B_invalidOperation(input, `Missing definition for ${schemaRef}`);
+  // What the definition hands back, for a definition that CONVERTS. A ref names
+  // the definition, not a side of it, so a value the definition just produced
+  // is spelled exactly like one still waiting to be decoded - and a `.to` stage
+  // reading its items back off the container the stage before it built then ran
+  // the definition a second time, over its own output: `S.recursive("N", n =>
+  // S.array(n).with(S.to, S.set(n)))` decoded every item into the array, then
+  // decoded the array again into the Set, which crashed on reading a Set's
+  // `length`. Naming the output side tells the two apart, and only a converting
+  // definition has two sides to confuse: for every other one the ref is the
+  // honest answer, and `S.json` is recognised BY that ref (`S.jsonString` reads
+  // its name), so handing back the union it expands to would unmake it.
+  const converts = def.to !== U;
+  const defOutput = converts ? getOutputSchema(def) : expectedSchema;
+  if (converts && input.s === defOutput) return input;
   // Masked to the compile-semantics bits (127 and below). A def compiles a
   // nested operation whose result generated code consumes, so it must throw:
   // inheriting the outer operation's return mode would have the inner one
@@ -115,7 +139,7 @@ export const recursiveDecoder: Builder = (input) => {
   let outputDecl = "";
   let output: Val;
   if (hasTransform || isAsync) {
-    output = B_nextVar(input, expectedSchema);
+    output = B_nextVar(input, defOutput, expectedSchema);
     outputDecl = `let ${output.i};`;
 
     output.cp = `${output.i}=${recOperation}(${input.i});`;
@@ -125,7 +149,7 @@ export const recursiveDecoder: Builder = (input) => {
     }
   } else {
     // No transform: call for validation but don't capture result
-    output = B_refine(input, expectedSchema, U, expectedSchema);
+    output = B_refine(input, defOutput, U, expectedSchema);
     output.cp = `${recOperation}(${input.i});`;
   }
 

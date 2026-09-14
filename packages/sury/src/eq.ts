@@ -75,14 +75,38 @@ const deepEqual = (a: unknown, b: unknown): boolean => {
   // an untyped position answers the same way a typed one would.
   if (proto === Date.prototype) return +(a as Date) === +(b as Date);
   if (proto === URL.prototype) return `${a}` === `${b}`;
-  // A Set by its members. Membership is SameValueZero already, so `has` is both
-  // the right test and the fast one, and a member with an identity of its own
-  // compares by identity - the rule the Set used to decide it holds one copy.
-  if (proto === Set.prototype) {
-    const as = a as Set<unknown>;
-    const bs = b as Set<unknown>;
+  // A Set by its members, a Map by its entries, neither by iteration order.
+  // Both key their content by identity, so one value can sit on the two sides
+  // under different identities: what the other side holds under the SAME
+  // identity settles itself, which is the common case and the cheap one, and
+  // the leftovers are matched against each other. A match is spent, since two
+  // members one side calls distinct - two Dates at one instant - can both
+  // equal a single one of the other's. The test is symmetric, so an entry is a
+  // leftover on one side exactly when its partner is on the other, which is
+  // what lets the two lists be built independently and still line up.
+  if (proto === Set.prototype || proto === Map.prototype) {
+    const isMap = proto === Map.prototype;
+    const as = a as Set<unknown> & Map<unknown, unknown>;
+    const bs = b as Set<unknown> & Map<unknown, unknown>;
     if (as.size !== bs.size) return false;
-    for (const value of as) if (!bs.has(value)) return false;
+    const settled = (side: typeof as, entry: unknown): boolean => {
+      if (!isMap) return side.has(entry);
+      const pair = entry as [unknown, unknown];
+      return side.has(pair[0]) && deepEqual(side.get(pair[0]), pair[1]);
+    };
+    let rest: unknown[] | undefined;
+    for (const entry of as) if (!settled(bs, entry)) (rest ||= []).push(entry);
+    if (rest === U) return true;
+    // A Map's entry is a `[key, value]` array, which is what makes one
+    // comparison serve both: the array branch above reads the pair.
+    const left: unknown[] = [];
+    for (const entry of bs) if (!settled(as, entry)) left.push(entry);
+    for (const entry of rest) {
+      let i = left.length;
+      while (i--) if (deepEqual(entry, left[i])) break;
+      if (i < 0) return false;
+      left.splice(i, 1);
+    }
     return true;
   }
   // FormData and URLSearchParams are ordered lists of entries, not mappings:
@@ -141,11 +165,11 @@ const isRoot = (ctx: Ctx, schema: Internal, whole: boolean): boolean =>
 const sameValueZero = (a: string, b: string): string => `(${a}===${b}||${a}!=${a}&&${b}!=${b})`;
 
 // The built-in classes an instance compares by content rather than by identity:
-// 1 a Date, 2 a URL, 3 a typed array, 4 a Set, FormData or URLSearchParams,
-// which the structural fallback already reads by content and so needs no emit
-// of its own. 0 is everything else, a Blob or a user class, which has only its
-// identity to compare, and is therefore also the one kind of instance a union
-// can collapse to a bare `===`.
+// 1 a Date, 2 a URL, 3 a typed array, 4 a Set, a Map, FormData or
+// URLSearchParams, which the structural fallback already reads by content and
+// so needs no emit of its own. 0 is everything else, a Blob or a user class,
+// which has only its identity to compare, and is therefore also the one kind of
+// instance a union can collapse to a bare `===`.
 //
 // A typed array constructor carries `BYTES_PER_ELEMENT` and is indexed by
 // `length`; DataView, the other `ArrayBuffer.isView` shape, has neither.
@@ -157,6 +181,7 @@ const valueClass = (class_: unknown): number =>
       : (class_ as { BYTES_PER_ELEMENT?: number } | undefined)?.BYTES_PER_ELEMENT !== U
         ? 3
         : class_ === (Set as unknown) ||
+            class_ === (Map as unknown) ||
             (class_ !== U &&
               (class_ === globalClass("FormData") || class_ === globalClass("URLSearchParams")))
           ? 4
