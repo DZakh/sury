@@ -34,7 +34,7 @@ operations:
         input: '["c", 1]'
         error: 'Failed at [0]: Expected "a" | "b", received "c"'
   decode:
-    expression: i=>{let v0=i[1];return "[\""+i[0]+"\","+(Number.isFinite(v0)?v0:e[0](v0))+"]"}
+    expression: i=>{let v0=i[0],v1=i[1];typeof v0==="string"&&(v0==="a"||v0==="b")||e[0](v0);return "[\""+v0+"\","+(Number.isFinite(v1)?v1:e[1](v1))+"]"}
     examples:
       b:
         input: '["b", 2]'

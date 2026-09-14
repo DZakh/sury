@@ -617,11 +617,14 @@ export const jsonString = /* @__PURE__ */ (() => {
   // dispatching shape validates inside the same pass that renders it, and a
   // shape rendered off the validated value validates first. `loop` marks a
   // dynamic item, where the bare enum splice loses to the dispatch.
+  // `trusted` says the container's decoder validated nothing, so the val
+  // arrives claiming its schema with no check behind that claim.
   const fieldPiece = (
     itemVal: Val,
     isArr: boolean,
     declared?: Internal,
     loop?: boolean,
+    trusted?: boolean,
   ): { p: Val; g: string | undefined } => {
     const cur = declared || itemVal.s;
     // `noValidation` is the one declared shape that reads the field once.
@@ -686,9 +689,20 @@ export const jsonString = /* @__PURE__ */ (() => {
       }
       const optional = !isArr && !!cur.has![undefinedTag];
       if (!loop && isBareEnum(variants, optional)) {
+        // Membership is what proves this splice escape-free, so it survives a
+        // trusted source the way a format's pattern check does (see
+        // jsonStringDecoder's string branch). A trusted field arrives already
+        // claiming the union, which leaves the dispatch nothing to emit -
+        // every arm being an escape-free const is the one shape whose check
+        // is entirely the dispatch's. Re-claiming `unknown` is what makes the
+        // union owe it again.
         const v = validated();
-        const guard = optional ? v.v() : U;
-        return { p: parse(B_refine(v, bareString, U, jsonPiece)), g: guard };
+        const checked =
+          declared !== U || !trusted
+            ? v
+            : parse(B_refine(B_unionWritable(v), unknown, U, cur));
+        const guard = optional ? checked.v() : U;
+        return { p: parse(B_refine(checked, bareString, U, jsonPiece)), g: guard };
       }
       if (optional && variants.length === 2) {
         // The two-variant `X | undefined` shape skips the union dispatch
@@ -754,6 +768,16 @@ export const jsonString = /* @__PURE__ */ (() => {
     const items = isArr ? schema.items! : U;
     const fixedLen = isArr ? items!.length : keys!.length;
 
+    // Whether this container's shape rests on a check the operation emitted.
+    // The decode direction is told the input already IS the schema, so it
+    // validates nothing and every field arrives claiming its type with
+    // nothing behind the claim - which is what the bare-enum splice in
+    // `fieldPiece` needs and cannot get from a type.
+    let trusted = true;
+    for (let v: Val | undefined = input; v !== U && trusted; v = v.prev || v.p) {
+      trusted = v.vc === U;
+    }
+
     let code = "";
     const entries: { p: Val; g?: string }[] = [];
     let hasOpt = false;
@@ -781,6 +805,8 @@ export const jsonString = /* @__PURE__ */ (() => {
         itemVal,
         isArr,
         schema.uv && (tagFlags[itemVal.s.type]! & 1) ? fieldSchema : U,
+        U,
+        trusted,
       );
       if (g !== U) {
         hasOpt = true;
