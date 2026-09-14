@@ -1748,6 +1748,12 @@ let nodeSchema = S.recursive("Node", nodeSchema => {
 
 One great aspect of the example above is that it uses parallelism to make four requests to check for the existence of nodes.
 
+A field that is the schema being defined takes no default. `Option.getOr` on it
+is refused when the definer builds it, since supplying the default would read it
+as that same schema, find the same field absent in it, and supply it again. Use
+a plain `S.option` and read the absence. On the finished schema a default is
+fine, and applies once.
+
 > 🧠 Despite supporting recursive schema, passing cyclical data will cause an infinite loop.
 
 ## Custom schema

@@ -1876,6 +1876,26 @@ const rowSchema = S.recursive<unknown, Row>("Row", (rowSchema) =>
 );
 ```
 
+A field that is the schema being defined takes no default. Supplying one would
+read the default as that same schema, find the same field absent in it, and
+supply it again:
+
+```ts
+type Entry = { id: string; parent?: Entry };
+
+S.recursive<Entry>("Entry", (entry) =>
+  S.schema({
+    id: S.string,
+    parent: S.optional(entry, { id: "root" }),
+  })
+);
+// [Sury] Can't set default for Entry | undefined: the default is read as Entry, which would need a default of its own
+```
+
+Write `S.optional(entry)` and read the absence. The finished schema is another
+matter, since nothing is being defined around it: `S.optional(entrySchema, { id: "root" })`
+supplies the default once and the `parent` inside it stays absent.
+
 > 🧠 Despite supporting recursive schema, passing cyclical data will cause an infinite loop.
 
 ## Refinements
