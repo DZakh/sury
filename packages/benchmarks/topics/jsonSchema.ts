@@ -241,7 +241,6 @@ const performance = (): Table => {
         best: "low",
       },
     ],
-    note: "<sub>Median of seven rounds per cell. Sury and Zod return the checked value, Ajv returns a boolean and leaves the value alone, so the last row is not quite the same work - it is the closest thing each library offers to the same job. TypeBox schemas are JSON Schema already, so there is nothing to time in the first row, and neither it nor ArkType reads a document written elsewhere.</sub>",
   };
 };
 
@@ -277,6 +276,7 @@ export const jsonSchema: Source = {
   blurb:
     "Sury converts in both directions: a schema you wrote becomes a JSON Schema for the other side, and a JSON Schema somebody published becomes a schema that checks values and infers types.",
   versions: () => versionsOf(["sury", "zod", "@sinclair/typebox", "arktype", "ajv"]),
+  performanceNote: "<sub>Median of seven rounds per cell. Sury and Zod return the checked value, Ajv returns a boolean and leaves the value alone, so the last row is not quite the same work - it is the closest thing each library offers to the same job. TypeBox schemas are JSON Schema already, so there is nothing to time in the first row, and neither it nor ArkType reads a document written elsewhere.</sub>",
   bundleSize,
   features: () => Promise.resolve(features()),
   conformance: () => Promise.resolve(conformance()),

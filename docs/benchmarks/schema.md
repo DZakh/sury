@@ -8,15 +8,6 @@ Describing a shape, checking a value against it, and getting a TypeScript type o
 
 Measured against sury 11.0.0, zod 4.4.3, @sinclair/typebox 0.34.52, valibot 1.4.2, arktype 2.2.3.
 
-## Bundle size
-
-|  | Sury | Zod | TypeBox | Valibot | ArkType |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| What this schema ships<br><sub>the seven fields above, after tree-shaking</sub> | 8.73 kB | 64.7 kB | 22.6 kB | **1.30 kB** | 47.8 kB |
-| Everything the library exports<br><sub>the ceiling, for an app that ends up using all of it</sub> | 54.0 kB | 66.0 kB | 31.1 kB | **15.1 kB** | 47.9 kB |
-
-<sub>Bundled with esbuild, minified and gzipped. The first row is the one a consumer pays: Sury and Valibot are built from many small functions a bundler can drop individually, so the gap between the two rows is most of the library. The second row is each library's main entry, plus the compiler and value entries for TypeBox, which is where the row above gets `TypeCompiler`.</sub>
-
 ## Features
 
 |  | Sury | Zod | TypeBox | Valibot | ArkType |
@@ -32,14 +23,23 @@ Measured against sury 11.0.0, zod 4.4.3, @sinclair/typebox 0.34.52, valibot 1.4.
 
 ## Performance
 
-|  | Sury | Zod | TypeBox | Valibot | ArkType |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Parse with a schema you already have<br><sub>ops/ms, the hot path a request pays</sub> | 106,440 | 5,379 | **107,684** | 1,057 | 42,911 |
-| Build the schema and parse once<br><sub>ops/ms, what a short-lived script or a cold start pays</sub> | 38.2 | 5.18 | **2,077** | 140 | 7.27 |
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/DZakh/sury/benchmarks/schema-performance-dark.svg">
+  <img alt="Schema timings, one bar per library, remeasured on every push to main" src="https://raw.githubusercontent.com/DZakh/sury/benchmarks/schema-performance.svg">
+</picture>
 
-<sub>Higher is better. Median of seven rounds. TypeBox is validation only: it checks the value and returns a boolean rather than producing an output, and its second row uses the interpreted `Value.Check` because compiling per call is not what anyone does. Sury, Zod and Valibot return the parsed value; ArkType throws or returns it.</sub>
+<sub>Median of seven rounds. TypeBox is validation only: it checks the value and returns a boolean rather than producing an output, and its second row uses the interpreted `Value.Check` because compiling per call is not what anyone does. Sury, Zod and Valibot return the parsed value; ArkType throws or returns it.</sub>
 
-<sub>Timed on node 22.22.2 · linux x64. Rerun on every push to main, so a row moves with the runner as well as with the code.</sub>
+<sub>Remeasured on every push to main and republished as the chart above, so a bar moves with the runner as well as with the code.</sub>
+
+## Bundle size
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/DZakh/sury/benchmarks/schema-bundle-size-dark.svg">
+  <img alt="Schema bundle size, one bar per library" src="https://raw.githubusercontent.com/DZakh/sury/benchmarks/schema-bundle-size.svg">
+</picture>
+
+<sub>Bundled with esbuild, minified and gzipped. The first row is the one a consumer pays: Sury and Valibot are built from many small functions a bundler can drop individually, so the gap between the two rows is most of the library. The second row is each library's main entry, plus the compiler and value entries for TypeBox, which is where the row above gets `TypeCompiler`.</sub>
 
 ## Conformance
 

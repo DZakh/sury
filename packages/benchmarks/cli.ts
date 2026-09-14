@@ -4,15 +4,18 @@
 //
 // Three of the four sections are the same on any machine: bundle size is bytes
 // out of esbuild, features are probes that either pass or do not, and
-// conformance is a score read from a suite's own golden. Those are checked on
-// every pull request. Performance is the exception - a shared runner's timings
-// move with the runner - so `--write` is what remeasures it, and CI runs that
-// only on main, where the numbers are being republished rather than gated.
-import { readFileSync, writeFileSync } from "node:fs";
+// conformance is a score read from a suite's own golden. Those are committed,
+// and checked on every run. Performance is the exception - a shared runner's
+// timings move with the runner - so it is never committed at all: it is
+// remeasured into the SVGs the pages embed, and `--publish` puts those on a
+// branch of their own.
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { type Golden, readGolden, writeGolden } from "./golden";
-import { provenance, renderPage } from "./render";
+import { provenance, renderChart } from "./chart";
+import { publish } from "./publish";
+import { renderPage } from "./render";
 import type { Table, Topic } from "./table";
 import { SOURCES, type Source } from "./registry";
 
@@ -21,6 +24,12 @@ if (fileURLToPath(import.meta.url) !== process.argv[1]) {
 }
 
 const DOCS = fileURLToPath(new URL("../../docs/benchmarks/", import.meta.url));
+// Not committed, and not read by anything in the repo: `scripts/publish-charts.sh`
+// is what takes these to the branch the pages embed them from.
+// Not committed, and nothing reads it back: `publish` is handed the charts that
+// were rendered, not a directory to scan. This is where a contributor looks at
+// one, and where a CI run leaves what it pushed.
+const CHARTS = fileURLToPath(new URL("./.charts/", import.meta.url));
 
 const red = (s: string): string => (process.stderr.isTTY ? `\x1b[31m${s}\x1b[0m` : s);
 const green = (s: string): string => (process.stdout.isTTY ? `\x1b[32m${s}\x1b[0m` : s);
@@ -32,13 +41,16 @@ const fail: (msg: string) => never = (msg) => {
 
 const HELP = `benchmarks - generates docs/benchmarks/*.md
 
-Usage: pnpm benchmarks [--write] [--only=<topic>]
+Usage: pnpm benchmarks [--write | --charts | --publish] [--only=<topic>]
 
   (no flags)     Remeasure bundle size, features and conformance, re-render the
                  pages from the committed goldens, and fail on any difference.
-                 Timings are read from the goldens, not remeasured.
-  --write        Remeasure everything, including timings, and rewrite both the
-                 goldens and the pages.
+  --write        Remeasure the same three, rewrite the goldens and the pages,
+                 and time the benchmarks into the charts as well.
+  --charts       Time the benchmarks into packages/benchmarks/.charts and touch
+                 nothing else.
+  --publish      The same, then push the charts to the \`benchmarks\` branch the
+                 pages embed them from. What main runs.
   --only=<topic> Restrict to one topic: ${SOURCES.map((s) => s.id).join(", ")}.
 `;
 
@@ -48,29 +60,31 @@ if (args.includes("--help") || args.includes("-h")) {
   process.exit(0);
 }
 const write = args.includes("--write");
+const publishing = args.includes("--publish");
+const timings = publishing || args.includes("--charts");
 const only = args.find((a) => a.startsWith("--only="))?.slice("--only=".length);
-const unknown = args.find((a) => a !== "--write" && !a.startsWith("--only="));
+const unknown = args.find(
+  (a) => a !== "--write" && a !== "--charts" && a !== "--publish" && !a.startsWith("--only="),
+);
 if (unknown !== undefined) fail(`unknown argument ${unknown}\n\n${HELP}`);
+// A publish replaces the whole of the `benchmarks` branch, so a run that
+// rendered one topic would take the other three off it and break the pages that
+// embed them. `--write --only=<topic>` is the way to look at one chart.
+if (publishing && only !== undefined) fail("--publish covers every topic and cannot be combined with --only");
 
 const sources = only === undefined ? SOURCES : SOURCES.filter((s) => s.id === only);
 if (sources.length === 0) fail(`unknown topic ${only}. Known: ${SOURCES.map((s) => s.id).join(", ")}`);
 
 const NAV = SOURCES.map((s) => ({ id: s.id, label: s.label }));
 
-const measure = async (source: Source, previous: Golden | undefined): Promise<Golden> => {
+const measure = async (source: Source): Promise<Golden> => {
   const [bundleSize, features, conformance] = await Promise.all([
     source.bundleSize(),
     source.features(),
     source.conformance(),
   ]);
-  // A check run keeps the committed timings rather than measuring new ones, so
-  // that the page it renders is the page that was committed.
-  const performance: Table = write
-    ? await source.performance()
-    : (previous?.performance ?? { columns: [], rows: [] });
   return {
     $comment: "Generated by `pnpm benchmarks --write`. Do not edit by hand.",
-    machine: write || previous === undefined ? provenance() : previous.machine,
     id: source.id,
     title: source.title,
     label: source.label,
@@ -78,9 +92,25 @@ const measure = async (source: Source, previous: Golden | undefined): Promise<Go
     versions: source.versions(),
     bundleSize,
     features,
-    performance,
+    performanceNote: source.performanceNote,
     conformance,
   };
+};
+
+const chartsFor = (id: string, performance: Table, bundleSize: Table): Map<string, string> => {
+  // Only the timings carry the machine that produced them. Bundle size is bytes
+  // out of esbuild and reads the same wherever it ran.
+  const machine = provenance();
+  const rendered = new Map([
+    [`${id}-performance.svg`, renderChart(performance, "light", machine)],
+    [`${id}-performance-dark.svg`, renderChart(performance, "dark", machine)],
+    [`${id}-bundle-size.svg`, renderChart(bundleSize, "light")],
+    [`${id}-bundle-size-dark.svg`, renderChart(bundleSize, "dark")],
+  ]);
+  mkdirSync(CHARTS, { recursive: true });
+  for (const [name, svg] of rendered) writeFileSync(path.join(CHARTS, name), svg);
+  console.log(`${green("charted")} ${id}`);
+  return rendered;
 };
 
 // Names the section that moved, not just the topic: the whole point of
@@ -94,17 +124,28 @@ const drifted = (fresh: Golden, previous: Golden): string[] =>
 // Wrapped in an async function rather than top-level await: the shared
 // tsconfig.json targets module ES2020, which is too old for it.
 async function main() {
+  if (timings && !write) {
+    const rendered = new Map<string, string>();
+    for (const source of sources) {
+      const charts = chartsFor(source.id, await source.performance(), await source.bundleSize());
+      for (const [name, svg] of charts) rendered.set(name, svg);
+    }
+    if (publishing) publish(rendered);
+    return;
+  }
+
   let failed = false;
   for (const source of sources) {
     const previous = readGolden(source.id);
-    const fresh = await measure(source, previous);
-    const page = renderPage(fresh as Topic, NAV, fresh.machine);
+    const fresh = await measure(source);
+    const page = renderPage(fresh as Topic, NAV);
     const pagePath = path.join(DOCS, `${source.id}.md`);
 
     if (write) {
       writeGolden(fresh);
       writeFileSync(pagePath, page);
       console.log(`${green("wrote")} docs/benchmarks/${source.id}.md`);
+      chartsFor(source.id, await source.performance(), fresh.bundleSize);
       continue;
     }
 

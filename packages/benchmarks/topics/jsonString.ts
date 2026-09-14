@@ -298,7 +298,6 @@ const performance = (): Table => ({
     format: "ns" as const,
     best: "low" as const,
   })),
-  note: "<sub>Median of seven rounds per cell. Every row ends with the same text, so the only difference is what each library had to do to get there.</sub>",
 });
 
 // Agreement with the builtin. `S.jsonString` is only useful if its text is the
@@ -373,6 +372,7 @@ export const jsonString: Source = {
   blurb:
     "`S.jsonString` compiles the schema into the JSON text: the structure is baked in as literals and only the values are spliced, so nothing is allocated between the value and the string. The same schema reads the text back, checked.",
   versions: () => versionsOf(["sury", "fast-json-stringify"]),
+  performanceNote: "<sub>Median of seven rounds per cell. Every row ends with the same text, so the only difference is what each library had to do to get there.</sub>",
   bundleSize,
   features: () => Promise.resolve(features()),
   conformance: () => Promise.resolve(conformance()),
