@@ -62,11 +62,12 @@ type Message = {
   raw: Internal;
   schema: Internal;
   // The ref the message was reached through, which carries the name
-  // `S.recursive` gave it; the `[wire, value]` refs a field refers to this
-  // message by once a field under it referred back, which keeps both schemas
-  // finite; and, on the root, the pair the operation itself walks.
+  // `S.recursive` gave it.
   ref?: Internal;
+  // The `[wire, value]` refs a field refers to this message by, once a field
+  // under it has referred back: what keeps both of its schemas finite.
   rec?: [Internal, Internal];
+  // On the root, the pair the operation itself walks.
   top?: [Internal, Internal];
 };
 
@@ -79,11 +80,13 @@ type Defs = Record<string, Internal>;
 type Ctx = {
   defs: Defs;
   out: Defs;
-  // The ref an object was reached by, which is a property of the object rather
-  // than of the walk that found it: the printer names a message by the
-  // definition name, and a copy of the ref is what a recursive field refers to
-  // - so `S.recursive`'s decoder reaches the wire only through the schema the
-  // user built with it, and never ships to a consumer who has no cycle.
+  // The ref an object was reached by. Kept per object rather than as the last
+  // one a walk passed, because the walk that resolves an object and the one
+  // that compiles it need not be the same: `toProtoOrThrow` finds the wire
+  // object first and hands it over already resolved. A recursive field refers
+  // to a copy of the ref, so `S.recursive`'s decoder reaches the wire only
+  // through the schema the user built with it, and never ships to a consumer
+  // who has no cycle.
   refs: Map<Internal, Internal>;
   messages: Map<Internal, Message>;
   rec: boolean;
