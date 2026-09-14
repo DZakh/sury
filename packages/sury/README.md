@@ -408,6 +408,7 @@ Use Sury anywhere a schema is accepted:
 
 - [tRPC](https://trpc.io/), [TanStack Form](https://tanstack.com/form), [TanStack Router](https://tanstack.com/router), [Hono](https://hono.dev/), and 28+ more via the [Standard Schema](https://standardschema.dev/) spec
 - Anything that speaks [JSON Schema](https://json-schema.org/), via `S.toInputJSONSchemaOrThrow` / `S.fromJSONSchemaOrThrow`
+- [nuqs](https://nuqs.dev/docs/parsers/community/sury) - turn a schema into a search param parser
 
 ## Used by
 
