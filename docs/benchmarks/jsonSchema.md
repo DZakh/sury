@@ -34,9 +34,9 @@ Measured against sury 11.0.0, zod 4.4.3, @sinclair/typebox 0.34.52, arktype 2.2.
 
 |  | Sury | Zod | TypeBox | ArkType | Ajv |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Emit the JSON Schema | 2.22 µs | 8.03 µs | n/a | **555 ns** | n/a |
-| Build a checker from the document<br><sub>paid once per document, at startup</sub> | **20.33 µs** | 70.65 µs | n/a | n/a | 778.23 µs |
-| Check one value with it<br><sub>paid per request, which is the row that matters</sub> | **12 ns** | 163 ns | n/a | n/a | 16 ns |
+| Emit the JSON Schema | 2.18 µs | 8.99 µs | n/a | **548 ns** | n/a |
+| Build a checker from the document<br><sub>paid once per document, at startup</sub> | **20.20 µs** | 77.13 µs | n/a | n/a | 803.11 µs |
+| Check one value with it<br><sub>paid per request, which is the row that matters</sub> | **12 ns** | 181 ns | n/a | n/a | 19 ns |
 
 <sub>Median of seven rounds per cell. Sury and Zod return the checked value, Ajv returns a boolean and leaves the value alone, so the last row is not quite the same work - it is the closest thing each library offers to the same job. TypeBox schemas are JSON Schema already, so there is nothing to time in the first row, and neither it nor ArkType reads a document written elsewhere.</sub>
 

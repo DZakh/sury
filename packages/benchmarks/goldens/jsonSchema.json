@@ -138,10 +138,10 @@
       {
         "label": "Emit the JSON Schema",
         "cells": [
-          2218.6536214309335,
-          8033.710754017306,
+          2182.1292183948244,
+          8985.292627770239,
           null,
-          555.241483167124,
+          548.4065029353528,
           null
         ],
         "format": "ns",
@@ -151,11 +151,11 @@
         "label": "Build a checker from the document",
         "note": "paid once per document, at startup",
         "cells": [
-          20325.236,
-          70653.599,
+          20201.924904942967,
+          77131.96,
           null,
           null,
-          778234.23
+          803107.664
         ],
         "format": "ns",
         "best": "low"
@@ -164,11 +164,11 @@
         "label": "Check one value with it",
         "note": "paid per request, which is the row that matters",
         "cells": [
-          11.636164401811884,
-          163.14403795880744,
+          12.319300824547176,
+          181.04800983265577,
           null,
           null,
-          16.19735670814788
+          19.42548734571524
         ],
         "format": "ns",
         "best": "low"

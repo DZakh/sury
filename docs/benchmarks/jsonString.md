@@ -33,10 +33,10 @@ Measured against sury 11.0.0, fast-json-stringify 7.0.1.
 
 |  | Sury | `JSON.stringify` | fast-json-stringify |
 | --- | ---: | ---: | ---: |
-| API response<br><sub>a user profile, 7 flat fields</sub> | **243 ns** | 441 ns | 277 ns |
-| List endpoint<br><sub>100 rows of the same three fields</sub> | **9.74 µs** | 10.94 µs | 10.59 µs |
-| Event feed<br><sub>50 events across a three-member tagged union</sub> | **3.39 µs** | 5.41 µs | 17.57 µs |
-| Types JSON has no word for<br><sub>a `bigint` id, a `Uint8Array` payload and a `Date`, mapping included</sub> | **1.34 µs** | 1.46 µs | 1.46 µs |
+| API response<br><sub>a user profile, 7 flat fields</sub> | **237 ns** | 442 ns | 281 ns |
+| List endpoint<br><sub>100 rows of the same three fields</sub> | **10.56 µs** | 11.05 µs | 10.95 µs |
+| Event feed<br><sub>50 events across a three-member tagged union</sub> | **3.43 µs** | 5.46 µs | 17.04 µs |
+| Types JSON has no word for<br><sub>a `bigint` id, a `Uint8Array` payload and a `Date`, mapping included</sub> | **1.28 µs** | 1.43 µs | 1.41 µs |
 
 <sub>Median of seven rounds per cell. Every row ends with the same text, so the only difference is what each library had to do to get there.</sub>
 

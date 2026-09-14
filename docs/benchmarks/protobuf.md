@@ -12,8 +12,8 @@ Measured against sury 11.0.0, protobufjs 8.8.0, protobuf-es 2.14.1, pbf 5.1.2.
 
 |  | Sury | protobufjs (reflect) | protobufjs (static) | protobuf-es | pbf |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Encode and decode | 23.5 kB | 34.9 kB | 13.6 kB | 17.9 kB | **2.80 kB** |
-| Decode only<br><sub>what a client that never sends the message gets back from tree-shaking</sub> | 23.5 kB | n/a | 13.6 kB | 15.5 kB | **1.41 kB** |
+| Encode and decode | 24.3 kB | 34.9 kB | 13.6 kB | 17.9 kB | **2.80 kB** |
+| Decode only<br><sub>what a client that never sends the message gets back from tree-shaking</sub> | 24.3 kB | n/a | 13.6 kB | 15.5 kB | **1.41 kB** |
 
 <sub>One six-field message's codec, bundled with esbuild, minified and gzipped. protobufjs's reflection path parses the `.proto` at runtime, so it has no decode-only build. Runtimes that carry no message of their own: google-protobuf 42.1 kB, @protobuf-ts/runtime 9.7 kB.</sub>
 
@@ -35,16 +35,16 @@ Measured against sury 11.0.0, protobufjs 8.8.0, protobuf-es 2.14.1, pbf 5.1.2.
 
 |  | Sury | protobufjs (reflect) | protobufjs (static) | protobuf-es | pbf |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| tiny · encode<br><sub>3 bytes on the wire</sub> | **48 ns** | 195 ns | 187 ns | 616 ns | 463 ns |
-| tiny · decode | **26 ns** | 60 ns | 39 ns | 273 ns | 119 ns |
-| typical · encode<br><sub>31 bytes on the wire</sub> | **193 ns** | 538 ns | 503 ns | 813 ns | 1.08 µs |
-| typical · decode | **207 ns** | 297 ns | 248 ns | 1.53 µs | 329 ns |
-| large · encode<br><sub>1416 bytes on the wire</sub> | **1.95 µs** | 3.45 µs | 3.36 µs | 7.72 µs | 7.33 µs |
-| large · decode | **2.53 µs** | 3.07 µs | 3.01 µs | 4.47 µs | 2.93 µs |
-| common · encode<br><sub>79 bytes on the wire</sub> | **641 ns** | 1.59 µs | 1.51 µs | 2.10 µs | 1.60 µs |
-| common · decode | **416 ns** | 535 ns | 631 ns | 2.01 µs | 572 ns |
-| tile · encode<br><sub>3028 bytes on the wire</sub> | **17.58 µs** | 35.48 µs | 35.16 µs | 55.48 µs | 17.63 µs |
-| tile · decode | **12.82 µs** | 22.21 µs | 17.34 µs | 50.90 µs | 15.21 µs |
+| tiny · encode<br><sub>3 bytes on the wire</sub> | **53 ns** | 196 ns | 181 ns | 598 ns | 438 ns |
+| tiny · decode | **22 ns** | 39 ns | 39 ns | 286 ns | 151 ns |
+| typical · encode<br><sub>31 bytes on the wire</sub> | **193 ns** | 574 ns | 577 ns | 822 ns | 1.04 µs |
+| typical · decode | **228 ns** | 325 ns | 282 ns | 1.67 µs | 482 ns |
+| large · encode<br><sub>1416 bytes on the wire</sub> | **2.04 µs** | 4.67 µs | 3.56 µs | 8.04 µs | 7.63 µs |
+| large · decode | **2.69 µs** | 2.86 µs | 3.13 µs | 5.23 µs | 3.25 µs |
+| common · encode<br><sub>79 bytes on the wire</sub> | **656 ns** | 1.75 µs | 1.69 µs | 2.18 µs | 1.49 µs |
+| common · decode | **424 ns** | 580 ns | 624 ns | 2.43 µs | 627 ns |
+| tile · encode<br><sub>3028 bytes on the wire</sub> | 17.36 µs | 35.08 µs | 34.39 µs | 57.37 µs | **16.76 µs** |
+| tile · decode | **13.35 µs** | 22.77 µs | 17.37 µs | 50.82 µs | 13.66 µs |
 
 <sub>Best of seven samples per cell, since a sample landing on a GC pause reads double and which library pays it is luck of the draw. `tiny` and `typical` are this suite's own shapes, `common` is protobuf.js's own benchmark message, and `tile` is a Mapbox vector tile: almost entirely packed varints, which is what pbf is built for.</sub>
 
@@ -54,7 +54,7 @@ Measured against sury 11.0.0, protobufjs 8.8.0, protobuf-es 2.14.1, pbf 5.1.2.
 
 |  | Cases | Passed | Rate |
 | --- | ---: | ---: | ---: |
-| Google's `conformance_test_runner`, binary proto3<br><sub>6 known failures, each named with its reason in `failing_tests.txt`</sub> | 698 | 692 | 99.1% |
+| Google's `conformance_test_runner`, binary proto3<br><sub>3 known failures, each named with its reason in `failing_tests.txt`</sub> | 698 | 695 | 99.6% |
 | This repo's corpus, against protobufjs and protobuf-es<br><sub>every round trip checked against two independent implementations</sub> | 650 | 650 | 100.0% |
 
 <sub>Google's runner generates its cases inside the binary rather than reading them from a file, so nothing here can drift from upstream; the corpus is pinned at `faec7c97e35b` and the runner at 33.6.0. Its other 2515 cases are ProtoJSON, text format and proto2 messages, none of which `S.protobuf` claims.</sub>

@@ -3,6 +3,7 @@ import {
   arrayTag,
   baseSchema,
   type Builder,
+  type Check,
   copySchema,
   defsPath,
   type Encoder,
@@ -310,6 +311,34 @@ const defaultedOptional = (raw: Internal, present: Internal, absent: Internal): 
   return mut;
 };
 
+// Both refinements, in the order they were written: one schema holds one
+// refiner, and a refiner answers with the checks to emit, so running two is
+// asking each in turn.
+type Refiner = (input: Val) => Check[];
+const bothRefine = (first: Refiner | undefined, then: Refiner | undefined): Refiner | undefined =>
+  first === then || then === U ? first
+  : first === U ? then
+  : (input) => [...first(input), ...then(input)];
+
+// The refs standing in for a recursive message are shared by every field that
+// reaches it, so a refinement the user wrote at one place - on the ref they
+// handed the root, or on the one they put in a field - rides on a copy of the
+// standin that belongs to that place alone. It joins whatever the standin
+// already carries rather than replacing it: a schema built by `S.recursive` can
+// be refined inside the definer and again on the ref it hands back, and both
+// were asked for. Identical refiners are the standin already carrying this very
+// one, which is the non-recursive case reaching here for nothing. Both
+// spellings, since `S.reverse` swaps them and either side may be decoded into.
+const refinedAs = (from: Internal, standin: Internal): Internal => {
+  const refiner = bothRefine(standin.refiner, from.refiner);
+  const inputRefiner = bothRefine(standin.inputRefiner, from.inputRefiner);
+  if (refiner === standin.refiner && inputRefiner === standin.inputRefiner) return standin;
+  const mut = copySchema(standin);
+  if (refiner !== U) mut.refiner = refiner;
+  if (inputRefiner !== U) mut.inputRefiner = inputRefiner;
+  return mut;
+};
+
 // Whether the operation's definition namespace already holds this name.
 const held = (ctx: Ctx, key: string): boolean =>
   ctx.out[key] !== U || ctx.defs[key] !== U || (ctx.taken !== U && ctx.taken[key] !== U);
@@ -450,18 +479,11 @@ const compileMessage = (schema: Internal, ctx: Ctx): Message | undefined => {
       }
       if (ctx.stack.includes(message)) {
         [raw, messageValue] = recurse(message, ctx);
-        // A refinement the user put on the ref at this position stands for this
-        // position only, so it rides on a copy rather than on the pair every
-        // field of the tree shares.
-        if (at.refiner !== U || at.inputRefiner !== U) {
-          messageValue = copySchema(messageValue);
-          if (at.refiner !== U) messageValue.refiner = at.refiner;
-          if (at.inputRefiner !== U) messageValue.inputRefiner = at.inputRefiner;
-        }
       } else {
         raw = message.raw;
         messageValue = message.schema;
       }
+      messageValue = refinedAs(at, messageValue);
       normalizedProperty = messageValue;
       if (optional && absent === U) raw = optionalMessage(raw);
     } else {
@@ -543,16 +565,13 @@ const compileRoot = (schema: Internal, taken?: Defs): Message | undefined => {
     message.top = message.rec
       ? [copySchema(message.rec[0]), copySchema(message.rec[1])]
       : [message.raw, message.schema];
+    // A refinement on the schema handed in sits on the ref, which no definition
+    // under it carries; the value schema the operation ends at is where the
+    // non-recursive root has always carried one.
+    message.top[1] = refinedAs(schema, message.top[1]);
     if (ctx.rec) {
       message.top[0]["$defs"] = ctx.out;
       message.top[1]["$defs"] = ctx.out;
-      // A refinement on the root sits on the ref the caller handed in, which
-      // the refs inside the tree must not carry. The value schema the operation
-      // ends at is where the non-recursive root has always carried it, and the
-      // only place it can run once. Both spellings, since `S.reverse` swaps
-      // them and either side may be the one being decoded into.
-      if (schema.refiner !== U) message.top[1].refiner = schema.refiner;
-      if (schema.inputRefiner !== U) message.top[1].inputRefiner = schema.inputRefiner;
     }
   }
   return message;
