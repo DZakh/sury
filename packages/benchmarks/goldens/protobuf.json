@@ -22,7 +22,7 @@
       {
         "label": "Encode and decode",
         "cells": [
-          23549,
+          24320,
           34928,
           13578,
           17946,
@@ -35,7 +35,7 @@
         "label": "Decode only",
         "note": "what a client that never sends the message gets back from tree-shaking",
         "cells": [
-          23542,
+          24299,
           null,
           13566,
           15469,
@@ -137,11 +137,11 @@
     "rows": [
       {
         "label": "Google's `conformance_test_runner`, binary proto3",
-        "note": "6 known failures, each named with its reason in `failing_tests.txt`",
+        "note": "3 known failures, each named with its reason in `failing_tests.txt`",
         "cells": [
           698,
-          692,
-          "99.1%"
+          695,
+          "99.6%"
         ],
         "format": "count"
       },
