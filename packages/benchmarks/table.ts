@@ -11,7 +11,7 @@ export type Cell = string | number | null;
 // How a row's numbers read, and which way is better. `best: "low"` bolds the
 // smallest cell of the row, `"high"` the largest, and an omitted `best` bolds
 // nothing - the right answer for a row whose columns are not comparable.
-export type Format = "bytes" | "ns" | "opsPerMs" | "count" | "text";
+export type Format = "bytes" | "ns" | "count" | "text";
 
 export type Row = {
   label: string;
@@ -55,11 +55,25 @@ export type Topic = {
 const KB = (bytes: number): string =>
   bytes >= 1000 ? `${(bytes / 1000).toFixed(bytes >= 10_000 ? 1 : 2)} kB` : `${bytes} B`;
 
-const NS = (ns: number): string =>
-  ns >= 1e6 ? `${(ns / 1e6).toFixed(2)} ms` : ns >= 1000 ? `${(ns / 1000).toFixed(2)} µs` : `${ns.toFixed(0)} ns`;
+// Three significant figures below 100 ns, where whole nanoseconds would round
+// a 13% gap between the two fastest libraries into "10 ns" against "9 ns" and
+// contradict the throughput printed beside it.
+const DURATION = (ns: number): string =>
+  ns >= 1e6
+    ? `${(ns / 1e6).toFixed(2)} ms`
+    : ns >= 1000
+      ? `${(ns / 1000).toFixed(2)} µs`
+      : ns >= 100
+        ? `${ns.toFixed(0)} ns`
+        : `${ns.toPrecision(3)} ns`;
 
 const OPS = (opsPerMs: number): string =>
   opsPerMs >= 1000 ? Math.round(opsPerMs).toLocaleString("en-US") : opsPerMs.toPrecision(3);
+
+// Both readings of one measurement: what a call costs, and the throughput the
+// libraries being compared quote in their own benchmarks. Each is the other's
+// reciprocal, so printing both claims nothing a single number would not.
+const NS = (ns: number): string => `${DURATION(ns)} (${OPS(1e6 / ns)} ops/ms)`;
 
 export const formatCell = (cell: Cell, format: Format = "text"): string => {
   // A column a library has no answer for. An empty cell reads as an oversight,
@@ -71,8 +85,6 @@ export const formatCell = (cell: Cell, format: Format = "text"): string => {
       return KB(cell);
     case "ns":
       return NS(cell);
-    case "opsPerMs":
-      return OPS(cell);
     default:
       return String(cell);
   }

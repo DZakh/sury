@@ -8,7 +8,7 @@
 // Nothing outside the file may be referenced. The reader's browser renders it
 // inside an `<img>`, where an external font or stylesheet never loads and a
 // script never runs.
-import { type Row, type Table, formatCell, winners } from "./table";
+import { type Format, type Row, type Table, formatCell, winners } from "./table";
 
 // How the machine that timed a run is named on the chart it produced.
 export const provenance = (): string =>
@@ -54,6 +54,13 @@ const escape = (text: string): string =>
 const text = (x: number, y: number, content: string, fill: string, size: number, extra = ""): string =>
   `<text x="${x.toFixed(1)}" y="${y}" fill="${fill}" font-size="${size}"${extra}>${escape(content)}</text>`;
 
+// What a bar's length stands for. A duration is drawn as its own reciprocal,
+// which is the throughput printed in the same label: at 116x between the
+// fastest library and the slowest, drawing the duration itself leaves the
+// winner a sliver and spends the chart's ink on the worst result. Every other
+// format is drawn as the number it is.
+const weight = (value: number, format: Format | undefined): number => (format === "ns" ? 1 / value : value);
+
 // Square where it leaves the baseline, round where the measurement ends.
 const bar = (x: number, y: number, length: number, fill: string): string => {
   const r = BAR / 2;
@@ -66,7 +73,7 @@ const group = (row: Row, columns: string[], theme: Theme, gutter: number, barAre
   const note = row.note === undefined ? "" : `<tspan fill="${theme.muted}"> · ${escape(row.note)}</tspan>`;
   out.push(`<text x="${PAD}" y="${top + 11}" font-size="12">${label}${note}</text>`);
 
-  const numbers = row.cells.map((cell) => (typeof cell === "number" ? cell : null));
+  const numbers = row.cells.map((cell) => (typeof cell === "number" ? weight(cell, row.format) : null));
   const defined = numbers.filter((n): n is number => n !== null);
   const max = defined.length === 0 ? 0 : Math.max(...defined);
   const won = winners(row);
@@ -109,13 +116,15 @@ export const renderChart = (table: Table, machine: string, mode: "light" | "dark
     y += HEADER + table.columns.length * BAND + GROUP_GAP;
   }
   const height = y - GROUP_GAP + FOOT;
-  // A bar is longer for a bigger number, which is the wrong way round for a
-  // page of timings until the reader is told so. Every page's rows agree on a
-  // direction today, and a page whose rows disagree gets no claim rather than
-  // a wrong one.
-  const directions = new Set(table.rows.map((row) => row.best));
+  // What the bars mean, in the one sentence a reader needs before reading them.
+  // A page whose rows disagree on a direction gets no claim rather than a wrong
+  // one.
+  const directions = new Set(table.rows.map((row) => (row.format === "ns" ? "ns" : row.best)));
   const direction = directions.size === 1 ? [...directions][0] : undefined;
-  const better = direction === undefined ? "" : `${direction === "low" ? "Lower" : "Higher"} is better · `;
+  const better =
+    direction === undefined
+      ? ""
+      : `${direction === "ns" ? "Longer is faster" : direction === "low" ? "Lower is better" : "Higher is better"} · `;
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${height}" viewBox="0 0 ${WIDTH} ${height}" font-family='${FONT}' role="img">
 <desc>${escape(table.rows.map((r) => `${r.label}: ${table.columns.map((c, i) => `${c} ${formatCell(r.cells[i]!, r.format)}`).join(", ")}`).join(". "))}</desc>

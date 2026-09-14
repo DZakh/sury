@@ -14,7 +14,7 @@ import { measureBundles } from "../bundle";
 import { NO, buildFeatures, works } from "../features";
 import type { Source } from "../registry";
 import type { Cell, Table } from "../table";
-import { opsPerMs, timeNs } from "../time";
+import { timeNs } from "../time";
 import { versionsOf } from "../versions";
 
 const COLUMNS = ["Sury", "Zod", "TypeBox", "Valibot", "ArkType"];
@@ -235,84 +235,76 @@ const performance = (): Table => {
     rows: [
       {
         label: "Parse with a schema you already have",
-        note: "ops/ms, the hot path a request pays",
+        note: "the hot path a request pays",
         cells: [
-          opsPerMs(timeNs(() => suryParse(VALUE))),
-          opsPerMs(timeNs(() => ZOD.parse(VALUE))),
-          opsPerMs(timeNs(() => typeboxCheck.Check(VALUE))),
-          opsPerMs(timeNs(() => v.parse(VALIBOT, VALUE))),
-          opsPerMs(timeNs(() => ARKTYPE.assert(VALUE))),
+          timeNs(() => suryParse(VALUE)),
+          timeNs(() => ZOD.parse(VALUE)),
+          timeNs(() => typeboxCheck.Check(VALUE)),
+          timeNs(() => v.parse(VALIBOT, VALUE)),
+          timeNs(() => ARKTYPE.assert(VALUE)),
         ],
-        format: "opsPerMs",
-        best: "high",
+        format: "ns",
+        best: "low",
       },
       {
         label: "Build the schema and parse once",
-        note: "ops/ms, what a short-lived script or a cold start pays",
+        note: "what a short-lived script or a cold start pays",
         cells: [
-          opsPerMs(
-            timeNs(() =>
-              S.parseOrThrow(
-                S.schema({
-                  number: S.number,
-                  negNumber: S.number,
-                  maxNumber: S.number,
-                  string: S.string,
-                  longString: S.string,
-                  boolean: S.boolean,
-                  deeplyNested: { foo: S.string, num: S.number, bool: S.boolean },
-                }),
-              )(VALUE),
+          timeNs(() =>
+            S.parseOrThrow(
+              S.schema({
+                number: S.number,
+                negNumber: S.number,
+                maxNumber: S.number,
+                string: S.string,
+                longString: S.string,
+                boolean: S.boolean,
+                deeplyNested: { foo: S.string, num: S.number, bool: S.boolean },
+              }),
+            )(VALUE),
+          ),
+          timeNs(() =>
+            z
+              .object({
+                number: z.number(),
+                negNumber: z.number(),
+                maxNumber: z.number(),
+                string: z.string(),
+                longString: z.string(),
+                boolean: z.boolean(),
+                deeplyNested: z.object({ foo: z.string(), num: z.number(), bool: z.boolean() }),
+              })
+              .parse(VALUE),
+          ),
+          timeNs(() => Value.Check(TYPEBOX, VALUE)),
+          timeNs(() =>
+            v.parse(
+              v.object({
+                number: v.number(),
+                negNumber: v.number(),
+                maxNumber: v.number(),
+                string: v.string(),
+                longString: v.string(),
+                boolean: v.boolean(),
+                deeplyNested: v.object({ foo: v.string(), num: v.number(), bool: v.boolean() }),
+              }),
+              VALUE,
             ),
           ),
-          opsPerMs(
-            timeNs(() =>
-              z
-                .object({
-                  number: z.number(),
-                  negNumber: z.number(),
-                  maxNumber: z.number(),
-                  string: z.string(),
-                  longString: z.string(),
-                  boolean: z.boolean(),
-                  deeplyNested: z.object({ foo: z.string(), num: z.number(), bool: z.boolean() }),
-                })
-                .parse(VALUE),
-            ),
-          ),
-          opsPerMs(timeNs(() => Value.Check(TYPEBOX, VALUE))),
-          opsPerMs(
-            timeNs(() =>
-              v.parse(
-                v.object({
-                  number: v.number(),
-                  negNumber: v.number(),
-                  maxNumber: v.number(),
-                  string: v.string(),
-                  longString: v.string(),
-                  boolean: v.boolean(),
-                  deeplyNested: v.object({ foo: v.string(), num: v.number(), bool: v.boolean() }),
-                }),
-                VALUE,
-              ),
-            ),
-          ),
-          opsPerMs(
-            timeNs(() =>
-              type({
-                number: "number",
-                negNumber: "number",
-                maxNumber: "number",
-                string: "string",
-                longString: "string",
-                boolean: "boolean",
-                deeplyNested: { foo: "string", num: "number", bool: "boolean" },
-              }).assert(VALUE),
-            ),
+          timeNs(() =>
+            type({
+              number: "number",
+              negNumber: "number",
+              maxNumber: "number",
+              string: "string",
+              longString: "string",
+              boolean: "boolean",
+              deeplyNested: { foo: "string", num: "number", bool: "boolean" },
+            }).assert(VALUE),
           ),
         ],
-        format: "opsPerMs",
-        best: "high",
+        format: "ns",
+        best: "low",
       },
     ],
   };

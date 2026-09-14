@@ -18,5 +18,3 @@ export const timeNs = (fn: () => unknown): number => {
   for (let i = 0; i < ROUNDS; i++) samples.push(run(iterations));
   return samples.sort((a, b) => a - b)[ROUNDS >> 1]!;
 };
-
-export const opsPerMs = (ns: number): number => 1e6 / ns;
