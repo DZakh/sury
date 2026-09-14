@@ -57,6 +57,44 @@ test("a stack the thrower already chose is left alone", () => {
   }
 });
 
+test("a schema the compiler refuses is an exception from birth", () => {
+  // Thrown while the operation is being built, so there is no boundary to
+  // capture at: the caller is still inside its own `decodeOrThrow` call and no
+  // compiled function exists to cut the trace at. These carry a stack from
+  // construction instead.
+  try {
+    S.decodeOrThrow(S.boolean, S.number);
+    expect.unreachable();
+  } catch (error) {
+    const stack = (error as Error).stack!;
+    expect((error as Error).message).toBe(
+      "Can't decode boolean -> number. Define custom codec with S.to",
+    );
+    expect(stack).toContain("at B_unsupportedDecode");
+    // FIXME: and that is the whole of it. Ten frames of compiler - the walk
+    // down to the schema that has no codec, then the walk back up through
+    // `getOp` - is more than `Error.stackTraceLimit` allows, so the line that
+    // wired the chain up, which is the only frame anyone wants, falls off the
+    // end. Predates the record/exception split (`new SuryError` produced the
+    // same ten frames), and the fix is the same shape as the runtime one: catch
+    // at the compile boundary, `captureStackTrace(error, getOp)`.
+    expect(stack.split("\n").length - 1).toBe(Error.stackTraceLimit);
+    expect(stack).not.toContain("errorStack_test.ts");
+  }
+});
+
+test("an exception that is not ours escapes with the stack it had", () => {
+  const thrown = new TypeError("from a getter");
+  const data = {
+    get id() {
+      throw thrown;
+    },
+  };
+
+  expect(() => S.parseOrThrow(user, data)).toThrow(thrown);
+  expect(thrown.stack!.split("\n")[1]).toContain("errorStack_test.ts");
+});
+
 test("reason is rendered when it is read, not when the error is built", () => {
   const { error } = S.parseAsResult(user, invalid);
   // The ingredients are the own properties; the sentence is not one of them.
