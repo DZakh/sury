@@ -16,6 +16,7 @@ jsonSchema:
     output: '{ type: "object", properties: { kind: { type: "string", enum: ["point"] }, coords: { type: "array", minItems: 2, maxItems: 2, items: { anyOf: [{ type: "number", enum: [1] }, { type: "number", enum: [2] }] } } }, additionalProperties: false, required: ["kind", "coords"] }'
     fromOutputType: '{ kind: "point"; coords: [1 | 2, 1 | 2]; }'
 isEqual: alwaysEqual
+compare: alwaysCompare
 vs:
   zod:
     _skip: not-applicable

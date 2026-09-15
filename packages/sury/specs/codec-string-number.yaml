@@ -10,6 +10,7 @@ jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "number" }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod: z.string().transform((value) => Number(value))
 operations:

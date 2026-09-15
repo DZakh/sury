@@ -12,6 +12,9 @@ jsonSchema:
 isEqual:
   input: (a,b)=>a===b||e[0](a,b)
   output: (a,b)=>a===b||a.agree===b.agree&&a.notify===b.notify&&a.mailing===b.mailing&&a.seen===b.seen&&a.asText===b.asText&&a.age===b.age
+compare:
+  input: (a,b)=>a===b?0:e[0](a,b)
+  output: (a,b)=>a===b?0:((((a.agree<b.agree?-1:a.agree>b.agree?1:(a.notify===void 0?b.notify===void 0?0:-1:b.notify===void 0?1:a.notify<b.notify?-1:a.notify>b.notify?1:0))||((a.mailing===null?b.mailing===null?0:-1:b.mailing===null?1:a.mailing<b.mailing?-1:a.mailing>b.mailing?1:0)))||(a.seen<b.seen?-1:a.seen>b.seen?1:0))||(a.asText<b.asText?-1:a.asText>b.asText?1:0))||(a.age<b.age?-1:a.age>b.age?1:0)
 vs:
   zod:
     _skip: not-applicable

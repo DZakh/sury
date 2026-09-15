@@ -11,6 +11,9 @@ jsonSchema:
 isEqual:
   input: (a,b)=>a===b||e[0](a,b)
   output: (a,b)=>a===b||a.href===b.href
+compare:
+  input: (a,b)=>a===b?0:e[0](a,b)
+  output: (a,b)=>a===b?0:a.href<b.href?-1:a.href>b.href?1:0
 vs:
   zod:
     _skip: not-applicable

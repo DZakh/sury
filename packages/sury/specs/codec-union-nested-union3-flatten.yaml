@@ -8,6 +8,9 @@ jsonSchema:
   input: '{ anyOf: [{ type: "boolean" }, { type: "number" }, { type: "string" }] }'
   output: '{ anyOf: [{ type: "string" }, { type: "number" }, { type: "boolean" }] }'
 isEqual: strictEqual
+compare:
+  input: (a,b)=>a===b?0:(typeof a==="string"?typeof b==="string"?a<b?-1:a>b?1:0:-1:typeof b==="string"?1:typeof a==="number"&&a==a?typeof b==="number"&&b==b?a<b?-1:a>b?1:0:-1:typeof b==="number"&&b==b?1:a<b?-1:a>b?1:0)
+  output: (a,b)=>a===b?0:(typeof a==="boolean"?typeof b==="boolean"?a<b?-1:a>b?1:0:-1:typeof b==="boolean"?1:typeof a==="number"&&a==a?typeof b==="number"&&b==b?a<b?-1:a>b?1:0:-1:typeof b==="number"&&b==b?1:a<b?-1:a>b?1:0)
 vs:
   zod: z.union([z.string(), z.union([z.number(), z.boolean()])])
 operations:

@@ -8,6 +8,7 @@ jsonSchema:
   input: "Failed at value: Expected JSON, received bigint"
   output: "Failed at value: Expected JSON, received bigint"
 isEqual: (a,b)=>a===b||e[0](a,b)
+compare: (a,b)=>a===b?0:e[0](a,b)
 vs:
   zod:
     _skip: not-applicable

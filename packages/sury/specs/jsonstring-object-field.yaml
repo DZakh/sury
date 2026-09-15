@@ -15,6 +15,9 @@ jsonSchema:
 isEqual:
   input: (a,b)=>a===b||a.meta===b.meta&&a.name===b.name
   output: strictEqual
+compare:
+  input: (a,b)=>a===b?0:a.meta<b.meta?-1:a.meta>b.meta?1:a.name<b.name?-1:a.name>b.name?1:0
+  output: strictCompare
 vs:
   zod:
     _skip: not-applicable

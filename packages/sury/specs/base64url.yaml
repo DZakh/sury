@@ -11,6 +11,7 @@ jsonSchema:
     input: '{ type: "string", format: "base64url" }'
     output: '{ type: "string", format: "base64url" }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod:
     _skip: not-applicable

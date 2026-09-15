@@ -8,6 +8,7 @@ jsonSchema:
   input: '{ type: "string", minLength: 2, anyOf: [{ pattern: "^a" }, { pattern: "z$" }] }'
   output: '{ type: "string", minLength: 2, anyOf: [{ pattern: "^a" }, { pattern: "z$" }] }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod: z.string()
 operations:

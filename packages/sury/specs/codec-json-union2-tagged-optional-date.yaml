@@ -13,6 +13,9 @@ jsonSchema:
 isEqual:
   input: (a,b)=>a===b||e[0](a,b)
   output: (a,b)=>a===b||(a.value.type==="B"?b.value.type==="B"&&(a.value.value===void 0?b.value.value===void 0:b.value.value!==void 0&&+a.value.value===+b.value.value):b.value.type==="C"&&(a.value.value===void 0?b.value.value===void 0:b.value.value!==void 0&&+a.value.value===+b.value.value))
+compare:
+  input: (a,b)=>a===b?0:e[0](a,b)
+  output: (a,b)=>a===b?0:(a.value.type==="B"?b.value.type==="B"?(a.value.value===void 0?b.value.value===void 0?0:-1:b.value.value===void 0?1:+a.value.value<+b.value.value?-1:+a.value.value>+b.value.value?1:+a.value.value===+b.value.value?0:1):-1:b.value.type==="B"?1:(a.value.value===void 0?b.value.value===void 0?0:-1:b.value.value===void 0?1:+a.value.value<+b.value.value?-1:+a.value.value>+b.value.value?1:+a.value.value===+b.value.value?0:1))
 vs:
   zod:
     _skip: not-applicable

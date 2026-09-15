@@ -13,6 +13,7 @@ jsonSchema:
     input: '{ type: "string", enum: ["a"] }'
     output: '{ type: "number", enum: [42] }'
 isEqual: alwaysEqual
+compare: alwaysCompare
 vs:
   zod:
     _skip: not-applicable

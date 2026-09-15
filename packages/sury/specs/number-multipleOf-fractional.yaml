@@ -8,6 +8,7 @@ jsonSchema:
   input: '{ type: "number", multipleOf: 0.1 }'
   output: '{ type: "number", multipleOf: 0.1 }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod: z.number().multipleOf(0.1)
 operations:

@@ -10,6 +10,9 @@ jsonSchema:
 isEqual:
   input: (a,b)=>a===b||e[0](a,b)
   output: (a,b)=>a===b||a.meta.a===b.meta.a
+compare:
+  input: (a,b)=>a===b?0:e[0](a,b)
+  output: (a,b)=>a===b?0:a.meta.a<b.meta.a?-1:a.meta.a>b.meta.a?1:0
 vs:
   zod:
     _skip: not-applicable

@@ -9,6 +9,7 @@ jsonSchema:
   fromInputType: "{ n: number; }"
   output: '{ type: "object", properties: { n: { type: "number", minimum: 3 } }, required: ["n"] }'
 isEqual: (a,b)=>a===b||a.n===b.n
+compare: (a,b)=>a===b?0:a.n<b.n?-1:a.n>b.n?1:0
 vs:
   zod:
     _skip: not-applicable

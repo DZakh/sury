@@ -8,6 +8,7 @@ jsonSchema:
   input: '{ type: "integer", multipleOf: 6 }'
   output: '{ type: "integer", multipleOf: 6 }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod: z.int().multipleOf(2).multipleOf(3)
 operations:
