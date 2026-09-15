@@ -18,7 +18,7 @@ operations:
     creationError: "SuryError: Failed at a: Can't decode form field -> string[] with a default. No entries is the empty list, so the default is never read"
   decode: eq-to-parse
   encode:
-    expression: i=>{let v0=i.a;if(Array.isArray(v0)){for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"||e[0](v2);}catch(v3){v3.path=["a",v1,...v3.path];throw v3}}}else{e[1](v0)}let v4=new e[2]();for(let v5=0;v5<v0.length;++v5){v4.append("a",v0[v5]);}return v4}
+    expression: i=>{let v0=i.a;if(Array.isArray(v0)){for(let v1=0;v1<v0.length;++v1){let v2=v0[v1];typeof v2==="string"||e[0](v2,["a",v1]);}}else{e[1](v0,["a"])}let v3=new e[2]();for(let v4=0;v4<v0.length;++v4){v3.append("a",v0[v4]);}return v3}
     examples:
       built:
         input: '{ a: ["m"] }'

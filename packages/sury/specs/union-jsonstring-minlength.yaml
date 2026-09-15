@@ -16,7 +16,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{for(;;){if(typeof i==="string"){try{JSON.parse(i)}catch(t){e[0](i)}i.length>2||e[1](i);break}if(typeof i==="number"&&i==i)break;e[2](i)}return i}
+    expression: i=>{for(;;){if(typeof i==="string"){try{JSON.parse(i)}catch(t){e[0](i)}i.length>2||e[1](i);break}if(typeof i==="number"&&i==i)break;e[2](i,[])}return i}
     examples:
       json-number:
         input: '"1"'

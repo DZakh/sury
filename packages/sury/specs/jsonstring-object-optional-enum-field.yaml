@@ -37,7 +37,7 @@ operations:
         input: "{}"
         output: '"{}"'
   encode:
-    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=(v0.f??null);for(;;){if(typeof v1==="string"&&(v1==="a"||v1==="b"))break;if(v1===null){v1=void 0;break}e[1](v1)}return {f:v1}}
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=(v0.f??null);for(;;){if(typeof v1==="string"&&(v1==="a"||v1==="b"))break;if(v1===null){v1=void 0;break}e[1](v1,["f"])}return {f:v1}}
     examples:
       a:
         input: '"{\"f\":\"a\"}"'

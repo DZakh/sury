@@ -49,18 +49,29 @@ export type Flag = number;
 
 // ── path ──────────────────────────────────────────────────────────────────────
 
-// Root-first. Static segments are strings; an index captured from a runtime
-// variable in generated code is a number. "[]" marks "some element" for
-// locations without a concrete value (JSON Schema conversion, dynamic parse).
+// Root-first. Static segments are strings; a runtime loop index or dict key is
+// a PathDyn whose `e` is the JS expression. Fail helpers receive the evaluated
+// path at throw time so a loop body does not wrap every element in try/catch.
+// "[]" marks "some element" for locations without a concrete value (JSON Schema
+// conversion, a compile-time throw inside a loop).
 //
 // Never mutated: details objects, codegen closures and retained user errors
 // share instances, so every prepend/concat allocates. A symbol only ever
 // arrives from a user-written `path` (`S.refine`): every key codegen turns into
 // a segment comes from `Object.keys` or a generated `for-in`, which skip them.
 export type Path = readonly (string | number | symbol)[];
+// A codegen path segment whose value is a generated JS expression (loop index,
+// `for-in` key). The only object that appears in a CodePath.
+export type PathDyn = { e: string };
+export type CodePath = readonly (string | number | symbol | PathDyn)[];
 
 export const pathEmpty: Path = [];
 export const pathDynamic: Path = ["[]"];
+
+export const hasPathDyn = (path: CodePath): boolean => {
+  for (let i = 0; i < path.length; i++) if (typeof path[i] === "object") return true;
+  return false;
+};
 
 // Everything a raw splice into a double-quoted JS literal can't carry: the
 // quote itself, `\` (an accidental escape reads as a different string), and
@@ -90,8 +101,38 @@ export const inlinedProperty = (obj: string, key: string, numeric?: boolean): st
       : `${obj}.${key}`;
 
 // @__NO_SIDE_EFFECTS__
-export const pathConcat = (path: Path, concatedPath: Path): Path =>
-  path.length ? (concatedPath.length ? path.concat(concatedPath) : path) : concatedPath;
+export function pathConcat(path: Path, concatedPath: Path): Path;
+export function pathConcat(path: CodePath, concatedPath: CodePath): CodePath;
+export function pathConcat(path: CodePath, concatedPath: CodePath): CodePath {
+  return path.length ? (concatedPath.length ? path.concat(concatedPath) : path) : concatedPath;
+}
+
+export const pathExpr = (path: CodePath, rest?: string): string => {
+  let out = "[";
+  for (let i = 0; i < path.length; i++) {
+    if (i) out += ",";
+    const s = path[i]!;
+    out +=
+      typeof s === "object"
+        ? s.e
+        : typeof s === "string"
+          ? inlinedValueFromString(s)
+          : (s as number);
+  }
+  if (rest) out += (path.length ? "," : "") + rest;
+  return out + "]";
+};
+
+// Compile-time throw: a PathDyn has no value yet, so it becomes "[]".
+export const compilePath = (path: CodePath): Path => {
+  if (!hasPathDyn(path)) return path as Path;
+  const out: (string | number | symbol)[] = [];
+  for (let i = 0; i < path.length; i++) {
+    const s = path[i]!;
+    out.push(typeof s === "object" ? "[]" : s);
+  }
+  return out;
+};
 
 // `user.tags[2]`, `["my key"]`. A non-string segment goes through `String`
 // rather than the regexes: this runs inside the `message` getter, where a
@@ -531,7 +572,7 @@ export type Check = {
   // @as("c") - cond
   c: (inputVar: string) => string;
   // @as("f") - fail
-  f: (input: Val) => (value: unknown) => ErrorDetails;
+  f: (input: Val) => (value: unknown, path?: Path) => ErrorDetails;
 }
 
 export type Val = {
@@ -578,7 +619,7 @@ export type Val = {
   // Whether the chain starting from the root prev has a transformation.
   // @as("t") - hasTransform
   t?: boolean;
-  path: Path;
+  path: CodePath;
   // @as("g") - global
   g: BGlobal;
   // This is to mark an object field as optional. Fields like this should be

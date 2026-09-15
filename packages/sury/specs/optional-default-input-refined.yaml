@@ -13,7 +13,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{for(;;){if(typeof i==="string"){i.length>1||e[0](i);break}if(i===void 0){"xx".length>1||e[1]("xx");i="xx";break}e[2](i)}return i}
+    expression: i=>{for(;;){if(typeof i==="string"){i.length>1||e[0](i);break}if(i===void 0){"xx".length>1||e[1]("xx");i="xx";break}e[2](i,[])}return i}
     examples:
       undefined-refines-the-default-not-the-absent-value:
         input: undefined
@@ -26,7 +26,7 @@ operations:
         error: Expected string.length >= 2, received "a"
   decode: eq-to-parse
   encode:
-    expression: i=>{if(typeof i==="string"){i.length>1||e[0](i);}else{e[1](i)}return i}
+    expression: i=>{if(typeof i==="string"){i.length>1||e[0](i);}else{e[1](i,[])}return i}
     examples:
       long-enough:
         input: '"abc"'

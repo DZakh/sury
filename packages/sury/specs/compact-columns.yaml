@@ -16,7 +16,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{Array.isArray(i)&&i.length===2&&Array.isArray(i[0])&&Array.isArray(i[1])||e[2](i);let v3=new Array(Math.max(i[0].length,i[1].length));for(let v0=0;v0<v3.length;++v0){try{let v1=i[0][v0];typeof v1==="number"&&v1==v1||e[0](v1);let v2=i[1][v0];typeof v2==="string"||e[1](v2);v3[v0]={id:v1,name:v2};}catch(v4){v4.path=[v0,...v4.path];throw v4}}return v3}
+    expression: i=>{Array.isArray(i)&&i.length===2&&Array.isArray(i[0])&&Array.isArray(i[1])||e[2](i);let v3=new Array(Math.max(i[0].length,i[1].length));for(let v0=0;v0<v3.length;++v0){let v1=i[0][v0];typeof v1==="number"&&v1==v1||e[0](v1,[v0,"id"]);let v2=i[1][v0];typeof v2==="string"||e[1](v2,[v0,"name"]);v3[v0]={id:v1,name:v2};}return v3}
     examples:
       valid:
         input: '[[1, 2], ["a", "b"]]'
@@ -37,7 +37,7 @@ operations:
         input: "[[1, 2]]"
         error: Expected [number[], string[]], received [Array(2)]
   decode:
-    expression: i=>{let v3=new Array(Math.max(i[0].length,i[1].length));for(let v0=0;v0<v3.length;++v0){try{let v1=i[0][v0];typeof v1==="number"&&v1==v1||e[0](v1);let v2=i[1][v0];typeof v2==="string"||e[1](v2);v3[v0]={id:v1,name:v2};}catch(v4){v4.path=[v0,...v4.path];throw v4}}return v3}
+    expression: i=>{let v3=new Array(Math.max(i[0].length,i[1].length));for(let v0=0;v0<v3.length;++v0){let v1=i[0][v0];typeof v1==="number"&&v1==v1||e[0](v1,[v0,"id"]);let v2=i[1][v0];typeof v2==="string"||e[1](v2,[v0,"name"]);v3[v0]={id:v1,name:v2};}return v3}
     examples:
       valid:
         input: '[[1, 2], ["a", "b"]]'

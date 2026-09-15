@@ -36,7 +36,7 @@ operations:
         input: new Uint8Array([97, 98, 99, 100])
         output: '"YWJjZA=="'
   encode:
-    expression: i=>{if(typeof i==="string"){e[1](i)||e[2](i);i=e[0](i)}else{e[3](i)}return i}
+    expression: i=>{if(typeof i==="string"){e[1](i)||e[2](i);i=e[0](i)}else{e[3](i,[])}return i}
     examples:
       base64-legal-ascii:
         input: '"YWJjZA=="'

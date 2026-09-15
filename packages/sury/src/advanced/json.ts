@@ -37,7 +37,6 @@ import {
   B_embedPure,
   B_embedInvalidInput,
   B_merge,
-  B_mergeWithPathPrepend,
   B_next,
   B_nextConst,
   B_nextVar,
@@ -827,7 +826,6 @@ export const jsonString = /* @__PURE__ */ (() => {
         const iterVar = B_varWithoutAllocation(input.g);
         dynAcc = B_varWithoutAllocation(input.g);
         const keyEmbed = isArr ? "" : B_embedJsonStr(input);
-        const raiseCountBefore = input.g.t;
         const itemInput = B_dynamicScope(input, iterVar);
         itemInput.e = itemInput.s;
         // A fused container (see `fz` in initJsonString and base.ts)
@@ -855,9 +853,7 @@ export const jsonString = /* @__PURE__ */ (() => {
         }
         const { p, g } = piece !== U ? piece : fieldPiece(parseDynamic(itemInput), isArr, U, true);
         // An async item can't be appended as it arrives: the loop collects each
-        // item's text as a promise instead, and the chunk is their join. Read
-        // lazily - `B_mergeWithPathPrepend` rewrites an async piece's inline
-        // to carry the path `.catch` first.
+        // item's text as a promise instead, and the chunk is their join.
         const itemAsync = !!(p.f & 1);
         const itemVar = itemAsync ? B_varWithoutAllocation(input.g) : "";
         const appendCode = (): string =>
@@ -870,13 +866,7 @@ export const jsonString = /* @__PURE__ */ (() => {
                   fixedLen ? `","` : `(${iterVar}?",":"")`
                 }+${foldStringCoercion(p.i)}`
               : `${dynAcc}+=(${dynAcc}?",":"")+${keyEmbed}(${iterVar})+":"+${foldStringCoercion(p.i)}`;
-        const itemCode = B_mergeWithPathPrepend(
-          p,
-          input,
-          iterVar,
-          () => (g !== U ? `if(${g}!==void 0){${appendCode()}}` : appendCode()),
-          raiseCountBefore,
-        );
+        const itemCode = B_merge(p) + (g !== U ? `if(${g}!==void 0){${appendCode()}}` : appendCode());
         // `Object.keys`, not `for...in`: the latter walks the prototype chain,
         // so an inherited enumerable key would be serialized where
         // JSON.stringify (and the whole-value path this replaced) emits own

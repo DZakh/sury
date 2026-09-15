@@ -14,7 +14,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{if(typeof i==="number"&&i==i){i=""+i}else{e[0](i)}return i}
+    expression: i=>{if(typeof i==="number"&&i==i){i=""+i}else{e[0](i,[])}return i}
     examples:
       number:
         input: "12"

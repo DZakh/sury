@@ -31,7 +31,7 @@ operations:
         input: new Uint8Array([97, 98, 99, 100])
         output: '"abcd"'
   encode:
-    expression: i=>{if(typeof i==="string"){i=e[0](i)}else{e[1](i)}return i}
+    expression: i=>{if(typeof i==="string"){i=e[0](i)}else{e[1](i,[])}return i}
     examples:
       text:
         input: '"abcd"'

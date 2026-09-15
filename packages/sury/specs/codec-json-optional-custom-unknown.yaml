@@ -14,7 +14,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v2=i.f;for(;;){let r;try{try{e[0](i.f);}catch(v0){v0.path=["f",...v0.path];throw v0}let v1;try{v1=e[1](i.f)}catch(x){e[2](x)}v2=v1;break}catch(x){(r||(r=[])).push(e[3](x))}if(v2===void 0)break;e[4](v2,...(r||[]))}return {f:v2}}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v2=i.f;for(;;){let r;try{try{e[0](i.f);}catch(v0){v0.path=["f",...v0.path];throw v0}let v1;try{v1=e[1](i.f)}catch(x){e[2](x)}v2=v1;break}catch(x){(r||(r=[])).push(e[3](x))}if(v2===void 0)break;e[4](v2,["f"],...(r||[]))}return {f:v2}}
     examples:
       present:
         input: '{ f: { tag: "x" } }'
@@ -26,7 +26,7 @@ operations:
         input: "{ f: undefined }"
         output: "{ f: undefined }"
   decode:
-    expression: i=>{let v2=i.f;for(;;){let r;try{try{e[0](i.f);}catch(v0){v0.path=["f",...v0.path];throw v0}let v1;try{v1=e[1](i.f)}catch(x){e[2](x)}v2=v1;break}catch(x){(r||(r=[])).push(e[3](x))}if(v2===void 0)break;e[4](v2,...(r||[]))}return {f:v2}}
+    expression: i=>{let v2=i.f;for(;;){let r;try{try{e[0](i.f);}catch(v0){v0.path=["f",...v0.path];throw v0}let v1;try{v1=e[1](i.f)}catch(x){e[2](x)}v2=v1;break}catch(x){(r||(r=[])).push(e[3](x))}if(v2===void 0)break;e[4](v2,["f"],...(r||[]))}return {f:v2}}
     examples:
       present:
         input: '{ f: { tag: "x" } }'
@@ -35,7 +35,7 @@ operations:
         input: "{}"
         output: "{ f: undefined }"
   encode:
-    expression: i=>{let v2=i.f;for(;;){let r;try{let v0;try{v0=e[0](i.f)}catch(x){e[1](x)}try{e[2](v0);}catch(v1){v1.path=["f",...v1.path];throw v1}v2=v0;break}catch(x){(r||(r=[])).push(e[3](x))}if(v2===void 0)break;e[4](v2,...(r||[]))}return {f:v2}}
+    expression: i=>{let v2=i.f;for(;;){let r;try{let v0;try{v0=e[0](i.f)}catch(x){e[1](x)}try{e[2](v0);}catch(v1){v1.path=["f",...v1.path];throw v1}v2=v0;break}catch(x){(r||(r=[])).push(e[3](x))}if(v2===void 0)break;e[4](v2,["f"],...(r||[]))}return {f:v2}}
     examples:
       present:
         input: '{ f: { tag: "x" } }'

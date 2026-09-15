@@ -47,7 +47,7 @@ operations:
         input: undefined
         output: undefined
   encode:
-    expression: i=>{for(;;){if(typeof i==="boolean"){i=""+i;break}if(i===void 0)break;e[0](i)}return i}
+    expression: i=>{for(;;){if(typeof i==="boolean"){i=""+i;break}if(i===void 0)break;e[0](i,[])}return i}
     examples:
       "true":
         input: "true"

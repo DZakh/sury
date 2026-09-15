@@ -33,7 +33,7 @@ operations:
         input: '"true"'
         output: "true"
   encode:
-    expression: i=>{if(typeof i==="boolean"){i=""+i}else{e[0](i)}return i}
+    expression: i=>{if(typeof i==="boolean"){i=""+i}else{e[0](i,[])}return i}
     examples:
       "true":
         input: "true"

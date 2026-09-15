@@ -12,6 +12,7 @@ import {
   numberTag,
   objectTag,
   panic,
+  type Path,
   refTag,
   setHas,
   tagFlags,
@@ -1406,7 +1407,7 @@ const protobufDecoder = (input: Val): Val => {
 const guarded = (input: Val, output: Val, target: Internal, code: string, release: string): string => {
   const unionContext = input.g.o & 4;
   const rethrow = unionContext ? `${B_embed(input, getOrRethrow)}(x);` : "";
-  const failure = B_failWithArg(output, (e: unknown) => B_makeInvalidConversionDetails(input, target, e), "x");
+  const failure = B_failWithArg(output, (e: unknown, path?: Path) => B_makeInvalidConversionDetails(input, target, e, path), "x");
   return `try{${code}}catch(x){${release}${rethrow}${failure}}`;
 };
 

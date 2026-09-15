@@ -10,6 +10,7 @@ import {
   type Check,
   type Encoder,
   type ErrorDetails,
+  type Path,
   globalConfig,
   immutableEmptyArray,
   immutableEmptyObject,
@@ -23,7 +24,10 @@ import {
   isSchemaObject,
   noopDecoder,
   objectTag,
+  compilePath,
+  hasPathDyn,
   pathConcat,
+  pathEmpty,
   setHas,
   stringify,
   tagFlags,
@@ -49,7 +53,6 @@ import {
   B_inlineConst,
   B_markOutput,
   B_merge,
-  B_mergeWithPathPrepend,
   B_next,
   B_nextVarOutput,
   B_refine,
@@ -85,12 +88,13 @@ export const B_unrecognizedKeys = (
   keyVar: string,
   decl: string,
 ): string => {
+  const snap = hasPathDyn(input.path) ? U : compilePath(input.path);
   const fail = B_failWithArg(
     input,
-    (key: string) =>
+    (key: string, path?: Path) =>
       ({
         code: "unrecognized_key",
-        path: input.path,
+        path: path ?? snap ?? pathEmpty,
         reason: `Unrecognized key ${stringify(key)}`,
         key,
       }) as ErrorDetails,
@@ -334,13 +338,12 @@ export const arrayDecoder = (unknownInput: Val): Val => {
           B_next(input, `new Array(${inputVar}.length)`, arrayFactory(itemOutput.s))
         : B_refine(input, expectedSchema);
 
-      const itemCode = B_mergeWithPathPrepend(
-        itemOutput,
-        input,
-        iteratorVar,
-        hasTransform ? () => B_addKey(output2, iteratorVar, itemOutput) : U,
-        hasTransform ? U : raiseCountBefore,
-      );
+      const itemMerge = B_merge(itemOutput);
+      const itemCode = hasTransform
+        ? itemMerge + B_addKey(output2, iteratorVar, itemOutput)
+        : input.g.t === raiseCountBefore
+          ? ""
+          : itemMerge;
 
       if (hasTransform || itemCode !== "") {
         output2.cp =
@@ -477,13 +480,12 @@ export const objectDecoder = (unknownInput: Val): Val => {
         B_next(input, "{}", dictFactory(itemOutput.s))
       : B_refine(input, expectedSchema);
 
-    const itemCode = B_mergeWithPathPrepend(
-      itemOutput,
-      input,
-      keyVar,
-      hasTransform ? () => B_addKey(output2, keyVar, itemOutput) : U,
-      hasTransform ? U : raiseCountBefore,
-    );
+    const itemMerge = B_merge(itemOutput);
+    const itemCode = hasTransform
+      ? itemMerge + B_addKey(output2, keyVar, itemOutput)
+      : input.g.t === raiseCountBefore
+        ? ""
+        : itemMerge;
 
     if (hasTransform || itemCode !== "") {
       output2.cp = output2.cp + `for(let ${keyVar} in ${inputVar}){${itemCode}}`;

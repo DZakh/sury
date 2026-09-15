@@ -37,7 +37,7 @@ operations:
         input: undefined
         output: "null"
   encode:
-    expression: i=>{for(;;){if(typeof i==="string")break;if(i===null){i=void 0;break}e[0](i)}return i}
+    expression: i=>{for(;;){if(typeof i==="string")break;if(i===null){i=void 0;break}e[0](i,[])}return i}
     examples:
       set:
         input: '"x"'
