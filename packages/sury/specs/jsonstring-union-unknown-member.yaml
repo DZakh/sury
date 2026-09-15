@@ -33,7 +33,7 @@ operations:
         input: '["\"plain\""]'
         output: '"[\"\\\"plain\\\"\"]"'
   decode:
-    expression: i=>{let v2="";for(let v1=0;v1<i.length;++v1){let v3=i[v1];let v5="null";if(v3!==void 0){try{e[0](v3);}catch(v4){v4.path=[v1,...v4.path];throw v4}v5=JSON.stringify(v3)??"null"}v2+=(v1?",":"")+v5}return "["+v2+"]"}
+    expression: i=>{let v1="";for(let v0=0;v0<i.length;++v0){let v2=i[v0];let v4="null";if(v2!==void 0){try{e[0](v2);}catch(v3){v3.path=[v0,...v3.path];throw v3}v4=JSON.stringify(v2)??"null"}v1+=(v0?",":"")+v4}return "["+v1+"]"}
     examples:
       matches-variant:
         input: '[{ kind: "a", v: "x" }]'

@@ -37,7 +37,7 @@
         "label": "Everything the library exports",
         "note": "the ceiling, for an app that ends up using all of it",
         "cells": [
-          53992,
+          54000,
           65989,
           31148,
           15101,
@@ -59,6 +59,17 @@
     ],
     "rows": [
       {
+        "label": "What you see on hover",
+        "note": "the type your editor shows for `{ foo: string }`, which is also what an error quotes back at you",
+        "cells": [
+          "`S.Schema<{foo: string}, {foo: string}>`",
+          "`z.ZodObject<{foo: z.ZodString}, $strip>`",
+          "`TObject<{foo: TString}>`",
+          "`v.ObjectSchema<{readonly foo: v.StringSchema<undefined>}, undefined>`",
+          "`Type<{foo: string}, {}>`"
+        ]
+      },
+      {
         "label": "Standard Schema",
         "note": "the interface tRPC, TanStack and 28 others accept a schema through",
         "cells": [
@@ -70,8 +81,8 @@
         ]
       },
       {
-        "label": "A transform runs backwards too",
-        "note": "one description for decoding a value and encoding it again",
+        "label": "One schema, both directions",
+        "note": "write the transform once and the same schema encodes the value back",
         "cells": [
           "✅",
           "✅",
@@ -81,8 +92,8 @@
         ]
       },
       {
-        "label": "Equality compiled from the schema",
-        "note": "comparing two values by what the schema says they are, not by walking them blind",
+        "label": "Compares two values for you",
+        "note": "the schema knows the shape, so comparing is one generated function instead of a blind walk",
         "cells": [
           "✅",
           "❌†",
@@ -92,8 +103,8 @@
         ]
       },
       {
-        "label": "A constructor that checks the value you built",
-        "note": "for a value your own code produced, rather than one that arrived from outside",
+        "label": "Checks a value you built yourself",
+        "note": "for data your own code produced, where parsing an untrusted input is the wrong tool",
         "cells": [
           "✅",
           "❌†",
@@ -103,7 +114,7 @@
         ]
       },
       {
-        "label": "Asynchronous validation",
+        "label": "Validates asynchronously",
         "cells": [
           "✅",
           "✅",
@@ -114,13 +125,24 @@
       },
       {
         "label": "Reports every problem, not just the first",
-        "note": "Sury stops at the first, which is what makes the parse row below what it is",
+        "note": "Sury stops at the first, which is part of why it parses as fast as it does",
         "cells": [
           "❌",
           "✅",
           "❌",
           "✅",
           "✅"
+        ]
+      },
+      {
+        "label": "Runs where `new Function` is blocked",
+        "note": "a page under a strict CSP, some browser extension contexts",
+        "cells": [
+          "❌†",
+          "⭕† opt-out",
+          "⭕† opt-in",
+          "✅†",
+          "⭕† opt-out"
         ]
       }
     ],
