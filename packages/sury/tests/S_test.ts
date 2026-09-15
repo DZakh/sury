@@ -1459,6 +1459,92 @@ test("a number compares with SameValueZero once NaN can reach it", (t) => {
   }
 });
 
+test("compare dispatch: the schema is found first or last, and its absence panics", (t) => {
+  const schema = S.schema({ id: S.string });
+  const a = { id: "u1" };
+  const b = { id: "u1" };
+
+  t.expect(typeof S.compareOutput(schema)).toBe("function");
+  t.expect(S.compareOutput(S.void, undefined, undefined)).toBe(0);
+
+  t.expect(S.compareOutput(schema)(a, b)).toBe(0);
+  t.expect(S.compareOutput(schema, a, b)).toBe(0);
+  t.expect(S.compareOutput(a, b, schema)).toBe(0);
+  t.expect(S.compareInput(a, b, schema)).toBe(0);
+  t.expect(S.compareOutput(a, { id: "u2" }, schema)).toBe(-1);
+  t.expect(S.compareOutput({ id: "u2" }, a, schema)).toBe(1);
+
+  const foreign = {
+    "~standard": { version: 1, vendor: "other", validate: (v: unknown) => ({ value: v }) },
+  };
+  t.expect(() => (S.compareOutput as (a: unknown) => unknown)(foreign)).toThrow(
+    "Expected a Sury schema",
+  );
+  t.expect(() =>
+    (S.compareInput as (a: unknown, b: unknown, c: unknown) => unknown)("x", "x", foreign),
+  ).toThrow("Expected a Sury schema");
+});
+
+test("compare orders primitives, objects, arrays, optionals and tagged unions", (t) => {
+  t.expect(S.compareOutput(S.string, "a", "a")).toBe(0);
+  t.expect(S.compareOutput(S.string, "a", "b")).toBe(-1);
+  t.expect(S.compareOutput(S.string, "b", "a")).toBe(1);
+  t.expect(S.compareOutput(S.number, 1, 2)).toBe(-1);
+  t.expect(S.compareOutput(S.number, 2, 1)).toBe(1);
+  t.expect(S.compareOutput(S.number, 0, -0)).toBe(0);
+  t.expect(S.compareOutput(S.boolean, false, true)).toBe(-1);
+  t.expect(S.compareOutput(S.bigint, 1n, 2n)).toBe(-1);
+
+  const user = S.schema({ id: S.string, age: S.number });
+  t.expect(S.compareOutput(user, { id: "a", age: 2 }, { id: "b", age: 1 })).toBe(-1);
+  t.expect(S.compareOutput(user, { id: "a", age: 1 }, { id: "a", age: 2 })).toBe(-1);
+  t.expect(S.compareOutput(user, { id: "a", age: 1 }, { id: "a", age: 1 })).toBe(0);
+
+  const tags = S.array(S.string);
+  t.expect(S.compareOutput(tags, ["a"], ["a", "b"])).toBe(-1);
+  t.expect(S.compareOutput(tags, ["b"], ["a"])).toBe(1);
+  t.expect(S.compareOutput(tags, ["a", "b"], ["a", "b"])).toBe(0);
+
+  const maybe = S.optional(S.string);
+  t.expect(S.compareOutput(maybe, undefined, "a")).toBe(-1);
+  t.expect(S.compareOutput(maybe, "a", undefined)).toBe(1);
+  t.expect(S.compareOutput(maybe, "a", "b")).toBe(-1);
+  t.expect(S.compareOutput(maybe, undefined, undefined)).toBe(0);
+
+  const at = new Date("2026-01-01");
+  const later = new Date("2026-01-02");
+  t.expect(S.compareOutput(S.date, at, new Date("2026-01-01"))).toBe(0);
+  t.expect(S.compareOutput(S.date, at, later)).toBe(-1);
+  t.expect(S.compareOutput(S.date, later, at)).toBe(1);
+
+  const tagged = S.union([
+    S.schema({ kind: S.literal("a"), n: S.number }),
+    S.schema({ kind: S.literal("b"), n: S.number }),
+  ]);
+  t.expect(
+    S.compareOutput(tagged, { kind: "a", n: 2 }, { kind: "b", n: 1 }),
+  ).toBe(-1);
+  t.expect(
+    S.compareOutput(tagged, { kind: "a", n: 1 }, { kind: "a", n: 2 }),
+  ).toBe(-1);
+});
+
+test("a number's compare uses the SameValueZero zero-case once NaN can reach it", (t) => {
+  try {
+    S.global({ disableNanNumberValidation: true });
+    t.expect(S.compareOutput(S.number, NaN, NaN)).toBe(0);
+    t.expect(S.compareOutput(S.number, 0, -0)).toBe(0);
+    t.expect(S.compareOutput(S.number, 1, 2)).toBe(-1);
+    t.expect(S.compareOutput(S.number, NaN, 1)).toBe(-1);
+    t.expect(S.compareOutput(S.number, 1, NaN)).toBe(1);
+    const nested = S.schema({ n: S.number });
+    t.expect(S.compareOutput(nested, { n: NaN }, { n: NaN })).toBe(0);
+    t.expect(S.compareOutput(nested, { n: NaN }, { n: 1 })).toBe(-1);
+  } finally {
+    S.global({});
+  }
+});
+
 test("Every construction path keeps a schema recognizable to operation dispatch", (t) => {
   // `S.assertInputOrThrow(data, schema)` only finds the schema in the second slot when
   // the schema still has one of the two schema prototypes, so every way of

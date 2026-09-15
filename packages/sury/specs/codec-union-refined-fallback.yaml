@@ -8,6 +8,7 @@ jsonSchema:
   input: '{ anyOf: [{ type: "string", minLength: 3 }, { type: "number" }, { type: "string" }] }'
   output: '{ anyOf: [{ type: "string", minLength: 3 }, { type: "number" }, { type: "string" }] }'
 isEqual: strictEqual
+compare: (a,b)=>a===b?0:e[0](a,b)
 vs:
   zod: z.union([z.string().min(3), z.number(), z.string()])
 operations:

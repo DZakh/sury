@@ -11,6 +11,9 @@ jsonSchema:
     input: '{ anyOf: [{ type: "string", enum: ["apple"] }, { type: "string" }] }'
     output: '{ anyOf: [{ type: "string", enum: ["apple"] }, { type: "number" }, { type: "string" }] }'
 isEqual: strictEqual
+compare:
+  input: strictCompare
+  output: (a,b)=>a===b?0:(a==="apple"?b==="apple"?0:-1:b==="apple"?1:typeof a==="number"&&a==a?typeof b==="number"&&b==b?a<b?-1:a>b?1:0:-1:typeof b==="number"&&b==b?1:a<b?-1:a>b?1:0)
 vs:
   zod:
     _skip: not-applicable

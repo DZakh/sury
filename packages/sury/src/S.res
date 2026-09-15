@@ -832,6 +832,11 @@ external compileMakeAsResultPromise: (
 @module("sury")
 external compileIsEqual: (~schema: t<'value>) => ('value, 'value) => bool = "isEqualOutput"
 
+// Same walk as `isEqual`, answering -1 | 0 | 1. 0 is exactly when `isEqual`
+// would be true. `int` is the ReScript spelling of that three-value contract.
+@module("sury")
+external compileCompare: (~schema: t<'value>) => ('value, 'value) => int = "compareOutput"
+
 // The immediate (data-first) forms. The JS dispatch reads a leading non-schema
 // argument as the value, so these are the same imports at their other shape.
 @module("sury") external parseOrThrow: ('any, ~to: t<'value>) => 'value = "parseOrThrow"
@@ -859,6 +864,7 @@ external assertOutputAsPromiseOrReject: ('any, ~schema: t<'value>) => promise<un
 @module("sury") external isOutput: ('any, ~schema: t<'value>) => bool = "isOutput"
 
 @module("sury") external isEqual: ('value, 'value, ~schema: t<'value>) => bool = "isEqualOutput"
+@module("sury") external compare: ('value, 'value, ~schema: t<'value>) => int = "compareOutput"
 
 @module("sury") external makeOrThrow: ('value, ~schema: t<'value>) => 'value = "makeOutputOrThrow"
 @module("sury")

@@ -12,6 +12,9 @@ jsonSchema:
 isEqual:
   input: (a,b)=>a===b||(a.type==="user.created"?b.type==="user.created"&&a.id===b.id:b.type==="user.renamed"&&a.id===b.id&&a.name===b.name)
   output: strictEqual
+compare:
+  input: (a,b)=>a===b?0:(a.type==="user.created"?b.type==="user.created"?a.id<b.id?-1:a.id>b.id?1:0:-1:b.type==="user.created"?1:a.id<b.id?-1:a.id>b.id?1:a.name<b.name?-1:a.name>b.name?1:0)
+  output: strictCompare
 vs:
   zod:
     _skip: not-applicable

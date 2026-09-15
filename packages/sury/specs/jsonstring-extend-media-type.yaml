@@ -8,6 +8,7 @@ jsonSchema:
   input: '{ type: "string", contentMediaType: "application/geo+json" }'
   output: '{ type: "string", contentMediaType: "application/geo+json" }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod:
     _skip: not-applicable

@@ -11,6 +11,7 @@ jsonSchema:
     input: '{ type: "object", additionalProperties: { type: "string" }, nullable: true }'
     output: '{ type: "object", additionalProperties: { type: "string" }, nullable: true }'
 isEqual: (a,b)=>a===b||(a===null?b===null:b!==null&&e[0](a,b))
+compare: (a,b)=>a===b?0:(a===null?b===null?0:-1:b===null?1:e[0](a,b))
 vs:
   zod:
     _skip: not-applicable

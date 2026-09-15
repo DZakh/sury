@@ -1,4 +1,4 @@
-// `S.isEqualInput` / `S.isEqualOutput` fuzzer.
+// `S.isEqualInput` / `S.isEqualOutput` / `S.compareInput` / `S.compareOutput` fuzzer.
 //
 //   pnpm --filter=sury fuzz:eq
 //   pnpm --filter=sury fuzz:eq --seeds=40 --cases=2000
@@ -20,6 +20,9 @@
 //   transitive   equal to the same value means equal to each other.
 //   oracle       agrees with a structural walk written here, without reference
 //                to the schema.
+//   compare-zero `compare(a,b)===0` exactly when `isEqual(a,b)`. The two
+//                compiles share a walker; this is the invariant that sharing
+//                exists to keep.
 //   duality      `isEqualInput(schema)` is `isEqualOutput(reverse(schema))`.
 //                One comparator, reached two ways.
 //   congruence   two inputs the Input side calls equal decode to two outputs
@@ -325,10 +328,12 @@ for (let c = 0; c < cases * seeds; c++) {
 
   let isEqualOutput: (a: unknown, b: unknown) => boolean;
   let isEqualInput: (a: unknown, b: unknown) => boolean;
+  let compareOutput: (a: unknown, b: unknown) => number;
   let conforms: (v: unknown) => boolean;
   try {
     isEqualOutput = S.isEqualOutput(schema as never) as (a: unknown, b: unknown) => boolean;
     isEqualInput = S.isEqualInput(schema as never) as (a: unknown, b: unknown) => boolean;
+    compareOutput = S.compareOutput(schema as never) as (a: unknown, b: unknown) => number;
     conforms = S.isOutput(schema as never) as (v: unknown) => boolean;
   } catch (error) {
     report(`${id}: compile`, `building the comparator threw - ${(error as Error).message.split("\n")[0]}`);
@@ -412,7 +417,22 @@ for (let c = 0; c < cases * seeds; c++) {
         agrees = false;
         report(
           `${id}: oracle`,
-          `answered ${forward} for ${show(a)} vs ${show(b)}, a structural walk says ${want}`,
+          `${show(a)} vs ${show(b)}: comparator ${forward}, structural ${want}`,
+        );
+      }
+      let cmp: unknown;
+      try {
+        cmp = compareOutput(a, b);
+      } catch (error) {
+        report(`${id}: compare-zero`, `threw - ${(error as Error).message.split("\n")[0]}`);
+        continue;
+      }
+      if (cmp !== -1 && cmp !== 0 && cmp !== 1) {
+        report(`${id}: compare-zero`, `${show(a)} vs ${show(b)} answered ${show(cmp)}, not -1|0|1`);
+      } else if ((cmp === 0) !== want) {
+        report(
+          `${id}: compare-zero`,
+          `${show(a)} vs ${show(b)}: compare ${show(cmp)}, isEqual ${forward}`,
         );
       }
     }

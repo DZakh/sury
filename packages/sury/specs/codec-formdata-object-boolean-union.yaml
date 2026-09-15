@@ -10,6 +10,9 @@ jsonSchema:
 isEqual:
   input: (a,b)=>a===b||e[0](a,b)
   output: (a,b)=>a===b||a.a===b.a
+compare:
+  input: (a,b)=>a===b?0:e[0](a,b)
+  output: (a,b)=>a===b?0:(typeof a.a==="boolean"?typeof b.a==="boolean"?a.a<b.a?-1:a.a>b.a?1:0:-1:typeof b.a==="boolean"?1:a.a<b.a?-1:a.a>b.a?1:0)
 vs:
   zod:
     _skip: not-applicable

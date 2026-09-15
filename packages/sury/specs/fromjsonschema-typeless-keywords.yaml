@@ -11,6 +11,7 @@ jsonSchema:
     input: '{ anyOf: [{ type: "string", minLength: 2 }, { type: "number" }, { type: "object" }, { items: {}, type: "array" }, { type: "boolean" }, { enum: [null] }] }'
     output: '{ anyOf: [{ type: "string", minLength: 2 }, { type: "number" }, { type: "object" }, { items: {}, type: "array" }, { type: "boolean" }, { enum: [null] }] }'
 isEqual: (a,b)=>a===b||!!(typeof a==="string"?typeof b==="string"&&a===b:typeof a==="number"&&a==a?typeof b==="number"&&b==b&&a===b:typeof a==="object"&&a&&!Array.isArray(a)?typeof b==="object"&&b&&!Array.isArray(b)&&e[2](a,b):Array.isArray(a)?Array.isArray(b)&&e[0](a,b):typeof a==="boolean"?typeof b==="boolean"&&a===b:b===null)
+compare: (a,b)=>a===b?0:(typeof a==="string"?typeof b==="string"?a<b?-1:a>b?1:0:-1:typeof b==="string"?1:typeof a==="number"&&a==a?typeof b==="number"&&b==b?a<b?-1:a>b?1:0:-1:typeof b==="number"&&b==b?1:typeof a==="object"&&a&&!Array.isArray(a)?typeof b==="object"&&b&&!Array.isArray(b)?e[2](a,b):-1:typeof b==="object"&&b&&!Array.isArray(b)?1:Array.isArray(a)?Array.isArray(b)?e[0](a,b):-1:Array.isArray(b)?1:typeof a==="boolean"?typeof b==="boolean"?a<b?-1:a>b?1:0:-1:typeof b==="boolean"?1:0)
 vs:
   zod:
     _skip: not-applicable

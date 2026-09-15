@@ -11,6 +11,7 @@ jsonSchema:
     input: '{ allOf: [{ type: "string" }, { minLength: 2 }], nullable: true }'
     output: '{ allOf: [{ type: "string" }, { minLength: 2 }], nullable: true }'
 isEqual: (a,b)=>a===b||e[0](a,b)
+compare: (a,b)=>a===b?0:e[0](a,b)
 vs:
   zod:
     _skip: not-applicable

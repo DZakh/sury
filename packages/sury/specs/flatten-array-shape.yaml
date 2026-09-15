@@ -11,6 +11,7 @@ jsonSchema:
   openapi-3.0:
     output: '{ type: "object", properties: { items: { items: { type: "object", properties: { TAG: { type: "string", enum: ["A"] }, _0: { type: "string" } }, required: ["TAG", "_0"] }, type: "array" } }, required: ["items"] }'
 isEqual: (a,b)=>a===b||e[0](a.items,b.items)
+compare: (a,b)=>a===b?0:e[0](a.items,b.items)
 vs:
   zod:
     _skip: not-applicable

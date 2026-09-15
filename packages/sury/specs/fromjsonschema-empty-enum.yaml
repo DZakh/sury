@@ -8,6 +8,7 @@ jsonSchema:
   input: "{ not: {} }"
   output: "{ not: {} }"
 isEqual: (a,b)=>a===b||e[0](a,b)
+compare: (a,b)=>a===b?0:e[0](a,b)
 vs:
   zod: z.never()
 operations:

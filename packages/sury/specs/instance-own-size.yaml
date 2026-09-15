@@ -8,6 +8,7 @@ jsonSchema:
   input: Expected JSON, received Chunk.size >= 4
   output: Expected JSON, received Chunk.size >= 4
 isEqual: strictEqual
+compare: identityCompare
 vs:
   zod:
     _skip: not-applicable
