@@ -18,6 +18,7 @@ jsonSchema:
     output: '{ type: "array", minItems: 2, maxItems: 2, items: { anyOf: [{ type: "string", enum: ["bar"] }, { type: "number" }] } }'
     fromOutputType: '[number | "bar", number | "bar"]'
 isEqual: (a,b)=>a===b||a[1]===b[1]
+compare: (a,b)=>a===b?0:a[1]<b[1]?-1:a[1]>b[1]?1:0
 vs:
   zod: z.tuple([z.literal("bar"), z.number()])
 operations:

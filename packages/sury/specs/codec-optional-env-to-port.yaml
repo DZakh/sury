@@ -9,6 +9,9 @@ jsonSchema:
   fromInputType: string
   output: '{ type: "integer", minimum: 0, maximum: 65535 }'
 isEqual: strictEqual
+compare:
+  input: (a,b)=>a===b?0:(a===void 0?b===void 0?0:-1:b===void 0?1:a===void 0?b===void 0?0:-1:b===void 0?1:a<b?-1:a>b?1:0)
+  output: strictCompare
 vs:
   zod:
     _skip: not-applicable

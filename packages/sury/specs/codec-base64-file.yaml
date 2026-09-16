@@ -10,6 +10,9 @@ jsonSchema:
   openapi-3.0:
     input: '{ type: "string", format: "byte" }'
 isEqual: strictEqual
+compare:
+  input: strictCompare
+  output: identityCompare
 vs:
   zod:
     _skip: not-applicable

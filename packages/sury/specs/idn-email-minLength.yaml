@@ -8,6 +8,7 @@ jsonSchema:
   input: '{ type: "string", format: "idn-email", minLength: 5 }'
   output: '{ type: "string", format: "idn-email", minLength: 5 }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod: z.string().min(5)
 operations:

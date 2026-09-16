@@ -197,6 +197,8 @@ S.isEqualOutput(
 
 const isSameSession = S.isEqualOutput(sessionSchema);
 //? (a, b) => a === b || (a.id === b.id && +a.startedAt === +b.startedAt)
+
+sessions.sort(S.compareOutput(sessionSchema));
 ```
 
 Every operation that looks at one side of a schema says which side in its name - `S.makeOutputOrThrow` and `S.isInput`, `S.toInputJSONSchemaOrThrow` for the wire and `S.toOutputJSONSchemaOrThrow` for your types.

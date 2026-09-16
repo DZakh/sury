@@ -11,6 +11,9 @@ jsonSchema:
 isEqual:
   input: (a,b)=>a===b||e[0](a,b)
   output: (a,b)=>a===b||!!(typeof a.value==="object"&&a.value&&!Array.isArray(a.value)?typeof b.value==="object"&&b.value&&!Array.isArray(b.value)&&(a.value.a===void 0?b.value.a===void 0:b.value.a!==void 0&&+a.value.a===+b.value.a):typeof b.value==="string"&&a.value===b.value)
+compare:
+  input: (a,b)=>a===b?0:e[0](a,b)
+  output: (a,b)=>a===b?0:(typeof a.value==="object"&&a.value&&!Array.isArray(a.value)?typeof b.value==="object"&&b.value&&!Array.isArray(b.value)?(a.value.a===void 0?b.value.a===void 0?0:-1:b.value.a===void 0?1:+a.value.a<+b.value.a?-1:+a.value.a>+b.value.a?1:+a.value.a===+b.value.a?0:1):-1:typeof b.value==="object"&&b.value&&!Array.isArray(b.value)?1:a.value<b.value?-1:a.value>b.value?1:0)
 vs:
   zod:
     _skip: not-applicable

@@ -2196,6 +2196,48 @@ export function isEqualOutput<S extends AnySchema>(
 ): boolean;
 
 /**
+ * The order of two Input-side values, by the schema's own structure: -1, 0 or
+ * 1. 0 exactly when {@link isEqualInput} would answer true. Fields and elements
+ * compare by their own schemas, a `Date` by its time, a union by the member
+ * each value lands in (earlier member first) then that member's payload, and a
+ * literal not at all.
+ *
+ * Both values are assumed to already match the schema - this compares, it does
+ * not validate. `S.compareInput(schema)` compiles once and is the form to
+ * hoist; the direct forms compile on first use and are cached per schema.
+ * Hand the compiled form to `Array.prototype.sort` for values this schema
+ * can order.
+ */
+export function compareInput<S extends AnySchema>(
+  schema: S
+): (a: Input<S>, b: Input<S>) => -1 | 0 | 1;
+export function compareInput<S extends AnySchema>(
+  schema: S,
+  a: Input<S>,
+  b: Input<S>
+): -1 | 0 | 1;
+export function compareInput<S extends AnySchema>(
+  a: Input<S>,
+  b: Input<S>,
+  schema: S
+): -1 | 0 | 1;
+
+/** `compareInput` for the Output side. */
+export function compareOutput<S extends AnySchema>(
+  schema: S
+): (a: Output<S>, b: Output<S>) => -1 | 0 | 1;
+export function compareOutput<S extends AnySchema>(
+  schema: S,
+  a: Output<S>,
+  b: Output<S>
+): -1 | 0 | 1;
+export function compareOutput<S extends AnySchema>(
+  a: Output<S>,
+  b: Output<S>,
+  schema: S
+): -1 | 0 | 1;
+
+/**
  * `isInput` for a schema with an async conversion. Resolves to the answer and
  * never rejects; TypeScript can't express an async type predicate, so no
  * narrowing happens.

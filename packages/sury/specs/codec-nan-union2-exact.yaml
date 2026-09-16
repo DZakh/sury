@@ -10,6 +10,9 @@ jsonSchema:
 isEqual:
   input: alwaysEqual
   output: (a,b)=>a===b||(a!=a?b!=b:typeof b==="string"&&a===b)
+compare:
+  input: alwaysCompare
+  output: (a,b)=>a===b?0:(a!=a?b!=b?0:-1:b!=b?1:a<b?-1:a>b?1:0)
 vs:
   zod:
     _skip: not-applicable

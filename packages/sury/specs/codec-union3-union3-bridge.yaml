@@ -8,6 +8,7 @@ jsonSchema:
   input: Expected JSON, received bigint | number | null
   output: Expected JSON, received bigint | number | undefined
 isEqual: strictEqual
+compare: (a,b)=>a===b?0:(typeof a==="bigint"?typeof b==="bigint"?a<b?-1:a>b?1:0:-1:typeof b==="bigint"?1:typeof a==="number"&&a==a?typeof b==="number"&&b==b?a<b?-1:a>b?1:0:-1:typeof b==="number"&&b==b?1:0)
 vs:
   zod:
     _skip: not-applicable

@@ -10,6 +10,9 @@ jsonSchema:
 isEqual:
   input: (a,b)=>a===b||e[0](a,b)
   output: (a,b)=>a===b||a["__proto__"]===b["__proto__"]&&a["a[b]"]===b["a[b]"]&&a[""]===b[""]
+compare:
+  input: (a,b)=>a===b?0:e[0](a,b)
+  output: (a,b)=>a===b?0:a["__proto__"]<b["__proto__"]?-1:a["__proto__"]>b["__proto__"]?1:a["a[b]"]<b["a[b]"]?-1:a["a[b]"]>b["a[b]"]?1:a[""]<b[""]?-1:a[""]>b[""]?1:0
 vs:
   zod:
     _skip: not-applicable

@@ -12,6 +12,9 @@ jsonSchema:
 isEqual:
   input: (a,b)=>a===b||+a.d===+b.d
   output: strictEqual
+compare:
+  input: (a,b)=>a===b?0:+a.d<+b.d?-1:+a.d>+b.d?1:+a.d===+b.d?0:1
+  output: strictCompare
 vs:
   zod:
     _skip: not-applicable

@@ -8,6 +8,7 @@ jsonSchema:
   input: '{ type: "string", format: "hostname" }'
   output: '{ type: "string", format: "hostname" }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod: z.hostname()
 operations:

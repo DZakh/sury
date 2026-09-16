@@ -16,6 +16,9 @@ jsonSchema:
 isEqual:
   input: (a,b)=>a===b||e[0](a,b)
   output: (a,b)=>a===b||a[1]===b[1]
+compare:
+  input: (a,b)=>a===b?0:e[0](a,b)
+  output: (a,b)=>a===b?0:(a[1]===void 0?b[1]===void 0?0:-1:b[1]===void 0?1:a[1]<b[1]?-1:a[1]>b[1]?1:0)
 vs:
   zod:
     _skip: not-applicable

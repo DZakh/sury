@@ -8,6 +8,7 @@ jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "string" }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod: z.union([z.string().refine((v) => { throw new TypeError("predicate blew up") }), z.string()])
 operations:

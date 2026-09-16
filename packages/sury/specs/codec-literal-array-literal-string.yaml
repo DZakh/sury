@@ -14,6 +14,7 @@ jsonSchema:
     fromInputType: "[1 | 2, 1 | 2]"
     output: '{ type: "string", enum: ["done"] }'
 isEqual: alwaysEqual
+compare: alwaysCompare
 vs:
   zod:
     _skip: not-applicable

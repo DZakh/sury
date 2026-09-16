@@ -14,6 +14,9 @@ jsonSchema:
 isEqual:
   input: strictEqual
   output: alwaysEqual
+compare:
+  input: strictCompare
+  output: alwaysCompare
 vs:
   zod:
     _skip: not-applicable

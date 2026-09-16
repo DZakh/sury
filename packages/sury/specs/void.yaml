@@ -8,6 +8,7 @@ jsonSchema:
   input: Expected JSON, received void
   output: Expected JSON, received void
 isEqual: alwaysEqual
+compare: alwaysCompare
 vs:
   zod: z.void()
 operations:
