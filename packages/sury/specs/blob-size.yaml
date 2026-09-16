@@ -8,6 +8,7 @@ jsonSchema:
   input: Expected JSON, received Blob.size == 2
   output: Expected JSON, received Blob.size == 2
 isEqual: strictEqual
+compare: identityCompare
 vs:
   zod:
     _skip: not-applicable

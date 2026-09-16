@@ -1951,7 +1951,7 @@ S.Error.make(
 | Convert  |                                                      |                                                        | `parse*`, `convert*` |
 | Make     |                                                      | `make*`                                                |                      |
 | Validate | `isInput`                                            | `isOutput`                                             |                      |
-| Compare  |                                                      | `isEqual`                                              |                      |
+| Compare  |                                                      | `isEqual`, `compare`                                   |                      |
 | Assert   | `assertInputOrThrow`, `assertInputAsPromiseOrReject` | `assertOutputOrThrow`, `assertOutputAsPromiseOrReject` |                      |
 | Describe | `toInputJSONSchemaOrThrow`, `toInputExpression`      | `toOutputJSONSchemaOrThrow`, `toOutputExpression`      |                      |
 
@@ -2016,7 +2016,7 @@ ReScript has no overloads, so where the JS surface reads the call shape at runti
 
 The `compile` prefix returns the operation as a function to call repeatedly - the fastest way to run one schema many times. Every outcome has one except `assert*`, which has nothing to hand back and so nothing to keep.
 
-`parse*` and `convert*` take `~to` (and `~from`/`~via`): they convert a value into that target. `assert*`, `is*` and `make*` take `~schema` instead - the value is checked against it and either handed back as it stands or answered about, never converted into it.
+`parse*` and `convert*` take `~to` (and `~from`/`~via`): they convert a value into that target. `assert*`, `is*`, `isEqual`, `compare` and `make*` take `~schema` instead - the value is checked against it and either handed back as it stands or answered about, never converted into it.
 
 There is no promisable outcome here, though the JS surface has one (`parseAsPromisableResult`): telling `result` from `promise<result>` needs a runtime probe that ReScript's untagged variants can't express over a variant payload, and a boxed `Sync | Async` would cost the allocation the outcome exists to avoid.
 
@@ -2105,17 +2105,21 @@ S.compileIsInput: (~schema: S.t<'value>) => 'any => bool
 S.compileIsOutput: (~schema: S.t<'value>) => 'any => bool
 ```
 
-**Comparing** answers whether two values of the schema's type are the same value, by the schema's own structure: fields and elements by their own schemas, a `Date` by its time, a variant by the case each value lands in, and a literal not at all. Both values are assumed to have the type already, so nothing is validated. `S.t<'value>` names the output type, so this is the JS `isEqualOutput`:
+**Comparing** answers whether two values of the schema's type are the same value, by the schema's own structure: fields and elements by their own schemas, a `Date` by its time, a variant by the case each value lands in, and a literal not at all. `compare` is the same walk answering `-1 | 0 | 1` - 0 exactly when `isEqual` would be true. Hand `compileCompare` to `Array.sort` for values the schema can order. Both values are assumed to have the type already, so nothing is validated. `S.t<'value>` names the output type, so these are the JS `isEqualOutput` / `compareOutput`:
 
 ```
 S.isEqual: ('value, 'value, ~schema: S.t<'value>) => bool
 S.compileIsEqual: (~schema: S.t<'value>) => ('value, 'value) => bool
+S.compare: ('value, 'value, ~schema: S.t<'value>) => int
+S.compileCompare: (~schema: S.t<'value>) => ('value, 'value) => int
 ```
 
 ```rescript
 let isSameFilm = S.compileIsEqual(~schema=filmSchema)
-
 isSameFilm(a, b)
+
+let byFilm = S.compileCompare(~schema=filmSchema)
+films->Array.sort(byFilm)
 ```
 
 **Making** checks a value you built in code rather than received from the wire. Every check the schema carries runs - types, the conversion, refinements - and the value itself comes back, not a decoded copy, so an entity the schema has no way to encode fails at construction rather than at the point it's sent. `S.t<'value>` names the output type, so this is the JS `makeOutputOrThrow`:

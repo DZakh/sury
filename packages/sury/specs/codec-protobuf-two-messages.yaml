@@ -10,6 +10,9 @@ jsonSchema:
 isEqual:
   input: (a,b)=>a===b||e[0](a.x,b.x)&&e[1](a.y,b.y)
   output: (a,b)=>a===b||a.x.a===b.x.a&&a.y.b===b.y.b
+compare:
+  input: (a,b)=>a===b?0:(e[0](a.x,b.x))||(e[1](a.y,b.y))
+  output: (a,b)=>a===b?0:a.x.a<b.x.a?-1:a.x.a>b.x.a?1:a.y.b<b.y.b?-1:a.y.b>b.y.b?1:0
 vs:
   zod:
     _skip: todo(#…)

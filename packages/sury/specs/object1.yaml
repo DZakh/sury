@@ -11,6 +11,7 @@ jsonSchema:
   input: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'
   output: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'
 isEqual: (a,b)=>a===b||a.a===b.a
+compare: (a,b)=>a===b?0:a.a<b.a?-1:a.a>b.a?1:0
 vs:
   zod: "z.object({ a: z.string() })"
 operations:

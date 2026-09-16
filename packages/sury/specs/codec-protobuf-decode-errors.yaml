@@ -10,6 +10,9 @@ jsonSchema:
 isEqual:
   input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
   output: (a,b)=>a===b||a.id===b.id&&a.name===b.name&&(a.addr===void 0?b.addr===void 0:b.addr!==void 0&&a.addr.street===b.addr.street)&&e[0](a.tags,b.tags)&&a.ratio===b.ratio
+compare:
+  input: (a,b)=>{if(a===b)return 0;let n=a.length,m=b.length,l=n<m?n:m,c;for(let i=0;i<l;i++)if(c=a[i]<b[i]?-1:a[i]>b[i]?1:0)return c;return n<m?-1:n>m?1:0}
+  output: (a,b)=>a===b?0:((a.id<b.id?-1:a.id>b.id?1:a.name<b.name?-1:a.name>b.name?1:(a.addr===void 0?b.addr===void 0?0:-1:b.addr===void 0?1:a.addr.street<b.addr.street?-1:a.addr.street>b.addr.street?1:0))||(e[0](a.tags,b.tags)))||(a.ratio<b.ratio?-1:a.ratio>b.ratio?1:0)
 vs:
   zod:
     _skip: todo(#…)

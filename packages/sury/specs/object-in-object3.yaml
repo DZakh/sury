@@ -12,6 +12,7 @@ jsonSchema:
   input: '{ type: "object", properties: { a: { type: "string" }, nested: { type: "object", properties: { b: { type: "number" }, inner: { type: "object", properties: { c: { type: "boolean" }, d: { type: "string" } }, required: ["c"] } }, required: ["b", "inner"] } }, required: ["a", "nested"] }'
   output: '{ type: "object", properties: { a: { type: "string" }, nested: { type: "object", properties: { b: { type: "number" }, inner: { type: "object", properties: { c: { type: "boolean" }, d: { type: "string" } }, required: ["c"] } }, required: ["b", "inner"] } }, required: ["a", "nested"] }'
 isEqual: (a,b)=>a===b||a.a===b.a&&a.nested.b===b.nested.b&&a.nested.inner.c===b.nested.inner.c&&a.nested.inner.d===b.nested.inner.d
+compare: (a,b)=>a===b?0:a.a<b.a?-1:a.a>b.a?1:a.nested.b<b.nested.b?-1:a.nested.b>b.nested.b?1:a.nested.inner.c<b.nested.inner.c?-1:a.nested.inner.c>b.nested.inner.c?1:(a.nested.inner.d===void 0?b.nested.inner.d===void 0?0:-1:b.nested.inner.d===void 0?1:a.nested.inner.d<b.nested.inner.d?-1:a.nested.inner.d>b.nested.inner.d?1:0)
 vs:
   zod: "z.object({ a: z.string(), nested: z.object({ b: z.number(), inner: z.object({ c: z.boolean(), d: z.string().optional() }) }) })"
 operations:

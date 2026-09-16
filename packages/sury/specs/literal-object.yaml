@@ -15,6 +15,7 @@ jsonSchema:
     input: '{ type: "object", properties: { foo: { type: "string", enum: ["bar"] } }, required: ["foo"] }'
     output: '{ type: "object", properties: { foo: { type: "string", enum: ["bar"] } }, required: ["foo"] }'
 isEqual: alwaysEqual
+compare: alwaysCompare
 vs:
   zod: 'z.object({ foo: z.literal("bar") })'
 operations:

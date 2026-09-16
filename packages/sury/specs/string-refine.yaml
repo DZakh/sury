@@ -8,6 +8,7 @@ jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "string" }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod: z.string().refine((value) => value !== "bad", "User error")
 operations:

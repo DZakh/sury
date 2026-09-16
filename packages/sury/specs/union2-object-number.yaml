@@ -10,6 +10,7 @@ jsonSchema:
   input: '{ anyOf: [{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }, { type: "number" }] }'
   output: '{ anyOf: [{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }, { type: "number" }] }'
 isEqual: (a,b)=>a===b||!!(typeof a==="object"&&a&&!Array.isArray(a)?typeof b==="object"&&b&&!Array.isArray(b)&&a.a===b.a:typeof b==="number"&&b==b&&a===b)
+compare: (a,b)=>a===b?0:(typeof a==="object"&&a&&!Array.isArray(a)?typeof b==="object"&&b&&!Array.isArray(b)?a.a<b.a?-1:a.a>b.a?1:0:-1:typeof b==="object"&&b&&!Array.isArray(b)?1:a<b?-1:a>b?1:0)
 vs:
   zod: "z.union([z.object({ a: z.string() }), z.number()])"
 operations:

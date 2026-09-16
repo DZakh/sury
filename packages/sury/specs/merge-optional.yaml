@@ -8,6 +8,7 @@ jsonSchema:
   input: '{ type: "object", properties: { _id: { type: "string" }, _rev: { type: "string" }, name: { type: "string" }, code: { type: "string" }, _deleted: { type: "boolean" } }, required: ["name", "code"] }'
   output: '{ type: "object", properties: { _id: { type: "string" }, _rev: { type: "string" }, name: { type: "string" }, code: { type: "string" }, _deleted: { type: "boolean" } }, required: ["name", "code"] }'
 isEqual: (a,b)=>a===b||a._id===b._id&&a._rev===b._rev&&a.name===b.name&&a.code===b.code&&a._deleted===b._deleted
+compare: (a,b)=>a===b?0:(((((a._id===void 0?b._id===void 0?0:-1:b._id===void 0?1:a._id<b._id?-1:a._id>b._id?1:0))||((a._rev===void 0?b._rev===void 0?0:-1:b._rev===void 0?1:a._rev<b._rev?-1:a._rev>b._rev?1:0)))||(a.name<b.name?-1:a.name>b.name?1:0))||(a.code<b.code?-1:a.code>b.code?1:0))||((a._deleted===void 0?b._deleted===void 0?0:-1:b._deleted===void 0?1:a._deleted<b._deleted?-1:a._deleted>b._deleted?1:0))
 vs:
   zod:
     schema: "z.object({ _id: z.string().optional(), _rev: z.string().optional(), name: z.string(), code: z.string(), _deleted: z.boolean().optional() })"

@@ -8,6 +8,7 @@ jsonSchema:
   input: Expected JSON, received Symbol(union-fallback)
   output: Expected JSON, received Symbol(union-fallback)
 isEqual: strictEqual
+compare: (a,b)=>a===b?0:(a===e[0]?b===e[0]?0:-1:b===e[0]?1:0)
 vs:
   zod:
     _skip: not-applicable

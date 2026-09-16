@@ -8,6 +8,7 @@ jsonSchema:
   input: '{ anyOf: [{ anyOf: [{ type: "string" }, { type: "number" }] }, { type: "boolean" }] }'
   output: '{ anyOf: [{ anyOf: [{ type: "string" }, { type: "number" }] }, { type: "boolean" }] }'
 isEqual: strictEqual
+compare: (a,b)=>a===b?0:e[0](a,b)
 vs:
   zod: z.union([z.union([z.string(), z.number()]).refine((value) => value !== ""), z.boolean()])
 operations:

@@ -8,6 +8,7 @@ jsonSchema:
   input: '{ type: "string", pattern: "^[A-Za-z0-9_-]+$" }'
   output: '{ type: "string", pattern: "^[A-Za-z0-9_-]+$" }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod: z.nanoid()
 operations:

@@ -15,6 +15,9 @@ jsonSchema:
 isEqual:
   input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!((a[i].type==="click"?b[i].type==="click"&&a[i].x===b[i].x:b[i].type==="view"&&a[i].path===b[i].path)))return false;return true}
   output: strictEqual
+compare:
+  input: (a,b)=>{if(a===b)return 0;let n=a.length,m=b.length,l=n<m?n:m,c;for(let i=0;i<l;i++)if(c=(a[i].type==="click"?b[i].type==="click"?a[i].x<b[i].x?-1:a[i].x>b[i].x?1:0:-1:b[i].type==="click"?1:a[i].path<b[i].path?-1:a[i].path>b[i].path?1:0))return c;return n<m?-1:n>m?1:0}
+  output: strictCompare
 vs:
   zod:
     _skip: not-applicable
@@ -35,7 +38,7 @@ operations:
         input: '[{ type: "click", x: Infinity }]'
         error: "Failed at [0].x: Expected JSON, received Infinity"
   decode:
-    expression: i=>{let v2="";for(let v1=0;v1<i.length;++v1){try{let v3=i[v1];if(typeof v3==="object"&&v3&&!Array.isArray(v3)){for(;;){if(v3.type==="click"){let v4=v3.x;v3="{\"type\":\"click\",\"x\":"+(Number.isFinite(v4)?v4:e[0](v4))+"}";break}if(v3.type==="view"){v3="{\"type\":\"view\",\"path\":"+e[1](v3.path)+"}";break}e[2](v3)}}else{e[3](v3)}v2+=(v1?",":"")+v3}catch(v5){v5.path=[v1,...v5.path];throw v5}}return "["+v2+"]"}
+    expression: i=>{let v1="";for(let v0=0;v0<i.length;++v0){try{let v2=i[v0];if(typeof v2==="object"&&v2&&!Array.isArray(v2)){for(;;){if(v2.type==="click"){let v3=v2.x;v2="{\"type\":\"click\",\"x\":"+(Number.isFinite(v3)?v3:e[0](v3))+"}";break}if(v2.type==="view"){v2="{\"type\":\"view\",\"path\":"+e[1](v2.path)+"}";break}e[2](v2)}}else{e[3](v2)}v1+=(v0?",":"")+v2}catch(v4){v4.path=[v0,...v4.path];throw v4}}return "["+v1+"]"}
     examples:
       mixed:
         input: '[{ type: "click", x: 1 }, { type: "view", path: "/a" }]'

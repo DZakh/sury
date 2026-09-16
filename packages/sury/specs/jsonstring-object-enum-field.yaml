@@ -14,6 +14,9 @@ jsonSchema:
 isEqual:
   input: (a,b)=>a===b||a.f===b.f
   output: strictEqual
+compare:
+  input: (a,b)=>a===b?0:a.f<b.f?-1:a.f>b.f?1:0
+  output: strictCompare
 vs:
   zod:
     _skip: not-applicable
@@ -36,6 +39,9 @@ operations:
       b:
         input: '{ f: "b" }'
         output: '"{\"f\":\"b\"}"'
+      not-a-member:
+        input: '{ f: "c\"" }'
+        output: '"{\"f\":\"c\"\"}"'
   encode:
     expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0.f;typeof v1==="string"&&(v1==="a"||v1==="b")||e[1](v1);return {f:v1}}
     examples:

@@ -14,6 +14,9 @@ jsonSchema:
 isEqual:
   input: (a,b)=>a===b||a["c\\d"]===b["c\\d"]&&a["q\"t"]===b["q\"t"]
   output: strictEqual
+compare:
+  input: (a,b)=>a===b?0:a["c\\d"]<b["c\\d"]?-1:a["c\\d"]>b["c\\d"]?1:a["q\"t"]<b["q\"t"]?-1:a["q\"t"]>b["q\"t"]?1:0
+  output: strictCompare
 vs:
   zod:
     _skip: not-applicable

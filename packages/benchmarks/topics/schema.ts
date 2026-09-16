@@ -11,7 +11,7 @@ import * as S from "sury";
 import * as v from "valibot";
 import { z } from "zod";
 import { measureBundles } from "../bundle";
-import { NO, buildFeatures, works } from "../features";
+import { NO, PARTLY, YES, buildFeatures, works } from "../features";
 import type { Source } from "../registry";
 import type { Cell, Table } from "../table";
 import { timeNs } from "../time";
@@ -172,13 +172,24 @@ const features = (): Table => {
   const typeboxCodec = Type.Transform(Type.String()).Decode(Number).Encode(String);
   return buildFeatures(COLUMNS, [
     {
+      label: "What you see on hover",
+      note: "the type your editor shows for `{ foo: string }`, which is also what an error quotes back at you",
+      cells: [
+        "`S.Schema<{foo: string}, {foo: string}>`",
+        "`z.ZodObject<{foo: z.ZodString}, $strip>`",
+        "`TObject<{foo: TString}>`",
+        "`v.ObjectSchema<{readonly foo: v.StringSchema<undefined>}, undefined>`",
+        "`Type<{foo: string}, {}>`",
+      ],
+    },
+    {
       label: "Standard Schema",
       note: "the interface tRPC, TanStack and 28 others accept a schema through",
       cells: SCHEMAS.map(([, schema]) => () => standardOf(schema)?.version === 1),
     },
     {
-      label: "A transform runs backwards too",
-      note: "one description for decoding a value and encoding it again",
+      label: "One schema, both directions",
+      note: "write the transform once and the same schema encodes the value back",
       cells: [
         () => S.encodeOrThrow(suryCodec)(7 as never) === "7",
         () => z.encode(zodCodec, 7) === "7",
@@ -188,8 +199,8 @@ const features = (): Table => {
       ],
     },
     {
-      label: "Equality compiled from the schema",
-      note: "comparing two values by what the schema says they are, not by walking them blind",
+      label: "Compares two values for you",
+      note: "the schema knows the shape, so comparing is one generated function instead of a blind walk",
       cells: [
         () => S.isEqualOutput(SURY as never)(VALUE as never, { ...VALUE } as never),
         NO,
@@ -201,12 +212,12 @@ const features = (): Table => {
       ],
     },
     {
-      label: "A constructor that checks the value you built",
-      note: "for a value your own code produced, rather than one that arrived from outside",
+      label: "Checks a value you built yourself",
+      note: "for data your own code produced, where parsing an untrusted input is the wrong tool",
       cells: [() => works(() => S.makeOutputOrThrow(SURY as never)(VALUE as never)), NO, NO, NO, NO],
     },
     {
-      label: "Asynchronous validation",
+      label: "Validates asynchronously",
       cells: [
         () => typeof S.parseAsPromiseOrReject === "function",
         () => typeof ZOD.parseAsync === "function",
@@ -217,12 +228,17 @@ const features = (): Table => {
     },
     {
       label: "Reports every problem, not just the first",
-      note: "Sury stops at the first, which is what makes the parse row below what it is",
+      note: "Sury stops at the first, which is part of why it parses as fast as it does",
       cells: SCHEMAS.map(([, schema]) => () => {
         const issues = standardOf(schema)?.validate({ ...VALUE, string: 1, deeplyNested: { foo: 1, num: 1, bool: false } })
           .issues;
         return issues !== undefined && issues.length > 1;
       }),
+    },
+    {
+      label: "Runs where `new Function` is blocked",
+      note: "a page under a strict CSP, some browser extension contexts",
+      cells: [NO, `${PARTLY} opt-out`, `${PARTLY} opt-in`, YES, `${PARTLY} opt-out`],
     },
   ]);
 };

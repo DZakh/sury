@@ -10,6 +10,9 @@ jsonSchema:
   openapi-3.0:
     input: '{ default: "bar", type: "string", nullable: true }'
 isEqual: strictEqual
+compare:
+  input: (a,b)=>a===b?0:(a===null?b===null?0:-1:b===null?1:a<b?-1:a>b?1:0)
+  output: strictCompare
 vs:
   zod: z.string().nullable().transform((value) => value ?? "bar")
 operations:
