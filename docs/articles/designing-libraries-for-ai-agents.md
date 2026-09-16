@@ -103,28 +103,28 @@ But if the schema transforms something, there are two answers to this question. 
 
 | | The helper | What it checks |
 |---|---|---|
-| Valibot | `v.is(schema, data)` | Input |
-| ArkType | `schema.allows(data)` | Input |
-| TypeBox | `Value.Check(schema, data)` | Input |
-| io-ts | `codec.is(data)` | Output |
-| Effect | `Schema.is(schema)(data)` | Output |
-| Superstruct | `is(data, struct)` | Output |
-| Yup | `schema.isValidSync(data)` | casts first, so both pass |
-| Joi | `schema.validate(data)` | converts first, so both pass |
-| Zod | no `is`, only `safeParse` | Input, and returns the Output |
-| Sury | `S.isInput` / `S.isOutput` | the one you picked |
+| [Zod](https://zod.dev/) | `z.validate(schema, data)` | Input |
+| [Valibot](https://valibot.dev/) | `v.is(schema, data)` | Input |
+| [ArkType](https://arktype.io/) | `schema.allows(data)` | Input |
+| [TypeBox](https://github.com/sinclairzx81/typebox) | `Value.Check(schema, data)` | Input |
+| [io-ts](https://github.com/gcanti/io-ts) | `codec.is(data)` | Output |
+| [Effect](https://effect.website/) | `Schema.is(schema)(data)` | Output |
+| [Superstruct](https://github.com/ianstormtaylor/superstruct) | `is(data, struct)` | Output |
+| [Yup](https://github.com/jquense/yup) | `schema.isValidSync(data)` | converts first, so both pass |
+| [Joi](https://joi.dev/) | `schema.validate(data)` | converts first, so both pass |
+| [Sury](https://github.com/DZakh/sury) | `S.isInput` / `S.isOutput` | the one you picked |
 
-Same call, opposite meaning. Some of them will tell you that your decoded value is invalid, others will say the same about your wire format. And the ones which convert first just say yes to everything.
+Same call, opposite meaning, depending on what's in your `package.json`. And Yup with Joi convert the value first, so they just say yes to both.
 
-The nice part is that it stays quiet while the schema has no transform, because then both answers are the same. Add a `.transform()` one day and every `is` in your codebase silently changes meaning. Russian roulette in disguise. 👀
+You won't notice any of this until the schema gets its first `.transform()`. Russian roulette in disguise. 👀
 
 That's why there's no `S.is`:
 
 ```ts
-const price = S.string.with(S.to, S.number);
+const priceSchema = S.string.with(S.to, S.number);
 
-S.isInput(price, "42"); // true
-S.isOutput(price, "42"); // false
+S.isInput(priceSchema, "42"); // true
+S.isOutput(priceSchema, "42"); // false
 ```
 
 ## 2. Any arguments order
@@ -135,9 +135,13 @@ An agent which guessed the arguments order wrong spends an extra iteration on it
 S.parseOrThrow(data, userSchema);
 S.parseOrThrow(userSchema, data);
 S.parseOrThrow(userSchema)(data);
+
+S.isInput(data, userSchema);
+S.isInput(userSchema, data);
+S.isInput(userSchema)(data);
 ```
 
-All three give the same result, so there's simply nothing to guess here.
+All of them give the same result, so any guess is the right guess.
 
 ## 3. Force a decision where it matters
 
@@ -157,16 +161,23 @@ And it throws when you build the decoder, not when the data arrives, so you see 
 As much as I'd like to force my own API, there are practices the agent takes from its own knowledge. Fighting them costs an iteration, so I just made aliases:
 
 ```ts
-S.schema({ id: S.string });
-S.object({ id: S.string });
-
-S.union([S.literal("admin"), S.literal("user")]);
-S.enum(["admin", "user"]);
+S.union([S.literal("admin"), S.object({ role: S.literal("user") })]);
+S.union([S.literal("admin"), { role: S.literal("user") }]);
+S.union(["admin", { role: "user" }]);
+// all three: Schema<"admin" | { role: "user" }>
 ```
 
-Under the hood it's literally the same thing.
+And if you don't like one of the spellings in your own codebase, that's a linter rule, not a decision I should make for everybody:
 
-## Shipping!
+```js
+// eslint.config.js
+"no-restricted-syntax": ["error", {
+  selector: "CallExpression[callee.object.name='S'][callee.property.name='object']",
+  message: "Use S.schema instead of S.object",
+}]
+```
+
+## Back to the pit of success
 
 Honestly, nothing here is really about AI. A library which drives its own usage was always better for people too. It's just that agents stopped forgiving the parts we used to cover with docs.
 
