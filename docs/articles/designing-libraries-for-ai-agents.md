@@ -162,7 +162,7 @@ As much as I'd like to force my own API, there are practices the agent takes fro
 
 ```ts
 S.union([S.literal("admin"), S.object({ role: S.literal("user") })]);
-S.union([S.literal("admin"), { role: S.literal("user") }]);
+S.union([S.schema("admin"), S.schema({ role: S.schema("user") })]);
 S.union(["admin", { role: "user" }]);
 // all three: Schema<"admin" | { role: "user" }>
 ```
