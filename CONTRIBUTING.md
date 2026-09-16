@@ -365,11 +365,16 @@ instead of silently working around it.
   report the same issue. `tests/operations_test.ts` holds that for a handful of
   schemas instead.
 
-- `resultExpression` is optional with no rule for when a spec should carry one,
-  so no spec does and the field is unused. Either the harness should say what
-  makes a spec the right place for it, or `--write` should fill it everywhere
-  an `expression` exists and let the ratchet watch the Result tail the way it
-  watches the throw tail.
+- `resultExpression` should go. It is optional with no rule for when a spec
+  should carry one, so no spec does; and the Result tail is one emitter with
+  three shapes (`try`, no `try`, promise chain) picked by the throw expression
+  and the raise counter, both already pinned - so per-schema copies of it would
+  be derivation, not coverage. `tests/operations_test.ts` pins the three
+  together, where they read as a set. What is worth keeping is the metric:
+  `summary.ts` already ranks generated-code length from `expression` and could
+  measure the Result tail the same way, computed and ranked without being
+  stored, which is what would have caught the ~90 characters the Standard
+  Schema `issues` added to every `*AsResult` operation.
 
 - `operations` has an `assert` and an `is` slot and no spec fills either, so
   `S.assertInputOrThrow` and `S.isInput` still have no golden anywhere. Both

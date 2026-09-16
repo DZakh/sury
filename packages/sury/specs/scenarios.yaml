@@ -168,8 +168,8 @@ result-read:
     const ok = parse({ id: "u1", age: 30 });
     const bad = parse({ id: "u1", age: "30" });
   # Both branches read at one site, which is what the shared key order buys.
-  # Drop a key from either branch and these reads go polymorphic: measured at
-  # +39% for this pair, against +8% on the construction the key costs.
+  # Drop a key from either branch and these reads go polymorphic: about 1.2ns
+  # per read, against the ~1ns per construction the shared key costs.
   run: "(ok.success ? ok.value.age : ok.issues.length) + (bad.success ? bad.value.age : bad.issues.length)"
 
 is-equal:

@@ -67,9 +67,10 @@ export const assertResult: Internal = /* @__PURE__ */ initSchema(undefinedTag, l
 // `const { value, error } = result` narrow on the TS side (the `?: undefined`
 // sibling fields in `Result`): one decision, both halves.
 //
-// `issues` is the fourth of those keys: a JS Result IS a Standard Schema
-// result, so `S.parseAsResult(schema, data)` can be handed to anything that
-// reads one without a translation step.
+// `issues` is the fourth of those keys, and the one that makes a Result a
+// Standard Schema result. It costs a store on every successful parse; leaving
+// it off the success branch to save that splits the hidden class, and the reads
+// then lose more than the store saved (specs/scenarios.yaml, `result-read`).
 const okResult = (flag: Flag, value: string): string =>
   flag & 256
     ? `{TAG:"Ok",_0:${value}}`
@@ -79,20 +80,14 @@ const okResult = (flag: Flag, value: string): string =>
 // The bare `false` is `is`'s answer; nothing else reaches this without a
 // Result shape to fill.
 //
-// `errVar` holds the raised value, and the JS branch rebinds it to the
-// SuryError in place - it is a catch parameter or an arrow parameter either
-// way, and `issues` needs the error three times. The comma expression is what
-// lets the rebind sit where the caller wants an expression (the promise's
-// rejection handler), so one spelling serves both call sites.
+// Rebinding `errVar` is safe because it is the catch parameter or the
+// rejection handler's parameter, never a value the body still needs; the comma
+// expression is what lets that rebind sit where the caller wants an expression.
+// `issues` reads the error three times, which is what makes it worth a name.
 //
-// `issues` is spelled out here rather than handed to a library function
-// because the Result IS the emitter's output: a helper would move half of it
-// out of the generated code and out of what a spec or `.toString()` shows.
-// `message` is the error's `reason` and not its formatted `message` - the
-// location travels in `path`, and a consumer that renders both would say it
-// twice. `path` is omitted at the root. Both match what `throwTail` emits for
-// `~standard.validate` (parse.ts), which is the whole point, and
-// `tests/operations_test.ts` puts the two side by side so they cannot drift.
+// The issue shape is `throwTail`'s (parse.ts), which is where its reasoning
+// lives - a Result IS a Standard Schema result, so the two emit the same thing
+// and `tests/operations_test.ts` holds them to it.
 const errResult = (input: Val, flag: Flag, errVar: string): string =>
   flag & 256
     ? `{TAG:"Error",_0:${B_embedErrorOf(input)}(${errVar})}`

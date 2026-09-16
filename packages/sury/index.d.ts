@@ -40,9 +40,9 @@ export type FailureResult = {
  *
  * ```ts
  * const result = S.parseAsResult(S.string, 42)
- * result.success  // false
- * result.error    // S.Error, "Expected string, received 42"
- * result.issues   // [{ message: "Expected string, received 42" }]
+ * result.success       // false
+ * result.error?.reason // "Expected string, received 42"
+ * result.issues        // [{ message: "Expected string, received 42" }]
  * ```
  */
 export type Result<TValue> = SuccessResult<TValue> | FailureResult;

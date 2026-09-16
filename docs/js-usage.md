@@ -1994,15 +1994,11 @@ S.parseAsResult(S.schema({ id: S.unknown }).with(S.noValidation, true)).toString
 
 Both branches of a `Result` carry the same keys in the same order, so `const { value, error } = result` narrows and a consumer's `.success` read stays monomorphic.
 
-A `Result` is also a [Standard Schema](#standard-schema) result, so it goes straight to anything that reads one:
+The fourth key is what makes a `Result` a [Standard Schema](#standard-schema) result, so it goes straight to anything that reads one:
 
 ```ts
-const result = S.parseAsResult(S.string, 42);
-result.error;  // S.Error
-result.issues; // [{ message: "Expected string, received 42" }]
+S.parseAsResult(S.string, 42).issues; // [{ message: "Expected string, received 42" }]
 ```
-
-The `issues` are the ones `schema["~standard"].validate(42)` reports for the same value.
 
 Every failure of the value comes back in the outcome's own shape, exceptions included: a refine or coder that throws is wrapped as `invalid_conversion` with the exception as its `cause`, and so is anything else the value raises on its way through (a getter, say). Only a defect - a schema wired wrong, which fails for every input - throws out of every outcome, at the point the operation is created.
 
