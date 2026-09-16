@@ -585,3 +585,24 @@ message Message {
     "[Sury] S.toProtoOrThrow: the schema is not an object",
   );
 });
+
+test("toProtoOrThrow prints one message for a type two fields both reach", (t) => {
+  type Tree = { v: number; left?: Tree; right?: Tree };
+  const tree = S.recursive<Tree>("Tree", (self) =>
+    S.schema({
+      v: S.int32.with(S.protobufField, 1),
+      left: S.optional(self).with(S.protobufField, 2),
+      right: S.optional(self).with(S.protobufField, 3),
+    }),
+  );
+  t.expect(S.toProtoOrThrow(tree)).toBe(
+    `syntax = "proto3";
+
+message Tree {
+  int32 v = 1;
+  optional Tree left = 2;
+  optional Tree right = 3;
+}
+`,
+  );
+});

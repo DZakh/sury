@@ -572,3 +572,51 @@ test("A default on the definition being built is refused, where one beside it is
   );
   t.expect(S.parseOrThrow(holder, {})).toEqual({ done: { n: 7 } });
 });
+
+// 101 levels of nesting is 500-odd bytes, and the spec format records an
+// example's input and output as literals.
+test("a recursive message decodes 100 levels and refuses 101, and encoding has no limit", (t) => {
+  type Cons = { v: number; next?: Cons };
+  const cons = S.recursive<Cons>("Cons", (self) =>
+    S.schema({
+      v: S.int32.with(S.protobufField, 1),
+      next: S.optional(self).with(S.protobufField, 2),
+    }),
+  );
+  const codec = cons.with(S.to, S.protobuf);
+  const nest = (levels: number): Cons =>
+    levels === 1 ? { v: 1, next: undefined } : { v: levels, next: nest(levels - 1) };
+
+  const hundred = S.parseOrThrow(codec, nest(100));
+  t.expect(S.encodeOrThrow(codec, hundred)).toEqual(nest(100));
+
+  // Encoding is what those bytes came from, so the limit is the reader's alone.
+  const overLimit = S.parseOrThrow(codec, nest(101));
+  t.expect(overLimit.length).toBeGreaterThan(hundred.length);
+  t.expect(() => S.encodeOrThrow(codec, overLimit)).toThrow(
+    "protobuf message nesting limit exceeded",
+  );
+});
+
+test("isEqual and compare read a recursive message the codec declares", (t) => {
+  type Node = { v: string; kids: Node[] };
+  const node = S.recursive<Node>("Node", (self) =>
+    S.schema({
+      v: S.string.with(S.protobufField, 1),
+      kids: S.array(self).with(S.protobufField, 2),
+    }),
+  );
+  const codec = node.with(S.to, S.protobuf);
+  const tree = (v: string, kids: Node[] = []): Node => ({ v, kids });
+
+  t.expect(S.isEqualInput(codec, tree("a", [tree("x")]), tree("a", [tree("x")]))).toBe(true);
+  t.expect(S.isEqualInput(codec, tree("a", [tree("x")]), tree("a", [tree("y")]))).toBe(false);
+  t.expect(S.compareInput(codec, tree("a", [tree("x")]), tree("a", [tree("x")]))).toBe(0);
+  t.expect(S.compareInput(codec, tree("a", [tree("x")]), tree("a", [tree("y")]))).toBe(-1);
+
+  // The output side is the wire, compared as the bytes it is.
+  const one = S.parseOrThrow(codec, tree("a"));
+  t.expect(S.isEqualOutput(codec, one, S.parseOrThrow(codec, tree("a")))).toBe(true);
+  t.expect(S.isEqualOutput(codec, one, S.parseOrThrow(codec, tree("b")))).toBe(false);
+  t.expect(S.compareOutput(codec, one, S.parseOrThrow(codec, tree("a")))).toBe(0);
+});

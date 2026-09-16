@@ -684,7 +684,15 @@ const refExpr = (ctx: Ctx, schema: Internal, a: string, b: string): string => {
   // `S.json` describes every JSON value, which is precisely what the structural
   // comparison already covers, and unrolling its `$ref` cycle would emit a
   // comparator for each arm of it.
-  const def = schema.name === jsonName ? U : ctx.d?.[schema["$ref"]!.slice(8)];
+  //
+  // `definition` before the record, the one rule every site that resolves a
+  // `$ref` keeps (see `Internal.definition`). Nothing public reaches here
+  // carrying one - a codec's declared sides are the schema its author wrote,
+  // never a standin its compiler built - so the cost is one `||` against the
+  // day something does, where the record would answer with a definition that
+  // happens to share the name.
+  const def =
+    schema.name === jsonName ? U : schema.definition || ctx.d?.[schema["$ref"]!.slice(8)];
   if (def === U) return deep(ctx, a, b);
   const flag = ctx.b.g.o;
   const existing = findOpNode(def, ctx.op, def, flag);
