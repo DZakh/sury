@@ -78,6 +78,50 @@ S.parseAsResult(userSchema, data);
 
 Now the choice is in the code. The agent is more likely to pick `parseAsResult`, and during review another agent can notice that an error is never handled.
 
+Compare it with Zod, where the throwing one gets the short name:
+
+```ts
+userSchema.parse(data); // throws
+userSchema.safeParse(data); // returns a result
+```
+
+`parse` reads as done. Nothing in it says an exception is coming, and the safe version is the one you have to know about and opt into. Easy to miss in review.
+
+Half a joke, but an important one: this matters even more now, when the review is done by an AI as well. A human at least could have a bad feeling about `parse`.
+
+### The same thing, but nastier
+
+Now look at `is`. Every schema library has it and it looks completely harmless:
+
+```ts
+if (is(userSchema, data)) {
+  // data is a User, right?
+}
+```
+
+For a schema which transforms something there are two answers to that question, and the helper quietly picks one for you:
+
+| | The helper | Validates | Narrows to |
+|---|---|---|---|
+| Zod | no `is`, only `safeParse` | Input | returns the Output |
+| Valibot | `v.is(schema, data)` | Input | Input |
+| ArkType | `schema.allows(data)` | Input | Input |
+| TypeBox | `Value.Check(schema, data)` | Input | Input |
+| Sury | `S.isInput` / `S.isOutput` | you pick | the side you picked |
+
+They all check the Input. So on a codec schema `is` says the value is fine _on the wire_, and the code below goes on treating it as the decoded thing. Nothing decoded it.
+
+Add a `.transform()` to a shared schema one day and every `is` in the codebase silently changes meaning. Russian roulette in disguise.
+
+That's why there's no `S.is`:
+
+```ts
+const price = S.string.with(S.to, S.number);
+
+S.isInput(price, "42"); // true
+S.isOutput(price, "42"); // false
+```
+
 ## 2. Any arguments order
 
 An agent which guessed the arguments order wrong spends an extra iteration on it. So I let every order work:
