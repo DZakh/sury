@@ -128,8 +128,6 @@ export const parse = (input: Val): Val => {
 
   return result;
 }
-// Path lives on the val (static prefix plus PathDyn). Compile-time throws use compilePath.
-export const parseDynamic = (input: Val): Val => parse(input);
 
 // How a compiled operation's body ends. `undefined` means "no body at all" -
 // the operation is the identity, and the caller hands back `noopOperation`.

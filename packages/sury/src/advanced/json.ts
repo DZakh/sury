@@ -58,7 +58,6 @@ import {
 import {
  getOutputSchema,
  parse,
- parseDynamic
 } from "../parse";
 import {
   bool,
@@ -868,10 +867,10 @@ export const jsonString = /* @__PURE__ */ (() => {
             // branch, where resolving the union first would rebuild the item
             // and then re-dispatch on it to serialize.
             itemInput.e = perVariantTo(item.anyOf!, jsonPiece, () => false);
-            piece = { p: parseDynamic(itemInput), g: U };
+            piece = { p: parse(itemInput), g: U };
           }
         }
-        const { p, g } = piece !== U ? piece : fieldPiece(parseDynamic(itemInput), isArr, U, true);
+        const { p, g } = piece !== U ? piece : fieldPiece(parse(itemInput), isArr, U, true);
         // An async item can't be appended as it arrives: the loop collects each
         // item's text as a promise instead, and the chunk is their join.
         const itemAsync = !!(p.f & 1);

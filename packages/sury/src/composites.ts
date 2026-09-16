@@ -64,7 +64,6 @@ import {
 import {
   getOutputSchema,
   parse,
-  parseDynamic,
 } from "./parse";
 import {
  isArrayCond,
@@ -331,7 +330,7 @@ export const arrayDecoder = (unknownInput: Val): Val => {
       const raiseCountBefore = input.g.t;
       const itemInput = B_dynamicScope(input, iteratorVar);
       B_narrowJsonSourcedJsonString(itemInput);
-      const itemOutput = parseDynamic(itemInput);
+      const itemOutput = parse(itemInput);
       const hasTransform = itemOutput.t!;
       const output2 = hasTransform
         ? // The next `.to` segment decodes from this schema - item-output, not expectedSchema (#284)
@@ -472,7 +471,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
     const raiseCountBefore = input.g.t;
     const itemInput = B_dynamicScope(input, keyVar);
     B_narrowJsonSourcedJsonString(itemInput);
-    const itemOutput = parseDynamic(itemInput);
+    const itemOutput = parse(itemInput);
 
     const hasTransform = itemOutput.t!;
     const output2 = hasTransform
