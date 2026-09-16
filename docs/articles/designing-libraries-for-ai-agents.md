@@ -1,71 +1,51 @@
 ---
-title: I'm designing libraries professionally for 5 years
-published: false
-description: How agentic programming changed the way I design a public API, with four things I did in the Sury v11 release.
+title: I have designed libraries professionally for 5 years
+published: true
+description: How AI did NOT change anything, and why?
 tags: typescript, opensource, ai, webdev
 # cover_image: https://direct_url_to_image.jpg
 # Use a ratio of 100:42 for best results.
 # published_at: 2026-06-16 17:36 +0000
 ---
 
-7 years ago I published my first library to npm [custom-border-mixin](https://www.npmjs.com/package/custom-border-mixin). Back then I decided to postpone learning JavaScript and spent a week writing an SCSS mixin for fun. If you wonder what fun might be in SCSS, just look at the helper:
+7 years ago I published my first library to npm [custom-border-mixin](https://www.npmjs.com/package/custom-border-mixin). Back then, I disappeared for a week writing an SCSS mixin for fun. If you wonder what fun might be in SCSS, just look at the helper:
 
 ```scss
 @function param-get($parameters, $key) {
   $value: map-get($parameters, $key);
-  @if $key ==
-    "side" and
-    $value !=
-    "top" and
-    $value !=
-    "right" and
-    $value !=
-    "bottom" and
-    $value !=
-    "left"
-  {
+  @if $key == 'side' and $value != 'top' and $value != 'right' and $value != 'bottom' and $value != 'left' {
     @error 'Value #{$value} of property #{$key} must be either top, or right, or bottom, or left, or vertical, or horizontal, or all.';
   }
-  @if ($key == "size" or $key == "length" or $key == "gap") and
-    (type-of($value) != number or type-of($value) == number and $value < 0)
-  {
+  @if ($key == 'size' or $key == 'length' or $key == 'gap') and (type-of($value) != number or type-of($value) == number and $value < 0) {
     @error 'Value #{$value} of property #{$key} must be non-negative size number.';
   }
-  @if $key == "color" and type-of($value) != color {
+  @if $key == 'color' and type-of($value) != color {
     @error 'Value #{$value} of property #{$key} must be color.';
   }
-  @if $key ==
-    "start" and
-    $value !=
-    "origin" and
-    $value !=
-    "center" and
-    $value !=
-    "opposite"
-  {
+  @if $key == 'start' and $value != 'origin' and $value != 'center' and $value != 'opposite' {
     @error 'Value #{$value} of property #{$key} must be either origin, center, or opposite.';
   }
   @return $value;
 }
 ```
 
-Nobody wanted and nobody asked for the mixin, but I think it born some passion inside of me. Probably this is how many people come to open-source.
+Nobody wanted, and nobody asked for, the mixin, but I think it sparked some passion inside of me. This is probably how many people come to open source.
 
-My name is [Dmitry](https://x.com/dzakh_dev) and in the article I'll share how my vision on libraries design and public API specificaly changed with coming of agentic programming.
+My name is [Dmitry](https://x.com/dzakh_dev), and in this article I'll share how my vision for library design and public APIs was shaped by the rise of agentic programming. And how it actually didn't change what a good library is.
 
-I worked in a platform team, then 5 years ago created my personal open-source project [Sury](https://github.com/DZakh/sury). It's v11 and still going. Currently I work at [Envio](https://envio.dev/) where I shape and build the fasted blockchain indexing tool ([HyperIndex GitHub](https://github.com/enviodev/hyperindex)).
+I worked on a platform team, then 5 years ago created my personal open-source project [Sury](https://github.com/DZakh/sury). It's v11 and still going. Currently, I work at [Envio](https://envio.dev/) where I shape and build the fastest blockchain indexing tool ([HyperIndex GitHub](https://github.com/enviodev/hyperindex)).
 
-## How AI changed library API design?
+## How has AI changed library API design?
 
-In an ideal world there should be close to none difference between API for human-being or an AI agent. It just happened that designing libraries before, we often relied on expectation that users read the docs, have prior knowledge, or _context_. With agents this not always work, and what becomes important is to design the library the way, so the API will drive the usage.
+In an ideal world, there should be little to no difference between an API for a human being and an AI agent. It just happened that, when designing libraries before, we often relied on the expectation that users read the docs, have prior knowledge, or _context_. With agents, this doesn't always work, so it's important to design the library so the API drives users...
 
-**To fall into the pit of success** - it's never old.
+**...To fall into the pit of success** - I know, I know, but it's never old.
 
-Besides obvious ones like guiding error messages, here are some ideas I used when shipping [Sury](https://github.com/DZakh/sury) v11 release. Sury is a JavaScript schema library and I'll use it for examples from now on.
+Besides obvious ones like guiding error messages, here are some practices I used when shipping [Sury](https://github.com/DZakh/sury) v11 release. Sury is a JavaScript schema library, and I'll use it for examples from now on.
 
 ## 1. Prefer explicit over implicit
 
-There's no `S.parse` in Sury. I didn't want to give a default which throws somewhere down the line and nobody handles it. So there are two names, and you have to choose:
+There's no `parse` in Sury. I didn't want to give a default that throws somewhere down the line, and nobody handles it. So there are two names, and you have to choose:
 
 ```ts
 S.parseOrThrow(userSchema, data);
@@ -85,13 +65,13 @@ userSchema.parse(data); // throws
 userSchema.safeParse(data); // returns a result
 ```
 
-Looks finished, doesn't it? Nothing in `parse` tells you that an exception is coming, and the safe version is hidden behind a name you have to know about.
+Without the `safeParse` line, `parse` would look similarly safe, doesn't it? Nothing in `parse` tells you that an exception is coming, and the safe version is hidden behind a name you have to know about.
 
-Half a joke, but an important one - it matters even more now, when the review is done by an AI as well. A human at least could have a bad feeling about `parse`. 😄
+Ironically, it matters even more now that an AI does the review. A human at least could have a bad feeling about `parse`.
 
 ### The same story, but worse
 
-Now look at `is`. Every schema library has something like it, and on the first glance it looks completely harmless:
+Now look at `is`/`validate`. Every schema library has something like it, and at first glance it looks completely harmless:
 
 ```ts
 if (is(userSchema, data)) {
@@ -116,7 +96,7 @@ But if the schema transforms something, there are two answers to this question. 
 
 Same call, opposite meaning, depending on what's in your `package.json`. And Yup with Joi convert the value first, so they just say yes to both.
 
-You won't notice any of this until the schema gets its first `.transform()`. Russian roulette in disguise. 👀
+Russian roulette in disguise. 👀
 
 That's why there's no `S.is`:
 
@@ -127,9 +107,9 @@ S.isInput(priceSchema, "42"); // true
 S.isOutput(priceSchema, "42"); // false
 ```
 
-## 2. Any arguments order
+## 2. Any way where it doesn't matter
 
-An agent which guessed the arguments order wrong spends an extra iteration on it. And why should it? So I made every order work:
+An agent that guessed the argument order wrong spends an extra iteration on it. The same goes for humans, but at least they'll probably remember it after a second time. But why should they? So I made every order work:
 
 ```ts
 S.parseOrThrow(data, userSchema);
@@ -158,7 +138,7 @@ And it throws when you build the decoder, not when the data arrives, so you see 
 
 ## 4. Aliases for common knowledge
 
-As much as I'd like to force my own API, there are practices the agent takes from its own knowledge. Fighting them costs an iteration, so I just made aliases:
+As much as I'd like to force my own API, the agent/human-being first tries the syntax from their own knowledge. Fighting them costs an iteration and frustration, so I just made aliases:
 
 ```ts
 S.union([S.literal("admin"), S.object({ role: S.literal("user") })]);
@@ -179,6 +159,6 @@ And if you don't like one of the spellings in your own codebase, that's a linter
 
 ## Back to the pit of success
 
-Honestly, nothing here is really about AI. A library which drives its own usage was always better for people too. It's just that agents stopped forgiving the parts we used to cover with docs.
+Honestly, none of this is really about AI. A library that drives its own usage was always better for people too. It's just that agents stopped forgiving the parts we used to cover with docs.
 
 All of this is in [Sury](https://github.com/DZakh/sury) v11, which is out now. And if you want more about schema libraries and library design, follow me on [X](https://x.com/dzakh_dev) - it'll make my day 🙏
