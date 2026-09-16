@@ -11,6 +11,9 @@ jsonSchema:
 isEqual:
   input: (a,b)=>a===b||a.plain===b.plain&&a.quoted===b.quoted&&a.three===b.three&&a.nested.f===b.nested.f&&e[0](a.items,b.items)&&a.opt===b.opt
   output: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: (a,b)=>a===b?0:(a.plain<b.plain?-1:a.plain>b.plain?1:a.quoted<b.quoted?-1:a.quoted>b.quoted?1:a.three<b.three?-1:a.three>b.three?1:a.nested.f<b.nested.f?-1:a.nested.f>b.nested.f?1:e[0](a.items,b.items))||((a.opt==="a"?b.opt==="a"?0:-1:b.opt==="a"?1:a.opt==="b"?b.opt==="b"?0:-1:b.opt==="b"?1:0))
+  output: (a,b)=>a===b?0:e[0](a,b)
 vs:
   zod:
     _skip: not-applicable
@@ -58,7 +61,7 @@ operations:
         input: '{ plain: "a", quoted: "a\"q", three: "c", nested: { f: "b" }, items: [{ f: "a" }], opt: "x\"y" }'
         output: '{ plain: "a", quoted: "a\"q", three: "c", nested: { f: "b" }, items: [{ f: "a" }], opt: "x\"y" }'
   encode:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[9](i);let v0=i.plain,v1=i.quoted,v2=i.three,v3=i.nested,v5=i.items,v10=(i.opt??null);typeof v0==="string"&&(v0==="a"||v0==="b")||e[0](v0);typeof v1==="string"&&(v1==="a\"q"||v1==="b")||e[1](v1);typeof v2==="string"&&(v2==="a"||v2==="b"||v2==="c")||e[2](v2);typeof v3==="object"&&v3&&!Array.isArray(v3)||e[4](v3);let v4=v3.f;typeof v4==="string"&&(v4==="a"||v4==="b")||e[3](v4);Array.isArray(v5)||e[7](v5);let v9=new Array(v5.length);for(let v6=0;v6<v5.length;++v6){let v7=v5[v6];typeof v7==="object"&&v7&&!Array.isArray(v7)||e[6](v7,["items",v6]);let v8=v7.f;typeof v8==="string"&&(v8==="a"||v8==="b")||e[5](v8,["items",v6,"f"]);v9[v6]={f:v8}}for(;;){if(typeof v10==="string"&&(v10==="a"||v10==="b"))break;if(v10===null){v10=void 0;break}e[8](v10,["opt"])}return {plain:v0,quoted:v1,three:v2,nested:{f:v4},items:v9,opt:v10}}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[9](i);let v0=i.plain,v1=i.quoted,v2=i.three,v3=i.nested,v5=i.items,v10=(i.opt??null);typeof v0==="string"&&(v0==="a"||v0==="b")||e[0](v0);typeof v1==="string"&&(v1==="a\"q"||v1==="b")||e[1](v1);typeof v2==="string"&&(v2==="a"||v2==="b"||v2==="c")||e[2](v2);typeof v3==="object"&&v3&&!Array.isArray(v3)||e[4](v3);let v4=v3.f;typeof v4==="string"&&(v4==="a"||v4==="b")||e[3](v4);Array.isArray(v5)||e[7](v5);let v9=new Array(v5.length);for(let v6=0;v6<v5.length;++v6){let v7=v5[v6];typeof v7==="object"&&v7&&!Array.isArray(v7)||e[6](v7,["items",v6]);let v8=v7.f;typeof v8==="string"&&(v8==="a"||v8==="b")||e[5](v8,["items",v6,"f"]);v9[v6]={f:v8}}for(;;){if(typeof v10==="string"&&(v10==="a"||v10==="b"))break;if(v10===null){v10=void 0;break}e[8](v10)}return {plain:v0,quoted:v1,three:v2,nested:{f:v4},items:v9,opt:v10}}
     examples:
       in-contract:
         input: '{ plain: "a", quoted: "a\"q", three: "c", nested: { f: "b" }, items: [{ f: "a" }], opt: "b" }'

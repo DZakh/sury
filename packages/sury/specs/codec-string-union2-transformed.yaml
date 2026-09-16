@@ -8,6 +8,9 @@ jsonSchema:
   input: '{ type: "string" }'
   output: '{ anyOf: [{ type: "number" }, { type: "string" }] }'
 isEqual: strictEqual
+compare:
+  input: strictCompare
+  output: (a,b)=>a===b?0:(typeof a==="number"&&a==a?typeof b==="number"&&b==b?a<b?-1:a>b?1:0:-1:typeof b==="number"&&b==b?1:a<b?-1:a>b?1:0)
 vs:
   zod:
     _skip: not-applicable
@@ -46,7 +49,7 @@ operations:
         input: '"Infinity"'
         output: Infinity
   encode:
-    expression: i=>{for(;;){if(typeof i==="number"&&i==i){i=""+i;break}if(typeof i==="string")break;e[0](i,[])}return i}
+    expression: i=>{for(;;){if(typeof i==="number"&&i==i){i=""+i;break}if(typeof i==="string")break;e[0](i)}return i}
     examples:
       number:
         input: "123"

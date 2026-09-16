@@ -12,6 +12,7 @@ jsonSchema:
   openapi-3.0:
     output: '{ type: "string", pattern: "^\\d+$" }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod:
     _skip: not-applicable

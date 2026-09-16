@@ -13,12 +13,15 @@ jsonSchema:
 isEqual:
   input: (a,b)=>a===b||e[0](a,b)
   output: (a,b)=>a===b||(a.value.type==="B"?b.value.type==="B"&&(a.value.value===void 0?b.value.value===void 0:b.value.value!==void 0&&+a.value.value===+b.value.value):b.value.type==="C"&&(a.value.value===void 0?b.value.value===void 0:b.value.value!==void 0&&+a.value.value===+b.value.value))
+compare:
+  input: (a,b)=>a===b?0:e[0](a,b)
+  output: (a,b)=>a===b?0:(a.value.type==="B"?b.value.type==="B"?(a.value.value===void 0?b.value.value===void 0?0:-1:b.value.value===void 0?1:+a.value.value<+b.value.value?-1:+a.value.value>+b.value.value?1:+a.value.value===+b.value.value?0:1):-1:b.value.type==="B"?1:(a.value.value===void 0?b.value.value===void 0?0:-1:b.value.value===void 0?1:+a.value.value<+b.value.value?-1:+a.value.value>+b.value.value?1:+a.value.value===+b.value.value?0:1))
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[8](i);let v0=i.value;if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.type==="B"){let v2=(v0.value??null);for(;;){let r;if(typeof v2==="string"){try{let v1=new Date((v0.value??null));!Number.isNaN(v1.getTime())||e[0](v1);v2=v1;break}catch(x){(r||(r=[])).push(e[1](x))}}if(v2===null){v2=void 0;break}e[2](v2,["value","value"],...(r||[]))}v0={type:v0.type,value:v2};break}if(v0.type==="C"){let v4=(v0.value??null);for(;;){let r;if(typeof v4==="string"){try{let v3=new Date((v0.value??null));!Number.isNaN(v3.getTime())||e[3](v3);v4=v3;break}catch(x){(r||(r=[])).push(e[4](x))}}if(v4===null){v4=void 0;break}e[5](v4,["value","value"],...(r||[]))}v0={type:v0.type,value:v4};break}e[6](v0,["value"])}}else{e[7](v0,["value"])}return {value:v0}}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[8](i);let v0=i.value;if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.type==="B"){let v2=(v0.value??null);for(;;){let r;if(typeof v2==="string"){try{let v1=new Date((v0.value??null));!Number.isNaN(v1.getTime())||e[0](v1);v2=v1;break}catch(x){(r||(r=[])).push(e[1](x))}}if(v2===null){v2=void 0;break}e[2](v2,...(r||[]))}v0={type:v0.type,value:v2};break}if(v0.type==="C"){let v4=(v0.value??null);for(;;){let r;if(typeof v4==="string"){try{let v3=new Date((v0.value??null));!Number.isNaN(v3.getTime())||e[3](v3);v4=v3;break}catch(x){(r||(r=[])).push(e[4](x))}}if(v4===null){v4=void 0;break}e[5](v4,...(r||[]))}v0={type:v0.type,value:v4};break}e[6](v0)}}else{e[7](v0)}return {value:v0}}
     examples:
       b-with-date:
         input: '{ value: { type: "B", value: "2024-01-01T00:00:00.000Z" } }'
@@ -36,7 +39,7 @@ operations:
           - At value.value: Expected Date, received invalid Date
   decode: eq-to-parse
   encode:
-    expression: i=>{let v0=i.value;if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.type==="B"){let v2=v0.value;for(;;){if(v2 instanceof e[1]){let v1;try{v1=v2.toISOString()}catch(_){e[0](v2)}v2=v1;break}if(v2===void 0)break;e[2](v2,["value","value"])}v0={type:"B",value:v2};break}if(v0.type==="C"){let v4=v0.value;for(;;){if(v4 instanceof e[4]){let v3;try{v3=v4.toISOString()}catch(_){e[3](v4)}v4=v3;break}if(v4===void 0)break;e[5](v4,["value","value"])}v0={type:"C",value:v4};break}e[6](v0,["value"])}}else{e[7](v0,["value"])}if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.type==="B"){let v6=v0.value;let v5={type:"B"};if(v6!==void 0){v5.value=v6}v0=v5;break}if(v0.type==="C"){let v8=v0.value;let v7={type:"C"};if(v8!==void 0){v7.value=v8}v0=v7;break}e[8](v0,["value"])}}else{e[9](v0,["value"])}return {value:v0}}
+    expression: i=>{let v0=i.value;if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.type==="B"){let v2=v0.value;for(;;){if(v2 instanceof e[1]){let v1;try{v1=v2.toISOString()}catch(_){e[0](v2)}v2=v1;break}if(v2===void 0)break;e[2](v2)}v0={type:"B",value:v2};break}if(v0.type==="C"){let v4=v0.value;for(;;){if(v4 instanceof e[4]){let v3;try{v3=v4.toISOString()}catch(_){e[3](v4)}v4=v3;break}if(v4===void 0)break;e[5](v4)}v0={type:"C",value:v4};break}e[6](v0)}}else{e[7](v0)}if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.type==="B"){let v6=v0.value;let v5={type:"B"};if(v6!==void 0){v5.value=v6}v0=v5;break}if(v0.type==="C"){let v8=v0.value;let v7={type:"C"};if(v8!==void 0){v7.value=v8}v0=v7;break}e[8](v0)}}else{e[9](v0)}return {value:v0}}
     examples:
       b-with-date:
         input: '{ value: { type: "B", value: new Date("2024-01-01T00:00:00.000Z") } }'

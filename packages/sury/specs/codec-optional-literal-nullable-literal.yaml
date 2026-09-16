@@ -8,12 +8,15 @@ jsonSchema:
   input: Expected JSON, received "x" | undefined
   output: '{ enum: ["x", null] }'
 isEqual: strictEqual
+compare:
+  input: (a,b)=>a===b?0:(a===void 0?b===void 0?0:-1:b===void 0?1:0)
+  output: (a,b)=>a===b?0:(a===null?b===null?0:-1:b===null?1:0)
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{for(;;){if(typeof i==="string"&&i==="x")break;if(i===void 0){i=null;break}e[0](i,[])}return i}
+    expression: i=>{for(;;){if(typeof i==="string"&&i==="x")break;if(i===void 0){i=null;break}e[0](i)}return i}
     examples:
       literal:
         input: '"x"'
@@ -26,7 +29,7 @@ operations:
         error: Expected "x" | undefined, received "y"
   decode: eq-to-parse
   encode:
-    expression: i=>{for(;;){if(typeof i==="string"&&i==="x")break;if(i===null){i=void 0;break}e[0](i,[])}return i}
+    expression: i=>{for(;;){if(typeof i==="string"&&i==="x")break;if(i===null){i=void 0;break}e[0](i)}return i}
     examples:
       literal:
         input: '"x"'

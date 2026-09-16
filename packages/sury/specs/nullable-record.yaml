@@ -11,12 +11,13 @@ jsonSchema:
     input: '{ type: "object", additionalProperties: { type: "string" }, nullable: true }'
     output: '{ type: "object", additionalProperties: { type: "string" }, nullable: true }'
 isEqual: (a,b)=>a===b||(a===null?b===null:b!==null&&e[0](a,b))
+compare: (a,b)=>a===b?0:(a===null?b===null?0:-1:b===null?1:e[0](a,b))
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){for(let v0 in i){let v1=i[v0];typeof v1==="string"||e[0](v1,[v0]);};break}if(i===null)break;e[1](i,[])}return i}
+    expression: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){for(let v0 in i){let v1=i[v0];typeof v1==="string"||e[0](v1,[v0]);};break}if(i===null)break;e[1](i)}return i}
     examples:
       record:
         input: '{ a: "x" }'

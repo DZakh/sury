@@ -14,12 +14,15 @@ jsonSchema:
 isEqual:
   input: (a,b)=>a===b||a.plain===b.plain&&a.quoted===b.quoted&&a.three===b.three&&a.nested.f===b.nested.f&&e[0](a.items,b.items)&&a.opt===b.opt
   output: strictEqual
+compare:
+  input: (a,b)=>a===b?0:(a.plain<b.plain?-1:a.plain>b.plain?1:a.quoted<b.quoted?-1:a.quoted>b.quoted?1:a.three<b.three?-1:a.three>b.three?1:a.nested.f<b.nested.f?-1:a.nested.f>b.nested.f?1:e[0](a.items,b.items))||((a.opt==="a"?b.opt==="a"?0:-1:b.opt==="a"?1:a.opt==="b"?b.opt==="b"?0:-1:b.opt==="b"?1:0))
+  output: strictCompare
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[10](i);let v0=i.plain,v1=i.quoted,v2=i.three,v3=i.nested,v5=i.items,v10=i.opt;typeof v0==="string"&&(v0==="a"||v0==="b")||e[0](v0);if(typeof v1==="string"){for(;;){if(v1==="a\"q"){v1="\"a\\\"q\"";break}if(v1==="b"){v1="\"b\"";break}e[1](v1,["quoted"])}}else{e[2](v1,["quoted"])}typeof v2==="string"&&(v2==="a"||v2==="b"||v2==="c")||e[3](v2);typeof v3==="object"&&v3&&!Array.isArray(v3)||e[5](v3);let v4=v3.f;typeof v4==="string"&&(v4==="a"||v4==="b")||e[4](v4);Array.isArray(v5)||e[8](v5);let v7="";for(let v6=0;v6<v5.length;++v6){let v8=v5[v6];typeof v8==="object"&&v8&&!Array.isArray(v8)||e[7](v8,["items",v6]);let v9=v8.f;typeof v9==="string"&&(v9==="a"||v9==="b")||e[6](v9,["items",v6,"f"]);v7+=(v6?",":"")+"{\"f\":\""+v9+"\"}"}(typeof v10==="string"&&(v10==="a"||v10==="b")||v10===void 0)||e[9](v10);let v11="{\"plain\":\""+v0+"\",\"quoted\":"+v1+",\"three\":\""+v2+"\",\"nested\":{\"f\":\""+v4+"\"},\"items\":["+v7+"]";if(v10!==void 0){v11+=",\"opt\":\""+v10+"\""}return v11+"}"}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[10](i);let v0=i.plain,v1=i.quoted,v2=i.three,v3=i.nested,v5=i.items,v10=i.opt;typeof v0==="string"&&(v0==="a"||v0==="b")||e[0](v0);if(typeof v1==="string"){for(;;){if(v1==="a\"q"){v1="\"a\\\"q\"";break}if(v1==="b"){v1="\"b\"";break}e[1](v1)}}else{e[2](v1)}typeof v2==="string"&&(v2==="a"||v2==="b"||v2==="c")||e[3](v2);typeof v3==="object"&&v3&&!Array.isArray(v3)||e[5](v3);let v4=v3.f;typeof v4==="string"&&(v4==="a"||v4==="b")||e[4](v4);Array.isArray(v5)||e[8](v5);let v7="";for(let v6=0;v6<v5.length;++v6){let v8=v5[v6];typeof v8==="object"&&v8&&!Array.isArray(v8)||e[7](v8,["items",v6]);let v9=v8.f;typeof v9==="string"&&(v9==="a"||v9==="b")||e[6](v9,["items",v6,"f"]);v7+=(v6?",":"")+"{\"f\":\""+v9+"\"}"}(typeof v10==="string"&&(v10==="a"||v10==="b")||v10===void 0)||e[9](v10);let v11="{\"plain\":\""+v0+"\",\"quoted\":"+v1+",\"three\":\""+v2+"\",\"nested\":{\"f\":\""+v4+"\"},\"items\":["+v7+"]";if(v10!==void 0){v11+=",\"opt\":\""+v10+"\""}return v11+"}"}
     examples:
       in-contract:
         input: '{ plain: "a", quoted: "a\"q", three: "c", nested: { f: "b" }, items: [{ f: "a" }], opt: "b" }'
@@ -46,7 +49,7 @@ operations:
         input: '{ plain: "a", quoted: "a\"q", three: "c", nested: { f: "b" }, items: [{ f: "a" }], opt: "x\"y" }'
         error: 'Failed at opt: Expected "a" | "b" | undefined, received "x"y"'
   decode:
-    expression: i=>{let v0=i.nested,v1=i.items,v4=i.quoted,v8=i.opt;if(typeof v4==="string"){for(;;){if(v4==="a\"q"){v4="\"a\\\"q\"";break}if(v4==="b"){v4="\"b\"";break}e[0](v4,["quoted"])}}else{e[1](v4,["quoted"])}let v6="";for(let v5=0;v5<v1.length;++v5){let v7=v1[v5];v6+=(v5?",":"")+"{\"f\":\""+v7.f+"\"}"}let v9="{\"plain\":\""+i.plain+"\",\"quoted\":"+v4+",\"three\":\""+i.three+"\",\"nested\":{\"f\":\""+v0.f+"\"},\"items\":["+v6+"]";if(v8!==void 0){v9+=",\"opt\":\""+v8+"\""}return v9+"}"}
+    expression: i=>{let v0=i.nested,v1=i.items,v4=i.quoted,v8=i.opt;if(typeof v4==="string"){for(;;){if(v4==="a\"q"){v4="\"a\\\"q\"";break}if(v4==="b"){v4="\"b\"";break}e[0](v4)}}else{e[1](v4)}let v6="";for(let v5=0;v5<v1.length;++v5){let v7=v1[v5];v6+=(v5?",":"")+"{\"f\":\""+v7.f+"\"}"}let v9="{\"plain\":\""+i.plain+"\",\"quoted\":"+v4+",\"three\":\""+i.three+"\",\"nested\":{\"f\":\""+v0.f+"\"},\"items\":["+v6+"]";if(v8!==void 0){v9+=",\"opt\":\""+v8+"\""}return v9+"}"}
     examples:
       in-contract:
         input: '{ plain: "a", quoted: "a\"q", three: "c", nested: { f: "b" }, items: [{ f: "a" }], opt: "b" }'
@@ -73,7 +76,7 @@ operations:
         input: '{ plain: "a", quoted: "a\"q", three: "c", nested: { f: "b" }, items: [{ f: "a" }], opt: "x\"y" }'
         output: '"{\"plain\":\"a\",\"quoted\":\"a\\\"q\",\"three\":\"c\",\"nested\":{\"f\":\"b\"},\"items\":[{\"f\":\"a\"}],\"opt\":\"x\"y\"}"'
   encode:
-    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[10](v0);let v1=v0.plain,v2=v0.quoted,v3=v0.three,v4=v0.nested,v6=v0.items,v11=(v0.opt??null);typeof v1==="string"&&(v1==="a"||v1==="b")||e[1](v1);typeof v2==="string"&&(v2==="a\"q"||v2==="b")||e[2](v2);typeof v3==="string"&&(v3==="a"||v3==="b"||v3==="c")||e[3](v3);typeof v4==="object"&&v4&&!Array.isArray(v4)||e[5](v4);let v5=v4.f;typeof v5==="string"&&(v5==="a"||v5==="b")||e[4](v5);Array.isArray(v6)||e[8](v6);let v10=new Array(v6.length);for(let v7=0;v7<v6.length;++v7){let v8=v6[v7];typeof v8==="object"&&v8&&!Array.isArray(v8)||e[7](v8,["items",v7]);let v9=v8.f;typeof v9==="string"&&(v9==="a"||v9==="b")||e[6](v9,["items",v7,"f"]);v10[v7]={f:v9}}for(;;){if(typeof v11==="string"&&(v11==="a"||v11==="b"))break;if(v11===null){v11=void 0;break}e[9](v11,["opt"])}return {plain:v1,quoted:v2,three:v3,nested:{f:v5},items:v10,opt:v11}}
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[10](v0);let v1=v0.plain,v2=v0.quoted,v3=v0.three,v4=v0.nested,v6=v0.items,v11=(v0.opt??null);typeof v1==="string"&&(v1==="a"||v1==="b")||e[1](v1);typeof v2==="string"&&(v2==="a\"q"||v2==="b")||e[2](v2);typeof v3==="string"&&(v3==="a"||v3==="b"||v3==="c")||e[3](v3);typeof v4==="object"&&v4&&!Array.isArray(v4)||e[5](v4);let v5=v4.f;typeof v5==="string"&&(v5==="a"||v5==="b")||e[4](v5);Array.isArray(v6)||e[8](v6);let v10=new Array(v6.length);for(let v7=0;v7<v6.length;++v7){let v8=v6[v7];typeof v8==="object"&&v8&&!Array.isArray(v8)||e[7](v8,["items",v7]);let v9=v8.f;typeof v9==="string"&&(v9==="a"||v9==="b")||e[6](v9,["items",v7,"f"]);v10[v7]={f:v9}}for(;;){if(typeof v11==="string"&&(v11==="a"||v11==="b"))break;if(v11===null){v11=void 0;break}e[9](v11)}return {plain:v1,quoted:v2,three:v3,nested:{f:v5},items:v10,opt:v11}}
     examples:
       in-contract:
         input: '"{\"plain\":\"a\",\"quoted\":\"a\\\"q\",\"three\":\"c\",\"nested\":{\"f\":\"b\"},\"items\":[{\"f\":\"a\"}],\"opt\":\"b\"}"'

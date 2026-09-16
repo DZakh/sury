@@ -10,6 +10,7 @@ jsonSchema:
   output: '{ type: "object", properties: { v: {} }, required: ["v"] }'
   fromOutputType: "{ v: JSON; }"
 isEqual: (a,b)=>a===b||e[0](a.v,b.v)
+compare: (a,b)=>a===b?0:e[0](a.v,b.v)
 vs:
   zod:
     _skip: not-applicable

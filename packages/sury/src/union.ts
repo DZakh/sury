@@ -34,6 +34,8 @@ import {
   objectTag,
   panic,
   type Path,
+  compilePath,
+  hasPathDyn,
   pathExpr,
   setHas,
   setContent,
@@ -1051,7 +1053,9 @@ const unionEmit = (
   let expected = "";
   const ctx: UnionCtx = {
     f: (caught) =>
-      `${B_embed(input, (v: unknown, p: Path, ...e: SuryErrorRecord[]) => unionFail(expectedSchema, p, v, ...e))}(${input.v()},${pathExpr(input.path)}${salvaged}${caught})`,
+      hasPathDyn(input.path)
+        ? `${B_embed(input, (v: unknown, p: Path, ...e: SuryErrorRecord[]) => unionFail(expectedSchema, p, v, ...e))}(${input.v()},${pathExpr(input.path)}${salvaged}${caught})`
+        : `${B_embed(input, unionFail.bind(U, expectedSchema, compilePath(input.path)))}(${input.v()}${salvaged}${caught})`,
     r: () => rethrow || (rethrow = B_embed(input, getOrRethrow)),
     s: () => expected || (expected = B_embed(input, expectedSchema)),
   };

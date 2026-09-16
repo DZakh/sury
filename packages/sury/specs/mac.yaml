@@ -8,6 +8,7 @@ jsonSchema:
   input: '{ type: "string", pattern: "^(?:(?:[0-9a-fA-F]{2}:){5}(?:(?:[0-9a-fA-F]{2}:){2})?[0-9a-fA-F]{2}|(?:[0-9a-fA-F]{2}-){5}(?:(?:[0-9a-fA-F]{2}-){2})?[0-9a-fA-F]{2}|(?:[0-9a-fA-F]{4}\\.){2}(?:[0-9a-fA-F]{4}\\.)?[0-9a-fA-F]{4}|(?:[0-9a-fA-F]{4}:){3}[0-9a-fA-F]{4})$" }'
   output: '{ type: "string", pattern: "^(?:(?:[0-9a-fA-F]{2}:){5}(?:(?:[0-9a-fA-F]{2}:){2})?[0-9a-fA-F]{2}|(?:[0-9a-fA-F]{2}-){5}(?:(?:[0-9a-fA-F]{2}-){2})?[0-9a-fA-F]{2}|(?:[0-9a-fA-F]{4}\\.){2}(?:[0-9a-fA-F]{4}\\.)?[0-9a-fA-F]{4}|(?:[0-9a-fA-F]{4}:){3}[0-9a-fA-F]{4})$" }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod: z.mac()
 operations:

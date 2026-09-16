@@ -8,12 +8,15 @@ jsonSchema:
   input: Expected JSON, received string | undefined
   output: '{ type: "string" }'
 isEqual: strictEqual
+compare:
+  input: (a,b)=>a===b?0:(a===void 0?b===void 0?0:-1:b===void 0?1:a<b?-1:a>b?1:0)
+  output: strictCompare
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{for(;;){if(typeof i==="string")break;if(i===void 0){let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);i=v0;break}e[3](i,[])}return i}
+    expression: i=>{for(;;){if(typeof i==="string")break;if(i===void 0){let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);i=v0;break}e[3](i)}return i}
     examples:
       sibling-arm:
         input: '"abc"'

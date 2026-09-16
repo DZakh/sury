@@ -9,6 +9,9 @@ jsonSchema:
   output: '{ type: "number" }'
   fromOutputType: number
 isEqual: strictEqual
+compare:
+  input: strictCompare
+  output: (a,b)=>a===b?0:(a===void 0?b===void 0?0:-1:b===void 0?1:a<b?-1:a>b?1:0)
 vs:
   zod:
     _skip: not-applicable
@@ -32,7 +35,7 @@ operations:
         input: '"12"'
         output: "12"
   encode:
-    expression: i=>{if(typeof i==="number"&&i==i){i=""+i}else{e[0](i,[])}return i}
+    expression: i=>{if(typeof i==="number"&&i==i){i=""+i}else{e[0](i)}return i}
     examples:
       number:
         input: "12"

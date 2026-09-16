@@ -13,6 +13,9 @@ jsonSchema:
 isEqual:
   input: (a,b)=>{if(a===b)return true;let n=0;for(const k in a){if(!(k in b)||!(a[k]===b[k]))return false;n++}for(const k in b)n--;return !n}
   output: (a,b)=>a===b||a.NAME===b.NAME&&a.PORT===b.PORT
+compare:
+  input: (a,b)=>{if(a===b)return 0;let ka=Object.keys(a).sort(),kb=Object.keys(b).sort(),n=ka.length,m=kb.length,l=n<m?n:m,c;for(let i=0;i<l;i++){if(ka[i]!==kb[i])return ka[i]<kb[i]?-1:1;if(c=a[ka[i]]===void 0?b[kb[i]]===void 0?0:-1:b[kb[i]]===void 0?1:a[ka[i]]<b[kb[i]]?-1:a[ka[i]]>b[kb[i]]?1:0)return c}return n<m?-1:n>m?1:0}
+  output: (a,b)=>a===b?0:((a.NAME===null?b.NAME===null?0:-1:b.NAME===null?1:a.NAME<b.NAME?-1:a.NAME>b.NAME?1:0))||((a.PORT===null?b.PORT===null?0:-1:b.PORT===null?1:a.PORT<b.PORT?-1:a.PORT>b.PORT?1:0))
 vs:
   zod:
     _skip: not-applicable
@@ -36,7 +39,7 @@ operations:
         input: '{ NAME: "Ann", PORT: "8080" }'
         output: '{ NAME: "Ann", PORT: 8080 }'
   encode:
-    expression: i=>{let v0=i.NAME,v1=i.PORT;for(;;){if(typeof v0==="string")break;if(v0===null){v0=void 0;break}e[0](v0,["NAME"])}for(;;){if(typeof v1==="number"&&v1==v1){v1>=0&&v1<65536&&v1%1==0||e[1](v1);v1=""+i.PORT;break}if(v1===null){v1=void 0;break}e[2](v1,["PORT"])}return {NAME:v0,PORT:v1}}
+    expression: i=>{let v0=i.NAME,v1=i.PORT;for(;;){if(typeof v0==="string")break;if(v0===null){v0=void 0;break}e[0](v0)}for(;;){if(typeof v1==="number"&&v1==v1){v1>=0&&v1<65536&&v1%1==0||e[1](v1);v1=""+i.PORT;break}if(v1===null){v1=void 0;break}e[2](v1)}return {NAME:v0,PORT:v1}}
     examples:
       present:
         input: '{ NAME: "Ann", PORT: 8080 }'

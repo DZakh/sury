@@ -13,6 +13,9 @@ jsonSchema:
 isEqual:
   input: (a,b)=>a===b||e[0](a,b)
   output: (a,b)=>a===b||e[0](a.payload,b.payload)
+compare:
+  input: (a,b)=>a===b?0:e[0](a,b)
+  output: (a,b)=>a===b?0:e[0](a.payload,b.payload)
 vs:
   zod:
     _skip: not-applicable

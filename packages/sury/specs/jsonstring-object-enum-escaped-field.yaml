@@ -14,12 +14,15 @@ jsonSchema:
 isEqual:
   input: (a,b)=>a===b||a.f===b.f
   output: strictEqual
+compare:
+  input: (a,b)=>a===b?0:a.f<b.f?-1:a.f>b.f?1:0
+  output: strictCompare
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i.f;if(typeof v0==="string"){for(;;){if(v0==="a\"b"){v0="\"a\\\"b\"";break}if(v0==="c"){v0="\"c\"";break}e[0](v0,["f"])}}else{e[1](v0,["f"])}return "{\"f\":"+v0+"}"}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i.f;if(typeof v0==="string"){for(;;){if(v0==="a\"b"){v0="\"a\\\"b\"";break}if(v0==="c"){v0="\"c\"";break}e[0](v0)}}else{e[1](v0)}return "{\"f\":"+v0+"}"}
     examples:
       quoted:
         input: '{ f: "a\"b" }'
@@ -28,7 +31,7 @@ operations:
         input: '{ f: "c" }'
         output: '"{\"f\":\"c\"}"'
   decode:
-    expression: i=>{let v0=i.f;if(typeof v0==="string"){for(;;){if(v0==="a\"b"){v0="\"a\\\"b\"";break}if(v0==="c"){v0="\"c\"";break}e[0](v0,["f"])}}else{e[1](v0,["f"])}return "{\"f\":"+v0+"}"}
+    expression: i=>{let v0=i.f;if(typeof v0==="string"){for(;;){if(v0==="a\"b"){v0="\"a\\\"b\"";break}if(v0==="c"){v0="\"c\"";break}e[0](v0)}}else{e[1](v0)}return "{\"f\":"+v0+"}"}
     examples:
       quoted:
         input: '{ f: "a\"b" }'

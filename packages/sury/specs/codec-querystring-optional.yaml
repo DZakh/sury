@@ -10,6 +10,9 @@ jsonSchema:
 isEqual:
   input: strictEqual
   output: (a,b)=>a===b||a.nick===b.nick&&a.page===b.page&&a.q===b.q
+compare:
+  input: strictCompare
+  output: (a,b)=>a===b?0:(((a.nick===void 0?b.nick===void 0?0:-1:b.nick===void 0?1:a.nick<b.nick?-1:a.nick>b.nick?1:0))||(a.page<b.page?-1:a.page>b.page?1:0))||(a.q<b.q?-1:a.q>b.q?1:0)
 vs:
   zod:
     _skip: not-applicable

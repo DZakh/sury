@@ -11,11 +11,12 @@ jsonSchema:
     input: '{ anyOf: [{ type: "string", minLength: 3 }, { type: "string", enum: ["x"] }] }'
     output: '{ anyOf: [{ type: "string", minLength: 3 }, { type: "string", enum: ["x"] }] }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod: z.union([z.string().min(3), z.literal("x")])
 operations:
   parse:
-    expression: i=>{if(typeof i==="string"){for(;;){let r;try{i.length>2||e[0](i);break}catch(x){(r||(r=[])).push(e[1](x))}if(i==="x")break;e[2](i,[],...(r||[]))}}else{e[3](i,[])}return i}
+    expression: i=>{if(typeof i==="string"){for(;;){let r;try{i.length>2||e[0](i);break}catch(x){(r||(r=[])).push(e[1](x))}if(i==="x")break;e[2](i,...(r||[]))}}else{e[3](i)}return i}
     examples:
       refined-member:
         input: '"long"'

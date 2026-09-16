@@ -8,6 +8,7 @@ jsonSchema:
   input: Expected JSON, received string | number | boolean | bigint | symbol
   output: Expected JSON, received string | number | boolean | bigint | symbol
 isEqual: strictEqual
+compare: (a,b)=>a===b?0:(typeof a==="string"?typeof b==="string"?a<b?-1:a>b?1:0:-1:typeof b==="string"?1:typeof a==="number"&&a==a?typeof b==="number"&&b==b?a<b?-1:a>b?1:0:-1:typeof b==="number"&&b==b?1:typeof a==="boolean"?typeof b==="boolean"?a<b?-1:a>b?1:0:-1:typeof b==="boolean"?1:typeof a==="bigint"?typeof b==="bigint"?a<b?-1:a>b?1:0:-1:typeof b==="bigint"?1:a===b?0:1)
 vs:
   zod: z.union([z.string(), z.number(), z.bigint(), z.boolean(), z.symbol()])
 operations:

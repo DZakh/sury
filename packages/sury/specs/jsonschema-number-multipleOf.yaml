@@ -8,6 +8,7 @@ jsonSchema:
   input: '{ type: "number", multipleOf: 2.5 }'
   output: '{ type: "number", multipleOf: 2.5 }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod:
     _skip: not-applicable

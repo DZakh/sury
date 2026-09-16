@@ -11,12 +11,13 @@ jsonSchema:
     input: '{ type: "object", properties: { f: { type: "string" } } }'
     output: '{ type: "object", properties: { f: { type: "string" } } }'
 isEqual: (a,b)=>a===b||a.f===b.f
+compare: (a,b)=>a===b?0:(a.f===void 0?b.f===void 0?0:-1:b.f===void 0?1:a.f<b.f?-1:a.f>b.f?1:0)
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i.f;for(;;){if(typeof v0==="string"){try{JSON.parse(v0)}catch(t){e[0](v0)};break}if(v0===void 0)break;e[1](v0,["f"])}return {f:v0}}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i.f;for(;;){if(typeof v0==="string"){try{JSON.parse(v0)}catch(t){e[0](v0)};break}if(v0===void 0)break;e[1](v0)}return {f:v0}}
     examples:
       json-number:
         input: '{ f: "1" }'

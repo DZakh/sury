@@ -8,6 +8,7 @@ jsonSchema:
   input: Expected JSON, received Set.size >= 5
   output: Expected JSON, received Set.size >= 5
 isEqual: (a,b)=>a===b||e[0](a,b)
+compare: (a,b)=>a===b?0:e[0](a,b)
 vs:
   zod:
     _skip: not-applicable

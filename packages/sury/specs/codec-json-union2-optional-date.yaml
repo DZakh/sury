@@ -11,12 +11,15 @@ jsonSchema:
 isEqual:
   input: (a,b)=>a===b||e[0](a,b)
   output: (a,b)=>a===b||!!(typeof a.value==="object"&&a.value&&!Array.isArray(a.value)?typeof b.value==="object"&&b.value&&!Array.isArray(b.value)&&(a.value.a===void 0?b.value.a===void 0:b.value.a!==void 0&&+a.value.a===+b.value.a):typeof b.value==="string"&&a.value===b.value)
+compare:
+  input: (a,b)=>a===b?0:e[0](a,b)
+  output: (a,b)=>a===b?0:(typeof a.value==="object"&&a.value&&!Array.isArray(a.value)?typeof b.value==="object"&&b.value&&!Array.isArray(b.value)?(a.value.a===void 0?b.value.a===void 0?0:-1:b.value.a===void 0?1:+a.value.a<+b.value.a?-1:+a.value.a>+b.value.a?1:+a.value.a===+b.value.a?0:1):-1:typeof b.value==="object"&&b.value&&!Array.isArray(b.value)?1:a.value<b.value?-1:a.value>b.value?1:0)
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i.value;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v2=(v0.a??null);for(;;){let r;if(typeof v2==="string"){try{let v1=new Date((v0.a??null));!Number.isNaN(v1.getTime())||e[0](v1);v2=v1;break}catch(x){(r||(r=[])).push(e[1](x))}}if(v2===null){v2=void 0;break}e[2](v2,["value","a"],...(r||[]))}v0={a:v2};break}if(typeof v0==="string")break;e[3](v0,["value"])}return {value:v0}}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i.value;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v2=(v0.a??null);for(;;){let r;if(typeof v2==="string"){try{let v1=new Date((v0.a??null));!Number.isNaN(v1.getTime())||e[0](v1);v2=v1;break}catch(x){(r||(r=[])).push(e[1](x))}}if(v2===null){v2=void 0;break}e[2](v2,...(r||[]))}v0={a:v2};break}if(typeof v0==="string")break;e[3](v0)}return {value:v0}}
     examples:
       object-member-with-date:
         input: '{ value: { a: "2024-01-01T00:00:00.000Z" } }'
@@ -37,7 +40,7 @@ operations:
         error: "Failed at value: Expected { a: string | undefined; } | string, received 5"
   decode: eq-to-parse
   encode:
-    expression: i=>{let v0=i.value;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v2=v0.a;for(;;){if(v2 instanceof e[1]){let v1;try{v1=v2.toISOString()}catch(_){e[0](v2)}v2=v1;break}if(v2===void 0)break;e[2](v2,["value","a"])}v0={a:v2};break}if(typeof v0==="string")break;e[3](v0,["value"])}for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v3=v0.a,v4;(typeof v3==="string"||v3===void 0)||e[4](v3);for(v4 in v0)if(v4!=="a")e[5](v4);let v5={};if(v3!==void 0){v5.a=v3}v0=v5;break}if(typeof v0==="string")break;e[6](v0,["value"])}return {value:v0}}
+    expression: i=>{let v0=i.value;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v2=v0.a;for(;;){if(v2 instanceof e[1]){let v1;try{v1=v2.toISOString()}catch(_){e[0](v2)}v2=v1;break}if(v2===void 0)break;e[2](v2)}v0={a:v2};break}if(typeof v0==="string")break;e[3](v0)}for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v3=v0.a,v4;(typeof v3==="string"||v3===void 0)||e[4](v3);for(v4 in v0)if(v4!=="a")e[5](v4);let v5={};if(v3!==void 0){v5.a=v3}v0=v5;break}if(typeof v0==="string")break;e[6](v0)}return {value:v0}}
     examples:
       object-member-with-date:
         input: '{ value: { a: new Date("2024-01-01T00:00:00.000Z") } }'

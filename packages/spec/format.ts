@@ -417,6 +417,13 @@ export const specSchema = S.schema({
       "through it - each equal to a freshly built copy of itself, and to another example's value " +
       "only when the two values really are the same. Filled by `spec check --write`.",
   }),
+  compare: S.union([S.string, isEqualSides, skip]).with(S.meta, {
+    description:
+      "The value-compare of this schema, as source text - or `alwaysCompare` / `strictCompare` / " +
+      "`nanCompare` / `identityCompare`, the shared comparators Sury hands back whole rather than " +
+      "compiling. Answers -1 | 0 | 1; 0 exactly when `isEqual` would be true. A bare string when " +
+      "both sides agree, `{input, output}` when they differ. Filled by `spec check --write`.",
+  }),
   vs,
   operations,
 })
@@ -437,6 +444,7 @@ export const KEY_ORDER = keyOrder<Spec>({
   ts: true,
   jsonSchema: true,
   isEqual: true,
+  compare: true,
   vs: true,
   operations: true,
 });

@@ -11,12 +11,13 @@ jsonSchema:
     input: '{ anyOf: [{ type: "string", enum: ["x"] }, { type: "string" }] }'
     output: '{ anyOf: [{ type: "string", enum: ["x"] }, { type: "string" }] }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{if(typeof i==="string"){for(;;){if(i==="x")break;try{JSON.parse(i)}catch(t){e[0](i)};break;}}else{e[1](i,[])}return i}
+    expression: i=>{if(typeof i==="string"){for(;;){if(i==="x")break;try{JSON.parse(i)}catch(t){e[0](i)};break;}}else{e[1](i)}return i}
     examples:
       json-number:
         input: '"1"'

@@ -10,12 +10,15 @@ jsonSchema:
   openapi-3.0:
     output: '{ type: "string", nullable: true }'
 isEqual: strictEqual
+compare:
+  input: (a,b)=>a===b?0:(a===void 0?b===void 0?0:-1:b===void 0?1:a<b?-1:a>b?1:0)
+  output: (a,b)=>a===b?0:(a===null?b===null?0:-1:b===null?1:a<b?-1:a>b?1:0)
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{for(;;){if(typeof i==="string")break;if(i===void 0){i=null;break}e[0](i,[])}return i}
+    expression: i=>{for(;;){if(typeof i==="string")break;if(i===void 0){i=null;break}e[0](i)}return i}
     examples:
       string:
         input: '"abc"'
@@ -25,7 +28,7 @@ operations:
         output: "null"
   decode: eq-to-parse
   encode:
-    expression: i=>{for(;;){if(typeof i==="string")break;if(i===null){i=void 0;break}e[0](i,[])}return i}
+    expression: i=>{for(;;){if(typeof i==="string")break;if(i===null){i=void 0;break}e[0](i)}return i}
     examples:
       string:
         input: '"abc"'

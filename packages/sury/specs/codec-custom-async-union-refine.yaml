@@ -8,13 +8,16 @@ jsonSchema:
   input: '{ anyOf: [{ type: "string" }, { type: "number" }] }'
   output: '{ type: "number" }'
 isEqual: strictEqual
+compare:
+  input: (a,b)=>a===b?0:(typeof a==="string"?typeof b==="string"?a<b?-1:a>b?1:0:-1:typeof b==="string"?1:a<b?-1:a>b?1:0)
+  output: strictCompare
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
     isAsync: true
-    expression: i=>{try{for(;;){if(typeof i==="string"){let v0=e[0](i);i=v0.then(v0=>{typeof v0==="number"&&v0==v0||e[1](v0);return v0});break}if(typeof i==="number"&&i==i)break;e[2](i,[])}let v1=Promise.resolve(i);return v1.then(v1=>{e[3](v1)||e[4](v1);return v1})}catch(v2){return Promise.reject(v2)}}
+    expression: i=>{try{for(;;){if(typeof i==="string"){let v0=e[0](i);i=v0.then(v0=>{typeof v0==="number"&&v0==v0||e[1](v0);return v0});break}if(typeof i==="number"&&i==i)break;e[2](i)}let v1=Promise.resolve(i);return v1.then(v1=>{e[3](v1)||e[4](v1);return v1})}catch(v2){return Promise.reject(v2)}}
     examples:
       custom-arm:
         input: '"abc"'
@@ -30,7 +33,7 @@ operations:
         error: Expected more than 1
   decode: eq-to-parse
   encode:
-    expression: i=>{e[5](i)||e[6](i);for(;;){let r;if(typeof i==="number"&&i==i){try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);i=v0;break}catch(x){(r||(r=[])).push(e[3](x))}break}e[4](i,[],...(r||[]))}return i}
+    expression: i=>{e[5](i)||e[6](i);for(;;){let r;if(typeof i==="number"&&i==i){try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);i=v0;break}catch(x){(r||(r=[])).push(e[3](x))}break}e[4](i,...(r||[]))}return i}
     examples:
       custom-arm:
         input: "3"

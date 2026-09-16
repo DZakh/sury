@@ -8,12 +8,13 @@ jsonSchema:
   input: "Expected JSON, received { x: string; } | Date"
   output: "Expected JSON, received { x: string; } | Date"
 isEqual: (a,b)=>a===b||!!(typeof a==="object"&&a&&!Array.isArray(a)&&!(a instanceof e[0])?typeof b==="object"&&b&&!Array.isArray(b)&&!(b instanceof e[0])&&a.x===b.x:b instanceof e[0]&&+a===+b)
+compare: (a,b)=>a===b?0:(typeof a==="object"&&a&&!Array.isArray(a)&&!(a instanceof e[0])?typeof b==="object"&&b&&!Array.isArray(b)&&!(b instanceof e[0])?a.x<b.x?-1:a.x>b.x?1:0:-1:typeof b==="object"&&b&&!Array.isArray(b)&&!(b instanceof e[0])?1:+a<+b?-1:+a>+b?1:+a===+b?0:1)
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{for(;;){if(i instanceof e[0])break;if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i.x;typeof v0==="string"||e[1](v0);i={x:v0};break}e[2](i,[])}return i}
+    expression: i=>{for(;;){if(i instanceof e[0])break;if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i.x;typeof v0==="string"||e[1](v0);i={x:v0};break}e[2](i)}return i}
     examples:
       object:
         input: '{ x: "a" }'

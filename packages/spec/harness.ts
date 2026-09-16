@@ -173,14 +173,20 @@ export const undeclaredAssignments = (spec: Spec, out: string[]): void => {
       scanAssignments(code, `operations.${opName}`, [], out);
     }
   }
-  // Equality is compiled as `(a,b)=>…`, so those two are bound rather than free.
-  const eq = spec.isEqual;
-  if (eq == null || isSkip(eq)) return;
-  for (const [side, code] of isEqualSidesForm(eq)
-    ? ([["input", eq.input], ["output", eq.output]] as const)
-    : ([["", eq]] as const))
-    if (typeof code === "string")
-      scanAssignments(code, side ? `isEqual.${side}` : "isEqual", ["a", "b"], out);
+  // Equality and compare are compiled as `(a,b)=>…`, so those two are bound
+  // rather than free.
+  for (const [field, label] of [
+    ["isEqual", "isEqual"],
+    ["compare", "compare"],
+  ] as const) {
+    const eq = spec[field];
+    if (eq == null || isSkip(eq)) continue;
+    for (const [side, code] of isEqualSidesForm(eq)
+      ? ([["input", eq.input], ["output", eq.output]] as const)
+      : ([["", eq]] as const))
+      if (typeof code === "string")
+        scanAssignments(code, side ? `${label}.${side}` : label, ["a", "b"], out);
+  }
 };
 
 // A full op block is chosen over `identity`/`eq-to-parse` precisely because it
@@ -348,7 +354,15 @@ const isNoop = (fn: Function): boolean =>
 // compiled comparator comes out of `new Function` and so has no name at all,
 // which is what makes the reading unambiguous, and a rename in Sury's source
 // turns every spec that claims one stale rather than leaving it silently wrong.
-const SHARED_COMPARATORS = ["alwaysEqual", "strictEqual", "sameValueZeroEqual"];
+const SHARED_COMPARATORS = [
+  "alwaysEqual",
+  "strictEqual",
+  "sameValueZeroEqual",
+  "alwaysCompare",
+  "strictCompare",
+  "nanCompare",
+  "identityCompare",
+];
 const comparatorForm = (fn: Function): string =>
   SHARED_COMPARATORS.includes(fn.name) ? fn.name : fn.toString();
 
@@ -665,6 +679,12 @@ export const deriveIsEqual = (schema: any): string | IsEqualSides => {
   return input === output ? input : { input, output };
 };
 
+export const deriveCompare = (schema: any): string | IsEqualSides => {
+  const input = comparatorForm(S.compareInput(schema));
+  const output = comparatorForm(S.compareOutput(schema));
+  return input === output ? input : { input, output };
+};
+
 // Can throw if `schema` isn't actually a usable schema (e.g. `--ts` evaluated
 // to `undefined` from a typo like `S.strng`) - callers decide how to report that.
 export const scaffoldOperations = (schema: any): Spec["operations"] => {
@@ -748,6 +768,8 @@ export const canonicalize = (obj: Spec): Spec => {
   }
   if (isEqualSidesForm(o.isEqual))
     o.isEqual = order(o.isEqual as Record<string, unknown>, IS_EQUAL_KEY_ORDER as string[]) as typeof o.isEqual;
+  if (isEqualSidesForm(o.compare))
+    o.compare = order(o.compare as Record<string, unknown>, IS_EQUAL_KEY_ORDER as string[]) as typeof o.compare;
   if (o.operations && !isSkip(o.operations)) {
     const ops = order(o.operations, OP_ORDER) as Record<OpName, Operation>;
     for (const name of OP_ORDER) if (ops[name]) ops[name] = canonOp(ops[name]);
@@ -1066,6 +1088,7 @@ export const recomputeGoldens = async (obj: Spec, compiled?: Record<OpName, Buil
   );
 
   if (!isSkip(next.isEqual)) next.isEqual = deriveIsEqual(schema);
+  if (!isSkip(next.compare)) next.compare = deriveCompare(schema);
 
   const builtOps = compiled ?? buildOps(schema);
   const parseBuilt = builtOps.parse;
@@ -2348,6 +2371,11 @@ export const checkEquality = (spec: Spec, schema: any): string[] => {
     const direct = (side === "input" ? S.isEqualInput : S.isEqualOutput) as (
       ...args: unknown[]
     ) => boolean;
+    const cmpName = side === "input" ? "compareInput" : "compareOutput";
+    const cmpDirect = (side === "input" ? S.compareInput : S.compareOutput) as (
+      ...args: unknown[]
+    ) => number;
+    const skipCompare = spec.compare == null || isSkip(spec.compare);
     // The comparison assumes both values match the schema, so a value that
     // doesn't is outside what it answers for - an excess key on a strict
     // object, a required field an encode example deliberately drops. Those are
@@ -2370,6 +2398,14 @@ export const checkEquality = (spec: Spec, schema: any): string[] => {
     } catch (e) {
       errs.push(`isEqual: S.${name}(schema) threw ${JSON.stringify((e as Error).message)}`);
       continue;
+    }
+    let compiledCmp: ((a: unknown, b: unknown) => number) | undefined;
+    if (!skipCompare) {
+      try {
+        compiledCmp = cmpDirect(schema) as unknown as (a: unknown, b: unknown) => number;
+      } catch (e) {
+        errs.push(`compare: S.${cmpName}(schema) threw ${JSON.stringify((e as Error).message)}`);
+      }
     }
     const conforming = values.filter((v) => {
       try {
@@ -2423,6 +2459,35 @@ export const checkEquality = (spec: Spec, schema: any): string[] => {
             errs.push(
               `isEqual: ${pair}: ${spelling} answered ${valueToCodeSafe(got)}, expected ${want}` +
                 ` - a=${valueToCodeSafe(a)}, b=${valueToCodeSafe(b)}`,
+            );
+        }
+        if (compiledCmp) {
+          let cmp: unknown;
+          let cmpBack: unknown;
+          try {
+            cmp = compiledCmp(a, b);
+            cmpBack = compiledCmp(b, a);
+          } catch (e) {
+            errs.push(
+              `compare: ${pair}: S.${cmpName}(schema) threw ${JSON.stringify((e as Error).message)}`,
+            );
+            continue;
+          }
+          const zero = cmp === 0;
+          if (zero !== want)
+            errs.push(
+              `compare: ${pair}: S.${cmpName}(schema)(a, b) answered ${valueToCodeSafe(cmp)}, ` +
+                `expected ${want ? 0 : "non-zero"} (isEqual is ${want})` +
+                ` - a=${valueToCodeSafe(a)}, b=${valueToCodeSafe(b)}`,
+            );
+          if (cmp !== -1 && cmp !== 0 && cmp !== 1)
+            errs.push(
+              `compare: ${pair}: S.${cmpName}(schema)(a, b) answered ${valueToCodeSafe(cmp)}, expected -1 | 0 | 1`,
+            );
+          if ((cmpBack === 0) !== want)
+            errs.push(
+              `compare: ${pair}: S.${cmpName}(schema)(b, a) answered ${valueToCodeSafe(cmpBack)}, ` +
+                `expected ${want ? 0 : "non-zero"}`,
             );
         }
       }

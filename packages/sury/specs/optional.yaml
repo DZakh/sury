@@ -10,6 +10,7 @@ jsonSchema:
   input: Expected JSON, received string | undefined
   output: Expected JSON, received string | undefined
 isEqual: strictEqual
+compare: (a,b)=>a===b?0:(a===void 0?b===void 0?0:-1:b===void 0?1:a<b?-1:a>b?1:0)
 vs:
   zod: z.string().optional()
 operations:

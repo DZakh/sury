@@ -9,6 +9,9 @@ jsonSchema:
   output: '{ type: "string" }'
   fromOutputType: string
 isEqual: strictEqual
+compare:
+  input: strictCompare
+  output: (a,b)=>a===b?0:(typeof a==="number"&&a==a?typeof b==="number"&&b==b?a<b?-1:a>b?1:0:-1:typeof b==="number"&&b==b?1:a<b?-1:a>b?1:0)
 vs:
   zod:
     _skip: not-applicable
@@ -24,7 +27,7 @@ operations:
         output: '"abc"'
   decode: identity
   encode:
-    expression: i=>{for(;;){if(typeof i==="number"&&i==i){e[0](i);break}if(typeof i==="string")break;e[1](i,[])}return i}
+    expression: i=>{for(;;){if(typeof i==="number"&&i==i){e[0](i);break}if(typeof i==="string")break;e[1](i)}return i}
     examples:
       string:
         input: '"abc"'

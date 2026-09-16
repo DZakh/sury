@@ -8,12 +8,15 @@ jsonSchema:
   input: '{ anyOf: [{ type: "string" }, { type: "number" }] }'
   output: '{ type: "number" }'
 isEqual: strictEqual
+compare:
+  input: (a,b)=>a===b?0:(typeof a==="string"?typeof b==="string"?a<b?-1:a>b?1:0:-1:typeof b==="string"?1:a<b?-1:a>b?1:0)
+  output: strictCompare
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{for(;;){if(typeof i==="string"){let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="number"&&v0==v0||e[2](v0);i=v0;break}if(typeof i==="number"&&i==i)break;e[3](i,[])}return i}
+    expression: i=>{for(;;){if(typeof i==="string"){let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="number"&&v0==v0||e[2](v0);i=v0;break}if(typeof i==="number"&&i==i)break;e[3](i)}return i}
     examples:
       custom-arm:
         input: '"12"'
