@@ -99,19 +99,24 @@ if (is(userSchema, data)) {
 }
 ```
 
-For a schema which transforms something there are two answers to that question, and the helper quietly picks one for you:
+For a schema which transforms something there are two answers to that question. Every library picks one for you, and they don't pick the same one:
 
-| | The helper | Validates | Narrows to |
-|---|---|---|---|
-| Zod | no `is`, only `safeParse` | Input | returns the Output |
-| Valibot | `v.is(schema, data)` | Input | Input |
-| ArkType | `schema.allows(data)` | Input | Input |
-| TypeBox | `Value.Check(schema, data)` | Input | Input |
-| Sury | `S.isInput` / `S.isOutput` | you pick | the side you picked |
+| | The helper | What it checks |
+|---|---|---|
+| Valibot | `v.is(schema, data)` | Input |
+| ArkType | `schema.allows(data)` | Input |
+| TypeBox | `Value.Check(schema, data)` | Input |
+| io-ts | `codec.is(data)` | Output |
+| Effect | `Schema.is(schema)(data)` | Output |
+| Superstruct | `is(data, struct)` | Output |
+| Yup | `schema.isValidSync(data)` | casts first, so both pass |
+| Joi | `schema.validate(data)` | converts first, so both pass |
+| Zod | no `is`, only `safeParse` | Input, and returns the Output |
+| Sury | `S.isInput` / `S.isOutput` | the one you picked |
 
-They all check the Input. So on a codec schema `is` says the value is fine _on the wire_, and the code below goes on treating it as the decoded thing. Nothing decoded it.
+Same call, opposite meaning. Half of them say your decoded value is invalid, the other half say your wire format is, and the two which convert first say yes to everything.
 
-Add a `.transform()` to a shared schema one day and every `is` in the codebase silently changes meaning. Russian roulette in disguise.
+And it stays quiet for as long as the schema has no transform, because then both answers are the same. Add a `.transform()` one day and every `is` in the codebase silently changes meaning. Russian roulette in disguise.
 
 That's why there's no `S.is`:
 
