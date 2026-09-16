@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.recursive("Expr", (expr) => S.schema({ lit: S.optional(S.int32).with(S.protobufField, { number: 1, oneof: "kind" }), neg: S.optional(expr).with(S.protobufField, { number: 2, oneof: "kind" }) })).with(S.to, S.protobuf)'
+  input: unknown
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 9243
+jsonSchema:
+  input: '{ $ref: "#/$defs/Expr", $defs: { Expr: { type: "object", properties: { lit: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, neg: { $ref: "#/$defs/Expr" } } } } }'
+  fromInputType: "{ lit?: number | undefined; neg?: ... | undefined; }"
+  output: Expected JSON, received Uint8Array
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: (a,b)=>a===b?0:e[0](a,b)
+  output: (a,b)=>{if(a===b)return 0;let n=a.length,m=b.length,l=n<m?n:m,c;for(let i=0;i<l;i++)if(c=a[i]<b[i]?-1:a[i]>b[i]?1:0)return c;return n<m?-1:n>m?1:0}
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{let v0;v0=e[0](i);let v1;{let w;try{w=e[5].acquire();let v,j,n,s,h,a,k,g,c,o;o=0;v=v0["lit"];if(v!=null){o|=1;w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=v;if(s<-2147483648||s>2147483647)e[2](s,-2147483648,2147483647,"int32");s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v=v0["neg"];if(v!=null){o&&e[4]("kind");w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[1](w,v);w.end(h)};v1=w.finish()}catch(x){w&&(w.busy=false);e[6](x)}}return v1}
+    examples:
+      lit:
+        input: "{ lit: 5, neg: undefined }"
+        output: new Uint8Array([8, 5])
+      nested:
+        input: "{ lit: undefined, neg: { lit: 5, neg: undefined } }"
+        output: new Uint8Array([18, 2, 8, 5])
+      both-members-set:
+        input: "{ lit: 1, neg: { lit: 2, neg: undefined } }"
+        error: protobuf oneof "kind" has more than one member set
+  decode: eq-to-parse
+  encode:
+    expression: i=>{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}e[3](v0);return v0}
+    examples:
+      nested:
+        input: new Uint8Array([18, 2, 8, 5])
+        output: "{ neg: { lit: 5 } }"
+      last-member-wins:
+        input: new Uint8Array([8, 1, 18, 2, 8, 5])
+        output: "{ neg: { lit: 5 } }"

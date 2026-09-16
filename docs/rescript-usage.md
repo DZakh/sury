@@ -1626,8 +1626,26 @@ message User {
 enum's zero member prints as `<NAME>_UNSPECIFIED`, and one is prepended to an
 enum whose values lack `0`, which proto3 requires and the schema itself
 rejects. It throws on anything that cannot be a message: a field with no
-number, two fields sharing one, a recursive message, a schema that is not an
-object.
+number, two fields sharing one, a schema that is not an object.
+
+A message may contain itself, or reach itself through another message, when it
+is built with [`recursive`](#recursive) - repeated, as an option, as a map
+value or as a member of a `oneof`:
+
+```rescript
+type rec descriptor = {name: string, nestedType: array<descriptor>}
+
+let descriptorSchema = S.recursive("DescriptorProto", descriptorSchema => {
+  S.schema(s => {
+    name: s.matches(S.string->S.protobufField(1)),
+    nestedType: s.matches(S.array(descriptorSchema)->S.protobufField(2)),
+  })
+})
+```
+
+It prints under the name given to `recursive`, and decoding stops at 100 levels
+of nesting. The one shape refused is a message holding itself in a required
+field, which no finite value could fill.
 
 See [Protocol Buffers in the JS guide](./js-usage.md#protocol-buffers) for the
 wire-level detail the two languages share, including what the conformance
@@ -1729,6 +1747,12 @@ let nodeSchema = S.recursive("Node", nodeSchema => {
 ```
 
 One great aspect of the example above is that it uses parallelism to make four requests to check for the existence of nodes.
+
+A field that is the schema being defined takes no default. `Option.getOr` on it
+is refused when the definer builds it, since supplying the default would read it
+as that same schema, find the same field absent in it, and supply it again. Use
+a plain `S.option` and read the absence. On the finished schema a default is
+fine, and applies once.
 
 > 🧠 Despite supporting recursive schema, passing cyclical data will cause an infinite loop.
 

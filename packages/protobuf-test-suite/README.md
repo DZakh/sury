@@ -14,7 +14,12 @@ and output, `RepeatedScalarMessageMerge`, `ValidDataMap` for every key/value
 pair, `ValidDataOneof`, every `PrematureEof*` position, `IllegalZeroFieldNum`,
 `BadTag_*`, `UnknownWireType`, the unmatched-group family and
 `RejectInvalidUtf8`, using the field numbers of `TestAllTypesProto3`, so a case
-id names the conformance test it stands for. `wire.ts` holds the byte builders
+id names the conformance test it stands for. A message that contains itself is
+the one shape the table cannot describe - a field names a nested type by the
+fields it carries, and a self-reference carries the ones being declared - so
+recursion is proved in `packages/protobuf-conformance` instead, where
+`TestAllTypesProto3` declares `recursive_message` and `NestedMessage.corecursive`
+and Google's own runner reads what we write. `wire.ts` holds the byte builders
 of `binary_wireformat.h`. The wire-format assertions of protobuf.js's own test
 suite (writer/reader vectors, packed writers, decoder bounds, map entry layout,
 oneof semantics) are in the corpus too, and protobuf.js decodes what Sury

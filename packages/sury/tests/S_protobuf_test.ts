@@ -480,6 +480,143 @@ test("protobufField rejects a repeated or map oneof member and a non-integer enu
   }
 });
 
+// The spec format snapshots what an operation does, not what compiling one
+// leaves behind on an unrelated schema, so this lives here.
+test("Compiling two independent recursive schemas leaves neither holding the other's definitions", (t) => {
+  const a = S.recursive<{ v: string; next?: unknown }>("A", (self) =>
+    S.schema({ v: S.string, next: S.optional(self) }),
+  );
+  const b = S.recursive<{ n: number; next?: unknown }>("B", (self) =>
+    S.schema({ n: S.int32, next: S.optional(self) }),
+  );
+  S.parseOrThrow(S.schema({ a, b }), { a: { v: "x" }, b: { n: 1 } });
+  t.expect(S.toInputJSONSchemaOrThrow(a)).toEqual({
+    $ref: "#/$defs/A",
+    $defs: {
+      A: {
+        type: "object",
+        properties: { v: { type: "string" }, next: { $ref: "#/$defs/A" } },
+        required: ["v"],
+      },
+    },
+  });
+});
 
+test("A recursive message prints as itself", (t) => {
+  const node = S.recursive<{ name: string; kids: unknown[] }>("DescriptorProto", (self) =>
+    S.schema({
+      name: S.string.with(S.protobufField, 1),
+      kids: S.array(self).with(S.protobufField, 2),
+    }),
+  );
+  t.expect(S.toProtoOrThrow(node)).toBe(
+    `syntax = "proto3";
 
+message DescriptorProto {
+  string name = 1;
+  repeated DescriptorProto kids = 2;
+}
+`,
+  );
+});
 
+test("Mutually recursive messages each print once, under their own name", (t) => {
+  const branch = S.recursive<{ leaf?: unknown; n: number }>("Branch", (self) =>
+    S.schema({
+      leaf: S.optional(
+        S.recursive("Leaf", () => S.schema({ kids: S.array(self).with(S.protobufField, 1) })),
+      ).with(S.protobufField, 1),
+      n: S.int32.with(S.protobufField, 2),
+    }),
+  );
+  t.expect(S.toProtoOrThrow(branch)).toBe(
+    `syntax = "proto3";
+
+message Branch {
+  optional Leaf leaf = 1;
+  int32 n = 2;
+}
+
+message Leaf {
+  repeated Branch kids = 1;
+}
+`,
+  );
+});
+
+// A schema that throws while it is being built has nowhere to be pinned in the
+// spec format, which needs a schema before it can record anything.
+test("A default on the definition being built is refused, where one beside it is not", (t) => {
+  t.expect(() =>
+    S.recursive("Endless", (self) => S.schema({ v: S.int32, kid: S.optional(self, { v: 0 }) })),
+  ).toThrow(
+    "[Sury] Can't set default for Endless | undefined: the default is read as Endless, which would need a default of its own",
+  );
+
+  // The same shape one step away: the default is read as a definition that is
+  // finished, so it holds a finite value and the schema builds.
+  const tree = S.recursive("Tree", (self) =>
+    S.schema({
+      v: S.int32,
+      leaf: S.optional(S.recursive("Leaf", () => S.schema({ n: S.int32 })), { n: 5 }),
+      kid: S.optional(self),
+    }),
+  );
+  t.expect(S.parseOrThrow(tree, { v: 1 })).toEqual({ v: 1, leaf: { n: 5 } });
+
+  // And a definition finished before the definer even ran, which carries its
+  // own and is only being used here.
+  const done = S.recursive("Done", (self) => S.schema({ n: S.int32, kid: S.optional(self) }));
+  const holder = S.recursive("Holder", (self) =>
+    S.schema({ done: S.optional(done, { n: 7 }), kid: S.optional(self) }),
+  );
+  t.expect(S.parseOrThrow(holder, {})).toEqual({ done: { n: 7 } });
+});
+
+// 101 levels of nesting is 500-odd bytes, and the spec format records an
+// example's input and output as literals.
+test("a recursive message decodes 100 levels and refuses 101, and encoding has no limit", (t) => {
+  type Cons = { v: number; next?: Cons };
+  const cons = S.recursive<Cons>("Cons", (self) =>
+    S.schema({
+      v: S.int32.with(S.protobufField, 1),
+      next: S.optional(self).with(S.protobufField, 2),
+    }),
+  );
+  const codec = cons.with(S.to, S.protobuf);
+  const nest = (levels: number): Cons =>
+    levels === 1 ? { v: 1, next: undefined } : { v: levels, next: nest(levels - 1) };
+
+  const hundred = S.parseOrThrow(codec, nest(100));
+  t.expect(S.encodeOrThrow(codec, hundred)).toEqual(nest(100));
+
+  // Encoding is what those bytes came from, so the limit is the reader's alone.
+  const overLimit = S.parseOrThrow(codec, nest(101));
+  t.expect(overLimit.length).toBeGreaterThan(hundred.length);
+  t.expect(() => S.encodeOrThrow(codec, overLimit)).toThrow(
+    "protobuf message nesting limit exceeded",
+  );
+});
+
+test("isEqual and compare read a recursive message the codec declares", (t) => {
+  type Node = { v: string; kids: Node[] };
+  const node = S.recursive<Node>("Node", (self) =>
+    S.schema({
+      v: S.string.with(S.protobufField, 1),
+      kids: S.array(self).with(S.protobufField, 2),
+    }),
+  );
+  const codec = node.with(S.to, S.protobuf);
+  const tree = (v: string, kids: Node[] = []): Node => ({ v, kids });
+
+  t.expect(S.isEqualInput(codec, tree("a", [tree("x")]), tree("a", [tree("x")]))).toBe(true);
+  t.expect(S.isEqualInput(codec, tree("a", [tree("x")]), tree("a", [tree("y")]))).toBe(false);
+  t.expect(S.compareInput(codec, tree("a", [tree("x")]), tree("a", [tree("x")]))).toBe(0);
+  t.expect(S.compareInput(codec, tree("a", [tree("x")]), tree("a", [tree("y")]))).toBe(-1);
+
+  // The output side is the wire, compared as the bytes it is.
+  const one = S.parseOrThrow(codec, tree("a"));
+  t.expect(S.isEqualOutput(codec, one, S.parseOrThrow(codec, tree("a")))).toBe(true);
+  t.expect(S.isEqualOutput(codec, one, S.parseOrThrow(codec, tree("b")))).toBe(false);
+  t.expect(S.compareOutput(codec, one, S.parseOrThrow(codec, tree("a")))).toBe(0);
+});

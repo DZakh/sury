@@ -555,3 +555,32 @@ test("Doesn't mutate a shared primitive schema passed as the recursive body", t 
     `Expected { [key: string]: string; }, received true`,
   )
 })
+
+type rec pbNode = {
+  name: string,
+  kids: array<pbNode>,
+}
+
+test("Successfully round-trips a recursive protobuf message", t => {
+  let nodeSchema = S.recursive("PbNode", nodeSchema => {
+    S.schema(s => {
+      name: s.matches(S.string->S.protobufField(1)),
+      kids: s.matches(S.array(nodeSchema)->S.protobufField(2)),
+    })
+  })
+
+  let value = {name: "a", kids: [{name: "b", kids: []}]}
+  let bytes = value->S.convertOrThrow(~from=nodeSchema, ~to=S.protobuf)
+
+  t->Assert.deepEqual(bytes->S.convertOrThrow(~from=S.protobuf, ~to=nodeSchema), value)
+  t->Assert.deepEqual(
+    nodeSchema->S.toProtoOrThrow,
+    `syntax = "proto3";
+
+message PbNode {
+  string name = 1;
+  repeated PbNode kids = 2;
+}
+`,
+  )
+})

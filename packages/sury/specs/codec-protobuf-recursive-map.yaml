@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.recursive("Dir", (dir) => S.schema({ entries: S.record(dir).with(S.protobufField, 1), size: S.int32.with(S.protobufField, 2) })).with(S.to, S.protobuf)'
+  input: unknown
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 8493
+jsonSchema:
+  input: '{ $ref: "#/$defs/Dir", $defs: { Dir: { type: "object", properties: { entries: { type: "object", additionalProperties: { $ref: "#/$defs/Dir" } }, size: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["entries", "size"] } } }'
+  fromInputType: "{ entries: { [key: string]: ...; }; size: number; }"
+  output: Expected JSON, received Uint8Array
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: (a,b)=>a===b?0:e[0](a,b)
+  output: (a,b)=>{if(a===b)return 0;let n=a.length,m=b.length,l=n<m?n:m,c;for(let i=0;i<l;i++)if(c=a[i]<b[i]?-1:a[i]>b[i]?1:0)return c;return n<m?-1:n>m?1:0}
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{let v0;v0=e[0](i);let v1;{let w;try{w=e[5].acquire();let v,j,n,s,h,a,k,g,c,o;v=v0["entries"];a=Object.keys(v);n=a.length;j=0;while(j<n){k=a[j++];c=v[k];w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(k);w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);g=w.begin();e[1](w,c);w.end(g);w.end(h)};v=v0["size"];if((v=+v)){w.pos<w.buf.length?w.buf[w.pos++]=16:w.varint32(16);s=v;if(s<-2147483648||s>2147483647)e[2](s,-2147483648,2147483647,"int32");s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v1=w.finish()}catch(x){w&&(w.busy=false);e[6](x)}}return v1}
+    examples:
+      empty:
+        input: "{ entries: {}, size: 0 }"
+        output: new Uint8Array([])
+      nested:
+        input: "{ entries: { a: { entries: {}, size: 4 } }, size: 1 }"
+        output: new Uint8Array([10, 7, 10, 1, 97, 18, 2, 16, 4, 16, 1])
+  decode:
+    expression: i=>{e[0](i);let v0;{let w;try{w=e[5].acquire();let v,j,n,s,h,a,k,g,c,o;v=i["entries"];a=Object.keys(v);n=a.length;j=0;while(j<n){k=a[j++];c=v[k];w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(k);w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);g=w.begin();e[1](w,c);w.end(g);w.end(h)};v=i["size"];if((v=+v)){w.pos<w.buf.length?w.buf[w.pos++]=16:w.varint32(16);s=v;if(s<-2147483648||s>2147483647)e[2](s,-2147483648,2147483647,"int32");s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v0=w.finish()}catch(x){w&&(w.busy=false);e[6](x)}}return v0}
+    examples:
+      nested:
+        input: "{ entries: { a: { entries: {}, size: 4 } }, size: 1 }"
+        output: new Uint8Array([10, 7, 10, 1, 97, 18, 2, 16, 4, 16, 1])
+  encode:
+    expression: i=>{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}e[3](v0);return v0}
+    examples:
+      nested:
+        input: new Uint8Array([10, 9, 10, 1, 97, 18, 4, 16, 4, 16, 1])
+        output: "{ entries: { a: { entries: {}, size: 1 } }, size: 0 }"

@@ -9,6 +9,7 @@ import {
   numberTag,
   objectTag,
   panic,
+  refTag,
   stringTag,
   U,
   undefinedTag,
@@ -127,7 +128,9 @@ const inferType = (shape: Internal, literalEnum: boolean): ProtobufType | undefi
   if (shape.type === stringTag) return "string";
   if (shape.type === booleanTag) return "bool";
   if (shape.type === instanceTag && shape.class === Uint8Array) return "bytes";
-  if (shape.type === objectTag) return "message";
+  // A `$ref` is `S.recursive`, whose definition is not built yet while the
+  // definer runs; a message is the only thing the wire can make of one.
+  if (shape.type === objectTag || shape.type === refTag) return "message";
   if (shape.type === bigintTag) return "int64";
   if (shape.type === numberTag) {
     if (shape.format === "int32") return "int32";

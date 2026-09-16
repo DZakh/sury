@@ -3234,3 +3234,51 @@ test("schemaOf: leaves inference alone", () => {
     S.Schema<[string, number], [string, number]>
   >();
 });
+
+test("isEqual and compare walk a recursive schema, including mutual recursion", (t) => {
+  type Node = { v: string; kids: Node[] };
+  const node = S.recursive<Node>("Node", (self) =>
+    S.schema({ v: S.string, kids: S.array(self) }),
+  );
+  const tree = (v: string, kids: Node[] = []): Node => ({ v, kids });
+
+  t.expect(S.isEqualInput(node, tree("a", [tree("x")]), tree("a", [tree("x")]))).toBe(true);
+  t.expect(S.isEqualInput(node, tree("a", [tree("x")]), tree("a", [tree("y")]))).toBe(false);
+  t.expect(S.compareInput(node, tree("a", [tree("x")]), tree("a", [tree("x")]))).toBe(0);
+  t.expect(S.compareInput(node, tree("a", [tree("x")]), tree("a", [tree("y")]))).toBe(-1);
+  t.expect(S.compareInput(node, tree("a", [tree("y")]), tree("a", [tree("x")]))).toBe(1);
+  // Depth is where a recursive comparator differs from a shallow one.
+  t.expect(S.compareInput(node, tree("a", [tree("x", [tree("p")])]), tree("a", [tree("x", [tree("q")])]))).toBe(-1);
+
+  type Branch = { n: number; leaf: { kids: Branch[] } };
+  const branch = S.recursive<Branch>("Branch", (self) =>
+    S.schema({ n: S.number, leaf: S.recursive("Leaf", () => S.schema({ kids: S.array(self) })) }),
+  );
+  const b = (n: number, kids: Branch[] = []): Branch => ({ n, leaf: { kids } });
+  t.expect(S.isEqualInput(branch, b(1, [b(2)]), b(1, [b(2)]))).toBe(true);
+  t.expect(S.isEqualInput(branch, b(1, [b(2)]), b(1, [b(3)]))).toBe(false);
+  t.expect(S.compareInput(branch, b(1, [b(2)]), b(1, [b(3)]))).toBe(-1);
+});
+
+// `Internal.definition` is the rule every site resolving a `$ref` keeps:
+// the definition a ref carries wins over the record the operation holds. The
+// comparator is one of those sites. Nothing public builds such a ref - the
+// protobuf compiler does, for standins that never leave the operation it
+// compiles - so the field is set here directly, which is what a compiler does.
+test("the comparator follows the definition a ref carries, not the name", (t) => {
+  const carried = S.recursive("Node", (self) =>
+    S.schema({ v: S.string, kids: S.array(self) }),
+  );
+  // The record says compare `v` and `kids`; the definition carried says `v`.
+  (carried as unknown as { definition: unknown }).definition = S.schema({ v: S.string });
+
+  const a = { v: "a", kids: ["x"] };
+  const b = { v: "a", kids: ["y"] };
+  t.expect(S.isEqualInput(carried, a, b)).toBe(true);
+  t.expect(S.compareInput(carried, a, b)).toBe(0);
+
+  // The same schema with nothing carried resolves by name and sees `kids`.
+  const named = S.recursive("Node", (self) => S.schema({ v: S.string, kids: S.array(self) }));
+  t.expect(S.isEqualInput(named, a, b)).toBe(false);
+  t.expect(S.compareInput(named, a, b)).toBe(-1);
+});

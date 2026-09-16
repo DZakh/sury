@@ -72,7 +72,12 @@ export const parse = (input: Val): Val => {
     if (++loopCount > 50) panic("Loop count exceeded 50");
 
     const defs = loopInput.e["$defs"];
-    if (defs) loopInput.g.d ? Object.assign(loopInput.g.d, defs) : (loopInput.g.d = defs);
+    // Copied, never adopted: a second `$defs` in the same operation - two
+    // independent `S.recursive` schemas in one object - would otherwise merge
+    // into the first schema's own record and leave it holding definitions that
+    // are not its own for the rest of the program. Null prototype because the
+    // keys are the names the caller gave `S.recursive`.
+    if (defs) loopInput.g.d = Object.assign(loopInput.g.d || Object.create(null), defs);
 
     // The val is a promise, so the rest of the chain has to run inside a
     // `.then`. The flag alone is the right guard: a second condition could only
