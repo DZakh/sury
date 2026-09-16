@@ -162,6 +162,34 @@ parse-as-result-invalid:
   # worth watching.
   run: parse(data)
 
+parse-array-20:
+  prepare: |
+    const parse = S.parseOrThrow(S.array(S.string));
+    const data = Array(20).fill("ok");
+  # Twenty valid items. The generated loop used to wrap each element in
+  # try/catch to prepend the index on failure; the valid path now has no catch.
+  run: parse(data)
+
+parse-array-20-invalid:
+  prepare: |
+    const parse = S.parseAsResult(S.array(S.string));
+    const data = Array(20).fill("ok");
+    data[19] = 0;
+  # Last item is not a string. Result, not throw: the fail helper receives the
+  # index as an argument instead of catching and prepending it.
+  run: parse(data)
+
+parse-nested-invalid:
+  prepare: |
+    const parse = S.parseAsResult(
+      S.array(S.schema({ tags: S.array(S.string) })),
+    );
+    const data = Array.from({ length: 20 }, () => ({ tags: ["a", "b"] }));
+    data[19] = { tags: ["a", 1] };
+  # Two dynamic segments: item index and inner index. A catch-rethrow paid a
+  # throw per level; the fail site now builds the whole path at once.
+  run: parse(data)
+
 is-equal:
   prepare: |
     const schema = S.schema({ id: S.string, age: S.number });
