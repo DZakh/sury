@@ -19,7 +19,7 @@ isEqual:
   output: (a,b)=>a===b||a.foo[1]===b.foo[1]
 compare:
   input: strictCompare
-  output: (a,b)=>a===b?0:a.foo[1]<b.foo[1]?-1:a.foo[1]>b.foo[1]?1:0
+  output: "throws: [Sury] Can't compare { foo: [1, number]; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

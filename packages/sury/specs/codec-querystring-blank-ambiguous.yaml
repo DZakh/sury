@@ -12,7 +12,7 @@ isEqual:
   output: (a,b)=>a===b||a.n===b.n
 compare:
   input: strictCompare
-  output: (a,b)=>a===b?0:(typeof a.n==="number"&&a.n==a.n?typeof b.n==="number"&&b.n==b.n?a.n<b.n?-1:a.n>b.n?1:0:-1:typeof b.n==="number"&&b.n==b.n?1:a.n<b.n?-1:a.n>b.n?1:0)
+  output: "throws: [Sury] Can't compare { n: number | string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

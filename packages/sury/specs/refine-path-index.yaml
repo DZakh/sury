@@ -8,7 +8,7 @@ jsonSchema:
   input: '{ type: "object", properties: { items: { items: { type: "string" }, type: "array" } }, required: ["items"] }'
   output: '{ type: "object", properties: { items: { items: { type: "string" }, type: "array" } }, required: ["items"] }'
 isEqual: (a,b)=>a===b||e[0](a.items,b.items)
-compare: (a,b)=>a===b?0:e[0](a.items,b.items)
+compare: "throws: [Sury] Can't compare { items: string[]; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod: 'z.object({ items: z.array(z.string()) }).refine(() => false, { message: "User error", path: ["items", 0] })'
 operations:

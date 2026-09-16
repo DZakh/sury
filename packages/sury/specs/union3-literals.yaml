@@ -8,7 +8,7 @@ jsonSchema:
   input: '{ enum: ["foo", 123, true] }'
   output: '{ enum: ["foo", 123, true] }'
 isEqual: strictEqual
-compare: (a,b)=>a===b?0:(a==="foo"?b==="foo"?0:-1:b==="foo"?1:a===123?b===123?0:-1:b===123?1:0)
+compare: "throws: [Sury] Can't compare \"foo\" | 123 | true. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod: z.union([z.literal("foo"), z.literal(123), z.literal(true)])
 operations:

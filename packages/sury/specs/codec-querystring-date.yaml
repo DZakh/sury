@@ -12,7 +12,7 @@ isEqual:
   output: (a,b)=>a===b||+a.at===+b.at
 compare:
   input: strictCompare
-  output: (a,b)=>a===b?0:+a.at<+b.at?-1:+a.at>+b.at?1:+a.at===+b.at?0:1
+  output: "throws: [Sury] Can't compare { at: Date; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

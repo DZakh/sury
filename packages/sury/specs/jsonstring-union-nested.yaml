@@ -14,7 +14,7 @@ isEqual:
   output: (a,b)=>a===b||(a.t==="a"?b.t==="a"&&a.inner.id===b.inner.id&&a.note===b.note:b.t==="b")
 compare:
   input: strictCompare
-  output: (a,b)=>a===b?0:(a.t==="a"?b.t==="a"?a.inner.id<b.inner.id?-1:a.inner.id>b.inner.id?1:(a.note===void 0?b.note===void 0?0:-1:b.note===void 0?1:a.note<b.note?-1:a.note>b.note?1:0):-1:b.t==="a"?1:0)
+  output: "throws: [Sury] Can't compare { t: \"a\"; inner: { id: bigint; }; note: string | undefined; } | { t: \"b\"; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

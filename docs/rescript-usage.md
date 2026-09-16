@@ -2081,7 +2081,7 @@ S.compileIsInput: (~schema: S.t<'value>) => 'any => bool
 S.compileIsOutput: (~schema: S.t<'value>) => 'any => bool
 ```
 
-**Comparing** answers whether two values of the schema's type are the same value, by the schema's own structure: fields and elements by their own schemas, a `Date` by its time, a variant by the case each value lands in, and a literal not at all. `compare` is the same walk answering `-1 | 0 | 1` - 0 exactly when `isEqual` would be true. Hand `compileCompare` to `Array.sort` for values the schema can order. Both values are assumed to have the type already, so nothing is validated. `S.t<'value>` names the output type, so these are the JS `isEqualOutput` / `compareOutput`:
+**Comparing** answers whether two values of the schema's type are the same value, by the schema's own structure: fields and elements by their own schemas, a `Date` by its time, a variant by the case each value lands in, and a literal not at all. `compare` is the same walk answering `-1 | 0 | 1` ascending, for `Array.sort` - 0 exactly when `isEqual` would be true. `isEqual` takes any schema; `compare` takes the schemas that have an order (a primitive, a `Date`, a `Url`, a literal, an option of one of those, and a tuple of any of them) and raises for the rest. Both values are assumed to have the type already, so nothing is validated. `S.t<'value>` names the output type, so these are the JS `isEqualOutput` / `compareOutput`:
 
 ```
 S.isEqual: ('value, 'value, ~schema: S.t<'value>) => bool
@@ -2094,8 +2094,9 @@ S.compileCompare: (~schema: S.t<'value>) => ('value, 'value) => int
 let isSameFilm = S.compileIsEqual(~schema=filmSchema)
 isSameFilm(a, b)
 
-let byFilm = S.compileCompare(~schema=filmSchema)
-films->Array.sort(byFilm)
+// A film has no order of its own, so sort by the fields that do.
+let byTitle = S.compileCompare(~schema=S.tuple(s => (s.item(0, S.string), s.item(1, S.float))))
+films->Array.sort((a, b) => byTitle((a.title, a.id), (b.title, b.id)))
 ```
 
 **Making** checks a value you built in code rather than received from the wire. Every check the schema carries runs - types, the conversion, refinements - and the value itself comes back, not a decoded copy, so an entity the schema has no way to encode fails at construction rather than at the point it's sent. `S.t<'value>` names the output type, so this is the JS `makeOutputOrThrow`:

@@ -361,7 +361,6 @@ const SHARED_COMPARATORS = [
   "alwaysCompare",
   "strictCompare",
   "nanCompare",
-  "identityCompare",
 ];
 const comparatorForm = (fn: Function): string =>
   SHARED_COMPARATORS.includes(fn.name) ? fn.name : fn.toString();
@@ -679,9 +678,24 @@ export const deriveIsEqual = (schema: any): string | IsEqualSides => {
   return input === output ? input : { input, output };
 };
 
+// Compare answers for a closed set of schemas (primitives, Date, URL, tuples of
+// them, and the unions that collapse to one test); everything else is refused
+// when the comparator is compiled. The refusal is this dimension's contract for
+// those schemas, so it is recorded as `throws: <message>` and checked, rather
+// than skipped.
+const compareForm = (build: () => Function): string => {
+  try {
+    return comparatorForm(build());
+  } catch (e) {
+    return `${COMPARE_THROWS}${(e as Error).message}`;
+  }
+};
+
+export const COMPARE_THROWS = "throws: ";
+
 export const deriveCompare = (schema: any): string | IsEqualSides => {
-  const input = comparatorForm(S.compareInput(schema));
-  const output = comparatorForm(S.compareOutput(schema));
+  const input = compareForm(() => S.compareInput(schema) as Function);
+  const output = compareForm(() => S.compareOutput(schema) as Function);
   return input === output ? input : { input, output };
 };
 
@@ -2399,12 +2413,24 @@ export const checkEquality = (spec: Spec, schema: any): string[] => {
       errs.push(`isEqual: S.${name}(schema) threw ${JSON.stringify((e as Error).message)}`);
       continue;
     }
+    const cmpGolden = typeof spec.compare === "string" ? spec.compare : (spec.compare as IsEqualSides | undefined)?.[side];
+    const wantThrow = cmpGolden?.startsWith(COMPARE_THROWS) === true;
     let compiledCmp: ((a: unknown, b: unknown) => number) | undefined;
     if (!skipCompare) {
       try {
         compiledCmp = cmpDirect(schema) as unknown as (a: unknown, b: unknown) => number;
+        if (wantThrow)
+          errs.push(`compare: S.${cmpName}(schema) no longer throws - rerun with --write`);
       } catch (e) {
-        errs.push(`compare: S.${cmpName}(schema) threw ${JSON.stringify((e as Error).message)}`);
+        const message = (e as Error).message;
+        if (!wantThrow) {
+          errs.push(`compare: S.${cmpName}(schema) threw ${JSON.stringify(message)}`);
+        } else if (cmpGolden !== `${COMPARE_THROWS}${message}`) {
+          errs.push(
+            `compare: S.${cmpName}(schema) threw ${JSON.stringify(message)}, ` +
+              `golden says ${JSON.stringify(cmpGolden!.slice(COMPARE_THROWS.length))}`,
+          );
+        }
       }
     }
     const conforming = values.filter((v) => {

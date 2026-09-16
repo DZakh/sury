@@ -11,7 +11,7 @@ jsonSchema:
     input: '{ type: "object", properties: { f: { type: "string" } } }'
     output: '{ type: "object", properties: { f: { type: "string" } } }'
 isEqual: (a,b)=>a===b||a.f===b.f
-compare: (a,b)=>a===b?0:(a.f===void 0?b.f===void 0?0:-1:b.f===void 0?1:a.f<b.f?-1:a.f>b.f?1:0)
+compare: "throws: [Sury] Can't compare { f: JSON string | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

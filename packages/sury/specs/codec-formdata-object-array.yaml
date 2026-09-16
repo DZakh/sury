@@ -11,8 +11,8 @@ isEqual:
   input: (a,b)=>a===b||e[0](a,b)
   output: (a,b)=>a===b||e[0](a.tags,b.tags)&&e[1](a.ids,b.ids)&&e[2](a.picks,b.picks)&&(a.extra===void 0?b.extra===void 0:b.extra!==void 0&&e[3](a.extra,b.extra))
 compare:
-  input: (a,b)=>a===b?0:e[0](a,b)
-  output: (a,b)=>a===b?0:(((e[0](a.tags,b.tags))||(e[1](a.ids,b.ids)))||(e[2](a.picks,b.picks)))||((a.extra===void 0?b.extra===void 0?0:-1:b.extra===void 0?1:e[3](a.extra,b.extra)))
+  input: "throws: [Sury] Can't compare FormData. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { tags: (string.length >= 1)[]; ids: number[]; picks: (\"a\" | \"b\")[]; extra: string[] | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

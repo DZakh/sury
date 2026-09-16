@@ -15,7 +15,7 @@ jsonSchema:
     input: '{ type: "object", properties: { foo: { type: "string", enum: ["bar"] } }, required: ["foo"] }'
     output: '{ type: "object", properties: { foo: { type: "string", enum: ["bar"] } }, required: ["foo"] }'
 isEqual: alwaysEqual
-compare: alwaysCompare
+compare: "throws: [Sury] Can't compare { foo: \"bar\"; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod: 'z.object({ foo: z.literal("bar") })'
 operations:

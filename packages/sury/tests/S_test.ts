@@ -1460,9 +1460,9 @@ test("a number compares with SameValueZero once NaN can reach it", (t) => {
 });
 
 test("compare dispatch: the schema is found first or last, and its absence panics", (t) => {
-  const schema = S.schema({ id: S.string });
-  const a = { id: "u1" };
-  const b = { id: "u1" };
+  const schema = S.tuple([S.string]);
+  const a: [string] = ["u1"];
+  const b: [string] = ["u1"];
 
   t.expect(typeof S.compareOutput(schema)).toBe("function");
   t.expect(S.compareOutput(S.void, undefined, undefined)).toBe(0);
@@ -1471,8 +1471,8 @@ test("compare dispatch: the schema is found first or last, and its absence panic
   t.expect(S.compareOutput(schema, a, b)).toBe(0);
   t.expect(S.compareOutput(a, b, schema)).toBe(0);
   t.expect(S.compareInput(a, b, schema)).toBe(0);
-  t.expect(S.compareOutput(a, { id: "u2" }, schema)).toBe(-1);
-  t.expect(S.compareOutput({ id: "u2" }, a, schema)).toBe(1);
+  t.expect(S.compareOutput(a, ["u2"], schema)).toBe(-1);
+  t.expect(S.compareOutput(["u2"], a, schema)).toBe(1);
 
   const foreign = {
     "~standard": { version: 1, vendor: "other", validate: (v: unknown) => ({ value: v }) },
@@ -1485,7 +1485,23 @@ test("compare dispatch: the schema is found first or last, and its absence panic
   ).toThrow("Expected a Sury schema");
 });
 
-test("compare orders primitives, objects, arrays, optionals and tagged unions", (t) => {
+// Every schema's own refusal is a spec golden. What a spec can't hold is the
+// message itself, which is one text for the whole corpus.
+test("compare refuses a schema with no order, and says what has one", (t) => {
+  t.expect(() => S.compareOutput(S.schema({ id: S.string }))).toThrow(
+    "[Sury] Can't compare { id: string; }. Only primitives, Date, URL and tuples of them " +
+      "are orderable. Use isEqual for equality",
+  );
+  // The offending part is named, not the schema the caller passed.
+  t.expect(() => S.compareOutput(S.tuple([S.string, S.unknown]))).toThrow(
+    "Can't compare unknown.",
+  );
+  // isEqual keeps answering for all of them.
+  t.expect(S.isEqualOutput(S.schema({ id: S.string }), { id: "u1" }, { id: "u1" })).toBe(true);
+  t.expect(S.isEqualOutput(S.unknown, { a: [1] }, { a: [1] })).toBe(true);
+});
+
+test("compare orders primitives, dates and optionals, and tuples of them", (t) => {
   t.expect(S.compareOutput(S.string, "a", "a")).toBe(0);
   t.expect(S.compareOutput(S.string, "a", "b")).toBe(-1);
   t.expect(S.compareOutput(S.string, "b", "a")).toBe(1);
@@ -1495,15 +1511,10 @@ test("compare orders primitives, objects, arrays, optionals and tagged unions", 
   t.expect(S.compareOutput(S.boolean, false, true)).toBe(-1);
   t.expect(S.compareOutput(S.bigint, 1n, 2n)).toBe(-1);
 
-  const user = S.schema({ id: S.string, age: S.number });
-  t.expect(S.compareOutput(user, { id: "a", age: 2 }, { id: "b", age: 1 })).toBe(-1);
-  t.expect(S.compareOutput(user, { id: "a", age: 1 }, { id: "a", age: 2 })).toBe(-1);
-  t.expect(S.compareOutput(user, { id: "a", age: 1 }, { id: "a", age: 1 })).toBe(0);
-
-  const tags = S.array(S.string);
-  t.expect(S.compareOutput(tags, ["a"], ["a", "b"])).toBe(-1);
-  t.expect(S.compareOutput(tags, ["b"], ["a"])).toBe(1);
-  t.expect(S.compareOutput(tags, ["a", "b"], ["a", "b"])).toBe(0);
+  const row = S.tuple([S.string, S.number]);
+  t.expect(S.compareOutput(row, ["a", 2], ["b", 1])).toBe(-1);
+  t.expect(S.compareOutput(row, ["a", 1], ["a", 2])).toBe(-1);
+  t.expect(S.compareOutput(row, ["a", 1], ["a", 1])).toBe(0);
 
   const maybe = S.optional(S.string);
   t.expect(S.compareOutput(maybe, undefined, "a")).toBe(-1);
@@ -1517,16 +1528,9 @@ test("compare orders primitives, objects, arrays, optionals and tagged unions", 
   t.expect(S.compareOutput(S.date, at, later)).toBe(-1);
   t.expect(S.compareOutput(S.date, later, at)).toBe(1);
 
-  const tagged = S.union([
-    S.schema({ kind: S.literal("a"), n: S.number }),
-    S.schema({ kind: S.literal("b"), n: S.number }),
-  ]);
-  t.expect(
-    S.compareOutput(tagged, { kind: "a", n: 2 }, { kind: "b", n: 1 }),
-  ).toBe(-1);
-  t.expect(
-    S.compareOutput(tagged, { kind: "a", n: 1 }, { kind: "a", n: 2 }),
-  ).toBe(-1);
+  // Hand to sort, the case the API exists for.
+  const rows: [string, number][] = [["b", 1], ["a", 2], ["a", 1]];
+  t.expect(rows.slice().sort(S.compareOutput(row))).toEqual([["a", 1], ["a", 2], ["b", 1]]);
 });
 
 test("a number's compare uses the SameValueZero zero-case once NaN can reach it", (t) => {
@@ -1537,9 +1541,9 @@ test("a number's compare uses the SameValueZero zero-case once NaN can reach it"
     t.expect(S.compareOutput(S.number, 1, 2)).toBe(-1);
     t.expect(S.compareOutput(S.number, NaN, 1)).toBe(-1);
     t.expect(S.compareOutput(S.number, 1, NaN)).toBe(1);
-    const nested = S.schema({ n: S.number });
-    t.expect(S.compareOutput(nested, { n: NaN }, { n: NaN })).toBe(0);
-    t.expect(S.compareOutput(nested, { n: NaN }, { n: 1 })).toBe(-1);
+    const nested = S.tuple([S.number]);
+    t.expect(S.compareOutput(nested, [NaN], [NaN])).toBe(0);
+    t.expect(S.compareOutput(nested, [NaN], [1])).toBe(-1);
   } finally {
     S.global({});
   }
