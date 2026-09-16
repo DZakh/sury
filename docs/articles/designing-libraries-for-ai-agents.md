@@ -65,7 +65,7 @@ Besides obvious ones like guiding error messages, here are some ideas I used whe
 
 ## 1. Prefer explicit over implicit
 
-There's no `S.parse` in Sury. A default `parse` throws somewhere down the line and nobody handles it, so instead there are two names and you have to pick one:
+There's no `S.parse` in Sury. I didn't want to give a default which throws somewhere down the line and nobody handles it. So there are two names, and you have to choose:
 
 ```ts
 S.parseOrThrow(userSchema, data);
@@ -76,7 +76,7 @@ S.parseAsResult(userSchema, data);
 // { success: false, error: SuryError: Expected string, received 42 }
 ```
 
-Now the choice is in the code. The agent is more likely to pick `parseAsResult`, and during review another agent can notice that an error is never handled.
+Now the choice is written down. The agent is more likely to take `parseAsResult`, and on review another agent can actually see that nobody handles the error.
 
 Compare it with Zod, where the throwing one gets the short name:
 
@@ -85,13 +85,13 @@ userSchema.parse(data); // throws
 userSchema.safeParse(data); // returns a result
 ```
 
-`parse` reads as done. Nothing in it says an exception is coming, and the safe version is the one you have to know about and opt into. Easy to miss in review.
+Looks finished, doesn't it? Nothing in `parse` tells you that an exception is coming, and the safe version is hidden behind a name you have to know about.
 
-Half a joke, but an important one: this matters even more now, when the review is done by an AI as well. A human at least could have a bad feeling about `parse`.
+Half a joke, but an important one - it matters even more now, when the review is done by an AI as well. A human at least could have a bad feeling about `parse`. 😄
 
-### The same thing, but nastier
+### The same story, but worse
 
-Now look at `is`. Every schema library has it and it looks completely harmless:
+Now look at `is`. Every schema library has something like it, and on the first glance it looks completely harmless:
 
 ```ts
 if (is(userSchema, data)) {
@@ -99,7 +99,7 @@ if (is(userSchema, data)) {
 }
 ```
 
-For a schema which transforms something there are two answers to that question. Every library picks one for you, and they don't pick the same one:
+But if the schema transforms something, there are two answers to this question. Every library picks one for you, and, surprise, they don't pick the same one:
 
 | | The helper | What it checks |
 |---|---|---|
@@ -114,9 +114,9 @@ For a schema which transforms something there are two answers to that question. 
 | Zod | no `is`, only `safeParse` | Input, and returns the Output |
 | Sury | `S.isInput` / `S.isOutput` | the one you picked |
 
-Same call, opposite meaning. Half of them say your decoded value is invalid, the other half say your wire format is, and the two which convert first say yes to everything.
+Same call, opposite meaning. Some of them will tell you that your decoded value is invalid, others will say the same about your wire format. And the ones which convert first just say yes to everything.
 
-And it stays quiet for as long as the schema has no transform, because then both answers are the same. Add a `.transform()` one day and every `is` in the codebase silently changes meaning. Russian roulette in disguise.
+The nice part is that it stays quiet while the schema has no transform, because then both answers are the same. Add a `.transform()` one day and every `is` in your codebase silently changes meaning. Russian roulette in disguise. 👀
 
 That's why there's no `S.is`:
 
@@ -129,7 +129,7 @@ S.isOutput(price, "42"); // false
 
 ## 2. Any arguments order
 
-An agent which guessed the arguments order wrong spends an extra iteration on it. So I let every order work:
+An agent which guessed the arguments order wrong spends an extra iteration on it. And why should it? So I made every order work:
 
 ```ts
 S.parseOrThrow(data, userSchema);
@@ -137,11 +137,11 @@ S.parseOrThrow(userSchema, data);
 S.parseOrThrow(userSchema)(data);
 ```
 
-Same result from all three. Nothing to get wrong, nothing to re-run.
+All three give the same result, so there's simply nothing to guess here.
 
 ## 3. Force a decision where it matters
 
-When a case can be read in more than one way, I don't pick a default. I make you choose:
+When a case can be read in more than one way, I don't want to pick a default for you. I make you choose:
 
 ```ts
 S.decodeOrThrow(S.env, S.string);
@@ -150,11 +150,11 @@ S.decodeOrThrow(S.env, S.string);
 // or S.optional
 ```
 
-And it throws when you build the decoder, not when the data arrives. An empty env var is a decision, not something my library should guess for you.
+And it throws when you build the decoder, not when the data arrives, so you see it while writing the code. An empty env var is a decision, and I don't think my library should make it for you.
 
 ## 4. Aliases for common knowledge
 
-As much as I'd like to force my own API, there are practices the agent brings from its own knowledge. Fighting them costs an iteration, so I just alias them:
+As much as I'd like to force my own API, there are practices the agent takes from its own knowledge. Fighting them costs an iteration, so I just made aliases:
 
 ```ts
 S.schema({ id: S.string });
@@ -164,10 +164,10 @@ S.union([S.literal("admin"), S.literal("user")]);
 S.enum(["admin", "user"]);
 ```
 
-Under the hood it's the same thing.
+Under the hood it's literally the same thing.
 
 ## Shipping!
 
-Honestly, none of this is AI-specific. A library which drives its own usage was always better for people too. Agents just stopped forgiving the parts we used to cover with docs.
+Honestly, nothing here is really about AI. A library which drives its own usage was always better for people too. It's just that agents stopped forgiving the parts we used to cover with docs.
 
-If you want to see all of it together, [Sury](https://github.com/DZakh/sury) v11 is out. And follow me on [X](https://x.com/dzakh_dev) - it'll make my day 🙏
+All of this is in [Sury](https://github.com/DZakh/sury) v11, which is out now. And if you want more about schema libraries and library design, follow me on [X](https://x.com/dzakh_dev) - it'll make my day 🙏
