@@ -19,15 +19,12 @@ import {
   isOwnSchema,
   panic,
   panicNotSchema,
-  standardIssues,
   U,
   undefinedTag,
   type Val
 } from "./base";
 import {
  B_embedErrorOf,
- B_embedPure,
- B_errorOf,
  B_varWithoutAllocation,
  operationArgVar
 } from "./builder";
@@ -72,8 +69,7 @@ export const assertResult: Internal = /* @__PURE__ */ initSchema(undefinedTag, l
 //
 // `issues` is the fourth of those keys: a JS Result IS a Standard Schema
 // result, so `S.parseAsResult(schema, data)` can be handed to anything that
-// reads one without a translation step. `standardIssues` (base.ts) is the same
-// builder `~standard.validate` uses, so the two never drift.
+// reads one without a translation step.
 const okResult = (flag: Flag, value: string): string =>
   flag & 256
     ? `{TAG:"Ok",_0:${value}}`
@@ -83,21 +79,28 @@ const okResult = (flag: Flag, value: string): string =>
 // The bare `false` is `is`'s answer; nothing else reaches this without a
 // Result shape to fill.
 //
-// The JS failure is built by an embedded function rather than spelled out
-// inline: `issues` reads the error three times, and naming it would cost a
-// generated `let`. Shorter generated code wins over shorter library code
-// (CONTRIBUTING.md), and the tail is still compiled rather than wrapped - the
-// `try` elision above is untouched and there is no second object translating
-// one result shape into another.
-const errResult = (input: Val, flag: Flag, errVar: string): string => {
-  if (flag & 256) return `{TAG:"Error",_0:${B_embedErrorOf(input)}(${errVar})}`;
-  if (!(flag & 128)) return "false";
-  const errorOf = B_errorOf(input);
-  return `${B_embedPure(input, (e: unknown) => {
-    const error = errorOf(e);
-    return { success: false, value: U, error, issues: standardIssues(error) };
-  })}(${errVar})`;
-};
+// `errVar` holds the raised value, and the JS branch rebinds it to the
+// SuryError in place - it is a catch parameter or an arrow parameter either
+// way, and `issues` needs the error three times. The comma expression is what
+// lets the rebind sit where the caller wants an expression (the promise's
+// rejection handler), so one spelling serves both call sites.
+//
+// `issues` is spelled out here rather than handed to a library function
+// because the Result IS the emitter's output: a helper would move half of it
+// out of the generated code and out of what a spec or `.toString()` shows.
+// `message` is the error's `reason` and not its formatted `message` - the
+// location travels in `path`, and a consumer that renders both would say it
+// twice. `path` is omitted at the root. Both match what `throwTail` emits for
+// `~standard.validate` (parse.ts), which is the whole point, and
+// `tests/operations_test.ts` puts the two side by side so they cannot drift.
+const errResult = (input: Val, flag: Flag, errVar: string): string =>
+  flag & 256
+    ? `{TAG:"Error",_0:${B_embedErrorOf(input)}(${errVar})}`
+    : flag & 128
+      ? `(${errVar}=${B_embedErrorOf(input)}(${errVar}),{success:false,value:void 0,error:${
+          errVar
+        },issues:[{message:${errVar}.reason,path:${errVar}.path.length?${errVar}.path:void 0}]})`
+      : "false";
 
 const operationTail: Tail = (input, code, out, isAsync, flag, hasDefs) => {
   // 2048 (`makeInput`/`makeOutput`) hands back the value it was given. The

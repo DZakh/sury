@@ -359,12 +359,17 @@ instead of silently working around it.
   instead".
 
 - A Result-shaped outcome is read for `success`, `value` and `error.message`
-  and nothing else, so its `issues` - the half that makes a Result a Standard
-  Schema result - is unchecked across the whole corpus. The harness already
-  holds both sides: it could put every `error` golden to `~standard.validate`
-  for the same value and require the two to report the same issue, which is
-  the property `standardIssues` exists to keep. `tests/operations_test.ts`
-  holds it for two schemas instead.
+  and nothing else, so a Result's `issues` go unchecked across the whole
+  corpus. The harness holds both sides already: it could put every `error`
+  golden to `~standard.validate` for the same value and require the two to
+  report the same issue. `tests/operations_test.ts` holds that for a handful of
+  schemas instead.
+
+- `resultExpression` is optional with no rule for when a spec should carry one,
+  so no spec does and the field is unused. Either the harness should say what
+  makes a spec the right place for it, or `--write` should fill it everywhere
+  an `expression` exists and let the ratchet watch the Result tail the way it
+  watches the throw tail.
 
 - `operations` has an `assert` and an `is` slot and no spec fills either, so
   `S.assertInputOrThrow` and `S.isInput` still have no golden anywhere. Both

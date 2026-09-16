@@ -6,11 +6,18 @@ code it constrains - this file can't be kept honest against a refactor.
 ## Goals (priority order on conflict)
 
 1. **DX** - intuitive public API and error messages.
-2. **Performance** - generated code is the hot path; avoid extra vars, allocations, double validation; inline over indirect.
-3. **Bundle size** - `bundleSize.yaml` measures what ships.
-
-Tiebreaker: shortest *generated* code wins over shortest *library* code (runtime
-ships per-schema, library ships once).
+2. **Not a hacky implementation** - the library may be unreadable; what a
+   consumer sees, types against or debugs may not. A trick that moves part of an
+   answer out of the place it is supposed to come from is hacky even when it
+   measures better.
+3. **Positive flow performance** - the valid path through a compiled operation;
+   avoid extra vars, allocations, double validation; inline over indirect.
+4. **Negative flow performance** - the failing path, same rules, second call.
+5. **Schema and operation creation performance** - paid once per schema, not per
+   value.
+6. **Bundle size** - `bundleSize.yaml` measures what ships. Between two spellings
+   that cost the same everywhere above, shrink the *generated* code: it ships per
+   schema, the library ships once.
 
 ## Use the spec skill
 

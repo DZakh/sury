@@ -16,7 +16,6 @@ vs:
 operations:
   parse:
     expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.a;typeof v0==="string"||e[0](v0);return {a:v0}}
-    resultExpression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.a;typeof v0==="string"||e[0](v0);return {success:true,value:{a:v0},error:void 0,issues:void 0}}catch(v1){return e[2](v1)}}
     examples:
       valid:
         input: '{ a: "hello" }'

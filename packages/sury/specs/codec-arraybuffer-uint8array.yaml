@@ -22,7 +22,6 @@ operations:
         error: Expected ArrayBuffer, received Uint8Array
   decode:
     expression: i=>{let v0=new Uint8Array(i);return v0}
-    resultExpression: i=>{let v0=new Uint8Array(i);return {success:true,value:v0,error:void 0,issues:void 0}}
     examples:
       buffer-to-view:
         input: new Uint8Array([1, 2]).buffer

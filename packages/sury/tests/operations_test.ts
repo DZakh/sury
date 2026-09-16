@@ -1,4 +1,4 @@
-import { expect, test } from "vitest";
+import { expect, expectTypeOf, test } from "vitest";
 import * as S from "sury";
 import type { StandardSchemaV1 } from "sury";
 
@@ -9,6 +9,7 @@ import type { StandardSchemaV1 } from "sury";
 // Suggestions).
 
 const user = S.schema({ id: S.string });
+type User = { id: string };
 
 // ── Call forms ───────────────────────────────────────────────────────────────
 
@@ -82,7 +83,7 @@ test("a hole and a foreign Standard Schema are named, not read as data", () => {
 
 test("the Result tail is compiled into the operation, not wrapped around it", () => {
   expect(S.parseAsResult(S.string).toString()).toMatchInlineSnapshot(
-    `"i=>{try{typeof i==="string"||e[0](i);return {success:true,value:i,error:void 0,issues:void 0}}catch(v0){return e[1](v0)}}"`,
+    `"i=>{try{typeof i==="string"||e[0](i);return {success:true,value:i,error:void 0,issues:void 0}}catch(v0){return (v0=e[1](v0),{success:false,value:void 0,error:v0,issues:[{message:v0.reason,path:v0.path.length?v0.path:void 0}]})}}"`,
   );
 });
 
@@ -115,21 +116,55 @@ test("both Result branches carry the same keys in the same order", () => {
   expect(Object.keys(parse({ id: 1 }))).toEqual(["success", "value", "error", "issues"]);
 });
 
-test("a Result is a Standard Schema result", () => {
-  // The same object answers both readings, so a Result goes to a consumer that
-  // knows only Standard Schema without a translation step.
-  const validate = (result: S.Result<{ id: string }>): StandardSchemaV1.Result<{ id: string }> =>
-    result;
+test("a Result satisfies the Standard Schema result type, branch for branch", () => {
+  // Assignable as a whole and member by member, so a Result reaches a consumer
+  // that knows only Standard Schema with no translation step and no cast.
+  expectTypeOf<S.Result<User>>().toExtend<StandardSchemaV1.Result<User>>();
+  expectTypeOf<S.SuccessResult<User>>().toExtend<StandardSchemaV1.SuccessResult<User>>();
+  expectTypeOf<S.FailureResult>().toExtend<StandardSchemaV1.FailureResult>();
+  // Every operation that answers a Result, in every call form, not just the
+  // one this file spells out.
+  expectTypeOf(S.parseAsResult(user, {})).toExtend<StandardSchemaV1.Result<User>>();
+  expectTypeOf(S.decodeAsResult(user)({ id: "a" })).toExtend<StandardSchemaV1.Result<User>>();
+  expectTypeOf(S.encodeAsResult(user, { id: "a" })).toExtend<StandardSchemaV1.Result<User>>();
+  expectTypeOf(S.makeOutputAsResult(user, { id: "a" })).toExtend<StandardSchemaV1.Result<User>>();
+  expectTypeOf(S.parseAsResultPromise(user, {})).toExtend<Promise<StandardSchemaV1.Result<User>>>();
+  expectTypeOf(S.parseAsPromisableResult(user, {})).toExtend<
+    StandardSchemaV1.Result<User> | Promise<StandardSchemaV1.Result<User>>
+  >();
 
-  expect(validate(S.parseAsResult(user, { id: "a" }))).toEqual({
+  // A Standard Schema consumer tells the branches apart by `issues` alone, so
+  // that read has to narrow a Result the same way `success` does.
+  const result: StandardSchemaV1.Result<User> = S.parseAsResult(user, {});
+  if (result.issues) {
+    expectTypeOf(result.issues).toEqualTypeOf<readonly StandardSchemaV1.Issue[]>();
+  } else {
+    expectTypeOf(result.value).toEqualTypeOf<User>();
+  }
+
+  // And the same read against the Sury type, which is where `success` and
+  // `issues` have to agree with each other.
+  const own = S.parseAsResult(user, {});
+  if (own.issues) {
+    expectTypeOf(own.success).toEqualTypeOf<false>();
+    expectTypeOf(own.error).toEqualTypeOf<S.DataError>();
+  } else {
+    expectTypeOf(own.success).toEqualTypeOf<true>();
+    expectTypeOf(own.value).toEqualTypeOf<User>();
+  }
+});
+
+test("a Result carries the issues `~standard.validate` reports", () => {
+  expect(S.parseAsResult(user, { id: "a" })).toEqual({
     success: true,
     value: { id: "a" },
     error: undefined,
     issues: undefined,
   });
-  // Word for word what `~standard.validate` reports for the same value: one
-  // builder answers both (`standardIssues`), so the two cannot drift.
-  expect(validate(S.parseAsResult(user, { id: 1 })).issues).toEqual(
+  // Word for word what `~standard.validate` says about the same value. The two
+  // tails emit their own copy of this shape, so this is what holds them
+  // together (see the comment on `errResult` in src/operations.ts).
+  expect(S.parseAsResult(user, { id: 1 }).issues).toEqual(
     (user["~standard"].validate({ id: 1 }) as StandardSchemaV1.FailureResult).issues,
   );
   expect(S.parseAsResult(user, { id: 1 }).issues).toEqual([
@@ -146,9 +181,7 @@ test("a Result is a Standard Schema result", () => {
   ]);
 
   // Every Result-shaped outcome, not just the sync one.
-  expect((S.parseAsPromisableResult(user, { id: 1 }) as S.Result<{ id: string }>).issues).toHaveLength(
-    1,
-  );
+  expect((S.parseAsPromisableResult(user, { id: 1 }) as S.Result<User>).issues).toHaveLength(1);
 });
 
 test("an async Result carries issues from either side of the await", async () => {
