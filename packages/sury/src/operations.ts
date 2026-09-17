@@ -68,9 +68,13 @@ export const assertResult: Internal = /* @__PURE__ */ initSchema(undefinedTag, l
 // sibling fields in `Result`): one decision, both halves.
 //
 // `issues` is the fourth of those keys, and the one that makes a Result a
-// Standard Schema result. It costs a store on every successful parse; leaving
-// it off the success branch to save that splits the hidden class, and the reads
-// then lose more than the store saved (specs/scenarios.yaml, `result-read`).
+// Standard Schema result. It is free where a consumer branches on the Result at
+// the call site, which is most of them: nothing outlives the frame, so V8 drops
+// the object and the key with it. It costs a store only where the Result is
+// kept, and taking it off the success branch to save that splits the hidden
+// class and hands the same nanosecond back on the reads. Both halves are in
+// specs/scenarios.yaml - `parse-as-result-consumed` against
+// `parse-as-result-compiled`, and `result-read`.
 const okResult = (flag: Flag, value: string): string =>
   flag & 256
     ? `{TAG:"Ok",_0:${value}}`
