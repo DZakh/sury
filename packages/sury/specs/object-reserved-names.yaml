@@ -10,6 +10,7 @@ jsonSchema:
   input: '{ type: "object", properties: { constructor: { type: "string" }, hasOwnProperty: { type: "number" } }, required: ["constructor", "hasOwnProperty"] }'
   output: '{ type: "object", properties: { constructor: { type: "string" }, hasOwnProperty: { type: "number" } }, required: ["constructor", "hasOwnProperty"] }'
 isEqual: (a,b)=>a===b||a.constructor===b.constructor&&a.hasOwnProperty===b.hasOwnProperty
+compare: (a,b)=>a===b?0:a.constructor<b.constructor?-1:a.constructor>b.constructor?1:a.hasOwnProperty<b.hasOwnProperty?-1:a.hasOwnProperty>b.hasOwnProperty?1:0
 vs:
   zod: "z.object({ constructor: z.string(), hasOwnProperty: z.number() })"
 operations:

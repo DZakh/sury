@@ -14,6 +14,9 @@ jsonSchema:
 isEqual:
   input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i].id===b[i].id&&a[i].name===b[i].name))return false;return true}
   output: strictEqual
+compare:
+  input: (a,b)=>{if(a===b)return 0;let n=a.length,m=b.length,l=n<m?n:m,c;for(let i=0;i<l;i++)if(c=a[i].id<b[i].id?-1:a[i].id>b[i].id?1:a[i].name<b[i].name?-1:a[i].name>b[i].name?1:0)return c;return n<m?-1:n>m?1:0}
+  output: strictCompare
 vs:
   zod:
     _skip: not-applicable
@@ -31,7 +34,7 @@ operations:
         input: "[{ id: 1, name: 2 }]"
         error: "Failed at [0].name: Expected string, received 2"
   decode:
-    expression: i=>{let v3="";for(let v2=0;v2<i.length;++v2){try{let v4=i[v2];let v5=v4.id;v3+=(v2?",":"")+"{\"id\":"+(Number.isFinite(v5)?v5:e[0](v5))+",\"name\":"+e[1](v4.name)+"}"}catch(v6){v6.path=[v2,...v6.path];throw v6}}return "["+v3+"]"}
+    expression: i=>{let v1="";for(let v0=0;v0<i.length;++v0){try{let v2=i[v0];let v3=v2.id;v1+=(v0?",":"")+"{\"id\":"+(Number.isFinite(v3)?v3:e[0](v3))+",\"name\":"+e[1](v2.name)+"}"}catch(v4){v4.path=[v0,...v4.path];throw v4}}return "["+v1+"]"}
     examples:
       two-items:
         input: '[{ id: 1, name: "a" }, { id: 2, name: "b" }]'

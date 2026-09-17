@@ -8,6 +8,7 @@ jsonSchema:
   input: '{ enum: ["a", "b", null] }'
   output: '{ enum: ["a", "b", null] }'
 isEqual: strictEqual
+compare: (a,b)=>a===b?0:(a==="a"?b==="a"?0:-1:b==="a"?1:a==="b"?b==="b"?0:-1:b==="b"?1:0)
 vs:
   zod: z.enum(["a", "b"]).nullable()
 operations:

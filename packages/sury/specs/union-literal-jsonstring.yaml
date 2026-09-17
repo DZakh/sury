@@ -11,6 +11,7 @@ jsonSchema:
     input: '{ anyOf: [{ type: "string", enum: ["x"] }, { type: "string" }] }'
     output: '{ anyOf: [{ type: "string", enum: ["x"] }, { type: "string" }] }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod:
     _skip: not-applicable

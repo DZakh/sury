@@ -8,6 +8,7 @@ jsonSchema:
   input: Expected JSON, received symbol
   output: Expected JSON, received symbol
 isEqual: strictEqual
+compare: identityCompare
 vs:
   zod: z.symbol()
 operations:

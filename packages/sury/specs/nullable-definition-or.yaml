@@ -12,6 +12,9 @@ jsonSchema:
 isEqual:
   input: (a,b)=>a===b||(a===null?b===null:b!==null&&a.a===b.a)
   output: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: (a,b)=>a===b?0:(a===null?b===null?0:-1:b===null?1:a.a<b.a?-1:a.a>b.a?1:0)
+  output: (a,b)=>a===b?0:e[0](a,b)
 vs:
   zod:
     schema: "z.object({ a: z.boolean() }).nullable().default({ a: false })"

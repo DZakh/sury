@@ -1,0 +1,83 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ plain: S.union(["a", "b"]), quoted: S.union(["a\"q", "b"]), three: S.union(["a", "b", "c"]), nested: S.schema({ f: S.union(["a", "b"]) }), items: S.array(S.schema({ f: S.union(["a", "b"]) })), opt: S.optional(S.union(["a", "b"])) }).with(S.to, S.json)'
+  input: '{ plain: "a" | "b"; quoted: "b" | "a\"q"; three: "a" | "b" | "c"; nested: { f: "a" | "b"; }; items: { f: "a" | "b"; }[]; opt?: "a" | "b" | undefined; }'
+  output: JSON
+  instantiations: 10195
+jsonSchema:
+  input: '{ type: "object", properties: { plain: { enum: ["a", "b"] }, quoted: { enum: ["a\"q", "b"] }, three: { enum: ["a", "b", "c"] }, nested: { type: "object", properties: { f: { enum: ["a", "b"] } }, required: ["f"] }, items: { items: { type: "object", properties: { f: { enum: ["a", "b"] } }, required: ["f"] }, type: "array" }, opt: { enum: ["a", "b"] } }, required: ["plain", "quoted", "three", "nested", "items"] }'
+  output: '{ type: "object", properties: { plain: { enum: ["a", "b"] }, quoted: { enum: ["a\"q", "b"] }, three: { enum: ["a", "b", "c"] }, nested: { type: "object", properties: { f: { enum: ["a", "b"] } }, additionalProperties: false, required: ["f"] }, items: { items: { type: "object", properties: { f: { enum: ["a", "b"] } }, additionalProperties: false, required: ["f"] }, type: "array" }, opt: { enum: ["a", "b"] } }, additionalProperties: false, required: ["plain", "quoted", "three", "nested", "items"] }'
+  fromOutputType: '{ plain: "a" | "b"; quoted: "b" | "a\"q"; three: "a" | "b" | "c"; nested: { f: "a" | "b"; }; items: { f: "a" | "b"; }[]; opt?: "a" | "b" | undefined; }'
+isEqual:
+  input: (a,b)=>a===b||a.plain===b.plain&&a.quoted===b.quoted&&a.three===b.three&&a.nested.f===b.nested.f&&e[0](a.items,b.items)&&a.opt===b.opt
+  output: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: (a,b)=>a===b?0:(a.plain<b.plain?-1:a.plain>b.plain?1:a.quoted<b.quoted?-1:a.quoted>b.quoted?1:a.three<b.three?-1:a.three>b.three?1:a.nested.f<b.nested.f?-1:a.nested.f>b.nested.f?1:e[0](a.items,b.items))||((a.opt==="a"?b.opt==="a"?0:-1:b.opt==="a"?1:a.opt==="b"?b.opt==="b"?0:-1:b.opt==="b"?1:0))
+  output: (a,b)=>a===b?0:e[0](a,b)
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[9](i);let v0=i.plain,v1=i.quoted,v2=i.three,v3=i.nested,v5=i.items,v11=i.opt;typeof v0==="string"&&(v0==="a"||v0==="b")||e[0](v0);typeof v1==="string"&&(v1==="a\"q"||v1==="b")||e[1](v1);typeof v2==="string"&&(v2==="a"||v2==="b"||v2==="c")||e[2](v2);typeof v3==="object"&&v3&&!Array.isArray(v3)||e[4](v3);let v4=v3.f;typeof v4==="string"&&(v4==="a"||v4==="b")||e[3](v4);Array.isArray(v5)||e[7](v5);let v10=new Array(v5.length);for(let v6=0;v6<v5.length;++v6){try{let v7=v5[v6];typeof v7==="object"&&v7&&!Array.isArray(v7)||e[6](v7);let v8=v7.f;typeof v8==="string"&&(v8==="a"||v8==="b")||e[5](v8);v10[v6]={f:v8}}catch(v9){v9.path=["items",v6,...v9.path];throw v9}}(typeof v11==="string"&&(v11==="a"||v11==="b")||v11===void 0)||e[8](v11);let v12={plain:v0,quoted:v1,three:v2,nested:{f:v4},items:v10};if(v11!==void 0){v12.opt=v11}return v12}
+    examples:
+      in-contract:
+        input: '{ plain: "a", quoted: "a\"q", three: "c", nested: { f: "b" }, items: [{ f: "a" }], opt: "b" }'
+        output: '{ plain: "a", quoted: "a\"q", three: "c", nested: { f: "b" }, items: [{ f: "a" }], opt: "b" }'
+      in-contract-opt-absent:
+        input: '{ plain: "a", quoted: "a\"q", three: "c", nested: { f: "b" }, items: [{ f: "a" }], opt: undefined }'
+        output: '{ plain: "a", quoted: "a\"q", three: "c", nested: { f: "b" }, items: [{ f: "a" }] }'
+      off-contract-plain:
+        input: '{ plain: "x\"y", quoted: "a\"q", three: "c", nested: { f: "b" }, items: [{ f: "a" }], opt: "b" }'
+        error: 'Failed at plain: Expected "a" | "b", received "x"y"'
+      off-contract-nested:
+        input: '{ plain: "a", quoted: "a\"q", three: "c", nested: { f: "x\"y" }, items: [{ f: "a" }], opt: "b" }'
+        error: 'Failed at nested.f: Expected "a" | "b", received "x"y"'
+      off-contract-item:
+        input: '{ plain: "a", quoted: "a\"q", three: "c", nested: { f: "b" }, items: [{ f: "x\"y" }], opt: "b" }'
+        error: 'Failed at items[0].f: Expected "a" | "b", received "x"y"'
+      off-contract-opt:
+        input: '{ plain: "a", quoted: "a\"q", three: "c", nested: { f: "b" }, items: [{ f: "a" }], opt: "x\"y" }'
+        error: 'Failed at opt: Expected "a" | "b" | undefined, received "x"y"'
+  decode:
+    expression: i=>{let v0=i.nested,v1=i.items,v5=i.opt;let v4={plain:i.plain,quoted:i.quoted,three:i.three,nested:v0,items:v1};if(v5!==void 0){v4.opt=v5}return v4}
+    examples:
+      in-contract:
+        input: '{ plain: "a", quoted: "a\"q", three: "c", nested: { f: "b" }, items: [{ f: "a" }], opt: "b" }'
+        output: '{ plain: "a", quoted: "a\"q", three: "c", nested: { f: "b" }, items: [{ f: "a" }], opt: "b" }'
+      in-contract-opt-absent:
+        input: '{ plain: "a", quoted: "a\"q", three: "c", nested: { f: "b" }, items: [{ f: "a" }], opt: undefined }'
+        output: '{ plain: "a", quoted: "a\"q", three: "c", nested: { f: "b" }, items: [{ f: "a" }] }'
+      off-contract-plain:
+        input: '{ plain: "x\"y", quoted: "a\"q", three: "c", nested: { f: "b" }, items: [{ f: "a" }], opt: "b" }'
+        output: '{ plain: "x\"y", quoted: "a\"q", three: "c", nested: { f: "b" }, items: [{ f: "a" }], opt: "b" }'
+      off-contract-nested:
+        input: '{ plain: "a", quoted: "a\"q", three: "c", nested: { f: "x\"y" }, items: [{ f: "a" }], opt: "b" }'
+        output: '{ plain: "a", quoted: "a\"q", three: "c", nested: { f: "x\"y" }, items: [{ f: "a" }], opt: "b" }'
+      off-contract-item:
+        input: '{ plain: "a", quoted: "a\"q", three: "c", nested: { f: "b" }, items: [{ f: "x\"y" }], opt: "b" }'
+        output: '{ plain: "a", quoted: "a\"q", three: "c", nested: { f: "b" }, items: [{ f: "x\"y" }], opt: "b" }'
+      off-contract-opt:
+        input: '{ plain: "a", quoted: "a\"q", three: "c", nested: { f: "b" }, items: [{ f: "a" }], opt: "x\"y" }'
+        output: '{ plain: "a", quoted: "a\"q", three: "c", nested: { f: "b" }, items: [{ f: "a" }], opt: "x\"y" }'
+  encode:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[9](i);let v0=i.plain,v1=i.quoted,v2=i.three,v3=i.nested,v5=i.items,v11=(i.opt??null);typeof v0==="string"&&(v0==="a"||v0==="b")||e[0](v0);typeof v1==="string"&&(v1==="a\"q"||v1==="b")||e[1](v1);typeof v2==="string"&&(v2==="a"||v2==="b"||v2==="c")||e[2](v2);typeof v3==="object"&&v3&&!Array.isArray(v3)||e[4](v3);let v4=v3.f;typeof v4==="string"&&(v4==="a"||v4==="b")||e[3](v4);Array.isArray(v5)||e[7](v5);let v10=new Array(v5.length);for(let v6=0;v6<v5.length;++v6){try{let v7=v5[v6];typeof v7==="object"&&v7&&!Array.isArray(v7)||e[6](v7);let v8=v7.f;typeof v8==="string"&&(v8==="a"||v8==="b")||e[5](v8);v10[v6]={f:v8}}catch(v9){v9.path=["items",v6,...v9.path];throw v9}}for(;;){if(typeof v11==="string"&&(v11==="a"||v11==="b"))break;if(v11===null){v11=void 0;break}e[8](v11)}return {plain:v0,quoted:v1,three:v2,nested:{f:v4},items:v10,opt:v11}}
+    examples:
+      in-contract:
+        input: '{ plain: "a", quoted: "a\"q", three: "c", nested: { f: "b" }, items: [{ f: "a" }], opt: "b" }'
+        output: '{ plain: "a", quoted: "a\"q", three: "c", nested: { f: "b" }, items: [{ f: "a" }], opt: "b" }'
+      in-contract-opt-absent:
+        input: '{ plain: "a", quoted: "a\"q", three: "c", nested: { f: "b" }, items: [{ f: "a" }], opt: undefined }'
+        output: '{ plain: "a", quoted: "a\"q", three: "c", nested: { f: "b" }, items: [{ f: "a" }], opt: undefined }'
+      off-contract-plain:
+        input: '{ plain: "x\"y", quoted: "a\"q", three: "c", nested: { f: "b" }, items: [{ f: "a" }], opt: "b" }'
+        error: 'Failed at plain: Expected "a" | "b", received "x"y"'
+      off-contract-nested:
+        input: '{ plain: "a", quoted: "a\"q", three: "c", nested: { f: "x\"y" }, items: [{ f: "a" }], opt: "b" }'
+        error: 'Failed at nested.f: Expected "a" | "b", received "x"y"'
+      off-contract-item:
+        input: '{ plain: "a", quoted: "a\"q", three: "c", nested: { f: "b" }, items: [{ f: "x\"y" }], opt: "b" }'
+        error: 'Failed at items[0].f: Expected "a" | "b", received "x"y"'
+      off-contract-opt:
+        input: '{ plain: "a", quoted: "a\"q", three: "c", nested: { f: "b" }, items: [{ f: "a" }], opt: "x\"y" }'
+        error: 'Failed at opt: Expected "a" | "b" | undefined, received "x"y"'

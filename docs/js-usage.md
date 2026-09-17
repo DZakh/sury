@@ -1957,7 +1957,7 @@ Every operation names two things: the **verb** - what it does - and the **outcom
 | Convert   |                                                      |                                                        | `parse`, `decode`, `encode` |
 | Construct | `makeInput`                                          | `makeOutput`                                           |                             |
 | Validate  | `isInput`, `isInputAsPromise`                        | `isOutput`, `isOutputAsPromise`                        |                             |
-| Compare   | `isEqualInput`                                       | `isEqualOutput`                                        |                             |
+| Compare   | `isEqualInput`, `compareInput`                       | `isEqualOutput`, `compareOutput`                       |                             |
 | Assert    | `assertInputOrThrow`, `assertInputAsPromiseOrReject` | `assertOutputOrThrow`, `assertOutputAsPromiseOrReject` |                             |
 | Describe  | `toInputJSONSchemaOrThrow`, `toInputExpression`      | `toOutputJSONSchemaOrThrow`, `toOutputExpression`      |                             |
 
@@ -2109,7 +2109,7 @@ const isUser = S.isInput(userSchema);
 const users = records.filter(isUser);
 ```
 
-**Compare** - `S.isEqualInput(schema)` and `S.isEqualOutput(schema)`, a compiled equality for two values of that side:
+**Compare** - `S.isEqualInput(schema)` / `S.isEqualOutput(schema)` answer whether two values of that side are the same; `S.compareInput(schema)` / `S.compareOutput(schema)` answer `-1 | 0 | 1`. 0 is exactly when `isEqual` would be true. Hand the compiled form to `Array.prototype.sort` for values this schema can order.
 
 ```ts
 const eventSchema = S.schema({ kind: "click", at: S.date, path: S.string });
@@ -2125,9 +2125,11 @@ isSameEvent(
 
 S.isEqualOutput(eventSchema, a, b); // immediate, schema first
 S.isEqualOutput(a, b, eventSchema); // immediate, data first
+
+events.sort(S.compareOutput(eventSchema));
 ```
 
-`kind` is a literal, so it contributes no comparison at all: a value that conforms can only hold the one it declares. Fields and elements otherwise compare by their own schemas, a `Date` by its time, a `Set` by its members, a `FormData` by its entries in order, and a union by the member each value lands in.
+`kind` is a literal, so it contributes no comparison at all: a value that conforms can only hold the one it declares. Fields and elements otherwise compare by their own schemas, a `Date` by its time, a `Set` by its members, a `FormData` by its entries in order, and a union by the member each value lands in (declaration order, then that member's payload).
 
 Both values have to be valid for the schema already - this compares, it does not validate. Use [`S.makeOutputOrThrow`](#constructing-entities) on a value you built yourself if you need it checked first.
 

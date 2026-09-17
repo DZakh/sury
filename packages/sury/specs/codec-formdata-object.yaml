@@ -10,6 +10,9 @@ jsonSchema:
 isEqual:
   input: (a,b)=>a===b||e[0](a,b)
   output: (a,b)=>a===b||a.name===b.name&&a.age===b.age&&a.agree===b.agree&&+a.since===+b.since
+compare:
+  input: (a,b)=>a===b?0:e[0](a,b)
+  output: (a,b)=>a===b?0:a.name<b.name?-1:a.name>b.name?1:a.age<b.age?-1:a.age>b.age?1:a.agree<b.agree?-1:a.agree>b.agree?1:+a.since<+b.since?-1:+a.since>+b.since?1:+a.since===+b.since?0:1
 vs:
   zod:
     _skip: not-applicable

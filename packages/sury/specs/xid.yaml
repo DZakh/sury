@@ -8,6 +8,7 @@ jsonSchema:
   input: '{ type: "string", pattern: "^[0-9a-vA-V]{20}$" }'
   output: '{ type: "string", pattern: "^[0-9a-vA-V]{20}$" }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod: z.xid()
 operations:

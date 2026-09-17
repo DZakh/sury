@@ -8,6 +8,7 @@ jsonSchema:
   input: Expected JSON, received ArrayBuffer
   output: Expected JSON, received ArrayBuffer
 isEqual: strictEqual
+compare: identityCompare
 vs:
   zod:
     _skip: todo(#…)

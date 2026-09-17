@@ -13,6 +13,9 @@ jsonSchema:
 isEqual:
   input: (a,b)=>a===b||a.nested.field===b.nested.field&&a.id===b.id&&a.Foo===b.Foo&&a.Bar===b.Bar
   output: (a,b)=>a===b||a.nested===b.nested&&a.flattened.id===b.flattened.id&&a.foo===b.foo&&a.bar===b.bar
+compare:
+  input: (a,b)=>a===b?0:a.nested.field<b.nested.field?-1:a.nested.field>b.nested.field?1:a.id<b.id?-1:a.id>b.id?1:a.Foo<b.Foo?-1:a.Foo>b.Foo?1:(a.Bar===void 0?b.Bar===void 0?0:-1:b.Bar===void 0?1:a.Bar<b.Bar?-1:a.Bar>b.Bar?1:0)
+  output: (a,b)=>a===b?0:a.nested<b.nested?-1:a.nested>b.nested?1:a.flattened.id<b.flattened.id?-1:a.flattened.id>b.flattened.id?1:a.foo<b.foo?-1:a.foo>b.foo?1:a.bar<b.bar?-1:a.bar>b.bar?1:0
 vs:
   zod:
     _skip: not-applicable

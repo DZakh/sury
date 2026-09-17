@@ -10,6 +10,9 @@ jsonSchema:
 isEqual:
   input: (a,b)=>a===b||a.f.b===b.f.b
   output: (a,b)=>a===b||a.z===b.z
+compare:
+  input: (a,b)=>a===b?0:a.f.b<b.f.b?-1:a.f.b>b.f.b?1:0
+  output: (a,b)=>a===b?0:a.z<b.z?-1:a.z>b.z?1:0
 vs:
   zod:
     _skip: not-applicable

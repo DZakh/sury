@@ -8,6 +8,7 @@ jsonSchema:
   input: Expected JSON, received File
   output: Expected JSON, received File
 isEqual: strictEqual
+compare: identityCompare
 vs:
   zod: z.file()
 operations:

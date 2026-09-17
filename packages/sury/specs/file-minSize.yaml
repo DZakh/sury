@@ -8,6 +8,7 @@ jsonSchema:
   input: Expected JSON, received File.size >= 3
   output: Expected JSON, received File.size >= 3
 isEqual: strictEqual
+compare: identityCompare
 vs:
   zod: z.file().min(3)
 operations:

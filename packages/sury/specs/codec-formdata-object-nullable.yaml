@@ -12,6 +12,9 @@ jsonSchema:
 isEqual:
   input: (a,b)=>a===b||e[0](a,b)
   output: (a,b)=>a===b||a.s===b.s&&a.n===b.n&&a.tag===b.tag
+compare:
+  input: (a,b)=>a===b?0:e[0](a,b)
+  output: (a,b)=>a===b?0:(((a.s===null?b.s===null?0:-1:b.s===null?1:a.s<b.s?-1:a.s>b.s?1:0))||((a.n===null?b.n===null?0:-1:b.n===null?1:a.n<b.n?-1:a.n>b.n?1:0)))||((a.tag==="yes"?b.tag==="yes"?0:-1:b.tag==="yes"?1:a.tag==="no"?b.tag==="no"?0:-1:b.tag==="no"?1:0))
 vs:
   zod:
     _skip: not-applicable

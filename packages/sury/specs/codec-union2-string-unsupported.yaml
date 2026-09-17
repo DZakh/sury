@@ -8,6 +8,9 @@ jsonSchema:
   input: Expected JSON, received boolean | symbol
   output: '{ type: "string" }'
 isEqual: strictEqual
+compare:
+  input: (a,b)=>a===b?0:(typeof a==="boolean"?typeof b==="boolean"?a<b?-1:a>b?1:0:-1:typeof b==="boolean"?1:a===b?0:1)
+  output: strictCompare
 vs:
   zod:
     _skip: not-applicable

@@ -10,6 +10,7 @@ jsonSchema:
   input: "Failed at d: Expected JSON, received bigint"
   output: "Failed at d: Expected JSON, received bigint"
 isEqual: (a,b)=>a===b||(a.kind==="a"?b.kind==="a"&&a.a===b.a:a.kind==="b"?b.kind==="b"&&a.b===b.b:a.kind==="c"?b.kind==="c"&&a.c===b.c:a.kind==="d"?b.kind==="d"&&a.d===b.d:b.kind==="e"&&a.e===b.e)
+compare: (a,b)=>a===b?0:(a.kind==="a"?b.kind==="a"?a.a<b.a?-1:a.a>b.a?1:0:-1:b.kind==="a"?1:a.kind==="b"?b.kind==="b"?a.b<b.b?-1:a.b>b.b?1:0:-1:b.kind==="b"?1:a.kind==="c"?b.kind==="c"?a.c<b.c?-1:a.c>b.c?1:0:-1:b.kind==="c"?1:a.kind==="d"?b.kind==="d"?a.d<b.d?-1:a.d>b.d?1:0:-1:b.kind==="d"?1:a.e===b.e?0:1)
 vs:
   zod: 'z.discriminatedUnion("kind", [z.object({ kind: z.literal("a"), a: z.string() }), z.object({ kind: z.literal("b"), b: z.number() }), z.object({ kind: z.literal("c"), c: z.boolean() }), z.object({ kind: z.literal("d"), d: z.bigint() }), z.object({ kind: z.literal("e"), e: z.symbol() })])'
 operations:

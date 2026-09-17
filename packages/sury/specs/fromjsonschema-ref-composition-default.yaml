@@ -8,6 +8,7 @@ jsonSchema:
   input: '{ type: "string", allOf: [{ minLength: 2 }], not: { const: "bad" } }'
   output: '{ type: "string", allOf: [{ minLength: 2 }], not: { const: "bad" } }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod:
     _skip: not-applicable

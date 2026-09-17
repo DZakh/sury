@@ -39,7 +39,9 @@ import {
  throwTail
 } from "./parse";
 import {
+ compileCompare,
  compileIsEqual,
+ type Compare,
  type IsEqual
 } from "./eq";
 
@@ -447,27 +449,42 @@ export function isOutputAsPromise(a?: unknown, b?: unknown, c?: unknown, d?: unk
   return tailDispatch(arguments.length, a, b, c, d, assertResult, true, 1 | 8 | 4096);
 }
 
-// Equality is the one operation that takes a PAIR, so it has its own dispatch:
-// the schema is either the first argument or the last, never in the middle,
-// and there is no chain to walk. Arity partitions the forms exactly as above.
+// Equality and compare take a PAIR, so they share a dispatch: the schema is
+// either the first argument or the last, never in the middle, and there is no
+// chain to walk. Arity partitions the forms exactly as above.
 // `isEqualInput(S.void)` (arity 1) is the compiled form, and the comparison of
 // two absent values is `isEqualInput(S.void, undefined, undefined)` (arity 3).
 //
 // Value-last exists for ReScript, whose labelled `~schema` compiles to a
 // trailing positional argument.
-const eqDispatch = (n: number, a: unknown, b: unknown, c: unknown, rev: boolean): unknown => {
+const pairDispatch = (
+  n: number,
+  a: unknown,
+  b: unknown,
+  c: unknown,
+  rev: boolean,
+  compile: (schema: Internal) => IsEqual | Compare,
+): unknown => {
   const schema = (n === 1 || isOwnSchema(a) ? a : c) as Internal;
   if (!isOwnSchema(schema) || (n !== 1 && n !== 3)) return panicNotSchema();
-  const compiled: IsEqual = compileIsEqual(rev ? reverse(schema) : schema);
+  const compiled = compile(rev ? reverse(schema) : schema);
   return n === 1 ? compiled : schema === a ? compiled(b, c) : compiled(a, b);
 };
 
 export function isEqualInput(a?: unknown, b?: unknown, c?: unknown): unknown {
-  return eqDispatch(arguments.length, a, b, c, false);
+  return pairDispatch(arguments.length, a, b, c, false, compileIsEqual);
 }
 
 export function isEqualOutput(a?: unknown, b?: unknown, c?: unknown): unknown {
-  return eqDispatch(arguments.length, a, b, c, true);
+  return pairDispatch(arguments.length, a, b, c, true, compileIsEqual);
+}
+
+export function compareInput(a?: unknown, b?: unknown, c?: unknown): unknown {
+  return pairDispatch(arguments.length, a, b, c, false, compileCompare);
+}
+
+export function compareOutput(a?: unknown, b?: unknown, c?: unknown): unknown {
+  return pairDispatch(arguments.length, a, b, c, true, compileCompare);
 }
 
 export function assertInputOrThrow(a?: unknown, b?: unknown, c?: unknown, d?: unknown): unknown {
