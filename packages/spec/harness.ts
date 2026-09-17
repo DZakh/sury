@@ -1119,20 +1119,6 @@ export const recomputeGoldens = async (obj: Spec, compiled?: Record<OpName, Buil
       continue;
     }
     if (!isSkip(op.expression)) op.expression = fn.toString();
-    if (op.resultExpression !== undefined) {
-      const resultFn = (
-        { parse: S.parseAsResult, decode: S.decodeAsResult, encode: S.encodeAsResult } as Partial<
-          Record<OpName, (schema: any) => (input: any) => any>
-        >
-      )[opName];
-      if (resultFn) {
-        try {
-          op.resultExpression = resultFn(schema).toString();
-        } catch {
-          // async or rejected at creation — the matrix already covers outcomes
-        }
-      }
-    }
     for (const [name, ex] of Object.entries(op.examples)) {
       // Evaluated OUTSIDE the try below: an input that does not parse, or that
       // names something undefined, is an authoring mistake. Recording the
