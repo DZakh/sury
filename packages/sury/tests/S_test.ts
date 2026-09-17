@@ -782,12 +782,14 @@ test("Successfully parses and returns result", (t) => {
       readonly success: true;
       readonly value: string;
       readonly error?: undefined;
+      readonly issues?: undefined;
     }>();
   } else {
     expectTypeOf(value).toEqualTypeOf<{
       readonly success: false;
       readonly error: S.DataError;
       readonly value?: undefined;
+      readonly issues: readonly S.StandardSchemaV1.Issue[];
     }>();
   }
 });
@@ -803,12 +805,14 @@ test("Successfully reverse converts and returns result", (t) => {
       readonly success: true;
       readonly value: string;
       readonly error?: undefined;
+      readonly issues?: undefined;
     }>();
   } else {
     expectTypeOf(value).toEqualTypeOf<{
       readonly success: false;
       readonly error: S.DataError;
       readonly value?: undefined;
+      readonly issues: readonly S.StandardSchemaV1.Issue[];
     }>();
   }
 });
