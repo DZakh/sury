@@ -19,6 +19,10 @@ code it constrains - this file can't be kept honest against a refactor.
    that cost the same everywhere above, shrink the *generated* code: it ships per
    schema, the library ships once.
 
+Two goldens hold that last number, and `spec check` knows only one: a change that
+moves bundle size needs `pnpm benchmarks --write` as well, or CI fails on
+`packages/benchmarks/goldens/` with a green `spec check` behind it.
+
 ## Use the spec skill
 
 Every change under `packages/sury/src` goes through it. Specs snapshot generated
