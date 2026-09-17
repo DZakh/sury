@@ -307,10 +307,6 @@
                   ],
                   "description": "Compiled function source (`.toString()`). Filled by `spec check --write`."
                 },
-                "resultExpression": {
-                  "type": "string",
-                  "description": "Compiled `*AsResult` function source. Optional — add when the Result tail (try/absence of try) is what the spec is pinning. Filled by `spec check --write` when present."
-                },
                 "examples": {
                   "type": "object",
                   "additionalProperties": {
@@ -564,10 +560,6 @@
                     }
                   ],
                   "description": "Compiled function source (`.toString()`). Filled by `spec check --write`."
-                },
-                "resultExpression": {
-                  "type": "string",
-                  "description": "Compiled `*AsResult` function source. Optional — add when the Result tail (try/absence of try) is what the spec is pinning. Filled by `spec check --write` when present."
                 },
                 "examples": {
                   "type": "object",
@@ -823,10 +815,6 @@
                   ],
                   "description": "Compiled function source (`.toString()`). Filled by `spec check --write`."
                 },
-                "resultExpression": {
-                  "type": "string",
-                  "description": "Compiled `*AsResult` function source. Optional — add when the Result tail (try/absence of try) is what the spec is pinning. Filled by `spec check --write` when present."
-                },
                 "examples": {
                   "type": "object",
                   "additionalProperties": {
@@ -1081,10 +1069,6 @@
                   ],
                   "description": "Compiled function source (`.toString()`). Filled by `spec check --write`."
                 },
-                "resultExpression": {
-                  "type": "string",
-                  "description": "Compiled `*AsResult` function source. Optional — add when the Result tail (try/absence of try) is what the spec is pinning. Filled by `spec check --write` when present."
-                },
                 "examples": {
                   "type": "object",
                   "additionalProperties": {
@@ -1338,10 +1322,6 @@
                     }
                   ],
                   "description": "Compiled function source (`.toString()`). Filled by `spec check --write`."
-                },
-                "resultExpression": {
-                  "type": "string",
-                  "description": "Compiled `*AsResult` function source. Optional — add when the Result tail (try/absence of try) is what the spec is pinning. Filled by `spec check --write` when present."
                 },
                 "examples": {
                   "type": "object",
