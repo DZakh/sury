@@ -1994,7 +1994,7 @@ S.parseAsResult(S.schema({ id: S.unknown }).with(S.noValidation, true)).toString
 
 Both branches of a `Result` carry the same keys in the same order, so `const { value, error } = result` narrows and a consumer's `.success` read stays monomorphic.
 
-The fourth key is what makes a `Result` a [Standard Schema](#standard-schema) result, so it goes straight to anything that reads one:
+A `Result` is also a [Standard Schema](#standard-schema) result, so it goes straight to anything that reads one:
 
 ```ts
 S.parseAsResult(S.string, 42).issues; // [{ message: "Expected string, received 42" }]
