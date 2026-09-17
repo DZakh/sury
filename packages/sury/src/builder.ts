@@ -233,6 +233,14 @@ export const B_unsupportedDecode = (b: Val, from: Internal, target: Internal): n
     path: compilePath(b.path),
   });
 
+// Snapshot a static path into the embed; a PathDyn is the next generated
+// argument, evaluated only on throw.
+export const B_pathArg = (b: Val): string =>
+  hasPathDyn(b.path) ? "," + pathExpr(b.path) : "";
+
+export const B_pathSnap = (b: Val): Path | undefined =>
+  hasPathDyn(b.path) ? U : (b.path as Path);
+
 export const B_failWithArg = <TArg>(
   b: Val,
   fn: (arg: TArg, path?: Path) => ErrorDetails,
@@ -240,7 +248,7 @@ export const B_failWithArg = <TArg>(
 ): string =>
   `${B_embed(b, (a: TArg, p?: Path) => {
     B_throw(fn(a, p));
-  })}(${arg}${hasPathDyn(b.path) ? "," + pathExpr(b.path) : ""})`;
+  })}(${arg}${B_pathArg(b)})`;
 
 // Record a raise that reaches generated code without an embed behind it - the
 // bare `throw` a loop wrapper re-raises a nested error with. Union codegen
@@ -361,12 +369,12 @@ export const B_invalidInputBuilder = (
 ): (input: Val) => (value: unknown, path?: Path) => ErrorDetails => (input) => {
   const expectedS = expected ?? input.e;
   const receivedS = (input.prev || input).s;
-  const snap = hasPathDyn(input.path) ? U : (pathConcat(input.path, extraPath) as Path);
+  const snap = B_pathSnap(input);
   return (value, path) =>
     B_makeInvalidInputDetails(
       expectedS,
       receivedS,
-      snap ?? pathConcat(path ?? pathEmpty, extraPath),
+      snap !== U ? pathConcat(snap, extraPath) : pathConcat(path ?? pathEmpty, extraPath),
       value,
       U,
       reasonOverride,
@@ -910,6 +918,10 @@ const B_mergeWithCatch = (val: Val, catchFn: (errorVar: string) => string): stri
   return `try{${valCode}}catch(${errorVar}){${catchCode}}`;
 };
 
+// Opaque embed (recursive self-call, S.json's any-value walk): a compiled
+// function that does not take a path. Failures it throws are rooted at its
+// own `[]`, so a nested use still prepends in catch. Inlined item parsers
+// thread the path to the fail helper instead.
 export const B_mergeWithPathPrepend = (val: Val, parent: Val): string =>
   !parent.path.length
     ? B_merge(val)

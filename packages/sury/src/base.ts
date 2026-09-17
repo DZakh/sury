@@ -50,10 +50,11 @@ export type Flag = number;
 // ── path ──────────────────────────────────────────────────────────────────────
 
 // Root-first. Static segments are strings; a runtime loop index or dict key is
-// a PathDyn whose `e` is the JS expression. Fail helpers receive the evaluated
-// path at throw time so a loop body does not wrap every element in try/catch.
-// "[]" marks "some element" for locations without a concrete value (JSON Schema
-// conversion, a compile-time throw inside a loop).
+// a PathDyn `{e}` (the JS expression), not the string "[]". Baking "[]" into
+// Path would collide with a field actually named "[]". compilePath projects
+// PathDyn to "[]" for compile-time throws and JSON Schema; pathExpr splices
+// `e` into generated fail calls so the runtime error carries the real index
+// without a per-item try/catch.
 //
 // Never mutated: details objects, codegen closures and retained user errors
 // share instances, so every prepend/concat allocates. A symbol only ever

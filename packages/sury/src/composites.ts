@@ -24,8 +24,6 @@ import {
   isSchemaObject,
   noopDecoder,
   objectTag,
-  compilePath,
-  hasPathDyn,
   pathConcat,
   pathEmpty,
   setHas,
@@ -55,6 +53,7 @@ import {
   B_merge,
   B_next,
   B_nextVarOutput,
+  B_pathSnap,
   B_refine,
   B_scope,
   B_unsupportedDecode,
@@ -87,7 +86,7 @@ export const B_unrecognizedKeys = (
   keyVar: string,
   decl: string,
 ): string => {
-  const snap = hasPathDyn(input.path) ? U : compilePath(input.path);
+  const snap = B_pathSnap(input);
   const fail = B_failWithArg(
     input,
     (key: string, path?: Path) =>
