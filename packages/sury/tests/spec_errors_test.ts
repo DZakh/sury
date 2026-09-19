@@ -253,7 +253,7 @@ test("jsonSchema round-trip types are required when they diverge from the schema
         output: '{ items: { type: "string" }, type: "array", minItems: 2 }'
     +   fromOutputType: string[]
       isEqual: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
-      compare: (a,b)=>{if(a===b)return 0;let n=a.length,m=b.length,l=n<m?n:m,c;for(let i=0;i<l;i++)if(c=a[i]<b[i]?-1:a[i]>b[i]?1:0)return c;return n<m?-1:n>m?1:0}
+      compare: "throws: [Sury] Can't compare string[].length >= 2. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
       vs:",
       "stdout": "",
     }
@@ -425,7 +425,7 @@ test("eq-to-parse claimed but the operation doesn't actually compile to the same
     -   input: "{ not: {} }"
     -   output: "{ not: {} }"
     - isEqual: (a,b)=>a===b||e[0](a,b)
-    - compare: (a,b)=>a===b?0:e[0](a,b)
+    - compare: "throws: [Sury] Can't compare never. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
     +   input: '{ type: "string", minLength: 3 }'
     +   output: '{ type: "string", minLength: 3 }'
     + isEqual: strictEqual

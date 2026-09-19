@@ -8,7 +8,7 @@ jsonSchema:
   input: "Failed at d: Expected JSON, received bigint"
   output: "Failed at d: Expected JSON, received bigint"
 isEqual: (a,b)=>a===b||a.a===b.a&&a.b===b.b&&a.c===b.c&&a.d===b.d&&a.e===b.e&&a.f===b.f&&a.g===b.g&&a.h===b.h&&a.i===b.i&&a.j===b.j
-compare: (a,b)=>a===b?0:(((((a.a<b.a?-1:a.a>b.a?1:a.b<b.b?-1:a.b>b.b?1:a.c<b.c?-1:a.c>b.c?1:a.d<b.d?-1:a.d>b.d?1:a.e===b.e?0:1)||(a.f<b.f?-1:a.f>b.f?1:0))||(a.g<b.g?-1:a.g>b.g?1:0))||(a.h<b.h?-1:a.h>b.h?1:0))||(a.i<b.i?-1:a.i>b.i?1:0))||(a.j===b.j?0:1)
+compare: "throws: [Sury] Can't compare { a: string; b: number; c: boolean; d: bigint; e: symbol; f: string; g: number; h: boolean; i: bigint; j: symbol; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod: "z.object({ a: z.string(), b: z.number(), c: z.boolean(), d: z.bigint(), e: z.symbol(), f: z.string(), g: z.number(), h: z.boolean(), i: z.bigint(), j: z.symbol() })"
 operations:

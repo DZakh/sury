@@ -12,7 +12,7 @@ isEqual:
   output: (a,b)=>a===b||a.role===b.role&&a.plan===b.plan
 compare:
   input: strictCompare
-  output: (a,b)=>a===b?0:a.role<b.role?-1:a.role>b.role?1:(a.plan==="free"?b.plan==="free"?0:-1:b.plan==="free"?1:a.plan==="pro"?b.plan==="pro"?0:-1:b.plan==="pro"?1:0)
+  output: "throws: [Sury] Can't compare { role: \"admin\" | \"user\"; plan: \"free\" | \"pro\" | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

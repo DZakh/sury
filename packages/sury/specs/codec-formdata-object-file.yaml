@@ -11,8 +11,8 @@ isEqual:
   input: (a,b)=>a===b||e[0](a,b)
   output: (a,b)=>a===b||a.avatar===b.avatar&&a.cover===b.cover&&a.logo===b.logo&&a.raw===b.raw
 compare:
-  input: (a,b)=>a===b?0:e[0](a,b)
-  output: (a,b)=>a===b?0:(((a.avatar===b.avatar?0:1)||((a.cover===void 0?b.cover===void 0?0:-1:b.cover===void 0?1:a.cover===b.cover?0:1)))||((a.logo===null?b.logo===null?0:-1:b.logo===null?1:a.logo===b.logo?0:1)))||(a.raw===b.raw?0:1)
+  input: "throws: [Sury] Can't compare FormData. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { avatar: File.size <= 4; cover: File | undefined; logo: File | null; raw: Blob; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

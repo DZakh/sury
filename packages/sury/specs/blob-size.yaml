@@ -8,7 +8,7 @@ jsonSchema:
   input: Expected JSON, received Blob.size == 2
   output: Expected JSON, received Blob.size == 2
 isEqual: strictEqual
-compare: identityCompare
+compare: "throws: [Sury] Can't compare Blob.size == 2. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

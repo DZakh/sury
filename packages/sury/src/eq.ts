@@ -26,11 +26,13 @@ import {
   type Flag,
   globalConfig,
   inlinedProperty,
+  inputExpression,
   type Internal,
   isLiteral,
   jsonName,
   neverTag,
   noopDecoder,
+  panic,
   tagFlags,
   U,
   type Val,
@@ -124,123 +126,23 @@ const deepEqual = (a: unknown, b: unknown): boolean => {
   return !n;
 };
 
-// Rank used when an untyped position holds two values of different kinds, so
-// the fallback is a total order and not only an equality. undefined < null <
-// boolean < number < bigint < string < symbol < function < object.
-const typeRank = (v: unknown): number =>
-  v === U
-    ? 0
-    : v === null
-      ? 1
-      : typeof v === "boolean"
-        ? 2
-        : typeof v === "number"
-          ? 3
-          : typeof v === "bigint"
-            ? 4
-            : typeof v === "string"
-              ? 5
-              : typeof v === "symbol"
-                ? 6
-                : typeof v === "function"
-                  ? 7
-                  : 8;
-
-const deepCompare = (a: unknown, b: unknown): number => {
-  if (a === b) return 0;
-  if (a !== a) return b !== b ? 0 : -1;
-  if (b !== b) return 1;
-  const ra = typeRank(a);
-  const rb = typeRank(b);
-  if (ra !== rb) return ra < rb ? -1 : 1;
-  if (!a || !b || typeof a !== "object") {
-    // symbol / function have no `<`; unequal same-kind identity is 1.
-    if (ra === 6 || ra === 7) return 1;
-    return (a as number) < (b as number) ? -1 : (a as number) > (b as number) ? 1 : 0;
-  }
-  const proto = Object.getPrototypeOf(a);
-  const protob = Object.getPrototypeOf(b);
-  if (proto !== protob) {
-    const na = ((proto as { constructor?: { name?: string } } | null)?.constructor?.name ?? "") as string;
-    const nb = ((protob as { constructor?: { name?: string } } | null)?.constructor?.name ?? "") as string;
-    return na < nb ? -1 : na > nb ? 1 : 1;
-  }
-  const ao = a as Record<string, unknown>;
-  const bo = b as Record<string, unknown>;
-  if (
-    Array.isArray(a) ||
-    (ArrayBuffer.isView(a) && typeof (a as unknown as ArrayLike<unknown>).length === "number")
-  ) {
-    const n = (a as unknown as ArrayLike<unknown>).length;
-    const m = (b as unknown as ArrayLike<unknown>).length;
-    const l = n < m ? n : m;
-    for (let i = 0; i < l; i++) {
-      const c = deepCompare(ao[i], bo[i]);
-      if (c) return c;
-    }
-    return n < m ? -1 : n > m ? 1 : 0;
-  }
-  if (proto === Date.prototype) {
-    const ta = +(a as Date);
-    const tb = +(b as Date);
-    return ta < tb ? -1 : ta > tb ? 1 : ta === tb ? 0 : 1;
-  }
-  if (proto === URL.prototype) {
-    const ha = `${a}`;
-    const hb = `${b}`;
-    return ha < hb ? -1 : ha > hb ? 1 : 0;
-  }
-  if (proto === Set.prototype) {
-    const as = a as Set<unknown>;
-    const bs = b as Set<unknown>;
-    if (as.size !== bs.size) return as.size < bs.size ? -1 : 1;
-    for (const value of as) if (!bs.has(value)) return 1;
-    return 0;
-  }
-  if (
-    proto === (globalClass("FormData") as typeof FormData | undefined)?.prototype ||
-    proto === (globalClass("URLSearchParams") as typeof URLSearchParams | undefined)?.prototype
-  ) {
-    const ae = [...(a as Iterable<[unknown, unknown]>)];
-    const be = [...(b as Iterable<[unknown, unknown]>)];
-    const n = ae.length;
-    const m = be.length;
-    const l = n < m ? n : m;
-    for (let i = 0; i < l; i++) {
-      const c0 = deepCompare(ae[i]![0], be[i]![0]);
-      if (c0) return c0;
-      const c1 = deepCompare(ae[i]![1], be[i]![1]);
-      if (c1) return c1;
-    }
-    return n < m ? -1 : n > m ? 1 : 0;
-  }
-  if (proto !== null && proto !== Object.prototype) return 1;
-  const keysA = Object.keys(ao).sort();
-  const keysB = Object.keys(bo).sort();
-  const n = keysA.length;
-  const m = keysB.length;
-  const l = n < m ? n : m;
-  for (let i = 0; i < l; i++) {
-    const ka = keysA[i]!;
-    const kb = keysB[i]!;
-    if (ka !== kb) return ka < kb ? -1 : 1;
-    const c = deepCompare(ao[ka], bo[kb]);
-    if (c) return c;
-  }
-  return n < m ? -1 : n > m ? 1 : 0;
-};
-
 type Walk = (schema: Internal, a: string, b: string) => string;
 
+// The emit for one side of the walk. A field the compare mode leaves out marks
+// a shape it has no order for: `reject` is what the walk calls instead, and the
+// two have to move together - a field added back without a branch that reaches
+// it is dead, and a branch reaching a missing field is a crash.
 type Mode = {
   join: (left: string, right: string) => string;
   prim: (ctx: Ctx, schema: Internal, a: string, b: string) => string;
-  elem: (a: string, b: string) => string;
+  elem?: (a: string, b: string) => string;
   date: (a: string, b: string) => string;
   url: (a: string, b: string) => string;
-  ident: (a: string, b: string) => string;
-  index: (element: string, from: number) => string;
-  dict: (walk: (a: string, b: string) => string) => string;
+  ident?: (a: string, b: string) => string;
+  index?: (element: string, from: number) => string;
+  dict?: (walk: (a: string, b: string) => string) => string;
+  // Only the compare mode has one: the shapes below it are equality-only.
+  reject?: (schema: Internal) => never;
   // `undefined` means "not a closed identity union, keep walking".
   identUnion: (ctx: Ctx, schema: Internal, a: string, b: string) => string | undefined;
   nullish: (
@@ -251,7 +153,7 @@ type Mode = {
     b: string,
     present: string,
   ) => string;
-  union: (
+  union?: (
     narrows: string[],
     objectTagged: number[],
     members: Internal[],
@@ -264,14 +166,12 @@ type Mode = {
   always: IsEqual | Compare;
   strict: IsEqual | Compare;
   nan: IsEqual | Compare;
-  identFn?: Compare;
-  identExpr?: string;
   // Literals, not helper calls: a top-level `ordLeaf("a","b")` is a side
   // effect esbuild will not drop, and then the whole eq.ts graph ships with
   // every export.
   strictExpr: string;
   nanExpr: string;
-  deep: (a: unknown, b: unknown) => unknown;
+  deep?: (a: unknown, b: unknown) => unknown;
 };
 
 type Ctx = {
@@ -339,7 +239,7 @@ const valueClass = (class_: unknown): number =>
           : 0;
 
 const deep = (ctx: Ctx, a: string, b: string): string =>
-  `${(ctx.q ||= B_embedPure(ctx.b, ctx.k.deep))}(${a},${b})`;
+  `${(ctx.q ||= B_embedPure(ctx.b, ctx.k.deep!))}(${a},${b})`;
 
 const and = (left: string, right: string): string =>
   left ? (right ? `${left}&&${right}` : left) : right;
@@ -389,8 +289,8 @@ const hoist = (ctx: Ctx, schema: Internal, body: () => string): string => {
 const indexedFn = (ctx: Ctx, schema: Internal, item: Internal | undefined, from: number): string => {
   const stmts = (): string => {
     const element =
-      item === U ? ctx.k.elem("a[i]", "b[i]") : eqExpr(ctx, item, "a[i]", "b[i]");
-    return ctx.k.index(element, from);
+      item === U ? ctx.k.elem!("a[i]", "b[i]") : eqExpr(ctx, item, "a[i]", "b[i]");
+    return ctx.k.index!(element, from);
   };
   return isRoot(ctx, schema, !from)
     ? ((ctx.inline = stmts()), "")
@@ -407,7 +307,7 @@ const indexedFn = (ctx: Ctx, schema: Internal, item: Internal | undefined, from:
 // non-primitive through `b[k]` for a key `b` doesn't have is a read off
 // `undefined`.
 const dictFn = (ctx: Ctx, schema: Internal, value: Internal): string => {
-  const stmts = (): string => ctx.k.dict((a, b) => eqExpr(ctx, value, a, b));
+  const stmts = (): string => ctx.k.dict!((a, b) => eqExpr(ctx, value, a, b));
   return isRoot(ctx, schema, true)
     ? ((ctx.inline = stmts()), "")
     : hoist(ctx, schema, () => `(a,b)=>{${stmts()}}`);
@@ -452,6 +352,7 @@ const arrayExpr = (ctx: Ctx, schema: Internal, a: string, b: string): string => 
     );
   }
   if (value === U) return out;
+  ctx.k.reject?.(schema);
   return ctx.k.join(out, call(indexedFn(ctx, schema, value, fixed), a, b));
 };
 
@@ -595,7 +496,9 @@ const unionExpr = (ctx: Ctx, schema: Internal, a: string, b: string): string => 
   // reads them. Safe to truncate: nothing else pushes until the arms are built,
   // which is after every fallback below.
   const embedMark = ctx.b.g.e.length;
-  const abandon = (): string => ((ctx.b.g.e.length = embedMark), deep(ctx, a, b));
+  const abandon = (): string => (
+    ctx.k.reject?.(schema), (ctx.b.g.e.length = embedMark), deep(ctx, a, b)
+  );
   const narrows: string[] = [];
   const objects: Internal[] = [];
   for (let idx = 0; idx < members.length; idx++) {
@@ -677,7 +580,8 @@ const unionExpr = (ctx: Ctx, schema: Internal, a: string, b: string): string => 
   const exclude = instanceNarrows.map((narrow) => `&&!(${narrow})`).join("");
   for (let at = 0; at < objectTagged.length; at++) narrows[objectTagged[at]!] += exclude;
 
-  return ctx.k.union(narrows, objectTagged, members, (s, x, y) => eqExpr(ctx, s, x, y), a, b);
+  ctx.k.reject?.(schema);
+  return ctx.k.union!(narrows, objectTagged, members, (s, x, y) => eqExpr(ctx, s, x, y), a, b);
 };
 
 const refExpr = (ctx: Ctx, schema: Internal, a: string, b: string): string => {
@@ -715,6 +619,14 @@ const eqExpr = (ctx: Ctx, schema: Internal, a: string, b: string): string => {
   // A literal, `S.nan` included: both values are the one the schema admits.
   if (isLiteral(schema)) return "";
   const tagFlag = tagFlags[schema.type]!;
+  // Compare answers for what emits an inlined chain of ordered tests and
+  // nothing else: a primitive, a Date, a URL, a tuple of those, and the two
+  // unions that collapse to one test. An object is out because its field
+  // significance would be JS property order (integer-like names first, so not
+  // the order the schema was written in), and everything reached through the
+  // structural fallback is out because a symbol, a function and a foreign class
+  // have no order at all. isEqual keeps answering for all of them.
+  if (!(tagFlag & (2 | 4 | 8 | 16 | 32 | 128 | 256 | 1024 | 8192))) ctx.k.reject?.(schema);
   // string 2, number 4, boolean 8, undefined 16, null 32, bigint 1024, symbol 16384
   if (tagFlag & (2 | 4 | 8 | 16 | 32 | 1024 | 16384)) return ctx.k.prim(ctx, schema, a, b);
   if (tagFlag & 64) return objectExpr(ctx, schema, a, b);
@@ -726,8 +638,9 @@ const eqExpr = (ctx: Ctx, schema: Internal, a: string, b: string): string => {
     // level opens with is what keeps reflexive.
     if (kind === 1) return ctx.k.date(a, b);
     if (kind === 2) return ctx.k.url(a, b);
+    ctx.k.reject?.(schema);
     if (kind === 3) return call(indexedFn(ctx, schema, U, 0), a, b);
-    return kind ? deep(ctx, a, b) : ctx.k.ident(a, b);
+    return kind ? deep(ctx, a, b) : ctx.k.ident!(a, b);
   }
   if (tagFlag & 512) return refExpr(ctx, schema, a, b);
   // unknown 1, function 4096, never 32768.
@@ -750,19 +663,11 @@ const nanCompare: Compare = (a, b) =>
         : a !== a
           ? -1
           : 1;
-// 1, not 0, so `compare===0` stays `isEqual`. Identity-only values have no order.
-const identityCompare: Compare = (a, b) => (a === b ? 0 : 1);
 
 const eqIndex = (element: string, from: number): string =>
   `let n=a.length;if(n!==b.length)return false;` +
   (element ? `for(let i=${from};i<n;i++)if(!(${element}))return false;` : ``) +
   `return true`;
-
-const cmpIndex = (element: string, from: number): string =>
-  `let n=a.length,m=b.length,l=n<m?n:m` +
-  (element ? `,c;` : `;`) +
-  (element ? `for(let i=${from};i<l;i++)if(c=${element})return c;` : ``) +
-  `return n<m?-1:n>m?1:0`;
 
 const eqDict = (walk: (a: string, b: string) => string): string => {
   const element = walk("a[k]", "b[k]");
@@ -770,20 +675,6 @@ const eqDict = (walk: (a: string, b: string) => string): string => {
     `let n=0;for(const k in a){if(!(k in b)` +
     (element ? `||!(${element})` : ``) +
     `)return false;n++}for(const k in b)n--;return !n`
-  );
-};
-
-// Compare sorts the keys so the order is independent of insertion: two dicts
-// the equal path calls the same value must compare as 0 whichever key arrived
-// first, and unequal key sets get a lexicographic order on the sorted names.
-const cmpDict = (walk: (a: string, b: string) => string): string => {
-  const element = walk("a[ka[i]]", "b[kb[i]]");
-  return (
-    `let ka=Object.keys(a).sort(),kb=Object.keys(b).sort(),n=ka.length,m=kb.length,l=n<m?n:m` +
-    (element ? `,c;` : `;`) +
-    `for(let i=0;i<l;i++){if(ka[i]!==kb[i])return ka[i]<kb[i]?-1:1` +
-    (element ? `;if(c=${element})return c` : ``) +
-    `}return n<m?-1:n>m?1:0`
   );
 };
 
@@ -798,8 +689,7 @@ const cmpPrim = (ctx: Ctx, schema: Internal, a: string, b: string): string => {
   if (tagFlag & 4) return ctx.b.g.o & 2 ? nanOrdLeaf(a, b) : ordLeaf(a, b);
   if (tagFlag & (16 | 32)) return "";
   if (tagFlag & 2 && schema.format === "env") return envOrd(a, b);
-  if (tagFlag & (2 | 8 | 1024)) return ordLeaf(a, b);
-  return ctx.k.ident(a, b);
+  return ordLeaf(a, b);
 };
 
 const eqNullish = (
@@ -856,28 +746,6 @@ const eqUnion = (
   return members.length > 1 || coerce ? `${coerce ? "!!" : ""}(${out})` : out;
 };
 
-const cmpUnion = (
-  narrows: string[],
-  _objectTagged: number[],
-  members: Internal[],
-  walk: Walk,
-  a: string,
-  b: string,
-): string => {
-  let out = "";
-  for (let idx = members.length - 1; idx >= 0; idx--) {
-    const cmp = walk(members[idx]!, a, b) || "0";
-    if (out === "") {
-      out = cmp;
-    } else {
-      const na = applyNarrow(narrows[idx]!, a);
-      const nb = applyNarrow(narrows[idx]!, b);
-      out = `${na}?${nb}?${cmp}:-1:${nb}?1:${out}`;
-    }
-  }
-  return members.length > 1 ? `(${out})` : out;
-};
-
 const identUnionCmp = (ctx: Ctx, schema: Internal, a: string, b: string): string | undefined => {
   const kind = identityKind(ctx, schema);
   return kind !== U ? ordLeaf(a, b) : U;
@@ -905,29 +773,28 @@ const eqMode: Mode = {
   deep: deepEqual,
 };
 
+const unorderable = (schema: Internal): never =>
+  panic(
+    `Can't compare ${inputExpression(schema)}. Only primitives, Date, URL and tuples ` +
+      `of them are orderable. Use isEqual for equality`,
+  );
+
 const cmpMode: Mode = {
   join: joinOrd,
   prim: cmpPrim,
-  elem: ordLeaf,
   // Two invalid dates are two NaNs; `+a===+b` is false, matching isEqual.
   date: (a, b) => `+${a}<+${b}?-1:+${a}>+${b}?1:+${a}===+${b}?0:1`,
   url: (a, b) => ordLeaf(`${a}.href`, `${b}.href`),
-  ident: (a, b) => `${a}===${b}?0:1`,
-  index: cmpIndex,
-  dict: cmpDict,
+  reject: unorderable,
   identUnion: identUnionCmp,
   nullish: cmpNullish,
-  union: cmpUnion,
   yes: "0",
   wrapPrefix: "a===b?0:",
   always: alwaysCompare,
   strict: strictCompare,
   nan: nanCompare,
-  identFn: identityCompare,
-  identExpr: "a===b?0:1",
   strictExpr: "a<b?-1:a>b?1:0",
   nanExpr: "a<b?-1:a>b?1:a===b||a!=a&&b!=b?0:a!=a?-1:1",
-  deep: deepCompare,
 };
 
 const compile = (schema: Internal, flag: Flag, op: Internal, mode: Mode): IsEqual | Compare => {
@@ -946,7 +813,6 @@ const compile = (schema: Internal, flag: Flag, op: Internal, mode: Mode): IsEqua
   if (expr === "") return mode.always;
   if (expr === mode.strictExpr) return mode.strict;
   if (expr === mode.nanExpr) return mode.nan;
-  if (mode.identFn && expr === mode.identExpr) return mode.identFn;
   return new Function("e", `return (a,b)=>${mode.wrapPrefix}${expr}`)(b.g.e) as IsEqual | Compare;
 };
 

@@ -11,8 +11,8 @@ isEqual:
   input: (a,b)=>a===b||!!(a instanceof e[0]?b instanceof e[0]&&a===b:typeof a==="object"&&a&&!Array.isArray(a)&&!(a instanceof e[0])&&!(a instanceof e[1])?typeof b==="object"&&b&&!Array.isArray(b)&&!(b instanceof e[0])&&!(b instanceof e[1])&&a.x===b.x:b instanceof e[1]&&a===b)
   output: (a,b)=>a===b||e[0](a,b)
 compare:
-  input: (a,b)=>a===b?0:(a instanceof e[0]?b instanceof e[0]?a===b?0:1:-1:b instanceof e[0]?1:typeof a==="object"&&a&&!Array.isArray(a)&&!(a instanceof e[0])&&!(a instanceof e[1])?typeof b==="object"&&b&&!Array.isArray(b)&&!(b instanceof e[0])&&!(b instanceof e[1])?a.x<b.x?-1:a.x>b.x?1:0:-1:typeof b==="object"&&b&&!Array.isArray(b)&&!(b instanceof e[0])&&!(b instanceof e[1])?1:a===b?0:1)
-  output: (a,b)=>a===b?0:e[0](a,b)
+  input: "throws: [Sury] Can't compare Error | { x: string; } | TypeError. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare string | { x: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

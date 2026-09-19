@@ -9,7 +9,9 @@ jsonSchema:
   output: '{ type: "object", properties: { f: {} } }'
   fromOutputType: "{ f?: JSON | undefined; }"
 isEqual: (a,b)=>a===b||e[0](a.f,b.f)
-compare: (a,b)=>a===b?0:e[0](a.f,b.f)
+compare:
+  input: "throws: [Sury] Can't compare { f: JSON | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { f: unknown | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

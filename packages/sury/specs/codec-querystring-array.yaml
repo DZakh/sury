@@ -12,7 +12,7 @@ isEqual:
   output: (a,b)=>a===b||a.q===b.q&&e[0](a.tags,b.tags)
 compare:
   input: strictCompare
-  output: (a,b)=>a===b?0:a.q<b.q?-1:a.q>b.q?1:e[0](a.tags,b.tags)
+  output: "throws: [Sury] Can't compare { q: string.length >= 1; tags: string[]; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

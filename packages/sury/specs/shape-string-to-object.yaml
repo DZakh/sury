@@ -12,7 +12,7 @@ isEqual:
   output: (a,b)=>a===b||a.foo===b.foo
 compare:
   input: strictCompare
-  output: (a,b)=>a===b?0:a.foo<b.foo?-1:a.foo>b.foo?1:0
+  output: "throws: [Sury] Can't compare { foo: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

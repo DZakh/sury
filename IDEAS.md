@@ -50,6 +50,54 @@
   Promise var instead of inside `.then()` on the resolved value. Fix must run
   the output checks inside the async continuation without adding the ~40 bytes
   per-schema the naive fix cost (B_markOutput is on every schema's hot path).
+- **Sort keys for `compare`.** `compare` orders primitives, Date, URL and tuples
+  of them, so sorting a list of records has no first-class answer: you project
+  to a tuple and compare that. A selector closes it, and takes the direction
+  per key, which argument order can't express (`ORDER BY at DESC, path ASC`):
+
+  ```ts
+  const byRecency = S.compareOutput(eventSchema, (v) => [{ desc: v.at }, { asc: v.path }]);
+  events.sort(byRecency);
+  ```
+
+  ```rescript
+  let byRecency = S.compileCompare(~schema=eventSchema, ~by=v => [Desc({desc: v.at}), Asc({asc: v.path})])
+  films->Array.sort(byRecency)
+  ```
+
+  The selector runs against `proxifyShapedSchema` (`factory.ts`), the same proxy
+  `S.shape` uses, so each read carries its path and the schema at that path:
+  nested keys (`v.user.id`) and tuple indices work for free, a typo panics with
+  the proxy's own message, and a key with no order is refused naming the schema
+  rather than a string path. The same "dummy proxy, no runtime logic" rule as
+  `S.shape` applies.
+
+  Descending flips the operands at the position rather than negating, so the
+  emit stays one inlined chain:
+
+  ```js
+  // (desc at, asc path)
+  (a,b)=>a===b?0:+b.at<+a.at?-1:+b.at>+a.at?1:a.path<b.path?-1:a.path>b.path?1:0
+  ```
+
+  Three things that make this cheaper than it looks:
+  - No new export. `pairDispatch` takes arity 1 or 3 and panics otherwise
+    (`operations.ts`), so arity 2 is free: 1 compiled, 2 compiled by selector,
+    3 immediate. A ReScript `~by=?` would pass `undefined` and still read as
+    arity 2, so the no-`by` form stays its own external.
+  - No `S.desc` helper. `{desc: v.at}` is data the compiler reads at build time
+    and nothing at runtime, where a function would be bytes and a call.
+  - One runtime shape for both languages. ReScript needs a GADT for the array
+    to be homogeneous (`type rec key = Desc({desc: 'a}): key | Asc({asc: 'a}): key`,
+    verified against rescript 12.2), and an inline record payload emits
+    `{TAG: "Desc", desc: x}`, so reading `.desc`/`.asc` and ignoring `TAG`
+    serves both. Without the inline record it is `_0` and `S.res` has to
+    translate.
+
+  The existential erases the key's type, so neither language rejects an
+  unorderable key at compile time; the refusal is the compiler's, as it is for
+  the whole-value form. TS can take a bare leaf as the ascending shorthand
+  (`v => v.at`); ReScript can't, since a `Date.t` is not a `key`.
 
 TODO:
 

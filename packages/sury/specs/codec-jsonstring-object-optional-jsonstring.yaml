@@ -16,7 +16,7 @@ isEqual:
   output: (a,b)=>a===b||a.id===b.id&&(a.meta===void 0?b.meta===void 0:b.meta!==void 0&&a.meta.tag===b.meta.tag)
 compare:
   input: strictCompare
-  output: (a,b)=>a===b?0:a.id<b.id?-1:a.id>b.id?1:(a.meta===void 0?b.meta===void 0?0:-1:b.meta===void 0?1:a.meta.tag<b.meta.tag?-1:a.meta.tag>b.meta.tag?1:0)
+  output: "throws: [Sury] Can't compare { id: string; meta: { tag: string; } | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

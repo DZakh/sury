@@ -15,7 +15,7 @@ isEqual:
   input: (a,b)=>a===b||a.plain===b.plain&&a.quoted===b.quoted&&a.three===b.three&&a.nested.f===b.nested.f&&e[0](a.items,b.items)&&a.opt===b.opt
   output: strictEqual
 compare:
-  input: (a,b)=>a===b?0:(a.plain<b.plain?-1:a.plain>b.plain?1:a.quoted<b.quoted?-1:a.quoted>b.quoted?1:a.three<b.three?-1:a.three>b.three?1:a.nested.f<b.nested.f?-1:a.nested.f>b.nested.f?1:e[0](a.items,b.items))||((a.opt==="a"?b.opt==="a"?0:-1:b.opt==="a"?1:a.opt==="b"?b.opt==="b"?0:-1:b.opt==="b"?1:0))
+  input: "throws: [Sury] Can't compare { plain: \"a\" | \"b\"; quoted: \"a\"q\" | \"b\"; three: \"a\" | \"b\" | \"c\"; nested: { f: \"a\" | \"b\"; }; items: { f: \"a\" | \"b\"; }[]; opt: \"a\" | \"b\" | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
   output: strictCompare
 vs:
   zod:

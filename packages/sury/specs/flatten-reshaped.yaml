@@ -12,8 +12,8 @@ isEqual:
   input: (a,b)=>a===b||a.Outer===b.Outer&&a.X===b.X
   output: (a,b)=>a===b||a.outer===b.outer&&a.inner.x===b.inner.x
 compare:
-  input: (a,b)=>a===b?0:a.Outer<b.Outer?-1:a.Outer>b.Outer?1:a.X<b.X?-1:a.X>b.X?1:0
-  output: (a,b)=>a===b?0:a.outer<b.outer?-1:a.outer>b.outer?1:a.inner.x<b.inner.x?-1:a.inner.x>b.inner.x?1:0
+  input: "throws: [Sury] Can't compare { Outer: string; X: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { outer: string; inner: { x: string; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable
