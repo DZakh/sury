@@ -13,7 +13,7 @@ vs:
   zod: 'z.object({ items: z.array(z.string()) }).refine(() => false, { message: "User error", path: ["items", 0] })'
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i.items;Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"||e[0](v2);}catch(v3){v3.path=["items",v1,...v3.path];throw v3}}let v4={items:v0};e[2](v4)||e[3](v4);return v4}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i.items;Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){let v2=v0[v1];typeof v2==="string"||e[0](v2,["items",v1]);}let v3={items:v0};e[2](v3)||e[3](v3);return v3}
     examples:
       always-fails-at-index:
         input: '{ items: ["a"] }'

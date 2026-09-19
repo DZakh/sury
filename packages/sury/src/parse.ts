@@ -6,7 +6,6 @@ import {
   copySchema,
   type Encoder,
   type Flag,
-  getOrRethrow,
   globalConfig,
   initSchema,
   inputExpression,
@@ -17,9 +16,6 @@ import {
   numberTag,
   objectTag,
   panic,
-  pathConcat,
-  pathDynamic,
-  pathEmpty,
   reversedKey,
   s,
   schemaPrototype,
@@ -131,19 +127,6 @@ export const parse = (input: Val): Val => {
   }
 
   return result;
-}
-export const parseDynamic = (input: Val): Val => {
-  try {
-    return parse(input);
-  } catch (exn) {
-    const error = getOrRethrow(exn);
-    // For the case parent must always be present
-    error.path = pathConcat(
-      input.p ? input.p.path : pathEmpty,
-      pathConcat(pathConcat(input.path, pathDynamic), error.path),
-    );
-    throw error;
-  }
 }
 
 // How a compiled operation's body ends. `undefined` means "no body at all" -
