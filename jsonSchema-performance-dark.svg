@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="311" viewBox="0 0 720 311" font-family='system-ui, -apple-system, "Segoe UI", sans-serif' role="img">
+<desc>Emit the JSON Schema: Sury 1.47 µs (681 ops/ms), Zod 6.66 µs (150 ops/ms), TypeBox n/a, ArkType 482 ns (2,074 ops/ms), Ajv n/a. Build a checker from the document: Sury 12.52 µs (79.8 ops/ms), Zod 82.43 µs (12.1 ops/ms), TypeBox n/a, ArkType n/a, Ajv 616.50 µs (1.62 ops/ms). Check one value with it: Sury 9.77 ns (102,340 ops/ms), Zod 155 ns (6,463 ops/ms), TypeBox n/a, ArkType n/a, Ajv 16.2 ns (61,893 ops/ms)</desc>
+<text x="4" y="17" font-size="12"><tspan font-weight="600" fill="#ffffff">Emit the JSON Schema</tspan></text>
+<text x="76.0" y="33.5" fill="#c3c2b7" font-size="11" text-anchor="end">Sury</text>
+<path d="M84 26.5h99.4a3.5 3.5 0 0 1 0 7H84z" fill="#898781"/>
+<text x="192.9" y="33.5" fill="#c3c2b7" font-size="11" font-weight="600">1.47 µs (681 ops/ms)</text>
+<text x="76.0" y="47.5" fill="#c3c2b7" font-size="11" text-anchor="end">Zod</text>
+<path d="M84 40.5h463.4a3.5 3.5 0 0 1 0 7H84z" fill="#898781"/>
+<text x="556.9" y="47.5" fill="#c3c2b7" font-size="11" font-weight="600">6.66 µs (150 ops/ms)</text>
+<text x="76.0" y="61.5" fill="#c3c2b7" font-size="11" text-anchor="end">TypeBox</text>
+<text x="90.0" y="61.5" fill="#c3c2b7" font-size="11" font-weight="600">n/a</text>
+<text x="76.0" y="75.5" fill="#c3c2b7" font-size="11" text-anchor="end">ArkType</text>
+<path d="M84 68.5h30.3a3.5 3.5 0 0 1 0 7H84z" fill="#3987e5"/>
+<text x="123.8" y="75.5" fill="#c3c2b7" font-size="11" font-weight="600">482 ns (2,074 ops/ms)</text>
+<text x="76.0" y="89.5" fill="#c3c2b7" font-size="11" text-anchor="end">Ajv</text>
+<text x="90.0" y="89.5" fill="#c3c2b7" font-size="11" font-weight="600">n/a</text>
+<text x="4" y="114" font-size="12"><tspan font-weight="600" fill="#ffffff">Build a checker from the document</tspan><tspan fill="#898781"> · paid once per document, at startup</tspan></text>
+<text x="76.0" y="130.5" fill="#c3c2b7" font-size="11" text-anchor="end">Sury</text>
+<path d="M84 123.5h6.0a3.5 3.5 0 0 1 0 7H84z" fill="#3987e5"/>
+<text x="99.5" y="130.5" fill="#c3c2b7" font-size="11" font-weight="600">12.52 µs (79.8 ops/ms)</text>
+<text x="76.0" y="144.5" fill="#c3c2b7" font-size="11" text-anchor="end">Zod</text>
+<path d="M84 137.5h58.9a3.5 3.5 0 0 1 0 7H84z" fill="#898781"/>
+<text x="152.4" y="144.5" fill="#c3c2b7" font-size="11" font-weight="600">82.43 µs (12.1 ops/ms)</text>
+<text x="76.0" y="158.5" fill="#c3c2b7" font-size="11" text-anchor="end">TypeBox</text>
+<text x="90.0" y="158.5" fill="#c3c2b7" font-size="11" font-weight="600">n/a</text>
+<text x="76.0" y="172.5" fill="#c3c2b7" font-size="11" text-anchor="end">ArkType</text>
+<text x="90.0" y="172.5" fill="#c3c2b7" font-size="11" font-weight="600">n/a</text>
+<text x="76.0" y="186.5" fill="#c3c2b7" font-size="11" text-anchor="end">Ajv</text>
+<path d="M84 179.5h463.4a3.5 3.5 0 0 1 0 7H84z" fill="#898781"/>
+<text x="556.9" y="186.5" fill="#c3c2b7" font-size="11" font-weight="600">616.50 µs (1.62 ops/ms)</text>
+<text x="4" y="211" font-size="12"><tspan font-weight="600" fill="#ffffff">Check one value with it</tspan><tspan fill="#898781"> · paid per request, which is the row that matters</tspan></text>
+<text x="76.0" y="227.5" fill="#c3c2b7" font-size="11" text-anchor="end">Sury</text>
+<path d="M84 220.5h26.0a3.5 3.5 0 0 1 0 7H84z" fill="#3987e5"/>
+<text x="119.5" y="227.5" fill="#c3c2b7" font-size="11" font-weight="600">9.77 ns (102,340 ops/ms)</text>
+<text x="76.0" y="241.5" fill="#c3c2b7" font-size="11" text-anchor="end">Zod</text>
+<path d="M84 234.5h463.4a3.5 3.5 0 0 1 0 7H84z" fill="#898781"/>
+<text x="556.9" y="241.5" fill="#c3c2b7" font-size="11" font-weight="600">155 ns (6,463 ops/ms)</text>
+<text x="76.0" y="255.5" fill="#c3c2b7" font-size="11" text-anchor="end">TypeBox</text>
+<text x="90.0" y="255.5" fill="#c3c2b7" font-size="11" font-weight="600">n/a</text>
+<text x="76.0" y="269.5" fill="#c3c2b7" font-size="11" text-anchor="end">ArkType</text>
+<text x="90.0" y="269.5" fill="#c3c2b7" font-size="11" font-weight="600">n/a</text>
+<text x="76.0" y="283.5" fill="#c3c2b7" font-size="11" text-anchor="end">Ajv</text>
+<path d="M84 276.5h45.3a3.5 3.5 0 0 1 0 7H84z" fill="#898781"/>
+<text x="138.8" y="283.5" fill="#c3c2b7" font-size="11" font-weight="600">16.2 ns (61,893 ops/ms)</text>
+<text x="4.0" y="303" fill="#898781" font-size="10">Lower is better · Timed on node 24.16.0 · linux x64 · 2026-09-19</text>
+</svg>
