@@ -720,13 +720,19 @@ const missingKeyEncoder: Encoder = (input, target) => {
   presentIn.io = false;
   presentIn.s = item;
   presentIn.e = target;
-  presentIn.u = true;
+  // A wrapped field (`u`) leaves the presence check to the guard below; an
+  // env item keeps its own, since the guard is not emitted for it.
+  presentIn.u = item.format !== "env";
   const presentOut = parse(presentIn);
   const presentCode = B_merge(presentOut);
   const presentAssign = presentOut.i === v ? "" : `${v}=${presentOut.i};`;
 
   // Optional field: leave `undefined` as-is (None). Required field: reject.
-  const absentCode = isOptional(target) ? "" : B_embedInvalidInput(input, target);
+  // An env var's unset state is the item's own `undefined` input, which its
+  // converter reads as the target's absent arm or rejects itself, so the
+  // key's presence is not asked here.
+  const unsetIsInput = item.format === "env";
+  const absentCode = isOptional(target) || unsetIsInput ? "" : B_embedInvalidInput(input, target);
   const output = B_nextVarOutput(input, v, getOutputSchema(target), target);
   const presentBody = presentCode + presentAssign;
   output.cp =
@@ -734,9 +740,11 @@ const missingKeyEncoder: Encoder = (input, target) => {
       ? absentCode === ""
         ? ""
         : `${v}!==void 0||${absentCode};`
-      : absentCode === ""
-        ? `if(${v}!==void 0){${presentBody}}`
-        : `if(${v}!==void 0){${presentBody}}else{${absentCode}}`;
+      : unsetIsInput
+        ? presentBody
+        : absentCode === ""
+          ? `if(${v}!==void 0){${presentBody}}`
+          : `if(${v}!==void 0){${presentBody}}else{${absentCode}}`;
   return output;
 };
 

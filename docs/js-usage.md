@@ -1695,6 +1695,26 @@ S.uint8Array.with(S.to, S.jsonString, "pack");
 // decode pack, encode unpack
 ```
 
+### A string is text or a value
+
+A plain string is both, so a link into `S.jsonString` asks the same question
+bytes do. A string format such as `S.email` is a value.
+
+```ts
+S.parseOrThrow(S.string.with(S.to, S.jsonString, "unpack"), '{"a":1}'); // '{"a":1}' checked as JSON
+S.parseOrThrow(S.string.with(S.to, S.jsonString, "pack"), "hi"); // '"hi"'
+S.parseOrThrow(S.email.with(S.to, S.jsonString), "a@b.co"); // '"a@b.co"'
+```
+
+Naming the payload settles it, so an integration that receives text never
+guesses, whatever schema it is handed:
+
+```ts
+S.parseOrThrow(S.string.with(S.to, S.jsonString.with(S.to, config)), '{"a":1}'); // parsed
+S.parseOrThrow(S.string.with(S.to, S.number, "unpack"), "42"); // 42, the one reading
+S.parseOrThrow(S.string.with(S.to, userSchema, "unpack"), text); // right for every userSchema
+```
+
 ### If you omit pack or unpack
 
 Sury does not guess when both conversions exist.
@@ -1702,6 +1722,10 @@ Sury does not guess when both conversions exist.
 ```ts
 S.parseOrThrow(S.uint8Array.with(S.to, S.jsonString));
 // throws: Ambiguous Uint8Array -> JSON string. Should the bytes be packed or
+// unpacked? Choose with S.to and "pack" or "unpack"
+
+S.parseOrThrow(S.string.with(S.to, S.jsonString));
+// throws: Ambiguous string -> JSON string. Should the text be packed or
 // unpacked? Choose with S.to and "pack" or "unpack"
 ```
 
@@ -2254,11 +2278,15 @@ The result of `decode` is validated by the target schema, so a coder that
 returns the wrong thing fails right there instead of leaking a bad value.
 
 Pass `"pack"` or `"unpack"` as the third argument when both conversions exist.
-See [Content](#content).
+See [Content](#content). `"unpack"` declares the source is a representation,
+so it is also accepted where the target has one reading.
 
 ```ts
 S.uint8Array.with(S.to, S.jsonString, "unpack");
 // decode unpack, encode pack
+
+S.string.with(S.to, userSchema, "unpack");
+// the text is read, whatever userSchema is
 ```
 
 Besides a function, each direction accepts:

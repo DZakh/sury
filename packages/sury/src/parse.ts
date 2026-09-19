@@ -20,6 +20,7 @@ import {
   s,
   schemaPrototype,
   setHas,
+  stringTag,
   tagFlags,
   U,
   unknown,
@@ -31,6 +32,7 @@ import {
   valueOptions
 } from "./base";
 import {
+  B_contentNode,
   B_embedInvalidInput,
   B_embedPure,
   B_errorOf,
@@ -264,8 +266,17 @@ Object.defineProperty(schemaPrototype, reversedKey, {
       reverseSwap(record, "parser", "serializer");
       reverseSwap(record, "refiner", "inputRefiner");
       // The link into this node is now the one out of it, read the other way:
-      // opening `current` into `next` was storing `next` into `current`.
-      next && next.opens !== U ? (mut.opens = !next.opens) : delete mut.opens;
+      // opening `current` into `next` was storing `next` into `current`. A
+      // union's reading sits on the arm that carries a payload. A payload
+      // read into text named that text as what it holds, so read back the
+      // text is stored in it - a link the forward side settles without a
+      // marker, and the reversed plain string would otherwise have to say.
+      const nextNode = next && B_contentNode(next);
+      nextNode && nextNode.opens !== U
+        ? (mut.opens = !nextNode.opens)
+        : nextNode && nextNode.content === U && mut.content !== U && (next!.has ? next!.has[stringTag] : next!.type === stringTag)
+          ? (mut.opens = false)
+          : delete mut.opens;
       // Deleted, not parked in a holding field: encode has no absent-input arm,
       // and double reversal reads the cache below rather than re-deriving, so
       // nothing needs the old value back.
@@ -437,8 +448,9 @@ const compileChain = (
     schema = updateOutput(args[i]!, (mut) => {
       mut.to = to;
       // Rule 3, materialized exactly as `codecTo` does it, and for the same
-      // reason: `reverse` re-points `.to` and would lose it.
-      if (mut.content !== U && mut.opens === U) mut.opens = true;
+      // reason: `reverse` re-points `.to` and would lose it. A `.to` of
+      // `undefined` (`S.assertInputOrThrow`'s result sentinel) declares nothing.
+      if (mut.content !== U && mut.opens === U && to.type !== undefinedTag) mut.opens = true;
     });
   }
   // Flag 8: the caller knows nothing about the input, so the chain's own head

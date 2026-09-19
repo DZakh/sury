@@ -41,6 +41,7 @@ import {
  recursiveDecoder
 } from "./advanced/recursive";
 import {
+ B_isText,
  B_operationArg
 } from "./builder";
 import {
@@ -356,13 +357,14 @@ const internalToJSONSchema = (
   // the identity conversion leaves the reversed node, `.to` and all, as the
   // parse output, and reversing that hands back the one being reversed. A
   // content boundary (`S.base64` to `S.jsonString`) is a repacking, not the
-  // same text, and keeps the reverse.
+  // same text, and keeps the reverse. A plain string read as a format's text
+  // (`"unpack"`, or a payload it declared) is that same text too, and the
+  // format's own description, payload included, is the input's.
   if (
     to !== U &&
     (tagFlag & 2) &&
     (tagFlags[to.type]! & 2) &&
-    to.to === U &&
-    to.content === schema.content
+    ((to.to === U && to.content === schema.content) || (to.opens === true && B_isText(schema)))
   ) {
     return jsonSchemaMerge(
       internalToJSONSchemaBase(to, path, defs, parent, target),

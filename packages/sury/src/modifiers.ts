@@ -302,6 +302,18 @@ export const codecTo = (
       }
       if (opened) {
         targetMut.opens = decode as boolean;
+        // The arm's decoder is what meets the source, so a union target hands
+        // the reading to the arm carrying a payload. The array is replaced
+        // only then: unionResolveToUnion knows an arm producing the whole
+        // target union by the shared `anyOf` reference.
+        if (targetMut.anyOf?.some((arm) => arm.content !== U)) {
+          targetMut.anyOf = targetMut.anyOf.map((arm) => {
+            if (arm.content === U) return arm;
+            const armMut = copySchema(arm);
+            armMut.opens = decode as boolean;
+            return armMut;
+          });
+        }
       }
       mut.to = targetMut;
     } else {

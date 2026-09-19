@@ -11,10 +11,12 @@ import { convertTextEntry, isAbsent } from "./entries";
 
 const definedCheck: Check = { c: (inputVar) => `${inputVar}!==void 0`, f: failInvalidType };
 
-// A text target has no place for the unset var: an absent one reads it as its
-// absent arm, a coercion or a jsonString rejects it itself.
+// A text or Date target has no place for the unset var: an absent one reads
+// it as its absent arm, a coercion or a jsonString rejects it itself, and
+// `new Date(undefined)` would report an invalid Date instead of the unset var.
 const rejectsUnset = (target: Internal): boolean =>
-  (tagFlags[target.type]! & 2) !== 0 && target.format !== "json" && !isAbsent(target);
+  ((tagFlags[target.type]! & 2) !== 0 && target.format !== "json" && !isAbsent(target)) ||
+  target.class === Date;
 
 // Walks the chain and the scopes it was taken from: a union case scopes the
 // group's narrow, whose check became the case condition.

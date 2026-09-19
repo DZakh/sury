@@ -2402,7 +2402,10 @@ test("Compile types", async (t) => {
   t.expect(fn6("hello")).toEqual("hello");
   t.expect(fn6(undefined)).toEqual(null);
 
-  const fn7 = S.encodeOrThrow(schema, S.jsonString);
+  // A plain string into a JSON string has to say which way
+  // (CONTENT_CODEC_SPEC.md), in the operation form too.
+  t.expect(() => S.encodeOrThrow(schema, S.jsonString)).toThrow("Ambiguous string -> JSON string");
+  const fn7 = S.encodeOrThrow(schema, S.nullable(S.string).with(S.to, S.jsonString, "pack"));
   expectTypeOf(fn7).toEqualTypeOf<(input: string | undefined) => string>();
   t.expect(fn7("hello")).toEqual(`"hello"`);
   t.expect(fn7(undefined)).toEqual("null");

@@ -19,7 +19,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{(typeof i==="string"||i===void 0)||e[1](i);let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](v0);return v0}
+    expression: i=>{typeof i==="string"||e[1](i);let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](v0);return v0}
     examples:
       valid:
         input: '"2024-01-01T00:00:00.000Z"'
@@ -31,7 +31,7 @@ operations:
         input: '""'
         error: Expected Date, received invalid Date
   decode:
-    expression: i=>{let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](v0);return v0}
+    expression: i=>{i!==void 0||e[1](i);let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](v0);return v0}
     examples:
       valid:
         input: '"2024-01-01T00:00:00.000Z"'

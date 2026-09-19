@@ -12,6 +12,7 @@ import {
   inputExpression,
   type Internal,
   isLiteral,
+  stringTag,
   type InvalidInputDetails,
   type Path,
   pathConcat,
@@ -864,6 +865,14 @@ export const B_contentNode = (schema: Internal): Internal =>
 // neither is rule 4, asked below.
 export const B_contentDiffers = (from?: Internal, to?: Internal): boolean =>
   from !== U && to !== U && from !== to && !(from.bc && to.bc);
+
+// A plain string: the one schema that is both a JSON value and text
+// (CONTENT_CODEC_SPEC.md), so a link from it into a JSON text format has the
+// two readings a bytes carrier's has. A format (`S.email`) can't spell a
+// document and a literal is a value, so each stores; a carrier's opened text
+// and a union narrow carry `content` and are already known to be text.
+export const B_isText = (schema: Internal): boolean =>
+  schema.type === stringTag && schema.content === U && schema.format === U && !isLiteral(schema);
 
 // CONTENT_CODEC_SPEC.md rule 4, asked while compiling by the schemas that
 // declare a payload - `json`, `jsonString`, `base64`, `uint8Array`, `file` -

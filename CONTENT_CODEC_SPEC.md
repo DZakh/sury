@@ -68,6 +68,21 @@ S.uint8Array.with(S.to, S.jsonString, "unpack");
 // ≡ { decode: "unpack", encode: "pack" }
 ```
 
+A reading declares its source. `"unpack"` needs a source with something to
+open - a payload, or the text of a plain string - and is accepted into any
+target, since what the target does with an opened source is the target's own
+one conversion: `S.string.with(S.to, S.number, "unpack")` coerces. That is how
+an integration handed a schema it did not write declares its text once:
+
+```ts
+S.string.with(S.to, userSchema, "unpack");   // right for every userSchema
+```
+
+`"pack"` needs a target that stores, so `S.string.with(S.to, S.number, "pack")`
+is rejected, and so is a reading on a source with nothing to open - a number,
+or a string format: `S.email.with(S.to, S.jsonString)` stores, and has no other
+reading to pick.
+
 ## Rule 1: an explicit slot wins
 
 See above. Everything below is what happens when no slot is written.
@@ -146,6 +161,25 @@ Ambiguous File -> JSON string. Should the bytes be packed or unpacked? Choose wi
 There are no per-carrier defaults. When both readings are live, the library
 asks.
 
+## A plain string is both
+
+`S.string` is the one schema that is both a JSON value and text, so its link
+into a JSON text format has the two readings a bytes carrier's has, and rules
+1 to 4 apply as written:
+
+```ts
+S.string.with(S.to, S.jsonString);                        // rule 4: Ambiguous string -> JSON string
+S.string.with(S.to, S.jsonString, "unpack");              // the text, checked as JSON
+S.string.with(S.to, S.jsonString, "pack");                // '"hi"' - the string is a value
+S.string.with(S.to, S.jsonString.with(S.to, config));     // rule 3: parsed
+S.jsonString.with(S.to, S.schema({ meta: S.string }));    // rule 2: the field is a value
+```
+
+Everything else already knows which it is. A string format (`S.email`), a
+literal, a number and a field of a document are values and store. An entry
+source (`S.env`, a form field), a parse from `unknown` and a carrier's opened
+text are representations and are read.
+
 ## Never ambiguous
 
 These skip the rules entirely:
@@ -159,14 +193,15 @@ S.file.with(S.to, S.string);             // payload transfer (text read, async)
 S.uint8Array.with(S.to, S.string);       // UTF-8 - pack and unpack produce the SAME code
 S.jsonString.with(S.to, userSchema);     // parse - a plain type can't be packed into
 S.number.with(S.to, S.jsonString);       // pack - a number has nothing to open
+S.email.with(S.to, S.jsonString);        // pack - a format can't spell a document
 ```
 
-The two-string contrast is the one thing to memorize, and it follows from the
-payloads:
+The two-string contrast follows from the payloads, and reads one way only:
 
 ```ts
-S.jsonString.with(S.to, S.string);  // parses - a string IS a JSON value
+S.jsonString.with(S.to, S.string);  // parses - `.to` on a format names its payload
 S.base64.with(S.to, S.string);      // identity - a string is NOT bytes
+S.string.with(S.to, S.jsonString);  // asks - a string is a JSON value AND text
 ```
 
 ## Carriers
@@ -288,6 +323,13 @@ ride with the callers, and so does the union walk `B_contentNode` does, which is
 why only `codecTo` pays for it. That buys a creation-time gate on conversions
 that otherwise corrupt data silently.
 
+The string rule adds about 70 gzipped bytes to the same path (4463 → 4530 on
+the smallest exports): `reverse` reads a union's reading off its payload arm
+and records that a payload read into text is stored when read back, and
+`compileChain` skips rule 3 for a `.to` of `undefined`. The decision itself
+rides only with `S.jsonString`, and `S.env`'s record form got smaller: the
+unset var is the item's own input, so the field loop no longer guards it.
+
 **Conversions live on the carrier, not the format** - the existing `S.date`
 pattern. `S.uint8Array`'s encoder owns base64; `S.file`'s owns `.text()` /
 `.arrayBuffer()`; `S.base64` owns opening itself into text. So `S.jsonString`
@@ -323,6 +365,9 @@ refine and `bc` only, so a File bundle does not ship recode or TextEncoder.
 | today | after |
 | --- | --- |
 | `S.uint8Array.with(S.to, S.jsonString)` - UTF-8 escape (corrupts non-ASCII) | rule 4 error |
+| `S.string.with(S.to, S.jsonString)` - stringified the string as a JSON value | rule 4 error; `"pack"` is that reading, `"unpack"` the text |
+| `S.string.with(S.to, S.jsonString.with(S.to, X))` - stringified, then failed against X | parsed (rule 3) |
+| `S.record(S.env)` into a `S.nullable` field with the var unset - `received undefined` | `null`, as the single var already read |
 | `{payload: S.uint8Array}` in a JSON document - corrupts | base64 |
 | `S.encodeOrThrow(S.uint8Array.with(S.to, S.number))(42)` - returns `42` typed as `Uint8Array` | error (the decoder's missing fall-through, a standalone soundness fix) |
 | `S.optional(S.string).with(S.to, S.uint8Array)` - the `undefined` arm passed through as bytes | the text packs, `undefined` is rejected: `CODEC_SPEC.md`'s nullish-arm exception to rule 3 |
@@ -372,6 +417,13 @@ ASCII-only fixtures are what hid the corruption above.
 | `codec-uint8array-string`, `codec-uint8array-string-novalidation`, `codec-string-novalidation-uint8array`, `codec-email-uint8array` | the UTF-8 hop both ways - lossy for bytes that aren't text, and checked by the string target the bytes spell, unless `noValidation` says not to |
 | `codec-uint8array-jsonstring-payload` | rule 3 into a payload the caller reads as bytes |
 | `codec-uint8array-jsonstring-unpack` | the `"unpack"`/`"pack"` spelling whose encode side lands on bytes |
+| `codec-string-jsonstring-ambiguous`, `codec-string-jsonstring-unpack`, `codec-string-jsonstring-pack` | a plain string into a JSON text format: rule 4, and each reading |
+| `codec-string-jsonstring-payload`, `codec-string-jsonstring-payload-chained`, `codec-string-optional-jsonstring-payload` | rule 3 from a plain string, both spellings, and through a nullish arm |
+| `codec-string-optional-jsonstring-unpack`, `codec-optional-string-jsonstring-unpack` | a reading crossing a union on either side |
+| `codec-string-number-unpack` | `"unpack"` declaring the source into a target with one reading |
+| `codec-email-jsonstring` | a string format is a value |
+| `codec-jsonstring-object-string-unpack` | a field carrying its own reading inside a document |
+| `codec-env-optional-jsonstring-payload`, `codec-env-record-nullable` | an entry's text is a representation, and its unset var is the absent arm in a record too |
 | `codec-json-object-uint8array` | rule 2 in a JSON value, where the reading is the same as in JSON text |
 | `codec-jsonstring-object-text-uint8array`, `codec-jsonstring-object-optional-text-uint8array` | rule 2 through a field storing the same payload as the source - text stays text, with or without the union arm `S.optional` adds |
 | `codec-uint8array-optional-base64`, `codec-uint8array-optional-string` | a payload arm keeping its marker through the union narrow, and an arm with no payload still taking the text |

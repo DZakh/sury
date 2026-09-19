@@ -426,8 +426,10 @@ export type Internal = {
   // (rule 3, materialized by `codecTo` and `compileChain` the moment it
   // becomes true, since `reverse` re-points `.to` and would lose it), and by
   // the document piece a field is stored into (rule 2, `jsonPiece`). Absent on
-  // a link between two payloads of different kinds is therefore rule 4, and
-  // the payload schemas reject it while compiling (`B_rejectUnsettled`).
+  // a link between two payloads of different kinds, or from a plain string
+  // (`B_isText`, both a value and text) into a JSON text format, is therefore
+  // rule 4, and the payload schemas reject it while compiling
+  // (`B_rejectUnsettled`, and the jsonString decoder for the string pair).
   opens?: boolean;
   // Properties of every value a string schema admits, which let generated code
   // skip work: 1 escape-free (no `"`, `\`, controls or lone surrogates, so

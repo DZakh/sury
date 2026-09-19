@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.email.with(S.to, S.jsonString)
+  input: string
+  output: string
+  instantiations: 4361
+jsonSchema:
+  input: '{ type: "string", format: "email" }'
+  output: '{ type: "string", contentMediaType: "application/json" }'
+  draft-2020-12:
+    output: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "string", format: "email" }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    output: '{ type: "string" }'
+isEqual: strictEqual
+compare: strictCompare
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return "\""+i+"\""}
+    examples:
+      a-format-is-a-value:
+        input: '"a@b.co"'
+        output: '"\"a@b.co\""'
+  decode:
+    expression: i=>{e[0].test(i)||e[1](i);return "\""+i+"\""}
+    examples:
+      a-format-is-a-value:
+        input: '"a@b.co"'
+        output: '"\"a@b.co\""'
+  encode:
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="string"||e[1](v0);e[2].test(v0)||e[3](v0);return v0}
+    examples:
+      a-format-is-a-value:
+        input: '"\"a@b.co\""'
+        output: '"a@b.co"'

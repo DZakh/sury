@@ -1456,6 +1456,26 @@ S.uint8Array->S.to(S.jsonString, ~custom={decode: Pack, encode: Unpack})
 // decode pack, encode unpack
 ```
 
+#### A string is text or a value
+
+A plain string is both, so a link into `S.jsonString` asks the same question
+bytes do. A string format such as `S.email` is a value.
+
+```rescript
+`{"a":1}`->S.parseOrThrow(~to=S.string->S.to(S.jsonString, ~custom={decode: Unpack, encode: Pack})) // checked as JSON
+"hi"->S.parseOrThrow(~to=S.string->S.to(S.jsonString, ~custom={decode: Pack, encode: Unpack})) // "\"hi\""
+"a@b.co"->S.parseOrThrow(~to=S.email->S.to(S.jsonString)) // "\"a@b.co\""
+```
+
+Naming the payload settles it, and `Unpack` declares the source, so it is
+accepted into any target: an integration that receives text reads it whatever
+schema it is handed.
+
+```rescript
+`{"a":1}`->S.parseOrThrow(~to=S.string->S.to(S.jsonString->S.to(config))) // parsed
+"42"->S.parseOrThrow(~to=S.string->S.to(S.int, ~custom={decode: Unpack, encode: Pack})) // 42
+```
+
 #### If you omit Pack or Unpack
 
 Sury does not guess when both conversions exist.
@@ -1463,6 +1483,10 @@ Sury does not guess when both conversions exist.
 ```rescript
 bytes->S.parseOrThrow(~to=S.uint8Array->S.to(S.jsonString))
 // throws: Ambiguous Uint8Array -> JSON string. Should the bytes be packed or
+// unpacked? Choose with S.to and "pack" or "unpack"
+
+text->S.parseOrThrow(~to=S.string->S.to(S.jsonString))
+// throws: Ambiguous string -> JSON string. Should the text be packed or
 // unpacked? Choose with S.to and "pack" or "unpack"
 ```
 

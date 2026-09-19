@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.optional(S.string).with(S.to, S.jsonString, "unpack")
+  input: string | undefined
+  output: string
+  instantiations: 4556
+jsonSchema:
+  input: '{ type: "string" }'
+  fromInputType: string
+  output: '{ type: "string", contentMediaType: "application/json" }'
+  openapi-3.0:
+    output: '{ type: "string" }'
+isEqual: strictEqual
+compare:
+  input: (a,b)=>a===b?0:(a===void 0?b===void 0?0:-1:b===void 0?1:a<b?-1:a>b?1:0)
+  output: strictCompare
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{for(;;){if(typeof i==="string"){try{JSON.parse(i)}catch(t){e[0](i)};break}if(i===void 0){i="null";break}e[1](i)}return i}
+    examples:
+      the-text-arm-reads:
+        input: '"{\"a\":1}"'
+        output: '"{\"a\":1}"'
+      # FIXME: the nullish arm has nothing to open and should be rejected, as
+      # it is beside a bytes payload; `undefined` into a JSON string is
+      # serialized as `null` today, and this reading inherits it.
+      absent:
+        input: undefined
+        output: '"null"'
+  decode: eq-to-parse
+  encode: identity

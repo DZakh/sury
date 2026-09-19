@@ -44,7 +44,7 @@ Measured against sury 11.0.0, fast-json-stringify 7.0.1.
 
 |  | Cases | Agree | Rate |
 | --- | ---: | ---: | ---: |
-| Text identical to `JSON.stringify`<br><sub>escapes, lone control characters, astral characters, empty keys, absent optionals</sub> | 16 | 16 | 100.0% |
-| Decoding the text gives the value back | 16 | 16 | 100.0% |
+| Text identical to `JSON.stringify`<br><sub>escapes, lone control characters, astral characters, empty keys, absent optionals</sub> | 16 | 11 | 68.8% |
+| Decoding the text gives the value back | 16 | 11 | 68.8% |
 
 <sub>The corpus is `AGREEMENT` in `packages/benchmarks/topics/jsonString.ts`. An encoder that is fast and disagrees with the builtin on one escape is not useful, so the page measures the agreement rather than asserting it.</sub>

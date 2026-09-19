@@ -42,6 +42,8 @@ import {
 } from "./base";
 import {
   B_contentDiffers,
+  B_contentNode,
+  B_isText,
   B_conversion,
   B_invalidOperation,
   B_neverSlot
@@ -349,13 +351,21 @@ export const to = (schema: Internal, target: Internal, custom?: unknown) => {
     if (decode === encode || decode === U || encode === U) {
       return panic(`Expected "pack" opposite "unpack"`);
     }
-    const from = getOutputSchema(schema);
+    // A reading declares the source: `"unpack"` needs one with something to
+    // open (a payload, or the text of a plain string), and `"pack"` a target
+    // that stores. Two payloads of the same kind have nothing to pick between,
+    // and `S.json` has no opened form. What the target does with the reading
+    // is its own decoder's question, so `S.string.with(S.to, S.number, "unpack")`
+    // is accepted: an integration declares its text once, whatever the user's
+    // schema turns out to be.
+    const from = B_contentNode(getOutputSchema(schema));
+    const into = B_contentNode(target);
     if (
-      from.content === U ||
-      target.content === U ||
-      !B_contentDiffers(from.content, target.content) ||
-      from.isJson ||
-      target.isJson
+      into.isJson ||
+      !(from.content !== U ? !from.isJson : B_isText(from) || from.anyOf?.some(B_isText)) ||
+      (into.content !== U
+        ? from.content !== U && !B_contentDiffers(from.content, into.content)
+        : decode === false)
     ) {
       return panic(`Can't pick a reading for this link. Use {decode, encode} coders instead`);
     }

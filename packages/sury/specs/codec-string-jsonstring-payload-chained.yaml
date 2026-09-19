@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.string.with(S.to, S.jsonString).with(S.to, S.schema({ a: S.number }))"
+  input: string
+  output: "{ a: number; }"
+  instantiations: 5590
+jsonSchema:
+  input: '{ type: "string", contentMediaType: "application/json" }'
+  output: '{ type: "object", properties: { a: { type: "number" } }, required: ["a"] }'
+  draft-2020-12:
+    input: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "object", properties: { a: { type: "number" } }, required: ["a"] }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ type: "string" }'
+isEqual:
+  input: strictEqual
+  output: (a,b)=>a===b||a.a===b.a
+compare:
+  input: strictCompare
+  output: (a,b)=>a===b?0:a.a<b.a?-1:a.a>b.a?1:0
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[3](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0.a;typeof v1==="number"&&v1==v1||e[1](v1);return {a:v1}}
+    examples:
+      declared-payload-reads-the-text:
+        input: '"{\"a\":1}"'
+        output: "{ a: 1 }"
+  decode:
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0.a;typeof v1==="number"&&v1==v1||e[1](v1);return {a:v1}}
+    examples:
+      declared-payload-reads-the-text:
+        input: '"{\"a\":1}"'
+        output: "{ a: 1 }"
+  encode:
+    expression: i=>{let v0=i.a;return "{\"a\":"+(Number.isFinite(v0)?v0:e[0](v0))+"}"}
+    examples:
+      declared-payload-reads-the-text:
+        input: "{ a: 1 }"
+        output: '"{\"a\":1}"'

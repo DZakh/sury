@@ -14,6 +14,7 @@ import {
   initSchema,
   inlinedValueFromString,
   type Internal,
+  inputExpression,
   isLiteral,
   isOptional,
   jsonName,
@@ -36,6 +37,8 @@ import {
   B_dynamicScope,
   B_embedPure,
   B_embedInvalidInput,
+  B_invalidOperation,
+  B_isText,
   B_merge,
   B_next,
   B_nextConst,
@@ -416,10 +419,27 @@ export const jsonString = /* @__PURE__ */ (() => {
   const jsonStringEncoder: Encoder = (input, target) => {
     if (target.format !== "json") {
       B_rejectUnsettled(input, target);
+      // The target stores this document rather than being another rendering
+      // of it, so it takes the text as it stands.
       if (target.content !== U && target.content !== json && !target.opens) {
-        // The target stores this document rather than being another rendering
-        // of it, so it takes the text as it stands.
         return input;
+      }
+      if (B_isText(target) || target.anyOf?.some(B_isText)) {
+        // The text a read into this format was reversed from: widened to a
+        // plain string, so a union target narrows it by type instead of
+        // meeting this format again arm by arm.
+        if (target.opens === false) {
+          return B_refine(input, string, U, target);
+        }
+        // A link this format wrote names its payload (rule 3, `opens` on the
+        // author); one it only reversed from a plain string is the pair rule
+        // 4 asks about, in this direction too.
+        if (target.opens === U && input.s.to === target && input.s.opens === U) {
+          B_invalidOperation(
+            input,
+            `Ambiguous ${inputExpression(input.s)} -> ${inputExpression(target)}. Should the text be packed or unpacked? Choose with S.to and "pack" or "unpack"`,
+          );
+        }
       }
       if (target.format === "env") {
         return input;
@@ -1046,6 +1066,20 @@ export const jsonString = /* @__PURE__ */ (() => {
         (input.s.content !== U && expectedSchema.opens)
       ) {
         return carriedJsonString(input, expectedSchema);
+      }
+      // A plain string is both a value and text, so the link has to say: a
+      // slot or a declared payload (rule 3) reads it, a field position (rule
+      // 2) stores it, and nothing else is rule 4.
+      if (B_isText(input.s)) {
+        if (expectedSchema.opens) {
+          return carriedJsonString(input, expectedSchema);
+        }
+        if (expectedSchema.opens === U) {
+          B_invalidOperation(
+            input,
+            `Ambiguous ${inputExpression(input.s)} -> ${inputExpression(expectedSchema)}. Should the text be packed or unpacked? Choose with S.to and "pack" or "unpack"`,
+          );
+        }
       }
       // Two ways the escape-free proof is void here: `noValidation` drops the
       // pattern check it rests on, and a `.to` chain carrying a default hands

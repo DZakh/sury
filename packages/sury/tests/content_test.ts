@@ -62,8 +62,23 @@ test("a reading is only offered where there are two", () => {
   expect(() => S.blob.with(S.to, S.file, readings)).toThrow(
     "Can't pick a reading for this link",
   );
-  // One side carries no payload at all, and `S.json` has no opened form.
-  expect(() => S.string.with(S.to, S.uint8Array, readings)).toThrow(
+  // A reading declares the source, so it needs one with something to open:
+  // a value has nothing, and a string format is a value - only a plain
+  // string is also text. `"pack"` needs a target that stores, and `S.json`
+  // has no opened form.
+  expect(() => S.number.with(S.to, S.jsonString, readings)).toThrow(
+    "Can't pick a reading for this link",
+  );
+  expect(() => S.email.with(S.to, S.jsonString, readings)).toThrow(
+    "Can't pick a reading for this link",
+  );
+  expect(() => S.email.with(S.to, S.string, "unpack")).toThrow(
+    "Can't pick a reading for this link",
+  );
+  expect(() => S.string.with(S.to, S.number, "pack")).toThrow(
+    "Can't pick a reading for this link",
+  );
+  expect(() => S.string.with(S.to, S.json, "unpack")).toThrow(
     "Can't pick a reading for this link",
   );
   expect(() => S.base64.with(S.to, S.json, readings)).toThrow(
@@ -92,7 +107,12 @@ test("a declared payload opens the carrier feeding it", async () => {
 test("a document still asserts, where nothing is re-represented at all", () => {
   expect(S.assertInputOrThrow(`"hi"`, S.jsonString)).toBe(undefined);
   expect(S.assertInputOrThrow({ a: 1 }, S.json)).toBe(undefined);
-  expect(S.assertInputOrThrow("hi", S.string.with(S.to, S.jsonString))).toBe(undefined);
+  expect(S.assertInputOrThrow("hi", S.string.with(S.to, S.jsonString, "pack"))).toBe(undefined);
+  // The result sentinel declares no payload, so it settles nothing: the
+  // ambiguous pair stays ambiguous under an assert too.
+  expect(() => S.assertInputOrThrow("hi", S.string.with(S.to, S.jsonString))).toThrow(
+    "Ambiguous string -> JSON string",
+  );
   expect(S.isInput(S.json)({ a: 1 })).toBe(true);
   expect(S.isInput(S.jsonString)(`{"a":1}`)).toBe(true);
   expect(S.isInput(S.jsonString)(42)).toBe(false);

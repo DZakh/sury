@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.string.with(S.to, S.number, "unpack")
+  input: string
+  output: number
+  instantiations: 4446
+jsonSchema:
+  input: '{ type: "string" }'
+  output: '{ type: "number" }'
+isEqual: strictEqual
+compare: strictCompare
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[1](i);let v0=+i;v0==v0&&(v0||i.trim())||e[0](i);return v0}
+    examples:
+      the-one-reading:
+        input: '"42"'
+        output: "42"
+      not-a-number:
+        input: '"x"'
+        error: Expected number, received "x"
+  decode:
+    expression: i=>{let v0=+i;v0==v0&&(v0||i.trim())||e[0](i);return v0}
+    examples:
+      the-one-reading:
+        input: '"42"'
+        output: "42"
+      not-a-number:
+        input: '"x"'
+        error: Expected number, received "x"
+  encode:
+    expression: i=>{return ""+i}
+    examples:
+      the-one-reading:
+        input: "42"
+        output: '"42"'
