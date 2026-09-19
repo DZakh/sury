@@ -42,6 +42,7 @@ import {
   B_neverSlot,
   B_next,
   B_nextConst,
+  B_pathArg,
   B_refine,
   B_unsupportedDecode,
   B_throw,
@@ -217,16 +218,16 @@ export const refine = (
     // hit on a value it was never written for is not a bug in the caller's
     // `.catch`. Wrapped in the embedded function rather than in a generated
     // `try`, which would catch the refinement's own failure raise too.
-    const embeddedCheck = B_embed(input, (value: unknown) => {
+    const embeddedCheck = B_embed(input, (value: unknown, path?: Path) => {
       try {
         return refineCheck(value);
       } catch (cause) {
-        B_throw(B_makeInvalidConversionDetails(input, input.s, cause));
+        B_throw(B_makeInvalidConversionDetails(input, input.s, cause, path));
       }
     });
     return [
       {
-        c: (inputVar) => `${embeddedCheck}(${inputVar})`,
+        c: (inputVar) => `${embeddedCheck}(${inputVar}${B_pathArg(input)})`,
         f: B_invalidInputBuilder(U, extraPath, message),
       },
     ];

@@ -8,13 +8,15 @@ jsonSchema:
   input: "Failed at []: Expected JSON, received bigint"
   output: '{ items: { type: "string" }, type: "array" }'
 isEqual: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
-compare: (a,b)=>{if(a===b)return 0;let n=a.length,m=b.length,l=n<m?n:m,c;for(let i=0;i<l;i++)if(c=a[i]<b[i]?-1:a[i]>b[i]?1:0)return c;return n<m?-1:n>m?1:0}
+compare:
+  input: "throws: [Sury] Can't compare bigint[]. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare string[]. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{Array.isArray(i)||e[1](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];typeof v1==="bigint"||e[0](v1);}catch(v2){v2.path=[v0,...v2.path];throw v2}}let v4=new Array(i.length);for(let v3=0;v3<i.length;++v3){v4[v3]=""+i[v3]}return v4}
+    expression: i=>{Array.isArray(i)||e[1](i);for(let v0=0;v0<i.length;++v0){let v1=i[v0];typeof v1==="bigint"||e[0](v1,[v0]);}let v3=new Array(i.length);for(let v2=0;v2<i.length;++v2){v3[v2]=""+i[v2]}return v3}
     examples:
       valid:
         input: "[123n]"
@@ -29,7 +31,7 @@ operations:
         input: "[123n]"
         output: '["123"]'
   encode:
-    expression: i=>{let v5=new Array(i.length);for(let v1=0;v1<i.length;++v1){try{let v3=i[v1];let v2;try{v2=BigInt(v3)}catch(_){e[0](v3)}v2||v3.trim()||e[0](v3);v5[v1]=v2}catch(v4){v4.path=[v1,...v4.path];throw v4}}return v5}
+    expression: i=>{let v4=new Array(i.length);for(let v1=0;v1<i.length;++v1){let v3=i[v1];let v2;try{v2=BigInt(v3)}catch(_){e[0](v3,[v1])}v2||v3.trim()||e[0](v3,[v1]);v4[v1]=v2}return v4}
     examples:
       valid:
         input: '["123"]'

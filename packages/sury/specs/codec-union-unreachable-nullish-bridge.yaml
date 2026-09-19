@@ -11,7 +11,7 @@ isEqual:
   input: (a,b)=>a===b||e[0](a,b)
   output: strictEqual
 compare:
-  input: (a,b)=>a===b?0:e[0](a,b)
+  input: "throws: [Sury] Can't compare never | string. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
   output: (a,b)=>a===b?0:(a===void 0?b===void 0?0:-1:b===void 0?1:a<b?-1:a>b?1:0)
 vs:
   zod:

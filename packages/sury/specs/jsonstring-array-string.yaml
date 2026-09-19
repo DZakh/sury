@@ -15,14 +15,14 @@ isEqual:
   input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
   output: strictEqual
 compare:
-  input: (a,b)=>{if(a===b)return 0;let n=a.length,m=b.length,l=n<m?n:m,c;for(let i=0;i<l;i++)if(c=a[i]<b[i]?-1:a[i]>b[i]?1:0)return c;return n<m?-1:n>m?1:0}
+  input: "throws: [Sury] Can't compare string[]. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
   output: strictCompare
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{Array.isArray(i)||e[1](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path=[v0,...v2.path];throw v2}}return JSON.stringify(i)}
+    expression: i=>{Array.isArray(i)||e[1](i);for(let v0=0;v0<i.length;++v0){let v1=i[v0];typeof v1==="string"||e[0](v1,[v0]);}return JSON.stringify(i)}
     examples:
       empty:
         input: "[]"
@@ -40,7 +40,7 @@ operations:
         input: '["say \"hi\"", "a\\nb"]'
         output: '"[\"say \\\"hi\\\"\",\"a\\\\nb\"]"'
   encode:
-    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}Array.isArray(v0)||e[2](v0);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"||e[1](v2);}catch(v3){v3.path=[v1,...v3.path];throw v3}}return v0}
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}Array.isArray(v0)||e[2](v0);for(let v1=0;v1<v0.length;++v1){let v2=v0[v1];typeof v2==="string"||e[1](v2,[v1]);}return v0}
     examples:
       escaping:
         input: '"[\"say \\\"hi\\\"\",\"a\\\\nb\"]"'

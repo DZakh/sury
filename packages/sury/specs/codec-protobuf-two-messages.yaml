@@ -11,8 +11,8 @@ isEqual:
   input: (a,b)=>a===b||e[0](a.x,b.x)&&e[1](a.y,b.y)
   output: (a,b)=>a===b||a.x.a===b.x.a&&a.y.b===b.y.b
 compare:
-  input: (a,b)=>a===b?0:(e[0](a.x,b.x))||(e[1](a.y,b.y))
-  output: (a,b)=>a===b?0:a.x.a<b.x.a?-1:a.x.a>b.x.a?1:a.y.b<b.y.b?-1:a.y.b>b.y.b?1:0
+  input: "throws: [Sury] Can't compare { x: Uint8Array; y: Uint8Array; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { x: { a: int32; }; y: { b: string; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: todo(#…)

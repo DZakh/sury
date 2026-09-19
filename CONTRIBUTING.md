@@ -376,6 +376,22 @@ instead of silently working around it.
   class could say "this message is the platform's; record `errorConstructor`
   instead".
 
+- A Result-shaped outcome is read for `success`, `value` and `error.message`
+  and nothing else, so a Result's `issues` go unchecked across the whole
+  corpus. The harness holds both sides already: it could put every `error`
+  golden to `~standard.validate` for the same value and require the two to
+  report the same issue. `tests/operations_test.ts` holds that for a handful of
+  schemas instead.
+
+- Nothing measures the Result tail's generated code. `summary.ts` ranks
+  generated-code length from `expression`, which is the throw tail only, so the
+  ~90 characters the Standard Schema `issues` added to every `*AsResult`
+  operation moved no metric. Measuring the Result tail the same way - computed
+  and ranked, not stored, so no spec grows a second golden - would catch it.
+  (A per-spec `resultExpression` field was tried for this and removed: the tail
+  is one emitter whose only per-schema variation is whether a `try` is emitted,
+  so the copies were derivation rather than coverage.)
+
 - `operations` has an `assert` and an `is` slot and no spec fills either, so
   `S.assertInputOrThrow` and `S.isInput` still have no golden anywhere. Both
   compile through the same builder chain under a different result target, and a

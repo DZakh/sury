@@ -11,14 +11,14 @@ isEqual:
   input: (a,b)=>a===b||e[0](a,b)
   output: (a,b)=>a===b||(a.docs===void 0?b.docs===void 0:b.docs!==void 0&&e[0](a.docs,b.docs))&&e[1](a.attachments,b.attachments)&&a.note===b.note
 compare:
-  input: (a,b)=>a===b?0:e[0](a,b)
-  output: (a,b)=>a===b?0:(((a.docs===void 0?b.docs===void 0?0:-1:b.docs===void 0?1:e[0](a.docs,b.docs)))||(e[1](a.attachments,b.attachments)))||(a.note<b.note?-1:a.note>b.note?1:0)
+  input: "throws: [Sury] Can't compare FormData. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { docs: File[] | undefined; attachments: File[]; note: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{i instanceof e[7]||e[8](i);let v0=e[0](i),v1=e[1](v0.get("docs")),v5=e[1](v0.get("attachments")),v9=v0.get("note");for(let v2=0;v2<v1.length;++v2){try{let v3=v1[v2];v3 instanceof e[2]||e[3](v3);}catch(v4){v4.path=["docs",v2,...v4.path];throw v4}}for(let v6=0;v6<v5.length;++v6){try{let v7=v5[v6];v7 instanceof e[4]||e[5](v7);}catch(v8){v8.path=["attachments",v6,...v8.path];throw v8}}typeof v9==="string"||e[6](v9);return {docs:v1,attachments:v5,note:v9}}
+    expression: i=>{i instanceof e[7]||e[8](i);let v0=e[0](i),v1=e[1](v0.get("docs")),v4=e[1](v0.get("attachments")),v7=v0.get("note");for(let v2=0;v2<v1.length;++v2){let v3=v1[v2];v3 instanceof e[2]||e[3](v3,["docs",v2]);}for(let v5=0;v5<v4.length;++v5){let v6=v4[v5];v6 instanceof e[4]||e[5](v6,["attachments",v5]);}typeof v7==="string"||e[6](v7);return {docs:v1,attachments:v4,note:v7}}
     examples:
       nothing-chosen:
         input: '((f) => (f.append("docs", new File([], "", { type: "application/octet-stream" })), f.append("attachments", new File([], "", { type: "application/octet-stream" })), f.append("note", ""), f))(new FormData())'
@@ -27,7 +27,7 @@ operations:
         input: ((f) => (f.append("docs", new File(["a"], "a.txt")), f.append("attachments", new File(["b"], "b.txt")), f.append("attachments", new File(["c"], "c.txt")), f.append("note", "n"), f))(new FormData())
         output: '{ docs: [new File(["a"], "a.txt")], attachments: [new File(["b"], "b.txt"), new File(["c"], "c.txt")], note: "n" }'
   decode:
-    expression: i=>{let v0=e[0](i),v1=e[1](v0.get("docs")),v5=e[1](v0.get("attachments")),v9=v0.get("note");for(let v2=0;v2<v1.length;++v2){try{let v3=v1[v2];v3 instanceof e[2]||e[3](v3);}catch(v4){v4.path=["docs",v2,...v4.path];throw v4}}for(let v6=0;v6<v5.length;++v6){try{let v7=v5[v6];v7 instanceof e[4]||e[5](v7);}catch(v8){v8.path=["attachments",v6,...v8.path];throw v8}}typeof v9==="string"||e[6](v9);return {docs:v1,attachments:v5,note:v9}}
+    expression: i=>{let v0=e[0](i),v1=e[1](v0.get("docs")),v4=e[1](v0.get("attachments")),v7=v0.get("note");for(let v2=0;v2<v1.length;++v2){let v3=v1[v2];v3 instanceof e[2]||e[3](v3,["docs",v2]);}for(let v5=0;v5<v4.length;++v5){let v6=v4[v5];v6 instanceof e[4]||e[5](v6,["attachments",v5]);}typeof v7==="string"||e[6](v7);return {docs:v1,attachments:v4,note:v7}}
     examples:
       nothing-chosen:
         input: '((f) => (f.append("attachments", new File([], "", { type: "application/octet-stream" })), f.append("note", ""), f))(new FormData())'

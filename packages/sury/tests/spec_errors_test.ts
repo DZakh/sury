@@ -253,7 +253,7 @@ test("jsonSchema round-trip types are required when they diverge from the schema
         output: '{ items: { type: "string" }, type: "array", minItems: 2 }'
     +   fromOutputType: string[]
       isEqual: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
-      compare: (a,b)=>{if(a===b)return 0;let n=a.length,m=b.length,l=n<m?n:m,c;for(let i=0;i<l;i++)if(c=a[i]<b[i]?-1:a[i]>b[i]?1:0)return c;return n<m?-1:n>m?1:0}
+      compare: "throws: [Sury] Can't compare string[].length >= 2. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
       vs:",
       "stdout": "",
     }
@@ -425,7 +425,7 @@ test("eq-to-parse claimed but the operation doesn't actually compile to the same
     -   input: "{ not: {} }"
     -   output: "{ not: {} }"
     - isEqual: (a,b)=>a===b||e[0](a,b)
-    - compare: (a,b)=>a===b?0:e[0](a,b)
+    - compare: "throws: [Sury] Can't compare never. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
     +   input: '{ type: "string", minLength: 3 }'
     +   output: '{ type: "string", minLength: 3 }'
     + isEqual: strictEqual
@@ -577,7 +577,7 @@ test("operations block omits an op the schema supports", async () => {
   await expect(runCheck("string", serialize(spec))).resolves.toMatchInlineSnapshot(`
     {
       "stderr": "✗ string
-        schema: Failed at ["operations"]["encode"]: Expected "identity" | "eq-to-parse" | { isAsync: true | undefined; expression: string | { _skip: string; }; resultExpression: string | undefined; examples: { [key: string]: { input: string; output: string; divergence: { reason: string; check: true | string | undefined; ajv: true | string | undefined; zod: string | undefined; } | undefined; } | { input: string; error: string; divergence: { reason: string; check: true | string | undefined; ajv: true | string | undefined; zod: string | undefined; } | undefined; } | { input: string; errorConstructor: string; divergence: { reason: string; check: true | string | undefined; ajv: true | string | undefined; zod: string | undefined; } | undefined; }; }; } | { creationError: string; }, received undefined
+        schema: Failed at ["operations"]["encode"]: Expected "identity" | "eq-to-parse" | { isAsync: true | undefined; expression: string | { _skip: string; }; examples: { [key: string]: { input: string; output: string; divergence: { reason: string; check: true | string | undefined; ajv: true | string | undefined; zod: string | undefined; } | undefined; } | { input: string; error: string; divergence: { reason: string; check: true | string | undefined; ajv: true | string | undefined; zod: string | undefined; } | undefined; } | { input: string; errorConstructor: string; divergence: { reason: string; check: true | string | undefined; ajv: true | string | undefined; zod: string | undefined; } | undefined; }; }; } | { creationError: string; }, received undefined
         operations.encode: missing - a spec must declare parse, decode, and encode (run \`pnpm spec new\` to scaffold them, or add the block)",
       "stdout": "",
     }
@@ -591,7 +591,7 @@ test("_skip on an operation is rejected with a guiding message", async () => {
   await expect(runCheck("string", serialize(spec))).resolves.toMatchInlineSnapshot(`
     {
       "stderr": "✗ string
-        schema: Failed at ["operations"]["parse"]: Expected "identity" | { isAsync: true | undefined; expression: string | { _skip: string; }; resultExpression: string | undefined; examples: { [key: string]: { input: string; output: string; divergence: { reason: string; check: true | string | undefined; ajv: true | string | undefined; zod: string | undefined; } | undefined; } | { input: string; error: string; divergence: { reason: string; check: true | string | undefined; ajv: true | string | undefined; zod: string | undefined; } | undefined; } | { input: string; errorConstructor: string; divergence: { reason: string; check: true | string | undefined; ajv: true | string | undefined; zod: string | undefined; } | undefined; }; }; } | { creationError: string; }, received { _skip: "not-applicable"; }
+        schema: Failed at ["operations"]["parse"]: Expected "identity" | { isAsync: true | undefined; expression: string | { _skip: string; }; examples: { [key: string]: { input: string; output: string; divergence: { reason: string; check: true | string | undefined; ajv: true | string | undefined; zod: string | undefined; } | undefined; } | { input: string; error: string; divergence: { reason: string; check: true | string | undefined; ajv: true | string | undefined; zod: string | undefined; } | undefined; } | { input: string; errorConstructor: string; divergence: { reason: string; check: true | string | undefined; ajv: true | string | undefined; zod: string | undefined; } | undefined; }; }; } | { creationError: string; }, received { _skip: "not-applicable"; }
     - At ["operations"]["parse"]["expression"]: Expected string | { _skip: string; }, received undefined
     - At ["operations"]["parse"]["creationError"]: Expected string, received undefined
         operations.parse: _skip is not valid on an operation - use identity, eq-to-parse, a full block with examples, or a creationError",

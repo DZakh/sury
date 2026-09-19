@@ -15,7 +15,7 @@ isEqual:
   input: (a,b)=>a===b||a.a===b.a&&a.b===b.b&&a.c===b.c
   output: strictEqual
 compare:
-  input: (a,b)=>a===b?0:(((a.a===void 0?b.a===void 0?0:-1:b.a===void 0?1:a.a<b.a?-1:a.a>b.a?1:0))||(a.b<b.b?-1:a.b>b.b?1:0))||((a.c===void 0?b.c===void 0?0:-1:b.c===void 0?1:a.c<b.c?-1:a.c>b.c?1:0))
+  input: "throws: [Sury] Can't compare { a: string | undefined; b: number; c: boolean | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
   output: strictCompare
 vs:
   zod:

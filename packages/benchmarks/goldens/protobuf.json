@@ -35,7 +35,7 @@
         "label": "Decode only",
         "note": "what a client that never sends the message gets back from tree-shaking",
         "cells": [
-          24247,
+          24261,
           null,
           13566,
           15469,

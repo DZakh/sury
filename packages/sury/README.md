@@ -94,7 +94,7 @@ All possible ways to run your schema, with a decision required where safety matt
 
 ```ts
 S.parseOrThrow(eventSchema, input); // => Event, or throws S.Error
-S.parseAsResult(eventSchema, input); // => { success: true, value } | { success: false, error }
+S.parseAsResult(eventSchema, input); // => { success: true, value } | { success: false, error, issues }
 S.parseAsPromiseOrReject(eventSchema, input); // => Promise<Event>, rejects with S.Error
 S.parseAsResultPromise(eventSchema, input); // => Promise<Result<Event>>
 S.parseAsPromisableResult(eventSchema, input); // => Result<Event> for a sync schema, Promise<Result<Event>> for an async one
@@ -117,7 +117,7 @@ S.decodeOrThrow(b64Event, "eyJ0eXBlIjoidXNlci5kZWxldGVkIiwiaWQiOiI3IiwicGF5bG9hZ
 // => { type: "user.deleted", id: 7n, payload: { reason: "spam" } }
 ```
 
-Thanks to [Standard Schema](https://standardschema.dev/), the schema plugs straight into tRPC, Hono, TanStack and 28+ other libraries. Its Standard JSON Schema extension describes the wire - and a `bigint` has no wire until you give it one:
+Thanks to [Standard Schema](https://standardschema.dev/), the schema plugs straight into tRPC, Hono, TanStack and 28+ other libraries, and `S.parseAsResult` answers in their result shape, `issues` and all. Its Standard JSON Schema extension describes the wire - and a `bigint` has no wire until you give it one:
 
 ```ts
 S.enableStandardJSONSchema(); // Opt-in, so unused JSON Schema code tree-shakes away
@@ -198,7 +198,8 @@ S.isEqualOutput(
 const isSameSession = S.isEqualOutput(sessionSchema);
 //? (a, b) => a === b || (a.id === b.id && +a.startedAt === +b.startedAt)
 
-sessions.sort(S.compareOutput(sessionSchema));
+const ascByStart = S.compareOutput(S.date);
+sessions.sort((a, b) => ascByStart(a.startedAt, b.startedAt));
 ```
 
 Every operation that looks at one side of a schema says which side in its name - `S.makeOutputOrThrow` and `S.isInput`, `S.toInputJSONSchemaOrThrow` for the wire and `S.toOutputJSONSchemaOrThrow` for your types.

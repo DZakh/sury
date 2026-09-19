@@ -15,14 +15,14 @@ isEqual:
   input: (a,b)=>a===b||e[0](a,b)
   output: (a,b)=>{if(a===b)return true;let n=0;for(const k in a){if(!(k in b)||!(a[k]===b[k]))return false;n++}for(const k in b)n--;return !n}
 compare:
-  input: (a,b)=>a===b?0:e[0](a,b)
-  output: (a,b)=>{if(a===b)return 0;let ka=Object.keys(a).sort(),kb=Object.keys(b).sort(),n=ka.length,m=kb.length,l=n<m?n:m,c;for(let i=0;i<l;i++){if(ka[i]!==kb[i])return ka[i]<kb[i]?-1:1;if(c=(a[ka[i]]===void 0?b[kb[i]]===void 0?0:-1:b[kb[i]]===void 0?1:a[ka[i]]<b[kb[i]]?-1:a[ka[i]]>b[kb[i]]?1:0))return c}return n<m?-1:n>m?1:0}
+  input: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { [key: string]: boolean | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v3={};for(let v0 in i){try{let v1=i[v0];for(;;){if(typeof v1==="boolean")break;if(v1===null){v1=void 0;break}e[0](v1)}v3[v0]=v1}catch(v2){v2.path=[v0,...v2.path];throw v2}}return v3}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v2={};for(let v0 in i){let v1=i[v0];for(;;){if(typeof v1==="boolean")break;if(v1===null){v1=void 0;break}e[0](v1,[v0])}v2[v0]=v1}return v2}
     examples:
       null-becomes-undefined:
         input: "{ a: null, b: true }"
@@ -35,7 +35,7 @@ operations:
         error: "Failed at a: Expected boolean | undefined, received 1"
   decode: eq-to-parse
   encode:
-    expression: i=>{let v4={};for(let v1 in i){try{let v2=i[v1];for(;;){if(typeof v2==="boolean")break;if(v2===void 0){v2=null;break}e[0](v2)}v4[v1]=v2}catch(v3){v3.path=[v1,...v3.path];throw v3}}return v4}
+    expression: i=>{let v3={};for(let v1 in i){let v2=i[v1];for(;;){if(typeof v2==="boolean")break;if(v2===void 0){v2=null;break}e[0](v2,[v1])}v3[v1]=v2}return v3}
     examples:
       undefined-becomes-null:
         input: "{ a: undefined, b: true }"

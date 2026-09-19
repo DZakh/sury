@@ -8,7 +8,7 @@ jsonSchema:
   input: '{ anyOf: [{ type: "string" }, { type: "number" }] }'
   output: '{ anyOf: [{ type: "string" }, { type: "number" }] }'
 isEqual: strictEqual
-compare: (a,b)=>a===b?0:(typeof a==="string"?typeof b==="string"?a<b?-1:a>b?1:0:-1:typeof b==="string"?1:a<b?-1:a>b?1:0)
+compare: "throws: [Sury] Can't compare string | number. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod: z.union([z.string(), z.number()])
 operations:

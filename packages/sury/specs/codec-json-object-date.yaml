@@ -12,8 +12,8 @@ isEqual:
   input: (a,b)=>a===b||e[0](a,b)
   output: (a,b)=>a===b||+a.field===+b.field
 compare:
-  input: (a,b)=>a===b?0:e[0](a,b)
-  output: (a,b)=>a===b?0:+a.field<+b.field?-1:+a.field>+b.field?1:+a.field===+b.field?0:1
+  input: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { field: Date; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

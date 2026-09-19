@@ -11,7 +11,7 @@ jsonSchema:
     output: '{ type: "string", format: "binary" }'
 isEqual: strictEqual
 compare:
-  input: identityCompare
+  input: "throws: [Sury] Can't compare File. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
   output: strictCompare
 vs:
   zod:

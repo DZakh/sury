@@ -14,7 +14,7 @@ isEqual:
   output: (a,b)=>a===b||a.sub===b.sub
 compare:
   input: strictCompare
-  output: (a,b)=>a===b?0:a.sub<b.sub?-1:a.sub>b.sub?1:0
+  output: "throws: [Sury] Can't compare { sub: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

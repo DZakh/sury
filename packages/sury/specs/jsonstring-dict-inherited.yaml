@@ -15,14 +15,14 @@ isEqual:
   input: (a,b)=>{if(a===b)return true;let n=0;for(const k in a){if(!(k in b)||!(a[k]===b[k]))return false;n++}for(const k in b)n--;return !n}
   output: strictEqual
 compare:
-  input: (a,b)=>{if(a===b)return 0;let ka=Object.keys(a).sort(),kb=Object.keys(b).sort(),n=ka.length,m=kb.length,l=n<m?n:m,c;for(let i=0;i<l;i++){if(ka[i]!==kb[i])return ka[i]<kb[i]?-1:1;if(c=a[ka[i]]<b[kb[i]]?-1:a[ka[i]]>b[kb[i]]?1:0)return c}return n<m?-1:n>m?1:0}
+  input: "throws: [Sury] Can't compare { [key: string]: number; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
   output: strictCompare
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v1="";for(let v0 of Object.keys(i)){try{let v2=i[v0];typeof v2==="number"&&v2==v2||e[2](v2);v1+=(v1?",":"")+e[0](v0)+":"+(Number.isFinite(v2)?v2:e[1](v2))}catch(v3){v3.path=[v0,...v3.path];throw v3}}return "{"+v1+"}"}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v1="";for(let v0 of Object.keys(i)){let v2=i[v0];typeof v2==="number"&&v2==v2||e[2](v2,[v0]);v1+=(v1?",":"")+e[0](v0)+":"+(Number.isFinite(v2)?v2:e[1](v2,[v0]))}return "{"+v1+"}"}
     examples:
       plain:
         input: "{ a: 1, b: 2 }"
@@ -34,7 +34,7 @@ operations:
         input: "{ a: Infinity }"
         error: "Failed at a: Expected JSON, received Infinity"
   decode:
-    expression: i=>{let v1="";for(let v0 of Object.keys(i)){try{let v2=i[v0];v1+=(v1?",":"")+e[0](v0)+":"+(Number.isFinite(v2)?v2:e[1](v2))}catch(v3){v3.path=[v0,...v3.path];throw v3}}return "{"+v1+"}"}
+    expression: i=>{let v1="";for(let v0 of Object.keys(i)){let v2=i[v0];v1+=(v1?",":"")+e[0](v0)+":"+(Number.isFinite(v2)?v2:e[1](v2,[v0]))}return "{"+v1+"}"}
     examples:
       plain:
         input: "{ a: 1 }"
@@ -43,7 +43,7 @@ operations:
         input: "Object.assign(Object.create({ inherited: 999 }), { own: 1 })"
         output: '"{\"own\":1}"'
   encode:
-    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);for(let v1 in v0){try{let v2=v0[v1];typeof v2==="number"&&v2==v2||e[1](v2);}catch(v3){v3.path=[v1,...v3.path];throw v3}}return v0}
+    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);for(let v1 in v0){let v2=v0[v1];typeof v2==="number"&&v2==v2||e[1](v2,[v1]);}return v0}
     examples:
       plain:
         input: '"{\"a\":1}"'

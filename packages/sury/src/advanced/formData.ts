@@ -39,7 +39,6 @@ import {
   B_markOutput,
   B_refine,
   B_merge,
-  B_mergeWithPathPrepend,
   B_invalidOperation,
   B_next,
   B_nextConst,
@@ -209,29 +208,18 @@ const appendValue = (val: Val, fdVar: string, keyText: string, inList?: boolean)
       let code = "";
       for (let idx = 0; idx < slots.length; idx++) {
         const slot = valGet(val, `${idx}`);
-        code += B_mergeWithPathPrepend(slot, val, U, () =>
-          appendValue(B_scope(slot), fdVar, keyText, true),
-        );
+        code += B_merge(slot) + appendValue(B_scope(slot), fdVar, keyText, true);
       }
       return code;
     }
     const arrayVar = val.v();
     const iterVar = B_varWithoutAllocation(val.g);
-    const raiseCountBefore = val.g.t;
     val.e = schema;
     const itemVal = B_dynamicScope(val, iterVar);
-    // Built before the merge, not inside its callback: `B_mergeWithCatch` runs
-    // the merge first, so a var this materializes on the item afterwards would
-    // have its `let` dropped. On a scope of the item, not the item: the same
-    // val in both would emit a union's dispatch `let` twice.
+    // On a scope of the item, not the item: the same val in both would emit a
+    // union's dispatch `let` twice.
     const appendCode = appendValue(B_scope(itemVal), fdVar, keyText, true);
-    const itemCode = B_mergeWithPathPrepend(
-      itemVal,
-      val,
-      iterVar,
-      () => appendCode,
-      raiseCountBefore,
-    );
+    const itemCode = B_merge(itemVal) + appendCode;
     return `for(let ${iterVar}=0;${iterVar}<${arrayVar}.length;++${iterVar}){${itemCode}}`;
   }
   const present = presentArm(schema);

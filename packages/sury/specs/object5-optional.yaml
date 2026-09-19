@@ -10,7 +10,7 @@ jsonSchema:
   input: "Failed at d: Expected JSON, received bigint | undefined"
   output: "Failed at d: Expected JSON, received bigint | undefined"
 isEqual: (a,b)=>a===b||a.a===b.a&&a.b===b.b&&a.c===b.c&&a.d===b.d&&a.e===b.e
-compare: (a,b)=>a===b?0:(((a.a<b.a?-1:a.a>b.a?1:(a.b===void 0?b.b===void 0?0:-1:b.b===void 0?1:a.b<b.b?-1:a.b>b.b?1:0))||(a.c<b.c?-1:a.c>b.c?1:0))||((a.d===void 0?b.d===void 0?0:-1:b.d===void 0?1:a.d<b.d?-1:a.d>b.d?1:0)))||(a.e===b.e?0:1)
+compare: "throws: [Sury] Can't compare { a: string; b: number | undefined; c: boolean; d: bigint | undefined; e: symbol; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod: "z.object({ a: z.string(), b: z.number().optional(), c: z.boolean(), d: z.bigint().optional(), e: z.symbol() })"
 operations:

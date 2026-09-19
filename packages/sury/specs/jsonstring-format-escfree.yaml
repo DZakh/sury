@@ -15,7 +15,7 @@ isEqual:
   input: (a,b)=>a===b||a.id===b.id&&a.at===b.at&&a.note===b.note
   output: strictEqual
 compare:
-  input: (a,b)=>a===b?0:a.id<b.id?-1:a.id>b.id?1:a.at<b.at?-1:a.at>b.at?1:a.note<b.note?-1:a.note>b.note?1:0
+  input: "throws: [Sury] Can't compare { id: uuid; at: date-time; note: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
   output: strictCompare
 vs:
   zod:

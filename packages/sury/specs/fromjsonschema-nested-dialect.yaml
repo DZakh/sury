@@ -8,7 +8,7 @@ jsonSchema:
   input: '{ type: "object", properties: { value: { type: "string" } }, required: ["value"] }'
   output: '{ type: "object", properties: { value: { type: "string" } }, required: ["value"] }'
 isEqual: (a,b)=>a===b||a.value===b.value
-compare: (a,b)=>a===b?0:a.value<b.value?-1:a.value>b.value?1:0
+compare: "throws: [Sury] Can't compare { value: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

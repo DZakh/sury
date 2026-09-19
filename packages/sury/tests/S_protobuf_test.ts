@@ -598,7 +598,7 @@ test("a recursive message decodes 100 levels and refuses 101, and encoding has n
   );
 });
 
-test("isEqual and compare read a recursive message the codec declares", (t) => {
+test("isEqual reads a recursive message the codec declares, and compare refuses it", (t) => {
   type Node = { v: string; kids: Node[] };
   const node = S.recursive<Node>("Node", (self) =>
     S.schema({
@@ -611,12 +611,13 @@ test("isEqual and compare read a recursive message the codec declares", (t) => {
 
   t.expect(S.isEqualInput(codec, tree("a", [tree("x")]), tree("a", [tree("x")]))).toBe(true);
   t.expect(S.isEqualInput(codec, tree("a", [tree("x")]), tree("a", [tree("y")]))).toBe(false);
-  t.expect(S.compareInput(codec, tree("a", [tree("x")]), tree("a", [tree("x")]))).toBe(0);
-  t.expect(S.compareInput(codec, tree("a", [tree("x")]), tree("a", [tree("y")]))).toBe(-1);
 
   // The output side is the wire, compared as the bytes it is.
   const one = S.parseOrThrow(codec, tree("a"));
   t.expect(S.isEqualOutput(codec, one, S.parseOrThrow(codec, tree("a")))).toBe(true);
   t.expect(S.isEqualOutput(codec, one, S.parseOrThrow(codec, tree("b")))).toBe(false);
-  t.expect(S.compareOutput(codec, one, S.parseOrThrow(codec, tree("a")))).toBe(0);
+
+  // Neither side is orderable: the message is a call, the wire a byte array.
+  t.expect(() => S.compareInput(codec, tree("a"), tree("b"))).toThrow("Can't compare Node");
+  t.expect(() => S.compareOutput(codec, one, one)).toThrow("Can't compare Uint8Array");
 });
