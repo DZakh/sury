@@ -896,51 +896,114 @@ export const toError = (details: ErrorDetails | Record<string, unknown>): SuryEr
     ? details
     : Object.setPrototypeOf(details, errorPrototype)) as SuryErrorRecord;
 
+// The sentence a failure reads back as, given the expected schema already
+// rendered. Written once for both readers below.
+//
+// `Expected Date, received Date` names the type twice and says nothing: the
+// type is right and the value is not (an Invalid Date, an Error carrying the
+// wrong payload). Saying `received invalid Date` is the only part of the
+// message that carries information in that case.
+const renderReason = (error: SuryErrorRecord, expectedExpression: string): string => {
+  const receivedExpression = stringify(error.input);
+  let reason = `Expected ${expectedExpression}, received ${
+    expectedExpression === receivedExpression ? "invalid " : ""
+  }${receivedExpression}`;
+  const unionErrors = error.unionErrors as SuryErrorRecord[] | undefined;
+  if (unionErrors) {
+    const seenReasons = new Set<string>();
+    for (let idx = 0; idx < unionErrors.length; idx++) {
+      const caseError = unionErrors[idx]!;
+      const line = `\n- ${caseError.path.length ? `At ${pathToText(caseError.path)}: ` : ""}${caseError.reason.split("\n").join("\n  ")}`;
+      if (!seenReasons.has(line)) {
+        seenReasons.add(line);
+        reason += line;
+      }
+    }
+  }
+  return reason;
+};
+
+// `new S.Error({ reason })` assigns through the prototype, and an accessor with
+// no setter makes that a TypeError rather than an error carrying the reason it
+// was handed. Writing an own property is what an explicit reason means anyway -
+// it shadows the renderer from then on.
+const reasonSet = function (this: SuryErrorRecord, reason: string): void {
+  Object.defineProperty(this, "reason", {
+    value: reason,
+    configurable: true,
+    enumerable: true,
+    writable: true,
+  });
+};
+
 // `reason` is rendered on demand. It costs an `inputExpression` walk over the
 // expected schema and a `stringify` of the received value, and it is also what
 // puts a megabyte of request body inside an error message - all for a string
-// nothing reads until someone asks for `message`. Every code other than
-// `invalid_input` writes an own `reason` (it has the words in hand), and so
-// does an `errorMessage` override; an own property shadows this getter.
+// nothing reads until someone asks for `message`. The fallback for an error
+// nobody compiled: one the caller built with `new S.Error`, or a code that
+// writes its own `reason` (every code but `invalid_input` has the words in
+// hand). A compiled failure uses its check's renderer instead - see
+// `errorSite`, which knows the expected schema and can render it once.
 Object.defineProperty(errorPrototype, "reason", {
   configurable: true,
-  // `new S.Error({ reason })` assigns through the prototype, and an accessor
-  // with no setter makes that a TypeError rather than an error carrying the
-  // reason it was handed. Writing an own property is what an explicit reason
-  // means anyway - it shadows the renderer below from then on.
-  set(this: SuryErrorRecord, reason: string) {
-    Object.defineProperty(this, "reason", {
-      value: reason,
-      configurable: true,
-      enumerable: true,
-      writable: true,
-    });
-  },
+  set: reasonSet,
   get(this: SuryErrorRecord): string {
-    const expectedExpression = inputExpression(this.expected as Internal);
-    const receivedExpression = stringify(this.input);
-    // `Expected Date, received Date` names the type twice and says nothing: the
-    // type is right and the value is not (an Invalid Date, an Error carrying the
-    // wrong payload). Saying `received invalid Date` is the only part of the
-    // message that carries information in that case.
-    let reason = `Expected ${expectedExpression}, received ${
-      expectedExpression === receivedExpression ? "invalid " : ""
-    }${receivedExpression}`;
-    const unionErrors = this.unionErrors as SuryErrorRecord[] | undefined;
-    if (unionErrors) {
-      const seenReasons = new Set<string>();
-      for (let idx = 0; idx < unionErrors.length; idx++) {
-        const caseError = unionErrors[idx]!;
-        const line = `\n- ${caseError.path.length ? `At ${pathToText(caseError.path)}: ` : ""}${caseError.reason.split("\n").join("\n  ")}`;
-        if (!seenReasons.has(line)) {
-          seenReasons.add(line);
-          reason += line;
-        }
-      }
-    }
-    return reason;
+    return renderReason(this, inputExpression(this.expected as Internal));
   },
 });
+
+// The prototype every failure of ONE check shares. `expected`, `received` and -
+// where the check names its own message - the reason itself are settled the
+// moment the check is compiled, so they are built once here instead of per
+// failure. An instance enumerates only its own properties, so this is also what
+// stops two schema objects filling every `console.log(error)`; `error.expected`
+// still reads.
+//
+// The renderer memoizes what the prototype-wide one above cannot: the expected
+// schema's expression is the same for every failure of this check AND for every
+// re-read of `message`, which the shared getter paid for again each time.
+export const errorSite = (
+  expected: Internal,
+  received: Internal,
+  reasonOverride?: string
+): object => {
+  const site = Object.create(errorPrototype) as SuryErrorRecord;
+  site.expected = expected;
+  site.received = received;
+  if (reasonOverride !== U) {
+    site.reason = reasonOverride;
+  } else {
+    let expectedExpression: string;
+    Object.defineProperty(site, "reason", {
+      configurable: true,
+      set: reasonSet,
+      get(this: SuryErrorRecord): string {
+        return renderReason(this, (expectedExpression ??= inputExpression(expected)));
+      },
+    });
+  }
+  return site;
+};
+
+// One failure of the check `site` describes: only what the value decided. The
+// keys are written rather than passed to `Object.create` because a data
+// property is what the rest of the compiler expects - generated loop code
+// assigns `error.path` on the way out to prepend a segment.
+export const errorAt = (
+  site: object,
+  path: Path,
+  input: unknown,
+  unionErrors?: SuryErrorRecord[]
+): ErrorDetails => {
+  const error = Object.create(site) as SuryErrorRecord;
+  error.code = "invalid_input";
+  error.path = path;
+  error.input = input;
+  // Absent rather than `undefined` on the failures that have none: what a
+  // shared hidden class used to buy is the site prototype's job now.
+  if (unionErrors) error.unionErrors = unionErrors;
+  return error as unknown as ErrorDetails;
+};
 
 export const getOrRethrow = (exn: unknown): SuryErrorRecord => {
   if (exn && (exn as { s?: symbol }).s === s) return exn as SuryErrorRecord;

@@ -9,6 +9,13 @@ import * as S from "sury";
 const user = S.schema({ id: S.string });
 const invalid = { id: 1 };
 
+// `S.Error` is a union over `code`, and only the `invalid_input` arm carries
+// the schemas. Narrowing here keeps each test reading as what it is about.
+const invalidInput = (error: S.Error | undefined) => {
+  if (error?.code !== "invalid_input") throw new Error(`Expected invalid_input, got ${error?.code}`);
+  return error;
+};
+
 test("an error handed back rather than thrown carries no stack", () => {
   const result = S.parseAsResult(user, invalid);
   expect(result.success).toBe(false);
@@ -90,22 +97,48 @@ test("an exception that is not ours escapes with the stack it had", () => {
   expect(thrown.stack!.split("\n")[1]).toContain("errorStack_test.ts");
 });
 
-test("reason is rendered when it is read, not when the error is built", () => {
+test("a failure carries only what the value decided", () => {
   const { error } = S.parseAsResult(user, invalid);
-  // The ingredients are the own properties; the sentence is not one of them.
-  expect(Object.keys(error!)).toEqual([
-    "code",
-    "expected",
-    "received",
-    "path",
-    "unionErrors",
-    "input",
-  ]);
+  // What the check settled when it was compiled lives on its site prototype,
+  // so it stays out of `console.log` and `JSON.stringify` without stopping
+  // anyone reading it.
+  expect(Object.keys(error!)).toEqual(["code", "path", "input"]);
+  expect(invalidInput(error).expected).toBe(S.string);
+  expect(Object.prototype.hasOwnProperty.call(error, "expected")).toBe(false);
   expect(error!.reason).toBe("Expected string, received 1");
-  // An explicit message is an own property, which shadows the renderer.
-  const overridden = S.parseAsResult(S.string.with(S.meta, { errorMessage: { type: "Give me a string" } }), 1);
-  expect(Object.keys(overridden.error!)).toContain("reason");
-  expect(overridden.error!.reason).toBe("Give me a string");
+  expect(error!.message).toBe("Failed at id: Expected string, received 1");
+});
+
+test("a check that names its own message says it without rendering one", () => {
+  const named = S.string.with(S.meta, { errorMessage: { type: "Give me a string" } });
+  expect(S.parseAsResult(named, 1).error!.reason).toBe("Give me a string");
+});
+
+test("prepending a path keeps what the failing check knew", () => {
+  // The inner parse throws a compiled failure; the refiner's wrapper catches it
+  // and rebuilds it with the outer path prepended. That copy used to be a
+  // spread, which takes own properties only - so everything the site prototype
+  // holds would have been dropped and the reason would read `Expected
+  // undefined`.
+  const inner = S.parseOrThrow(S.number);
+  const outer = S.schema({
+    a: S.unknown.with(S.refine, (value: unknown) => {
+      inner(value);
+      return true;
+    }),
+  });
+
+  const { error } = S.parseAsResult(outer, { a: "not a number" });
+  expect(error!.message).toBe(`Failed at a: Expected number, received "not a number"`);
+  expect(invalidInput(error).expected).toBe(S.number);
+  expect(error!.path).toEqual(["a"]);
+});
+
+test("a union failure carries what its members said", () => {
+  const u = S.union([S.string, S.number]);
+  const { error } = S.parseAsResult(u, { x: 1 });
+  expect(error!.message).toBe("Expected string | number, received { x: 1; }");
+  expect(invalidInput(error).expected).toBe(u);
 });
 
 test("an async failure past the first await rejects without one", async () => {

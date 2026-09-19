@@ -3,6 +3,8 @@ import {
   type BGlobal,
   type Check,
   type ErrorDetails,
+  errorAt,
+  errorSite,
   type Flag,
   immutableEmptyArray,
   inlinedProperty,
@@ -272,9 +274,20 @@ export const B_makeInvalidConversionDetails = (input: Val, to: Internal, cause: 
     // report `a.a`. Nothing to prepend means nothing to copy - `B_throw`
     // reparents whichever of the two it gets, and reparenting the instance to
     // the prototype it already has changes nothing, its stack included.
-    return (
-      input.path.length ? { ...error, path: pathConcat(input.path, error.path) } : error
-    ) as unknown as ErrorDetails;
+    //
+    // Own descriptors onto the SAME prototype, not a spread: `expected`,
+    // `received` and the renderer live on the failing check's site prototype
+    // (base.ts, `errorSite`), and a spread copies own properties only - the
+    // copy would come out reading `Expected undefined`. Descriptors rather than
+    // `Object.assign` so an own `reason` is carried as the data property it is
+    // instead of being pushed through the prototype's setter.
+    if (!input.path.length) return error as unknown as ErrorDetails;
+    const copy = Object.create(
+      Object.getPrototypeOf(error) as object,
+      Object.getOwnPropertyDescriptors(error)
+    ) as SuryErrorRecord;
+    copy.path = pathConcat(input.path, error.path);
+    return copy as unknown as ErrorDetails;
   }
   return B_foreignDetails(input, to, cause);
 }
@@ -298,49 +311,20 @@ export const B_errorOf = (input: Val): ((e: unknown) => SuryErrorRecord) => {
 
 export const B_embedErrorOf = (input: Val): string => B_embedPure(input, B_errorOf(input));
 
-// The ingredients, not the sentence: `reason` is a prototype getter that
-// renders them on demand (base.ts). An override is a string already in hand, so
-// it is written as an own property - which shadows the getter. Written only
-// when there is one: an own `reason` of `undefined` would shadow it too.
-export const B_makeInvalidInputDetails = (
-  expected: Internal,
-  received: Internal,
-  path: Path,
-  input: unknown,
-  unionErrors?: SuryErrorRecord[],
-  reasonOverride?: string
-): ErrorDetails => {
-  const details = {
-    code: "invalid_input",
-    expected,
-    received,
-    path,
-    unionErrors,
-    input,
-  } as unknown as ErrorDetails;
-  if (reasonOverride !== U) details.reason = reasonOverride;
-  return details;
-}
-
-// Drop-in `check.fail` builder for InvalidInput failures. The returned
-// `(~input) => value => details` closure snapshots expected/received/path
-// so it does not retain the val (otherwise the embed array would pin the
-// whole val chain). Pass directly as `check.fail` to skip the wrapper.
+// Drop-in `check.fail` builder for InvalidInput failures. The `(~input) =>
+// value => error` shape is what makes the site prototype possible: the middle
+// call happens once, while the check is being compiled, so everything the
+// failures of this check share is settled there and only the value's own half
+// is left for the inner one. It also snapshots rather than capturing the val,
+// which would pin the whole val chain into the embed array.
 export const B_invalidInputBuilder = (
   expected?: Internal,
   extraPath: Path = pathEmpty,
   reasonOverride?: string
 ): (input: Val) => (value: unknown) => ErrorDetails => (input) => {
   const path = pathConcat(input.path, extraPath);
-  return (value) =>
-    B_makeInvalidInputDetails(
-      expected ?? input.e,
-      (input.prev || input).s,
-      path,
-      value,
-      U,
-      reasonOverride,
-    );
+  const site = errorSite(expected ?? input.e, (input.prev || input).s, reasonOverride);
+  return (value) => errorAt(site, path, value);
 };
 
 export const B_failWithErrorMessage = (
