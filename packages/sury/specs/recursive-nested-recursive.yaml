@@ -10,7 +10,7 @@ jsonSchema:
   output: '{ $ref: "#/$defs/Outer", $defs: { Outer: { type: "object", properties: { inner: { $ref: "#/$defs/Inner" }, next: { $ref: "#/$defs/Outer" } }, required: ["inner"] }, Inner: { type: "object", properties: { v: { type: "string" }, next: { $ref: "#/$defs/Inner" } }, required: ["v"] } } }'
   fromOutputType: "{ inner: { v: string; next?: ... | undefined; }; next?: ... | undefined; }"
 isEqual: (a,b)=>a===b||e[0](a,b)
-compare: (a,b)=>a===b?0:e[0](a,b)
+compare: "throws: [Sury] Can't compare Outer. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

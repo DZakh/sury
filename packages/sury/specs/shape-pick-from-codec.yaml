@@ -11,8 +11,8 @@ isEqual:
   input: (a,b)=>a===b||a.f.b===b.f.b
   output: (a,b)=>a===b||a.z===b.z
 compare:
-  input: (a,b)=>a===b?0:a.f.b<b.f.b?-1:a.f.b>b.f.b?1:0
-  output: (a,b)=>a===b?0:a.z<b.z?-1:a.z>b.z?1:0
+  input: "throws: [Sury] Can't compare { f: { b: string; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { z: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

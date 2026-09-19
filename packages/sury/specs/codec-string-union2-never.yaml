@@ -11,7 +11,7 @@ jsonSchema:
 isEqual: strictEqual
 compare:
   input: strictCompare
-  output: (a,b)=>a===b?0:(typeof a==="number"&&a==a?typeof b==="number"&&b==b?a<b?-1:a>b?1:0:-1:typeof b==="number"&&b==b?1:a<b?-1:a>b?1:0)
+  output: "throws: [Sury] Can't compare number | string. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

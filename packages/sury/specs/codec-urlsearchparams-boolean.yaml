@@ -11,8 +11,8 @@ isEqual:
   input: (a,b)=>a===b||e[0](a,b)
   output: (a,b)=>a===b||a.debug===b.debug&&a.flag===b.flag
 compare:
-  input: (a,b)=>a===b?0:e[0](a,b)
-  output: (a,b)=>a===b?0:a.debug<b.debug?-1:a.debug>b.debug?1:(a.flag===void 0?b.flag===void 0?0:-1:b.flag===void 0?1:a.flag<b.flag?-1:a.flag>b.flag?1:0)
+  input: "throws: [Sury] Can't compare URLSearchParams. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { debug: boolean; flag: boolean | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

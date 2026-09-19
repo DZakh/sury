@@ -2109,7 +2109,7 @@ const isUser = S.isInput(userSchema);
 const users = records.filter(isUser);
 ```
 
-**Compare** - `S.isEqualInput(schema)` / `S.isEqualOutput(schema)` answer whether two values of that side are the same; `S.compareInput(schema)` / `S.compareOutput(schema)` answer `-1 | 0 | 1`. 0 is exactly when `isEqual` would be true. Hand the compiled form to `Array.prototype.sort` for values this schema can order.
+**Compare** - `S.isEqualInput(schema)` / `S.isEqualOutput(schema)` answer whether two values of that side are the same; `S.compareInput(schema)` / `S.compareOutput(schema)` answer `-1 | 0 | 1`, ascending, for `Array.prototype.sort`. 0 is exactly when `isEqual` would be true.
 
 ```ts
 const eventSchema = S.schema({ kind: "click", at: S.date, path: S.string });
@@ -2125,11 +2125,32 @@ isSameEvent(
 
 S.isEqualOutput(eventSchema, a, b); // immediate, schema first
 S.isEqualOutput(a, b, eventSchema); // immediate, data first
-
-events.sort(S.compareOutput(eventSchema));
 ```
 
-`kind` is a literal, so it contributes no comparison at all: a value that conforms can only hold the one it declares. Fields and elements otherwise compare by their own schemas, a `Date` by its time, a `Set` by its members, a `FormData` by its entries in order, and a union by the member each value lands in (declaration order, then that member's payload).
+`kind` is a literal, so it contributes no comparison at all: a value that conforms can only hold the one it declares. Fields and elements otherwise compare by their own schemas, and a `Date` by its time, a `Set` by its members, a `FormData` by its entries in order.
+
+`isEqual` answers for every schema. `compare` answers for the schemas that have an order: `S.string`, `S.number`, `S.bigint`, `S.boolean`, `S.date`, `S.url`, a literal, `S.optional` / `S.nullable` of one of those, an enum of one kind, and `S.tuple` of any of those. Anything else throws when the comparator is compiled.
+
+```ts
+const ascByAtPath = S.compareOutput(S.tuple([S.date, S.string]));
+[[later, "b"], [at, "a"]].sort(ascByAtPath);
+//=> [[at, "a"], [later, "b"]]
+
+S.compareOutput(S.schema({ at: S.date }));
+//! Can't compare { at: Date; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality
+```
+
+To sort records, compare the fields you want to sort by as a tuple:
+
+```ts
+events.sort((a, b) => ascByAtPath([a.at, a.path], [b.at, b.path]));
+```
+
+Descending is the same comparator with the arguments the other way round:
+
+```ts
+events.sort((a, b) => ascByAtPath([b.at, b.path], [a.at, a.path]));
+```
 
 Both values have to be valid for the schema already - this compares, it does not validate. Use [`S.makeOutputOrThrow`](#constructing-entities) on a value you built yourself if you need it checked first.
 

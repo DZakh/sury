@@ -13,7 +13,7 @@ isEqual:
   input: (a,b)=>a===b||a.href.href===b.href.href
   output: strictEqual
 compare:
-  input: (a,b)=>a===b?0:a.href.href<b.href.href?-1:a.href.href>b.href.href?1:0
+  input: "throws: [Sury] Can't compare { href: URL; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
   output: strictCompare
 vs:
   zod:

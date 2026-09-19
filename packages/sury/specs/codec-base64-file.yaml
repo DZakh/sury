@@ -12,7 +12,7 @@ jsonSchema:
 isEqual: strictEqual
 compare:
   input: strictCompare
-  output: identityCompare
+  output: "throws: [Sury] Can't compare File. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

@@ -10,7 +10,7 @@ jsonSchema:
   input: '{ type: "object", properties: { foo: { type: "string" } }, additionalProperties: false, required: ["foo"] }'
   output: '{ type: "object", properties: { foo: { type: "string" } }, additionalProperties: false, required: ["foo"] }'
 isEqual: (a,b)=>a===b||a.foo===b.foo
-compare: (a,b)=>a===b?0:a.foo<b.foo?-1:a.foo>b.foo?1:0
+compare: "throws: [Sury] Can't compare { foo: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod: "z.strictObject({ foo: z.string() })"
 operations:

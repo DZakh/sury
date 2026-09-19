@@ -12,7 +12,7 @@ isEqual:
   output: (a,b)=>a===b||a.q===b.q&&a.page===b.page
 compare:
   input: strictCompare
-  output: (a,b)=>a===b?0:a.q<b.q?-1:a.q>b.q?1:(a.page===void 0?b.page===void 0?0:-1:b.page===void 0?1:a.page<b.page?-1:a.page>b.page?1:0)
+  output: "throws: [Sury] Can't compare { q: string.length >= 1; page: number | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

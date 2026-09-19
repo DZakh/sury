@@ -14,7 +14,7 @@ isEqual:
   output: (a,b)=>a===b||a.avatar===b.avatar
 compare:
   input: strictCompare
-  output: (a,b)=>a===b?0:a.avatar===b.avatar?0:1
+  output: "throws: [Sury] Can't compare { avatar: File; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

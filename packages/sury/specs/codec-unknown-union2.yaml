@@ -12,8 +12,8 @@ isEqual:
   input: (a,b)=>a===b||e[0](a,b)
   output: strictEqual
 compare:
-  input: (a,b)=>a===b?0:e[0](a,b)
-  output: (a,b)=>a===b?0:(typeof a==="bigint"?typeof b==="bigint"?a<b?-1:a>b?1:0:-1:typeof b==="bigint"?1:a<b?-1:a>b?1:0)
+  input: "throws: [Sury] Can't compare unknown. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare bigint | string. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

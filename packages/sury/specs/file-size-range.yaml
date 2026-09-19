@@ -8,7 +8,7 @@ jsonSchema:
   input: Expected JSON, received 2 <= File.size <= 10
   output: Expected JSON, received 2 <= File.size <= 10
 isEqual: strictEqual
-compare: identityCompare
+compare: "throws: [Sury] Can't compare 2 <= File.size <= 10. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod: z.file().min(2).max(10)
 operations:

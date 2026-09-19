@@ -16,7 +16,7 @@ isEqual:
   output: (a,b)=>a===b||e[0](a.a,b.a)
 compare:
   input: strictCompare
-  output: (a,b)=>a===b?0:e[0](a.a,b.a)
+  output: "throws: [Sury] Can't compare { a: Uint8Array; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

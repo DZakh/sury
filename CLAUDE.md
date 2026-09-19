@@ -174,6 +174,14 @@ stream; reach for the first, since the grammar branches on every draw and a
 sweep of short streams covers what one long stream does not. A case it turns up
 becomes a spec.
 
+`compare` is defined only for the schemas that have an order - a primitive, a
+`Date`, a `URL`, and a tuple of those - and every other schema refuses when its
+comparator is compiled, which is what each of their specs records. Widening that
+set is adding an emit for the shape, not relaxing the refusal: whatever compare
+answers has to be an order, so `compare(a,b)===0` exactly when `isEqual`, and
+`compare(a,b)` is `-compare(b,a)`. The fuzzer holds both for every schema it
+accepts.
+
 The harness asks the same question from the other end: every example pair it
 already compares for itself goes to `isEqual*` too, and a disagreement with its
 own oracle is a finding. So the whole spec corpus is the comparator's test

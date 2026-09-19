@@ -11,8 +11,8 @@ isEqual:
   input: (a,b)=>a===b||e[0](a,b)
   output: (a,b)=>a===b||a.nick===b.nick&&a.age===b.age&&a.bio===b.bio&&a.note===b.note
 compare:
-  input: (a,b)=>a===b?0:e[0](a,b)
-  output: (a,b)=>a===b?0:((((a.nick===void 0?b.nick===void 0?0:-1:b.nick===void 0?1:a.nick<b.nick?-1:a.nick>b.nick?1:0))||(a.age<b.age?-1:a.age>b.age?1:0))||(a.bio<b.bio?-1:a.bio>b.bio?1:0))||((a.note===void 0?b.note===void 0?0:-1:b.note===void 0?1:a.note<b.note?-1:a.note>b.note?1:0))
+  input: "throws: [Sury] Can't compare FormData. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { nick: string.length <= 3 | undefined; age: number; bio: string; note: string | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

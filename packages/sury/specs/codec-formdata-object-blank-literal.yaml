@@ -13,8 +13,8 @@ isEqual:
   input: (a,b)=>a===b||e[0](a,b)
   output: (a,b)=>a===b||a.a===b.a&&a.b===b.b&&a.c===b.c
 compare:
-  input: (a,b)=>a===b?0:e[0](a,b)
-  output: (a,b)=>a===b?0:(((a.a===void 0?b.a===void 0?0:-1:b.a===void 0?1:0))||((a.b===""?b.b===""?0:-1:b.b===""?1:a.b==="x"?b.b==="x"?0:-1:b.b==="x"?1:0)))||((a.c===""?b.c===""?0:-1:b.c===""?1:typeof a.c==="number"&&a.c==a.c?typeof b.c==="number"&&b.c==b.c?a.c<b.c?-1:a.c>b.c?1:0:-1:typeof b.c==="number"&&b.c==b.c?1:0))
+  input: "throws: [Sury] Can't compare FormData. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { a: \"\" | undefined; b: \"\" | \"x\" | null; c: \"\" | number | null; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable
