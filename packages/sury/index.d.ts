@@ -19,6 +19,7 @@ export type SuccessResult<TValue> = {
   readonly success: true;
   readonly value: TValue;
   readonly error?: undefined;
+  readonly issues?: undefined;
 };
 
 export type FailureResult = {
@@ -29,8 +30,21 @@ export type FailureResult = {
   // silently doesn't. They mirror the `void 0` fillers the compiled Result tail
   // emits, so the two branches also share one hidden class at runtime.
   readonly value?: undefined;
+  readonly issues: readonly StandardSchemaV1.Issue[];
 };
 
+/**
+ * What every `*AsResult` operation returns. Also a Standard Schema result: the
+ * `issues` of a failure are the ones `schema["~standard"].validate` reports, so
+ * a Result goes straight to a consumer that reads that shape.
+ *
+ * ```ts
+ * const result = S.parseAsResult(S.string, 42)
+ * result.success       // false
+ * result.error?.reason // "Expected string, received 42"
+ * result.issues        // [{ message: "Expected string, received 42" }]
+ * ```
+ */
 export type Result<TValue> = SuccessResult<TValue> | FailureResult;
 
 /**

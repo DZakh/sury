@@ -11,6 +11,7 @@ import {
   instanceTag,
   type Internal,
   openApi30,
+  type Path,
   setContent,
   tagFlags,
   U,
@@ -22,6 +23,7 @@ import {
   B_makeInvalidConversionDetails,
   B_markAsync,
   B_next,
+  B_pathArg,
   B_readOnce,
   B_throw,
   B_rejectUnsettled,
@@ -66,8 +68,8 @@ const read = (input: Val, call: string, schema: Internal): Val => {
   // Caught the way `B_conversion` catches a coder's failure, both halves: the
   // call itself throws on a value an operation trusted rather than checked, and
   // the promise rejects when the read fails (the backing file moved, say). A
-  // `TypeError` or `DOMException` escaping either way hands the enclosing array
-  // or dict a plain Error to stamp a path onto.
+  // `TypeError` or `DOMException` escaping either way. Path is an extra
+  // argument when this read sits under a loop; arrays no longer catch-prepend.
   //
   // Bare inside a union, for `B_conversion`'s reason: a read that fails is not
   // a case that didn't match, and classifying it as one let the dispatch fall
@@ -77,14 +79,15 @@ const read = (input: Val, call: string, schema: Internal): Val => {
   // required arrives at `["a"]`. Wrapping it back is what the fall-through was.
   const failFn = input.g.o & 4
     ? U
-    : B_embed(input, (cause: unknown) => {
-        B_throw(B_makeInvalidConversionDetails(input, schema, cause));
+    : B_embed(input, (cause: unknown, path?: Path) => {
+        B_throw(B_makeInvalidConversionDetails(input, schema, cause, path));
       });
+  const pathArg = failFn === U ? "" : B_pathArg(input);
   const output = B_computed(
     input,
-    `${input.v()}${call}${failFn === U ? `` : `.catch(${failFn})`}`,
+    `${input.v()}${call}${failFn === U ? `` : pathArg ? `.catch(x=>${failFn}(x${pathArg}))` : `.catch(${failFn})`}`,
     schema,
-    failFn === U ? U : `${failFn}(x)`,
+    failFn === U ? U : `${failFn}(x${pathArg})`,
   );
   B_markAsync(input, output);
   return output;

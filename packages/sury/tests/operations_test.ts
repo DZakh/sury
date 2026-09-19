@@ -1,5 +1,6 @@
-import { expect, test } from "vitest";
+import { expect, expectTypeOf, test } from "vitest";
 import * as S from "sury";
+import type { StandardSchemaV1 } from "sury";
 
 // The operation surface itself: which call form an argument list resolves to,
 // and the Result tail the compiler emits. Neither is expressible as a spec -
@@ -8,6 +9,7 @@ import * as S from "sury";
 // Suggestions).
 
 const user = S.schema({ id: S.string });
+type User = { id: string };
 
 // ── Call forms ───────────────────────────────────────────────────────────────
 
@@ -81,7 +83,7 @@ test("a hole and a foreign Standard Schema are named, not read as data", () => {
 
 test("the Result tail is compiled into the operation, not wrapped around it", () => {
   expect(S.parseAsResult(S.string).toString()).toMatchInlineSnapshot(
-    `"i=>{try{typeof i==="string"||e[0](i);return {success:true,value:i,error:void 0}}catch(v0){return {success:false,value:void 0,error:e[1](v0)}}}"`,
+    `"i=>{try{typeof i==="string"||e[0](i);return {success:true,value:i,error:void 0,issues:void 0}}catch(v0){return (v0=e[1](v0),{success:false,value:void 0,error:v0,issues:[{message:v0.reason,path:v0.path.length?v0.path:void 0}]})}}"`,
   );
 });
 
@@ -89,13 +91,13 @@ test("an operation that provably cannot throw emits no try", () => {
   // The raise counter says nothing in the body can fail, so there is no `try`
   // to pay for - the decision a `safe(() => ...)` wrapper can never make.
   expect(S.parseAsResult(S.unknown).toString()).toMatchInlineSnapshot(
-    `"i=>{return {success:true,value:i,error:void 0}}"`,
+    `"i=>{return {success:true,value:i,error:void 0,issues:void 0}}"`,
   );
   // Transformation code, and still no `try`: what the body does can't fail.
   expect(
     S.parseAsResult(S.schema({ id: S.unknown }).with(S.noValidation, true)).toString(),
   ).toMatchInlineSnapshot(
-    `"i=>{return {success:true,value:{id:i.id},error:void 0}}"`,
+    `"i=>{return {success:true,value:{id:i.id},error:void 0,issues:void 0}}"`,
   );
 });
 
@@ -110,8 +112,89 @@ test("both Result branches carry the same keys in the same order", () => {
   // One hidden class for the two branches, so a consumer's `.success`/`.value`
   // reads stay monomorphic.
   const parse = S.parseAsResult(user);
-  expect(Object.keys(parse({ id: "a" }))).toEqual(["success", "value", "error"]);
-  expect(Object.keys(parse({ id: 1 }))).toEqual(["success", "value", "error"]);
+  expect(Object.keys(parse({ id: "a" }))).toEqual(["success", "value", "error", "issues"]);
+  expect(Object.keys(parse({ id: 1 }))).toEqual(["success", "value", "error", "issues"]);
+});
+
+test("a Result satisfies the Standard Schema result type, branch for branch", () => {
+  // Assignable as a whole and member by member, so a Result reaches a consumer
+  // that knows only Standard Schema with no translation step and no cast.
+  expectTypeOf<S.Result<User>>().toExtend<StandardSchemaV1.Result<User>>();
+  expectTypeOf<S.SuccessResult<User>>().toExtend<StandardSchemaV1.SuccessResult<User>>();
+  expectTypeOf<S.FailureResult>().toExtend<StandardSchemaV1.FailureResult>();
+  // Every operation that answers a Result, in every call form, not just the
+  // one this file spells out.
+  expectTypeOf(S.parseAsResult(user, {})).toExtend<StandardSchemaV1.Result<User>>();
+  expectTypeOf(S.decodeAsResult(user)({ id: "a" })).toExtend<StandardSchemaV1.Result<User>>();
+  expectTypeOf(S.encodeAsResult(user, { id: "a" })).toExtend<StandardSchemaV1.Result<User>>();
+  expectTypeOf(S.makeOutputAsResult(user, { id: "a" })).toExtend<StandardSchemaV1.Result<User>>();
+  expectTypeOf(S.parseAsResultPromise(user, {})).toExtend<Promise<StandardSchemaV1.Result<User>>>();
+  expectTypeOf(S.parseAsPromisableResult(user, {})).toExtend<
+    StandardSchemaV1.Result<User> | Promise<StandardSchemaV1.Result<User>>
+  >();
+
+  // A Standard Schema consumer tells the branches apart by `issues` alone, so
+  // that read has to narrow a Result the same way `success` does.
+  const result: StandardSchemaV1.Result<User> = S.parseAsResult(user, {});
+  if (result.issues) {
+    expectTypeOf(result.issues).toEqualTypeOf<readonly StandardSchemaV1.Issue[]>();
+  } else {
+    expectTypeOf(result.value).toEqualTypeOf<User>();
+  }
+
+  // And the same read against the Sury type, which is where `success` and
+  // `issues` have to agree with each other.
+  const own = S.parseAsResult(user, {});
+  if (own.issues) {
+    expectTypeOf(own.success).toEqualTypeOf<false>();
+    expectTypeOf(own.error).toEqualTypeOf<S.DataError>();
+  } else {
+    expectTypeOf(own.success).toEqualTypeOf<true>();
+    expectTypeOf(own.value).toEqualTypeOf<User>();
+  }
+});
+
+test("a Result carries the issues `~standard.validate` reports", () => {
+  expect(S.parseAsResult(user, { id: "a" })).toEqual({
+    success: true,
+    value: { id: "a" },
+    error: undefined,
+    issues: undefined,
+  });
+  // Word for word what `~standard.validate` says about the same value. The two
+  // tails emit their own copy of this shape, so this is what holds them
+  // together (see the comment on `errResult` in src/operations.ts).
+  expect(S.parseAsResult(user, { id: 1 }).issues).toEqual(
+    (user["~standard"].validate({ id: 1 }) as StandardSchemaV1.FailureResult).issues,
+  );
+  expect(S.parseAsResult(user, { id: 1 }).issues).toEqual([
+    { message: "Expected string, received 1", path: ["id"] },
+  ]);
+  // `message` is the error's `reason`, not its formatted `message` - the
+  // location is already in `path`.
+  expect(S.parseAsResult(user, { id: 1 }).error?.message).toBe(
+    "Failed at id: Expected string, received 1",
+  );
+  // `path` is omitted at the root rather than sent as an empty array.
+  expect(S.parseAsResult(S.string, 1).issues).toEqual([
+    { message: "Expected string, received 1", path: undefined },
+  ]);
+
+  // Every Result-shaped outcome, not just the sync one.
+  expect((S.parseAsPromisableResult(user, { id: 1 }) as S.Result<User>).issues).toHaveLength(1);
+});
+
+test("an async Result carries issues from either side of the await", async () => {
+  const asyncSchema = S.string.with(S.to, S.number, {
+    decode: { async: async (v: string) => Number(v) },
+    encode: String,
+  });
+  // A failure the sync phase raises and one raised after the await answer in
+  // the same shape.
+  expect((await S.parseAsResultPromise(asyncSchema, 1)).issues).toEqual([
+    { message: "Expected string, received 1", path: undefined },
+  ]);
+  expect((await S.parseAsResultPromise(asyncSchema, "1")).issues).toBe(undefined);
 });
 
 test("a Result destructures and narrows", () => {
@@ -432,6 +515,7 @@ test("the async outcomes", async () => {
     success: false,
     value: undefined,
     error: expect.any(S.Error),
+    issues: [{ message: "Expected string, received 1", path: undefined }],
   });
 });
 

@@ -56,6 +56,8 @@ import {
   B_makeInvalidInputDetails,
   B_markOutput,
   B_merge,
+  B_pathArg,
+  B_pathSnap,
   B_pushCheck,
   B_refine,
   B_rejectUnsettled,
@@ -1049,8 +1051,12 @@ const unionEmit = (
   let rethrow = "";
   let expected = "";
   const ctx: UnionCtx = {
-    f: (caught) =>
-      `${B_embed(input, unionFail.bind(U, expectedSchema, input.path))}(${input.v()}${salvaged}${caught})`,
+    f: (caught) => {
+      const pathArg = B_pathArg(input);
+      return pathArg
+        ? `${B_embed(input, (v: unknown, p: Path, ...e: SuryErrorRecord[]) => unionFail(expectedSchema, p, v, ...e))}(${input.v()}${pathArg}${salvaged}${caught})`
+        : `${B_embed(input, unionFail.bind(U, expectedSchema, B_pathSnap(input)!))}(${input.v()}${salvaged}${caught})`;
+    },
     r: () => rethrow || (rethrow = B_embed(input, getOrRethrow)),
     s: () => expected || (expected = B_embed(input, expectedSchema)),
   };

@@ -6,7 +6,6 @@ import {
   copySchema,
   type Encoder,
   type Flag,
-  getOrRethrow,
   globalConfig,
   initSchema,
   inputExpression,
@@ -17,9 +16,6 @@ import {
   numberTag,
   objectTag,
   panic,
-  pathConcat,
-  pathDynamic,
-  pathEmpty,
   reversedKey,
   s,
   schemaPrototype,
@@ -132,19 +128,6 @@ export const parse = (input: Val): Val => {
 
   return result;
 }
-export const parseDynamic = (input: Val): Val => {
-  try {
-    return parse(input);
-  } catch (exn) {
-    const error = getOrRethrow(exn);
-    // For the case parent must always be present
-    error.path = pathConcat(
-      input.p ? input.p.path : pathEmpty,
-      pathConcat(pathConcat(input.path, pathDynamic), error.path),
-    );
-    throw error;
-  }
-}
 
 // How a compiled operation's body ends. `undefined` means "no body at all" -
 // the operation is the identity, and the caller hands back `noopOperation`.
@@ -177,6 +160,13 @@ export const throwTail: Tail = (input, code, out, isAsync, flag, hasDefs) => {
     // expect. Built by an embedded function rather than inline: the failure
     // path reads the error three times, and the same closure serves the
     // sync catch and the promise's rejection handler.
+    //
+    // `message` is the error's `reason` and not its formatted `message`: the
+    // location is in `path`, and a consumer that renders both says it twice.
+    //
+    // The JS Result tail (`errResult`, operations.ts) emits this same shape,
+    // because a Result IS a Standard Schema result - change one and the other
+    // has to follow. `tests/operations_test.ts` compares the two.
     const errorOf = B_errorOf(input);
     const issues = B_embedPure(input, (e: unknown) => {
       const error = errorOf(e);

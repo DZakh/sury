@@ -27,7 +27,6 @@ import {
   B_invalidOperation,
   B_markOutput,
   B_merge,
-  B_mergeWithPathPrepend,
   B_next,
   B_scope,
   B_unsupportedDecode,
@@ -108,25 +107,16 @@ const appendValue = (val: Val, destVar: string, keyText: string): string => {
       let code = "";
       for (let idx = 0; idx < slots.length; idx++) {
         const slot = valGet(val, `${idx}`);
-        code += B_mergeWithPathPrepend(slot, val, U, () =>
-          appendValue(B_scope(slot), destVar, keyText),
-        );
+        code += B_merge(slot) + appendValue(B_scope(slot), destVar, keyText);
       }
       return code;
     }
     const arrayVar = val.v();
     const iterVar = B_varWithoutAllocation(val.g);
-    const raiseCountBefore = val.g.t;
     val.e = schema;
     const itemVal = B_dynamicScope(val, iterVar);
     const appendCode = appendValue(B_scope(itemVal), destVar, keyText);
-    const itemCode = B_mergeWithPathPrepend(
-      itemVal,
-      val,
-      iterVar,
-      () => appendCode,
-      raiseCountBefore,
-    );
+    const itemCode = B_merge(itemVal) + appendCode;
     return `for(let ${iterVar}=0;${iterVar}<${arrayVar}.length;++${iterVar}){${itemCode}}`;
   }
   const present = presentArm(schema);
