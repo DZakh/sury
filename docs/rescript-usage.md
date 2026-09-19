@@ -2095,8 +2095,8 @@ let isSameFilm = S.compileIsEqual(~schema=filmSchema)
 isSameFilm(a, b)
 
 // A film has no order of its own, so sort by the fields that do.
-let byTitle = S.compileCompare(~schema=S.tuple(s => (s.item(0, S.string), s.item(1, S.float))))
-films->Array.sort((a, b) => byTitle((a.title, a.id), (b.title, b.id)))
+let ascByTitle = S.compileCompare(~schema=S.tuple(s => (s.item(0, S.string), s.item(1, S.float))))
+films->Array.sort((a, b) => ascByTitle((a.title, a.id), (b.title, b.id)))
 ```
 
 **Making** checks a value you built in code rather than received from the wire. Every check the schema carries runs - types, the conversion, refinements - and the value itself comes back, not a decoded copy, so an entity the schema has no way to encode fails at construction rather than at the point it's sent. `S.t<'value>` names the output type, so this is the JS `makeOutputOrThrow`:

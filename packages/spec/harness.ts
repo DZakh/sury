@@ -683,6 +683,8 @@ export const deriveIsEqual = (schema: any): string | IsEqualSides => {
 // when the comparator is compiled. The refusal is this dimension's contract for
 // those schemas, so it is recorded as `throws: <message>` and checked, rather
 // than skipped.
+const COMPARE_THROWS = "throws: ";
+
 const compareForm = (build: () => Function): string => {
   try {
     return comparatorForm(build());
@@ -690,8 +692,6 @@ const compareForm = (build: () => Function): string => {
     return `${COMPARE_THROWS}${(e as Error).message}`;
   }
 };
-
-export const COMPARE_THROWS = "throws: ";
 
 export const deriveCompare = (schema: any): string | IsEqualSides => {
   const input = compareForm(() => S.compareInput(schema) as Function);
@@ -2399,7 +2399,10 @@ export const checkEquality = (spec: Spec, schema: any): string[] => {
       errs.push(`isEqual: S.${name}(schema) threw ${JSON.stringify((e as Error).message)}`);
       continue;
     }
-    const cmpGolden = typeof spec.compare === "string" ? spec.compare : (spec.compare as IsEqualSides | undefined)?.[side];
+    const cmpGolden =
+      typeof spec.compare === "string"
+        ? spec.compare
+        : (spec.compare as IsEqualSides | undefined)?.[side];
     const wantThrow = cmpGolden?.startsWith(COMPARE_THROWS) === true;
     let compiledCmp: ((a: unknown, b: unknown) => number) | undefined;
     if (!skipCompare) {

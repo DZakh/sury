@@ -2132,8 +2132,8 @@ S.isEqualOutput(a, b, eventSchema); // immediate, data first
 `isEqual` answers for every schema. `compare` answers for the schemas that have an order: `S.string`, `S.number`, `S.bigint`, `S.boolean`, `S.date`, `S.url`, a literal, `S.optional` / `S.nullable` of one of those, an enum of one kind, and `S.tuple` of any of those. Anything else throws when the comparator is compiled.
 
 ```ts
-const bySpan = S.compareOutput(S.tuple([S.date, S.string]));
-[[later, "b"], [at, "a"]].sort(bySpan);
+const ascByAtPath = S.compareOutput(S.tuple([S.date, S.string]));
+[[later, "b"], [at, "a"]].sort(ascByAtPath);
 //=> [[at, "a"], [later, "b"]]
 
 S.compareOutput(S.schema({ at: S.date }));
@@ -2143,13 +2143,13 @@ S.compareOutput(S.schema({ at: S.date }));
 To sort records, compare the fields you want to sort by as a tuple:
 
 ```ts
-events.sort((a, b) => bySpan([a.at, a.path], [b.at, b.path]));
+events.sort((a, b) => ascByAtPath([a.at, a.path], [b.at, b.path]));
 ```
 
 Descending is the same comparator with the arguments the other way round:
 
 ```ts
-events.sort((a, b) => bySpan([b.at, b.path], [a.at, a.path]));
+events.sort((a, b) => ascByAtPath([b.at, b.path], [a.at, a.path]));
 ```
 
 Both values have to be valid for the schema already - this compares, it does not validate. Use [`S.makeOutputOrThrow`](#constructing-entities) on a value you built yourself if you need it checked first.

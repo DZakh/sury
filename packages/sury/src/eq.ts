@@ -773,8 +773,6 @@ const eqMode: Mode = {
   deep: deepEqual,
 };
 
-// The shapes with no `reject` above it are the whole of what compare answers
-// for. Adding one back means adding the emit AND removing the walk's guard.
 const unorderable = (schema: Internal): never =>
   panic(
     `Can't compare ${inputExpression(schema)}. Only primitives, Date, URL and tuples ` +
