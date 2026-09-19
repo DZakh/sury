@@ -106,8 +106,8 @@
         "note": "escapes, lone control characters, astral characters, empty keys, absent optionals",
         "cells": [
           16,
-          11,
-          "68.8%"
+          16,
+          "100.0%"
         ],
         "format": "count"
       },
@@ -115,8 +115,8 @@
         "label": "Decoding the text gives the value back",
         "cells": [
           16,
-          11,
-          "68.8%"
+          16,
+          "100.0%"
         ],
         "format": "count"
       }

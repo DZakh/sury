@@ -1706,6 +1706,14 @@ S.parseOrThrow(S.string.with(S.to, S.jsonString, "pack"), "hi"); // '"hi"'
 S.parseOrThrow(S.email.with(S.to, S.jsonString), "a@b.co"); // '"a@b.co"'
 ```
 
+The operation forms are the same chain, so `S.encodeOrThrow(S.string, S.jsonString)`
+asks too. A document that holds a string is written as one:
+
+```ts
+S.encodeOrThrow(S.jsonString.with(S.to, S.string))("hi"); // '"hi"'
+S.decodeOrThrow(S.jsonString, S.string)('"hi"'); // "hi"
+```
+
 Naming the payload settles it, so an integration that receives text never
 guesses, whatever schema it is handed:
 
