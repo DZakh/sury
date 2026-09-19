@@ -165,6 +165,27 @@ export type Tail = (
   hasDefs: boolean,
 ) => string | undefined;
 
+// A Sury failure is a record until it crosses into user code, and there are
+// exactly two places where it does: the compiled operation, and the compile
+// itself. Both are below, and both attach the stack here.
+//
+// `cut` is the frame the trace starts *after* - the operation for a raise while
+// it runs, `getOp` for one while it is built. Without it the top frames are the
+// compiler walking down to the value or the schema that failed, which is ten of
+// them at the build boundary: more than `Error.stackTraceLimit` allows, so the
+// line the caller actually wrote falls off the end of its own stack trace.
+//
+// Ours and stack-free only. `"stack" in` rather than reading it: on an error
+// that has one the read formats the trace, and anything arriving with a stack -
+// a foreign exception, one user code built with `new S.Error` and threw - is
+// already pointing at a better line than this.
+const captureStackAt = (thrown: SuryErrorRecord, cut: unknown): void => {
+  if (thrown && thrown.s === s && !("stack" in thrown)) {
+    (Error as unknown as { captureStackTrace?: (target: object, cut: unknown) => void })
+      .captureStackTrace?.(thrown, cut);
+  }
+};
+
 // Throw mode, plus the Standard Schema tail (mode bit 1024). The Standard
 // Schema arm is here rather than behind the `__setTail` hook because the
 // `~standard` prototype getter can never be tree-shaken (standard.ts), so a
@@ -198,15 +219,11 @@ export const throwTail: Tail = (input, code, out, isAsync, flag, hasDefs) => {
   }
   if (code === "" && out === operationArgVar && !(flag & 1)) return U;
   const body = `${code}return ${(flag & 1) && !isAsync && !hasDefs ? `Promise.resolve(${out})` : out}`;
-  // The stack, attached where the failure actually becomes an exception. The
-  // records the compiler throws carry none (base.ts, `toError`), so this is the
-  // only place a throwing operation gets one - and the only place it can name
-  // the frame to cut at, which is the operation itself: the caller's line ends
-  // up on top instead of five frames of library.
-  //
-  // Only where something can raise at all (`g.t`), and never for a nested
-  // compile (recursive.ts), whose throw is generated code's own business and is
-  // caught and re-raised by the operation around it.
+  // The run boundary, cutting at the operation itself so the caller's line ends
+  // up on top instead of five frames of library. Only where something can raise
+  // at all (`g.t`), and never for a nested compile (recursive.ts), whose throw
+  // is generated code's own business and is caught and re-raised by the
+  // operation around it.
   //
   // The sync phase only. A failure an async operation reaches after its first
   // await rejects with no stack, because by then there is no stack worth
@@ -216,14 +233,7 @@ export const throwTail: Tail = (input, code, out, isAsync, flag, hasDefs) => {
   const g = input.g;
   const e = B_varWithoutAllocation(g);
   return `try{${body}}catch(${e}){${B_embedPure(input, (thrown: SuryErrorRecord): never => {
-    // Ours and stack-free. `"stack" in` rather than reading it: on an error
-    // that has one the read formats the trace, and an error that arrives here
-    // with a stack - a foreign exception, or one user code built with
-    // `new S.Error` and threw - already points at a better line than this.
-    if (thrown && thrown.s === s && !("stack" in thrown)) {
-      (Error as unknown as { captureStackTrace?: (target: object, cut: unknown) => void })
-        .captureStackTrace?.(thrown, g.f);
-    }
+    captureStackAt(thrown, g.f);
     throw thrown;
   })}(${e})}`;
 };
@@ -487,12 +497,19 @@ const compileChain = (
   // type checks against it. Read here rather than in `compileDecoder`, whose
   // other caller (recursive.ts) passes a source of its own and inherits this
   // bit through `g.o`.
-  const f = compileDecoder(
-    (flag & 8) ? unknown : schema,
-    schema,
-    flag,
-    U,
-  ) as (from: unknown) => unknown;
+  let f: (from: unknown) => unknown;
+  // The build boundary. A chain with no codec, an async schema in a sync
+  // operation, a reading that can't be chosen - all raised from here down, and
+  // this is where they become an exception. Free: `getOp` reaches this on a
+  // memo miss only, so a compile pays for the `try` and nothing else does.
+  try {
+    f = compileDecoder((flag & 8) ? unknown : schema, schema, flag, U) as (
+      from: unknown,
+    ) => unknown;
+  } catch (thrown) {
+    captureStackAt(thrown as SuryErrorRecord, getOp);
+    throw thrown;
+  }
   addOpNode(cacheTarget, args, flag, f);
   return f;
 };

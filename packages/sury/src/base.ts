@@ -878,15 +878,15 @@ Object.defineProperty(errorPrototype, "s", { value: s });
 // never reach a throw anyone sees: a union tries each member and discards the
 // losers, a Result outcome hands the record back, `is*` reads only that one
 // exists. So the library reparents the details object it has already built and
-// leaves `stack` unset. The operation tail (`throwTail`) attaches one on the
-// single path where a failure does escape as an exception, which is also where
-// it can attach a better one - the caller's frame on top rather than the
-// library's.
+// leaves `stack` unset. parse.ts attaches one at the two boundaries a failure
+// can cross into user code - the compiled operation, and the compile itself -
+// which is also where it can attach a better one, since only a boundary knows
+// which frame to cut the trace at.
 //
-// So a failure raised while an operation RUNS goes through here, and one raised
-// while it is BUILT - a chain with no codec, a JSON Schema for a schema that
-// has none - is a `new SuryError` instead: there is no compiled function to cut
-// a trace at yet, and the caller is still inside its own call.
+// Every failure the compiler raises goes through here, whether the operation is
+// being built or run. `new SuryError` is the public constructor, for user code
+// building a failure of its own to throw.
+//
 // Idempotent, and that is load-bearing rather than tidy: `B_throw` is handed a
 // user's own error back when there is no path to prepend, and reparenting an
 // instance someone else built and retained would rewrite it in place - a

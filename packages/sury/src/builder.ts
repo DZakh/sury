@@ -16,7 +16,6 @@ import {
   pathEmpty,
   s,
   stringify,
-  SuryError,
   type SuryErrorRecord,
   toError,
   tagFlags,
@@ -217,24 +216,15 @@ export const B_operationArg = (
   };
 }
 
-// The throw generated code makes, so the record carries no stack: the operation
-// tail attaches one where the failure escapes (parse.ts, `throwTail`).
+// Every raise the compiler makes, whether the operation is being built or run.
+// The record carries no stack; parse.ts attaches one at whichever boundary the
+// failure escapes through.
 export const B_throw = (errorDetails: ErrorDetails): never => {
   throw toError(errorDetails);
 }
 
-// The throw a *builder* makes: a chain with no codec, an async schema in a sync
-// operation, a reading that can't be chosen. It happens while the operation is
-// being compiled, which is inside the caller's own `S.parseOrThrow(...)` call
-// and before any generated function exists - so there is no boundary to capture
-// at, and the line that wired the schema up is the whole diagnostic. These are
-// exceptions from birth, and `new SuryError` is what gives them the stack.
-const B_throwWhileBuilding = (errorDetails: ErrorDetails): never => {
-  throw new SuryError(errorDetails);
-}
-
 export const B_unsupportedDecode = (b: Val, from: Internal, target: Internal): never =>
-  B_throwWhileBuilding({
+  B_throw({
     code: "unsupported_decode",
     from,
     to: target,
@@ -683,7 +673,7 @@ export const B_asyncVal = (from: Val, initial: string): Val => {
 // for.
 export const B_markAsync = (input: Val, output: Val): void => {
   if (!(input.g.o & 1)) { // 1
-    B_throwWhileBuilding({
+    B_throw({
       code: "invalid_operation",
       path: pathEmpty,
       reason: "Invalid async during sync operation",
@@ -879,7 +869,7 @@ export const B_rejectUnsettled = (input: Val, to: Internal, from = input.prev &&
 };
 
 export const B_invalidOperation = (val: Val, description: string): never =>
-  B_throwWhileBuilding({ code: "invalid_operation", reason: description, path: val.path });
+  B_throw({ code: "invalid_operation", reason: description, path: val.path });
 
 const B_mergeWithCatch = (
   val: Val,

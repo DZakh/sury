@@ -57,29 +57,24 @@ test("a stack the thrower already chose is left alone", () => {
   }
 });
 
-test("a schema the compiler refuses is an exception from birth", () => {
-  // Thrown while the operation is being built, so there is no boundary to
-  // capture at: the caller is still inside its own `decodeOrThrow` call and no
-  // compiled function exists to cut the trace at. These carry a stack from
-  // construction instead.
+test("a schema the compiler refuses names the line that wired it up", () => {
+  // The other boundary. Raised while the operation is compiling, so the frames
+  // above it are the compiler walking down to the schema with no codec - ten of
+  // them, more than `Error.stackTraceLimit` allows, which used to leave the
+  // caller's own line off the end of its own stack trace.
+  const wireItUp = () => S.decodeOrThrow(S.boolean, S.number);
   try {
-    S.decodeOrThrow(S.boolean, S.number);
+    wireItUp();
     expect.unreachable();
   } catch (error) {
-    const stack = (error as Error).stack!;
+    const frames = (error as Error).stack!.split("\n");
     expect((error as Error).message).toBe(
       "Can't decode boolean -> number. Define custom codec with S.to",
     );
-    expect(stack).toContain("at B_unsupportedDecode");
-    // FIXME: and that is the whole of it. Ten frames of compiler - the walk
-    // down to the schema that has no codec, then the walk back up through
-    // `getOp` - is more than `Error.stackTraceLimit` allows, so the line that
-    // wired the chain up, which is the only frame anyone wants, falls off the
-    // end. Predates the record/exception split (`new SuryError` produced the
-    // same ten frames), and the fix is the same shape as the runtime one: catch
-    // at the compile boundary, `captureStackTrace(error, getOp)`.
-    expect(stack.split("\n").length - 1).toBe(Error.stackTraceLimit);
-    expect(stack).not.toContain("errorStack_test.ts");
+    // The compiler's walk down to the offending schema is what the cut removes;
+    // what is left above the caller is the operation it really did call through.
+    expect((error as Error).stack).not.toContain("B_unsupportedDecode");
+    expect(frames.findIndex((frame) => frame.includes("wireItUp"))).toBeLessThan(4);
   }
 });
 
