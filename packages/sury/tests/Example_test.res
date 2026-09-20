@@ -66,7 +66,7 @@ test("Example", t => {
   t->U.assertCompiledCode(
     ~schema=filmSchema,
     ~op=#EncodeToJson,
-    `i=>{let v0=i.tags,v5=i.deprecatedAgeRestriction;Array.isArray(v0)||e[1](v0);for(let v2=0;v2<v0.length;++v2){let v3=v0[v2];typeof v3==="string"||e[0](v3,["tags",v2]);}let v4={Id:i.id,Title:i.title,Tags:v0,Rating:i.rating};if(v5!==void 0){v4.Age=v5}return v4}`,
+    `i=>{let v0=i.tags,v3=i.deprecatedAgeRestriction;let v2={Id:i.id,Title:i.title,Tags:v0,Rating:i.rating};if(v3!==void 0){v2.Age=v3}return v2}`,
   )
 })
 
@@ -82,7 +82,7 @@ test("Compiled serialize code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema=filmSchema,
     ~op=#Encode,
-    `i=>{let v0=i.tags;Array.isArray(v0)||e[1](v0);for(let v2=0;v2<v0.length;++v2){let v3=v0[v2];typeof v3==="string"||e[0](v3,["tags",v2]);}return {Id:i.id,Title:i.title,Tags:v0,Rating:i.rating,Age:i.deprecatedAgeRestriction}}`,
+    `i=>{let v0=i.tags;return {Id:i.id,Title:i.title,Tags:v0,Rating:i.rating,Age:i.deprecatedAgeRestriction}}`,
   )
 })
 

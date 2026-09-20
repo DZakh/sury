@@ -4,6 +4,7 @@ import {
   type Builder,
   configurableValueOptions,
   copySchema,
+  getOrRethrow,
   type Encoder,
   type Flag,
   globalConfig,
@@ -20,8 +21,10 @@ import {
   s,
   schemaPrototype,
   setHas,
+  type Tag,
   tagFlags,
   U,
+  unionIsTransparent,
   unknown,
   undefinedTag,
   unknownTag,
@@ -218,9 +221,115 @@ export const compileDecoder = (
   fn.embedded = input.g.e;
   return fn;
 }
+// The tail of the `.to` chain. Not the Output type: a container carries its
+// items' transforms inside rather than on `.to`, so its tail is still the
+// Input form. Ask `outputOf` for the type; read the tail for a node's own
+// fields (its tag, its metadata, the link into it).
 export const getOutputSchema = (schema: Internal): Internal => {
   while (schema.to) schema = schema.to;
   return schema;
+}
+
+// Null prototype: the keys are user-controlled property names, and assigning
+// `__proto__` on a plain `{}` reparents the object instead of adding a key -
+// which reparented the reversed property dict onto the property's own schema and
+// dropped the key, so `outputExpression` rendered schema internals.
+const mapDict = (
+  dict: Record<string, Internal>,
+  fn: (schema: Internal) => Internal
+): Record<string, Internal> => {
+  const mapped: Record<string, Internal> = Object.create(null);
+  for (const key in dict) {
+    mapped[key] = fn(dict[key]!);
+  }
+  return mapped;
+}
+
+const outputKey = "o";
+
+// The Output type of a schema, as a schema of its own: the chain's tail with
+// every child (items, properties, union arms, defs) taken to its Output type.
+// The dual of `reverse`, which answers the Output -> Input direction; this
+// answers the type alone, so a typed decode into it runs no transform. That is
+// what checks a value as an output (a default, an example) and what a builder
+// claims for a value it has finished decoding. Identity is kept wherever nothing
+// transforms, so singletons stay singletons and the union planner's identity
+// dedupe still holds; a union whose arms share one output collapses to it, the
+// way `S.optional(x, default)` outputs `x`. Cached on the tail, non-enumerable
+// like `r`.
+export const outputOf = (schema: Internal): Internal => {
+  if (schema.sr) return schema;
+  const tail = getOutputSchema(schema);
+  const cached = (tail as unknown as Record<string, Internal | undefined>)[outputKey];
+  if (cached) return cached;
+  let changed = false;
+  const map = (child: Internal): Internal => {
+    const out = outputOf(child);
+    if (out !== child) changed = true;
+    return out;
+  };
+  let out = tail;
+  let anyOf: Internal[] | undefined;
+  const has: Partial<Record<Tag, boolean>> = {};
+  if (tail.anyOf) {
+    anyOf = [];
+    for (let idx = 0; idx < tail.anyOf.length; idx++) {
+      // The same spread `unionFactory` does: a default arm outputs the union of
+      // its siblings' outputs, and that union spliced is the siblings again.
+      const arm = map(tail.anyOf[idx]!);
+      const nested = unionIsTransparent(arm) ? arm.anyOf! : [arm];
+      for (let j = 0; j < nested.length; j++) {
+        const member = nested[j]!;
+        if (!anyOf.includes(member)) {
+          anyOf.push(member);
+          setHas(has, member.type);
+        }
+      }
+    }
+    if (anyOf.length !== tail.anyOf.length) changed = true;
+  }
+  const items = tail.items && tail.items.map(map);
+  const properties = tail.properties && mapDict(tail.properties, map);
+  const additionalItems =
+    typeof tail.additionalItems === objectTag ? map(tail.additionalItems as Internal) : U;
+  const defs = tail["$defs"] && mapDict(tail["$defs"], map);
+  if (anyOf && anyOf.length === 1) {
+    out = anyOf[0]!;
+  } else if (changed) {
+    const mut = copySchema(tail);
+    if (anyOf) (mut.anyOf = anyOf), (mut.has = has);
+    if (items) mut.items = items;
+    if (properties) mut.properties = properties;
+    if (additionalItems) mut.additionalItems = additionalItems;
+    if (defs) mut["$defs"] = defs;
+    // Written in the owner's Input form, which this copy no longer is.
+    delete mut.default;
+    delete mut.examples;
+    out = mut;
+  }
+  valueOptions[valKey] = out;
+  Object.defineProperty(tail, outputKey, valueOptions as PropertyDescriptor);
+  return out;
+}
+
+// The default of `S.optional(x, v)` and `s.fieldOr(_, x, v)`: `v` checked as a
+// value of `item`, the Output type of `original`, and stored on `owner` in its
+// Input form for JSON Schema. The check is a full decode from unknown, so a
+// primitive default is type-checked too. The Input form is best-effort: a never
+// or async encode makes it uncomputable, and metadata is not a value operation.
+export const setDefault = (owner: Internal, item: Internal, original: Internal, v: unknown): void => {
+  try {
+    (getOp(0, 2, unknown, item) as (input: unknown) => unknown)(v);
+  } catch (exn) {
+    panic(
+      `Invalid default for ${inputExpression(owner)}: ${
+        (getOrRethrow(exn) as unknown as { message: string })["message"]
+      }`
+    );
+  }
+  try {
+    owner.default = (getOp(0, 1, reverse(original)) as (input: unknown) => unknown)(v);
+  } catch (_exn) {}
 }
 // The two sides of a schema trade places: what parsed now serializes, what
 // refined the input now refines the output. `delete` rather than `= U` because
@@ -232,17 +341,6 @@ const reverseSwap = (mut: Record<string, unknown>, a: string, b: string): void =
   previous === U ? delete mut[b] : (mut[b] = previous);
 }
 
-// Null prototype: the keys are user-controlled property names, and assigning
-// `__proto__` on a plain `{}` reparents the object instead of adding a key -
-// which reparented the reversed property dict onto the property's own schema and
-// dropped the key, so `outputExpression` rendered schema internals.
-const reverseDict = (dict: Record<string, Internal>): Record<string, Internal> => {
-  const reversed: Record<string, Internal> = Object.create(null);
-  for (const key in dict) {
-    reversed[key] = reverse(dict[key]!);
-  }
-  return reversed;
-}
 
 // The general `reversed` getter: every schema can answer its reverse - the
 // self-reverse prototype shadows this with `this`, and a first read here
@@ -274,7 +372,7 @@ Object.defineProperty(schemaPrototype, reversedKey, {
       // output form; the JSON Schema renderer decodes them back for this side.
       delete record["examples"];
       if (mut.items) mut.items = mut.items.map(reverse);
-      if (mut.properties) mut.properties = reverseDict(mut.properties);
+      if (mut.properties) mut.properties = mapDict(mut.properties, reverse);
       // Skip tuple
       if (typeof mut.additionalItems === objectTag) {
         mut.additionalItems = reverse(mut.additionalItems as Internal);
@@ -292,7 +390,7 @@ Object.defineProperty(schemaPrototype, reversedKey, {
         mut.has = has;
         mut.anyOf = newAnyOf;
       }
-      if (mut["$defs"]) mut["$defs"] = reverseDict(mut["$defs"]);
+      if (mut["$defs"]) mut["$defs"] = mapDict(mut["$defs"], reverse);
       reversedHead = mut;
       current = next;
     }

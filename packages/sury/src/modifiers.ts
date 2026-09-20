@@ -53,7 +53,9 @@ import {
  getOutputSchema,
  nestedLoc,
  nestedOptionParser,
- reverse
+ outputOf,
+ reverse,
+ setDefault
 } from "./parse";
 import {
  Literal_parse,
@@ -403,7 +405,7 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
 
     for (let idx = 0; idx < anyOf.length; idx++) {
       const variant = anyOf[idx]!;
-      const outputSchema = getOutputSchema(variant);
+      const outputSchema = outputOf(variant);
       if (outputSchema.type !== undefinedTag) {
         // Dedupe by identity: two arms sharing one output instance (the bool
         // singleton) would otherwise make every rule-4 match ambiguous.
@@ -422,26 +424,12 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
           : unionFactory(outputItems);
 
     if (default_.type === "value") {
-      const v = default_.value;
-      // Full unknown -> item decode so primitive item types still get type-checked.
-      try {
-        (getOp(0, 2, unknown, item) as (input: unknown) => unknown)(v);
-      } catch (exn) {
-        const error = getOrRethrow(exn);
-        panic(
-          `Invalid default for ${inputExpression(mut)}: ${
-            (error as unknown as { message: string })["message"]
-          }`
-        );
-      }
-      const originalItem: Internal =
-        originalItems.length === 1 ? originalItems[0]! : unionFactory(originalItems);
-      // Best-effort input form for JSON Schema metadata. A never or async
-      // encode makes it uncomputable, so skip it rather than throw: metadata
-      // is not a value operation.
-      try {
-        mut.default = (getOp(0, 1, reverse(originalItem)) as (input: unknown) => unknown)(v);
-      } catch (_exn) {}
+      setDefault(
+        mut,
+        item,
+        originalItems.length === 1 ? originalItems[0]! : unionFactory(originalItems),
+        default_.value
+      );
     }
 
     // Not B_conversion: an eager default inlines as a constant instead of

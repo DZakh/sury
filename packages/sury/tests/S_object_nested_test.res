@@ -95,7 +95,7 @@ test("Object with a nested tag and optional field", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{let v0=i.foo;typeof v0==="string"||e[0](v0);return {nested:{tag:"value",foo:v0},bar:i.bar}}`,
+    `i=>{return {nested:{tag:"value",foo:i.foo},bar:i.bar}}`,
   )
 })
 

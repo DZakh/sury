@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.optional(S.array(S.schema({ TAG: "A", _0: S.string.with(S.to, S.number) })), [{ TAG: "A", _0: 1 }])'
+  input: '{ TAG: "A"; _0: string; }[] | undefined'
+  output: '{ TAG: "A"; _0: number; }[] | undefined'
+  instantiations: 6845
+jsonSchema:
+  input: 'Expected JSON, received { TAG: "A"; _0: string; }[] | undefined'
+  output: '{ items: { type: "object", properties: { TAG: { type: "string", const: "A" }, _0: { type: "number" } }, required: ["TAG", "_0"] }, type: "array" }'
+  fromOutputType: '{ TAG: "A"; _0: number; }[]'
+  openapi-3.0:
+    output: '{ items: { type: "object", properties: { TAG: { type: "string", enum: ["A"] }, _0: { type: "number" } }, required: ["TAG", "_0"] }, type: "array" }'
+isEqual:
+  input: (a,b)=>a===b||(a===void 0?b===void 0:b!==void 0&&e[0](a,b))
+  output: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare { TAG: \"A\"; _0: string; }[]. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { TAG: \"A\"; _0: number; }[]. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{for(;;){if(Array.isArray(i)){let v5=new Array(i.length);for(let v0=0;v0<i.length;++v0){let v1=i[v0];typeof v1==="object"&&v1&&!Array.isArray(v1)||e[3](v1,[v0]);let v2=v1.TAG,v4=v1._0;v2==="A"||e[0](v2,[v0,"TAG"]);typeof v4==="string"||e[2](v4,[v0,"_0"]);let v3=+v4;v3==v3&&(v3||v4.trim())||e[1](v4,[v0,"_0"]);v5[v0]={TAG:v2,_0:v3}}i=v5;break}if(i===void 0){i=e[4];break}e[5](i)}return i}
+    examples:
+      absent-takes-the-default-as-is:
+        input: undefined
+        output: '[{ TAG: "A", _0: 1 }]'
+      present:
+        input: '[{ TAG: "A", _0: "2" }]'
+        output: '[{ TAG: "A", _0: 2 }]'
+      item-in-output-form-is-rejected:
+        input: '[{ TAG: "A", _0: 2 }]'
+        error: "Failed at [0]._0: Expected string, received 2"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{if(Array.isArray(i)){let v4=new Array(i.length);for(let v0=0;v0<i.length;++v0){let v1=i[v0];typeof v1==="object"&&v1&&!Array.isArray(v1)||e[2](v1,[v0]);let v2=v1.TAG,v3=v1._0;v2==="A"||e[0](v2,[v0,"TAG"]);typeof v3==="number"&&v3==v3||e[1](v3,[v0,"_0"]);v4[v0]={TAG:v2,_0:""+v1._0}}i=v4}else{e[3](i)}return i}
+    examples:
+      items-are-encoded:
+        input: '[{ TAG: "A", _0: 2 }]'
+        output: '[{ TAG: "A", _0: "2" }]'
+      empty:
+        input: "[]"
+        output: "[]"
