@@ -1039,15 +1039,15 @@ export const errorSite = (
 // The same, for an `invalid_conversion`: `from` and `to` are the two schemas
 // the conversion sits between, settled where the coder is compiled.
 //
-// `reason` is written per failure here (it reads off whatever was thrown), so
-// the site carries it as a writable data property - without one the assignment
-// would find the prototype's accessor and pay an `Object.defineProperty` every
-// time.
+// `reason` here reads off whatever was thrown, so each failure writes its own.
+// The data property below is what lets it: a plain assignment walks the
+// prototype chain looking for a setter, and the one on `errorPrototype` would
+// make every write an `Object.defineProperty`.
 export const conversionSite = (from: Internal, to: Internal): object => {
   const site = Object.create(errorPrototype) as SuryErrorRecord;
   site.from = from;
   site.to = to;
-  site.reason = U as unknown as string;
+  Object.defineProperty(site, "reason", { value: U, writable: true, enumerable: true });
   return site;
 };
 
