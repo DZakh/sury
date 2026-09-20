@@ -4,6 +4,7 @@ import {
   type Check,
   compilePath,
   type ErrorDetails,
+  conversionSite,
   errorAt,
   errorSite,
   type Flag,
@@ -265,52 +266,61 @@ export const B_markThrow = (b: Val): void => {
 }
 
 // A coder's or refiner's own throw as `invalid_conversion`. Split from the
-// Sury-cause branch below so an operation tail (every bundle) carries only
-// this half.
-const B_foreignDetails = (input: Val, to: Internal, cause: unknown, path: Path): ErrorDetails => ({
-  code: "invalid_conversion",
-  from: input.s,
-  to,
-  cause,
-  path,
-  reason: cause instanceof Error ? ("" + cause).replace(/^Error: /, "") : stringify(cause),
-});
-
-export const B_makeInvalidConversionDetails = (
+// Sury-cause branch below so an operation tail (every bundle) carries only this
+// half. `(input, to) => (cause, path) => error`, like every other fail builder:
+// the two schemas are the site's, what was thrown is the failure's.
+const B_foreignFail = (
   input: Val,
-  to: Internal,
-  cause: unknown,
-  path?: Path,
-): ErrorDetails => {
-  const p = path ?? compilePath(input.path);
-  if (cause && (cause as { s?: symbol }).s === s) {
-    const error = cause as unknown as SuryErrorRecord;
+  to: Internal
+): ((cause: unknown, path: Path) => ErrorDetails) => {
+  const site = conversionSite(input.s, to);
+  return (cause, path) => {
+    const error = Object.create(site) as SuryErrorRecord;
+    error.code = "invalid_conversion";
+    error.path = path;
+    error.cause = cause;
+    error.reason =
+      cause instanceof Error ? ("" + cause).replace(/^Error: /, "") : stringify(cause);
+    return error as unknown as ErrorDetails;
+  };
+};
 
-    // A SuryError thrown by user code carries only the path it named, so the
-    // path it was reached through is prepended here. Nothing arrives
-    // pre-prepended any more - that was effectCtx, which is gone.
-    //
-    // Copied rather than mutated: user code may throw one retained instance
-    // more than once, and prepending onto the instance makes the second parse
-    // report `a.a`. Nothing to prepend means nothing to copy - `B_throw`
-    // reparents whichever of the two it gets, and reparenting the instance to
-    // the prototype it already has changes nothing, its stack included.
-    //
-    // Own descriptors onto the SAME prototype, not a spread: `expected`,
-    // `received` and the renderer live on the failing check's site prototype
-    // (base.ts, `errorSite`), and a spread copies own properties only - the
-    // copy would come out reading `Expected undefined`. Descriptors rather than
-    // `Object.assign` so an own `reason` is carried as the data property it is
-    // instead of being pushed through the prototype's setter.
-    if (!p.length) return error as unknown as ErrorDetails;
-    const copy = Object.create(
-      Object.getPrototypeOf(error) as object,
-      Object.getOwnPropertyDescriptors(error)
-    ) as SuryErrorRecord;
-    copy.path = pathConcat(p, error.path);
-    return copy as unknown as ErrorDetails;
-  }
-  return B_foreignDetails(input, to, cause, p);
+export const B_conversionFail = (
+  input: Val,
+  to: Internal
+): ((cause: unknown, path?: Path) => ErrorDetails) => {
+  const foreign = B_foreignFail(input, to);
+  return (cause, path) => {
+    const p = path ?? compilePath(input.path);
+    if (cause && (cause as { s?: symbol }).s === s) {
+      const error = cause as unknown as SuryErrorRecord;
+
+      // A SuryError thrown by user code carries only the path it named, so the
+      // path it was reached through is prepended here. Nothing arrives
+      // pre-prepended any more - that was effectCtx, which is gone.
+      //
+      // Copied rather than mutated: user code may throw one retained instance
+      // more than once, and prepending onto the instance makes the second parse
+      // report `a.a`. Nothing to prepend means nothing to copy - `B_throw`
+      // reparents whichever of the two it gets, and reparenting the instance to
+      // the prototype it already has changes nothing, its stack included.
+      //
+      // Own descriptors onto the SAME prototype, not a spread: what the failing
+      // check settled lives on its site prototype (base.ts, `errorSite`), and a
+      // spread copies own properties only - the copy would come out reading
+      // `Expected undefined`. Descriptors rather than `Object.assign` so an own
+      // `reason` is carried as the data property it is instead of being pushed
+      // through a setter.
+      if (!p.length) return error as unknown as ErrorDetails;
+      const copy = Object.create(
+        Object.getPrototypeOf(error) as object,
+        Object.getOwnPropertyDescriptors(error)
+      ) as SuryErrorRecord;
+      copy.path = pathConcat(p, error.path);
+      return copy as unknown as ErrorDetails;
+    }
+    return foreign(cause, p);
+  };
 };
 
 // The error an operation answers with when it answers rather than throws
@@ -324,11 +334,12 @@ export const B_makeInvalidConversionDetails = (
 export const B_errorOf = (input: Val): ((e: unknown) => SuryErrorRecord) => {
   let to = input.e;
   while (to.to) to = to.to;
+  const foreign = B_foreignFail(input, to);
   const path = compilePath(input.path);
   return (e) =>
     e && (e as { s?: symbol }).s === s
       ? (e as SuryErrorRecord)
-      : toError(B_foreignDetails(input, to, e, path));
+      : toError(foreign(e, path));
 };
 
 export const B_embedErrorOf = (input: Val): string => B_embedPure(input, B_errorOf(input));
@@ -793,11 +804,7 @@ export const B_conversion = (
     // next case rather than aborting the operation (#347); a refiner's throw
     // is wrapped the same way (modifiers.ts `refine`). The foreign errors that
     // do escape a union are a getter's, which never enter this try.
-    const failure = B_failWithArg(
-      output,
-      (e: unknown, path?: Path) => B_makeInvalidConversionDetails(input, target, e, path),
-      `x`,
-    );
+    const failure = B_failWithArg(output, B_conversionFail(input, target), `x`);
     output.cp = `let ${output.i};try{${output.i}=${embeddedFn}(${inputValue})${
       isAsync ? `.catch(x=>${failure})` : ""
     }}catch(x){${failure}}`;

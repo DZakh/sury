@@ -898,6 +898,13 @@ export const __setExnId = (id: unknown): void => {
 // The public `S.Error`: what a refiner constructs to throw a failure of its
 // own, so `super()` gives it a stack the way any hand-written throw has one.
 // The library never builds a failure this way - see `toError`.
+//
+// It also makes own properties of everything it is handed, where a compiled
+// failure keeps what its check settled on a shared prototype (`errorSite`). So
+// the two print differently - a hand-built error shows its `expected` and
+// `received`, a compiled one does not. That is the constructor's contract
+// rather than an oversight: it is handed a bag of fields and has nothing to
+// share them with.
 export class SuryError extends Error {
   constructor(params: ErrorDetails | Record<string, unknown>) {
     super();
@@ -1026,6 +1033,21 @@ export const errorSite = (
       },
     });
   }
+  return site;
+};
+
+// The same, for an `invalid_conversion`: `from` and `to` are the two schemas
+// the conversion sits between, settled where the coder is compiled.
+//
+// `reason` is written per failure here (it reads off whatever was thrown), so
+// the site carries it as a writable data property - without one the assignment
+// would find the prototype's accessor and pay an `Object.defineProperty` every
+// time.
+export const conversionSite = (from: Internal, to: Internal): object => {
+  const site = Object.create(errorPrototype) as SuryErrorRecord;
+  site.from = from;
+  site.to = to;
+  site.reason = U as unknown as string;
   return site;
 };
 

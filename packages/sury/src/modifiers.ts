@@ -43,7 +43,7 @@ import {
   B_refine,
   B_unsupportedDecode,
   B_throw,
-  B_makeInvalidConversionDetails,
+  B_conversionFail,
 } from "./builder";
 import {
   objectDecoder
@@ -215,11 +215,12 @@ export const refine = (
     // hit on a value it was never written for is not a bug in the caller's
     // `.catch`. Wrapped in the embedded function rather than in a generated
     // `try`, which would catch the refinement's own failure raise too.
+    const fail = B_conversionFail(input, input.s);
     const embeddedCheck = B_embed(input, (value: unknown, path?: Path) => {
       try {
         return refineCheck(value);
       } catch (cause) {
-        B_throw(B_makeInvalidConversionDetails(input, input.s, cause, path));
+        B_throw(fail(cause, path));
       }
     });
     return [
