@@ -8,6 +8,7 @@ jsonSchema:
   input: '{ type: "string", pattern: "^[cC][0-9a-z]{6,}$" }'
   output: '{ type: "string", pattern: "^[cC][0-9a-z]{6,}$" }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod: z.cuid()
 operations:

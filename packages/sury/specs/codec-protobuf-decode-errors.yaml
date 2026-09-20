@@ -10,6 +10,9 @@ jsonSchema:
 isEqual:
   input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
   output: (a,b)=>a===b||a.id===b.id&&a.name===b.name&&(a.addr===void 0?b.addr===void 0:b.addr!==void 0&&a.addr.street===b.addr.street)&&e[0](a.tags,b.tags)&&a.ratio===b.ratio
+compare:
+  input: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { id: int32; name: string; addr: { street: string; } | undefined; tags: string[]; ratio: number; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: todo(#…)

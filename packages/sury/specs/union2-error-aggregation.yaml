@@ -16,6 +16,7 @@ jsonSchema:
     output: '{ anyOf: [{ type: "array", minItems: 2, maxItems: 2, items: { anyOf: [{ type: "string", enum: ["t"] }, { type: "number" }] } }, { type: "array", minItems: 2, maxItems: 2, items: { anyOf: [{ type: "string", enum: ["t"] }, { type: "string" }] } }] }'
     fromOutputType: '[number | "t", number | "t"] | [string, string]'
 isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare [\"t\", number] | [\"t\", string]. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod: z.union([z.tuple([z.literal("t"), z.number()]), z.tuple([z.literal("t"), z.string()])])
 operations:

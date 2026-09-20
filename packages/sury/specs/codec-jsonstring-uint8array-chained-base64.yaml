@@ -11,6 +11,7 @@ jsonSchema:
     input: '{ type: "string" }'
     output: '{ type: "string", format: "byte" }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod:
     _skip: not-applicable

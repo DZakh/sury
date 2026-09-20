@@ -13,6 +13,9 @@ jsonSchema:
 isEqual:
   input: (a,b)=>a===b||e[0](a,b)
   output: (a,b)=>a===b||(a.value.type==="B"?b.value.type==="B"&&(a.value.value===void 0?b.value.value===void 0:b.value.value!==void 0&&+a.value.value===+b.value.value):b.value.type==="C"&&(a.value.value===void 0?b.value.value===void 0:b.value.value!==void 0&&+a.value.value===+b.value.value))
+compare:
+  input: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { value: { type: \"B\"; value: Date | undefined; } | { type: \"C\"; value: Date | undefined; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

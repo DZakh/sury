@@ -8,6 +8,7 @@ jsonSchema:
   input: '{ type: "string", format: "ipv6" }'
   output: '{ type: "string", format: "ipv6" }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod: z.ipv6()
 operations:

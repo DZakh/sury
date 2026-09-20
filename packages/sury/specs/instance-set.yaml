@@ -8,6 +8,7 @@ jsonSchema:
   input: Expected JSON, received Set
   output: Expected JSON, received Set
 isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare Set. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

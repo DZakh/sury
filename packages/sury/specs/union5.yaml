@@ -8,6 +8,7 @@ jsonSchema:
   input: Expected JSON, received string | number | boolean | bigint | symbol
   output: Expected JSON, received string | number | boolean | bigint | symbol
 isEqual: strictEqual
+compare: "throws: [Sury] Can't compare string | number | boolean | bigint | symbol. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod: z.union([z.string(), z.number(), z.bigint(), z.boolean(), z.symbol()])
 operations:

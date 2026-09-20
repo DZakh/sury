@@ -11,6 +11,9 @@ jsonSchema:
 isEqual:
   input: (a,b)=>a===b||a.b===b.b&&a.O===b.O
   output: (a,b)=>a===b||a.f.b===b.f.b&&a.o===b.o
+compare:
+  input: "throws: [Sury] Can't compare { b: string; O: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { f: { b: number; }; o: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

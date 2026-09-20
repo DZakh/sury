@@ -11,6 +11,7 @@ jsonSchema:
     input: '{ type: "object", properties: { type: { type: "string", enum: ["foo"] }, name: { type: "string" }, fooCount: { type: "number" } }, required: ["type", "name", "fooCount"] }'
     output: '{ type: "object", properties: { type: { type: "string", enum: ["foo"] }, name: { type: "string" }, fooCount: { type: "number" } }, required: ["type", "name", "fooCount"] }'
 isEqual: (a,b)=>a===b||a.name===b.name&&a.fooCount===b.fooCount
+compare: "throws: [Sury] Can't compare { type: \"foo\"; name: string; fooCount: number; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

@@ -8,6 +8,7 @@ jsonSchema:
   input: '{ items: [{ type: "string" }, { type: "number" }], type: "array", additionalItems: { type: "boolean" } }'
   output: '{ items: [{ type: "string" }, { type: "number" }], type: "array", additionalItems: { type: "boolean" } }'
 isEqual: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(e[0](a[i],b[i])))return false;return true}
+compare: "throws: [Sury] Can't compare JSON[]. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod: z.tuple([z.string().optional(), z.number().optional()]).rest(z.boolean())
 operations:

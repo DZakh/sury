@@ -94,7 +94,7 @@ All possible ways to run your schema, with a decision required where safety matt
 
 ```ts
 S.parseOrThrow(eventSchema, input); // => Event, or throws S.Error
-S.parseAsResult(eventSchema, input); // => { success: true, value } | { success: false, error }
+S.parseAsResult(eventSchema, input); // => { success: true, value } | { success: false, error, issues }
 S.parseAsPromiseOrReject(eventSchema, input); // => Promise<Event>, rejects with S.Error
 S.parseAsResultPromise(eventSchema, input); // => Promise<Result<Event>>
 S.parseAsPromisableResult(eventSchema, input); // => Result<Event> for a sync schema, Promise<Result<Event>> for an async one
@@ -117,7 +117,7 @@ S.decodeOrThrow(b64Event, "eyJ0eXBlIjoidXNlci5kZWxldGVkIiwiaWQiOiI3IiwicGF5bG9hZ
 // => { type: "user.deleted", id: 7n, payload: { reason: "spam" } }
 ```
 
-Thanks to [Standard Schema](https://standardschema.dev/), the schema plugs straight into tRPC, Hono, TanStack and 28+ other libraries. Its Standard JSON Schema extension describes the wire - and a `bigint` has no wire until you give it one:
+Thanks to [Standard Schema](https://standardschema.dev/), the schema plugs straight into tRPC, Hono, TanStack and 28+ other libraries, and `S.parseAsResult` answers in their result shape, `issues` and all. Its Standard JSON Schema extension describes the wire - and a `bigint` has no wire until you give it one:
 
 ```ts
 S.enableStandardJSONSchema(); // Opt-in, so unused JSON Schema code tree-shakes away
@@ -197,6 +197,9 @@ S.isEqualOutput(
 
 const isSameSession = S.isEqualOutput(sessionSchema);
 //? (a, b) => a === b || (a.id === b.id && +a.startedAt === +b.startedAt)
+
+const ascByStart = S.compareOutput(S.date);
+sessions.sort((a, b) => ascByStart(a.startedAt, b.startedAt));
 ```
 
 Every operation that looks at one side of a schema says which side in its name - `S.makeOutputOrThrow` and `S.isInput`, `S.toInputJSONSchemaOrThrow` for the wire and `S.toOutputJSONSchemaOrThrow` for your types.
@@ -369,45 +372,26 @@ And 3.2× lighter than fast-json-stringify - 18.0 kB against 56.9 kB, encoder in
 
 ## Comparison
 
-Sury has the fastest parsing and encoding in the ecosystem - the hot path. Creating a schema and using it once is the one workload where an interpreted library wins.
+Sury shines in a lot of different aspects, so each of them gets a comparison page of its own:
 
-It's also small. Instead of a few large classes with many methods, the API and source are built from many small, independent functions. A bundler follows your imports and drops everything you don't use, which can cut the shipped size by up to 2× compared to [Zod](https://github.com/colinhacks/zod). (The approach is borrowed from [Valibot](https://github.com/fabian-hiller/valibot), which pioneered it.)
+- [Schema](https://github.com/DZakh/sury/blob/main/docs/benchmarks/schema.md) - describe a shape, check a value against it, read the type on hover. Against Zod, TypeBox, Valibot and ArkType.
+- [JSON Encoding](https://github.com/DZakh/sury/blob/main/docs/benchmarks/jsonString.md) - turn a value into JSON text and read it back. Against `JSON.stringify` and fast-json-stringify.
+- [JSON Schema](https://github.com/DZakh/sury/blob/main/docs/benchmarks/jsonSchema.md) - emit JSON Schema, and read somebody else's back. Against Zod, TypeBox, ArkType and Ajv.
+- [Protobuf](https://github.com/DZakh/sury/blob/main/docs/benchmarks/protobuf.md) - the Protocol Buffers wire, without a `.proto` file or a codegen step. Against protobufjs, protobuf-es and pbf.
 
-And the types stay readable. Hovering the event schema from [Why Sury](#why-sury) reads `S.Schema<{ type: "user.created"; id: bigint; ... } | { type: "user.deleted"; ... }>` - the same model in Valibot reads `v.UnionSchema<[v.ObjectSchema<{ readonly type: v.LiteralSchema<"user.created", undefined>; readonly id: v.BigintSchema<undefined>; readonly tags: v.SchemaWithPipe<...>; }, undefined>, v.ObjectSchema<...>], undefined>`.
+Don't take my word for it. Sury is measured by other people too:
 
-### Size & speed
-
-The numbers live on their own pages, one per wire Sury speaks, each with bundle size, a feature table where every cell is a call run against that library, throughput and conformance scores:
-
-**Benchmarks:** [Schema](https://github.com/DZakh/sury/blob/main/docs/benchmarks/schema.md) | [JSON Encoding](https://github.com/DZakh/sury/blob/main/docs/benchmarks/jsonString.md) | [JSON Schema](https://github.com/DZakh/sury/blob/main/docs/benchmarks/jsonSchema.md) | [Protobuf](https://github.com/DZakh/sury/blob/main/docs/benchmarks/protobuf.md)
-
-They are regenerated on every push to main and remeasured on every pull request, against `zod@4.4.3`, `typebox@0.34.52`, `valibot@1.4.2`, `arktype@2.2.3`, `protobufjs@8.8.0`, `protobuf-es@2.14.1` and `pbf@5.1.2`. A page that stops matching a fresh measurement fails CI, which is the part a table pasted here could never do.
-
-Independent benchmarks and conformance suites that include Sury:
-
-- [typescript-runtime-type-benchmarks](https://moltar.github.io/typescript-runtime-type-benchmarks/) - throughput across the ecosystem
-- [schemabenchmarks.dev](https://schemabenchmarks.dev/) - per-step breakdown: download, initialization, validation, parsing, Standard Schema, codec
-- [json-schema-compliance-suite](https://github.com/sinclairzx81/json-schema-compliance-suite) - JSON Schema validation, semantics, and round-trip fidelity
-
-### Features
-
-|                                          | Sury                                     | Zod                                       | TypeBox                   | Valibot                                                               | ArkType                   |
-| ---------------------------------------- | ---------------------------------------- | ----------------------------------------- | ------------------------- | --------------------------------------------------------------------- | ------------------------- |
-| **Inferred TS type** (what you hover)    | `S.Schema<{foo: string}, {foo: string}>` | `z.ZodObject<{foo: z.ZodString}, $strip>` | `TObject<{foo: TString}>` | `v.ObjectSchema<{readonly foo: v.StringSchema<undefined>}, undefined>` | `Type<{foo: string}, {}>` |
-| **JSON Schema**                          | both directions + `S.fromJSONSchemaOrThrow`     | `z.toJSONSchema`                          | 👑                        | `@valibot/to-json-schema`                                             | `myType.toJsonSchema()`   |
-| **Validated constructor** (from your types) | ✅                                    | ❌                                        | ⭕ unvalidated            | ❌                                                                    | ❌                        |
-| **Compiled equality** (from your schema) | ✅                                       | ❌                                        | ⭕ interpreted            | ❌                                                                    | ❌                        |
-| **Standard Schema**                      | ✅                                       | ✅                                        | ❌                        | ✅                                                                    | ✅                        |
-| **Codegen-free** (doesn't need compiler) | ✅                                       | ✅                                        | ✅                        | ✅                                                                    | ✅                        |
-| **Eval-free**                            | ❌                                       | ⭕ opt-out                                | ⭕ opt-in                 | ✅                                                                    | ⭕ opt-out                |
-| **Ecosystem**                            | ⭐️⭐️                                   | ⭐️⭐️⭐️⭐️⭐️                           | ⭐️⭐️⭐️⭐️⭐️           | ⭐️⭐️⭐️                                                             | ⭐️⭐️                    |
+- [typescript-runtime-type-benchmarks](https://moltar.github.io/typescript-runtime-type-benchmarks/) - every library in the ecosystem on the same object, in one chart
+- [schemabenchmarks.dev](https://schemabenchmarks.dev/) - where the time goes, step by step: download, initialization, validation, parsing, Standard Schema, codec
+- [json-schema-compliance-suite](https://github.com/sinclairzx81/json-schema-compliance-suite) - how much of JSON Schema a library actually gets right
 
 ## Integrations
 
 Use Sury anywhere a schema is accepted:
 
-- [tRPC](https://trpc.io/), [TanStack Form](https://tanstack.com/form), [TanStack Router](https://tanstack.com/router), [Hono](https://hono.dev/), and 28+ more via the [Standard Schema](https://standardschema.dev/) spec
+- [tRPC](https://trpc.io/docs/server/validators#with-sury), [TanStack Form](https://tanstack.com/form), [TanStack Router](https://tanstack.com/router), [Hono](https://hono.dev/), and 28+ more via the [Standard Schema](https://standardschema.dev/) spec
 - Anything that speaks [JSON Schema](https://json-schema.org/), via `S.toInputJSONSchemaOrThrow` / `S.fromJSONSchemaOrThrow`
+- [nuqs](https://nuqs.dev/docs/parsers/community/sury) - turn a schema into a search param parser
 
 ## Used by
 
@@ -433,6 +417,9 @@ It's short, it's pronounceable, and the 🧬 fits: a schema is the DNA of your d
 
 ## Resources
 
+- Standard JSON Schema vs JSON Schema ([Dev.to](https://dev.to/dzakh/standard-json-schema-vs-json-schema-54fc))
+- Encode, Don't Stringify: How JSON.stringify Lies to You ([Dev.to](https://dev.to/dzakh/encode-dont-stringify-how-jsonstringify-lies-to-you-38fk))
+- Making my TypeScript types 15.7x faster ([Dev.to](https://dev.to/dzakh/making-my-typescript-types-157x-faster-4gcg))
 - Welcome Sury - The fastest schema with next-gen DX ([Dev.to](https://dev.to/dzakh/welcome-sury-the-fastest-schema-with-next-gen-dx-5gl4))
 - ReScript Schema unique features ([Dev.to](https://dev.to/dzakh/javascript-schema-library-from-the-future-5420))
 - Building and consuming REST API in ReScript with rescript-rest and Fastify ([YouTube](https://youtu.be/37FY6a-zY20?si=72zT8Gecs5vmDPlD))

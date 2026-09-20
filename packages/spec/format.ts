@@ -169,10 +169,6 @@ const operationExpression = S.schema({
   expression: orSkip(S.string).with(S.meta, {
     description: "Compiled function source (`.toString()`). Filled by `spec check --write`.",
   }),
-  resultExpression: S.optional(S.string).with(S.meta, {
-    description:
-      "Compiled `*AsResult` function source. Optional — add when the Result tail (try/absence of try) is what the spec is pinning. Filled by `spec check --write` when present.",
-  }),
   examples: S.record(example).with(S.meta, {
     description: "Named example cases, keyed by a short name (e.g. `valid`, `invalid-type`).",
   }),
@@ -417,6 +413,15 @@ export const specSchema = S.schema({
       "through it - each equal to a freshly built copy of itself, and to another example's value " +
       "only when the two values really are the same. Filled by `spec check --write`.",
   }),
+  compare: S.union([S.string, isEqualSides, skip]).with(S.meta, {
+    description:
+      "The value-compare of this schema, as source text - or `alwaysCompare` / `strictCompare` / " +
+      "`nanCompare`, the shared comparators Sury hands back whole rather than compiling. Answers " +
+      "-1 | 0 | 1; 0 exactly when `isEqual` would be true. Only the schemas that have an order " +
+      "compile one (primitives, Date, URL, and tuples of them); for the rest this reads " +
+      "`throws: <message>`, the refusal being what the schema's contract is. A bare string when " +
+      "both sides agree, `{input, output}` when they differ. Filled by `spec check --write`.",
+  }),
   vs,
   operations,
 })
@@ -437,6 +442,7 @@ export const KEY_ORDER = keyOrder<Spec>({
   ts: true,
   jsonSchema: true,
   isEqual: true,
+  compare: true,
   vs: true,
   operations: true,
 });
@@ -462,7 +468,6 @@ export const REQUIRED_OPS = ["parse", "decode", "encode"] as const satisfies rea
 export const OP_BLOCK_KEY_ORDER = keyOrder<OperationExpression>({
   isAsync: true,
   expression: true,
-  resultExpression: true,
   examples: true,
 });
 export const JSON_SCHEMA_DIALECT_KEY_ORDER = keyOrder<JsonSchemaDialect>({

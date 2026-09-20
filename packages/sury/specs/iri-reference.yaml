@@ -8,6 +8,7 @@ jsonSchema:
   input: '{ type: "string", format: "iri-reference" }'
   output: '{ type: "string", format: "iri-reference" }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod:
     _skip: not-applicable

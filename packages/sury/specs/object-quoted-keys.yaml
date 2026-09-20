@@ -8,6 +8,7 @@ jsonSchema:
   input: "{ type: \"object\", properties: { \"\\\"\": { type: \"string\" }, \"'\": { type: \"string\" }, \"`\": { type: \"string\" } }, required: [\"\\\"\", \"'\", \"`\"] }"
   output: "{ type: \"object\", properties: { \"\\\"\": { type: \"string\" }, \"'\": { type: \"string\" }, \"`\": { type: \"string\" } }, required: [\"\\\"\", \"'\", \"`\"] }"
 isEqual: (a,b)=>a===b||a["\""]===b["\""]&&a["'"]===b["'"]&&a["`"]===b["`"]
+compare: "throws: [Sury] Can't compare { \": string; ': string; `: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     schema: "z.object({ '\"': z.string(), \"'\": z.string(), \"`\": z.string() })"

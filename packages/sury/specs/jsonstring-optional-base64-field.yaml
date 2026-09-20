@@ -15,6 +15,9 @@ jsonSchema:
 isEqual:
   input: strictEqual
   output: (a,b)=>a===b||a.p===b.p
+compare:
+  input: strictCompare
+  output: "throws: [Sury] Can't compare { p: base64.length >= 2 | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

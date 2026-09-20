@@ -8,6 +8,7 @@ jsonSchema:
   input: '{ type: "string", pattern: "^[0-9a-fA-F]+$" }'
   output: '{ type: "string", pattern: "^[0-9a-fA-F]+$" }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod: z.hex()
 operations:

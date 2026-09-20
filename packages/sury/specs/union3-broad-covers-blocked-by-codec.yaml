@@ -11,6 +11,9 @@ jsonSchema:
     input: '{ anyOf: [{ type: "string", enum: ["apple"] }, { type: "string" }] }'
     output: '{ anyOf: [{ type: "string", enum: ["apple"] }, { type: "number" }, { type: "string" }] }'
 isEqual: strictEqual
+compare:
+  input: strictCompare
+  output: "throws: [Sury] Can't compare \"apple\" | number | string. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

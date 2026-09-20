@@ -9,6 +9,9 @@ jsonSchema:
   output: '{ type: "string" }'
   fromOutputType: string
 isEqual: strictEqual
+compare:
+  input: strictCompare
+  output: "throws: [Sury] Can't compare number | string. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

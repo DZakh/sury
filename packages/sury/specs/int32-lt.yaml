@@ -11,6 +11,7 @@ jsonSchema:
     input: '{ type: "integer", minimum: -2147483648, maximum: 5, exclusiveMaximum: true }'
     output: '{ type: "integer", minimum: -2147483648, maximum: 5, exclusiveMaximum: true }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod: z.int32().lt(5)
 operations:

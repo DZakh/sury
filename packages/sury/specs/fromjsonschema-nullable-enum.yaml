@@ -8,6 +8,7 @@ jsonSchema:
   input: '{ enum: ["a", "b", null] }'
   output: '{ enum: ["a", "b", null] }'
 isEqual: strictEqual
+compare: "throws: [Sury] Can't compare \"a\" | \"b\" | null. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod: z.enum(["a", "b"]).nullable()
 operations:

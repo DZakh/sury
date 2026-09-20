@@ -8,6 +8,7 @@ jsonSchema:
   input: "Failed at d: Expected JSON, received bigint"
   output: "Failed at d: Expected JSON, received bigint"
 isEqual: (a,b)=>a===b||a.a===b.a&&a.b===b.b&&a.c===b.c&&a.d===b.d&&a.e===b.e
+compare: "throws: [Sury] Can't compare { a: string; b: number; c: boolean; d: bigint; e: symbol; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod: "z.object({ a: z.string(), b: z.number(), c: z.boolean() }).extend({ d: z.bigint(), e: z.symbol() })"
 operations:

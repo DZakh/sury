@@ -8,6 +8,7 @@ jsonSchema:
   input: "{ uniqueItems: true }"
   output: "{ uniqueItems: true }"
 isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

@@ -313,6 +313,13 @@ schema["~standard"].validate({ name: 1 });
 
 A schema with an async codec answers with a promise of the same result, as the spec allows; every other schema answers synchronously.
 
+The `AsResult` outcomes answer in this shape too - `S.parseAsResult(schema, data)` carries `issues` beside its `success`/`value`/`error`, so a Sury `Result` is a Standard Schema result and needs no translation on the way to one:
+
+```ts
+S.parseAsResult(schema, { name: 1 }).issues;
+// [{ message: "Expected string, received 1", path: ["name"] }]
+```
+
 The `~standard` property also implements the [Standard JSON Schema](https://standardschema.dev/json-schema) spec, exposing a `jsonSchema` converter for the schema's input and output types. Call `S.enableStandardJSONSchema()` once to enable it:
 
 ```ts
@@ -1950,7 +1957,7 @@ Every operation names two things: the **verb** - what it does - and the **outcom
 | Convert   |                                                      |                                                        | `parse`, `decode`, `encode` |
 | Construct | `makeInput`                                          | `makeOutput`                                           |                             |
 | Validate  | `isInput`, `isInputAsPromise`                        | `isOutput`, `isOutputAsPromise`                        |                             |
-| Compare   | `isEqualInput`                                       | `isEqualOutput`                                        |                             |
+| Compare   | `isEqualInput`, `compareInput`                       | `isEqualOutput`, `compareOutput`                       |                             |
 | Assert    | `assertInputOrThrow`, `assertInputAsPromiseOrReject` | `assertOutputOrThrow`, `assertOutputAsPromiseOrReject` |                             |
 | Describe  | `toInputJSONSchemaOrThrow`, `toInputExpression`      | `toOutputJSONSchemaOrThrow`, `toOutputExpression`      |                             |
 
@@ -1961,7 +1968,7 @@ A suffix names the failure mechanism only when the return type doesn't reveal it
 | Suffix | Returns | |
 | --- | --- | --- |
 | `OrThrow` | `TOutput` | throws `S.Error` |
-| `AsResult` | `S.Result<TOutput>` | `{ success, value, error }` |
+| `AsResult` | `S.Result<TOutput>` | `{ success, value, error, issues }` |
 | `AsPromiseOrReject` | `Promise<TOutput>` | rejects with `S.Error` - never throws synchronously |
 | `AsResultPromise` | `Promise<S.Result<TOutput>>` | |
 | `AsPromisableResult` | `S.Result<TOutput> \| Promise<S.Result<TOutput>>` | follows the schema's own shape |
@@ -1982,10 +1989,16 @@ The `Result` is compiled into the operation rather than wrapped around it, which
 
 ```ts
 S.parseAsResult(S.schema({ id: S.unknown }).with(S.noValidation, true)).toString();
-// => (i) => { return { success: true, value: { id: i.id }, error: void 0 } }
+// => (i) => { return { success: true, value: { id: i.id }, error: void 0, issues: void 0 } }
 ```
 
 Both branches of a `Result` carry the same keys in the same order, so `const { value, error } = result` narrows and a consumer's `.success` read stays monomorphic.
+
+A `Result` is also a [Standard Schema](#standard-schema) result, so it goes straight to anything that reads one:
+
+```ts
+S.parseAsResult(S.string, 42).issues; // [{ message: "Expected string, received 42" }]
+```
 
 Every failure of the value comes back in the outcome's own shape, exceptions included: a refine or coder that throws is wrapped as `invalid_conversion` with the exception as its `cause`, and so is anything else the value raises on its way through (a getter, say). Only a defect - a schema wired wrong, which fails for every input - throws out of every outcome, at the point the operation is created.
 
@@ -2096,7 +2109,7 @@ const isUser = S.isInput(userSchema);
 const users = records.filter(isUser);
 ```
 
-**Compare** - `S.isEqualInput(schema)` and `S.isEqualOutput(schema)`, a compiled equality for two values of that side:
+**Compare** - `S.isEqualInput(schema)` / `S.isEqualOutput(schema)` answer whether two values of that side are the same; `S.compareInput(schema)` / `S.compareOutput(schema)` answer `-1 | 0 | 1`, ascending, for `Array.prototype.sort`. 0 is exactly when `isEqual` would be true.
 
 ```ts
 const eventSchema = S.schema({ kind: "click", at: S.date, path: S.string });
@@ -2114,7 +2127,30 @@ S.isEqualOutput(eventSchema, a, b); // immediate, schema first
 S.isEqualOutput(a, b, eventSchema); // immediate, data first
 ```
 
-`kind` is a literal, so it contributes no comparison at all: a value that conforms can only hold the one it declares. Fields and elements otherwise compare by their own schemas, a `Date` by its time, a `Set` by its members, a `FormData` by its entries in order, and a union by the member each value lands in.
+`kind` is a literal, so it contributes no comparison at all: a value that conforms can only hold the one it declares. Fields and elements otherwise compare by their own schemas, and a `Date` by its time, a `Set` by its members, a `FormData` by its entries in order.
+
+`isEqual` answers for every schema. `compare` answers for the schemas that have an order: `S.string`, `S.number`, `S.bigint`, `S.boolean`, `S.date`, `S.url`, a literal, `S.optional` / `S.nullable` of one of those, an enum of one kind, and `S.tuple` of any of those. Anything else throws when the comparator is compiled.
+
+```ts
+const ascByAtPath = S.compareOutput(S.tuple([S.date, S.string]));
+[[later, "b"], [at, "a"]].sort(ascByAtPath);
+//=> [[at, "a"], [later, "b"]]
+
+S.compareOutput(S.schema({ at: S.date }));
+//! Can't compare { at: Date; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality
+```
+
+To sort records, compare the fields you want to sort by as a tuple:
+
+```ts
+events.sort((a, b) => ascByAtPath([a.at, a.path], [b.at, b.path]));
+```
+
+Descending is the same comparator with the arguments the other way round:
+
+```ts
+events.sort((a, b) => ascByAtPath([b.at, b.path], [a.at, a.path]));
+```
 
 Both values have to be valid for the schema already - this compares, it does not validate. Use [`S.makeOutputOrThrow`](#constructing-entities) on a value you built yourself if you need it checked first.
 
@@ -2431,7 +2467,8 @@ const asyncResult = await S.parseAsResultPromise(S.boolean, data);
 
 `error` is a `S.DataError` - `invalid_input`, `unrecognized_key` or
 `invalid_conversion`, all failures **of this value**, reportable to whoever
-supplied it.
+supplied it. The same failure is also on `result.issues`, in the Standard Schema
+shape - `message` without the path prefix, and the `path` beside it.
 
 A `S.DefectError` - `invalid_operation` or `unsupported_decode` - is never a
 result. A schema wired wrong fails for every input, so it is the developer's

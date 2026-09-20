@@ -11,6 +11,7 @@ jsonSchema:
     input: '{ anyOf: [{ type: "string", minLength: 3 }, { type: "string", enum: ["x"] }] }'
     output: '{ anyOf: [{ type: "string", minLength: 3 }, { type: "string", enum: ["x"] }] }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod: z.union([z.string().min(3), z.literal("x")])
 operations:

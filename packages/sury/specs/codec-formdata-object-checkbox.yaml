@@ -12,6 +12,9 @@ jsonSchema:
 isEqual:
   input: (a,b)=>a===b||e[0](a,b)
   output: (a,b)=>a===b||a.agree===b.agree&&a.notify===b.notify&&a.mailing===b.mailing&&a.seen===b.seen&&a.asText===b.asText&&a.age===b.age
+compare:
+  input: "throws: [Sury] Can't compare FormData. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { agree: boolean; notify: boolean | undefined; mailing: boolean | null; seen: boolean; asText: string; age: number >= 18; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

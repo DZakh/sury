@@ -8,6 +8,7 @@ jsonSchema:
   input: '{ anyOf: [{ type: "string", minLength: 2 }, { type: "number", minimum: 10 }] }'
   output: '{ anyOf: [{ type: "string", minLength: 2 }, { type: "number", minimum: 10 }] }'
 isEqual: strictEqual
+compare: "throws: [Sury] Can't compare string | number. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

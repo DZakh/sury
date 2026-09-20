@@ -10,6 +10,7 @@ jsonSchema:
   output: '{ anyOf: [{ type: "string", minLength: 3 }, { type: "string" }] }'
   fromOutputType: string
 isEqual: strictEqual
+compare: "throws: [Sury] Can't compare string.length >= 3 | env. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

@@ -10,6 +10,9 @@ jsonSchema:
 isEqual:
   input: strictEqual
   output: (a,b)=>a===b||a.debug===b.debug&&a.flag===b.flag
+compare:
+  input: strictCompare
+  output: "throws: [Sury] Can't compare { debug: boolean; flag: boolean | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

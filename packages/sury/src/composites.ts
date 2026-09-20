@@ -10,6 +10,7 @@ import {
   type Check,
   type Encoder,
   type ErrorDetails,
+  type Path,
   globalConfig,
   immutableEmptyArray,
   immutableEmptyObject,
@@ -24,6 +25,7 @@ import {
   noopDecoder,
   objectTag,
   pathConcat,
+  pathEmpty,
   setHas,
   stringify,
   tagFlags,
@@ -49,9 +51,9 @@ import {
   B_inlineConst,
   B_markOutput,
   B_merge,
-  B_mergeWithPathPrepend,
   B_next,
   B_nextVarOutput,
+  B_pathSnap,
   B_refine,
   B_scope,
   B_unsupportedDecode,
@@ -61,7 +63,6 @@ import {
 import {
   getOutputSchema,
   parse,
-  parseDynamic,
 } from "./parse";
 import {
  isArrayCond,
@@ -85,12 +86,13 @@ export const B_unrecognizedKeys = (
   keyVar: string,
   decl: string,
 ): string => {
+  const snap = B_pathSnap(input);
   const fail = B_failWithArg(
     input,
-    (key: string) =>
+    (key: string, path?: Path) =>
       ({
         code: "unrecognized_key",
-        path: input.path,
+        path: path ?? snap ?? pathEmpty,
         reason: `Unrecognized key ${stringify(key)}`,
         key,
       }) as ErrorDetails,
@@ -327,20 +329,19 @@ export const arrayDecoder = (unknownInput: Val): Val => {
       const raiseCountBefore = input.g.t;
       const itemInput = B_dynamicScope(input, iteratorVar);
       B_narrowJsonSourcedJsonString(itemInput);
-      const itemOutput = parseDynamic(itemInput);
+      const itemOutput = parse(itemInput);
       const hasTransform = itemOutput.t!;
       const output2 = hasTransform
         ? // The next `.to` segment decodes from this schema - item-output, not expectedSchema (#284)
           B_next(input, `new Array(${inputVar}.length)`, arrayFactory(itemOutput.s))
         : B_refine(input, expectedSchema);
 
-      const itemCode = B_mergeWithPathPrepend(
-        itemOutput,
-        input,
-        iteratorVar,
-        hasTransform ? () => B_addKey(output2, iteratorVar, itemOutput) : U,
-        hasTransform ? U : raiseCountBefore,
-      );
+      const itemMerge = B_merge(itemOutput);
+      const itemCode = hasTransform
+        ? itemMerge + B_addKey(output2, iteratorVar, itemOutput)
+        : input.g.t === raiseCountBefore
+          ? ""
+          : itemMerge;
 
       if (hasTransform || itemCode !== "") {
         output2.cp =
@@ -469,7 +470,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
     const raiseCountBefore = input.g.t;
     const itemInput = B_dynamicScope(input, keyVar);
     B_narrowJsonSourcedJsonString(itemInput);
-    const itemOutput = parseDynamic(itemInput);
+    const itemOutput = parse(itemInput);
 
     const hasTransform = itemOutput.t!;
     const output2 = hasTransform
@@ -477,13 +478,12 @@ export const objectDecoder = (unknownInput: Val): Val => {
         B_next(input, "{}", dictFactory(itemOutput.s))
       : B_refine(input, expectedSchema);
 
-    const itemCode = B_mergeWithPathPrepend(
-      itemOutput,
-      input,
-      keyVar,
-      hasTransform ? () => B_addKey(output2, keyVar, itemOutput) : U,
-      hasTransform ? U : raiseCountBefore,
-    );
+    const itemMerge = B_merge(itemOutput);
+    const itemCode = hasTransform
+      ? itemMerge + B_addKey(output2, keyVar, itemOutput)
+      : input.g.t === raiseCountBefore
+        ? ""
+        : itemMerge;
 
     if (hasTransform || itemCode !== "") {
       output2.cp = output2.cp + `for(let ${keyVar} in ${inputVar}){${itemCode}}`;

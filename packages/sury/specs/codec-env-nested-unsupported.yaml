@@ -11,6 +11,9 @@ jsonSchema:
 isEqual:
   input: (a,b)=>{if(a===b)return true;let n=0;for(const k in a){if(!(k in b)||!(a[k]===b[k]))return false;n++}for(const k in b)n--;return !n}
   output: (a,b)=>a===b||a.user.name===b.user.name
+compare:
+  input: "throws: [Sury] Can't compare { [key: string]: env; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { user: { name: string; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

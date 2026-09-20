@@ -8,6 +8,7 @@ jsonSchema:
   input: '{ type: "string", format: "duration" }'
   output: '{ type: "string", format: "duration" }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod: z.iso.duration()
 operations:

@@ -10,6 +10,9 @@ jsonSchema:
 isEqual:
   input: strictEqual
   output: (a,b)=>a===b||a.q===b.q&&a.page===b.page
+compare:
+  input: strictCompare
+  output: "throws: [Sury] Can't compare { q: string.length >= 1; page: number | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

@@ -13,6 +13,7 @@ jsonSchema:
     input: '{ anyOf: [{ type: "string" }, { type: "number" }, { type: "object", properties: { bar: { type: "integer" } }, required: ["bar"] }, { items: {}, type: "array" }, { type: "boolean" }, { enum: [null] }], allOf: [{ properties: { foo: { type: "string" } }, required: ["foo"] }] }'
     output: '{ anyOf: [{ type: "string" }, { type: "number" }, { type: "object", properties: { bar: { type: "integer" } }, required: ["bar"] }, { items: {}, type: "array" }, { type: "boolean" }, { enum: [null] }], allOf: [{ properties: { foo: { type: "string" } }, required: ["foo"] }] }'
 isEqual: (a,b)=>a===b||!!(typeof a==="string"?typeof b==="string"&&a===b:typeof a==="number"&&a==a?typeof b==="number"&&b==b&&a===b:typeof a==="object"&&a&&!Array.isArray(a)?typeof b==="object"&&b&&!Array.isArray(b)&&a.bar===b.bar:Array.isArray(a)?Array.isArray(b)&&e[0](a,b):typeof a==="boolean"?typeof b==="boolean"&&a===b:b===null)
+compare: "throws: [Sury] Can't compare string | number | { bar: integer; } | JSON[] | boolean | null. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

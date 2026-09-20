@@ -102,7 +102,7 @@ test("[milestone 1] compiled parse code models each dict read as optional", t =>
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);for(let v0 in i){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path=[v0,...v2.path];throw v2}}let v3=i.foo,v4=i.bar,v6=i.zoo;v3!==void 0||e[1](v3);if(v4!==void 0){let v5;try{v5=BigInt(v4)}catch(_){e[2](v4)}v5||v4.trim()||e[2](v4);v4=v5;}else{e[3](v4)}if(v6!==void 0){let v7=+v6;v7==v7&&(v7||v6.trim())||e[4](v6);v6=v7;}return {foo:v3,bar:v4,zoo:v6}}catch(v8){e[6](v8)}}`,
+    `i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);for(let v0 in i){let v1=i[v0];typeof v1==="string"||e[0](v1,[v0]);}let v2=i.foo,v3=i.bar,v5=i.zoo;v2!==void 0||e[1](v2);if(v3!==void 0){let v4;try{v4=BigInt(v3)}catch(_){e[2](v3)}v4||v3.trim()||e[2](v3);v3=v4;}else{e[3](v3)}if(v5!==void 0){let v6=+v5;v6==v6&&(v6||v5.trim())||e[4](v5);v5=v6;}return {foo:v2,bar:v3,zoo:v5}}catch(v7){e[6](v7)}}`,
   )
 })
 

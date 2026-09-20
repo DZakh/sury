@@ -8,6 +8,7 @@ jsonSchema:
   input: '{ type: "string", format: "uri", pattern: "^https:\\/\\/" }'
   output: '{ type: "string", format: "uri", pattern: "^https:\\/\\/" }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod: z.url().regex(/^https:\/\//)
 operations:

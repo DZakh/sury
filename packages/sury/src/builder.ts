@@ -2,10 +2,12 @@ import {
   arrayTag,
   type BGlobal,
   type Check,
+  compilePath,
   type ErrorDetails,
   errorAt,
   errorSite,
   type Flag,
+  hasPathDyn,
   immutableEmptyArray,
   inlinedProperty,
   inlinedValueFromString,
@@ -16,6 +18,8 @@ import {
   type Path,
   pathConcat,
   pathEmpty,
+  pathExpr,
+  pathToText,
   s,
   stringify,
   type SuryErrorRecord,
@@ -148,7 +152,7 @@ export const B_embed = (b: Val, value: unknown): string => (b.g.t++, B_embedPure
 // B_embed for a value generated code can't raise through - a helper that
 // never throws. Skipping the raise counter keeps union codegen from wrapping
 // the case in a `try` it doesn't need, and keeps loop bodies recognizable as
-// throw-free (see B_mergeWithCatch's `pureSince`).
+// throw-free so array/dict can drop an empty item loop.
 export const B_embedPure = (b: Val, value: unknown): string => `e[${b.g.e.push(value) - 1}]`;
 
 export const B_inlineConst = (b: Val, schema: Internal): string => {
@@ -231,13 +235,25 @@ export const B_unsupportedDecode = (b: Val, from: Internal, target: Internal): n
     from,
     to: target,
     reason: `Can't decode ${inputExpression(from)} -> ${inputExpression(target)}. Define custom codec with S.to`,
-    path: b.path,
+    path: compilePath(b.path),
   });
 
-export const B_failWithArg = <TArg>(b: Val, fn: (arg: TArg) => ErrorDetails, arg: string): string =>
-  `${B_embed(b, (a: TArg) => {
-    B_throw(fn(a));
-  })}(${arg})`;
+// Snapshot a static path into the embed; a PathDyn is the next generated
+// argument, evaluated only on throw.
+export const B_pathArg = (b: Val): string =>
+  hasPathDyn(b.path) ? "," + pathExpr(b.path) : "";
+
+export const B_pathSnap = (b: Val): Path | undefined =>
+  hasPathDyn(b.path) ? U : (b.path as Path);
+
+export const B_failWithArg = <TArg>(
+  b: Val,
+  fn: (arg: TArg, path?: Path) => ErrorDetails,
+  arg: string,
+): string =>
+  `${B_embed(b, (a: TArg, p?: Path) => {
+    B_throw(fn(a, p));
+  })}(${arg}${B_pathArg(b)})`;
 
 // Record a raise that reaches generated code without an embed behind it - the
 // bare `throw` a loop wrapper re-raises a nested error with. Union codegen
@@ -248,20 +264,25 @@ export const B_markThrow = (b: Val): void => {
   b.g.t++;
 }
 
-
 // A coder's or refiner's own throw as `invalid_conversion`. Split from the
 // Sury-cause branch below so an operation tail (every bundle) carries only
 // this half.
-const B_foreignDetails = (input: Val, to: Internal, cause: unknown): ErrorDetails => ({
+const B_foreignDetails = (input: Val, to: Internal, cause: unknown, path: Path): ErrorDetails => ({
   code: "invalid_conversion",
   from: input.s,
   to,
   cause,
-  path: input.path,
+  path,
   reason: cause instanceof Error ? ("" + cause).replace(/^Error: /, "") : stringify(cause),
 });
 
-export const B_makeInvalidConversionDetails = (input: Val, to: Internal, cause: unknown): ErrorDetails => {
+export const B_makeInvalidConversionDetails = (
+  input: Val,
+  to: Internal,
+  cause: unknown,
+  path?: Path,
+): ErrorDetails => {
+  const p = path ?? compilePath(input.path);
   if (cause && (cause as { s?: symbol }).s === s) {
     const error = cause as unknown as SuryErrorRecord;
 
@@ -281,16 +302,16 @@ export const B_makeInvalidConversionDetails = (input: Val, to: Internal, cause: 
     // copy would come out reading `Expected undefined`. Descriptors rather than
     // `Object.assign` so an own `reason` is carried as the data property it is
     // instead of being pushed through the prototype's setter.
-    if (!input.path.length) return error as unknown as ErrorDetails;
+    if (!p.length) return error as unknown as ErrorDetails;
     const copy = Object.create(
       Object.getPrototypeOf(error) as object,
       Object.getOwnPropertyDescriptors(error)
     ) as SuryErrorRecord;
-    copy.path = pathConcat(input.path, error.path);
+    copy.path = pathConcat(p, error.path);
     return copy as unknown as ErrorDetails;
   }
-  return B_foreignDetails(input, to, cause);
-}
+  return B_foreignDetails(input, to, cause, p);
+};
 
 // The error an operation answers with when it answers rather than throws
 // (Result, boolean, Standard Schema): a Sury failure as it is, anything else -
@@ -303,34 +324,40 @@ export const B_makeInvalidConversionDetails = (input: Val, to: Internal, cause: 
 export const B_errorOf = (input: Val): ((e: unknown) => SuryErrorRecord) => {
   let to = input.e;
   while (to.to) to = to.to;
+  const path = compilePath(input.path);
   return (e) =>
     e && (e as { s?: symbol }).s === s
       ? (e as SuryErrorRecord)
-      : toError(B_foreignDetails(input, to, e));
+      : toError(B_foreignDetails(input, to, e, path));
 };
 
 export const B_embedErrorOf = (input: Val): string => B_embedPure(input, B_errorOf(input));
 
 // Drop-in `check.fail` builder for InvalidInput failures. The `(~input) =>
-// value => error` shape is what makes the site prototype possible: the middle
-// call happens once, while the check is being compiled, so everything the
-// failures of this check share is settled there and only the value's own half
-// is left for the inner one. It also snapshots rather than capturing the val,
-// which would pin the whole val chain into the embed array.
+// (value, path) => error` shape is what makes the site prototype possible: the
+// middle call happens once, while the check is being compiled, so everything
+// the failures of this check share is settled there - the static path with it,
+// concatenated once rather than per failure. It also snapshots rather than
+// capturing the val, which would pin the whole val chain into the embed array.
+//
+// A path the generated code has to compute - a loop index, a for-in key -
+// arrives as the second argument instead, and only on throw.
 export const B_invalidInputBuilder = (
   expected?: Internal,
   extraPath: Path = pathEmpty,
   reasonOverride?: string
-): (input: Val) => (value: unknown) => ErrorDetails => (input) => {
-  const path = pathConcat(input.path, extraPath);
+): (input: Val) => (value: unknown, path?: Path) => ErrorDetails => (input) => {
   const site = errorSite(expected ?? input.e, (input.prev || input).s, reasonOverride);
-  return (value) => errorAt(site, path, value);
+  const snap = B_pathSnap(input);
+  const staticPath = snap !== U ? pathConcat(snap, extraPath) : U;
+  return (value, path) =>
+    errorAt(site, staticPath ?? pathConcat(path ?? pathEmpty, extraPath), value);
 };
 
 export const B_failWithErrorMessage = (
   key: string,
   defaultMessage?: string
-): (input: Val) => (value: unknown) => ErrorDetails => (input) => {
+): (input: Val) => (value: unknown, path?: Path) => ErrorDetails => (input) => {
   const em = input.e.errorMessage as Record<string, string | undefined> | undefined;
   const m = em?.[key] ?? em?.["_"] ?? defaultMessage;
   return m !== U ? B_invalidInputBuilder(U, U, m)(input) : failInvalidType(input);
@@ -592,7 +619,7 @@ export const B_dynamicScope = (from: Val, locationVar: string): Val => {
     vc: U,
     u: U,
     t: U,
-    path: pathEmpty,
+    path: pathConcat(from.path, [{ e: locationVar }]),
     g: from.g,
     o: U,
   };
@@ -768,7 +795,7 @@ export const B_conversion = (
     // do escape a union are a getter's, which never enter this try.
     const failure = B_failWithArg(
       output,
-      (e: unknown) => B_makeInvalidConversionDetails(input, target, e),
+      (e: unknown, path?: Path) => B_makeInvalidConversionDetails(input, target, e, path),
       `x`,
     );
     output.cp = `let ${output.i};try{${output.i}=${embeddedFn}(${inputValue})${
@@ -853,55 +880,27 @@ export const B_rejectUnsettled = (input: Val, to: Internal, from = input.prev &&
 };
 
 export const B_invalidOperation = (val: Val, description: string): never =>
-  B_throw({ code: "invalid_operation", reason: description, path: val.path });
+  B_throw({ code: "invalid_operation", reason: description, path: compilePath(val.path) });
 
-const B_mergeWithCatch = (
-  val: Val,
-  catchFn: (errorVar: string) => string,
-  appendSafe?: () => string,
-  pureSince?: number
-): string => {
+const B_mergeWithCatch = (val: Val, catchFn: (errorVar: string) => string): string => {
   const valCode = B_merge(val);
-  // `pureSince` is the raise counter before the val was built: unchanged means
-  // nothing merged can throw, so the catch wrapper is dead. Without an append
-  // the code itself is dead too - an untransformed, unfailable body is only
-  // orphaned `let`s - and dropping it lets the caller skip its loop entirely.
-  const pure = pureSince !== U && val.g.t === pureSince;
-  if ((valCode === "" || pure) && !(val.f & 1)) {
-    return appendSafe ? valCode + appendSafe() : pure ? "" : valCode;
-  }
   const errorVar = B_varWithoutAllocation(val.g);
   B_markThrow(val);
   const catchCode = `${catchFn(errorVar)};throw ${errorVar}`;
   if (val.f & 1) val.i = `${val.i}.catch(${errorVar}=>{${catchCode}})`;
-  return `try{${valCode}${appendSafe ? appendSafe() : ""}}catch(${errorVar}){${catchCode}}`;
-}
+  return `try{${valCode}}catch(${errorVar}){${catchCode}}`;
+};
 
-export const B_mergeWithPathPrepend = (
-  val: Val,
-  parent: Val,
-  locationVar?: string,
-  appendSafe?: () => string,
-  pureSince?: number
-): string =>
-  !val.path.length && locationVar === U
+// Opaque embed (recursive self-call, S.json's any-value walk): a compiled
+// function that does not take a path. Failures it throws are rooted at its
+// own `[]`, so a nested use still prepends in catch. Inlined item parsers
+// thread the path to the fail helper instead.
+export const B_mergeWithPathPrepend = (val: Val, parent: Val): string =>
+  !parent.path.length
     ? B_merge(val)
     : B_mergeWithCatch(
         val,
-        (errorVar) => {
-          let segments = "";
-          for (let idx = 0; idx < parent.path.length; idx++) {
-            const segment = parent.path[idx]!;
-            // Codegen paths are built from keys and indices, never a symbol.
-            segments += `${typeof segment === "string" ? inlinedValueFromString(segment) : (segment as number)},`;
-          }
-          if (locationVar !== U) {
-            segments += `${locationVar},`;
-          }
-          return `${errorVar}.path=[${segments}...${errorVar}.path]`;
-        },
-        appendSafe,
-        pureSince,
+        (errorVar) => `${errorVar}.path=${pathExpr(parent.path, `...${errorVar}.path`)}`,
       );
 
 export const noopOperation = (i: unknown): unknown => i;

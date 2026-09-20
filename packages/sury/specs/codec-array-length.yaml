@@ -11,12 +11,15 @@ jsonSchema:
 isEqual:
   input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
   output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(e[0](a[i],b[i])))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare string[]. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare unknown[].length == 2. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{Array.isArray(i)||e[2](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path=[v0,...v2.path];throw v2}}i.length===2||e[1](i);return i}catch(v3){e[3](v3)}}
+    expression: i=>{try{Array.isArray(i)||e[2](i);for(let v0=0;v0<i.length;++v0){let v1=i[v0];typeof v1==="string"||e[0](v1,[v0]);}i.length===2||e[1](i);return i}catch(v2){e[3](v2)}}
     examples:
       at bound:
         input: '["a", "b"]'
@@ -43,7 +46,7 @@ operations:
         input: '["a"]'
         error: Expected unknown[].length == 2, received ["a"]
   encode:
-    expression: i=>{try{i.length===2||e[1](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path=[v0,...v2.path];throw v2}}return i}catch(v3){e[2](v3)}}
+    expression: i=>{try{i.length===2||e[1](i);for(let v0=0;v0<i.length;++v0){let v1=i[v0];typeof v1==="string"||e[0](v1,[v0]);}return i}catch(v2){e[2](v2)}}
     examples:
       at bound:
         input: '["a", "b"]'

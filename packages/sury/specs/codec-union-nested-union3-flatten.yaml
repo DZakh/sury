@@ -8,6 +8,9 @@ jsonSchema:
   input: '{ anyOf: [{ type: "boolean" }, { type: "number" }, { type: "string" }] }'
   output: '{ anyOf: [{ type: "string" }, { type: "number" }, { type: "boolean" }] }'
 isEqual: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare string | number | boolean. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare boolean | number | string. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod: z.union([z.string(), z.union([z.number(), z.boolean()])])
 operations:

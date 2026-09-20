@@ -13,6 +13,9 @@ jsonSchema:
 isEqual:
   input: (a,b)=>a===b||a.nested.field===b.nested.field&&a.id===b.id&&a.Foo===b.Foo&&a.Bar===b.Bar
   output: (a,b)=>a===b||a.nested===b.nested&&a.flattened.id===b.flattened.id&&a.foo===b.foo&&a.bar===b.bar
+compare:
+  input: "throws: [Sury] Can't compare { type: 0; nested: { field: number; }; id: string; Foo: string; Bar: boolean | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { nested: number; flattened: { id: string; }; foo: string; bar: boolean; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

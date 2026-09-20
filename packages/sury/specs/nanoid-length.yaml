@@ -8,6 +8,7 @@ jsonSchema:
   input: '{ type: "string", minLength: 21, maxLength: 21, pattern: "^[A-Za-z0-9_-]+$" }'
   output: '{ type: "string", minLength: 21, maxLength: 21, pattern: "^[A-Za-z0-9_-]+$" }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod: z.nanoid().length(21)
 operations:

@@ -8,6 +8,7 @@ jsonSchema:
   input: '{ type: "string", minLength: 5, maxLength: 5 }'
   output: '{ type: "string", minLength: 5, maxLength: 5 }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod: z.string().max(5, "custom too long").min(5)
 operations:

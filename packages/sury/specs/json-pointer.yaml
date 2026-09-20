@@ -8,6 +8,7 @@ jsonSchema:
   input: '{ type: "string", format: "json-pointer" }'
   output: '{ type: "string", format: "json-pointer" }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod:
     _skip: not-applicable

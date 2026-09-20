@@ -10,12 +10,15 @@ jsonSchema:
 isEqual:
   input: (a,b)=>a===b||e[0](a.ids,b.ids)
   output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { ids: integer[]; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: todo(#…)
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[7](i);let v0=i.ids;Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="number"&&v2%1==0||e[0](v2);}catch(v3){v3.path=["ids",v1,...v3.path];throw v3}}let v4,w;try{w=e[5].acquire();let v,j,n,s,h,a,k,g,c,o;v=v0;n=v.length;if(n){j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=v[j++];if(s<0||s>4294967295)e[2](s,0,4294967295,"uint32");s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s)}};v4=w.finish()}catch(x){w&&(w.busy=false);e[6](x)}return v4}catch(v5){e[8](v5)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[7](i);let v0=i.ids;Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){let v2=v0[v1];typeof v2==="number"&&v2%1==0||e[0](v2,["ids",v1]);}let v3,w;try{w=e[5].acquire();let v,j,n,s,h,a,k,g,c,o;v=v0;n=v.length;if(n){j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=v[j++];if(s<0||s>4294967295)e[2](s,0,4294967295,"uint32");s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s)}};v3=w.finish()}catch(x){w&&(w.busy=false);e[6](x)}return v3}catch(v4){e[8](v4)}}
     examples:
       expanded:
         input: "{ ids: [1, 2, 3] }"

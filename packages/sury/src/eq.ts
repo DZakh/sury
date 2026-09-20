@@ -1,5 +1,5 @@
-// `S.isEqualInput` / `S.isEqualOutput`: a compiled value-equality function for
-// one side of a schema.
+// `S.isEqualInput` / `S.isEqualOutput` / `S.compareInput` / `S.compareOutput`:
+// a compiled pairwise function for one side of a schema.
 //
 // Two things make this unlike every other operation. It takes a PAIR of values,
 // which `compileDecoder`'s `i=>{…}` shape can't express, and it never
@@ -9,22 +9,30 @@
 // driving `parse`, and borrows only the pieces that don't presuppose a decode:
 // the embed array, the union type-narrow, and the operation cache.
 //
-// The one invariant the emit must never break is reflexivity: `f(x, x)` is true
-// for every value the side admits. NaN is the whole difficulty. It is the only
-// value not `===` itself, so every position that can hold one compares with
-// SameValueZero instead, and every position that cannot (the default number
-// validation rejects NaN) keeps the bare `===`.
+// Equality and compare share that walk. They do not share emit: a runtime
+// `if (ord)` inside the walker would keep both templates in every bundle that
+// reaches this module. The emit is a mode object the compile entry passes in,
+// so an isEqual-only graph never names a compare leaf, loop, or shared-body.
+//
+// `compare(a,b)===0` is `isEqual(a,b)`. The equal path stays a conjunction of
+// reads; compare is a lexicographic chain of ordered tests. Reflexivity
+// (`f(x,x)` is true / 0) is the emit invariant. NaN is the whole difficulty:
+// it is the only value not `===` itself, so a position that can hold one uses
+// SameValueZero, and a position that cannot (default number validation) keeps
+// `===` / `<`/`>`.
 
 import {
   baseSchema,
   type Flag,
   globalConfig,
   inlinedProperty,
+  inputExpression,
   type Internal,
   isLiteral,
   jsonName,
   neverTag,
   noopDecoder,
+  panic,
   tagFlags,
   U,
   type Val,
@@ -33,11 +41,14 @@ import { B_embedPure, B_inlineConst, B_operationArg } from "./builder";
 import { addOpNode, findOpNode, type OpNode, removeOpNode, typeCheckCond } from "./parse";
 
 export type IsEqual = (a: unknown, b: unknown) => boolean;
+export type Compare = (a: unknown, b: unknown) => number;
 
-// The cache key's first slot, so an eq node can't be mistaken for a decoder's
-// (getDecoder never passes this schema) or for recursiveDecoder's `[input, def]`
-// pair. Never compiled, never reversed: only its identity is read.
+// The cache key's first slot, so an eq/cmp node can't be mistaken for a
+// decoder's (getDecoder never passes this schema) or for recursiveDecoder's
+// `[input, def]` pair. Never compiled, never reversed: only its identity is
+// read. Two sentinels so the two compiles don't collide in the op cache.
 const eqOp: Internal = /* @__PURE__ */ baseSchema(neverTag, true, noopDecoder);
+const cmpOp: Internal = /* @__PURE__ */ baseSchema(neverTag, true, noopDecoder);
 
 // Off `globalThis`, because `FormData` landed in Node 18 and a bare reference
 // to it is a ReferenceError on anything older. `URLSearchParams` is older, but
@@ -115,6 +126,64 @@ const deepEqual = (a: unknown, b: unknown): boolean => {
   return !n;
 };
 
+type Walk = (schema: Internal, a: string, b: string) => string;
+
+// The emit for one side of the walk, split by what the two sides can answer.
+// Compare has no order for the shapes the equality-only fields serve, so its
+// mode carries `reject` in their place and the walk narrows on it: a branch
+// reaching one of those fields without rejecting first does not typecheck.
+// That is what keeps the accepted set and the emit from drifting apart - they
+// are the same declaration.
+type SharedMode = {
+  join: (left: string, right: string) => string;
+  prim: (ctx: Ctx, schema: Internal, a: string, b: string) => string;
+  date: (a: string, b: string) => string;
+  url: (a: string, b: string) => string;
+  // `undefined` means "not a closed identity union, keep walking".
+  identUnion: (ctx: Ctx, schema: Internal, a: string, b: string) => string | undefined;
+  nullish: (
+    narrows: string[],
+    restIdx: number,
+    rest: string,
+    a: string,
+    b: string,
+    present: string,
+  ) => string;
+  yes: string;
+  wrapPrefix: string;
+  always: IsEqual | Compare;
+  strict: IsEqual | Compare;
+  nan: IsEqual | Compare;
+  // Literals, not helper calls: a top-level `ordLeaf("a","b")` is a side
+  // effect esbuild will not drop, and then the whole eq.ts graph ships with
+  // every export.
+  strictExpr: string;
+  nanExpr: string;
+};
+
+type EqMode = SharedMode & {
+  reject?: undefined;
+  elem: (a: string, b: string) => string;
+  ident: (a: string, b: string) => string;
+  index: (element: string, from: number) => string;
+  dict: (walk: (a: string, b: string) => string) => string;
+  union: (
+    narrows: string[],
+    objectTagged: number[],
+    members: Internal[],
+    walk: Walk,
+    a: string,
+    b: string,
+  ) => string;
+  deep: (a: unknown, b: unknown) => unknown;
+};
+
+type CmpMode = SharedMode & {
+  reject: (schema: Internal) => never;
+};
+
+type Mode = EqMode | CmpMode;
+
 type Ctx = {
   // Codegen context, for the embed array (`g.e`) and the op flag. Never
   // merged, never emitted: this operation has no Val chain.
@@ -122,13 +191,17 @@ type Ctx = {
   d: Record<string, Internal> | undefined;
   // Hoisted comparators, keyed by the schema they compare so a shape reached
   // twice is compiled once.
-  m: Map<Internal, string>;
-  // The `deepEqual` embed, reused across positions.
+  h: Map<Internal, string>;
+  // The structural-fallback embed, reused across positions.
   q: string;
   // The schema being compiled, and the loop body to use as the operation's own
   // body when the whole comparison turns out to be that one loop.
   root: Internal;
   inline: string;
+  // Cache-key sentinel, eqOp or cmpOp, so a recursive `$ref` lands on the
+  // matching compile rather than the other direction's.
+  op: Internal;
+  k: Mode;
 };
 
 // Whether this loop is the entire comparison, in which case it is the body
@@ -139,6 +212,19 @@ const isRoot = (ctx: Ctx, schema: Internal, whole: boolean): boolean =>
   whole && schema === ctx.root && !ctx.inline;
 
 const sameValueZero = (a: string, b: string): string => `(${a}===${b}||${a}!=${a}&&${b}!=${b})`;
+const eqPair = (a: string, b: string): string => `${a}===${b}`;
+// Ordered counterpart of `===` for a comparable primitive. `:0` is load-bearing
+// for `joinOrd`: a chain of these strips the trailing `0` and becomes one nested
+// ternary.
+const ordLeaf = (a: string, b: string): string => `${a}<${b}?-1:${a}>${b}?1:0`;
+// Number that can be NaN: `<`/`>` are both false for NaN, so the SameValueZero
+// zero-case sits in the middle and a remaining NaN-vs-number is NaN-first.
+const nanOrdLeaf = (a: string, b: string): string =>
+  `${a}<${b}?-1:${a}>${b}?1:${a}===${b}||${a}!=${a}&&${b}!=${b}?0:${a}!=${a}?-1:1`;
+// `S.env` is a string schema that also admits `undefined`. `<` is 0 for that
+// pair, which would disagree with `===`. Undefined first, then string order.
+const envOrd = (a: string, b: string): string =>
+  `${a}===void 0?${b}===void 0?0:-1:${b}===void 0?1:${ordLeaf(a, b)}`;
 
 // The built-in classes an instance compares by content rather than by identity:
 // 1 a Date, 2 a URL, 3 a typed array, 4 a Set, FormData or URLSearchParams,
@@ -162,11 +248,32 @@ const valueClass = (class_: unknown): number =>
           ? 4
           : 0;
 
-const deep = (ctx: Ctx, a: string, b: string): string =>
-  `${(ctx.q ||= B_embedPure(ctx.b, deepEqual))}(${a},${b})`;
+// The equality-only emit, or the refusal for a schema compare has no order for.
+// Every field only `EqMode` declares is reached through this, so a branch that
+// forgets the refusal does not typecheck rather than crashing at runtime on a
+// field the compare mode never had.
+const eqOnly = (ctx: Ctx, schema: Internal): EqMode =>
+  ctx.k.reject ? ctx.k.reject(schema) : ctx.k;
+
+// Every shape with no emit of its own ends here: `S.unknown`, a function, a
+// Set, a FormData, and the unions that fall back rather than dispatch.
+const deep = (ctx: Ctx, schema: Internal, a: string, b: string): string =>
+  `${(ctx.q ||= B_embedPure(ctx.b, eqOnly(ctx, schema).deep))}(${a},${b})`;
 
 const and = (left: string, right: string): string =>
   left ? (right ? `${left}&&${right}` : left) : right;
+
+// A leaf that ends `:0` is rewritten as the next test in the same ternary
+// (`a.x<b.x?-1:a.x>b.x?1:` + next). Anything else (a hoisted call, a union,
+// a symbol) uses `||` because -1 and 1 are truthy and 0 is not.
+const joinOrd = (left: string, right: string): string =>
+  left
+    ? right
+      ? left.endsWith(":0")
+        ? left.slice(0, -1) + right
+        : `(${left})||(${right})`
+      : left
+    : right;
 
 // A hoisted comparator, called. Empty when the loop became the body instead, in
 // which case there is nothing left to call and nothing left to conjoin.
@@ -182,30 +289,29 @@ const call = (fn: string, a: string, b: string): string => (fn ? `${fn}(${a},${b
 // operation, the loop body is behind `e[N]` rather than inline in the golden.
 // The examples are what hold it: a spec runs every one of them through this.
 const hoist = (ctx: Ctx, schema: Internal, body: () => string): string => {
-  const cached = ctx.m.get(schema);
+  const cached = ctx.h.get(schema);
   if (cached !== U) return cached;
   const embeds = ctx.b.g.e;
   // The slot is reserved before the body is built so a shape reached again
   // while building it lands on this one instead of compiling a second copy.
   const index = embeds.push(U) - 1;
   const ref = `e[${index}]`;
-  ctx.m.set(schema, ref);
+  ctx.h.set(schema, ref);
   embeds[index] = new Function("e", `return ${body()}`)(embeds);
   return ref;
 };
 
-// `undefined` element schema means the members compare with `===`: the typed
-// array case, whose elements are numbers or bigints and cannot be NaN.
-// `from` is also how the caller says whether anything precedes the loop: only a
-// tuple's fixed items start it anywhere but 0.
+// `undefined` element schema means the members compare with the mode's `elem`
+// (typed arrays: `===` / `<`/`>`, never NaN). `from` is also how the caller
+// says whether anything precedes the loop: only a tuple's fixed items start it
+// anywhere but 0.
 const indexedFn = (ctx: Ctx, schema: Internal, item: Internal | undefined, from: number): string => {
+  // A length the schema does not fix means the comparison is a loop, and a loop
+  // is not the inlined chain compare answers with.
+  const k = eqOnly(ctx, schema);
   const stmts = (): string => {
-    const element = item === U ? `a[i]===b[i]` : eqExpr(ctx, item, "a[i]", "b[i]");
-    return (
-      `let n=a.length;if(n!==b.length)return false;` +
-      (element ? `for(let i=${from};i<n;i++)if(!(${element}))return false;` : ``) +
-      `return true`
-    );
+    const element = item === U ? k.elem("a[i]", "b[i]") : eqExpr(ctx, item, "a[i]", "b[i]");
+    return k.index(element, from);
   };
   return isRoot(ctx, schema, !from)
     ? ((ctx.inline = stmts()), "")
@@ -222,20 +328,19 @@ const indexedFn = (ctx: Ctx, schema: Internal, item: Internal | undefined, from:
 // non-primitive through `b[k]` for a key `b` doesn't have is a read off
 // `undefined`.
 const dictFn = (ctx: Ctx, schema: Internal, value: Internal): string => {
-  const stmts = (): string => {
-    const element = eqExpr(ctx, value, "a[k]", "b[k]");
-    return (
-      `let n=0;for(const k in a){if(!(k in b)` +
-      (element ? `||!(${element})` : ``) +
-      `)return false;n++}for(const k in b)n--;return !n`
-    );
-  };
+  const k = eqOnly(ctx, schema);
+  const stmts = (): string => k.dict((a, b) => eqExpr(ctx, value, a, b));
   return isRoot(ctx, schema, true)
     ? ((ctx.inline = stmts()), "")
     : hoist(ctx, schema, () => `(a,b)=>{${stmts()}}`);
 };
 
 const objectExpr = (ctx: Ctx, schema: Internal, a: string, b: string): string => {
+  // The one rejected shape whose emit is an inlined chain like compare's own,
+  // so nothing below this forces the refusal: an object's fields would compare
+  // in JS property order, integer-like names first, which is not the order the
+  // schema was written in.
+  eqOnly(ctx, schema);
   const properties = schema.properties;
   const rest = schema.additionalItems;
   const value = typeof rest === "string" ? U : rest;
@@ -244,13 +349,13 @@ const objectExpr = (ctx: Ctx, schema: Internal, a: string, b: string): string =>
     // Declared properties and a rest schema at once would need both rules
     // applied to one key set; no factory builds that today, and the structural
     // fallback stays correct if one ever does.
-    if (keys.length) return deep(ctx, a, b);
+    if (keys.length) return deep(ctx, schema, a, b);
     return call(dictFn(ctx, schema, value), a, b);
   }
   let out = "";
   for (let idx = 0; idx < keys.length; idx++) {
     const key = keys[idx]!;
-    out = and(
+    out = ctx.k.join(
       out,
       eqExpr(ctx, properties![key]!, inlinedProperty(a, key), inlinedProperty(b, key)),
     );
@@ -268,10 +373,13 @@ const arrayExpr = (ctx: Ctx, schema: Internal, a: string, b: string): string => 
     // A tuple's length is fixed on both sides by conformance, so only the rest
     // form below pays for a length check.
     const at = String(idx);
-    out = and(out, eqExpr(ctx, items![idx]!, inlinedProperty(a, at, true), inlinedProperty(b, at, true)));
+    out = ctx.k.join(
+      out,
+      eqExpr(ctx, items![idx]!, inlinedProperty(a, at, true), inlinedProperty(b, at, true)),
+    );
   }
   if (value === U) return out;
-  return and(out, call(indexedFn(ctx, schema, value, fixed), a, b));
+  return ctx.k.join(out, call(indexedFn(ctx, schema, value, fixed), a, b));
 };
 
 // A narrow is built ONCE, as a template with this placeholder standing in for
@@ -362,11 +470,51 @@ const isIdentity = (ctx: Ctx, schema: Internal): boolean => {
   return false;
 };
 
+// The comparable primitive tag every identity member shares, or `undefined`
+// when they don't share one. string 2, number 4, boolean 8, bigint 1024 are
+// the tags `<`/`>` order without coercing across kinds (`1` vs `"1"`).
+const identityKind = (ctx: Ctx, schema: Internal): number | undefined => {
+  if (isLiteral(schema)) {
+    const c = schema.const;
+    const t = typeof c;
+    return t === "string"
+      ? 2
+      : t === "number"
+        ? c !== c
+          ? U
+          : 4
+        : t === "boolean"
+          ? 8
+          : t === "bigint"
+            ? 1024
+            : U;
+  }
+  const tagFlag = tagFlags[schema.type]!;
+  // `S.env` is tagged string and admits undefined, so `<` is not a total
+  // order on the values it holds.
+  if (schema.format === "env") return U;
+  if (tagFlag & (2 | 4 | 8 | 1024)) return tagFlag & (2 | 4 | 8 | 1024);
+  if (tagFlag & 256) {
+    const members = schema.anyOf!;
+    let kind: number | undefined;
+    for (let idx = 0; idx < members.length; idx++) {
+      const next = identityKind(ctx, members[idx]!);
+      if (next === U || (kind !== U && next !== kind)) return U;
+      kind = next;
+    }
+    return kind;
+  }
+  return U;
+};
+
 const unionExpr = (ctx: Ctx, schema: Internal, a: string, b: string): string => {
   const members = schema.anyOf!;
   // Covers `S.optional`/`S.nullable` of a primitive, enums, and any union of
   // plain literals.
-  if (isIdentity(ctx, schema)) return `${a}===${b}`;
+  if (isIdentity(ctx, schema)) {
+    const closed = ctx.k.identUnion(ctx, schema, a, b);
+    if (closed !== U) return closed;
+  }
 
   // A narrow can embed (a class to test with `instanceof`, a symbol const), and
   // a union that then falls back has no use for what it embedded. Rolling the
@@ -374,7 +522,9 @@ const unionExpr = (ctx: Ctx, schema: Internal, a: string, b: string): string => 
   // reads them. Safe to truncate: nothing else pushes until the arms are built,
   // which is after every fallback below.
   const embedMark = ctx.b.g.e.length;
-  const abandon = (): string => ((ctx.b.g.e.length = embedMark), deep(ctx, a, b));
+  const abandon = (): string => (
+    (ctx.b.g.e.length = embedMark), deep(ctx, schema, a, b)
+  );
   const narrows: string[] = [];
   const objects: Internal[] = [];
   for (let idx = 0; idx < members.length; idx++) {
@@ -430,11 +580,7 @@ const unionExpr = (ctx: Ctx, schema: Internal, a: string, b: string): string => 
   }
   if (nullish && rest === 1) {
     const present = nullish === 48 ? `${b}!=null` : `${b}!==${nullish & 32 ? "null" : "void 0"}`;
-    let out = and(present, eqExpr(ctx, members[restIdx]!, a, b)) || "true";
-    for (let idx = members.length - 1; idx >= 0; idx--)
-      if (idx !== restIdx)
-        out = `${applyNarrow(narrows[idx]!, a)}?${applyNarrow(narrows[idx]!, b)}:${out}`;
-    return `(${out})`;
+    return ctx.k.nullish(narrows, restIdx, eqExpr(ctx, members[restIdx]!, a, b), a, b, present);
   }
 
   // Distinct narrows are not disjoint ones, and an arm reads its member's
@@ -460,22 +606,17 @@ const unionExpr = (ctx: Ctx, schema: Internal, a: string, b: string): string => 
   const exclude = instanceNarrows.map((narrow) => `&&!(${narrow})`).join("");
   for (let at = 0; at < objectTagged.length; at++) narrows[objectTagged[at]!] += exclude;
 
-  // `narrow(a) ? narrow(b) && eq : …`. The last arm still tests `b`: `a` being
-  // that member says nothing about which member `b` is. Parenthesized because
-  // `?:` binds looser than every operator a caller splices this into.
-  let out = "";
-  for (let idx = members.length - 1; idx >= 0; idx--) {
-    const arm = and(applyNarrow(narrows[idx]!, b), eqExpr(ctx, members[idx]!, a, b)) || "true";
-    out = out === "" ? arm : `${applyNarrow(narrows[idx]!, a)}?${arm}:${out}`;
-  }
-  // A narrow on `b` sits in value position, where `&&` yields the operand that
-  // failed rather than `false`. Every conjunct `typeCheckCond` writes is a
-  // comparison except that same bare value, so an object member is also the one
-  // - and only - narrow whose arm can answer `null` instead of a boolean.
-  // Coerced here rather than around the whole body, which would pay for it at
-  // every union.
-  const coerce = objectTagged.length > 0;
-  return members.length > 1 || coerce ? `${coerce ? "!!" : ""}(${out})` : out;
+  // A union that dispatches reads its members off a type narrow, and a narrow
+  // is a branch where compare answers with a chain. The two unions compare does
+  // answer for returned above, before any of this.
+  return eqOnly(ctx, schema).union(
+    narrows,
+    objectTagged,
+    members,
+    (s, x, y) => eqExpr(ctx, s, x, y),
+    a,
+    b,
+  );
 };
 
 const refExpr = (ctx: Ctx, schema: Internal, a: string, b: string): string => {
@@ -483,9 +624,11 @@ const refExpr = (ctx: Ctx, schema: Internal, a: string, b: string): string => {
   // comparison already covers, and unrolling its `$ref` cycle would emit a
   // comparator for each arm of it.
   const def = schema.name === jsonName ? U : ctx.d?.[schema["$ref"]!.slice(8)];
-  if (def === U) return deep(ctx, a, b);
+  if (def === U) return deep(ctx, schema, a, b);
+  // A def compiles to its own function and is called, not inlined.
+  eqOnly(ctx, schema);
   const flag = ctx.b.g.o;
-  const existing = findOpNode(def, eqOp, def, flag);
+  const existing = findOpNode(def, ctx.op, def, flag);
   if (existing !== U) {
     // `v === 0` is a def still being compiled, a self-reference. The NODE is
     // embedded, so the call reaches whatever it ends up holding.
@@ -493,9 +636,9 @@ const refExpr = (ctx: Ctx, schema: Internal, a: string, b: string): string => {
       ? `${B_embedPure(ctx.b, existing)}.v(${a},${b})`
       : `${B_embedPure(ctx.b, existing.v)}(${a},${b})`;
   }
-  const node = addOpNode(def, [eqOp, def], flag, 0);
+  const node = addOpNode(def, [ctx.op, def], flag, 0);
   try {
-    node.v = compile(def, flag) as unknown as OpNode["v"];
+    node.v = compile(def, flag, ctx.op, ctx.k) as unknown as OpNode["v"];
   } catch (exn) {
     // A node left at the sentinel would read as a live circular reference on
     // the next attempt, and calling 0 is what that would compile to.
@@ -513,10 +656,8 @@ const eqExpr = (ctx: Ctx, schema: Internal, a: string, b: string): string => {
   // A literal, `S.nan` included: both values are the one the schema admits.
   if (isLiteral(schema)) return "";
   const tagFlag = tagFlags[schema.type]!;
-  // string 2, boolean 8, undefined 16, null 32, bigint 1024, symbol 16384
-  if (tagFlag & (2 | 8 | 16 | 32 | 1024 | 16384)) return `${a}===${b}`;
-  // number 4: NaN reaches a value only when its validation is off (flag 2).
-  if (tagFlag & 4) return ctx.b.g.o & 2 ? sameValueZero(a, b) : `${a}===${b}`;
+  // string 2, number 4, boolean 8, undefined 16, null 32, bigint 1024, symbol 16384
+  if (tagFlag & (2 | 4 | 8 | 16 | 32 | 1024 | 16384)) return ctx.k.prim(ctx, schema, a, b);
   if (tagFlag & 64) return objectExpr(ctx, schema, a, b);
   if (tagFlag & 128) return arrayExpr(ctx, schema, a, b);
   if (tagFlag & 256) return unionExpr(ctx, schema, a, b);
@@ -524,31 +665,175 @@ const eqExpr = (ctx: Ctx, schema: Internal, a: string, b: string): string => {
     const kind = valueClass(schema.class);
     // `+date` is `getTime()`; an invalid one reads NaN, which the `===` the top
     // level opens with is what keeps reflexive.
-    if (kind === 1) return `+${a}===+${b}`;
-    if (kind === 2) return `${a}.href===${b}.href`;
+    if (kind === 1) return ctx.k.date(a, b);
+    if (kind === 2) return ctx.k.url(a, b);
     if (kind === 3) return call(indexedFn(ctx, schema, U, 0), a, b);
-    return kind ? deep(ctx, a, b) : `${a}===${b}`;
+    if (kind) return deep(ctx, schema, a, b);
+    // Nothing but its identity to compare: equal or not, never ordered.
+    return eqOnly(ctx, schema).ident(a, b);
   }
   if (tagFlag & 512) return refExpr(ctx, schema, a, b);
-  // unknown 1, function 4096, never 32768.
-  return deep(ctx, a, b);
+  // unknown 1, nan 2048, function 4096, never 32768.
+  return deep(ctx, schema, a, b);
 };
 
-// The three bodies a schema with no structure to walk compiles to, written out
-// rather than evaluated: every primitive, literal and opaque instance lands on
-// one of them, so this is most schemas, and `noopOperation` (builder.ts) is the
-// same trade for the identity decoder. A caller sees a shared function where it
-// would otherwise see a fresh one, which only shows in `===` on the operation
-// itself, never in an answer.
 const alwaysEqual: IsEqual = () => true;
 const strictEqual: IsEqual = (a, b) => a === b;
-// NaN is the one value `===` can't match, so a position that admits one needs
-// SameValueZero. Reached only with number validation off (flag 2).
 const sameValueZeroEqual: IsEqual = (a, b) => a === b || (a !== a && b !== b);
+const alwaysCompare: Compare = () => 0;
+const strictCompare: Compare = (a, b) =>
+  (a as number) < (b as number) ? -1 : (a as number) > (b as number) ? 1 : 0;
+const nanCompare: Compare = (a, b) =>
+  (a as number) < (b as number)
+    ? -1
+    : (a as number) > (b as number)
+      ? 1
+      : a === b || (a !== a && b !== b)
+        ? 0
+        : a !== a
+          ? -1
+          : 1;
 
-const compile = (schema: Internal, flag: Flag): IsEqual => {
+const eqIndex = (element: string, from: number): string =>
+  `let n=a.length;if(n!==b.length)return false;` +
+  (element ? `for(let i=${from};i<n;i++)if(!(${element}))return false;` : ``) +
+  `return true`;
+
+const eqDict = (walk: (a: string, b: string) => string): string => {
+  const element = walk("a[k]", "b[k]");
+  return (
+    `let n=0;for(const k in a){if(!(k in b)` +
+    (element ? `||!(${element})` : ``) +
+    `)return false;n++}for(const k in b)n--;return !n`
+  );
+};
+
+const eqPrim = (ctx: Ctx, schema: Internal, a: string, b: string): string => {
+  const tagFlag = tagFlags[schema.type]!;
+  if (tagFlag & 4) return ctx.b.g.o & 2 ? sameValueZero(a, b) : eqPair(a, b);
+  return eqPair(a, b);
+};
+
+const cmpPrim = (ctx: Ctx, schema: Internal, a: string, b: string): string => {
+  const tagFlag = tagFlags[schema.type]!;
+  if (tagFlag & 4) return ctx.b.g.o & 2 ? nanOrdLeaf(a, b) : ordLeaf(a, b);
+  if (tagFlag & (16 | 32)) return "";
+  // symbol 16384: `<` on two symbols is a TypeError, so this one is refused at
+  // the leaf rather than by a walk branch. A symbol LITERAL is one value and
+  // never reaches here.
+  if (tagFlag & 16384) unorderable(schema);
+  if (tagFlag & 2 && schema.format === "env") return envOrd(a, b);
+  return ordLeaf(a, b);
+};
+
+const eqNullish = (
+  narrows: string[],
+  restIdx: number,
+  rest: string,
+  a: string,
+  b: string,
+  present: string,
+): string => {
+  let out = and(present, rest) || "true";
+  for (let idx = narrows.length - 1; idx >= 0; idx--)
+    if (idx !== restIdx)
+      out = `${applyNarrow(narrows[idx]!, a)}?${applyNarrow(narrows[idx]!, b)}:${out}`;
+  return `(${out})`;
+};
+
+const cmpNullish = (
+  narrows: string[],
+  restIdx: number,
+  rest: string,
+  a: string,
+  b: string,
+  _present: string,
+): string => {
+  let out = rest || "0";
+  for (let idx = narrows.length - 1; idx >= 0; idx--)
+    if (idx !== restIdx) {
+      const na = applyNarrow(narrows[idx]!, a);
+      const nb = applyNarrow(narrows[idx]!, b);
+      out = `${na}?${nb}?0:-1:${nb}?1:${out}`;
+    }
+  return `(${out})`;
+};
+
+const eqUnion = (
+  narrows: string[],
+  objectTagged: number[],
+  members: Internal[],
+  walk: Walk,
+  a: string,
+  b: string,
+): string => {
+  let out = "";
+  for (let idx = members.length - 1; idx >= 0; idx--) {
+    const arm = and(applyNarrow(narrows[idx]!, b), walk(members[idx]!, a, b)) || "true";
+    out = out === "" ? arm : `${applyNarrow(narrows[idx]!, a)}?${arm}:${out}`;
+  }
+  // A narrow on `b` sits in value position, where `&&` yields the operand that
+  // failed rather than `false`. Every conjunct `typeCheckCond` writes is a
+  // comparison except that same bare value, so an object member is also the one
+  // - and only - narrow whose arm can answer `null` instead of a boolean.
+  const coerce = objectTagged.length > 0;
+  return members.length > 1 || coerce ? `${coerce ? "!!" : ""}(${out})` : out;
+};
+
+const identUnionCmp = (ctx: Ctx, schema: Internal, a: string, b: string): string | undefined => {
+  const kind = identityKind(ctx, schema);
+  return kind !== U ? ordLeaf(a, b) : U;
+};
+
+const eqMode: Mode = {
+  join: and,
+  prim: eqPrim,
+  elem: eqPair,
+  date: (a, b) => `+${a}===+${b}`,
+  url: (a, b) => `${a}.href===${b}.href`,
+  ident: eqPair,
+  index: eqIndex,
+  dict: eqDict,
+  identUnion: (_ctx, _schema, a, b) => eqPair(a, b),
+  nullish: eqNullish,
+  union: eqUnion,
+  yes: "true",
+  wrapPrefix: "a===b||",
+  always: alwaysEqual,
+  strict: strictEqual,
+  nan: sameValueZeroEqual,
+  strictExpr: "a===b",
+  nanExpr: "(a===b||a!=a&&b!=b)",
+  deep: deepEqual,
+};
+
+const unorderable = (schema: Internal): never =>
+  panic(
+    `Can't compare ${inputExpression(schema)}. Only primitives, Date, URL and tuples ` +
+      `of them are orderable. Use isEqual for equality`,
+  );
+
+const cmpMode: Mode = {
+  join: joinOrd,
+  prim: cmpPrim,
+  // Two invalid dates are two NaNs; `+a===+b` is false, matching isEqual.
+  date: (a, b) => `+${a}<+${b}?-1:+${a}>+${b}?1:+${a}===+${b}?0:1`,
+  url: (a, b) => ordLeaf(`${a}.href`, `${b}.href`),
+  reject: unorderable,
+  identUnion: identUnionCmp,
+  nullish: cmpNullish,
+  yes: "0",
+  wrapPrefix: "a===b?0:",
+  always: alwaysCompare,
+  strict: strictCompare,
+  nan: nanCompare,
+  strictExpr: "a<b?-1:a>b?1:0",
+  nanExpr: "a<b?-1:a>b?1:a===b||a!=a&&b!=b?0:a!=a?-1:1",
+};
+
+const compile = (schema: Internal, flag: Flag, op: Internal, mode: Mode): IsEqual | Compare => {
   const b = B_operationArg(schema, schema, flag, U);
-  const ctx: Ctx = { b, d: U, m: new Map(), q: "", root: schema, inline: "" };
+  const ctx: Ctx = { b, d: U, h: new Map(), q: "", root: schema, inline: "", op, k: mode };
   const expr = eqExpr(ctx, schema, "a", "b");
   // A root array, dict or typed array is one hoisted call and nothing else, and
   // at the root that call buys nothing: the function it points at IS the body.
@@ -556,24 +841,22 @@ const compile = (schema: Internal, flag: Flag): IsEqual => {
   // loop inside the conjunction an object compiles to are a closure per call or
   // no inlining at all.
   if (ctx.inline)
-    return new Function("e", `return (a,b)=>{if(a===b)return true;${ctx.inline}}`)(b.g.e) as IsEqual;
-  if (expr === "") return alwaysEqual;
-  if (expr === "a===b") return strictEqual;
-  if (expr === sameValueZero("a", "b")) return sameValueZeroEqual;
-  // `a===b` first for everything with structure: it answers the identical-value
-  // case in one comparison, and it is what keeps reflexivity for a value the
-  // schema's own emit can't compare (a Blob, an opaque instance).
-  return new Function("e", `return (a,b)=>a===b||${expr}`)(b.g.e) as IsEqual;
+    return new Function("e", `return (a,b)=>{if(a===b)return ${mode.yes};${ctx.inline}}`)(
+      b.g.e,
+    ) as IsEqual | Compare;
+  if (expr === "") return mode.always;
+  if (expr === mode.strictExpr) return mode.strict;
+  if (expr === mode.nanExpr) return mode.nan;
+  return new Function("e", `return (a,b)=>${mode.wrapPrefix}${expr}`)(b.g.e) as IsEqual | Compare;
 };
 
-// @__NO_SIDE_EFFECTS__
-export const compileIsEqual = (schema: Internal): IsEqual => {
+const compileOp = (schema: Internal, op: Internal, mode: Mode): IsEqual | Compare => {
   const flag = globalConfig.f;
-  const existing = findOpNode(schema, eqOp, schema, flag);
-  if (existing !== U && existing.v !== 0) return existing.v as unknown as IsEqual;
-  const node = addOpNode(schema, [eqOp, schema], flag, 0);
+  const existing = findOpNode(schema, op, schema, flag);
+  if (existing !== U && existing.v !== 0) return existing.v as unknown as IsEqual | Compare;
+  const node = addOpNode(schema, [op, schema], flag, 0);
   try {
-    const fn = compile(schema, flag);
+    const fn = compile(schema, flag, op, mode);
     node.v = fn as unknown as OpNode["v"];
     return fn;
   } catch (exn) {
@@ -581,3 +864,11 @@ export const compileIsEqual = (schema: Internal): IsEqual => {
     throw exn;
   }
 };
+
+// @__NO_SIDE_EFFECTS__
+export const compileIsEqual = (schema: Internal): IsEqual =>
+  compileOp(schema, eqOp, eqMode) as IsEqual;
+
+// @__NO_SIDE_EFFECTS__
+export const compileCompare = (schema: Internal): Compare =>
+  compileOp(schema, cmpOp, cmpMode) as Compare;

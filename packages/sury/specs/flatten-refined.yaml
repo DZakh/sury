@@ -9,6 +9,7 @@ jsonSchema:
   fromInputType: "{ n: number; }"
   output: '{ type: "object", properties: { n: { type: "number", minimum: 3 } }, required: ["n"] }'
 isEqual: (a,b)=>a===b||a.n===b.n
+compare: "throws: [Sury] Can't compare { n: number >= 3; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

@@ -8,6 +8,7 @@ jsonSchema:
   input: Expected JSON, received symbol
   output: Expected JSON, received symbol
 isEqual: strictEqual
+compare: "throws: [Sury] Can't compare symbol. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod: z.symbol()
 operations:

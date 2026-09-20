@@ -13,6 +13,7 @@ jsonSchema:
     input: '{ type: "string", nullable: true }'
     output: '{ type: "string", nullable: true }'
 isEqual: strictEqual
+compare: (a,b)=>a===b?0:(a===null?b===null?0:-1:b===null?1:a<b?-1:a>b?1:0)
 vs:
   zod: z.string().nullable()
 operations:

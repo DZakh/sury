@@ -12,6 +12,9 @@ jsonSchema:
 isEqual:
   input: strictEqual
   output: (a,b)=>a===b||(a.t==="a"?b.t==="a"&&a.inner.id===b.inner.id&&a.note===b.note:b.t==="b")
+compare:
+  input: strictCompare
+  output: "throws: [Sury] Can't compare { t: \"a\"; inner: { id: bigint; }; note: string | undefined; } | { t: \"b\"; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

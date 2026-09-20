@@ -8,6 +8,7 @@ jsonSchema:
   input: '{ type: "number" }'
   output: '{ type: "number" }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod: z.number()
 operations:

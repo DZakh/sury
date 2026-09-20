@@ -8,6 +8,7 @@ jsonSchema:
   input: '{ type: "string", format: "uuid" }'
   output: '{ type: "string", format: "uuid" }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod: z.guid()
 operations:

@@ -12,6 +12,9 @@ jsonSchema:
 isEqual:
   input: (a,b)=>a===b||(a.type==="user.created"?b.type==="user.created"&&a.id===b.id:b.type==="user.renamed"&&a.id===b.id&&a.name===b.name)
   output: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare { type: \"user.created\"; id: bigint; } | { type: \"user.renamed\"; id: bigint; name: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: strictCompare
 vs:
   zod:
     _skip: not-applicable

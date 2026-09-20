@@ -8,6 +8,7 @@ jsonSchema:
   input: "Expected JSON, received { x: string; } | Date"
   output: "Expected JSON, received { x: string; } | Date"
 isEqual: (a,b)=>a===b||!!(typeof a==="object"&&a&&!Array.isArray(a)&&!(a instanceof e[0])?typeof b==="object"&&b&&!Array.isArray(b)&&!(b instanceof e[0])&&a.x===b.x:b instanceof e[0]&&+a===+b)
+compare: "throws: [Sury] Can't compare { x: string; } | Date. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

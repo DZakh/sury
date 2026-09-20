@@ -11,6 +11,7 @@ jsonSchema:
     input: "{ enum: [null] }"
     output: "{ enum: [null] }"
 isEqual: alwaysEqual
+compare: alwaysCompare
 vs:
   zod: z.null()
 operations:

@@ -8,6 +8,7 @@ jsonSchema:
   input: '{ type: "number" }'
   output: '{ type: "string", minLength: 2 }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod:
     _skip: not-applicable

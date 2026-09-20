@@ -11,6 +11,7 @@ jsonSchema:
     input: '{ anyOf: [{ type: "string" }, { type: "object", properties: { kind: { type: "string", enum: ["k0"] } }, required: ["kind"] }] }'
     output: '{ anyOf: [{ type: "string" }, { type: "object", properties: { kind: { type: "string", enum: ["k0"] } }, required: ["kind"] }] }'
 isEqual: (a,b)=>a===b||!!(typeof a==="string"?typeof b==="string"&&a===b:typeof b==="object"&&b&&!Array.isArray(b))
+compare: "throws: [Sury] Can't compare JSON string | { kind: \"k0\"; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

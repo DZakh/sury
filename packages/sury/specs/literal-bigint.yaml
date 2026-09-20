@@ -10,6 +10,7 @@ jsonSchema:
   input: Expected JSON, received 123n
   output: Expected JSON, received 123n
 isEqual: alwaysEqual
+compare: alwaysCompare
 vs:
   zod: z.literal(123n)
 operations:

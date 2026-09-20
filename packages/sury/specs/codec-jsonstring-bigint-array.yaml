@@ -12,12 +12,15 @@ jsonSchema:
 isEqual:
   input: strictEqual
   output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: strictCompare
+  output: "throws: [Sury] Can't compare bigint[]. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="string"||e[4](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}Array.isArray(v0)||e[3](v0);let v5=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){try{let v3=v0[v1];typeof v3==="string"||e[2](v3);let v2;try{v2=BigInt(v3)}catch(_){e[1](v3)}v2||v3.trim()||e[1](v3);v5[v1]=v2}catch(v4){v4.path=[v1,...v4.path];throw v4}}return v5}catch(v6){e[5](v6)}}
+    expression: i=>{try{typeof i==="string"||e[4](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}Array.isArray(v0)||e[3](v0);let v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){let v3=v0[v1];typeof v3==="string"||e[2](v3,[v1]);let v2;try{v2=BigInt(v3)}catch(_){e[1](v3,[v1])}v2||v3.trim()||e[1](v3,[v1]);v4[v1]=v2}return v4}catch(v5){e[5](v5)}}
     examples:
       valid:
         input: '"[\"123\"]"'
@@ -26,13 +29,13 @@ operations:
         input: '"[\"abc\"]"'
         error: 'Failed at [0]: Expected bigint, received "abc"'
   decode:
-    expression: i=>{try{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}Array.isArray(v0)||e[3](v0);let v5=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){try{let v3=v0[v1];typeof v3==="string"||e[2](v3);let v2;try{v2=BigInt(v3)}catch(_){e[1](v3)}v2||v3.trim()||e[1](v3);v5[v1]=v2}catch(v4){v4.path=[v1,...v4.path];throw v4}}return v5}catch(v6){e[4](v6)}}
+    expression: i=>{try{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}Array.isArray(v0)||e[3](v0);let v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){let v3=v0[v1];typeof v3==="string"||e[2](v3,[v1]);let v2;try{v2=BigInt(v3)}catch(_){e[1](v3,[v1])}v2||v3.trim()||e[1](v3,[v1]);v4[v1]=v2}return v4}catch(v5){e[4](v5)}}
     examples:
       valid:
         input: '"[\"123\"]"'
         output: "[123n]"
   encode:
-    expression: i=>{let v2="";for(let v1=0;v1<i.length;++v1){v2+=(v1?",":"")+"\""+i[v1]+"\""}return "["+v2+"]"}
+    expression: i=>{let v1="";for(let v0=0;v0<i.length;++v0){v1+=(v0?",":"")+"\""+i[v0]+"\""}return "["+v1+"]"}
     examples:
       valid:
         input: "[123n]"

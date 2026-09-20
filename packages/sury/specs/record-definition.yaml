@@ -8,11 +8,12 @@ jsonSchema:
   input: '{ type: "object", additionalProperties: { type: "object", properties: { n: { type: "number" } }, required: ["n"] } }'
   output: '{ type: "object", additionalProperties: { type: "object", properties: { n: { type: "number" } }, required: ["n"] } }'
 isEqual: (a,b)=>{if(a===b)return true;let n=0;for(const k in a){if(!(k in b)||!(a[k].n===b[k].n))return false;n++}for(const k in b)n--;return !n}
+compare: "throws: [Sury] Can't compare { [key: string]: { n: number; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod: "z.record(z.string(), z.object({ n: z.number() }))"
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v4={};for(let v0 in i){try{let v1=i[v0];typeof v1==="object"&&v1&&!Array.isArray(v1)||e[1](v1);let v2=v1.n;typeof v2==="number"&&v2==v2||e[0](v2);v4[v0]={n:v2}}catch(v3){v3.path=[v0,...v3.path];throw v3}}return v4}catch(v5){e[3](v5)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v3={};for(let v0 in i){let v1=i[v0];typeof v1==="object"&&v1&&!Array.isArray(v1)||e[1](v1,[v0]);let v2=v1.n;typeof v2==="number"&&v2==v2||e[0](v2,[v0,"n"]);v3[v0]={n:v2}}return v3}catch(v4){e[3](v4)}}
     examples:
       valid:
         input: "{ a: { n: 1 } }"

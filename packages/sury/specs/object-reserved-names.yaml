@@ -10,6 +10,7 @@ jsonSchema:
   input: '{ type: "object", properties: { constructor: { type: "string" }, hasOwnProperty: { type: "number" } }, required: ["constructor", "hasOwnProperty"] }'
   output: '{ type: "object", properties: { constructor: { type: "string" }, hasOwnProperty: { type: "number" } }, required: ["constructor", "hasOwnProperty"] }'
 isEqual: (a,b)=>a===b||a.constructor===b.constructor&&a.hasOwnProperty===b.hasOwnProperty
+compare: "throws: [Sury] Can't compare { constructor: string; hasOwnProperty: number; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod: "z.object({ constructor: z.string(), hasOwnProperty: z.number() })"
 operations:

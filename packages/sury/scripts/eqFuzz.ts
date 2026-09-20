@@ -1,4 +1,4 @@
-// `S.isEqualInput` / `S.isEqualOutput` fuzzer.
+// `S.isEqualInput` / `S.isEqualOutput` / `S.compareInput` / `S.compareOutput` fuzzer.
 //
 //   pnpm --filter=sury fuzz:eq
 //   pnpm --filter=sury fuzz:eq --seeds=40 --cases=2000
@@ -20,6 +20,15 @@
 //   transitive   equal to the same value means equal to each other.
 //   oracle       agrees with a structural walk written here, without reference
 //                to the schema.
+//   compare-zero `compare(a,b)===0` exactly when `isEqual(a,b)`. The two
+//                compiles share a walker; this is the invariant that sharing
+//                exists to keep.
+//   antisymmetric `compare(a,b)` is `-compare(b,a)`. What makes the answer a
+//                sort comparator rather than a difference test, and the reason
+//                compare refuses the schemas it has no order for: a schema it
+//                accepts has to hold this for every pair. A schema it refuses
+//                is skipped for the compare properties and checked for the
+//                rest.
 //   duality      `isEqualInput(schema)` is `isEqualOutput(reverse(schema))`.
 //                One comparator, reached two ways.
 //   congruence   two inputs the Input side calls equal decode to two outputs
@@ -325,6 +334,7 @@ for (let c = 0; c < cases * seeds; c++) {
 
   let isEqualOutput: (a: unknown, b: unknown) => boolean;
   let isEqualInput: (a: unknown, b: unknown) => boolean;
+  let compareOutput: ((a: unknown, b: unknown) => number) | undefined;
   let conforms: (v: unknown) => boolean;
   try {
     isEqualOutput = S.isEqualOutput(schema as never) as (a: unknown, b: unknown) => boolean;
@@ -333,6 +343,16 @@ for (let c = 0; c < cases * seeds; c++) {
   } catch (error) {
     report(`${id}: compile`, `building the comparator threw - ${(error as Error).message.split("\n")[0]}`);
     continue;
+  }
+  // A schema with no order is refused when the comparator is compiled, which
+  // is the contract every spec of such a schema pins. Anything else thrown here
+  // is a finding.
+  try {
+    compareOutput = S.compareOutput(schema as never) as (a: unknown, b: unknown) => number;
+  } catch (error) {
+    const message = (error as Error).message;
+    if (!message.startsWith("[Sury] Can't compare "))
+      report(`${id}: compile`, `building the comparator threw - ${message.split("\n")[0]}`);
   }
 
   // The same slot sampled twice, from two rngs on one seed: two values built
@@ -387,6 +407,7 @@ for (let c = 0; c < cases * seeds; c++) {
   if (reflexive) holds(`${id}: reflexive`);
 
   let symmetric = true;
+  let antisymmetric = compareOutput !== undefined;
   let agrees = true;
   for (let i = 0; i < values.length; i++) {
     for (let j = 0; j < values.length; j++) {
@@ -412,12 +433,38 @@ for (let c = 0; c < cases * seeds; c++) {
         agrees = false;
         report(
           `${id}: oracle`,
-          `answered ${forward} for ${show(a)} vs ${show(b)}, a structural walk says ${want}`,
+          `${show(a)} vs ${show(b)}: comparator ${forward}, structural ${want}`,
+        );
+      }
+      if (compareOutput === undefined) continue;
+      let cmp: unknown;
+      let cmpBack: unknown;
+      try {
+        cmp = compareOutput(a, b);
+        cmpBack = compareOutput(b, a);
+      } catch (error) {
+        report(`${id}: compare-zero`, `threw - ${(error as Error).message.split("\n")[0]}`);
+        continue;
+      }
+      if (cmp !== -1 && cmp !== 0 && cmp !== 1) {
+        report(`${id}: compare-zero`, `${show(a)} vs ${show(b)} answered ${show(cmp)}, not -1|0|1`);
+      } else if ((cmp === 0) !== want) {
+        report(
+          `${id}: compare-zero`,
+          `${show(a)} vs ${show(b)}: compare ${show(cmp)}, isEqual ${forward}`,
+        );
+      }
+      if (cmp !== -(cmpBack as number)) {
+        antisymmetric = false;
+        report(
+          `${id}: antisymmetric`,
+          `${show(a)} vs ${show(b)}: compare ${show(cmp)} one way and ${show(cmpBack)} the other`,
         );
       }
     }
   }
   if (symmetric) holds(`${id}: symmetric`);
+  if (antisymmetric) holds(`${id}: antisymmetric`);
   if (agrees) holds(`${id}: oracle`);
 
   let transitive = true;

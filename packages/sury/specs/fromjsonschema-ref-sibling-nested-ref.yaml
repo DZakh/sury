@@ -8,6 +8,7 @@ jsonSchema:
   input: '{ type: "object", allOf: [{ type: "object", properties: { child: { type: "string" } }, required: ["child"] }] }'
   output: '{ type: "object", allOf: [{ type: "object", properties: { child: { type: "string" } }, required: ["child"] }] }'
 isEqual: (a,b)=>{if(a===b)return true;let n=0;for(const k in a){if(!(k in b)||!(e[0](a[k],b[k])))return false;n++}for(const k in b)n--;return !n}
+compare: "throws: [Sury] Can't compare { [key: string]: JSON; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

@@ -12,6 +12,9 @@ jsonSchema:
 isEqual:
   input: strictEqual
   output: (a,b)=>a===b||!!(Array.isArray(a)?Array.isArray(b)&&a[0]===b[0]&&a[1]===b[1]:typeof b==="object"&&b&&!Array.isArray(b)&&a.id===b.id)
+compare:
+  input: strictCompare
+  output: "throws: [Sury] Can't compare [bigint, string] | { t: \"x\"; id: bigint; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

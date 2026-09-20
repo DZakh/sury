@@ -13,6 +13,7 @@ jsonSchema:
     input: '{ type: "boolean", enum: [true] }'
     output: '{ type: "boolean", enum: [true] }'
 isEqual: alwaysEqual
+compare: alwaysCompare
 vs:
   zod: z.literal(true)
 operations:

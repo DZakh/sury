@@ -13,12 +13,15 @@ jsonSchema:
 isEqual:
   input: (a,b)=>a===b||e[0](a,b)
   output: (a,b)=>a===b||e[0](a.picks,b.picks)&&a.maybe===b.maybe
+compare:
+  input: "throws: [Sury] Can't compare FormData. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { terms: true; picks: string[].length >= 1; maybe: boolean | null; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{i instanceof e[6]||e[7](i);let v0=e[0](i),v1=v0.get("terms"),v2=e[2](v0.get("picks")),v6=v0.get("maybe");v1==="on"||v1==="true"||e[1](v1);for(let v3=0;v3<v2.length;++v3){try{let v4=v2[v3];typeof v4==="string"||e[3](v4);}catch(v5){v5.path=["picks",v3,...v5.path];throw v5}}v2.length>0||e[4](v2);if(v6){let v7=v6==="on"||v6==="true"||(v6==="false"||!v6?false:e[5](v6));v6=v7;}else{v6=null}return {terms:true,picks:v2,maybe:v6}}catch(v8){e[8](v8)}}
+    expression: i=>{try{i instanceof e[6]||e[7](i);let v0=e[0](i),v1=v0.get("terms"),v2=e[2](v0.get("picks")),v5=v0.get("maybe");v1==="on"||v1==="true"||e[1](v1);for(let v3=0;v3<v2.length;++v3){let v4=v2[v3];typeof v4==="string"||e[3](v4,["picks",v3]);}v2.length>0||e[4](v2);if(v5){let v6=v5==="on"||v5==="true"||(v5==="false"||!v5?false:e[5](v5));v5=v6;}else{v5=null}return {terms:true,picks:v2,maybe:v5}}catch(v7){e[8](v7)}}
     examples:
       checked:
         input: ((f) => (f.append("terms", "on"), f.append("picks", "a"), f.append("picks", "b"), f.append("maybe", "on"), f))(new FormData())
@@ -30,7 +33,7 @@ operations:
         input: ((f) => (f.append("terms", "on"), f.append("picks", "a"), f))(new FormData())
         output: '{ terms: true, picks: ["a"], maybe: null }'
   decode:
-    expression: i=>{try{let v0=e[0](i),v1=v0.get("terms"),v2=e[2](v0.get("picks")),v6=v0.get("maybe");v1==="on"||v1==="true"||e[1](v1);for(let v3=0;v3<v2.length;++v3){try{let v4=v2[v3];typeof v4==="string"||e[3](v4);}catch(v5){v5.path=["picks",v3,...v5.path];throw v5}}v2.length>0||e[4](v2);if(v6){let v7=v6==="on"||v6==="true"||(v6==="false"||!v6?false:e[5](v6));v6=v7;}else{v6=null}return {terms:true,picks:v2,maybe:v6}}catch(v8){e[6](v8)}}
+    expression: i=>{try{let v0=e[0](i),v1=v0.get("terms"),v2=e[2](v0.get("picks")),v5=v0.get("maybe");v1==="on"||v1==="true"||e[1](v1);for(let v3=0;v3<v2.length;++v3){let v4=v2[v3];typeof v4==="string"||e[3](v4,["picks",v3]);}v2.length>0||e[4](v2);if(v5){let v6=v5==="on"||v5==="true"||(v5==="false"||!v5?false:e[5](v5));v5=v6;}else{v5=null}return {terms:true,picks:v2,maybe:v5}}catch(v7){e[6](v7)}}
     examples:
       checked:
         input: ((f) => (f.append("terms", "on"), f.append("picks", "a"), f))(new FormData())

@@ -8,6 +8,9 @@ jsonSchema:
   input: Expected JSON, received string.length >= 2 | undefined
   output: '{ type: "string", minLength: 2 }'
 isEqual: strictEqual
+compare:
+  input: (a,b)=>a===b?0:(a===void 0?b===void 0?0:-1:b===void 0?1:a<b?-1:a>b?1:0)
+  output: strictCompare
 vs:
   zod:
     _skip: not-applicable

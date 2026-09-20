@@ -8,6 +8,7 @@ jsonSchema:
   input: '{ type: "string", format: "uri-reference" }'
   output: '{ type: "string", format: "uri-reference" }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod:
     _skip: not-applicable

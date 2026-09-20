@@ -14,6 +14,9 @@ jsonSchema:
 isEqual:
   input: (a,b)=>a===b||a.id===b.id&&a.at===b.at&&a.note===b.note
   output: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare { id: uuid; at: date-time; note: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: strictCompare
 vs:
   zod:
     _skip: not-applicable

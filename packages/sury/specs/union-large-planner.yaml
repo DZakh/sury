@@ -8,6 +8,9 @@ jsonSchema:
   input: "Failed at value: Expected JSON, received bigint"
   output: "Failed at value: Expected JSON, received bigint"
 isEqual: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare \"literal-0\" | \"literal-1\" | \"literal-2\" | \"literal-3\" | \"literal-4\" | \"literal-5\" | \"literal-6\" | \"literal-7\" | { kind: \"number\"; value: number; } | { kind: \"string\"; value: string; } | { kind: \"boolean\"; value: boolean; } | { kind: \"bigint\"; value: bigint; } | Date | Error | TypeError | string.length >= 12 | number | string | number | boolean | bigint | symbol | null | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare \"literal-0\" | \"literal-1\" | \"literal-2\" | \"literal-3\" | \"literal-4\" | \"literal-5\" | \"literal-6\" | \"literal-7\" | { kind: \"number\"; value: number; } | { kind: \"string\"; value: string; } | { kind: \"boolean\"; value: boolean; } | { kind: \"bigint\"; value: bigint; } | string | string.length >= 12 | number | number | boolean | bigint | symbol | null | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

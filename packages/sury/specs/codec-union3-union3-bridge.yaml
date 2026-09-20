@@ -8,6 +8,9 @@ jsonSchema:
   input: Expected JSON, received bigint | number | null
   output: Expected JSON, received bigint | number | undefined
 isEqual: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare bigint | number | null. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare bigint | number | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

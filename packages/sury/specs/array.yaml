@@ -8,11 +8,12 @@ jsonSchema:
   input: '{ items: { type: "string" }, type: "array" }'
   output: '{ items: { type: "string" }, type: "array" }'
 isEqual: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare: "throws: [Sury] Can't compare string[]. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod: z.array(z.string())
 operations:
   parse:
-    expression: i=>{try{Array.isArray(i)||e[1](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path=[v0,...v2.path];throw v2}}return i}catch(v3){e[2](v3)}}
+    expression: i=>{try{Array.isArray(i)||e[1](i);for(let v0=0;v0<i.length;++v0){let v1=i[v0];typeof v1==="string"||e[0](v1,[v0]);}return i}catch(v2){e[2](v2)}}
     examples:
       valid:
         input: '["foo"]'

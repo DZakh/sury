@@ -23,6 +23,7 @@ import {
   panic,
   type Path,
   pathConcat,
+  compilePath,
   pathEmpty,
   pathToText,
   setHas,
@@ -441,7 +442,7 @@ const assembleShapedObject = (
   } else {
     panic(
       `Don't know where the value is coming from: ${inputExpression(schema)}` +
-        (input.path.length ? ` at ${pathToText(input.path)}` : "")
+        (input.path.length ? ` at ${pathToText(compilePath(input.path))}` : "")
     );
   }
   return completeObjectVal(output);

@@ -10,6 +10,7 @@ jsonSchema:
   input: Expected JSON, received Symbol(tuna)
   output: Expected JSON, received Symbol(tuna)
 isEqual: alwaysEqual
+compare: alwaysCompare
 vs:
   zod:
     _skip: not-applicable

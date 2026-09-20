@@ -43,7 +43,7 @@ module CommonWithNested = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{try{Array.isArray(i)||e[1](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path=[v0,...v2.path];throw v2}}return i}catch(v3){e[2](v3)}}`,
+      `i=>{try{Array.isArray(i)||e[1](i);for(let v0=0;v0<i.length;++v0){let v1=i[v0];typeof v1==="string"||e[0](v1,[v0]);}return i}catch(v2){e[2](v2)}}`,
     )
   })
 
@@ -55,7 +55,7 @@ module CommonWithNested = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ParseAsync,
-      `i=>{try{try{Array.isArray(i)||e[2](i);let v3=new Array(i.length);for(let v0=0;v0<i.length;++v0){try{let v1;try{v1=e[0](i[v0]).catch(x=>e[1](x))}catch(x){e[1](x)}v3[v0]=v1.catch(v2=>{v2.path=[v0,...v2.path];throw v2})}catch(v2){v2.path=[v0,...v2.path];throw v2}}return Promise.all(v3)}catch(v4){e[3](v4)}}catch(v5){return Promise.reject(v5)}}`,
+      `i=>{try{try{Array.isArray(i)||e[2](i);let v2=new Array(i.length);for(let v0=0;v0<i.length;++v0){let v1;try{v1=e[0](i[v0]).catch(x=>e[1](x,[v0]))}catch(x){e[1](x,[v0])}v2[v0]=v1}return Promise.all(v2)}catch(v3){e[3](v3)}}catch(v4){return Promise.reject(v4)}}`,
     )
   })
 
@@ -73,7 +73,7 @@ module CommonWithNested = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Encode,
-      `i=>{try{let v3=new Array(i.length);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];for(;;){if(typeof v1==="string")break;if(v1===void 0){v1=null;break}e[0](v1)}v3[v0]=v1}catch(v2){v2.path=[v0,...v2.path];throw v2}}return v3}catch(v4){e[1](v4)}}`,
+      `i=>{try{let v2=new Array(i.length);for(let v0=0;v0<i.length;++v0){let v1=i[v0];for(;;){if(typeof v1==="string")break;if(v1===void 0){v1=null;break}e[0](v1,[v0])}v2[v0]=v1}return v2}catch(v3){e[1](v3)}}`,
     )
   })
 

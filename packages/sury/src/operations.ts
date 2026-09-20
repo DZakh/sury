@@ -20,7 +20,8 @@ import {
   panic,
   panicNotSchema,
   U,
-  undefinedTag
+  undefinedTag,
+  type Val
 } from "./base";
 import {
  B_embedErrorOf,
@@ -38,7 +39,9 @@ import {
  throwTail
 } from "./parse";
 import {
+ compileCompare,
  compileIsEqual,
+ type Compare,
  type IsEqual
 } from "./eq";
 
@@ -65,19 +68,39 @@ export const assertResult: Internal = /* @__PURE__ */ initSchema(undefinedTag, l
 // consumer's `.success`/`.value` reads stay monomorphic. It is also what makes
 // `const { value, error } = result` narrow on the TS side (the `?: undefined`
 // sibling fields in `Result`): one decision, both halves.
+//
+// `issues` is the fourth of those keys, and the one that makes a Result a
+// Standard Schema result. It is free where a consumer branches on the Result at
+// the call site, which is most of them: nothing outlives the frame, so V8 drops
+// the object and the key with it. It costs a store only where the Result is
+// kept, and taking it off the success branch to save that splits the hidden
+// class and hands the same nanosecond back on the reads. Both halves are in
+// specs/scenarios.yaml - `parse-as-result-consumed` against
+// `parse-as-result-compiled`, and `result-read`.
 const okResult = (flag: Flag, value: string): string =>
   flag & 256
     ? `{TAG:"Ok",_0:${value}}`
     : flag & 128
-      ? `{success:true,value:${value},error:void 0}`
+      ? `{success:true,value:${value},error:void 0,issues:void 0}`
       : value;
 // The bare `false` is `is`'s answer; nothing else reaches this without a
 // Result shape to fill.
-const errResult = (flag: Flag, e: string): string =>
+//
+// Rebinding `errVar` is safe because it is the catch parameter or the
+// rejection handler's parameter, never a value the body still needs; the comma
+// expression is what lets that rebind sit where the caller wants an expression.
+// `issues` reads the error three times, which is what makes it worth a name.
+//
+// The issue shape is `throwTail`'s (parse.ts), which is where its reasoning
+// lives - a Result IS a Standard Schema result, so the two emit the same thing
+// and `tests/operations_test.ts` holds them to it.
+const errResult = (input: Val, flag: Flag, errVar: string): string =>
   flag & 256
-    ? `{TAG:"Error",_0:${e}}`
+    ? `{TAG:"Error",_0:${B_embedErrorOf(input)}(${errVar})}`
     : flag & 128
-      ? `{success:false,value:void 0,error:${e}}`
+      ? `(${errVar}=${B_embedErrorOf(input)}(${errVar}),{success:false,value:void 0,error:${
+          errVar
+        },issues:[{message:${errVar}.reason,path:${errVar}.path.length?${errVar}.path:void 0}]})`
       : "false";
 
 const operationTail: Tail = (input, code, out, isAsync, flag, hasDefs) => {
@@ -133,7 +156,7 @@ const operationTail: Tail = (input, code, out, isAsync, flag, hasDefs) => {
   const success = okResult(flag, flag & 4096 ? "true" : flag & 2048 ? value : valueVar);
   // Every failure comes back as a SuryError (`B_errorOf`), so the Result's
   // `error` is one shape; `is` only needs the fact of it.
-  const failure = errResult(flag, flag & 4096 ? "" : `${B_embedErrorOf(input)}(${errVar})`);
+  const failure = errResult(input, flag, errVar);
   const body = isAsync
     ? // Inlined into the promise chain the operation already builds, rather
       // than wrapped around it.
@@ -426,27 +449,42 @@ export function isOutputAsPromise(a?: unknown, b?: unknown, c?: unknown, d?: unk
   return tailDispatch(arguments.length, a, b, c, d, assertResult, true, 1 | 8 | 4096);
 }
 
-// Equality is the one operation that takes a PAIR, so it has its own dispatch:
-// the schema is either the first argument or the last, never in the middle,
-// and there is no chain to walk. Arity partitions the forms exactly as above.
+// Equality and compare take a PAIR, so they share a dispatch: the schema is
+// either the first argument or the last, never in the middle, and there is no
+// chain to walk. Arity partitions the forms exactly as above.
 // `isEqualInput(S.void)` (arity 1) is the compiled form, and the comparison of
 // two absent values is `isEqualInput(S.void, undefined, undefined)` (arity 3).
 //
 // Value-last exists for ReScript, whose labelled `~schema` compiles to a
 // trailing positional argument.
-const eqDispatch = (n: number, a: unknown, b: unknown, c: unknown, rev: boolean): unknown => {
+const pairDispatch = (
+  n: number,
+  a: unknown,
+  b: unknown,
+  c: unknown,
+  rev: boolean,
+  compile: (schema: Internal) => IsEqual | Compare,
+): unknown => {
   const schema = (n === 1 || isOwnSchema(a) ? a : c) as Internal;
   if (!isOwnSchema(schema) || (n !== 1 && n !== 3)) return panicNotSchema();
-  const compiled: IsEqual = compileIsEqual(rev ? reverse(schema) : schema);
+  const compiled = compile(rev ? reverse(schema) : schema);
   return n === 1 ? compiled : schema === a ? compiled(b, c) : compiled(a, b);
 };
 
 export function isEqualInput(a?: unknown, b?: unknown, c?: unknown): unknown {
-  return eqDispatch(arguments.length, a, b, c, false);
+  return pairDispatch(arguments.length, a, b, c, false, compileIsEqual);
 }
 
 export function isEqualOutput(a?: unknown, b?: unknown, c?: unknown): unknown {
-  return eqDispatch(arguments.length, a, b, c, true);
+  return pairDispatch(arguments.length, a, b, c, true, compileIsEqual);
+}
+
+export function compareInput(a?: unknown, b?: unknown, c?: unknown): unknown {
+  return pairDispatch(arguments.length, a, b, c, false, compileCompare);
+}
+
+export function compareOutput(a?: unknown, b?: unknown, c?: unknown): unknown {
+  return pairDispatch(arguments.length, a, b, c, true, compileCompare);
 }
 
 export function assertInputOrThrow(a?: unknown, b?: unknown, c?: unknown, d?: unknown): unknown {

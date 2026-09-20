@@ -10,6 +10,7 @@ jsonSchema:
   openapi-3.0:
     output: '{ type: "number", minimum: 0, exclusiveMinimum: true }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod: 'z.codec(z.string(), z.number().positive(), { decode: (value) => value.length, encode: (value) => "x".repeat(value) })'
 operations:

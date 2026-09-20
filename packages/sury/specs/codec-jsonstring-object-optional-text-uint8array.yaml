@@ -14,6 +14,9 @@ jsonSchema:
 isEqual:
   input: strictEqual
   output: (a,b)=>a===b||(a.a===void 0?b.a===void 0:b.a!==void 0&&e[1](a.a,b.a))
+compare:
+  input: strictCompare
+  output: "throws: [Sury] Can't compare { a: Uint8Array | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

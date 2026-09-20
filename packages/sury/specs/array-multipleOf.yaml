@@ -8,11 +8,12 @@ jsonSchema:
   input: '{ items: { type: "number", multipleOf: 2 }, type: "array" }'
   output: '{ items: { type: "number", multipleOf: 2 }, type: "array" }'
 isEqual: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare: "throws: [Sury] Can't compare (number % 2)[]. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod: z.array(z.number().multipleOf(2))
 operations:
   parse:
-    expression: i=>{try{Array.isArray(i)||e[2](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];typeof v1==="number"&&v1==v1||e[1](v1);v1%2==0||e[0](v1);}catch(v2){v2.path=[v0,...v2.path];throw v2}}return i}catch(v3){e[3](v3)}}
+    expression: i=>{try{Array.isArray(i)||e[2](i);for(let v0=0;v0<i.length;++v0){let v1=i[v0];typeof v1==="number"&&v1==v1||e[1](v1,[v0]);v1%2==0||e[0](v1,[v0]);}return i}catch(v2){e[3](v2)}}
     examples:
       valid:
         input: "[2, 4]"
@@ -27,7 +28,7 @@ operations:
         input: '"abc"'
         error: Expected (number % 2)[], received "abc"
   decode:
-    expression: i=>{try{for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];v1%2==0||e[0](v1);}catch(v2){v2.path=[v0,...v2.path];throw v2}}return i}catch(v3){e[1](v3)}}
+    expression: i=>{try{for(let v0=0;v0<i.length;++v0){let v1=i[v0];v1%2==0||e[0](v1,[v0]);}return i}catch(v2){e[1](v2)}}
     examples:
       valid:
         input: "[2, 4]"
@@ -36,7 +37,7 @@ operations:
         input: "[3]"
         error: "Failed at [0]: Expected number % 2, received 3"
   encode:
-    expression: i=>{try{for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];v1%2==0||e[0](v1);}catch(v2){v2.path=[v0,...v2.path];throw v2}}return i}catch(v3){e[1](v3)}}
+    expression: i=>{try{for(let v0=0;v0<i.length;++v0){let v1=i[v0];v1%2==0||e[0](v1,[v0]);}return i}catch(v2){e[1](v2)}}
     examples:
       valid:
         input: "[2, 4]"

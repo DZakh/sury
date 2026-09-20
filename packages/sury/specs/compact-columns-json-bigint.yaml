@@ -10,18 +10,21 @@ jsonSchema:
 isEqual:
   input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(e[0](a[i],b[i])))return false;return true}
   output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i].id===b[i].id&&a[i].amount===b[i].amount))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare [string[], bigint[]]. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { id: string; amount: bigint; }[]. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{Array.isArray(i)&&i.length===2&&Array.isArray(i[0])&&Array.isArray(i[1])||e[3](i);let v4=new Array(Math.max(i[0].length,i[1].length));for(let v0=0;v0<v4.length;++v0){try{let v1=i[0][v0];typeof v1==="string"||e[0](v1);let v3=i[1][v0];typeof v3==="string"||e[2](v3);let v2;try{v2=BigInt(v3)}catch(_){e[1](v3)}v2||v3.trim()||e[1](v3);v4[v0]={id:v1,amount:v2};}catch(v5){v5.path=[v0,...v5.path];throw v5}}return v4}catch(v6){e[4](v6)}}
+    expression: i=>{try{Array.isArray(i)&&i.length===2&&Array.isArray(i[0])&&Array.isArray(i[1])||e[3](i);let v4=new Array(Math.max(i[0].length,i[1].length));for(let v0=0;v0<v4.length;++v0){let v1=i[0][v0];typeof v1==="string"||e[0](v1,[v0,"id"]);let v3=i[1][v0];typeof v3==="string"||e[2](v3,[v0,"amount"]);let v2;try{v2=BigInt(v3)}catch(_){e[1](v3,[v0,"amount"])}v2||v3.trim()||e[1](v3,[v0,"amount"]);v4[v0]={id:v1,amount:v2};}return v4}catch(v5){e[4](v5)}}
     examples:
       beyond-float-precision:
         input: '[["0", "1"], ["12345678901234567890", "98765432109876543210"]]'
         output: '[{ id: "0", amount: 12345678901234567890n }, { id: "1", amount: 98765432109876543210n }]'
   decode:
-    expression: i=>{try{let v4=new Array(Math.max(i[0].length,i[1].length));for(let v0=0;v0<v4.length;++v0){try{let v1=i[0][v0];typeof v1==="string"||e[0](v1);let v3=i[1][v0];typeof v3==="string"||e[2](v3);let v2;try{v2=BigInt(v3)}catch(_){e[1](v3)}v2||v3.trim()||e[1](v3);v4[v0]={id:v1,amount:v2};}catch(v5){v5.path=[v0,...v5.path];throw v5}}return v4}catch(v6){e[3](v6)}}
+    expression: i=>{try{let v4=new Array(Math.max(i[0].length,i[1].length));for(let v0=0;v0<v4.length;++v0){let v1=i[0][v0];typeof v1==="string"||e[0](v1,[v0,"id"]);let v3=i[1][v0];typeof v3==="string"||e[2](v3,[v0,"amount"]);let v2;try{v2=BigInt(v3)}catch(_){e[1](v3,[v0,"amount"])}v2||v3.trim()||e[1](v3,[v0,"amount"]);v4[v0]={id:v1,amount:v2};}return v4}catch(v5){e[3](v5)}}
     examples:
       beyond-float-precision:
         input: '[["0", "1"], ["12345678901234567890", "98765432109876543210"]]'

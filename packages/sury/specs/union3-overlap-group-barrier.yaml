@@ -11,6 +11,7 @@ jsonSchema:
     input: '{ anyOf: [{ type: "object", properties: { kind: { type: "string", enum: ["left"] }, value: { type: "string" } }, required: ["kind", "value"] }, { type: "object", properties: { kind: { type: "string" }, value: { type: "string", pattern: "^broad-" } }, required: ["kind", "value"] }, { type: "object", properties: { kind: { type: "string", enum: ["right"] }, value: { type: "string", pattern: "^right-" } }, required: ["kind", "value"] }] }'
     output: '{ anyOf: [{ type: "object", properties: { kind: { type: "string", enum: ["left"] }, value: { type: "string" } }, required: ["kind", "value"] }, { type: "object", properties: { kind: { type: "string" }, value: { type: "string", pattern: "^broad-" } }, required: ["kind", "value"] }, { type: "object", properties: { kind: { type: "string", enum: ["right"] }, value: { type: "string", pattern: "^right-" } }, required: ["kind", "value"] }] }'
 isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare { kind: \"left\"; value: string; } | { kind: string; value: string; } | { kind: \"right\"; value: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod: 'z.union([z.object({ kind: z.literal("left"), value: z.string() }).refine(() => false, { message: "left member rejected" }), z.object({ kind: z.string(), value: z.string().regex(/^broad-/, { message: "broad member rejected" }) }), z.object({ kind: z.literal("right"), value: z.string().regex(/^right-/, { message: "right member rejected" }) })])'
 operations:

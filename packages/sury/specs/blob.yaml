@@ -8,6 +8,7 @@ jsonSchema:
   input: Expected JSON, received Blob
   output: Expected JSON, received Blob
 isEqual: strictEqual
+compare: "throws: [Sury] Can't compare Blob. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

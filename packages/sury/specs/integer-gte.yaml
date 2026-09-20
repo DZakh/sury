@@ -8,6 +8,7 @@ jsonSchema:
   input: '{ type: "integer", minimum: 5 }'
   output: '{ type: "integer", minimum: 5 }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod: z.int().gte(5)
 operations:
