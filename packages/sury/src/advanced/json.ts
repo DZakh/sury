@@ -416,6 +416,13 @@ export const jsonString = /* @__PURE__ */ (() => {
     return text !== U ? text : B_unsupportedDecode(input, input.s, target);
   };
 
+  // Rule 4 for a plain string, worded like the carriers' but for text.
+  const ambiguousText = (input: Val, target: Internal): never =>
+    B_invalidOperation(
+      input,
+      `Ambiguous ${inputExpression(input.s)} -> ${inputExpression(target)}. Should the text be packed or unpacked? Choose with S.to and "pack" or "unpack"`,
+    );
+
   const jsonStringEncoder: Encoder = (input, target) => {
     if (target.format !== "json") {
       B_rejectUnsettled(input, target);
@@ -435,10 +442,7 @@ export const jsonString = /* @__PURE__ */ (() => {
         // author); one it only reversed from a plain string is the pair rule
         // 4 asks about, in this direction too.
         if (target.opens === U && input.s.to === target && input.s.opens === U) {
-          B_invalidOperation(
-            input,
-            `Ambiguous ${inputExpression(input.s)} -> ${inputExpression(target)}. Should the text be packed or unpacked? Choose with S.to and "pack" or "unpack"`,
-          );
+          ambiguousText(input, target);
         }
       }
       if (target.format === "env") {
@@ -1075,10 +1079,7 @@ export const jsonString = /* @__PURE__ */ (() => {
           return carriedJsonString(input, expectedSchema);
         }
         if (expectedSchema.opens === U) {
-          B_invalidOperation(
-            input,
-            `Ambiguous ${inputExpression(input.s)} -> ${inputExpression(expectedSchema)}. Should the text be packed or unpacked? Choose with S.to and "pack" or "unpack"`,
-          );
+          ambiguousText(input, expectedSchema);
         }
       }
       // Two ways the escape-free proof is void here: `noValidation` drops the

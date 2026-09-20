@@ -18,7 +18,7 @@ isEqual:
   output: (a,b)=>a===b||a.meta===b.meta
 compare:
   input: strictCompare
-  output: (a,b)=>a===b?0:a.meta<b.meta?-1:a.meta>b.meta?1:0
+  output: "throws: [Sury] Can't compare { meta: JSON string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

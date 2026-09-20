@@ -715,23 +715,21 @@ export const traverseDefinition = (
 const missingKeyEncoder: Encoder = (input, target) => {
   const item = input.s.anyOf![0]!;
   const v = input.v();
+  // An env var's unset state is the item's own `undefined` input, which its
+  // converter reads as the target's absent arm or rejects itself, so the
+  // key's presence is not asked here, and the item keeps its own check.
+  const unsetIsInput = item.format === "env";
 
   const presentIn = B_scope(input);
   presentIn.io = false;
   presentIn.s = item;
   presentIn.e = target;
-  // A wrapped field (`u`) leaves the presence check to the guard below; an
-  // env item keeps its own, since the guard is not emitted for it.
-  presentIn.u = item.format !== "env";
+  presentIn.u = !unsetIsInput;
   const presentOut = parse(presentIn);
   const presentCode = B_merge(presentOut);
   const presentAssign = presentOut.i === v ? "" : `${v}=${presentOut.i};`;
 
   // Optional field: leave `undefined` as-is (None). Required field: reject.
-  // An env var's unset state is the item's own `undefined` input, which its
-  // converter reads as the target's absent arm or rejects itself, so the
-  // key's presence is not asked here.
-  const unsetIsInput = item.format === "env";
   const absentCode = isOptional(target) || unsetIsInput ? "" : B_embedInvalidInput(input, target);
   const output = B_nextVarOutput(input, v, getOutputSchema(target), target);
   const presentBody = presentCode + presentAssign;

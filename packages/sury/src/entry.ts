@@ -357,12 +357,13 @@ export const to = (schema: Internal, target: Internal, custom?: unknown) => {
     // and `S.json` has no opened form. What the target does with the reading
     // is its own decoder's question, so `S.string.with(S.to, S.number, "unpack")`
     // is accepted: an integration declares its text once, whatever the user's
-    // schema turns out to be.
+    // schema turns out to be. A carrier's reading stops at a union target, as
+    // the axis does: its own encoder meets the union whole, before the arms.
     const from = B_contentNode(getOutputSchema(schema));
     const into = B_contentNode(target);
     if (
       into.isJson ||
-      !(from.content !== U ? !from.isJson : B_isText(from) || from.anyOf?.some(B_isText)) ||
+      !(from.content !== U ? !from.isJson && into === target : B_isText(from) || from.anyOf?.some(B_isText)) ||
       (into.content !== U
         ? from.content !== U && !B_contentDiffers(from.content, into.content)
         : decode === false)

@@ -81,6 +81,10 @@ test("a reading is only offered where there are two", () => {
   expect(() => S.string.with(S.to, S.json, "unpack")).toThrow(
     "Can't pick a reading for this link",
   );
+  // A carrier meets a union target whole, so its reading has no arm to land on.
+  expect(() => S.uint8Array.with(S.to, S.optional(S.jsonString), "unpack")).toThrow(
+    "Can't pick a reading for this link",
+  );
   expect(() => S.base64.with(S.to, S.json, readings)).toThrow(
     "Can't pick a reading for this link",
   );
