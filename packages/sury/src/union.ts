@@ -1048,10 +1048,12 @@ const unionEmit = (
   const ctx: UnionCtx = {
     f: (caught) => {
       const pathArg = B_pathArg(input);
-      const site = errorSite(expectedSchema, unknown);
+      // Built on the first failure, as every other site is (builder.ts).
+      let site: object;
+      const failSite = () => (site ??= errorSite(expectedSchema, unknown));
       return pathArg
-        ? `${B_embed(input, (v: unknown, p: Path, ...e: SuryErrorRecord[]) => unionFail(site, p, v, ...e))}(${input.v()}${pathArg}${salvaged}${caught})`
-        : `${B_embed(input, unionFail.bind(U, site, B_pathSnap(input)!))}(${input.v()}${salvaged}${caught})`;
+        ? `${B_embed(input, (v: unknown, p: Path, ...e: SuryErrorRecord[]) => unionFail(failSite(), p, v, ...e))}(${input.v()}${pathArg}${salvaged}${caught})`
+        : `${B_embed(input, (v: unknown, ...e: SuryErrorRecord[]) => unionFail(failSite(), B_pathSnap(input)!, v, ...e))}(${input.v()}${salvaged}${caught})`;
     },
     r: () => rethrow || (rethrow = B_embed(input, getOrRethrow)),
     s: () => expected || (expected = B_embed(input, expectedSchema)),

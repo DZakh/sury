@@ -273,9 +273,9 @@ const B_foreignFail = (
   input: Val,
   to: Internal
 ): ((cause: unknown, path: Path) => ErrorDetails) => {
-  const site = conversionSite(input.s, to);
+  let site: object;
   return (cause, path) => {
-    const error = Object.create(site) as SuryErrorRecord;
+    const error = Object.create((site ??= conversionSite(input.s, to))) as SuryErrorRecord;
     error.code = "invalid_conversion";
     error.path = path;
     error.cause = cause;
@@ -358,11 +358,17 @@ export const B_invalidInputBuilder = (
   extraPath: Path = pathEmpty,
   reasonOverride?: string
 ): (input: Val) => (value: unknown, path?: Path) => ErrorDetails => (input) => {
-  const site = errorSite(expected ?? input.e, (input.prev || input).s, reasonOverride);
   const snap = B_pathSnap(input);
   const staticPath = snap !== U ? pathConcat(snap, extraPath) : U;
+  // Built on the first failure, not here: a compile emits a check whether or
+  // not any value ever fails it, and most never do.
+  let site: object;
   return (value, path) =>
-    errorAt(site, staticPath ?? pathConcat(path ?? pathEmpty, extraPath), value);
+    errorAt(
+      (site ??= errorSite(expected ?? input.e, (input.prev || input).s, reasonOverride)),
+      staticPath ?? pathConcat(path ?? pathEmpty, extraPath),
+      value
+    );
 };
 
 export const B_failWithErrorMessage = (

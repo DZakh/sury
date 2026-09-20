@@ -1003,6 +1003,25 @@ Object.defineProperty(errorPrototype, "reason", {
   },
 });
 
+// One getter for every compiled failure, not one per check. Defining it per
+// site cost an `Object.defineProperty` on every check the compiler emits, which
+// measured as most of a compile; and a getter written in as many places as
+// there are checks never settles into a monomorphic read. The per-site half is
+// the memo, which is a plain field on the site the getter reaches through
+// `this`.
+const sitePrototype = Object.create(errorPrototype) as SuryErrorRecord;
+Object.defineProperty(sitePrototype, "reason", {
+  configurable: true,
+  set: reasonSet,
+  get(this: SuryErrorRecord): string {
+    const site = Object.getPrototypeOf(this) as SuryErrorRecord;
+    return renderReason(
+      this,
+      (site.expectedExpression ??= inputExpression(site.expected as Internal)) as string
+    );
+  },
+});
+
 // The prototype every failure of ONE check shares. `expected`, `received` and -
 // where the check names its own message - the reason itself are settled the
 // moment the check is compiled, so they are built once here instead of per
@@ -1010,29 +1029,18 @@ Object.defineProperty(errorPrototype, "reason", {
 // stops two schema objects filling every `console.log(error)`; `error.expected`
 // still reads.
 //
-// The renderer memoizes what the prototype-wide one above cannot: the expected
+// The memo above is what the prototype-wide renderer cannot have: the expected
 // schema's expression is the same for every failure of this check AND for every
-// re-read of `message`, which the shared getter paid for again each time.
+// re-read of `message`, which the fallback getter pays for again each time.
 export const errorSite = (
   expected: Internal,
   received: Internal,
   reasonOverride?: string
 ): object => {
-  const site = Object.create(errorPrototype) as SuryErrorRecord;
+  const site = Object.create(sitePrototype) as SuryErrorRecord;
   site.expected = expected;
   site.received = received;
-  if (reasonOverride !== U) {
-    site.reason = reasonOverride;
-  } else {
-    let expectedExpression: string;
-    Object.defineProperty(site, "reason", {
-      configurable: true,
-      set: reasonSet,
-      get(this: SuryErrorRecord): string {
-        return renderReason(this, (expectedExpression ??= inputExpression(expected)));
-      },
-    });
-  }
+  if (reasonOverride !== U) site.reason = reasonOverride;
   return site;
 };
 
@@ -1042,12 +1050,19 @@ export const errorSite = (
 // `reason` here reads off whatever was thrown, so each failure writes its own.
 // The data property below is what lets it: a plain assignment walks the
 // prototype chain looking for a setter, and the one on `errorPrototype` would
-// make every write an `Object.defineProperty`.
+// make every write an `Object.defineProperty`. Shared for the same reason the
+// getter above is.
+const conversionPrototype = Object.create(errorPrototype) as SuryErrorRecord;
+Object.defineProperty(conversionPrototype, "reason", {
+  value: U,
+  writable: true,
+  enumerable: true,
+});
+
 export const conversionSite = (from: Internal, to: Internal): object => {
-  const site = Object.create(errorPrototype) as SuryErrorRecord;
+  const site = Object.create(conversionPrototype) as SuryErrorRecord;
   site.from = from;
   site.to = to;
-  Object.defineProperty(site, "reason", { value: U, writable: true, enumerable: true });
   return site;
 };
 
