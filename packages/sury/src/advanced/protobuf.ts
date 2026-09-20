@@ -73,7 +73,7 @@ const firstObject = (schema: Internal): Internal | undefined => {
 const wireObject = (schema: Internal): Internal | undefined => {
   let last: Internal | undefined = U;
   for (let current: Internal | undefined = schema; current !== U; current = current.to) {
-    if (current.protobufWire) return last || firstObject(current.to!);
+    if (current.flags! & 256) return last || firstObject(current.to!);
     if (current.type === objectTag) last = current;
   }
   return firstObject(schema);
@@ -204,7 +204,7 @@ const optionalMessage = (raw: Internal): Internal => {
   mut.has = { [undefinedTag]: true };
   setHas(mut.has, raw.type);
   mut.encoder = optionalMessageEncoder;
-  mut.perVariant = true;
+  mut.flags = mut.flags! | 64;
   return mut;
 };
 
@@ -1453,7 +1453,7 @@ const protobufEncoder = (input: Val, target: Internal): Val => {
 export const protobuf: Internal = /* @__PURE__ */ initSchema(instanceTag, protobufDecoder, (schema) => {
   schema.class = Uint8Array;
   schema.encoder = protobufEncoder;
-  schema.protobufWire = true;
+  schema.flags = schema.flags! | 256;
 });
 
 type ProtoOptions = { name?: string; package?: string };

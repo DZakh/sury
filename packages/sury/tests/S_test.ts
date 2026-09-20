@@ -199,9 +199,9 @@ test("A reading joins the link key; a coder opts out", (t) => {
 
   // `S.trim` reshapes its own result after building it, so it stays unshared
   // for a second reason - and the content marker it stamps onto its tail must
-  // not reach the shared `string` singleton. `content` is internal, hence the cast.
+  // not reach the shared `string` singleton. The kind bits are internal, hence the cast.
   t.expect(S.base64.with(S.trim)).not.toBe(S.base64.with(S.trim));
-  t.expect((S.string as unknown as { content?: unknown }).content).toBe(undefined);
+  t.expect(((S.string as unknown as { flags?: number }).flags ?? 0) & 3).toBe(0);
 });
 
 test("The link cache lands on the argument that dies first", (t) => {

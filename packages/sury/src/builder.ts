@@ -856,15 +856,16 @@ export const B_neverSlot: Builder = (input: Val) =>
 // `.to` of its own, though linking a carrier to `S.optional(S.jsonString)` puts
 // the same two readings on the table as linking it to `S.jsonString`.
 export const B_contentNode = (schema: Internal): Internal =>
-  (schema.content === U && schema.anyOf?.find((arm) => arm.content !== U)) || schema;
+  (!(schema.flags! & 3) && schema.anyOf?.find((arm) => arm.flags! & 3)) || schema;
 
 // Whether two payloads are of different kinds, which is what puts two readings
 // of a link on the table - store the source's value in the target, or open the
 // source and hand its payload over. Which applies is `opens` on the target
 // (CONTENT_CODEC_SPEC.md rules 1 to 3, all written down as the link is made);
-// neither is rule 4, asked below.
-export const B_contentDiffers = (from?: Internal, to?: Internal): boolean =>
-  from !== U && to !== U && from !== to && !(from.bc && to.bc);
+// neither is rule 4, asked below. Both alphabets are one kind, and `S.json`
+// and `S.jsonString` another.
+export const B_contentDiffers = (from: Internal, to: Internal): boolean =>
+  !!((from.flags! & 3) && (to.flags! & 3) && ((from.flags! ^ to.flags!) & 3));
 
 // A plain string: the one schema that is both a JSON value and text
 // (CONTENT_CODEC_SPEC.md), so a link from it into a JSON text format has the
@@ -872,7 +873,7 @@ export const B_contentDiffers = (from?: Internal, to?: Internal): boolean =>
 // document and a literal is a value, so each stores; a carrier's opened text
 // and a union narrow carry `content` and are already known to be text.
 export const B_isText = (schema: Internal): boolean =>
-  schema.type === stringTag && schema.content === U && schema.format === U && !isLiteral(schema);
+  schema.type === stringTag && !(schema.flags! & 3) && schema.format === U && !isLiteral(schema);
 
 // CONTENT_CODEC_SPEC.md rule 4, asked while compiling by the schemas that
 // declare a payload - `json`, `jsonString`, `base64`, `uint8Array`, `file` -
@@ -903,10 +904,10 @@ export const B_rejectUnsettled = (input: Val, to: Internal, from = input.prev &&
   if (
     from &&
     from.to === to &&
-    to.opens === U &&
-    B_contentDiffers(B_contentNode(from).content, B_contentNode(to).content)
+    !(to.flags! & 12) &&
+    B_contentDiffers(B_contentNode(from), B_contentNode(to))
   ) {
-    !from.isJson && !to.isJson && B_contentNode(from) === from && B_contentNode(to) === to
+    !(from.flags! & 16) && !(to.flags! & 16) && B_contentNode(from) === from && B_contentNode(to) === to
       ? B_invalidOperation(
           input,
           `Ambiguous ${inputExpression(from)} -> ${inputExpression(to)}. Should the bytes be packed or unpacked? Choose with S.to and "pack" or "unpack"`,

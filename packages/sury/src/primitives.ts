@@ -13,7 +13,6 @@ import {
   nullTag,
   numberTag,
   objectTag,
-  setContent,
   stringTag,
   symbolTag,
   type Tag,
@@ -205,7 +204,9 @@ export const string: Internal = /* @__PURE__ */ initSchema(stringTag, stringDeco
 // @__NO_SIDE_EFFECTS__
 export const openedText = (format: Internal): Internal => {
   const opened = copySchema(string);
-  setContent(opened, format.content!);
+  opened.flags = format.flags! & 3;
+  const stored = format.bytesCodec ? format : format.storedAs;
+  if (stored) opened.storedAs = stored;
   return opened;
 };
 

@@ -5,7 +5,7 @@ This file governs the pairs where **two** built-in readings exist: a carrier (a
 value that stores other data) meeting a format that could either rewrite it or
 open it.
 
-`B_contentDiffers` and `B_readsPayload` in `src/builder.ts` are the two decisions
+`B_contentDiffers` and `B_rejectUnsettled` in `src/builder.ts` are the two decisions
 below; the conversions themselves live on the carriers
 (`src/advanced/uint8Array.ts`, `src/advanced/file.ts`, `S.base64` in
 `src/refinements.ts`). `docs/js-usage.md` carries the user-facing version under
@@ -270,24 +270,25 @@ same way); making `content` answer it instead is a separate change.
 
 ## Implementation notes
 
-**Resolution is syntactic, and it happens where the link is written.** Two
-schema fields carry it:
+**Resolution is syntactic, and it happens where the link is written.** Bits
+of a schema's `flags` carry it (the table is on the field, in `base.ts`):
 
-| field | meaning |
+| bits | meaning |
 | --- | --- |
-| `content` | the schema this value's payload is stored as inside a JSON document - `S.base64` for every bytes carrier, `S.json` for `S.jsonString` and `S.json` itself. Absent means the value carries no payload. |
-| `opens` | the reading of the link into this schema, whatever settled it: a slot, a payload gaining its `.to` (rule 3), or the document piece a field is stored into (rule 2). One per link; `reverse`, which copies node by node, writes each node's from its forward successor's, negated. |
+| 1, 2 | the kind of payload this value carries - bytes (every bytes carrier, and `S.base64`, which is how bytes sit in a document) or a JSON value (`S.jsonString` and `S.json` itself). Neither means the value carries no payload. A bytes carrier also names the schema it is stored as, `storedAs`, and a text format its codec, `bytesCodec`. |
+| 4, 8 | the reading of the link into this schema, whatever settled it: a slot, a payload gaining its `.to` (rule 3), or the document piece a field is stored into (rule 2). Opens its source, or stores it. One per link; `reverse`, which copies node by node, writes each node's from its forward successor's, swapped. |
 
-Two schemas that agree on `content` carry the same kind of payload, so a link
-between them is a plain transfer; two that disagree have both readings live, and
-`opens` says which applies. Every way a reading gets settled writes it: a slot
-(rule 1), a document field's position (rule 2, in `fieldPiece`), and a payload
-gaining a `.to` (rule 3) - the last written at the two places a `.to` link is
-made, `codecTo` and `compileChain`, the moment it becomes true. Materialized
-rather than read off `.to !== U`, because reversing a chain re-points `.to` and
-would lose it, while `reverse` carries `opens` across like any other slot: the
-legal `X -> jsonString -> File` and the rejected `jsonString -> File` reach the
-decoder as the same pair, and only the slot tells them apart.
+Two schemas that agree on the kind carry the same payload, so a link between
+them is a plain transfer; two that disagree have both readings live, and the
+reading bits say which applies. Every way a reading gets settled writes them: a
+slot (rule 1), a document field's position (rule 2, in `fieldPiece`), and a
+payload gaining a `.to` (rule 3) - the last written at the two places a `.to`
+link is made, `codecTo` and `compileChain`, the moment it becomes true.
+Materialized rather than read off `.to !== U`, because reversing a chain
+re-points `.to` and would lose it, while `reverse` carries the reading across
+like any other slot: the legal `X -> jsonString -> File` and the rejected
+`jsonString -> File` reach the decoder as the same pair, and only the slot tells
+them apart.
 
 Rule 4 is then asked while compiling, by the schemas that declare a payload -
 `json`, `jsonString`, `base64`, `uint8Array`, `file` - each in its own decoder
@@ -316,8 +317,7 @@ declares a payload. No new `Val` fields, no compile-loop cost, nothing in
 generated code a hand-written converter wouldn't contain.
 
 The one price is the universal path: `getOp` is in every bundle, so
-`B_contentDiffers` is too, and `copySchema` and `reverse` each carry a line for
-the two markers. About 180 gzipped bytes on every export (`bundleSize.yaml`,
+`B_contentDiffers` is too, and `reverse` carries a line for the reading. About 180 gzipped bytes on every export (`bundleSize.yaml`,
 where the smallest go 4136 → 4315) - the question and one closure; the messages
 ride with the callers, and so does the union walk `B_contentNode` does, which is
 why only `codecTo` pays for it. That buys a creation-time gate on conversions

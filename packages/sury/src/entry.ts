@@ -362,11 +362,9 @@ export const to = (schema: Internal, target: Internal, custom?: unknown) => {
     const from = B_contentNode(getOutputSchema(schema));
     const into = B_contentNode(target);
     if (
-      into.isJson ||
-      !(from.content !== U ? !from.isJson && into === target : B_isText(from) || from.anyOf?.some(B_isText)) ||
-      (into.content !== U
-        ? from.content !== U && !B_contentDiffers(from.content, into.content)
-        : decode === false)
+      into.flags! & 16 ||
+      !(from.flags! & 3 ? !(from.flags! & 16) && into === target : B_isText(from) || from.anyOf?.some(B_isText)) ||
+      (into.flags! & 3 ? from.flags! & 3 && !B_contentDiffers(from, into) : decode === false)
     ) {
       return panic(`Can't pick a reading for this link. Use {decode, encode} coders instead`);
     }

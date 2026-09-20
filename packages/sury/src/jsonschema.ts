@@ -364,7 +364,7 @@ const internalToJSONSchema = (
     to !== U &&
     (tagFlag & 2) &&
     (tagFlags[to.type]! & 2) &&
-    ((to.to === U && to.content === schema.content) || (to.opens === true && B_isText(schema)))
+    ((to.to === U && !((to.flags! ^ schema.flags!) & 3)) || (to.flags! & 4 && B_isText(schema)))
   ) {
     return jsonSchemaMerge(
       internalToJSONSchemaBase(to, path, defs, parent, target),
