@@ -11,8 +11,8 @@ isEqual:
   input: (a,b)=>a===b||e[0](a,b)
   output: (a,b)=>a===b||a.nick===b.nick&&a.page===b.page&&a.q===b.q
 compare:
-  input: (a,b)=>a===b?0:e[0](a,b)
-  output: (a,b)=>a===b?0:(((a.nick===void 0?b.nick===void 0?0:-1:b.nick===void 0?1:a.nick<b.nick?-1:a.nick>b.nick?1:0))||(a.page<b.page?-1:a.page>b.page?1:0))||(a.q<b.q?-1:a.q>b.q?1:0)
+  input: "throws: [Sury] Can't compare URLSearchParams. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { nick: string.length <= 3 | undefined; page: number; q: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

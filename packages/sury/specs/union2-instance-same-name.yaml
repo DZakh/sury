@@ -8,7 +8,7 @@ jsonSchema:
   input: Expected JSON, received Foo
   output: Expected JSON, received Foo
 isEqual: strictEqual
-compare: (a,b)=>a===b?0:(a instanceof e[0]?b instanceof e[0]?a===b?0:1:-1:b instanceof e[0]?1:a===b?0:1)
+compare: "throws: [Sury] Can't compare Foo. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod: z.union([z.instanceof(class Foo { a = 1 }), z.instanceof(class Foo { b = 2 })])
 operations:

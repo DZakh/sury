@@ -416,8 +416,10 @@ export const specSchema = S.schema({
   compare: S.union([S.string, isEqualSides, skip]).with(S.meta, {
     description:
       "The value-compare of this schema, as source text - or `alwaysCompare` / `strictCompare` / " +
-      "`nanCompare` / `identityCompare`, the shared comparators Sury hands back whole rather than " +
-      "compiling. Answers -1 | 0 | 1; 0 exactly when `isEqual` would be true. A bare string when " +
+      "`nanCompare`, the shared comparators Sury hands back whole rather than compiling. Answers " +
+      "-1 | 0 | 1; 0 exactly when `isEqual` would be true. Only the schemas that have an order " +
+      "compile one (primitives, Date, URL, and tuples of them); for the rest this reads " +
+      "`throws: <message>`, the refusal being what the schema's contract is. A bare string when " +
       "both sides agree, `{input, output}` when they differ. Filled by `spec check --write`.",
   }),
   vs,

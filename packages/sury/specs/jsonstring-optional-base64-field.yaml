@@ -17,7 +17,7 @@ isEqual:
   output: (a,b)=>a===b||a.p===b.p
 compare:
   input: strictCompare
-  output: (a,b)=>a===b?0:(a.p===void 0?b.p===void 0?0:-1:b.p===void 0?1:a.p<b.p?-1:a.p>b.p?1:0)
+  output: "throws: [Sury] Can't compare { p: base64.length >= 2 | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

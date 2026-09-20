@@ -8,7 +8,7 @@ jsonSchema:
   input: '{ type: "object", properties: { foo: { type: "integer" } }, additionalProperties: false, patternProperties: { "^v": { type: "integer" } } }'
   output: '{ type: "object", properties: { foo: { type: "integer" } }, additionalProperties: false, patternProperties: { "^v": { type: "integer" } } }'
 isEqual: (a,b)=>{if(a===b)return true;let n=0;for(const k in a){if(!(k in b)||!(e[0](a[k],b[k])))return false;n++}for(const k in b)n--;return !n}
-compare: (a,b)=>{if(a===b)return 0;let ka=Object.keys(a).sort(),kb=Object.keys(b).sort(),n=ka.length,m=kb.length,l=n<m?n:m,c;for(let i=0;i<l;i++){if(ka[i]!==kb[i])return ka[i]<kb[i]?-1:1;if(c=e[0](a[ka[i]],b[kb[i]]))return c}return n<m?-1:n>m?1:0}
+compare: "throws: [Sury] Can't compare { [key: string]: JSON; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

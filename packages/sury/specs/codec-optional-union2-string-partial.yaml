@@ -9,7 +9,7 @@ jsonSchema:
   output: '{ type: "string" }'
 isEqual: strictEqual
 compare:
-  input: (a,b)=>a===b?0:(typeof a==="string"?typeof b==="string"?a<b?-1:a>b?1:0:-1:typeof b==="string"?1:typeof a==="number"&&a==a?typeof b==="number"&&b==b?a<b?-1:a>b?1:0:-1:typeof b==="number"&&b==b?1:0)
+  input: "throws: [Sury] Can't compare string | number | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
   output: strictCompare
 vs:
   zod:

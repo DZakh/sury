@@ -15,7 +15,7 @@ isEqual:
   input: (a,b)=>a===b||a.f===b.f&&a.n===b.n
   output: strictEqual
 compare:
-  input: (a,b)=>a===b?0:a.f<b.f?-1:a.f>b.f?1:a.n<b.n?-1:a.n>b.n?1:0
+  input: "throws: [Sury] Can't compare { f: \"a\" | \"b\"; n: number; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
   output: strictCompare
 vs:
   zod:

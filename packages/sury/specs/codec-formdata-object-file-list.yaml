@@ -11,8 +11,8 @@ isEqual:
   input: (a,b)=>a===b||e[0](a,b)
   output: (a,b)=>a===b||(a.docs===void 0?b.docs===void 0:b.docs!==void 0&&e[0](a.docs,b.docs))&&e[1](a.attachments,b.attachments)&&a.note===b.note
 compare:
-  input: (a,b)=>a===b?0:e[0](a,b)
-  output: (a,b)=>a===b?0:(((a.docs===void 0?b.docs===void 0?0:-1:b.docs===void 0?1:e[0](a.docs,b.docs)))||(e[1](a.attachments,b.attachments)))||(a.note<b.note?-1:a.note>b.note?1:0)
+  input: "throws: [Sury] Can't compare FormData. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { docs: File[] | undefined; attachments: File[]; note: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

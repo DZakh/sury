@@ -13,7 +13,7 @@ isEqual:
   input: (a,b)=>a===b||a.x[0]===b.x[0]&&a.x[1]===b.x[1]
   output: strictEqual
 compare:
-  input: (a,b)=>a===b?0:a.x[0]<b.x[0]?-1:a.x[0]>b.x[0]?1:(a.x[1]===void 0?b.x[1]===void 0?0:-1:b.x[1]===void 0?1:a.x[1]<b.x[1]?-1:a.x[1]>b.x[1]?1:0)
+  input: "throws: [Sury] Can't compare { x: [string, string | undefined]; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
   output: strictCompare
 vs:
   zod:

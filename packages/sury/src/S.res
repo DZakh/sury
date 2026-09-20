@@ -834,6 +834,8 @@ external compileIsEqual: (~schema: t<'value>) => ('value, 'value) => bool = "isE
 
 // Same walk as `isEqual`, answering -1 | 0 | 1. 0 is exactly when `isEqual`
 // would be true. `int` is the ReScript spelling of that three-value contract.
+// Raises for a schema with no order: primitives, Date, URL and tuples of them
+// are what can be ordered, everything else is `isEqual` only.
 @module("sury")
 external compileCompare: (~schema: t<'value>) => ('value, 'value) => int = "compareOutput"
 

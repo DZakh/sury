@@ -12,7 +12,7 @@ isEqual:
   output: (a,b)=>a===b||e[0](a,b)
 compare:
   input: strictCompare
-  output: (a,b)=>a===b?0:e[0](a,b)
+  output: "throws: [Sury] Can't compare unknown. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

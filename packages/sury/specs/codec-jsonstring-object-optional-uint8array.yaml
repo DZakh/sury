@@ -14,7 +14,7 @@ isEqual:
   output: (a,b)=>a===b||(a.payload===void 0?b.payload===void 0:b.payload!==void 0&&e[1](a.payload,b.payload))
 compare:
   input: strictCompare
-  output: (a,b)=>a===b?0:(a.payload===void 0?b.payload===void 0?0:-1:b.payload===void 0?1:e[1](a.payload,b.payload))
+  output: "throws: [Sury] Can't compare { payload: Uint8Array | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

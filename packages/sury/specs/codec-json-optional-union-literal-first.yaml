@@ -14,8 +14,8 @@ isEqual:
   input: (a,b)=>a===b||(a.selector==="*"?b.selector==="*":typeof a.selector==="string"?typeof b.selector==="string"&&a.selector===b.selector:Array.isArray(a.selector)?Array.isArray(b.selector)&&e[0](a.selector,b.selector):b.selector===void 0)
   output: (a,b)=>a===b||e[0](a,b)
 compare:
-  input: (a,b)=>a===b?0:(a.selector==="*"?b.selector==="*"?0:-1:b.selector==="*"?1:typeof a.selector==="string"?typeof b.selector==="string"?a.selector<b.selector?-1:a.selector>b.selector?1:0:-1:typeof b.selector==="string"?1:Array.isArray(a.selector)?Array.isArray(b.selector)?e[0](a.selector,b.selector):-1:Array.isArray(b.selector)?1:0)
-  output: (a,b)=>a===b?0:e[0](a,b)
+  input: "throws: [Sury] Can't compare { selector: \"*\" | string | string[] | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable
