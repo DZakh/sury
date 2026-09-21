@@ -308,10 +308,19 @@ Object.defineProperty(schemaPrototype, reversedKey, {
       reverseSwap(record, "refiner", "inputRefiner");
       // The link into this node is now the one out of it, read the other way:
       // opening `current` into `next` was storing `next` into `current`. A
-      // union's reading sits on the arm that carries a payload. A payload
-      // read into text named that text as what it holds, so read back the
-      // text is stored in it - a link the forward side settles without a
-      // marker, and the reversed plain string would otherwise have to say.
+      // union's reading sits on the arm that carries a payload, which is also
+      // what tells a union of plain text from one holding a payload - and
+      // only the former takes the derivation below.
+      //
+      // That derivation is the one reading the forward side leaves unwritten:
+      // a payload naming text as what it holds settles the link, but the text
+      // is `S.string` itself, a shared singleton, and marking it would mean
+      // copying it on every such link. So the fact is derived here instead,
+      // where the pair is in hand: read back, the text is stored in the
+      // payload. `codec-jsonstring-string` and
+      // `codec-jsonstring-optional-string` pin both shapes, and
+      // `codec-uint8array-optional-jsonstring-unsupported` is what fails when
+      // the union test goes.
       const nextNode = next && B_contentNode(next);
       const reading = nextNode
         ? nextNode.flags & 12
