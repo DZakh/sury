@@ -107,8 +107,8 @@ export const B_unrecognizedKeys = (
 };
 
 // A `.to` target that builds its document piecewise (jsonString) can take a
-// container raw: its `fz` hook (installed in advanced/json.ts) hands back the
-// container schema marked `uv` when validation can be left to the aggregate,
+// container raw: its `fuse` hook (installed in advanced/json.ts) hands back the
+// container schema marked fused when validation can be left to the aggregate,
 // which does it inside the same pass that renders. For a dynamic container
 // (`item` given) that is the whole item loop; for a fixed one every field is
 // left raw except a union member's literals, whose discriminant has to be

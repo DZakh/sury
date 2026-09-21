@@ -147,7 +147,7 @@ export const jsonEncoderFn = (input: Val, target: Internal): Val => {
             return variant;
           }
           // A bare `.to`, not `codecTo`: the pair is this module's own - a
-          // schema and the very content marker it names - so there is no
+          // schema and the very form it is stored as - so there is no
           // reading for the content rules to be asked about.
           return copyTo(from, variant);
         })
@@ -352,7 +352,7 @@ export const json: Internal = /* @__PURE__ */ initSchema(refTag, jsonDecoderFn, 
 // opening quote on every input.
 //
 // A call *with arguments* stays out, even though it binds no looser than a bare
-// one: `formatFlag` describes the values a schema admits, and what a
+// one: the escape-free bit describes the values a schema admits, and what a
 // conversion hands over is the value its source was never checked to be - so a
 // packed carrier goes through the helper unless it materialized a var of its
 // own. The zero-argument form is grandfathered, `.toISOString()` among it; see
@@ -434,7 +434,7 @@ export const jsonString = /* @__PURE__ */ (() => {
         if (target.flags! & 8) {
           return B_refine(input, string, U, target);
         }
-        // A link this format wrote names its payload (rule 3, `opens` on the
+        // A link this format wrote names its payload (rule 3, the reading on the
         // author); one it only reversed from a plain string is the pair rule
         // 4 asks about, in this direction too.
         if (!(target.flags! & 12) && input.s.to === target && !(input.s.flags! & 12)) {
@@ -478,7 +478,7 @@ export const jsonString = /* @__PURE__ */ (() => {
     // re-validate trusted input. A dynamic item is fused either way - whatever
     // its decode still owes on a typed source (a refiner, anywhere inside it)
     // makes the decoder emit a loop of its own, and the aggregate then walks
-    // the same values a second time to render them. `uv` says which reading
+    // the same values a second time to render them. Bits 512 and 1024 say which reading
     // the aggregate gets. A pretty-printed document goes through
     // JSON.stringify whole. Fusion is a sync-operation optimization:
     // the aggregate compiles the raw fields itself, so a field's async codec
@@ -643,7 +643,7 @@ export const jsonString = /* @__PURE__ */ (() => {
   // instead (also matching JSON.stringify), so they convert as a whole and
   // never guard.
   // `declared` is the field's schema when the container was fused
-  // (`fz`, installed above) and the value arrives unvalidated: a
+  // (`fuse`, installed above) and the value arrives unvalidated: a
   // dispatching shape validates inside the same pass that renders it, and a
   // shape rendered off the validated value validates first. `loop` marks a
   // dynamic item, where the bare enum splice loses to the dispatch.
@@ -859,7 +859,7 @@ export const jsonString = /* @__PURE__ */ (() => {
         const keyEmbed = isArr ? "" : B_embedJsonStr(input);
         const itemInput = B_dynamicScope(input, iterVar);
         itemInput.e = itemInput.s;
-        // A fused container (see `fz` in initJsonString and base.ts) emitted
+        // A fused container (see `fuse` in initJsonString and base.ts) emitted
         // no loop of its own, so this one owes whatever its items still do:
         // every check when they arrive raw (1), and only what a typed value
         // still owes - a refiner - when they arrive typed (2).
@@ -1118,7 +1118,7 @@ export const jsonString = /* @__PURE__ */ (() => {
       // Pretty-printing keeps the whole-value JSON.stringify path - inlined
       // aggregation has no indentation. (Promises never reach the aggregate:
       // the container's decoder resolves async fields ahead of its `.to`
-      // continuation, and a fused container is sync by construction - `fz`.)
+      // continuation, and a fused container is sync by construction - `fuse`.)
       // So does a dict or array whose dynamic values JSON.stringify already
       // serializes byte-identically (strings - nested json-format ones escape
       // as strings too - booleans, null): a per-item loop built from JS string

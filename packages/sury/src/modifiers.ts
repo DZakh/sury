@@ -323,7 +323,7 @@ export const codecTo = (
     // payload that gains a `.to` names what it holds, so the link into it opens
     // its source. Materialized here rather than read off `.to !== U` by the
     // payload schemas, because `reverse` re-points `.to` and would lose it,
-    // while it carries `opens` across.
+    // while it carries the reading across.
     if (mut.flags! & 3 && !(mut.flags! & 12)) mut.flags! |= 4;
     if (parser !== U) {
       mut.parser = parser;

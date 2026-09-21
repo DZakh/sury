@@ -852,7 +852,7 @@ export const B_neverSlot: Builder = (input: Val) =>
   );
 
 // The node a link's content reading comes from: the schema, or the arm that
-// carries one where the schema is a union - which has neither `content` nor
+// carries one where the schema is a union - which has neither a kind nor
 // `.to` of its own, though linking a carrier to `S.optional(S.jsonString)` puts
 // the same two readings on the table as linking it to `S.jsonString`.
 export const B_contentNode = (schema: Internal): Internal =>
@@ -860,7 +860,7 @@ export const B_contentNode = (schema: Internal): Internal =>
 
 // Whether two payloads are of different kinds, which is what puts two readings
 // of a link on the table - store the source's value in the target, or open the
-// source and hand its payload over. Which applies is `opens` on the target
+// source and hand its payload over. Which applies is the reading bit on the target
 // (CONTENT_CODEC_SPEC.md rules 1 to 3, all written down as the link is made);
 // neither is rule 4, asked below. Both alphabets are one kind, and `S.json`
 // and `S.jsonString` another.
@@ -871,7 +871,7 @@ export const B_contentDiffers = (from: Internal, to: Internal): boolean =>
 // (CONTENT_CODEC_SPEC.md), so a link from it into a JSON text format has the
 // two readings a bytes carrier's has. A format (`S.email`) can't spell a
 // document and a literal is a value, so each stores; a carrier's opened text
-// and a union narrow carry `content` and are already known to be text.
+// and a union narrow carry the kind bits and are already known to be text.
 export const B_isText = (schema: Internal): boolean =>
   schema.type === stringTag && !(schema.flags! & 3) && schema.format === U && !isLiteral(schema);
 

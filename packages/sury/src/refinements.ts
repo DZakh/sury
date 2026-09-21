@@ -837,7 +837,7 @@ const datePattern =
 // hold, on `stringFormat(…)` itself, which is what keeps a format the consumer
 // never imports out of their bundle. `i` is safe for every source passed: the
 // patterns that care about case spell both out.
-// `flag` is `formatFlag` (see base.ts): bit 1 lets jsonString skip escaping
+// `flag` is the escape-free bit (32 in base.ts): it lets jsonString skip escaping
 // for what a pattern accepts, so widening one can emit broken JSON rather than
 // merely admit more strings - run `pnpm --filter=sury fuzz:escfree` after
 // touching either.
@@ -1063,7 +1063,7 @@ const atobToBytes = (text: string): Uint8Array => {
 //
 // No `try` around `atob`: every route here validates against the format's
 // pattern first, which is the whole reason the format carries one. `noValidation`
-// voids that the way it voids `formatFlag`'s proof - a caller who asserts a
+// voids that the way it voids the escape-free proof - a caller who asserts a
 // value is base64 and is wrong gets the platform's own exception.
 const stdCodec = /* @__PURE__ */ (() => {
   const n = Uint8Array as unknown as NativeBase64;
@@ -1167,7 +1167,7 @@ const formatToUtf8 = (toBytes: (text: string) => Uint8Array) => {
 const stdTest = /^[A-Za-z0-9+/]*={0,2}$/;
 const urlTest = /^[A-Za-z0-9_-]*$/;
 
-// Content node: format refine + `bc`, no recode/utf8 decoder. Carriers pack
+// Content node: format refine + codec, no recode/utf8 decoder. Carriers pack
 // through this so a File bundle does not ship TextEncoder or alphabet recode.
 // @__NO_SIDE_EFFECTS__
 const bytesContent = (

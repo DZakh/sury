@@ -373,7 +373,7 @@ const unionOr = (cs: UnionCase[]): string => {
 // a union-using bundle - and `S.optional`/`S.nullable` are unions.
 //
 // One per member, not per group: besides the runtime tag it carries what the
-// member claims about a value of that tag (`content`, its encoder, a string
+// member claims about a value of that tag (its payload kind, its encoder, a string
 // format), and a sibling parsing from it would inherit the claim - a `uuid`
 // next to `jsonString` was `JSON.parse`d before its own test. The group's
 // narrow is its head member's, and `unionEmit` re-labels the narrowed value
@@ -439,7 +439,7 @@ const unionNarrowSchema = (schema: Internal): Internal => {
     // `noValidation` ride on the narrow: the case appends the member's format
     // check, so the escape-free splice holds inside it. Not `format: "json"` -
     // jsonString reads that as "already JSON text" (see fieldPiece), where the
-    // bare `content` marker says "claims JSON, unchecked".
+    // bare kind bit says "claims JSON, unchecked".
     narrow.format = schema.format;
     if (schema.flags! & 32) narrow.flags = narrow.flags! | 32;
     narrow.noValidation = schema.noValidation;
