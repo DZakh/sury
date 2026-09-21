@@ -19,7 +19,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{(typeof i==="string"||i===void 0)||e[3](i);i=i||void 0;if(i){let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0.a;typeof v1==="number"&&v1==v1||e[1](v1);i={a:v1};}return i}
+    expression: i=>{try{(typeof i==="string"||i===void 0)||e[3](i);i=i||void 0;if(i){let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0.a;typeof v1==="number"&&v1==v1||e[1](v1);i={a:v1};}return i}catch(v2){e[4](v2)}}
     examples:
       set:
         input: '"{\"a\":1}"'
@@ -31,7 +31,7 @@ operations:
         input: '""'
         output: undefined
   decode:
-    expression: i=>{i=i||void 0;if(i){let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0.a;typeof v1==="number"&&v1==v1||e[1](v1);i={a:v1};}return i}
+    expression: i=>{try{i=i||void 0;if(i){let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0.a;typeof v1==="number"&&v1==v1||e[1](v1);i={a:v1};}return i}catch(v2){e[3](v2)}}
     examples:
       set:
         input: '"{\"a\":1}"'
@@ -43,7 +43,7 @@ operations:
         input: '""'
         output: undefined
   encode:
-    expression: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i.a;typeof v0==="number"&&v0==v0||e[1](v0);i="{\"a\":"+(Number.isFinite(v0)?v0:e[0](v0))+"}";break}if(i===void 0)break;e[2](i)}return i}
+    expression: i=>{try{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i.a;typeof v0==="number"&&v0==v0||e[1](v0);i="{\"a\":"+(Number.isFinite(v0)?v0:e[0](v0))+"}";break}if(i===void 0)break;e[2](i)}return i}catch(v1){e[3](v1)}}
     examples:
       set:
         input: "{ a: 1 }"

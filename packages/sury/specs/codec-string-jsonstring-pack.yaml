@@ -18,7 +18,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[1](i);return e[0](i)}
+    expression: i=>{try{typeof i==="string"||e[1](i);return e[0](i)}catch(v0){e[2](v0)}}
     examples:
       the-string-is-a-value:
         input: '"hi"'
@@ -36,7 +36,7 @@ operations:
         input: '"{\"a\":1}"'
         output: '"\"{\\\"a\\\":1}\""'
   encode:
-    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="string"||e[1](v0);return v0}
+    expression: i=>{try{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="string"||e[1](v0);return v0}catch(v1){e[2](v1)}}
     examples:
       the-string-is-a-value:
         input: '"\"hi\""'

@@ -19,7 +19,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[1](i);try{JSON.parse(i)}catch(t){e[0](i)};return i}
+    expression: i=>{try{typeof i==="string"||e[1](i);try{JSON.parse(i)}catch(t){e[0](i)};return i}catch(v0){e[2](v0)}}
     examples:
       the-arm-takes-the-reading:
         input: '"{\"a\":1}"'
@@ -28,7 +28,7 @@ operations:
         input: '"nope"'
         error: Expected JSON string, received "nope"
   decode:
-    expression: i=>{try{JSON.parse(i)}catch(t){e[0](i)};return i}
+    expression: i=>{try{try{JSON.parse(i)}catch(t){e[0](i)};return i}catch(v0){e[1](v0)}}
     examples:
       the-arm-takes-the-reading:
         input: '"{\"a\":1}"'
@@ -37,7 +37,7 @@ operations:
         input: '"nope"'
         error: Expected JSON string, received "nope"
   encode:
-    expression: i=>{typeof i==="string"||e[0](i);return i}
+    expression: i=>{try{typeof i==="string"||e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
       the-arm-takes-the-reading:
         input: '"{\"a\":1}"'
