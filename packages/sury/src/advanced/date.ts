@@ -55,7 +55,15 @@ export const date: Internal = /* @__PURE__ */ initSchema(
   (input: Val): Val => {
     const inputTagFlag = tagFlags[input.s.type]!;
     if ((inputTagFlag & 2)) {
-      return invalidDateRefine(B_next(input, `new Date(${input.i})`, date));
+      // The conversion is checked, and what failed is blamed on the text that
+      // was handed over, not on the `Invalid Date` it produced - the same
+      // shape the number coercion uses. The instance branch below blames its
+      // own value, which there really is an invalid Date.
+      const output = B_nextVar(input, date);
+      const inputVar = input.v();
+      output.cp = `let ${output.i}=new Date(${inputVar});`;
+      output.vc = [{ c: () => `!Number.isNaN(${output.i}.getTime())`, f: failInvalidType }];
+      return output;
     } else if ((inputTagFlag & 1)) {
       return invalidDateRefine(instanceDecoder(input));
     } else if ((inputTagFlag & 8192) && input.s.class === date.class) {
