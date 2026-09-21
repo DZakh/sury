@@ -13,7 +13,7 @@ vs:
   zod: z.symbol()
 operations:
   parse:
-    expression: i=>{typeof i==="symbol"||e[0](i);return i}
+    expression: i=>{try{typeof i==="symbol"||e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
       valid:
         input: Symbol.for("test")

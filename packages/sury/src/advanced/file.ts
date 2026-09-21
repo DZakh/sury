@@ -19,7 +19,7 @@ import {
 import {
   B_computed,
   B_embed,
-  B_makeInvalidConversionDetails,
+  B_conversionFail,
   B_markAsync,
   B_next,
   B_pathArg,
@@ -76,10 +76,11 @@ const read = (input: Val, call: string, schema: Internal): Val => {
   // convention's: a Sury error is what an enclosing object stamps a path onto,
   // so a rejection under `S.optional(…)` arrives raw where the same field
   // required arrives at `["a"]`. Wrapping it back is what the fall-through was.
+  const fail = B_conversionFail(input, schema);
   const failFn = input.g.o & 4
     ? U
     : B_embed(input, (cause: unknown, path?: Path) => {
-        B_throw(B_makeInvalidConversionDetails(input, schema, cause, path));
+        B_throw(fail(cause, path));
       });
   const pathArg = failFn === U ? "" : B_pathArg(input);
   const output = B_computed(

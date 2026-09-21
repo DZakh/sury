@@ -16,7 +16,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[0](i);return {v:i.v}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[0](i);return {v:i.v}}catch(v0){e[1](v0)}}
     examples:
       value:
         input: "{ v: { x: 1 } }"

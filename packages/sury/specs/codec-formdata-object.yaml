@@ -18,7 +18,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{i instanceof e[10]||e[11](i);let v0=e[0](i),v1=v0.get("name"),v2=v0.get("age"),v4=v0.get("agree"),v6=v0.get("kind"),v7=v0.get("since");typeof v1==="string"||e[2](v1);v1.length>0||e[1](v1);typeof v2==="string"||e[3](v2);let v3=+v2;v3==v3&&(v3||v2.trim())||e[5](v2);v3>=18||e[4](v3);let v5=v4==="on"||v4==="true"||(v4==="false"||!v4?false:e[6](v4));v6==="signup"||e[7](v6);typeof v7==="string"||e[8](v7);let v8=new Date(v7);!Number.isNaN(v8.getTime())||e[9](v8);return {name:v1,age:v3,agree:v5,kind:v6,since:v8}}
+    expression: i=>{try{i instanceof e[10]||e[11](i);let v0=e[0](i),v1=v0.get("name"),v2=v0.get("age"),v4=v0.get("agree"),v6=v0.get("kind"),v7=v0.get("since");typeof v1==="string"||e[2](v1);v1.length>0||e[1](v1);typeof v2==="string"||e[3](v2);let v3=+v2;v3==v3&&(v3||v2.trim())||e[5](v2);v3>=18||e[4](v3);let v5=v4==="on"||v4==="true"||(v4==="false"||!v4?false:e[6](v4));v6==="signup"||e[7](v6);typeof v7==="string"||e[8](v7);let v8=new Date(v7);!Number.isNaN(v8.getTime())||e[9](v8);return {name:v1,age:v3,agree:v5,kind:v6,since:v8}}catch(v9){e[12](v9)}}
     examples:
       a-key-sent-twice:
         input: ((f) => (f.append("name", "first"), f.append("name", "second"), f.append("age", "42"), f.append("agree", "on"), f.append("kind", "signup"), f.append("since", "2026-01-01"), f))(new FormData())
@@ -54,7 +54,7 @@ operations:
         input: '{ name: "Ann" }'
         error: 'Expected FormData, received { name: "Ann"; }'
   decode:
-    expression: i=>{let v0=e[0](i),v1=v0.get("name"),v2=v0.get("age"),v4=v0.get("agree"),v6=v0.get("kind"),v7=v0.get("since");typeof v1==="string"||e[2](v1);v1.length>0||e[1](v1);typeof v2==="string"||e[3](v2);let v3=+v2;v3==v3&&(v3||v2.trim())||e[5](v2);v3>=18||e[4](v3);let v5=v4==="on"||v4==="true"||(v4==="false"||!v4?false:e[6](v4));v6==="signup"||e[7](v6);typeof v7==="string"||e[8](v7);let v8=new Date(v7);!Number.isNaN(v8.getTime())||e[9](v8);return {name:v1,age:v3,agree:v5,kind:v6,since:v8}}
+    expression: i=>{try{let v0=e[0](i),v1=v0.get("name"),v2=v0.get("age"),v4=v0.get("agree"),v6=v0.get("kind"),v7=v0.get("since");typeof v1==="string"||e[2](v1);v1.length>0||e[1](v1);typeof v2==="string"||e[3](v2);let v3=+v2;v3==v3&&(v3||v2.trim())||e[5](v2);v3>=18||e[4](v3);let v5=v4==="on"||v4==="true"||(v4==="false"||!v4?false:e[6](v4));v6==="signup"||e[7](v6);typeof v7==="string"||e[8](v7);let v8=new Date(v7);!Number.isNaN(v8.getTime())||e[9](v8);return {name:v1,age:v3,agree:v5,kind:v6,since:v8}}catch(v9){e[10](v9)}}
     examples:
       valid:
         input: ((f) => (f.append("name", "Ann"), f.append("age", "42"), f.append("agree", "on"), f.append("kind", "signup"), f.append("since", "2024-01-01T00:00:00.000Z"), f))(new FormData())
@@ -63,7 +63,7 @@ operations:
         input: ((f) => (f.append("name", ""), f.append("age", "42"), f.append("agree", "on"), f.append("kind", "signup"), f.append("since", "2024-01-01T00:00:00.000Z"), f))(new FormData())
         error: 'Failed at name: Expected string.length >= 1, received ""'
   encode:
-    expression: i=>{let v0=i.name,v1=i.age,v4=i.since;v0.length>0||e[0](v0);v1>=18||e[1](v1);let v2=new e[2]();v2.append("name",v0);v2.append("age",""+v1);if(i.agree){v2.append("agree","on")}v2.append("kind","signup");let v3;try{v3=v4.toISOString()}catch(_){e[3](v4)}v2.append("since",v3);return v2}
+    expression: i=>{try{let v0=i.name,v1=i.age,v4=i.since;v0.length>0||e[0](v0);v1>=18||e[1](v1);let v2=new e[2]();v2.append("name",v0);v2.append("age",""+v1);if(i.agree){v2.append("agree","on")}v2.append("kind","signup");let v3;try{v3=v4.toISOString()}catch(_){e[3](v4)}v2.append("since",v3);return v2}catch(v5){e[4](v5)}}
     examples:
       built:
         input: '{ name: "Ann", age: 42, agree: true, kind: "signup", since: new Date("2024-01-01T00:00:00.000Z") }'

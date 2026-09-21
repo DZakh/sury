@@ -19,7 +19,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);for(let v0 in i){let v1=i[v0];(typeof v1==="string"||v1===void 0)||e[0](v1,[v0]);}let v2=i.PORT,v4=i.DEBUG,v6=i.NAME;let v3=+v2;v3==v3&&(v3||v2.trim())||e[2](v2);v3>=0&&v3<65536&&v3%1==0||e[1](v3);v2=v3;let v5;(v5=v4==="true")||v4==="false"||e[3](v4);v4=v5;v6=v6||void 0;return {PORT:v2,DEBUG:v4,NAME:v6}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[6](i);for(let v0 in i){let v1=i[v0];(typeof v1==="string"||v1===void 0)||e[0](v1,[v0]);}let v2=i.PORT,v4=i.DEBUG,v6=i.NAME;if(v2!==void 0){let v3=+v2;v3==v3&&(v3||v2.trim())||e[2](v2);v3>=0&&v3<65536&&v3%1==0||e[1](v3);v2=v3;}else{e[3](v2)}if(v4!==void 0){let v5;(v5=v4==="true")||v4==="false"||e[4](v4);v4=v5;}else{e[5](v4)}if(v6!==void 0){v6=v6||void 0;}return {PORT:v2,DEBUG:v4,NAME:v6}}catch(v7){e[7](v7)}}
     examples:
       valid:
         input: '{ PORT: "8080", DEBUG: "true", NAME: "Ann" }'
@@ -40,13 +40,13 @@ operations:
         input: '{ PORT: "8080", DEBUG: "true", PATH: "/bin" }'
         output: "{ PORT: 8080, DEBUG: true, NAME: undefined }"
   decode:
-    expression: i=>{let v1=i.PORT,v3=i.DEBUG,v5=i.NAME;let v2=+v1;v2==v2&&(v2||v1.trim())||e[1](v1);v2>=0&&v2<65536&&v2%1==0||e[0](v2);v1=v2;let v4;(v4=v3==="true")||v3==="false"||e[2](v3);v3=v4;v5=v5||void 0;return {PORT:v1,DEBUG:v3,NAME:v5}}
+    expression: i=>{try{let v1=i.PORT,v3=i.DEBUG,v5=i.NAME;if(v1!==void 0){let v2=+v1;v2==v2&&(v2||v1.trim())||e[1](v1);v2>=0&&v2<65536&&v2%1==0||e[0](v2);v1=v2;}else{e[2](v1)}if(v3!==void 0){let v4;(v4=v3==="true")||v3==="false"||e[3](v3);v3=v4;}else{e[4](v3)}if(v5!==void 0){v5=v5||void 0;}return {PORT:v1,DEBUG:v3,NAME:v5}}catch(v6){e[5](v6)}}
     examples:
       valid:
         input: '{ PORT: "8080", DEBUG: "true", NAME: "Ann" }'
         output: '{ PORT: 8080, DEBUG: true, NAME: "Ann" }'
   encode:
-    expression: i=>{let v0=i.PORT,v1=i.NAME;v0>=0&&v0<65536&&v0%1==0||e[0](v0);(typeof v1==="string"||v1===void 0)||e[1](v1);let v2={PORT:""+v0,DEBUG:""+i.DEBUG};if(v1!==void 0){v2.NAME=v1}return v2}
+    expression: i=>{try{let v0=i.PORT,v1=i.NAME;v0>=0&&v0<65536&&v0%1==0||e[0](v0);(typeof v1==="string"||v1===void 0)||e[1](v1);let v2={PORT:""+v0,DEBUG:""+i.DEBUG};if(v1!==void 0){v2.NAME=v1}return v2}catch(v3){e[2](v3)}}
     examples:
       built:
         input: '{ PORT: 8080, DEBUG: true, NAME: "Ann" }'

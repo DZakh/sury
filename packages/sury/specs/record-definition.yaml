@@ -13,7 +13,7 @@ vs:
   zod: "z.record(z.string(), z.object({ n: z.number() }))"
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v3={};for(let v0 in i){let v1=i[v0];typeof v1==="object"&&v1&&!Array.isArray(v1)||e[1](v1,[v0]);let v2=v1.n;typeof v2==="number"&&v2==v2||e[0](v2,[v0,"n"]);v3[v0]={n:v2}}return v3}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v3={};for(let v0 in i){let v1=i[v0];typeof v1==="object"&&v1&&!Array.isArray(v1)||e[1](v1,[v0]);let v2=v1.n;typeof v2==="number"&&v2==v2||e[0](v2,[v0,"n"]);v3[v0]={n:v2}}return v3}catch(v4){e[3](v4)}}
     examples:
       valid:
         input: "{ a: { n: 1 } }"

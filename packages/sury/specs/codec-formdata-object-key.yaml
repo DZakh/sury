@@ -18,19 +18,19 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{i instanceof e[6]||e[7](i);let v0=e[0](i),v1=v0.get("__proto__"),v2=v0.get("a[b]"),v4=v0.get("");typeof v1==="string"||e[2](v1);v1.length>0||e[1](v1);typeof v2==="string"||e[3](v2);let v3=+v2;v3==v3&&(v3||v2.trim())||e[4](v2);typeof v4==="string"||e[5](v4);return {["__proto__"]:v1,"a[b]":v3,"":v4}}
+    expression: i=>{try{i instanceof e[6]||e[7](i);let v0=e[0](i),v1=v0.get("__proto__"),v2=v0.get("a[b]"),v4=v0.get("");typeof v1==="string"||e[2](v1);v1.length>0||e[1](v1);typeof v2==="string"||e[3](v2);let v3=+v2;v3==v3&&(v3||v2.trim())||e[4](v2);typeof v4==="string"||e[5](v4);return {["__proto__"]:v1,"a[b]":v3,"":v4}}catch(v5){e[8](v5)}}
     examples:
       keys-are-data:
         input: ((f) => (f.append("__proto__", "v"), f.append("a[b]", "1"), f.append("", "x"), f))(new FormData())
         output: '{ ["__proto__"]: "v", "a[b]": 1, "": "x" }'
   decode:
-    expression: i=>{let v0=e[0](i),v1=v0.get("__proto__"),v2=v0.get("a[b]"),v4=v0.get("");typeof v1==="string"||e[2](v1);v1.length>0||e[1](v1);typeof v2==="string"||e[3](v2);let v3=+v2;v3==v3&&(v3||v2.trim())||e[4](v2);typeof v4==="string"||e[5](v4);return {["__proto__"]:v1,"a[b]":v3,"":v4}}
+    expression: i=>{try{let v0=e[0](i),v1=v0.get("__proto__"),v2=v0.get("a[b]"),v4=v0.get("");typeof v1==="string"||e[2](v1);v1.length>0||e[1](v1);typeof v2==="string"||e[3](v2);let v3=+v2;v3==v3&&(v3||v2.trim())||e[4](v2);typeof v4==="string"||e[5](v4);return {["__proto__"]:v1,"a[b]":v3,"":v4}}catch(v5){e[6](v5)}}
     examples:
       keys-are-data:
         input: ((f) => (f.append("__proto__", "v"), f.append("a[b]", "1"), f.append("", "x"), f))(new FormData())
         output: '{ ["__proto__"]: "v", "a[b]": 1, "": "x" }'
   encode:
-    expression: i=>{let v0=(Object.hasOwn(i,"__proto__")?i["__proto__"]:void 0);v0.length>0||e[0](v0);let v1=new e[1]();v1.append("__proto__",v0);v1.append("a[b]",""+i["a[b]"]);v1.append("",i[""]);return v1}
+    expression: i=>{try{let v0=(Object.hasOwn(i,"__proto__")?i["__proto__"]:void 0);v0.length>0||e[0](v0);let v1=new e[1]();v1.append("__proto__",v0);v1.append("a[b]",""+i["a[b]"]);v1.append("",i[""]);return v1}catch(v2){e[2](v2)}}
     examples:
       keys-are-data:
         input: '{ ["__proto__"]: "v", "a[b]": 1, "": "x" }'

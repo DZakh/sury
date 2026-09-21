@@ -22,7 +22,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{Array.isArray(i)||e[2](i);let v1="";for(let v0=0;v0<i.length;++v0){let v2=i[v0];e[0](v2,[v0]);e[1](v2,[v0]);v1+=(v0?",":"")+v2}return "["+v1+"]"}
+    expression: i=>{try{Array.isArray(i)||e[2](i);let v1="";for(let v0=0;v0<i.length;++v0){let v2=i[v0];e[0](v2,[v0]);e[1](v2,[v0]);v1+=(v0?",":"")+v2}return "["+v1+"]"}catch(v3){e[3](v3)}}
     examples:
       empty:
         input: "[]"
@@ -31,13 +31,13 @@ operations:
         input: "[1]"
         error: "Failed at [0]: Expected never, received 1"
   decode:
-    expression: i=>{let v1="";for(let v0=0;v0<i.length;++v0){let v2=i[v0];e[0](v2,[v0]);e[1](v2,[v0]);v1+=(v0?",":"")+v2}return "["+v1+"]"}
+    expression: i=>{try{let v1="";for(let v0=0;v0<i.length;++v0){let v2=i[v0];e[0](v2,[v0]);e[1](v2,[v0]);v1+=(v0?",":"")+v2}return "["+v1+"]"}catch(v3){e[2](v3)}}
     examples:
       empty:
         input: "[]"
         output: '"[]"'
   encode:
-    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}Array.isArray(v0)||e[3](v0);for(let v1=0;v1<v0.length;++v1){let v2=v0[v1];typeof v2==="string"||e[2](v2,[v1]);e[1](v2,[v1]);}return v0}
+    expression: i=>{try{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}Array.isArray(v0)||e[3](v0);for(let v1=0;v1<v0.length;++v1){let v2=v0[v1];typeof v2==="string"||e[2](v2,[v1]);e[1](v2,[v1]);}return v0}catch(v3){e[4](v3)}}
     examples:
       empty:
         input: '"[]"'

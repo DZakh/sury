@@ -22,7 +22,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i.f,v1=i.n;typeof v0==="string"&&(v0==="a"||v0==="b")||e[0](v0);typeof v1==="number"&&v1==v1||e[2](v1);for(let v2 in i)if(v2!=="f"&&v2!=="n")e[3](v2);return "{\"f\":\""+v0+"\",\"n\":"+(Number.isFinite(v1)?v1:e[1](v1))+"}"}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i.f,v1=i.n;typeof v0==="string"&&(v0==="a"||v0==="b")||e[0](v0);typeof v1==="number"&&v1==v1||e[2](v1);for(let v2 in i)if(v2!=="f"&&v2!=="n")e[3](v2);return "{\"f\":\""+v0+"\",\"n\":"+(Number.isFinite(v1)?v1:e[1](v1))+"}"}catch(v3){e[5](v3)}}
     examples:
       valid:
         input: '{ f: "a", n: 1 }'
@@ -37,13 +37,13 @@ operations:
         input: '{ f: "c", n: 1, x: 2 }'
         error: 'Failed at f: Expected "a" | "b", received "c"'
   decode:
-    expression: i=>{let v0=i.n;return "{\"f\":\""+i.f+"\",\"n\":"+(Number.isFinite(v0)?v0:e[0](v0))+"}"}
+    expression: i=>{try{let v0=i.n;return "{\"f\":\""+i.f+"\",\"n\":"+(Number.isFinite(v0)?v0:e[0](v0))+"}"}catch(v1){e[1](v1)}}
     examples:
       valid:
         input: '{ f: "b", n: 2 }'
         output: '"{\"f\":\"b\",\"n\":2}"'
   encode:
-    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[4](v0);let v1=v0.f,v2=v0.n,v3;typeof v1==="string"&&(v1==="a"||v1==="b")||e[1](v1);typeof v2==="number"&&v2==v2||e[2](v2);for(v3 in v0)if(v3!=="f"&&v3!=="n")e[3](v3);return v0}
+    expression: i=>{try{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[4](v0);let v1=v0.f,v2=v0.n,v3;typeof v1==="string"&&(v1==="a"||v1==="b")||e[1](v1);typeof v2==="number"&&v2==v2||e[2](v2);for(v3 in v0)if(v3!=="f"&&v3!=="n")e[3](v3);return v0}catch(v4){e[5](v4)}}
     examples:
       valid:
         input: '"{\"f\":\"a\",\"n\":1}"'

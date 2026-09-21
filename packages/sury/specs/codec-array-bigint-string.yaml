@@ -16,7 +16,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{Array.isArray(i)||e[1](i);for(let v0=0;v0<i.length;++v0){let v1=i[v0];typeof v1==="bigint"||e[0](v1,[v0]);}let v3=new Array(i.length);for(let v2=0;v2<i.length;++v2){v3[v2]=""+i[v2]}return v3}
+    expression: i=>{try{Array.isArray(i)||e[1](i);for(let v0=0;v0<i.length;++v0){let v1=i[v0];typeof v1==="bigint"||e[0](v1,[v0]);}let v3=new Array(i.length);for(let v2=0;v2<i.length;++v2){v3[v2]=""+i[v2]}return v3}catch(v4){e[2](v4)}}
     examples:
       valid:
         input: "[123n]"
@@ -31,7 +31,7 @@ operations:
         input: "[123n]"
         output: '["123"]'
   encode:
-    expression: i=>{let v4=new Array(i.length);for(let v1=0;v1<i.length;++v1){let v3=i[v1];let v2;try{v2=BigInt(v3)}catch(_){e[0](v3,[v1])}v2||v3.trim()||e[0](v3,[v1]);v4[v1]=v2}return v4}
+    expression: i=>{try{let v4=new Array(i.length);for(let v1=0;v1<i.length;++v1){let v3=i[v1];let v2;try{v2=BigInt(v3)}catch(_){e[0](v3,[v1])}v2||v3.trim()||e[0](v3,[v1]);v4[v1]=v2}return v4}catch(v5){e[1](v5)}}
     examples:
       valid:
         input: '["123"]'

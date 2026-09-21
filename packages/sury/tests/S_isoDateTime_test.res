@@ -19,7 +19,7 @@ test("Successfully parses valid data", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="string"||e[2](i);e[0](i)||e[1](i);return i}`,
+    `i=>{try{typeof i==="string"||e[2](i);e[0](i)||e[1](i);return i}catch(v0){e[3](v0)}}`,
   )
 })
 

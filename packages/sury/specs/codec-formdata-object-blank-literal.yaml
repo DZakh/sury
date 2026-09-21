@@ -20,7 +20,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{i instanceof e[6]||e[7](i);let v0=e[0](i),v1=v0.get("a"),v2=v0.get("b"),v3=v0.get("c");if(v1!==void 0){v1===""||e[1](v1);}if(v2!==void 0){typeof v2==="string"||e[2](v2);(v2===""||v2==="x")||e[3](v2);}else{v2=null}if(v3!==void 0){for(;;){if(typeof v3==="string"&&v3==="")break;typeof v3==="string"||e[4](v3);let v4=+v3;v4==v4&&(v4||v3.trim())||e[5](v3);v3=v4;break;}}else{v3=null}return {a:v1,b:v2,c:v3}}
+    expression: i=>{try{i instanceof e[6]||e[7](i);let v0=e[0](i),v1=v0.get("a"),v2=v0.get("b"),v3=v0.get("c");if(v1!==void 0){v1===""||e[1](v1);}if(v2!==void 0){typeof v2==="string"||e[2](v2);(v2===""||v2==="x")||e[3](v2);}else{v2=null}if(v3!==void 0){for(;;){if(typeof v3==="string"&&v3==="")break;typeof v3==="string"||e[4](v3);let v4=+v3;v4==v4&&(v4||v3.trim())||e[5](v3);v3=v4;break;}}else{v3=null}return {a:v1,b:v2,c:v3}}catch(v5){e[8](v5)}}
     examples:
       blank-is-the-literal:
         input: ((f) => (f.append("a", ""), f.append("b", ""), f.append("c", ""), f))(new FormData())
@@ -29,7 +29,7 @@ operations:
         input: ((f) => (f.append("b", "x"), f))(new FormData())
         output: '{ a: undefined, b: "x", c: null }'
   decode:
-    expression: i=>{let v0=e[0](i),v1=v0.get("a"),v2=v0.get("b"),v3=v0.get("c");if(v1!==void 0){v1===""||e[1](v1);}if(v2!==void 0){typeof v2==="string"||e[2](v2);(v2===""||v2==="x")||e[3](v2);}else{v2=null}if(v3!==void 0){for(;;){if(typeof v3==="string"&&v3==="")break;typeof v3==="string"||e[4](v3);let v4=+v3;v4==v4&&(v4||v3.trim())||e[5](v3);v3=v4;break;}}else{v3=null}return {a:v1,b:v2,c:v3}}
+    expression: i=>{try{let v0=e[0](i),v1=v0.get("a"),v2=v0.get("b"),v3=v0.get("c");if(v1!==void 0){v1===""||e[1](v1);}if(v2!==void 0){typeof v2==="string"||e[2](v2);(v2===""||v2==="x")||e[3](v2);}else{v2=null}if(v3!==void 0){for(;;){if(typeof v3==="string"&&v3==="")break;typeof v3==="string"||e[4](v3);let v4=+v3;v4==v4&&(v4||v3.trim())||e[5](v3);v3=v4;break;}}else{v3=null}return {a:v1,b:v2,c:v3}}catch(v5){e[6](v5)}}
     examples:
       blank-is-the-literal:
         input: ((f) => (f.append("a", ""), f.append("b", ""), f.append("c", ""), f))(new FormData())

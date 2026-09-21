@@ -20,20 +20,20 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[7](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[6](v0);let v3={};for(let v1 in v0){let v2=v0[v1];typeof v2==="string"||e[5](v2,[v1]);e[3](v2)||e[4](v2,[v1]);v3[v1]=new e[2]([e[1](v2)],"")}return v3}
+    expression: i=>{try{typeof i==="string"||e[7](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[6](v0);let v3={};for(let v1 in v0){let v2=v0[v1];typeof v2==="string"||e[5](v2,[v1]);e[3](v2)||e[4](v2,[v1]);v3[v1]=new e[2]([e[1](v2)],"")}return v3}catch(v4){e[8](v4)}}
     examples:
       not-a-document:
         input: '"nope"'
         error: Expected JSON string, received "nope"
   decode:
-    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[6](v0);let v3={};for(let v1 in v0){let v2=v0[v1];typeof v2==="string"||e[5](v2,[v1]);e[3](v2)||e[4](v2,[v1]);v3[v1]=new e[2]([e[1](v2)],"")}return v3}
+    expression: i=>{try{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[6](v0);let v3={};for(let v1 in v0){let v2=v0[v1];typeof v2==="string"||e[5](v2,[v1]);e[3](v2)||e[4](v2,[v1]);v3[v1]=new e[2]([e[1](v2)],"")}return v3}catch(v4){e[7](v4)}}
     examples:
       not-a-document:
         input: '"nope"'
         error: Expected JSON string, received "nope"
   encode:
     isAsync: true
-    expression: i=>{try{let v2=[];for(let v1 of Object.keys(i)){let v3=i[v1];let v4;try{v4=v3.arrayBuffer().then(e[1]).catch(x=>e[2](x,[v1]))}catch(x){e[2](x,[v1])}v2.push(v4.then(v4=>{return "\""+v4+"\""}).then(v5=>e[0](v1)+":"+v5))}let v7=Promise.all(v2).then(v6=>v6.join(","));return v7.then(v7=>"{"+v7+"}")}catch(v8){return Promise.reject(v8)}}
+    expression: i=>{try{try{let v2=[];for(let v1 of Object.keys(i)){let v3=i[v1];let v4;try{v4=v3.arrayBuffer().then(e[1]).catch(x=>e[2](x,[v1]))}catch(x){e[2](x,[v1])}v2.push(v4.then(v4=>{return "\""+v4+"\""}).then(v5=>e[0](v1)+":"+v5))}let v7=Promise.all(v2).then(v6=>v6.join(","));return v7.then(v7=>"{"+v7+"}")}catch(v8){e[3](v8)}}catch(v9){return Promise.reject(v9)}}
     examples:
       empty:
         input: "{}"

@@ -14,7 +14,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}catch(v0){e[3](v0)}}
     examples:
       a-valid-uri:
         input: '"http://foo.bar/?baz=qux#quux"'
@@ -50,7 +50,7 @@ operations:
         input: '"http://999.999.999.999/"'
         output: '"http://999.999.999.999/"'
   decode:
-    expression: i=>{e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{e[0].test(i)||e[1](i);return i}catch(v0){e[2](v0)}}
     examples:
       valid:
         input: '"http://foo.bar/?baz=qux#quux"'
@@ -59,7 +59,7 @@ operations:
         input: '"\\\\WINDOWS\\fileshare"'
         error: Expected uri-reference, received "\\WINDOWS\fileshare"
   encode:
-    expression: i=>{e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{e[0].test(i)||e[1](i);return i}catch(v0){e[2](v0)}}
     examples:
       valid:
         input: '"http://foo.bar/?baz=qux#quux"'

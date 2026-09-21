@@ -81,7 +81,7 @@ test("Encodes option schema to JSON", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#EncodeToJson,
-    `i=>{for(;;){if(typeof i==="boolean")break;if(i===void 0){i=null;break}e[0](i)}return i}`,
+    `i=>{try{for(;;){if(typeof i==="boolean")break;if(i===void 0){i=null;break}e[0](i)}return i}catch(v0){e[1](v0)}}`,
   )
 })
 
@@ -235,7 +235,7 @@ test("Encodes a union to JSON when at least one item is not JSON-able", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#EncodeToJson,
-    `i=>{for(;;){if(typeof i==="string")break;e[0](i);break;}return i}`,
+    `i=>{try{for(;;){if(typeof i==="string")break;e[0](i);break;}return i}catch(v0){e[1](v0)}}`,
   )
 })
 
@@ -245,7 +245,7 @@ test("Encodes a union of NaN and unknown to JSON", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#EncodeToJson,
-    `i=>{for(;;){if(Number.isNaN(i)){i=null;break}e[0](i);break;}return i}`,
+    `i=>{try{for(;;){if(Number.isNaN(i)){i=null;break}e[0](i);break;}return i}catch(v0){e[1](v0)}}`,
   )
 
   t->Assert.deepEqual(%raw(`NaN`)->S.convertOrThrow(~from=schema, ~to=S.json), JSON.Null)
@@ -361,13 +361,13 @@ module SerializesDeepRecursive = {
     t->U.assertCompiledCode(
       ~schema=bodySchema,
       ~op=#Encode,
-      `i=>{let v0;try{v0=e[0](i.condition);}catch(v1){v1.path=["condition",...v1.path];throw v1}return {condition:v0}}`,
+      `i=>{try{let v0;try{v0=e[0](i.condition);}catch(v1){v1.path=["condition",...v1.path];throw v1}return {condition:v0}}catch(v2){e[1](v2)}}`,
     )
     // Note: Can be optimized to not recursively validate JSON values a second time
     t->U.assertCompiledCode(
       ~schema=bodySchema,
       ~op=#EncodeToJson,
-      `i=>{let v0;try{v0=e[0](i.condition);}catch(v1){v1.path=["condition",...v1.path];throw v1}try{e[1](v0);}catch(v2){v2.path=["condition",...v2.path];throw v2}return {condition:v0}}`,
+      `i=>{try{let v0;try{v0=e[0](i.condition);}catch(v1){v1.path=["condition",...v1.path];throw v1}try{e[1](v0);}catch(v2){v2.path=["condition",...v2.path];throw v2}return {condition:v0}}catch(v3){e[2](v3)}}`,
     )
 
     t->Assert.deepEqual(
