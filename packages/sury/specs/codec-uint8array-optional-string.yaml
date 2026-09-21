@@ -19,7 +19,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{i instanceof e[1]||e[2](i);let v0=e[0].decode(i);i=v0;return i}
+    expression: i=>{try{i instanceof e[1]||e[2](i);let v0=e[0].decode(i);i=v0;return i}catch(v1){e[3](v1)}}
     examples:
       base64-legal-ascii:
         input: new Uint8Array([97, 98, 99, 100])
@@ -28,13 +28,13 @@ operations:
         input: new Uint8Array([226, 130, 172])
         output: '"€"'
   decode:
-    expression: i=>{let v0=e[0].decode(i);i=v0;return i}
+    expression: i=>{try{let v0=e[0].decode(i);i=v0;return i}catch(v1){e[1](v1)}}
     examples:
       base64-legal-ascii:
         input: new Uint8Array([97, 98, 99, 100])
         output: '"abcd"'
   encode:
-    expression: i=>{if(typeof i==="string"){i=e[0](i)}else{e[1](i)}return i}
+    expression: i=>{try{if(typeof i==="string"){i=e[0](i)}else{e[1](i)}return i}catch(v0){e[2](v0)}}
     examples:
       text:
         input: '"abcd"'

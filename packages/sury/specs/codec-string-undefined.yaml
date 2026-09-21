@@ -21,7 +21,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[1](i);i==="undefined"||e[0](i);return void 0}
+    expression: i=>{try{typeof i==="string"||e[1](i);i==="undefined"||e[0](i);return void 0}catch(v0){e[2](v0)}}
     examples:
       valid:
         input: '"undefined"'
@@ -33,7 +33,7 @@ operations:
         input: "123"
         error: Expected string, received 123
   decode:
-    expression: i=>{i==="undefined"||e[0](i);return void 0}
+    expression: i=>{try{i==="undefined"||e[0](i);return void 0}catch(v0){e[1](v0)}}
     examples:
       valid:
         input: '"undefined"'
@@ -42,7 +42,7 @@ operations:
         input: '"abc"'
         error: Expected "undefined", received "abc"
   encode:
-    expression: i=>{i===void 0||e[0](i);return "undefined"}
+    expression: i=>{try{i===void 0||e[0](i);return "undefined"}catch(v0){e[1](v0)}}
     examples:
       valid:
         input: undefined

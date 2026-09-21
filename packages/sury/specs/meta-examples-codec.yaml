@@ -14,13 +14,13 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[1](i);let v0=+i;v0==v0&&(v0||i.trim())||e[0](i);return v0}
+    expression: i=>{try{typeof i==="string"||e[1](i);let v0=+i;v0==v0&&(v0||i.trim())||e[0](i);return v0}catch(v1){e[2](v1)}}
     examples:
       number-text:
         input: '"42"'
         output: "42"
   decode:
-    expression: i=>{let v0=+i;v0==v0&&(v0||i.trim())||e[0](i);return v0}
+    expression: i=>{try{let v0=+i;v0==v0&&(v0||i.trim())||e[0](i);return v0}catch(v1){e[1](v1)}}
     examples:
       number-text:
         input: '"42"'

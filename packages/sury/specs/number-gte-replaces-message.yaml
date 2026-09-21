@@ -13,7 +13,7 @@ vs:
   zod: z.number().gte(5, "A").gte(10)
 operations:
   parse:
-    expression: i=>{typeof i==="number"&&i==i||e[1](i);i>=10||e[0](i);return i}
+    expression: i=>{try{typeof i==="number"&&i==i||e[1](i);i>=10||e[0](i);return i}catch(v0){e[2](v0)}}
     examples:
       at-the-surviving-bound:
         input: "10"
@@ -25,7 +25,7 @@ operations:
         input: "7"
         error: Expected number >= 10, received 7
   decode:
-    expression: i=>{i>=10||e[0](i);return i}
+    expression: i=>{try{i>=10||e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
       at-the-surviving-bound:
         input: "10"
@@ -34,7 +34,7 @@ operations:
         input: "7"
         error: Expected number >= 10, received 7
   encode:
-    expression: i=>{i>=10||e[0](i);return i}
+    expression: i=>{try{i>=10||e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
       at-the-surviving-bound:
         input: "10"

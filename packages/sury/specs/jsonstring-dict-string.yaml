@@ -22,7 +22,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);for(let v0 in i){let v1=i[v0];typeof v1==="string"||e[0](v1,[v0]);}return JSON.stringify(i)}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);for(let v0 in i){let v1=i[v0];typeof v1==="string"||e[0](v1,[v0]);}return JSON.stringify(i)}catch(v2){e[2](v2)}}
     examples:
       valid:
         input: '{ a: "x", b: "say \"hi\"" }'
@@ -37,7 +37,7 @@ operations:
         input: '{ a: "x" }'
         output: '"{\"a\":\"x\"}"'
   encode:
-    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);for(let v1 in v0){let v2=v0[v1];typeof v2==="string"||e[1](v2,[v1]);}return v0}
+    expression: i=>{try{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);for(let v1 in v0){let v2=v0[v1];typeof v2==="string"||e[1](v2,[v1]);}return v0}catch(v3){e[3](v3)}}
     examples:
       valid:
         input: '"{\"a\":\"x\"}"'

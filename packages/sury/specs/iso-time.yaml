@@ -13,7 +13,7 @@ vs:
   zod: z.iso.time()
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[2](i);e[0](i)||e[1](i);return i}
+    expression: i=>{try{typeof i==="string"||e[2](i);e[0](i)||e[1](i);return i}catch(v0){e[3](v0)}}
     examples:
       a-valid-time-string:
         input: '"08:30:06Z"'
@@ -178,7 +178,7 @@ operations:
         input: '"2020-11-28T23:55:45Z"'
         error: Expected time, received "2020-11-28T23:55:45Z"
   decode:
-    expression: i=>{e[0](i)||e[1](i);return i}
+    expression: i=>{try{e[0](i)||e[1](i);return i}catch(v0){e[2](v0)}}
     examples:
       valid:
         input: '"08:30:06Z"'
@@ -187,7 +187,7 @@ operations:
         input: '"008:030:006Z"'
         error: Expected time, received "008:030:006Z"
   encode:
-    expression: i=>{e[0](i)||e[1](i);return i}
+    expression: i=>{try{e[0](i)||e[1](i);return i}catch(v0){e[2](v0)}}
     examples:
       valid:
         input: '"08:30:06Z"'

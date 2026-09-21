@@ -20,7 +20,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{Array.isArray(i)&&i.length===1||e[4](i);let v1=i[0];typeof v1==="string"||e[3](v1);let v0;try{v0=e[0](v1)}catch(x){e[1](x)}typeof v0==="number"&&v0==v0||e[2](v0);return [v0]}
+    expression: i=>{try{Array.isArray(i)&&i.length===1||e[4](i);let v1=i[0];typeof v1==="string"||e[3](v1);let v0;try{v0=e[0](v1)}catch(x){e[1](x)}typeof v0==="number"&&v0==v0||e[2](v0);return [v0]}catch(v2){e[5](v2)}}
     examples:
       valid:
         input: '["123"]'
@@ -32,7 +32,7 @@ operations:
         input: "[123]"
         error: "Failed at [0]: Expected string, received 123"
   decode:
-    expression: i=>{let v0;try{v0=e[0](i[0])}catch(x){e[1](x)}typeof v0==="number"&&v0==v0||e[2](v0);return [v0]}
+    expression: i=>{try{let v0;try{v0=e[0](i[0])}catch(x){e[1](x)}typeof v0==="number"&&v0==v0||e[2](v0);return [v0]}catch(v1){e[3](v1)}}
     examples:
       valid:
         input: '["123"]'

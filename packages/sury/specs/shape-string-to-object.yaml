@@ -18,7 +18,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[0](i);return {foo:i}}
+    expression: i=>{try{typeof i==="string"||e[0](i);return {foo:i}}catch(v0){e[1](v0)}}
     examples:
       valid:
         input: '"bar"'

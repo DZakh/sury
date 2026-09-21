@@ -19,7 +19,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i.Outer,v1=i.X;typeof v0==="string"||e[0](v0);typeof v1==="string"||e[1](v1);return {outer:v0,inner:{x:v1}}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i.Outer,v1=i.X;typeof v0==="string"||e[0](v0);typeof v1==="string"||e[1](v1);return {outer:v0,inner:{x:v1}}}catch(v2){e[3](v2)}}
     examples:
       both-fields:
         input: '{ Outer: "o", X: "x" }'

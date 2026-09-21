@@ -13,7 +13,7 @@ vs:
   zod: z.array(z.string()).max(2)
 operations:
   parse:
-    expression: i=>{Array.isArray(i)||e[2](i);for(let v0=0;v0<i.length;++v0){let v1=i[v0];typeof v1==="string"||e[0](v1,[v0]);}i.length<3||e[1](i);return i}
+    expression: i=>{try{Array.isArray(i)||e[2](i);for(let v0=0;v0<i.length;++v0){let v1=i[v0];typeof v1==="string"||e[0](v1,[v0]);}i.length<3||e[1](i);return i}catch(v2){e[3](v2)}}
     examples:
       at-the-length:
         input: '["a", "b"]'
@@ -31,7 +31,7 @@ operations:
         input: '"ab"'
         error: Expected string[].length <= 2, received "ab"
   decode:
-    expression: i=>{i.length<3||e[0](i);return i}
+    expression: i=>{try{i.length<3||e[0](i);return i}catch(v1){e[1](v1)}}
     examples:
       at-the-length:
         input: '["a", "b"]'
@@ -43,7 +43,7 @@ operations:
         input: "[]"
         output: "[]"
   encode:
-    expression: i=>{i.length<3||e[0](i);return i}
+    expression: i=>{try{i.length<3||e[0](i);return i}catch(v1){e[1](v1)}}
     examples:
       at-the-length:
         input: '["a", "b"]'

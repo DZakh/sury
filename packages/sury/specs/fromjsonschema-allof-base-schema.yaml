@@ -19,7 +19,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{e[3](i)||e[4](i);for(;;){if(typeof i==="string")break;if(typeof i==="number"&&i==i)break;if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i.bar;typeof v0==="number"&&v0%1==0||e[0](v0);i={bar:v0};break}if(Array.isArray(i)){for(let v1=0;v1<i.length;++v1){try{e[1](i[v1]);}catch(v2){v2.path=[v1,...v2.path];throw v2}};break}if(typeof i==="boolean")break;if(i===null)break;e[2](i)}return i}
+    expression: i=>{try{e[3](i)||e[4](i);for(;;){if(typeof i==="string")break;if(typeof i==="number"&&i==i)break;if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i.bar;typeof v0==="number"&&v0%1==0||e[0](v0);i={bar:v0};break}if(Array.isArray(i)){for(let v1=0;v1<i.length;++v1){try{e[1](i[v1]);}catch(v2){v2.path=[v1,...v2.path];throw v2}};break}if(typeof i==="boolean")break;if(i===null)break;e[2](i)}return i}catch(v3){e[5](v3)}}
     examples:
       # FIXME: the same strip the encode block below describes, seen from the
       # other side - the object arm drops `foo`, so what parse returns fails the
@@ -42,7 +42,7 @@ operations:
     # strips `foo` before the allOf refinement reads it, so no input satisfies
     # both. Unchanged from before the input-refiner fix, which only moved the
     # decode-direction checks.
-    expression: i=>{for(;;){if(typeof i==="string")break;if(typeof i==="number"&&i==i)break;if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i.bar;typeof v0==="number"&&v0%1==0||e[0](v0);i={bar:v0};break}if(Array.isArray(i)){for(let v1=0;v1<i.length;++v1){try{e[1](i[v1]);}catch(v2){v2.path=[v1,...v2.path];throw v2}};break}if(typeof i==="boolean")break;if(i===null)break;e[2](i)}e[3](i)||e[4](i);return i}
+    expression: i=>{try{for(;;){if(typeof i==="string")break;if(typeof i==="number"&&i==i)break;if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i.bar;typeof v0==="number"&&v0%1==0||e[0](v0);i={bar:v0};break}if(Array.isArray(i)){for(let v1=0;v1<i.length;++v1){try{e[1](i[v1]);}catch(v2){v2.path=[v1,...v2.path];throw v2}};break}if(typeof i==="boolean")break;if(i===null)break;e[2](i)}e[3](i)||e[4](i);return i}catch(v3){e[5](v3)}}
     examples:
       base-and-allof-satisfied:
         input: '{ foo: "quux", bar: 2 }'

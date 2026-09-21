@@ -20,7 +20,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[0](i);return "{\"d\":\""+i.d.toISOString()+"\"}"}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[0](i);return "{\"d\":\""+i.d.toISOString()+"\"}"}catch(v0){e[1](v0)}}
     examples:
       real-date:
         input: '{ d: new Date("1970-01-01T00:00:00.000Z") }'
@@ -35,7 +35,7 @@ operations:
         input: '{ d: new Date("1970-01-01T00:00:00.000Z") }'
         output: '"{\"d\":\"1970-01-01T00:00:00.000Z\"}"'
   encode:
-    expression: i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0.d;typeof v1==="string"||e[1](v1);return {d:new Date(v0.d)}}
+    expression: i=>{try{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0.d;typeof v1==="string"||e[1](v1);return {d:new Date(v0.d)}}catch(v2){e[3](v2)}}
     examples:
       reads-the-date-back:
         input: '"{\"d\":\"1970-01-01T00:00:00.000Z\"}"'

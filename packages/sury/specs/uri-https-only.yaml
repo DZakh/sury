@@ -13,7 +13,7 @@ vs:
   zod: z.url().regex(/^https:\/\//)
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[4](i);e[1].test(i)||e[2](i);e[0].test(i)||e[3](i);return i}
+    expression: i=>{try{typeof i==="string"||e[4](i);e[1].test(i)||e[2](i);e[0].test(i)||e[3](i);return i}catch(v0){e[5](v0)}}
     examples:
       https:
         input: '"https://example.com/a"'
@@ -40,7 +40,7 @@ operations:
         input: '"//example.com/a"'
         error: Expected uri, received "//example.com/a"
   decode:
-    expression: i=>{e[1].test(i)||e[2](i);e[0].test(i)||e[3](i);return i}
+    expression: i=>{try{e[1].test(i)||e[2](i);e[0].test(i)||e[3](i);return i}catch(v0){e[4](v0)}}
     examples:
       https:
         input: '"https://example.com/a"'
@@ -49,7 +49,7 @@ operations:
         input: '"javascript:alert(1)"'
         error: Invalid pattern
   encode:
-    expression: i=>{e[1].test(i)||e[2](i);e[0].test(i)||e[3](i);return i}
+    expression: i=>{try{e[1].test(i)||e[2](i);e[0].test(i)||e[3](i);return i}catch(v0){e[4](v0)}}
     examples:
       https:
         input: '"https://example.com/a"'

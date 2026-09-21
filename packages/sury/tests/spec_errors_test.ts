@@ -60,13 +60,13 @@ test("stale golden (expression drifted from what the schema actually compiles to
       operations:
         parse:
     -     expression: i=>i /* stale */
-    +     expression: i=>{typeof i==="string"||e[0](i);return i}
+    +     expression: i=>{try{typeof i==="string"||e[0](i);return i}catch(v0){e[1](v0)}}
           examples:
             valid:
               input: '"hello"'
         ts.aliases["S.schema(S.string)"]: operations.parse.expression differs:
     - i=>i /* stale */
-    + i=>{typeof i==="string"||e[0](i);return i}",
+    + i=>{try{typeof i==="string"||e[0](i);return i}catch(v0){e[1](v0)}}",
       "stdout": "",
     }
   `);
@@ -276,7 +276,7 @@ test("not canonical (on-disk text doesn't match the canonical form)", async () =
     +   zod: z.string()
       operations:
         parse:
-          expression: i=>{typeof i==="string"||e[0](i);return i}",
+          expression: i=>{try{typeof i==="string"||e[0](i);return i}catch(v0){e[1](v0)}}",
       "stdout": "",
     }
   `);
@@ -351,8 +351,8 @@ test("identity claimed but the operation doesn't actually compile to identity", 
         zod: z.string()
       operations:
         parse:
-    -     expression: i=>{typeof i==="string"||e[0](i);return i}
-    +     expression: i=>{typeof i==="string"||e[1](i);i.length>2||e[0](i);return i}
+    -     expression: i=>{try{typeof i==="string"||e[0](i);return i}catch(v0){e[1](v0)}}
+    +     expression: i=>{try{typeof i==="string"||e[1](i);i.length>2||e[0](i);return i}catch(v0){e[2](v0)}}
           examples:
             valid:
               input: '"hello"'
@@ -434,8 +434,8 @@ test("eq-to-parse claimed but the operation doesn't actually compile to the same
         zod: z.never()
       operations:
         parse:
-    -     expression: i=>{e[0](i);return i}
-    +     expression: i=>{typeof i==="string"||e[1](i);i.length>2||e[0](i);return i}
+    -     expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    +     expression: i=>{try{typeof i==="string"||e[1](i);i.length>2||e[0](i);return i}catch(v0){e[2](v0)}}
           examples:
             invalid-string:
               input: '"anything"'
@@ -468,7 +468,7 @@ test("full op block claimed but the operation actually compiles to the same code
               error: Expected never, received undefined
         decode:
     -     expression: ""
-    +     expression: i=>{e[0](i);return i}
+    +     expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
           examples: {}
         encode: eq-to-parse
     ",
@@ -629,13 +629,13 @@ test("multiple simultaneous problems all get their own guiding message", async (
       operations:
         parse:
     -     expression: i=>i /* stale */
-    +     expression: i=>{typeof i==="string"||e[0](i);return i}
+    +     expression: i=>{try{typeof i==="string"||e[0](i);return i}catch(v0){e[1](v0)}}
           examples:
             valid:
               input: '"hello"'
         ts.aliases["S.schema(S.string)"]: operations.parse.expression differs:
     - i=>i /* stale */
-    + i=>{typeof i==="string"||e[0](i);return i}",
+    + i=>{try{typeof i==="string"||e[0](i);return i}catch(v0){e[1](v0)}}",
       "stdout": "",
     }
   `);

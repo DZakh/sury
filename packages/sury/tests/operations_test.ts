@@ -103,7 +103,7 @@ test("an operation that provably cannot throw emits no try", () => {
 
 test("the throw tail is untouched by the Result modes existing", () => {
   expect(S.parseOrThrow(S.string).toString()).toMatchInlineSnapshot(
-    `"i=>{typeof i==="string"||e[0](i);return i}"`,
+    `"i=>{try{typeof i==="string"||e[0](i);return i}catch(v0){e[1](v0)}}"`,
   );
   expect(S.parseOrThrow(S.unknown)).toBe(S.parseOrThrow(S.number.with(S.noValidation, true)));
 });
@@ -453,7 +453,7 @@ test("make validates and hands back the value it was given", () => {
 
 test("make compiles to the checks plus the value, with no wrapper", () => {
   expect(S.makeInputOrThrow(user).toString()).toMatchInlineSnapshot(
-    `"i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.id;typeof v0==="string"||e[0](v0);return i}"`,
+    `"i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.id;typeof v0==="string"||e[0](v0);return i}catch(v1){e[2](v1)}}"`,
   );
   // Nothing to check: the operation is the identity itself.
   expect(S.makeInputOrThrow(S.unknown)).toBe(S.parseOrThrow(S.unknown));
@@ -564,7 +564,7 @@ test("make hands back the value it was given, even when the body rebinds it", ()
   expect(S.makeOutputOrThrow(union, 5)).toBe(5);
   expect(S.makeOutputAsResult(union, 5)).toEqual({ success: true, value: 5, error: undefined });
   expect(S.makeOutputOrThrow(union).toString()).toMatchInlineSnapshot(
-    `"i=>{let v1=i;for(;;){if(typeof i==="number"&&i==i){let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);i=v0;break}if(typeof i==="boolean")break;e[3](i)}return v1}"`,
+    `"i=>{try{let v1=i;for(;;){if(typeof i==="number"&&i==i){let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);i=v0;break}if(typeof i==="boolean")break;e[3](i)}return v1}catch(v2){e[4](v2)}}"`,
   );
   // Nothing to run means nothing can rebind, so the extra binding isn't there
   // and the operation still reads as the identity.

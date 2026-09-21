@@ -18,7 +18,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{i instanceof e[5]||e[6](i);let v0=e[0](i),v1=v0.get("name"),v2=v0.get("nothing")||void 0,v3=v0.get("none");typeof v1==="string"||e[2](v1);v1.length>0||e[1](v1);if(v2){v2===void 0||e[3](v2);}if(v3){v3===null||e[4](v3);}else{v3=null}return {name:v1,nothing:v2,none:v3}}
+    expression: i=>{try{i instanceof e[5]||e[6](i);let v0=e[0](i),v1=v0.get("name"),v2=v0.get("nothing")||void 0,v3=v0.get("none");typeof v1==="string"||e[2](v1);v1.length>0||e[1](v1);if(v2){v2===void 0||e[3](v2);}if(v3){v3===null||e[4](v3);}else{v3=null}return {name:v1,nothing:v2,none:v3}}catch(v4){e[7](v4)}}
     examples:
       nothing-on-the-wire:
         input: ((f) => (f.append("name", "n"), f))(new FormData())
@@ -27,13 +27,13 @@ operations:
         input: ((f) => (f.append("name", "n"), f.append("none", "null"), f))(new FormData())
         error: 'Failed at none: Expected null, received "null"'
   decode:
-    expression: i=>{let v0=e[0](i),v1=v0.get("name"),v2=v0.get("nothing")||void 0,v3=v0.get("none");typeof v1==="string"||e[2](v1);v1.length>0||e[1](v1);if(v2){v2===void 0||e[3](v2);}if(v3){v3===null||e[4](v3);}else{v3=null}return {name:v1,nothing:v2,none:v3}}
+    expression: i=>{try{let v0=e[0](i),v1=v0.get("name"),v2=v0.get("nothing")||void 0,v3=v0.get("none");typeof v1==="string"||e[2](v1);v1.length>0||e[1](v1);if(v2){v2===void 0||e[3](v2);}if(v3){v3===null||e[4](v3);}else{v3=null}return {name:v1,nothing:v2,none:v3}}catch(v4){e[5](v4)}}
     examples:
       nothing-on-the-wire:
         input: ((f) => (f.append("name", "n"), f))(new FormData())
         output: '{ name: "n", nothing: undefined, none: null }'
   encode:
-    expression: i=>{let v0=i.name;v0.length>0||e[0](v0);let v1=new e[1]();v1.append("name",v0);return v1}
+    expression: i=>{try{let v0=i.name;v0.length>0||e[0](v0);let v1=new e[1]();v1.append("name",v0);return v1}catch(v2){e[2](v2)}}
     examples:
       writes-only-what-the-wire-carries:
         input: '{ name: "n", none: null }'
