@@ -170,14 +170,18 @@ test("an error thrown back through a parse keeps the class it was thrown as", ()
 
 // `Error.captureStackTrace` is V8's. Deleting it is how an engine without one
 // looks from here, and the boundary reads it per call so the swap takes.
+//
+// Put back by its descriptor for the same reason the boundary writes `stack`
+// with one: V8's is non-enumerable, and assigning it back would leave every
+// later test in this worker reading it out of `Object.keys(Error)`.
 const withoutCaptureStackTrace = <T>(body: () => T): T => {
-  const captureStackTrace = Error.captureStackTrace;
+  const descriptor = Object.getOwnPropertyDescriptor(Error, "captureStackTrace")!;
   // @ts-expect-error - modelling an engine that never had it
   delete Error.captureStackTrace;
   try {
     return body();
   } finally {
-    Error.captureStackTrace = captureStackTrace;
+    Object.defineProperty(Error, "captureStackTrace", descriptor);
   }
 };
 
@@ -215,4 +219,11 @@ test("an error built by hand renders the reason it was never given", () => {
 
   expect(error.reason).toBe("Expected string, received 1");
   expect(error.message).toBe("Failed at id: Expected string, received 1");
+});
+
+test("modelling an engine without captureStackTrace leaves no trace on Error", () => {
+  const before = Object.getOwnPropertyDescriptor(Error, "captureStackTrace");
+  withoutCaptureStackTrace(() => undefined);
+  expect(Object.getOwnPropertyDescriptor(Error, "captureStackTrace")).toEqual(before);
+  expect(Object.keys(Error)).not.toContain("captureStackTrace");
 });
