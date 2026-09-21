@@ -39,7 +39,7 @@ operations:
         input: '{ nested: { field: 123 }, type: 0, id: "id", Foo: "bar" }'
         output: '{ nested: 123, flattened: { id: "id" }, foo: "bar", bar: true }'
   encode:
-    expression: i=>{let v0=i.flattened;return {id:v0.id,type:0,nested:{field:i.nested},Foo:i.foo,Bar:i.bar}}
+    expression: i=>{let v0=i.flattened,v1=i.bar;typeof v1==="boolean"||e[0](v1);return {id:v0.id,type:0,nested:{field:i.nested},Foo:i.foo,Bar:v1}}
     examples:
       round-trip:
         input: '{ nested: 123, flattened: { id: "id" }, foo: "bar", bar: true }'

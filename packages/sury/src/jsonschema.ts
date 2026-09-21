@@ -57,11 +57,11 @@ import {
   Metadata_get,
   Metadata_Id_internal,
   Metadata_set,
-  Option_getOr,
   deepStrict,
   option,
-  refineInput
+  refineInput,
 } from "./modifiers";
+import { Option_getOr } from "./union";
 import {
  assertResult
 } from "./operations";

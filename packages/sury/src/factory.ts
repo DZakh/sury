@@ -106,11 +106,11 @@ const makeObjectCtx = (
   flatten,
 });
 
-// Field-with-default as `if(v===void 0)v=def` plus the item's own decoder —
+// Field-with-default as `if(v===void 0)v=def` plus the item's own decoder -
 // not `union([unit, item])` + Option_getOr. The anyOf/has/undefined shape is
 // what isOptional, JSON Schema (skip the unit arm, emit `default`) and json
 // omit still read; unionDecoder is what would pull the planner into every
-// object export.
+// object export, and measuring it says +55% on `object`.
 const fieldOrSchema = (schema: Internal, or: unknown): Internal => {
   const item = outputOf(schema);
   const mut = baseSchema(anyOfTag, false, noopDecoder);
@@ -118,16 +118,37 @@ const fieldOrSchema = (schema: Internal, or: unknown): Internal => {
   mut.has = { [undefinedTag]: true };
   setHas(mut.has, schema.type);
   // A `.to` is what makes reverse start at the item (output is required, not
-  // optional): encode is the item's own reverse, trusted the way `s.field` is.
-  // Its last step, `T -> T | undefined`, is the identity: said here, or the
-  // loop hands a union item to the union encoder, which finds the item's arms
-  // inside the target's and calls the widening ambiguous.
-  mut.to = schema;
-  mut.serializer = (input: Val) => {
-    const output = B_refine(input, U, U, input.e.to);
-    output.io = true;
-    return output;
-  };
+  // optional). What that `.to` may be depends on whether the item transforms,
+  // and `outputOf` is the only thing that answers that for a container, whose
+  // transform lives in its items rather than on its own `.to` (#452).
+  if (item === schema) {
+    // Nothing to undo, so encode only re-checks the item: without a serializer
+    // a typed boolean property is trusted and the check the union compiler
+    // used to emit disappears. The re-check is also what keeps the reversed
+    // head a node that answers for itself - a bare copy of a carrier with a
+    // `.to` reads as a payload being opened, and `fieldOr` over `S.jsonString`
+    // parsed the text on encode.
+    const toMut = copySchema(schema);
+    toMut.serializer = (input: Val) => {
+      const itemInput = B_scope(input);
+      itemInput.io = false;
+      itemInput.s = unknown;
+      itemInput.e = schema;
+      return parse(itemInput);
+    };
+    mut.to = toMut;
+  } else {
+    // The item undoes its own transform, so the link is the item itself and
+    // its last step, `T -> T | undefined`, is the identity. Said here, or the
+    // loop hands a union item to the union encoder, which finds the item's
+    // arms inside the target's and calls the widening ambiguous.
+    mut.to = schema;
+    mut.serializer = (input: Val) => {
+      const output = B_refine(input, U, U, input.e.to);
+      output.io = true;
+      return output;
+    };
+  }
   setDefault(mut, item, schema, or);
 
   const parseAs = copySchema(schema);
@@ -160,10 +181,6 @@ const makeFieldOr = (field: (location: string, schema: Internal) => unknown) =>
     return field(fieldName, fieldOrSchema(schema, or));
   };
 
-// The chain's tail, not `outputOf`: this copy is claimed as the source of the
-// encode, and the union planner reads a typed union source arm by arm through
-// each arm's own chain (`unionOutput`), which the flattened Output type no
-// longer carries.
 const proxifyShapedSchema = (schema: Internal, from: string[], fromFlattened?: number): unknown => {
   const mut = copySchema(getOutputSchema(schema));
   mut.from = from;

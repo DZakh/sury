@@ -17,6 +17,7 @@ import {
   anyOfTag,
   copySchema,
   baseSchema,
+  functionTag,
   unionIsTransparent,
   type Builder,
   type Check,
@@ -47,16 +48,14 @@ import {
   type Val
 } from "./base";
 import {
-  _notVar,
-  _var,
   B_embed,
   B_inlineConst,
   B_invalidOperation,
-  B_unsupportedDecode,
-  B_neverSlot,
   B_makeInvalidInputDetails,
   B_markOutput,
   B_merge,
+  B_neverSlot,
+  B_next,
   B_pathArg,
   B_pathSnap,
   B_pushCheck,
@@ -64,11 +63,25 @@ import {
   B_rejectUnsettled,
   B_scope,
   B_throw,
+  B_unsupportedDecode,
+  _notVar,
+  _var,
   failInvalidType,
-  type HoistCond,
   operationArgVar,
+  type HoistCond,
 } from "./builder";
-import { nestedLoc, never_, parse, typeCheckCond } from "./parse";
+import { Literal_parse } from "./primitives";
+import {
+  getOp,
+  getOutputSchema,
+  nestedLoc,
+  never_,
+  outputOf,
+  parse,
+  reverse,
+  setDefault,
+  typeCheckCond,
+} from "./parse";
 
 // ── Type identity ────────────────────────────────────────────────────────────
 
@@ -1682,6 +1695,140 @@ const unionResolveToUnion = (
 };
 
 // ── Factory ──────────────────────────────────────────────────────────────────
+
+// `S.to`'s core, and the default machinery built on it. They live here rather
+// than with the other modifiers because `s.fieldOr` needs them and `factory` is
+// below `modifiers`: a second spelling of "value with a default", written to
+// dodge that edge, is what #452 was.
+// whether that exists is the payload schemas' question, asked while compiling.
+export const codecTo = (
+  schema: Internal,
+  target: Internal,
+  decode?: Builder | boolean,
+  encode?: Builder | boolean
+): Internal => {
+  const root: Internal = updateOutput(schema, (mut) => {
+    const opened = typeof decode === "boolean";
+    const parser = typeof decode === functionTag ? (decode as Builder) : U;
+    const serializer = typeof encode === functionTag ? (encode as Builder) : U;
+    if (serializer !== U || opened) {
+      // copySchema keeps `anyOf` shared by reference with the target, and
+      // unionResolveToUnion recognizes an arm producing the whole target union
+      // by exactly that shared array. A deep copy here would silently break
+      // Option.getOr's default arms.
+      //
+      // A link built with either slot owns its tail: the slot lands on this
+      // copy, never on a target the caller may link to again.
+      const targetMut = copySchema(target);
+      if (serializer !== U) {
+        targetMut.serializer = serializer;
+      }
+      if (opened) {
+        targetMut.opens = decode as boolean;
+      }
+      mut.to = targetMut;
+    } else {
+      mut.to = target;
+    }
+    // CONTENT_CODEC_SPEC.md rule 3, written down the moment it becomes true: a
+    // payload that gains a `.to` names what it holds, so the link into it opens
+    // its source. Materialized here rather than read off `.to !== U` by the
+    // payload schemas, because `reverse` re-points `.to` and would lose it,
+    // while it carries `opens` across.
+    if (mut.content !== U && mut.opens === U) mut.opens = true;
+    if (parser !== U) {
+      mut.parser = parser;
+    }
+  });
+  return root;
+};
+
+// A default is either an eager value or a lazily-called callback - used only
+// within this module, never exposed to callers.
+export type OptionDefault =
+  | { type: "value"; value: unknown }
+  | { type: "callback"; callback: () => unknown };
+
+// Every undefined-producing variant converts to the item union, supplying the
+// default on decode and taking the never slot on encode so it yields to its
+// siblings there. Spelling the default as ordinary union arms is what lets the
+// planner treat it like any other variant.
+export const Option_getWithDefault = (schema: Internal, default_: OptionDefault): Internal => {
+  return updateOutput(schema, (mut) => {
+    const anyOf = mut.anyOf;
+    if (anyOf === U) {
+      return panic(`Can't set default for ${inputExpression(mut)}`);
+    }
+    const outputItems: Internal[] = [];
+    const originalItems: Internal[] = [];
+
+    for (let idx = 0; idx < anyOf.length; idx++) {
+      const variant = anyOf[idx]!;
+      const outputSchema = outputOf(variant);
+      if (outputSchema.type !== undefinedTag) {
+        // Dedupe by identity: two arms sharing one output instance (the bool
+        // singleton) would otherwise make every rule-4 match ambiguous.
+        if (!outputItems.includes(outputSchema)) {
+          outputItems.push(outputSchema);
+        }
+        originalItems.push(variant);
+      }
+    }
+
+    const item: Internal =
+      outputItems.length === 0
+        ? panic(`Can't set default for ${inputExpression(mut)}`)
+        : outputItems.length === 1
+          ? outputItems[0]!
+          : unionFactory(outputItems);
+
+    if (default_.type === "value") {
+      setDefault(
+        mut,
+        item,
+        originalItems.length === 1 ? originalItems[0]! : unionFactory(originalItems),
+        default_.value
+      );
+    }
+
+    // Not B_conversion: an eager default inlines as a constant instead of
+    // costing an embed slot and a call, and a callback's throw keeps escaping
+    // raw the way it always did.
+    const decodeB: Builder = (input) => {
+      const target = input.e.to!;
+      const output = B_next(
+        input,
+        default_.type === "value"
+          ? B_inlineConst(input, Literal_parse(default_.value))
+          : `${B_embed(input, default_.callback)}()`,
+        target,
+        target
+      );
+      if (default_.type === "value") {
+        // A constant inline is idempotent, so re-reads need no var. The
+        // callback form stays materializable, since re-reading it would call
+        // the callback twice.
+        output.v = _var;
+      }
+      // The same seam B_conversion's `trusted` provides: `vc` checks emit at
+      // the pre-transform slot, so the item's input refiners would run over
+      // the absent value that came in rather than the default that replaced it.
+      return B_refine(output);
+    };
+    mut.anyOf = anyOf.map((variant) =>
+      getOutputSchema(variant).type === undefinedTag
+        ? codecTo(variant, item, decodeB, B_neverSlot)
+        : variant
+    );
+  });
+};
+
+// @__NO_SIDE_EFFECTS__
+export const Option_getOr = (schema: Internal, defaultValue: unknown): Internal =>
+  Option_getWithDefault(schema, { type: "value", value: defaultValue });
+// @__NO_SIDE_EFFECTS__
+export const Option_getOrWith = (schema: Internal, defaultCb: () => unknown): Internal =>
+  Option_getWithDefault(schema, { type: "callback", callback: defaultCb });
 
 export const unionFactory = (schemas: Internal[]): Internal => {
   if (!schemas.length) return panic("S.union requires at least one item");

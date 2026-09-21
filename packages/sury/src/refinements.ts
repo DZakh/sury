@@ -38,11 +38,10 @@ import {
  definitionToSchema
 } from "./composites";
 import {
- codecTo,
- getMutErrorMessage,
- internalRefine,
- nullAsUnit,
- optionFactory
+  getMutErrorMessage,
+  internalRefine,
+  nullAsUnit,
+  optionFactory,
 } from "./modifiers";
 import {
   nullLiteral,
@@ -56,7 +55,8 @@ import {
  getOutputSchema
 } from "./parse";
 import {
- unionFactory
+  codecTo,
+  unionFactory,
 } from "./union";
 
 // Re-exports, not `const object = schemaObject` aliases: an alias makes the

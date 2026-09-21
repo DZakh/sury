@@ -51,11 +51,8 @@ import {
  objectDecoder
 } from "./composites";
 import {
-  codecTo,
   linkTo,
   nullAsUnit,
-  Option_getOr,
-  Option_getOrWith,
   refine as refineCore,
 } from "./modifiers";
 import {
@@ -67,7 +64,10 @@ import {
  unit
 } from "./primitives";
 import {
- unionFactory
+  Option_getOr,
+  Option_getOrWith,
+  codecTo,
+  unionFactory,
 } from "./union";
 
 // ── Schema singletons (shared by both surfaces) ──────────────────────────────
@@ -478,12 +478,14 @@ export {
   $makeAsResultPromise,
 } from "./operations";
 export {
-  Option_getOr as $Option_getOr,
-  Option_getOrWith as $Option_getOrWith,
   Metadata_Id_make as $Metadata_Id_make,
   Metadata_get as $Metadata_get,
   Metadata_set as $Metadata_set,
 } from "./modifiers";
+export {
+  Option_getOr as $Option_getOr,
+  Option_getOrWith as $Option_getOrWith,
+} from "./union";
 export { option as $option } from "./modifiers";
 export {
   nullAsOption as $nullAsOption,
