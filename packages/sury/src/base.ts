@@ -452,8 +452,11 @@ export type Internal = {
   //     caller's bound from a format's; only the bound constructors set these.
   //     A schema bounds one of its value, length or size, so one set covers
   //     minimum/minLength/minItems/minSize alike.
-  // Reads 0 off the prototype when a schema claims nothing, and is never
-  // written as 0: `unionIsTransparent` counts a union's own fields.
+  // Reads 0 off the prototype when a schema claims nothing. Never write 0 on
+  // a schema a union could hold: `unionIsTransparent` counts own fields, and
+  // the key alone would stop every union from flattening. The two container
+  // vals the compiler builds as object literals are the exception - they
+  // never reach the prototype, and no union holds them.
   flags: number;
   // A bytes carrier (`S.uint8Array`, `S.file`): the schema its payload is
   // stored as inside a JSON document, base64 text. A format that IS its

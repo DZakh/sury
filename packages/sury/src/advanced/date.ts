@@ -24,7 +24,7 @@ import {
  stringDecoderFn
 } from "../primitives";
 
-export const invalidDateRefine = (input: Val): Val => {
+const invalidDateRefine = (input: Val): Val => {
   return B_refine(input, input.e, [
     {
       c: (inputVar) => `!Number.isNaN(${inputVar}.getTime())`,
