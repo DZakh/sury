@@ -112,7 +112,7 @@ export const parse = (input: Val): Val => {
         // when the operation discards it anyway (S.assertInputOrThrow's `undefined` result
         // sentinel). Every other such target still gets its conversion:
         // `noValidation` drops the checks, not the re-representation.
-        !(loopInput.e.noValidation && (loopInput.e.flags! & 16 || loopInput.e.type === undefinedTag))
+        !(loopInput.e.noValidation && (loopInput.e.flags & 16 || loopInput.e.type === undefinedTag))
       ) {
         result = maybeEncoder(loopInput, loopInput.e);
       }
@@ -314,14 +314,14 @@ Object.defineProperty(schemaPrototype, reversedKey, {
       // marker, and the reversed plain string would otherwise have to say.
       const nextNode = next && B_contentNode(next);
       const reading = nextNode
-        ? nextNode.flags! & 12
-          ? (nextNode.flags! & 12) ^ 12
-          : !(nextNode.flags! & 3) && mut.flags! & 3 && (next!.has ? next!.has[stringTag] : next!.type === stringTag)
+        ? nextNode.flags & 12
+          ? (nextNode.flags & 12) ^ 12
+          : !(nextNode.flags & 3) && mut.flags & 3 && (next!.has ? next!.has[stringTag] : next!.type === stringTag)
             ? 8
             : 0
         : 0;
-      const flags = (mut.flags! & ~12) | reading;
-      flags ? (mut.flags = flags) : delete mut.flags;
+      const flags = (mut.flags & ~12) | reading;
+      flags ? (mut.flags = flags) : delete record["flags"];
       // Deleted, not parked in a holding field: encode has no absent-input arm,
       // and double reversal reads the cache below rather than re-deriving, so
       // nothing needs the old value back.
@@ -495,7 +495,7 @@ const compileChain = (
       // Rule 3, materialized exactly as `codecTo` does it, and for the same
       // reason: `reverse` re-points `.to` and would lose it. A `.to` of
       // `undefined` (`S.assertInputOrThrow`'s result sentinel) declares nothing.
-      if (mut.flags! & 3 && !(mut.flags! & 12) && to.type !== undefinedTag) mut.flags! |= 4;
+      if (mut.flags & 3 && !(mut.flags & 12) && to.type !== undefinedTag) mut.flags |= 4;
     });
   }
   // Flag 8: the caller knows nothing about the input, so the chain's own head

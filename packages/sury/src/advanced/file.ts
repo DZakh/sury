@@ -172,7 +172,7 @@ const binarySchema = (name: string, global: string, nameArg: string): Internal =
         // A value position (or base64 itself) stores the bytes as base64;
         // anything else after a string wants the text they spell, which is also
         // what a format opened by rule 3 is handed.
-        if (target.flags! & 1 || (target.flags! & 2 && !(target.flags! & 4))) {
+        if (target.flags & 1 || (target.flags & 2 && !(target.flags & 4))) {
           const { format: asFormat, fromBytes } = bytesTarget(target, base64Content);
           const output = read(
             input,
@@ -188,7 +188,7 @@ const binarySchema = (name: string, global: string, nameArg: string): Internal =
         // A format being opened (rule 3) is handed its own document, so it
         // parses the text instead of escaping it.
         return (targetTagFlag & 2)
-          ? read(input, `.text()`, target.flags! & 3 ? openedText(target) : string)
+          ? read(input, `.text()`, target.flags & 3 ? openedText(target) : string)
           : input;
       };
     },

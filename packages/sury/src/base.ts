@@ -452,9 +452,9 @@ export type Internal = {
   //     caller's bound from a format's; only the bound constructors set these.
   //     A schema bounds one of its value, length or size, so one set covers
   //     minimum/minLength/minItems/minSize alike.
-  // Absent reads as 0 and is never written as 0: `unionIsTransparent` counts
-  // a union's fields.
-  flags?: number;
+  // Reads 0 off the prototype when a schema claims nothing, and is never
+  // written as 0: `unionIsTransparent` counts a union's own fields.
+  flags: number;
   // A bytes carrier (`S.uint8Array`, `S.file`): the schema its payload is
   // stored as inside a JSON document, base64 text. A format that IS its
   // document form (`S.base64`, `S.json`) says so with the kind bits alone.
@@ -780,7 +780,7 @@ export const inputExpression = (schema: Internal, skipOverride?: boolean): strin
       // A bound or divisor reads as part of the item, not the array:
       // `int32 > 5[]` parses as an array-typed bound and `number % 2[]` as an
       // array-typed divisor, the same ambiguity a union has.
-      return (item.type === anyOfTag || item.flags! & 30720 || item.multipleOf !== U
+      return (item.type === anyOfTag || item.flags & 30720 || item.multipleOf !== U
         ? `(${itemName})`
         : itemName) + "[]";
     }
@@ -816,6 +816,11 @@ Object.defineProperty(schemaPrototype, "with", {
     return fn(this, ...args);
   },
 });
+// Every schema reads `flags` as a number without carrying a key for it: the
+// default lives here, writable so a schema that sets a bit still creates an
+// own property, and non-enumerable so `unionIsTransparent`'s field count and
+// a consumer's `console.log` see only what a schema actually claims.
+Object.defineProperty(schemaPrototype, "flags", { value: 0, writable: true });
 // Also has ~standard below
 Schema.prototype = schemaPrototype;
 

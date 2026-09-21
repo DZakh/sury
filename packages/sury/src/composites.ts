@@ -127,7 +127,7 @@ const B_fused = (input: Val, expectedSchema: Internal, item?: Internal): Interna
 // on encode, and would hand a declared payload (CONTENT_CODEC_SPEC.md rule 3)
 // the text it had just escaped instead of parsing it.
 const B_narrowJsonSourcedJsonString = (itemInput: Val): void => {
-  if (itemInput.s.flags! & 16 && itemInput.e.format === "json") {
+  if (itemInput.s.flags & 16 && itemInput.e.format === "json") {
     itemInput.s = unknown;
   }
 };
@@ -158,6 +158,7 @@ const B_makeContainerVal = (prev: Val, schema: Internal): Val => ({
 export const makeObjectVal = (prev: Val): Val =>
   B_makeContainerVal(prev, {
     type: objectTag,
+    flags: 0,
     required: [],
     properties: Object.create(null),
     additionalItems: "strict",
@@ -167,6 +168,7 @@ export const makeObjectVal = (prev: Val): Val =>
 export const makeArrayVal = (prev: Val): Val =>
   B_makeContainerVal(prev, {
     type: arrayTag,
+    flags: 0,
     items: [],
     additionalItems: "strict",
     decoder: arrayDecoder,
@@ -533,7 +535,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
                 mut.to = itemSchema;
               })
         );
-        target.flags = target.flags! | 64;
+        target.flags = target.flags | 64;
         itemInput.e = target;
       } else {
         itemInput.e = itemSchema;
@@ -577,7 +579,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
     //     narrow stands in for its members' checks (see the cross-module
     //     contract on `typeCheckCond`), so a case would start accepting more
     //     than its acceptance mask claims.
-    const isJsonParent = isItemSchema(inputAdditionalItems) && inputAdditionalItems.flags! & 16;
+    const isJsonParent = isItemSchema(inputAdditionalItems) && inputAdditionalItems.flags & 16;
 
     for (let idx = 0; idx < keysCount; idx++) {
       const key = keys[idx]!;

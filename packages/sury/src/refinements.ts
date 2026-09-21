@@ -199,7 +199,7 @@ const sizeMember = (schema: Internal): string | undefined => {
 // could never shake, where `expression` is the hook base.ts offers for a
 // rendering another module owns.
 const withBounds = (schema: Internal, base: string): string => {
-  const written = (schema.flags! >> 11) & 15;
+  const written = (schema.flags >> 11) & 15;
   const member = sizeMember(schema);
   const sized = member !== U;
   const minKey = sized ? sizeKey(schema, false) : "minimum";
@@ -244,7 +244,7 @@ const withBounds = (schema: Internal, base: string): string => {
 // the same base, or the wrapping nests into `1 <= (1 <= number <= 9) <= 9`.
 // `skipOverride` is what stops the base rendering from re-entering this.
 const setBoundExpression = (mut: Internal, schema: Internal): void => {
-  if (!(schema.flags! & 30720) && schema.multipleOf === U) {
+  if (!(schema.flags & 30720) && schema.multipleOf === U) {
     const base = schema.expression;
     mut.expression = (s: Internal) =>
       withBounds(s, base !== U ? base(s) : inputExpression(s, true));
@@ -293,7 +293,7 @@ const multipleOfValidator = (d: number) => (value: number): boolean => {
 // receive this one.
 const boundsRefiner = (input: Val): Check[] => {
   const s = input.e;
-  const written = (s.flags! >> 11) & 15;
+  const written = (s.flags >> 11) & 15;
   const checks: Check[] = [];
   const member = sizeMember(s);
   if (member !== U) {
@@ -382,7 +382,7 @@ const boundsRefiner = (input: Val): Check[] => {
 // Schema document describing the same empty range loads and round-trips
 // verbatim - which `never` wouldn't.
 const updateBounds = (schema: Internal, update: (mut: Internal) => void): Internal =>
-  schema.flags! & 30720 || schema.multipleOf !== U
+  schema.flags & 30720 || schema.multipleOf !== U
     ? updateOutput(schema, update)
     : internalRefine(schema, (mut: Internal) => {
         update(mut);
@@ -487,7 +487,7 @@ const conflict = (incoming: Internal, existing: Internal): void => {
 // stays invisible. Only ever called from a failing branch - building a message
 // must not cost an allocation on every bound that turns out to be fine.
 const asBound = (schema: Internal, key: string, bit: number, value: unknown): Internal => {
-  const mut = { ...schema, flags: (schema.flags! & ~30720) | (bit << 11) } as unknown as Record<string, unknown>;
+  const mut = { ...schema, flags: (schema.flags & ~30720) | (bit << 11) } as unknown as Record<string, unknown>;
   mut[key] = value;
   // The first bound on a schema is reported before one was ever applied, so
   // the copy has no override to inherit and renders bare without this.
@@ -539,12 +539,12 @@ export const gte = (root: Internal, minValue: number | bigint, maybeMessage?: st
   const schema = assertNumericBound("gte", root, minValue);
   assertLower(schema, minValue, false);
   if (!narrowsLower(schema, minValue, false)) {
-    const written = (schema.flags! >> 11) & 15;
+    const written = (schema.flags >> 11) & 15;
     return carryMessage(root, written & 4 ? "exclusiveMinimum" : written & 1 ? "minimum" : U, maybeMessage);
   }
   return updateBounds(root, (mut: Internal) => {
     setBoundExpression(mut, schema);
-    mut.flags = (schema.flags! & ~8192) | 2048;
+    mut.flags = (schema.flags & ~8192) | 2048;
     mut.minimum = minValue;
     mut.exclusiveMinimum = U;
     setBoundMessage(mut, schema, "minimum", maybeMessage, "exclusiveMinimum");
@@ -556,12 +556,12 @@ export const lte = (root: Internal, maxValue: number | bigint, maybeMessage?: st
   const schema = assertNumericBound("lte", root, maxValue);
   assertUpper(schema, maxValue, false);
   if (!narrowsUpper(schema, maxValue, false)) {
-    const written = (schema.flags! >> 11) & 15;
+    const written = (schema.flags >> 11) & 15;
     return carryMessage(root, written & 8 ? "exclusiveMaximum" : written & 2 ? "maximum" : U, maybeMessage);
   }
   return updateBounds(root, (mut: Internal) => {
     setBoundExpression(mut, schema);
-    mut.flags = (schema.flags! & ~16384) | 4096;
+    mut.flags = (schema.flags & ~16384) | 4096;
     mut.maximum = maxValue;
     mut.exclusiveMaximum = U;
     setBoundMessage(mut, schema, "maximum", maybeMessage, "exclusiveMaximum");
@@ -573,12 +573,12 @@ export const gt = (root: Internal, minValue: number | bigint, maybeMessage?: str
   const schema = assertNumericBound("gt", root, minValue);
   assertLower(schema, minValue, true);
   if (!narrowsLower(schema, minValue, true)) {
-    const written = (schema.flags! >> 11) & 15;
+    const written = (schema.flags >> 11) & 15;
     return carryMessage(root, written & 4 ? "exclusiveMinimum" : written & 1 ? "minimum" : U, maybeMessage);
   }
   return updateBounds(root, (mut: Internal) => {
     setBoundExpression(mut, schema);
-    mut.flags = (schema.flags! & ~2048) | 8192;
+    mut.flags = (schema.flags & ~2048) | 8192;
     mut.exclusiveMinimum = minValue;
     mut.minimum = U;
     setBoundMessage(mut, schema, "exclusiveMinimum", maybeMessage, "minimum");
@@ -590,12 +590,12 @@ export const lt = (root: Internal, maxValue: number | bigint, maybeMessage?: str
   const schema = assertNumericBound("lt", root, maxValue);
   assertUpper(schema, maxValue, true);
   if (!narrowsUpper(schema, maxValue, true)) {
-    const written = (schema.flags! >> 11) & 15;
+    const written = (schema.flags >> 11) & 15;
     return carryMessage(root, written & 8 ? "exclusiveMaximum" : written & 2 ? "maximum" : U, maybeMessage);
   }
   return updateBounds(root, (mut: Internal) => {
     setBoundExpression(mut, schema);
-    mut.flags = (schema.flags! & ~4096) | 16384;
+    mut.flags = (schema.flags & ~4096) | 16384;
     mut.exclusiveMaximum = maxValue;
     mut.maximum = U;
     setBoundMessage(mut, schema, "exclusiveMaximum", maybeMessage, "maximum");
@@ -663,12 +663,12 @@ export const minLength = (root: Internal, length: number, maybeMessage?: string)
   // on a string it is how a schema says the empty string is a value it admits,
   // which the text wires read (`decidesBlank` in advanced/formData.ts).
   if (!narrowsSize(schema[key], length, false) && !(length === 0 && schema[key] === U)) {
-    return carryMessage(root, schema.flags! & 2048 ? key : U, maybeMessage);
+    return carryMessage(root, schema.flags & 2048 ? key : U, maybeMessage);
 
   }
   return updateBounds(root, (mut: Internal) => {
     setBoundExpression(mut, schema);
-    mut.flags = schema.flags! | 2048;
+    mut.flags = schema.flags | 2048;
     mut[key] = length;
     setBoundMessage(mut, schema, key, maybeMessage);
   });
@@ -680,11 +680,11 @@ export const maxLength = (root: Internal, length: number, maybeMessage?: string)
   assertSize(schema, length, true);
   const key = sizeKey(schema, true);
   if (!narrowsSize(schema[key], length, true)) {
-    return carryMessage(root, schema.flags! & 4096 ? key : U, maybeMessage);
+    return carryMessage(root, schema.flags & 4096 ? key : U, maybeMessage);
   }
   return updateBounds(root, (mut: Internal) => {
     setBoundExpression(mut, schema);
-    mut.flags = schema.flags! | 4096;
+    mut.flags = schema.flags | 4096;
     mut[key] = length;
     setBoundMessage(mut, schema, key, maybeMessage);
   });
@@ -706,7 +706,7 @@ export const length = (root: Internal, length: number, maybeMessage?: string): I
   }
   return updateBounds(root, (mut: Internal) => {
     setBoundExpression(mut, schema);
-    mut.flags = schema.flags! | 6144;
+    mut.flags = schema.flags | 6144;
     mut[minKey] = length;
     mut[maxKey] = length;
     setBoundMessage(mut, schema, minKey, maybeMessage);
@@ -719,11 +719,11 @@ export const minSize = (root: Internal, size: number, maybeMessage?: string): In
   const schema = assertSizeBound("minSize", root, size);
   assertSize(schema, size, false);
   if (!narrowsSize(schema.minSize, size, false)) {
-    return carryMessage(root, schema.flags! & 2048 ? "minSize" : U, maybeMessage);
+    return carryMessage(root, schema.flags & 2048 ? "minSize" : U, maybeMessage);
   }
   return updateBounds(root, (mut: Internal) => {
     setBoundExpression(mut, schema);
-    mut.flags = schema.flags! | 2048;
+    mut.flags = schema.flags | 2048;
     mut.minSize = size;
     setBoundMessage(mut, schema, "minSize", maybeMessage);
   });
@@ -734,11 +734,11 @@ export const maxSize = (root: Internal, size: number, maybeMessage?: string): In
   const schema = assertSizeBound("maxSize", root, size);
   assertSize(schema, size, true);
   if (!narrowsSize(schema.maxSize, size, true)) {
-    return carryMessage(root, schema.flags! & 4096 ? "maxSize" : U, maybeMessage);
+    return carryMessage(root, schema.flags & 4096 ? "maxSize" : U, maybeMessage);
   }
   return updateBounds(root, (mut: Internal) => {
     setBoundExpression(mut, schema);
-    mut.flags = schema.flags! | 4096;
+    mut.flags = schema.flags | 4096;
     mut.maxSize = size;
     setBoundMessage(mut, schema, "maxSize", maybeMessage);
   });
@@ -754,7 +754,7 @@ export const size = (root: Internal, size: number, maybeMessage?: string): Inter
   }
   return updateBounds(root, (mut: Internal) => {
     setBoundExpression(mut, schema);
-    mut.flags = schema.flags! | 6144;
+    mut.flags = schema.flags | 6144;
     mut.minSize = size;
     mut.maxSize = size;
     setBoundMessage(mut, schema, "minSize", maybeMessage);
@@ -858,7 +858,7 @@ const stringFormat = (
     // Conditional so an unflagged format carries no key at all: schemas are
     // printed by consumers, and `fg: undefined` is noise on every one.
     if (flag) {
-      s.flags = s.flags! | 32;
+      s.flags = s.flags | 32;
     }
     s.refiner = (input) => {
       return [
@@ -1176,7 +1176,7 @@ const bytesContent = (
   codec: { toBytes: (text: string) => Uint8Array; fromBytes: (bytes: Uint8Array) => string },
 ): Internal => {
   const schema = stringFormat(format, test, 1);
-  schema.flags = schema.flags! | 1;
+  schema.flags = schema.flags | 1;
   schema.bytesCodec = codec;
   return schema;
 };
@@ -1230,7 +1230,7 @@ const bytesTextFormat = (
       output.io = true;
       return output;
     }
-    return differs(target) && target.flags! & 4
+    return differs(target) && target.flags & 4
       ? B_computed(
           input,
           `${B_embed(input, formatToUtf8(codec.toBytes))}(${input.v()})`,

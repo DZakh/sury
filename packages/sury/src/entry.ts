@@ -361,9 +361,9 @@ export const to = (schema: Internal, target: Internal, custom?: unknown) => {
     // the axis does: its own encoder meets the union whole, before the arms.
     const from = B_contentNode(getOutputSchema(schema));
     const into = B_contentNode(target);
-    const openable = from.flags! & 3 ? !(from.flags! & 16) && into === target : B_isText(from) || from.anyOf?.some(B_isText);
-    const stores = into.flags! & 3 && !(into.flags! & 16);
-    if (!openable || (stores ? from.flags! & 3 && !B_contentDiffers(from, into) : into.flags! & 16 || decode === false)) {
+    const openable = from.flags & 3 ? !(from.flags & 16) && into === target : B_isText(from) || from.anyOf?.some(B_isText);
+    const stores = into.flags & 3 && !(into.flags & 16);
+    if (!openable || (stores ? from.flags & 3 && !B_contentDiffers(from, into) : into.flags & 16 || decode === false)) {
       return panic(`Can't pick a reading for this link. Use {decode, encode} coders instead`);
     }
   }

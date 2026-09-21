@@ -86,7 +86,7 @@ export const uint8Array: Internal = /* @__PURE__ */ initSchema(
       // A value position (or base64 itself) stores the bytes as base64. The
       // test comes before the string one because a JSON document is a value
       // position without being string-tagged.
-      if (target.flags! & 1 || (target.flags! & 2 && !(target.flags! & 4))) {
+      if (target.flags & 1 || (target.flags & 2 && !(target.flags & 4))) {
         const { format: asFormat, fromBytes } = bytesTarget(target, base64Content);
         const code = `${B_embed(input, fromBytes)}(${input.v()})`;
         // A var when the next stage still runs (jsonString's escape-free splice
@@ -108,7 +108,7 @@ export const uint8Array: Internal = /* @__PURE__ */ initSchema(
             B_computed(
               input,
               `${B_embed(input, new TextDecoder())}.decode(${input.v()})`,
-              target.flags! & 3 ? openedText(target) : string,
+              target.flags & 3 ? openedText(target) : string,
             )
           )
         : input;

@@ -412,8 +412,8 @@ const unionNarrowSchema = (schema: Internal): Internal => {
   // With the encoder, its marker: the narrow is what a carrier's encoder is
   // handed for this arm, and without it the arm reads as carrying no payload -
   // bytes reaching a `S.base64` variant UTF-8-decoded instead of packing.
-  if (schema.flags! & 3) {
-    narrow.flags = schema.flags! & 3;
+  if (schema.flags & 3) {
+    narrow.flags = schema.flags & 3;
     const stored = schema.bytesCodec ? schema : schema.storedAs;
     if (stored) narrow.storedAs = stored;
   }
@@ -436,7 +436,7 @@ const unionNarrowSchema = (schema: Internal): Internal => {
     // jsonString reads that as "already JSON text" (see fieldPiece), where the
     // bare kind bit says "claims JSON, unchecked".
     narrow.format = schema.format;
-    if (schema.flags! & 32) narrow.flags = narrow.flags! | 32;
+    if (schema.flags & 32) narrow.flags = narrow.flags | 32;
     narrow.noValidation = schema.noValidation;
   }
   return narrow;
@@ -1123,7 +1123,7 @@ const unionEmit = (
     try {
       caseOut = parse(caseInput);
     } catch (exn) {
-      if (!(self.flags! & 64)) throw exn;
+      if (!(self.flags & 64)) throw exn;
       salvaged += `,${B_embed(input, getOrRethrow(exn))}`;
       return U;
     } finally {
@@ -1366,7 +1366,7 @@ export const unionDecoder: Builder = (input: Val) => {
   // longer names it. Without that, a union serialized as an array item or
   // object field - which reaches the target through `unionEncoder` - would
   // re-validate every field inside the container's loop.
-  const trustedSelf = input.s === self || !!(self.flags! & 128);
+  const trustedSelf = input.s === self || !!(self.flags & 128);
   if (
     (initialTagFlag & 256) ||
     (input.s.encoder === U && (initialTagFlag & 512))
@@ -1500,7 +1500,7 @@ export const unionRewrite = (
   // The variants above were mapped from `input.s`'s, so the value is already
   // known to satisfy one of them - a fact the `unknown` below throws away. See
   // bit 128 in base.ts: this is the only place allowed to claim it.
-  mut.flags = (input.s.flags! & 64) | 128;
+  mut.flags = (input.s.flags & 64) | 128;
   return B_refine(input, unknown, U, mut);
 };
 
@@ -1532,7 +1532,7 @@ export const unionEncoder: Encoder = (input: Val, target: Internal) => {
   B_rejectUnsettled(input, target, input.s);
   if (unionTargetOwns(target)) return input;
   const variants = unionDropNullish(input.s.anyOf!, target, true);
-  if (target.flags! & 64 && target.anyOf!.length === variants.length) {
+  if (target.flags & 64 && target.anyOf!.length === variants.length) {
     // An already-resolved per-variant mapping (the JSON encoder builds one for an
     // object field): each target variant *is* its source variant plus whatever
     // the caller appended, so it replaces the variant instead of chaining onto
@@ -1573,7 +1573,7 @@ const unionResolve = (
   variants: Internal[],
   target: Internal
 ): (Internal | undefined)[] => {
-  if (source.flags! & 64) {
+  if (source.flags & 64) {
     return variants.map(() => target);
   }
   if (unionIsTransparent(target)) {
