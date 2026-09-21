@@ -167,3 +167,52 @@ test("an error thrown back through a parse keeps the class it was thrown as", ()
   expect(() => S.parseOrThrow(refined, "x")).toThrow("nope");
   expect(boom).toBeInstanceOf(AppError);
 });
+
+// `Error.captureStackTrace` is V8's. Deleting it is how an engine without one
+// looks from here, and the boundary reads it per call so the swap takes.
+const withoutCaptureStackTrace = <T>(body: () => T): T => {
+  const captureStackTrace = Error.captureStackTrace;
+  // @ts-expect-error - modelling an engine that never had it
+  delete Error.captureStackTrace;
+  try {
+    return body();
+  } finally {
+    Error.captureStackTrace = captureStackTrace;
+  }
+};
+
+test("an engine without captureStackTrace still gets a stack", () => {
+  const parse = S.parseOrThrow(user);
+  withoutCaptureStackTrace(() => {
+    try {
+      parse(invalid);
+      expect.unreachable();
+    } catch (error) {
+      const thrown = error as S.Error;
+      // No `cut` to apply, so the boundary's own frames stay on top. This test
+      // is here for the stack existing at all, which is what such an engine
+      // used to go without.
+      expect(typeof thrown.stack).toBe("string");
+      expect(thrown.stack).toContain(import.meta.url.replace("file://", ""));
+      expect(thrown.message).toBe("Failed at id: Expected string, received 1");
+      // `stack` is not part of what a failure reads back as, on any engine.
+      expect(Object.keys(thrown)).toEqual(["code", "path", "input"]);
+    }
+  });
+});
+
+test("an error built by hand renders the reason it was never given", () => {
+  // Nothing the compiler raises reaches the prototype-wide renderer: a
+  // compiled failure carries its check's own. This is the path that does.
+  const SuryError = S.Error as unknown as new (details: unknown) => S.Error;
+  const error = new SuryError({
+    code: "invalid_input",
+    path: ["id"],
+    expected: S.string,
+    received: S.unknown,
+    input: 1,
+  });
+
+  expect(error.reason).toBe("Expected string, received 1");
+  expect(error.message).toBe("Failed at id: Expected string, received 1");
+});
