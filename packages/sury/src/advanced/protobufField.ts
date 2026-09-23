@@ -36,10 +36,6 @@ export type ProtobufType =
   | "enum"
   | "message";
 
-// A field's type as stored: a scalar or message the caller can name, or the
-// full name of a well-known type the value's schema carries a codec for.
-export type FieldType = ProtobufType | `google.protobuf.${string}`;
-
 // How a schema that stands for a well-known type (`S.protobufTimestamp`,
 // `S.protobufValue`) is read and written: the two functions its message's
 // fields would otherwise compile to, and called the same way - the caller
@@ -69,7 +65,7 @@ export type ProtobufField = {
 // apart by that schema.
 export type StoredField = {
   number: number;
-  type: FieldType;
+  type: ProtobufType;
   packed: boolean;
   key: ProtobufType;
   oneof?: string;
@@ -151,12 +147,13 @@ const isIntegerEnum = (schema: Internal): boolean => {
 const isMessageShape = (schema: Internal): boolean =>
   schema.type === objectTag || (schema.type === refTag && !schema.isJson);
 
-const inferType = (shape: Internal, literalEnum: boolean): FieldType | undefined => {
+const inferType = (shape: Internal, literalEnum: boolean): ProtobufType | undefined => {
   if (literalEnum) return "enum";
   if (shape.type === stringTag) return "string";
   if (shape.type === booleanTag) return "bool";
   if (shape.type === instanceTag && shape.class === Uint8Array) return "bytes";
-  if (shape.protobufCodec !== U) return (shape.protobufCodec as ProtobufCodec).type;
+  // A well-known type is a message on the wire, whose codec the schema carries.
+  if (shape.protobufCodec !== U) return "message";
   if (shape.isJson) return U;
   // A `$ref` is `S.recursive`, whose definition is not built yet while the
   // definer runs; a message is the only thing the wire can make of one.
@@ -190,10 +187,8 @@ export const protobufField = (schema: Internal, field: number | ProtobufField): 
   // A union of int32 literals is an enum; a lone literal is a number, since
   // a one-member enum could accept neither its zero nor an unknown value.
   const literalEnum = isIntegerEnum(shape);
-  const inferred = inferType(shape, literalEnum);
-  const type: FieldType | undefined = typeof field === "number" || field.type === U ? inferred : field.type;
-  // A well-known type is only ever what the value's codec says.
-  if (type === U || (protobufTypes[type as ProtobufType] !== true && type !== inferred)) {
+  const type = typeof field === "number" || field.type === U ? inferType(shape, literalEnum) : field.type;
+  if (type === U || protobufTypes[type] !== true) {
     // The two JS values a message of Google's own stands for.
     if (shape.protobufCodec === U) {
       if (shape.class === Date) return panic(`S.protobufField requires S.protobufTimestamp for a Date, which is a google.protobuf.Timestamp on the wire`);

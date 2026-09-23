@@ -39,11 +39,11 @@ import {
 import { arrayFactory, dictFactory, objectDecoder } from "../composites";
 import { getOutputSchema, instanceDecoder, optionalMembers, parse } from "../parse";
 import { bigint, bool, float, int, integer, string, unit } from "../primitives";
-import type { FieldType, ProtobufCodec, ProtobufType, StoredField } from "./protobufField";
+import type { ProtobufCodec, ProtobufType, StoredField } from "./protobufField";
 
 type Field = {
   number: number;
-  type: FieldType;
+  type: ProtobufType;
   packed: boolean;
   key: string;
   repeated: boolean;
@@ -149,7 +149,7 @@ const wireObject = (schema: Internal, ctx: Ctx): Internal | undefined => {
   return firstObject(schema, ctx);
 };
 
-const packable: Partial<Record<FieldType, boolean>> = {
+const packable: Record<ProtobufType, boolean> = {
   double: true,
   float: true,
   int32: true,
@@ -169,7 +169,7 @@ const packable: Partial<Record<FieldType, boolean>> = {
   message: false,
 };
 
-const wireType = (type: FieldType): number => {
+const wireType = (type: ProtobufType): number => {
   if (type === "double" || type === "fixed64" || type === "sfixed64") return 1;
   if (type === "string" || type === "bytes" || type === "message") return 2;
   if (type === "float" || type === "fixed32" || type === "sfixed32") return 5;
@@ -227,7 +227,7 @@ const codecMessage = (shape: Internal, codec: ProtobufCodec, ctx: Ctx): Message 
   return msg;
 };
 
-const scalarSchema = (type: FieldType): Internal => {
+const scalarSchema = (type: ProtobufType): Internal => {
   if (type === "string") return string;
   if (type === "bytes") return bytesSchema;
   if (type === "bool") return bool;
@@ -452,8 +452,8 @@ const compileMessage = (schema: Internal, ctx: Ctx): Message | undefined => {
     let messageValue: Internal | undefined;
     let raw: Internal;
     let normalizedProperty = optional ? propertyValue : property;
-    const codec = shape.protobufCodec as ProtobufCodec | undefined;
-    if (metadata.type === "message" || codec !== U) {
+    if (metadata.type === "message") {
+      const codec = shape.protobufCodec as ProtobufCodec | undefined;
       const at = repeated || map !== U ? (container.additionalItems as Internal) : propertyValue;
       message = codec !== U ? codecMessage(shape, codec, ctx) : compileMessage(at, ctx);
       if (message === U) return panic(`S.protobuf: field "${key}" is a message but its schema is not an object`);
@@ -499,12 +499,9 @@ const compileMessage = (schema: Internal, ctx: Ctx): Message | undefined => {
     } else if (!optional) rawRequired.push(key);
     rawProperties[key] = raw;
     normalizedProperties[key] = normalizedProperty;
-    // A well-known type is a message on the wire, whose codec is written by
-    // hand instead of compiled from fields.
-    const type = message !== U ? "message" : metadata.type;
     const field: Field = {
       number: metadata.number,
-      type,
+      type: metadata.type,
       packed: metadata.packed,
       key,
       repeated,
@@ -512,7 +509,7 @@ const compileMessage = (schema: Internal, ctx: Ctx): Message | undefined => {
       message,
       map,
       oneof: metadata.oneof,
-      wire: wireType(type),
+      wire: wireType(metadata.type),
     };
     fields.push(field);
   }
@@ -1298,7 +1295,7 @@ const writeVarint32 = (expr: string): string =>
 
 // `num`/`big` name the range checks in scope: closure params inside a
 // hoisted message encoder, `e[N]` embeds in the operation body.
-const writeCall = (type: FieldType, v: string, num: string, big: string): string => {
+const writeCall = (type: ProtobufType, v: string, num: string, big: string): string => {
   if (type === "bool") return `s=${v}?1:0;w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s)`;
   if (type === "uint32") return `s=${v};if(s<0||s>4294967295)${num}(s,0,4294967295,"uint32");${writeVarint32("s")}`;
   if (type === "int32" || type === "enum") return `s=${v};if(s<-2147483648||s>2147483647)${num}(s,-2147483648,2147483647,"${type}");s>=0?${writeVarint32("s")}:w.int32(s)`;
@@ -1316,7 +1313,7 @@ const writeCall = (type: FieldType, v: string, num: string, big: string): string
   return `w.bytes(${v})`;
 };
 
-const fixedKind = (type: FieldType): number | undefined =>
+const fixedKind = (type: ProtobufType): number | undefined =>
   type === "double" ? 0
   : type === "float" ? 1
   : type === "fixed32" ? 2
@@ -1325,7 +1322,7 @@ const fixedKind = (type: FieldType): number | undefined =>
   : type === "sfixed64" ? 5
   : U;
 
-const varintKind = (type: FieldType): number | undefined =>
+const varintKind = (type: ProtobufType): number | undefined =>
   type === "uint32" ? 0
   : type === "int32" || type === "enum" ? 1
   : type === "sint32" ? 2
@@ -1333,7 +1330,7 @@ const varintKind = (type: FieldType): number | undefined =>
   : U;
 
 // A one-byte varint is read inline.
-const readCall = (type: FieldType): string => {
+const readCall = (type: ProtobufType): string => {
   const varint32 = "(r.pos<r.limit&&(q=r.buf[r.pos])<128?(r.pos++,q):r.varint32())";
   if (type === "bool") return "r.bool()";
   if (type === "uint32") return varint32;
@@ -1360,7 +1357,7 @@ const readKey = (obj: string, key: string): string => {
   return key in Object.prototype ? `(Object.hasOwn(${obj},${k})?${obj}[${k}]:void 0)` : `${obj}[${k}]`;
 };
 
-const scalarDefault = (type: FieldType): string =>
+const scalarDefault = (type: ProtobufType): string =>
   type === "string" ? '""'
   : type === "bytes" ? "new Uint8Array"
   : type === "bool" ? "!1"
