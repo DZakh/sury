@@ -1,0 +1,138 @@
+syntax = "proto3";
+
+package example.v1;
+
+import "example/common/address.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+
+// Every scalar protobuf has, once each.
+message Scalars {
+  double double = 1;
+  float float = 2;
+  int32 int32 = 3;
+  int64 int64 = 4;
+  uint32 uint32 = 5;
+  uint64 uint64 = 6;
+  sint32 sint32 = 7;
+  sint64 sint64 = 8;
+  fixed32 fixed32 = 9;
+  fixed64 fixed64 = 10;
+  sfixed32 sfixed32 = 11;
+  sfixed64 sfixed64 = 12;
+  bool bool = 13;
+  string string = 14;
+  bytes bytes = 15;
+  int64 as_string = 16 [jstype = JS_STRING];
+}
+
+// A user of the system.
+message User {
+  // The kinds of user.
+  enum Kind {
+    KIND_UNSPECIFIED = 0;
+    KIND_PERSON = 1;
+    KIND_ROBOT = 2;
+  }
+
+  // Where a user receives mail.
+  message Mailbox {
+    string name = 1;
+    example.common.Address address = 2;
+  }
+
+  int32 id = 1;
+  string first_name = 2;
+  repeated string tags = 3;
+  map<string, int32> scores = 4;
+  example.common.Address home = 5;
+  optional string nickname = 6;
+  Kind kind = 7;
+  oneof contact {
+    string email = 8;
+    int64 phone = 9;
+    Mailbox mailbox = 10;
+    google.protobuf.Int32Value boxed_in_oneof = 11;
+  }
+  repeated int32 unpacked = 12 [packed = false];
+  map<int32, Mailbox> mailboxes = 13;
+  example.common.Currency currency = 14;
+  optional Kind maybe_kind = 15;
+  string deprecated_field = 16 [deprecated = true];
+  repeated Kind kinds = 17;
+  map<uint64, string> by_id = 18;
+}
+
+message WellKnown {
+  google.protobuf.Timestamp at = 1;
+  google.protobuf.Duration took = 2;
+  google.protobuf.StringValue label = 3;
+  google.protobuf.Int64Value count = 4;
+  google.protobuf.Struct meta = 5;
+  repeated google.protobuf.Struct metas = 6;
+  map<string, google.protobuf.Struct> by_name = 7;
+  google.protobuf.Value value = 8;
+  repeated google.protobuf.Int32Value boxed_list = 9;
+}
+
+// A tree: a message that holds itself.
+message Node {
+  string name = 1;
+  repeated Node children = 2;
+  Node parent = 3;
+  oneof payload {
+    int32 leaf = 4;
+    Node link = 5;
+  }
+}
+
+// Two messages that hold each other.
+message Branch {
+  int32 n = 1;
+  Leaf leaf = 2;
+}
+
+message Leaf {
+  repeated Branch branches = 1;
+}
+
+// Names protobuf-es escapes.
+message Reserved {
+  string constructor = 1;
+  string to_string = 2;
+  int32 value_of = 3;
+  enum Enum {
+    ENUM_UNSPECIFIED = 0;
+  }
+  Enum enum = 4;
+}
+
+message Empty {}
+
+// An enum whose values keep their prefix: not every value shares it.
+enum Mixed {
+  MIXED_UNSPECIFIED = 0;
+  OTHER = 1;
+}
+
+enum Aliased {
+  option allow_alias = true;
+  ALIASED_UNSPECIFIED = 0;
+  ALIASED_ONE = 1;
+  ALIASED_UNO = 1;
+}
+
+// Only one value.
+enum Lonely {
+  LONELY_UNSPECIFIED = 0;
+}
+
+message Uses {
+  Mixed mixed = 1;
+  Aliased aliased = 2;
+  Lonely lonely = 3;
+  repeated Mixed mixes = 4;
+  map<string, Aliased> aliases = 5;
+}

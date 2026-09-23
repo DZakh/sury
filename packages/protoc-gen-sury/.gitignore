@@ -1,0 +1,4 @@
+test/.es
+test/types.generated.ts
+test/lib
+test/**/*.res.mjs

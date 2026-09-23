@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package example.common;
+
+// A postal address.
+message Address {
+  string street = 1;
+  string city = 2;
+  // ISO 3166-1 alpha-2.
+  string country = 3;
+}
+
+enum Currency {
+  CURRENCY_UNSPECIFIED = 0;
+  CURRENCY_USD = 1;
+  CURRENCY_EUR = 2;
+}

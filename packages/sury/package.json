@@ -42,6 +42,10 @@
       "types": "./index.d.ts",
       "import": "./index.mjs"
     },
+    "./wkt": {
+      "types": "./src/wkt/index.ts",
+      "import": "./wkt.mjs"
+    },
     "./src/*": "./src/*",
     "./S.gen.js": {
       "types": "./src/S.gen.d.ts"

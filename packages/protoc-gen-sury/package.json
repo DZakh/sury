@@ -1,0 +1,26 @@
+{
+  "name": "protoc-gen-sury",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Generates Sury schemas from .proto files. Ships inside the sury package as its protoc-gen-sury bin",
+  "bin": {
+    "protoc-gen-sury": "./bin/protoc-gen-sury.mjs"
+  },
+  "scripts": {
+    "test": "pnpm --filter=sury build:entry && tsx ./test/cli.ts",
+    "update": "pnpm --filter=sury build:entry && tsx ./test/cli.ts update"
+  },
+  "dependencies": {
+    "sury": "file:../sury"
+  },
+  "devDependencies": {
+    "@bufbuild/buf": "1.73.0",
+    "@bufbuild/protobuf": "2.14.1",
+    "@bufbuild/protoc-gen-es": "2.14.1",
+    "@types/node": "20.19.41",
+    "tsx": "4.22.4",
+    "typescript": "5.8.3",
+    "rescript": "12.2.0"
+  }
+}
