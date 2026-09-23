@@ -21,7 +21,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{for(;;){if(Array.isArray(i)){let v5=new Array(i.length);for(let v0=0;v0<i.length;++v0){let v1=i[v0];typeof v1==="object"&&v1&&!Array.isArray(v1)||e[3](v1,[v0]);let v2=v1.TAG,v4=v1._0;v2==="A"||e[0](v2,[v0,"TAG"]);typeof v4==="string"||e[2](v4,[v0,"_0"]);let v3=+v4;v3==v3&&(v3||v4.trim())||e[1](v4,[v0,"_0"]);v5[v0]={TAG:v2,_0:v3}}i=v5;break}if(i===void 0){i=e[4];break}e[5](i)}return i}catch(v8){e[6](v8)}}
+    expression: i=>{try{for(;;){if(Array.isArray(i)){let v5=new Array(i.length);for(let v0=0;v0<i.length;++v0){let v1=i[v0];typeof v1==="object"&&v1&&!Array.isArray(v1)||e[3](v1,[v0]);let v2=v1.TAG,v4=v1._0;v2==="A"||e[0](v2,[v0,"TAG"]);typeof v4==="string"||e[2](v4,[v0,"_0"]);let v3=+v4;v3==v3&&(v3||v4.trim())||e[1](v4,[v0,"_0"]);v5[v0]={TAG:v2,_0:v3}}i=v5;break}if(i===void 0){i=e[4];break}e[5](i)}return i}catch(v6){e[6](v6)}}
     examples:
       absent-takes-the-default-as-is:
         input: undefined

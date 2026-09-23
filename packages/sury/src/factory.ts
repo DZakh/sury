@@ -56,7 +56,7 @@ import {
   traverseDefinition,
   valGet,
 } from "./composites";
-import { getOutputSchema, outputOf, parse, reverse, setDefault } from "./parse";
+import { getOutputSchema, parse, reverse, setDefault } from "./parse";
 import { Literal_parse, unit } from "./primitives";
 import { unionFactory } from "./union";
 
@@ -112,7 +112,7 @@ const makeObjectCtx = (
 // omit still read; unionDecoder is what would pull the planner into every
 // object export, and measuring it says +55% on `object`.
 const fieldOrSchema = (schema: Internal, or: unknown): Internal => {
-  const item = outputOf(schema);
+  const item = getOutputSchema(schema);
   const mut = baseSchema(anyOfTag, false, noopDecoder);
   mut.anyOf = [schema, unit];
   mut.has = { [undefinedTag]: true };
@@ -129,7 +129,7 @@ const fieldOrSchema = (schema: Internal, or: unknown): Internal => {
     return output;
   };
   mut.to = toMut;
-  setDefault(mut, item, schema, or);
+  setDefault(mut, schema, or);
 
   const parseAs = copySchema(schema);
   parseAs.expression = () => inputExpression(mut);

@@ -12,7 +12,6 @@ import {
   copySchema,
   copyTo,
   functionTag,
-  getOrRethrow,
   globalConfig,
   inputExpression,
   type Internal,
@@ -51,11 +50,10 @@ import {
   objectDecoder
 } from "./composites";
 import {
- getOp,
+ decodeOutput,
  getOutputSchema,
  nestedLoc,
  nestedOptionParser,
- outputOf,
  reverse,
  setDefault
 } from "./parse";
@@ -422,7 +420,7 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
     const building = globalConfig.d;
     for (let idx = 0; idx < anyOf.length; idx++) {
       const variant = anyOf[idx]!;
-      const outputSchema = outputOf(variant);
+      const outputSchema = getOutputSchema(variant);
       if (outputSchema.type !== undefinedTag) {
         // The default is read as the item on every decode, so an item that is
         // the definition being built would read the default as that definition,
@@ -455,20 +453,8 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
           : unionFactory(outputItems);
 
     if (default_.type === "value") {
-      // A nested `S.recursive` hands back a bare `$ref`, so an item reached
-      // inside a definer names definitions the check would not otherwise see.
-      // They ride on the copy it compiles against, and `parse` merges them for
-      // the whole operation, so a ref inside a union resolves too.
-      // Only once the record holds something: an empty one names nothing, and a
-      // copy would miss the operation cached on the item itself.
-      let checkItem = item;
-      if (building !== U && item["$defs"] === U && Object.keys(building).length) {
-        checkItem = copySchema(item);
-        checkItem["$defs"] = building;
-      }
       setDefault(
         mut,
-        checkItem,
         originalItems.length === 1 ? originalItems[0]! : unionFactory(originalItems),
         default_.value
       );
@@ -496,7 +482,11 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
       // The same seam B_conversion's `trusted` provides: `vc` checks emit at
       // the pre-transform slot, so the item's input refiners would run over
       // the absent value that came in rather than the default that replaced it.
-      return B_refine(output);
+      const result = B_refine(output);
+      // Already a value of the Output type, so it lands past the item's
+      // decoder: a container's decoder would read it as Input (#452).
+      result.io = true;
+      return result;
     };
     mut.anyOf = anyOf.map((variant) =>
       getOutputSchema(variant).type === undefinedTag
@@ -630,20 +620,9 @@ export const meta = <TValue>(schema: Internal, data: Meta<TValue>): Internal => 
     if (data.examples.length === 0) {
       delete mut.examples;
     } else {
-      // A full parse through the reversed schema: the example is checked as an
-      // output value and stored in its input form. A never or async encode
-      // makes that uncomputable, so it is skipped rather than thrown; a
-      // per-value failure still names the author's bad example.
-      try {
-        mut.examples = data.examples.map(
-          getOp(0, 2, unknown, reverse(schema)) as (input: unknown) => unknown,
-        );
-      } catch (exn) {
-        if ((getOrRethrow(exn) as unknown as { code: string }).code !== "invalid_operation") {
-          throw exn;
-        }
-        delete mut.examples;
-      }
+      const decode = decodeOutput(reverse(schema));
+      if (decode) mut.examples = data.examples.map(decode);
+      else delete mut.examples;
     }
   }
   if (data.errorMessage !== U) {
