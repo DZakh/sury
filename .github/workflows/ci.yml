@@ -144,6 +144,10 @@ jobs:
           pnpm protobuf:compliance | tee compliance.txt
           echo "### $(tail -n 1 compliance.txt)" >> "$GITHUB_STEP_SUMMARY"
 
+      # Generated message graphs, round-tripped and mutated against protobufjs
+      # and protobuf-es: the combinations no case in the corpus names.
+      - run: pnpm protobuf:fuzz
+
       # Google's own conformance runner, which generates its cases inside the
       # binary - the one that says whether we are right. Pinned corpus, cached
       # by the commit it is pinned to.
