@@ -179,3 +179,73 @@ test("the guide's wire error and its S.object warning", t => {
     },
   )
 })
+
+// The shapes protoc-gen-sury writes for ReScript: an enum is a variant whose
+// constructors carry their proto numbers, and a oneof is a variant tagged by
+// `case` under `option`, which is the `{ case, value }` object on the wire
+// side and `undefined` while no member is set.
+@val external bytesToArray: 'a => array<int> = "Array.from"
+
+type kind = | @as(0) Unspecified | @as(1) Primary | @as(2) Secondary
+
+type address = {street: string}
+
+@tag("case")
+type contact =
+  | @as("email") Email({value: string})
+  | @as("home") Home({value: address})
+
+type person = {id: int, kind: kind, contact: option<contact>}
+
+let addressSchema = S.schema(s => {
+  street: s.matches(S.string->S.protobufField(1, ~type_=#string)),
+})
+
+let personSchema = S.schema(s => {
+  id: s.matches(S.int->S.protobufField(1, ~type_=#int32)),
+  kind: s.matches(S.enum([Unspecified, Primary, Secondary])->S.protobufField(2, ~type_=#enum)),
+  contact: s.matches(
+    S.option(
+      S.union([
+        S.schema(s => Email({value: s.matches(S.string->S.protobufField(3, ~type_=#string))})),
+        S.schema(s => Home({value: s.matches(addressSchema->S.protobufField(4, ~type_=#message))})),
+      ]),
+    ),
+  ),
+})
+
+test("a variant enum travels as its number and a tagged variant as a oneof", t => {
+  let toBytes = value => value->S.convertOrThrow(~from=personSchema, ~to=S.protobuf)
+  let fromBytes = bytes => bytes->S.convertOrThrow(~from=S.protobuf, ~to=personSchema)
+  let email = {id: 1, kind: Secondary, contact: Some(Email({value: "a@b"}))}
+  t->Assert.deepEqual(toBytes(email)->bytesToArray, [8, 1, 16, 2, 26, 3, 97, 64, 98])
+  t->Assert.deepEqual(fromBytes(toBytes(email)), email)
+  let home = {id: 2, kind: Unspecified, contact: Some(Home({value: {street: "x"}}))}
+  t->Assert.deepEqual(fromBytes(toBytes(home)), home)
+  let none = {id: 3, kind: Primary, contact: None}
+  t->Assert.deepEqual(toBytes(none)->bytesToArray, [8, 3, 16, 1])
+  t->Assert.deepEqual(fromBytes(toBytes(none)), none)
+  t->Assert.deepEqual(
+    personSchema->S.toProtoOrThrow(~name="Person"),
+    `syntax = "proto3";
+
+message Person {
+  enum Kind {
+    KIND_UNSPECIFIED = 0;
+    KIND_1 = 1;
+    KIND_2 = 2;
+  }
+  message Home {
+    string street = 1;
+  }
+
+  int32 id = 1;
+  Kind kind = 2;
+  oneof contact {
+    string email = 3;
+    Home home = 4;
+  }
+}
+`,
+  )
+})

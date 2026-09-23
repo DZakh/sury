@@ -1,4 +1,4 @@
-import { test } from "vitest";
+import { expectTypeOf, test } from "vitest";
 
 import * as S from "../index.mjs";
 
@@ -705,4 +705,82 @@ test("a recursive message reads and writes as the same message unrolled", (t) =>
       }
     }
   }
+});
+
+// The shapes protoc-gen-sury writes for TypeScript: a type per message, and a
+// schema checked against it. `S.schemaOf` checks equality, so each line here is
+// a spelling the generator can rely on meaning exactly the type it declares.
+test("generated message shapes check against their declared types", (t) => {
+  const Kind = { UNSPECIFIED: 0, PRIMARY: 1 } as const;
+  type Kind = (typeof Kind)[keyof typeof Kind];
+  const KindSchema = S.union([Kind.UNSPECIFIED, Kind.PRIMARY]);
+
+  type Address = { street: string };
+  const AddressSchema = S.schemaOf<Address>()({
+    street: S.protobufField(S.string, { number: 1, type: "string" }),
+  });
+
+  // The arm for no member set is `case?: undefined`, where protobuf-es writes
+  // `case: undefined`: a property that admits `undefined` is optional in Sury's
+  // inference. A protobuf-es value, `{ case: undefined }`, still fits it.
+  type User = {
+    id: number;
+    big: bigint;
+    tags: string[];
+    scores: { [key: string]: number };
+    raw: Uint8Array;
+    kind: Kind;
+    home?: Address;
+    nickname?: string;
+    contact:
+      | { case: "email"; value: string }
+      | { case: "address"; value: Address }
+      | { case?: undefined; value?: undefined };
+  };
+  const UserSchema = S.schemaOf<User>()({
+    id: S.protobufField(S.int32, { number: 1, type: "int32" }),
+    big: S.protobufField(S.bigint, { number: 2, type: "int64" }),
+    tags: S.protobufField(S.array(S.string), { number: 3, type: "string" }),
+    scores: S.protobufField(S.record(S.int32), { number: 4, type: "int32", key: "string" }),
+    raw: S.protobufField(S.uint8Array, { number: 5, type: "bytes" }),
+    kind: S.protobufField(KindSchema, { number: 6, type: "enum" }),
+    home: S.protobufField(S.optional(AddressSchema), { number: 7, type: "message" }),
+    nickname: S.protobufField(S.optional(S.string), { number: 8, type: "string" }),
+    contact: S.union([
+      S.schema({ case: "email", value: S.protobufField(S.string, { number: 9, type: "string" }) }),
+      S.schema({ case: "address", value: S.protobufField(AddressSchema, { number: 10, type: "message" }) }),
+      S.schema({ case: undefined, value: S.optional(S.schema(undefined)) }),
+    ]),
+  });
+  expectTypeOf(UserSchema).toEqualTypeOf<S.Schema<User, User>>();
+
+  const user: User = {
+    id: 1,
+    big: 2n,
+    tags: ["a"],
+    scores: { x: 1 },
+    raw: new Uint8Array([7]),
+    kind: Kind.PRIMARY,
+    contact: { case: "address", value: { street: "s" } },
+  };
+  const bytes = S.decodeOrThrow(UserSchema, S.protobuf)(user);
+  t.expect(S.decodeOrThrow(S.protobuf, UserSchema)(bytes)).toEqual({ ...user, home: undefined, nickname: undefined });
+
+  // `S.schemaOf` can't sit inside `S.recursive`: the type would refer to itself
+  // while being mapped. `S.recursive<T>` checks by assignability instead, which
+  // still rejects a field of the wrong type.
+  type Node = { id: number; children: Node[]; parent?: Node };
+  const NodeSchema = S.recursive<Node>("Node", (self) =>
+    S.schema({
+      id: S.protobufField(S.int32, { number: 1, type: "int32" }),
+      children: S.protobufField(S.array(self), { number: 2, type: "message" }),
+      parent: S.protobufField(S.optional(self), { number: 3, type: "message" }),
+    }),
+  );
+  expectTypeOf(NodeSchema).toEqualTypeOf<S.Schema<Node, Node>>();
+  type Bad = { id: string };
+  S.recursive<Bad>("Bad", () =>
+    // @ts-expect-error - the type declares `id` a string
+    S.schema({ id: S.protobufField(S.int32, { number: 1, type: "int32" }) }),
+  );
 });
