@@ -2409,7 +2409,7 @@ The output side is derived through [`reverse`](#reverse), so nested transforms a
 
 ## Error handling
 
-**Sury** throws `S.Error`, a subclass of `Error` named `SuryError`, so `instanceof` and `stack` work as usual. Every error carries:
+**Sury** throws `S.Error`, a subclass of `Error` named `SuryError`, so `instanceof` works as usual. A thrown error carries a `stack` starting at the line that called the operation; one handed back by an `AsResult` outcome or by Standard Schema has none, because nothing threw. Every error carries:
 
 - `path` - where the failure happened, as an array of keys and indices from the root of the value (`[]` at the root, `["items", 0]` inside). `S.pathToText(path)` renders it as `items[0]`.
 - `reason` - the failure itself, without the path: `Expected string, received undefined`.
@@ -2432,6 +2432,21 @@ try {
     e.code; // => "invalid_input"
   }
 }
+```
+
+Printing one shows the failure and what this value decided. `expected` and
+`received` are schemas shared by every failure of the same check, so they stay
+out of the way until you ask for them:
+
+```ts
+console.log(e);
+// [SuryError: Failed at items[1]: Expected string, received 1] {
+//   code: 'invalid_input',
+//   path: [ 'items', 1 ],
+//   input: 1
+// }
+
+e.expected; // => S.string
 ```
 
 Or ask the operation for a result instead of an exception - the `AsResult` and

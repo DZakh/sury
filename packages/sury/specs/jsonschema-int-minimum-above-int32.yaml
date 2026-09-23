@@ -14,7 +14,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="number"&&i%1==0||e[1](i);i>=3000000000||e[0](i);return i}
+    expression: i=>{try{typeof i==="number"&&i%1==0||e[1](i);i>=3000000000||e[0](i);return i}catch(v0){e[2](v0)}}
     examples:
       at-the-minimum:
         input: "3000000000"
@@ -29,7 +29,7 @@ operations:
         input: '"3000000000"'
         error: Expected integer >= 3000000000, received "3000000000"
   decode:
-    expression: i=>{i>=3000000000||e[0](i);return i}
+    expression: i=>{try{i>=3000000000||e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
       at-the-minimum:
         input: "3000000000"
@@ -38,7 +38,7 @@ operations:
         input: "5"
         error: Expected integer >= 3000000000, received 5
   encode:
-    expression: i=>{i>=3000000000||e[0](i);return i}
+    expression: i=>{try{i>=3000000000||e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
       at-the-minimum:
         input: "3000000000"

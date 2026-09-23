@@ -19,7 +19,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{Array.isArray(i)||e[2](i);for(let v0=0;v0<i.length;++v0){let v1=i[v0];typeof v1==="string"||e[0](v1,[v0]);}i.length===2||e[1](i);return i}
+    expression: i=>{try{Array.isArray(i)||e[2](i);for(let v0=0;v0<i.length;++v0){let v1=i[v0];typeof v1==="string"||e[0](v1,[v0]);}i.length===2||e[1](i);return i}catch(v2){e[3](v2)}}
     examples:
       at bound:
         input: '["a", "b"]'
@@ -37,7 +37,7 @@ operations:
         input: '["a", 1]'
         error: "Failed at [1]: Expected string, received 1"
   decode:
-    expression: i=>{i.length===2||e[0](i);return i}
+    expression: i=>{try{i.length===2||e[0](i);return i}catch(v1){e[1](v1)}}
     examples:
       at bound:
         input: '["a", "b"]'
@@ -46,7 +46,7 @@ operations:
         input: '["a"]'
         error: Expected unknown[].length == 2, received ["a"]
   encode:
-    expression: i=>{i.length===2||e[1](i);for(let v0=0;v0<i.length;++v0){let v1=i[v0];typeof v1==="string"||e[0](v1,[v0]);}return i}
+    expression: i=>{try{i.length===2||e[1](i);for(let v0=0;v0<i.length;++v0){let v1=i[v0];typeof v1==="string"||e[0](v1,[v0]);}return i}catch(v2){e[2](v2)}}
     examples:
       at bound:
         input: '["a", "b"]'

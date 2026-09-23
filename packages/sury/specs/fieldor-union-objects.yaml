@@ -21,7 +21,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=i.x;if(v0===void 0){v0=e[0]}else{for(;;){let r;if(typeof v0==="object"&&v0&&!Array.isArray(v0)){try{let v1=v0.a;typeof v1==="string"||e[1](v1);v0={TAG:"A",_0:v1};break}catch(x){(r||(r=[])).push(e[3](x))}try{let v2=v0.b;typeof v2==="number"&&v2==v2||e[2](v2);v0={TAG:"B",_0:v2};break}catch(x){(r||(r=[])).push(e[3](x))}}e[4](v0,...(r||[]))}}return {x:v0}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=i.x;if(v0===void 0){v0=e[0]}else{for(;;){let r;if(typeof v0==="object"&&v0&&!Array.isArray(v0)){try{let v1=v0.a;typeof v1==="string"||e[1](v1);v0={TAG:"A",_0:v1};break}catch(x){(r||(r=[])).push(e[3](x))}try{let v2=v0.b;typeof v2==="number"&&v2==v2||e[2](v2);v0={TAG:"B",_0:v2};break}catch(x){(r||(r=[])).push(e[3](x))}}e[4](v0,...(r||[]))}}return {x:v0}}catch(v3){e[6](v3)}}
     examples:
       absent-takes-the-default:
         input: "{}"
@@ -33,7 +33,7 @@ operations:
         input: "{ x: { b: 2 } }"
         output: '{ x: { TAG: "B", _0: 2 } }'
   decode:
-    expression: i=>{let v0=i.x;if(v0===void 0){v0=e[0]}else{for(;;){let r;if(typeof v0==="object"&&v0&&!Array.isArray(v0)){try{let v1=v0.a;typeof v1==="string"||e[1](v1);v0={TAG:"A",_0:v1};break}catch(x){(r||(r=[])).push(e[3](x))}try{let v2=v0.b;typeof v2==="number"&&v2==v2||e[2](v2);v0={TAG:"B",_0:v2};break}catch(x){(r||(r=[])).push(e[3](x))}}e[4](v0,...(r||[]))}}return {x:v0}}
+    expression: i=>{try{let v0=i.x;if(v0===void 0){v0=e[0]}else{for(;;){let r;if(typeof v0==="object"&&v0&&!Array.isArray(v0)){try{let v1=v0.a;typeof v1==="string"||e[1](v1);v0={TAG:"A",_0:v1};break}catch(x){(r||(r=[])).push(e[3](x))}try{let v2=v0.b;typeof v2==="number"&&v2==v2||e[2](v2);v0={TAG:"B",_0:v2};break}catch(x){(r||(r=[])).push(e[3](x))}}e[4](v0,...(r||[]))}}return {x:v0}}catch(v3){e[5](v3)}}
     examples:
       absent-takes-the-default:
         input: "{}"
@@ -42,7 +42,7 @@ operations:
         input: "{ x: { b: 2 } }"
         output: '{ x: { TAG: "B", _0: 2 } }'
   encode:
-    expression: i=>{let v0=i.x;if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.TAG==="A"){v0={a:v0._0};break}if(v0.TAG==="B"){v0={b:v0._0};break}e[0](v0)}}else{e[1](v0)}for(;;){let r;if(typeof v0==="object"&&v0&&!Array.isArray(v0)){try{let v1=v0.a,v2;typeof v1==="string"||e[2](v1);for(v2 in v0)if(v2!=="a")e[3](v2);break}catch(x){(r||(r=[])).push(e[6](x))}try{let v3=v0.b,v4;typeof v3==="number"&&v3==v3||e[4](v3);for(v4 in v0)if(v4!=="b")e[5](v4);break}catch(x){(r||(r=[])).push(e[6](x))}}e[7](v0,...(r||[]))}return {x:v0}}
+    expression: i=>{try{let v0=i.x;if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.TAG==="A"){v0={a:v0._0};break}if(v0.TAG==="B"){v0={b:v0._0};break}e[0](v0)}}else{e[1](v0)}for(;;){let r;if(typeof v0==="object"&&v0&&!Array.isArray(v0)){try{let v1=v0.a,v2;typeof v1==="string"||e[2](v1);for(v2 in v0)if(v2!=="a")e[3](v2);break}catch(x){(r||(r=[])).push(e[6](x))}try{let v3=v0.b,v4;typeof v3==="number"&&v3==v3||e[4](v3);for(v4 in v0)if(v4!=="b")e[5](v4);break}catch(x){(r||(r=[])).push(e[6](x))}}e[7](v0,...(r||[]))}return {x:v0}}catch(v5){e[8](v5)}}
     examples:
       member-a-encodes:
         input: '{ x: { TAG: "A", _0: "v" } }'

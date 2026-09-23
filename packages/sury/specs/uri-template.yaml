@@ -14,7 +14,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}catch(v0){e[3](v0)}}
     examples:
       a-del-character-is-not-a-literal:
         input: '"\u007f"'
@@ -41,7 +41,7 @@ operations:
         input: '"dictionary/{term:1}/{term}"'
         output: '"dictionary/{term:1}/{term}"'
   decode:
-    expression: i=>{e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{e[0].test(i)||e[1](i);return i}catch(v0){e[2](v0)}}
     examples:
       valid:
         input: '"http://example.com/dictionary/{term:1}/{term}"'
@@ -50,7 +50,7 @@ operations:
         input: '"http://example.com/dictionary/{term:1}/{term"'
         error: Expected uri-template, received "http://example.com/dictionary/{term:1}/{term"
   encode:
-    expression: i=>{e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{e[0].test(i)||e[1](i);return i}catch(v0){e[2](v0)}}
     examples:
       valid:
         input: '"http://example.com/dictionary/{term:1}/{term}"'

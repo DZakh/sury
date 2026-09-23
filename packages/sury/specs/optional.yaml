@@ -15,7 +15,7 @@ vs:
   zod: z.string().optional()
 operations:
   parse:
-    expression: i=>{(typeof i==="string"||i===void 0)||e[0](i);return i}
+    expression: i=>{try{(typeof i==="string"||i===void 0)||e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
       string:
         input: '"foo"'

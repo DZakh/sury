@@ -17,7 +17,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{(typeof i==="string"||i===void 0)||e[2](i);let v0=+i;v0==v0&&(v0||i.trim())||e[1](i);v0>=0&&v0<65536&&v0%1==0||e[0](v0);return v0}
+    expression: i=>{try{(typeof i==="string"||i===void 0)||e[2](i);let v0=+i;v0==v0&&(v0||i.trim())||e[1](i);v0>=0&&v0<65536&&v0%1==0||e[0](v0);return v0}catch(v1){e[3](v1)}}
     examples:
       valid:
         input: '"8080"'
@@ -32,7 +32,7 @@ operations:
         input: '"70000"'
         error: Expected port, received 70000
   decode:
-    expression: i=>{let v0=+i;v0==v0&&(v0||i.trim())||e[1](i);v0>=0&&v0<65536&&v0%1==0||e[0](v0);return v0}
+    expression: i=>{try{let v0=+i;v0==v0&&(v0||i.trim())||e[1](i);v0>=0&&v0<65536&&v0%1==0||e[0](v0);return v0}catch(v1){e[2](v1)}}
     examples:
       valid:
         input: '"8080"'
@@ -41,7 +41,7 @@ operations:
         input: undefined
         error: Expected port, received undefined
   encode:
-    expression: i=>{i>=0&&i<65536&&i%1==0||e[0](i);return ""+i}
+    expression: i=>{try{i>=0&&i<65536&&i%1==0||e[0](i);return ""+i}catch(v0){e[1](v0)}}
     examples:
       valid:
         input: "8080"

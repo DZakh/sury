@@ -16,7 +16,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{Array.isArray(i)||e[1](i);for(let v0=0;v0<i.length;++v0){let v1=i[v0];e[0](v1,[v0]);}return i}
+    expression: i=>{try{Array.isArray(i)||e[1](i);for(let v0=0;v0<i.length;++v0){let v1=i[v0];e[0](v1,[v0]);}return i}catch(v3){e[2](v3)}}
     examples:
       empty:
         input: "[]"
@@ -25,13 +25,13 @@ operations:
         input: "[1]"
         error: "Failed at [0]: Expected never, received 1"
   decode:
-    expression: i=>{for(let v0=0;v0<i.length;++v0){let v1=i[v0];e[0](v1,[v0]);}return i}
+    expression: i=>{try{for(let v0=0;v0<i.length;++v0){let v1=i[v0];e[0](v1,[v0]);}return i}catch(v3){e[1](v3)}}
     examples:
       empty:
         input: "[]"
         output: "[]"
   encode:
-    expression: i=>{for(let v1=0;v1<i.length;++v1){let v2=i[v1];e[0](v2,[v1]);}return i}
+    expression: i=>{try{for(let v1=0;v1<i.length;++v1){let v2=i[v1];e[0](v2,[v1]);}return i}catch(v3){e[1](v3)}}
     examples:
       empty:
         input: "[]"

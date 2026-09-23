@@ -18,7 +18,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[6](i);let v0=e[1](new e[0](i)),v1=v0.get("role"),v2=v0.get("plan")||void 0;typeof v1==="string"||e[2](v1);(v1==="admin"||v1==="user")||e[3](v1);if(v2){typeof v2==="string"||e[4](v2);(v2==="free"||v2==="pro")||e[5](v2);}return {role:v1,plan:v2}}
+    expression: i=>{try{typeof i==="string"||e[6](i);let v0=e[1](new e[0](i)),v1=v0.get("role"),v2=v0.get("plan")||void 0;typeof v1==="string"||e[2](v1);(v1==="admin"||v1==="user")||e[3](v1);if(v2){typeof v2==="string"||e[4](v2);(v2==="free"||v2==="pro")||e[5](v2);}return {role:v1,plan:v2}}catch(v3){e[7](v3)}}
     examples:
       members:
         input: '"role=admin&plan=pro"'
@@ -33,13 +33,13 @@ operations:
         input: '"role=guest"'
         error: 'Failed at role: Expected "admin" | "user", received "guest"'
   decode:
-    expression: i=>{let v0=e[1](new e[0](i)),v1=v0.get("role"),v2=v0.get("plan")||void 0;typeof v1==="string"||e[2](v1);(v1==="admin"||v1==="user")||e[3](v1);if(v2){typeof v2==="string"||e[4](v2);(v2==="free"||v2==="pro")||e[5](v2);}return {role:v1,plan:v2}}
+    expression: i=>{try{let v0=e[1](new e[0](i)),v1=v0.get("role"),v2=v0.get("plan")||void 0;typeof v1==="string"||e[2](v1);(v1==="admin"||v1==="user")||e[3](v1);if(v2){typeof v2==="string"||e[4](v2);(v2==="free"||v2==="pro")||e[5](v2);}return {role:v1,plan:v2}}catch(v3){e[6](v3)}}
     examples:
       members:
         input: '"role=admin&plan=pro"'
         output: '{ role: "admin", plan: "pro" }'
   encode:
-    expression: i=>{let v2=i.plan;let v0=new e[0]();let v1=i.role;typeof v1==="string"&&(v1==="admin"||v1==="user")||e[1](v1);v0.append("role",v1);if(v2!=null){let v3=v2;typeof v3==="string"&&(v3==="free"||v3==="pro")||e[2](v3);v0.append("plan",v3);}return v0.toString()}
+    expression: i=>{try{let v2=i.plan;let v0=new e[0]();let v1=i.role;typeof v1==="string"&&(v1==="admin"||v1==="user")||e[1](v1);v0.append("role",v1);if(v2!=null){let v3=v2;typeof v3==="string"&&(v3==="free"||v3==="pro")||e[2](v3);v0.append("plan",v3);}return v0.toString()}catch(v4){e[3](v4)}}
     examples:
       built:
         input: '{ role: "admin", plan: "pro" }'

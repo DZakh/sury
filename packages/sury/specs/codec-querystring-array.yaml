@@ -18,7 +18,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[6](i);let v0=e[1](new e[0](i)),v1=v0.get("q"),v2=e[4](v0.get("tags"));typeof v1==="string"||e[3](v1);v1.length>0||e[2](v1);for(let v3=0;v3<v2.length;++v3){let v4=v2[v3];typeof v4==="string"||e[5](v4,["tags",v3]);}return {q:v1,tags:v2}}
+    expression: i=>{try{typeof i==="string"||e[6](i);let v0=e[1](new e[0](i)),v1=v0.get("q"),v2=e[4](v0.get("tags"));typeof v1==="string"||e[3](v1);v1.length>0||e[2](v1);for(let v3=0;v3<v2.length;++v3){let v4=v2[v3];typeof v4==="string"||e[5](v4,["tags",v3]);}return {q:v1,tags:v2}}catch(v5){e[7](v5)}}
     examples:
       repeated:
         input: '"q=hi&tags=a&tags=b"'
@@ -33,13 +33,13 @@ operations:
         input: '"q=a&q=b"'
         error: 'Failed at q: Expected string.length >= 1, received ["a", "b"]'
   decode:
-    expression: i=>{let v0=e[1](new e[0](i)),v1=v0.get("q"),v2=e[4](v0.get("tags"));typeof v1==="string"||e[3](v1);v1.length>0||e[2](v1);for(let v3=0;v3<v2.length;++v3){let v4=v2[v3];typeof v4==="string"||e[5](v4,["tags",v3]);}return {q:v1,tags:v2}}
+    expression: i=>{try{let v0=e[1](new e[0](i)),v1=v0.get("q"),v2=e[4](v0.get("tags"));typeof v1==="string"||e[3](v1);v1.length>0||e[2](v1);for(let v3=0;v3<v2.length;++v3){let v4=v2[v3];typeof v4==="string"||e[5](v4,["tags",v3]);}return {q:v1,tags:v2}}catch(v5){e[6](v5)}}
     examples:
       repeated:
         input: '"q=hi&tags=a&tags=b"'
         output: '{ q: "hi", tags: ["a", "b"] }'
   encode:
-    expression: i=>{let v0=i.q,v1=i.tags;v0.length>0||e[0](v0);let v3=new e[1]();v3.append("q",v0);for(let v4=0;v4<v1.length;++v4){v3.append("tags",v1[v4]);}return v3.toString()}
+    expression: i=>{try{let v0=i.q,v1=i.tags;v0.length>0||e[0](v0);let v3=new e[1]();v3.append("q",v0);for(let v4=0;v4<v1.length;++v4){v3.append("tags",v1[v4]);}return v3.toString()}catch(v5){e[2](v5)}}
     examples:
       repeated:
         input: '{ q: "hi", tags: ["a", "b"] }'

@@ -19,7 +19,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i.items;Array.isArray(v0)||e[1](v0);let v3=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){let v2=v0[v1];typeof v2==="string"||e[0](v2,["items",v1]);v3[v1]={TAG:"A",_0:v0[v1]}}return {items:v3}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i.items;Array.isArray(v0)||e[1](v0);let v3=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){let v2=v0[v1];typeof v2==="string"||e[0](v2,["items",v1]);v3[v1]={TAG:"A",_0:v0[v1]}}return {items:v3}}catch(v4){e[3](v4)}}
     examples:
       shapes-each-item:
         input: '{ items: ["a", "b"] }'

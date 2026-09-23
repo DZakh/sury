@@ -18,7 +18,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i.xs;if(v0===void 0){v0=e[0]}else{typeof v0==="object"&&v0&&!Array.isArray(v0)||e[3](v0);let v4={};for(let v1 in v0){let v3=v0[v1];typeof v3==="string"||e[2](v3,["xs",v1]);let v2=+v3;v2==v2&&(v2||v3.trim())||e[1](v3,["xs",v1]);v4[v1]=v2}v0=v4;}return {xs:v0}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i.xs;if(v0===void 0){v0=e[0]}else{typeof v0==="object"&&v0&&!Array.isArray(v0)||e[3](v0);let v4={};for(let v1 in v0){let v3=v0[v1];typeof v3==="string"||e[2](v3,["xs",v1]);let v2=+v3;v2==v2&&(v2||v3.trim())||e[1](v3,["xs",v1]);v4[v1]=v2}v0=v4;}return {xs:v0}}catch(v5){e[5](v5)}}
     examples:
       present:
         input: '{ xs: { k: "1" } }'
@@ -27,7 +27,7 @@ operations:
         input: "{}"
         output: "{ xs: {} }"
   decode:
-    expression: i=>{let v0=i.xs;if(v0===void 0){v0=e[0]}else{typeof v0==="object"&&v0&&!Array.isArray(v0)||e[3](v0);let v4={};for(let v1 in v0){let v3=v0[v1];typeof v3==="string"||e[2](v3,["xs",v1]);let v2=+v3;v2==v2&&(v2||v3.trim())||e[1](v3,["xs",v1]);v4[v1]=v2}v0=v4;}return {xs:v0}}
+    expression: i=>{try{let v0=i.xs;if(v0===void 0){v0=e[0]}else{typeof v0==="object"&&v0&&!Array.isArray(v0)||e[3](v0);let v4={};for(let v1 in v0){let v3=v0[v1];typeof v3==="string"||e[2](v3,["xs",v1]);let v2=+v3;v2==v2&&(v2||v3.trim())||e[1](v3,["xs",v1]);v4[v1]=v2}v0=v4;}return {xs:v0}}catch(v5){e[4](v5)}}
     examples:
       present:
         input: '{ xs: { k: "1" } }'

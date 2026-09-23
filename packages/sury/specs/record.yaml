@@ -13,7 +13,7 @@ vs:
   zod: z.record(z.string(), z.string())
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);for(let v0 in i){let v1=i[v0];typeof v1==="string"||e[0](v1,[v0]);}return i}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);for(let v0 in i){let v1=i[v0];typeof v1==="string"||e[0](v1,[v0]);}return i}catch(v2){e[2](v2)}}
     examples:
       valid:
         input: '{ a: "x", b: "y" }'

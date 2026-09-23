@@ -17,7 +17,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{(typeof i==="string"||i===void 0)||e[1](i);let v0;try{v0=BigInt(i)}catch(_){e[0](i)}v0||i.trim()||e[0](i);return v0}
+    expression: i=>{try{(typeof i==="string"||i===void 0)||e[1](i);let v0;try{v0=BigInt(i)}catch(_){e[0](i)}v0||i.trim()||e[0](i);return v0}catch(v1){e[2](v1)}}
     examples:
       valid:
         input: '"42"'
@@ -29,7 +29,7 @@ operations:
         input: '"x"'
         error: Expected bigint, received "x"
   decode:
-    expression: i=>{let v0;try{v0=BigInt(i)}catch(_){e[0](i)}v0||i.trim()||e[0](i);return v0}
+    expression: i=>{try{let v0;try{v0=BigInt(i)}catch(_){e[0](i)}v0||i.trim()||e[0](i);return v0}catch(v1){e[1](v1)}}
     examples:
       valid:
         input: '"42"'

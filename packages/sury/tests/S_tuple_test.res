@@ -241,7 +241,7 @@ module Compiled = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{Array.isArray(i)&&i.length===2||e[2](i);let v0=i[0],v1=i[1];typeof v0==="string"||e[0](v0);typeof v1==="boolean"||e[1](v1);return [v0,v1]}`,
+      `i=>{try{Array.isArray(i)&&i.length===2||e[2](i);let v0=i[0],v1=i[1];typeof v0==="string"||e[0](v0);typeof v1==="boolean"||e[1](v1);return [v0,v1]}catch(v2){e[3](v2)}}`,
     )
   })
 
@@ -257,7 +257,7 @@ module Compiled = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ParseAsync,
-      `i=>{try{Array.isArray(i)&&i.length===2||e[3](i);let v1=i[1];let v0;try{v0=e[0](i[0]).catch(x=>e[1](x))}catch(x){e[1](x)}typeof v1==="boolean"||e[2](v1);return Promise.all([v0]).then(([v0])=>{return [v0,v1]})}catch(v2){return Promise.reject(v2)}}`,
+      `i=>{try{try{Array.isArray(i)&&i.length===2||e[3](i);let v1=i[1];let v0;try{v0=e[0](i[0]).catch(x=>e[1](x))}catch(x){e[1](x)}typeof v1==="boolean"||e[2](v1);return Promise.all([v0]).then(([v0])=>{return [v0,v1]})}catch(v2){e[4](v2)}}catch(v3){return Promise.reject(v3)}}`,
     )
   })
 
@@ -271,7 +271,7 @@ module Compiled = {
     let schema = S.tuple(_ => ())
 
     // TODO: No need to do unit check ?
-    t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{i===void 0||e[0](i);return []}`)
+    t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{try{i===void 0||e[0](i);return []}catch(v0){e[1](v0)}}`)
   })
 
   test(
@@ -289,7 +289,7 @@ module Compiled = {
       t->U.assertCompiledCode(
         ~schema,
         ~op=#Parse,
-        `i=>{Array.isArray(i)&&i.length===3||e[3](i);let v0=i[0],v1=i[1],v2=i[2];v0===0||e[0](v0);typeof v1==="string"||e[1](v1);typeof v2==="boolean"||e[2](v2);return {foo:v1,bar:v2,zoo:1}}`,
+        `i=>{try{Array.isArray(i)&&i.length===3||e[3](i);let v0=i[0],v1=i[1],v2=i[2];v0===0||e[0](v0);typeof v1==="string"||e[1](v1);typeof v2==="boolean"||e[2](v2);return {foo:v1,bar:v2,zoo:1}}catch(v3){e[4](v3)}}`,
       )
     },
   )

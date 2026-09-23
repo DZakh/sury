@@ -18,7 +18,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{i instanceof e[7]||e[8](i);let v0=e[0](i),v1=v0.get("q"),v2=v0.get("page")||void 0,v4=e[5](v0.get("tags"));typeof v1==="string"||e[2](v1);v1.length>0||e[1](v1);if(v2){typeof v2==="string"||e[3](v2);let v3=+v2;v3==v3&&(v3||v2.trim())||e[4](v2);v2=v3;}for(let v5=0;v5<v4.length;++v5){let v6=v4[v5];typeof v6==="string"||e[6](v6,["tags",v5]);}return {q:v1,page:v2,tags:v4}}
+    expression: i=>{try{i instanceof e[7]||e[8](i);let v0=e[0](i),v1=v0.get("q"),v2=v0.get("page")||void 0,v4=e[5](v0.get("tags"));typeof v1==="string"||e[2](v1);v1.length>0||e[1](v1);if(v2){typeof v2==="string"||e[3](v2);let v3=+v2;v3==v3&&(v3||v2.trim())||e[4](v2);v2=v3;}for(let v5=0;v5<v4.length;++v5){let v6=v4[v5];typeof v6==="string"||e[6](v6,["tags",v5]);}return {q:v1,page:v2,tags:v4}}catch(v7){e[9](v7)}}
     examples:
       valid:
         input: ((p) => (p.append("q", "hi"), p.append("page", "2"), p.append("tags", "a"), p.append("tags", "b"), p))(new URLSearchParams())
@@ -36,13 +36,13 @@ operations:
         input: ((p) => (p.append("q", "a"), p.append("q", "b"), p))(new URLSearchParams())
         error: 'Failed at q: Expected string.length >= 1, received ["a", "b"]'
   decode:
-    expression: i=>{let v0=e[0](i),v1=v0.get("q"),v2=v0.get("page")||void 0,v4=e[5](v0.get("tags"));typeof v1==="string"||e[2](v1);v1.length>0||e[1](v1);if(v2){typeof v2==="string"||e[3](v2);let v3=+v2;v3==v3&&(v3||v2.trim())||e[4](v2);v2=v3;}for(let v5=0;v5<v4.length;++v5){let v6=v4[v5];typeof v6==="string"||e[6](v6,["tags",v5]);}return {q:v1,page:v2,tags:v4}}
+    expression: i=>{try{let v0=e[0](i),v1=v0.get("q"),v2=v0.get("page")||void 0,v4=e[5](v0.get("tags"));typeof v1==="string"||e[2](v1);v1.length>0||e[1](v1);if(v2){typeof v2==="string"||e[3](v2);let v3=+v2;v3==v3&&(v3||v2.trim())||e[4](v2);v2=v3;}for(let v5=0;v5<v4.length;++v5){let v6=v4[v5];typeof v6==="string"||e[6](v6,["tags",v5]);}return {q:v1,page:v2,tags:v4}}catch(v7){e[7](v7)}}
     examples:
       valid:
         input: ((p) => (p.append("q", "hi"), p.append("page", "2"), p.append("tags", "a"), p.append("tags", "b"), p))(new URLSearchParams())
         output: '{ q: "hi", page: 2, tags: ["a", "b"] }'
   encode:
-    expression: i=>{let v0=i.q,v1=i.tags,v4=i.page;v0.length>0||e[0](v0);let v3=new e[1]();v3.append("q",v0);if(v4!=null){v3.append("page",""+v4);}for(let v5=0;v5<v1.length;++v5){v3.append("tags",v1[v5]);}return v3}
+    expression: i=>{try{let v0=i.q,v1=i.tags,v4=i.page;v0.length>0||e[0](v0);let v3=new e[1]();v3.append("q",v0);if(v4!=null){v3.append("page",""+v4);}for(let v5=0;v5<v1.length;++v5){v3.append("tags",v1[v5]);}return v3}catch(v6){e[2](v6)}}
     examples:
       built:
         input: '{ q: "hi", page: 2, tags: ["a", "b"] }'

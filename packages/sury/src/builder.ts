@@ -4,6 +4,9 @@ import {
   type Check,
   compilePath,
   type ErrorDetails,
+  conversionSite,
+  errorAt,
+  errorSite,
   type Flag,
   hasPathDyn,
   immutableEmptyArray,
@@ -20,8 +23,8 @@ import {
   pathToText,
   s,
   stringify,
-  SuryError,
   type SuryErrorRecord,
+  toError,
   tagFlags,
   U,
   unknown,
@@ -220,8 +223,11 @@ export const B_operationArg = (
   };
 }
 
+// Every raise the compiler makes, whether the operation is being built or run.
+// The record carries no stack; parse.ts attaches one at whichever boundary the
+// failure escapes through.
 export const B_throw = (errorDetails: ErrorDetails): never => {
-  throw new SuryError(errorDetails);
+  throw toError(errorDetails);
 }
 
 export const B_unsupportedDecode = (b: Val, from: Internal, target: Internal): never =>
@@ -260,40 +266,61 @@ export const B_markThrow = (b: Val): void => {
 }
 
 // A coder's or refiner's own throw as `invalid_conversion`. Split from the
-// Sury-cause branch below so an operation tail (every bundle) carries only
-// this half.
-const B_foreignDetails = (input: Val, to: Internal, cause: unknown, path: Path): ErrorDetails => ({
-  code: "invalid_conversion",
-  from: input.s,
-  to,
-  cause,
-  path,
-  reason: cause instanceof Error ? ("" + cause).replace(/^Error: /, "") : stringify(cause),
-});
-
-export const B_makeInvalidConversionDetails = (
+// Sury-cause branch below so an operation tail (every bundle) carries only this
+// half. `(input, to) => (cause, path) => error`, like every other fail builder:
+// the two schemas are the site's, what was thrown is the failure's.
+const B_foreignFail = (
   input: Val,
-  to: Internal,
-  cause: unknown,
-  path?: Path,
-): ErrorDetails => {
-  const p = path ?? compilePath(input.path);
-  if (cause && (cause as { s?: symbol }).s === s) {
-    const error = cause as unknown as SuryErrorRecord;
+  to: Internal
+): ((cause: unknown, path: Path) => ErrorDetails) => {
+  let site: object;
+  return (cause, path) => {
+    const error = Object.create((site ??= conversionSite(input.s, to))) as SuryErrorRecord;
+    error.code = "invalid_conversion";
+    error.path = path;
+    error.cause = cause;
+    error.reason =
+      cause instanceof Error ? ("" + cause).replace(/^Error: /, "") : stringify(cause);
+    return error as unknown as ErrorDetails;
+  };
+};
 
-    // A SuryError thrown by user code carries only the path it named, so the
-    // path it was reached through is prepended here. Nothing arrives
-    // pre-prepended any more - that was effectCtx, which is gone.
-    //
-    // Copied rather than mutated: user code may throw one retained instance
-    // more than once, and prepending onto the instance makes the second parse
-    // report `a.a`. Nothing to prepend means nothing to copy - `B_throw`
-    // rebuilds a SuryError from whichever of the two it gets.
-    return (
-      p.length ? { ...error, path: pathConcat(p, error.path) } : error
-    ) as unknown as ErrorDetails;
-  }
-  return B_foreignDetails(input, to, cause, p);
+export const B_conversionFail = (
+  input: Val,
+  to: Internal
+): ((cause: unknown, path?: Path) => ErrorDetails) => {
+  const foreign = B_foreignFail(input, to);
+  return (cause, path) => {
+    const p = path ?? compilePath(input.path);
+    if (cause && (cause as { s?: symbol }).s === s) {
+      const error = cause as unknown as SuryErrorRecord;
+
+      // A SuryError thrown by user code carries only the path it named, so the
+      // path it was reached through is prepended here. Nothing arrives
+      // pre-prepended any more - that was effectCtx, which is gone.
+      //
+      // Copied rather than mutated: user code may throw one retained instance
+      // more than once, and prepending onto the instance makes the second parse
+      // report `a.a`. Nothing to prepend means nothing to copy - `B_throw`
+      // reparents whichever of the two it gets, and reparenting the instance to
+      // the prototype it already has changes nothing, its stack included.
+      //
+      // Own descriptors onto the SAME prototype, not a spread: what the failing
+      // check settled lives on its site prototype (base.ts, `errorSite`), and a
+      // spread copies own properties only - the copy would come out reading
+      // `Expected undefined`. Descriptors rather than `Object.assign` so an own
+      // `reason` is carried as the data property it is instead of being pushed
+      // through a setter.
+      if (!p.length) return error as unknown as ErrorDetails;
+      const copy = Object.create(
+        Object.getPrototypeOf(error) as object,
+        Object.getOwnPropertyDescriptors(error)
+      ) as SuryErrorRecord;
+      copy.path = pathConcat(p, error.path);
+      return copy as unknown as ErrorDetails;
+    }
+    return foreign(cause, p);
+  };
 };
 
 // The error an operation answers with when it answers rather than throws
@@ -307,77 +334,40 @@ export const B_makeInvalidConversionDetails = (
 export const B_errorOf = (input: Val): ((e: unknown) => SuryErrorRecord) => {
   let to = input.e;
   while (to.to) to = to.to;
+  const foreign = B_foreignFail(input, to);
   const path = compilePath(input.path);
   return (e) =>
     e && (e as { s?: symbol }).s === s
       ? (e as SuryErrorRecord)
-      : (new SuryError(B_foreignDetails(input, to, e, path)) as unknown as SuryErrorRecord);
+      : toError(foreign(e, path));
 };
 
 export const B_embedErrorOf = (input: Val): string => B_embedPure(input, B_errorOf(input));
 
-export const B_makeInvalidInputDetails = (
-  expected: Internal,
-  received: Internal,
-  path: Path,
-  input: unknown,
-  unionErrors?: SuryErrorRecord[],
-  reasonOverride?: string
-): ErrorDetails => {
-  let reasonRef = reasonOverride;
-  if (reasonRef === U) {
-    const expectedExpression = inputExpression(expected);
-    const receivedExpression = stringify(input);
-    // `Expected Date, received Date` names the type twice and says nothing: the
-    // type is right and the value is not (an Invalid Date, an Error carrying the
-    // wrong payload). Saying `received invalid Date` is the only part of the
-    // message that carries information in that case.
-    reasonRef = `Expected ${expectedExpression}, received ${
-      expectedExpression === receivedExpression ? "invalid " : ""
-    }${receivedExpression}`;
-  }
-  if (unionErrors) {
-    const seenReasons = new Set<string>();
-    for (let idx = 0; idx < unionErrors.length; idx++) {
-      const caseError = unionErrors[idx]!;
-      const line = `\n- ${caseError.path.length ? `At ${pathToText(caseError.path)}: ` : ""}${caseError.reason.split("\n").join("\n  ")}`;
-      if (!seenReasons.has(line)) {
-        seenReasons.add(line);
-        reasonRef += line;
-      }
-    }
-  }
-
-  return {
-    code: "invalid_input",
-    expected,
-    received,
-    path,
-    reason: reasonRef,
-    unionErrors,
-    input,
-  };
-}
-
-// Drop-in `check.fail` builder for InvalidInput failures. Snapshots expected,
-// received and a static path so the embed does not retain the val. A dynamic
-// path is the extra argument generated code passes only on throw.
+// Drop-in `check.fail` builder for InvalidInput failures. The `(~input) =>
+// (value, path) => error` shape is what makes the site prototype possible: the
+// middle call happens once, while the check is being compiled, so everything
+// the failures of this check share is settled there - the static path with it,
+// concatenated once rather than per failure. It also snapshots rather than
+// capturing the val, which would pin the whole val chain into the embed array.
+//
+// A path the generated code has to compute - a loop index, a for-in key -
+// arrives as the second argument instead, and only on throw.
 export const B_invalidInputBuilder = (
   expected?: Internal,
   extraPath: Path = pathEmpty,
   reasonOverride?: string
 ): (input: Val) => (value: unknown, path?: Path) => ErrorDetails => (input) => {
-  const expectedS = expected ?? input.e;
-  const receivedS = (input.prev || input).s;
   const snap = B_pathSnap(input);
+  const staticPath = snap !== U ? pathConcat(snap, extraPath) : U;
+  // Built on the first failure, not here: a compile emits a check whether or
+  // not any value ever fails it, and most never do.
+  let site: object;
   return (value, path) =>
-    B_makeInvalidInputDetails(
-      expectedS,
-      receivedS,
-      snap !== U ? pathConcat(snap, extraPath) : pathConcat(path ?? pathEmpty, extraPath),
-      value,
-      U,
-      reasonOverride,
+    errorAt(
+      (site ??= errorSite(expected ?? input.e, (input.prev || input).s, reasonOverride)),
+      staticPath ?? pathConcat(path ?? pathEmpty, extraPath),
+      value
     );
 };
 
@@ -820,11 +810,7 @@ export const B_conversion = (
     // next case rather than aborting the operation (#347); a refiner's throw
     // is wrapped the same way (modifiers.ts `refine`). The foreign errors that
     // do escape a union are a getter's, which never enter this try.
-    const failure = B_failWithArg(
-      output,
-      (e: unknown, path?: Path) => B_makeInvalidConversionDetails(input, target, e, path),
-      `x`,
-    );
+    const failure = B_failWithArg(output, B_conversionFail(input, target), `x`);
     output.cp = `let ${output.i};try{${output.i}=${embeddedFn}(${inputValue})${
       isAsync ? `.catch(x=>${failure})` : ""
     }}catch(x){${failure}}`;

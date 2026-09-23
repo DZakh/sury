@@ -23,7 +23,7 @@ operations:
   # FIXME: parse emits the union check twice - once validating the source field,
   # once re-validating on the identity conversion to JSON.
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i.selector;for(;;){if(typeof v0==="string")break;if(Array.isArray(v0)){for(let v1=0;v1<v0.length;++v1){let v2=v0[v1];typeof v2==="string"||e[0](v2,["selector",v1]);};break}if(v0===void 0)break;e[1](v0)}for(;;){if(typeof v0==="string")break;if(Array.isArray(v0)){for(let v3=0;v3<v0.length;++v3){let v4=v0[v3];typeof v4==="string"||e[2](v4,["selector",v3]);};break}if(v0===void 0)break;e[3](v0)}let v5={};if(v0!==void 0){v5.selector=v0}return v5}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i.selector;for(;;){if(typeof v0==="string")break;if(Array.isArray(v0)){for(let v1=0;v1<v0.length;++v1){let v2=v0[v1];typeof v2==="string"||e[0](v2,["selector",v1]);};break}if(v0===void 0)break;e[1](v0)}for(;;){if(typeof v0==="string")break;if(Array.isArray(v0)){for(let v3=0;v3<v0.length;++v3){let v4=v0[v3];typeof v4==="string"||e[2](v4,["selector",v3]);};break}if(v0===void 0)break;e[3](v0)}let v5={};if(v0!==void 0){v5.selector=v0}return v5}catch(v6){e[5](v6)}}
     examples:
       leading-literal:
         input: '{ selector: "*" }'
@@ -47,7 +47,7 @@ operations:
         input: "{ selector: [1] }"
         error: "Failed at selector[0]: Expected string, received 1"
   decode:
-    expression: i=>{let v0=i.selector;for(;;){if(typeof v0==="string")break;if(Array.isArray(v0)){for(let v1=0;v1<v0.length;++v1){let v2=v0[v1];typeof v2==="string"||e[0](v2,["selector",v1]);};break}if(v0===void 0)break;e[1](v0)}let v3={};if(v0!==void 0){v3.selector=v0}return v3}
+    expression: i=>{try{let v0=i.selector;for(;;){if(typeof v0==="string")break;if(Array.isArray(v0)){for(let v1=0;v1<v0.length;++v1){let v2=v0[v1];typeof v2==="string"||e[0](v2,["selector",v1]);};break}if(v0===void 0)break;e[1](v0)}let v3={};if(v0!==void 0){v3.selector=v0}return v3}catch(v4){e[2](v4)}}
     examples:
       leading-literal:
         input: '{ selector: "*" }'
@@ -65,7 +65,7 @@ operations:
         input: "{ selector: 1 }"
         error: 'Failed at selector: Expected "*" | string | string[] | undefined, received 1'
   encode:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=(i.selector??null);for(;;){if(typeof v0==="string")break;if(Array.isArray(v0)){for(let v1=0;v1<v0.length;++v1){let v2=v0[v1];typeof v2==="string"||e[0](v2,["selector",v1]);};break}if(v0===null){v0=void 0;break}e[1](v0)}return {selector:v0}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=(i.selector??null);for(;;){if(typeof v0==="string")break;if(Array.isArray(v0)){for(let v1=0;v1<v0.length;++v1){let v2=v0[v1];typeof v2==="string"||e[0](v2,["selector",v1]);};break}if(v0===null){v0=void 0;break}e[1](v0)}return {selector:v0}}catch(v3){e[3](v3)}}
     examples:
       leading-literal:
         input: '{ selector: "*" }'

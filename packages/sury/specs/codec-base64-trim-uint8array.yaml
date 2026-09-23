@@ -20,7 +20,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[5](i);e[3](i)||e[4](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return e[2](v0)}
+    expression: i=>{try{typeof i==="string"||e[5](i);e[3](i)||e[4](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return e[2](v0)}catch(v1){e[6](v1)}}
     examples:
       padded:
         input: '" 4oKs "'
@@ -32,7 +32,7 @@ operations:
         input: '"!!"'
         error: Expected base64, received "!!"
   decode:
-    expression: i=>{e[3](i)||e[4](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return e[2](v0)}
+    expression: i=>{try{e[3](i)||e[4](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return e[2](v0)}catch(v1){e[5](v1)}}
     examples:
       padded:
         input: '" 4oKs "'
@@ -41,7 +41,7 @@ operations:
         input: '"4oKs"'
         output: new Uint8Array([226, 130, 172])
   encode:
-    expression: i=>{let v0;try{v0=e[1](e[0](i))}catch(x){e[2](x)}e[3](v0)||e[4](v0);return v0}
+    expression: i=>{try{let v0;try{v0=e[1](e[0](i))}catch(x){e[2](x)}e[3](v0)||e[4](v0);return v0}catch(v1){e[5](v1)}}
     examples:
       utf8-bytes:
         input: new Uint8Array([226, 130, 172])

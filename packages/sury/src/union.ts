@@ -22,6 +22,8 @@ import {
   type Builder,
   type Check,
   type Encoder,
+  errorAt,
+  errorSite,
   getOrRethrow,
   immutableEmptyArray,
   immutableEmptyObject,
@@ -51,7 +53,6 @@ import {
   B_embed,
   B_inlineConst,
   B_invalidOperation,
-  B_makeInvalidInputDetails,
   B_markOutput,
   B_merge,
   B_neverSlot,
@@ -217,21 +218,15 @@ type UnionCtx = {
   s: () => string;
 };
 
+// "none of these matched", built the way every other failure is: the union's
+// own schema is the site's, the value and whatever the members had to say about
+// it are the failure's.
 const unionFail = (
-  schema: Internal,
+  site: object,
   path: Path,
   input: unknown,
   ...unionErrors: SuryErrorRecord[]
-): never =>
-  B_throw(
-    B_makeInvalidInputDetails(
-      schema,
-      unknown,
-      path,
-      input,
-      unionErrors.length ? unionErrors : U
-    )
-  );
+): never => B_throw(errorAt(site, path, input, unionErrors.length ? unionErrors : U));
 
 // Whether a stretch of emitted code can raise is read off `g.t` (see
 // `B_markThrow`) by bracketing the emission, not by inspecting the string it
@@ -1041,9 +1036,12 @@ const unionEmit = (
   const ctx: UnionCtx = {
     f: (caught) => {
       const pathArg = B_pathArg(input);
+      // Built on the first failure, as every other site is (builder.ts).
+      let site: object;
+      const failSite = () => (site ??= errorSite(expectedSchema, unknown));
       return pathArg
-        ? `${B_embed(input, (v: unknown, p: Path, ...e: SuryErrorRecord[]) => unionFail(expectedSchema, p, v, ...e))}(${input.v()}${pathArg}${salvaged}${caught})`
-        : `${B_embed(input, unionFail.bind(U, expectedSchema, B_pathSnap(input)!))}(${input.v()}${salvaged}${caught})`;
+        ? `${B_embed(input, (v: unknown, p: Path, ...e: SuryErrorRecord[]) => unionFail(failSite(), p, v, ...e))}(${input.v()}${pathArg}${salvaged}${caught})`
+        : `${B_embed(input, (v: unknown, ...e: SuryErrorRecord[]) => unionFail(failSite(), B_pathSnap(input)!, v, ...e))}(${input.v()}${salvaged}${caught})`;
     },
     r: () => rethrow || (rethrow = B_embed(input, getOrRethrow)),
     s: () => expected || (expected = B_embed(input, expectedSchema)),

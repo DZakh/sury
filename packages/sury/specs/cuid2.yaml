@@ -13,7 +13,7 @@ vs:
   zod: z.cuid2()
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}catch(v0){e[3](v0)}}
     examples:
       valid:
         input: '"tz4a98xxat96iws9zmbrgj3a"'
@@ -40,7 +40,7 @@ operations:
         input: "42"
         error: Expected cuid2, received 42
   decode:
-    expression: i=>{e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{e[0].test(i)||e[1](i);return i}catch(v0){e[2](v0)}}
     examples:
       valid:
         input: '"tz4a98xxat96iws9zmbrgj3a"'
@@ -49,7 +49,7 @@ operations:
         input: '"9abc"'
         error: Expected cuid2, received "9abc"
   encode:
-    expression: i=>{e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{e[0].test(i)||e[1](i);return i}catch(v0){e[2](v0)}}
     examples:
       valid:
         input: '"tz4a98xxat96iws9zmbrgj3a"'
