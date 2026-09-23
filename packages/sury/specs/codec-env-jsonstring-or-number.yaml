@@ -51,6 +51,10 @@ operations:
       the-document-is-the-entry:
         input: '"{\"a\":1}"'
         output: '"{\"a\":1}"'
+      # FIXME: every number's text is also JSON text, so 42 encodes to "42" and
+      # parses back as the JSON string "42". No arm order fixes it: the other
+      # order loses the JSON string "42". The link should ask, as
+      # `S.string.with(S.to, S.union([S.string, S.number]))` does.
       a-number:
         input: "42"
         output: '"42"'

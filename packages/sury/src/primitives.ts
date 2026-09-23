@@ -281,10 +281,11 @@ export const literalDecoder: Builder = (input: Val) => {
       return B_nextConst(stringConstVal, expectedSchema, expectedSchema);
     } else if ((schemaTagFlag & 2048)) {
       return B_refine(input, expectedSchema, [{ c: nanCond, f: failInvalidType }]);
-    } else if (tagFlags[input.s.type]! & (64 | 128 | 4096 | 8192)) {
+    } else if (tagFlags[input.s.type]! & (64 | 128 | 4096 | 8192) && input.s.type !== expectedSchema.type) {
       // An object, array, function or instance is never a constant, and no
       // conversion reads one out of it: an equality check here would compile
-      // and reject every value.
+      // and reject every value. The same type is a union narrowing to its
+      // literal arm, where the equality check is the dispatch.
       return B_unsupportedDecode(input, input.s, expectedSchema);
     } else {
       return B_refine(input, expectedSchema, [

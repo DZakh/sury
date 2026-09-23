@@ -215,7 +215,9 @@ const main = async (): Promise<void> => {
         if (reversed.crash || mirrorDecode.crash || mirrorEncode.crash) {
           findings.push(`${id}: reversing crashed - ${reversed.crash ?? mirrorDecode.crash ?? mirrorEncode.crash}`);
         }
+        let mirrored = true;
         if (!encode.fn !== !mirrorDecode.fn || !decode.fn !== !mirrorEncode.fn) {
+          mirrored = false;
           known.miss(
             "REVERSE",
             sourceName,
@@ -229,7 +231,6 @@ const main = async (): Promise<void> => {
           continue;
         }
 
-        let mirrored = true;
         for (const input of source.inputs) {
           const printed = show(input);
           const read = await run(id, "decoding", decode.fn, input);
