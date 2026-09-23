@@ -13,7 +13,7 @@ vs:
   zod: z.union([z.string().min(4), z.string().max(1), z.string().length(2)])
 operations:
   parse:
-    expression: i=>{try{let v0;for(;;){l3:{if(typeof i==="string"){for(;;){l1:{if(!(i.length>3)){(v0||(v0=[])).push(e[0](i));break l1};break}l2:{if(!(i.length<2)){(v0||(v0=[])).push(e[1](i));break l2};break}if(!(i.length===2)){(v0||(v0=[])).push(e[2](i));break l3};break;};break}}throw e[3](i,...(v0||[]))}return i}catch(v4){e[4](v4)}}
+    expression: i=>{try{let v0;for(;;){l3:{if(typeof i==="string"){for(;;){l1:{if(!(i.length>3)){(v0||(v0=[])).push(e[0],i,void 0);break l1};break}l2:{if(!(i.length<2)){(v0||(v0=[])).push(e[1],i,void 0);break l2};break}if(!(i.length===2)){(v0||(v0=[])).push(e[2],i,void 0);break l3};break;};break}}throw e[3](i,v0)}return i}catch(v4){e[4](v4)}}
     examples:
       accepted-first:
         input: '"long"'

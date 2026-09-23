@@ -16,7 +16,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="string"||e[1](i);let v1;for(;;){l2:{let v0=+i;if(!(v0==v0&&(v0||i.trim()))){(v1||(v1=[])).push(e[0](i));break l2};i=v0;break}break;}return i}catch(v3){e[2](v3)}}
+    expression: i=>{try{typeof i==="string"||e[1](i);let v1;for(;;){l2:{let v0=+i;if(!(v0==v0&&(v0||i.trim()))){(v1||(v1=[])).push(e[0],i,void 0);break l2};i=v0;break}break;}return i}catch(v3){e[2](v3)}}
     examples:
       decodes-to-number:
         input: '"123"'
@@ -28,7 +28,7 @@ operations:
         input: '"1.5"'
         output: "1.5"
   decode:
-    expression: i=>{let v1;for(;;){l2:{let v0=+i;if(!(v0==v0&&(v0||i.trim()))){(v1||(v1=[])).push(e[0](i));break l2};i=v0;break}break;}return i}
+    expression: i=>{let v1;for(;;){l2:{let v0=+i;if(!(v0==v0&&(v0||i.trim()))){(v1||(v1=[])).push(e[0],i,void 0);break l2};i=v0;break}break;}return i}
     examples:
       decodes-to-number:
         input: '"123"'

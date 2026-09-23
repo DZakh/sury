@@ -13,7 +13,7 @@ vs:
   zod: z.union([z.string().refine((v) => { throw new TypeError("predicate blew up") }), z.string()])
 operations:
   parse:
-    expression: i=>{try{let v0;if(typeof i==="string"){for(;;){l1:{try{if(!(e[0](i))){(v0||(v0=[])).push(e[1](i));break l1};break}catch(x){(v0||(v0=[])).push(e[2](x))}}break;}}else{throw e[3](i,...(v0||[]))}return i}catch(v2){e[4](v2)}}
+    expression: i=>{try{let v0;if(typeof i==="string"){for(;;){l1:{try{if(!(e[0](i))){(v0||(v0=[])).push(e[1],i,void 0);break l1};break}catch(x){(v0||(v0=[])).push(e[2](x))}}break;}}else{throw e[3](i,v0)}return i}catch(v2){e[4](v2)}}
     examples:
       a-throwing-refine-fails-its-case-so-the-catch-all-matches:
         input: '"x"'

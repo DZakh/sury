@@ -4,6 +4,7 @@ import {
   type Check,
   compilePath,
   type ErrorDetails,
+  type Failure,
   conversionSite,
   errorAt,
   errorSite,
@@ -263,9 +264,12 @@ const B_jump = <TArg>(
   fn: (arg: TArg, path?: Path) => ErrorDetails,
   arg: string,
 ): string | undefined => {
-  const jump = b.g.x?.(
-    () => `${B_embedPure(b, (a: TArg, p?: Path) => toError(fn(a, p)))}(${arg}${B_pathArg(b)})`,
-  );
+  let embedded = "";
+  const builder = () =>
+    (embedded ||= B_embedPure(b, (a: TArg, p?: Path) => toError(fn(a, p))));
+  const record: Failure = () => `${builder()}(${arg}${B_pathArg(b)})`;
+  record.d = () => `${builder()},${arg},${B_pathArg(b).slice(1) || "void 0"}`;
+  const jump = b.g.x?.(record);
   if (jump !== U) b.g.j++;
   return jump;
 };

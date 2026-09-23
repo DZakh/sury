@@ -38,6 +38,7 @@ import {
   type Path,
   setHas,
   setContent,
+  type Failure,
   type SuryErrorRecord,
   type Tag,
   tagFlags,
@@ -1065,15 +1066,31 @@ const unionEmit = (
     if (!aggregate) {
       // Built on the first failure, as every other site is (builder.ts).
       let site: object;
-      const at = (path: Path, v: unknown, e: SuryErrorRecord[]) =>
-        errorAt((site ??= errorSite(expectedSchema, unknown)), path, v, e.length ? e : U);
+      // What the cases found arrives as the records a compile salvaged, then
+      // the list the cases recorded into: a record as it is, or a builder
+      // followed by its value and path, built only now that it is read.
+      const at = (path: Path, v: unknown, found: unknown[]) => {
+        const errors: unknown[] = [];
+        for (const x of found) {
+          if (Array.isArray(x)) {
+            for (let i = 0; i < x.length; ) {
+              const y = x[i++];
+              errors.push(typeof y === "function" ? y(x[i++], x[i++]) : y);
+            }
+          } else if (x) errors.push(x);
+        }
+        return errorAt(
+          (site ??= errorSite(expectedSchema, unknown)),
+          path,
+          v,
+          errors.length ? (errors as SuryErrorRecord[]) : U,
+        );
+      };
       aggregate = B_pathArg(input)
-        ? B_embedPure(input, (v: unknown, p: Path, ...e: SuryErrorRecord[]) => at(p, v, e))
-        : B_embedPure(input, (v: unknown, ...e: SuryErrorRecord[]) => at(B_pathSnap(input)!, v, e));
+        ? B_embedPure(input, (v: unknown, p: Path, ...found: unknown[]) => at(p, v, found))
+        : B_embedPure(input, (v: unknown, ...found: unknown[]) => at(B_pathSnap(input)!, v, found));
     }
-    return `${aggregate}(${input.v()}${B_pathArg(input)}${salvaged}${
-      failures ? `,...(${failures}||[])` : ""
-    })`;
+    return `${aggregate}(${input.v()}${B_pathArg(input)}${salvaged}${failures ? `,${failures}` : ""})`;
   };
   // The union's failure, where the chain ends.
   const final = (): string => {
@@ -1084,8 +1101,8 @@ const unionEmit = (
   };
   // Leaving a labelled block, with what the case found recorded on the way.
   // The label is named on first use, so a block nothing leaves carries none.
-  const jumpOut = (label: { l?: string }) => (error?: () => string): string =>
-    `${wanted && error ? `{${ctx.k(error())};` : ""}break ${(label.l ||= `l${++g.v}`)}${
+  const jumpOut = (label: { l?: string }) => (error?: Failure): string =>
+    `${wanted && error ? `{${ctx.k((error.d || error)())};` : ""}break ${(label.l ||= `l${++g.v}`)}${
       wanted && error ? "}" : ""
     }`;
   // The chain's end, which a failure reaches once a case has recorded what it
@@ -1093,7 +1110,7 @@ const unionEmit = (
   const end: { l?: string } = {};
   // The exit every case inherits. Nothing recorded yet: a failure is the one
   // the case found, precisely.
-  const fail = (error?: () => string): string | undefined =>
+  const fail = (error?: Failure): string | undefined =>
     recorded ? jumpOut(end)(error) : error ? outer?.(error) : final();
   const ctx: UnionCtx = {
     f: final,

@@ -581,11 +581,16 @@ export type BGlobal = {
   //
   // A jump can't leave a function, so whatever emits code into a callback (a
   // `.then`, an async dispatch) clears it for that stretch (`B_detached`).
-  x?: (record?: () => string) => string | undefined;
+  x?: (record?: Failure) => string | undefined;
   // @as("j") - jump counter, `t`'s twin: bumped by every failed check that
   // took `x`. Read the difference, never the value.
   j: number;
 }
+
+// A failure's record, as the expression that builds it. `d`, where present, is
+// the same record left unbuilt - the builder and its arguments as a list - for
+// an exit that keeps it and may never read it (union.ts).
+export type Failure = { (): string; d?: () => string };
 
 // Adjacent checks sharing `fail` by reference equality are fused with `&&`
 // in `emitChecks`, so pass the same helper (e.g. failInvalidType) to every

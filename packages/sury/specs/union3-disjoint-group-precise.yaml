@@ -16,7 +16,7 @@ vs:
   zod: z.union([z.string().min(3), z.string().max(1), z.number().gt(5)])
 operations:
   parse:
-    expression: i=>{try{let v0;for(;;){l2:{if(typeof i==="string"){for(;;){l1:{if(!(i.length>2)){(v0||(v0=[])).push(e[0](i));break l1};break}if(!(i.length<2)){(v0||(v0=[])).push(e[1](i));break l2};break;};break}if(typeof i==="number"&&i==i){i>5||e[2](i);break}}throw e[3](i,...(v0||[]))}return i}catch(v3){e[4](v3)}}
+    expression: i=>{try{let v0;for(;;){l2:{if(typeof i==="string"){for(;;){l1:{if(!(i.length>2)){(v0||(v0=[])).push(e[0],i,void 0);break l1};break}if(!(i.length<2)){(v0||(v0=[])).push(e[1],i,void 0);break l2};break;};break}if(typeof i==="number"&&i==i){i>5||e[2](i);break}}throw e[3](i,v0)}return i}catch(v3){e[4](v3)}}
     examples:
       long-string:
         input: '"abc"'
