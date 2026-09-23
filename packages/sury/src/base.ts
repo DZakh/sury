@@ -578,6 +578,11 @@ export type BGlobal = {
   // @as("js") - the operation's asJsonString embed accessor, cached by
   // B_embedJsonStr (advanced/json.ts) on first use.
   js?: string;
+  // @as("f") - the compiled operation, stored by `compileDecoder` once it
+  // exists. The throw boundary's stack capture cuts the trace at it, and the
+  // emitter that needs it runs first, so it is read through this rather than
+  // closed over.
+  f?: unknown;
 }
 
 // Adjacent checks sharing `fail` by reference equality are fused with `&&`
@@ -902,6 +907,16 @@ export const __setExnId = (id: unknown): void => {
   exnId = id;
 }
 
+// The public `S.Error`: what a refiner constructs to throw a failure of its
+// own, so `super()` gives it a stack the way any hand-written throw has one.
+// The library never builds a failure this way - see `toError`.
+//
+// It also makes own properties of everything it is handed, where a compiled
+// failure keeps what its check settled on a shared prototype (`errorSite`). So
+// the two print differently - a hand-built error shows its `expected` and
+// `received`, a compiled one does not. That is the constructor's contract
+// rather than an oversight: it is handed a bag of fields and has nothing to
+// share them with.
 export class SuryError extends Error {
   constructor(params: ErrorDetails | Record<string, unknown>) {
     super();
@@ -917,8 +932,171 @@ export class SuryError extends Error {
     return exnId;
   }
 }
-Object.defineProperty(SuryError.prototype, "name", { value: "SuryError" });
-Object.defineProperty(SuryError.prototype, "s", { value: s });
+const errorPrototype = SuryError.prototype;
+Object.defineProperty(errorPrototype, "name", { value: "SuryError" });
+Object.defineProperty(errorPrototype, "s", { value: s });
+
+// A failure is a record first and an exception second. Capturing a stack is
+// what `new SuryError` spends nearly all of its time on, and most failures
+// never reach a throw anyone sees: a union tries each member and discards the
+// losers, a Result outcome hands the record back, `is*` reads only that one
+// exists. So the library reparents the details object it has already built and
+// leaves `stack` unset. parse.ts attaches one at the two boundaries a failure
+// can cross into user code - the compiled operation, and the compile itself -
+// which is also where it can attach a better one, since only a boundary knows
+// which frame to cut the trace at.
+//
+// Every failure the compiler raises goes through here, whether the operation is
+// being built or run. `new SuryError` is the public constructor, for user code
+// building a failure of its own to throw.
+//
+// Idempotent, and that is load-bearing rather than tidy: `B_throw` is handed a
+// user's own error back when there is no path to prepend, and reparenting an
+// instance someone else built and retained would rewrite it in place - a
+// no-op for a SuryError, but a subclass would lose its identity for good.
+export const toError = (details: ErrorDetails | Record<string, unknown>): SuryErrorRecord =>
+  ((details as { s?: symbol }).s === s
+    ? details
+    : Object.setPrototypeOf(details, errorPrototype)) as SuryErrorRecord;
+
+// The sentence a failure reads back as, given the expected schema already
+// rendered. Written once for both readers below.
+//
+// `Expected Date, received Date` names the type twice and says nothing: the
+// type is right and the value is not (an Invalid Date, an Error carrying the
+// wrong payload). Saying `received invalid Date` is the only part of the
+// message that carries information in that case.
+const renderReason = (error: SuryErrorRecord, expectedExpression: string): string => {
+  const receivedExpression = stringify(error.input);
+  let reason = `Expected ${expectedExpression}, received ${
+    expectedExpression === receivedExpression ? "invalid " : ""
+  }${receivedExpression}`;
+  const unionErrors = error.unionErrors as SuryErrorRecord[] | undefined;
+  if (unionErrors) {
+    const seenReasons = new Set<string>();
+    for (let idx = 0; idx < unionErrors.length; idx++) {
+      const caseError = unionErrors[idx]!;
+      const line = `\n- ${caseError.path.length ? `At ${pathToText(caseError.path)}: ` : ""}${caseError.reason.split("\n").join("\n  ")}`;
+      if (!seenReasons.has(line)) {
+        seenReasons.add(line);
+        reason += line;
+      }
+    }
+  }
+  return reason;
+};
+
+// `new S.Error({ reason })` assigns through the prototype, and an accessor with
+// no setter makes that a TypeError rather than an error carrying the reason it
+// was handed. Writing an own property is what an explicit reason means anyway -
+// it shadows the renderer from then on.
+const reasonSet = function (this: SuryErrorRecord, reason: string): void {
+  Object.defineProperty(this, "reason", {
+    value: reason,
+    configurable: true,
+    enumerable: true,
+    writable: true,
+  });
+};
+
+// `reason` is rendered on demand. It costs an `inputExpression` walk over the
+// expected schema and a `stringify` of the received value, and it is also what
+// puts a megabyte of request body inside an error message - all for a string
+// nothing reads until someone asks for `message`. The fallback for an error
+// nobody compiled: one the caller built with `new S.Error`, or a code that
+// writes its own `reason` (every code but `invalid_input` has the words in
+// hand). A compiled failure uses its check's renderer instead - see
+// `errorSite`, which knows the expected schema and can render it once.
+Object.defineProperty(errorPrototype, "reason", {
+  configurable: true,
+  set: reasonSet,
+  get(this: SuryErrorRecord): string {
+    return renderReason(this, inputExpression(this.expected as Internal));
+  },
+});
+
+// One getter for every compiled failure, not one per check. Defining it per
+// site cost an `Object.defineProperty` on every check the compiler emits, which
+// measured as most of a compile; and a getter written in as many places as
+// there are checks never settles into a monomorphic read. The per-site half is
+// the memo, which is a plain field on the site the getter reaches through
+// `this`.
+const sitePrototype = Object.create(errorPrototype) as SuryErrorRecord;
+Object.defineProperty(sitePrototype, "reason", {
+  configurable: true,
+  set: reasonSet,
+  get(this: SuryErrorRecord): string {
+    const site = Object.getPrototypeOf(this) as SuryErrorRecord;
+    return renderReason(
+      this,
+      (site.expectedExpression ??= inputExpression(site.expected as Internal)) as string
+    );
+  },
+});
+
+// The prototype every failure of ONE check shares. `expected`, `received` and -
+// where the check names its own message - the reason itself are settled the
+// moment the check is compiled, so they are built once here instead of per
+// failure. An instance enumerates only its own properties, so this is also what
+// stops two schema objects filling every `console.log(error)`; `error.expected`
+// still reads.
+//
+// The memo above is what the prototype-wide renderer cannot have: the expected
+// schema's expression is the same for every failure of this check AND for every
+// re-read of `message`, which the fallback getter pays for again each time.
+export const errorSite = (
+  expected: Internal,
+  received: Internal,
+  reasonOverride?: string
+): object => {
+  const site = Object.create(sitePrototype) as SuryErrorRecord;
+  site.expected = expected;
+  site.received = received;
+  if (reasonOverride !== U) site.reason = reasonOverride;
+  return site;
+};
+
+// The same, for an `invalid_conversion`: `from` and `to` are the two schemas
+// the conversion sits between, settled where the coder is compiled.
+//
+// `reason` here reads off whatever was thrown, so each failure writes its own.
+// The data property below is what lets it: a plain assignment walks the
+// prototype chain looking for a setter, and the one on `errorPrototype` would
+// make every write an `Object.defineProperty`. Shared for the same reason the
+// getter above is.
+const conversionPrototype = Object.create(errorPrototype) as SuryErrorRecord;
+Object.defineProperty(conversionPrototype, "reason", {
+  value: U,
+  writable: true,
+  enumerable: true,
+});
+
+export const conversionSite = (from: Internal, to: Internal): object => {
+  const site = Object.create(conversionPrototype) as SuryErrorRecord;
+  site.from = from;
+  site.to = to;
+  return site;
+};
+
+// One failure of the check `site` describes: only what the value decided. The
+// keys are written rather than passed to `Object.create` because a data
+// property is what the rest of the compiler expects - generated loop code
+// assigns `error.path` on the way out to prepend a segment.
+export const errorAt = (
+  site: object,
+  path: Path,
+  input: unknown,
+  unionErrors?: SuryErrorRecord[]
+): ErrorDetails => {
+  const error = Object.create(site) as SuryErrorRecord;
+  error.code = "invalid_input";
+  error.path = path;
+  error.input = input;
+  // Absent rather than `undefined` on the failures that have none: what a
+  // shared hidden class used to buy is the site prototype's job now.
+  if (unionErrors) error.unionErrors = unionErrors;
+  return error as unknown as ErrorDetails;
+};
 
 export const getOrRethrow = (exn: unknown): SuryErrorRecord => {
   if (exn && (exn as { s?: symbol }).s === s) return exn as SuryErrorRecord;
@@ -938,7 +1116,6 @@ const formatErrorMessage = (error: SuryErrorRecord): string =>
 export const errorClass: unknown = SuryError;
 
 export type GlobalConfig = {
-  m: (error: SuryErrorRecord) => string; // messageFormatter
   d?: Record<string, Internal>; // defsAccumulator
   a: AdditionalItems; // defaultAdditionalItems
   f: Flag; // defaultFlag
@@ -952,7 +1129,6 @@ export type GlobalConfigOverride = {
 export const initialOnAdditionalItems: AdditionalItemsMode = "strip";
 export const initialDefaultFlag: Flag = 0;
 export const globalConfig: GlobalConfig = {
-  m: formatErrorMessage,
   d: U,
   a: initialOnAdditionalItems,
   f: initialDefaultFlag,

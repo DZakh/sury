@@ -18,13 +18,13 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{Array.isArray(i)&&i.length===2&&Array.isArray(i[0])&&Array.isArray(i[1])||e[3](i);let v4=new Array(Math.max(i[0].length,i[1].length));for(let v0=0;v0<v4.length;++v0){let v1=i[0][v0];typeof v1==="string"||e[0](v1,[v0,"id"]);let v3=i[1][v0];typeof v3==="string"||e[2](v3,[v0,"amount"]);let v2;try{v2=BigInt(v3)}catch(_){e[1](v3,[v0,"amount"])}v2||v3.trim()||e[1](v3,[v0,"amount"]);v4[v0]={id:v1,amount:v2};}return v4}
+    expression: i=>{try{Array.isArray(i)&&i.length===2&&Array.isArray(i[0])&&Array.isArray(i[1])||e[3](i);let v4=new Array(Math.max(i[0].length,i[1].length));for(let v0=0;v0<v4.length;++v0){let v1=i[0][v0];typeof v1==="string"||e[0](v1,[v0,"id"]);let v3=i[1][v0];typeof v3==="string"||e[2](v3,[v0,"amount"]);let v2;try{v2=BigInt(v3)}catch(_){e[1](v3,[v0,"amount"])}v2||v3.trim()||e[1](v3,[v0,"amount"]);v4[v0]={id:v1,amount:v2};}return v4}catch(v5){e[4](v5)}}
     examples:
       beyond-float-precision:
         input: '[["0", "1"], ["12345678901234567890", "98765432109876543210"]]'
         output: '[{ id: "0", amount: 12345678901234567890n }, { id: "1", amount: 98765432109876543210n }]'
   decode:
-    expression: i=>{let v4=new Array(Math.max(i[0].length,i[1].length));for(let v0=0;v0<v4.length;++v0){let v1=i[0][v0];typeof v1==="string"||e[0](v1,[v0,"id"]);let v3=i[1][v0];typeof v3==="string"||e[2](v3,[v0,"amount"]);let v2;try{v2=BigInt(v3)}catch(_){e[1](v3,[v0,"amount"])}v2||v3.trim()||e[1](v3,[v0,"amount"]);v4[v0]={id:v1,amount:v2};}return v4}
+    expression: i=>{try{let v4=new Array(Math.max(i[0].length,i[1].length));for(let v0=0;v0<v4.length;++v0){let v1=i[0][v0];typeof v1==="string"||e[0](v1,[v0,"id"]);let v3=i[1][v0];typeof v3==="string"||e[2](v3,[v0,"amount"]);let v2;try{v2=BigInt(v3)}catch(_){e[1](v3,[v0,"amount"])}v2||v3.trim()||e[1](v3,[v0,"amount"]);v4[v0]={id:v1,amount:v2};}return v4}catch(v5){e[3](v5)}}
     examples:
       beyond-float-precision:
         input: '[["0", "1"], ["12345678901234567890", "98765432109876543210"]]'

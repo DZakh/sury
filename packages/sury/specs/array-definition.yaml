@@ -13,7 +13,7 @@ vs:
   zod: "z.array(z.object({ id: z.string() }))"
 operations:
   parse:
-    expression: i=>{Array.isArray(i)||e[2](i);let v3=new Array(i.length);for(let v0=0;v0<i.length;++v0){let v1=i[v0];typeof v1==="object"&&v1&&!Array.isArray(v1)||e[1](v1,[v0]);let v2=v1.id;typeof v2==="string"||e[0](v2,[v0,"id"]);v3[v0]={id:v2}}return v3}
+    expression: i=>{try{Array.isArray(i)||e[2](i);let v3=new Array(i.length);for(let v0=0;v0<i.length;++v0){let v1=i[v0];typeof v1==="object"&&v1&&!Array.isArray(v1)||e[1](v1,[v0]);let v2=v1.id;typeof v2==="string"||e[0](v2,[v0,"id"]);v3[v0]={id:v2}}return v3}catch(v4){e[3](v4)}}
     examples:
       valid:
         input: '[{ id: "a" }, { id: "b" }]'

@@ -15,7 +15,7 @@ test("Successfully parses and reverse converts a simple object with compactColum
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{Array.isArray(i)&&i.length===2&&Array.isArray(i[0])&&Array.isArray(i[1])||e[2](i);let v3=new Array(Math.max(i[0].length,i[1].length));for(let v0=0;v0<v3.length;++v0){let v1=i[0][v0];typeof v1==="string"||e[0](v1,[v0,"foo"]);let v2=i[1][v0];typeof v2==="number"&&v2<=2147483647&&v2>=-2147483648&&v2%1==0||e[1](v2,[v0,"bar"]);v3[v0]={foo:v1,bar:v2};}return v3}`,
+    `i=>{try{Array.isArray(i)&&i.length===2&&Array.isArray(i[0])&&Array.isArray(i[1])||e[2](i);let v3=new Array(Math.max(i[0].length,i[1].length));for(let v0=0;v0<v3.length;++v0){let v1=i[0][v0];typeof v1==="string"||e[0](v1,[v0,"foo"]);let v2=i[1][v0];typeof v2==="number"&&v2<=2147483647&&v2>=-2147483648&&v2%1==0||e[1](v2,[v0,"bar"]);v3[v0]={foo:v1,bar:v2};}return v3}catch(v4){e[3](v4)}}`,
   )
   t->U.assertCompiledCode(
     ~schema,
@@ -52,12 +52,12 @@ test("Transforms nullable fields", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{Array.isArray(i)&&i.length===2&&Array.isArray(i[0])&&Array.isArray(i[1])||e[2](i);let v3=new Array(Math.max(i[0].length,i[1].length));for(let v0=0;v0<v3.length;++v0){let v1=i[0][v0];typeof v1==="string"||e[0](v1,[v0,"foo"]);let v2=i[1][v0];for(;;){if(typeof v2==="number"&&v2==v2&&v2<=2147483647&&v2>=-2147483648&&v2%1==0)break;if(v2===null){v2=void 0;break}e[1](v2,[v0,"bar"])}v3[v0]={foo:v1,bar:v2};}return v3}`,
+    `i=>{try{Array.isArray(i)&&i.length===2&&Array.isArray(i[0])&&Array.isArray(i[1])||e[2](i);let v3=new Array(Math.max(i[0].length,i[1].length));for(let v0=0;v0<v3.length;++v0){let v1=i[0][v0];typeof v1==="string"||e[0](v1,[v0,"foo"]);let v2=i[1][v0];for(;;){if(typeof v2==="number"&&v2==v2&&v2<=2147483647&&v2>=-2147483648&&v2%1==0)break;if(v2===null){v2=void 0;break}e[1](v2,[v0,"bar"])}v3[v0]={foo:v1,bar:v2};}return v3}catch(v4){e[3](v4)}}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{let v3=new Array(i.length);for(let v0=0;v0<i.length;++v0){let v1=i[v0];let v2=v1.bar;for(;;){if(typeof v2==="number"&&v2==v2&&v2<=2147483647&&v2>=-2147483648&&v2%1==0)break;if(v2===void 0){v2=null;break}e[0](v2,[v0,"bar"])}v3[v0]={foo:v1.foo,bar:v2}}let v5=[new Array(v3.length),new Array(v3.length)];for(let v4=0;v4<v3.length;++v4){v5[0][v4]=v3[v4].foo;v5[1][v4]=v3[v4].bar;}return v5}`,
+    `i=>{try{let v3=new Array(i.length);for(let v0=0;v0<i.length;++v0){let v1=i[v0];let v2=v1.bar;for(;;){if(typeof v2==="number"&&v2==v2&&v2<=2147483647&&v2>=-2147483648&&v2%1==0)break;if(v2===void 0){v2=null;break}e[0](v2,[v0,"bar"])}v3[v0]={foo:v1.foo,bar:v2}}let v5=[new Array(v3.length),new Array(v3.length)];for(let v4=0;v4<v3.length;++v4){v5[0][v4]=v3[v4].foo;v5[1][v4]=v3[v4].bar;}return v5}catch(v6){e[1](v6)}}`,
   )
 
   t->Assert.deepEqual(
@@ -89,7 +89,7 @@ test("Case with missing item at the end", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{Array.isArray(i)&&i.length===2&&Array.isArray(i[0])&&Array.isArray(i[1])||e[2](i);let v3=new Array(Math.max(i[0].length,i[1].length));for(let v0=0;v0<v3.length;++v0){let v1=i[0][v0];(typeof v1==="string"||v1===void 0)||e[0](v1,[v0,"foo"]);let v2=i[1][v0];typeof v2==="boolean"||e[1](v2,[v0,"bar"]);v3[v0]={foo:v1,bar:v2};}return v3}`,
+    `i=>{try{Array.isArray(i)&&i.length===2&&Array.isArray(i[0])&&Array.isArray(i[1])||e[2](i);let v3=new Array(Math.max(i[0].length,i[1].length));for(let v0=0;v0<v3.length;++v0){let v1=i[0][v0];(typeof v1==="string"||v1===void 0)||e[0](v1,[v0,"foo"]);let v2=i[1][v0];typeof v2==="boolean"||e[1](v2,[v0,"bar"]);v3[v0]={foo:v1,bar:v2};}return v3}catch(v4){e[3](v4)}}`,
   )
   t->U.assertCompiledCode(
     ~schema,
@@ -117,7 +117,7 @@ test("Handles empty objects", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{Array.isArray(i)&&i.length===0||e[0](i);return []}`,
+    `i=>{try{Array.isArray(i)&&i.length===0||e[0](i);return []}catch(v0){e[1](v0)}}`,
   )
 
   // Parse empty columnar input to empty array

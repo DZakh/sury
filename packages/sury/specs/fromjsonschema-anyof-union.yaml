@@ -13,7 +13,7 @@ vs:
   zod: z.union([z.string(), z.number()])
 operations:
   parse:
-    expression: i=>{(typeof i==="string"||typeof i==="number"&&i==i)||e[0](i);return i}
+    expression: i=>{try{(typeof i==="string"||typeof i==="number"&&i==i)||e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
       string-member:
         input: '"a"'

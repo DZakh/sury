@@ -15,7 +15,7 @@ vs:
   zod: z.union([z.string(), z.number()])
 operations:
   parse:
-    expression: i=>{(typeof i==="string"||typeof i==="number"&&i==i)||e[0](i);return i}
+    expression: i=>{try{(typeof i==="string"||typeof i==="number"&&i==i)||e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
       string-never-coerced:
         input: '"123"'
@@ -43,7 +43,7 @@ operations:
           check: Ambiguous string -> number | string. Should number be decoded or ignored? Choose with S.to for string -> number, or S.never -> number
   decode: eq-to-parse
   encode:
-    expression: i=>{(typeof i==="number"&&i==i||typeof i==="string")||e[0](i);return i}
+    expression: i=>{try{(typeof i==="number"&&i==i||typeof i==="string")||e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
       string:
         input: '"123"'

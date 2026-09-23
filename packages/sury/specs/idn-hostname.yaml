@@ -14,7 +14,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}catch(v0){e[3](v0)}}
     examples:
       a-valid-host-name-example-test-in-hangul:
         input: '"실례.테스트"'
@@ -179,7 +179,7 @@ operations:
         input: '"xn--X"'
         output: '"xn--X"'
   decode:
-    expression: i=>{e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{e[0].test(i)||e[1](i);return i}catch(v0){e[2](v0)}}
     examples:
       valid:
         input: '"실례.테스트"'
@@ -188,7 +188,7 @@ operations:
         input: '"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"'
         error: Expected idn-hostname, received "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   encode:
-    expression: i=>{e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{e[0].test(i)||e[1](i);return i}catch(v0){e[2](v0)}}
     examples:
       valid:
         input: '"실례.테스트"'

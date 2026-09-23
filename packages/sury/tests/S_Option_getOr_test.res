@@ -80,7 +80,7 @@ test("Successfully parses schema with transformation", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){if(typeof i==="number"&&i==i)break;if(i===void 0){i=-123;break}e[0](i)}let v0;try{v0=e[1](i)}catch(x){e[2](x)}for(;;){if(typeof v0==="string")break;if(v0===void 0){v0="not positive";break}e[3](v0)}return v0}`,
+    `i=>{try{for(;;){if(typeof i==="number"&&i==i)break;if(i===void 0){i=-123;break}e[0](i)}let v0;try{v0=e[1](i)}catch(x){e[2](x)}for(;;){if(typeof v0==="string")break;if(v0===void 0){v0="not positive";break}e[3](v0)}return v0}catch(v1){e[4](v1)}}`,
   )
 })
 
@@ -96,7 +96,7 @@ test("Compiled parse code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){if(typeof i==="boolean")break;if(i===void 0){i=false;break}e[0](i)}return i}`,
+    `i=>{try{for(;;){if(typeof i==="boolean")break;if(i===void 0){i=false;break}e[0](i)}return i}catch(v0){e[1](v0)}}`,
   )
 })
 
@@ -110,7 +110,7 @@ asyncTest("Compiled async parse code snapshot", async t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ParseAsync,
-    `i=>{try{for(;;){if(typeof i==="boolean"){let v0=e[0](i);i=v0;break}if(i===void 0){i=false;break}e[1](i)}return Promise.resolve(i)}catch(v1){return Promise.reject(v1)}}`,
+    `i=>{try{try{for(;;){if(typeof i==="boolean"){let v0=e[0](i);i=v0;break}if(i===void 0){i=false;break}e[1](i)}return Promise.resolve(i)}catch(v1){e[2](v1)}}catch(v2){return Promise.reject(v2)}}`,
   )
 
   let schema =
@@ -122,7 +122,7 @@ asyncTest("Compiled async parse code snapshot", async t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ParseAsync,
-    `i=>{try{for(;;){if(typeof i==="boolean")break;if(i===void 0){i=false;break}e[0](i)}let v0;try{v0=e[1](i).catch(x=>e[2](x))}catch(x){e[2](x)}return v0}catch(v1){return Promise.reject(v1)}}`,
+    `i=>{try{try{for(;;){if(typeof i==="boolean")break;if(i===void 0){i=false;break}e[0](i)}let v0;try{v0=e[1](i).catch(x=>e[2](x))}catch(x){e[2](x)}return v0}catch(v1){e[3](v1)}}catch(v2){return Promise.reject(v2)}}`,
   )
 })
 
@@ -277,12 +277,12 @@ test("Default on a primary item with S.to runs the transformation on parse and r
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){if(typeof i==="string"){let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](v0);i=v0;break}if(i===void 0){i=e[1];break}e[2](i)}return i}`,
+    `i=>{try{for(;;){if(typeof i==="string"){let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](v0);i=v0;break}if(i===void 0){i=e[1];break}e[2](i)}return i}catch(v1){e[3](v1)}}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{if(i instanceof e[1]){let v0;try{v0=i.toISOString()}catch(_){e[0](i)}i=v0}else{e[2](i)}return i}`,
+    `i=>{try{if(i instanceof e[1]){let v0;try{v0=i.toISOString()}catch(_){e[0](i)}i=v0}else{e[2](i)}return i}catch(v1){e[3](v1)}}`,
   )
 })
 
@@ -323,7 +323,7 @@ test("getOr default reaches jsonString quoted, not reassociated", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}v0||i.trim()||e[0](i);i="\\""+v0+"\\"";break}if(i===void 0){i="\\""+7n+"\\"";break}e[1](i)}return i}`,
+    `i=>{try{for(;;){if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}v0||i.trim()||e[0](i);i="\\""+v0+"\\"";break}if(i===void 0){i="\\""+7n+"\\"";break}e[1](i)}return i}catch(v1){e[2](v1)}}`,
   )
 
   t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), S.JsonString(`"7"`))
@@ -358,13 +358,13 @@ test("Multi-member union with transformed members + getOr", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){let r;if(typeof i==="string"){try{let v0=+i;v0==v0&&(v0||i.trim())||e[0](i);i=v0;break}catch(x){(r||(r=[])).push(e[2](x))}try{let v1;try{v1=BigInt(i)}catch(_){e[1](i)}v1||i.trim()||e[1](i);i=v1;break}catch(x){(r||(r=[])).push(e[2](x))}}if(typeof i==="boolean")break;if(i===void 0){i=true;break}e[3](i,...(r||[]))}return i}`,
+    `i=>{try{for(;;){let r;if(typeof i==="string"){try{let v0=+i;v0==v0&&(v0||i.trim())||e[0](i);i=v0;break}catch(x){(r||(r=[])).push(e[2](x))}try{let v1;try{v1=BigInt(i)}catch(_){e[1](i)}v1||i.trim()||e[1](i);i=v1;break}catch(x){(r||(r=[])).push(e[2](x))}}if(typeof i==="boolean")break;if(i===void 0){i=true;break}e[3](i,...(r||[]))}return i}catch(v2){e[4](v2)}}`,
   )
 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{for(;;){if(typeof i==="number"&&i==i){i=""+i;break}if(typeof i==="bigint"){i=""+i;break}if(typeof i==="boolean")break;e[0](i)}return i}`,
+    `i=>{try{for(;;){if(typeof i==="number"&&i==i){i=""+i;break}if(typeof i==="bigint"){i=""+i;break}if(typeof i==="boolean")break;e[0](i)}return i}catch(v0){e[1](v0)}}`,
   )
 })
 
@@ -373,5 +373,5 @@ test("Compiled serialize code snapshot", t => {
 
   // The reversed union validates the value like any other typed decode - the
   // old noop relied on Option_getWithDefault's noopDecoder hack.
-  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{typeof i==="boolean"||e[0](i);return i}`)
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{try{typeof i==="boolean"||e[0](i);return i}catch(v0){e[1](v0)}}`)
 })

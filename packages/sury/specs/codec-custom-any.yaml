@@ -18,7 +18,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[2](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}
+    expression: i=>{try{typeof i==="string"||e[2](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[3](v1)}}
     examples:
       valid:
         input: '"abc"'
@@ -27,13 +27,13 @@ operations:
         input: "1"
         error: Expected string, received 1
   decode:
-    expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[2](v1)}}
     examples:
       valid:
         input: '"abc"'
         output: "3"
   encode:
-    expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);return v0}
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);return v0}catch(v1){e[3](v1)}}
     examples:
       valid:
         input: "3"

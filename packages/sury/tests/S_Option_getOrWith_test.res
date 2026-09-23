@@ -57,7 +57,7 @@ test("Compiled parse code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){if(typeof i==="boolean")break;if(i===void 0){i=e[0]();break}e[1](i)}return i}`,
+    `i=>{try{for(;;){if(typeof i==="boolean")break;if(i===void 0){i=e[0]();break}e[1](i)}return i}catch(v0){e[2](v0)}}`,
   )
 })
 
@@ -71,7 +71,7 @@ test("Compiled async parse code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ParseAsync,
-    `i=>{try{for(;;){if(typeof i==="boolean"){let v0=e[0](i);i=v0;break}if(i===void 0){i=e[1]();break}e[2](i)}return Promise.resolve(i)}catch(v1){return Promise.reject(v1)}}`,
+    `i=>{try{try{for(;;){if(typeof i==="boolean"){let v0=e[0](i);i=v0;break}if(i===void 0){i=e[1]();break}e[2](i)}return Promise.resolve(i)}catch(v1){e[3](v1)}}catch(v2){return Promise.reject(v2)}}`,
   )
 })
 
@@ -80,7 +80,7 @@ test("Compiled serialize code snapshot", t => {
 
   // The reversed union validates the value like any other typed decode - the
   // old noop relied on Option_getWithDefault's noopDecoder hack.
-  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{typeof i==="boolean"||e[0](i);return i}`)
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{try{typeof i==="boolean"||e[0](i);return i}catch(v0){e[1](v0)}}`)
 })
 
 // FIXME: callback return values aren't validated, so a bad default silently

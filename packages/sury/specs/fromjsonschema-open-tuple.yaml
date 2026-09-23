@@ -13,7 +13,7 @@ vs:
   zod: z.tuple([z.string().optional(), z.number().optional()]).rest(z.boolean())
 operations:
   parse:
-    expression: i=>{Array.isArray(i)||e[2](i);e[1](i)||e[3](i);for(let v0=0;v0<i.length;++v0){try{e[0](i[v0]);}catch(v1){v1.path=[v0,...v1.path];throw v1}}return i}
+    expression: i=>{try{Array.isArray(i)||e[2](i);e[1](i)||e[3](i);for(let v0=0;v0<i.length;++v0){try{e[0](i[v0]);}catch(v1){v1.path=[v0,...v1.path];throw v1}}return i}catch(v2){e[4](v2)}}
     examples:
       empty:
         input: "[]"
@@ -34,13 +34,13 @@ operations:
         input: '["a", 1, 2]'
         error: Should pass the positional and additional item schemas.
   decode:
-    expression: i=>{e[0](i)||e[1](i);return i}
+    expression: i=>{try{e[0](i)||e[1](i);return i}catch(v1){e[2](v1)}}
     examples:
       valid:
         input: '["a", 1, true]'
         output: '["a", 1, true]'
   encode:
-    expression: i=>{e[0](i)||e[1](i);return i}
+    expression: i=>{try{e[0](i)||e[1](i);return i}catch(v1){e[2](v1)}}
     examples:
       valid:
         input: '["a", 1, true]'

@@ -17,7 +17,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){for(let v0 in i){let v1=i[v0];typeof v1==="string"||e[0](v1,[v0]);};break}if(i===null)break;e[1](i)}return i}
+    expression: i=>{try{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){for(let v0 in i){let v1=i[v0];typeof v1==="string"||e[0](v1,[v0]);};break}if(i===null)break;e[1](i)}return i}catch(v2){e[2](v2)}}
     examples:
       record:
         input: '{ a: "x" }'

@@ -18,7 +18,7 @@ vs:
     _skip: todo(#…)
 operations:
   parse:
-    expression: i=>{i instanceof e[9]||e[10](i);let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}e[3](v0);let v1;v1=e[4](v0);let v2;try{v2=e[5](v1)}catch(x){e[6](x)}typeof v2==="object"&&v2&&!Array.isArray(v2)||e[8](v2);let v3=v2.depth;typeof v3==="number"&&v3<=2147483647&&v3>=-2147483648&&v3%1==0||e[7](v3);return {depth:v3}}
+    expression: i=>{try{i instanceof e[9]||e[10](i);let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}e[3](v0);let v1;v1=e[4](v0);let v2;try{v2=e[5](v1)}catch(x){e[6](x)}typeof v2==="object"&&v2&&!Array.isArray(v2)||e[8](v2);let v3=v2.depth;typeof v3==="number"&&v3<=2147483647&&v3>=-2147483648&&v3%1==0||e[7](v3);return {depth:v3}}catch(v4){e[11](v4)}}
     examples:
       flat:
         input: new Uint8Array([8, 7])
@@ -27,13 +27,13 @@ operations:
         input: new Uint8Array([8, 7, 18, 2, 8, 8])
         output: "{ depth: 2 }"
   decode:
-    expression: i=>{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}e[3](v0);let v1;v1=e[4](v0);let v2;try{v2=e[5](v1)}catch(x){e[6](x)}typeof v2==="object"&&v2&&!Array.isArray(v2)||e[8](v2);let v3=v2.depth;typeof v3==="number"&&v3<=2147483647&&v3>=-2147483648&&v3%1==0||e[7](v3);return {depth:v3}}
+    expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}e[3](v0);let v1;v1=e[4](v0);let v2;try{v2=e[5](v1)}catch(x){e[6](x)}typeof v2==="object"&&v2&&!Array.isArray(v2)||e[8](v2);let v3=v2.depth;typeof v3==="number"&&v3<=2147483647&&v3>=-2147483648&&v3%1==0||e[7](v3);return {depth:v3}}catch(v4){e[9](v4)}}
     examples:
       nested:
         input: new Uint8Array([8, 7, 18, 2, 8, 8])
         output: "{ depth: 2 }"
   encode:
-    expression: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}let v1;v1=e[2](v0);let v2;{let w;try{w=e[7].acquire();let v,j,n,s,h,a,k,g,c,o;v=v1["v"];if((v=+v)){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=v;if(s<-2147483648||s>2147483647)e[4](s,-2147483648,2147483647,"int32");s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v=v1["next"];if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[3](w,v);w.end(h)};v2=w.finish()}catch(x){w&&(w.busy=false);e[8](x)}}return v2}
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}let v1;v1=e[2](v0);let v2;{let w;try{w=e[7].acquire();let v,j,n,s,h,a,k,g,c,o;v=v1["v"];if((v=+v)){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=v;if(s<-2147483648||s>2147483647)e[4](s,-2147483648,2147483647,"int32");s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v=v1["next"];if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[3](w,v);w.end(h)};v2=w.finish()}catch(x){w&&(w.busy=false);e[8](x)}}return v2}catch(v3){e[9](v3)}}
     examples:
       one:
         input: "{ depth: 1 }"

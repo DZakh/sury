@@ -18,7 +18,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[6](i);let v0=e[1](new e[0](i)),v1=v0.get("q"),v2=v0.get("page")||void 0;typeof v1==="string"||e[3](v1);v1.length>0||e[2](v1);if(v2){typeof v2==="string"||e[4](v2);let v3=+v2;v3==v3&&(v3||v2.trim())||e[5](v2);v2=v3;}return {q:v1,page:v2}}
+    expression: i=>{try{typeof i==="string"||e[6](i);let v0=e[1](new e[0](i)),v1=v0.get("q"),v2=v0.get("page")||void 0;typeof v1==="string"||e[3](v1);v1.length>0||e[2](v1);if(v2){typeof v2==="string"||e[4](v2);let v3=+v2;v3==v3&&(v3||v2.trim())||e[5](v2);v2=v3;}return {q:v1,page:v2}}catch(v4){e[7](v4)}}
     examples:
       valid:
         input: '"q=hi&page=2"'
@@ -30,13 +30,13 @@ operations:
         input: '"q="'
         error: 'Failed at q: Expected string.length >= 1, received ""'
   decode:
-    expression: i=>{let v0=e[1](new e[0](i)),v1=v0.get("q"),v2=v0.get("page")||void 0;typeof v1==="string"||e[3](v1);v1.length>0||e[2](v1);if(v2){typeof v2==="string"||e[4](v2);let v3=+v2;v3==v3&&(v3||v2.trim())||e[5](v2);v2=v3;}return {q:v1,page:v2}}
+    expression: i=>{try{let v0=e[1](new e[0](i)),v1=v0.get("q"),v2=v0.get("page")||void 0;typeof v1==="string"||e[3](v1);v1.length>0||e[2](v1);if(v2){typeof v2==="string"||e[4](v2);let v3=+v2;v3==v3&&(v3||v2.trim())||e[5](v2);v2=v3;}return {q:v1,page:v2}}catch(v4){e[6](v4)}}
     examples:
       valid:
         input: '"q=hi&page=2"'
         output: '{ q: "hi", page: 2 }'
   encode:
-    expression: i=>{let v0=i.q,v2=i.page;v0.length>0||e[0](v0);let v1=new e[1]();v1.append("q",v0);if(v2!=null){v1.append("page",""+v2);}return v1.toString()}
+    expression: i=>{try{let v0=i.q,v2=i.page;v0.length>0||e[0](v0);let v1=new e[1]();v1.append("q",v0);if(v2!=null){v1.append("page",""+v2);}return v1.toString()}catch(v3){e[2](v3)}}
     examples:
       built:
         input: '{ q: "hi", page: 2 }'

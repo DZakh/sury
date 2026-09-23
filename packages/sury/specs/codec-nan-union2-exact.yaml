@@ -18,7 +18,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{Number.isNaN(i)||e[0](i);i=NaN;return i}
+    expression: i=>{try{Number.isNaN(i)||e[0](i);i=NaN;return i}catch(v0){e[1](v0)}}
     examples:
       nan:
         input: NaN

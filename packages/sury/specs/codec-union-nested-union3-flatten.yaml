@@ -15,7 +15,7 @@ vs:
   zod: z.union([z.string(), z.union([z.number(), z.boolean()])])
 operations:
   parse:
-    expression: i=>{(typeof i==="string"||typeof i==="number"&&i==i||typeof i==="boolean")||e[0](i);return i}
+    expression: i=>{try{(typeof i==="string"||typeof i==="number"&&i==i||typeof i==="boolean")||e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
       string:
         input: '"a"'
@@ -40,7 +40,7 @@ operations:
         error: Expected string | number | boolean, received NaN
   decode: eq-to-parse
   encode:
-    expression: i=>{(typeof i==="boolean"||typeof i==="number"&&i==i||typeof i==="string")||e[0](i);return i}
+    expression: i=>{try{(typeof i==="boolean"||typeof i==="number"&&i==i||typeof i==="string")||e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
       string:
         input: '"a"'

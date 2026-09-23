@@ -58,11 +58,11 @@ test("Object with embeded transformed schema", t => {
   )
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#Encode),
-    `i=>{let v0=i.zoo;for(;;){if(typeof v0==="number"&&v0==v0&&v0<=2147483647&&v0>=-2147483648&&v0%1==0)break;if(v0===void 0){v0=null;break}e[0](v0)}return {foo:"bar",zoo:v0}}`,
+    `i=>{try{let v0=i.zoo;for(;;){if(typeof v0==="number"&&v0==v0&&v0<=2147483647&&v0>=-2147483648&&v0%1==0)break;if(v0===void 0){v0=null;break}e[0](v0)}return {foo:"bar",zoo:v0}}catch(v1){e[1](v1)}}`,
   )
   t->Assert.is(
     objectSchema->U.getCompiledCodeString(~op=#Encode),
-    `i=>{let v0=i.zoo;for(;;){if(typeof v0==="number"&&v0==v0&&v0<=2147483647&&v0>=-2147483648&&v0%1==0)break;if(v0===void 0){v0=null;break}e[0](v0)}return {foo:"bar",zoo:v0}}`,
+    `i=>{try{let v0=i.zoo;for(;;){if(typeof v0==="number"&&v0==v0&&v0<=2147483647&&v0>=-2147483648&&v0%1==0)break;if(v0===void 0){v0=null;break}e[0](v0)}return {foo:"bar",zoo:v0}}catch(v1){e[1](v1)}}`,
   )
 })
 
@@ -80,7 +80,7 @@ test("Strict object with embeded returns input without object recreation", t => 
 
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#Parse),
-    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i.foo,v1=i.zoo,v2;v0==="bar"||e[0](v0);typeof v1==="number"&&v1<=2147483647&&v1>=-2147483648&&v1%1==0||e[1](v1);for(v2 in i)if(v2!=="foo"&&v2!=="zoo")e[2](v2);return i}`,
+    `i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i.foo,v1=i.zoo,v2;v0==="bar"||e[0](v0);typeof v1==="number"&&v1<=2147483647&&v1>=-2147483648&&v1%1==0||e[1](v1);for(v2 in i)if(v2!=="foo"&&v2!=="zoo")e[2](v2);return i}catch(v3){e[4](v3)}}`,
   )
   t->U.assertCompiledCodeIsNoop(~schema, ~op=#Encode)
 })
@@ -97,11 +97,11 @@ test("Tuple with embeded schema", t => {
   // S.schema does return i without tuple recreation
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#Parse),
-    `i=>{Array.isArray(i)&&i.length===3||e[3](i);let v0=i[0],v1=i[1],v2=i[2];typeof v0==="string"||e[0](v0);v1===void 0||e[1](v1);v2==="bar"||e[2](v2);return i}`,
+    `i=>{try{Array.isArray(i)&&i.length===3||e[3](i);let v0=i[0],v1=i[1],v2=i[2];typeof v0==="string"||e[0](v0);v1===void 0||e[1](v1);v2==="bar"||e[2](v2);return i}catch(v3){e[4](v3)}}`,
   )
   t->Assert.is(
     tupleSchema->U.getCompiledCodeString(~op=#Parse),
-    `i=>{Array.isArray(i)&&i.length===3||e[3](i);let v0=i[0],v1=i[1],v2=i[2];typeof v0==="string"||e[0](v0);v1===void 0||e[1](v1);v2==="bar"||e[2](v2);return [v0,v1,v2]}`,
+    `i=>{try{Array.isArray(i)&&i.length===3||e[3](i);let v0=i[0],v1=i[1],v2=i[2];typeof v0==="string"||e[0](v0);v1===void 0||e[1](v1);v2==="bar"||e[2](v2);return [v0,v1,v2]}catch(v3){e[4](v3)}}`,
   )
   t->U.assertCompiledCodeIsNoop(~schema, ~op=#Encode)
   t->Assert.is(
@@ -124,11 +124,11 @@ test("Tuple with embeded transformed schema", t => {
   )
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#Encode),
-    `i=>{let v0=i[0];for(;;){if(typeof v0==="string")break;if(v0===void 0){v0=null;break}e[0](v0)}return [v0,void 0,"bar"]}`,
+    `i=>{try{let v0=i[0];for(;;){if(typeof v0==="string")break;if(v0===void 0){v0=null;break}e[0](v0)}return [v0,void 0,"bar"]}catch(v1){e[1](v1)}}`,
   )
   t->Assert.is(
     tupleSchema->U.getCompiledCodeString(~op=#Encode),
-    `i=>{let v0=i[0];for(;;){if(typeof v0==="string")break;if(v0===void 0){v0=null;break}e[0](v0)}return [v0,void 0,"bar"]}`,
+    `i=>{try{let v0=i[0];for(;;){if(typeof v0==="string")break;if(v0===void 0){v0=null;break}e[0](v0)}return [v0,void 0,"bar"]}catch(v1){e[1](v1)}}`,
   )
 })
 
@@ -225,7 +225,7 @@ test(
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{Array.isArray(i)&&i.length===2||e[2](i);let v0=i[0],v1=i[1];typeof v0==="string"||e[0](v0);typeof v1==="boolean"||e[1](v1);return i}`,
+      `i=>{try{Array.isArray(i)&&i.length===2||e[2](i);let v0=i[0],v1=i[1];typeof v0==="string"||e[0](v0);typeof v1==="boolean"||e[1](v1);return i}catch(v2){e[3](v2)}}`,
     )
     t->U.assertCompiledCodeIsNoop(~schema, ~op=#Convert)
   },
@@ -246,7 +246,7 @@ test("Object schema with empty object field", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.foo;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[0](v0);return {foo:{}}}`,
+    `i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.foo;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[0](v0);return {foo:{}}}catch(v1){e[2](v1)}}`,
   )
   t->U.assertCompiledCodeIsNoop(~schema, ~op=#Encode)
 })
@@ -266,7 +266,7 @@ test("Object schema with nested object field containing only literal", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i.foo;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[1](v0);let v1=v0.bar;v1==="baz"||e[0](v1);return {foo:{bar:v1}}}`,
+    `i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i.foo;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[1](v0);let v1=v0.bar;v1==="baz"||e[0](v1);return {foo:{bar:v1}}}catch(v2){e[3](v2)}}`,
   )
   t->U.assertCompiledCodeIsNoop(~schema, ~op=#Encode)
 })
@@ -287,6 +287,6 @@ test("https://github.com/DZakh/sury/issues/131", t => {
   t->U.assertCompiledCode(
     ~schema=testSchema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i.foobar;Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){let v2=v0[v1];(typeof v2==="string"||v2===void 0)||e[0](v2,["foobar",v1]);}return {foobar:v0}}`,
+    `i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i.foobar;Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){let v2=v0[v1];(typeof v2==="string"||v2===void 0)||e[0](v2,["foobar",v1]);}return {foobar:v0}}catch(v3){e[3](v3)}}`,
   )
 })
