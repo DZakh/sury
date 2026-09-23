@@ -694,6 +694,16 @@ Conceptually, this is how **Sury** processes default values:
 1. If the input is `undefined`, the default value is returned
 2. Otherwise, the data is parsed using the base schema
 
+The default is what parsing returns, so it is written in the schema's output shape, even when the schema transforms:
+
+```ts
+const item = S.object((s) => ({ kind: "a", value: s.field("v", S.string) }));
+const itemsSchema = S.optional(S.array(item), [{ kind: "a", value: "x" }]);
+
+S.parseOrThrow(itemsSchema, undefined); // => [{ kind: "a", value: "x" }]
+S.optional(S.array(item), [{ v: "x" }]); // throws: Invalid default
+```
+
 ## Nullables
 
 Similarly, you can create nullable types with `S.nullable`.
@@ -2409,7 +2419,30 @@ The output side is derived through [`reverse`](#reverse), so nested transforms a
 
 ## Error handling
 
-**Sury** throws `S.Error`, a subclass of `Error` named `SuryError`, so `instanceof` works as usual. A thrown error carries a `stack` starting at the line that called the operation; one handed back by an `AsResult` outcome or by Standard Schema has none, because nothing threw. Every error carries:
+**Sury** throws `S.Error`, a subclass of `Error` named `SuryError`, so `instanceof` works as usual. A thrown error carries a `stack` starting at the line that called the operation; one handed back by an `AsResult` outcome or by Standard Schema has none, because nothing threw.
+
+An async schema that fails after its first `await` rejects with one too, starting at the `await` that received it. A bare `.catch()` has no `await` to trace back through, so its stack can't name your line:
+
+```ts
+const parseId = S.parseAsPromiseOrReject(
+  S.string.with(S.to, S.number, {
+    decode: { async: async (id: string) => Number(id) },
+    encode: String,
+  }),
+);
+
+try {
+  await parseId("abc");
+} catch (e) {
+  e.stack; // starts at the `await` above
+}
+
+parseId("abc").catch((e) => {
+  e.stack; // doesn't name this line
+});
+```
+
+Every error carries:
 
 - `path` - where the failure happened, as an array of keys and indices from the root of the value (`[]` at the root, `["items", 0]` inside). `S.pathToText(path)` renders it as `items[0]`.
 - `reason` - the failure itself, without the path: `Expected string, received undefined`.
