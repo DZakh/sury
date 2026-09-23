@@ -1563,6 +1563,54 @@ S.array(S.int)->S.protobufField(6, ~packed=false)
 S.option(S.string)->S.protobufField(7, ~oneof="choice")
 ```
 
+#### Oneofs as variants
+
+A oneof reads best as a variant tagged by `case`, under `option` for no member
+set. The field has no number of its own; each member's `value` does:
+
+```rescript
+@tag("case")
+type contact =
+  | @as("email") Email({value: string})
+  | @as("phone") Phone({value: bigint})
+
+type person = {id: int, contact: option<contact>}
+
+let personSchema = S.schema(s => {
+  id: s.matches(S.int->S.protobufField(1)),
+  contact: s.matches(
+    S.option(
+      S.union([
+        S.schema(s => Email({value: s.matches(S.string->S.protobufField(2))})),
+        S.schema(s => Phone({value: s.matches(S.bigint->S.protobufField(3, ~type_=#int64))})),
+      ]),
+    ),
+  ),
+})
+```
+
+An enum reads best as a variant whose constructors carry the numbers:
+
+```rescript
+type kind = | @as(0) Unspecified | @as(1) Person | @as(2) Robot
+
+let kindSchema = S.enum([Unspecified, Person, Robot])->S.protobufField(4, ~type_=#enum)
+```
+
+#### Well-known types
+
+`~type_` can name a wrapper or `google.protobuf.Struct`. A wrapper holds its
+scalar and takes an `S.option` field outside a list, a map or a oneof; a Struct
+is a `dict<JSON.t>`:
+
+```rescript
+S.option(S.int)->S.protobufField(1, ~type_=#"google.protobuf.Int32Value")
+S.option(S.dict(S.json))->S.protobufField(2, ~type_=#"google.protobuf.Struct")
+```
+
+Every other well-known type is an ordinary message, and `SuryProtobuf` has them
+all: `SuryProtobuf.Timestamp.t`, `SuryProtobuf.Timestamp.schema`.
+
 #### Unknown fields
 
 Skipped, the way every proto3 reader skips them, which is what lets a sender
@@ -1640,6 +1688,50 @@ let descriptorSchema = S.recursive("DescriptorProto", descriptorSchema => {
   })
 })
 ```
+
+#### Generating modules from `.proto`
+
+`protoc-gen-sury` ships in the `sury` package. With `target=res` it writes a
+ReScript file per `.proto`, and `target=ts+res` writes both:
+
+```yaml
+# buf.gen.yaml
+version: v2
+plugins:
+  - local: protoc-gen-sury
+    out: src/gen
+    opt: target=res
+```
+
+A file is named after its path, `acme/v1/user.proto` becoming
+`Acme_v1_user_pb.res`, since a ReScript project's modules share one namespace.
+Each message and enum is a module holding `t` and `schema`:
+
+```rescript
+module User = {
+  @tag("case")
+  type contact =
+    | @as("email") Email({value: string})
+    | @as("phone") Phone({value: string})
+  type t = {
+    id: int,
+    firstName: string,
+    contact: option<contact>,
+  }
+  let schema: S.t<t> = S.schema(s => { /* one S.protobufField per field */ })
+}
+```
+
+```rescript
+let bytes = {id: 1, firstName: "Ada", contact: Some(Email({value: "a@b"}))}
+  ->S.convertOrThrow(~from=Acme_v1_user_pb.User.schema, ~to=S.protobuf)
+```
+
+A field is named as in TypeScript, `firstName`, with a keyword or a `$` made a
+valid label (`type_`, `constructor_`); the wire only cares about numbers. A
+`uint32` or `fixed32` field is `S.integer`, since it can pass `int`'s range.
+The generated files silence warning 30, which a recursive group of messages
+sharing a field name raises.
 
 See [Protocol Buffers in the JS guide](./js-usage.md#protocol-buffers) for the
 wire-level detail the two languages share, including what the conformance

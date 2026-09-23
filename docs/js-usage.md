@@ -1471,7 +1471,39 @@ S.schema({
 
 `type` is one of `double`, `float`, `int32`, `int64`, `uint32`, `uint64`,
 `sint32`, `sint64`, `fixed32`, `fixed64`, `sfixed32`, `sfixed64`, `bool`,
-`string`, `bytes`, `enum` or `message`. 64-bit integers are `bigint`.
+`string`, `bytes`, `enum` or `message`, or one of the well-known types below.
+64-bit integers are `bigint`, or their decimal string on an `S.string` field.
+
+Three shapes the defaults don't cover:
+
+```ts
+S.schema({
+  // S.number refuses NaN, which a double holds as readily as any value
+  ratio: S.protobufField(S.union([S.number, S.schema(NaN)]), { number: 1, type: "double" }),
+  // a one-member enum, such as google.protobuf.NullValue
+  nothing: S.protobufField(S.union([0]), { number: 2, type: "enum" }),
+  // int64 as its digits, what [jstype = JS_STRING] asks for
+  id: S.protobufField(S.string, { number: 3, type: "int64" }), // "150" ⇄ varint 150
+});
+```
+
+**Well-known types.** `type` can name a wrapper or `google.protobuf.Struct`,
+and the field then holds the value the way protobuf-es holds it: a wrapper as
+its scalar, a Struct as a JSON object.
+
+```ts
+S.schema({
+  count: S.protobufField(S.optional(S.int32), { number: 1, type: "google.protobuf.Int32Value" }),
+  meta: S.protobufField(S.optional(S.record(S.json)), { number: 2, type: "google.protobuf.Struct" }),
+});
+```
+
+A wrapper takes an `S.optional` field outside a list, a map or a oneof, which
+is where it unboxes; `undefined` is absent, and `0` is written as an empty
+wrapper, since presence is what a wrapper is for. A Struct can be a singular
+field, a list, a map value or a oneof member. Every other well-known type is an
+ordinary message, and [`sury/wkt`](#generating-schemas-from-proto) has them
+all.
 
 **Presence** follows proto3. A field is written only when it is not its default
 (`0`, `""`, `false`, empty bytes), and an absent field decodes to that default.
@@ -1495,10 +1527,33 @@ S.schema({
 });
 ```
 
-**Oneofs** are optional fields that share a `oneof` name. At most one is ever
-set: decoding a member clears the others, and encoding a value with two of them
-set is refused rather than written, since a reader would take the second and
-drop the first. A member keeps explicit presence, so its zero value is written:
+**Oneofs** are a union of `{ case, value }` objects, each `value` numbered,
+with one arm for no member set. It is the shape protobuf-es holds a oneof in,
+and at most one member can be set by construction:
+
+```ts
+const User = S.schema({
+  id: S.protobufField(S.int32, 1),
+  contact: S.union([
+    S.schema({ case: "email", value: S.protobufField(S.string, 2) }),
+    S.schema({ case: "phone", value: S.protobufField(S.bigint, { number: 3, type: "int64" }) }),
+    S.schema({ case: undefined }),
+  ]),
+});
+
+S.encodeOrThrow(User, S.protobuf)({ id: 1, contact: { case: "email", value: "a@b" } });
+// Uint8Array [8, 1, 18, 3, 97, 64, 98]
+S.decodeOrThrow(S.protobuf, User)(new Uint8Array([8, 1])); // { id: 1, contact: { case: undefined } }
+```
+
+The property has no number of its own, and its name is the oneof's. A member
+is set even at its zero value, and the last one on the wire wins. The arm for
+no member set can also be `undefined` itself, with the union in `S.optional`.
+
+Optional fields sharing a `oneof` name are the other spelling, for a oneof kept
+flat. Decoding a member clears the others, and encoding a value with two of
+them set is refused rather than written, since a reader would take the second
+and drop the first:
 
 ```ts
 S.schema({
@@ -1635,6 +1690,93 @@ A schema that can't be a message, whether a field without a number, two fields
 sharing one or an optional repeated field, is rejected when the operation is
 built, naming the field.
 
+#### Generating schemas from `.proto`
+
+`protoc-gen-sury` ships in the `sury` package: a protoc plugin, run by
+[`buf generate`](https://buf.build/docs/generate/overview/) or `protoc`, that
+writes a TypeScript module per `.proto` file.
+
+```yaml
+# buf.gen.yaml
+version: v2
+plugins:
+  - local: protoc-gen-sury
+    out: src/gen
+    opt: target=ts
+```
+
+```proto
+// proto/acme/v1/user.proto
+syntax = "proto3";
+package acme.v1;
+
+message User {
+  int32 id = 1;
+  string first_name = 2;
+  oneof contact {
+    string email = 3;
+    string phone = 4;
+  }
+}
+```
+
+```ts
+// src/gen/acme/v1/user_pb.ts
+export type User = {
+  id: number;
+  firstName: string;
+  contact:
+    | { case: "email"; value: string }
+    | { case: "phone"; value: string }
+    | { case?: undefined; value?: undefined };
+};
+
+export const UserSchema = S.meta(S.schemaOf<User>()({ /* one S.protobufField per field */ }), { name: "User" });
+```
+
+```ts
+import * as S from "sury";
+import { UserSchema } from "./gen/acme/v1/user_pb";
+
+const bytes = S.encodeOrThrow(UserSchema, S.protobuf)({ id: 1, firstName: "Ada", contact: { case: undefined } });
+```
+
+The names and types are protoc-gen-es's: `User` and `UserSchema`, a nested
+type `User_Address`, a field's lowerCamelCase property, an enum as a const
+object with its prefix dropped (`PhoneType.MOBILE`), a wrapper field as its
+scalar, a Struct as a JSON object, a map with 32-bit keys still string-keyed.
+A well-known type is imported from `sury/wkt` (`TimestampSchema`,
+`Timestamp`), where the generated code expects it.
+
+The options:
+
+| Option | Values | Default |
+| --- | --- | --- |
+| `target` | `ts`, `res`, `ts+res` | `ts` |
+| `import_extension` | `none`, `js`, `ts` | `none` |
+| `keep_empty_files` | `true`, `false` | `false` |
+| `ts_nocheck` | `true`, `false` | `false` |
+
+`import_extension=js` is what a `"moduleResolution": "nodenext"` project
+needs. A field with `[jstype = JS_STRING]` is a string.
+
+What differs from protobuf-es:
+
+- A message is a plain object: no `$typeName`, no `create()`. A literal spells
+  every field the type requires.
+- Unknown fields are skipped, not kept in `$unknown` (see above).
+- Enums are closed: `PhoneType` is the union of its values, where protobuf-es
+  adds `UnknownEnum`. A number the enum doesn't list still decodes as that
+  number, and fails a `parse`.
+- A oneof's unset arm types as `{ case?: undefined }`; protobuf-es writes
+  `{ case: undefined }`. Its values are the same.
+- A map keyed by a 32-bit integer is `{ [key: string]: V }`, not
+  `{ [key: number]: V }`.
+
+proto2, editions, extensions and services are refused, naming the file or
+field. Every generated schema is an ordinary Sury schema: validate with it,
+convert it to JSON Schema, or print it back with `S.toProtoOrThrow`.
+
 #### Speed and correctness
 
 [Benchmarks: Protobuf](https://github.com/DZakh/sury/blob/main/docs/benchmarks/protobuf.md)
@@ -1647,7 +1789,8 @@ on a Mapbox vector tile pbf is the one to beat, because a tile is almost
 entirely packed varints and that is what pbf is built for.
 
 `S.protobuf` passes **695 of the 698 binary proto3 cases** of Google's own
-`conformance_test_runner`. The three are named with their reason in
+`conformance_test_runner`, and so does the schema protoc-gen-sury generates
+from the suite's own `.proto`. The three are named with their reason in
 [`failing_tests.txt`](https://github.com/DZakh/sury/tree/main/packages/protobuf-conformance/failing_tests.txt):
 two need unknown fields to survive a round trip, one needs two map entries
 sharing a key to merge their messages rather than the later winning.

@@ -67,6 +67,12 @@ base → builder → primitives → parse → union → composites → factory
   `S.res` and adapt there.
 - `S.res` is the only ReScript module, and reaches the runtime through the
   package's own `"."` export so both languages share one instance.
+- The protobuf well-known types are the two exceptions, both written by
+  protoc-gen-sury and never by hand: `src/wkt/` (bundled as `sury/wkt`, a
+  second entry that imports only `"sury"`) and `src/SuryProtobuf.res`. The
+  latter depends on `S`; `S` may never name it, which is a dependency cycle,
+  and folding it into `S.res` would build every well-known type at startup
+  for every ReScript user, since `S.res.mjs` is in `sideEffects`.
 
 ## Writing code
 
@@ -186,6 +192,23 @@ The harness asks the same question from the other end: every example pair it
 already compares for itself goes to `isEqual*` too, and a disagreement with its
 own oracle is a finding. So the whole spec corpus is the comparator's test
 suite, and neither side is the one being trusted.
+
+## Changing protoc-gen-sury
+
+Its output is held to protoc-gen-es, not to itself. `pnpm protobuf:codegen`
+regenerates the corpus in `packages/protoc-gen-sury/test/proto` and checks, in
+order: the committed goldens (the corpus, `src/wkt`, `SuryProtobuf.res`), that
+the TypeScript and ReScript compile, that every type equals protoc-gen-es's
+once the differences `docs/js-usage.md` lists are normalized, that values
+round-trip through both libraries in both directions byte for byte from both
+targets, that `S.toProtoOrThrow` reprints every message's fields, and that
+importing one message keeps none of its siblings in a Rollup 4 bundle.
+`SEED=N` widens the value search. `update` rewrites the goldens.
+`pnpm protobuf:conformance:generated` runs Google's suite over the generated
+`TestAllTypesProto3`.
+
+A codec change a generated shape needs lands in `packages/sury/src` with its
+spec first, like any other.
 
 ## Changing the form codec
 
