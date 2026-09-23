@@ -320,3 +320,13 @@ recursive-definer-defaults:
         kid: S.optional(node),
       }),
     )
+
+recursive-tree-parse:
+  prepare: |
+    const node = S.recursive("Node", (self) => S.schema({ id: S.number, left: S.optional(self), right: S.optional(self) }));
+    const build = (d) => (d === 0 ? { id: d } : { id: d, left: build(d - 1), right: build(d - 1) });
+    const tree = build(6);
+    const parse = S.parseOrThrow(node);
+  # 127 nodes and 128 absent children: the leaves are where an optional
+  # recursive field dispatches on `undefined`.
+  run: parse(tree)

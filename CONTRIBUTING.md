@@ -349,6 +349,14 @@ case the harness *should* have caught or guided better - a missing check, a weak
 error message, a strictness gap that let a bad spec through - add a bullet here
 instead of silently working around it.
 
+- `structurallyEqual`, the oracle `isEqual*` is checked against, takes every
+  operation to write a declared-optional property whether or not it is set, so
+  an absent key and an `undefined` one never meet in a pair. A trusted `decode`
+  that hands its input back as it came breaks that: `{ next: undefined }` from
+  `parse` and `{}` from `decode` are one value to the schema and two to the
+  oracle, and the finding blames `isEqual`. `recursive-nested-recursive` spells
+  the key out in its decode example to get past it. The oracle could treat a
+  key whose value is `undefined` as absent when the other side lacks it.
 - A spec has no way to record a schema that throws while it is being *built*.
   `creationError` covers a throw from compiling an operation, but `--ts did not
   evaluate` is the end of the road for a schema whose construction throws, and

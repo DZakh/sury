@@ -78,8 +78,34 @@ const nestedUnion = (S: Sury, rng: Rng, depth: number): MemberSpec => {
   return { id: `union(${a.id},${b.id})`, schema: S.union([a.schema, b.schema]) };
 };
 
+// A member that reaches itself. Its dispatch resolves the ref to what it
+// names, so a list or tree is checked by its runtime type alongside its
+// siblings, while one whose definition is itself a union stays opaque.
+const recursiveMember = (S: Sury, rng: Rng): MemberSpec => {
+  const leaf = leafSchema(S, rng);
+  const name = `R${Math.floor(rng() * 4)}`;
+  const shape = Math.floor(rng() * 3);
+  if (shape === 0) {
+    return {
+      id: `${name}{v:${leaf.id},next?:${name}}`,
+      schema: S.recursive(name, (self: unknown) => S.schema({ v: leaf.schema, next: S.optional(self) })),
+    };
+  }
+  if (shape === 1) {
+    return {
+      id: `${name}{TAG:R,_0:${leaf.id},kids:${name}[]}`,
+      schema: S.recursive(name, (self: unknown) => S.schema({ TAG: "R", _0: leaf.schema, kids: S.array(self) })),
+    };
+  }
+  return {
+    id: `${name}=${leaf.id}|${name}[]`,
+    schema: S.recursive(name, (self: unknown) => S.union([leaf.schema, S.array(self)])),
+  };
+};
+
 const memberAt = (S: Sury, rng: Rng, depth: number): MemberSpec => {
   if (depth >= 2) return leafSchema(S, rng);
+  if (rng() < 0.08) return recursiveMember(S, rng);
   const roll = rng();
   if (roll < 0.06) {
     return { id: "enum(e0,e1)", schema: S.enum(["e0", "e1"]) };
