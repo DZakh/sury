@@ -45,7 +45,7 @@ BOM from a string field, and loses a map entry keyed `__proto__`.
 
 Google's `conformance_test_runner` itself lives in
 [`packages/protobuf-conformance`](../protobuf-conformance), which runs the real
-suite - cases generated inside the binary - and scores 695/698 on the binary
+suite - cases generated inside the binary - and scores 696/698 on the binary
 proto3 families. This package is the readable half: it says what broke, that
 one says whether we are right. Keep both.
 

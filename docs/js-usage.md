@@ -1646,11 +1646,10 @@ conformance scores. The short version: against protobuf-es, encoding runs
 on a Mapbox vector tile pbf is the one to beat, because a tile is almost
 entirely packed varints and that is what pbf is built for.
 
-`S.protobuf` passes **695 of the 698 binary proto3 cases** of Google's own
-`conformance_test_runner`. The three are named with their reason in
+`S.protobuf` passes **696 of the 698 binary proto3 cases** of Google's own
+`conformance_test_runner`. The two it fails are named with their reason in
 [`failing_tests.txt`](https://github.com/DZakh/sury/tree/main/packages/protobuf-conformance/failing_tests.txt):
-two need unknown fields to survive a round trip, one needs two map entries
-sharing a key to merge their messages rather than the later winning.
+both need unknown fields to survive a round trip.
 ProtoJSON, text format and the proto2 message types are not attempted.
 
 Beside it, a corpus of our own in

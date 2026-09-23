@@ -1471,10 +1471,11 @@ const decodeFnSource = (msg: Message, fns: Map<Message, string>, slot: number): 
         : `${local}[k]=c`;
       let entry: string;
       if (field.type === "message") {
-        // The key can follow the value, and a repeated key merges its
-        // messages, so the value is decoded after a first pass finds the key.
+        // A repeated key replaces the earlier entry whole, as C++ does, while a
+        // value repeated inside one entry merges: so the value never needs the
+        // key first, and the entry is read in one pass.
         const nested = fns.get(field.message!)!;
-        entry = `k=${scalarDefault(keyType)};q=r.pos;${entryLoop(readKey)}r.pos=q;c=${local}[k];${entryLoop(`${readKey}else if(n===2&&w===2){g=r.sub();c=${nested}(r,d+1,c);r.limit=g}`)}if(c===void 0){g=r.limit;r.limit=r.pos;c=${nested}(r,d+1);r.limit=g}`;
+        entry = `k=${scalarDefault(keyType)};c=void 0;${entryLoop(`${readKey}else if(n===2&&w===2){g=r.sub();c=${nested}(r,d+1,c);r.limit=g}`)}if(c===void 0){g=r.limit;r.limit=r.pos;c=${nested}(r,d+1);r.limit=g}`;
       } else {
         entry = `k=${scalarDefault(keyType)};c=${scalarDefault(field.type)};${entryLoop(`${readKey}else if(n===2&&w===${field.wire})c=${readCall(field.type)};`)}`;
       }
@@ -1511,7 +1512,7 @@ const decodeFnSource = (msg: Message, fns: Map<Message, string>, slot: number): 
   const miss = msg.object.additionalItems === "strict" ? 'throw Error("unknown protobuf field "+n)' : "skip(r,w,n,0)";
   const vars = locals.length ? `${locals.join(",")},` : "";
   const merge = fromPrev.length ? `if(o!==void 0){${fromPrev.join(";")}}` : "";
-  return `function ${fns.get(msg)!}(r,d,o){if(d>=100)throw Error("protobuf message nesting limit exceeded");var ${vars}t,w,n=-1,p,k,c,q,g;${merge}try{while(r.pos<r.limit){n=-1;t=r.buf[r.pos];if(t<128)r.pos++;else t=r.tag();n=t>>>3;w=t&7;switch(n){case 0:throw Error("invalid protobuf field number");${cases.join("")}}${miss}}}catch(x){at(x,M[${slot}],n,w)}${fill}o={${literal.slice(0, -1)}};${optional}return o}`;
+  return `function ${fns.get(msg)!}(r,d,o){if(d>=100)throw Error("protobuf message nesting limit exceeded");var ${vars}t,w,n=-1,p,k,c,g;${merge}try{while(r.pos<r.limit){n=-1;t=r.buf[r.pos];if(t<128)r.pos++;else t=r.tag();n=t>>>3;w=t&7;switch(n){case 0:throw Error("invalid protobuf field number");${cases.join("")}}${miss}}}catch(x){at(x,M[${slot}],n,w)}${fill}o={${literal.slice(0, -1)}};${optional}return o}`;
 };
 
 const compileDecoder = (root: Message, fns: Map<Message, string>): Function => {

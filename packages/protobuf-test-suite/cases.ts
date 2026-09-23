@@ -1107,7 +1107,7 @@ export const mapMergeCases: DecodeOnlyCase[] = [
       ...len(71, len(1), len(2, len(2, wireField(2, 0, varint(1)), wireField(31, 0, varint(1))))),
     ],
     value: {
-      map: { "": { a: 0, corecursive: { optional_int32: 1, optional_int64: 1n, optional_uint32: 0, repeated_int32: [1, 1] } } },
+      map: { "": { a: 0, corecursive: { optional_int32: 0, optional_int64: 1n, optional_uint32: 0, repeated_int32: [1] } } },
     },
   },
   {
