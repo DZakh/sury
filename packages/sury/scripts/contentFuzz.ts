@@ -6,7 +6,9 @@
 // A reading - pack or unpack - is decided by a slot, a field position or a
 // declared payload, written down when a link is made and mirrored by
 // `reverse`. A spec pins one link. This crosses every source with every target
-// and every slot, and checks what holds whichever reading applies:
+// and every slot - the async carriers and document fields included, so every
+// operation runs in its promise form - and checks what holds whichever reading
+// applies:
 //
 //   crash       nothing but a Sury rejection or a result comes out of building
 //               a link, compiling it or running it.
@@ -15,7 +17,8 @@
 //               what it decodes - the forward reading and the mirrored one
 //               agree, value for value, and compile or refuse together.
 //   ROUND_TRIP  a value the link decodes encodes back to an input that
-//               decodes to the same value.
+//               decodes to the same value. A `File` or `Blob` is compared by
+//               its bytes: packing one loses its name, as documented.
 //   SLOT        a link with two readings and no slot refuses and names both,
 //               and each slot then builds; a link with one reading reads the
 //               same with `"unpack"` as without it, since the slot declares
@@ -37,16 +40,21 @@ const doc = S.schema({ a: S.number });
 // text forms (a representation of another kind), an entry (text that is a
 // representation), and the document format itself.
 const SOURCES: Record<string, Source> = {
-  string: { schema: S.string, inputs: ["hi", '{"a":1}', '"x"', "42", ""] },
+  string: { schema: S.string, inputs: ["hi", '{"a":1}', '"x"', "42", "", '{"f":"aGk="}'] },
   trimmed: { schema: S.string.with(S.trim), inputs: [' {"a":1} ', "hi"] },
   "optional-string": { schema: S.optional(S.string), inputs: ['{"a":1}', "hi", undefined] },
   email: { schema: S.email, inputs: ["a@b.co"] },
   literal: { schema: S.schema("x"), inputs: ["x"] },
   number: { schema: S.number, inputs: [42, 0] },
-  bytes: { schema: S.uint8Array, inputs: [bytes('{"a":1}'), bytes("hi"), new Uint8Array([137, 80, 78, 71])] },
+  bytes: {
+    schema: S.uint8Array,
+    inputs: [bytes('{"a":1}'), bytes("hi"), new Uint8Array([137, 80, 78, 71]), bytes('{"f":"aGk="}')],
+  },
   base64: { schema: S.base64, inputs: ["aGk=", "eyJhIjoxfQ=="] },
   base64url: { schema: S.base64url, inputs: ["aGk", "eyJhIjoxfQ"] },
   env: { schema: S.env, inputs: ['{"a":1}', "42", undefined, ""] },
+  file: { schema: S.file, inputs: [new File(['{"a":1}'], "a.json"), new File(["hi"], "b.txt")] },
+  blob: { schema: S.blob, inputs: [new Blob(['{"f":"aGk="}']), new Blob(["hi"])] },
   "json-string": { schema: S.jsonString, inputs: ['{"a":1}', '"x"', "42"] },
 };
 
@@ -67,6 +75,11 @@ const TARGETS: Record<string, unknown> = {
   base64: S.base64,
   doc,
   "json-string-or-number": S.union([S.jsonString, S.number]),
+  file: S.file,
+  // A field is a value in its document (rule 2): stored, not opened.
+  "field-string": S.jsonString.with(S.to, S.schema({ f: S.string })),
+  "field-bytes": S.jsonString.with(S.to, S.schema({ f: S.uint8Array })),
+  "field-optional-json-string": S.jsonString.with(S.to, S.schema({ f: S.optional(S.jsonString) })),
 };
 
 const SLOTS = ["", "unpack", "pack"] as const;
@@ -78,6 +91,10 @@ const ONE_WAY: Record<string, string> = {
     "`S.json` is the document, not a rendering of one, so an entry's text has no decoder into it; encode passes a JSON value that already is a string straight through as the entry",
   "env/string":
     "a bare string target must say what a blank entry means, with `S.nonEmpty`, `S.minLength(0)` or `S.optional`; an encode writes no blank entry, so it has no question to ask",
+  "env/file":
+    "a `File`'s own encoder writes its text into any text target, an entry included, while an entry reads no `File` back - the converter the search params share keeps files out, and there they are refused both ways",
+  "blob/file":
+    "a `File` widens to a `Blob` and not the other way, since not every blob is a file (`codec-file-blob`)",
   "json-string/optional-json-string":
     "encode meets an absent arm the JSON string has no form for, and the union compiler asks instead of guessing (CODEC_SPEC.md rule 2); decode never produces that arm",
   "json-string/optional-json-string-doc": "the same, with a declared payload",
@@ -98,13 +115,23 @@ const known = catalog({
 });
 const { findings } = known;
 
-type Fn = (value: unknown) => unknown;
+type Fn = (value: unknown) => Promise<unknown>;
+
+// A `File` or `Blob` as its bytes, which is what the content axis carries.
+const settle = async (value: unknown): Promise<unknown> =>
+  value instanceof Blob ? new Uint8Array(await value.arrayBuffer()) : value;
+const alike = async (a: unknown, b: unknown): Promise<boolean> => same(await settle(a), await settle(b));
 
 // A run's outcome: a value, a Sury rejection, or a crash - which is recorded
 // here and treated as a rejection by the caller, so one crash is one finding.
-const run = (id: string, what: string, fn: Fn, value: unknown): { ok: true; value: unknown } | { ok: false; why: string } => {
+const run = async (
+  id: string,
+  what: string,
+  fn: Fn,
+  value: unknown,
+): Promise<{ ok: true; value: unknown } | { ok: false; why: string }> => {
   try {
-    return { ok: true, value: fn(value) };
+    return { ok: true, value: await fn(value) };
   } catch (error) {
     const { rejected, crash } = fault(error);
     if (crash) findings.push(`${id}: ${what} ${show(value)} crashed - ${crash}`);
@@ -120,163 +147,167 @@ let values = 0;
 // What each (source, target) link reads without a slot, for the SLOT property.
 const unslotted = new Map<string, { decode?: Fn; ambiguous: boolean }>();
 
-for (const [sourceName, source] of Object.entries(SOURCES)) {
-  for (const [targetName, target] of Object.entries(TARGETS)) {
-    for (const slot of SLOTS) {
-      const half = slot ? `${targetName}:${slot}` : targetName;
-      const id = `${sourceName}/${half}`;
-      const pair = `${sourceName}/${targetName}`;
+const main = async (): Promise<void> => {
+  for (const [sourceName, source] of Object.entries(SOURCES)) {
+    for (const [targetName, target] of Object.entries(TARGETS)) {
+      for (const slot of SLOTS) {
+        const half = slot ? `${targetName}:${slot}` : targetName;
+        const id = `${sourceName}/${half}`;
+        const pair = `${sourceName}/${targetName}`;
 
-      const built = compile<unknown>(() =>
-        slot
-          ? (source.schema as S.Schema<unknown>).with(S.to, target as never, slot)
-          : (source.schema as S.Schema<unknown>).with(S.to, target as never),
-      );
-      if (built.crash) findings.push(`${id}: building the link crashed - ${built.crash}`);
-      const link = built.fn;
-      const decode: { fn?: Fn; rejected?: string; crash?: string } = link ? compile(() => S.decodeOrThrow(link as never) as unknown as Fn) : (built as { rejected?: string });
-      const encode: { fn?: Fn; rejected?: string; crash?: string } = link ? compile(() => S.encodeOrThrow(link as never) as unknown as Fn) : (built as { rejected?: string });
-      for (const [direction, result] of [
-        ["decode", decode],
-        ["encode", encode],
-      ] as const) {
-        if (link && result.crash) findings.push(`${id}: ${direction} compile crashed - ${result.crash}`);
-      }
-      const why = decode.rejected ?? encode.rejected ?? "";
-      // The question a slot answers. Sury asks others - which union member a
-      // value is, what a blank env entry means - and a slot answers none of them.
-      const ambiguous = why.includes("packed or unpacked");
-      if (!slot) unslotted.set(pair, { decode: decode.fn, ambiguous });
-
-      // SLOT, first half: two readings and no slot is a refusal naming both,
-      // after which each slot is a link that builds and compiles.
-      if (slot) {
-        const bare = unslotted.get(pair)!;
-        if (bare.ambiguous) {
-          if (!decode.fn || !encode.fn) {
-            known.miss("SLOT", sourceName, half, `${id}: the unslotted link asks for a reading, but this one refuses - ${why}`);
-          } else {
-            known.hold("SLOT", sourceName, half, id);
-          }
+        const built = compile<unknown>(() =>
+          slot
+            ? (source.schema as S.Schema<unknown>).with(S.to, target as never, slot)
+            : (source.schema as S.Schema<unknown>).with(S.to, target as never),
+        );
+        if (built.crash) findings.push(`${id}: building the link crashed - ${built.crash}`);
+        const link = built.fn;
+        const decode: { fn?: Fn; rejected?: string; crash?: string } = link ? compile(() => S.decodeAsPromiseOrReject(link as never) as unknown as Fn) : (built as { rejected?: string });
+        const encode: { fn?: Fn; rejected?: string; crash?: string } = link ? compile(() => S.encodeAsPromiseOrReject(link as never) as unknown as Fn) : (built as { rejected?: string });
+        for (const [direction, result] of [
+          ["decode", decode],
+          ["encode", encode],
+        ] as const) {
+          if (link && result.crash) findings.push(`${id}: ${direction} compile crashed - ${result.crash}`);
         }
-      } else if (ambiguous && !why.includes('Choose with S.to and "pack" or "unpack"')) {
-        findings.push(`${id}: refuses as ambiguous without naming the two readings - ${why}`);
-      }
+        const why = decode.rejected ?? encode.rejected ?? "";
+        // The question a slot answers. Sury asks others - which union member a
+        // value is, what a blank env entry means - and a slot answers none of them.
+        const ambiguous = why.includes("packed or unpacked");
+        if (!slot) unslotted.set(pair, { decode: decode.fn, ambiguous });
 
-      if (!link) {
-        unbuilt += 1;
-        continue;
-      }
-      links += 1;
-
-      if (!decode.fn !== !encode.fn) {
-        known.miss(
-          "ONE_WAY",
-          sourceName,
-          half,
-          `${id}: ${decode.fn ? "decodes" : "encodes"} but refuses to ${decode.fn ? "encode" : "decode"} - ${why}`,
-        );
-      } else if (decode.fn) {
-        known.hold("ONE_WAY", sourceName, half, id);
-      }
-
-      // REVERSE, compile half: the mirror agrees on which directions exist.
-      const reversed = compile(() => S.reverse(link as never));
-      const mirrorDecode = reversed.fn ? compile(() => S.decodeOrThrow(reversed.fn as never) as unknown as Fn) : (reversed as { fn?: Fn; crash?: string });
-      const mirrorEncode = reversed.fn ? compile(() => S.encodeOrThrow(reversed.fn as never) as unknown as Fn) : (reversed as { fn?: Fn; crash?: string });
-      if (reversed.crash || mirrorDecode.crash || mirrorEncode.crash) {
-        findings.push(`${id}: reversing crashed - ${reversed.crash ?? mirrorDecode.crash ?? mirrorEncode.crash}`);
-      }
-      if (!encode.fn !== !mirrorDecode.fn || !decode.fn !== !mirrorEncode.fn) {
-        known.miss(
-          "REVERSE",
-          sourceName,
-          half,
-          `${id}: encode ${encode.fn ? "compiles" : "refuses"} but its reverse's decode ${mirrorDecode.fn ? "compiles" : "refuses"}; decode ${decode.fn ? "compiles" : "refuses"} but its reverse's encode ${mirrorEncode.fn ? "compiles" : "refuses"}`,
-        );
-      }
-
-      if (!decode.fn) {
-        oneDirection += 1;
-        continue;
-      }
-
-      let mirrored = true;
-      for (const input of source.inputs) {
-        const printed = show(input);
-        const read = run(id, "decoding", decode.fn, input);
-        if (!read.ok) continue;
-        values += 1;
-
-        // SLOT, second half: the slot declares the source, so a link with one
-        // reading reads the same with it.
-        if (slot === "unpack") {
+        // SLOT, first half: two readings and no slot is a refusal naming both,
+        // after which each slot is a link that builds and compiles.
+        if (slot) {
           const bare = unslotted.get(pair)!;
-          if (bare.decode) {
-            const plain = run(id, "decoding without the slot", bare.decode, input);
-            if (plain.ok && !same(plain.value, read.value)) {
+          if (bare.ambiguous) {
+            if (!decode.fn || !encode.fn) {
+              known.miss("SLOT", sourceName, half, `${id}: the unslotted link asks for a reading, but this one refuses - ${why}`);
+            } else {
+              known.hold("SLOT", sourceName, half, id);
+            }
+          }
+        } else if (ambiguous && !why.includes('Choose with S.to and "pack" or "unpack"')) {
+          findings.push(`${id}: refuses as ambiguous without naming the two readings - ${why}`);
+        }
+
+        if (!link) {
+          unbuilt += 1;
+          continue;
+        }
+        links += 1;
+
+        if (!decode.fn !== !encode.fn) {
+          known.miss(
+            "ONE_WAY",
+            sourceName,
+            half,
+            `${id}: ${decode.fn ? "decodes" : "encodes"} but refuses to ${decode.fn ? "encode" : "decode"} - ${why}`,
+          );
+        } else if (decode.fn) {
+          known.hold("ONE_WAY", sourceName, half, id);
+        }
+
+        // REVERSE, compile half: the mirror agrees on which directions exist.
+        const reversed = compile(() => S.reverse(link as never));
+        const mirrorDecode = reversed.fn ? compile(() => S.decodeAsPromiseOrReject(reversed.fn as never) as unknown as Fn) : (reversed as { fn?: Fn; crash?: string });
+        const mirrorEncode = reversed.fn ? compile(() => S.encodeAsPromiseOrReject(reversed.fn as never) as unknown as Fn) : (reversed as { fn?: Fn; crash?: string });
+        if (reversed.crash || mirrorDecode.crash || mirrorEncode.crash) {
+          findings.push(`${id}: reversing crashed - ${reversed.crash ?? mirrorDecode.crash ?? mirrorEncode.crash}`);
+        }
+        if (!encode.fn !== !mirrorDecode.fn || !decode.fn !== !mirrorEncode.fn) {
+          known.miss(
+            "REVERSE",
+            sourceName,
+            half,
+            `${id}: encode ${encode.fn ? "compiles" : "refuses"} but its reverse's decode ${mirrorDecode.fn ? "compiles" : "refuses"}; decode ${decode.fn ? "compiles" : "refuses"} but its reverse's encode ${mirrorEncode.fn ? "compiles" : "refuses"}`,
+          );
+        }
+
+        if (!decode.fn) {
+          oneDirection += 1;
+          continue;
+        }
+
+        let mirrored = true;
+        for (const input of source.inputs) {
+          const printed = show(input);
+          const read = await run(id, "decoding", decode.fn, input);
+          if (!read.ok) continue;
+          values += 1;
+
+          // SLOT, second half: the slot declares the source, so a link with one
+          // reading reads the same with it.
+          if (slot === "unpack") {
+            const bare = unslotted.get(pair)!;
+            if (bare.decode) {
+              const plain = await run(id, "decoding without the slot", bare.decode, input);
+              if (plain.ok && !(await alike(plain.value, read.value))) {
+                known.miss(
+                  "SLOT",
+                  sourceName,
+                  half,
+                  `${id} <- ${printed}: reads ${show(read.value)}, but ${show(plain.value)} without the slot`,
+                  printed,
+                );
+              }
+            }
+          }
+
+          if (mirrorEncode.fn) {
+            const back = await run(id, "encoding through the reverse", mirrorEncode.fn, input);
+            if (back.ok && !(await alike(back.value, read.value))) {
+              mirrored = false;
               known.miss(
-                "SLOT",
+                "REVERSE",
                 sourceName,
                 half,
-                `${id} <- ${printed}: reads ${show(read.value)}, but ${show(plain.value)} without the slot`,
+                `${id} <- ${printed}: decodes to ${show(read.value)}, its reverse encodes to ${show(back.value)}`,
                 printed,
               );
             }
           }
-        }
 
-        if (mirrorEncode.fn) {
-          const back = run(id, "encoding through the reverse", mirrorEncode.fn, input);
-          if (back.ok && !same(back.value, read.value)) {
-            mirrored = false;
+          if (!encode.fn) continue;
+          const written = await run(id, "encoding", encode.fn, read.value);
+          if (!written.ok) {
+            known.miss("ROUND_TRIP", sourceName, half, `${id} <- ${printed}: decodes to ${show(read.value)}, which encode refuses - ${written.why}`, printed);
+            continue;
+          }
+          if (mirrorDecode.fn) {
+            const mirror = await run(id, "decoding through the reverse", mirrorDecode.fn, read.value);
+            if (mirror.ok && !(await alike(mirror.value, written.value))) {
+              mirrored = false;
+              known.miss(
+                "REVERSE",
+                sourceName,
+                half,
+                `${id} <- ${printed}: encodes ${show(read.value)} to ${show(written.value)}, its reverse decodes it to ${show(mirror.value)}`,
+                printed,
+              );
+            }
+          }
+          const again = await run(id, "decoding what it encoded", decode.fn, written.value);
+          if (!again.ok || !(await alike(again.value, read.value))) {
             known.miss(
-              "REVERSE",
+              "ROUND_TRIP",
               sourceName,
               half,
-              `${id} <- ${printed}: decodes to ${show(read.value)}, its reverse encodes to ${show(back.value)}`,
+              `${id} <- ${printed}: decodes to ${show(read.value)}, encodes to ${show(written.value)}, which ${again.ok ? `decodes to ${show(again.value)}` : `refuses - ${again.why}`}`,
               printed,
             );
+          } else {
+            known.hold("ROUND_TRIP", sourceName, half, `${id} <- ${printed}`, printed);
           }
         }
-
-        if (!encode.fn) continue;
-        const written = run(id, "encoding", encode.fn, read.value);
-        if (!written.ok) {
-          known.miss("ROUND_TRIP", sourceName, half, `${id} <- ${printed}: decodes to ${show(read.value)}, which encode refuses - ${written.why}`, printed);
-          continue;
-        }
-        if (mirrorDecode.fn) {
-          const mirror = run(id, "decoding through the reverse", mirrorDecode.fn, read.value);
-          if (mirror.ok && !same(mirror.value, written.value)) {
-            mirrored = false;
-            known.miss(
-              "REVERSE",
-              sourceName,
-              half,
-              `${id} <- ${printed}: encodes ${show(read.value)} to ${show(written.value)}, its reverse decodes it to ${show(mirror.value)}`,
-              printed,
-            );
-          }
-        }
-        const again = run(id, "decoding what it encoded", decode.fn, written.value);
-        if (!again.ok || !same(again.value, read.value)) {
-          known.miss(
-            "ROUND_TRIP",
-            sourceName,
-            half,
-            `${id} <- ${printed}: decodes to ${show(read.value)}, encodes to ${show(written.value)}, which ${again.ok ? `decodes to ${show(again.value)}` : `refuses - ${again.why}`}`,
-            printed,
-          );
-        } else {
-          known.hold("ROUND_TRIP", sourceName, half, `${id} <- ${printed}`, printed);
-        }
+        if (mirrored) known.hold("REVERSE", sourceName, half, id);
       }
-      if (mirrored) known.hold("REVERSE", sourceName, half, id);
     }
   }
-}
 
-known.finish(
-  `${links} links built of ${Object.keys(SOURCES).length}x${Object.keys(TARGETS).length}x${SLOTS.length} (${unbuilt} refused when built, ${oneDirection} refusing to decode), ${values} values read`,
-);
+  known.finish(
+    `${links} links built of ${Object.keys(SOURCES).length}x${Object.keys(TARGETS).length}x${SLOTS.length} (${unbuilt} refused when built, ${oneDirection} refusing to decode), ${values} values read`,
+  );
+};
+
+void main();
