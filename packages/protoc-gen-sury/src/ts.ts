@@ -1,6 +1,6 @@
 import { type Element, type Enum, type Field, type File, type Message, type Oneof, nestedTypes, type Scalar } from "./model";
 import { namesOf } from "./names";
-import { type Options, componentsOf, importPath, isStruct, jsdoc, outputPath, wrapperScalar, wktImport } from "./shared";
+import { type Options, componentsOf, messageOf, importPath, isStruct, jsdoc, outputPath, wrapperScalar, wktImport } from "./shared";
 
 const is64 = (scalar: Scalar): boolean => scalar.includes("64");
 
@@ -117,7 +117,7 @@ export const emitTs = (file: File, options: Options, generating: Set<string>, ve
     if (element.kind === "scalar") return scalarType(element.scalar, field.longAsString && field.mapKey === undefined);
     if (element.kind === "enum") return sym.ref(element.enum, "shape");
     if (isStruct(field, element)) return sym.jsonObject();
-    return sym.ref(element.message, "shape");
+    return sym.ref(messageOf(element), "shape");
   };
 
   const fieldType = (field: Field): string => {
@@ -141,7 +141,7 @@ export const emitTs = (file: File, options: Options, generating: Set<string>, ve
     }
     if (element.kind === "enum") return sym.ref(element.enum, "schema");
     if (isStruct(field, element)) return `${S}.record(${S}.json)`;
-    return messageRef(element.message, scope);
+    return messageRef(messageOf(element), scope);
   };
 
   const wireType = (field: Field, element: Element): string =>
@@ -265,7 +265,7 @@ export const emitTs = (file: File, options: Options, generating: Set<string>, ve
 // The field as protobuf-es writes it after `@generated from field:`.
 export const fieldDeclaration = (field: Field): string => {
   const typeName = (element: Element): string =>
-    element.kind === "scalar" ? element.scalar : element.kind === "enum" ? element.enum.typeName : element.message.typeName;
+    element.kind === "scalar" ? element.scalar : element.kind === "enum" ? element.enum.typeName : messageOf(element).typeName;
   const opts: string[] = [];
   if (field.list && field.proto.options?.packed === false) opts.push("packed = false");
   if (field.longAsString) opts.push("jstype = JS_STRING");

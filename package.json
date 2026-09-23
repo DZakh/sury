@@ -8,6 +8,8 @@
     "compliance": "pnpm --filter=sury build:entry && tsx packages/json-schema-test-suite/cli.ts",
     "protobuf:compliance": "pnpm --filter=sury build:entry && tsx packages/protobuf-test-suite/cli.ts",
     "protobuf:conformance": "pnpm --filter=sury build:entry && tsx packages/protobuf-conformance/cli.ts",
+    "protobuf:conformance:generated": "pnpm --filter=sury build:entry && tsx packages/protobuf-conformance/cli.ts generated",
+    "protobuf:codegen": "pnpm --filter=sury build:entry && tsx packages/protoc-gen-sury/test/cli.ts",
     "benchmarks": "pnpm --filter=sury build:entry && tsx packages/benchmarks/cli.ts",
     "test": "pnpm --filter=sury test && pnpm --filter=e2e test",
     "build": "pnpm --filter=sury build",

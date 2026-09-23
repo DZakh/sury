@@ -92,7 +92,9 @@ export type Oneof = { kind: "oneof"; name: string; localName: string; fields: Fi
 export type Element =
   | { kind: "scalar"; scalar: Scalar }
   | { kind: "enum"; enum: Enum }
-  | { kind: "message"; message: Message };
+  | { kind: "message"; message: Message }
+  // Resolved in every file of a request, refused only in one being generated.
+  | { kind: "unsupported"; reason: string };
 
 export type Field = {
   kind: "field";
@@ -231,7 +233,7 @@ export const buildRegistry = (protos: FileDescriptorProto[]): Registry => {
   const elementOf = (proto: FieldDescriptorProto, where: string): Element => {
     const scalar = scalars[proto.type];
     if (scalar !== undefined) return { kind: "scalar", scalar };
-    if (proto.type === 10) throw new Error(`${where} is a group, which protoc-gen-sury does not generate`);
+    if (proto.type === 10) return { kind: "unsupported", reason: `${where} is a group, which protoc-gen-sury does not generate` };
     const type = registry.types.get(proto.typeName.replace(/^\./, ""));
     if (type === undefined) throw new Error(`${where} refers to ${proto.typeName}, which no file in the request declares`);
     return type.kind === "enum" ? { kind: "enum", enum: type } : { kind: "message", message: type };
@@ -247,7 +249,7 @@ export const buildRegistry = (protos: FileDescriptorProto[]): Registry => {
     }));
     proto.field.forEach((fieldProto, idx) => {
       const where = `field ${desc.typeName}.${fieldProto.name}`;
-      if (fieldProto.label === 2) throw new Error(`${where} is required, which proto3 has no such thing as`);
+
       const oneof =
         fieldProto.oneofIndex !== undefined && !fieldProto.proto3Optional ? oneofs[fieldProto.oneofIndex] : undefined;
       let mapKey: Scalar | undefined;

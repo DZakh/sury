@@ -129,6 +129,13 @@ export const componentsOf = (messages: Message[]): Message[][] => {
   return out;
 };
 
+// The message an element names; plugin.ts refuses an unsupported one before
+// any emitter runs, so reaching one here is a bug.
+export const messageOf = (element: Element): Message => {
+  if (element.kind !== "message") throw new Error(`expected a message, got ${element.kind}`);
+  return element.message;
+};
+
 export const jsdoc = (text: string | undefined, tag: string, deprecated: boolean, indent: string): string => {
   const lines: string[] = [];
   if (text !== undefined && text.trim() !== "") {

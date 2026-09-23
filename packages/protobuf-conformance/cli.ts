@@ -234,6 +234,46 @@ if (drift.length) {
   fail(`testMessages.ts has drifted from the pinned .proto\n\n${drift.join("\n")}`);
 }
 
+if (cmd === "generated" || cmd === "update-generated") {
+  // The same suite against protoc-gen-sury's output for the pinned .proto
+  // instead of testMessages.ts: every field declared, the five above included.
+  const proto = join(upstream(), "proto");
+  const buf = join(PKG_DIR, "../protoc-gen-sury/node_modules/.bin/buf");
+  writeFileSync(join(proto, "buf.yaml"), "version: v2\n");
+  const set = join(PKG_DIR, "output_dir", "set.binpb");
+  mkdirSync(dirname(set), { recursive: true });
+  const built = spawnSync(buf, ["build", proto, "-o", set], { encoding: "utf8" });
+  if (built.status !== 0) fail(`buf build failed:\n${built.stderr}`);
+  const { decodeFileDescriptorSet } = await import("../protoc-gen-sury/src/descriptor");
+  const { generate } = await import("../protoc-gen-sury/src/plugin");
+  const file = "google/protobuf/test_messages_proto3.proto";
+  const response = generate(
+    { fileToGenerate: [file], protoFile: decodeFileDescriptorSet(new Uint8Array(readFileSync(set))).file },
+    "",
+  );
+  if (response.error !== undefined) fail(`protoc-gen-sury: ${response.error}`);
+  const out = join(PKG_DIR, "output_dir", "generated", response.file[0]!.name);
+  mkdirSync(dirname(out), { recursive: true });
+  writeFileSync(out, response.file[0]!.content);
+  process.env.SURY_CONFORMANCE_GENERATED = out;
+  const result = run();
+  const score = toScore(result);
+  const golden = join(PKG_DIR, "goldens", "generated.json");
+  if (cmd === "update-generated") {
+    writeFileSync(golden, serialize(score));
+    console.log(`wrote ${golden}  ${score.passed}/${score.attempted} (${score.rate})`);
+    process.exit(0);
+  }
+  if (result.unexpected.length) {
+    fail(`protoc-gen-sury's schema: ${result.unexpected.length} unexpected failure(s)\n\n${result.unexpected.map((n) => `  ${n}`).join("\n")}`);
+  }
+  if (!existsSync(golden) || readFileSync(golden, "utf8") !== serialize(score)) {
+    fail(`generated-schema golden drifted. Run \`pnpm conformance update-generated\` if the new score is intended.\n\n${serialize(score)}`);
+  }
+  console.log(green(`${summary(score)} (protoc-gen-sury's schema)`));
+  process.exit(0);
+}
+
 const result = run();
 const score = toScore(result);
 

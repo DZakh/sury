@@ -1,7 +1,7 @@
 import type { Element, Enum, Field, File, Message, Oneof, Scalar } from "./model";
 import { nestedTypes } from "./model";
 import { namesOf } from "./names";
-import { type Options, componentsOf, isStruct, wktFiles, wrapperScalar } from "./shared";
+import { type Options, componentsOf, messageOf, isStruct, wktFiles, wrapperScalar } from "./shared";
 
 const keywords = new Set([
   "and", "as", "assert", "async", "await", "catch", "constraint", "downto", "else", "exception", "external",
@@ -119,7 +119,7 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
     if (element.kind === "scalar") return scalarType(element.scalar, field.longAsString && field.mapKey === undefined);
     if (element.kind === "enum") return typeRef(element.enum);
     if (isStruct(field, element)) return "dict<JSON.t>";
-    return typeRef(element.message);
+    return typeRef(messageOf(element));
   };
 
   const oneofTypeName = (message: Message, oneof: Oneof): string =>
@@ -160,7 +160,7 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
     if (element.kind === "scalar") return scalarSchema(element.scalar, field.longAsString && field.mapKey === undefined);
     if (element.kind === "enum") return `${ref(element.enum)}.schema`;
     if (isStruct(field, element)) return `${S}dict(${S}json)`;
-    return messageRef(element.message, scope);
+    return messageRef(messageOf(element), scope);
   };
 
   const fieldSchema = (field: Field, scope: Scope): string => {

@@ -9,7 +9,14 @@ pnpm protobuf:conformance          # check against goldens/ (what CI runs)
 pnpm protobuf:conformance update   # re-baseline after a change
 pnpm protobuf:conformance report   # the runner's full log, every failure named
 pnpm protobuf:conformance schema   # diff testMessages.ts against the pinned .proto
+pnpm protobuf:conformance:generated  # the same suite over protoc-gen-sury's schema
 ```
+
+`generated` runs the suite against what protoc-gen-sury writes for the pinned
+`test_messages_proto3.proto` instead of `testMessages.ts`, and holds it to
+`goldens/generated.json`. It declares every field, the five `testMessages.ts`
+leaves out included, so it is the generator's end-to-end check: a field it
+types wrong is a case that fails.
 
 ## What this is, and what the other suite is
 

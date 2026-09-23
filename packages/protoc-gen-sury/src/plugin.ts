@@ -25,6 +25,16 @@ export const generate = (request: CodeGeneratorRequest, version: string): CodeGe
       })) {
         throw new Error(`${name} declares an extension, which protoc-gen-sury does not generate`);
       }
+      for (const desc of nestedTypes(file)) {
+        if (desc.kind !== "message") continue;
+        for (const field of desc.fields) {
+          if (field.element.kind === "unsupported") throw new Error(field.element.reason);
+          const type = field.element.kind === "message" ? field.element.message : field.element.kind === "enum" ? field.element.enum : undefined;
+          if (type !== undefined && type.file.proto.syntax !== "proto3") {
+            throw new Error(`field ${desc.typeName}.${field.name} refers to ${type.typeName}, from ${type.file.proto.name}, which is ${type.file.proto.syntax || "proto2"}`);
+          }
+        }
+      }
       if (!options.keepEmptyFiles && [...nestedTypes(file)].length === 0) continue;
       if (options.targets.has("ts")) files.push(emitTs(file, options, generating, version));
       if (options.targets.has("res")) files.push(emitRes(file, options, generating, version));

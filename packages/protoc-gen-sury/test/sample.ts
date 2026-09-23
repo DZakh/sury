@@ -2,7 +2,7 @@
 // protobuf-es and the generated schemas hold it: the one the parity gate hands
 // to each side. Seeded, so a finding reproduces.
 import type { Element, Field, Message, Scalar } from "../src/model";
-import { isStruct, wrapperScalar } from "../src/shared";
+import { isStruct, messageOf, wrapperScalar } from "../src/shared";
 
 export type Rng = () => number;
 
@@ -71,7 +71,7 @@ export const sampleMessage = (rng: Rng, message: Message, depth = 0): Record<str
     if (el.kind === "scalar") return scalar(rng, el.scalar, field.longAsString && field.mapKey === undefined);
     if (el.kind === "enum") return pick(rng, el.enum.values).number;
     if (isStruct(field, el)) return jsonObject(rng, 0);
-    return sampleMessage(rng, el.message, depth + 1);
+    return sampleMessage(rng, messageOf(el), depth + 1);
   };
   const deep = depth >= 3;
   for (const member of message.members) {
