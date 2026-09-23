@@ -273,6 +273,21 @@ protobuf-decode:
     const bytes = new Uint8Array([8, 150, 1, 18, 3, 65, 100, 97, 26, 3, 1, 0, 4])
   run: decode(bytes)
 
+protobuf-decode-packed:
+  prepare: |
+    const Feature = S.schema({
+      geometry: S.array(S.integer).with(S.protobufField, { number: 4, type: "uint32" }),
+      deltas: S.array(S.int32).with(S.protobufField, { number: 5, type: "sint32" }),
+    })
+    const decode = S.decodeOrThrow(S.protobuf, Feature)
+    const bytes = S.decodeOrThrow(Feature, S.protobuf)({
+      geometry: Array.from({ length: 300 }, (_, i) => (i * 17) & 0x3fff),
+      deltas: Array.from({ length: 300 }, (_, i) => i - 150),
+    }).slice()
+  # A vector tile's geometry: packed varints of one and two bytes, the loop a
+  # packed reader spends its time in.
+  run: decode(bytes)
+
 parse-or-throw-invalid:
   prepare: |
     const schema = S.schema({ id: S.string, age: S.number });

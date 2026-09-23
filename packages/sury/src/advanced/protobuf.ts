@@ -750,17 +750,22 @@ export class Reader {
   // A packed varint field read in one method per kind: the loop keeps `pos`
   // in a local where generated code would pay a property read and write on
   // the reader per element, and each kind owns its `push` site so the
-  // arrays it fills stay monomorphic. A multi-byte element takes the
-  // ordinary reader path.
+  // arrays it fills stay monomorphic. One and two bytes are read in the loop,
+  // which is every value under 16384 (a tile's geometry); a longer element
+  // takes the ordinary reader path.
   u32s(out: number[]): void {
     const buf = this.buf;
     const limit = this.limit;
     let pos = this.pos;
     while (pos < limit) {
       const byte = buf[pos]!;
+      let next: number;
       if (byte < 128) {
         pos++;
         out.push(byte);
+      } else if (pos + 1 < limit && (next = buf[pos + 1]!) < 128) {
+        pos += 2;
+        out.push((byte & 127) | (next << 7));
       } else {
         this.pos = pos;
         out.push(this.varint32());
@@ -775,9 +780,13 @@ export class Reader {
     let pos = this.pos;
     while (pos < limit) {
       const byte = buf[pos]!;
+      let next: number;
       if (byte < 128) {
         pos++;
         out.push(byte);
+      } else if (pos + 1 < limit && (next = buf[pos + 1]!) < 128) {
+        pos += 2;
+        out.push((byte & 127) | (next << 7));
       } else {
         this.pos = pos;
         out.push(this.varint32() | 0);
@@ -792,8 +801,12 @@ export class Reader {
     let pos = this.pos;
     while (pos < limit) {
       let value = buf[pos]!;
+      let next: number;
       if (value < 128) pos++;
-      else {
+      else if (pos + 1 < limit && (next = buf[pos + 1]!) < 128) {
+        pos += 2;
+        value = (value & 127) | (next << 7);
+      } else {
         this.pos = pos;
         value = this.varint32();
         pos = this.pos;

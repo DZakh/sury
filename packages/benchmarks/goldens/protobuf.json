@@ -22,7 +22,7 @@
       {
         "label": "Encode and decode",
         "cells": [
-          25212,
+          25242,
           34928,
           13578,
           17946,
@@ -35,7 +35,7 @@
         "label": "Decode only",
         "note": "what a client that never sends the message gets back from tree-shaking",
         "cells": [
-          25195,
+          25229,
           null,
           13566,
           15469,
