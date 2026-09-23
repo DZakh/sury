@@ -74,14 +74,10 @@ const SLOTS = ["", "unpack", "pack"] as const;
 const ONE_WAY: Record<string, string> = {
   "optional-string/json-string-or-number:pack":
     "the source's absent arm has nowhere to go in a target with none, so decode refuses while encode, which never writes one, compiles; without the slot both directions stop earlier, at the union question",
-  "literal/doc":
-    "FIXME: no conversion reads an object out of a constant, yet encode compiles into a check no object passes - `codec-literal-object-one-way`",
   "env/json":
     "`S.json` is the document, not a rendering of one, so an entry's text has no decoder into it; encode passes a JSON value that already is a string straight through as the entry",
   "env/string":
     "a bare string target must say what a blank entry means, with `S.nonEmpty`, `S.minLength(0)` or `S.optional`; an encode writes no blank entry, so it has no question to ask",
-  "env/bytes":
-    "FIXME: the entry converter has no bytes reading, while `S.uint8Array`'s own encoder writes UTF-8 text - `codec-env-uint8array-one-way`",
   "json-string/optional-json-string":
     "encode meets an absent arm the JSON string has no form for, and the union compiler asks instead of guessing (CODEC_SPEC.md rule 2); decode never produces that arm",
   "json-string/optional-json-string-doc": "the same, with a declared payload",

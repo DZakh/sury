@@ -23,10 +23,4 @@ operations:
     creationError: "SuryError: Can't decode \"x\" -> { a: number; }. Define custom codec with S.to"
   decode: eq-to-parse
   encode:
-    # FIXME: no conversion reads an object out of a constant, so decode refuses,
-    # yet encode compiles into a check no object can pass. It should refuse too.
-    expression: i=>{try{i==="x"||e[0](i);return i}catch(v0){e[1](v0)}}
-    examples:
-      no-object-is-the-constant:
-        input: "{ a: 1 }"
-        error: 'Expected "x", received { a: 1; }'
+    creationError: "SuryError: Can't decode { a: number; } -> \"x\". Define custom codec with S.to"

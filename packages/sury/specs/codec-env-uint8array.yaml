@@ -19,11 +19,30 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    creationError: "SuryError: Can't decode env -> Uint8Array. Define custom codec with S.to"
-  decode: eq-to-parse
+    expression: i=>{try{typeof i==="string"||e[1](i);return e[0](i)}catch(v0){e[2](v0)}}
+    examples:
+      utf8-text:
+        input: '"hi"'
+        output: new Uint8Array([104, 105])
+      non-ascii:
+        input: '"€"'
+        output: new Uint8Array([226, 130, 172])
+      unset:
+        input: undefined
+        error: Expected env, received undefined
+      blank:
+        input: '""'
+        output: new Uint8Array([])
+  decode:
+    expression: i=>{try{i!==void 0||e[1](i);return e[0](i)}catch(v0){e[2](v0)}}
+    examples:
+      utf8-text:
+        input: '"hi"'
+        output: new Uint8Array([104, 105])
+      unset:
+        input: undefined
+        error: Expected Uint8Array, received undefined
   encode:
-    # FIXME: decode has no bytes reading for an entry, so this link only encodes.
-    # `S.string.with(S.to, S.uint8Array)` is the two-way spelling.
     expression: i=>{try{let v0=e[0].decode(i);return v0}catch(v1){e[1](v1)}}
     examples:
       utf8-text:

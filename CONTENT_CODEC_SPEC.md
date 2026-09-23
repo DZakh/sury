@@ -452,7 +452,7 @@ ASCII-only fixtures are what hid the corruption above.
 
 | `codec-uint8array-optional-jsonstring-payload-unsupported`, `codec-optional-string-optional-jsonstring-payload-ambiguous` | a union target stops a carrier's reading and a union source's alike: neither direction compiles, where `reverse` once lifted the arm's reading and compiled an encode alone |
 | `codec-env-jsonstring-or-number` | an entry's text reaches a union's JSON arm as a representation, where it used to be escaped as a value |
-| `codec-env-uint8array-one-way`, `codec-literal-object-one-way` | one-way links `fuzz:content` found that predate this axis, each with a `FIXME` |
+| `codec-env-uint8array`, `codec-literal-object-unsupported` | one-way links `fuzz:content` found that predate this axis: an entry now reads bytes from its text, and a constant refuses an object in both directions |
 
 `pnpm --filter=sury fuzz:content` crosses every source kind with every target
 shape and slot, and holds the properties above for all of them at once: both

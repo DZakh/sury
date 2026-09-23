@@ -218,7 +218,11 @@ export const convertTextEntry = (
     }
     return B_unsupportedDecode(input, input.s, present);
   }
-  if ((flag & (64 | 128 | 512 | 8192)) && present.class !== Date) {
+  // An entry is text, so an instance reads it only where text converts to one:
+  // a `Date`, or bytes taken as its UTF-8, as `S.string.with(S.to,
+  // S.uint8Array)` does. A `File` stays the form codec's, which reads it as an
+  // entry of its own.
+  if ((flag & (64 | 128 | 512 | 8192)) && present.class !== Date && present.class !== Uint8Array) {
     return B_unsupportedDecode(input, input.s, present);
   }
   // A source that is already text (`S.env`) keeps its type instead of being
