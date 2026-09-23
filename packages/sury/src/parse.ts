@@ -84,15 +84,22 @@ export const parse = (input: Val): Val => {
       const operationInput = B_scope(loopInput);
       const operationOutput = parse(operationInput);
       const operationCode = B_merge(operationOutput);
-      result =
-        operationInput.i !== operationOutput.i || operationCode !== ""
-          ? B_next(
-              loopInput,
-              `${operationInputVar}.then(${operationInputVar}=>{${operationCode}return ${operationOutput.i}})`,
-              operationOutput.s,
-              operationOutput.e,
-            )
-          : B_refine(loopInput, operationOutput.s, U, operationOutput.e);
+      if (operationInput.i !== operationOutput.i || operationCode !== "") {
+        // Claims the coder's `.catch` (see `rj`): the replace is the check that
+        // `cp` still carries it.
+        const rj = loopInput.rj;
+        const cp = rj && loopInput.cp.replace(`.catch(${rj})`, "");
+        const claimed = cp && cp !== loopInput.cp;
+        if (claimed) loopInput.cp = cp;
+        result = B_next(
+          loopInput,
+          `${operationInputVar}.then(${operationInputVar}=>{${operationCode}return ${operationOutput.i}}${
+            claimed ? `,${rj}` : ""
+          })`,
+          operationOutput.s,
+          operationOutput.e,
+        );
+      } else result = B_refine(loopInput, operationOutput.s, U, operationOutput.e);
       result.f |= 1;
       result.io = true;
     } else if (loopInput.io) {
