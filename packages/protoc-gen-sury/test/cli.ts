@@ -240,6 +240,64 @@ type Equal<A, B> = (<V>() => V extends A ? 1 : 2) extends <V>() => V extends B ?
     if (want !== got) fail(`reprint: ${message.typeName}\n  declared ${want}\n  printed  ${got}`);
   }
 
+  // ── tree-shaking ─────────────────────────────────────────────────────────
+  // Rollup 4, which honors `@__NO_SIDE_EFFECTS__` across the package boundary
+  // (esbuild does only within a file): importing one message keeps no other.
+  const shake = join(root, "test/.shake");
+  rmSync(shake, { recursive: true, force: true });
+  const { transform } = await import("esbuild");
+  const { rollup } = await import("rollup");
+  const { nodeResolve } = await import("@rollup/plugin-node-resolve");
+  for (const proto of corpus) {
+    const name = `${registry.files.get(proto.name)!.name}_pb`;
+    const { code } = await transform(readFileSync(join(root, "test/generated/ts", `${name}.ts`), "utf8"), { loader: "ts", format: "esm" });
+    mkdirSync(dirname(join(shake, `${name}.js`)), { recursive: true });
+    writeFileSync(join(shake, `${name}.js`), code.replace(/from "(\.\.?\/[^"]+)"/g, 'from "$1.js"'));
+  }
+  const bundled = async (entry: string): Promise<string> => {
+    writeFileSync(join(shake, "entry.js"), entry);
+    const bundle = await rollup({
+      input: join(shake, "entry.js"),
+      plugins: [nodeResolve({ rootDir: root })],
+      onwarn: (warning) => {
+        if (warning.code === "UNRESOLVED_IMPORT") throw new Error(warning.message);
+      },
+    });
+    const { output } = await bundle.generate({ format: "es" });
+    await bundle.close();
+    return output[0].code;
+  };
+  // Markers are text only the message they name emits: a string it passes, or
+  // one of its field labels.
+  const shakes = (label: string, code: string, kept: string[], dropped: string[]) => {
+    for (const marker of kept) if (!code.includes(marker)) fail(`tree-shaking: ${label} lost ${marker}`);
+    for (const marker of dropped) if (code.includes(marker)) fail(`tree-shaking: ${label} kept ${marker}`);
+  };
+  shakes(
+    "one generated message",
+    await bundled('import { EmptySchema } from "./example/v1/kitchen_sink_pb.js";\nconsole.log(EmptySchema);\n'),
+    ['"Empty"'],
+    ['"Scalars"', '"User"', '"WellKnown"', '"Node"', '"Branch"', '"Address"', '"sfixed64"', "boxedInOneof", "nanos"],
+  );
+  shakes(
+    "one well-known type",
+    await bundled('import { TimestampSchema } from "sury/wkt";\nconsole.log(TimestampSchema);\n'),
+    ['"Timestamp"', "seconds"],
+    ['"Duration"', '"Struct"', '"Value"', "typeUrl", "fileName", "responseStreaming", '"Int32Value"'],
+  );
+  shakes(
+    "one ReScript module",
+    await bundled(`import { Empty } from ${JSON.stringify(join(root, "test/generated/res/example/v1/Example_v1_kitchen_sink_pb.res.mjs"))};\nconsole.log(Empty.schema);\n`),
+    [],
+    ["firstName", "boxedInOneof", '"sfixed64"', '"Node"', '"Branch"', "nanos"],
+  );
+  shakes(
+    "one SuryProtobuf module",
+    await bundled('import { Timestamp } from "sury/src/SuryProtobuf.res.mjs";\nconsole.log(Timestamp.schema);\n'),
+    ["seconds", "nanos"],
+    ['"Struct"', '"Value"', "typeUrl", "fileName", "responseStreaming", '"Int32Value"'],
+  );
+
   console.log(`protoc-gen-sury: ${corpus.length} files, ${messages.length} messages, ${cases} value cases, ${printed.length} reprints`);
   if (byteDiffs) console.log(`  ${byteDiffs} cases wrote different bytes`);
 } finally {

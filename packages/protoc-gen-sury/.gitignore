@@ -1,4 +1,5 @@
 test/.es
+test/.shake
 test/types.generated.ts
 test/lib
 test/**/*.res.mjs

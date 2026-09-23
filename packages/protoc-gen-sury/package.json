@@ -21,6 +21,9 @@
     "@types/node": "20.19.41",
     "tsx": "4.22.4",
     "typescript": "5.8.3",
-    "rescript": "12.2.0"
+    "rescript": "12.2.0",
+    "esbuild": "0.28.1",
+    "rollup": "4.40.0",
+    "@rollup/plugin-node-resolve": "16.0.0"
   }
 }

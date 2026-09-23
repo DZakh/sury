@@ -55,7 +55,7 @@ export type Address = {
   country: string;
 };
 
-export const AddressSchema = S.meta(S.schemaOf<Address>()({
+export const AddressSchema = S.meta(/* @__PURE__ */ S.schemaOf<Address>()({
   street: S.protobufField(S.string, { number: 1, type: "string" }),
   city: S.protobufField(S.string, { number: 2, type: "string" }),
   country: S.protobufField(S.string, { number: 3, type: "string" }),

@@ -217,7 +217,7 @@ export type Scalars = {
   asString: string;
 };
 
-export const ScalarsSchema = S.meta(S.schemaOf<Scalars>()({
+export const ScalarsSchema = S.meta(/* @__PURE__ */ S.schemaOf<Scalars>()({
   double: S.protobufField($number, { number: 1, type: "double" }),
   float: S.protobufField($number, { number: 2, type: "float" }),
   int32: S.protobufField(S.int32, { number: 3, type: "int32" }),
@@ -253,7 +253,7 @@ export type User_Mailbox = {
   address?: Address;
 };
 
-export const User_MailboxSchema = S.meta(S.schemaOf<User_Mailbox>()({
+export const User_MailboxSchema = S.meta(/* @__PURE__ */ S.schemaOf<User_Mailbox>()({
   name: S.protobufField(S.string, { number: 1, type: "string" }),
   address: S.protobufField(S.optional(AddressSchema), { number: 2, type: "message" }),
 }), { name: "User_Mailbox" });
@@ -346,7 +346,7 @@ export type User = {
   byId: { [key: string]: string };
 };
 
-export const UserSchema = S.meta(S.schemaOf<User>()({
+export const UserSchema = S.meta(/* @__PURE__ */ S.schemaOf<User>()({
   id: S.protobufField(S.int32, { number: 1, type: "int32" }),
   firstName: S.protobufField(S.string, { number: 2, type: "string" }),
   tags: S.protobufField(S.array(S.string), { number: 3, type: "string" }),
@@ -420,7 +420,7 @@ export type WellKnown = {
   boxedList: Int32Value[];
 };
 
-export const WellKnownSchema = S.meta(S.schemaOf<WellKnown>()({
+export const WellKnownSchema = S.meta(/* @__PURE__ */ S.schemaOf<WellKnown>()({
   at: S.protobufField(S.optional(TimestampSchema), { number: 1, type: "message" }),
   took: S.protobufField(S.optional(DurationSchema), { number: 2, type: "message" }),
   label: S.protobufField(S.optional(S.string), { number: 3, type: "google.protobuf.StringValue" }),
@@ -551,7 +551,7 @@ export type Reserved = {
   enum: Reserved_Enum;
 };
 
-export const ReservedSchema = S.meta(S.schemaOf<Reserved>()({
+export const ReservedSchema = S.meta(/* @__PURE__ */ S.schemaOf<Reserved>()({
   constructor$: S.protobufField(S.string, { number: 1, type: "string" }),
   toString$: S.protobufField(S.string, { number: 2, type: "string" }),
   valueOf$: S.protobufField(S.int32, { number: 3, type: "int32" }),
@@ -563,7 +563,7 @@ export const ReservedSchema = S.meta(S.schemaOf<Reserved>()({
  */
 export type Empty = {};
 
-export const EmptySchema = S.meta(S.schemaOf<Empty>()({}), { name: "Empty" });
+export const EmptySchema = S.meta(/* @__PURE__ */ S.schemaOf<Empty>()({}), { name: "Empty" });
 
 /**
  * @generated from message example.v1.Uses
@@ -595,7 +595,7 @@ export type Uses = {
   aliases: { [key: string]: Aliased };
 };
 
-export const UsesSchema = S.meta(S.schemaOf<Uses>()({
+export const UsesSchema = S.meta(/* @__PURE__ */ S.schemaOf<Uses>()({
   mixed: S.protobufField(MixedSchema, { number: 1, type: "enum" }),
   aliased: S.protobufField(AliasedSchema, { number: 2, type: "enum" }),
   lonely: S.protobufField(LonelySchema, { number: 3, type: "enum" }),

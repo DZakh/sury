@@ -248,7 +248,9 @@ export const emitTs = (file: File, options: Options, generating: Set<string>, ve
         out.push(`export const ${schema} = ${recursiveExpr(message, scope)};\n`);
       } else {
         const body = objectBody(message, { bindings: new Map(), depth: 0 }, "");
-        out.push(`export const ${schema} = ${S}.meta(${S}.schemaOf<${shape}>()(${body}), { name: ${JSON.stringify(shape)} });\n`);
+        // `S.schemaOf` is annotated, the function it returns can't be: without
+        // this, a bundler keeps every message of a file once one is imported.
+        out.push(`export const ${schema} = ${S}.meta(/* @__PURE__ */ ${S}.schemaOf<${shape}>()(${body}), { name: ${JSON.stringify(shape)} });\n`);
       }
     }
   }

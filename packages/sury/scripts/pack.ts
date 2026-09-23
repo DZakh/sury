@@ -142,6 +142,63 @@ async function resolveRescriptRuntime(
   await bundle.close();
 }
 
+// protoc-gen-sury, the plugin buf and protoc run, bundled into one file that
+// imports the library through "sury": the installed package's own entry, so the
+// generator that wrote a schema is always the runtime that runs it.
+async function buildProtocGen(): Promise<void> {
+  await build({
+    entryPoints: [path.join(repoRootPath, "packages/protoc-gen-sury/src/cli.ts")],
+    outfile: path.join(artifactsPath, "bin/protoc-gen-sury/index.mjs"),
+    bundle: true,
+    write: true,
+    format: "esm",
+    target: "node18",
+    platform: "node",
+    external: ["sury"],
+    banner: { js: "#!/usr/bin/env node\n// Generated from packages/protoc-gen-sury by scripts/pack.ts - do not edit." },
+    logLevel: "silent",
+  });
+  fs.chmodSync(path.join(artifactsPath, "bin/protoc-gen-sury/index.mjs"), 0o755);
+}
+
+// sury/wkt's declarations, emitted from the generated sources next to where they
+// sat, before stripSources removes the sources themselves.
+function emitWktDeclarations(): void {
+  execaSync(
+    path.join(projectPath, "node_modules/.bin/tsc"),
+    [
+      path.join(artifactsPath, "src/wkt/index.ts"),
+      "--declaration",
+      "--emitDeclarationOnly",
+      "--skipLibCheck",
+      "--strict",
+      "--target", "es2020",
+      "--module", "nodenext",
+      "--moduleResolution", "nodenext",
+      "--rootDir", path.join(artifactsPath, "src/wkt"),
+      "--outDir", path.join(artifactsPath, "src/wkt"),
+    ],
+    { cwd: artifactsPath, stdio: "inherit" }
+  );
+}
+
+// SuryProtobuf's CJS twin, for the same consumers as S.res.js. It shares S
+// rather than carrying its own: `./S.res.mjs` stays external and points at the
+// CJS S.res.js.
+async function resolveSuryProtobuf(): Promise<void> {
+  const bundle = await rollup({
+    input: path.join(artifactsPath, "src/SuryProtobuf.res.mjs"),
+    external: ["sury", "./S.res.mjs"],
+  });
+  await bundle.write({
+    file: path.join(artifactsPath, "src/SuryProtobuf.res.js"),
+    format: "cjs",
+    exports: "named",
+    paths: { "./S.res.mjs": "./S.res.js" },
+  });
+  await bundle.close();
+}
+
 async function pack(): Promise<void> {
   if (fs.existsSync(artifactsPath)) {
     fs.rmSync(artifactsPath, { recursive: true, force: true });
@@ -178,6 +235,12 @@ async function pack(): Promise<void> {
   // will use sury without running a compiler (rescript-stdlib-vendorer)
   await resolveRescriptRuntime("es", "src/S.res.mjs", "src/S.res.mjs");
   await resolveRescriptRuntime("cjs", "src/S.res.mjs", "src/S.res.js");
+  await resolveSuryProtobuf();
+
+  await buildWkt("cjs", path.join(artifactsPath, "wkt.js"));
+  await buildWkt("esm", path.join(artifactsPath, "wkt.mjs"));
+  emitWktDeclarations();
+  await buildProtocGen();
 
   stripSources(path.join(artifactsPath, "src"));
 
@@ -201,11 +264,17 @@ async function pack(): Promise<void> {
         import: { types: "./index.d.mts", default: "./index.mjs" },
         require: { types: "./index.d.ts", default: "./index.js" },
       },
+      "./wkt": {
+        types: "./src/wkt/index.d.ts",
+        import: "./wkt.mjs",
+        require: "./wkt.js",
+      },
       "./src/*": "./src/*",
       "./S.gen.js": { types: "./src/S.gen.d.ts" },
       "./package.json": "./package.json",
     };
-    pkg.files = ["index.mjs", "index.js", "index.d.ts", "index.d.mts", "src", "rescript.json", "docs"];
+    pkg.files = ["index.mjs", "index.js", "index.d.ts", "index.d.mts", "wkt.mjs", "wkt.js", "bin", "src", "rescript.json", "docs"];
+    pkg.bin = { "protoc-gen-sury": "./bin/protoc-gen-sury/index.mjs" };
     // Nothing here builds the artifact, and dropping the scripts also drops the
     // prepublishOnly guard that makes publishing the dev package fail.
     delete pkg.devDependencies;

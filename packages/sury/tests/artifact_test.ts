@@ -16,6 +16,7 @@ const artifactsPath = fileURLToPath(new URL("../artifacts", import.meta.url));
 const FILES = [
   "LICENSE",
   "README.md",
+  "bin/protoc-gen-sury/index.mjs",
   "docs/js-usage.md",
   "docs/rescript-usage.md",
   "index.d.mts",
@@ -35,9 +36,25 @@ const FILES = [
   "src/S.res.mjs",
   "src/StandardSchema.res",
   "src/StandardSchema.res.mjs",
+  "src/SuryProtobuf.res",
+  "src/SuryProtobuf.res.js",
+  "src/SuryProtobuf.res.mjs",
   "src/types/json.d.ts",
   "src/types/jsonschema.d.ts",
   "src/types/standard.d.ts",
+  "src/wkt/google/protobuf/any_pb.d.ts",
+  "src/wkt/google/protobuf/api_pb.d.ts",
+  "src/wkt/google/protobuf/duration_pb.d.ts",
+  "src/wkt/google/protobuf/empty_pb.d.ts",
+  "src/wkt/google/protobuf/field_mask_pb.d.ts",
+  "src/wkt/google/protobuf/source_context_pb.d.ts",
+  "src/wkt/google/protobuf/struct_pb.d.ts",
+  "src/wkt/google/protobuf/timestamp_pb.d.ts",
+  "src/wkt/google/protobuf/type_pb.d.ts",
+  "src/wkt/google/protobuf/wrappers_pb.d.ts",
+  "src/wkt/index.d.ts",
+  "wkt.js",
+  "wkt.mjs",
 ];
 
 // jsr.json configures the JSR publish; it isn't part of the npm tarball.
