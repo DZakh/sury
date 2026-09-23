@@ -50,6 +50,19 @@ Don't reopen these without the maintainer.
    `int32`) and are out of scope.
 10. **Oneofs use the protobuf-es shape**, `{ case, value }`. This needs core
     work (C1 below).
+11. **proto3 only.** A proto2 or editions file is refused with a message naming
+    it. The plugin's own input (`descriptor.proto`, `plugin.proto`) is proto2,
+    so its schemas stay hand-written. proto2 `optional` is ordinary explicit
+    presence on the wire, which is all the generator reads. Gate G7 guards them
+    instead of a fixpoint.
+12. **Enums are a const object plus a union type, not a TS `enum`.** This is
+    protobuf-es's own `erasable_syntax` output, so it is still parity. G4
+    compares against `protoc-gen-es` run with `erasable_syntax=true`.
+13. **ReScript well-known types ship in `sury` as `S.Protobuf`**
+    (`S.Protobuf.Timestamp.t`, `S.Protobuf.Timestamp.schema`), inside `S.res`,
+    next to its existing nested modules (`S.Error`, `S.Metadata`). They are
+    conditional on gate G10. TS gets them from `sury/wkt`, the counterpart of
+    `@bufbuild/protobuf/wkt`.
 
 ## Parity with protobuf-es
 
@@ -65,7 +78,7 @@ enum shared-prefix rule. Gate G4 proves the port.
 | Nested type | `User_Address`, `User_AddressSchema` | same |
 | Property name | lowerCamelCase of the **proto name**, not `json_name` | same |
 | Reserved property | `$` suffix (`constructor$`, `toString$`, ...) | same |
-| Enum | TS `enum PhoneType { UNSPECIFIED = 0, ... }` + `PhoneTypeSchema`, shared `PHONE_TYPE_` prefix stripped | same |
+| Enum | TS `enum PhoneType { UNSPECIFIED = 0, ... }` + `PhoneTypeSchema`, shared `PHONE_TYPE_` prefix stripped; under `erasable_syntax=true` a `const` object `as const` + union type | the `erasable_syntax` form, always |
 | Implicit-presence scalar | `id: number` | same |
 | proto3 `optional` | `nickname?: string` | same |
 | Message field | `home?: Address` | same |
@@ -93,10 +106,9 @@ enum shared-prefix rule. Gate G4 proves the port.
   Values are plain literals. One DX difference follows: protobuf-es's `create`
   takes a partial init, while a Sury literal must spell every implicit-presence
   field. Note it in the docs.
-- **proto2 `[default = x]` is not applied.** The field stays `field?: T` (the
-  same type protobuf-es emits) and reads `undefined` when unset. Applying it
-  with `S.optional(T, x)` would change the type and make re-encoding write the
-  default explicitly, which breaks byte equality.
+- **No proto2, no editions.**
+- **No TS `enum`.** Always the erasable form, which protobuf-es offers behind
+  an option.
 - **`target` defaults to `ts`.**
 
 ## ReScript target
@@ -148,9 +160,13 @@ module User = {
   the module (`type t = a`).
 - **Reserved field names** get a `_` suffix (`type_`), the convention `S.res`
   already uses.
-- **Well-known types** are emitted on demand into the output directory
-  (`Google_protobuf_timestamp_pb.res`), not shipped in `sury`. CLAUDE.md says
-  `S.res` is the only ReScript module (open question Q2).
+- **Well-known types** come from `S.Protobuf` (decision 13), so every package
+  in a project shares one `S.Protobuf.Timestamp.t`, a nominal type in ReScript.
+  Generating them per project would give each package its own incompatible
+  copy. Keeping them inside `S.res` respects the rule that `S.res` is the only
+  ReScript module reaching the runtime. The generator emits the block at pack
+  time between marker comments in `S.res`, and gate G3 fails when the
+  checked-in block differs from what the generator emits.
 - ReScript top-level `let`s carry no pure annotation, so ReScript output shakes
   per file, not per message. Accepted.
 
@@ -172,10 +188,11 @@ import { type Address, AddressSchema } from "./address_pb";
 /**
  * @generated from enum example.v1.User.Kind
  */
-export enum User_Kind {
-  UNSPECIFIED = 0,
-  PRIMARY = 1,
-}
+export const User_Kind = {
+  UNSPECIFIED: 0,
+  PRIMARY: 1,
+} as const;
+export type User_Kind = (typeof User_Kind)[keyof typeof User_Kind];
 
 export const User_KindSchema = S.enum([User_Kind.UNSPECIFIED, User_Kind.PRIMARY]);
 
@@ -235,7 +252,7 @@ export const NodeSchema = S.recursive<Node>("Node", (self) =>
   for `Struct`/`Value`/`ListValue`. Known: two `S.recursive` with one name
   render as one JSON Schema `$defs` entry, the later winning (a FIXME from
   #447). That's harmless for identical duplicates, but pin it with a spec.
-- Declaration order: enums first (TS `enum` is a runtime object), then message
+- Declaration order: enums first (the const object is a runtime value), then message
   constants in topological order, each recursive component as a unit. protoc
   rejects circular imports, so every component lives in one file.
 
@@ -284,8 +301,8 @@ summary each time.
   listed as a parity gap.
 - **C4. Type tests.**
   - `S.schemaOf` inside an `S.recursive` definer
-  - `S.enum` over TS `enum` members, compared with `S.schemaOf` equality against
-    the enum type
+  - `S.enum` over the const object's members, compared with `S.schemaOf`
+    equality against the union type
   - the oneof type from C1.
 - **C5. ReScript representations on the wire.**
   - `@as(n)` constant variants through `S.enum` encode as the int
@@ -302,18 +319,10 @@ summary each time.
   - Hand-write `descriptor_pb.ts` and `plugin_pb.ts` for only the fields the
     generator reads, already in the output format and with the parity names
     (`FileDescriptorProtoSchema`, `CodeGeneratorRequestSchema`).
-  - Both source files are proto2. Their `optional` is ordinary explicit presence.
-    `UninterpretedOption.NamePart` has `required` fields, which the generator
-    never reads.
-- **proto2 subset.**
-  - `optional` becomes `S.optional`
-  - `required` becomes non-optional, with no check for a missing field
-  - `[default]` is ignored (see deviations)
-  - enums are closed
-  - groups and `extend` are refused with a message naming the file and field.
+  - Both source files are proto2, so these two stay hand-written for good
+    (decision 11). G7 checks them.
 - **Refused with a clear message:**
-  - editions files
-  - groups
+  - proto2 and editions files
   - extensions
   - anything that would emit a required singular message cycle (the assertion
     from decision 8).
@@ -336,7 +345,8 @@ summary each time.
   (`TimestampSchema`, `DurationSchema`, `Int32ValueSchema`, `StructSchema`...).
   Timestamp and Duration stay messages (`{ seconds: bigint; nanos: number }`),
   exactly as in protobuf-es. Its helper functions (`timestampDate`...) are out
-  of scope.
+  of scope. The same run emits the ReScript `S.Protobuf` block into `S.res`
+  (decision 13).
 
 ## Gates
 
@@ -362,22 +372,36 @@ Each gate is a script with a committed golden, run in CI.
 - **G6. Reprint.** `toProtoOrThrow` each message and compare field number, wire
   type and label with the source descriptor, reusing `checkSchema.ts`'s
   comparison.
-- **G7. Fixpoint.** The generator regenerates `descriptor_pb.ts` and
-  `plugin_pb.ts` from upstream byte-identically, then replaces the hand-written
-  ones.
+- **G7. Input parity.** Capture the `CodeGeneratorRequest` `buf generate`
+  sends for every corpus file. Decode each with the hand-written
+  `descriptor_pb.ts`/`plugin_pb.ts` and with protobuf-es's own descriptor
+  schemas, and deep-equal the fields the generator reads. This replaces a
+  fixpoint, which proto2 being out of scope rules out.
 - **G8. Conformance.** Generate `TestAllTypesProto3` from upstream and run
   `packages/protobuf-conformance` against it instead of `testMessages.ts`. It
   must score at least 695/698, today's score.
 - **G9. Tree-shaking.** Bundle an entry importing one schema from a
   multi-message generated file and from `sury/wkt`, and assert the other
   messages are absent. Follow `tests/treeShaking_test.ts`.
+- **G10. ReScript tree-shaking.** Bundle a compiled ReScript program that uses
+  `S` but not `S.Protobuf`, and assert no well-known-type code survives.
+  `S.res.mjs` is in `sideEffects`, so a bundler always keeps the module and
+  only drops statements it can prove pure. That works only if every call the
+  block compiles to lands on a `// @__NO_SIDE_EFFECTS__` export, and a
+  ReScript-level wrapper in `S.res` would break it. No ReScript tree-shaking
+  test exists today, so this is new.
+  - If it can't pass, the fallback is a separate `SProtobuf.res` in the
+    artifact, with an explicit exception to the `S.res`-only rule in CLAUDE.md.
+    `JSONSchema.res` and `StandardSchema.res` already ship beside `S.res`.
+  - Either way, a ReScript user who never touches protobuf must not pay for
+    it.
 
 Toolchain for the gates: `@bufbuild/buf` (the npm package ships the binary) and
 `@bufbuild/protoc-gen-es`, as devDependencies of the test package, never of
 `sury`.
 
 Corpus: a hand-written `kitchen_sink.proto` that covers every parity-table row,
-the well-known types, `TestAllTypesProto3`, `descriptor.proto`, `plugin.proto`.
+the well-known types and `TestAllTypesProto3`. All are proto3.
 
 ## Work order
 
@@ -394,28 +418,44 @@ the well-known types, `TestAllTypesProto3`, `descriptor.proto`, `plugin.proto`.
 6. TS emitter, with G4 and G5 wired at the start of this step, not the end.
    They are what "parity" means.
 7. ReScript emitter.
-8. `sury/wkt` generation at pack time.
-9. G6, G8, G9 in CI.
-10. G7: the fixpoint replaces the hand-written input schemas.
-11. Docs: a "Generating from `.proto`" section in `docs/js-usage.md` and
+8. `sury/wkt` and the `S.Protobuf` block, generated at pack time, with G10
+   before the block lands in `S.res`.
+9. G6 to G9 in CI.
+10. Docs: a "Generating from `.proto`" section in `docs/js-usage.md` and
     `docs/rescript-usage.md`, including the deviations, and a note in the
     Protocol Buffers section's parity paragraph.
 
-## Open questions for the maintainer
+## Open question for the maintainer
 
-The defaults above hold unless answered otherwise.
+**Q1. `$typeName` and `$unknown`.** Default: both omitted in phase 1.
+Suggested direction, not yet confirmed:
 
-- **Q1.** Omit `$typeName`/`$unknown`. Adding `$typeName` later would need core
-  support for a constant field that isn't on the wire.
-- **Q2.** ReScript well-known types are emitted on demand rather than shipped
-  as `.res` in `sury`, because of the `S.res`-only rule.
-- **Q3.** proto2 defaults are not applied.
-- **Q4.** TS `enum` (parity) rather than an erasable const object. protobuf-es
-  offers `erasable_syntax` behind an option, which could follow later.
+- **`$unknown`**, as its own later phase: opt-in unknown-field retention per
+  message, with protobuf-es's representation,
+  `$unknown?: { no: number; wireType: number; data: Uint8Array }[]`.
+  - The use case is a service that decodes, edits a field and forwards, and
+    today silently drops fields it doesn't know.
+  - It also closes the two remaining conformance cases (695 to 697 of 698).
+  - Opt-in, because the default of skipping unknown fields is documented
+    behavior and costs nothing on the hot path.
+- **`$typeName`**: not generated. Its jobs in protobuf-es are covered by
+  explicit schemas:
+  - finding a message's schema at runtime is unnecessary, since every Sury
+    operation takes the schema
+  - `isMessage(x, UserSchema)` becomes `S.isOutput(UserSchema)(x)`
+  - `Any` packing becomes an explicit registry of schemas keyed by type URL,
+    in the Connect phase, where `google.rpc.Status` details need it.
+- **If migration demand appears**, a `type_name=true` option: `$typeName` as a
+  constant field that is not on the wire. Decode sets it, encode ignores it,
+  and the type requires it. Core work: `S.protobuf` today refuses a field with
+  no number. Off by default, because every hand-written literal would have to
+  carry it.
+- G4 strips whichever `$` properties are not generated, so the parity gate
+  holds under every choice.
 
 ## Out of scope for phase 1
 
-- editions, extensions, groups, custom options
+- proto2, editions, extensions, groups, custom options
 - open enums
 - ProtoJSON as its own codec, and `json_types`
 - Timestamp and other helper functions, `Any` packing
