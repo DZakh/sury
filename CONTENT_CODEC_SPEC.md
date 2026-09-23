@@ -431,6 +431,15 @@ ASCII-only fixtures are what hid the corruption above.
 | `string-to-file`, `file-to-string`, `file-to-uint8array`, `file-to-jsonstring-object` | a `File` to and from text, bytes, and a JSON document it carries |
 | `union-file-read-fail`, `object-file-read-fail`, `object-optional-file-read-fail` | a `File` whose read rejects: a union does not treat that as a miss, a required field takes the path, an optional field stays the raw exception |
 
+| `codec-uint8array-optional-jsonstring-payload-unsupported`, `codec-optional-string-optional-jsonstring-payload-ambiguous` | a union target stops a carrier's reading and a union source's alike: neither direction compiles, where `reverse` once lifted the arm's reading and compiled an encode alone |
+| `codec-env-jsonstring-or-number` | an entry's text reaches a union's JSON arm as a representation, where it used to be escaped as a value |
+| `codec-env-uint8array-one-way`, `codec-literal-object-one-way` | one-way links `fuzz:content` found that predate this axis, each with a `FIXME` |
+
+`pnpm --filter=sury fuzz:content` crosses every source kind with every target
+shape and slot, and holds the properties above for all of them at once: both
+directions or neither, the reverse reading the same values, a round-trip, and a
+slot doing what it declares. The rows above are what it has turned up so far.
+
 `tests/content_test.ts` holds the rest, and only because the spec format can't:
 a golden can't hold a `Blob` or `File`, and every compiled operation must run
 an example - so a conversion that only ever produces one has no spec to live
