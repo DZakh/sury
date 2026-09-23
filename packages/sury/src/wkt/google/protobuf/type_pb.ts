@@ -268,7 +268,7 @@ export type Option = {
   value?: Any;
 };
 
-export const OptionSchema = S.meta(S.schemaOf<Option>()({
+export const OptionSchema = S.meta(/* @__PURE__ */ S.schemaOf<Option>()({
   name: S.protobufField(S.string, { number: 1, type: "string" }),
   value: S.protobufField(S.optional(AnySchema), { number: 2, type: "message" }),
 }), { name: "Option" });
@@ -357,7 +357,7 @@ export type Field = {
   defaultValue: string;
 };
 
-export const FieldSchema = S.meta(S.schemaOf<Field>()({
+export const FieldSchema = S.meta(/* @__PURE__ */ S.schemaOf<Field>()({
   kind: S.protobufField(Field_KindSchema, { number: 1, type: "enum" }),
   cardinality: S.protobufField(Field_CardinalitySchema, { number: 2, type: "enum" }),
   number: S.protobufField(S.int32, { number: 3, type: "int32" }),
@@ -431,7 +431,7 @@ export type Type = {
   edition: string;
 };
 
-export const TypeSchema = S.meta(S.schemaOf<Type>()({
+export const TypeSchema = S.meta(/* @__PURE__ */ S.schemaOf<Type>()({
   name: S.protobufField(S.string, { number: 1, type: "string" }),
   fields: S.protobufField(S.array(FieldSchema), { number: 2, type: "message" }),
   oneofs: S.protobufField(S.array(S.string), { number: 3, type: "string" }),
@@ -474,7 +474,7 @@ export type EnumValue = {
   options: Option[];
 };
 
-export const EnumValueSchema = S.meta(S.schemaOf<EnumValue>()({
+export const EnumValueSchema = S.meta(/* @__PURE__ */ S.schemaOf<EnumValue>()({
   name: S.protobufField(S.string, { number: 1, type: "string" }),
   number: S.protobufField(S.int32, { number: 2, type: "int32" }),
   options: S.protobufField(S.array(OptionSchema), { number: 3, type: "message" }),
@@ -534,7 +534,7 @@ export type Enum = {
   edition: string;
 };
 
-export const EnumSchema = S.meta(S.schemaOf<Enum>()({
+export const EnumSchema = S.meta(/* @__PURE__ */ S.schemaOf<Enum>()({
   name: S.protobufField(S.string, { number: 1, type: "string" }),
   enumvalue: S.protobufField(S.array(EnumValueSchema), { number: 2, type: "message" }),
   options: S.protobufField(S.array(OptionSchema), { number: 3, type: "message" }),

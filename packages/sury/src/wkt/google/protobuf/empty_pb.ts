@@ -18,4 +18,4 @@ import * as S from "sury";
  */
 export type Empty = {};
 
-export const EmptySchema = S.meta(S.schemaOf<Empty>()({}), { name: "Empty" });
+export const EmptySchema = S.meta(/* @__PURE__ */ S.schemaOf<Empty>()({}), { name: "Empty" });

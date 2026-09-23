@@ -25,7 +25,7 @@ export type DoubleValue = {
   value: number;
 };
 
-export const DoubleValueSchema = S.meta(S.schemaOf<DoubleValue>()({
+export const DoubleValueSchema = S.meta(/* @__PURE__ */ S.schemaOf<DoubleValue>()({
   value: S.protobufField($number, { number: 1, type: "double" }),
 }), { name: "DoubleValue" });
 
@@ -48,7 +48,7 @@ export type FloatValue = {
   value: number;
 };
 
-export const FloatValueSchema = S.meta(S.schemaOf<FloatValue>()({
+export const FloatValueSchema = S.meta(/* @__PURE__ */ S.schemaOf<FloatValue>()({
   value: S.protobufField($number, { number: 1, type: "float" }),
 }), { name: "FloatValue" });
 
@@ -71,7 +71,7 @@ export type Int64Value = {
   value: bigint;
 };
 
-export const Int64ValueSchema = S.meta(S.schemaOf<Int64Value>()({
+export const Int64ValueSchema = S.meta(/* @__PURE__ */ S.schemaOf<Int64Value>()({
   value: S.protobufField(S.bigint, { number: 1, type: "int64" }),
 }), { name: "Int64Value" });
 
@@ -94,7 +94,7 @@ export type UInt64Value = {
   value: bigint;
 };
 
-export const UInt64ValueSchema = S.meta(S.schemaOf<UInt64Value>()({
+export const UInt64ValueSchema = S.meta(/* @__PURE__ */ S.schemaOf<UInt64Value>()({
   value: S.protobufField(S.bigint, { number: 1, type: "uint64" }),
 }), { name: "UInt64Value" });
 
@@ -117,7 +117,7 @@ export type Int32Value = {
   value: number;
 };
 
-export const Int32ValueSchema = S.meta(S.schemaOf<Int32Value>()({
+export const Int32ValueSchema = S.meta(/* @__PURE__ */ S.schemaOf<Int32Value>()({
   value: S.protobufField(S.int32, { number: 1, type: "int32" }),
 }), { name: "Int32Value" });
 
@@ -140,7 +140,7 @@ export type UInt32Value = {
   value: number;
 };
 
-export const UInt32ValueSchema = S.meta(S.schemaOf<UInt32Value>()({
+export const UInt32ValueSchema = S.meta(/* @__PURE__ */ S.schemaOf<UInt32Value>()({
   value: S.protobufField(S.integer, { number: 1, type: "uint32" }),
 }), { name: "UInt32Value" });
 
@@ -163,7 +163,7 @@ export type BoolValue = {
   value: boolean;
 };
 
-export const BoolValueSchema = S.meta(S.schemaOf<BoolValue>()({
+export const BoolValueSchema = S.meta(/* @__PURE__ */ S.schemaOf<BoolValue>()({
   value: S.protobufField(S.boolean, { number: 1, type: "bool" }),
 }), { name: "BoolValue" });
 
@@ -186,7 +186,7 @@ export type StringValue = {
   value: string;
 };
 
-export const StringValueSchema = S.meta(S.schemaOf<StringValue>()({
+export const StringValueSchema = S.meta(/* @__PURE__ */ S.schemaOf<StringValue>()({
   value: S.protobufField(S.string, { number: 1, type: "string" }),
 }), { name: "StringValue" });
 
@@ -209,6 +209,6 @@ export type BytesValue = {
   value: Uint8Array;
 };
 
-export const BytesValueSchema = S.meta(S.schemaOf<BytesValue>()({
+export const BytesValueSchema = S.meta(/* @__PURE__ */ S.schemaOf<BytesValue>()({
   value: S.protobufField(S.uint8Array, { number: 1, type: "bytes" }),
 }), { name: "BytesValue" });

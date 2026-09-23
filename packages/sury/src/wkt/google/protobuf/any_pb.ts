@@ -82,7 +82,7 @@ export type Any = {
   value: Uint8Array;
 };
 
-export const AnySchema = S.meta(S.schemaOf<Any>()({
+export const AnySchema = S.meta(/* @__PURE__ */ S.schemaOf<Any>()({
   typeUrl: S.protobufField(S.string, { number: 1, type: "string" }),
   value: S.protobufField(S.uint8Array, { number: 2, type: "bytes" }),
 }), { name: "Any" });

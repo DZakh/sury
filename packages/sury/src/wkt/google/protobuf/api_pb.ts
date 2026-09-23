@@ -82,7 +82,7 @@ export type Method = {
   edition: string;
 };
 
-export const MethodSchema = S.meta(S.schemaOf<Method>()({
+export const MethodSchema = S.meta(/* @__PURE__ */ S.schemaOf<Method>()({
   name: S.protobufField(S.string, { number: 1, type: "string" }),
   requestTypeUrl: S.protobufField(S.string, { number: 2, type: "string" }),
   requestStreaming: S.protobufField(S.boolean, { number: 3, type: "bool" }),
@@ -192,7 +192,7 @@ export type Mixin = {
   root: string;
 };
 
-export const MixinSchema = S.meta(S.schemaOf<Mixin>()({
+export const MixinSchema = S.meta(/* @__PURE__ */ S.schemaOf<Mixin>()({
   name: S.protobufField(S.string, { number: 1, type: "string" }),
   root: S.protobufField(S.string, { number: 2, type: "string" }),
 }), { name: "Mixin" });
@@ -294,7 +294,7 @@ export type Api = {
   edition: string;
 };
 
-export const ApiSchema = S.meta(S.schemaOf<Api>()({
+export const ApiSchema = S.meta(/* @__PURE__ */ S.schemaOf<Api>()({
   name: S.protobufField(S.string, { number: 1, type: "string" }),
   methods: S.protobufField(S.array(MethodSchema), { number: 2, type: "message" }),
   options: S.protobufField(S.array(OptionSchema), { number: 3, type: "message" }),
