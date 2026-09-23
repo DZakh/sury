@@ -562,6 +562,9 @@ message Node {
 `;
   t.expect(S.toProtoOrThrow(node)).toBe(expected);
   t.expect(S.toProtoOrThrow(node.with(S.to, S.protobuf))).toBe(expected);
+  // The wire on the input side, however the codec was spelled.
+  t.expect(S.toProtoOrThrow(S.protobuf.with(S.to, node))).toBe(expected);
+  t.expect(S.toProtoOrThrow(S.reverse(node.with(S.to, S.protobuf)))).toBe(expected);
 });
 
 test("toProtoOrThrow prints what the wire speaks, and refuses what the wire refuses", (t) => {
