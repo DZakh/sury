@@ -395,7 +395,6 @@ const rejectEndless = (ctx: Ctx): void => {
   ctx.messages.forEach(walk);
 };
 
-
 const compileMessage = (schema: Internal, ctx: Ctx): Message | undefined => {
   const output = firstObject(schema, ctx);
   if (output === U || output.properties === U) return U;
@@ -525,7 +524,6 @@ const compileMessage = (schema: Internal, ctx: Ctx): Message | undefined => {
   return msg;
 };
 
-// The root of one compile.
 const compileRoot = (schema: Internal): Message | undefined => {
   const ctx = newCtx();
   const message = compileMessage(schema, ctx);
