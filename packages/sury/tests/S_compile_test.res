@@ -33,7 +33,7 @@ test("TypeValidation=false works with assert output", t => {
 
 test("Assert output with Async mode", t => {
   let fn = S.compileConvertAsPromiseOrReject(~from=S.unknown, ~to=S.string->S.to(S.literal()->S.noValidation(true)))
-  t->assertCode(fn, `i=>{try{try{typeof i==="string"||e[0](i);return Promise.resolve(void 0)}catch(v0){e[1](v0)}}catch(v1){return Promise.reject(v1)}}`)
+  t->assertCode(fn, `i=>{try{typeof i==="string"||e[0](i);return Promise.resolve(void 0)}catch(v0){return e[1](v0)}}`)
 })
 
 test("Immitate assert returning true with S.to and literal", t => {

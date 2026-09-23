@@ -149,8 +149,9 @@ export type Tail = (
 ) => string | undefined;
 
 // A Sury failure is a record until it crosses into user code, and there are
-// exactly two places where it does: the compiled operation, and the compile
-// itself. Both are below, and both attach the stack here.
+// exactly three places where it does: the compiled operation, the promise an
+// async one hands back (`rejectionBoundary`), and the compile itself. All three
+// attach the stack here.
 //
 // `cut` is the frame the trace starts *after* - the operation for a raise while
 // it runs, `getOp` for one while it is built. Without it the top frames are the
@@ -166,15 +167,18 @@ export type Tail = (
 // `captureStackTrace` is V8's, and `cut` is the whole reason to prefer it: only
 // it can drop the frames between the raise and the caller. Every other engine
 // gets the stack a throwaway `Error` was born with, which is the same trace
-// with this function and the two frames below it still on top - worse than V8's
-// and better than the nothing an engine without the API used to get. Counting
-// those frames off would couple this to the call depth of the boundary that
-// reaches it, so they stay.
+// with this function and the boundary's own frames still on top - worse than
+// V8's and better than the nothing an engine without the API used to get.
+// Counting those frames off would couple this to the call depth of whichever
+// boundary reaches it, so they stay.
 //
 // `defineProperty` rather than an assignment, because `stack` is not part of
 // what a failure reads back as: V8 writes a non-enumerable one, and a plain
 // write here would put it in `Object.keys(error)` on those engines alone.
-const captureStackAt = (thrown: SuryErrorRecord, cut: unknown): void => {
+//
+// Hands back what it was given, so each boundary reads as the one expression
+// it rethrows or rejects with.
+const captureStackAt = (thrown: SuryErrorRecord, cut: unknown): SuryErrorRecord => {
   if (thrown && thrown.s === s && !("stack" in thrown)) {
     const capture = (
       Error as unknown as { captureStackTrace?: (target: object, cut: unknown) => void }
@@ -187,6 +191,18 @@ const captureStackAt = (thrown: SuryErrorRecord, cut: unknown): void => {
         writable: true,
       });
   }
+  return thrown;
+};
+
+// A failure an async operation reaches after its first await rejects the
+// promise the operation handed back, out of reach of the `try` it runs in. This
+// is that promise's handler, and its own cut. A microtask calls it, so all that
+// sits below is the runtime's microtask pump, then the caller as a frame V8
+// threads back through its `await`. A caller that chained a bare `.catch` has
+// no such frame, and its stack names nothing it wrote - but it still has one,
+// as every failure that reaches user code by a throw or a rejection does.
+const rejectionBoundary = (thrown: SuryErrorRecord): never => {
+  throw captureStackAt(thrown, rejectionBoundary);
 };
 
 // Throw mode, plus the Standard Schema tail (mode bit 1024). The Standard
@@ -228,24 +244,42 @@ export const throwTail: Tail = (input, code, out, isAsync, flag, hasDefs) => {
     }}`;
   }
   if (code === "" && out === operationArgVar && !(flag & 1)) return U;
-  const body = `${code}return ${(flag & 1) && !isAsync && !hasDefs ? `Promise.resolve(${out})` : out}`;
+  // An appended hop rather than a second argument to whatever `.then` built the
+  // value: that argument would never see a failure raised inside the `.then`
+  // itself, which is where an async value's own checks run.
+  const body = `${code}return ${
+    (flag & 1) && !isAsync && !hasDefs
+      ? `Promise.resolve(${out})`
+      : isAsync && !hasDefs && input.g.t
+        ? `${out}.catch(${B_embedPure(input, rejectionBoundary)})`
+        : out
+  }`;
   // The run boundary, cutting at the operation itself so the caller's line ends
   // up on top instead of five frames of library. Only where something can raise
   // at all (`g.t`), and never for a nested compile (recursive.ts), whose throw
   // is generated code's own business and is caught and re-raised by the
   // operation around it.
   //
-  // The sync phase only. A failure an async operation reaches after its first
-  // await rejects with no stack, because by then there is no stack worth
-  // taking: the caller's frames are gone and what a capture in the rejection
-  // handler produces is the header line and nothing else.
+  // The sync phase only. What an async operation raises after its first await
+  // is `rejectionBoundary`'s.
   if (!input.g.t || hasDefs) return body;
   const g = input.g;
   const e = B_varWithoutAllocation(g);
-  return `try{${body}}catch(${e}){${B_embedPure(input, (thrown: SuryErrorRecord): never => {
-    captureStackAt(thrown, g.f);
-    throw thrown;
-  })}(${e})}`;
+  // A promise-returning operation must not throw synchronously: a value that
+  // fails before the first await rejects the same way one that fails after it
+  // does, so `OrReject` is the whole story its name tells. The promisable mode
+  // (512) answers in the value's own shape instead, and throws. Lifted in this
+  // one `catch`, with the stack taken on the way, rather than rethrown for a
+  // second `try` around it to catch.
+  return `try{${body}}catch(${e}){${
+    flag & 1 && !(flag & 512)
+      ? `return ${B_embedPure(input, (thrown: SuryErrorRecord) =>
+          Promise.reject(captureStackAt(thrown, g.f)),
+        )}`
+      : B_embedPure(input, (thrown: SuryErrorRecord): never => {
+          throw captureStackAt(thrown, g.f);
+        })
+  }(${e})}`;
 };
 
 let emitTail: Tail = throwTail;
@@ -517,8 +551,7 @@ const compileChain = (
       from: unknown,
     ) => unknown;
   } catch (thrown) {
-    captureStackAt(thrown as SuryErrorRecord, getOp);
-    throw thrown;
+    throw captureStackAt(thrown as SuryErrorRecord, getOp);
   }
   addOpNode(cacheTarget, args, flag, f);
   return f;
