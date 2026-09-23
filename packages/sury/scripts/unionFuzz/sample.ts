@@ -1,10 +1,9 @@
 import type { Rng } from "./generate";
 
 // The value sampler shared by the fuzzers, and the structural oracle beside it.
-// One copy: `fuzz:eq` asks whether the comparator agrees with a schema-blind
-// walk, `fuzz:codec` asks whether an operation's result still conforms - both
-// need values a schema admits, and a sampler that drifted between them would
-// make the two runs disagree about what was even tested.
+// One copy: every `fuzz:schema` family needs values a schema admits, and the
+// eq family's oracle is this walk. A sampler that drifted between runners would
+// make them disagree about what was even tested.
 //
 // The walk reads a schema's own internals and never follows `.to`, so it draws
 // the INPUT side of whatever it is handed. An Output value is the same walk

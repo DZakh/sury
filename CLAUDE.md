@@ -157,12 +157,31 @@ is codegen, not semantics). It exits non-zero on `acceptance` /
 `exception-kind`; `reasons` / `message` are error detail. `--ref` is an optional
 changelog against a git commit, not the gate. `--seed=N` widens the search.
 
+## Fuzzing a single schema
+
+`pnpm --filter=sury fuzz:schema` draws a schema from the shared grammar, samples
+its Input side from the schema and its Output side from its reverse, and hands
+both to each family in `scripts/schemaFuzz/`. A property a single schema can be
+held to belongs in a family there, not in a new runner. `--only=eq,codec` picks
+families, `--seeds=N` widens the search. CI runs each family at the size its
+KNOWN entries were settled against, with `--strict`, which also fails on an
+entry nothing matched. KNOWN entries are substrings of a finding with the reason
+written by hand, never exact keys: the grammar moves under an exact key every
+time it gains a shape. A creation throw is reported and the draw finishes
+without the default, so two builds of the library always draw the same schemas.
+
+**codec** holds decode and encode to the schema's own answers: a decode passes
+the schema's `isOutput` and an encode its `isInput`, `parse` agrees with
+`decode` on accepted input, `decode(encode(o))` is `o`, and `encode` is decode
+of the reverse. Change it when you touch a default, a container, `reverse` or
+anything that decides what a schema's Output type is.
+
 ## Changing the equality compiler
 
 A spec pins the comparator's code and its answers for the values that spec
 writes down, and says nothing about the branch no spec reaches.
-`pnpm --filter=sury fuzz:eq` samples values out of generated schemas and holds
-the answers to the properties an equivalence has whatever the emit chose: a
+`pnpm --filter=sury fuzz:schema --only=eq` holds the answers to the properties
+an equivalence has whatever the emit chose: a
 value equals a separately built copy of itself, `eq(a,b)` is `eq(b,a)`, equal to
 the same value means equal to each other, the answer matches a schema-blind
 structural walk, `isEqualInput(schema)` is `isEqualOutput(reverse(schema))`, and

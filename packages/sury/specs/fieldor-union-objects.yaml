@@ -42,7 +42,7 @@ operations:
         input: "{ x: { b: 2 } }"
         output: '{ x: { TAG: "B", _0: 2 } }'
   encode:
-    expression: i=>{try{let v0=i.x;if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.TAG==="A"){v0={a:v0._0};break}if(v0.TAG==="B"){v0={b:v0._0};break}e[0](v0)}}else{e[1](v0)}for(;;){let r;if(typeof v0==="object"&&v0&&!Array.isArray(v0)){try{let v1=v0.a,v2;typeof v1==="string"||e[2](v1);for(v2 in v0)if(v2!=="a")e[3](v2);break}catch(x){(r||(r=[])).push(e[6](x))}try{let v3=v0.b,v4;typeof v3==="number"&&v3==v3||e[4](v3);for(v4 in v0)if(v4!=="b")e[5](v4);break}catch(x){(r||(r=[])).push(e[6](x))}}e[7](v0,...(r||[]))}return {x:v0}}catch(v5){e[8](v5)}}
+    expression: i=>{try{let v0=i.x;if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.TAG==="A"){v0={a:v0._0};break}if(v0.TAG==="B"){v0={b:v0._0};break}e[0](v0)}}else{e[1](v0)}return {x:v0}}catch(v1){e[2](v1)}}
     examples:
       member-a-encodes:
         input: '{ x: { TAG: "A", _0: "v" } }'

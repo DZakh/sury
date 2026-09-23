@@ -13,7 +13,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { generateMembers, rngFromSeed } from "./unionFuzz/generate";
+import { generateMembers, rngFromSeed, takeRefused } from "./unionFuzz/generate";
 import { issue392Case } from "./unionFuzz/issue392";
 import { classify, describeOutcome, show } from "./unionFuzz/outcome";
 import { compiledParse } from "./unionFuzz/reference";
@@ -171,17 +171,11 @@ const main = async (): Promise<void> => {
   const next = rngFromSeed(seed);
   for (let c = 0; c < cases; c++) {
     const size = 2 + Math.floor(next() * Math.max(1, maxMembers - 1));
-    // A member the grammar cannot build is a finding about the library, not a
-    // reason to abandon the run: `S.optional(container, outputDefault)` threw
-    // for every container whose items transform (#452), which killed the
-    // process on the first draw that reached one.
-    let members: ReturnType<typeof generateMembers>;
-    try {
-      members = generateMembers(S, next, size);
-    } catch (error) {
-      creationFailures.push((error as Error).message.split("\n")[0]!);
-      continue;
-    }
+    // A member the library refused to build is a finding, not a reason to
+    // abandon the run: `S.optional(container, outputDefault)` threw for every
+    // container whose items transform (#452).
+    const members = generateMembers(S, next, size);
+    creationFailures.push(...takeRefused());
     const result = diffsForUnion(S, members);
     stats.compared += result.compared;
     stats.skipped += result.skipped;

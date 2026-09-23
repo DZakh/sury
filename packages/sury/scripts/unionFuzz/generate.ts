@@ -40,14 +40,25 @@ const applyWrap = (S: Sury, rng: Rng, inner: MemberSpec): MemberSpec => {
 };
 
 // A schema that refuses to be built is a finding, and a finding needs the shape
-// it is about: generation happens before the runner has an id, so the id is put
-// on the error here, where it exists.
-const named = (id: string, build: () => unknown): unknown => {
+// it is about. It is collected here rather than thrown, and the draw finishes
+// with the undefaulted shape: a throw would abandon the draw halfway, so every
+// later schema would come from a different point in the stream, and two builds
+// of the library - one that refuses a default, one that takes it - would stop
+// generating the same schemas at the first difference. Runners drain it with
+// `takeRefused` after each draw.
+let refused: string[] = [];
+export const takeRefused = (): string[] => {
+  const taken = refused;
+  refused = [];
+  return taken;
+};
+
+const named = (id: string, build: () => unknown, fallback: () => unknown): unknown => {
   try {
     return build();
   } catch (error) {
-    (error as Error).message = `${id} - ${(error as Error).message}`;
-    throw error;
+    refused.push(`${id} - ${(error as Error).message.split("\n")[0]}`);
+    return fallback();
   }
 };
 
@@ -116,7 +127,11 @@ const defaultedMember = (S: Sury, rng: Rng, inner: MemberSpec): MemberSpec => {
     return { id: `${name}(${inner.id})`, schema: S[name](inner.schema), lossy: inner.lossy };
   }
   const id = `${name}(${inner.id},${show(value)})`;
-  return { id, schema: named(id, () => S[name](inner.schema, value)), lossy: inner.lossy };
+  return { id, schema: named(
+      id,
+      () => S[name](inner.schema, value),
+      () => S[name](inner.schema),
+    ), lossy: inner.lossy };
 };
 
 // The same default reached through the object builder, which spells it as a
@@ -133,8 +148,10 @@ const fieldOrMember = (S: Sury, rng: Rng, inner: MemberSpec): MemberSpec => {
         const id = `{fieldOr(f,${inner.id},${show(value)})}`;
         return {
           id,
-          schema: named(id, () =>
-            S.object((s: any) => ({ f: s.fieldOr("f", inner.schema, value) })),
+          schema: named(
+            id,
+            () => S.object((s: any) => ({ f: s.fieldOr("f", inner.schema, value) })),
+            () => S.object((s: any) => ({ f: s.field("f", inner.schema) })),
           ),
           lossy: inner.lossy,
         };
@@ -253,7 +270,7 @@ const memberAt = (S: Sury, rng: Rng, depth: number): MemberSpec => {
 };
 
 // One schema from the same grammar the union members come from, for a fuzzer
-// whose subject is a schema rather than a union of them (`fuzz:eq`).
+// whose subject is a schema rather than a union of them (`fuzz:schema`).
 export const generateSchema = (S: Sury, rng: Rng): MemberSpec => memberAt(S, rng, 0);
 
 export const groupingBarrierMembers = (S: Sury): MemberSpec[] => [

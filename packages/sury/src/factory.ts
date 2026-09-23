@@ -138,16 +138,19 @@ const fieldOrSchema = (schema: Internal, or: unknown): Internal => {
     };
     mut.to = toMut;
   } else {
-    // The item undoes its own transform, so the link is the item itself and
-    // its last step, `T -> T | undefined`, is the identity. Said here, or the
-    // loop hands a union item to the union encoder, which finds the item's
-    // arms inside the target's and calls the widening ambiguous.
-    mut.to = schema;
-    mut.serializer = (input: Val) => {
+    // The item undoes its own transform, so the reverse link `T -> T |
+    // undefined` is the identity. A link's reverse builder is its TARGET's
+    // serializer, as `codecTo` places it, so it goes on a copy of the item.
+    // Without it the loop converts the item into the widened union itself: a
+    // union item's encoder finds its own arms inside the target's and calls
+    // the widening ambiguous, and a carrier arm gets opened again (#452).
+    const toMut = copySchema(schema);
+    toMut.serializer = (input: Val) => {
       const output = B_refine(input, U, U, input.e.to);
       output.io = true;
       return output;
     };
+    mut.to = toMut;
   }
   setDefault(mut, item, schema, or);
 
