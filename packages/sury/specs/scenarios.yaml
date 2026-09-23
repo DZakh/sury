@@ -330,3 +330,11 @@ recursive-tree-parse:
   # 127 nodes and 128 absent children: the leaves are where an optional
   # recursive field dispatches on `undefined`.
   run: parse(tree)
+
+optional-json-absent:
+  prepare: |
+    const parse = S.parseOrThrow(S.schema({ id: S.string, meta: S.optional(S.json) }));
+    const data = { id: "u1" };
+  # `S.json` is a ref to a union, so nothing guards its arm: the absent field
+  # has to be dispatched to `undefined` without trying the JSON check first.
+  run: parse(data)

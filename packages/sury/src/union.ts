@@ -695,14 +695,16 @@ const unionAnalyze = (
   for (let i = 0; i < variants.length; i++) {
     const s = variants[i]!;
     // A recursive member is dispatched as the definition its ref names, where
-    // the operation can resolve one to a concrete type. An opaque member claims
-    // every type, so `S.optional(self)` tried the recursive call on `undefined`
-    // and caught its throw at every leaf of a tree. The case still calls
-    // through the ref, so the definition compiles once.
+    // the operation can resolve one to a concrete type, and claims what a union
+    // definition's arms accept (`S.json` never takes `undefined`). An opaque
+    // member claims every type, so `S.optional(self)` tried the recursive call
+    // on `undefined` and caught its throw at every leaf of a tree. The case
+    // still calls through the ref, so the definition compiles once.
     const def = s.type === refTag ? s.definition || unionRefDef(s) || defs?.[s["$ref"]!.slice(8)] : U;
-    const view = def !== U && !(tagFlags[def.type]! & (1 | 256 | 512)) ? def : s;
+    const defTag = def === U ? 0 : tagFlags[def.type]!;
+    const view = def !== U && !(defTag & (1 | 256 | 512)) ? def : s;
     const tag = tagFlags[view.type]!;
-    const inputMask = unionMask(view, 1, nan);
+    const inputMask = unionMask(defTag & 256 ? def! : view, 1, nan);
     const d = unionDiscriminator(s);
     const same = unionRuntimeSame(source, s);
     const discriminatorDisjoint =
@@ -955,6 +957,21 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
       // Stable, so groups of one tier keep the order they were opened in.
       plan.push(...item.t.sort((a, b) => a.p - b.p));
     }
+  }
+
+  // A ref to a union has no narrow to guard its case, so once no later group
+  // shares a type with it, it stops falling through and would shadow them all.
+  // It runs after the groups it shares no type with instead - order between
+  // disjoint groups is unobservable - and before the first one it does share
+  // a type with. It still falls, into that group or the union's own failure,
+  // so a value it refuses is reported against the whole union.
+  for (let i = plan.length; i--; ) {
+    const group = plan[i]!;
+    if (group.a[1] || group.a[0]!.n.type !== refTag || group.m === ~0) continue;
+    group.f |= 8 | 2;
+    let to = i;
+    while (plan[to + 1] && !(plan[to + 1]!.m & group.m)) to++;
+    plan.splice(to, 0, ...plan.splice(i, 1));
   }
 
   const later: (UnionOverlapSummary | undefined)[] = [];
