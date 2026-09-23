@@ -116,7 +116,8 @@ const buildRunner = async (S: any, target: Target): Promise<Runner> => {
   const threw: boolean[] = [];
   for (const input of inputs) {
     try {
-      await op(input);
+      const answer = op(input);
+      if (target.isAsync) await answer;
       threw.push(false);
     } catch (_) {
       threw.push(true);
