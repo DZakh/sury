@@ -33,7 +33,17 @@ export type ProtobufType =
   | "string"
   | "bytes"
   | "enum"
-  | "message";
+  | "message"
+  | "google.protobuf.DoubleValue"
+  | "google.protobuf.FloatValue"
+  | "google.protobuf.Int64Value"
+  | "google.protobuf.UInt64Value"
+  | "google.protobuf.Int32Value"
+  | "google.protobuf.UInt32Value"
+  | "google.protobuf.BoolValue"
+  | "google.protobuf.StringValue"
+  | "google.protobuf.BytesValue"
+  | "google.protobuf.Struct";
 
 export type ProtobufField = {
   number: number;
@@ -75,6 +85,16 @@ const protobufTypes: Record<ProtobufType, true> = {
   bytes: true,
   enum: true,
   message: true,
+  "google.protobuf.DoubleValue": true,
+  "google.protobuf.FloatValue": true,
+  "google.protobuf.Int64Value": true,
+  "google.protobuf.UInt64Value": true,
+  "google.protobuf.Int32Value": true,
+  "google.protobuf.UInt32Value": true,
+  "google.protobuf.BoolValue": true,
+  "google.protobuf.StringValue": true,
+  "google.protobuf.BytesValue": true,
+  "google.protobuf.Struct": true,
 };
 
 const mapKeyTypes: Partial<Record<ProtobufType, true>> = {
@@ -184,7 +204,7 @@ export const protobufField = (schema: Internal, field: number | ProtobufField): 
   // faces the wire depends on the direction the chain runs, and a field that
   // converts bytes to an object (`S.uint8Array.with(S.to, S.schema(...))`) is
   // a bytes field. `S.json` is a ref but no message.
-  if (type !== "message" && isMessageShape(shape) && isMessageShape(itemOf(present(schema)))) {
+  if (type !== "message" && type !== "google.protobuf.Struct" && isMessageShape(shape) && isMessageShape(itemOf(present(schema)))) {
     return panic(`S.protobufField requires an object or S.recursive schema to be a message, not ${type}`);
   }
   const oneof = typeof field === "number" ? U : field.oneof;

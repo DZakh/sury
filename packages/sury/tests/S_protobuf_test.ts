@@ -784,3 +784,45 @@ test("generated message shapes check against their declared types", (t) => {
     S.schema({ id: S.protobufField(S.int32, { number: 1, type: "int32" }) }),
   );
 });
+
+test("protobuf refuses a wrapper type where protobuf-es would not unbox it", (t) => {
+  const codec = (schema: S.Schema<unknown, unknown>) => () => S.decodeOrThrow(schema, S.protobuf);
+  t.expect(
+    codec(S.schema({ n: S.protobufField(S.int32, { number: 1, type: "google.protobuf.Int32Value" }) })),
+  ).toThrow('field "n" is a google.protobuf.Int32Value, which unboxes only as an S.optional field outside a list, a map or a oneof');
+  t.expect(
+    codec(S.schema({ n: S.protobufField(S.array(S.int32), { number: 1, type: "google.protobuf.Int32Value" }) })),
+  ).toThrow("unboxes only as an S.optional field");
+  t.expect(
+    codec(
+      S.schema({
+        n: S.union([
+          S.schema({ case: "a", value: S.protobufField(S.int32, { number: 1, type: "google.protobuf.Int32Value" }) }),
+          S.schema({ case: undefined }),
+        ]),
+      }),
+    ),
+  ).toThrow('oneof "n" case "a" is a google.protobuf.Int32Value');
+});
+
+test("protobuf refuses a oneof with no arm for no member set, and a case or number used twice", (t) => {
+  const codec = (schema: S.Schema<unknown, unknown>) => () => S.decodeOrThrow(schema, S.protobuf);
+  t.expect(
+    codec(S.schema({ c: S.union([S.schema({ case: "a", value: S.protobufField(S.int32, 1) }), S.schema({ case: "b", value: S.protobufField(S.string, 2) })]) })),
+  ).toThrow('oneof "c" has no arm for no member set');
+  t.expect(
+    codec(
+      S.schema({
+        id: S.protobufField(S.int32, 1),
+        c: S.union([S.schema({ case: "a", value: S.protobufField(S.int32, 1) }), S.schema({ case: undefined })]),
+      }),
+    ),
+  ).toThrow('field number 1 of "c" is already taken');
+  t.expect(
+    codec(
+      S.schema({
+        c: S.union([S.schema({ case: "a", value: S.protobufField(S.int32, 1) }), S.schema({ case: "a", value: S.protobufField(S.string, 2) }), S.schema({ case: undefined })]),
+      }),
+    ),
+  ).toThrow();
+});

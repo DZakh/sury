@@ -97,6 +97,16 @@ type protobufType = [
   | #bytes
   | #enum
   | #message
+  | #"google.protobuf.DoubleValue"
+  | #"google.protobuf.FloatValue"
+  | #"google.protobuf.Int64Value"
+  | #"google.protobuf.UInt64Value"
+  | #"google.protobuf.Int32Value"
+  | #"google.protobuf.UInt32Value"
+  | #"google.protobuf.BoolValue"
+  | #"google.protobuf.StringValue"
+  | #"google.protobuf.BytesValue"
+  | #"google.protobuf.Struct"
 ]
 
 type format = | ...numberFormat | ...stringFormat | ...arrayFormat

@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ meta: S.protobufField(S.optional(S.record(S.json)), { number: 1, type: "google.protobuf.Struct" }), metas: S.protobufField(S.array(S.record(S.json)), { number: 2, type: "google.protobuf.Struct" }), byKey: S.protobufField(S.record(S.record(S.json)), { number: 3, type: "google.protobuf.Struct" }), pick: S.union([S.schema({ case: "obj", value: S.protobufField(S.record(S.json), { number: 4, type: "google.protobuf.Struct" }) }), S.schema({ case: undefined })]) }).with(S.to, S.protobuf)'
+  input: '{ metas: Record<string, JSON>[]; byKey: Record<string, Record<string, JSON>>; pick: { case: "obj"; value: Record<string, JSON>; } | { ...; }; meta?: Record<...> | undefined; }'
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 13088
+jsonSchema:
+  input: "Failed at pick.case: Expected JSON, received undefined"
+  output: Expected JSON, received Uint8Array
+isEqual:
+  input: (a,b)=>a===b||(a.meta===void 0?b.meta===void 0:b.meta!==void 0&&e[0](a.meta,b.meta))&&e[2](a.metas,b.metas)&&e[4](a.byKey,b.byKey)&&(a.pick.case==="obj"?b.pick.case==="obj"&&e[6](a.pick.value,b.pick.value):b.pick.case===void 0)
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { meta: { [key: string]: JSON; } | undefined; metas: { [key: string]: JSON; }[]; byKey: { [key: string]: { [key: string]: JSON; }; }; pick: { case: \"obj\"; value: { [key: string]: JSON; }; } | { case: undefined; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[18](i);let v0=i.meta,v3=i.metas,v8=i.byKey,v13=i.pick;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(let v1 in v0){try{e[0](v0[v1]);}catch(v2){v2.path=["meta",v1,...v2.path];throw v2}};break}if(v0===void 0)break;e[1](v0)}Array.isArray(v3)||e[4](v3);for(let v4=0;v4<v3.length;++v4){let v5=v3[v4];typeof v5==="object"&&v5&&!Array.isArray(v5)||e[3](v5,["metas",v4]);for(let v6 in v5){try{e[2](v5[v6]);}catch(v7){v7.path=["metas",v4,v6,...v7.path];throw v7}}}typeof v8==="object"&&v8&&!Array.isArray(v8)||e[7](v8);for(let v9 in v8){let v10=v8[v9];typeof v10==="object"&&v10&&!Array.isArray(v10)||e[6](v10,["byKey",v9]);for(let v11 in v10){try{e[5](v10[v11]);}catch(v12){v12.path=["byKey",v9,v11,...v12.path];throw v12}}}if(typeof v13==="object"&&v13&&!Array.isArray(v13)){for(;;){if(v13.case==="obj"){let v14=v13.value;typeof v14==="object"&&v14&&!Array.isArray(v14)||e[9](v14);for(let v15 in v14){try{e[8](v14[v15]);}catch(v16){v16.path=["pick","value",v15,...v16.path];throw v16}}v13={case:v13.case,value:v14};break}if(v13.case===void 0){v13={case:v13.case};break}e[10](v13)}}else{e[11](v13)}let v17;{let w;try{w=e[16].acquire();let v,j,n,s,h,a,k,g,c,o;v=v0;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);e[15](w,v)};v=v3;n=v.length;if(n){j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);e[15](w,v[j++])}};v=v8;a=Object.keys(v);n=a.length;j=0;while(j<n){k=a[j++];c=v[k];w.pos<w.buf.length?w.buf[w.pos++]=26:w.varint32(26);h=w.begin();w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(k);w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);e[15](w,c);w.end(h)};v=v13;switch(v&&v.case){case "obj":w.pos<w.buf.length?w.buf[w.pos++]=34:w.varint32(34);e[15](w,v.value);break;};v17=w.finish()}catch(x){w&&(w.busy=false);e[17](x)}}return v17}catch(v18){e[19](v18)}}
+    examples:
+      nested:
+        input: '{ meta: { a: 1, b: [true, null, "s", { c: 2.5 }], e: {} }, metas: [{ x: 1 }], byKey: { k: { y: "z" } }, pick: { case: "obj", value: { q: [] } } }'
+        output: new Uint8Array([10, 67, 10, 14, 10, 1, 97, 18, 9, 17, 0, 0, 0, 0, 0, 0, 240, 63, 10, 40, 10, 1, 98, 18, 35, 50, 33, 10, 2, 32, 1, 10, 2, 8, 0, 10, 3, 26, 1, 115, 10, 18, 42, 16, 10, 14, 10, 1, 99, 18, 9, 17, 0, 0, 0, 0, 0, 0, 4, 64, 10, 7, 10, 1, 101, 18, 2, 42, 0, 18, 16, 10, 14, 10, 1, 120, 18, 9, 17, 0, 0, 0, 0, 0, 0, 240, 63, 26, 15, 10, 1, 107, 18, 10, 10, 8, 10, 1, 121, 18, 3, 26, 1, 122, 34, 9, 10, 7, 10, 1, 113, 18, 2, 50, 0])
+      empty:
+        input: "{ metas: [], byKey: {}, pick: { case: undefined } }"
+        output: new Uint8Array([])
+  decode:
+    expression: i=>{try{let v0=i.meta,v3=i.metas,v7=i.byKey,v11=i.pick;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(let v1 in v0){try{e[0](v0[v1]);}catch(v2){v2.path=["meta",v1,...v2.path];throw v2}};break}if(v0===void 0)break;e[1](v0)}if(typeof v11==="object"&&v11&&!Array.isArray(v11)){for(;;){if(v11.case==="obj"){let v12=v11.value;break}if(v11.case===void 0)break;e[2](v11)}}else{e[3](v11)}let v14;{let w;try{w=e[8].acquire();let v,j,n,s,h,a,k,g,c,o;v=v0;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);e[7](w,v)};v=v3;n=v.length;if(n){j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);e[7](w,v[j++])}};v=v7;a=Object.keys(v);n=a.length;j=0;while(j<n){k=a[j++];c=v[k];w.pos<w.buf.length?w.buf[w.pos++]=26:w.varint32(26);h=w.begin();w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(k);w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);e[7](w,c);w.end(h)};v=v11;switch(v&&v.case){case "obj":w.pos<w.buf.length?w.buf[w.pos++]=34:w.varint32(34);e[7](w,v.value);break;};v14=w.finish()}catch(x){w&&(w.busy=false);e[9](x)}}return v14}catch(v15){e[10](v15)}}
+    examples:
+      nested:
+        input: "{ meta: { a: 1, b: [true, null] }, metas: [], byKey: {}, pick: { case: undefined } }"
+        output: new Uint8Array([10, 33, 10, 14, 10, 1, 97, 18, 9, 17, 0, 0, 0, 0, 0, 0, 240, 63, 10, 15, 10, 1, 98, 18, 10, 50, 8, 10, 2, 32, 1, 10, 2, 8, 0])
+  encode:
+    expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v1=v0.meta,v3=v0.metas,v7=v0.byKey;let v13=v0.pick;if(typeof v13==="object"&&v13&&!Array.isArray(v13)){for(;;){if(v13.case==="obj"){let v14=v13.value;break}if(v13.case===void 0)break;e[3](v13)}}else{e[4](v13)}return v0}catch(v16){e[5](v16)}}
+    examples:
+      nested:
+        input: new Uint8Array([10, 16, 10, 14, 10, 1, 97, 18, 9, 17, 0, 0, 0, 0, 0, 0, 240, 63])
+        output: "{ metas: [], byKey: {}, pick: { case: undefined }, meta: { a: 1 } }"
+      value-without-kind-is-null:
+        input: new Uint8Array([10, 7, 10, 5, 10, 1, 97, 18, 0])
+        output: "{ metas: [], byKey: {}, pick: { case: undefined }, meta: { a: null } }"
+      empty-struct-present:
+        input: new Uint8Array([10, 0])
+        output: "{ metas: [], byKey: {}, pick: { case: undefined }, meta: {} }"

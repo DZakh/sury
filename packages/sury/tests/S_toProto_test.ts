@@ -647,3 +647,45 @@ message Leaf {
 }
 `);
 });
+
+test("toProtoOrThrow prints a { case, value } oneof and names each member after its case", (t) => {
+  const schema = S.schema({
+    id: S.protobufField(S.int32, 1),
+    contact: S.union([
+      S.schema({ case: "emailAddress", value: S.protobufField(S.string, 2) }),
+      S.schema({ case: "phone", value: S.protobufField(S.bigint, { number: 3, type: "int64" }) }),
+      S.schema({ case: undefined }),
+    ]),
+  });
+  t.expect(S.toProtoOrThrow(schema, { name: "User" })).toBe(`syntax = "proto3";
+
+message User {
+  int32 id = 1;
+  oneof contact {
+    string email_address = 2;
+    int64 phone = 3;
+  }
+}
+`);
+});
+
+test("toProtoOrThrow prints wrapper and Struct fields under the files that declare them", (t) => {
+  const schema = S.schema({
+    count: S.protobufField(S.optional(S.int32), { number: 1, type: "google.protobuf.Int32Value" }),
+    meta: S.protobufField(S.optional(S.record(S.json)), { number: 2, type: "google.protobuf.Struct" }),
+    metas: S.protobufField(S.array(S.record(S.json)), { number: 3, type: "google.protobuf.Struct" }),
+  });
+  t.expect(S.toProtoOrThrow(schema, { name: "M", package: "p" })).toBe(`syntax = "proto3";
+
+package p;
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/wrappers.proto";
+
+message M {
+  optional google.protobuf.Int32Value count = 1;
+  optional google.protobuf.Struct meta = 2;
+  repeated google.protobuf.Struct metas = 3;
+}
+`);
+});

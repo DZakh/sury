@@ -60,6 +60,8 @@ type Field = {
   case?: string;
   arm?: Internal;
   unset?: string;
+  // A wrapper type's name, the scalar in `type` being what it boxes as field 1.
+  box?: ProtobufType;
 };
 
 type Message = {
@@ -153,7 +155,7 @@ const wireObject = (schema: Internal, ctx: Ctx): Internal | undefined => {
   return firstObject(schema, ctx);
 };
 
-const packable: Record<ProtobufType, boolean> = {
+const packable: Partial<Record<ProtobufType, boolean>> = {
   double: true,
   float: true,
   int32: true,
@@ -167,15 +169,30 @@ const packable: Record<ProtobufType, boolean> = {
   sfixed32: true,
   sfixed64: true,
   bool: true,
-  string: false,
-  bytes: false,
   enum: true,
-  message: false,
 };
+
+// The wrapper messages protobuf-es unboxes on a singular field: each holds one
+// scalar as field 1, and the field holds the scalar or `undefined`.
+const boxes: Partial<Record<ProtobufType, ProtobufType>> = {
+  "google.protobuf.DoubleValue": "double",
+  "google.protobuf.FloatValue": "float",
+  "google.protobuf.Int64Value": "int64",
+  "google.protobuf.UInt64Value": "uint64",
+  "google.protobuf.Int32Value": "int32",
+  "google.protobuf.UInt32Value": "uint32",
+  "google.protobuf.BoolValue": "bool",
+  "google.protobuf.StringValue": "string",
+  "google.protobuf.BytesValue": "bytes",
+};
+
+// `google.protobuf.Struct`, held as the JSON object it describes. On the wire it
+// is length-delimited like a message, so it travels wherever a scalar can.
+const structType = "google.protobuf.Struct";
 
 const wireType = (type: ProtobufType): number => {
   if (type === "double" || type === "fixed64" || type === "sfixed64") return 1;
-  if (type === "string" || type === "bytes" || type === "message") return 2;
+  if (type === "string" || type === "bytes" || type === "message" || type === structType) return 2;
   if (type === "float" || type === "fixed32" || type === "sfixed32") return 5;
   return 0;
 };
@@ -471,6 +488,9 @@ const oneofRaw = (members: Internal[], conversions: [string, Internal, Internal]
   return mut;
 };
 
+const isRecordShape = (schema: Internal): boolean =>
+  schema.type === objectTag && typeof schema.additionalItems === objectTag;
+
 const armObject = (tag: Internal, value: Internal): Internal => {
   const mut = baseSchema(objectTag, false, objectDecoder);
   const properties: Record<string, Internal> = Object.create(null);
@@ -530,7 +550,7 @@ const compileMessage = (schema: Internal, ctx: Ctx): Message | undefined => {
         numbers.add(m.number);
         const [armValue, armOptional] = unwrapOptional(arm.value);
         const armShape = getOutputSchema(armValue);
-        if (armOptional || (typeof armShape.additionalItems === objectTag && (armShape.type === arrayTag || armShape.type === objectTag))) {
+        if (armOptional || (m.type !== structType && typeof armShape.additionalItems === objectTag && (armShape.type === arrayTag || armShape.type === objectTag))) {
           return panic(`S.protobuf: oneof "${key}" case "${arm.case}" must hold one value, not an optional, a list or a map`);
         }
         let rawValue: Internal;
@@ -545,7 +565,10 @@ const compileMessage = (schema: Internal, ctx: Ctx): Message | undefined => {
           [rawValue, declaredValue] = ctx.stack.includes(message) ? recurse(message, ctx) : [message.raw, message.schema];
           declaredValue = refinedAs(arm.value, declaredValue);
         } else {
-          rawValue = m.type === "enum" && armShape.type === anyOfTag ? armShape : scalarSchema(m.type);
+          if (boxes[m.type] !== U) {
+            return panic(`S.protobuf: oneof "${key}" case "${arm.case}" is a ${m.type}, which unboxes only as an S.optional field outside a list, a map or a oneof`);
+          }
+          rawValue = m.type === "enum" && armShape.type === anyOfTag ? armShape : m.type === structType ? armShape : scalarSchema(m.type);
         }
         rawMembers.push(armObject(arm.tag, rawValue));
         conversions.push([arm.case, rawValue, declaredValue]);
@@ -574,6 +597,7 @@ const compileMessage = (schema: Internal, ctx: Ctx): Message | undefined => {
     }
     if (numbers.has(metadata.number)) return panic(`S.protobuf: field number ${metadata.number} of "${key}" is already taken`);
     numbers.add(metadata.number);
+    const box = boxes[metadata.type];
     const [propertyValue, optional, absent] = unwrapOptional(property);
     let shape = getOutputSchema(propertyValue);
     const container = shape;
@@ -583,7 +607,12 @@ const compileMessage = (schema: Internal, ctx: Ctx): Message | undefined => {
       if (optional) return panic(`S.protobuf: repeated field "${key}" can't be optional. An absent list decodes to []`);
       repeated = true;
       shape = getOutputSchema(shape.additionalItems as Internal);
-    } else if (shape.type === objectTag && typeof shape.additionalItems === objectTag) {
+    } else if (
+      shape.type === objectTag &&
+      typeof shape.additionalItems === objectTag &&
+      // A Struct is itself a record, so one is a map only of records.
+      (metadata.type !== structType || isRecordShape(getOutputSchema(shape.additionalItems as Internal)))
+    ) {
       if (optional) return panic(`S.protobuf: map field "${key}" can't be optional. An absent map decodes to {}`);
       map = metadata.key;
       shape = getOutputSchema(shape.additionalItems as Internal);
@@ -613,10 +642,15 @@ const compileMessage = (schema: Internal, ctx: Ctx): Message | undefined => {
       normalizedProperty = messageValue;
       if (optional && absent === U) raw = optionalMessage(raw);
     } else {
+      if (box !== U && (repeated || map !== U || metadata.oneof !== U || !optional)) {
+        return panic(`S.protobuf: field "${key}" is a ${metadata.type}, which unboxes only as an S.optional field outside a list, a map or a oneof`);
+      }
       // An enum declared as integer literals keeps its own schema on the raw
       // side: the wire value lands as is, unknown numbers included, the open
-      // enum proto3 specifies.
-      raw = metadata.type === "enum" && shape.type === anyOfTag ? shape : scalarSchema(metadata.type);
+      // enum proto3 specifies. A Struct lands as the JSON it holds.
+      raw = metadata.type === "enum" && shape.type === anyOfTag ? shape
+        : metadata.type === structType ? shape
+        : scalarSchema(box || metadata.type);
     }
     // A repeated or map message keeps the user's container (its length
     // checks included) around the normalized nested schema, not the user's:
@@ -642,7 +676,7 @@ const compileMessage = (schema: Internal, ctx: Ctx): Message | undefined => {
     normalizedProperties[key] = normalizedProperty;
     const field: Field = {
       number: metadata.number,
-      type: metadata.type,
+      type: box || metadata.type,
       packed: metadata.packed,
       key,
       repeated,
@@ -650,8 +684,9 @@ const compileMessage = (schema: Internal, ctx: Ctx): Message | undefined => {
       message,
       map,
       oneof: metadata.oneof,
-      wire: wireType(metadata.type),
+      wire: box ? 2 : wireType(metadata.type),
     };
+    if (box) field.box = metadata.type;
     fields.push(field);
   }
   fields.sort((a, b) => a.number - b.number);
@@ -1393,6 +1428,108 @@ const checkedBigint = (value: unknown, min: bigint, max: bigint, type: string): 
   return value;
 };
 
+// `google.protobuf.Struct` as protobuf-es holds one, a JSON object: a map of
+// Value, each Value a oneof of null (1), number (2), string (3), bool (4),
+// Struct (5) and ListValue (6). `undefined` is a Value with no kind, which reads
+// back as `null`, as protobuf-es reads it.
+const writeValue = (w: Writer, value: unknown): void => {
+  if (value === null) w.varint32(8), w.varint32(0);
+  else if (typeof value === "number") w.varint32(17), w.float64(value);
+  else if (typeof value === "string") w.varint32(26), w.string(value);
+  else if (typeof value === "boolean") w.varint32(32), w.varint32(value ? 1 : 0);
+  else if (Array.isArray(value)) {
+    w.varint32(50);
+    const h = w.begin();
+    for (let idx = 0; idx < value.length; idx++) {
+      w.varint32(10);
+      const g = w.begin();
+      writeValue(w, value[idx]);
+      w.end(g);
+    }
+    w.end(h);
+  } else if (typeof value === "object") w.varint32(42), writeStruct(w, value as Record<string, unknown>);
+};
+
+const writeStruct = (w: Writer, value: Record<string, unknown>): void => {
+  const h = w.begin();
+  const keys = Object.keys(value);
+  for (let idx = 0; idx < keys.length; idx++) {
+    w.varint32(10);
+    const entry = w.begin();
+    w.varint32(10);
+    w.string(keys[idx]!);
+    w.varint32(18);
+    const g = w.begin();
+    writeValue(w, value[keys[idx]!]);
+    w.end(g);
+    w.end(entry);
+  }
+  w.end(h);
+};
+
+const readTag = (r: Reader): number => {
+  const tag = r.tag();
+  if (tag < 8) throw Error("invalid protobuf field number");
+  return tag;
+};
+
+const readValue = (r: Reader, d: number): unknown => {
+  let value: unknown = null;
+  while (r.pos < r.limit) {
+    const tag = readTag(r);
+    if (tag === 8) r.varint32(), (value = null);
+    else if (tag === 17) value = r.f64();
+    else if (tag === 26) value = r.string();
+    else if (tag === 32) value = r.bool();
+    else if (tag === 42) value = readStruct(r, d + 1);
+    else if (tag === 50) {
+      const p = r.sub();
+      const list: unknown[] = (value = []);
+      while (r.pos < r.limit) {
+        const item = readTag(r);
+        if (item !== 10) skip(r, item & 7, item >>> 3, 0);
+        else {
+          const q = r.sub();
+          list.push(readValue(r, d + 1));
+          r.limit = q;
+        }
+      }
+      r.limit = p;
+    } else skip(r, tag & 7, tag >>> 3, 0);
+  }
+  return value;
+};
+
+const readStruct = (r: Reader, d: number): Record<string, unknown> => {
+  if (d >= 100) throw Error("protobuf message nesting limit exceeded");
+  const p = r.sub();
+  const out: Record<string, unknown> = {};
+  while (r.pos < r.limit) {
+    const tag = readTag(r);
+    if (tag !== 10) {
+      skip(r, tag & 7, tag >>> 3, 0);
+      continue;
+    }
+    const q = r.sub();
+    let key = "";
+    let value: unknown = null;
+    while (r.pos < r.limit) {
+      const inner = readTag(r);
+      if (inner === 10) key = r.string();
+      else if (inner === 18) {
+        const g = r.sub();
+        value = readValue(r, d + 1);
+        r.limit = g;
+      } else skip(r, inner & 7, inner >>> 3, 0);
+    }
+    r.limit = q;
+    if (key === "__proto__") Object.defineProperty(out, key, { value, enumerable: true, writable: true, configurable: true });
+    else out[key] = value;
+  }
+  r.limit = p;
+  return out;
+};
+
 const writeTag = (tag: number): string =>
   tag < 128 ? `w.pos<w.buf.length?w.buf[w.pos++]=${tag}:w.varint32(${tag})` : `w.varint32(${tag})`;
 
@@ -1401,7 +1538,8 @@ const writeVarint32 = (expr: string): string =>
 
 // `num`/`big` name the range checks in scope: closure params inside a
 // hoisted message encoder, `e[N]` embeds in the operation body.
-const writeCall = (type: ProtobufType, v: string, num: string, big: string): string => {
+const writeCall = (type: ProtobufType, v: string, num: string, big: string, st?: string): string => {
+  if (type === structType) return `${st}(w,${v})`;
   if (type === "bool") return `s=${v}?1:0;w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s)`;
   if (type === "uint32") return `s=${v};if(s<0||s>4294967295)${num}(s,0,4294967295,"uint32");${writeVarint32("s")}`;
   if (type === "int32" || type === "enum") return `s=${v};if(s<-2147483648||s>2147483647)${num}(s,-2147483648,2147483647,"${type}");s>=0?${writeVarint32("s")}:w.int32(s)`;
@@ -1437,6 +1575,7 @@ const varintKind = (type: ProtobufType): number | undefined =>
 
 // A one-byte varint is read inline.
 const readCall = (type: ProtobufType): string => {
+  if (type === structType) return "rs(r,d+1)";
   const varint32 = "(r.pos<r.limit&&(t=r.buf[r.pos])<128?(r.pos++,t):r.varint32())";
   if (type === "bool") return "r.bool()";
   if (type === "uint32") return varint32;
@@ -1464,7 +1603,8 @@ const readKey = (obj: string, key: string): string => {
 };
 
 const scalarDefault = (type: ProtobufType): string =>
-  type === "string" ? '""'
+  type === structType ? "{}"
+  : type === "string" ? '""'
   : type === "bytes" ? "new Uint8Array"
   : type === "bool" ? "!1"
   : type.includes("64") ? "0n"
@@ -1490,7 +1630,7 @@ const keyToWire = (type: ProtobufType, num: string): string => {
 // `numeric`: the value is known to be a number already (a validated field
 // val), so the write skips the coercion a nested encoder's untyped read needs.
 const fieldLive = (field: Field, numeric: boolean): string =>
-  field.optional ? "v!=null"
+  field.optional || field.type === structType ? "v!=null"
   : field.type === "bytes" ? "v.length"
   : field.type === "float" || field.type === "double" ? "v||v!==v||Object.is(v,-0)"
   : field.type === "string" || field.type === "bool" || field.type.includes("64") || numeric ? "v"
@@ -1505,6 +1645,7 @@ const encodeBody = (
   num: string,
   big: string,
   conflict: string,
+  st?: string,
 ): string => {
   const body: string[] = [];
   // proto3 lets at most one member of a oneof be set, and decode enforces it
@@ -1550,7 +1691,7 @@ const encodeBody = (
         arms += `case ${JSON.stringify(member.case)}:${writeTag(memberTag)};${
           member.type === "message"
             ? `h=w.begin();${fns.get(member.message!)!}(w,v.value);w.end(h)`
-            : writeCall(member.type, "v.value", num, big)
+            : writeCall(member.type, "v.value", num, big, st)
         };break;`;
       }
       body.push(`v=${read(field.key).expr};switch(v&&v.case){${arms}}`);
@@ -1563,7 +1704,7 @@ const encodeBody = (
       const keyPart = `${keyToWire(keyType, num)}${writeTag(8 + wireType(keyType))};${writeCall(keyType, "k", num, big)}`;
       const valuePart = field.type === "message"
         ? `${writeTag(16 + 2)};g=w.begin();${fns.get(field.message!)!}(w,c);w.end(g)`
-        : `${writeTag(16 + field.wire)};${writeCall(field.type, "c", num, big)}`;
+        : `${writeTag(16 + field.wire)};${writeCall(field.type, "c", num, big, st)}`;
       body.push(`v=${src};a=Object.keys(v);n=a.length;j=0;while(j<n){k=a[j++];c=v[k];${entryTag};h=w.begin();${keyPart};${valuePart};w.end(h)}`);
     } else if (field.repeated) {
       let loop: string;
@@ -1572,18 +1713,23 @@ const encodeBody = (
         const fixed = fixedKind(field.type);
         const packed = kind !== U ? `w.varints(v,${kind});`
           : fixed !== U ? `w.fixeds(v,${fixed});`
-          : `j=0;while(j<n){${writeCall(field.type, "v[j++]", num, big)}}`;
+          : `j=0;while(j<n){${writeCall(field.type, "v[j++]", num, big, st)}}`;
         loop = `${writeTag(field.number * 8 + 2)};h=w.begin();${packed}w.end(h)`;
       } else if (field.type === "message") {
         loop = `j=0;while(j<n){${writeTag(tag)};h=w.begin();${fns.get(field.message!)!}(w,v[j++]);w.end(h)}`;
       } else {
-        loop = `j=0;while(j<n){${writeTag(tag)};${writeCall(field.type, "v[j++]", num, big)}}`;
+        loop = `j=0;while(j<n){${writeTag(tag)};${writeCall(field.type, "v[j++]", num, big, st)}}`;
       }
       body.push(`v=${src};n=v.length;if(n){${loop}}`);
     } else if (field.type === "message") {
       body.push(`v=${src};if(v!=null){${guard(field)}${writeTag(tag)};h=w.begin();${fns.get(field.message!)!}(w,v);w.end(h)}`);
+    } else if (field.box !== U) {
+      // Written even when the scalar is its zero value: presence is the point
+      // of a wrapper, and the empty message is what says "set, to zero".
+      const inner = `if(${fieldLive({ ...field, optional: false }, numeric)}){${writeTag(8 + wireType(field.type))};${writeCall(field.type, "v", num, big)}}`;
+      body.push(`v=${src};if(v!=null){${writeTag(tag)};h=w.begin();${inner}w.end(h)}`);
     } else {
-      body.push(`v=${src};if(${fieldLive(field, numeric)}){${guard(field)}${writeTag(tag)};${writeCall(field.type, "v", num, big)}}`);
+      body.push(`v=${src};if(${fieldLive(field, numeric)}){${guard(field)}${writeTag(tag)};${writeCall(field.type, "v", num, big, st)}}`);
     }
   }
   return (bits.size ? "o=0;" : "") + body.join(";");
@@ -1610,9 +1756,9 @@ const compileEncoders = (root: Message, fns: Map<Message, string>): Record<strin
   fns.forEach((name, msg) => {
     if (msg === root && root.rec === U) return;
     names.push(name);
-    src += `function ${name}(w,value){var v,j,n,s,h,a,k,g,c,o;${encodeBody(msg, fns, (key) => ({ expr: readKey("value", key), numeric: false }), "num", "big", "oneof")}}`;
+    src += `function ${name}(w,value){var v,j,n,s,h,a,k,g,c,o;${encodeBody(msg, fns, (key) => ({ expr: readKey("value", key), numeric: false }), "num", "big", "oneof", "st")}}`;
   });
-  return new Function("num", "big", "oneof", `${src}return {${names.join(",")}}`)(checkedNumber, checkedBigint, oneofConflict);
+  return new Function("num", "big", "oneof", "st", `${src}return {${names.join(",")}}`)(checkedNumber, checkedBigint, oneofConflict, writeStruct);
 };
 
 // A nested field seen twice merges: the second decode starts from the
@@ -1690,6 +1836,11 @@ const decodeFnSource = (msg: Message, fns: Map<Message, string>, slot: number): 
       arm += `if(w===2){p=r.sub();${packedLoop};r.limit=p;continue}if(w===${field.wire}){${local}.push(${readCall(field.type)});continue}break;`;
     } else if (field.repeated) {
       arm += `if(w===${field.wire}){${local}.push(${readCall(field.type)});continue}break;`;
+    } else if (field.box !== U) {
+      // A second occurrence merges into the first, as a message does: a scalar
+      // it leaves out keeps the value the first gave.
+      const inner = 8 + wireType(field.type);
+      arm += `if(w===2){p=r.sub();c=${local}===void 0?${scalarDefault(field.type)}:${local};while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else t=r.tag();if(t===${inner})c=${readCall(field.type)};else if(t<8)throw Error("invalid protobuf field number");else skip(r,t&7,t>>>3,0)}r.limit=p;${local}=c;continue}break;`;
     } else {
       arm += `if(w===${field.wire}){${local}=${readCall(field.type)};continue}break;`;
     }
@@ -1719,7 +1870,7 @@ const compileDecoder = (root: Message, fns: Map<Message, string>): Function => {
   fns.forEach((_, msg) => {
     src += decodeFnSource(msg, fns, messages.push(msg) - 1);
   });
-  return new Function("skip", "at", "M", `${src}return ${fns.get(root)!}`)(skip, wireFrame, messages);
+  return new Function("skip", "at", "M", "rs", `${src}return ${fns.get(root)!}`)(skip, wireFrame, messages, readStruct);
 };
 
 // The declared object, with the field metadata on its properties. A parsed
@@ -1777,7 +1928,15 @@ const protobufDecoder = (input: Val): Val => {
       ? { expr: fv.i, numeric: fv.s.type === numberTag && fv.s.format !== U }
       : { expr: readKey(input.v(), key), numeric: false };
   };
-  const body = encodeBody(message, names, readRoot, B_embed(input, checkedNumber), B_embed(input, checkedBigint), B_embed(input, oneofConflict));
+  const body = encodeBody(
+    message,
+    names,
+    readRoot,
+    B_embed(input, checkedNumber),
+    B_embed(input, checkedBigint),
+    B_embed(input, oneofConflict),
+    message.fields.some((field) => field.type === structType) ? B_embed(input, writeStruct) : U,
+  );
   const outVar = B_varWithoutAllocation(input.g);
   const output = B_next(input, outVar, input.e, input.e);
   output.v = _var;
@@ -1882,6 +2041,8 @@ type Proto = {
   members: Set<string>;
   ids: Map<object, number>;
   uses: Map<Message, Use[]>;
+  // The well-known type files a field's type comes from.
+  imports: Set<string>;
 };
 
 const usesOf = (proto: Proto, message: Message): Use[] => {
@@ -2167,7 +2328,10 @@ const messageBody = (
       type = declareType(proto, key, use, qualified, indent, nested, scope, fieldNames, members, (fieldDecl, typeName, inner, values) =>
         enumBody(fieldDecl, use.shape, typeName, inner, values, values === members ? (n) => fieldNames.has(n) : (n) => proto.used.has(n))
       );
-    } else type = field.type === "enum" ? "int32" : field.type;
+    } else {
+      type = field.box || (field.type === "enum" ? "int32" : field.type);
+      if (field.box || field.type === structType) proto.imports.add(field.box ? "wrappers" : "struct");
+    }
     // A type nested in this message is referred to by its local name.
     if (type.startsWith(`${qualified}.`) && !type.includes(".", qualified.length + 1)) {
       type = type.slice(qualified.length + 1);
@@ -2231,6 +2395,7 @@ export const toProtoOrThrow = (schema: Internal, options?: ProtoOptions): string
     members: new Set(),
     ids: new Map(),
     uses: new Map(),
+    imports: new Set(),
   };
   const decl: TypeDecl = { metas: [rootMeta] };
   const key = messageKey(proto, output.properties!, rootMeta.name);
@@ -2243,6 +2408,7 @@ export const toProtoOrThrow = (schema: Internal, options?: ProtoOptions): string
   const name = proto.names.get(key) || uniqueName("Message", proto.used);
   proto.names.set(key, name);
   const root = messageBody(proto, decl, message, name, name, "");
-  const header = `syntax = "proto3";\n${options?.package ? `\npackage ${options.package};\n` : ""}`;
+  const imports = [...proto.imports].sort().map((file) => `import "google/protobuf/${file}.proto";\n`).join("");
+  const header = `syntax = "proto3";\n${options?.package ? `\npackage ${options.package};\n` : ""}${imports ? `\n${imports}` : ""}`;
   return `${header}\n${[root, ...proto.top].map(render).join("\n\n")}\n`;
 };
