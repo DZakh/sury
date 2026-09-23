@@ -1,6 +1,5 @@
 import { expect, test } from "vitest";
 import * as S from "sury";
-import { execFileSync } from "node:child_process";
 
 // Where a failure gets a stack, and where it deliberately has none. A spec
 // pins generated code and messages; a stack is neither, and the `try` a
@@ -173,14 +172,18 @@ test("an async failure after the first await names the line that awaited it", as
   expect(frames.join("\n")).not.toContain("rejectionBoundary");
 });
 
-test("an async failure nothing awaits rejects without one", async () => {
-  // A bare `.catch` leaves V8 no await to thread the caller back through, so
-  // all a capture could take is the runtime's microtask pump.
+test("an async failure nothing awaits still carries a stack", async () => {
+  // A bare `.catch` leaves V8 no `await` to thread the caller back through, so
+  // there's no line of the caller's to name - but a stack is still there, as on
+  // every failure that reaches you by a throw or a rejection.
   const error = await new Promise<Error>((resolve) => {
     asyncNumber("x").catch(resolve);
   });
-  expect("stack" in error).toBe(false);
   expect(error.message).toBe("Expected number, received NaN");
+  expect(typeof error.stack).toBe("string");
+  const frames = error.stack!.split("\n").slice(1);
+  expect(frames.some((frame) => frame.includes("errorStack_test"))).toBe(false);
+  expect(error.stack).not.toContain("rejectionBoundary");
 });
 
 test("an async failure is given its stack without rendering its reason", async () => {
@@ -300,9 +303,7 @@ test("modelling an engine without captureStackTrace leaves no trace on Error", a
   expect(Object.keys(Error)).not.toContain("captureStackTrace");
 });
 
-test("an engine without captureStackTrace rejects an async failure without one", async () => {
-  // No cut to apply, so all such an engine could take here is the library's
-  // own handler - which names nothing the caller wrote.
+test("an engine without captureStackTrace still gets a stack on an async failure", async () => {
   const error = await withoutCaptureStackTrace(async () => {
     try {
       await asyncNumber("x");
@@ -310,53 +311,6 @@ test("an engine without captureStackTrace rejects an async failure without one",
       return error as Error;
     }
   });
-  expect("stack" in error!).toBe(false);
-});
-
-test("reading whether a caller awaited leaves Error.prepareStackTrace as it was", async () => {
-  const awaitsIt = async () => {
-    try {
-      await asyncNumber("x");
-    } catch (error) {
-      return error as Error;
-    }
-  };
-
-  const before = Object.getOwnPropertyDescriptor(Error, "prepareStackTrace");
-  await awaitsIt();
-  expect(Object.getOwnPropertyDescriptor(Error, "prepareStackTrace")).toEqual(before);
-
-  // A hook someone installed stays theirs, and still formats the failure.
-  const hook = (error: Error, frames: unknown[]) => `formatted ${String(error)} over ${frames.length}`;
-  Object.defineProperty(Error, "prepareStackTrace", { value: hook, configurable: true, writable: true });
-  try {
-    const error = (await awaitsIt())!;
-    expect(Object.getOwnPropertyDescriptor(Error, "prepareStackTrace")!.value).toBe(hook);
-    expect(error.stack).toMatch(/^formatted SuryError: Expected number, received NaN over \d+$/);
-  } finally {
-    if (before) Object.defineProperty(Error, "prepareStackTrace", before);
-    else delete (Error as { prepareStackTrace?: unknown }).prepareStackTrace;
-  }
-});
-
-test("a realm that won't let the hook be swapped still rejects with the failure", () => {
-  // A hardened realm (SES's `lockdown`, say) can make `Error.prepareStackTrace`
-  // non-configurable, and that can't be undone in this worker - so it runs in
-  // a process of its own, against the built entry.
-  const entry = new URL("../index.mjs", import.meta.url).href;
-  const script = `
-    Object.defineProperty(Error, "prepareStackTrace", { value: undefined, configurable: false, writable: false });
-    const S = await import(${JSON.stringify(entry)});
-    const parse = S.parseAsPromiseOrReject(S.string.with(S.to, S.number, {
-      decode: { async: async (value) => Number(value) }, encode: String,
-    }));
-    const error = await (async () => { try { await parse("x") } catch (error) { return error } })();
-    console.log(JSON.stringify({ sury: error instanceof S.Error, stack: "stack" in error, message: error.message }));
-  `;
-  const out = execFileSync(process.execPath, ["--input-type=module", "-e", script], { encoding: "utf8" });
-  expect(JSON.parse(out)).toEqual({
-    sury: true,
-    stack: false,
-    message: "Expected number, received NaN",
-  });
+  expect(typeof error!.stack).toBe("string");
+  expect(Object.keys(error!)).toEqual(["code", "path", "input"]);
 });

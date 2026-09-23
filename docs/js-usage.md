@@ -2411,7 +2411,7 @@ The output side is derived through [`reverse`](#reverse), so nested transforms a
 
 **Sury** throws `S.Error`, a subclass of `Error` named `SuryError`, so `instanceof` works as usual. A thrown error carries a `stack` starting at the line that called the operation; one handed back by an `AsResult` outcome or by Standard Schema has none, because nothing threw.
 
-An async schema can also fail after its first `await`, inside the promise. That rejection has a `stack` when you `await` it. Chained with a bare `.catch()`, it has none, since nothing awaited it to trace back to:
+An async schema that fails after its first `await` rejects with one too, starting at the `await` that received it. A bare `.catch()` has no `await` to trace back through, so its stack can't name your line:
 
 ```ts
 const parseId = S.parseAsPromiseOrReject(
@@ -2428,7 +2428,7 @@ try {
 }
 
 parseId("abc").catch((e) => {
-  e.stack; // undefined
+  e.stack; // doesn't name this line
 });
 ```
 

@@ -148,12 +148,6 @@ export type Tail = (
   hasDefs: boolean,
 ) => string | undefined;
 
-const stackless = (thrown: SuryErrorRecord): boolean =>
-  thrown && thrown.s === s && !("stack" in thrown);
-const v8Capture = (): ((target: object, cut: unknown) => void) | undefined =>
-  (Error as unknown as { captureStackTrace?: (target: object, cut: unknown) => void })
-    .captureStackTrace;
-
 // A Sury failure is a record until it crosses into user code, and there are
 // exactly three places where it does: the compiled operation, the promise an
 // async one hands back (`rejectionBoundary`), and the compile itself. All three
@@ -173,17 +167,19 @@ const v8Capture = (): ((target: object, cut: unknown) => void) | undefined =>
 // `captureStackTrace` is V8's, and `cut` is the whole reason to prefer it: only
 // it can drop the frames between the raise and the caller. Every other engine
 // gets the stack a throwaway `Error` was born with, which is the same trace
-// with this function and the two frames below it still on top - worse than V8's
-// and better than the nothing an engine without the API used to get. Counting
-// those frames off would couple this to the call depth of the boundary that
-// reaches it, so they stay.
+// with this function and the boundary's own frames still on top - worse than
+// V8's and better than the nothing an engine without the API used to get.
+// Counting those frames off would couple this to the call depth of whichever
+// boundary reaches it, so they stay.
 //
 // `defineProperty` rather than an assignment, because `stack` is not part of
 // what a failure reads back as: V8 writes a non-enumerable one, and a plain
 // write here would put it in `Object.keys(error)` on those engines alone.
 const captureStackAt = (thrown: SuryErrorRecord, cut: unknown): void => {
-  if (stackless(thrown)) {
-    const capture = v8Capture();
+  if (thrown && thrown.s === s && !("stack" in thrown)) {
+    const capture = (
+      Error as unknown as { captureStackTrace?: (target: object, cut: unknown) => void }
+    ).captureStackTrace;
     if (capture) capture(thrown, cut);
     else
       Object.defineProperty(thrown, "stack", {
@@ -196,44 +192,13 @@ const captureStackAt = (thrown: SuryErrorRecord, cut: unknown): void => {
 
 // A failure an async operation reaches after its first await rejects the
 // promise the operation handed back, out of reach of the `try` it runs in. This
-// is that promise's handler, and its own cut: a microtask calls it, so below it
-// sit only the runtime's microtask pump and then the caller - as a frame V8
-// threads back through an `await`, when it awaited. A caller that chained a
-// bare `.catch` gets no stack, rather than one naming the pump.
-//
-// Whether it awaited is read off a probe's frames. A probe, since reading a
-// failure's own stack renders its header - its `message`, whose `reason` is
-// rendered on demand for what it costs. Frames rather than text, since the
-// text is whatever the installed `Error.prepareStackTrace` makes of it
-// (vitest's prints an awaited frame without the word `async`). That hook is
-// swapped for the one read and put back by its descriptor; where the realm
-// won't allow the swap, the failure goes without a stack rather than reject
-// as the TypeError the swap raised.
-//
-// V8 only: without a cut, any other engine would see nothing but this function.
+// is that promise's handler, and its own cut. A microtask calls it, so all that
+// sits below is the runtime's microtask pump, then the caller as a frame V8
+// threads back through its `await`. A caller that chained a bare `.catch` has
+// no such frame, and its stack names nothing it wrote - but it still has one,
+// as every failure that reaches user code by a throw or a rejection does.
 const rejectionBoundary = (thrown: SuryErrorRecord): never => {
-  const capture = v8Capture();
-  if (capture && stackless(thrown)) {
-    const hook = Object.getOwnPropertyDescriptor(Error, "prepareStackTrace");
-    const probe = {} as { stack?: unknown };
-    let awaited: unknown;
-    try {
-      Object.defineProperty(Error, "prepareStackTrace", {
-        value: (_: unknown, frames: unknown) => frames,
-        configurable: true,
-      });
-      capture(probe, rejectionBoundary);
-      const frames = probe.stack;
-      awaited =
-        Array.isArray(frames) &&
-        frames.some((frame: { isAsync?: () => boolean }) => frame.isAsync?.());
-    } catch {
-    } finally {
-      if (hook) Object.defineProperty(Error, "prepareStackTrace", hook);
-      else delete (Error as { prepareStackTrace?: unknown }).prepareStackTrace;
-    }
-    if (awaited) capture(thrown, rejectionBoundary);
-  }
+  captureStackAt(thrown, rejectionBoundary);
   throw thrown;
 };
 
@@ -305,7 +270,10 @@ export const throwTail: Tail = (input, code, out, isAsync, flag, hasDefs) => {
   // second `try` around it to catch.
   return `try{${body}}catch(${e}){${
     flag & 1 && !(flag & 512)
-      ? `return Promise.reject(${B_embedPure(input, (thrown: SuryErrorRecord) => (captureStackAt(thrown, g.f), thrown))}(${e}))`
+      ? `return Promise.reject(${B_embedPure(
+          input,
+          (thrown: SuryErrorRecord) => (captureStackAt(thrown, g.f), thrown),
+        )}(${e}))`
       : `${B_embedPure(input, (thrown: SuryErrorRecord): never => {
           captureStackAt(thrown, g.f);
           throw thrown;
