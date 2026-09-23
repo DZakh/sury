@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.uint8Array.with(S.to, S.optional(S.jsonString.with(S.to, S.schema({ a: S.number }))))"
+  input: Uint8Array<ArrayBufferLike>
+  output: "{ a: number; } | undefined"
+  instantiations: 6196
+jsonSchema:
+  input: Expected JSON, received Uint8Array
+  output: "Expected JSON, received { a: number; } | undefined"
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+  output: (a,b)=>a===b||(a===void 0?b===void 0:b!==void 0&&a.a===b.a)
+compare:
+  input: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { a: number; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    creationError: "SuryError: Can't decode Uint8Array -> JSON string | undefined. Define custom codec with S.to"
+  decode: eq-to-parse
+  encode:
+    creationError: 'SuryError: Ambiguous JSON string -> Uint8Array. Should the bytes be packed or unpacked? Choose with S.to and "pack" or "unpack"'

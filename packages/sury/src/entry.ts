@@ -42,6 +42,8 @@ import {
 } from "./base";
 import {
   B_contentDiffers,
+  B_contentNode,
+  B_isText,
   B_conversion,
   B_invalidOperation,
   B_neverSlot
@@ -349,15 +351,36 @@ export const to = (schema: Internal, target: Internal, custom?: unknown) => {
     if (decode === encode || decode === U || encode === U) {
       return panic(`Expected "pack" opposite "unpack"`);
     }
-    const from = getOutputSchema(schema);
-    if (
-      from.content === U ||
-      target.content === U ||
-      !B_contentDiffers(from.content, target.content) ||
-      from.isJson ||
-      target.isJson
-    ) {
+    // A reading declares the source: `"unpack"` needs one with something to
+    // open (a payload, or the text of a plain string), and `"pack"` a target
+    // that stores. Two payloads of the same kind have nothing to pick between,
+    // and `S.json` has no opened form. What the target does with the reading
+    // is its own decoder's question, so `S.string.with(S.to, S.number, "unpack")`
+    // is accepted: an integration declares its text once, whatever the user's
+    // schema turns out to be. A carrier's reading stops at a union target, as
+    // the axis does: its own encoder meets the union whole, before the arms.
+    const source = getOutputSchema(schema);
+    const from = B_contentNode(source);
+    const into = B_contentNode(target);
+    const openable = from.flags & 3 ? !(from.flags & 16) && into === target : B_isText(from) || from.anyOf?.some(B_isText);
+    const stores = into.flags & 3 && !(into.flags & 16);
+    if (!openable || (stores ? from.flags & 3 && !B_contentDiffers(from, into) : into.flags & 16 || decode === false)) {
       return panic(`Can't pick a reading for this link. Use {decode, encode} coders instead`);
+    }
+    // `"unpack"` declares every value of its source to be text or a payload to
+    // open, so an arm that is neither - a nullish arm, a value - belongs to the
+    // link only where the target takes it as it is. Anywhere else it would take
+    // whatever reading the target gives a value, which for a JSON document is
+    // storing `undefined` as `null`: a claim the slot made silently broken.
+    const stuck =
+      decode &&
+      source.anyOf?.find(
+        (arm) => !(arm.flags & 3) && !B_isText(arm) && !(target.has ? target.has[arm.type] : target.type === arm.type),
+      );
+    if (stuck) {
+      return panic(
+        `Can't unpack ${inputExpression(stuck)}: it has no text. Put "unpack" on the text inside the union`,
+      );
     }
   }
   // Chaining a schema to itself would append a second copy of its own chain,

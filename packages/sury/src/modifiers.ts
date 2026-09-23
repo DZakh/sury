@@ -278,7 +278,7 @@ export const getMutErrorMessage = (mut: Internal): SchemaErrorMessage => {
 // fields, so the encode coder becomes the reversed chain's parser and double
 // reversal restores every slot. Slot semantics (auto/never/async/the JS
 // shorthand) are resolved by the caller into Builders; a boolean is a content
-// reading (`true` opens the source) and rides the target as `opens`, the one
+// reading (`true` opens the source) and rides the target as a reading bit, the one
 // reading a link has. `U` means no slot, i.e. the built-in conversion - and
 // whether that exists is the payload schemas' question, asked while compiling.
 export const codecTo = (
@@ -304,7 +304,19 @@ export const codecTo = (
         targetMut.serializer = serializer;
       }
       if (opened) {
-        targetMut.opens = decode as boolean;
+        targetMut.flags = (targetMut.flags & ~12) | (decode ? 4 : 8);
+        // The arm's decoder is what meets the source, so a union target hands
+        // the reading to the arm carrying a payload. The array is replaced
+        // only then: unionResolveToUnion knows an arm producing the whole
+        // target union by the shared `anyOf` reference.
+        if (targetMut.anyOf?.some((arm) => arm.flags & 3)) {
+          targetMut.anyOf = targetMut.anyOf.map((arm) => {
+            if (!(arm.flags & 3)) return arm;
+            const armMut = copySchema(arm);
+            armMut.flags = (arm.flags & ~12) | (decode ? 4 : 8);
+            return armMut;
+          });
+        }
       }
       mut.to = targetMut;
     } else {
@@ -314,8 +326,8 @@ export const codecTo = (
     // payload that gains a `.to` names what it holds, so the link into it opens
     // its source. Materialized here rather than read off `.to !== U` by the
     // payload schemas, because `reverse` re-points `.to` and would lose it,
-    // while it carries `opens` across.
-    if (mut.content !== U && mut.opens === U) mut.opens = true;
+    // while it carries the reading across.
+    if (mut.flags & 3 && !(mut.flags & 12)) mut.flags |= 4;
     if (parser !== U) {
       mut.parser = parser;
     }
