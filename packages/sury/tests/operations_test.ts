@@ -556,7 +556,9 @@ test("what an operation compiles to depends on its flag, never on call order", (
   S.isInput(S.schema({ third: S.string }), {});
   const after = S.parseAsPromiseOrReject(S.schema({ id: S.string })).toString();
   expect(after).toBe(before);
-  expect(before).toContain("Promise.reject");
+  // The lift itself: a failure the body raises is returned (as a rejection)
+  // from the `catch`, never rethrown out of the operation.
+  expect(before).toMatch(/\}catch\((v\d+)\)\{return e\[\d+\]\(\1\)\}\}$/);
 });
 
 test("make hands back the value it was given, even when the body rebinds it", () => {

@@ -328,7 +328,7 @@ test("Compiled async parse code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ParseAsync,
-    `i=>{try{try{typeof i==="number"&&i<=2147483647&&i>=-2147483648&&i%1==0||e[2](i);let v0;try{v0=e[0](i).catch(x=>e[1](x))}catch(x){e[1](x)}return v0}catch(v1){e[3](v1)}}catch(v2){return Promise.reject(v2)}}`,
+    `i=>{try{typeof i==="number"&&i<=2147483647&&i>=-2147483648&&i%1==0||e[2](i);let v0;try{v0=e[0](i).catch(x=>e[1](x))}catch(x){e[1](x)}return v0.catch(e[3])}catch(v1){return e[4](v1)}}`,
   )
 })
 

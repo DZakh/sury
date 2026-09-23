@@ -1125,7 +1125,7 @@ module Compiled = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ParseAsync,
-      `i=>{try{try{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v1=i.bar;let v0;try{v0=e[0](i.foo).catch(x=>e[1](x))}catch(x){e[1](x)}typeof v1==="boolean"||e[2](v1);return Promise.all([v0]).then(([v0])=>{return {foo:v0,bar:v1}})}catch(v2){e[4](v2)}}catch(v3){return Promise.reject(v3)}}`,
+      `i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v1=i.bar;let v0;try{v0=e[0](i.foo).catch(x=>e[1](x))}catch(x){e[1](x)}typeof v1==="boolean"||e[2](v1);return Promise.all([v0]).then(([v0])=>{return {foo:v0,bar:v1}}).catch(e[4])}catch(v2){return e[5](v2)}}`,
     )
   })
 
@@ -1140,7 +1140,7 @@ module Compiled = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ParseAsync,
-      `i=>{try{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0;try{v0=e[0](i.foo).catch(x=>e[1](x))}catch(x){e[1](x)}return v0}catch(v1){e[3](v1)}}catch(v2){return Promise.reject(v2)}}`,
+      `i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0;try{v0=e[0](i.foo).catch(x=>e[1](x))}catch(x){e[1](x)}return v0.catch(e[3])}catch(v1){return e[4](v1)}}`,
     )
   })
 
@@ -1268,7 +1268,7 @@ test("Compiles to async serialize operation with the sync object schema", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#EncodeAsync,
-    `i=>{try{try{i===void 0||e[0](i);return Promise.resolve({})}catch(v0){e[1](v0)}}catch(v1){return Promise.reject(v1)}}`,
+    `i=>{try{i===void 0||e[0](i);return Promise.resolve({})}catch(v0){return e[1](v0)}}`,
   )
 })
 

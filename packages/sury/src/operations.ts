@@ -126,8 +126,8 @@ const operationTail: Tail = (input, code, out, isAsync, flag, hasDefs) => {
   const toPromise = !!(flag & 1) && !(flag & 512) && !hasDefs;
   // No answer of its own for a failure - the exception still is the answer, so
   // `throwTail` still decides the identity case and the promise lift.
-  if (!(flag & (128 | 256 | 4096))) {
-    const body = throwTail(
+  if (!(flag & (128 | 256 | 4096)))
+    return throwTail(
       input,
       code,
       flag & 2048 && isAsync ? `${out}.then(()=>${value})` : value,
@@ -135,21 +135,6 @@ const operationTail: Tail = (input, code, out, isAsync, flag, hasDefs) => {
       flag,
       hasDefs,
     );
-    // A promise-returning operation must not throw synchronously: a value that
-    // fails its type check before the first await rejects the same way one
-    // that fails after it does, so `OrReject` is the whole story its name
-    // tells. The raise counter says whether anything merged can throw at all.
-    //
-    // Safe to decide here rather than from a flag bit, even though the tail is
-    // registered globally: EVERY operation carrying the async flag goes through
-    // `tailDispatch`, so none of them can be compiled before this emitter is in
-    // place. 512 is also the bit that keeps the Standard Schema tail out -
-    // 1024 is only ever compiled with 512 (standard.ts) - where `throwTail`
-    // already emitted its own `try`.
-    if (!body || !toPromise || !input.g.t) return body;
-    const e = B_varWithoutAllocation(input.g);
-    return `try{${body}}catch(${e}){return Promise.reject(${e})}`;
-  }
   const errVar = B_varWithoutAllocation(input.g);
   // 4096 (`isInput`/`isOutput`) answers `true`; 2048 already picked its value.
   const valueVar = isAsync ? B_varWithoutAllocation(input.g) : value;
