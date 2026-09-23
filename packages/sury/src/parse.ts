@@ -1,4 +1,5 @@
 import {
+  type BGlobal,
   anyOfTag,
   baseSchema,
   type Builder,
@@ -32,7 +33,8 @@ import {
   valueOptions
 } from "./base";
 import {
-  B_embedInvalidInput,
+  B_detached,
+  B_failInvalidInput,
   B_embedPure,
   B_errorOf,
   B_inlineConst,
@@ -82,8 +84,10 @@ export const parse = (input: Val): Val => {
     if (loopInput.f & 1) {
       const operationInputVar = loopInput.v();
       const operationInput = B_scope(loopInput);
-      const operationOutput = parse(operationInput);
-      const operationCode = B_merge(operationOutput);
+      let operationOutput!: Val;
+      const operationCode = B_detached(loopInput.g, () =>
+        B_merge((operationOutput = parse(operationInput))),
+      );
       result =
         operationInput.i !== operationOutput.i || operationCode !== ""
           ? B_next(
@@ -147,6 +151,11 @@ export type Tail = (
   flag: Flag,
   hasDefs: boolean,
 ) => string | undefined;
+
+// Where a failure leaves the operation, for an outcome that answers it rather
+// than raising it (`BGlobal.x`). Registered with the tail, and asked before the
+// body is emitted, so it can't depend on whether the body turns out async.
+export type Exit = (input: Val, flag: Flag) => BGlobal["x"];
 
 // A Sury failure is a record until it crosses into user code, and there are
 // exactly three places where it does: the compiled operation, the promise an
@@ -283,8 +292,10 @@ export const throwTail: Tail = (input, code, out, isAsync, flag, hasDefs) => {
 };
 
 let emitTail: Tail = throwTail;
-export const __setTail = (fn: Tail): void => {
+let emitExit: Exit | undefined;
+export const __setTail = (fn: Tail, exit: Exit): void => {
   emitTail = fn;
+  emitExit = exit;
 };
 
 export const compileDecoder = (
@@ -295,6 +306,8 @@ export const compileDecoder = (
   node?: OpNode
 ): (input: unknown) => unknown => {
   const input = B_operationArg(isLiteral(schema) ? unknown : schema, expected, flag, defs);
+  // A nested compile (recursive.ts) answers with its value, so it raises.
+  if (!defs) input.g.x = emitExit?.(input, flag);
 
   const output = parse(input);
   const code = B_merge(output);
@@ -612,7 +625,7 @@ export const never_: Internal = /* @__PURE__ */ initSchema(neverTag, (input: Val
   // this branch, so a union built from its cases' output schemas must not list
   // the input type as something the union can produce.
   const output = B_refine(input, never_, U, never_);
-  output.cp = B_embedInvalidInput(input) + ";";
+  output.cp = B_failInvalidInput(input) + ";";
   return output;
 });
 

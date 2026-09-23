@@ -24,7 +24,8 @@ import {
 } from "./base";
 import {
   B_embed,
-  B_embedInvalidInput,
+  B_failInvalidInput,
+  B_guardInvalidInput,
   B_inlineConst,
   B_next,
   B_nextConst,
@@ -214,9 +215,10 @@ export const booleanDecoder: Builder = (input: Val) => {
   if ((inputTagFlag & 2)) {
     const output = B_nextVar(input);
     const inputVar = input.v();
-    output.cp = `let ${output.i};(${output.i}=${inputVar}==="true")||${inputVar}==="false"||${B_embedInvalidInput(
+    output.cp = `let ${output.i};${B_guardInvalidInput(
       input,
-    )};`;
+      `(${output.i}=${inputVar}==="true")||${inputVar}==="false"`,
+    )}`;
     return output;
   }
   return B_typeDecode(input, booleanTag, inputTagFlag);
@@ -230,10 +232,9 @@ export const bigintDecoder: Builder = (input: Val) => {
   if ((inputTagFlag & 2)) {
     const output = B_nextVar(input);
     const inputVar = input.v();
-    const fail = B_embedInvalidInput(input);
     // `BigInt("")` and `BigInt("   ")` are 0n, so a zero result also has to
     // show a digit.
-    output.cp = `let ${output.i};try{${output.i}=BigInt(${inputVar})}catch(_){${fail}}${output.i}||${inputVar}.trim()||${fail};`;
+    output.cp = `let ${output.i};try{${output.i}=BigInt(${inputVar})}catch(_){${B_failInvalidInput(input)}}${B_guardInvalidInput(input, `${output.i}||${inputVar}.trim()`)}`;
     return output;
   }
   if ((inputTagFlag & 4)) {

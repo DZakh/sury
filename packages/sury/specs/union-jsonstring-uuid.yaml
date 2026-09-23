@@ -17,7 +17,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{if(typeof i==="string"){for(;;){let r;try{try{JSON.parse(i)}catch(t){e[0](i)};break}catch(x){(r||(r=[])).push(e[3](x))}try{e[1].test(i)||e[2](i);break}catch(x){(r||(r=[])).push(e[3](x))}e[4](i,...(r||[]))}}else{e[5](i)}return i}catch(v0){e[6](v0)}}
+    expression: i=>{try{let v0;for(;;){l2:{if(typeof i==="string"){for(;;){l1:{try{JSON.parse(i)}catch(t){{(v0||(v0=[])).push(e[0](i));break l1}};break}try{if(!(e[1].test(i))){(v0||(v0=[])).push(e[2](i));break l2};break}catch(x){(v0||(v0=[])).push(e[3](x))}break l2};break}}throw e[4](i,...(v0||[]))}return i}catch(v3){e[5](v3)}}
     examples:
       json-number:
         input: '"1"'

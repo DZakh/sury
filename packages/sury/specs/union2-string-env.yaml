@@ -16,7 +16,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{for(;;){let r;if(typeof i==="string"){try{i.length>2||e[0](i);break}catch(x){(r||(r=[])).push(e[1](x))}}if((typeof i==="string"||i===void 0))break;e[2](i,...(r||[]))}return i}catch(v0){e[3](v0)}}
+    expression: i=>{try{let v0;for(;;){if(typeof i==="string"){l1:{if(!(i.length>2)){(v0||(v0=[])).push(e[0](i));break l1};break}}if((typeof i==="string"||i===void 0))break;throw e[1](i,...(v0||[]))}return i}catch(v2){e[2](v2)}}
     examples:
       long:
         input: '"abc"'

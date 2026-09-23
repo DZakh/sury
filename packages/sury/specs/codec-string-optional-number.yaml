@@ -35,7 +35,7 @@ operations:
         input: '"12"'
         output: "12"
   encode:
-    expression: i=>{try{if(typeof i==="number"&&i==i){i=""+i}else{e[0](i)}return i}catch(v0){e[1](v0)}}
+    expression: i=>{try{if(typeof i==="number"&&i==i){i=""+i}else{throw e[0](i)}return i}catch(v0){e[1](v0)}}
     examples:
       number:
         input: "12"

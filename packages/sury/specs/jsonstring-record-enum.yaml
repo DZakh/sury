@@ -22,7 +22,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v1="";for(let v0 of Object.keys(i)){let v2=i[v0];if(typeof v2==="string"){for(;;){if(v2==="a"){v2="\"a\"";break}if(v2==="b"){v2="\"b\"";break}e[1](v2,[v0])}}else{e[2](v2,[v0])}v1+=(v1?",":"")+e[0](v0)+":"+v2}return "{"+v1+"}"}catch(v3){e[4](v3)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v1="";for(let v0 of Object.keys(i)){let v2=i[v0];if(typeof v2==="string"){for(;;){if(v2==="a"){v2="\"a\"";break}if(v2==="b"){v2="\"b\"";break}throw e[1](v2,[v0])}}else{throw e[1](v2,[v0])}v1+=(v1?",":"")+e[0](v0)+":"+v2}return "{"+v1+"}"}catch(v3){e[3](v3)}}
     examples:
       mixed:
         input: '{ x: "a", y: "b" }'
@@ -34,7 +34,7 @@ operations:
         input: '{ x: "c" }'
         error: 'Failed at x: Expected "a" | "b", received "c"'
   decode:
-    expression: i=>{try{let v1="";for(let v0 of Object.keys(i)){let v2=i[v0];if(typeof v2==="string"){for(;;){if(v2==="a"){v2="\"a\"";break}if(v2==="b"){v2="\"b\"";break}e[1](v2,[v0])}}else{e[2](v2,[v0])}v1+=(v1?",":"")+e[0](v0)+":"+v2}return "{"+v1+"}"}catch(v3){e[3](v3)}}
+    expression: i=>{try{let v1="";for(let v0 of Object.keys(i)){let v2=i[v0];if(typeof v2==="string"){for(;;){if(v2==="a"){v2="\"a\"";break}if(v2==="b"){v2="\"b\"";break}throw e[1](v2,[v0])}}else{throw e[1](v2,[v0])}v1+=(v1?",":"")+e[0](v0)+":"+v2}return "{"+v1+"}"}catch(v3){e[2](v3)}}
     examples:
       mixed:
         input: '{ x: "a", y: "b" }'

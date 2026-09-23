@@ -14,6 +14,7 @@
 
 import {
   type Flag,
+  type SuryErrorRecord,
   initSchema,
   type Internal,
   isOwnSchema,
@@ -24,7 +25,8 @@ import {
   type Val
 } from "./base";
 import {
- B_embedErrorOf,
+ B_embedPure,
+ B_errorOf,
  B_varWithoutAllocation,
  operationArgVar
 } from "./builder";
@@ -33,6 +35,7 @@ import {
 } from "./primitives";
 import {
  __setTail,
+ type Exit,
  getOp,
  reverse,
  type Tail,
@@ -83,25 +86,48 @@ const okResult = (flag: Flag, value: string): string =>
     : flag & 128
       ? `{success:true,value:${value},error:void 0,issues:void 0}`
       : value;
-// The bare `false` is `is`'s answer; nothing else reaches this without a
-// Result shape to fill.
-//
-// Rebinding `errVar` is safe because it is the catch parameter or the
-// rejection handler's parameter, never a value the body still needs; the comma
-// expression is what lets that rebind sit where the caller wants an expression.
-// `issues` reads the error three times, which is what makes it worth a name.
+// The failure half, built by a function rather than spelled into the body:
+// the body reaches it from every check that jumps to it (`operationExit`) as
+// well as from its `catch`. A literal all the same, with the success half's
+// keys in the success half's order.
 //
 // The issue shape is `throwTail`'s (parse.ts), which is where its reasoning
 // lives - a Result IS a Standard Schema result, so the two emit the same thing
 // and `tests/operations_test.ts` holds them to it.
+const failureOf =
+  (flag: Flag, errorOf?: (e: unknown) => SuryErrorRecord) =>
+  (e: unknown): unknown => {
+    const error = errorOf ? errorOf(e) : (e as SuryErrorRecord);
+    return flag & 256
+      ? { TAG: "Error", _0: error }
+      : {
+          success: false,
+          value: U,
+          error,
+          issues: [{ message: error.reason, path: error.path.length ? error.path : U }],
+        };
+  };
+
+// The bare `false` is `is`'s answer; nothing else reaches this without a
+// Result shape to fill.
 const errResult = (input: Val, flag: Flag, errVar: string): string =>
-  flag & 256
-    ? `{TAG:"Error",_0:${B_embedErrorOf(input)}(${errVar})}`
-    : flag & 128
-      ? `(${errVar}=${B_embedErrorOf(input)}(${errVar}),{success:false,value:void 0,error:${
-          errVar
-        },issues:[{message:${errVar}.reason,path:${errVar}.path.length?${errVar}.path:void 0}]})`
-      : "false";
+  flag & (128 | 256) ? `${B_embedPure(input, failureOf(flag, B_errorOf(input)))}(${errVar})` : "false";
+
+// Where a failure the body finds leaves it, so an outcome with an answer of its
+// own never throws for a value that simply isn't valid. The promisable mode
+// (512) is left raising: its failure's shape is the body's, which isn't known
+// until the body is.
+const operationExit: Exit = (input, flag) => {
+  if (!(flag & (128 | 256 | 4096)) || flag & 512) return U;
+  const answer = (value: string) => `return ${flag & 1 ? `Promise.resolve(${value})` : value}`;
+  if (flag & 4096) {
+    const no = answer("false");
+    return () => no;
+  }
+  let embedded = "";
+  return (record) =>
+    answer(`${(embedded ||= B_embedPure(input, failureOf(flag)))}(${record!()})`);
+};
 
 const operationTail: Tail = (input, code, out, isAsync, flag, hasDefs) => {
   // 2048 (`makeInput`/`makeOutput`) hands back the value it was given. The
@@ -153,7 +179,11 @@ const operationTail: Tail = (input, code, out, isAsync, flag, hasDefs) => {
   // path uses, so an async operation's answer is a promise either way: the
   // consumer sees one shape whether the value died before the first await or
   // after it.
-  return input.g.t
+  //
+  // A body that jumps rather than raises still gets the `try` wherever it
+  // fails at all: what it reads to decide can raise - a getter, a proxy - and
+  // an outcome with an answer of its own never throws for it.
+  return input.g.t + input.g.j
     ? `try{${body}}catch(${errVar}){return ${
         isAsync || toPromise ? `Promise.resolve(${failure})` : failure
       }}`
@@ -256,7 +286,7 @@ const tailDispatch = (
   rev: boolean,
   flag: Flag,
 ): unknown => {
-  __setTail(operationTail);
+  __setTail(operationTail, operationExit);
   return dispatch(n, a, b, c, d, tail, rev, flag);
 };
 

@@ -9,7 +9,7 @@ import {
   type Val
 } from "../base";
 import {
- B_embedInvalidInput,
+ B_failInvalidInput,
  B_next,
  B_nextVar,
  B_refine,
@@ -86,7 +86,7 @@ export const date: Internal = /* @__PURE__ */ initSchema(
           return parse(B_refine(B_next(input, `${input.i}.toISOString()`, dateTimeString, target)));
         }
         const output = B_nextVar(input, dateTimeString, target);
-        output.cp = `let ${output.i};try{${output.i}=${input.v()}.toISOString()}catch(_){${B_embedInvalidInput(
+        output.cp = `let ${output.i};try{${output.i}=${input.v()}.toISOString()}catch(_){${B_failInvalidInput(
           input,
           input.s,
         )}}`;

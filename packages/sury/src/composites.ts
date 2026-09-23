@@ -44,8 +44,10 @@ import {
   B_addObjectField,
   B_asyncVal,
   B_dynamicScope,
-  B_embedInvalidInput,
-  B_failWithArg,
+  B_detached,
+  B_fail,
+  B_failInvalidInput,
+  B_guardInvalidInput,
   B_hoistChildChecks,
   B_hoistDecl,
   B_inlineConst,
@@ -87,7 +89,7 @@ export const B_unrecognizedKeys = (
   decl: string,
 ): string => {
   const snap = B_pathSnap(input);
-  const fail = B_failWithArg(
+  const fail = B_fail(
     input,
     (key: string, path?: Path) =>
       ({
@@ -210,19 +212,20 @@ export const completeObjectVal = (objectVal: Val): Val => {
     const operationInput = B_scope(objectVal);
     operationInput.io = true;
     const operationOutput = parse(operationInput);
-    let operationCode = B_merge(operationOutput);
     let result = operationOutput.i;
-
-    // Inside the `.then`, where the fields the optional ones read are bound:
-    // the sync branch below appends the same code after the literal, and
-    // leaving it off here dropped every optional field of an object that had
-    // any async one.
-    if (optionalSettingCode !== U) {
-      const objectVar = B_varWithoutAllocation(objectVal.g);
-      operationCode =
-        operationCode + `let ${objectVar}=${result};` + optionalSettingCode(objectVar);
-      result = objectVar;
-    }
+    let operationCode = B_detached(objectVal.g, () => {
+      let code = B_merge(operationOutput);
+      // Inside the `.then`, where the fields the optional ones read are bound:
+      // the sync branch below appends the same code after the literal, and
+      // leaving it off here dropped every optional field of an object that had
+      // any async one.
+      if (optionalSettingCode !== U) {
+        const objectVar = B_varWithoutAllocation(objectVal.g);
+        code += `let ${objectVar}=${result};` + optionalSettingCode(objectVar);
+        result = objectVar;
+      }
+      return code;
+    });
 
     if (operationCode === "" && promiseAllContent === result) {
       objectVal.i = result;
@@ -326,7 +329,7 @@ export const arrayDecoder = (unknownInput: Val): Val => {
       const inputVar = input.v();
       const iteratorVar = B_varWithoutAllocation(input.g);
 
-      const raiseCountBefore = input.g.t;
+      const failCountBefore = input.g.t + input.g.j;
       const itemInput = B_dynamicScope(input, iteratorVar);
       B_narrowJsonSourcedJsonString(itemInput);
       const itemOutput = parse(itemInput);
@@ -339,7 +342,7 @@ export const arrayDecoder = (unknownInput: Val): Val => {
       const itemMerge = B_merge(itemOutput);
       const itemCode = hasTransform
         ? itemMerge + B_addKey(output2, iteratorVar, itemOutput)
-        : input.g.t === raiseCountBefore
+        : input.g.t + input.g.j === failCountBefore
           ? ""
           : itemMerge;
 
@@ -467,7 +470,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
     }
     const inputVar = input.v();
     const keyVar = B_varWithoutAllocation(input.g);
-    const raiseCountBefore = input.g.t;
+    const failCountBefore = input.g.t + input.g.j;
     const itemInput = B_dynamicScope(input, keyVar);
     B_narrowJsonSourcedJsonString(itemInput);
     const itemOutput = parse(itemInput);
@@ -481,7 +484,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
     const itemMerge = B_merge(itemOutput);
     const itemCode = hasTransform
       ? itemMerge + B_addKey(output2, keyVar, itemOutput)
-      : input.g.t === raiseCountBefore
+      : input.g.t + input.g.j === failCountBefore
         ? ""
         : itemMerge;
 
@@ -726,14 +729,14 @@ const missingKeyEncoder: Encoder = (input, target) => {
   const presentAssign = presentOut.i === v ? "" : `${v}=${presentOut.i};`;
 
   // Optional field: leave `undefined` as-is (None). Required field: reject.
-  const absentCode = isOptional(target) ? "" : B_embedInvalidInput(input, target);
+  const absentCode = isOptional(target) ? "" : B_failInvalidInput(input, target);
   const output = B_nextVarOutput(input, v, getOutputSchema(target), target);
   const presentBody = presentCode + presentAssign;
   output.cp =
     presentBody === ""
       ? absentCode === ""
         ? ""
-        : `${v}!==void 0||${absentCode};`
+        : B_guardInvalidInput(input, `${v}!==void 0`, target)
       : absentCode === ""
         ? `if(${v}!==void 0){${presentBody}}`
         : `if(${v}!==void 0){${presentBody}}else{${absentCode}}`;

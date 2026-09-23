@@ -20,7 +20,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{i instanceof e[13]||e[14](i);let v0=e[0](i),v1=v0.get("a"),v4=v0.get("b")||void 0;for(;;){let r;try{let v2=v1==="on"||v1==="true"||(v1==="false"||!v1?false:e[1](v1));v2===false||e[2](v2);v1=v2;break}catch(x){(r||(r=[])).push(e[5](x))}try{let v3=v1==="on"||v1==="true"||(v1==="false"||!v1?false:e[3](v1));v3===true||e[4](v3);v1=v3;break}catch(x){(r||(r=[])).push(e[5](x))}e[6](v1,...(r||[]))}if(v4){for(;;){let r;try{let v5=v4==="on"||v4==="true"||(v4==="false"||!v4?false:e[7](v4));v5===true||e[8](v5);v4=v5;break}catch(x){(r||(r=[])).push(e[11](x))}try{typeof v4==="string"||e[9](v4);let v6=+v4;v6==v6&&(v6||v4.trim())||e[10](v4);v4=v6;break}catch(x){(r||(r=[])).push(e[11](x))}e[12](v4,...(r||[]))}}return {a:v1,b:v4}}catch(v7){e[15](v7)}}
+    expression: i=>{try{i instanceof e[11]||e[12](i);let v0=e[0](i),v1=v0.get("a"),v7=v0.get("b")||void 0;let v3;for(;;){l6:{l4:{let v2=v1==="on"||v1==="true";if(!(v2||v1==="false"||!v1)){(v3||(v3=[])).push(e[1](v1));break l4};if(!(v2===false)){(v3||(v3=[])).push(e[2](v2));break l4};v1=v2;break}let v5=v1==="on"||v1==="true";if(!(v5||v1==="false"||!v1)){(v3||(v3=[])).push(e[3](v1));break l6};if(!(v5===true)){(v3||(v3=[])).push(e[4](v5));break l6};v1=v5;break;}throw e[5](v1,...(v3||[]))}if(v7){let v9;for(;;){l11:{l10:{let v8=v7==="on"||v7==="true";if(!(v8||v7==="false"||!v7)){(v9||(v9=[])).push(e[6](v7));break l10};if(!(v8===true)){(v9||(v9=[])).push(e[7](v8));break l10};v7=v8;break}if(!(typeof v7==="string")){(v9||(v9=[])).push(e[8](v7));break l11};let v12=+v7;if(!(v12==v12&&(v12||v7.trim()))){(v9||(v9=[])).push(e[9](v7));break l11};v7=v12;break;}throw e[10](v7,...(v9||[]))}}return {a:v1,b:v7}}catch(v13){e[13](v13)}}
     examples:
       checked:
         input: ((f) => (f.append("a", "on"), f.append("b", "on"), f))(new FormData())
@@ -38,7 +38,7 @@ operations:
           - At b: Expected true, received false
           - At b: Expected number, received "false"
   decode:
-    expression: i=>{try{let v0=e[0](i),v1=v0.get("a"),v4=v0.get("b")||void 0;for(;;){let r;try{let v2=v1==="on"||v1==="true"||(v1==="false"||!v1?false:e[1](v1));v2===false||e[2](v2);v1=v2;break}catch(x){(r||(r=[])).push(e[5](x))}try{let v3=v1==="on"||v1==="true"||(v1==="false"||!v1?false:e[3](v1));v3===true||e[4](v3);v1=v3;break}catch(x){(r||(r=[])).push(e[5](x))}e[6](v1,...(r||[]))}if(v4){for(;;){let r;try{let v5=v4==="on"||v4==="true"||(v4==="false"||!v4?false:e[7](v4));v5===true||e[8](v5);v4=v5;break}catch(x){(r||(r=[])).push(e[11](x))}try{typeof v4==="string"||e[9](v4);let v6=+v4;v6==v6&&(v6||v4.trim())||e[10](v4);v4=v6;break}catch(x){(r||(r=[])).push(e[11](x))}e[12](v4,...(r||[]))}}return {a:v1,b:v4}}catch(v7){e[13](v7)}}
+    expression: i=>{try{let v0=e[0](i),v1=v0.get("a"),v7=v0.get("b")||void 0;let v3;for(;;){l6:{l4:{let v2=v1==="on"||v1==="true";if(!(v2||v1==="false"||!v1)){(v3||(v3=[])).push(e[1](v1));break l4};if(!(v2===false)){(v3||(v3=[])).push(e[2](v2));break l4};v1=v2;break}let v5=v1==="on"||v1==="true";if(!(v5||v1==="false"||!v1)){(v3||(v3=[])).push(e[3](v1));break l6};if(!(v5===true)){(v3||(v3=[])).push(e[4](v5));break l6};v1=v5;break;}throw e[5](v1,...(v3||[]))}if(v7){let v9;for(;;){l11:{l10:{let v8=v7==="on"||v7==="true";if(!(v8||v7==="false"||!v7)){(v9||(v9=[])).push(e[6](v7));break l10};if(!(v8===true)){(v9||(v9=[])).push(e[7](v8));break l10};v7=v8;break}if(!(typeof v7==="string")){(v9||(v9=[])).push(e[8](v7));break l11};let v12=+v7;if(!(v12==v12&&(v12||v7.trim()))){(v9||(v9=[])).push(e[9](v7));break l11};v7=v12;break;}throw e[10](v7,...(v9||[]))}}return {a:v1,b:v7}}catch(v13){e[11](v13)}}
     examples:
       checked:
         input: ((f) => (f.append("a", "on"), f.append("b", "on"), f))(new FormData())
@@ -47,7 +47,7 @@ operations:
         input: ((f) => (f.append("a", "false"), f))(new FormData())
         output: "{ a: false, b: undefined }"
   encode:
-    expression: i=>{try{let v1=i.b;let v0=new e[0]();if(i.a){v0.append("a","on")}if(v1!=null){let v2=v1;for(;;){if(typeof v2==="boolean"&&v2===true){v2="true";break}if(typeof v2==="number"&&v2==v2){v2=""+v2;break}e[1](v2)}v0.append("b",v2);}return v0}catch(v3){e[2](v3)}}
+    expression: i=>{try{let v1=i.b;let v0=new e[0]();if(i.a){v0.append("a","on")}if(v1!=null){let v2=v1;for(;;){if(typeof v2==="boolean"&&v2===true){v2="true";break}if(typeof v2==="number"&&v2==v2){v2=""+v2;break}throw e[1](v2)}v0.append("b",v2);}return v0}catch(v3){e[2](v3)}}
     examples:
       round-trip:
         input: "{ a: true, b: true }"

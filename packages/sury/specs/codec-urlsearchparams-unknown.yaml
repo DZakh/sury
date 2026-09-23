@@ -19,7 +19,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{i instanceof e[2]||e[3](i);let v0=e[0](i),v1=v0.get("a");Array.isArray(v1)&&e[1](v1);return {a:v1}}catch(v2){e[4](v2)}}
+    expression: i=>{try{i instanceof e[2]||e[3](i);let v0=e[0](i),v1=v0.get("a");!Array.isArray(v1)||e[1](v1);return {a:v1}}catch(v2){e[4](v2)}}
     examples:
       text:
         input: ((p) => (p.append("a", "x"), p))(new URLSearchParams())
@@ -28,7 +28,7 @@ operations:
         input: ((p) => (p.append("a", "x"), p.append("a", "y"), p))(new URLSearchParams())
         error: 'Failed at a: Expected search param, received ["x", "y"]'
   decode:
-    expression: i=>{try{let v0=e[0](i),v1=v0.get("a");Array.isArray(v1)&&e[1](v1);return {a:v1}}catch(v2){e[2](v2)}}
+    expression: i=>{try{let v0=e[0](i),v1=v0.get("a");!Array.isArray(v1)||e[1](v1);return {a:v1}}catch(v2){e[2](v2)}}
     examples:
       repeated-key:
         input: ((p) => (p.append("a", "x"), p.append("a", "y"), p))(new URLSearchParams())

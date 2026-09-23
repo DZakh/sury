@@ -571,6 +571,20 @@ export type BGlobal = {
   // emitter that needs it runs first, so it is read through this rather than
   // closed over.
   f?: unknown;
+  // @as("x") - exit. Where a failed check goes when the code around it can be
+  // left by a jump rather than a raise: handed the failure's record (a thunk,
+  // so a context that needs no reason embeds no builder), it answers the
+  // statement to run - `return false` for a boolean operation, `return` of the
+  // failure for one that answers with a Result, record-and-break for a union
+  // case a later case may still accept - or nothing, for the raise a failure is
+  // by default. Absent means raise everywhere.
+  //
+  // A jump can't leave a function, so whatever emits code into a callback (a
+  // `.then`, an async dispatch) clears it for that stretch (`B_detached`).
+  x?: (record?: () => string) => string | undefined;
+  // @as("j") - jump counter, `t`'s twin: bumped by every failed check that
+  // took `x`. Read the difference, never the value.
+  j: number;
 }
 
 // Adjacent checks sharing `fail` by reference equality are fused with `&&`

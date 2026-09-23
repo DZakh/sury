@@ -18,7 +18,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{for(;;){if(typeof i==="string"){let v0;try{v0=e[0](i)}catch(x){e[1](x)}i=v0;break}if(typeof i==="boolean")break;e[2](i)}return i}catch(v1){e[3](v1)}}
+    expression: i=>{try{for(;;){if(typeof i==="string"){let v0;try{v0=e[0](i)}catch(x){e[1](x)}i=v0;break}if(typeof i==="boolean")break;throw e[2](i)}return i}catch(v1){e[3](v1)}}
     examples:
       custom-arm:
         input: '"abc"'
@@ -28,7 +28,7 @@ operations:
         output: "true"
   decode: eq-to-parse
   encode:
-    expression: i=>{try{for(;;){let r;try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);i=v0;break}catch(x){(r||(r=[])).push(e[3](x))}if(typeof i==="boolean")break;e[4](i,...(r||[]))}return i}catch(v1){e[5](v1)}}
+    expression: i=>{try{let v1;for(;;){l2:{let v0;try{v0=e[0](i)}catch(x){{(v1||(v1=[])).push(e[1](x));break l2}}if(!(typeof v0==="string")){(v1||(v1=[])).push(e[2](v0));break l2};i=v0;break}if(typeof i==="boolean")break;throw e[3](i,...(v1||[]))}return i}catch(v3){e[4](v3)}}
     examples:
       custom-arm:
         input: "3"

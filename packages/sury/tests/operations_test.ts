@@ -83,7 +83,7 @@ test("a hole and a foreign Standard Schema are named, not read as data", () => {
 
 test("the Result tail is compiled into the operation, not wrapped around it", () => {
   expect(S.parseAsResult(S.string).toString()).toMatchInlineSnapshot(
-    `"i=>{try{typeof i==="string"||e[0](i);return {success:true,value:i,error:void 0,issues:void 0}}catch(v0){return (v0=e[1](v0),{success:false,value:void 0,error:v0,issues:[{message:v0.reason,path:v0.path.length?v0.path:void 0}]})}}"`,
+    `"i=>{try{if(!(typeof i==="string"))return e[0](e[1](i));return {success:true,value:i,error:void 0,issues:void 0}}catch(v0){return e[2](v0)}}"`,
   );
 });
 
@@ -471,7 +471,7 @@ test("is answers a boolean from one compiled operation", () => {
   expect(S.isOutput(strToNum, 1)).toBe(true);
   expect(S.isOutput(strToNum, "1")).toBe(false);
   expect(S.isInput(user).toString()).toMatchInlineSnapshot(
-    `"i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.id;typeof v0==="string"||e[0](v0);return true}catch(v1){return false}}"`,
+    `"i=>{try{if(!(typeof i==="object"&&i&&!Array.isArray(i)))return false;let v0=i.id;if(!(typeof v0==="string"))return false;return true}catch(v1){return false}}"`,
   );
   // Nothing can fail, so there is nothing to catch.
   expect(S.isInput(S.unknown).toString()).toMatchInlineSnapshot(`"i=>{return true}"`);
@@ -566,7 +566,7 @@ test("make hands back the value it was given, even when the body rebinds it", ()
   expect(S.makeOutputOrThrow(union, 5)).toBe(5);
   expect(S.makeOutputAsResult(union, 5)).toEqual({ success: true, value: 5, error: undefined });
   expect(S.makeOutputOrThrow(union).toString()).toMatchInlineSnapshot(
-    `"i=>{try{let v1=i;for(;;){if(typeof i==="number"&&i==i){let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);i=v0;break}if(typeof i==="boolean")break;e[3](i)}return v1}catch(v2){e[4](v2)}}"`,
+    `"i=>{try{let v1=i;for(;;){if(typeof i==="number"&&i==i){let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);i=v0;break}if(typeof i==="boolean")break;throw e[3](i)}return v1}catch(v2){e[4](v2)}}"`,
   );
   // Nothing to run means nothing can rebind, so the extra binding isn't there
   // and the operation still reads as the identity.

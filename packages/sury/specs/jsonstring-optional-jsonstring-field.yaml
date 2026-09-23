@@ -23,7 +23,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="string"||e[4](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[3](v0);let v1=(v0.f??null);for(;;){if(typeof v1==="string"){try{JSON.parse(v1)}catch(t){e[1](v1)};break}if(v1===null){v1=void 0;break}e[2](v1)}return {f:v1}}catch(v2){e[5](v2)}}
+    expression: i=>{try{typeof i==="string"||e[4](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[3](v0);let v1=(v0.f??null);for(;;){if(typeof v1==="string"){try{JSON.parse(v1)}catch(t){e[1](v1)};break}if(v1===null){v1=void 0;break}throw e[2](v1)}return {f:v1}}catch(v2){e[5](v2)}}
     examples:
       nested-document:
         input: '"{\"f\":\"{}\"}"'
@@ -38,7 +38,7 @@ operations:
         input: '"{\"f\":1}"'
         error: "Failed at f: Expected JSON string | undefined, received 1"
   decode:
-    expression: i=>{try{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[3](v0);let v1=(v0.f??null);for(;;){if(typeof v1==="string"){try{JSON.parse(v1)}catch(t){e[1](v1)};break}if(v1===null){v1=void 0;break}e[2](v1)}return {f:v1}}catch(v2){e[4](v2)}}
+    expression: i=>{try{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[3](v0);let v1=(v0.f??null);for(;;){if(typeof v1==="string"){try{JSON.parse(v1)}catch(t){e[1](v1)};break}if(v1===null){v1=void 0;break}throw e[2](v1)}return {f:v1}}catch(v2){e[4](v2)}}
     examples:
       nested-document:
         input: '"{\"f\":\"{}\"}"'

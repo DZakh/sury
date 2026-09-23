@@ -22,7 +22,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i.f;if(typeof v0==="string"){for(;;){if(v0==="a\"b"){v0="\"a\\\"b\"";break}if(v0==="c"){v0="\"c\"";break}e[0](v0)}}else{e[1](v0)}return "{\"f\":"+v0+"}"}catch(v1){e[3](v1)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.f;if(typeof v0==="string"){for(;;){if(v0==="a\"b"){v0="\"a\\\"b\"";break}if(v0==="c"){v0="\"c\"";break}throw e[0](v0)}}else{throw e[0](v0)}return "{\"f\":"+v0+"}"}catch(v1){e[2](v1)}}
     examples:
       quoted:
         input: '{ f: "a\"b" }'
@@ -31,7 +31,7 @@ operations:
         input: '{ f: "c" }'
         output: '"{\"f\":\"c\"}"'
   decode:
-    expression: i=>{try{let v0=i.f;if(typeof v0==="string"){for(;;){if(v0==="a\"b"){v0="\"a\\\"b\"";break}if(v0==="c"){v0="\"c\"";break}e[0](v0)}}else{e[1](v0)}return "{\"f\":"+v0+"}"}catch(v1){e[2](v1)}}
+    expression: i=>{try{let v0=i.f;if(typeof v0==="string"){for(;;){if(v0==="a\"b"){v0="\"a\\\"b\"";break}if(v0==="c"){v0="\"c\"";break}throw e[0](v0)}}else{throw e[0](v0)}return "{\"f\":"+v0+"}"}catch(v1){e[1](v1)}}
     examples:
       quoted:
         input: '{ f: "a\"b" }'
