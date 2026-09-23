@@ -175,19 +175,12 @@ const packable: Partial<Record<ProtobufType, boolean>> = {
   enum: true,
 };
 
-// The wrapper messages protobuf-es unboxes on a singular field: each holds one
-// scalar as field 1, and the field holds the scalar or `undefined`.
-const boxes: Partial<Record<ProtobufType, ProtobufType>> = {
-  "google.protobuf.DoubleValue": "double",
-  "google.protobuf.FloatValue": "float",
-  "google.protobuf.Int64Value": "int64",
-  "google.protobuf.UInt64Value": "uint64",
-  "google.protobuf.Int32Value": "int32",
-  "google.protobuf.UInt32Value": "uint32",
-  "google.protobuf.BoolValue": "bool",
-  "google.protobuf.StringValue": "string",
-  "google.protobuf.BytesValue": "bytes",
-};
+// The scalar a wrapper message boxes as field 1, which its name spells:
+// `google.protobuf.UInt64Value` holds a `uint64`. protobuf-es unboxes one on a
+// singular field, which then holds the scalar or `undefined`. Only the nine
+// wrappers end in `Value` among the types `S.protobufField` takes.
+const boxOf = (type: ProtobufType): ProtobufType | undefined =>
+  type.endsWith("Value") ? (type.slice(16, -5).toLowerCase() as ProtobufType) : U;
 
 // `google.protobuf.Struct`, held as the JSON object it describes. On the wire it
 // is length-delimited like a message, so it travels wherever a scalar can.
@@ -503,6 +496,32 @@ const keepsShape = (type: ProtobufType, shape: Internal): boolean =>
 const isRecordShape = (schema: Internal): boolean =>
   schema.type === objectTag && typeof schema.additionalItems === objectTag;
 
+// What a field's element travels as on the wire and what it declares: a nested
+// message's wire object and the value it normalizes to, which a field closing a
+// cycle refers to through standins, or the scalar the wire reads. `where` names
+// the field for an error.
+const elementOf = (
+  at: Internal,
+  type: ProtobufType,
+  shape: Internal,
+  where: string,
+  ctx: Ctx,
+): [Internal, Internal | undefined, Message | undefined] => {
+  if (type !== "message") return [keepsShape(type, shape) ? shape : scalarSchema(boxOf(type) || type), U, U];
+  const message = compileMessage(at, ctx);
+  if (message === U) return panic(`S.protobuf: ${where} is a message but its schema is not an object`);
+  // A nested value converts field by field, output to output, so a chain past
+  // the object has nothing to run it: only the root's does.
+  if (getOutputSchema(message.object) !== message.object) {
+    return panic(`S.protobuf: ${where} is a message that converts further with S.to, which a nested field can't`);
+  }
+  const [raw, value] = ctx.stack.includes(message) ? recurse(message, ctx) : [message.raw, message.schema];
+  return [raw, refinedAs(at, value), message];
+};
+
+const unboxesOnly = (where: string, type: ProtobufType): never =>
+  panic(`S.protobuf: ${where} is a ${type}, which unboxes only as an S.optional field outside a list, a map or a oneof`);
+
 const armObject = (tag: Internal, value: Internal): Internal => {
   const mut = baseSchema(objectTag, false, objectDecoder);
   const properties: Record<string, Internal> = Object.create(null);
@@ -565,25 +584,11 @@ const compileMessage = (schema: Internal, ctx: Ctx): Message | undefined => {
         if (armOptional || (m.type !== structType && typeof armShape.additionalItems === objectTag && (armShape.type === arrayTag || armShape.type === objectTag))) {
           return panic(`S.protobuf: oneof "${key}" case "${arm.case}" must hold one value, not an optional, a list or a map`);
         }
-        let rawValue: Internal;
-        let declaredValue = arm.value;
-        let message: Message | undefined;
-        if (m.type === "message") {
-          message = compileMessage(arm.value, ctx);
-          if (message === U) return panic(`S.protobuf: oneof "${key}" case "${arm.case}" is a message but its schema is not an object`);
-          if (getOutputSchema(message.object) !== message.object) {
-            return panic(`S.protobuf: oneof "${key}" case "${arm.case}" is a message that converts further with S.to, which a nested field can't`);
-          }
-          [rawValue, declaredValue] = ctx.stack.includes(message) ? recurse(message, ctx) : [message.raw, message.schema];
-          declaredValue = refinedAs(arm.value, declaredValue);
-        } else {
-          if (boxes[m.type] !== U) {
-            return panic(`S.protobuf: oneof "${key}" case "${arm.case}" is a ${m.type}, which unboxes only as an S.optional field outside a list, a map or a oneof`);
-          }
-          rawValue = keepsShape(m.type, armShape) ? armShape : scalarSchema(m.type);
-        }
+        const where = `oneof "${key}" case "${arm.case}"`;
+        if (boxOf(m.type) !== U) return unboxesOnly(where, m.type);
+        const [rawValue, declaredValue, message] = elementOf(arm.value, m.type, armShape, where, ctx);
         rawMembers.push(armObject(arm.tag, rawValue));
-        conversions.push([arm.case, rawValue, declaredValue]);
+        conversions.push([arm.case, rawValue, declaredValue || arm.value]);
         fields.push({
           number: m.number,
           type: m.type,
@@ -609,7 +614,7 @@ const compileMessage = (schema: Internal, ctx: Ctx): Message | undefined => {
     }
     if (numbers.has(metadata.number)) return panic(`S.protobuf: field number ${metadata.number} of "${key}" is already taken`);
     numbers.add(metadata.number);
-    const box = boxes[metadata.type];
+    const box = boxOf(metadata.type);
     const [propertyValue, optional, absent] = unwrapOptional(property);
     let shape = getOutputSchema(propertyValue);
     const container = shape;
@@ -629,36 +634,11 @@ const compileMessage = (schema: Internal, ctx: Ctx): Message | undefined => {
       map = metadata.key;
       shape = getOutputSchema(shape.additionalItems as Internal);
     }
-    let message: Message | undefined;
-    // The nested message's value schema: the object it normalizes to, or the
-    // ref standing in for it where this field closes a cycle.
-    let messageValue: Internal | undefined;
-    let raw: Internal;
-    let normalizedProperty = optional ? propertyValue : property;
-    if (metadata.type === "message") {
-      const at = repeated || map !== U ? (container.additionalItems as Internal) : propertyValue;
-      message = compileMessage(at, ctx);
-      if (message === U) return panic(`S.protobuf: field "${key}" is a message but its schema is not an object`);
-      // A nested value converts field by field, output to output, so a chain
-      // past the object has nothing to run it: only the root's does.
-      if (getOutputSchema(message.object) !== message.object) {
-        return panic(`S.protobuf: field "${key}" is a message that converts further with S.to, which a nested field can't`);
-      }
-      if (ctx.stack.includes(message)) {
-        [raw, messageValue] = recurse(message, ctx);
-      } else {
-        raw = message.raw;
-        messageValue = message.schema;
-      }
-      messageValue = refinedAs(at, messageValue);
-      normalizedProperty = messageValue;
-      if (optional && absent === U) raw = optionalMessage(raw);
-    } else {
-      if (box !== U && (repeated || map !== U || metadata.oneof !== U || !optional)) {
-        return panic(`S.protobuf: field "${key}" is a ${metadata.type}, which unboxes only as an S.optional field outside a list, a map or a oneof`);
-      }
-      raw = keepsShape(metadata.type, shape) ? shape : scalarSchema(box || metadata.type);
-    }
+    if (box !== U && (repeated || map !== U || metadata.oneof !== U || !optional)) return unboxesOnly(`field "${key}"`, metadata.type);
+    const at = repeated || map !== U ? (container.additionalItems as Internal) : propertyValue;
+    let [raw, messageValue, message] = elementOf(at, metadata.type, shape, `field "${key}"`, ctx);
+    let normalizedProperty = messageValue || (optional ? propertyValue : property);
+    if (message && optional && absent === U) raw = optionalMessage(raw);
     // A repeated or map message keeps the user's container (its length
     // checks included) around the normalized nested schema, not the user's:
     // an optional nested message inside must stay a light wrap.
@@ -1444,100 +1424,79 @@ const checkedBigint = (value: unknown, min: bigint, max: bigint, type: string): 
 // Struct (5) and ListValue (6). `undefined` is a Value with no kind, which reads
 // back as `null`, as protobuf-es reads it.
 const writeValue = (w: Writer, value: unknown): void => {
+  const type = typeof value;
   if (value === null) w.varint32(8), w.varint32(0);
-  else if (typeof value === "number") w.varint32(17), w.float64(value);
-  else if (typeof value === "string") w.varint32(26), w.string(value);
-  else if (typeof value === "boolean") w.varint32(32), w.varint32(value ? 1 : 0);
+  else if (type === "number") w.varint32(17), w.float64(value as number);
+  else if (type === "string") w.varint32(26), w.string(value as string);
+  else if (type === "boolean") w.varint32(32), w.varint32(+(value as boolean));
   else if (Array.isArray(value)) {
     w.varint32(50);
     const h = w.begin();
-    for (let idx = 0; idx < value.length; idx++) {
-      w.varint32(10);
-      const g = w.begin();
-      writeValue(w, value[idx]);
-      w.end(g);
-    }
+    for (const item of value) writeNested(w, 10, item);
     w.end(h);
-  } else if (typeof value === "object") w.varint32(42), writeStruct(w, value as Record<string, unknown>);
+  } else if (type === "object") w.varint32(42), writeStruct(w, value as Record<string, unknown>);
+};
+
+const writeNested = (w: Writer, tag: number, value: unknown): void => {
+  w.varint32(tag);
+  const h = w.begin();
+  writeValue(w, value);
+  w.end(h);
 };
 
 const writeStruct = (w: Writer, value: Record<string, unknown>): void => {
   const h = w.begin();
-  const keys = Object.keys(value);
-  for (let idx = 0; idx < keys.length; idx++) {
+  for (const key of Object.keys(value)) {
     w.varint32(10);
     const entry = w.begin();
     w.varint32(10);
-    w.string(keys[idx]!);
-    w.varint32(18);
-    const g = w.begin();
-    writeValue(w, value[keys[idx]!]);
-    w.end(g);
+    w.string(key);
+    writeNested(w, 18, value[key]);
     w.end(entry);
   }
   w.end(h);
 };
 
-const readTag = (r: Reader): number => {
-  const tag = r.tag();
-  if (tag < 8) throw Error("invalid protobuf field number");
-  return tag;
+// Reads the length-delimited message at the reader, handing each field's tag
+// to `field`, which reads it or answers `false` to have it skipped.
+const readFields = (r: Reader, field: (tag: number) => unknown): void => {
+  const p = r.sub();
+  while (r.pos < r.limit) {
+    const tag = r.tag();
+    if (tag < 8) throw Error("invalid protobuf field number");
+    if (field(tag) === false) skip(r, tag & 7, tag >>> 3, 0);
+  }
+  r.limit = p;
 };
 
 const readValue = (r: Reader, d: number): unknown => {
+  // Here rather than in readStruct: a list nests through this alone.
+  if (d >= 100) throw Error("protobuf message nesting limit exceeded");
   let value: unknown = null;
-  while (r.pos < r.limit) {
-    const tag = readTag(r);
+  readFields(r, (tag) => {
     if (tag === 8) r.varint32(), (value = null);
     else if (tag === 17) value = r.f64();
     else if (tag === 26) value = r.string();
     else if (tag === 32) value = r.bool();
     else if (tag === 42) value = readStruct(r, d + 1);
     else if (tag === 50) {
-      const p = r.sub();
       const list: unknown[] = (value = []);
-      while (r.pos < r.limit) {
-        const item = readTag(r);
-        if (item !== 10) skip(r, item & 7, item >>> 3, 0);
-        else {
-          const q = r.sub();
-          list.push(readValue(r, d + 1));
-          r.limit = q;
-        }
-      }
-      r.limit = p;
-    } else skip(r, tag & 7, tag >>> 3, 0);
-  }
+      readFields(r, (item) => item === 10 ? list.push(readValue(r, d + 1)) : false);
+    } else return false;
+  });
   return value;
 };
 
 const readStruct = (r: Reader, d: number): Record<string, unknown> => {
-  if (d >= 100) throw Error("protobuf message nesting limit exceeded");
-  const p = r.sub();
   const out: Record<string, unknown> = {};
-  while (r.pos < r.limit) {
-    const tag = readTag(r);
-    if (tag !== 10) {
-      skip(r, tag & 7, tag >>> 3, 0);
-      continue;
-    }
-    const q = r.sub();
+  readFields(r, (tag) => {
+    if (tag !== 10) return false;
     let key = "";
     let value: unknown = null;
-    while (r.pos < r.limit) {
-      const inner = readTag(r);
-      if (inner === 10) key = r.string();
-      else if (inner === 18) {
-        const g = r.sub();
-        value = readValue(r, d + 1);
-        r.limit = g;
-      } else skip(r, inner & 7, inner >>> 3, 0);
-    }
-    r.limit = q;
+    readFields(r, (inner) => inner === 10 ? (key = r.string()) : inner === 18 ? ((value = readValue(r, d + 1)), 0) : false);
     if (key === "__proto__") Object.defineProperty(out, key, { value, enumerable: true, writable: true, configurable: true });
     else out[key] = value;
-  }
-  r.limit = p;
+  });
   return out;
 };
 
