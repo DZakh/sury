@@ -208,7 +208,11 @@ export const convertTextEntry = (
   const textUnion = (flag & 256) && present.anyOf!.every((variant) => tagFlags[variant.type]! & 2);
   if ((flag & 256) && !textUnion) {
     if (self !== input.s) {
-      const output = B_next(input, input.i, self, present);
+      // Handed to the union as the text it is. An entry's text is a
+      // representation, so a JSON arm reads it rather than being told to by a
+      // slot the entry has no way to take (CONTENT_CODEC_SPEC.md rule 4).
+      const json = present.anyOf!.find((variant) => variant.format === "json");
+      const output = B_next(input, input.i, json ? openedText(json) : self, present);
       output.v = _var;
       return output;
     }

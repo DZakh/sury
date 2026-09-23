@@ -328,9 +328,14 @@ Object.defineProperty(schemaPrototype, reversedKey, {
       reverseSwap(record, "refiner", "inputRefiner");
       // The link into this node is now the one out of it, read the other way:
       // opening `current` into `next` was storing `next` into `current`. A
-      // union's reading sits on the arm that carries a payload, which is also
-      // what tells a union of plain text from one holding a payload - and
-      // only the former takes the derivation below.
+      // union's reading sits on the arm that carries a payload, and only plain
+      // text reaches that arm forward - the union hands it over per case. A
+      // carrier or another union meets the union whole and is refused there
+      // (the axis stops at a union), so only a reading written on the union
+      // itself crosses back to it; lifting the arm's instead compiled an
+      // encode whose decode refuses. The arm is also what tells a union of
+      // plain text from one holding a payload, and only the former takes the
+      // derivation below.
       //
       // That derivation is the one reading the forward side leaves unwritten:
       // a payload naming text as what it holds settles the link, but the text
@@ -342,9 +347,10 @@ Object.defineProperty(schemaPrototype, reversedKey, {
       // `codec-uint8array-optional-jsonstring-unsupported` is what fails when
       // the union test goes.
       const nextNode = next && B_contentNode(next);
+      const readFrom = mut.flags & 3 || mut.anyOf ? next : nextNode;
       const reading = nextNode
-        ? nextNode.flags & 12
-          ? (nextNode.flags & 12) ^ 12
+        ? readFrom!.flags & 12
+          ? (readFrom!.flags & 12) ^ 12
           : !(nextNode.flags & 3) && mut.flags & 3 && (next!.has ? next!.has[stringTag] : next!.type === stringTag)
             ? 8
             : 0
