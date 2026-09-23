@@ -150,7 +150,18 @@ const asyncNumber = S.parseAsPromiseOrReject(
 );
 
 test("an async failure before the first await names the line that called it", async () => {
-  await expect(asyncNumber(1 as never)).rejects.toSatisfy((error: Error) => "stack" in error);
+  const callsIt = async () => {
+    try {
+      await asyncNumber(1 as never);
+      expect.unreachable();
+    } catch (error) {
+      return error as Error;
+    }
+  };
+  const [header, top] = (await callsIt())!.stack!.split("\n");
+  expect(header).toBe("SuryError: Expected string, received 1");
+  // Taken while the call was still on the stack, so no pump sits above it.
+  expect(top).toMatch(/^ {4}at callsIt \(/);
 });
 
 test("an async failure after the first await names the line that awaited it", async () => {

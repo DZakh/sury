@@ -175,7 +175,10 @@ export type Tail = (
 // `defineProperty` rather than an assignment, because `stack` is not part of
 // what a failure reads back as: V8 writes a non-enumerable one, and a plain
 // write here would put it in `Object.keys(error)` on those engines alone.
-const captureStackAt = (thrown: SuryErrorRecord, cut: unknown): void => {
+//
+// Hands back what it was given, so each boundary reads as the one expression
+// it rethrows or rejects with.
+const captureStackAt = (thrown: SuryErrorRecord, cut: unknown): SuryErrorRecord => {
   if (thrown && thrown.s === s && !("stack" in thrown)) {
     const capture = (
       Error as unknown as { captureStackTrace?: (target: object, cut: unknown) => void }
@@ -188,6 +191,7 @@ const captureStackAt = (thrown: SuryErrorRecord, cut: unknown): void => {
         writable: true,
       });
   }
+  return thrown;
 };
 
 // A failure an async operation reaches after its first await rejects the
@@ -198,8 +202,7 @@ const captureStackAt = (thrown: SuryErrorRecord, cut: unknown): void => {
 // no such frame, and its stack names nothing it wrote - but it still has one,
 // as every failure that reaches user code by a throw or a rejection does.
 const rejectionBoundary = (thrown: SuryErrorRecord): never => {
-  captureStackAt(thrown, rejectionBoundary);
-  throw thrown;
+  throw captureStackAt(thrown, rejectionBoundary);
 };
 
 // Throw mode, plus the Standard Schema tail (mode bit 1024). The Standard
@@ -270,15 +273,13 @@ export const throwTail: Tail = (input, code, out, isAsync, flag, hasDefs) => {
   // second `try` around it to catch.
   return `try{${body}}catch(${e}){${
     flag & 1 && !(flag & 512)
-      ? `return Promise.reject(${B_embedPure(
-          input,
-          (thrown: SuryErrorRecord) => (captureStackAt(thrown, g.f), thrown),
-        )}(${e}))`
-      : `${B_embedPure(input, (thrown: SuryErrorRecord): never => {
-          captureStackAt(thrown, g.f);
-          throw thrown;
-        })}(${e})`
-  }}`;
+      ? `return ${B_embedPure(input, (thrown: SuryErrorRecord) =>
+          Promise.reject(captureStackAt(thrown, g.f)),
+        )}`
+      : B_embedPure(input, (thrown: SuryErrorRecord): never => {
+          throw captureStackAt(thrown, g.f);
+        })
+  }(${e})}`;
 };
 
 let emitTail: Tail = throwTail;
@@ -550,8 +551,7 @@ const compileChain = (
       from: unknown,
     ) => unknown;
   } catch (thrown) {
-    captureStackAt(thrown as SuryErrorRecord, getOp);
-    throw thrown;
+    throw captureStackAt(thrown as SuryErrorRecord, getOp);
   }
   addOpNode(cacheTarget, args, flag, f);
   return f;

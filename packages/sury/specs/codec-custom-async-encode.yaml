@@ -27,7 +27,7 @@ operations:
         output: "3"
   encode:
     isAsync: true
-    expression: i=>{try{let v0;try{v0=e[0](i).catch(x=>e[1](x))}catch(x){e[1](x)}return v0.then(v0=>{typeof v0==="string"||e[2](v0);return v0}).catch(e[3])}catch(v1){return Promise.reject(e[4](v1))}}
+    expression: i=>{try{let v0;try{v0=e[0](i).catch(x=>e[1](x))}catch(x){e[1](x)}return v0.then(v0=>{typeof v0==="string"||e[2](v0);return v0}).catch(e[3])}catch(v1){return e[4](v1)}}
     examples:
       round-trip:
         input: "3"

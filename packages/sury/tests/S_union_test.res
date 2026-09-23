@@ -511,12 +511,12 @@ asyncTest("Compiled async parse code snapshot", async t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ParseAsync,
-    `i=>{try{if(typeof i==="number"&&i==i){for(;;){if(i===0){let v0=e[0](i);i=v0;break}if(i===1)break;e[1](i)}}else{e[2](i)}return Promise.resolve(i).catch(e[3])}catch(v1){return Promise.reject(e[4](v1))}}`,
+    `i=>{try{if(typeof i==="number"&&i==i){for(;;){if(i===0){let v0=e[0](i);i=v0;break}if(i===1)break;e[1](i)}}else{e[2](i)}return Promise.resolve(i).catch(e[3])}catch(v1){return e[4](v1)}}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ConvertAsync,
-    `i=>{try{if(typeof i==="number"&&i==i){for(;;){if(i===0){let v0=e[0](i);i=v0;break}if(i===1)break;e[1](i)}}else{e[2](i)}return Promise.resolve(i).catch(e[3])}catch(v1){return Promise.reject(e[4](v1))}}`,
+    `i=>{try{if(typeof i==="number"&&i==i){for(;;){if(i===0){let v0=e[0](i);i=v0;break}if(i===1)break;e[1](i)}}else{e[2](i)}return Promise.resolve(i).catch(e[3])}catch(v1){return e[4](v1)}}`,
   )
 
   t->Assert.deepEqual(await 1->S.parseAsPromiseOrReject(~to=schema), 1)
