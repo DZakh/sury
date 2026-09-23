@@ -2903,7 +2903,8 @@ type Coder<A, B> = { bivarianceHack(value: A): B }["bivarianceHack"];
  * to its own source: `"unpack"` opens it and hands the payload on, `"pack"`
  * stores its value. One direction must be the opposite of the other. A bare
  * `"pack"` or `"unpack"` as `S.to`'s third argument is the decode reading
- * with encode set to the opposite.
+ * with encode set to the opposite. `S.string.with(S.to, userSchema, "unpack")`
+ * reads the text as `userSchema`.
  */
 export type Conversion<A, B> =
   | Coder<A, B>

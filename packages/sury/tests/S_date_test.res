@@ -65,7 +65,7 @@ test("Fails to parse invalid string to Date with S.to", t => {
   let schema = S.string->S.to(S.date)
   t->U.assertThrowsMessage(
     () => "invalid"->S.parseOrThrow(~to=schema),
-    `Expected Date, received invalid Date`,
+    `Expected Date, received "invalid"`,
   )
 })
 
@@ -122,7 +122,7 @@ test("Fails to decode invalid date string from JSON", t => {
   let decoder = S.compileConvertOrThrow(~from=S.json, ~to=S.date)
   t->U.assertThrowsMessage(
     () => decoder(JSON.Encode.string("invalid")),
-    `Expected Date, received invalid Date`,
+    `Expected Date, received "invalid"`,
   )
 })
 
@@ -183,7 +183,7 @@ test("Reverse converts nullableAsOption string-to-date schema", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{for(;;){if(typeof i==="string"){let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](v0);i=v0;break}if(i===void 0)break;if(i===null){i=void 0;break}e[1](i)}return i}catch(v1){e[2](v1)}}`,
+    `i=>{try{for(;;){if(typeof i==="string"){let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](i);i=v0;break}if(i===void 0)break;if(i===null){i=void 0;break}e[1](i)}return i}catch(v1){e[2](v1)}}`,
   )
 
   t->Assert.deepEqual(

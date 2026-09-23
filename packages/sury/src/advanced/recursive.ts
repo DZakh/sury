@@ -27,11 +27,10 @@ import {
 export const recursiveDecoder: Builder = (input) => {
   const expectedSchema = input.e;
 
-  const schemaRef = expectedSchema["$ref"]!;
   const defs = input.g.d!;
-  // Ignore #/$defs/
-  const identifier = schemaRef.slice(8);
-  const def = defs[identifier]!;
+  // A ref the compiler built carries its definition; one the author wrote names
+  // it in the operation's record. Ignore #/$defs/
+  const def = expectedSchema.definition || defs[expectedSchema["$ref"]!.slice(8)]!;
   // Masked to the compile-semantics bits (127 and below). A def compiles a
   // nested operation whose result generated code consumes, so it must throw:
   // inheriting the outer operation's return mode would have the inner one
@@ -46,7 +45,12 @@ export const recursiveDecoder: Builder = (input) => {
   // a bare value, and its failure a synchronous throw.
   const key = flag & 1 ? flag | 8192 : flag;
 
-  const inputSchema = input.s.seq === expectedSchema.seq ? def : input.s;
+  // A ref source stands for its definition when it carries one: converting from
+  // it means converting from what it names, and a ref is opaque to every
+  // decoder below. A ref the author wrote is left alone, since resolving one
+  // would have a schema converting to `S.json` read its definition too and plan
+  // from a union where it now plans from an opaque value.
+  const inputSchema = input.s.definition || (input.s.seq === expectedSchema.seq ? def : input.s);
 
   let recOperation = "";
 

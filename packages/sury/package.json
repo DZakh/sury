@@ -54,6 +54,7 @@
     "build:entry": "tsx ./scripts/pack.ts entry-only",
     "fuzz:eq": "tsx ./scripts/eqFuzz.ts",
     "fuzz:formdata": "tsx ./scripts/formDataFuzz.ts",
+    "fuzz:content": "tsx ./scripts/contentFuzz.ts",
     "fuzz:union": "tsx ./scripts/unionFuzz.ts",
     "fuzz:escfree": "pnpm build:entry && tsx ./scripts/escFreeFuzz.ts",
     "bench:jsonstring": "pnpm build:entry && tsx ./scripts/jsonStringifyBench.ts",

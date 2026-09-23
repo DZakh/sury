@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.string.with(S.to, S.jsonString)
+  input: string
+  output: string
+  instantiations: 4361
+jsonSchema:
+  input: '{ type: "string" }'
+  output: '{ type: "string", contentMediaType: "application/json" }'
+  draft-2020-12:
+    output: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "string" }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    output: '{ type: "string" }'
+isEqual: strictEqual
+compare: strictCompare
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: 'SuryError: Ambiguous string -> JSON string. Should the text be packed or unpacked? Choose with S.to and "pack" or "unpack"'
+  decode: eq-to-parse
+  encode:
+    creationError: 'SuryError: Ambiguous JSON string -> string. Should the text be packed or unpacked? Choose with S.to and "pack" or "unpack"'
