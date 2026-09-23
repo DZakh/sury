@@ -26,6 +26,7 @@ import {
   B_readOnce,
   B_throw,
   B_rejectUnsettled,
+  B_reverseReading,
   B_unsupportedDecode
 } from "../builder";
 import type { JSONSchemaT } from "../jsonschema";
@@ -139,6 +140,7 @@ const binarySchema = (name: string, global: string, nameArg: string): Internal =
       // import.
       s.class = (globalThis as unknown as Record<string, unknown>)[global];
       s.flags = 1;
+      s.reverseReading = B_reverseReading;
       s.storedAs = base64Content;
       s.jsonSchema = binaryJSONSchema;
       if (s.class === U) {

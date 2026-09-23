@@ -43,6 +43,7 @@ import {
   B_nextVar,
   B_refine,
   B_rejectUnsettled,
+  B_reverseReading,
   B_unsupportedDecode,
   B_varWithoutAllocation,
   failInvalidType
@@ -303,6 +304,7 @@ export const json: Internal = /* @__PURE__ */ initSchema(refTag, jsonDecoderFn, 
   jsonRef["$ref"] = `${defsPath}${jsonName}`;
   jsonRef.name = jsonName;
   jsonRef.flags = jsonRef.flags | 18;
+  jsonRef.reverseReading = B_reverseReading;
 
   jsonRef.encoder = jsonEncoderFn;
 
@@ -310,6 +312,7 @@ export const json: Internal = /* @__PURE__ */ initSchema(refTag, jsonDecoderFn, 
   s.name = jsonName;
   // The document itself, and its own document form.
   s.flags = s.flags | 18;
+  s.reverseReading = B_reverseReading;
   s.encoder = jsonEncoderFn;
 
   const anyOf = [
@@ -464,6 +467,7 @@ export const jsonString = /* @__PURE__ */ (() => {
     s.name = `${jsonName} string`;
     s.encoder = jsonStringEncoder;
     s.flags = s.flags | 2;
+    s.reverseReading = B_reverseReading;
     // A fixed container is fused only out of an unknown-typed source, which is
     // the one with validation pending: a typed source (decode direction) has
     // nothing there to fuse, and marking it would make the aggregate

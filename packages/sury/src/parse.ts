@@ -33,7 +33,6 @@ import {
   valueOptions
 } from "./base";
 import {
-  B_contentNode,
   B_embedInvalidInput,
   B_embedPure,
   B_errorOf,
@@ -326,36 +325,14 @@ Object.defineProperty(schemaPrototype, reversedKey, {
       const record = mut as unknown as Record<string, unknown>;
       reverseSwap(record, "parser", "serializer");
       reverseSwap(record, "refiner", "inputRefiner");
-      // The link into this node is now the one out of it, read the other way:
-      // opening `current` into `next` was storing `next` into `current`. A
-      // union's reading sits on the arm that carries a payload, and only plain
-      // text reaches that arm forward - the union hands it over per case. A
-      // carrier or another union meets the union whole and is refused there
-      // (the axis stops at a union), so only a reading written on the union
-      // itself crosses back to it; lifting the arm's instead compiled an
-      // encode whose decode refuses. The arm is also what tells a union of
-      // plain text from one holding a payload, and only the former takes the
-      // derivation below.
-      //
-      // That derivation is the one reading the forward side leaves unwritten:
-      // a payload naming text as what it holds settles the link, but the text
-      // is `S.string` itself, a shared singleton, and marking it would mean
-      // copying it on every such link. So the fact is derived here instead,
-      // where the pair is in hand: read back, the text is stored in the
-      // payload. `codec-jsonstring-string` and
-      // `codec-jsonstring-optional-string` pin both shapes, and
-      // `codec-uint8array-optional-jsonstring-unsupported` is what fails when
-      // the union test goes.
-      const nextNode = next && B_contentNode(next);
-      const readFrom = mut.flags & 3 || mut.anyOf ? next : nextNode;
-      const reading = nextNode
-        ? readFrom!.flags & 12
-          ? (readFrom!.flags & 12) ^ 12
-          : !(nextNode.flags & 3) && mut.flags & 3 && (next!.has ? next!.has[stringTag] : next!.type === stringTag)
-            ? 8
-            : 0
-        : 0;
-      const flags = (mut.flags & ~12) | reading;
+      // The link into this node is now the one out of it, read the other way.
+      // Only a chain a content schema is part of has a reading anything reads,
+      // so the schema that answers it is found on this node, the next, or the
+      // next's arms - and a bundle with no content schema ships none of it.
+      const reverseReading =
+        mut.reverseReading ||
+        (next && (next.reverseReading || next.anyOf?.find((arm) => arm.reverseReading)?.reverseReading));
+      const flags = (mut.flags & ~12) | (reverseReading ? reverseReading(mut, next) : 0);
       flags ? (mut.flags = flags) : delete record["flags"];
       // Deleted, not parked in a holding field: encode has no absent-input arm,
       // and double reversal reads the cache below rather than re-deriving, so

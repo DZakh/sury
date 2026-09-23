@@ -861,6 +861,36 @@ export const B_contentDiffers = (from: Internal, to: Internal): boolean =>
 export const B_isText = (schema: Internal): boolean =>
   schema.type === stringTag && !(schema.flags & 3) && schema.format === U && !isLiteral(schema);
 
+// The reading a reversed node takes, set as `reverseReading` on every schema
+// that carries a payload kind. The link into a node is, reversed, the one out
+// of it read the other way: opening `mut` into `next` was storing `next` into
+// `mut`. A union's reading sits on the arm that carries a payload, and only
+// plain text reaches that arm forward - the union hands it over per case. A
+// carrier or another union meets the union whole and is refused there (the
+// axis stops at a union), so only a reading written on the union itself crosses
+// back to it; lifting the arm's instead compiled an encode whose decode
+// refuses. The arm is also what tells a union of plain text from one holding a
+// payload, and only the former takes the derivation below.
+//
+// That derivation is the one reading the forward side leaves unwritten: a
+// payload naming text as what it holds settles the link, but the text is
+// `S.string` itself, a shared singleton, and marking it would mean copying it
+// on every such link. So the fact is derived where the pair is in hand: read
+// back, the text is stored in the payload. `codec-jsonstring-string` and
+// `codec-jsonstring-optional-string` pin both shapes, and
+// `codec-uint8array-optional-jsonstring-unsupported` is what fails when the
+// union test goes.
+export const B_reverseReading = (mut: Internal, next?: Internal): number => {
+  if (!next) return 0;
+  const nextNode = B_contentNode(next);
+  const readFrom = mut.flags & 3 || mut.anyOf ? next : nextNode;
+  return readFrom.flags & 12
+    ? (readFrom.flags & 12) ^ 12
+    : !(nextNode.flags & 3) && mut.flags & 3 && (next.has ? next.has[stringTag] : next.type === stringTag)
+      ? 8
+      : 0;
+};
+
 // CONTENT_CODEC_SPEC.md rule 4, asked while compiling by the schemas that
 // declare a payload - `json`, `jsonString`, `base64`, `uint8Array`, `file` -
 // and by a union carrying its `.to` into one. Two payload declarations of

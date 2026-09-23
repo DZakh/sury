@@ -462,6 +462,10 @@ export type Internal = {
   // stored as inside a JSON document, base64 text. A format that IS its
   // document form (`S.base64`, `S.json`) says so with the kind bits alone.
   storedAs?: Internal;
+  // On a schema with a payload kind: the reading its reversed neighbour takes
+  // (`B_reverseReading`). On the schema rather than in `reverse` so a bundle
+  // with no content schema ships none of the decision.
+  reverseReading?: (mut: Internal, next?: Internal) => number;
   // Bytes-as-text codec of `S.base64` / `S.base64url` and their copies, so
   // alphabet recoding still sees it after `S.trim`. A carrier packing into a
   // bytes target looks the codec up off its `storedAs`.

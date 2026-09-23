@@ -30,7 +30,8 @@ import {
   B_next,
   B_readOnce,
   B_refine,
-  B_rejectUnsettled
+  B_rejectUnsettled,
+  B_reverseReading
 } from "./builder";
 import {
  definitionToSchema
@@ -1177,6 +1178,7 @@ const bytesContent = (
 ): Internal => {
   const schema = stringFormat(format, test, 1);
   schema.flags = schema.flags | 1;
+  schema.reverseReading = B_reverseReading;
   schema.bytesCodec = codec;
   return schema;
 };

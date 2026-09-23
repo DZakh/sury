@@ -19,6 +19,7 @@ import {
   B_readOnce,
   B_refine,
   B_rejectUnsettled,
+  B_reverseReading,
   B_unsupportedDecode
 } from "../builder";
 import {
@@ -73,6 +74,7 @@ export const uint8Array: Internal = /* @__PURE__ */ initSchema(
   (s) => {
     s.class = Uint8Array;
     s.flags = 1;
+    s.reverseReading = B_reverseReading;
     s.storedAs = base64Content;
 
     s.encoder = (input, target) => {
