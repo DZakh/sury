@@ -58,7 +58,11 @@ export const date: Internal = /* @__PURE__ */ initSchema(
       // The conversion is checked, and what failed is blamed on the text that
       // was handed over, not on the `Invalid Date` it produced - the same
       // shape the number coercion uses. The instance branch below blames its
-      // own value, which there really is an invalid Date.
+      // own value, which there really is an invalid Date. With nothing to
+      // check, the conversion stays an expression its reader can inline.
+      if (input.e.noValidation) {
+        return B_next(input, `new Date(${input.i})`, date);
+      }
       const output = B_nextVar(input, date, input.e);
       const inputVar = input.v();
       output.cp = `let ${output.i}=new Date(${inputVar});`;
