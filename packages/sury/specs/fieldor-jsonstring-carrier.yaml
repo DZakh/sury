@@ -34,7 +34,7 @@ operations:
         input: '{ f: "\"x\"" }'
         output: '{ f: "\"x\"" }'
   encode:
-    expression: i=>{try{let v0=i.f;typeof v0==="string"||e[1](v0);try{JSON.parse(v0)}catch(t){e[0](v0)}return {f:v0}}catch(v1){e[2](v1)}}
+    expression: i=>{return {f:i.f}}
     examples:
       text-is-handed-back-unopened:
         input: '{ f: "\"x\"" }'

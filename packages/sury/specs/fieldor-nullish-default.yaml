@@ -37,11 +37,11 @@ operations:
         input: "{}"
         output: "{ f: 2 }"
   encode:
-    expression: i=>{try{let v0=i.f;(typeof v0==="number"&&v0==v0||v0===void 0||v0===null)||e[0](v0);return {f:v0}}catch(v1){e[1](v1)}}
+    expression: i=>{return {f:i.f}}
     examples:
       # FIXME: known bug fieldor-absent-item-output (scripts/knownBugs.ts). The default always
-      # replaces an absent `f`, so `{}` is not an Output value and encode should
-      # reject it. Accepted, it encodes to `{ f: undefined }`, which decodes to
+      # replaces an absent `f`, so `{}` is not an Output value and `isOutput` should
+      # reject it. Encode trusts its input either way, and this one decodes back to
       # `{ f: 2 }`.
       absent-field:
         input: "{}"

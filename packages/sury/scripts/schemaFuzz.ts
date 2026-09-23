@@ -134,7 +134,7 @@ for (let c = 0; c < cases * seeds; c++) {
 
   for (const [name, family] of running) {
     const report = (property: string, detail: string): void => {
-      if (!knownFor(name as "eq" | "codec", id, property, detail)) findings.push(`${id}: ${property}: ${detail}`);
+      if (!knownFor(name as "eq" | "codec", member.shape, property, detail)) findings.push(`${id}: ${property}: ${detail}`);
     };
     const ctx: Ctx = {
       S: sury,

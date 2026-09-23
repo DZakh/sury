@@ -10,8 +10,9 @@ import {
 import {
  array
 } from "../composites";
-import { codecTo } from "../union";
-
+import {
+ codecTo
+} from "../modifiers";
 
 // Empty list is `0`; a cons cell is `{hd, tl}`. fromArray / toArray match
 // Stdlib List for that representation.

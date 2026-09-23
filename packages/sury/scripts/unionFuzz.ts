@@ -14,6 +14,8 @@ import { existsSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { knownFor, staleFor } from "./knownBugs";
+import { node, type Shape } from "./unionFuzz/shape";
+import type { MemberSpec } from "./unionFuzz/generate";
 import { generateMembers, rngFromSeed, takeRefused } from "./unionFuzz/generate";
 import { issue392Case } from "./unionFuzz/issue392";
 import { classify, describeOutcome, show } from "./unionFuzz/outcome";
@@ -96,12 +98,10 @@ const num = (name: string, fallback: string): number => {
 };
 
 // What is known not to hold is `scripts/knownBugs.ts`, shared with
-// `fuzz:schema`. The union is read back as `union(member, ...)`, the shape the
-// registry's entries are written against. A matched diff is counted, not
+// `fuzz:schema`. The union is the shape `union(member, ...)`. A matched diff is counted, not
 // printed. The default seed is the gate, and only the gate also fails on an
 // entry it never reached.
-const asShape = (members: readonly { id: string }[]): string =>
-  `union(${members.map((m) => m.id).join(",")})`;
+const asShape = (members: readonly MemberSpec[]): Shape => node("union", ...members.map((m) => m.shape));
 
 const main = async (): Promise<void> => {
   const cases = num("cases", "400");

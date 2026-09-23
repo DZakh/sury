@@ -1,114 +1,18 @@
-// A generated member's id, read back into the tree it was printed from, so a
+// The tree a generated member is built from, carried beside its printed id so a
 // known bug can be described by the shape that triggers it - "a union with a
-// member that carries a default" - at any depth, rather than by a substring
-// that only matches the depths someone happened to write down.
-//
-// The printers are in `generate.ts` and `catalog.ts`; this reads what they
-// write. A default is kept as raw text, since it is a value, not a shape.
+// member that carries a default" - at any depth, rather than by a substring of
+// the id that only matches the depths someone happened to write down. The
+// grammar builds it at the same place it builds the schema (`generate.ts`).
 
 export type Shape = {
   name: string;
   args: Shape[];
-  // The raw text of a default, or of anything that is a value rather than a
-  // schema (`FormData(a=1)`, `"e1"`).
+  // A modifier's name (`with`), or a default's printed value (`#value`).
   raw?: string;
 };
 
-const leaf = (name: string): Shape => ({ name, args: [] });
-const raw = (text: string): Shape => ({ name: "#value", args: [], raw: text });
-
-// Splits at top-level commas, stepping over strings and every bracket kind.
-const split = (text: string): string[] => {
-  const parts: string[] = [];
-  let depth = 0;
-  let quoted = false;
-  let start = 0;
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i]!;
-    if (quoted) {
-      if (ch === "\\") i++;
-      else if (ch === '"') quoted = false;
-    } else if (ch === '"') quoted = true;
-    else if (ch === "(" || ch === "[" || ch === "{") depth++;
-    else if (ch === ")" || ch === "]" || ch === "}") depth--;
-    else if (ch === "," && depth === 0) {
-      parts.push(text.slice(start, i));
-      start = i + 1;
-    }
-  }
-  parts.push(text.slice(start));
-  return parts;
-};
-
-// The index of the bracket closing the one at `open`.
-const closing = (text: string, open: number): number => {
-  let depth = 0;
-  let quoted = false;
-  for (let i = open; i < text.length; i++) {
-    const ch = text[i]!;
-    if (quoted) {
-      if (ch === "\\") i++;
-      else if (ch === '"') quoted = false;
-    } else if (ch === '"') quoted = true;
-    else if (ch === "(" || ch === "[" || ch === "{") depth++;
-    else if (ch === ")" || ch === "]" || ch === "}") {
-      depth--;
-      if (depth === 0) return i;
-    }
-  }
-  return text.length - 1;
-};
-
-// `optional` and `nullable` print their default as a second argument.
-const DEFAULTABLE = new Set(["optional", "nullable"]);
-
-export const parseShape = (text: string): Shape => {
-  text = text.trim();
-  if (text.startsWith("{")) {
-    const inner = text.slice(1, closing(text, 0));
-    const tail = text.slice(closing(text, 0) + 1);
-    let node: Shape;
-    if (inner.startsWith("fieldOr(")) {
-      const [, item, value] = split(inner.slice(8, closing(inner, 7)));
-      node = { name: "fieldOr", args: [parseShape(item!), raw(value!)] };
-    } else if (inner.startsWith("TAG:R,_0:<-a:")) {
-      node = { name: "renamed", args: [parseShape(inner.slice(13))] };
-    } else if (/^(TAG:T\d+|kind:k\d+),/.test(inner)) {
-      node = { name: "tagged", args: [parseShape(inner.slice(inner.indexOf(",") + 1))] };
-    } else if (inner.startsWith("f:")) {
-      node = { name: "field", args: [parseShape(inner.slice(2))] };
-    } else {
-      node = leaf("payload");
-    }
-    return withSuffixes(node, tail);
-  }
-  const name = /^[\w$]+/.exec(text)?.[0];
-  if (!name) return raw(text);
-  let rest = text.slice(name.length);
-  let node: Shape = leaf(name);
-  if (rest.startsWith("(")) {
-    const end = closing(rest, 0);
-    const parts = split(rest.slice(1, end));
-    node = {
-      name,
-      args: parts.map((part, i) =>
-        DEFAULTABLE.has(name) && i === 1 ? raw(part) : name === "enum" ? raw(part) : parseShape(part),
-      ),
-    };
-    rest = rest.slice(end + 1);
-  }
-  return withSuffixes(node, rest);
-};
-
-// `.with(to)` and friends wrap what they follow.
-const withSuffixes = (node: Shape, rest: string): Shape => {
-  while (rest.startsWith(".with(")) {
-    const end = closing(rest, 5);
-    node = { name: "with", args: [node], raw: rest.slice(6, end) };
-    rest = rest.slice(end + 1);
-  }
-  return node;
-};
+export const node = (name: string, ...args: Shape[]): Shape => ({ name, args });
+export const valueNode = (text: string): Shape => ({ name: "#value", args: [], raw: text });
 
 export const nodes = function* (shape: Shape): Generator<Shape> {
   yield shape;
@@ -123,8 +27,8 @@ export const some = (shape: Shape, test: (node: Shape) => boolean): boolean => {
 // ---- predicates the known-bug registry is written in ----------------------
 
 // `optional(x, d)` / `nullable(x, d)`: the default is the second argument.
-export const hasDefault = (node: Shape): boolean =>
-  DEFAULTABLE.has(node.name) && node.args.length === 2;
+export const hasDefault = (shape: Shape): boolean =>
+  (shape.name === "optional" || shape.name === "nullable") && shape.args.length === 2;
 
 // The nodes that compile to a union over their arguments.
 const UNION_LIKE = new Set(["union", "optional", "nullable", "nullish"]);

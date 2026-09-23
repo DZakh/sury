@@ -11,7 +11,7 @@
 // is behaviour that is right and that a property cannot tell from a bug, so it
 // carries a reason instead of a spec.
 //
-// Entries are written against the SHAPE of the finding (`unionFuzz/shape.ts`),
+// Entries are written against the SHAPE the grammar built the schema from,
 // not its text: "a union with a member that carries a default" is one bug at
 // every depth the grammar reaches, and a substring only covers the depths
 // someone happened to list.
@@ -20,7 +20,6 @@ import {
   absorbs,
   admitsUndefined,
   hasDefault,
-  parseShape,
   type Shape,
   some,
   unionMembers,
@@ -128,8 +127,8 @@ export const KNOWN_BUGS: Known[] = [
 const matched = new Set<string>();
 
 // The entry covering a finding, or `undefined` for one nobody has listed.
-export const knownFor = (fuzzer: Fuzzer, id: string, property: string, detail: string): Known | undefined => {
-  const finding: Finding = { fuzzer, shape: parseShape(id), property, detail };
+export const knownFor = (fuzzer: Fuzzer, shape: Shape, property: string, detail: string): Known | undefined => {
+  const finding: Finding = { fuzzer, shape, property, detail };
   const entry = KNOWN_BUGS.find((known) => known.fuzzers.includes(fuzzer) && known.matches(finding));
   if (entry) matched.add(`${fuzzer}:${entry.id}`);
   return entry;

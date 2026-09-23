@@ -1,5 +1,6 @@
 import { modifiers, schemaLeaves, wraps } from "./catalog";
 import { NO_SAMPLE, sample, show } from "./sample";
+import { node, type Shape, valueNode } from "./shape";
 import type { Sury } from "./types";
 
 export type Rng = () => number;
@@ -21,6 +22,8 @@ const pick = <T>(rng: Rng, list: readonly T[]): T =>
 export type MemberSpec = {
   readonly id: string;
   readonly schema: unknown;
+  // The same tree the id prints, for the known-bug registry to read.
+  readonly shape: Shape;
   // Carries a conversion that throws information away, so `decode(encode(o))`
   // is not `o` and no property may ask it to be. Set by the one modifier that
   // is deliberately lossy and propagated by every shape built over it, since
@@ -31,12 +34,17 @@ export type MemberSpec = {
 const leafSchema = (S: Sury, rng: Rng): MemberSpec => {
   const leaves = schemaLeaves(S);
   const leaf = pick(rng, leaves);
-  return { id: leaf.name, schema: leaf.schema };
+  return { id: leaf.name, schema: leaf.schema, shape: node(leaf.name) };
 };
 
 const applyWrap = (S: Sury, rng: Rng, inner: MemberSpec): MemberSpec => {
   const [name, spec] = pick(rng, wraps());
-  return { id: `${name}(${inner.id})`, schema: spec.wrap(S, inner.schema), lossy: inner.lossy };
+  return {
+    id: `${name}(${inner.id})`,
+    schema: spec.wrap(S, inner.schema),
+    shape: node(name, inner.shape),
+    lossy: inner.lossy,
+  };
 };
 
 // A schema that refuses to be built is a finding, and a finding needs the shape
@@ -91,6 +99,7 @@ const defaultFor = (S: Sury, rng: Rng, inner: MemberSpec): unknown => {
 // site already reads correctly (#452).
 const renamedObject = (S: Sury, rng: Rng, inner: MemberSpec): MemberSpec => ({
   id: `{TAG:R,_0:<-a:${inner.id}}`,
+  shape: node("renamed", inner.shape),
   schema: S.object((s: any) => ({ TAG: "R", _0: s.field("a", inner.schema) })),
   lossy: inner.lossy,
 });
@@ -103,6 +112,7 @@ const renamedObject = (S: Sury, rng: Rng, inner: MemberSpec): MemberSpec => ({
 // seeds its grouping barrier.
 const taggedRescript = (S: Sury, tag: string, inner: MemberSpec): MemberSpec => ({
   id: `{TAG:${tag},${inner.id}}`,
+  shape: node("tagged", inner.shape),
   schema: S.schema({ TAG: tag, _0: inner.schema }),
   lossy: inner.lossy,
 });
@@ -114,7 +124,12 @@ const transformingContainer = (S: Sury, rng: Rng): MemberSpec => {
   const inner =
     roll < 0.5 ? renamedObject(S, rng, leaf) : roll < 0.75 ? applyModify(S, rng, leaf) : leaf;
   const item = inner ?? leaf;
-  return { id: `${name}(${item.id})`, schema: spec.wrap(S, item.schema), lossy: item.lossy };
+  return {
+    id: `${name}(${item.id})`,
+    schema: spec.wrap(S, item.schema),
+    shape: node(name, item.shape),
+    lossy: item.lossy,
+  };
 };
 
 // `S.optional(x, d)` / `S.nullable(x, d)`. Deliberately NOT guarded: a default
@@ -124,10 +139,18 @@ const defaultedMember = (S: Sury, rng: Rng, inner: MemberSpec): MemberSpec => {
   const name = rng() < 0.5 ? "optional" : "nullable";
   const value = defaultFor(S, rng, inner);
   if (value === NO_SAMPLE) {
-    return { id: `${name}(${inner.id})`, schema: S[name](inner.schema), lossy: inner.lossy };
+    return {
+      id: `${name}(${inner.id})`,
+      schema: S[name](inner.schema),
+      shape: node(name, inner.shape),
+      lossy: inner.lossy,
+    };
   }
   const id = `${name}(${inner.id},${show(value)})`;
-  return { id, schema: named(
+  return {
+    id,
+    shape: node(name, inner.shape, valueNode(show(value))),
+    schema: named(
       id,
       () => S[name](inner.schema, value),
       () => S[name](inner.schema),
@@ -141,6 +164,7 @@ const fieldOrMember = (S: Sury, rng: Rng, inner: MemberSpec): MemberSpec => {
   return value === NO_SAMPLE
     ? {
         id: `{f:${inner.id}}`,
+        shape: node("field", inner.shape),
         schema: S.object((s: any) => ({ f: s.field("f", inner.schema) })),
         lossy: inner.lossy,
       }
@@ -148,6 +172,7 @@ const fieldOrMember = (S: Sury, rng: Rng, inner: MemberSpec): MemberSpec => {
         const id = `{fieldOr(f,${inner.id},${show(value)})}`;
         return {
           id,
+          shape: node("fieldOr", inner.shape, valueNode(show(value))),
           schema: named(
             id,
             () => S.object((s: any) => ({ f: s.fieldOr("f", inner.schema, value) })),
@@ -167,6 +192,7 @@ const applyModify = (S: Sury, rng: Rng, inner: MemberSpec): MemberSpec | undefin
   try {
     return {
       id: `${inner.id}.with(${name})`,
+      shape: { name: "with", args: [inner.shape], raw: name },
       schema: spec.modify(S, inner.schema),
       lossy: inner.lossy || name === "to",
     };
@@ -177,6 +203,7 @@ const applyModify = (S: Sury, rng: Rng, inner: MemberSpec): MemberSpec | undefin
 
 const taggedKind = (S: Sury, tag: string, inner: MemberSpec): MemberSpec => ({
   id: `{kind:${tag},${inner.id}}`,
+  shape: node("tagged", inner.shape),
   schema: S.object({ kind: tag, v: inner.schema }),
   lossy: inner.lossy,
 });
@@ -187,6 +214,7 @@ const payloadWithUnionField = (S: Sury, optional: boolean): MemberSpec => {
     : S.union([S.schema("A"), S.schema("B")]);
   return {
     id: `{a:string,kind:${optional ? "optional(string)" : '"A"|"B"'}}`,
+    shape: node("payload"),
     schema: S.schema({ a: S.string, kind: field }),
   };
 };
@@ -196,6 +224,7 @@ const tupleMember = (S: Sury, rng: Rng): MemberSpec => {
   const b = leafSchema(S, rng);
   return {
     id: `tuple(${a.id},${b.id})`,
+    shape: node("tuple", a.shape, b.shape),
     schema: S.tuple([a.schema, b.schema]),
     lossy: a.lossy || b.lossy,
   };
@@ -206,25 +235,23 @@ const nestedUnion = (S: Sury, rng: Rng, depth: number): MemberSpec => {
   const b = memberAt(S, rng, depth + 1);
   return {
     id: `union(${a.id},${b.id})`,
+    shape: node("union", a.shape, b.shape),
     schema: S.union([a.schema, b.schema]),
     lossy: a.lossy || b.lossy,
   };
 };
 
-// Three, not two: a default over a container whose ITEMS transform needs three
-// levels to exist at all (default, container, transforming item), and that is
-// the shape where a container's transform is invisible to its own `.to` (#452).
 const memberAt = (S: Sury, rng: Rng, depth: number): MemberSpec => {
-  if (depth >= 3) return leafSchema(S, rng);
+  if (depth >= 2) return leafSchema(S, rng);
   const roll = rng();
   if (roll < 0.06) {
-    return { id: "enum(e0,e1)", schema: S.enum(["e0", "e1"]) };
+    return { id: "enum(e0,e1)", schema: S.enum(["e0", "e1"]), shape: node("enum") };
   }
   if (roll < 0.1) {
-    return { id: "null", schema: S.schema(null) };
+    return { id: "null", schema: S.schema(null), shape: node("null") };
   }
   if (roll < 0.14) {
-    return { id: "instance(Error)", schema: S.instance(Error) };
+    return { id: "instance(Error)", schema: S.instance(Error), shape: node("instance") };
   }
   if (roll < 0.28) return leafSchema(S, rng);
   // Over a nested member, not a bare leaf: `array(string.with(to, number))` is
@@ -274,10 +301,10 @@ const memberAt = (S: Sury, rng: Rng, depth: number): MemberSpec => {
 export const generateSchema = (S: Sury, rng: Rng): MemberSpec => memberAt(S, rng, 0);
 
 export const groupingBarrierMembers = (S: Sury): MemberSpec[] => [
-  taggedRescript(S, "One", { id: "string", schema: S.string }),
-  taggedRescript(S, "Two", { id: "string", schema: S.string }),
+  taggedRescript(S, "One", { id: "string", schema: S.string, shape: node("string") }),
+  taggedRescript(S, "Two", { id: "string", schema: S.string, shape: node("string") }),
   taggedRescript(S, "Three", payloadWithUnionField(S, false)),
-  taggedRescript(S, "Four", { id: "string", schema: S.string }),
+  taggedRescript(S, "Four", { id: "string", schema: S.string, shape: node("string") }),
 ];
 
 export const generateMembers = (

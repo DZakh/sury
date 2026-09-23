@@ -25,7 +25,6 @@ import {
   type SuryErrorRecord,
   tagFlags,
   U,
-  unionIsTransparent,
   unknown,
   undefinedTag,
   unknownTag,
@@ -317,7 +316,14 @@ const outputKey = "o";
 // transforms, so singletons stay singletons and the union planner's identity
 // dedupe still holds; a union whose arms share one output collapses to it, the
 // way `S.optional(x, default)` outputs `x`. Cached on the tail, non-enumerable
-// like `r`.
+// like `r`: the default check compiles an operation keyed on this schema's
+// identity, so an item reused across schemas (`s.fieldOr("a", Address, d)` in
+// several objects) compiles it once instead of once per use.
+//
+// Not `reverse(schema) === schema`, which only says whether a schema is self-
+// reverse and is what the `sr` line below already reads. For a one-way codec
+// the reverse cannot be compiled at all, so it has no Output type to offer, and
+// the chain's tail is the Input form of a container.
 export const outputOf = (schema: Internal): Internal => {
   if (schema.sr) return schema;
   const tail = getOutputSchema(schema);
@@ -338,13 +344,9 @@ export const outputOf = (schema: Internal): Internal => {
       // The same spread `unionFactory` does: a default arm outputs the union of
       // its siblings' outputs, and that union spliced is the siblings again.
       const arm = map(tail.anyOf[idx]!);
-      const nested = unionIsTransparent(arm) ? arm.anyOf! : [arm];
-      for (let j = 0; j < nested.length; j++) {
-        const member = nested[j]!;
-        if (!anyOf.includes(member)) {
-          anyOf.push(member);
-          setHas(has, member.type);
-        }
+      if (!anyOf.includes(arm)) {
+        anyOf.push(arm);
+        setHas(has, arm.type);
       }
     }
     if (anyOf.length !== tail.anyOf.length) changed = true;
