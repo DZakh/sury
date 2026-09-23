@@ -19,41 +19,29 @@ vs:
     _skip: todo(#…)
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[13](i);let v2=i.x,v5=i.y;for(;;){let r;try{let v0;try{v0=e[0](i.x);}catch(v1){v1.path=["x",...v1.path];throw v1}v2=v0;break}catch(x){(r||(r=[])).push(e[1](x))}if(v2===void 0)break;e[2](v2,...(r||[]))}for(;;){let r;try{let v3;try{v3=e[3](i.y);}catch(v4){v4.path=["y",...v4.path];throw v4}v5=v3;break}catch(x){(r||(r=[])).push(e[4](x))}if(v5===void 0)break;e[5](v5,...(r||[]))}let v6;{let w;try{w=e[11].acquire();let v,j,n,s,h,a,k,g,c,o;v=v2;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[6](w,v);w.end(h)};v=v5;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[7](w,v);w.end(h)};v6=w.finish()}catch(x){w&&(w.busy=false);e[12](x)}}return v6}catch(v7){e[14](v7)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[11](i);let v2=i.x,v5=i.y;for(;;){if(typeof v2==="object"&&v2&&!Array.isArray(v2)){let v0;try{v0=e[0](i.x);}catch(v1){v1.path=["x",...v1.path];throw v1}v2=v0;break}if(v2===void 0)break;e[1](v2)}for(;;){if(typeof v5==="object"&&v5&&!Array.isArray(v5)){let v3;try{v3=e[2](i.y);}catch(v4){v4.path=["y",...v4.path];throw v4}v5=v3;break}if(v5===void 0)break;e[3](v5)}let v6;{let w;try{w=e[9].acquire();let v,j,n,s,h,a,k,g,c,o;v=v2;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[4](w,v);w.end(h)};v=v5;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[5](w,v);w.end(h)};v6=w.finish()}catch(x){w&&(w.busy=false);e[10](x)}}return v6}catch(v7){e[12](v7)}}
     examples:
       both:
         input: '{ x: { a: "s", kid: { a: "t", kid: undefined } }, y: { b: 1, kid: { b: 2, kid: undefined } } }'
         output: new Uint8Array([10, 8, 10, 1, 115, 18, 3, 10, 1, 116, 18, 6, 8, 1, 18, 2, 8, 2])
       bad-x-kid:
         input: '{ x: { a: "s", kid: { a: "bad", kid: undefined } }, y: undefined }'
-        error: |-
-          Failed at x: Expected Node | undefined, received { a: "s"; kid: object; }
-          - At x.kid: Expected Node | undefined, received { a: "bad"; kid: undefined; }
-            - At kid: no bad a
+        error: "Failed at x.kid: no bad a"
       bad-y-kid:
         input: "{ x: undefined, y: { b: 1, kid: { b: 13, kid: undefined } } }"
-        error: |-
-          Failed at y: Expected Node | undefined, received { b: 1; kid: object; }
-          - At y.kid: Expected Node | undefined, received { b: 13; kid: undefined; }
-            - At kid: no 13
+        error: "Failed at y.kid: no 13"
   decode:
-    expression: i=>{try{let v2=i.x,v5=i.y;for(;;){let r;try{let v0;try{v0=e[0](i.x);}catch(v1){v1.path=["x",...v1.path];throw v1}v2=v0;break}catch(x){(r||(r=[])).push(e[1](x))}if(v2===void 0)break;e[2](v2,...(r||[]))}for(;;){let r;try{let v3;try{v3=e[3](i.y);}catch(v4){v4.path=["y",...v4.path];throw v4}v5=v3;break}catch(x){(r||(r=[])).push(e[4](x))}if(v5===void 0)break;e[5](v5,...(r||[]))}let v6;{let w;try{w=e[11].acquire();let v,j,n,s,h,a,k,g,c,o;v=v2;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[6](w,v);w.end(h)};v=v5;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[7](w,v);w.end(h)};v6=w.finish()}catch(x){w&&(w.busy=false);e[12](x)}}return v6}catch(v7){e[13](v7)}}
+    expression: i=>{try{let v2=i.x,v5=i.y;for(;;){if(typeof v2==="object"&&v2&&!Array.isArray(v2)){let v0;try{v0=e[0](i.x);}catch(v1){v1.path=["x",...v1.path];throw v1}v2=v0;break}if(v2===void 0)break;e[1](v2)}for(;;){if(typeof v5==="object"&&v5&&!Array.isArray(v5)){let v3;try{v3=e[2](i.y);}catch(v4){v4.path=["y",...v4.path];throw v4}v5=v3;break}if(v5===void 0)break;e[3](v5)}let v6;{let w;try{w=e[9].acquire();let v,j,n,s,h,a,k,g,c,o;v=v2;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[4](w,v);w.end(h)};v=v5;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[5](w,v);w.end(h)};v6=w.finish()}catch(x){w&&(w.busy=false);e[10](x)}}return v6}catch(v7){e[11](v7)}}
     examples:
       both:
         input: '{ x: { a: "s", kid: { a: "t", kid: undefined } }, y: { b: 1, kid: { b: 2, kid: undefined } } }'
         output: new Uint8Array([10, 8, 10, 1, 115, 18, 3, 10, 1, 116, 18, 6, 8, 1, 18, 2, 8, 2])
       bad-x-kid:
         input: '{ x: { a: "s", kid: { a: "bad", kid: undefined } }, y: undefined }'
-        error: |-
-          Failed at x: Expected Node | undefined, received { a: "s"; kid: object; }
-          - At x.kid: Expected Node | undefined, received { a: "bad"; kid: undefined; }
-            - At kid: no bad a
+        error: "Failed at x.kid: no bad a"
       bad-y-kid:
         input: "{ x: undefined, y: { b: 1, kid: { b: 13, kid: undefined } } }"
-        error: |-
-          Failed at y: Expected Node | undefined, received { b: 1; kid: object; }
-          - At y.kid: Expected Node | undefined, received { b: 13; kid: undefined; }
-            - At kid: no 13
+        error: "Failed at y.kid: no 13"
   encode:
     expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v1=v0.x,v8=v0.y;if(v1!==void 0){let v6=v1.kid;if(v6!==void 0){try{e[12](v6);}catch(v7){v7.path=["x","kid",...v7.path];throw v7}e[13](v6)||e[14](v6);}}if(v8!==void 0){let v13=v8.kid;if(v13!==void 0){try{e[24](v13);}catch(v14){v14.path=["y","kid",...v14.path];throw v14}e[25](v13)||e[26](v13);}}return v0}catch(v15){e[27](v15)}}
     examples:

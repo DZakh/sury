@@ -529,6 +529,8 @@ type UnionMember = {
   r: number;
   d?: UnionDiscriminator;
   n: Internal;
+  // The definition a ref member takes the runtime type of.
+  t?: Internal;
 };
 
 type UnionGroup = {
@@ -677,7 +679,8 @@ const unionAnalyze = (
   sourceTag: number,
   variants: Internal[],
   source: Internal,
-  nan: number
+  nan: number,
+  defs: Record<string, Internal> | undefined
 ): UnionMember[] => {
   const out: UnionMember[] = [];
   const unknownSource = sourceTag & 1;
@@ -693,7 +696,12 @@ const unionAnalyze = (
   for (let i = 0; i < variants.length; i++) {
     const s = variants[i]!;
     const tag = tagFlags[s.type]!;
-    const inputMask = unionMask(s, 1, nan);
+    // A ref inside its own definition (`S.optional(self)`) is opaque by tag, so
+    // an `undefined` beside it was reached only by the ref throwing - on every
+    // leaf of the tree. The definition it names says which type it takes.
+    const def = unknownSource && tag & 512 && s["$ref"] !== U ? s.definition || (s["$defs"] || defs)?.[s["$ref"].slice(8)] : U;
+    const shape = def !== U && def.parser === U && tagFlags[def.type]! & (64 | 128) ? def : U;
+    const inputMask = shape ? unionWiden(tagFlags[shape.type]!, nan) : unionMask(s, 1, nan);
     const d = unionDiscriminator(s);
     const same = unionRuntimeSame(source, s);
     const discriminatorDisjoint =
@@ -773,12 +781,15 @@ const unionAnalyze = (
       // group's `typeof` dispatch.
       k: tag & 8192 ? s.class : s.format === "env" ? s.format : s.type,
       n: unionNarrowSchema(s),
-      r: tag & (64 | 8192)
+      r: shape
+        ? inputMask
+        : tag & (64 | 8192)
         ? 64 | 8192
         : tag & numberish
           ? numberish
           : unionWiden(tag, nan),
       d,
+      t: shape,
     };
   }
   return out;
@@ -1129,7 +1140,7 @@ const unionEmit = (
       input.g.o = options;
     }
     if (member.o) outputBySource[member.i] = caseOut.s;
-    const cond: HoistCond = { c: "", h: [] };
+    const cond: HoistCond = { c: member.t ? typeCheckCond(caseInput, member.t, source.v()) : "", h: [] };
     // Hoist the type narrow even when the member can fall through. A value the
     // narrow rejects could never have been accepted by this member, so skipping
     // it with `if(cond)` reaches the next member exactly like catching would -
@@ -1450,7 +1461,7 @@ export const unionDecoder: Builder = (input: Val) => {
     input,
     self,
     expected,
-    unionPlan(unionAnalyze(unionMask(source, 2, nan), flags, sourceTag, variants, source, nan)),
+    unionPlan(unionAnalyze(unionMask(source, 2, nan), flags, sourceTag, variants, source, nan, input.g.d)),
     toPerCase,
     trustedSelf
   );

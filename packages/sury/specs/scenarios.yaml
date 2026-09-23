@@ -320,3 +320,13 @@ recursive-definer-defaults:
         kid: S.optional(node),
       }),
     )
+
+recursive-optional-leaf:
+  # A tree whose leaves leave `S.optional(self)` unset. The ref once went first
+  # and threw on every `undefined` before the union reached its second member.
+  prepare: |
+    const Node = S.recursive("Node", (self) => S.schema({ name: S.string, parent: S.optional(self), children: S.array(self) }))
+    const parse = S.decodeOrThrow(Node)
+    const leaf = { name: "leaf", children: [] }
+    const data = { name: "root", children: [leaf, { name: "b", children: [leaf, leaf] }] }
+  run: parse(data)
