@@ -1507,6 +1507,25 @@ S.schema({
 });
 ```
 
+**Recursive messages** are built with [`S.recursive`](#recursive-schemas):
+
+```ts
+type Descriptor = { name: string; nestedType: Descriptor[] };
+
+const DescriptorProto = S.recursive<Descriptor>("DescriptorProto", (self) =>
+  S.schema({
+    name: S.string.with(S.protobufField, 1),
+    nestedType: S.array(self).with(S.protobufField, 2),
+  }),
+);
+
+S.toProtoOrThrow(DescriptorProto);
+// message DescriptorProto {
+//   string name = 1;
+//   repeated DescriptorProto nested_type = 2;
+// }
+```
+
 **Output memory.** An encoded message is a view into a larger buffer, like a
 Node `Buffer`: `bytes.buffer` is bigger than `bytes.byteLength` and
 `bytes.byteOffset` is not zero. Every consumer of a `Uint8Array` respects the
@@ -1627,10 +1646,11 @@ conformance scores. The short version: against protobuf-es, encoding runs
 on a Mapbox vector tile pbf is the one to beat, because a tile is almost
 entirely packed varints and that is what pbf is built for.
 
-`S.protobuf` passes **692 of the 698 binary proto3 cases** of Google's own
-`conformance_test_runner`. The six are named with their reason in
+`S.protobuf` passes **695 of the 698 binary proto3 cases** of Google's own
+`conformance_test_runner`. The three are named with their reason in
 [`failing_tests.txt`](https://github.com/DZakh/sury/tree/main/packages/protobuf-conformance/failing_tests.txt):
-four need recursive messages, two need unknown fields to survive a round trip.
+two need unknown fields to survive a round trip, one needs two map entries
+sharing a key to merge their messages rather than the later winning.
 ProtoJSON, text format and the proto2 message types are not attempted.
 
 Beside it, a corpus of our own in

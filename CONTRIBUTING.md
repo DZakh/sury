@@ -349,13 +349,25 @@ case the harness *should* have caught or guided better - a missing check, a weak
 error message, a strictness gap that let a bad spec through - add a bullet here
 instead of silently working around it.
 
-- `ts.constructionError` records a schema that panics while it is built, but
+- `ts.constructionError` records a schema that throws while it is built, but
   such a spec still has to carry `ts.input`, `ts.output`, `instantiations`,
   `jsonSchema` and the three operations, none of which exists for a schema that
-  never constructs - and `spec new` refuses the schema outright. Making those
-  dimensions optional when `constructionError` is set would let every
-  link-time refusal live in a spec; `tests/content_test.ts`'s "a reading is only
-  offered where there are two" holds them until then.
+  never constructs - and `spec new` refuses the schema outright. A construction
+  that throws on purpose is a contract like any other:
+  `S.recursive("N", (n) => S.schema({ kid: S.optional(n, x) }))` is refused
+  there, and `"unpack"` on a source arm with no text is refused by `S.to`.
+  Making those dimensions optional when `constructionError` is set would let
+  every such rule live in a spec; until then they are pinned by tests
+  (`tests/content_test.ts` holds the `S.to` ones).
+
+- A spec records what an operation does, never what compiling it leaves behind
+  on a schema that is not the subject. The parse loop used to adopt the first
+  `$defs` record it met by reference, so compiling an object holding two
+  independent `S.recursive` schemas merged the second's definitions into the
+  first schema's own record and left it corrupted for the rest of the program -
+  every spec passed, and the reproduction had to be a test file. A spec could
+  carry the schemas it must not disturb, comparing a snapshot of each before and
+  after the operations are compiled.
 
 - An example's `error` is matched verbatim, and `errorConstructor` is the
   opt-out for a message that belongs to the platform rather than to Sury.

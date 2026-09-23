@@ -3245,3 +3245,57 @@ test("schemaOf: leaves inference alone", () => {
     S.Schema<[string, number], [string, number]>
   >();
 });
+
+test("isEqual walks a recursive schema, including mutual recursion, and compare refuses one", (t) => {
+  type Node = { v: string; kids: Node[] };
+  const node = S.recursive<Node>("Node", (self) =>
+    S.schema({ v: S.string, kids: S.array(self) }),
+  );
+  const tree = (v: string, kids: Node[] = []): Node => ({ v, kids });
+
+  t.expect(S.isEqualInput(node, tree("a", [tree("x")]), tree("a", [tree("x")]))).toBe(true);
+  t.expect(S.isEqualInput(node, tree("a", [tree("x")]), tree("a", [tree("y")]))).toBe(false);
+  // Depth is where a recursive comparator differs from a shallow one.
+  t.expect(S.isEqualInput(node, tree("a", [tree("x", [tree("p")])]), tree("a", [tree("x", [tree("p")])]))).toBe(true);
+  t.expect(S.isEqualInput(node, tree("a", [tree("x", [tree("p")])]), tree("a", [tree("x", [tree("q")])]))).toBe(false);
+
+  // A def compiles to a call rather than an inlined chain of ordered tests,
+  // which is the shape `compare` answers for.
+  t.expect(() => S.compareInput(node, tree("a"), tree("b"))).toThrow(
+    "[Sury] Can't compare Node. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality",
+  );
+
+  type Branch = { n: number; leaf: { kids: Branch[] } };
+  const branch = S.recursive<Branch>("Branch", (self) =>
+    S.schema({ n: S.number, leaf: S.recursive("Leaf", () => S.schema({ kids: S.array(self) })) }),
+  );
+  const b = (n: number, kids: Branch[] = []): Branch => ({ n, leaf: { kids } });
+  t.expect(S.isEqualInput(branch, b(1, [b(2)]), b(1, [b(2)]))).toBe(true);
+  t.expect(S.isEqualInput(branch, b(1, [b(2)]), b(1, [b(3)]))).toBe(false);
+  t.expect(() => S.compareInput(branch, b(1), b(2))).toThrow("Can't compare Branch");
+});
+
+// `Internal.definition` is the rule every site resolving a `$ref` keeps:
+// the definition a ref carries wins over the record the operation holds. The
+// equality compiler is one of those sites. Nothing public builds such a ref -
+// the protobuf compiler does, for standins that never leave the operation it
+// compiles - so the field is set here directly, which is what a compiler does.
+test("the equality compiler follows the definition a ref carries, not the name", (t) => {
+  const carried = S.recursive("Node", (self) =>
+    S.schema({ v: S.string, kids: S.array(self) }),
+  );
+  // The record says compare `v` and `kids`; the definition carried says `v`.
+  (carried as unknown as { definition: unknown }).definition = S.schema({ v: S.string });
+
+  const a = { v: "a", kids: ["x"] };
+  const b = { v: "a", kids: ["y"] };
+  t.expect(S.isEqualInput(carried, a, b)).toBe(true);
+
+  // The same schema with nothing carried resolves by name and sees `kids`.
+  const named = S.recursive("Node", (self) => S.schema({ v: S.string, kids: S.array(self) }));
+  t.expect(S.isEqualInput(named, a, b)).toBe(false);
+
+  // Either way a ref is a call, which `compare` has no order for.
+  t.expect(() => S.compareInput(carried, a, b)).toThrow("Can't compare Node");
+  t.expect(() => S.compareInput(named, a, b)).toThrow("Can't compare Node");
+});

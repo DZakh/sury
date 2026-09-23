@@ -5,17 +5,12 @@
 # `pnpm conformance report` names every failure; `pnpm conformance update`
 # re-baselines the score once a line is added or removed here.
 
-# --- recursive messages ---------------------------------------------------
-# `TestAllTypesProto3.NestedMessage.corecursive` is TestAllTypesProto3 itself.
-# S.protobuf compiles a message by walking its schema, and a cycle has no
-# bottom to build from, so the field is left undeclared and rides through as an
-# unknown field - which S.protobuf skips rather than keeps, so it is gone from
-# the re-encoded output. Same reason `Struct`, `Value` and `ListValue` are
-# undeclared in testMessages.ts.
-Recommended.Proto3.ProtobufInput.ValidDataOneofBinary.MESSAGE.Merge.ProtobufOutput
-Required.Proto3.ProtobufInput.RepeatedScalarMessageMerge.ProtobufOutput
+# --- merging a map value ---------------------------------------------------
+# Two entries with the same key must merge their messages field by field; we
+# take the later entry whole. `Struct`, `Value` and `ListValue` stay undeclared
+# in testMessages.ts for a reason of their own: they are ProtoJSON types, which
+# this suite does not attempt.
 Required.Proto3.ProtobufInput.ValidDataMap.STRING.MESSAGE.MergeValue.ProtobufOutput
-Required.Proto3.ProtobufInput.ValidDataOneof.MESSAGE.Merge.ProtobufOutput
 
 # --- unknown fields are not retained --------------------------------------
 # S.protobuf skips an unknown field, the way every proto3 reader does, but does

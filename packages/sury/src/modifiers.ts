@@ -13,11 +13,13 @@ import {
   copyTo,
   functionTag,
   getOrRethrow,
+  globalConfig,
   inputExpression,
   type Internal,
   objectTag,
   panic,
   pathEmpty,
+  refTag,
   type SchemaErrorMessage,
   setHas,
   U,
@@ -414,10 +416,26 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
     const outputItems: Internal[] = [];
     const originalItems: Internal[] = [];
 
+    // `S.recursive`'s definitions, while its definer is still running.
+    const building = globalConfig.d;
     for (let idx = 0; idx < anyOf.length; idx++) {
       const variant = anyOf[idx]!;
       const outputSchema = getOutputSchema(variant);
       if (outputSchema.type !== undefinedTag) {
+        // The default is read as the item on every decode, so an item that is
+        // the definition being built would read the default as that definition,
+        // find the same absent field in it, and read its default, without end.
+        // A ref carrying definitions of its own is a finished schema instead.
+        if (
+          outputSchema.type === refTag &&
+          outputSchema["$defs"] === U &&
+          building !== U &&
+          building[outputSchema["$ref"]!.slice(8)] === U
+        ) {
+          panic(
+            `Can't set default for ${inputExpression(mut)}: the default is read as ${outputSchema.name}, which would need a default of its own`
+          );
+        }
         // Dedupe by identity: two arms sharing one output instance (the bool
         // singleton) would otherwise make every rule-4 match ambiguous.
         if (!outputItems.includes(outputSchema)) {
@@ -437,8 +455,19 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
     if (default_.type === "value") {
       const v = default_.value;
       // Full unknown -> item decode so primitive item types still get type-checked.
+      // A nested `S.recursive` hands back a bare `$ref`, so an item reached
+      // inside a definer names definitions this check would not otherwise see.
+      // They ride on the copy it compiles against, and `parse` merges them for
+      // the whole operation, so a ref inside a union resolves too.
+      // Only once the record holds something: an empty one names nothing, and a
+      // copy would miss the operation cached on the item itself.
+      let checkItem = item;
+      if (building !== U && item["$defs"] === U && Object.keys(building).length) {
+        checkItem = copySchema(item);
+        checkItem["$defs"] = building;
+      }
       try {
-        (getOp(0, 2, unknown, item) as (input: unknown) => unknown)(v);
+        (getOp(0, 2, unknown, checkItem) as (input: unknown) => unknown)(v);
       } catch (exn) {
         const error = getOrRethrow(exn);
         panic(
