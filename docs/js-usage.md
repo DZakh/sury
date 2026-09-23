@@ -1720,8 +1720,12 @@ guesses, whatever schema it is handed:
 ```ts
 S.parseOrThrow(S.string.with(S.to, S.jsonString.with(S.to, config)), '{"a":1}'); // parsed
 S.parseOrThrow(S.string.with(S.to, S.number, "unpack"), "42"); // 42, the one reading
-S.parseOrThrow(S.string.with(S.to, userSchema, "unpack"), text); // right for every userSchema
+S.parseOrThrow(S.string.with(S.to, userSchema, "unpack"), text); // read as userSchema
 ```
+
+`"unpack"` is refused for `S.json`, and a target no conversion reads text into,
+such as an object or an array, still refuses as it does without the slot. A
+document holding one is `S.jsonString.with(S.to, userSchema)`.
 
 ### If you omit pack or unpack
 
@@ -2315,7 +2319,7 @@ S.uint8Array.with(S.to, S.jsonString, "unpack");
 // decode unpack, encode pack
 
 S.string.with(S.to, userSchema, "unpack");
-// the text is read, whatever userSchema is
+// the text is read as userSchema; refused for S.json
 ```
 
 Besides a function, each direction accepts:

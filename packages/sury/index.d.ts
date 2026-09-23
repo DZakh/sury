@@ -2905,8 +2905,9 @@ type Coder<A, B> = { bivarianceHack(value: A): B }["bivarianceHack"];
  * `"pack"` or `"unpack"` as `S.to`'s third argument is the decode reading
  * with encode set to the opposite. A plain string is both a value and text,
  * so `S.string.with(S.to, S.jsonString)` asks too; `"unpack"` declares the
- * source, and is accepted into any target: `S.string.with(S.to, userSchema, "unpack")`
- * reads the text whatever `userSchema` is.
+ * source: `S.string.with(S.to, userSchema, "unpack")` reads the text as
+ * `userSchema`. It is refused for `S.json`, and a target no conversion reads
+ * text into, such as an object, refuses as it does without the slot.
  */
 export type Conversion<A, B> =
   | Coder<A, B>

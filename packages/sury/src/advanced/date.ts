@@ -59,7 +59,7 @@ export const date: Internal = /* @__PURE__ */ initSchema(
       // was handed over, not on the `Invalid Date` it produced - the same
       // shape the number coercion uses. The instance branch below blames its
       // own value, which there really is an invalid Date.
-      const output = B_nextVar(input, date);
+      const output = B_nextVar(input, date, input.e);
       const inputVar = input.v();
       output.cp = `let ${output.i}=new Date(${inputVar});`;
       output.vc = [{ c: () => `!Number.isNaN(${output.i}.getTime())`, f: failInvalidType }];

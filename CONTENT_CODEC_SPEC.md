@@ -69,14 +69,22 @@ S.uint8Array.with(S.to, S.jsonString, "unpack");
 ```
 
 A reading declares its source. `"unpack"` needs a source with something to
-open - a payload, or the text of a plain string - and is accepted into any
-target, since what the target does with an opened source is the target's own
-one conversion: `S.string.with(S.to, S.number, "unpack")` coerces. That is how
-an integration handed a schema it did not write declares its text once:
+open - a payload, or the text of a plain string. From a plain string it is
+accepted into every target but `S.json`, since what the target does with the
+opened text is the target's own conversion: `S.string.with(S.to, S.number,
+"unpack")` coerces. That is how an integration handed a schema it did not write
+declares its text once:
 
 ```ts
-S.string.with(S.to, userSchema, "unpack");   // right for every userSchema
+S.string.with(S.to, userSchema, "unpack");
+// S.number, S.date, S.jsonString, S.jsonString.with(S.to, X): the text is read
+// S.schema({ ... }), S.array(...): refused - no conversion reads text into one
+// S.json: refused - it is the document, and has no opened form
 ```
+
+A target that no conversion reads text into refuses with the slot as it does
+without one; a document that holds it says how, `S.jsonString.with(S.to, X)`.
+A carrier's reading also stops at a union target, which it meets whole.
 
 `"pack"` needs a target that stores, so `S.string.with(S.to, S.number, "pack")`
 is rejected, and so is a reading on a source with nothing to open - a number,

@@ -1467,9 +1467,10 @@ bytes do. A string format such as `S.email` is a value.
 "a@b.co"->S.parseOrThrow(~to=S.email->S.to(S.jsonString)) // "\"a@b.co\""
 ```
 
-Naming the payload settles it, and `Unpack` declares the source, so it is
-accepted into any target: an integration that receives text reads it whatever
-schema it is handed.
+Naming the payload settles it, and `Unpack` declares the source, so an
+integration that receives text reads it as whatever schema it is handed. It is
+refused for `S.json`, and a target no conversion reads text into, such as an
+object or an array, refuses as it does without the slot.
 
 ```rescript
 `{"a":1}`->S.parseOrThrow(~to=S.string->S.to(S.jsonString->S.to(config))) // parsed
