@@ -109,18 +109,4 @@ const check = (ctx: Ctx): void => {
   }
 };
 
-export const codec: Family = {
-  check,
-  known: {
-    // `S.to` with a custom coder leaves the source's format refinement on the
-    // Output side: `isOutput` of `Schema<uuid, number>` emits the uuid pattern
-    // and runs it over the number. The decode is right and the validator is
-    // wrong, so every value of such a schema fails conformance.
-    ".with(to): conformance": "isOutput runs the source's format check over the target value",
-    // A default makes the value always present, but when the item is ITSELF
-    // optional the Output type still admits the absent case. So `isOutput`
-    // accepts the absent value, and encoding it has nothing to hand back.
-    "{fieldOr(f,nullish(": "a default over an already-optional item leaves the absent case in its output type",
-    "{fieldOr(f,optional(": "a default over an already-optional item leaves the absent case in its output type",
-  },
-};
+export const codec: Family = { check };

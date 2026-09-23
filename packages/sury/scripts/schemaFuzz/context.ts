@@ -25,11 +25,10 @@ export type Ctx = {
   count: (what: string, n?: number) => void;
 };
 
-// A family: the properties it holds, and the cases known not to hold, keyed by
-// a SUBSTRING of the finding's key with the reason written by hand.
+// A family: the properties it holds. What is known not to hold lives in
+// `scripts/knownBugs.ts`, under the family's name.
 export type Family = {
   check: (ctx: Ctx) => void;
-  known: Record<string, string>;
 };
 
 export const reason = (error: unknown): string => (error as Error).message.split("\n")[0]!;

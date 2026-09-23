@@ -13,6 +13,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { knownFor, staleFor } from "./knownBugs";
 import { generateMembers, rngFromSeed, takeRefused } from "./unionFuzz/generate";
 import { issue392Case } from "./unionFuzz/issue392";
 import { classify, describeOutcome, show } from "./unionFuzz/outcome";
@@ -94,39 +95,13 @@ const num = (name: string, fallback: string): number => {
   return value;
 };
 
-// Known-broken shapes, keyed by a SUBSTRING of the printed member list plus the
-// diff class, with the reason written by hand. A matched diff is printed and
-// counted separately instead of failing the run; anything else still does. The
-// run also fails on a pattern nothing matched, which is how a fixed bug asks
-// for its entry to be deleted.
-//
-// These surfaced when the grammar learned to build defaults and reshaping
-// objects - they are not new behaviour, and they reproduce identically on the
-// released library.
-const KNOWN: Record<string, string> = {
-  // A member carrying a default swallows the union: the compiled operation
-  // only ever considers that member, and a value one of its siblings accepts
-  // is rejected outright. `Option_getWithDefault` rewrites the absent arm into
-  // a link whose target is the item union, and `unionResolveToUnion` reads an
-  // arm whose output IS the target union as covering every variant.
-  "acceptance|nullable(": "a member carrying a default covers the whole parent union",
-  "acceptance|optional(": "a member carrying a default covers the whole parent union",
-  // `S.never` inside a member makes the whole union refuse to compile rather
-  // than making that one member unusable.
-  "acceptance|never": "a never inside one member fails the whole union's compile",
-  // Not a library bug: an object whose every field carries a default accepts
-  // ANY object, so the reference - which tries members in order and takes the
-  // first that parses - picks it ahead of the member the compiled union
-  // dispatches to by type. The compiled answer is the right one here.
-  "acceptance|{fieldOr(": "reference picks an all-defaulted object before the member that matches by type",
-};
-
-const knownMatches = new Set<string>();
-const knownFor = (label: string, kind: DiffClass): string | undefined =>
-  Object.keys(KNOWN).find((pattern) => {
-    const [cls, shape] = pattern.split("|");
-    return kind === cls && label.includes(shape!);
-  });
+// What is known not to hold is `scripts/knownBugs.ts`, shared with
+// `fuzz:schema`. The union is read back as `union(member, ...)`, the shape the
+// registry's entries are written against. A matched diff is counted, not
+// printed. The default seed is the gate, and only the gate also fails on an
+// entry it never reached.
+const asShape = (members: readonly { id: string }[]): string =>
+  `union(${members.map((m) => m.id).join(",")})`;
 
 const main = async (): Promise<void> => {
   const cases = num("cases", "400");
@@ -168,6 +143,7 @@ const main = async (): Promise<void> => {
   }
 
   const creationFailures: string[] = [];
+  let known = 0;
   const next = rngFromSeed(seed);
   for (let c = 0; c < cases; c++) {
     const size = 2 + Math.floor(next() * Math.max(1, maxMembers - 1));
@@ -180,11 +156,12 @@ const main = async (): Promise<void> => {
     stats.compared += result.compared;
     stats.skipped += result.skipped;
     const label = describeMembers(members);
+    const shape = asShape(members);
     for (const diff of result.diffs) {
       stats.diffs += 1;
-      const pattern = knownFor(label, diff.class);
-      if (pattern !== undefined) {
-        knownMatches.add(pattern);
+      const detail = `compiled: ${describeOutcome(diff.compiled)} reference: ${describeOutcome(diff.reference)}`;
+      if (knownFor("union", shape, diff.class, detail)) {
+        known += 1;
         continue;
       }
       stats.byClass[diff.class] += 1;
@@ -195,15 +172,11 @@ const main = async (): Promise<void> => {
   console.log(
     `\n${stats.compared} compiled-vs-reference comparisons, ${stats.diffs} diff(s), ${stats.skipped} skipped (seed ${seed}, ${cases} unions)`,
   );
-  const unmatched = Object.keys(KNOWN).filter((pattern) => !knownMatches.has(pattern));
-  if (knownMatches.size) {
-    console.log(`  known: ${knownMatches.size} pattern(s) matched (see KNOWN in this script)`);
-  }
-  if (unmatched.length) {
-    console.log(`  ${unmatched.length} KNOWN pattern(s) matched nothing - fixed, or the grammar moved:`);
-    for (const pattern of unmatched) console.log(`    ${pattern}`);
-    process.exitCode = 1;
-  }
+  if (known) console.log(`  known: ${known} diff(s) covered by scripts/knownBugs.ts`);
+  const gate = !process.argv.some((a) => /^--(seed|cases|max-members)=/.test(a) && a !== "--seed=1");
+  const stale = gate ? staleFor(["union"]) : [];
+  for (const line of stale) console.log(`  ${line}`);
+  if (stale.length) process.exitCode = 1;
   if (creationFailures.length) {
     const unique = [...new Set(creationFailures)];
     console.log(`  creation: ${creationFailures.length} member(s) could not be built`);

@@ -1,17 +1,10 @@
 // The schema fuzzer: one generated schema, both of its sides sampled, and every
 // family of properties that can be asked of a single schema held against it.
 //
-//   pnpm --filter=sury fuzz:schema
-//   pnpm --filter=sury fuzz:schema --seeds=40 --cases=1500
-//   pnpm --filter=sury fuzz:schema --only=eq --seed=24 --show-known
+//   pnpm --filter=sury fuzz:schema                      the gate, as CI runs it
+//   pnpm --filter=sury fuzz:schema --only=eq --seed=24   a narrower search
 //
-// The gates CI runs, each settled against its own size:
-//
-//   pnpm --filter=sury fuzz:schema --only=eq --seeds=40 --cases=1500 --strict
-//   pnpm --filter=sury fuzz:schema --only=codec --strict
-//
-// Families (`schemaFuzz/`), each with its own properties and its own list of
-// cases known not to hold:
+// Families (`schemaFuzz/`), each with its own properties:
 //
 //   eq      the comparators: an equivalence, an order, one comparator reached
 //           from both sides, and no looser than the decode it feeds.
@@ -40,15 +33,16 @@
 // long stream does not: a bug found at seed 24 in 1500 cases was still not
 // found at seed 1 in 150000. `--seeds=N` is what widens the search.
 //
-// KNOWN entries are keyed by a SUBSTRING of a finding (`<shape>: <property>:
-// <detail>`) rather than a whole one: an exact key names one draw of one seed, and the
-// grammar moves under it every time a shape is added. The run fails on a
-// finding no entry covers, and on an entry nothing matched - which is how a
-// fixed bug asks for its entry to be deleted (under `--strict`). A finding
-// becomes a spec.
+// What is known not to hold is `scripts/knownBugs.ts`, shared with `fuzz:union`.
+// A finding it does not cover fails the run. The default invocation is the gate
+// - forty seeds of 1500 schemas, both families - and only the gate also fails
+// on an entry nothing matched, since a narrower search reaching less says
+// nothing about a bug. Any of `--seed`, `--seeds`, `--cases` or `--only` makes
+// the run a search rather than the gate. A finding becomes a spec.
 
 import * as S from "../index.mjs";
 import { codec } from "./schemaFuzz/codec";
+import { knownFor, staleFor } from "./knownBugs";
 import { type Ctx, type Family, reason } from "./schemaFuzz/context";
 import { eq } from "./schemaFuzz/eq";
 import { generateSchema, rngFromSeed, takeRefused } from "./unionFuzz/generate";
@@ -64,9 +58,10 @@ const arg = (name: string, fallback: string): number => {
   return value;
 };
 
+const gate = !process.argv.some((a) => /^--(seed|seeds|cases|only)=/.test(a));
 const seed = arg("seed", "1");
-const seeds = arg("seeds", "1");
-const cases = arg("cases", "600");
+const seeds = arg("seeds", "40");
+const cases = arg("cases", "1500");
 const show = arg("show", "40");
 const only = process.argv.find((a) => a.startsWith("--only="))?.slice(7).split(",");
 const running = Object.entries(FAMILIES).filter(([name]) => !only || only.includes(name));
@@ -84,19 +79,9 @@ const refused = (error: unknown): boolean =>
   (error as { code?: unknown }).code !== undefined;
 
 const findings: string[] = [];
-const matched = new Set<string>();
 const counts: Record<string, number> = {};
 const count = (what: string, n = 1): void => {
   counts[what] = (counts[what] ?? 0) + n;
-};
-
-// Matched against the whole line, detail included: a bug is sometimes named by
-// its shape and sometimes only by what it threw.
-const record = (known: Record<string, string>, key: string, detail: string): void => {
-  const line = `${key}: ${detail}`;
-  const pattern = Object.keys(known).find((p) => line.includes(p));
-  if (pattern === undefined) findings.push(line);
-  else matched.add(pattern);
 };
 
 const sury = S as unknown as Sury;
@@ -147,9 +132,10 @@ for (let c = 0; c < cases * seeds; c++) {
     }
   }
 
-  for (const [, family] of running) {
-    const report = (property: string, detail: string): void =>
-      record(family.known, `${id}: ${property}`, detail);
+  for (const [name, family] of running) {
+    const report = (property: string, detail: string): void => {
+      if (!knownFor(name as "eq" | "codec", id, property, detail)) findings.push(`${id}: ${property}: ${detail}`);
+    };
     const ctx: Ctx = {
       S: sury,
       id,
@@ -175,27 +161,7 @@ for (let c = 0; c < cases * seeds; c++) {
   }
 }
 
-// An entry nothing matched is stale only in the run its bug was found at: the
-// comparator crash needs forty seeds to show, so a one-seed run says nothing
-// about it. `--strict` is what the CI gates pass, each at the size its entries
-// were settled against.
-const strict = process.argv.includes("--strict");
-for (const [name, family] of running)
-  for (const pattern of Object.keys(family.known))
-    if (!matched.has(pattern)) {
-      const line =
-        `${name} KNOWN "${pattern}": nothing matched it - either it is fixed (delete the entry) ` +
-        `or the grammar no longer reaches the shape`;
-      if (strict) findings.push(line);
-      else console.log(`note: ${line}`);
-    }
-
-if (process.argv.includes("--show-known")) {
-  console.log("\ncases known not to hold:");
-  for (const [name, family] of running)
-    for (const [pattern, why] of Object.entries(family.known)) console.log(`  ${name} "${pattern}"\n    ${why}`);
-  console.log("");
-}
+if (gate) findings.push(...staleFor(running.map(([name]) => name as "eq" | "codec")));
 
 console.log(
   `${Object.entries(counts)

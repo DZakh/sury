@@ -57,19 +57,18 @@ jobs:
 
       # The only check that the union compiler's dispatch matches a sequential
       # try of each member (CLAUDE.md, "Changing the union compiler"). Fixed
-      # seed so a red run reproduces locally with the same command.
+      # seed so a red run reproduces locally with the same command. Shares
+      # scripts/knownBugs.ts with fuzz:schema.
       - run: pnpm fuzz:union --seed=1
         working-directory: packages/sury
 
       # A spec pins one schema's code and the values it writes down, and says
       # nothing about the branch no spec reaches (CLAUDE.md, "Fuzzing a single
-      # schema"). One runner, two gates, each at the size its KNOWN entries were
-      # settled against. Seeds, not cases, widen the comparator gate: the grammar
-      # branches on every draw, so a sweep of short streams reaches what one long
-      # stream does not. Fixed ranges so a red run reproduces locally. ~25s.
-      - run: pnpm fuzz:schema --only=eq --seeds=40 --cases=1500 --strict
-        working-directory: packages/sury
-      - run: pnpm fuzz:schema --only=codec --strict
+      # schema"). The default invocation is the gate: forty seeds, both families.
+      # It fails on a finding scripts/knownBugs.ts does not list, and on an
+      # entry there it no longer reaches. Fixed range so a red run reproduces
+      # locally with the same command. ~25s.
+      - run: pnpm fuzz:schema
         working-directory: packages/sury
 
       # A form field's reading depends on its wrapper as much as its type, and

@@ -153,22 +153,38 @@ of the keyword set (`JSONSchemaT` in `src/jsonschema.ts`, `JSONSchema.res`).
 Which member a value dispatches to is invisible in a golden until someone writes
 the spec for exactly that permutation. `pnpm --filter=sury fuzz:union` compares
 the compiler to a sequential try of each variant's own parser/encoder (grouping
-is codegen, not semantics). It exits non-zero on `acceptance` /
-`exception-kind`; `reasons` / `message` are error detail. `--ref` is an optional
+is codegen, not semantics). It exits non-zero on an `acceptance` /
+`exception-kind` diff that `scripts/knownBugs.ts` doesn't list; `reasons` /
+`message` are error detail. `--ref` is an optional
 changelog against a git commit, not the gate. `--seed=N` widens the search.
+
+## Known bugs
+
+`packages/sury/scripts/knownBugs.ts` is the one list of bugs the fuzzers have
+found and nobody has fixed, and of the limitations a property can't tell from a
+bug. `fuzz:schema` and `fuzz:union` read it, and their gates fail on a finding
+it doesn't cover *and* on an entry they no longer reach - so an entry can
+neither hide a new bug nor outlive its own. Entries are written against the
+parsed shape of the generated schema (`scripts/unionFuzz/shape.ts`), never a
+substring of one printed id, since the grammar moves under text.
+
+A bug entry names a spec with a `FIXME: known bug <id>` beside the example that
+records the wrong answer; `tests/knownBugs_test.ts` holds both sides to it.
+Fixing one is: correct the example, delete the entry, and let the gate confirm
+nothing else was matching it. A new finding is triaged the same way - fix it,
+or add an entry and its spec in the same change. Never widen an entry's
+predicate past the one root cause its summary names.
 
 ## Fuzzing a single schema
 
 `pnpm --filter=sury fuzz:schema` draws a schema from the shared grammar, samples
 its Input side from the schema and its Output side from its reverse, and hands
 both to each family in `scripts/schemaFuzz/`. A property a single schema can be
-held to belongs in a family there, not in a new runner. `--only=eq,codec` picks
-families, `--seeds=N` widens the search. CI runs each family at the size its
-KNOWN entries were settled against, with `--strict`, which also fails on an
-entry nothing matched. KNOWN entries are substrings of a finding with the reason
-written by hand, never exact keys: the grammar moves under an exact key every
-time it gains a shape. A creation throw is reported and the draw finishes
-without the default, so two builds of the library always draw the same schemas.
+held to belongs in a family there, not in a new runner. The default invocation
+is the gate CI runs; `--only=eq,codec`, `--seed`, `--seeds` and `--cases` turn it
+into a narrower search, which reports unlisted findings but not stale entries.
+A creation throw is reported and the draw finishes without the default, so two
+builds of the library always draw the same schemas.
 
 **codec** holds decode and encode to the schema's own answers: a decode passes
 the schema's `isOutput` and an encode its `isInput`, `parse` agrees with
@@ -186,12 +202,9 @@ value equals a separately built copy of itself, `eq(a,b)` is `eq(b,a)`, equal to
 the same value means equal to each other, the answer matches a schema-blind
 structural walk, `isEqualInput(schema)` is `isEqualOutput(reverse(schema))`, and
 two inputs the Input side calls equal decode to two outputs the Output side
-calls equal. Cases known not to hold are listed in the script with the reason
-written by hand, and the run fails on an unlisted one *and* on a listed one that
-has started to hold. `--seeds=N` widens the search and `--cases=N` deepens each
+calls equal. `--seeds=N` widens the search and `--cases=N` deepens each
 stream; reach for the first, since the grammar branches on every draw and a
-sweep of short streams covers what one long stream does not. A case it turns up
-becomes a spec.
+sweep of short streams covers what one long stream does not.
 
 `compare` is defined only for the schemas that have an order - a primitive, a
 `Date`, a `URL`, and a tuple of those - and every other schema refuses when its

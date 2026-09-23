@@ -175,14 +175,4 @@ const check = (ctx: Ctx): void => {
     }
 };
 
-export const eq: Family = {
-  check,
-  known: {
-    // A comparator over a tagged union that also admits null or undefined
-    // dispatches on the tag before it checks for the absent arm: the emit is
-    // `a.TAG==="T1"?...:b===void 0`, which throws when `a` is the absent
-    // value. Every property that hands it an absent value reports the throw.
-    "(reading 'TAG')": "a tagged-union comparator reads the tag of an absent value",
-    "(reading 'kind')": "a tagged-union comparator reads the tag of an absent value",
-  },
-};
+export const eq: Family = { check };
