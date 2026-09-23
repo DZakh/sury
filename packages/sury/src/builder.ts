@@ -264,12 +264,14 @@ const B_jump = <TArg>(
   fn: (arg: TArg, path?: Path) => ErrorDetails,
   arg: string,
 ): string | undefined => {
+  const exit = b.g.x;
+  if (!exit) return U;
   let embedded = "";
   const builder = () =>
     (embedded ||= B_embedPure(b, (a: TArg, p?: Path) => toError(fn(a, p))));
   const record: Failure = () => `${builder()}(${arg}${B_pathArg(b)})`;
   record.d = () => `${builder()},${arg},${B_pathArg(b).slice(1) || "void 0"}`;
-  const jump = b.g.x?.(record);
+  const jump = exit(record);
   if (jump !== U) b.g.j++;
   return jump;
 };
