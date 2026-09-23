@@ -135,7 +135,7 @@ const firstObject = (schema: Internal, ctx: Ctx): Internal | undefined => {
 const wireObject = (schema: Internal, ctx: Ctx): Internal | undefined => {
   let last: Internal | undefined = U;
   for (let current: Internal | undefined = schema; current !== U; current = current.to) {
-    if (current.protobufWire) return last || firstObject(current.to!, ctx);
+    if (current.flags & 256) return last || firstObject(current.to!, ctx);
     // A ref counts as the object it names, a recursive message reaching the
     // wire as one - and as nothing when it names no object, which is how a
     // `S.json` in the chain clears the candidate and the printer comes to
@@ -271,7 +271,7 @@ const optionalMessage = (raw: Internal): Internal => {
   mut.has = { [undefinedTag]: true };
   setHas(mut.has, raw.type);
   mut.encoder = optionalMessageEncoder;
-  mut.perVariant = true;
+  mut.flags = mut.flags | 64;
   return mut;
 };
 
@@ -1653,7 +1653,7 @@ const protobufEncoder = (input: Val, target: Internal): Val => {
 export const protobuf: Internal = /* @__PURE__ */ initSchema(instanceTag, protobufDecoder, (schema) => {
   schema.class = Uint8Array;
   schema.encoder = protobufEncoder;
-  schema.protobufWire = true;
+  schema.flags = schema.flags | 256;
 });
 
 type ProtoOptions = { name?: string; package?: string };

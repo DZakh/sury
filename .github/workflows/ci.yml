@@ -81,6 +81,16 @@ jobs:
       - run: pnpm fuzz:formdata
         working-directory: packages/sury
 
+      # Which reading a link takes - pack or unpack - is written down by a slot,
+      # a field position or a declared payload and mirrored by `reverse`, and a
+      # spec pins one link (CLAUDE.md, "Changing the content codec"). This
+      # crosses every source with every target and slot and checks that a link
+      # compiles both directions or neither, that its reverse reads the same
+      # values, that a value survives decode, encode, decode, and that a slot
+      # does what it declares. Exhaustive, so no seed. Seconds.
+      - run: pnpm fuzz:content
+        working-directory: packages/sury
+
       # artifact_test.ts checks jsr.json against package.json; only JSR itself
       # checks the parts npm has no opinion on (slow types, the exclude list).
       - run: npx --yes jsr@0.14.3 publish --dry-run --allow-dirty

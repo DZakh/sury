@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.env.with(S.to, S.optional(S.jsonString.with(S.to, S.schema({ a: S.number }))))"
+  input: string | undefined
+  output: "{ a: number; } | undefined"
+  instantiations: 6159
+jsonSchema:
+  input: '{ type: "string" }'
+  fromInputType: string
+  output: "Expected JSON, received { a: number; } | undefined"
+isEqual:
+  input: strictEqual
+  output: (a,b)=>a===b||(a===void 0?b===void 0:b!==void 0&&a.a===b.a)
+compare:
+  input: (a,b)=>a===b?0:a===void 0?b===void 0?0:-1:b===void 0?1:a<b?-1:a>b?1:0
+  output: "throws: [Sury] Can't compare { a: number; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{(typeof i==="string"||i===void 0)||e[3](i);i=i||void 0;if(i){let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0.a;typeof v1==="number"&&v1==v1||e[1](v1);i={a:v1};}return i}catch(v2){e[4](v2)}}
+    examples:
+      set:
+        input: '"{\"a\":1}"'
+        output: "{ a: 1 }"
+      unset:
+        input: undefined
+        output: undefined
+      blank:
+        input: '""'
+        output: undefined
+  decode:
+    expression: i=>{try{i=i||void 0;if(i){let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0.a;typeof v1==="number"&&v1==v1||e[1](v1);i={a:v1};}return i}catch(v2){e[3](v2)}}
+    examples:
+      set:
+        input: '"{\"a\":1}"'
+        output: "{ a: 1 }"
+      unset:
+        input: undefined
+        output: undefined
+      blank:
+        input: '""'
+        output: undefined
+  encode:
+    expression: i=>{try{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i.a;typeof v0==="number"&&v0==v0||e[1](v0);i="{\"a\":"+(Number.isFinite(v0)?v0:e[0](v0))+"}";break}if(i===void 0)break;e[2](i)}return i}catch(v1){e[3](v1)}}
+    examples:
+      set:
+        input: "{ a: 1 }"
+        output: '"{\"a\":1}"'
+      unset:
+        input: undefined
+        output: undefined

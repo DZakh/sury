@@ -34,6 +34,7 @@ import {
   parse
 } from "../parse";
 import {
+  openedText,
   string
 } from "../primitives";
 
@@ -149,7 +150,10 @@ export const readWrapped = (
   folds: boolean | undefined,
 ): Val => {
   const v = item.i;
-  const presentCode = armCode(item, item.s, present);
+  // The entry's text is known to be a representation, so a document format
+  // among the arms is handed it as such rather than as a plain string, which
+  // it would have to be told to read (CONTENT_CODEC_SPEC.md rule 4).
+  const presentCode = armCode(item, present.format === "json" ? openedText(present) : item.s, present);
   let code = presentCode;
   if (folds !== U) {
     const absent = absentCode(item, schema);
@@ -204,19 +208,27 @@ export const convertTextEntry = (
   const textUnion = (flag & 256) && present.anyOf!.every((variant) => tagFlags[variant.type]! & 2);
   if ((flag & 256) && !textUnion) {
     if (self !== input.s) {
-      const output = B_next(input, input.i, self, present);
+      // Handed to the union as the text it is. An entry's text is a
+      // representation, so a JSON arm reads it rather than being told to by a
+      // slot the entry has no way to take (CONTENT_CODEC_SPEC.md rule 4).
+      const json = present.anyOf!.find((variant) => variant.format === "json");
+      const output = B_next(input, input.i, json ? openedText(json) : self, present);
       output.v = _var;
       return output;
     }
     return B_unsupportedDecode(input, input.s, present);
   }
-  if ((flag & (64 | 128 | 512 | 8192)) && present.class !== Date) {
+  // An entry is text, so an instance reads it only where text converts to one:
+  // a `Date`, or bytes taken as its UTF-8, as `S.string.with(S.to,
+  // S.uint8Array)` does. A `File` stays the form codec's, which reads it as an
+  // entry of its own.
+  if ((flag & (64 | 128 | 512 | 8192)) && present.class !== Date && present.class !== Uint8Array) {
     return B_unsupportedDecode(input, input.s, present);
   }
   // A source that is already text (`S.env`) keeps its type instead of being
-  // checked again. Not for a jsonString target, which reads the text as its
-  // document only from an unknown source: a string is a value it would escape
-  // (CONTENT_CODEC_SPEC.md).
+  // checked again. Not for a jsonString target: an entry's text is a
+  // representation, which the format reads from an unknown source, where a
+  // plain string would have to say (CONTENT_CODEC_SPEC.md rule 4).
   if ((tagFlags[input.s.type]! & 2) && present.format !== "json") {
     return B_refine(input, string, U, present);
   }

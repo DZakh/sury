@@ -20,6 +20,7 @@ import {
   s,
   schemaPrototype,
   setHas,
+  stringTag,
   type SuryErrorRecord,
   tagFlags,
   U,
@@ -124,7 +125,7 @@ export const parse = (input: Val): Val => {
         // when the operation discards it anyway (S.assertInputOrThrow's `undefined` result
         // sentinel). Every other such target still gets its conversion:
         // `noValidation` drops the checks, not the re-representation.
-        !(loopInput.e.noValidation && (loopInput.e.isJson || loopInput.e.type === undefinedTag))
+        !(loopInput.e.noValidation && (loopInput.e.flags & 16 || loopInput.e.type === undefinedTag))
       ) {
         result = maybeEncoder(loopInput, loopInput.e);
       }
@@ -372,9 +373,15 @@ Object.defineProperty(schemaPrototype, reversedKey, {
       const record = mut as unknown as Record<string, unknown>;
       reverseSwap(record, "parser", "serializer");
       reverseSwap(record, "refiner", "inputRefiner");
-      // The link into this node is now the one out of it, read the other way:
-      // opening `current` into `next` was storing `next` into `current`.
-      next && next.opens !== U ? (mut.opens = !next.opens) : delete mut.opens;
+      // The link into this node is now the one out of it, read the other way.
+      // Only a chain a content schema is part of has a reading anything reads,
+      // so the schema that answers it is found on this node, the next, or the
+      // next's arms - and a bundle with no content schema ships none of it.
+      const reverseReading =
+        mut.reverseReading ||
+        (next && (next.reverseReading || next.anyOf?.find((arm) => arm.reverseReading)?.reverseReading));
+      const flags = (mut.flags & ~12) | (reverseReading ? reverseReading(mut, next) : 0);
+      flags ? (mut.flags = flags) : delete record["flags"];
       // Deleted, not parked in a holding field: encode has no absent-input arm,
       // and double reversal reads the cache below rather than re-deriving, so
       // nothing needs the old value back.
@@ -546,8 +553,9 @@ const compileChain = (
     schema = updateOutput(args[i]!, (mut) => {
       mut.to = to;
       // Rule 3, materialized exactly as `codecTo` does it, and for the same
-      // reason: `reverse` re-points `.to` and would lose it.
-      if (mut.content !== U && mut.opens === U) mut.opens = true;
+      // reason: `reverse` re-points `.to` and would lose it. A `.to` of
+      // `undefined` (`S.assertInputOrThrow`'s result sentinel) declares nothing.
+      if (mut.flags & 3 && !(mut.flags & 12) && to.type !== undefinedTag) mut.flags |= 4;
     });
   }
   // Flag 8: the caller knows nothing about the input, so the chain's own head

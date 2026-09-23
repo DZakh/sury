@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.jsonString.with(S.to, S.optional(S.string))
+  input: string
+  output: string | undefined
+  instantiations: 4599
+jsonSchema:
+  input: '{ type: "string", contentMediaType: "application/json" }'
+  output: Expected JSON, received string | undefined
+  openapi-3.0:
+    input: '{ type: "string" }'
+isEqual: strictEqual
+compare:
+  input: strictCompare
+  output: (a,b)=>a===b?0:(a===void 0?b===void 0?0:-1:b===void 0?1:a<b?-1:a>b?1:0)
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="string"||e[2](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}for(;;){if(typeof v0==="string")break;if(v0===null){v0=void 0;break}e[1](v0)}return v0}catch(v1){e[3](v1)}}
+    examples:
+      a-string-document:
+        input: '"\"x\""'
+        output: '"x"'
+      the-json-null-is-the-absent-arm:
+        input: '"null"'
+        output: undefined
+      not-the-payload:
+        input: '"[]"'
+        error: Expected string | undefined, received []
+  decode:
+    expression: i=>{try{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}for(;;){if(typeof v0==="string")break;if(v0===null){v0=void 0;break}e[1](v0)}return v0}catch(v1){e[2](v1)}}
+    examples:
+      a-string-document:
+        input: '"\"x\""'
+        output: '"x"'
+      the-json-null-is-the-absent-arm:
+        input: '"null"'
+        output: undefined
+  encode:
+    expression: i=>{try{for(;;){if(typeof i==="string"){i=e[0](i);break}if(i===void 0){i="null";break}e[1](i)}return i}catch(v0){e[2](v0)}}
+    examples:
+      a-string-document:
+        input: '"x"'
+        output: '"\"x\""'
+      absent-is-written-as-null:
+        input: undefined
+        output: '"null"'

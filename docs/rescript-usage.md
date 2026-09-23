@@ -1456,6 +1456,20 @@ S.uint8Array->S.to(S.jsonString, ~custom={decode: Pack, encode: Unpack})
 // decode pack, encode unpack
 ```
 
+#### The string is JSON text
+
+```rescript
+S.string->S.to(userSchema, ~custom={decode: Unpack, encode: Pack})
+// the text is read as userSchema
+```
+
+#### The JSON string holds the string
+
+```rescript
+S.string->S.to(S.jsonString, ~custom={decode: Pack, encode: Unpack})
+// "hi" is stored as "\"hi\""
+```
+
 #### If you omit Pack or Unpack
 
 Sury does not guess when both conversions exist.

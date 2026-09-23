@@ -395,49 +395,81 @@ export type Internal = {
   examples?: unknown[];
   default?: unknown;
   format?: Format;
-  // The content axis (CONTENT_CODEC_SPEC.md): the schema this value's payload
-  // is stored as inside a JSON document - base64 text for bytes, the JSON value
-  // itself for a JSON document. Two schemas that agree on it carry the same
-  // kind of payload, so a link between them is a plain transfer; two that
-  // disagree have two readings of it (store the value, or open it) and the
-  // conversion asks instead of guessing. Absent means the value carries no
-  // payload of its own.
-  // On a string source it is a claim, and `format` is its verification: a
-  // carrier's opened text (`openedText`) and a union's per-member narrow both
-  // carry the marker without the format, and a decoder handed that pair must
-  // check the text, never escape it as a value - `S.jsonString` inside
-  // `S.optional` used to serialize `"a"` to `"\"a\""` for exactly that reason.
-  // Written only through `setContent` (below), which keeps it non-enumerable.
-  content?: Internal;
-  // Bytes-as-text codec on a format singleton (`S.base64`, `S.base64url`).
-  // Presence is the payload *kind* `B_contentDiffers` uses, so the two alphabets
-  // are one family without importing either format into builder.ts - which holds
-  // only while both sides of that comparison are content markers: a format's own
-  // schema also carries `bc`, so passing one there reads as "same kind" against
-  // any bytes marker. Carriers look it up off `content.bc`. Copies of a format
-  // keep `bc` so alphabet recoding still sees it, `S.trim`'s tail included.
-  bc?: BytesCodec;
-  // The reading of the content link that converts INTO this schema
-  // (CONTENT_CODEC_SPEC.md): `true` opens the source and hands its payload
-  // over, `false` stores its value. One field for one link: the encode
-  // reading is its negation, so `reverse` writes each node's from its forward
-  // successor's rather than carrying a second slot.
-  // Written by a slot the caller gave (rule 1), by a payload gaining a `.to`
-  // (rule 3, materialized by `codecTo` and `compileChain` the moment it
-  // becomes true, since `reverse` re-points `.to` and would lose it), and by
-  // the document piece a field is stored into (rule 2, `jsonPiece`). Absent on
-  // a link between two payloads of different kinds is therefore rule 4, and
-  // the payload schemas reject it while compiling (`B_rejectUnsettled`).
-  opens?: boolean;
-  // Properties of every value a string schema admits, which let generated code
-  // skip work: 1 escape-free (no `"`, `\`, controls or lone surrogates, so
-  // jsonString splices it between bare quotes with no escaping). Set the bit
-  // only where that is proven - a pattern whose range excludes the characters,
-  // or a conversion that manufactures the string - and re-run
-  // `pnpm --filter=sury fuzz:escfree`, because getting it wrong emits broken
-  // JSON rather than merely over-escaped JSON. `noValidation` voids the proof;
-  // the read sites handle that.
-  formatFlag?: number;
+  // Every compile-time marker on a schema, as bits. Consumers print schemas,
+  // so one number holds what would otherwise be a field per fact:
+  //   1 the value carries a bytes payload · 2 a JSON payload. The content kind
+  //     (CONTENT_CODEC_SPEC.md): two schemas that agree carry the same kind of
+  //     payload, so a link between them is a plain transfer; two that disagree
+  //     have two readings of it, and the conversion asks instead of guessing.
+  //     On a string it is a claim, and `format` is its verification: a
+  //     carrier's opened text (`openedText`) and a union's per-member narrow
+  //     carry the kind without the format, and a decoder handed that pair
+  //     checks the text, never escapes it as a value.
+  //   4 the link INTO this node opens its source · 8 it stores its source. The
+  //     content reading, one per link: the encode reading is the other bit,
+  //     so `reverse` swaps them. Written by a slot (rule 1), by a payload
+  //     gaining a `.to` (rule 3, materialized by `codecTo` and `compileChain`
+  //     the moment it becomes true, since `reverse` re-points `.to`), and by
+  //     the document piece a field is stored into (rule 2). Neither, on a link
+  //     between two payload kinds or from a plain string (`B_isText`, both a
+  //     value and text) into a JSON text format, is rule 4, rejected while
+  //     compiling - `B_rejectUnsettled`, and the jsonString decoder for the
+  //     string pair.
+  //   16 the document itself, `S.json` and every copy of one: whether this is
+  //     the whole document rather than a rendering of one. `name` and `$ref`
+  //     are forgeable (`S.recursive("JSON", …)` builds the same `$ref`), and
+  //     the decoder's identity is unreachable from `parse`, `composites` and
+  //     `modifiers`, which sit above `advanced/json`.
+  //   32 escape-free text: no `"`, `\`, controls or lone surrogates, so
+  //     jsonString splices it between bare quotes. Set only where proven - a
+  //     pattern whose range excludes them, or a conversion that manufactures
+  //     the string - and re-run `pnpm --filter=sury fuzz:escfree`: a wrong bit
+  //     emits broken JSON, not over-escaped JSON. `noValidation` voids the
+  //     proof; the read sites handle that.
+  //   64 per-variant union, Sury's own "this read may be absent" union - a
+  //     dict value read by a fixed key, `V | undefined`. Rules 2-4 don't apply:
+  //     it isn't a user-written widening whose intent could be ambiguous, so
+  //     each variant converts to the target, and one with no decoder to it
+  //     drops out with its error reported per value.
+  //   128 trusted narrow, and `unionRewrite` (union.ts) is the ONLY producer:
+  //     the variants were rewritten from those of the union the value was
+  //     already typed as, so a dispatched case may convert from its own
+  //     variant instead of re-validating it. Set anywhere else it licenses
+  //     skipping checks the value never passed.
+  //   256 `S.protobuf`: `toProtoOrThrow` finds it on a chain by this rather
+  //     than by the codec's encoder, which would drag the codec into a
+  //     `toProtoOrThrow`-only bundle.
+  //   512 · 1024 a per-operation copy (`fuse` below) whose container decoder
+  //     left its contents to jsonStringAggregate, which walks them once inside
+  //     its own serialize pass: 512 UNVALIDATED, the aggregate parses each
+  //     from unknown; 1024 typed, from the type each claims, so a trusted
+  //     source is not re-checked. Either means the decoder emitted no walk,
+  //     which the whole-value JSON.stringify paths must not assume. On the
+  //     schema, not the val, to survive the parse loop's per-segment B_refine.
+  //   2048 lower inclusive · 4096 upper inclusive · 8192 lower exclusive ·
+  //     16384 upper exclusive: which bounds the caller wrote. int32 and port
+  //     put their own range in minimum/maximum, so the values can't tell a
+  //     caller's bound from a format's; only the bound constructors set these.
+  //     A schema bounds one of its value, length or size, so one set covers
+  //     minimum/minLength/minItems/minSize alike.
+  // Reads 0 off the prototype when a schema claims nothing. Never write 0 on
+  // a schema a union could hold: `unionIsTransparent` counts own fields, and
+  // the key alone would stop every union from flattening. The two container
+  // vals the compiler builds as object literals are the exception - they
+  // never reach the prototype, and no union holds them.
+  flags: number;
+  // A bytes carrier (`S.uint8Array`, `S.file`): the schema its payload is
+  // stored as inside a JSON document, base64 text. A format that IS its
+  // document form (`S.base64`, `S.json`) says so with the kind bits alone.
+  storedAs?: Internal;
+  // On a schema with a payload kind: the reading its reversed neighbour takes
+  // (`B_reverseReading`). On the schema rather than in `reverse` so a bundle
+  // with no content schema ships none of the decision.
+  reverseReading?: (mut: Internal, next?: Internal) => number;
+  // Bytes-as-text codec of `S.base64` / `S.base64url` and their copies, so
+  // alphabet recoding still sees it after `S.trim`. A carrier packing into a
+  // bytes target looks the codec up off its `storedAs`.
+  bytesCodec?: BytesCodec;
   has?: Partial<Record<Tag, boolean>>;
   anyOf?: Internal[];
   additionalItems?: AdditionalItems;
@@ -446,19 +478,6 @@ export type Internal = {
   properties?: Record<string, Internal>;
 
   noValidation?: boolean;
-  // Sury's own "this read may be absent" union - a dict value read by a fixed
-  // key, modelled as `V | undefined`. The conversion rules (2-4) don't apply to
-  // it: it isn't a user-written widening whose intent could be ambiguous, so
-  // each variant converts to whatever the target is, and a variant with no
-  // decoder to that target drops out with its error reported per value.
-  perVariant?: boolean;
-  // Which bounds the caller actually wrote. int32 and port put their own
-  // range in the fields below, so the values can't tell a caller's bound from
-  // a format's - this can, and only the bound constructors ever set it.
-  // 1 lower inclusive · 2 upper inclusive · 4 lower exclusive · 8 upper
-  // exclusive. A schema bounds exactly one of its value, its length or its
-  // size, so one pair of bits covers minimum/minLength/minItems/minSize alike.
-  bounds?: number;
   minimum?: number | bigint;
   maximum?: number | bigint;
   // S.gt/S.lt always land here and S.gte/S.lte always land on
@@ -478,36 +497,15 @@ export type Internal = {
   pattern?: RegExp;
   errorMessage?: SchemaErrorMessage;
   space?: number;
-  // Marks `S.protobuf`: `toProtoOrThrow` finds it on a chain by this rather
-  // than by the codec's encoder, which would drag the codec into a
-  // `toProtoOrThrow`-only bundle.
-  protobufWire?: true;
   // What `S.protobufField` stored (`StoredField` in advanced/protobufField.ts).
   protobufField?: unknown;
-  // Compile-time only, set on a per-operation schema copy by `fz` below: the
-  // container's decoder left its contents to jsonStringAggregate, which walks
-  // them once inside its own serialize pass. 1 the contents are UNVALIDATED -
-  // the aggregate parses each from unknown; 2 they are typed, and it parses
-  // each from the type it claims, so a trusted source is not re-checked. Both
-  // mean the decoder emitted no walk, which is what the whole-value
-  // JSON.stringify paths must not assume. Carried on the schema (not the val)
-  // so it survives the parse loop's per-segment B_refine.
-  uv?: number;
   // On a target that builds its document piecewise (`S.jsonString`): asked by
   // a container decoder (`B_fused` in composites.ts) whose `.to` it is, with
   // the dynamic item for an array or dict, and answers the container's schema
-  // marked `uv` when the aggregate may validate it, or undefined to validate
+  // marked 512 or 1024 when the aggregate may validate it, or undefined to validate
   // here as usual. Lives on the target so a bundle without it ships nothing
   // of the decision.
-  fz?: (input: Val, container: Internal, item?: Internal) => Internal | undefined;
-  // Compile-time only, and `unionRewrite` (union.ts) is the ONLY producer: this
-  // union's variants were rewritten from the variants of the union the value
-  // was already typed as, so a dispatched case may convert from its own variant
-  // instead of re-validating it. Spelling it `true` anywhere else licenses
-  // skipping checks the value never passed - the rewrite is what makes it true,
-  // because it drops the val's source to `unknown` and would otherwise lose the
-  // guarantee the source union carried.
-  tr?: boolean;
+  fuse?: (input: Val, container: Internal, item?: Internal) => Internal | undefined;
   "$ref"?: string;
   "$defs"?: Record<string, Internal>;
   // The definition a ref resolves to, set only by a compiler that builds a ref
@@ -522,19 +520,6 @@ export type Internal = {
   // never carries one, which is what keeps its meaning the author's: it
   // resolves by name, against whatever definitions the operation has reached.
   definition?: Internal;
-  // `S.json` and every copy of one: the marker that answers "is this the whole
-  // document rather than a rendering of one", which several structural
-  // decisions turn on. Nothing already on the schema answers it. Identity and
-  // `content === schema` both fail because a chain node that IS json is a
-  // `copySchema` of it; `name` and `$ref` are forgeable, since
-  // `S.recursive("JSON", …)` builds the same `$ref`; and the decoder's
-  // identity, which would need no field at all, is unreachable from `parse`,
-  // `composites` and `modifiers` - all three read this and all three sit above
-  // `advanced/json`, whose `S.json` is built at module init from `dictFactory`,
-  // so inverting that import leaves the factory in TDZ.
-  // Enumerable, so `Object.assign` carries it onto a copy; nothing public
-  // writes it.
-  isJson?: boolean;
   "~standard"?: unknown;
   // Overrides how inputExpression renders this schema. Only for a schema whose
   // expression its tag can't produce - compactColumns, whose columns live on
@@ -821,7 +806,7 @@ export const inputExpression = (schema: Internal, skipOverride?: boolean): strin
       // A bound or divisor reads as part of the item, not the array:
       // `int32 > 5[]` parses as an array-typed bound and `number % 2[]` as an
       // array-typed divisor, the same ambiguity a union has.
-      return (item.type === anyOfTag || item.bounds !== U || item.multipleOf !== U
+      return (item.type === anyOfTag || item.flags & 30720 || item.multipleOf !== U
         ? `(${itemName})`
         : itemName) + "[]";
     }
@@ -857,6 +842,11 @@ Object.defineProperty(schemaPrototype, "with", {
     return fn(this, ...args);
   },
 });
+// Every schema reads `flags` as a number without carrying a key for it: the
+// default lives here, writable so a schema that sets a bit still creates an
+// own property, and non-enumerable so `unionIsTransparent`'s field count and
+// a consumer's `console.log` see only what a schema actually claims.
+Object.defineProperty(schemaPrototype, "flags", { value: 0, writable: true });
 // Also has ~standard below
 Schema.prototype = schemaPrototype;
 
@@ -1196,10 +1186,6 @@ export const unknown: Internal = baseSchema(unknownTag, true, noopDecoder);
 export const copySchema = (schema: Internal): Internal => {
   const c: Internal = Object.assign(new (Schema as unknown as SchemaClass)(), schema);
   c.seq = seq++;
-  // `content` is non-enumerable, so Object.assign skips it - carried by hand
-  // here, which is also the only place that pays for it.
-  if (schema.content !== U) setContent(c, schema.content);
-  if (schema.bc !== U) setBytesCodec(c, schema.bc);
   return c;
 };
 
@@ -1208,20 +1194,6 @@ export const copyTo = (from: Internal, to: Internal): Internal => {
   mut.to = to;
   return mut;
 };
-
-// `S.base64` and `S.json` are their own content, and an enumerable
-// self-reference makes `JSON.stringify(schema)` - and every error that embeds
-// one - throw on a cycle. Non-enumerable everywhere rather than only there, so
-// a carrier and its copies agree on the field count `unionIsTransparent` walks.
-export const setContent = (schema: Internal, content: Internal): void => {
-  valueOptions[valKey] = content;
-  Object.defineProperty(schema, "content", valueOptions as PropertyDescriptor);
-}
-
-export const setBytesCodec = (schema: Internal, codec: BytesCodec): void => {
-  valueOptions[valKey] = codec;
-  Object.defineProperty(schema, "bc", valueOptions as PropertyDescriptor);
-}
 
 export const updateOutput = <TValue>(schema: Internal, fn: (schema: Internal) => void): TValue => {
   const root = copySchema(schema);

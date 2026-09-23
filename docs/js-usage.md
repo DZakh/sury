@@ -1715,6 +1715,20 @@ S.uint8Array.with(S.to, S.jsonString, "pack");
 // decode pack, encode unpack
 ```
 
+### The string is JSON text
+
+```ts
+S.string.with(S.to, userSchema, "unpack");
+// the text is read as userSchema
+```
+
+### The JSON string holds the string
+
+```ts
+S.string.with(S.to, S.jsonString, "pack");
+// "hi" is stored as '"hi"'
+```
+
 ### If you omit pack or unpack
 
 Sury does not guess when both conversions exist.

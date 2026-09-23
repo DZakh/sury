@@ -129,7 +129,7 @@ const isIntegerEnum = (schema: Internal): boolean => {
 };
 
 const isMessageShape = (schema: Internal): boolean =>
-  schema.type === objectTag || (schema.type === refTag && !schema.isJson);
+  schema.type === objectTag || (schema.type === refTag && !(schema.flags & 16));
 
 const inferType = (shape: Internal, literalEnum: boolean): ProtobufType | undefined => {
   if (literalEnum) return "enum";

@@ -20,7 +20,11 @@ test("Doesn't compile to noop when primitive converted to json string", t => {
 })
 
 test("JsonString output with Async mode", t => {
-  let fn = S.compileConvertAsPromiseOrReject(~from=S.string, ~to=S.jsonString)
+  // A plain string into a JSON string has to say which reading it takes.
+  let fn = S.compileConvertAsPromiseOrReject(
+    ~from=S.string,
+    ~to=S.string->S.to(S.jsonString, ~custom={decode: Pack, encode: Unpack}),
+  )
   t->assertCode(fn, `i=>{return Promise.resolve(e[0](i))}`)
 })
 

@@ -15,6 +15,7 @@ import {
   inputExpression,
   type Internal,
   isLiteral,
+  stringTag,
   type InvalidInputDetails,
   type Path,
   pathConcat,
@@ -838,19 +839,58 @@ export const B_neverSlot: Builder = (input: Val) =>
   );
 
 // The node a link's content reading comes from: the schema, or the arm that
-// carries one where the schema is a union - which has neither `content` nor
+// carries one where the schema is a union - which has neither a kind nor
 // `.to` of its own, though linking a carrier to `S.optional(S.jsonString)` puts
 // the same two readings on the table as linking it to `S.jsonString`.
 export const B_contentNode = (schema: Internal): Internal =>
-  (schema.content === U && schema.anyOf?.find((arm) => arm.content !== U)) || schema;
+  (!(schema.flags & 3) && schema.anyOf?.find((arm) => arm.flags & 3)) || schema;
 
 // Whether two payloads are of different kinds, which is what puts two readings
 // of a link on the table - store the source's value in the target, or open the
-// source and hand its payload over. Which applies is `opens` on the target
+// source and hand its payload over. Which applies is the reading bit on the target
 // (CONTENT_CODEC_SPEC.md rules 1 to 3, all written down as the link is made);
-// neither is rule 4, asked below.
-export const B_contentDiffers = (from?: Internal, to?: Internal): boolean =>
-  from !== U && to !== U && from !== to && !(from.bc && to.bc);
+// neither is rule 4, asked below. Both alphabets are one kind, and `S.json`
+// and `S.jsonString` another.
+export const B_contentDiffers = (from: Internal, to: Internal): boolean =>
+  !!((from.flags & 3) && (to.flags & 3) && ((from.flags ^ to.flags) & 3));
+
+// A plain string: the one schema that is both a JSON value and text
+// (CONTENT_CODEC_SPEC.md), so a link from it into a JSON text format has the
+// two readings a bytes carrier's has. A format (`S.email`) can't spell a
+// document and a literal is a value, so each stores; a carrier's opened text
+// and a union narrow carry the kind bits and are already known to be text.
+export const B_isText = (schema: Internal): boolean =>
+  schema.type === stringTag && !(schema.flags & 3) && schema.format === U && !isLiteral(schema);
+
+// The reading a reversed node takes, set as `reverseReading` on every schema
+// that carries a payload kind. The link into a node is, reversed, the one out
+// of it read the other way: opening `mut` into `next` was storing `next` into
+// `mut`. A union's reading sits on the arm that carries a payload, and only
+// plain text reaches that arm forward - the union hands it over per case. A
+// carrier or another union meets the union whole and is refused there (the
+// axis stops at a union), so only a reading written on the union itself crosses
+// back to it; lifting the arm's instead compiled an encode whose decode
+// refuses. The arm is also what tells a union of plain text from one holding a
+// payload, and only the former takes the derivation below.
+//
+// That derivation is the one reading the forward side leaves unwritten: a
+// payload naming text as what it holds settles the link, but the text is
+// `S.string` itself, a shared singleton, and marking it would mean copying it
+// on every such link. So the fact is derived where the pair is in hand: read
+// back, the text is stored in the payload. `codec-jsonstring-string` and
+// `codec-jsonstring-optional-string` pin both shapes, and
+// `codec-uint8array-optional-jsonstring-unsupported` is what fails when the
+// union test goes.
+export const B_reverseReading = (mut: Internal, next?: Internal): number => {
+  if (!next) return 0;
+  const nextNode = B_contentNode(next);
+  const readFrom = mut.flags & 3 || mut.anyOf ? next : nextNode;
+  return readFrom.flags & 12
+    ? (readFrom.flags & 12) ^ 12
+    : !(nextNode.flags & 3) && mut.flags & 3 && (next.has ? next.has[stringTag] : next.type === stringTag)
+      ? 8
+      : 0;
+};
 
 // CONTENT_CODEC_SPEC.md rule 4, asked while compiling by the schemas that
 // declare a payload - `json`, `jsonString`, `base64`, `uint8Array`, `file` -
@@ -881,17 +921,24 @@ export const B_rejectUnsettled = (input: Val, to: Internal, from = input.prev &&
   if (
     from &&
     from.to === to &&
-    to.opens === U &&
-    B_contentDiffers(B_contentNode(from).content, B_contentNode(to).content)
+    !(to.flags & 12) &&
+    B_contentDiffers(B_contentNode(from), B_contentNode(to))
   ) {
-    !from.isJson && !to.isJson && B_contentNode(from) === from && B_contentNode(to) === to
-      ? B_invalidOperation(
-          input,
-          `Ambiguous ${inputExpression(from)} -> ${inputExpression(to)}. Should the bytes be packed or unpacked? Choose with S.to and "pack" or "unpack"`,
-        )
+    !(from.flags & 16) && !(to.flags & 16) && B_contentNode(from) === from && B_contentNode(to) === to
+      ? B_askReading(input, from, to)
       : B_unsupportedDecode(input, from, to);
   }
 };
+
+// Rule 4's question, for a pair of payload kinds and for plain text meeting a
+// JSON text format alike: the one wording, with what is being read named.
+export const B_askReading = (input: Val, from: Internal, to: Internal): never =>
+  B_invalidOperation(
+    input,
+    `Ambiguous ${inputExpression(from)} -> ${inputExpression(to)}. Should the ${
+      B_isText(from) || B_isText(to) ? "text" : "bytes"
+    } be packed or unpacked? Choose with S.to and "pack" or "unpack"`,
+  );
 
 export const B_invalidOperation = (val: Val, description: string): never =>
   B_throw({ code: "invalid_operation", reason: description, path: compilePath(val.path) });
