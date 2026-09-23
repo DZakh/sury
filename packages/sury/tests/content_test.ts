@@ -81,6 +81,27 @@ test("a reading is only offered where there are two", () => {
   expect(() => S.string.with(S.to, S.json, "unpack")).toThrow(
     "Can't pick a reading for this link",
   );
+  // `"unpack"` declares every value of its source to be text, so an arm with
+  // none is refused unless the target takes it as it is. `undefined` would
+  // otherwise be stored as the JSON `null` and read back as the text "null".
+  expect(() => S.optional(S.string).with(S.to, S.jsonString, "unpack")).toThrow(
+    `Can't unpack undefined: it has no text. Put "unpack" on the text inside the union`,
+  );
+  expect(() => S.nullable(S.string).with(S.to, S.jsonString, "unpack")).toThrow(
+    "Can't unpack null: it has no text",
+  );
+  expect(() => S.optional(S.uint8Array).with(S.to, S.jsonString, "unpack")).toThrow(
+    "Can't unpack undefined: it has no text",
+  );
+  // The arm passes through where the target has it, and the reading placed on
+  // the text alone is the spelling the refusal points to.
+  expect(S.decodeOrThrow(S.optional(S.string).with(S.to, S.optional(S.jsonString), "unpack"))(undefined)).toBe(
+    undefined,
+  );
+  expect(S.decodeOrThrow(S.optional(S.string.with(S.to, S.jsonString, "unpack")))(undefined)).toBe(undefined);
+  // `"pack"` stores the value, and a JSON document stores an absent one as
+  // `null` - nothing is claimed about text, so nothing is refused.
+  expect(S.decodeOrThrow(S.optional(S.string).with(S.to, S.jsonString, "pack"))(undefined)).toBe("null");
   // A carrier meets a union target whole, so its reading has no arm to land on.
   expect(() => S.uint8Array.with(S.to, S.optional(S.jsonString), "unpack")).toThrow(
     "Can't pick a reading for this link",

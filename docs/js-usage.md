@@ -1727,6 +1727,14 @@ S.parseOrThrow(S.string.with(S.to, userSchema, "unpack"), text); // read as user
 such as an object or an array, still refuses as it does without the slot. A
 document holding one is `S.jsonString.with(S.to, userSchema)`.
 
+`"unpack"` says every value of the source is text. An optional one isn't, so put
+the reading on the text:
+
+```ts
+S.optional(S.string).with(S.to, S.jsonString, "unpack"); // throws: Can't unpack undefined: it has no text
+S.optional(S.string.with(S.to, S.jsonString, "unpack")); // undefined stays undefined
+```
+
 ### If you omit pack or unpack
 
 Sury does not guess when both conversions exist.

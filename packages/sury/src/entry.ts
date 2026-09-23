@@ -359,12 +359,28 @@ export const to = (schema: Internal, target: Internal, custom?: unknown) => {
     // is accepted: an integration declares its text once, whatever the user's
     // schema turns out to be. A carrier's reading stops at a union target, as
     // the axis does: its own encoder meets the union whole, before the arms.
-    const from = B_contentNode(getOutputSchema(schema));
+    const source = getOutputSchema(schema);
+    const from = B_contentNode(source);
     const into = B_contentNode(target);
     const openable = from.flags & 3 ? !(from.flags & 16) && into === target : B_isText(from) || from.anyOf?.some(B_isText);
     const stores = into.flags & 3 && !(into.flags & 16);
     if (!openable || (stores ? from.flags & 3 && !B_contentDiffers(from, into) : into.flags & 16 || decode === false)) {
       return panic(`Can't pick a reading for this link. Use {decode, encode} coders instead`);
+    }
+    // `"unpack"` declares every value of its source to be text or a payload to
+    // open, so an arm that is neither - a nullish arm, a value - belongs to the
+    // link only where the target takes it as it is. Anywhere else it would take
+    // whatever reading the target gives a value, which for a JSON document is
+    // storing `undefined` as `null`: a claim the slot made silently broken.
+    const stuck =
+      decode &&
+      source.anyOf?.find(
+        (arm) => !(arm.flags & 3) && !B_isText(arm) && !(target.has ? target.has[arm.type] : target.type === arm.type),
+      );
+    if (stuck) {
+      return panic(
+        `Can't unpack ${inputExpression(stuck)}: it has no text. Put "unpack" on the text inside the union`,
+      );
     }
   }
   // Chaining a schema to itself would append a second copy of its own chain,

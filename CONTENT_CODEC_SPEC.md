@@ -86,6 +86,17 @@ A target that no conversion reads text into refuses with the slot as it does
 without one; a document that holds it says how, `S.jsonString.with(S.to, X)`.
 A carrier's reading also stops at a union target, which it meets whole.
 
+The declaration covers every value the source produces. An arm with no text
+and no payload - `undefined`, `null`, a number - is refused unless the target
+takes it as it is; otherwise it would take the target's own reading of a value,
+which for a JSON document is storing `undefined` as `null`:
+
+```ts
+S.optional(S.string).with(S.to, S.jsonString, "unpack");            // refused: undefined has no text
+S.optional(S.string).with(S.to, S.optional(S.jsonString), "unpack"); // undefined passes through
+S.optional(S.string.with(S.to, S.jsonString, "unpack"));             // the reading on the text alone
+```
+
 `"pack"` needs a target that stores, so `S.string.with(S.to, S.number, "pack")`
 is rejected, and so is a reading on a source with nothing to open - a number,
 or a string format: `S.email.with(S.to, S.jsonString)` stores, and has no other
@@ -427,7 +438,7 @@ ASCII-only fixtures are what hid the corruption above.
 | `codec-uint8array-jsonstring-unpack` | the `"unpack"`/`"pack"` spelling whose encode side lands on bytes |
 | `codec-string-jsonstring-ambiguous`, `codec-string-jsonstring-unpack`, `codec-string-jsonstring-pack` | a plain string into a JSON text format: rule 4, and each reading |
 | `codec-string-jsonstring-payload`, `codec-string-jsonstring-payload-chained`, `codec-string-optional-jsonstring-payload` | rule 3 from a plain string, both spellings, and through a nullish arm |
-| `codec-string-optional-jsonstring-unpack`, `codec-optional-string-jsonstring-unpack` | a reading crossing a union on either side |
+| `codec-string-optional-jsonstring-unpack` | a reading crossing a union on the target's side |
 | `codec-string-number-unpack` | `"unpack"` declaring the source into a target with one reading |
 | `codec-email-jsonstring` | a string format is a value |
 | `codec-jsonstring-object-string-unpack` | a field carrying its own reading inside a document |

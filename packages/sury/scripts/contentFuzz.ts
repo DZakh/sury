@@ -72,9 +72,8 @@ const TARGETS: Record<string, unknown> = {
 const SLOTS = ["", "unpack", "pack"] as const;
 
 const ONE_WAY: Record<string, string> = {
-  "optional-string/json-string-or-number:unpack":
+  "optional-string/json-string-or-number:pack":
     "the source's absent arm has nowhere to go in a target with none, so decode refuses while encode, which never writes one, compiles; without the slot both directions stop earlier, at the union question",
-  "optional-string/json-string-or-number:pack": "the same, with the other reading",
   "literal/doc":
     "FIXME: no conversion reads an object out of a constant, yet encode compiles into a check no object passes - `codec-literal-object-one-way`",
   "env/json":
@@ -90,7 +89,10 @@ const ONE_WAY: Record<string, string> = {
 };
 const REVERSE: Record<string, string> = {};
 const ROUND_TRIP: Record<string, string> = {};
-const SLOT: Record<string, string> = {};
+const SLOT: Record<string, string> = {
+  "optional-string/json-string:unpack":
+    "`\"unpack\"` declares every value of the source to be text, and `undefined` is not - it would be stored as the JSON `null`; `\"pack\"` answers the question the unslotted link asks, and the reading placed on the text alone unpacks",
+};
 
 const known = catalog({
   ONE_WAY: { label: "links that compile one direction only", cases: ONE_WAY },

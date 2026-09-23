@@ -5,10 +5,11 @@ ts:
   output: string | undefined
   instantiations: 4626
 jsonSchema:
-  input: '{ type: "string" }'
+  input: '{ type: "string", contentMediaType: "application/json" }'
   output: '{ type: "string", contentMediaType: "application/json" }'
   fromOutputType: string
   openapi-3.0:
+    input: '{ type: "string" }'
     output: '{ type: "string" }'
 isEqual: strictEqual
 compare:

@@ -41,6 +41,7 @@ import {
  recursiveDecoder
 } from "./advanced/recursive";
 import {
+ B_contentNode,
  B_isText,
  B_operationArg
 } from "./builder";
@@ -359,15 +360,21 @@ const internalToJSONSchema = (
   // content boundary (`S.base64` to `S.jsonString`) is a repacking, not the
   // same text, and keeps the reverse. A plain string read as a format's text
   // (`"unpack"`, or a payload it declared) is that same text too, and the
-  // format's own description, payload included, is the input's.
+  // format's own description, payload included, is the input's - behind a
+  // nullish arm as well, since a string never produces one, but not beside a
+  // second text arm, which would accept what the annotation rejects.
+  const read =
+    to !== U && (tagFlag & 2) && to.anyOf?.every((arm) => arm.flags & 3 || tagFlags[arm.type]! & (16 | 32))
+      ? B_contentNode(to)
+      : to;
   if (
-    to !== U &&
+    read !== U &&
     (tagFlag & 2) &&
-    (tagFlags[to.type]! & 2) &&
-    ((to.to === U && !((to.flags ^ schema.flags) & 3)) || (to.flags & 4 && B_isText(schema)))
+    (tagFlags[read.type]! & 2) &&
+    ((read.to === U && !((read.flags ^ schema.flags) & 3)) || (read.flags & 4 && B_isText(schema)))
   ) {
     return jsonSchemaMerge(
-      internalToJSONSchemaBase(to, path, defs, parent, target),
+      internalToJSONSchemaBase(read, path, defs, parent, target),
       internalToJSONSchemaBase(schema, path, defs, parent, target)
     );
   }

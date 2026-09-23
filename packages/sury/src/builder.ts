@@ -894,13 +894,20 @@ export const B_rejectUnsettled = (input: Val, to: Internal, from = input.prev &&
     B_contentDiffers(B_contentNode(from), B_contentNode(to))
   ) {
     !(from.flags & 16) && !(to.flags & 16) && B_contentNode(from) === from && B_contentNode(to) === to
-      ? B_invalidOperation(
-          input,
-          `Ambiguous ${inputExpression(from)} -> ${inputExpression(to)}. Should the bytes be packed or unpacked? Choose with S.to and "pack" or "unpack"`,
-        )
+      ? B_askReading(input, from, to)
       : B_unsupportedDecode(input, from, to);
   }
 };
+
+// Rule 4's question, for a pair of payload kinds and for plain text meeting a
+// JSON text format alike: the one wording, with what is being read named.
+export const B_askReading = (input: Val, from: Internal, to: Internal): never =>
+  B_invalidOperation(
+    input,
+    `Ambiguous ${inputExpression(from)} -> ${inputExpression(to)}. Should the ${
+      B_isText(from) || B_isText(to) ? "text" : "bytes"
+    } be packed or unpacked? Choose with S.to and "pack" or "unpack"`,
+  );
 
 export const B_invalidOperation = (val: Val, description: string): never =>
   B_throw({ code: "invalid_operation", reason: description, path: compilePath(val.path) });

@@ -14,7 +14,6 @@ import {
   initSchema,
   inlinedValueFromString,
   type Internal,
-  inputExpression,
   isLiteral,
   isOptional,
   jsonName,
@@ -36,7 +35,7 @@ import {
   B_dynamicScope,
   B_embedPure,
   B_embedInvalidInput,
-  B_invalidOperation,
+  B_askReading,
   B_isText,
   B_merge,
   B_next,
@@ -412,13 +411,6 @@ export const jsonString = /* @__PURE__ */ (() => {
     return text !== U ? text : B_unsupportedDecode(input, input.s, target);
   };
 
-  // Rule 4 for a plain string, worded like the carriers' but for text.
-  const ambiguousText = (input: Val, target: Internal): never =>
-    B_invalidOperation(
-      input,
-      `Ambiguous ${inputExpression(input.s)} -> ${inputExpression(target)}. Should the text be packed or unpacked? Choose with S.to and "pack" or "unpack"`,
-    );
-
   const jsonStringEncoder: Encoder = (input, target) => {
     if (target.format !== "json") {
       B_rejectUnsettled(input, target);
@@ -438,7 +430,7 @@ export const jsonString = /* @__PURE__ */ (() => {
         // author); one it only reversed from a plain string is the pair rule
         // 4 asks about, in this direction too.
         if (!(target.flags & 12) && input.s.to === target && !(input.s.flags & 12)) {
-          ambiguousText(input, target);
+          B_askReading(input, input.s, target);
         }
       }
       if (target.format === "env") {
@@ -1075,7 +1067,7 @@ export const jsonString = /* @__PURE__ */ (() => {
           return carriedJsonString(input, expectedSchema);
         }
         if (!(expectedSchema.flags & 12)) {
-          ambiguousText(input, expectedSchema);
+          B_askReading(input, input.s, expectedSchema);
         }
       }
       // Two ways the escape-free proof is void here: `noValidation` drops the

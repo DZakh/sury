@@ -5,9 +5,13 @@ ts:
   output: "{ a: number; } | undefined"
   instantiations: 6130
 jsonSchema:
-  input: '{ type: "string" }'
+  input: '{ type: "string", contentMediaType: "application/json" }'
   output: '{ type: "object", properties: { a: { type: "number" } }, additionalProperties: false, required: ["a"] }'
   fromOutputType: "{ a: number; }"
+  draft-2020-12:
+    input: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "object", properties: { a: { type: "number" } }, required: ["a"] }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ type: "string" }'
 isEqual:
   input: strictEqual
   output: (a,b)=>a===b||(a===void 0?b===void 0:b!==void 0&&a.a===b.a)

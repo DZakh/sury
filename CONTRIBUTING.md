@@ -349,6 +349,14 @@ case the harness *should* have caught or guided better - a missing check, a weak
 error message, a strictness gap that let a bad spec through - add a bullet here
 instead of silently working around it.
 
+- `ts.constructionError` records a schema that panics while it is built, but
+  such a spec still has to carry `ts.input`, `ts.output`, `instantiations`,
+  `jsonSchema` and the three operations, none of which exists for a schema that
+  never constructs - and `spec new` refuses the schema outright. Making those
+  dimensions optional when `constructionError` is set would let every
+  link-time refusal live in a spec; `tests/content_test.ts`'s "a reading is only
+  offered where there are two" holds them until then.
+
 - An example's `error` is matched verbatim, and `errorConstructor` is the
   opt-out for a message that belongs to the platform rather than to Sury.
   Nothing points an author at it: the failure is a golden that passed locally
