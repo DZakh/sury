@@ -459,7 +459,7 @@ test("Compiled async parse code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ParseAsync,
-    `i=>{try{try{typeof i==="string"||e[4](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="boolean"||e[3](v0);let v1;try{v1=e[1](v0).catch(x=>e[2](x))}catch(x){e[2](x)}return v1}catch(v2){e[5](v2)}}catch(v3){return Promise.reject(v3)}}`,
+    `i=>{try{typeof i==="string"||e[4](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="boolean"||e[3](v0);let v1;try{v1=e[1](v0).catch(x=>e[2](x))}catch(x){e[2](x)}return v1.catch(e[5])}catch(v2){return Promise.reject(e[6](v2))}}`,
   )
 })
 

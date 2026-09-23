@@ -1,5 +1,6 @@
 import { expect, test } from "vitest";
 import * as S from "sury";
+import { execFileSync } from "node:child_process";
 
 // Where a failure gets a stack, and where it deliberately has none. A spec
 // pins generated code and messages; a stack is neither, and the `try` a
@@ -141,19 +142,90 @@ test("a union failure carries what its members said", () => {
   expect(invalidInput(error).expected).toBe(u);
 });
 
-test("an async failure past the first await rejects without one", async () => {
-  const schema = S.string.with(S.to, S.number, {
+// Fails in the `.then` that checks the coder's result, after the first await.
+const asyncNumber = S.parseAsPromiseOrReject(
+  S.string.with(S.to, S.number, {
     decode: { async: async (value: string) => Number(value) },
     encode: String,
-  });
-  const parse = S.parseAsPromiseOrReject(schema);
+  }),
+);
 
-  // Before the first await the caller's frames are still there, so the
-  // boundary takes them.
-  await expect(parse(1)).rejects.toSatisfy((error: Error) => "stack" in error);
-  // After it they are not, and a capture at that point yields a header line
-  // and nothing else - so nothing is captured.
-  await expect(parse("x")).rejects.toSatisfy((error: Error) => !("stack" in error));
+test("an async failure before the first await names the line that called it", async () => {
+  await expect(asyncNumber(1 as never)).rejects.toSatisfy((error: Error) => "stack" in error);
+});
+
+test("an async failure after the first await names the line that awaited it", async () => {
+  const awaitsIt = async () => {
+    try {
+      await asyncNumber("x");
+      expect.unreachable();
+    } catch (error) {
+      return error as Error;
+    }
+  };
+  const [header, ...frames] = (await awaitsIt())!.stack!.split("\n");
+  expect(header).toBe("SuryError: Expected number, received NaN");
+  // The first frame that isn't the runtime's microtask pump is the function
+  // that awaited, and the library's handler is cut off above it.
+  const firstOwn = frames.find((frame) => !frame.includes("node:internal"));
+  // The word `async` is the formatter's to print, and vitest's doesn't.
+  expect(firstOwn).toMatch(/^ {4}at (async )?awaitsIt \(/);
+  expect(frames.join("\n")).not.toContain("rejectionBoundary");
+});
+
+test("an async failure nothing awaits rejects without one", async () => {
+  // A bare `.catch` leaves V8 no await to thread the caller back through, so
+  // all a capture could take is the runtime's microtask pump.
+  const error = await new Promise<Error>((resolve) => {
+    asyncNumber("x").catch(resolve);
+  });
+  expect("stack" in error).toBe(false);
+  expect(error.message).toBe("Expected number, received NaN");
+});
+
+test("an async failure is given its stack without rendering its reason", async () => {
+  let reads = 0;
+  const counted = {
+    get field() {
+      reads++;
+      return 1;
+    },
+  };
+  const parse = S.parseAsPromiseOrReject(
+    S.string.with(S.to, S.number, { decode: { async: async () => counted as never }, encode: String }),
+  );
+  const error = await (async () => {
+    try {
+      await parse("x");
+    } catch (error) {
+      return error as Error;
+    }
+  })();
+
+  expect("stack" in error!).toBe(true);
+  expect(reads).toBe(0);
+  expect(error!.message).toBe("Expected number, received { field: 1; }");
+  expect(reads).toBe(1);
+});
+
+test("a coder's own async throw stays the cause, with the stack it was thrown with", async () => {
+  const boom = new Error("not found");
+  const parse = S.parseAsPromiseOrReject(
+    S.string.with(S.to, S.number, {
+      decode: {
+        async: async () => {
+          throw boom;
+        },
+      },
+      encode: String,
+    }),
+  );
+  const error = await new Promise<S.Error>((resolve) => {
+    parse("x").catch(resolve);
+  });
+
+  expect(error.code).toBe("invalid_conversion");
+  expect((error as { cause?: unknown }).cause).toBe(boom);
 });
 
 test("an error thrown back through a parse keeps the class it was thrown as", () => {
@@ -174,20 +246,20 @@ test("an error thrown back through a parse keeps the class it was thrown as", ()
 // Put back by its descriptor for the same reason the boundary writes `stack`
 // with one: V8's is non-enumerable, and assigning it back would leave every
 // later test in this worker reading it out of `Object.keys(Error)`.
-const withoutCaptureStackTrace = <T>(body: () => T): T => {
+const withoutCaptureStackTrace = async <T>(body: () => T | Promise<T>): Promise<T> => {
   const descriptor = Object.getOwnPropertyDescriptor(Error, "captureStackTrace")!;
   // @ts-expect-error - modelling an engine that never had it
   delete Error.captureStackTrace;
   try {
-    return body();
+    return await body();
   } finally {
     Object.defineProperty(Error, "captureStackTrace", descriptor);
   }
 };
 
-test("an engine without captureStackTrace still gets a stack", () => {
+test("an engine without captureStackTrace still gets a stack", async () => {
   const parse = S.parseOrThrow(user);
-  withoutCaptureStackTrace(() => {
+  await withoutCaptureStackTrace(() => {
     try {
       parse(invalid);
       expect.unreachable();
@@ -221,9 +293,70 @@ test("an error built by hand renders the reason it was never given", () => {
   expect(error.message).toBe("Failed at id: Expected string, received 1");
 });
 
-test("modelling an engine without captureStackTrace leaves no trace on Error", () => {
+test("modelling an engine without captureStackTrace leaves no trace on Error", async () => {
   const before = Object.getOwnPropertyDescriptor(Error, "captureStackTrace");
-  withoutCaptureStackTrace(() => undefined);
+  await withoutCaptureStackTrace(() => undefined);
   expect(Object.getOwnPropertyDescriptor(Error, "captureStackTrace")).toEqual(before);
   expect(Object.keys(Error)).not.toContain("captureStackTrace");
+});
+
+test("an engine without captureStackTrace rejects an async failure without one", async () => {
+  // No cut to apply, so all such an engine could take here is the library's
+  // own handler - which names nothing the caller wrote.
+  const error = await withoutCaptureStackTrace(async () => {
+    try {
+      await asyncNumber("x");
+    } catch (error) {
+      return error as Error;
+    }
+  });
+  expect("stack" in error!).toBe(false);
+});
+
+test("reading whether a caller awaited leaves Error.prepareStackTrace as it was", async () => {
+  const awaitsIt = async () => {
+    try {
+      await asyncNumber("x");
+    } catch (error) {
+      return error as Error;
+    }
+  };
+
+  const before = Object.getOwnPropertyDescriptor(Error, "prepareStackTrace");
+  await awaitsIt();
+  expect(Object.getOwnPropertyDescriptor(Error, "prepareStackTrace")).toEqual(before);
+
+  // A hook someone installed stays theirs, and still formats the failure.
+  const hook = (error: Error, frames: unknown[]) => `formatted ${String(error)} over ${frames.length}`;
+  Object.defineProperty(Error, "prepareStackTrace", { value: hook, configurable: true, writable: true });
+  try {
+    const error = (await awaitsIt())!;
+    expect(Object.getOwnPropertyDescriptor(Error, "prepareStackTrace")!.value).toBe(hook);
+    expect(error.stack).toMatch(/^formatted SuryError: Expected number, received NaN over \d+$/);
+  } finally {
+    if (before) Object.defineProperty(Error, "prepareStackTrace", before);
+    else delete (Error as { prepareStackTrace?: unknown }).prepareStackTrace;
+  }
+});
+
+test("a realm that won't let the hook be swapped still rejects with the failure", () => {
+  // A hardened realm (SES's `lockdown`, say) can make `Error.prepareStackTrace`
+  // non-configurable, and that can't be undone in this worker - so it runs in
+  // a process of its own, against the built entry.
+  const entry = new URL("../index.mjs", import.meta.url).href;
+  const script = `
+    Object.defineProperty(Error, "prepareStackTrace", { value: undefined, configurable: false, writable: false });
+    const S = await import(${JSON.stringify(entry)});
+    const parse = S.parseAsPromiseOrReject(S.string.with(S.to, S.number, {
+      decode: { async: async (value) => Number(value) }, encode: String,
+    }));
+    const error = await (async () => { try { await parse("x") } catch (error) { return error } })();
+    console.log(JSON.stringify({ sury: error instanceof S.Error, stack: "stack" in error, message: error.message }));
+  `;
+  const out = execFileSync(process.execPath, ["--input-type=module", "-e", script], { encoding: "utf8" });
+  expect(JSON.parse(out)).toEqual({
+    sury: true,
+    stack: false,
+    message: "Expected number, received NaN",
+  });
 });

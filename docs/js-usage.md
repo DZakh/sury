@@ -2409,7 +2409,30 @@ The output side is derived through [`reverse`](#reverse), so nested transforms a
 
 ## Error handling
 
-**Sury** throws `S.Error`, a subclass of `Error` named `SuryError`, so `instanceof` works as usual. A thrown error carries a `stack` starting at the line that called the operation; one handed back by an `AsResult` outcome or by Standard Schema has none, because nothing threw. Every error carries:
+**Sury** throws `S.Error`, a subclass of `Error` named `SuryError`, so `instanceof` works as usual. A thrown error carries a `stack` starting at the line that called the operation; one handed back by an `AsResult` outcome or by Standard Schema has none, because nothing threw.
+
+An async schema can also fail after its first `await`, inside the promise. That rejection has a `stack` when you `await` it. Chained with a bare `.catch()`, it has none, since nothing awaited it to trace back to:
+
+```ts
+const parseId = S.parseAsPromiseOrReject(
+  S.string.with(S.to, S.number, {
+    decode: { async: async (id: string) => Number(id) },
+    encode: String,
+  }),
+);
+
+try {
+  await parseId("abc");
+} catch (e) {
+  e.stack; // starts at the `await` above
+}
+
+parseId("abc").catch((e) => {
+  e.stack; // undefined
+});
+```
+
+Every error carries:
 
 - `path` - where the failure happened, as an array of keys and indices from the root of the value (`[]` at the root, `["items", 0]` inside). `S.pathToText(path)` renders it as `items[0]`.
 - `reason` - the failure itself, without the path: `Expected string, received undefined`.

@@ -257,7 +257,7 @@ module Compiled = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ParseAsync,
-      `i=>{try{try{Array.isArray(i)&&i.length===2||e[3](i);let v1=i[1];let v0;try{v0=e[0](i[0]).catch(x=>e[1](x))}catch(x){e[1](x)}typeof v1==="boolean"||e[2](v1);return Promise.all([v0]).then(([v0])=>{return [v0,v1]})}catch(v2){e[4](v2)}}catch(v3){return Promise.reject(v3)}}`,
+      `i=>{try{Array.isArray(i)&&i.length===2||e[3](i);let v1=i[1];let v0;try{v0=e[0](i[0]).catch(x=>e[1](x))}catch(x){e[1](x)}typeof v1==="boolean"||e[2](v1);return Promise.all([v0]).then(([v0])=>{return [v0,v1]}).catch(e[4])}catch(v2){return Promise.reject(e[5](v2))}}`,
     )
   })
 

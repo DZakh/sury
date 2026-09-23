@@ -15,14 +15,14 @@ vs:
 operations:
   parse:
     isAsync: true
-    expression: i=>{try{try{typeof i==="string"||e[3](i);let v0;try{v0=e[0](i).catch(x=>e[1](x))}catch(x){e[1](x)}return v0.then(v0=>{typeof v0==="number"&&v0==v0||e[2](v0);return v0})}catch(v1){e[4](v1)}}catch(v2){return Promise.reject(v2)}}
+    expression: i=>{try{typeof i==="string"||e[3](i);let v0;try{v0=e[0](i).catch(x=>e[1](x))}catch(x){e[1](x)}return v0.then(v0=>{typeof v0==="number"&&v0==v0||e[2](v0);return v0}).catch(e[4])}catch(v1){return Promise.reject(e[5](v1))}}
     examples:
       valid:
         input: '"abc"'
         output: "3"
   decode:
     isAsync: true
-    expression: i=>{try{try{let v0;try{v0=e[0](i).catch(x=>e[1](x))}catch(x){e[1](x)}return v0.then(v0=>{typeof v0==="number"&&v0==v0||e[2](v0);return v0})}catch(v1){e[3](v1)}}catch(v2){return Promise.reject(v2)}}
+    expression: i=>{try{let v0;try{v0=e[0](i).catch(x=>e[1](x))}catch(x){e[1](x)}return v0.then(v0=>{typeof v0==="number"&&v0==v0||e[2](v0);return v0}).catch(e[3])}catch(v1){return Promise.reject(e[4](v1))}}
     examples:
       valid:
         input: '"abc"'

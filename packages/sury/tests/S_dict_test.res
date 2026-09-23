@@ -55,7 +55,7 @@ module CommonWithNested = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ParseAsync,
-      `i=>{try{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v2={};for(let v0 in i){let v1;try{v1=e[0](i[v0]).catch(x=>e[1](x,[v0]))}catch(x){e[1](x,[v0])}v2[v0]=v1}return new Promise((v3,v4)=>{let v6=Object.keys(v2).length;if(!v6){v3(v2)}for(let v0 in v2){v2[v0].then(v5=>{v2[v0]=v5;if(v6--===1){v3(v2)}},v4)}})}catch(v7){e[3](v7)}}catch(v8){return Promise.reject(v8)}}`,
+      `i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v2={};for(let v0 in i){let v1;try{v1=e[0](i[v0]).catch(x=>e[1](x,[v0]))}catch(x){e[1](x,[v0])}v2[v0]=v1}return new Promise((v3,v4)=>{let v6=Object.keys(v2).length;if(!v6){v3(v2)}for(let v0 in v2){v2[v0].then(v5=>{v2[v0]=v5;if(v6--===1){v3(v2)}},v4)}}).catch(e[3])}catch(v7){return Promise.reject(e[4](v7))}}`,
     )
   })
 
