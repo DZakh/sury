@@ -20,6 +20,9 @@
         // Public JS/TS API + `$`-prefixed exports consumed by S.res (ReScript) at
         // runtime, not via TS imports - anchor them so they aren't flagged.
         "src/entry.ts",
+        // `sury/wkt`, the second public entry: protoc-gen-sury's output for the
+        // well-known types, bundled by scripts/pack.ts.
+        "src/wkt/index.ts",
         // Invoked through package.json scripts (build:entry / build).
         "scripts/pack.ts",
         "tests/**/*_test.ts"
@@ -60,6 +63,15 @@
       "ignoreDependencies": ["google-protobuf", "@protobuf-ts/runtime"],
       "entry": ["cli.ts"],
       "project": ["**/*.ts"]
+    },
+    "packages/protoc-gen-sury": {
+      // src/cli.ts is the plugin (bundled into sury's bin by scripts/pack.ts),
+      // test/cli.ts the harness, which loads the committed goldens by path and
+      // runs buf and protoc-gen-es as binaries.
+      "entry": ["src/cli.ts", "test/cli.ts", "scripts/wkt.ts"],
+      "project": ["src/**/*.ts", "scripts/**/*.ts", "test/**/*.ts"],
+      "ignore": ["test/generated/**"],
+      "ignoreDependencies": ["@bufbuild/buf", "@bufbuild/protoc-gen-es"]
     },
     "packages/benchmarks": {
       "entry": ["cli.ts"],
