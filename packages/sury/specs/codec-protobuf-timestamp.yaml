@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({ at: S.protobufTimestamp.with(S.protobufField, 1), seen: S.optional(S.protobufTimestamp).with(S.protobufField, 2), log: S.array(S.protobufTimestamp).with(S.protobufField, 3) }).with(S.to, S.protobuf)"
+  input: "{ at: Date; log: Date[]; seen?: Date | undefined; }"
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 7762
+jsonSchema:
+  input: "Failed at at: Expected JSON, received Date"
+  output: Expected JSON, received Uint8Array
+isEqual:
+  input: (a,b)=>a===b||+a.at===+b.at&&(a.seen===void 0?b.seen===void 0:b.seen!==void 0&&+a.seen===+b.seen)&&e[1](a.log,b.log)
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { at: Date; seen: Date | undefined; log: Date[]; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[16](i);let v0=i.at,v1=i.seen,v2=i.log;v0 instanceof e[1]||e[2](v0);!Number.isNaN(v0.getTime())||e[0](v0);(v1 instanceof e[3]||v1===void 0)||e[4](v1);Array.isArray(v2)||e[8](v2);for(let v3=0;v3<v2.length;++v3){let v4=v2[v3];v4 instanceof e[6]||e[7](v4,["log",v3]);!Number.isNaN(v4.getTime())||e[5](v4,["log",v3]);}let v5;{let w;try{w=e[14].acquire();let v,j,n,s,h,a,k,g,c,o;v=v0;if(v!==void 0){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[9](w,v);w.end(h)};v=v1;if(v!==void 0){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[10](w,v);w.end(h)};v=v2;n=v.length;if(n){j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=26:w.varint32(26);h=w.begin();e[10](w,v[j++]);w.end(h)}};v5=w.finish()}catch(x){w&&(w.busy=false);e[15](x)}}return v5}catch(v6){e[17](v6)}}
+    examples:
+      dates:
+        input: '{ at: new Date("1970-01-01T00:00:01.002Z"), seen: new Date("1969-12-31T23:59:59.999Z"), log: [new Date("1970-01-01T00:00:00.000Z")] }'
+        output: new Uint8Array([10, 6, 8, 1, 16, 128, 137, 122, 18, 17, 8, 255, 255, 255, 255, 255, 255, 255, 255, 255, 1, 16, 192, 143, 174, 220, 3, 26, 0])
+      invalid-date:
+        input: "{ at: new Date(NaN), log: [] }"
+        error: "Failed at at: Expected Date, received invalid Date"
+      not-a-date:
+        input: '{ at: "2020-01-01", log: [] }'
+        error: 'Failed at at: Expected Date, received "2020-01-01"'
+  decode:
+    expression: i=>{try{let v0=i.log;let v2;{let w;try{w=e[5].acquire();let v,j,n,s,h,a,k,g,c,o;v=i.at;if(v!==void 0){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[0](w,v);w.end(h)};v=i.seen;if(v!==void 0){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[1](w,v);w.end(h)};v=v0;n=v.length;if(n){j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=26:w.varint32(26);h=w.begin();e[1](w,v[j++]);w.end(h)}};v2=w.finish()}catch(x){w&&(w.busy=false);e[6](x)}}return v2}catch(v3){e[7](v3)}}
+    examples:
+      epoch-is-written:
+        input: '{ at: new Date("1970-01-01T00:00:00.000Z"), log: [] }'
+        output: new Uint8Array([10, 0])
+      dates:
+        input: '{ at: new Date("1970-01-01T00:00:01.002Z"), seen: new Date("1969-12-31T23:59:59.999Z"), log: [new Date("1970-01-01T00:00:00.000Z"), new Date("2023-11-14T22:13:20.123Z")] }'
+        output: new Uint8Array([10, 6, 8, 1, 16, 128, 137, 122, 18, 17, 8, 255, 255, 255, 255, 255, 255, 255, 255, 255, 1, 16, 192, 143, 174, 220, 3, 26, 0, 26, 11, 8, 128, 226, 207, 170, 6, 16, 192, 169, 211, 58])
+      before-year-one:
+        input: '{ at: new Date("0000-12-31T23:59:59.999Z"), log: [] }'
+        output: new Uint8Array([10, 17, 8, 255, 145, 184, 195, 152, 254, 255, 255, 255, 1, 16, 192, 143, 174, 220, 3])
+      invalid-date-trusted:
+        input: "{ at: new Date(NaN), log: [] }"
+        error: invalid Timestamp
+  encode:
+    expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v1=v0.log;return v0}catch(v3){e[3](v3)}}
+    examples:
+      empty:
+        input: new Uint8Array([])
+        output: '{ at: new Date("1970-01-01T00:00:00.000Z"), log: [] }'
+      seconds-and-nanos:
+        input: new Uint8Array([10, 6, 8, 1, 16, 128, 137, 122])
+        output: '{ at: new Date("1970-01-01T00:00:01.002Z"), log: [] }'
+      nanos-below-a-millisecond:
+        input: new Uint8Array([10, 6, 8, 1, 16, 255, 136, 122])
+        output: '{ at: new Date("1970-01-01T00:00:01.001Z"), log: [] }'
+      negative:
+        input: new Uint8Array([10, 17, 8, 255, 255, 255, 255, 255, 255, 255, 255, 255, 1, 16, 192, 140, 174, 220, 3])
+        output: '{ at: new Date("1969-12-31T23:59:59.998Z"), log: [] }'
+      seen-twice-merges:
+        input: new Uint8Array([10, 2, 8, 1, 10, 4, 16, 128, 137, 122])
+        output: '{ at: new Date("1970-01-01T00:00:01.002Z"), log: [] }'
+      unknown-field-skipped:
+        input: new Uint8Array([10, 4, 24, 5, 8, 1])
+        output: '{ at: new Date("1970-01-01T00:00:01.000Z"), log: [] }'
+      beyond-a-date:
+        input: new Uint8Array([10, 9, 8, 128, 128, 128, 128, 128, 128, 128, 1])
+        error: protobuf Timestamp is outside the range of a Date at at (field 1, wire type 2)
+      repeated:
+        input: new Uint8Array([26, 2, 8, 1, 26, 0])
+        output: '{ at: new Date("1970-01-01T00:00:00.000Z"), log: [new Date("1970-01-01T00:00:01.000Z"), new Date("1970-01-01T00:00:00.000Z")] }'
+      field-number-zero:
+        input: new Uint8Array([10, 2, 0, 1])
+        error: invalid protobuf field number at at (field 1, wire type 2)

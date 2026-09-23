@@ -706,3 +706,43 @@ test("a recursive message reads and writes as the same message unrolled", (t) =>
     }
   }
 });
+
+// A throw at schema construction, which a spec can't record.
+test("protobufField points a Date or JSON at the schema for its well-known type", (t) => {
+  t.expect(() => S.date.with(S.protobufField, 1)).toThrow(
+    "[Sury] S.protobufField requires S.protobufTimestamp for a Date, which is a google.protobuf.Timestamp on the wire",
+  );
+  t.expect(() => S.array(S.json).with(S.protobufField, 1)).toThrow(
+    "[Sury] S.protobufField requires S.protobufValue for JSON, which is a google.protobuf.Value on the wire",
+  );
+  t.expect(() => S.protobufTimestamp.with(S.protobufField, { number: 1, type: "google.protobuf.Value" as never })).toThrow(
+    "[Sury] S.protobufField requires a protobuf type",
+  );
+});
+
+test("A well-known type prints as Google's, imported once", (t) => {
+  const event = S.schema({
+    at: S.protobufTimestamp.with(S.protobufField, 1),
+    seen: S.optional(S.protobufTimestamp).with(S.protobufField, 2),
+    data: S.protobufValue.with(S.protobufField, 3),
+    byKey: S.record(S.protobufValue).with(S.protobufField, { number: 4, key: "int64" }),
+    log: S.array(S.protobufTimestamp).with(S.protobufField, 5),
+  });
+  t.expect(S.toProtoOrThrow(event, { name: "Event", package: "acme.v1" })).toBe(
+    `syntax = "proto3";
+
+package acme.v1;
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+
+message Event {
+  google.protobuf.Timestamp at = 1;
+  optional google.protobuf.Timestamp seen = 2;
+  google.protobuf.Value data = 3;
+  map<int64, google.protobuf.Value> by_key = 4;
+  repeated google.protobuf.Timestamp log = 5;
+}
+`,
+  );
+});

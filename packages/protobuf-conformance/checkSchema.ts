@@ -56,7 +56,10 @@ const suryShape = (stored: {
 }): string => {
   if (stored.map) return `map<${stored.key}, ?>`;
   const packed = stored.repeated && !stored.packed ? " [packed=false]" : "";
-  return `${stored.repeated ? "repeated " : ""}${stored.type}${packed}`;
+  // A well-known type Sury infers from the value (`S.json` is a Value) is a
+  // message on the wire like any other.
+  const type = stored.type.startsWith("google.protobuf.") ? "message" : stored.type;
+  return `${stored.repeated ? "repeated " : ""}${type}${packed}`;
 };
 
 // The field metadata `S.protobufField` stored, keyed by number. Read off the

@@ -627,6 +627,10 @@ type protobufFieldOptions = {
 external protobufField_: (t<'value>, protobufFieldOptions) => t<'value> = "protobufField"
 let protobufField = (schema, number, ~type_=?, ~packed=?, ~key=?, ~oneof=?) =>
   protobufField_(schema, {number, ?type_, ?packed, ?key, ?oneof})
+/** `date` as a `google.protobuf.Timestamp` field. */
+@module("sury") external protobufTimestamp: t<date> = "protobufTimestamp"
+/** `json` as a `google.protobuf.Value` field. */
+@module("sury") external protobufValue: t<json> = "protobufValue"
 
 // The public JS `refine` takes an options object; build it here from the
 // ReScript labeled args.

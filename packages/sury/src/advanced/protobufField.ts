@@ -15,6 +15,7 @@ import {
   undefinedTag,
   updateOutput
 } from "../base";
+import type { Reader, Writer } from "./protobuf";
 
 export type ProtobufType =
   | "double"
@@ -35,6 +36,25 @@ export type ProtobufType =
   | "enum"
   | "message";
 
+// A field's type as stored: a scalar or message the caller can name, or the
+// full name of a well-known type the value's schema carries a codec for.
+export type FieldType = ProtobufType | `google.protobuf.${string}`;
+
+// How a schema that stands for a well-known type (`S.protobufTimestamp`,
+// `S.protobufValue`) is read and written: the two functions its message's
+// fields would otherwise compile to, and called the same way - the caller
+// frames the length, and reading nothing is the default instance. It lives on
+// the schema, so the codec ships only with the export that carries it.
+export type ProtobufCodec = {
+  type: `google.protobuf.${string}`;
+  // The file a printed `.proto` imports the type from.
+  file: string;
+  // Reads up to the reader's limit, merging into `prev` when the field was
+  // seen before, as a message does.
+  read: (reader: Reader, depth: number, prev?: unknown) => unknown;
+  write: (writer: Writer, value: unknown) => void;
+};
+
 export type ProtobufField = {
   number: number;
   type?: ProtobufType;
@@ -49,7 +69,7 @@ export type ProtobufField = {
 // apart by that schema.
 export type StoredField = {
   number: number;
-  type: ProtobufType;
+  type: FieldType;
   packed: boolean;
   key: ProtobufType;
   oneof?: string;
@@ -131,11 +151,13 @@ const isIntegerEnum = (schema: Internal): boolean => {
 const isMessageShape = (schema: Internal): boolean =>
   schema.type === objectTag || (schema.type === refTag && !schema.isJson);
 
-const inferType = (shape: Internal, literalEnum: boolean): ProtobufType | undefined => {
+const inferType = (shape: Internal, literalEnum: boolean): FieldType | undefined => {
   if (literalEnum) return "enum";
   if (shape.type === stringTag) return "string";
   if (shape.type === booleanTag) return "bool";
   if (shape.type === instanceTag && shape.class === Uint8Array) return "bytes";
+  if (shape.protobufCodec !== U) return (shape.protobufCodec as ProtobufCodec).type;
+  if (shape.isJson) return U;
   // A `$ref` is `S.recursive`, whose definition is not built yet while the
   // definer runs; a message is the only thing the wire can make of one.
   if (shape.type === objectTag || shape.type === refTag) return "message";
@@ -168,8 +190,15 @@ export const protobufField = (schema: Internal, field: number | ProtobufField): 
   // A union of int32 literals is an enum; a lone literal is a number, since
   // a one-member enum could accept neither its zero nor an unknown value.
   const literalEnum = isIntegerEnum(shape);
-  const type = typeof field === "number" || field.type === U ? inferType(shape, literalEnum) : field.type;
-  if (type === U || protobufTypes[type] !== true) {
+  const inferred = inferType(shape, literalEnum);
+  const type: FieldType | undefined = typeof field === "number" || field.type === U ? inferred : field.type;
+  // A well-known type is only ever what the value's codec says.
+  if (type === U || (protobufTypes[type as ProtobufType] !== true && type !== inferred)) {
+    // The two JS values a message of Google's own stands for.
+    if (shape.protobufCodec === U) {
+      if (shape.class === Date) return panic(`S.protobufField requires S.protobufTimestamp for a Date, which is a google.protobuf.Timestamp on the wire`);
+      if (shape.isJson) return panic(`S.protobufField requires S.protobufValue for JSON, which is a google.protobuf.Value on the wire`);
+    }
     return panic(`S.protobufField requires a protobuf type`);
   }
   const key = typeof field === "number" || field.key === U ? "string" : field.key;

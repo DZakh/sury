@@ -66,6 +66,10 @@ const bytesValue = wrapper(S.uint8Array);
 const duration = S.schema({ seconds: i64(1), nanos: i32(2) });
 const timestamp = S.schema({ seconds: i64(1), nanos: i32(2) });
 const fieldMask = S.schema({ paths: rep(S.string, 1) });
+// A Value is S.protobufValue; a Struct and a ListValue are the message around
+// a map and a list of them.
+const struct = S.schema({ fields: S.record(S.protobufValue).with(S.protobufField, 1) });
+const listValue = S.schema({ values: rep(S.protobufValue, 1) });
 // Any is two scalars on the wire; its payload stays opaque bytes, which is all
 // the binary suite needs.
 const any = S.schema({ type_url: str(1), value: byt(2) });
@@ -217,9 +221,8 @@ export const testAllTypesProto3: S.Schema<unknown, unknown> = S.recursive(
       optional_duration: S.optional(duration).with(S.protobufField, 301),
       optional_timestamp: S.optional(timestamp).with(S.protobufField, 302),
       optional_field_mask: S.optional(fieldMask).with(S.protobufField, 303),
-      // optional_struct = 304, optional_value = 306, repeated_struct = 324,
-      // repeated_value = 316 and repeated_list_value = 317 are Struct/Value/
-      // ListValue, which are mutually recursive. Undeclared; see the failure list.
+      optional_struct: S.optional(struct).with(S.protobufField, 304),
+      optional_value: S.optional(S.protobufValue).with(S.protobufField, 306),
       optional_any: S.optional(any).with(S.protobufField, 305),
       optional_null_value: enm(307),
 
@@ -227,6 +230,9 @@ export const testAllTypesProto3: S.Schema<unknown, unknown> = S.recursive(
       repeated_timestamp: rep(timestamp, 312),
       repeated_fieldmask: rep(fieldMask, 313),
       repeated_any: rep(any, 315),
+      repeated_value: rep(S.protobufValue, 316),
+      repeated_list_value: rep(listValue, 317),
+      repeated_struct: rep(struct, 324),
 
       fieldname1: i32(401),
       field_name2: i32(402),

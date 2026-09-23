@@ -1526,6 +1526,42 @@ S.toProtoOrThrow(DescriptorProto);
 // }
 ```
 
+**Well-known types.** `S.protobufTimestamp` is `S.date` as Google's
+`google.protobuf.Timestamp`, and `S.protobufValue` is `S.json` as
+`google.protobuf.Value`, its objects travelling as `Struct` and its arrays as
+`ListValue`. The printed `.proto` imports them rather than declaring them:
+
+```ts
+const Event = S.schema({
+  at: S.protobufTimestamp.with(S.protobufField, 1),
+  payload: S.protobufValue.with(S.protobufField, 2),
+});
+
+S.toProtoOrThrow(Event);
+// import "google/protobuf/struct.proto";
+// import "google/protobuf/timestamp.proto";
+//
+// message Event {
+//   google.protobuf.Timestamp at = 1;
+//   google.protobuf.Value payload = 2;
+// }
+```
+
+A Timestamp reads to the millisecond, which is what a `Date` holds. The other
+well-known types are ordinary messages to declare yourself, and speak the same
+wire:
+
+```ts
+const Duration = S.schema({
+  seconds: S.bigint.with(S.protobufField, 1),
+  nanos: S.int32.with(S.protobufField, 2),
+});
+const Int32Value = S.schema({ value: S.int32.with(S.protobufField, 1) });
+```
+
+A new field that needs presence takes `S.optional(S.int32)` rather than a
+wrapper.
+
 **Output memory.** An encoded message is a view into a larger buffer, like a
 Node `Buffer`: `bytes.buffer` is bigger than `bytes.byteLength` and
 `bytes.byteOffset` is not zero. Every consumer of a `Uint8Array` respects the

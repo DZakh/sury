@@ -1,0 +1,85 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({ data: S.protobufValue.with(S.protobufField, 1), extra: S.optional(S.protobufValue).with(S.protobufField, 2), items: S.array(S.protobufValue).with(S.protobufField, 3) }).with(S.to, S.protobuf)"
+  input: "{ data: JSON; items: JSON[]; extra?: JSON | undefined; }"
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 7935
+jsonSchema:
+  input: '{ type: "object", properties: { data: {}, extra: {}, items: { items: {}, type: "array" } }, required: ["data", "items"] }'
+  output: Expected JSON, received Uint8Array
+isEqual:
+  input: (a,b)=>a===b||e[0](a.data,b.data)&&e[0](a.extra,b.extra)&&e[1](a.items,b.items)
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { data: JSON; extra: JSON | undefined; items: JSON[]; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[13](i);let v1=i.extra,v3=i.items;try{e[0](i.data);}catch(v0){v0.path=["data",...v0.path];throw v0}for(;;){let r;if(v1===void 0)break;try{try{e[1](v1);}catch(v2){v2.path=["extra",...v2.path];throw v2};break}catch(x){(r||(r=[])).push(e[2](x))}e[3](v1,...(r||[]))}Array.isArray(v3)||e[5](v3);for(let v4=0;v4<v3.length;++v4){try{e[4](v3[v4]);}catch(v5){v5.path=["items",v4,...v5.path];throw v5}}let v6;{let w;try{w=e[11].acquire();let v,j,n,s,h,a,k,g,c,o;v=i.data;if(v!==void 0){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[6](w,v);w.end(h)};v=v1;if(v!==void 0){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[7](w,v);w.end(h)};v=v3;n=v.length;if(n){j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=26:w.varint32(26);h=w.begin();e[7](w,v[j++]);w.end(h)}};v6=w.finish()}catch(x){w&&(w.busy=false);e[12](x)}}return v6}catch(v7){e[14](v7)}}
+    examples:
+      scalars:
+        input: '{ data: 1, extra: null, items: ["a", true, null] }'
+        output: new Uint8Array([10, 9, 17, 0, 0, 0, 0, 0, 0, 240, 63, 18, 2, 8, 0, 26, 3, 26, 1, 97, 26, 2, 32, 1, 26, 2, 8, 0])
+      nested:
+        input: '{ data: { a: [1, { b: "c" }] }, items: [] }'
+        output: new Uint8Array([10, 36, 42, 34, 10, 32, 10, 1, 97, 18, 27, 50, 25, 10, 9, 17, 0, 0, 0, 0, 0, 0, 240, 63, 10, 12, 42, 10, 10, 8, 10, 1, 98, 18, 3, 26, 1, 99])
+      bigint-is-not-json:
+        input: "{ data: 1n, items: [] }"
+        error: "Failed at data: Expected JSON, received 1n"
+  decode:
+    expression: i=>{try{let v0=i.extra,v2=i.items;for(;;){let r;if(v0===void 0)break;try{try{e[0](v0);}catch(v1){v1.path=["extra",...v1.path];throw v1};break}catch(x){(r||(r=[])).push(e[1](x))}e[2](v0,...(r||[]))}let v4;{let w;try{w=e[8].acquire();let v,j,n,s,h,a,k,g,c,o;v=i.data;if(v!==void 0){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[3](w,v);w.end(h)};v=v0;if(v!==void 0){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[4](w,v);w.end(h)};v=v2;n=v.length;if(n){j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=26:w.varint32(26);h=w.begin();e[4](w,v[j++]);w.end(h)}};v4=w.finish()}catch(x){w&&(w.busy=false);e[9](x)}}return v4}catch(v5){e[10](v5)}}
+    examples:
+      null-is-written:
+        input: "{ data: null, items: [] }"
+        output: new Uint8Array([10, 2, 8, 0])
+      empty-struct-and-list:
+        input: "{ data: {}, extra: [], items: [] }"
+        output: new Uint8Array([10, 2, 42, 0, 18, 2, 50, 0])
+      struct-order:
+        input: '{ data: { z: 1, a: "b" }, items: [{}] }'
+        output: new Uint8Array([10, 28, 42, 26, 10, 14, 10, 1, 122, 18, 9, 17, 0, 0, 0, 0, 0, 0, 240, 63, 10, 8, 10, 1, 97, 18, 3, 26, 1, 98, 26, 2, 42, 0])
+  encode:
+    expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v1=v0.items;return v0}catch(v3){e[3](v3)}}
+    examples:
+      number:
+        input: new Uint8Array([10, 9, 17, 0, 0, 0, 0, 0, 0, 240, 63])
+        output: "{ data: 1, items: [] }"
+      kind-unset:
+        input: new Uint8Array([10, 0])
+        output: "{ data: null, items: [] }"
+      struct-merges:
+        input: new Uint8Array([10, 18, 42, 16, 10, 14, 10, 1, 97, 18, 9, 17, 0, 0, 0, 0, 0, 0, 240, 63, 10, 18, 42, 16, 10, 14, 10, 1, 98, 18, 9, 17, 0, 0, 0, 0, 0, 0, 0, 64])
+        output: "{ data: { a: 1, b: 2 }, items: [] }"
+      list-appends:
+        input: new Uint8Array([10, 13, 50, 11, 10, 9, 17, 0, 0, 0, 0, 0, 0, 240, 63, 10, 13, 50, 11, 10, 9, 17, 0, 0, 0, 0, 0, 0, 0, 64])
+        output: "{ data: [1, 2], items: [] }"
+      kind-replaced:
+        input: new Uint8Array([10, 18, 42, 16, 10, 14, 10, 1, 97, 18, 9, 17, 0, 0, 0, 0, 0, 0, 240, 63, 10, 9, 17, 0, 0, 0, 0, 0, 0, 8, 64])
+        output: "{ data: 3, items: [] }"
+      proto-key:
+        input: new Uint8Array([10, 26, 42, 24, 10, 22, 10, 9, 95, 95, 112, 114, 111, 116, 111, 95, 95, 18, 9, 17, 0, 0, 0, 0, 0, 0, 240, 63])
+        output: '{ data: { ["__proto__"]: 1 }, items: [] }'
+      repeated-key:
+        input: new Uint8Array([10, 28, 42, 26, 10, 14, 10, 1, 97, 18, 9, 17, 0, 0, 0, 0, 0, 0, 240, 63, 10, 8, 10, 1, 97, 18, 3, 26, 1, 120])
+        output: '{ data: { a: "x" }, items: [] }'
+      entry-without-value:
+        input: new Uint8Array([10, 7, 42, 5, 10, 3, 10, 1, 97])
+        output: "{ data: { a: null }, items: [] }"
+      unknown-and-mismatched:
+        input: new Uint8Array([10, 7, 56, 1, 16, 5, 26, 1, 115])
+        output: '{ data: "s", items: [] }'
+      items:
+        input: new Uint8Array([26, 3, 26, 1, 97, 26, 0])
+        output: '{ data: null, items: ["a", null] }'
+      nan:
+        input: new Uint8Array([10, 9, 17, 0, 0, 0, 0, 0, 0, 248, 127])
+        output: "{ data: NaN, items: [] }"
+      bool-null:
+        input: new Uint8Array([10, 2, 32, 1, 18, 2, 8, 0])
+        output: "{ data: true, items: [], extra: null }"
+      empty:
+        input: new Uint8Array([])
+        output: "{ data: null, items: [] }"

@@ -10,7 +10,8 @@
 // truncation, a slice repeated or spliced in - and Sury and protobuf-es each
 // decode the result: they must agree on whether it is a message, and where
 // both say it is, re-encode it to the same bytes.
-import { toBinary, fromBinary, type DescMessage } from "@bufbuild/protobuf";
+import { toBinary, fromBinary, fromJson, toJson, type DescMessage } from "@bufbuild/protobuf";
+import { TimestampSchema, ValueSchema, timestampFromMs } from "@bufbuild/protobuf/wkt";
 import * as S from "sury";
 import { type FieldDef, suryMessage } from "./cases";
 import { protobufEsType } from "./reference";
@@ -262,6 +263,72 @@ export const graphOf = (seed: number): { r: Random; fields: FieldDef[] } => {
   return { r, fields: genMessage(r, 0, [], { messages: 6 }) };
 };
 
+// A JSON value for `google.protobuf.Value`. No `__proto__` key: protobuf-es
+// keeps a Struct's fields on a plain object and loses it (see runner.ts).
+const genJson = (r: Random, depth: number): unknown => {
+  const roll = int(r, depth > 3 ? 4 : 6);
+  if (roll === 0) return null;
+  if (roll === 1) return chance(r, 0.5) ? pick(r, [0, -0, 1, -1, 0.5, 1e21, 5e-324, Number.MAX_VALUE]) : (r() - 0.5) * 10 ** int(r, 30);
+  if (roll === 2) return genScalar(r, "string");
+  if (roll === 3) return chance(r, 0.5);
+  if (roll === 4) return Array.from({ length: int(r, 4) }, () => genJson(r, depth + 1));
+  const out: Record<string, unknown> = {};
+  for (let n = int(r, 4); n > 0; n--) out[pick(r, ["a", "", "1", "b c", "\u00e9", "constructor", "10"])] = genJson(r, depth + 1);
+  return out;
+};
+
+const valueField = S.schema({ v: S.protobufValue.with(S.protobufField, 1) });
+const timestampField = S.schema({ v: S.protobufTimestamp.with(S.protobufField, 1) });
+
+// The field's payload: Sury writes a required well-known value as field 1,
+// always present, so the bytes after its tag and length are the message.
+const payload = (bytes: Uint8Array): Uint8Array => {
+  let at = 1;
+  while (bytes[at]! > 127) at++;
+  return bytes.subarray(at + 1);
+};
+
+// `S.protobufValue` against protobuf-es's own google.protobuf.Value, and `S.protobufTimestamp`
+// against its Timestamp: the same bytes both ways, and the value back.
+const wellKnownFindings = (r: Random, seed: number, count: number): Finding[] => {
+  const findings: Finding[] = [];
+  const encodeValue = S.decodeOrThrow(valueField, S.protobuf);
+  const decodeValue = S.decodeOrThrow(S.protobuf, valueField);
+  const encodeTimestamp = S.decodeOrThrow(timestampField, S.protobuf);
+  const decodeTimestamp = S.decodeOrThrow(S.protobuf, timestampField);
+  for (let i = 0; i < count; i++) {
+    const json = genJson(r, 0);
+    try {
+      const sury = payload(encodeValue({ v: json }).slice());
+      const es = toBinary(ValueSchema, fromJson(ValueSchema, json as never));
+      if (bytesOf(sury).join() !== bytesOf(es).join()) {
+        findings.push({ kind: "wkt: Sury writes a Value protobuf-es does not", seed, detail: `json=${show(json)} sury=[${bytesOf(sury)}] es=[${bytesOf(es)}]` });
+        continue;
+      }
+      const back = decodeValue(encodeValue({ v: json })) as { v: unknown };
+      if (!equalValue(back.v, json)) findings.push({ kind: "wkt: Sury reads its Value back as another", seed, detail: `json=${show(json)} back=${show(back.v)}` });
+      if (!equalValue(toJson(ValueSchema, fromBinary(ValueSchema, sury)), json)) {
+        findings.push({ kind: "wkt: protobuf-es reads Sury's Value as another", seed, detail: `json=${show(json)}` });
+      }
+    } catch (e) {
+      findings.push({ kind: `wkt: Value throws (${(e as Error).message.replace(/\d+/g, "#")})`, seed, detail: `json=${show(json)}` });
+    }
+    const ms = chance(r, 0.3) ? pick(r, [0, -1, 999, -1000, 253402300799999, -62135596800000]) : Math.round((r() - 0.3) * 1e13);
+    try {
+      const sury = payload(encodeTimestamp({ v: new Date(ms) }).slice());
+      const es = toBinary(TimestampSchema, timestampFromMs(ms));
+      if (bytesOf(sury).join() !== bytesOf(es).join()) {
+        findings.push({ kind: "wkt: Sury writes a Timestamp protobuf-es does not", seed, detail: `ms=${ms} sury=[${bytesOf(sury)}] es=[${bytesOf(es)}]` });
+      }
+      const back = (decodeTimestamp(encodeTimestamp({ v: new Date(ms) })) as { v: Date }).v.getTime();
+      if (back !== ms) findings.push({ kind: "wkt: Sury reads its Timestamp back as another", seed, detail: `ms=${ms} back=${back}` });
+    } catch (e) {
+      findings.push({ kind: `wkt: Timestamp throws (${(e as Error).message.replace(/\d+/g, "#")})`, seed, detail: `ms=${ms}` });
+    }
+  }
+  return findings;
+};
+
 export type FuzzOptions = { seeds: number; values: number; mutants: number; from: number };
 
 export const runFuzz = ({ seeds, values, mutants, from }: FuzzOptions): { findings: Finding[]; graphs: number; checks: number } => {
@@ -269,6 +336,8 @@ export const runFuzz = ({ seeds, values, mutants, from }: FuzzOptions): { findin
   let checks = 0;
   for (let seed = from; seed < from + seeds; seed++) {
     const { r, fields } = graphOf(seed);
+    findings.push(...wellKnownFindings(rng(-seed), seed, values));
+    checks += values * 2;
     let decode: (b: Uint8Array) => unknown;
     let encode: (v: unknown) => Uint8Array;
     let esType: DescMessage;

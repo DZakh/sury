@@ -670,6 +670,19 @@ export function protobufField<TInput, TOutput>(
   field: number | ProtobufField
 ): Schema<TInput, TOutput>;
 
+/**
+ * `S.date` as a protobuf field of Google's `google.protobuf.Timestamp`, read to
+ * the millisecond a `Date` holds. `S.toProtoOrThrow` imports the type rather
+ * than declaring one.
+ */
+export const protobufTimestamp: Schema<Date, Date>;
+/**
+ * `S.json` as a protobuf field of Google's `google.protobuf.Value`: objects
+ * travel as `Struct` and arrays as `ListValue`. `S.toProtoOrThrow` imports the
+ * type rather than declaring one.
+ */
+export const protobufValue: Schema<JSON, JSON>;
+
 // `Blob` and `File` are ambient globals, from lib.dom or @types/node. Naming
 // them bare fails to typecheck for a consumer who has neither - including one
 // who never touches these schemas - so they resolve through `globalThis`: the
