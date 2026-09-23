@@ -11,7 +11,6 @@ import {
   configurableValueOptions,
   copySchema,
   copyTo,
-  defsPath,
   functionTag,
   getOrRethrow,
   globalConfig,
@@ -414,16 +413,12 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
         // The default is read as the item on every decode, so an item that is
         // the definition being built would read the default as that definition,
         // find the same absent field in it, and read its default, without end.
-        // No finite value is one, which is also why the check below cannot
-        // compile against it: the definition does not exist yet. That is what
-        // a name the record has not reached means, and only for a ref carrying
-        // no definitions of its own - one that does is a finished schema being
-        // used here, and names its own.
+        // A ref carrying definitions of its own is a finished schema instead.
         if (
           outputSchema.type === refTag &&
           outputSchema["$defs"] === U &&
           building !== U &&
-          building[outputSchema["$ref"]!.slice(defsPath.length)] === U
+          building[outputSchema["$ref"]!.slice(8)] === U
         ) {
           panic(
             `Can't set default for ${inputExpression(mut)}: the default is read as ${outputSchema.name}, which would need a default of its own`
@@ -452,8 +447,10 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
       // inside a definer names definitions this check would not otherwise see.
       // They ride on the copy it compiles against, and `parse` merges them for
       // the whole operation, so a ref inside a union resolves too.
+      // Only once the record holds something: an empty one names nothing, and a
+      // copy would miss the operation cached on the item itself.
       let checkItem = item;
-      if (building !== U && item["$defs"] === U) {
+      if (building !== U && item["$defs"] === U && Object.keys(building).length) {
         checkItem = copySchema(item);
         checkItem["$defs"] = building;
       }

@@ -1116,7 +1116,10 @@ const formatErrorMessage = (error: SuryErrorRecord): string =>
 export const errorClass: unknown = SuryError;
 
 export type GlobalConfig = {
-  d?: Record<string, Internal>; // defsAccumulator
+  // `S.recursive`'s definitions while a definer runs. A definition enters only
+  // once its own definer returns, so a name missing here while one runs is the
+  // definition being built - which is how `S.optional`'s default refuses one.
+  d?: Record<string, Internal>;
   a: AdditionalItems; // defaultAdditionalItems
   f: Flag; // defaultFlag
 }

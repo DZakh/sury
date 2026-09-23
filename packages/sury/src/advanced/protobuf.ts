@@ -57,7 +57,6 @@ type Field = {
 
 type Message = {
   fields: Field[];
-  strict: boolean;
   // The object the message was compiled from, which every reader of a message
   // needs beside it: the printer names its fields from it, and a chain past it
   // is what a nested field can't run.
@@ -70,8 +69,6 @@ type Message = {
   // The `[wire, value]` refs a field refers to this message by, once a field
   // under it has referred back: what keeps both of its schemas finite.
   rec?: [Internal, Internal];
-  // On the root, the pair the operation itself walks.
-  top?: [Internal, Internal];
 };
 
 type Defs = Record<string, Internal>;
@@ -81,18 +78,14 @@ type Defs = Record<string, Internal>;
 // used twice compiles once and a cycle closes on the one it started.
 type Ctx = {
   defs: Defs;
-  // The name an object was reached under. Kept per object rather than as the
-  // last one a walk passed, because the walk that resolves an object and the one
-  // that compiles it need not be the same: `toProtoOrThrow` finds the wire
-  // object first and hands it over already resolved.
+  // Per object, not the last name a walk passed: `toProtoOrThrow` resolves the
+  // wire object in one walk and compiles it in another.
   names: Map<Internal, string | undefined>;
-  // `S.recursive`'s own decoder, taken from a ref the walk passed rather than
-  // imported, so it reaches the wire only through a schema the user built with
-  // `S.recursive` and never ships to a consumer who has no cycle. Set whenever
-  // a ref is resolved, which a cycle cannot happen without.
+  // `S.recursive`'s decoder, taken off a ref the walk passed rather than
+  // imported, so it never ships to a consumer with no cycle. A cycle can't
+  // happen without a resolved ref, and every ref has this decoder.
   dec?: Builder;
   messages: Map<Internal, Message>;
-  rec: boolean;
   // The messages currently building: a field whose message is on it closes a
   // cycle.
   stack: Message[];
@@ -102,7 +95,6 @@ const newCtx = (): Ctx => ({
   defs: Object.create(null),
   names: new Map(),
   messages: new Map(),
-  rec: false,
   stack: [],
 });
 
@@ -112,7 +104,7 @@ const newCtx = (): Ctx => ({
 // `recurse` makes are handed to `parse`, never resolved again here.
 const deref = (ref: Internal, ctx: Ctx): Internal | undefined => {
   if (ref["$defs"] !== U) Object.assign(ctx.defs, ref["$defs"]);
-  const def = ctx.defs[ref["$ref"]!.slice(defsPath.length)];
+  const def = ctx.defs[ref["$ref"]!.slice(8)];
   if (def !== U) {
     ctx.names.set(def, ref.name);
     ctx.dec = ref.decoder;
@@ -311,7 +303,8 @@ const defaultedOptional = (raw: Internal, present: Internal, absent: Internal): 
 
 // Both refinements, in the order they were written: one schema holds one
 // refiner, and a refiner answers with the checks to emit, so running two is
-// asking each in turn.
+// asking each in turn. `internalRefine` spells the same join inline, which is
+// cheaper for every refinement export than sharing one helper with this.
 type Refiner = (input: Val) => Check[];
 const bothRefine = (first: Refiner | undefined, then: Refiner | undefined): Refiner | undefined =>
   first === then || then === U ? first
@@ -324,9 +317,7 @@ const bothRefine = (first: Refiner | undefined, then: Refiner | undefined): Refi
 // standin that belongs to that place alone. It joins whatever the standin
 // already carries rather than replacing it: a schema built by `S.recursive` can
 // be refined inside the definer and again on the ref it hands back, and both
-// were asked for. Identical refiners are the standin already carrying this very
-// one, which is the non-recursive case reaching here for nothing. Both
-// spellings, since `S.reverse` swaps them and either side may be decoded into.
+// were asked for. Both spellings, since `S.reverse` swaps them.
 const refinedAs = (from: Internal, standin: Internal): Internal => {
   const refiner = bothRefine(standin.refiner, from.refiner);
   const inputRefiner = bothRefine(standin.inputRefiner, from.inputRefiner);
@@ -349,7 +340,6 @@ const refinedAs = (from: Internal, standin: Internal): Internal => {
 // put them and not to every node of the tree.
 const recurse = (message: Message, ctx: Ctx): [Internal, Internal] => {
   if (message.rec === U) {
-    ctx.rec = true;
     const ref = (definition: Internal): Internal => {
       const standin = baseSchema(refTag, false, ctx.dec!);
       standin["$ref"] = defsPath + message.name;
@@ -362,10 +352,6 @@ const recurse = (message: Message, ctx: Ctx): [Internal, Internal] => {
   return message.rec;
 };
 
-// Called only for a compile that closed a cycle, which every cycle in the
-// message graph is: it is a back edge during the walk that builds the tree, and
-// a back edge is what sets `rec`. So a schema with no cycle pays nothing here.
-//
 // A message absent from the wire decodes to its default instance, so a required
 // singular message field builds one unasked - and a cycle of such fields builds
 // one forever, which is also a type no finite value has. Walked after the tree
@@ -390,9 +376,10 @@ const rejectEndless = (ctx: Ctx): void => {
     path.delete(message);
     clean.add(message);
   };
-  // Every message is a starting point, not just the root: the cycle can sit
-  // under a field that is itself optional, which is not an edge of its own.
-  ctx.messages.forEach(walk);
+  // From every message a cycle closed on, the root or not: the first message of
+  // a cycle the build entered is still building when the cycle comes back to it,
+  // so every cycle has one, and one under an optional field is reached too.
+  ctx.messages.forEach((message) => message.rec && walk(message));
 };
 
 const compileMessage = (schema: Internal, ctx: Ctx): Message | undefined => {
@@ -407,7 +394,6 @@ const compileMessage = (schema: Internal, ctx: Ctx): Message | undefined => {
   // refinement makes - has to carry them too.
   const msg: Message = {
     fields: [],
-    strict: output.additionalItems === "strict",
     object: output,
     raw: baseSchema(objectTag, false, objectDecoder),
     schema: copySchema(output),
@@ -518,27 +504,8 @@ const compileMessage = (schema: Internal, ctx: Ctx): Message | undefined => {
   delete normalized.to;
   msg.fields = fields;
   ctx.stack.pop();
+  if (ctx.stack.length === 0) rejectEndless(ctx);
   return msg;
-};
-
-const compileRoot = (schema: Internal): Message | undefined => {
-  const ctx = newCtx();
-  const message = compileMessage(schema, ctx);
-  if (message !== U) {
-    if (ctx.rec) rejectEndless(ctx);
-    // A recursive root is handed to the operation as its own standins, not as
-    // the definitions they stand for: the standins compile to one memoized
-    // call that every reference under them already shares, where the
-    // definitions would inline the root a second time.
-    const [wire, value] = message.rec || [message.raw, message.schema];
-    // A refinement on the schema handed in sits on the ref, which no definition
-    // under it carries; the value schema the operation ends at is where the
-    // non-recursive root has always carried one. `refinedAs` copies to add it,
-    // which is what keeps it off `rec` - every reference under the root is that
-    // same pair, and the root's own refinement is not theirs to run.
-    message.top = [wire, refinedAs(schema, value)];
-  }
-  return message;
 };
 
 const textDecoder = /* @__PURE__ */ new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
@@ -1074,11 +1041,8 @@ class Writer {
     this.pos += n;
   }
   string(v: string): void {
-    // The only write that would otherwise fail deep inside, as a length
-    // arithmetic that ends in `RangeError: offset is out of bounds`. Every
-    // other type either writes something or is refused by name, and encode
-    // takes the value the schema already describes, so this is the one place
-    // where a value that is not one leaves no trace of what it was.
+    // Otherwise a non-string fails deep in the length arithmetic, as a
+    // `RangeError` that names nothing; every other type is refused by name.
     if (typeof v !== "string") throw Error("invalid string");
     const len = v.length;
     if (len < 32) {
@@ -1464,9 +1428,8 @@ const compileEncoders = (root: Message, fns: Map<Message, string>): Record<strin
   // The root's fields are read from the vals the operation already has, so its
   // body is inlined there rather than called; it needs a function of its own
   // only where a field under it refers back to it.
-  const inlined = root.rec === U;
   fns.forEach((name, msg) => {
-    if (msg === root && inlined) return;
+    if (msg === root && root.rec === U) return;
     names.push(name);
     src += `function ${name}(w,value){var v,j,n,s,h,a,k,g,c,o;${encodeBody(msg, fns, (key) => ({ expr: readKey("value", key), numeric: false }), "num", "big", "oneof")}}`;
   });
@@ -1545,7 +1508,7 @@ const decodeFnSource = (msg: Message, fns: Map<Message, string>, slot: number): 
         : `if(${local}!==void 0)o[${key}]=${local};`;
     } else literal += `${field.key === "__proto__" ? '["__proto__"]' : key}:${local},`;
   }
-  const miss = msg.strict ? 'throw Error("unknown protobuf field "+n)' : "skip(r,w,n,0)";
+  const miss = msg.object.additionalItems === "strict" ? 'throw Error("unknown protobuf field "+n)' : "skip(r,w,n,0)";
   const vars = locals.length ? `${locals.join(",")},` : "";
   const merge = fromPrev.length ? `if(o!==void 0){${fromPrev.join(";")}}` : "";
   return `function ${fns.get(msg)!}(r,d,o){if(d>=100)throw Error("protobuf message nesting limit exceeded");var ${vars}t,w,n=-1,p,k,c,q,g;${merge}try{while(r.pos<r.limit){n=-1;t=r.buf[r.pos];if(t<128)r.pos++;else t=r.tag();n=t>>>3;w=t&7;switch(n){case 0:throw Error("invalid protobuf field number");${cases.join("")}}${miss}}}catch(x){at(x,M[${slot}],n,w)}${fill}o={${literal.slice(0, -1)}};${optional}return o}`;
@@ -1600,7 +1563,7 @@ const protobufDecoder = (input: Val): Val => {
   // other, so it validates as one instead of planning a message it has no
   // value for.
   if (input.s.encoder === protobufEncoder || tagFlags[input.s.type]! & 1) return instanceDecoder(input);
-  const message = compileRoot(objectSchemaOf(input));
+  const message = compileMessage(objectSchemaOf(input), newCtx());
   if (message === U) return B_unsupportedDecode(input, input.s, input.e);
   const fns = new Map<Message, string>();
   nameMessages(message, fns);
@@ -1639,14 +1602,21 @@ const guarded = (input: Val, output: Val, target: Internal, code: string, releas
 };
 
 const protobufEncoder = (input: Val, target: Internal): Val => {
-  const message = compileRoot(target);
+  const message = compileMessage(target, newCtx());
   // Another instance (`S.arrayBuffer`, say) takes the bytes as they are.
   if (message === U) return (tagFlags[target.type]! & 8192) ? input : B_unsupportedDecode(input, input.s, target);
   const fns = new Map<Message, string>();
   nameMessages(message, fns);
   const decoder = B_embed(input, compileDecoder(message, fns));
   const outVar = B_varWithoutAllocation(input.g);
-  const output = B_next(input, outVar, message.top![0], message.top![1]);
+  // A recursive root enters the operation as its own standins, which compile to
+  // the one memoized call every reference under it shares; its definitions
+  // would inline the root a second time. A refinement on the schema handed in
+  // sits on the ref, so it rides on a copy of the value standin rather than on
+  // `rec`, where every reference under the root would run it.
+  const [wire, value] = message.rec || [message.raw, message.schema];
+  const top = refinedAs(target, value);
+  const output = B_next(input, outVar, wire, top);
   output.v = _var;
   // Braced, for the reader, as the writer above.
   output.cp = `let ${outVar};{let r;${guarded(input, output, target, `r=${B_embedPure(input, scratchReader)}.acquire(${input.v()});${outVar}=${decoder}(r,0);r.busy=false`, "r&&(r.busy=false);")}}`;
@@ -1662,8 +1632,8 @@ const protobufEncoder = (input: Val, target: Internal): Val => {
   // closed there.
   const normIn = B_scope(output);
   normIn.io = false;
-  normIn.s = message.top![0];
-  normIn.e = message.top![1];
+  normIn.s = wire;
+  normIn.e = top;
   normIn.u = true;
   const normOut = parse(normIn);
   const chainIn = B_scope(normOut);
@@ -2053,7 +2023,6 @@ export const toProtoOrThrow = (schema: Internal, options?: ProtoOptions): string
   const wire = wireObject(schema, ctx);
   const message = wire === U ? U : compileMessage(wire, ctx);
   if (message === U) return panic("S.toProtoOrThrow: the schema is not an object");
-  if (ctx.rec) rejectEndless(ctx);
   const output = message.object;
   const rootMeta = chainMeta(schema, output);
   const proto: Proto = {

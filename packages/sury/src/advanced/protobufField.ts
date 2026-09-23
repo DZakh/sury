@@ -95,11 +95,16 @@ const mapKeyTypes: Partial<Record<ProtobufType, true>> = {
 const isRecord = (schema: Internal): boolean =>
   schema.type === objectTag && typeof schema.additionalItems === objectTag;
 
-// The shape a field's wire type is inferred from: a repeated field's item or
-// a map's value, else the value itself.
-const peel = (value: Internal): Internal =>
+// The input side past `S.optional`, as `protobufField` reads the output side.
+const present = (schema: Internal): Internal => {
+  const [members, hasUndefined] = optionalMembers(schema);
+  return hasUndefined && members.length === 1 ? members[0]! : schema;
+};
+
+// A repeated field's item or a map's value, else the value itself.
+const itemOf = (value: Internal): Internal =>
   (value.type === arrayTag || isRecord(value)) && typeof value.additionalItems === objectTag
-    ? getOutputSchema(value.additionalItems as Internal)
+    ? (value.additionalItems as Internal)
     : value;
 
 const isInt32Literal = (schema: Internal): boolean =>
@@ -158,7 +163,8 @@ export const protobufField = (schema: Internal, field: number | ProtobufField): 
   const [members, hasUndefined] = optionalMembers(output);
   // Past `S.optional`: the schema a field's value has when present.
   const value = hasUndefined && members.length === 1 ? getOutputSchema(members[0]!) : output;
-  const shape = peel(value);
+  // What the wire type is inferred from.
+  const shape = getOutputSchema(itemOf(value));
   // A union of int32 literals is an enum; a lone literal is a number, since
   // a one-member enum could accept neither its zero nor an unknown value.
   const literalEnum = isIntegerEnum(shape);
@@ -178,16 +184,8 @@ export const protobufField = (schema: Internal, field: number | ProtobufField): 
   // faces the wire depends on the direction the chain runs, and a field that
   // converts bytes to an object (`S.uint8Array.with(S.to, S.schema(...))`) is
   // a bytes field. `S.json` is a ref but no message.
-  if (type !== "message" && isMessageShape(shape)) {
-    const [inputMembers, inputUndefined] = optionalMembers(schema);
-    const input = inputUndefined && inputMembers.length === 1 ? inputMembers[0]! : schema;
-    const item =
-      (input.type === arrayTag || isRecord(input)) && typeof input.additionalItems === objectTag
-        ? (input.additionalItems as Internal)
-        : input;
-    if (isMessageShape(item)) {
-      return panic(`S.protobufField requires an object or S.recursive schema to be a message, not ${type}`);
-    }
+  if (type !== "message" && isMessageShape(shape) && isMessageShape(itemOf(present(schema)))) {
+    return panic(`S.protobufField requires an object or S.recursive schema to be a message, not ${type}`);
   }
   const oneof = typeof field === "number" ? U : field.oneof;
   if (oneof !== U) {
