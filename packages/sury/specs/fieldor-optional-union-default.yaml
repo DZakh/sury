@@ -21,7 +21,7 @@ operations:
       absent-takes-the-outer-default:
         input: "{}"
         output: "{ x: 1 }"
-      present-undefined-takes-the-inner-default:
+      present-undefined-takes-the-outer-default:
         input: "{ x: undefined }"
         output: "{ x: 1 }"
       string-converts:

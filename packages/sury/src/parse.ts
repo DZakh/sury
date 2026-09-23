@@ -388,7 +388,10 @@ export const outputOf = (schema: Internal): Internal => {
   const additionalItems =
     typeof tail.additionalItems === objectTag ? map(tail.additionalItems as Internal) : U;
   const defs = tail["$defs"] && mapDict(tail["$defs"], map);
-  if (anyOf && anyOf.length === 1) {
+  // A union whose arms all output one schema is that schema, unless the union
+  // checks its output itself: collapsing a refined union to its arm would drop
+  // the refinement, and a default the union rejects would pass as the arm's.
+  if (anyOf && anyOf.length === 1 && !tail.refiner) {
     out = anyOf[0]!;
   } else if (changed) {
     const mut = copySchema(tail);

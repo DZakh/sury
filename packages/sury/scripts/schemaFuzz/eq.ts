@@ -137,7 +137,8 @@ const check = (ctx: Ctx): void => {
     for (const [first, second] of inputs) {
       const direct = ask(isEqualInput, "eq-duality", first, second);
       if (direct === undefined) continue;
-      const viaReverse = reversedOutput(first, second);
+      const viaReverse = ask(reversedOutput, "eq-duality", first, second);
+      if (viaReverse === undefined) continue;
       if (direct !== viaReverse) {
         report(
           "eq-duality",
