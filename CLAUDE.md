@@ -237,6 +237,24 @@ unexplained one *and* on a listed one that has started to hold. It is exhaustive
 so there is no seed. A case it turns up becomes a spec, or a test where an
 example can't hold it.
 
+## Changing the content codec
+
+A reading - pack or unpack - is written by a slot, a field position or a
+declared payload, and `reverse` mirrors it; a spec pins one link and says
+nothing about the mirror of the next. `pnpm --filter=sury fuzz:content` crosses
+every source with every target and every slot and checks four properties: a
+link compiles both directions or neither, `reverse(link)` reads the same values
+the link writes and writes the ones it reads, a value survives decode, encode,
+decode, and a slot does what it declares - a link with two readings and no slot
+refuses and names both, and a link with one reads the same with `"unpack"` as
+without it. Crashes are always findings.
+
+It shares its catalogs with `fuzz:formdata` (`scripts/fuzzKit.ts`): each lists
+the cases known not to hold with the reason written by hand, and the run fails
+on an unexplained one, on a listed one that has started to hold, and on a listed
+one that no longer runs. Exhaustive, so there is no seed. A case it turns up
+becomes a spec, and one that stays unfixed carries a `FIXME` in both places.
+
 `CODEC_SPEC.md` is the normative statement of what conversions are legal,
 built-in and custom alike; `CONTENT_CODEC_SPEC.md` covers the carrier/format
 pairs where two built-in readings exist (pack/unpack).

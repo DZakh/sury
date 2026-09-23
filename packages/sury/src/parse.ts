@@ -21,6 +21,7 @@ import {
   s,
   schemaPrototype,
   setHas,
+  stringTag,
   type Tag,
   type SuryErrorRecord,
   tagFlags,
@@ -71,7 +72,12 @@ export const parse = (input: Val): Val => {
     if (++loopCount > 50) panic("Loop count exceeded 50");
 
     const defs = loopInput.e["$defs"];
-    if (defs) loopInput.g.d ? Object.assign(loopInput.g.d, defs) : (loopInput.g.d = defs);
+    // Copied, never adopted: a second `$defs` in the same operation - two
+    // independent `S.recursive` schemas in one object - would otherwise merge
+    // into the first schema's own record and leave it holding definitions that
+    // are not its own for the rest of the program. Null prototype because the
+    // keys are the names the caller gave `S.recursive`.
+    if (defs) loopInput.g.d = Object.assign(loopInput.g.d || Object.create(null), defs);
 
     // The val is a promise, so the rest of the chain has to run inside a
     // `.then`. The flag alone is the right guard: a second condition could only
@@ -112,7 +118,7 @@ export const parse = (input: Val): Val => {
         // when the operation discards it anyway (S.assertInputOrThrow's `undefined` result
         // sentinel). Every other such target still gets its conversion:
         // `noValidation` drops the checks, not the re-representation.
-        !(loopInput.e.noValidation && (loopInput.e.isJson || loopInput.e.type === undefinedTag))
+        !(loopInput.e.noValidation && (loopInput.e.flags & 16 || loopInput.e.type === undefinedTag))
       ) {
         result = maybeEncoder(loopInput, loopInput.e);
       }
@@ -458,9 +464,15 @@ Object.defineProperty(schemaPrototype, reversedKey, {
       const record = mut as unknown as Record<string, unknown>;
       reverseSwap(record, "parser", "serializer");
       reverseSwap(record, "refiner", "inputRefiner");
-      // The link into this node is now the one out of it, read the other way:
-      // opening `current` into `next` was storing `next` into `current`.
-      next && next.opens !== U ? (mut.opens = !next.opens) : delete mut.opens;
+      // The link into this node is now the one out of it, read the other way.
+      // Only a chain a content schema is part of has a reading anything reads,
+      // so the schema that answers it is found on this node, the next, or the
+      // next's arms - and a bundle with no content schema ships none of it.
+      const reverseReading =
+        mut.reverseReading ||
+        (next && (next.reverseReading || next.anyOf?.find((arm) => arm.reverseReading)?.reverseReading));
+      const flags = (mut.flags & ~12) | (reverseReading ? reverseReading(mut, next) : 0);
+      flags ? (mut.flags = flags) : delete record["flags"];
       // Deleted, not parked in a holding field: encode has no absent-input arm,
       // and double reversal reads the cache below rather than re-deriving, so
       // nothing needs the old value back.
@@ -632,8 +644,9 @@ const compileChain = (
     schema = updateOutput(args[i]!, (mut) => {
       mut.to = to;
       // Rule 3, materialized exactly as `codecTo` does it, and for the same
-      // reason: `reverse` re-points `.to` and would lose it.
-      if (mut.content !== U && mut.opens === U) mut.opens = true;
+      // reason: `reverse` re-points `.to` and would lose it. A `.to` of
+      // `undefined` (`S.assertInputOrThrow`'s result sentinel) declares nothing.
+      if (mut.flags & 3 && !(mut.flags & 12) && to.type !== undefinedTag) mut.flags |= 4;
     });
   }
   // Flag 8: the caller knows nothing about the input, so the chain's own head

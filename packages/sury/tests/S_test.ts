@@ -199,9 +199,9 @@ test("A reading joins the link key; a coder opts out", (t) => {
 
   // `S.trim` reshapes its own result after building it, so it stays unshared
   // for a second reason - and the content marker it stamps onto its tail must
-  // not reach the shared `string` singleton. `content` is internal, hence the cast.
+  // not reach the shared `string` singleton. The kind bits are internal, hence the cast.
   t.expect(S.base64.with(S.trim)).not.toBe(S.base64.with(S.trim));
-  t.expect((S.string as unknown as { content?: unknown }).content).toBe(undefined);
+  t.expect(((S.string as unknown as { flags?: number }).flags ?? 0) & 3).toBe(0);
 });
 
 test("The link cache lands on the argument that dies first", (t) => {
@@ -2406,7 +2406,10 @@ test("Compile types", async (t) => {
   t.expect(fn6("hello")).toEqual("hello");
   t.expect(fn6(undefined)).toEqual(null);
 
-  const fn7 = S.encodeOrThrow(schema, S.jsonString);
+  // A plain string into a JSON string has to say which way
+  // (CONTENT_CODEC_SPEC.md), in the operation form too.
+  t.expect(() => S.encodeOrThrow(schema, S.jsonString)).toThrow("Ambiguous string -> JSON string");
+  const fn7 = S.encodeOrThrow(schema, S.nullable(S.string).with(S.to, S.jsonString, "pack"));
   expectTypeOf(fn7).toEqualTypeOf<(input: string | undefined) => string>();
   t.expect(fn7("hello")).toEqual(`"hello"`);
   t.expect(fn7(undefined)).toEqual("null");
@@ -3241,4 +3244,58 @@ test("schemaOf: leaves inference alone", () => {
   expectTypeOf(S.schema([S.string, S.number])).toEqualTypeOf<
     S.Schema<[string, number], [string, number]>
   >();
+});
+
+test("isEqual walks a recursive schema, including mutual recursion, and compare refuses one", (t) => {
+  type Node = { v: string; kids: Node[] };
+  const node = S.recursive<Node>("Node", (self) =>
+    S.schema({ v: S.string, kids: S.array(self) }),
+  );
+  const tree = (v: string, kids: Node[] = []): Node => ({ v, kids });
+
+  t.expect(S.isEqualInput(node, tree("a", [tree("x")]), tree("a", [tree("x")]))).toBe(true);
+  t.expect(S.isEqualInput(node, tree("a", [tree("x")]), tree("a", [tree("y")]))).toBe(false);
+  // Depth is where a recursive comparator differs from a shallow one.
+  t.expect(S.isEqualInput(node, tree("a", [tree("x", [tree("p")])]), tree("a", [tree("x", [tree("p")])]))).toBe(true);
+  t.expect(S.isEqualInput(node, tree("a", [tree("x", [tree("p")])]), tree("a", [tree("x", [tree("q")])]))).toBe(false);
+
+  // A def compiles to a call rather than an inlined chain of ordered tests,
+  // which is the shape `compare` answers for.
+  t.expect(() => S.compareInput(node, tree("a"), tree("b"))).toThrow(
+    "[Sury] Can't compare Node. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality",
+  );
+
+  type Branch = { n: number; leaf: { kids: Branch[] } };
+  const branch = S.recursive<Branch>("Branch", (self) =>
+    S.schema({ n: S.number, leaf: S.recursive("Leaf", () => S.schema({ kids: S.array(self) })) }),
+  );
+  const b = (n: number, kids: Branch[] = []): Branch => ({ n, leaf: { kids } });
+  t.expect(S.isEqualInput(branch, b(1, [b(2)]), b(1, [b(2)]))).toBe(true);
+  t.expect(S.isEqualInput(branch, b(1, [b(2)]), b(1, [b(3)]))).toBe(false);
+  t.expect(() => S.compareInput(branch, b(1), b(2))).toThrow("Can't compare Branch");
+});
+
+// `Internal.definition` is the rule every site resolving a `$ref` keeps:
+// the definition a ref carries wins over the record the operation holds. The
+// equality compiler is one of those sites. Nothing public builds such a ref -
+// the protobuf compiler does, for standins that never leave the operation it
+// compiles - so the field is set here directly, which is what a compiler does.
+test("the equality compiler follows the definition a ref carries, not the name", (t) => {
+  const carried = S.recursive("Node", (self) =>
+    S.schema({ v: S.string, kids: S.array(self) }),
+  );
+  // The record says compare `v` and `kids`; the definition carried says `v`.
+  (carried as unknown as { definition: unknown }).definition = S.schema({ v: S.string });
+
+  const a = { v: "a", kids: ["x"] };
+  const b = { v: "a", kids: ["y"] };
+  t.expect(S.isEqualInput(carried, a, b)).toBe(true);
+
+  // The same schema with nothing carried resolves by name and sees `kids`.
+  const named = S.recursive("Node", (self) => S.schema({ v: S.string, kids: S.array(self) }));
+  t.expect(S.isEqualInput(named, a, b)).toBe(false);
+
+  // Either way a ref is a call, which `compare` has no order for.
+  t.expect(() => S.compareInput(carried, a, b)).toThrow("Can't compare Node");
+  t.expect(() => S.compareInput(named, a, b)).toThrow("Can't compare Node");
 });
