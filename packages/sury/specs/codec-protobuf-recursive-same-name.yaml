@@ -19,7 +19,7 @@ vs:
     _skip: todo(#…)
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[9](i);let v0;try{v0=e[0](i.x);}catch(v1){v1.path=["x",...v1.path];throw v1}let v2;try{v2=e[1](i.y);}catch(v3){v3.path=["y",...v3.path];throw v3}let v4;{let w;try{w=e[7].acquire();let v,j,n,s,h,a,k,g,c,o;v=v0;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[2](w,v);w.end(h)};v=v2;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[3](w,v);w.end(h)};v4=w.finish()}catch(x){w&&(w.busy=false);e[8](x)}}return v4}catch(v5){e[10](v5)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[7](i);let v0;try{v0=e[0](i.x);}catch(v1){v1.path=["x",...v1.path];throw v1}let v2;try{v2=e[1](i.y);}catch(v3){v3.path=["y",...v3.path];throw v3}let v4;{let w;try{w=e[5].acquire();let v,j,n,s,h,a,k,g,c,o;v=v0;if(v!=null){try{w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[2](w,v);w.end(h)}catch(x){e[4](x,4)}};v=v2;if(v!=null){try{w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[3](w,v);w.end(h)}catch(x){e[4](x,5)}};v4=w.finish()}catch(x){w&&(w.busy=false);e[6](x)}}return v4}catch(v5){e[8](v5)}}
     examples:
       # FIXME: the two messages are distinct to the codec, which is what this
       # spec is for, but `toInputJSONSchemaOrThrow` names a definition by the
@@ -33,7 +33,7 @@ operations:
           reason: two definitions named "Node" render as one, and the document keeps only the second
           ajv: "input: data/x must have required property 'b'"
   decode:
-    expression: i=>{try{try{e[0](i.x);}catch(v0){v0.path=["x",...v0.path];throw v0}try{e[1](i.y);}catch(v1){v1.path=["y",...v1.path];throw v1}let v2;{let w;try{w=e[7].acquire();let v,j,n,s,h,a,k,g,c,o;v=i.x;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[2](w,v);w.end(h)};v=i.y;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[3](w,v);w.end(h)};v2=w.finish()}catch(x){w&&(w.busy=false);e[8](x)}}return v2}catch(v3){e[9](v3)}}
+    expression: i=>{try{try{e[0](i.x);}catch(v0){v0.path=["x",...v0.path];throw v0}try{e[1](i.y);}catch(v1){v1.path=["y",...v1.path];throw v1}let v2;{let w;try{w=e[5].acquire();let v,j,n,s,h,a,k,g,c,o;v=i.x;if(v!=null){try{w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[2](w,v);w.end(h)}catch(x){e[4](x,4)}};v=i.y;if(v!=null){try{w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[3](w,v);w.end(h)}catch(x){e[4](x,5)}};v2=w.finish()}catch(x){w&&(w.busy=false);e[6](x)}}return v2}catch(v3){e[7](v3)}}
     examples:
       both:
         input: '{ x: { a: "s", kids: [] }, y: { b: 1, kids: [] } }'

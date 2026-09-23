@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.union([S.protobuf.with(S.to, S.schema({ a: S.string.with(S.protobufField, 1) }).with(S.strict)), S.protobuf.with(S.to, S.schema({ b: S.int32.with(S.protobufField, 2) }))])"
+  input: Uint8Array<ArrayBufferLike>
+  output: "{ a: string; } | { b: number; }"
+  instantiations: 8907
+jsonSchema:
+  input: Expected JSON, received Uint8Array
+  output: '{ anyOf: [{ type: "object", properties: { a: { type: "string" } }, additionalProperties: false, required: ["a"] }, { type: "object", properties: { b: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["b"] }] }'
+isEqual:
+  input: (a,b)=>a===b||(a instanceof e[0]?b instanceof e[0]&&e[3](a,b):b instanceof e[1]&&e[2](a,b))
+  output: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { a: string; } | { b: int32; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{try{for(;;){let r;if(i instanceof e[8]){try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}v0 instanceof e[6]||e[7](v0);let v1;{let r;try{r=e[4].acquire(v0);v1=e[3](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[5](x)}}i=v1;break}catch(x){(r||(r=[])).push(e[18](x))}}if(i instanceof e[17]){try{let v2;{let r;try{r=e[10].acquire(i);v2=e[9](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[11](x)}}v2 instanceof e[15]||e[16](v2);let v3;{let r;try{r=e[13].acquire(v2);v3=e[12](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[14](x)}}i=v3;break}catch(x){(r||(r=[])).push(e[18](x))}}e[19](i,...(r||[]))}return i}catch(v4){e[20](v4)}}
+    examples:
+      # FIXME: a case decodes the bytes and then decodes its own result again,
+      # as a Uint8Array, so no member of the union ever succeeds. A union of
+      # `S.jsonString` codecs reads fine; it is `S.protobuf` as a member.
+      first-member:
+        input: new Uint8Array([10, 1, 97])
+        error: |-
+          Expected Uint8Array, received invalid Uint8Array
+          - Expected Uint8Array, received { a: "a"; }
+          - Expected Uint8Array, received { b: 0; }
+      wire-failure-falls-through:
+        input: new Uint8Array([16, 5])
+        error: |-
+          Expected Uint8Array, received invalid Uint8Array
+          - Unrecognized protobuf field 2
+          - Expected Uint8Array, received { b: 5; }
+      neither-member:
+        input: new Uint8Array([16, 128])
+        error: |-
+          Expected Uint8Array, received invalid Uint8Array
+          - Unrecognized protobuf field 2
+          - At b: Truncated protobuf message
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{for(;;){let r;if(typeof i==="object"&&i&&!Array.isArray(i)){try{let v0=i.a,v1;typeof v0==="string"||e[0](v0);for(v1 in i)if(v1!=="a")e[1](v1);let v2;{let w;try{w=e[2].acquire();let v,j,n,s,h,a,k,g,c,o;v=v0;if(v){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(v,0)};v2=w.finish()}catch(x){w&&(w.busy=false);e[3](x)}}i=v2;break}catch(x){(r||(r=[])).push(e[8](x))}try{let v3=i.b;typeof v3==="number"&&v3<=2147483647&&v3>=-2147483648&&v3%1==0||e[4](v3);let v4;{let w;try{w=e[6].acquire();let v,j,n,s,h,a,k,g,c,o;v=v3;if(v){w.pos<w.buf.length?w.buf[w.pos++]=16:w.varint32(16);s=v;if(s<-2147483648||s>2147483647)e[5](s,-2147483648,2147483647,0);s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v4=w.finish()}catch(x){w&&(w.busy=false);e[7](x)}}i=v4;break}catch(x){(r||(r=[])).push(e[8](x))}}e[9](i,...(r||[]))}return i}catch(v5){e[10](v5)}}
+    examples:
+      second-member:
+        input: "{ b: 5 }"
+        output: new Uint8Array([16, 5])

@@ -99,7 +99,7 @@ test("protobuf strips unknown fields and strict rejects them", (t) => {
   const bytes = new Uint8Array([8, 1, 16, 2]);
 
   t.expect(S.decodeOrThrow(S.protobuf, Message)(bytes)).toEqual({ value: 1 });
-  t.expect(() => S.decodeOrThrow(S.protobuf, StrictMessage)(bytes)).toThrow("unknown protobuf field 2");
+  t.expect(() => S.decodeOrThrow(S.protobuf, StrictMessage)(bytes)).toThrow("Unrecognized protobuf field 2");
 });
 
 test("protobuf skips every legal unknown wire type including groups", (t) => {
@@ -116,7 +116,7 @@ test("protobuf skips every legal unknown wire type including groups", (t) => {
   ]);
 
   t.expect(decode(bytes)).toEqual({ value: 7 });
-  t.expect(() => decode(new Uint8Array([19, 28]))).toThrow("mismatched protobuf end group");
+  t.expect(() => decode(new Uint8Array([19, 28]))).toThrow("Mismatched protobuf end group");
 });
 
 test("protobuf uses last-one-wins and treats a known field with the wrong wire type as unknown", (t) => {
@@ -125,7 +125,7 @@ test("protobuf uses last-one-wins and treats a known field with the wrong wire t
   const bytes = new Uint8Array([10, 1, 99, 8, 1, 8, 2]);
 
   t.expect(S.decodeOrThrow(S.protobuf, Message)(bytes)).toEqual({ value: 2 });
-  t.expect(() => S.decodeOrThrow(S.protobuf, StrictMessage)(bytes)).toThrow("unknown protobuf field 1");
+  t.expect(() => S.decodeOrThrow(S.protobuf, StrictMessage)(bytes)).toThrow("Failed at value: Expected wire type 0, received 2");
 });
 
 test("protobuf preserves IEEE-754 special values and rejects float32 overflow", (t) => {
@@ -142,7 +142,9 @@ test("protobuf preserves IEEE-754 special values and rejects float32 overflow", 
   const specials = decode(encode({ float: Number.NaN, double: Number.POSITIVE_INFINITY }));
   t.expect(Number.isNaN(specials.float)).toBe(true);
   t.expect(specials.double).toBe(Number.POSITIVE_INFINITY);
-  t.expect(() => encode({ float: Number.MAX_VALUE, double: 0 })).toThrow("invalid float");
+  t.expect(() => encode({ float: Number.MAX_VALUE, double: 0 })).toThrow(
+    "Failed at float: Expected float, received 1.7976931348623157e+308",
+  );
 });
 
 test("protobuf rejects malformed wire data", (t) => {
@@ -153,9 +155,9 @@ test("protobuf rejects malformed wire data", (t) => {
   t.expect(() => decode(new Uint8Array([0]))).toThrow();
   t.expect(() => decode(new Uint8Array([10, 1, 255]))).toThrow();
   t.expect(() => decode(new Uint8Array([128, 128, 128, 128, 128, 128, 128, 128, 128, 2]))).toThrow();
-  t.expect(() => decode(new Uint8Array([128, 128, 128, 128, 16]))).toThrow("invalid protobuf tag");
-  t.expect(() => decode(new Uint8Array([136, 128, 128, 128, 128, 0, 1]))).toThrow("invalid protobuf tag");
-  t.expect(() => decode(new Uint8Array([136, 128, 128, 128, 128, 128, 128, 128, 0, 1]))).toThrow("invalid protobuf tag");
+  t.expect(() => decode(new Uint8Array([128, 128, 128, 128, 16]))).toThrow("Invalid protobuf tag");
+  t.expect(() => decode(new Uint8Array([136, 128, 128, 128, 128, 0, 1]))).toThrow("Invalid protobuf tag");
+  t.expect(() => decode(new Uint8Array([136, 128, 128, 128, 128, 128, 128, 128, 0, 1]))).toThrow("Invalid protobuf tag");
   t.expect(decode(new Uint8Array([248, 255, 255, 255, 15, 1, 10, 0]))).toEqual({ value: "" });
 });
 
@@ -214,7 +216,7 @@ test("protobuf maps a record to map<K, V> entries", (t) => {
   t.expect(decode(bytes)).toEqual(value);
   t.expect(decode(new Uint8Array([10, 0]))).toEqual({ value: { "": { key: "", values: [] } }, ints: {}, flags: {}, big: {} });
   t.expect(decode(new Uint8Array([18, 2, 16, 7]))).toMatchObject({ ints: { "0": 7 } });
-  t.expect(() => encode({ ...value, ints: { x: 1 } })).toThrow("invalid int32 key");
+  t.expect(() => encode({ ...value, ints: { x: 1 } })).toThrow('Failed at ints.x: Expected int32 key, received "x"');
 });
 
 test("protobuf stores a __proto__ map key as an own property", (t) => {
@@ -305,10 +307,10 @@ test("protobuf rejects 32-bit values outside their range instead of wrapping", (
     packed: S.array(S.integer).with(S.protobufField, { number: 3, type: "uint32" }),
   });
   const encode = S.decodeOrThrow(Message, S.protobuf);
-  t.expect(() => encode({ u: -1, i: 0, packed: [] })).toThrow("invalid uint32");
-  t.expect(() => encode({ u: 4294967296, i: 0, packed: [] })).toThrow("invalid uint32");
-  t.expect(() => encode({ u: 0, i: 2147483648, packed: [] })).toThrow("invalid int32");
-  t.expect(() => encode({ u: 0, i: 0, packed: [-1] })).toThrow("invalid uint32");
+  t.expect(() => encode({ u: -1, i: 0, packed: [] })).toThrow("Failed at u: Expected uint32, received -1");
+  t.expect(() => encode({ u: 4294967296, i: 0, packed: [] })).toThrow("Failed at u: Expected uint32, received 4294967296");
+  t.expect(() => encode({ u: 0, i: 2147483648, packed: [] })).toThrow("Failed at i: Expected int32, received 2147483648");
+  t.expect(() => encode({ u: 0, i: 0, packed: [0, -1] })).toThrow("Failed at packed[1]: Expected uint32, received -1");
   t.expect([...encode({ u: 4294967295, i: -2147483648, packed: [0] })]).toEqual([
     8, 255, 255, 255, 255, 15, 16, 128, 128, 128, 128, 248, 255, 255, 255, 255, 1, 26, 1, 0,
   ]);
@@ -362,11 +364,25 @@ test("protobuf reports wire and value failures as Sury errors", (t) => {
   };
   t.expect(invalid(() => decode(new Uint8Array([10, 1, 255])))).toBeInstanceOf(S.Error);
   t.expect(invalid(() => decode(new Uint8Array([10, 1, 255]))).code).toBe("invalid_conversion");
-  t.expect(invalid(() => decode(new Uint8Array([10, 1, 255]))).message).toContain("not valid UTF-8");
-  t.expect(invalid(() => decode(new Uint8Array([10]))).message).toContain("truncated protobuf message");
-  t.expect(invalid(() => encode({ s: "", f: 1e40 })).message).toContain("invalid float");
+  t.expect(invalid(() => decode(new Uint8Array([10, 1, 255]))).message).toBe("Failed at s: Protobuf string is not valid UTF-8");
+  t.expect(invalid(() => decode(new Uint8Array([10]))).message).toBe("Failed at s: Truncated protobuf message");
+  t.expect(invalid(() => encode({ s: "", f: 1e40 })).message).toBe("Failed at f: Expected float, received 1e+40");
   const Wrapped = S.schema({ inner: Message.with(S.protobufField, 1) });
-  t.expect(invalid(() => S.decodeOrThrow(S.protobuf, Wrapped)(new Uint8Array([10, 3, 10, 1, 255]))).code).toBe("invalid_conversion");
+  const nested = invalid(() => S.decodeOrThrow(S.protobuf, Wrapped)(new Uint8Array([10, 3, 10, 1, 255])));
+  t.expect(nested.code).toBe("invalid_conversion");
+  // The field it hit is the error's path, the way a parse failure's is, not
+  // words in its reason.
+  t.expect(nested.path).toEqual(["inner", "s"]);
+  t.expect(nested.reason).toBe("Protobuf string is not valid UTF-8");
+  const Listed = S.schema({
+    items: S.array(Message).with(S.protobufField, 1),
+    byId: S.record(Message).with(S.protobufField, { number: 2, key: "int64" }),
+  });
+  t.expect(invalid(() => S.decodeOrThrow(S.protobuf, Listed)(new Uint8Array([10, 0, 10, 3, 10, 1, 255]))).path).toEqual(["items", 1, "s"]);
+  t.expect(invalid(() => S.decodeOrThrow(S.protobuf, Listed)(new Uint8Array([18, 7, 8, 5, 18, 3, 10, 1, 255]))).path).toEqual(["byId", "5", "s"]);
+  const encodeListed = S.decodeOrThrow(Listed, S.protobuf);
+  t.expect(invalid(() => encodeListed({ items: [{ s: "", f: 0 }, { s: 1 as never, f: 0 }], byId: {} })).path).toEqual(["items", 1, "s"]);
+  t.expect(invalid(() => encodeListed({ items: [], byId: { "7": { s: 1 as never, f: 0 } } })).path).toEqual(["byId", "7", "s"]);
 });
 
 test("protobuf names the field that keeps a schema from being a message", (t) => {
@@ -616,10 +632,18 @@ test("a recursive message decodes 100 levels and refuses 101, and encoding has n
   // Encoding is what those bytes came from, so the limit is the reader's alone.
   const overLimit = S.parseOrThrow(codec, nest(101));
   t.expect(overLimit.length).toBeGreaterThan(hundred.length);
-  // A path that deep keeps the end that failed, not the levels above it.
-  t.expect(() => S.encodeOrThrow(codec, overLimit)).toThrow(
-    `protobuf message nesting limit exceeded at \u2026${".next".repeat(20)} (field 2, wire type 2)`,
-  );
+  // The path is data, so it names every level rather than the ones that fit
+  // on a line.
+  const error = (() => {
+    try {
+      S.encodeOrThrow(codec, overLimit);
+    } catch (error) {
+      return error as S.Error;
+    }
+    throw new Error("expected a throw");
+  })();
+  t.expect(error.path).toEqual(Array(100).fill("next"));
+  t.expect(error.reason).toBe("Protobuf message nesting limit exceeded");
 });
 
 test("isEqual reads a recursive message the codec declares, and compare refuses it", (t) => {

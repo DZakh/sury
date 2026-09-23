@@ -1586,16 +1586,15 @@ message rejects an unknown field instead, which is worth having on an internal
 wire where an unexpected number means a version skew you would rather hear
 about.
 
-A wire failure names where it hit, the way an object parse error names a path:
-the field, its number, and the wire type the bytes claimed, with each
-enclosing message in front of it.
+A wire failure fails at the field it hit, the way a parse error does:
+`error.path` is where in the value, and `error.reason` is what went wrong.
 
 ```rescript
 %raw(`new Uint8Array([8, 1, 34, 3, 10, 1, 255])`)->S.convertOrThrow(
   ~from=S.protobuf,
   ~to=userSchema,
 )
-// throws: protobuf string is not valid UTF-8 at home.street (field 1, wire type 2)
+// throws: Failed at home.street: Protobuf string is not valid UTF-8
 ```
 
 #### `toProtoOrThrow`

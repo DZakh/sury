@@ -18,13 +18,13 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[7](i);let v0=i.id,v1=i.name;typeof v0==="string"||e[0](v0);typeof v1==="string"||e[1](v1);let v2;{let w;try{w=e[5].acquire();let v,j,n,s,h,a,k,g,c,o;v=v0;if((v=+v)){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=v;if(s<0||s>4294967295)e[2](s,0,4294967295,"uint32");s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s)};v=v1;if(v){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);w.string(v)};v2=w.finish()}catch(x){w&&(w.busy=false);e[6](x)}}return v2}catch(v3){e[8](v3)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=i.id,v1=i.name;typeof v0==="string"||e[0](v0);typeof v1==="string"||e[1](v1);let v2;{let w;try{w=e[3].acquire();let v,j,n,s,h,a,k,g,c,o;v=v0;if((v=+v)){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=v;if(s<0||s>4294967295)e[2](s,0,4294967295,0);s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s)};v=v1;if(v){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);w.string(v,1)};v2=w.finish()}catch(x){w&&(w.busy=false);e[4](x)}}return v2}catch(v3){e[6](v3)}}
     examples:
       coercion-and-text:
         input: '{ id: "150", name: "Ada" }'
         output: new Uint8Array([8, 150, 1, 18, 3, 65, 100, 97])
   decode:
-    expression: i=>{try{let v0;{let w;try{w=e[3].acquire();let v,j,n,s,h,a,k,g,c,o;v=i.id;if((v=+v)){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=v;if(s<0||s>4294967295)e[0](s,0,4294967295,"uint32");s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s)};v=i.name;if(v){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);w.string(v)};v0=w.finish()}catch(x){w&&(w.busy=false);e[4](x)}}return v0}catch(v1){e[5](v1)}}
+    expression: i=>{try{let v0;{let w;try{w=e[1].acquire();let v,j,n,s,h,a,k,g,c,o;v=i.id;if((v=+v)){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=v;if(s<0||s>4294967295)e[0](s,0,4294967295,0);s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s)};v=i.name;if(v){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);w.string(v,1)};v0=w.finish()}catch(x){w&&(w.busy=false);e[2](x)}}return v0}catch(v1){e[3](v1)}}
     examples:
       utf8-and-max-uint32:
         input: '{ id: "4294967295", name: "ä" }'
@@ -40,13 +40,13 @@ operations:
         output: '{ id: "1", name: "" }'
       truncated:
         input: new Uint8Array([8])
-        error: truncated protobuf message at id (field 1, wire type 0)
+        error: "Failed at id: Truncated protobuf message"
       field-number-zero:
         input: new Uint8Array([0, 1])
-        error: invalid protobuf field number
+        error: Invalid protobuf field number 0
       overlong-tag:
         input: new Uint8Array([136, 128, 128, 128, 128, 128, 128, 128, 0, 1])
-        error: invalid protobuf tag
+        error: Invalid protobuf tag
       wire-value:
         input: new Uint8Array([8, 150, 1, 18, 3, 65, 100, 97])
         output: '{ id: "150", name: "Ada" }'

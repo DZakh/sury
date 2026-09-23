@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ xs: S.array(S.integer).with(S.protobufField, {number: 1, type: "fixed32"}) }).with(S.to, S.protobuf)'
+  input: "{ xs: number[]; }"
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 5905
+jsonSchema:
+  input: '{ type: "object", properties: { xs: { items: { type: "integer" }, type: "array" } }, required: ["xs"] }'
+  output: Expected JSON, received Uint8Array
+isEqual:
+  input: (a,b)=>a===b||e[0](a.xs,b.xs)
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { xs: integer[]; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i.xs;Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){let v2=v0[v1];typeof v2==="number"&&v2%1==0||e[0](v2,["xs",v1]);}let v3;{let w;try{w=e[2].acquire();let v,j,n,s,h,a,k,g,c,o;v=v0;n=v.length;if(n){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();w.fixeds(v,2,0);w.end(h)};v3=w.finish()}catch(x){w&&(w.busy=false);e[3](x)}}return v3}catch(v4){e[5](v4)}}
+    examples:
+      elements:
+        input: "{ xs: [1, 2] }"
+        output: new Uint8Array([10, 8, 1, 0, 0, 0, 2, 0, 0, 0])
+      out-of-range-element:
+        input: "{ xs: [1, -1] }"
+        error: "Failed at xs[1]: Expected fixed32, received -1"
+  decode:
+    expression: i=>{try{let v0=i.xs;let v2;{let w;try{w=e[0].acquire();let v,j,n,s,h,a,k,g,c,o;v=v0;n=v.length;if(n){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();w.fixeds(v,2,0);w.end(h)};v2=w.finish()}catch(x){w&&(w.busy=false);e[1](x)}}return v2}catch(v3){e[2](v3)}}
+    examples:
+      fractional-element:
+        input: "{ xs: [1, 1.5] }"
+        error: "Failed at xs[1]: Expected fixed32, received 1.5"
+  encode:
+    expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v1=v0.xs;return v0}catch(v3){e[3](v3)}}
+    examples:
+      elements:
+        input: new Uint8Array([10, 8, 1, 0, 0, 0, 2, 0, 0, 0])
+        output: "{ xs: [1, 2] }"
+      torn-last-element:
+        input: new Uint8Array([10, 6, 1, 0, 0, 0, 2, 0])
+        error: "Failed at xs[1]: Truncated protobuf message"

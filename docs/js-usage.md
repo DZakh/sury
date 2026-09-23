@@ -1607,29 +1607,37 @@ Put `S.strict` on the message to reject an unknown field instead of skipping
 it, which is worth having on an internal wire where an unexpected number means
 a version skew you would rather hear about.
 
-Strings must be valid UTF-8. Malformed input, such as a truncated field, a field
-number of zero, an unknown wire type, an unmatched group or a tag wider than
-32 bits, throws an `S.Error` with code `invalid_conversion` and the wire
-problem as its reason; so does a value the wire type can't hold, such as a
-`float` beyond 32-bit range.
-
-A wire failure names where it hit, the way an object parse error names a
-path: the field it was reading, its number, and the wire type the bytes
-claimed, with each enclosing message in front of it.
+Strings must be valid UTF-8. Malformed bytes, such as a truncated field, a
+field number of zero, an unknown wire type, an unmatched group or a tag wider
+than 32 bits, throw an `S.Error` with code `invalid_conversion`, and so does a
+value its field's type can't hold on the way out, such as a `float` beyond
+32-bit range. Either one fails at the field it hit, the way a parse error does:
+`error.path` is where in the value, and `error.reason` is what went wrong.
 
 ```ts
 const Account = S.schema({
   id: S.int32.with(S.protobufField, 1),
   addr: S.optional(S.schema({ street: S.string.with(S.protobufField, 1) })).with(S.protobufField, 2),
+  tags: S.array(S.string).with(S.protobufField, 3),
 });
 
 S.decodeOrThrow(S.protobuf, Account)(new Uint8Array([8, 1, 18, 3, 10, 1, 255]));
-// => S.Error: protobuf string is not valid UTF-8 at addr.street (field 1, wire type 2)
+// => S.Error: Failed at addr.street: Protobuf string is not valid UTF-8
+
+S.decodeOrThrow(S.protobuf, Account)(new Uint8Array([26, 1, 97, 26, 1, 255]));
+// => S.Error: Failed at tags[1]: Protobuf string is not valid UTF-8
+
+S.decodeOrThrow(Account, S.protobuf)({ id: 2 ** 40, tags: [] });
+// => S.Error: Failed at id: Expected int32, received 1099511627776
 ```
 
-A failure with no field to name keeps its own text: a field number the
-message does not declare says so itself, and bytes that are not a tag at all
-were never a field.
+A failure that no field owns has no path: bytes that are not a tag at all, or a
+field number the message doesn't declare under `S.strict`.
+
+```ts
+S.decodeOrThrow(S.protobuf, Account.with(S.strict))(new Uint8Array([64, 1]));
+// => S.Error: Unrecognized protobuf field 8
+```
 
 A schema that can't be a message, whether a field without a number, two fields
 sharing one or an optional repeated field, is rejected when the operation is
