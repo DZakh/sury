@@ -110,7 +110,7 @@ asyncTest("Compiled async parse code snapshot", async t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ParseAsync,
-    `i=>{try{try{for(;;){if(typeof i==="boolean"){let v0=e[0](i);i=v0;break}if(i===void 0){i=false;break}e[1](i)}return Promise.resolve(i)}catch(v1){e[2](v1)}}catch(v2){return Promise.reject(v2)}}`,
+    `i=>{try{for(;;){if(typeof i==="boolean"){let v0=e[0](i);i=v0;break}if(i===void 0){i=false;break}e[1](i)}return Promise.resolve(i).catch(e[2])}catch(v1){return e[3](v1)}}`,
   )
 
   let schema =
@@ -122,7 +122,7 @@ asyncTest("Compiled async parse code snapshot", async t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ParseAsync,
-    `i=>{try{try{for(;;){if(typeof i==="boolean")break;if(i===void 0){i=false;break}e[0](i)}let v0;try{v0=e[1](i).catch(x=>e[2](x))}catch(x){e[2](x)}return v0}catch(v1){e[3](v1)}}catch(v2){return Promise.reject(v2)}}`,
+    `i=>{try{for(;;){if(typeof i==="boolean")break;if(i===void 0){i=false;break}e[0](i)}let v0;try{v0=e[1](i).catch(x=>e[2](x))}catch(x){e[2](x)}return v0.catch(e[3])}catch(v1){return e[4](v1)}}`,
   )
 })
 
