@@ -1255,13 +1255,15 @@ const skip = (reader: Reader, wire: number, fieldNumber: number, depth: number):
 // one here - an unknown field under `S.strict`, a field number of zero - name
 // the number themselves, and there is no property to put in a path. The
 // enclosing message still adds its own, so such a failure is located by the
-// field that contained it. `number` is -1 until the loop has a tag to read,
+// field that contained it. The tag is -1 until the loop has read one whole,
 // which covers a buffer whose first bytes are not one.
 type WireError = Error & { wireAt?: string; wireWhat?: string };
 
-const wireFrame = (e: unknown, msg: Message, number: number, wire: number): never => {
+const wireFrame = (e: unknown, msg: Message, tag: number): never => {
   const err = e as WireError;
-  const field = msg.fields.find((f) => f.number === number);
+  const number = tag >>> 3;
+  const wire = tag & 7;
+  const field = tag < 0 ? U : msg.fields.find((f) => f.number === number);
   if (field !== U) {
     err.wireAt =
       err.wireAt === U ? `${field.key} (field ${number}, wire type ${wire})`
@@ -1332,14 +1334,14 @@ const varintKind = (type: FieldType): number | undefined =>
 
 // A one-byte varint is read inline.
 const readCall = (type: FieldType): string => {
-  const varint32 = "(r.pos<r.limit&&(t=r.buf[r.pos])<128?(r.pos++,t):r.varint32())";
+  const varint32 = "(r.pos<r.limit&&(q=r.buf[r.pos])<128?(r.pos++,q):r.varint32())";
   if (type === "bool") return "r.bool()";
   if (type === "uint32") return varint32;
   if (type === "int32" || type === "enum") return `${varint32}|0`;
-  if (type === "sint32") return `((t=${varint32})>>>1^-(t&1))|0`;
+  if (type === "sint32") return `((q=${varint32})>>>1^-(q&1))|0`;
   if (type === "int64") return "r.int64()";
   if (type === "uint64") return "r.varint64()";
-  if (type === "sint64") return "(t=r.varint64(),(t>>1n)^-(t&1n))";
+  if (type === "sint64") return "(q=r.varint64(),(q>>1n)^-(q&1n))";
   if (type === "double") return "r.f64()";
   if (type === "float") return "r.f32()";
   if (type === "fixed64") return "r.u64()";
@@ -1516,18 +1518,23 @@ const decodeFnSource = (msg: Message, fns: Map<Message, string>, slot: number): 
     const read = readKey("o", field.key);
     locals.push(`${local}=${emitDefault(field)}`);
     fromPrev.push(`${local}=${read}`);
-    let arm = `case ${field.number}:`;
+    // The loop switches on the whole tag, so a known number arriving with a
+    // wire type its field does not take matches no case and is skipped, as an
+    // unknown field is.
+    const tag = field.number * 8 + field.wire;
+    let clear = "";
     if (field.oneof !== U) {
       for (let other = 0; other < fields.length; other++) {
-        if (other !== idx && fields[other]!.oneof === field.oneof) arm += `f${other}=void 0;`;
+        if (other !== idx && fields[other]!.oneof === field.oneof) clear += `f${other}=void 0;`;
       }
     }
     if (field.map !== U) {
       const keyType = field.map;
-      const keyWire = wireType(keyType);
+      // The entry reads its tags into `y`, so a failure inside it is still
+      // framed by the map field's tag in `t`.
       const entryLoop = (body: string) =>
-        `while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else t=r.tag();n=t>>>3;w=t&7;if(!n)throw Error("invalid protobuf field number");${body}else skip(r,w,n,0)}`;
-      const readKey = `if(n===1&&w===${keyWire})k=${readCall(keyType)};`;
+        `while(r.pos<r.limit){y=r.buf[r.pos];if(y<128)r.pos++;else y=r.tag();if(y<8)throw Error("invalid protobuf field number");${body}else skip(r,y&7,y>>>3,0)}`;
+      const readKey = `if(y===${8 + wireType(keyType)})k=${readCall(keyType)};`;
       const store = keyType === "string"
         ? `k==="__proto__"?Object.defineProperty(${local},k,{value:c,enumerable:!0,writable:!0,configurable:!0}):${local}[k]=c`
         : `${local}[k]=c`;
@@ -1537,29 +1544,31 @@ const decodeFnSource = (msg: Message, fns: Map<Message, string>, slot: number): 
         // value repeated inside one entry merges: so the value never needs the
         // key first, and the entry is read in one pass.
         const nested = fns.get(field.message!)!;
-        entry = `k=${scalarDefault(keyType)};c=void 0;${entryLoop(`${readKey}else if(n===2&&w===2){g=r.sub();c=${nested}(r,d+1,c);r.limit=g}`)}if(c===void 0){g=r.limit;r.limit=r.pos;c=${nested}(r,d+1);r.limit=g}`;
+        entry = `k=${scalarDefault(keyType)};c=void 0;${entryLoop(`${readKey}else if(y===18){g=r.sub();c=${nested}(r,d+1,c);r.limit=g}`)}if(c===void 0){g=r.limit;r.limit=r.pos;c=${nested}(r,d+1);r.limit=g}`;
       } else {
-        entry = `k=${scalarDefault(keyType)};c=${scalarDefault(field.type)};${entryLoop(`${readKey}else if(n===2&&w===${field.wire})c=${readCall(field.type)};`)}`;
+        entry = `k=${scalarDefault(keyType)};c=${scalarDefault(field.type)};${entryLoop(`${readKey}else if(y===${16 + field.wire})c=${readCall(field.type)};`)}`;
       }
-      arm += `if(w===2){p=r.sub();${entry};r.limit=p;${store};continue}break;`;
+      // A map field is length-delimited whatever its value's wire type.
+      cases.push(`case ${field.number * 8 + 2}:p=r.sub();${entry};r.limit=p;${store};continue;`);
     } else if (field.type === "message") {
       const nested = fns.get(field.message!)!;
-      arm += field.repeated
-        ? `if(w===2){p=r.sub();${local}.push(${nested}(r,d+1));r.limit=p;continue}break;`
-        : `if(w===2){p=r.sub();${local}=${nested}(r,d+1,${local});r.limit=p;continue}break;`;
+      cases.push(
+        field.repeated
+          ? `case ${tag}:p=r.sub();${local}.push(${nested}(r,d+1));r.limit=p;continue;`
+          : `case ${tag}:${clear}p=r.sub();${local}=${nested}(r,d+1,${local});r.limit=p;continue;`,
+      );
     } else if (field.repeated && packable[field.type]) {
       const kind = varintKind(field.type);
       const fixed = fixedKind(field.type);
       const packedLoop = kind !== U ? `r.${["u32s", "i32s", "s32s", "bools"][kind]}(${local})`
         : fixed !== U ? `r.fixeds(${local},${fixed})`
         : `while(r.pos<r.limit)${local}.push(${readCall(field.type)})`;
-      arm += `if(w===2){p=r.sub();${packedLoop};r.limit=p;continue}if(w===${field.wire}){${local}.push(${readCall(field.type)});continue}break;`;
+      cases.push(`case ${field.number * 8 + 2}:p=r.sub();${packedLoop};r.limit=p;continue;case ${tag}:${local}.push(${readCall(field.type)});continue;`);
     } else if (field.repeated) {
-      arm += `if(w===${field.wire}){${local}.push(${readCall(field.type)});continue}break;`;
+      cases.push(`case ${tag}:${local}.push(${readCall(field.type)});continue;`);
     } else {
-      arm += `if(w===${field.wire}){${local}=${readCall(field.type)};continue}break;`;
+      cases.push(`case ${tag}:${clear}${local}=${readCall(field.type)};continue;`);
     }
-    cases.push(arm);
     if (field.type === "message" && !field.repeated && !field.optional && field.map === U) {
       // A required message absent on the wire is its default instance, so
       // the schema's type holds; `S.optional` is how presence is asked for.
@@ -1571,10 +1580,12 @@ const decodeFnSource = (msg: Message, fns: Map<Message, string>, slot: number): 
         : `if(${local}!==void 0)o[${key}]=${local};`;
     } else literal += `${field.key === "__proto__" ? '["__proto__"]' : key}:${local},`;
   }
-  const miss = msg.object.additionalItems === "strict" ? 'throw Error("unknown protobuf field "+n)' : "skip(r,w,n,0)";
+  const miss = msg.object.additionalItems === "strict" ? 'throw Error("unknown protobuf field "+(t>>>3))' : "skip(r,t&7,t>>>3,0)";
   const vars = locals.length ? `${locals.join(",")},` : "";
   const merge = fromPrev.length ? `if(o!==void 0){${fromPrev.join(";")}}` : "";
-  return `function ${fns.get(msg)!}(r,d,o){if(d>=100)throw Error("protobuf message nesting limit exceeded");var ${vars}t,w,n=-1,p,k,c,g;${merge}try{while(r.pos<r.limit){n=-1;t=r.buf[r.pos];if(t<128)r.pos++;else t=r.tag();n=t>>>3;w=t&7;switch(n){case 0:throw Error("invalid protobuf field number");${cases.join("")}}${miss}}}catch(x){at(x,M[${slot}],n,w)}${fill}o={${literal.slice(0, -1)}};${optional}return o}`;
+  // `t=-1` before a tag of several bytes is read: one that fails part way is
+  // no field's, and must not frame the error with the tag before it.
+  return `function ${fns.get(msg)!}(r,d,o){if(d>=100)throw Error("protobuf message nesting limit exceeded");var ${vars}t=-1,p,k,c,g,q,y;${merge}try{while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){${cases.join("")}}if(t<8)throw Error("invalid protobuf field number");${miss}}}catch(x){at(x,M[${slot}],t)}${fill}o={${literal.slice(0, -1)}};${optional}return o}`;
 };
 
 const compileDecoder = (root: Message, fns: Map<Message, string>): Function => {
