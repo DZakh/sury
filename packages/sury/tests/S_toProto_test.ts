@@ -121,11 +121,11 @@ test("toProtoOrThrow rejects what the wire rejects, with the same message", (t) 
   t.expect(() => S.toProtoOrThrow(S.string)).toThrow("[Sury] S.toProtoOrThrow: the schema is not an object");
   t.expect(() =>
     S.toProtoOrThrow(
-      S.recursive("Node", (self) =>
-        S.schema({ v: S.int32.with(S.protobufField, 1), next: S.optional(self).with(S.protobufField, { number: 2, type: "message" }) }),
-      ),
+      S.recursive("Endless", (self) => S.schema({ me: self.with(S.protobufField, 1) })),
     ),
-  ).toThrow("[Sury] S.toProtoOrThrow: a recursive message can't be printed, as S.protobuf can't encode one");
+  ).toThrow(
+    '[Sury] S.protobuf: field "me" makes "Endless" hold itself with no way to end. Make it optional or repeated',
+  );
   t.expect(() => S.toProtoOrThrow(S.schema({ a: S.string }))).toThrow(
     '[Sury] S.protobuf: field "a" has no field number. Give it one with S.protobufField',
   );
@@ -544,4 +544,106 @@ test("toProtoOrThrow prints the first object of a .to chain, which the wire spea
 test("toProtoOrThrow prints a lone integer literal as the number it infers", (t) => {
   const Message = S.schema({ one: S.literal(1).with(S.protobufField, 1), kind: S.union([1, 2]).with(S.protobufField, 2) });
   t.expect(S.toProtoOrThrow(Message)).toContain("  double one = 1;\n  Kind kind = 2;");
+});
+
+test("toProtoOrThrow prints a recursive message held as its codec", (t) => {
+  const node = S.recursive<{ v: string; kids: unknown[] }>("Node", (self) =>
+    S.schema({
+      v: S.string.with(S.protobufField, 1),
+      kids: S.array(self).with(S.protobufField, 2),
+    }),
+  );
+  const expected = `syntax = "proto3";
+
+message Node {
+  string v = 1;
+  repeated Node kids = 2;
+}
+`;
+  t.expect(S.toProtoOrThrow(node)).toBe(expected);
+  t.expect(S.toProtoOrThrow(node.with(S.to, S.protobuf))).toBe(expected);
+  // The wire on the input side, however the codec was spelled.
+  t.expect(S.toProtoOrThrow(S.protobuf.with(S.to, node))).toBe(expected);
+  t.expect(S.toProtoOrThrow(S.reverse(node.with(S.to, S.protobuf)))).toBe(expected);
+});
+
+test("toProtoOrThrow prints what the wire speaks, and refuses what the wire refuses", (t) => {
+  const message = S.schema({ a: S.string.with(S.protobufField, 1) });
+  const printed = `syntax = "proto3";
+
+message Message {
+  string a = 1;
+}
+`;
+  // `S.unknown` between the message and the wire changes neither side.
+  const viaUnknown = message.with(S.to, S.unknown).with(S.to, S.protobuf);
+  t.expect(S.parseOrThrow(viaUnknown, { a: "x" })).toEqual(new Uint8Array([10, 1, 120]));
+  t.expect(S.toProtoOrThrow(viaUnknown)).toBe(printed);
+
+  // `S.json` is a message to neither: its definition is a union, and the codec
+  // refuses the chain, so the printer must not hand back a `.proto` for it.
+  const viaJson = message.with(S.to, S.json, { decode: (o) => o, encode: (x) => x });
+  t.expect(() => S.parseOrThrow(viaJson.with(S.to, S.protobuf), { a: "x" })).toThrow();
+  t.expect(() => S.toProtoOrThrow(viaJson.with(S.to, S.protobuf))).toThrow(
+    "[Sury] S.toProtoOrThrow: the schema is not an object",
+  );
+});
+
+test("toProtoOrThrow prints one message for a type two fields both reach", (t) => {
+  type Tree = { v: number; left?: Tree; right?: Tree };
+  const tree = S.recursive<Tree>("Tree", (self) =>
+    S.schema({
+      v: S.int32.with(S.protobufField, 1),
+      left: S.optional(self).with(S.protobufField, 2),
+      right: S.optional(self).with(S.protobufField, 3),
+    }),
+  );
+  t.expect(S.toProtoOrThrow(tree)).toBe(
+    `syntax = "proto3";
+
+message Tree {
+  int32 v = 1;
+  optional Tree left = 2;
+  optional Tree right = 3;
+}
+`,
+  );
+});
+
+test("toProtoOrThrow renames a recursive message everywhere it refers back to itself", (t) => {
+  type Node = { v: string; kids: Node[] };
+  const node = S.recursive<Node>("Node", (self) =>
+    S.schema({ v: S.string.with(S.protobufField, 1), kids: S.array(self).with(S.protobufField, 2) }),
+  );
+  const tree = `syntax = "proto3";
+
+message Tree {
+  string v = 1;
+  repeated Tree kids = 2;
+}
+`;
+  t.expect(S.toProtoOrThrow(node, { name: "Tree" })).toBe(tree);
+  t.expect(S.toProtoOrThrow(S.meta(node, { name: "Tree" }))).toBe(tree);
+
+  // The other message of a mutual pair points back at the name the root took.
+  type Branch = { n: number; leaf?: { kids: Branch[] } };
+  const branch = S.recursive<Branch>("Branch", (self) =>
+    S.schema({
+      n: S.int32.with(S.protobufField, 1),
+      leaf: S.optional(
+        S.recursive("Leaf", () => S.schema({ kids: S.array(self).with(S.protobufField, 1) })),
+      ).with(S.protobufField, 2),
+    }),
+  );
+  t.expect(S.toProtoOrThrow(branch, { name: "Root" })).toBe(`syntax = "proto3";
+
+message Root {
+  int32 n = 1;
+  optional Leaf leaf = 2;
+}
+
+message Leaf {
+  repeated Root kids = 1;
+}
+`);
 });
