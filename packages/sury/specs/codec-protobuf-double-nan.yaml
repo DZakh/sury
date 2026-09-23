@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ d: S.protobufField(S.union([S.number, S.schema(NaN)]), { number: 1, type: "double" }), f: S.protobufField(S.array(S.union([S.number, S.schema(NaN)])), { number: 2, type: "float" }), o: S.union([S.schema({ case: "n", value: S.protobufField(S.union([S.number, S.schema(NaN)]), { number: 3, type: "double" }) }), S.schema({ case: undefined })]) }).with(S.to, S.protobuf)'
+  input: '{ d: number; f: number[]; o: { case: "n"; value: number; } | { case?: undefined; }; }'
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 11690
+jsonSchema:
+  input: "Failed at d: Expected JSON, received number | NaN"
+  output: Expected JSON, received Uint8Array
+isEqual:
+  input: (a,b)=>a===b||(typeof a.d==="number"&&a.d==a.d?typeof b.d==="number"&&b.d==b.d&&a.d===b.d:b.d!=b.d)&&e[0](a.f,b.f)&&(a.o.case==="n"?b.o.case==="n"&&(typeof a.o.value==="number"&&a.o.value==a.o.value?typeof b.o.value==="number"&&b.o.value==b.o.value&&a.o.value===b.o.value:b.o.value!=b.o.value):b.o.case===void 0)
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { d: number | NaN; f: (number | NaN)[]; o: { case: \"n\"; value: number | NaN; } | { case: undefined; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[11](i);let v0=i.d,v1=i.f,v5=i.o;for(;;){if(Number.isNaN(v0)){v0=NaN;break}if(typeof v0==="number"&&v0==v0)break;e[0](v0)}Array.isArray(v1)||e[2](v1);let v4=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){let v3=v1[v2];for(;;){if(Number.isNaN(v3)){v3=NaN;break}if(typeof v3==="number"&&v3==v3)break;e[1](v3,["f",v2])}v4[v2]=v3}if(typeof v5==="object"&&v5&&!Array.isArray(v5)){for(;;){if(v5.case==="n"){let v6=v5.value;for(;;){if(Number.isNaN(v6)){v6=NaN;break}if(typeof v6==="number"&&v6==v6)break;e[3](v6)}v5={case:v5.case,value:v6};break}if(v5.case===void 0){v5={case:v5.case};break}e[4](v5)}}else{e[5](v5)}let v7;{let w;try{w=e[9].acquire();let v,j,n,s,h,a,k,g,c,o;v=v0;if(v||v!==v||Object.is(v,-0)){w.pos<w.buf.length?w.buf[w.pos++]=9:w.varint32(9);w.float64(v)};v=v4;n=v.length;if(n){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();w.fixeds(v,1);w.end(h)};v=v5;switch(v&&v.case){case "n":w.pos<w.buf.length?w.buf[w.pos++]=25:w.varint32(25);w.float64(v.value);break;};v7=w.finish()}catch(x){w&&(w.busy=false);e[10](x)}}return v7}catch(v8){e[12](v8)}}
+    examples:
+      nan-everywhere:
+        input: '{ d: NaN, f: [NaN, 1.5], o: { case: "n", value: NaN } }'
+        output: new Uint8Array([9, 0, 0, 0, 0, 0, 0, 248, 127, 18, 8, 0, 0, 192, 127, 0, 0, 192, 63, 25, 0, 0, 0, 0, 0, 0, 248, 127])
+      infinity:
+        input: "{ d: Infinity, f: [-Infinity], o: { case: undefined } }"
+        output: new Uint8Array([9, 0, 0, 0, 0, 0, 0, 240, 127, 18, 4, 0, 0, 128, 255])
+      not-a-number:
+        input: '{ d: "1", f: [], o: { case: undefined } }'
+        error: 'Failed at d: Expected number | NaN, received "1"'
+  decode:
+    expression: i=>{try{let v0=i.f;let v2;{let w;try{w=e[3].acquire();let v,j,n,s,h,a,k,g,c,o;v=i.d;if(v||v!==v||Object.is(v,-0)){w.pos<w.buf.length?w.buf[w.pos++]=9:w.varint32(9);w.float64(v)};v=v0;n=v.length;if(n){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();w.fixeds(v,1);w.end(h)};v=i.o;switch(v&&v.case){case "n":w.pos<w.buf.length?w.buf[w.pos++]=25:w.varint32(25);w.float64(v.value);break;};v2=w.finish()}catch(x){w&&(w.busy=false);e[4](x)}}return v2}catch(v3){e[5](v3)}}
+    examples:
+      nan-in-oneof:
+        input: '{ d: 0, f: [], o: { case: "n", value: NaN } }'
+        output: new Uint8Array([25, 0, 0, 0, 0, 0, 0, 248, 127])
+  encode:
+    expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v1=v0.f;return v0}catch(v3){e[3](v3)}}
+    examples:
+      nan:
+        input: new Uint8Array([9, 0, 0, 0, 0, 0, 0, 248, 127, 25, 0, 0, 0, 0, 0, 0, 248, 127])
+        output: '{ d: NaN, f: [], o: { case: "n", value: NaN } }'

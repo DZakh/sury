@@ -18,6 +18,7 @@ import {
   type Path,
   refTag,
   setHas,
+  stringTag,
   tagFlags,
   U,
   undefinedTag,
@@ -62,6 +63,8 @@ type Field = {
   unset?: string;
   // A wrapper type's name, the scalar in `type` being what it boxes as field 1.
   box?: ProtobufType;
+  // A 64-bit field held as its decimal string, whose zero is "0".
+  text?: boolean;
 };
 
 type Message = {
@@ -488,6 +491,15 @@ const oneofRaw = (members: Internal[], conversions: [string, Internal, Internal]
   return mut;
 };
 
+// A field whose value lands as the schema declares it, with no conversion: an
+// enum of literals, unknown numbers included (the open enum proto3 specifies),
+// a float admitting NaN (`S.union([S.number, S.schema(NaN)])`, where `S.number`
+// alone refuses it), and a Struct, which is the JSON it holds.
+const keepsShape = (type: ProtobufType, shape: Internal): boolean =>
+  type === structType ||
+  (type === "enum" && (shape.type === anyOfTag || shape.const !== U)) ||
+  ((type === "double" || type === "float") && !!shape.anyOf?.some((member) => member.const !== member.const));
+
 const isRecordShape = (schema: Internal): boolean =>
   schema.type === objectTag && typeof schema.additionalItems === objectTag;
 
@@ -568,7 +580,7 @@ const compileMessage = (schema: Internal, ctx: Ctx): Message | undefined => {
           if (boxes[m.type] !== U) {
             return panic(`S.protobuf: oneof "${key}" case "${arm.case}" is a ${m.type}, which unboxes only as an S.optional field outside a list, a map or a oneof`);
           }
-          rawValue = m.type === "enum" && armShape.type === anyOfTag ? armShape : m.type === structType ? armShape : scalarSchema(m.type);
+          rawValue = keepsShape(m.type, armShape) ? armShape : scalarSchema(m.type);
         }
         rawMembers.push(armObject(arm.tag, rawValue));
         conversions.push([arm.case, rawValue, declaredValue]);
@@ -645,12 +657,7 @@ const compileMessage = (schema: Internal, ctx: Ctx): Message | undefined => {
       if (box !== U && (repeated || map !== U || metadata.oneof !== U || !optional)) {
         return panic(`S.protobuf: field "${key}" is a ${metadata.type}, which unboxes only as an S.optional field outside a list, a map or a oneof`);
       }
-      // An enum declared as integer literals keeps its own schema on the raw
-      // side: the wire value lands as is, unknown numbers included, the open
-      // enum proto3 specifies. A Struct lands as the JSON it holds.
-      raw = metadata.type === "enum" && shape.type === anyOfTag ? shape
-        : metadata.type === structType ? shape
-        : scalarSchema(box || metadata.type);
+      raw = keepsShape(metadata.type, shape) ? shape : scalarSchema(box || metadata.type);
     }
     // A repeated or map message keeps the user's container (its length
     // checks included) around the normalized nested schema, not the user's:
@@ -687,6 +694,7 @@ const compileMessage = (schema: Internal, ctx: Ctx): Message | undefined => {
       wire: box ? 2 : wireType(metadata.type),
     };
     if (box) field.box = metadata.type;
+    if (shape.type === stringTag && field.type.includes("64")) field.text = true;
     fields.push(field);
   }
   fields.sort((a, b) => a.number - b.number);
@@ -1423,7 +1431,10 @@ const oneofConflict = (name: string): never => {
   throw Error(`protobuf oneof "${name}" has more than one member set`);
 };
 
+// A 64-bit field held as a string (`jstype = JS_STRING`) arrives as its decimal
+// digits, where a 32-bit one converts on its own.
 const checkedBigint = (value: unknown, min: bigint, max: bigint, type: string): bigint => {
+  if (typeof value === "string" && /^-?\d+$/.test(value)) value = BigInt(value);
   if (typeof value !== "bigint" || value < min || value > max) throw Error(`invalid ${type}`);
   return value;
 };
@@ -1631,6 +1642,7 @@ const keyToWire = (type: ProtobufType, num: string): string => {
 // val), so the write skips the coercion a nested encoder's untyped read needs.
 const fieldLive = (field: Field, numeric: boolean): string =>
   field.optional || field.type === structType ? "v!=null"
+  : field.text ? "v&&v!=0"
   : field.type === "bytes" ? "v.length"
   : field.type === "float" || field.type === "double" ? "v||v!==v||Object.is(v,-0)"
   : field.type === "string" || field.type === "bool" || field.type.includes("64") || numeric ? "v"
@@ -2085,7 +2097,8 @@ const uniqueName = (name: string, used: Set<string>, taken?: (name: string) => b
 
 // The members of an enum shape, a union of integer literals.
 const enumValues = (shape: Internal, values = new Set<number>()): number[] => {
-  for (let idx = 0; idx < shape.anyOf!.length; idx++) {
+  if (shape.anyOf === U) values.add(shape.const as number);
+  else for (let idx = 0; idx < shape.anyOf.length; idx++) {
     const member = getOutputSchema(shape.anyOf![idx]!);
     if (member.type === numberTag) values.add(member.const as number);
     else if (member.type === anyOfTag) enumValues(member, values);
@@ -2093,7 +2106,7 @@ const enumValues = (shape: Internal, values = new Set<number>()): number[] => {
   return [...values].sort((a, b) => a - b);
 };
 
-const isEnumShape = ({ field, shape }: Use): boolean => field.type === "enum" && shape.type === anyOfTag;
+const isEnumShape = ({ field, shape }: Use): boolean => field.type === "enum" && (shape.type === anyOfTag || shape.const !== U);
 
 // What a field's message or enum is the same type as. `.with` copies a schema
 // but shares its properties, so a message is its properties object, or that

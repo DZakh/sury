@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ id: S.protobufField(S.string, { number: 1, type: "int64" }), big: S.protobufField(S.string, { number: 2, type: "uint64" }), s: S.protobufField(S.string, { number: 3, type: "sint64" }) }).with(S.to, S.protobuf)'
+  input: "{ id: string; big: string; s: string; }"
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 5322
+jsonSchema:
+  input: '{ type: "object", properties: { id: { type: "string" }, big: { type: "string" }, s: { type: "string" } }, required: ["id", "big", "s"] }'
+  output: Expected JSON, received Uint8Array
+isEqual:
+  input: (a,b)=>a===b||a.id===b.id&&a.big===b.big&&a.s===b.s
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { id: string; big: string; s: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[8](i);let v0=i.id,v1=i.big,v2=i.s;typeof v0==="string"||e[0](v0);typeof v1==="string"||e[1](v1);typeof v2==="string"||e[2](v2);let v3;{let w;try{w=e[6].acquire();let v,j,n,s,h,a,k,g,c,o;v=v0;if(v&&v!=0){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);w.varint64(e[4](v,-9223372036854775808n,9223372036854775807n,"int64"))};v=v1;if(v&&v!=0){w.pos<w.buf.length?w.buf[w.pos++]=16:w.varint32(16);w.varint64(e[4](v,0n,18446744073709551615n,"uint64"))};v=v2;if(v&&v!=0){w.pos<w.buf.length?w.buf[w.pos++]=24:w.varint32(24);s=e[4](v,-9223372036854775808n,9223372036854775807n,"sint64");w.varint64((s<<1n)^(s>>63n))};v3=w.finish()}catch(x){w&&(w.busy=false);e[7](x)}}return v3}catch(v4){e[9](v4)}}
+    examples:
+      digits:
+        input: '{ id: "-1", big: "18446744073709551615", s: "-9223372036854775808" }'
+        output: new Uint8Array([8, 255, 255, 255, 255, 255, 255, 255, 255, 255, 1, 16, 255, 255, 255, 255, 255, 255, 255, 255, 255, 1, 24, 255, 255, 255, 255, 255, 255, 255, 255, 255, 1])
+      zero-elided:
+        input: '{ id: "0", big: "0", s: "0" }'
+        output: new Uint8Array([])
+      out-of-range:
+        input: '{ id: "0", big: "18446744073709551616", s: "0" }'
+        error: invalid uint64
+      not-digits:
+        input: '{ id: "1.5", big: "0", s: "0" }'
+        error: invalid int64
+  decode:
+    expression: i=>{try{let v0;{let w;try{w=e[3].acquire();let v,j,n,s,h,a,k,g,c,o;v=i.id;if(v&&v!=0){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);w.varint64(e[1](v,-9223372036854775808n,9223372036854775807n,"int64"))};v=i.big;if(v&&v!=0){w.pos<w.buf.length?w.buf[w.pos++]=16:w.varint32(16);w.varint64(e[1](v,0n,18446744073709551615n,"uint64"))};v=i.s;if(v&&v!=0){w.pos<w.buf.length?w.buf[w.pos++]=24:w.varint32(24);s=e[1](v,-9223372036854775808n,9223372036854775807n,"sint64");w.varint64((s<<1n)^(s>>63n))};v0=w.finish()}catch(x){w&&(w.busy=false);e[4](x)}}return v0}catch(v1){e[5](v1)}}
+    examples:
+      digits:
+        input: '{ id: "150", big: "1", s: "-1" }'
+        output: new Uint8Array([8, 150, 1, 16, 1, 24, 1])
+  encode:
+    expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}return {id:""+v0.id,big:""+v0.big,s:""+v0.s}}catch(v1){e[3](v1)}}
+    examples:
+      digits:
+        input: new Uint8Array([8, 150, 1, 16, 1, 24, 1])
+        output: '{ id: "150", big: "1", s: "-1" }'

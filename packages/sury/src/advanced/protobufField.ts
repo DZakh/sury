@@ -196,7 +196,10 @@ export const protobufField = (schema: Internal, field: number | ProtobufField): 
   if (mapKeyTypes[key] !== true) {
     return panic(`S.protobufField requires an integral, bool or string map key type`);
   }
-  if (type === "enum" && !literalEnum && (shape.const !== U || shape.type !== numberTag)) {
+  // A lone literal is an enum only when declared one and zero, which proto3
+  // requires every enum to have: a one-member enum, such as
+  // google.protobuf.NullValue.
+  if (type === "enum" && !literalEnum && (shape.type !== numberTag || (shape.const !== U && shape.const !== 0))) {
     return panic(`S.protobufField requires an enum to be a number schema or a union of int32 literals`);
   }
   // Declared as a scalar, the writer would take the object for a number and
