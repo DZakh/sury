@@ -1530,16 +1530,18 @@ S.toProtoOrThrow(DescriptorProto);
 ```
 
 The name you give `S.recursive` is the name the message prints under. Decoding
-stops at 100 levels of nesting, the limit Google's own implementations use, so
-a crafted message cannot exhaust the stack. Encoding has no such limit, the way
-those implementations don't either, so a value nested deeper than that writes
-bytes no conformant reader will take back - Sury's own included.
+stops at 100 levels of nesting, the default Google's own implementations use,
+so a crafted message cannot exhaust the stack. Encoding has no such limit, the
+way those implementations don't either, so a value nested deeper than that
+writes bytes Sury refuses to read back, as do those implementations until
+their limit is raised.
 
-What a message may not do is hold itself in a *required singular* field: a
-message absent from the wire decodes to its default instance, so such a field
-would build one forever, and there is no finite value of that type either.
-`S.protobuf` says so when the operation is built, naming the field. Make it
-optional or repeated.
+What a message may not do is reach itself through *required singular* fields
+alone, directly or by way of another message: a message absent from the wire
+decodes to its default instance, so such a cycle would build one forever, and
+there is no finite value of that type either. `S.protobuf` says so when the
+operation is built, naming the field. Make one field in the cycle optional or
+repeated.
 
 **Output memory.** An encoded message is a view into a larger buffer, like a
 Node `Buffer`: `bytes.buffer` is bigger than `bytes.byteLength` and
@@ -1899,9 +1901,18 @@ S.recursive<Entry>("Entry", (entry) =>
 // [Sury] Can't set default for Entry | undefined: the default is read as Entry, which would need a default of its own
 ```
 
-Write `S.optional(entry)` and read the absence. The finished schema is another
-matter, since nothing is being defined around it: `S.optional(entrySchema, { id: "root" })`
-supplies the default once and the `parent` inside it stays absent.
+Write `S.optional(entry)` and read the absence. A default on the finished
+schema is fine, since nothing is being defined around it, and the `parent`
+inside it stays absent:
+
+```ts
+const entrySchema = S.recursive<Entry>("Entry", (entry) =>
+  S.schema({ id: S.string, parent: S.optional(entry) })
+);
+
+S.parseOrThrow(S.optional(entrySchema, { id: "root" }), undefined);
+// { id: "root", parent: undefined }
+```
 
 > 🧠 Despite supporting recursive schema, passing cyclical data will cause an infinite loop.
 

@@ -341,9 +341,8 @@ const refinedAs = (from: Internal, standin: Internal): Internal => {
 // object the wire decoder fills still converts into the value the schema
 // declares - a default supplied, a refinement checked - and a plain object on
 // either side would be an endless tree. Each carries the definition it stands
-// for, assigned once the message finishes building; `$ref` and `name` are for
-// reading, so two messages `S.recursive` gave one name stay two definitions
-// here whatever they say.
+// for; `$ref` and `name` are for reading, so two messages `S.recursive` gave
+// one name stay two definitions here whatever they say.
 //
 // Built rather than copied from the user's ref: that one may carry a chain, a
 // refinement or meta of its own, all of which belong to the one place the user
@@ -351,13 +350,14 @@ const refinedAs = (from: Internal, standin: Internal): Internal => {
 const recurse = (message: Message, ctx: Ctx): [Internal, Internal] => {
   if (message.rec === U) {
     ctx.rec = true;
-    const ref = (): Internal => {
+    const ref = (definition: Internal): Internal => {
       const standin = baseSchema(refTag, false, ctx.dec!);
       standin["$ref"] = defsPath + message.name;
       standin.name = message.name;
+      standin.definition = definition;
       return standin;
     };
-    message.rec = [ref(), ref()];
+    message.rec = [ref(message.raw), ref(message.schema)];
   }
   return message.rec;
 };
@@ -401,12 +401,16 @@ const compileMessage = (schema: Internal, ctx: Ctx): Message | undefined => {
   if (typeof output.additionalItems === objectTag) return U;
   const built = ctx.messages.get(output);
   if (built !== U) return built;
+  // Both definitions exist before the fields are walked and are filled in
+  // once they are: a field that closes a cycle takes a standin carrying them
+  // while the message is still building, and a copy of that standin - one a
+  // refinement makes - has to carry them too.
   const msg: Message = {
     fields: [],
     strict: output.additionalItems === "strict",
     object: output,
-    raw: output,
-    schema: output,
+    raw: baseSchema(objectTag, false, objectDecoder),
+    schema: copySchema(output),
     name: ctx.names.has(output) ? ctx.names.get(output) : output.name,
   };
   ctx.messages.set(output, msg);
@@ -505,21 +509,14 @@ const compileMessage = (schema: Internal, ctx: Ctx): Message | undefined => {
     fields.push(field);
   }
   fields.sort((a, b) => a.number - b.number);
-  const raw = baseSchema(objectTag, false, objectDecoder);
+  const { raw, schema: normalized } = msg;
   raw.properties = rawProperties;
   raw.required = rawRequired;
   raw.additionalItems = output.additionalItems === "strict" ? "strict" : "strip";
-  const normalized = copySchema(output);
   normalized.properties = normalizedProperties;
   normalized.required = rawRequired;
   delete normalized.to;
   msg.fields = fields;
-  msg.raw = raw;
-  msg.schema = normalized;
-  if (msg.rec !== U) {
-    msg.rec[0].definition = raw;
-    msg.rec[1].definition = normalized;
-  }
   ctx.stack.pop();
   return msg;
 };

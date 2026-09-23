@@ -1644,8 +1644,9 @@ let descriptorSchema = S.recursive("DescriptorProto", descriptorSchema => {
 ```
 
 It prints under the name given to `recursive`, and decoding stops at 100 levels
-of nesting. The one shape refused is a message holding itself in a required
-field, which no finite value could fill.
+of nesting. The one shape refused is a message reaching itself through required
+singular fields alone, directly or by way of another message, which no finite
+value could fill.
 
 See [Protocol Buffers in the JS guide](./js-usage.md#protocol-buffers) for the
 wire-level detail the two languages share, including what the conformance
