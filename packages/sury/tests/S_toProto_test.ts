@@ -127,7 +127,7 @@ test("toProtoOrThrow rejects what the wire rejects, with the same message", (t) 
     '[Sury] S.protobuf: field "me" makes "Endless" hold itself with no way to end. Make it optional or repeated',
   );
   t.expect(() => S.toProtoOrThrow(S.schema({ a: S.string }))).toThrow(
-    '[Sury] S.protobuf: field "a" has no field number. Give it one with S.protobufField',
+    '[Sury] S.protobuf: field "a" has no field number. Give it one with S.protobufField, or make it a oneof: a union of { case, value } objects',
   );
 });
 

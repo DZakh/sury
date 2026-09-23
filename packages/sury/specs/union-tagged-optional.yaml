@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.optional(S.union([S.schema({ kind: "a", value: S.string }), S.schema({ kind: "b", value: S.int32 })]))'
+  input: '{ kind: "a"; value: string; } | { kind: "b"; value: number; } | undefined'
+  output: '{ kind: "a"; value: string; } | { kind: "b"; value: number; } | undefined'
+  instantiations: 4815
+jsonSchema:
+  input: 'Expected JSON, received { kind: "a"; value: string; } | { kind: "b"; value: int32; } | undefined'
+  output: 'Expected JSON, received { kind: "a"; value: string; } | { kind: "b"; value: int32; } | undefined'
+isEqual: (a,b)=>a===b||(a!=null&&a.kind==="a"?b!=null&&b.kind==="a"&&a.value===b.value:a!=null&&a.kind==="b"?b!=null&&b.kind==="b"&&a.value===b.value:b===void 0)
+compare: "throws: [Sury] Can't compare { kind: \"a\"; value: string; } | { kind: \"b\"; value: int32; } | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod: 'z.optional(z.discriminatedUnion("kind", [z.object({ kind: z.literal("a"), value: z.string() }), z.object({ kind: z.literal("b"), value: z.number().int() })]))'
+operations:
+  parse:
+    expression: i=>{try{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.kind==="a"){let v0=i.value;typeof v0==="string"||e[0](v0);i={kind:i.kind,value:v0};break}if(i.kind==="b"){let v1=i.value;typeof v1==="number"&&v1<=2147483647&&v1>=-2147483648&&v1%1==0||e[1](v1);i={kind:i.kind,value:v1};break}e[2](i)};break}if(i===void 0)break;e[3](i)}return i}catch(v2){e[4](v2)}}
+    examples:
+      absent:
+        input: undefined
+        output: undefined
+      a:
+        input: '{ kind: "a", value: "x" }'
+        output: '{ kind: "a", value: "x" }'
+      b:
+        input: '{ kind: "b", value: 1 }'
+        output: '{ kind: "b", value: 1 }'
+      unknown-kind:
+        input: '{ kind: "c", value: 1 }'
+        error: 'Expected { kind: "a"; value: string; } | { kind: "b"; value: int32; } | undefined, received { kind: "c"; value: 1; }'
+  decode: identity
+  encode: identity

@@ -25,6 +25,7 @@ import {
   type Val,
 } from "../base";
 import {
+  _notVarBeforeValidation,
   _var,
   B_embed,
   B_embedPure,
@@ -53,6 +54,12 @@ type Field = {
   // Key type of a map field; unset for anything else.
   map?: ProtobufType;
   oneof?: string;
+  // A member of a `{ case, value }` oneof: the case naming it, its numbered
+  // value schema, and what the property holds while no member is set. The
+  // members share the property, `key`.
+  case?: string;
+  arm?: Internal;
+  unset?: string;
 };
 
 type Message = {
@@ -382,6 +389,99 @@ const rejectEndless = (ctx: Ctx): void => {
   ctx.messages.forEach((message) => message.rec && walk(message));
 };
 
+type Arm = { case: string; tag: Internal; value: Internal; metadata: StoredField };
+
+// A oneof held the way protobuf-es holds one: a union of `{ case, value }`
+// objects, each `value` numbered, plus the arm for no member set - an object
+// whose `case` is `undefined`, or `undefined` itself. The property has no number
+// of its own; anything else without one is not a oneof, and the caller says so.
+const oneofArms = (property: Internal): [Arm[], Internal | undefined, boolean] | undefined => {
+  const output = getOutputSchema(property);
+  if (output.type !== anyOfTag || output.anyOf === U) return U;
+  const arms: Arm[] = [];
+  let unset: Internal | undefined;
+  let optional = false;
+  for (let idx = 0; idx < output.anyOf.length; idx++) {
+    const member = getOutputSchema(output.anyOf[idx]!);
+    if (member.type === undefinedTag) {
+      optional = true;
+      continue;
+    }
+    const tag = member.type === objectTag && member.properties !== U ? member.properties["case"] : U;
+    if (tag === U) return U;
+    if (getOutputSchema(tag).type === undefinedTag) {
+      unset = member;
+      continue;
+    }
+    const value = member.properties!["value"];
+    const metadata = value === U ? U : fieldMetadata(value);
+    if (typeof tag.const !== "string" || metadata === U || Object.keys(member.properties!).length !== 2) return U;
+    arms.push({ case: tag.const, tag, value: value!, metadata });
+  }
+  return arms.length ? [arms, unset, optional] : U;
+};
+
+// Parses the `value` of the arm `holder` is known to hold, read in place. The
+// code, or "" when all it did was read the value into a var of its own - which
+// an object parse does before looking at any field - so a nested message with
+// nothing to convert costs nothing.
+const armParse = (input: Val, holder: string, raw: Internal, declared: Internal): string => {
+  const read = `${holder}.value`;
+  const valueIn = B_scope(input);
+  valueIn.i = read;
+  valueIn.v = _notVarBeforeValidation;
+  valueIn.io = false;
+  valueIn.s = raw;
+  valueIn.e = declared;
+  const valueOut = parse(valueIn);
+  const code = B_merge(valueOut);
+  if (valueOut.t) return `${code}${read}=${valueOut.i};`;
+  return code === "" || code === `let ${valueOut.i}=${read};` ? "" : code + (valueOut.i === read ? "" : `${read}=${valueOut.i};`);
+};
+
+// Converts a decoded `{ case, value }` into the declared arm, and only where an
+// arm has anything to convert - a nested message's defaults, a field read as a
+// string - so a oneof of plain values decodes straight into its final shape.
+// The decoder built the object, so the value is replaced in place.
+const oneofRaw = (members: Internal[], conversions: [string, Internal, Internal][], optional: boolean): Internal => {
+  const mut = anyOf(members);
+  mut.encoder = (input, target) => {
+    let work = false;
+    for (let idx = 0; idx < conversions.length && !work; idx++) {
+      const [, raw, declared] = conversions[idx]!;
+      work = armParse(input, input.i, raw, declared) !== "";
+    }
+    if (!work) {
+      const output = B_next(input, input.i, getOutputSchema(target), target);
+      output.t = U;
+      return output;
+    }
+    const v = input.v();
+    let body = "";
+    for (const [name, raw, declared] of conversions) {
+      const arm = armParse(input, v, raw, declared);
+      if (arm !== "") body += `${body ? "else " : ""}if(${optional ? `(${v}&&${v}.case)` : `${v}.case`}===${JSON.stringify(name)}){${arm}}`;
+    }
+    const output = B_next(input, v, getOutputSchema(target), target);
+    output.v = _var;
+    output.io = true;
+    output.cp = body;
+    return output;
+  };
+  return mut;
+};
+
+const armObject = (tag: Internal, value: Internal): Internal => {
+  const mut = baseSchema(objectTag, false, objectDecoder);
+  const properties: Record<string, Internal> = Object.create(null);
+  properties["case"] = tag;
+  properties["value"] = value;
+  mut.properties = properties;
+  mut.required = ["case", "value"];
+  mut.additionalItems = "strip";
+  return mut;
+};
+
 const compileMessage = (schema: Internal, ctx: Ctx): Message | undefined => {
   const output = firstObject(schema, ctx);
   if (output === U || output.properties === U) return U;
@@ -411,7 +511,67 @@ const compileMessage = (schema: Internal, ctx: Ctx): Message | undefined => {
     const key = keys[idx]!;
     const property = output.properties[key]!;
     const metadata = fieldMetadata(property);
-    if (metadata === U) return panic(`S.protobuf: field "${key}" has no field number. Give it one with S.protobufField`);
+    if (metadata === U) {
+      const group = oneofArms(property);
+      if (group === U) return panic(`S.protobuf: field "${key}" has no field number. Give it one with S.protobufField, or make it a oneof: a union of { case, value } objects`);
+      const [arms, unsetArm, groupOptional] = group;
+      if (unsetArm === U && !groupOptional) {
+        return panic(`S.protobuf: oneof "${key}" has no arm for no member set. Add S.schema({ case: undefined }) to its union`);
+      }
+      const rawMembers: Internal[] = [];
+      const conversions: [string, Internal, Internal][] = [];
+      const cases = new Set<string>();
+      for (let armIdx = 0; armIdx < arms.length; armIdx++) {
+        const arm = arms[armIdx]!;
+        const m = arm.metadata;
+        if (cases.has(arm.case)) return panic(`S.protobuf: oneof "${key}" has case "${arm.case}" twice`);
+        cases.add(arm.case);
+        if (numbers.has(m.number)) return panic(`S.protobuf: field number ${m.number} of "${key}" is already taken`);
+        numbers.add(m.number);
+        const [armValue, armOptional] = unwrapOptional(arm.value);
+        const armShape = getOutputSchema(armValue);
+        if (armOptional || (typeof armShape.additionalItems === objectTag && (armShape.type === arrayTag || armShape.type === objectTag))) {
+          return panic(`S.protobuf: oneof "${key}" case "${arm.case}" must hold one value, not an optional, a list or a map`);
+        }
+        let rawValue: Internal;
+        let declaredValue = arm.value;
+        let message: Message | undefined;
+        if (m.type === "message") {
+          message = compileMessage(arm.value, ctx);
+          if (message === U) return panic(`S.protobuf: oneof "${key}" case "${arm.case}" is a message but its schema is not an object`);
+          if (getOutputSchema(message.object) !== message.object) {
+            return panic(`S.protobuf: oneof "${key}" case "${arm.case}" is a message that converts further with S.to, which a nested field can't`);
+          }
+          [rawValue, declaredValue] = ctx.stack.includes(message) ? recurse(message, ctx) : [message.raw, message.schema];
+          declaredValue = refinedAs(arm.value, declaredValue);
+        } else {
+          rawValue = m.type === "enum" && armShape.type === anyOfTag ? armShape : scalarSchema(m.type);
+        }
+        rawMembers.push(armObject(arm.tag, rawValue));
+        conversions.push([arm.case, rawValue, declaredValue]);
+        fields.push({
+          number: m.number,
+          type: m.type,
+          packed: m.packed,
+          key,
+          repeated: false,
+          // Absent unless its case is set, so it never builds a default instance.
+          optional: true,
+          message,
+          oneof: key,
+          wire: wireType(m.type),
+          case: arm.case,
+          arm: arm.value,
+          unset: unsetArm === U ? "void 0" : "{case:void 0}",
+        });
+      }
+      if (unsetArm !== U) rawMembers.push(unsetArm);
+      if (groupOptional) rawMembers.push(unit);
+      else rawRequired.push(key);
+      rawProperties[key] = oneofRaw(rawMembers, conversions, groupOptional);
+      normalizedProperties[key] = property;
+      continue;
+    }
     if (numbers.has(metadata.number)) return panic(`S.protobuf: field number ${metadata.number} of "${key}" is already taken`);
     numbers.add(metadata.number);
     const [propertyValue, optional, absent] = unwrapOptional(property);
@@ -1357,7 +1517,7 @@ const encodeBody = (
   const first = new Map<string, Field>();
   const last = new Map<string, Field>();
   for (const field of msg.fields) {
-    if (field.oneof === U) continue;
+    if (field.oneof === U || field.case !== U) continue;
     if (!first.has(field.oneof)) first.set(field.oneof, field);
     last.set(field.oneof, field);
   }
@@ -1374,9 +1534,28 @@ const encodeBody = (
     return (first.get(name!) === field ? "" : `${test}&&${conflict}(${JSON.stringify(name)});`) +
       (last.get(name!) === field ? "" : `o|=${bit};`);
   };
+  // A `{ case, value }` oneof holds one member by construction, so it is one
+  // switch, written where its lowest-numbered member sits.
+  const switched = new Set<string>();
   for (let idx = 0; idx < msg.fields.length; idx++) {
     const field = msg.fields[idx]!;
     const tag = field.number * 8 + field.wire;
+    if (field.case !== U) {
+      if (switched.has(field.key)) continue;
+      switched.add(field.key);
+      let arms = "";
+      for (const member of msg.fields) {
+        if (member.key !== field.key || member.case === U) continue;
+        const memberTag = member.number * 8 + member.wire;
+        arms += `case ${JSON.stringify(member.case)}:${writeTag(memberTag)};${
+          member.type === "message"
+            ? `h=w.begin();${fns.get(member.message!)!}(w,v.value);w.end(h)`
+            : writeCall(member.type, "v.value", num, big)
+        };break;`;
+      }
+      body.push(`v=${read(field.key).expr};switch(v&&v.case){${arms}}`);
+      continue;
+    }
     const { expr: src, numeric } = read(field.key);
     if (field.map !== U) {
       const keyType = field.map;
@@ -1447,17 +1626,35 @@ const decodeFnSource = (msg: Message, fns: Map<Message, string>, slot: number): 
   let literal = "";
   let optional = "";
   let fill = "";
+  // One local per `{ case, value }` oneof, its first member's.
+  const groups = new Map<string, string>();
   for (let idx = 0; idx < fields.length; idx++) {
     const field = fields[idx]!;
-    const local = `f${idx}`;
     const key = JSON.stringify(field.key);
     const read = readKey("o", field.key);
+    if (field.case !== U) {
+      let local = groups.get(field.key);
+      if (local === U) {
+        groups.set(field.key, (local = `f${idx}`));
+        locals.push(`${local}=${field.unset}`);
+        fromPrev.push(`${local}=${read}`);
+        literal += `${field.key === "__proto__" ? '["__proto__"]' : key}:${local},`;
+      }
+      const name = JSON.stringify(field.case);
+      cases.push(
+        field.type === "message"
+          ? `case ${field.number}:if(w===2){p=r.sub();${local}={case:${name},value:${fns.get(field.message!)!}(r,d+1,(${local}&&${local}.case)===${name}?${local}.value:void 0)};r.limit=p;continue}break;`
+          : `case ${field.number}:if(w===${field.wire}){${local}={case:${name},value:${readCall(field.type)}};continue}break;`
+      );
+      continue;
+    }
+    const local = `f${idx}`;
     locals.push(`${local}=${emitDefault(field)}`);
     fromPrev.push(`${local}=${read}`);
     let arm = `case ${field.number}:`;
     if (field.oneof !== U) {
       for (let other = 0; other < fields.length; other++) {
-        if (other !== idx && fields[other]!.oneof === field.oneof) arm += `f${other}=void 0;`;
+        if (other !== idx && fields[other]!.oneof === field.oneof && fields[other]!.case === U) arm += `f${other}=void 0;`;
       }
     }
     if (field.map !== U) {
@@ -1691,7 +1888,7 @@ const usesOf = (proto: Proto, message: Message): Use[] => {
   let uses = proto.uses.get(message);
   if (uses === U) {
     uses = message.fields.map((field) => {
-      const schema = message.object.properties![field.key]!;
+      const schema = field.arm || message.object.properties![field.key]!;
       let value = unwrapOptional(schema)[0];
       if (field.repeated || field.map !== U) value = getOutputSchema(value).additionalItems as Internal;
       const shape = field.message !== U ? field.message.object : getOutputSchema(value);
@@ -1876,7 +2073,7 @@ const declareType = (
     return reserved;
   }
   // Fields and nested types share a message's scope.
-  const typeName = uniqueName(protoTypeName(use.field.key), scope, (n) => proto.used.has(n) || fieldNames.has(n));
+  const typeName = uniqueName(protoTypeName(use.field.case ?? use.field.key), scope, (n) => proto.used.has(n) || fieldNames.has(n));
   const qualified = `${parent}.${typeName}`;
   proto.names.set(key, qualified);
   nested.push(...body(decl, typeName, `${indent}  `, members));
@@ -1942,9 +2139,10 @@ const messageBody = (
   const printedNames = new Map<Field, string>();
   const oneofNames = new Map<string, string>();
   for (const field of message.fields) {
-    const printed = protoFieldName(field.key);
+    const own = field.case ?? field.key;
+    const printed = protoFieldName(own);
     printedNames.set(field, printed);
-    claim(printed, field.key, printed.replace(/_+(.)?/g, (_, next: string | undefined) => (next ? next.toUpperCase() : "")));
+    claim(printed, own, printed.replace(/_+(.)?/g, (_, next: string | undefined) => (next ? next.toUpperCase() : "")));
   }
   for (const field of message.fields) {
     if (field.oneof !== U && !oneofs.has(field.oneof)) {

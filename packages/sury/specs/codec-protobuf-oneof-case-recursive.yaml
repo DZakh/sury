@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.recursive("Tree", (self) => S.schema({ kids: S.union([S.schema({ case: "leaf", value: S.protobufField(S.int32, { number: 1, type: "int32" }) }), S.schema({ case: "node", value: S.protobufField(self, { number: 2, type: "message" }) }), S.schema({ case: undefined })]) })).with(S.to, S.protobuf)'
+  input: unknown
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 16245
+jsonSchema:
+  input: "Failed at kids.case: Expected JSON, received undefined"
+  output: Expected JSON, received Uint8Array
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare Tree. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{try{let v0;v0=e[0](i);let v1;{let w;try{w=e[5].acquire();let v,j,n,s,h,a,k,g,c,o;v=v0["kids"];switch(v&&v.case){case "leaf":w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=v.value;if(s<-2147483648||s>2147483647)e[2](s,-2147483648,2147483647,"int32");s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s);break;case "node":w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[1](w,v.value);w.end(h);break;};v1=w.finish()}catch(x){w&&(w.busy=false);e[6](x)}}return v1}catch(v2){e[7](v2)}}
+    examples:
+      leaf:
+        input: '{ kids: { case: "leaf", value: 5 } }'
+        output: new Uint8Array([8, 5])
+  decode:
+    expression: i=>{try{e[0](i);let v0;{let w;try{w=e[5].acquire();let v,j,n,s,h,a,k,g,c,o;v=i["kids"];switch(v&&v.case){case "leaf":w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=v.value;if(s<-2147483648||s>2147483647)e[2](s,-2147483648,2147483647,"int32");s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s);break;case "node":w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[1](w,v.value);w.end(h);break;};v0=w.finish()}catch(x){w&&(w.busy=false);e[6](x)}}return v0}catch(v1){e[7](v1)}}
+    examples:
+      nested:
+        input: '{ kids: { case: "node", value: { kids: { case: "node", value: { kids: { case: "leaf", value: 5 } } } } } }'
+        output: new Uint8Array([18, 4, 18, 2, 8, 5])
+  encode:
+    expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v1;v1=e[3](v0);return v1}catch(v2){e[4](v2)}}
+    examples:
+      nested:
+        input: new Uint8Array([18, 4, 18, 2, 8, 5])
+        output: '{ kids: { case: "node", value: { kids: { case: "node", value: { kids: { case: "leaf", value: 5 } } } } } }'
+      empty-node:
+        input: new Uint8Array([18, 0])
+        output: '{ kids: { case: "node", value: { kids: { case: undefined } } } }'
