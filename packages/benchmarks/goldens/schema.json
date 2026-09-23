@@ -24,7 +24,7 @@
         "label": "What this schema ships",
         "note": "the seven fields above, after tree-shaking",
         "cells": [
-          9073,
+          9072,
           64686,
           22568,
           1304,
@@ -37,7 +37,7 @@
         "label": "Everything the library exports",
         "note": "the ceiling, for an app that ends up using all of it",
         "cells": [
-          55356,
+          56103,
           65989,
           31148,
           15101,

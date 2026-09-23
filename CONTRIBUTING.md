@@ -349,6 +349,24 @@ case the harness *should* have caught or guided better - a missing check, a weak
 error message, a strictness gap that let a bad spec through - add a bullet here
 instead of silently working around it.
 
+- A spec has no way to record a schema that throws while it is being *built*.
+  `creationError` covers a throw from compiling an operation, but `--ts did not
+  evaluate` is the end of the road for a schema whose construction throws, and
+  a construction that throws on purpose is a contract like any other:
+  `S.recursive("N", (n) => S.schema({ kid: S.optional(n, x) }))` is refused
+  there, because the default would be read as `N` and need a default of its
+  own. Rules like that are left with nowhere to be pinned but a test. A
+  `constructionError` beside `creationError` would hold them.
+
+- A spec records what an operation does, never what compiling it leaves behind
+  on a schema that is not the subject. The parse loop used to adopt the first
+  `$defs` record it met by reference, so compiling an object holding two
+  independent `S.recursive` schemas merged the second's definitions into the
+  first schema's own record and left it corrupted for the rest of the program -
+  every spec passed, and the reproduction had to be a test file. A spec could
+  carry the schemas it must not disturb, comparing a snapshot of each before and
+  after the operations are compiled.
+
 - An example's `error` is matched verbatim, and `errorConstructor` is the
   opt-out for a message that belongs to the platform rather than to Sury.
   Nothing points an author at it: the failure is a golden that passed locally

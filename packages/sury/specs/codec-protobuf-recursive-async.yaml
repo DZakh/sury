@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.recursive("Node", (node) => S.schema({ v: S.string.with(S.to, S.string, { decode: { async: async (x) => { if (x === "bad") { throw new Error("rejected") } return x + "!" } }, encode: (x) => x.slice(0, -1) }).with(S.protobufField, 1), kid: S.optional(node).with(S.protobufField, 2) })).with(S.to, S.protobuf)'
+  input: unknown
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 8858
+jsonSchema:
+  input: '{ $ref: "#/$defs/Node", $defs: { Node: { type: "object", properties: { v: { type: "string" }, kid: { $ref: "#/$defs/Node" } }, required: ["v"] } } }'
+  fromInputType: "{ v: string; kid?: ... | undefined; }"
+  output: Expected JSON, received Uint8Array
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare Node. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    isAsync: true
+    expression: i=>{try{let v0;v0=e[0](i);return v0.then(v0=>{let v1;{let w;try{w=e[5].acquire();let v,j,n,s,h,a,k,g,c,o;v=v0["v"];if(v){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(v)};v=v0["kid"];if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[1](w,v);w.end(h)};v1=w.finish()}catch(x){w&&(w.busy=false);e[6](x)}}return v1}).catch(e[7])}catch(v2){return e[8](v2)}}
+    examples:
+      nested:
+        input: '{ v: "a", kid: { v: "b", kid: undefined } }'
+        output: new Uint8Array([10, 2, 97, 33, 18, 4, 10, 2, 98, 33])
+      # FIXME: an async rejection inside a union arm (`S.optional` is one)
+      # escapes as the bare error rather than a failure with a path, and the
+      # recursive call above it then reads `path` off that bare error. Not
+      # protobuf or recursion: `async-optional-rejection` has it with neither.
+      rejected-deep:
+        input: '{ v: "a", kid: { v: "bad", kid: undefined } }'
+        error: "TypeError: v4.path is not iterable"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v1;v1=e[3](v0);return v1}catch(v2){e[4](v2)}}
+    examples:
+      nested:
+        input: new Uint8Array([10, 2, 97, 33, 18, 4, 10, 2, 98, 33])
+        output: '{ v: "a", kid: { v: "b", kid: undefined } }'

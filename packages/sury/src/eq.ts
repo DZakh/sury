@@ -623,7 +623,13 @@ const refExpr = (ctx: Ctx, schema: Internal, a: string, b: string): string => {
   // `S.json` describes every JSON value, which is precisely what the structural
   // comparison already covers, and unrolling its `$ref` cycle would emit a
   // comparator for each arm of it.
-  const def = schema.name === jsonName ? U : ctx.d?.[schema["$ref"]!.slice(8)];
+  //
+  // A ref a compiler built carries its definition (`Internal.definition`). None
+  // reaches here from the public API - a codec's declared sides are the schema
+  // its author wrote - but one that did would otherwise compare as whatever the
+  // record holds under its name.
+  const def =
+    schema.name === jsonName ? U : schema.definition || ctx.d?.[schema["$ref"]!.slice(8)];
   if (def === U) return deep(ctx, schema, a, b);
   // A def compiles to its own function and is called, not inlined.
   eqOnly(ctx, schema);

@@ -306,3 +306,17 @@ union-dispatch-fallback:
   # value builds an error nobody ever throws at a user, and the consolidated
   # one reads each member's reason.
   run: parse(data)
+
+recursive-definer-defaults:
+  # Building a recursive schema whose fields have defaults. Each default is
+  # checked against its item when the schema is built, and inside a definer
+  # that check once copied every item, missing the operation cached on it.
+  run: |
+    S.recursive("Node", (node) =>
+      S.schema({
+        a: S.optional(S.string, "x"),
+        b: S.optional(S.number, 1),
+        c: S.optional(S.boolean, false),
+        kid: S.optional(node),
+      }),
+    )

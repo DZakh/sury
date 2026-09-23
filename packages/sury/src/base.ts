@@ -510,6 +510,18 @@ export type Internal = {
   tr?: boolean;
   "$ref"?: string;
   "$defs"?: Record<string, Internal>;
+  // The definition a ref resolves to, set only by a compiler that builds a ref
+  // of its own. The `$defs` of one operation are a single record keyed by the
+  // names their author chose, so a ref the compiler built cannot ask for a name
+  // without risking one: two `S.recursive` schemas may share a name, and a name
+  // is forgeable besides. Carrying the definition is what lets such a ref stay
+  // out of that record, and out of the document the operation publishes.
+  //
+  // Every site such a ref can reach reads this before the record:
+  // `S.recursive`'s decoder and the equality compiler. A ref the author wrote
+  // never carries one, which is what keeps its meaning the author's: it
+  // resolves by name, against whatever definitions the operation has reached.
+  definition?: Internal;
   // `S.json` and every copy of one: the marker that answers "is this the whole
   // document rather than a rendering of one", which several structural
   // decisions turn on. Nothing already on the schema answers it. Identity and
@@ -1104,7 +1116,10 @@ const formatErrorMessage = (error: SuryErrorRecord): string =>
 export const errorClass: unknown = SuryError;
 
 export type GlobalConfig = {
-  d?: Record<string, Internal>; // defsAccumulator
+  // `S.recursive`'s definitions while a definer runs. A definition enters only
+  // once its own definer returns, so a name missing here while one runs is the
+  // definition being built - which is how `S.optional`'s default refuses one.
+  d?: Record<string, Internal>;
   a: AdditionalItems; // defaultAdditionalItems
   f: Flag; // defaultFlag
 }
