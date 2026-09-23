@@ -112,25 +112,31 @@ test("a scenario contributes one target built from its own prepare and run", () 
   expect(real[0]!.runSrc).toBe('(schema["~standard"].validate(data))');
 });
 
-// Compiling an async operation is ordinary sync work and is measured (with the
-// async builder, the only one that accepts the schema); running one can't be -
-// a batch loop only starts the promises. The skipped examples are counted so
-// the report doesn't read as if they were timed and found unchanged.
-test("an async op contributes its compilation target but none of its examples", () => {
-  const { targets, skippedAsync } = targetsFor("async-assert");
+// An async operation's examples are timed awaited, call by call, in a phase of
+// their own: every call goes through the microtask queue, and pooled with the
+// sync runs that noise would raise the floor that gates all of them.
+test("an async op's examples are measured in the async phase, with the async builder", () => {
+  const { targets } = targetsFor("async-assert");
   const real = targets.filter((t) => !t.control);
   // The assert leaves the value untouched and its encode slot is `"auto"`, so
   // that direction is `identity` and contributes nothing to measure.
-  expect(real.map((t) => t.name)).toEqual([
-    "async-assert · create",
-    "async-assert · create+compile · parse",
-    "async-assert · create+compile · decode",
+  expect(real.map((t) => `${t.phase}: ${t.name}`)).toEqual([
+    "create: async-assert · create",
+    "create+compile: async-assert · create+compile · parse",
+    "async: async-assert · parse · accepts",
+    "async: async-assert · parse · rejects ×2",
+    "create+compile: async-assert · create+compile · decode",
+    "async: async-assert · decode · accepts",
+    "async: async-assert · decode · rejects",
   ]);
-  expect(real.filter((t) => t.isAsync).map((t) => t.name)).toEqual([
-    "async-assert · create+compile · parse",
-    "async-assert · create+compile · decode",
-  ]);
-  expect(skippedAsync).toBe(5);
+  expect(real.every((t) => t.phase === "create" || t.isAsync)).toBe(true);
+});
+
+test("the async phase samples its own controls", () => {
+  const { targets } = targetsFor("async-assert");
+  const controls = targets.filter((t) => t.control && t.phase === "async");
+  expect(controls.length).toBeGreaterThan(0);
+  expect(controls.every((t) => t.isAsync)).toBe(true);
 });
 
 test("scenarios are selected by name, so narrowing to a spec picks up none of them", () => {
@@ -178,7 +184,6 @@ const perf = (changed: Perf["changed"], over: Partial<Perf> = {}): Perf => ({
   unchanged: 137,
   added: [],
   skippedConstants: 13,
-  skippedAsync: 0,
   errors: [],
   outcomeChanged: [],
   meta: "node 24.16.0 · linux x64 · 4 cores · 8×2 rounds · confirmed",
@@ -210,14 +215,6 @@ test("renderPerformance ranks worst regression first and states the floor per ph
       137 unchanged · 13 constant-schema targets skipped · advisory only
       node 24.16.0 · linux x64 · 4 cores · 8×2 rounds · confirmed"
   `);
-});
-
-// Only when there are any: a "0 async examples skipped" on every run of a
-// suite that has none is noise in the one line that summarizes coverage.
-test("renderPerformance reports skipped async examples alongside the constant-schema ones", () => {
-  expect(renderPerformance(perf([], { skippedAsync: 5 }))).toContain(
-    "137 unchanged · 13 constant-schema targets skipped · 5 async examples skipped · advisory only",
-  );
 });
 
 test("renderPerformance says so plainly when nothing cleared the floor", () => {

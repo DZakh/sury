@@ -247,7 +247,6 @@ export const renderPerformance = (perf: Perf): string => {
   for (const e of perf.errors) lines.push(`  could not measure ${e.name}: ${e.error}`);
   lines.push(
     `  ${perf.unchanged} unchanged · ${perf.skippedConstants} constant-schema targets skipped · ` +
-      (perf.skippedAsync ? `${perf.skippedAsync} async examples skipped · ` : "") +
       "advisory only",
     `  ${perf.meta}`,
   );
