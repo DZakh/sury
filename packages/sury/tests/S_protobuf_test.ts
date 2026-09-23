@@ -645,3 +645,64 @@ test("isEqual reads a recursive message the codec declares, and compare refuses 
   t.expect(() => S.compareInput(codec, tree("a"), tree("b"))).toThrow("Can't compare Node");
   t.expect(() => S.compareOutput(codec, one, one)).toThrow("Can't compare Uint8Array");
 });
+
+// Recursion is a compile-time shape, and a spec holds one schema. This crosses
+// how a self-reference is written, what holds it, and what the message sits
+// under, and holds each to the same message unrolled by hand, which has no
+// recursion to get wrong.
+test("a recursive message reads and writes as the same message unrolled", (t) => {
+  type Any = S.Schema<any, any>;
+  const F = S.protobufField;
+  const notBad = (x: unknown) => (x as { v: string }).v !== "bad";
+  const refs: Record<string, (n: Any) => Any> = {
+    plain: (n) => n,
+    refined: (n) => n.with(S.refine, notBad),
+    meta: (n) => S.meta(n, { description: "d" }),
+    refinedMeta: (n) => S.meta(n.with(S.refine, notBad), { description: "d" }),
+  };
+  const holders: Record<string, { wrap: (s: Any) => Any; value: (depth: number) => unknown }> = {
+    optional: { wrap: (s) => S.optional(s), value: (d) => ({ v: `n${d}`, kid: d === 0 ? undefined : holders.optional!.value(d - 1) }) },
+    list: { wrap: (s) => S.array(s), value: (d) => ({ v: `n${d}`, kid: d === 0 ? [] : [holders.list!.value(d - 1), holders.list!.value(d - 1)] }) },
+    map: { wrap: (s) => S.record(s), value: (d) => ({ v: `n${d}`, kid: d === 0 ? {} : { a: holders.map!.value(d - 1) } }) },
+  };
+  const roots: Record<string, (m: Any) => [Any, (v: unknown) => unknown]> = {
+    self: (m) => [m, (v) => v],
+    optional: (m) => [S.schema({ x: S.optional(m).with(F, 1) }), (v) => ({ x: v })],
+    list: (m) => [S.schema({ xs: S.array(m).with(F, 1) }), (v) => ({ xs: [v, v] })],
+    map: (m) => [S.schema({ m: S.record(m).with(F, 1) }), (v) => ({ m: { k: v } })],
+    twice: (m) => [S.schema({ a: S.optional(m).with(F, 1), b: S.optional(m).with(F, 2) }), (v) => ({ a: v, b: v })],
+  };
+  const unrolled = (holder: string, depth: number): Any => {
+    let message: Any = S.schema({ v: S.string.with(F, 1), kid: holders[holder]!.wrap(S.schema({ v: S.string.with(F, 1) })).with(F, 2) });
+    for (let i = 0; i < depth; i++) message = S.schema({ v: S.string.with(F, 1), kid: holders[holder]!.wrap(message).with(F, 2) });
+    return message;
+  };
+  const plain = (x: unknown) => JSON.parse(JSON.stringify(x));
+
+  for (const ref of Object.keys(refs)) {
+    for (const holder of Object.keys(holders)) {
+      for (const root of Object.keys(roots)) {
+        const label = `${ref} self-reference, held ${holder}, under root ${root}`;
+        const recursive = S.recursive("Node", (n: Any) =>
+          S.schema({ v: S.string.with(F, 1), kid: holders[holder]!.wrap(refs[ref]!(n)).with(F, 2) }),
+        );
+        const [schema, place] = roots[root]!(recursive);
+        const [flatSchema] = roots[root]!(unrolled(holder, 3));
+        const codec = schema.with(S.to, S.protobuf);
+        const flatCodec = flatSchema.with(S.to, S.protobuf);
+        const value = place(holders[holder]!.value(3));
+
+        const bytes = S.parseOrThrow(codec, value);
+        t.expect([...bytes], label).toEqual([...S.parseOrThrow(flatCodec, value)]);
+        t.expect(plain(S.encodeOrThrow(codec, bytes)), label).toEqual(plain(value));
+
+        if (ref.startsWith("refined")) {
+          const bad = JSON.parse(JSON.stringify(value).replace('"n1"', '"bad"'));
+          t.expect(() => S.parseOrThrow(codec, bad), label).toThrow();
+          // Bytes a writer with no refinement produced still meet it on the way in.
+          t.expect(() => S.encodeOrThrow(codec, S.parseOrThrow(flatCodec, bad)), label).toThrow();
+        }
+      }
+    }
+  }
+});
