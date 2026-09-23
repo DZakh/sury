@@ -583,6 +583,20 @@ class Reader {
     this.pos = pos;
     return value >>> 0;
   }
+  // A length is its whole varint. A value keeps the bits it has room for, but a
+  // length with a bit above 32 is one no message holds, and read the way a
+  // value is it wraps to a small one that does: `2^32` reading as 0.
+  len(): number {
+    const start = this.pos;
+    const value = this.varint32();
+    if (this.pos - start > 4) {
+      const buf = this.buf;
+      let high = buf[start + 4]! & 112;
+      for (let i = start + 5; i < this.pos; i++) high |= buf[i]! & 127;
+      if (high) truncated();
+    }
+    return value;
+  }
   // Unlike a value, a tag is held to 5 bytes and 32 bits: the conformance
   // suite rejects an overlong tag that a lenient read would accept.
   tag(): number {
@@ -824,7 +838,7 @@ class Reader {
   // outer limit for the caller to restore. Bounds checks against `limit`
   // are what stop a nested read escaping its field.
   sub(): number {
-    const len = this.varint32();
+    const len = this.len();
     const end = this.pos + len;
     if (end > this.limit) truncated();
     const outer = this.limit;
@@ -832,7 +846,7 @@ class Reader {
     return outer;
   }
   string(): string {
-    const len = this.varint32();
+    const len = this.len();
     const start = this.pos;
     const end = start + len;
     if (end > this.limit) truncated();
@@ -867,7 +881,7 @@ class Reader {
     }
   }
   bytes(): Uint8Array {
-    const len = this.varint32();
+    const len = this.len();
     const end = this.pos + len;
     if (end > this.limit) truncated();
     const value = this.buf.slice(this.pos, end);
