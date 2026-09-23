@@ -123,6 +123,9 @@ const isIntegerEnum = (schema: Internal): boolean => {
   return members > 0;
 };
 
+const isMessageShape = (schema: Internal): boolean =>
+  schema.type === objectTag || (schema.type === refTag && !schema.isJson);
+
 const inferType = (shape: Internal, literalEnum: boolean): ProtobufType | undefined => {
   if (literalEnum) return "enum";
   if (shape.type === stringTag) return "string";
@@ -169,6 +172,22 @@ export const protobufField = (schema: Internal, field: number | ProtobufField): 
   }
   if (type === "enum" && !literalEnum && (shape.const !== U || shape.type !== numberTag)) {
     return panic(`S.protobufField requires an enum to be a number schema or a union of int32 literals`);
+  }
+  // Declared as a scalar, the writer would take the object for a number and
+  // write whatever that coerces to. Only where both sides are one: which side
+  // faces the wire depends on the direction the chain runs, and a field that
+  // converts bytes to an object (`S.uint8Array.with(S.to, S.schema(...))`) is
+  // a bytes field. `S.json` is a ref but no message.
+  if (type !== "message" && isMessageShape(shape)) {
+    const [inputMembers, inputUndefined] = optionalMembers(schema);
+    const input = inputUndefined && inputMembers.length === 1 ? inputMembers[0]! : schema;
+    const item =
+      (input.type === arrayTag || isRecord(input)) && typeof input.additionalItems === objectTag
+        ? (input.additionalItems as Internal)
+        : input;
+    if (isMessageShape(item)) {
+      return panic(`S.protobufField requires an object or S.recursive schema to be a message, not ${type}`);
+    }
   }
   const oneof = typeof field === "number" ? U : field.oneof;
   if (oneof !== U) {

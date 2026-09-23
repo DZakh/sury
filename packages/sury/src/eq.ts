@@ -624,12 +624,10 @@ const refExpr = (ctx: Ctx, schema: Internal, a: string, b: string): string => {
   // comparison already covers, and unrolling its `$ref` cycle would emit a
   // comparator for each arm of it.
   //
-  // `definition` before the record, the one rule every site that resolves a
-  // `$ref` keeps (see `Internal.definition`). Nothing public reaches here
-  // carrying one - a codec's declared sides are the schema its author wrote,
-  // never a standin its compiler built - so the cost is one `||` against the
-  // day something does, where the record would answer with a definition that
-  // happens to share the name.
+  // A ref a compiler built carries its definition (`Internal.definition`). None
+  // reaches here from the public API - a codec's declared sides are the schema
+  // its author wrote - but one that did would otherwise compare as whatever the
+  // record holds under its name.
   const def =
     schema.name === jsonName ? U : schema.definition || ctx.d?.[schema["$ref"]!.slice(8)];
   if (def === U) return deep(ctx, schema, a, b);

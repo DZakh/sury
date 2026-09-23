@@ -606,3 +606,41 @@ message Tree {
 `,
   );
 });
+
+test("toProtoOrThrow renames a recursive message everywhere it refers back to itself", (t) => {
+  type Node = { v: string; kids: Node[] };
+  const node = S.recursive<Node>("Node", (self) =>
+    S.schema({ v: S.string.with(S.protobufField, 1), kids: S.array(self).with(S.protobufField, 2) }),
+  );
+  const tree = `syntax = "proto3";
+
+message Tree {
+  string v = 1;
+  repeated Tree kids = 2;
+}
+`;
+  t.expect(S.toProtoOrThrow(node, { name: "Tree" })).toBe(tree);
+  t.expect(S.toProtoOrThrow(S.meta(node, { name: "Tree" }))).toBe(tree);
+
+  // The other message of a mutual pair points back at the name the root took.
+  type Branch = { n: number; leaf?: { kids: Branch[] } };
+  const branch = S.recursive<Branch>("Branch", (self) =>
+    S.schema({
+      n: S.int32.with(S.protobufField, 1),
+      leaf: S.optional(
+        S.recursive("Leaf", () => S.schema({ kids: S.array(self).with(S.protobufField, 1) })),
+      ).with(S.protobufField, 2),
+    }),
+  );
+  t.expect(S.toProtoOrThrow(branch, { name: "Root" })).toBe(`syntax = "proto3";
+
+message Root {
+  int32 n = 1;
+  optional Leaf leaf = 2;
+}
+
+message Leaf {
+  repeated Root kids = 1;
+}
+`);
+});

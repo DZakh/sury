@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ v: S.optional(S.string.with(S.to, S.string, { decode: { async: async (x) => { if (x === "bad") { throw new Error("rejected") } return x } }, encode: "auto" })) })'
+  input: "{ v?: string | undefined; }"
+  output: "{ v?: string | undefined; }"
+  instantiations: 6607
+jsonSchema:
+  input: '{ type: "object", properties: { v: { type: "string" } } }'
+  output: '{ type: "object", properties: { v: { type: "string" } } }'
+isEqual: (a,b)=>a===b||a.v===b.v
+compare: "throws: [Sury] Can't compare { v: string | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod: 'z.object({ v: z.string().refine(async (value) => value !== "bad").optional() })'
+operations:
+  parse:
+    isAsync: true
+    expression: i=>{try{try{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v1=i.v;for(;;){if(typeof v1==="string"){let v0=e[0](i.v);v1=v0.then(v0=>{typeof v0==="string"||e[1](v0);return v0});break}if(v1===void 0)break;e[2](v1)}let v2=Promise.resolve(v1);return Promise.all([v2]).then(([v2])=>{return {v:v2}})}catch(v3){e[4](v3)}}catch(v4){return Promise.reject(v4)}}
+    examples:
+      present:
+        input: '{ v: "ok" }'
+        output: '{ v: "ok" }'
+      absent:
+        input: "{ v: undefined }"
+        output: "{ v: undefined }"
+      # FIXME: the call in the union arm has no `.catch` turning a rejection
+      # into a failure, so it escapes bare, with no path, where the same field
+      # outside `S.optional` fails "at v". A recursive schema above it then
+      # reads `path` off the bare error (`codec-protobuf-recursive-async`).
+      rejected:
+        input: '{ v: "bad" }'
+        error: "Error: rejected"
+  decode:
+    isAsync: true
+    expression: i=>{try{try{let v1=i.v;for(;;){if(typeof v1==="string"){let v0=e[0](i.v);v1=v0.then(v0=>{typeof v0==="string"||e[1](v0);return v0});break}if(v1===void 0)break;e[2](v1)}let v2=Promise.resolve(v1);return Promise.all([v2]).then(([v2])=>{return {v:v2}})}catch(v3){e[3](v3)}}catch(v4){return Promise.reject(v4)}}
+    examples:
+      present:
+        input: '{ v: "ok" }'
+        output: '{ v: "ok" }'
+      rejected:
+        input: '{ v: "bad" }'
+        error: "Error: rejected"
+  encode:
+    expression: i=>{try{let v0=i.v;(typeof v0==="string"||v0===void 0)||e[0](v0);return i}catch(v1){e[1](v1)}}
+    examples:
+      present:
+        input: '{ v: "ok" }'
+        output: '{ v: "ok" }'

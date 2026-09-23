@@ -478,6 +478,29 @@ test("protobufField rejects a repeated or map oneof member and a non-integer enu
   for (const ok of okEnums) {
     ok.with(S.protobufField, { number: 1, type: "enum" });
   }
+  // A message declared as a scalar would be written as whatever the object
+  // coerces to. The same for one `S.recursive` names, inside its definer.
+  const point = S.schema({ x: S.int32.with(S.protobufField, 1) });
+  t.expect(() => point.with(S.protobufField, { number: 1, type: "int32" })).toThrow(
+    "[Sury] S.protobufField requires an object or S.recursive schema to be a message, not int32",
+  );
+  t.expect(() => S.optional(point).with(S.protobufField, { number: 1, type: "string" })).toThrow(
+    "not string",
+  );
+  t.expect(() => S.array(point).with(S.protobufField, { number: 1, type: "bytes" })).toThrow("not bytes");
+  t.expect(() =>
+    S.recursive("N", (self) =>
+      S.schema({ kid: S.optional(self).with(S.protobufField, { number: 2, type: "int32" }) }),
+    ),
+  ).toThrow("[Sury] S.protobufField requires an object or S.recursive schema to be a message, not int32");
+  point.with(S.protobufField, { number: 1, type: "message" });
+  // A side that is a scalar is what a scalar type describes, whichever way the
+  // chain runs: an object converted to one, or bytes converted to an object.
+  point.with(S.to, S.string, { decode: () => "p", encode: () => ({ x: 0 }) }).with(S.protobufField, { number: 1, type: "string" });
+  const packed = S.uint8Array.with(S.to, point, { decode: () => ({ x: 0 }), encode: () => new Uint8Array() });
+  packed.with(S.protobufField, { number: 1, type: "bytes" });
+  S.optional(packed).with(S.protobufField, { number: 1, type: "bytes" });
+  S.array(packed).with(S.protobufField, { number: 1, type: "bytes" });
 });
 
 // The spec format snapshots what an operation does, not what compiling one
@@ -593,8 +616,9 @@ test("a recursive message decodes 100 levels and refuses 101, and encoding has n
   // Encoding is what those bytes came from, so the limit is the reader's alone.
   const overLimit = S.parseOrThrow(codec, nest(101));
   t.expect(overLimit.length).toBeGreaterThan(hundred.length);
+  // A path that deep keeps the end that failed, not the levels above it.
   t.expect(() => S.encodeOrThrow(codec, overLimit)).toThrow(
-    "protobuf message nesting limit exceeded",
+    `protobuf message nesting limit exceeded at \u2026${".next".repeat(20)} (field 2, wire type 2)`,
   );
 });
 
