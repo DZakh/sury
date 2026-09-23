@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ x: S.recursive("Node", (n) => S.schema({ a: S.string, kid: S.optional(n) })), y: S.recursive("Node", (n) => S.schema({ b: S.number, kid: S.optional(n) })) })'
+  input: "{ x?: unknown; y?: unknown; }"
+  output: "{ x?: unknown; y?: unknown; }"
+  instantiations: 11471
+jsonSchema:
+  input: '{ type: "object", properties: { x: { $ref: "#/$defs/Node" }, y: { $ref: "#/$defs/Node2" } }, required: ["x", "y"], $defs: { Node: { type: "object", properties: { a: { type: "string" }, kid: { $ref: "#/$defs/Node" } }, required: ["a"] }, Node2: { type: "object", properties: { b: { type: "number" }, kid: { $ref: "#/$defs/Node2" } }, required: ["b"] } } }'
+  fromInputType: "{ x: { a: string; kid?: ... | undefined; }; y: { b: number; kid?: ... | undefined; }; }"
+  output: '{ type: "object", properties: { x: { $ref: "#/$defs/Node" }, y: { $ref: "#/$defs/Node2" } }, required: ["x", "y"], $defs: { Node: { type: "object", properties: { a: { type: "string" }, kid: { $ref: "#/$defs/Node" } }, required: ["a"] }, Node2: { type: "object", properties: { b: { type: "number" }, kid: { $ref: "#/$defs/Node2" } }, required: ["b"] } } }'
+  fromOutputType: "{ x: { a: string; kid?: ... | undefined; }; y: { b: number; kid?: ... | undefined; }; }"
+isEqual: (a,b)=>a===b||e[0](a.x,b.x)&&e[1](a.y,b.y)
+compare: "throws: [Sury] Can't compare { x: Node; y: Node; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0;try{v0=e[0](i.x);}catch(v1){v1.path=["x",...v1.path];throw v1}let v2;try{v2=e[1](i.y);}catch(v3){v3.path=["y",...v3.path];throw v3}return {x:v0,y:v2}}catch(v4){e[3](v4)}}
+    examples:
+      both:
+        input: '{ x: { a: "s", kid: { a: "t" } }, y: { b: 1, kid: { b: 2 } } }'
+        output: '{ x: { a: "s", kid: { a: "t", kid: undefined } }, y: { b: 1, kid: { b: 2, kid: undefined } } }'
+      swapped:
+        input: '{ x: { b: 1 }, y: { a: "s" } }'
+        error: "Failed at x.a: Expected string, received undefined"
+      nested-swapped:
+        input: '{ x: { a: "s", kid: { b: 2 } }, y: { b: 1 } }'
+        error: |-
+          Failed at x.kid: Expected Node | undefined, received { b: 2; }
+          - At kid.a: Expected string, received undefined
+  decode:
+    expression: i=>{try{let v0;try{v0=e[0](i.x);}catch(v1){v1.path=["x",...v1.path];throw v1}let v2;try{v2=e[1](i.y);}catch(v3){v3.path=["y",...v3.path];throw v3}return {x:v0,y:v2}}catch(v4){e[2](v4)}}
+    examples:
+      both:
+        input: '{ x: { a: "s", kid: { a: "t" } }, y: { b: 1, kid: { b: 2 } } }'
+        output: '{ x: { a: "s", kid: { a: "t", kid: undefined } }, y: { b: 1, kid: { b: 2, kid: undefined } } }'
+  encode:
+    expression: i=>{try{let v0;try{v0=e[0](i.x);}catch(v1){v1.path=["x",...v1.path];throw v1}let v2;try{v2=e[1](i.y);}catch(v3){v3.path=["y",...v3.path];throw v3}return {x:v0,y:v2}}catch(v4){e[2](v4)}}
+    examples:
+      both:
+        input: '{ x: { a: "s", kid: { a: "t" } }, y: { b: 1, kid: { b: 2 } } }'
+        output: '{ x: { a: "s", kid: { a: "t", kid: undefined } }, y: { b: 1, kid: { b: 2, kid: undefined } } }'

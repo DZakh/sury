@@ -779,11 +779,6 @@ export const B_scope = (val: Val): Val => {
 // A literal target is the exception, and `compileDecoder` states the same
 // rule for its typed input: a type says "string", never "the string \"a\"",
 // so a const is checked whatever the value claims to be.
-//
-// Inside a union case the sync form rethrows foreign exceptions raw (the
-// union owns exception classification) while still wrapping Sury failures
-// with the reached path; the async form leaves the promise bare, since the
-// case's own await/catch classifies rejections.
 export const B_conversion = (
   fn: (value: unknown) => unknown,
   isAsync?: boolean,
@@ -799,20 +794,22 @@ export const B_conversion = (
     if (isAsync) B_markAsync(input, output);
     const embeddedFn = B_embed(input, fn);
     const inputValue = input.vc ? input.v() : input.i;
-    const unionContext = input.g.o & 4; // 4
-    if (unionContext && isAsync) {
-      output.cp = `let ${output.i}=${embeddedFn}(${inputValue});`;
-      return output;
-    }
-    // Whatever the coder throws - a `SuryError` it raised on purpose or a
-    // TypeError it hit on a value it was never written for - is that
-    // conversion failing, so in a union it is what hands the value to the
+    // Whatever the coder throws or rejects with - a `SuryError` it raised on
+    // purpose or a TypeError it hit on a value it was never written for - is
+    // that conversion failing, so in a union it is what hands the value to the
     // next case rather than aborting the operation (#347); a refiner's throw
     // is wrapped the same way (modifiers.ts `refine`). The foreign errors that
-    // do escape a union are a getter's, which never enter this try.
-    const failure = B_failWithArg(output, B_conversionFail(input, target), `x`);
+    // do escape a union are a getter's, which never enter this try. A
+    // rejection left bare would carry no path for an enclosing recursive call
+    // to prepend to (specs/codec-protobuf-recursive-async.yaml).
+    const pathArg = B_pathArg(output);
+    const fail = B_conversionFail(input, target);
+    const failFn = B_embed(output, (x: unknown, p?: Path) => {
+      B_throw(fail(x, p));
+    });
+    const failure = `${failFn}(x${pathArg})`;
     output.cp = `let ${output.i};try{${output.i}=${embeddedFn}(${inputValue})${
-      isAsync ? `.catch(x=>${failure})` : ""
+      isAsync ? `.catch(${pathArg ? `x=>${failure}` : failFn})` : ""
     }}catch(x){${failure}}`;
     // A val whose result the target's own refiners can attach to. `val.vc`
     // checks emit at the *pre-transform* slot (`prev.v()` in B_merge), so

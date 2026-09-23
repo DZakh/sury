@@ -5,8 +5,8 @@ ts:
   output: Uint8Array<ArrayBufferLike>
   instantiations: 12069
 jsonSchema:
-  input: '{ type: "object", properties: { x: { $ref: "#/$defs/Node" }, y: { $ref: "#/$defs/Node" } }, required: ["x", "y"], $defs: { Node: { type: "object", properties: { b: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, kids: { items: { $ref: "#/$defs/Node" }, type: "array" } }, required: ["b", "kids"] } } }'
-  fromInputType: "{ x: { b: number; kids: ...[]; }; y: { b: number; kids: ...[]; }; }"
+  input: '{ type: "object", properties: { x: { $ref: "#/$defs/Node" }, y: { $ref: "#/$defs/Node2" } }, required: ["x", "y"], $defs: { Node: { type: "object", properties: { a: { type: "string" }, kids: { items: { $ref: "#/$defs/Node" }, type: "array" } }, required: ["a", "kids"] }, Node2: { type: "object", properties: { b: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, kids: { items: { $ref: "#/$defs/Node2" }, type: "array" } }, required: ["b", "kids"] } } }'
+  fromInputType: "{ x: { a: string; kids: ...[]; }; y: { b: number; kids: ...[]; }; }"
   output: Expected JSON, received Uint8Array
 isEqual:
   input: (a,b)=>a===b||e[0](a.x,b.x)&&e[1](a.y,b.y)
@@ -21,17 +21,9 @@ operations:
   parse:
     expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[9](i);let v0;try{v0=e[0](i.x);}catch(v1){v1.path=["x",...v1.path];throw v1}let v2;try{v2=e[1](i.y);}catch(v3){v3.path=["y",...v3.path];throw v3}let v4;{let w;try{w=e[7].acquire();let v,j,n,s,h,a,k,g,c,o;v=v0;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[2](w,v);w.end(h)};v=v2;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[3](w,v);w.end(h)};v4=w.finish()}catch(x){w&&(w.busy=false);e[8](x)}}return v4}catch(v5){e[10](v5)}}
     examples:
-      # FIXME: the two messages are distinct to the codec, which is what this
-      # spec is for, but `toInputJSONSchemaOrThrow` names a definition by the
-      # schema's `name`, so two schemas `S.recursive` gave one name become one
-      # `$defs` entry and the later one wins. Reproduces with plain
-      # `S.recursive` and no protobuf: it is the renderer, not the wire.
       both:
         input: '{ x: { a: "s", kids: [{ a: "t", kids: [] }] }, y: { b: 1, kids: [{ b: 2, kids: [] }] } }'
         output: new Uint8Array([10, 8, 10, 1, 115, 18, 3, 10, 1, 116, 18, 6, 8, 1, 18, 2, 8, 2])
-        divergence:
-          reason: two definitions named "Node" render as one, and the document keeps only the second
-          ajv: "input: data/x must have required property 'b'"
   decode:
     expression: i=>{try{try{e[0](i.x);}catch(v0){v0.path=["x",...v0.path];throw v0}try{e[1](i.y);}catch(v1){v1.path=["y",...v1.path];throw v1}let v2;{let w;try{w=e[7].acquire();let v,j,n,s,h,a,k,g,c,o;v=i.x;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[2](w,v);w.end(h)};v=i.y;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[3](w,v);w.end(h)};v2=w.finish()}catch(x){w&&(w.busy=false);e[8](x)}}return v2}catch(v3){e[9](v3)}}
     examples:

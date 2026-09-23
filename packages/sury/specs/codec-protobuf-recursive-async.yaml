@@ -25,13 +25,11 @@ operations:
       nested:
         input: '{ v: "a", kid: { v: "b", kid: undefined } }'
         output: new Uint8Array([10, 2, 97, 33, 18, 4, 10, 2, 98, 33])
-      # FIXME: an async rejection inside a union arm (`S.optional` is one)
-      # escapes as the bare error rather than a failure with a path, and the
-      # recursive call above it then reads `path` off that bare error. Not
-      # protobuf or recursion: `async-optional-rejection` has it with neither.
       rejected-deep:
         input: '{ v: "a", kid: { v: "bad", kid: undefined } }'
-        error: "TypeError: v4.path is not iterable"
+        error: |-
+          Failed at kid: Expected Node | undefined, received { v: "bad"; kid: undefined; }
+          - At kid.v: rejected
   decode: eq-to-parse
   encode:
     expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v1;v1=e[3](v0);return v1}catch(v2){e[4](v2)}}

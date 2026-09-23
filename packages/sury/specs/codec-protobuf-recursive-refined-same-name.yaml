@@ -5,8 +5,8 @@ ts:
   output: Uint8Array<ArrayBufferLike>
   instantiations: 13411
 jsonSchema:
-  input: '{ type: "object", properties: { x: { $ref: "#/$defs/Node" }, y: { $ref: "#/$defs/Node" } }, $defs: { Node: { type: "object", properties: { b: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, kid: { $ref: "#/$defs/Node" } }, required: ["b"] } } }'
-  fromInputType: "{ x?: { b: number; kid?: ... | undefined; } | undefined; y?: { b: number; kid?: ... | undefined; } | undefined; }"
+  input: '{ type: "object", properties: { x: { $ref: "#/$defs/Node" }, y: { $ref: "#/$defs/Node2" } }, $defs: { Node: { type: "object", properties: { a: { type: "string" }, kid: { $ref: "#/$defs/Node" } }, required: ["a"] }, Node2: { type: "object", properties: { b: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, kid: { $ref: "#/$defs/Node2" } }, required: ["b"] } } }'
+  fromInputType: "{ x?: { a: string; kid?: ... | undefined; } | undefined; y?: { b: number; kid?: ... | undefined; } | undefined; }"
   output: Expected JSON, received Uint8Array
 isEqual:
   input: (a,b)=>a===b||e[0](a.x,b.x)&&e[0](a.y,b.y)

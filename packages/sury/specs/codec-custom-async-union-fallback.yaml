@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.union([S.string.with(S.to, S.number, { decode: { async: async (value) => { if (value === "bad") { throw new Error("rejected") } return value.length } }, encode: (value) => "x".repeat(value) }), S.string])'
+  input: string
+  output: string | number
+  instantiations: 5327
+jsonSchema:
+  input: '{ type: "string" }'
+  output: '{ anyOf: [{ type: "number" }, { type: "string" }] }'
+isEqual: strictEqual
+compare:
+  input: strictCompare
+  output: "throws: [Sury] Can't compare number | string. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    isAsync: true
+    expression: i=>{try{return Promise.resolve((async(i)=>{for(;;){let r;if(typeof i==="string"){try{let v0;try{v0=e[0](i).catch(e[1])}catch(x){e[1](x)}i=await v0.then(v0=>{typeof v0==="number"&&v0==v0||e[2](v0);return v0});break}catch(x){(r||(r=[])).push(e[3](x))}break}e[4](i,...(r||[]))};return i})(i)).catch(e[5])}catch(v1){return e[6](v1)}}
+    examples:
+      custom-arm:
+        input: '"abc"'
+        output: "3"
+      rejected-falls-back:
+        input: '"bad"'
+        output: '"bad"'
+      neither:
+        input: "5"
+        error: Expected string, received 5
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{for(;;){if(typeof i==="number"&&i==i){let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);i=v0;break}if(typeof i==="string")break;e[3](i)}return i}catch(v1){e[4](v1)}}
+    examples:
+      custom-arm:
+        input: "3"
+        output: '"xxx"'

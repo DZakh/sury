@@ -266,7 +266,7 @@ const applyMetadataOverlay = (
   jsonSchema: JSONSchemaT,
   schema: Internal,
   path: Path,
-  defs: Record<string, Internal>,
+  defs: Defs,
   target: JsonSchemaTarget
 ): void => {
   // Both read `.to` from the carrier, never from the target itself: the
@@ -325,20 +325,57 @@ const applyMetadataOverlay = (
       } catch (_exn) {}
     }
   }
-  if (schema["$defs"] !== U) Object.assign(defs, schema["$defs"]);
   const metadataRawSchema = Metadata_get(schema, jsonSchemaMetadataId) as
     | JSONSchemaT
     | undefined;
   if (metadataRawSchema !== U) Object.assign(jsonSchema, metadataRawSchema);
 }
 
+// A `$ref` names its definition by the string `S.recursive` was given, and two
+// schemas may give the same one: the name means the definition in the nearest
+// schema around the ref whose `$defs` holds it. Each schema carrying `$defs`
+// opens a scope over its parent's, and a definition is published under a key
+// of its own, its name unless another definition already took it
+// (specs/recursive-same-name.yaml).
+//
+// A scope maps a name to its definition and the scope that definition's body
+// resolves names in. Null prototype: `__proto__` would set a prototype instead
+// of taking a key.
+type Scope = Record<string, [Internal, Scope]>;
+type Defs = {
+  s: Scope;
+  // Published, in first-reference order: key, definition, its body's scope.
+  q: [string, Internal, Scope][];
+};
+
+// By name, never by a ref's `definition`: a codec's standin carries the
+// definition it compiles to, and the document describes the one the user wrote.
+const refKey = (defs: Defs, name: string): string => {
+  const hit = defs.s[name];
+  // Nothing around the ref defines it: an author-written `$ref`, left as written.
+  if (hit === U) return name;
+  let entry = defs.q.find((e) => e[1] === hit[0]);
+  if (entry === U) {
+    let key = name;
+    for (let i = 2; defs.q.some((e) => e[0] === key); i++) key = name + i;
+    defs.q.push((entry = [key, hit[0], hit[1]]));
+  }
+  return entry[0];
+};
+
 const internalToJSONSchema = (
   schema: Internal,
   path: Path,
-  defs: Record<string, Internal>,
+  defs: Defs,
   parent: Internal,
   target: JsonSchemaTarget
 ): JSONSchemaT => {
+  const own = schema["$defs"];
+  if (own !== U) {
+    const s: Scope = Object.assign(Object.create(null), defs.s);
+    for (const name in own) s[name] = [own[name]!, s];
+    defs = { s, q: defs.q };
+  }
   // When a schema has `.to`, we can try to encode-reverse it to get a more
   // precise JSON schema (e.g. `format: "date-time"` for `S.string->S.to(S.date)`).
   // For a user-applied `.to` on a union (no `parser`) the encode-reverse output
@@ -431,7 +468,7 @@ const jsonSchemaFormat = {
 const internalToJSONSchemaBase = (
   schema: Internal,
   path: Path,
-  defs: Record<string, Internal>,
+  defs: Defs,
   parent: Internal,
   target: JsonSchemaTarget
 ): JSONSchemaT => {
@@ -626,7 +663,7 @@ const internalToJSONSchemaBase = (
   } else if (tag === unknownTag) {
     // `{}` accepts any instance, which is exactly what unknown and any admit.
   } else if (tag === refTag) {
-    jsonSchema.$ref = schema["$ref"];
+    jsonSchema.$ref = defsPath + refKey(defs, schema["$ref"]!.slice(8));
   } else if (tag === nullTag) {
     // OpenAPI 3.0 has no `null` type. Use an enum as a workaround.
     target === openApi30 ? (jsonSchema.enum = [null]) : (jsonSchema.type = "null");
@@ -665,23 +702,16 @@ export const inputJSONSchema = (schema: Internal, options?: JSONSchemaOptions): 
     else if (target === draft202012) schemaUri = "https://json-schema.org/draft/2020-12/schema";
     else if (target !== openApi30) refError(`Unsupported JSON Schema target: ${target}`);
   }
-  // Null prototypes: definitions are named by their author. `__proto__` would
-  // set a prototype instead of taking a key, and `toString` would read back as
-  // already converted - either way a `$ref` to a definition nobody publishes.
-  const defs: Record<string, Internal> = Object.create(null);
+  const defs: Defs = { s: Object.create(null), q: [] };
   const jsonSchema = internalToJSONSchema(schema, pathEmpty, defs, schema, target);
   if (options !== U) delete jsonSchema.$schema;
+  // Null prototype, for the reason `Scope` has one.
   const jsonSchemDefs: Record<string, JSONSchemaDefinition> = Object.create(null);
-  // Converting a def body can name defs of its own, so the set grows while it
-  // is walked - a schema reached only from inside another one is otherwise left
-  // with a `$ref` nobody publishes. `S.json` names itself in here and is the
-  // one that stays unpublished: it converts to `{}`.
-  let name: string | undefined;
-  while (
-    (name = Object.keys(defs).find((key) => key !== jsonName && !(key in jsonSchemDefs))) !== U
-  ) {
-    const def = defs[name]!;
-    jsonSchemDefs[name] = internalToJSONSchema(def, pathEmpty, defs, def, target);
+  // Converting a def body can reach defs of its own, so the list grows while it
+  // is walked. `S.json` never lands in it: its `$ref` converts to `{}`.
+  for (let i = 0; i < defs.q.length; i++) {
+    const [key, def, s] = defs.q[i]!;
+    jsonSchemDefs[key] = internalToJSONSchema(def, pathEmpty, { s, q: defs.q }, def, target);
   }
   if (Object.keys(jsonSchemDefs).length) jsonSchema.$defs = jsonSchemDefs;
   if (schemaUri !== U) jsonSchema.$schema = schemaUri;
