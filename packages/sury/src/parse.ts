@@ -164,10 +164,30 @@ export type Tail = (
 // that has one the read formats the trace, and anything arriving with a stack -
 // a foreign exception, one user code built with `new S.Error` and threw - is
 // already pointing at a better line than this.
+//
+// `captureStackTrace` is V8's, and `cut` is the whole reason to prefer it: only
+// it can drop the frames between the raise and the caller. Every other engine
+// gets the stack a throwaway `Error` was born with, which is the same trace
+// with this function and the two frames below it still on top - worse than V8's
+// and better than the nothing an engine without the API used to get. Counting
+// those frames off would couple this to the call depth of the boundary that
+// reaches it, so they stay.
+//
+// `defineProperty` rather than an assignment, because `stack` is not part of
+// what a failure reads back as: V8 writes a non-enumerable one, and a plain
+// write here would put it in `Object.keys(error)` on those engines alone.
 const captureStackAt = (thrown: SuryErrorRecord, cut: unknown): void => {
   if (thrown && thrown.s === s && !("stack" in thrown)) {
-    (Error as unknown as { captureStackTrace?: (target: object, cut: unknown) => void })
-      .captureStackTrace?.(thrown, cut);
+    const capture = (
+      Error as unknown as { captureStackTrace?: (target: object, cut: unknown) => void }
+    ).captureStackTrace;
+    if (capture) capture(thrown, cut);
+    else
+      Object.defineProperty(thrown, "stack", {
+        value: new Error().stack,
+        configurable: true,
+        writable: true,
+      });
   }
 };
 

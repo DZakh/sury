@@ -167,3 +167,63 @@ test("an error thrown back through a parse keeps the class it was thrown as", ()
   expect(() => S.parseOrThrow(refined, "x")).toThrow("nope");
   expect(boom).toBeInstanceOf(AppError);
 });
+
+// `Error.captureStackTrace` is V8's. Deleting it is how an engine without one
+// looks from here, and the boundary reads it per call so the swap takes.
+//
+// Put back by its descriptor for the same reason the boundary writes `stack`
+// with one: V8's is non-enumerable, and assigning it back would leave every
+// later test in this worker reading it out of `Object.keys(Error)`.
+const withoutCaptureStackTrace = <T>(body: () => T): T => {
+  const descriptor = Object.getOwnPropertyDescriptor(Error, "captureStackTrace")!;
+  // @ts-expect-error - modelling an engine that never had it
+  delete Error.captureStackTrace;
+  try {
+    return body();
+  } finally {
+    Object.defineProperty(Error, "captureStackTrace", descriptor);
+  }
+};
+
+test("an engine without captureStackTrace still gets a stack", () => {
+  const parse = S.parseOrThrow(user);
+  withoutCaptureStackTrace(() => {
+    try {
+      parse(invalid);
+      expect.unreachable();
+    } catch (error) {
+      const thrown = error as S.Error;
+      // No `cut` to apply, so the boundary's own frames stay on top. This test
+      // is here for the stack existing at all, which is what such an engine
+      // used to go without.
+      expect(typeof thrown.stack).toBe("string");
+      expect(thrown.stack).toContain(import.meta.url.replace("file://", ""));
+      expect(thrown.message).toBe("Failed at id: Expected string, received 1");
+      // `stack` is not part of what a failure reads back as, on any engine.
+      expect(Object.keys(thrown)).toEqual(["code", "path", "input"]);
+    }
+  });
+});
+
+test("an error built by hand renders the reason it was never given", () => {
+  // Nothing the compiler raises reaches the prototype-wide renderer: a
+  // compiled failure carries its check's own. This is the path that does.
+  const SuryError = S.Error as unknown as new (details: unknown) => S.Error;
+  const error = new SuryError({
+    code: "invalid_input",
+    path: ["id"],
+    expected: S.string,
+    received: S.unknown,
+    input: 1,
+  });
+
+  expect(error.reason).toBe("Expected string, received 1");
+  expect(error.message).toBe("Failed at id: Expected string, received 1");
+});
+
+test("modelling an engine without captureStackTrace leaves no trace on Error", () => {
+  const before = Object.getOwnPropertyDescriptor(Error, "captureStackTrace");
+  withoutCaptureStackTrace(() => undefined);
+  expect(Object.getOwnPropertyDescriptor(Error, "captureStackTrace")).toEqual(before);
+  expect(Object.keys(Error)).not.toContain("captureStackTrace");
+});
