@@ -236,6 +236,12 @@ const KNOWN: Record<string, string> = {
     "protobuf-es misreads a 32-bit varint written in more than five bytes, and writes back the value it misread",
 };
 
+// Reached only by a sweep wider than the default, so a default run has no way
+// to tell one has started to hold: listed apart and never reported stale.
+const KNOWN_WIDE: Record<string, string> = {
+  "acceptance: only sury accepts (The encoded data was not valid for encoding utf-#)": ES_STRICT,
+};
+
 // Fewer seeds than the default can miss a listed case without it having
 // started to hold, so only a full run reports one as stale.
 export const DEFAULT_SEEDS = 600;
@@ -400,7 +406,7 @@ export const reportFuzz = (findings: Finding[], full: boolean): { text: string; 
   const lines: string[] = [];
   let ok = true;
   byKind.forEach((list, kind) => {
-    const known = KNOWN[kind];
+    const known = KNOWN[kind] ?? KNOWN_WIDE[kind];
     if (known === undefined) ok = false;
     lines.push(`${known === undefined ? "NEW  " : "known"} ${kind}  x${list.length}  (first: seed ${list[0]!.seed})`);
     if (known === undefined) for (const f of list.slice(0, 2)) lines.push(`        ${f.detail.slice(0, 600)}`);

@@ -37,7 +37,7 @@ operations:
         input: '"{\"id\":\"x\",\"meta\":\"{\\\"tag\\\":\\\"a\\\"}\"}"'
         output: '{ id: "x", meta: { tag: "a" } }'
   encode:
-    expression: i=>{try{let v0=i.meta;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=v0.tag;typeof v1==="string"||e[1](v1);v0="{\"tag\":"+e[0](v1)+"}";break}if(v0===void 0)break;e[2](v0)}let v2="{\"id\":"+e[0](i.id);if(v0!==void 0){v2+=",\"meta\":"+e[0](v0)}return v2+"}"}catch(v3){e[3](v3)}}
+    expression: i=>{try{let v0=i.meta;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){v0="{\"tag\":"+e[0](v0.tag)+"}";break}if(v0===void 0)break;e[1](v0)}let v1="{\"id\":"+e[0](i.id);if(v0!==void 0){v1+=",\"meta\":"+e[0](v0)}return v1+"}"}catch(v2){e[2](v2)}}
     examples:
       nested-document:
         input: '{ id: "x", meta: { tag: "a" } }'

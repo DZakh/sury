@@ -1127,19 +1127,20 @@ const unionEmit = (
     // from. Only when the source still is the group narrow: a typed source
     // passes through it unchanged, and an object group may have restored the
     // source's own variant (below) - both stay.
-    if (source.s === target.e) caseInput.s = member.n;
+    // From a trusted source, a member no other one shares a type with is
+    // proved by the group's narrow, so it parses from itself: a `decode` stays
+    // trusted below it and runs only its refinements. Not a member dispatched
+    // without a narrow, whose own checks are the dispatch, nor a literal, whose
+    // value a `decode` checks even standing alone.
+    const sole =
+      trustedSelf &&
+      !isLiteral(member.s) &&
+      plan.every((group) => group.a.every((m) => m === member || !(m.m & member.m)));
     // A recursive member parses from what the union was handed, never from a
     // narrow: its compiled definition is memoized per source schema, and a
     // fresh narrow per case would compile it anew at every level, forever.
-    // From a trusted source it is the ref itself, so a `decode` stays trusted
-    // below it - the narrow has already proved which member this is when no
-    // other one takes the same type.
-    if (member.s.type === refTag && member.n.type !== refTag) {
-      caseInput.s =
-        trustedSelf && plan.every((group) => group.a.every((m) => m === member || !(m.m & member.m)))
-          ? member.s
-          : input.s;
-    }
+    if (member.s.type === refTag && member.n.type !== refTag) caseInput.s = sole ? member.s : input.s;
+    else if (source.s === target.e) caseInput.s = sole && source !== input ? member.s : member.n;
     // Trusted source + a field discriminant to dispatch on: the case converts
     // from its own variant instead of re-validating from unknown - what makes
     // `decode` skip member validation the way a typed object does. Restricted

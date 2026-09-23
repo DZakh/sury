@@ -135,7 +135,7 @@ test("Serializes Some(None) to undefined for option nested in null", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{try{for(;;){if(typeof i==="boolean")break;if(i===void 0){i=null;break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i.BS_PRIVATE_NESTED_SOME_NONE===0){i=void 0;break}e[0](i)}return i}catch(v0){e[1](v0)}}`,
+    `i=>{try{for(;;){if(typeof i==="boolean")break;if(i===void 0){i=null;break}if(typeof i==="object"&&i&&!Array.isArray(i)){i=void 0;break}e[0](i)}return i}catch(v0){e[1](v0)}}`,
   )
 })
 
@@ -150,7 +150,7 @@ test("Applies valFromOption for Some()", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{try{for(;;){if(i===void 0)break;if(typeof i==="object"&&i&&!Array.isArray(i)&&i.BS_PRIVATE_NESTED_SOME_NONE===0){i=void 0;break}e[0](i)}return i}catch(v0){e[1](v0)}}`,
+    `i=>{try{for(;;){if(i===void 0)break;if(typeof i==="object"&&i&&!Array.isArray(i)){i=void 0;break}e[0](i)}return i}catch(v0){e[1](v0)}}`,
   )
 })
 
@@ -170,7 +170,7 @@ test("Nested option support", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{try{for(;;){if(typeof i==="boolean")break;if(i===void 0)break;if(typeof i==="object"&&i&&!Array.isArray(i)&&i.BS_PRIVATE_NESTED_SOME_NONE===0){i=void 0;break}e[0](i)}return i}catch(v0){e[1](v0)}}`,
+    `i=>{try{for(;;){if(typeof i==="boolean")break;if(i===void 0)break;if(typeof i==="object"&&i&&!Array.isArray(i)){i=void 0;break}e[0](i)}return i}catch(v0){e[1](v0)}}`,
   )
 })
 
@@ -219,7 +219,7 @@ test(
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Encode,
-      `i=>{try{for(;;){if(i===void 0)break;if(typeof i==="object"&&i&&!Array.isArray(i)&&i.BS_PRIVATE_NESTED_SOME_NONE===0){i={};break}e[0](i)}return i}catch(v0){e[1](v0)}}`,
+      `i=>{try{for(;;){if(i===void 0)break;if(typeof i==="object"&&i&&!Array.isArray(i)){i={};break}e[0](i)}return i}catch(v0){e[1](v0)}}`,
     )
   },
 )

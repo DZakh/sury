@@ -34,8 +34,11 @@ const applyWrap = (S: Sury, rng: Rng, inner: MemberSpec): MemberSpec => {
 };
 
 const applyModify = (S: Sury, rng: Rng, inner: MemberSpec): MemberSpec | undefined => {
-  const type = (inner.schema as { type?: string }).type;
-  if (!type) return undefined;
+  const { type, format } = inner.schema as { type?: string; format?: string };
+  // `S.env` is a string tag with an output of `string | undefined`, which no
+  // string refinement takes in either language: `S.env.with(S.trim)` does not
+  // typecheck, so a union holding one is nothing a caller can build.
+  if (!type || format === "env") return undefined;
   const matching = modifiers().filter(([, spec]) => spec.on.includes(type));
   if (!matching.length) return undefined;
   const [name, spec] = pick(rng, matching);
