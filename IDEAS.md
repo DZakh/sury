@@ -42,7 +42,14 @@
   `composites.ts`), materializing the parent var even when the passthrough
   case never uses the child - `{let v0=i["VAL"];break}` in
   `S_union_test.res`'s issue-101 golden. Eliminating it means making
-  field-val inline strings lazy, a cross-cutting builder change.
+  field-val inline strings lazy, a cross-cutting builder change. The same
+  read shows wherever an object converts to another object of the same shape:
+  `decodeOrThrow(a, b)` for two copies of `{ tags: S.array(S.string) }` emits
+  `let v0=i.tags;return i`, and every `S.protobuf` decode with a repeated or
+  nested field carries one per such field (the raw message converting to the
+  normalized one). An array fast path keyed on the source's item schema being
+  the target's is not enough: a decode still runs the item's refinements, so
+  only the compiled item says whether the loop is empty.
 - Add `promise` type and `S.promise` (instead of async flag internally)
 - Async output refiner runs on the Promise wrapper, not the resolved value.
   When a decoder result is async (e.g. a union with an async member) and the

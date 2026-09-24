@@ -38,7 +38,7 @@ operations:
         input: "{ f: Infinity }"
         error: "Failed at f: Expected JSON, received Infinity"
   decode:
-    expression: i=>{try{let v0=i.f;for(;;){if(typeof v0==="string"){try{JSON.parse(v0)}catch(t){e[0](v0)}v0=e[1](v0);break}if(typeof v0==="number"&&v0==v0){v0=(Number.isFinite(v0)?""+v0:e[2](v0));break}e[3](v0)}return "{\"f\":"+v0+"}"}catch(v1){e[4](v1)}}
+    expression: i=>{try{let v0=i.f;for(;;){if(typeof v0==="string"){v0=e[0](v0);break}if(typeof v0==="number"&&v0==v0){v0=(Number.isFinite(v0)?""+v0:e[1](v0));break}e[2](v0)}return "{\"f\":"+v0+"}"}catch(v1){e[3](v1)}}
     examples:
       nested-document:
         input: '{ f: "{\"a\":1}" }'

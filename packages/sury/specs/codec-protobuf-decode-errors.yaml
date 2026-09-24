@@ -62,6 +62,15 @@ operations:
       unmatched-end-group:
         input: new Uint8Array([8, 1, 60])
         error: unmatched protobuf end group
+      length-beyond-32-bits:
+        input: new Uint8Array([18, 128, 128, 128, 128, 16, 104])
+        error: truncated protobuf message at name (field 2, wire type 2)
+      message-length-beyond-32-bits:
+        input: new Uint8Array([26, 128, 128, 128, 128, 128, 128, 16])
+        error: truncated protobuf message at addr (field 3, wire type 2)
+      length-in-ten-bytes:
+        input: new Uint8Array([18, 129, 128, 128, 128, 128, 128, 128, 128, 128, 0, 120])
+        output: '{ id: 0, name: "x", tags: [], ratio: 0 }'
   encode:
     expression: i=>{try{let v0=i.tags;let v2;{let w;try{w=e[4].acquire();let v,j,n,s,h,a,k,g,c,o;v=i.id;if(v){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=v;if(s<-2147483648||s>2147483647)e[1](s,-2147483648,2147483647,"int32");s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v=i.name;if(v){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);w.string(v)};v=i.addr;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=26:w.varint32(26);h=w.begin();e[0](w,v);w.end(h)};v=v0;n=v.length;if(n){j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=34:w.varint32(34);w.string(v[j++])}};v=i.ratio;if(v||v!==v||Object.is(v,-0)){w.pos<w.buf.length?w.buf[w.pos++]=45:w.varint32(45);w.float32(v)};v2=w.finish()}catch(x){w&&(w.busy=false);e[5](x)}}return v2}catch(v3){e[6](v3)}}
     examples:

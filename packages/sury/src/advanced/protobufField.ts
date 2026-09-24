@@ -35,9 +35,15 @@ export type ProtobufType =
   | "enum"
   | "message";
 
+// A Google well-known type a field is declared as: a message on the wire,
+// printed as an import (`ProtobufWellKnownType` in index.d.ts lists them).
+export type WellKnownType = `google.protobuf.${string}`;
+
+export type FieldType = ProtobufType | WellKnownType;
+
 export type ProtobufField = {
   number: number;
-  type?: ProtobufType;
+  type?: FieldType;
   packed?: boolean;
   key?: ProtobufType;
   oneof?: string;
@@ -49,7 +55,7 @@ export type ProtobufField = {
 // apart by that schema.
 export type StoredField = {
   number: number;
-  type: ProtobufType;
+  type: FieldType;
   packed: boolean;
   key: ProtobufType;
   oneof?: string;
@@ -131,11 +137,87 @@ const isIntegerEnum = (schema: Internal): boolean => {
 const isMessageShape = (schema: Internal): boolean =>
   schema.type === objectTag || (schema.type === refTag && !(schema.flags & 16));
 
-const inferType = (shape: Internal, literalEnum: boolean): ProtobufType | undefined => {
+// The field a schema was numbered as, found down its `.to` chain.
+export const fieldMetadata = (schema: Internal): StoredField | undefined => {
+  let current: Internal | undefined = schema;
+  while (current !== U) {
+    if (current.protobufField !== U) return current.protobufField as StoredField;
+    current = current.to;
+  }
+  return U;
+};
+
+// A wrapper is a message holding its scalar as field 1.
+export const wrappers: Record<string, ProtobufType> = {
+  "google.protobuf.DoubleValue": "double",
+  "google.protobuf.FloatValue": "float",
+  "google.protobuf.Int64Value": "int64",
+  "google.protobuf.UInt64Value": "uint64",
+  "google.protobuf.Int32Value": "int32",
+  "google.protobuf.UInt32Value": "uint32",
+  "google.protobuf.BoolValue": "bool",
+  "google.protobuf.StringValue": "string",
+  "google.protobuf.BytesValue": "bytes",
+};
+
+const isContainer = (schema: Internal): boolean =>
+  (schema.type === arrayTag || schema.type === objectTag) && typeof schema.additionalItems === objectTag;
+
+// `{ seconds, nanos }` is the Timestamp and Duration message itself: its keys
+// number it, as 1 and 2, and a key numbered by hand has to agree.
+const isSecondsNanos = (shape: Internal): boolean => {
+  const properties = shape.properties;
+  if (shape.type !== objectTag || properties === U || isContainer(shape) || Object.keys(properties).length !== 2) return false;
+  const seconds = properties["seconds"];
+  const nanos = properties["nanos"];
+  if (seconds === U || nanos === U) return false;
+  const nanosShape = getOutputSchema(nanos);
+  const secondsField = fieldMetadata(seconds);
+  const nanosField = fieldMetadata(nanos);
+  return (
+    getOutputSchema(seconds).type === bigintTag &&
+    nanosShape.type === numberTag &&
+    nanosShape.format === "int32" &&
+    (secondsField === U || (secondsField.number === 1 && secondsField.type === "int64")) &&
+    (nanosField === U || (nanosField.number === 2 && nanosField.type === "int32"))
+  );
+};
+
+// The value each well-known type takes, and how an error names it.
+const wellKnown: Record<string, [(shape: Internal, item: Internal | undefined) => boolean, string]> = {
+  "google.protobuf.Timestamp": [
+    (shape) => (shape.type === instanceTag && shape.class === Date) || isSecondsNanos(shape),
+    "a Date or { seconds: S.bigint, nanos: S.int32 }",
+  ],
+  "google.protobuf.Duration": [isSecondsNanos, "{ seconds: S.bigint, nanos: S.int32 }"],
+  "google.protobuf.Value": [(shape) => !!(shape.flags & 16), "S.json"],
+  "google.protobuf.Struct": [(shape, item) => shape.type === objectTag && !!(item && item.flags & 16), "S.record(S.json)"],
+  "google.protobuf.ListValue": [(shape, item) => shape.type === arrayTag && !!(item && item.flags & 16), "S.array(S.json)"],
+  "google.protobuf.FieldMask": [(shape, item) => shape.type === arrayTag && item?.type === stringTag, "S.array(S.string)"],
+  "google.protobuf.Empty": [
+    (shape) => shape.type === objectTag && !isContainer(shape) && Object.keys(shape.properties ?? {}).length === 0,
+    "S.schema({})",
+  ],
+};
+
+// Whether a value is one of the well-known type itself, not a list or map of
+// it: `S.array(S.string)` is one FieldMask, `S.array(S.array(S.string))` a
+// repeated one.
+export const wellKnownTakes = (type: WellKnownType, value: Internal): boolean => {
+  const shape = getOutputSchema(value);
+  const takes = wellKnown[type]?.[0];
+  if (takes !== U) return takes(shape, isContainer(shape) ? getOutputSchema(shape.additionalItems as Internal) : U);
+  return !isContainer(shape) && !isMessageShape(shape);
+};
+
+const inferType = (shape: Internal, literalEnum: boolean): FieldType | undefined => {
   if (literalEnum) return "enum";
   if (shape.type === stringTag) return "string";
   if (shape.type === booleanTag) return "bool";
   if (shape.type === instanceTag && shape.class === Uint8Array) return "bytes";
+  // The two values with no other wire form.
+  if (shape.type === instanceTag && shape.class === Date) return "google.protobuf.Timestamp";
+  if (shape.flags & 16) return "google.protobuf.Value";
   // A `$ref` is `S.recursive`, whose definition is not built yet while the
   // definer runs; a message is the only thing the wire can make of one.
   if (shape.type === objectTag || shape.type === refTag) return "message";
@@ -169,8 +251,22 @@ export const protobufField = (schema: Internal, field: number | ProtobufField): 
   // a one-member enum could accept neither its zero nor an unknown value.
   const literalEnum = isIntegerEnum(shape);
   const type = typeof field === "number" || field.type === U ? inferType(shape, literalEnum) : field.type;
-  if (type === U || protobufTypes[type] !== true) {
+  // The prefix first: the tables are plain objects, and `"constructor"` is a
+  // key of every one.
+  const known =
+    typeof type === "string" && type.startsWith("google.protobuf.") && (wellKnown[type] !== U || wrappers[type] !== U);
+  if (type === U || (!known && protobufTypes[type as ProtobufType] !== true)) {
     return panic(`S.protobufField requires a protobuf type`);
+  }
+  if (known) {
+    const wellKnownType = type as WellKnownType;
+    const one = wellKnownTakes(wellKnownType, value);
+    if (!one && !(isContainer(value) && wellKnownTakes(wellKnownType, value.additionalItems as Internal))) {
+      return panic(`S.protobufField requires ${wellKnown[type]?.[1] ?? `an S.optional ${wrappers[type]} value`} for ${type}`);
+    }
+    if (one && wrappers[type] !== U && !hasUndefined) {
+      return panic(`S.protobufField requires S.optional for ${type}: presence is what a wrapper is for`);
+    }
   }
   const key = typeof field === "number" || field.key === U ? "string" : field.key;
   if (mapKeyTypes[key] !== true) {
@@ -184,7 +280,7 @@ export const protobufField = (schema: Internal, field: number | ProtobufField): 
   // faces the wire depends on the direction the chain runs, and a field that
   // converts bytes to an object (`S.uint8Array.with(S.to, S.schema(...))`) is
   // a bytes field. `S.json` is a ref but no message.
-  if (type !== "message" && isMessageShape(shape) && isMessageShape(itemOf(present(schema)))) {
+  if (!known && type !== "message" && isMessageShape(shape) && isMessageShape(itemOf(present(schema)))) {
     return panic(`S.protobufField requires an object or S.recursive schema to be a message, not ${type}`);
   }
   const oneof = typeof field === "number" ? U : field.oneof;

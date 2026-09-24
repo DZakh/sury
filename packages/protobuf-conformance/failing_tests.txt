@@ -5,13 +5,6 @@
 # `pnpm conformance report` names every failure; `pnpm conformance update`
 # re-baselines the score once a line is added or removed here.
 
-# --- merging a map value ---------------------------------------------------
-# Two entries with the same key must merge their messages field by field; we
-# take the later entry whole. `Struct`, `Value` and `ListValue` stay undeclared
-# in testMessages.ts for a reason of their own: they are ProtoJSON types, which
-# this suite does not attempt.
-Required.Proto3.ProtobufInput.ValidDataMap.STRING.MESSAGE.MergeValue.ProtobufOutput
-
 # --- unknown fields are not retained --------------------------------------
 # S.protobuf skips an unknown field, the way every proto3 reader does, but does
 # not keep it to write back: a decode followed by an encode emits only the

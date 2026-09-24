@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({ byKey: S.record(S.schema({ a: S.int32.with(S.protobufField, 1), b: S.int32.with(S.protobufField, 2) })).with(S.protobufField, 1) }).with(S.to, S.protobuf)"
+  input: "{ byKey: Record<string, { a: number; b: number; }>; }"
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 8220
+jsonSchema:
+  input: '{ type: "object", properties: { byKey: { type: "object", additionalProperties: { type: "object", properties: { a: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, b: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["a", "b"] } } }, required: ["byKey"] }'
+  output: Expected JSON, received Uint8Array
+isEqual:
+  input: (a,b)=>a===b||e[0](a.byKey,b.byKey)
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { byKey: { [key: string]: { a: int32; b: int32; }; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[10](i);let v0=i.byKey;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[3](v0);let v5={};for(let v1 in v0){let v2=v0[v1];typeof v2==="object"&&v2&&!Array.isArray(v2)||e[2](v2,["byKey",v1]);let v3=v2.a,v4=v2.b;typeof v3==="number"&&v3<=2147483647&&v3>=-2147483648&&v3%1==0||e[0](v3,["byKey",v1,"a"]);typeof v4==="number"&&v4<=2147483647&&v4>=-2147483648&&v4%1==0||e[1](v4,["byKey",v1,"b"]);v5[v1]={a:v3,b:v4}}let v6;{let w;try{w=e[8].acquire();let v,j,n,s,h,a,k,g,c,o;v=v5;a=Object.keys(v);n=a.length;j=0;while(j<n){k=a[j++];c=v[k];w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(k);w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);g=w.begin();e[4](w,c);w.end(g);w.end(h)};v6=w.finish()}catch(x){w&&(w.busy=false);e[9](x)}}return v6}catch(v7){e[11](v7)}}
+    examples:
+      entry:
+        input: "{ byKey: { k: { a: 1, b: 0 } } }"
+        output: new Uint8Array([10, 7, 10, 1, 107, 18, 2, 8, 1])
+  decode:
+    expression: i=>{try{let v0=i.byKey;let v3;{let w;try{w=e[4].acquire();let v,j,n,s,h,a,k,g,c,o;v=v0;a=Object.keys(v);n=a.length;j=0;while(j<n){k=a[j++];c=v[k];w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(k);w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);g=w.begin();e[0](w,c);w.end(g);w.end(h)};v3=w.finish()}catch(x){w&&(w.busy=false);e[5](x)}}return v3}catch(v4){e[6](v4)}}
+    examples:
+      entry:
+        input: "{ byKey: { k: { a: 1, b: 0 } } }"
+        output: new Uint8Array([10, 7, 10, 1, 107, 18, 2, 8, 1])
+  encode:
+    expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v1=v0.byKey;return v0}catch(v4){e[3](v4)}}
+    examples:
+      entry:
+        input: new Uint8Array([10, 7, 10, 1, 107, 18, 2, 8, 1])
+        output: "{ byKey: { k: { a: 1, b: 0 } } }"
+      value-before-key:
+        input: new Uint8Array([10, 7, 18, 2, 8, 1, 10, 1, 107])
+        output: "{ byKey: { k: { a: 1, b: 0 } } }"
+      repeated-key-replaces:
+        input: new Uint8Array([10, 7, 10, 1, 107, 18, 2, 8, 1, 10, 7, 10, 1, 107, 18, 2, 16, 2])
+        output: "{ byKey: { k: { a: 0, b: 2 } } }"
+      repeated-value-in-entry-merges:
+        input: new Uint8Array([10, 11, 10, 1, 107, 18, 2, 8, 1, 18, 2, 16, 2])
+        output: "{ byKey: { k: { a: 1, b: 2 } } }"
+      value-missing:
+        input: new Uint8Array([10, 3, 10, 1, 107])
+        output: "{ byKey: { k: { a: 0, b: 0 } } }"
