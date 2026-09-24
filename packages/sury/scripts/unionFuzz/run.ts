@@ -1,4 +1,4 @@
-import { classify, describeOutcome, show } from "./outcome";
+import { classify, describeOutcome, outcomeOf, show } from "./outcome";
 import type { MemberSpec } from "./generate";
 import {
   compiledEncode,
@@ -10,7 +10,9 @@ import {
 import type { DiffClass, Outcome, Sury } from "./types";
 import { JUNK, NO_WITNESS, witnessOf } from "./witness";
 
-export type Direction = "parse" | "encode";
+// `is`/`result` compare an answering outcome to the same compile's
+// `parseOrThrow`, not to the reference: see `outcomeDiffs`.
+export type Direction = "parse" | "encode" | "is" | "result";
 
 export type Comparison = {
   direction: Direction;
@@ -115,12 +117,64 @@ export const diffsForUnion = (
   }
   const diffs: Comparison[] = [];
   let compared = 0;
-  for (const input of memberWitnesses(members)) {
+  const inputs = memberWitnesses(members);
+  for (const input of inputs) {
     const next = diffsForValue(S, unionSchema, input.value, input.encode);
     diffs.push(...next.diffs);
     compared += next.compared;
   }
+  const outcomes = outcomeDiffs(S, unionSchema, inputs.map((input) => input.value));
+  diffs.push(...outcomes.diffs);
+  compared += outcomes.compared;
   return { diffs, compared, skipped: 0 };
+};
+
+// The outcomes that answer a failure rather than throw it - `isInput`,
+// `parseAsResult` - leave the body by a different exit than `parseOrThrow`
+// does, and have to agree with it on every value: the same acceptance, and for
+// a Sury failure the same message. A foreign exception is wrapped by
+// `parseAsResult` on purpose, so there only acceptance is compared. The union
+// is also asked as an array item and an object field, where its failure
+// leaves through a loop or a field's path.
+export const outcomeDiffs = (
+  S: Sury,
+  unionSchema: unknown,
+  values: readonly unknown[],
+): { diffs: Comparison[]; compared: number } => {
+  const diffs: Comparison[] = [];
+  let compared = 0;
+  const contexts: [unknown, (value: unknown) => unknown][] = [
+    [unionSchema, (value) => value],
+    [S.array(unionSchema), (value) => [value, value]],
+    [S.schema({ f: unionSchema }), (value) => ({ f: value })],
+  ];
+  for (const [schema, wrap] of contexts) {
+    for (const value of values) {
+      const input = wrap(value);
+      const expected = outcomeOf(S, () => S.parseOrThrow(schema)(input));
+      const is = outcomeOf(S, () => S.isInput(schema)(input));
+      const result = outcomeOf(S, () => S.parseAsResult(schema)(input));
+      compared += 2;
+      // `is` answers only the acceptance.
+      if (!is.ok || (is.value === "true") !== expected.ok) {
+        diffs.push({ direction: "is", input, compiled: is, reference: expected, class: "outcome" });
+      }
+      let answer: Outcome = result;
+      if (result.ok) {
+        const r = S.parseAsResult(schema)(input);
+        answer = r.success
+          ? { ok: true, value: show(r.value) }
+          : { ok: false, kind: "sury", message: r.error.message, reasons: r.error.unionErrors?.length ?? 0 };
+      }
+      const agrees =
+        answer.ok === expected.ok &&
+        (expected.ok || expected.kind === "foreign" || describeOutcome(answer) === describeOutcome(expected));
+      if (!result.ok || !agrees) {
+        diffs.push({ direction: "result", input, compiled: answer, reference: expected, class: "outcome" });
+      }
+    }
+  }
+  return { diffs, compared };
 };
 
 export type RunStats = {
@@ -134,7 +188,7 @@ export const emptyStats = (): RunStats => ({
   compared: 0,
   diffs: 0,
   skipped: 0,
-  byClass: { acceptance: 0, "exception-kind": 0, reasons: 0, message: 0 },
+  byClass: { acceptance: 0, "exception-kind": 0, reasons: 0, message: 0, outcome: 0 },
 });
 
 export const describeMembers = (members: readonly MemberSpec[]): string =>

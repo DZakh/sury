@@ -5,6 +5,6 @@ export type Outcome =
   | { ok: false; kind: "sury"; message: string; reasons: number }
   | { ok: false; kind: "foreign"; name: string; message: string };
 
-export type DiffClass = "acceptance" | "exception-kind" | "reasons" | "message";
+export type DiffClass = "acceptance" | "exception-kind" | "reasons" | "message" | "outcome";
 
 export const NO_WITNESS = Symbol("union-fuzz-no-witness");

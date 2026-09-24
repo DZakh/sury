@@ -405,12 +405,12 @@ is set. What is left on the table:
   (specs/codec-async-object-then-custom.yaml). One helper that parses and merges
   a continuation, used by parse.ts, composites.ts and B_markOutput alike, would
   leave nowhere to forget it.
-- **`fuzz:union` checks parse and encode only.** The exit changed what `is*`,
-  `*AsResult` and the promise outcomes do on every failure, and the fuzzer
-  never asks them. A parity dimension - each outcome agrees with `parseOrThrow`
-  on acceptance and message, over the union, an array of it and an object field
-  holding it - costs one loop (69897 values over seeds 1-3 took a minute), and
-  an async member in the generator would have caught the async-object bug above.
+- **`fuzz:union` generates no async member.** Its `outcome` class holds
+  `isInput`/`parseAsResult` to `parseOrThrow`, but only the sync outcomes over
+  sync members, so the async-object bug above
+  (specs/codec-async-object-then-custom.yaml) would still get past it. An async
+  coder in the generator, and `*AsPromise`/`*AsResultPromise` in the parity
+  loop, would close that.
 
 ### Pre-existing bugs surfaced by the failure exit work
 
@@ -418,8 +418,8 @@ is set. What is left on the table:
   `S.parseOrThrow(S.env.with(S.maxLength, 3), undefined)` raises `Cannot read
   properties of undefined (reading 'length')` instead of a Sury failure, alone
   and as a union member, array item or object field. The length check reads a
-  value `env`'s blank handling let through. Same on 16de5d3; found by the
-  outcome-parity loop above. Wants a spec example once fixed.
+  value `env`'s blank handling let through. Same on 16de5d3; found by an
+  outcome-parity loop over the fuzzed unions. Wants a spec example once fixed.
 
 ### Known bugs left over from the validation refactor (`val.validation: array<validationCheck>`)
 

@@ -153,9 +153,13 @@ of the keyword set (`JSONSchemaT` in `src/jsonschema.ts`, `JSONSchema.res`).
 Which member a value dispatches to is invisible in a golden until someone writes
 the spec for exactly that permutation. `pnpm --filter=sury fuzz:union` compares
 the compiler to a sequential try of each variant's own parser/encoder (grouping
-is codegen, not semantics). It exits non-zero on `acceptance` /
-`exception-kind`; `reasons` / `message` are error detail. `--ref` is an optional
-changelog against a git commit, not the gate. `--seed=N` widens the search.
+is codegen, not semantics). It also holds `isInput` and `parseAsResult` to the
+same compile's `parseOrThrow`, on the union alone, as an array item and as an
+object field: those leave the body by a different exit (`BGlobal.x`) and have
+to answer the same (`outcome`). It exits non-zero on `acceptance` /
+`exception-kind` / `outcome`; `reasons` / `message` are error detail. `--ref` is
+an optional changelog against a git commit, not the gate. `--seed=N` widens the
+search.
 
 ## Changing the equality compiler
 
