@@ -51,16 +51,6 @@ const inUnionWithDefault = (shape: Shape): boolean =>
 
 export const KNOWN_BUGS: Known[] = [
   {
-    id: "eq-tagged-union-absent",
-    kind: "bug",
-    summary:
-      "A comparator over a tagged union that also admits null or undefined reads the tag " +
-      "before checking for the absent value, so `isEqualOutput(S.nullable(AB))(null, a)` throws.",
-    spec: "eq-tagged-union-nullable",
-    fuzzers: ["eq"],
-    matches: (f) => f.fuzzer === "eq" && /of (null|undefined) \(reading '(TAG|kind)'\)/.test(f.detail),
-  },
-  {
     id: "to-output-keeps-source-refinement",
     kind: "bug",
     summary:
