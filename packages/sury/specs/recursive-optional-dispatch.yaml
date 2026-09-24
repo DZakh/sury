@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.recursive("Node", (self) => S.schema({ n: S.number, next: S.optional(self) }))'
+  input: unknown
+  output: unknown
+  instantiations: 7709
+jsonSchema:
+  input: '{ $ref: "#/$defs/Node", $defs: { Node: { type: "object", properties: { n: { type: "number" }, next: { $ref: "#/$defs/Node" } }, required: ["n"] } } }'
+  fromInputType: "{ n: number; next?: ... | undefined; }"
+  output: '{ $ref: "#/$defs/Node", $defs: { Node: { type: "object", properties: { n: { type: "number" }, next: { $ref: "#/$defs/Node" } }, required: ["n"] } } }'
+  fromOutputType: "{ n: number; next?: ... | undefined; }"
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare Node. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v0;v0=e[0](i);return v0}catch(v1){e[1](v1)}}
+    examples:
+      leaf:
+        input: "{ n: 1 }"
+        output: "{ n: 1, next: undefined }"
+      chain:
+        input: "{ n: 1, next: { n: 2, next: { n: 3 } } }"
+        output: "{ n: 1, next: { n: 2, next: { n: 3, next: undefined } } }"
+      nested-invalid-names-its-path:
+        input: '{ n: 1, next: { n: "2" } }'
+        error: 'Failed at next.n: Expected number, received "2"'
+      nested-nan:
+        input: "{ n: 1, next: { n: NaN } }"
+        error: "Failed at next.n: Expected number, received NaN"
+      next-not-an-object:
+        input: '{ n: 1, next: "x" }'
+        error: 'Failed at next: Expected Node | undefined, received "x"'
+      next-null:
+        input: "{ n: 1, next: null }"
+        error: "Failed at next: Expected Node | undefined, received null"
+  decode:
+    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      nested-nan-is-trusted:
+        input: "{ n: 1, next: { n: NaN, next: undefined } }"
+        output: "{ n: 1, next: { n: NaN, next: undefined } }"
+      chain:
+        input: "{ n: 1, next: { n: 2, next: undefined } }"
+        output: "{ n: 1, next: { n: 2, next: undefined } }"
+  encode:
+    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      nested-nan-is-trusted:
+        input: "{ n: 1, next: { n: NaN, next: undefined } }"
+        output: "{ n: 1, next: { n: NaN, next: undefined } }"
+      chain:
+        input: "{ n: 1, next: { n: 2, next: undefined } }"
+        output: "{ n: 1, next: { n: 2, next: undefined } }"

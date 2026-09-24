@@ -31,5 +31,27 @@ operations:
       wrong-type-across-the-cycle:
         input: '{ value: "a", fork: { left: { value: 1 }, right: { value: "r" } } }'
         error: "Failed at fork.left.value: Expected string, received 1"
-  decode: eq-to-parse
-  encode: eq-to-parse
+  decode:
+    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      leaf:
+        input: '{ value: "a", fork: undefined }'
+        output: '{ value: "a", fork: undefined }'
+      one-fork:
+        input: '{ value: "a", fork: { left: { value: "l" }, right: { value: "r" } } }'
+        output: '{ value: "a", fork: { left: { value: "l" }, right: { value: "r" } } }'
+      nested-fork:
+        input: '{ value: "a", fork: { left: { value: "l", fork: { left: { value: "ll" }, right: { value: "lr" } } }, right: { value: "r" } } }'
+        output: '{ value: "a", fork: { left: { value: "l", fork: { left: { value: "ll" }, right: { value: "lr" } } }, right: { value: "r" } } }'
+  encode:
+    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      leaf:
+        input: '{ value: "a", fork: undefined }'
+        output: '{ value: "a", fork: undefined }'
+      one-fork:
+        input: '{ value: "a", fork: { left: { value: "l" }, right: { value: "r" } } }'
+        output: '{ value: "a", fork: { left: { value: "l" }, right: { value: "r" } } }'
+      nested-fork:
+        input: '{ value: "a", fork: { left: { value: "l", fork: { left: { value: "ll" }, right: { value: "lr" } } }, right: { value: "r" } } }'
+        output: '{ value: "a", fork: { left: { value: "l", fork: { left: { value: "ll" }, right: { value: "lr" } } }, right: { value: "r" } } }'

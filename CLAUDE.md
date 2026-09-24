@@ -174,6 +174,8 @@ command. Rules that bind whichever you run:
   cause its summary names.
 - A property a single schema can be held to belongs in a family under
   `scripts/schemaFuzz/`, not in a new runner.
+- A `protobuf:fuzz` disagreement that is the other library's goes into its
+  `KNOWN` list only once Google's own parser has sided with Sury on the bytes.
 
 ## Equality and compare
 

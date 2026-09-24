@@ -540,7 +540,12 @@ const unionExpr = (ctx: Ctx, schema: Internal, a: string, b: string): string => 
     const key = objects.length > 1 ? discriminantOf(objects) : U;
     if (key === U) return abandon();
     if (!templatable(key)) return abandon();
-    const at = inlinedProperty(V, key);
+    // A null or undefined member has no property to read, and the arms test
+    // the discriminant before they reach it, on either value.
+    const prop = inlinedProperty("", key);
+    const at = members.some((member) => tagFlags[member.type]! & 48)
+      ? `${V}?${prop[0] === "." ? "" : "."}${prop}`
+      : V + prop;
     for (let idx = 0; idx < members.length; idx++) {
       const property = members[idx]!.properties?.[key];
       if (property !== U && isLiteral(property)) {

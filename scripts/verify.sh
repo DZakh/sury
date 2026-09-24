@@ -56,6 +56,7 @@ if [ $FAST -eq 0 ]; then
   step "benchmarks" . pnpm benchmarks
   step "JSON Schema compliance" . pnpm compliance
   step "protobuf compliance" . pnpm protobuf:compliance
+  step "protobuf fuzz" . pnpm protobuf:fuzz
   step "protobuf conformance" . pnpm protobuf:conformance
   # CI builds the ppx in a separate job; here only the session hook's dune
   # build can supply it.
