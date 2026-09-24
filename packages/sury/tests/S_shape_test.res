@@ -14,7 +14,7 @@ asyncTest("Parses with wrapping async schema in variant", async t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ParseAsync,
-    `i=>{try{typeof i==="string"||e[2](i);let v0;try{v0=e[0](i).catch(x=>e[1](x))}catch(x){e[1](x)}return v0.then(v0=>{return {TAG:"Ok",_0:v0}}).catch(e[3])}catch(v1){return e[4](v1)}}`,
+    `i=>{try{typeof i==="string"||e[2](i);let v0;try{v0=e[0](i).catch(x=>{e[1](x)})}catch(x){e[1](x)}return v0.then(v0=>{return {TAG:"Ok",_0:v0}}).catch(e[3])}catch(v1){return e[4](v1)}}`,
   )
 })
 
@@ -429,7 +429,7 @@ test("S.json shaped to literal should keep validation", t => {
     ~op=#Parse,
     ~embedded=[("JSON", 0)],
     `i=>{try{e[0](i);return "foo"}catch(v0){e[1](v0)}}
-JSON: i=>{for(;;){if(typeof i==="string")break;if(typeof i==="boolean")break;if(typeof i==="number"&&i==i&&Number.isFinite(i))break;if(i===null)break;if(typeof i==="object"&&i&&!Array.isArray(i)){for(let v0 in i){try{e[0](i[v0]);}catch(v1){v1.path=[v0,...v1.path];throw v1}};break}if(Array.isArray(i)){for(let v2=0;v2<i.length;++v2){try{e[1](i[v2]);}catch(v3){v3.path=[v2,...v3.path];throw v3}};break}e[2](i)}return i}`,
+JSON: i=>{for(;;){if(typeof i==="string")break;if(typeof i==="boolean")break;if(typeof i==="number"&&i==i&&Number.isFinite(i))break;if(i===null)break;if(typeof i==="object"&&i&&!Array.isArray(i)){for(let v0 in i){try{e[0](i[v0]);}catch(v1){v1.path=[v0,...v1.path];throw v1}};break}if(Array.isArray(i)){for(let v2=0;v2<i.length;++v2){try{e[1](i[v2]);}catch(v3){v3.path=[v2,...v3.path];throw v3}};break}throw e[2](i)}return i}`,
   )
 
   t->Assert.deepEqual("foo"->S.parseOrThrow(~to=schema), "foo")

@@ -176,12 +176,12 @@ test("Parses JSON string to bigint", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{typeof i==="string"||e[3](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="string"||e[2](v0);let v1;try{v1=BigInt(v0)}catch(_){e[1](v0)}v1||v0.trim()||e[1](v0);return v1}catch(v2){e[4](v2)}}`,
+    `i=>{try{typeof i==="string"||e[4](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="string"||e[3](v0);let v1;try{v1=BigInt(v0)}catch(_){e[1](v0)}v1||v0.trim()||e[2](v0);return v1}catch(v2){e[5](v2)}}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Convert,
-    `i=>{try{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="string"||e[2](v0);let v1;try{v1=BigInt(v0)}catch(_){e[1](v0)}v1||v0.trim()||e[1](v0);return v1}catch(v2){e[3](v2)}}`,
+    `i=>{try{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="string"||e[3](v0);let v1;try{v1=BigInt(v0)}catch(_){e[1](v0)}v1||v0.trim()||e[2](v0);return v1}catch(v2){e[4](v2)}}`,
   )
 
   t->Assert.deepEqual(123n->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`"\"123\""`))
@@ -368,7 +368,7 @@ test("Parses JSON string to object with bigint", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{typeof i==="string"||e[8](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[7](v0);let v1=v0.foo,v2=v0.bar;v1==="bar"||e[1](v1);Array.isArray(v2)||e[6](v2);v2.length===2||e[5](v2);let v4=v2[0],v5=v2[1];typeof v4==="string"||e[3](v4);let v3;try{v3=BigInt(v4)}catch(_){e[2](v4)}v3||v4.trim()||e[2](v4);typeof v5==="boolean"||e[4](v5);return {foo:v1,bar:[v3,v5]}}catch(v6){e[9](v6)}}`,
+    `i=>{try{typeof i==="string"||e[9](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[8](v0);let v1=v0.foo,v2=v0.bar;v1==="bar"||e[1](v1);Array.isArray(v2)||e[7](v2);v2.length===2||e[6](v2);let v4=v2[0],v5=v2[1];typeof v4==="string"||e[4](v4);let v3;try{v3=BigInt(v4)}catch(_){e[2](v4)}v3||v4.trim()||e[3](v4);typeof v5==="boolean"||e[5](v5);return {foo:v1,bar:[v3,v5]}}catch(v6){e[10](v6)}}`,
   )
 
   t->Assert.deepEqual(
@@ -397,7 +397,7 @@ test("Parses JSON string to option", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{typeof i==="string"||e[2](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}for(;;){if(typeof v0==="boolean")break;if(v0===null){v0=void 0;break}e[1](v0)}return v0}catch(v1){e[3](v1)}}`,
+    `i=>{try{typeof i==="string"||e[2](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}for(;;){if(typeof v0==="boolean")break;if(v0===null){v0=void 0;break}throw e[1](v0)}return v0}catch(v1){e[3](v1)}}`,
   )
 
   t->Assert.deepEqual(None->S.convertOrThrow(~from=schema, ~to=S.unknown), `null`->Obj.magic)
@@ -406,7 +406,7 @@ test("Parses JSON string to option", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{try{for(;;){if(typeof i==="boolean"){i=""+i;break}if(i===void 0){i="null";break}e[0](i)}return i}catch(v0){e[1](v0)}}`,
+    `i=>{try{for(;;){if(typeof i==="boolean"){i=""+i;break}if(i===void 0){i="null";break}throw e[0](i)}return i}catch(v0){e[1](v0)}}`,
   )
 })
 
@@ -459,7 +459,7 @@ test("Compiled async parse code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ParseAsync,
-    `i=>{try{typeof i==="string"||e[4](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="boolean"||e[3](v0);let v1;try{v1=e[1](v0).catch(x=>e[2](x))}catch(x){e[2](x)}return v1.catch(e[5])}catch(v2){return e[6](v2)}}`,
+    `i=>{try{typeof i==="string"||e[4](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="boolean"||e[3](v0);let v1;try{v1=e[1](v0).catch(x=>{e[2](x)})}catch(x){e[2](x)}return v1.catch(e[5])}catch(v2){return e[6](v2)}}`,
   )
 })
 
