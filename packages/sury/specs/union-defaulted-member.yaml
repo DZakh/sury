@@ -18,14 +18,11 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{for(;;){for(;;){if(typeof i==="boolean")break;if(i===null){i=false;break}e[0](i)};break;}return i}catch(v0){e[1](v0)}}
+    expression: i=>{try{for(;;){if((typeof i==="boolean"||i===null)){for(;;){if(typeof i==="boolean")break;if(i===null){i=false;break}e[0](i)};break}if(typeof i==="string")break;e[1](i)}return i}catch(v0){e[2](v0)}}
     examples:
-      # FIXME: known bug union-defaulted-member (scripts/knownBugs.ts). "x" is the string
-      # member's, so the answer is "x"; the member carrying a default takes over
-      # the whole union.
       string-member:
         input: '"x"'
-        error: Expected boolean | null, received "x"
+        output: '"x"'
       null-takes-the-default:
         input: "null"
         output: "false"

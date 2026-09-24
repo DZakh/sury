@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.optional(S.optional(S.string, "d"))
+  input: string | undefined
+  output: string | undefined
+  instantiations: 583
+jsonSchema:
+  input: Expected JSON, received string | undefined
+  output: Expected JSON, received string | undefined
+isEqual: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare string | undefined | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare string | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{for(;;){let r;try{for(;;){if(typeof i==="string")break;if(i===void 0){i="d";break}e[0](i)};break}catch(x){(r||(r=[])).push(e[1](x))}if(i===void 0)break;e[2](i,...(r||[]))}return i}catch(v0){e[3](v0)}}
+    examples:
+      absent-takes-the-default:
+        input: undefined
+        output: '"d"'
+      string:
+        input: '"a"'
+        output: '"a"'
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{(typeof i==="string"||i===void 0)||e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      absent:
+        input: undefined
+        output: undefined
+      string:
+        input: '"a"'
+        output: '"a"'
