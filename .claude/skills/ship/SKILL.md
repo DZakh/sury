@@ -1,136 +1,126 @@
 ---
 name: ship
-description: The one workflow for every prompt in the Sury repo. Triages the prompt, and for a change or bug drives it to production ready on its own - contract, measured candidates, verify, fresh-context review, cleanup - then pushes and reports the decision it took with the alternatives and their numbers. Use for every prompt here; it answers plain questions without the loop.
+description: The workflow for every prompt in the Sury repo. Answers questions directly; drives a change, bug or perf task to production ready without asking, then pushes and reports the decision with measured alternatives.
 ---
 
 # Ship
 
-You own the task end to end. Nobody is watching the loop: decide, build, prove,
-and hand back a result to react to, never a question to answer.
+Nobody watches the loop. Decide, build, prove, and hand back a result to react
+to, never a question. `AskUserQuestion` only before something irreversible;
+nothing in a playbook is.
 
-## Non-negotiables
+## Rules
 
-- **Todolist first.** Copy the matched playbook's steps from `playbooks.md`
-  into the todolist verbatim before reasoning about the task. A step you don't
-  do stays in the list as `skip: <reason>`. A silent skip is not allowed.
-- **Never block on the human.** Everything here is reversible. A fork that an
-  experiment can settle (behaviour, codegen, bundle, perf) is settled by
-  running it. A taste call is made by `taste.md`. Neither is asked.
-  `AskUserQuestion` is only for an irreversible action, and there are none in a
-  playbook.
-- **Prove it works.** "It compiles" and "tests pass" are not evidence on their
-  own. Evidence is command output, a spec golden that moved, a metric summary.
-  Paste it; don't paraphrase it.
-- **Fix root causes.** Reproduce first. Every shipped line traces to evidence.
-  A change that "might help" is a hypothesis: revert it when evidence doesn't
-  back it.
-- **Subtract before you add.** Delete dead weight first, then build on the
-  simpler base. A new concept (field, flag, cache, parallel walk) has to beat
-  the version that reuses what the core already has, in numbers.
-- **You own every subagent's work.** Review its diff and write your own
-  summary. For a second attempt spawn a fresh agent with the whole scope; don't
-  chain resumes.
-- **Guard the context window.** Bulk reading and candidate builds go to
-  subagents; the main thread keeps summaries and the ledger.
+- Copy the playbook's steps into the todolist first. A step you don't do stays
+  as `skip: <reason>`.
+- A fork an experiment can settle is settled by running it. A taste call follows
+  `taste.md`.
+- Evidence is pasted output: a command's result, a golden that moved, the
+  metric summary. "It compiles" is not evidence.
+- Reproduce before fixing. Revert a change the evidence doesn't back.
+- Delete before adding. A new concept must beat reusing an existing one, in
+  numbers.
+- Review every subagent's diff and write your own summary. Retry with a fresh
+  agent, not a resume.
+- Bulk reading and candidate builds go to subagents.
 
-## Triage
+## Playbooks
 
-| prompt | playbook |
-|---|---|
-| a question, "how/why does X work", "should we" | **Answer**: reply from evidence (code, git history, a quick probe). No ledger, no loop. |
-| new or changed behaviour, a refactor | **Change** |
-| an issue, a bug, a known bug, a finding, red CI | **Bug** (several root causes: one Bug run each, one branch each) |
-| "make X faster/smaller" | **Hillclimb** |
-| review a branch/PR, compare with another library | **Report** |
+**Answer** (a question, "should we"): reply from code, git history or a quick
+probe. No ledger, no loop.
 
-## The ledger
+**Change** (new behaviour, refactor):
+1. Read the subsystem; name the data shape.
+2. Write the contract: specs that must exist or move, fuzzers that stay green,
+   metrics that must not regress.
+3. Candidates, when `packages/sury/src` changes and several designs are
+   plausible: a subagent per candidate with `isolation: "worktree"`, built far
+   enough for `pnpm spec check --write` to measure. Pass `sury-judge` (pick
+   mode) each sketch, worktree path and numbers (bundle gz, codegen, perf above
+   the floor, lines +/-).
+4. Build it through the `spec` skill, with docs, `S.res` and `index.d.ts`.
+5. Loop.
 
-`.ship/<branch>.md` (gitignored). It is what makes the run resumable after
-compaction or in a new session, and what the final reply is built from.
+**Bug** (issue, known bug, finding, red CI; one run and branch per root cause):
+1. Reproduce as a spec example, confirm the golden records the wrong answer,
+   and commit it before the fix.
+2. Minimize, then rule out hypotheses with evidence until one mechanism is left.
+   Name the question being answered in the wrong place.
+3. Find every other site reading the same wrong answer.
+4. Contract: examples corrected, `knownBugs.ts` entry gone (if one), fuzzer
+   green, and the fuzzer extended if it should have caught this.
+5. Change steps 3-5.
+
+**Hillclimb** (faster/smaller): baseline and noise floor in the ledger; one
+hypothesis per iteration, kept as its own commit only above the floor with no
+other regression. Contract: the target, or a plateau after a pivot.
+
+**Report** (review a diff, compare a library): `sury-judge` review plus your own
+read and an alternative, measured where cheap. Or read the other library's
+changelog and source and map each feature to today's Sury spelling (checked
+against `entry.ts` and `docs/`): have, different spelling, missing, not wanted.
+Check `IDEAS.md`. No edits, no Loop, no Finish. Reply with findings ranked
+most severe first, or missing features ranked, each as the example a user
+would write.
+
+Change, Bug and Hillclimb end with Loop, Finish and Reply.
+
+## Ledger
+
+`.ship/<branch>.md`, gitignored. Written before code, it survives compaction:
 
 ```md
-# <task>
 ## Contract
-- [ ] <predicate, checkable by a command or a golden>
+- [ ] <predicate a command or golden can check>
 ## Decisions
 | # | decision | why | evidence | result |
 ```
 
-The contract is written before the first line of code and never relaxed to
-declare victory. Log decision points, not actions: a fork chosen, a candidate
-measured, a finding accepted or rejected, a revert and its trigger.
+Never relax the contract to finish. Log forks, measurements, accepted and
+rejected findings, reverts.
 
-## The loop
-
-Each round, in order:
+## Loop
 
 1. `pnpm verify --fast`. Red is the next thing to fix.
-2. Review: spawn the `sury-judge` agent in **review** mode on the diff against
-   `origin/main`. Blocking findings (architecture, correctness) are fixed this
-   round, each as a spec example first. Log the rest as rejected with a reason.
-3. Comments: spawn `comment-sicko` on the diff; apply what you accept.
-4. Deslop the diff yourself: one-caller helpers, defensive checks on trusted
-   paths, `as any`, dead flags, anything off the surrounding file's dialect.
-   Keep a cleanup only if `pnpm spec check --write` shows no regression.
-5. Reflect: what else could be deleted or simplified? Try it, measure it.
+2. `sury-judge` review of the diff against `origin/main`. Fix blocking findings,
+   each as a spec example first; log the rest with a reason.
+3. `comment-sicko` on the diff; apply what you accept.
+4. Deslop: one-caller helpers, defensive checks on trusted paths, `as any`, dead
+   flags, anything off the surrounding file's dialect. Keep a cleanup only if
+   `pnpm spec check --write` shows no regression.
+5. Reflect: try the next deletion or simplification and measure it.
 
-**Exit** when every contract box is ticked with evidence **and** a whole round
-produced no accepted change. **Plateau** (two rounds with no contract progress):
-pivot the approach once, logged. If the pivot stalls too, stop and report a dead
-end with what you tried. Past round 8, stop and report regardless.
+Exit when the contract holds and a whole round changed nothing. After two rounds
+without progress, pivot once; if that stalls, stop and report the dead end.
+Stop after round 8 regardless.
 
 ## Finish
 
-1. `git fetch origin main && git merge origin/main`. Regenerate generated files
-   on the merged tree, never hand-merge them: `pnpm spec check --write`,
-   `pnpm benchmarks --write`, `pnpm --filter=sury build` (for `*.res.mjs`),
-   `pnpm spec schema`.
-2. `pnpm verify` (full). Everything green, or each red named with why it isn't
-   this change's.
-3. Commit and push to the session branch. Never open a PR.
-4. If a PR already exists for the branch, rewrite the part of its body between
-   `<!-- ship -->` and `<!-- /ship -->` (append the pair if absent; leave
-   everything outside it alone) with the PR body below.
+1. `git fetch origin main && git merge origin/main`. Regenerate, never
+   hand-merge: `pnpm spec check --write`,
+   `pnpm benchmarks --write`, `pnpm --filter=sury build`, `pnpm spec schema`.
+2. `pnpm verify`. Name any red that isn't this change's.
+3. Commit, push to the session branch. Never open a PR.
+4. If the branch has a PR, replace the body between `<!-- ship -->` and
+   `<!-- /ship -->` (append them if missing), leaving the rest, with `##`
+   sections: What changes for you (plain words, a before/after example),
+   Impact (breaking and how to restore; speed/size a user notices), Decision
+   (what was chosen and why, then the reply's table), Details (cause, what moved, tests, what verify could
+   not run).
 
-## PR body
+## Reply
 
-Plain language first, detail last. No em dash.
-
-```md
-<!-- ship -->
-## What changes for you
-Two or three sentences a Sury user understands without reading code, then the
-before/after example they would write.
-
-## Impact
-- **Breaking:** yes/no, and the spelling that restores the old behaviour.
-- **Speed / size:** the numbers a user would notice, or "none".
-
-## Decision
-What was chosen and why, then the alternatives table from the reply.
-
-## Details
-Cause (for a fix), what moved in the core, tests that pin it, what `pnpm verify`
-ran and what it could not.
-<!-- /ship -->
-```
-
-## The reply
-
-Short declarative sentences. Who the change is for and what they notice comes
-before any implementation detail. Name each principle that changed a decision
-and the choice it changed. Then:
+Who it's for and what they notice first. Name each principle that changed a
+decision. End with:
 
 ```
-Done: pnpm verify green (full), 0 blocking findings, 3 rounds.   [or: Stopped: <dead end>]
-
-Decision (confidence: high|low): <chosen approach>
+Done: pnpm verify green (full), 0 blocking, 3 rounds.   [or: Stopped: <why>]
+Decision (confidence: high|low): <approach>
 | | approach | bundle gz | codegen | perf | judge |
 | A (built) | ... |
 | B | ... |
 Reply "switch to B" to rework from B.
 ```
 
-Confidence is low when the pick was close on goals 1-2 or changes the public
-API; say which. "switch to X" in a later prompt restarts the Change playbook
-from step 4 with X as the base, keeping the ledger.
+Confidence is low when goals 1-2 were close or the public API changed. "switch
+to X" reruns Change from step 4 with X, keeping the ledger.
