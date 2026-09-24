@@ -3,8 +3,8 @@
   "upstream": "faec7c97e35b7db71c8456c62472164c930af180",
   "runner": "33.6.0",
   "attempted": 698,
-  "passed": 695,
-  "expectedFailures": 3,
+  "passed": 696,
+  "expectedFailures": 2,
   "skipped": 2515,
   "skippedBy": {
     "ProtoJSON input is not supported": 755,
@@ -13,5 +13,5 @@
     "text format input is not supported": 426,
     "text format output is not supported": 8
   },
-  "rate": "99.6%"
+  "rate": "99.7%"
 }

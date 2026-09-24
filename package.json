@@ -7,6 +7,7 @@
     "spec": "tsx packages/spec/cli.ts",
     "compliance": "pnpm --filter=sury build:entry && tsx packages/json-schema-test-suite/cli.ts",
     "protobuf:compliance": "pnpm --filter=sury build:entry && tsx packages/protobuf-test-suite/cli.ts",
+    "protobuf:fuzz": "pnpm --filter=sury build:entry && tsx packages/protobuf-test-suite/cli.ts fuzz",
     "protobuf:conformance": "pnpm --filter=sury build:entry && tsx packages/protobuf-conformance/cli.ts",
     "benchmarks": "pnpm --filter=sury build:entry && tsx packages/benchmarks/cli.ts",
     "test": "pnpm --filter=sury test && pnpm --filter=e2e test",

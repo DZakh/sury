@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { formatBench, runBench } from "./bench";
 import { formatBundleSize, runBundleSize } from "./bundlesize";
 import { formatCompare, runCompare } from "./compare";
+import { DEFAULT_SEEDS, reportFuzz, runFuzz } from "./fuzz";
 import { formatHillclimb, runHillclimb } from "./hillclimb";
 import {
   type Golden,
@@ -43,6 +44,9 @@ Commands:
              and workload. Needs node --expose-gc (the package compare script).
   bundle     Minified+gzip size of one message's codec per library, and of a
              decode-only entry.
+  fuzz       Generated message graphs, round-tripped and mutated against
+             protobufjs and protobuf-es. --seeds=N widens it (default 600),
+             --from=N starts elsewhere; a finding names the seed that replays it.
   hillclimb  Frozen ruler. Median of 7 on tiny/typical/large/common vs protobufjs.
 
 protobufjs is the JS implementation that passes Google's official
@@ -81,6 +85,22 @@ if (cmd === "hillclimb") {
   const score = runHillclimb();
   console.log(formatHillclimb(score));
   console.log(JSON.stringify(score));
+  process.exit(0);
+}
+
+if (cmd === "fuzz") {
+  const flag = (name: string, fallback: number): number => {
+    const arg = args.find((a) => a.startsWith(`--${name}=`));
+    return arg ? Number(arg.slice(name.length + 3)) : fallback;
+  };
+  const seeds = flag("seeds", DEFAULT_SEEDS);
+  const from = flag("from", 1);
+  const { findings, checks } = runFuzz({ seeds, from, values: 4, mutants: 12 });
+  const { text, ok } = reportFuzz(findings, from === 1 && seeds >= DEFAULT_SEEDS);
+  if (text) console.log(text);
+  const summary = `protobuf fuzz: ${seeds} graphs, ${checks} checks, ${findings.length} finding(s)`;
+  if (!ok) fail(summary);
+  console.log(green(summary));
   process.exit(0);
 }
 

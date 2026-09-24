@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ ttl: S.schema({ seconds: S.bigint, nanos: S.int32 }).with(S.protobufField, { number: 1, type: "google.protobuf.Duration" }), at: S.optional(S.schema({ seconds: S.bigint, nanos: S.int32 })).with(S.protobufField, { number: 2, type: "google.protobuf.Timestamp" }), spans: S.array(S.schema({ seconds: S.bigint, nanos: S.int32 })).with(S.protobufField, { number: 3, type: "google.protobuf.Duration" }) }).with(S.to, S.protobuf)'
+  input: "{ ttl: { seconds: bigint; nanos: number; }; spans: { seconds: bigint; nanos: number; }[]; at?: { seconds: bigint; nanos: number; } | undefined; }"
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 12017
+jsonSchema:
+  input: "Failed at ttl.seconds: Expected JSON, received bigint"
+  output: Expected JSON, received Uint8Array
+isEqual:
+  input: (a,b)=>a===b||a.ttl.seconds===b.ttl.seconds&&a.ttl.nanos===b.ttl.nanos&&(a.at===void 0?b.at===void 0:b.at!==void 0&&a.at.seconds===b.at.seconds&&a.at.nanos===b.at.nanos)&&e[0](a.spans,b.spans)
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { ttl: { seconds: bigint; nanos: int32; }; at: { seconds: bigint; nanos: int32; } | undefined; spans: { seconds: bigint; nanos: int32; }[]; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[18](i);let v0=i.ttl,v3=i.at,v6=i.spans;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0.seconds,v2=v0.nanos;typeof v1==="bigint"||e[0](v1);typeof v2==="number"&&v2<=2147483647&&v2>=-2147483648&&v2%1==0||e[1](v2);for(;;){if(typeof v3==="object"&&v3&&!Array.isArray(v3)){let v4=v3.seconds,v5=v3.nanos;typeof v4==="bigint"||e[3](v4);typeof v5==="number"&&v5<=2147483647&&v5>=-2147483648&&v5%1==0||e[4](v5);v3={seconds:v4,nanos:v5};break}if(v3===void 0)break;e[5](v3)}Array.isArray(v6)||e[9](v6);let v11=new Array(v6.length);for(let v7=0;v7<v6.length;++v7){let v8=v6[v7];typeof v8==="object"&&v8&&!Array.isArray(v8)||e[8](v8,["spans",v7]);let v9=v8.seconds,v10=v8.nanos;typeof v9==="bigint"||e[6](v9,["spans",v7,"seconds"]);typeof v10==="number"&&v10<=2147483647&&v10>=-2147483648&&v10%1==0||e[7](v10,["spans",v7,"nanos"]);v11[v7]={seconds:v9,nanos:v10}}let v12;{let w;try{w=e[16].acquire();let v,j,n,s,h,a,k,g,c,o;v={seconds:v1,nanos:v2};if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[10](w,v);w.end(h)};v=v3;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[11](w,v);w.end(h)};v=v11;n=v.length;if(n){j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=26:w.varint32(26);h=w.begin();e[12](w,v[j++]);w.end(h)}};v12=w.finish()}catch(x){w&&(w.busy=false);e[17](x)}}return v12}catch(v13){e[19](v13)}}
+    examples:
+      duration:
+        input: "{ ttl: { seconds: 1n, nanos: 500 }, spans: [] }"
+        output: new Uint8Array([10, 5, 8, 1, 16, 244, 3])
+      seconds-a-number:
+        input: "{ ttl: { seconds: 1, nanos: 0 }, spans: [] }"
+        error: "Failed at ttl.seconds: Expected bigint, received 1"
+      nanos-not-int32:
+        input: "{ ttl: { seconds: 1n, nanos: 0.5 }, spans: [] }"
+        error: "Failed at ttl.nanos: Expected int32, received 0.5"
+  decode:
+    expression: i=>{try{let v0=i.ttl,v1=i.spans;let v4;{let w;try{w=e[6].acquire();let v,j,n,s,h,a,k,g,c,o;v=v0;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[0](w,v);w.end(h)};v=i.at;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[1](w,v);w.end(h)};v=v1;n=v.length;if(n){j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=26:w.varint32(26);h=w.begin();e[2](w,v[j++]);w.end(h)}};v4=w.finish()}catch(x){w&&(w.busy=false);e[7](x)}}return v4}catch(v5){e[8](v5)}}
+    examples:
+      zero-is-written:
+        input: "{ ttl: { seconds: 0n, nanos: 0 }, spans: [] }"
+        output: new Uint8Array([10, 0])
+      negative:
+        input: "{ ttl: { seconds: -1n, nanos: -500 }, at: { seconds: 1700000000n, nanos: 123000000 }, spans: [{ seconds: 1n, nanos: 0 }] }"
+        output: new Uint8Array([10, 22, 8, 255, 255, 255, 255, 255, 255, 255, 255, 255, 1, 16, 140, 252, 255, 255, 255, 255, 255, 255, 255, 1, 18, 11, 8, 128, 226, 207, 170, 6, 16, 192, 169, 211, 58, 26, 2, 8, 1])
+  encode:
+    expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v1=v0.ttl,v2=v0.at,v4=v0.spans;let v3=v2;return v0}catch(v7){e[3](v7)}}
+    examples:
+      empty:
+        input: new Uint8Array([])
+        output: "{ ttl: { seconds: 0n, nanos: 0 }, spans: [] }"
+      seconds-and-nanos:
+        input: new Uint8Array([10, 5, 8, 1, 16, 244, 3])
+        output: "{ ttl: { seconds: 1n, nanos: 500 }, spans: [] }"
+      negative:
+        input: new Uint8Array([10, 22, 8, 255, 255, 255, 255, 255, 255, 255, 255, 255, 1, 16, 140, 252, 255, 255, 255, 255, 255, 255, 255, 1])
+        output: "{ ttl: { seconds: -1n, nanos: -500 }, spans: [] }"
+      seen-twice-merges:
+        input: new Uint8Array([10, 2, 8, 1, 10, 2, 16, 5])
+        output: "{ ttl: { seconds: 1n, nanos: 5 }, spans: [] }"
+      unknown-field-skipped:
+        input: new Uint8Array([10, 4, 24, 9, 8, 2])
+        output: "{ ttl: { seconds: 2n, nanos: 0 }, spans: [] }"
+      timestamp-present-empty:
+        input: new Uint8Array([18, 0])
+        output: "{ ttl: { seconds: 0n, nanos: 0 }, spans: [], at: { seconds: 0n, nanos: 0 } }"
+      repeated:
+        input: new Uint8Array([26, 2, 8, 1, 26, 0])
+        output: "{ ttl: { seconds: 0n, nanos: 0 }, spans: [{ seconds: 1n, nanos: 0 }, { seconds: 0n, nanos: 0 }] }"

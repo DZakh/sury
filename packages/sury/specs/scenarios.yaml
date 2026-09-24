@@ -273,6 +273,21 @@ protobuf-decode:
     const bytes = new Uint8Array([8, 150, 1, 18, 3, 65, 100, 97, 26, 3, 1, 0, 4])
   run: decode(bytes)
 
+protobuf-decode-packed:
+  prepare: |
+    const Feature = S.schema({
+      geometry: S.array(S.integer).with(S.protobufField, { number: 4, type: "uint32" }),
+      deltas: S.array(S.int32).with(S.protobufField, { number: 5, type: "sint32" }),
+    })
+    const decode = S.decodeOrThrow(S.protobuf, Feature)
+    const bytes = S.decodeOrThrow(Feature, S.protobuf)({
+      geometry: Array.from({ length: 300 }, (_, i) => (i * 17) & 0x3fff),
+      deltas: Array.from({ length: 300 }, (_, i) => i - 150),
+    }).slice()
+  # A vector tile's geometry: packed varints of one and two bytes, the loop a
+  # packed reader spends its time in.
+  run: decode(bytes)
+
 parse-or-throw-invalid:
   prepare: |
     const schema = S.schema({ id: S.string, age: S.number });
@@ -320,3 +335,21 @@ recursive-definer-defaults:
         kid: S.optional(node),
       }),
     )
+
+recursive-tree-parse:
+  prepare: |
+    const node = S.recursive("Node", (self) => S.schema({ id: S.number, left: S.optional(self), right: S.optional(self) }));
+    const build = (d) => (d === 0 ? { id: d } : { id: d, left: build(d - 1), right: build(d - 1) });
+    const tree = build(6);
+    const parse = S.parseOrThrow(node);
+  # 127 nodes and 128 absent children: the leaves are where an optional
+  # recursive field dispatches on `undefined`.
+  run: parse(tree)
+
+optional-json-absent:
+  prepare: |
+    const parse = S.parseOrThrow(S.schema({ id: S.string, meta: S.optional(S.json) }));
+    const data = { id: "u1" };
+  # `S.json` is a ref to a union, so nothing guards its arm: the absent field
+  # has to be dispatched to `undefined` without trying the JSON check first.
+  run: parse(data)

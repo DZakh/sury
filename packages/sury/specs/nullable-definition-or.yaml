@@ -38,9 +38,17 @@ operations:
         divergence:
           reason: the equivalent's `.default()` fills in for undefined; a S.nullable definition stands in for null alone
           zod: "{ a: false }"
-  decode: eq-to-parse
+  decode:
+    expression: i=>{try{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i))break;if(i===null){i=e[0];break}e[1](i)}return i}catch(v0){e[2](v0)}}
+    examples:
+      object:
+        input: "{ a: true }"
+        output: "{ a: true }"
+      null-takes-the-default:
+        input: "null"
+        output: "{ a: false }"
   encode:
-    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i.a;typeof v0==="boolean"||e[0](v0);i={a:v0}}else{e[1](i)}return i}catch(v1){e[2](v1)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
       object:
         input: "{ a: true }"

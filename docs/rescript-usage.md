@@ -1491,11 +1491,9 @@ S.base64->S.to(S.string) // widens
 
 ### **Protocol Buffers**
 
-`S.protobuf` is the [Protocol Buffers](https://protobuf.dev) binary wire
-format. Number every field of a message with `S.protobufField`, convert to
-`S.protobuf`, and you have an encoder and a decoder for that message. No
-`.proto` file, no code generation step, and the schema still parses, infers
-types and converts to JSON Schema.
+`S.protobuf` encodes and decodes the [Protocol Buffers](https://protobuf.dev)
+binary format. Number each field with `S.protobufField` and convert to or from
+`S.protobuf`. You don't need a `.proto` file or a code generation step.
 
 ```rescript
 type address = {street: string}
@@ -1508,87 +1506,143 @@ let userSchema = S.schema(s => {
   name: s.matches(S.string->S.protobufField(2)),
   tags: s.matches(S.array(S.string)->S.protobufField(3)),
   home: s.matches(S.option(addressSchema)->S.protobufField(4)),
-  kind: s.matches(S.enum([1, 2])->S.protobufField(5, ~type_=#enum)),
+  kind: s.matches(S.enum([1, 2])->S.protobufField(5)),
 })->S.meta({name: "User"})
 
 let value = {id: 150, name: "Ada", tags: ["ml"], home: Some({street: "Main"}), kind: 2}
 
 let bytes = value->S.convertOrThrow(~from=userSchema, ~to=S.protobuf) // 22 bytes
-bytes->S.convertOrThrow(~from=S.protobuf, ~to=userSchema) // back to `value`
+bytes->S.convertOrThrow(~from=S.protobuf, ~to=userSchema) // value
 ```
 
-Hoist the operation when you run it more than once, the way you would any
-other:
+Compile the operation once when you run it many times:
 
 ```rescript
 let decode = S.compileConvertOrThrow(~from=S.protobuf, ~to=userSchema)
 ```
 
-`S.protobuf->S.to(userSchema)` is the same codec as one schema, so it parses
-straight from an `unknown` - the bytes are checked to be a `Uint8Array` before
-anything is read:
+To parse bytes from `unknown`, use `S.protobuf->S.to(userSchema)`:
 
 ```rescript
 body->S.parseOrThrow(~to=S.protobuf->S.to(userSchema))
 ```
 
-#### Build a message with `S.schema`, not `S.object`
-
-`S.object` names JS fields and builds a ReScript value out of them, which is a
-conversion: the message is the thing on the far side of it, and a *nested*
-message field has nowhere to put one.
+With the [PPX](https://github.com/DZakh/sury/blob/main/packages/sury-ppx/README.md), number fields with `@s.with`:
 
 ```rescript
-S.object(s => {street: s.field("street", S.string->S.protobufField(1))})
-// as a field of another message, throws: field "home" is a message that
-// converts further with S.to, which a nested field can't
+@schema
+type address = {street: @s.with(S.protobufField(_, 1)) string}
 ```
 
-`S.schema` matches the record's own fields, so the message is the schema
-itself and nests freely. Use `S.object` only for a root message, where the
-conversion has somewhere to go.
+Build messages with `S.schema` or the PPX. A nested message can't be an
+`S.object`.
 
-#### The wire type
+#### Field types
 
-It is inferred from the schema: `S.string` is `string`, `S.bool` is `bool`,
-`S.uint8Array` is `bytes`, `S.int` is `int32`, `S.float` is `double`,
-`S.bigint` is `int64`, `S.enum` of ints is an `enum`, a message schema is a
-nested `message`, `S.array` is `repeated` and `S.dict` is a `map`. Pass
-`~type_` to pick any of the fifteen scalar types yourself, which also lets the
-ReScript type differ from the wire type - Sury converts through the schema.
+The schema picks the protobuf type:
+
+| Schema                  | Protobuf type               |
+| ----------------------- | --------------------------- |
+| `S.string`              | `string`                    |
+| `S.bool`                | `bool`                      |
+| `S.int`                 | `int32`                     |
+| `S.float`               | `double`                    |
+| `S.bigint`              | `int64`                     |
+| `S.uint8Array`          | `bytes`                     |
+| `S.enum([1, 2])`        | `enum`                      |
+| `S.schema(...)`         | a nested message            |
+| `S.array(t)`            | `repeated t`                |
+| `S.dict(t)`             | `map<string, t>`            |
+| `S.date`                | `google.protobuf.Timestamp` |
+| `S.json`                | `google.protobuf.Value`     |
+
+Pass `~type_` to choose another type. The value in your schema can differ from
+the wire type:
 
 ```rescript
-S.string->S.protobufField(1, ~type_=#uint32) // "150" <=> varint 150
-S.int->S.protobufField(2, ~type_=#sint32) // zigzag
+S.string->S.protobufField(1, ~type_=#uint32) // "150" is sent as 150
+S.int->S.protobufField(2, ~type_=#sint32)
 S.bigint->S.protobufField(3, ~type_=#fixed64)
 S.float->S.protobufField(4, ~type_=#float)
 ```
 
-The rest of `S.protobufField` is protobuf's own vocabulary. `~key` is the K of
-a `map<K, V>` for an `S.dict` field, `string` unless you say otherwise;
-`~packed=false` writes a repeated scalar expanded, a tag per item, where the
-default packs them into one run (decoding accepts both); `~oneof` puts the
-field in a `oneof` block, where at most one member is ever set: decoding one
-clears the others, and encoding a value with two of them set is refused.
+#### Optional fields
+
+Proto3 skips a field that holds its default value (`0`, `""`, `false`), and
+decodes a missing field as that default. Use `S.option` to tell `None` from
+`Some(0)`:
 
 ```rescript
-S.dict(S.string)->S.protobufField(5, ~key=#int64)
-S.array(S.int)->S.protobufField(6, ~packed=false)
-S.option(S.string)->S.protobufField(7, ~oneof="choice")
+S.option(S.int)->S.protobufField(1)
 ```
 
-#### Unknown fields
+#### Lists, maps and oneof
 
-Skipped, the way every proto3 reader skips them, which is what lets a sender
-add a field without breaking you. Skipped, not kept: a decode followed by an
-encode writes back only the fields the schema declares. `S.strict` on the
-message rejects an unknown field instead, which is worth having on an internal
-wire where an unexpected number means a version skew you would rather hear
-about.
+```rescript
+S.array(S.int)->S.protobufField(1) // repeated int32, packed
+S.array(S.int)->S.protobufField(2, ~packed=false) // one tag per item
+S.dict(S.string)->S.protobufField(3, ~key=#int64) // map<int64, string>
+S.option(S.string)->S.protobufField(4, ~oneof="choice")
+S.option(S.int)->S.protobufField(5, ~oneof="choice")
+```
 
-A wire failure names where it hit, the way an object parse error names a path:
-the field, its number, and the wire type the bytes claimed, with each
-enclosing message in front of it.
+Fields with the same `~oneof` name are a `oneof`: at most one of them can be
+`Some`, and encoding a value with two set throws.
+
+#### Recursive messages
+
+Use [`recursive`](#recursive):
+
+```rescript
+type rec category = {name: string, children: array<category>}
+
+let categorySchema = S.recursive("Category", categorySchema =>
+  S.schema(s => {
+    name: s.matches(S.string->S.protobufField(1)),
+    children: s.matches(S.array(categorySchema)->S.protobufField(2)),
+  })
+)
+```
+
+#### Well-known types
+
+Google's `google.protobuf.*` types are supported. `S.date` and `S.json` pick
+theirs automatically. For the others, pass `~type_`:
+
+```rescript
+type duration = {seconds: bigint, nanos: int}
+type job = {at: Date.t, payload: JSON.t, timeout: duration, retries: option<int>}
+
+let jobSchema = S.schema(s => {
+  at: s.matches(S.date->S.protobufField(1)),
+  payload: s.matches(S.json->S.protobufField(2)),
+  timeout: s.matches(
+    S.schema(s => {seconds: s.matches(S.bigint), nanos: s.matches(S.int)})
+    ->S.protobufField(3, ~type_=#"google.protobuf.Duration"),
+  ),
+  retries: s.matches(S.option(S.int)->S.protobufField(4, ~type_=#"google.protobuf.Int32Value")),
+})
+```
+
+| `~type_`                              | Schema                                           |
+| ------------------------------------- | ------------------------------------------------ |
+| `#"google.protobuf.Timestamp"`        | `S.date`, or a `{seconds: bigint, nanos: int}` record |
+| `#"google.protobuf.Duration"`         | a `{seconds: bigint, nanos: int}` record          |
+| `#"google.protobuf.Value"`            | `S.json`                                         |
+| `#"google.protobuf.Struct"`           | `S.dict(S.json)`                                 |
+| `#"google.protobuf.ListValue"`        | `S.array(S.json)`                                |
+| `#"google.protobuf.FieldMask"`        | `S.array(S.string)`                              |
+| `#"google.protobuf.Int32Value"`, `#"google.protobuf.StringValue"` and the other wrappers | `S.option(S.int)`, `S.option(S.string)`, ... |
+
+A `Date.t` holds milliseconds, so use the `{seconds, nanos}` record when you
+need nanoseconds.
+
+#### Unknown fields and errors
+
+Fields your schema doesn't declare are skipped, and decoding then encoding
+drops them. Use `S.strict` on the message to throw on them instead.
+
+Bad input throws an error that points to the field:
 
 ```rescript
 %raw(`new Uint8Array([8, 1, 34, 3, 10, 1, 255])`)->S.convertOrThrow(
@@ -1602,12 +1656,8 @@ enclosing message in front of it.
 
 `(S.t<'value>, ~name: string=?, ~package: string=?) => string`
 
-The proto3 source describing the wire a message schema speaks, for the other
-side of the connection. A schema's `name` meta names the message, otherwise
-`~name` does, otherwise it is `Message`. camelCase field names print
-snake_case, because that is proto3's style guide and what `buf lint` checks;
-the wire is unaffected, since a field is its number, and every generator turns
-the name back into the one its own language would use.
+Prints the `.proto` file for a message schema, so other languages can generate
+code from it. The `name` meta names the message, then `~name`, then `Message`.
 
 ```rescript
 userSchema->S.toProtoOrThrow(~package="acme.v1")
@@ -1636,30 +1686,13 @@ message User {
 }
 ```
 
-`description` meta prints as a comment and `deprecated` as the option. An
-enum's zero member prints as `<NAME>_UNSPECIFIED`, and one is prepended to an
-enum whose values lack `0`, which proto3 requires and the schema itself
-rejects. It throws on anything that cannot be a message: a field with no
-number, two fields sharing one, a schema that is not an object.
+Field names print in snake_case, the `description` meta as a comment and
+`deprecated` as `[deprecated = true]`.
 
-Recursive messages are built with [`recursive`](#recursive):
-
-```rescript
-type rec descriptor = {name: string, nestedType: array<descriptor>}
-
-let descriptorSchema = S.recursive("DescriptorProto", descriptorSchema => {
-  S.schema(s => {
-    name: s.matches(S.string->S.protobufField(1)),
-    nestedType: s.matches(S.array(descriptorSchema)->S.protobufField(2)),
-  })
-})
-```
-
-See [Protocol Buffers in the JS guide](./js-usage.md#protocol-buffers) for the
-wire-level detail the two languages share, including what the conformance
-suite covers, and
+See [Protocol Buffers in the JS guide](./js-usage.md#protocol-buffers) for
+conformance, and
 [Benchmarks: Protobuf](https://github.com/DZakh/sury/blob/main/docs/benchmarks/protobuf.md)
-for the measured numbers.
+for speed and bundle size.
 
 ### **`meta`**
 
