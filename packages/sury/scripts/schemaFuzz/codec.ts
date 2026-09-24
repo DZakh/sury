@@ -10,7 +10,10 @@
 //                produces a value the schema's own `isOutput` accepts, an
 //                encode one its `isInput` accepts. It needs no oracle - the
 //                schema is asked about its own answer - and a half-applied
-//                transform always breaks it.
+//                transform always breaks it. The decode half is skipped for a
+//                lossy member: `isOutput` answers whether the value encodes,
+//                and the grammar's `v => v.length` coder encodes 36 to "36",
+//                which the uuid it was decoded from never was.
 //   agreement    `parse` and `decode` answer the same thing for an input the
 //                Input side accepts. They differ only in whether they validate,
 //                so a transform one runs and the other skips shows here and
@@ -54,7 +57,7 @@ const check = (ctx: Ctx): void => {
       }
       if (!settled(decoded)) continue;
       count("results");
-      if (isOutput(decoded) !== true) {
+      if (!lossy && isOutput(decoded) !== true) {
         report("conformance", `decode turned ${show(i)} into ${show(decoded)}, which the schema's own isOutput rejects`);
       }
       if (!parse) continue;

@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.string.with(S.minLength, 3).with(S.to, S.number)
+  input: string
+  output: number
+  instantiations: 4953
+jsonSchema:
+  input: '{ type: "string", minLength: 3 }'
+  output: '{ type: "number" }'
+isEqual: strictEqual
+compare: strictCompare
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="string"||e[2](i);i.length>2||e[1](i);let v0=+i;v0==v0&&(v0||i.trim())||e[0](i);return v0}catch(v1){e[3](v1)}}
+    examples:
+      long-enough:
+        input: '"500"'
+        output: "500"
+      too-short:
+        input: '"5"'
+        error: Expected string.length >= 3, received "5"
+  decode:
+    expression: i=>{try{i.length>2||e[1](i);let v0=+i;v0==v0&&(v0||i.trim())||e[0](i);return v0}catch(v1){e[2](v1)}}
+    examples:
+      long-enough:
+        input: '"500"'
+        output: "500"
+  encode:
+    expression: i=>{try{let v0=""+i;v0.length>2||e[0](v0);return v0}catch(v1){e[1](v1)}}
+    examples:
+      long-enough:
+        input: "500"
+        output: '"500"'
+      too-short:
+        input: "5"
+        error: Expected string.length >= 3, received "5"

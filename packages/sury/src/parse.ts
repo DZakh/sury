@@ -127,9 +127,23 @@ export const parse = (input: Val): Val => {
       if (loopInput !== result) appliedEncoderRef = maybeEncoder!;
       else {
         result = loopInput.e.decoder(loopInput);
-        // Primitive decoder (no internal transforms): apply refiners here.
-        // Advanced decoders set isOutput themselves and own refiner application.
-        if (!result.io) result = B_markOutput(result, result);
+        // Primitive decoder: apply refiners here. Every other decoder sets
+        // isOutput itself and owns refiner application, since only it knows
+        // which val holds its Input form.
+        //
+        // A primitive's Input and Output are one value, and a decoder that
+        // coerces into it (`S.string` handed a number) is what produces that
+        // value. So its input checks read the result too, never what the
+        // decoder was handed: `reverse` turns a source's output refiner into
+        // its input refiner, and the reversed tail of
+        // `S.string.with(S.minLength, 3).with(S.to, S.number)` would otherwise
+        // measure the number. B_markOutput reads input checks off `valInput`'s
+        // prev, hence the link - only where the decoder produced a new value,
+        // since a check is otherwise already reading the one it names.
+        if (!result.io) {
+          const own = result.e.inputRefiner && result.i !== loopInput.i ? B_refine(result) : result;
+          result = B_markOutput(own, own);
+        }
       }
     }
   }
