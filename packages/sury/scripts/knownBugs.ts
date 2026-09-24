@@ -55,18 +55,17 @@ const admitsNull = (node: Shape): boolean =>
   (node.name === "optional" && admitsNull(node.args[0]!)) ||
   (node.name === "union" && node.args.some(admitsNull));
 
-// A union whose defaulted member takes an absent value another of its arms also
-// names: the wrapper's own (`optional`, `nullable`, `nullish`), or a sibling's.
-const shadowsAbsent = (shape: Shape): boolean =>
-  some(shape, (node) =>
-    unionMembers(node).some((member) => {
-      if (!hasDefault(member)) return false;
-      const others = node.name === "union" ? node.args.filter((arm) => arm !== member) : [];
-      const named = (absent: (arm: Shape) => boolean, wrapper: string) =>
-        absent(member) && (node.name === "nullish" || node.name === wrapper || others.some(absent));
-      return named(admitsUndefined, "optional") || named(admitsNull, "nullable");
-    }),
-  );
+// A member with a default takes every absent value it replaces, so an arm of the
+// same union naming that value - the wrapper's own (`optional`, `nullable`,
+// `nullish`), or a sibling's - is reached only by encode.
+const defaultClaimsAbsent = (node: Shape): boolean =>
+  unionMembers(node).some((member) => {
+    if (!hasDefault(member)) return false;
+    const others = node.name === "union" ? node.args.filter((arm) => arm !== member) : [];
+    const named = (absent: (arm: Shape) => boolean, wrapper: string) =>
+      absent(member) && (node.name === "nullish" || node.name === wrapper || others.some(absent));
+    return named(admitsUndefined, "optional") || named(admitsNull, "nullable");
+  });
 
 export const KNOWN_BUGS: Known[] = [
   {
@@ -107,17 +106,6 @@ export const KNOWN_BUGS: Known[] = [
       some(f.shape, (node) => node.name === "fieldOr" && admitsUndefined(node.args[0]!)),
   },
   {
-    id: "union-shadowed-absent-arm",
-    kind: "bug",
-    summary:
-      "An absent arm a defaulted member already takes is dead, yet stays in the Output: " +
-      "`S.optional(S.optional(S.string, \"d\"))` claims `string | undefined`, encodes `undefined` to " +
-      "`undefined`, and decodes that to `\"d\"`.",
-    spec: "union-shadowed-absent-arm",
-    fuzzers: ["codec"],
-    matches: (f) => f.fuzzer === "codec" && f.property === "round-trip" && shadowsAbsent(f.shape),
-  },
-  {
     id: "union-never-member",
     kind: "bug",
     summary:
@@ -133,12 +121,14 @@ export const KNOWN_BUGS: Known[] = [
     kind: "limitation",
     summary:
       "A member that takes every value of its kind - an object whose every field may be absent, a list of " +
-      "`any` - claims values meant for a later member. The first member that accepts a value wins, which is " +
-      "the documented rule; the round trip and the member-by-member reference cannot tell that from a bug.",
+      "`any`, a member with a default and the absent value it replaces - claims values meant for a later " +
+      "member. The first member that accepts a value wins, which is the documented rule; the round trip and " +
+      "the member-by-member reference cannot tell that from a bug. `S.optional(S.optional(S.string, \"d\"))` " +
+      "encodes `undefined` through its outer arm, and decoding that reaches the inner default first.",
     fuzzers: ["codec", "union"],
     matches: (f) =>
       (f.fuzzer === "union" ? f.property === "acceptance" : f.property === "round-trip") &&
-      some(f.shape, (node) => node.name === "union" && node.args.some(absorbs)),
+      some(f.shape, (node) => (node.name === "union" && node.args.some(absorbs)) || defaultClaimsAbsent(node)),
   },
 ];
 

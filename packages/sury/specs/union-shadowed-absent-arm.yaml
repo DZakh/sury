@@ -28,10 +28,6 @@ operations:
   encode:
     expression: i=>{try{(typeof i==="string"||i===void 0)||e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
-      # FIXME: known bug union-shadowed-absent-arm (scripts/knownBugs.ts). The inner member
-      # replaces every `undefined` with "d", so the outer `undefined` arm is dead and
-      # `undefined` is no Output value: the Output is `string`, and this encode
-      # hands back an Input that decodes to "d".
       absent:
         input: undefined
         output: undefined
