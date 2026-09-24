@@ -10,8 +10,8 @@
 // truncation, a slice repeated or spliced in - and Sury and protobuf-es each
 // decode the result: they must agree on whether it is a message, and where
 // both say it is, re-encode it to the same bytes.
-import { toBinary, fromBinary, fromJson, toJson, type DescMessage } from "@bufbuild/protobuf";
-import { TimestampSchema, ValueSchema, timestampFromMs } from "@bufbuild/protobuf/wkt";
+import { create, toBinary, fromBinary, fromJson, toJson, type DescMessage } from "@bufbuild/protobuf";
+import * as wkt from "@bufbuild/protobuf/wkt";
 import * as S from "sury";
 import { type FieldDef, suryMessage } from "./cases";
 import { protobufEsType } from "./reference";
@@ -283,53 +283,152 @@ const genJson = (r: Random, depth: number): unknown => {
   return out;
 };
 
-const valueField = S.schema({ v: S.protobufValue.with(S.protobufField, 1) });
-const timestampField = S.schema({ v: S.protobufTimestamp.with(S.protobufField, 1) });
-
-// The field's payload: Sury writes a required well-known value as field 1,
-// always present, so the bytes after its tag and length are the message.
+// The field's payload: Sury writes a present well-known value as field 1, so
+// the bytes after its tag and length are the message.
 const payload = (bytes: Uint8Array): Uint8Array => {
   let at = 1;
   while (bytes[at]! > 127) at++;
   return bytes.subarray(at + 1);
 };
 
-// `S.protobufValue` against protobuf-es's own google.protobuf.Value, and `S.protobufTimestamp`
-// against its Timestamp: the same bytes both ways, and the value back.
+type Message = Record<string, unknown>;
+
+// One well-known type against protobuf-es's own implementation of it: the
+// schema Sury reads it into, a value to write, the message protobuf-es builds
+// for that value and the value it reads back out, and what a comparison looks
+// at (a Date by its time, since two Dates have no fields to differ in).
+type WellKnownCase = {
+  type: string;
+  schema: S.Schema<unknown, unknown>;
+  es: DescMessage;
+  gen: (r: Random) => unknown;
+  toEs: (value: unknown) => Message;
+  fromEs: (message: Message) => unknown;
+  key?: (value: unknown) => unknown;
+};
+
+const field = (schema: S.Schema<unknown, unknown>, type?: string): S.Schema<unknown, unknown> =>
+  S.schema({ v: schema.with(S.protobufField, type === undefined ? 1 : { number: 1, type: type as S.ProtobufWellKnownType }) }) as never;
+
+const secondsNanos = S.schema({ seconds: S.bigint, nanos: S.int32 }) as S.Schema<unknown, unknown>;
+const genSecondsNanos = (r: Random) => ({
+  seconds: chance(r, 0.3) ? pick(r, [0n, 1n, -1n, 253402300799n, -62135596800n, 9223372036854775807n]) : BigInt(int(r, 2 ** 40)) - 2n ** 39n,
+  nanos: chance(r, 0.3) ? pick(r, [0, 1, -1, 999999999, -999999999]) : int(r, 2 ** 32) | 0,
+});
+const bySecondsNanos = (m: Message) => ({ seconds: m.seconds, nanos: m.nanos });
+const wrapper = (name: string, schema: S.Schema<unknown, unknown>, gen: (r: Random) => unknown): WellKnownCase => ({
+  type: `google.protobuf.${name}`,
+  schema: field(S.optional(schema) as never, `google.protobuf.${name}`),
+  es: (wkt as unknown as Record<string, DescMessage>)[`${name}Schema`]!,
+  gen,
+  toEs: (value) => ({ value }),
+  fromEs: (m) => m.value,
+});
+
+const wellKnownCases: WellKnownCase[] = [
+  {
+    type: "google.protobuf.Value",
+    schema: field(S.json as never),
+    es: wkt.ValueSchema,
+    gen: (r) => genJson(r, 0),
+    toEs: (value) => fromJson(wkt.ValueSchema, value as never) as never,
+    fromEs: (m) => toJson(wkt.ValueSchema, m as never),
+  },
+  {
+    type: "google.protobuf.Struct",
+    schema: field(S.record(S.json) as never, "google.protobuf.Struct"),
+    es: wkt.StructSchema,
+    gen: (r) => Object.fromEntries(Array.from({ length: int(r, 4) }, (_, i) => [`k${i}`, genJson(r, 1)])),
+    toEs: (value) => fromJson(wkt.StructSchema, value as never) as never,
+    fromEs: (m) => toJson(wkt.StructSchema, m as never),
+  },
+  {
+    type: "google.protobuf.ListValue",
+    schema: field(S.array(S.json) as never, "google.protobuf.ListValue"),
+    es: wkt.ListValueSchema,
+    gen: (r) => Array.from({ length: int(r, 4) }, () => genJson(r, 1)),
+    toEs: (value) => fromJson(wkt.ListValueSchema, value as never) as never,
+    fromEs: (m) => toJson(wkt.ListValueSchema, m as never),
+  },
+  {
+    type: "google.protobuf.Timestamp as a Date",
+    schema: field(S.date as never),
+    es: wkt.TimestampSchema,
+    gen: (r) => new Date(chance(r, 0.3) ? pick(r, [0, -1, 999, -1000, 253402300799999, -62135596800000]) : Math.round((r() - 0.3) * 1e13)),
+    toEs: (value) => wkt.timestampFromDate(value as Date) as never,
+    fromEs: (m) => wkt.timestampDate(m as never),
+    key: (value) => (value as Date).getTime(),
+  },
+  {
+    type: "google.protobuf.Timestamp",
+    schema: field(secondsNanos, "google.protobuf.Timestamp"),
+    es: wkt.TimestampSchema,
+    gen: genSecondsNanos,
+    toEs: (value) => value as Message,
+    fromEs: bySecondsNanos,
+  },
+  {
+    type: "google.protobuf.Duration",
+    schema: field(secondsNanos, "google.protobuf.Duration"),
+    es: wkt.DurationSchema,
+    gen: genSecondsNanos,
+    toEs: (value) => value as Message,
+    fromEs: bySecondsNanos,
+  },
+  {
+    type: "google.protobuf.FieldMask",
+    schema: field(S.array(S.string) as never, "google.protobuf.FieldMask"),
+    es: wkt.FieldMaskSchema,
+    gen: (r) => Array.from({ length: int(r, 4) }, () => genScalar(r, "string")),
+    toEs: (paths) => ({ paths }),
+    fromEs: (m) => m.paths,
+  },
+  {
+    type: "google.protobuf.Empty",
+    schema: field(S.schema({}) as never, "google.protobuf.Empty"),
+    es: wkt.EmptySchema,
+    gen: () => ({}),
+    toEs: () => ({}),
+    fromEs: () => ({}),
+  },
+  wrapper("DoubleValue", S.number as never, (r) => genScalar(r, "double")),
+  wrapper("FloatValue", S.number as never, (r) => genScalar(r, "float")),
+  wrapper("Int64Value", S.bigint as never, (r) => genScalar(r, "int64")),
+  wrapper("UInt64Value", S.bigint as never, (r) => genScalar(r, "uint64")),
+  wrapper("Int32Value", S.int32 as never, (r) => genScalar(r, "int32")),
+  wrapper("UInt32Value", S.integer as never, (r) => genScalar(r, "uint32")),
+  wrapper("BoolValue", S.boolean as never, (r) => genScalar(r, "bool")),
+  wrapper("StringValue", S.string as never, (r) => genScalar(r, "string")),
+  wrapper("BytesValue", S.uint8Array as never, (r) => genScalar(r, "bytes")),
+];
+
+// Every well-known type against protobuf-es's own: the same bytes for the same
+// value, and both sides reading those bytes back as it.
 const wellKnownFindings = (r: Random, seed: number, count: number): Finding[] => {
   const findings: Finding[] = [];
-  const encodeValue = S.decodeOrThrow(valueField, S.protobuf);
-  const decodeValue = S.decodeOrThrow(S.protobuf, valueField);
-  const encodeTimestamp = S.decodeOrThrow(timestampField, S.protobuf);
-  const decodeTimestamp = S.decodeOrThrow(S.protobuf, timestampField);
-  for (let i = 0; i < count; i++) {
-    const json = genJson(r, 0);
-    try {
-      const sury = payload(encodeValue({ v: json }).slice());
-      const es = toBinary(ValueSchema, fromJson(ValueSchema, json as never));
-      if (bytesOf(sury).join() !== bytesOf(es).join()) {
-        findings.push({ kind: "wkt: Sury writes a Value protobuf-es does not", seed, detail: `json=${show(json)} sury=[${bytesOf(sury)}] es=[${bytesOf(es)}]` });
-        continue;
+  for (const c of wellKnownCases) {
+    const encode = S.decodeOrThrow(c.schema, S.protobuf);
+    const decode = S.decodeOrThrow(S.protobuf, c.schema);
+    const key = c.key ?? ((value: unknown) => value);
+    for (let i = 0; i < count; i++) {
+      const value = c.gen(r);
+      try {
+        const bytes = encode({ v: value }).slice();
+        const sury = payload(bytes);
+        const es = toBinary(c.es, create(c.es, c.toEs(value) as never));
+        if (bytesOf(sury).join() !== bytesOf(es).join()) {
+          findings.push({ kind: `wkt: Sury writes a ${c.type} protobuf-es does not`, seed, detail: `value=${show(value)} sury=[${bytesOf(sury)}] es=[${bytesOf(es)}]` });
+          continue;
+        }
+        if (!equalValue(key((decode(bytes) as { v: unknown }).v), key(value))) {
+          findings.push({ kind: `wkt: Sury reads its ${c.type} back as another`, seed, detail: `value=${show(value)}` });
+        }
+        if (!equalValue(key(c.fromEs(fromBinary(c.es, sury) as never)), key(value))) {
+          findings.push({ kind: `wkt: protobuf-es reads Sury's ${c.type} as another`, seed, detail: `value=${show(value)}` });
+        }
+      } catch (e) {
+        findings.push({ kind: `wkt: ${c.type} throws (${(e as Error).message.replace(/\d+/g, "#")})`, seed, detail: `value=${show(value)}` });
       }
-      const back = decodeValue(encodeValue({ v: json })) as { v: unknown };
-      if (!equalValue(back.v, json)) findings.push({ kind: "wkt: Sury reads its Value back as another", seed, detail: `json=${show(json)} back=${show(back.v)}` });
-      if (!equalValue(toJson(ValueSchema, fromBinary(ValueSchema, sury)), json)) {
-        findings.push({ kind: "wkt: protobuf-es reads Sury's Value as another", seed, detail: `json=${show(json)}` });
-      }
-    } catch (e) {
-      findings.push({ kind: `wkt: Value throws (${(e as Error).message.replace(/\d+/g, "#")})`, seed, detail: `json=${show(json)}` });
-    }
-    const ms = chance(r, 0.3) ? pick(r, [0, -1, 999, -1000, 253402300799999, -62135596800000]) : Math.round((r() - 0.3) * 1e13);
-    try {
-      const sury = payload(encodeTimestamp({ v: new Date(ms) }).slice());
-      const es = toBinary(TimestampSchema, timestampFromMs(ms));
-      if (bytesOf(sury).join() !== bytesOf(es).join()) {
-        findings.push({ kind: "wkt: Sury writes a Timestamp protobuf-es does not", seed, detail: `ms=${ms} sury=[${bytesOf(sury)}] es=[${bytesOf(es)}]` });
-      }
-      const back = (decodeTimestamp(encodeTimestamp({ v: new Date(ms) })) as { v: Date }).v.getTime();
-      if (back !== ms) findings.push({ kind: "wkt: Sury reads its Timestamp back as another", seed, detail: `ms=${ms} back=${back}` });
-    } catch (e) {
-      findings.push({ kind: `wkt: Timestamp throws (${(e as Error).message.replace(/\d+/g, "#")})`, seed, detail: `ms=${ms}` });
     }
   }
   return findings;
@@ -343,7 +442,7 @@ export const runFuzz = ({ seeds, values, mutants, from }: FuzzOptions): { findin
   for (let seed = from; seed < from + seeds; seed++) {
     const { r, fields } = graphOf(seed);
     findings.push(...wellKnownFindings(rng(-seed), seed, values));
-    checks += values * 2;
+    checks += values * wellKnownCases.length;
     let decode: (b: Uint8Array) => unknown;
     let encode: (v: unknown) => Uint8Array;
     let esType: DescMessage;

@@ -1,13 +1,11 @@
 // `S.date` - an ISO string on the JSON side, a `Date` on ours.
 
 import {
-  copySchema,
   initSchema,
   instanceTag,
   type Internal,
   stringTag,
   tagFlags,
-  U,
   type Val
 } from "../base";
 import {
@@ -25,7 +23,6 @@ import {
 import {
  stringDecoderFn
 } from "../primitives";
-import type { ProtobufCodec } from "./protobufField";
 
 export const invalidDateRefine = (input: Val): Val => {
   return B_refine(input, input.e, [
@@ -100,45 +97,3 @@ export const date: Internal = /* @__PURE__ */ initSchema(
     };
   },
 );
-
-// `S.protobufTimestamp`: `S.date` as a `google.protobuf.Timestamp` field, the
-// seconds (1) and nanos (2) since the epoch, read to the millisecond a Date
-// holds. Seen again, a Timestamp merges into the one before field by field.
-// Neither end checks Google's year 1 to 9999: the binary format never has,
-// and a Date past it is still a Date.
-export const protobufTimestamp: Internal = /* @__PURE__ */ (() => {
-  const s = copySchema(date);
-  s.protobufCodec = {
-    type: "google.protobuf.Timestamp",
-    file: "google/protobuf/timestamp.proto",
-    read: (r, _depth, prev) => {
-      let ms = prev === U ? 0 : (prev as Date).getTime();
-      let seconds = Math.floor(ms / 1000);
-      let nanos = (ms - seconds * 1000) * 1e6;
-      while (r.pos < r.limit) {
-        const tag = r.tag();
-        if (tag === 8) seconds = Number(r.int64());
-        else if (tag === 16) nanos = r.varint32() | 0;
-        else r.skipTag(tag);
-      }
-      ms = seconds * 1000 + Math.trunc(nanos / 1e6);
-      if (!(Math.abs(ms) <= 864e13)) throw Error("protobuf Timestamp is outside the range of a Date");
-      return new Date(ms);
-    },
-    write: (w, value) => {
-      const ms = value instanceof Date ? value.getTime() : NaN;
-      if (ms !== ms) throw Error("invalid Timestamp");
-      const seconds = Math.floor(ms / 1000);
-      const nanos = (ms - seconds * 1000) * 1e6;
-      if (seconds) {
-        w.varint32(8);
-        w.varint64(BigInt(seconds));
-      }
-      if (nanos) {
-        w.varint32(16);
-        w.varint32(nanos);
-      }
-    },
-  } satisfies ProtobufCodec;
-  return s;
-})();

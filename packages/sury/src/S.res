@@ -99,6 +99,27 @@ type protobufType = [
   | #message
 ]
 
+// A Google well-known type, printed as an import. See `ProtobufWellKnownType`
+// in index.d.ts for the value each takes.
+type protobufWellKnownType = [
+  | #"google.protobuf.Timestamp"
+  | #"google.protobuf.Duration"
+  | #"google.protobuf.Value"
+  | #"google.protobuf.Struct"
+  | #"google.protobuf.ListValue"
+  | #"google.protobuf.FieldMask"
+  | #"google.protobuf.Empty"
+  | #"google.protobuf.DoubleValue"
+  | #"google.protobuf.FloatValue"
+  | #"google.protobuf.Int64Value"
+  | #"google.protobuf.UInt64Value"
+  | #"google.protobuf.Int32Value"
+  | #"google.protobuf.UInt32Value"
+  | #"google.protobuf.BoolValue"
+  | #"google.protobuf.StringValue"
+  | #"google.protobuf.BytesValue"
+]
+
 type format = | ...numberFormat | ...stringFormat | ...arrayFormat
 
 @unboxed
@@ -618,7 +639,7 @@ type url
 // `S.dict` field.
 type protobufFieldOptions = {
   number: int,
-  @as("type") type_?: protobufType,
+  @as("type") type_?: [protobufType | protobufWellKnownType],
   packed?: bool,
   key?: protobufType,
   oneof?: string,
@@ -627,10 +648,6 @@ type protobufFieldOptions = {
 external protobufField_: (t<'value>, protobufFieldOptions) => t<'value> = "protobufField"
 let protobufField = (schema, number, ~type_=?, ~packed=?, ~key=?, ~oneof=?) =>
   protobufField_(schema, {number, ?type_, ?packed, ?key, ?oneof})
-/** `date` as a `google.protobuf.Timestamp` field. */
-@module("sury") external protobufTimestamp: t<date> = "protobufTimestamp"
-/** `json` as a `google.protobuf.Value` field. */
-@module("sury") external protobufValue: t<json> = "protobufValue"
 
 // The public JS `refine` takes an options object; build it here from the
 // ReScript labeled args.

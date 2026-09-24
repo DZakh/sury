@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ count: S.optional(S.int32).with(S.protobufField, { number: 1, type: "google.protobuf.Int32Value" }), total: S.optional(S.bigint).with(S.protobufField, { number: 2, type: "google.protobuf.UInt64Value" }), label: S.optional(S.string).with(S.protobufField, { number: 3, type: "google.protobuf.StringValue" }), flag: S.optional(S.boolean).with(S.protobufField, { number: 4, type: "google.protobuf.BoolValue" }), ratio: S.optional(S.number).with(S.protobufField, { number: 5, type: "google.protobuf.FloatValue" }), blob: S.optional(S.uint8Array).with(S.protobufField, { number: 6, type: "google.protobuf.BytesValue" }), counts: S.array(S.int32).with(S.protobufField, { number: 7, type: "google.protobuf.Int32Value" }) }).with(S.to, S.protobuf)'
+  input: "{ counts: number[]; count?: number | undefined; total?: bigint | undefined; label?: string | undefined; flag?: boolean | undefined; ratio?: number | undefined; blob?: Uint8Array<ArrayBufferLike> | undefined; }"
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 11381
+jsonSchema:
+  input: "Failed at total: Expected JSON, received bigint | undefined"
+  output: Expected JSON, received Uint8Array
+isEqual:
+  input: (a,b)=>a===b||a.count===b.count&&a.total===b.total&&a.label===b.label&&a.flag===b.flag&&a.ratio===b.ratio&&(a.blob===void 0?b.blob===void 0:b.blob!==void 0&&e[1](a.blob,b.blob))&&e[2](a.counts,b.counts)
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { count: int32 | undefined; total: bigint | undefined; label: string | undefined; flag: boolean | undefined; ratio: number | undefined; blob: Uint8Array | undefined; counts: int32[]; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[20](i);let v0=i.count,v1=i.total,v2=i.label,v3=i.flag,v4=i.ratio,v5=i.blob,v6=i.counts;(typeof v0==="number"&&v0==v0&&v0<=2147483647&&v0>=-2147483648&&v0%1==0||v0===void 0)||e[0](v0);(typeof v1==="bigint"||v1===void 0)||e[1](v1);(typeof v2==="string"||v2===void 0)||e[2](v2);(typeof v3==="boolean"||v3===void 0)||e[3](v3);(typeof v4==="number"&&v4==v4||v4===void 0)||e[4](v4);(v5 instanceof e[5]||v5===void 0)||e[6](v5);Array.isArray(v6)||e[8](v6);for(let v7=0;v7<v6.length;++v7){let v8=v6[v7];typeof v8==="number"&&v8<=2147483647&&v8>=-2147483648&&v8%1==0||e[7](v8,["counts",v7]);}let v9;{let w;try{w=e[18].acquire();let v,j,n,s,h,a,k,g,c,o;v=v0;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[9](w,v);w.end(h)};v=v1;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[10](w,v);w.end(h)};v=v2;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=26:w.varint32(26);h=w.begin();e[11](w,v);w.end(h)};v=v3;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=34:w.varint32(34);h=w.begin();e[12](w,v);w.end(h)};v=v4;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=42:w.varint32(42);h=w.begin();e[13](w,v);w.end(h)};v=v5;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=50:w.varint32(50);h=w.begin();e[14](w,v);w.end(h)};v=v6;n=v.length;if(n){j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=58:w.varint32(58);h=w.begin();e[9](w,v[j++]);w.end(h)}};v9=w.finish()}catch(x){w&&(w.busy=false);e[19](x)}}return v9}catch(v10){e[21](v10)}}
+    examples:
+      present:
+        input: '{ count: 0, label: "", counts: [1] }'
+        output: new Uint8Array([10, 0, 26, 0, 58, 2, 8, 1])
+      count-not-int32:
+        input: "{ count: 1.5, counts: [] }"
+        error: "Failed at count: Expected int32 | undefined, received 1.5"
+  decode:
+    expression: i=>{try{let v0=i.counts;let v2;{let w;try{w=e[9].acquire();let v,j,n,s,h,a,k,g,c,o;v=i.count;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[0](w,v);w.end(h)};v=i.total;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[1](w,v);w.end(h)};v=i.label;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=26:w.varint32(26);h=w.begin();e[2](w,v);w.end(h)};v=i.flag;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=34:w.varint32(34);h=w.begin();e[3](w,v);w.end(h)};v=i.ratio;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=42:w.varint32(42);h=w.begin();e[4](w,v);w.end(h)};v=i.blob;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=50:w.varint32(50);h=w.begin();e[5](w,v);w.end(h)};v=v0;n=v.length;if(n){j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=58:w.varint32(58);h=w.begin();e[0](w,v[j++]);w.end(h)}};v2=w.finish()}catch(x){w&&(w.busy=false);e[10](x)}}return v2}catch(v3){e[11](v3)}}
+    examples:
+      absent:
+        input: "{ counts: [] }"
+        output: new Uint8Array([])
+      zero-values-are-written:
+        input: '{ count: 0, total: 0n, label: "", flag: false, ratio: 0, blob: new Uint8Array([]), counts: [0] }'
+        output: new Uint8Array([10, 0, 18, 0, 26, 0, 34, 0, 42, 0, 50, 0, 58, 0])
+      values:
+        input: '{ count: -1, total: 18446744073709551615n, label: "x", flag: true, ratio: 0.5, blob: new Uint8Array([1]), counts: [1, 2] }'
+        output: new Uint8Array([10, 11, 8, 255, 255, 255, 255, 255, 255, 255, 255, 255, 1, 18, 11, 8, 255, 255, 255, 255, 255, 255, 255, 255, 255, 1, 26, 3, 10, 1, 120, 34, 2, 8, 1, 42, 5, 13, 0, 0, 0, 63, 50, 3, 10, 1, 1, 58, 2, 8, 1, 58, 2, 8, 2])
+  encode:
+    expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v1=v0.counts;return v0}catch(v3){e[3](v3)}}
+    examples:
+      all-absent:
+        input: new Uint8Array([])
+        output: "{ counts: [] }"
+      zero-values-present:
+        input: new Uint8Array([10, 0, 26, 0, 34, 0])
+        output: '{ counts: [], count: 0, label: "", flag: false }'
+      values:
+        input: new Uint8Array([10, 2, 8, 5, 18, 11, 8, 128, 128, 128, 128, 128, 128, 128, 128, 128, 1, 26, 3, 10, 1, 120, 34, 2, 8, 1, 42, 5, 13, 0, 0, 0, 63, 50, 4, 10, 2, 1, 2])
+        output: '{ counts: [], count: 5, total: 9223372036854775808n, label: "x", flag: true, ratio: 0.5, blob: new Uint8Array([1, 2]) }'
+      seen-twice-last-wins:
+        input: new Uint8Array([10, 2, 8, 1, 10, 2, 8, 2])
+        output: "{ counts: [], count: 2 }"
+      repeated:
+        input: new Uint8Array([58, 2, 8, 3, 58, 0])
+        output: "{ counts: [3, 0] }"
+      wrong-wire-type-skipped:
+        input: new Uint8Array([10, 2, 10, 0])
+        output: "{ counts: [], count: 0 }"

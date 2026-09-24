@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: "S.schema({ at: S.protobufTimestamp.with(S.protobufField, 1), seen: S.optional(S.protobufTimestamp).with(S.protobufField, 2), log: S.array(S.protobufTimestamp).with(S.protobufField, 3) }).with(S.to, S.protobuf)"
+  schema: "S.schema({ at: S.date.with(S.protobufField, 1), seen: S.optional(S.date).with(S.protobufField, 2), log: S.array(S.date).with(S.protobufField, 3) }).with(S.to, S.protobuf)"
   input: "{ at: Date; log: Date[]; seen?: Date | undefined; }"
   output: Uint8Array<ArrayBufferLike>
   instantiations: 7762

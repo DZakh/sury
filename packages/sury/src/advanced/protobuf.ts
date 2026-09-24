@@ -39,7 +39,8 @@ import {
 import { arrayFactory, dictFactory, objectDecoder } from "../composites";
 import { getOutputSchema, instanceDecoder, optionalMembers, parse } from "../parse";
 import { bigint, bool, float, int, integer, string, unit } from "../primitives";
-import type { ProtobufCodec, ProtobufType, StoredField } from "./protobufField";
+import type { ProtobufType, StoredField, WellKnownType } from "./protobufField";
+import { fieldMetadata, wellKnownTakes, wrappers } from "./protobufField";
 
 type Field = {
   number: number;
@@ -69,9 +70,17 @@ type Message = {
   // The `[wire, value]` refs a field refers to this message by, once a field
   // under it has referred back: what keeps both of its schemas finite.
   rec?: [Internal, Internal];
-  // A well-known type's hand-written codec, standing in for the functions a
-  // message's fields would compile to. It has no fields of its own.
-  codec?: ProtobufCodec;
+  // The Google type it is, printed as an import rather than declared.
+  wellKnown?: WellKnownType;
+  // A hand-written codec standing in for the functions a message's fields
+  // would compile to, for a value that is not the message's shape: a `Date`
+  // for a Timestamp, JSON for a Value, Struct or ListValue. Called the way a
+  // compiled message is - the caller frames the length, and reading nothing
+  // is the default instance.
+  codec?: [read: (r: Reader, d: number, prev?: unknown) => unknown, write: (w: Writer, value: unknown) => void];
+  // A message of one field whose value is the field's own: a wrapper's
+  // scalar, a FieldMask's paths.
+  unwrap?: boolean;
 };
 
 type Defs = Record<string, Internal>;
@@ -88,7 +97,9 @@ type Ctx = {
   // imported, so it never ships to a consumer with no cycle. A cycle can't
   // happen without a resolved ref, and every ref has this decoder.
   dec?: Builder;
-  messages: Map<Internal, Message>;
+  // By object, or by well-known type and object: one `{ seconds, nanos }`
+  // can be both a Timestamp and a Duration.
+  messages: Map<unknown, Message>;
   // The messages currently building: a field whose message is on it closes a
   // cycle.
   stack: Message[];
@@ -176,15 +187,6 @@ const wireType = (type: ProtobufType): number => {
   return 0;
 };
 
-const fieldMetadata = (schema: Internal): StoredField | undefined => {
-  let current: Internal | undefined = schema;
-  while (current !== U) {
-    if (current.protobufField !== U) return current.protobufField as StoredField;
-    current = current.to;
-  }
-  return U;
-};
-
 // Splits `T | undefined` into T, the presence flag, and the arm that
 // supplies a default on absence, if any. Several members left over (an
 // optional enum) become a union of their own.
@@ -211,21 +213,6 @@ const anyOf = (members: Internal[]): Internal => {
 const bytesSchema: Internal = /* @__PURE__ */ initSchema(instanceTag, instanceDecoder, (s) => {
   s.class = Uint8Array;
 });
-
-// A well-known type as the message it is on the wire, one per schema like any
-// other. Its raw side is the value's own schema without the checks the caller
-// put on it, which run when the value is parsed into the schema after.
-const codecMessage = (shape: Internal, codec: ProtobufCodec, ctx: Ctx): Message => {
-  let msg = ctx.messages.get(shape);
-  if (msg === U) {
-    const raw = copySchema(shape);
-    delete raw.refiner;
-    delete raw.inputRefiner;
-    msg = { fields: [], object: shape, raw, schema: raw, codec };
-    ctx.messages.set(shape, msg);
-  }
-  return msg;
-};
 
 const scalarSchema = (type: ProtobufType): Internal => {
   if (type === "string") return string;
@@ -400,11 +387,14 @@ const rejectEndless = (ctx: Ctx): void => {
   ctx.messages.forEach((message) => message.rec && walk(message));
 };
 
-const compileMessage = (schema: Internal, ctx: Ctx): Message | undefined => {
+// `wellKnown` is set for a Timestamp or Duration written as its own message,
+// whose fields `seconds` and `nanos` are numbered by name, and for Empty.
+const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): Message | undefined => {
   const output = firstObject(schema, ctx);
   if (output === U || output.properties === U) return U;
   if (typeof output.additionalItems === objectTag) return U;
-  const built = ctx.messages.get(output);
+  const memo = wellKnown === U ? output : wellKnown + output.seq;
+  const built = ctx.messages.get(memo);
   if (built !== U) return built;
   // Both definitions exist before the fields are walked and are filled in
   // once they are: a field that closes a cycle takes a standin carrying them
@@ -416,8 +406,9 @@ const compileMessage = (schema: Internal, ctx: Ctx): Message | undefined => {
     raw: baseSchema(objectTag, false, objectDecoder),
     schema: copySchema(output),
     name: ctx.names.has(output) ? ctx.names.get(output) : output.name,
+    wellKnown,
   };
-  ctx.messages.set(output, msg);
+  ctx.messages.set(memo, msg);
   ctx.stack.push(msg);
   const fields: Field[] = [];
   const numbers = new Set<number>();
@@ -428,7 +419,7 @@ const compileMessage = (schema: Internal, ctx: Ctx): Message | undefined => {
   for (let idx = 0; idx < keys.length; idx++) {
     const key = keys[idx]!;
     const property = output.properties[key]!;
-    const metadata = fieldMetadata(property);
+    const metadata = fieldMetadata(property) ?? (wellKnown !== U ? secondsNanos[key] : U);
     if (metadata === U) return panic(`S.protobuf: field "${key}" has no field number. Give it one with S.protobufField`);
     if (numbers.has(metadata.number)) return panic(`S.protobuf: field number ${metadata.number} of "${key}" is already taken`);
     numbers.add(metadata.number);
@@ -437,11 +428,15 @@ const compileMessage = (schema: Internal, ctx: Ctx): Message | undefined => {
     const container = shape;
     let repeated = false;
     let map: ProtobufType | undefined;
-    if (shape.type === arrayTag && typeof shape.additionalItems === objectTag) {
+    const known = metadata.type.startsWith("google.") ? (metadata.type as WellKnownType) : U;
+    // A well-known value can be a list or a map itself - a FieldMask, a
+    // Struct - so it is one of the type before it is a container of them.
+    const single = known !== U && wellKnownTakes(known, shape);
+    if (!single && shape.type === arrayTag && typeof shape.additionalItems === objectTag) {
       if (optional) return panic(`S.protobuf: repeated field "${key}" can't be optional. An absent list decodes to []`);
       repeated = true;
       shape = getOutputSchema(shape.additionalItems as Internal);
-    } else if (shape.type === objectTag && typeof shape.additionalItems === objectTag) {
+    } else if (!single && shape.type === objectTag && typeof shape.additionalItems === objectTag) {
       if (optional) return panic(`S.protobuf: map field "${key}" can't be optional. An absent map decodes to {}`);
       map = metadata.key;
       shape = getOutputSchema(shape.additionalItems as Internal);
@@ -452,10 +447,9 @@ const compileMessage = (schema: Internal, ctx: Ctx): Message | undefined => {
     let messageValue: Internal | undefined;
     let raw: Internal;
     let normalizedProperty = optional ? propertyValue : property;
-    if (metadata.type === "message") {
-      const codec = shape.protobufCodec as ProtobufCodec | undefined;
+    if (metadata.type === "message" || known !== U) {
       const at = repeated || map !== U ? (container.additionalItems as Internal) : propertyValue;
-      message = codec !== U ? codecMessage(shape, codec, ctx) : compileMessage(at, ctx);
+      message = known !== U ? wellKnownMessage(known, shape, ctx) : compileMessage(at, ctx);
       if (message === U) return panic(`S.protobuf: field "${key}" is a message but its schema is not an object`);
       // A nested value converts field by field, output to output, so a chain
       // past the object has nothing to run it: only the root's does.
@@ -468,14 +462,16 @@ const compileMessage = (schema: Internal, ctx: Ctx): Message | undefined => {
         raw = message.raw;
         messageValue = message.schema;
       }
-      messageValue = refinedAs(at, messageValue);
+      // An unwrapped message's value converts to the caller's own schema, which
+      // a wrapper's scalar may differ from the way a scalar field's does.
+      messageValue = message.unwrap ? at : refinedAs(at, messageValue);
       normalizedProperty = messageValue;
       if (optional && absent === U) raw = optionalMessage(raw);
     } else {
       // An enum declared as integer literals keeps its own schema on the raw
       // side: the wire value lands as is, unknown numbers included, the open
       // enum proto3 specifies.
-      raw = metadata.type === "enum" && shape.type === anyOfTag ? shape : scalarSchema(metadata.type);
+      raw = metadata.type === "enum" && shape.type === anyOfTag ? shape : scalarSchema(metadata.type as ProtobufType);
     }
     // A repeated or map message keeps the user's container (its length
     // checks included) around the normalized nested schema, not the user's:
@@ -499,9 +495,10 @@ const compileMessage = (schema: Internal, ctx: Ctx): Message | undefined => {
     } else if (!optional) rawRequired.push(key);
     rawProperties[key] = raw;
     normalizedProperties[key] = normalizedProperty;
+    const type = message !== U ? "message" : (metadata.type as ProtobufType);
     const field: Field = {
       number: metadata.number,
-      type: metadata.type,
+      type,
       packed: metadata.packed,
       key,
       repeated,
@@ -509,7 +506,7 @@ const compileMessage = (schema: Internal, ctx: Ctx): Message | undefined => {
       message,
       map,
       oneof: metadata.oneof,
-      wire: wireType(metadata.type),
+      wire: wireType(type),
     };
     fields.push(field);
   }
@@ -1242,6 +1239,217 @@ const skip = (reader: Reader, wire: number, fieldNumber: number, depth: number):
   else throw Error("invalid protobuf wire type");
 };
 
+// A Timestamp as a `Date`: seconds (1) and nanos (2) since the epoch, read to
+// the millisecond a Date holds. Seen again, it merges into the one before
+// field by field. Neither end checks Google's year 1 to 9999: the binary format
+// never has, and a Date past it is still a Date.
+const readDate = (r: Reader, _d: number, prev?: unknown): Date => {
+  let ms = prev === U ? 0 : (prev as Date).getTime();
+  let seconds = Math.floor(ms / 1000);
+  let nanos = (ms - seconds * 1000) * 1e6;
+  while (r.pos < r.limit) {
+    const tag = r.tag();
+    if (tag === 8) seconds = Number(r.int64());
+    else if (tag === 16) nanos = r.varint32() | 0;
+    else r.skipTag(tag);
+  }
+  ms = seconds * 1000 + Math.trunc(nanos / 1e6);
+  if (!(Math.abs(ms) <= 864e13)) throw Error("protobuf Timestamp is outside the range of a Date");
+  return new Date(ms);
+};
+
+const writeDate = (w: Writer, value: unknown): void => {
+  const ms = value instanceof Date ? value.getTime() : NaN;
+  if (ms !== ms) throw Error("invalid Timestamp");
+  const seconds = Math.floor(ms / 1000);
+  const nanos = (ms - seconds * 1000) * 1e6;
+  if (seconds) {
+    w.varint32(8);
+    w.varint64(BigInt(seconds));
+  }
+  if (nanos) {
+    w.varint32(16);
+    w.varint32(nanos);
+  }
+};
+
+const isStruct = (value: unknown): value is Record<string, unknown> =>
+  value !== null && typeof value === "object" && !Array.isArray(value);
+
+// A Struct's fields are a `map<string, Value>`: a key repeated later replaces
+// the entry, and one named `__proto__` stays an own property. Seen again, a
+// Struct merges into the one before.
+const readStruct = (r: Reader, d: number, prev?: unknown): Record<string, unknown> => {
+  const struct = isStruct(prev) ? prev : {};
+  while (r.pos < r.limit) {
+    const tag = r.tag();
+    if (tag !== 10) {
+      r.skipTag(tag);
+      continue;
+    }
+    const entry = r.sub();
+    let key = "";
+    let value: unknown = null;
+    while (r.pos < r.limit) {
+      const inner = r.tag();
+      if (inner === 10) key = r.string();
+      else if (inner === 18) {
+        const end = r.sub();
+        value = readValue(r, d + 1, value);
+        r.limit = end;
+      } else r.skipTag(inner);
+    }
+    r.limit = entry;
+    if (key === "__proto__") Object.defineProperty(struct, key, { value, enumerable: true, writable: true, configurable: true });
+    else struct[key] = value;
+  }
+  return struct;
+};
+
+// Seen again, a ListValue appends to the one before, as a repeated field does.
+const readList = (r: Reader, d: number, prev?: unknown): unknown[] => {
+  const list = Array.isArray(prev) ? prev : [];
+  while (r.pos < r.limit) {
+    const tag = r.tag();
+    if (tag === 10) {
+      const end = r.sub();
+      list.push(readValue(r, d + 1));
+      r.limit = end;
+    } else r.skipTag(tag);
+  }
+  return list;
+};
+
+// A Value is the JSON it holds, a Struct its objects and a ListValue its
+// arrays. One with no kind set reads as `null`, the kind `null_value` names.
+// Seen again, it merges the way a oneof member does: a Struct into a Struct and
+// a list onto a list, anything else replaced.
+const readValue = (r: Reader, d: number, prev: unknown = null): unknown => {
+  if (d >= 100) throw Error("protobuf message nesting limit exceeded");
+  let value = prev;
+  while (r.pos < r.limit) {
+    const tag = r.tag();
+    if (tag === 8) {
+      r.varint64();
+      value = null;
+    } else if (tag === 17) value = r.f64();
+    else if (tag === 26) value = r.string();
+    else if (tag === 32) value = r.bool();
+    else if (tag === 42 || tag === 50) {
+      const end = r.sub();
+      value = tag === 42 ? readStruct(r, d + 1, value) : readList(r, d + 1, value);
+      r.limit = end;
+    } else r.skipTag(tag);
+  }
+  return value;
+};
+
+const writeStruct = (w: Writer, value: unknown): void => {
+  const keys = Object.keys(value as object);
+  for (let i = 0; i < keys.length; i++) {
+    w.varint32(10);
+    const entry = w.begin();
+    w.varint32(10);
+    w.string(keys[i]!);
+    w.varint32(18);
+    const item = w.begin();
+    writeValue(w, (value as Record<string, unknown>)[keys[i]!]);
+    w.end(item);
+    w.end(entry);
+  }
+};
+
+const writeList = (w: Writer, value: unknown): void => {
+  for (let i = 0; i < (value as unknown[]).length; i++) {
+    w.varint32(10);
+    const item = w.begin();
+    writeValue(w, (value as unknown[])[i]);
+    w.end(item);
+  }
+};
+
+const writeValue = (w: Writer, value: unknown): void => {
+  if (value === null) {
+    // A oneof member is written even at its default.
+    w.varint32(8);
+    w.varint32(0);
+  } else if (typeof value === "number") {
+    w.varint32(17);
+    w.float64(value);
+  } else if (typeof value === "string") {
+    w.varint32(26);
+    w.string(value);
+  } else if (typeof value === "boolean") {
+    w.varint32(32);
+    w.varint32(value ? 1 : 0);
+  } else if (typeof value === "object") {
+    const list = Array.isArray(value);
+    w.varint32(list ? 50 : 42);
+    const hole = w.begin();
+    (list ? writeList : writeStruct)(w, value);
+    w.end(hole);
+  } else throw Error("invalid google.protobuf.Value");
+};
+
+const wellKnownFile = (type: WellKnownType): string =>
+  `google/protobuf/${
+    type === "google.protobuf.Timestamp" ? "timestamp"
+    : type === "google.protobuf.Duration" ? "duration"
+    : type === "google.protobuf.FieldMask" ? "field_mask"
+    : type === "google.protobuf.Empty" ? "empty"
+    : wrappers[type] !== U ? "wrappers"
+    : "struct"
+  }.proto`;
+
+const secondsNanos: Record<string, StoredField> = {
+  seconds: { number: 1, type: "int64", packed: true, key: "string", numberedAs: bigint },
+  nanos: { number: 2, type: "int32", packed: true, key: "string", numberedAs: int },
+};
+
+// A well-known type as the message it is on the wire, one per type and value
+// schema. `{ seconds, nanos }` and Empty compile as the message they spell; a
+// wrapper and a FieldMask as the one field they hold; the rest take a codec,
+// whose raw side is the value's schema without the checks the caller put on
+// it, which run when the value is parsed into that schema after.
+const wellKnownMessage = (type: WellKnownType, shape: Internal, ctx: Ctx): Message | undefined => {
+  if (shape.type === objectTag && typeof shape.additionalItems !== objectTag) return compileMessage(shape, ctx, type);
+  const memo = type + shape.seq;
+  let msg = ctx.messages.get(memo);
+  if (msg !== U) return msg;
+  const scalar = wrappers[type];
+  if (scalar !== U || type === "google.protobuf.FieldMask") {
+    const field: Field = {
+      number: 1,
+      type: scalar ?? "string",
+      packed: true,
+      key: scalar !== U ? "value" : "paths",
+      repeated: scalar === U,
+      optional: false,
+      wire: wireType(scalar ?? "string"),
+    };
+    const raw = scalar !== U ? scalarSchema(scalar) : arrayFactory(string);
+    msg = { fields: [field], object: shape, raw, schema: raw, wellKnown: type, unwrap: true };
+  } else {
+    const raw = copySchema(shape);
+    delete raw.refiner;
+    delete raw.inputRefiner;
+    msg = {
+      fields: [],
+      object: shape,
+      raw,
+      schema: raw,
+      wellKnown: type,
+      codec:
+        type === "google.protobuf.Value" ? [readValue, writeValue]
+        : type === "google.protobuf.Struct" ? [readStruct, writeStruct]
+        : type === "google.protobuf.ListValue" ? [readList, writeList]
+        : [readDate, writeDate],
+    };
+  }
+  ctx.messages.set(memo, msg);
+  return msg;
+};
+
 // A wire failure names where it hit the way an object parse error names a
 // path. Every message the throw unwinds through prepends the field it was
 // reading, so the innermost frame - the one that knows the number and the
@@ -1491,8 +1699,11 @@ const compileEncoders = (root: Message, fns: Map<Message, string>): Record<strin
     names.push(name);
     if (msg.codec !== U) {
       params.push(name);
-      args.push(msg.codec.write);
-    } else src += `function ${name}(w,value){var v,j,n,s,h,a,k,g,c,o;${encodeBody(msg, fns, (key) => ({ expr: readKey("value", key), numeric: false }), "num", "big", "oneof")}}`;
+      args.push(msg.codec[1]);
+    } else {
+      const read: Read = (key) => ({ expr: msg.unwrap ? "value" : readKey("value", key), numeric: false });
+      src += `function ${name}(w,value){var v,j,n,s,h,a,k,g,c,o;${encodeBody(msg, fns, read, "num", "big", "oneof")}}`;
+    }
   });
   return new Function(...params, `${src}return {${names.join(",")}}`)(...args);
 };
@@ -1514,7 +1725,7 @@ const decodeFnSource = (msg: Message, fns: Map<Message, string>, slot: number): 
     const key = JSON.stringify(field.key);
     const read = readKey("o", field.key);
     locals.push(`${local}=${emitDefault(field)}`);
-    fromPrev.push(`${local}=${read}`);
+    fromPrev.push(`${local}=${msg.unwrap ? "o" : read}`);
     // The loop switches on the whole tag, so a known number arriving with a
     // wire type its field does not take matches no case and is skipped, as an
     // unknown field is.
@@ -1582,7 +1793,8 @@ const decodeFnSource = (msg: Message, fns: Map<Message, string>, slot: number): 
   const merge = fromPrev.length ? `if(o!==void 0){${fromPrev.join(";")}}` : "";
   // `t=-1` before a tag of several bytes is read: one that fails part way is
   // no field's, and must not frame the error with the tag before it.
-  return `function ${fns.get(msg)!}(r,d,o){if(d>=100)throw Error("protobuf message nesting limit exceeded");var ${vars}t=-1,p,k,c,g,q,y;${merge}try{while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){${cases.join("")}}if(t<8)throw Error("invalid protobuf field number");${miss}}}catch(x){at(x,M[${slot}],t)}${fill}o={${literal.slice(0, -1)}};${optional}return o}`;
+  const result = msg.unwrap ? "return f0" : `o={${literal.slice(0, -1)}};${optional}return o`;
+  return `function ${fns.get(msg)!}(r,d,o){if(d>=100)throw Error("protobuf message nesting limit exceeded");var ${vars}t=-1,p,k,c,g,q,y;${merge}try{while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){${cases.join("")}}if(t<8)throw Error("invalid protobuf field number");${miss}}}catch(x){at(x,M[${slot}],t)}${fill}${result}}`;
 };
 
 const compileDecoder = (root: Message, fns: Map<Message, string>): Function => {
@@ -1595,7 +1807,7 @@ const compileDecoder = (root: Message, fns: Map<Message, string>): Function => {
   fns.forEach((name, msg) => {
     if (msg.codec !== U) {
       params.push(name);
-      args.push(msg.codec.read);
+      args.push(msg.codec[0]);
     } else src += decodeFnSource(msg, fns, messages.push(msg) - 1);
   });
   return new Function(...params, `${src}return ${fns.get(root)!}`)(...args);
@@ -1832,7 +2044,7 @@ const typeKey = (proto: Proto, use: Use): unknown => {
   const { field, shape } = use;
   const name = nameOf(use);
   // A well-known type is imported, never declared.
-  if (field.message !== U) return field.message.codec === U ? messageKey(proto, shape.properties!, name) : U;
+  if (field.message !== U) return field.message.wellKnown === U ? messageKey(proto, shape.properties!, name) : U;
   if (!isEnumShape(use)) return U;
   return name ? `${name}:${enumValues(shape).join(",")}` : field;
 };
@@ -1922,7 +2134,7 @@ const reserveNames = (proto: Proto, message: Message, seen: Set<unknown>): void 
     const key = typeKey(proto, use);
     const name = key !== U ? nameOf(use) : U;
     if (name && !proto.names.has(key)) proto.names.set(key, uniqueName(protoTypeName(name), proto.used));
-    if (use.field.message !== U && use.field.message.codec === U) reserveNames(proto, use.field.message, seen);
+    if (use.field.message !== U && use.field.message.wellKnown === U) reserveNames(proto, use.field.message, seen);
   }
 };
 
@@ -2040,10 +2252,10 @@ const messageBody = (
     const { field } = use;
     const key = typeKey(proto, use);
     let type: string;
-    const codec = field.message?.codec;
-    if (codec !== U) {
-      type = codec.type;
-      proto.imports.add(codec.file);
+    const known = field.message?.wellKnown;
+    if (known !== U) {
+      type = known;
+      proto.imports.add(wellKnownFile(known));
     } else if (field.message !== U) {
       type = declareType(proto, key, use, qualified, indent, nested, scope, fieldNames, members, (fieldDecl, typeName, inner) =>
         messageBody(proto, fieldDecl, field.message!, typeName, proto.names.get(key)!, inner)

@@ -1526,41 +1526,61 @@ S.toProtoOrThrow(DescriptorProto);
 // }
 ```
 
-**Well-known types.** `S.protobufTimestamp` is `S.date` as Google's
-`google.protobuf.Timestamp`, and `S.protobufValue` is `S.json` as
-`google.protobuf.Value`, its objects travelling as `Struct` and its arrays as
-`ListValue`. The printed `.proto` imports them rather than declaring them:
+**Well-known types.** A field declared as one of Google's
+`google.protobuf.*` types is that message on the wire, and the printed `.proto`
+imports it rather than declaring it. `S.date` is a Timestamp and `S.json` a
+Value without saying so; every other one is named in `type`:
 
 ```ts
-const Event = S.schema({
-  at: S.protobufTimestamp.with(S.protobufField, 1),
-  payload: S.protobufValue.with(S.protobufField, 2),
+const Job = S.schema({
+  at: S.date.with(S.protobufField, 1),
+  payload: S.json.with(S.protobufField, 2),
+  timeout: S.schema({ seconds: S.bigint, nanos: S.int32 }).with(
+    S.protobufField,
+    { number: 3, type: "google.protobuf.Duration" },
+  ),
+  retries: S.optional(S.int32).with(S.protobufField, {
+    number: 4,
+    type: "google.protobuf.Int32Value",
+  }),
+  mask: S.array(S.string).with(S.protobufField, {
+    number: 5,
+    type: "google.protobuf.FieldMask",
+  }),
 });
 
-S.toProtoOrThrow(Event);
+S.toProtoOrThrow(Job);
+// import "google/protobuf/duration.proto";
+// import "google/protobuf/field_mask.proto";
 // import "google/protobuf/struct.proto";
 // import "google/protobuf/timestamp.proto";
+// import "google/protobuf/wrappers.proto";
 //
-// message Event {
+// message Job {
 //   google.protobuf.Timestamp at = 1;
 //   google.protobuf.Value payload = 2;
+//   google.protobuf.Duration timeout = 3;
+//   optional google.protobuf.Int32Value retries = 4;
+//   google.protobuf.FieldMask mask = 5;
 // }
 ```
 
-A Timestamp reads to the millisecond, which is what a `Date` holds. The other
-well-known types are ordinary messages to declare yourself, and speak the same
-wire:
+| `type`                                  | Schema                                          |
+| --------------------------------------- | ----------------------------------------------- |
+| `google.protobuf.Timestamp`             | `S.date`, or `S.schema({ seconds: S.bigint, nanos: S.int32 })` |
+| `google.protobuf.Duration`              | `S.schema({ seconds: S.bigint, nanos: S.int32 })` |
+| `google.protobuf.Value`                 | `S.json`                                        |
+| `google.protobuf.Struct`                | `S.record(S.json)`                              |
+| `google.protobuf.ListValue`             | `S.array(S.json)`                               |
+| `google.protobuf.FieldMask`             | `S.array(S.string)`                             |
+| `google.protobuf.Empty`                 | `S.schema({})`                                  |
+| `google.protobuf.Int32Value` and the other wrappers | `S.optional` of the scalar          |
 
-```ts
-const Duration = S.schema({
-  seconds: S.bigint.with(S.protobufField, 1),
-  nanos: S.int32.with(S.protobufField, 2),
-});
-const Int32Value = S.schema({ value: S.int32.with(S.protobufField, 1) });
-```
-
-A new field that needs presence takes `S.optional(S.int32)` rather than a
-wrapper.
+A Timestamp read into `S.date` keeps the millisecond, which is what a `Date`
+holds; the `{ seconds, nanos }` form keeps the nanosecond. A wrapper exists
+for presence, so a singular one has to be `S.optional`: an unset field reads
+back as `undefined`, a zero as `0`. A list or map of any of them is the same
+`type` on `S.array(...)` or `S.record(...)`.
 
 **Output memory.** An encoded message is a view into a larger buffer, like a
 Node `Buffer`: `bytes.buffer` is bigger than `bytes.byteLength` and

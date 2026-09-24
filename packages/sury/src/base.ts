@@ -484,9 +484,6 @@ export type Internal = {
   protobufWire?: true;
   // What `S.protobufField` stored (`StoredField` in advanced/protobufField.ts).
   protobufField?: unknown;
-  // How a well-known protobuf type is read and written (`ProtobufCodec` in
-  // advanced/protobufField.ts), on the schema that stands for it.
-  protobufCodec?: unknown;
   // Compile-time only, set on a per-operation schema copy by `fz` below: the
   // container's decoder left its contents to jsonStringAggregate, which walks
   // them once inside its own serialize pass. 1 the contents are UNVALIDATED -

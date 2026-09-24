@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: "S.schema({ data: S.protobufValue.with(S.protobufField, 1), extra: S.optional(S.protobufValue).with(S.protobufField, 2), items: S.array(S.protobufValue).with(S.protobufField, 3) }).with(S.to, S.protobuf)"
+  schema: "S.schema({ data: S.json.with(S.protobufField, 1), extra: S.optional(S.json).with(S.protobufField, 2), items: S.array(S.json).with(S.protobufField, 3) }).with(S.to, S.protobuf)"
   input: "{ data: JSON; items: JSON[]; extra?: JSON | undefined; }"
   output: Uint8Array<ArrayBufferLike>
   instantiations: 7935
