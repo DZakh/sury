@@ -1,6 +1,7 @@
 ---
 name: ship
-description: The workflow for every prompt in the Sury repo. Answers questions directly; drives a change, bug or perf task to production ready without asking, then pushes and reports the decision with measured alternatives.
+description: Opt-in autonomous workflow, run as /ship <task>. Drives a change, bug or perf task in the Sury repo to production ready without asking, then pushes and reports the decision with measured alternatives.
+disable-model-invocation: true
 ---
 
 # Ship

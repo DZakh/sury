@@ -32,10 +32,6 @@ step() {
   fi
 }
 
-skip() {
-  results+=("SKIP  $1 ($2)")
-}
-
 if [ $FAST -eq 0 ]; then
   step "dead code" . pnpm lint:deadcode
   step "build" packages/sury pnpm build
@@ -58,18 +54,16 @@ if [ $FAST -eq 0 ]; then
   step "protobuf compliance" . pnpm protobuf:compliance
   step "protobuf fuzz" . pnpm protobuf:fuzz
   step "protobuf conformance" . pnpm protobuf:conformance
-  # CI builds the ppx in a separate job; here only the session hook's dune
-  # build can supply it.
-  if [ -d "$ROOT/packages/sury-ppx/src/_build/default" ]; then
-    step "e2e" packages/e2e sh -c "pnpm rescript && pnpm test"
-    step "e2e compiled ReScript matches source" packages/e2e ../../scripts/assert-no-drift.sh '*.res.mjs'
-    # e2e's build compiles sury as a dependency, which deletes sury's checked-in
-    # dev-only output (tests/*.res.mjs). CI runs e2e in its own job and never
-    # sees it; here it would land in the next commit.
-    (cd "$ROOT/packages/sury" && pnpm rescript > /dev/null)
-  else
-    skip "e2e" "no ppx build; run pnpm --filter=e2e ppx:build"
-  fi
+  # Needs dune, which the session hook installs.
+  step "ppx build" packages/sury-ppx/src dune build
+  # Clean first: sury's own build above leaves artifacts the e2e build, which
+  # compiles sury as a dependency, rejects as inconsistent.
+  step "e2e" packages/e2e sh -c "pnpm rescript clean && pnpm rescript && pnpm test"
+  step "e2e compiled ReScript matches source" packages/e2e ../../scripts/assert-no-drift.sh '*.res.mjs'
+  # e2e's build compiles sury as a dependency, which deletes sury's checked-in
+  # dev-only output (tests/*.res.mjs). CI runs e2e in its own job and never
+  # sees it; here it would land in the next commit.
+  step "restore sury compiled ReScript" packages/sury pnpm rescript
 fi
 
 echo

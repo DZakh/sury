@@ -7,8 +7,10 @@ description: Which Sury fuzzer to run for what you changed, what each checks, an
 
 Run from `packages/sury` (`protobuf:fuzz` from the root). These are CI's exact
 invocations, so a red CI run reproduces with the same command. A finding is a
-bug until shown otherwise; triage it by CLAUDE.md's Fuzzers rules. A gate that reports a stale entry means
-it was fixed: delete the entry and correct its `FIXME: known bug` example.
+bug until shown otherwise; triage it by CLAUDE.md's Fuzzers rules. A gate that reports a stale entry may
+mean the bug is fixed or that the grammar stopped drawing its shape: run the
+entry's spec, and only when it no longer reproduces delete the entry and
+correct its `FIXME: known bug` example.
 
 | you touched | run | checks |
 |---|---|---|
@@ -24,6 +26,6 @@ Unsure: run all six, a few minutes in total.
 Widening a search: `fuzz:union --seed=N` (`--ref=<commit>` adds a changelog,
 not a gate); `fuzz:schema --only=eq,codec --seed=N --seeds=N --cases=N` (prefer
 more seeds over more cases). Narrowed runs report unlisted findings but not
-stale entries. formdata and content are exhaustive and keep their known cases in
-`scripts/fuzzKit.ts`; a case left unfixed carries a `FIXME` in both the catalog
-and its spec.
+stale entries. formdata and content are exhaustive and keep their known cases in catalogs in
+`formDataFuzz.ts` and `contentFuzz.ts`; a catalogued bug (not a limitation)
+carries a `FIXME` in both the catalog and its spec.

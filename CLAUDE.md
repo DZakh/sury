@@ -25,9 +25,8 @@ moves bundle size needs `pnpm benchmarks --write` as well, or CI fails on
 
 ## Workflow
 
-Every prompt goes through the `ship` skill, which a hook reminds you of. It
-answers a question directly and drives a change to production ready on its own,
-calling `spec` and `fuzz` as it goes.
+`/ship <task>` drives a task to production ready without stopping to ask,
+calling `spec` and `fuzz` as it goes. It runs only when invoked.
 
 ## Use the spec skill
 
@@ -162,8 +161,8 @@ command. Rules that bind whichever you run:
 
 - `packages/sury/scripts/knownBugs.ts` is the one list of fuzzer-found bugs
   nobody has fixed, and of limitations a property can't tell from a bug. The
-  form and content fuzzers keep their own catalogs in `scripts/fuzzKit.ts`, each
-  case with a reason written by hand.
+  form and content fuzzers keep their own catalogs (`formDataFuzz.ts`,
+  `contentFuzz.ts`), each case with a reason written by hand.
 - A gate fails on an unlisted finding *and* on an entry it no longer reaches, so
   an entry can neither hide a new bug nor outlive its own.
 - A new finding is fixed, or listed together with its spec in the same change.

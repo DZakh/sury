@@ -22,16 +22,6 @@
           }
         ]
       }
-    ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "echo 'Run this prompt through the ship skill. It triages questions itself.'"
-          }
-        ]
-      }
     ]
   }
 }
