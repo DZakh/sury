@@ -362,7 +362,7 @@ is set. What is left on the table:
   the `caught` bookkeeping behind it. If the embed answered the failure instead
   of throwing it (`true`, or the record), the case could jump like any other
   check. With `B_conversion` already jumping, most union cases would then need no
-  `try` at all, and the raise tracking in `unionEmitChain` would matter only for
+  `try` at all, and the raise tracking in `emitChain` would matter only for
   opaque embeds (a recursive schema's operation, `S.json`'s walk) and async
   cases.
 - **A validation-only operation still builds the value it throws away.** `is*`,
