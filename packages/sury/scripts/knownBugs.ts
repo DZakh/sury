@@ -100,17 +100,6 @@ export const KNOWN_BUGS: Known[] = [
       inUnionWithDefault(f.shape),
   },
   {
-    id: "union-never-member",
-    kind: "bug",
-    summary:
-      "A union member with an `S.never` field makes the whole union's encode refuse to compile, " +
-      "instead of that one member yielding to its siblings.",
-    spec: "union-never-member",
-    fuzzers: ["union"],
-    matches: (f) =>
-      f.fuzzer === "union" && f.detail.includes("Missing input for never") && some(f.shape, (n) => n.name === "never"),
-  },
-  {
     id: "union-overlapping-members",
     kind: "limitation",
     summary:

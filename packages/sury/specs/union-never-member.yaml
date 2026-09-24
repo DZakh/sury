@@ -20,9 +20,8 @@ operations:
       string:
         input: '"x"'
         output: '"x"'
+      never-field:
+        input: "{ a: 1 }"
+        error: "Failed at a: Expected never, received 1"
   decode: eq-to-parse
-  encode:
-    # FIXME: known bug union-never-member (scripts/knownBugs.ts). Nothing inhabits the
-    # member with a never field, so it should yield to the string member, and
-    # this encode should compile and hand "x" back.
-    creationError: "SuryError: Missing input for never at a"
+  encode: eq-to-parse
