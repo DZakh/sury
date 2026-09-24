@@ -90,24 +90,22 @@ export const parse = (input: Val): Val => {
       const operationInput = B_scope(loopInput);
       const operationOutput = parse(operationInput);
       const operationCode = B_merge(operationOutput);
-      if (operationInput.i !== operationOutput.i || operationCode !== "") {
-        // Claims the coder's `.catch` (see `rj`). Its `cp` is still unemitted:
-        // the merge above stops at the scope, which has no `prev`, so it is
-        // written out from `result` after this. The replace is the check that
-        // `cp` still carries the `.catch`.
-        const rj = loopInput.rj;
-        const cp = rj && loopInput.cp.replace(`.catch(${rj})`, "");
-        const claimed = cp && cp !== loopInput.cp;
-        if (claimed) loopInput.cp = cp;
-        result = B_next(
-          loopInput,
-          `${operationInputVar}.then(${operationInputVar}=>{${operationCode}return ${operationOutput.i}}${
-            claimed ? `,${rj}` : ""
-          })`,
-          operationOutput.s,
-          operationOutput.e,
-        );
-      } else result = B_refine(loopInput, operationOutput.s, U, operationOutput.e);
+      // Claims the coder's `.catch` (see `rj`). Its `cp` is still unemitted:
+      // the merge above stops at the scope, which has no `prev`, so it is
+      // written out from `result` after this. The replace is the check that
+      // `cp` still carries the `.catch`.
+      const { cp, rj } = loopInput;
+      result =
+        operationInput.i !== operationOutput.i || operationCode !== ""
+          ? B_next(
+              loopInput,
+              `${operationInputVar}.then(${operationInputVar}=>{${operationCode}return ${operationOutput.i}}${
+                rj && cp !== (loopInput.cp = cp.replace(`.catch(${rj})`, "")) ? `,${rj}` : ""
+              })`,
+              operationOutput.s,
+              operationOutput.e,
+            )
+          : B_refine(loopInput, operationOutput.s, U, operationOutput.e);
       result.f |= 1;
       result.io = true;
     } else if (loopInput.io) {

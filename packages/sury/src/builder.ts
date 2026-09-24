@@ -812,9 +812,8 @@ export const B_conversion = (
     // is wrapped the same way (modifiers.ts `refine`). The foreign errors that
     // do escape a union are a getter's, which never enter this try.
     const failure = B_failWithArg(output, B_conversionFail(input, target), `x`);
-    if (isAsync) output.rj = `x=>${failure}`;
     output.cp = `let ${output.i};try{${output.i}=${embeddedFn}(${inputValue})${
-      isAsync ? `.catch(${output.rj})` : ""
+      isAsync ? `.catch(${(output.rj = `x=>${failure}`)})` : ""
     }}catch(x){${failure}}`;
     // A val whose result the target's own refiners can attach to. `val.vc`
     // checks emit at the *pre-transform* slot (`prev.v()` in B_merge), so
