@@ -289,7 +289,8 @@ export const B_guard = <TArg>(
 };
 
 // Emits `body` with the exit cleared: it lands inside a callback, which a jump
-// can't leave.
+// can't leave. The parse of what goes there has to run inside it as well as the
+// merge - a decoder emits some of its code while it parses.
 export const B_detached = <T>(g: BGlobal, body: () => T): T => {
   const x = g.x;
   g.x = U;
@@ -864,10 +865,13 @@ export const B_conversion = (
     // next case rather than aborting the operation (#347); a refiner's throw
     // is wrapped the same way (modifiers.ts `refine`). The foreign errors that
     // do escape a union are a getter's, which never enter this try.
-    const failure = () => B_fail(output, B_conversionFail(input, target), `x`);
+    // An async coder's failure lands in its `.catch` as often as in the `catch`,
+    // so both raise and share one site; a sync one's may jump.
+    const fail = () => B_fail(output, B_conversionFail(input, target), `x`);
+    const failure = isAsync ? B_detached(input.g, fail) : fail();
     output.cp = `let ${output.i};try{${output.i}=${embeddedFn}(${inputValue})${
-      isAsync ? `.catch(x=>{${B_detached(input.g, failure)}})` : ""
-    }}catch(x){${failure()}}`;
+      isAsync ? `.catch(x=>{${failure}})` : ""
+    }}catch(x){${failure}}`;
     // A val whose result the target's own refiners can attach to. `val.vc`
     // checks emit at the *pre-transform* slot (`prev.v()` in B_merge), so
     // leaving them on the coder's own val would validate what went into the

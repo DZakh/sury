@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.union([S.string.with(S.minLength, 3), S.string, S.recursive("Node", (node) => S.schema({ v: S.string, next: S.optional(node) }))])'
+  input: unknown
+  output: unknown
+  instantiations: 8622
+jsonSchema:
+  input: '{ anyOf: [{ type: "string", minLength: 3 }, { type: "string" }, { $ref: "#/$defs/Node" }], $defs: { Node: { type: "object", properties: { v: { type: "string" }, next: { $ref: "#/$defs/Node" } }, required: ["v"] } } }'
+  fromInputType: "string | { v: string; next?: ... | undefined; }"
+  output: '{ anyOf: [{ type: "string", minLength: 3 }, { type: "string" }, { $ref: "#/$defs/Node" }], $defs: { Node: { type: "object", properties: { v: { type: "string" }, next: { $ref: "#/$defs/Node" } }, required: ["v"] } } }'
+  fromOutputType: "string | { v: string; next?: ... | undefined; }"
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare string.length >= 3 | string | Node. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v0;for(;;){if(typeof i==="string"){for(;;){l1:{if(!(i.length>2)){(v0||(v0=[])).push(e[0],i,void 0);break l1};break}break;};break}try{let v2;v2=e[1](i);i=v2;break}catch(x){(v0||(v0=[])).push(e[2](x))}throw e[3](i,v0)}return i}catch(v3){e[4](v3)}}
+    examples:
+      long-string:
+        input: '"abc"'
+        output: '"abc"'
+      short-string:
+        input: '"a"'
+        output: '"a"'
+      node:
+        input: '{ v: "x" }'
+        output: '{ v: "x", next: undefined }'
+      number-reaches-the-node-member:
+        input: "1"
+        error: |-
+          Expected string.length >= 3 | string | Node, received 1
+          - Expected { v: string; next: Node | undefined; }, received 1
+  decode: eq-to-parse
+  encode: eq-to-parse

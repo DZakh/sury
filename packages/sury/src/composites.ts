@@ -211,10 +211,13 @@ export const completeObjectVal = (objectVal: Val): Val => {
     promiseAllContent = promiseAllContent.slice(0, -1);
     const operationInput = B_scope(objectVal);
     operationInput.io = true;
-    const operationOutput = parse(operationInput);
-    let result = operationOutput.i;
+    let result = "";
     let operationCode = B_detached(objectVal.g, () => {
+      const operationOutput = parse(operationInput);
       let code = B_merge(operationOutput);
+      result = operationOutput.i;
+      objectVal.s = operationOutput.s;
+      objectVal.e = operationOutput.e;
       // Inside the `.then`, where the fields the optional ones read are bound:
       // the sync branch below appends the same code after the literal, and
       // leaving it off here dropped every optional field of an object that had
@@ -233,8 +236,6 @@ export const completeObjectVal = (objectVal: Val): Val => {
       objectVal.i = `Promise.all([${promiseAllContent}]).then(([${promiseAllContent}])=>{${operationCode}return ${result}})`;
     }
     objectVal.f |= 1;
-    objectVal.s = operationOutput.s;
-    objectVal.e = operationOutput.e;
     objectVal.io = true;
     return objectVal;
   } else {
@@ -729,17 +730,17 @@ const missingKeyEncoder: Encoder = (input, target) => {
   const presentAssign = presentOut.i === v ? "" : `${v}=${presentOut.i};`;
 
   // Optional field: leave `undefined` as-is (None). Required field: reject.
-  const absentCode = isOptional(target) ? "" : B_failInvalidInput(input, target);
+  const optional = isOptional(target);
   const output = B_nextVarOutput(input, v, getOutputSchema(target), target);
   const presentBody = presentCode + presentAssign;
   output.cp =
     presentBody === ""
-      ? absentCode === ""
+      ? optional
         ? ""
         : B_guardInvalidInput(input, `${v}!==void 0`, target)
-      : absentCode === ""
+      : optional
         ? `if(${v}!==void 0){${presentBody}}`
-        : `if(${v}!==void 0){${presentBody}}else{${absentCode}}`;
+        : `if(${v}!==void 0){${presentBody}}else{${B_failInvalidInput(input, target)}}`;
   return output;
 };
 

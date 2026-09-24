@@ -4,8 +4,9 @@
 // `AsPromiseOrReject`, `AsResultPromise`, `AsPromisableResult`) and takes any
 // of four call forms. The Result outcomes are compiled, not wrapped: the tail
 // that builds `{success, value, error}` is emitted into the operation's own
-// body, which is what lets a schema that provably cannot throw skip the `try`
-// entirely - a decision no `safe(() => ...)` wrapper can make.
+// body, and a failed check returns the failure from where it is found
+// (`operationExit`) instead of throwing it at a `catch` - a decision no
+// `safe(() => ...)` wrapper can make.
 //
 // Deliberately free of top-level side effects, and deliberately NOT the module
 // that installs the schema prototype's interop getters (standard.ts): a bundle

@@ -21,7 +21,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{let v1;for(;;){if(typeof i==="string"&&i==="123")break;if(typeof i==="string"){l2:{let v0;try{v0=BigInt(i)}catch(_){{(v1||(v1=[])).push(e[0],i,void 0);break l2}}if(!(v0||i.trim())){(v1||(v1=[])).push(e[1],i,void 0);break l2};i=v0;break}break}throw e[2](i,v1)}return i}catch(v3){e[3](v3)}}
+    expression: i=>{try{let v1;for(;;){if(typeof i==="string"&&i==="123")break;if(typeof i==="string"){l2:{let v0;try{v0=BigInt(i)}catch(_){}if(!(v0!==void 0&&(v0||i.trim()))){(v1||(v1=[])).push(e[0],i,void 0);break l2};i=v0;break}break}throw e[1](i,v1)}return i}catch(v3){e[2](v3)}}
     examples:
       literal-member:
         input: '"123"'

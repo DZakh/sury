@@ -19,7 +19,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);for(let v0 in i){let v1=i[v0];(typeof v1==="string"||v1===void 0)||e[0](v1,[v0]);}let v2=i.name,v3=i.bio;if(v2!==void 0){v2.length>0||e[1](v2);}else{e[2](v2)}v3!==void 0||e[4](v3);return {name:v2,bio:v3}}catch(v4){e[6](v4)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);for(let v0 in i){let v1=i[v0];(typeof v1==="string"||v1===void 0)||e[0](v1,[v0]);}let v2=i.name,v3=i.bio;if(v2!==void 0){v2.length>0||e[1](v2);}else{e[2](v2)}v3!==void 0||e[3](v3);return {name:v2,bio:v3}}catch(v4){e[5](v4)}}
     examples:
       both-present:
         input: '{ name: "Ann", bio: "hi" }'
@@ -31,7 +31,7 @@ operations:
         input: '{ name: "Ann", bio: "" }'
         output: '{ name: "Ann", bio: "" }'
   decode:
-    expression: i=>{try{let v1=i.name,v2=i.bio;if(v1!==void 0){v1.length>0||e[0](v1);}else{e[1](v1)}v2!==void 0||e[3](v2);return {name:v1,bio:v2}}catch(v3){e[4](v3)}}
+    expression: i=>{try{let v1=i.name,v2=i.bio;if(v1!==void 0){v1.length>0||e[0](v1);}else{e[1](v1)}v2!==void 0||e[2](v2);return {name:v1,bio:v2}}catch(v3){e[3](v3)}}
     examples:
       both-present:
         input: '{ name: "Ann", bio: "hi" }'

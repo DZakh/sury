@@ -243,6 +243,16 @@ test("a foreign exception from user code is a failure of the value, in the outco
   await expect(S.parseAsPromiseOrReject(user, evil)).rejects.toBe(boom);
   // The throwing outcome is the exception itself.
   expect(() => S.parseOrThrow(user, evil)).toThrow(boom);
+
+  // Where the only failure the body has is a union's own, its read of the
+  // discriminant is still guarded.
+  const tagged = S.union([
+    S.schema({ kind: "a", v: S.unknown }),
+    S.schema({ kind: "b", v: S.unknown }),
+  ]);
+  const evilKind = { get kind(): never { throw boom; } };
+  expect(S.parseAsResult(tagged, evilKind).error?.code).toBe("invalid_conversion");
+  expect(S.isInput(tagged, evilKind)).toBe(false);
 });
 
 test("a defect throws instead of becoming a Result", () => {

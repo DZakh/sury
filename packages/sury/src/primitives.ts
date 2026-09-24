@@ -24,7 +24,6 @@ import {
 } from "./base";
 import {
   B_embed,
-  B_failInvalidInput,
   B_guardInvalidInput,
   B_inlineConst,
   B_next,
@@ -232,9 +231,12 @@ export const bigintDecoder: Builder = (input: Val) => {
   if ((inputTagFlag & 2)) {
     const output = B_nextVar(input);
     const inputVar = input.v();
-    // `BigInt("")` and `BigInt("   ")` are 0n, so a zero result also has to
-    // show a digit.
-    output.cp = `let ${output.i};try{${output.i}=BigInt(${inputVar})}catch(_){${B_failInvalidInput(input)}}${B_guardInvalidInput(input, `${output.i}||${inputVar}.trim()`)}`;
+    // A string `BigInt` can't read leaves the var unset. `BigInt("")` and
+    // `BigInt("   ")` are 0n, so a zero result also has to show a digit.
+    output.cp = `let ${output.i};try{${output.i}=BigInt(${inputVar})}catch(_){}${B_guardInvalidInput(
+      input,
+      `${output.i}!==void 0&&(${output.i}||${inputVar}.trim())`,
+    )}`;
     return output;
   }
   if ((inputTagFlag & 4)) {

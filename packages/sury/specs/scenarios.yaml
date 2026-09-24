@@ -43,6 +43,15 @@ is-input-compiled:
     const data = { id: "u1", age: 30 };
   run: validate(data)
 
+is-input-invalid:
+  prepare: |
+    const schema = S.schema({ id: S.string, age: S.number });
+    const validate = S.isInput(schema);
+    const data = { id: "u1", age: "30" };
+  # The answer is `false`, and nothing reads why: the failure leaves the
+  # operation without building a record or throwing one.
+  run: validate(data)
+
 is-output:
   prepare: |
     const schema = S.schema({ id: S.string, age: S.number.with(S.to, S.string) });
@@ -292,6 +301,16 @@ parse-or-throw-invalid-message:
   # at the throw, so this is the half a caller that only logs the error pays
   # and the one above does not.
   run: (() => { try { return parse(data) } catch (error) { return error.message } })()
+
+union-fallback-accepts:
+  prepare: |
+    const schema = S.array(S.union([S.schema({ a: S.string }), S.schema({ b: S.number })]));
+    const parse = S.parseOrThrow(schema);
+    const data = Array.from({ length: 20 }, (_, i) => (i % 2 ? { a: "x" } : { b: 1 }));
+  # Every other item is accepted by the second member only, so the first one
+  # fails on the valid path. What it found is kept for a union failure that
+  # never comes.
+  run: parse(data)
 
 union-dispatch-fallback:
   prepare: |

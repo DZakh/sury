@@ -217,8 +217,8 @@ const unionIsNoop = (schema: Internal): boolean => {
 type UnionCase = {
   c: string;
   b: string;
-  // Body can throw (1), must be awaited by fallback dispatch (2), or may fall
-  // through to an overlapping member (8).
+  // Body can throw (1), must be awaited by fallback dispatch (2), can fail by
+  // a jump (4), or may fall through to an overlapping member (8).
   f: number;
   // The label the case's failed checks break out of to reach the next case,
   // set only where one does.
@@ -236,9 +236,6 @@ type UnionCtx = {
   // What a case that raised does with the error it caught: records it where
   // the union's failure will read it.
   k: (error: string) => string;
-  // Whether a failure's reasons are wanted at all - a boolean answer has no
-  // use for them.
-  w: boolean;
   // The exit in force where the code is being emitted.
   x: () => string;
 };
@@ -259,8 +256,7 @@ const unionEmitChain = (cases: UnionCase[], ctx: UnionCtx, top?: boolean): strin
   // The end of a group's chain is the group failing, which is whatever its
   // members' exit is; only the union's own chain ends in the union's failure.
   const end = top ? ctx.f : () => ctx.x();
-  const label = top ? ctx.e() : "";
-  if (cases.length === 1 && !cases[0]!.l && !label) {
+  if (cases.length === 1 && !cases[0]!.l && !(top && ctx.e())) {
     const c = cases[0]!;
     if (c.b === "" && c.c === "") return "";
     if (c.b === "") {
@@ -273,15 +269,15 @@ const unionEmitChain = (cases: UnionCase[], ctx: UnionCtx, top?: boolean): strin
   let code = "";
   let caught = false;
   let exhaustive = false;
-  // Whether the arm just emitted ended in a `try` that hands control onward
-  // rather than a `break`. Set by `attempt`, not read off the arm's first
+  // Whether the arm just emitted ends in a `try` or a label that hands control
+  // onward rather than a `break`. Set by `attempt`, not read off the arm's first
   // character: a body that itself opens with `try{JSON.parse` is a closed arm.
   let open = false;
 
   // The case's code with its condition taken as given - the shared shape between
-  // a lone `if(cond){…}` and one arm of a run that tests `cond` once. A `try` arm
-  // hands control to whatever follows it; every other form breaks, which ends its
-  // block and needs no trailing `;`.
+  // a lone `if(cond){…}` and one arm of a run that tests `cond` once. A `try` or
+  // labelled arm hands control to whatever follows it; every other form breaks,
+  // which ends its block and needs no trailing `;`.
   const attempt = (c: UnionCase, idx: number): string => {
     open = false;
     if (c.b === "") return "break";
@@ -311,9 +307,11 @@ const unionEmitChain = (cases: UnionCase[], ctx: UnionCtx, top?: boolean): strin
     }
     if (c.l) {
       open = true;
-      caught ||= ctx.w;
       arm = `${c.l}:{${arm}}`;
     }
+    // A case that hands over what it found by a jump carries its failure
+    // forward just as one whose `try` does.
+    if (c.f & 8 && c.f & 4) caught = true;
     return arm;
   };
 
@@ -360,6 +358,8 @@ const unionEmitChain = (cases: UnionCase[], ctx: UnionCtx, top?: boolean): strin
     }
   }
 
+  // Read only now: an arm's inlined failure can be the first to reach the end.
+  const label = top ? ctx.e() : "";
   return `for(;;){${label ? `${label}:{${code}}` : code}${!exhaustive || label ? end() : ""}}`;
 };
 
@@ -1095,7 +1095,7 @@ const unionEmit = (
   // The union's failure, where the chain ends.
   const final = (): string => {
     const jump = outer?.(unionFailure);
-    if (jump !== U) return jump;
+    if (jump !== U) return g.j++, jump;
     B_markThrow(input);
     return `throw ${unionFailure()}`;
   };
@@ -1117,7 +1117,6 @@ const unionEmit = (
     e: () => end.l || "",
     r: () => rethrow || (rethrow = B_embed(input, getOrRethrow)),
     k: (error) => (wanted ? `(${failuresVar()}||(${failures}=[])).push(${error})` : error),
-    w: wanted,
     x: () => g.x!()!,
   };
   // A case a later one may still accept leaves its own block on failure, so the
@@ -1135,7 +1134,7 @@ const unionEmit = (
   // too: a member of a later group never ran after it.
   let recorded = false;
   const settle = (c: UnionCase): UnionCase => {
-    if (wanted && c.f & 8 && (c.l || c.f & 1)) recorded = true;
+    if (wanted && c.f & 8 && c.f & (1 | 4)) recorded = true;
     return c;
   };
   const exit = g.x;
@@ -1170,7 +1169,7 @@ const unionEmit = (
     target: Val,
     falls: number
   ): UnionCase | undefined => {
-    const mark = input.g.t;
+    const mark = input.g.t, jumps = g.j;
     const leave = enter(falls);
     const caseInput = B_scope(source);
     caseInput.u = true;
@@ -1256,6 +1255,7 @@ const unionEmit = (
       f:
         (body !== "" && input.g.t !== mark ? 1 : 0) |
         (async && awaitAsync ? 2 : 0) |
+        (g.j !== jumps ? 4 : 0) |
         falls,
       l: label,
     });
@@ -1273,7 +1273,7 @@ const unionEmit = (
       continue;
     }
 
-    const mark = input.g.t;
+    const mark = input.g.t, jumps = g.j;
     const leave = enter(group.f & 8);
     const before: boolean = recorded;
     const groupNarrow = group.a[0]!.n;
@@ -1352,6 +1352,7 @@ const unionEmit = (
       f:
         (body !== "" && input.g.t !== mark ? 1 : 0) |
         (inner.some((c) => c.f & 2) ? 2 : 0) |
+        (g.j !== jumps ? 4 : 0) |
         (group.f & 8),
       // A lone member that took the group's place brings its own label.
       l: label || (only && body === only.b ? only.l : U),
