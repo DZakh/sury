@@ -501,10 +501,18 @@ const shapedParser: Builder = (input: Val) => {
   return B_markOutput(output, input);
 }
 
-const prepareShapedSerializerAcc = (acc: ShapedSerializerAcc, input: Val): void => {
-  if (input.e.from !== U) {
-    const from = input.e.from;
-    const fromFlattened = input.e.fromFlattened;
+// `schema` is where the value sits in the Output, and names the Input location
+// it came from. Read off the container's own field rather than the val: a
+// decoder may end its val's chain on a schema of its own, as `S.never`'s does,
+// and the location went with the one it replaced.
+const prepareShapedSerializerAcc = (
+  acc: ShapedSerializerAcc,
+  input: Val,
+  schema: Internal = input.e
+): void => {
+  if (schema.from !== U) {
+    const from = schema.from;
+    const fromFlattened = schema.fromFlattened;
     let accAtFrom: ShapedSerializerAcc;
     if (fromFlattened !== U) {
       if (acc.flattened === U) {
@@ -543,9 +551,11 @@ const prepareShapedSerializerAcc = (acc: ShapedSerializerAcc, input: Val): void 
     accAtFrom.val = input;
   } else if (input.d !== U) {
     const vals = input.d;
+    const fields = (schema.properties || schema.items) as Record<string, Internal> | undefined;
     const keys = Object.keys(vals);
     for (let idx = 0; idx < keys.length; idx++) {
-      prepareShapedSerializerAcc(acc, vals[keys[idx]!]!);
+      const key = keys[idx]!;
+      prepareShapedSerializerAcc(acc, vals[key]!, fields?.[key]);
     }
   }
 }
