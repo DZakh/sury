@@ -138,9 +138,10 @@ export const parse = (input: Val): Val => {
         // its input refiner, and the reversed tail of
         // `S.string.with(S.minLength, 3).with(S.to, S.number)` would otherwise
         // measure the number. B_markOutput reads input checks off `valInput`'s
-        // prev, hence the link.
+        // prev, hence the link - only where the decoder produced a new value,
+        // since a check is otherwise already reading the one it names.
         if (!result.io) {
-          const own = result.e.inputRefiner ? B_refine(result) : result;
+          const own = result.e.inputRefiner && result.i !== loopInput.i ? B_refine(result) : result;
           result = B_markOutput(own, own);
         }
       }
