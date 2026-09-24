@@ -11,7 +11,7 @@ jsonSchema:
   openapi-3.0:
     input: '{ type: "object", properties: { selector: { anyOf: [{ type: "string", enum: ["*"] }, { type: "string" }, { items: { type: "string" }, type: "array" }] } } }'
 isEqual:
-  input: (a,b)=>a===b||(a.selector==="*"?b.selector==="*":typeof a.selector==="string"?typeof b.selector==="string"&&a.selector===b.selector:Array.isArray(a.selector)?Array.isArray(b.selector)&&e[0](a.selector,b.selector):b.selector===void 0)
+  input: (a,b)=>a===b||(a.selector===void 0?b.selector===void 0:b.selector!==void 0&&(a.selector==="*"?b.selector==="*":typeof a.selector==="string"?typeof b.selector==="string"&&a.selector===b.selector:Array.isArray(b.selector)&&e[0](a.selector,b.selector)))
   output: (a,b)=>a===b||e[0](a,b)
 compare:
   input: "throws: [Sury] Can't compare { selector: \"*\" | string | string[] | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
