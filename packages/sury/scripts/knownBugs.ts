@@ -57,11 +57,12 @@ const admitsNull = (node: Shape): boolean =>
 
 // A member with a default takes every absent value it replaces, so an arm of the
 // same union naming that value - the wrapper's own (`optional`, `nullable`,
-// `nullish`), or a sibling's - is reached only by encode.
+// `nullish`), or a later sibling's - is reached only by encode.
 const defaultClaimsAbsent = (node: Shape): boolean =>
-  unionMembers(node).some((member) => {
+  unionMembers(node).some((member, idx) => {
     if (!hasDefault(member)) return false;
-    const others = node.name === "union" ? node.args.filter((arm) => arm !== member) : [];
+    // Only a later arm: an earlier one takes the absent value first.
+    const others = node.name === "union" ? node.args.slice(idx + 1) : [];
     const named = (absent: (arm: Shape) => boolean, wrapper: string) =>
       absent(member) && (node.name === "nullish" || node.name === wrapper || others.some(absent));
     return named(admitsUndefined, "optional") || named(admitsNull, "nullable");
