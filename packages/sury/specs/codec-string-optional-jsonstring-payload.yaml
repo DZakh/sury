@@ -41,7 +41,7 @@ operations:
         input: '"nope"'
         error: Expected JSON string, received "nope"
   encode:
-    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i.a;typeof v0==="number"&&v0==v0||e[1](v0);i="{\"a\":"+(Number.isFinite(v0)?v0:e[0](v0))+"}"}else{throw e[2](i)}return i}catch(v1){e[3](v1)}}
+    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i.a;i="{\"a\":"+(Number.isFinite(v0)?v0:e[0](v0))+"}"}else{throw e[1](i)}return i}catch(v1){e[2](v1)}}
     examples:
       the-arm-reads-the-text:
         input: "{ a: 1 }"

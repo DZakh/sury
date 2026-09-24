@@ -17,7 +17,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v4=i.f;let v2;for(;;){l3:{try{try{e[0](i.f);}catch(v0){v0.path=["f",...v0.path];throw v0}let v1;try{v1=e[1](i.f)}catch(x){{(v2||(v2=[])).push(e[2],x,void 0);break l3}}v4=v1;break}catch(x){(v2||(v2=[])).push(e[3](x))}}if(v4===void 0)break;throw e[4](v4,void 0,v2)}return {f:v4}}catch(v5){e[6](v5)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=i.f;let v3;for(;;){if(v0===void 0)break;l4:{try{try{e[0](v0);}catch(v1){v1.path=["f",...v1.path];throw v1}let v2;try{v2=e[1](v0)}catch(x){{(v3||(v3=[])).push(e[2],x,void 0);break l4}}v0=v2;break}catch(x){(v3||(v3=[])).push(e[3](x))}}throw e[4](v0,void 0,v3)}return {f:v0}}catch(v5){e[6](v5)}}
     examples:
       present:
         input: '{ f: { tag: "x" } }'
@@ -29,7 +29,7 @@ operations:
         input: "{ f: undefined }"
         output: "{ f: undefined }"
   decode:
-    expression: i=>{try{let v4=i.f;let v2;for(;;){l3:{try{try{e[0](i.f);}catch(v0){v0.path=["f",...v0.path];throw v0}let v1;try{v1=e[1](i.f)}catch(x){{(v2||(v2=[])).push(e[2],x,void 0);break l3}}v4=v1;break}catch(x){(v2||(v2=[])).push(e[3](x))}}if(v4===void 0)break;throw e[4](v4,void 0,v2)}return {f:v4}}catch(v5){e[5](v5)}}
+    expression: i=>{try{let v0=i.f;let v3;for(;;){if(v0===void 0)break;l4:{try{try{e[0](v0);}catch(v1){v1.path=["f",...v1.path];throw v1}let v2;try{v2=e[1](v0)}catch(x){{(v3||(v3=[])).push(e[2],x,void 0);break l4}}v0=v2;break}catch(x){(v3||(v3=[])).push(e[3](x))}}throw e[4](v0,void 0,v3)}return {f:v0}}catch(v5){e[5](v5)}}
     examples:
       present:
         input: '{ f: { tag: "x" } }'

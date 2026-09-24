@@ -38,7 +38,7 @@ operations:
         input: '"{\"a\":\"42\"}"'
         output: "{ a: 42n }"
   encode:
-    expression: i=>{try{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v1="";for(let v0 of Object.keys(i)){let v2=i[v0];typeof v2==="bigint"||e[1](v2,[v0]);v1+=(v1?",":"")+e[0](v0)+":\""+i[v0]+"\""}i="{"+v1+"}";break}if(Array.isArray(i)){let v4="";for(let v3=0;v3<i.length;++v3){let v5=i[v3];typeof v5==="bigint"||e[2](v5,[v3]);v4+=(v3?",":"")+"\""+i[v3]+"\""}i="["+v4+"]";break}throw e[3](i)}return i}catch(v6){e[4](v6)}}
+    expression: i=>{try{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v1="";for(let v0 of Object.keys(i)){v1+=(v1?",":"")+e[0](v0)+":\""+i[v0]+"\""}i="{"+v1+"}";break}if(Array.isArray(i)){let v3="";for(let v2=0;v2<i.length;++v2){v3+=(v2?",":"")+"\""+i[v2]+"\""}i="["+v3+"]";break}throw e[1](i)}return i}catch(v4){e[2](v4)}}
     examples:
       dict:
         input: "{ a: 42n }"

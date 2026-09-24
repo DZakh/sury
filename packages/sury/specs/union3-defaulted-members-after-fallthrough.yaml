@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.union([S.schema({ TAG: "a", _0: S.string }), S.nullable(S.array(S.string), ["x"]), S.optional(S.instance(Error), new Error("a"))])'
+  input: '{ TAG: "a"; _0: string; } | string[] | Error | null | undefined'
+  output: '{ TAG: "a"; _0: string; } | string[] | Error'
+  instantiations: 3597
+jsonSchema:
+  input: Expected JSON, received Error | undefined
+  output: Expected JSON, received Error
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare { TAG: \"a\"; _0: string; } | string[] | null | Error | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { TAG: \"a\"; _0: string; } | string[] | Error. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v1;for(;;){l7:{if(typeof i==="object"&&i&&!Array.isArray(i)&&i.TAG==="a"){l2:{let v0=i._0;if(!(typeof v0==="string")){(v1||(v1=[])).push(e[0],v0,void 0);break l2};i={TAG:i.TAG,_0:v0};break}}l5:{for(;;){if(Array.isArray(i)){for(let v3=0;v3<i.length;++v3){let v4=i[v3];if(!(typeof v4==="string")){(v1||(v1=[])).push(e[1],v4,[v3]);break l5};};break}if(i===null){i=e[2];break}{(v1||(v1=[])).push(e[3](i));break l5}};break}break l7;l6:{try{for(;;){if(i instanceof e[4])break;if(i===void 0){i=e[5];break}{(v1||(v1=[])).push(e[6](i));break l6}};break}catch(x){(v1||(v1=[])).push(e[7](x))}}}throw e[8](i,void 0,v1)}return i}catch(v8){e[9](v8)}}
+    examples:
+      tagged:
+        input: '{ TAG: "a", _0: "x" }'
+        output: '{ TAG: "a", _0: "x" }'
+      list:
+        input: '["y"]'
+        output: '["y"]'
+      null-takes-the-list-default:
+        input: "null"
+        output: '["x"]'
+      undefined-takes-the-error-default:
+        input: undefined
+        error: |-
+          Expected { TAG: "a"; _0: string; } | string[] | null | Error | undefined, received undefined
+          - Expected string[] | null, received undefined
+      tagged-with-a-bad-payload:
+        input: '{ TAG: "a", _0: 1 }'
+        error: |-
+          Expected { TAG: "a"; _0: string; } | string[] | null | Error | undefined, received { TAG: "a"; _0: 1; }
+          - At _0: Expected string, received 1
+          - Expected string[] | null, received { TAG: "a"; _0: 1; }
+      string:
+        input: '"a"'
+        error: |-
+          Expected { TAG: "a"; _0: string; } | string[] | null | Error | undefined, received "a"
+          - Expected string[] | null, received "a"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{let v1;for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)&&i.TAG==="a"){l2:{let v0=i._0;if(!(typeof v0==="string")){(v1||(v1=[])).push(e[0],v0,void 0);break l2};i={TAG:i.TAG,_0:v0};break}}l5:{if(Array.isArray(i)){for(let v3=0;v3<i.length;++v3){let v4=i[v3];if(!(typeof v4==="string")){(v1||(v1=[])).push(e[1],v4,[v3]);break l5};}}else{{(v1||(v1=[])).push(e[2](i));break l5}};break}if(i instanceof e[3])break;throw e[4](i,void 0,v1)}return i}catch(v6){e[5](v6)}}
+    examples:
+      tagged:
+        input: '{ TAG: "a", _0: "x" }'
+        output: '{ TAG: "a", _0: "x" }'
+      list:
+        input: '["y"]'
+        output: '["y"]'

@@ -43,7 +43,7 @@ operations:
         input: '""'
         output: undefined
   encode:
-    expression: i=>{try{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i.a;typeof v0==="number"&&v0==v0||e[1](v0);i="{\"a\":"+(Number.isFinite(v0)?v0:e[0](v0))+"}";break}if(i===void 0)break;throw e[2](i)}return i}catch(v1){e[3](v1)}}
+    expression: i=>{try{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i.a;i="{\"a\":"+(Number.isFinite(v0)?v0:e[0](v0))+"}";break}if(i===void 0)break;throw e[1](i)}return i}catch(v1){e[2](v1)}}
     examples:
       set:
         input: "{ a: 1 }"

@@ -1,14 +1,14 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: 'S.union([S.string.with(S.minLength, 3), S.string, S.recursive("Node", (node) => S.schema({ v: S.string, next: S.optional(node) }))])'
+  schema: S.union([S.string.with(S.minLength, 3), S.string, S.recursive("Node", (node) => S.union([S.number, S.array(node)]))])
   input: unknown
   output: unknown
-  instantiations: 8622
+  instantiations: 8517
 jsonSchema:
-  input: '{ anyOf: [{ type: "string", minLength: 3 }, { type: "string" }, { $ref: "#/$defs/Node" }], $defs: { Node: { type: "object", properties: { v: { type: "string" }, next: { $ref: "#/$defs/Node" } }, required: ["v"] } } }'
-  fromInputType: "string | { v: string; next?: ... | undefined; }"
-  output: '{ anyOf: [{ type: "string", minLength: 3 }, { type: "string" }, { $ref: "#/$defs/Node" }], $defs: { Node: { type: "object", properties: { v: { type: "string" }, next: { $ref: "#/$defs/Node" } }, required: ["v"] } } }'
-  fromOutputType: "string | { v: string; next?: ... | undefined; }"
+  input: '{ anyOf: [{ type: "string", minLength: 3 }, { type: "string" }, { $ref: "#/$defs/Node" }], $defs: { Node: { anyOf: [{ type: "number" }, { items: { $ref: "#/$defs/Node" }, type: "array" }] } } }'
+  fromInputType: string | number | (number | (number | (number | (number | (number | (number | (number | (number | (number | (number | (number | ...)[])[])[])[])[])[])[])[])[])[])[]
+  output: '{ anyOf: [{ type: "string", minLength: 3 }, { type: "string" }, { $ref: "#/$defs/Node" }], $defs: { Node: { anyOf: [{ type: "number" }, { items: { $ref: "#/$defs/Node" }, type: "array" }] } } }'
+  fromOutputType: string | number | (number | (number | (number | (number | (number | (number | (number | (number | (number | (number | (number | ...)[])[])[])[])[])[])[])[])[])[])[]
 isEqual: (a,b)=>a===b||e[0](a,b)
 compare: "throws: [Sury] Can't compare string.length >= 3 | string | Node. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
@@ -16,7 +16,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{let v0;for(;;){if(typeof i==="string"){for(;;){l1:{if(!(i.length>2)){(v0||(v0=[])).push(e[0],i,void 0);break l1};break}break;};break}try{let v2;v2=e[1](i);i=v2;break}catch(x){(v0||(v0=[])).push(e[2](x))}throw e[3](i,void 0,v0)}return i}catch(v3){e[4](v3)}}
+    expression: i=>{try{let v0;for(;;){if(typeof i==="string"){for(;;){l1:{if(!(i.length>2)){(v0||(v0=[])).push(e[0],i,void 0);break l1};break}break;};break}try{e[1](i);break}catch(x){(v0||(v0=[])).push(e[2](x))}throw e[3](i,void 0,v0)}return i}catch(v2){e[4](v2)}}
     examples:
       long-string:
         input: '"abc"'
@@ -25,12 +25,12 @@ operations:
         input: '"a"'
         output: '"a"'
       node:
-        input: '{ v: "x" }'
-        output: '{ v: "x", next: undefined }'
-      number-reaches-the-node-member:
-        input: "1"
+        input: "[1, [2]]"
+        output: "[1, [2]]"
+      boolean-reaches-the-node-member:
+        input: "true"
         error: |-
-          Expected string.length >= 3 | string | Node, received 1
-          - Expected { v: string; next: Node | undefined; }, received 1
+          Expected string.length >= 3 | string | Node, received true
+          - Expected number | Node[], received true
   decode: eq-to-parse
   encode: eq-to-parse

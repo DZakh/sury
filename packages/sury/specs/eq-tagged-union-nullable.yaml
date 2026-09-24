@@ -10,11 +10,7 @@ jsonSchema:
   openapi-3.0:
     input: '{ anyOf: [{ type: "object", properties: { TAG: { type: "string", enum: ["A"] }, _0: { type: "string" } }, required: ["TAG", "_0"] }, { type: "object", properties: { TAG: { type: "string", enum: ["B"] }, _0: { type: "number" } }, required: ["TAG", "_0"] }, { enum: [null] }] }'
     output: '{ anyOf: [{ type: "object", properties: { TAG: { type: "string", enum: ["A"] }, _0: { type: "string" } }, required: ["TAG", "_0"] }, { type: "object", properties: { TAG: { type: "string", enum: ["B"] }, _0: { type: "number" } }, required: ["TAG", "_0"] }, { enum: [null] }] }'
-# FIXME: known bug eq-tagged-union-absent (scripts/knownBugs.ts). The comparator reads
-# `a.TAG` before it reaches the `null` arm, so `isEqual(null, { TAG: "A", _0: "x" })`
-# throws instead of answering false. The pair is not an example because the
-# harness compares every example output with every other and would fail on it.
-isEqual: (a,b)=>a===b||(a.TAG==="A"?b.TAG==="A"&&a._0===b._0:a.TAG==="B"?b.TAG==="B"&&a._0===b._0:b===null)
+isEqual: (a,b)=>a===b||(a?.TAG==="A"?b?.TAG==="A"&&a._0===b._0:a?.TAG==="B"?b?.TAG==="B"&&a._0===b._0:b===null)
 compare: "throws: [Sury] Can't compare { TAG: \"A\"; _0: string; } | { TAG: \"B\"; _0: number; } | null. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
@@ -29,5 +25,8 @@ operations:
       member-b:
         input: '{ TAG: "B", _0: 1 }'
         output: '{ TAG: "B", _0: 1 }'
+      "null":
+        input: "null"
+        output: "null"
   decode: identity
   encode: identity

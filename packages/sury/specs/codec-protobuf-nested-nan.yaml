@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ inner: S.optional(S.schema({ xs: S.array(S.number).with(S.protobufField, 1), next: S.optional(S.recursive("Node", (self) => S.schema({ n: S.int32.with(S.protobufField, 1), next: S.optional(self).with(S.protobufField, 2) }))).with(S.protobufField, 2) })).with(S.protobufField, 1) }).with(S.to, S.protobuf)'
+  input: "{ inner?: { xs: number[]; next?: unknown; } | undefined; }"
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 13823
+jsonSchema:
+  input: '{ type: "object", properties: { inner: { type: "object", properties: { xs: { items: { type: "number" }, type: "array" }, next: { $ref: "#/$defs/Node" } }, required: ["xs"] } }, $defs: { Node: { type: "object", properties: { n: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, next: { $ref: "#/$defs/Node" } }, required: ["n"] } } }'
+  fromInputType: "{ inner?: { xs: number[]; next?: { n: number; next?: ... | undefined; } | undefined; } | undefined; }"
+  output: Expected JSON, received Uint8Array
+isEqual:
+  input: (a,b)=>a===b||(a.inner===void 0?b.inner===void 0:b.inner!==void 0&&e[0](a.inner.xs,b.inner.xs)&&e[1](a.inner.next,b.inner.next))
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { inner: { xs: number[]; next: Node | undefined; } | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[12](i);let v0=i.inner;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=v0.xs,v6=v0.next;Array.isArray(v1)||e[1](v1);for(let v2=0;v2<v1.length;++v2){let v3=v1[v2];typeof v3==="number"&&v3==v3||e[0](v3,["inner","xs",v2]);}for(;;){if(typeof v6==="object"&&v6&&!Array.isArray(v6)){let v4;try{v4=e[2](v0.next);}catch(v5){v5.path=["inner","next",...v5.path];throw v5}v6=v4;break}if(v6===void 0)break;throw e[3](v6)}v0={xs:v1,next:v6};break}if(v0===void 0)break;throw e[4](v0)}let v7;{let w;try{w=e[10].acquire();let v,j,n,s,h,a,k,g,c,o;v=v0;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[5](w,v);w.end(h)};v7=w.finish()}catch(x){w&&(w.busy=false);e[11](x)}}return v7}catch(v8){e[13](v8)}}
+    examples:
+      nan-is-not-a-number:
+        input: "{ inner: { xs: [1, NaN] } }"
+        error: "Failed at inner.xs[1]: Expected number, received NaN"
+  decode:
+    expression: i=>{try{let v0=i.inner;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=v0.xs,v4=v0.next;for(;;){if(typeof v4==="object"&&v4&&!Array.isArray(v4)){try{e[0](v0.next);}catch(v3){v3.path=["inner","next",...v3.path];throw v3};break}if(v4===void 0)break;throw e[1](v4)};break}if(v0===void 0)break;throw e[2](v0)}let v5;{let w;try{w=e[8].acquire();let v,j,n,s,h,a,k,g,c,o;v=v0;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[3](w,v);w.end(h)};v5=w.finish()}catch(x){w&&(w.busy=false);e[9](x)}}return v5}catch(v6){e[10](v6)}}
+    examples:
+      nan-is-trusted:
+        input: "{ inner: { xs: [1, NaN], next: { n: 1, next: undefined } } }"
+        output: new Uint8Array([10, 22, 10, 16, 0, 0, 0, 0, 0, 0, 240, 63, 0, 0, 0, 0, 0, 0, 248, 127, 18, 2, 8, 1])
+      absent:
+        input: "{}"
+        output: new Uint8Array([])
+  encode:
+    expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v1=v0.inner;if(v1!==void 0){let v11=v1.xs,v13=v1.next;if(v13!==void 0){let v18=v13.next;if(v18!==void 0){try{e[10](v18);}catch(v19){v19.path=["inner","next","next",...v19.path];throw v19}}}}return v0}catch(v20){e[11](v20)}}
+    examples:
+      nan-from-the-wire:
+        input: new Uint8Array([10, 18, 10, 16, 0, 0, 0, 0, 0, 0, 240, 63, 0, 0, 0, 0, 0, 0, 248, 127])
+        output: "{ inner: { xs: [1, NaN] } }"

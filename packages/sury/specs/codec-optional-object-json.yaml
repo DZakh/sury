@@ -19,7 +19,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=i.a;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=v0.s;(typeof v1==="string"||v1===void 0)||e[0](v1);v0={s:v1};break}if(v0===void 0)break;throw e[1](v0)}for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v2=v0.s,v3;(typeof v2==="string"||v2===void 0)||e[2](v2);for(v3 in v0)if(v3!=="s")e[3](v3);let v4={};if(v2!==void 0){v4.s=v2}v0=v4;break}if(v0===void 0)break;throw e[4](v0)}let v5={};if(v0!==void 0){v5.a=v0}return v5}catch(v6){e[6](v6)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i.a;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=v0.s;(typeof v1==="string"||v1===void 0)||e[0](v1);v0={s:v1};break}if(v0===void 0)break;throw e[1](v0)}for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v3=v0.s;let v2={};if(v3!==void 0){v2.s=v3}v0=v2;break}if(v0===void 0)break;throw e[2](v0)}let v4={};if(v0!==void 0){v4.a=v0}return v4}catch(v5){e[4](v5)}}
     examples:
       none-omits-the-field:
         input: "{ a: { s: undefined } }"
@@ -31,7 +31,7 @@ operations:
         input: '{ a: { s: "x" } }'
         output: '{ a: { s: "x" } }'
   decode:
-    expression: i=>{try{let v0=i.a;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=v0.s;(typeof v1==="string"||v1===void 0)||e[0](v1);let v2={};if(v1!==void 0){v2.s=v1}v0=v2;break}if(v0===void 0)break;throw e[1](v0)}let v3={};if(v0!==void 0){v3.a=v0}return v3}catch(v4){e[2](v4)}}
+    expression: i=>{try{let v0=i.a;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v2=v0.s;let v1={};if(v2!==void 0){v1.s=v2}v0=v1;break}if(v0===void 0)break;throw e[0](v0)}let v3={};if(v0!==void 0){v3.a=v0}return v3}catch(v4){e[1](v4)}}
     examples:
       none-omits-the-field:
         input: "{ a: { s: undefined } }"

@@ -34,5 +34,27 @@ operations:
       non-json:
         input: undefined
         error: "Expected string.length >= 2 | number | { [key: string]: JSON; } | JSON[] | boolean | null, received undefined"
-  decode: eq-to-parse
-  encode: eq-to-parse
+  decode:
+    expression: i=>{try{for(;;){if(typeof i==="string"){i.length>1||e[0](i);break}if(typeof i==="number"&&i==i)break;if(typeof i==="object"&&i&&!Array.isArray(i))break;if(Array.isArray(i))break;if(typeof i==="boolean")break;if(i===null)break;throw e[1](i)}return i}catch(v2){e[2](v2)}}
+    examples:
+      valid-string:
+        input: '"ab"'
+        output: '"ab"'
+      number-vacuous:
+        input: "1"
+        output: "1"
+      object-vacuous:
+        input: "{ value: true }"
+        output: "{ value: true }"
+  encode:
+    expression: i=>{try{for(;;){if(typeof i==="string"){i.length>1||e[0](i);break}if(typeof i==="number"&&i==i)break;if(typeof i==="object"&&i&&!Array.isArray(i))break;if(Array.isArray(i))break;if(typeof i==="boolean")break;if(i===null)break;throw e[1](i)}return i}catch(v2){e[2](v2)}}
+    examples:
+      valid-string:
+        input: '"ab"'
+        output: '"ab"'
+      number-vacuous:
+        input: "1"
+        output: "1"
+      object-vacuous:
+        input: "{ value: true }"
+        output: "{ value: true }"

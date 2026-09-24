@@ -23,7 +23,7 @@
       {
         "label": "Emit a JSON Schema",
         "cells": [
-          10722,
+          10723,
           64648,
           11931,
           47735,
@@ -36,7 +36,7 @@
         "label": "Check values against a published document",
         "note": "the JSON Schema is the input, not the output",
         "cells": [
-          28692,
+          28903,
           64655,
           null,
           null,

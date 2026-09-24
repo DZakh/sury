@@ -73,7 +73,7 @@ test("Coerce from string to union of int and bool (union dispatch over a convert
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{try{for(;;){if(typeof i==="number"&&i==i&&i<=2147483647&&i>=-2147483648&&i%1==0){i=""+i;break}if(typeof i==="boolean"){i=""+i;break}e[0](i)}return i}catch(v0){e[1](v0)}}`,
+    `i=>{try{for(;;){if(typeof i==="number"&&i==i){i=""+i;break}if(typeof i==="boolean"){i=""+i;break}e[0](i)}return i}catch(v0){e[1](v0)}}`,
   )
 })
 

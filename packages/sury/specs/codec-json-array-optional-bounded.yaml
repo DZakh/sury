@@ -4,15 +4,12 @@ ts:
   input: JSON
   output: (number | undefined)[]
   instantiations: 5347
-# FIXME: jsonSchema.input drops the item's `maximum: 1` - a variant converted
-# through `.to(json)` reports the target's type without the source's refinements.
-# The generated code still enforces the bound, in both directions.
 jsonSchema:
-  input: '{ items: { anyOf: [{ type: "number" }, { type: "null" }] }, type: "array" }'
+  input: '{ items: { anyOf: [{ type: "number", maximum: 1 }, { type: "null" }] }, type: "array" }'
   fromInputType: (number | null)[]
   output: "Failed at []: Expected JSON, received number <= 1 | undefined"
   openapi-3.0:
-    input: '{ items: { type: "number", nullable: true }, type: "array" }'
+    input: '{ items: { type: "number", maximum: 1, nullable: true }, type: "array" }'
 isEqual:
   input: (a,b)=>a===b||e[0](a,b)
   output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}

@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union([S.json, S.bigint])
+  input: bigint | JSON
+  output: bigint | JSON
+  instantiations: 1152
+jsonSchema:
+  input: Expected JSON, received JSON | bigint
+  output: Expected JSON, received JSON | bigint
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare JSON | bigint. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v0;for(;;){if(typeof i==="bigint")break;try{e[0](i);break}catch(x){(v0||(v0=[])).push(e[1](x))}throw e[2](i,void 0,v0)}return i}catch(v1){e[3](v1)}}
+    examples:
+      bigint:
+        input: 1n
+        output: 1n
+      number:
+        input: "1"
+        output: "1"
+      string:
+        input: '"a"'
+        output: '"a"'
+      nested-json:
+        input: "{ a: [1, null] }"
+        output: "{ a: [1, null] }"
+      undefined:
+        input: undefined
+        error: |-
+          Expected JSON | bigint, received undefined
+          - Expected JSON, received undefined
+      nested-bigint:
+        input: "[1n]"
+        error: |-
+          Expected JSON | bigint, received [1n]
+          - At [0]: Expected JSON, received 1n
+  decode: eq-to-parse
+  encode: eq-to-parse

@@ -46,7 +46,7 @@ operations:
         input: '"{\"a\":1}"'
         output: '"{\"a\":1}"'
   encode:
-    expression: i=>{try{for(;;){if(typeof i==="string"){try{JSON.parse(i)}catch(t){e[0](i)};break}if(typeof i==="number"&&i==i){i=""+i;break}throw e[1](i)}return i}catch(v0){e[2](v0)}}
+    expression: i=>{try{for(;;){if(typeof i==="string")break;if(typeof i==="number"&&i==i){i=""+i;break}throw e[0](i)}return i}catch(v0){e[1](v0)}}
     examples:
       the-document-is-the-entry:
         input: '"{\"a\":1}"'
