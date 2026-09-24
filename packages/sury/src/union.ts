@@ -223,24 +223,9 @@ type UnionCase = {
   // The label the case's failed checks break out of to reach the next case,
   // set only where one does.
   l?: string;
-  // What the union had recorded and named before the case was compiled, put
+  // Whether a failure had been handed on before the case was compiled, put
   // back if the case turns out never to run (`settle`).
-  s: [boolean, string, string | undefined];
-};
-
-type UnionCtx = {
-  // The union's failure, where the value reached the end of its chain.
-  f: () => string;
-  // The label that reaches it from anywhere inside, once something jumps there.
-  e: () => string;
-  // `e[N]` for `getOrRethrow`, embedded on first use and shared by every case:
-  // only a Sury validation error means "this variant didn't match".
-  r: () => string;
-  // What a case that raised does with the error it caught: records it where
-  // the union's failure will read it.
-  k: (error: string) => string;
-  // The exit in force where the code is being emitted.
-  x: () => string;
+  s: boolean;
 };
 
 // Whether a stretch of emitted code can raise is read off `g.t` (see
@@ -248,127 +233,6 @@ type UnionCtx = {
 // produced: `e[N](…)` is the accessor for *every* embed, so a body holding
 // nothing but a total transform was wrapped in a `try` it could never need, and
 // a raise spelled some other way would have silently lost its fallback.
-
-// Emits a linear fallback chain: every alternative that fails hands the value to
-// the next one, and the last failure is the union's. A failed check hands over by
-// breaking out of its case's block (`unionEmit`'s `enter`); a `try` is left
-// only for a case whose code can still raise - a refiner's own throw, an opaque
-// embed (a recursive schema's operation, `S.json`'s walk), an awaited async
-// case. An alternative whose failure is provably terminal hands over nothing
-// and fails with its own precise error instead.
-const unionEmitChain = (cases: UnionCase[], ctx: UnionCtx, top?: boolean): string => {
-  // The end of a group's chain is the group failing, which is whatever its
-  // members' exit is; only the union's own chain ends in the union's failure.
-  const end = top ? ctx.f : () => ctx.x();
-  if (cases.length === 1 && !cases[0]!.l && !(top && ctx.e())) {
-    const c = cases[0]!;
-    if (c.b === "" && c.c === "") return "";
-    if (c.b === "") {
-      return `if(!(${c.c})){${end()}}`;
-    }
-    if (c.c === "") return c.b.endsWith(";") ? c.b : c.b + ";";
-    return `if(${c.c}){${c.b}}else{${end()}}`;
-  }
-
-  let code = "";
-  let caught = false;
-  let exhaustive = false;
-  // Whether the arm just emitted ends in a `try` or a label that hands control
-  // onward rather than a `break`. Set by `attempt`, not read off the arm's first
-  // character: a body that itself opens with `try{JSON.parse` is a closed arm.
-  let open = false;
-
-  // The case's code with its condition taken as given - the shared shape between
-  // a lone `if(cond){…}` and one arm of a run that tests `cond` once. A `try` or
-  // labelled arm hands control to whatever follows it; every other form breaks,
-  // which ends its block and needs no trailing `;`.
-  const attempt = (c: UnionCase, idx: number): string => {
-    open = false;
-    if (c.b === "") return "break";
-    // Skip the `;` where the body already ends in one: `;;break` is a wart in
-    // every golden it reaches.
-    const body = c.b.endsWith(";") ? c.b : `${c.b};`;
-    let arm = `${body}break`;
-    // A `try` is needed when the case can raise and either a later alternative
-    // could still accept the value or an earlier one is already relying on the
-    // chain to carry its failure forward.
-    if ((c.f & 1) && ((c.f & 8) || caught)) {
-      caught = open = true;
-      // A terminal case - one only present because an *earlier* one needs the
-      // chain to carry its failure - records and lets control reach the chain's
-      // own fail, so the error keeps its "Expected A | B | C" framing. Every case
-      // after it is guarded by a condition the value has already been proven not
-      // to satisfy, so reaching them costs a few false tests.
-      //
-      // Unless one of them has no condition at all: that one would run, fail on a
-      // type it was never offered, and add a reason the value could never have
-      // matched - 4.7x on a 24-member union. Only then is the fail worth inlining
-      // here, because a second spread call site in a `catch` is not free: it cost
-      // 6x on the small instance-dispatch schemas when emitted unconditionally.
-      arm = `try{${arm}}catch(x){${ctx.k(`${ctx.r()}(x)`)}${
-        !(c.f & 8) && unconditional > idx ? `;${ctx.x()}` : ""
-      }}`;
-    }
-    if (c.l) {
-      open = true;
-      arm = `${c.l}:{${arm}}`;
-      // A terminal case left by a jump, the way the `try` above is left: the
-      // chain's own fail, where a later case would run with no condition.
-      if (!(c.f & 8) && unconditional > idx) arm += ctx.x();
-    }
-    // A case that hands over what it found by a jump carries its failure
-    // forward just as one whose `try` does.
-    if (c.f & 8 && c.f & 4) caught = true;
-    return arm;
-  };
-
-  // The last case that runs whatever reaches it, so `attempt` can tell whether
-  // anything after a terminal case would actually execute.
-  let unconditional = -1;
-  for (let idx = 0; idx < cases.length; idx++) {
-    if (cases[idx]!.c === "") unconditional = idx;
-  }
-
-  // The condition of the case just emitted.
-  let last = "";
-
-  for (let idx = 0; idx < cases.length; idx++) {
-    const c = cases[idx]!;
-    // Members that narrow the same way - two variants of one tuple shape, two
-    // objects behind the same discriminant - share the test. Only the case
-    // *immediately* before qualifies: a case in between with a different
-    // condition could accept a value these two also accept, and pulling the
-    // later one back past it would change which member wins.
-    const shared = c.c !== "" && c.c === last;
-    // Behind a condition the previous case already accepted outright, this one
-    // can never run. Dropping it is what removes the unreachable second
-    // `if(i===void 0){…}` an `optional`-of-`optional` used to emit.
-    if (shared && !open) continue;
-
-    const arm = attempt(c, idx);
-    last = c.c;
-
-    if (shared) {
-      code = `${code.slice(0, -1)}${arm}}`;
-    } else if (c.c === "") {
-      // Nothing left to test: this alternative accepts every value that reaches
-      // it, so unless it can fail nothing after it is reachable.
-      code += open ? arm : `${arm};`;
-      if (!open) {
-        exhaustive = true;
-        break;
-      }
-    } else {
-      // `if(cond)break;` beats `if(cond){break}` by two characters, and a case
-      // that accepts without running anything is the commonest shape there is.
-      code += arm === "break" ? `if(${c.c})break;` : `if(${c.c}){${arm}}`;
-    }
-  }
-
-  // Read only now: an arm's inlined failure can be the first to reach the end.
-  const label = top ? ctx.e() : "";
-  return `for(;;){${label ? `${label}:{${code}}` : code}${!exhaustive || label ? end() : ""}}`;
-};
 
 const unionOr = (cs: UnionCase[]): string => {
   const s = cs.map((c) => c.c).join("||");
@@ -1057,8 +921,8 @@ const unionEmit = (
   // returned unawaited, saving the async wrapper.
   const awaitAsync = plan.some((group) => group.f & 2);
   const outputBySource: (Internal | undefined)[] = [];
-  let salvaged = "";
-  let rethrow = "";
+  const salvaged: SuryErrorRecord[] = [];
+  let rethrowEmbed = "";
   const g = input.g;
   const wanted = !(g.o & 4096);
   // Where the union's own failure goes. A dispatch that may end up inside an
@@ -1075,31 +939,26 @@ const unionEmit = (
     if (!aggregate) {
       // Built on the first failure, as every other site is (builder.ts).
       let site: object;
-      // What the cases found arrives as the records a compile salvaged, then
-      // the list the cases recorded into: a record as it is, or a builder
-      // followed by its value and path, built only now that it is read.
-      const at = (path: Path, v: unknown, found: unknown[]) => {
-        const errors: unknown[] = [];
-        for (const x of found) {
-          if (Array.isArray(x)) {
-            for (let i = 0; i < x.length; ) {
-              const y = x[i++];
-              errors.push(typeof y === "function" ? y(x[i++], x[i++]) : y);
-            }
-          } else if (x) errors.push(x);
+      const snap = B_pathSnap(input);
+      // What the cases found: the records a compile salvaged, then the list the
+      // cases recorded into - a record as it is, or a builder followed by its
+      // value and path, built only now that it is read.
+      aggregate = B_embedPure(input, (v: unknown, path?: Path, found?: unknown[]) => {
+        const errors = [...salvaged];
+        for (let i = 0; found && i < found.length; ) {
+          const x = found[i++];
+          errors.push((typeof x === "function" ? x(found[i++], found[i++]) : x) as SuryErrorRecord);
         }
         return errorAt(
           (site ??= errorSite(expectedSchema, unknown)),
-          path,
+          path ?? snap!,
           v,
-          errors.length ? (errors as SuryErrorRecord[]) : U,
+          errors.length ? errors : U,
         );
-      };
-      aggregate = B_pathArg(input)
-        ? B_embedPure(input, (v: unknown, p: Path, ...found: unknown[]) => at(p, v, found))
-        : B_embedPure(input, (v: unknown, ...found: unknown[]) => at(B_pathSnap(input)!, v, found));
+      });
     }
-    return `${aggregate}(${input.v()}${B_pathArg(input)}${salvaged}${failures ? `,${failures}` : ""})`;
+    const path = B_pathArg(input);
+    return `${aggregate}(${input.v()}${path || (failures ? ",void 0" : "")}${failures ? `,${failures}` : ""})`;
   };
   // The union's failure, where the chain ends.
   const final = (): string => {
@@ -1111,7 +970,7 @@ const unionEmit = (
   // Leaving a labelled block, with what the case found recorded on the way.
   // The label is named on first use, so a block nothing leaves carries none.
   const jumpOut = (label: { l?: string }) => (error?: Failure): string =>
-    `${wanted && error ? `{${ctx.k((error.d || error)())};` : ""}break ${(label.l ||= `l${++g.v}`)}${
+    `${wanted && error ? `{${keep(error(true))};` : ""}break ${(label.l ||= `l${++g.v}`)}${
       wanted && error ? "}" : ""
     }`;
   // The chain's end, which a failure reaches once a case has recorded what it
@@ -1121,12 +980,130 @@ const unionEmit = (
   // the case found, precisely.
   const fail = (error?: Failure): string | undefined =>
     recorded ? jumpOut(end)(error) : error ? outer?.(error) : final();
-  const ctx: UnionCtx = {
-    f: final,
-    e: () => end.l || "",
-    r: () => rethrow || (rethrow = B_embed(input, getOrRethrow)),
-    k: (error) => (wanted ? `(${failuresVar()}||(${failures}=[])).push(${error})` : error),
-    x: () => g.x!()!,
+  const rethrow = (): string => rethrowEmbed || (rethrowEmbed = B_embed(input, getOrRethrow));
+  // What a case that raised does with the error it caught: records it where
+  // the union's failure will read it.
+  const keep = (error: string): string =>
+    wanted ? `(${failuresVar()}||(${failures}=[])).push(${error})` : error;
+  // Emits a linear fallback chain: every alternative that fails hands the value to
+  // the next one, and the last failure is the union's. A failed check hands over by
+  // breaking out of its case's block (`unionEmit`'s `enter`); a `try` is left
+  // only for a case whose code can still raise - a refiner's own throw, an opaque
+  // embed (a recursive schema's operation, `S.json`'s walk), an awaited async
+  // case. An alternative whose failure is provably terminal hands over nothing
+  // and fails with its own precise error instead.
+    const emitChain = (cases: UnionCase[], top?: boolean): string => {
+    // The end of a group's chain is the group failing, which is whatever its
+    // members' exit is; only the union's own chain ends in the union's failure.
+    const ending = top ? final : () => g.x!()!;
+    if (cases.length === 1 && !cases[0]!.l && !(top && end.l)) {
+      const c = cases[0]!;
+      if (c.b === "" && c.c === "") return "";
+      if (c.b === "") {
+        return `if(!(${c.c})){${ending()}}`;
+      }
+      if (c.c === "") return c.b.endsWith(";") ? c.b : c.b + ";";
+      return `if(${c.c}){${c.b}}else{${ending()}}`;
+    }
+
+    let code = "";
+    let caught = false;
+    let exhaustive = false;
+    // Whether the arm just emitted ends in a `try` or a label that hands control
+    // onward rather than a `break`. Set by `attempt`, not read off the arm's first
+    // character: a body that itself opens with `try{JSON.parse` is a closed arm.
+    let open = false;
+
+    // The case's code with its condition taken as given - the shared shape between
+    // a lone `if(cond){…}` and one arm of a run that tests `cond` once. A `try` or
+    // labelled arm hands control to whatever follows it; every other form breaks,
+    // which ends its block and needs no trailing `;`.
+    const attempt = (c: UnionCase, idx: number): string => {
+      open = false;
+      if (c.b === "") return "break";
+      // Skip the `;` where the body already ends in one: `;;break` is a wart in
+      // every golden it reaches.
+      const body = c.b.endsWith(";") ? c.b : `${c.b};`;
+      let arm = `${body}break`;
+      // A `try` is needed when the case can raise and either a later alternative
+      // could still accept the value or an earlier one is already relying on the
+      // chain to carry its failure forward.
+      if ((c.f & 1) && ((c.f & 8) || caught)) {
+        caught = open = true;
+        // A terminal case - one only present because an *earlier* one needs the
+        // chain to carry its failure - records and lets control reach the chain's
+        // own fail, so the error keeps its "Expected A | B | C" framing. Every case
+        // after it is guarded by a condition the value has already been proven not
+        // to satisfy, so reaching them costs a few false tests.
+        //
+        // Unless one of them has no condition at all: that one would run, fail on a
+        // type it was never offered, and add a reason the value could never have
+        // matched - 4.7x on a 24-member union. Only then is the fail worth inlining
+        // here, because a second spread call site in a `catch` is not free: it cost
+        // 6x on the small instance-dispatch schemas when emitted unconditionally.
+        arm = `try{${arm}}catch(x){${keep(`${rethrow()}(x)`)}${
+          !(c.f & 8) && unconditional > idx ? `;${g.x!()!}` : ""
+        }}`;
+      }
+      if (c.l) {
+        open = true;
+        arm = `${c.l}:{${arm}}`;
+        // A terminal case left by a jump, the way the `try` above is left: the
+        // chain's own fail, where a later case would run with no condition.
+        if (!(c.f & 8) && unconditional > idx) arm += g.x!()!;
+      }
+      // A case that hands over what it found by a jump carries its failure
+      // forward just as one whose `try` does.
+      if (c.f & 8 && c.f & 4) caught = true;
+      return arm;
+    };
+
+    // The last case that runs whatever reaches it, so `attempt` can tell whether
+    // anything after a terminal case would actually execute.
+    let unconditional = -1;
+    for (let idx = 0; idx < cases.length; idx++) {
+      if (cases[idx]!.c === "") unconditional = idx;
+    }
+
+    // The condition of the case just emitted.
+    let last = "";
+
+    for (let idx = 0; idx < cases.length; idx++) {
+      const c = cases[idx]!;
+      // Members that narrow the same way - two variants of one tuple shape, two
+      // objects behind the same discriminant - share the test. Only the case
+      // *immediately* before qualifies: a case in between with a different
+      // condition could accept a value these two also accept, and pulling the
+      // later one back past it would change which member wins.
+      const shared = c.c !== "" && c.c === last;
+      // Behind a condition the previous case already accepted outright, this one
+      // can never run. Dropping it is what removes the unreachable second
+      // `if(i===void 0){…}` an `optional`-of-`optional` used to emit.
+      if (shared && !open) continue;
+
+      const arm = attempt(c, idx);
+      last = c.c;
+
+      if (shared) {
+        code = `${code.slice(0, -1)}${arm}}`;
+      } else if (c.c === "") {
+        // Nothing left to test: this alternative accepts every value that reaches
+        // it, so unless it can fail nothing after it is reachable.
+        code += open ? arm : `${arm};`;
+        if (!open) {
+          exhaustive = true;
+          break;
+        }
+      } else {
+        // `if(cond)break;` beats `if(cond){break}` by two characters, and a case
+        // that accepts without running anything is the commonest shape there is.
+        code += arm === "break" ? `if(${c.c})break;` : `if(${c.c}){${arm}}`;
+      }
+    }
+
+    // Read only now: an arm's inlined failure can be the first to reach the end.
+    const label = top ? (end.l || "") : "";
+    return `for(;;){${label ? `${label}:{${code}}` : code}${!exhaustive || label ? ending() : ""}}`;
   };
   // A case a later one may still accept leaves its own block on failure, so the
   // next case runs - and so does any case once an earlier one has handed a
@@ -1144,10 +1121,9 @@ const unionEmit = (
   // failure on the same chain the union's, so it is known before the next case
   // is emitted. A group's own chain puts it back unless the group hands over
   // too: a member of a later group never ran after it. Nor does a case the
-  // chain drops (`unionEmitChain`'s `shared && !open`): the same condition as
+  // chain drops (`emitChain`'s `shared && !open`): the same condition as
   // the last case that runs, which accepted it without handing anything on.
   let recorded = false;
-  const snapshot = (): UnionCase["s"] => [recorded, failures, end.l];
   const settle = (c: UnionCase, chain: UnionCase[]): UnionCase => {
     let last: UnionCase | undefined;
     for (let i = chain.length; !last && i--; ) if (!(chain[i]!.f & 16)) last = chain[i];
@@ -1158,8 +1134,7 @@ const unionEmit = (
       (last.b === "" || !(last.l || (last.f & 1 && (last.f & 8 || recorded))))
     ) {
       c.f |= 16;
-      // Whatever it recorded or named is in code nothing emits.
-      [recorded, failures, end.l] = c.s;
+      recorded = c.s;
     } else if (c.f & 8 && c.f & (1 | 4)) recorded = true;
     chain.push(c);
     return c;
@@ -1195,7 +1170,7 @@ const unionEmit = (
     target: Val,
     falls: number
   ): UnionCase | undefined => {
-    const mark = input.g.t, jumps = g.j, snap = snapshot();
+    const mark = input.g.t, jumps = g.j, snap = recorded;
     const leave = enter(falls || +recorded);
     const caseInput = B_scope(source);
     caseInput.u = true;
@@ -1233,7 +1208,7 @@ const unionEmit = (
     } catch (exn) {
       leave();
       if (!(self.flags & 64)) throw exn;
-      salvaged += `,${B_embed(input, getOrRethrow(exn))}`;
+      salvaged.push(getOrRethrow(exn));
       return U;
     } finally {
       input.g.o = options;
@@ -1300,7 +1275,7 @@ const unionEmit = (
       continue;
     }
 
-    const mark = input.g.t, jumps = g.j, snap = snapshot();
+    const mark = input.g.t, jumps = g.j, snap = recorded;
     const leave = enter(group.f & 8 || +recorded);
     const before: boolean = recorded;
     // The narrow's own checks run ahead of every member, so they fail with
@@ -1375,7 +1350,7 @@ const unionEmit = (
           const fused = unionOr(inner);
           cond.c = cond.c ? `${cond.c}&&${fused}` : fused;
         }
-        body = narrowCode + unionEmitChain(inner, ctx);
+        body = narrowCode + emitChain(inner);
       }
     }
     const label = leave();
@@ -1413,7 +1388,7 @@ const unionEmit = (
       B_refine(output, output.s, [{ c: () => fused, f: failInvalidType }], expectedSchema)
     );
   } else if (!noop) {
-    let dispatch = unionEmitChain(cases, ctx, true);
+    let dispatch = emitChain(cases, true);
     if (failures) dispatch = `let ${failures};${dispatch}`;
     if (asyncDispatch) {
       const itemVar = input.v();

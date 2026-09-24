@@ -4,7 +4,6 @@ import {
   type Check,
   compilePath,
   type ErrorDetails,
-  type Failure,
   conversionSite,
   errorAt,
   errorSite,
@@ -251,42 +250,34 @@ export const B_pathArg = (b: Val): string =>
 export const B_pathSnap = (b: Val): Path | undefined =>
   hasPathDyn(b.path) ? U : (b.path as Path);
 
-// A failed check, as the statement that follows it: the exit where the code
-// around it can jump (`BGlobal.x`), the raise otherwise. The record is built
-// only where the exit reads it.
+// A failed check, as the statement that follows it - or, with `cond`, the
+// whole check. The exit where the code around it can jump (`BGlobal.x`), the
+// raise otherwise; a raising check reads `cond||raise`, the shorter spelling,
+// and every schema's generated code is mostly these. The record is built only
+// where the exit reads it, by `fn` itself (every fail builder answers a
+// record, see `Check`).
 export const B_fail = <TArg>(
   b: Val,
   fn: (arg: TArg, path?: Path) => ErrorDetails,
   arg: string,
-): string => B_jump(b, fn, arg) ?? B_failWithArg(b, fn, arg);
-
-const B_jump = <TArg>(
-  b: Val,
-  fn: (arg: TArg, path?: Path) => ErrorDetails,
-  arg: string,
-): string | undefined => {
-  const exit = b.g.x;
-  if (!exit) return U;
-  let embedded = "";
-  const builder = () =>
-    (embedded ||= B_embedPure(b, (a: TArg, p?: Path) => toError(fn(a, p))));
-  const record: Failure = () => `${builder()}(${arg}${B_pathArg(b)})`;
-  record.d = () => `${builder()},${arg},${B_pathArg(b).slice(1) || "void 0"}`;
-  const jump = exit(record);
-  if (jump !== U) b.g.j++;
-  return jump;
-};
-
-// `cond||raise` where the failure raises: an expression, and the shorter
-// spelling of the two - every schema's generated code is mostly these.
-export const B_guard = <TArg>(
-  b: Val,
-  cond: string,
-  fn: (arg: TArg, path?: Path) => ErrorDetails,
-  arg: string,
+  cond?: string,
 ): string => {
-  const jump = B_jump(b, fn, arg);
-  return jump !== U ? `if(!(${cond}))${jump};` : `${cond}||${B_failWithArg(b, fn, arg)};`;
+  const exit = b.g.x;
+  let jump: string | undefined;
+  if (exit) {
+    const path = B_pathArg(b);
+    let embedded = "";
+    jump = exit(
+      (unbuilt) =>
+        `${(embedded ||= B_embedPure(b, fn))}${unbuilt ? `,${arg},${path.slice(1) || "void 0"}` : `(${arg}${path})`}`,
+    );
+  }
+  if (jump === U) {
+    const raise = B_failWithArg(b, fn, arg);
+    return cond ? `${cond}||${raise};` : raise;
+  }
+  b.g.j++;
+  return cond ? `if(!(${cond}))${jump};` : jump;
 };
 
 // Emits `body` with the exit cleared: it lands inside a callback, which a jump
@@ -437,11 +428,8 @@ export const B_failWithErrorMessage = (
 // A failed `invalid_input` for a decoder that splices its own statements (a
 // `catch` around `JSON.parse`, a hand-built guard) rather than going through
 // the `check` pipeline.
-export const B_failInvalidInput = (input: Val, expected: Internal = input.e): string =>
-  B_fail(input, B_invalidInputBuilder(expected)(input), input.v());
-
-export const B_guardInvalidInput = (input: Val, cond: string, expected: Internal = input.e): string =>
-  B_guard(input, cond, B_invalidInputBuilder(expected)(input), input.v());
+export const B_failInvalidInput = (input: Val, expected: Internal = input.e, cond?: string): string =>
+  B_fail(input, B_invalidInputBuilder(expected)(input), input.v(), cond);
 
 // Caller must verify `val.vc` is truthy and `val.expected.noValidation !==
 // true` first - the `!` unwrap below is unchecked. `inputVar` is usually
@@ -458,7 +446,7 @@ const B_emitChecks = (val: Val, inputVar: string): string => {
       cond += "&&" + checks[i]!.c(inputVar);
       i++;
     }
-    out += B_guard(val, cond, fail(val), inputVar);
+    out += B_fail(val, fail(val), inputVar, cond);
   }
   return out;
 }
@@ -507,7 +495,7 @@ export const B_merge = (val: Val, out?: HoistCond): string => {
             // `noValidation` is intentionally bypassed for the hoisted part -
             // the cond routes between cases, it doesn't reject, so suppressing
             // it would break dispatch.
-            currentCode += B_guard(val, condCode, check.f(val), inputVar);
+            currentCode += B_fail(val, check.f(val), inputVar, condCode);
           }
         }
         if (hoisted) {

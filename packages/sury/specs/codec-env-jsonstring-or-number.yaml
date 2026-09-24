@@ -19,7 +19,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{(typeof i==="string"||i===void 0)||e[3](i);let v0;for(;;){l1:{try{JSON.parse(i)}catch(t){{(v0||(v0=[])).push(e[0],i,void 0);break l1}};break}l3:{let v2=+i;if(!(v2==v2&&(v2||i.trim()))){(v0||(v0=[])).push(e[1],i,void 0);break l3};i=v2;break}throw e[2](i,v0)}return i}catch(v4){e[4](v4)}}
+    expression: i=>{try{(typeof i==="string"||i===void 0)||e[3](i);let v0;for(;;){l1:{try{JSON.parse(i)}catch(t){{(v0||(v0=[])).push(e[0],i,void 0);break l1}};break}l3:{let v2=+i;if(!(v2==v2&&(v2||i.trim()))){(v0||(v0=[])).push(e[1],i,void 0);break l3};i=v2;break}throw e[2](i,void 0,v0)}return i}catch(v4){e[4](v4)}}
     examples:
       the-entry-is-the-document:
         input: '"{\"a\":1}"'
@@ -40,7 +40,7 @@ operations:
           - Expected JSON string, received undefined
           - Expected number, received undefined
   decode:
-    expression: i=>{try{let v0;for(;;){l1:{try{JSON.parse(i)}catch(t){{(v0||(v0=[])).push(e[0],i,void 0);break l1}};break}l3:{let v2=+i;if(!(v2==v2&&(v2||i.trim()))){(v0||(v0=[])).push(e[1],i,void 0);break l3};i=v2;break}throw e[2](i,v0)}return i}catch(v4){e[3](v4)}}
+    expression: i=>{try{let v0;for(;;){l1:{try{JSON.parse(i)}catch(t){{(v0||(v0=[])).push(e[0],i,void 0);break l1}};break}l3:{let v2=+i;if(!(v2==v2&&(v2||i.trim()))){(v0||(v0=[])).push(e[1],i,void 0);break l3};i=v2;break}throw e[2](i,void 0,v0)}return i}catch(v4){e[3](v4)}}
     examples:
       the-entry-is-the-document:
         input: '"{\"a\":1}"'

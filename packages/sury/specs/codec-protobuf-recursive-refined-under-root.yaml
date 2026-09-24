@@ -19,7 +19,7 @@ vs:
     _skip: todo(#…)
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[9](i);let v2=i.x;let v3;for(;;){try{let v0;try{v0=e[0](i.x);}catch(v1){v1.path=["x",...v1.path];throw v1}v2=v0;break}catch(x){(v3||(v3=[])).push(e[1](x))}if(v2===void 0)break;throw e[2](v2,v3)}let v4;{let w;try{w=e[7].acquire();let v,j,n,s,h,a,k,g,c,o;v=v2;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[3](w,v);w.end(h)};v4=w.finish()}catch(x){w&&(w.busy=false);e[8](x)}}return v4}catch(v5){e[10](v5)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[9](i);let v2=i.x;let v3;for(;;){try{let v0;try{v0=e[0](i.x);}catch(v1){v1.path=["x",...v1.path];throw v1}v2=v0;break}catch(x){(v3||(v3=[])).push(e[1](x))}if(v2===void 0)break;throw e[2](v2,void 0,v3)}let v4;{let w;try{w=e[7].acquire();let v,j,n,s,h,a,k,g,c,o;v=v2;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[3](w,v);w.end(h)};v4=w.finish()}catch(x){w&&(w.busy=false);e[8](x)}}return v4}catch(v5){e[10](v5)}}
     examples:
       ok:
         input: '{ x: { v: "a", kid: { v: "b", kid: undefined } } }'
@@ -34,7 +34,7 @@ operations:
         input: "{ x: undefined }"
         output: new Uint8Array([])
   decode:
-    expression: i=>{try{let v2=i.x;let v3;for(;;){try{let v0;try{v0=e[0](i.x);}catch(v1){v1.path=["x",...v1.path];throw v1}v2=v0;break}catch(x){(v3||(v3=[])).push(e[1](x))}if(v2===void 0)break;throw e[2](v2,v3)}let v4;{let w;try{w=e[7].acquire();let v,j,n,s,h,a,k,g,c,o;v=v2;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[3](w,v);w.end(h)};v4=w.finish()}catch(x){w&&(w.busy=false);e[8](x)}}return v4}catch(v5){e[9](v5)}}
+    expression: i=>{try{let v2=i.x;let v3;for(;;){try{let v0;try{v0=e[0](i.x);}catch(v1){v1.path=["x",...v1.path];throw v1}v2=v0;break}catch(x){(v3||(v3=[])).push(e[1](x))}if(v2===void 0)break;throw e[2](v2,void 0,v3)}let v4;{let w;try{w=e[7].acquire();let v,j,n,s,h,a,k,g,c,o;v=v2;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[3](w,v);w.end(h)};v4=w.finish()}catch(x){w&&(w.busy=false);e[8](x)}}return v4}catch(v5){e[9](v5)}}
     examples:
       ok:
         input: '{ x: { v: "a", kid: { v: "b", kid: undefined } } }'

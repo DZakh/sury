@@ -18,7 +18,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{i instanceof e[5]||e[6](i);let v0=e[0](i),v1=v0.get("a");let v3;for(;;){l4:{let v2=v1==="on"||v1==="true";if(!(v2||v1==="false"||!v1)){(v3||(v3=[])).push(e[1],v1,void 0);break l4};v1=v2;break}l5:{if(!(typeof v1==="string")){(v3||(v3=[])).push(e[2],v1,void 0);break l5};let v6=+v1;if(!(v6==v6&&(v6||v1.trim()))){(v3||(v3=[])).push(e[3],v1,void 0);break l5};v1=v6;break}throw e[4](v1,v3)}return {a:v1}}catch(v7){e[7](v7)}}
+    expression: i=>{try{i instanceof e[5]||e[6](i);let v0=e[0](i),v1=v0.get("a");let v3;for(;;){l4:{let v2=v1==="on"||v1==="true";if(!(v2||v1==="false"||!v1)){(v3||(v3=[])).push(e[1],v1,void 0);break l4};v1=v2;break}l5:{if(!(typeof v1==="string")){(v3||(v3=[])).push(e[2],v1,void 0);break l5};let v6=+v1;if(!(v6==v6&&(v6||v1.trim()))){(v3||(v3=[])).push(e[3],v1,void 0);break l5};v1=v6;break}throw e[4](v1,void 0,v3)}return {a:v1}}catch(v7){e[7](v7)}}
     examples:
       checked:
         input: ((f) => (f.append("a", "on"), f))(new FormData())
@@ -36,7 +36,7 @@ operations:
           - At a: Expected boolean, received "x"
           - At a: Expected number, received "x"
   decode:
-    expression: i=>{try{let v0=e[0](i),v1=v0.get("a");let v3;for(;;){l4:{let v2=v1==="on"||v1==="true";if(!(v2||v1==="false"||!v1)){(v3||(v3=[])).push(e[1],v1,void 0);break l4};v1=v2;break}l5:{if(!(typeof v1==="string")){(v3||(v3=[])).push(e[2],v1,void 0);break l5};let v6=+v1;if(!(v6==v6&&(v6||v1.trim()))){(v3||(v3=[])).push(e[3],v1,void 0);break l5};v1=v6;break}throw e[4](v1,v3)}return {a:v1}}catch(v7){e[5](v7)}}
+    expression: i=>{try{let v0=e[0](i),v1=v0.get("a");let v3;for(;;){l4:{let v2=v1==="on"||v1==="true";if(!(v2||v1==="false"||!v1)){(v3||(v3=[])).push(e[1],v1,void 0);break l4};v1=v2;break}l5:{if(!(typeof v1==="string")){(v3||(v3=[])).push(e[2],v1,void 0);break l5};let v6=+v1;if(!(v6==v6&&(v6||v1.trim()))){(v3||(v3=[])).push(e[3],v1,void 0);break l5};v1=v6;break}throw e[4](v1,void 0,v3)}return {a:v1}}catch(v7){e[5](v7)}}
     examples:
       checked:
         input: ((f) => (f.append("a", "on"), f))(new FormData())

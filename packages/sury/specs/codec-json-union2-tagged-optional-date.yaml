@@ -21,7 +21,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=i.value;if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.type==="B"){let v2=(v0.value??null);let v3;for(;;){if(typeof v2==="string"){l4:{let v1=new Date(v2);if(!(!Number.isNaN(v1.getTime()))){(v3||(v3=[])).push(e[0],v2,void 0);break l4};v2=v1;break}}if(v2===null){v2=void 0;break}throw e[1](v2,v3)}v0={type:v0.type,value:v2};break}if(v0.type==="C"){let v6=(v0.value??null);let v7;for(;;){if(typeof v6==="string"){l8:{let v5=new Date(v6);if(!(!Number.isNaN(v5.getTime()))){(v7||(v7=[])).push(e[2],v6,void 0);break l8};v6=v5;break}}if(v6===null){v6=void 0;break}throw e[3](v6,v7)}v0={type:v0.type,value:v6};break}throw e[4](v0)}}else{throw e[4](v0)}return {value:v0}}catch(v9){e[6](v9)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=i.value;if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.type==="B"){let v2=(v0.value??null);let v3;for(;;){if(typeof v2==="string"){l4:{let v1=new Date(v2);if(!(!Number.isNaN(v1.getTime()))){(v3||(v3=[])).push(e[0],v2,void 0);break l4};v2=v1;break}}if(v2===null){v2=void 0;break}throw e[1](v2,void 0,v3)}v0={type:v0.type,value:v2};break}if(v0.type==="C"){let v6=(v0.value??null);let v7;for(;;){if(typeof v6==="string"){l8:{let v5=new Date(v6);if(!(!Number.isNaN(v5.getTime()))){(v7||(v7=[])).push(e[2],v6,void 0);break l8};v6=v5;break}}if(v6===null){v6=void 0;break}throw e[3](v6,void 0,v7)}v0={type:v0.type,value:v6};break}throw e[4](v0)}}else{throw e[4](v0)}return {value:v0}}catch(v9){e[6](v9)}}
     examples:
       b-with-date:
         input: '{ value: { type: "B", value: "2024-01-01T00:00:00.000Z" } }'

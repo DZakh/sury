@@ -27,7 +27,7 @@ operations:
         output: "5"
   decode: eq-to-parse
   encode:
-    expression: i=>{try{let v1;for(;;){if(typeof i==="number"&&i==i){l2:{let v0;try{v0=e[0](i)}catch(x){{(v1||(v1=[])).push(e[1],x,void 0);break l2}}if(!(typeof v0==="string")){(v1||(v1=[])).push(e[2],v0,void 0);break l2};i=v0;break}break}throw e[3](i,v1)}return i}catch(v3){e[4](v3)}}
+    expression: i=>{try{let v1;for(;;){if(typeof i==="number"&&i==i){l2:{let v0;try{v0=e[0](i)}catch(x){{(v1||(v1=[])).push(e[1],x,void 0);break l2}}if(!(typeof v0==="string")){(v1||(v1=[])).push(e[2],v0,void 0);break l2};i=v0;break}break}throw e[3](i,void 0,v1)}return i}catch(v3){e[4](v3)}}
     examples:
       custom-arm:
         input: "3"

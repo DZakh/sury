@@ -406,11 +406,11 @@ is set. What is left on the table:
 - **Compiles are 3-12% slower** (`spec check --perf=only --against
   16de5d3`), mostly unions, and a few plain refined schemas at 3-5%
   (`integer-gte`, `bigint-lt` encode/decode). `enter`/`leave` build a closure
-  and a label holder per union case, `settle` snapshots the union's state per
-  case, and every check now goes through `B_guard` -> `B_jump` even where no
-  exit is set, and `B_jump` builds a record thunk plus its unbuilt form per
-  failed check where one is. Asking the exit whether it wants the record before
-  building it, and a per-union label counter, would win most of it back.
+  and a label holder per union case, `settle` checks each case against the
+  chain's drop rule, and `B_fail` builds a record thunk per failed check wherever an exit is
+  set - including `is*`, whose exit never reads it. Asking the exit whether it
+  wants the record before building it, and a per-union label counter, would
+  win most of it back.
 - **`B_detached` is a convention, not a guarantee.** Every builder that emits
   code into a callback (a `.then`, `Promise.all(...).then`, an async dispatch)
   has to run both the parse and the merge of that code with the exit cleared,

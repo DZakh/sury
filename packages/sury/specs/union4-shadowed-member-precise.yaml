@@ -19,7 +19,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{for(;;){if(typeof i==="string")break;if(typeof i==="number"&&i==i){i>5||e[1](i);break}if(typeof i==="string")break;throw e[2](i)}return i}catch(v3){e[3](v3)}}
+    expression: i=>{try{let v1;for(;;){if(typeof i==="string")break;if(typeof i==="number"&&i==i){i>5||e[1](i);break}if(typeof i==="string")break;throw e[2](i,void 0,v1)}return i}catch(v3){e[3](v3)}}
     examples:
       string:
         input: '"a"'

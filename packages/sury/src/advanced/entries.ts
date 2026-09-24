@@ -20,7 +20,7 @@ import {
 } from "../base";
 import {
   _var,
-  B_guardInvalidInput,
+  B_failInvalidInput,
   B_invalidOperation,
   B_markOutput,
   B_merge,
@@ -100,7 +100,7 @@ export const asList = (value: unknown): unknown[] =>
 export const asText = (input: Val, target: Internal): Val => {
   const output = B_next(input, input.i, string, target);
   output.v = _var;
-  output.cp = B_guardInvalidInput(input, `typeof ${input.i}==="string"`, target);
+  output.cp = B_failInvalidInput(input, target, `typeof ${input.i}==="string"`);
   return output;
 };
 

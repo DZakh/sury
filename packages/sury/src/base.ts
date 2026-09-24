@@ -586,10 +586,11 @@ export type BGlobal = {
   j: number;
 }
 
-// A failure's record, as the expression that builds it. `d`, where present, is
-// the same record left unbuilt - the builder and its arguments as a list - for
-// an exit that keeps it and may never read it (union.ts).
-export type Failure = { (): string; d?: () => string };
+// A failure's record, as the expression that builds it - or, asked `unbuilt`,
+// as the builder and its arguments, for an exit that keeps the record and may
+// never read it (union.ts). An expression with no builder to split off
+// answers the same either way.
+export type Failure = (unbuilt?: boolean) => string;
 
 // Adjacent checks sharing `fail` by reference equality are fused with `&&`
 // in `emitChecks`, so pass the same helper (e.g. failInvalidType) to every
@@ -597,7 +598,9 @@ export type Failure = { (): string; d?: () => string };
 export type Check = {
   // @as("c") - cond
   c: (inputVar: string) => string;
-  // @as("f") - fail
+  // @as("f") - fail. Answers the failure as a record already (`errorAt`,
+  // `toError`), never a plain object: a jump embeds the builder itself and
+  // hands on whatever it returns.
   f: (input: Val) => (value: unknown, path?: Path) => ErrorDetails;
 }
 

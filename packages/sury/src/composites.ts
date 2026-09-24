@@ -28,6 +28,7 @@ import {
   pathEmpty,
   setHas,
   stringify,
+  toError,
   tagFlags,
   U,
   undefinedTag,
@@ -47,7 +48,6 @@ import {
   B_detached,
   B_fail,
   B_failInvalidInput,
-  B_guardInvalidInput,
   B_hoistChildChecks,
   B_hoistDecl,
   B_inlineConst,
@@ -92,12 +92,12 @@ export const B_unrecognizedKeys = (
   const fail = B_fail(
     input,
     (key: string, path?: Path) =>
-      ({
+      toError({
         code: "unrecognized_key",
         path: path ?? snap ?? pathEmpty,
         reason: `Unrecognized key ${stringify(key)}`,
         key,
-      }) as ErrorDetails,
+      }) as unknown as ErrorDetails,
     keyVar,
   );
   let cond = "";
@@ -743,7 +743,7 @@ const missingKeyEncoder: Encoder = (input, target) => {
     presentBody === ""
       ? noAbsentCheck
         ? ""
-        : B_guardInvalidInput(input, `${v}!==void 0`, target)
+        : B_failInvalidInput(input, target, `${v}!==void 0`)
       : unsetIsInput
         ? presentBody
         : noAbsentCheck
