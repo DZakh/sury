@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.object((s) => ({ f: s.fieldOr("f", S.jsonString, "1") }))'
+  input: "{ [x: string]: unknown; }"
+  output: "{ f: string; }"
+  instantiations: 535
+jsonSchema:
+  input: '{ type: "object", properties: { f: { default: "1", type: "string", contentMediaType: "application/json" } } }'
+  output: '{ type: "object", properties: { f: { type: "string", contentMediaType: "application/json" } }, required: ["f"] }'
+  openapi-3.0:
+    input: '{ type: "object", properties: { f: { default: "1", type: "string" } } }'
+    output: '{ type: "object", properties: { f: { type: "string" } }, required: ["f"] }'
+isEqual: (a,b)=>a===b||a.f===b.f
+compare:
+  input: "throws: [Sury] Can't compare { f: JSON string | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { f: JSON string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i.f;if(v0===void 0){v0="1"}else{typeof v0==="string"||e[1](v0);try{JSON.parse(v0)}catch(t){e[0](v0)}}return {f:v0}}catch(v1){e[3](v1)}}
+    examples:
+      json-text:
+        input: '{ f: "\"x\"" }'
+        output: '{ f: "\"x\"" }'
+      absent-takes-the-default:
+        input: "{}"
+        output: '{ f: "1" }'
+  decode:
+    expression: i=>{try{let v0=i.f;if(v0===void 0){v0="1"}else{typeof v0==="string"||e[1](v0);try{JSON.parse(v0)}catch(t){e[0](v0)}}return {f:v0}}catch(v1){e[2](v1)}}
+    examples:
+      json-text:
+        input: '{ f: "\"x\"" }'
+        output: '{ f: "\"x\"" }'
+  encode:
+    expression: i=>{return {f:i.f}}
+    examples:
+      text-is-handed-back-unopened:
+        input: '{ f: "\"x\"" }'
+        output: '{ f: "\"x\"" }'
