@@ -23,6 +23,20 @@ Two goldens hold that last number, and `spec check` knows only one: a change tha
 moves bundle size needs `pnpm benchmarks --write` as well, or CI fails on
 `packages/benchmarks/goldens/` with a green `spec check` behind it.
 
+## Workflow
+
+A task here is done when it is production ready, not when it first works.
+Each loop is a skill:
+
+- `ship` - any change: build to the end, verify, iterate on measured
+  alternatives and simplifications, clean up, sync main, local CI gate, PR.
+- `fix` - an issue, known bug, finding or red CI: spec first, root cause, then
+  `ship`. One PR per root cause.
+- `review-sury` - is this the right long-term design, and does it follow the
+  rules below.
+- `compare` - another library or release against Sury, as ranked ideas.
+- `spec` and `fuzz` - the two verification tools the others call.
+
 ## Use the spec skill
 
 Every change under `packages/sury/src` goes through it. Specs snapshot generated
@@ -148,113 +162,38 @@ of the keyword set (`JSONSchemaT` in `src/jsonschema.ts`, `JSONSchema.res`).
 
 `tests/treeShaking_test.ts` guards the first two; `bundleSize.yaml` can't.
 
-## Changing the union compiler
+## Fuzzers
 
-Which member a value dispatches to is invisible in a golden until someone writes
-the spec for exactly that permutation. `pnpm --filter=sury fuzz:union` compares
-the compiler to a sequential try of each variant's own parser/encoder (grouping
-is codegen, not semantics). It exits non-zero on an `acceptance` /
-`exception-kind` diff that `scripts/knownBugs.ts` doesn't list; `reasons` /
-`message` are error detail. `--ref` is an optional
-changelog against a git commit, not the gate. `--seed=N` widens the search.
+Run the one that covers what you touched (the `fuzz` skill has the table, what
+each holds and how to read a finding); CI runs all of them with the same
+command. Rules that bind whichever you run:
 
-## Known bugs
+- `packages/sury/scripts/knownBugs.ts` is the one list of fuzzer-found bugs
+  nobody has fixed, and of limitations a property can't tell from a bug. The
+  form and content fuzzers keep their own catalogs in `scripts/fuzzKit.ts`, each
+  case with a reason written by hand.
+- A gate fails on an unlisted finding *and* on an entry it no longer reaches, so
+  an entry can neither hide a new bug nor outlive its own.
+- A new finding is fixed, or listed together with its spec in the same change.
+  A bug entry names a spec with a `FIXME: known bug <id>` beside the example
+  that records the wrong answer; `tests/knownBugs_test.ts` holds both sides.
+- Entries are written against the parsed shape (`scripts/unionFuzz/shape.ts`),
+  never a substring of a printed id. Never widen a predicate past the one root
+  cause its summary names.
+- A property a single schema can be held to belongs in a family under
+  `scripts/schemaFuzz/`, not in a new runner.
 
-`packages/sury/scripts/knownBugs.ts` is the one list of bugs the fuzzers have
-found and nobody has fixed, and of the limitations a property can't tell from a
-bug. `fuzz:schema` and `fuzz:union` read it, and their gates fail on a finding
-it doesn't cover *and* on an entry they no longer reach - so an entry can
-neither hide a new bug nor outlive its own. Entries are written against the
-parsed shape of the generated schema (`scripts/unionFuzz/shape.ts`), never a
-substring of one printed id, since the grammar moves under text.
+## Equality and compare
 
-A bug entry names a spec with a `FIXME: known bug <id>` beside the example that
-records the wrong answer; `tests/knownBugs_test.ts` holds both sides to it.
-Fixing one is: correct the example, delete the entry, and let the gate confirm
-nothing else was matching it. A new finding is triaged the same way - fix it,
-or add an entry and its spec in the same change. Never widen an entry's
-predicate past the one root cause its summary names.
-
-## Fuzzing a single schema
-
-`pnpm --filter=sury fuzz:schema` draws a schema from the shared grammar, samples
-its Input side from the schema and its Output side from its reverse, and hands
-both to each family in `scripts/schemaFuzz/`. A property a single schema can be
-held to belongs in a family there, not in a new runner. The default invocation
-is the gate CI runs; `--only=eq,codec`, `--seed`, `--seeds` and `--cases` turn it
-into a narrower search, which reports unlisted findings but not stale entries.
-A creation throw is reported and the draw finishes without the default, so two
-builds of the library always draw the same schemas.
-
-**codec** holds decode and encode to the schema's own answers: a decode passes
-the schema's `isOutput` and an encode its `isInput`, `parse` agrees with
-`decode` on accepted input, `decode(encode(o))` is `o`, and `encode` is decode
-of the reverse. Change it when you touch a default, a container, `reverse` or
-anything that decides what a schema's Output type is.
-
-## Changing the equality compiler
-
-A spec pins the comparator's code and its answers for the values that spec
-writes down, and says nothing about the branch no spec reaches.
-`pnpm --filter=sury fuzz:schema --only=eq` holds the answers to the properties
-an equivalence has whatever the emit chose: a
-value equals a separately built copy of itself, `eq(a,b)` is `eq(b,a)`, equal to
-the same value means equal to each other, the answer matches a schema-blind
-structural walk, `isEqualInput(schema)` is `isEqualOutput(reverse(schema))`, and
-two inputs the Input side calls equal decode to two outputs the Output side
-calls equal. `--seeds=N` widens the search and `--cases=N` deepens each
-stream; reach for the first, since the grammar branches on every draw and a
-sweep of short streams covers what one long stream does not.
-
-`compare` is defined only for the schemas that have an order - a primitive, a
+`compare` is defined only for schemas that have an order - a primitive, a
 `Date`, a `URL`, and a tuple of those - and every other schema refuses when its
-comparator is compiled, which is what each of their specs records. Widening that
-set is adding an emit for the shape, not relaxing the refusal: whatever compare
-answers has to be an order, so `compare(a,b)===0` exactly when `isEqual`, and
-`compare(a,b)` is `-compare(b,a)`. The fuzzer holds both for every schema it
-accepts.
+comparator is compiled. Widening that set is adding an emit for the shape, not
+relaxing the refusal: `compare(a,b)===0` exactly when `isEqual`, and
+`compare(a,b)` is `-compare(b,a)`.
 
-The harness asks the same question from the other end: every example pair it
-already compares for itself goes to `isEqual*` too, and a disagreement with its
-own oracle is a finding. So the whole spec corpus is the comparator's test
-suite, and neither side is the one being trusted.
-
-## Changing the form codec
-
-A field's reading depends on its wrapper as much as its type, and a spec covers
-one schema. `pnpm --filter=sury fuzz:formdata` crosses every wrapper with every
-leaf and checks four properties: a field works in both directions or is rejected
-in both, an encode does not write into the value it was handed, `decode(encode(v))`
-is `v`, and every entry list a client could send is either rejected or read as a
-value the schema's own output type accepts - the half a round-trip can't reach,
-since a repeated key or a file where text belongs is nothing an encode would
-produce. It then compiles every field that works into one schema, which is where
-a name handed out twice or a declaration hoisted after its reader shows.
-
-Each property has a list in the script of the cases known not to hold, keyed by
-what the run prints, and the reason is written by hand - the run fails on an
-unexplained one *and* on a listed one that has started to hold. It is exhaustive,
-so there is no seed. A case it turns up becomes a spec, or a test where an
-example can't hold it.
-
-## Changing the content codec
-
-A reading - pack or unpack - is written by a slot, a field position or a
-declared payload, and `reverse` mirrors it; a spec pins one link and says
-nothing about the mirror of the next. `pnpm --filter=sury fuzz:content` crosses
-every source with every target and every slot and checks four properties: a
-link compiles both directions or neither, `reverse(link)` reads the same values
-the link writes and writes the ones it reads, a value survives decode, encode,
-decode, and a slot does what it declares - a link with two readings and no slot
-refuses and names both, and a link with one reads the same with `"unpack"` as
-without it. Crashes are always findings.
-
-It shares its catalogs with `fuzz:formdata` (`scripts/fuzzKit.ts`): each lists
-the cases known not to hold with the reason written by hand, and the run fails
-on an unexplained one, on a listed one that has started to hold, and on a listed
-one that no longer runs. Exhaustive, so there is no seed. A case it turns up
-becomes a spec, and one that stays unfixed carries a `FIXME` in both places.
+## Codecs
 
 `CODEC_SPEC.md` is the normative statement of what conversions are legal,
 built-in and custom alike; `CONTENT_CODEC_SPEC.md` covers the carrier/format
-pairs where two built-in readings exist (pack/unpack).
+pairs where two built-in readings exist (pack/unpack). A change to either
+behaviour changes the document in the same PR.
