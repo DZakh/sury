@@ -60,10 +60,10 @@ let depth = 0;
 export const witnessOf = (schema: unknown): unknown => {
   const s = schema as Schema;
   if (s && typeof s === "object" && s.type === "ref" && typeof s.$ref === "string") {
+    if (depth > 2) return NO_WITNESS;
     const outer = defs;
     if (s.$defs) defs = { ...defs, ...s.$defs };
     const def = defs[s.$ref.slice(8)];
-    if (depth > 2) return NO_WITNESS;
     depth++;
     try {
       return def === undefined ? 1 : witnessOf(def);

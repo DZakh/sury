@@ -251,7 +251,10 @@ export const protobufField = (schema: Internal, field: number | ProtobufField): 
   // a one-member enum could accept neither its zero nor an unknown value.
   const literalEnum = isIntegerEnum(shape);
   const type = typeof field === "number" || field.type === U ? inferType(shape, literalEnum) : field.type;
-  const known = type !== U && (wellKnown[type] !== U || wrappers[type] !== U);
+  // The prefix first: the tables are plain objects, and `"constructor"` is a
+  // key of every one.
+  const known =
+    typeof type === "string" && type.startsWith("google.protobuf.") && (wellKnown[type] !== U || wrappers[type] !== U);
   if (type === U || (!known && protobufTypes[type as ProtobufType] !== true)) {
     return panic(`S.protobufField requires a protobuf type`);
   }

@@ -708,6 +708,15 @@ test("a recursive message reads and writes as the same message unrolled", (t) =>
 });
 
 // A throw at schema construction, which a spec can't record.
+// Spelled as a test: a spec can't record a schema whose construction throws.
+test("protobufField refuses a type it doesn't know, inherited names included", (t) => {
+  for (const type of ["constructor", "toString", "__proto__", "google.protobuf.Any", "google.protobuf.constructor"]) {
+    t.expect(() => S.optional(S.string).with(S.protobufField, { number: 1, type: type as S.ProtobufType })).toThrow(
+      "[Sury] S.protobufField requires a protobuf type",
+    );
+  }
+});
+
 test("protobufField refuses a value a well-known type doesn't take", (t) => {
   const secondsNanos = S.schema({ seconds: S.bigint, nanos: S.int32 });
   t.expect(() => S.date.with(S.protobufField, { number: 1, type: "google.protobuf.Duration" })).toThrow(
