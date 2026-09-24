@@ -13,7 +13,10 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { generateMembers, rngFromSeed } from "./unionFuzz/generate";
+import { knownFor, staleFor } from "./knownBugs";
+import { node, type Shape } from "./unionFuzz/shape";
+import type { MemberSpec } from "./unionFuzz/generate";
+import { generateMembers, rngFromSeed, takeRefused } from "./unionFuzz/generate";
 import { issue392Case } from "./unionFuzz/issue392";
 import { classify, describeOutcome, show } from "./unionFuzz/outcome";
 import { compiledParse } from "./unionFuzz/reference";
@@ -94,6 +97,12 @@ const num = (name: string, fallback: string): number => {
   return value;
 };
 
+// What is known not to hold is `scripts/knownBugs.ts`, shared with
+// `fuzz:schema`. The union is the shape `union(member, ...)`. A matched diff is counted, not
+// printed. The default seed is the gate, and only the gate also fails on an
+// entry it never reached.
+const asShape = (members: readonly MemberSpec[]): Shape => node("union", ...members.map((m) => m.shape));
+
 const main = async (): Promise<void> => {
   const cases = num("cases", "400");
   const seed = num("seed", "1");
@@ -133,23 +142,47 @@ const main = async (): Promise<void> => {
     }
   }
 
+  const creationFailures: string[] = [];
+  let known = 0;
   const next = rngFromSeed(seed);
   for (let c = 0; c < cases; c++) {
     const size = 2 + Math.floor(next() * Math.max(1, maxMembers - 1));
+    // A member the library refused to build is a finding, not a reason to
+    // abandon the run: `S.optional(container, outputDefault)` threw for every
+    // container whose items transform (#452).
     const members = generateMembers(S, next, size);
+    creationFailures.push(...takeRefused());
     const result = diffsForUnion(S, members);
     stats.compared += result.compared;
     stats.skipped += result.skipped;
+    const label = describeMembers(members);
+    const shape = asShape(members);
     for (const diff of result.diffs) {
       stats.diffs += 1;
+      const detail = `compiled: ${describeOutcome(diff.compiled)} reference: ${describeOutcome(diff.reference)}`;
+      if (knownFor("union", shape, diff.class, detail)) {
+        known += 1;
+        continue;
+      }
       stats.byClass[diff.class] += 1;
-      printDiff("compiled", describeMembers(members), diff, shown, budget);
+      printDiff("compiled", label, diff, shown, budget);
     }
   }
 
   console.log(
     `\n${stats.compared} compiled-vs-reference comparisons, ${stats.diffs} diff(s), ${stats.skipped} skipped (seed ${seed}, ${cases} unions)`,
   );
+  if (known) console.log(`  known: ${known} diff(s) covered by scripts/knownBugs.ts`);
+  const gate = !process.argv.some((a) => /^--(seed|cases|max-members)=/.test(a) && a !== "--seed=1");
+  const stale = gate ? staleFor(["union"]) : [];
+  for (const line of stale) console.log(`  ${line}`);
+  if (stale.length) process.exitCode = 1;
+  if (creationFailures.length) {
+    const unique = [...new Set(creationFailures)];
+    console.log(`  creation: ${creationFailures.length} member(s) could not be built`);
+    for (const message of unique.slice(0, 5)) console.log(`    ${message}`);
+    process.exitCode = 1;
+  }
   for (const kind of Object.keys(stats.byClass) as DiffClass[]) {
     const total = stats.byClass[kind];
     if (!total) continue;

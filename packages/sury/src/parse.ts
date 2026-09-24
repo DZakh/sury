@@ -4,6 +4,7 @@ import {
   type Builder,
   configurableValueOptions,
   copySchema,
+  getOrRethrow,
   type Encoder,
   type Flag,
   globalConfig,
@@ -426,6 +427,51 @@ Object.defineProperty(schemaPrototype, reversedKey, {
 
 // @__NO_SIDE_EFFECTS__
 export const reverse = (schema: Internal): Internal => schema.r!;
+
+// A value a schema stores on its Output side - a default, an example - held to
+// it by one parse through `reverse`, which checks it as an Output and hands it
+// back in the Input form it is stored in. A never or async encode makes that
+// uncomputable, which leaves no Output validation to hold the value to, so
+// there is nothing to check: `undefined`.
+export const decodeOutput = (output: Internal): ((v: unknown) => unknown) | undefined => {
+  try {
+    return getOp(0, 2, unknown, output) as (v: unknown) => unknown;
+  } catch (exn) {
+    if ((getOrRethrow(exn) as unknown as { code: string }).code !== "invalid_operation") throw exn;
+  }
+}
+
+// The default of `S.optional(x, v)` and `s.fieldOr(_, x, v)` is a value of the
+// Output type, written the way the schema outputs it. Not the chain's tail: a
+// container keeps its items' transforms inside itself, so its tail is still the
+// Input form (#452).
+export const setDefault = (owner: Internal, original: Internal, v: unknown): void => {
+  let output = reverse(original);
+  // `S.recursive`'s definitions, while its definer is still running. A nested
+  // `S.recursive` hands back a bare `$ref`, so an item reached inside a definer
+  // names definitions the check would not otherwise see. They ride on the copy
+  // it compiles against, and `parse` merges them for the whole operation, so a
+  // ref inside a union resolves too. Only once the record holds something: an
+  // empty one names nothing, and a copy would miss the operation cached on the
+  // item itself.
+  const building = globalConfig.d;
+  if (building !== U && output["$defs"] === U && Object.keys(building).length) {
+    output = copySchema(output);
+    output["$defs"] = building;
+  }
+  const decode = decodeOutput(output);
+  if (decode) {
+    try {
+      owner.default = decode(v);
+    } catch (exn) {
+      panic(
+        `Invalid default for ${inputExpression(owner)}: ${
+          (getOrRethrow(exn) as unknown as { message: string })["message"]
+        }`
+      );
+    }
+  }
+}
 
 // Lives here rather than beside `inputExpression` in base.ts so that only the
 // consumers who ask for the output side carry `reverse`.

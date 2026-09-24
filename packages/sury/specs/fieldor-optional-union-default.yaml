@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.object((s) => ({ x: s.fieldOr("x", S.optional(S.union([S.string.with(S.to, S.number), S.boolean]), true), 1) }))'
+  input: "{ [x: string]: unknown; }"
+  output: "{ x: number | boolean; }"
+  instantiations: 6000
+jsonSchema:
+  input: "Failed at x: Expected JSON, received string | boolean | undefined"
+  output: '{ type: "object", properties: { x: { anyOf: [{ type: "number" }, { type: "boolean" }, { anyOf: [{ type: "number" }, { type: "boolean" }] }] } }, required: ["x"] }'
+isEqual: (a,b)=>a===b||a.x===b.x
+compare:
+  input: "throws: [Sury] Can't compare { x: string | boolean | undefined | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { x: number | boolean | number | boolean; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i.x;if(v0===void 0){v0=1}else{for(;;){if(typeof v0==="string"){let v1=+v0;v1==v1&&(v1||v0.trim())||e[0](v0);v0=v1;break}if(typeof v0==="boolean")break;if(v0===void 0){v0=true;break}e[1](v0)}}return {x:v0}}catch(v2){e[3](v2)}}
+    examples:
+      absent-takes-the-outer-default:
+        input: "{}"
+        output: "{ x: 1 }"
+      present-undefined-takes-the-outer-default:
+        input: "{ x: undefined }"
+        output: "{ x: 1 }"
+      string-converts:
+        input: '{ x: "3" }'
+        output: "{ x: 3 }"
+      boolean:
+        input: "{ x: false }"
+        output: "{ x: false }"
+  decode:
+    expression: i=>{try{let v0=i.x;if(v0===void 0){v0=1}else{for(;;){if(typeof v0==="string"){let v1=+v0;v1==v1&&(v1||v0.trim())||e[0](v0);v0=v1;break}if(typeof v0==="boolean")break;if(v0===void 0){v0=true;break}e[1](v0)}}return {x:v0}}catch(v2){e[2](v2)}}
+    examples:
+      absent-takes-the-outer-default:
+        input: "{}"
+        output: "{ x: 1 }"
+      string-converts:
+        input: '{ x: "3" }'
+        output: "{ x: 3 }"
+  encode:
+    expression: i=>{try{let v0=i.x;for(;;){if(typeof v0==="number"&&v0==v0){v0=""+i.x;break}if(typeof v0==="boolean")break;e[0](v0)}return {x:v0}}catch(v1){e[1](v1)}}
+    examples:
+      number-converts-back:
+        input: "{ x: 1 }"
+        output: '{ x: "1" }'
+      boolean:
+        input: "{ x: true }"
+        output: "{ x: true }"
