@@ -25,17 +25,9 @@ moves bundle size needs `pnpm benchmarks --write` as well, or CI fails on
 
 ## Workflow
 
-A task here is done when it is production ready, not when it first works.
-Each loop is a skill:
-
-- `ship` - any change: build to the end, verify, iterate on measured
-  alternatives and simplifications, clean up, sync main, local CI gate, PR.
-- `fix` - an issue, known bug, finding or red CI: spec first, root cause, then
-  `ship`. One PR per root cause.
-- `review-sury` - is this the right long-term design, and does it follow the
-  rules below.
-- `compare` - another library or release against Sury, as ranked ideas.
-- `spec` and `fuzz` - the two verification tools the others call.
+Every prompt goes through the `ship` skill, which a hook reminds you of. It
+answers a question directly and drives a change to production ready on its own,
+calling `spec` and `fuzz` as it goes.
 
 ## Use the spec skill
 

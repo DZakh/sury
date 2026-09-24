@@ -24,7 +24,7 @@ When unsure, run all five. They are cheap next to a red CI cycle.
 
 A finding is a bug until shown otherwise. Triage each one:
 
-1. **Fix it** (the `fix` skill), or
+1. **Fix it** (the Bug playbook in `ship`), or
 2. **List it**: add an entry to `scripts/knownBugs.ts` (union/schema fuzzers) or
    to the fuzzer's own catalog (formdata/content, `scripts/fuzzKit.ts`) *and* a
    spec that reproduces it, in the same change.
