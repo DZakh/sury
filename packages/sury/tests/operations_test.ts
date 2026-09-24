@@ -253,6 +253,16 @@ test("a foreign exception from user code is a failure of the value, in the outco
   const evilKind = { get kind(): never { throw boom; } };
   expect(S.parseAsResult(tagged, evilKind).error?.code).toBe("invalid_conversion");
   expect(S.isInput(tagged, evilKind)).toBe(false);
+
+  // Nor where the body only hands the value between union cases, which is
+  // still a read of it.
+  const fallback = S.union([S.schema({ a: S.string.with(S.minLength, 3) }), S.unknown]);
+  const evilA = { get a(): never { throw boom; } };
+  const rejected = S.parseAsPromiseOrReject(fallback, evilA);
+  await expect(rejected).rejects.toBe(boom);
+  expect(fallback["~standard"].validate(evilA)).toEqual({
+    issues: [{ message: "TypeError: boom", path: undefined }],
+  });
 });
 
 test("a defect throws instead of becoming a Result", () => {

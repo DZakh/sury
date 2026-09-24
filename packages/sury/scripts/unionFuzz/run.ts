@@ -10,9 +10,9 @@ import {
 import type { DiffClass, Outcome, Sury } from "./types";
 import { JUNK, NO_WITNESS, witnessOf } from "./witness";
 
-// `is`/`result` compare an answering outcome to the same compile's
-// `parseOrThrow`, not to the reference: see `outcomeDiffs`.
-export type Direction = "parse" | "encode" | "is" | "result";
+// The directions past `encode` compare an answering outcome to the same
+// compile's `parseOrThrow`, not to the reference: see `outcomeDiffs`.
+export type Direction = "parse" | "encode" | "is" | "result" | "validate" | "promise";
 
 export type Comparison = {
   direction: Direction;
@@ -130,12 +130,32 @@ export const diffsForUnion = (
 };
 
 // The outcomes that answer a failure rather than throw it - `isInput`,
-// `parseAsResult` - leave the body by a different exit than `parseOrThrow`
-// does, and have to agree with it on every value: the same acceptance, and for
-// a Sury failure the same message. A foreign exception is wrapped by
-// `parseAsResult` on purpose, so there only acceptance is compared. The union
-// is also asked as an array item and an object field, where its failure
-// leaves through a loop or a field's path.
+// `parseAsResult`, `~standard.validate`, the promise ones - have to agree with
+// the same compile's `parseOrThrow` on every value: the same acceptance, and
+// for a Sury failure the same message where the outcome carries one. A foreign
+// exception is an answer too (Result and `validate` wrap it, the promise
+// rejects with it), so none of them may throw synchronously. The union is also
+// asked as an array item and an object field, where its failure leaves through
+// a loop or a field's path, and handed a value whose every read throws.
+const hostile = new Proxy(
+  {},
+  {
+    // Printable, so a diff on it can be reported.
+    get: (_, key) => {
+      if (key === "toJSON") return () => "hostile";
+      if (typeof key === "symbol") return undefined;
+      throw new TypeError("hostile read");
+    },
+  },
+);
+
+const failed = (error: any): Outcome => ({
+  ok: false,
+  kind: "sury",
+  message: error.message,
+  reasons: error.unionErrors?.length ?? 0,
+});
+
 export const outcomeDiffs = (
   S: Sury,
   unionSchema: unknown,
@@ -149,28 +169,53 @@ export const outcomeDiffs = (
     [S.schema({ f: unionSchema }), (value) => ({ f: value })],
   ];
   for (const [schema, wrap] of contexts) {
-    for (const value of values) {
+    let parse, is, result, promise, validate: (input: unknown) => any;
+    try {
+      parse = S.parseOrThrow(schema);
+      is = S.isInput(schema);
+      result = S.parseAsResult(schema);
+      promise = S.parseAsPromiseOrReject(schema);
+      validate = (schema as any)["~standard"].validate;
+    } catch {
+      // A wrapper the union can't be compiled into answers nothing to compare.
+      continue;
+    }
+    for (const value of [...values, hostile]) {
       const input = wrap(value);
-      const expected = outcomeOf(S, () => S.parseOrThrow(schema)(input));
-      const is = outcomeOf(S, () => S.isInput(schema)(input));
-      const result = outcomeOf(S, () => S.parseAsResult(schema)(input));
-      compared += 2;
-      // `is` answers only the acceptance.
-      if (!is.ok || (is.value === "true") !== expected.ok) {
-        diffs.push({ direction: "is", input, compiled: is, reference: expected, class: "outcome" });
+      const expected = outcomeOf(S, () => parse(input));
+      const push = (direction: Direction, compiled: Outcome) =>
+        diffs.push({ direction, input, compiled, reference: expected, class: "outcome" });
+      compared += 4;
+
+      const answer = outcomeOf(S, () => is(input));
+      if (!answer.ok || (answer.value === "true") !== expected.ok) push("is", answer);
+
+      let resulted: Outcome;
+      try {
+        const r = result(input);
+        resulted = r.success ? { ok: true, value: show(r.value) } : failed(r.error);
+      } catch (error: any) {
+        resulted = { ok: false, kind: "foreign", name: "thrown", message: String(error?.message ?? error) };
       }
-      let answer: Outcome = result;
-      if (result.ok) {
-        const r = S.parseAsResult(schema)(input);
-        answer = r.success
-          ? { ok: true, value: show(r.value) }
-          : { ok: false, kind: "sury", message: r.error.message, reasons: r.error.unionErrors?.length ?? 0 };
+      if (
+        resulted.ok !== expected.ok ||
+        (!resulted.ok && resulted.kind === "foreign") ||
+        (!expected.ok && expected.kind === "sury" && describeOutcome(resulted) !== describeOutcome(expected))
+      ) {
+        push("result", resulted);
       }
-      const agrees =
-        answer.ok === expected.ok &&
-        (expected.ok || expected.kind === "foreign" || describeOutcome(answer) === describeOutcome(expected));
-      if (!result.ok || !agrees) {
-        diffs.push({ direction: "result", input, compiled: answer, reference: expected, class: "outcome" });
+
+      try {
+        const r = validate(input);
+        if (!r.issues !== expected.ok) push("validate", r.issues ? failed(r.issues[0]) : { ok: true, value: show(r.value) });
+      } catch (error: any) {
+        push("validate", { ok: false, kind: "foreign", name: "thrown", message: String(error?.message ?? error) });
+      }
+
+      try {
+        (promise(input) as Promise<unknown>).catch(() => {});
+      } catch (error: any) {
+        push("promise", { ok: false, kind: "foreign", name: "thrown", message: String(error?.message ?? error) });
       }
     }
   }

@@ -218,7 +218,8 @@ type UnionCase = {
   c: string;
   b: string;
   // Body can throw (1), must be awaited by fallback dispatch (2), can fail by
-  // a jump (4), or may fall through to an overlapping member (8).
+  // a jump (4), may fall through to an overlapping member (8), or never runs
+  // (16): its condition is the one the case before it accepted outright.
   f: number;
   // The label the case's failed checks break out of to reach the next case,
   // set only where one does.
@@ -1131,13 +1132,24 @@ const unionEmit = (
   // A case that hands over by recording what it found makes every later
   // failure on the same chain the union's, so it is known before the next case
   // is emitted. A group's own chain puts it back unless the group hands over
-  // too: a member of a later group never ran after it.
+  // too: a member of a later group never ran after it. Nor does a case the
+  // chain drops (`unionEmitChain`'s `shared && !open`): the same condition as
+  // the last case that runs, which accepted it without handing anything on.
   let recorded = false;
-  const settle = (c: UnionCase): UnionCase => {
-    if (wanted && c.f & 8 && c.f & (1 | 4)) recorded = true;
+  const settle = (c: UnionCase, chain: UnionCase[]): UnionCase => {
+    let last: UnionCase | undefined;
+    for (let i = chain.length; !last && i--; ) if (!(chain[i]!.f & 16)) last = chain[i];
+    if (
+      last &&
+      c.c !== "" &&
+      c.c === last.c &&
+      (last.b === "" || !(last.l || (last.f & 1 && (last.f & 8 || recorded))))
+    ) {
+      c.f |= 16;
+    } else if (wanted && c.f & 8 && c.f & (1 | 4)) recorded = true;
+    chain.push(c);
     return c;
   };
-  const exit = g.x;
   g.x = fail;
   // Trusting a case's discriminant requires it to actually discriminate:
   // unique among every member's (two ReScript variants can share their first
@@ -1249,7 +1261,7 @@ const unionEmit = (
           : `${dRead}===${B_inlineConst(caseInput, dSchema)}`;
       cond.c = cond.c ? `${dCond}&&${cond.c}` : dCond;
     }
-    return settle({
+    return {
       c: cond.c,
       b: body,
       f:
@@ -1258,7 +1270,7 @@ const unionEmit = (
         (g.j !== jumps ? 4 : 0) |
         falls,
       l: label,
-    });
+    };
   };
 
   const cases: UnionCase[] = [];
@@ -1267,7 +1279,7 @@ const unionEmit = (
     if (group.a.length === 1 && group.f & 16) {
       const c = compile(group.a[0]!, input, input, (group.a[0]!.f | group.f) & 8);
       if (c !== U) {
-        cases.push(c);
+        settle(c, cases);
         if (c.c === "" && c.b === "") break;
       }
       continue;
@@ -1301,7 +1313,7 @@ const unionEmit = (
     for (let j = 0; j < group.a.length; j++) {
       const c = compile(group.a[j]!, narrow, narrowInput, group.a[j]!.f & 8);
       if (c !== U) {
-        inner.push(c);
+        settle(c, inner);
         if (c.c === "" && c.b === "") break;
       }
     }
@@ -1346,7 +1358,7 @@ const unionEmit = (
     // Whatever the members recorded reaches the next group only through this
     // group handing over.
     recorded = before || (recorded && !!(group.f & 8));
-    cases.push(settle({
+    settle({
       c: cond.c,
       b: body,
       f:
@@ -1356,7 +1368,7 @@ const unionEmit = (
         (group.f & 8),
       // A lone member that took the group's place brings its own label.
       l: label || (only && body === only.b ? only.l : U),
-    }));
+    }, cases);
     if (body === "" && cond.c === "") break;
   }
 
@@ -1385,7 +1397,6 @@ const unionEmit = (
       output.cp += dispatch;
     }
   }
-  g.x = exit;
   if (!asyncDispatch) output.i = input.i;
   let out: Val;
   if (output.f & 1) {
@@ -1544,14 +1555,22 @@ export const unionDecoder: Builder = (input: Val) => {
     });
   }
 
-  return unionEmit(
-    input,
-    self,
-    expected,
-    unionPlan(unionAnalyze(unionMask(source, 2, nan), flags, sourceTag, variants, source, nan)),
-    toPerCase,
-    trustedSelf
-  );
+  // The union swaps in its own exit while it emits, and a compile that throws
+  // midway must not leave it behind: json.ts catches a failed parse and parses
+  // again on the same operation.
+  const exit = input.g.x;
+  try {
+    return unionEmit(
+      input,
+      self,
+      expected,
+      unionPlan(unionAnalyze(unionMask(source, 2, nan), flags, sourceTag, variants, source, nan)),
+      toPerCase,
+      trustedSelf
+    );
+  } finally {
+    input.g.x = exit;
+  }
 };
 
 // Calls each source refiner at most once so its predicate is embedded once and

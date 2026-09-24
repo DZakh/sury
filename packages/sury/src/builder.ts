@@ -294,9 +294,11 @@ export const B_guard = <TArg>(
 export const B_detached = <T>(g: BGlobal, body: () => T): T => {
   const x = g.x;
   g.x = U;
-  const result = body();
-  g.x = x;
-  return result;
+  try {
+    return body();
+  } finally {
+    g.x = x;
+  }
 };
 
 // A failure as the expression that raises it.

@@ -243,10 +243,12 @@ export const throwTail: Tail = (input, code, out, isAsync, flag, hasDefs) => {
     const body = isAsync
       ? `${code}return ${out}.then(${v}=>({value:${v}}),${issues})`
       : `${code}return {value:${out}}`;
-    // The raise counter: when nothing merged can throw, no `try`. An async
-    // operation answers with a promise either way, so a failure the sync
-    // phase raises comes back in the same shape as one after the await.
-    if (!input.g.t) return body;
+    // When nothing merged can fail, no `try`. One that can only fail by a
+    // jump (a union case handing over) still reads the value, and a getter can
+    // raise there. An async operation answers with a promise either way, so a
+    // failure the sync phase raises comes back in the same shape as one after
+    // the await.
+    if (!(input.g.t + input.g.j)) return body;
     const e = B_varWithoutAllocation(input.g);
     return `try{${body}}catch(${e}){return ${
       isAsync ? `Promise.resolve(${issues}(${e}))` : `${issues}(${e})`
@@ -264,14 +266,16 @@ export const throwTail: Tail = (input, code, out, isAsync, flag, hasDefs) => {
         : out
   }`;
   // The run boundary, cutting at the operation itself so the caller's line ends
-  // up on top instead of five frames of library. Only where something can raise
-  // at all (`g.t`), and never for a nested compile (recursive.ts), whose throw
-  // is generated code's own business and is caught and re-raised by the
-  // operation around it.
+  // up on top instead of five frames of library. Only where something can fail
+  // at all (`g.t`, or `g.j` for a body that reads a value only to hand it
+  // between union cases - a getter can raise there, and a promise-returning
+  // operation must reject it), and never for a nested compile (recursive.ts),
+  // whose throw is generated code's own business and is caught and re-raised
+  // by the operation around it.
   //
   // The sync phase only. What an async operation raises after its first await
   // is `rejectionBoundary`'s.
-  if (!input.g.t || hasDefs) return body;
+  if (!(input.g.t + input.g.j) || hasDefs) return body;
   const g = input.g;
   const e = B_varWithoutAllocation(g);
   // A promise-returning operation must not throw synchronously: a value that

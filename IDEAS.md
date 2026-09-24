@@ -405,21 +405,23 @@ is set. What is left on the table:
   (specs/codec-async-object-then-custom.yaml). One helper that parses and merges
   a continuation, used by parse.ts, composites.ts and B_markOutput alike, would
   leave nowhere to forget it.
-- **`fuzz:union` generates no async member.** Its `outcome` class holds
-  `isInput`/`parseAsResult` to `parseOrThrow`, but only the sync outcomes over
-  sync members, so the async-object bug above
-  (specs/codec-async-object-then-custom.yaml) would still get past it. An async
-  coder in the generator, and `*AsPromise`/`*AsResultPromise` in the parity
-  loop, would close that.
+- **`fuzz:union` generates no async member.** Its `outcome` class holds every
+  answering outcome to `parseOrThrow` (and over seeds 2-8 it catches the
+  getter/`try` regression tests/operations_test.ts pins), but over sync members
+  only, so the async-object bug (specs/codec-async-object-then-custom.yaml)
+  would still get past it. An async coder in the generator, and the `AsPromise`
+  outcomes awaited in the loop, would close that.
 
 ### Pre-existing bugs surfaced by the failure exit work
 
 - **`S.env.with(S.maxLength, n)` throws a `TypeError` on `undefined`.**
   `S.parseOrThrow(S.env.with(S.maxLength, 3), undefined)` raises `Cannot read
   properties of undefined (reading 'length')` instead of a Sury failure, alone
-  and as a union member, array item or object field. The length check reads a
-  value `env`'s blank handling let through. Same on 16de5d3; found by an
-  outcome-parity loop over the fuzzed unions. Wants a spec example once fixed.
+  and as a union member, array item or object field; `S.length` does the same.
+  The length check reads a value `env`'s blank handling let through. Same on
+  16de5d3, and it is what `fuzz:union --seed=5` fails on (an `acceptance` diff
+  against a reference that accepts `undefined`). Wants a spec example once
+  fixed.
 
 ### Known bugs left over from the validation refactor (`val.validation: array<validationCheck>`)
 
