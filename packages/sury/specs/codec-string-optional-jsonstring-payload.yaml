@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.string.with(S.to, S.optional(S.jsonString.with(S.to, S.schema({ a: S.number }))))"
+  input: string
+  output: "{ a: number; } | undefined"
+  instantiations: 6130
+jsonSchema:
+  input: '{ type: "string", contentMediaType: "application/json" }'
+  output: '{ type: "object", properties: { a: { type: "number" } }, additionalProperties: false, required: ["a"] }'
+  fromOutputType: "{ a: number; }"
+  draft-2020-12:
+    input: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "object", properties: { a: { type: "number" } }, required: ["a"] }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ type: "string" }'
+isEqual:
+  input: strictEqual
+  output: (a,b)=>a===b||(a===void 0?b===void 0:b!==void 0&&a.a===b.a)
+compare:
+  input: strictCompare
+  output: "throws: [Sury] Can't compare { a: number; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="string"||e[3](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0.a;typeof v1==="number"&&v1==v1||e[1](v1);i={a:v1};return i}catch(v2){e[4](v2)}}
+    examples:
+      the-arm-reads-the-text:
+        input: '"{\"a\":1}"'
+        output: "{ a: 1 }"
+      not-a-document:
+        input: '"nope"'
+        error: Expected JSON string, received "nope"
+  decode:
+    expression: i=>{try{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0.a;typeof v1==="number"&&v1==v1||e[1](v1);i={a:v1};return i}catch(v2){e[3](v2)}}
+    examples:
+      the-arm-reads-the-text:
+        input: '"{\"a\":1}"'
+        output: "{ a: 1 }"
+      not-a-document:
+        input: '"nope"'
+        error: Expected JSON string, received "nope"
+  encode:
+    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i.a;i="{\"a\":"+(Number.isFinite(v0)?v0:e[0](v0))+"}"}else{e[1](i)}return i}catch(v1){e[2](v1)}}
+    examples:
+      the-arm-reads-the-text:
+        input: "{ a: 1 }"
+        output: '"{\"a\":1}"'
+      no-text-is-absent:
+        input: undefined
+        error: "Expected { a: number; }, received undefined"

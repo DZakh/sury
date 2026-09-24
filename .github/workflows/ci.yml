@@ -57,18 +57,18 @@ jobs:
 
       # The only check that the union compiler's dispatch matches a sequential
       # try of each member (CLAUDE.md, "Changing the union compiler"). Fixed
-      # seed so a red run reproduces locally with the same command.
+      # seed so a red run reproduces locally with the same command. Shares
+      # scripts/knownBugs.ts with fuzz:schema.
       - run: pnpm fuzz:union --seed=1
         working-directory: packages/sury
 
-      # A spec pins the comparator's code and its answers for the values that
-      # spec writes down, and says nothing about the branch no spec reaches
-      # (CLAUDE.md, "Changing the equality compiler"). Seeds, not cases, are
-      # what widen this one: the schema grammar branches on every draw, so a
-      # sweep of short streams reaches what one long stream does not - the last
-      # bug it found showed at seed 24 in 1500 cases and never at seed 1 in
-      # 150000. Fixed range so a red run reproduces locally. Under 10s.
-      - run: pnpm fuzz:eq --seeds=40 --cases=1500
+      # A spec pins one schema's code and the values it writes down, and says
+      # nothing about the branch no spec reaches (CLAUDE.md, "Fuzzing a single
+      # schema"). The default invocation is the gate: forty seeds, both families.
+      # It fails on a finding scripts/knownBugs.ts does not list, and on an
+      # entry there it no longer reaches. Fixed range so a red run reproduces
+      # locally with the same command. ~25s.
+      - run: pnpm fuzz:schema
         working-directory: packages/sury
 
       # A form field's reading depends on its wrapper as much as its type, and
@@ -79,6 +79,16 @@ jobs:
       # list a client could send is either rejected or read as a value the
       # schema itself accepts. Exhaustive, so no seed. Seconds.
       - run: pnpm fuzz:formdata
+        working-directory: packages/sury
+
+      # Which reading a link takes - pack or unpack - is written down by a slot,
+      # a field position or a declared payload and mirrored by `reverse`, and a
+      # spec pins one link (CLAUDE.md, "Changing the content codec"). This
+      # crosses every source with every target and slot and checks that a link
+      # compiles both directions or neither, that its reverse reads the same
+      # values, that a value survives decode, encode, decode, and that a slot
+      # does what it declares. Exhaustive, so no seed. Seconds.
+      - run: pnpm fuzz:content
         working-directory: packages/sury
 
       # artifact_test.ts checks jsr.json against package.json; only JSR itself

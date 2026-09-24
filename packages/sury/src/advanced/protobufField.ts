@@ -135,7 +135,7 @@ const isIntegerEnum = (schema: Internal): boolean => {
 };
 
 const isMessageShape = (schema: Internal): boolean =>
-  schema.type === objectTag || (schema.type === refTag && !schema.isJson);
+  schema.type === objectTag || (schema.type === refTag && !(schema.flags & 16));
 
 // The field a schema was numbered as, found down its `.to` chain.
 export const fieldMetadata = (schema: Internal): StoredField | undefined => {
@@ -190,9 +190,9 @@ const wellKnown: Record<string, [(shape: Internal, item: Internal | undefined) =
     "a Date or { seconds: S.bigint, nanos: S.int32 }",
   ],
   "google.protobuf.Duration": [isSecondsNanos, "{ seconds: S.bigint, nanos: S.int32 }"],
-  "google.protobuf.Value": [(shape) => !!shape.isJson, "S.json"],
-  "google.protobuf.Struct": [(shape, item) => shape.type === objectTag && !!item?.isJson, "S.record(S.json)"],
-  "google.protobuf.ListValue": [(shape, item) => shape.type === arrayTag && !!item?.isJson, "S.array(S.json)"],
+  "google.protobuf.Value": [(shape) => !!(shape.flags & 16), "S.json"],
+  "google.protobuf.Struct": [(shape, item) => shape.type === objectTag && !!(item && item.flags & 16), "S.record(S.json)"],
+  "google.protobuf.ListValue": [(shape, item) => shape.type === arrayTag && !!(item && item.flags & 16), "S.array(S.json)"],
   "google.protobuf.FieldMask": [(shape, item) => shape.type === arrayTag && item?.type === stringTag, "S.array(S.string)"],
   "google.protobuf.Empty": [
     (shape) => shape.type === objectTag && !isContainer(shape) && Object.keys(shape.properties ?? {}).length === 0,
@@ -217,7 +217,7 @@ const inferType = (shape: Internal, literalEnum: boolean): FieldType | undefined
   if (shape.type === instanceTag && shape.class === Uint8Array) return "bytes";
   // The two values with no other wire form.
   if (shape.type === instanceTag && shape.class === Date) return "google.protobuf.Timestamp";
-  if (shape.isJson) return "google.protobuf.Value";
+  if (shape.flags & 16) return "google.protobuf.Value";
   // A `$ref` is `S.recursive`, whose definition is not built yet while the
   // definer runs; a message is the only thing the wire can make of one.
   if (shape.type === objectTag || shape.type === refTag) return "message";

@@ -10,7 +10,6 @@ import {
   baseSchema,
   type Builder,
   copySchema,
-  getOrRethrow,
   globalConfig,
   immutableEmptyArray,
   inlinedValueFromString,
@@ -44,6 +43,7 @@ import {
   B_next,
   B_nextConst,
   B_nextVarOutput,
+  B_refine,
   B_scope,
 } from "./builder";
 import {
@@ -56,7 +56,7 @@ import {
   traverseDefinition,
   valGet,
 } from "./composites";
-import { getOp, getOutputSchema, parse, reverse } from "./parse";
+import { getOutputSchema, parse, reverse, setDefault } from "./parse";
 import { Literal_parse, unit } from "./primitives";
 import { unionFactory } from "./union";
 
@@ -106,11 +106,11 @@ const makeObjectCtx = (
   flatten,
 });
 
-// Field-with-default as `if(v===void 0)v=def` plus the item's own decoder —
+// Field-with-default as `if(v===void 0)v=def` plus the item's own decoder -
 // not `union([unit, item])` + Option_getOr. The anyOf/has/undefined shape is
 // what isOptional, JSON Schema (skip the unit arm, emit `default`) and json
 // omit still read; unionDecoder is what would pull the planner into every
-// object export.
+// object export, and measuring it says +55% on `object`.
 const fieldOrSchema = (schema: Internal, or: unknown): Internal => {
   const item = getOutputSchema(schema);
   const mut = baseSchema(anyOfTag, false, noopDecoder);
@@ -118,35 +118,18 @@ const fieldOrSchema = (schema: Internal, or: unknown): Internal => {
   mut.has = { [undefinedTag]: true };
   setHas(mut.has, schema.type);
   // A `.to` is what makes reverse start at the item (output is required, not
-  // optional). A serializer on a self-reverse item is what keeps encode
-  // re-checking it - without one, a typed boolean property is trusted and the
-  // check the union compiler used to emit disappears.
-  if (schema.to === U) {
-    const toMut = copySchema(schema);
-    toMut.serializer = (input: Val) => {
-      const itemInput = B_scope(input);
-      itemInput.io = false;
-      itemInput.s = unknown;
-      itemInput.e = schema;
-      return parse(itemInput);
-    };
-    mut.to = toMut;
-  } else {
-    mut.to = schema;
-  }
-  try {
-    (getOp(0, 2, unknown, item) as (input: unknown) => unknown)(or);
-  } catch (exn) {
-    const error = getOrRethrow(exn);
-    panic(
-      `Invalid default for ${inputExpression(mut)}: ${
-        (error as unknown as { message: string })["message"]
-      }`
-    );
-  }
-  try {
-    mut.default = (getOp(0, 1, reverse(schema)) as (input: unknown) => unknown)(or);
-  } catch (_exn) {}
+  // optional), and its reverse step `T -> T | undefined` is the identity. A
+  // link's reverse builder is its TARGET's serializer, as `codecTo` places it,
+  // so it goes on a copy of the item: encode is the item's own reverse, trusted
+  // the way `s.field` trusts it (#452).
+  const toMut = copySchema(schema);
+  toMut.serializer = (input: Val) => {
+    const output = B_refine(input, U, U, input.e.to);
+    output.io = true;
+    return output;
+  };
+  mut.to = toMut;
+  setDefault(mut, schema, or);
 
   const parseAs = copySchema(schema);
   parseAs.expression = () => inputExpression(mut);

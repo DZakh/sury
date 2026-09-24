@@ -426,9 +426,12 @@ test("decode and encode run the two directions of the same schema", () => {
   expect(S.decodeAsResult(strToNum, "1")).toEqual({ success: true, value: 1, error: undefined });
   expect(S.encodeAsResult(strToNum)(1)).toEqual({ success: true, value: "1", error: undefined });
 
-  // Only the first schema is reversed, so a chain after it reads forward.
-  expect(S.encodeOrThrow(strToNum, S.jsonString, 1)).toBe(`"1"`);
-  expect(S.decodeOrThrow(S.reverse(strToNum), S.jsonString, 1)).toBe(`"1"`);
+  // Only the first schema is reversed, so a chain after it reads forward -
+  // and a plain string into a JSON string is the pair that has to say which
+  // way (CONTENT_CODEC_SPEC.md), in the operation form too.
+  expect(() => S.encodeOrThrow(strToNum, S.jsonString, 1)).toThrow("Ambiguous string -> JSON string");
+  expect(S.encodeOrThrow(strToNum, S.string.with(S.to, S.jsonString, "pack"), 1)).toBe(`"1"`);
+  expect(S.decodeOrThrow(S.reverse(strToNum), S.string.with(S.to, S.jsonString, "pack"), 1)).toBe(`"1"`);
 });
 
 test("make validates and hands back the value it was given", () => {

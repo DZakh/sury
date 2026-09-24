@@ -18,7 +18,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{i instanceof e[6]||e[7](i);let v0=e[0](i),v1=v0.get("n"),v3=v0.get("s");if(v1){typeof v1==="string"||e[1](v1);let v2=+v1;v2==v2&&(v2||v1.trim())||e[2](v1);v1=v2;}else{v1=5;}if(v3){typeof v3==="string"||e[4](v3);v3.length>0||e[3](v3);}else{"d".length>0||e[5]("d");v3="d";}return {n:v1,s:v3}}catch(v4){e[8](v4)}}
+    expression: i=>{try{i instanceof e[5]||e[6](i);let v0=e[0](i),v1=v0.get("n"),v3=v0.get("s");if(v1){typeof v1==="string"||e[1](v1);let v2=+v1;v2==v2&&(v2||v1.trim())||e[2](v1);v1=v2;}else{v1=5;}if(v3){typeof v3==="string"||e[4](v3);v3.length>0||e[3](v3);}else{v3="d";}return {n:v1,s:v3}}catch(v4){e[7](v4)}}
     examples:
       absent-is-default:
         input: new FormData()
@@ -27,7 +27,7 @@ operations:
         input: ((f) => (f.append("n", ""), f.append("s", ""), f))(new FormData())
         output: '{ n: 5, s: "d" }'
   decode:
-    expression: i=>{try{let v0=e[0](i),v1=v0.get("n"),v3=v0.get("s");if(v1){typeof v1==="string"||e[1](v1);let v2=+v1;v2==v2&&(v2||v1.trim())||e[2](v1);v1=v2;}else{v1=5;}if(v3){typeof v3==="string"||e[4](v3);v3.length>0||e[3](v3);}else{"d".length>0||e[5]("d");v3="d";}return {n:v1,s:v3}}catch(v4){e[6](v4)}}
+    expression: i=>{try{let v0=e[0](i),v1=v0.get("n"),v3=v0.get("s");if(v1){typeof v1==="string"||e[1](v1);let v2=+v1;v2==v2&&(v2||v1.trim())||e[2](v1);v1=v2;}else{v1=5;}if(v3){typeof v3==="string"||e[4](v3);v3.length>0||e[3](v3);}else{v3="d";}return {n:v1,s:v3}}catch(v4){e[5](v4)}}
     examples:
       absent-is-default:
         input: new FormData()

@@ -21,22 +21,22 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="string"||e[1](i);let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](v0);return v0}catch(v1){e[2](v1)}}
+    expression: i=>{try{typeof i==="string"||e[1](i);let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](i);return v0}catch(v1){e[2](v1)}}
     examples:
       valid:
         input: '"2024-01-01T00:00:00.000Z"'
         output: new Date("2024-01-01T00:00:00.000Z")
       padded:
         input: '" 2024-01-01T00:00:00.000Z "'
-        error: Expected Date, received invalid Date
+        error: Expected Date, received " 2024-01-01T00:00:00.000Z "
       not-a-date-text:
         input: '"nope"'
-        error: Expected Date, received invalid Date
+        error: Expected Date, received "nope"
       not-a-string:
         input: "0"
         error: Expected string, received 0
   decode:
-    expression: i=>{try{let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](v0);return v0}catch(v1){e[1](v1)}}
+    expression: i=>{try{let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](i);return v0}catch(v1){e[1](v1)}}
     examples:
       valid:
         input: '"2024-01-01T00:00:00.000Z"'

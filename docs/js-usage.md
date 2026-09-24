@@ -704,6 +704,16 @@ Conceptually, this is how **Sury** processes default values:
 1. If the input is `undefined`, the default value is returned
 2. Otherwise, the data is parsed using the base schema
 
+The default is what parsing returns, so it is written in the schema's output shape, even when the schema transforms:
+
+```ts
+const item = S.object((s) => ({ kind: "a", value: s.field("v", S.string) }));
+const itemsSchema = S.optional(S.array(item), [{ kind: "a", value: "x" }]);
+
+S.parseOrThrow(itemsSchema, undefined); // => [{ kind: "a", value: "x" }]
+S.optional(S.array(item), [{ v: "x" }]); // throws: Invalid default
+```
+
 ## Nullables
 
 Similarly, you can create nullable types with `S.nullable`.
@@ -1730,6 +1740,20 @@ S.uint8Array.with(S.to, S.jsonString, "unpack");
 ```ts
 S.uint8Array.with(S.to, S.jsonString, "pack");
 // decode pack, encode unpack
+```
+
+### The string is JSON text
+
+```ts
+S.string.with(S.to, userSchema, "unpack");
+// the text is read as userSchema
+```
+
+### The JSON string holds the string
+
+```ts
+S.string.with(S.to, S.jsonString, "pack");
+// "hi" is stored as '"hi"'
 ```
 
 ### If you omit pack or unpack

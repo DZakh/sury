@@ -349,22 +349,16 @@ case the harness *should* have caught or guided better - a missing check, a weak
 error message, a strictness gap that let a bad spec through - add a bullet here
 instead of silently working around it.
 
-- `structurallyEqual`, the oracle `isEqual*` is checked against, takes every
-  operation to write a declared-optional property whether or not it is set, so
-  an absent key and an `undefined` one never meet in a pair. A trusted `decode`
-  that hands its input back as it came breaks that: `{ next: undefined }` from
-  `parse` and `{}` from `decode` are one value to the schema and two to the
-  oracle, and the finding blames `isEqual`. `recursive-nested-recursive` spells
-  the key out in its decode example to get past it. The oracle could treat a
-  key whose value is `undefined` as absent when the other side lacks it.
-- A spec has no way to record a schema that throws while it is being *built*.
-  `creationError` covers a throw from compiling an operation, but `--ts did not
-  evaluate` is the end of the road for a schema whose construction throws, and
-  a construction that throws on purpose is a contract like any other:
+- `ts.constructionError` records a schema that throws while it is built, but
+  such a spec still has to carry `ts.input`, `ts.output`, `instantiations`,
+  `jsonSchema` and the three operations, none of which exists for a schema that
+  never constructs - and `spec new` refuses the schema outright. A construction
+  that throws on purpose is a contract like any other:
   `S.recursive("N", (n) => S.schema({ kid: S.optional(n, x) }))` is refused
-  there, because the default would be read as `N` and need a default of its
-  own. Rules like that are left with nowhere to be pinned but a test. A
-  `constructionError` beside `creationError` would hold them.
+  there, and `"unpack"` on a source arm with no text is refused by `S.to`.
+  Making those dimensions optional when `constructionError` is set would let
+  every such rule live in a spec; until then they are pinned by tests
+  (`tests/content_test.ts` holds the `S.to` ones).
 
 - A spec records what an operation does, never what compiling it leaves behind
   on a schema that is not the subject. The parse loop used to adopt the first

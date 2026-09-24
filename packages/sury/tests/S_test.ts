@@ -199,9 +199,9 @@ test("A reading joins the link key; a coder opts out", (t) => {
 
   // `S.trim` reshapes its own result after building it, so it stays unshared
   // for a second reason - and the content marker it stamps onto its tail must
-  // not reach the shared `string` singleton. `content` is internal, hence the cast.
+  // not reach the shared `string` singleton. The kind bits are internal, hence the cast.
   t.expect(S.base64.with(S.trim)).not.toBe(S.base64.with(S.trim));
-  t.expect((S.string as unknown as { content?: unknown }).content).toBe(undefined);
+  t.expect(((S.string as unknown as { flags?: number }).flags ?? 0) & 3).toBe(0);
 });
 
 test("The link cache lands on the argument that dies first", (t) => {
@@ -2406,7 +2406,10 @@ test("Compile types", async (t) => {
   t.expect(fn6("hello")).toEqual("hello");
   t.expect(fn6(undefined)).toEqual(null);
 
-  const fn7 = S.encodeOrThrow(schema, S.jsonString);
+  // A plain string into a JSON string has to say which way
+  // (CONTENT_CODEC_SPEC.md), in the operation form too.
+  t.expect(() => S.encodeOrThrow(schema, S.jsonString)).toThrow("Ambiguous string -> JSON string");
+  const fn7 = S.encodeOrThrow(schema, S.nullable(S.string).with(S.to, S.jsonString, "pack"));
   expectTypeOf(fn7).toEqualTypeOf<(input: string | undefined) => string>();
   t.expect(fn7("hello")).toEqual(`"hello"`);
   t.expect(fn7(undefined)).toEqual("null");
