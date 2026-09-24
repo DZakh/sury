@@ -121,6 +121,6 @@ test("Jsonable optional field no longer runs a redundant deep JSON validation", 
   t->U.assertCompiledCode(
     ~schema=outerSchema,
     ~op=#EncodeToJson,
-    `i=>{try{let v0=i.a;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=v0.s;(typeof v1==="string"||v1===void 0)||e[0](v1);let v2={};if(v1!==void 0){v2.s=v1}v0=v2;break}if(v0===void 0)break;e[1](v0)}let v3={};if(v0!==void 0){v3.a=v0}return v3}catch(v4){e[2](v4)}}`,
+    `i=>{try{let v0=i.a;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v2=v0.s;let v1={};if(v2!==void 0){v1.s=v2}v0=v1;break}if(v0===void 0)break;e[0](v0)}let v3={};if(v0!==void 0){v3.a=v0}return v3}catch(v4){e[1](v4)}}`,
   )
 })

@@ -50,6 +50,9 @@ operations:
       int64-key:
         input: new Uint8Array([18, 6, 8, 5, 18, 2, 10, 0])
         output: '{ counts: {}, byId: { "5": { name: "" } } }'
+      error-inside-entry-names-the-map:
+        input: new Uint8Array([18, 3, 8, 128, 128])
+        error: truncated protobuf message at byId (field 2, wire type 2)
       duplicate-key-last-wins:
         input: new Uint8Array([10, 5, 10, 1, 97, 16, 1, 10, 5, 10, 1, 97, 16, 2])
         output: "{ counts: { a: 2 }, byId: {} }"
