@@ -34,6 +34,7 @@ import {
   nullTag,
   numberTag,
   objectTag,
+  refTag,
   panic,
   type Path,
   setHas,
@@ -678,7 +679,8 @@ const unionAnalyze = (
   sourceTag: number,
   variants: Internal[],
   source: Internal,
-  nan: number
+  nan: number,
+  defs: Record<string, Internal> | undefined
 ): UnionMember[] => {
   const out: UnionMember[] = [];
   const unknownSource = sourceTag & 1;
@@ -693,8 +695,17 @@ const unionAnalyze = (
   const numberish = tagFlags[numberTag]! | 2048;
   for (let i = 0; i < variants.length; i++) {
     const s = variants[i]!;
-    const tag = tagFlags[s.type]!;
-    const inputMask = unionMask(s, 1, nan);
+    // A recursive member is dispatched as the definition its ref names, where
+    // the operation can resolve one to a concrete type, and claims what a union
+    // definition's arms accept (`S.json` never takes `undefined`). An opaque
+    // member claims every type, so `S.optional(self)` tried the recursive call
+    // on `undefined` and caught its throw at every leaf of a tree. The case
+    // still calls through the ref, so the definition compiles once.
+    const def = s.type === refTag ? s.definition || unionRefDef(s) || defs?.[s["$ref"]!.slice(8)] : U;
+    const defTag = def === U ? 0 : tagFlags[def.type]!;
+    const view = def !== U && !(defTag & (1 | 256 | 512)) ? def : s;
+    const tag = tagFlags[view.type]!;
+    const inputMask = unionMask(defTag & 256 ? def! : view, 1, nan);
     const d = unionDiscriminator(s);
     const same = unionRuntimeSame(source, s);
     const discriminatorDisjoint =
@@ -772,8 +783,8 @@ const unionAnalyze = (
             : 2,
       // An env var is `string | undefined`, so it never shares a string
       // group's `typeof` dispatch.
-      k: tag & 8192 ? s.class : s.format === "env" ? s.format : s.type,
-      n: unionNarrowSchema(s),
+      k: tag & 8192 ? view.class : view.format === "env" ? view.format : view.type,
+      n: unionNarrowSchema(view),
       r: tag & (64 | 8192)
         ? 64 | 8192
         : tag & numberish
@@ -949,6 +960,21 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
     }
   }
 
+  // A ref to a union has no narrow to guard its case, so once no later group
+  // shares a type with it, it stops falling through and would shadow them all.
+  // It runs after the groups it shares no type with instead - order between
+  // disjoint groups is unobservable - and before the first one it does share
+  // a type with. It still falls, into that group or the union's own failure,
+  // so a value it refuses is reported against the whole union.
+  for (let i = plan.length; i--; ) {
+    const group = plan[i]!;
+    if (group.a[1] || group.a[0]!.n.type !== refTag || group.m === ~0) continue;
+    group.f |= 8 | 2;
+    let to = i;
+    while (plan[to + 1] && !(plan[to + 1]!.m & group.m)) to++;
+    plan.splice(to, 0, ...plan.splice(i, 1));
+  }
+
   const later: (UnionOverlapSummary | undefined)[] = [];
   let laterMask = 0;
   let laterBroad = 0;
@@ -993,10 +1019,13 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
         }
       }
     }
+    // The narrow's type, not the member's: a recursive member the dispatch
+    // resolved to its definition's type is no longer a boundary to it, and
+    // anything later that could take its value already overlaps above.
     if (
       overlaps ||
       (laterMask &&
-        (tagFlags[head.s.type]! & (1 | 256 | 512 | 4096 | 32768)) &&
+        (tagFlags[head.n.type]! & (1 | 256 | 512 | 4096 | 32768)) &&
         (head.s.to !== U || head.s.parser !== U))
     ) {
       group.f |= 8 | 2;
@@ -1099,7 +1128,20 @@ const unionEmit = (
     // from. Only when the source still is the group narrow: a typed source
     // passes through it unchanged, and an object group may have restored the
     // source's own variant (below) - both stay.
-    if (source.s === target.e) caseInput.s = member.n;
+    // From a trusted source, a member no other one shares a type with is
+    // proved by the group's narrow, so it parses from itself: a `decode` stays
+    // trusted below it and runs only its refinements. Not a member dispatched
+    // without a narrow, whose own checks are the dispatch, nor a literal, whose
+    // value a `decode` checks even standing alone.
+    const sole =
+      trustedSelf &&
+      !isLiteral(member.s) &&
+      plan.every((group) => group.a.every((m) => m === member || !(m.m & member.m)));
+    // A recursive member parses from what the union was handed, never from a
+    // narrow: its compiled definition is memoized per source schema, and a
+    // fresh narrow per case would compile it anew at every level, forever.
+    if (member.s.type === refTag && member.n.type !== refTag) caseInput.s = sole ? member.s : input.s;
+    else if (source.s === target.e) caseInput.s = sole && source !== input ? member.s : member.n;
     // Trusted source + a field discriminant to dispatch on: the case converts
     // from its own variant instead of re-validating from unknown - what makes
     // `decode` skip member validation the way a typed object does. Restricted
@@ -1451,7 +1493,7 @@ export const unionDecoder: Builder = (input: Val) => {
     input,
     self,
     expected,
-    unionPlan(unionAnalyze(unionMask(source, 2, nan), flags, sourceTag, variants, source, nan)),
+    unionPlan(unionAnalyze(unionMask(source, 2, nan), flags, sourceTag, variants, source, nan, input.g.d)),
     toPerCase,
     trustedSelf
   );

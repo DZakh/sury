@@ -219,6 +219,14 @@ already compares for itself goes to `isEqual*` too, and a disagreement with its
 own oracle is a finding. So the whole spec corpus is the comparator's test
 suite, and neither side is the one being trusted.
 
+## Changing the protobuf codec
+
+`pnpm protobuf:compliance` and `pnpm protobuf:conformance` hold the cases
+someone wrote down. `pnpm protobuf:fuzz` generates message graphs and mutated
+bytes and compares Sury to protobufjs and protobuf-es; a case it turns up
+becomes a spec, and a disagreement that is the other library's goes into its
+`KNOWN` list only once Google's own parser has sided with Sury on the bytes.
+
 ## Changing the form codec
 
 A field's reading depends on its wrapper as much as its type, and a spec covers

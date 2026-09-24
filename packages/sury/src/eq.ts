@@ -539,6 +539,8 @@ const unionExpr = (ctx: Ctx, schema: Internal, a: string, b: string): string => 
     const key = objects.length > 1 ? discriminantOf(objects) : U;
     if (key === U) return abandon();
     if (!templatable(key)) return abandon();
+    // A property read throws on null and undefined, which is why the nullish
+    // split below tests them first on both values.
     const at = inlinedProperty(V, key);
     for (let idx = 0; idx < members.length; idx++) {
       const property = members[idx]!.properties?.[key];

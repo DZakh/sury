@@ -99,7 +99,7 @@ let guideUserSchema = S.schema(s => {
   name: s.matches(S.string->S.protobufField(2)),
   tags: s.matches(S.array(S.string)->S.protobufField(3)),
   home: s.matches(S.option(guideAddressSchema)->S.protobufField(4)),
-  kind: s.matches(S.enum([1, 2])->S.protobufField(5, ~type_=#enum)),
+  kind: s.matches(S.enum([1, 2])->S.protobufField(5)),
 })->S.meta({name: "User"})
 
 test("the guide's message round-trips, hoists and parses from unknown", t => {
@@ -170,12 +170,99 @@ test("the guide's wire error and its S.object warning", t => {
     name: s.matches(S.string->S.protobufField(2)),
     tags: s.matches(S.array(S.string)->S.protobufField(3)),
     home: s.matches(S.option(objectAddress)->S.protobufField(4)),
-    kind: s.matches(S.enum([1, 2])->S.protobufField(5, ~type_=#enum)),
+    kind: s.matches(S.enum([1, 2])->S.protobufField(5)),
   })
   t->Assert.throws(
     () => nested->S.toProtoOrThrow,
     ~expectations={
       message: `[Sury] S.protobuf: field "home" is a message that converts further with S.to, which a nested field can't`,
     },
+  )
+})
+
+type duration = {seconds: bigint, nanos: int}
+type job = {
+  at: Date.t,
+  payload: JSON.t,
+  timeout: duration,
+  retries: option<int>,
+  labels: dict<JSON.t>,
+  mask: array<string>,
+}
+
+let jobSchema = S.schema(s => {
+  at: s.matches(S.date->S.protobufField(1)),
+  payload: s.matches(S.json->S.protobufField(2)),
+  timeout: s.matches(
+    S.schema(s => {seconds: s.matches(S.bigint), nanos: s.matches(S.int)})->S.protobufField(
+      3,
+      ~type_=#"google.protobuf.Duration",
+    ),
+  ),
+  retries: s.matches(S.option(S.int)->S.protobufField(4, ~type_=#"google.protobuf.Int32Value")),
+  labels: s.matches(S.dict(S.json)->S.protobufField(5, ~type_=#"google.protobuf.Struct")),
+  mask: s.matches(S.array(S.string)->S.protobufField(6, ~type_=#"google.protobuf.FieldMask")),
+})->S.meta({name: "Job"})
+
+test("well-known types from ReScript", t => {
+  let value = {
+    at: Date.fromTime(1700000000123.),
+    payload: JSON.Array([JSON.Number(1.), JSON.String("x"), JSON.Null]),
+    timeout: {seconds: 30n, nanos: 500},
+    retries: Some(0),
+    labels: dict{"env": JSON.String("prod")},
+    mask: ["user.name"],
+  }
+  let bytes = value->S.convertOrThrow(~from=jobSchema, ~to=S.protobuf)
+  t->Assert.deepEqual(bytes->S.convertOrThrow(~from=S.protobuf, ~to=jobSchema), value)
+
+  let unset = {...value, retries: None}
+  let bytes = unset->S.convertOrThrow(~from=jobSchema, ~to=S.protobuf)
+  t->Assert.deepEqual(bytes->S.convertOrThrow(~from=S.protobuf, ~to=jobSchema), unset)
+
+  t->Assert.deepEqual(
+    jobSchema->S.toProtoOrThrow,
+    `syntax = "proto3";
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+
+message Job {
+  google.protobuf.Timestamp at = 1;
+  google.protobuf.Value payload = 2;
+  google.protobuf.Duration timeout = 3;
+  optional google.protobuf.Int32Value retries = 4;
+  google.protobuf.Struct labels = 5;
+  google.protobuf.FieldMask mask = 6;
+}
+`,
+  )
+})
+
+type rec category = {name: string, children: array<category>}
+
+let categorySchema = S.recursive("Category", categorySchema =>
+  S.schema(s => {
+    name: s.matches(S.string->S.protobufField(1)),
+    children: s.matches(S.array(categorySchema)->S.protobufField(2)),
+  })
+)
+
+test("the guide's recursive message", t => {
+  let value = {name: "a", children: [{name: "b", children: []}]}
+  let bytes = value->S.convertOrThrow(~from=categorySchema, ~to=S.protobuf)
+  t->Assert.deepEqual(bytes->S.convertOrThrow(~from=S.protobuf, ~to=categorySchema), value)
+  t->Assert.deepEqual(
+    categorySchema->S.toProtoOrThrow,
+    `syntax = "proto3";
+
+message Category {
+  string name = 1;
+  repeated Category children = 2;
+}
+`,
   )
 })
