@@ -63,7 +63,7 @@ const boxes: { v: unknown }[] = [];
 // work at a different speed. One target now carries a whole outcome's examples,
 // so this is a vector: one disagreeing example spoils the batch they share.
 // An `async` target's runner returns a promise, which `time` awaits inside the
-// clock; every other runner returns nothing and is timed exactly as before.
+// clock; every other runner returns nothing.
 type Runner = { run: (n: number) => void | Promise<void>; threw?: boolean[] };
 
 const buildRunner = async (S: any, target: Target): Promise<Runner> => {
@@ -150,7 +150,7 @@ const buildRunner = async (S: any, target: Target): Promise<Runner> => {
 };
 
 // Awaits only a promise a runner actually returned, so a sync batch's timed
-// window is exactly what it was: nothing but the loop between the two reads.
+// window is nothing but the loop between the two reads.
 const time = async (run: Runner["run"], n: number): Promise<number> => {
   const start = process.hrtime.bigint();
   const pending = run(n);

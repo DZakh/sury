@@ -34,9 +34,9 @@ const BATCH_TARGET_NS = 500_000;
 // them: the batch size is calibrated on cold code, and on warm code a batch of
 // a thousand or so awaits is short enough that two identical runners settle
 // into a standing gap of 30% or more against each other - one the minimum
-// can't cancel, because it isn't noise. At 10ms a batch holds tens of
-// thousands of calls, and a control measures within a few percent of itself.
-const ASYNC_BATCH_TARGET_NS = 10_000_000;
+// can't cancel, because it isn't noise. At 6ms a control measures within a
+// few percent of itself; 4ms still settles into the occasional standing gap.
+const ASYNC_BATCH_TARGET_NS = 6_000_000;
 // Half the cores for the screening pass, so processes overlap without every
 // one fighting for a core. A two-core CI runner falls back to serial.
 const SCREEN_JOBS = Math.max(1, Math.floor(cpus().length / 2));
