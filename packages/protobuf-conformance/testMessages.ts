@@ -49,23 +49,13 @@ const enm = (n: number) => f(S.int32, n, "enum");
 
 export const foreignMessage = S.schema({ c: i32(1) });
 
-// The google.protobuf wrappers are ordinary one-field messages on the wire.
-const wrapper = <TIn, TOut>(value: S.Schema<TIn, TOut>, type?: S.ProtobufType) =>
-  S.schema({ value: f(value, 1, type) });
-
-const boolValue = wrapper(S.boolean);
-const int32Value = wrapper(S.int32);
-const int64Value = wrapper(S.bigint);
-const uint32Value = wrapper(S.integer, "uint32");
-const uint64Value = wrapper(S.bigint, "uint64");
-const floatValue = wrapper(S.number, "float");
-const doubleValue = wrapper(S.number);
-const stringValue = wrapper(S.string);
-const bytesValue = wrapper(S.uint8Array);
-
-const duration = S.schema({ seconds: i64(1), nanos: i32(2) });
-const timestamp = S.schema({ seconds: i64(1), nanos: i32(2) });
-const fieldMask = S.schema({ paths: rep(S.string, 1) });
+// The well-known types, each through the `type` that names it: a wrapper is
+// an optional scalar, a Duration or Timestamp the `{ seconds, nanos }` message
+// itself (a Date would drop nanos), a Struct and a ListValue JSON.
+type WellKnown = S.ProtobufWellKnownType;
+const wk = <TIn, TOut>(schema: S.Schema<TIn, TOut>, number: number, type: WellKnown) =>
+  schema.with(S.protobufField, { number, type });
+const secondsNanos = S.schema({ seconds: S.bigint, nanos: S.int32 });
 // Any is two scalars on the wire; its payload stays opaque bytes, which is all
 // the binary suite needs.
 const any = S.schema({ type_url: str(1), value: byt(2) });
@@ -194,39 +184,41 @@ export const testAllTypesProto3: S.Schema<unknown, unknown> = S.recursive(
       oneof_enum: S.optional(S.int32).with(S.protobufField, { number: 119, type: "enum", oneof: "oneof_field" }),
       oneof_null_value: S.optional(S.int32).with(S.protobufField, { number: 120, type: "enum", oneof: "oneof_field" }),
 
-      optional_bool_wrapper: S.optional(boolValue).with(S.protobufField, 201),
-      optional_int32_wrapper: S.optional(int32Value).with(S.protobufField, 202),
-      optional_int64_wrapper: S.optional(int64Value).with(S.protobufField, 203),
-      optional_uint32_wrapper: S.optional(uint32Value).with(S.protobufField, 204),
-      optional_uint64_wrapper: S.optional(uint64Value).with(S.protobufField, 205),
-      optional_float_wrapper: S.optional(floatValue).with(S.protobufField, 206),
-      optional_double_wrapper: S.optional(doubleValue).with(S.protobufField, 207),
-      optional_string_wrapper: S.optional(stringValue).with(S.protobufField, 208),
-      optional_bytes_wrapper: S.optional(bytesValue).with(S.protobufField, 209),
+      optional_bool_wrapper: wk(S.optional(S.boolean), 201, "google.protobuf.BoolValue"),
+      optional_int32_wrapper: wk(S.optional(S.int32), 202, "google.protobuf.Int32Value"),
+      optional_int64_wrapper: wk(S.optional(S.bigint), 203, "google.protobuf.Int64Value"),
+      optional_uint32_wrapper: wk(S.optional(S.integer), 204, "google.protobuf.UInt32Value"),
+      optional_uint64_wrapper: wk(S.optional(S.bigint), 205, "google.protobuf.UInt64Value"),
+      optional_float_wrapper: wk(S.optional(S.number), 206, "google.protobuf.FloatValue"),
+      optional_double_wrapper: wk(S.optional(S.number), 207, "google.protobuf.DoubleValue"),
+      optional_string_wrapper: wk(S.optional(S.string), 208, "google.protobuf.StringValue"),
+      optional_bytes_wrapper: wk(S.optional(S.uint8Array), 209, "google.protobuf.BytesValue"),
 
-      repeated_bool_wrapper: rep(boolValue, 211),
-      repeated_int32_wrapper: rep(int32Value, 212),
-      repeated_int64_wrapper: rep(int64Value, 213),
-      repeated_uint32_wrapper: rep(uint32Value, 214),
-      repeated_uint64_wrapper: rep(uint64Value, 215),
-      repeated_float_wrapper: rep(floatValue, 216),
-      repeated_double_wrapper: rep(doubleValue, 217),
-      repeated_string_wrapper: rep(stringValue, 218),
-      repeated_bytes_wrapper: rep(bytesValue, 219),
+      repeated_bool_wrapper: wk(S.array(S.boolean), 211, "google.protobuf.BoolValue"),
+      repeated_int32_wrapper: wk(S.array(S.int32), 212, "google.protobuf.Int32Value"),
+      repeated_int64_wrapper: wk(S.array(S.bigint), 213, "google.protobuf.Int64Value"),
+      repeated_uint32_wrapper: wk(S.array(S.integer), 214, "google.protobuf.UInt32Value"),
+      repeated_uint64_wrapper: wk(S.array(S.bigint), 215, "google.protobuf.UInt64Value"),
+      repeated_float_wrapper: wk(S.array(S.number), 216, "google.protobuf.FloatValue"),
+      repeated_double_wrapper: wk(S.array(S.number), 217, "google.protobuf.DoubleValue"),
+      repeated_string_wrapper: wk(S.array(S.string), 218, "google.protobuf.StringValue"),
+      repeated_bytes_wrapper: wk(S.array(S.uint8Array), 219, "google.protobuf.BytesValue"),
 
-      optional_duration: S.optional(duration).with(S.protobufField, 301),
-      optional_timestamp: S.optional(timestamp).with(S.protobufField, 302),
-      optional_field_mask: S.optional(fieldMask).with(S.protobufField, 303),
-      // optional_struct = 304, optional_value = 306, repeated_struct = 324,
-      // repeated_value = 316 and repeated_list_value = 317 are Struct/Value/
-      // ListValue, which are mutually recursive. Undeclared; see the failure list.
+      optional_duration: wk(S.optional(secondsNanos), 301, "google.protobuf.Duration"),
+      optional_timestamp: wk(S.optional(secondsNanos), 302, "google.protobuf.Timestamp"),
+      optional_field_mask: wk(S.optional(S.array(S.string)), 303, "google.protobuf.FieldMask"),
+      optional_struct: wk(S.optional(S.record(S.json)), 304, "google.protobuf.Struct"),
+      optional_value: S.optional(S.json).with(S.protobufField, 306),
       optional_any: S.optional(any).with(S.protobufField, 305),
       optional_null_value: enm(307),
 
-      repeated_duration: rep(duration, 311),
-      repeated_timestamp: rep(timestamp, 312),
-      repeated_fieldmask: rep(fieldMask, 313),
+      repeated_duration: wk(S.array(secondsNanos), 311, "google.protobuf.Duration"),
+      repeated_timestamp: wk(S.array(secondsNanos), 312, "google.protobuf.Timestamp"),
+      repeated_fieldmask: wk(S.array(S.array(S.string)), 313, "google.protobuf.FieldMask"),
       repeated_any: rep(any, 315),
+      repeated_value: rep(S.json, 316),
+      repeated_list_value: wk(S.array(S.array(S.json)), 317, "google.protobuf.ListValue"),
+      repeated_struct: wk(S.array(S.record(S.json)), 324, "google.protobuf.Struct"),
 
       fieldname1: i32(401),
       field_name2: i32(402),

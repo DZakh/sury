@@ -51,6 +51,16 @@
 - [URLSearchParams](#urlsearchparams)
 - [Query string](#query-string)
 - [Protocol Buffers](#protocol-buffers)
+  - [Field types](#field-types)
+  - [Optional fields](#optional-fields)
+  - [Lists and maps](#lists-and-maps)
+  - [Oneof](#oneof)
+  - [Recursive messages](#recursive-messages)
+  - [Well-known types](#well-known-types)
+  - [Generating a `.proto`](#generating-a-proto)
+  - [Unknown fields and errors](#unknown-fields-and-errors)
+  - [`ArrayBuffer` output](#arraybuffer-output)
+  - [Performance and compatibility](#performance-and-compatibility)
 - [Content](#content)
 - [Meta](#meta)
 - [Brand](#brand)
@@ -1428,12 +1438,10 @@ S.encodeOrThrow({ q: "hi", page: 2 }, search);
 
 ## Protocol Buffers
 
-`S.protobuf` is the [Protocol Buffers](https://protobuf.dev) binary wire
-format. Give every field of an object schema a field number with
-`S.protobufField`, name `S.protobuf` as the other side of the operation, and
-you have an encoder and a decoder for that message: no `.proto` file, no code
-generation step, and the same schema still validates, infers types and
-converts to JSON Schema.
+`S.protobuf` encodes and decodes the [Protocol Buffers](https://protobuf.dev)
+binary format. Number each field with `S.protobufField` and use `S.protobuf` as
+the other side of the operation. You don't need a `.proto` file or a code
+generation step.
 
 ```ts
 const User = S.schema({
@@ -1451,64 +1459,87 @@ const bytes = encode({ id: 150, name: "Ada", tags: ["ml"] });
 decode(bytes); // { id: 150, name: "Ada", tags: ["ml"] }
 ```
 
-`S.protobuf.with(S.to, User)` is the same codec as a single schema, for when
-you need one value to hand somewhere - a framework that takes a schema, or a
-`parse` that starts from `unknown` and checks the bytes are a `Uint8Array`
-before reading them:
+To get a single schema that parses bytes from `unknown`, use
+`S.protobuf.with(S.to, User)`:
 
 ```ts
 S.parseOrThrow(S.protobuf.with(S.to, User))(body);
 ```
 
-The wire type is inferred from the schema: `S.string` is `string`, `S.boolean`
-is `bool`, `S.uint8Array` is `bytes`, `S.int32` is `int32`, `S.number` is
-`double`, `S.bigint` is `int64`, `S.union([0, 1, 2])` is an `enum`, an object
-schema is a nested `message`, `S.array` is a `repeated` field and `S.record`
-is a `map`. An enum is open, as in proto3: a number the schema doesn't list
-decodes as that number. Pass a descriptor to
-pick any of the fifteen scalar wire types yourself, which also lets the JS
-type differ from the wire type, since Sury converts through the schema:
+### Field types
+
+The schema picks the protobuf type:
+
+| Schema                       | Protobuf type    |
+| ---------------------------- | ---------------- |
+| `S.string`                   | `string`         |
+| `S.boolean`                  | `bool`           |
+| `S.int32`                    | `int32`          |
+| `S.number`                   | `double`         |
+| `S.bigint`                   | `int64`          |
+| `S.uint8Array`               | `bytes`          |
+| `S.union([0, 1, 2])`         | `enum`           |
+| `S.schema({ ... })`          | a nested message |
+| `S.array(T)`                 | `repeated T`     |
+| `S.record(T)`                | `map<string, T>` |
+| `S.date`                     | `google.protobuf.Timestamp` |
+| `S.json`                     | `google.protobuf.Value` |
+
+Pass an object instead of a number to choose another type. The value in your
+schema can differ from the wire type:
 
 ```ts
 S.schema({
-  id: S.string.with(S.protobufField, { number: 1, type: "uint32" }), // "150" ⇄ varint 150
-  delta: S.int32.with(S.protobufField, { number: 2, type: "sint32" }), // zigzag
+  id: S.string.with(S.protobufField, { number: 1, type: "uint32" }), // "150" is sent as 150
+  delta: S.int32.with(S.protobufField, { number: 2, type: "sint32" }),
   hash: S.bigint.with(S.protobufField, { number: 3, type: "fixed64" }),
   ratio: S.number.with(S.protobufField, { number: 4, type: "float" }),
-  level: S.int32.with(S.protobufField, { number: 5, type: "enum" }),
 });
 ```
 
 `type` is one of `double`, `float`, `int32`, `int64`, `uint32`, `uint64`,
 `sint32`, `sint64`, `fixed32`, `fixed64`, `sfixed32`, `sfixed64`, `bool`,
-`string`, `bytes`, `enum` or `message`. 64-bit integers are `bigint`.
+`string`, `bytes`, `enum`, `message`, or one of the
+[well-known types](#well-known-types). 64-bit integers are `bigint`s.
 
-**Presence** follows proto3. A field is written only when it is not its default
-(`0`, `""`, `false`, empty bytes), and an absent field decodes to that default.
-`S.optional` gives a field explicit presence: `0` is written, and an absent
-field stays absent. A required nested message that is absent on the wire
-decodes to its default instance; wrap it in `S.optional` to observe presence.
+### Optional fields
 
-**Repeated** scalars are written packed and read in either form. A
-`packed: false` descriptor writes them expanded, as `[packed=false]` does.
-Repeated messages append, a nested message seen twice merges, and a scalar
-seen twice keeps the last value.
+Proto3 skips a field that holds its default value (`0`, `""`, `false`, empty
+bytes), and decodes a missing field as that default. Wrap a field in
+`S.optional` to tell "unset" from "zero":
 
-**Maps** are `S.record` fields. The key travels as the property name and
-defaults to a `string` key; pick another with `key`. `type` describes the
-value:
+```ts
+const Counter = S.schema({
+  count: S.int32.with(S.protobufField, 1),
+  limit: S.optional(S.int32).with(S.protobufField, 2),
+});
+
+decode(encode({ count: 0 })); // { count: 0 }
+decode(encode({ count: 0, limit: 0 })); // { count: 0, limit: 0 }
+```
+
+A nested message that isn't `S.optional` decodes to its empty value when it's
+missing.
+
+### Lists and maps
+
+`S.array` is a repeated field. `S.record` is a map with `string` keys; set
+`key` to use another key type:
 
 ```ts
 S.schema({
-  counts: S.record(S.int32).with(S.protobufField, 1), // map<string, int32>
-  byId: S.record(User).with(S.protobufField, { number: 2, key: "int64" }), // map<int64, User>
+  scores: S.array(S.int32).with(S.protobufField, 1), // repeated int32
+  counts: S.record(S.int32).with(S.protobufField, 2), // map<string, int32>
+  byId: S.record(User).with(S.protobufField, { number: 3, key: "int64" }), // map<int64, User>
 });
 ```
 
-**Oneofs** are optional fields that share a `oneof` name. At most one is ever
-set: decoding a member clears the others, and encoding a value with two of them
-set is refused rather than written, since a reader would take the second and
-drop the first. A member keeps explicit presence, so its zero value is written:
+Repeated numbers are packed. Set `packed: false` to write one tag per item.
+
+### Oneof
+
+Give optional fields the same `oneof` name. At most one of them can be set, and
+encoding a value with two of them set throws:
 
 ```ts
 S.schema({
@@ -1517,158 +1548,144 @@ S.schema({
 });
 ```
 
-**Recursive messages** are built with [`S.recursive`](#recursive-schemas):
+### Recursive messages
+
+Use [`S.recursive`](#recursive-schemas):
 
 ```ts
-type Descriptor = { name: string; nestedType: Descriptor[] };
+type Category = { name: string; children: Category[] };
 
-const DescriptorProto = S.recursive<Descriptor>("DescriptorProto", (self) =>
+const Category = S.recursive<Category>("Category", (self) =>
   S.schema({
     name: S.string.with(S.protobufField, 1),
-    nestedType: S.array(self).with(S.protobufField, 2),
+    children: S.array(self).with(S.protobufField, 2),
   }),
 );
-
-S.toProtoOrThrow(DescriptorProto);
-// message DescriptorProto {
-//   string name = 1;
-//   repeated DescriptorProto nested_type = 2;
-// }
 ```
 
-**Output memory.** An encoded message is a view into a larger buffer, like a
-Node `Buffer`: `bytes.buffer` is bigger than `bytes.byteLength` and
-`bytes.byteOffset` is not zero. Every consumer of a `Uint8Array` respects the
-view, so this only matters if you reach for `bytes.buffer` yourself. To own the
-memory, to transfer it to a worker or hand an `ArrayBuffer` to an API that
-wants one, put `S.arrayBuffer` on the wire side; the conversion copies the
-message to size:
+### Well-known types
+
+Google's `google.protobuf.*` types are supported. `S.date` and `S.json` pick
+theirs automatically. For the others, set `type`:
 
 ```ts
-const Wire = S.arrayBuffer.with(S.to, S.protobuf);
-
-S.encodeOrThrow(User, S.protobuf.with(S.to, S.arrayBuffer))(user); // ArrayBuffer(12)
-S.decodeOrThrow(Wire, User)(buffer); // { id: 150, name: "Ada", tags: [] }
+const Job = S.schema({
+  at: S.date.with(S.protobufField, 1),
+  payload: S.json.with(S.protobufField, 2),
+  timeout: S.schema({ seconds: S.bigint, nanos: S.int32 }).with(S.protobufField, {
+    number: 3,
+    type: "google.protobuf.Duration",
+  }),
+  retries: S.optional(S.int32).with(S.protobufField, {
+    number: 4,
+    type: "google.protobuf.Int32Value",
+  }),
+});
 ```
 
-**Generating a `.proto`.** `S.toProtoOrThrow` prints the proto3 source for a
-message schema, so a Sury schema can be the source of truth other languages
-build from, and `buf breaking` can guard it in CI. A schema's `name` meta names
-its message; without one the field key does. `description` becomes a comment
-and `deprecated` the option: meta a schema carried before `S.protobufField`
-numbered it belongs to the message or enum it declares, meta set after to the
-field.
+| `type`                          | Schema                                                         |
+| ------------------------------- | -------------------------------------------------------------- |
+| `google.protobuf.Timestamp`     | `S.date`, or `S.schema({ seconds: S.bigint, nanos: S.int32 })` |
+| `google.protobuf.Duration`      | `S.schema({ seconds: S.bigint, nanos: S.int32 })`              |
+| `google.protobuf.Value`         | `S.json`                                                       |
+| `google.protobuf.Struct`        | `S.record(S.json)`                                             |
+| `google.protobuf.ListValue`     | `S.array(S.json)`                                              |
+| `google.protobuf.FieldMask`     | `S.array(S.string)`                                            |
+| `google.protobuf.Empty`         | `S.schema({})`                                                 |
+| `google.protobuf.Int32Value`, `StringValue` and the other wrappers | `S.optional(S.int32)`, `S.optional(S.string)`, ... |
+
+A `Date` holds milliseconds, so use the `{ seconds, nanos }` form when you need
+nanoseconds. Inside `S.array` or `S.record`, a wrapper's item doesn't need
+`S.optional`.
+
+### Generating a `.proto`
+
+`S.toProtoOrThrow` prints the `.proto` file for a message schema, so other
+languages can generate code from it:
 
 ```ts
 const Address = S.schema({
   street: S.string.with(S.protobufField, 1),
 }).with(S.meta, { name: "Address" });
-const User = S.schema({
+
+const Customer = S.schema({
   id: S.int32.with(S.protobufField, 1),
   homeAddress: S.optional(Address).with(S.protobufField, 2),
-  kind: S.union([0, 1, 2]).with(S.protobufField, { number: 3, type: "enum" }),
-}).with(S.meta, { name: "User" });
+  kind: S.union([0, 1, 2]).with(S.protobufField, 3),
+}).with(S.meta, { name: "Customer" });
 
-S.toProtoOrThrow(User, { package: "acme.v1" });
-// syntax = "proto3";
-//
-// package acme.v1;
-//
-// message User {
-//   enum Kind {
-//     KIND_UNSPECIFIED = 0;
-//     KIND_1 = 1;
-//     KIND_2 = 2;
-//   }
-//
-//   int32 id = 1;
-//   optional Address home_address = 2;
-//   Kind kind = 3;
-// }
-//
-// message Address {
-//   string street = 1;
-// }
+S.toProtoOrThrow(Customer, { package: "acme.v1" });
 ```
 
-The zero member prints as `KIND_UNSPECIFIED`, and an enum built from
-literals that lack `0` gets one prepended, since proto3 requires a zero member
-that the schema itself rejects.
+```proto
+syntax = "proto3";
 
-**Why the field names change case.** `homeAddress` prints as `home_address`
-because that is what proto3's style guide asks for and what `buf lint` checks
-by default. It changes nothing about the wire: a field is its number, never its
-name. Every generator turns `home_address` back into the name its own language
-would use, so the property you started from is the property you get back:
-`homeAddress` in TypeScript and in ProtoJSON, `HomeAddress` in Go,
-`home_address` in Python. The one case worth knowing is that an acronym
-flattens, so a `userID` key prints `user_id` and comes back as `userId`. Keys
-that are already snake_case are left alone; a key that is not a plain
-identifier is made into one.
+package acme.v1;
 
-**Unknown fields** are skipped, the way every proto3 reader skips them: a
-field number the schema does not claim is stepped over whatever its wire type
-(varint, 64-bit, length-delimited, group or 32-bit), and so is a *known*
-number arriving under a wire type its field cannot hold. That is what lets a
-sender add a field without breaking you. They are skipped, not kept: decode
-then encode writes back only the fields the schema declares, so a message that
-round-trips through Sury loses whatever it carried that you did not describe.
-Put `S.strict` on the message to reject an unknown field instead of skipping
-it, which is worth having on an internal wire where an unexpected number means
-a version skew you would rather hear about.
+message Customer {
+  enum Kind {
+    KIND_UNSPECIFIED = 0;
+    KIND_1 = 1;
+    KIND_2 = 2;
+  }
 
-Strings must be valid UTF-8. Malformed input, such as a truncated field, a field
-number of zero, an unknown wire type, an unmatched group or a tag wider than
-32 bits, throws an `S.Error` with code `invalid_conversion` and the wire
-problem as its reason; so does a value the wire type can't hold, such as a
-`float` beyond 32-bit range.
+  int32 id = 1;
+  optional Address home_address = 2;
+  Kind kind = 3;
+}
 
-A wire failure names where it hit, the way an object parse error names a
-path: the field it was reading, its number, and the wire type the bytes
-claimed, with each enclosing message in front of it.
+message Address {
+  string street = 1;
+}
+```
+
+- The `name` meta names a message. Without it, the field name does.
+- The `description` meta prints as a comment, and `deprecated` as
+  `[deprecated = true]`.
+- Field names print in snake_case, as the proto3 style guide asks. The wire
+  only uses field numbers, so this changes nothing about the bytes.
+- Well-known types print as imports.
+
+### Unknown fields and errors
+
+Fields your schema doesn't declare are skipped, so a sender can add fields
+without breaking you. They are not kept, so decoding and then encoding drops
+them. Use `S.strict` on the message to throw on them instead.
+
+Bad input throws an `S.Error` that points to the field:
 
 ```ts
 const Account = S.schema({
   id: S.int32.with(S.protobufField, 1),
-  addr: S.optional(S.schema({ street: S.string.with(S.protobufField, 1) })).with(S.protobufField, 2),
+  address: S.optional(Address).with(S.protobufField, 2),
 });
 
 S.decodeOrThrow(S.protobuf, Account)(new Uint8Array([8, 1, 18, 3, 10, 1, 255]));
-// => S.Error: protobuf string is not valid UTF-8 at addr.street (field 1, wire type 2)
+// S.Error: protobuf string is not valid UTF-8 at address.street (field 1, wire type 2)
 ```
 
-A failure with no field to name keeps its own text: a field number the
-message does not declare says so itself, and bytes that are not a tag at all
-were never a field.
+A schema that can't be a message, such as a field without a number or two
+fields with the same number, throws when you create the operation.
 
-A schema that can't be a message, whether a field without a number, two fields
-sharing one or an optional repeated field, is rejected when the operation is
-built, naming the field.
+### `ArrayBuffer` output
 
-#### Speed and correctness
+Encoded bytes are a view into a shared buffer, like a Node `Buffer`. To get an
+`ArrayBuffer` of its own, for example to transfer it to a worker, convert
+through `S.arrayBuffer`:
 
-[Benchmarks: Protobuf](https://github.com/DZakh/sury/blob/main/docs/benchmarks/protobuf.md)
-is regenerated on every push to main and carries the numbers: bundle size and
-encode/decode timings against protobuf.js, protobuf-es and pbf, a feature table
-where every cell is a call actually run against that library, and the
-conformance scores. The short version: against protobuf-es, encoding runs
-3.2-12.9x and decoding 1.8-10.5x, the widest gaps on the smallest messages; and
-on a Mapbox vector tile pbf is the one to beat, because a tile is almost
-entirely packed varints and that is what pbf is built for.
+```ts
+S.encodeOrThrow(User, S.protobuf.with(S.to, S.arrayBuffer))(user); // ArrayBuffer
+S.decodeOrThrow(S.arrayBuffer.with(S.to, S.protobuf), User)(buffer);
+```
 
-`S.protobuf` passes **695 of the 698 binary proto3 cases** of Google's own
-`conformance_test_runner`. The three are named with their reason in
-[`failing_tests.txt`](https://github.com/DZakh/sury/tree/main/packages/protobuf-conformance/failing_tests.txt):
-two need unknown fields to survive a round trip, one needs two map entries
-sharing a key to merge their messages rather than the later winning.
-ProtoJSON, text format and the proto2 message types are not attempted.
+### Performance and compatibility
 
-Beside it, a corpus of our own in
-[`packages/protobuf-test-suite`](https://github.com/DZakh/sury/tree/main/packages/protobuf-test-suite),
-where every case round-trips against two independent implementations:
-protobuf.js, and protobuf-es over both the reference `.proto` and the one
-`S.toProtoOrThrow` prints. Not covered by either: extensions, proto2 groups as
-fields, and retaining unknown fields through a round trip (see above).
+`S.protobuf` passes 696 of the 698 binary proto3 cases of Google's conformance
+suite. The two it fails need unknown fields kept through a round trip. JSON and
+text formats, proto2 and extensions aren't supported.
+
+See [Benchmarks: Protobuf](https://github.com/DZakh/sury/blob/main/docs/benchmarks/protobuf.md)
+for bundle size and speed against protobuf.js, protobuf-es and pbf.
 
 ## Content
 
