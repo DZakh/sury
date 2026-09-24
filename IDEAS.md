@@ -403,11 +403,14 @@ is set. What is left on the table:
   outcomes no longer pay. Deciding it from the members' own async-ness (a
   schema walk like `unionTraits`) before compiling them would let the common
   all-sync union jump in async operations too.
-- **Union compiles are 6-14% slower** (`spec check --perf=only --against
-  16de5d3`). `enter`/`leave` build a closure and a label holder per case, and
-  `B_jump` a record thunk per failed check. A per-union label counter and a
-  record thunk built only once an exit actually takes it would win most of it
-  back.
+- **Compiles are 3-12% slower** (`spec check --perf=only --against
+  16de5d3`), mostly unions, and a few plain refined schemas at 3-5%
+  (`integer-gte`, `bigint-lt` encode/decode). `enter`/`leave` build a closure
+  and a label holder per union case, `settle` snapshots the union's state per
+  case, and every check now goes through `B_guard` -> `B_jump` even where no
+  exit is set, and `B_jump` builds a record thunk plus its unbuilt form per
+  failed check where one is. Asking the exit whether it wants the record before
+  building it, and a per-union label counter, would win most of it back.
 - **`B_detached` is a convention, not a guarantee.** Every builder that emits
   code into a callback (a `.then`, `Promise.all(...).then`, an async dispatch)
   has to run both the parse and the merge of that code with the exit cleared,
