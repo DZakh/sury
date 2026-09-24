@@ -35,9 +35,9 @@ const OP_BUILDER = {
   assert: ["assertInputOrThrow"],
   is: ["isInput", "is"],
 } as const;
-// An async schema compiles only through these, so a `create+compile` target for
-// one has to name the builder its spec's `isAsync` declares. (There are no
-// async `run` targets - see deriveTargets.)
+// An async schema compiles only through these, so every target for one - its
+// `create+compile` and its awaited runs alike - names the builder its spec's
+// `isAsync` declares.
 const ASYNC_OP_BUILDER = {
   parse: ["parseAsPromiseOrReject", "asyncParser"],
   decode: ["decodeAsPromiseOrReject", "asyncDecoder"],
@@ -62,10 +62,11 @@ const boxes: { v: unknown }[] = [];
 // returning a value and raising a `SuryError` are different work, not the same
 // work at a different speed. One target now carries a whole outcome's examples,
 // so this is a vector: one disagreeing example spoils the batch they share.
-const buildRunner = (
-  S: any,
-  target: Target,
-): { run: (n: number) => void; threw?: boolean[] } => {
+// An `async` target's runner returns a promise, which `time` awaits inside the
+// clock; every other runner returns nothing.
+type Runner = { run: (n: number) => void | Promise<void>; threw?: boolean[] };
+
+const buildRunner = async (S: any, target: Target): Promise<Runner> => {
   const box: { v: unknown } = { v: undefined };
   boxes.push(box);
 
@@ -109,32 +110,51 @@ const buildRunner = (
   const op = builder(factory(S));
   const inputs = target.inputSrcs!.map((src) => new Function(`return ${src};`)());
   // Per input, so a side that changes its mind about one example is reported
-  // as that example rather than as a timing difference.
-  const threw = inputs.map((input) => {
+  // as that example rather than as a timing difference. An async operation
+  // answers with a promise either way, so for one it is the rejection that
+  // counts, and it has to be awaited to be seen.
+  const threw: boolean[] = [];
+  for (const input of inputs) {
     try {
-      op(input);
-      return false;
+      const answer = op(input);
+      if (target.isAsync) await answer;
+      threw.push(false);
     } catch (_) {
-      return true;
+      threw.push(true);
     }
-  });
+  }
   // The batch iterates every example, which is why one target covers the whole
   // outcome. Indexed rather than `for…of`, so it times the operation and not an
   // iterator protocol - and a single-example outcome (half of them) keeps the
   // flat loop it had before outcomes were aggregated, so the majority of
   // targets measure exactly what they measured before.
-  const call = target.throws ? "try { box.v = op(INPUT); } catch (e) { box.v = e; }" : "box.v = op(INPUT);";
+  //
+  // An async operation is awaited call by call, the way a consumer's `await`
+  // meets it: starting n promises and reading the clock would time only their
+  // creation, with every resolution landing in microtasks after the clock.
+  const awaited = target.isAsync ? "await " : "";
+  const call = target.throws
+    ? `try { box.v = ${awaited}op(INPUT); } catch (e) { box.v = e; }`
+    : `box.v = ${awaited}op(INPUT);`;
   const body =
     inputs.length === 1
       ? `for (let i = 0; i < n; i++) { ${call.replace("INPUT", "inputs[0]")} }`
       : `for (let i = 0; i < n; i++) for (let j = 0; j < inputs.length; j++) { ${call.replace("INPUT", "inputs[j]")} }`;
-  const run = new Function("op", "inputs", "box", `return (n) => { ${body} };`)(op, inputs, box);
+  const run = new Function(
+    "op",
+    "inputs",
+    "box",
+    `return ${target.isAsync ? "async " : ""}(n) => { ${body} };`,
+  )(op, inputs, box);
   return { run, threw };
 };
 
-const time = (run: (n: number) => void, n: number): number => {
+// Awaits only a promise a runner actually returned, so a sync batch's timed
+// window is nothing but the loop between the two reads.
+const time = async (run: Runner["run"], n: number): Promise<number> => {
   const start = process.hrtime.bigint();
-  run(n);
+  const pending = run(n);
+  if (pending) await pending;
   return Number(process.hrtime.bigint() - start);
 };
 
@@ -143,21 +163,26 @@ const time = (run: (n: number) => void, n: number): number => {
 // overhead under 0.1%. (Timing each iteration individually, which is what
 // tinybench does, would measure the clock ~10x more than a `S.string` parse.)
 const MAX_BATCH = 1 << 24;
-const calibrate = (run: (n: number) => void, targetNs: number): number => {
+const calibrate = async (run: Runner["run"], targetNs: number): Promise<number> => {
   let n = 1;
   for (;;) {
-    const elapsed = time(run, n);
+    const elapsed = await time(run, n);
     if (elapsed >= targetNs || n >= MAX_BATCH) return n;
     const scale = elapsed > 0 ? Math.max(2, Math.min(64, Math.ceil((targetNs / elapsed) * 1.2))) : 64;
     n = Math.min(MAX_BATCH, n * scale);
   }
 };
 
-const measure = (baseline: any, current: any, payload: ChildPayload, target: Target): ChildResult => {
-  let a: { run: (n: number) => void; threw?: boolean[] };
-  let b: { run: (n: number) => void; threw?: boolean[] };
+const measure = async (
+  baseline: any,
+  current: any,
+  payload: ChildPayload,
+  target: Target,
+): Promise<ChildResult> => {
+  let a: Runner;
+  let b: Runner;
   try {
-    a = buildRunner(baseline, target);
+    a = await buildRunner(baseline, target);
   } catch (e) {
     // The baseline predates whatever this target needs - a new schema, a new
     // API. Reported as "new", not as a failure.
@@ -166,7 +191,7 @@ const measure = (baseline: any, current: any, payload: ChildPayload, target: Tar
   try {
     // A control measures the baseline against itself, so its reported delta is
     // pure noise - that's how a run states its own confidence.
-    b = buildRunner(target.control ? baseline : current, target);
+    b = await buildRunner(target.control ? baseline : current, target);
   } catch (e) {
     return { name: target.name, error: (e as Error).message };
   }
@@ -188,14 +213,15 @@ const measure = (baseline: any, current: any, payload: ChildPayload, target: Tar
       };
   }
 
-  const n = Math.max(calibrate(a.run, payload.batchTargetNs), calibrate(b.run, payload.batchTargetNs));
+  const batchNs = target.phase === "async" ? payload.asyncBatchTargetNs : payload.batchTargetNs;
+  const n = Math.max(await calibrate(a.run, batchNs), await calibrate(b.run, batchNs));
   // Long enough for both sides to reach their final tier. A side still being
   // re-optimised when measurement starts stays slow for the whole target, which
   // no amount of interleaving can cancel - it is not drift, it is one side
   // running different machine code than it will a moment later.
   for (let i = 0; i < payload.warmupBatches; i++) {
-    a.run(n);
-    b.run(n);
+    await a.run(n);
+    await b.run(n);
   }
 
   // Each block reduces to the ratio of its two FASTEST batches. Scheduler
@@ -220,14 +246,14 @@ const measure = (baseline: any, current: any, payload: ChildPayload, target: Tar
     let minA = Infinity;
     let minB = Infinity;
     for (let round = 0; round < payload.roundsPerBlock; round++) {
-      const a1 = time(a.run, n);
-      const b1 = time(b.run, n);
-      const b2 = time(b.run, n);
-      const a2 = time(a.run, n);
-      const b3 = time(b.run, n);
-      const a3 = time(a.run, n);
-      const a4 = time(a.run, n);
-      const b4 = time(b.run, n);
+      const a1 = await time(a.run, n);
+      const b1 = await time(b.run, n);
+      const b2 = await time(b.run, n);
+      const a2 = await time(a.run, n);
+      const b3 = await time(b.run, n);
+      const a3 = await time(a.run, n);
+      const a4 = await time(a.run, n);
+      const b4 = await time(b.run, n);
       minA = Math.min(minA, a1, a2, a3, a4);
       minB = Math.min(minB, b1, b2, b3, b4);
     }
@@ -252,7 +278,7 @@ const main = async (): Promise<void> => {
   const results: ChildResult[] = [];
   for (const target of payload.targets) {
     try {
-      results.push(measure(baseline, current, payload, target));
+      results.push(await measure(baseline, current, payload, target));
     } catch (e) {
       results.push({ name: target.name, error: (e as Error).message });
     }
