@@ -155,26 +155,58 @@ the spec for exactly that permutation. `pnpm --filter=sury fuzz:union` compares
 the compiler to a sequential try of each variant's own parser/encoder (grouping
 is codegen, not semantics), and every outcome that answers rather than throws
 (`isInput`, `parseAsResult`, `~standard.validate`, the promise ones) to the same
-compile's `parseOrThrow`. It exits non-zero on `acceptance` / `exception-kind` /
-`outcome`; `reasons` / `message` are error detail. `--ref` is an optional
+compile's `parseOrThrow`. It exits non-zero on an `acceptance` /
+`exception-kind` / `outcome` diff that `scripts/knownBugs.ts` doesn't list;
+`reasons` / `message` are error detail. `--ref` is an optional
 changelog against a git commit, not the gate. `--seed=N` widens the search.
+
+## Known bugs
+
+`packages/sury/scripts/knownBugs.ts` is the one list of bugs the fuzzers have
+found and nobody has fixed, and of the limitations a property can't tell from a
+bug. `fuzz:schema` and `fuzz:union` read it, and their gates fail on a finding
+it doesn't cover *and* on an entry they no longer reach - so an entry can
+neither hide a new bug nor outlive its own. Entries are written against the
+parsed shape of the generated schema (`scripts/unionFuzz/shape.ts`), never a
+substring of one printed id, since the grammar moves under text.
+
+A bug entry names a spec with a `FIXME: known bug <id>` beside the example that
+records the wrong answer; `tests/knownBugs_test.ts` holds both sides to it.
+Fixing one is: correct the example, delete the entry, and let the gate confirm
+nothing else was matching it. A new finding is triaged the same way - fix it,
+or add an entry and its spec in the same change. Never widen an entry's
+predicate past the one root cause its summary names.
+
+## Fuzzing a single schema
+
+`pnpm --filter=sury fuzz:schema` draws a schema from the shared grammar, samples
+its Input side from the schema and its Output side from its reverse, and hands
+both to each family in `scripts/schemaFuzz/`. A property a single schema can be
+held to belongs in a family there, not in a new runner. The default invocation
+is the gate CI runs; `--only=eq,codec`, `--seed`, `--seeds` and `--cases` turn it
+into a narrower search, which reports unlisted findings but not stale entries.
+A creation throw is reported and the draw finishes without the default, so two
+builds of the library always draw the same schemas.
+
+**codec** holds decode and encode to the schema's own answers: a decode passes
+the schema's `isOutput` and an encode its `isInput`, `parse` agrees with
+`decode` on accepted input, `decode(encode(o))` is `o`, and `encode` is decode
+of the reverse. Change it when you touch a default, a container, `reverse` or
+anything that decides what a schema's Output type is.
 
 ## Changing the equality compiler
 
 A spec pins the comparator's code and its answers for the values that spec
 writes down, and says nothing about the branch no spec reaches.
-`pnpm --filter=sury fuzz:eq` samples values out of generated schemas and holds
-the answers to the properties an equivalence has whatever the emit chose: a
+`pnpm --filter=sury fuzz:schema --only=eq` holds the answers to the properties
+an equivalence has whatever the emit chose: a
 value equals a separately built copy of itself, `eq(a,b)` is `eq(b,a)`, equal to
 the same value means equal to each other, the answer matches a schema-blind
 structural walk, `isEqualInput(schema)` is `isEqualOutput(reverse(schema))`, and
 two inputs the Input side calls equal decode to two outputs the Output side
-calls equal. Cases known not to hold are listed in the script with the reason
-written by hand, and the run fails on an unlisted one *and* on a listed one that
-has started to hold. `--seeds=N` widens the search and `--cases=N` deepens each
+calls equal. `--seeds=N` widens the search and `--cases=N` deepens each
 stream; reach for the first, since the grammar branches on every draw and a
-sweep of short streams covers what one long stream does not. A case it turns up
-becomes a spec.
+sweep of short streams covers what one long stream does not.
 
 `compare` is defined only for the schemas that have an order - a primitive, a
 `Date`, a `URL`, and a tuple of those - and every other schema refuses when its
@@ -206,6 +238,24 @@ what the run prints, and the reason is written by hand - the run fails on an
 unexplained one *and* on a listed one that has started to hold. It is exhaustive,
 so there is no seed. A case it turns up becomes a spec, or a test where an
 example can't hold it.
+
+## Changing the content codec
+
+A reading - pack or unpack - is written by a slot, a field position or a
+declared payload, and `reverse` mirrors it; a spec pins one link and says
+nothing about the mirror of the next. `pnpm --filter=sury fuzz:content` crosses
+every source with every target and every slot and checks four properties: a
+link compiles both directions or neither, `reverse(link)` reads the same values
+the link writes and writes the ones it reads, a value survives decode, encode,
+decode, and a slot does what it declares - a link with two readings and no slot
+refuses and names both, and a link with one reads the same with `"unpack"` as
+without it. Crashes are always findings.
+
+It shares its catalogs with `fuzz:formdata` (`scripts/fuzzKit.ts`): each lists
+the cases known not to hold with the reason written by hand, and the run fails
+on an unexplained one, on a listed one that has started to hold, and on a listed
+one that no longer runs. Exhaustive, so there is no seed. A case it turns up
+becomes a spec, and one that stays unfixed carries a `FIXME` in both places.
 
 `CODEC_SPEC.md` is the normative statement of what conversions are legal,
 built-in and custom alike; `CONTENT_CODEC_SPEC.md` covers the carrier/format

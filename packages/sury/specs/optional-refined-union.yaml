@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.optional(S.union([S.string, S.number.with(S.to, S.string)]).with(S.refine, (v) => v !== "", { error: "empty" }))'
+  input: string | number | undefined
+  output: string | undefined
+  instantiations: 6074
+jsonSchema:
+  input: Expected JSON, received string | number | undefined
+  output: Expected JSON, received string | undefined
+isEqual: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare string | number | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare string | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{for(;;){for(;;){if(typeof i==="string")break;if(typeof i==="number"&&i==i){i=""+i;break}throw e[0](i)}e[1](i)||e[2](i);break;}return i}catch(v0){e[3](v0)}}
+    examples:
+      # FIXME: `S.optional` should accept undefined here and return it. The
+      # union's own refinement keeps it one member of the outer union, and that
+      # member takes over the dispatch, so the undefined arm is never reached.
+      # Present on main as well; found in review of #456.
+      absent:
+        input: undefined
+        error: Expected string | number, received undefined
+      string:
+        input: '"a"'
+        output: '"a"'
+      number-converts:
+        input: "5"
+        output: '"5"'
+      empty-string-is-refused:
+        input: '""'
+        error: empty
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{for(;;){e[2](i)||e[3](i);for(;;){if(typeof i==="string")break;throw e[1](i)};break;}return i}catch(v1){e[4](v1)}}
+    examples:
+      string:
+        input: '"a"'
+        output: '"a"'

@@ -109,8 +109,8 @@ export const B_unrecognizedKeys = (
 };
 
 // A `.to` target that builds its document piecewise (jsonString) can take a
-// container raw: its `fz` hook (installed in advanced/json.ts) hands back the
-// container schema marked `uv` when validation can be left to the aggregate,
+// container raw: its `fuse` hook (installed in advanced/json.ts) hands back the
+// container schema marked fused when validation can be left to the aggregate,
 // which does it inside the same pass that renders. For a dynamic container
 // (`item` given) that is the whole item loop; for a fixed one every field is
 // left raw except a union member's literals, whose discriminant has to be
@@ -118,7 +118,7 @@ export const B_unrecognizedKeys = (
 // a bundle without jsonString ships no decision.
 const B_fused = (input: Val, expectedSchema: Internal, item?: Internal): Internal | undefined => {
   const to = expectedSchema.to;
-  return to !== U && to.fz !== U ? to.fz(input, expectedSchema, item) : U;
+  return to !== U && to.fuse !== U ? to.fuse(input, expectedSchema, item) : U;
 };
 
 // The wire form of a nested json-format string is an escaped string value, not
@@ -129,7 +129,7 @@ const B_fused = (input: Val, expectedSchema: Internal, item?: Internal): Interna
 // on encode, and would hand a declared payload (CONTENT_CODEC_SPEC.md rule 3)
 // the text it had just escaped instead of parsing it.
 const B_narrowJsonSourcedJsonString = (itemInput: Val): void => {
-  if (itemInput.s.isJson && itemInput.e.format === "json") {
+  if (itemInput.s.flags & 16 && itemInput.e.format === "json") {
     itemInput.s = unknown;
   }
 };
@@ -160,6 +160,7 @@ const B_makeContainerVal = (prev: Val, schema: Internal): Val => ({
 export const makeObjectVal = (prev: Val): Val =>
   B_makeContainerVal(prev, {
     type: objectTag,
+    flags: 0,
     required: [],
     properties: Object.create(null),
     additionalItems: "strict",
@@ -169,6 +170,7 @@ export const makeObjectVal = (prev: Val): Val =>
 export const makeArrayVal = (prev: Val): Val =>
   B_makeContainerVal(prev, {
     type: arrayTag,
+    flags: 0,
     items: [],
     additionalItems: "strict",
     decoder: arrayDecoder,
@@ -537,7 +539,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
                 mut.to = itemSchema;
               })
         );
-        target.perVariant = true;
+        target.flags = target.flags | 64;
         itemInput.e = target;
       } else {
         itemInput.e = itemSchema;
@@ -581,7 +583,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
     //     narrow stands in for its members' checks (see the cross-module
     //     contract on `typeCheckCond`), so a case would start accepting more
     //     than its acceptance mask claims.
-    const isJsonParent = isItemSchema(inputAdditionalItems) && inputAdditionalItems.isJson;
+    const isJsonParent = isItemSchema(inputAdditionalItems) && inputAdditionalItems.flags & 16;
 
     for (let idx = 0; idx < keysCount; idx++) {
       const key = keys[idx]!;
@@ -719,28 +721,34 @@ export const traverseDefinition = (
 const missingKeyEncoder: Encoder = (input, target) => {
   const item = input.s.anyOf![0]!;
   const v = input.v();
+  // An env var's unset state is the item's own `undefined` input, which its
+  // converter reads as the target's absent arm or rejects itself, so the
+  // key's presence is not asked here, and the item keeps its own check.
+  const unsetIsInput = item.format === "env";
 
   const presentIn = B_scope(input);
   presentIn.io = false;
   presentIn.s = item;
   presentIn.e = target;
-  presentIn.u = true;
+  presentIn.u = !unsetIsInput;
   const presentOut = parse(presentIn);
   const presentCode = B_merge(presentOut);
   const presentAssign = presentOut.i === v ? "" : `${v}=${presentOut.i};`;
 
   // Optional field: leave `undefined` as-is (None). Required field: reject.
-  const optional = isOptional(target);
+  const noAbsentCheck = isOptional(target) || unsetIsInput;
   const output = B_nextVarOutput(input, v, getOutputSchema(target), target);
   const presentBody = presentCode + presentAssign;
   output.cp =
     presentBody === ""
-      ? optional
+      ? noAbsentCheck
         ? ""
         : B_guardInvalidInput(input, `${v}!==void 0`, target)
-      : optional
-        ? `if(${v}!==void 0){${presentBody}}`
-        : `if(${v}!==void 0){${presentBody}}else{${B_failInvalidInput(input, target)}}`;
+      : unsetIsInput
+        ? presentBody
+        : noAbsentCheck
+          ? `if(${v}!==void 0){${presentBody}}`
+          : `if(${v}!==void 0){${presentBody}}else{${B_failInvalidInput(input, target)}}`;
   return output;
 };
 
@@ -750,7 +758,7 @@ const wrapDictMissingKeyLight = (s: Internal): Internal => {
   mut.has = { [undefinedTag]: true };
   setHas(mut.has, s.type);
   mut.encoder = missingKeyEncoder;
-  mut.perVariant = true;
+  mut.flags = 64;
   return mut;
 };
 

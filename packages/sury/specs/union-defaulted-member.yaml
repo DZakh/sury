@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union([S.nullable(S.boolean, false), S.string])
+  input: string | boolean | null
+  output: string | boolean
+  instantiations: 1141
+jsonSchema:
+  input: '{ anyOf: [{ default: false, anyOf: [{ type: "boolean" }, { type: "null" }] }, { type: "string" }] }'
+  output: '{ anyOf: [{ type: "boolean" }, { type: "string" }] }'
+  openapi-3.0:
+    input: '{ anyOf: [{ default: false, type: "boolean", nullable: true }, { type: "string" }] }'
+isEqual: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare boolean | null | string. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare boolean | string. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{for(;;){for(;;){if(typeof i==="boolean")break;if(i===null){i=false;break}throw e[0](i)};break;}return i}catch(v0){e[1](v0)}}
+    examples:
+      # FIXME: known bug union-defaulted-member (scripts/knownBugs.ts). "x" is the string
+      # member's, so the answer is "x"; the member carrying a default takes over
+      # the whole union.
+      string-member:
+        input: '"x"'
+        error: Expected boolean | null, received "x"
+      null-takes-the-default:
+        input: "null"
+        output: "false"
+      boolean:
+        input: "true"
+        output: "true"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{(typeof i==="boolean"||typeof i==="string")||e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      string-member:
+        input: '"x"'
+        output: '"x"'
+      boolean:
+        input: "true"
+        output: "true"

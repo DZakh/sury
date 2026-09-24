@@ -12,12 +12,13 @@ import {
   copySchema,
   copyTo,
   functionTag,
-  getOrRethrow,
+  globalConfig,
   inputExpression,
   type Internal,
   objectTag,
   panic,
   pathEmpty,
+  refTag,
   type SchemaErrorMessage,
   setHas,
   U,
@@ -49,11 +50,12 @@ import {
   objectDecoder
 } from "./composites";
 import {
- getOp,
+ decodeOutput,
  getOutputSchema,
  nestedLoc,
  nestedOptionParser,
- reverse
+ reverse,
+ setDefault
 } from "./parse";
 import {
  Literal_parse,
@@ -276,7 +278,7 @@ export const getMutErrorMessage = (mut: Internal): SchemaErrorMessage => {
 // fields, so the encode coder becomes the reversed chain's parser and double
 // reversal restores every slot. Slot semantics (auto/never/async/the JS
 // shorthand) are resolved by the caller into Builders; a boolean is a content
-// reading (`true` opens the source) and rides the target as `opens`, the one
+// reading (`true` opens the source) and rides the target as a reading bit, the one
 // reading a link has. `U` means no slot, i.e. the built-in conversion - and
 // whether that exists is the payload schemas' question, asked while compiling.
 export const codecTo = (
@@ -302,7 +304,19 @@ export const codecTo = (
         targetMut.serializer = serializer;
       }
       if (opened) {
-        targetMut.opens = decode as boolean;
+        targetMut.flags = (targetMut.flags & ~12) | (decode ? 4 : 8);
+        // The arm's decoder is what meets the source, so a union target hands
+        // the reading to the arm carrying a payload. The array is replaced
+        // only then: unionResolveToUnion knows an arm producing the whole
+        // target union by the shared `anyOf` reference.
+        if (targetMut.anyOf?.some((arm) => arm.flags & 3)) {
+          targetMut.anyOf = targetMut.anyOf.map((arm) => {
+            if (!(arm.flags & 3)) return arm;
+            const armMut = copySchema(arm);
+            armMut.flags = (arm.flags & ~12) | (decode ? 4 : 8);
+            return armMut;
+          });
+        }
       }
       mut.to = targetMut;
     } else {
@@ -312,8 +326,8 @@ export const codecTo = (
     // payload that gains a `.to` names what it holds, so the link into it opens
     // its source. Materialized here rather than read off `.to !== U` by the
     // payload schemas, because `reverse` re-points `.to` and would lose it,
-    // while it carries `opens` across.
-    if (mut.content !== U && mut.opens === U) mut.opens = true;
+    // while it carries the reading across.
+    if (mut.flags & 3 && !(mut.flags & 12)) mut.flags |= 4;
     if (parser !== U) {
       mut.parser = parser;
     }
@@ -402,10 +416,26 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
     const outputItems: Internal[] = [];
     const originalItems: Internal[] = [];
 
+    // `S.recursive`'s definitions, while its definer is still running.
+    const building = globalConfig.d;
     for (let idx = 0; idx < anyOf.length; idx++) {
       const variant = anyOf[idx]!;
       const outputSchema = getOutputSchema(variant);
       if (outputSchema.type !== undefinedTag) {
+        // The default is read as the item on every decode, so an item that is
+        // the definition being built would read the default as that definition,
+        // find the same absent field in it, and read its default, without end.
+        // A ref carrying definitions of its own is a finished schema instead.
+        if (
+          outputSchema.type === refTag &&
+          outputSchema["$defs"] === U &&
+          building !== U &&
+          building[outputSchema["$ref"]!.slice(8)] === U
+        ) {
+          panic(
+            `Can't set default for ${inputExpression(mut)}: the default is read as ${outputSchema.name}, which would need a default of its own`
+          );
+        }
         // Dedupe by identity: two arms sharing one output instance (the bool
         // singleton) would otherwise make every rule-4 match ambiguous.
         if (!outputItems.includes(outputSchema)) {
@@ -423,26 +453,11 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
           : unionFactory(outputItems);
 
     if (default_.type === "value") {
-      const v = default_.value;
-      // Full unknown -> item decode so primitive item types still get type-checked.
-      try {
-        (getOp(0, 2, unknown, item) as (input: unknown) => unknown)(v);
-      } catch (exn) {
-        const error = getOrRethrow(exn);
-        panic(
-          `Invalid default for ${inputExpression(mut)}: ${
-            (error as unknown as { message: string })["message"]
-          }`
-        );
-      }
-      const originalItem: Internal =
-        originalItems.length === 1 ? originalItems[0]! : unionFactory(originalItems);
-      // Best-effort input form for JSON Schema metadata. A never or async
-      // encode makes it uncomputable, so skip it rather than throw: metadata
-      // is not a value operation.
-      try {
-        mut.default = (getOp(0, 1, reverse(originalItem)) as (input: unknown) => unknown)(v);
-      } catch (_exn) {}
+      setDefault(
+        mut,
+        originalItems.length === 1 ? originalItems[0]! : unionFactory(originalItems),
+        default_.value
+      );
     }
 
     // Not B_conversion: an eager default inlines as a constant instead of
@@ -467,7 +482,11 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
       // The same seam B_conversion's `trusted` provides: `vc` checks emit at
       // the pre-transform slot, so the item's input refiners would run over
       // the absent value that came in rather than the default that replaced it.
-      return B_refine(output);
+      const result = B_refine(output);
+      // Already a value of the Output type, so it lands past the item's
+      // decoder: a container's decoder would read it as Input (#452).
+      result.io = true;
+      return result;
     };
     mut.anyOf = anyOf.map((variant) =>
       getOutputSchema(variant).type === undefinedTag
@@ -601,20 +620,9 @@ export const meta = <TValue>(schema: Internal, data: Meta<TValue>): Internal => 
     if (data.examples.length === 0) {
       delete mut.examples;
     } else {
-      // A full parse through the reversed schema: the example is checked as an
-      // output value and stored in its input form. A never or async encode
-      // makes that uncomputable, so it is skipped rather than thrown; a
-      // per-value failure still names the author's bad example.
-      try {
-        mut.examples = data.examples.map(
-          getOp(0, 2, unknown, reverse(schema)) as (input: unknown) => unknown,
-        );
-      } catch (exn) {
-        if ((getOrRethrow(exn) as unknown as { code: string }).code !== "invalid_operation") {
-          throw exn;
-        }
-        delete mut.examples;
-      }
+      const decode = decodeOutput(reverse(schema));
+      if (decode) mut.examples = data.examples.map(decode);
+      else delete mut.examples;
     }
   }
   if (data.errorMessage !== U) {

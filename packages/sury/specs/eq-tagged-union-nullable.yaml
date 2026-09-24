@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.nullable(S.union([S.schema({ TAG: "A", _0: S.string }), S.schema({ TAG: "B", _0: S.number })]))'
+  input: '{ TAG: "A"; _0: string; } | { TAG: "B"; _0: number; } | null'
+  output: '{ TAG: "A"; _0: string; } | { TAG: "B"; _0: number; } | null'
+  instantiations: 4815
+jsonSchema:
+  input: '{ anyOf: [{ type: "object", properties: { TAG: { type: "string", const: "A" }, _0: { type: "string" } }, required: ["TAG", "_0"] }, { type: "object", properties: { TAG: { type: "string", const: "B" }, _0: { type: "number" } }, required: ["TAG", "_0"] }, { type: "null" }] }'
+  output: '{ anyOf: [{ type: "object", properties: { TAG: { type: "string", const: "A" }, _0: { type: "string" } }, required: ["TAG", "_0"] }, { type: "object", properties: { TAG: { type: "string", const: "B" }, _0: { type: "number" } }, required: ["TAG", "_0"] }, { type: "null" }] }'
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "object", properties: { TAG: { type: "string", enum: ["A"] }, _0: { type: "string" } }, required: ["TAG", "_0"] }, { type: "object", properties: { TAG: { type: "string", enum: ["B"] }, _0: { type: "number" } }, required: ["TAG", "_0"] }, { enum: [null] }] }'
+    output: '{ anyOf: [{ type: "object", properties: { TAG: { type: "string", enum: ["A"] }, _0: { type: "string" } }, required: ["TAG", "_0"] }, { type: "object", properties: { TAG: { type: "string", enum: ["B"] }, _0: { type: "number" } }, required: ["TAG", "_0"] }, { enum: [null] }] }'
+# FIXME: known bug eq-tagged-union-absent (scripts/knownBugs.ts). The comparator reads
+# `a.TAG` before it reaches the `null` arm, so `isEqual(null, { TAG: "A", _0: "x" })`
+# throws instead of answering false. The pair is not an example because the
+# harness compares every example output with every other and would fail on it.
+isEqual: (a,b)=>a===b||(a.TAG==="A"?b.TAG==="A"&&a._0===b._0:a.TAG==="B"?b.TAG==="B"&&a._0===b._0:b===null)
+compare: "throws: [Sury] Can't compare { TAG: \"A\"; _0: string; } | { TAG: \"B\"; _0: number; } | null. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.TAG==="A"){let v0=i._0;typeof v0==="string"||e[0](v0);i={TAG:i.TAG,_0:v0};break}if(i.TAG==="B"){let v1=i._0;typeof v1==="number"&&v1==v1||e[1](v1);i={TAG:i.TAG,_0:v1};break}throw e[2](i)};break}if(i===null)break;throw e[2](i)}return i}catch(v2){e[3](v2)}}
+    examples:
+      member-a:
+        input: '{ TAG: "A", _0: "x" }'
+        output: '{ TAG: "A", _0: "x" }'
+      member-b:
+        input: '{ TAG: "B", _0: 1 }'
+        output: '{ TAG: "B", _0: 1 }'
+  decode: identity
+  encode: identity

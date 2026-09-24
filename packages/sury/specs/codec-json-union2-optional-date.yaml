@@ -19,7 +19,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i.value;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v4=(v0.a??null);let v2;for(;;){if(typeof v4==="string"){l3:{let v1=new Date((v0.a??null));if(!(!Number.isNaN(v1.getTime()))){(v2||(v2=[])).push(e[0],v1,void 0);break l3};v4=v1;break}}if(v4===null){v4=void 0;break}throw e[1](v4,v2)}v0={a:v4};break}if(typeof v0==="string")break;throw e[2](v0)}return {value:v0}}catch(v5){e[4](v5)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i.value;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v2=(v0.a??null);let v3;for(;;){if(typeof v2==="string"){l4:{let v1=new Date(v2);if(!(!Number.isNaN(v1.getTime()))){(v3||(v3=[])).push(e[0],v2,void 0);break l4};v2=v1;break}}if(v2===null){v2=void 0;break}throw e[1](v2,v3)}v0={a:v2};break}if(typeof v0==="string")break;throw e[2](v0)}return {value:v0}}catch(v5){e[4](v5)}}
     examples:
       object-member-with-date:
         input: '{ value: { a: "2024-01-01T00:00:00.000Z" } }'
@@ -34,7 +34,7 @@ operations:
         input: '{ value: { a: "nope" } }'
         error: |-
           Failed at value.a: Expected string | undefined, received "nope"
-          - At value.a: Expected Date, received invalid Date
+          - At value.a: Expected Date, received "nope"
       neither-member:
         input: "{ value: 5 }"
         error: "Failed at value: Expected { a: string | undefined; } | string, received 5"

@@ -174,17 +174,14 @@ const operationTail: Tail = (input, code, out, isAsync, flag, hasDefs) => {
       // than wrapped around it.
       `${code}return ${out}.then(${valueVar}=>(${success}),${errVar}=>(${failure}))`
     : `${code}return ${toPromise ? `Promise.resolve(${success})` : success}`;
-  // The raise counter: when nothing merged can throw, the operation needs no
-  // `try` at all - the decision a `safe(() => ...)` wrapper can never make.
-  // A failure the sync phase raises has to come back in the shape the success
-  // path uses, so an async operation's answer is a promise either way: the
-  // consumer sees one shape whether the value died before the first await or
-  // after it.
-  //
-  // A body that jumps rather than raises still gets the `try` wherever it
-  // fails at all: what it reads to decide can raise - a getter, a proxy - and
-  // an outcome with an answer of its own never throws for it.
-  return input.g.t + input.g.j
+  // An outcome with an answer of its own never throws, and any body can: what
+  // it reads may be a getter or a proxy, even where nothing it checks can fail.
+  // Only an empty one needs no `try` - the decision a `safe(() => ...)` wrapper
+  // can never make. A failure the sync phase raises has to come back in the
+  // shape the success path uses, so an async operation's answer is a promise
+  // either way: the consumer sees one shape whether the value died before the
+  // first await or after it.
+  return code
     ? `try{${body}}catch(${errVar}){return ${
         isAsync || toPromise ? `Promise.resolve(${failure})` : failure
       }}`

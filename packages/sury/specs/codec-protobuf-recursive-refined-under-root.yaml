@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ x: S.optional(S.recursive("Node", (node) => S.schema({ v: S.string.with(S.protobufField, 1), kid: S.optional(node.with(S.refine, (n) => (n as { v: string }).v !== "bad", { error: "no bad" })).with(S.protobufField, 2) }))).with(S.protobufField, 1) }).with(S.to, S.protobuf)'
+  input: "{ x?: unknown; }"
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 10434
+jsonSchema:
+  input: '{ type: "object", properties: { x: { $ref: "#/$defs/Node" } }, $defs: { Node: { type: "object", properties: { v: { type: "string" }, kid: { $ref: "#/$defs/Node" } }, required: ["v"] } } }'
+  fromInputType: "{ x?: { v: string; kid?: ... | undefined; } | undefined; }"
+  output: Expected JSON, received Uint8Array
+isEqual:
+  input: (a,b)=>a===b||e[0](a.x,b.x)
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { x: Node | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[9](i);let v2=i.x;let v3;for(;;){try{let v0;try{v0=e[0](i.x);}catch(v1){v1.path=["x",...v1.path];throw v1}v2=v0;break}catch(x){(v3||(v3=[])).push(e[1](x))}if(v2===void 0)break;throw e[2](v2,v3)}let v4;{let w;try{w=e[7].acquire();let v,j,n,s,h,a,k,g,c,o;v=v2;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[3](w,v);w.end(h)};v4=w.finish()}catch(x){w&&(w.busy=false);e[8](x)}}return v4}catch(v5){e[10](v5)}}
+    examples:
+      ok:
+        input: '{ x: { v: "a", kid: { v: "b", kid: undefined } } }'
+        output: new Uint8Array([10, 8, 10, 1, 97, 18, 3, 10, 1, 98])
+      bad-kid:
+        input: '{ x: { v: "a", kid: { v: "bad", kid: undefined } } }'
+        error: |-
+          Failed at x: Expected Node | undefined, received { v: "a"; kid: object; }
+          - At x.kid: Expected Node | undefined, received { v: "bad"; kid: undefined; }
+            - At kid: no bad
+      absent:
+        input: "{ x: undefined }"
+        output: new Uint8Array([])
+  decode:
+    expression: i=>{try{let v2=i.x;let v3;for(;;){try{let v0;try{v0=e[0](i.x);}catch(v1){v1.path=["x",...v1.path];throw v1}v2=v0;break}catch(x){(v3||(v3=[])).push(e[1](x))}if(v2===void 0)break;throw e[2](v2,v3)}let v4;{let w;try{w=e[7].acquire();let v,j,n,s,h,a,k,g,c,o;v=v2;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[3](w,v);w.end(h)};v4=w.finish()}catch(x){w&&(w.busy=false);e[8](x)}}return v4}catch(v5){e[9](v5)}}
+    examples:
+      ok:
+        input: '{ x: { v: "a", kid: { v: "b", kid: undefined } } }'
+        output: new Uint8Array([10, 8, 10, 1, 97, 18, 3, 10, 1, 98])
+      bad-kid:
+        input: '{ x: { v: "a", kid: { v: "bad", kid: undefined } } }'
+        error: |-
+          Failed at x: Expected Node | undefined, received { v: "a"; kid: object; }
+          - At x.kid: Expected Node | undefined, received { v: "bad"; kid: undefined; }
+            - At kid: no bad
+      absent:
+        input: "{ x: undefined }"
+        output: new Uint8Array([])
+  encode:
+    expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v1=v0.x;if(v1!==void 0){let v6=v1.kid;if(v6!==void 0){try{e[12](v6);}catch(v7){v7.path=["x","kid",...v7.path];throw v7}e[13](v6)||e[14](v6);}}return v0}catch(v8){e[15](v8)}}
+    examples:
+      ok:
+        input: new Uint8Array([10, 8, 10, 1, 97, 18, 3, 10, 1, 98])
+        output: '{ x: { v: "a", kid: { v: "b" } } }'
+      bad-kid:
+        input: new Uint8Array([10, 10, 10, 1, 97, 18, 5, 10, 3, 98, 97, 100])
+        error: "Failed at x.kid: no bad"

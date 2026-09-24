@@ -37,7 +37,6 @@ import {
   panic,
   type Path,
   setHas,
-  setContent,
   type Failure,
   type SuryErrorRecord,
   type Tag,
@@ -313,6 +312,9 @@ const unionEmitChain = (cases: UnionCase[], ctx: UnionCtx, top?: boolean): strin
     if (c.l) {
       open = true;
       arm = `${c.l}:{${arm}}`;
+      // A terminal case left by a jump, the way the `try` above is left: the
+      // chain's own fail, where a later case would run with no condition.
+      if (!(c.f & 8) && unconditional > idx) arm += ctx.x();
     }
     // A case that hands over what it found by a jump carries its failure
     // forward just as one whose `try` does.
@@ -380,7 +382,7 @@ const unionOr = (cs: UnionCase[]): string => {
 // a union-using bundle - and `S.optional`/`S.nullable` are unions.
 //
 // One per member, not per group: besides the runtime tag it carries what the
-// member claims about a value of that tag (`content`, its encoder, a string
+// member claims about a value of that tag (its payload kind, its encoder, a string
 // format), and a sibling parsing from it would inherit the claim - a `uuid`
 // next to `jsonString` was `JSON.parse`d before its own test. The group's
 // narrow is its head member's, and `unionEmit` re-labels the narrowed value
@@ -424,8 +426,10 @@ const unionNarrowSchema = (schema: Internal): Internal => {
   // With the encoder, its marker: the narrow is what a carrier's encoder is
   // handed for this arm, and without it the arm reads as carrying no payload -
   // bytes reaching a `S.base64` variant UTF-8-decoded instead of packing.
-  if (schema.content !== U) {
-    setContent(narrow, schema.content);
+  if (schema.flags & 3) {
+    narrow.flags = schema.flags & 3;
+    const stored = schema.bytesCodec ? schema : schema.storedAs;
+    if (stored) narrow.storedAs = stored;
   }
   if (tagFlag & 8192) {
     narrow.class = schema.class;
@@ -440,13 +444,13 @@ const unionNarrowSchema = (schema: Internal): Internal => {
     // null/undefined/nan stay literals so the case body passes through.
     narrow.const = schema.const;
   } else if (tagFlag & 2 && schema.format !== U && schema.format !== "json") {
-    // The member's `format` (which toJSONSchema reads), `formatFlag` and
+    // The member's `format` (which toJSONSchema reads), escape-free bit and
     // `noValidation` ride on the narrow: the case appends the member's format
     // check, so the escape-free splice holds inside it. Not `format: "json"` -
     // jsonString reads that as "already JSON text" (see fieldPiece), where the
-    // bare `content` marker says "claims JSON, unchecked".
+    // bare kind bit says "claims JSON, unchecked".
     narrow.format = schema.format;
-    narrow.formatFlag = schema.formatFlag;
+    if (schema.flags & 32) narrow.flags = narrow.flags | 32;
     narrow.noValidation = schema.noValidation;
   }
   return narrow;
@@ -1125,9 +1129,12 @@ const unionEmit = (
     x: () => g.x!()!,
   };
   // A case a later one may still accept leaves its own block on failure, so the
-  // next case runs. Set for the stretch that emits the case and put back by
-  // the function `enter` answers, which names the label if anything left by
-  // it. A case nothing later accepts keeps the exit it found.
+  // next case runs - and so does any case once an earlier one has handed a
+  // failure on, which is what a `try` around it did: a planner that calls a
+  // case terminal is trusted only while nothing has fallen through yet. Set for
+  // the stretch that emits the case and put back by the function `enter`
+  // answers, which names the label if anything left by it. A terminal case
+  // before that keeps the exit it found.
   const enter = (falls: number): (() => string | undefined) => {
     const x = g.x, label: { l?: string } = {};
     if (falls) g.x = jumpOut(label);
@@ -1153,7 +1160,7 @@ const unionEmit = (
       c.f |= 16;
       // Whatever it recorded or named is in code nothing emits.
       [recorded, failures, end.l] = c.s;
-    } else if (wanted && c.f & 8 && c.f & (1 | 4)) recorded = true;
+    } else if (c.f & 8 && c.f & (1 | 4)) recorded = true;
     chain.push(c);
     return c;
   };
@@ -1189,7 +1196,7 @@ const unionEmit = (
     falls: number
   ): UnionCase | undefined => {
     const mark = input.g.t, jumps = g.j, snap = snapshot();
-    const leave = enter(falls);
+    const leave = enter(falls || +recorded);
     const caseInput = B_scope(source);
     caseInput.u = true;
     caseInput.t = source.t;
@@ -1225,7 +1232,7 @@ const unionEmit = (
       caseOut = parse(caseInput);
     } catch (exn) {
       leave();
-      if (!self.perVariant) throw exn;
+      if (!(self.flags & 64)) throw exn;
       salvaged += `,${B_embed(input, getOrRethrow(exn))}`;
       return U;
     } finally {
@@ -1294,7 +1301,7 @@ const unionEmit = (
     }
 
     const mark = input.g.t, jumps = g.j, snap = snapshot();
-    const leave = enter(group.f & 8);
+    const leave = enter(group.f & 8 || +recorded);
     const before: boolean = recorded;
     // The narrow's own checks run ahead of every member, so they fail with
     // what was recorded before the group.
@@ -1487,12 +1494,12 @@ export const unionDecoder: Builder = (input: Val) => {
   // re-validating them is what made `decode` compile the same code as
   // `parse`. The widening below still runs: dispatch needs the runtime
   // narrows, since the value's variant is only known at runtime.
-  // `self.tr` is the same guarantee arriving second-hand: `unionRewrite`
+  // Bit 128 on `self` is the same guarantee arriving second-hand: `unionRewrite`
   // already performed this widening on a union-typed source, so the val no
   // longer names it. Without that, a union serialized as an array item or
   // object field - which reaches the target through `unionEncoder` - would
   // re-validate every field inside the container's loop.
-  const trustedSelf = input.s === self || self.tr;
+  const trustedSelf = input.s === self || !!(self.flags & 128);
   if (
     (initialTagFlag & 256) ||
     (input.s.encoder === U && (initialTagFlag & 512))
@@ -1631,11 +1638,10 @@ export const unionRewrite = (
   mut.anyOf = anyOf;
   mut.has = has;
   mut.encoder = unionEncoder;
-  mut.perVariant = input.s.perVariant;
   // The variants above were mapped from `input.s`'s, so the value is already
   // known to satisfy one of them - a fact the `unknown` below throws away. See
-  // `tr` in base.ts: this is the only place allowed to claim it.
-  mut.tr = true;
+  // bit 128 in base.ts: this is the only place allowed to claim it.
+  mut.flags = (input.s.flags & 64) | 128;
   return B_refine(input, unknown, U, mut);
 };
 
@@ -1667,7 +1673,7 @@ export const unionEncoder: Encoder = (input: Val, target: Internal) => {
   B_rejectUnsettled(input, target, input.s);
   if (unionTargetOwns(target)) return input;
   const variants = unionDropNullish(input.s.anyOf!, target, true);
-  if (target.perVariant && target.anyOf!.length === variants.length) {
+  if (target.flags & 64 && target.anyOf!.length === variants.length) {
     // An already-resolved per-variant mapping (the JSON encoder builds one for an
     // object field): each target variant *is* its source variant plus whatever
     // the caller appended, so it replaces the variant instead of chaining onto
@@ -1708,7 +1714,7 @@ const unionResolve = (
   variants: Internal[],
   target: Internal
 ): (Internal | undefined)[] => {
-  if (source.perVariant) {
+  if (source.flags & 64) {
     return variants.map(() => target);
   }
   if (unionIsTransparent(target)) {

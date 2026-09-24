@@ -279,7 +279,7 @@ const cases: Case[] = [];
 // ── Formatted strings (uuid, timestamp, ip, email) ───────────────────────────
 // The shape an audit log or an event envelope actually has. Sury splices a
 // value whose format admits no escapable character straight between quotes
-// (`formatFlag` bit 1 in base.ts) - and still runs each format's pattern
+// (bit 32 of `flags` in base.ts) - and still runs each format's pattern
 // check first, which the competitors don't, so this charges Sury for
 // validation they skip.
 {

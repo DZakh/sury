@@ -5,6 +5,7 @@ import {
   type Builder,
   configurableValueOptions,
   copySchema,
+  getOrRethrow,
   type Encoder,
   type Flag,
   globalConfig,
@@ -21,6 +22,7 @@ import {
   s,
   schemaPrototype,
   setHas,
+  stringTag,
   type SuryErrorRecord,
   tagFlags,
   U,
@@ -71,7 +73,12 @@ export const parse = (input: Val): Val => {
     if (++loopCount > 50) panic("Loop count exceeded 50");
 
     const defs = loopInput.e["$defs"];
-    if (defs) loopInput.g.d ? Object.assign(loopInput.g.d, defs) : (loopInput.g.d = defs);
+    // Copied, never adopted: a second `$defs` in the same operation - two
+    // independent `S.recursive` schemas in one object - would otherwise merge
+    // into the first schema's own record and leave it holding definitions that
+    // are not its own for the rest of the program. Null prototype because the
+    // keys are the names the caller gave `S.recursive`.
+    if (defs) loopInput.g.d = Object.assign(loopInput.g.d || Object.create(null), defs);
 
     // The val is a promise, so the rest of the chain has to run inside a
     // `.then`. The flag alone is the right guard: a second condition could only
@@ -114,7 +121,7 @@ export const parse = (input: Val): Val => {
         // when the operation discards it anyway (S.assertInputOrThrow's `undefined` result
         // sentinel). Every other such target still gets its conversion:
         // `noValidation` drops the checks, not the re-representation.
-        !(loopInput.e.noValidation && (loopInput.e.isJson || loopInput.e.type === undefinedTag))
+        !(loopInput.e.noValidation && (loopInput.e.flags & 16 || loopInput.e.type === undefinedTag))
       ) {
         result = maybeEncoder(loopInput, loopInput.e);
       }
@@ -243,12 +250,11 @@ export const throwTail: Tail = (input, code, out, isAsync, flag, hasDefs) => {
     const body = isAsync
       ? `${code}return ${out}.then(${v}=>({value:${v}}),${issues})`
       : `${code}return {value:${out}}`;
-    // When nothing merged can fail, no `try`. One that can only fail by a
-    // jump (a union case handing over) still reads the value, and a getter can
-    // raise there. An async operation answers with a promise either way, so a
-    // failure the sync phase raises comes back in the same shape as one after
-    // the await.
-    if (!(input.g.t + input.g.j)) return body;
+    // An answer, never a throw, so the `try` goes wherever the body reads the
+    // value at all - a getter can raise there. An async operation answers with
+    // a promise either way, so a failure the sync phase raises comes back in the
+    // same shape as one after the await.
+    if (!code) return body;
     const e = B_varWithoutAllocation(input.g);
     return `try{${body}}catch(${e}){return ${
       isAsync ? `Promise.resolve(${issues}(${e}))` : `${issues}(${e})`
@@ -266,16 +272,15 @@ export const throwTail: Tail = (input, code, out, isAsync, flag, hasDefs) => {
         : out
   }`;
   // The run boundary, cutting at the operation itself so the caller's line ends
-  // up on top instead of five frames of library. Only where something can fail
-  // at all (`g.t`, or `g.j` for a body that reads a value only to hand it
-  // between union cases - a getter can raise there, and a promise-returning
-  // operation must reject it), and never for a nested compile (recursive.ts),
-  // whose throw is generated code's own business and is caught and re-raised
-  // by the operation around it.
+  // up on top instead of five frames of library. Only where something can raise
+  // at all (`g.t`) - or, for a promise-returning operation, wherever the body
+  // reads the value, since a getter's throw has to reject too - and never for a
+  // nested compile (recursive.ts), whose throw is generated code's own business
+  // and is caught and re-raised by the operation around it.
   //
   // The sync phase only. What an async operation raises after its first await
   // is `rejectionBoundary`'s.
-  if (!(input.g.t + input.g.j) || hasDefs) return body;
+  if (!(input.g.t || (flag & 1 && !(flag & 512) && code)) || hasDefs) return body;
   const g = input.g;
   const e = B_varWithoutAllocation(g);
   // A promise-returning operation must not throw synchronously: a value that
@@ -375,9 +380,15 @@ Object.defineProperty(schemaPrototype, reversedKey, {
       const record = mut as unknown as Record<string, unknown>;
       reverseSwap(record, "parser", "serializer");
       reverseSwap(record, "refiner", "inputRefiner");
-      // The link into this node is now the one out of it, read the other way:
-      // opening `current` into `next` was storing `next` into `current`.
-      next && next.opens !== U ? (mut.opens = !next.opens) : delete mut.opens;
+      // The link into this node is now the one out of it, read the other way.
+      // Only a chain a content schema is part of has a reading anything reads,
+      // so the schema that answers it is found on this node, the next, or the
+      // next's arms - and a bundle with no content schema ships none of it.
+      const reverseReading =
+        mut.reverseReading ||
+        (next && (next.reverseReading || next.anyOf?.find((arm) => arm.reverseReading)?.reverseReading));
+      const flags = (mut.flags & ~12) | (reverseReading ? reverseReading(mut, next) : 0);
+      flags ? (mut.flags = flags) : delete record["flags"];
       // Deleted, not parked in a holding field: encode has no absent-input arm,
       // and double reversal reads the cache below rather than re-deriving, so
       // nothing needs the old value back.
@@ -424,6 +435,51 @@ Object.defineProperty(schemaPrototype, reversedKey, {
 
 // @__NO_SIDE_EFFECTS__
 export const reverse = (schema: Internal): Internal => schema.r!;
+
+// A value a schema stores on its Output side - a default, an example - held to
+// it by one parse through `reverse`, which checks it as an Output and hands it
+// back in the Input form it is stored in. A never or async encode makes that
+// uncomputable, which leaves no Output validation to hold the value to, so
+// there is nothing to check: `undefined`.
+export const decodeOutput = (output: Internal): ((v: unknown) => unknown) | undefined => {
+  try {
+    return getOp(0, 2, unknown, output) as (v: unknown) => unknown;
+  } catch (exn) {
+    if ((getOrRethrow(exn) as unknown as { code: string }).code !== "invalid_operation") throw exn;
+  }
+}
+
+// The default of `S.optional(x, v)` and `s.fieldOr(_, x, v)` is a value of the
+// Output type, written the way the schema outputs it. Not the chain's tail: a
+// container keeps its items' transforms inside itself, so its tail is still the
+// Input form (#452).
+export const setDefault = (owner: Internal, original: Internal, v: unknown): void => {
+  let output = reverse(original);
+  // `S.recursive`'s definitions, while its definer is still running. A nested
+  // `S.recursive` hands back a bare `$ref`, so an item reached inside a definer
+  // names definitions the check would not otherwise see. They ride on the copy
+  // it compiles against, and `parse` merges them for the whole operation, so a
+  // ref inside a union resolves too. Only once the record holds something: an
+  // empty one names nothing, and a copy would miss the operation cached on the
+  // item itself.
+  const building = globalConfig.d;
+  if (building !== U && output["$defs"] === U && Object.keys(building).length) {
+    output = copySchema(output);
+    output["$defs"] = building;
+  }
+  const decode = decodeOutput(output);
+  if (decode) {
+    try {
+      owner.default = decode(v);
+    } catch (exn) {
+      panic(
+        `Invalid default for ${inputExpression(owner)}: ${
+          (getOrRethrow(exn) as unknown as { message: string })["message"]
+        }`
+      );
+    }
+  }
+}
 
 // Lives here rather than beside `inputExpression` in base.ts so that only the
 // consumers who ask for the output side carry `reverse`.
@@ -549,8 +605,9 @@ const compileChain = (
     schema = updateOutput(args[i]!, (mut) => {
       mut.to = to;
       // Rule 3, materialized exactly as `codecTo` does it, and for the same
-      // reason: `reverse` re-points `.to` and would lose it.
-      if (mut.content !== U && mut.opens === U) mut.opens = true;
+      // reason: `reverse` re-points `.to` and would lose it. A `.to` of
+      // `undefined` (`S.assertInputOrThrow`'s result sentinel) declares nothing.
+      if (mut.flags & 3 && !(mut.flags & 12) && to.type !== undefinedTag) mut.flags |= 4;
     });
   }
   // Flag 8: the caller knows nothing about the input, so the chain's own head

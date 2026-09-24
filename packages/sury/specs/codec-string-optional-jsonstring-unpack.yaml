@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.string.with(S.to, S.optional(S.jsonString), "unpack")
+  input: string
+  output: string | undefined
+  instantiations: 4626
+jsonSchema:
+  input: '{ type: "string", contentMediaType: "application/json" }'
+  output: '{ type: "string", contentMediaType: "application/json" }'
+  fromOutputType: string
+  openapi-3.0:
+    input: '{ type: "string" }'
+    output: '{ type: "string" }'
+isEqual: strictEqual
+compare:
+  input: strictCompare
+  output: (a,b)=>a===b?0:(a===void 0?b===void 0?0:-1:b===void 0?1:a<b?-1:a>b?1:0)
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="string"||e[1](i);try{JSON.parse(i)}catch(t){e[0](i)};return i}catch(v0){e[2](v0)}}
+    examples:
+      the-arm-takes-the-reading:
+        input: '"{\"a\":1}"'
+        output: '"{\"a\":1}"'
+      not-a-document:
+        input: '"nope"'
+        error: Expected JSON string, received "nope"
+  decode:
+    expression: i=>{try{try{JSON.parse(i)}catch(t){e[0](i)};return i}catch(v0){e[1](v0)}}
+    examples:
+      the-arm-takes-the-reading:
+        input: '"{\"a\":1}"'
+        output: '"{\"a\":1}"'
+      not-a-document:
+        input: '"nope"'
+        error: Expected JSON string, received "nope"
+  encode:
+    expression: i=>{try{typeof i==="string"||e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      the-arm-takes-the-reading:
+        input: '"{\"a\":1}"'
+        output: '"{\"a\":1}"'
+      no-text-is-absent:
+        input: undefined
+        error: Expected JSON string, received undefined

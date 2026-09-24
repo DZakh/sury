@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.env.with(S.to, S.union([S.jsonString, S.number]))
+  input: string | undefined
+  output: string | number
+  instantiations: 5394
+jsonSchema:
+  input: '{ type: "string" }'
+  fromInputType: string
+  output: '{ anyOf: [{ type: "string", contentMediaType: "application/json" }, { type: "number" }] }'
+  openapi-3.0:
+    output: '{ anyOf: [{ type: "string" }, { type: "number" }] }'
+isEqual: strictEqual
+compare:
+  input: (a,b)=>a===b?0:a===void 0?b===void 0?0:-1:b===void 0?1:a<b?-1:a>b?1:0
+  output: "throws: [Sury] Can't compare JSON string | number. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{(typeof i==="string"||i===void 0)||e[3](i);let v0;for(;;){l1:{try{JSON.parse(i)}catch(t){{(v0||(v0=[])).push(e[0],i,void 0);break l1}};break}l3:{let v2=+i;if(!(v2==v2&&(v2||i.trim()))){(v0||(v0=[])).push(e[1],i,void 0);break l3};i=v2;break}throw e[2](i,v0)}return i}catch(v4){e[4](v4)}}
+    examples:
+      the-entry-is-the-document:
+        input: '"{\"a\":1}"'
+        output: '"{\"a\":1}"'
+      valid-json-text-takes-the-first-arm:
+        input: '"42"'
+        output: '"42"'
+      neither-arm:
+        input: '"nope"'
+        error: |-
+          Expected JSON string | number, received "nope"
+          - Expected JSON string, received "nope"
+          - Expected number, received "nope"
+      unset:
+        input: undefined
+        error: |-
+          Expected JSON string | number, received undefined
+          - Expected JSON string, received undefined
+          - Expected number, received undefined
+  decode:
+    expression: i=>{try{let v0;for(;;){l1:{try{JSON.parse(i)}catch(t){{(v0||(v0=[])).push(e[0],i,void 0);break l1}};break}l3:{let v2=+i;if(!(v2==v2&&(v2||i.trim()))){(v0||(v0=[])).push(e[1],i,void 0);break l3};i=v2;break}throw e[2](i,v0)}return i}catch(v4){e[3](v4)}}
+    examples:
+      the-entry-is-the-document:
+        input: '"{\"a\":1}"'
+        output: '"{\"a\":1}"'
+  encode:
+    expression: i=>{try{for(;;){if(typeof i==="string"){try{JSON.parse(i)}catch(t){e[0](i)};break}if(typeof i==="number"&&i==i){i=""+i;break}throw e[1](i)}return i}catch(v0){e[2](v0)}}
+    examples:
+      the-document-is-the-entry:
+        input: '"{\"a\":1}"'
+        output: '"{\"a\":1}"'
+      # FIXME: every number's text is also JSON text, so 42 encodes to "42" and
+      # parses back as the JSON string "42". No arm order fixes it: the other
+      # order loses the JSON string "42". The link should ask, as
+      # `S.string.with(S.to, S.union([S.string, S.number]))` does.
+      a-number:
+        input: "42"
+        output: '"42"'
