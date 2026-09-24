@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.object((s) => ({ f: s.fieldOr("f", S.optional(S.number), 2) }))'
+  input: "{ [x: string]: unknown; }"
+  output: "{ f: number | undefined; }"
+  instantiations: 734
+jsonSchema:
+  input: "Failed at f: Expected JSON, received number | undefined"
+  output: '{ type: "object", properties: { f: { type: "number" } }, required: ["f"] }'
+  fromOutputType: "{ f: number; }"
+isEqual: (a,b)=>a===b||a.f===b.f
+compare:
+  input: "throws: [Sury] Can't compare { f: number | undefined | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { f: number; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    schema: "z.object({ f: z.number().optional().default(2) })"
+    divergence: "Sury's static Output type keeps the item's `undefined`, which the default replaces at runtime; the Output schema, `{ f: number }`, drops it as Zod does. Zod also types the Input as the object it reads, where Sury's object Input is any record."
+    input: "{ f?: number | undefined; }"
+    output: "{ f: number; }"
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.f;if(v0===void 0){v0=2}else{typeof v0==="number"&&v0==v0||e[0](v0);}return {f:v0}}catch(v1){e[2](v1)}}
+    examples:
+      absent-takes-the-default:
+        input: "{}"
+        output: "{ f: 2 }"
+      undefined-takes-the-default:
+        input: "{ f: undefined }"
+        output: "{ f: 2 }"
+      number:
+        input: "{ f: 1 }"
+        output: "{ f: 1 }"
+      not-a-number:
+        input: '{ f: "1" }'
+        error: 'Failed at f: Expected number | undefined | undefined, received "1"'
+  decode:
+    expression: i=>{try{let v0=i.f;if(v0===void 0){v0=2}else{typeof v0==="number"&&v0==v0||e[0](v0);}return {f:v0}}catch(v1){e[1](v1)}}
+    examples:
+      absent-takes-the-default:
+        input: "{}"
+        output: "{ f: 2 }"
+  encode:
+    expression: i=>{return {f:i.f}}
+    examples:
+      number:
+        input: "{ f: 1 }"
+        output: "{ f: 1 }"
