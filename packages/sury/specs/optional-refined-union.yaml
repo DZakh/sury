@@ -16,15 +16,11 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{for(;;){for(;;){if(typeof i==="string")break;if(typeof i==="number"&&i==i){i=""+i;break}e[0](i)}e[1](i)||e[2](i);break;}return i}catch(v0){e[3](v0)}}
+    expression: i=>{try{for(;;){if((typeof i==="string"||typeof i==="number"&&i==i)){for(;;){if(typeof i==="string")break;if(typeof i==="number"&&i==i){i=""+i;break}e[0](i)}e[1](i)||e[2](i);break}if(i===void 0)break;e[3](i)}return i}catch(v0){e[4](v0)}}
     examples:
-      # FIXME: `S.optional` should accept undefined here and return it. The
-      # union's own refinement keeps it one member of the outer union, and that
-      # member takes over the dispatch, so the undefined arm is never reached.
-      # Present on main as well; found in review of #456.
       absent:
         input: undefined
-        error: Expected string | number, received undefined
+        output: undefined
       string:
         input: '"a"'
         output: '"a"'
@@ -36,8 +32,11 @@ operations:
         error: empty
   decode: eq-to-parse
   encode:
-    expression: i=>{try{for(;;){e[2](i)||e[3](i);for(;;){if(typeof i==="string")break;e[1](i)};break;}return i}catch(v1){e[4](v1)}}
+    expression: i=>{try{for(;;){if(typeof i==="string"){e[2](i)||e[3](i);for(;;){if(typeof i==="string")break;e[1](i)};break}if(i===void 0)break;e[4](i)}return i}catch(v1){e[5](v1)}}
     examples:
+      absent:
+        input: undefined
+        output: undefined
       string:
         input: '"a"'
         output: '"a"'

@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.union([S.union([S.schema({ a: S.string }), S.number]).with(S.meta, { description: "d" }), S.boolean])'
+  input: "number | boolean | { a: string; }"
+  output: "number | boolean | { a: string; }"
+  instantiations: 4919
+jsonSchema:
+  input: '{ anyOf: [{ anyOf: [{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }, { type: "number" }], description: "d" }, { type: "boolean" }] }'
+  output: '{ anyOf: [{ anyOf: [{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }, { type: "number" }], description: "d" }, { type: "boolean" }] }'
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare { a: string; } | number | boolean. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod: 'z.union([z.union([z.object({ a: z.string() }), z.number()]).describe("d"), z.boolean()])'
+operations:
+  parse:
+    expression: i=>{try{for(;;){if((typeof i==="object"&&i&&!Array.isArray(i)||typeof i==="number"&&i==i)){for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i.a;typeof v0==="string"||e[0](v0);i={a:v0};break}if(typeof i==="number"&&i==i)break;e[1](i)};break}if(typeof i==="boolean")break;e[2](i)}return i}catch(v1){e[3](v1)}}
+    examples:
+      boolean-member:
+        input: "true"
+        output: "true"
+      object-arm:
+        input: '{ a: "x" }'
+        output: '{ a: "x" }'
+      number-arm:
+        input: "1"
+        output: "1"
+      object-arm-invalid:
+        input: "{ a: 1 }"
+        error: "Failed at a: Expected string, received 1"
+      none:
+        input: '"x"'
+        error: 'Expected { a: string; } | number | boolean, received "x"'
+  decode: identity
+  encode: identity

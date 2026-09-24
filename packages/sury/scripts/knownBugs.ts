@@ -46,8 +46,27 @@ export type Known = {
   matches: (finding: Finding) => boolean;
 };
 
-const inUnionWithDefault = (shape: Shape): boolean =>
-  some(shape, (node) => unionMembers(node).some(hasDefault));
+const admitsNull = (node: Shape): boolean =>
+  node.name === "nullable" ||
+  node.name === "nullish" ||
+  node.name === "null" ||
+  node.name === "any" ||
+  node.name === "unknown" ||
+  (node.name === "optional" && admitsNull(node.args[0]!)) ||
+  (node.name === "union" && node.args.some(admitsNull));
+
+// A union whose defaulted member takes an absent value another of its arms also
+// names: the wrapper's own (`optional`, `nullable`, `nullish`), or a sibling's.
+const shadowsAbsent = (shape: Shape): boolean =>
+  some(shape, (node) =>
+    unionMembers(node).some((member) => {
+      if (!hasDefault(member)) return false;
+      const others = node.name === "union" ? node.args.filter((arm) => arm !== member) : [];
+      const named = (absent: (arm: Shape) => boolean, wrapper: string) =>
+        absent(member) && (node.name === "nullish" || node.name === wrapper || others.some(absent));
+      return named(admitsUndefined, "optional") || named(admitsNull, "nullable");
+    }),
+  );
 
 export const KNOWN_BUGS: Known[] = [
   {
@@ -88,16 +107,15 @@ export const KNOWN_BUGS: Known[] = [
       some(f.shape, (node) => node.name === "fieldOr" && admitsUndefined(node.args[0]!)),
   },
   {
-    id: "union-defaulted-member",
+    id: "union-shadowed-absent-arm",
     kind: "bug",
     summary:
-      "A union member that carries a default takes over the union: `S.union([S.nullable(S.boolean, false), " +
-      "S.string])` rejects `\"x\"`. `S.nullable(S.optional(x, d))` is the same bug, since nullable is a union.",
-    spec: "union-defaulted-member",
-    fuzzers: ["codec", "union"],
-    matches: (f) =>
-      (f.fuzzer === "union" ? f.property === "acceptance" : ["conformance", "round-trip"].includes(f.property)) &&
-      inUnionWithDefault(f.shape),
+      "An absent arm a defaulted member already takes is dead, yet stays in the Output: " +
+      "`S.optional(S.optional(S.string, \"d\"))` claims `string | undefined`, encodes `undefined` to " +
+      "`undefined`, and decodes that to `\"d\"`.",
+    spec: "union-shadowed-absent-arm",
+    fuzzers: ["codec"],
+    matches: (f) => f.fuzzer === "codec" && f.property === "round-trip" && shadowsAbsent(f.shape),
   },
   {
     id: "union-never-member",

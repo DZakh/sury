@@ -442,6 +442,20 @@ const unionNarrowSchema = (schema: Internal): Internal => {
   return narrow;
 };
 
+// The runtime-type test a member's own values pass: its type narrow, or every
+// arm's for a nested union. "" where an arm has none to offer (unknown, a ref).
+const unionEntryCond = (input: Val, schema: Internal, inputVar: string): string => {
+  if (!(tagFlags[schema.type]! & 256)) return typeCheckCond(input, schema, inputVar);
+  const arms = schema.anyOf!;
+  const conds: string[] = [];
+  for (let i = 0; i < arms.length; i++) {
+    const arm = unionEntryCond(input, arms[i]!, inputVar);
+    if (arm === "") return "";
+    if (!conds.includes(arm)) conds.push(arm);
+  }
+  return conds.length > 1 ? `(${conds.join("||")})` : conds[0]!;
+};
+
 // Tag bits don't partition runtime values: every instance passes the object
 // narrow, so two such cases are only provably disjoint after widening each to
 // everything its narrow could also let through. Arrays and NaN need no widening -
@@ -1179,9 +1193,22 @@ const unionEmit = (
   for (let i = 0; i < plan.length; i++) {
     const group = plan[i]!;
     if (group.a.length === 1 && group.f & 16) {
-      const c = compile(group.a[0]!, input, input);
+      const member = group.a[0]!;
+      const c = compile(member, input, input);
       if (c !== U) {
         c.f |= group.f & 8;
+        // The plan leaves a group that shares no type with a later one to raise
+        // its own error, which is sound only behind its type narrow. A member
+        // dispatched as is hoists none when its dispatch is more than one type
+        // test - a nested union with a transforming or an object arm - and a
+        // case with no condition ends the chain, so it took every later
+        // member's values: `S.union([S.nullable(S.boolean, false), S.string])`
+        // rejected "x". It enters on its own narrow instead, and falls through
+        // where it has none to offer.
+        if (c.c === "" && c.b !== "" && plan.slice(i + 1).some((next) => next.m & ~group.m)) {
+          c.c = tagFlags[input.s.type]! & 1 ? unionEntryCond(input, member.s, input.v()) : "";
+          if (c.c === "") c.f |= 8;
+        }
         cases.push(c);
         if (c.c === "" && c.b === "") break;
       }
