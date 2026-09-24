@@ -18,23 +18,14 @@ vs:
     _skip: todo(#…)
 operations:
   parse:
-    expression: i=>{try{for(;;){let r;if(i instanceof e[8]){try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}v0 instanceof e[6]||e[7](v0);let v1;{let r;try{r=e[4].acquire(v0);v1=e[3](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[5](x)}}i=v1;break}catch(x){(r||(r=[])).push(e[18](x))}}if(i instanceof e[17]){try{let v2;{let r;try{r=e[10].acquire(i);v2=e[9](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[11](x)}}v2 instanceof e[15]||e[16](v2);let v3;{let r;try{r=e[13].acquire(v2);v3=e[12](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[14](x)}}i=v3;break}catch(x){(r||(r=[])).push(e[18](x))}}e[19](i,...(r||[]))}return i}catch(v4){e[20](v4)}}
+    expression: i=>{try{for(;;){let r;if(i instanceof e[3]){try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}i=v0;break}catch(x){(r||(r=[])).push(e[8](x))}}if(i instanceof e[7]){try{let v1;{let r;try{r=e[5].acquire(i);v1=e[4](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[6](x)}}i=v1;break}catch(x){(r||(r=[])).push(e[8](x))}}e[9](i,...(r||[]))}return i}catch(v2){e[10](v2)}}
     examples:
-      # FIXME: a case decodes the bytes and then decodes its own result again,
-      # as a Uint8Array, so no member of the union ever succeeds. A union of
-      # `S.jsonString` codecs reads fine; it is `S.protobuf` as a member.
       first-member:
         input: new Uint8Array([10, 1, 97])
-        error: |-
-          Expected Uint8Array, received invalid Uint8Array
-          - Expected Uint8Array, received { a: "a"; }
-          - Expected Uint8Array, received { b: 0; }
+        output: '{ a: "a" }'
       wire-failure-falls-through:
         input: new Uint8Array([16, 5])
-        error: |-
-          Expected Uint8Array, received invalid Uint8Array
-          - Unrecognized protobuf field 2
-          - Expected Uint8Array, received { b: 5; }
+        output: "{ b: 5 }"
       neither-member:
         input: new Uint8Array([16, 128])
         error: |-
