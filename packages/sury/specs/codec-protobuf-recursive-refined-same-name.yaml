@@ -19,7 +19,7 @@ vs:
     _skip: todo(#…)
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[11](i);let v2=i.x,v5=i.y;for(;;){if(typeof v2==="object"&&v2&&!Array.isArray(v2)){let v0;try{v0=e[0](i.x);}catch(v1){v1.path=["x",...v1.path];throw v1}v2=v0;break}if(v2===void 0)break;e[1](v2)}for(;;){if(typeof v5==="object"&&v5&&!Array.isArray(v5)){let v3;try{v3=e[2](i.y);}catch(v4){v4.path=["y",...v4.path];throw v4}v5=v3;break}if(v5===void 0)break;e[3](v5)}let v6;{let w;try{w=e[9].acquire();let v,j,n,s,h,a,k,g,c,o;v=v2;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[4](w,v);w.end(h)};v=v5;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[5](w,v);w.end(h)};v6=w.finish()}catch(x){w&&(w.busy=false);e[10](x)}}return v6}catch(v7){e[12](v7)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[11](i);let v2=i.x,v5=i.y;for(;;){if(typeof v2==="object"&&v2&&!Array.isArray(v2)){let v0;try{v0=e[0](i.x);}catch(v1){v1.path=["x",...v1.path];throw v1}v2=v0;break}if(v2===void 0)break;throw e[1](v2)}for(;;){if(typeof v5==="object"&&v5&&!Array.isArray(v5)){let v3;try{v3=e[2](i.y);}catch(v4){v4.path=["y",...v4.path];throw v4}v5=v3;break}if(v5===void 0)break;throw e[3](v5)}let v6;{let w;try{w=e[9].acquire();let v,j,n,s,h,a,k,g,c,o;v=v2;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[4](w,v);w.end(h)};v=v5;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[5](w,v);w.end(h)};v6=w.finish()}catch(x){w&&(w.busy=false);e[10](x)}}return v6}catch(v7){e[12](v7)}}
     examples:
       both:
         input: '{ x: { a: "s", kid: { a: "t", kid: undefined } }, y: { b: 1, kid: { b: 2, kid: undefined } } }'
@@ -31,7 +31,7 @@ operations:
         input: "{ x: undefined, y: { b: 1, kid: { b: 13, kid: undefined } } }"
         error: "Failed at y.kid: no 13"
   decode:
-    expression: i=>{try{let v1=i.x,v3=i.y;for(;;){if(typeof v1==="object"&&v1&&!Array.isArray(v1)){try{e[0](i.x);}catch(v0){v0.path=["x",...v0.path];throw v0};break}if(v1===void 0)break;e[1](v1)}for(;;){if(typeof v3==="object"&&v3&&!Array.isArray(v3)){try{e[2](i.y);}catch(v2){v2.path=["y",...v2.path];throw v2};break}if(v3===void 0)break;e[3](v3)}let v4;{let w;try{w=e[9].acquire();let v,j,n,s,h,a,k,g,c,o;v=v1;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[4](w,v);w.end(h)};v=v3;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[5](w,v);w.end(h)};v4=w.finish()}catch(x){w&&(w.busy=false);e[10](x)}}return v4}catch(v5){e[11](v5)}}
+    expression: i=>{try{let v1=i.x,v3=i.y;for(;;){if(typeof v1==="object"&&v1&&!Array.isArray(v1)){try{e[0](i.x);}catch(v0){v0.path=["x",...v0.path];throw v0};break}if(v1===void 0)break;throw e[1](v1)}for(;;){if(typeof v3==="object"&&v3&&!Array.isArray(v3)){try{e[2](i.y);}catch(v2){v2.path=["y",...v2.path];throw v2};break}if(v3===void 0)break;throw e[3](v3)}let v4;{let w;try{w=e[9].acquire();let v,j,n,s,h,a,k,g,c,o;v=v1;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[4](w,v);w.end(h)};v=v3;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[5](w,v);w.end(h)};v4=w.finish()}catch(x){w&&(w.busy=false);e[10](x)}}return v4}catch(v5){e[11](v5)}}
     examples:
       both:
         input: '{ x: { a: "s", kid: { a: "t", kid: undefined } }, y: { b: 1, kid: { b: 2, kid: undefined } } }'

@@ -1,4 +1,5 @@
 import {
+  type BGlobal,
   anyOfTag,
   baseSchema,
   type Builder,
@@ -34,7 +35,8 @@ import {
   valueOptions
 } from "./base";
 import {
-  B_embedInvalidInput,
+  B_detached,
+  B_failInvalidInput,
   B_embedPure,
   B_errorOf,
   B_inlineConst,
@@ -89,8 +91,10 @@ export const parse = (input: Val): Val => {
     if (loopInput.f & 1) {
       const operationInputVar = loopInput.v();
       const operationInput = B_scope(loopInput);
-      const operationOutput = parse(operationInput);
-      const operationCode = B_merge(operationOutput);
+      let operationOutput!: Val;
+      const operationCode = B_detached(loopInput.g, () =>
+        B_merge((operationOutput = parse(operationInput))),
+      );
       result =
         operationInput.i !== operationOutput.i || operationCode !== ""
           ? B_next(
@@ -154,6 +158,11 @@ export type Tail = (
   flag: Flag,
   hasDefs: boolean,
 ) => string | undefined;
+
+// Where a failure leaves the operation, for an outcome that answers it rather
+// than raising it (`BGlobal.x`). Registered with the tail, and asked before the
+// body is emitted, so it can't depend on whether the body turns out async.
+export type Exit = (input: Val, flag: Flag) => BGlobal["x"];
 
 // A Sury failure is a record until it crosses into user code, and there are
 // exactly three places where it does: the compiled operation, the promise an
@@ -241,10 +250,11 @@ export const throwTail: Tail = (input, code, out, isAsync, flag, hasDefs) => {
     const body = isAsync
       ? `${code}return ${out}.then(${v}=>({value:${v}}),${issues})`
       : `${code}return {value:${out}}`;
-    // The raise counter: when nothing merged can throw, no `try`. An async
-    // operation answers with a promise either way, so a failure the sync
-    // phase raises comes back in the same shape as one after the await.
-    if (!input.g.t) return body;
+    // An answer, never a throw, so the `try` goes wherever the body reads the
+    // value at all - a getter can raise there. An async operation answers with
+    // a promise either way, so a failure the sync phase raises comes back in the
+    // same shape as one after the await.
+    if (!code) return body;
     const e = B_varWithoutAllocation(input.g);
     return `try{${body}}catch(${e}){return ${
       isAsync ? `Promise.resolve(${issues}(${e}))` : `${issues}(${e})`
@@ -263,13 +273,14 @@ export const throwTail: Tail = (input, code, out, isAsync, flag, hasDefs) => {
   }`;
   // The run boundary, cutting at the operation itself so the caller's line ends
   // up on top instead of five frames of library. Only where something can raise
-  // at all (`g.t`), and never for a nested compile (recursive.ts), whose throw
-  // is generated code's own business and is caught and re-raised by the
-  // operation around it.
+  // at all (`g.t`) - or, for a promise-returning operation, wherever the body
+  // reads the value, since a getter's throw has to reject too - and never for a
+  // nested compile (recursive.ts), whose throw is generated code's own business
+  // and is caught and re-raised by the operation around it.
   //
   // The sync phase only. What an async operation raises after its first await
   // is `rejectionBoundary`'s.
-  if (!input.g.t || hasDefs) return body;
+  if (!(input.g.t || (flag & 1 && !(flag & 512) && code)) || hasDefs) return body;
   const g = input.g;
   const e = B_varWithoutAllocation(g);
   // A promise-returning operation must not throw synchronously: a value that
@@ -290,8 +301,10 @@ export const throwTail: Tail = (input, code, out, isAsync, flag, hasDefs) => {
 };
 
 let emitTail: Tail = throwTail;
-export const __setTail = (fn: Tail): void => {
+let emitExit: Exit | undefined;
+export const __setTail = (fn: Tail, exit: Exit): void => {
   emitTail = fn;
+  emitExit = exit;
 };
 
 export const compileDecoder = (
@@ -302,6 +315,8 @@ export const compileDecoder = (
   node?: OpNode
 ): (input: unknown) => unknown => {
   const input = B_operationArg(isLiteral(schema) ? unknown : schema, expected, flag, defs);
+  // A nested compile (recursive.ts) answers with its value, so it raises.
+  if (!defs) input.g.x = emitExit?.(input, flag);
 
   const output = parse(input);
   const code = B_merge(output);
@@ -671,7 +686,7 @@ export const never_: Internal = /* @__PURE__ */ initSchema(neverTag, (input: Val
   // this branch, so a union built from its cases' output schemas must not list
   // the input type as something the union can produce.
   const output = B_refine(input, never_, U, never_);
-  output.cp = B_embedInvalidInput(input) + ";";
+  output.cp = B_failInvalidInput(input) + ";";
   return output;
 });
 

@@ -16,7 +16,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i.x;if(v0===void 0){v0=1}else{for(;;){if(typeof v0==="string"){let v1=+v0;v1==v1&&(v1||v0.trim())||e[0](v0);v0=v1;break}if(typeof v0==="boolean")break;if(v0===void 0){v0=true;break}e[1](v0)}}return {x:v0}}catch(v2){e[3](v2)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i.x;if(v0===void 0){v0=1}else{for(;;){if(typeof v0==="string"){let v1=+v0;v1==v1&&(v1||v0.trim())||e[0](v0);v0=v1;break}if(typeof v0==="boolean")break;if(v0===void 0){v0=true;break}throw e[1](v0)}}return {x:v0}}catch(v2){e[3](v2)}}
     examples:
       absent-takes-the-outer-default:
         input: "{}"
@@ -31,7 +31,7 @@ operations:
         input: "{ x: false }"
         output: "{ x: false }"
   decode:
-    expression: i=>{try{let v0=i.x;if(v0===void 0){v0=1}else{for(;;){if(typeof v0==="string"){let v1=+v0;v1==v1&&(v1||v0.trim())||e[0](v0);v0=v1;break}if(typeof v0==="boolean")break;if(v0===void 0){v0=true;break}e[1](v0)}}return {x:v0}}catch(v2){e[2](v2)}}
+    expression: i=>{try{let v0=i.x;if(v0===void 0){v0=1}else{for(;;){if(typeof v0==="string"){let v1=+v0;v1==v1&&(v1||v0.trim())||e[0](v0);v0=v1;break}if(typeof v0==="boolean")break;if(v0===void 0){v0=true;break}throw e[1](v0)}}return {x:v0}}catch(v2){e[2](v2)}}
     examples:
       absent-takes-the-outer-default:
         input: "{}"
@@ -40,7 +40,7 @@ operations:
         input: '{ x: "3" }'
         output: "{ x: 3 }"
   encode:
-    expression: i=>{try{let v0=i.x;for(;;){if(typeof v0==="number"&&v0==v0){v0=""+i.x;break}if(typeof v0==="boolean")break;e[0](v0)}return {x:v0}}catch(v1){e[1](v1)}}
+    expression: i=>{try{let v0=i.x;for(;;){if(typeof v0==="number"&&v0==v0){v0=""+i.x;break}if(typeof v0==="boolean")break;throw e[0](v0)}return {x:v0}}catch(v1){e[1](v1)}}
     examples:
       number-converts-back:
         input: "{ x: 1 }"

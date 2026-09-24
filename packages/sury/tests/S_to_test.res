@@ -65,7 +65,7 @@ test("Coerce from string to union of int and bool (union dispatch over a convert
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{typeof i==="string"||e[5](i);for(;;){let r;try{let v0=+i;v0==v0&&(v0||i.trim())||e[1](i);v0<=2147483647&&v0>=-2147483648&&v0%1==0||e[0](v0);i=v0;break}catch(x){(r||(r=[])).push(e[3](x))}try{let v1;(v1=i==="true")||i==="false"||e[2](i);i=v1;break}catch(x){(r||(r=[])).push(e[3](x))}e[4](i,...(r||[]))}return i}catch(v2){e[6](v2)}}`,
+    `i=>{try{typeof i==="string"||e[4](i);let v1;for(;;){l2:{let v0=+i;if(!(v0==v0&&(v0||i.trim()))){(v1||(v1=[])).push(e[1],i,void 0);break l2};if(!(v0<=2147483647&&v0>=-2147483648&&v0%1==0)){(v1||(v1=[])).push(e[0],v0,void 0);break l2};i=v0;break}l4:{let v3;if(!((v3=i==="true")||i==="false")){(v1||(v1=[])).push(e[2],i,void 0);break l4};i=v3;break}throw e[3](i,void 0,v1)}return i}catch(v5){e[5](v5)}}`,
   )
 
   t->Assert.deepEqual(%raw(`123`)->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`"123"`))
@@ -73,7 +73,7 @@ test("Coerce from string to union of int and bool (union dispatch over a convert
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{try{for(;;){if(typeof i==="number"&&i==i){i=""+i;break}if(typeof i==="boolean"){i=""+i;break}e[0](i)}return i}catch(v0){e[1](v0)}}`,
+    `i=>{try{for(;;){if(typeof i==="number"&&i==i){i=""+i;break}if(typeof i==="boolean"){i=""+i;break}throw e[0](i)}return i}catch(v0){e[1](v0)}}`,
   )
 })
 
@@ -361,12 +361,12 @@ test("Coerce from string to bigint", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{typeof i==="string"||e[1](i);let v0;try{v0=BigInt(i)}catch(_){e[0](i)}v0||i.trim()||e[0](i);return v0}catch(v1){e[2](v1)}}`,
+    `i=>{try{typeof i==="string"||e[2](i);let v0;try{v0=BigInt(i)}catch(_){e[0](i)}v0||i.trim()||e[1](i);return v0}catch(v1){e[3](v1)}}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Convert,
-    `i=>{try{let v0;try{v0=BigInt(i)}catch(_){e[0](i)}v0||i.trim()||e[0](i);return v0}catch(v1){e[1](v1)}}`,
+    `i=>{try{let v0;try{v0=BigInt(i)}catch(_){e[0](i)}v0||i.trim()||e[1](i);return v0}catch(v1){e[2](v1)}}`,
   )
   t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return ""+i}`)
 })
@@ -428,7 +428,7 @@ test("Coerce string to unboxed union (each item separately)", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{typeof i==="string"||e[4](i);for(;;){let r;try{let v0=+i;v0==v0&&(v0||i.trim())||e[0](i);i=v0;break}catch(x){(r||(r=[])).push(e[2](x))}try{let v1;(v1=i==="true")||i==="false"||e[1](i);i=v1;break}catch(x){(r||(r=[])).push(e[2](x))}e[3](i,...(r||[]))}return i}catch(v2){e[5](v2)}}`,
+    `i=>{try{typeof i==="string"||e[3](i);let v1;for(;;){l2:{let v0=+i;if(!(v0==v0&&(v0||i.trim()))){(v1||(v1=[])).push(e[0],i,void 0);break l2};i=v0;break}l4:{let v3;if(!((v3=i==="true")||i==="false")){(v1||(v1=[])).push(e[1],i,void 0);break l4};i=v3;break}throw e[2](i,void 0,v1)}return i}catch(v5){e[4](v5)}}`,
   )
 
   t->Assert.deepEqual(Number(10.)->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`"10"`))
@@ -438,7 +438,7 @@ test("Coerce string to unboxed union (each item separately)", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{try{for(;;){if(typeof i==="number"&&i==i){i=""+i;break}if(typeof i==="boolean"){i=""+i;break}e[0](i)}return i}catch(v0){e[1](v0)}}`,
+    `i=>{try{for(;;){if(typeof i==="number"&&i==i){i=""+i;break}if(typeof i==="boolean"){i=""+i;break}throw e[0](i)}return i}catch(v0){e[1](v0)}}`,
   )
 })
 
@@ -523,7 +523,7 @@ test("Coerce from string to optional bool", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{try{if(typeof i==="boolean"){i=""+i}else{e[0](i)}return i}catch(v0){e[1](v0)}}`,
+    `i=>{try{if(typeof i==="boolean"){i=""+i}else{throw e[0](i)}return i}catch(v0){e[1](v0)}}`,
   )
 })
 
@@ -551,7 +551,7 @@ test("Coerce from string to JSON and then to bigint", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{typeof i==="string"||e[1](i);let v0;try{v0=BigInt(i)}catch(_){e[0](i)}v0||i.trim()||e[0](i);return v0}catch(v1){e[2](v1)}}`,
+    `i=>{try{typeof i==="string"||e[2](i);let v0;try{v0=BigInt(i)}catch(_){e[0](i)}v0||i.trim()||e[1](i);return v0}catch(v1){e[3](v1)}}`,
   )
   t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return ""+i}`)
   t->U.assertCompiledCode(
@@ -578,7 +578,7 @@ test("Coerce from JSON to bigint", t => {
     ~schema,
     ~op=#Parse,
     ~embedded=[],
-    `i=>{try{typeof i==="string"||e[1](i);let v0;try{v0=BigInt(i)}catch(_){e[0](i)}v0||i.trim()||e[0](i);return v0}catch(v1){e[2](v1)}}`,
+    `i=>{try{typeof i==="string"||e[2](i);let v0;try{v0=BigInt(i)}catch(_){e[0](i)}v0||i.trim()||e[1](i);return v0}catch(v1){e[3](v1)}}`,
   )
   t->U.assertCompiledCode(~schema, ~op=#Encode, ~embedded=[], `i=>{return ""+i}`)
   t->U.assertCompiledCode(
@@ -640,13 +640,13 @@ test("Coerce from JSON to optional bigint", t => {
     ~schema,
     ~embedded=[],
     ~op=#Parse,
-    `i=>{try{for(;;){if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}v0||i.trim()||e[0](i);i=v0;break}if(i===null){i=void 0;break}e[1](i)}return i}catch(v1){e[2](v1)}}`,
+    `i=>{try{for(;;){if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}v0||i.trim()||e[1](i);i=v0;break}if(i===null){i=void 0;break}throw e[2](i)}return i}catch(v1){e[3](v1)}}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~embedded=[],
     ~op=#Encode,
-    `i=>{try{for(;;){if(typeof i==="bigint"){i=""+i;break}if(i===void 0){i=null;break}e[0](i)}return i}catch(v0){e[1](v0)}}`,
+    `i=>{try{for(;;){if(typeof i==="bigint"){i=""+i;break}if(i===void 0){i=null;break}throw e[0](i)}return i}catch(v0){e[1](v0)}}`,
   )
 })
 
@@ -663,7 +663,7 @@ test("Coerce from JSON to array of bigint", t => {
     ~schema,
     ~op=#Parse,
     ~embedded=[],
-    `i=>{try{Array.isArray(i)||e[2](i);let v3=new Array(i.length);for(let v0=0;v0<i.length;++v0){let v2=i[v0];typeof v2==="string"||e[1](v2,[v0]);let v1;try{v1=BigInt(v2)}catch(_){e[0](v2,[v0])}v1||v2.trim()||e[0](v2,[v0]);v3[v0]=v1}return v3}catch(v4){e[3](v4)}}`,
+    `i=>{try{Array.isArray(i)||e[3](i);let v3=new Array(i.length);for(let v0=0;v0<i.length;++v0){let v2=i[v0];typeof v2==="string"||e[2](v2,[v0]);let v1;try{v1=BigInt(v2)}catch(_){e[0](v2,[v0])}v1||v2.trim()||e[1](v2,[v0]);v3[v0]=v1}return v3}catch(v4){e[4](v4)}}`,
   )
   t->U.assertCompiledCode(
     ~schema,
@@ -689,7 +689,7 @@ test("Coerce from JSON to tuple with bigint", t => {
     ~schema,
     ~op=#Parse,
     ~embedded=[],
-    `i=>{try{Array.isArray(i)||e[4](i);i.length===2||e[3](i);let v0=i[0],v2=i[1];typeof v0==="string"||e[0](v0);typeof v2==="string"||e[2](v2);let v1;try{v1=BigInt(v2)}catch(_){e[1](v2)}v1||v2.trim()||e[1](v2);return [v0,v1]}catch(v3){e[5](v3)}}`,
+    `i=>{try{Array.isArray(i)||e[5](i);i.length===2||e[4](i);let v0=i[0],v2=i[1];typeof v0==="string"||e[0](v0);typeof v2==="string"||e[3](v2);let v1;try{v1=BigInt(v2)}catch(_){e[1](v2)}v1||v2.trim()||e[2](v2);return [v0,v1]}catch(v3){e[6](v3)}}`,
   )
   t->U.assertCompiledCode(~schema, ~op=#Encode, ~embedded=[], `i=>{return [i[0],""+i[1]]}`)
 })
@@ -747,7 +747,7 @@ test("Coerce from union to bigint", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{for(;;){if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}v0||i.trim()||e[0](i);i=v0;break}if(typeof i==="number"&&i==i){i=BigInt(i);break}e[1](i)}return i}catch(v1){e[2](v1)}}`,
+    `i=>{try{for(;;){if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}v0||i.trim()||e[1](i);i=v0;break}if(typeof i==="number"&&i==i){i=BigInt(i);break}throw e[2](i)}return i}catch(v1){e[3](v1)}}`,
   )
 })
 
@@ -803,7 +803,7 @@ test("Coerce from union to bigint with refinement on union", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{for(;;){if(typeof i==="string"){e[0](i)||e[2](i);let v0;try{v0=BigInt(i)}catch(_){e[1](i)}v0||i.trim()||e[1](i);i=v0;break}if(typeof i==="number"&&i==i){e[0](i)||e[3](i);i=BigInt(i);break}e[4](i)}return i}catch(v1){e[5](v1)}}`,
+    `i=>{try{for(;;){if(typeof i==="string"){e[0](i)||e[3](i);let v0;try{v0=BigInt(i)}catch(_){e[1](i)}v0||i.trim()||e[2](i);i=v0;break}if(typeof i==="number"&&i==i){e[0](i)||e[4](i);i=BigInt(i);break}throw e[5](i)}return i}catch(v1){e[6](v1)}}`,
   )
 })
 
@@ -816,7 +816,7 @@ test("Coerce from union to bigint with refinement on union (with an item transfo
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{for(;;){if(typeof i==="string"){e[0](i)||e[2](i);let v0;try{v0=BigInt(i)}catch(_){e[1](i)}v0||i.trim()||e[1](i);i=v0;break}if(typeof i==="number"&&i==i){let v2=""+i;e[0](v2)||e[4](v2);let v1;try{v1=BigInt(v2)}catch(_){e[3](v2)}v1||v2.trim()||e[3](v2);i=v1;break}e[5](i)}return i}catch(v3){e[6](v3)}}`,
+    `i=>{try{for(;;){if(typeof i==="string"){e[0](i)||e[3](i);let v0;try{v0=BigInt(i)}catch(_){e[1](i)}v0||i.trim()||e[2](i);i=v0;break}if(typeof i==="number"&&i==i){let v2=""+i;e[0](v2)||e[6](v2);let v1;try{v1=BigInt(v2)}catch(_){e[4](v2)}v1||v2.trim()||e[5](v2);i=v1;break}throw e[7](i)}return i}catch(v3){e[8](v3)}}`,
     ~message="Should apply refinement after the item transformation",
   )
 })
@@ -834,7 +834,7 @@ test("Coerce from union to bigint and then to string", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{for(;;){if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}v0||i.trim()||e[0](i);i=""+v0;break}if(typeof i==="number"&&i==i){i=""+BigInt(i);break}e[1](i)}return i}catch(v1){e[2](v1)}}`,
+    `i=>{try{for(;;){if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}v0||i.trim()||e[1](i);i=""+v0;break}if(typeof i==="number"&&i==i){i=""+BigInt(i);break}throw e[2](i)}return i}catch(v1){e[3](v1)}}`,
   )
 })
 
@@ -1131,7 +1131,7 @@ test("Refined+converted target union is still an ambiguous widening", t => {
   t->U.assertCompiledCode(
     ~schema=explicit,
     ~op=#Parse,
-    `i=>{try{typeof i==="string"||e[3](i);e[0](i)||e[2](i);let v0;try{v0=BigInt(i)}catch(_){e[1](i)}v0||i.trim()||e[1](i);i=v0;return i}catch(v1){e[4](v1)}}`,
+    `i=>{try{typeof i==="string"||e[4](i);e[0](i)||e[3](i);let v0;try{v0=BigInt(i)}catch(_){e[1](i)}v0||i.trim()||e[2](i);i=v0;return i}catch(v1){e[5](v1)}}`,
   )
 })
 
@@ -1150,7 +1150,7 @@ test("A narrowed target union runs its refine and chained .to on the one member"
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{typeof i==="string"||e[3](i);e[0](i)||e[2](i);let v0;try{v0=BigInt(i)}catch(_){e[1](i)}v0||i.trim()||e[1](i);i=v0;return i}catch(v1){e[4](v1)}}`,
+    `i=>{try{typeof i==="string"||e[4](i);e[0](i)||e[3](i);let v0;try{v0=BigInt(i)}catch(_){e[1](i)}v0||i.trim()||e[2](i);i=v0;return i}catch(v1){e[5](v1)}}`,
   )
 })
 

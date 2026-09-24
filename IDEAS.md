@@ -349,6 +349,101 @@ of a form-data story. What they were built to make cheap, roughly in order:
   extend trusted case compilation past field-discriminated members, so a lone
   object member validates as little as a typed object does.
 
+### Failure exit follow-ups
+
+A failed check hands its record to `BGlobal.x` and runs the statement it gets
+back - `return false` for `is*`, the failure Result for `*AsResult`, record and
+`break` for a union case a later one may accept - and raises only where no exit
+is set. What is left on the table:
+
+- **A refiner's own throw still raises.** `S.refine` wraps the user check in an
+  embed that turns an exception into `invalid_conversion` by `B_throw`, so the
+  body reads `e[0](i)||e[1](i)` and a union case holding one keeps its `try` and
+  the `caught` bookkeeping behind it. If the embed answered the failure instead
+  of throwing it (`true`, or the record), the case could jump like any other
+  check. With `B_conversion` already jumping, most union cases would then need no
+  `try` at all, and the raise tracking in `emitChain` would matter only for
+  opaque embeds (a recursive schema's operation, `S.json`'s walk) and async
+  cases.
+- **A validation-only operation still builds the value it throws away.** `is*`,
+  `assert*` and `make*` end in `assertResult`, yet a union case still rebuilds
+  its object (`i={kind:i.kind,v:v0}`) and an array still allocates
+  `new Array(n)` to store each item's union output. Measured, 20-item array of
+  a two-member union, every item accepted by the first member: 167ns against
+  95ns with the writes removed. Wants the union to know its output is unread
+  (a val flag set where the chain ends in `assertResult`, or the output val's
+  inline materialized lazily the way object fields already are).
+- **A deferred union failure still allocates its path.** A case that falls
+  through pushes `builder, value, path` onto the union's list, and inside a loop
+  the path is a fresh `[v0,"a"]` per failing item, plus the list itself per
+  item. `parseOrThrow` over a 20-item array of a two-member union where every
+  other item falls through: ~450ns, against ~170ns for `isInput`, which records
+  nothing. Pushing only the dynamic segments (the loop var) and letting the
+  builder concat the static part would close most of it.
+- **Standard Schema `validate` and `*AsPromisableResult` still raise.** Both
+  answer in the body's own shape - a promise when the body turns out async - and
+  the exit is chosen before the body is compiled, so they are left without one.
+  An exit whose embed reads a box the tail fills in once `isAsync` is known
+  (`box.a ? Promise.resolve(R(e)) : R(e)`) would cover both. `validate` is the
+  one most of the ecosystem calls, and its failing path is the throw-and-catch
+  every other answering outcome no longer pays. Its exit belongs next to
+  `throwTail` in parse.ts, which is in every bundle; measure what it adds there.
+- **`parseOrThrow`'s failing path is the stack capture.** ~4.7us of a ~5us
+  failure is `Error.captureStackTrace` at the operation boundary; the throw
+  itself is noise next to it. Nothing to do with the exit, but it is now what
+  every remaining raise costs.
+- **A jump spells its condition as `if(!(cond))`.** A check's `c` is written to
+  read `cond||raise`, so the jump form negates it whole: `if(!(typeof
+  v0==="string"))return false`, and `if(!((a||b)))` where the union fused a
+  group. A check that could also hand over its negation (`typeof v0!=="string"`)
+  would shorten every jump by three characters. Two cosmetic warts ride along:
+  `{…;break l1};break` in union arms, and `catch(x){{…}}` where a statement
+  site wraps an exit that is already a block.
+- **An async operation's union throws its failure whenever a case may fall
+  through.** Whether the dispatch ends up in an `(async(i)=>{…})(i)` wrapper is
+  known only once the cases are compiled, but the exit they fail to is chosen
+  before, so `unionEmit` assumes the wrapper for any async operation with a
+  falling group (`outer = g.o & 1 && awaitAsync ? U : g.x`).
+  `S.union([{k:"a",n:number}, {k:"a",s:string}, string])` answers
+  `parseAsResult` with a `return`, but `parseAsResultPromise` and
+  `isInputAsPromise` with a `throw` their tail catches - the cost the sync
+  outcomes no longer pay. Deciding it from the members' own async-ness (a
+  schema walk like `unionTraits`) before compiling them would let the common
+  all-sync union jump in async operations too.
+- **Compiles are 3-12% slower** (`spec check --perf=only --against
+  16de5d3`), mostly unions, and a few plain refined schemas at 3-5%
+  (`integer-gte`, `bigint-lt` encode/decode). `enter`/`leave` build a closure
+  and a label holder per union case, `settle` checks each case against the
+  chain's drop rule, and `B_fail` builds a record thunk per failed check wherever an exit is
+  set - including `is*`, whose exit never reads it. Asking the exit whether it
+  wants the record before building it, and a per-union label counter, would
+  win most of it back.
+- **`B_detached` is a convention, not a guarantee.** Every builder that emits
+  code into a callback (a `.then`, `Promise.all(...).then`, an async dispatch)
+  has to run both the parse and the merge of that code with the exit cleared,
+  or a jump lands in a function it can't leave - which is exactly what
+  `completeObjectVal` got wrong
+  (specs/codec-async-object-then-custom.yaml). One helper that parses and merges
+  a continuation, used by parse.ts, composites.ts and B_markOutput alike, would
+  leave nowhere to forget it.
+- **`fuzz:union` generates no async member.** Its `outcome` class holds every
+  answering outcome to `parseOrThrow` (and over seeds 2-8 it catches the
+  getter/`try` regression tests/operations_test.ts pins), but over sync members
+  only, so the async-object bug (specs/codec-async-object-then-custom.yaml)
+  would still get past it. An async coder in the generator, and the `AsPromise`
+  outcomes awaited in the loop, would close that.
+
+### Pre-existing bugs surfaced by the failure exit work
+
+- **`S.env.with(S.maxLength, n)` throws a `TypeError` on `undefined`.**
+  `S.parseOrThrow(S.env.with(S.maxLength, 3), undefined)` raises `Cannot read
+  properties of undefined (reading 'length')` instead of a Sury failure, alone
+  and as a union member, array item or object field; `S.length` does the same.
+  The length check reads a value `env`'s blank handling let through. Same on
+  16de5d3, and it is what `fuzz:union --seed=5` fails on (an `acceptance` diff
+  against a reference that accepts `undefined`). Wants a spec example once
+  fixed.
+
 ### Known bugs left over from the validation refactor (`val.validation: array<validationCheck>`)
 
 - **`err.received` is `unknown` for refine-chain vals on type failures.**

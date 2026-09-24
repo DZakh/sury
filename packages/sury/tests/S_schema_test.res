@@ -58,11 +58,11 @@ test("Object with embeded transformed schema", t => {
   )
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#Encode),
-    `i=>{try{let v0=i.zoo;for(;;){if(typeof v0==="number"&&v0==v0)break;if(v0===void 0){v0=null;break}e[0](v0)}return {foo:"bar",zoo:v0}}catch(v1){e[1](v1)}}`,
+    `i=>{try{let v0=i.zoo;for(;;){if(typeof v0==="number"&&v0==v0)break;if(v0===void 0){v0=null;break}throw e[0](v0)}return {foo:"bar",zoo:v0}}catch(v1){e[1](v1)}}`,
   )
   t->Assert.is(
     objectSchema->U.getCompiledCodeString(~op=#Encode),
-    `i=>{try{let v0=i.zoo;for(;;){if(typeof v0==="number"&&v0==v0)break;if(v0===void 0){v0=null;break}e[0](v0)}return {foo:"bar",zoo:v0}}catch(v1){e[1](v1)}}`,
+    `i=>{try{let v0=i.zoo;for(;;){if(typeof v0==="number"&&v0==v0)break;if(v0===void 0){v0=null;break}throw e[0](v0)}return {foo:"bar",zoo:v0}}catch(v1){e[1](v1)}}`,
   )
 })
 
@@ -124,11 +124,11 @@ test("Tuple with embeded transformed schema", t => {
   )
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#Encode),
-    `i=>{try{let v0=i[0];for(;;){if(typeof v0==="string")break;if(v0===void 0){v0=null;break}e[0](v0)}return [v0,void 0,"bar"]}catch(v1){e[1](v1)}}`,
+    `i=>{try{let v0=i[0];for(;;){if(typeof v0==="string")break;if(v0===void 0){v0=null;break}throw e[0](v0)}return [v0,void 0,"bar"]}catch(v1){e[1](v1)}}`,
   )
   t->Assert.is(
     tupleSchema->U.getCompiledCodeString(~op=#Encode),
-    `i=>{try{let v0=i[0];for(;;){if(typeof v0==="string")break;if(v0===void 0){v0=null;break}e[0](v0)}return [v0,void 0,"bar"]}catch(v1){e[1](v1)}}`,
+    `i=>{try{let v0=i[0];for(;;){if(typeof v0==="string")break;if(v0===void 0){v0=null;break}throw e[0](v0)}return [v0,void 0,"bar"]}catch(v1){e[1](v1)}}`,
   )
 })
 

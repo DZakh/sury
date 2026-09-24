@@ -33,8 +33,8 @@ import {
   _var,
   B_addObjectField,
   B_dynamicScope,
+  B_failInvalidInput,
   B_embed,
-  B_embedInvalidInput,
   B_hoistDecl,
   B_markOutput,
   B_refine,
@@ -158,7 +158,7 @@ const readCheckbox = (input: Val, target: Internal): Val => {
   const v = input.i;
   if (target.const !== U) {
     const output = B_nextConst(input, target);
-    output.cp = `${target.const ? `${v}==="on"||${v}==="true"` : `${v}==="false"||!${v}`}||${B_embedInvalidInput(input, target)};`;
+    output.cp = B_failInvalidInput(input, target, target.const ? `${v}==="on"||${v}==="true"` : `${v}==="false"||!${v}`);
     return output;
   }
   // Into a var of its own, not the entry's: a later check fails on the
@@ -166,7 +166,7 @@ const readCheckbox = (input: Val, target: Internal): Val => {
   const out = B_varWithoutAllocation(input.g);
   const output = B_next(input, out, bool, target);
   output.v = _var;
-  output.cp = `let ${out}=${v}==="on"||${v}==="true"||(${v}==="false"||!${v}?false:${B_embedInvalidInput(input, target)});`;
+  output.cp = `let ${out}=${v}==="on"||${v}==="true";${B_failInvalidInput(input, target, `${out}||${v}==="false"||!${v}`)}`;
   return output;
 };
 
@@ -235,7 +235,7 @@ const appendValue = (val: Val, fdVar: string, keyText: string, inList?: boolean)
   }
   if (present.type === unknownTag) {
     const v = val.v();
-    return `if(${v}!=null){typeof ${v}==="string"||${v} instanceof ${B_embed(val, globalThis.Blob)}||${B_embedInvalidInput(val, formDataEntry)};${fdVar}.append(${keyText},${v});}`;
+    return `if(${v}!=null){${B_failInvalidInput(val, formDataEntry, `typeof ${v}==="string"||${v} instanceof ${B_embed(val, globalThis.Blob)}`)}${fdVar}.append(${keyText},${v});}`;
   }
   if ((tagFlag & 2) || ((tagFlag & 8192) && isBlobClass(schema.class))) {
     return `${fdVar}.append(${keyText},${val.i});`;
@@ -341,7 +341,7 @@ const formDataToObject = (input: Val, target: Internal): Val => {
         );
       }
     } else if (present.type === unknownTag) {
-      item.cp = `Array.isArray(${readVar})&&${B_embedInvalidInput(item, formDataEntry)};`;
+      item.cp = B_failInvalidInput(item, formDataEntry, `!Array.isArray(${readVar})`);
     }
     B_addObjectField(
       objectVal,

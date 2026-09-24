@@ -18,7 +18,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{for(;;){for(;;){if(typeof i==="boolean")break;if(i===null){i=false;break}e[0](i)};break;}return i}catch(v0){e[1](v0)}}
+    expression: i=>{try{for(;;){for(;;){if(typeof i==="boolean")break;if(i===null){i=false;break}throw e[0](i)};break;}return i}catch(v0){e[1](v0)}}
     examples:
       # FIXME: known bug union-defaulted-member (scripts/knownBugs.ts). "x" is the string
       # member's, so the answer is "x"; the member carrying a default takes over

@@ -219,6 +219,8 @@ export const B_operationArg = (
       e: [],
       v: -1,
       t: 0,
+      j: 0,
+      x: U,
     },
     o: U,
   };
@@ -248,6 +250,50 @@ export const B_pathArg = (b: Val): string =>
 export const B_pathSnap = (b: Val): Path | undefined =>
   hasPathDyn(b.path) ? U : (b.path as Path);
 
+// A failed check, as the statement that follows it - or, with `cond`, the
+// whole check. The exit where the code around it can jump (`BGlobal.x`), the
+// raise otherwise; a raising check reads `cond||raise`, the shorter spelling,
+// and every schema's generated code is mostly these. The record is built only
+// where the exit reads it, by `fn` itself (every fail builder answers a
+// record, see `Check`).
+export const B_fail = <TArg>(
+  b: Val,
+  fn: (arg: TArg, path?: Path) => ErrorDetails,
+  arg: string,
+  cond?: string,
+): string => {
+  const exit = b.g.x;
+  let jump: string | undefined;
+  if (exit) {
+    const path = B_pathArg(b);
+    let embedded = "";
+    jump = exit(
+      (unbuilt) =>
+        `${(embedded ||= B_embedPure(b, fn))}${unbuilt ? `,${arg},${path.slice(1) || "void 0"}` : `(${arg}${path})`}`,
+    );
+  }
+  if (jump === U) {
+    const raise = B_failWithArg(b, fn, arg);
+    return cond ? `${cond}||${raise};` : raise;
+  }
+  b.g.j++;
+  return cond ? `if(!(${cond}))${jump};` : jump;
+};
+
+// Emits `body` with the exit cleared: it lands inside a callback, which a jump
+// can't leave. The parse of what goes there has to run inside it as well as the
+// merge - a decoder emits some of its code while it parses.
+export const B_detached = <T>(g: BGlobal, body: () => T): T => {
+  const x = g.x;
+  g.x = U;
+  try {
+    return body();
+  } finally {
+    g.x = x;
+  }
+};
+
+// A failure as the expression that raises it.
 export const B_failWithArg = <TArg>(
   b: Val,
   fn: (arg: TArg, path?: Path) => ErrorDetails,
@@ -343,8 +389,6 @@ export const B_errorOf = (input: Val): ((e: unknown) => SuryErrorRecord) => {
       : toError(foreign(e, path));
 };
 
-export const B_embedErrorOf = (input: Val): string => B_embedPure(input, B_errorOf(input));
-
 // Drop-in `check.fail` builder for InvalidInput failures. The `(~input) =>
 // (value, path) => error` shape is what makes the site prototype possible: the
 // middle call happens once, while the check is being compiled, so everything
@@ -381,11 +425,11 @@ export const B_failWithErrorMessage = (
   return m !== U ? B_invalidInputBuilder(U, U, m)(input) : failInvalidType(input);
 };
 
-// Inline variant: emits the throw expression directly. Used by decoders
-// that splice errors into custom JS (e.g. `catch(_){${embedInvalidInput}}`),
-// not via the `check` pipeline.
-export const B_embedInvalidInput = (input: Val, expected: Internal = input.e): string =>
-  B_failWithArg(input, B_invalidInputBuilder(expected)(input), input.v());
+// A failed `invalid_input` for a decoder that splices its own statements (a
+// `catch` around `JSON.parse`, a hand-built guard) rather than going through
+// the `check` pipeline.
+export const B_failInvalidInput = (input: Val, expected: Internal = input.e, cond?: string): string =>
+  B_fail(input, B_invalidInputBuilder(expected)(input), input.v(), cond);
 
 // Caller must verify `val.vc` is truthy and `val.expected.noValidation !==
 // true` first - the `!` unwrap below is unchecked. `inputVar` is usually
@@ -402,7 +446,7 @@ const B_emitChecks = (val: Val, inputVar: string): string => {
       cond += "&&" + checks[i]!.c(inputVar);
       i++;
     }
-    out += `${cond}||${B_failWithArg(val, fail(val), inputVar)};`;
+    out += B_fail(val, fail(val), inputVar, cond);
   }
   return out;
 }
@@ -451,7 +495,7 @@ export const B_merge = (val: Val, out?: HoistCond): string => {
             // `noValidation` is intentionally bypassed for the hoisted part -
             // the cond routes between cases, it doesn't reject, so suppressing
             // it would break dispatch.
-            currentCode += `${condCode}||${B_failWithArg(val, check.f(val), inputVar)};`;
+            currentCode += B_fail(val, check.f(val), inputVar, condCode);
           }
         }
         if (hoisted) {
@@ -581,7 +625,7 @@ export const B_markOutput = (val: Val, valInput: Val): Val => {
   // is: inside a `.then`, the way the parse loop continues an async val.
   if (outC && (val.f & 1)) {
     const v = val.v();
-    val.i = `${v}.then(${v}=>{${B_merge(B_refine(B_scope(val), U, outC))}return ${v}})`;
+    val.i = `${v}.then(${v}=>{${B_detached(val.g, () => B_merge(B_refine(B_scope(val), U, outC)))}return ${v}})`;
     val.v = _notVar;
   } else if (outC) val = B_refine(val, U, outC);
   val.io = true;
@@ -798,22 +842,26 @@ export const B_conversion = (
       target,
     );
     if (isAsync) B_markAsync(input, output);
-    const embeddedFn = B_embed(input, fn);
     const inputValue = input.vc ? input.v() : input.i;
     const unionContext = input.g.o & 4; // 4
     if (unionContext && isAsync) {
-      output.cp = `let ${output.i}=${embeddedFn}(${inputValue});`;
+      output.cp = `let ${output.i}=${B_embed(input, fn)}(${inputValue});`;
       return output;
     }
+    // Called inside the `try` below, so nothing it raises gets past it.
+    const embeddedFn = B_embedPure(input, fn);
     // Whatever the coder throws - a `SuryError` it raised on purpose or a
     // TypeError it hit on a value it was never written for - is that
     // conversion failing, so in a union it is what hands the value to the
     // next case rather than aborting the operation (#347); a refiner's throw
     // is wrapped the same way (modifiers.ts `refine`). The foreign errors that
     // do escape a union are a getter's, which never enter this try.
-    const failure = B_failWithArg(output, B_conversionFail(input, target), `x`);
+    // An async coder's failure lands in its `.catch` as often as in the `catch`,
+    // so both raise and share one site; a sync one's may jump.
+    const fail = () => B_fail(output, B_conversionFail(input, target), `x`);
+    const failure = isAsync ? B_detached(input.g, fail) : fail();
     output.cp = `let ${output.i};try{${output.i}=${embeddedFn}(${inputValue})${
-      isAsync ? `.catch(x=>${failure})` : ""
+      isAsync ? `.catch(x=>{${failure}})` : ""
     }}catch(x){${failure}}`;
     // A val whose result the target's own refiners can attach to. `val.vc`
     // checks emit at the *pre-transform* slot (`prev.v()` in B_merge), so

@@ -21,8 +21,8 @@ import {
   _var,
   B_addObjectField,
   B_dynamicScope,
+  B_failInvalidInput,
   B_embed,
-  B_embedInvalidInput,
   B_hoistDecl,
   B_invalidOperation,
   B_markOutput,
@@ -132,7 +132,7 @@ const appendValue = (val: Val, destVar: string, keyText: string): string => {
   }
   if (present.type === unknownTag) {
     const v = val.v();
-    return `if(${v}!=null){typeof ${v}==="string"||${B_embedInvalidInput(val, searchEntry)};${destVar}.append(${keyText},${v});}`;
+    return `if(${v}!=null){${B_failInvalidInput(val, searchEntry, `typeof ${v}==="string"`)}${destVar}.append(${keyText},${v});}`;
   }
   if (tagFlag & 2) {
     return `${destVar}.append(${keyText},${val.i});`;
@@ -230,7 +230,7 @@ const searchParamsToObject = (input: Val, target: Internal): Val => {
         );
       }
     } else if (present.type === unknownTag) {
-      item.cp = `Array.isArray(${readVar})&&${B_embedInvalidInput(item, searchEntry)};`;
+      item.cp = B_failInvalidInput(item, searchEntry, `!Array.isArray(${readVar})`);
     }
     B_addObjectField(
       objectVal,

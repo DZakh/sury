@@ -18,7 +18,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{for(;;){let r;if(i instanceof e[3]){try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);i=v0;break}catch(x){(r||(r=[])).push(e[9](x))}}if(i instanceof e[7]){try{let v1;try{v1=e[4](i)}catch(x){e[5](x)}typeof v1==="string"||e[6](v1);i=v1;break}catch(x){(r||(r=[])).push(e[9](x))}}if(typeof i==="object"&&i&&!Array.isArray(i)){try{let v2=i.x;typeof v2==="string"||e[8](v2);i={x:v2};break}catch(x){(r||(r=[])).push(e[9](x))}}e[10](i,...(r||[]))}return i}catch(v3){e[11](v3)}}
+    expression: i=>{try{let v1;for(;;){if(i instanceof e[3]){l2:{try{let v0;try{v0=e[0](i)}catch(x){{(v1||(v1=[])).push(e[1],x,void 0);break l2}}if(!(typeof v0==="string")){(v1||(v1=[])).push(e[2],v0,void 0);break l2};i=v0;break}catch(x){(v1||(v1=[])).push(e[9](x))}}}if(i instanceof e[7]){l4:{try{let v3;try{v3=e[4](i)}catch(x){{(v1||(v1=[])).push(e[5],x,void 0);break l4}}if(!(typeof v3==="string")){(v1||(v1=[])).push(e[6],v3,void 0);break l4};i=v3;break}catch(x){(v1||(v1=[])).push(e[9](x))}}}if(typeof i==="object"&&i&&!Array.isArray(i)){l6:{let v5=i.x;if(!(typeof v5==="string")){(v1||(v1=[])).push(e[8],v5,void 0);break l6};i={x:v5};break}}throw e[10](i,void 0,v1)}return i}catch(v7){e[11](v7)}}
     examples:
       object-member:
         input: '{ x: "ok" }'

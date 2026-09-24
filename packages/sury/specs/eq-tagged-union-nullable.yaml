@@ -17,7 +17,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.TAG==="A"){let v0=i._0;typeof v0==="string"||e[0](v0);i={TAG:i.TAG,_0:v0};break}if(i.TAG==="B"){let v1=i._0;typeof v1==="number"&&v1==v1||e[1](v1);i={TAG:i.TAG,_0:v1};break}e[2](i)};break}if(i===null)break;e[3](i)}return i}catch(v2){e[4](v2)}}
+    expression: i=>{try{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.TAG==="A"){let v0=i._0;typeof v0==="string"||e[0](v0);i={TAG:i.TAG,_0:v0};break}if(i.TAG==="B"){let v1=i._0;typeof v1==="number"&&v1==v1||e[1](v1);i={TAG:i.TAG,_0:v1};break}throw e[2](i)};break}if(i===null)break;throw e[2](i)}return i}catch(v2){e[3](v2)}}
     examples:
       member-a:
         input: '{ TAG: "A", _0: "x" }'

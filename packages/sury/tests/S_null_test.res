@@ -33,12 +33,12 @@ module Common = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{try{for(;;){if(typeof i==="string")break;if(i===null){i=void 0;break}e[0](i)}return i}catch(v0){e[1](v0)}}`,
+      `i=>{try{for(;;){if(typeof i==="string")break;if(i===null){i=void 0;break}throw e[0](i)}return i}catch(v0){e[1](v0)}}`,
     )
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Encode,
-      `i=>{try{for(;;){if(typeof i==="string")break;if(i===void 0){i=null;break}e[0](i)}return i}catch(v0){e[1](v0)}}`,
+      `i=>{try{for(;;){if(typeof i==="string")break;if(i===void 0){i=null;break}throw e[0](i)}return i}catch(v0){e[1](v0)}}`,
     )
   })
 
@@ -50,7 +50,7 @@ module Common = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ParseAsync,
-      `i=>{try{return Promise.resolve((async(i)=>{for(;;){let r;try{let v0=e[0](i);i=await v0;break}catch(x){(r||(r=[])).push(e[1](x))}if(i===null){i=void 0;break}e[2](i,...(r||[]))};return i})(i)).catch(e[3])}catch(v1){return e[4](v1)}}`,
+      `i=>{try{return Promise.resolve((async(i)=>{let v1;for(;;){try{let v0=e[0](i);i=await v0;break}catch(x){(v1||(v1=[])).push(e[1](x))}if(i===null){i=void 0;break}throw e[2](i,void 0,v1)};return i})(i)).catch(e[3])}catch(v2){return e[4](v2)}}`,
     )
   })
 
@@ -129,13 +129,13 @@ test("Serializes Some(None) to null for null nested in option", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{for(;;){if(typeof i==="boolean")break;if(i===void 0)break;if(i===null){i={BS_PRIVATE_NESTED_SOME_NONE:0};break}e[0](i)}return i}catch(v0){e[1](v0)}}`,
+    `i=>{try{for(;;){if(typeof i==="boolean")break;if(i===void 0)break;if(i===null){i={BS_PRIVATE_NESTED_SOME_NONE:0};break}throw e[0](i)}return i}catch(v0){e[1](v0)}}`,
   )
 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{try{for(;;){if(typeof i==="boolean")break;if(i===void 0)break;if(typeof i==="object"&&i&&!Array.isArray(i)){i=null;break}e[0](i)}return i}catch(v0){e[1](v0)}}`,
+    `i=>{try{for(;;){if(typeof i==="boolean")break;if(i===void 0)break;if(typeof i==="object"&&i&&!Array.isArray(i)){i=null;break}throw e[0](i)}return i}catch(v0){e[1](v0)}}`,
   )
 })
 
@@ -150,12 +150,12 @@ test("Serializes Some(None) to null for null nested in null", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{for(;;){if(typeof i==="boolean")break;if(i===null){i=void 0;break}e[0](i)}return i}catch(v0){e[1](v0)}}`,
+    `i=>{try{for(;;){if(typeof i==="boolean")break;if(i===null){i=void 0;break}throw e[0](i)}return i}catch(v0){e[1](v0)}}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{try{for(;;){if(typeof i==="boolean")break;if(i===void 0){i=null;break}if(typeof i==="object"&&i&&!Array.isArray(i)){i=null;break}e[0](i)}return i}catch(v0){e[1](v0)}}`,
+    `i=>{try{for(;;){if(typeof i==="boolean")break;if(i===void 0){i=null;break}if(typeof i==="object"&&i&&!Array.isArray(i)){i=null;break}throw e[0](i)}return i}catch(v0){e[1](v0)}}`,
   )
 })
 
@@ -188,7 +188,7 @@ module OuterRecord = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Encode,
-      `i=>{try{let v0=i.record;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)&&v0.BS_PRIVATE_NESTED_SOME_NONE===0){v0=null;break}if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=v0.k;for(;;){if(typeof v1==="number"&&v1==v1&&v1<=2147483647&&v1>=-2147483648&&v1%1==0)break;if(v1===void 0)break;if(typeof v1==="object"&&v1&&!Array.isArray(v1)&&v1.BS_PRIVATE_NESTED_SOME_NONE===0){v1=null;break}e[0](v1)}v0={k:v1};break}if(v0===void 0)break;e[1](v0)}return {record:v0}}catch(v2){e[2](v2)}}`,
+      `i=>{try{let v0=i.record;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)&&v0.BS_PRIVATE_NESTED_SOME_NONE===0){v0=null;break}if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=v0.k;for(;;){if(typeof v1==="number"&&v1==v1&&v1<=2147483647&&v1>=-2147483648&&v1%1==0)break;if(v1===void 0)break;if(typeof v1==="object"&&v1&&!Array.isArray(v1)&&v1.BS_PRIVATE_NESTED_SOME_NONE===0){v1=null;break}throw e[0](v1)}v0={k:v1};break}if(v0===void 0)break;throw e[1](v0)}return {record:v0}}catch(v2){e[2](v2)}}`,
     )
   })
 }

@@ -183,7 +183,7 @@ test("Reverse converts nullableAsOption string-to-date schema", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{for(;;){if(typeof i==="string"){let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](i);i=v0;break}if(i===void 0)break;if(i===null){i=void 0;break}e[1](i)}return i}catch(v1){e[2](v1)}}`,
+    `i=>{try{for(;;){if(typeof i==="string"){let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](i);i=v0;break}if(i===void 0)break;if(i===null){i=void 0;break}throw e[1](i)}return i}catch(v1){e[2](v1)}}`,
   )
 
   t->Assert.deepEqual(
@@ -194,7 +194,7 @@ test("Reverse converts nullableAsOption string-to-date schema", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{try{for(;;){if(i instanceof e[1]){let v0;try{v0=i.toISOString()}catch(_){e[0](i)}i=v0;break}if(i===void 0)break;e[2](i)}return i}catch(v1){e[3](v1)}}`,
+    `i=>{try{for(;;){if(i instanceof e[1]){let v0;try{v0=i.toISOString()}catch(_){e[0](i)}i=v0;break}if(i===void 0)break;throw e[2](i)}return i}catch(v1){e[3](v1)}}`,
   )
 })
 
@@ -210,7 +210,7 @@ test("Reverse converts nullable string-to-date schema", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{try{for(;;){if(i instanceof e[1]){let v0;try{v0=i.toISOString()}catch(_){e[0](i)}i=v0;break}if(i===void 0)break;if(i===null)break;e[2](i)}return i}catch(v1){e[3](v1)}}`,
+    `i=>{try{for(;;){if(i instanceof e[1]){let v0;try{v0=i.toISOString()}catch(_){e[0](i)}i=v0;break}if(i===void 0)break;if(i===null)break;throw e[2](i)}return i}catch(v1){e[3](v1)}}`,
   )
 })
 
@@ -295,6 +295,6 @@ test("Encodes a nullable optional Timestamp whose input is string | number (issu
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{try{for(;;){if(i instanceof e[6]){for(;;){let r;try{let v0;try{v0=i.toISOString()}catch(_){e[0](i)}i=v0;break}catch(x){(r||(r=[])).push(e[4](x))}try{let v1;try{v1=e[1](i)}catch(x){e[2](x)}typeof v1==="number"&&v1==v1||e[3](v1);i=v1;break}catch(x){(r||(r=[])).push(e[4](x))}e[5](i,...(r||[]))};break}if(i===void 0)break;e[7](i)}return i}catch(v2){e[8](v2)}}`,
+    `i=>{try{for(;;){if(i instanceof e[5]){let v1;for(;;){l2:{let v0;try{v0=i.toISOString()}catch(_){{(v1||(v1=[])).push(e[0],i,void 0);break l2}}i=v0;break}l4:{let v3;try{v3=e[1](i)}catch(x){{(v1||(v1=[])).push(e[2],x,void 0);break l4}}if(!(typeof v3==="number"&&v3==v3)){(v1||(v1=[])).push(e[3],v3,void 0);break l4};i=v3;break}throw e[4](i,void 0,v1)};break}if(i===void 0)break;throw e[6](i)}return i}catch(v5){e[7](v5)}}`,
   )
 })

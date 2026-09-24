@@ -19,7 +19,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{if(typeof i==="string"){i=e[0](i)}else{e[1](i)}return i}catch(v0){e[2](v0)}}
+    expression: i=>{try{if(typeof i==="string"){i=e[0](i)}else{throw e[1](i)}return i}catch(v0){e[2](v0)}}
     examples:
       text:
         input: '"hi"'

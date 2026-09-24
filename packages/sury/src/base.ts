@@ -568,7 +568,29 @@ export type BGlobal = {
   // emitter that needs it runs first, so it is read through this rather than
   // closed over.
   f?: unknown;
+  // @as("x") - exit. Where a failed check goes when the code around it can be
+  // left by a jump rather than a raise: handed the failure's record (a thunk,
+  // so a context that needs no reason embeds no builder), it answers the
+  // statement to run - `return false` for a boolean operation, `return` of the
+  // failure for one that answers with a Result, record-and-break for a union
+  // case a later case may still accept - or nothing, for the raise a failure is
+  // by default. Absent means raise everywhere.
+  //
+  // A jump can't leave a function, so whatever emits code into a callback
+  // clears it for that stretch: `B_detached` around a `.then`, and a union
+  // whose dispatch may be wrapped in an async function keeps its own failure
+  // from jumping out of it (union.ts, `outer`).
+  x?: (record?: Failure) => string | undefined;
+  // @as("j") - jump counter, `t`'s twin: bumped by every failed check that
+  // took `x`. Read the difference, never the value.
+  j: number;
 }
+
+// A failure's record, as the expression that builds it - or, asked `unbuilt`,
+// as the builder and its arguments, for an exit that keeps the record and may
+// never read it (union.ts). An expression with no builder to split off
+// answers the same either way.
+export type Failure = (unbuilt?: boolean) => string;
 
 // Adjacent checks sharing `fail` by reference equality are fused with `&&`
 // in `emitChecks`, so pass the same helper (e.g. failInvalidType) to every
@@ -576,7 +598,9 @@ export type BGlobal = {
 export type Check = {
   // @as("c") - cond
   c: (inputVar: string) => string;
-  // @as("f") - fail
+  // @as("f") - fail. Answers the failure as a record already (`errorAt`,
+  // `toError`), never a plain object: a jump embeds the builder itself and
+  // hands on whatever it returns.
   f: (input: Val) => (value: unknown, path?: Path) => ErrorDetails;
 }
 

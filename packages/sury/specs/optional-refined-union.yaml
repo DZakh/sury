@@ -16,7 +16,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{for(;;){for(;;){if(typeof i==="string")break;if(typeof i==="number"&&i==i){i=""+i;break}e[0](i)}e[1](i)||e[2](i);break;}return i}catch(v0){e[3](v0)}}
+    expression: i=>{try{for(;;){for(;;){if(typeof i==="string")break;if(typeof i==="number"&&i==i){i=""+i;break}throw e[0](i)}e[1](i)||e[2](i);break;}return i}catch(v0){e[3](v0)}}
     examples:
       # FIXME: `S.optional` should accept undefined here and return it. The
       # union's own refinement keeps it one member of the outer union, and that
@@ -36,7 +36,7 @@ operations:
         error: empty
   decode: eq-to-parse
   encode:
-    expression: i=>{try{for(;;){e[2](i)||e[3](i);for(;;){if(typeof i==="string")break;e[1](i)};break;}return i}catch(v1){e[4](v1)}}
+    expression: i=>{try{for(;;){e[2](i)||e[3](i);for(;;){if(typeof i==="string")break;throw e[1](i)};break;}return i}catch(v1){e[4](v1)}}
     examples:
       string:
         input: '"a"'

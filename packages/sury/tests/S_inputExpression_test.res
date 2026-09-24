@@ -211,9 +211,9 @@ test("Expression of renamed schema", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseParse,
-    `i=>{try{if(i===void 0){i=null}else{e[0](i)}return i}catch(v0){e[1](v0)}}`,
+    `i=>{try{if(i===void 0){i=null}else{throw e[0](i)}return i}catch(v0){e[1](v0)}}`,
   )
-  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{try{if(i===void 0){i=null}else{e[0](i)}return i}catch(v0){e[1](v0)}}`)
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{try{if(i===void 0){i=null}else{throw e[0](i)}return i}catch(v0){e[1](v0)}}`)
   t->Assert.deepEqual(None->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`null`))
   t->U.assertThrowsMessage(
     () => %raw(`"smth"`)->S.parseOrThrow(~to=schema->S.reverse),

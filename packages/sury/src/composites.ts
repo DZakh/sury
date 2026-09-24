@@ -28,6 +28,7 @@ import {
   pathEmpty,
   setHas,
   stringify,
+  toError,
   tagFlags,
   U,
   undefinedTag,
@@ -44,8 +45,9 @@ import {
   B_addObjectField,
   B_asyncVal,
   B_dynamicScope,
-  B_embedInvalidInput,
-  B_failWithArg,
+  B_detached,
+  B_fail,
+  B_failInvalidInput,
   B_hoistChildChecks,
   B_hoistDecl,
   B_inlineConst,
@@ -87,15 +89,15 @@ export const B_unrecognizedKeys = (
   decl: string,
 ): string => {
   const snap = B_pathSnap(input);
-  const fail = B_failWithArg(
+  const fail = B_fail(
     input,
     (key: string, path?: Path) =>
-      ({
+      toError({
         code: "unrecognized_key",
         path: path ?? snap ?? pathEmpty,
         reason: `Unrecognized key ${stringify(key)}`,
         key,
-      }) as ErrorDetails,
+      }) as unknown as ErrorDetails,
     keyVar,
   );
   let cond = "";
@@ -211,20 +213,24 @@ export const completeObjectVal = (objectVal: Val): Val => {
     promiseAllContent = promiseAllContent.slice(0, -1);
     const operationInput = B_scope(objectVal);
     operationInput.io = true;
-    const operationOutput = parse(operationInput);
-    let operationCode = B_merge(operationOutput);
-    let result = operationOutput.i;
-
-    // Inside the `.then`, where the fields the optional ones read are bound:
-    // the sync branch below appends the same code after the literal, and
-    // leaving it off here dropped every optional field of an object that had
-    // any async one.
-    if (optionalSettingCode !== U) {
-      const objectVar = B_varWithoutAllocation(objectVal.g);
-      operationCode =
-        operationCode + `let ${objectVar}=${result};` + optionalSettingCode(objectVar);
-      result = objectVar;
-    }
+    let result = "";
+    let operationCode = B_detached(objectVal.g, () => {
+      const operationOutput = parse(operationInput);
+      let code = B_merge(operationOutput);
+      result = operationOutput.i;
+      objectVal.s = operationOutput.s;
+      objectVal.e = operationOutput.e;
+      // Inside the `.then`, where the fields the optional ones read are bound:
+      // the sync branch below appends the same code after the literal, and
+      // leaving it off here dropped every optional field of an object that had
+      // any async one.
+      if (optionalSettingCode !== U) {
+        const objectVar = B_varWithoutAllocation(objectVal.g);
+        code += `let ${objectVar}=${result};` + optionalSettingCode(objectVar);
+        result = objectVar;
+      }
+      return code;
+    });
 
     if (operationCode === "" && promiseAllContent === result) {
       objectVal.i = result;
@@ -232,8 +238,6 @@ export const completeObjectVal = (objectVal: Val): Val => {
       objectVal.i = `Promise.all([${promiseAllContent}]).then(([${promiseAllContent}])=>{${operationCode}return ${result}})`;
     }
     objectVal.f |= 1;
-    objectVal.s = operationOutput.s;
-    objectVal.e = operationOutput.e;
     objectVal.io = true;
     return objectVal;
   } else {
@@ -328,7 +332,7 @@ export const arrayDecoder = (unknownInput: Val): Val => {
       const inputVar = input.v();
       const iteratorVar = B_varWithoutAllocation(input.g);
 
-      const raiseCountBefore = input.g.t;
+      const failCountBefore = input.g.t + input.g.j;
       const itemInput = B_dynamicScope(input, iteratorVar);
       B_narrowJsonSourcedJsonString(itemInput);
       const itemOutput = parse(itemInput);
@@ -341,7 +345,7 @@ export const arrayDecoder = (unknownInput: Val): Val => {
       const itemMerge = B_merge(itemOutput);
       const itemCode = hasTransform
         ? itemMerge + B_addKey(output2, iteratorVar, itemOutput)
-        : input.g.t === raiseCountBefore
+        : input.g.t + input.g.j === failCountBefore
           ? ""
           : itemMerge;
 
@@ -469,7 +473,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
     }
     const inputVar = input.v();
     const keyVar = B_varWithoutAllocation(input.g);
-    const raiseCountBefore = input.g.t;
+    const failCountBefore = input.g.t + input.g.j;
     const itemInput = B_dynamicScope(input, keyVar);
     B_narrowJsonSourcedJsonString(itemInput);
     const itemOutput = parse(itemInput);
@@ -483,7 +487,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
     const itemMerge = B_merge(itemOutput);
     const itemCode = hasTransform
       ? itemMerge + B_addKey(output2, keyVar, itemOutput)
-      : input.g.t === raiseCountBefore
+      : input.g.t + input.g.j === failCountBefore
         ? ""
         : itemMerge;
 
@@ -732,19 +736,19 @@ const missingKeyEncoder: Encoder = (input, target) => {
   const presentAssign = presentOut.i === v ? "" : `${v}=${presentOut.i};`;
 
   // Optional field: leave `undefined` as-is (None). Required field: reject.
-  const absentCode = isOptional(target) || unsetIsInput ? "" : B_embedInvalidInput(input, target);
+  const noAbsentCheck = isOptional(target) || unsetIsInput;
   const output = B_nextVarOutput(input, v, getOutputSchema(target), target);
   const presentBody = presentCode + presentAssign;
   output.cp =
     presentBody === ""
-      ? absentCode === ""
+      ? noAbsentCheck
         ? ""
-        : `${v}!==void 0||${absentCode};`
+        : B_failInvalidInput(input, target, `${v}!==void 0`)
       : unsetIsInput
         ? presentBody
-        : absentCode === ""
+        : noAbsentCheck
           ? `if(${v}!==void 0){${presentBody}}`
-          : `if(${v}!==void 0){${presentBody}}else{${absentCode}}`;
+          : `if(${v}!==void 0){${presentBody}}else{${B_failInvalidInput(input, target)}}`;
   return output;
 };
 

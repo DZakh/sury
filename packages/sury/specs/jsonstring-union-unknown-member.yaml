@@ -24,7 +24,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{Array.isArray(i)||e[3](i);let v1="";for(let v0=0;v0<i.length;++v0){let v2=i[v0];for(;;){let r;if(typeof v2==="object"&&v2&&!Array.isArray(v2)&&v2.kind==="a"){try{let v3=v2.v;typeof v3==="string"||e[0](v3,[v0,"v"]);v2={kind:v2.kind,v:v3};break}catch(x){(r||(r=[])).push(e[1](x))}}break;}let v5="null";if(v2!==void 0){try{e[2](v2);}catch(v4){v4.path=[v0,...v4.path];throw v4}v5=JSON.stringify(v2)??"null"}v1+=(v0?",":"")+v5}return "["+v1+"]"}catch(v6){e[4](v6)}}
+    expression: i=>{try{Array.isArray(i)||e[2](i);let v1="";for(let v0=0;v0<i.length;++v0){let v2=i[v0];let v4;for(;;){if(typeof v2==="object"&&v2&&!Array.isArray(v2)&&v2.kind==="a"){l5:{let v3=v2.v;if(!(typeof v3==="string")){(v4||(v4=[])).push(e[0],v3,[v0,"v"]);break l5};v2={kind:v2.kind,v:v3};break}}break;}let v7="null";if(v2!==void 0){try{e[1](v2);}catch(v6){v6.path=[v0,...v6.path];throw v6}v7=JSON.stringify(v2)??"null"}v1+=(v0?",":"")+v7}return "["+v1+"]"}catch(v8){e[3](v8)}}
     examples:
       matches-variant:
         input: '[{ kind: "a", v: "x" }]'

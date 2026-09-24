@@ -32,7 +32,7 @@ operations:
         input: '"00000000-0000-0000-0000-000000000000"'
         output: "36"
   is:
-    expression: i=>{try{typeof i==="number"&&i==i||e[2](i);e[0].test(i)||e[1](i);return true}catch(v0){return false}}
+    expression: i=>{try{if(!(typeof i==="number"&&i==i))return false;if(!(e[0].test(i)))return false;return true}catch(v0){return false}}
     examples:
       # FIXME: known bug to-output-keeps-source-refinement (scripts/knownBugs.ts). 36 is a
       # number, which is all this Input side asks for, so the answer is true. The uuid

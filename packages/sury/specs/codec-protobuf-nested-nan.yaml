@@ -19,13 +19,13 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[12](i);let v0=i.inner;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=v0.xs,v6=v0.next;Array.isArray(v1)||e[1](v1);for(let v2=0;v2<v1.length;++v2){let v3=v1[v2];typeof v3==="number"&&v3==v3||e[0](v3,["inner","xs",v2]);}for(;;){if(typeof v6==="object"&&v6&&!Array.isArray(v6)){let v4;try{v4=e[2](v0.next);}catch(v5){v5.path=["inner","next",...v5.path];throw v5}v6=v4;break}if(v6===void 0)break;e[3](v6)}v0={xs:v1,next:v6};break}if(v0===void 0)break;e[4](v0)}let v7;{let w;try{w=e[10].acquire();let v,j,n,s,h,a,k,g,c,o;v=v0;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[5](w,v);w.end(h)};v7=w.finish()}catch(x){w&&(w.busy=false);e[11](x)}}return v7}catch(v8){e[13](v8)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[12](i);let v0=i.inner;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=v0.xs,v6=v0.next;Array.isArray(v1)||e[1](v1);for(let v2=0;v2<v1.length;++v2){let v3=v1[v2];typeof v3==="number"&&v3==v3||e[0](v3,["inner","xs",v2]);}for(;;){if(typeof v6==="object"&&v6&&!Array.isArray(v6)){let v4;try{v4=e[2](v0.next);}catch(v5){v5.path=["inner","next",...v5.path];throw v5}v6=v4;break}if(v6===void 0)break;throw e[3](v6)}v0={xs:v1,next:v6};break}if(v0===void 0)break;throw e[4](v0)}let v7;{let w;try{w=e[10].acquire();let v,j,n,s,h,a,k,g,c,o;v=v0;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[5](w,v);w.end(h)};v7=w.finish()}catch(x){w&&(w.busy=false);e[11](x)}}return v7}catch(v8){e[13](v8)}}
     examples:
       nan-is-not-a-number:
         input: "{ inner: { xs: [1, NaN] } }"
         error: "Failed at inner.xs[1]: Expected number, received NaN"
   decode:
-    expression: i=>{try{let v0=i.inner;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=v0.xs,v4=v0.next;for(;;){if(typeof v4==="object"&&v4&&!Array.isArray(v4)){try{e[0](v0.next);}catch(v3){v3.path=["inner","next",...v3.path];throw v3};break}if(v4===void 0)break;e[1](v4)};break}if(v0===void 0)break;e[2](v0)}let v5;{let w;try{w=e[8].acquire();let v,j,n,s,h,a,k,g,c,o;v=v0;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[3](w,v);w.end(h)};v5=w.finish()}catch(x){w&&(w.busy=false);e[9](x)}}return v5}catch(v6){e[10](v6)}}
+    expression: i=>{try{let v0=i.inner;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=v0.xs,v4=v0.next;for(;;){if(typeof v4==="object"&&v4&&!Array.isArray(v4)){try{e[0](v0.next);}catch(v3){v3.path=["inner","next",...v3.path];throw v3};break}if(v4===void 0)break;throw e[1](v4)};break}if(v0===void 0)break;throw e[2](v0)}let v5;{let w;try{w=e[8].acquire();let v,j,n,s,h,a,k,g,c,o;v=v0;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[3](w,v);w.end(h)};v5=w.finish()}catch(x){w&&(w.busy=false);e[9](x)}}return v5}catch(v6){e[10](v6)}}
     examples:
       nan-is-trusted:
         input: "{ inner: { xs: [1, NaN], next: { n: 1, next: undefined } } }"
