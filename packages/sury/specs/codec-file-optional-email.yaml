@@ -17,7 +17,7 @@ vs:
 operations:
   parse:
     isAsync: true
-    expression: i=>{try{i instanceof e[3]||e[4](i);let v0;try{v0=i.text().catch(e[0])}catch(x){e[0](x)}return v0.then(v0=>{e[1].test(v0)||e[2](v0);return v0}).catch(e[5])}catch(v1){return e[6](v1)}}
+    expression: i=>{try{i instanceof e[3]||e[4](i);let v0;try{v0=i.text()}catch(x){e[0](x)}return v0.then(v0=>{e[1].test(v0)||e[2](v0);return v0},e[0]).catch(e[5])}catch(v1){return e[6](v1)}}
     examples:
       email:
         input: new File(["a@b.co"], "")
@@ -25,13 +25,19 @@ operations:
       not-an-email:
         input: new File(["nope"], "")
         error: Expected email, received "nope"
+      read-fails:
+        input: 'Object.setPrototypeOf({ text: () => Promise.reject(new TypeError("read failed")) }, File.prototype)'
+        error: "TypeError: read failed"
   decode:
     isAsync: true
-    expression: i=>{try{let v0;try{v0=i.text().catch(e[0])}catch(x){e[0](x)}return v0.then(v0=>{e[1].test(v0)||e[2](v0);return v0}).catch(e[3])}catch(v1){return e[4](v1)}}
+    expression: i=>{try{let v0;try{v0=i.text()}catch(x){e[0](x)}return v0.then(v0=>{e[1].test(v0)||e[2](v0);return v0},e[0]).catch(e[3])}catch(v1){return e[4](v1)}}
     examples:
       email:
         input: new File(["a@b.co"], "")
         output: '"a@b.co"'
+      read-fails:
+        input: 'Object.setPrototypeOf({ text: () => Promise.reject(new TypeError("read failed")) }, File.prototype)'
+        error: "TypeError: read failed"
   encode:
     expression: i=>{try{if(typeof i==="string"){e[1].test(i)||e[2](i);i=new e[0]([i],"")}else{e[3](i)}return i}catch(v0){e[4](v0)}}
     examples:

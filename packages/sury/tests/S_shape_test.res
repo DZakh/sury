@@ -14,7 +14,7 @@ asyncTest("Parses with wrapping async schema in variant", async t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ParseAsync,
-    `i=>{try{typeof i==="string"||e[2](i);let v0;try{v0=e[0](i).catch(x=>e[1](x))}catch(x){e[1](x)}return v0.then(v0=>{return {TAG:"Ok",_0:v0}}).catch(e[3])}catch(v1){return e[4](v1)}}`,
+    `i=>{try{typeof i==="string"||e[2](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0.then(v0=>{return {TAG:"Ok",_0:v0}},x=>e[1](x)).catch(e[3])}catch(v1){return e[4](v1)}}`,
   )
 })
 

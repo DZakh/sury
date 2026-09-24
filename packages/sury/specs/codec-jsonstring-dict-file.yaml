@@ -33,7 +33,7 @@ operations:
         error: Expected JSON string, received "nope"
   encode:
     isAsync: true
-    expression: i=>{try{let v2=[];for(let v1 of Object.keys(i)){let v3=i[v1];let v4;try{v4=v3.arrayBuffer().then(e[1]).catch(x=>e[2](x,[v1]))}catch(x){e[2](x,[v1])}v2.push(v4.then(v4=>{return "\""+v4+"\""}).then(v5=>e[0](v1)+":"+v5))}let v7=Promise.all(v2).then(v6=>v6.join(","));return v7.then(v7=>"{"+v7+"}").catch(e[3])}catch(v8){return e[4](v8)}}
+    expression: i=>{try{let v2=[];for(let v1 of Object.keys(i)){let v3=i[v1];let v4;try{v4=v3.arrayBuffer().then(e[1])}catch(x){e[2](x,[v1])}v2.push(v4.then(v4=>{return "\""+v4+"\""},x=>e[2](x,[v1])).then(v5=>e[0](v1)+":"+v5))}let v7=Promise.all(v2).then(v6=>v6.join(","));return v7.then(v7=>"{"+v7+"}").catch(e[3])}catch(v8){return e[4](v8)}}
     examples:
       empty:
         input: "{}"

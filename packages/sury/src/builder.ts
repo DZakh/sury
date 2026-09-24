@@ -207,6 +207,7 @@ export const B_operationArg = (
     d: U,
     fv: U,
     cp: "",
+    rj: U,
     hd: "",
     fz: U,
     vc: U,
@@ -507,6 +508,7 @@ export const B_next = (prev: Val, initial: string, schema: Internal, expected: I
     d: U,
     fv: U,
     cp: "",
+    rj: U,
     hd: "",
     fz: U,
     vc: U,
@@ -536,6 +538,7 @@ export const B_refine = (val: Val, schema: Internal = val.s, checks?: Check[], e
     d: val.d,
     fv: U,
     cp: "",
+    rj: U,
     hd: "",
     fz: U,
     vc: checks,
@@ -632,6 +635,7 @@ export const B_dynamicScope = (from: Val, locationVar: string): Val => {
     d: U,
     fv: U,
     cp: "",
+    rj: U,
     hd: "",
     fz: U,
     vc: U,
@@ -751,6 +755,7 @@ export const B_scope = (val: Val): Val => {
     d: val.d,
     fv: U,
     cp: "",
+    rj: U,
     hd: "",
     fz: U,
     vc: U,
@@ -813,7 +818,7 @@ export const B_conversion = (
     // do escape a union are a getter's, which never enter this try.
     const failure = B_failWithArg(output, B_conversionFail(input, target), `x`);
     output.cp = `let ${output.i};try{${output.i}=${embeddedFn}(${inputValue})${
-      isAsync ? `.catch(x=>${failure})` : ""
+      isAsync ? `.catch(${(output.rj = `x=>${failure}`)})` : ""
     }}catch(x){${failure}}`;
     // A val whose result the target's own refiners can attach to. `val.vc`
     // checks emit at the *pre-transform* slot (`prev.v()` in B_merge), so

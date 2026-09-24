@@ -84,12 +84,14 @@ const read = (input: Val, call: string, schema: Internal): Val => {
         B_throw(fail(cause, path));
       });
   const pathArg = failFn === U ? "" : B_pathArg(input);
+  const rj = failFn === U ? U : pathArg ? `x=>${failFn}(x${pathArg})` : failFn;
   const output = B_computed(
     input,
-    `${input.v()}${call}${failFn === U ? `` : pathArg ? `.catch(x=>${failFn}(x${pathArg}))` : `.catch(${failFn})`}`,
+    `${input.v()}${call}${rj === U ? `` : `.catch(${rj})`}`,
     schema,
     failFn === U ? U : `${failFn}(x${pathArg})`,
   );
+  output.rj = rj;
   B_markAsync(input, output);
   return output;
 };
