@@ -139,7 +139,7 @@ const main = async (): Promise<void> => {
   for (let c = 0; c < cases; c++) {
     const size = 2 + Math.floor(next() * Math.max(1, maxMembers - 1));
     const members = generateMembers(S, next, size);
-    const result = diffsForUnion(S, members);
+    const result = await diffsForUnion(S, members);
     stats.compared += result.compared;
     stats.skipped += result.skipped;
     for (const diff of result.diffs) {

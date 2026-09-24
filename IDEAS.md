@@ -392,6 +392,17 @@ is set. What is left on the table:
   would shorten every jump by three characters. Two cosmetic warts ride along:
   `{…;break l1};break` in union arms, and `catch(x){{…}}` where a statement
   site wraps an exit that is already a block.
+- **An async operation's union throws its failure whenever a case may fall
+  through.** Whether the dispatch ends up in an `(async(i)=>{…})(i)` wrapper is
+  known only once the cases are compiled, but the exit they fail to is chosen
+  before, so `unionEmit` assumes the wrapper for any async operation with a
+  falling group (`outer = g.o & 1 && awaitAsync ? U : g.x`).
+  `S.union([{k:"a",n:number}, {k:"a",s:string}, string])` answers
+  `parseAsResult` with a `return`, but `parseAsResultPromise` and
+  `isInputAsPromise` with a `throw` their tail catches - the cost the sync
+  outcomes no longer pay. Deciding it from the members' own async-ness (a
+  schema walk like `unionTraits`) before compiling them would let the common
+  all-sync union jump in async operations too.
 - **Union compiles are 6-14% slower** (`spec check --perf=only --against
   16de5d3`). `enter`/`leave` build a closure and a label holder per case, and
   `B_jump` a record thunk per failed check. A per-union label counter and a

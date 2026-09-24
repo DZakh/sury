@@ -579,8 +579,10 @@ export type BGlobal = {
   // case a later case may still accept - or nothing, for the raise a failure is
   // by default. Absent means raise everywhere.
   //
-  // A jump can't leave a function, so whatever emits code into a callback (a
-  // `.then`, an async dispatch) clears it for that stretch (`B_detached`).
+  // A jump can't leave a function, so whatever emits code into a callback
+  // clears it for that stretch: `B_detached` around a `.then`, and a union
+  // whose dispatch may be wrapped in an async function keeps its own failure
+  // from jumping out of it (union.ts, `outer`).
   x?: (record?: Failure) => string | undefined;
   // @as("j") - jump counter, `t`'s twin: bumped by every failed check that
   // took `x`. Read the difference, never the value.

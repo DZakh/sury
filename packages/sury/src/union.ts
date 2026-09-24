@@ -224,6 +224,9 @@ type UnionCase = {
   // The label the case's failed checks break out of to reach the next case,
   // set only where one does.
   l?: string;
+  // What the union had recorded and named before the case was compiled, put
+  // back if the case turns out never to run (`settle`).
+  s: [boolean, string, string | undefined];
 };
 
 type UnionCtx = {
@@ -250,9 +253,10 @@ type UnionCtx = {
 // Emits a linear fallback chain: every alternative that fails hands the value to
 // the next one, and the last failure is the union's. A failed check hands over by
 // breaking out of its case's block (`unionEmit`'s `enter`); a `try` is left
-// only for a case whose code can raise - a coder, a refiner, a getter. An
-// alternative whose failure is provably terminal hands over nothing and fails
-// with its own precise error instead.
+// only for a case whose code can still raise - a refiner's own throw, an opaque
+// embed (a recursive schema's operation, `S.json`'s walk), an awaited async
+// case. An alternative whose failure is provably terminal hands over nothing
+// and fails with its own precise error instead.
 const unionEmitChain = (cases: UnionCase[], ctx: UnionCtx, top?: boolean): string => {
   // The end of a group's chain is the group failing, which is whatever its
   // members' exit is; only the union's own chain ends in the union's failure.
@@ -1136,6 +1140,7 @@ const unionEmit = (
   // chain drops (`unionEmitChain`'s `shared && !open`): the same condition as
   // the last case that runs, which accepted it without handing anything on.
   let recorded = false;
+  const snapshot = (): UnionCase["s"] => [recorded, failures, end.l];
   const settle = (c: UnionCase, chain: UnionCase[]): UnionCase => {
     let last: UnionCase | undefined;
     for (let i = chain.length; !last && i--; ) if (!(chain[i]!.f & 16)) last = chain[i];
@@ -1146,6 +1151,8 @@ const unionEmit = (
       (last.b === "" || !(last.l || (last.f & 1 && (last.f & 8 || recorded))))
     ) {
       c.f |= 16;
+      // Whatever it recorded or named is in code nothing emits.
+      [recorded, failures, end.l] = c.s;
     } else if (wanted && c.f & 8 && c.f & (1 | 4)) recorded = true;
     chain.push(c);
     return c;
@@ -1181,7 +1188,7 @@ const unionEmit = (
     target: Val,
     falls: number
   ): UnionCase | undefined => {
-    const mark = input.g.t, jumps = g.j;
+    const mark = input.g.t, jumps = g.j, snap = snapshot();
     const leave = enter(falls);
     const caseInput = B_scope(source);
     caseInput.u = true;
@@ -1270,6 +1277,7 @@ const unionEmit = (
         (g.j !== jumps ? 4 : 0) |
         falls,
       l: label,
+      s: snap,
     };
   };
 
@@ -1285,9 +1293,18 @@ const unionEmit = (
       continue;
     }
 
-    const mark = input.g.t, jumps = g.j;
+    const mark = input.g.t, jumps = g.j, snap = snapshot();
     const leave = enter(group.f & 8);
     const before: boolean = recorded;
+    // The narrow's own checks run ahead of every member, so they fail with
+    // what was recorded before the group.
+    const mergeNarrow = (val: Val): string => {
+      const members = recorded;
+      recorded = before;
+      const code = B_merge(val, cond);
+      recorded = members;
+      return code;
+    };
     const groupNarrow = group.a[0]!.n;
     const narrowInput = B_scope(input);
     narrowInput.io = false;
@@ -1331,12 +1348,12 @@ const unionEmit = (
         // A refine, not a push onto `narrow`: when the source already has the
         // group's tag the narrow is the bare scope, and a check on a val with
         // no `prev` has nothing to read its input from.
-        body = B_merge(B_refine(narrow, narrow.s, [{ c: () => fused, f: failInvalidType }]), cond);
+        body = mergeNarrow(B_refine(narrow, narrow.s, [{ c: () => fused, f: failInvalidType }]));
       } else {
-        body = B_merge(narrow, cond);
+        body = mergeNarrow(narrow);
       }
     } else {
-      const narrowCode = B_merge(narrow, cond);
+      const narrowCode = mergeNarrow(narrow);
       only = inner.length === 1 ? inner[0]! : U;
       if (only !== U && narrowCode === "") {
         if (only.c !== "") {
@@ -1368,6 +1385,7 @@ const unionEmit = (
         (group.f & 8),
       // A lone member that took the group's place brings its own label.
       l: label || (only && body === only.b ? only.l : U),
+      s: snap,
     }, cases);
     if (body === "" && cond.c === "") break;
   }
