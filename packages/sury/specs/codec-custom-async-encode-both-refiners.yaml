@@ -14,7 +14,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="string"||e[6](i);e[0](i)||e[7](i);let v0;try{v0=e[1](i)}catch(x){e[2](x)}typeof v0==="number"&&v0==v0||e[5](v0);e[3](v0)||e[4](v0);return v0}catch(v1){e[8](v1)}}
+    expression: i=>{try{typeof i==="string"||e[7](i);e[0](i)||e[6](i);let v0;try{v0=e[1](i)}catch(x){e[2](x)}typeof v0==="number"&&v0==v0||e[5](v0);e[3](v0)||e[4](v0);return v0}catch(v1){e[8](v1)}}
     examples:
       passes:
         input: '"5"'

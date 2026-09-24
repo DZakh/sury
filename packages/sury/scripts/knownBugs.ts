@@ -61,20 +61,6 @@ export const KNOWN_BUGS: Known[] = [
     matches: (f) => f.fuzzer === "eq" && /of (null|undefined) \(reading '(TAG|kind)'\)/.test(f.detail),
   },
   {
-    id: "to-output-keeps-source-refinement",
-    kind: "bug",
-    summary:
-      "After `S.to` with a custom coder, `isOutput` still runs the source's refinement: " +
-      "`Schema<uuid, number>` tests the uuid pattern against the number, so every decoded value is rejected.",
-    spec: "to-refined-source-output",
-    fuzzers: ["codec"],
-    matches: (f) =>
-      f.fuzzer === "codec" &&
-      f.property === "conformance" &&
-      f.detail.includes("isOutput rejects") &&
-      some(f.shape, (node) => node.name === "with" && node.raw === "to"),
-  },
-  {
     id: "fieldor-absent-item-output",
     kind: "bug",
     summary:
