@@ -1596,19 +1596,20 @@ const bounds = (type: ProtobufType): [string, string] => {
     : unsigned ? ["0", "4294967295"] : ["-2147483648", "2147483647"];
 };
 
-const writeCall = (type: ProtobufType, v: string, enc: Encoding): string => {
+// `trusted`: a map key `mapKey` has already held to the type's range.
+const writeCall = (type: ProtobufType, v: string, enc: Encoding, trusted?: boolean): string => {
   if (type === "bool") return `s=${v}?1:0;w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s)`;
   if (type === "float") return `w.float32(${v})`;
   if (type === "double") return `w.float64(${v})`;
   if (type === "string") return `w.string(${v})`;
   if (type === "bytes") return `w.bytes(${v})`;
   const [min, max] = bounds(type);
-  const check = (expr: string) => `${enc("check")}(${expr},${min},${max})`;
+  const check = (expr: string) => (trusted ? expr : `${enc("check")}(${expr},${min},${max})`);
   if (type === "sint64") return `s=${check(v)};w.varint64((s<<1n)^(s>>63n))`;
   if (type === "int64" || type === "uint64") return `w.varint64(${check(v)})`;
   if (type.includes("64")) return `w.bits64(${check(v)})`;
   if (type.includes("fixed")) return `w.bits32(${check(v)})`;
-  const test = `s=${v};if(s<${min}||s>${max})${check("s")};`;
+  const test = trusted ? `s=${v};` : `s=${v};if(s<${min}||s>${max})${check("s")};`;
   if (type === "uint32") return test + writeVarint32("s");
   if (type === "sint32") return `${test}s=((s<<1)^(s>>31))>>>0;${writeVarint32("s")}`;
   return `${test}s>=0?${writeVarint32("s")}:w.int32(s)`;
@@ -1730,7 +1731,7 @@ const encodeBody = (msg: Message, fns: Map<Message, string>, read: Read, enc: En
     if (field.map !== U) {
       const keyType = field.map;
       const entryTag = writeTag(field.number * 8 + 2);
-      const keyPart = `${keyToWire(keyType, enc)}${writeTag(8 + wireType(keyType))};${writeCall(keyType, "k", enc)}`;
+      const keyPart = `${keyToWire(keyType, enc)}${writeTag(8 + wireType(keyType))};${writeCall(keyType, "k", enc, true)}`;
       const valuePart = field.type === "message"
         ? `${writeTag(16 + 2)};g=w.begin();${fns.get(field.message!)!}(w,c);w.end(g)`
         : `${writeTag(16 + field.wire)};${writeCall(field.type, "c", enc)}`;
