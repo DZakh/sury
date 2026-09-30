@@ -1004,10 +1004,11 @@ const unionEmit = (
   // The chain's end, which a failure reaches once a case has recorded what it
   // found: from then on a failure joins the others under the union's.
   const end: { l?: string } = {};
+  const toEnd = jumpOut(end);
   // The exit every case inherits. Nothing recorded yet: a failure is the one
   // the case found, precisely.
   const fail = (error?: Failure): string | undefined =>
-    recorded ? jumpOut(end)(error) : error ? outer?.(error) : final();
+    recorded ? toEnd(error) : error ? outer?.(error) : final();
   const rethrow = (): string => (rethrowEmbed ||= B_embed(input, getOrRethrow));
   // What a case that raised does with the error it caught: records it where
   // the union's failure will read it.
@@ -1114,7 +1115,7 @@ const unionEmit = (
       } else if (c.c === "") {
         // Nothing left to test: this alternative accepts every value that reaches
         // it, so unless it can fail nothing after it is reachable.
-        code += open ? arm : `${arm};`;
+        code += arm;
         if (!open) {
           exhaustive = true;
           break;

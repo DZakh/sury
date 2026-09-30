@@ -946,7 +946,7 @@ test("No nullish bridge for a non-union source - members are tried in order", t 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{i===null||e[0](i);for(;;){i="null";break;}return i}catch(v0){e[1](v0)}}`,
+    `i=>{try{i===null||e[0](i);for(;;){i="null";break}return i}catch(v0){e[1](v0)}}`,
   )
 
   // Reach the undefined member by marking the string one unreachable.
@@ -1100,7 +1100,7 @@ test("Tier 3 fallback for unknown source - transform on unknown variant still ru
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{for(;;){if(typeof i==="string")break;let v0;try{v0=e[0](i)}catch(x){e[1](x)}i=v0;break;}return i}catch(v1){e[2](v1)}}`,
+    `i=>{try{for(;;){if(typeof i==="string")break;let v0;try{v0=e[0](i)}catch(x){e[1](x)}i=v0;break}return i}catch(v1){e[2](v1)}}`,
   )
 })
 

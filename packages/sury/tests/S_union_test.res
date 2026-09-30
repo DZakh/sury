@@ -473,7 +473,7 @@ test("Successfully serializes unboxed variant", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{try{for(;;){if(typeof i==="string")break;let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);i=v0;break;}return i}catch(v1){e[3](v1)}}`,
+    `i=>{try{for(;;){if(typeof i==="string")break;let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);i=v0;break}return i}catch(v1){e[3](v1)}}`,
   )
 })
 
