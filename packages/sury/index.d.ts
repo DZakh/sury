@@ -132,7 +132,7 @@ export type Schema<TInput = unknown, TOutput = TInput> = {
   ): Schema<TInput, TTargetOutput>;
   // `S.shape`, and any modifier whose callback decides the output type.
   // Naming the callback here is what types its parameter as `TOutput`. The
-  // required third parameter excludes `S.optional`/`S.nullable`: a lazy
+  // required third parameter excludes `S.optional`/`S.nullable`/`S.nullish`: a lazy
   // default `() => value` is not a shaper, and the trailing `_?: never` they
   // declare is what fails this overload so they resolve below instead.
   with<TShape>(

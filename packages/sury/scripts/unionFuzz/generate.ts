@@ -136,7 +136,7 @@ const transformingContainer = (S: Sury, rng: Rng): MemberSpec => {
 // one the schema has to accept, so a throw here is the finding (#452), and the
 // runners report it against this id.
 const defaultedMember = (S: Sury, rng: Rng, inner: MemberSpec): MemberSpec => {
-  const name = (["optional", "nullable", "nullish"] as const)[Math.floor(rng() * 3)]!;
+  const name = pick(rng, ["optional", "nullable", "nullish"] as const);
   const value = defaultFor(S, rng, inner);
   if (value === NO_SAMPLE) {
     return {
