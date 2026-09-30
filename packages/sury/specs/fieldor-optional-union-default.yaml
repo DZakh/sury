@@ -5,7 +5,7 @@ ts:
   output: "{ x: number | boolean; }"
   instantiations: 6000
 jsonSchema:
-  input: "Failed at x: Expected JSON, received string | boolean | undefined"
+  input: '{ type: "object", properties: { x: { default: true, anyOf: [{ type: "string" }, { type: "boolean" }] } } }'
   output: '{ type: "object", properties: { x: { anyOf: [{ type: "number" }, { type: "boolean" }, { anyOf: [{ type: "number" }, { type: "boolean" }] }] } }, required: ["x"] }'
 isEqual: (a,b)=>a===b||a.x===b.x
 compare:

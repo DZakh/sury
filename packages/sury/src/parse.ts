@@ -410,7 +410,7 @@ Object.defineProperty(schemaPrototype, reversedKey, {
           const s = anyOf[idx]!;
           const reversed = reverse(s);
           newAnyOf.push(reversed);
-          setHas(has, reversed.type);
+          setHas(has, reversed);
         }
         mut.has = has;
         mut.anyOf = newAnyOf;

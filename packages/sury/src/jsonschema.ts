@@ -567,7 +567,12 @@ const internalToJSONSchemaBase = (
       ) {
         return;
       }
-      const childJsonSchema = js(childSchema, path);
+      // A union nested in a field's union answers to the same field, so its
+      // own `undefined` is the field being absent too.
+      const childJsonSchema =
+        childSchema.type === anyOfTag && parent.type === objectTag
+          ? internalToJSONSchema(childSchema, path, defs, parent, target)
+          : js(childSchema, path);
       // Collapse structurally-identical members (e.g. variants coercing to
       // the same `.to` target) so the union renders as `T`, not `anyOf:[T,T]`.
       const key = JSON.stringify(childJsonSchema);

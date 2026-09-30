@@ -757,7 +757,7 @@ const wrapDictMissingKeyLight = (s: Internal): Internal => {
   const mut = baseSchema(anyOfTag, false, noopDecoder);
   mut.anyOf = [s, unit];
   mut.has = { [undefinedTag]: true };
-  setHas(mut.has, s.type);
+  setHas(mut.has, s);
   mut.encoder = missingKeyEncoder;
   mut.flags = 64;
   return mut;

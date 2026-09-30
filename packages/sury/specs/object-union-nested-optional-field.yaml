@@ -4,10 +4,9 @@ ts:
   input: "{ a?: string | number | undefined; }"
   output: "{ a?: string | number | undefined; }"
   instantiations: 3122
-# FIXME: the optional inside the union is not seen, so the field fails as JSON
 jsonSchema:
-  input: "Failed at a: Expected JSON, received string | undefined"
-  output: "Failed at a: Expected JSON, received string | undefined"
+  input: '{ type: "object", properties: { a: { anyOf: [{ type: "string", description: "maybe" }, { type: "number" }] } } }'
+  output: '{ type: "object", properties: { a: { anyOf: [{ type: "string", description: "maybe" }, { type: "number" }] } } }'
 isEqual: (a,b)=>a===b||a.a===b.a
 compare: "throws: [Sury] Can't compare { a: string | number | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:

@@ -1665,7 +1665,7 @@ export const unionRewrite = (
   for (let idx = 0; idx < variants.length; idx++) {
     const rewritten = map(variants[idx]!, idx);
     anyOf.push(rewritten);
-    setHas(has, rewritten.type);
+    setHas(has, rewritten);
   }
   const mut = baseSchema(anyOfTag, false, unionDecoder);
   mut.anyOf = anyOf;
@@ -1923,7 +1923,7 @@ export const unionFactory = (schemas: Internal[]): Internal => {
     for (let j = 0; j < nested.length; j++) {
       const member = nested[j]!;
       anyOf.push(member);
-      setHas(has, member.type);
+      setHas(has, member);
     }
   }
 

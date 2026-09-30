@@ -47,7 +47,7 @@ export const presentArm = (schema: Internal): Internal => {
   for (const variant of schema.anyOf!) {
     if (variant.type !== undefinedTag && variant.type !== nullTag) {
       present.push(variant);
-      setHas(has, variant.type);
+      setHas(has, variant);
     }
   }
   if (present.length < 2) {

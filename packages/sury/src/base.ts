@@ -1232,8 +1232,11 @@ export const updateOutput = <TValue>(schema: Internal, fn: (schema: Internal) =>
   return root as unknown as TValue;
 }
 
-export const setHas = (has: Partial<Record<Tag, boolean>>, tag: Tag): void => {
-  has[(tagFlags[tag]! & (256 | 512)) ? unknownTag : tag] = true;
+// A nested union adds what it holds, so `undefined` behind one still makes its
+// parent optional. A ref's contents are unknown here.
+export const setHas = (has: Partial<Record<Tag, boolean>>, member: Internal): void => {
+  if (member.has !== U) Object.assign(has, member.has);
+  else has[(tagFlags[member.type]! & (256 | 512)) ? unknownTag : member.type] = true;
 }
 
 // The JSON Schema pointer prefix. Shared rather than owned by jsonschema.ts:
