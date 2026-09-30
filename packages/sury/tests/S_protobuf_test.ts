@@ -706,3 +706,90 @@ test("a recursive message reads and writes as the same message unrolled", (t) =>
     }
   }
 });
+
+// A throw at schema construction, which a spec can't record.
+// Spelled as a test: a spec can't record a schema whose construction throws.
+test("protobufField refuses a type it doesn't know, inherited names included", (t) => {
+  for (const type of ["constructor", "toString", "__proto__", "google.protobuf.Any", "google.protobuf.constructor"]) {
+    t.expect(() => S.optional(S.string).with(S.protobufField, { number: 1, type: type as S.ProtobufType })).toThrow(
+      "[Sury] S.protobufField requires a protobuf type",
+    );
+  }
+});
+
+test("protobufField refuses a value a well-known type doesn't take", (t) => {
+  const secondsNanos = S.schema({ seconds: S.bigint, nanos: S.int32 });
+  t.expect(() => S.date.with(S.protobufField, { number: 1, type: "google.protobuf.Duration" })).toThrow(
+    "[Sury] S.protobufField requires { seconds: S.bigint, nanos: S.int32 } for google.protobuf.Duration",
+  );
+  t.expect(() =>
+    S.schema({ seconds: S.number, nanos: S.int32 }).with(S.protobufField, { number: 1, type: "google.protobuf.Timestamp" }),
+  ).toThrow("[Sury] S.protobufField requires a Date or { seconds: S.bigint, nanos: S.int32 } for google.protobuf.Timestamp");
+  // Keys numbered by hand have to be the ones the message has.
+  t.expect(() =>
+    S.schema({ seconds: S.bigint.with(S.protobufField, 2), nanos: S.int32.with(S.protobufField, 1) }).with(S.protobufField, {
+      number: 1,
+      type: "google.protobuf.Duration",
+    }),
+  ).toThrow("[Sury] S.protobufField requires { seconds: S.bigint, nanos: S.int32 } for google.protobuf.Duration");
+  S.schema({ seconds: S.bigint.with(S.protobufField, 1), nanos: S.int32.with(S.protobufField, 2) }).with(S.protobufField, {
+    number: 1,
+    type: "google.protobuf.Duration",
+  });
+  t.expect(() => S.int32.with(S.protobufField, { number: 1, type: "google.protobuf.Int32Value" })).toThrow(
+    "[Sury] S.protobufField requires S.optional for google.protobuf.Int32Value: presence is what a wrapper is for",
+  );
+  S.array(S.int32).with(S.protobufField, { number: 1, type: "google.protobuf.Int32Value" });
+  t.expect(() => S.optional(secondsNanos).with(S.protobufField, { number: 1, type: "google.protobuf.StringValue" })).toThrow(
+    "[Sury] S.protobufField requires an S.optional string value for google.protobuf.StringValue",
+  );
+  t.expect(() => S.record(S.string).with(S.protobufField, { number: 1, type: "google.protobuf.Struct" })).toThrow(
+    "[Sury] S.protobufField requires S.record(S.json) for google.protobuf.Struct",
+  );
+  t.expect(() => S.schema({ a: S.string }).with(S.protobufField, { number: 1, type: "google.protobuf.Empty" })).toThrow(
+    "[Sury] S.protobufField requires S.schema({}) for google.protobuf.Empty",
+  );
+  t.expect(() => S.string.with(S.protobufField, { number: 1, type: "google.protobuf.Any" as never })).toThrow(
+    "[Sury] S.protobufField requires a protobuf type",
+  );
+});
+
+test("A well-known type prints as Google's, each file imported once", (t) => {
+  const secondsNanos = S.schema({ seconds: S.bigint, nanos: S.int32 });
+  const event = S.schema({
+    at: S.date.with(S.protobufField, 1),
+    ttl: secondsNanos.with(S.protobufField, { number: 2, type: "google.protobuf.Duration" }),
+    data: S.json.with(S.protobufField, 3),
+    meta: S.record(S.json).with(S.protobufField, { number: 4, type: "google.protobuf.Struct" }),
+    byKey: S.record(S.json).with(S.protobufField, { number: 5, key: "int64" }),
+    retries: S.optional(S.int32).with(S.protobufField, { number: 6, type: "google.protobuf.Int32Value" }),
+    mask: S.array(S.string).with(S.protobufField, { number: 7, type: "google.protobuf.FieldMask" }),
+    log: S.array(S.date).with(S.protobufField, 8),
+    none: S.schema({}).with(S.protobufField, { number: 9, type: "google.protobuf.Empty" }),
+  });
+  t.expect(S.toProtoOrThrow(event, { name: "Event", package: "acme.v1" })).toBe(
+    `syntax = "proto3";
+
+package acme.v1;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+
+message Event {
+  google.protobuf.Timestamp at = 1;
+  google.protobuf.Duration ttl = 2;
+  google.protobuf.Value data = 3;
+  google.protobuf.Struct meta = 4;
+  map<int64, google.protobuf.Value> by_key = 5;
+  optional google.protobuf.Int32Value retries = 6;
+  google.protobuf.FieldMask mask = 7;
+  repeated google.protobuf.Timestamp log = 8;
+  google.protobuf.Empty none = 9;
+}
+`,
+  );
+});

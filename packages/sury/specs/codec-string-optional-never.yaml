@@ -27,7 +27,7 @@ operations:
         output: '"undefined"'
   decode: identity
   encode:
-    expression: i=>{try{for(;;){if(typeof i==="string")break;if(i===void 0){e[0](i);break}e[1](i)}return i}catch(v0){e[2](v0)}}
+    expression: i=>{try{for(;;){if(typeof i==="string")break;if(i===void 0){e[0](i);break}throw e[1](i)}return i}catch(v0){e[2](v0)}}
     examples:
       string:
         input: '"abc"'

@@ -35,8 +35,10 @@ const UNION_LIKE = new Set(["union", "optional", "nullable", "nullish"]);
 export const unionMembers = (node: Shape): Shape[] =>
   UNION_LIKE.has(node.name) ? (node.name === "union" ? node.args : node.args.slice(0, 1)) : [];
 
+// `env` reads an unset variable, so its input admits `undefined` too.
 export const admitsUndefined = (node: Shape): boolean =>
   node.name === "optional" ||
+  node.name === "env" ||
   node.name === "nullish" ||
   node.name === "undefined" ||
   node.name === "void" ||

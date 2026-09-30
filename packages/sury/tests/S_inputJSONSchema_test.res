@@ -30,9 +30,6 @@ test("JSONSchema of S.json transformed to object with bigint and array of option
   // Was `{}` while an array of optional items had no JSON form at all. Now that
   // None decodes to null the whole shape is describable: bigint by its string
   // form, unknown by the empty schema, the items as number-or-null.
-  // FIXME: the item's `maximum: 1` is dropped - a variant converted through
-  // `.to(json)` reports the target's type without the source's refinements.
-  // See specs/codec-json-array-optional-bounded.yaml.
   t->Assert.deepEqual(
     S.json->S.to(nonJsonableSchema)->S.toInputJSONSchemaOrThrow,
     %raw(`{
@@ -40,7 +37,7 @@ test("JSONSchema of S.json transformed to object with bigint and array of option
       "properties": {
         "id": {"type": "string"},
         "data": {},
-        "items": {"type": "array", "items": {"anyOf": [{"type": "number"}, {"type": "null"}]}}
+        "items": {"type": "array", "items": {"anyOf": [{"type": "number", "maximum": 1}, {"type": "null"}]}}
       },
       "additionalProperties": false,
       "required": ["id", "data", "items"]
