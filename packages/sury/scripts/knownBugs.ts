@@ -98,12 +98,12 @@ export const KNOWN_BUGS: Known[] = [
   },
   {
     id: "default-shadows-outer-absent",
-    kind: "limitation",
+    kind: "bug",
     summary:
       "A member whose default replaces an absent value is tried before the same absent value a wrapper " +
-      "around it adds: `S.nullable(S.nullable(x, d))` decodes `null` to `d`, so the outer `null`, which " +
-      "encode passes through, reads back as `d`. The first member that accepts a value wins, which is the " +
-      "documented rule; the round trip cannot tell that from a bug.",
+      "around it adds, so that outer arm is an Output decode never produces and does not round-trip: " +
+      "`S.nullable(S.nullable(x, d))` encodes `null` to `null`, which decodes to `d`.",
+    spec: "nullable-nullable-default",
     fuzzers: ["codec"],
     matches: (f) =>
       f.fuzzer === "codec" &&

@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.nullable(S.nullable(S.boolean, false))
+  input: boolean | null
+  output: boolean | null
+  instantiations: 583
+jsonSchema:
+  input: '{ anyOf: [{ default: false, anyOf: [{ type: "boolean" }, { type: "null" }] }, { type: "null" }] }'
+  output: '{ anyOf: [{ type: "boolean" }, { type: "null" }] }'
+  openapi-3.0:
+    input: '{ default: false, type: "boolean", nullable: true }'
+    output: '{ type: "boolean", nullable: true }'
+isEqual: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare boolean | null | null. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare boolean | null. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod: z.boolean().nullable().transform((value) => value ?? false).nullable()
+operations:
+  parse:
+    expression: i=>{try{let v0;for(;;){l1:{for(;;){if(typeof i==="boolean")break;if(i===null){i=false;break}v0=[v0,e[0](i)];break l1}break}if(i===null)break;throw e[1](i,v0)}return i}catch(v2){e[2](v2)}}
+    examples:
+      "true":
+        input: "true"
+        output: "true"
+      null-takes-the-inner-default:
+        input: "null"
+        output: "false"
+      undefined-is-rejected:
+        input: undefined
+        error: |-
+          Expected boolean | null | null, received undefined
+          - Expected boolean | null, received undefined
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{(i===null||typeof i==="boolean")||e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      "false":
+        input: "false"
+        output: "false"
+      # FIXME: known bug default-shadows-outer-absent (scripts/knownBugs.ts). Decode
+      # never produces null here, so the null encode passes through reads back as
+      # the inner default, false.
+      null-passes-through:
+        input: "null"
+        output: "null"
