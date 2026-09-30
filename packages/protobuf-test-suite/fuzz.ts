@@ -3,13 +3,16 @@
 // holding a oneof, a packed field beside an unpacked one of the same type, a
 // message that reaches itself two fields down.
 //
-// Two properties per graph. Every generated value goes through `runRoundTrip`,
+// Three properties per graph. Every generated value goes through `runRoundTrip`,
 // the check each corpus round trip gets: Sury's bytes equal protobufjs's, both
 // decode back to the value, and protobuf-es reads Sury's bytes and the printed
-// `.proto` alike. Then the valid encoding is mutated - a byte flipped, a
-// truncation, a slice repeated or spliced in - and Sury and protobuf-es each
-// decode the result: they must agree on whether it is a message, and where
-// both say it is, re-encode it to the same bytes.
+// `.proto` alike. Then one leaf of the value - a field, a list element, a map
+// value or a map key - is swapped for one its writer refuses, and the encode
+// must fail at it: the error's path leads there from the value, and its
+// reason shows what it found. Last the valid encoding is mutated - a byte
+// flipped, a truncation, a slice repeated or spliced in - and Sury and
+// protobuf-es each decode the result: they must agree on whether it is a
+// message, and where both say it is, re-encode it to the same bytes.
 import { create, toBinary, fromBinary, fromJson, toJson, type DescMessage } from "@bufbuild/protobuf";
 import * as wkt from "@bufbuild/protobuf/wkt";
 import * as S from "sury";
@@ -207,6 +210,130 @@ const mutate = (r: Random, bytes: Uint8Array): Uint8Array => {
   return Uint8Array.from(src);
 };
 
+// Values a field's writer refuses wherever the field sits, by type. int32,
+// sint32, uint32 and enum only range-check (`s<min||s>max`), so a fraction, a
+// string or NaN inside the range is written as whatever the varint makes of
+// it. A nested message's encoder reads its fields untyped and puts a 32-bit
+// one through `+`, so "1" and true pass there for fixed32 and sfixed32 too.
+// float, double and bool write whatever they are handed, so they draw nothing.
+// Every value is truthy, since a falsy one is a default an implicit-presence
+// field skips before its writer sees it.
+const I32 = [2 ** 31, -(2 ** 31) - 1, 2 ** 40, -(2 ** 53), 1n];
+const I64 = [2n ** 63n, -(2n ** 63n) - 1n, 1, 1.5, "1", true];
+const U64 = [-1n, 2n ** 64n, 1, "1", true];
+const REFUSED: Record<Scalar, unknown[]> = {
+  int32: I32, sint32: I32, enum: I32,
+  uint32: [-1, 2 ** 32, 2 ** 40, 1n],
+  fixed32: [-1, 2 ** 32, 1.5, 1n],
+  sfixed32: [2 ** 31, -(2 ** 31) - 1, 1.5, 1n],
+  int64: I64, sint64: I64, sfixed64: I64,
+  uint64: U64, fixed64: U64,
+  string: [1, 1n, true, {}, ["a"]],
+  bytes: ["ab", [1]],
+  float: [], double: [], bool: [],
+};
+// A numeric key goes through `+` or `BigInt`, so "", " 1" and "0x10" read as
+// numbers, and "1e3" does for a 32-bit key.
+const refusedKeys = (type: Scalar): string[] => [
+  "x", "1.5", "true", "18446744073709551616",
+  type.includes("64") ? "1e3" : "4294967296",
+  ...(type[0] === "u" || type[0] === "f" ? ["-1"] : []),
+];
+
+type Segment = string | number;
+// A place a single corruption can go: `holder[at]` is the leaf, or for a map
+// key, `at` is the key.
+type Role = "field" | "element" | "map value" | "map key";
+type Site = { path: Segment[]; type: Scalar; holder: Record<Segment, unknown>; at: Segment; role: Role };
+
+const sitesOf = (fields: FieldDef[], value: Record<string, unknown>, path: Segment[], out: Site[]): Site[] => {
+  for (const def of fields) {
+    if (!Object.hasOwn(value, def.key) || value[def.key] === undefined) continue;
+    const own = value[def.key] as Record<Segment, unknown>;
+    const at = [...path, def.key];
+    const leaf = (holder: Record<Segment, unknown>, item: Segment, p: Segment[], role: Role) => {
+      if (def.type === "message") sitesOf(def.fields!, holder[item] as Record<string, unknown>, p, out);
+      else out.push({ path: p, type: def.type as Scalar, holder, at: item, role });
+    };
+    if (def.repeated) (own as unknown as unknown[]).forEach((_, i) => leaf(own, i, [...at, i], "element"));
+    else if (def.map) {
+      for (const k of Object.keys(own)) {
+        leaf(own, k, [...at, k], "map value");
+        out.push({ path: [...at, k], type: def.map as Scalar, holder: own, at: k, role: "map key" });
+      }
+    } else leaf(value, def.key, at, "field");
+  }
+  return out;
+};
+
+const received = (value: unknown): string => {
+  try {
+    S.parseOrThrow(value, S.never);
+  } catch (e) {
+    return (e as S.Error).reason.replace(/^Expected never, received /, "");
+  }
+  return "";
+};
+
+// One leaf of a valid value swapped for one its writer refuses. The encode must
+// throw, and the error's path must lead from the value it was handed to the
+// leaf: every segment an own property of the value so far, and the reason's
+// "received" the leaf, or, for a map key, the key.
+const corruptionFinding = (r: Random, encode: (v: unknown) => Uint8Array, fields: FieldDef[], value: Record<string, unknown>, seed: number): Finding | undefined => {
+  const input = structuredClone(value);
+  const sites = sitesOf(fields, input, [], []).filter((s) => (s.role === "map key" ? s.type !== "string" && s.type !== "bool" : REFUSED[s.type].length));
+  if (!sites.length) return;
+  const site = pick(r, sites);
+  let where: string;
+  let expected: Segment[];
+  if (site.role === "map key") {
+    const key = pick(r, refusedKeys(site.type));
+    const entry = site.holder[site.at];
+    delete site.holder[site.at];
+    site.holder[key] = entry;
+    where = `${site.type} map key ${JSON.stringify(key)}`;
+    expected = [...site.path.slice(0, -1), key];
+  } else {
+    const bad = pick(r, REFUSED[site.type]);
+    site.holder[site.at] = bad;
+    where = `${site.type} ${site.role} ${received(bad)}`;
+    expected = site.path;
+  }
+  const at = `seed ${seed}: ${where} at ${expected.join(".")} in ${show(input).slice(0, 300)}`;
+  let error: { code?: string; path?: Segment[]; reason?: string; message?: string; cause?: unknown };
+  try {
+    encode(input);
+    return { kind: `corrupt: silently encodes a refused ${site.type} ${site.role}`, seed, detail: at };
+  } catch (e) {
+    error = e as never;
+  }
+  if (!(error instanceof S.Error) || error.code !== "invalid_conversion") {
+    return { kind: `corrupt: throws something other than invalid_conversion (${String(error.message).replace(/\d+/g, "#").slice(0, 80)})`, seed, detail: at };
+  }
+  // A throw the writer did not make itself: the encode has no reason of its
+  // own to give, and nothing to say where.
+  if (error.cause !== undefined) {
+    return { kind: `corrupt: fails with a foreign error (${error.reason!.replace(/\d+/g, "#")})`, seed, detail: `${at}\n        got path ${JSON.stringify(error.path)}` };
+  }
+  const path = error.path!;
+  const got = `${at}\n        got path ${JSON.stringify(path)} reason ${JSON.stringify(error.reason)}`;
+  let cur: unknown = input;
+  for (const segment of path) {
+    if (cur === null || typeof cur !== "object" || !Object.hasOwn(cur, segment)) {
+      return { kind: "corrupt: error path does not resolve in the value", seed, detail: got };
+    }
+    cur = (cur as Record<Segment, unknown>)[segment];
+  }
+  const keyed = /^Expected \w+ key, received (.*)$/s.exec(error.reason!);
+  const shown = keyed ? keyed[1] : /, received (.*)$/s.exec(error.reason!)?.[1];
+  if (shown !== (keyed ? received(String(path.at(-1))) : received(cur))) {
+    return { kind: "corrupt: error reason does not show the value at its path", seed, detail: got };
+  }
+  if (path.join("\0") !== expected.join("\0")) {
+    return { kind: "corrupt: error path names another place than the corrupted one", seed, detail: got };
+  }
+};
+
 export type Finding = { kind: string; seed: number; detail: string; proto?: string };
 
 // Cases known not to hold, keyed by what the run prints, each with the reason
@@ -219,14 +346,14 @@ export type Finding = { kind: string; seed: number; detail: string; proto?: stri
 const ES_LENIENT = "protobuf-es reads on where Google's parser rejects the bytes as corrupt";
 const ES_STRICT = "protobuf-es rejects bytes Google's parser reads, as Sury does";
 const KNOWN: Record<string, string> = {
-  "acceptance: only protobuf-es accepts (truncated protobuf message)": ES_LENIENT,
-  "acceptance: only protobuf-es accepts (unmatched protobuf end group)": ES_LENIENT,
-  "acceptance: only protobuf-es accepts (mismatched protobuf end group)": ES_LENIENT,
-  "acceptance: only protobuf-es accepts (unterminated protobuf group)": ES_LENIENT,
-  "acceptance: only protobuf-es accepts (invalid protobuf field number)": ES_LENIENT,
-  "acceptance: only protobuf-es accepts (invalid protobuf wire type)": ES_LENIENT,
-  "acceptance: only protobuf-es accepts (invalid protobuf tag)": ES_LENIENT,
-  "acceptance: only protobuf-es accepts (varint exceeds # bytes)": ES_LENIENT,
+  "acceptance: only protobuf-es accepts (Truncated protobuf message)": ES_LENIENT,
+  "acceptance: only protobuf-es accepts (Unmatched protobuf end group)": ES_LENIENT,
+  "acceptance: only protobuf-es accepts (Mismatched protobuf end group)": ES_LENIENT,
+  "acceptance: only protobuf-es accepts (Unterminated protobuf group)": ES_LENIENT,
+  "acceptance: only protobuf-es accepts (Invalid protobuf field number #)": ES_LENIENT,
+  "acceptance: only protobuf-es accepts (Invalid protobuf wire type #)": ES_LENIENT,
+  "acceptance: only protobuf-es accepts (Invalid protobuf tag)": ES_LENIENT,
+  "acceptance: only protobuf-es accepts (Varint exceeds # bytes)": ES_LENIENT,
   "acceptance: only sury accepts (illegal tag: varint overflows uint#)": ES_STRICT,
   "acceptance: only sury accepts (illegal tag: field no # wire type #)": ES_STRICT,
   "acceptance: only sury accepts (premature EOF)": ES_STRICT,
@@ -234,6 +361,17 @@ const KNOWN: Record<string, string> = {
   "acceptance: only sury accepts (cant skip wire type #)": ES_STRICT,
   "reencode: sury reads protobuf-es's re-encode as another value":
     "protobuf-es misreads a 32-bit varint written in more than five bytes, and writes back the value it misread",
+};
+
+// Sury's own, found by this run and not fixed yet. Held to the same gate as
+// KNOWN, so a fix announces itself as a stale entry.
+const BIGINT_IN_32_BIT =
+  "FIXME: a bigint in an int32, uint32, sint32 or enum field, or in a fixed32 or sfixed32 field of a nested message, " +
+  "fails with the TypeError `+` or `<` throws and an empty path: " +
+  "S.decodeOrThrow(S.schema({ x: S.int32.with(S.protobufField, 1) }), S.protobuf)({ x: 1n })";
+const KNOWN_BUGS: Record<string, string> = {
+  "corrupt: fails with a foreign error (TypeError: Cannot convert a BigInt value to a number)": BIGINT_IN_32_BIT,
+  "corrupt: fails with a foreign error (TypeError: Cannot mix BigInt and other types, use explicit conversions)": BIGINT_IN_32_BIT,
 };
 
 // Reached only by a sweep wider than the default, so a default run has no way
@@ -434,13 +572,16 @@ const wellKnownFindings = (r: Random, seed: number, count: number): Finding[] =>
   return findings;
 };
 
-export type FuzzOptions = { seeds: number; values: number; mutants: number; from: number };
+export type FuzzOptions = { seeds: number; values: number; mutants: number; corruptions: number; from: number };
 
-export const runFuzz = ({ seeds, values, mutants, from }: FuzzOptions): { findings: Finding[]; graphs: number; checks: number } => {
+export const runFuzz = ({ seeds, values, mutants, corruptions, from }: FuzzOptions): { findings: Finding[]; graphs: number; checks: number } => {
   const findings: Finding[] = [];
   let checks = 0;
   for (let seed = from; seed < from + seeds; seed++) {
     const { r, fields } = graphOf(seed);
+    // Its own stream, so the draws the round trips and mutants make stay the
+    // ones a seed has always named.
+    const cr = rng(seed ^ 0x5bd1e995);
     findings.push(...wellKnownFindings(rng(-seed), seed, values));
     checks += values * wellKnownCases.length;
     let decode: (b: Uint8Array) => unknown;
@@ -463,6 +604,11 @@ export const runFuzz = ({ seeds, values, mutants, from }: FuzzOptions): { findin
         findings.push({ kind: `roundtrip: ${result.detail!.replace(/[\d,]+/g, "#")}`, seed, detail: `${result.detail} value=${show(value)}` });
         continue;
       }
+      for (let c = 0; c < corruptions; c++) {
+        checks++;
+        const finding = corruptionFinding(cr, encode, fields, value, seed);
+        if (finding) findings.push(finding);
+      }
       const bytes = encode(value).slice();
       for (let m = 0; m < mutants; m++) {
         const mutant = mutate(r, bytes);
@@ -472,9 +618,10 @@ export const runFuzz = ({ seeds, values, mutants, from }: FuzzOptions): { findin
         const suryOk = !(sury instanceof Error);
         const esOk = !(es instanceof Error);
         if (suryOk !== esOk) {
-          const reason = (suryOk ? es : sury) as Error;
+          // Sury's reason, without the path its message puts in front.
+          const reason = suryOk ? (es as Error).message : ((sury as S.Error).reason ?? (sury as Error).message);
           findings.push({
-            kind: `acceptance: ${suryOk ? "only sury" : "only protobuf-es"} accepts (${reason.message.replace(/[\d]+/g, "#").replace(/ at .*/, "")})`,
+            kind: `acceptance: ${suryOk ? "only sury" : "only protobuf-es"} accepts (${reason.replace(/[\d]+/g, "#").replace(/ at .*/, "")})`,
             seed,
             detail: `bytes=[${bytesOf(mutant)}]`,
           });
@@ -505,12 +652,12 @@ export const reportFuzz = (findings: Finding[], full: boolean): { text: string; 
   const lines: string[] = [];
   let ok = true;
   byKind.forEach((list, kind) => {
-    const known = KNOWN[kind] ?? KNOWN_WIDE[kind];
+    const known = KNOWN[kind] ?? KNOWN_BUGS[kind] ?? KNOWN_WIDE[kind];
     if (known === undefined) ok = false;
     lines.push(`${known === undefined ? "NEW  " : "known"} ${kind}  x${list.length}  (first: seed ${list[0]!.seed})`);
     if (known === undefined) for (const f of list.slice(0, 2)) lines.push(`        ${f.detail.slice(0, 600)}`);
   });
-  for (const kind of Object.keys(KNOWN)) {
+  for (const kind of [...Object.keys(KNOWN), ...Object.keys(KNOWN_BUGS)]) {
     if (full && !byKind.has(kind)) {
       ok = false;
       lines.push(`HOLDS ${kind} - listed as known, no longer found; remove it from KNOWN`);
