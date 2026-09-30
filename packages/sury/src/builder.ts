@@ -298,8 +298,6 @@ export const B_detached = <T>(g: BGlobal, body: () => T): T => {
   }
 };
 
-// An async coder's rejection handler, spelled once: the parse loop finds it in
-// `cp` by this exact text (see `rj`).
 export const B_rejection = (raise: string, path: string): string =>
   path ? `x=>${raise}(x${path})` : raise;
 

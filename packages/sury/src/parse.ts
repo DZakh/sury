@@ -85,8 +85,7 @@ export const parse = (input: Val): Val => {
     // have been "and there is something to wrap", which is not knowable before
     // parsing the remainder - so the decision lives below, where the recursive
     // parse has already answered it, and an empty remainder refines instead of
-    // wrapping. That arm also takes a fused coder, whose `.then` is already in
-    // its own code.
+    // wrapping.
     if (loopInput.f & 1) {
       const operationInputVar = loopInput.v();
       const operationInput = B_scope(loopInput);
@@ -96,11 +95,8 @@ export const parse = (input: Val): Val => {
       );
       // The coder's own `.catch` (see `rj`) becomes this `.then`, so the
       // continuation runs inside the coder's `try` - an answer that isn't a
-      // promise still fails as the conversion. Only while its `cp` is
-      // unemitted: the merge above stops at the scope, which has no `prev`, so
-      // `cp` is written out from `result` after this. The replace is the check
-      // that `cp` still carries the `.catch`; a function, since `cp` may hold a
-      // `$`.
+      // promise still fails as the conversion. The replace is the check that
+      // `cp` still carries the `.catch`; a function, since `cp` may hold a `$`.
       const { cp, rj } = loopInput;
       const then = `.then(${operationInputVar}=>{${operationCode}return ${operationOutput.i}}`;
       result =
