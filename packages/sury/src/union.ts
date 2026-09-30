@@ -351,9 +351,10 @@ const unionMask = (schema: Internal, mode: number, nan: number): number => {
     return mask;
   }
   // ~0: bitwise ops only see the low 32 bits, so this stays future-proof.
+  // An env var's unset state is `undefined` (16), which its narrow admits.
   return tagFlag & (1 | 256 | 512)
     ? ~0
-    : unionWiden(tagFlag, nan);
+    : unionWiden(tagFlag, nan) | (mode && schema.format === "env" ? 16 : 0);
 };
 
 // A member's effect (`UnionMember.e`), as a literal because naming these five

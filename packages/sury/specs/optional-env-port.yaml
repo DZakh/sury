@@ -1,9 +1,9 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: S.union([S.env.with(S.to, S.port), S.schema(undefined)])
+  schema: S.optional(S.env.with(S.to, S.port))
   input: string | undefined
   output: number | undefined
-  instantiations: 5406
+  instantiations: 4746
 jsonSchema:
   input: Expected JSON, received env | undefined
   output: Expected JSON, received port | undefined
@@ -21,7 +21,7 @@ operations:
       port:
         input: '"8080"'
         output: "8080"
-      unset-reaches-the-undefined-member:
+      unset:
         input: undefined
         output: undefined
       blank:
@@ -36,6 +36,6 @@ operations:
       port:
         input: "8080"
         output: '"8080"'
-      undefined:
+      absent:
         input: undefined
         output: undefined
