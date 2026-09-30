@@ -319,20 +319,6 @@ const unionNarrowSchema = (schema: Internal): Internal => {
   return narrow;
 };
 
-// The runtime-type test a member's own values pass: its type narrow, or every
-// arm's for a nested union. "" where an arm has none to offer (unknown, a ref).
-const unionEntryCond = (input: Val, schema: Internal, inputVar: string): string => {
-  if (!(tagFlags[schema.type]! & 256)) return typeCheckCond(input, schema, inputVar);
-  const arms = schema.anyOf!;
-  const conds: string[] = [];
-  for (let i = 0; i < arms.length; i++) {
-    const arm = unionEntryCond(input, arms[i]!, inputVar);
-    if (arm === "") return "";
-    if (!conds.includes(arm)) conds.push(arm);
-  }
-  return conds.length > 1 ? `(${conds.join("||")})` : conds[0]!;
-};
-
 // Tag bits don't partition runtime values: every instance passes the object
 // narrow, so two such cases are only provably disjoint after widening each to
 // everything its narrow could also let through. Arrays and NaN need no widening -
@@ -955,7 +941,8 @@ const unionEmit = (
   trustedSelf?: boolean
 ): Val => {
   const initialInline = input.i;
-  let output = B_refine(input);
+  const guard = B_refine(input);
+  let output = B_refine(guard);
   // An async case only has to be awaited so that its rejection can be caught and
   // the value handed to a later group - which is exactly where a group is marked
   // for fallback. With no fallback anywhere, the sole async case's promise is
@@ -1323,24 +1310,8 @@ const unionEmit = (
   for (let i = 0; i < plan.length; i++) {
     const group = plan[i]!;
     if (group.a.length === 1 && group.f & 16) {
-      const member = group.a[0]!;
-      // The plan leaves a group that shares no type with a later one to raise
-      // its own error, which is sound only behind its type narrow. A nested
-      // union dispatched as is hoists none when its dispatch is more than one
-      // type test - a transforming or an object arm - and a case with no
-      // condition ends the chain, so it took every later member's values:
-      // `S.union([S.nullable(S.boolean, false), S.string])` rejected "x". It
-      // enters on its own narrow instead, and falls through where it has none
-      // to offer, which has to be known before its body is emitted.
-      const entry =
-        tagFlags[member.s.type]! & 256 && plan.slice(i + 1).some((next) => next.m & ~group.m)
-          ? tagFlags[input.s.type]! & 1
-            ? unionEntryCond(input, member.s, input.v())
-            : ""
-          : U;
-      const c = compile(member, input, input, (member.f | group.f | (entry === "" ? 8 : 0)) & 8);
+      const c = compile(group.a[0]!, input, input, (group.a[0]!.f | group.f) & 8);
       if (c !== U) {
-        if (entry && c.c === "" && c.b !== "") c.c = entry;
         settle(c, cases);
         if (c.c === "" && c.b === "") break;
       }
@@ -1474,6 +1445,18 @@ const unionEmit = (
       output.i = `(async(${itemVar})=>{${dispatch};return ${itemVar}})(${itemVar})`;
     } else {
       output.cp += dispatch;
+      if (cases.every((c) => c.c !== "")) {
+        // A parent union dispatching this one as is gets no condition from the
+        // chain, and a case with none ends the parent's chain:
+        // `S.union([S.nullable(S.boolean, false), S.string])` rejected "x".
+        // Every case entering on a condition, their OR is this union's own
+        // narrow, offered for the parent to hoist. `noValidation` keeps it out
+        // of the code where nobody does - the chain already raises on it.
+        const fused = unionOr(cases.filter((c) => !(c.f & 16)));
+        guard.e = copySchema(expectedSchema);
+        guard.e.noValidation = true;
+        guard.vc = [{ c: () => fused, f: failInvalidType }];
+      }
     }
   }
   if (!asyncDispatch) output.i = input.i;
