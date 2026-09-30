@@ -26,9 +26,9 @@ export const some = (shape: Shape, test: (node: Shape) => boolean): boolean => {
 
 // ---- predicates the known-bug registry is written in ----------------------
 
-// `optional(x, d)` / `nullable(x, d)`: the default is the second argument.
 export const hasDefault = (shape: Shape): boolean =>
-  (shape.name === "optional" || shape.name === "nullable") && shape.args.length === 2;
+  (shape.name === "optional" || shape.name === "nullable" || shape.name === "nullish") &&
+  shape.args.length === 2;
 
 // The nodes that compile to a union over their arguments.
 const UNION_LIKE = new Set(["union", "optional", "nullable", "nullish"]);

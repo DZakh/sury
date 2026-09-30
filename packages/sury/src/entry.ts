@@ -68,6 +68,7 @@ import {
  nullLiteral,
  unit
 } from "./primitives";
+import { nullableAsOption } from "./refinements";
 import {
  unionFactory
 } from "./union";
@@ -203,9 +204,6 @@ export {
 } from "./operations";
 export { array, dict as record } from "./composites";
 export { schemaObject as object, schemaShape as shape, schemaTuple as tuple } from "./factory";
-// `nullish` accepts null | undefined (the 3-member union) - distinct from
-// `nullable` below, which handles null only.
-export { nullable as nullish } from "./refinements";
 export {
   compactColumns,
 } from "./advanced/compactColumns";
@@ -448,6 +446,21 @@ export const nullable = (definition: unknown, maybeOr: unknown): Internal => {
     }
   } else {
     return unionFactory([schema, nullLiteral]);
+  }
+};
+
+// @__NO_SIDE_EFFECTS__
+export const nullish = (definition: unknown, maybeOr: unknown): Internal => {
+  const schema = definitionToSchema(definition);
+  if (maybeOr !== U) {
+    const option = nullableAsOption(schema);
+    if (typeof maybeOr === functionTag) {
+      return Option_getOrWith(option, maybeOr as () => unknown);
+    } else {
+      return Option_getOr(option, maybeOr);
+    }
+  } else {
+    return unionFactory([schema, unit, nullLiteral]);
   }
 };
 

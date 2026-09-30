@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.nullish(S.string, "bar")
+  input: string | null | undefined
+  output: string
+  instantiations: 424
+jsonSchema:
+  input: Expected JSON, received string | undefined | null
+  output: '{ type: "string" }'
+isEqual: strictEqual
+compare:
+  input: (a,b)=>a===b?0:(a===void 0?b===void 0?0:-1:b===void 0?1:a===null?b===null?0:-1:b===null?1:a<b?-1:a>b?1:0)
+  output: strictCompare
+vs:
+  zod: z.string().nullish().transform((value) => value ?? "bar")
+operations:
+  parse:
+    expression: i=>{try{for(;;){if(typeof i==="string")break;if(i===void 0){i="bar";break}if(i===null){i="bar";break}throw e[0](i)}return i}catch(v0){e[1](v0)}}
+    examples:
+      string:
+        input: '"foo"'
+        output: '"foo"'
+      empty-string-is-kept:
+        input: '""'
+        output: '""'
+      undefined-becomes-the-default:
+        input: undefined
+        output: '"bar"'
+      null-becomes-the-default:
+        input: "null"
+        output: '"bar"'
+      invalid-type:
+        input: "1"
+        error: Expected string | undefined | null, received 1
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{typeof i==="string"||e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      string:
+        input: '"foo"'
+        output: '"foo"'
+      the-default-encodes-as-itself:
+        input: '"bar"'
+        output: '"bar"'

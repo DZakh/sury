@@ -2598,8 +2598,6 @@ export function optional<
 >(
   schema: SchemaLike<TInput, TOutput> | TDef,
   or?: (() => TOr) | TOr,
-  // Never passed: fails `with`'s callback overload, so a lazy default is
-  // not typed as a shaper.
   _?: never
 ): Schema<
   TInput | undefined,
@@ -2614,18 +2612,22 @@ export function nullable<
 >(
   schema: SchemaLike<TInput, TOutput> | TDef,
   or?: (() => TOr) | TOr,
-  // Never passed: fails `with`'s callback overload, so a lazy default is
-  // not typed as a shaper.
   _?: never
 ): Schema<TInput | null, TOr extends null ? TOutput | null : TOutput>;
 
-export const nullish: <
+export function nullish<
   const TDef = never,
   TInput = UnknownToInput<TDef>,
-  TOutput = UnknownToOutput<TDef>
+  TOutput = UnknownToOutput<TDef>,
+  TOr extends TOutput | undefined | null = undefined
 >(
-  schema: SchemaLike<TInput, TOutput> | TDef
-) => Schema<TInput | undefined | null, TOutput | undefined | null>;
+  schema: SchemaLike<TInput, TOutput> | TDef,
+  or?: (() => TOr) | TOr,
+  _?: never
+): Schema<
+  TInput | undefined | null,
+  TOr extends undefined | null ? TOutput | undefined | null : TOutput
+>;
 
 export type Class<T> = new (...args: readonly any[]) => T;
 export const instance: <T>(class_: Class<T>) => Schema<T, T>;

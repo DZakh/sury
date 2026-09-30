@@ -741,6 +741,16 @@ S.parseOrThrow(nullishStringSchema, null); // => null
 S.parseOrThrow(nullishStringSchema, undefined); // => undefined
 ```
 
+Pass a fallback as the second argument to replace both `undefined` and `null`:
+
+```ts
+const schema = S.nullish(S.string, "fallback");
+S.parseOrThrow(schema, undefined); // => "fallback"
+S.parseOrThrow(schema, null); // => "fallback"
+```
+
+To replace only `undefined` and keep `null`, wrap it instead: `S.optional(S.nullish(S.string), "fallback")`.
+
 ## Objects
 
 ```ts

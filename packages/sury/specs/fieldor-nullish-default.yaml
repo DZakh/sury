@@ -3,7 +3,7 @@ ts:
   schema: 'S.object((s) => ({ f: s.fieldOr("f", S.nullish(S.number), 2) }))'
   input: "{ [x: string]: unknown; }"
   output: "{ f: number | null | undefined; }"
-  instantiations: 731
+  instantiations: 734
 jsonSchema:
   input: "Failed at f: Expected JSON, received number | undefined | null"
   output: '{ type: "object", properties: { f: { anyOf: [{ type: "number" }, { type: "null" }] } } }'
