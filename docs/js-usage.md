@@ -2073,7 +2073,7 @@ S.parseAsResult(S.string, 42).issues; // [{ message: "Expected string, received 
 
 #### Every issue at once
 
-A failed `Result` lists an issue for every field, item and entry that failed, and for every unknown key of a strict object. `error` is the first of them, the one `OrThrow` throws:
+A failed `Result` lists an issue for every field, item and entry that failed, and for every unknown key of a strict object. `error` is the first of them in field order - the one `OrThrow` throws, unless the failures are async and another settles first:
 
 ```ts
 const signup = S.schema({

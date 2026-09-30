@@ -135,8 +135,9 @@ export const KNOWN_BUGS: Known[] = [
     id: "conversion-after-failed-container",
     kind: "limitation",
     summary:
-      "A conversion over a whole container - `.with(S.to, S.jsonString)` rendering an `unknown` field - " +
-      "runs only once every field passed, as a refine or transform does, so its failure for one field is " +
+      "A conversion over a whole container - a JSON string rendering an `unknown` field, or checking a " +
+      "number is finite on encode - runs only once every field passed, as a refine or transform does, so its " +
+      "failure for one field is " +
       "reported alone but not beside another field's. The skip is the documented rule; the property that " +
       "breaks one field and then all of them cannot tell it from a lost issue.",
     fuzzers: ["issues"],

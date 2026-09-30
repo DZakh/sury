@@ -197,7 +197,7 @@ export const makeArrayVal = (prev: Val): Val =>
 export const completeObjectVal = (objectVal: Val): Val => {
   const isArray = objectVal.s.type === arrayTag;
   let inline = "";
-  let promiseAllContent = "";
+  const promised: string[] = [];
   let optionalSettingCode: ((objectVar: string) => string) | undefined = U;
 
   const keys = Object.keys(objectVal.d!);
@@ -206,7 +206,7 @@ export const completeObjectVal = (objectVal: Val): Val => {
     const key = keys[idx]!;
     const val = objectVal.d![key]!;
     if ((val.f & 1)) {
-      promiseAllContent += val.i + ",";
+      promised.push(val.i);
     }
     if (val.o) {
       const existingFn = optionalSettingCode as ((objectVar: string) => string) | undefined;
@@ -228,8 +228,8 @@ export const completeObjectVal = (objectVal: Val): Val => {
 
   objectVal.i = isArray ? "[" + inline.slice(0, -1) + "]" : "{" + inline.slice(0, -1) + "}";
 
-  if (promiseAllContent) {
-    promiseAllContent = promiseAllContent.slice(0, -1);
+  if (promised.length) {
+    const promiseAllContent = promised.join(",");
     const g = objectVal.g;
     const collects = B_collects(g) && g.k;
     let joinCode = "";
@@ -269,8 +269,7 @@ export const completeObjectVal = (objectVal: Val): Val => {
     } else {
       objectVal.i = `Promise.all([${
         collects
-          ? promiseAllContent
-              .split(",")
+          ? promised
               // A field whose sync part failed never made its promise; the
               // collected failure already fails the join, so its slot only
               // has to not be read.
