@@ -23,15 +23,12 @@ operations:
       first-item-invalid:
         input: '[{ a: 1 }, { a: "x" }]'
         error: "Failed at [0].a: Expected string, received 1"
-        issues:
-          - "Failed at [0].a: Expected string, received 1"
-          - "Failed at [1]: TypeError: Cannot read properties of undefined (reading 'a')"
       invalid-then-refine-failed:
         input: '[{ a: 1 }, { a: "" }]'
         error: "Failed at [0].a: Expected string, received 1"
         issues:
           - "Failed at [0].a: Expected string, received 1"
-          - "Failed at [1]: TypeError: Cannot read properties of undefined (reading 'a')"
+          - "Failed at [1]: Refinement failed"
   decode:
     expression: i=>{try{let v3=new Array(i.length);for(let v0=0;v0<i.length;++v0){let v1=i[v0];let v2={a:v1.a};e[0](v2,[v0])||e[1](v2,[v0]);e[2](v2,[v0])||e[3](v2,[v0]);v3[v0]=v2}return v3}catch(v4){e[4](v4)}}
     examples:

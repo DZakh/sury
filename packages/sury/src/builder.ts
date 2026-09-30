@@ -902,15 +902,19 @@ export const B_addObjectField = (objectVal: Val, location: string, val: Val): vo
 
 // Code that reads a container's value but lands inside the container's own
 // segment, ahead of the guard `B_merge` puts after it (a flattened member's
-// refine or transform): run only while nothing has been collected. Its
-// declarations go to the sink, since the `if` is a block.
-export const B_unlessCollected = (g: BGlobal, emit: () => string): string => {
-  if (!g.k || !B_collects(g)) return emit();
+// refine or transform): run only if the container's own children, whose code
+// is already in `container.cp`, added nothing. Its declarations go to the
+// sink, since the `if` is a block.
+export const B_unlessCollected = (container: Val, emit: () => string): string => {
+  const g = container.g, k = g.k;
+  if (!k || !B_collects(g)) return emit();
   g.c = (g.c || 0) + 1;
-  g.ku = true;
   try {
     const code = emit();
-    return code ? `if(!${g.k}){${code}}` : code;
+    if (!code) return code;
+    const m = B_varWithoutAllocation(g);
+    container.cp = B_let(g, m, k) + container.cp;
+    return `if(${k}===${m}){${code}}`;
   } finally {
     g.c!--;
   }
