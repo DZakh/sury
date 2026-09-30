@@ -11,7 +11,7 @@ jsonSchema:
     input: '{ anyOf: [{ default: false, type: "boolean", nullable: true }, { type: "string" }] }'
 isEqual: strictEqual
 compare:
-  input: "throws: [Sury] Can't compare boolean | null | string. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  input: "throws: [Sury] Can't compare boolean | string | null. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
   output: "throws: [Sury] Can't compare boolean | string. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
@@ -32,7 +32,7 @@ operations:
       undefined-is-rejected:
         input: undefined
         error: |-
-          Expected boolean | null | string, received undefined
+          Expected boolean | string | null, received undefined
           - Expected boolean | null, received undefined
   decode: eq-to-parse
   encode:

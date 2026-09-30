@@ -793,18 +793,21 @@ export const inputExpression = (schema: Internal, skipOverride?: boolean): strin
     // may intentionally run more than once), but not to the expression. Deduping
     // on rendered text rather than identity means members which genuinely differ
     // but render alike - two distinct classes both named Foo - collapse, so this
-    // is not a member count.
-    const anyOf = schema.anyOf;
-    const seen = new Set<string>();
-    let body = "";
-    for (let idx = 0; idx < anyOf.length; idx++) {
-      const expression = inputExpression(anyOf[idx]!);
-      if (!seen.has(expression)) {
-        seen.add(expression);
-        body += (body ? " | " : "") + expression;
+    // is not a member count. A nested union with nothing to print of its own
+    // joins the same dedupe, and `null`/`undefined` print last, as TypeScript
+    // prints them: a wrapper tries its own empty arm first, and that order is
+    // not the type's.
+    const seen: string[] = [];
+    const add = (s: Internal): void => {
+      if (s.anyOf !== U && !s.name && !s.expression) s.anyOf.forEach(add);
+      else {
+        const e = inputExpression(s);
+        seen.includes(e) || seen.push(e);
       }
-    }
-    return body;
+    };
+    schema.anyOf.forEach(add);
+    const rank = (e: string): number => (e === "null" ? 1 : e === "undefined" ? 2 : 0);
+    return seen.sort((a, b) => rank(a) - rank(b)).join(" | ");
   } else if (schema.type === objectTag) {
     // Properties and an index signature share one accumulator: no factory
     // produces both at once today, but the shape is representable, and the

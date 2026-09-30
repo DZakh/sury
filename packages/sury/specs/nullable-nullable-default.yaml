@@ -11,9 +11,7 @@ jsonSchema:
     input: '{ default: false, type: "boolean", nullable: true }'
     output: '{ type: "boolean", nullable: true }'
 isEqual: strictEqual
-compare:
-  input: "throws: [Sury] Can't compare boolean | null | null. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
-  output: "throws: [Sury] Can't compare boolean | null. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+compare: "throws: [Sury] Can't compare boolean | null. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod: z.boolean().nullable().transform((value) => value ?? false).nullable()
 operations:
@@ -29,7 +27,7 @@ operations:
       undefined-is-rejected:
         input: undefined
         error: |-
-          Expected boolean | null | null, received undefined
+          Expected boolean | null, received undefined
           - Expected boolean | null, received undefined
   decode: eq-to-parse
   encode:

@@ -586,7 +586,7 @@ test("JSONSchema of object with S.option(S.option(_)) field", t => {
 test("JSONSchema of reversed object with S.option(S.option(_)) field", t => {
   t->U.assertThrowsMessage(
     () => S.object(s => s.field("field", S.option(S.option(S.string))))->S.reverse->S.toInputJSONSchemaOrThrow,
-    `Expected JSON, received string | undefined | { BS_PRIVATE_NESTED_SOME_NONE: 0; }`,
+    `Expected JSON, received string | { BS_PRIVATE_NESTED_SOME_NONE: 0; } | undefined`,
   )
 })
 
@@ -862,7 +862,7 @@ test("Fails to create schema for schemas with optional items", t => {
   )
   t->U.assertThrowsMessage(
     () => S.union([S.option(S.string), S.nullAsOption(S.string)])->S.toInputJSONSchemaOrThrow,
-    "Expected JSON, received string | undefined | null",
+    "Expected JSON, received string | null | undefined",
   )
   t->U.assertThrowsMessage(
     () => S.tuple1(S.option(S.string))->S.toInputJSONSchemaOrThrow,

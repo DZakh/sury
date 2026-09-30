@@ -9,8 +9,8 @@ jsonSchema:
   output: '{ type: "object", properties: { x: { anyOf: [{ type: "number" }, { type: "boolean" }, { anyOf: [{ type: "number" }, { type: "boolean" }] }] } }, required: ["x"] }'
 isEqual: (a,b)=>a===b||a.x===b.x
 compare:
-  input: "throws: [Sury] Can't compare { x: string | boolean | undefined | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
-  output: "throws: [Sury] Can't compare { x: number | boolean | number | boolean; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  input: "throws: [Sury] Can't compare { x: string | boolean | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { x: number | boolean; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

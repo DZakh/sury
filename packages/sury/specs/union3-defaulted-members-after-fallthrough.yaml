@@ -9,7 +9,7 @@ jsonSchema:
   output: Expected JSON, received Date
 isEqual: (a,b)=>a===b||e[0](a,b)
 compare:
-  input: "throws: [Sury] Can't compare { TAG: \"a\"; _0: string; } | string[] | null | Date | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  input: "throws: [Sury] Can't compare { TAG: \"a\"; _0: string; } | string[] | Date | null | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
   output: "throws: [Sury] Can't compare { TAG: \"a\"; _0: string; } | string[] | Date. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
@@ -33,14 +33,14 @@ operations:
       tagged-with-a-bad-payload:
         input: '{ TAG: "a", _0: 1 }'
         error: |-
-          Expected { TAG: "a"; _0: string; } | string[] | null | Date | undefined, received { TAG: "a"; _0: 1; }
+          Expected { TAG: "a"; _0: string; } | string[] | Date | null | undefined, received { TAG: "a"; _0: 1; }
           - At _0: Expected string, received 1
           - Expected Date | undefined, received { TAG: "a"; _0: 1; }
           - Expected string[] | null, received { TAG: "a"; _0: 1; }
       string:
         input: '"a"'
         error: |-
-          Expected { TAG: "a"; _0: string; } | string[] | null | Date | undefined, received "a"
+          Expected { TAG: "a"; _0: string; } | string[] | Date | null | undefined, received "a"
           - Expected Date | undefined, received "a"
           - Expected string[] | null, received "a"
   decode: eq-to-parse
