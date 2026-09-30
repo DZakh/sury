@@ -1671,16 +1671,24 @@ Fields your schema doesn't declare are skipped, so a sender can add fields
 without breaking you. They are not kept, so decoding and then encoding drops
 them. Use `S.strict` on the message to throw on them instead.
 
-Bad input throws an `S.Error` that points to the field:
+Bad input throws an `S.Error` that points to the field, and so does a value
+its field's type can't hold when encoding:
 
 ```ts
 const Account = S.schema({
   id: S.int32.with(S.protobufField, 1),
   address: S.optional(Address).with(S.protobufField, 2),
+  tags: S.array(S.string).with(S.protobufField, 3),
 });
 
 S.decodeOrThrow(S.protobuf, Account)(new Uint8Array([8, 1, 18, 3, 10, 1, 255]));
-// S.Error: protobuf string is not valid UTF-8 at address.street (field 1, wire type 2)
+// S.Error: Failed at address.street: Protobuf string is not valid UTF-8
+
+S.decodeOrThrow(S.protobuf, Account)(new Uint8Array([26, 1, 97, 26, 1, 255]));
+// S.Error: Failed at tags[1]: Protobuf string is not valid UTF-8
+
+S.decodeOrThrow(Account, S.protobuf)({ id: 2 ** 40, tags: [] });
+// S.Error: Failed at id: Expected int32, received 1099511627776
 ```
 
 A schema that can't be a message, such as a field without a number or two

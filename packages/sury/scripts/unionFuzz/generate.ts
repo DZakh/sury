@@ -382,13 +382,28 @@ export const groupingBarrierMembers = (S: Sury): MemberSpec[] => [
   taggedRescript(S, "Four", { id: "string", schema: S.string, shape: node("string") }),
 ];
 
+// Bytes into a message: the union hands the bytes to it whole. The catalog's
+// `S.protobuf` leaf is bytes to bytes and never reaches that.
+const protobufMessageMember = (S: Sury, field: "int32" | "string"): MemberSpec => ({
+  id: `protobuf.with(to,{a:${field}@1})`,
+  shape: node("protobufMessage"),
+  schema: S.protobuf.with(S.to, S.schema({ a: S[field].with(S.protobufField, 1) })),
+});
+
 export const generateMembers = (
   S: Sury,
   rng: Rng,
   size: number,
 ): MemberSpec[] => {
-  if (rng() < 0.05) return groupingBarrierMembers(S);
+  const seeded = rng();
+  if (seeded < 0.05) return groupingBarrierMembers(S);
   const members: MemberSpec[] = [];
   for (let i = 0; i < size; i++) members.push(memberAt(S, rng, 0));
+  // Placed and chosen off the draw that seeds the barrier, not a draw of its
+  // own: a new member must not shift the draws a seed replays.
+  if (seeded >= 0.9) {
+    const slot = Math.floor(((seeded - 0.9) / 0.1) * 2 * (size + 1));
+    members.splice(slot >> 1, 0, protobufMessageMember(S, slot & 1 ? "string" : "int32"));
+  }
   return members;
 };

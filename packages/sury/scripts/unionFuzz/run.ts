@@ -85,7 +85,25 @@ export const diffsForValue = (
   return { diffs, compared };
 };
 
+// The witness walk reads the Input side's type alone, and some Input types
+// hold only what a conversion wrote: `new Uint8Array([1])` is a Uint8Array but
+// not a protobuf message. A member that rejects its witness is handed what it
+// encodes from its Output witness instead, so its accepting path is exercised.
+const encodedWitness = (S: Sury, member: unknown, witness: unknown): unknown => {
+  try {
+    S.parseOrThrow(member)(witness);
+    return NO_WITNESS;
+  } catch {}
+  try {
+    const output = witnessOf(S.reverse(member));
+    return output === NO_WITNESS ? NO_WITNESS : S.encodeOrThrow(member)(output);
+  } catch {
+    return NO_WITNESS;
+  }
+};
+
 const memberWitnesses = (
+  S: Sury,
   members: readonly MemberSpec[],
 ): { value: unknown; encode: boolean }[] => {
   const values: { value: unknown; encode: boolean }[] = [];
@@ -98,7 +116,10 @@ const memberWitnesses = (
   };
   for (const member of flattenVariants(members.map((m) => m.schema))) {
     const w = witnessOf(member);
-    if (w !== NO_WITNESS) add(w, true);
+    if (w === NO_WITNESS) continue;
+    add(w, true);
+    const encoded = encodedWitness(S, member, w);
+    if (encoded !== NO_WITNESS) add(encoded, true);
   }
   for (const junk of JUNK) add(junk, false);
   return values;
@@ -117,7 +138,7 @@ export const diffsForUnion = async (
   }
   const diffs: Comparison[] = [];
   let compared = 0;
-  const inputs = memberWitnesses(members);
+  const inputs = memberWitnesses(S, members);
   for (const input of inputs) {
     const next = diffsForValue(S, unionSchema, input.value, input.encode);
     diffs.push(...next.diffs);
