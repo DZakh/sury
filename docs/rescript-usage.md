@@ -1649,7 +1649,7 @@ Bad input throws an error that points to the field:
   ~from=S.protobuf,
   ~to=userSchema,
 )
-// throws: protobuf string is not valid UTF-8 at home.street (field 1, wire type 2)
+// throws: Failed at home.street: Protobuf string is not valid UTF-8
 ```
 
 #### `toProtoOrThrow`
