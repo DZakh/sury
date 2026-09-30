@@ -641,8 +641,7 @@ export type Val = {
   // because the handler always throws: a `.then` second argument never sees a
   // throw from the first, and neither did the `.catch` ahead of it. Anything
   // else reading the promise leaves `cp` alone. The one field the Val literals
-  // leave out: only an async coder's val sets it, and a slot in every literal
-  // measured no faster. @as("rj") - rejection
+  // leave out, since only an async coder's val sets it. @as("rj") - rejection
   rj?: string;
   // Comma-joined `let` declarations hoisted onto this val by descendants
   // that couldn't own them. Emitted after this val's checks in `merge` (the

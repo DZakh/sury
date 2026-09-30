@@ -298,8 +298,6 @@ export const B_detached = <T>(g: BGlobal, body: () => T): T => {
   }
 };
 
-// The embedded function that raises a failure. Handed on bare where a callback
-// takes it, since a caller passes only the cause and the path is optional.
 export const B_raiser = <TArg>(b: Val, fn: (arg: TArg, path?: Path) => ErrorDetails): string =>
   B_embed(b, (a: TArg, p?: Path) => {
     B_throw(fn(a, p));
