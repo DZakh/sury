@@ -17,9 +17,10 @@ export type Flag = number;
 // Bit-flag literals (esbuild does not inline named consts).
 //
 // Compile semantics (`g.o` / op flag), 127 and below - what the generated code
-// itself does: 0 none, 1 async, 2 disableNaN, 4 union-transform-context (custom
-// transform inside a union case preserves the original exception so dispatch
-// can distinguish Sury failures from foreign ones), 64 flatten.
+// itself does: 0 none, 1 async, 2 disableNaN, 4 union-case-context (a file
+// read or a protobuf wire step inside a union case lets a foreign exception
+// escape raw rather than count as the case not matching; a custom coder's
+// never does, #347), 64 flatten.
 //
 // Return modes, 128 and above - what the operation hands back, read only by the
 // operation tail (parse.ts, operations.ts): 128 JS Result

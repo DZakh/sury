@@ -71,11 +71,11 @@ const read = (input: Val, call: string, schema: Internal): Val => {
   // `TypeError` or `DOMException` escaping either way. Path is an extra
   // argument when this read sits under a loop; arrays no longer catch-prepend.
   //
-  // Bare inside a union, for `B_conversion`'s reason: a read that fails is not
-  // a case that didn't match, and classifying it as one let the dispatch fall
-  // through to a sibling and hand back the container unread. The cost is the
-  // convention's: a Sury error is what an enclosing object stamps a path onto,
-  // so a rejection under `S.optional(…)` arrives raw where the same field
+  // Bare inside a union, unlike a coder's failure (#347): a read that fails is
+  // not a case that didn't match, and classifying it as one let the dispatch
+  // fall through to a sibling and hand back the container unread. The cost is
+  // the convention's: a Sury error is what an enclosing object stamps a path
+  // onto, so a rejection under `S.optional(…)` arrives raw where the same field
   // required arrives at `["a"]`. Wrapping it back is what the fall-through was.
   const fail = B_conversionFail(input, schema);
   const failFn = input.g.o & 4
