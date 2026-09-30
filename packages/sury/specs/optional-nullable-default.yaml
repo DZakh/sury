@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.optional(S.nullable(S.boolean, false), false)
+  input: boolean | null | undefined
+  output: boolean
+  instantiations: 628
+jsonSchema:
+  input: Expected JSON, received boolean | null | undefined
+  output: '{ type: "boolean" }'
+isEqual: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare boolean | null | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: strictCompare
+vs:
+  zod: z.boolean().nullable().transform((value) => value ?? false).optional().transform((value) => value ?? false)
+operations:
+  parse:
+    expression: i=>{try{for(;;){for(;;){if(typeof i==="boolean")break;if(i===null){i=false;break}throw e[0](i)}break}return i}catch(v0){e[1](v0)}}
+    examples:
+      "true":
+        input: "true"
+        output: "true"
+      null-becomes-the-default:
+        input: "null"
+        output: "false"
+      # FIXME: #473 the outer default never sees undefined
+      undefined-becomes-the-default:
+        input: undefined
+        error: Expected boolean | null, received undefined
+      string-is-rejected:
+        input: '"true"'
+        error: Expected boolean | null, received "true"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{typeof i==="boolean"||e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      "false":
+        input: "false"
+        output: "false"
