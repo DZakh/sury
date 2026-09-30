@@ -157,6 +157,24 @@ const defaultedMember = (S: Sury, rng: Rng, inner: MemberSpec): MemberSpec => {
     ), lossy: inner.lossy };
 };
 
+// ReScript's `S.option(S.option(x))->S.Option.getOr(d)`: the only way to reach
+// the nested `Some(None)` marker. The default peels one option off, so it is a
+// value of `option(x)` and `None` is one it may take (#468). Lossy: every
+// `None` in the output encodes to the one `undefined` of the input.
+const nestedOptionMember = (S: Sury, rng: Rng, inner: MemberSpec): MemberSpec => {
+  const item = S.$option(inner.schema);
+  const drawn = rng() < 0.5 ? NO_SAMPLE : defaultFor(S, rng, { ...inner, schema: item });
+  const value = drawn === NO_SAMPLE ? undefined : drawn;
+  const id = `getOr(option(option(${inner.id})),${show(value)})`;
+  const nested = S.$option(item);
+  return {
+    id,
+    shape: node("getOr", node("option", node("option", inner.shape)), valueNode(show(value))),
+    schema: named(id, () => S.$Option_getOr(nested, value), () => nested),
+    lossy: true,
+  };
+};
+
 // The same default reached through the object builder, which spells it as a
 // field rather than a wrapper and used to compile to something else entirely.
 const fieldOrMember = (S: Sury, rng: Rng, inner: MemberSpec): MemberSpec => {
@@ -295,13 +313,14 @@ const memberAt = (S: Sury, rng: Rng, depth: number): MemberSpec => {
   if (roll < 0.36) return applyWrap(S, rng, memberAt(S, rng, depth + 1));
   // Half of the defaulted draws go over a transforming container, which is what
   // puts a default and an items-side conversion in the same schema.
-  if (roll < 0.4) {
+  if (roll < 0.39) {
     return defaultedMember(
       S,
       rng,
       rng() < 0.5 ? transformingContainer(S, rng) : memberAt(S, rng, depth + 1),
     );
   }
+  if (roll < 0.4) return nestedOptionMember(S, rng, memberAt(S, rng, depth + 1));
   if (roll < 0.44) {
     return fieldOrMember(
       S,

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: (S as any).$Option_getOrWith((S as any).$option((S as any).$option(S.string)), () => undefined) as S.Schema<string | undefined>
+  schema: (S as any).$Option_getOr((S as any).$option((S as any).$option(S.string)), undefined) as S.Schema<string | undefined>
   input: string | undefined
   output: string | undefined
   instantiations: 276
@@ -16,7 +16,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{let v0;for(;;){if(typeof i==="string")break;if(i===void 0){for(;;){try{i=e[0]();break}catch(x){v0=[v0,e[1](x)]}break}break}throw e[2](i,v0)}return i}catch(v1){e[3](v1)}}
+    expression: i=>{try{for(;;){if(typeof i==="string")break;if(i===void 0){for(;;){i=void 0;break}break}throw e[0](i)}return i}catch(v0){e[1](v0)}}
     examples:
       string:
         input: '"a"'

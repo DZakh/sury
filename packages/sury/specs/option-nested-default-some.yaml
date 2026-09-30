@@ -6,16 +6,11 @@ ts:
   instantiations: 276
 jsonSchema:
   input: Expected JSON, received string | undefined
-  output: '{ anyOf: [{ type: "string" }, { anyOf: [{ type: "string" }, { type: "object", properties: { BS_PRIVATE_NESTED_SOME_NONE: { type: "number", const: 0 } }, required: ["BS_PRIVATE_NESTED_SOME_NONE"] }] }, { type: "object", properties: { BS_PRIVATE_NESTED_SOME_NONE: { type: "number", const: 0 } }, required: ["BS_PRIVATE_NESTED_SOME_NONE"] }] }'
-  fromOutputType: "string | { BS_PRIVATE_NESTED_SOME_NONE: 0; } | { BS_PRIVATE_NESTED_SOME_NONE: 0; }"
-  openapi-3.0:
-    output: '{ anyOf: [{ type: "string" }, { anyOf: [{ type: "string" }, { type: "object", properties: { BS_PRIVATE_NESTED_SOME_NONE: { type: "number", enum: [0] } }, required: ["BS_PRIVATE_NESTED_SOME_NONE"] }] }, { type: "object", properties: { BS_PRIVATE_NESTED_SOME_NONE: { type: "number", enum: [0] } }, required: ["BS_PRIVATE_NESTED_SOME_NONE"] }] }'
-isEqual:
-  input: strictEqual
-  output: (a,b)=>a===b||e[0](a,b)
+  output: Expected JSON, received string | undefined
+isEqual: strictEqual
 compare:
   input: "throws: [Sury] Can't compare string | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
-  output: "throws: [Sury] Can't compare string | string | { BS_PRIVATE_NESTED_SOME_NONE: 0; } | { BS_PRIVATE_NESTED_SOME_NONE: 0; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare string | string | undefined | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable
@@ -31,12 +26,11 @@ operations:
         output: '"x"'
   decode: eq-to-parse
   encode:
-    expression: i=>{try{for(;;){if(typeof i==="string")break;if(typeof i==="object"&&i&&!Array.isArray(i)){i=void 0;break}throw e[0](i)}return i}catch(v0){e[1](v0)}}
+    expression: i=>{try{(typeof i==="string"||i===void 0)||e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
       string:
         input: '"a"'
         output: '"a"'
-      # FIXME: #468 None is an Output value and encodes to undefined
       none-encodes-to-undefined:
         input: undefined
-        error: "Expected string | string | { BS_PRIVATE_NESTED_SOME_NONE: 0; } | { BS_PRIVATE_NESTED_SOME_NONE: 0; }, received undefined"
+        output: undefined

@@ -92,6 +92,31 @@ const nestedOption = (item: Internal): Internal => {
   });
 }
 
+const renest = (variant: Internal, marker: Internal, depth: number): Internal =>
+  updateOutput<Internal>(variant, (mut) => {
+    // copySchema, not a spread: a spread keeps the original's seq, and two
+    // schemas sharing a seq can collide in the seq-keyed operation caches.
+    const bumped = copySchema(marker);
+    bumped.const = depth;
+    mut.properties = { [nestedLoc]: bumped };
+  });
+
+// The inverse of one `optionFactory` step on a member, for a default that takes
+// that step back: the outer `Some(None)` marker is the inner option's `None`.
+const unnestOption = (variant: Internal): Internal => {
+  const marker = getOutputSchema(variant).properties?.[nestedLoc];
+  if (marker === U) return variant;
+  const depth = marker.const as number;
+  if (depth) return renest(variant, marker, depth - 1);
+  const root = copySchema(variant);
+  let mut = root;
+  while (mut.to!.to) mut = mut.to = copySchema(mut.to!);
+  // `delete`, not `= U`: unionIsTransparent counts a schema's keys.
+  delete mut.to;
+  delete mut.parser;
+  return root;
+}
+
 export const optionFactory = (item: Internal, unitSchema: Internal = unit): Internal => {
   const out = getOutputSchema(item);
   if (out.type === undefinedTag) {
@@ -116,16 +141,7 @@ export const optionFactory = (item: Internal, unitSchema: Internal = unit): Inte
           const properties = schemaOut.properties;
           const nestedSchema = properties[nestedLoc];
           if (nestedSchema !== U) {
-            toPush = updateOutput<Internal>(schema, (mut) => {
-              // copySchema, not a spread: a spread keeps the original's seq,
-              // and two schemas sharing a seq can collide in the seq-keyed
-              // operation caches.
-              const bumped = copySchema(nestedSchema);
-              bumped.const = (nestedSchema.const as number) + 1;
-              const properties: Record<string, Internal> = {};
-              properties[nestedLoc] = bumped;
-              mut.properties = properties;
-            });
+            toPush = renest(schema, nestedSchema, (nestedSchema.const as number) + 1);
           } else {
             toPush = schema;
           }
@@ -418,10 +434,11 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
 
     // `S.recursive`'s definitions, while its definer is still running.
     const building = globalConfig.d;
+    const items = anyOf.slice();
     for (let idx = 0; idx < anyOf.length; idx++) {
-      const variant = anyOf[idx]!;
-      const outputSchema = getOutputSchema(variant);
-      if (outputSchema.type !== undefinedTag) {
+      if (getOutputSchema(anyOf[idx]!).type !== undefinedTag) {
+        const variant = (items[idx] = unnestOption(anyOf[idx]!));
+        const outputSchema = getOutputSchema(variant);
         // The default is read as the item on every decode, so an item that is
         // the definition being built would read the default as that definition,
         // find the same absent field in it, and read its default, without end.
@@ -488,10 +505,10 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
       result.io = true;
       return result;
     };
-    mut.anyOf = anyOf.map((variant) =>
+    mut.anyOf = anyOf.map((variant, idx) =>
       getOutputSchema(variant).type === undefinedTag
         ? codecTo(variant, item, decodeB, B_neverSlot)
-        : variant
+        : items[idx]!
     );
   });
 };

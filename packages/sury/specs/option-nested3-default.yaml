@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: '(S as any).$Option_getOr((S as any).$option((S as any).$option((S as any).$option(S.string))), "x") as S.Schema<string | undefined, string | undefined | { BS_PRIVATE_NESTED_SOME_NONE: 0 }>'
+  input: string | undefined
+  output: "string | { BS_PRIVATE_NESTED_SOME_NONE: 0; } | undefined"
+  instantiations: 445
+jsonSchema:
+  input: Expected JSON, received string | undefined
+  output: "Expected JSON, received string | undefined | { BS_PRIVATE_NESTED_SOME_NONE: 0; }"
+isEqual:
+  input: strictEqual
+  output: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare string | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare string | string | undefined | { BS_PRIVATE_NESTED_SOME_NONE: 0; } | undefined | { BS_PRIVATE_NESTED_SOME_NONE: 0; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{for(;;){if(typeof i==="string")break;if(i===void 0){for(;;){i="x";break}break}throw e[0](i)}return i}catch(v0){e[1](v0)}}
+    examples:
+      string:
+        input: '"a"'
+        output: '"a"'
+      undefined-becomes-the-default:
+        input: undefined
+        output: '"x"'
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{for(;;){if(typeof i==="string")break;if(i===void 0)break;if(typeof i==="object"&&i&&!Array.isArray(i)){i=void 0;break}throw e[0](i)}return i}catch(v0){e[1](v0)}}
+    examples:
+      string:
+        input: '"a"'
+        output: '"a"'
+      none-encodes-to-undefined:
+        input: undefined
+        output: undefined
+      some-none-encodes-to-undefined:
+        input: "{ BS_PRIVATE_NESTED_SOME_NONE: 0 }"
+        output: undefined
+      # FIXME: the Some(None) arm checks only that the value is an object, so a
+      # marker of the wrong depth encodes too. Plain S.option(S.option(x)) does the same.
+      outer-marker-is-not-output:
+        input: "{ BS_PRIVATE_NESTED_SOME_NONE: 1 }"
+        output: undefined
