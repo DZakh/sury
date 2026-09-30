@@ -18,7 +18,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="string"||e[2](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}for(;;){if(typeof v0==="string")break;if(v0===null){v0=void 0;break}e[1](v0)}return v0}catch(v1){e[3](v1)}}
+    expression: i=>{try{typeof i==="string"||e[2](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}for(;;){if(typeof v0==="string")break;if(v0===null){v0=void 0;break}throw e[1](v0)}return v0}catch(v1){e[3](v1)}}
     examples:
       a-string-document:
         input: '"\"x\""'
@@ -30,7 +30,7 @@ operations:
         input: '"[]"'
         error: Expected string | undefined, received []
   decode:
-    expression: i=>{try{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}for(;;){if(typeof v0==="string")break;if(v0===null){v0=void 0;break}e[1](v0)}return v0}catch(v1){e[2](v1)}}
+    expression: i=>{try{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}for(;;){if(typeof v0==="string")break;if(v0===null){v0=void 0;break}throw e[1](v0)}return v0}catch(v1){e[2](v1)}}
     examples:
       a-string-document:
         input: '"\"x\""'
@@ -39,7 +39,7 @@ operations:
         input: '"null"'
         output: undefined
   encode:
-    expression: i=>{try{for(;;){if(typeof i==="string"){i=e[0](i);break}if(i===void 0){i="null";break}e[1](i)}return i}catch(v0){e[2](v0)}}
+    expression: i=>{try{for(;;){if(typeof i==="string"){i=e[0](i);break}if(i===void 0){i="null";break}throw e[1](i)}return i}catch(v0){e[2](v0)}}
     examples:
       a-string-document:
         input: '"x"'

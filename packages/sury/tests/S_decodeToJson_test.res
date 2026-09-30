@@ -81,7 +81,7 @@ test("Encodes option schema to JSON", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#EncodeToJson,
-    `i=>{try{for(;;){if(typeof i==="boolean")break;if(i===void 0){i=null;break}e[0](i)}return i}catch(v0){e[1](v0)}}`,
+    `i=>{try{for(;;){if(typeof i==="boolean")break;if(i===void 0){i=null;break}throw e[0](i)}return i}catch(v0){e[1](v0)}}`,
   )
 })
 
@@ -235,7 +235,7 @@ test("Encodes a union to JSON when at least one item is not JSON-able", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#EncodeToJson,
-    `i=>{try{for(;;){if(typeof i==="string")break;e[0](i);break;}return i}catch(v0){e[1](v0)}}`,
+    `i=>{try{for(;;){if(typeof i==="string")break;e[0](i);break}return i}catch(v0){e[1](v0)}}`,
   )
 })
 
@@ -245,7 +245,7 @@ test("Encodes a union of NaN and unknown to JSON", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#EncodeToJson,
-    `i=>{try{for(;;){if(Number.isNaN(i)){i=null;break}e[0](i);break;}return i}catch(v0){e[1](v0)}}`,
+    `i=>{try{for(;;){if(Number.isNaN(i)){i=null;break}e[0](i);break}return i}catch(v0){e[1](v0)}}`,
   )
 
   t->Assert.deepEqual(%raw(`NaN`)->S.convertOrThrow(~from=schema, ~to=S.json), JSON.Null)

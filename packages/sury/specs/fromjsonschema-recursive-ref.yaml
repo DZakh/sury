@@ -34,5 +34,27 @@ operations:
       not-matching-the-ref:
         input: '"any json"'
         error: 'Expected { value: string; children: node[] | undefined; }, received "any json"'
-  decode: eq-to-parse
-  encode: eq-to-parse
+  decode:
+    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      tree:
+        input: '{ value: "root", children: [{ value: "leaf" }] }'
+        output: '{ value: "root", children: [{ value: "leaf" }] }'
+      leaf:
+        input: '{ value: "leaf", children: undefined }'
+        output: '{ value: "leaf", children: undefined }'
+      deeply-nested:
+        input: '{ value: "a", children: [{ value: "b", children: [{ value: "c" }] }] }'
+        output: '{ value: "a", children: [{ value: "b", children: [{ value: "c" }] }] }'
+  encode:
+    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      tree:
+        input: '{ value: "root", children: [{ value: "leaf" }] }'
+        output: '{ value: "root", children: [{ value: "leaf" }] }'
+      leaf:
+        input: '{ value: "leaf", children: undefined }'
+        output: '{ value: "leaf", children: undefined }'
+      deeply-nested:
+        input: '{ value: "a", children: [{ value: "b", children: [{ value: "c" }] }] }'
+        output: '{ value: "a", children: [{ value: "b", children: [{ value: "c" }] }] }'

@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.object((s) => ({ xs: s.fieldOr("xs", S.record(S.string.with(S.to, S.number)), {}) }))'
+  input: "{ [x: string]: unknown; }"
+  output: "{ xs: Record<string, number>; }"
+  instantiations: 5074
+jsonSchema:
+  input: '{ type: "object", properties: { xs: { default: {}, type: "object", additionalProperties: { type: "string" } } } }'
+  output: '{ type: "object", properties: { xs: { type: "object", additionalProperties: { type: "number" } } }, required: ["xs"] }'
+isEqual:
+  input: (a,b)=>a===b||(a.xs===void 0?b.xs===void 0:b.xs!==void 0&&e[0](a.xs,b.xs))
+  output: (a,b)=>a===b||e[0](a.xs,b.xs)
+compare:
+  input: "throws: [Sury] Can't compare { xs: { [key: string]: string; } | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { xs: { [key: string]: number; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i.xs;if(v0===void 0){v0=e[0]}else{typeof v0==="object"&&v0&&!Array.isArray(v0)||e[3](v0);let v4={};for(let v1 in v0){let v3=v0[v1];typeof v3==="string"||e[2](v3,["xs",v1]);let v2=+v3;v2==v2&&(v2||v3.trim())||e[1](v3,["xs",v1]);v4[v1]=v2}v0=v4;}return {xs:v0}}catch(v5){e[5](v5)}}
+    examples:
+      present:
+        input: '{ xs: { k: "1" } }'
+        output: "{ xs: { k: 1 } }"
+      absent-takes-the-default:
+        input: "{}"
+        output: "{ xs: {} }"
+  decode:
+    expression: i=>{try{let v0=i.xs;if(v0===void 0){v0=e[0]}else{typeof v0==="object"&&v0&&!Array.isArray(v0)||e[3](v0);let v4={};for(let v1 in v0){let v3=v0[v1];typeof v3==="string"||e[2](v3,["xs",v1]);let v2=+v3;v2==v2&&(v2||v3.trim())||e[1](v3,["xs",v1]);v4[v1]=v2}v0=v4;}return {xs:v0}}catch(v5){e[4](v5)}}
+    examples:
+      present:
+        input: '{ xs: { k: "1" } }'
+        output: "{ xs: { k: 1 } }"
+  encode:
+    expression: i=>{let v0=i.xs;let v2={};for(let v1 in v0){v2[v1]=""+v0[v1]}return {xs:v2}}
+    examples:
+      values-are-encoded:
+        input: "{ xs: { k: 1 } }"
+        output: '{ xs: { k: "1" } }'
+      empty:
+        input: "{ xs: {} }"
+        output: "{ xs: {} }"

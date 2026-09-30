@@ -6,23 +6,30 @@ import { fileDescriptorOf } from "./descriptor";
 
 const ident = (name: string): string => name.replace(/[^A-Za-z0-9_]/g, "_");
 
-const pbjsTypeName = (field: FieldDef, parent: string): string => {
-  if (field.type === "message") return ident(`${parent}_${field.key}`);
+// A field table already named is referred to by that name, which is what lets
+// a message contain itself: the reference `.proto` declares it once, flat,
+// like every other nested type here.
+const pbjsTypeName = (field: FieldDef, parent: string, names: Map<FieldDef[], string>): string => {
+  if (field.type === "message") return names.get(field.fields!) ?? ident(`${parent}_${field.key}`);
   if (field.type === "enum") return "int32";
   return field.type;
 };
 
 // Written from the case's own field table, so it stays a reference
 // independent of the codec; `printedProtobufjsType` is Sury's printer.
-const emitMessage = (name: string, fields: FieldDef[]): string => {
+const emitMessage = (name: string, fields: FieldDef[], names = new Map<FieldDef[], string>()): string => {
+  names.set(fields, ident(name));
   const nested = fields
-    .filter((field) => field.type === "message")
-    .map((field) => emitMessage(pbjsTypeName(field, name), field.fields ?? []));
+    .filter((field) => field.type === "message" && !(field.fields && names.has(field.fields)))
+    .map((field) => {
+      field.fields ??= [];
+      return emitMessage(pbjsTypeName(field, name, names), field.fields, names);
+    });
   const oneofs = new Map<string, string[]>();
   const body: string[] = [];
   for (const field of fields) {
     const options = field.packed === false ? " [packed=false]" : "";
-    const typeName = pbjsTypeName(field, name);
+    const typeName = pbjsTypeName(field, name, names);
     if (field.map) {
       body.push(`  map<${field.map}, ${typeName}> ${ident(field.key)} = ${field.number};`);
     } else if (field.oneof) {

@@ -649,10 +649,40 @@ export type ProtobufType =
   | "enum"
   | "message";
 
+/**
+ * A Google well-known type a field is declared as, printed by `S.toProtoOrThrow`
+ * as an import rather than a message of its own. Each takes one value:
+ *
+ * - `Timestamp`: a `Date` (implied by `S.date`) or `{ seconds: bigint, nanos: int32 }`
+ * - `Duration`: `{ seconds: bigint, nanos: int32 }`
+ * - `Value`: `S.json` (implied by it), `Struct`: `S.record(S.json)`, `ListValue`: `S.array(S.json)`
+ * - `FieldMask`: `S.array(S.string)`, `Empty`: `S.schema({})`
+ * - the wrappers: an `S.optional` of their scalar, since presence is what a wrapper is for
+ *
+ * An `S.array` or `S.record` of any of these is a repeated or map field of it.
+ */
+export type ProtobufWellKnownType =
+  | "google.protobuf.Timestamp"
+  | "google.protobuf.Duration"
+  | "google.protobuf.Value"
+  | "google.protobuf.Struct"
+  | "google.protobuf.ListValue"
+  | "google.protobuf.FieldMask"
+  | "google.protobuf.Empty"
+  | "google.protobuf.DoubleValue"
+  | "google.protobuf.FloatValue"
+  | "google.protobuf.Int64Value"
+  | "google.protobuf.UInt64Value"
+  | "google.protobuf.Int32Value"
+  | "google.protobuf.UInt32Value"
+  | "google.protobuf.BoolValue"
+  | "google.protobuf.StringValue"
+  | "google.protobuf.BytesValue";
+
 /** What `S.protobufField` accepts beyond a bare number. See `S.protobuf`. */
 export type ProtobufField = {
   number: number;
-  type?: ProtobufType;
+  type?: ProtobufType | ProtobufWellKnownType;
   /** Encode a repeated scalar expanded (`[packed=false]`) instead of packed. Decoding accepts both. */
   packed?: boolean;
   /** Key type of a `map<K, V>` field, for an `S.record` schema. Defaults to `string`. */

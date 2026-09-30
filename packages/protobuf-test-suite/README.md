@@ -45,7 +45,7 @@ BOM from a string field, and loses a map entry keyed `__proto__`.
 
 Google's `conformance_test_runner` itself lives in
 [`packages/protobuf-conformance`](../protobuf-conformance), which runs the real
-suite - cases generated inside the binary - and scores 695/698 on the binary
+suite - cases generated inside the binary - and scores 696/698 on the binary
 proto3 families. This package is the readable half: it says what broke, that
 one says whether we are right. Keep both.
 
@@ -63,6 +63,18 @@ pnpm protobuf:compliance hillclimb  # median of 7 on four workloads vs protobufj
 Extensions, proto2 groups as declared fields, ProtoJSON, MessageSet and
 retaining unknown fields through a round trip are listed as skipped. They are
 not in the public API.
+
+`pnpm protobuf:fuzz` generates the graphs the table can't name - a map of a
+message holding a oneof, a message that reaches itself two fields down, packed
+beside unpacked - with edge values in every scalar, and holds each one to the
+round trip every corpus case gets. Then it mutates the valid bytes (a bit
+flipped, a truncation, a slice repeated, a stray tag) and asks Sury and
+protobuf-es whether each is still a message, and where both say yes, whether
+they read the same one. A disagreement names the seed that replays it. The
+ones known not to hold are listed in `fuzz.ts` with the reason, each checked
+against Google's own parser; the run fails on an unlisted one, and on a listed
+one a full run no longer finds. `--seeds=N` widens it, `--from=N` starts
+elsewhere.
 
 `check` fails on drift in either direction. An improvement lands its golden
 update in the same PR.

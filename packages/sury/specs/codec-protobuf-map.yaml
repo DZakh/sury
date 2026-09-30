@@ -56,12 +56,18 @@ operations:
       int64-key:
         input: new Uint8Array([18, 6, 8, 5, 18, 2, 10, 0])
         output: '{ counts: {}, byId: { "5": { name: "" } } }'
+      error-inside-entry-names-the-map:
+        input: new Uint8Array([18, 3, 8, 128, 128])
+        error: "Failed at byId: Truncated protobuf message"
       duplicate-key-last-wins:
         input: new Uint8Array([10, 5, 10, 1, 97, 16, 1, 10, 5, 10, 1, 97, 16, 2])
         output: "{ counts: { a: 2 }, byId: {} }"
       nested-failure-names-the-entry:
         input: new Uint8Array([18, 7, 8, 5, 18, 3, 10, 1, 255])
         error: "Failed at byId[5].name: Protobuf string is not valid UTF-8"
-      scalar-entry-failure-names-the-map:
+      scalar-entry-failure-names-the-entry:
         input: new Uint8Array([10, 4, 10, 1, 97, 16])
-        error: "Failed at counts: Truncated protobuf message"
+        error: "Failed at counts.a: Truncated protobuf message"
+      value-before-its-key-fails-at-the-map:
+        input: new Uint8Array([18, 7, 18, 3, 10, 1, 255, 8, 5])
+        error: "Failed at byId: Protobuf string is not valid UTF-8"

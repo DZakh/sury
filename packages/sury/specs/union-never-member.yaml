@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.union([S.string, S.object((s) => ({ a: s.field("a", S.never) }))])'
+  input: string | Record<string, unknown>
+  output: "string | { a: never; }"
+  instantiations: 1475
+jsonSchema:
+  input: '{ anyOf: [{ type: "string" }, { type: "object", properties: { a: { not: {} } }, required: ["a"] }] }'
+  fromInputType: "string | { a: never; }"
+  output: '{ anyOf: [{ type: "string" }, { type: "object", properties: { a: { not: {} } }, required: ["a"] }] }'
+isEqual: (a,b)=>a===b||!!(typeof a==="string"?typeof b==="string"&&a===b:typeof b==="object"&&b&&!Array.isArray(b)&&e[0](a.a,b.a))
+compare: "throws: [Sury] Can't compare string | { a: never; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{for(;;){if(typeof i==="string")break;if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i.a;e[0](v0);i={a:v0};break}throw e[1](i)}return i}catch(v1){e[2](v1)}}
+    examples:
+      string:
+        input: '"x"'
+        output: '"x"'
+  decode: eq-to-parse
+  encode:
+    # FIXME: known bug union-never-member (scripts/knownBugs.ts). Nothing inhabits the
+    # member with a never field, so it should yield to the string member, and
+    # this encode should compile and hand "x" back.
+    creationError: "SuryError: Missing input for never at a"

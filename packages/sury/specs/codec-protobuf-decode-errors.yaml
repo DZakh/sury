@@ -62,6 +62,15 @@ operations:
       unmatched-end-group:
         input: new Uint8Array([8, 1, 60])
         error: Unmatched protobuf end group
+      length-beyond-32-bits:
+        input: new Uint8Array([18, 128, 128, 128, 128, 16, 104])
+        error: "Failed at name: Truncated protobuf message"
+      message-length-beyond-32-bits:
+        input: new Uint8Array([26, 128, 128, 128, 128, 128, 128, 16])
+        error: "Failed at addr: Truncated protobuf message"
+      length-in-ten-bytes:
+        input: new Uint8Array([18, 129, 128, 128, 128, 128, 128, 128, 128, 128, 0, 120])
+        output: '{ id: 0, name: "x", tags: [], ratio: 0 }'
       repeated-failure-names-the-element:
         input: new Uint8Array([8, 1, 18, 1, 120, 34, 1, 97, 34, 1, 255])
         error: "Failed at tags[1]: Protobuf string is not valid UTF-8"
