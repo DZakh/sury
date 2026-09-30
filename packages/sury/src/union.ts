@@ -1880,6 +1880,37 @@ const unionResolveToUnion = (
 
 // ── Factory ──────────────────────────────────────────────────────────────────
 
+// Whether an arm does anything with the value of `tag` other than pass it
+// through: converts it, or hides behind a boundary the analysis will not open.
+// A ref still being defined has nothing to read yet, so it counts.
+export const unionClaims = (s: Internal, tag: Tag, refs?: Internal[]): boolean => {
+  if (!(unionMask(s, 1, 0) & tagFlags[tag]!)) return false;
+  if (s.type === anyOfTag) {
+    return s.to !== U || s.parser !== U || s.anyOf!.some((arm) => unionClaims(arm, tag, refs));
+  }
+  if (s.type === refTag) {
+    if (refs?.includes(s)) return false;
+    const def = s.definition || unionRefDef(s);
+    return def === U || unionClaims(def, tag, [...(refs || []), s]);
+  }
+  return (unionTraits(s) & 12) !== 0;
+};
+
+// `S.optional`, `S.nullable` and their kin own their empty value: its arm goes
+// in front of the first arm of `inner` that would do anything else with it, and
+// last, as written, when nothing would. The order lives in `anyOf`, so a parent
+// union that flattens this one keeps it, and first-member-wins between the
+// parent's own members is untouched.
+export const unionWrap = (inner: Internal, empties: Internal[]): Internal => {
+  const arms = unionIsTransparent(inner) ? inner.anyOf!.slice() : [inner];
+  for (let idx = 0; idx < empties.length; idx++) {
+    const empty = empties[idx]!;
+    const at = arms.findIndex((arm) => unionClaims(arm, empty.type));
+    at < 0 ? arms.push(empty) : arms.splice(at, 0, empty);
+  }
+  return unionFactory(arms);
+};
+
 export const unionFactory = (schemas: Internal[]): Internal => {
   if (!schemas.length) return panic("S.union requires at least one item");
   if (schemas.length === 1) return schemas[0]!;

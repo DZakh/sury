@@ -63,7 +63,9 @@ import {
  unit
 } from "./primitives";
 import {
- unionFactory
+ unionClaims,
+ unionFactory,
+ unionWrap
 } from "./union";
 
 // Lives here rather than in composites.ts so objectDecoder's module has no
@@ -137,14 +139,15 @@ export const optionFactory = (item: Internal, unitSchema: Internal = unit): Inte
 
       if (newAnyOf.length === schemas.length) {
         mutHas[unitSchema.type] = true;
-        newAnyOf.push(unitSchema);
+        const at = newAnyOf.findIndex((arm) => unionClaims(arm, unitSchema.type));
+        at < 0 ? newAnyOf.push(unitSchema) : newAnyOf.splice(at, 0, unitSchema);
       }
 
       mut.anyOf = newAnyOf;
       mut.has = mutHas;
     });
   } else {
-    return unionFactory([item, unitSchema]);
+    return unionWrap(item, [unitSchema]);
   }
 }
 

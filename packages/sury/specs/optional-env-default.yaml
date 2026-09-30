@@ -16,15 +16,14 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{for(;;){if((typeof i==="string"||i===void 0)){if(!i){i="dev";}break}if(i===void 0)break;throw e[0](i)}return i}catch(v0){e[1](v0)}}
+    expression: i=>{try{for(;;){if(i===void 0)break;if((typeof i==="string"||i===void 0)){if(!i){i="dev";}break}throw e[0](i)}return i}catch(v0){e[1](v0)}}
     examples:
       set:
         input: '"x"'
         output: '"x"'
-      # FIXME: the inner schema takes the wrapper's empty value first
       unset-is-kept:
         input: undefined
-        output: '"dev"'
+        output: undefined
       blank-is-unset-to-the-env:
         input: '""'
         output: '"dev"'

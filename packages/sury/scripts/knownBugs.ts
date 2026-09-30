@@ -97,32 +97,28 @@ export const KNOWN_BUGS: Known[] = [
       some(f.shape, (node) => node.name === "union" && node.args.some(absorbs)),
   },
   {
-    id: "default-shadows-outer-absent",
+    id: "union-default-shadows-empty-member",
     kind: "bug",
     summary:
-      "A member whose default replaces an absent value is tried before the same absent value a wrapper " +
-      "around it adds, so that outer arm is an Output decode never produces and does not round-trip: " +
-      "`S.nullable(S.nullable(x, d))` encodes `null` to `null`, which decodes to `d`.",
-    spec: "nullable-nullable-default",
+      "In `S.union`, a member whose default replaces an empty value is tried before a later member " +
+      "that passes the same value through, so that value is an Output decode never produces and does not " +
+      "round-trip: `S.union([S.nullable(x, d), S.null])` encodes `null` to `null`, which decodes to `d`.",
+    spec: "union-nullable-default-shadow",
     fuzzers: ["codec"],
     matches: (f) =>
       f.fuzzer === "codec" &&
       f.property === "round-trip" &&
       some(f.shape, (node) =>
-        (node.name === "union" ? node.args : node.args.slice(0, 1)).some((member, idx, members) =>
+        node.name === "union" &&
+        node.args.some((member, idx) =>
           defaultTakes(member).some(
             (v) =>
               f.detail.includes(`${v} encoded to ${v} and decoded back`) &&
-              (node.name === "nullish" ||
-                node.name === (v === "undefined" ? "optional" : "nullable") ||
-                (node.name === "union" &&
-                  members.some(
-                    (other, j) =>
-                      j !== idx &&
-                      (v === "undefined"
-                        ? admitsUndefined(other)
-                        : other.name === "null" || other.name === "nullable" || other.name === "nullish"),
-                  ))),
+              node.args.slice(idx + 1).some((later) =>
+                v === "undefined"
+                  ? admitsUndefined(later)
+                  : later.name === "null" || later.name === "nullable" || later.name === "nullish",
+              ),
           ),
         ),
       ),

@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union([S.optional(S.string, "none"), S.optional(S.number)])
+  input: string | number | undefined
+  output: string | number | undefined
+  instantiations: 1269
+jsonSchema:
+  input: Expected JSON, received string | undefined
+  output: Expected JSON, received string | number | undefined
+isEqual: strictEqual
+compare: "throws: [Sury] Can't compare string | number | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v0;for(;;){if(typeof i==="number"&&i==i)break;l1:{for(;;){if(typeof i==="string")break;if(i===void 0){i="none";break}v0=[v0,e[0](i)];break l1}break}if(i===void 0)break;throw e[1](i,v0)}return i}catch(v2){e[2](v2)}}
+    examples:
+      string:
+        input: '"x"'
+        output: '"x"'
+      number:
+        input: "1"
+        output: "1"
+      undefined-takes-the-default:
+        input: undefined
+        output: '"none"'
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{(typeof i==="number"&&i==i||i===void 0||typeof i==="string")||e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      string:
+        input: '"x"'
+        output: '"x"'
+      # FIXME: known bug union-default-shadows-empty-member (scripts/knownBugs.ts). Decode
+      # never produces undefined here: member 1's default takes it first, so the undefined encode
+      # passes through reads back as the default.
+      undefined-passes-through:
+        input: undefined
+        output: undefined

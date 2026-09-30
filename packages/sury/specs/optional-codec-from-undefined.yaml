@@ -16,15 +16,14 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{let v0;for(;;){l1:{for(;;){if(typeof i==="string")break;if(i===void 0){i=null;break}v0=[v0,e[0](i)];break l1}break}if(i===void 0)break;throw e[1](i,v0)}return i}catch(v2){e[2](v2)}}
+    expression: i=>{try{let v0;for(;;){if(i===void 0)break;l1:{for(;;){if(typeof i==="string")break;if(i===void 0){i=null;break}v0=[v0,e[0](i)];break l1}break}throw e[1](i,v0)}return i}catch(v2){e[2](v2)}}
     examples:
       string:
         input: '"a"'
         output: '"a"'
-      # FIXME: the inner schema takes the wrapper's empty value first
       undefined-is-kept:
         input: undefined
-        output: "null"
+        output: undefined
   decode: eq-to-parse
   encode:
     expression: i=>{try{let v0;for(;;){if(i===void 0)break;l1:{for(;;){if(typeof i==="string")break;if(i===null){i=void 0;break}v0=[v0,e[0](i)];break l1}break}throw e[1](i,v0)}return i}catch(v2){e[2](v2)}}

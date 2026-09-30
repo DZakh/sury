@@ -69,7 +69,8 @@ import {
  unit
 } from "./primitives";
 import {
- unionFactory
+ unionFactory,
+ unionWrap
 } from "./union";
 
 // ── Schema singletons (shared by both surfaces) ──────────────────────────────
@@ -426,7 +427,7 @@ export const refine = (
 
 // @__NO_SIDE_EFFECTS__
 export const optional = (definition: unknown, maybeOr: unknown): Internal => {
-  const schema = unionFactory([definitionToSchema(definition), unit]);
+  const schema = unionWrap(definitionToSchema(definition), [unit]);
   if (maybeOr !== U && typeof maybeOr === functionTag) {
     return Option_getOrWith(schema, maybeOr as () => unknown);
   } else if (maybeOr !== U) {
@@ -440,14 +441,14 @@ export const optional = (definition: unknown, maybeOr: unknown): Internal => {
 export const nullable = (definition: unknown, maybeOr: unknown): Internal => {
   const schema = definitionToSchema(definition);
   if (maybeOr !== U) {
-    const schema2 = unionFactory([schema, nullAsUnit]);
+    const schema2 = unionWrap(schema, [nullAsUnit]);
     if (typeof maybeOr === functionTag) {
       return Option_getOrWith(schema2, maybeOr as () => unknown);
     } else {
       return Option_getOr(schema2, maybeOr);
     }
   } else {
-    return unionFactory([schema, nullLiteral]);
+    return unionWrap(schema, [nullLiteral]);
   }
 };
 
