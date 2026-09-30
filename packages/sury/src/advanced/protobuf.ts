@@ -535,25 +535,24 @@ const scratch = /* @__PURE__ */ new Uint8Array(8);
 const scratchView = /* @__PURE__ */ new DataView(scratch.buffer);
 
 // A protobuf failure before it is a Sury error: no stack, which only the error
-// the operation throws needs. An encode failure is thrown with no reason and
-// only its field's slot: a write can't name its field - a message's encoder is
-// shared by every field that holds it - so whatever catches it settles the
-// rest. The fields are `declare`d, since an initializer would cost a define per
-// field per throw.
+// the operation throws needs. An encode failure is thrown with no reason, only
+// the value, the element of a packed list, and `kind`: 1 a map key, 2 a oneof
+// member set beside another. A write can't name its field - it doesn't know
+// which one it is writing - so the frame of the message encoder it unwinds
+// through settles the rest (`encodeFrame`). The fields are `declare`d, since an
+// initializer would cost a define per field per throw.
 class ProtobufFailure {
   declare reason: string | undefined;
   declare path: (string | number)[];
-  declare slot: number | undefined;
   declare value: unknown;
   declare index: number | undefined;
-  declare oneof: boolean | undefined;
-  constructor(reason?: string, slot?: number, value?: unknown, index?: number, oneof?: boolean) {
+  declare kind: number | undefined;
+  constructor(reason?: string, value?: unknown, index?: number, kind?: number) {
     this.reason = reason;
     this.path = [];
-    this.slot = slot;
     this.value = value;
     this.index = index;
-    this.oneof = oneof;
+    this.kind = kind;
   }
 }
 
@@ -1037,7 +1036,7 @@ export class Writer {
   }
   // The packed-loop twin of Reader.varints, with the buffer sized once for
   // the whole field. `kind` is 0 uint32, 1 int32/enum, 2 sint32, 3 bool.
-  varints(values: ArrayLike<number | boolean>, kind: number, slot: number): void {
+  varints(values: ArrayLike<number | boolean>, kind: number): void {
     const n = values.length;
     this.ensure(n * 10);
     const buf = this.buf;
@@ -1046,7 +1045,7 @@ export class Writer {
       let value = values[i] as number;
       if (kind === 3) value = value ? 1 : 0;
       else if (kind === 0 ? value < 0 || value > 4294967295 : value < -2147483648 || value > 2147483647) {
-        fieldFailure(slot, value, i);
+        fieldFailure(value, i);
       }
       if (kind === 2) value = ((value << 1) ^ (value >> 31)) >>> 0;
       else if (kind === 1 && value < 0) {
@@ -1072,7 +1071,7 @@ export class Writer {
   }
   // Packed fixed-width twin of Reader.fixeds: one typed-array `set` when the
   // slab position is aligned, a DataView loop otherwise.
-  fixeds(values: ArrayLike<number | bigint>, kind: number, slot: number): void {
+  fixeds(values: ArrayLike<number | bigint>, kind: number): void {
     const n = values.length;
     const size = kind === 1 || kind === 2 || kind === 3 ? 4 : 8;
     this.ensure(n * size);
@@ -1081,12 +1080,12 @@ export class Writer {
     if (kind === 1) {
       for (let i = 0; i < n; i++) {
         const value = values[i] as number;
-        if (Number.isFinite(value) && Math.abs(value) > 3.4028234663852886e38) fieldFailure(slot, value, i);
+        if (Number.isFinite(value) && Math.abs(value) > 3.4028234663852886e38) fieldFailure(value, i);
       }
     } else if (kind) {
       const min = [0, -2147483648, 0n, -9223372036854775808n][kind - 2]!;
       const max = [4294967295, 2147483647, 18446744073709551615n, 9223372036854775807n][kind - 2]!;
-      for (let i = 0; i < n; i++) checked(values[i], min, max, slot, i);
+      for (let i = 0; i < n; i++) checked(values[i], min, max, i);
     }
     if (offset % size === 0) {
       (kind === 0 ? new Float64Array(buf.buffer, offset, n)
@@ -1110,10 +1109,10 @@ export class Writer {
     }
     this.pos += n * size;
   }
-  bytes(value: Uint8Array, slot: number): void {
+  bytes(value: Uint8Array): void {
     // Anything else has a `length` or not and writes zeros or nothing, and
     // either one decodes back as some other value with no failure at all.
-    if (!(value instanceof Uint8Array)) fieldFailure(slot, value);
+    if (!(value instanceof Uint8Array)) fieldFailure(value);
     const n = value.length;
     this.ensure(5 + n);
     if (n < 128) this.buf[this.pos++] = n;
@@ -1121,10 +1120,10 @@ export class Writer {
     this.buf.set(value, this.pos);
     this.pos += n;
   }
-  string(v: string, slot: number): void {
+  string(v: string): void {
     // Otherwise a non-string fails deep in the length arithmetic, as a
     // `RangeError` that names nothing.
-    if (typeof v !== "string") fieldFailure(slot, v);
+    if (typeof v !== "string") fieldFailure(v);
     this.text(v);
   }
   text(v: string): void {
@@ -1157,8 +1156,8 @@ export class Writer {
     this.varint32(n);
     this.pos += n;
   }
-  float32(value: number, slot: number): void {
-    if (Number.isFinite(value) && Math.abs(value) > 3.4028234663852886e38) fieldFailure(slot, value);
+  float32(value: number): void {
+    if (Number.isFinite(value) && Math.abs(value) > 3.4028234663852886e38) fieldFailure(value);
     scratchView.setFloat32(0, value, true);
     this.ensure(4);
     const buf = this.buf;
@@ -1529,61 +1528,49 @@ const unknownField = (msg: Message, tag: number): never => {
   );
 };
 
-const fieldFailure = (slot: number, value: unknown, index?: number): never => {
-  throw new ProtobufFailure(U, slot, value, index);
+const fieldFailure = (value: unknown, index?: number, kind?: number): never => {
+  throw new ProtobufFailure(U, value, index, kind);
 };
 
-const oneofConflict = (slot: number): never => {
-  throw new ProtobufFailure(U, slot, U, U, true);
-};
+const oneofConflict = (): never => fieldFailure(U, U, 2);
 
 // The bounds' own type is the one the value must have: a 64-bit field holds a
 // bigint, the rest an integer number.
-const checked = <T>(value: T, min: number | bigint, max: number | bigint, slot: number, index?: number): T => {
+const checked = <T>(value: T, min: number | bigint, max: number | bigint, index?: number): T => {
   if (typeof value !== typeof min || (typeof value === "number" && !Number.isInteger(value)) || (value as number) < min || (value as number) > max) {
-    fieldFailure(slot, value, index);
+    fieldFailure(value, index);
   }
   return value;
 };
 
 // The key a failure names is the property name, not what `+` or `BigInt` made
 // of it.
-const mapKey = (key: string, min: number | bigint, max: number | bigint, slot: number): number | bigint => {
+const mapKey = (key: string, min: number | bigint, max: number | bigint): number | bigint => {
   try {
-    return checked(typeof min === "number" ? +key : BigInt(key), min, max, slot);
+    return checked(typeof min === "number" ? +key : BigInt(key), min, max);
   } catch {
-    return fieldFailure(slot, key);
+    return fieldFailure(key, U, 1);
   }
 };
 
-// A field, or a map's key, as an encode failure names it. `at` is the path the
-// field adds: none for the one field of a message that unwraps to its value.
-// `framed` once `encodeBody` wraps the field's writes in a frame, which then
-// adds it along with the element or entry.
-type Slot = { field: Field; isKey: boolean; at: string[]; framed: boolean };
-
-const slotOf = (slots: Slot[], msg: Message, field: Field, isKey = false): number => {
-  const found = slots.findIndex((slot) => slot.field === field && slot.isKey === isKey);
-  return found < 0 ? slots.push({ field, isKey, at: msg.unwrap ? [] : [field.key], framed: false }) - 1 : found;
-};
-
-const settle = (x: unknown, slots: Slot[]): unknown => {
-  if (x instanceof ProtobufFailure && x.reason === U) {
-    const { field, isKey, at, framed } = slots[x.slot!]!;
-    x.reason = x.oneof ? `Protobuf oneof "${field.oneof}" has more than one member set`
-      : `Expected ${isKey ? `${field.map} key` : field.type}, received ${stringify(x.value)}`;
-    if (!framed) x.path = x.index === U ? [...at] : [...at, x.index];
+// The one frame of a message encoder: `f` is the index of the field it was
+// writing, `j` its loop counter, `a` a map's keys. A failure its own write threw
+// gets its reason here; one a nested encoder already settled only gets the
+// field and element in front. A message that unwraps to its one field's value
+// has no key to add.
+const encodeFrame = (x: unknown, msg: Message, f: number, j: number, a?: string[]): unknown => {
+  if (x instanceof ProtobufFailure) {
+    const field = msg.fields[f]!;
+    let item: string | number | undefined = field.map !== U ? a![j - 1] : field.repeated ? j - 1 : U;
+    if (x.reason === U) {
+      x.reason = x.kind === 2 ? `Protobuf oneof "${field.oneof}" has more than one member set`
+        : `Expected ${x.kind ? `${field.map} key` : field.type}, received ${stringify(x.value)}`;
+      if (x.index !== U) item = x.index;
+    }
+    if (item !== U) x.path.unshift(item);
+    if (!msg.unwrap) x.path.unshift(field.key);
   }
   return x;
-};
-
-const encodeFrame = (slots: Slot[]) => (x: unknown, slot: number, item?: string | number): never => {
-  if (settle(x, slots) instanceof ProtobufFailure) {
-    const path = (x as ProtobufFailure).path;
-    if (item !== U) path.unshift(item);
-    path.unshift(...slots[slot]!.at);
-  }
-  throw x;
 };
 
 const writeTag = (tag: number): string =>
@@ -1592,12 +1579,12 @@ const writeTag = (tag: number): string =>
 const writeVarint32 = (expr: string): string =>
   `${expr}<128&&w.pos<w.buf.length?w.buf[w.pos++]=${expr}:w.varint32(${expr})`;
 
-// The helpers an encode body calls. `use` names one where the body is emitted:
-// a param of a hoisted message encoder, an `e[N]` embed in the operation body
-// made on first use.
-const encodeHelpers = (slots: Slot[]) => ({ check: checked, key: mapKey, oneof: oneofConflict, at: encodeFrame(slots) });
-type Helper = keyof ReturnType<typeof encodeHelpers>;
-type Encoding = { use: (helper: Helper) => string; slots: Slot[] };
+// The helpers an encode body calls, named where the body is emitted: a param
+// of a hoisted message encoder, an `e[N]` embed in the operation body made on
+// first use.
+const encodeHelpers = { check: checked, key: mapKey, oneof: oneofConflict };
+type Helper = keyof typeof encodeHelpers;
+type Encoding = (helper: Helper) => string;
 
 const bounds = (type: ProtobufType): [string, string] => {
   const unsigned = type[0] === "u" || type[0] === "f";
@@ -1606,14 +1593,14 @@ const bounds = (type: ProtobufType): [string, string] => {
     : unsigned ? ["0", "4294967295"] : ["-2147483648", "2147483647"];
 };
 
-const writeCall = (type: ProtobufType, v: string, enc: Encoding, slot: number): string => {
+const writeCall = (type: ProtobufType, v: string, enc: Encoding): string => {
   if (type === "bool") return `s=${v}?1:0;w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s)`;
-  if (type === "float") return `w.float32(${v},${slot})`;
+  if (type === "float") return `w.float32(${v})`;
   if (type === "double") return `w.float64(${v})`;
-  if (type === "string") return `w.string(${v},${slot})`;
-  if (type === "bytes") return `w.bytes(${v},${slot})`;
+  if (type === "string") return `w.string(${v})`;
+  if (type === "bytes") return `w.bytes(${v})`;
   const [min, max] = bounds(type);
-  const check = (expr: string) => `${enc.use("check")}(${expr},${min},${max},${slot})`;
+  const check = (expr: string) => `${enc("check")}(${expr},${min},${max})`;
   if (type === "sint64") return `s=${check(v)};w.varint64((s<<1n)^(s>>63n))`;
   if (type === "int64" || type === "uint64") return `w.varint64(${check(v)})`;
   if (type.includes("64")) return `w.bits64(${check(v)})`;
@@ -1684,10 +1671,10 @@ const emitDefault = (field: Field): string => {
 
 // A map key travels as a string property name; these convert it to and
 // from the key type on the wire.
-const keyToWire = (type: ProtobufType, enc: Encoding, slot: number): string =>
+const keyToWire = (type: ProtobufType, enc: Encoding): string =>
   type === "string" ? ""
   : type === "bool" ? 'k=k==="true";'
-  : `k=${enc.use("key")}(k,${bounds(type).join(",")},${slot});`;
+  : `k=${enc("key")}(k,${bounds(type).join(",")});`;
 
 // `numeric`: the value is known to be a number already (a validated field
 // val), so the write skips the coercion a nested encoder's untyped read needs.
@@ -1700,7 +1687,11 @@ const fieldLive = (field: Field, numeric: boolean): string =>
 
 type Read = (key: string) => { expr: string; numeric: boolean };
 
-const encodeBody = (msg: Message, fns: Map<Message, string>, read: Read, enc: Encoding): string => {
+// `f=` before a field's writes is what the message's frame (`encodeFrame`)
+// reads to name the field a failure hit. It is left off a bool or double field,
+// single or repeated, with no oneof check: `writeCall` and the packed writers
+// check neither type. Returns the body, and whether any field can fail.
+const encodeBody = (msg: Message, fns: Map<Message, string>, read: Read, enc: Encoding): [string, boolean] => {
   const body: string[] = [];
   // proto3 lets at most one member of a oneof be set, and decode enforces it
   // by clearing the siblings. Encode is handed a value the schema cannot
@@ -1720,58 +1711,55 @@ const encodeBody = (msg: Message, fns: Map<Message, string>, read: Read, enc: En
   first.forEach((field, name) => {
     if (field !== last.get(name)) bits.set(name, 1 << bits.size);
   });
-  const guard = (field: Field, slot: number): string => {
+  const guard = (field: Field): string => {
     const name = field.oneof;
     const bit = name === U ? U : bits.get(name);
     if (bit === U) return "";
     // One group needs no mask: no other bit can be set.
     const test = bits.size > 1 ? `o&${bit}` : "o";
-    return (first.get(name!) === field ? "" : `${test}&&${enc.use("oneof")}(${slot});`) +
+    return (first.get(name!) === field ? "" : `${test}&&${enc("oneof")}();`) +
       (last.get(name!) === field ? "" : `o|=${bit};`);
   };
-  // A write whose failure its field can't name alone - a nested message's, a
-  // list element's, a map entry's - runs inside a frame that does.
-  const framed = (code: string, slot: number, item?: string): string => {
-    enc.slots[slot]!.framed = true;
-    return `try{${code}}catch(x){${enc.use("at")}(x,${slot}${item === U ? "" : `,${item}`})}`;
-  };
+  let fails = false;
   for (let idx = 0; idx < msg.fields.length; idx++) {
     const field = msg.fields[idx]!;
     const tag = field.number * 8 + field.wire;
-    const slot = slotOf(enc.slots, msg, field);
     const { expr: src, numeric } = read(field.key);
+    const oneof = guard(field);
+    const at = field.map !== U || (field.type !== "bool" && field.type !== "double") || oneof.includes("&&")
+      ? (fails = true, `f=${idx};`)
+      : "";
     if (field.map !== U) {
       const keyType = field.map;
-      const keySlot = slotOf(enc.slots, msg, field, true);
       const entryTag = writeTag(field.number * 8 + 2);
-      const keyPart = `${keyToWire(keyType, enc, keySlot)}${writeTag(8 + wireType(keyType))};${writeCall(keyType, "k", enc, keySlot)}`;
+      const keyPart = `${keyToWire(keyType, enc)}${writeTag(8 + wireType(keyType))};${writeCall(keyType, "k", enc)}`;
       const valuePart = field.type === "message"
         ? `${writeTag(16 + 2)};g=w.begin();${fns.get(field.message!)!}(w,c);w.end(g)`
-        : `${writeTag(16 + field.wire)};${writeCall(field.type, "c", enc, slot)}`;
-      body.push(`v=${src};a=Object.keys(v);n=a.length;j=0;${framed(`while(j<n){k=a[j++];c=v[k];${entryTag};h=w.begin();${keyPart};${valuePart};w.end(h)}`, slot, "a[j-1]")}`);
+        : `${writeTag(16 + field.wire)};${writeCall(field.type, "c", enc)}`;
+      body.push(`${at}v=${src};a=Object.keys(v);n=a.length;j=0;while(j<n){k=a[j++];c=v[k];${entryTag};h=w.begin();${keyPart};${valuePart};w.end(h)}`);
     } else if (field.repeated) {
       let loop: string;
       if (packable[field.type] && field.packed) {
         const kind = varintKind(field.type);
         const fixed = fixedKind(field.type);
-        const packed = kind !== U ? `w.varints(v,${kind},${slot});`
-          : fixed !== U ? `w.fixeds(v,${fixed},${slot});`
-          : framed(`j=0;while(j<n){${writeCall(field.type, "v[j++]", enc, slot)}}`, slot, "j-1");
+        const packed = kind !== U ? `w.varints(v,${kind});`
+          : fixed !== U ? `w.fixeds(v,${fixed});`
+          : `j=0;while(j<n){${writeCall(field.type, "v[j++]", enc)}}`;
         loop = `${writeTag(field.number * 8 + 2)};h=w.begin();${packed}w.end(h)`;
       } else if (field.type === "message") {
-        loop = framed(`j=0;while(j<n){${writeTag(tag)};h=w.begin();${fns.get(field.message!)!}(w,v[j++]);w.end(h)}`, slot, "j-1");
+        loop = `j=0;while(j<n){${writeTag(tag)};h=w.begin();${fns.get(field.message!)!}(w,v[j++]);w.end(h)}`;
       } else {
-        loop = framed(`j=0;while(j<n){${writeTag(tag)};${writeCall(field.type, "v[j++]", enc, slot)}}`, slot, "j-1");
+        loop = `j=0;while(j<n){${writeTag(tag)};${writeCall(field.type, "v[j++]", enc)}}`;
       }
-      body.push(`v=${src};n=v.length;if(n){${loop}}`);
+      body.push(`${at}v=${src};n=v.length;if(n){${loop}}`);
     } else if (field.type === "message") {
       // `null` is a value to a well-known type: JSON's own.
-      body.push(`v=${src};if(${field.message!.codec !== U ? "v!==void 0" : "v!=null"}){${framed(`${guard(field, slot)}${writeTag(tag)};h=w.begin();${fns.get(field.message!)!}(w,v);w.end(h)`, slot)}}`);
+      body.push(`${at}v=${src};if(${field.message!.codec !== U ? "v!==void 0" : "v!=null"}){${oneof}${writeTag(tag)};h=w.begin();${fns.get(field.message!)!}(w,v);w.end(h)}`);
     } else {
-      body.push(`v=${src};if(${fieldLive(field, numeric)}){${guard(field, slot)}${writeTag(tag)};${writeCall(field.type, "v", enc, slot)}}`);
+      body.push(`${at}v=${src};if(${fieldLive(field, numeric)}){${oneof}${writeTag(tag)};${writeCall(field.type, "v", enc)}}`);
     }
   }
-  return (bits.size ? "o=0;" : "") + body.join(";");
+  return [(bits.size ? "o=0;" : "") + body.join(";"), fails];
 };
 
 const nameMessages = (message: Message, fns: Map<Message, string>): void => {
@@ -1785,12 +1773,13 @@ const nameMessages = (message: Message, fns: Map<Message, string>): void => {
 
 // Message codecs are built once per operation with `Function` and embedded
 // as values, so the operation body calls a top-level function instead of
-// allocating a closure per call.
-const compileEncoders = (root: Message, fns: Map<Message, string>, slots: Slot[]): Record<string, Function> => {
+// allocating a closure per call. `M` is read only on a failure, as the
+// decoder's is.
+const compileEncoders = (root: Message, fns: Map<Message, string>): Record<string, Function> => {
   let src = "";
-  const helpers = encodeHelpers(slots);
-  const params: string[] = Object.keys(helpers);
-  const args: Function[] = Object.values(helpers);
+  const messages: Message[] = [];
+  const params: string[] = [...Object.keys(encodeHelpers), "at", "M"];
+  const args: unknown[] = [...Object.values(encodeHelpers), encodeFrame, messages];
   const names: string[] = [];
   // The root's fields are read from the vals the operation already has, so its
   // body is inlined there rather than called; it needs a function of its own
@@ -1803,7 +1792,8 @@ const compileEncoders = (root: Message, fns: Map<Message, string>, slots: Slot[]
       args.push(codecs[msg.wellKnown!]![1]);
     } else {
       const read: Read = (key) => ({ expr: msg.unwrap ? "value" : readKey("value", key), numeric: false });
-      src += `function ${name}(w,value){var v,j,n,s,h,a,k,g,c,o;${encodeBody(msg, fns, read, { use: (helper) => helper, slots })}}`;
+      const [body, fails] = encodeBody(msg, fns, read, (helper) => helper);
+      src += `function ${name}(w,value){var v,j,n,s,h,a,k,g,c,o${fails ? `,f;try{${body}}catch(x){throw at(x,M[${messages.push(msg) - 1}],f,j,a)}` : `;${body}`}}`;
     }
   });
   return new Function(...params, `${src}return {${names.join(",")}}`)(...args);
@@ -1961,8 +1951,7 @@ const protobufDecoder = (input: Val): Val => {
   if (message === U) return B_unsupportedDecode(input, input.s, input.e);
   const fns = new Map<Message, string>();
   nameMessages(message, fns);
-  const slots: Slot[] = [];
-  const encoders = compileEncoders(message, fns, slots);
+  const encoders = compileEncoders(message, fns);
   const names = new Map<Message, string>();
   fns.forEach((name, msg) => {
     const fn = encoders[name];
@@ -1975,17 +1964,18 @@ const protobufDecoder = (input: Val): Val => {
       ? { expr: fv.i, numeric: fv.s.type === numberTag && fv.s.format !== U }
       : { expr: readKey(input.v(), key), numeric: false };
   };
-  const helpers = encodeHelpers(slots);
   const embeds: Partial<Record<Helper, string>> = {};
-  const enc: Encoding = { use: (helper) => (embeds[helper] ??= B_embed(input, helpers[helper])), slots };
-  const body = encodeBody(message, names, readRoot, enc);
+  const [body, fails] = encodeBody(message, names, readRoot, (helper) => (embeds[helper] ??= B_embed(input, encodeHelpers[helper])));
   const outVar = B_varWithoutAllocation(input.g);
   const output = B_next(input, outVar, input.e, input.e);
   output.v = _var;
   // Braced: the borrowed writer keeps the short name that ships on every field
   // write, and a second `S.protobuf` in the same operation - two of them in one
   // object - declares its own rather than colliding with this one.
-  output.cp = `let ${outVar};{let w;${guarded(input, output, input.e, `w=${B_embedPure(input, scratchWriter)}.acquire();let v,j,n,s,h,a,k,g,c,o;${body};${outVar}=w.finish()`, "w&&(w.busy=false);", slots)}}`;
+  // The root's frame is the operation's catch: its locals are declared outside
+  // the `try` for it to read.
+  const frame = fails ? `${B_embedPure(input, encodeFrame)}(x,${B_embedPure(input, message)},f,j,a);` : "";
+  output.cp = `let ${outVar};{let w,v,j,n,s,h,a,k,g,c,o${fails ? ",f" : ""};${guarded(input, output, input.e, `w=${B_embedPure(input, scratchWriter)}.acquire();${body};${outVar}=w.finish()`, `w&&(w.busy=false);${frame}`)}}`;
   output.io = true;
   return output;
 };
@@ -1994,14 +1984,13 @@ const protobufDecoder = (input: Val): Val => {
 // operation's path followed by the field it hit. It has no `cause`: nothing the
 // user wrote threw. Anything else - a getter's throw - is reported the way
 // B_conversion reports a coder's. In a union either one is what hands the value
-// to the next case. `slots` are an encode's, to settle a failure no frame caught.
-const guarded = (input: Val, output: Val, target: Internal, code: string, release: string, slots?: Slot[]): string => {
+// to the next case.
+const guarded = (input: Val, output: Val, target: Internal, code: string, release: string): string => {
   const foreign = B_conversionFail(input, target);
   let site: object | undefined;
   const failure = B_fail(
     output,
     (x: unknown, path?: Path) => {
-      if (slots !== U) settle(x, slots);
       if (!(x instanceof ProtobufFailure)) return foreign(x, path);
       const error = Object.create((site ??= conversionSite(input.s, target))) as ErrorDetails;
       error.code = "invalid_conversion";

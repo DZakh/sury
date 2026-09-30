@@ -18,7 +18,7 @@ vs:
     _skip: todo(#…)
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i.xs;Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){let v2=v0[v1];typeof v2==="number"&&v2%1==0||e[0](v2,["xs",v1]);}let v3;{let w;try{w=e[2].acquire();let v,j,n,s,h,a,k,g,c,o;v=v0;n=v.length;if(n){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();w.fixeds(v,2,0);w.end(h)};v3=w.finish()}catch(x){w&&(w.busy=false);e[3](x)}}return v3}catch(v4){e[5](v4)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[6](i);let v0=i.xs;Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){let v2=v0[v1];typeof v2==="number"&&v2%1==0||e[0](v2,["xs",v1]);}let v3;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[4].acquire();f=0;v=v0;n=v.length;if(n){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();w.fixeds(v,2);w.end(h)};v3=w.finish()}catch(x){w&&(w.busy=false);e[2](x,e[3],f,j,a);e[5](x)}}return v3}catch(v4){e[7](v4)}}
     examples:
       elements:
         input: "{ xs: [1, 2] }"
@@ -27,7 +27,7 @@ operations:
         input: "{ xs: [1, -1] }"
         error: "Failed at xs[1]: Expected fixed32, received -1"
   decode:
-    expression: i=>{try{let v0=i.xs;let v2;{let w;try{w=e[0].acquire();let v,j,n,s,h,a,k,g,c,o;v=v0;n=v.length;if(n){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();w.fixeds(v,2,0);w.end(h)};v2=w.finish()}catch(x){w&&(w.busy=false);e[1](x)}}return v2}catch(v3){e[2](v3)}}
+    expression: i=>{try{let v0=i.xs;let v2;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[2].acquire();f=0;v=v0;n=v.length;if(n){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();w.fixeds(v,2);w.end(h)};v2=w.finish()}catch(x){w&&(w.busy=false);e[0](x,e[1],f,j,a);e[3](x)}}return v2}catch(v3){e[4](v3)}}
     examples:
       fractional-element:
         input: "{ xs: [1, 1.5] }"

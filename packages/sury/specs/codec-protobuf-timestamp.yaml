@@ -18,7 +18,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[14](i);let v0=i.at,v1=i.seen,v2=i.log;v0 instanceof e[1]||e[2](v0);!Number.isNaN(v0.getTime())||e[0](v0);(v1 instanceof e[3]||v1===void 0)||e[4](v1);Array.isArray(v2)||e[8](v2);for(let v3=0;v3<v2.length;++v3){let v4=v2[v3];v4 instanceof e[6]||e[7](v4,["log",v3]);!Number.isNaN(v4.getTime())||e[5](v4,["log",v3]);}let v5;{let w;try{w=e[12].acquire();let v,j,n,s,h,a,k,g,c,o;v=v0;if(v!==void 0){try{w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[9](w,v);w.end(h)}catch(x){e[11](x,0)}};v=v1;if(v!==void 0){try{w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[10](w,v);w.end(h)}catch(x){e[11](x,1)}};v=v2;n=v.length;if(n){try{j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=26:w.varint32(26);h=w.begin();e[10](w,v[j++]);w.end(h)}}catch(x){e[11](x,2,j-1)}};v5=w.finish()}catch(x){w&&(w.busy=false);e[13](x)}}return v5}catch(v6){e[15](v6)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[15](i);let v0=i.at,v1=i.seen,v2=i.log;v0 instanceof e[1]||e[2](v0);!Number.isNaN(v0.getTime())||e[0](v0);(v1 instanceof e[3]||v1===void 0)||e[4](v1);Array.isArray(v2)||e[8](v2);for(let v3=0;v3<v2.length;++v3){let v4=v2[v3];v4 instanceof e[6]||e[7](v4,["log",v3]);!Number.isNaN(v4.getTime())||e[5](v4,["log",v3]);}let v5;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[13].acquire();f=0;v=v0;if(v!==void 0){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[9](w,v);w.end(h)};f=1;v=v1;if(v!==void 0){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[10](w,v);w.end(h)};f=2;v=v2;n=v.length;if(n){j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=26:w.varint32(26);h=w.begin();e[10](w,v[j++]);w.end(h)}};v5=w.finish()}catch(x){w&&(w.busy=false);e[11](x,e[12],f,j,a);e[14](x)}}return v5}catch(v6){e[16](v6)}}
     examples:
       dates:
         input: '{ at: new Date("1970-01-01T00:00:01.002Z"), seen: new Date("1969-12-31T23:59:59.999Z"), log: [new Date("1970-01-01T00:00:00.000Z")] }'
@@ -30,7 +30,7 @@ operations:
         input: '{ at: "2020-01-01", log: [] }'
         error: 'Failed at at: Expected Date, received "2020-01-01"'
   decode:
-    expression: i=>{try{let v0=i.log;let v2;{let w;try{w=e[3].acquire();let v,j,n,s,h,a,k,g,c,o;v=i.at;if(v!==void 0){try{w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[0](w,v);w.end(h)}catch(x){e[2](x,0)}};v=i.seen;if(v!==void 0){try{w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[1](w,v);w.end(h)}catch(x){e[2](x,1)}};v=v0;n=v.length;if(n){try{j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=26:w.varint32(26);h=w.begin();e[1](w,v[j++]);w.end(h)}}catch(x){e[2](x,2,j-1)}};v2=w.finish()}catch(x){w&&(w.busy=false);e[4](x)}}return v2}catch(v3){e[5](v3)}}
+    expression: i=>{try{let v0=i.log;let v2;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[4].acquire();f=0;v=i.at;if(v!==void 0){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[0](w,v);w.end(h)};f=1;v=i.seen;if(v!==void 0){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[1](w,v);w.end(h)};f=2;v=v0;n=v.length;if(n){j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=26:w.varint32(26);h=w.begin();e[1](w,v[j++]);w.end(h)}};v2=w.finish()}catch(x){w&&(w.busy=false);e[2](x,e[3],f,j,a);e[5](x)}}return v2}catch(v3){e[6](v3)}}
     examples:
       epoch-is-written:
         input: '{ at: new Date("1970-01-01T00:00:00.000Z"), log: [] }'
