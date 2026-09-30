@@ -783,8 +783,8 @@ const missingKeyEncoder: Encoder = (input, target) => {
 const readsAbsent = (s: Internal): boolean => {
   if (s.type === refTag) return true;
   if (!isOptional(s)) return false;
-  const arm = s.anyOf!.find((arm) => arm.type === undefinedTag);
-  return s.to !== U || arm === U || arm.to !== U;
+  const arm = s.anyOf ? s.anyOf.find((arm) => arm.type === undefinedTag) : s;
+  return s.to !== U || s.refiner !== U || arm === U || arm.to !== U;
 };
 
 const wrapDictMissingKeyLight = (s: Internal): Internal => {

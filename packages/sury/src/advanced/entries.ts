@@ -76,7 +76,9 @@ export const admitsBlank = (schema: Internal): boolean =>
   (schema.type === anyOfTag && schema.anyOf!.some(admitsBlank));
 
 // A direct arm, not `has`: a nested union's own empty arm carries its default
-// or conversion, which `presentArm`/`absentArm` would skip.
+// or conversion, which `presentArm`/`absentArm` would skip. S.union's refusal
+// reads an env's unset var from the same arms (`unionReplaces` in union.ts),
+// so the two move together.
 const emptyTag = (schema: Internal): Tag | undefined => {
   const arms = schema.anyOf || [schema];
   return arms.some((arm) => arm.type === undefinedTag)

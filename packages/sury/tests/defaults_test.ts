@@ -67,6 +67,9 @@ test("a union reads an env member's unset var the way the env does", () => {
   expect(() => S.union([S.env.with(S.to, S.nullable(S.string, "d")), S.schema(undefined)])).toThrow(
     "an earlier member decodes it to string",
   );
+  expect(() => S.union([S.env.with(S.to, S.nullable(S.string)), S.schema(undefined)])).toThrow(
+    "can't keep undefined",
+  );
 });
 
 test("a union refuses undefined a default replaces behind a .to or a ref", () => {

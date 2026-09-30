@@ -187,37 +187,19 @@ const fieldOrMember = (S: Sury, rng: Rng, inner: MemberSpec): MemberSpec => {
 // holding one next to that value is where the planner has to fall through.
 // Every one is lossy: an env var reads `""` as unset and port text as a number.
 const emptyTaker = (S: Sury, rng: Rng): MemberSpec => {
-  const roll = rng();
-  const taker: MemberSpec =
-    roll < 0.1
-      ? {
-          id: 'env->nullable(string,"d")',
-          schema: S.env.with(S.to, S.nullable(S.string, "d")),
-          shape: node("envTo"),
-          lossy: true,
-        }
-      : roll < 0.25
-      ? {
-          id: 'env->optional(string,"dev")',
-          schema: S.env.with(S.to, S.optional(S.string, "dev")),
-          shape: node("envTo"),
-          lossy: true,
-        }
-      : roll < 0.5
-        ? { id: "env->port", schema: S.env.with(S.to, S.port), shape: node("envTo"), lossy: true }
-        : roll < 0.75
-          ? {
-              id: "null->0",
-              schema: S.schema(null).with(S.to, S.number, { decode: () => 0, encode: () => null }),
-              shape: node("fromEmpty"),
-              lossy: true,
-            }
-          : {
-              id: "unknown->string",
-              schema: S.unknown.with(S.to, S.string, { decode: (v: unknown) => String(v), encode: (v: string) => v }),
-              shape: node("fromAny"),
-              lossy: true,
-            };
+  const takers: [string, () => unknown, string][] = [
+    ['env->nullable(string,"d")', () => S.env.with(S.to, S.nullable(S.string, "d")), "envTo"],
+    ['env->optional(string,"dev")', () => S.env.with(S.to, S.optional(S.string, "dev")), "envTo"],
+    ["env->port", () => S.env.with(S.to, S.port), "envTo"],
+    ["null->0", () => S.schema(null).with(S.to, S.number, { decode: () => 0, encode: () => null }), "fromEmpty"],
+    [
+      "unknown->string",
+      () => S.unknown.with(S.to, S.string, { decode: (v: unknown) => String(v), encode: (v: string) => v }),
+      "fromAny",
+    ],
+  ];
+  const [id, schema, shape] = pick(rng, takers);
+  const taker: MemberSpec = { id, schema: schema(), shape: node(shape), lossy: true };
   return rng() < 0.5 ? applyWrap(S, rng, taker) : taker;
 };
 

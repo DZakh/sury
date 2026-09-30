@@ -1971,12 +1971,15 @@ export const unionCheckEmpties = (schema: Internal): Internal => {
 // counted, so nothing valid is refused.
 const unionReplaces = (s: Internal, tag: Tag, refs?: Internal[]): boolean | undefined => {
   if (s.type === tag) return s.to !== U;
-  // An env var is never null, and reads unset as its target's `undefined`, or
-  // its `null` when the target has no `undefined`.
+  // An env var is never null. It reads unset through its target's own arms
+  // (`emptyTag` in advanced/entries.ts): the `undefined` one, else the `null`
+  // one, which never hands back `undefined`; with neither, it rejects unset.
   if (s.format === "env") {
-    return tag === undefinedTag && s.to !== U
-      ? unionReplaces(s.to, unionMask(s.to, 1, 0) & tagFlags[undefinedTag]! ? undefinedTag : nullTag, refs)
-      : U;
+    const target = s.to;
+    if (tag !== undefinedTag || target === U) return U;
+    const arms = target.anyOf || [target];
+    const arm = arms.find((arm) => arm.type === undefinedTag) || arms.find((arm) => arm.type === nullTag);
+    return arm === U ? U : arm.type === nullTag || arm.to !== U ? true : target.to === U ? false : U;
   }
   if (s.type === refTag) {
     const def = s.definition || unionRefDef(s);
