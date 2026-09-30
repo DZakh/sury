@@ -1061,10 +1061,7 @@ test("~standard.validate returns a promise for a schema with an async codec", as
 });
 
 // A foreign exception - a getter here - is a failure of THIS value, so it is
-// an issue rather than a throw, and the same issue whichever operation was
-// compiled first. A test file rather than a spec: what's under test is an
-// order dependency between two operations, which a per-schema golden can't
-// express.
+// an issue rather than a throw.
 test("~standard.validate answers a foreign exception as an issue regardless of which operation compiled first", (t) => {
   const foreign = new Proxy({}, { get() { throw new Error("foreign"); } });
   t.expect(S.schema({ id: S.string })["~standard"].validate(foreign)).toMatchObject({

@@ -189,8 +189,6 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
 
       let output = B_nextVar(input, outputSchema);
       const outputVar = output.i;
-      // Row accumulator: declared at the head of its own segment, before the
-      // `for` below that fills it.
       output.cp = B_let(input.g, outputVar, `new Array(Math.max(${lengthCode.slice(0, -1)}))`);
 
       let rowAssign: string;
@@ -262,7 +260,6 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
         return code;
       });
 
-      // Columnar accumulator: declared before the `for` that fills it.
       output.cp = B_let(input.g, outputVar, `[${initialArraysCode.slice(0, -1)}]`);
       const loopBody = perFieldCode + settingCode;
       output.cp =

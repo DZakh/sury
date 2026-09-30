@@ -2,11 +2,7 @@
 //
 // Every operation names its outcome in its own name (`OrThrow`, `AsResult`,
 // `AsPromiseOrReject`, `AsResultPromise`, `AsPromisableResult`) and takes any
-// of four call forms. The Result outcomes are compiled, not wrapped: the tail
-// that builds `{success, value, error}` is emitted into the operation's own
-// body, and a failed check returns the failure from where it is found
-// (parse.ts `outcomeOf`) instead of throwing it at a `catch` - a decision no
-// `safe(() => ...)` wrapper can make.
+// of four call forms.
 //
 // Deliberately free of top-level side effects, and deliberately NOT the module
 // that installs the schema prototype's interop getters (standard.ts): a bundle

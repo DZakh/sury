@@ -120,11 +120,8 @@ Object.defineProperty(schemaPrototype, "~standard", {
       version: 1,
       vendor,
       validate: (input: unknown): StandardResult | Promise<StandardResult> => {
-        // The JS Result, which is a Standard Schema result, compiled straight
-        // into the operation and promisable (512), so one compile answers for
-        // both a sync and an async schema: a failure returns from where it is
-        // found and every one is reported, no `try` on the valid path, no
-        // sync-compile / catch / recompile-async dance.
+        // The JS Result, which is a Standard Schema result. Promisable (512):
+        // one compile answers for a sync and an async schema.
         //
         // Outside any guard on purpose: a conversion rejected at operation
         // creation fails for every input - a schema bug for the developer, not

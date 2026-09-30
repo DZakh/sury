@@ -174,14 +174,11 @@ export const B_inlineConst = (b: Val, schema: Internal): string => {
 
 export const B_varWithoutAllocation = (g: BGlobal): string => `v${++g.v}`;
 
-// Every declaration generated code makes goes through here - a `let` spelled
-// anywhere else compiles, and then scopes wrong only inside a collecting child
-// (tests/operations_test.ts holds the source to it). Outside one it is the
-// `let` itself, where it is written. Inside, the child's code sits in a label
-// block, which would scope a `let` away from the sibling or container that
-// reads it, so the name goes to the sink (`BGlobal.l`) and only the assignment
-// stays. With an `owner` the name waits for the owner's merge: a var
-// materialized late is read from one stretch and declared by another.
+// Every generated declaration goes through here: a `let` spelled elsewhere
+// compiles, then scopes wrong inside a collecting child's labelled block
+// (tests/operations_test.ts holds the source to it). With an `owner`, the name
+// waits for the owner's merge: a var materialized late is read from one
+// stretch and declared by another.
 export const B_let = (g: BGlobal, name: string, init?: string, owner?: Val): string => {
   if (!g.c) return `let ${name}${init === U ? "" : `=${init}`};`;
   (owner ? (owner.hn ||= []) : g.l!).push(name);
@@ -210,9 +207,8 @@ export const B_sink = (g: BGlobal, emit: () => string): string => {
 // decl lands at the owner's segment end - after the owner's guard, before
 // its dependent code - that immediate owner already dominates and outlives
 // every use, so no separate scope-tree is needed. The owner must be
-// unfinalized; `_notVarAtParent` guards this explicitly.
-// In collecting mode `hd` holds the assignments as statements instead, the
-// names having gone to the owner's sink.
+// unfinalized; `_notVarAtParent` guards this explicitly. Inside a collecting
+// child the name goes to a sink instead (`B_let`).
 export const B_hoistDecl = (owner: Val, name: string, init?: string): void => {
   if (owner.g.c) owner.ha = (owner.ha || "") + B_let(owner.g, name, init, owner);
   else owner.hd += (owner.hd && ",") + (init === U ? name : `${name}=${init}`);
@@ -340,12 +336,10 @@ export const B_collects = (g: BGlobal): boolean => {
   return typeof k === "function" ? k() : !!k;
 };
 
-// Runs a child's parse and merge under its own collecting exit, and answers how
-// to wrap its code: in the label its failures leave, and - where the code can
-// still raise (a recursive schema's operation, a refiner's own throw, a union
-// that can't jump) - in a `catch` that records the raise, so its siblings still
-// run. The parse runs inside as well as the merge: a decoder emits some of its
-// code while it parses.
+// Where the child's code can still raise (a recursive schema's operation, a
+// refiner's own throw, a union that can't jump), the wrap adds a `catch` that
+// records the raise, so its siblings still run. The parse runs inside as well
+// as the merge: a decoder emits some of its code while it parses.
 export const B_child = (g: BGlobal, emit: () => void): ((code: string, val: Val) => string) => {
   const x = g.x;
   const y = g.y;
@@ -608,16 +602,13 @@ export const B_merge = (val: Val, out?: HoistCond): string => {
       }
     }
 
-    // Hoisted decls land after this val's checks (the old varsAllocation
-    // slot).
+    // Hoisted decls land after this val's checks.
     if (val.hn) val.g.l!.push(...val.hn);
     if (val.hd) currentCode += `let ${val.hd};`;
     if (val.ha) currentCode += val.ha;
 
     // Now emitted: a later cached-bond materialization can't hoist onto it.
     val.fz = true;
-    // A container whose children collected a failure has no value for what
-    // follows it to read, so that code runs only if they added none.
     const k = val.g.k;
     if (val.k && k && code !== "" && val.g.y) {
       const m = B_varWithoutAllocation(val.g);
@@ -902,10 +893,9 @@ export const B_addObjectField = (objectVal: Val, location: string, val: Val): vo
   objectVal.d![location] = val;
 }
 
-// A container's child, produced and added in its own scope when the operation
-// collects: a failure anywhere in it leaves only this child's code. The
-// container is then marked (`Val.k`), so what reads its value afterwards is
-// skipped (`B_merge`).
+// A container's child, in its own scope when the operation collects: a failure
+// anywhere in it leaves only this child's code. `produce` is a thunk because
+// the parse has to run inside the child's exit.
 export const B_field = (container: Val, location: string, produce: () => Val): void => {
   let val!: Val;
   const emit = () => B_addObjectField(container, location, (val = produce()));

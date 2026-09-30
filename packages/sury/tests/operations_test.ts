@@ -308,9 +308,6 @@ test("the promisable Result mode follows the schema's own shape", async () => {
 });
 
 test("`~standard.validate` is the compiled operation, with no wrapper left", () => {
-  // A Result IS a Standard Schema result, so `validate` is the promisable
-  // Result operation itself: no second shape and no wrapper translating one
-  // into the other.
   const schema = S.schema({ id: S.string, age: S.number });
   const validate = schema["~standard"].validate;
   expect(validate({ id: "a", age: 1 })).toEqual(S.parseAsResult(schema, { id: "a", age: 1 }));

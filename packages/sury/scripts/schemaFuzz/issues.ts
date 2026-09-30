@@ -3,7 +3,7 @@
 //
 //   first         `parseAsResult` accepts exactly what `parseOrThrow` does, and
 //                 its first issue is the error `parseOrThrow` throws - the one
-//                 failure both find before the other diverge.
+//                 failure both find before the two diverge.
 //   standard      `~standard.validate` answers what `parseAsResult` does: a
 //                 Result is a Standard Schema result, so they are one operation.
 //   independent   for an object value, breaking fields one at a time and then

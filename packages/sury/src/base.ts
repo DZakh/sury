@@ -601,12 +601,9 @@ export type BGlobal = {
   // the operation. Not `x()`: inside a union case `x` is the case's exit, and
   // leaving by it would fail the union a second time.
   y?: () => string;
-  // @as("l") - the declaration sink of the scope the code lands in (`B_let`):
-  // the operation body, an item loop's body, a callback's. `c` counts the
-  // collecting children open around the code being emitted: a child's code
-  // sits in a labelled block, which would scope a `let` away from the sibling
-  // or container that reads it, so there - and only there - a declaration
-  // goes to the sink, declared once at its head.
+  // @as("l") - the declaration sink of the scope code lands in (`B_let`): the
+  // operation body, an item loop's, a callback's. `c` counts the collecting
+  // children open around the code being emitted.
   l?: string[];
   c?: number;
 }

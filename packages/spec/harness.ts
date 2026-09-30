@@ -1066,10 +1066,9 @@ const clean = <T extends Record<string, unknown>>(o: T): T => {
   return r as T;
 };
 
-// The author owns inputs and skips; the harness owns every derived answer.
-// What a Result reports beyond the thrown error, as the messages a thrown
-// error for each issue would carry. Recorded only past the first: the first is
-// the example's `error`, which the operation matrix already holds every Result
+// What a Result reports, as the messages a thrown error for each issue would
+// carry. Recorded only when there is more than one: a lone issue is the
+// example's `error`, which the operation matrix already holds every Result
 // outcome to.
 const exampleIssues = async (
   opName: OpName,
@@ -1093,6 +1092,7 @@ const exampleIssues = async (
   );
 };
 
+// The author owns inputs and skips; the harness owns every derived answer.
 export const recomputeGoldens = async (obj: Spec, compiled?: Record<OpName, BuiltOp>): Promise<Spec> => {
   const next: Spec = structuredClone(obj);
   const schema = evalSchema(next.ts.schema);

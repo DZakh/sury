@@ -286,9 +286,6 @@ const okResult = (flag: Flag, value: string): string =>
 // `message` is the error's `reason` and not its formatted `message`: the
 // location is in `path`, which is omitted at the root, as Standard Schema
 // consumers expect - a consumer that renders both would say it twice.
-//
-// Filled from the end rather than unshifted: most of what a failing value
-// costs was the unshift.
 const failureOf =
   (errorOf: (e: unknown) => SuryErrorRecord, lift: { a?: boolean }) =>
   (list: unknown[] | undefined, raised?: 1, thrown?: unknown): unknown => {
@@ -352,8 +349,6 @@ const outcomeOf = (input: Val, flag: Flag, hasDefs: boolean): Outcome => {
     list = g.k = B_varWithoutAllocation(g);
     g.l = [];
     failure = B_embedPure(input, failureOf(B_errorOf(input), lift));
-    // Until a child names the list nothing can be on it, so a failure before
-    // then is the only one.
     x = (record) =>
       `return ${failure}(${record ? `[${g.ku ? list : ""},${record(true)}]` : list})`;
     // Tagged so a container knows its children collect (builder.ts `B_field`).
@@ -387,9 +382,7 @@ const outcomeOf = (input: Val, flag: Flag, hasDefs: boolean): Outcome => {
       const valueVar = isAsync ? B_varWithoutAllocation(g) : value;
       const success = okResult(flag, flag & 4096 ? "true" : flag & 2048 ? value : valueVar);
       let body = isAsync
-        ? // Inlined into the promise chain the operation already builds, rather
-          // than wrapped around it.
-          `${code}return ${out}.then(${valueVar}=>${done(`(${success})`)},${errVar}=>(${failOf(errVar)}))`
+        ? `${code}return ${out}.then(${valueVar}=>${done(`(${success})`)},${errVar}=>(${failOf(errVar)}))`
         : `${code}return ${done(lifted(success))}`;
       // An outcome with an answer of its own never throws, and any body can:
       // what it reads may be a getter or a proxy, even where nothing it checks
