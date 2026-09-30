@@ -1432,12 +1432,20 @@ const unionEmit = (
     cases.length > 0 &&
     cases.every((c) => c.c !== "" && c.b === "");
   const asyncDispatch = cases.some((c) => c.f & 2);
-  if (pure) {
-    const fused = unionOr(cases);
-    output = B_refine(
-      B_refine(output, output.s, [{ c: () => fused, f: failInvalidType }], expectedSchema)
-    );
-  } else if (!noop) {
+  if (!noop && !asyncDispatch && cases.every((c) => c.c !== "")) {
+    // A parent dispatching this union as is gets a condition only by
+    // hoisting one, and a case with none ends the parent's chain, taking
+    // every later member's values: `S.union([S.nullable(S.boolean, false),
+    // S.string])` on "x". With every case entering on a condition, their OR
+    // is this union's narrow - its whole check when no case has a body. With
+    // bodies, `noValidation` keeps it out of the code where nobody hoists it,
+    // since the chain already raises on the same values.
+    const fused = unionOr(cases.filter((c) => !(c.f & 16)));
+    guard.vc = [{ c: () => fused, f: failInvalidType }];
+    guard.e = expectedSchema;
+    if (!pure) (guard.e = copySchema(expectedSchema)).noValidation = true;
+  }
+  if (!pure && !noop) {
     let dispatch = emitChain(cases, true);
     if (failures) dispatch = `let ${failures};${dispatch}`;
     if (asyncDispatch) {
@@ -1445,18 +1453,6 @@ const unionEmit = (
       output.i = `(async(${itemVar})=>{${dispatch};return ${itemVar}})(${itemVar})`;
     } else {
       output.cp += dispatch;
-      if (cases.every((c) => c.c !== "")) {
-        // A parent union dispatching this one as is gets no condition from the
-        // chain, and a case with none ends the parent's chain:
-        // `S.union([S.nullable(S.boolean, false), S.string])` rejected "x".
-        // Every case entering on a condition, their OR is this union's own
-        // narrow, offered for the parent to hoist. `noValidation` keeps it out
-        // of the code where nobody does - the chain already raises on it.
-        const fused = unionOr(cases.filter((c) => !(c.f & 16)));
-        guard.e = copySchema(expectedSchema);
-        guard.e.noValidation = true;
-        guard.vc = [{ c: () => fused, f: failInvalidType }];
-      }
     }
   }
   if (!asyncDispatch) output.i = input.i;

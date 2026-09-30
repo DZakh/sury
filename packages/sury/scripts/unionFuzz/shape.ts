@@ -42,8 +42,6 @@ export const admitsUndefined = (node: Shape): boolean =>
   node.name === "nullish" ||
   node.name === "undefined" ||
   node.name === "void" ||
-  // An unset variable reads as `undefined`.
-  node.name === "env" ||
   node.name === "any" ||
   node.name === "unknown" ||
   (node.name === "nullable" && admitsUndefined(node.args[0]!)) ||
