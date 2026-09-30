@@ -147,6 +147,7 @@ for (let c = 0; c < cases * seeds; c++) {
     const ctx: Ctx = {
       S: sury,
       id,
+      shape: member.shape,
       schema,
       reversed,
       lossy: !!member.lossy,

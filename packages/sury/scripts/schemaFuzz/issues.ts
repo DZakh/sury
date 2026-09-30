@@ -10,6 +10,11 @@
 //                 a time and then all together reports each one's own issue in
 //                 the combined answer. A container collects its children; it does not let
 //                 one child's failure decide what another reports.
+//   sound         the other direction: breaking one field of an accepted value
+//                 reports nothing under another field, and every issue of the
+//                 all-broken answer is one some field reports alone. A root
+//                 union is exempt from the first half: breaking its tag picks
+//                 another case, which answers about its own fields.
 //
 // The values are the Input samples and each of them broken: a plain object or
 // array with every own field or item in turn replaced by a symbol no leaf
@@ -67,7 +72,7 @@ const check = (ctx: Ctx): void => {
   };
 
   for (const [value] of inputs) {
-    run(value);
+    const whole = run(value);
     const isArray = Array.isArray(value);
     if (!isPlain(value) && !isArray) continue;
     const keys = Object.keys(value);
@@ -78,9 +83,18 @@ const check = (ctx: Ctx): void => {
       return copy;
     };
     const alone: string[] = [];
+    const reported = new Set<string>();
     for (const key of keys) {
       const one = run(broken(key));
-      if (one && !one.success && String(one.issues?.[0]?.path?.[0]) === key) alone.push(said(one.issues![0]!));
+      if (!one || one.success) continue;
+      if (String(one.issues?.[0]?.path?.[0]) === key) alone.push(said(one.issues![0]!));
+      for (const issue of one.issues ?? []) {
+        reported.add(said(issue));
+        const head = issue.path?.[0];
+        if (whole?.success && ctx.shape.name !== "union" && head !== undefined && String(head) !== key) {
+          report("sound", `breaking only ${key} of ${show(value)} reports ${said(issue)}`);
+        }
+      }
     }
     const all = run(broken());
     // Only where the container itself stayed an object the schema reads field
@@ -91,6 +105,11 @@ const check = (ctx: Ctx): void => {
     for (const issue of alone) {
       if (!combined.has(issue)) {
         report("independent", `${issue} is reported alone but not with every field of ${show(value)} broken (${[...combined].join("; ")})`);
+      }
+    }
+    for (const issue of combined) {
+      if (!reported.has(issue)) {
+        report("sound", `${issue} is reported with every field of ${show(value)} broken but by no field alone`);
       }
     }
   }

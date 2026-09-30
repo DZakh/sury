@@ -486,6 +486,17 @@ left on the table:
   The collecting outcomes wait for every child, so only the throwing ones do
   this. Wants a spec example once fixed (the spec harness crashes on it
   today, which is why `object-async-fields-collect` puts `n` first).
+- **Encoding a nullable refined `url` into `jsonString` fails to compile.**
+  `S.encodeOrThrow(S.schema({ f: S.nullable(S.url.with(S.refine, check)) }).with(S.to, S.jsonString), '{"f":null}')`
+  throws `Cannot read properties of undefined (reading 't')` from `B_merge`.
+  The listed `jsonstring-fieldor-refined-url-encode` names the `fieldOr`
+  spelling the issues fuzzer draws; this one needs no `fieldOr`.
+- **`fieldOr` over an optional nullable `hostname` into `jsonString` emits
+  invalid code.** `S.parseOrThrow(S.object((s) => ({ f: s.fieldOr("f", S.optional(S.nullable(S.hostname), null), "example.com") })).with(S.to, S.jsonString), { f: "a.com" })`
+  throws `SyntaxError: Invalid left-hand side in assignment` while compiling.
+- **A flattened refined object runs its refine twice on the valid path**
+  (`e[1](v1)||e[2](v1);e[3](v1)||e[4](v1)` in
+  `specs/flatten-refined-collect.yaml`). Same on main.
 - **`fuzz:union --seed=3` reports an unlisted `acceptance` diff.**
   `S.union([record(R3{head:xid,next?:R3}), {TAG:T2,…}, instance(Error)])`
   answers `Error(e)` for an `Error`, where the sequential reference lets the
