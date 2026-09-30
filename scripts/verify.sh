@@ -32,18 +32,54 @@ step() {
   fi
 }
 
+# The steps between `spawn` and `collect` share no files, so they run at once,
+# each into its own log, printed in order when all have finished.
+LOGS="$(mktemp -d)"
+trap 'rm -rf "$LOGS"' EXIT
+spawned=()
+
+spawn() {
+  local name="$1" dir="$2" log="$LOGS/${#spawned[@]}"
+  shift 2
+  spawned+=("$name")
+  (
+    start=$SECONDS
+    (cd "$ROOT/$dir" && "$@") >"$log" 2>&1
+    echo "$? $((SECONDS - start))" >"$log.rc"
+  ) &
+}
+
+collect() {
+  wait
+  local i rc secs
+  for i in "${!spawned[@]}"; do
+    echo
+    echo "=== ${spawned[$i]}"
+    cat "$LOGS/$i"
+    read -r rc secs <"$LOGS/$i.rc"
+    if [ "$rc" -eq 0 ]; then
+      results+=("PASS  ${spawned[$i]} (${secs}s)")
+    else
+      results+=("FAIL  ${spawned[$i]} (${secs}s)")
+      failed=1
+    fi
+  done
+  spawned=()
+}
+
 if [ $FAST -eq 0 ]; then
   step "dead code" . pnpm lint:deadcode
   step "build" packages/sury pnpm build
   step "compiled ReScript matches source" packages/sury ../../scripts/assert-no-drift.sh '*.res.mjs'
 fi
 
-step "spec check" packages/sury pnpm spec check --perf=skip
-step "typecheck" packages/sury pnpm typecheck
-step "fuzz:union" packages/sury pnpm fuzz:union --seed=1
-step "fuzz:schema" packages/sury pnpm fuzz:schema
-step "fuzz:formdata" packages/sury pnpm fuzz:formdata
-step "fuzz:content" packages/sury pnpm fuzz:content
+spawn "spec check" packages/sury pnpm spec check --perf=skip
+spawn "typecheck" packages/sury pnpm typecheck
+spawn "fuzz:union" packages/sury pnpm fuzz:union --seed=1
+spawn "fuzz:schema" packages/sury pnpm fuzz:schema
+spawn "fuzz:formdata" packages/sury pnpm fuzz:formdata
+spawn "fuzz:content" packages/sury pnpm fuzz:content
+collect
 
 if [ $FAST -eq 0 ]; then
   step "coverage" packages/sury pnpm coverage
