@@ -1109,8 +1109,8 @@ const resolveRef = (ref: string, ctx: RefContext): Internal => {
   // The pointer's last segment is the name the document already uses for the
   // definition, so a JSON Schema round-trip keeps it. `#` points at
   // the document itself and has no segment to take. `/`, `~` and `%` can't
-  // keep: recursiveDecoder slices the raw suffix off `$ref`, so they'd come
-  // back out as a pointer that resolves to a different key.
+  // keep: the renderer publishes a definition under the raw suffix of its
+  // `$ref`, so they'd come back out as a pointer that resolves to another key.
   const base =
     ref === "#"
       ? "Root"

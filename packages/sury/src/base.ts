@@ -509,8 +509,9 @@ export type Internal = {
   fuse?: (input: Val, container: Internal, item?: Internal) => Internal | undefined;
   "$ref"?: string;
   // What a ref's definitions are called, for reading: `S.recursive` and
-  // `S.json` put theirs here, and the JSON Schema a ref renders to publishes
-  // them. Nothing resolves a `$ref` through it - see `definition`.
+  // `S.json` put theirs here. Nothing resolves a `$ref` through it - see
+  // `definition` - but its presence is what marks a root ref to the union
+  // planner (union.ts `unionRefDef`).
   "$defs"?: Record<string, Internal>;
   // The definition a ref stands for, bound by whatever built the ref. A name is
   // a label: two `S.recursive` schemas may share one, and one may sit inside

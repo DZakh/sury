@@ -13,6 +13,7 @@ import {
 } from "../base";
 import {
   B_embed,
+  B_invalidOperation,
   B_mergeWithPathPrepend,
   B_nextVar,
   B_refine
@@ -27,7 +28,12 @@ import {
 export const recursiveDecoder: Builder = (input) => {
   const expectedSchema = input.e;
 
-  const def = expectedSchema.definition!()!;
+  // Nothing to compile while the definer runs - a default checked inside it
+  // reaches the ref first. `invalid_operation` is what leaves such a default
+  // unchecked, the way a never encode does.
+  const def =
+    expectedSchema.definition!() ||
+    B_invalidOperation(input, `${expectedSchema.name} is used before S.recursive returns its definition`);
   // Masked to the compile-semantics bits (127 and below). A def compiles a
   // nested operation whose result generated code consumes, so it must throw:
   // inheriting the outer operation's return mode would have the inner one

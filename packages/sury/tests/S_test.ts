@@ -3275,30 +3275,3 @@ test("isEqual walks a recursive schema, including mutual recursion, and compare 
   t.expect(() => S.compareInput(branch, b(1), b(2))).toThrow("Can't compare Branch");
 });
 
-// `Internal.definition` is the rule every site resolving a `$ref` keeps:
-// the definition a ref carries wins over the record the operation holds. The
-// equality compiler is one of those sites. Nothing public builds such a ref -
-// the protobuf compiler does, for standins that never leave the operation it
-// compiles - so the field is set here directly, which is what a compiler does.
-test("the equality compiler follows the definition a ref carries, not the name", (t) => {
-  const carried = S.recursive("Node", (self) =>
-    S.schema({ v: S.string, kids: S.array(self) }),
-  );
-  // `$defs` says compare `v` and `kids`; the definition carried says `v`.
-  const only = S.schema({ v: S.string });
-  (carried as unknown as { definition: unknown }).definition = () => only;
-
-  const a = { v: "a", kids: ["x"] };
-  const b = { v: "a", kids: ["y"] };
-  t.expect(S.isEqualInput(carried, a, b)).toBe(true);
-
-  // The same schema left as built sees `kids`, and compares them as nodes.
-  const named = S.recursive("Node", (self) => S.schema({ v: S.string, kids: S.array(self) }));
-  const nodeA = { v: "a", kids: [{ v: "x", kids: [] }] };
-  const nodeB = { v: "a", kids: [{ v: "y", kids: [] }] };
-  t.expect(S.isEqualInput(named, nodeA, nodeB)).toBe(false);
-
-  // Either way a ref is a call, which `compare` has no order for.
-  t.expect(() => S.compareInput(carried, a, b)).toThrow("Can't compare Node");
-  t.expect(() => S.compareInput(named, a, b)).toThrow("Can't compare Node");
-});

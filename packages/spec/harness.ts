@@ -2262,8 +2262,8 @@ export const checkZodExamples = async (spec: Spec): Promise<string[]> => {
 
 // SameValueZero at the leaves, so it agrees with the emit on NaN (equal to
 // itself) and on -0 (equal to 0) - `isDeepStrictEqual` splits both the other
-// way. An absent key and an `undefined` one are one value: a schema reads an
-// optional property the same either way.
+// way. An absent key and an `undefined` one are two values unless
+// `blindToUndefined`, for the pairs only a schema could decide (see below).
 const structurallyEqual = (a: unknown, b: unknown, blindToUndefined?: boolean): boolean => {
   if (a === b) return true;
   if (a !== a) return b !== b;
