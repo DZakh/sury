@@ -314,21 +314,23 @@ A schema read from a file or an API needs no cast: a non-literal argument - `unk
 **Sury** implements the [Standard Schema](https://standardschema.dev/) specification:
 
 ```ts
-schema["~standard"].validate({ name: "Dmitry" });
-// { value: { name: "Dmitry" } }
+const schema = S.schema({ name: S.string, age: S.number });
 
-schema["~standard"].validate({ name: 1 });
-// { issues: [{ message: "Expected string, received 1", path: ["name"] }] }
+schema["~standard"].validate({ name: "Dmitry", age: 30 });
+// { success: true, value: { name: "Dmitry", age: 30 }, error: undefined, issues: undefined }
+
+schema["~standard"].validate({ name: 1, age: "30" });
+// {
+//   success: false,
+//   issues: [
+//     { message: "Expected string, received 1", path: ["name"] },
+//     { message: 'Expected number, received "30"', path: ["age"] },
+//   ],
+//   ...
+// }
 ```
 
-A schema with an async codec answers with a promise of the same result, as the spec allows; every other schema answers synchronously.
-
-The `AsResult` outcomes answer in this shape too - `S.parseAsResult(schema, data)` carries `issues` beside its `success`/`value`/`error`, so a Sury `Result` is a Standard Schema result and needs no translation on the way to one:
-
-```ts
-S.parseAsResult(schema, { name: 1 }).issues;
-// [{ message: "Expected string, received 1", path: ["name"] }]
-```
+`validate` answers with a Sury [`Result`](#outcomes), which is a Standard Schema result, and reports every issue - see [Every issue at once](#every-issue-at-once). A schema with an async codec answers with a promise of the same result, as the spec allows; every other schema answers synchronously.
 
 The `~standard` property also implements the [Standard JSON Schema](https://standardschema.dev/json-schema) spec, exposing a `jsonSchema` converter for the schema's input and output types. Call `S.enableStandardJSONSchema()` once to enable it:
 
@@ -2061,6 +2063,58 @@ A `Result` is also a [Standard Schema](#standard-schema) result, so it goes stra
 S.parseAsResult(S.string, 42).issues; // [{ message: "Expected string, received 42" }]
 ```
 
+#### Every issue at once
+
+A failed `Result` lists an issue for every field, item and entry that failed, and for every unknown key of a strict object. `error` is the first of them, the one `OrThrow` throws:
+
+```ts
+const signup = S.schema({
+  email: S.email,
+  password: S.string.with(S.minLength, 8),
+  tags: S.array(S.string),
+});
+
+S.parseAsResult(signup, { email: "x", password: "123", tags: ["a", 1] }).issues;
+// [
+//   { message: 'Expected email, received "x"', path: ["email"] },
+//   { message: 'Expected string.length >= 8, received "123"', path: ["password"] },
+//   { message: "Expected string, received 1", path: ["tags", 1] },
+// ]
+```
+
+A value reports its first failure, a union one failure for the whole union. A refine or transform on an object runs only once every field passed, so it never sees an invalid field:
+
+```ts
+const passwords = S.schema({ password: S.string.with(S.minLength, 8), confirm: S.string })
+  .with(S.refine, (v) => v.password === v.confirm, { error: "Passwords must match" });
+
+S.parseAsResult(passwords, { password: "123", confirm: "x" }).issues;
+// [{ message: 'Expected string.length >= 8, received "123"', path: ["password"] }]
+```
+
+An async field is checked even when another field already failed, and every async failure is reported, after the sync ones:
+
+```ts
+const availableUsername = S.string.with(S.to, S.string, {
+  decode: {
+    async: async (name) => {
+      if (await isTaken(name)) throw new Error("Username is taken");
+      return name;
+    },
+  },
+  encode: "auto",
+});
+const account = S.schema({ username: availableUsername, age: S.number });
+
+(await S.parseAsResultPromise(account, { username: "taken", age: "x" })).issues;
+// [
+//   { message: 'Expected number, received "x"', path: ["age"] },
+//   { message: "Username is taken", path: ["username"] },
+// ]
+```
+
+The ReScript `result` keeps its one `error`.
+
 Every failure of the value comes back in the outcome's own shape, exceptions included: a refine or coder that throws is wrapped as `invalid_conversion` with the exception as its `cause`, and so is anything else the value raises on its way through (a getter, say). Only a defect - a schema wired wrong, which fails for every input - throws out of every outcome, at the point the operation is created.
 
 ### Call forms
@@ -2551,8 +2605,9 @@ const asyncResult = await S.parseAsResultPromise(S.boolean, data);
 
 `error` is a `S.DataError` - `invalid_input`, `unrecognized_key` or
 `invalid_conversion`, all failures **of this value**, reportable to whoever
-supplied it. The same failure is also on `result.issues`, in the Standard Schema
-shape - `message` without the path prefix, and the `path` beside it.
+supplied it. `result.issues` lists it first, followed by every other failure the
+value has, in the Standard Schema shape - `message` without the path prefix, and
+the `path` beside it (see [Every issue at once](#every-issue-at-once)).
 
 A `S.DefectError` - `invalid_operation` or `unsupported_decode` - is never a
 result. A schema wired wrong fails for every input, so it is the developer's

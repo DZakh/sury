@@ -174,12 +174,14 @@ export const B_inlineConst = (b: Val, schema: Internal): string => {
 
 export const B_varWithoutAllocation = (g: BGlobal): string => `v${++g.v}`;
 
-// Every declaration the compiler emits. Outside collecting mode it is the
-// `let` itself, where it is written. In collecting mode a child's code sits in
-// a label block, which would scope a `let` away from the sibling or container
-// that reads it, so the name goes to the sink (`BGlobal.l`) and only the
-// assignment stays. With an `owner` the name waits for the owner's merge: a
-// var materialized late is read from one stretch and declared by another.
+// Every declaration generated code makes goes through here - a `let` spelled
+// anywhere else compiles, and then scopes wrong only inside a collecting child
+// (tests/operations_test.ts holds the source to it). Outside one it is the
+// `let` itself, where it is written. Inside, the child's code sits in a label
+// block, which would scope a `let` away from the sibling or container that
+// reads it, so the name goes to the sink (`BGlobal.l`) and only the assignment
+// stays. With an `owner` the name waits for the owner's merge: a var
+// materialized late is read from one stretch and declared by another.
 export const B_let = (g: BGlobal, name: string, init?: string, owner?: Val): string => {
   if (!g.c) return `let ${name}${init === U ? "" : `=${init}`};`;
   (owner ? (owner.hn ||= []) : g.l!).push(name);
@@ -614,8 +616,8 @@ export const B_merge = (val: Val, out?: HoistCond): string => {
 
     // Now emitted: a later cached-bond materialization can't hoist onto it.
     val.fz = true;
-    // PROTOTYPE: a container whose children collected a failure has no value
-    // for what follows it to read, so that code runs only if they added none.
+    // A container whose children collected a failure has no value for what
+    // follows it to read, so that code runs only if they added none.
     const k = val.g.k;
     if (val.k && k && code !== "" && val.g.y) {
       const m = B_varWithoutAllocation(val.g);

@@ -1,3 +1,4 @@
+import { readdirSync, readFileSync } from "node:fs";
 import { expect, expectTypeOf, test } from "vitest";
 import * as S from "sury";
 import type { StandardSchemaV1 } from "sury";
@@ -637,4 +638,19 @@ test("every verb takes the promisable Result, and answers in the schema's shape"
   }
   // There is no promisable throwing variant, in either language.
   expect("parseAsPromisableOrThrow" in S).toBe(false);
+});
+
+// A declaration spelled outside `B_let` compiles, and then scopes wrong only
+// inside a collecting child's labelled block - a golden records one schema, so
+// the source is held to it instead. The four are `B_let` and the sinks that
+// declare what it routed.
+test("generated declarations go through B_let", () => {
+  const src = new URL("../src/", import.meta.url);
+  const spelled: Record<string, number> = {};
+  for (const file of readdirSync(src, { recursive: true }) as string[]) {
+    if (!file.endsWith(".ts")) continue;
+    const count = readFileSync(new URL(file, src), "utf8").split("`let ${").length - 1;
+    if (count) spelled[file] = count;
+  }
+  expect(spelled).toEqual({ "builder.ts": 3, "parse.ts": 1 });
 });

@@ -56,6 +56,3 @@ operations:
       empty-item-refined:
         input: '{ tags: [""], ids: [] }'
         error: 'Failed at tags[0]: Expected string.length >= 1, received ""'
-        issues:
-          - 'Failed at tags[0]: Expected string.length >= 1, received ""'
-          - "TypeError: Cannot read properties of undefined (reading 'length')"

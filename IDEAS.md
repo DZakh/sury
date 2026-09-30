@@ -380,14 +380,6 @@ is set. What is left on the table:
   every other item falls through: ~450ns, against ~170ns for `isInput`, which
   records nothing. Linking only the dynamic segments (the loop var) and letting
   the builder concat the static part would close most of it.
-- **Standard Schema `validate` and `*AsPromisableResult` still raise.** Both
-  answer in the body's own shape - a promise when the body turns out async - and
-  the exit is chosen before the body is compiled, so they are left without one.
-  An exit whose embed reads a box the tail fills in once `isAsync` is known
-  (`box.a ? Promise.resolve(R(e)) : R(e)`) would cover both. `validate` is the
-  one most of the ecosystem calls, and its failing path is the throw-and-catch
-  every other answering outcome no longer pays. Its exit belongs next to
-  `throwTail` in parse.ts, which is in every bundle; measure what it adds there.
 - **`parseOrThrow`'s failing path is the stack capture.** ~4.7us of a ~5us
   failure is `Error.captureStackTrace` at the operation boundary; the throw
   itself is noise next to it. Nothing to do with the exit, but it is now what
@@ -444,8 +436,39 @@ is set. What is left on the table:
   would still get past it. An async coder in the generator, and the `AsPromise`
   outcomes awaited in the loop, would close that.
 
+### Every issue at once: follow-ups
+
+The JS Result and `~standard.validate` report a failure per field, item and
+entry: each container child is a labelled block its failures leave, declared
+through `B_let`/`B_sink` so the block scopes nothing a sibling reads. What is
+left on the table:
+
+- **A value reports one failure.** `S.string.with(S.minLength, 8).with(S.pattern, re)`
+  reports the length and stops. Zod and Valibot report both; the checks after
+  a type check could record and fall through instead of leaving the child.
+- **An object refine waits for every field.** A refine reads the value it
+  refines, so it runs only when every field passed - the password-mismatch
+  message appears once the password is long enough. Valibot's `partialCheck`
+  is the spelling for a refine over the fields that did pass.
+- **A union is one failure.** A case a later case may still accept fails
+  fast, so a union whose members overlap reports the union's aggregate. A case
+  only its own dispatch reaches already collects.
+- **An async join settles every child with an extra `.then`.** Measured at
+  +100-200ns per async field on the valid path of a collecting operation. The
+  child's own last `.then` could take the settling arm instead.
+- **Result code grows with the labels.** `{k=[k,e[1],v];break c3}` per failure
+  and a label per child; a child whose only failure is its last statement needs
+  neither the break nor the label.
+
 ### Pre-existing bugs surfaced by the failure exit work
 
+- **A throwing async operation leaves a started child's rejection unhandled.**
+  `S.parseAsPromiseOrReject(S.schema({ a: asyncCoder, n: S.number }), { a: "t", n: "x" })`
+  starts `a`'s promise, then rejects with `n`'s failure; `a`'s rejection has
+  no handler and Node reports an unhandled rejection. Same on main 36d3848.
+  The collecting outcomes wait for every child, so only the throwing ones do
+  this. Wants a spec example once fixed (the spec harness crashes on it
+  today, which is why `object-async-fields-collect` puts `n` first).
 - **`fuzz:union --seed=3` reports an unlisted `acceptance` diff.**
   `S.union([record(R3{head:xid,next?:R3}), {TAG:T2,…}, instance(Error)])`
   answers `Error(e)` for an `Error`, where the sequential reference lets the

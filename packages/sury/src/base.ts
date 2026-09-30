@@ -22,17 +22,17 @@ export type Flag = number;
 // can distinguish Sury failures from foreign ones), 64 flatten.
 //
 // Return modes, 128 and above - what the operation hands back, read only by the
-// operation tail (parse.ts, operations.ts): 128 JS Result
-// (`{success, value, error}`), 256 ReScript Result (`{TAG, _0}`), 512
-// promisable (1 without lifting a synchronous result into a promise), 1024
-// Standard Schema (`{value}` / `{issues}`), 2048 yield the operation's input
-// rather than its output (`makeInput`/`makeOutput`), 4096 answer a boolean
+// operation's outcome (parse.ts `outcomeOf`): 128 JS Result
+// (`{success, value, error, issues}`, also what `~standard.validate` answers),
+// 256 ReScript Result (`{TAG, _0}`), 512 promisable (1 without lifting a
+// synchronous result into a promise), 2048 yield the operation's input rather
+// than its output (`makeInput`/`makeOutput`), 4096 answer a boolean
 // (`isInput`/`isOutput`).
 //
 // Bit 1 permits async, it does not assert it: codegen may read `g.o & 1` as
 // "a promise MAY appear here" (json.ts declines to fuse), never as "one will".
 // An async operation also rejects rather than throwing when its value fails
-// before the first await - decided by the operation tail (operations.ts), from
+// before the first await - decided by the operation's outcome (parse.ts), from
 // whether the compile is nested, not by a flag of its own.
 //
 // The split at 128 is load-bearing: a nested operation compiled inside another
