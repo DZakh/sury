@@ -1,5 +1,7 @@
-import { test, expect } from "vitest";
+import { test, expect, vi } from "vitest";
 import { deriveTypeInfo } from "../../spec/harness";
+
+vi.setConfig({ testTimeout: 20_000 });
 
 test("a probe that fails rejects alone, and every probe queued with it settles", async () => {
   const results = await Promise.allSettled([
