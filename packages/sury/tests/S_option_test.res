@@ -274,3 +274,66 @@ test("Option with transformed unknown", t => {
     `i=>{try{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){i=i.field;break}if(i===void 0)break;throw e[0](i)}return i}catch(v0){e[1](v0)}}`,
   )
 })
+
+// https://github.com/DZakh/sury/issues/469
+module CoderToOption = {
+  let blankToNone = S.string->S.to(
+    S.option(S.string),
+    ~custom={
+      decode: Sync(s => s == "" ? None : Some(s)),
+      encode: Sync(o => o->Option.getOr("")),
+    },
+  )
+
+  test("Option over a coder to option parses undefined as None", t => {
+    let schema = S.option(blankToNone)
+
+    t->U.assertThrowsMessage(
+      () => %raw(`undefined`)->S.parseOrThrow(~to=schema),
+      `Expected string, received undefined`,
+    )
+    t->Assert.deepEqual(%raw(`""`)->S.parseOrThrow(~to=schema), None)
+    t->Assert.deepEqual(%raw(`"a"`)->S.parseOrThrow(~to=schema), Some(Some("a")))
+  })
+
+  test("Option over a coder to option in an absent object field", t => {
+    let schema = S.object(s => s.field("a", S.option(blankToNone)))
+
+    t->U.assertThrowsMessage(
+      () => %raw(`{}`)->S.parseOrThrow(~to=schema),
+      `Failed at a: Expected string, received undefined`,
+    )
+  })
+
+  test("Option over a coder to option with getOrWith", t => {
+    let schema = S.option(blankToNone)->S.Option.getOrWith(() => None)
+
+    t->U.assertThrowsMessage(
+      () => %raw(`undefined`)->S.parseOrThrow(~to=schema),
+      `Expected string, received undefined`,
+    )
+  })
+
+  test("nullAsOption over a coder to option parses null as None", t => {
+    let schema = S.nullAsOption(blankToNone)
+
+    t->U.assertThrowsMessage(
+      () => %raw(`null`)->S.parseOrThrow(~to=schema),
+      `Expected string, received null`,
+    )
+  })
+
+  test("Option over a coder to a union parses undefined as None", t => {
+    let schema = S.option(
+      S.string->S.to(
+        S.union([S.literal(1), S.literal(2)]),
+        ~custom={decode: Sync(s => s == "1" ? 1 : 2), encode: Sync(i => i->Int.toString)},
+      ),
+    )
+
+    t->U.assertThrowsMessage(
+      () => %raw(`undefined`)->S.parseOrThrow(~to=schema),
+      `Expected string, received undefined`,
+    )
+  })
+}
