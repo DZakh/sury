@@ -120,11 +120,11 @@ Object.defineProperty(schemaPrototype, "~standard", {
       version: 1,
       vendor,
       validate: (input: unknown): StandardResult | Promise<StandardResult> => {
-        // The Standard Schema result is compiled straight into the operation
-        // (mode bit 1024), promisable (512) so one compile answers for both a
-        // sync and an async schema: no `try` on the valid path, no
-        // sync-compile / catch / recompile-async dance, and no second object
-        // to translate one result shape into the other.
+        // The JS Result, which is a Standard Schema result, compiled straight
+        // into the operation and promisable (512), so one compile answers for
+        // both a sync and an async schema: a failure returns from where it is
+        // found and every one is reported, no `try` on the valid path, no
+        // sync-compile / catch / recompile-async dance.
         //
         // Outside any guard on purpose: a conversion rejected at operation
         // creation fails for every input - a schema bug for the developer, not
@@ -132,7 +132,7 @@ Object.defineProperty(schemaPrototype, "~standard", {
         // every call, since `opFlag` commits only once there is an
         // operation.
         if (opFlag !== globalConfig.f) {
-          validateOp = getOp(1 | 512 | 1024, 2, unknown, schema) as typeof validateOp;
+          validateOp = getOp(1 | 128 | 512, 2, unknown, schema) as typeof validateOp;
           opFlag = globalConfig.f;
         }
         return validateOp(input);

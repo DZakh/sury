@@ -5,7 +5,7 @@
 // of four call forms. The Result outcomes are compiled, not wrapped: the tail
 // that builds `{success, value, error}` is emitted into the operation's own
 // body, and a failed check returns the failure from where it is found
-// (`operationExit`) instead of throwing it at a `catch` - a decision no
+// (parse.ts `outcomeOf`) instead of throwing it at a `catch` - a decision no
 // `safe(() => ...)` wrapper can make.
 //
 // Deliberately free of top-level side effects, and deliberately NOT the module
@@ -15,33 +15,20 @@
 
 import {
   type Flag,
-  type SuryErrorRecord,
   initSchema,
   type Internal,
   isOwnSchema,
   panic,
   panicNotSchema,
   U,
-  undefinedTag,
-  type Val
+  undefinedTag
 } from "./base";
-import {
- B_let,
- B_embedPure,
- B_errorOf,
- B_varWithoutAllocation,
- operationArgVar
-} from "./builder";
 import {
  literalDecoder
 } from "./primitives";
 import {
- __setTail,
- type Exit,
  getOp,
- reverse,
- type Tail,
- throwTail
+ reverse
 } from "./parse";
 import {
  compileCompare,
@@ -56,177 +43,6 @@ export const assertResult: Internal = /* @__PURE__ */ initSchema(undefinedTag, l
   s.const = U;
   s.noValidation = true;
 });
-
-// ── Operation tail ───────────────────────────────────────────────────────────
-//
-// The tail every operation compiles once a mode beyond "the value, or a throw"
-// has been reached. Plain throw mode still delegates to `throwTail`, so the
-// throw path's generated code is byte-for-byte what it always was.
-
-// The two Result shapes: 128 the JS `Result`, 256 ReScript's
-// `result<'value, S.error>`. The Standard Schema shape (1024) is emitted by
-// `throwTail` instead - see the comment there. Neither bit means the value is
-// its own answer, which is `is`'s `true`.
-//
-// The JS pair carries the same keys in the same order - `void 0` in the slot
-// the branch doesn't use - so the two branches share one hidden class and a
-// consumer's `.success`/`.value` reads stay monomorphic. It is also what makes
-// `const { value, error } = result` narrow on the TS side (the `?: undefined`
-// sibling fields in `Result`): one decision, both halves.
-//
-// `issues` is the fourth of those keys, and the one that makes a Result a
-// Standard Schema result. It is free where a consumer branches on the Result at
-// the call site, which is most of them: nothing outlives the frame, so V8 drops
-// the object and the key with it. It costs a store only where the Result is
-// kept, and taking it off the success branch to save that splits the hidden
-// class and hands the same nanosecond back on the reads. Both halves are in
-// specs/scenarios.yaml - `parse-as-result-consumed` against
-// `parse-as-result-compiled`, and `result-read`.
-const okResult = (flag: Flag, value: string): string =>
-  flag & 256
-    ? `{TAG:"Ok",_0:${value}}`
-    : flag & 128
-      ? `{success:true,value:${value},error:void 0,issues:void 0}`
-      : value;
-// The failure half, built by a function rather than spelled into the body:
-// the body reaches it from every check that jumps to it (`operationExit`) as
-// well as from its `catch`. A literal all the same, with the success half's
-// keys in the success half's order.
-//
-// The issue shape is `throwTail`'s (parse.ts), which is where its reasoning
-// lives - a Result IS a Standard Schema result, so the two emit the same thing
-// and `tests/operations_test.ts` holds them to it.
-const failureOf =
-  (flag: Flag, errorOf?: (e: unknown) => SuryErrorRecord) =>
-  (e: unknown): unknown => {
-    const error = errorOf ? errorOf(e) : (e as SuryErrorRecord);
-    return flag & 256
-      ? { TAG: "Error", _0: error }
-      : {
-          success: false,
-          value: U,
-          error,
-          issues: [{ message: error.reason, path: error.path.length ? error.path : U }],
-        };
-  };
-
-// The bare `false` is `is`'s answer; nothing else reaches this without a
-// Result shape to fill.
-const errResult = (input: Val, flag: Flag, errVar: string): string =>
-  flag & (128 | 256) ? `${B_embedPure(input, failureOf(flag, B_errorOf(input)))}(${errVar})` : "false";
-
-// Where a failure the body finds leaves it, so an outcome with an answer of its
-// own never throws for a value that simply isn't valid. The promisable mode
-// (512) is left raising: its failure's shape is the body's, which isn't known
-// until the body is.
-// PROTOTYPE: the Result built from every failure the body collected, newest
-// first on a linked list (`[prev, record]` or `[prev, builder, value, path?]`,
-// union.ts's shape), then the one a raise ended the body with, if any.
-const collectedFailure =
-  (errorOf: (e: unknown) => SuryErrorRecord) =>
-  (list: unknown[] | undefined, raised?: boolean, thrown?: unknown): unknown => {
-    const errors: SuryErrorRecord[] = [];
-    for (let n = list; n; n = n[0] as unknown[] | undefined)
-      errors.unshift((n.length < 3 ? n[1] : (n[1] as Function)(n[2], n[3])) as SuryErrorRecord);
-    if (raised) errors.push(errorOf(thrown));
-    const issues = [];
-    for (let idx = 0; idx < errors.length; idx++) {
-      const error = errors[idx]!;
-      issues.push({ message: error.reason, path: error.path.length ? error.path : U });
-    }
-    return { success: false, value: U, error: errors[0], issues };
-  };
-
-// PROTOTYPE: whether this outcome collects every failure (the sync JS Result).
-const collects = (flag: Flag): boolean => !!(flag & 128) && !(flag & (1 | 256 | 512 | 4096));
-
-const operationExit: Exit = (input, flag) => {
-  if (!(flag & (128 | 256 | 4096)) || flag & 512) return U;
-  if (collects(flag)) {
-    const g = input.g;
-    const k = (g.k = B_varWithoutAllocation(g));
-    g.l = [];
-    let embedded = "";
-    const exit = ((record) =>
-      `return ${(embedded ||= B_embedPure(input, collectedFailure(B_errorOf(input))))}(${
-        record ? `[${k},${record(true)}]` : k
-      })`) as NonNullable<ReturnType<Exit>> & { k?: 1 };
-    exit.k = 1;
-    return exit;
-  }
-  const answer = (value: string) => `return ${flag & 1 ? `Promise.resolve(${value})` : value}`;
-  if (flag & 4096) {
-    const no = answer("false");
-    return () => no;
-  }
-  let embedded = "";
-  return (record) =>
-    answer(`${(embedded ||= B_embedPure(input, failureOf(flag)))}(${record!()})`);
-};
-
-const operationTail: Tail = (input, code, out, isAsync, flag, hasDefs) => {
-  // 2048 (`makeInput`/`makeOutput`) hands back the value it was given. The
-  // operation's parameter still is that value unless the body assigned to it
-  // (`g.r`: a union rebinds it while dispatching, and `return i` would answer
-  // with the encoded form), in which case it is bound before the body.
-  let value = out;
-  if (flag & 2048) {
-    if (input.g.r) {
-      value = B_varWithoutAllocation(input.g);
-      code = B_let(input.g, value, operationArgVar) + code;
-    } else {
-      value = operationArgVar;
-    }
-  }
-  // A promise is only produced for the async flag; the promisable mode (512)
-  // asks for the value's own shape instead. `hasDefs` says the compile is
-  // NESTED (recursive.ts is the only caller that passes defs), and a nested
-  // operation stays throwing: the generated code around it prepends the path
-  // on the way out, and has to reach the value's failure before the promise
-  // does.
-  const toPromise = !!(flag & 1) && !(flag & 512) && !hasDefs;
-  // No answer of its own for a failure - the exception still is the answer, so
-  // `throwTail` still decides the identity case and the promise lift.
-  if (!(flag & (128 | 256 | 4096)))
-    return throwTail(
-      input,
-      code,
-      flag & 2048 && isAsync ? `${out}.then(()=>${value})` : value,
-      isAsync,
-      flag,
-      hasDefs,
-    );
-  const errVar = B_varWithoutAllocation(input.g);
-  // 4096 (`isInput`/`isOutput`) answers `true`; 2048 already picked its value.
-  const valueVar = isAsync ? B_varWithoutAllocation(input.g) : value;
-  const success = okResult(flag, flag & 4096 ? "true" : flag & 2048 ? value : valueVar);
-  // Every failure comes back as a SuryError (`B_errorOf`), so the Result's
-  // `error` is one shape; `is` only needs the fact of it.
-  const failure = errResult(input, flag, errVar);
-  const k = input.g.k;
-  if (k && collects(flag)) {
-    const collected = B_embedPure(input, collectedFailure(B_errorOf(input)));
-    const body = `${code}if(${k})return ${collected}(${k});return ${success}`;
-    return `let ${[k, ...new Set(input.g.l)]};` + (code ? `try{${body}}catch(${errVar}){return ${collected}(${k},1,${errVar})}` : body);
-  }
-  const body = isAsync
-    ? // Inlined into the promise chain the operation already builds, rather
-      // than wrapped around it.
-      `${code}return ${out}.then(${valueVar}=>(${success}),${errVar}=>(${failure}))`
-    : `${code}return ${toPromise ? `Promise.resolve(${success})` : success}`;
-  // An outcome with an answer of its own never throws, and any body can: what
-  // it reads may be a getter or a proxy, even where nothing it checks can fail.
-  // Only an empty one needs no `try` - the decision a `safe(() => ...)` wrapper
-  // can never make. A failure the sync phase raises has to come back in the
-  // shape the success path uses, so an async operation's answer is a promise
-  // either way: the consumer sees one shape whether the value died before the
-  // first await or after it.
-  return code
-    ? `try{${body}}catch(${errVar}){return ${
-        isAsync || toPromise ? `Promise.resolve(${failure})` : failure
-      }}`
-    : body;
-};
 
 // ── Call-form dispatch ───────────────────────────────────────────────────────
 
@@ -309,25 +125,6 @@ const dispatch = (
   return immediate ? op(data) : op;
 };
 
-// Every operation whose tail is more than "the value, or a throw" comes through
-// here, so the emitter is registered on first use. It can't be registered at
-// this module's top level: that is a side effect, and a bundle that reaches
-// this module for `parseOrThrow` would then carry the emitter too (parse.ts,
-// `__setTail`).
-const tailDispatch = (
-  n: number,
-  a: unknown,
-  b: unknown,
-  c: unknown,
-  d: unknown,
-  tail: Internal | undefined,
-  rev: boolean,
-  flag: Flag,
-): unknown => {
-  __setTail(operationTail, operationExit);
-  return dispatch(n, a, b, c, d, tail, rev, flag);
-};
-
 const makeDispatch = (
   n: number,
   a: unknown,
@@ -338,7 +135,7 @@ const makeDispatch = (
 ): unknown =>
   n > 2 || (n === 2 && isOwnSchema(a) && isOwnSchema(b))
     ? panic("Expected a single schema and a value. Chain with .with(S.to, ...) first")
-    : tailDispatch(n, a, b, U, U, tail, rev, flag);
+    : dispatch(n, a, b, U, U, tail, rev, flag);
 
 // ── Operations ───────────────────────────────────────────────────────────────
 //
@@ -363,15 +160,15 @@ export function parseOrThrow(a?: unknown, b?: unknown, c?: unknown, d?: unknown)
 }
 
 export function parseAsResult(a?: unknown, b?: unknown, c?: unknown, d?: unknown): unknown {
-  return tailDispatch(arguments.length, a, b, c, d, U, false, 8 | 128);
+  return dispatch(arguments.length, a, b, c, d, U, false, 8 | 128);
 }
 
 export function parseAsPromiseOrReject(a?: unknown, b?: unknown, c?: unknown, d?: unknown): unknown {
-  return tailDispatch(arguments.length, a, b, c, d, U, false, 1 | 8);
+  return dispatch(arguments.length, a, b, c, d, U, false, 1 | 8);
 }
 
 export function parseAsResultPromise(a?: unknown, b?: unknown, c?: unknown, d?: unknown): unknown {
-  return tailDispatch(arguments.length, a, b, c, d, U, false, 1 | 8 | 128);
+  return dispatch(arguments.length, a, b, c, d, U, false, 1 | 8 | 128);
 }
 
 // The Result outcome without committing to a shape: a synchronous schema
@@ -379,7 +176,7 @@ export function parseAsResultPromise(a?: unknown, b?: unknown, c?: unknown, d?: 
 // compile covers both, so a caller who doesn't know a schema's async-ness
 // doesn't have to lift every answer into a promise to find out.
 export function parseAsPromisableResult(a?: unknown, b?: unknown, c?: unknown, d?: unknown): unknown {
-  return tailDispatch(arguments.length, a, b, c, d, U, false, 1 | 8 | 128 | 512);
+  return dispatch(arguments.length, a, b, c, d, U, false, 1 | 8 | 128 | 512);
 }
 
 export function decodeOrThrow(a?: unknown, b?: unknown, c?: unknown, d?: unknown): unknown {
@@ -387,19 +184,19 @@ export function decodeOrThrow(a?: unknown, b?: unknown, c?: unknown, d?: unknown
 }
 
 export function decodeAsResult(a?: unknown, b?: unknown, c?: unknown, d?: unknown): unknown {
-  return tailDispatch(arguments.length, a, b, c, d, U, false, 128);
+  return dispatch(arguments.length, a, b, c, d, U, false, 128);
 }
 
 export function decodeAsPromiseOrReject(a?: unknown, b?: unknown, c?: unknown, d?: unknown): unknown {
-  return tailDispatch(arguments.length, a, b, c, d, U, false, 1);
+  return dispatch(arguments.length, a, b, c, d, U, false, 1);
 }
 
 export function decodeAsResultPromise(a?: unknown, b?: unknown, c?: unknown, d?: unknown): unknown {
-  return tailDispatch(arguments.length, a, b, c, d, U, false, 1 | 128);
+  return dispatch(arguments.length, a, b, c, d, U, false, 1 | 128);
 }
 
 export function decodeAsPromisableResult(a?: unknown, b?: unknown, c?: unknown, d?: unknown): unknown {
-  return tailDispatch(arguments.length, a, b, c, d, U, false, 1 | 128 | 512);
+  return dispatch(arguments.length, a, b, c, d, U, false, 1 | 128 | 512);
 }
 
 // Only the first schema is reversed: `S.encodeOrThrow(a, ...rest)` starts from
@@ -411,19 +208,19 @@ export function encodeOrThrow(a?: unknown, b?: unknown, c?: unknown, d?: unknown
 }
 
 export function encodeAsResult(a?: unknown, b?: unknown, c?: unknown, d?: unknown): unknown {
-  return tailDispatch(arguments.length, a, b, c, d, U, true, 128);
+  return dispatch(arguments.length, a, b, c, d, U, true, 128);
 }
 
 export function encodeAsPromiseOrReject(a?: unknown, b?: unknown, c?: unknown, d?: unknown): unknown {
-  return tailDispatch(arguments.length, a, b, c, d, U, true, 1);
+  return dispatch(arguments.length, a, b, c, d, U, true, 1);
 }
 
 export function encodeAsResultPromise(a?: unknown, b?: unknown, c?: unknown, d?: unknown): unknown {
-  return tailDispatch(arguments.length, a, b, c, d, U, true, 1 | 128);
+  return dispatch(arguments.length, a, b, c, d, U, true, 1 | 128);
 }
 
 export function encodeAsPromisableResult(a?: unknown, b?: unknown, c?: unknown, d?: unknown): unknown {
-  return tailDispatch(arguments.length, a, b, c, d, U, true, 1 | 128 | 512);
+  return dispatch(arguments.length, a, b, c, d, U, true, 1 | 128 | 512);
 }
 
 // The make family validates and hands back the value it was given, rather than
@@ -487,19 +284,19 @@ export const makeOutputAsPromisableResult = function (
 // `is*AsPromise` resolves to one and never rejects.
 
 export function isInput(a?: unknown, b?: unknown, c?: unknown, d?: unknown): unknown {
-  return tailDispatch(arguments.length, a, b, c, d, assertResult, false, 8 | 4096);
+  return dispatch(arguments.length, a, b, c, d, assertResult, false, 8 | 4096);
 }
 
 export function isOutput(a?: unknown, b?: unknown, c?: unknown, d?: unknown): unknown {
-  return tailDispatch(arguments.length, a, b, c, d, assertResult, true, 8 | 4096);
+  return dispatch(arguments.length, a, b, c, d, assertResult, true, 8 | 4096);
 }
 
 export function isInputAsPromise(a?: unknown, b?: unknown, c?: unknown, d?: unknown): unknown {
-  return tailDispatch(arguments.length, a, b, c, d, assertResult, false, 1 | 8 | 4096);
+  return dispatch(arguments.length, a, b, c, d, assertResult, false, 1 | 8 | 4096);
 }
 
 export function isOutputAsPromise(a?: unknown, b?: unknown, c?: unknown, d?: unknown): unknown {
-  return tailDispatch(arguments.length, a, b, c, d, assertResult, true, 1 | 8 | 4096);
+  return dispatch(arguments.length, a, b, c, d, assertResult, true, 1 | 8 | 4096);
 }
 
 // Equality and compare take a PAIR, so they share a dispatch: the schema is
@@ -554,7 +351,7 @@ export const assertInputAsPromiseOrReject = function (
   c?: unknown,
   d?: unknown,
 ): unknown {
-  return tailDispatch(arguments.length, a, b, c, d, assertResult, false, 1 | 8);
+  return dispatch(arguments.length, a, b, c, d, assertResult, false, 1 | 8);
 }
 
 export const assertOutputAsPromiseOrReject = function (
@@ -563,7 +360,7 @@ export const assertOutputAsPromiseOrReject = function (
   c?: unknown,
   d?: unknown,
 ): unknown {
-  return tailDispatch(arguments.length, a, b, c, d, assertResult, true, 1 | 8);
+  return dispatch(arguments.length, a, b, c, d, assertResult, true, 1 | 8);
 }
 
 // ── ReScript result surface ──────────────────────────────────────────────────
@@ -575,19 +372,19 @@ export const assertOutputAsPromiseOrReject = function (
 // so the two shapes tree-shake independently.
 
 export function $parseAsResult(a?: unknown, b?: unknown, c?: unknown, d?: unknown): unknown {
-  return tailDispatch(arguments.length, a, b, c, d, U, false, 8 | 256);
+  return dispatch(arguments.length, a, b, c, d, U, false, 8 | 256);
 }
 
 export function $parseAsResultPromise(a?: unknown, b?: unknown, c?: unknown, d?: unknown): unknown {
-  return tailDispatch(arguments.length, a, b, c, d, U, false, 1 | 8 | 256);
+  return dispatch(arguments.length, a, b, c, d, U, false, 1 | 8 | 256);
 }
 
 export function $encodeAsResult(a?: unknown, b?: unknown, c?: unknown, d?: unknown): unknown {
-  return tailDispatch(arguments.length, a, b, c, d, U, true, 256);
+  return dispatch(arguments.length, a, b, c, d, U, true, 256);
 }
 
 export function $encodeAsResultPromise(a?: unknown, b?: unknown, c?: unknown, d?: unknown): unknown {
-  return tailDispatch(arguments.length, a, b, c, d, U, true, 1 | 256);
+  return dispatch(arguments.length, a, b, c, d, U, true, 1 | 256);
 }
 
 export function $makeAsResult(a?: unknown, b?: unknown, c?: unknown, d?: unknown): unknown {

@@ -47,6 +47,7 @@ import {
   B_child,
   B_collects,
   B_dynamicScope,
+  B_field,
   B_detached,
   B_sink,
   B_fail,
@@ -54,6 +55,8 @@ import {
   B_failInvalidInput,
   B_hoistChildChecks,
   B_hoistDecl,
+  B_join,
+  B_settle,
   B_let,
   B_inlineConst,
   B_markOutput,
@@ -92,40 +95,33 @@ export const B_unrecognizedKeys = (
   keys: string[],
   keyVar: string,
   decl: string,
+  container?: Val,
 ): string => {
   const snap = B_pathSnap(input);
-  const fail = B_fail(
-    input,
-    (key: string, path?: Path) =>
-      toError({
-        code: "unrecognized_key",
-        path: path ?? snap ?? pathEmpty,
-        reason: `Unrecognized key ${stringify(key)}`,
-        key,
-      }) as unknown as ErrorDetails,
-    keyVar,
-  );
+  let fail = "";
+  const emit = () => {
+    fail = B_fail(
+      input,
+      (key: string, path?: Path) =>
+        toError({
+          code: "unrecognized_key",
+          path: path ?? snap ?? pathEmpty,
+          reason: `Unrecognized key ${stringify(key)}`,
+          key,
+        }) as unknown as ErrorDetails,
+      keyVar,
+    );
+  };
+  // Collecting, each key is a child of its own: the scan carries on past it.
+  const label = container && B_collects(input.g) ? B_child(input.g, emit) : (emit(), U);
   let cond = "";
   for (let idx = 0; idx < keys.length; idx++) {
     if (idx) cond += "&&";
     cond += `${keyVar}!==${inlinedValueFromString(keys[idx]!)}`;
   }
-  return `for(${decl}${keyVar} in ${input.v()})` + (cond ? `if(${cond})` : "") + fail + ";";
-};
-// PROTOTYPE: under a collecting exit every unknown key is its own failure.
-export const B_unrecognizedKeysAll = (
-  input: Val,
-  keys: string[],
-  keyVar: string,
-  decl: string,
-): string => {
-  if (!B_collects(input.g)) return B_unrecognizedKeys(input, keys, keyVar, decl);
-  let code = "";
-  const label = B_child(input.g, () => {
-    code = B_unrecognizedKeys(input, keys, keyVar, decl);
-  });
-  const head = `for(${decl}${keyVar} in ${input.v()})`;
-  return label ? head + `${label}:{` + code.slice(head.length, -1) + "}" : code;
+  const body = (cond ? `if(${cond})` : "") + fail;
+  if (label) container!.k = true;
+  return `for(${decl}${keyVar} in ${input.v()})` + (label ? `${label}:{${body}}` : body + ";");
 };
 
 // A `.to` target that builds its document piecewise (jsonString) can take a
@@ -231,6 +227,18 @@ export const completeObjectVal = (objectVal: Val): Val => {
 
   if (promiseAllContent) {
     promiseAllContent = promiseAllContent.slice(0, -1);
+    const g = objectVal.g;
+    const collects = B_collects(g) && g.k;
+    let joinCode = "";
+    if (collects) {
+      let failed = "0";
+      if (objectVal.k) {
+        failed = B_varWithoutAllocation(g);
+        objectVal.cp = B_let(g, failed, collects) + objectVal.cp;
+        failed = `${collects}!==${failed}`;
+      }
+      joinCode = B_join(objectVal, failed, `[${promiseAllContent}]`);
+    }
     const operationInput = B_scope(objectVal);
     operationInput.io = true;
     let result = "";
@@ -252,10 +260,17 @@ export const completeObjectVal = (objectVal: Val): Val => {
       return code;
     });
 
-    if (operationCode === "" && promiseAllContent === result) {
+    if (operationCode === "" && promiseAllContent === result && !collects) {
       objectVal.i = result;
     } else {
-      objectVal.i = `Promise.all([${promiseAllContent}]).then(([${promiseAllContent}])=>{${operationCode}return ${result}})`;
+      objectVal.i = `Promise.all([${
+        collects
+          ? promiseAllContent
+              .split(",")
+              .map((p) => B_settle(objectVal, p))
+              .join(",")
+          : promiseAllContent
+      }]).then(([${promiseAllContent}])=>{${joinCode}${operationCode}return ${result}})`;
     }
     objectVal.f |= 1;
     objectVal.io = true;
@@ -368,7 +383,10 @@ export const arrayDecoder = (unknownInput: Val): Val => {
         };
         itemLabel = B_collects(input.g) ? B_child(input.g, emit) : (emit(), U);
         const code = itemOutput.t!
-          ? itemMerge + B_addKey(output2, iteratorVar, itemOutput)
+          ? itemMerge +
+            (itemOutput.f & 1 && B_collects(input.g) && input.g.k
+              ? `${output2.v()}[${iteratorVar}]=${B_settle(output2, itemOutput.i)}`
+              : B_addKey(output2, iteratorVar, itemOutput))
           : input.g.t + input.g.j === failCountBefore
             ? ""
             : itemMerge;
@@ -384,7 +402,19 @@ export const arrayDecoder = (unknownInput: Val): Val => {
 
       if (itemLabel) output2.k = true;
       if ((itemOutput.f & 1)) {
-        output = B_asyncVal(output2, `Promise.all(${output2.i})`);
+        const g = input.g, k = B_collects(g) && g.k;
+        let all = `Promise.all(${output2.i})`;
+        if (k) {
+          let failed = "0";
+          if (output2.k) {
+            failed = B_varWithoutAllocation(g);
+            output2.cp = B_let(g, failed, k) + output2.cp;
+            failed = `${k}!==${failed}`;
+          }
+          const items = B_varWithoutAllocation(g);
+          all += `.then(${items}=>{${B_join(output2, failed, items)}return ${items}})`;
+        }
+        output = B_asyncVal(output2, all);
       } else {
         output = output2;
       }
@@ -414,16 +444,16 @@ export const arrayDecoder = (unknownInput: Val): Val => {
         continue;
       }
       B_narrowJsonSourcedJsonString(itemInput);
-      const itemOutput = parse(itemInput);
-
-      if (isUnion && isLiteral(schema)) {
-        B_hoistChildChecks(input, itemOutput, key);
-      }
-
-      B_addObjectField(objectVal, key, itemOutput);
-      if (!shouldRecreateInput) {
-        shouldRecreateInput = itemOutput.t!;
-      }
+      B_field(objectVal, key, () => {
+        const itemOutput = parse(itemInput);
+        if (isUnion && isLiteral(schema)) {
+          B_hoistChildChecks(input, itemOutput, key);
+        }
+        if (!shouldRecreateInput) {
+          shouldRecreateInput = itemOutput.t!;
+        }
+        return itemOutput;
+      });
     }
 
     // After input.schema was used, set it to selfSchema
@@ -438,6 +468,7 @@ export const arrayDecoder = (unknownInput: Val): Val => {
       o.cp = objectVal.cp;
       if (objectVal.hn) o.hn = objectVal.hn;
       o.d = objectVal.d;
+      o.k = objectVal.k;
       output = o;
     }
   }
@@ -583,9 +614,11 @@ export const objectDecoder = (unknownInput: Val): Val => {
       itemInput.io = false;
       itemInput.u = isUnion;
       B_narrowJsonSourcedJsonString(itemInput);
-      const itemOutput = parse(itemInput);
-      if (absent) itemOutput.o = true;
-      B_addObjectField(objectVal, key, itemOutput);
+      B_field(objectVal, key, () => {
+        const itemOutput = parse(itemInput);
+        if (absent) itemOutput.o = true;
+        return itemOutput;
+      });
     }
     output = completeObjectVal(objectVal);
   } else {
@@ -621,7 +654,6 @@ export const objectDecoder = (unknownInput: Val): Val => {
     //     than its acceptance mask claims.
     const isJsonParent = isItemSchema(inputAdditionalItems) && inputAdditionalItems.flags & 16;
 
-    let collected = false;
     for (let idx = 0; idx < keysCount; idx++) {
       const key = keys[idx]!;
       const schema = properties[key]!;
@@ -639,27 +671,16 @@ export const objectDecoder = (unknownInput: Val): Val => {
       }
       B_narrowJsonSourcedJsonString(itemInput);
 
-      let itemOutput!: Val;
-      const emit = () => {
-        itemOutput = parse(itemInput);
-
+      B_field(objectVal, key, () => {
+        const itemOutput = parse(itemInput);
         if (isUnion && isLiteral(schema)) {
           B_hoistChildChecks(input, itemOutput, key);
         }
-
-        B_addObjectField(objectVal, key, itemOutput);
-      };
-      if (B_collects(input.g)) {
-        const start = objectVal.cp.length;
-        const label = B_child(input.g, emit);
-        if (label) {
-          objectVal.cp = objectVal.cp.slice(0, start) + `${label}:{${objectVal.cp.slice(start)}}`;
-          collected = true;
+        if (!shouldRecreateInput) {
+          shouldRecreateInput = itemOutput.t!;
         }
-      } else emit();
-      if (!shouldRecreateInput) {
-        shouldRecreateInput = itemOutput.t!;
-      }
+        return itemOutput;
+      });
     }
 
     // A fused object's scan is emitted by the aggregate, after the field
@@ -668,12 +689,11 @@ export const objectDecoder = (unknownInput: Val): Val => {
     if (ai === "strict" && isItemSchema(inputAdditionalItems) && fused === U) {
       const keyVar = B_varWithoutAllocation(objectVal.g);
       B_hoistDecl(input, keyVar);
-      objectVal.cp += B_unrecognizedKeysAll(input, keys, keyVar, "");
+      objectVal.cp += B_unrecognizedKeys(input, keys, keyVar, "", objectVal);
     }
 
     if (shouldRecreateInput) {
       output = completeObjectVal(objectVal);
-      if (collected) output.k = true;
     } else {
       // The value was just validated against expectedSchema - carry it as
       // the val's schema instead of input.schema, which may be a minimal
@@ -684,7 +704,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
       o.cp = objectVal.cp;
       if (objectVal.hn) o.hn = objectVal.hn;
       o.d = objectVal.d;
-      if (collected) o.k = true;
+      o.k = objectVal.k;
       output = o;
     }
   }

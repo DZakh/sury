@@ -313,22 +313,27 @@ export const B_fail = <TArg>(
   return cond ? `if(!(${cond}))${jump}${jump[0] === "{" ? "" : ";"}` : jump;
 };
 
-// PROTOTYPE: a collecting exit for one child scope - record the failure on
-// the operation's list, then leave the child's labelled block so its siblings
-// still run. Tagged `k` so a container nested inside knows it may collect too.
-export const B_childExit = (g: BGlobal, label: { l?: string }): NonNullable<BGlobal["x"]> => {
-  const exit = ((record?: Failure) =>
-    record
-      ? `{${g.k}=[${g.k},${record(true)}];break ${(label.l ||= `c${++g.v}`)}}`
-      : `break ${(label.l ||= `c${++g.v}`)}`) as NonNullable<BGlobal["x"]> & { k?: 1 };
+// The exit a child of a container takes in an operation that collects every
+// failure (`BGlobal.k`): record, then leave the child's labelled block, so the
+// siblings after it still run. With no record it only leaves - what a
+// container whose children failed does before code that would read its value.
+// Tagged so a container nested inside knows it collects too; a union case
+// compiles under the union's own exit, which is why a union is one failure.
+const B_childExit = (g: BGlobal, label: { l?: string }): NonNullable<BGlobal["x"]> => {
+  const exit = ((record?: Failure) => {
+    const jump = `break ${(label.l ||= `c${++g.v}`)}`;
+    return record ? `{${g.k}=[${g.k},${record(true)}];${jump}}` : jump;
+  }) as NonNullable<BGlobal["x"]> & { k?: 1 };
   exit.k = 1;
   return exit;
 };
 
-export const B_collects = (g: BGlobal): boolean => !!(g.x && (g.x as { k?: 1 }).k);
+export const B_collects = (g: BGlobal): boolean => !!(g.x as { k?: 1 } | undefined)?.k;
 
 // Runs a child's parse and merge under its own collecting exit, and answers
-// the label its code has to be wrapped in, if any failure took it.
+// the label its code has to be wrapped in, if any failure took it. The parse
+// runs inside as well as the merge: a decoder emits some of its code while it
+// parses.
 export const B_child = (g: BGlobal, emit: () => void): string | undefined => {
   const x = g.x;
   const label: { l?: string } = {};
@@ -807,6 +812,31 @@ export const B_computed = (
   return output;
 };
 
+// Async children of a container in an operation that collects: a child's
+// rejection becomes a value (`B_settle`), so the join sees every child instead
+// of the first to fail, and the join raises what they found together, in
+// field order (`B_join`). The raise is a `Settled` the next join up passes
+// through, and the operation's rejection handler reads.
+export class Settled {
+  constructor(public l: unknown[]) {}
+}
+const settle = (thrown: unknown): Settled =>
+  thrown instanceof Settled ? thrown : new Settled([thrown]);
+// A child whose sync part failed never made its promise; the collected failure
+// already fails the join, so its slot only has to not be read.
+export const B_settle = (val: Val, promise: string): string =>
+  `${promise}&&${promise}.then(void 0,${B_embedPure(val, settle)})`;
+// `failed` is whether the container's own sync children collected.
+export const B_join = (val: Val, failed: string, slots: string): string =>
+  `${B_embedPure(val, (was: unknown, values: unknown[]) => {
+    let found: unknown[] | undefined;
+    for (let idx = 0; idx < values.length; idx++) {
+      const value = values[idx];
+      if (value instanceof Settled) (found ||= []).push(...value.l);
+    }
+    if (found || was) throw new Settled(found || []);
+  })}(${failed},${slots});`;
+
 export const B_asyncVal = (from: Val, initial: string): Val => {
   const v = B_next(from, initial, from.s);
   v.f = 1; // 1
@@ -845,6 +875,21 @@ export const B_addObjectField = (objectVal: Val, location: string, val: Val): vo
   objectVal.cp += B_merge(val);
   objectVal.d![location] = val;
 }
+
+// A container's child, produced and added in its own scope when the operation
+// collects: a failure anywhere in it leaves only this child's code. The
+// container is then marked (`Val.k`), so what reads its value afterwards is
+// skipped (`B_merge`).
+export const B_field = (container: Val, location: string, produce: () => Val): void => {
+  const emit = () => B_addObjectField(container, location, produce());
+  if (!B_collects(container.g)) return emit();
+  const start = container.cp.length;
+  const label = B_child(container.g, emit);
+  if (label) {
+    container.cp = container.cp.slice(0, start) + `${label}:{${container.cp.slice(start)}}`;
+    container.k = true;
+  }
+};
 
 export const B_addKey = (objVal: Val, key: string, value: Val): string =>
   `${objVal.v()}[${key}]=${value.i}`;

@@ -739,6 +739,7 @@ const canonExample = (ex: Example): Example => {
     "input",
     "output",
     "error",
+    "issues",
     "errorConstructor",
     "divergence",
   ]) as Example;
@@ -1066,6 +1067,32 @@ const clean = <T extends Record<string, unknown>>(o: T): T => {
 };
 
 // The author owns inputs and skips; the harness owns every derived answer.
+// What a Result reports beyond the thrown error, as the messages a thrown
+// error for each issue would carry. Recorded only past the first: the first is
+// the example's `error`, which the operation matrix already holds every Result
+// outcome to.
+const exampleIssues = async (
+  opName: OpName,
+  isAsync: boolean,
+  schema: unknown,
+  input: string,
+): Promise<string[] | undefined> => {
+  const forms = OUTCOME_FORMS[opName] as Record<string, (s: unknown) => (v: unknown) => unknown>;
+  const factory = forms[isAsync ? "AsResultPromise" : "AsResult"];
+  if (!factory) return undefined;
+  let result: { success: boolean; issues?: { message: string; path?: PropertyKey[] }[] };
+  try {
+    result = (await factory(schema)(evalSchema(input))) as typeof result;
+  } catch {
+    return undefined;
+  }
+  const issues = result.issues;
+  if (result.success || !issues || issues.length < 2) return undefined;
+  return issues.map((issue) =>
+    issue.path?.length ? `Failed at ${S.pathToText(issue.path as never)}: ${issue.message}` : issue.message,
+  );
+};
+
 export const recomputeGoldens = async (obj: Spec, compiled?: Record<OpName, BuiltOp>): Promise<Spec> => {
   const next: Spec = structuredClone(obj);
   const schema = evalSchema(next.ts.schema);
@@ -1176,7 +1203,10 @@ export const recomputeGoldens = async (obj: Spec, compiled?: Record<OpName, Buil
           input: ex.input,
           ...("errorConstructor" in ex
             ? { errorConstructor: (e as Error).constructor.name }
-            : { error: describeExampleThrow(e) }),
+            : {
+                error: describeExampleThrow(e),
+                issues: await exampleIssues(opName, op.isAsync === true, schema, ex.input),
+              }),
           ...(await refreshDivergence(opName, op.isAsync === true, schema, ex, next)),
         });
       }

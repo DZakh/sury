@@ -33,7 +33,7 @@ import {
   B_let,
   B_sink,
   _var,
-  B_addObjectField,
+  B_field,
   B_dynamicScope,
   B_embedPure,
   B_block,
@@ -247,12 +247,14 @@ export const jsonDecoderFn = (input: Val): Val => {
             json,
             (variantOutput) => variantOutput.type === undefinedTag || isJsonable(variantOutput),
           );
-          const itemOutput = parse(itemVal);
-          itemOutput.o = true;
-          B_addObjectField(jsonVal, key, itemOutput);
+          B_field(jsonVal, key, () => {
+            const itemOutput = parse(itemVal);
+            itemOutput.o = true;
+            return itemOutput;
+          });
         } else {
           itemVal.e = json;
-          B_addObjectField(jsonVal, key, parse(itemVal));
+          B_field(jsonVal, key, () => parse(itemVal));
         }
       }
 

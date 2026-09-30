@@ -40,12 +40,14 @@ import {
   B_embedPure,
   B_errorOf,
   B_inlineConst,
+  B_let,
   B_markOutput,
   B_merge,
   B_next,
   B_operationArg,
   B_refine,
   B_scope,
+  Settled,
   B_unsupportedDecode,
   B_varWithoutAllocation,
   failInvalidType,
@@ -141,29 +143,6 @@ export const parse = (input: Val): Val => {
   return result;
 }
 
-// How a compiled operation's body ends. `undefined` means "no body at all" -
-// the operation is the identity, and the caller hands back `noopOperation`.
-//
-// A mutable binding rather than a branch on the flag: `compileDecoder` is in
-// every bundle, and the Result modes' emitter (operations.ts) must not be. The
-// throw tail below is the default, and reaching a Result operation is what
-// swaps in the emitter that knows both. Registration happens inside that
-// operation, not at its module's top level, which would be a side effect that
-// survives the same shaking.
-export type Tail = (
-  input: Val,
-  code: string,
-  out: string,
-  isAsync: boolean,
-  flag: Flag,
-  hasDefs: boolean,
-) => string | undefined;
-
-// Where a failure leaves the operation, for an outcome that answers it rather
-// than raising it (`BGlobal.x`). Registered with the tail, and asked before the
-// body is emitted, so it can't depend on whether the body turns out async.
-export type Exit = (input: Val, flag: Flag) => BGlobal["x"];
-
 // A Sury failure is a record until it crosses into user code, and there are
 // exactly three places where it does: the compiled operation, the promise an
 // async one hands back (`rejectionBoundary`), and the compile itself. All three
@@ -221,45 +200,17 @@ const rejectionBoundary = (thrown: SuryErrorRecord): never => {
   throw captureStackAt(thrown, rejectionBoundary);
 };
 
-// Throw mode, plus the Standard Schema tail (mode bit 1024). The Standard
-// Schema arm is here rather than behind the `__setTail` hook because the
-// `~standard` prototype getter can never be tree-shaken (standard.ts), so a
-// registration from it would drag the whole emitter into every consumer bundle
-// - the very thing the hook exists to prevent. Keeping the one shape that
-// getter needs here costs a branch; the JS and ReScript Result shapes stay
-// behind the hook (operations.ts).
-export const throwTail: Tail = (input, code, out, isAsync, flag, hasDefs) => {
-  if (flag & 1024) {
-    // `path` is omitted at the root, which is what Standard Schema consumers
-    // expect. Built by an embedded function rather than inline: the failure
-    // path reads the error three times, and the same closure serves the
-    // sync catch and the promise's rejection handler.
-    //
-    // `message` is the error's `reason` and not its formatted `message`: the
-    // location is in `path`, and a consumer that renders both says it twice.
-    //
-    // The JS Result tail (`errResult`, operations.ts) emits this same shape,
-    // because a Result IS a Standard Schema result - change one and the other
-    // has to follow. `tests/operations_test.ts` compares the two.
-    const errorOf = B_errorOf(input);
-    const issues = B_embedPure(input, (e: unknown) => {
-      const error = errorOf(e);
-      return { issues: [{ message: error.reason, path: error.path.length ? error.path : U }] };
-    });
-    const v = isAsync ? B_varWithoutAllocation(input.g) : "";
-    const body = isAsync
-      ? `${code}return ${out}.then(${v}=>({value:${v}}),${issues})`
-      : `${code}return {value:${out}}`;
-    // An answer, never a throw, so the `try` goes wherever the body reads the
-    // value at all - a getter can raise there. An async operation answers with
-    // a promise either way, so a failure the sync phase raises comes back in the
-    // same shape as one after the await.
-    if (!code) return body;
-    const e = B_varWithoutAllocation(input.g);
-    return `try{${body}}catch(${e}){return ${
-      isAsync ? `Promise.resolve(${issues}(${e}))` : `${issues}(${e})`
-    }}`;
-  }
+// The throwing outcomes: the value, a promise of it, or a raise. `undefined`
+// means no body at all - the operation is the identity, and the caller hands
+// back `noopOperation`.
+const throwTail = (
+  input: Val,
+  code: string,
+  out: string,
+  isAsync: boolean,
+  flag: Flag,
+  hasDefs: boolean,
+): string | undefined => {
   if (code === "" && out === operationArgVar && !(flag & 1)) return U;
   // An appended hop rather than a second argument to whatever `.then` built the
   // value: that argument would never see a failure raised inside the `.then`
@@ -300,11 +251,156 @@ export const throwTail: Tail = (input, code, out, isAsync, flag, hasDefs) => {
   }(${e})}`;
 };
 
-let emitTail: Tail = throwTail;
-let emitExit: Exit | undefined;
-export const __setTail = (fn: Tail, exit: Exit): void => {
-  emitTail = fn;
-  emitExit = exit;
+// The answering outcomes: 128 the JS `Result`, 256 ReScript's
+// `result<'value, S.error>`, 4096 `is`'s boolean. `~standard.validate` is the
+// promisable JS Result (1|128|512) - a Result IS a Standard Schema result, so
+// there is one shape to keep, not two.
+//
+// The JS pair carries the same keys in the same order - `void 0` in the slot
+// the branch doesn't use - so the two branches share one hidden class and a
+// consumer's `.success`/`.value` reads stay monomorphic. It is also what makes
+// `const { value, error } = result` narrow on the TS side (the `?: undefined`
+// sibling fields in `Result`): one decision, both halves.
+//
+// `issues` is the fourth of those keys, and the one that makes a Result a
+// Standard Schema result. It is free where a consumer branches on the Result at
+// the call site, which is most of them: nothing outlives the frame, so V8 drops
+// the object and the key with it. It costs a store only where the Result is
+// kept, and taking it off the success branch to save that splits the hidden
+// class and hands the same nanosecond back on the reads. Both halves are in
+// specs/scenarios.yaml - `parse-as-result-consumed` against
+// `parse-as-result-compiled`, and `result-read`.
+const okResult = (flag: Flag, value: string): string =>
+  flag & 256
+    ? `{TAG:"Ok",_0:${value}}`
+    : flag & 128
+      ? `{success:true,value:${value},error:void 0,issues:void 0}`
+      : value;
+
+// The JS Result reports every failure the body found. They sit on a linked
+// list, newest first, each node led by the one before it - `[, record]`, or
+// `[, builder, value, path?]` built only now that it is read (union.ts links
+// its members' failures the same way). A raise that ended the body comes last.
+//
+// `message` is the error's `reason` and not its formatted `message`: the
+// location is in `path`, which is omitted at the root, as Standard Schema
+// consumers expect - a consumer that renders both would say it twice.
+//
+// Filled from the end rather than unshifted: most of what a failing value
+// costs was the unshift.
+const failureOf =
+  (errorOf: (e: unknown) => SuryErrorRecord, lift: { a?: boolean }) =>
+  (list: unknown[] | undefined, raised?: 1, thrown?: unknown): unknown => {
+    // What async children found comes after what the sync phase did, in the
+    // order the joins list them (builder.ts `B_join`).
+    const late = raised ? (thrown instanceof Settled ? thrown.l : [thrown]) : [];
+    let size = late.length;
+    for (let n = list; n; n = n[0] as unknown[] | undefined) size++;
+    const issues = new Array(size);
+    let error!: SuryErrorRecord;
+    const add = (e: SuryErrorRecord) => {
+      issues[--size] = { message: e.reason, path: e.path.length ? e.path : U };
+      error = e;
+    };
+    for (let idx = late.length; idx--; ) add(errorOf(late[idx]));
+    for (let n = list; n; n = n[0] as unknown[] | undefined)
+      add((n.length < 3 ? n[1] : (n[1] as Function)(n[2], n[3])) as SuryErrorRecord);
+    const result = { success: false, value: U, error, issues };
+    return lift.a ? Promise.resolve(result) : result;
+  };
+
+// How one compile of an operation answers: `x` is where a failure the body
+// finds goes (`BGlobal.x`), asked before the body is emitted; `t` ends the body
+// once it is known.
+type Outcome = {
+  x: BGlobal["x"];
+  t: (code: string, out: string, isAsync: boolean) => string | undefined;
+};
+
+const outcomeOf = (input: Val, flag: Flag, hasDefs: boolean): Outcome => {
+  const g = input.g;
+  // 2048 (`makeInput`/`makeOutput`) hands back the value it was given. The
+  // operation's parameter still is that value unless the body assigned to it
+  // (`g.r`: a union rebinds it while dispatching, and `return i` would answer
+  // with the encoded form), in which case it is bound before the body.
+  const given = (code: string): [string, string] => {
+    if (!g.r) return [code, operationArgVar];
+    const value = B_varWithoutAllocation(g);
+    return [B_let(g, value, operationArgVar) + code, value];
+  };
+  // A nested compile (recursive.ts) answers with its value, so it raises.
+  if (!(flag & (128 | 256 | 4096)) || hasDefs)
+    return {
+      x: U,
+      t: (code, out, isAsync) => {
+        if (flag & 2048) {
+          const [body, value] = given(code);
+          return throwTail(input, body, isAsync ? `${out}.then(()=>${value})` : value, isAsync, flag, hasDefs);
+        }
+        return throwTail(input, code, out, isAsync, flag, hasDefs);
+      },
+    };
+  const errVar = B_varWithoutAllocation(g);
+  // A failure the sync phase finds comes back in the shape the success path
+  // uses, so an async operation's answer is a promise either way. The
+  // promisable mode (512) answers in the body's own shape, known only once the
+  // body is, so the JS Result's builder reads it off `lift` when it runs.
+  const lift: { a?: boolean } = {};
+  const answer = (value: string) =>
+    `return ${flag & 1 && !(flag & 512) ? `Promise.resolve(${value})` : value}`;
+  let x: BGlobal["x"], failure: string, list: string | undefined;
+  if (flag & 128) {
+    list = g.k = B_varWithoutAllocation(g);
+    g.l = [];
+    failure = B_embedPure(input, failureOf(B_errorOf(input), lift));
+    // Tagged so a container knows its children collect (builder.ts `B_field`).
+    const exit = ((record) =>
+      `return ${failure}(${record ? `[${list},${record(true)}]` : list})`) as NonNullable<
+      BGlobal["x"]
+    > & { k?: 1 };
+    exit.k = 1;
+    x = exit;
+  } else if (flag & 4096) {
+    failure = "false";
+    const no = answer(failure);
+    x = () => no;
+  } else {
+    const errorOf = B_errorOf(input);
+    failure = B_embedPure(input, (e: unknown) => ({ TAG: "Error", _0: errorOf(e) }));
+    x = (record) => answer(`${failure}(${record!()})`);
+  }
+  return {
+    x,
+    t: (code, out, isAsync) => {
+      let value = out;
+      if (flag & 2048) [code, value] = given(code);
+      lift.a = !!(flag & 1) && (isAsync || !(flag & 512));
+      const valueVar = isAsync ? B_varWithoutAllocation(g) : value;
+      const success = okResult(flag, flag & 4096 ? "true" : flag & 2048 ? value : valueVar);
+      const fail = list
+        ? (raised?: string) => `${failure}(${list}${raised ? `,1,${raised}` : ""})`
+        : (raised?: string) => (flag & 4096 ? "false" : `${failure}(${raised})`);
+      // What the sync phase collected fails the operation after all, async or
+      // not - it is only read once the body is done.
+      const settled = list ? `${list}?${fail()}:${success}` : success;
+      let body = isAsync
+        ? // Inlined into the promise chain the operation already builds, rather
+          // than wrapped around it.
+          `${code}return ${out}.then(${valueVar}=>${list ? settled : `(${success})`},${errVar}=>(${fail(errVar)}))`
+        : list
+          ? `${code}return ${list}?${fail()}:${flag & 1 && !(flag & 512) ? `Promise.resolve(${success})` : success}`
+          : `${code}return ${flag & 1 && !(flag & 512) ? `Promise.resolve(${success})` : success}`;
+      // An outcome with an answer of its own never throws, and any body can:
+      // what it reads may be a getter or a proxy, even where nothing it checks
+      // can fail. Only an empty one needs no `try` - the decision a
+      // `safe(() => ...)` wrapper can never make.
+      if (code)
+        body = `try{${body}}catch(${errVar}){return ${
+          list || !(flag & 1) || (flag & 512 && !isAsync) ? fail(errVar) : `Promise.resolve(${fail(errVar)})`
+        }}`;
+      return list ? `let ${[list, ...new Set(g.l)]};${body}` : body;
+    },
+  };
 };
 
 export const compileDecoder = (
@@ -315,8 +411,8 @@ export const compileDecoder = (
   node?: OpNode
 ): (input: unknown) => unknown => {
   const input = B_operationArg(isLiteral(schema) ? unknown : schema, expected, flag, defs);
-  // A nested compile (recursive.ts) answers with its value, so it raises.
-  if (!defs) input.g.x = emitExit?.(input, flag);
+  const outcome = outcomeOf(input, flag, !!defs);
+  input.g.x = outcome.x;
 
   const output = parse(input);
   const code = B_merge(output);
@@ -326,7 +422,7 @@ export const compileDecoder = (
     node.t = output.t === true;
   }
 
-  const body = emitTail(input, code, output.i, isAsync, flag, !!defs);
+  const body = outcome.t(code, output.i, isAsync);
   if (!body) return noopOperation;
   const fn = new Function("e", "s", `return ${operationArgVar}=>{${body}}`)(input.g.e, s);
   fn.embedded = input.g.e;

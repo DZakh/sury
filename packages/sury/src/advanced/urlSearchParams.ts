@@ -21,7 +21,7 @@ import {
   B_let,
   B_sink,
   _var,
-  B_addObjectField,
+  B_field,
   B_dynamicScope,
   B_failInvalidInput,
   B_embed,
@@ -234,14 +234,13 @@ const searchParamsToObject = (input: Val, target: Internal): Val => {
           `Can't decode search param -> ${inputExpression(present)} with a default. No entries is the empty list, so the default is never read`,
         );
       }
-    } else if (present.type === unknownTag) {
-      item.cp = B_failInvalidInput(item, searchEntry, `!Array.isArray(${readVar})`);
     }
-    B_addObjectField(
-      objectVal,
-      key,
-      absent ? readWrapped(item, schema, present, list ? U : folds) : parse(item),
-    );
+    B_field(objectVal, key, () => {
+      if (!list && present.type === unknownTag) {
+        item.cp = B_failInvalidInput(item, searchEntry, `!Array.isArray(${readVar})`);
+      }
+      return absent ? readWrapped(item, schema, present, list ? U : folds) : parse(item);
+    });
   }
   return B_markOutput(completeObjectVal(objectVal), input);
 };
