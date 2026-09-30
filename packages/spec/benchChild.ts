@@ -51,6 +51,8 @@ const ASYNC_OP_BUILDER = {
 // can't scalar-replace them either.
 const boxes: { v: unknown }[] = [];
 
+type Runner = { run: (n: number) => void | Promise<void>; threw?: boolean[] };
+
 // Each runner is built with its own `new Function` rather than by closing over
 // a shared loop: closures created at the same site can share a feedback vector,
 // which would make the inner call megamorphic across the 100+ targets in a run
@@ -62,9 +64,6 @@ const boxes: { v: unknown }[] = [];
 // returning a value and raising a `SuryError` are different work, not the same
 // work at a different speed. One target now carries a whole outcome's examples,
 // so this is a vector: one disagreeing example spoils the batch they share.
-// An `async` target's runner returns a promise, which `time` awaits inside the
-// clock; every other runner returns nothing.
-type Runner = { run: (n: number) => void | Promise<void>; threw?: boolean[] };
 
 const buildRunner = async (S: any, target: Target): Promise<Runner> => {
   const box: { v: unknown } = { v: undefined };
@@ -110,9 +109,7 @@ const buildRunner = async (S: any, target: Target): Promise<Runner> => {
   const op = builder(factory(S));
   const inputs = target.inputSrcs!.map((src) => new Function(`return ${src};`)());
   // Per input, so a side that changes its mind about one example is reported
-  // as that example rather than as a timing difference. An async operation
-  // answers with a promise either way, so for one it is the rejection that
-  // counts, and it has to be awaited to be seen.
+  // as that example rather than as a timing difference.
   const threw: boolean[] = [];
   for (const input of inputs) {
     try {
@@ -125,9 +122,8 @@ const buildRunner = async (S: any, target: Target): Promise<Runner> => {
   }
   // The batch iterates every example, which is why one target covers the whole
   // outcome. Indexed rather than `for…of`, so it times the operation and not an
-  // iterator protocol - and a single-example outcome (half of them) keeps the
-  // flat loop it had before outcomes were aggregated, so the majority of
-  // targets measure exactly what they measured before.
+  // iterator protocol - and a single-example outcome (half of them) gets a
+  // flat loop.
   //
   // An async operation is awaited call by call, the way a consumer's `await`
   // meets it: starting n promises and reading the clock would time only their

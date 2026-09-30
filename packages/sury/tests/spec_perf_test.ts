@@ -112,9 +112,6 @@ test("a scenario contributes one target built from its own prepare and run", () 
   expect(real[0]!.runSrc).toBe('(schema["~standard"].validate(data))');
 });
 
-// An async operation's examples are timed awaited, call by call, in a phase of
-// their own: every call goes through the microtask queue, and pooled with the
-// sync runs that noise would raise the floor that gates all of them.
 test("an async op's examples are measured in the async phase, with the async builder", () => {
   const { targets } = targetsFor("async-assert");
   const real = targets.filter((t) => !t.control);
