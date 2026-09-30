@@ -361,7 +361,11 @@ export const B_child = (g: BGlobal, emit: () => void): ((code: string, val: Val)
       g.ku = true;
       g.kj = (g.kj || 0) + 1;
       const e = B_varWithoutAllocation(g);
-      code = `try{${code}}catch(${e}){${g.k}=[${g.k},${B_embedPure(val, B_errorOf(val))}(${e})]}`;
+      const errorOf = B_errorOf(val);
+      // What a union that couldn't jump raised has been recorded already.
+      code = `try{${code}}catch(${e}){${g.k}=${B_embedPure(val, (list: unknown, thrown: unknown) =>
+        (thrown as Settled | undefined)?.t === settledTag ? list : [list, errorOf(thrown)],
+      )}(${g.k},${e})}`;
     }
     return label.l ? `${label.l}:{${code}}` : code;
   };

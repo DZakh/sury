@@ -64,6 +64,7 @@ import {
   B_markOutput,
   B_collects,
   B_merge,
+  settledTag,
   B_pathArg,
   B_pathSnap,
   B_pushCheck,
@@ -1012,10 +1013,15 @@ const unionEmit = (
   const fail = (error?: Failure): string | undefined =>
     recorded ? toEnd(error) : error ? outer?.(error) : final();
   // Before any case has recorded, a failure is the case's own and goes out
-  // through `outer`, so a container in the case collects if `outer` does - and
-  // only if there is an `outer`: a dispatch wrapped in an async function
-  // raises, and its code can't leave by the labels around it.
-  const collects = outer !== U && B_collects(g);
+  // through `outer`, so a container in the case collects if the operation
+  // does. Without an `outer` the dispatch may be wrapped in an async function,
+  // which the labels around it can't be reached from: a container there that
+  // collected raises what it has already recorded instead (`settledTag`).
+  const collects = B_collects(g);
+  if (collects && outer === U) {
+    const nothingMore = B_embedPure(input, { t: settledTag, l: [] });
+    g.y = () => (B_markThrow(input), `throw ${nothingMore}`);
+  }
   (fail as { k?: () => boolean }).k = () => collects && !recorded;
   const collected = g.kj;
   const rethrow = (): string => (rethrowEmbed ||= B_embed(input, getOrRethrow));
@@ -1619,7 +1625,7 @@ export const unionDecoder: Builder = (input: Val) => {
   // The union swaps in its own exit while it emits, and a compile that throws
   // midway must not leave it behind: json.ts catches a failed parse and parses
   // again on the same operation.
-  const exit = input.g.x;
+  const exit = input.g.x, y = input.g.y;
   try {
     return unionEmit(
       input,
@@ -1631,6 +1637,7 @@ export const unionDecoder: Builder = (input: Val) => {
     );
   } finally {
     input.g.x = exit;
+    input.g.y = y;
   }
 };
 
