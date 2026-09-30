@@ -84,7 +84,7 @@ test("a hole and a foreign Standard Schema are named, not read as data", () => {
 
 test("the Result tail is compiled into the operation, not wrapped around it", () => {
   expect(S.parseAsResult(S.string).toString()).toMatchInlineSnapshot(
-    `"i=>{try{if(!(typeof i==="string"))return e[0]([,e[1],i]);return {success:true,value:i,error:void 0,issues:void 0}}catch(v1){return e[0](0,1,v1)}}"`,
+    `"i=>{let v0;try{if(!(typeof i==="string"))return e[0]([v0,e[1],i]);return {success:true,value:i,error:void 0,issues:void 0}}catch(v1){return e[0](0,1,v1)}}"`,
   );
 });
 
@@ -654,7 +654,7 @@ test("generated declarations go through B_let", () => {
 
 // An async entry that starts before a sync one fails. A test rather than a spec
 // example: the spec harness also runs the throwing outcome, which leaves the
-// started entry's rejection unhandled (IDEAS.md, pre-existing), while the
+// started entry's rejection unhandled (IDEAS.md), while the
 // collecting outcomes wait for it.
 test("a collecting outcome waits for an async child started before a sync failure", async () => {
   const unhandled: unknown[] = [];

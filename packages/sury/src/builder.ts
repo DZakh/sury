@@ -207,8 +207,7 @@ export const B_sink = (g: BGlobal, emit: () => string): string => {
 // decl lands at the owner's segment end - after the owner's guard, before
 // its dependent code - that immediate owner already dominates and outlives
 // every use, so no separate scope-tree is needed. The owner must be
-// unfinalized; `_notVarAtParent` guards this explicitly. Inside a collecting
-// child the name goes to a sink instead (`B_let`).
+// unfinalized; `_notVarAtParent` guards this explicitly.
 export const B_hoistDecl = (owner: Val, name: string, init?: string): void => {
   if (owner.g.c) owner.ha = (owner.ha || "") + B_let(owner.g, name, init, owner);
   else owner.hd += (owner.hd && ",") + (init === U ? name : `${name}=${init}`);
@@ -848,18 +847,27 @@ const settle = (thrown: unknown): Settled =>
   (thrown as Settled | undefined)?.t === settledTag ? (thrown as Settled) : { t: settledTag, l: [thrown] };
 export const B_settle = (val: Val, promise: string): string =>
   `${promise}.then(void 0,${B_embedPure(val, settle)})`;
-// `syncFailed` compares the list with its snapshot, so a sibling that
-// collected in between reads as this container failing too: harmless, since the
-// list is not empty either way and the operation fails with it.
-export const B_join = (val: Val, syncFailed: string, slots: string): string =>
-  `${B_embedPure(val, (was: unknown, values: unknown[]) => {
+// Answers for the container's sync children too, so it clears `k`. The failed
+// test is a snapshot of the list, and a sibling that collected after it reads
+// as this container failing: harmless, the operation fails with it either way.
+export const B_join = (container: Val, slots: string): string => {
+  const g = container.g, k = g.k!;
+  let failed = "0";
+  if (container.k) {
+    failed = B_varWithoutAllocation(g);
+    container.cp = B_let(g, failed, k) + container.cp;
+    failed = `${k}!==${failed}`;
+    container.k = U;
+  }
+  return `${B_embedPure(container, (was: unknown, values: unknown[]) => {
     let found: unknown[] | undefined;
     for (let idx = 0; idx < values.length; idx++) {
       const value = values[idx] as Settled | undefined;
       if (value?.t === settledTag) (found ||= []).push(...value.l);
     }
     if (found || was) throw { t: settledTag, l: found || [] };
-  })}(${syncFailed},${slots});`;
+  })}(${failed},${slots});`;
+};
 
 export const B_asyncVal = (from: Val, initial: string): Val => {
   const v = B_next(from, initial, from.s);
@@ -905,16 +913,18 @@ export const B_addObjectField = (objectVal: Val, location: string, val: Val): vo
 // refine or transform): run only if the container's own children, whose code
 // is already in `container.cp`, added nothing. Its declarations go to the
 // sink, since the `if` is a block.
-export const B_unlessCollected = (container: Val, emit: () => string): string => {
+export const B_unlessCollected = (container: Val, emit: () => string): void => {
   const g = container.g, k = g.k;
-  if (!k || !B_collects(g)) return emit();
+  if (!k || !B_collects(g)) {
+    container.cp += emit();
+    return;
+  }
   g.c = (g.c || 0) + 1;
   try {
     const code = emit();
-    if (!code) return code;
+    if (!code) return;
     const m = B_varWithoutAllocation(g);
-    container.cp = B_let(g, m, k) + container.cp;
-    return `if(${k}===${m}){${code}}`;
+    container.cp = B_let(g, m, k) + container.cp + `if(${k}===${m}){${code}}`;
   } finally {
     g.c!--;
   }

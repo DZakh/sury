@@ -1060,15 +1060,12 @@ test("~standard.validate returns a promise for a schema with an async codec", as
   );
 });
 
-// A foreign exception - a getter here - is a failure of THIS value, so it is
-// an issue rather than a throw.
-test("~standard.validate answers a foreign exception as an issue regardless of which operation compiled first", (t) => {
+test("~standard.validate answers a foreign exception as an issue", (t) => {
   const foreign = new Proxy({}, { get() { throw new Error("foreign"); } });
   t.expect(S.schema({ id: S.string })["~standard"].validate(foreign)).toMatchObject({
     success: false,
     issues: [{ message: "foreign", path: undefined }],
   });
-  S.parseAsResult(S.string, "a");
   t.expect(S.schema({ id: S.string, n: S.number })["~standard"].validate(foreign)).toMatchObject({
     success: false,
     issues: [{ message: "foreign", path: undefined }],

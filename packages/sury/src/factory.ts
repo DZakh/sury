@@ -491,11 +491,7 @@ const shapedParser: Builder = (input: Val) => {
         flattenedVal = B_markOutput(assembled, assembled);
       }
       flattenedVals.push(flattenedVal);
-      const merged = flattenedVal;
-      // Computed before `input.cp` is read: the guard puts its snapshot at the
-      // head of it.
-      const code = B_unlessCollected(input, () => B_merge(merged));
-      input.cp += code;
+      B_unlessCollected(input, () => B_merge(flattenedVal));
     }
     input.fv = flattenedVals;
   }
