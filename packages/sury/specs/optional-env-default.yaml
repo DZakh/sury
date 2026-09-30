@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.optional(S.env.with(S.to, S.optional(S.string, "dev")))
+  input: string | undefined
+  output: string | undefined
+  instantiations: 4873
+jsonSchema:
+  input: Expected JSON, received env | undefined
+  output: Expected JSON, received string | undefined
+isEqual: strictEqual
+compare:
+  input: (a,b)=>a===b?0:(a===void 0?b===void 0?0:-1:b===void 0?1:a===void 0?b===void 0?0:-1:b===void 0?1:a<b?-1:a>b?1:0)
+  output: "throws: [Sury] Can't compare string | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{for(;;){if((typeof i==="string"||i===void 0)){if(!i){i="dev";}break}if(i===void 0)break;throw e[0](i)}return i}catch(v0){e[1](v0)}}
+    examples:
+      set:
+        input: '"x"'
+        output: '"x"'
+      # FIXME: the inner schema takes the wrapper's empty value first
+      unset-is-kept:
+        input: undefined
+        output: '"dev"'
+      blank-is-unset-to-the-env:
+        input: '""'
+        output: '"dev"'
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{(i===void 0||typeof i==="string")||e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      set:
+        input: '"x"'
+        output: '"x"'
+      absent:
+        input: undefined
+        output: undefined

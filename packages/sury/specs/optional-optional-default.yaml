@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.optional(S.optional(S.string, "a"))
+  input: string | undefined
+  output: string | undefined
+  instantiations: 583
+jsonSchema:
+  input: Expected JSON, received string | undefined
+  output: Expected JSON, received string | undefined
+isEqual: strictEqual
+compare: "throws: [Sury] Can't compare string | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod: z.string().optional().transform((value) => value ?? "a").optional()
+operations:
+  parse:
+    expression: i=>{try{let v0;for(;;){l1:{for(;;){if(typeof i==="string")break;if(i===void 0){i="a";break}v0=[v0,e[0](i)];break l1}break}if(i===void 0)break;throw e[1](i,v0)}return i}catch(v2){e[2](v2)}}
+    examples:
+      string:
+        input: '"x"'
+        output: '"x"'
+      # FIXME: the inner schema takes the wrapper's empty value first
+      undefined-is-kept:
+        input: undefined
+        output: '"a"'
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{(i===void 0||typeof i==="string")||e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      string:
+        input: '"x"'
+        output: '"x"'
+      undefined:
+        input: undefined
+        output: undefined
