@@ -18,32 +18,31 @@ vs:
     _skip: todo(#…)
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[8](i);let v0=i.x,v1=i.xs;typeof v0==="number"&&v0<=2147483647&&v0>=-2147483648&&v0%1==0||e[0](v0);Array.isArray(v1)||e[2](v1);for(let v2=0;v2<v1.length;++v2){let v3=v1[v2];typeof v3==="number"&&v3<=2147483647&&v3>=-2147483648&&v3%1==0||e[1](v3,["xs",v2]);}let v4;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[6].acquire();f=0;v=v0;if(v){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=v;if(s<-2147483648||s>2147483647)e[3](s,-2147483648,2147483647);s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};f=1;v=v1;n=v.length;if(n){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();w.varints(v,1);w.end(h)};v4=w.finish()}catch(x){w&&(w.busy=false);e[4](x,e[5],f,j,a);e[7](x)}}return v4}catch(v5){e[9](v5)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[8](i);let v0=i.x,v1=i.xs;typeof v0==="number"&&v0<=2147483647&&v0>=-2147483648&&v0%1==0||e[0](v0);Array.isArray(v1)||e[2](v1);for(let v2=0;v2<v1.length;++v2){let v3=v1[v2];typeof v3==="number"&&v3<=2147483647&&v3>=-2147483648&&v3%1==0||e[1](v3,["xs",v2]);}let v4;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[6].acquire();f=0;v=v0;if(v){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=Number(v);if(s<-2147483648||s>2147483647)e[3](s,-2147483648,2147483647);s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};f=1;v=v1;n=v.length;if(n){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();w.varints(v,1);w.end(h)};v4=w.finish()}catch(x){w&&(w.busy=false);e[4](x,e[5],f,j,a);e[7](x)}}return v4}catch(v5){e[9](v5)}}
     examples:
       valid:
         input: "{ x: 1, xs: [2] }"
         output: new Uint8Array([8, 1, 18, 1, 2])
   decode:
-    expression: i=>{try{let v0=i.xs;let v2;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[3].acquire();f=0;v=i.x;if(v){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=v;if(s<-2147483648||s>2147483647)e[0](s,-2147483648,2147483647);s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};f=1;v=v0;n=v.length;if(n){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();w.varints(v,1);w.end(h)};v2=w.finish()}catch(x){w&&(w.busy=false);e[1](x,e[2],f,j,a);e[4](x)}}return v2}catch(v3){e[5](v3)}}
+    expression: i=>{try{let v0=i.xs;let v2;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[3].acquire();f=0;v=i.x;if(v){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=Number(v);if(s<-2147483648||s>2147483647)e[0](s,-2147483648,2147483647);s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};f=1;v=v0;n=v.length;if(n){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();w.varints(v,1);w.end(h)};v2=w.finish()}catch(x){w&&(w.busy=false);e[1](x,e[2],f,j,a);e[4](x)}}return v2}catch(v3){e[5](v3)}}
     examples:
-      # FIXME: a bigint in a 32-bit field fails with the TypeError the
-      # write hits, at no path, where it should read `Failed at x: Expected
-      # int32, received 1n` (protobuf:fuzz KNOWN_BUGS).
       bigint-field:
         input: "{ x: 1n, xs: [] }"
-        error: "TypeError: Cannot convert a BigInt value to a number"
+        output: new Uint8Array([8, 1])
       bigint-element:
         input: "{ x: 1, xs: [1n] }"
-        error: "TypeError: Cannot mix BigInt and other types, use explicit conversions"
-      # FIXME: an int32 field range-checks only, so a fraction or a
-      # numeric string (the next example) is written as whatever the varint
-      # makes of it, with no failure.
-      fraction:
-        input: "{ x: 1.5, xs: [] }"
-        output: new Uint8Array([8, 1])
+        output: new Uint8Array([8, 1, 18, 1, 1])
       numeric-string:
         input: '{ x: "7", xs: [] }'
         output: new Uint8Array([8, 7])
+      bigint-out-of-range:
+        input: "{ x: 1099511627776n, xs: [] }"
+        error: "Failed at x: Expected int32, received 1099511627776"
+      # FIXME: an int32 field range-checks only, so a fraction is written as
+      # whatever the varint makes of it, with no failure.
+      fraction:
+        input: "{ x: 1.5, xs: [] }"
+        output: new Uint8Array([8, 1])
   encode:
     expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v1=v0.xs;return v0}catch(v3){e[3](v3)}}
     examples:

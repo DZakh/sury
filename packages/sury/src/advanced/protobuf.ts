@@ -1042,7 +1042,7 @@ export class Writer {
     const buf = this.buf;
     let pos = this.pos;
     for (let i = 0; i < n; i++) {
-      let value = values[i] as number;
+      let value = Number(values[i]);
       if (kind === 3) value = value ? 1 : 0;
       else if (kind === 0 ? value < 0 || value > 4294967295 : value < -2147483648 || value > 2147483647) {
         fieldFailure(value, i);
@@ -1597,20 +1597,24 @@ const bounds = (type: ProtobufType): [string, string] => {
     : unsigned ? ["0", "4294967295"] : ["-2147483648", "2147483647"];
 };
 
-// `trusted`: a map key `mapKey` has already held to the type's range.
-const writeCall = (type: ProtobufType, v: string, enc: Encoding, trusted?: boolean): string => {
+// `known`: 2 a map key `mapKey` has already held to the type's range, 1 a
+// value `fieldLive` has coerced.
+const writeCall = (type: ProtobufType, v: string, enc: Encoding, known = 0): string => {
   if (type === "bool") return `s=${v}?1:0;w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s)`;
   if (type === "float") return `w.float32(${v})`;
   if (type === "double") return `w.float64(${v})`;
   if (type === "string") return `w.string(${v})`;
   if (type === "bytes") return `w.bytes(${v})`;
   const [min, max] = bounds(type);
-  const check = (expr: string) => (trusted ? expr : `${enc("check")}(${expr},${min},${max})`);
+  const check = (expr: string) => (known === 2 ? expr : `${enc("check")}(${expr},${min},${max})`);
   if (type === "sint64") return `s=${check(v)};w.varint64((s<<1n)^(s>>63n))`;
   if (type === "int64" || type === "uint64") return `w.varint64(${check(v)})`;
   if (type.includes("64")) return `w.bits64(${check(v)})`;
   if (type.includes("fixed")) return `w.bits32(${check(v)})`;
-  const test = trusted ? `s=${v};` : `s=${v};if(s<${min}||s>${max})${check("s")};`;
+  // Coerced as `fieldLive` coerces a field: a bigint would otherwise reach the
+  // byte write. A decode doesn't validate, so a number schema holds no promise.
+  const test = known === 2 ? `s=${v};`
+    : `s=${known ? v : `Number(${v})`};if(s<${min}||s>${max})${check("s")};`;
   if (type === "uint32") return test + writeVarint32("s");
   if (type === "sint32") return `${test}s=((s<<1)^(s>>31))>>>0;${writeVarint32("s")}`;
   return `${test}s>=0?${writeVarint32("s")}:w.int32(s)`;
@@ -1683,12 +1687,14 @@ const keyToWire = (type: ProtobufType, enc: Encoding): string =>
 
 // `numeric`: the value is known to be a number already (a validated field
 // val), so the write skips the coercion a nested encoder's untyped read needs.
+// `Number` rather than `+`, which throws on a bigint: that coerces as a string
+// does, and a value out of range still fails at the field.
 const fieldLive = (field: Field, numeric: boolean): string =>
   field.optional ? "v!=null"
   : field.type === "bytes" ? "v.length"
   : field.type === "float" || field.type === "double" ? "v||v!==v||Object.is(v,-0)"
   : field.type === "string" || field.type === "bool" || field.type.includes("64") || numeric ? "v"
-  : "(v=+v)";
+  : "(v=Number(v))";
 
 type Read = (key: string) => { expr: string; numeric: boolean };
 
@@ -1732,7 +1738,7 @@ const encodeBody = (msg: Message, fns: Map<Message, string>, read: Read, enc: En
     if (field.map !== U) {
       const keyType = field.map;
       const entryTag = writeTag(field.number * 8 + 2);
-      const keyPart = `${keyToWire(keyType, enc)}${writeTag(8 + wireType(keyType))};${writeCall(keyType, "k", enc, true)}`;
+      const keyPart = `${keyToWire(keyType, enc)}${writeTag(8 + wireType(keyType))};${writeCall(keyType, "k", enc, 2)}`;
       const valuePart = field.type === "message"
         ? `${writeTag(16 + 2)};g=w.begin();${fns.get(field.message!)!}(w,c);w.end(g)`
         : `${writeTag(16 + field.wire)};${writeCall(field.type, "c", enc)}`;
@@ -1756,7 +1762,7 @@ const encodeBody = (msg: Message, fns: Map<Message, string>, read: Read, enc: En
       // `null` is a value to a well-known type: JSON's own.
       body.push(`${at}v=${src};if(${field.message!.codec !== U ? "v!==void 0" : "v!=null"}){${oneof}${writeTag(tag)};h=w.begin();${fns.get(field.message!)!}(w,v);w.end(h)}`);
     } else {
-      body.push(`${at}v=${src};if(${fieldLive(field, numeric)}){${oneof}${writeTag(tag)};${writeCall(field.type, "v", enc)}}`);
+      body.push(`${at}v=${src};if(${fieldLive(field, numeric)}){${oneof}${writeTag(tag)};${writeCall(field.type, "v", enc, numeric ? 0 : 1)}}`);
     }
   }
   return (bits.size ? "o=0;" : "") + body.join(";");

@@ -211,21 +211,23 @@ const mutate = (r: Random, bytes: Uint8Array): Uint8Array => {
 };
 
 // Values a field's writer refuses wherever the field sits, by type. int32,
-// sint32, uint32 and enum only range-check (`s<min||s>max`), so a fraction, a
-// string or NaN inside the range is written as whatever the varint makes of
-// it. A nested message's encoder reads its fields untyped and puts a 32-bit
-// one through `+`, so "1" and true pass there for fixed32 and sfixed32 too.
+// sint32, uint32 and enum take whatever `Number` makes of the value, a string or
+// a bigint included, and only range-check it, so a fraction or NaN inside the
+// range is written as whatever the varint makes of it. A nested message's
+// encoder reads its fields untyped and puts a 32-bit one through `Number`, so
+// "1", true and 1n pass there for fixed32 and sfixed32 too. A coerced value
+// fails as the number it became, so only numbers are drawn for these.
 // float, double and bool write whatever they are handed, so they draw nothing.
 // Every value is truthy, since a falsy one is a default an implicit-presence
 // field skips before its writer sees it.
-const I32 = [2 ** 31, -(2 ** 31) - 1, 2 ** 40, -(2 ** 53), 1n];
+const I32 = [2 ** 31, -(2 ** 31) - 1, 2 ** 40, -(2 ** 53)];
 const I64 = [2n ** 63n, -(2n ** 63n) - 1n, 1, 1.5, "1", true];
 const U64 = [-1n, 2n ** 64n, 1, "1", true];
 const REFUSED: Record<Scalar, unknown[]> = {
   int32: I32, sint32: I32, enum: I32,
-  uint32: [-1, 2 ** 32, 2 ** 40, 1n],
-  fixed32: [-1, 2 ** 32, 1.5, 1n],
-  sfixed32: [2 ** 31, -(2 ** 31) - 1, 1.5, 1n],
+  uint32: [-1, 2 ** 32, 2 ** 40],
+  fixed32: [-1, 2 ** 32, 1.5],
+  sfixed32: [2 ** 31, -(2 ** 31) - 1, 1.5],
   int64: I64, sint64: I64, sfixed64: I64,
   uint64: U64, fixed64: U64,
   string: [1, 1n, true, {}, ["a"]],
@@ -357,18 +359,6 @@ const KNOWN: Record<string, string> = {
   "acceptance: only sury accepts (cant skip wire type #)": ES_STRICT,
   "reencode: sury reads protobuf-es's re-encode as another value":
     "protobuf-es misreads a 32-bit varint written in more than five bytes, and writes back the value it misread",
-};
-
-// Sury's own, found by this run and not fixed yet. Held to the same gate as
-// KNOWN, so a fix announces itself as a stale entry.
-const BIGINT_IN_32_BIT =
-  "FIXME: a bigint in an int32, uint32, sint32 or enum field, or in a fixed32 or sfixed32 field of a nested message, " +
-  "fails with the TypeError `+` or `<` throws and an empty path: " +
-  "S.decodeOrThrow(S.schema({ x: S.int32.with(S.protobufField, 1) }), S.protobuf)({ x: 1n }) " +
-  "(spec codec-protobuf-bigint-in-int32)";
-const KNOWN_BUGS: Record<string, string> = {
-  "corrupt: fails with a foreign error (TypeError: Cannot convert a BigInt value to a number)": BIGINT_IN_32_BIT,
-  "corrupt: fails with a foreign error (TypeError: Cannot mix BigInt and other types, use explicit conversions)": BIGINT_IN_32_BIT,
 };
 
 // Reached only by a sweep wider than the default, so a default run has no way
@@ -647,12 +637,12 @@ export const reportFuzz = (findings: Finding[], full: boolean): { text: string; 
   const lines: string[] = [];
   let ok = true;
   byKind.forEach((list, kind) => {
-    const known = KNOWN[kind] ?? KNOWN_BUGS[kind] ?? KNOWN_WIDE[kind];
+    const known = KNOWN[kind] ?? KNOWN_WIDE[kind];
     if (known === undefined) ok = false;
     lines.push(`${known === undefined ? "NEW  " : "known"} ${kind}  x${list.length}  (first: seed ${list[0]!.seed})`);
     if (known === undefined) for (const f of list.slice(0, 2)) lines.push(`        ${f.detail.slice(0, 600)}`);
   });
-  for (const kind of [...Object.keys(KNOWN), ...Object.keys(KNOWN_BUGS)]) {
+  for (const kind of Object.keys(KNOWN)) {
     if (full && !byKind.has(kind)) {
       ok = false;
       lines.push(`HOLDS ${kind} - listed as known, no longer found; remove it from KNOWN`);
