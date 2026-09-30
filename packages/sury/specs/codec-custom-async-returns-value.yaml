@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.object({ a: S.string.with(S.to, S.string, { decode: { async: ((value: string) => value) as any }, encode: (value) => value }) })"
+  input: "{ a: string; }"
+  output: "{ a: string; }"
+  instantiations: 2662
+jsonSchema:
+  input: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'
+  output: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'
+isEqual: (a,b)=>a===b||a.a===b.a
+compare: "throws: [Sury] Can't compare { a: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    isAsync: true
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v1=i.a;typeof v1==="string"||e[3](v1);let v0;try{v0=e[0](v1)}catch(x){e[1](x)}let v2=v0.then(v0=>{typeof v0==="string"||e[2](v0);return v0},e[1]);return Promise.all([v2]).then(([v2])=>{return {a:v2}}).catch(e[5])}catch(v3){return e[6](v3)}}
+    examples:
+      coder-returns-a-value:
+        input: '{ a: "a" }'
+        error: "TypeError: v0.then is not a function"
+  decode:
+    isAsync: true
+    expression: i=>{try{let v0;try{v0=e[0](i.a)}catch(x){e[1](x)}let v1=v0.then(v0=>{typeof v0==="string"||e[2](v0);return v0},e[1]);return Promise.all([v1]).then(([v1])=>{return {a:v1}}).catch(e[3])}catch(v2){return e[4](v2)}}
+    examples:
+      coder-returns-a-value:
+        input: '{ a: "a" }'
+        error: "TypeError: v0.then is not a function"
+  encode:
+    expression: i=>{try{let v0;try{v0=e[0](i.a)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);return {a:v0}}catch(v1){e[3](v1)}}
+    examples:
+      valid:
+        input: '{ a: "a" }'
+        output: '{ a: "a" }'
