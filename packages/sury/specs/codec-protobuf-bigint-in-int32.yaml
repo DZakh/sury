@@ -26,7 +26,7 @@ operations:
   decode:
     expression: i=>{try{let v0=i.xs;let v2;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[3].acquire();f=0;v=i.x;if(v){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=v;if(s<-2147483648||s>2147483647)e[0](s,-2147483648,2147483647);s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};f=1;v=v0;n=v.length;if(n){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();w.varints(v,1);w.end(h)};v2=w.finish()}catch(x){w&&(w.busy=false);e[1](x,e[2],f,j,a);e[4](x)}}return v2}catch(v3){e[5](v3)}}
     examples:
-      # FIXME: known bug - a bigint in a 32-bit field fails with the TypeError the
+      # FIXME: a bigint in a 32-bit field fails with the TypeError the
       # write hits, at no path, where it should read `Failed at x: Expected
       # int32, received 1n` (protobuf:fuzz KNOWN_BUGS).
       bigint-field:
@@ -35,7 +35,7 @@ operations:
       bigint-element:
         input: "{ x: 1, xs: [1n] }"
         error: "TypeError: Cannot mix BigInt and other types, use explicit conversions"
-      # FIXME: known bug - an int32 field range-checks only, so a fraction or a
+      # FIXME: an int32 field range-checks only, so a fraction or a
       # numeric string (the next example) is written as whatever the varint
       # makes of it, with no failure.
       fraction:
