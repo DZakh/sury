@@ -640,8 +640,8 @@ export type Val = {
   // loop's continuation runs inside the coder's `try`, one promise hop fewer.
   // Equivalent only because H always throws: a `.then` second argument never
   // sees a throw from the first, and neither did the `.catch` ahead of it.
-  // Undefined once `cp` has changed or been emitted. Never copied onto a val
-  // refined from this one: it rebuilds this val's `cp`, not theirs.
+  // Returns undefined once `cp` has changed or been emitted. Never copied onto
+  // a val refined from this one: it rebuilds this val's `cp`, not theirs.
   // @as("fu") - fuse
   fu?: (then: string) => string | undefined;
   // Comma-joined `let` declarations hoisted onto this val by descendants
