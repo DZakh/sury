@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.instance(Uint8Array).with(S.to, S.protobuf).with(S.to, S.schema({ a: S.string.with(S.protobufField, 1) }))"
+  input: Uint8Array<ArrayBuffer>
+  output: "{ a: string; }"
+  instantiations: 6092
+jsonSchema:
+  input: Expected JSON, received Uint8Array
+  output: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+  output: (a,b)=>a===b||a.a===b.a
+compare:
+  input: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { a: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{try{i instanceof e[7]||e[8](i);let v0;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[2].acquire();f=0;v=i["a"];if(v){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(v)};v0=w.finish()}catch(x){w&&(w.busy=false);x=e[0](x,e[1],f,j,a);e[3](x)}}let v1;{let r;try{r=e[5].acquire(v0);v1=e[4](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[6](x)}}return v1}catch(v2){e[9](v2)}}
+    examples:
+      # FIXME: the bytes are read as no message at all, so the field comes back
+      # at its default and the data is lost without a failure.
+      message:
+        input: new Uint8Array([10, 1, 97])
+        output: '{ a: "" }'
+  decode:
+    expression: i=>{try{let v0;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[2].acquire();f=0;v=i["a"];if(v){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(v)};v0=w.finish()}catch(x){w&&(w.busy=false);x=e[0](x,e[1],f,j,a);e[3](x)}}let v1;{let r;try{r=e[5].acquire(v0);v1=e[4](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[6](x)}}return v1}catch(v2){e[7](v2)}}
+    examples:
+      # FIXME: as parse, without the Uint8Array check.
+      message:
+        input: new Uint8Array([10, 1, 97])
+        output: '{ a: "" }'
+  encode:
+    expression: i=>{try{let v0;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[2].acquire();f=0;v=i.a;if(v){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(v)};v0=w.finish()}catch(x){w&&(w.busy=false);x=e[0](x,e[1],f,j,a);e[3](x)}}return v0}catch(v1){e[4](v1)}}
+    examples:
+      message:
+        input: '{ a: "a" }'
+        output: new Uint8Array([10, 1, 97])
