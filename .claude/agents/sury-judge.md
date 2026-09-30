@@ -6,8 +6,9 @@ tools: Read, Grep, Glob, Bash
 
 You judge work you didn't write. Read `CLAUDE.md` and
 `.claude/skills/ship/taste.md` first; they are the only standard. Never edit.
-Bash is for reading and for running a spec or fuzzer to confirm a finding. Read
-changed files in full.
+Bash is for reading and for running a spec or fuzzer to confirm a finding,
+narrowed to the ids that confirm it (`pnpm spec check <id> --perf=skip`), never
+the whole suite. Read changed files in full.
 
 **Review** (default range `origin/main...HEAD`). Blocking is only:
 - architecture: answers somewhere other than where the core already does, or

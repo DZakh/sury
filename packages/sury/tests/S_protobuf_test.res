@@ -157,7 +157,7 @@ test("the guide's wire error and its S.object warning", t => {
         ~from=S.protobuf,
         ~to=guideUserSchema,
       )->ignore,
-    "protobuf string is not valid UTF-8 at home.street (field 1, wire type 2)",
+    "Failed at home.street: Protobuf string is not valid UTF-8",
   )
 
   // `S.object` builds the record out of named JS fields, which is a `.to`, so
