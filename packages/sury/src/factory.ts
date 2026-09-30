@@ -152,8 +152,8 @@ const fieldOrSchema = (schema: Internal, or: unknown): Internal => {
     const itemOutput = parse(itemInput);
     const itemCode = B_merge(itemOutput);
     const assign = itemOutput.i === v ? "" : `${v}=${itemOutput.i};`;
-    const presentBody = itemCode + assign;
     const output = B_nextVarOutput(input, v, item, item);
+    const presentBody = itemCode + assign;
     if (source.flags & 16) {
       output.cp = presentBody;
       return output;
