@@ -58,13 +58,13 @@ type Runner = { run: (n: number) => void | Promise<void>; threw?: boolean[] };
 // which would make the inner call megamorphic across the 100+ targets in a run
 // and measure the driver instead of the schema. A distinct function per target
 // per side keeps every call site monomorphic.
-// Returns the runner, plus - for run-phase targets - whether the operation
-// threw on each of this target's inputs. The two sides are timed against each
-// other, so an outcome that differs between them makes the ratio meaningless:
-// returning a value and raising a `SuryError` are different work, not the same
-// work at a different speed. One target now carries a whole outcome's examples,
-// so this is a vector: one disagreeing example spoils the batch they share.
-
+// Returns the runner, plus - for run and async targets - whether the
+// operation threw on each of this target's inputs. The two sides are timed
+// against each other, so an outcome that differs between them makes the ratio
+// meaningless: returning a value and raising a `SuryError` are different work,
+// not the same work at a different speed. One target carries a whole outcome's
+// examples, so this is a vector: one disagreeing example spoils the batch they
+// share.
 const buildRunner = async (S: any, target: Target): Promise<Runner> => {
   const box: { v: unknown } = { v: undefined };
   boxes.push(box);
