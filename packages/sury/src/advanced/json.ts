@@ -158,6 +158,7 @@ export const jsonEncoderFn = (input: Val, target: Internal): Val => {
       // The target's own steps after its dispatch (`s.fieldOr`'s default) run
       // on the stored union's output as they would on the target's.
       stored.parser = target.parser;
+      stored.refiner = target.refiner;
       stored.to = target.to;
       return parse(B_refine(input, unknown, U, stored));
     }
