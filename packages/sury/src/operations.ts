@@ -118,8 +118,40 @@ const errResult = (input: Val, flag: Flag, errVar: string): string =>
 // own never throws for a value that simply isn't valid. The promisable mode
 // (512) is left raising: its failure's shape is the body's, which isn't known
 // until the body is.
+// PROTOTYPE: the Result built from every failure the body collected, newest
+// first on a linked list (`[prev, record]` or `[prev, builder, value, path?]`,
+// union.ts's shape), then the one a raise ended the body with, if any.
+const collectedFailure =
+  (errorOf: (e: unknown) => SuryErrorRecord) =>
+  (list: unknown[] | undefined, raised?: boolean, thrown?: unknown): unknown => {
+    const errors: SuryErrorRecord[] = [];
+    for (let n = list; n; n = n[0] as unknown[] | undefined)
+      errors.unshift((n.length < 3 ? n[1] : (n[1] as Function)(n[2], n[3])) as SuryErrorRecord);
+    if (raised) errors.push(errorOf(thrown));
+    const issues = [];
+    for (let idx = 0; idx < errors.length; idx++) {
+      const error = errors[idx]!;
+      issues.push({ message: error.reason, path: error.path.length ? error.path : U });
+    }
+    return { success: false, value: U, error: errors[0], issues };
+  };
+
+// PROTOTYPE: whether this outcome collects every failure (the sync JS Result).
+const collects = (flag: Flag): boolean => !!(flag & 128) && !(flag & (1 | 256 | 512 | 4096));
+
 const operationExit: Exit = (input, flag) => {
   if (!(flag & (128 | 256 | 4096)) || flag & 512) return U;
+  if (collects(flag)) {
+    const g = input.g;
+    const k = (g.k = B_varWithoutAllocation(g));
+    let embedded = "";
+    const exit = ((record) =>
+      `return ${(embedded ||= B_embedPure(input, collectedFailure(B_errorOf(input))))}(${
+        record ? `[${k},${record(true)}]` : k
+      })`) as NonNullable<ReturnType<Exit>> & { k?: 1 };
+    exit.k = 1;
+    return exit;
+  }
   const answer = (value: string) => `return ${flag & 1 ? `Promise.resolve(${value})` : value}`;
   if (flag & 4096) {
     const no = answer("false");
@@ -169,6 +201,12 @@ const operationTail: Tail = (input, code, out, isAsync, flag, hasDefs) => {
   // Every failure comes back as a SuryError (`B_errorOf`), so the Result's
   // `error` is one shape; `is` only needs the fact of it.
   const failure = errResult(input, flag, errVar);
+  const k = input.g.k;
+  if (k && collects(flag)) {
+    const collected = B_embedPure(input, collectedFailure(B_errorOf(input)));
+    const body = `${code}if(${k})return ${collected}(${k});return ${success}`;
+    return `let ${k};` + (code ? `try{${body}}catch(${errVar}){return ${collected}(${k},1,${errVar})}` : body);
+  }
   const body = isAsync
     ? // Inlined into the promise chain the operation already builds, rather
       // than wrapped around it.

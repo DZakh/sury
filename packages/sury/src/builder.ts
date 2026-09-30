@@ -3,6 +3,7 @@ import {
   type BGlobal,
   type Check,
   compilePath,
+  type Failure,
   type ErrorDetails,
   conversionSite,
   errorAt,
@@ -280,6 +281,34 @@ export const B_fail = <TArg>(
   return cond ? `if(!(${cond}))${jump}${jump[0] === "{" ? "" : ";"}` : jump;
 };
 
+// PROTOTYPE: a collecting exit for one child scope - record the failure on
+// the operation's list, then leave the child's labelled block so its siblings
+// still run. Tagged `k` so a container nested inside knows it may collect too.
+export const B_childExit = (g: BGlobal, label: { l?: string }): NonNullable<BGlobal["x"]> => {
+  const exit = ((record?: Failure) =>
+    record
+      ? `{${g.k}=[${g.k},${record(true)}];break ${(label.l ||= `c${++g.v}`)}}`
+      : `break ${(label.l ||= `c${++g.v}`)}`) as NonNullable<BGlobal["x"]> & { k?: 1 };
+  exit.k = 1;
+  return exit;
+};
+
+export const B_collects = (g: BGlobal): boolean => !!(g.x && (g.x as { k?: 1 }).k);
+
+// Runs a child's parse and merge under its own collecting exit, and answers
+// the label its code has to be wrapped in, if any failure took it.
+export const B_child = (g: BGlobal, emit: () => void): string | undefined => {
+  const x = g.x;
+  const label: { l?: string } = {};
+  g.x = B_childExit(g, label);
+  try {
+    emit();
+  } finally {
+    g.x = x;
+  }
+  return label.l;
+};
+
 // A failure's statement where a block goes: an exit's is one already
 // (`BGlobal.x`), a raise gets the braces.
 export const B_block = (statement: string): string =>
@@ -520,7 +549,13 @@ export const B_merge = (val: Val, out?: HoistCond): string => {
 
     // Now emitted: a later cached-bond materialization can't hoist onto it.
     val.fz = true;
-    code = val.cp + currentCode + code;
+    // PROTOTYPE: a container whose children collected a failure has no value
+    // for what follows it to read, so that code runs only if they added none.
+    const k = val.g.k;
+    if (val.k && k && code !== "" && val.g.x) {
+      const m = B_varWithoutAllocation(val.g);
+      code = `let ${m}=${k};` + val.cp + currentCode + `if(${k}!==${m})${val.g.x()!};` + code;
+    } else code = val.cp + currentCode + code;
   }
 
   return code;

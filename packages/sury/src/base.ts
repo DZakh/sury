@@ -587,6 +587,9 @@ export type BGlobal = {
   // @as("j") - jump counter, `t`'s twin: bumped by every failed check that
   // took `x`. Read the difference, never the value.
   j: number;
+  // PROTOTYPE: the collected failure list's var, set when the operation
+  // collects every failure instead of answering the first.
+  k?: string;
 }
 
 // A failure's record, as the expression that builds it - or, asked `unbuilt`,
@@ -658,6 +661,9 @@ export type Val = {
   // This is to mark an object field as optional. Fields like this should be
   // skipped when the value is undefined. @as("o") - optional
   o?: boolean;
+  // PROTOTYPE: a container whose children may have collected a failure, so
+  // whatever reads its value afterwards is gated on the list not growing.
+  k?: boolean;
 }
 
 // Shared `undefined` for every value-position use across the implementation:

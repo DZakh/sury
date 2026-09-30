@@ -44,6 +44,8 @@ import {
   B_addKey,
   B_addObjectField,
   B_asyncVal,
+  B_child,
+  B_collects,
   B_dynamicScope,
   B_detached,
   B_fail,
@@ -79,6 +81,23 @@ import {
 const isItemSchema = (x: AdditionalItems | undefined): x is Internal =>
   x !== U && typeof x !== "string";
 
+// PROTOTYPE: wraps what a child appended to `container.cp` since `start` in
+// the label its collecting exit named. A block scopes the `let`s inside it, so
+// an output the container reads afterwards is handed out through a var the
+// container's input declares.
+const B_wrapChild = (container: Val, start: number, label: string, out: Val, owner: Val): void => {
+  let chunk = container.cp.slice(start);
+  const names = out.i.match(/\bv\d+\b/g);
+  if (names && names.some((n) => new RegExp(`(?:let |,)${n}[=;,]`).test(chunk))) {
+    const vo = B_varWithoutAllocation(container.g);
+    B_hoistDecl(owner, vo);
+    chunk += `${vo}=${out.i};`;
+    out.i = vo;
+    out.v = _var;
+  }
+  container.cp = container.cp.slice(0, start) + `${label}:{${chunk}}`;
+};
+
 // The strict scan: the first own or inherited enumerable key that is not one
 // of `keys` raises `unrecognized_key`. One key per error, so a collect-all
 // mode reports several errors rather than one carrying a list. `decl` is
@@ -107,6 +126,21 @@ export const B_unrecognizedKeys = (
     cond += `${keyVar}!==${inlinedValueFromString(keys[idx]!)}`;
   }
   return `for(${decl}${keyVar} in ${input.v()})` + (cond ? `if(${cond})` : "") + fail + ";";
+};
+// PROTOTYPE: under a collecting exit every unknown key is its own failure.
+export const B_unrecognizedKeysAll = (
+  input: Val,
+  keys: string[],
+  keyVar: string,
+  decl: string,
+): string => {
+  if (!B_collects(input.g)) return B_unrecognizedKeys(input, keys, keyVar, decl);
+  let code = "";
+  const label = B_child(input.g, () => {
+    code = B_unrecognizedKeys(input, keys, keyVar, decl);
+  });
+  const head = `for(${decl}${keyVar} in ${input.v()})`;
+  return label ? head + `${label}:{` + code.slice(head.length, -1) + "}" : code;
 };
 
 // A `.to` target that builds its document piecewise (jsonString) can take a
@@ -336,19 +370,24 @@ export const arrayDecoder = (unknownInput: Val): Val => {
       const failCountBefore = input.g.t + input.g.j;
       const itemInput = B_dynamicScope(input, iteratorVar);
       B_narrowJsonSourcedJsonString(itemInput);
-      const itemOutput = parse(itemInput);
+      let itemOutput!: Val, output2!: Val, itemMerge = "";
+      const emit = () => {
+        itemOutput = parse(itemInput);
+        output2 = itemOutput.t!
+          ? // The next `.to` segment decodes from this schema - item-output, not expectedSchema (#284)
+            B_next(input, `new Array(${inputVar}.length)`, arrayFactory(itemOutput.s))
+          : B_refine(input, expectedSchema);
+        itemMerge = B_merge(itemOutput);
+      };
+      const itemLabel = B_collects(input.g) ? B_child(input.g, emit) : (emit(), U);
       const hasTransform = itemOutput.t!;
-      const output2 = hasTransform
-        ? // The next `.to` segment decodes from this schema - item-output, not expectedSchema (#284)
-          B_next(input, `new Array(${inputVar}.length)`, arrayFactory(itemOutput.s))
-        : B_refine(input, expectedSchema);
 
-      const itemMerge = B_merge(itemOutput);
-      const itemCode = hasTransform
+      let itemCode = hasTransform
         ? itemMerge + B_addKey(output2, iteratorVar, itemOutput)
         : input.g.t + input.g.j === failCountBefore
           ? ""
           : itemMerge;
+      if (itemLabel && itemCode) itemCode = `${itemLabel}:{${itemCode}}`;
 
       if (hasTransform || itemCode !== "") {
         output2.cp =
@@ -356,6 +395,7 @@ export const arrayDecoder = (unknownInput: Val): Val => {
           `for(let ${iteratorVar}=${expectedLength};${iteratorVar}<${inputVar}.length;++${iteratorVar}){${itemCode}}`;
       }
 
+      if (itemLabel) output2.k = true;
       if ((itemOutput.f & 1)) {
         output = B_asyncVal(output2, `Promise.all(${output2.i})`);
       } else {
@@ -477,24 +517,29 @@ export const objectDecoder = (unknownInput: Val): Val => {
     const failCountBefore = input.g.t + input.g.j;
     const itemInput = B_dynamicScope(input, keyVar);
     B_narrowJsonSourcedJsonString(itemInput);
-    const itemOutput = parse(itemInput);
-
+    let itemOutput!: Val, output2!: Val, itemMerge = "";
+    const emit = () => {
+      itemOutput = parse(itemInput);
+      output2 = itemOutput.t!
+        ? // The next `.to` segment decodes from this schema - item-output, not expectedSchema (#284)
+          B_next(input, "{}", dictFactory(itemOutput.s))
+        : B_refine(input, expectedSchema);
+      itemMerge = B_merge(itemOutput);
+    };
+    const itemLabel = B_collects(input.g) ? B_child(input.g, emit) : (emit(), U);
     const hasTransform = itemOutput.t!;
-    const output2 = hasTransform
-      ? // The next `.to` segment decodes from this schema - item-output, not expectedSchema (#284)
-        B_next(input, "{}", dictFactory(itemOutput.s))
-      : B_refine(input, expectedSchema);
 
-    const itemMerge = B_merge(itemOutput);
-    const itemCode = hasTransform
+    let itemCode = hasTransform
       ? itemMerge + B_addKey(output2, keyVar, itemOutput)
       : input.g.t + input.g.j === failCountBefore
         ? ""
         : itemMerge;
+    if (itemLabel && itemCode) itemCode = `${itemLabel}:{${itemCode}}`;
 
     if (hasTransform || itemCode !== "") {
       output2.cp = output2.cp + `for(let ${keyVar} in ${inputVar}){${itemCode}}`;
     }
+    if (itemLabel) output2.k = true;
 
     if ((itemOutput.f & 1)) {
       const resolveVar = B_varWithoutAllocation(output2.g);
@@ -586,6 +631,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
     //     than its acceptance mask claims.
     const isJsonParent = isItemSchema(inputAdditionalItems) && inputAdditionalItems.flags & 16;
 
+    let collected = false;
     for (let idx = 0; idx < keysCount; idx++) {
       const key = keys[idx]!;
       const schema = properties[key]!;
@@ -603,13 +649,24 @@ export const objectDecoder = (unknownInput: Val): Val => {
       }
       B_narrowJsonSourcedJsonString(itemInput);
 
-      const itemOutput = parse(itemInput);
+      let itemOutput!: Val;
+      const emit = () => {
+        itemOutput = parse(itemInput);
 
-      if (isUnion && isLiteral(schema)) {
-        B_hoistChildChecks(input, itemOutput, key);
-      }
+        if (isUnion && isLiteral(schema)) {
+          B_hoistChildChecks(input, itemOutput, key);
+        }
 
-      B_addObjectField(objectVal, key, itemOutput);
+        B_addObjectField(objectVal, key, itemOutput);
+      };
+      if (B_collects(input.g)) {
+        const start = objectVal.cp.length;
+        const label = B_child(input.g, emit);
+        if (label) {
+          B_wrapChild(objectVal, start, label, itemOutput, input);
+          collected = true;
+        }
+      } else emit();
       if (!shouldRecreateInput) {
         shouldRecreateInput = itemOutput.t!;
       }
@@ -621,11 +678,12 @@ export const objectDecoder = (unknownInput: Val): Val => {
     if (ai === "strict" && isItemSchema(inputAdditionalItems) && fused === U) {
       const keyVar = B_varWithoutAllocation(objectVal.g);
       B_hoistDecl(input, keyVar);
-      objectVal.cp += B_unrecognizedKeys(input, keys, keyVar, "");
+      objectVal.cp += B_unrecognizedKeysAll(input, keys, keyVar, "");
     }
 
     if (shouldRecreateInput) {
       output = completeObjectVal(objectVal);
+      if (collected) output.k = true;
     } else {
       // The value was just validated against expectedSchema - carry it as
       // the val's schema instead of input.schema, which may be a minimal
@@ -635,6 +693,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
       const o = B_refine(input, fused || expectedSchema);
       o.cp = objectVal.cp;
       o.d = objectVal.d;
+      if (collected) o.k = true;
       output = o;
     }
   }
