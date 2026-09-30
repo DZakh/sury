@@ -871,7 +871,7 @@ export const B_conversion = (
     const fail = () => B_fail(output, B_conversionFail(input, target), `x`);
     const failure = isAsync ? B_detached(input.g, fail) : fail();
     output.cp = `let ${output.i};try{${output.i}=${embeddedFn}(${inputValue})${
-      isAsync ? `.catch(${(output.rj = `x=>{${failure}}`)})` : ""
+      isAsync ? `.catch(${(output.rj = `x=>${failure}`)})` : ""
     }}catch(x)${B_block(failure)}`;
     // A val whose result the target's own refiners can attach to. `val.vc`
     // checks emit at the *pre-transform* slot (`prev.v()` in B_merge), so
