@@ -27,7 +27,6 @@ export const some = (shape: Shape, test: (node: Shape) => boolean): boolean => {
 // ---- predicates the known-bug registry is written in ----------------------
 
 // `optional(x, d)` / `nullable(x, d)`: the default is the second argument.
-// `getOr` always carries one.
 export const hasDefault = (shape: Shape): boolean =>
   shape.name === "getOr" ||
   ((shape.name === "optional" || shape.name === "nullable") && shape.args.length === 2);

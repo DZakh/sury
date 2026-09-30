@@ -40,7 +40,7 @@ operations:
         input: "{ BS_PRIVATE_NESTED_SOME_NONE: 0 }"
         output: undefined
       # FIXME: the Some(None) arm checks only that the value is an object, so a
-      # marker of the wrong depth encodes too. Plain S.option(S.option(x)) does the same.
+      # marker of the wrong depth encodes too.
       outer-marker-is-not-output:
         input: "{ BS_PRIVATE_NESTED_SOME_NONE: 1 }"
         output: undefined

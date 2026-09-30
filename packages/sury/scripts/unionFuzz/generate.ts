@@ -159,7 +159,7 @@ const defaultedMember = (S: Sury, rng: Rng, inner: MemberSpec): MemberSpec => {
 
 // ReScript's `S.option(S.option(x))->S.Option.getOr(d)`: the only way to reach
 // the nested `Some(None)` marker. The default peels one option off, so it is a
-// value of `option(x)` and `None` is one it may take (#468). Lossy: every
+// value of `option(x)` and `None` is one it may take. Lossy: every
 // `None` in the output encodes to the one `undefined` of the input.
 const nestedOptionMember = (S: Sury, rng: Rng, inner: MemberSpec): MemberSpec => {
   const item = S.$option(inner.schema);
