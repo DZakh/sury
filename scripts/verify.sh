@@ -32,8 +32,8 @@ step() {
   fi
 }
 
-# The steps between `spawn` and `collect` share no files, so they run at once,
-# each into its own log, printed in order when all have finished.
+# Everything between `spawn` and `collect` runs concurrently: a step added
+# there must share no files with the others.
 LOGS="$(mktemp -d)"
 trap 'rm -rf "$LOGS"' EXIT
 spawned=()

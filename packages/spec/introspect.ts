@@ -1,9 +1,5 @@
-// The type probes (typeProbe.ts) run on a pool of worker threads. The compiler
-// API is synchronous, so on the main thread every probe blocked every other
-// spec; a worker each gives the concurrent per-spec work in cli.ts's
-// Promise.all real parallelism. Workers are spawned only while probes queue up
-// with none idle, so a run whose probes arrive one at a time (a single spec,
-// `spec new`) starts one.
+// The type probes (typeProbe.ts) run on worker threads: the compiler API is
+// synchronous, so only a thread of its own lets probes overlap.
 import { createRequire } from "node:module";
 import { availableParallelism } from "node:os";
 import { pathToFileURL } from "node:url";
@@ -72,11 +68,6 @@ const run =
       else if (workers < MAX_WORKERS) spawn();
     });
 
-// Derives {input, output} type strings and the instantiation count
-// contributed by declaring `schemaTs` and extracting S.Output<>/S.Input<>
-// from it - the realistic combined per-schema cost, not the isolated cost of
-// either half alone.
-//
 // The count carries a fixed per-builder-kind dispatch cost on top of per-field
 // cost, so it doesn't compare across kinds: a plain value like `S.string`
 // measures far lower than any `S.schema({...})` call regardless of field count.
@@ -89,9 +80,6 @@ export const deriveRoundTripTypeInfo = run("deriveRoundTripTypeInfo");
 // through the Standard Schema (`~standard`) interface rather than any one
 // library's own `Infer*` helper - so the same probe works for every
 // Standard-Schema vendor (Zod today, Valibot/ArkType tomorrow) and reads the
-// value's *published* type contract, exactly what a downstream user gets.
-// Printed with the same InTypeAlias formatting as `deriveTypeInfo`, so the
-// caller can compare the two strings directly for equality. `importLine`
-// brings the vendor into scope (e.g. `import * as z from "zod";`). No
+// value's *published* type contract, exactly what a downstream user gets. No
 // instantiation count - only Sury's own schema owns that golden.
 export const deriveVsTypeInfo = run("deriveVsTypeInfo");

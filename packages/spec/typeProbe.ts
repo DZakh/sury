@@ -1,22 +1,3 @@
-// Derives TypeScript type strings (`ts.input`/`ts.output`) and the type-
-// instantiation count (`ts.instantiations`) for a schema expression, directly
-// via @typescript/vfs + the TypeScript compiler API - NOT @ark/attest.
-//
-// @ark/attest's own instantiation-counting (bench/type.js + cache/utils.js)
-// already works this way internally: an isolated @typescript/vfs environment,
-// diffed against a baseline via the real (if undocumented)
-// `program.getInstantiationCount()`. What makes attest itself slow for our
-// purposes is `setup()`'s separate, unrelated `analyzeProjectAssertions()` -
-// a full-project scan for pre-written `attest()`/`bench()` calls, built to
-// support hardcoded-expected-value assertions across a whole test suite. We
-// don't need that: we want a fresh value for an arbitrary expression on
-// demand, so this module vendors just the isolated-environment +
-// instantiation-delta + typeToString logic.
-//
-// Measured: ~1s cold (first schema in a worker - dominated by loading
-// lib.d.ts + index.d.ts), ~50-200ms warm (every subsequent schema in the same
-// worker, since the environment is memoized) - versus attest's ~15s (which
-// is dominated by its whole-project assertion scan, unrelated to this cost).
 import { fileURLToPath } from "node:url";
 import { parentPort } from "node:worker_threads";
 import ts from "typescript";
@@ -54,8 +35,6 @@ const check = (text: string) => {
   const file = program.getSourceFile(PROBE_FILE)!;
   // Force type checking - merely constructing the program doesn't instantiate
   // the generics; getInstantiationCount() only reflects work actually done.
-  // Diagnostics are collected (not just triggered) so deriveTypeInfo can
-  // surface *why* if the probe below ever fails to resolve a type.
   const diagnostics = [...program.getSemanticDiagnostics(file), ...program.getDeclarationDiagnostics(file)];
   return { program, file, diagnostics, count: program.getInstantiationCount() };
 };
@@ -73,8 +52,7 @@ const getBaselineCount = (): number => {
 // checked probe file, keyed by alias name. InTypeAlias makes the printer
 // expand a type that still carries an alias symbol back to the alias itself (a
 // union return type would otherwise print as the useless literal "__Output"
-// instead of "string | number"). Shared by every derivation below so they all
-// read the exact same way.
+// instead of "string | number").
 const extractAliases = (program: ts.Program, file: ts.SourceFile): Record<string, string> => {
   const checker = program.getTypeChecker();
   const out: Record<string, string> = {};
@@ -93,6 +71,8 @@ const extractAliases = (program: ts.Program, file: ts.SourceFile): Record<string
 const diagnosticsText = (diagnostics: readonly ts.Diagnostic[]): string =>
   diagnostics.map((d) => ts.flattenDiagnosticMessageText(d.messageText, "\n")).join("\n");
 
+// Declares `schemaTs` and extracts S.Output<>/S.Input<> from it: the realistic
+// combined per-schema cost, not the isolated cost of either half alone.
 const deriveTypeInfo = (schemaTs: string): TypeInfo => {
   const withExpr =
     IMPORT_LINE +
@@ -114,7 +94,7 @@ const deriveTypeInfo = (schemaTs: string): TypeInfo => {
   // Aliases resolving is not the same as the schema typechecking. An excess
   // argument still infers a schema, so a spec written against a removed
   // signature keeps producing goldens - with the argument silently dropped at
-  // runtime, which is how the codec specs lost their encode direction.
+  // runtime.
   if (diagnostics.length) {
     throw new Error(
       `deriveTypeInfo: \`${schemaTs}\` does not typecheck:\n${diagnosticsText(diagnostics)}`,
@@ -165,6 +145,7 @@ const deriveRoundTripTypeInfo = (
   };
 };
 
+// `importLine` brings the vendor into scope (e.g. `import * as z from "zod";`).
 const deriveVsTypeInfo = (importLine: string, expr: string): { input: string; output: string } => {
   const withExpr =
     importLine +
@@ -186,8 +167,6 @@ const deriveVsTypeInfo = (importLine: string, expr: string): { input: string; ou
 export const probes = { deriveTypeInfo, deriveRoundTripTypeInfo, deriveVsTypeInfo };
 export type Probe = keyof typeof probes;
 
-// introspect.ts posts a worker's next probe only after its reply, so each reply
-// answers the one probe in flight.
 parentPort?.on("message", ([probe, args]: [Probe, string[]]) => {
   try {
     parentPort!.postMessage([true, (probes[probe] as (...a: string[]) => unknown)(...args)]);
