@@ -815,13 +815,12 @@ export const B_computed = (
 // Async children of a container in an operation that collects: a child's
 // rejection becomes a value (`B_settle`), so the join sees every child instead
 // of the first to fail, and the join raises what they found together, in
-// field order (`B_join`). The raise is a `Settled` the next join up passes
-// through, and the operation's rejection handler reads.
-export class Settled {
-  constructor(public l: unknown[]) {}
-}
+// field order (`B_join`). What it raises is `settled`'s shape, which the next
+// join up passes through and the operation's rejection handler reads.
+export const settledTag = {};
+export type Settled = { t: typeof settledTag; l: unknown[] };
 const settle = (thrown: unknown): Settled =>
-  thrown instanceof Settled ? thrown : new Settled([thrown]);
+  (thrown as Settled | undefined)?.t === settledTag ? (thrown as Settled) : { t: settledTag, l: [thrown] };
 export const B_settle = (val: Val, promise: string): string =>
   `${promise}.then(void 0,${B_embedPure(val, settle)})`;
 // `failed` is whether the container's own sync children collected.
@@ -829,10 +828,10 @@ export const B_join = (val: Val, failed: string, slots: string): string =>
   `${B_embedPure(val, (was: unknown, values: unknown[]) => {
     let found: unknown[] | undefined;
     for (let idx = 0; idx < values.length; idx++) {
-      const value = values[idx];
-      if (value instanceof Settled) (found ||= []).push(...value.l);
+      const value = values[idx] as Settled | undefined;
+      if (value?.t === settledTag) (found ||= []).push(...value.l);
     }
-    if (found || was) throw new Settled(found || []);
+    if (found || was) throw { t: settledTag, l: found || [] };
   })}(${failed},${slots});`;
 
 export const B_asyncVal = (from: Val, initial: string): Val => {

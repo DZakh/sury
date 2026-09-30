@@ -47,7 +47,8 @@ import {
   B_operationArg,
   B_refine,
   B_scope,
-  Settled,
+  type Settled,
+  settledTag,
   B_unsupportedDecode,
   B_varWithoutAllocation,
   failInvalidType,
@@ -293,7 +294,7 @@ const failureOf =
   (list: unknown[] | undefined, raised?: 1, thrown?: unknown): unknown => {
     // What async children found comes after what the sync phase did, in the
     // order the joins list them (builder.ts `B_join`).
-    const late = raised ? (thrown instanceof Settled ? thrown.l : [thrown]) : [];
+    const late = raised ? ((thrown as Settled | undefined)?.t === settledTag ? (thrown as Settled).l : [thrown]) : [];
     let size = late.length;
     for (let n = list; n; n = n[0] as unknown[] | undefined) size++;
     const issues = new Array(size);
@@ -346,29 +347,29 @@ const outcomeOf = (input: Val, flag: Flag, hasDefs: boolean): Outcome => {
   // promisable mode (512) answers in the body's own shape, known only once the
   // body is, so the JS Result's builder reads it off `lift` when it runs.
   const lift: { a?: boolean } = {};
-  const answer = (value: string) =>
-    `return ${flag & 1 && !(flag & 512) ? `Promise.resolve(${value})` : value}`;
-  let x: BGlobal["x"], failure: string, list: string | undefined;
+  const lifted = (value: string) => (flag & 1 && !(flag & 512) ? `Promise.resolve(${value})` : value);
+  let x: NonNullable<BGlobal["x"]> & { k?: 1 }, failure: string, list: string | undefined;
   if (flag & 128) {
     list = g.k = B_varWithoutAllocation(g);
     g.l = [];
     failure = B_embedPure(input, failureOf(B_errorOf(input), lift));
+    x = (record) => `return ${failure}(${record ? `[${list},${record(true)}]` : list})`;
     // Tagged so a container knows its children collect (builder.ts `B_field`).
-    const exit = ((record) =>
-      `return ${failure}(${record ? `[${list},${record(true)}]` : list})`) as NonNullable<
-      BGlobal["x"]
-    > & { k?: 1 };
-    exit.k = 1;
-    x = exit;
+    x.k = 1;
   } else if (flag & 4096) {
     failure = "false";
-    const no = answer(failure);
+    const no = `return ${lifted(failure)}`;
     x = () => no;
   } else {
     const errorOf = B_errorOf(input);
     failure = B_embedPure(input, (e: unknown) => ({ TAG: "Error", _0: errorOf(e) }));
-    x = (record) => answer(`${failure}(${record!()})`);
+    x = (record) => `return ${lifted(`${failure}(${record!()})`)}`;
   }
+  const failOf = (e?: string): string =>
+    list ? `${failure}(${list}${e ? `,1,${e}` : ""})` : flag & 4096 ? failure : `${failure}(${e})`;
+  // What the sync phase collected fails the operation after all, async or
+  // not - it is only read once the body is done.
+  const done = (success: string): string => (list ? `${list}?${failOf()}:${success}` : success);
   return {
     x,
     t: (code, out, isAsync) => {
@@ -377,27 +378,17 @@ const outcomeOf = (input: Val, flag: Flag, hasDefs: boolean): Outcome => {
       lift.a = !!(flag & 1) && (isAsync || !(flag & 512));
       const valueVar = isAsync ? B_varWithoutAllocation(g) : value;
       const success = okResult(flag, flag & 4096 ? "true" : flag & 2048 ? value : valueVar);
-      const fail = list
-        ? (raised?: string) => `${failure}(${list}${raised ? `,1,${raised}` : ""})`
-        : (raised?: string) => (flag & 4096 ? "false" : `${failure}(${raised})`);
-      // What the sync phase collected fails the operation after all, async or
-      // not - it is only read once the body is done.
-      const settled = list ? `${list}?${fail()}:${success}` : success;
       let body = isAsync
         ? // Inlined into the promise chain the operation already builds, rather
           // than wrapped around it.
-          `${code}return ${out}.then(${valueVar}=>${list ? settled : `(${success})`},${errVar}=>(${fail(errVar)}))`
-        : list
-          ? `${code}return ${list}?${fail()}:${flag & 1 && !(flag & 512) ? `Promise.resolve(${success})` : success}`
-          : `${code}return ${flag & 1 && !(flag & 512) ? `Promise.resolve(${success})` : success}`;
+          `${code}return ${out}.then(${valueVar}=>${done(`(${success})`)},${errVar}=>(${failOf(errVar)}))`
+        : `${code}return ${done(lifted(success))}`;
       // An outcome with an answer of its own never throws, and any body can:
       // what it reads may be a getter or a proxy, even where nothing it checks
       // can fail. Only an empty one needs no `try` - the decision a
       // `safe(() => ...)` wrapper can never make.
       if (code)
-        body = `try{${body}}catch(${errVar}){return ${
-          list || !(flag & 1) || (flag & 512 && !isAsync) ? fail(errVar) : `Promise.resolve(${fail(errVar)})`
-        }}`;
+        body = `try{${body}}catch(${errVar}){return ${list ? failOf(errVar) : lifted(failOf(errVar))}}`;
       return list ? `let ${[list, ...new Set(g.l)]};${body}` : body;
     },
   };
