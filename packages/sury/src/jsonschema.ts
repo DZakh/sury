@@ -551,8 +551,9 @@ const internalToJSONSchemaBase = (
     const items: JSONSchemaT[] = [];
     const seen: Record<string, boolean> = {};
 
-    // `null` last, the way printed types read: a wrapper puts its own empty arm
-    // first to try it first, which says nothing about the type.
+    // `null` last, the way printed types read: a wrapper may put its own empty
+    // arm ahead of the rest to try it first (`unionWrap`), which says nothing
+    // about the type.
     const anyOf = schema.anyOf!;
     const ordered = anyOf.filter((child) => child.type !== nullTag);
     ordered.concat(anyOf.filter((child) => child.type === nullTag)).forEach((childSchema) => {

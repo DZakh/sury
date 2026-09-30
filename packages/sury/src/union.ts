@@ -1880,10 +1880,7 @@ const unionResolveToUnion = (
 
 // ── Factory ──────────────────────────────────────────────────────────────────
 
-// Whether an arm does anything with the value of `tag` other than pass it
-// through: converts it, or hides behind a boundary the analysis will not open.
-// A ref still being defined has nothing to read yet, so it counts.
-export const unionClaims = (s: Internal, tag: Tag, refs?: Internal[]): boolean => {
+export const unionChanges = (s: Internal, tag: Tag, refs?: Internal[]): boolean => {
   if (!(unionMask(s, 1, 0) & tagFlags[tag]!)) return false;
   if (s.type === anyOfTag) {
     if (s.to !== U || s.parser !== U) return true;
@@ -1892,7 +1889,7 @@ export const unionClaims = (s: Internal, tag: Tag, refs?: Internal[]): boolean =
     for (const arm of s.anyOf!) {
       if (arm.type === tag) return arm.to !== U;
       if (!(unionMask(arm, 1, 0) & tagFlags[tag]!)) continue;
-      if (unionClaims(arm, tag, refs)) return true;
+      if (unionChanges(arm, tag, refs)) return true;
       if (!(unionTraits(arm) & 3)) return false;
     }
     return false;
@@ -1900,21 +1897,20 @@ export const unionClaims = (s: Internal, tag: Tag, refs?: Internal[]): boolean =
   if (s.type === refTag) {
     if (refs?.includes(s)) return false;
     const def = s.definition || unionRefDef(s);
-    return def === U || unionClaims(def, tag, [...(refs || []), s]);
+    // A ref still being defined has nothing to read yet, so it counts.
+    return def === U || unionChanges(def, tag, [...(refs || []), s]);
   }
   return (unionTraits(s) & 12) !== 0;
 };
 
-// `S.optional`, `S.nullable` and their kin own their empty value: its arm goes
-// in front of the first arm of `inner` that would do anything else with it, and
-// last, as written, when nothing would. The order lives in `anyOf`, so a parent
-// union that flattens this one keeps it, and first-member-wins between the
-// parent's own members is untouched.
+// `S.optional`, `S.nullable` and their kin own their empty value. The order
+// lives in `anyOf`, so a parent union that flattens this one keeps it, and
+// first-member-wins between the parent's own members is untouched.
 export const unionWrap = (inner: Internal, empties: Internal[]): Internal => {
   const arms = unionIsTransparent(inner) ? inner.anyOf!.slice() : [inner];
   for (let idx = 0; idx < empties.length; idx++) {
     const empty = empties[idx]!;
-    const at = arms.findIndex((arm) => unionClaims(arm, empty.type));
+    const at = arms.findIndex((arm) => unionChanges(arm, empty.type));
     at < 0 ? arms.push(empty) : arms.splice(at, 0, empty);
   }
   return unionFactory(arms);
@@ -1946,7 +1942,8 @@ export const unionFactory = (schemas: Internal[]): Internal => {
 // A member that passes `null`/`undefined` through, behind one that already
 // turns it into something else, is an Output decode never produces, so the
 // union could not read back what it writes. Only a written `S.union` can order
-// its members that way: a wrapper puts its own empty arm first.
+// its members that way: a wrapper puts its own empty arm ahead of any arm that
+// would change it (`unionWrap`).
 export const unionCheckEmpties = (schema: Internal): Internal => {
   const anyOf = schema.anyOf || [];
   const replaced: Partial<Record<Tag, Internal>> = {};
@@ -1965,9 +1962,7 @@ export const unionCheckEmpties = (schema: Internal): Internal => {
   return schema;
 };
 
-// The arm that handles `tag` first: the arm itself, or through nested unions
-// the first arm that takes it, as long as that one is the literal. An env link
-// reads an unset var as its target's `undefined`.
+// An env link reads an unset var as its target's `undefined`.
 const unionEmptyArm = (s: Internal, tag: Tag): Internal | undefined => {
   if (s.type === tag) return s;
   if (s.format === "env" && s.to !== U) return unionEmptyArm(s.to, tag);

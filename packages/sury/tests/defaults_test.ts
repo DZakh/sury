@@ -29,9 +29,6 @@ test("a default the refinement accepts is kept", () => {
   });
 });
 
-// A union member that keeps null/undefined as itself, behind one whose default
-// replaces it, is an Output decode never produces: the union is refused.
-
 test("a union refuses null that an earlier member's default replaces", () => {
   expect(() => S.union([S.nullable(S.boolean, false), null])).toThrow(
     "[Sury] S.union can't keep null: an earlier member decodes it to boolean. Drop null from the later member, or wrap the union: S.nullable(S.union([...]), default)",

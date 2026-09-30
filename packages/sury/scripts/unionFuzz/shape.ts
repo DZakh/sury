@@ -7,9 +7,9 @@
 export type Shape = {
   name: string;
   args: Shape[];
-  // A modifier's name (`with`), a default's printed value (`#value`), or a
-  // recursive member's form (`list`, `tree`, `union`).
+  // A modifier's name (`with`), or a default's printed value (`#value`).
   raw?: string;
+  form?: "list" | "tree" | "union";
 };
 
 export const node = (name: string, ...args: Shape[]): Shape => ({ name, args });
@@ -50,7 +50,7 @@ export const absorbs = (node: Shape): boolean =>
   node.name === "fieldOr" ||
   node.name === "record" ||
   // `{head, next?}` and `head | self[]` over `any`/`unknown`: every field may be absent, or anything goes.
-  (node.name === "recursive" && node.raw !== "tree" && ANY.has(node.args[0]!.name)) ||
+  (node.name === "recursive" && node.form !== "tree" && ANY.has(node.args[0]!.name)) ||
   ((node.name === "field" || node.name === "renamed") && admitsUndefined(node.args[0]!)) ||
   ((node.name === "list" || node.name === "array") && some(node.args[0]!, (n) => ANY.has(n.name))) ||
   (["optional", "nullable", "nullish"].includes(node.name) && absorbs(node.args[0]!));

@@ -183,10 +183,8 @@ const fieldOrMember = (S: Sury, rng: Rng, inner: MemberSpec): MemberSpec => {
       })();
 };
 
-// A member that takes null or undefined itself and makes something else of
-// it: an env link reading an unset var, a codec from the literal, a transform
-// of anything. A wrapper around one still owns its own empty value, and a
-// union holding one next to that value is where the planner has to fall through.
+// A wrapper around one of these still owns its own empty value, and a union
+// holding one next to that value is where the planner has to fall through.
 // Every one is lossy: an env var reads `""` as unset and port text as a number.
 const emptyTaker = (S: Sury, rng: Rng): MemberSpec => {
   const roll = rng();
@@ -266,9 +264,7 @@ const tupleMember = (S: Sury, rng: Rng): MemberSpec => {
   };
 };
 
-// `S.union` refuses a later member's null/undefined that an earlier member's
-// default already replaces. That draw keeps the first member alone; any other
-// refusal still throws.
+// A draw S.union refuses keeps its first member, so the stream stays aligned.
 const nestedUnion = (S: Sury, rng: Rng, depth: number): MemberSpec => {
   const a = memberAt(S, rng, depth + 1);
   const b = memberAt(S, rng, depth + 1);
@@ -296,7 +292,7 @@ const recursiveMember = (S: Sury, rng: Rng): MemberSpec => {
   const leaf = leafSchema(S, rng);
   const name = `R${Math.floor(rng() * 4)}`;
   const form = Math.floor(rng() * 3);
-  const shape: Shape = { ...node("recursive", leaf.shape), raw: ["list", "tree", "union"][form] };
+  const shape: Shape = { ...node("recursive", leaf.shape), form: (["list", "tree", "union"] as const)[form] };
   if (form === 0) {
     return {
       id: `${name}{head:${leaf.id},next?:${name}}`,

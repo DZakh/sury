@@ -793,10 +793,9 @@ export const inputExpression = (schema: Internal, skipOverride?: boolean): strin
     // may intentionally run more than once), but not to the expression. Deduping
     // on rendered text rather than identity means members which genuinely differ
     // but render alike - two distinct classes both named Foo - collapse, so this
-    // is not a member count. A nested union with nothing to print of its own
-    // joins the same dedupe, and `null`/`undefined` print last, as TypeScript
-    // prints them: a wrapper tries its own empty arm first, and that order is
-    // not the type's.
+    // is not a member count. `null`/`undefined` print last, as TypeScript prints
+    // them: a wrapper may put its own empty arm ahead of the rest (`unionWrap`),
+    // and that order is not the type's.
     const seen: string[] = [];
     const add = (s: Internal): void => {
       if (s.anyOf !== U && !s.name && !s.expression) s.anyOf.forEach(add);
