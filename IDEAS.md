@@ -418,14 +418,17 @@ is set. What is left on the table:
   outcomes no longer pay. Deciding it from the members' own async-ness (a
   schema walk like `unionTraits`) before compiling them would let the common
   all-sync union jump in async operations too.
-- **Compiles are 3-12% slower** (`spec check --perf=only --against
-  16de5d3`), mostly unions, and a few plain refined schemas at 3-5%
-  (`integer-gte`, `bigint-lt` encode/decode). `enter`/`leave` build a closure
-  and a label holder per union case, `settle` checks each case against the
-  chain's drop rule, and `B_fail` builds a record thunk per failed check wherever an exit is
-  set - including `is*`, whose exit never reads it. Asking the exit whether it
-  wants the record before building it, and a per-union label counter, would
-  win most of it back.
+- **Union compiles are still 5-13% slower than main** (`spec check
+  --perf=only --against origin/main`: 13 create+compile targets, every other
+  one unchanged or faster; worst `union2-refine-throws`). Most of the first
+  round's 12-30% was generated code up to 30% longer, which the linked failure
+  record and the dropped `try`s won back. What is left is compiler work spread
+  thin - `enter`/`leave` build a closure and a label holder per case, `settle`
+  rescans the chain for its drop rule, `attempt` re-checks what follows a
+  terminal case, and `B_fail` builds a record thunk per failed check - with no
+  single hotspot in a profile. A per-union label counter and a `settle` that
+  keeps its last live case would be the next cuts; measure each, the noise
+  floor is 3-5%.
 - **`B_detached` is a convention, not a guarantee.** Every builder that emits
   code into a callback (a `.then`, `Promise.all(...).then`, an async dispatch)
   has to run both the parse and the merge of that code with the exit cleared,
