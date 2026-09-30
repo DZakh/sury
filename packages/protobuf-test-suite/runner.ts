@@ -48,16 +48,16 @@ export type Golden = {
   protobufEsWrong: string[];
 };
 
-const bytesOf = (value: Uint8Array | number[]): number[] =>
+export const bytesOf = (value: Uint8Array | number[]): number[] =>
   Array.from(value instanceof Uint8Array ? value : new Uint8Array(value));
 
-const equalBytes = (a: Uint8Array, b: Uint8Array): boolean => {
+export const equalBytes = (a: Uint8Array, b: Uint8Array): boolean => {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
   return true;
 };
 
-const equalValue = (a: unknown, b: unknown): boolean => {
+export const equalValue = (a: unknown, b: unknown): boolean => {
   if (Object.is(a, b)) return true;
   if (a instanceof Uint8Array && b instanceof Uint8Array) return equalBytes(a, b);
   if (Array.isArray(a) && Array.isArray(b)) {
@@ -146,7 +146,7 @@ const protobufEsAgrees = (
 const pass = (id: string): CaseResult => ({ id, status: "pass" });
 const error = (id: string, detail: string): CaseResult => ({ id, status: "error", detail });
 
-const runRoundTrip = (id: string, fields: FieldDef[], value: Record<string, unknown>, wire?: number[]): CaseResult => {
+export const runRoundTrip = (id: string, fields: FieldDef[], value: Record<string, unknown>, wire?: number[]): CaseResult => {
   try {
     const { schema, encode, decode } = ops(fields);
     const suryBytes = encode(value);
@@ -179,7 +179,7 @@ const runRoundTrip = (id: string, fields: FieldDef[], value: Record<string, unkn
   }
 };
 
-const show = (value: unknown): string =>
+export const show = (value: unknown): string =>
   JSON.stringify(value, (_, v) => (typeof v === "bigint" ? `${v}n` : v instanceof Uint8Array ? bytesOf(v) : v));
 
 const runDecodeOnly = (

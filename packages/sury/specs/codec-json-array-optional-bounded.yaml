@@ -4,15 +4,12 @@ ts:
   input: JSON
   output: (number | undefined)[]
   instantiations: 5347
-# FIXME: jsonSchema.input drops the item's `maximum: 1` - a variant converted
-# through `.to(json)` reports the target's type without the source's refinements.
-# The generated code still enforces the bound, in both directions.
 jsonSchema:
-  input: '{ items: { anyOf: [{ type: "number" }, { type: "null" }] }, type: "array" }'
+  input: '{ items: { anyOf: [{ type: "number", maximum: 1 }, { type: "null" }] }, type: "array" }'
   fromInputType: (number | null)[]
   output: "Failed at []: Expected JSON, received number <= 1 | undefined"
   openapi-3.0:
-    input: '{ items: { type: "number", nullable: true }, type: "array" }'
+    input: '{ items: { type: "number", maximum: 1, nullable: true }, type: "array" }'
 isEqual:
   input: (a,b)=>a===b||e[0](a,b)
   output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
@@ -24,7 +21,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{Array.isArray(i)||e[2](i);let v2=new Array(i.length);for(let v0=0;v0<i.length;++v0){let v1=i[v0];for(;;){if(typeof v1==="number"&&v1==v1){v1<=1||e[0](v1,[v0]);break}if(v1===null){v1=void 0;break}e[1](v1,[v0])}v2[v0]=v1}return v2}catch(v3){e[3](v3)}}
+    expression: i=>{try{Array.isArray(i)||e[2](i);let v2=new Array(i.length);for(let v0=0;v0<i.length;++v0){let v1=i[v0];for(;;){if(typeof v1==="number"&&v1==v1){v1<=1||e[0](v1,[v0]);break}if(v1===null){v1=void 0;break}throw e[1](v1,void 0,[v0])}v2[v0]=v1}return v2}catch(v3){e[3](v3)}}
     examples:
       null-becomes-undefined:
         input: "[null, 1]"
@@ -37,7 +34,7 @@ operations:
         output: "[]"
   decode: eq-to-parse
   encode:
-    expression: i=>{try{let v3=new Array(i.length);for(let v1=0;v1<i.length;++v1){let v2=i[v1];for(;;){if(typeof v2==="number"&&v2==v2){v2<=1||e[0](v2,[v1]);break}if(v2===void 0){v2=null;break}e[1](v2,[v1])}v3[v1]=v2}return v3}catch(v4){e[2](v4)}}
+    expression: i=>{try{let v3=new Array(i.length);for(let v1=0;v1<i.length;++v1){let v2=i[v1];for(;;){if(typeof v2==="number"&&v2==v2){v2<=1||e[0](v2,[v1]);break}if(v2===void 0){v2=null;break}throw e[1](v2,void 0,[v1])}v3[v1]=v2}return v3}catch(v4){e[2](v4)}}
     examples:
       undefined-becomes-null:
         input: "[undefined, 1]"
