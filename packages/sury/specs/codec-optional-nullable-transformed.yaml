@@ -18,7 +18,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{for(;;){if(typeof i==="string"){let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0;break}if(i===void 0){i=null;break}e[1](i)}return i}catch(v1){e[2](v1)}}
+    expression: i=>{try{for(;;){if(typeof i==="string"){let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0;break}if(i===void 0){i=null;break}throw e[1](i)}return i}catch(v1){e[2](v1)}}
     examples:
       true-string:
         input: '"true"'
@@ -34,7 +34,7 @@ operations:
         error: Expected boolean, received "abc"
   decode: eq-to-parse
   encode:
-    expression: i=>{try{for(;;){if(typeof i==="boolean"){i=""+i;break}if(i===null){i=void 0;break}e[0](i)}return i}catch(v0){e[1](v0)}}
+    expression: i=>{try{for(;;){if(typeof i==="boolean"){i=""+i;break}if(i===null){i=void 0;break}throw e[0](i)}return i}catch(v0){e[1](v0)}}
     examples:
       boolean:
         input: "true"

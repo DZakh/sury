@@ -16,7 +16,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{for(;;){if(typeof i==="string")break;if(i===void 0){let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);i=v0;break}e[3](i)}return i}catch(v1){e[4](v1)}}
+    expression: i=>{try{for(;;){if(typeof i==="string")break;if(i===void 0){let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);i=v0;break}throw e[3](i)}return i}catch(v1){e[4](v1)}}
     examples:
       sibling-arm:
         input: '"abc"'

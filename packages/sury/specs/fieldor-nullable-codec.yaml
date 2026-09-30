@@ -19,7 +19,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i.f;if(v0===void 0){v0=null}else{for(;;){if(typeof v0==="string"){let v1=+v0;v1==v1&&(v1||v0.trim())||e[0](v0);v0=v1;break}if(v0===null)break;e[1](v0)}}return {f:v0}}catch(v2){e[3](v2)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i.f;if(v0===void 0){v0=null}else{for(;;){if(typeof v0==="string"){let v1=+v0;v1==v1&&(v1||v0.trim())||e[0](v0);v0=v1;break}if(v0===null)break;throw e[1](v0)}}return {f:v0}}catch(v2){e[3](v2)}}
     examples:
       absent-takes-the-default:
         input: "{}"
@@ -31,13 +31,13 @@ operations:
         input: '{ f: "2" }'
         output: "{ f: 2 }"
   decode:
-    expression: i=>{try{let v0=i.f;if(v0===void 0){v0=null}else{for(;;){if(typeof v0==="string"){let v1=+v0;v1==v1&&(v1||v0.trim())||e[0](v0);v0=v1;break}if(v0===null)break;e[1](v0)}}return {f:v0}}catch(v2){e[2](v2)}}
+    expression: i=>{try{let v0=i.f;if(v0===void 0){v0=null}else{for(;;){if(typeof v0==="string"){let v1=+v0;v1==v1&&(v1||v0.trim())||e[0](v0);v0=v1;break}if(v0===null)break;throw e[1](v0)}}return {f:v0}}catch(v2){e[2](v2)}}
     examples:
       string-converts:
         input: '{ f: "2" }'
         output: "{ f: 2 }"
   encode:
-    expression: i=>{try{let v0=i.f;for(;;){if(typeof v0==="number"&&v0==v0){v0=""+i.f;break}if(v0===null)break;e[0](v0)}return {f:v0}}catch(v1){e[1](v1)}}
+    expression: i=>{try{let v0=i.f;for(;;){if(typeof v0==="number"&&v0==v0){v0=""+i.f;break}if(v0===null)break;throw e[0](v0)}return {f:v0}}catch(v1){e[1](v1)}}
     examples:
       number-converts-back-once:
         input: "{ f: 2 }"
