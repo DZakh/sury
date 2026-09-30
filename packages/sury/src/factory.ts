@@ -501,10 +501,8 @@ const shapedParser: Builder = (input: Val) => {
   return B_markOutput(output, input);
 }
 
-// `schema` is where the value sits in the Output, and names the Input location
-// it came from. Read off the container's own field rather than the val: a
-// decoder may end its val's chain on a schema of its own, as `S.never`'s does,
-// and the location went with the one it replaced.
+// Reads `from` off the container's field schema, not `input.e`: a decoder can
+// end its val on a schema of its own (`S.never`'s does), which has no `from`.
 const prepareShapedSerializerAcc = (
   acc: ShapedSerializerAcc,
   input: Val,
@@ -551,6 +549,7 @@ const prepareShapedSerializerAcc = (
     accAtFrom.val = input;
   } else if (input.d !== U) {
     const vals = input.d;
+    // A tuple's `items` is indexed by the same keys as `input.d`.
     const fields = (schema.properties || schema.items) as Record<string, Internal> | undefined;
     const keys = Object.keys(vals);
     for (let idx = 0; idx < keys.length; idx++) {
