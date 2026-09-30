@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.recursive("Node", (n) => S.schema({ v: S.string, kid: S.optional(n) }))'
+  input: unknown
+  output: unknown
+  instantiations: 7709
+jsonSchema:
+  input: '{ $ref: "#/$defs/Node", $defs: { Node: { type: "object", properties: { v: { type: "string" }, kid: { $ref: "#/$defs/Node" } }, required: ["v"] } } }'
+  fromInputType: "{ v: string; kid?: ... | undefined; }"
+  output: '{ $ref: "#/$defs/Node", $defs: { Node: { type: "object", properties: { v: { type: "string" }, kid: { $ref: "#/$defs/Node" } }, required: ["v"] } } }'
+  fromOutputType: "{ v: string; kid?: ... | undefined; }"
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare Node. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v0;v0=e[0](i);return v0}catch(v1){e[1](v1)}}
+    examples:
+      nested:
+        input: '{ v: "a", kid: { v: "b" } }'
+        output: '{ v: "a", kid: { v: "b", kid: undefined } }'
+      # FIXME: a getter's throw is documented to escape with its identity, but
+      # the recursive call's catch reads `path` off it as if it were a Sury
+      # error and crashes on the TypeError instead.
+      getter-throws-in-kid:
+        input: '{ v: "a", kid: { get v() { throw new RangeError("getter boom") } } }'
+        error: "TypeError: v2.path is not iterable"
+      getter-throws-at-root:
+        input: '{ get v() { throw new RangeError("getter boom") } }'
+        error: "RangeError: getter boom"
+  decode:
+    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      nested:
+        input: '{ v: "a", kid: { v: "b" } }'
+        output: '{ v: "a", kid: { v: "b" } }'
+  encode:
+    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      nested:
+        input: '{ v: "a", kid: { v: "b" } }'
+        output: '{ v: "a", kid: { v: "b" } }'
