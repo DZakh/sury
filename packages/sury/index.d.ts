@@ -2619,14 +2619,14 @@ export function nullish<
   const TDef = never,
   TInput = UnknownToInput<TDef>,
   TOutput = UnknownToOutput<TDef>,
-  TOr extends TOutput | undefined | null = undefined
+  TOr extends TOutput | undefined = undefined
 >(
   schema: SchemaLike<TInput, TOutput> | TDef,
   or?: (() => TOr) | TOr,
   _?: never
 ): Schema<
   TInput | undefined | null,
-  TOr extends undefined | null ? TOutput | undefined | null : TOutput
+  TOr extends undefined ? TOutput | undefined | null : TOutput
 >;
 
 export type Class<T> = new (...args: readonly any[]) => T;

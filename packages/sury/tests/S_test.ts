@@ -449,6 +449,13 @@ test("Successfully parses nullable string with dynamic default", (t) => {
   expectTypeOf(value1).toEqualTypeOf<string>();
 });
 
+test("Nullish default can't be null", (t) => {
+  t.expect(() =>
+    // @ts-expect-error
+    S.nullish(S.string, null)
+  ).toThrow("Invalid default for string | undefined | null: Expected string, received null");
+});
+
 test("Pattern match on schema", (t) => {
   const schema = S.int32;
 
