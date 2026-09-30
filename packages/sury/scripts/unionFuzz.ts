@@ -87,6 +87,7 @@ const budget: Record<DiffClass, number> = {
   "exception-kind": 40,
   reasons: 5,
   message: 10,
+  outcome: 40,
 };
 
 const num = (name: string, fallback: string): number => {
@@ -118,6 +119,7 @@ const main = async (): Promise<void> => {
     "exception-kind": 0,
     reasons: 0,
     message: 0,
+    outcome: 0,
   };
 
   const pinned = issue392Case(S);
@@ -152,7 +154,7 @@ const main = async (): Promise<void> => {
     // container whose items transform (#452).
     const members = generateMembers(S, next, size);
     creationFailures.push(...takeRefused());
-    const result = diffsForUnion(S, members);
+    const result = await diffsForUnion(S, members);
     stats.compared += result.compared;
     stats.skipped += result.skipped;
     const label = describeMembers(members);
@@ -220,7 +222,7 @@ const main = async (): Promise<void> => {
     }
   }
 
-  if (stats.byClass.acceptance || stats.byClass["exception-kind"]) {
+  if (stats.byClass.acceptance || stats.byClass["exception-kind"] || stats.byClass.outcome) {
     process.exitCode = 1;
   }
 };

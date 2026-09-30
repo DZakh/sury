@@ -40,7 +40,7 @@ operations:
         input: undefined
         output: "null"
   encode:
-    expression: i=>{try{for(;;){if(typeof i==="string")break;if(i===null){i=void 0;break}e[0](i)}return i}catch(v0){e[1](v0)}}
+    expression: i=>{try{for(;;){if(typeof i==="string")break;if(i===null){i=void 0;break}throw e[0](i)}return i}catch(v0){e[1](v0)}}
     examples:
       set:
         input: '"x"'

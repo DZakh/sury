@@ -16,7 +16,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{for(;;){if(typeof i==="string"&&i==="x")break;if(i===void 0){i=null;break}e[0](i)}return i}catch(v0){e[1](v0)}}
+    expression: i=>{try{for(;;){if(typeof i==="string"&&i==="x")break;if(i===void 0){i=null;break}throw e[0](i)}return i}catch(v0){e[1](v0)}}
     examples:
       literal:
         input: '"x"'
@@ -29,7 +29,7 @@ operations:
         error: Expected "x" | undefined, received "y"
   decode: eq-to-parse
   encode:
-    expression: i=>{try{for(;;){if(typeof i==="string"&&i==="x")break;if(i===null){i=void 0;break}e[0](i)}return i}catch(v0){e[1](v0)}}
+    expression: i=>{try{for(;;){if(typeof i==="string"&&i==="x")break;if(i===null){i=void 0;break}throw e[0](i)}return i}catch(v0){e[1](v0)}}
     examples:
       literal:
         input: '"x"'

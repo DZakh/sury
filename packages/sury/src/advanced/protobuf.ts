@@ -28,7 +28,7 @@ import {
   _var,
   B_embed,
   B_embedPure,
-  B_failWithArg,
+  B_fail,
   B_conversionFail,
   B_merge,
   B_next,
@@ -1885,7 +1885,7 @@ const protobufDecoder = (input: Val): Val => {
 const guarded = (input: Val, output: Val, target: Internal, code: string, release: string): string => {
   const unionContext = input.g.o & 4;
   const rethrow = unionContext ? `${B_embed(input, getOrRethrow)}(x);` : "";
-  const failure = B_failWithArg(output, B_conversionFail(input, target), "x");
+  const failure = B_fail(output, B_conversionFail(input, target), "x");
   return `try{${code}}catch(x){${release}${rethrow}${failure}}`;
 };
 

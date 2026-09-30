@@ -17,7 +17,7 @@ vs:
 operations:
   parse:
     isAsync: true
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[6](i);let v1=i.n;typeof v1==="string"||e[3](v1);let v0;try{v0=e[0](v1).catch(x=>e[1](x))}catch(x){e[1](x)}let v2=v0.then(v0=>{typeof v0==="number"&&v0==v0||e[2](v0);return v0});let v3=Promise.all([v2]).then(([v2])=>{return {n:v2}});return v3.then(v3=>{e[4](v3)||e[5](v3);return v3}).catch(e[7])}catch(v4){return e[8](v4)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[6](i);let v1=i.n;typeof v1==="string"||e[3](v1);let v0;try{v0=e[0](v1).catch(x=>{e[1](x)})}catch(x){e[1](x)}let v2=v0.then(v0=>{typeof v0==="number"&&v0==v0||e[2](v0);return v0});let v3=Promise.all([v2]).then(([v2])=>{return {n:v2}});return v3.then(v3=>{e[4](v3)||e[5](v3);return v3}).catch(e[7])}catch(v4){return e[8](v4)}}
     examples:
       passes:
         input: '{ n: "abc" }'
@@ -30,7 +30,7 @@ operations:
           check: true
   decode:
     isAsync: true
-    expression: i=>{try{let v0;try{v0=e[0](i.n).catch(x=>e[1](x))}catch(x){e[1](x)}let v1=v0.then(v0=>{typeof v0==="number"&&v0==v0||e[2](v0);return v0});let v2=Promise.all([v1]).then(([v1])=>{return {n:v1}});return v2.then(v2=>{e[3](v2)||e[4](v2);return v2}).catch(e[5])}catch(v3){return e[6](v3)}}
+    expression: i=>{try{let v0;try{v0=e[0](i.n).catch(x=>{e[1](x)})}catch(x){e[1](x)}let v1=v0.then(v0=>{typeof v0==="number"&&v0==v0||e[2](v0);return v0});let v2=Promise.all([v1]).then(([v1])=>{return {n:v1}});return v2.then(v2=>{e[3](v2)||e[4](v2);return v2}).catch(e[5])}catch(v3){return e[6](v3)}}
     examples:
       rejected-after-await:
         input: '{ n: "a" }'

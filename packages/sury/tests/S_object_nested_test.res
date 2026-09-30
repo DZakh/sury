@@ -21,12 +21,12 @@ test("Object with a single nested field with S.nullAsOption", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i.nested;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[1](v0);let v1=v0.foo;for(;;){if(typeof v1==="string")break;if(v1===null){v1=void 0;break}e[0](v1)}return v1}catch(v2){e[3](v2)}}`,
+    `i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i.nested;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[1](v0);let v1=v0.foo;for(;;){if(typeof v1==="string")break;if(v1===null){v1=void 0;break}throw e[0](v1)}return v1}catch(v2){e[3](v2)}}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{try{for(;;){if(typeof i==="string")break;if(i===void 0){i=null;break}e[0](i)}return {nested:{foo:i}}}catch(v0){e[1](v0)}}`,
+    `i=>{try{for(;;){if(typeof i==="string")break;if(i===void 0){i=null;break}throw e[0](i)}return {nested:{foo:i}}}catch(v0){e[1](v0)}}`,
   )
   t->Assert.deepEqual(
     Some("bar")->S.convertOrThrow(~from=schema, ~to=S.unknown),
@@ -304,12 +304,12 @@ test("S.schema object with a deep strict applied to the nested field parent + re
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i.nested,v3;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0.foo,v2;for(;;){if(typeof v1==="string")break;if(v1===void 0){v1=null;break}e[0](v1)}for(v2 in v0)if(v2!=="foo")e[1](v2);for(v3 in i)if(v3!=="nested")e[3](v3);return {nested:{foo:v1}}}catch(v4){e[5](v4)}}`,
+    `i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i.nested,v3;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0.foo,v2;for(;;){if(typeof v1==="string")break;if(v1===void 0){v1=null;break}throw e[0](v1)}for(v2 in v0)if(v2!=="foo")e[1](v2);for(v3 in i)if(v3!=="nested")e[3](v3);return {nested:{foo:v1}}}catch(v4){e[5](v4)}}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{try{let v0=i.nested;let v1=v0.foo;for(;;){if(typeof v1==="string")break;if(v1===null){v1=void 0;break}e[0](v1)}return {nested:{foo:v1}}}catch(v2){e[1](v2)}}`,
+    `i=>{try{let v0=i.nested;let v1=v0.foo;for(;;){if(typeof v1==="string")break;if(v1===null){v1=void 0;break}throw e[0](v1)}return {nested:{foo:v1}}}catch(v2){e[1](v2)}}`,
   )
 })
 
