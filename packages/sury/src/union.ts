@@ -20,6 +20,7 @@ import {
   type Builder,
   type Check,
   type Encoder,
+  emptyArm,
   errorAt,
   errorSite,
   getOrRethrow,
@@ -72,7 +73,7 @@ import {
   type HoistCond,
   operationArgVar,
 } from "./builder";
-import { nestedLoc, never_, outputExpression, parse, typeCheckCond } from "./parse";
+import { getOutputSchema, nestedLoc, never_, outputExpression, parse, typeCheckCond } from "./parse";
 
 // ── Type identity ────────────────────────────────────────────────────────────
 
@@ -1971,15 +1972,18 @@ export const unionCheckEmpties = (schema: Internal): Internal => {
 // counted, so nothing valid is refused.
 const unionReplaces = (s: Internal, tag: Tag, refs?: Internal[]): boolean | undefined => {
   if (s.type === tag) return s.to !== U;
-  // An env var is never null. It reads unset through its target's own arms
-  // (`emptyTag` in advanced/entries.ts): the `undefined` one, else the `null`
-  // one, which never hands back `undefined`; with neither, it rejects unset.
+  // An env var is never null, keeps unset as `undefined` on its own, and
+  // otherwise reads it through its target's `emptyArm`, rejecting it without
+  // one. What that arm decodes to decides; an empty value past the target's
+  // own `.to` can't be told.
   if (s.format === "env") {
     const target = s.to;
-    if (tag !== undefinedTag || target === U) return U;
-    const arms = target.anyOf || [target];
-    const arm = arms.find((arm) => arm.type === undefinedTag) || arms.find((arm) => arm.type === nullTag);
-    return arm === U ? U : arm.type === nullTag || arm.to !== U ? true : target.to === U ? false : U;
+    if (tag !== undefinedTag) return U;
+    if (target === U) return false;
+    const arm = emptyArm(target);
+    if (arm === U) return U;
+    const out = getOutputSchema(arm).type;
+    return out !== undefinedTag && out !== nullTag ? true : target.to === U ? out === nullTag : U;
   }
   if (s.type === refTag) {
     const def = s.definition || unionRefDef(s);

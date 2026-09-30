@@ -688,6 +688,15 @@ export const isLiteral = (schema: Internal): boolean => "const" in schema;
 export const isOptional = (schema: Internal): boolean =>
   schema.type === undefinedTag || (schema.type === anyOfTag && undefinedTag in schema.has!);
 
+// The arm an unset entry (a form field, a search param, an env var) reads
+// through: a direct `undefined` arm, else a direct `null` one. A direct arm,
+// not `has`: a nested union's own empty arm carries a default or conversion
+// the entry readers would skip, and S.union's refusal reads an env the same way.
+export const emptyArm = (schema: Internal): Internal | undefined => {
+  const arms = schema.anyOf || [schema];
+  return arms.find((arm) => arm.type === undefinedTag) || arms.find((arm) => arm.type === nullTag);
+};
+
 // The constructor name worth printing, or a falsy value for anything a reader
 // would learn nothing from: a plain object, a null prototype, an anonymous
 // class (whose `name` is the empty string). Both callers below key off exactly

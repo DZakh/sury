@@ -5,6 +5,7 @@
 import {
   anyOfTag,
   copySchema,
+  emptyArm,
   inputExpression,
   type Internal,
   nullTag,
@@ -75,20 +76,7 @@ export const admitsBlank = (schema: Internal): boolean =>
   schema.const === "" ||
   (schema.type === anyOfTag && schema.anyOf!.some(admitsBlank));
 
-// A direct arm, not `has`: a nested union's own empty arm carries its default
-// or conversion, which `presentArm`/`absentArm` would skip. S.union's refusal
-// reads an env's unset var from the same arms (`unionReplaces` in union.ts),
-// so the two move together.
-const emptyTag = (schema: Internal): Tag | undefined => {
-  const arms = schema.anyOf || [schema];
-  return arms.some((arm) => arm.type === undefinedTag)
-    ? undefinedTag
-    : arms.some((arm) => arm.type === nullTag)
-      ? nullTag
-      : U;
-};
-
-export const isAbsent = (schema: Internal): boolean => emptyTag(schema) !== U;
+export const isAbsent = (schema: Internal): boolean => emptyArm(schema) !== U;
 
 export const beforeTo = (schema: Internal): Internal => {
   if (schema.to === U) {
@@ -135,21 +123,20 @@ export const armCode = (item: Val, source: Internal, target: Internal): string =
   return B_merge(armOut) + `${item.i}=${armOut.i};`;
 };
 
-export const absentArm = (schema: Internal): Internal => {
-  const tag = emptyTag(schema);
-  return schema.anyOf?.find((variant) => variant.type === tag) || schema;
-};
+export const absentArm = (schema: Internal): Internal => emptyArm(schema) || schema;
 
 // A missing entry that reads as `undefined`, kept as it is.
-export const keepsUndefined = (schema: Internal): boolean =>
-  emptyTag(schema) === undefinedTag && absentArm(schema).to === U;
+export const keepsUndefined = (schema: Internal): boolean => {
+  const arm = emptyArm(schema);
+  return arm?.type === undefinedTag && arm.to === U;
+};
 
 export const absentCode = (item: Val, schema: Internal): string => {
   const absent = absentArm(schema);
   if (absent.to !== U) {
     return armCode(item, absent, absent);
   }
-  if (emptyTag(schema) === undefinedTag) {
+  if (absent.type === undefinedTag) {
     return "";
   }
   rebinds(item);

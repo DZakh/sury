@@ -778,13 +778,23 @@ const missingKeyEncoder: Encoder = (input, target) => {
 };
 
 // Whether a missing key has to go through the field's own decode: anything
-// but a plain `S.optional(x)`, whose first `undefined` arm keeps it as is. A
-// ref may be optional behind its name.
+// but a plain `S.optional(x)`, whose first arm to take `undefined` keeps it as
+// is. A ref may be optional behind its name, a nested union holds its own
+// `undefined` arm, and an `unknown` or `any` with work to do takes it first.
 const readsAbsent = (s: Internal): boolean => {
   if (s.type === refTag) return true;
   if (!isOptional(s)) return false;
-  const arm = s.anyOf ? s.anyOf.find((arm) => arm.type === undefinedTag) : s;
-  return s.to !== U || s.refiner !== U || arm === U || arm.to !== U;
+  if (s.to !== U || s.refiner !== U) return true;
+  for (const arm of s.anyOf || [s]) {
+    if (arm.type === undefinedTag) return arm.to !== U || arm.refiner !== U;
+    if (
+      (arm.type === anyOfTag && arm.has![undefinedTag]) ||
+      (tagFlags[arm.type]! & 1 && (arm.to !== U || arm.parser !== U || arm.refiner !== U))
+    ) {
+      return true;
+    }
+  }
+  return true;
 };
 
 const wrapDictMissingKeyLight = (s: Internal): Internal => {
