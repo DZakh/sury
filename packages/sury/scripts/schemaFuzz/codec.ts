@@ -21,6 +21,11 @@
 //   reverse      `encode(schema)` is `decode(reverse(schema))`. One operation
 //                reached two ways, so a reverse that rebuilds rather than swaps
 //                is caught against itself.
+//   absent       a key a JSON document leaves out reads through `S.json` the
+//                way `parse` reads it - `undefined`, or the field's default -
+//                never as `null` (#470). Only that position is compared: the
+//                carrier's other spellings (`null` for an optional field) are
+//                its own rules.
 //
 // Equality here is the structural walk, never `isEqual*`: that comparator is
 // what the eq family tests, and a property holding only because both sides are
@@ -33,6 +38,34 @@ type Op = (value: unknown) => unknown;
 
 const settled = (value: unknown): boolean => !(value instanceof Promise);
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const has = (value: unknown, key: unknown): boolean => isRecord(value) && String(key) in value;
+
+const at = (value: unknown, path: unknown[]): unknown =>
+  path.reduce<unknown>((v, key) => (isRecord(v) ? v[key as string] : undefined), value);
+
+// The first key the document leaves out that `parse` and `S.json` answer
+// differently, walked only while all three keep one shape.
+const keptAbsent = (document: unknown, parsed: unknown, read: unknown, path: string[]): string[] | undefined => {
+  if (!isRecord(document) || !isRecord(parsed) || !isRecord(read)) return undefined;
+  // A renamed or reshaped field is not an absent one.
+  if (Array.isArray(document) !== Array.isArray(parsed) || Object.keys(document).some((key) => !(key in parsed))) {
+    return undefined;
+  }
+  for (const key of Object.keys(parsed)) {
+    const next = [...path, key];
+    if (!(key in document)) {
+      if (!structural(read[key], parsed[key])) return next;
+    } else {
+      const found = keptAbsent(document[key], parsed[key], read[key], next);
+      if (found) return found;
+    }
+  }
+  return undefined;
+};
+
 const check = (ctx: Ctx): void => {
   const { S, schema, reversed, lossy, inputs, outputs, isInput, isOutput, report, compile, count } = ctx;
 
@@ -40,6 +73,7 @@ const check = (ctx: Ctx): void => {
   const encode = compile<Op>("encode", () => S.encodeOrThrow(schema));
   const parse = compile<Op>("agreement", () => S.parseOrThrow(schema));
   const viaReverse = compile<Op>("reverse", () => S.decodeOrThrow(reversed));
+  const viaJson = compile<Op>("absent", () => S.parseOrThrow(S.json.with(S.to, schema)));
 
   if (decode) {
     for (const [i] of inputs) {
@@ -67,6 +101,38 @@ const check = (ctx: Ctx): void => {
       }
       if (settled(parsed) && !structural(parsed, decoded)) {
         report("agreement", `parse answered ${show(parsed)} and decode ${show(decoded)} for ${show(i)}`);
+      }
+    }
+  }
+
+  if (parse && viaJson) {
+    for (const [i] of inputs) {
+      let document: unknown;
+      let parsed: unknown;
+      try {
+        document = JSON.parse(JSON.stringify(i));
+        parsed = parse(document);
+      } catch {
+        continue;
+      }
+      if (!settled(parsed)) continue;
+      count("documents");
+      let read: unknown;
+      try {
+        read = viaJson(document);
+      } catch (error) {
+        const path = (error as { path?: unknown }).path;
+        const parent = Array.isArray(path) && path.length ? path.slice(0, -1) : undefined;
+        const key = parent && path![parent.length];
+        if (parent && isRecord(at(document, parent)) && !has(at(document, parent), key) && has(at(parsed, parent), key)) {
+          report("absent", `parse accepted ${show(document)} but S.json threw at the absent ${path.join(".")} - ${reason(error)}`);
+        }
+        continue;
+      }
+      if (!settled(read)) continue;
+      const path = keptAbsent(document, parsed, read, []);
+      if (path) {
+        report("absent", `the absent ${path.join(".")} of ${show(document)} read as ${show(at(read, path))} through S.json and as ${show(at(parsed, path))} by parse`);
       }
     }
   }

@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.json.with(S.to, S.object((s) => ({ f: s.fieldOr("f", S.uint8Array, new Uint8Array([1])) })))'
+  input: JSON
+  output: "{ f: Uint8Array<ArrayBufferLike>; }"
+  instantiations: 5124
+jsonSchema:
+  # FIXME: under S.json a field the decode reads as absent (a default, `void`)
+  # is still `required` here, because the input side is rendered from what
+  # encode writes - so the document turns away a key the schema lets go missing.
+  input: '{ type: "object", properties: { f: { type: "string", contentEncoding: "base64" } }, additionalProperties: false, required: ["f"] }'
+  fromInputType: "{ f: string; }"
+  output: "Failed at f: Expected JSON, received Uint8Array"
+  openapi-3.0:
+    input: '{ type: "object", properties: { f: { type: "string", format: "byte" } }, additionalProperties: false, required: ["f"] }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||e[0](a.f,b.f)
+compare:
+  input: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { f: Uint8Array; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[7](i);let v0=i.f;if(v0!==void 0){for(;;){if(typeof v0==="string"){e[1](v0)||e[2](v0);v0=e[0](v0);break}if(v0===null){v0=void 0;break}throw e[3](v0)}}if(v0===void 0){v0=e[4]}else{v0 instanceof e[5]||e[6](v0);}return {f:v0}}catch(v1){e[8](v1)}}
+    examples:
+      absent:
+        input: "{}"
+        output: "{ f: new Uint8Array([1]) }"
+        divergence:
+          reason: the input document is rendered from the encode side, which always writes the field
+          ajv: "input: data must have required property 'f'"
+      "null":
+        input: "{ f: null }"
+        output: "{ f: new Uint8Array([1]) }"
+        divergence:
+          reason: the input document is rendered from the encode side, which always writes the field
+          ajv: "input: data/f must be string"
+      base64:
+        input: '{ f: "AQI=" }'
+        output: "{ f: new Uint8Array([1, 2]) }"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{let v0=i.f;let v1=e[0](v0);return {f:v1}}catch(v2){e[1](v2)}}
+    examples:
+      value:
+        input: "{ f: new Uint8Array([1, 2]) }"
+        output: '{ f: "AQI=" }'

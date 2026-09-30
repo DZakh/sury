@@ -2120,6 +2120,21 @@ let toJsonString = S.compileConvertOrThrow(~from=schema, ~to=S.jsonString)
 
 `~via` runs that schema's own validation, so `~via=S.json` rejects a JSON string that parses to something `S.json` doesn't accept.
 
+Converting from `S.json` or `S.jsonString` reads a JSON `null` as `None` for a field with no `null` of its own, where `S.parseOrThrow` rejects it. An absent key stays `None`:
+
+```rescript
+type patch = {name: option<string>, bio: option<null<string>>}
+let patch = S.object(s => {
+  name: s.field("name", S.option(S.string)),
+  bio: s.field("bio", S.option(S.null(S.string))),
+})
+
+%raw(`{}`)->S.convertOrThrow(~from=S.json, ~to=patch) // {name: None, bio: None}
+%raw(`{"name": null}`)->S.convertOrThrow(~from=S.json, ~to=patch) // {name: None, bio: None}
+%raw(`{"bio": null}`)->S.convertOrThrow(~from=S.json, ~to=patch) // {name: None, bio: Some(Null)}
+%raw(`{"name": null}`)->S.parseOrThrow(~to=patch) // throws: Failed at name: Expected string | undefined, received null
+```
+
 Also, you can use `S.noValidation` helper to turn off type validations for the schema even when it's used with a parse operation.
 
 **Asserting** validates the input value without returning a transformed result. Since no output is constructed, it's 2-3 times faster than `parseOrThrow` depending on the schema:

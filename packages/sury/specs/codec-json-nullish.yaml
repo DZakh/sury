@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.json.with(S.to, S.nullish(S.number))
+  input: JSON
+  output: number | null | undefined
+  instantiations: 4617
+jsonSchema:
+  input: '{ anyOf: [{ type: "number" }, { type: "null" }] }'
+  fromInputType: number | null
+  output: Expected JSON, received number | undefined | null
+  openapi-3.0:
+    input: '{ type: "number", nullable: true }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: (a,b)=>a===b?0:(a===void 0?b===void 0?0:-1:b===void 0?1:a===null?b===null?0:-1:b===null?1:a<b?-1:a>b?1:0)
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{for(;;){if(typeof i==="number"&&i==i)break;if(i===null){i=void 0;break}throw e[0](i)}return i}catch(v0){e[1](v0)}}
+    examples:
+      # FIXME: a JSON null reads as undefined - the nullish bridge gives it to the
+      # `undefined` member, which S.nullish lists before its same-type `null` one.
+      "null":
+        input: "null"
+        output: undefined
+      number:
+        input: "1"
+        output: "1"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{for(;;){if(typeof i==="number"&&i==i)break;if(i===void 0){i=null;break}if(i===null)break;throw e[0](i)}return i}catch(v0){e[1](v0)}}
+    examples:
+      "null":
+        input: "null"
+        output: "null"
+      undefined:
+        input: undefined
+        output: "null"

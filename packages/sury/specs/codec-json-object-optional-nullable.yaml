@@ -22,12 +22,11 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=(i.a??null);for(;;){if(typeof v0==="string")break;if(v0===null)break;throw e[0](v0)}return {a:v0}}catch(v1){e[2](v1)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.a;if(v0!==void 0){for(;;){if(typeof v0==="string")break;if(v0===null)break;throw e[0](v0)}}return {a:v0}}catch(v1){e[2](v1)}}
     examples:
-      # FIXME: an absent key reads as null, where S.parseOrThrow(inner) keeps it undefined (#470)
       absent:
         input: "{}"
-        output: "{ a: null }"
+        output: "{ a: undefined }"
       "null":
         input: "{ a: null }"
         output: "{ a: null }"

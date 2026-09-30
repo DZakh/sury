@@ -1063,6 +1063,19 @@ holds the other way round: a single type converted into `S.optional(X)` never
 produces `undefined`, and a string never reads `"undefined"` as one. `S.json`,
 which holds the value, is the exception and keeps converting it as `null`.
 
+Read through `S.json`, a field with no `null` of its own takes a JSON `null` as
+missing, and an absent key stays absent:
+
+```ts
+const patch = S.schema({ name: S.optional(S.string), bio: S.optional(S.nullable(S.string)) });
+const read = S.parseOrThrow(S.json, patch);
+
+read({}); // { name: undefined, bio: undefined }
+read({ name: null }); // { name: undefined, bio: undefined }
+read({ bio: null }); // { name: undefined, bio: null }
+S.parseOrThrow(patch)({ name: null }); // throws - Expected string | undefined, received null
+```
+
 **Union → union.** Values pass through to the member of the same type on the
 other side - nothing is converted, so every member needs a counterpart. The one
 exception: an `undefined` member without a counterpart may pair with a `null`

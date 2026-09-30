@@ -567,23 +567,11 @@ export const objectDecoder = (unknownInput: Val): Val => {
       ai !== "strict" &&
       (ai !== "strip" || sourceIsDict || Object.keys(input.s.properties!).length !== keysCount);
 
-    // A JSON-sourced object (`additionalItems` is json, set by jsonEncoderFn)
-    // coalesces its field reads with `??null`, because:
-    //   - jsonEncoderFn rewrites the option arm from `v===void 0` to
-    //     `v===null`, JSON having no undefined,
-    //   - but `i[key]` for a missing key returns undefined, so the rewritten
-    //     arm would reject `{}` for `{foo: option<...>}`.
-    // FIXME: a shared JSON option representation would remove the sniff - an arm
-    // that accepts both spellings of empty, so nothing has to patch the read.
-    // Two things stand in the way:
-    //   - adding an `undefined` arm beside the `null` one makes ENCODE
-    //     ambiguous, since both produce the same output and only `null` is
-    //     writable to a document - which is why this rewrites rather than adds;
-    //   - loosening the arm's own narrow to `== null` instead means widening
-    //     what `typeCheckCond` emits for a tag, and a union group's shared
-    //     narrow stands in for its members' checks (see the cross-module
-    //     contract on `typeCheckCond`), so a case would start accepting more
-    //     than its acceptance mask claims.
+    // An absent key of a JSON document reaches an optional field as absent,
+    // not as `null`: read as `null` it would clear a `T | null | undefined`
+    // field instead of skipping it, and skip a default. A field with a parser
+    // (`s.fieldOr`) reads the absent key there, unless jsonEncoderFn converts
+    // a stored variant first - that conversion knows only `null`.
     const isJsonParent = isItemSchema(inputAdditionalItems) && inputAdditionalItems.flags & 16;
 
     for (let idx = 0; idx < keysCount; idx++) {
@@ -594,8 +582,12 @@ export const objectDecoder = (unknownInput: Val): Val => {
       itemInput.e = schema;
       itemInput.io = false;
       itemInput.u = isUnion;
-      if (isJsonParent && schema.type === anyOfTag && schema.has![undefinedTag]) {
-        itemInput.i = `(${itemInput.i}??null)`;
+      if (
+        isJsonParent &&
+        isOptional(schema) &&
+        (!schema.parser || schema.anyOf!.some((variant) => variant.storedAs !== U))
+      ) {
+        itemInput.s = wrapDictMissingKeyLight(itemInput.s);
       }
       if (fused !== U && !(isUnion && isLiteral(schema))) {
         B_addObjectField(objectVal, key, itemInput);
@@ -730,25 +722,46 @@ const missingKeyEncoder: Encoder = (input, target) => {
   const presentIn = B_scope(input);
   presentIn.io = false;
   presentIn.s = item;
-  presentIn.e = target;
+  // The pipeline runs a target's parser (`s.fieldOr`) after this encoder
+  // whether the key was present or not, so the present branch leaves it out.
+  if (target.parser) {
+    presentIn.e = copySchema(target);
+    presentIn.e.parser = U;
+  } else {
+    presentIn.e = target;
+  }
   presentIn.u = !unsetIsInput;
   const presentOut = parse(presentIn);
   const presentCode = B_merge(presentOut);
   const presentAssign = presentOut.i === v ? "" : `${v}=${presentOut.i};`;
 
-  // Optional field: leave `undefined` as-is (None). Required field: reject.
+  // Optional field: the target reads the absent key as its own `undefined`
+  // (None, or a default it fills in). Required field: reject. A target with a
+  // parser (`s.fieldOr`) runs it after this encoder and reads the absent key
+  // there, so reading it here too would feed it its own default.
   const noAbsentCheck = isOptional(target) || unsetIsInput;
+  let absentBody = "";
+  if (noAbsentCheck && !unsetIsInput && !target.parser) {
+    const absentIn = B_scope(input);
+    absentIn.io = false;
+    absentIn.s = unit;
+    absentIn.e = target;
+    const absentOut = parse(absentIn);
+    absentBody = B_merge(absentOut) + (absentOut.i === v ? "" : `${v}=${absentOut.i};`);
+  }
   const output = B_nextVarOutput(input, v, getOutputSchema(target), target);
   const presentBody = presentCode + presentAssign;
   output.cp =
-    presentBody === ""
+    presentBody === "" && absentBody === ""
       ? noAbsentCheck
         ? ""
         : B_failInvalidInput(input, target, `${v}!==void 0`)
       : unsetIsInput
         ? presentBody
         : noAbsentCheck
-          ? `if(${v}!==void 0){${presentBody}}`
+          ? presentBody === ""
+            ? `if(${v}===void 0){${absentBody}}`
+            : `if(${v}!==void 0){${presentBody}}` + (absentBody && `else{${absentBody}}`)
           : `if(${v}!==void 0){${presentBody}}else${B_block(B_failInvalidInput(input, target))}`;
   return output;
 };
