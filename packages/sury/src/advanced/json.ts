@@ -34,7 +34,10 @@ import {
   B_addObjectField,
   B_dynamicScope,
   B_embedPure,
-  B_embedInvalidInput,
+  B_block,
+  B_failInvalidInput,
+  B_failWithArg,
+  B_invalidInputBuilder,
   B_askReading,
   B_isText,
   B_merge,
@@ -450,10 +453,7 @@ export const jsonString = /* @__PURE__ */ (() => {
         const output = B_nextVar(input, nextSchema);
         output.io = true;
         const inputVar = input.v();
-        output.cp = `let ${output.i};try{${output.i}=${B_parseCall(inputVar)}}catch(t){${B_embedInvalidInput(
-          input,
-          input.s,
-        )}}`;
+        output.cp = `let ${output.i};try{${output.i}=${B_parseCall(inputVar)}}catch(t)${B_block(B_failInvalidInput(input, input.s))}`;
 
         return output;
       }
@@ -1037,7 +1037,7 @@ export const jsonString = /* @__PURE__ */ (() => {
       }
     }
     const output = B_refine(stringVal, expectedSchema);
-    output.cp = `try{${B_parseCall(stringVal.v())}}catch(t){${B_embedInvalidInput(stringVal)}}`;
+    output.cp = `try{${B_parseCall(stringVal.v())}}catch(t)${B_block(B_failInvalidInput(stringVal))}`;
     return output;
   };
 
@@ -1099,7 +1099,7 @@ export const jsonString = /* @__PURE__ */ (() => {
       const inputVar = input.v();
       return B_next(
         input,
-        `(Number.isFinite(${inputVar})?""+${inputVar}:${B_embedInvalidInput(input, json)})`,
+        `(Number.isFinite(${inputVar})?""+${inputVar}:${B_failWithArg(input, B_invalidInputBuilder(json)(input), inputVar)})`,
         expectedSchema,
       );
     } else if ((inputTagFlag & 1024)) {
