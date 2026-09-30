@@ -76,12 +76,10 @@ type Message = {
   rec?: [Internal, Internal];
   // The Google type it is, printed as an import rather than declared.
   wellKnown?: WellKnownType;
-  // A hand-written codec standing in for the functions a message's fields
-  // would compile to, for a value that is not the message's shape: a `Date`
-  // for a Timestamp, JSON for a Value, Struct or ListValue. Called the way a
-  // compiled message is - the caller frames the length, and reading nothing
-  // is the default instance.
-  codec?: [read: (r: Reader, d: number, prev?: unknown) => unknown, write: (w: Writer, value: unknown) => void];
+  // Whether a hand-written codec (`codecs`) stands in for the functions a
+  // message's fields would compile to, for a value that is not the message's
+  // shape: a `Date` for a Timestamp, JSON for a Value, Struct or ListValue.
+  codec?: true;
   // A message of one field whose value is the field's own: a wrapper's
   // scalar, a FieldMask's paths.
   unwrap?: boolean;
@@ -1433,6 +1431,16 @@ const writeValue = (w: Writer, value: unknown): void => {
   } else fail(`Expected JSON, received ${stringify(value)}`);
 };
 
+// Each called the way a compiled message is: the caller frames the length, and
+// reading nothing is the default instance. Reached only from an operation, so
+// `toProtoOrThrow` never carries them.
+const codecs: Partial<Record<WellKnownType, [read: (r: Reader, d: number, prev?: unknown) => unknown, write: (w: Writer, value: unknown) => void]>> = {
+  "google.protobuf.Timestamp": [readDate, writeDate],
+  "google.protobuf.Value": [readValue, writeValue],
+  "google.protobuf.Struct": [readStruct, writeStruct],
+  "google.protobuf.ListValue": [readList, writeList],
+};
+
 const wellKnownFile = (type: WellKnownType): string =>
   `google/protobuf/${
     type === "google.protobuf.Timestamp" ? "timestamp"
@@ -1481,11 +1489,7 @@ const wellKnownMessage = (type: WellKnownType, shape: Internal, ctx: Ctx): Messa
       raw,
       schema: raw,
       wellKnown: type,
-      codec:
-        type === "google.protobuf.Value" ? [readValue, writeValue]
-        : type === "google.protobuf.Struct" ? [readStruct, writeStruct]
-        : type === "google.protobuf.ListValue" ? [readList, writeList]
-        : [readDate, writeDate],
+      codec: true,
     };
   }
   ctx.messages.set(memo, msg);
@@ -1811,7 +1815,7 @@ const compileEncoders = (root: Message, fns: Map<Message, string>, slots: Slot[]
     names.push(name);
     if (msg.codec !== U) {
       params.push(name);
-      args.push(msg.codec[1]);
+      args.push(codecs[msg.wellKnown!]![1]);
     } else {
       const read: Read = (key) => ({ expr: msg.unwrap ? "value" : readKey("value", key), numeric: false });
       src += `function ${name}(w,value){var v,j,n,s,h,a,k,g,c,o;${encodeBody(msg, fns, read, { use: (helper) => helper, slot: slotIn(slots) })}}`;
@@ -1924,7 +1928,7 @@ const compileDecoder = (root: Message, fns: Map<Message, string>): Function => {
   fns.forEach((name, msg) => {
     if (msg.codec !== U) {
       params.push(name);
-      args.push(msg.codec[0]);
+      args.push(codecs[msg.wellKnown!]![0]);
     } else src += decodeFnSource(msg, fns, messages.push(msg) - 1);
   });
   return new Function(...params, `${src}return ${fns.get(root)!}`)(...args);
