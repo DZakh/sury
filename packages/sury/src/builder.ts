@@ -843,8 +843,7 @@ const settle = (thrown: unknown): Settled =>
   (thrown as Settled | undefined)?.t === settledTag ? (thrown as Settled) : { t: settledTag, l: [thrown] };
 export const B_settle = (val: Val, promise: string): string =>
   `${promise}.then(void 0,${B_embedPure(val, settle)})`;
-// `failed` is whether the container's own sync children collected.
-export const B_join = (val: Val, failed: string, slots: string): string =>
+export const B_join = (val: Val, syncFailed: string, slots: string): string =>
   `${B_embedPure(val, (was: unknown, values: unknown[]) => {
     let found: unknown[] | undefined;
     for (let idx = 0; idx < values.length; idx++) {
@@ -852,7 +851,7 @@ export const B_join = (val: Val, failed: string, slots: string): string =>
       if (value?.t === settledTag) (found ||= []).push(...value.l);
     }
     if (found || was) throw { t: settledTag, l: found || [] };
-  })}(${failed},${slots});`;
+  })}(${syncFailed},${slots});`;
 
 export const B_asyncVal = (from: Val, initial: string): Val => {
   const v = B_next(from, initial, from.s);
