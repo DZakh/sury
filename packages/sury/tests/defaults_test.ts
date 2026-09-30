@@ -62,6 +62,26 @@ test("a union keeps an empty value an earlier member already keeps", () => {
   expect(S.parseOrThrow(null, S.union([S.nullish(S.nullable(S.number, 0)), S.nullable(S.string)]))).toBe(null);
 });
 
+test("a union reads an env member's unset var the way the env does", () => {
+  expect(S.parseOrThrow(null, S.union([S.env.with(S.to, S.nullable(S.string, "d")), S.schema(null)]))).toBe(null);
+  expect(() => S.union([S.env.with(S.to, S.nullable(S.string, "d")), S.schema(undefined)])).toThrow(
+    "an earlier member decodes it to string",
+  );
+});
+
+test("a union refuses undefined a default replaces behind a .to or a ref", () => {
+  expect(() => S.union([S.optional(S.string, "0").with(S.to, S.number), S.optional(S.boolean)])).toThrow(
+    "an earlier member decodes it to number",
+  );
+  expect(() => S.union([S.recursive("R", () => S.optional(S.string, "r")), S.optional(S.boolean)])).toThrow(
+    "can't keep undefined",
+  );
+  // Past a `.to` the arms' answer is not the member's: accepted, not guessed.
+  expect(S.parseOrThrow(undefined, S.union([S.optional(S.string).with(S.to, S.nullable(S.string)), S.optional(S.boolean)]))).toBe(
+    null,
+  );
+});
+
 test("the fixes the refusal names construct", () => {
   expect(S.parseOrThrow(undefined, S.optional(S.union([S.string, S.number]), "none"))).toBe("none");
   expect(S.parseOrThrow(null, S.union([S.nullable(S.boolean, false), S.string]))).toBe(false);

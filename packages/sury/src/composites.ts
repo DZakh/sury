@@ -35,6 +35,7 @@ import {
   unknown,
   unknownTag,
   updateOutput,
+  refTag,
   type Val
 } from "./base";
 import {
@@ -532,16 +533,22 @@ export const objectDecoder = (unknownInput: Val): Val => {
         !(tagFlags[itemSchema.type]! & (1 | 16 | 32 | 256 | 512)) &&
         itemSchema.format !== "json";
       if (absent) {
-        const target = copySchema(source);
-        target.anyOf = source.anyOf!.map((variant) =>
-          variant.type === undefinedTag
-            ? variant
-            : updateOutput<Internal>(variant, (mut) => {
-                mut.to = itemSchema;
-              })
-        );
-        target.flags = target.flags | 64;
-        itemInput.e = target;
+        // A nested union holding `undefined` keeps its own arm the same way.
+        const keepAbsent = (union: Internal): Internal => {
+          const target = copySchema(union);
+          target.anyOf = union.anyOf!.map((variant) =>
+            variant.type === undefinedTag
+              ? variant
+              : variant.type === anyOfTag && variant.to === U && variant.has![undefinedTag]
+                ? keepAbsent(variant)
+                : updateOutput<Internal>(variant, (mut) => {
+                    mut.to = itemSchema;
+                  })
+          );
+          target.flags = target.flags | 64;
+          return target;
+        };
+        itemInput.e = keepAbsent(source);
       } else {
         itemInput.e = itemSchema;
       }
@@ -739,18 +746,20 @@ const missingKeyEncoder: Encoder = (input, target) => {
   // Optional field: leave `undefined` as-is (None), or read it the way the
   // field reads `undefined` when that arm converts (a default). Required
   // field: reject.
-  const absent = absentArmOf(target);
   let absentBody = "";
-  if (!unsetIsInput && absent !== U && absent.to !== U) {
+  let async = presentOut.f & 1;
+  if (!unsetIsInput && readsAbsent(target)) {
     const absentIn = B_scope(input);
     absentIn.io = false;
     absentIn.s = unknown;
     absentIn.e = target;
     const absentOut = parse(absentIn);
     absentBody = B_merge(absentOut) + (absentOut.i === v ? "" : `${v}=${absentOut.i};`);
+    async |= absentOut.f & 1;
   }
   const noAbsentCheck = isOptional(target) || unsetIsInput;
   const output = B_nextVarOutput(input, v, getOutputSchema(target), target);
+  output.f |= async;
   const presentBody = presentCode + presentAssign;
   output.cp = absentBody
     ? presentBody === ""
@@ -768,15 +777,14 @@ const missingKeyEncoder: Encoder = (input, target) => {
   return output;
 };
 
-// The arm that reads `undefined`: the first one typed so, through nested unions.
-const absentArmOf = (s: Internal): Internal | undefined => {
-  if (s.type === undefinedTag) return s;
-  if (s.type !== anyOfTag || s.to !== U) return U;
-  for (const arm of s.anyOf!) {
-    const found = absentArmOf(arm);
-    if (found !== U) return found;
-  }
-  return U;
+// Whether a missing key has to go through the field's own decode: anything
+// but a plain `S.optional(x)`, whose first `undefined` arm keeps it as is. A
+// ref may be optional behind its name.
+const readsAbsent = (s: Internal): boolean => {
+  if (s.type === refTag) return true;
+  if (!isOptional(s)) return false;
+  const arm = s.anyOf!.find((arm) => arm.type === undefinedTag);
+  return s.to !== U || arm === U || arm.to !== U;
 };
 
 const wrapDictMissingKeyLight = (s: Internal): Internal => {

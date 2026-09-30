@@ -77,11 +77,14 @@ export const admitsBlank = (schema: Internal): boolean =>
 
 // A direct arm, not `has`: a nested union's own empty arm carries its default
 // or conversion, which `presentArm`/`absentArm` would skip.
-const emptyTag = (schema: Internal): Tag | undefined =>
-  schema.type === undefinedTag || schema.type === nullTag
-    ? schema.type
-    : schema.anyOf?.find((variant) => variant.type === undefinedTag)?.type ||
-      schema.anyOf?.find((variant) => variant.type === nullTag)?.type;
+const emptyTag = (schema: Internal): Tag | undefined => {
+  const arms = schema.anyOf || [schema];
+  return arms.some((arm) => arm.type === undefinedTag)
+    ? undefinedTag
+    : arms.some((arm) => arm.type === nullTag)
+      ? nullTag
+      : U;
+};
 
 export const isAbsent = (schema: Internal): boolean => emptyTag(schema) !== U;
 
@@ -130,8 +133,14 @@ export const armCode = (item: Val, source: Internal, target: Internal): string =
   return B_merge(armOut) + `${item.i}=${armOut.i};`;
 };
 
-export const absentArm = (schema: Internal): Internal =>
-  schema.anyOf?.find((variant) => variant.type === emptyTag(schema)) || schema;
+export const absentArm = (schema: Internal): Internal => {
+  const tag = emptyTag(schema);
+  return schema.anyOf?.find((variant) => variant.type === tag) || schema;
+};
+
+// A missing entry that reads as `undefined`, kept as it is.
+export const keepsUndefined = (schema: Internal): boolean =>
+  emptyTag(schema) === undefinedTag && absentArm(schema).to === U;
 
 export const absentCode = (item: Val, schema: Internal): string => {
   const absent = absentArm(schema);
@@ -194,7 +203,7 @@ export const convertTextEntry = (
     item.v = _var;
     // The form loop does `||void 0` before this wrap. Env fields are already
     // in the object, so `""` would otherwise survive an optional with no else.
-    if (!admitsBlank(present) && emptyTag(target) === undefinedTag && absentArm(target).to === U) {
+    if (!admitsBlank(present) && keepsUndefined(target)) {
       item.cp = `${item.i}=${item.i}||void 0;`;
       rebinds(item);
     }

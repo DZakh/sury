@@ -189,7 +189,14 @@ const fieldOrMember = (S: Sury, rng: Rng, inner: MemberSpec): MemberSpec => {
 const emptyTaker = (S: Sury, rng: Rng): MemberSpec => {
   const roll = rng();
   const taker: MemberSpec =
-    roll < 0.25
+    roll < 0.1
+      ? {
+          id: 'env->nullable(string,"d")',
+          schema: S.env.with(S.to, S.nullable(S.string, "d")),
+          shape: node("envTo"),
+          lossy: true,
+        }
+      : roll < 0.25
       ? {
           id: 'env->optional(string,"dev")',
           schema: S.env.with(S.to, S.optional(S.string, "dev")),
@@ -265,6 +272,8 @@ const tupleMember = (S: Sury, rng: Rng): MemberSpec => {
 };
 
 // A draw S.union refuses keeps its first member, so the stream stays aligned.
+// The refusal has to hold for the members alone: the first turns the empty
+// value into something else, the second keeps it. Anything less is a finding.
 const nestedUnion = (S: Sury, rng: Rng, depth: number): MemberSpec => {
   const a = memberAt(S, rng, depth + 1);
   const b = memberAt(S, rng, depth + 1);
@@ -272,7 +281,20 @@ const nestedUnion = (S: Sury, rng: Rng, depth: number): MemberSpec => {
   try {
     schema = S.union([a.schema, b.schema]);
   } catch (error) {
-    if (!(error as Error).message.startsWith("[Sury] S.union can't keep")) throw error;
+    const tag = /^\[Sury\] S\.union can't keep (null|undefined)/.exec((error as Error).message)?.[1];
+    if (tag === undefined) throw error;
+    const empty = tag === "null" ? null : undefined;
+    const read = (member: MemberSpec): unknown => {
+      try {
+        return S.parseOrThrow(empty, member.schema);
+      } catch {
+        return NO_SAMPLE;
+      }
+    };
+    const first = read(a);
+    if (first === empty || first === NO_SAMPLE || read(b) !== empty) {
+      refused.push(`union(${a.id},${b.id}) - refused ${tag} that ${a.id} does not replace or ${b.id} does not keep`);
+    }
     return a;
   }
   return {

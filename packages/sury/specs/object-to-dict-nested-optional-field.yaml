@@ -29,12 +29,11 @@ operations:
         input: '{ a: "x" }'
         output: '{ a: "x" }'
   decode:
-    expression: i=>{try{let v0=i.a;(typeof v0==="string"||typeof v0==="string"&&v0==="y")||e[0](v0);let v1={};if(v0!==void 0){v1.a=v0}return v1}catch(v2){e[1](v2)}}
+    expression: i=>{try{let v0=i.a;((typeof v0==="string"||v0===void 0)||typeof v0==="string"&&v0==="y")||e[0](v0);let v1={};if(v0!==void 0){v1.a=v0}return v1}catch(v2){e[1](v2)}}
     examples:
-      # FIXME: the nested optional's undefined is sent to the dict value
       missing:
         input: "{}"
-        error: 'Failed at a: Expected string | "y" | undefined, received undefined'
+        output: "{}"
       string:
         input: '{ a: "x" }'
         output: '{ a: "x" }'

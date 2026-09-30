@@ -9,7 +9,6 @@ import {
   initSchema,
   inputExpression,
   type Internal,
-  isOptional,
   pathConcat,
   stringTag,
   tagFlags,
@@ -49,6 +48,7 @@ import {
 } from "../primitives";
 import {
   absentArm,
+  keepsUndefined,
   admitsBlank,
   asList,
   convertTextEntry,
@@ -197,7 +197,7 @@ const searchParamsToObject = (input: Val, target: Internal): Val => {
       input,
       list
         ? `${readVar}=${(listRead ||= B_embed(input, asList))}(${slot})`
-        : `${readVar}=${slot}${folds && isOptional(schema) && absentArm(schema).to === U ? "||void 0" : ""}`,
+        : `${readVar}=${slot}${folds && keepsUndefined(schema) ? "||void 0" : ""}`,
     );
     const item: Val = {
       b: U,

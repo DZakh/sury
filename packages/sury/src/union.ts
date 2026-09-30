@@ -1951,9 +1951,9 @@ export const unionCheckEmpties = (schema: Internal): Internal => {
   const replaced: Partial<Record<Tag, Internal | true>> = {};
   for (let idx = 0; idx < anyOf.length; idx++) {
     for (const tag of [nullTag, undefinedTag]) {
-      const arm = unionEmptyArm(anyOf[idx]!, tag);
-      if (arm === U) continue;
-      if (arm.to !== U) replaced[tag] ||= anyOf[idx];
+      const replaces = unionReplaces(anyOf[idx]!, tag);
+      if (replaces === U) continue;
+      if (replaces) replaced[tag] ||= anyOf[idx];
       else if (replaced[tag] === U) replaced[tag] = true;
       else if (replaced[tag] !== true) {
         panic(
@@ -1965,11 +1965,26 @@ export const unionCheckEmpties = (schema: Internal): Internal => {
   return schema;
 };
 
-// An env link reads an unset var as its target's `undefined`.
-const unionEmptyArm = (s: Internal, tag: Tag): Internal | undefined => {
-  if (s.type === tag) return s;
-  if (s.format === "env" && s.to !== U) return unionEmptyArm(s.to, tag);
-  if (s.type !== anyOfTag || s.to !== U) return U;
+// Whether a member surely replaces `tag` (`true`), surely keeps it (`false`),
+// or can't be told (`undefined`). The opposite lean to `unionChanges`: a member
+// that only may take the value, or may reject it and hand it on, is not
+// counted, so nothing valid is refused.
+const unionReplaces = (s: Internal, tag: Tag, refs?: Internal[]): boolean | undefined => {
+  if (s.type === tag) return s.to !== U;
+  // An env var is never null, and reads unset as its target's `undefined`, or
+  // its `null` when the target has no `undefined`.
+  if (s.format === "env") {
+    return tag === undefinedTag && s.to !== U
+      ? unionReplaces(s.to, unionMask(s.to, 1, 0) & tagFlags[undefinedTag]! ? undefinedTag : nullTag, refs)
+      : U;
+  }
+  if (s.type === refTag) {
+    const def = s.definition || unionRefDef(s);
+    return def === U || refs?.includes(s) ? U : unionReplaces(def, tag, [...(refs || []), s]);
+  }
+  if (s.type !== anyOfTag) return U;
   const arm = s.anyOf!.find((arm) => unionMask(arm, 1, 0) & tagFlags[tag]!);
-  return arm && unionEmptyArm(arm, tag);
+  const replaces = arm && unionReplaces(arm, tag, refs);
+  // Past a `.to`, a value the arms kept may still become something else.
+  return s.to === U || replaces ? replaces : U;
 };
