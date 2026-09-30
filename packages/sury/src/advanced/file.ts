@@ -69,14 +69,13 @@ const read = (input: Val, call: string, schema: Internal): Val => {
   // call itself throws on a value an operation trusted rather than checked, and
   // the promise rejects when the read fails (the backing file moved, say). A
   // `TypeError` or `DOMException` escaping either way. Path is an extra
-  // argument when this read sits under a loop; arrays no longer catch-prepend.
+  // argument when this read sits under a loop.
   //
   // Bare inside a union, unlike a coder's failure (#347): a read that fails is
-  // not a case that didn't match, and classifying it as one let the dispatch
-  // fall through to a sibling and hand back the container unread. The cost is
-  // the convention's: a Sury error is what an enclosing object stamps a path
-  // onto, so a rejection under `S.optional(…)` arrives raw where the same field
-  // required arrives at `["a"]`. Wrapping it back is what the fall-through was.
+  // not a case that didn't match, and classifying it as one would fall through
+  // to a sibling and hand back the container unread. The cost: a Sury error is
+  // what an enclosing object stamps a path onto, so a rejection under
+  // `S.optional(…)` arrives raw where the same field required arrives at `["a"]`.
   const fail = B_conversionFail(input, schema);
   const failFn = input.g.o & 4
     ? U

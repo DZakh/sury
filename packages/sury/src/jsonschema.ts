@@ -346,8 +346,8 @@ const applyMetadataOverlay = (
 type Scope = Record<string, [Internal, Scope]>;
 type Defs = {
   s: Scope;
-  // Published, in first-reference order: key, definition, its body's scope.
-  q: [string, Internal, Scope][];
+  // In first-reference order, which is what numbers a repeated name.
+  q: [key: string, def: Internal, scope: Scope][];
 };
 
 // By name, never by a ref's `definition`: a codec's standin carries the

@@ -253,8 +253,6 @@ test("async all-reject errors remain flat and source ordered", async (t) => {
   }
 });
 
-// A coder's rejection is that conversion failing, the same as its throw
-// (union_planner_regression_test.ts, #347): the value goes to the next case.
 test("an async foreign rejection falls through to the next case", async (t) => {
   const foreignError = new RangeError("foreign async transform rejection");
   let fallbackCalls = 0;
@@ -270,8 +268,10 @@ test("an async foreign rejection falls through to the next case", async (t) => {
 
   await t.expect(S.parseAsPromiseOrReject(schema)("value")).resolves.toBe("value");
   t.expect(fallbackCalls).toBe(1);
+});
 
-  // With no case left to take the value, the union's error names the cause.
+test("an async foreign rejection with no case left names the cause", async (t) => {
+  const foreignError = new RangeError("foreign async transform rejection");
   const lone = S.union([
     S.string.with(asyncAssert, async () => {
       throw foreignError;
