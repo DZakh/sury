@@ -183,6 +183,39 @@ const fieldOrMember = (S: Sury, rng: Rng, inner: MemberSpec): MemberSpec => {
       })();
 };
 
+// A member that takes null or undefined itself and makes something else of
+// it: an env link reading an unset var, a codec from the literal, a transform
+// of anything. A wrapper around one still owns its own empty value, and a
+// union holding one next to that value is where the planner has to fall through.
+// Every one is lossy: an env var reads `""` as unset and port text as a number.
+const emptyTaker = (S: Sury, rng: Rng): MemberSpec => {
+  const roll = rng();
+  const taker: MemberSpec =
+    roll < 0.25
+      ? {
+          id: 'env->optional(string,"dev")',
+          schema: S.env.with(S.to, S.optional(S.string, "dev")),
+          shape: node("envTo"),
+          lossy: true,
+        }
+      : roll < 0.5
+        ? { id: "env->port", schema: S.env.with(S.to, S.port), shape: node("envTo"), lossy: true }
+        : roll < 0.75
+          ? {
+              id: "null->0",
+              schema: S.schema(null).with(S.to, S.number, { decode: () => 0, encode: () => null }),
+              shape: node("fromEmpty"),
+              lossy: true,
+            }
+          : {
+              id: "unknown->string",
+              schema: S.unknown.with(S.to, S.string, { decode: (v: unknown) => String(v), encode: (v: string) => v }),
+              shape: node("fromAny"),
+              lossy: true,
+            };
+  return rng() < 0.5 ? applyWrap(S, rng, taker) : taker;
+};
+
 const applyModify = (S: Sury, rng: Rng, inner: MemberSpec): MemberSpec | undefined => {
   const { type, format } = inner.schema as { type?: string; format?: string };
   // `S.env` is a string tag with an output of `string | undefined`, which no
@@ -262,8 +295,8 @@ const nestedUnion = (S: Sury, rng: Rng, depth: number): MemberSpec => {
 const recursiveMember = (S: Sury, rng: Rng): MemberSpec => {
   const leaf = leafSchema(S, rng);
   const name = `R${Math.floor(rng() * 4)}`;
-  const shape = node("recursive", leaf.shape);
   const form = Math.floor(rng() * 3);
+  const shape: Shape = { ...node("recursive", leaf.shape), raw: ["list", "tree", "union"][form] };
   if (form === 0) {
     return {
       id: `${name}{head:${leaf.id},next?:${name}}`,
@@ -292,9 +325,10 @@ const memberAt = (S: Sury, rng: Rng, depth: number): MemberSpec => {
   if (roll < 0.06) {
     return { id: "enum(e0,e1)", schema: S.enum(["e0", "e1"]), shape: node("enum") };
   }
-  if (roll < 0.1) {
+  if (roll < 0.08) {
     return { id: "null", schema: S.schema(null), shape: node("null") };
   }
+  if (roll < 0.1) return emptyTaker(S, rng);
   if (roll < 0.14) {
     return { id: "instance(Error)", schema: S.instance(Error), shape: node("instance") };
   }

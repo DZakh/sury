@@ -1886,7 +1886,16 @@ const unionResolveToUnion = (
 export const unionClaims = (s: Internal, tag: Tag, refs?: Internal[]): boolean => {
   if (!(unionMask(s, 1, 0) & tagFlags[tag]!)) return false;
   if (s.type === anyOfTag) {
-    return s.to !== U || s.parser !== U || s.anyOf!.some((arm) => unionClaims(arm, tag, refs));
+    if (s.to !== U || s.parser !== U) return true;
+    // In order: an arm that surely passes the value through settles it, one
+    // that may reject it hands it on.
+    for (const arm of s.anyOf!) {
+      if (arm.type === tag) return arm.to !== U;
+      if (!(unionMask(arm, 1, 0) & tagFlags[tag]!)) continue;
+      if (unionClaims(arm, tag, refs)) return true;
+      if (!(unionTraits(arm) & 3)) return false;
+    }
+    return false;
   }
   if (s.type === refTag) {
     if (refs?.includes(s)) return false;
@@ -1957,9 +1966,11 @@ export const unionCheckEmpties = (schema: Internal): Internal => {
 };
 
 // The arm that handles `tag` first: the arm itself, or through nested unions
-// the first arm that takes it, as long as that one is the literal.
+// the first arm that takes it, as long as that one is the literal. An env link
+// reads an unset var as its target's `undefined`.
 const unionEmptyArm = (s: Internal, tag: Tag): Internal | undefined => {
   if (s.type === tag) return s;
+  if (s.format === "env" && s.to !== U) return unionEmptyArm(s.to, tag);
   if (s.type !== anyOfTag || s.to !== U) return U;
   const arm = s.anyOf!.find((arm) => unionMask(arm, 1, 0) & tagFlags[tag]!);
   return arm && unionEmptyArm(arm, tag);

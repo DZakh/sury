@@ -87,8 +87,8 @@ export const KNOWN_BUGS: Known[] = [
     id: "union-overlapping-members",
     kind: "limitation",
     summary:
-      "A member that takes every value of its kind - an object whose every field may be absent, a list of " +
-      "`any` - claims values meant for a later member. The first member that accepts a value wins, which is " +
+      "A member that takes every value of its kind - an object whose every field may be absent, a record, " +
+      "a list of `any` - claims values meant for a later member. The first member that accepts a value wins, which is " +
       "the documented rule; the round trip and the member-by-member reference cannot tell that from a bug.",
     fuzzers: ["codec", "union"],
     matches: (f) =>

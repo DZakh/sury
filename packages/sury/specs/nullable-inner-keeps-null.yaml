@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.nullable(S.nullable(S.nullable(S.boolean), null), true)
+  input: boolean | null
+  output: boolean | null
+  instantiations: 648
+jsonSchema:
+  input: '{ default: true, anyOf: [{ default: null, anyOf: [{ type: "boolean" }, { type: "null" }] }, { type: "null" }] }'
+  output: '{ anyOf: [{ type: "boolean" }, { anyOf: [{ type: "boolean" }, { type: "null" }] }, { type: "null" }] }'
+  openapi-3.0:
+    input: '{ default: null, type: "boolean", nullable: true }'
+    output: '{ anyOf: [{ type: "boolean" }, { type: "boolean", nullable: true }, { enum: [null] }] }'
+isEqual: strictEqual
+compare: "throws: [Sury] Can't compare boolean | null. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{for(;;){if((typeof i==="boolean"||i===null))break;if(i===null){i=true;break}throw e[0](i)}return i}catch(v0){e[1](v0)}}
+    examples:
+      boolean:
+        input: "false"
+        output: "false"
+      null-stays-null:
+        input: "null"
+        output: "null"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{(typeof i==="boolean"||i===null)||e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      boolean:
+        input: "false"
+        output: "false"
+      null-stays-null:
+        input: "null"
+        output: "null"

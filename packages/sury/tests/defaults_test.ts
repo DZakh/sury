@@ -50,6 +50,13 @@ test("a union refuses undefined that an earlier member's default replaces", () =
   );
 });
 
+test("a union refuses undefined an earlier env link reads as its default", () => {
+  expect(() => S.union([S.env.with(S.to, S.optional(S.string, "dev")), S.optional(S.url)])).toThrow(
+    "an earlier member decodes it to string",
+  );
+  expect(S.parseOrThrow(undefined, S.union([S.env.with(S.to, S.port), S.optional(S.number)]))).toBe(undefined);
+});
+
 test("the fixes the refusal names construct", () => {
   expect(S.parseOrThrow(undefined, S.optional(S.union([S.string, S.number]), "none"))).toBe("none");
   expect(S.parseOrThrow(null, S.union([S.nullable(S.boolean, false), S.string]))).toBe(false);
