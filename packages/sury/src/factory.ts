@@ -107,6 +107,28 @@ const makeObjectCtx = (
   flatten,
 });
 
+// The item as the default leaves it. An absent value takes the default and
+// never reaches the item's decoder, so the arms only `undefined` reaches are no
+// part of the Output: `s.fieldOr(f, S.nullish(x), d)` outputs `x | null`, the
+// same as `s.field(f, S.optional(S.nullish(x), d))`. A union behind a `.to` is
+// left whole, since the link, not the arm, decides what an absent value would
+// have become.
+const presentOf = (schema: Internal): Internal => {
+  const arms = schema.to === U ? schema.anyOf : U;
+  if (arms === U) return schema;
+  const present = arms.filter((arm) => arm.type !== undefinedTag);
+  if (present.length === arms.length || !present.length) return schema;
+  // A copy rather than `unionFactory`, which would bring the union planner to
+  // every object export; the item already carries its union decoder, and
+  // keeps a refiner or metadata of its own.
+  const mut = copySchema(schema);
+  const has: Partial<Record<Tag, boolean>> = {};
+  for (let idx = 0; idx < present.length; idx++) setHas(has, present[idx]!.type);
+  mut.anyOf = present;
+  mut.has = has;
+  return mut;
+};
+
 // Field-with-default as `if(v===void 0)v=def` plus the item's own decoder -
 // not `union([unit, item])` + Option_getOr. The anyOf/has/undefined shape is
 // what isOptional, JSON Schema (skip the unit arm, emit `default`) and json
@@ -155,28 +177,6 @@ const fieldOrSchema = (schema: Internal, or: unknown): Internal => {
         : `if(${v}===void 0){${v}=${defCode}}else{${presentBody}}`;
     return output;
   };
-  return mut;
-};
-
-// The item as the default leaves it. An absent value takes the default and
-// never reaches the item's decoder, so the arms only `undefined` reaches are no
-// part of the Output: `s.fieldOr(f, S.nullish(x), d)` outputs `x | null`, the
-// same as `s.field(f, S.optional(S.nullish(x), d))`. A union behind a `.to` is
-// left whole, since the link, not the arm, decides what an absent value would
-// have become.
-const presentOf = (schema: Internal): Internal => {
-  const arms = schema.to === U ? schema.anyOf : U;
-  if (arms === U) return schema;
-  const present = arms.filter((arm) => arm.type !== undefinedTag);
-  if (present.length === arms.length || !present.length) return schema;
-  // A copy rather than `unionFactory`, which would bring the union planner to
-  // every object export; the item already carries its union decoder, and
-  // keeps a refiner or metadata of its own.
-  const mut = copySchema(schema);
-  const has: Partial<Record<Tag, boolean>> = {};
-  for (let idx = 0; idx < present.length; idx++) setHas(has, present[idx]!.type);
-  mut.anyOf = present;
-  mut.has = has;
   return mut;
 };
 

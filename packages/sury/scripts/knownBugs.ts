@@ -18,7 +18,6 @@
 
 import {
   absorbs,
-  admitsUndefined,
   hasDefault,
   type Shape,
   some,
