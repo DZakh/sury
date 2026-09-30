@@ -335,6 +335,28 @@ const B_foreignFail = (
   };
 };
 
+// Copied rather than mutated: user code may throw one retained instance more
+// than once, and prepending onto the instance makes the second parse report
+// `a.a` (specs/recursive-retained-error.yaml). Nothing to prepend means nothing
+// to copy - `B_throw` reparents whichever of the two it gets, and reparenting
+// the instance to the prototype it already has changes nothing, its stack
+// included.
+//
+// Own descriptors onto the SAME prototype, not a spread: what the failing check
+// settled lives on its site prototype (base.ts, `errorSite`), and a spread
+// copies own properties only - the copy would come out reading `Expected
+// undefined`. Descriptors rather than `Object.assign` so an own `reason` is
+// carried as the data property it is instead of being pushed through a setter.
+const B_prefixPath = (error: SuryErrorRecord, p: Path): SuryErrorRecord => {
+  if (!p.length) return error;
+  const copy = Object.create(
+    Object.getPrototypeOf(error) as object,
+    Object.getOwnPropertyDescriptors(error)
+  ) as SuryErrorRecord;
+  copy.path = pathConcat(p, error.path);
+  return copy;
+};
+
 export const B_conversionFail = (
   input: Val,
   to: Internal
@@ -346,28 +368,8 @@ export const B_conversionFail = (
       const error = cause as unknown as SuryErrorRecord;
 
       // A SuryError thrown by user code carries only the path it named, so the
-      // path it was reached through is prepended here. Nothing arrives
-      // pre-prepended any more - that was effectCtx, which is gone.
-      //
-      // Copied rather than mutated: user code may throw one retained instance
-      // more than once, and prepending onto the instance makes the second parse
-      // report `a.a`. Nothing to prepend means nothing to copy - `B_throw`
-      // reparents whichever of the two it gets, and reparenting the instance to
-      // the prototype it already has changes nothing, its stack included.
-      //
-      // Own descriptors onto the SAME prototype, not a spread: what the failing
-      // check settled lives on its site prototype (base.ts, `errorSite`), and a
-      // spread copies own properties only - the copy would come out reading
-      // `Expected undefined`. Descriptors rather than `Object.assign` so an own
-      // `reason` is carried as the data property it is instead of being pushed
-      // through a setter.
-      if (!p.length) return error as unknown as ErrorDetails;
-      const copy = Object.create(
-        Object.getPrototypeOf(error) as object,
-        Object.getOwnPropertyDescriptors(error)
-      ) as SuryErrorRecord;
-      copy.path = pathConcat(p, error.path);
-      return copy as unknown as ErrorDetails;
+      // path it was reached through is prepended here.
+      return B_prefixPath(error, p) as unknown as ErrorDetails;
     }
     return foreign(cause, p);
   };
@@ -988,12 +990,8 @@ export const B_invalidOperation = (val: Val, description: string): never =>
 // A failure an opaque embed throws is rooted at its own `[]`, so the path it
 // was reached through goes in front. Only a Sury failure has a path: a foreign
 // error (a getter's throw, a file read) leaves with its identity.
-const prependPath = (error: unknown, path: Path): unknown => {
-  if (error && (error as { s?: symbol }).s === s) {
-    (error as SuryErrorRecord).path = [...path, ...(error as SuryErrorRecord).path];
-  }
-  return error;
-};
+const prependPath = (error: unknown, path: Path): unknown =>
+  error && (error as { s?: symbol }).s === s ? B_prefixPath(error as SuryErrorRecord, path) : error;
 
 // Opaque embed (a recursive self-call): a compiled function that does not take
 // a path. Inlined item parsers thread the path to the fail helper instead.
