@@ -238,6 +238,7 @@ export const completeObjectVal = (objectVal: Val): Val => {
         failed = `${collects}!==${failed}`;
       }
       joinCode = B_join(objectVal, failed, `[${promiseAllContent}]`);
+      objectVal.k = U;
     }
     const operationInput = B_scope(objectVal);
     operationInput.io = true;
@@ -267,7 +268,10 @@ export const completeObjectVal = (objectVal: Val): Val => {
         collects
           ? promiseAllContent
               .split(",")
-              .map((p) => B_settle(objectVal, p))
+              // A field whose sync part failed never made its promise; the
+              // collected failure already fails the join, so its slot only
+              // has to not be read.
+              .map((p) => `${p}&&${B_settle(objectVal, p)}`)
               .join(",")
           : promiseAllContent
       }]).then(([${promiseAllContent}])=>{${joinCode}${operationCode}return ${result}})`;
@@ -413,6 +417,9 @@ export const arrayDecoder = (unknownInput: Val): Val => {
           }
           const items = B_varWithoutAllocation(g);
           all += `.then(${items}=>{${B_join(output2, failed, items)}return ${items}})`;
+          // The join answers for the sync items too, and it has to run to see
+          // the async ones.
+          output2.k = U;
         }
         output = B_asyncVal(output2, all);
       } else {

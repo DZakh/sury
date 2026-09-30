@@ -822,10 +822,8 @@ export class Settled {
 }
 const settle = (thrown: unknown): Settled =>
   thrown instanceof Settled ? thrown : new Settled([thrown]);
-// A child whose sync part failed never made its promise; the collected failure
-// already fails the join, so its slot only has to not be read.
 export const B_settle = (val: Val, promise: string): string =>
-  `${promise}&&${promise}.then(void 0,${B_embedPure(val, settle)})`;
+  `${promise}.then(void 0,${B_embedPure(val, settle)})`;
 // `failed` is whether the container's own sync children collected.
 export const B_join = (val: Val, failed: string, slots: string): string =>
   `${B_embedPure(val, (was: unknown, values: unknown[]) => {
