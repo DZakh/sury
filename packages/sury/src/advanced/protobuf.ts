@@ -10,6 +10,7 @@ import {
   defsPath,
   type Encoder,
   type ErrorDetails,
+  type SuryErrorRecord,
   initSchema,
   instanceTag,
   type Internal,
@@ -534,30 +535,29 @@ const textEncoder = /* @__PURE__ */ new TextEncoder();
 const scratch = /* @__PURE__ */ new Uint8Array(8);
 const scratchView = /* @__PURE__ */ new DataView(scratch.buffer);
 
-// A protobuf failure before it is a Sury error: no stack, which only the error
-// the operation throws needs. An encode failure is thrown with no reason, only
-// the value, the element of a packed list, and `kind`: 1 a map key, 2 a oneof
-// member set beside another. A write can't name its field - it doesn't know
-// which one it is writing - so the frame of the message encoder it unwinds
-// through settles the rest (`encodeFrame`). The fields are `declare`d, since an
-// initializer would cost a define per field per throw.
-class ProtobufFailure {
-  declare reason: string | undefined;
-  declare path: (string | number)[];
-  declare value: unknown;
-  declare index: number | undefined;
-  declare kind: number | undefined;
-  constructor(reason?: string, value?: unknown, index?: number, kind?: number) {
-    this.reason = reason;
-    this.path = [];
-    this.value = value;
-    this.index = index;
-    this.kind = kind;
-  }
-}
+// A protobuf failure is a Sury conversion failure from the throw on, sited
+// here until `guarded` moves it onto the operation's own: no throw site knows
+// the schemas the operation converts between. An encode failure is thrown with
+// no reason, only the value, the element of a packed list, and `kind` (1 a map
+// key, 2 a oneof member set beside another): a write can't name its field - a
+// message's encoder is shared by every field that holds it - so the frame of
+// the encoder it unwinds through settles the rest (`encodeFrame`).
+const unsited = /* @__PURE__ */ conversionSite(U as never, U as never);
+
+type Failure = SuryErrorRecord & { value?: unknown; index?: number; kind?: number };
+
+const isFailure = (x: unknown): x is Failure => x != null && Object.getPrototypeOf(x) === unsited;
+
+const failure = (reason?: string): Failure => {
+  const record = Object.create(unsited) as Failure;
+  record.code = "invalid_conversion";
+  record.path = [];
+  if (reason !== U) record.reason = reason;
+  return record;
+};
 
 const fail = (reason: string): never => {
-  throw new ProtobufFailure(reason);
+  throw failure(reason);
 };
 
 const truncated = (): never => fail("Truncated protobuf message");
@@ -1502,8 +1502,8 @@ const wellKnownMessage = (type: WellKnownType, shape: Internal, ctx: Ctx): Messa
 const wireFrame = (failure: unknown, msg: Message, tag: number, key?: unknown, ...lists: unknown[][]): never => {
   const number = tag >>> 3;
   const field = tag < 0 ? U : msg.fields.find((f) => f.number === number);
-  if (field !== U && failure instanceof ProtobufFailure) {
-    const path = failure.path;
+  if (field !== U && isFailure(failure)) {
+    const path = failure.path as (string | number)[];
     // A list names its element only under a tag it reads: under any other the
     // failure is in bytes skipped or refused, which are no element of it.
     if (field.repeated) {
@@ -1537,7 +1537,11 @@ const unknownField = (msg: Message, tag: number): never => {
 // A packed writer's throw carries its element `index`: its field's frame has
 // no loop counter of its own to read.
 const fieldFailure = (value: unknown, index?: number, kind?: number): never => {
-  throw new ProtobufFailure(U, value, index, kind);
+  const record = failure();
+  record.value = value;
+  record.index = index;
+  record.kind = kind;
+  throw record;
 };
 
 const oneofConflict = (): never => fieldFailure(U, U, 2);
@@ -1566,16 +1570,19 @@ const mapKey = (key: string, min: number | bigint, max: number | bigint): number
 // gets its reason here; one a nested encoder already settled only gets the
 // field and element in front.
 const encodeFrame = (x: unknown, msg: Message, f: number, j: number, a?: string[]): unknown => {
-  if (x instanceof ProtobufFailure) {
+  if (isFailure(x)) {
     const field = msg.fields[f]!;
     let item: string | number | undefined = field.map !== U ? a![j - 1] : field.repeated ? j - 1 : U;
     if (x.reason === U) {
-      x.reason = x.kind === 2 ? `Protobuf oneof "${field.oneof}" has more than one member set`
-        : `Expected ${x.kind ? `${field.map} key` : field.type}, received ${stringify(x.value)}`;
       if (x.index !== U) item = x.index;
+      x = failure(
+        x.kind === 2 ? `Protobuf oneof "${field.oneof}" has more than one member set`
+        : `Expected ${x.kind ? `${field.map} key` : field.type}, received ${stringify(x.value)}`,
+      );
     }
-    if (item !== U) x.path.unshift(item);
-    if (!msg.unwrap) x.path.unshift(field.key);
+    const path = (x as Failure).path as (string | number)[];
+    if (item !== U) path.unshift(item);
+    if (!msg.unwrap) path.unshift(field.key);
   }
   return x;
 };
@@ -1980,7 +1987,7 @@ const protobufDecoder = (input: Val): Val => {
   // object - declares its own rather than colliding with this one.
   // The root's frame is the operation's catch: its locals are declared outside
   // the `try` for it to read.
-  const frame = fails ? `${B_embedPure(input, encodeFrame)}(x,${B_embedPure(input, message)},f,j,a);` : "";
+  const frame = fails ? `x=${B_embedPure(input, encodeFrame)}(x,${B_embedPure(input, message)},f,j,a);` : "";
   output.cp = `let ${outVar};{let w,v,j,n,s,h,a,k,g,c,o${fails ? ",f" : ""};${guarded(input, output, input.e, `w=${B_embedPure(input, scratchWriter)}.acquire();${body};${outVar}=w.finish()`, `w&&(w.busy=false);${frame}`)}}`;
   output.io = true;
   return output;
@@ -1995,12 +2002,10 @@ const guarded = (input: Val, output: Val, target: Internal, code: string, releas
   const failure = B_fail(
     output,
     (x: unknown, path?: Path) => {
-      if (!(x instanceof ProtobufFailure)) return foreign(x, path);
-      const error = Object.create((site ??= conversionSite(input.s, target))) as ErrorDetails;
-      error.code = "invalid_conversion";
-      error.path = pathConcat(path ?? compilePath(input.path), x.path);
-      error.reason = x.reason!;
-      return error;
+      if (!isFailure(x)) return foreign(x, path);
+      Object.setPrototypeOf(x, (site ??= conversionSite(input.s, target)));
+      x.path = pathConcat(path ?? compilePath(input.path), x.path);
+      return x as unknown as ErrorDetails;
     },
     "x",
   );

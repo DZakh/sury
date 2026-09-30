@@ -18,13 +18,13 @@ vs:
     _skip: todo(#…)
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[9](i);let v0=i.byKey;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[3](v0);let v5={};for(let v1 in v0){let v2=v0[v1];typeof v2==="object"&&v2&&!Array.isArray(v2)||e[2](v2,["byKey",v1]);let v3=v2.a,v4=v2.b;typeof v3==="number"&&v3<=2147483647&&v3>=-2147483648&&v3%1==0||e[0](v3,["byKey",v1,"a"]);typeof v4==="number"&&v4<=2147483647&&v4>=-2147483648&&v4%1==0||e[1](v4,["byKey",v1,"b"]);v5[v1]={a:v3,b:v4}}let v6;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[7].acquire();f=0;v=v5;a=Object.keys(v);n=a.length;j=0;while(j<n){k=a[j++];c=v[k];w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(k);w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);g=w.begin();e[4](w,c);w.end(g);w.end(h)};v6=w.finish()}catch(x){w&&(w.busy=false);e[5](x,e[6],f,j,a);e[8](x)}}return v6}catch(v7){e[10](v7)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[9](i);let v0=i.byKey;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[3](v0);let v5={};for(let v1 in v0){let v2=v0[v1];typeof v2==="object"&&v2&&!Array.isArray(v2)||e[2](v2,["byKey",v1]);let v3=v2.a,v4=v2.b;typeof v3==="number"&&v3<=2147483647&&v3>=-2147483648&&v3%1==0||e[0](v3,["byKey",v1,"a"]);typeof v4==="number"&&v4<=2147483647&&v4>=-2147483648&&v4%1==0||e[1](v4,["byKey",v1,"b"]);v5[v1]={a:v3,b:v4}}let v6;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[7].acquire();f=0;v=v5;a=Object.keys(v);n=a.length;j=0;while(j<n){k=a[j++];c=v[k];w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(k);w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);g=w.begin();e[4](w,c);w.end(g);w.end(h)};v6=w.finish()}catch(x){w&&(w.busy=false);x=e[5](x,e[6],f,j,a);e[8](x)}}return v6}catch(v7){e[10](v7)}}
     examples:
       entry:
         input: "{ byKey: { k: { a: 1, b: 0 } } }"
         output: new Uint8Array([10, 7, 10, 1, 107, 18, 2, 8, 1])
   decode:
-    expression: i=>{try{let v0=i.byKey;let v3;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[3].acquire();f=0;v=v0;a=Object.keys(v);n=a.length;j=0;while(j<n){k=a[j++];c=v[k];w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(k);w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);g=w.begin();e[0](w,c);w.end(g);w.end(h)};v3=w.finish()}catch(x){w&&(w.busy=false);e[1](x,e[2],f,j,a);e[4](x)}}return v3}catch(v4){e[5](v4)}}
+    expression: i=>{try{let v0=i.byKey;let v3;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[3].acquire();f=0;v=v0;a=Object.keys(v);n=a.length;j=0;while(j<n){k=a[j++];c=v[k];w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(k);w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);g=w.begin();e[0](w,c);w.end(g);w.end(h)};v3=w.finish()}catch(x){w&&(w.busy=false);x=e[1](x,e[2],f,j,a);e[4](x)}}return v3}catch(v4){e[5](v4)}}
     examples:
       entry:
         input: "{ byKey: { k: { a: 1, b: 0 } } }"
