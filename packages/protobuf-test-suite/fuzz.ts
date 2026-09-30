@@ -368,7 +368,8 @@ const KNOWN: Record<string, string> = {
 const BIGINT_IN_32_BIT =
   "FIXME: a bigint in an int32, uint32, sint32 or enum field, or in a fixed32 or sfixed32 field of a nested message, " +
   "fails with the TypeError `+` or `<` throws and an empty path: " +
-  "S.decodeOrThrow(S.schema({ x: S.int32.with(S.protobufField, 1) }), S.protobuf)({ x: 1n })";
+  "S.decodeOrThrow(S.schema({ x: S.int32.with(S.protobufField, 1) }), S.protobuf)({ x: 1n }) " +
+  "(spec codec-protobuf-bigint-in-int32)";
 const KNOWN_BUGS: Record<string, string> = {
   "corrupt: fails with a foreign error (TypeError: Cannot convert a BigInt value to a number)": BIGINT_IN_32_BIT,
   "corrupt: fails with a foreign error (TypeError: Cannot mix BigInt and other types, use explicit conversions)": BIGINT_IN_32_BIT,
