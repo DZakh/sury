@@ -987,26 +987,27 @@ export const B_askReading = (input: Val, from: Internal, to: Internal): never =>
 export const B_invalidOperation = (val: Val, description: string): never =>
   B_throw({ code: "invalid_operation", reason: description, path: compilePath(val.path) });
 
-const B_mergeWithCatch = (val: Val, catchFn: (errorVar: string) => string): string => {
+// A failure an opaque embed throws is rooted at its own `[]`, so the path it
+// was reached through goes in front. Only a Sury failure has a path: a foreign
+// error (a getter's throw, a file read) leaves with its identity.
+const prependPath = (error: unknown, path: Path): unknown => {
+  if (error && (error as { s?: symbol }).s === s) {
+    (error as SuryErrorRecord).path = [...path, ...(error as SuryErrorRecord).path];
+  }
+  return error;
+};
+
+// Opaque embed (a recursive self-call): a compiled function that does not take
+// a path. Inlined item parsers thread the path to the fail helper instead.
+export const B_mergeWithPathPrepend = (val: Val, parent: Val): string => {
+  if (!parent.path.length) return B_merge(val);
   const valCode = B_merge(val);
   const errorVar = B_varWithoutAllocation(val.g);
   B_markThrow(val);
-  const catchCode = `${catchFn(errorVar)};throw ${errorVar}`;
-  if (val.f & 1) val.i = `${val.i}.catch(${errorVar}=>{${catchCode}})`;
-  return `try{${valCode}}catch(${errorVar}){${catchCode}}`;
+  const rethrow = `throw ${B_embedPure(val, prependPath)}(${errorVar},${pathExpr(parent.path)})`;
+  if (val.f & 1) val.i = `${val.i}.catch(${errorVar}=>{${rethrow}})`;
+  return `try{${valCode}}catch(${errorVar}){${rethrow}}`;
 };
-
-// Opaque embed (recursive self-call, S.json's any-value walk): a compiled
-// function that does not take a path. Failures it throws are rooted at its
-// own `[]`, so a nested use still prepends in catch. Inlined item parsers
-// thread the path to the fail helper instead.
-export const B_mergeWithPathPrepend = (val: Val, parent: Val): string =>
-  !parent.path.length
-    ? B_merge(val)
-    : B_mergeWithCatch(
-        val,
-        (errorVar) => `${errorVar}.path=${pathExpr(parent.path, `...${errorVar}.path`)}`,
-      );
 
 export const noopOperation = (i: unknown): unknown => i;
 (noopOperation as unknown as Record<string, unknown>)["embedded"] = immutableEmptyArray;

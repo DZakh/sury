@@ -21,12 +21,9 @@ operations:
       nested:
         input: '{ v: "a", kid: { v: "b" } }'
         output: '{ v: "a", kid: { v: "b", kid: undefined } }'
-      # FIXME: a getter's throw is documented to escape with its identity, but
-      # the recursive call's catch reads `path` off it as if it were a Sury
-      # error and crashes on the TypeError instead.
       getter-throws-in-kid:
         input: '{ v: "a", kid: { get v() { throw new RangeError("getter boom") } } }'
-        error: "TypeError: v2.path is not iterable"
+        error: "RangeError: getter boom"
       getter-throws-at-root:
         input: '{ get v() { throw new RangeError("getter boom") } }'
         error: "RangeError: getter boom"
