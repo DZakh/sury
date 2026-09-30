@@ -576,6 +576,9 @@ export type BGlobal = {
   // case a later case may still accept - or nothing, for the raise a failure is
   // by default. Absent means raise everywhere.
   //
+  // The statement is `return …`, `break l`, or one `{…}` block holding more
+  // than one, so a caller can take a block for the braces it would add.
+  //
   // A jump can't leave a function, so whatever emits code into a callback
   // clears it for that stretch: `B_detached` around a `.then`, and a union
   // whose dispatch may be wrapped in an async function keeps its own failure
@@ -587,9 +590,10 @@ export type BGlobal = {
 }
 
 // A failure's record, as the expression that builds it - or, asked `unbuilt`,
-// as the builder and its arguments, for an exit that keeps the record and may
-// never read it (union.ts). An expression with no builder to split off
-// answers the same either way.
+// as the builder and its arguments (the value, then the path only where it is
+// dynamic), for an exit that keeps the record and may never read it
+// (union.ts). An expression with no builder to split off answers the same
+// either way. Union's aggregate tells the three shapes apart by count.
 export type Failure = (unbuilt?: boolean) => string;
 
 // Adjacent checks sharing `fail` by reference equality are fused with `&&`

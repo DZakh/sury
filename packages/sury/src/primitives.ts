@@ -23,6 +23,7 @@ import {
 } from "./base";
 import {
   B_embed,
+  B_embedPure,
   B_failInvalidInput,
   B_inlineConst,
   B_next,
@@ -59,9 +60,18 @@ export const numberTagCond = (inputVar: string, allowNaN: boolean): string => {
   const t = typeofCond(numberTag)(inputVar);
   return allowNaN ? t : `${t}&&${inputVar}==${inputVar}`;
 };
-// `class` is a reserved word in TS, so the parameter is named `class_`.
+// `class` is a reserved word in TS, so the parameter is named `class_`. The
+// default `instanceof` only reads the class's `prototype` and never raises, so
+// only a class with its own `Symbol.hasInstance` counts as one that may - a
+// count that would otherwise keep a `try` around every union case holding an
+// instance.
 export const instanceofCond = (b: Val, class_: unknown, inputVar: string): string =>
-  `${inputVar} instanceof ${B_embed(b, class_)}`;
+  `${inputVar} instanceof ${(
+    (class_ as Function)[Symbol.hasInstance] === Function.prototype[Symbol.hasInstance] &&
+    Object((class_ as Function).prototype) === (class_ as Function).prototype
+      ? B_embedPure
+      : B_embed
+  )(b, class_)}`;
 
 // Shared, immutable per-tag type-narrow Check objects. A Check's c/f are only
 // ever called, never reassigned, and callers always wrap it in a fresh array

@@ -970,24 +970,25 @@ const unionEmit = (
       let site: object;
       const snap = B_pathSnap(input);
       // What the cases found: the records a compile salvaged, then the list the
-      // cases recorded into - a record as it is, or a builder followed by its
-      // value and path, built only now that it is read.
-      aggregate = B_embedPure(input, (v: unknown, path?: Path, found?: unknown[]) => {
-        const errors = [...salvaged];
-        for (let i = 0; found && i < found.length; ) {
-          const x = found[i++];
-          errors.push((typeof x === "function" ? x(found[i++], found[i++]) : x) as SuryErrorRecord);
+      // cases recorded into, newest first, each node led by the one before it
+      // (`keep`) - `[, record]`, or `[, builder, value, path?]` built only now
+      // that it is read.
+      aggregate = B_embedPure(input, (v: unknown, found?: unknown[], path?: Path) => {
+        const errors: unknown[] = [];
+        for (let n = found; n; n = n[0] as unknown[] | undefined) {
+          errors.unshift(n.length < 3 ? n[1] : (n[1] as Function)(n[2], n[3]));
         }
+        errors.unshift(...salvaged);
         return errorAt(
           (site ??= errorSite(expectedSchema, unknown)),
           path ?? snap!,
           v,
-          errors.length ? errors : U,
+          (errors.length ? errors : U) as SuryErrorRecord[] | undefined,
         );
       });
     }
     const path = B_pathArg(input);
-    return `${aggregate}(${input.v()}${path || (failures ? ",void 0" : "")}${failures ? `,${failures}` : ""})`;
+    return `${aggregate}(${input.v()}${failures ? `,${failures}` : path ? ",void 0" : ""}${path})`;
   };
   // The union's failure, where the chain ends.
   const final = (): string => {
@@ -1009,11 +1010,13 @@ const unionEmit = (
   // the case found, precisely.
   const fail = (error?: Failure): string | undefined =>
     recorded ? jumpOut(end)(error) : error ? outer?.(error) : final();
+  const block = (statement: string): string =>
+    statement[0] === "{" ? statement : `{${statement}}`;
   const rethrow = (): string => rethrowEmbed || (rethrowEmbed = B_embed(input, getOrRethrow));
   // What a case that raised does with the error it caught: records it where
   // the union's failure will read it.
   const keep = (error: string): string =>
-    wanted ? `(${failuresVar()}||(${failures}=[])).push(${error})` : error;
+    wanted ? `${failuresVar()}=[${failures},${error}]` : error;
   // Emits a linear fallback chain: every alternative that fails hands the value to
   // the next one, and the last failure is the union's. A failed check hands over by
   // breaking out of its case's block (`unionEmit`'s `enter`); a `try` is left
@@ -1029,10 +1032,10 @@ const unionEmit = (
       const c = cases[0]!;
       if (c.b === "" && c.c === "") return "";
       if (c.b === "") {
-        return `if(!(${c.c})){${ending()}}`;
+        return `if(!(${c.c}))${block(ending())}`;
       }
       if (c.c === "") return c.b.endsWith(";") ? c.b : c.b + ";";
-      return `if(${c.c}){${c.b}}else{${ending()}}`;
+      return `if(${c.c}){${c.b}}else${block(ending())}`;
     }
 
     let code = "";
@@ -1132,7 +1135,8 @@ const unionEmit = (
 
     // Read only now: an arm's inlined failure can be the first to reach the end.
     const label = top ? (end.l || "") : "";
-    return `for(;;){${label ? `${label}:{${code}}` : code}${!exhaustive || label ? ending() : ""}}`;
+    const tail = !exhaustive || label ? ending() : "";
+    return `for(;;){${label ? `${label}:{${code}}` : code}${tail[0] === "{" ? tail.slice(1, -1) : tail}}`;
   };
   // A case a later one may still accept leaves its own block on failure, so the
   // next case runs - and so does any case once an earlier one has handed a
@@ -1197,10 +1201,12 @@ const unionEmit = (
     member: UnionMember,
     source: Val,
     target: Val,
-    falls: number
+    falls: number,
+    // The group's exit already leaves to where this case's own block would.
+    inherit?: boolean
   ): UnionCase | undefined => {
     const mark = input.g.t, jumps = g.j, snap = recorded;
-    const leave = enter(falls || +recorded);
+    const leave = inherit ? () => U : enter(falls || +recorded);
     const caseInput = B_scope(source);
     caseInput.u = true;
     caseInput.t = source.t;
@@ -1318,7 +1324,8 @@ const unionEmit = (
     }
 
     const mark = input.g.t, jumps = g.j, snap = recorded;
-    const leave = enter(group.f & 8 || +recorded);
+    const labelled = group.f & 8 || +recorded;
+    const leave = enter(labelled);
     const before: boolean = recorded;
     // The narrow's own checks run ahead of every member, so they fail with
     // what was recorded before the group.
@@ -1352,7 +1359,13 @@ const unionEmit = (
     }
     const inner: UnionCase[] = [];
     for (let j = 0; j < group.a.length; j++) {
-      const c = compile(group.a[j]!, narrow, narrowInput, group.a[j]!.f & 8);
+      const c = compile(
+        group.a[j]!,
+        narrow,
+        narrowInput,
+        group.a[j]!.f & 8,
+        !!labelled && group.a.length === 1,
+      );
       if (c !== U) {
         settle(c, inner);
         if (c.c === "" && c.b === "") break;

@@ -374,12 +374,12 @@ is set. What is left on the table:
   (a val flag set where the chain ends in `assertResult`, or the output val's
   inline materialized lazily the way object fields already are).
 - **A deferred union failure still allocates its path.** A case that falls
-  through pushes `builder, value, path` onto the union's list, and inside a loop
-  the path is a fresh `[v0,"a"]` per failing item, plus the list itself per
-  item. `parseOrThrow` over a 20-item array of a two-member union where every
-  other item falls through: ~450ns, against ~170ns for `isInput`, which records
-  nothing. Pushing only the dynamic segments (the loop var) and letting the
-  builder concat the static part would close most of it.
+  through links a node onto the union's list (`v1=[v1,e[0],v0]`), and inside a
+  loop the node carries a fresh path, `v1=[v1,e[1],v4,["result",v3]]`, per
+  failing item. `parseOrThrow` over a 20-item array of a two-member union where
+  every other item falls through: ~450ns, against ~170ns for `isInput`, which
+  records nothing. Linking only the dynamic segments (the loop var) and letting
+  the builder concat the static part would close most of it.
 - **Standard Schema `validate` and `*AsPromisableResult` still raise.** Both
   answer in the body's own shape - a promise when the body turns out async - and
   the exit is chosen before the body is compiled, so they are left without one.
@@ -396,9 +396,17 @@ is set. What is left on the table:
   read `cond||raise`, so the jump form negates it whole: `if(!(typeof
   v0==="string"))return false`, and `if(!((a||b)))` where the union fused a
   group. A check that could also hand over its negation (`typeof v0!=="string"`)
-  would shorten every jump by three characters. Two cosmetic warts ride along:
-  `{…;break l1};break` in union arms, and `catch(x){{…}}` where a statement
-  site wraps an exit that is already a block.
+  would shorten every jump by three characters. One cosmetic wart rides along:
+  `{…;break l1};break` where a union arm's body ends in a jump, since `attempt`
+  can't tell that closing brace from an object literal's (`i={…}`) and adds the
+  `;` either way.
+- **Only some embeds know they can't raise.** Every `B_embed` counts toward the
+  `try` a union case keeps; `instanceof` a class without its own
+  `Symbol.hasInstance` and the built-in formats' tests are now `B_embedPure`,
+  and a union of them keeps none. `S.pattern` still counts (a user's `RegExp`
+  can be a subclass whose `exec` throws), as does every constant a literal
+  embeds. An embed that states what it is (callable, and whether it is ours)
+  rather than the call site choosing would make the rest follow.
 - **An async operation's union throws its failure whenever a case may fall
   through.** Whether the dispatch ends up in an `(async(i)=>{…})(i)` wrapper is
   known only once the cases are compiled, but the exit they fail to is chosen

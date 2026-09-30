@@ -269,7 +269,7 @@ export const B_fail = <TArg>(
     let embedded = "";
     jump = exit(
       (unbuilt) =>
-        `${(embedded ||= B_embedPure(b, fn))}${unbuilt ? `,${arg},${path.slice(1) || "void 0"}` : `(${arg}${path})`}`,
+        `${(embedded ||= B_embedPure(b, fn))}${unbuilt ? `,${arg}${path}` : `(${arg}${path})`}`,
     );
   }
   if (jump === U) {
@@ -277,7 +277,7 @@ export const B_fail = <TArg>(
     return cond ? `${cond}||${raise};` : raise;
   }
   b.g.j++;
-  return cond ? `if(!(${cond}))${jump};` : jump;
+  return cond ? `if(!(${cond}))${jump}${jump[0] === "{" ? "" : ";"}` : jump;
 };
 
 // Emits `body` with the exit cleared: it lands inside a callback, which a jump
@@ -862,7 +862,7 @@ export const B_conversion = (
     const failure = isAsync ? B_detached(input.g, fail) : fail();
     output.cp = `let ${output.i};try{${output.i}=${embeddedFn}(${inputValue})${
       isAsync ? `.catch(x=>{${failure}})` : ""
-    }}catch(x){${failure}}`;
+    }}catch(x)${failure[0] === "{" ? failure : `{${failure}}`}`;
     // A val whose result the target's own refiners can attach to. `val.vc`
     // checks emit at the *pre-transform* slot (`prev.v()` in B_merge), so
     // leaving them on the coder's own val would validate what went into the

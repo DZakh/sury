@@ -74,7 +74,7 @@ test("When union of json and string schemas, should parse the first one", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{let v0;for(;;){try{e[0](i);i="json";break}catch(x){(v0||(v0=[])).push(e[1](x))}if(typeof i==="string"){i="str";break}throw e[2](i,void 0,v0)}return i}catch(v1){e[3](v1)}}`,
+    `i=>{try{let v0;for(;;){try{e[0](i);i="json";break}catch(x){v0=[v0,e[1](x)]}if(typeof i==="string"){i="str";break}throw e[2](i,v0)}return i}catch(v1){e[3](v1)}}`,
   )
 })
 
@@ -94,7 +94,7 @@ test("Ensures parsing order with unknown schema", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{let v0;for(;;){if(typeof i==="string"){l1:{if(!(i.length===2)){(v0||(v0=[])).push(e[0],i,void 0);break l1};break}}if(typeof i==="boolean")break;l3:{let v2;try{v2=e[1](i)}catch(x){{(v0||(v0=[])).push(e[2],x,void 0);break l3}}i=v2;break}if(typeof i==="number"&&i==i)break;if(typeof i==="bigint")break;throw e[3](i,void 0,v0)}return i}catch(v4){e[4](v4)}}`,
+    `i=>{try{let v0;for(;;){if(typeof i==="string"){l1:{if(!(i.length===2)){v0=[v0,e[0],i];break l1};break}}if(typeof i==="boolean")break;l3:{let v2;try{v2=e[1](i)}catch(x){v0=[v0,e[2],x];break l3}i=v2;break}if(typeof i==="number"&&i==i)break;if(typeof i==="bigint")break;throw e[3](i,v0)}return i}catch(v4){e[4](v4)}}`,
   )
 })
 
@@ -448,12 +448,12 @@ test("Successfully serializes unboxed variant", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{let v1;for(;;){if(typeof i==="string"){l2:{let v0;try{v0=e[0](i)}catch(x){{(v1||(v1=[])).push(e[1],x,void 0);break l2}}i=v0;break}break}throw e[2](i,void 0,v1)}return i}catch(v3){e[3](v3)}}`,
+    `i=>{try{let v1;for(;;){if(typeof i==="string"){l2:{let v0;try{v0=e[0](i)}catch(x){v1=[v1,e[1],x];break l2}i=v0;break}break}throw e[2](i,v1)}return i}catch(v3){e[3](v3)}}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{try{let v1;for(;;){l2:{let v0;try{v0=e[0](i)}catch(x){{(v1||(v1=[])).push(e[1],x,void 0);break l2}}if(!(typeof v0==="string")){(v1||(v1=[])).push(e[2],v0,void 0);break l2};i=v0;break}if(typeof i==="string")break;throw e[3](i,void 0,v1)}return i}catch(v3){e[4](v3)}}`,
+    `i=>{try{let v1;for(;;){l2:{let v0;try{v0=e[0](i)}catch(x){v1=[v1,e[1],x];break l2}if(!(typeof v0==="string")){v1=[v1,e[2],v0];break l2}i=v0;break}if(typeof i==="string")break;throw e[3](i,v1)}return i}catch(v3){e[4](v3)}}`,
   )
 
   // The same, but toString schema is the first
@@ -559,7 +559,7 @@ test("Union with nested variant", t => {
     ~schema,
     ~op=#Encode,
     // TODO: Can optimize it
-    `i=>{try{let v3;for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){l4:{let v0=i.foo;if(!(typeof v0==="object"&&v0&&!Array.isArray(v0))){(v3||(v3=[])).push(e[2],v0,void 0);break l4};let v1=v0.tag;if(!(typeof v1==="object"&&v1&&!Array.isArray(v1)&&v1.NAME==="Null")){(v3||(v3=[])).push(e[1],v1,void 0);break l4};let v2=v1.VAL;for(;;){if(typeof v2==="string")break;if(v2===void 0){v2=null;break}{(v3||(v3=[])).push(e[0](v2));break l4}}i={foo:{tag:{NAME:v1.NAME,VAL:v2}}};break}l8:{let v5=i.foo;if(!(typeof v5==="object"&&v5&&!Array.isArray(v5))){(v3||(v3=[])).push(e[5],v5,void 0);break l8};let v6=v5.tag;if(!(typeof v6==="object"&&v6&&!Array.isArray(v6)&&v6.NAME==="Option")){(v3||(v3=[])).push(e[4],v6,void 0);break l8};let v7=v6.VAL;if(!((typeof v7==="string"||v7===void 0))){(v3||(v3=[])).push(e[3],v7,void 0);break l8};i={foo:{tag:{NAME:v6.NAME,VAL:v7}}};break}}throw e[6](i,void 0,v3)}return i}catch(v9){e[7](v9)}}`,
+    `i=>{try{let v3;for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){l4:{let v0=i.foo;if(!(typeof v0==="object"&&v0&&!Array.isArray(v0))){v3=[v3,e[2],v0];break l4}let v1=v0.tag;if(!(typeof v1==="object"&&v1&&!Array.isArray(v1)&&v1.NAME==="Null")){v3=[v3,e[1],v1];break l4}let v2=v1.VAL;for(;;){if(typeof v2==="string")break;if(v2===void 0){v2=null;break}v3=[v3,e[0](v2)];break l4}i={foo:{tag:{NAME:v1.NAME,VAL:v2}}};break}l8:{let v5=i.foo;if(!(typeof v5==="object"&&v5&&!Array.isArray(v5))){v3=[v3,e[5],v5];break l8}let v6=v5.tag;if(!(typeof v6==="object"&&v6&&!Array.isArray(v6)&&v6.NAME==="Option")){v3=[v3,e[4],v6];break l8}let v7=v6.VAL;if(!((typeof v7==="string"||v7===void 0))){v3=[v3,e[3],v7];break l8}i={foo:{tag:{NAME:v6.NAME,VAL:v7}}};break}}throw e[6](i,v3)}return i}catch(v9){e[7](v9)}}`,
   )
 })
 
@@ -771,7 +771,7 @@ test("json-rpc response", t => {
   t->U.assertCompiledCode(
     ~schema=getLogsResponseSchema,
     ~op=#Parse,
-    `i=>{try{let v3;for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){l4:{let v0=i.result;if(!(Array.isArray(v0))){(v3||(v3=[])).push(e[1],v0,void 0);break l4};for(let v1=0;v1<v0.length;++v1){let v2=v0[v1];if(!(typeof v2==="string")){(v3||(v3=[])).push(e[0],v2,["result",v1]);break l4};}i={TAG:"Ok",_0:v0};break}l7:{let v5=i.error;if(typeof v5==="object"&&v5&&!Array.isArray(v5)){for(;;){if(v5.message==="NotFound"){v5="LogsNotFound";break}if(v5.message==="Invalid"){let v6=v5.data;if(!(typeof v6==="string")){(v3||(v3=[])).push(e[2],v6,void 0);break l7};v5={NAME:"InvalidData",VAL:v6};break}{(v3||(v3=[])).push(e[3](v5));break l7}}}else{{(v3||(v3=[])).push(e[3](v5));break l7}}i={TAG:"Error",_0:v5};break}}throw e[4](i,void 0,v3)}return i}catch(v8){e[5](v8)}}`,
+    `i=>{try{let v3;for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){l4:{let v0=i.result;if(!(Array.isArray(v0))){v3=[v3,e[1],v0];break l4}for(let v1=0;v1<v0.length;++v1){let v2=v0[v1];if(!(typeof v2==="string")){v3=[v3,e[0],v2,["result",v1]];break l4}}i={TAG:"Ok",_0:v0};break}l7:{let v5=i.error;if(typeof v5==="object"&&v5&&!Array.isArray(v5)){for(;;){if(v5.message==="NotFound"){v5="LogsNotFound";break}if(v5.message==="Invalid"){let v6=v5.data;if(!(typeof v6==="string")){v3=[v3,e[2],v6];break l7}v5={NAME:"InvalidData",VAL:v6};break}v3=[v3,e[3](v5)];break l7}}else{v3=[v3,e[3](v5)];break l7}i={TAG:"Error",_0:v5};break}}throw e[4](i,v3)}return i}catch(v8){e[5](v8)}}`,
   )
   t->U.assertCompiledCode(
     ~schema=getLogsResponseSchema,
@@ -864,7 +864,7 @@ test("Union of strings with different refinements", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{let v0;for(;;){l3:{if(typeof i==="string"){for(;;){l1:{try{if(!(e[0].test(i))){(v0||(v0=[])).push(e[1],i,void 0);break l1};break}catch(x){(v0||(v0=[])).push(e[4](x))}}l2:{try{if(!(e[2].test(i))){(v0||(v0=[])).push(e[3],i,void 0);break l2};break}catch(x){(v0||(v0=[])).push(e[4](x))}}break l3};break}}throw e[5](i,void 0,v0)}return i}catch(v4){e[6](v4)}}`,
+    `i=>{try{let v0;for(;;){l3:{if(typeof i==="string"){for(;;){l1:{if(!(e[0].test(i))){v0=[v0,e[1],i];break l1};break}l2:{if(!(e[2].test(i))){v0=[v0,e[3],i];break l2};break}break l3};break}}throw e[4](i,v0)}return i}catch(v4){e[5](v4)}}`,
   )
 })
 
@@ -892,7 +892,7 @@ test("Objects with the same discriminant", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{let v1;for(;;){l5:{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.type==="A"){l2:{let v0=i.value;if(!(typeof v0==="string"&&(v0==="foo"||v0==="bar"))){(v1||(v1=[])).push(e[0],v0,void 0);break l2};i={TAG:"Ok",_0:v0};break}l4:{let v3=i.value;if(!(typeof v3==="string")){(v1||(v1=[])).push(e[1],v3,void 0);break l4};i={TAG:"Error",_0:v3};break}}break l5};break}}throw e[2](i,void 0,v1)}return i}catch(v6){e[3](v6)}}`,
+    `i=>{try{let v1;for(;;){l5:{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.type==="A"){l2:{let v0=i.value;if(!(typeof v0==="string"&&(v0==="foo"||v0==="bar"))){v1=[v1,e[0],v0];break l2}i={TAG:"Ok",_0:v0};break}l4:{let v3=i.value;if(!(typeof v3==="string")){v1=[v1,e[1],v3];break l4}i={TAG:"Error",_0:v3};break}}break l5};break}}throw e[2](i,v1)}return i}catch(v6){e[3](v6)}}`,
   )
 })
 
@@ -933,7 +933,7 @@ module CknittelBugReport = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{try{let v2;for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){l3:{let v0=i.payload;if(!(typeof v0==="object"&&v0&&!Array.isArray(v0))){(v2||(v2=[])).push(e[1],v0,void 0);break l3};let v1=v0.a;if(!((typeof v1==="string"||v1===void 0))){(v2||(v2=[])).push(e[0],v1,void 0);break l3};i={TAG:"A",_0:{payload:{a:v1}}};break}l6:{let v4=i.payload;if(!(typeof v4==="object"&&v4&&!Array.isArray(v4))){(v2||(v2=[])).push(e[3],v4,void 0);break l6};let v5=v4.b;if(!((typeof v5==="number"&&v5==v5&&v5<=2147483647&&v5>=-2147483648&&v5%1==0||v5===void 0))){(v2||(v2=[])).push(e[2],v5,void 0);break l6};i={TAG:"B",_0:{payload:{b:v5}}};break}}throw e[4](i,void 0,v2)}return i}catch(v7){e[5](v7)}}`,
+      `i=>{try{let v2;for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){l3:{let v0=i.payload;if(!(typeof v0==="object"&&v0&&!Array.isArray(v0))){v2=[v2,e[1],v0];break l3}let v1=v0.a;if(!((typeof v1==="string"||v1===void 0))){v2=[v2,e[0],v1];break l3}i={TAG:"A",_0:{payload:{a:v1}}};break}l6:{let v4=i.payload;if(!(typeof v4==="object"&&v4&&!Array.isArray(v4))){v2=[v2,e[3],v4];break l6}let v5=v4.b;if(!((typeof v5==="number"&&v5==v5&&v5<=2147483647&&v5>=-2147483648&&v5%1==0||v5===void 0))){v2=[v2,e[2],v5];break l6}i={TAG:"B",_0:{payload:{b:v5}}};break}}throw e[4](i,v2)}return i}catch(v7){e[5](v7)}}`,
     )
 
     t->U.assertCompiledCode(

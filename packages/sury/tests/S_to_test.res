@@ -65,7 +65,7 @@ test("Coerce from string to union of int and bool (union dispatch over a convert
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{typeof i==="string"||e[4](i);let v1;for(;;){l2:{let v0=+i;if(!(v0==v0&&(v0||i.trim()))){(v1||(v1=[])).push(e[1],i,void 0);break l2};if(!(v0<=2147483647&&v0>=-2147483648&&v0%1==0)){(v1||(v1=[])).push(e[0],v0,void 0);break l2};i=v0;break}l4:{let v3;if(!((v3=i==="true")||i==="false")){(v1||(v1=[])).push(e[2],i,void 0);break l4};i=v3;break}throw e[3](i,void 0,v1)}return i}catch(v5){e[5](v5)}}`,
+    `i=>{try{typeof i==="string"||e[4](i);let v1;for(;;){l2:{let v0=+i;if(!(v0==v0&&(v0||i.trim()))){v1=[v1,e[1],i];break l2}if(!(v0<=2147483647&&v0>=-2147483648&&v0%1==0)){v1=[v1,e[0],v0];break l2}i=v0;break}l4:{let v3;if(!((v3=i==="true")||i==="false")){v1=[v1,e[2],i];break l4}i=v3;break}throw e[3](i,v1)}return i}catch(v5){e[5](v5)}}`,
   )
 
   t->Assert.deepEqual(%raw(`123`)->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`"123"`))
@@ -428,7 +428,7 @@ test("Coerce string to unboxed union (each item separately)", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{typeof i==="string"||e[3](i);let v1;for(;;){l2:{let v0=+i;if(!(v0==v0&&(v0||i.trim()))){(v1||(v1=[])).push(e[0],i,void 0);break l2};i=v0;break}l4:{let v3;if(!((v3=i==="true")||i==="false")){(v1||(v1=[])).push(e[1],i,void 0);break l4};i=v3;break}throw e[2](i,void 0,v1)}return i}catch(v5){e[4](v5)}}`,
+    `i=>{try{typeof i==="string"||e[3](i);let v1;for(;;){l2:{let v0=+i;if(!(v0==v0&&(v0||i.trim()))){v1=[v1,e[0],i];break l2}i=v0;break}l4:{let v3;if(!((v3=i==="true")||i==="false")){v1=[v1,e[1],i];break l4}i=v3;break}throw e[2](i,v1)}return i}catch(v5){e[4](v5)}}`,
   )
 
   t->Assert.deepEqual(Number(10.)->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`"10"`))

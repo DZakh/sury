@@ -96,7 +96,7 @@ module CknittelBugReport2 = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{try{let v1;for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){l2:{let v0=i.statusCode;if(!(typeof v0==="object"&&v0&&!Array.isArray(v0)&&v0.kind==="ok")){(v1||(v1=[])).push(e[0],v0,void 0);break l2};i={TAG:"Ok",_0:void 0};break}l5:{let v3=i.statusCode;if(!(typeof v3==="object"&&v3&&!Array.isArray(v3)&&v3.kind==="serviceError")){(v1||(v1=[])).push(e[3],v3,void 0);break l5};let v4=v3.serviceCode,v6=v3.text;if(!(typeof v4==="string")){(v1||(v1=[])).push(e[1],v4,void 0);break l5};if(!(typeof v6==="string")){(v1||(v1=[])).push(e[2],v6,void 0);break l5};i={TAG:"Error",_0:{serviceCode:v4,text:v6}};break}}throw e[4](i,void 0,v1)}return i}catch(v7){e[5](v7)}}`,
+      `i=>{try{let v1;for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){l2:{let v0=i.statusCode;if(!(typeof v0==="object"&&v0&&!Array.isArray(v0)&&v0.kind==="ok")){v1=[v1,e[0],v0];break l2}i={TAG:"Ok",_0:void 0};break}l5:{let v3=i.statusCode;if(!(typeof v3==="object"&&v3&&!Array.isArray(v3)&&v3.kind==="serviceError")){v1=[v1,e[3],v3];break l5}let v4=v3.serviceCode,v6=v3.text;if(!(typeof v4==="string")){v1=[v1,e[1],v4];break l5}if(!(typeof v6==="string")){v1=[v1,e[2],v6];break l5}i={TAG:"Error",_0:{serviceCode:v4,text:v6}};break}}throw e[4](i,v1)}return i}catch(v7){e[5](v7)}}`,
     )
 
     t->Assert.deepEqual(S.convertOrThrow(S.JsonString(`{"statusCode": {"kind": "ok"}}`), ~from=S.jsonString, ~to=schema), Ok())
