@@ -587,14 +587,20 @@ export type BGlobal = {
   // @as("j") - jump counter, `t`'s twin: bumped by every failed check that
   // took `x`. Read the difference, never the value.
   j: number;
-  // PROTOTYPE: the collected failure list's var, set when the operation
-  // collects every failure instead of answering the first.
+  // @as("k") - the var of the failure list an operation that reports every
+  // failure collects into (parse.ts `outcomeOf`). `ku` says a child's exit
+  // named it: until one does, nothing can be on it and the operation reads as
+  // if it answered the first failure.
   k?: string;
-  // @as("l") - the declaration sink collecting mode routes every `let` into
-  // (`B_let`): names declared once at the head of the scope the code lands in -
-  // the operation body, an item loop's body, a callback's. Absent outside
-  // collecting mode, where each declaration stays where it is written.
+  ku?: boolean;
+  // @as("l") - the declaration sink of the scope the code lands in (`B_let`):
+  // the operation body, an item loop's body, a callback's. `c` counts the
+  // collecting children open around the code being emitted: a child's code
+  // sits in a labelled block, which would scope a `let` away from the sibling
+  // or container that reads it, so there - and only there - a declaration
+  // goes to the sink, declared once at its head.
   l?: string[];
+  c?: number;
 }
 
 // A failure's record, as the expression that builds it - or, asked `unbuilt`,
@@ -666,14 +672,17 @@ export type Val = {
   // This is to mark an object field as optional. Fields like this should be
   // skipped when the value is undefined. @as("o") - optional
   o?: boolean;
-  // PROTOTYPE: a container whose children may have collected a failure, so
-  // whatever reads its value afterwards is gated on the list not growing.
+  // @as("k") - a container whose children collected a failure: it has no
+  // value for what follows it to read (builder.ts `B_merge`).
   k?: boolean;
-  // @as("hn") - names this val's own code assigns but, in collecting mode,
-  // leaves to a sink to declare. Routed when the val merges rather than when
-  // the var was materialized: a late `.v()` runs in whatever stretch reads the
-  // value, not the one its code lands in.
+  // @as("hn") - names this val's own code assigns but leaves to a sink to
+  // declare (`B_let`). Routed when the val merges rather than when the var was
+  // materialized: a late `.v()` runs in whatever stretch reads the value, not
+  // the one its code lands in.
   hn?: string[];
+  // @as("ha") - `hd`'s routed half: hoisted assignments whose names went to a
+  // sink.
+  ha?: string;
 }
 
 // Shared `undefined` for every value-position use across the implementation:

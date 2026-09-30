@@ -341,7 +341,6 @@ const outcomeOf = (input: Val, flag: Flag, hasDefs: boolean): Outcome => {
         return throwTail(input, code, out, isAsync, flag, hasDefs);
       },
     };
-  const errVar = B_varWithoutAllocation(g);
   // A failure the sync phase finds comes back in the shape the success path
   // uses, so an async operation's answer is a promise either way. The
   // promisable mode (512) answers in the body's own shape, known only once the
@@ -353,7 +352,10 @@ const outcomeOf = (input: Val, flag: Flag, hasDefs: boolean): Outcome => {
     list = g.k = B_varWithoutAllocation(g);
     g.l = [];
     failure = B_embedPure(input, failureOf(B_errorOf(input), lift));
-    x = (record) => `return ${failure}(${record ? `[${list},${record(true)}]` : list})`;
+    // Until a child names the list nothing can be on it, so a failure before
+    // then is the only one.
+    x = (record) =>
+      `return ${failure}(${record ? `[${g.ku ? list : ""},${record(true)}]` : list})`;
     // Tagged so a container knows its children collect (builder.ts `B_field`).
     x.k = 1;
   } else if (flag & 4096) {
@@ -366,13 +368,18 @@ const outcomeOf = (input: Val, flag: Flag, hasDefs: boolean): Outcome => {
     x = (record) => `return ${lifted(`${failure}(${record!()})`)}`;
   }
   const failOf = (e?: string): string =>
-    list ? `${failure}(${list}${e ? `,1,${e}` : ""})` : flag & 4096 ? failure : `${failure}(${e})`;
+    list
+      ? `${failure}(${g.ku ? list : 0}${e ? `,1,${e}` : ""})`
+      : flag & 4096
+        ? failure
+        : `${failure}(${e})`;
   // What the sync phase collected fails the operation after all, async or
   // not - it is only read once the body is done.
-  const done = (success: string): string => (list ? `${list}?${failOf()}:${success}` : success);
+  const done = (success: string): string => (g.ku ? `${list}?${failOf()}:${success}` : success);
   return {
     x,
     t: (code, out, isAsync) => {
+      const errVar = B_varWithoutAllocation(g);
       let value = out;
       if (flag & 2048) [code, value] = given(code);
       lift.a = !!(flag & 1) && (isAsync || !(flag & 512));
@@ -389,7 +396,8 @@ const outcomeOf = (input: Val, flag: Flag, hasDefs: boolean): Outcome => {
       // `safe(() => ...)` wrapper can never make.
       if (code)
         body = `try{${body}}catch(${errVar}){return ${list ? failOf(errVar) : lifted(failOf(errVar))}}`;
-      return list ? `let ${[list, ...new Set(g.l)]};${body}` : body;
+      const names = g.ku ? [list, ...g.l!] : g.l || [];
+      return names.length ? `let ${[...new Set(names)]};${body}` : body;
     },
   };
 };

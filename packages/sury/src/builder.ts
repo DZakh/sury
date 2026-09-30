@@ -181,8 +181,8 @@ export const B_varWithoutAllocation = (g: BGlobal): string => `v${++g.v}`;
 // assignment stays. With an `owner` the name waits for the owner's merge: a
 // var materialized late is read from one stretch and declared by another.
 export const B_let = (g: BGlobal, name: string, init?: string, owner?: Val): string => {
-  if (!g.l) return `let ${name}${init === U ? "" : `=${init}`};`;
-  (owner ? (owner.hn ||= []) : g.l).push(name);
+  if (!g.c) return `let ${name}${init === U ? "" : `=${init}`};`;
+  (owner ? (owner.hn ||= []) : g.l!).push(name);
   return init === U ? "" : `${name}=${init};`;
 };
 
@@ -212,9 +212,8 @@ export const B_sink = (g: BGlobal, emit: () => string): string => {
 // In collecting mode `hd` holds the assignments as statements instead, the
 // names having gone to the owner's sink.
 export const B_hoistDecl = (owner: Val, name: string, init?: string): void => {
-  owner.hd += owner.g.l
-    ? B_let(owner.g, name, init, owner)
-    : (owner.hd && ",") + (init === U ? name : `${name}=${init}`);
+  if (owner.g.c) owner.ha = (owner.ha || "") + B_let(owner.g, name, init, owner);
+  else owner.hd += (owner.hd && ",") + (init === U ? name : `${name}=${init}`);
 }
 
 export const B_operationArg = (
@@ -322,7 +321,9 @@ export const B_fail = <TArg>(
 const B_childExit = (g: BGlobal, label: { l?: string }): NonNullable<BGlobal["x"]> => {
   const exit = ((record?: Failure) => {
     const jump = `break ${(label.l ||= `c${++g.v}`)}`;
-    return record ? `{${g.k}=[${g.k},${record(true)}];${jump}}` : jump;
+    if (!record) return jump;
+    g.ku = true;
+    return `{${g.k}=[${g.k},${record(true)}];${jump}}`;
   }) as NonNullable<BGlobal["x"]> & { k?: 1 };
   exit.k = 1;
   return exit;
@@ -338,10 +339,12 @@ export const B_child = (g: BGlobal, emit: () => void): string | undefined => {
   const x = g.x;
   const label: { l?: string } = {};
   g.x = B_childExit(g, label);
+  g.c = (g.c || 0) + 1;
   try {
     emit();
   } finally {
     g.x = x;
+    g.c!--;
   }
   return label.l;
 };
@@ -583,7 +586,8 @@ export const B_merge = (val: Val, out?: HoistCond): string => {
     // Hoisted decls land after this val's checks (the old varsAllocation
     // slot).
     if (val.hn) val.g.l!.push(...val.hn);
-    if (val.hd) currentCode += val.g.l ? val.hd : `let ${val.hd};`;
+    if (val.hd) currentCode += `let ${val.hd};`;
+    if (val.ha) currentCode += val.ha;
 
     // Now emitted: a later cached-bond materialization can't hoist onto it.
     val.fz = true;
