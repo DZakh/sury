@@ -511,12 +511,12 @@ asyncTest("Compiled async parse code snapshot", async t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ParseAsync,
-    `i=>{try{if(typeof i==="number"&&i==i){for(;;){if(i===0){let v0=e[0](i);i=v0;break}if(i===1)break;throw e[1](i)}}else{throw e[1](i)}return Promise.resolve(i).catch(e[2])}catch(v1){return e[3](v1)}}`,
+    `i=>{try{if(typeof i==="number"&&i==i){for(;;){if(i===0){let v0;try{v0=e[0](i).catch(x=>{e[1](x)})}catch(x){e[1](x)}i=v0;break}if(i===1)break;throw e[2](i)}}else{throw e[2](i)}return Promise.resolve(i).catch(e[3])}catch(v1){return e[4](v1)}}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ConvertAsync,
-    `i=>{try{if(typeof i==="number"&&i==i){for(;;){if(i===0){let v0=e[0](i);i=v0;break}if(i===1)break;throw e[1](i)}}else{throw e[1](i)}return Promise.resolve(i).catch(e[2])}catch(v1){return e[3](v1)}}`,
+    `i=>{try{if(typeof i==="number"&&i==i){for(;;){if(i===0){let v0;try{v0=e[0](i).catch(x=>{e[1](x)})}catch(x){e[1](x)}i=v0;break}if(i===1)break;throw e[2](i)}}else{throw e[2](i)}return Promise.resolve(i).catch(e[3])}catch(v1){return e[4](v1)}}`,
   )
 
   t->Assert.deepEqual(await 1->S.parseAsPromiseOrReject(~to=schema), 1)
@@ -700,7 +700,7 @@ module CrazyUnion = {
       ~op=#Parse,
       ~embedded=[("Crazy", 0)],
       `i=>{try{let v0;v0=e[0](i);return v0}catch(v1){e[1](v1)}}
-Crazy: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.type==="A"){let v0=i.nested;Array.isArray(v0)||e[1](v0);let v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){let v2;try{v2=e[0](v0[v1]);}catch(v3){v3.path=["nested",v1,...v3.path];throw v3}v4[v1]=v2}i={TAG:"A",_0:v4};break}if(i.type==="Z"){let v5=i.nested;Array.isArray(v5)||e[3](v5);let v9=new Array(v5.length);for(let v6=0;v6<v5.length;++v6){let v7;try{v7=e[2](v5[v6]);}catch(v8){v8.path=["nested",v6,...v8.path];throw v8}v9[v6]=v7}i={TAG:"Z",_0:v9};break}throw e[4](i)}break}if(typeof i==="string"&&(i==="B"||i==="C"||i==="D"||i==="E"||i==="F"||i==="G"||i==="H"||i==="I"||i==="J"||i==="K"||i==="L"||i==="M"||i==="N"||i==="O"||i==="P"||i==="Q"||i==="R"||i==="S"||i==="T"||i==="U"||i==="V"||i==="W"||i==="X"||i==="Y"))break;throw e[4](i)}return i}`,
+Crazy: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.type==="A"){let v0=i.nested;Array.isArray(v0)||e[2](v0);let v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){let v2;try{v2=e[0](v0[v1]);}catch(v3){throw e[1](v3,["nested",v1])}v4[v1]=v2}i={TAG:"A",_0:v4};break}if(i.type==="Z"){let v5=i.nested;Array.isArray(v5)||e[5](v5);let v9=new Array(v5.length);for(let v6=0;v6<v5.length;++v6){let v7;try{v7=e[3](v5[v6]);}catch(v8){throw e[4](v8,["nested",v6])}v9[v6]=v7}i={TAG:"Z",_0:v9};break}throw e[6](i)}break}if(typeof i==="string"&&(i==="B"||i==="C"||i==="D"||i==="E"||i==="F"||i==="G"||i==="H"||i==="I"||i==="J"||i==="K"||i==="L"||i==="M"||i==="N"||i==="O"||i==="P"||i==="Q"||i==="R"||i==="S"||i==="T"||i==="U"||i==="V"||i==="W"||i==="X"||i==="Y"))break;throw e[6](i)}return i}`,
     )
   })
 
@@ -708,7 +708,7 @@ Crazy: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.ty
     S.global({})
     let reversed = schema->S.reverse
     let code = `i=>{try{let v0;v0=e[0](i);return v0}catch(v1){e[1](v1)}}
-Crazy: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.TAG==="A"){let v0=i._0;let v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){let v2;try{v2=e[0](v0[v1]);}catch(v3){v3.path=["_0",v1,...v3.path];throw v3}v4[v1]=v2}i={type:"A",nested:v4};break}if(i.TAG==="Z"){let v5=i._0;let v9=new Array(v5.length);for(let v6=0;v6<v5.length;++v6){let v7;try{v7=e[1](v5[v6]);}catch(v8){v8.path=["_0",v6,...v8.path];throw v8}v9[v6]=v7}i={type:"Z",nested:v9};break}throw e[2](i)}break}if(typeof i==="string"&&(i==="B"||i==="C"||i==="D"||i==="E"||i==="F"||i==="G"||i==="H"||i==="I"||i==="J"||i==="K"||i==="L"||i==="M"||i==="N"||i==="O"||i==="P"||i==="Q"||i==="R"||i==="S"||i==="T"||i==="U"||i==="V"||i==="W"||i==="X"||i==="Y"))break;throw e[2](i)}return i}`
+Crazy: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.TAG==="A"){let v0=i._0;let v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){let v2;try{v2=e[0](v0[v1]);}catch(v3){throw e[1](v3,["_0",v1])}v4[v1]=v2}i={type:"A",nested:v4};break}if(i.TAG==="Z"){let v5=i._0;let v9=new Array(v5.length);for(let v6=0;v6<v5.length;++v6){let v7;try{v7=e[2](v5[v6]);}catch(v8){throw e[3](v8,["_0",v6])}v9[v6]=v7}i={type:"Z",nested:v9};break}throw e[4](i)}break}if(typeof i==="string"&&(i==="B"||i==="C"||i==="D"||i==="E"||i==="F"||i==="G"||i==="H"||i==="I"||i==="J"||i==="K"||i==="L"||i==="M"||i==="N"||i==="O"||i==="P"||i==="Q"||i==="R"||i==="S"||i==="T"||i==="U"||i==="V"||i==="W"||i==="X"||i==="Y"))break;throw e[4](i)}return i}`
     t->U.assertCompiledCode(~schema=reversed, ~op=#Convert, code, ~embedded=[("Crazy", 0)])
     // There was an issue with reverse when it doesn't return the same code on second run
     t->U.assertCompiledCode(~schema=reversed, ~op=#Convert, code, ~embedded=[("Crazy", 0)])
