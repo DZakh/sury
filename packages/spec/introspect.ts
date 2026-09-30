@@ -50,9 +50,15 @@ const spawn = (): void => {
     else done.reject(new Error(value));
   });
   worker.on("error", (e) => {
-    workers--;
     job?.reject(e);
     job = undefined;
+  });
+  // Also after a clean exit, so a dead worker is never woken from `idle`.
+  worker.on("exit", (code) => {
+    workers--;
+    const waker = idle.indexOf(next);
+    if (waker >= 0) idle.splice(waker, 1);
+    job?.reject(new Error(`type probe worker exited with code ${code}`));
     if (queue.length) spawn();
   });
   next();

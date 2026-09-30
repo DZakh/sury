@@ -33,7 +33,8 @@ step() {
 }
 
 # Everything between `spawn` and `collect` runs concurrently: a step added
-# there must share no files with the others.
+# there must share no files with the others, so nothing in it may write
+# index.mjs, which the fuzzers import.
 LOGS="$(mktemp -d)"
 trap 'rm -rf "$LOGS"' EXIT
 spawned=()
@@ -57,7 +58,7 @@ collect() {
     echo "=== ${spawned[$i]}"
     cat "$LOGS/$i"
     read -r rc secs <"$LOGS/$i.rc"
-    if [ "$rc" -eq 0 ]; then
+    if [ "${rc:-1}" -eq 0 ]; then
       results+=("PASS  ${spawned[$i]} (${secs}s)")
     else
       results+=("FAIL  ${spawned[$i]} (${secs}s)")
@@ -73,7 +74,8 @@ if [ $FAST -eq 0 ]; then
   step "compiled ReScript matches source" packages/sury ../../scripts/assert-no-drift.sh '*.res.mjs'
 fi
 
-spawn "spec check" packages/sury pnpm spec check --perf=skip
+step "build entry" packages/sury pnpm build:entry
+spawn "spec check" packages/sury pnpm exec tsx ../spec/cli.ts check --perf=skip
 spawn "typecheck" packages/sury pnpm typecheck
 spawn "fuzz:union" packages/sury pnpm fuzz:union --seed=1
 spawn "fuzz:schema" packages/sury pnpm fuzz:schema
