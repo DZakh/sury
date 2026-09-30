@@ -588,7 +588,8 @@ const unionExpr = (ctx: Ctx, schema: Internal, a: string, b: string): string => 
   return ctx.k.nullish(nullNarrows, dispatch, a, b, present);
 };
 
-// `members` reach here with null and undefined already split off by unionExpr.
+// The values reaching here are neither null nor undefined: unionExpr splits
+// those off first.
 const dispatchExpr = (
   ctx: Ctx,
   schema: Internal,
