@@ -70,7 +70,7 @@ const read = (input: Val, call: string, schema: Internal): Val => {
   // call itself throws on a value an operation trusted rather than checked, and
   // the promise rejects when the read fails (the backing file moved, say). A
   // `TypeError` or `DOMException` escaping either way. Path is an extra
-  // argument when this read sits under a loop; arrays no longer catch-prepend.
+  // argument when this read sits under a loop.
   //
   // Bare inside a union, for `B_conversion`'s reason: a read that fails is not
   // a case that didn't match, and classifying it as one let the dispatch fall

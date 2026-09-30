@@ -298,9 +298,6 @@ export const B_detached = <T>(g: BGlobal, body: () => T): T => {
   }
 };
 
-// A call returning a promise, caught both ways: the call throwing and the
-// promise rejecting raise the same failure, so both share one site that always
-// raises (a sync coder's failure may jump instead).
 export const B_asyncTry = (output: Val, call: string, raise: string, path: string): void => {
   const rj = path ? `x=>${raise}(x${path})` : raise;
   const cp = (settle: string) =>
