@@ -327,9 +327,10 @@ const B_childExit = (g: BGlobal, label: { l?: string }): NonNullable<BGlobal["x"
   return exit;
 };
 
-// A union case a value can reach only through its own dispatch fails to the
-// exit around the union, so its children collect when that one does: the
-// case's exit answers `k` as a function (union.ts).
+// Read off the current exit rather than kept as its own `BGlobal` field: every
+// place that swaps `g.x` then swaps this answer with it. A union case a value
+// can reach only through its own dispatch answers `k` as a function, since
+// whether it still collects changes once it records (union.ts).
 export const B_collects = (g: BGlobal): boolean => {
   const k = (g.x as { k?: 1 | (() => boolean) } | undefined)?.k;
   return typeof k === "function" ? k() : !!k;
