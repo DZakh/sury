@@ -16,14 +16,15 @@ import {
   type Val
 } from "../base";
 import {
+  B_asyncTry,
   B_computed,
   B_embed,
   B_conversionFail,
   B_markAsync,
   B_next,
+  B_nextVar,
   B_pathArg,
   B_raiser,
-  B_rejection,
   B_readOnce,
   B_rejectUnsettled,
   B_reverseReading,
@@ -77,19 +78,14 @@ const read = (input: Val, call: string, schema: Internal): Val => {
   // convention's: a Sury error is what an enclosing object stamps a path onto,
   // so a rejection under `S.optional(…)` arrives raw where the same field
   // required arrives at `["a"]`. Wrapping it back is what the fall-through was.
-  const fail = B_conversionFail(input, schema);
-  const failFn = input.g.o & 4
-    ? U
-    : B_raiser(input, fail);
-  const pathArg = failFn === U ? "" : B_pathArg(input);
-  const rj = failFn === U ? U : B_rejection(failFn, pathArg);
-  const output = B_computed(
-    input,
-    `${input.v()}${call}${rj === U ? `` : `.catch(${rj})`}`,
-    schema,
-    failFn === U ? U : `${failFn}(x${pathArg})`,
-  );
-  output.rj = rj;
+  let output: Val;
+  if (input.g.o & 4) output = B_computed(input, `${input.v()}${call}`, schema);
+  else {
+    const raise = B_raiser(input, B_conversionFail(input, schema));
+    const path = B_pathArg(input);
+    const code = `${input.v()}${call}`;
+    B_asyncTry((output = B_nextVar(input, schema, input.e)), code, raise, path);
+  }
   B_markAsync(input, output);
   return output;
 };

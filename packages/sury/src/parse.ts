@@ -93,15 +93,10 @@ export const parse = (input: Val): Val => {
       const operationCode = B_detached(loopInput.g, () =>
         B_merge((operationOutput = parse(operationInput))),
       );
-      // The coder's own `.catch` (see `rj`) becomes this `.then`, so the
-      // continuation runs inside the coder's `try` - an answer that isn't a
-      // promise still fails as the conversion. The replace is the check that
-      // `cp` still carries the `.catch`; a function, since `cp` may hold a `$`.
-      const { cp, rj } = loopInput;
       const then = `.then(${operationInputVar}=>{${operationCode}return ${operationOutput.i}}`;
       result =
         (operationInput.i === operationOutput.i && operationCode === "") ||
-        (rj && !loopInput.fz && cp !== (loopInput.cp = cp.replace(`.catch(${rj})`, () => `${then},${rj})`)))
+        (loopInput.fu && !loopInput.fz && (loopInput.cp = loopInput.fu(then)))
           ? B_refine(loopInput, operationOutput.s, U, operationOutput.e)
           : B_next(loopInput, `${operationInputVar}${then})`, operationOutput.s, operationOutput.e);
       result.f |= 1;

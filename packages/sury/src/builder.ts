@@ -298,8 +298,15 @@ export const B_detached = <T>(g: BGlobal, body: () => T): T => {
   }
 };
 
-export const B_rejection = (raise: string, path: string): string =>
-  path ? `x=>${raise}(x${path})` : raise;
+// A call returning a promise, caught both ways: the call throwing and the
+// promise rejecting raise the same failure.
+export const B_asyncTry = (output: Val, call: string, raise: string, path: string): void => {
+  const rj = path ? `x=>${raise}(x${path})` : raise;
+  const cp = (settle: string) =>
+    `let ${output.i};try{${output.i}=${call}${settle}}catch(x){${raise}(x${path})}`;
+  output.cp = cp(`.catch(${rj})`);
+  output.fu = (then) => cp(`${then},${rj})`);
+};
 
 export const B_raiser = <TArg>(b: Val, fn: (arg: TArg, path?: Path) => ErrorDetails): string =>
   B_embed(b, (a: TArg, p?: Path) => {
@@ -727,20 +734,9 @@ export const B_nextVarOutput = (input: Val, initial: string, schema: Internal, e
 // twice (jsonString's escape-free form does), and unlike a property path this is
 // a fresh pass over the whole value - so it is computed once, the way
 // B_conversion computes a custom coder's result once.
-export const B_computed = (
-  input: Val,
-  code: string,
-  schema: Internal,
-  failure?: string,
-): Val => {
+export const B_computed = (input: Val, code: string, schema: Internal): Val => {
   const output = B_nextVar(input, schema, input.e);
-  // With a `failure`, the whole `B_conversion` shape: a computation that can
-  // throw on a value the operation trusted rather than checked reports it as a
-  // failed conversion instead of escaping as whatever the platform raised.
-  output.cp =
-    failure === U
-      ? `let ${output.i}=${code};`
-      : `let ${output.i};try{${output.i}=${code}}catch(x){${failure}}`;
+  output.cp = `let ${output.i}=${code};`;
   return output;
 };
 
@@ -869,12 +865,9 @@ export const B_conversion = (
     // An async coder's failure lands in its `.catch` as often as in the `catch`,
     // so both raise and share one site; a sync one's may jump.
     const conversionFail = B_conversionFail(input, target);
-    const raise = isAsync && B_raiser(output, conversionFail);
-    const path = raise ? B_pathArg(output) : "";
-    const failure = raise ? `${raise}(x${path})` : B_fail(output, conversionFail, `x`);
-    output.cp = `let ${output.i};try{${output.i}=${embeddedFn}(${inputValue})${
-      raise ? `.catch(${(output.rj = B_rejection(raise, path))})` : ""
-    }}catch(x)${B_block(failure)}`;
+    const call = `${embeddedFn}(${inputValue})`;
+    if (isAsync) B_asyncTry(output, call, B_raiser(output, conversionFail), B_pathArg(output));
+    else output.cp = `let ${output.i};try{${output.i}=${call}}catch(x)${B_block(B_fail(output, conversionFail, `x`))}`;
     // A val whose result the target's own refiners can attach to. `val.vc`
     // checks emit at the *pre-transform* slot (`prev.v()` in B_merge), so
     // leaving them on the coder's own val would validate what went into the

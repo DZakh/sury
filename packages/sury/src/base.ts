@@ -635,13 +635,13 @@ export type Val = {
   fv?: Val[];
   // @as("cp") - codeFromPrev
   cp: string;
-  // An async coder's rejection handler, already in `cp` as the `.catch` on its
-  // promise. The parse loop turns that `.catch` into its own `.then`, with the
-  // handler as the second argument, one promise hop fewer. Equivalent only
-  // because the handler always throws: a `.then` second argument never sees a
-  // throw from the first, and neither did the `.catch` ahead of it. Anything
-  // else reading the promise leaves `cp` alone. @as("rj") - rejection
-  rj?: string;
+  // Set by an async coder whose `cp` ends its promise with `.catch(H)`: given
+  // `.then(ok` it returns `cp` with `.then(ok,H)` there instead, so the parse
+  // loop's continuation runs inside the coder's `try`, one promise hop fewer.
+  // Equivalent only because H always throws: a `.then` second argument never
+  // sees a throw from the first, and neither did the `.catch` ahead of it.
+  // @as("fu") - fuse
+  fu?: (then: string) => string;
   // Comma-joined `let` declarations hoisted onto this val by descendants
   // that couldn't own them. Emitted after this val's checks in `merge` (the
   // old varsAllocation slot). @as("hd") - hoistedDecls
