@@ -41,6 +41,9 @@ operations:
       struct-order:
         input: '{ data: { z: 1, a: "b" }, items: [{}] }'
         output: new Uint8Array([10, 28, 42, 26, 10, 14, 10, 1, 122, 18, 9, 17, 0, 0, 0, 0, 0, 0, 240, 63, 10, 8, 10, 1, 97, 18, 3, 26, 1, 98, 26, 2, 42, 0])
+      non-json-fails-at-the-field:
+        input: "{ data: { a: [1, (() => 1) as never] }, items: [] }"
+        error: "Failed at data: Expected JSON, received Function"
   encode:
     expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v1=v0.items;return v0}catch(v3){e[3](v3)}}
     examples:

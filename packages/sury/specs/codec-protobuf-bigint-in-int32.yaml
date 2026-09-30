@@ -35,6 +35,15 @@ operations:
       bigint-element:
         input: "{ x: 1, xs: [1n] }"
         error: "TypeError: Cannot mix BigInt and other types, use explicit conversions"
+      # FIXME: known bug - an int32 field range-checks only, so a fraction or a
+      # numeric string (the next example) is written as whatever the varint
+      # makes of it, with no failure.
+      fraction:
+        input: "{ x: 1.5, xs: [] }"
+        output: new Uint8Array([8, 1])
+      numeric-string:
+        input: '{ x: "7", xs: [] }'
+        output: new Uint8Array([8, 7])
   encode:
     expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v1=v0.xs;return v0}catch(v3){e[3](v3)}}
     examples:

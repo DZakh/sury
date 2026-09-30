@@ -1534,6 +1534,8 @@ const unknownField = (msg: Message, tag: number): never => {
   );
 };
 
+// A packed writer's throw carries its element `index`: its field's frame has
+// no loop counter of its own to read.
 const fieldFailure = (value: unknown, index?: number, kind?: number): never => {
   throw new ProtobufFailure(U, value, index, kind);
 };
