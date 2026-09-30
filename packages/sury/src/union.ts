@@ -941,7 +941,8 @@ const unionEmit = (
   trustedSelf?: boolean
 ): Val => {
   const initialInline = input.i;
-  let output = B_refine(input);
+  const guard = B_refine(input);
+  let output = B_refine(guard);
   // An async case only has to be awaited so that its rejection can be caught and
   // the value handed to a later group - which is exactly where a group is marked
   // for fallback. With no fallback anywhere, the sole async case's promise is
@@ -1431,12 +1432,22 @@ const unionEmit = (
     cases.length > 0 &&
     cases.every((c) => c.c !== "" && c.b === "");
   const asyncDispatch = cases.some((c) => c.f & 2);
-  if (pure) {
-    const fused = unionOr(cases);
-    output = B_refine(
-      B_refine(output, output.s, [{ c: () => fused, f: failInvalidType }], expectedSchema)
-    );
-  } else if (!noop) {
+  if (!noop && !asyncDispatch && cases.every((c) => c.c !== "")) {
+    // A parent dispatching this union as is gets a condition only by
+    // hoisting one, and a case with none ends the parent's chain, taking
+    // every later member's values: `S.union([S.nullable(S.boolean, false),
+    // S.string])` on "x". With every case entering on a condition, their OR
+    // is this union's narrow - its whole check when no case has a body. With
+    // bodies, `noValidation` keeps it out of the code where nobody hoists it,
+    // since the chain already raises on the same values.
+    const fused = unionOr(cases.filter((c) => !(c.f & 16)));
+    guard.vc = [{ c: () => fused, f: failInvalidType }];
+    // Union-typed on purpose: B_merge recognises a union's own narrow by it
+    // and lets that one lift off a transformed case scope.
+    guard.e = expectedSchema;
+    if (!pure) (guard.e = copySchema(expectedSchema)).noValidation = true;
+  }
+  if (!pure && !noop) {
     let dispatch = emitChain(cases, true);
     if (failures) dispatch = `let ${failures};${dispatch}`;
     if (asyncDispatch) {

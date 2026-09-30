@@ -46,8 +46,27 @@ export type Known = {
   matches: (finding: Finding) => boolean;
 };
 
-const inUnionWithDefault = (shape: Shape): boolean =>
-  some(shape, (node) => unionMembers(node).some(hasDefault));
+const admitsNull = (node: Shape): boolean =>
+  node.name === "nullable" ||
+  node.name === "nullish" ||
+  node.name === "null" ||
+  node.name === "any" ||
+  node.name === "unknown" ||
+  (node.name === "optional" && admitsNull(node.args[0]!)) ||
+  (node.name === "union" && node.args.some(admitsNull));
+
+// A member with a default takes every absent value it replaces, so an arm of the
+// same union naming that value - the wrapper's own (`optional`, `nullable`,
+// `nullish`), or a later sibling's - is reached only by encode.
+const defaultClaimsAbsent = (node: Shape): boolean =>
+  unionMembers(node).some((member, idx) => {
+    if (!hasDefault(member)) return false;
+    // Only a later arm: an earlier one takes the absent value first.
+    const others = node.name === "union" ? node.args.slice(idx + 1) : [];
+    const named = (absent: (arm: Shape) => boolean, wrapper: string) =>
+      absent(member) && (node.name === "nullish" || node.name === wrapper || others.some(absent));
+    return named(admitsUndefined, "optional") || named(admitsNull, "nullable");
+  });
 
 export const KNOWN_BUGS: Known[] = [
   {
@@ -78,18 +97,6 @@ export const KNOWN_BUGS: Known[] = [
       some(f.shape, (node) => node.name === "fieldOr" && admitsUndefined(node.args[0]!)),
   },
   {
-    id: "union-defaulted-member",
-    kind: "bug",
-    summary:
-      "A union member that carries a default takes over the union: `S.union([S.nullable(S.boolean, false), " +
-      "S.string])` rejects `\"x\"`. `S.nullable(S.optional(x, d))` is the same bug, since nullable is a union.",
-    spec: "union-defaulted-member",
-    fuzzers: ["codec", "union"],
-    matches: (f) =>
-      (f.fuzzer === "union" ? f.property === "acceptance" : ["conformance", "round-trip"].includes(f.property)) &&
-      inUnionWithDefault(f.shape),
-  },
-  {
     id: "union-never-member",
     kind: "bug",
     summary:
@@ -105,12 +112,14 @@ export const KNOWN_BUGS: Known[] = [
     kind: "limitation",
     summary:
       "A member that takes every value of its kind - an object whose every field may be absent, a list of " +
-      "`any` - claims values meant for a later member. The first member that accepts a value wins, which is " +
-      "the documented rule; the round trip and the member-by-member reference cannot tell that from a bug.",
+      "`any`, a member with a default and the absent value it replaces - claims values meant for a later " +
+      "member. The first member that accepts a value wins, which is the documented rule; the round trip and " +
+      "the member-by-member reference cannot tell that from a bug. `S.optional(S.optional(S.string, \"d\"))` " +
+      "encodes `undefined` through its outer arm, and decoding that reaches the inner default first.",
     fuzzers: ["codec", "union"],
     matches: (f) =>
       (f.fuzzer === "union" ? f.property === "acceptance" : f.property === "round-trip") &&
-      some(f.shape, (node) => node.name === "union" && node.args.some(absorbs)),
+      some(f.shape, (node) => (node.name === "union" && node.args.some(absorbs)) || defaultClaimsAbsent(node)),
   },
 ];
 

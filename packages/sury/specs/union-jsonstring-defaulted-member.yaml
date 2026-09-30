@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.jsonString.with(S.to, S.union([S.nullable(S.boolean, false), S.number]))
+  input: string
+  output: number | boolean
+  instantiations: 5564
+jsonSchema:
+  input: '{ type: "string", contentMediaType: "application/json" }'
+  output: '{ anyOf: [{ type: "boolean" }, { type: "number" }] }'
+  draft-2020-12:
+    input: '{ type: "string", contentMediaType: "application/json", contentSchema: { anyOf: [{ default: false, anyOf: [{ type: "boolean" }, { type: "null" }] }, { type: "number" }] }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ type: "string" }'
+isEqual: strictEqual
+compare:
+  input: strictCompare
+  output: "throws: [Sury] Can't compare boolean | number. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="string"||e[3](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}for(;;){if((typeof v0==="boolean"||v0===null)){for(;;){if(typeof v0==="boolean")break;if(v0===null){v0=false;break}throw e[1](v0)}break}if(typeof v0==="number"&&v0==v0)break;throw e[2](v0)}return v0}catch(v1){e[4](v1)}}
+    examples:
+      number-member:
+        input: '"1"'
+        output: "1"
+      null-takes-the-default:
+        input: '"null"'
+        output: "false"
+      boolean:
+        input: '"true"'
+        output: "true"
+  decode:
+    expression: i=>{try{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}for(;;){if((typeof v0==="boolean"||v0===null)){for(;;){if(typeof v0==="boolean")break;if(v0===null){v0=false;break}throw e[1](v0)}break}if(typeof v0==="number"&&v0==v0)break;throw e[2](v0)}return v0}catch(v1){e[3](v1)}}
+    examples:
+      number:
+        input: "1"
+        output: "1"
+  encode:
+    expression: i=>{try{let v0;for(;;){if(typeof i==="boolean"){l1:{if(typeof i==="boolean"){i=""+i;}else{v0=[v0,e[0](i)];break l1}break}}if(typeof i==="number"&&i==i){try{i=(Number.isFinite(i)?""+i:e[1](i));break}catch(x){v0=[v0,e[2](x)]}}throw e[3](i,v0)}return i}catch(v2){e[4](v2)}}
+    examples:
+      number:
+        input: "1"
+        output: '"1"'
