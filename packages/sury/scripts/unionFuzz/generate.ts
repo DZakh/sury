@@ -244,6 +244,20 @@ const nestedUnion = (S: Sury, rng: Rng, depth: number): MemberSpec => {
   };
 };
 
+// Two tagged objects dispatch on a property read, which throws on a value no
+// object admits, and a leaf beside them is what brings one in (`S.env` admits
+// undefined). A two-member nested union almost never draws all three.
+const taggedBesideLeaf = (S: Sury, rng: Rng): MemberSpec => {
+  const a = taggedRescript(S, "A", leafSchema(S, rng));
+  const b = taggedRescript(S, "B", leafSchema(S, rng));
+  const c = leafSchema(S, rng);
+  return {
+    id: `union(${a.id},${b.id},${c.id})`,
+    shape: node("union", a.shape, b.shape, c.shape),
+    schema: S.union([a.schema, b.schema, c.schema]),
+  };
+};
+
 // A member that reaches itself. Its dispatch resolves the ref to what it
 // names, so a list or tree is checked by its runtime type alongside its
 // siblings, while one whose definition is itself a union stays opaque. Its keys
@@ -328,7 +342,8 @@ const memberAt = (S: Sury, rng: Rng, depth: number): MemberSpec => {
     const modified = applyModify(S, rng, leafSchema(S, rng));
     return modified ?? leafSchema(S, rng);
   }
-  return nestedUnion(S, rng, depth);
+  if (roll < 0.98) return nestedUnion(S, rng, depth);
+  return taggedBesideLeaf(S, rng);
 };
 
 // One schema from the same grammar the union members come from, for a fuzzer

@@ -222,8 +222,10 @@ const nanOrdLeaf = (a: string, b: string): string =>
   `${a}<${b}?-1:${a}>${b}?1:${a}===${b}||${a}!=${a}&&${b}!=${b}?0:${a}!=${a}?-1:1`;
 // `S.env` is a string schema that also admits `undefined`. `<` is 0 for that
 // pair, which would disagree with `===`. Undefined first, then string order.
+// Not a ternary ending `:0`: `joinOrd` would splice the next test into that
+// 0 and leave an inner one ending the chain for two undefineds.
 const envOrd = (a: string, b: string): string =>
-  `${a}===void 0?${b}===void 0?0:-1:${b}===void 0?1:${ordLeaf(a, b)}`;
+  `(${b}===void 0)-(${a}===void 0)||(${ordLeaf(a, b)})`;
 
 // The built-in classes an instance compares by content rather than by identity:
 // 1 a Date, 2 a URL, 3 a typed array, 4 a Set, FormData or URLSearchParams,
@@ -539,8 +541,6 @@ const unionExpr = (ctx: Ctx, schema: Internal, a: string, b: string): string => 
     const key = objects.length > 1 ? discriminantOf(objects) : U;
     if (key === U) return abandon();
     if (!templatable(key)) return abandon();
-    // A property read throws on null and undefined, which is why the nullish
-    // split below tests them first on both values.
     const at = inlinedProperty(V, key);
     for (let idx = 0; idx < members.length; idx++) {
       const property = members[idx]!.properties?.[key];
@@ -557,15 +557,13 @@ const unionExpr = (ctx: Ctx, schema: Internal, a: string, b: string): string => 
     if (new Set(narrows).size !== narrows.length) return abandon();
   }
 
-  // Null and undefined are split off and tested first, on both values, with the
-  // other members dispatched only once each value is known to be neither.
-  // Sound because they are the two values no other narrow admits, so taking
-  // them out of the chain raises no question of overlap. Needed because a
-  // discriminant narrow is a property read, `a.TAG==="A"`, which is a TypeError
-  // on exactly those two values. It also earns `S.optional(X)` / `S.nullable(X)`
-  // / `S.nullish(X)` - the shape most schemas reaching here have - `a===null` in
-  // place of the four operators X's own narrow would write, and a bare compare
-  // of X once "b is neither" says b is X because X is all that is left.
+  // Null and undefined are tested first, on both values: no other narrow
+  // admits them, so pulling them out raises no question of overlap, and a
+  // discriminant narrow (`a.TAG==="A"`) is a property read that throws on
+  // exactly those two. `S.env` is tagged string yet admits undefined, so it
+  // stays in the dispatch for its strings and undefined is split off for it.
+  // Once b is neither, a lone remaining member needs no narrow on b:
+  // `S.optional(X)` is `a===void 0?b===void 0:b!==void 0&&<X's compare>`.
   //
   // undefined 16, null 32. Either tag narrows to `===void 0` / `===null`
   // whether the member is the type or the literal, so the tag is the whole test.
@@ -574,13 +572,13 @@ const unionExpr = (ctx: Ctx, schema: Internal, a: string, b: string): string => 
   const restNarrows: string[] = [];
   const rest: Internal[] = [];
   for (let idx = 0; idx < members.length; idx++) {
-    const flag = tagFlags[members[idx]!.type]! & 48;
-    if (flag) {
-      nullish |= flag;
-      nullNarrows.push(narrows[idx]!);
-    } else {
+    const member = members[idx]!;
+    const flag = tagFlags[member.type]! & 48 || (member.format === "env" ? 16 : 0);
+    if (flag & ~nullish) nullNarrows.push(flag & 32 ? narrows[idx]! : `${V}===void 0`);
+    nullish |= flag;
+    if (!(tagFlags[member.type]! & 48)) {
       restNarrows.push(narrows[idx]!);
-      rest.push(members[idx]!);
+      rest.push(member);
     }
   }
   const dispatch =
@@ -590,8 +588,7 @@ const unionExpr = (ctx: Ctx, schema: Internal, a: string, b: string): string => 
   return ctx.k.nullish(nullNarrows, dispatch, a, b, present);
 };
 
-// Picks the arm off `a`'s narrow and compares under it. None of `members` is
-// null or undefined, which unionExpr has already taken out.
+// `members` reach here with null and undefined already split off by unionExpr.
 const dispatchExpr = (
   ctx: Ctx,
   schema: Internal,
@@ -623,9 +620,9 @@ const dispatchExpr = (
   const exclude = instanceNarrows.map((narrow) => `&&!(${narrow})`).join("");
   for (let at = 0; at < objectTagged.length; at++) narrows[objectTagged[at]!] += exclude;
 
-  // A union that dispatches reads its members off a type narrow, and a narrow
-  // is a branch where compare answers with a chain. The two unions compare does
-  // answer for returned before any of this.
+  // A dispatch is a chain of narrows, where compare has no order to answer
+  // with. The unions it does answer for, an identity union and nullish around
+  // one member, never reach here.
   return eqOnly(ctx, schema).union(
     narrows,
     objectTagged.length > 0,

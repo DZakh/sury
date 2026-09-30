@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.tuple([S.env, S.string])
+  input: "[string | undefined, string]"
+  output: "[string | undefined, string]"
+  instantiations: 3833
+jsonSchema:
+  input: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string" }, { type: "string" }] }'
+  fromInputType: "[string, string]"
+  output: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string" }, { type: "string" }] }'
+  fromOutputType: "[string, string]"
+  draft-2020-12:
+    input: '{ type: "array", minItems: 2, maxItems: 2, prefixItems: [{ type: "string" }, { type: "string" }], $schema: "https://json-schema.org/draft/2020-12/schema" }'
+    output: '{ type: "array", minItems: 2, maxItems: 2, prefixItems: [{ type: "string" }, { type: "string" }], $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ type: "array", minItems: 2, maxItems: 2, items: { anyOf: [{ type: "string" }, { type: "string" }] } }'
+    output: '{ type: "array", minItems: 2, maxItems: 2, items: { anyOf: [{ type: "string" }, { type: "string" }] } }'
+isEqual: (a,b)=>a===b||a[0]===b[0]&&a[1]===b[1]
+compare: (a,b)=>a===b?0:((b[0]===void 0)-(a[0]===void 0)||(a[0]<b[0]?-1:a[0]>b[0]?1:0))||(a[1]<b[1]?-1:a[1]>b[1]?1:0)
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{Array.isArray(i)&&i.length===2||e[2](i);let v0=i[0],v1=i[1];(typeof v0==="string"||v0===void 0)||e[0](v0);typeof v1==="string"||e[1](v1);return i}catch(v2){e[3](v2)}}
+    examples:
+      unset-a:
+        input: '[undefined, "a"]'
+        output: '[undefined, "a"]'
+      unset-b:
+        input: '[undefined, "b"]'
+        output: '[undefined, "b"]'
+      set-a:
+        input: '["x", "a"]'
+        output: '["x", "a"]'
+  decode: identity
+  encode: identity
