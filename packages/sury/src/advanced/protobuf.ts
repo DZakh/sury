@@ -2003,10 +2003,10 @@ const guarded = (input: Val, output: Val, target: Internal, code: string, releas
 };
 
 const protobufEncoder = (input: Val, target: Internal): Val => {
-  // A union case converts the bytes into its member whole, and a member that is
-  // itself `S.protobuf` into a message stands for that message: parsing into
-  // it again would read the decoded value as bytes.
-  if (target.flags & 256 && target.to !== U) target = target.to;
+  // Bytes into `S.protobuf` - a union case converts into its member whole - are
+  // those bytes, and the parse loop carries them on down its `.to`. Decoding
+  // here would hand that link a decoded value where it reads bytes.
+  if (target.flags & 256) return input;
   const message = compileMessage(target, newCtx());
   // Another instance (`S.arrayBuffer`, say) takes the bytes as they are.
   if (message === U) return (tagFlags[target.type]! & 8192) ? input : B_unsupportedDecode(input, input.s, target);
