@@ -73,4 +73,4 @@ operations:
         error: "Failed at byId: Protobuf string is not valid UTF-8"
       wrong-wire-type-after-an-entry-fails-at-the-map:
         input: new Uint8Array([18, 6, 8, 5, 18, 2, 10, 0, 16, 128])
-        error: "Failed at byId[5]: Truncated protobuf message"
+        error: "Failed at byId: Truncated protobuf message"

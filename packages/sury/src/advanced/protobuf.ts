@@ -1506,8 +1506,9 @@ const wireFrame = (failure: unknown, msg: Message, tag: number, key?: unknown, .
   const field = tag < 0 ? U : msg.fields.find((f) => f.number === number);
   if (field !== U && isFailure(failure)) {
     const path = failure.path as (string | number)[];
-    // A list names its element only under a tag it reads: under any other the
-    // failure is in bytes skipped or refused, which are no element of it.
+    // A list or map names its element only under a tag it reads: under any
+    // other the failure is in bytes skipped or refused, which are no element of
+    // it.
     if (field.repeated) {
       if (tag === number * 8 + field.wire || (packable[field.type] && tag === number * 8 + 2)) {
         path.unshift(lists[msg.fields.filter((f) => f.repeated).indexOf(field)]!.length);
@@ -1516,7 +1517,7 @@ const wireFrame = (failure: unknown, msg: Message, tag: number, key?: unknown, .
     // An entry whose value failed before its key was read has nowhere in the
     // value to be: it fails at the map.
     else if (field.map !== U) {
-      if (key === U) path.length = 0;
+      if (key === U || tag !== number * 8 + 2) path.length = 0;
       else path.unshift("" + key);
     }
     if (!msg.unwrap) path.unshift(field.key);
