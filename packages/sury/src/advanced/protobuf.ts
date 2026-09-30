@@ -1579,9 +1579,6 @@ const writeTag = (tag: number): string =>
 const writeVarint32 = (expr: string): string =>
   `${expr}<128&&w.pos<w.buf.length?w.buf[w.pos++]=${expr}:w.varint32(${expr})`;
 
-// The helpers an encode body calls, named where the body is emitted: a param
-// of a hoisted message encoder, an `e[N]` embed in the operation body made on
-// first use.
 const encodeHelpers = { check: checked, key: mapKey, oneof: oneofConflict };
 type Helper = keyof typeof encodeHelpers;
 type Encoding = (helper: Helper) => string;
@@ -1768,8 +1765,7 @@ const nameMessages = (message: Message, fns: Map<Message, string>): void => {
 
 // Message codecs are built once per operation with `Function` and embedded
 // as values, so the operation body calls a top-level function instead of
-// allocating a closure per call. `M` is read only on a failure, as the
-// decoder's is.
+// allocating a closure per call.
 const compileEncoders = (root: Message, fns: Map<Message, string>): Record<string, Function> => {
   let src = "";
   const messages: Message[] = [];
